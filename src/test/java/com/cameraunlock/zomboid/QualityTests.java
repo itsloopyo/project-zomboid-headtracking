@@ -523,8 +523,10 @@ final class QualityTests {
             check(preset.equals(expected[mode - Quality.LOW]), Quality.name() + " draws as it always has: " + preset);
             Quality.custom(Config.picture(Config.values(Quality.preset(mode))));
             Quality.set(Quality.CUSTOM);
-            check(answers().equals(preset), "Custom with the rows " + Quality.preset(mode) + " written as the options screen holds them draws as "
-                    + Quality.name() + " did: " + answers());
+            // Custom always draws what the mod made: Low's rows there are Low's cost without the game's own look.
+            String custom = mode == Quality.LOW ? "false" + preset.substring("true".length()) : preset;
+            check(answers().equals(custom), "Custom with the rows " + Quality.preset(mode) + " written as the options screen holds them draws as "
+                    + Quality.name() + " did, with what the mod made: " + answers());
         }
     }
 
@@ -533,9 +535,8 @@ final class QualityTests {
         Quality.custom(Quality.HIGH_PICTURE);
         Quality.set(Quality.CUSTOM);
         String high = answers();
-        double[] changed = {1, 1, 0.7, 0, 40, 30, 50, 0, 0, 0, 0, 0, 0, 1};
+        double[] changed = {1, 0.7, 0, 40, 30, 50, 0, 0, 0, 0, 0, 0, 1};
         String[] answer = {
-            "true false 1.0 4096 80 all/all 2 true true true false true true false 48",
             "false true 1.0 4096 80 all/all 2 true true true false true true false 48",
             "false false 0.7 4096 80 all/all 2 true true true false true true false 48",
             "false false 1.0 2048 80 all/all 2 true true true false true true false 48",
@@ -562,7 +563,7 @@ final class QualityTests {
 
     private static void thePresetsLeaveCustomAsItWas() {
         double[] values = Config.values(Quality.MEDIUM_PICTURE);
-        values[4] = 56;
+        values[3] = 56;
         Quality.Picture mine = Config.picture(values);
         Quality.set(Quality.CUSTOM);
         Quality.custom(mine);

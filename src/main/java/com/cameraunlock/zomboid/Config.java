@@ -47,10 +47,10 @@ final class Config {
             Quality.Picture custom) {}
 
     /** The keys of [Graphics], the Custom graphics mode, in the order of Quality.Picture's parts. */
-    static final String[] GRAPHICS = {"StockLook", "SpritePlants", "RenderScale", "SharpShadows", "ViewDistance", "ZombiesAndPropsDrawDistance",
+    static final String[] GRAPHICS = {"SpritePlants", "RenderScale", "SharpShadows", "ViewDistance", "ZombiesAndPropsDrawDistance",
         "ForwardDrivingDrawDistance", "RainOnGlass", "ShadingAndLight", "Reflections", "FullSizeTextures", "FarTrees", "SurfaceDepth",
         "WholeFigureShadows"};
-    private static final int RENDER_SCALE = 2;
+    private static final int RENDER_SCALE = 1;
     static final float MIN_RENDER_SCALE = 0.5f;
     static final int MIN_VIEW_DISTANCE = 32, MIN_DRAW_DISTANCE = 16;
 
@@ -190,7 +190,7 @@ final class Config {
         muzzleFlash = core.configLocalBool("General", "MuzzleFlash",
                 "true: a shot from a firearm in first person flashes at the muzzle: a small bloom\n"
                         + "of fire ahead of the barrel for a frame or two, and a moment's light on what is\n"
-                        + "near. The game's own look (Low, StockLook, Automatic at Stock) has neither.\n"
+                        + "near. The game's own look (Low, Automatic at Stock) has neither.\n"
                         + "false: no flash and no light from it. Read again while the game runs.",
                 writable | live, true);
         splitScreen = core.configLocalEnum("General", "SplitScreen",
@@ -203,22 +203,6 @@ final class Config {
                 writable | live, SplitScreen.words(), SplitScreen.VERTICAL);
         Quality.Picture high = Quality.HIGH_PICTURE;
         graphics = new int[] {
-            core.configLocalBool("Graphics", "StockLook",
-                    "The rows of this section are the Custom graphics mode: what is drawn while Quality is\n"
-                            + "Custom. Until you change them they are High's. Low, Medium and High draw their own\n"
-                            + "picture and leave these rows as they are. Changing any of them on the game's options\n"
-                            + "screen, or here while the game runs, sets Quality to Custom. On the options screen\n"
-                            + "they show the picture of the mode you are in, and what you apply there is kept here:\n"
-                            + "the rows you changed as you set them, and the rest as that mode draws them. In\n"
-                            + "Automatic that is the level it is at, but at Stock the level above it, Low's cost\n"
-                            + "with what the mod made: Automatic's stock look is never carried into Custom.\n"
-                            + "Read again while the game runs.\n"
-                            + "true: as near the game's own look as there is, as in Low: the game's own view is the\n"
-                            + "game's own picture, and first person is drawn with the game's own sprites, models and\n"
-                            + "textures in place of everything the mod made but the arms on a held weapon, which\n"
-                            + "OwnArms switches. false: both views are drawn with what the mod made, as the rows of\n"
-                            + "[Content] say.",
-                    writable | live, high.stockLook()),
             core.configLocalBool("Graphics", "SpritePlants",
                     "true: grass, trees, bushes and rocks are the game's own sprites whatever OwnPlants\n"
                             + "says, as in Medium. The mod's are the dearest thing in the picture to draw. false:\n"
@@ -406,16 +390,16 @@ final class Config {
 
     /** A picture as the options of the rows of [Graphics] hold it, in the order of GRAPHICS. */
     static double[] values(Quality.Picture picture) {
-        return new double[] {bit(picture.stockLook()), bit(picture.spritePlants()), picture.renderScale(), bit(picture.sharpShadows()),
+        return new double[] {bit(picture.spritePlants()), picture.renderScale(), bit(picture.sharpShadows()),
             picture.viewDistance(), picture.drawDistance(), picture.drivingDrawDistance(), picture.rainOnGlass(), bit(picture.shadingAndLight()),
             bit(picture.reflections()), bit(picture.fullSizeTextures()), bit(picture.farTrees()), bit(picture.surfaceDepth()), bit(picture.wholeFigureShadows())};
     }
 
-    /** The picture the options of the rows of [Graphics] hold, in the order of GRAPHICS. */
+    /** The picture the options of the rows of [Graphics] hold, in the order of GRAPHICS: Custom always draws what the mod made. */
     static Quality.Picture picture(double[] values) {
-        return new Quality.Picture(values[0] != 0, values[1] != 0, (float) values[2], values[3] != 0, (int) Math.rint(values[4]),
-                (int) Math.rint(values[5]), (int) Math.rint(values[6]), (int) Math.rint(values[7]), values[8] != 0, values[9] != 0,
-                values[10] != 0, values[11] != 0, values[12] != 0, values[13] != 0);
+        return new Quality.Picture(false, values[0] != 0, (float) values[1], values[2] != 0, (int) Math.rint(values[3]),
+                (int) Math.rint(values[4]), (int) Math.rint(values[5]), (int) Math.rint(values[6]), values[7] != 0, values[8] != 0,
+                values[9] != 0, values[10] != 0, values[11] != 0, values[12] != 0);
     }
 
     private static double bit(boolean on) {

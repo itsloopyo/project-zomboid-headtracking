@@ -620,7 +620,7 @@ public final class CoreTests {
         for (CameraUnlock.Option option : options) {
             ids.append(option.id).append(' ');
         }
-        check(ids.toString().equals("WorldSpaceYaw TrackingMode AimMode FieldOfView Quality Style HillHeight FarTreeDistance FrameBlending MuzzleFlash SplitScreen StockLook SpritePlants "
+        check(ids.toString().equals("WorldSpaceYaw TrackingMode AimMode FieldOfView Quality Style HillHeight FarTreeDistance FrameBlending MuzzleFlash SplitScreen SpritePlants "
                         + "RenderScale SharpShadows ViewDistance ZombiesAndPropsDrawDistance ForwardDrivingDrawDistance RainOnGlass ShadingAndLight Reflections "
                         + "FullSizeTextures FarTrees SurfaceDepth WholeFigureShadows OwnWeapons OwnFurniture "
                         + "OwnPictures OwnPlants OwnTextures OwnBuildings OwnZombies OwnPeople OwnArms OwnClothes "),
@@ -739,10 +739,10 @@ public final class CoreTests {
     private static void aGraphicsRowAppliedOnTheOptionsScreenGoesToCustom() throws IOException, InterruptedException {
         inMode("High");
         said();
-        check(saved("Quality=High", "ViewDistance=80", "RenderScale=1.0", "StockLook=false"), "High, with the rows of [Graphics] as a first start writes them");
+        check(saved("Quality=High", "ViewDistance=80", "RenderScale=1.0") && !saved("StockLook=false"), "High, with the rows of [Graphics] as a first start writes them");
 
         Screen screen = Screen.opened();
-        check(screen.shows("ViewDistance") == 80 && screen.shows("RenderScale") == 1 && screen.shows("SharpShadows") == 1 && screen.shows("StockLook") == 0
+        check(screen.shows("ViewDistance") == 80 && screen.shows("RenderScale") == 1 && screen.shows("SharpShadows") == 1
                         && screen.shows("Quality") == Quality.HIGH,
                 "the screen shows High's picture in the rows of [Graphics]");
         screen.set("FieldOfView", 70);
@@ -775,13 +775,13 @@ public final class CoreTests {
 
         inMode("Low");
         Screen fromLow = Screen.opened();
-        check(fromLow.shows("ViewDistance") == 48 && fromLow.shows("StockLook") == 1 && saved("Quality=Low", "ViewDistance=56"),
+        check(fromLow.shows("ViewDistance") == 48 && saved("Quality=Low", "ViewDistance=56"),
                 "in Low the screen shows Low's picture, and the file still holds Custom's rows");
         fromLow.set("RenderScale", 0.7);
         fromLow.apply();
-        check(Quality.name().equals("Custom") && Quality.plain() && Quality.sight() == 48 && Quality.scale() == 0.7f,
-                "a row changed in Low is Low's picture with that row: " + Quality.described(Quality.drawn()));
-        check(saved("Quality=Custom", "StockLook=true", "RenderScale=0.7", "ViewDistance=48", "SharpShadows=false", "RainOnGlass=Low"),
+        check(Quality.name().equals("Custom") && !Quality.plain() && Quality.sight() == 48 && Quality.scale() == 0.7f,
+                "a row changed in Low is Low's picture with that row, drawn with what the mod made: " + Quality.described(Quality.drawn()));
+        check(saved("Quality=Custom", "RenderScale=0.7", "ViewDistance=48", "SharpShadows=false", "RainOnGlass=Low"),
                 "and that is what Custom's rows then hold");
     }
 
@@ -794,7 +794,7 @@ public final class CoreTests {
         check(Quality.name().equals("Low") && Quality.sight() == 48 && saved("Quality=Low", "RenderScale=0.7"), "then to Low");
         Tracking.cycleGraphicsMode();
         Tracking.cycleGraphicsMode();
-        check(Quality.name().equals("High") && Quality.scale() == 1f && saved("Quality=High", "RenderScale=0.7", "StockLook=true"),
+        check(Quality.name().equals("High") && Quality.scale() == 1f && saved("Quality=High", "RenderScale=0.7"),
                 "Medium and High draw their own and leave Custom's rows in the file");
         Tracking.cycleGraphicsMode();
         check(Quality.name().equals("Custom") && Quality.drawn().equals(mine) && saved("Quality=Custom"), "and the key comes round to Custom as the player left it");
@@ -883,14 +883,14 @@ public final class CoreTests {
         slowUntil("Automatic (Stock)");
         said();
         Screen screen = Screen.opened();
-        check(Quality.name().equals("Automatic (Stock)") && screen.shows("StockLook") == 1, "Automatic stepped down to Stock, which the screen shows: " + Quality.name());
+        check(Quality.name().equals("Automatic (Stock)"), "Automatic stepped down to Stock: " + Quality.name());
         screen.set("ViewDistance", 40);
         screen.apply();
         savesMade();
         check(Quality.name().equals("Custom") && !Quality.plain() && !Quality.gamesPlants() && Quality.scale() == Quality.LOW_PICTURE.renderScale()
                         && Quality.sight() == 40 && Quality.shadowSize() == 2048 && !Quality.shadedAndLit(),
                 "a row changed at Stock starts Custom from the level above it, Low's cost with what the mod made, and the change: " + Quality.described(Quality.drawn()));
-        check(saved("Quality=Custom", "StockLook=false", "SpritePlants=false", "ViewDistance=40"), "and that is what Custom's rows hold");
+        check(saved("Quality=Custom", "SpritePlants=false", "ViewDistance=40"), "and that is what Custom's rows hold");
 
         inMode("Automatic (High)");
         slowUntil("Automatic (Medium)");
@@ -902,7 +902,7 @@ public final class CoreTests {
         check(Quality.name().equals("Custom") && !Quality.plain() && !Quality.gamesPlants() && Quality.scale() == 0.8f && Quality.sight() == 64
                         && Quality.shadowSize() == 4096,
                 "a row changed at Medium starts Custom from Automatic's Medium, with the mod's plants, and the change: " + Quality.described(Quality.drawn()));
-        check(saved("Quality=Custom", "StockLook=false", "SpritePlants=false", "ViewDistance=64", "SharpShadows=true"), "and that is what Custom's rows hold");
+        check(saved("Quality=Custom", "SpritePlants=false", "ViewDistance=64", "SharpShadows=true"), "and that is what Custom's rows hold");
     }
 
     /**

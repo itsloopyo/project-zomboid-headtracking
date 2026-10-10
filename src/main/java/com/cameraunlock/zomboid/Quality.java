@@ -227,8 +227,8 @@ final class Quality {
     }
 
     /**
-     * Whether the picture is Low's, the nearest there is to the game's own look, Custom's with
-     * StockLook, or Automatic's at STOCK: the game's own view is then the game's own picture, and
+     * Whether the picture is Low's, the nearest there is to the game's own look, or Automatic's
+     * at STOCK: the game's own view is then the game's own picture, and
      * the first person view, which the game has no picture of, is drawn with nothing the mod made
      * where the game has its own. Automatic at Low's level draws less and is not this.
      */

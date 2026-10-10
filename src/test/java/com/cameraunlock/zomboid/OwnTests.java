@@ -13,7 +13,7 @@ final class OwnTests {
             aSwitchedRowHasEachViewsWorldBuiltAgain();
             theLowGraphicsModeShowsNothingOfTheModsOwn();
             theArmsOnAHeldWeaponGoByTheirRowInEveryMode();
-            customsStockLookAndSpritePlantsAreLowsAndMediums();
+            customsSpritePlantsAreMediums();
             paintedLinesGoByTheFilesRowOutsideLow();
             nothingOfTheModsOwnIsShownBeforeItsPicturesAreMade();
         } finally {
@@ -73,16 +73,8 @@ final class OwnTests {
         Own.picturesMade(false);
         check(Own.arms() && !Own.weapons(), "the arms are made with the core of the picture, so they are the mod's before the rest of its own is made");
         Own.picturesMade(true);
-        Quality.Picture was = Quality.custom();
-        Quality.Picture stock = new Quality.Picture(true, Quality.HIGH_PICTURE.spritePlants(), Quality.HIGH_PICTURE.renderScale(),
-                Quality.HIGH_PICTURE.sharpShadows(), Quality.HIGH_PICTURE.viewDistance(), Quality.HIGH_PICTURE.drawDistance(),
-                Quality.HIGH_PICTURE.drivingDrawDistance(), Quality.HIGH_PICTURE.rainOnGlass(), Quality.HIGH_PICTURE.shadingAndLight(),
-                Quality.HIGH_PICTURE.reflections(), Quality.HIGH_PICTURE.fullSizeTextures(), Quality.HIGH_PICTURE.farTrees(),
-                Quality.HIGH_PICTURE.surfaceDepth(), Quality.HIGH_PICTURE.wholeFigureShadows());
-        Quality.custom(stock);
-        Quality.set(Quality.CUSTOM);
-        check(Quality.plain() && Own.arms() && !Own.weapons(), "Custom with StockLook draws the arms as Low does");
-        Quality.custom(was);
+        Quality.set(Quality.LOW);
+        check(Quality.plain() && Own.arms() && !Own.weapons(), "Low, the game's own look, draws the arms");
         Quality.set(Quality.HIGH);
         Own.taken(0);
     }
@@ -107,19 +99,16 @@ final class OwnTests {
         check(Quality.next() == Quality.MEDIUM, "and from Low to Medium");
     }
 
-    private static void customsStockLookAndSpritePlantsAreLowsAndMediums() {
+    private static void customsSpritePlantsAreMediums() {
         Own.set(Own.ALL);
         Quality.custom(Quality.HIGH_PICTURE);
         Quality.set(Quality.CUSTOM);
         Own.taken(0);
         check(Own.plants() && Own.textures() && Own.paint(), "Custom with High's rows shows all of the mod's own");
         double[] values = Config.values(Quality.HIGH_PICTURE);
-        values[1] = 1;
-        Quality.custom(Config.picture(values));
-        check(!Own.plants() && Own.furniture() && Own.taken(0) && !Own.taken(0), "SpritePlants has the plants the game's, as Medium does, and the world built again once");
         values[0] = 1;
         Quality.custom(Config.picture(values));
-        check(!Own.furniture() && !Own.textures() && !Own.paint() && Own.taken(0), "StockLook shows nothing of the mod's own, as Low does");
+        check(!Own.plants() && Own.furniture() && Own.taken(0) && !Own.taken(0), "SpritePlants has the plants the game's, as Medium does, and the world built again once");
         Quality.custom(Quality.HIGH_PICTURE);
         Quality.set(Quality.HIGH);
         Own.taken(0);

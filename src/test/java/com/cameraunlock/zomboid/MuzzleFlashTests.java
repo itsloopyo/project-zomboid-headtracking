@@ -67,20 +67,14 @@ final class MuzzleFlashTests {
         }
     }
 
-    /** Low, Custom with StockLook and Automatic at Stock are the game's own look (Quality.plain), and the game draws no flash. */
+    /** Low and Automatic at Stock are the game's own look (Quality.plain), and the game draws no flash. */
     private static void theGamesOwnLookHasNoFlashAndNoLight() {
         ViewCamera.Pose camera = new ViewCamera.Pose();
         ViewCamera.clean(camera, 10f, 20f, 1.6f, 0f, 0f);
         float[] light = new float[7];
         long frame = 16_666_667L;
-        Quality.Picture stock = Config.picture(stockLook());
-        for (String mode : new String[] {"Low", "Custom with StockLook"}) {
-            if (mode.equals("Low")) {
-                Quality.set(Quality.LOW);
-            } else {
-                Quality.custom(stock);
-                Quality.set(Quality.CUSTOM);
-            }
+        for (String mode : new String[] {"Low"}) {
+            Quality.set(Quality.LOW);
             check(Quality.plain(), mode + " is the game's own look");
             MuzzleFlash flash = new MuzzleFlash();
             flash.place(camera, HELD[0].muzzle, HELD[0].pointing);
@@ -94,12 +88,6 @@ final class MuzzleFlashTests {
             flash.fire();
             check(flash.strength(now + 2 * frame) == 1f, mode + " left for High: the next shot flashes whole");
         }
-    }
-
-    private static double[] stockLook() {
-        double[] values = Config.values(Quality.HIGH_PICTURE);
-        values[0] = 1;
-        return values;
     }
 
     /**
