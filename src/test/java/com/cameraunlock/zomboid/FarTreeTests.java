@@ -19,6 +19,96 @@ final class FarTreeTests {
         Checks.run("aTreeUpstairsIsLeftOut", FarTreeTests::aTreeUpstairsIsLeftOut);
         Checks.run("aLotpackWithoutItsWordIsRead", FarTreeTests::aLotpackWithoutItsWordIsRead);
         Checks.run("aTileTheHeaderHasNotIsRefused", FarTreeTests::aTileTheHeaderHasNotIsRefused);
+        Checks.run("theSameCellPlacesTheSameTrees", FarTreeTests::theSameCellPlacesTheSameTrees);
+        Checks.run("aChoiceOfNoTreePlacesNone", FarTreeTests::aChoiceOfNoTreePlacesNone);
+        Checks.run("aBiomeWithNoTreesKeepsTheMaps", FarTreeTests::aBiomeWithNoTreesKeepsTheMaps);
+        Checks.run("noTwoTreesShareASquare", FarTreeTests::noTwoTreesShareASquare);
+        Checks.run("aBigTreeWithoutRoomIsSmaller", FarTreeTests::aBigTreeWithoutRoomIsSmaller);
+        Checks.run("theHashIsFromNoughtToOne", FarTreeTests::theHashIsFromNoughtToOne);
+    }
+
+    private static final int[] ONE_BIOME = new int[FarCells.CELL * FarCells.CELL];
+
+    /** Every other square of a block of the cell, as a wood of the map's small trees stands. */
+    private static int[] wood(int from, int to) {
+        int[] squares = new int[(to - from) * (to - from)];
+        int count = 0;
+        for (int y = from; y < to; y++) {
+            for (int x = from; x < to; x++) {
+                if ((x + y) % 2 == 0) {
+                    squares[count++] = x + y * FarCells.CELL;
+                }
+            }
+        }
+        return Arrays.copyOf(squares, count);
+    }
+
+    private static final FarTreePlacing.Choice[] FOREST = {new FarTreePlacing.Choice(0, 0.3f, 2), new FarTreePlacing.Choice(1, 0.3f, 3), new FarTreePlacing.Choice(2, 0.3f, 5),
+        new FarTreePlacing.Choice(-1, 0.1f, 1)};
+
+    private static void theSameCellPlacesTheSameTrees() {
+        FarTreePlacing.Trees first = FarTreePlacing.place(41, 33, wood(10, 60), ONE_BIOME, new FarTreePlacing.Choice[][] {FOREST}, new int[0]);
+        FarTreePlacing.Trees again = FarTreePlacing.place(41, 33, wood(10, 60), ONE_BIOME, new FarTreePlacing.Choice[][] {FOREST}, new int[0]);
+        check(first.count() > 0 && first.count() == again.count() && Arrays.equals(first.square(), again.square()) && Arrays.equals(first.kind(), again.kind())
+                && Arrays.equals(first.side(), again.side()), "a cell placed twice has the same trees: " + first.count() + " and " + again.count());
+        FarTreePlacing.Trees elsewhere = FarTreePlacing.place(42, 33, wood(10, 60), ONE_BIOME, new FarTreePlacing.Choice[][] {FOREST}, new int[0]);
+        check(!Arrays.equals(first.square(), elsewhere.square()), "another cell with the same squares has other trees");
+    }
+
+    private static void aChoiceOfNoTreePlacesNone() {
+        FarTreePlacing.Trees none = FarTreePlacing.place(0, 0, wood(0, 40), ONE_BIOME, new FarTreePlacing.Choice[][] {{new FarTreePlacing.Choice(-1, 1f, 1)}}, new int[] {7});
+        check(none.count() == 0, "a biome whose one choice is no tree has none: " + none.count());
+    }
+
+    private static void aBiomeWithNoTreesKeepsTheMaps() {
+        int[] squares = wood(0, 20);
+        FarTreePlacing.Trees kept = FarTreePlacing.place(3, 4, squares, ONE_BIOME, new FarTreePlacing.Choice[][] {{}}, new int[] {4, 9});
+        check(kept.count() == squares.length, "every one of the map's trees is kept: " + kept.count() + " of " + squares.length);
+        boolean sides = true, kinds = true;
+        for (int i = 0; i < kept.count(); i++) {
+            sides &= kept.side()[i] == 1;
+            kinds &= kept.kind()[i] == 4 || kept.kind()[i] == 9;
+        }
+        check(sides && kinds, "a kept tree takes its own square and is one of the kinds given");
+    }
+
+    private static void noTwoTreesShareASquare() {
+        FarTreePlacing.Trees trees = FarTreePlacing.place(7, 7, wood(0, 120), ONE_BIOME, new FarTreePlacing.Choice[][] {FOREST}, new int[0]);
+        boolean[] taken = new boolean[FarCells.CELL * FarCells.CELL];
+        boolean clear = true;
+        for (int i = 0; i < trees.count(); i++) {
+            int x = trees.square()[i] % FarCells.CELL, y = trees.square()[i] / FarCells.CELL, side = trees.side()[i];
+            for (int j = -(side / 2); j < side - side / 2; j++) {
+                for (int k = -(side / 2); k < side - side / 2; k++) {
+                    int sx = x + k, sy = y + j;
+                    if (sx >= 0 && sy >= 0 && sx < FarCells.CELL && sy < FarCells.CELL) {
+                        clear &= !taken[sx + sy * FarCells.CELL];
+                        taken[sx + sy * FarCells.CELL] = true;
+                    }
+                }
+            }
+        }
+        check(clear && trees.count() > 100, "the room round every tree is its own: " + trees.count() + " trees");
+    }
+
+    private static void aBigTreeWithoutRoomIsSmaller() {
+        int[] squares = {10 + 10 * FarCells.CELL, 13 + 10 * FarCells.CELL};
+        FarTreePlacing.Trees trees = FarTreePlacing.place(0, 0, squares, ONE_BIOME, new FarTreePlacing.Choice[][] {{new FarTreePlacing.Choice(5, 1f, 5)}}, new int[0]);
+        check(trees.count() == 2, "both trees stand: " + trees.count());
+        int[] sides = Arrays.copyOf(trees.side(), 2);
+        Arrays.sort(sides);
+        check(sides[1] == 5 && sides[0] < 5 && sides[0] >= 1, "the second, three squares from the first, is smaller: " + Arrays.toString(sides));
+    }
+
+    private static void theHashIsFromNoughtToOne() {
+        float least = 1f, most = 0f, sum = 0f;
+        for (int i = 0; i < 100000; i++) {
+            float h = FarTreePlacing.hash(i * 7 - 300, i * 13, i % 5);
+            least = Math.min(least, h);
+            most = Math.max(most, h);
+            sum += h;
+        }
+        check(least >= 0f && most < 1f && Math.abs(sum / 100000f - 0.5f) < 0.01f, "the hash is spread from 0 to 1: " + least + " to " + most + ", mean " + sum / 100000f);
     }
 
     private static final List<String> TILES = List.of("blends_natural_01_16", "vegetation_trees_01_8", "e_newgrass_1_33", "jumbo_tree_01_0");
