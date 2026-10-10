@@ -620,7 +620,7 @@ public final class CoreTests {
         for (CameraUnlock.Option option : options) {
             ids.append(option.id).append(' ');
         }
-        check(ids.toString().equals("WorldSpaceYaw TrackingMode AimMode FieldOfView Quality Style HillHeight FrameBlending MuzzleFlash SplitScreen StockLook SpritePlants "
+        check(ids.toString().equals("WorldSpaceYaw TrackingMode AimMode FieldOfView Quality Style HillHeight FarTreeDistance FrameBlending MuzzleFlash SplitScreen StockLook SpritePlants "
                         + "RenderScale SharpShadows ViewDistance ZombiesAndPropsDrawDistance ForwardDrivingDrawDistance RainOnGlass ShadingAndLight Reflections "
                         + "FullSizeTextures FarTrees SurfaceDepth OwnWeapons OwnFurniture "
                         + "OwnPictures OwnPlants OwnTextures OwnBuildings OwnZombies OwnPeople OwnArms OwnClothes "),

@@ -27,6 +27,9 @@ import javax.imageio.stream.ImageInputStream;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL13;
 import org.lwjgl.opengl.GL15;
+import org.lwjgl.opengl.GL20;
+import org.lwjgl.opengl.GL31;
+import org.lwjgl.opengl.GL33;
 import zombie.ZomboidFileSystem;
 import zombie.iso.BuildingDef;
 import zombie.iso.IsoMetaCell;
@@ -94,12 +97,14 @@ final class FarLand {
         }
     }
 
-    /** A cell as its thread made it: its picture, then its land, then its buildings, in one block the render thread frees. */
-    private record Made(Asked asked, long cell, OffHeap.Block block, int blockVertices) {}
+    /** A cell as its thread made it: its picture, then its land, then its buildings, then its trees, in one block the render thread frees. */
+    private record Made(Asked asked, long cell, OffHeap.Block block, int blockVertices, int trees) {}
 
     /** Logic thread. Whether the map's pictures have been looked for in this save, and what was found. */
     private static boolean looked;
     private static volatile List<Source> sources = List.of();
+    /** Logic thread, read by the render thread: the kinds of the far trees in this save, or null where it has none. */
+    static volatile FarTreeKinds treeKinds;
     /** Replaced by the logic thread, read by all three. */
     private volatile Asked asked = new Asked();
     private final ConcurrentLinkedQueue<Made> made = new ConcurrentLinkedQueue<>();
@@ -115,6 +120,7 @@ final class FarLand {
     private int picture;
     private final long[] shown = new long[WINDOW * WINDOW];
     private final int[] buffers = new int[WINDOW * WINDOW], blockVertices = new int[WINDOW * WINDOW];
+    private final int[] treeBuffers = new int[WINDOW * WINDOW], trees = new int[WINDOW * WINDOW];
     private boolean covered;
     /** What the cells on the graphics card were asked for by. */
     private Asked held = asked;
@@ -176,6 +182,14 @@ final class FarLand {
         if (!looked) {
             looked = true;
             sources = find(IsoWorld.instance.getMetaGrid());
+            try {
+                treeKinds = FarTrees.read();
+                Log.info(treeKinds == null ? "far trees: this save has no world generation to say what its trees are, and the land beyond the loaded map has none"
+                        : "far trees: " + treeKinds.species.size() + " species in " + treeKinds.biomes.size() + " biomes");
+            } catch (ReflectiveOperationException | RuntimeException thrown) {
+                treeKinds = null;
+                Log.error("far trees: the game's lists of trees could not be read, and the land beyond the loaded map has none", thrown);
+            }
         }
         if (sources.isEmpty()) {
             return;
@@ -190,9 +204,11 @@ final class FarLand {
             }
             int[] buildings = buildings(IsoWorld.instance.getMetaGrid(), cellX, cellY);
             List<Source> from = sources;
+            FarTreeKinds kinds = treeKinds;
+            FarTrees.Lot lot = kinds == null ? null : FarTrees.lot(cellX, cellY);
             asked.cells.set(place, cell);
             asked.waiting.incrementAndGet();
-            WORKER.execute(() -> make(asked, from, cellX, cellY, buildings));
+            WORKER.execute(() -> make(asked, from, cellX, cellY, buildings, kinds, lot));
         }
     }
 
@@ -306,7 +322,7 @@ final class FarLand {
     }
 
     /** The cells' thread: makes a cell and hands it over, or stops the far land and says why. */
-    private void make(Asked asked, List<Source> from, int cellX, int cellY, int[] buildings) {
+    private void make(Asked asked, List<Source> from, int cellX, int cellY, int[] buildings, FarTreeKinds kinds, FarTrees.Lot lot) {
         OffHeap.Block block = null;
         try {
             int[][] around = new int[9][];
@@ -332,15 +348,18 @@ final class FarLand {
                 }
             }
             ByteBuffer blocks = FarCells.blocks(buildings, around, cellX, cellY);
+            ByteBuffer treesMade = lot == null ? ByteBuffer.allocate(0) : FarTrees.make(kinds, lot, cellX, cellY, around);
             int land = FarCells.LAND_VERTICES * FarCells.VERTEX_BYTES;
-            block = OffHeap.take(FarCells.PICTURE_BYTES + land + blocks.remaining());
+            block = OffHeap.take(FarCells.PICTURE_BYTES + land + blocks.remaining() + treesMade.remaining());
             ByteBuffer bytes = block.bytes;
             bytes.clear();
             FarCells.picture(pixels, bytes);
             FarCells.land(around, cellX, cellY, bytes);
             int vertices = blocks.remaining() / FarCells.VERTEX_BYTES;
             bytes.put(blocks);
-            made.add(new Made(asked, key(cellX, cellY), block, vertices));
+            int treeCount = treesMade.remaining() / FarTrees.TREE_BYTES;
+            bytes.put(treesMade);
+            made.add(new Made(asked, key(cellX, cellY), block, vertices, treeCount));
         } catch (IOException | RuntimeException | LinkageError thrown) {
             if (block != null) {
                 block.free();
@@ -422,8 +441,11 @@ final class FarLand {
     static void forgetTheMap() {
         looked = false;
         sources = List.of();
+        treeKinds = null;
+        FarTreeLooks.forget();
         WORKER.execute(() -> {
             waters.clear();
+            FarTrees.forget();
             for (ZipFile file : open.values()) {
                 try {
                     file.close();
@@ -510,12 +532,22 @@ final class FarLand {
         if (buffers[place] == 0) {
             buffers[place] = GL15.glGenBuffers();
         }
-        bytes.position(FarCells.PICTURE_BYTES).limit(bytes.capacity());
+        int end = FarCells.PICTURE_BYTES + (FarCells.LAND_VERTICES + cell.blockVertices) * FarCells.VERTEX_BYTES;
+        bytes.position(FarCells.PICTURE_BYTES).limit(end);
         GL15.glBindBuffer(GL_ARRAY_BUFFER, buffers[place]);
         GL15.glBufferData(GL_ARRAY_BUFFER, bytes, GL_STATIC_DRAW);
+        if (cell.trees > 0) {
+            if (treeBuffers[place] == 0) {
+                treeBuffers[place] = GL15.glGenBuffers();
+            }
+            bytes.position(end).limit(end + cell.trees * FarTrees.TREE_BYTES);
+            GL15.glBindBuffer(GL_ARRAY_BUFFER, treeBuffers[place]);
+            GL15.glBufferData(GL_ARRAY_BUFFER, bytes, GL_STATIC_DRAW);
+        }
         GL15.glBindBuffer(GL_ARRAY_BUFFER, 0);
         shown[place] = cell.cell;
         blockVertices[place] = cell.blockVertices;
+        trees[place] = cell.trees;
         cell.block.free();
     }
 
@@ -567,6 +599,46 @@ final class FarLand {
         GL11.glBindTexture(GL_TEXTURE_2D, 0);
     }
 
+    /** How far from the eye, in tiles, a cell of trees is drawn with the finer of the two tree meshes. */
+    private static final float FINER_TREES_WITHIN = 200f;
+
+    /**
+     * Render thread, after draw: the trees of every cell kept round the eye that comes within
+     * reach tiles of it, with the program in use, which reads each tree from the attribute given
+     * (FarTrees.TREE_BYTES a tree). meshes and vertices are the finer and the coarser tree mesh,
+     * three floats a vertex. Nothing is left bound.
+     */
+    void drawTrees(float eyeX, float eyeY, float reach, int attribute, int[] meshes, int[] vertices) {
+        int eyeCellX = Math.floorDiv((int) Math.floor(eyeX), FarCells.CELL), eyeCellY = Math.floorDiv((int) Math.floor(eyeY), FarCells.CELL);
+        GL11.glEnableClientState(GL_VERTEX_ARRAY);
+        GL20.glEnableVertexAttribArray(attribute);
+        GL33.glVertexAttribDivisor(attribute, 1);
+        for (int step = 0; step < NEAREST_FIRST.length; step += 2) {
+            int cellX = eyeCellX + NEAREST_FIRST[step], cellY = eyeCellY + NEAREST_FIRST[step + 1];
+            int place = place(cellX, cellY);
+            if (shown[place] != key(cellX, cellY) || trees[place] == 0) {
+                continue;
+            }
+            float minX = cellX * FarCells.CELL, minY = cellY * FarCells.CELL;
+            float awayX = Math.max(0f, Math.max(minX - eyeX, eyeX - minX - FarCells.CELL));
+            float awayY = Math.max(0f, Math.max(minY - eyeY, eyeY - minY - FarCells.CELL));
+            float away = (float) Math.hypot(awayX, awayY);
+            if (away > reach) {
+                continue;
+            }
+            int lod = away < FINER_TREES_WITHIN ? 0 : 1;
+            GL15.glBindBuffer(GL_ARRAY_BUFFER, meshes[lod]);
+            GL11.glVertexPointer(3, GL_FLOAT, 3 * Float.BYTES, 0L);
+            GL15.glBindBuffer(GL_ARRAY_BUFFER, treeBuffers[place]);
+            GL20.glVertexAttribPointer(attribute, 4, GL_FLOAT, false, FarTrees.TREE_BYTES, 0L);
+            GL31.glDrawArraysInstanced(GL_TRIANGLES, 0, vertices[lod], trees[place]);
+        }
+        GL33.glVertexAttribDivisor(attribute, 0);
+        GL20.glDisableVertexAttribArray(attribute);
+        GL11.glDisableClientState(GL_VERTEX_ARRAY);
+        GL15.glBindBuffer(GL_ARRAY_BUFFER, 0);
+    }
+
     /**
      * Render thread. Once the logic thread has forgotten what it asked for, what the graphics
      * card holds was asked for by something that is over: the picture and every cell are given
@@ -598,6 +670,11 @@ final class FarLand {
                 GL15.glDeleteBuffers(buffers[place]);
                 buffers[place] = 0;
             }
+            if (treeBuffers[place] != 0) {
+                GL15.glDeleteBuffers(treeBuffers[place]);
+                treeBuffers[place] = 0;
+            }
+            trees[place] = 0;
             shown[place] = NONE;
         }
         covered = false;

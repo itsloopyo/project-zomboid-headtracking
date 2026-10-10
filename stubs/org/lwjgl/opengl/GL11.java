@@ -61,7 +61,7 @@ public final class GL11 {
             int type, ByteBuffer pixels) { throw stub(); }
     public static void glCopyTexImage2D(int target, int level, int internalFormat, int x, int y, int width, int height, int border) { throw stub(); }
     public static int glGenTextures() { throw stub(); }
-    public static void glDeleteTextures(int name) { throw new UnsupportedOperationException("reference stub"); }
+    public static void glDeleteTextures(int name) { throw stub(); }
     public static void glTexParameteri(int target, int pname, int param) { throw stub(); }
     public static void glBlendFunc(int source, int destination) { throw stub(); }
     public static void glVertex2f(float x, float y) { throw stub(); }
@@ -69,7 +69,8 @@ public final class GL11 {
     public static void glPopClientAttrib() { throw stub(); }
     public static void glFogf(int pname, float param) { throw stub(); }
     public static void glFogfv(int pname, float[] params) { throw stub(); }
-    public static void glLoadIdentity() { throw new UnsupportedOperationException("reference stub"); }
+    public static void glLoadIdentity() { throw stub(); }
     public static void glGetTexImage(int target, int level, int format, int type, java.nio.ByteBuffer pixels) { throw stub(); }
     public static void glColorPointer(int size, int type, int stride, long pointer) { throw stub(); }
+    public static boolean glIsEnabled(int target) { throw stub(); }
 }

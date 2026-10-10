@@ -234,7 +234,7 @@ final class Pipeline {
     /** How far to one side this frame is drawn, as the projection takes it: nothing with the frames not mixed. */
     private float asideX, asideY;
     private static Program world, worldDepth, shadow, figureLight, sky, clouds, occlusion, soften, volume, bloomDown, bloomUp, develop, smooth;
-    private static Program far;
+    private static Program far, farTree;
     /** What the shaders are told as uBeyond this frame: see PipelineShaders.ENDS. Not 0 where the far land is drawn behind the built world. */
     private float beyond;
     /** How many frames go by before the pixels the built world is thinned out by come round again. */
@@ -2158,24 +2158,96 @@ final class Pipeline {
         GL11.glDepthMask(true);
         GL11.glDisable(GL_BLEND);
         far.use();
+        farUniforms(far, camera, state, fogStart, fogEnd);
         far.set("uPicture", 0);
         far.set("uPictureSide", (float) FarLand.PICTURE);
-        far.set("uEye", camera.eyeX, camera.eyeY, camera.eyeUp);
-        far.set("uLight", state.lightX, state.lightY, state.lightUp);
-        far.set("uLightColor", state.lightRed, state.lightGreen, state.lightBlue);
-        far.set("uOpenLight", state.openRed, state.openGreen, state.openBlue);
-        far.set("uDaylightKept", (float) Math.pow(state.daylightKept, 2.2));
-        far.set("uCover", state.cover);
-        far.set("uDrift", state.driftX, state.driftY);
-        far.set("uSnowLying", state.snowLying);
-        far.set("uReach", FarLand.REACH);
         far.set("uStorey", ViewCamera.LEVEL_HEIGHT);
-        far.set("uFogStart", fogStart);
-        far.set("uFogEnd", fogEnd);
-        far.set("uLoaded", loadedX - camera.eyeX, loadedY - camera.eyeY, loadedWithin);
-        far.set("uBeyond", inScope || inWater ? Math.min(beyond, 1f) : beyond);
-        atmosphere(far, state);
         view.worldScene.farLand.draw(camera.eyeX, camera.eyeY);
+        drawFarTrees(camera, state, fogStart, fogEnd);
+    }
+
+    /** What the far land's and the far trees' programs are both told: the eye, the light and the air (PipelineShaders.FAR_LIGHT), and where the built world thins out into them (ENDS). */
+    private void farUniforms(Program program, ViewCamera.Pose camera, SkyState state, float fogStart, float fogEnd) {
+        program.set("uEye", camera.eyeX, camera.eyeY, camera.eyeUp);
+        program.set("uLight", state.lightX, state.lightY, state.lightUp);
+        program.set("uLightColor", state.lightRed, state.lightGreen, state.lightBlue);
+        program.set("uOpenLight", state.openRed, state.openGreen, state.openBlue);
+        program.set("uDaylightKept", (float) Math.pow(state.daylightKept, 2.2));
+        program.set("uCover", state.cover);
+        program.set("uDrift", state.driftX, state.driftY);
+        program.set("uSnowLying", state.snowLying);
+        program.set("uReach", FarLand.REACH);
+        program.set("uFogStart", fogStart);
+        program.set("uFogEnd", fogEnd);
+        program.set("uLoaded", loadedX - camera.eyeX, loadedY - camera.eyeY, loadedWithin);
+        program.set("uBeyond", inScope || inWater ? Math.min(beyond, 1f) : beyond);
+        atmosphere(program, state);
+    }
+
+    /** The far trees' mesh near the eye and further off (FarTrees.mesh), and how many vertices each has. */
+    private static final int[] treeMeshes = new int[2], treeVertices = new int[2];
+    /** Each kind of far tree's row (FarTreeLooks), the kinds it was written for and the frame it was. */
+    private static int kindsTexture;
+    private static FarTreeKinds kindsFor;
+    private static int kindsWritten;
+    private static ByteBuffer kindsBytes;
+    /** How often the kinds' rows are written again, for the season and the kinds the built world has seen since: frames. */
+    private static final int KINDS_EVERY = 120;
+    private static final int GL_RGBA32F = 0x8814;
+
+    /** The trees beyond the loaded map, after the far land, to FarTreeDistance: see FarTrees. */
+    private void drawFarTrees(ViewCamera.Pose camera, SkyState state, float fogStart, float fogEnd) {
+        FarTreeKinds kinds = FarLand.treeKinds;
+        int reach = FarTreeDistance.asked();
+        if (kinds == null || reach <= 0) {
+            return;
+        }
+        if (treeMeshes[0] == 0) {
+            float[][] meshes = {FarTrees.mesh(5, 7, 4), FarTrees.mesh(2, 4, 0)};
+            for (int lod = 0; lod < 2; lod++) {
+                treeMeshes[lod] = GL15.glGenBuffers();
+                treeVertices[lod] = meshes[lod].length / 3;
+                GL15.glBindBuffer(GL_ARRAY_BUFFER, treeMeshes[lod]);
+                GL15.glBufferData(GL_ARRAY_BUFFER, meshes[lod], GL_STATIC_DRAW);
+            }
+            GL15.glBindBuffer(GL_ARRAY_BUFFER, 0);
+        }
+        int rows = kinds.species.size() * FarTreeKinds.SIZES;
+        GL13.glActiveTexture(GL_TEXTURE0);
+        if (kindsTexture == 0) {
+            kindsTexture = GL11.glGenTextures();
+            GL11.glBindTexture(GL_TEXTURE_2D, kindsTexture);
+            GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+            GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+            GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        } else {
+            GL11.glBindTexture(GL_TEXTURE_2D, kindsTexture);
+        }
+        if (kinds != kindsFor || frameNumber - kindsWritten >= KINDS_EVERY) {
+            int bytes = rows * FarTreeLooks.ROW * 4 * Float.BYTES;
+            if (kindsBytes == null || kindsBytes.capacity() < bytes) {
+                kindsBytes = ByteBuffer.allocateDirect(bytes).order(ByteOrder.nativeOrder());
+            }
+            kindsBytes.clear();
+            FarTreeLooks.write(kinds, kindsBytes);
+            kindsBytes.flip();
+            GL11.glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, FarTreeLooks.ROW, rows, 0, GL_RGBA, GL_FLOAT, kindsBytes);
+            kindsFor = kinds;
+            kindsWritten = frameNumber;
+        }
+        boolean culling = GL11.glIsEnabled(GL_CULL_FACE);
+        GL11.glDisable(GL_CULL_FACE);
+        farTree.use();
+        farUniforms(farTree, camera, state, fogStart, fogEnd);
+        farTree.set("uKinds", 0);
+        farTree.set("uKindRows", (float) rows);
+        farTree.set("uTreeReach", (float) reach);
+        view.worldScene.farLand.drawTrees(camera.eyeX, camera.eyeY, reach, farTree.attribute("aTree"), treeMeshes, treeVertices);
+        GL11.glBindTexture(GL_TEXTURE_2D, 0);
+        if (culling) {
+            GL11.glEnable(GL_CULL_FACE);
+        }
     }
 
     /**
@@ -3976,6 +4048,7 @@ final class Pipeline {
         sky = Program.link("sky", SCREEN_VERTEX, Sky.FRAGMENT, problem);
         clouds = Program.link("clouds", SCREEN_VERTEX, Sky.CLOUDS, problem);
         far = Program.link("far land", PipelineShaders.FAR_VERTEX, PipelineShaders.FAR_FRAGMENT, problem);
+        farTree = Program.link("far trees", PipelineShaders.FAR_TREE_VERTEX, PipelineShaders.FAR_TREE_FRAGMENT, problem);
         figureLight = Program.link("character light", SCREEN_VERTEX, FIGURE_LIGHT, problem);
         occlusion = Program.link("occlusion", SCREEN_VERTEX, PipelineShaders.OCCLUSION, problem);
         soften = Program.link("occlusion soften", SCREEN_VERTEX, PipelineShaders.SOFTEN, problem);

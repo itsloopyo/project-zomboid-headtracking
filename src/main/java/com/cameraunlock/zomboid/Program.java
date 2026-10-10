@@ -65,6 +65,21 @@ final class Program {
         GL20.glUseProgram(id);
     }
 
+    private final HashMap<String, Integer> attributes = new HashMap<>();
+
+    /** Where a vertex attribute the program reads is bound. Its shader declares it, so one it does not use is a fault in the mod. */
+    int attribute(String name) {
+        Integer location = attributes.get(name);
+        if (location == null) {
+            location = GL20.glGetAttribLocation(id, name);
+            if (location < 0) {
+                throw new IllegalStateException("the program has no attribute " + name);
+            }
+            attributes.put(name, location);
+        }
+        return location;
+    }
+
     void set(String name, int value) {
         GL20.glUniform1i(at(name), value);
     }

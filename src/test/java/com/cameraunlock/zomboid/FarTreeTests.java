@@ -30,6 +30,21 @@ final class FarTreeTests {
         Checks.run("aBiomesAnyTreeIsEachOfItsSpecies", FarTreeTests::aBiomesAnyTreeIsEachOfItsSpecies);
         Checks.run("grassAndBouldersAreNoTrees", FarTreeTests::grassAndBouldersAreNoTrees);
         Checks.run("theErosionsTreesAreKept", FarTreeTests::theErosionsTreesAreKept);
+        Checks.run("theTreeMeshIsACrownOverABole", FarTreeTests::theTreeMeshIsACrownOverABole);
+    }
+
+    private static void theTreeMeshIsACrownOverABole() {
+        float[] near = FarTrees.mesh(5, 7, 4);
+        check(near.length == (7 * (2 + 2 * 4) + 4 * 2) * 9, "five rings of seven sides and a bole of four are 78 triangles: " + near.length / 9);
+        float[] far = FarTrees.mesh(2, 4, 0);
+        check(far.length == 4 * (2 + 2) * 9, "two rings of four and no bole are 16 triangles: " + far.length / 9);
+        boolean inRange = true, foot = false, top = false;
+        for (int at = 0; at < near.length; at += 3) {
+            inRange &= near[at] >= 0f && near[at] <= 1f;
+            foot |= near[at + 2] == FarTrees.CROWN_FOOT && near[at] == 0f;
+            top |= near[at + 2] == FarTrees.CROWN_TOP && near[at] == 1f;
+        }
+        check(inRange && foot && top, "every vertex is from the foot of its part to the top, and the crown closes at both ends");
     }
 
     private static final List<String> EROSION = List.of("e_americanholly_1", "e_canadianhemlock_1", "e_virginiapine_1");

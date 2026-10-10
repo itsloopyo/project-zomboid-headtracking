@@ -6090,18 +6090,13 @@ final class PipelineShaders {
             """;
 
     /**
-     * The far land is lit as open ground of the built world is, by the same sun, sky and
-     * clouds, and goes into the same air, so that where the one thins out into the other the
-     * two are one country. It has no shadows but the clouds'.
+     * What is beyond the loaded map is lit as open ground of the built world is, by the same
+     * sun, sky and clouds, and goes into the same air, so that where the one thins out into the
+     * other the two are one country. It has no shadows but the clouds'. The far land and the far
+     * trees are lit by this alike: farLit, of a surface's colour where it is and the way it faces,
+     * with how much of it is water.
      */
-    static final String FAR_FRAGMENT = "#version 120\n" + Sky.ATMOSPHERE + ENDS + GROUND_NOISE + """
-            varying vec3 vWorld;
-            varying vec3 vNormal;
-            varying vec4 vColor;
-            varying float vUp;
-            uniform sampler2D uPicture;
-            // Tiles a side of the picture, which comes round again that often.
-            uniform float uPictureSide;
+    static final String FAR_LIGHT = """
             uniform vec3 uEye;
             uniform vec3 uLight;
             uniform vec3 uLightColor;
@@ -6109,9 +6104,57 @@ final class PipelineShaders {
             uniform float uDaylightKept;
             uniform float uCover;
             uniform vec2 uDrift;
-            uniform float uSnowLying;
             // How far from the eye, along the ground, the far land itself ends.
             uniform float uReach;
+
+            vec3 farLit(vec3 world, vec3 n, vec3 surface, float water) {
+                vec3 toEye = uEye - world;
+                float away = length(toEye);
+                vec3 view = toEye / away;
+                float facing = max(dot(n, uLight), 0.0);
+                // The clouds' shadows, as the built world has them. Past where one can be told
+                // from the next, the land is as dull as they make all of it.
+                vec2 under = (world.xy + uLight.xy / max(uLight.z, 0.25) * 30.0) / 22.0 + uDrift * 6.0;
+                float body = patches(under) * 0.6 + patches(under * 2.7 + 7.0) * 0.4;
+                float shaded = smoothstep(-0.06, 0.06, body - (1.12 - uCover));
+                shaded = mix(shaded, clamp((uCover - 0.62) / 0.5, 0.0, 1.0), smoothstep(250.0, 500.0, away));
+                float reached = 1.0 - 0.65 * shaded;
+                vec3 sunLight = pow(uLightColor, vec3(2.2));
+                vec3 lightHere = pow(uOpenLight, vec3(2.2)) * uDaylightKept * vec3(0.72, 0.80, 0.95) * (0.72 + 0.28 * n.z)
+                        + sunLight * (2.1 * reached * facing)
+                        + sunLight * vec3(0.9, 0.86, 0.74) * (0.3 * max(uLight.z, 0.0) * (1.0 - abs(n.z)));
+                vec3 color = surface * lightHere;
+                if (water > 0.0) {
+                    vec3 mirrored = reflect(-view, vec3(0.0, 0.0, 1.0));
+                    float glance = 0.03 + 0.97 * pow(1.0 - clamp(view.z, 0.0, 1.0), 5.0);
+                    color = mix(color, ridges(mirrored, atmosphere(mirrored)), glance * water);
+                }
+
+                vec3 air = atmosphere(-view);
+                color = mix(color, air, distanceHaze(-view, uLight, away));
+                // The far land ends too, in what the sky's own shader draws where nothing is: the hills, and under the skyline the air.
+                float ends = smoothstep(uReach * 0.85, uReach, length(toEye.xy));
+                if (ends > 0.0) {
+                    vec3 behind = mix(ridges(-view, air), atmosphere(vec3(-view.xy, 0.0)), 1.0 - smoothstep(-0.04, 0.0, -view.z));
+                    color = mix(color, behind, ends);
+                }
+                if (uVeil.x > 0.0) {
+                    color = mix(color, veilColor(-view), max(veiling(away), ends * skyVeiling(-view)));
+                }
+                return color;
+            }
+            """;
+
+    /** The far land: see FarLand. */
+    static final String FAR_FRAGMENT = "#version 120\n" + Sky.ATMOSPHERE + ENDS + GROUND_NOISE + FAR_LIGHT + """
+            varying vec3 vWorld;
+            varying vec3 vNormal;
+            varying vec4 vColor;
+            varying float vUp;
+            uniform sampler2D uPicture;
+            // Tiles a side of the picture, which comes round again that often.
+            uniform float uPictureSide;
+            uniform float uSnowLying;
             uniform float uStorey;
 
             void main() {
@@ -6119,8 +6162,6 @@ final class PipelineShaders {
                 if (notYetIn(-toEye.xy, vColor.a > 0.5)) {
                     discard;
                 }
-                float away = length(toEye);
-                vec3 view = toEye / away;
                 vec3 n = normalize(vNormal);
                 vec3 surface;
                 float water = 0.0;
@@ -6154,38 +6195,95 @@ final class PipelineShaders {
                     pane = mix(pane, 0.56 * 0.44 * step(0.0, vUp), smoothstep(0.2, 0.55, fine));
                     surface = mix(pow(vColor.rgb, vec3(2.2)), vec3(0.03, 0.04, 0.05), 0.85 * pane);
                 }
+                gl_FragColor = vec4(farLit(vWorld, n, surface, water), 1.0);
+            }
+            """;
 
-                float facing = max(dot(n, uLight), 0.0);
-                // The clouds' shadows, as the built world has them. Past where one can be told
-                // from the next, the land is as dull as they make all of it.
-                vec2 under = (vWorld.xy + uLight.xy / max(uLight.z, 0.25) * 30.0) / 22.0 + uDrift * 6.0;
-                float body = patches(under) * 0.6 + patches(under * 2.7 + 7.0) * 0.4;
-                float shaded = smoothstep(-0.06, 0.06, body - (1.12 - uCover));
-                shaded = mix(shaded, clamp((uCover - 0.62) / 0.5, 0.0, 1.0), smoothstep(250.0, 500.0, away));
-                float reached = 1.0 - 0.65 * shaded;
-                vec3 sunLight = pow(uLightColor, vec3(2.2));
-                vec3 lightHere = pow(uOpenLight, vec3(2.2)) * uDaylightKept * vec3(0.72, 0.80, 0.95) * (0.72 + 0.28 * n.z)
-                        + sunLight * (2.1 * reached * facing)
-                        + sunLight * vec3(0.9, 0.86, 0.74) * (0.3 * max(uLight.z, 0.0) * (1.0 - abs(n.z)));
-                vec3 color = surface * lightHere;
-                if (water > 0.0) {
-                    vec3 mirrored = reflect(-view, vec3(0.0, 0.0, 1.0));
-                    float glance = 0.03 + 0.97 * pow(1.0 - clamp(view.z, 0.0, 1.0), 5.0);
-                    color = mix(color, ridges(mirrored, atmosphere(mirrored)), glance * water);
-                }
+    /**
+     * A tree beyond the loaded map: see FarTrees. One mesh of every tree, a crown turned round
+     * the foot with a bole under it, is stood at each tree's place, turned and sized a little by
+     * its own number, and made into its kind by the kind's row of uKinds (FarTreeLooks): the bole's
+     * radius, the crown's lowest and highest leaves over the foot, and how far out the crown reaches
+     * at each of its bands. A vertex of the mesh is how far up its part it is, its angle round the
+     * foot, and its part: 0 the bole, 1 the crown, 2 the crown's foot, 3 its top.
+     */
+    static final String FAR_TREE_VERTEX = """
+            #version 120
+            attribute vec4 aTree;
+            uniform sampler2D uKinds;
+            uniform float uKindRows;
+            uniform vec3 uEye;
+            varying vec3 vWorld;
+            varying vec3 vNormal;
+            varying vec3 vColor;
+            // How much of the sky and sun reaches this part of the tree: a crown shades its own lower leaves.
+            varying float vReached;
 
-                vec3 air = atmosphere(-view);
-                color = mix(color, air, distanceHaze(-view, uLight, away));
-                // The far land ends too, in what the sky's own shader draws where nothing is: the hills, and under the skyline the air.
-                float ends = smoothstep(uReach * 0.85, uReach, length(toEye.xy));
-                if (ends > 0.0) {
-                    vec3 behind = mix(ridges(-view, air), atmosphere(vec3(-view.xy, 0.0)), 1.0 - smoothstep(-0.04, 0.0, -view.z));
-                    color = mix(color, behind, ends);
+            vec4 kindTexel(float row, float texel) {
+                return texture2D(uKinds, vec2((texel + 0.5) / %ROW%.0, (row + 0.5) / uKindRows));
+            }
+
+            void main() {
+                float kind = floor(aTree.w);
+                float own = fract(aTree.w);
+                float turn = own * 6.2831853;
+                float grown = 0.9 + 0.2 * fract(own * 7.31);
+                vec4 sizes = kindTexel(kind, 2.0);
+                float up = gl_Vertex.x;
+                float angle = gl_Vertex.y + turn;
+                float part = gl_Vertex.z;
+                vec2 outward = vec2(cos(angle), sin(angle));
+                vec3 local;
+                if (part < 0.5) {
+                    local = vec3(outward * sizes.x, up * sizes.y * 1.1);
+                    vNormal = vec3(outward, 0.0);
+                    vColor = kindTexel(kind, 1.0).rgb;
+                    vReached = 0.55;
+                } else {
+                    float band = clamp(up * %BANDS%.0 - 0.5, 0.0, %BANDS%.0 - 1.0);
+                    float lower = floor(band);
+                    float reach = mix(kindTexel(kind, 4.0 + lower).r, kindTexel(kind, 4.0 + min(lower + 1.0, %BANDS%.0 - 1.0)).r, band - lower);
+                    reach *= part > 1.5 ? 0.0 : 1.0;
+                    local = vec3(outward * reach, mix(sizes.y, sizes.z, up));
+                    vNormal = normalize(vec3(outward, part > 2.5 ? 2.0 : part > 1.5 ? -2.0 : 0.6));
+                    // No two trees of a kind are quite one colour.
+                    vColor = kindTexel(kind, 0.0).rgb * (0.82 + 0.3 * fract(own * 13.7)) * vec3(1.0, 0.94 + 0.12 * fract(own * 29.3), 1.0);
+                    vReached = part > 1.5 && part < 2.5 ? 0.4 : mix(0.5, 1.0, up);
                 }
-                if (uVeil.x > 0.0) {
-                    color = mix(color, veilColor(-view), max(veiling(away), ends * skyVeiling(-view)));
+                vWorld = aTree.xyz + local * grown;
+                gl_Position = gl_ProjectionMatrix * gl_ModelViewMatrix * vec4(vWorld - uEye, 1.0);
+            }
+            """.replace("%ROW%", Integer.toString(FarTreeLooks.ROW)).replace("%BANDS%", Integer.toString(Flora.CROWN_BANDS));
+
+    /**
+     * The far trees are lit as the far land is (FAR_LIGHT), come in where the built world thins
+     * out as its buildings do (ENDS), and end at uTreeReach along the ground, pixel by pixel over
+     * the last stretch before it.
+     */
+    static final String FAR_TREE_FRAGMENT = "#version 120\n" + Sky.ATMOSPHERE + ENDS + GROUND_NOISE + FAR_LIGHT + """
+            varying vec3 vWorld;
+            varying vec3 vNormal;
+            varying vec3 vColor;
+            varying float vReached;
+            uniform float uTreeReach;
+            uniform float uSnowLying;
+
+            void main() {
+                vec3 toEye = uEye - vWorld;
+                if (notYetIn(-toEye.xy, true)) {
+                    discard;
                 }
-                gl_FragColor = vec4(color, 1.0);
+                float along = length(toEye.xy);
+                float dither = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453);
+                if (along > uTreeReach - 40.0 * dither) {
+                    discard;
+                }
+                vec3 n = normalize(vNormal);
+                // Clumps of leaves, lighter and darker, at two sizes.
+                float clumps = patches(vWorld.xy * 1.3 + vWorld.z * 0.9) * 0.6 + patches(vWorld.xy * 3.1 - vWorld.z * 2.3) * 0.4;
+                vec3 surface = pow(vColor, vec3(2.2)) * vReached * (0.65 + 0.7 * clumps);
+                surface = mix(surface, pow(vec3(0.82, 0.845, 0.89), vec3(2.2)), min(uSnowLying * 2.0, 1.0) * max(n.z, 0.0));
+                gl_FragColor = vec4(farLit(vWorld, n, surface, 0.0), 1.0);
             }
             """;
 }

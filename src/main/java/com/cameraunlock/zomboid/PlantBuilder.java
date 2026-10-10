@@ -274,6 +274,9 @@ final class PlantBuilder {
             addGrownOn(mesh, sprite, type, texture, x, y, z);
             return;
         }
+        treeTile = sprite.getName();
+        treeX = x;
+        treeY = y;
         // Everything stood for a tree is its tree's: see SpriteGeometry.VERTEX_FLOATS.
         SpriteGeometry.Mesh trunks = WorldScene.solid.get(WorldScene.PLAIN), ivy = WorldScene.laid.get(WorldScene.PLAIN);
         mesh.rooted(x, y);
@@ -390,6 +393,9 @@ final class PlantBuilder {
         float base = z * ViewCamera.LEVEL_HEIGHT + build.geometry.liftAt(0.5f, 0.5f) + build.geometry.raised * ViewCamera.LEVEL_HEIGHT;
         float footU = SpriteGeometry.frameU(build.frame, 0.5f, 0.5f), footV = SpriteGeometry.frameV(build.frame, 0.5f, 0.5f, 0f);
         int bark = Flora.barkOf(name, seed), sprig = Flora.sprigOf(name, bush);
+        if (!bush) {
+            seenForFar(texture, places, x, y, footU, footV, boled ? boleThick : BOLE_THINNEST);
+        }
         if (build.crownsInline) {
             boolean limbed = boled && Crowns.limbed(away);
             return Flora.addCrown(WorldScene.solid.get(texture.getID()), WorldScene.solid.get(WorldScene.PLAIN), build.frame, places, x + 0.5f, y + 0.5f, base, footU, footV, Crowns.detail(away), Crowns.close(away),
@@ -401,6 +407,19 @@ final class PlantBuilder {
         (build.afresh ? WorldScene.crownsChecked : world.crownsRead).add(texture.getID(), build.frame, places, x + 0.5f, y + 0.5f, base, footU, footV, away, boled ? boleThick : 0f, boled ? boleTall : 0f,
                 boled ? boleBark : bark, bark, sprig, seed, build.room);
         return true;
+    }
+
+    /** The tile of the tree whose trunk was stood last, and its square: a crown is its tree's when it is on the same square. */
+    private String treeTile;
+    private int treeX = Integer.MIN_VALUE, treeY;
+
+    /** Notes how a tree the built world stands looks, for the far trees of its kind (FarTreeLooks), when that kind has not been noted lately. */
+    private void seenForFar(Texture leaves, float[] places, int x, int y, float footU, float footV, float bole) {
+        String tile = treeX == x && treeY == y ? treeTile : null;
+        long now = System.nanoTime();
+        if (tile != null && FarTreeLooks.wants(tile, now) && Flora.measure(build.frame, places, footU, footV, crownLeft, crownRight, crownSizes)) {
+            FarTreeLooks.saw(tile, crownSizes, crownLeft, crownRight, bole, leaves, now);
+        }
     }
 
     /**

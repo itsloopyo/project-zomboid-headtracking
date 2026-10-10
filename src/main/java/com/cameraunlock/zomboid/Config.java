@@ -41,9 +41,10 @@ final class Config {
 
     /**
      * What the rows read again while the game runs hold: the field of view in degrees, Own's bits,
-     * the Quality row, the Style row, the HillHeight row, the FrameBlending row, the MuzzleFlash row, the SplitScreen row and the rows of [Graphics].
+     * the Quality row, the Style row, the HillHeight row, the FarTreeDistance row, the FrameBlending row, the MuzzleFlash row, the SplitScreen row and the rows of [Graphics].
      */
-    record Live(float fieldOfView, int own, int quality, int style, float hillHeight, boolean frameBlending, boolean muzzleFlash, int splitScreen, Quality.Picture custom) {}
+    record Live(float fieldOfView, int own, int quality, int style, float hillHeight, int farTreeDistance, boolean frameBlending, boolean muzzleFlash, int splitScreen,
+            Quality.Picture custom) {}
 
     /** The keys of [Graphics], the Custom graphics mode, in the order of Quality.Picture's parts. */
     static final String[] GRAPHICS = {"StockLook", "SpritePlants", "RenderScale", "SharpShadows", "ViewDistance", "ZombiesAndPropsDrawDistance",
@@ -53,7 +54,7 @@ final class Config {
     static final int MIN_VIEW_DISTANCE = 32, MIN_DRAW_DISTANCE = 16;
 
     private final CameraUnlock core;
-    private final int fieldOfView, quality, style, hillHeight, frameBlending, muzzleFlash, splitScreen, secondPlayerPort;
+    private final int fieldOfView, quality, style, hillHeight, farTreeDistance, frameBlending, muzzleFlash, splitScreen, secondPlayerPort;
     /** The rows of [Content], in the order of Own's bits. */
     private final int[] own;
     /** The rows of [Graphics], in the order of GRAPHICS. */
@@ -66,7 +67,7 @@ final class Config {
      * writable: their hotkeys save. There is no key that switches head tracking off: the
      * owner ruled the action out for this game, and the three keys there are are the game's own
      * rows on the nav keys alone (see cameraunlock-core's per_game). FieldOfView, Quality, Style,
-     * HillHeight, FrameBlending, MuzzleFlash, SplitScreen and the rows of [Content] are the mod's own, and the ones read
+     * HillHeight, FarTreeDistance, FrameBlending, MuzzleFlash, SplitScreen and the rows of [Content] are the mod's own, and the ones read
      * again while the game runs, and so are the rows of [Graphics], which are what the Custom
      * graphics mode draws. They are writable too, and a writable row that is not a key
      * list is a setting on the game's options screen (OptionsPage). SecondPlayerUdpPort, FirstPersonKey, CycleQualityKey,
@@ -169,6 +170,16 @@ final class Config {
                         + "server where players can fight one another the hills stay at 1. Read again\n"
                         + "while the game runs.",
                 writable | live, HillHeight.DEFAULT, 0f, HillHeight.MOST);
+        // Not a row of [Graphics] either: moving it leaves the graphics mode as it is.
+        farTreeDistance = core.configLocalInt("General", "FarTreeDistance",
+                "How far off trees are drawn in first person past where the game has the map\n"
+                        + "loaded, in tiles: 0 to " + FarTreeDistance.MOST + ". The game keeps about 76 tiles of map round you,\n"
+                        + "and its trees end there. Past that the mod stands trees where the game's map has\n"
+                        + "them, of the kinds and sizes the game grows in each place, so that woods go on to\n"
+                        + "the hills instead of appearing as you walk up to them. They are the right trees for\n"
+                        + "the place, not the game's own one for one: the game's take over as its map loads.\n"
+                        + "0: none. Further costs more to draw. Read again while the game runs.",
+                writable | live, FarTreeDistance.DEFAULT, 0, FarTreeDistance.MOST);
         frameBlending = core.configLocalBool("General", "FrameBlending",
                 "Whether each frame of the first person picture is mixed with the one before it.\n"
                         + "false: every frame is drawn on its own. true: fine edges, leaves and the grain of\n"
@@ -350,6 +361,10 @@ final class Config {
         });
         puts.put("Quality", value -> Quality.set((int) value));
         puts.put("Style", value -> Style.set((int) value));
+        puts.put("FarTreeDistance", value -> {
+            FarTreeDistance.set((int) value);
+            Log.info("far trees drawn to " + (int) value + " tiles");
+        });
         puts.put("HillHeight", value -> {
             HillHeight.set((float) value);
             Log.info("hill height set to " + (float) value);
@@ -433,7 +448,7 @@ final class Config {
             custom[part] = part == RENDER_SCALE ? core.configGetFloat(graphics[part]) : core.configGetInt(graphics[part]);
         }
         return new Live(core.configGetFloat(fieldOfView), rows, core.configGetInt(quality), core.configGetInt(style),
-                core.configGetFloat(hillHeight), core.configGetInt(frameBlending) != 0, core.configGetInt(muzzleFlash) != 0, core.configGetInt(splitScreen), picture(custom));
+                core.configGetFloat(hillHeight), core.configGetInt(farTreeDistance), core.configGetInt(frameBlending) != 0, core.configGetInt(muzzleFlash) != 0, core.configGetInt(splitScreen), picture(custom));
     }
 
     /**
