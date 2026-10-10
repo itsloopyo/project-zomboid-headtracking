@@ -59,8 +59,9 @@ final class QualityTests {
         frames(SECOND, 10f, 20f);
         check(Quality.scale() == 1f, "and stays the whole picture however slowly it is drawn");
         Quality.set(Quality.MEDIUM);
-        check(Quality.scale() == 0.8f && Quality.sight() == 64 && !Quality.shadedAndLit() && !Quality.relief(),
-                "medium is fewer pixels, shorter sight and no shading of corners, lit air, mirrors or depth in surfaces");
+        check(Quality.scale() == 0.8f && Quality.sight() == 80 && !Quality.crownsToSight() && !Quality.gamesPlants() && !Quality.shadedAndLit()
+                        && !Quality.relief(),
+                "medium is fewer pixels, the mod's trees nearer only, and no shading of corners, lit air, mirrors or depth in surfaces");
         Quality.set(Quality.LOW);
         check(Quality.scale() < 0.7f && Quality.sight() == 48 && Quality.shadowSize() == 2048 && !Quality.shadedAndLit() && !Quality.relief(),
                 "low is fewer pixels, shorter sight, smaller maps and no shading of corners");
@@ -69,13 +70,13 @@ final class QualityTests {
     private static void automaticStepsDownWhileThePictureIsSlow() {
         Quality.set(Quality.HIGH);
         Quality.set(Quality.AUTOMATIC);
-        check(Quality.sight() == 80, "automatic begins with the whole picture");
+        check(Quality.scale() == 1f, "automatic begins with the whole picture");
         long now = frames(SECOND, 30f, 2.5f);
-        check(Quality.sight() == 80, "and judges nothing in under three seconds");
+        check(Quality.scale() == 1f, "and judges nothing in under three seconds");
         now = frames(now, 30f, 1f);
-        check(Quality.sight() == 64, "three seconds at thirty frames a second take it down a level");
+        check(Quality.scale() == 0.8f, "three seconds at thirty frames a second take it down a level");
         now = frames(now, 30f, 4f);
-        check(Quality.sight() == 64, "the next count begins once the new level has settled");
+        check(Quality.scale() == 0.8f, "the next count begins once the new level has settled");
         now = frames(now, 30f, 1.5f);
         check(Quality.sight() == 48 && !Quality.plain() && Quality.name().equals("Automatic (Low)"),
                 "and still slow, it goes down again, to Low's cost with what the mod made: " + Quality.name());
@@ -95,7 +96,7 @@ final class QualityTests {
             Quality.frame(0, now, 0f);
             Quality.frame(1, now + 1000, 0f);
         }
-        check(Quality.sight() == 64, "two views drawn thirty times a second are thirty frames a second, and take it down a level");
+        check(Quality.scale() == 0.8f, "two views drawn thirty times a second are thirty frames a second, and take it down a level");
         Quality.set(Quality.HIGH);
         Quality.set(Quality.AUTOMATIC);
         for (int frame = 0; frame < 30 * 4; frame++) {
@@ -103,12 +104,12 @@ final class QualityTests {
             Quality.rest(0);
             Quality.frame(1, now, 0f);
         }
-        check(Quality.sight() == 64, "with the first view off the second's frames are the ones counted, and the first's being off does not begin the count again");
+        check(Quality.scale() == 0.8f, "with the first view off the second's frames are the ones counted, and the first's being off does not begin the count again");
         Quality.set(Quality.HIGH);
         Quality.set(Quality.AUTOMATIC);
         Quality.rest(1);
         now = frames(now + 60 * SECOND, 60f, 10f);
-        check(Quality.sight() == 80, "and with both off the count begins again");
+        check(Quality.scale() == 1f, "and with both off the count begins again");
         Quality.rest(0);
     }
 
@@ -116,17 +117,17 @@ final class QualityTests {
         Quality.set(Quality.HIGH);
         Quality.set(Quality.AUTOMATIC);
         long now = frames(SECOND, 60f, 30f);
-        check(Quality.sight() == 80, "at sixty frames a second the picture stays whole");
+        check(Quality.scale() == 1f, "at sixty frames a second the picture stays whole");
         Quality.rest(0);
         now = frames(now + 60 * SECOND, 60f, 10f);
-        check(Quality.sight() == 80, "and a minute with the view off is not a minute of slow frames");
+        check(Quality.scale() == 1f, "and a minute with the view off is not a minute of slow frames");
         now = frames(now, 30f, 3.2f);
-        check(Quality.sight() == 64, "slow frames later on are still acted on");
+        check(Quality.scale() == 0.8f, "slow frames later on are still acted on");
         Quality.set(Quality.HIGH);
         Quality.set(Quality.AUTOMATIC);
         now = frames(now + 60 * SECOND, 100f, 2f);
         now = frames(now + 6 * SECOND, 100f, 2f);
-        check(Quality.sight() == 80, "one frame of six seconds among fast ones is a hitch and takes nothing down");
+        check(Quality.scale() == 1f, "one frame of six seconds among fast ones is a hitch and takes nothing down");
     }
 
     /** How long the next frame takes, by the mode's name ("Automatic (High)") and the nanoseconds since the pattern began. */
@@ -415,7 +416,7 @@ final class QualityTests {
         Quality.set(Quality.AUTOMATIC);
         List<String> down = playedFor(SECOND, 30f, level -> 20.0);
         check(down.equals(List.of("3 Medium", "8 Low", "13 Stock")), "at twenty frames a second it steps down a level every five seconds to Stock: " + down);
-        check(Quality.plain() && !Quality.gamesPlants() && Quality.drawn().equals(Quality.preset(Quality.LOW)),
+        check(Quality.plain() && Quality.gamesPlants() && Quality.drawn().equals(Quality.preset(Quality.LOW)),
                 "where it draws what the Low mode draws, the game's own look");
         List<String> up = playedFor(31 * SECOND, 600f, level -> 100.0);
         check(up.size() == 3 && up.get(0).endsWith("Low") && up.get(1).endsWith("Medium") && up.get(2).endsWith("High"),
@@ -482,11 +483,12 @@ final class QualityTests {
         check(text.replace("\r\n", "").indexOf('\n') < 0, "every line of install.cmd ends in CR LF");
     }
 
-    /** Every answer a graphics mode gives, as one line: the draw distance on foot and ahead of a vehicle among them. */
+    /** Every answer a graphics mode gives, as one line: the draw distance on foot and ahead of a vehicle among them, then the far trees and frame blending. */
     private static String answers() {
         return Quality.plain() + " " + Quality.gamesPlants() + " " + Quality.scale() + " " + Quality.shadowSize() + " " + Quality.sight() + " "
                 + reaches() + " " + Quality.glassRain() + " " + Quality.shadedAndLit() + " " + Quality.reflections() + " " + Quality.surfacesMirror() + " "
-                + Quality.smallerPictures() + " " + Quality.crownsToSight() + " " + Quality.relief() + " " + Quality.wholeFigureShadows() + " " + Quality.sightBehind();
+                + Quality.smallerPictures() + " " + Quality.crownsToSight() + " " + Quality.relief() + " " + Quality.wholeFigureShadows() + " " + Quality.sightBehind()
+                + " " + Quality.farTreeDistance() + " " + Quality.frameBlending();
     }
 
     /**
@@ -513,9 +515,9 @@ final class QualityTests {
 
     private static void customDrawsWhatEachPresetDrewFromItsRows() {
         String[] expected = {
-            "true false 0.62 2048 48 all/all 0 false true false true false false false 48",
-            "false true 0.8 2048 64 all/all 1 false true false true false false false 48",
-            "false false 1.0 4096 80 all/all 2 true true true false true true false 48",
+            "true true 0.62 2048 48 all/all 0 false true false true false false false 48 300 false",
+            "false false 0.8 2048 80 all/all 1 false true false true false false false 48 300 false",
+            "false false 1.0 4096 80 all/all 2 true true true false true true true 48 768 true",
         };
         for (int mode = Quality.LOW; mode <= Quality.HIGH; mode++) {
             Quality.set(mode);
@@ -535,21 +537,21 @@ final class QualityTests {
         Quality.custom(Quality.HIGH_PICTURE);
         Quality.set(Quality.CUSTOM);
         String high = answers();
-        double[] changed = {1, 0.7, 0, 40, 30, 50, 0, 0, 0, 0, 0, 0, 1};
+        double[] changed = {Quality.TREES_NEAR, 0.7, 0, 40, 30, 300, 0, 0, 0, 0, 0, 0, 0};
         String[] answer = {
-            "false true 1.0 4096 80 all/all 2 true true true false true true false 48",
-            "false false 0.7 4096 80 all/all 2 true true true false true true false 48",
-            "false false 1.0 2048 80 all/all 2 true true true false true true false 48",
-            "false false 1.0 4096 40 all/all 2 true true true false true true false 48",
-            "false false 1.0 4096 80 30/all 2 true true true false true true false 48",
-            "false false 1.0 4096 80 all/50 2 true true true false true true false 48",
-            "false false 1.0 4096 80 all/all 0 true true true false true true false 48",
-            "false false 1.0 4096 80 all/all 2 false true false false true true false 48",
-            "false false 1.0 4096 80 all/all 2 true false false false true true false 48",
-            "false false 1.0 4096 80 all/all 2 true true true true true true false 48",
-            "false false 1.0 4096 80 all/all 2 true true true false false true false 48",
-            "false false 1.0 4096 80 all/all 2 true true true false true false false 48",
-            "false false 1.0 4096 80 all/all 2 true true true false true true true 48",
+            "false false 1.0 4096 80 all/all 2 true true true false false true true 48 768 true",
+            "false false 0.7 4096 80 all/all 2 true true true false true true true 48 768 true",
+            "false false 1.0 2048 80 all/all 2 true true true false true true true 48 768 true",
+            "false false 1.0 4096 40 all/all 2 true true true false true true true 48 768 true",
+            "false false 1.0 4096 80 30/all 2 true true true false true true true 48 768 true",
+            "false false 1.0 4096 80 all/all 2 true true true false true true true 48 300 true",
+            "false false 1.0 4096 80 all/all 0 true true true false true true true 48 768 true",
+            "false false 1.0 4096 80 all/all 2 false true false false true true true 48 768 true",
+            "false false 1.0 4096 80 all/all 2 true false false false true true true 48 768 true",
+            "false false 1.0 4096 80 all/all 2 true true true true true true true 48 768 true",
+            "false false 1.0 4096 80 all/all 2 true true true false true false true 48 768 true",
+            "false false 1.0 4096 80 all/all 2 true true true false true true false 48 768 true",
+            "false false 1.0 4096 80 all/all 2 true true true false true true true 48 768 false",
         };
         for (int part = 0; part < Config.GRAPHICS.length; part++) {
             double[] values = Config.values(Quality.HIGH_PICTURE);
@@ -575,7 +577,7 @@ final class QualityTests {
         Quality.set(Quality.AUTOMATIC);
         check(Quality.custom().equals(mine), "and Low, Medium, High and Automatic leave Custom's rows as they were");
         Quality.set(Quality.CUSTOM);
-        check(Quality.sight() == 56 && Quality.gamesPlants() && Quality.drawn().equals(mine), "so back in Custom it is the player's own again");
+        check(Quality.sight() == 56 && !Quality.crownsToSight() && Quality.drawn().equals(mine), "so back in Custom it is the player's own again");
         Quality.set(Quality.HIGH);
         Quality.custom(Quality.HIGH_PICTURE);
         check(Quality.sight() == 80, "and rows given while another mode is drawn are kept for Custom and draw nothing yet");

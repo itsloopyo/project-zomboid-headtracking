@@ -294,7 +294,7 @@ final class Pipeline {
      * logic thread may change the mode between two passes of a frame.
      */
     private boolean shadedAndLit, surfacesMirror, reflections;
-    /** FrameBlending.on as the frame began: the row is read again while the game runs, and what one pass of a frame draws into the next reads. */
+    /** Quality.frameBlending as the frame began: the row is read again while the game runs, and what one pass of a frame draws into the next reads. */
     private boolean steadying;
 
     /**
@@ -839,7 +839,7 @@ final class Pipeline {
             shadedAndLit = Quality.shadedAndLit();
             surfacesMirror = Quality.surfacesMirror();
             reflections = Quality.reflections();
-            steadying = FrameBlending.on();
+            steadying = Quality.frameBlending();
             frameColor = sceneColor;
             SpriteColours.read(view.index);
             FineSkins.tend();
@@ -2199,10 +2199,10 @@ final class Pipeline {
     private static final int KINDS_EVERY = 120;
     private static final int GL_RGBA32F = 0x8814;
 
-    /** The trees beyond the loaded map, after the far land, to FarTreeDistance: see FarTrees. */
+    /** The trees beyond the loaded map, after the far land, to Quality.farTreeDistance: see FarTrees. */
     private void drawFarTrees(ViewCamera.Pose camera, SkyState state, float fogStart, float fogEnd) {
         FarTreeKinds kinds = FarLand.treeKinds;
-        int reach = FarTreeDistance.asked();
+        int reach = Quality.farTreeDistance();
         if (kinds == null || reach <= 0) {
             return;
         }

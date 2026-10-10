@@ -43,21 +43,21 @@ final class Config {
 
     /**
      * What the rows read again while the game runs hold: the field of view in degrees, Own's bits,
-     * the Quality row, the Style row, the HillHeight row, the FarTreeDistance row, the FrameBlending row, the MuzzleFlash row, the SplitScreen row and the rows of [Graphics].
+     * the Quality row, the Style row, the HillHeight row, the MuzzleFlash row, the SplitScreen row and the rows of [Graphics].
      */
-    record Live(float fieldOfView, int own, int quality, int style, float hillHeight, int farTreeDistance, boolean frameBlending, boolean muzzleFlash, int splitScreen,
+    record Live(float fieldOfView, int own, int quality, int style, float hillHeight, boolean muzzleFlash, int splitScreen,
             Quality.Picture custom) {}
 
     /** The keys of [Graphics], the Custom graphics mode, in the order of Quality.Picture's parts. */
-    static final String[] GRAPHICS = {"SpritePlants", "RenderScale", "SharpShadows", "ViewDistance", "ZombiesAndPropsDrawDistance",
-        "ForwardDrivingDrawDistance", "RainOnGlass", "ShadingAndLight", "Reflections", "FullSizeTextures", "FarTrees", "SurfaceDepth",
-        "WholeFigureShadows"};
+    static final String[] GRAPHICS = {"TreeQuality", "RenderScale", "SharpShadows", "ViewDistance", "ZombiesAndPropsDrawDistance",
+        "FarTreeDistance", "RainOnGlass", "ShadingAndLight", "Reflections", "FullSizeTextures", "SurfaceDepth", "WholeFigureShadows",
+        "FrameBlending"};
     private static final int RENDER_SCALE = 1;
     static final float MIN_RENDER_SCALE = 0.5f;
     static final int MIN_VIEW_DISTANCE = 32, MIN_DRAW_DISTANCE = 16;
 
     private final CameraUnlock core;
-    private final int fieldOfView, quality, style, hillHeight, farTreeDistance, frameBlending, muzzleFlash, splitScreen;
+    private final int fieldOfView, quality, style, hillHeight, muzzleFlash, splitScreen;
     /** The rows of the ports of players 2, 3 and 4. */
     private final int[] playerPorts = new int[PLAYER_PORT_ROWS.length];
     /** The rows of [Content], in the order of Own's bits. */
@@ -72,7 +72,7 @@ final class Config {
      * writable: their hotkeys save. There is no key that switches head tracking off: the
      * owner ruled the action out for this game, and the three keys there are are the game's own
      * rows on the nav keys alone (see cameraunlock-core's per_game). FieldOfView, Quality, Style,
-     * HillHeight, FarTreeDistance, FrameBlending, MuzzleFlash, SplitScreen and the rows of [Content] are the mod's own, and the ones read
+     * HillHeight, MuzzleFlash, SplitScreen and the rows of [Content] are the mod's own, and the ones read
      * again while the game runs, and so are the rows of [Graphics], which are what the Custom
      * graphics mode draws. They are writable too, and a writable row that is not a key
      * list is a setting on the game's options screen (OptionsPage). SecondPlayerUdpPort, ThirdPlayerUdpPort, FourthPlayerUdpPort, FirstPersonKey, CycleQualityKey,
@@ -123,7 +123,7 @@ final class Config {
         quality = core.configLocalEnum("General", "Quality",
                 "Graphics mode: Automatic, Low, Medium, High or Custom. Automatic draws less when the frame rate drops and more again\n"
                         + "when it recovers. Custom uses the rows of [Graphics].",
-                writable | live, Quality.words(), Quality.AUTOMATIC);
+                writable | live, Quality.words(), Quality.MEDIUM);
         style = core.configLocalEnum("General", "Style",
                 "Picture style: Vivid (strong contrast and colour), Natural (colours as lit, less contrast) or Bleak (washed out, near\n"
                         + "the game's own look).",
@@ -133,14 +133,6 @@ final class Config {
                 "How high the first person hills stand: 0 is as flat as the game's map, 1 as the mod makes them, up to " + HillHeight.MOST + ".\n"
                         + "Held at 1 where players can fight.",
                 writable | live, HillHeight.DEFAULT, 0f, HillHeight.MOST);
-        // Not a row of [Graphics] either: moving it leaves the graphics mode as it is.
-        farTreeDistance = core.configLocalInt("General", "FarTreeDistance",
-                "How far past the map the game has loaded trees are drawn in first person, in tiles: 0 (none) to " + FarTreeDistance.MOST + ".\n"
-                        + "Further costs more to draw.",
-                writable | live, FarTreeDistance.DEFAULT, 0, FarTreeDistance.MOST);
-        frameBlending = core.configLocalBool("General", "FrameBlending",
-                "true: each frame is blended with the one before, for smoother edges and leaves and a slightly softer picture.",
-                writable | live, false);
         muzzleFlash = core.configLocalBool("General", "MuzzleFlash",
                 "true: a shot from a firearm flashes at the muzzle and briefly lights what is near. Never in Low.",
                 writable | live, true);
@@ -149,9 +141,10 @@ final class Config {
                 writable | live, SplitScreen.words(), SplitScreen.VERTICAL);
         Quality.Picture high = Quality.HIGH_PICTURE;
         graphics = new int[] {
-            core.configLocalBool("Graphics", "SpritePlants",
-                    "true: grass, trees, bushes and rocks are the game's own sprites, which cost far less to draw. false: as OwnPlants says.",
-                    writable | live, high.spritePlants()),
+            core.configLocalEnum("Graphics", "TreeQuality",
+                    "Low: the game's plant sprites. Medium: the mod's trees, the game's sprites past " + (int) Crowns.REACH + " tiles.\n"
+                            + "High: the mod's trees as far as you see.",
+                    writable | live, Quality.TREE_QUALITIES, high.treeQuality()),
             core.configLocalFloat("Graphics", "RenderScale",
                     "Share of the window's resolution the first person picture is drawn at, each way: 0.5 to 1.",
                     writable | live, high.renderScale(), MIN_RENDER_SCALE, 1f),
@@ -165,10 +158,9 @@ final class Config {
                     "How far zombies, people, vehicles and the mod's furniture are drawn, in tiles: " + MIN_DRAW_DISTANCE + " to " + high.viewDistance()
                             + ", never past\nViewDistance. Where players can fight, everything is drawn.",
                     writable | live, high.drawDistance(), MIN_DRAW_DISTANCE, high.viewDistance()),
-            core.configLocalInt("Graphics", "ForwardDrivingDrawDistance",
-                    "The same, ahead of a vehicle you ride in, in tiles: " + MIN_DRAW_DISTANCE + " to " + high.viewDistance() + ". Where players can fight,\n"
-                            + "everything is drawn.",
-                    writable | live, high.drivingDrawDistance(), MIN_DRAW_DISTANCE, high.viewDistance()),
+            core.configLocalInt("Graphics", "FarTreeDistance",
+                    "How far past the loaded map trees are drawn, in tiles: 0 (none) to " + Quality.MOST_FAR_TREES + ".",
+                    writable | live, high.farTreeDistance(), 0, Quality.MOST_FAR_TREES),
             core.configLocalEnum("Graphics", "RainOnGlass",
                     "Rain on your vehicle's windows: Low (one size of drop), Medium (adds specks and trickles) or High (three sizes and\n"
                             + "running drops).",
@@ -184,10 +176,6 @@ final class Config {
             core.configLocalBool("Graphics", "FullSizeTextures",
                     "true: the mod's surface, wall and skin pictures at full size. false: half size, a quarter of the memory.",
                     writable | live, high.fullSizeTextures()),
-            core.configLocalBool("Graphics", "FarTrees",
-                    "true: every tree and bush is the mod's own as far as the view goes. false: past " + (int) Crowns.REACH + " tiles they are the game's\n"
-                            + "sprites.",
-                    writable | live, high.farTrees()),
             core.configLocalBool("Graphics", "SurfaceDepth",
                     "true: near surfaces are given the depth of what they show. false: they are drawn flat.",
                     writable | live, high.surfaceDepth()),
@@ -195,6 +183,9 @@ final class Config {
                     "true: what people and zombies wear and carry casts a shadow at any distance. false: past " + (int) CharacterDraw.SHADOW_WHOLE_WITHIN
                             + " tiles\nonly their bodies do, which costs less in a crowd.",
                     writable | live, high.wholeFigureShadows()),
+            core.configLocalBool("Graphics", "FrameBlending",
+                    "true: each frame is blended with the one before, for smoother edges and leaves and a slightly softer picture.",
+                    writable | live, high.frameBlending()),
         };
 
         core.configLocalHotkeyTaps("FirstPersonKey",
@@ -252,15 +243,10 @@ final class Config {
         });
         puts.put("Quality", value -> Quality.set((int) value));
         puts.put("Style", value -> Style.set((int) value));
-        puts.put("FarTreeDistance", value -> {
-            FarTreeDistance.set((int) value);
-            Log.info("far trees drawn to " + (int) value + " tiles");
-        });
         puts.put("HillHeight", value -> {
             HillHeight.set((float) value);
             Log.info("hill height set to " + (float) value);
         });
-        puts.put("FrameBlending", value -> FrameBlending.set(value != 0));
         puts.put("MuzzleFlash", value -> MuzzleFlash.set(value != 0));
         puts.put("SplitScreen", value -> SplitScreen.set((int) value));
         String[] ownKeys = {"OwnWeapons", "OwnFurniture", "OwnPictures", "OwnPlants", "OwnTextures", "OwnBuildings", "OwnZombies", "OwnPeople",
@@ -291,14 +277,14 @@ final class Config {
 
     /** A picture as the options of the rows of [Graphics] hold it, in the order of GRAPHICS. */
     static double[] values(Quality.Picture picture) {
-        return new double[] {bit(picture.spritePlants()), picture.renderScale(), bit(picture.sharpShadows()),
-            picture.viewDistance(), picture.drawDistance(), picture.drivingDrawDistance(), picture.rainOnGlass(), bit(picture.shadingAndLight()),
-            bit(picture.reflections()), bit(picture.fullSizeTextures()), bit(picture.farTrees()), bit(picture.surfaceDepth()), bit(picture.wholeFigureShadows())};
+        return new double[] {picture.treeQuality(), picture.renderScale(), bit(picture.sharpShadows()), picture.viewDistance(),
+            picture.drawDistance(), picture.farTreeDistance(), picture.rainOnGlass(), bit(picture.shadingAndLight()), bit(picture.reflections()),
+            bit(picture.fullSizeTextures()), bit(picture.surfaceDepth()), bit(picture.wholeFigureShadows()), bit(picture.frameBlending())};
     }
 
     /** The picture the options of the rows of [Graphics] hold, in the order of GRAPHICS: Custom always draws what the mod made. */
     static Quality.Picture picture(double[] values) {
-        return new Quality.Picture(false, values[0] != 0, (float) values[1], values[2] != 0, (int) Math.rint(values[3]),
+        return new Quality.Picture(false, (int) Math.rint(values[0]), (float) values[1], values[2] != 0, (int) Math.rint(values[3]),
                 (int) Math.rint(values[4]), (int) Math.rint(values[5]), (int) Math.rint(values[6]), values[7] != 0, values[8] != 0,
                 values[9] != 0, values[10] != 0, values[11] != 0, values[12] != 0);
     }
@@ -339,7 +325,7 @@ final class Config {
             custom[part] = part == RENDER_SCALE ? core.configGetFloat(graphics[part]) : core.configGetInt(graphics[part]);
         }
         return new Live(core.configGetFloat(fieldOfView), rows, core.configGetInt(quality), core.configGetInt(style),
-                core.configGetFloat(hillHeight), core.configGetInt(farTreeDistance), core.configGetInt(frameBlending) != 0, core.configGetInt(muzzleFlash) != 0, core.configGetInt(splitScreen), picture(custom));
+                core.configGetFloat(hillHeight), core.configGetInt(muzzleFlash) != 0, core.configGetInt(splitScreen), picture(custom));
     }
 
     /**

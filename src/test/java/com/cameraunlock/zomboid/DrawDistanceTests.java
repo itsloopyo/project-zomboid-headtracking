@@ -1,13 +1,13 @@
 package com.cameraunlock.zomboid;
 
-/** How far off people, zombies, vehicles and props are drawn: the two draw distance rows of [Graphics]. */
+/** How far off people, zombies, vehicles and props are drawn: the draw distance row of [Graphics]. */
 final class DrawDistanceTests {
     private DrawDistanceTests() {}
 
     static void run() {
         Checks.run("theDrawDistanceNeverReachesPastTheViewDistance", DrawDistanceTests::theDrawDistanceNeverReachesPastTheViewDistance);
         Checks.run("onFootTheDrawDistanceIsAllRound", DrawDistanceTests::onFootTheDrawDistanceIsAllRound);
-        Checks.run("aheadOfARideTheForwardDrivingDistanceCounts", DrawDistanceTests::aheadOfARideTheForwardDrivingDistanceCounts);
+        Checks.run("aheadOfARideTheViewDistanceCounts", DrawDistanceTests::aheadOfARideTheViewDistanceCounts);
         Checks.run("whereThePlayersCanFightNothingIsLeftOut", DrawDistanceTests::whereThePlayersCanFightNothingIsLeftOut);
         Checks.run("theGamesOwnViewLeavesNothingOut", DrawDistanceTests::theGamesOwnViewLeavesNothingOut);
         Quality.custom(Quality.HIGH_PICTURE);
@@ -18,12 +18,11 @@ final class DrawDistanceTests {
         Checks.check(condition, what);
     }
 
-    /** Custom, drawn with High's picture but for the view distance and the two draw distances. */
-    private static void custom(int viewDistance, int drawDistance, int drivingDrawDistance) {
+    /** Custom, drawn with High's picture but for the view distance and the draw distance. */
+    private static void custom(int viewDistance, int drawDistance) {
         double[] values = Config.values(Quality.HIGH_PICTURE);
         values[Config.graphicsPart("ViewDistance")] = viewDistance;
         values[Config.graphicsPart("ZombiesAndPropsDrawDistance")] = drawDistance;
-        values[Config.graphicsPart("ForwardDrivingDrawDistance")] = drivingDrawDistance;
         Quality.custom(Config.picture(values));
         Quality.set(Quality.CUSTOM);
     }
@@ -34,39 +33,35 @@ final class DrawDistanceTests {
                 "at the view distance or over it nothing is left out but what the view distance leaves out");
         for (int mode = Quality.LOW; mode <= Quality.HIGH; mode++) {
             Quality.Picture preset = Quality.preset(mode);
-            check(preset.drawDistance() == preset.viewDistance() && preset.drivingDrawDistance() == preset.viewDistance(),
+            check(preset.drawDistance() == preset.viewDistance(),
                     "each preset draws people and props as far as its view goes, as it always has: " + preset);
         }
-        custom(48, 80, 80);
+        custom(48, 80);
         DrawDistance reach = new DrawDistance();
         reach.take(0f, 0f, 1f, 0f, false);
         check(reach.draws(0f, 79f) && reach.draws(79f, 0f), "rows over a short view distance leave nothing out, which the view distance ends anyway");
     }
 
     private static void onFootTheDrawDistanceIsAllRound() {
-        custom(80, 20, 60);
+        custom(80, 20);
         DrawDistance reach = new DrawDistance();
         reach.take(100f, 200f, 0f, 0f, false);
         check(reach.draws(120f, 200f) && reach.draws(100f, 180f) && reach.draws(86f, 214f), "on foot what is within the draw distance any way round is drawn");
-        check(!reach.draws(121f, 200f) && !reach.draws(100f, 179f) && !reach.draws(85f, 215f), "and nothing further off, whatever the forward driving distance");
+        check(!reach.draws(121f, 200f) && !reach.draws(100f, 179f) && !reach.draws(85f, 215f), "and nothing further off");
     }
 
-    private static void aheadOfARideTheForwardDrivingDistanceCounts() {
-        custom(80, 20, 60);
+    private static void aheadOfARideTheViewDistanceCounts() {
+        custom(80, 20);
         DrawDistance reach = new DrawDistance();
         // A vehicle facing along +y, south on the map.
         reach.take(100f, 200f, 0f, 1f, false);
-        check(reach.draws(100f, 260f) && !reach.draws(100f, 261f), "on the side a ridden vehicle faces, the forward driving distance");
-        check(reach.draws(130f, 240f) && !reach.draws(140f, 250f), "however far to the side of straight ahead");
+        check(reach.draws(100f, 279f) && reach.draws(150f, 260f), "on the side a ridden vehicle faces, nothing is left out that the view distance keeps");
         check(reach.draws(100f, 180f) && !reach.draws(100f, 179f), "behind it the draw distance");
         check(reach.draws(120f, 200f) && !reach.draws(121f, 200f), "and square beside it too");
-        custom(80, 60, 20);
-        reach.take(100f, 200f, 0f, 1f, false);
-        check(reach.draws(100f, 220f) && !reach.draws(100f, 221f) && reach.draws(100f, 140f), "a forward distance shorter than the other is kept to as well");
     }
 
     private static void whereThePlayersCanFightNothingIsLeftOut() {
-        custom(80, 20, 20);
+        custom(80, 20);
         DrawDistance reach = new DrawDistance();
         Servers.in(Servers.Where.FRIENDLY, () -> {
             reach.take(0f, 0f, 0f, 0f, Online.contested());
@@ -81,7 +76,7 @@ final class DrawDistanceTests {
     }
 
     private static void theGamesOwnViewLeavesNothingOut() {
-        custom(80, 16, 16);
+        custom(80, 16);
         DrawDistance reach = new DrawDistance();
         reach.take(0f, 0f, 0f, 0f, false);
         DrawDistance frame = new DrawDistance();

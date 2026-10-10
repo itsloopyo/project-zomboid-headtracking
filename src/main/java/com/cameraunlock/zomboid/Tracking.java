@@ -159,14 +159,11 @@ final class Tracking {
         Quality.set(live.quality());
         Style.set(live.style());
         HillHeight.set(live.hillHeight());
-        FarTreeDistance.set(live.farTreeDistance());
-        FrameBlending.set(live.frameBlending());
         MuzzleFlash.set(live.muzzleFlash());
         SplitScreen.set(live.splitScreen());
         FieldOfView.set(live.fieldOfView());
         Log.info("the mod's own in first person: " + Own.described(Own.rows()));
         Log.info("hill height " + HillHeight.asked());
-        Log.info("far trees drawn to " + FarTreeDistance.asked() + " tiles");
         Log.info("first person field of view set to " + FieldOfView.degrees() + " degrees vertical");
         Log.info("head tracking " + (enabled ? "on" : "off") + ", " + TRACKING_MODE_LABEL[trackingMode] + ", yaw about "
                 + (worldYaw ? "straight up" : "the view's own up") + ", " + aimModeLabel());
@@ -213,7 +210,7 @@ final class Tracking {
         core.viewLean(view, found, out);
     }
 
-    /** FieldOfView, Quality, Style, HillHeight, FrameBlending, MuzzleFlash, SplitScreen and the rows of [Content] and [Graphics] are the settings read again while the game runs: every other row is read at the start. */
+    /** FieldOfView, Quality, Style, HillHeight, MuzzleFlash, SplitScreen and the rows of [Content] and [Graphics] are the settings read again while the game runs: every other row is read at the start. */
     static void watchSettings() {
         try {
             Config.Live live = config.reload();
@@ -252,11 +249,6 @@ final class Tracking {
             HillHeight.set(live.hillHeight());
             Log.info(Config.FILE_NAME + " changed: hill height set to " + live.hillHeight());
         }
-        if (live.farTreeDistance() != FarTreeDistance.asked()) {
-            FarTreeDistance.set(live.farTreeDistance());
-            Log.info(Config.FILE_NAME + " changed: far trees drawn to " + live.farTreeDistance() + " tiles");
-        }
-        FrameBlending.set(live.frameBlending());
         MuzzleFlash.set(live.muzzleFlash());
         SplitScreen.set(live.splitScreen());
         if (live.own() != Own.rows()) {

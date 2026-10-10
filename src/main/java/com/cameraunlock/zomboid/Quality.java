@@ -5,11 +5,11 @@ import java.util.Locale;
 
 /**
  * How much the first person picture costs to draw: the Quality row of CameraUnlock.ini. High
- * is the whole picture. Medium and Low draw it with fewer pixels, shorter sight, smaller
+ * is the whole picture. Medium and Low draw it with fewer pixels, cheaper trees, smaller
  * shadow maps and without the passes that shade corners, light the air, mirror and give
- * surfaces depth, for a graphics card that cannot keep up with the whole of it. A vehicle's
- * mirror shows Low's picture in every mode where it shows one. Automatic, which a first start
- * is in, begins at High, steps down while the picture is drawn too slowly and back up while it
+ * surfaces depth, for a graphics card that cannot keep up with the whole of it, and Low with
+ * shorter sight. A vehicle's mirror shows Low's picture in every mode where it shows one.
+ * Medium is the mode a first start is in. Automatic begins at High, steps down while the picture is drawn too slowly and back up while it
  * is drawn with room to spare: see frame. It judges the picture by the frames the player sees
  * in a stretch of time, frames over wall time, with one thing cut out: a single unbroken run
  * of stalled frames in the stretch that is a save or a load and not the picture: a frame or
@@ -30,30 +30,36 @@ final class Quality {
 
     /**
      * What a mode draws. Low, Medium and High are each one of these, Automatic is High's, Medium's
-     * or Low's with neither of the first two, and Custom is what the rows of [Graphics] hold.
+     * or Low's without the game's own look and with the mod's trees, and Custom is what the rows of [Graphics] hold.
      *
      * @param stockLook        see plain
-     * @param spritePlants     see gamesPlants
+     * @param treeQuality      TREES_SPRITES, TREES_NEAR or TREES_TO_SIGHT: see gamesPlants and crownsToSight
      * @param renderScale      see scale
      * @param sharpShadows     shadow maps 4096 texels across, where they are otherwise 2048
      * @param viewDistance     see sight
      * @param drawDistance     how far off people, zombies, vehicles and the furniture the mod has models of are drawn, in tiles: see DrawDistance
-     * @param drivingDrawDistance the same ahead of a vehicle the viewer rides in
+     * @param farTreeDistance  see farTreeDistance
      * @param rainOnGlass      see glassRain
      * @param shadingAndLight  see shadedAndLit
      * @param reflections      see reflections and surfacesMirror
      * @param fullSizeTextures the opposite of smallerPictures
-     * @param farTrees         see crownsToSight
      * @param surfaceDepth     see relief
      * @param wholeFigureShadows see wholeFigureShadows
+     * @param frameBlending    see frameBlending
      */
-    record Picture(boolean stockLook, boolean spritePlants, float renderScale, boolean sharpShadows, int viewDistance, int drawDistance,
-            int drivingDrawDistance, int rainOnGlass, boolean shadingAndLight, boolean reflections, boolean fullSizeTextures, boolean farTrees,
-            boolean surfaceDepth, boolean wholeFigureShadows) {}
+    record Picture(boolean stockLook, int treeQuality, float renderScale, boolean sharpShadows, int viewDistance, int drawDistance,
+            int farTreeDistance, int rainOnGlass, boolean shadingAndLight, boolean reflections, boolean fullSizeTextures, boolean surfaceDepth,
+            boolean wholeFigureShadows, boolean frameBlending) {}
 
-    static final Picture LOW_PICTURE = new Picture(true, false, 0.62f, false, 48, 48, 48, 0, false, true, false, false, false, false);
-    static final Picture MEDIUM_PICTURE = new Picture(false, true, 0.8f, false, 64, 64, 64, 1, false, true, false, false, false, false);
-    static final Picture HIGH_PICTURE = new Picture(false, false, 1f, true, 80, 80, 80, 2, true, true, true, true, true, false);
+    /** The TreeQuality row's words by number: the game's sprites, the mod's crowns within Crowns.REACH, the mod's crowns as far as the view goes. */
+    static final int TREES_SPRITES = 0, TREES_NEAR = 1, TREES_TO_SIGHT = 2;
+    static final String TREE_QUALITIES = "Low,Medium,High";
+    /** How far the trees beyond the loaded map can be drawn, in tiles: the far land reaches no further. */
+    static final int MOST_FAR_TREES = (int) FarLand.REACH;
+
+    static final Picture LOW_PICTURE = new Picture(true, TREES_SPRITES, 0.62f, false, 48, 48, 300, 0, false, true, false, false, false, false);
+    static final Picture MEDIUM_PICTURE = new Picture(false, TREES_NEAR, 0.8f, false, 80, 80, 300, 1, false, true, false, false, false, false);
+    static final Picture HIGH_PICTURE = new Picture(false, TREES_TO_SIGHT, 1f, true, 80, 80, MOST_FAR_TREES, 2, true, true, true, true, true, true);
     /**
      * Automatic's levels, cheapest first. STOCK is the Low mode's picture, the game's own look;
      * the three above it are Low's, Medium's and High's cost, still with everything the mod made.
@@ -180,17 +186,18 @@ final class Quality {
     }
 
     private static Picture automatic(Picture at) {
-        return new Picture(false, false, at.renderScale, at.sharpShadows, at.viewDistance, at.drawDistance, at.drivingDrawDistance, at.rainOnGlass,
-                at.shadingAndLight, at.reflections, at.fullSizeTextures, at.farTrees, at.surfaceDepth, at.wholeFigureShadows);
+        return new Picture(false, Math.max(at.treeQuality, TREES_NEAR), at.renderScale, at.sharpShadows, at.viewDistance, at.drawDistance,
+                at.farTreeDistance, at.rainOnGlass, at.shadingAndLight, at.reflections, at.fullSizeTextures, at.surfaceDepth, at.wholeFigureShadows,
+                at.frameBlending);
     }
 
     static String described(Picture picture) {
-        return String.format(Locale.ROOT, "stock look %b, sprite plants %b, render scale %.2f, sharp shadows %b, view distance %d, "
-                        + "zombies and props draw distance %d, forward driving draw distance %d, rain on glass %d, shading and light %b, reflections %b, "
-                        + "full size textures %b, far trees %b, surface depth %b, whole figure shadows %b",
-                picture.stockLook, picture.spritePlants, picture.renderScale, picture.sharpShadows, picture.viewDistance, picture.drawDistance,
-                picture.drivingDrawDistance, picture.rainOnGlass, picture.shadingAndLight, picture.reflections, picture.fullSizeTextures, picture.farTrees,
-                picture.surfaceDepth, picture.wholeFigureShadows);
+        return String.format(Locale.ROOT, "stock look %b, tree quality %d, render scale %.2f, sharp shadows %b, view distance %d, "
+                        + "zombies and props draw distance %d, far tree distance %d, rain on glass %d, shading and light %b, reflections %b, "
+                        + "full size textures %b, surface depth %b, whole figure shadows %b, frame blending %b",
+                picture.stockLook, picture.treeQuality, picture.renderScale, picture.sharpShadows, picture.viewDistance, picture.drawDistance,
+                picture.farTreeDistance, picture.rainOnGlass, picture.shadingAndLight, picture.reflections, picture.fullSizeTextures,
+                picture.surfaceDepth, picture.wholeFigureShadows, picture.frameBlending);
     }
 
     /** The mode the hotkey goes to from the one the session is in: Automatic, Low, Medium, High, Custom and round again. */
@@ -237,12 +244,11 @@ final class Quality {
     }
 
     /**
-     * Whether the picture is Medium's, or Custom's with SpritePlants, where grass, trees, bushes
-     * and rocks are the game's own sprites: the mod's are the dearest thing in the picture to
-     * draw. Automatic come down to Medium's level keeps the mod's.
+     * Whether grass, trees, bushes and rocks are the game's own sprites, TreeQuality at Low: the
+     * mod's are the dearest thing in the picture to draw. Automatic keeps the mod's at every level.
      */
     static boolean gamesPlants() {
-        return drawn.spritePlants;
+        return drawn.treeQuality == TREES_SPRITES;
     }
 
     /**
@@ -444,11 +450,27 @@ final class Quality {
 
     /**
      * Whether a tree or a bush is the mod's own, a crown of sprigs on a round bole, as far as the
-     * view is built. Below High one further off than Crowns.REACH is the game's sprite
-     * on a fan of cards, which costs less to build and draw and changes to a crown as the eye nears it.
+     * view is built: TreeQuality at High. Otherwise one further off than Crowns.REACH is the game's
+     * sprite on a fan of cards, which costs less to build and draw and changes to a crown as the eye nears it.
      */
     static boolean crownsToSight() {
-        return drawn.farTrees;
+        return drawn.treeQuality == TREES_TO_SIGHT;
+    }
+
+    /**
+     * How far from the eye the trees beyond the loaded map stand, in tiles, 0 for none. They stand
+     * only where the game has no map loaded, where nobody is drawn, so they hide no one from anyone.
+     */
+    static int farTreeDistance() {
+        return drawn.farTreeDistance;
+    }
+
+    /**
+     * Whether each frame of the first person picture is mixed with the one before it: what changes
+     * from frame to frame is steadied and the whole picture is a little softer.
+     */
+    static boolean frameBlending() {
+        return drawn.frameBlending;
     }
 
     /** Whether near surfaces are given the depth of what they show. */

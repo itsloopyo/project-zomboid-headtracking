@@ -13,7 +13,7 @@ final class OwnTests {
             aSwitchedRowHasEachViewsWorldBuiltAgain();
             theLowGraphicsModeShowsNothingOfTheModsOwn();
             theArmsOnAHeldWeaponGoByTheirRowInEveryMode();
-            customsSpritePlantsAreMediums();
+            customsLowTreeQualityHasTheGamesPlants();
             paintedLinesGoByTheFilesRowOutsideLow();
             nothingOfTheModsOwnIsShownBeforeItsPicturesAreMade();
         } finally {
@@ -89,26 +89,26 @@ final class OwnTests {
         Quality.set(Quality.AUTOMATIC);
         check(Own.plants() && Own.people() && Own.taken(0), "Automatic shows all of it again");
         Quality.set(Quality.MEDIUM);
-        check(!Own.plants() && Own.furniture() && Own.textures() && Own.buildings() && Own.people() && Own.taken(0),
-                "Medium shows all of it but the plants, which are the game's, and has the world built again");
+        check(Own.plants() && Own.furniture() && Own.textures() && Own.buildings() && Own.people() && !Own.taken(0),
+                "Medium shows all of it, its trees cheaper, and leaves the world as Automatic built it");
         check(Quality.next() == Quality.HIGH, "the hotkey goes from Medium to High");
         Quality.set(Quality.HIGH);
-        check(Own.plants() && Own.taken(0), "High has the mod's plants back");
+        check(Own.plants() && !Own.taken(0), "High shows the same of it, with no build again");
         check(Quality.next() == Quality.CUSTOM, "from High to Custom");
         Quality.set(Quality.LOW);
         check(Quality.next() == Quality.MEDIUM, "and from Low to Medium");
     }
 
-    private static void customsSpritePlantsAreMediums() {
+    private static void customsLowTreeQualityHasTheGamesPlants() {
         Own.set(Own.ALL);
         Quality.custom(Quality.HIGH_PICTURE);
         Quality.set(Quality.CUSTOM);
         Own.taken(0);
         check(Own.plants() && Own.textures() && Own.paint(), "Custom with High's rows shows all of the mod's own");
         double[] values = Config.values(Quality.HIGH_PICTURE);
-        values[0] = 1;
+        values[Config.graphicsPart("TreeQuality")] = Quality.TREES_SPRITES;
         Quality.custom(Config.picture(values));
-        check(!Own.plants() && Own.furniture() && Own.taken(0) && !Own.taken(0), "SpritePlants has the plants the game's, as Medium does, and the world built again once");
+        check(!Own.plants() && Own.furniture() && Own.taken(0) && !Own.taken(0), "TreeQuality at Low has the plants the game's, and the world built again once");
         Quality.custom(Quality.HIGH_PICTURE);
         Quality.set(Quality.HIGH);
         Own.taken(0);

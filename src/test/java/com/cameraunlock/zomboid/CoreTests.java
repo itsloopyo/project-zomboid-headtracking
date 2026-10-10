@@ -103,7 +103,7 @@ public final class CoreTests {
         Checks.run("customKeepsItsRowsThroughTheOtherModes", CoreTests::customKeepsItsRowsThroughTheOtherModes);
         Checks.run("theHeightOfTheHillsIsASliderThatLeavesTheGraphicsModeAsItIs", CoreTests::theHeightOfTheHillsIsASliderThatLeavesTheGraphicsModeAsItIs);
         Checks.run("aGraphicsRowEditedInTheFileGoesToCustom", CoreTests::aGraphicsRowEditedInTheFileGoesToCustom);
-        Checks.run("theDrawDistancesAndReflectionsGoToCustomAsTheOtherRowsDo", CoreTests::theDrawDistancesAndReflectionsGoToCustomAsTheOtherRowsDo);
+        Checks.run("theDrawDistanceFarTreesAndReflectionsGoToCustomAsTheOtherRowsDo", CoreTests::theDrawDistanceFarTreesAndReflectionsGoToCustomAsTheOtherRowsDo);
         Checks.run("aRowChangedInAutomaticStartsCustomFromItsLevelAndNeverFromStock", CoreTests::aRowChangedInAutomaticStartsCustomFromItsLevelAndNeverFromStock);
         Checks.run("gameRunsUnmoddedBesideALibraryOfAnotherBuild", CoreTests::gameRunsUnmoddedBesideALibraryOfAnotherBuild);
         Checks.tally();
@@ -124,7 +124,7 @@ public final class CoreTests {
     /** What a start left the session and the mod's own settings on, as one line. */
     private static String started() {
         return headTracking.describe() + " | field of view " + FieldOfView.degrees() + " | own " + Own.described(Own.rows()) + " | graphics "
-                + Quality.name() + " | style " + Style.current().label + " | frame blending " + FrameBlending.on();
+                + Quality.name() + " | style " + Style.current().label + " | frame blending " + Quality.frameBlending();
     }
 
     private static String java() {
@@ -231,8 +231,8 @@ public final class CoreTests {
         String start = started();
         check(start.contains("tracking idle mode rotation and position yaw about world up") && start.contains("Aim mode: sights locked"),
                 "with tracking on, rotation and position, yaw about straight up, sights locked: " + start);
-        check(start.endsWith("field of view 65.0 | own " + Own.described(Own.ALL) + " | graphics Automatic (High) | style Vivid | frame blending false"),
-                "65 degrees, everything of the mod's own on, the Automatic graphics mode beginning at High, the Vivid style, no frame blending: " + start);
+        check(start.endsWith("field of view 65.0 | own " + Own.described(Own.ALL) + " | graphics Medium | style Vivid | frame blending false"),
+                "65 degrees, everything of the mod's own on, the Medium graphics mode, the Vivid style, no frame blending: " + start);
         check(Tracking.lightMultiplier() == 1.5f, "and the light turned one and a half times the head");
         check(Integer.bitCount(Config.CYCLE_TRACKING_MODE | Config.YAW_MODE | Config.AIM_MODE | Config.FIRST_PERSON
                         | Config.CYCLE_QUALITY | Config.CYCLE_STYLE | Config.SPLIT_SCREEN | Config.FIRST_PERSON_SECOND | Config.FIRST_PERSON_ALL) == 9,
@@ -519,9 +519,13 @@ public final class CoreTests {
         check(saved("TrueFreeLook=false", "FreeLookMarker=false", "StockSights=true"), "saved");
 
         Tracking.cycleGraphicsMode();
-        check(Quality.name().equals("Low") && saved("Quality=Low"), "the graphics mode's action goes from Automatic to Low and saves it");
+        check(Quality.name().equals("High") && saved("Quality=High"), "the graphics mode's action goes from Medium to High and saves it");
         Tracking.cycleGraphicsMode();
-        check(Quality.name().equals("Medium") && saved("Quality=Medium"), "and on to Medium");
+        Tracking.cycleGraphicsMode();
+        Tracking.cycleGraphicsMode();
+        check(Quality.name().equals("Low") && saved("Quality=Low"), "on through Custom and Automatic to Low");
+        Tracking.cycleGraphicsMode();
+        check(Quality.name().equals("Medium") && saved("Quality=Medium"), "and round to Medium");
         Tracking.cycleStyle();
         check(Style.current() == Style.NATURAL && saved("Style=Natural"), "the picture style's action goes to Natural and saves it");
         check(SplitScreen.row() == SplitScreen.VERTICAL && holds("SplitScreen=Vertical") && holds("SplitScreenKey=F7"), "two players start side by side, with F7 to turn them");
@@ -580,19 +584,19 @@ public final class CoreTests {
         String saved = text();
         edit(saved.replace("FieldOfView=65.0", "FieldOfView=90").replace("OwnWeapons=true", "OwnWeapons=false")
                 .replace("OwnPlants=true", "OwnPlants=false").replace("Quality=Medium", "Quality=High").replace("Style=Natural", "Style=Bleak")
-                .replace("FrameBlending=false", "FrameBlending=true").replace("MuzzleFlash=true", "MuzzleFlash=false").replace("SplitScreen=Horizontal", "SplitScreen=Vertical").replace("UdpPort=default", "UdpPort=5555")
+                .replace("MuzzleFlash=true", "MuzzleFlash=false").replace("SplitScreen=Horizontal", "SplitScreen=Vertical").replace("UdpPort=default", "UdpPort=5555")
                 .replace("HillHeight=1.0", "HillHeight=0.25"));
         Tracking.watchSettings();
         check(FieldOfView.degrees() == 90f, "an edited field of view is read while the game runs");
         check(HillHeight.asked() == 0.25f, "and the height of the hills: " + HillHeight.asked());
         check(Own.rows() == (Own.ALL & ~Own.WEAPONS & ~Own.PLANTS), "rows of [Content] switched off are, and the rest stay on: " + Own.described(Own.rows()));
-        check(Quality.name().equals("High") && Style.current() == Style.BLEAK && FrameBlending.on(), "and the graphics mode, the picture style and frame blending");
+        check(Quality.name().equals("High") && Style.current() == Style.BLEAK, "and the graphics mode and the picture style");
         check(SplitScreen.row() == SplitScreen.VERTICAL, "and how two players share the screen");
         check(!MuzzleFlash.on(), "and the muzzle flash switched off");
         edit(saved.replace("OwnArms=true", "OwnArms=false"));
         Tracking.watchSettings();
         check(FieldOfView.degrees() == 65f && Own.rows() == (Own.ALL & ~Own.ARMS) && Quality.name().equals("Medium") && Style.current() == Style.NATURAL
-                        && !FrameBlending.on() && MuzzleFlash.on() && SplitScreen.row() == SplitScreen.HORIZONTAL && HillHeight.asked() == 1f,
+                        && MuzzleFlash.on() && SplitScreen.row() == SplitScreen.HORIZONTAL && HillHeight.asked() == 1f,
                 "set back, they are as they were, and the arms row switched off is that row and no other: " + Own.described(Own.rows()));
         Tracking.cycleStyle();
         check(Style.current() == Style.BLEAK, "a save after an edit still saves");
@@ -620,14 +624,13 @@ public final class CoreTests {
         for (CameraUnlock.Option option : options) {
             ids.append(option.id).append(' ');
         }
-        check(ids.toString().equals("WorldSpaceYaw TrackingMode AimMode FieldOfView Quality Style HillHeight FarTreeDistance FrameBlending MuzzleFlash SplitScreen SpritePlants "
-                        + "RenderScale SharpShadows ViewDistance ZombiesAndPropsDrawDistance ForwardDrivingDrawDistance RainOnGlass ShadingAndLight Reflections "
-                        + "FullSizeTextures FarTrees SurfaceDepth WholeFigureShadows OwnWeapons OwnFurniture "
+        check(ids.toString().equals("WorldSpaceYaw TrackingMode AimMode FieldOfView Quality Style HillHeight MuzzleFlash SplitScreen TreeQuality "
+                        + "RenderScale SharpShadows ViewDistance ZombiesAndPropsDrawDistance FarTreeDistance RainOnGlass ShadingAndLight Reflections "
+                        + "FullSizeTextures SurfaceDepth WholeFigureShadows FrameBlending OwnWeapons OwnFurniture "
                         + "OwnPictures OwnPlants OwnTextures OwnBuildings OwnZombies OwnPeople OwnArms OwnClothes "),
                 "the game's options screen is given the modes, the yaw mode and the mod's own rows, and no key list or port: " + ids);
         int fov = optionNamed(options, "FieldOfView"), yaw = optionNamed(options, "WorldSpaceYaw"), tracking = optionNamed(options, "TrackingMode"),
-                aim = optionNamed(options, "AimMode"), arms = optionNamed(options, "OwnArms"), blending = optionNamed(options, "FrameBlending"),
-                flash = optionNamed(options, "MuzzleFlash");
+                aim = optionNamed(options, "AimMode"), arms = optionNamed(options, "OwnArms"), flash = optionNamed(options, "MuzzleFlash");
         boolean taken = true;
         for (CameraUnlock.Option option : options) {
             taken &= Tracking.takes(option);
@@ -637,21 +640,21 @@ public final class CoreTests {
                         && options[fov].label.equals("Field of view") && options[aim].source == CameraUnlock.OPTION_AIM_MODE,
                 "the field of view is a slider from 40 to 110 in whole degrees");
         check(Tracking.optionValue(fov) == FieldOfView.degrees() && Tracking.optionValue(aim) == Tracking.aimMode()
-                        && (Tracking.optionValue(yaw) != 0) == Tracking.worldYaw() && (Tracking.optionValue(blending) != 0) == FrameBlending.on()
+                        && (Tracking.optionValue(yaw) != 0) == Tracking.worldYaw()
                         && (Tracking.optionValue(flash) != 0) == MuzzleFlash.on() && options[flash].label.equals("Muzzle flash"),
                 "each reads as the session has it");
         check(options[arms].kind == CameraUnlock.OPTION_BOOL && options[arms].label.equals("Own arms") && options[arms].comment.contains("held weapon")
                         && options[arms].comment.contains("mod that changes the arms or the weapons"),
                 "the arms are a tick box whose tooltip says what they are and what they are off for: " + options[arms].label);
 
-        boolean world = !Tracking.worldYaw(), blended = !FrameBlending.on(), flashed = !MuzzleFlash.on(), ownArms = (Own.rows() & Own.ARMS) == 0;
-        int[] applied = {fov, yaw, tracking, aim, arms, blending, flash};
-        double[] values = {72, world ? 1 : 0, CameraUnlock.TRACKING_POSITION_ONLY, CameraUnlock.AIM_STOCK_SIGHTS, ownArms ? 1 : 0, blended ? 1 : 0, flashed ? 1 : 0};
+        boolean world = !Tracking.worldYaw(), flashed = !MuzzleFlash.on(), ownArms = (Own.rows() & Own.ARMS) == 0;
+        int[] applied = {fov, yaw, tracking, aim, arms, flash};
+        double[] values = {72, world ? 1 : 0, CameraUnlock.TRACKING_POSITION_ONLY, CameraUnlock.AIM_STOCK_SIGHTS, ownArms ? 1 : 0, flashed ? 1 : 0};
         for (int i = 0; i < applied.length; i++) {
             Tracking.applyOption(applied[i], options[applied[i]], values[i]);
         }
         check(FieldOfView.degrees() == 72f && Tracking.worldYaw() == world && Tracking.aimMode() == CameraUnlock.AIM_STOCK_SIGHTS
-                        && Tracking.trackingModeLabel().equals("position only") && ((Own.rows() & Own.ARMS) != 0) == ownArms && FrameBlending.on() == blended
+                        && Tracking.trackingModeLabel().equals("position only") && ((Own.rows() & Own.ARMS) != 0) == ownArms
                         && MuzzleFlash.on() == flashed,
                 "what is applied there the session takes at once, before any of it is saved: " + started());
         Tracking.toggleWorldYaw();
@@ -659,10 +662,10 @@ public final class CoreTests {
         check(Tracking.worldYaw() == !world, "a key pressed straight after is not undone by the saves that follow");
         Tracking.toggleWorldYaw();
         check(saved("FieldOfView=72.0", "WorldSpaceYaw=" + world, "RotationEnabled=false", "PositionEnabled=true", "StockSights=true",
-                        "OwnArms=" + ownArms, "FrameBlending=" + blended, "MuzzleFlash=" + flashed),
+                        "OwnArms=" + ownArms, "MuzzleFlash=" + flashed),
                 "what is applied there is saved as its row, or the rows of its mode");
         check(FieldOfView.degrees() == 72f && Tracking.worldYaw() == world && Tracking.aimMode() == CameraUnlock.AIM_STOCK_SIGHTS
-                        && Tracking.trackingModeLabel().equals("position only") && ((Own.rows() & Own.ARMS) != 0) == ownArms && FrameBlending.on() == blended
+                        && Tracking.trackingModeLabel().equals("position only") && ((Own.rows() & Own.ARMS) != 0) == ownArms
                         && MuzzleFlash.on() == flashed,
                 "and the session still runs on it once the saves are made: " + started());
         check(Tracking.optionValue(fov) == 72 && Tracking.optionValue(tracking) == CameraUnlock.TRACKING_POSITION_ONLY,
@@ -813,7 +816,7 @@ public final class CoreTests {
         check(saved("Quality=Custom", "ViewDistance=72") && said(), "saved, and said");
         edit(text().replace("Quality=Custom", "Quality=Medium"));
         Tracking.watchSettings();
-        check(Quality.name().equals("Medium") && Quality.sight() == 64 && Quality.custom().viewDistance() == 72 && !said(),
+        check(Quality.name().equals("Medium") && Quality.sight() == 80 && Quality.custom().viewDistance() == 72 && !said(),
                 "the mode edited alone goes to that mode, and leaves Custom's rows");
         String style = Style.current() == Style.NATURAL ? "Bleak" : "Natural";
         edit(text().replace("Style=" + Style.current().label, "Style=" + style));
@@ -825,22 +828,22 @@ public final class CoreTests {
                 "and the mode and a row edited together is Custom with the edit");
     }
 
-    private static void theDrawDistancesAndReflectionsGoToCustomAsTheOtherRowsDo() throws IOException, InterruptedException {
+    private static void theDrawDistanceFarTreesAndReflectionsGoToCustomAsTheOtherRowsDo() throws IOException, InterruptedException {
         inMode("High");
         said();
         Screen screen = Screen.opened();
         CameraUnlock.Option[] options = screen.described();
         CameraUnlock.Option props = options[optionNamed(options, "ZombiesAndPropsDrawDistance")];
-        CameraUnlock.Option driving = options[optionNamed(options, "ForwardDrivingDrawDistance")];
+        CameraUnlock.Option farTrees = options[optionNamed(options, "FarTreeDistance")];
         CameraUnlock.Option reflections = options[optionNamed(options, "Reflections")];
         check(props.kind == CameraUnlock.OPTION_INT && props.min == 16 && props.max == 80 && props.step == 1 && props.label.equals("Zombies and props draw distance")
-                        && props.comment.contains("ViewDistance") && driving.kind == CameraUnlock.OPTION_INT && driving.min == 16 && driving.max == 80
-                        && driving.label.equals("Forward driving draw distance") && reflections.kind == CameraUnlock.OPTION_BOOL
+                        && props.comment.contains("ViewDistance") && farTrees.kind == CameraUnlock.OPTION_INT && farTrees.min == 0 && farTrees.max == 768
+                        && farTrees.label.equals("Far tree distance") && reflections.kind == CameraUnlock.OPTION_BOOL
                         && options[optionNamed(options, "ShadingAndLight")].label.equals("Shading and light"),
-                "the two draw distances are sliders of whole tiles from 16 to 80, named for what they draw, and reflections a tick box of its own");
-        check(screen.shows("ZombiesAndPropsDrawDistance") == 80 && screen.shows("ForwardDrivingDrawDistance") == 80 && screen.shows("Reflections") == 1
+                "the draw distance is a slider of whole tiles from 16 to 80, the far trees one from 0 to 768, and reflections a tick box of its own");
+        check(screen.shows("ZombiesAndPropsDrawDistance") == 80 && screen.shows("FarTreeDistance") == 768 && screen.shows("Reflections") == 1
                         && screen.shows("ShadingAndLight") == 1,
-                "in High the screen shows people and props drawn as far as the view goes, and reflections on");
+                "in High the screen shows people and props drawn as far as the view goes, far trees as far as they go, and reflections on");
 
         screen.set("ZombiesAndPropsDrawDistance", 30);
         screen.apply();
@@ -848,7 +851,7 @@ public final class CoreTests {
         reach.take(0f, 0f, 0f, 0f, false);
         check(Quality.name().equals("Custom") && Quality.drawn().drawDistance() == 30 && Quality.sight() == 80 && !reach.draws(31f, 0f) && reach.draws(30f, 0f),
                 "a draw distance applied there goes straight to Custom and draws people and props no further: " + Quality.described(Quality.drawn()));
-        check(said() && saved("Quality=Custom", "ZombiesAndPropsDrawDistance=30", "ForwardDrivingDrawDistance=80", "ViewDistance=80"),
+        check(said() && saved("Quality=Custom", "ZombiesAndPropsDrawDistance=30", "FarTreeDistance=768", "ViewDistance=80"),
                 "said, and saved with the rest of Custom's rows");
 
         Screen again = Screen.opened();
@@ -859,13 +862,14 @@ public final class CoreTests {
                 "reflections ticked off there are off, apart from the shading and light, and saved");
 
         inMode("Medium");
-        check(Quality.reflections() && Quality.drawn().drawDistance() == 64, "Medium draws its own: its vehicle mirrors, and people and props to its view's end");
+        check(Quality.reflections() && Quality.drawn().drawDistance() == 80 && Quality.farTreeDistance() == 300,
+                "Medium draws its own: its vehicle mirrors, people and props to its view's end, and far trees to 300 tiles");
         said();
-        edit(text().replace("ForwardDrivingDrawDistance=80", "ForwardDrivingDrawDistance=40"));
+        edit(text().replace("FarTreeDistance=768", "FarTreeDistance=200"));
         Tracking.watchSettings();
-        check(Quality.name().equals("Custom") && Quality.drawn().drivingDrawDistance() == 40 && !Quality.reflections(),
-                "the forward driving distance edited in the file goes to Custom with it, the rest as Custom left them");
-        check(saved("Quality=Custom", "ForwardDrivingDrawDistance=40") && said(), "saved, and said");
+        check(Quality.name().equals("Custom") && Quality.farTreeDistance() == 200 && !Quality.reflections(),
+                "the far tree distance edited in the file goes to Custom with it, the rest as Custom left them");
+        check(saved("Quality=Custom", "FarTreeDistance=200") && said(), "saved, and said");
     }
 
     /** Frames of first person at ten a second until Automatic is at a level. */
@@ -890,7 +894,7 @@ public final class CoreTests {
         check(Quality.name().equals("Custom") && !Quality.plain() && !Quality.gamesPlants() && Quality.scale() == Quality.LOW_PICTURE.renderScale()
                         && Quality.sight() == 40 && Quality.shadowSize() == 2048 && !Quality.shadedAndLit(),
                 "a row changed at Stock starts Custom from the level above it, Low's cost with what the mod made, and the change: " + Quality.described(Quality.drawn()));
-        check(saved("Quality=Custom", "SpritePlants=false", "ViewDistance=40"), "and that is what Custom's rows hold");
+        check(saved("Quality=Custom", "TreeQuality=Medium", "ViewDistance=40"), "and that is what Custom's rows hold");
 
         inMode("Automatic (High)");
         slowUntil("Automatic (Medium)");
@@ -899,10 +903,10 @@ public final class CoreTests {
         screen.set("SharpShadows", 1);
         screen.apply();
         savesMade();
-        check(Quality.name().equals("Custom") && !Quality.plain() && !Quality.gamesPlants() && Quality.scale() == 0.8f && Quality.sight() == 64
+        check(Quality.name().equals("Custom") && !Quality.plain() && !Quality.gamesPlants() && Quality.scale() == 0.8f && Quality.sight() == 80
                         && Quality.shadowSize() == 4096,
                 "a row changed at Medium starts Custom from Automatic's Medium, with the mod's plants, and the change: " + Quality.described(Quality.drawn()));
-        check(saved("Quality=Custom", "SpritePlants=false", "ViewDistance=64", "SharpShadows=true"), "and that is what Custom's rows hold");
+        check(saved("Quality=Custom", "TreeQuality=Medium", "ViewDistance=80", "SharpShadows=true"), "and that is what Custom's rows hold");
     }
 
     /**
