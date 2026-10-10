@@ -5,10 +5,12 @@ import zombie.characters.IsoPlayer;
 import zombie.core.textures.ColorInfo;
 import zombie.iso.IsoCell;
 import zombie.iso.IsoGridSquare;
+import zombie.iso.IsoLightSource;
 import zombie.iso.LightingJNI;
 
 /**
- * A square's light without the viewer's own torch in it.
+ * A square's light without the viewer's own torch in it, nor the lamp the game lights for a shot
+ * of theirs.
  *
  * The game lights whole squares with a torch: every square of the level the character stands
  * on that lies in a wide fan before them, the same from the floor to the ceiling and from no
@@ -36,6 +38,14 @@ import zombie.iso.LightingJNI;
  * light was another at every step the torch's fan moved, and every chunk under the fan was
  * built again for it.
  *
+ * The game lights a shot too (EffectsManager.startMuzzleFlash), with a lamp of reach 18 at the
+ * shooter's square. Its light reaches the squares a tenth of a second after the shot and stays a
+ * quarter of a second, so a shot was the picture's flash (MuzzleFlash) and then a second, longer
+ * light. While that flash shows, the lamp is taken out too. The engine lists it by its number on
+ * every square it reaches, seen or not, but with its own colour and not what it adds there (0.55
+ * listed on the shooter's square, lit from 0.22 to 0.55, and on one 4 squares off, lit to 0.42).
+ * So a square it is on keeps the light it had before the shot, read from the shot on.
+ *
  * The engine keeps its torch. What the character can see by it, how well zombies see the
  * character and whether a page can be read are worked out from the same squares, and none of
  * that changes.
@@ -54,10 +64,10 @@ final class TorchLess {
     /**
      * What one gathering found, never written again once it is handed over: a block of squares
      * of the character's level, the light of each without the torch, which is the game's own
-     * light for a square the torch is not on, and which of them the torch is on.
+     * light for a square the torch is not on, and which of them the torch or the lamp of a shot is on.
      */
     private static final class Taken {
-        final int fromX, fromY, level, span, counter;
+        final int fromX, fromY, level, span, counter, lampId;
         final float[] light;
         final boolean[] lit;
         /** Whether the square was there to be read and had been seen. */
@@ -65,7 +75,8 @@ final class TorchLess {
         /** Whether a square's light here is one it was known to have, now or when it was last known, and not one taken from the squares round it. */
         final boolean[] met;
 
-        Taken(int fromX, int fromY, int level, int span, int counter) {
+        Taken(int fromX, int fromY, int level, int span, int counter, int lampId) {
+            this.lampId = lampId;
             this.fromX = fromX;
             this.fromY = fromY;
             this.level = level;
@@ -79,10 +90,30 @@ final class TorchLess {
     }
 
     private volatile Taken taken;
+    /** The lamp the game lit for the viewer's last shot, while the game may still have it. Logic thread. */
+    private IsoLightSource lamp;
     /** What one reading works with, kept between readings and grown to the widest reach met: a reading writes every part of them that it reads. */
     private boolean[] known = new boolean[0];
     private float[] least = new float[0];
     private long[] room = new long[0];
+
+    /** The game has lit a lamp for a shot of the viewer's. Logic thread. */
+    void shot(IsoLightSource lit) {
+        lamp = lit;
+    }
+
+    /**
+     * The game's lamp of the viewer's last shot while the picture's flash stands in for it, or
+     * null. The engine numbers a lamp when it takes it and sets the number back to 0 when it lets
+     * it go, its life run out. Held from the shot on, before the engine has it, so the squares
+     * are read as they are without it.
+     */
+    private IsoLightSource lampToTakeOut() {
+        if (lamp != null && lamp.id == 0 && lamp.life <= 0) {
+            lamp = null;
+        }
+        return lamp == null || !MuzzleFlash.on() || Quality.plain() ? null : lamp;
+    }
 
     /**
      * Reads the squares round the character, on the logic thread, before the scene is built.
@@ -90,6 +121,12 @@ final class TorchLess {
      * @param reach how far the torch that throws the beam reaches, in tiles, or 0 when the viewer carries none that does
      */
     void gather(IsoCell cell, IsoPlayer player, float reach) {
+        int playerX = (int) Math.floor(player.getX()), playerY = (int) Math.floor(player.getY());
+        IsoLightSource lamp = lampToTakeOut();
+        int lampId = lamp == null ? 0 : lamp.id;
+        if (lamp != null) {
+            reach = Math.max(reach, lamp.radius + Math.max(Math.abs(lamp.x - playerX), Math.abs(lamp.y - playerY)));
+        }
         if (reach <= 0f) {
             if (taken != null) {
                 retell(taken, null);
@@ -99,14 +136,14 @@ final class TorchLess {
         }
         int index = player.getIndex();
         int half = (int) Math.ceil(reach) + MARGIN, span = 2 * half + 1;
-        int fromX = (int) Math.floor(player.getX()) - half, fromY = (int) Math.floor(player.getY()) - half, level = (int) Math.floor(player.getZ());
+        int fromX = playerX - half, fromY = playerY - half, level = (int) Math.floor(player.getZ());
         int counter = LightingJNI.getUpdateCounter(index);
         Taken now = taken;
-        if (now != null && now.counter == counter && now.fromX == fromX && now.fromY == fromY && now.level == level && now.span == span) {
+        if (now != null && now.counter == counter && now.fromX == fromX && now.fromY == fromY && now.level == level && now.span == span && now.lampId == lampId) {
             // The engine has lit nothing anew since these were read.
             return;
         }
-        Taken next = new Taken(fromX, fromY, level, span, counter);
+        Taken next = new Taken(fromX, fromY, level, span, counter, lampId);
         if (room.length < span * span) {
             known = new boolean[span * span * 3];
             least = new float[span * span * 3];
@@ -126,20 +163,26 @@ final class TorchLess {
                 IsoGridSquare.ILighting lighting = square.lighting[index];
                 ColorInfo with = lighting.lightInfo();
                 float red = 0f, green = 0f, blue = 0f;
-                if (lighting.bCanSee()) {
-                    for (int light = 0; light < lighting.resultLightCount(); light++) {
-                        IsoGridSquare.ResultLight result = lighting.getResultLight(light);
-                        if ((result.flags & IsoGridSquare.ResultLight.RLF_TORCH) != 0 && result.id >= firstTorch && result.id < firstTorch + TORCHES_A_PLAYER) {
-                            red += result.r;
-                            green += result.g;
-                            blue += result.b;
-                        }
+                boolean canSee = lighting.bCanSee(), lamplit = false;
+                for (int light = 0; light < lighting.resultLightCount(); light++) {
+                    IsoGridSquare.ResultLight result = lighting.getResultLight(light);
+                    if ((result.flags & IsoGridSquare.ResultLight.RLF_TORCH) == 0) {
+                        lamplit |= lampId != 0 && result.id == lampId;
+                    } else if (canSee && result.id >= firstTorch && result.id < firstTorch + TORCHES_A_PLAYER) {
+                        red += result.r;
+                        green += result.g;
+                        blue += result.b;
                     }
                 }
-                next.lit[at] = red > 0f || green > 0f || blue > 0f;
+                next.lit[at] = lamplit || red > 0f || green > 0f || blue > 0f;
                 without(with.r, red, next.light, known, least, at * 3);
                 without(with.g, green, next.light, known, least, at * 3 + 1);
                 without(with.b, blue, next.light, known, least, at * 3 + 2);
+                if (lamplit) {
+                    // Nothing of the light is known under the lamp: the square keeps what it had before the shot.
+                    Arrays.fill(known, at * 3, at * 3 + 3, false);
+                    Arrays.fill(least, at * 3, at * 3 + 3, 0f);
+                }
                 if (!next.lit[at]) {
                     // The game's own light, to the bit: it is what the picture is given for this square.
                     next.met[at] = true;

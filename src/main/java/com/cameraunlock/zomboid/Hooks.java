@@ -1,6 +1,7 @@
 package com.cameraunlock.zomboid;
 
 import fmod.javafmod;
+import java.util.Stack;
 import zombie.EffectsManager;
 import zombie.characters.IsoGameCharacter;
 import zombie.characters.IsoPlayer;
@@ -12,8 +13,10 @@ import zombie.core.physics.BallisticsController;
 import zombie.core.skinnedmodel.animation.AnimationPlayer;
 import zombie.core.skinnedmodel.model.ModelSlotRenderData;
 import zombie.input.AimingReticle;
+import zombie.iso.IsoLightSource;
 import zombie.iso.IsoMovingObject;
 import zombie.iso.IsoObjectPicker;
+import zombie.iso.IsoWorld;
 import zombie.iso.Vector2;
 import zombie.ui.TextDrawObject;
 
@@ -344,9 +347,14 @@ public final class Hooks {
 
     /** In place of the game's starting of a muzzle flash, which it does at the one place a firearm's shot is taken. */
     public static void muzzleFlash(EffectsManager effects, IsoGameCharacter shooter, int light) {
+        Stack<IsoLightSource> lamps = IsoWorld.instance.currentCell.getLamppostPositions();
+        int before = lamps.size();
         effects.startMuzzleFlash(shooter, light);
         View view = shooter instanceof IsoPlayer player ? View.of(player) : null;
         if (view != null) {
+            if (lamps.size() > before) {
+                view.torchLess.shot(lamps.peek());
+            }
             view.viewModel.shot();
         }
     }
