@@ -368,6 +368,9 @@ public final class Agent {
                 // picture then covers: the picture draws every one of them again itself, by this
                 // same method. Everything round the draw runs as it did: where the model's
                 // camera is stood, which the picture reads, and what says a model was shown.
+                new Patch(CHARACTER_DRAW, "skip covered character render setup", classBytes -> CallSite.returnAtOnceIf(classBytes,
+                        new CallSite.Method(CHARACTER_DRAW, "performRenderCharacter", "()V"),
+                        new CallSite.Method(HOOKS, "gamesOwnDrawIsCovered", "()Z"))),
                 new Patch(PART_DRAW, "RenderCharacter left out under the first person picture", classBytes -> CallSite.returnAtOnceIf(classBytes,
                         new CallSite.Method(PART_DRAW, "RenderCharacter", "(L" + CHARACTER_DRAW + ";)V"),
                         new CallSite.Method(HOOKS, "gamesOwnDrawIsCovered", "()Z"))));
