@@ -24,11 +24,12 @@ final class HillHeight {
     }
 
     /**
-     * The height the land is drawn at. Where players can fight, the land is at the height
-     * everyone with the mod has unless they move it: flatter land would show a player a crest
-     * hides from the others, and the land is never a thing one player sets for another.
+     * The height the land is drawn at, in a game where players can fight (Online.contested) or
+     * cannot. Where they can, the land is at the height everyone with the mod has unless they
+     * move it: flatter land would show a player a crest hides from the others, and the land is
+     * never a thing one player sets for another.
      */
-    static float drawn() {
-        return Online.contested() ? DEFAULT : asked;
+    static float drawn(boolean contested) {
+        return contested ? DEFAULT : asked;
     }
 }

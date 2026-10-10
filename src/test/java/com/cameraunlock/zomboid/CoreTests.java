@@ -709,7 +709,7 @@ public final class CoreTests {
         screen.set("HillHeight", 0.4);
         screen.apply();
         savesMade();
-        check(HillHeight.asked() == 0.4f && HillHeight.drawn() == 0.4f && Quality.name().equals(mode) && !Tracking.graphicsToSay() && saved("HillHeight=0.4", "Quality=" + mode),
+        check(HillHeight.asked() == 0.4f && HillHeight.drawn(false) == 0.4f && Quality.name().equals(mode) && !Tracking.graphicsToSay() && saved("HillHeight=0.4", "Quality=" + mode),
                 "applied there it is taken and saved, and the graphics mode stays as it was: it is not one of the rows of [Graphics]");
         screen = Screen.opened();
         screen.set("HillHeight", 1);

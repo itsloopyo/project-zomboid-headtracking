@@ -2234,7 +2234,7 @@ final class WorldScene {
                 Country.read(IsoWorld.instance.getMetaGrid());
                 Terrain.forget();
             }
-            float hills = HillHeight.drawn();
+            float hills = HillHeight.drawn(Online.contested());
             if (hills != Terrain.HILLS.gain()) {
                 // The views share the land: the first one built raises it for both.
                 Terrain.HILLS.heighten(hills);

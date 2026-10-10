@@ -41,6 +41,7 @@ final class TerrainTests {
             hillsRiseInFarmlandAndWoodsAndNotInTown();
             everyRiseOfTheLandIsTheHillsHeightTimesItsOwn();
             noHillRisesFromWater();
+            theHillsAreAtTheirDefaultWherePlayersCanFight();
         } finally {
             System.arraycopy(around, 0, Terrain.around, 0, around.length);
             System.arraycopy(pads, 0, Terrain.padsAround, 0, pads.length);
@@ -294,5 +295,13 @@ final class TerrainTests {
             }
             check(low, "at " + gain + " no hill of the woods rises from water");
         }
+    }
+
+    private static void theHillsAreAtTheirDefaultWherePlayersCanFight() {
+        float asked = HillHeight.asked();
+        HillHeight.set(0.3f);
+        check(HillHeight.drawn(false) == 0.3f, "where players cannot fight the hills stand as the player set them");
+        check(HillHeight.drawn(true) == HillHeight.DEFAULT, "where they can, at the height everyone has who has not moved it");
+        HillHeight.set(asked);
     }
 }
