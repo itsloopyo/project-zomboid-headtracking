@@ -38,16 +38,26 @@ final class Tents {
      */
     static final float DRAWN_IN = 3f;
     /**
-     * How far inside the tent a gable is lined, in squares, and how far over the canopy's line
-     * the lining reaches, in levels. A gable's picture is cut to its sprite, which stops a pixel
-     * or two short of the canopy's line, and along that line the canvas's edge and the gable's
-     * top are two faces that share no corner: from inside, specks of sky. The lining is a
-     * sheet of the gable's colour just inside it, up to the canvas, whose underside it meets
-     * inside the canvas's face and not at its edge. Hidden from outside behind the gable.
+     * How far inside the tent a gable is lined at its top and at its foot, in squares, and how
+     * far under the canopy's line the lining stops, in levels. A gable's picture is cut to its
+     * sprite, which stops a pixel or two short of the canopy's line, and along that line the
+     * canvas's edge and the gable's top are two faces that share no corner: from inside, specks
+     * of sky. The lining is the gable's picture again inside it, hidden from outside behind the
+     * gable. It leans: at its foot it stands just off the end wall below, so no ledge shows
+     * there, and at its top it is far enough in that the canvas's edge, which its cut to its
+     * sprite leaves short of the gable by a few pixels, is behind it from inside, and what is
+     * seen over its top is the canvas's underside. It stops just under the canvas: run up
+     * through it, the two were too near to tell apart along where they met, and the lining's
+     * paler texels showed there as a light line.
      */
-    static final float LINING_IN = 0.01f, LINING_OVER = 0.002f;
-    /** Where on a gable its colour is read: halfway along the edge, at this share of the canopy's height there. */
-    static final float LINING_DYE_ALONG = 0.5f, LINING_DYE_UP = 0.5f;
+    static final float LINING_IN = 0.15f, LINING_FOOT_IN = 0.005f, LINING_UNDER = 0.005f;
+    /**
+     * How many frame pixels further in than a face's usual inset the lining's texels are
+     * taken. The artist outlines a gable's top with a line a few pixels wide, pale on the sunny
+     * slope and dark on the other; taken where the canvas's are, the lining's top was that
+     * line, a pale or dark seam along the canvas from inside.
+     */
+    static final float LINING_DRAWN_IN = 8f;
     /** How far past its square's edge the strip beyond the eaves goes, in squares: the painted strip is narrower, and the rest of the face is clear. */
     static final float FLAP_OUT = 0.25f;
 
@@ -166,13 +176,26 @@ final class Tents {
      * is on the square when canvasHere, and on the square across the edge when not.
      */
     static void lining(Piece gable, boolean canvasHere, float[] corners) {
-        float off = canvasHere ? LINING_IN : -LINING_IN;
+        float way = canvasHere ? 1f : -1f, foot = way * LINING_FOOT_IN, top = way * LINING_IN;
         boolean north = gable.alongX();
-        float endA = north ? 1f : 0f, endB = north ? 0f : 1f, inA = north ? 0f : off, inB = north ? off : 0f;
-        WorldScene.set(corners, 0, inA, inB, 0f);
-        WorldScene.set(corners, 1, endA + inA, endB + inB, 0f);
-        WorldScene.set(corners, 2, endA + inA, endB + inB, gable.to() + LINING_OVER);
-        WorldScene.set(corners, 3, inA, inB, gable.from() + LINING_OVER);
+        float endA = north ? 1f : 0f, endB = north ? 0f : 1f;
+        WorldScene.set(corners, 0, north ? 0f : foot, north ? foot : 0f, 0f);
+        WorldScene.set(corners, 1, endA + (north ? 0f : foot), endB + (north ? foot : 0f), 0f);
+        WorldScene.set(corners, 2, endA + (north ? 0f : top), endB + (north ? top : 0f), Math.max(gable.to() - LINING_UNDER, 0f));
+        WorldScene.set(corners, 3, north ? 0f : top, north ? top : 0f, Math.max(gable.from() - LINING_UNDER, 0f));
+    }
+
+    /**
+     * Where on its gable's square each corner of a lining takes its picture, each (a, b, h):
+     * the point of the gable straight out from it, no higher than the canopy's line.
+     */
+    static void liningPicture(Piece gable, float[] corners, float[] onGable) {
+        boolean north = gable.alongX();
+        for (int corner = 0; corner < 4; corner++) {
+            float along = north ? corners[corner * 3] : corners[corner * 3 + 1];
+            float top = gable.from() + (gable.to() - gable.from()) * along;
+            WorldScene.set(onGable, corner, north ? along : 0f, north ? 0f : along, Math.min(corners[corner * 3 + 2], top));
+        }
     }
 
     /** Whether a sprite is a square of a tent's canopy: under it the canvas is the ceiling, and no flat one is laid. */

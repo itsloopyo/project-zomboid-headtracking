@@ -548,6 +548,23 @@ final class SpriteGeometry {
         return frame.uStart + (pixel - frame.left) / frame.width * (frame.uEnd - frame.uStart);
     }
 
+    /** How many frame pixels at tile scale 1 a face's texels are taken in from its edges, with drawnIn more. */
+    static float insetPixels(float drawnIn) {
+        return EDGE_INSET_PIXELS + drawnIn;
+    }
+
+    /** The texture's across for frame pixel u, kept on the sprite. */
+    static float textureAtU(Frame frame, float pixelU) {
+        float pixel = Math.clamp(pixelU, frame.left + HALF_PIXEL, frame.left + frame.width - HALF_PIXEL);
+        return frame.uStart + (pixel - frame.left) / frame.width * (frame.uEnd - frame.uStart);
+    }
+
+    /** The texture's down for frame pixel v, kept on the sprite. */
+    static float textureAtV(Frame frame, float pixelV) {
+        float pixel = Math.clamp(pixelV, frame.top + HALF_PIXEL, frame.top + frame.height - HALF_PIXEL);
+        return frame.vStart + (pixel - frame.top) / frame.height * (frame.vEnd - frame.vStart);
+    }
+
     /** Where in its texture the sprite shows the point (a, b, h) of the tile, down. */
     static float textureV(Frame frame, float a, float b, float h) {
         float pixel = Math.clamp(frameV(frame, a, b, h), frame.top + HALF_PIXEL, frame.top + frame.height - HALF_PIXEL);
@@ -1633,7 +1650,7 @@ final class SpriteGeometry {
         }
         // Across and down separately: a wall's side edges are upright, and an inset towards the
         // face's centre would run along them without leaving the sprite's empty edge columns.
-        float inset = (EDGE_INSET_PIXELS + drawnIn) * frame.scale;
+        float inset = insetPixels(drawnIn) * frame.scale;
         float insetAcross = inset + (pixelU < centreU ? sealLow : sealHigh);
         float sheet = edgeU1 * edgeV2 - edgeV1 * edgeU2;
         // A face that stands was drawn in before it was cut: see addFace.

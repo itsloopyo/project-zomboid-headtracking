@@ -13,6 +13,7 @@ final class TentTests {
         Checks.run("theCanvasIsTheCeilingUnderEverySquareOfACanopy", TentTests::theCanvasIsTheCeilingUnderEverySquareOfACanopy);
         Checks.run("aGableReachesTheCanvasOverItAndNoFurther", TentTests::aGableReachesTheCanvasOverItAndNoFurther);
         Checks.run("aGablesLiningClosesItInsideUpToTheCanvas", TentTests::aGablesLiningClosesItInsideUpToTheCanvas);
+        Checks.run("aGablesLiningShowsTheGablesPictureStraightOutFromIt", TentTests::aGablesLiningShowsTheGablesPictureStraightOutFromIt);
     }
 
     private static final String SHEET = "location_military_tent_01_";
@@ -117,15 +118,16 @@ final class TentTests {
             check(Math.abs(gable.from() - canvas.from()) < 1e-6f && Math.abs(gable.to() - canvas.to()) < 1e-6f,
                     pair[1] + " meets the canvas of " + pair[0] + " at both ends: " + gable.from() + ".." + gable.to());
         }
+        check(Tents.LINING_DRAWN_IN > Tents.DRAWN_IN, "the lining takes its texels from further in than the canvas, past the outline of the gable's top");
         check(Tents.DRAWN_IN > 0f, "the canvas's texels are taken from inside the edges its sprites paint short of");
     }
 
     /**
      * Inside a tent the end wall meets the canvas with no sky between: each gable's lining runs
      * the whole edge, stands just inside the tent (on the gable's square where the canvas is
-     * on it, across the edge where it is not) and reaches just over the canopy's line, so it
-     * meets the canvas's underside inside the canvas's face. Not further: a lining that stood
-     * out over the canvas would show from outside.
+     * on it, across the edge where it is not), leaning in to well inside the canvas's edge at
+     * its top, and stops just under the canopy's line: what shows over it is the canvas's
+     * underside, and it never stands out over the canvas, where it would show from outside.
      */
     private static void aGablesLiningClosesItInsideUpToTheCanvas() {
         float[] corners = new float[12];
@@ -136,11 +138,43 @@ final class TentTests {
                 String said = place + (canvasHere ? " with its canvas on its square" : " at the far end of its canvas");
                 boolean north = gable.alongX();
                 float across = north ? corners[1] : corners[0], length = north ? corners[3] - corners[0] : corners[4] - corners[1];
+                float topAcross = north ? corners[10] : corners[9];
                 check(Math.abs(length - 1f) < 1e-6f, said + ": lined the whole edge");
-                check(canvasHere ? across > 0f && across < 0.05f : across < 0f && across > -0.05f, said + ": lined just inside the tent, " + across);
+                check(canvasHere ? across > 0f && across < 0.02f : across < 0f && across > -0.02f, said + ": its foot just inside the end wall, no ledge, " + across);
+                check(canvasHere ? topAcross >= 0.1f && topAcross < 0.3f : topAcross <= -0.1f && topAcross > -0.3f,
+                        said + ": its top well inside the tent, behind the canvas's edge, " + topAcross);
                 check(corners[2] == 0f && corners[5] == 0f, said + ": lined from its foot");
-                float overFrom = corners[11] - gable.from(), overTo = corners[8] - gable.to();
-                check(overFrom > 0f && overFrom < 0.01f && overTo > 0f && overTo < 0.01f, said + ": lined up to just over the canvas, " + overFrom + " " + overTo);
+                float underFrom = gable.from() - corners[11], underTo = gable.to() - corners[8];
+                check(underFrom >= 0f && underFrom < 0.01f && underTo >= 0f && underTo < 0.01f, said + ": lined up to just under the canvas, " + underFrom + " " + underTo);
+                check(gable.from() == 0f || underFrom > 0f, said + ": not touching the canvas, where the two could not be told apart");
+            }
+        }
+    }
+
+    /**
+     * The lining is the gable's own picture, not one colour: each corner takes the point of
+     * the gable straight out from it, on the gable's edge, at the lining's height but never over
+     * the canopy's line, where the sprite is clear. So the lining's two ends and its foot show
+     * different parts of the gable.
+     */
+    private static void aGablesLiningShowsTheGablesPictureStraightOutFromIt() {
+        float[] corners = new float[12], picture = new float[12];
+        for (int place : new int[] {48, 50, 51, 53, 40, 42, 43, 45}) {
+            Tents.Piece gable = Tents.of(SHEET + place);
+            boolean north = gable.alongX();
+            for (boolean canvasHere : new boolean[] {true, false}) {
+                Tents.lining(gable, canvasHere, corners);
+                Tents.liningPicture(gable, corners, picture);
+                for (int corner = 0; corner < 4; corner++) {
+                    float a = picture[corner * 3], b = picture[corner * 3 + 1], h = picture[corner * 3 + 2];
+                    float along = north ? a : b;
+                    float top = gable.from() + (gable.to() - gable.from()) * along;
+                    check((north ? b : a) == 0f, place + " corner " + corner + " takes its picture on the gable's edge");
+                    check(along == (north ? corners[corner * 3] : corners[corner * 3 + 1]), place + " corner " + corner + " straight out from it");
+                    check(h <= top + 1e-6f && h >= 0f, place + " corner " + corner + " no higher than the canvas: " + h + " under " + top);
+                }
+                check(picture[0] != picture[3] || picture[1] != picture[4], place + ": its two ends show different parts of the gable");
+                check(picture[2] == 0f && picture[11] == corners[11] && gable.from() - picture[11] < 0.01f, place + ": its foot and its top show the gable's foot and top");
             }
         }
     }

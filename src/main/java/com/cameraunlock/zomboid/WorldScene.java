@@ -4935,7 +4935,7 @@ final class WorldScene {
                 return;
             }
 
-            if (addTent(mesh, sprite, texture, x, y, z)) {
+            if (addTent(mesh, sprite, x, y, z)) {
                 return;
             }
 
@@ -5344,30 +5344,45 @@ final class WorldScene {
          * mod's own line, and with the mod's furniture off its sprite is left to be drawn as it
          * was. False for any other sprite.
          */
-        private final float[] gablePoints = new float[9], liningAt = new float[12];
+        private final float[] gablePoints = new float[9], liningAt = new float[12], liningPicture = new float[12], liningU = new float[4], liningV = new float[4];
+        private static final int[] LINING_ORDER = {0, 1, 2, 0, 2, 3};
 
         /**
-         * Lines a tent's gable inside with a sheet of its colour up to the canvas: see
-         * Tents.LINING_IN. A gable with nothing painted where its colour is read is left unlined.
+         * Lines a tent's gable inside with its own picture up to the canvas: see
+         * Tents.LINING_IN. Each corner takes the texel of the gable straight out from it, drawn
+         * in towards the lining's middle (Tents.LINING_DRAWN_IN), so that no texel of it is one
+         * the sprite leaves clear or outlines along its top or its ends.
          */
-        private void addGableLining(SpriteGeometry.Mesh mesh, Texture texture, Tents.Piece gable, int x, int y, int z) {
-            boolean north = gable.alongX();
-            float along = Tents.LINING_DYE_ALONG, a = north ? along : 0f, b = north ? 0f : along;
-            float h = Tents.LINING_DYE_UP * (gable.from() + (gable.to() - gable.from()) * along);
-            if (!texture.isMaskSet(Math.round(SpriteGeometry.frameU(frame, a, b)), Math.round(SpriteGeometry.frameV(frame, a, b, h)))) {
-                return;
-            }
+        private void addGableLining(SpriteGeometry.Mesh mesh, Tents.Piece gable, int x, int y, int z) {
             Tents.lining(gable, canvas, liningAt);
+            Tents.liningPicture(gable, liningAt, liningPicture);
+            float middleU = 0f, middleV = 0f;
             for (int corner = 0; corner < 4; corner++) {
-                float cornerA = liningAt[corner * 3], cornerB = liningAt[corner * 3 + 1];
-                set(liningAt, corner, x + cornerA, y + cornerB, (z + liningAt[corner * 3 + 2]) * ViewCamera.LEVEL_HEIGHT
-                        + geometry.liftAt(cornerA, cornerB));
+                float a = liningPicture[corner * 3], b = liningPicture[corner * 3 + 1], h = liningPicture[corner * 3 + 2];
+                liningU[corner] = SpriteGeometry.frameU(frame, a, b);
+                liningV[corner] = SpriteGeometry.frameV(frame, a, b, h);
+                middleU += liningU[corner] / 4f;
+                middleV += liningV[corner] / 4f;
             }
+            float inset = SpriteGeometry.insetPixels(Tents.LINING_DRAWN_IN) * frame.scale;
+            boolean north = gable.alongX();
             mesh.open = frame.open + frame.kind + 32f * frame.material;
-            SpriteGeometry.addQuad(mesh, liningAt, SpriteGeometry.textureU(frame, a, b), SpriteGeometry.textureV(frame, a, b, h), frame.red, frame.green, frame.blue);
+            mesh.face(north ? 0f : 1f, north ? 1f : 0f, 0f);
+            for (int corner : LINING_ORDER) {
+                float a = liningAt[corner * 3], b = liningAt[corner * 3 + 1];
+                float u = liningU[corner] + Math.clamp(middleU - liningU[corner], -inset, inset);
+                float v = liningV[corner] + Math.clamp(middleV - liningV[corner], -inset, inset);
+                float wa = Math.clamp(a, 0f, 1f), wb = Math.clamp(b, 0f, 1f);
+                float w0 = (1f - wa) * (1f - wb), w1 = wa * (1f - wb), w2 = wa * wb, w3 = (1f - wa) * wb;
+                mesh.add(x + a, y + b, (z + liningAt[corner * 3 + 2]) * ViewCamera.LEVEL_HEIGHT + geometry.liftAt(a, b),
+                        SpriteGeometry.textureAtU(frame, u), SpriteGeometry.textureAtV(frame, v),
+                        frame.cornerRed[0] * w0 + frame.cornerRed[1] * w1 + frame.cornerRed[2] * w2 + frame.cornerRed[3] * w3,
+                        frame.cornerGreen[0] * w0 + frame.cornerGreen[1] * w1 + frame.cornerGreen[2] * w2 + frame.cornerGreen[3] * w3,
+                        frame.cornerBlue[0] * w0 + frame.cornerBlue[1] * w1 + frame.cornerBlue[2] * w2 + frame.cornerBlue[3] * w3);
+            }
         }
 
-        private boolean addTent(SpriteGeometry.Mesh mesh, IsoSprite sprite, Texture texture, int x, int y, int z) {
+        private boolean addTent(SpriteGeometry.Mesh mesh, IsoSprite sprite, int x, int y, int z) {
             Tents.Piece piece = Tents.of(sprite), rope = Own.furniture() ? Tents.ropeOf(sprite) : null;
             if (piece == null && rope == null) {
                 return false;
@@ -5391,7 +5406,7 @@ final class WorldScene {
                         set(gablePoints, 1, endA, endB, piece.to());
                         set(gablePoints, 2, 0f, 0f, piece.from());
                         geometry.addTriangle(mesh, frame, x, y, z, gablePoints);
-                        addGableLining(mesh, texture, piece, x, y, z);
+                        addGableLining(mesh, piece, x, y, z);
                     }
                     case Tents.FLAP -> geometry.addFace(mesh, frame, x, y, z, 0f, 0f, 1f, alongX ? 1f : 0f, alongX ? 0f : 1f, 0f,
                             alongX ? 0f : Tents.FLAP_OUT, alongX ? Tents.FLAP_OUT : 0f, -Tents.STEP * Tents.FLAP_OUT);
