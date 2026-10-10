@@ -643,6 +643,9 @@ final class PipelineShaders {
             uniform vec3 uJoint;
             uniform float uLaid;
             const bool depthOnly = false;
+            // What the depth only program writes where it draws: the colour of a thing's outline
+            // while Pipeline.drawOutlined draws the thing again. Nothing else reads its colour.
+            uniform vec4 uOutline;
             uniform float uWet;
             // How much of the ground snow lies on, 0 to 1.
             uniform float uSnowLying;
@@ -2447,7 +2450,7 @@ final class PipelineShaders {
                 // things are, the program stops: what follows is the light, which is most of
                 // its work. See Pipeline.drawWorld.
                 if (depthOnly) {
-                    gl_FragColor = vec4(0.0);
+                    gl_FragColor = uOutline;
                     return;
                 }
                 float away = length(toEye);
@@ -5472,11 +5475,11 @@ final class PipelineShaders {
             uniform float uNear;
             uniform float uFar;
             uniform vec3 uUp;
-            // The box round what the Interact key would act on, in the world, and the eye and its
-            // axes there. A box whose low corner is past its high one is no box.
-            uniform vec3 uMarkedLow;
-            uniform vec3 uMarkedHigh;
-            uniform vec3 uEyeAt;
+            // What is outlined, drawn in the colour of its line over nothing (Pipeline.drawOutlined),
+            // and whether anything is.
+            uniform sampler2D uOutlines;
+            uniform float uOutlined;
+            // The eye's axes in the world.
             uniform vec3 uAcross;
             uniform vec3 uUpward;
             uniform vec3 uAhead;
@@ -5725,13 +5728,6 @@ final class PipelineShaders {
                 return uFog.x * mix(0.16, 0.8 + 0.18 * bank, thick);
             }
 
-            // 1 where what the picture shows at uv stands inside the marked box.
-            float marked(vec2 uv) {
-                vec3 seen = placeAt(uv);
-                vec3 at = uEyeAt + uAcross * seen.x + uUpward * seen.y + uAhead * seen.z;
-                return all(greaterThan(at, uMarkedLow)) && all(lessThan(at, uMarkedHigh)) ? 1.0 : 0.0;
-            }
-
             void main() {
                 vec2 uv = gl_FragCoord.xy / uSize;
                 vec3 p = placeAt(uv);
@@ -5784,15 +5780,19 @@ final class PipelineShaders {
                 vec2 fromCentre = uv - 0.5;
                 c *= 1.0 - dot(fromCentre, fromCentre) * uGrade.z;
                 c += (hash(gl_FragCoord.xy + uTime * 61.0) - 0.5) / 160.0;
-                if (uMarkedHigh.x > uMarkedLow.x) {
-                    // What the Interact key would act on has a line round it, where what stands
-                    // in its box meets what does not, and is a little lighter all over. The
-                    // line is as wide on a large picture as on a small one.
+                if (uOutlined > 0.5) {
+                    // What is outlined has a line round it, where it meets what is not it, in
+                    // its own colour, and is a little lighter all over. The line is as wide on
+                    // a large picture as on a small one.
                     vec2 apart = vec2(uSize.y / 400.0) / uSize;
-                    float on = marked(uv);
-                    float edge = max(max(abs(marked(uv + vec2(apart.x, 0.0)) - on), abs(marked(uv - vec2(apart.x, 0.0)) - on)),
-                            max(abs(marked(uv + vec2(0.0, apart.y)) - on), abs(marked(uv - vec2(0.0, apart.y)) - on)));
-                    c = mix(c + vec3(0.05, 0.045, 0.03) * on, vec3(1.0, 0.93, 0.62), 0.9 * edge);
+                    vec4 here = texture2D(uOutlines, uv);
+                    vec4 right = texture2D(uOutlines, uv + vec2(apart.x, 0.0)), left = texture2D(uOutlines, uv - vec2(apart.x, 0.0));
+                    vec4 up = texture2D(uOutlines, uv + vec2(0.0, apart.y)), down = texture2D(uOutlines, uv - vec2(0.0, apart.y));
+                    float edge = max(max(abs(right.a - here.a), abs(left.a - here.a)), max(abs(up.a - here.a), abs(down.a - here.a)));
+                    // Outside the thing the line takes the colour of the side that is it.
+                    vec3 line = here.a > 0.5 ? here.rgb : (right.rgb * right.a + left.rgb * left.a + up.rgb * up.a + down.rgb * down.a)
+                            / max(right.a + left.a + up.a + down.a, 1.0);
+                    c = mix(c + vec3(0.05, 0.045, 0.03) * here.a, line, 0.9 * edge);
                 }
                 gl_FragColor = vec4(c, 1.0);
             }

@@ -58,8 +58,8 @@ final class SkyState {
     float daylightKept = 1f;
     /** The light the character carries, as CarriedLight gathered it for this picture. The scene sets it. */
     float[] carried = new float[8];
-    /** The box round what the Interact key would act on in this picture, or null: see CentreUse.marked. */
-    float[] marked;
+    /** What this picture draws a line round, or null for nothing: see Outlines. */
+    Outlines.Frame outlined;
     /** Where on the map the camera the picture is drawn from stands, which a card turns to face, and the way a card on that very square lies. */
     float facedX, facedY, acrossX = 1f, acrossY;
     /** The eye the scene is built round, the player's own whichever camera draws the picture: how thick a layer is goes by how far off it is. See PipelineShaders.FACED. */

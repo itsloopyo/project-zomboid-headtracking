@@ -415,10 +415,15 @@ final class Models {
         int count;
         /** The room the pieces added next are the contents of: see SpriteGeometry.MeshSet.room. */
         long room = RoomSight.OUTSIDE;
+        /** For each piece, the key of the thing it is of (Outlines.key), or Outlines.NONE. */
+        long[] keys = new long[8];
+        /** The key of the thing the pieces added next are of: see SpriteGeometry.MeshSet.own. */
+        long key = Outlines.NONE;
 
         void clear() {
             count = 0;
             room = RoomSight.OUTSIDE;
+            key = Outlines.NONE;
         }
 
         int triangles() {
@@ -445,9 +450,11 @@ final class Models {
                 floats = Arrays.copyOf(floats, floats.length * 2);
                 ints = Arrays.copyOf(ints, ints.length * 2);
                 rooms = Arrays.copyOf(rooms, rooms.length * 2);
+                keys = Arrays.copyOf(keys, keys.length * 2);
             }
             int at = count * FLOATS, whole = count * INTS;
             rooms[count] = room;
+            keys[count] = key;
             float[] to = floats;
             to[at + PLACE] = tileX;
             to[at + PLACE + 1] = tileY;

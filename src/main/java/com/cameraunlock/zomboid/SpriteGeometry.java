@@ -163,6 +163,28 @@ final class SpriteGeometry {
         Layers layers = new Layers();
         /** The square of the tree the vertices added next are part of, or NO_ROOT. */
         float rootX = NO_ROOT, rootY = NO_ROOT;
+        /**
+         * The runs of the mesh's floats that a thing that may be outlined drew, each its key
+         * (Outlines.key), its first float and the float after its last: see MeshSet.own.
+         */
+        long[] spanKey = new long[0];
+        int[] spanFrom = new int[0], spanTo = new int[0];
+        int spans;
+        /** Where the floats of the thing being drawn begin in this mesh. */
+        private int ownedFrom;
+
+        private void span(long key, int from, int to) {
+            if (spans == spanKey.length) {
+                int more = Math.max(4, spans * 2);
+                spanKey = Arrays.copyOf(spanKey, more);
+                spanFrom = Arrays.copyOf(spanFrom, more);
+                spanTo = Arrays.copyOf(spanTo, more);
+            }
+            spanKey[spans] = key;
+            spanFrom[spans] = from;
+            spanTo[spans] = to;
+            spans++;
+        }
 
         /** The vertices added next are part of the tree on that square. */
         void rooted(int x, int y) {
@@ -185,6 +207,8 @@ final class SpriteGeometry {
         void clear() {
             most = Math.max(most, floats);
             floats = 0;
+            spans = 0;
+            ownedFrom = 0;
         }
 
         int triangles() {
@@ -246,6 +270,8 @@ final class SpriteGeometry {
          * see into and draw the rest of the chunk.
          */
         long room = RoomSight.OUTSIDE;
+        /** The key of the thing being drawn into the set, or Outlines.NONE: see own. */
+        private long owner = Outlines.NONE;
 
         MeshSet() {
             this(new Layers());
@@ -288,8 +314,32 @@ final class SpriteGeometry {
             return mesh;
         }
 
+        /**
+         * What is drawn into the set from now on is the thing with this key (Outlines.key), or
+         * no thing's for Outlines.NONE, until the next call. Each mesh notes the floats each
+         * thing drew in it.
+         */
+        void own(long key) {
+            if (owner != Outlines.NONE) {
+                for (int i = 0; i < used.size(); i++) {
+                    Mesh mesh = used.get(i);
+                    if (mesh.floats > mesh.ownedFrom) {
+                        mesh.span(owner, mesh.ownedFrom, mesh.floats);
+                    }
+                }
+            }
+            owner = key;
+            for (int i = 0; i < used.size(); i++) {
+                Mesh mesh = used.get(i);
+                mesh.ownedFrom = mesh.floats;
+            }
+        }
+
         /** Empties every mesh and keeps them: one chunk wears much the same textures as the next. */
         void clear() {
+            if (owner != Outlines.NONE) {
+                throw new IllegalStateException("a set is emptied while a thing is still being drawn into it");
+            }
             for (int i = 0; i < used.size(); i++) {
                 used.get(i).clear();
             }

@@ -677,7 +677,7 @@ public final class FirstPerson {
         if (lookCaptured && vehicle == null) {
             view.centreUse.mark(cleanView, floorUp, player, IsoWorld.instance.currentCell);
         } else {
-            view.centreUse.marked = null;
+            view.centreUse.marked = Outlines.NONE;
         }
         // The head is in the view the camera flies to and from, so it lands on what is drawn next.
         view.headTracking.view(!GameTime.isGamePaused() && !player.isDead(), cleanView, yaw, view.ride.tilt, world, sightsUp,

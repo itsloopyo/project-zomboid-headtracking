@@ -184,6 +184,13 @@ final class WorldScene {
         /** How many floats the runs come to. */
         int floats;
         /**
+         * What each thing that may be outlined drew of the runs: its key (Outlines.key), the
+         * run, and the first of its floats and how many, counted from the start of the build.
+         */
+        long[] ownedKey = new long[0];
+        int[] ownedRun = new int[0], ownedFrom = new int[0], ownedFloats = new int[0];
+        int owned;
+        /**
          * The box that holds every vertex of the runs as it stands, before the wind moves any:
          * the least and the greatest x, y and height. Of no meaning for a build with no runs.
          */
@@ -364,6 +371,7 @@ final class WorldScene {
             scrap();
             runs = 0;
             floats = 0;
+            owned = 0;
             minX = minY = minUp = Float.POSITIVE_INFINITY;
             maxX = maxY = maxUp = Float.NEGATIVE_INFINITY;
             turned = 0f;
@@ -397,6 +405,20 @@ final class WorldScene {
                 runTint[runs] = mesh.tint;
                 runRoom[runs] = mesh.room;
                 runFloats[runs] = mesh.floats;
+                for (int span = 0; span < mesh.spans; span++) {
+                    if (owned == ownedKey.length) {
+                        int more = Math.max(16, owned * 2);
+                        ownedKey = Arrays.copyOf(ownedKey, more);
+                        ownedRun = Arrays.copyOf(ownedRun, more);
+                        ownedFrom = Arrays.copyOf(ownedFrom, more);
+                        ownedFloats = Arrays.copyOf(ownedFloats, more);
+                    }
+                    ownedKey[owned] = mesh.spanKey[span];
+                    ownedRun[owned] = runs;
+                    ownedFrom[owned] = floats + mesh.spanFrom[span];
+                    ownedFloats[owned] = mesh.spanTo[span] - mesh.spanFrom[span];
+                    owned++;
+                }
                 runs++;
                 floats = Math.addExact(floats, mesh.floats);
                 float[] from = mesh.vertices;
@@ -2263,7 +2285,7 @@ final class WorldScene {
             daylightKeptNow = sky.daylightKept;
             // The beam of this picture's own view: the one being gathered now may be a turn of the head later.
             sky.carried = view.carriedLight.light;
-            sky.marked = view.centreUse.marked;
+            sky.outlined = Outlines.gather(player.getIndex(), view.centreUse.marked);
             sky.facedX = facedX;
             sky.facedY = facedY;
             sky.layersFromX = pose.eyeX;
@@ -4807,6 +4829,7 @@ final class WorldScene {
                     items.add(item);
                     continue;
                 }
+                owning(Outlines.key(object));
                 frameOf(object, texture);
                 standOn(object);
                 Kind kind = kindOf(sprite);
@@ -4846,6 +4869,7 @@ final class WorldScene {
                 }
                 addOver(object, sprite, object.getOverlaySprite(), object == floor, x, y, z);
                 geometry.nudgeX = geometry.nudgeY = geometry.nearer = 0f;
+                owning(Outlines.NONE);
             }
             contentsOf(RoomSight.OUTSIDE);
             geometry.raised = 0f;
@@ -4879,10 +4903,19 @@ final class WorldScene {
             ArrayList<IsoMovingObject> bodies = square.getStaticMovingObjects();
             for (int i = 0; i < bodies.size() && !empty && !unsought; i++) {
                 if (bodies.get(i) instanceof IsoDeadBody body) {
+                    owning(Outlines.key(body));
                     addBody(body);
+                    owning(Outlines.NONE);
                 }
             }
             contentsOf(RoomSight.OUTSIDE);
+        }
+
+        /** Has what is built next be what the thing with this key draws, for its outline, or no thing's for Outlines.NONE: see Outlines. */
+        private void owning(long key) {
+            solid.own(key);
+            laid.own(key);
+            placed.key = key;
         }
 
         /** Has what is built next be the contents of a room, or with RoomSight.OUTSIDE drawn whenever its chunk is. */
@@ -4915,6 +4948,7 @@ final class WorldScene {
                         item.getItem().getWorldZRotation(), texture.getXStart(), texture.getYStart(), texture.getXEnd(), texture.getYEnd(), itemCorners);
                 ColorInfo tint = sprite.getTintMod();
                 float itemX = item.getWorldPosX(), itemY = item.getWorldPosY(), up = item.getWorldPosZ() * ViewCamera.LEVEL_HEIGHT;
+                owning(Outlines.key(item));
                 SpriteGeometry.Mesh mesh = solid.get(texture.getID());
                 mesh.open = frame.open;
                 mesh.face(0f, 0f, 1f);
@@ -4927,6 +4961,7 @@ final class WorldScene {
                             frame.red * tint.r, frame.green * tint.g, frame.blue * tint.b);
                 }
                 layers.none();
+                owning(Outlines.NONE);
                 laid++;
             }
             return Math.min(laid, GroundItems.LAYERS);

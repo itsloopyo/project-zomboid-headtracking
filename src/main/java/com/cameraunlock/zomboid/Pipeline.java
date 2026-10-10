@@ -257,7 +257,7 @@ final class Pipeline {
     /** The unit the rain and the snow read the block of sheltered squares on. */
     private static final int SHELTER_UNIT = 1;
     /** The unit the develop pass reads it on, and how bright fog is against the sky it hangs under. */
-    private static final int DEVELOP_SHELTER_UNIT = 5;
+    private static final int DEVELOP_SHELTER_UNIT = 5, DEVELOP_OUTLINES_UNIT = 6;
     private static final float FOG_BRIGHT = 1.1f;
     /** The drops, on the graphics card: they are the same every frame. */
     private static int rainDrops;
@@ -287,6 +287,8 @@ final class Pipeline {
     private static final int SPRIG_FORM_UNIT = 29;
     private int width, height;
     private int sceneTarget, sceneColor, sceneDepth, shownTarget, shownColor, figureTarget, figureColor;
+    /** What is outlined, each thing in the colour of its line where it is the nearest thing, over the scene's depth: see drawOutlined. */
+    private int outlineTarget, outlineColor;
     /** The picture's colour as the passes after the steadying read it: the scene's, or with the frames blended the steadied one. */
     private int frameColor;
     /**
@@ -922,6 +924,10 @@ final class Pipeline {
             stage(STAGE_AIR);
             drawBloom(exposure);
             stage(STAGE_GLOW);
+            outlinesDrawn = !overhead && state.outlined != null;
+            if (outlinesDrawn) {
+                drawOutlined(camera, state, tanHalfFieldOfView, aspect, near, far, fogStart, fogEnd);
+            }
             drawDeveloped(camera, state, tanHalfFieldOfView, aspect, exposure, near, far);
             stage(STAGE_DEVELOP);
             showSmoothed(drawTarget, viewport);
@@ -1308,8 +1314,9 @@ final class Pipeline {
      * @param pixel   how far apart two things a tile from that eye are when they are a pixel apart in its picture: see
      *                Models.Instances.plain. A map of shadows is always cast by the plain models, and a picture with no eye
      *                given is drawn whole.
+     * @param only    the key of the one thing whose pieces are drawn (Outlines.key), or Outlines.NONE for every piece
      */
-    private void drawModels(Program program, boolean lit, boolean shaded, ViewCamera.Pose within, float far, float pixel) {
+    private void drawModels(Program program, boolean lit, boolean shaded, ViewCamera.Pose within, float far, float pixel, long only) {
         if (lit) {
             Screens.giveBack();
         }
@@ -1336,6 +1343,9 @@ final class Pipeline {
             float[] f = placed.floats;
             int[] whole = placed.ints;
             for (int piece = 0; piece < placed.count; piece++) {
+                if (only != Outlines.NONE && placed.keys[piece] != only) {
+                    continue;
+                }
                 int at = piece * Models.Instances.FLOATS, ints = piece * Models.Instances.INTS;
                 int ball = at + Models.Instances.BALL;
                 if (whole[ints + Models.Instances.BUILT] == 0 && !drawDistance.draws(f[ball], f[ball + 1])) {
@@ -1640,7 +1650,7 @@ final class Pipeline {
     private void castHeld(float[] matrix, SkyState state, ChunkBuffers.Listing own, int map) {
         ChunkBuffers.Listing held = heldBy(matrix, state, own, map);
         drawRanges(held, 0, held.solidRanges());
-        drawModels(shadow, false, false, null, 0f, 0f);
+        drawModels(shadow, false, false, null, 0f, 0f, Outlines.NONE);
     }
 
     /**
@@ -2084,7 +2094,7 @@ final class Pipeline {
             worldDepth.set("uLaid", 0f);
             GL11.glColorMask(false, false, false, false);
             drawRanges(listed, 0, listed.solidRanges(), worldDepth);
-            drawModels(worldDepth, true, false, camera, far, pixel);
+            drawModels(worldDepth, true, false, camera, far, pixel, Outlines.NONE);
             GL11.glColorMask(true, true, true, true);
             world.use();
             GL11.glDepthFunc(GL_EQUAL);
@@ -2096,7 +2106,7 @@ final class Pipeline {
             stage(STAGE_DEPTH);
         }
         drawRanges(listed, 0, listed.solidRanges(), world);
-        drawModels(world, true, true, camera, far, pixel);
+        drawModels(world, true, true, camera, far, pixel, Outlines.NONE);
         if (own) {
             stage(STAGE_SOLID);
         }
@@ -2775,6 +2785,80 @@ final class Pipeline {
         }
     }
 
+    /** Whether this frame's picture has anything outlined in outlineColor. */
+    private boolean outlinesDrawn;
+
+    /**
+     * Draws each thing the picture outlines (Outlines) into outlineColor, in the colour of its
+     * line: its triangles and its pieces again, by the program that drew the world's depth, over
+     * the depth the frame has by now. The same program and the same vertices come to the same
+     * depth to the bit, so only what of the thing is the nearest thing there is drawn, and a
+     * person or anything else in front of it hides it as it hides the thing.
+     */
+    private void drawOutlined(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float near, float far,
+            float fogStart, float fogEnd) {
+        Outlines.Frame outlined = state.outlined;
+        GL30.glBindFramebuffer(GL_FRAMEBUFFER, outlineTarget);
+        GL11.glViewport(0, 0, width, height);
+        GL11.glColorMask(true, true, true, true);
+        GL11.glClearColor(0f, 0f, 0f, 0f);
+        GL11.glClear(GL_COLOR_BUFFER_BIT);
+        // As the world was drawn, a fraction of a pixel to one side: see drawWorld.
+        ViewCamera.projection(tanHalfFieldOfView, aspect, near, far, projection);
+        projection[8] += asideX;
+        projection[9] += asideY;
+        arrays();
+        GL33.glBindSampler(0, spriteSampler);
+        GL11.glEnable(GL_DEPTH_TEST);
+        GL11.glDepthFunc(GL_LEQUAL);
+        GL11.glDepthMask(false);
+        GL11.glDisable(GL_BLEND);
+        tellWorld(worldDepth, camera, state, tanHalfFieldOfView, aspect, fogStart, fogEnd);
+        int outline = worldDepth.at("uOutline"), texel = worldDepth.at("uTexel"), painted = worldDepth.at("uTint"), joints = worldDepth.at("uJoint");
+        float pixel = 2f * tanHalfFieldOfView / height;
+        long[] keys = outlined.keys();
+        float[] colours = outlined.colours();
+        for (int k = 0; k < keys.length; k++) {
+            GL20.glUniform4f(outline, colours[k * 3], colours[k * 3 + 1], colours[k * 3 + 2], 1f);
+            for (int chunk = 0; chunk < drawn.size(); chunk++) {
+                WorldScene.ChunkMeshes build = drawn.get(chunk);
+                for (int i = 0; i < build.owned; i++) {
+                    int run = build.ownedRun[i];
+                    if (build.ownedKey[i] != keys[k] || !ChunkBuffers.listed(build.runRoom[run], roomsSeen)) {
+                        continue;
+                    }
+                    boolean laid = run >= build.solidRuns;
+                    worldDepth.set("uLaid", laid ? 1f : 0f);
+                    worldDepth.set("uCut", laid ? 0.02f : SOLID_CUT);
+                    // Window panes are drawn white and untinted: see drawPanes.
+                    int key = build.runTint[run];
+                    boolean pane = key == WallSides.PANES;
+                    int texture = pane || build.runTexture[run] == 0 ? whiteTexture : build.runTexture[run];
+                    GL11.glBindTexture(GL_TEXTURE_2D, texture);
+                    tellTexel(texel, texture);
+                    if (pane) {
+                        GL20.glUniform4f(painted, 0f, 0f, 0f, 0f);
+                    } else {
+                        WallSides.joint(key, tint);
+                        GL20.glUniform3f(joints, tint[0], tint[1], tint[2]);
+                        WallSides.tint(key, tint);
+                        GL20.glUniform4f(painted, tint[0], tint[1], tint[2], tint[3]);
+                    }
+                    GL11.glDrawArrays(GL_TRIANGLES, (build.heldAt + build.ownedFrom[i]) / SpriteGeometry.VERTEX_FLOATS,
+                            build.ownedFloats[i] / SpriteGeometry.VERTEX_FLOATS);
+                }
+            }
+            GL20.glUniform4f(painted, 0f, 0f, 0f, 0f);
+            worldDepth.set("uLaid", 0f);
+            worldDepth.set("uCut", SOLID_CUT);
+            drawModels(worldDepth, true, false, camera, far, pixel, keys[k]);
+        }
+        GL20.glUniform4f(outline, 0f, 0f, 0f, 0f);
+        GL11.glDepthMask(true);
+        GL11.glDisable(GL_DEPTH_TEST);
+        leaveWorld();
+    }
+
     private void drawDeveloped(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float exposure,
             float near, float far) {
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, shownTarget);
@@ -2814,18 +2898,14 @@ final class Pipeline {
         develop.set("uTime", state.seconds);
         atmosphere(develop, state);
         develop.set("uRangeFrom", rangeFrom);
-        float[] marked = overhead ? null : state.marked;
         develop.set("uAcross", camera.rightX, camera.rightY, camera.rightUp);
         develop.set("uUpward", camera.upX, camera.upY, camera.upUp);
         develop.set("uAhead", camera.forwardX, camera.forwardY, camera.forwardUp);
-        if (marked == null) {
-            develop.set("uMarkedLow", 1f, 1f, 1f);
-            develop.set("uMarkedHigh", 0f, 0f, 0f);
-        } else {
-            develop.set("uMarkedLow", marked[0], marked[1], marked[2]);
-            develop.set("uMarkedHigh", marked[3], marked[4], marked[5]);
-            develop.set("uEyeAt", camera.eyeX, camera.eyeY, camera.eyeUp);
-        }
+        develop.set("uOutlines", DEVELOP_OUTLINES_UNIT);
+        develop.set("uOutlined", outlinesDrawn ? 1f : 0f);
+        GL13.glActiveTexture(GL_TEXTURE0 + DEVELOP_OUTLINES_UNIT);
+        GL11.glBindTexture(GL_TEXTURE_2D, outlinesDrawn ? outlineColor : noneTexture);
+        GL13.glActiveTexture(GL_TEXTURE0);
         // Seen from far overhead the fog is a sheet over the ground: see the develop shader. It
         // thins away as the camera comes down to the eye, where the lit air is the fog, and is
         // gone before the camera is near enough to stop being overhead or looks level enough
@@ -4540,6 +4620,12 @@ final class Pipeline {
         GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, sceneDepth, 0);
         if (problem == null) {
             problem = complete("character");
+        }
+        outlineColor = texture(GL_RGBA8, width, height, GL_RGBA, GL_UNSIGNED_BYTE, GL_NEAREST);
+        outlineTarget = target(outlineColor);
+        GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, sceneDepth, 0);
+        if (problem == null) {
+            problem = complete("outlines");
         }
         ownColor = texture(GL_RGBA8, width, height, GL_RGBA, GL_UNSIGNED_BYTE, GL_NEAREST);
         ownDepth = texture(GL_DEPTH_COMPONENT24, width, height, GL_DEPTH_COMPONENT, GL_FLOAT, GL_NEAREST);

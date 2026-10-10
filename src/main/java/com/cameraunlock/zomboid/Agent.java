@@ -340,9 +340,9 @@ public final class Agent {
                 // The outline round a highlighted object (the container the loot panel shows, in
                 // the player's object highlight colour) is laid over the frame where the object
                 // stands in the game's own view, and not under the picture: it was left floating
-                // by the middle of the screen. The outline round what the Interact key would act
-                // on is the picture's own. An object taken from the world while outlined is let go
-                // of when the game's view next draws.
+                // by the middle of the screen. The picture draws the same outlines round the
+                // things themselves: see Outlines. An object taken from the world while outlined
+                // is let go of when the game's view next draws.
                 new Patch(outline, "object outlines left out under the first person picture", classBytes -> CallSite.returnAtOnceIf(classBytes,
                         new CallSite.Method(outline, "render", "(I)V"), covered)),
                 // The rest of what the game draws of the world into its own view while the picture

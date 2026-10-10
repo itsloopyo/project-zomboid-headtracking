@@ -57,14 +57,16 @@ final class Links {
 
     private static final String VERTEX_BUFFER = "zombie/core/skinnedmodel/model/VertexBufferObject";
     private static final String VERTEX_BUFFER_HANDLE = VERTEX_BUFFER + "$Vbo";
-    /** The fields read by name, which no instruction of the mod's names: VehicleMeshes' four and the body's picture. */
+    /** The fields read by name, which no instruction of the mod's names: VehicleMeshes' four, the body's picture and the outlined things. */
     static final Field BUFFER_HANDLE = new Field(VERTEX_BUFFER, "handle", "L" + VERTEX_BUFFER_HANDLE + ";");
     static final Field BUFFER_ELEMENTS = new Field(VERTEX_BUFFER, "elements", "[I");
     static final Field HANDLE_BUFFER = new Field(VERTEX_BUFFER_HANDLE, "vboId", "I");
     static final Field HANDLE_STRIDE = new Field(VERTEX_BUFFER_HANDLE, "vertexStride", "I");
     /** Where a body keeps the game's picture of it, which WorldScene asks the game for. */
     static final Field BODY_PICTURE = new Field("zombie/iso/objects/IsoDeadBody", "atlasTex", "Lzombie/core/skinnedmodel/DeadBodyAtlas$BodyTexture;");
-    static final List<Field> REFLECTED = List.of(BUFFER_HANDLE, BUFFER_ELEMENTS, HANDLE_BUFFER, HANDLE_STRIDE, BODY_PICTURE);
+    /** The things the game outlines, which Outlines reads. */
+    static final Field OUTLINED = new Field("zombie/iso/fboRenderChunk/FBORenderObjectOutline", "objectSet", "Ljava/util/HashSet;");
+    static final List<Field> REFLECTED = List.of(BUFFER_HANDLE, BUFFER_ELEMENTS, HANDLE_BUFFER, HANDLE_STRIDE, BODY_PICTURE, OUTLINED);
 
     private final Function<String, byte[]> classBytes;
     private final Map<String, Optional<ClassModel>> models = new HashMap<>();
