@@ -48,7 +48,8 @@ final class Config {
 
     /** The keys of [Graphics], the Custom graphics mode, in the order of Quality.Picture's parts. */
     static final String[] GRAPHICS = {"StockLook", "SpritePlants", "RenderScale", "SharpShadows", "ViewDistance", "ZombiesAndPropsDrawDistance",
-        "ForwardDrivingDrawDistance", "RainOnGlass", "ShadingAndLight", "Reflections", "FullSizeTextures", "FarTrees", "SurfaceDepth"};
+        "ForwardDrivingDrawDistance", "RainOnGlass", "ShadingAndLight", "Reflections", "FullSizeTextures", "FarTrees", "SurfaceDepth",
+        "WholeFigureShadows"};
     private static final int RENDER_SCALE = 2;
     static final float MIN_RENDER_SCALE = 0.5f;
     static final int MIN_VIEW_DISTANCE = 32, MIN_DRAW_DISTANCE = 16;
@@ -282,6 +283,11 @@ final class Config {
                     "true: near surfaces are given the depth of what they show, as in High. false: they are\n"
                             + "drawn flat.",
                     writable | live, high.surfaceDepth()),
+            core.configLocalBool("Graphics", "WholeFigureShadows",
+                    "true: everything people and zombies wear and carry throws its shadow, however far off\n"
+                            + "they are. false: further off than " + (int) CharacterDraw.SHADOW_WHOLE_WITHIN + " tiles only their bodies do, which costs\n"
+                            + "less in a crowd, as in Low, Medium and High.",
+                    writable | live, high.wholeFigureShadows()),
         };
 
         core.configLocalHotkeyTaps("FirstPersonKey",
@@ -402,14 +408,14 @@ final class Config {
     static double[] values(Quality.Picture picture) {
         return new double[] {bit(picture.stockLook()), bit(picture.spritePlants()), picture.renderScale(), bit(picture.sharpShadows()),
             picture.viewDistance(), picture.drawDistance(), picture.drivingDrawDistance(), picture.rainOnGlass(), bit(picture.shadingAndLight()),
-            bit(picture.reflections()), bit(picture.fullSizeTextures()), bit(picture.farTrees()), bit(picture.surfaceDepth())};
+            bit(picture.reflections()), bit(picture.fullSizeTextures()), bit(picture.farTrees()), bit(picture.surfaceDepth()), bit(picture.wholeFigureShadows())};
     }
 
     /** The picture the options of the rows of [Graphics] hold, in the order of GRAPHICS. */
     static Quality.Picture picture(double[] values) {
         return new Quality.Picture(values[0] != 0, values[1] != 0, (float) values[2], values[3] != 0, (int) Math.rint(values[4]),
                 (int) Math.rint(values[5]), (int) Math.rint(values[6]), (int) Math.rint(values[7]), values[8] != 0, values[9] != 0,
-                values[10] != 0, values[11] != 0, values[12] != 0);
+                values[10] != 0, values[11] != 0, values[12] != 0, values[13] != 0);
     }
 
     private static double bit(boolean on) {

@@ -622,7 +622,7 @@ public final class CoreTests {
         }
         check(ids.toString().equals("WorldSpaceYaw TrackingMode AimMode FieldOfView Quality Style HillHeight FarTreeDistance FrameBlending MuzzleFlash SplitScreen StockLook SpritePlants "
                         + "RenderScale SharpShadows ViewDistance ZombiesAndPropsDrawDistance ForwardDrivingDrawDistance RainOnGlass ShadingAndLight Reflections "
-                        + "FullSizeTextures FarTrees SurfaceDepth OwnWeapons OwnFurniture "
+                        + "FullSizeTextures FarTrees SurfaceDepth WholeFigureShadows OwnWeapons OwnFurniture "
                         + "OwnPictures OwnPlants OwnTextures OwnBuildings OwnZombies OwnPeople OwnArms OwnClothes "),
                 "the game's options screen is given the modes, the yaw mode and the mod's own rows, and no key list or port: " + ids);
         int fov = optionNamed(options, "FieldOfView"), yaw = optionNamed(options, "WorldSpaceYaw"), tracking = optionNamed(options, "TrackingMode"),

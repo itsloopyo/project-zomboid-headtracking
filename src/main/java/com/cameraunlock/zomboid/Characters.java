@@ -564,7 +564,7 @@ public final class Characters {
         // Put back whatever the draw does: the other view's people are drawn by the same flag.
         CharacterDraw.fromTheEye = true;
         try {
-            character(data, eyeView, true, false, holding != null, heldBoth);
+            character(data, eyeView, true, false, holding != null, heldBoth, 0f);
         } finally {
             CharacterDraw.fromTheEye = false;
         }
@@ -599,7 +599,7 @@ public final class Characters {
             data.ambientB = 1f;
             CharacterDraw.mirrored = true;
             try {
-                character(data, eyeView, false, false, false, false);
+                character(data, eyeView, false, false, false, false, 0f);
             } finally {
                 CharacterDraw.mirrored = false;
             }
@@ -1220,7 +1220,7 @@ public final class Characters {
             data.ambientB = blue;
             return;
         }
-        CharacterDraw.begin(data, handViews[0], projection, false);
+        CharacterDraw.begin(data, handViews[0], projection, false, 0f);
         for (int part = 0; part < parts(data).size(); part++) {
             ModelInstanceRenderData model = parts(data).get(part);
             if (model.model == null || !model.model.isStatic) {
@@ -1228,7 +1228,7 @@ public final class Characters {
             }
         }
         if (heldBoth) {
-            CharacterDraw.begin(data, handViews[1], projection, false);
+            CharacterDraw.begin(data, handViews[1], projection, false, 0f);
             for (int part = 0; part < parts(data).size(); part++) {
                 ModelInstanceRenderData model = parts(data).get(part);
                 if (model.model == null || !model.model.isStatic) {
@@ -1466,7 +1466,7 @@ public final class Characters {
             } else if (data.inVehicle) {
                 seated(data, i * 4, viewMatrix);
             } else {
-                character(data, viewMatrix, data.character == viewer, casting, false, false);
+                character(data, viewMatrix, data.character == viewer, casting, false, false, (float) Math.hypot(toX, toY));
             }
             data.ambientR = red;
             data.ambientG = green;
@@ -1497,11 +1497,12 @@ public final class Characters {
         return Math.abs(across) > 1f + acrossReach || Math.abs(along) > 1f + alongReach;
     }
 
-    private void character(ModelSlotRenderData data, float[] viewMatrix, boolean own, boolean casting, boolean held, boolean bothHands) {
+    /** @param fromEye how far the person stands from the eye along the ground, in tiles: see CharacterDraw.begin */
+    private void character(ModelSlotRenderData data, float[] viewMatrix, boolean own, boolean casting, boolean held, boolean bothHands, float fromEye) {
         place(data.x, data.y, data.z * ViewCamera.LEVEL_HEIGHT + view.worldScene.terrain.lift(data.x, data.y, data.z), data.animPlayerAngle, CHARACTER_SCALE);
         multiply(viewMatrix, placed, combined);
         EYE.Begin();
-        CharacterDraw.begin(data, combined, projection, casting);
+        CharacterDraw.begin(data, combined, projection, casting, fromEye);
         if (!own && !casting) {
             lightWhere(data);
         }

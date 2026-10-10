@@ -1070,6 +1070,8 @@ final class CharacterDraw {
     private static boolean shadow;
     /** How far from the eye the person begun stands, in tiles. */
     private static float away;
+    /** How far from the viewer's eye the person begun stands along the ground, in tiles, in every pass alike. */
+    private static float fromEye;
     /**
      * Set while people are drawn into a target that has a second picture for the way their
      * surfaces face: they are then drawn unlit, for the picture to light.
@@ -1091,11 +1093,13 @@ final class CharacterDraw {
 
     /**
      * Before the parts of one person: the matrix that stands them before the eye, the eye's
-     * projection, and whether this is a shadow map, which is drawn undivided since nothing of
-     * a shadow's edge shows the difference.
+     * projection, whether this is a shadow map, which is drawn undivided since nothing of
+     * a shadow's edge shows the difference, and how far from the viewer's eye the person
+     * stands along the ground, in tiles, which a shadow map's own matrix does not say.
      */
-    static void begin(ModelSlotRenderData data, float[] standing, float[] seen, boolean casting) {
+    static void begin(ModelSlotRenderData data, float[] standing, float[] seen, boolean casting, float fromTheViewer) {
         person = data;
+        fromEye = fromTheViewer;
         modelView = standing;
         projection = seen;
         shadow = casting;
@@ -1541,6 +1545,9 @@ final class CharacterDraw {
         if (texture == null) {
             return true;
         }
+        if (shadow && fromEye > SHADOW_WHOLE_WITHIN && !Quality.wholeFigureShadows() && wearOf(copy, model, texture) != BODY) {
+            return true;
+        }
         // Making a finer skin runs the game's combiner, so it is asked for before any of
         // this part's state is set. Further off than triangles are divided a person is too
         // small on the screen for a finer skin to show, and a shadow has no skin at all.
@@ -1566,17 +1573,7 @@ final class CharacterDraw {
         boolean unlit = bare && !shadow;
         int wear = WEAVE;
         if (unlit) {
-            String wornName = texture.getName();
-            Integer known = copy.wears.get(wornName);
-            if (known == null) {
-                known = wearOf(model.name, wornName, texture.getClass().getSimpleName().equals("CharacterSmartTexture"));
-                copy.wears.put(wornName, known);
-                if (TRACE) {
-                    Log.info("the model " + model.name + " in " + wornName + " is drawn as "
-                            + new String[] {"a body", "hair", "woven cloth", "twill", "knit", "leather", "something sleek"}[known]);
-                }
-            }
-            wear = known;
+            wear = wearOf(copy, model, texture);
         }
         dress(skin.id, wear, copy.lay);
         if (cutBones != null) {
@@ -1651,6 +1648,24 @@ final class CharacterDraw {
         GL15.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
         return true;
     }
+
+    /** What a part of this model in this texture is made of, as wearOf tells it, kept with the model's copy. */
+    private static int wearOf(Copy copy, Model model, Texture texture) {
+        String wornName = texture.getName();
+        Integer known = copy.wears.get(wornName);
+        if (known == null) {
+            known = wearOf(model.name, wornName, texture.getClass().getSimpleName().equals("CharacterSmartTexture"));
+            copy.wears.put(wornName, known);
+            if (TRACE) {
+                Log.info("the model " + model.name + " in " + wornName + " is drawn as "
+                        + new String[] {"a body", "hair", "woven cloth", "twill", "knit", "leather", "something sleek"}[known]);
+            }
+        }
+        return known;
+    }
+
+    /** How far off, in tiles, a person throws the shadow of all they wear and carry and not of their body alone: see Quality.wholeFigureShadows. */
+    static final float SHADOW_WHOLE_WITHIN = 4f;
 
     private static void refuse(String why) {
         off = true;

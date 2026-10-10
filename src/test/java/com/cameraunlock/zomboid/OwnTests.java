@@ -78,7 +78,7 @@ final class OwnTests {
                 Quality.HIGH_PICTURE.sharpShadows(), Quality.HIGH_PICTURE.viewDistance(), Quality.HIGH_PICTURE.drawDistance(),
                 Quality.HIGH_PICTURE.drivingDrawDistance(), Quality.HIGH_PICTURE.rainOnGlass(), Quality.HIGH_PICTURE.shadingAndLight(),
                 Quality.HIGH_PICTURE.reflections(), Quality.HIGH_PICTURE.fullSizeTextures(), Quality.HIGH_PICTURE.farTrees(),
-                Quality.HIGH_PICTURE.surfaceDepth());
+                Quality.HIGH_PICTURE.surfaceDepth(), Quality.HIGH_PICTURE.wholeFigureShadows());
         Quality.custom(stock);
         Quality.set(Quality.CUSTOM);
         check(Quality.plain() && Own.arms() && !Own.weapons(), "Custom with StockLook draws the arms as Low does");

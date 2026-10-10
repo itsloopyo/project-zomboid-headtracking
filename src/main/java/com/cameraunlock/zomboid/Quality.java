@@ -45,14 +45,15 @@ final class Quality {
      * @param fullSizeTextures the opposite of smallerPictures
      * @param farTrees         see crownsToSight
      * @param surfaceDepth     see relief
+     * @param wholeFigureShadows see wholeFigureShadows
      */
     record Picture(boolean stockLook, boolean spritePlants, float renderScale, boolean sharpShadows, int viewDistance, int drawDistance,
             int drivingDrawDistance, int rainOnGlass, boolean shadingAndLight, boolean reflections, boolean fullSizeTextures, boolean farTrees,
-            boolean surfaceDepth) {}
+            boolean surfaceDepth, boolean wholeFigureShadows) {}
 
-    static final Picture LOW_PICTURE = new Picture(true, false, 0.62f, false, 48, 48, 48, 0, false, true, false, false, false);
-    static final Picture MEDIUM_PICTURE = new Picture(false, true, 0.8f, false, 64, 64, 64, 1, false, true, false, false, false);
-    static final Picture HIGH_PICTURE = new Picture(false, false, 1f, true, 80, 80, 80, 2, true, true, true, true, true);
+    static final Picture LOW_PICTURE = new Picture(true, false, 0.62f, false, 48, 48, 48, 0, false, true, false, false, false, false);
+    static final Picture MEDIUM_PICTURE = new Picture(false, true, 0.8f, false, 64, 64, 64, 1, false, true, false, false, false, false);
+    static final Picture HIGH_PICTURE = new Picture(false, false, 1f, true, 80, 80, 80, 2, true, true, true, true, true, false);
     /**
      * Automatic's levels, cheapest first. STOCK is the Low mode's picture, the game's own look;
      * the three above it are Low's, Medium's and High's cost, still with everything the mod made.
@@ -180,16 +181,16 @@ final class Quality {
 
     private static Picture automatic(Picture at) {
         return new Picture(false, false, at.renderScale, at.sharpShadows, at.viewDistance, at.drawDistance, at.drivingDrawDistance, at.rainOnGlass,
-                at.shadingAndLight, at.reflections, at.fullSizeTextures, at.farTrees, at.surfaceDepth);
+                at.shadingAndLight, at.reflections, at.fullSizeTextures, at.farTrees, at.surfaceDepth, at.wholeFigureShadows);
     }
 
     static String described(Picture picture) {
         return String.format(Locale.ROOT, "stock look %b, sprite plants %b, render scale %.2f, sharp shadows %b, view distance %d, "
                         + "zombies and props draw distance %d, forward driving draw distance %d, rain on glass %d, shading and light %b, reflections %b, "
-                        + "full size textures %b, far trees %b, surface depth %b",
+                        + "full size textures %b, far trees %b, surface depth %b, whole figure shadows %b",
                 picture.stockLook, picture.spritePlants, picture.renderScale, picture.sharpShadows, picture.viewDistance, picture.drawDistance,
                 picture.drivingDrawDistance, picture.rainOnGlass, picture.shadingAndLight, picture.reflections, picture.fullSizeTextures, picture.farTrees,
-                picture.surfaceDepth);
+                picture.surfaceDepth, picture.wholeFigureShadows);
     }
 
     /** The mode the hotkey goes to from the one the session is in: Automatic, Low, Medium, High, Custom and round again. */
@@ -453,6 +454,16 @@ final class Quality {
     /** Whether near surfaces are given the depth of what they show. */
     static boolean relief() {
         return drawn.surfaceDepth;
+    }
+
+    /**
+     * Whether everything a person wears and carries throws its shadow at every distance.
+     * Otherwise a person further off than CharacterDraw.SHADOW_WHOLE_WITHIN throws the shadow of
+     * their body alone, and a crowd costs the sun's maps one part a person and not every part
+     * they have.
+     */
+    static boolean wholeFigureShadows() {
+        return drawn.wholeFigureShadows;
     }
 
 }
