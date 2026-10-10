@@ -7,6 +7,7 @@ import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 final class FarTreeTests {
     private FarTreeTests() {}
@@ -25,6 +26,68 @@ final class FarTreeTests {
         Checks.run("noTwoTreesShareASquare", FarTreeTests::noTwoTreesShareASquare);
         Checks.run("aBigTreeWithoutRoomIsSmaller", FarTreeTests::aBigTreeWithoutRoomIsSmaller);
         Checks.run("theHashIsFromNoughtToOne", FarTreeTests::theHashIsFromNoughtToOne);
+        Checks.run("aTilesNameGivesItsSpeciesAndSize", FarTreeTests::aTilesNameGivesItsSpeciesAndSize);
+        Checks.run("aBiomesAnyTreeIsEachOfItsSpecies", FarTreeTests::aBiomesAnyTreeIsEachOfItsSpecies);
+        Checks.run("grassAndBouldersAreNoTrees", FarTreeTests::grassAndBouldersAreNoTrees);
+        Checks.run("theErosionsTreesAreKept", FarTreeTests::theErosionsTreesAreKept);
+    }
+
+    private static final List<String> EROSION = List.of("e_americanholly_1", "e_canadianhemlock_1", "e_virginiapine_1");
+    private static final Map<String, List<FarTreeKinds.Listed>> GAMES = Map.of(
+            "organic_forest", List.of(new FarTreeKinds.Listed(List.of("e_dogwoodJUMBO_1_0", "e_dogwoodJUMBO_1_1"), 0.1f, 2),
+                    new FarTreeKinds.Listed(List.of("$subbiome"), 0.1f, 3), new FarTreeKinds.Listed(List.of("$any"), 0.15f, 5),
+                    new FarTreeKinds.Listed(List.of("e_redmapleJUMBO_1_0"), 0.1f, 2)),
+            "ph_forest", List.of(new FarTreeKinds.Listed(List.of("$any"), 0.2f, 5), new FarTreeKinds.Listed(List.of("e_virginiapineJUMBO_1_0"), 0.1f, 2),
+                    new FarTreeKinds.Listed(List.of("f_bushes_1_64"), 0.05f, 1), new FarTreeKinds.Listed(List.of("boulders_40"), 0.15f, 1),
+                    new FarTreeKinds.Listed(List.of("e_newgrass_1_0"), 0.05f, 1)),
+            "townhouse", List.of());
+
+    private static void aTilesNameGivesItsSpeciesAndSize() {
+        check("dogwood".equals(FarTreeKinds.speciesOf("e_dogwoodJUMBOXL_1_0")) && FarTreeKinds.sizeOf("e_dogwoodJUMBOXL_1_0") == FarTreeKinds.JUMBO_XL, "a big tree's tile");
+        check("canadianhemlock".equals(FarTreeKinds.speciesOf("e_canadianhemlock_1_3")) && FarTreeKinds.sizeOf("e_canadianhemlock_1_3") == FarTreeKinds.SMALL, "an erosion tree's tile");
+        check(FarTreeKinds.sizeOf("e_redmapleJUMBOXXL_1_0") == FarTreeKinds.JUMBO_XXL && FarTreeKinds.sizeOf("e_redmapleJUMBO_1_0") == FarTreeKinds.JUMBO, "the two other sizes");
+        check(FarTreeKinds.speciesOf("vegetation_trees_01_8") == null && FarTreeKinds.speciesOf(null) == null, "a map tile and nothing name no species");
+        check(FarTreeKinds.sizeOfSide(5) == FarTreeKinds.JUMBO_XXL && FarTreeKinds.sizeOfSide(3) == FarTreeKinds.JUMBO_XL && FarTreeKinds.sizeOfSide(2) == FarTreeKinds.JUMBO
+                && FarTreeKinds.sizeOfSide(1) == FarTreeKinds.SMALL, "sizes by the squares a side");
+        FarTreeKinds kinds = FarTreeKinds.of(GAMES, EROSION);
+        int dogwood = kinds.species.indexOf("dogwood");
+        check(kinds.name(FarTreeKinds.kind(dogwood, FarTreeKinds.JUMBO_XL)).equals("e_dogwoodJUMBOXL"), "a kind is named as its tiles begin");
+    }
+
+    private static void aBiomesAnyTreeIsEachOfItsSpecies() {
+        FarTreeKinds kinds = FarTreeKinds.of(GAMES, EROSION);
+        FarTreePlacing.Choice[] forest = kinds.biomes.get("organic_forest");
+        int dogwood = kinds.species.indexOf("dogwood"), redmaple = kinds.species.indexOf("redmaple");
+        int bigDogwood = 0, bigRedmaple = 0;
+        float total = 0f;
+        for (FarTreePlacing.Choice choice : forest) {
+            total += choice.probability();
+            if (choice.side() == 5) {
+                bigDogwood += choice.kind() == dogwood ? 1 : 0;
+                bigRedmaple += choice.kind() == redmaple ? 1 : 0;
+                check(Math.abs(choice.probability() - 0.075f) < 1e-6f, "the any tree's chance is shared between the two species");
+            }
+        }
+        check(bigDogwood == 1 && bigRedmaple == 1, "the any tree is dogwood or red maple, the species the biome names");
+        check(Math.abs(total - 0.45f) < 1e-5f, "sharing the any and subbiome trees keeps the biome's total chance: " + total);
+    }
+
+    private static void grassAndBouldersAreNoTrees() {
+        FarTreeKinds kinds = FarTreeKinds.of(GAMES, EROSION);
+        int none = 0, pine = 0;
+        for (FarTreePlacing.Choice choice : kinds.biomes.get("ph_forest")) {
+            none += choice.kind() < 0 ? 1 : 0;
+            pine += choice.kind() == kinds.species.indexOf("virginiapine") ? 1 : 0;
+        }
+        check(none == 3, "the bush, the boulder and the grass are no tree: " + none);
+        check(pine == 2, "the pine and the any tree are pines, the one species the biome names: " + pine);
+        check(!kinds.species.contains("newgrass"), "grass is no species");
+    }
+
+    private static void theErosionsTreesAreKept() {
+        FarTreeKinds kinds = FarTreeKinds.of(GAMES, EROSION);
+        check(kinds.biomes.get("townhouse").length == 0, "a biome that lists no trees chooses none");
+        check(kinds.kept.length == 3 && kinds.species.get(kinds.kept[1]).equals("canadianhemlock"), "the map's own trees are the erosion's species");
     }
 
     private static final int[] ONE_BIOME = new int[FarCells.CELL * FarCells.CELL];
