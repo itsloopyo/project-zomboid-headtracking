@@ -31,7 +31,14 @@ final class Ride {
     float groundUp;
     /** How the vehicle lies on the land under it (VehicleSlope.turn), which the picture tips the vehicle and all in it by. */
     final float[] turn = new float[9];
-    private final VehicleSlope slope = new VehicleSlope();
+    /** How the vehicle lies on its springs, and how the ground under its wheels would have it this frame. */
+    private final VehicleSlope slope = new VehicleSlope(), ground = new VehicleSlope();
+    /** How long the springs take to carry the vehicle most of the way to a new lie of the ground: seconds. */
+    private static final float SPRUNG_FOR = 0.08f;
+    /** A gap between frames longer than this, or another vehicle, puts the vehicle straight where the ground has it. */
+    private static final long SPRINGS_LOST_NANOS = 500_000_000L;
+    private BaseVehicle carried;
+    private long followedAt;
     /** Whether the viewer is in the driver's seat of it, and how dark the viewer's skin is, as the game numbers its skins. */
     volatile boolean driving;
     volatile int skin;
@@ -130,7 +137,12 @@ final class Ride {
         }
         vehicle.getForwardVector(facing);
         Vector3f extents = vehicle.getScript().getExtents();
-        slope.lie(terrain, vehicle.getX(), vehicle.getY(), vehicle.getZ(), facing.x, facing.z, extents.z, extents.x);
+        ground.lie(terrain, vehicle.getX(), vehicle.getY(), vehicle.getZ(), facing.x, facing.z, extents.z, extents.x);
+        long now = System.nanoTime();
+        boolean jumped = vehicle != carried || now - followedAt > SPRINGS_LOST_NANOS;
+        slope.follow(ground, 1f - (float) Math.exp(-(now - followedAt) / 1e9 / SPRUNG_FOR), jumped);
+        carried = vehicle;
+        followedAt = now;
         groundUp = slope.groundUp;
         System.arraycopy(slope.turn, 0, turn, 0, turn.length);
         roadSpeed = Math.abs(vehicle.getCurrentSpeedKmHour()) / SPEEDOMETER_FULL;
