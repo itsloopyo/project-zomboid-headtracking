@@ -26,7 +26,4 @@ public final class BaseVehicle extends zombie.iso.IsoMovingObject {
     public org.joml.Vector3f getWorldPos(org.joml.Vector3f local, org.joml.Vector3f out) { throw new UnsupportedOperationException("reference stub"); }
     public Vector3f getLinearVelocity(Vector3f out) { throw new UnsupportedOperationException("reference stub"); }
     public float getCurrentSteering() { throw new UnsupportedOperationException("reference stub"); }
-    public float getMass() { throw new UnsupportedOperationException("reference stub"); }
-    public boolean isLocalPhysicSim() { throw new UnsupportedOperationException("reference stub"); }
-    public short getId() { throw new UnsupportedOperationException("reference stub"); }
 }

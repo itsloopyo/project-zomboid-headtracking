@@ -19,7 +19,7 @@ final class VehicleSlopeTests {
         slope.on(2f, 2f, 2f, 2f, 0.6f, 0.8f, 4.7f, 1.8f);
         float[] up = {0f, 0f, 1f};
         slope.apply(up, 0);
-        check(Math.abs(slope.groundUp - 2f) < CLOSE && slope.steep == 0f && Math.abs(up[2] - 1f) < CLOSE && Math.abs(up[0]) < CLOSE,
+        check(Math.abs(slope.groundUp - 2f) < CLOSE && Math.abs(up[2] - 1f) < CLOSE && Math.abs(up[0]) < CLOSE,
                 "on level ground the vehicle stands at the ground's height and is not tipped");
     }
 
@@ -35,8 +35,6 @@ final class VehicleSlopeTests {
                 "the nose rises by the slope's angle: " + nose[0] + ", " + nose[2]);
         check(Math.abs(up[0] + (float) Math.sin(angle)) < CLOSE && Math.abs(up[2] - (float) Math.cos(angle)) < CLOSE,
                 "and its up leans back, square to the slope: " + up[0] + ", " + up[2]);
-        check(Math.abs(slope.steep - (float) Math.sin(angle)) < CLOSE && Math.abs(slope.downX + 1f) < CLOSE && Math.abs(slope.downY) < CLOSE,
-                "down the slope is behind it, as steep as the climb: " + slope.downX + ", " + slope.downY + " " + slope.steep);
         check(Math.abs(slope.groundUp - 0.5f) < CLOSE, "and it stands at the height under its middle: " + slope.groundUp);
     }
 
@@ -44,9 +42,10 @@ final class VehicleSlopeTests {
         VehicleSlope slope = new VehicleSlope();
         // Facing along y; its right is (1, 0), and the ground on that side is higher.
         slope.on(0f, 0.5f, 0f, 0.5f, 0f, 1f, 4f, 2f);
-        float[] side = {1f, 0f, 0f};
+        float[] side = {1f, 0f, 0f}, up = {0f, 0f, 1f};
         slope.apply(side, 0);
-        check(side[2] > 0f && slope.downX < -0.99f, "the right side, on the higher ground, is lifted, and down is to the left: " + side[2] + " " + slope.downX);
+        slope.apply(up, 0);
+        check(side[2] > 0f && up[0] < 0f && Math.abs(up[1]) < CLOSE, "the right side, on the higher ground, is lifted, and its up leans to the left: " + side[2] + " " + up[0]);
     }
 
     private static void theTurnIsATurnAndNoneAboutUp() {
@@ -62,8 +61,14 @@ final class VehicleSlopeTests {
         }
         float det = t[0] * (t[4] * t[8] - t[7] * t[5]) - t[3] * (t[1] * t[8] - t[7] * t[2]) + t[6] * (t[1] * t[5] - t[4] * t[2]);
         check(Math.abs(det - 1f) < 1e-4f, "and it turns, never mirrors: " + det);
-        float[] across = {-slope.downY, slope.downX, 0f};
+        // The line across the slope is level and square to the way the plane's up leans.
+        float[] up = {0f, 0f, 1f};
+        slope.apply(up, 0);
+        float lean = (float) Math.hypot(up[0], up[1]);
+        float[] across = {-up[1] / lean, up[0] / lean, 0f};
+        float acrossX = across[0], acrossY = across[1];
         slope.apply(across, 0);
-        check(Math.abs(across[2]) < 1e-5f && Math.abs(across[0] + slope.downY) < 1e-5f, "the line across the slope stays where it is: nothing is turned about up");
+        check(Math.abs(across[2]) < 1e-5f && Math.abs(across[0] - acrossX) < 1e-5f && Math.abs(across[1] - acrossY) < 1e-5f,
+                "the line across the slope stays where it is: nothing is turned about up");
     }
 }

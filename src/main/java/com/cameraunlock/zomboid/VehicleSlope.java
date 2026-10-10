@@ -21,8 +21,6 @@ final class VehicleSlope {
     final float[] turn = new float[9];
     /** The plane's height under the vehicle's middle. */
     float groundUp;
-    /** The way down the plane along the map, a unit vector, and the sine of how steep the plane is. */
-    float downX, downY, steep;
     /** The plane's up, a unit vector. */
     private float upX, upY, upUp = 1f;
 
@@ -87,16 +85,11 @@ final class VehicleSlope {
         upY = y;
         upUp = up;
         float sin = (float) Math.hypot(x, y), cos = up;
-        steep = sin;
         if (sin < 1e-7f) {
-            downX = downY = 0f;
             java.util.Arrays.fill(turn, 0f);
             turn[0] = turn[4] = turn[8] = 1f;
             return;
         }
-        // The plane's up leans the way down the slope.
-        downX = x / sin;
-        downY = y / sin;
         // The axis, up crossed with the plane's up, made a unit vector.
         float kx = -y / sin, ky = x / sin, less = 1f - cos;
         turn[0] = cos + less * kx * kx;

@@ -5,8 +5,6 @@ import java.util.Locale;
 import java.util.concurrent.ConcurrentHashMap;
 import org.joml.Vector3f;
 import zombie.characters.IsoPlayer;
-import zombie.core.physics.Bullet;
-import zombie.network.GameClient;
 import zombie.scripting.objects.VehicleScript;
 import zombie.vehicles.BaseVehicle;
 import zombie.vehicles.VehiclePart;
@@ -178,9 +176,6 @@ final class Ride {
 
         int seat = vehicle.getSeat(player);
         driving = seat == 0;
-        if (driving) {
-            roll(vehicle);
-        }
         doorOpen = seat >= 0 && Cabins.doorOpen(vehicle, seat);
         skin = player.getHumanVisual().getSkinTextureIndex();
         // What is worn changes seldom, and asking makes a list for every garment.
@@ -190,33 +185,6 @@ final class Ride {
         if (seat >= 0) {
             seatTheEye(vehicle, seat, floorUp, eye);
         }
-    }
-
-    /** Metres a second each second that falling pulls with: the game's physics has no hills of its own to fall down. */
-    private static final float GRAVITY = 9.81f;
-    private boolean saidOnline;
-
-    /**
-     * Pulls the vehicle the player drives down the slope it lies on, as a hill pulls a car: the
-     * game's physics stands every vehicle on level ground, so a climb would not slow it nor a
-     * descent run it on. The pull is the part of its weight along the slope, put on its middle
-     * in the game's own physics, where it is the player's own machine that moves the vehicle.
-     * Not on a server: there the vehicle moves as the others in the game see it move.
-     */
-    private void roll(BaseVehicle vehicle) {
-        if (GameClient.client) {
-            if (!saidOnline) {
-                saidOnline = true;
-                Log.info("on a server a vehicle is not pulled down the first person hills: it goes as the game's level ground has it");
-            }
-            return;
-        }
-        if (slope.steep <= 0f || !vehicle.isLocalPhysicSim()) {
-            return;
-        }
-        float pull = vehicle.getMass() * GRAVITY * slope.steep;
-        // The game's physics has up as its y: the map's y is its z.
-        Bullet.applyCentralForceToVehicle(vehicle.getId(), slope.downX * pull, 0f, slope.downY * pull);
     }
 
     /** The way the vehicle faces on the map, as a yaw. The game gives its forward vector with y as up. */
