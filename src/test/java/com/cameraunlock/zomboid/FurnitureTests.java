@@ -37,6 +37,7 @@ final class FurnitureTests {
         Checks.run("homeFittingsStandAsTheirSpritesDo", FurnitureTests::homeFittingsStandAsTheirSpritesDo);
         Checks.run("aCountersTopIsABoardOverTheCountersOwnTop", FurnitureTests::aCountersTopIsABoardOverTheCountersOwnTop);
         Checks.run("aBarsPanellingStandsAlongTheEdgeItsSpritePaintsFacingTheRoom", FurnitureTests::aBarsPanellingStandsAlongTheEdgeItsSpritePaintsFacingTheRoom);
+        Checks.run("aBarsPanellingStandsWithItsFootRailUndyedWhereTheBrassIsNotPainted", FurnitureTests::aBarsPanellingStandsWithItsFootRailUndyedWhereTheBrassIsNotPainted);
     }
 
     private static IsoSprite sprite(String row) {
@@ -544,6 +545,31 @@ final class FurnitureTests {
         }
         check(count > 0, piece.model.name + " has a plinth on its " + (north ? "north" : "west") + " length");
         return count == 0 ? Float.NaN : sum / count;
+    }
+
+    /**
+     * The tall run's colours read off a sprite painted everywhere but where the brass of its foot rail is looked for: the
+     * run stands, its wood dyed, and its rail keeps the metal's own colour. Where its wood is not painted it does not stand.
+     */
+    private static void aBarsPanellingStandsWithItsFootRailUndyedWhereTheBrassIsNotPainted() {
+        Furniture run = Furniture.known(sprite("location_restaurant_bar_01_85|CustomName|CustomName|"));
+        SpriteGeometry.Frame frame = new SpriteGeometry.Frame();
+        frame.scale = 2f;
+        frame.originU = 64f;
+        frame.originV = 192f;
+        frame.width = 128f;
+        frame.height = 256f;
+        frame.uEnd = 1f;
+        frame.vEnd = 1f;
+        int railU = Math.round(SpriteGeometry.frameU(frame, run.alsoA, run.alsoB)), railV = Math.round(SpriteGeometry.frameV(frame, run.alsoA, run.alsoB, run.alsoHigh));
+        int woodU = Math.round(SpriteGeometry.frameU(frame, run.dyeA, run.dyeB)), woodV = Math.round(SpriteGeometry.frameV(frame, run.dyeA, run.dyeB, run.dyeHigh));
+        check(railU != woodU || railV != woodV, "the rail's brass and the wood are read at two places of the sprite");
+        FurnishingBuilder builder = new FurnishingBuilder(null);
+        boolean stands = builder.dyes((u, v) -> u != railU || v != railV, frame, run, "location_restaurant_bar_01_85");
+        check(stands && builder.alsoDyed == 0, "with no brass painted the run stands, its rail undyed: " + stands + ", " + builder.alsoDyed);
+        stands = builder.dyes((u, v) -> true, frame, run, "location_restaurant_bar_01_85");
+        check(stands && builder.alsoDyed == 1 << Models.METAL, "with the brass painted its rail takes it: " + builder.alsoDyed);
+        check(!builder.dyes((u, v) -> false, frame, run, "location_restaurant_bar_01_85"), "with nothing painted where its wood is read it does not stand");
     }
 
     private static void aBarsPanellingStandsAlongTheEdgeItsSpritePaintsFacingTheRoom() {

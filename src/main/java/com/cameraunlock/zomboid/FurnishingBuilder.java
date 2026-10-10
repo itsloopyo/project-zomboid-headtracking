@@ -1,5 +1,7 @@
 package com.cameraunlock.zomboid;
 
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import zombie.core.textures.Texture;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoObject;
@@ -51,9 +53,15 @@ final class FurnishingBuilder {
 
     private final WorldScene.Frame build;
 
-    /** Where the piece last found ready takes its colours, and the texture of the sprite that gives them, PLAIN for a piece that takes none. */
-    private float dyeU, dyeV, alsoU, alsoV;
+    /**
+     * Where the piece last found ready takes its colours, the surfaces that take the second, and the texture of the
+     * sprite that gives them, PLAIN for a piece that takes none.
+     */
+    float dyeU, dyeV, alsoU, alsoV;
+    int alsoDyed;
     private int dyeTexture;
+    /** The sprites whose second colour was not found painted, each written to the log once. */
+    private static final Set<String> UNDYED = ConcurrentHashMap.newKeySet();
     private final SpriteGeometry.Frame partFrame = new SpriteGeometry.Frame();
     private final float[] partAt = new float[4], wholeAt = new float[4];
     private final float[] screenAt = new float[2];
@@ -190,7 +198,7 @@ final class FurnishingBuilder {
     /**
      * Whether the piece the object is a square of can stand as its model: every square of it is
      * there, and the sprite that is to give it its colour is painted where the colour is
-     * taken. Leaves where the colour is taken in dyeU to alsoV and dyeTexture.
+     * taken. Leaves where the colours are taken in dyeU to alsoV, alsoDyed and dyeTexture.
      */
     private boolean ready(IsoObject object, Furniture piece, int x, int y, int z) {
         int originX = x - piece.gridX, originY = y - piece.gridY;
@@ -209,6 +217,7 @@ final class FurnishingBuilder {
             }
         }
         dyeTexture = WorldScene.PLAIN;
+        alsoDyed = piece.alsoDyed;
         if (piece.dyed == 0) {
             return true;
         }
@@ -219,20 +228,36 @@ final class FurnishingBuilder {
         build.dyeFrame.scale = build.frame.scale;
         WorldScene.frameOf(build.dyeFrame, dyer, dye);
         dyeTexture = dye.getID();
+        return dyes(dye::isMaskSet, build.dyeFrame, piece, dyer.getSprite().getName());
+    }
+
+    /**
+     * Where a piece takes its colours on the sprite that gives them, laid in frame and painted where painted says, into
+     * dyeU to alsoV and alsoDyed. Whether the piece can stand: its first colour's place is painted. Where the place of
+     * its second is not, the surfaces that would take it keep their own colour, alsoDyed none of them, and that is
+     * written once for the sprite.
+     */
+    boolean dyes(SpriteShape.Painted painted, SpriteGeometry.Frame frame, Furniture piece, String sprite) {
         for (float share : DYE_TRIES) {
             float high = piece.dyeHigh * share;
-            if (dye.isMaskSet(Math.round(SpriteGeometry.frameU(build.dyeFrame, piece.dyeA, piece.dyeB)),
-                    Math.round(SpriteGeometry.frameV(build.dyeFrame, piece.dyeA, piece.dyeB, high)))) {
-                dyeU = SpriteGeometry.textureU(build.dyeFrame, piece.dyeA, piece.dyeB);
-                dyeV = SpriteGeometry.textureV(build.dyeFrame, piece.dyeA, piece.dyeB, high);
-                if (piece.alsoDyed == 0) {
+            if (painted.at(Math.round(SpriteGeometry.frameU(frame, piece.dyeA, piece.dyeB)), Math.round(SpriteGeometry.frameV(frame, piece.dyeA, piece.dyeB, high)))) {
+                dyeU = SpriteGeometry.textureU(frame, piece.dyeA, piece.dyeB);
+                dyeV = SpriteGeometry.textureV(frame, piece.dyeA, piece.dyeB, high);
+                alsoDyed = piece.alsoDyed;
+                if (alsoDyed == 0) {
                     return true;
                 }
                 float alsoA = Float.isNaN(piece.alsoA) ? piece.dyeA : piece.alsoA, alsoB = Float.isNaN(piece.alsoB) ? piece.dyeB : piece.alsoB;
-                alsoU = SpriteGeometry.textureU(build.dyeFrame, alsoA, alsoB);
-                alsoV = SpriteGeometry.textureV(build.dyeFrame, alsoA, alsoB, piece.alsoHigh);
-                return dye.isMaskSet(Math.round(SpriteGeometry.frameU(build.dyeFrame, alsoA, alsoB)),
-                        Math.round(SpriteGeometry.frameV(build.dyeFrame, alsoA, alsoB, piece.alsoHigh)));
+                alsoU = SpriteGeometry.textureU(frame, alsoA, alsoB);
+                alsoV = SpriteGeometry.textureV(frame, alsoA, alsoB, piece.alsoHigh);
+                if (!painted.at(Math.round(SpriteGeometry.frameU(frame, alsoA, alsoB)), Math.round(SpriteGeometry.frameV(frame, alsoA, alsoB, piece.alsoHigh)))) {
+                    alsoDyed = 0;
+                    if (UNDYED.add(sprite)) {
+                        Log.info("furniture " + sprite + ": nothing painted where its second colour is taken, at (" + alsoA + ", " + alsoB + ", "
+                                + piece.alsoHigh + "): those surfaces keep the model's own colour");
+                    }
+                }
+                return true;
             }
         }
         return false;
@@ -365,7 +390,7 @@ final class FurnishingBuilder {
             foot += onRoof[2];
         }
         build.placed.add(model, build.frame, x, y, x + centreX, y + centreY, foot, piece.turns, piece.scale, piece.scaleUp,
-                dyeTexture, piece.dyed, dyeU, dyeV, piece.alsoDyed, alsoU, alsoV);
+                dyeTexture, piece.dyed, dyeU, dyeV, alsoDyed, alsoU, alsoV);
         if (piece.pictured) {
             // Each point of the pane looks at where the sprite paints it: the pane's face is paneY in front of the model's origin.
             // The sprite paints it over its unmoved place, and a model stood on a roof is where the view draws that place.
