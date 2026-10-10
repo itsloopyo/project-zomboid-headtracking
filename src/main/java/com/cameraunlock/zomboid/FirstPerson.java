@@ -3,6 +3,7 @@ package com.cameraunlock.zomboid;
 import java.util.HashSet;
 import java.util.Locale;
 import java.util.Set;
+import org.joml.Vector3f;
 import zombie.GameTime;
 import zombie.characters.CharacterJoypadAxis2dBinding;
 import zombie.characters.IsoGameCharacter;
@@ -18,6 +19,7 @@ import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoUtils;
 import zombie.iso.IsoWorld;
 import zombie.iso.Vector2;
+import zombie.scripting.objects.VehicleScript;
 import zombie.ui.TextManager;
 import zombie.ui.UIFont;
 import zombie.vehicles.BaseVehicle;
@@ -713,6 +715,9 @@ public final class FirstPerson {
 
     private int treadSaid;
     private float treadUp;
+    /** Where each wheel of the vehicle being driven touches the ground, x and y of each: see tread. */
+    private final float[] wheelsAt = new float[SnowPrints.WHEELS * 2];
+    private final Vector3f wheelAt = new Vector3f();
 
     /**
      * Says where the player walks or drives, for lying snow to show the marks of it: see
@@ -738,9 +743,35 @@ public final class FirstPerson {
             treadUp = player.getZ() * ViewCamera.LEVEL_HEIGHT + view.worldScene.terrain.lift(x, y, player.getZ());
             float floorUp = player.getZ() * ViewCamera.LEVEL_HEIGHT;
             if (vehicle == null) {
-                SnowPrints.walked(view.index, x, y, floorUp);
+                // In first person the body faces the way the mouse turned the view, the head's turn
+                // not counted. The game turns its character round to walk backwards, which the
+                // view does not show: a step back left a print pointing back.
+                Vector2 facing = player.getForwardDirection();
+                float way = on ? yaw : (float) Math.atan2(facing.y, facing.x);
+                SnowPrints.walked(view.index, x, y, (float) Math.cos(way), (float) Math.sin(way), floorUp);
+                if (TRACE && (treadSaid & 255) == 0) {
+                    Log.info(String.format(Locale.ROOT, "snow marks: a foot points %.0f degrees, the character faces %.0f, the view %.0f",
+                            Math.toDegrees(way), Math.toDegrees(Math.atan2(facing.y, facing.x)), Math.toDegrees(yaw)));
+                }
             } else {
-                SnowPrints.drove(view.index, x, y, floorUp);
+                // A wheel's offset is in the vehicle's own frame, as its physics body has it: getWorldPos puts it on the map.
+                VehicleScript script = vehicle.getScript();
+                int wheels = Math.min(script.getWheelCount(), SnowPrints.WHEELS);
+                for (int wheel = 0; wheel < wheels; wheel++) {
+                    vehicle.getWorldPos(script.getWheel(wheel).getOffset(), wheelAt);
+                    wheelsAt[wheel * 2] = wheelAt.x;
+                    wheelsAt[wheel * 2 + 1] = wheelAt.y;
+                }
+                SnowPrints.drove(view.index, wheelsAt, wheels, floorUp);
+                if (TRACE && (treadSaid & 255) == 0) {
+                    StringBuilder said = new StringBuilder("snow marks: wheels of ").append(vehicle.getScriptName()).append(" at (")
+                            .append(String.format(Locale.ROOT, "%.2f, %.2f)", x, y));
+                    for (int wheel = 0; wheel < wheels; wheel++) {
+                        said.append(String.format(Locale.ROOT, ", %s%s (%.2f, %.2f)", script.getWheel(wheel).getId(), script.getWheel(wheel).front ? " front" : "",
+                                wheelsAt[wheel * 2], wheelsAt[wheel * 2 + 1]));
+                    }
+                    Log.info(said.toString());
+                }
             }
         }
         if (TRACE && (treadSaid++ & 255) == 0) {

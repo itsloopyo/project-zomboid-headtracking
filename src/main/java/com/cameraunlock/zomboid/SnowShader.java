@@ -181,18 +181,18 @@ final class SnowShader {
 
             // Where the viewer has walked and driven since the snow came: see SnowPrints. A
             // footprint is its place, counted as vPlace is, with the way the foot pointed
-            // and how high the ground it trod stands. A rut is a stretch of a vehicle's
-            // path from one place to the next, down the middle between its wheels.
+            // and how high the ground it trod stands. A rut is a stretch of one wheel's
+            // path from one place to the next, down the middle of its tyre.
             // uSnowRutUp is how high the ground under each stretch stands, uSnowTrodBox
             // holds every mark, its least corner and its greatest, and uSnowTrod is how many
             // footprints there are and how many stretches of rut.
             uniform vec4 uSnowPrint[48];
-            uniform vec4 uSnowRut[32];
-            uniform float uSnowRutUp[32];
+            uniform vec4 uSnowRut[64];
+            uniform float uSnowRutUp[64];
             uniform vec4 uSnowTrodBox;
             uniform vec2 uSnowTrod;
-            // How deep a boot and a tyre sink, in tiles, and how far to either side of a vehicle's middle its wheels run.
-            const float SNOW_TROD = 0.04, SNOW_HALF_TRACK = 0.5;
+            // How deep a boot and a tyre sink, and half a tyre's width, in tiles.
+            const float SNOW_TROD = 0.04, SNOW_TYRE = 0.1;
             // A mark is on the ground it was made on and not on the roof over it: within this of its height, half a storey, which a hillside stays inside from one end of a rut to the other.
             const float SNOW_SAME_FLOOR = 1.2;
 
@@ -239,7 +239,7 @@ final class SnowShader {
                         pressed = vec3(dent.x, way * turn.x + vec2(-way.y, way.x) * turn.y) * printed;
                     }
                 }
-                for (int i = 0; i < 32; i++) {
+                for (int i = 0; i < 64; i++) {
                     if (float(i) >= uSnowTrod.y) {
                         break;
                     }
@@ -258,13 +258,13 @@ final class SnowShader {
                     vec2 across = vec2(-along.y, along.x) * inversesqrt(run);
                     float off = dot(from, across);
                     // A tyre is two hands wide, and its tread stands in bars across the rut it leaves.
-                    float far = abs(abs(off) - SNOW_HALF_TRACK) / 0.1;
+                    float far = abs(off) / SNOW_TYRE;
                     if (far < nearest) {
                         nearest = far;
                         vec2 dent = snowDent(far);
                         // Counted along the stretch itself: counted on the map, the bars would jump whenever vPlace's corner moved.
                         float bars = 0.82 + 0.18 * smoothstep(-0.3, 0.3, sin(dot(from, along) * inversesqrt(run) * 70.0 + abs(off) * 40.0));
-                        pressed = vec3(min(dent.x, 0.0) * bars + max(dent.x, 0.0), across * (dent.y / 0.1 * sign(off) * sign(abs(off) - SNOW_HALF_TRACK))) * rutted;
+                        pressed = vec3(min(dent.x, 0.0) * bars + max(dent.x, 0.0), across * (dent.y / SNOW_TYRE * sign(off))) * rutted;
                     }
                 }
                 return pressed;
