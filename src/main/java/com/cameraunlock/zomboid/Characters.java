@@ -17,6 +17,7 @@ import zombie.core.skinnedmodel.model.ModelInstanceRenderDataList;
 import zombie.core.skinnedmodel.model.ModelSlotRenderData;
 import zombie.core.skinnedmodel.model.VehicleModelInstance;
 import zombie.core.textures.ColorInfo;
+import zombie.scripting.objects.ModelAttachment;
 import zombie.iso.IsoGridSquare;
 import zombie.vehicles.BaseVehicle;
 
@@ -826,60 +827,137 @@ public final class Characters {
 
     /** Places the mod's own arms on the weapon held up. False if either cannot be placed, and the game's own arms are then drawn. */
     private boolean reachOwn(ModelSlotRenderData data, ViewModel.Held hands) {
-        heldBoth = hands.bothHands() && (view.viewModel.hasMuzzle || !hands.firearm());
-        // The weapon is held where the game's own hand has it: by the middle of that hand, which the weapon's maker put its grip in.
         float[] grip = view.viewModel.gripSeen;
-        for (int part = 0; part < parts(data).size(); part++) {
-            if (CharacterDraw.hand(parts(data).get(part), false, data.finalScale, joined)) {
-                ViewModelMath.place(heldView, joined[6], joined[7], joined[8], palm);
-                // The middle of the game's hand is beside the weapon, not in it, and the mod's hand closes on the
-                // weapon's own middle: a firearm's is the plane its barrel and its top lie in, and a handle's is its length.
-                float[] off = gripOff, ahead = view.viewModel.pointing, side = gripSide;
-                for (int axis = 0; axis < 3; axis++) {
-                    off[axis] = palm[axis] - view.viewModel.gripSeen[axis];
-                }
-                ArmPose.cross(ahead, view.viewModel.over, side);
-                if (hands.firearm() && ArmPose.unit(side[0], side[1], side[2], side)) {
-                    float aside = ArmPose.dot(off, side);
+        ArmHolds.Placed placed = null;
+        boolean handgun = view.viewModel.handgun;
+        if (hands.firearm()) {
+            // A firearm is held where its own mesh has its grip, and a handgun in both hands when the left is free.
+            placed = placed(data, hands);
+            if (placed == null) {
+                return false;
+            }
+            grip = placed.at(placed.shape().grip);
+            heldBoth = hands.bothHands() || handgun && hands.leftFree();
+        } else {
+            heldBoth = hands.bothHands();
+            // Something swung is held where the game's own hand has it along its handle, on the handle's line.
+            for (int part = 0; part < parts(data).size(); part++) {
+                if (CharacterDraw.hand(parts(data).get(part), false, data.finalScale, joined)) {
+                    ViewModelMath.place(heldView, joined[6], joined[7], joined[8], palm);
+                    float[] ahead = view.viewModel.pointing;
+                    float along = 0f;
                     for (int axis = 0; axis < 3; axis++) {
-                        palm[axis] -= side[axis] * aside;
+                        along += (palm[axis] - view.viewModel.gripSeen[axis]) * ahead[axis];
                     }
-                    handAside = aside;
-                } else if (!hands.firearm()) {
-                    float along = ArmPose.dot(off, ahead);
                     for (int axis = 0; axis < 3; axis++) {
+                        gripAlong[axis] = palm[axis] - view.viewModel.gripSeen[axis] - ahead[axis] * along;
                         palm[axis] = view.viewModel.gripSeen[axis] + ahead[axis] * along;
                     }
-                    for (int axis = 0; axis < 3; axis++) {
-                        gripAlong[axis] = ahead[axis] * along;
-                    }
-                    handAside = ArmPose.apart(off, gripAlong);
+                    handAside = ArmPose.apart(gripAlong, NOWHERE);
+                    grip = palm;
+                    break;
                 }
-                grip = palm;
-                break;
             }
         }
-        ArmHolds.Parts parts = view.viewModel.handgun ? ArmHolds.HAND : ArmHolds.LONG;
-        float[] origin = grip;
-        if (view.viewModel.hasMuzzle && OwnRifle.standsFor(hands.item())) {
-            parts = new ArmHolds.Parts(parts.bore(), parts.knob(), parts.lift(), OwnRifle.boltTravel(), parts.port(), parts.well(), parts.slide(), parts.slideTravel());
-            origin = view.viewModel.gripSeen;
-        } else if (view.viewModel.hasMuzzle && OwnWeapon.standsFor(hands.item())) {
-            origin = view.viewModel.gripSeen;
-        }
-        ArmHolds.Weapon weapon = new ArmHolds.Weapon(hands.firearm(), view.viewModel.handgun, grip, origin, view.viewModel.pointing, view.viewModel.over, view.viewModel.foreEnd, view.viewModel.foreSteady, parts);
+        ArmHolds.Weapon weapon = new ArmHolds.Weapon(hands.firearm(), handgun, grip, view.viewModel.pointing, view.viewModel.over, placed);
         ArmHolds.Doing doing = new ArmHolds.Doing(hands.aim(), heldBoth, hands.action(), hands.cycled(), hands.doing(), hands.done(), hands.round(), hands.pace(), hands.seated(), hands.clip(), hands.out(), hands.fetching(), hands.fetchTakes(), view.viewModel.turned);
         long now = System.nanoTime();
         armSettled.seconds = Math.min((now - armsAsOf) / 1e9f, 0.1f);
         armsAsOf = now;
-        int placed = ArmHolds.place(OwnArms.model(), ARM_SCALE * data.finalScale, weapon, doing, fromAim, armSkins, armSaid, armCarries, armSettled);
+        int arms = ArmHolds.place(OwnArms.model(), ARM_SCALE * data.finalScale, weapon, doing, fromAim, armSkins, armSaid, armCarries, armSettled);
         // The left hand comes to a weapon held in one hand to load it or rack it.
-        heldBoth = placed == 2;
-        return placed > 0;
+        heldBoth = arms == 2;
+        return arms > 0;
     }
 
-    /** Room for the sums that put the mod's hand on the grip, so that each frame's makes no new arrays. */
-    private final float[] gripOff = new float[3], gripSide = new float[3], gripAlong = new float[3];
+    private static final float[] NOWHERE = new float[3];
+
+    /**
+     * The firearm held, where the view has its mesh: the mod's own model where one stands for
+     * it, the game's otherwise. Null for a firearm whose mesh has no grip the hands can be
+     * put on, which is then held by the game's own arms.
+     */
+    private ArmHolds.Placed placed(ModelSlotRenderData data, ViewModel.Held hands) {
+        ModelInstanceRenderData held = weaponOf(data);
+        if (held == null || !view.viewModel.hasMuzzle) {
+            return null;
+        }
+        float pumped = view.viewModel.pumped;
+        String item = hands.item();
+        OwnModel own = OwnWeapon.standsFor(item) ? OwnWeapon.MODEL : OwnRifle.standsFor(item) ? OwnRifle.MODEL : null;
+        if (own != null) {
+            float out = muzzleOut(held);
+            own.hold(meshView, heldView, weaponPlace, data.finalScale, out);
+            own.hold(meshStill, view.viewModel.still, weaponPlace, data.finalScale, out);
+            // The shotgun's fore-end is where its maker put it and slides as far as the model's does; the rifle's bolt is drawn back as far as its model's.
+            boolean shotgun = own == OwnWeapon.MODEL;
+            return new ArmHolds.Placed(own.shape, meshView.clone(), meshStill.clone(), shotgun ? own.travel * pumped : 0f,
+                    shotgun ? own.foreEnd * own.muzzle[1] : Float.NaN, shotgun ? ArmHolds.BOLT_TRAVEL : own.travel);
+        }
+        WeaponShape shape = shapeOf(held, view.viewModel.handgun);
+        if (shape == null) {
+            return null;
+        }
+        meshTo(heldView, data.finalScale, meshView);
+        meshTo(view.viewModel.still, data.finalScale, meshStill);
+        return new ArmHolds.Placed(shape, meshView.clone(), meshStill.clone(), ViewModel.PUMP_TRAVEL * shape.muzzle * pumped, Float.NaN, ArmHolds.BOLT_TRAVEL);
+    }
+
+    /** The matrix from the held weapon's mesh to a view, from the matrix from the viewer's model to that view. */
+    private void meshTo(float[] modelView, float finalScale, float[] out) {
+        for (int column = 0; column < 4; column++) {
+            float x = weaponPlace[column] * finalScale, y = weaponPlace[4 + column] * finalScale, z = weaponPlace[8 + column] * finalScale;
+            float w = weaponPlace[12 + column];
+            for (int row = 0; row < 4; row++) {
+                out[column * 4 + row] = modelView[row] * x + modelView[4 + row] * y + modelView[8 + row] * z + modelView[12 + row] * w;
+            }
+        }
+    }
+
+    private final float[] meshView = new float[16], meshStill = new float[16];
+    /** What each of the game's firearm meshes says of where hands go on it, read once a mesh, as it is held by hands of the size hands are. */
+    private static final java.util.IdentityHashMap<Model, WeaponShape> SHAPES = new java.util.IdentityHashMap<>();
+    private static final java.util.Set<Model> SHAPELESS = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+
+    /** The shape of the game's mesh of a firearm held, or null if the hands cannot be put on it, which is said once. Render thread. */
+    private static WeaponShape shapeOf(ModelInstanceRenderData held, boolean handgun) {
+        Model model = held.model;
+        WeaponShape known = SHAPES.get(model);
+        if (known != null || SHAPELESS.contains(model)) {
+            return known;
+        }
+        ModelAttachment muzzle = held.modelInstance.modelScript.getAttachmentById(MUZZLE);
+        Vector3f offset = muzzle.getOffset(), rotate = muzzle.getRotate();
+        // The attachment is turned about x, then y, then z, and its own z is the barrel: as ViewModel reads it.
+        double aboutX = Math.toRadians(rotate.x), aboutY = Math.toRadians(rotate.y);
+        float[] along = {(float) Math.sin(aboutY), (float) (-Math.sin(aboutX) * Math.cos(aboutY)), (float) (Math.cos(aboutX) * Math.cos(aboutY))};
+        // A handgun's mesh has its top on its -z, a long gun's on its +z: the muzzle is over the grip.
+        float[] up = {0f, 0f, offset.z < 0f ? -1f : 1f};
+        float tipped = ArmPose.dot(up, along);
+        ArmPose.unit(up[0] - along[0] * tipped, up[1] - along[1] * tipped, up[2] - along[2] * tipped, up);
+        StringBuilder why = new StringBuilder();
+        CharacterDraw.Shape mesh = CharacterDraw.shapeOf(model, why);
+        String name = model.name;
+        WeaponShape shape = mesh == null ? null
+                : WeaponShape.read(mesh.places(), mesh.corners(), along, up, new float[] {offset.x, offset.y, offset.z}, PER_METRE / (handgun ? ViewModel.HANDGUN_FITS : 1f), why);
+        if (shape == null) {
+            SHAPELESS.add(model);
+            Log.info("the mod's own hands cannot be put on " + name + " (" + why + "): the game's own arms hold it");
+            return null;
+        }
+        SHAPES.put(model, shape);
+        Log.info(String.format(Locale.ROOT, "the hands on %s: grip %.4f along and %.4f up of its mesh, its line %.0f degrees from upright, %.3f thick; guard %.4f to %.4f; fore-end %.4f to %.4f, level %.4f to %.4f%s",
+                name, ArmPose.dot(shape.grip, shape.along), ArmPose.dot(shape.grip, shape.up), Math.toDegrees(Math.atan2(ArmPose.dot(shape.gripLine, shape.along), ArmPose.dot(shape.gripLine, shape.up))),
+                shape.gripThick / shape.perMetre, shape.guardBack, shape.guardFront, shape.foreFrom, shape.foreTo, shape.levelFrom, shape.levelTo,
+                shape.magazine ? String.format(Locale.ROOT, "; magazine %.4f to %.4f, its foot at %.4f", shape.magazineBack, shape.magazineFront, shape.magazineFoot) : ""));
+        return shape;
+    }
+
+    /** The game's mesh units in a metre of a long gun, which it makes the size long guns are: its pump gun is 0.4461 of them from grip to muzzle, 0.9015 m. */
+    private static final float PER_METRE = 0.4461f / 0.9015f;
+
+    /** Room for the sums that put the mod's hand on a handle, so that each frame's makes no new arrays. */
+    private final float[] gripAlong = new float[3];
     private final ArmHolds.Carried armCarries = new ArmHolds.Carried();
     private final ArmHolds.Settled armSettled = new ArmHolds.Settled();
     private long armsAsOf;

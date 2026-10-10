@@ -64,13 +64,26 @@ final class OwnArmTests {
         ArmPose.about(new float[] {1f, 0f, 0f}, tip[0], pitched);
         ArmPose.about(new float[] {0f, 1f, 0f}, tip[1], yawed);
         float[] pointing = turned(yawed, turned(pitched, turned(rolled, new float[] {0f, 0f, -1f}))), over = turned(yawed, turned(pitched, turned(rolled, new float[] {0f, 1f, 0f})));
-        float[] grip = new float[3], rests = new float[3], fore = new float[3];
+        float[] grip = new float[3];
         for (int axis = 0; axis < 3; axis++) {
             grip[axis] = line[axis] - over[axis] * gun[1] * SCALE;
-            rests[axis] = grip[axis] + (pointing[axis] * gun[2] + over[axis] * gun[3]) * SCALE;
-            fore[axis] = rests[axis] - pointing[axis] * drawn * SCALE;
         }
-        return new ArmHolds.Weapon(true, false, grip, grip, pointing, over, fore, rests, ArmHolds.LONG);
+        return held(LONG, grip, pointing, over, gun[2], drawn);
+    }
+
+    /** The test long gun, its grip at a place in the view, its fore-end held `ahead` of its grip and drawn back by `drawn`, in metres. */
+    private static final WeaponShape LONG = TestGuns.shape(TestGuns.longGun(false)), PISTOL = TestGuns.shape(TestGuns.pistol());
+
+    private static ArmHolds.Weapon held(WeaponShape shape, float[] grip, float[] pointing, float[] over, float ahead, float drawn) {
+        ArmHolds.Placed placed = TestGuns.placed(shape, grip, pointing, over, SCALE, drawn, shape.grip[1] + ahead);
+        return new ArmHolds.Weapon(true, shape == PISTOL, placed.at(shape.grip), pointing, over, placed);
+    }
+
+    /** Where the hand under a gun's fore-end is held, drawn back as it is. */
+    private static float[] foreEndOf(ArmHolds.Weapon gun) {
+        ArmHolds.Placed placed = gun.placed();
+        float a = placed.foreRests(ArmActs.PUMP) - placed.slid();
+        return placed.at(a, placed.overUnder(a), 0f);
     }
 
     private static ArmHolds.Doing holding(float raised) {
@@ -178,18 +191,20 @@ final class OwnArmTests {
         float nearest = 0f;
         // The same gun with its fore-end held further and further out along its barrel.
         for (float out = 0.2f; out < 0.9f; out += 0.05f) {
-            float[] grip = {0.1f, -0.16f, -0.2f}, end = {0.1f, -0.14f, -0.2f - out * SCALE};
-            ArmHolds.Weapon gun = new ArmHolds.Weapon(true, false, grip, grip, new float[] {0f, 0f, -1f}, new float[] {0f, 1f, 0f}, end, end, ArmHolds.LONG);
+            float[] grip = {0.1f, -0.16f, -0.2f};
+            ArmHolds.Weapon gun = held(LONG, grip, new float[] {0f, 0f, -1f}, new float[] {0f, 1f, 0f}, out, 0f);
+            float[] end = foreEndOf(gun);
             check(ArmHolds.place(model, SCALE, gun, holding(0f), SAME, skins, said, new ArmHolds.Carried(), new ArmHolds.Settled()) == 2, "a long gun has both arms however long it is");
             float[] hand = placed(skins[1], model.wrist, fore);
             float[] wrist = {said[1][ArmPose.WRIST], said[1][ArmPose.WRIST + 1], said[1][ArmPose.WRIST + 2]};
-            check(near(hand[0], end[0], 1e-4f) && near(hand[1], end[1], 1e-4f), "the left hand is under the barrel, on the line its fore-end is on");
+            check(near(hand[0], grip[0], 1e-4f) && hand[1] > grip[1], "the left hand is under the barrel, in the upright through it");
             float ahead = (grip[2] - hand[2]) / SCALE;
             check(ahead <= out + 1e-4f && ahead >= ArmHolds.NEAREST_FORE - 1e-4f, "no further out than the fore-end is, and no nearer the grip than a hand comes: " + ahead);
             if (ahead < out - 1e-3f) {
-                check(nearest == 0f || near(ahead, nearest, 1e-3f), "a fore-end out of reach has the hand as far out as the arm reaches, wherever the fore-end is: " + ahead);
+                // Brought back off the bare barrel onto the fore-end under it, the hand is lower, and is held as near its easy reach as a few passes bring it.
+                check(nearest == 0f || near(ahead, nearest, 5e-3f), "a fore-end out of reach has the hand as far out as the arm reaches, wherever the fore-end is: " + ahead + " against " + nearest + " out " + out);
                 nearest = ahead;
-                check(near(ArmPose.apart(rests, wrist), easy, 1e-3f), "and its wrist is then as far from where the shoulder rests as the arm reaches easily");
+                check(ArmPose.apart(rests, wrist) <= easy + 1e-3f && ArmPose.apart(rests, wrist) > easy - 5e-3f * SCALE, "and its wrist is then as far from where the shoulder rests as the arm reaches easily: " + ArmPose.apart(rests, wrist) / SCALE + " against " + easy / SCALE + " out " + out + " ahead " + ahead);
             } else {
                 check(nearest == 0f, "a fore-end within reach has the hand on it");
                 check(ArmPose.apart(rests, wrist) <= easy + 1e-3f, "which is no further than the arm reaches easily");
@@ -219,22 +234,25 @@ final class OwnArmTests {
                     "the hand goes back with the fore-end, as far as it goes and along the barrel, raised " + raised + ": " + ArmPose.apart(on, drawn) / SCALE);
             // A shot kicks the whole gun back along its barrel and a step sways it. Where it is held still is where it was.
             for (float kick : new float[] {0.06f, -0.03f}) {
-                float[] kickedGrip = new float[3], kickedFore = new float[3];
+                float[] kickedGrip = new float[3], toView = rests.placed().toView().clone();
                 for (int axis = 0; axis < 3; axis++) {
-                    kickedGrip[axis] = rests.grip()[axis] - rests.pointing()[axis] * kick * SCALE + rests.over()[axis] * 0.01f * SCALE;
-                    kickedFore[axis] = rests.foreEnd()[axis] - rests.pointing()[axis] * kick * SCALE + rests.over()[axis] * 0.01f * SCALE;
+                    float by = -rests.pointing()[axis] * kick * SCALE + rests.over()[axis] * 0.01f * SCALE;
+                    kickedGrip[axis] = rests.grip()[axis] + by;
+                    toView[12 + axis] += by;
                 }
-                ArmHolds.Weapon kicked = new ArmHolds.Weapon(true, false, kickedGrip, kickedGrip, rests.pointing(), rests.over(), kickedFore, rests.foreSteady(), ArmHolds.LONG);
+                ArmHolds.Placed still = rests.placed();
+                ArmHolds.Weapon kicked = new ArmHolds.Weapon(true, false, kickedGrip, rests.pointing(), rests.over(),
+                        new ArmHolds.Placed(still.shape(), toView, still.still(), still.slid(), still.foreRest(), still.travel()));
                 check(ArmHolds.place(model, SCALE, kicked, holding(raised), SAME, skins, said, new ArmHolds.Carried(), new ArmHolds.Settled()) == 2, "a gun that a shot has kicked has both arms");
                 check(near(aheadOfTheGrip(model, skins[1], kicked), ahead, 1e-3f), "its left hand is at the same place on its fore-end as before the shot, kicked " + kick + ", raised " + raised
                         + ": " + aheadOfTheGrip(model, skins[1], kicked) + " against " + ahead);
             }
         }
         // A fore-end the arm reaches wherever it is has the hand on it wherever it is.
-        float[] grip = {0.1f, -0.16f, -0.2f}, forward = {0.1f, -0.14f, -0.2f - 0.25f * SCALE}, back = {0.1f, -0.14f, -0.2f - 0.2f * SCALE};
-        ArmHolds.Weapon near = new ArmHolds.Weapon(true, false, grip, grip, new float[] {0f, 0f, -1f}, new float[] {0f, 1f, 0f}, back, forward, ArmHolds.LONG);
+        float[] grip = {0.1f, -0.16f, -0.2f};
+        ArmHolds.Weapon near = held(LONG, grip, new float[] {0f, 0f, -1f}, new float[] {0f, 1f, 0f}, 0.25f, 0.05f);
         check(ArmHolds.place(model, SCALE, near, holding(0f), SAME, skins, said, new ArmHolds.Carried(), new ArmHolds.Settled()) == 2
-                && ArmPose.apart(placed(skins[1], model.wrist, fore), back) < 1e-4f, "a fore-end within reach, drawn back, has the hand on it where it is and not where it rests");
+                && ArmPose.apart(placed(skins[1], model.wrist, fore), foreEndOf(near)) < 1e-4f, "a fore-end within reach, drawn back, has the hand on it where it is and not where it rests");
         // One of the game's pump guns with the sights up has its fore-end out of reach: the hand is as near the grip as a hand comes, and stays clear of the grip with the fore-end back.
         ArmHolds.Weapon far = longGun(LONG_GUNS[2], 1f, new float[3], 0.108f);
         check(ArmHolds.place(model, SCALE, far, holding(1f), SAME, skins, said, new ArmHolds.Carried(), new ArmHolds.Settled()) == 2, "one of the game's pump guns has both arms with its fore-end back");
@@ -349,7 +367,7 @@ final class OwnArmTests {
     private static void somethingSwungInBothHandsHasAFistUnderTheOther(ArmModel model) {
         float[] grip = {0.14f, -0.2f, -0.36f}, pointing = new float[3];
         ArmPose.unit(0f, 0.8f, -0.6f, pointing);
-        ArmHolds.Weapon bat = new ArmHolds.Weapon(false, false, grip, grip, pointing, new float[] {0.3f, 0.6f, 0.8f}, grip, grip, ArmHolds.LONG);
+        ArmHolds.Weapon bat = new ArmHolds.Weapon(false, false, grip, pointing, new float[] {0.3f, 0.6f, 0.8f}, null);
         float[][] skins = new float[2][model.bones.length * 16], said = new float[2][ArmPose.SAYS];
         ArmHolds.Carried carried = new ArmHolds.Carried();
         float[] handle = model.holds[model.pose("handle")];
@@ -366,8 +384,8 @@ final class OwnArmTests {
 
     /** A long gun held level before the eye, pointing straight ahead, its fore-end within reach, and a handgun the same. */
     private static ArmHolds.Weapon weapon(boolean handgun) {
-        float[] grip = {0.1f, -0.14f, handgun ? -0.3f : -0.2f}, fore = {0.1f, -0.13f, -0.4f};
-        return new ArmHolds.Weapon(true, handgun, grip, grip, new float[] {0f, 0f, -1f}, new float[] {0f, 1f, 0f}, fore, fore, handgun ? ArmHolds.HAND : ArmHolds.LONG);
+        float[] grip = {0.1f, -0.14f, handgun ? -0.3f : -0.2f};
+        return held(handgun ? PISTOL : LONG, grip, new float[] {0f, 0f, -1f}, new float[] {0f, 1f, 0f}, 0.27f, 0f);
     }
 
     private static final float[] SAME = {1f, 0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 1f};
@@ -401,25 +419,25 @@ final class OwnArmTests {
         float[] grip = model.holds[model.pose("grip")], pinch = model.holds[model.pose("knob")];
         ArmHolds.Doing held = new ArmHolds.Doing(0f, true, ArmActs.BOLT_SINGLE, -1f, ArmActs.HOLDING, 0f, 0f, 1f, -1f, false, -1f, -1f, 2f, 0f);
         check(ArmHolds.place(model, SCALE, rifle, held, SAME, skins, said, carried, new ArmHolds.Settled()) == 2, "a rifle held in both hands has both arms");
-        check(ArmPose.apart(placed(skins[0], model.wrist, grip), rifle.grip()) < 1e-4f, "with the right hand on its grip");
+        check(ArmPose.apart(placed(skins[0], model.wrist, grip), TestGuns.handOn(rifle, SCALE)) < 1e-4f, "with the right hand on its grip");
         // Half way through working the bolt it is drawn right back, with its handle turned up.
         float back = ArmActs.BOLT_AFTER + OwnRifle.WORKED_FOR / 2f;
         ArmHolds.Doing working = new ArmHolds.Doing(0f, true, ArmActs.BOLT_SINGLE, back, ArmActs.HOLDING, 0f, 0f, 1f, -1f, false, -1f, -1f, 2f, 0f);
         check(ArmHolds.place(model, SCALE, rifle, working, SAME, skins, said, carried, new ArmHolds.Settled()) == 2, "while its bolt is worked it still has both");
-        ArmHolds.Parts parts = rifle.parts();
-        float turned = parts.lift(), right = parts.knob()[2], up = parts.knob()[1] - parts.bore();
-        float[] knob = {rifle.grip()[0] + (right * (float) Math.cos(turned) - up * (float) Math.sin(turned)) * SCALE,
-            rifle.grip()[1] + (parts.bore() + right * (float) Math.sin(turned) + up * (float) Math.cos(turned)) * SCALE,
-            rifle.grip()[2] - (parts.knob()[0] - parts.travel()) * SCALE};
+        WeaponShape shape = rifle.placed().shape();
+        float out = Math.abs(shape.knob[0]), up = shape.knob[2] - shape.bore, turned = ArmHolds.BOLT_LIFT;
+        float[] knob = rifle.placed().at(shape.knob[1] - ArmHolds.BOLT_TRAVEL, shape.bore + out * (float) Math.sin(turned) + up * (float) Math.cos(turned),
+                Math.signum(shape.knob[0]) * (out * (float) Math.cos(turned) - up * (float) Math.sin(turned)));
+        float[] rests = rifle.placed().at(shape.knob);
         check(ArmPose.apart(placed(skins[0], model.wrist, pinch), knob) < 1e-4f, "and the right hand is on the knob, where the knob then is: up and back");
-        check(knob[1] > rifle.grip()[1] + parts.knob()[1] * SCALE && knob[2] > rifle.grip()[2], "which is higher than it rests and nearer the eye");
+        check(knob[1] > rests[1] && knob[2] > rests[2], "which is higher than it rests and nearer the eye");
         ArmHolds.Doing over = new ArmHolds.Doing(0f, true, ArmActs.BOLT_SINGLE, ArmActs.BOLT_AFTER + OwnRifle.WORKED_FOR + ArmActs.BOLT_LEFT_IN + 0.01f, ArmActs.HOLDING, 0f, 0f, 1f, -1f, false, -1f, -1f, 2f, 0f);
         check(ArmHolds.place(model, SCALE, rifle, over, SAME, skins, said, carried, new ArmHolds.Settled()) == 2
-                && ArmPose.apart(placed(skins[0], model.wrist, grip), rifle.grip()) < 1e-4f, "when the bolt is shut the hand is back on the grip");
+                && ArmPose.apart(placed(skins[0], model.wrist, grip), TestGuns.handOn(rifle, SCALE)) < 1e-4f, "when the bolt is shut the hand is back on the grip");
         // A pump's action is the other hand's: the right stays where it is.
         ArmHolds.Doing pumped = new ArmHolds.Doing(0f, true, ArmActs.PUMP, back, ArmActs.HOLDING, 0f, 0f, 1f, -1f, false, -1f, -1f, 2f, 0f);
         check(ArmHolds.place(model, SCALE, rifle, pumped, SAME, skins, said, carried, new ArmHolds.Settled()) == 2
-                && ArmPose.apart(placed(skins[0], model.wrist, grip), rifle.grip()) < 1e-4f, "a pump gun's right hand never leaves its grip");
+                && ArmPose.apart(placed(skins[0], model.wrist, grip), TestGuns.handOn(rifle, SCALE)) < 1e-4f, "a pump gun's right hand never leaves its grip");
     }
 
     private static void leftHandComesToAPistolOnlyToLoadItAndBringsTheMagazine(ArmModel model) {
@@ -431,14 +449,13 @@ final class OwnArmTests {
         // A pistol with nothing in it, being loaded: a magazine has been on its way for a tenth of a second, then for longer than the game was taken to take.
         check(ArmHolds.place(model, SCALE, pistol, new ArmHolds.Doing(0f, false, ArmActs.HANDGUN, -1f, ArmActs.LOADING, 0.1f, 0f, 1f, -1f, false, -1f, 0.1f, 2f, 0f), SAME, skins, said,
                 carried, new ArmHolds.Settled()) == 2 && carried.what == ArmHolds.MAGAZINE, "while it is loaded the left hand comes to it with a magazine");
-        float[] well = pistol.parts().well(), magazine = model.holds[model.pose("magazine")];
+        float[] magazine = model.holds[model.pose("magazine")], line = pistol.placed().way(PISTOL.gripLine), at = pistol.placed().at(PISTOL.gripFoot);
         check(ArmHolds.place(model, SCALE, pistol, new ArmHolds.Doing(0f, false, ArmActs.HANDGUN, -1f, ArmActs.LOADING, 5f, 0f, 1f, -1f, false, -1f, 5f, 2f, 0f), SAME, skins, said,
                 carried, new ArmHolds.Settled()) == 2 && carried.what == ArmHolds.MAGAZINE, "which it still has however long the game takes over it");
-        float[] under = {pistol.grip()[0] + well[2] * SCALE, pistol.grip()[1] + (well[1] - ArmActs.MAGAZINE_DRAWN) * SCALE, pistol.grip()[2] - well[0] * SCALE};
-        check(ArmPose.apart(placed(skins[1], model.wrist, magazine), under) < 1e-3f, "held under the well");
+        float[] under = {at[0] - line[0] * ArmActs.MAGAZINE_DRAWN * SCALE, at[1] - line[1] * ArmActs.MAGAZINE_DRAWN * SCALE, at[2] - line[2] * ArmActs.MAGAZINE_DRAWN * SCALE};
+        check(ArmPose.apart(placed(skins[1], model.wrist, magazine), under) < 1e-3f, "held under the well, along the grip's line");
         check(ArmHolds.place(model, SCALE, pistol, new ArmHolds.Doing(0f, false, ArmActs.HANDGUN, -1f, ArmActs.HOLDING, 0f, 0f, 1f, 0.15f, true, -1f, -1f, 2f, 0f), SAME, skins, said,
                 carried, new ArmHolds.Settled()) == 2 && carried.what == ArmHolds.NOTHING, "once the game has loaded it the magazine is in the pistol");
-        float[] at = {pistol.grip()[0] + well[2] * SCALE, pistol.grip()[1] + well[1] * SCALE, pistol.grip()[2] - well[0] * SCALE};
         check(ArmPose.apart(placed(skins[1], model.wrist, magazine), at) < 1e-3f, "the hand then at the well it went into");
         check(ArmHolds.place(model, SCALE, pistol, new ArmHolds.Doing(0f, false, ArmActs.HANDGUN, -1f, ArmActs.HOLDING, 0f, 0f, 1f, -1f, true, -1f, -1f, 2f, 0f), SAME, skins, said,
                 carried, new ArmHolds.Settled()) == 1, "and gone again when that is over");
@@ -463,10 +480,10 @@ final class OwnArmTests {
         ArmHolds.Carried carried = new ArmHolds.Carried();
         float[] fore = model.holds[model.pose("fore")];
         check(ArmHolds.place(model, SCALE, gun, new ArmHolds.Doing(0f, true, ArmActs.PUMP, -1f, ArmActs.HOLDING, 0f, 0f, 1f, -1f, false, -1f, -1f, 2f, 0f), SAME, skins, said, carried, new ArmHolds.Settled()) == 2
-                && ArmPose.apart(placed(skins[1], model.wrist, fore), gun.foreEnd()) < 1e-4f, "a pump gun held ready has the left hand under its fore-end");
+                && ArmPose.apart(placed(skins[1], model.wrist, fore), foreEndOf(gun)) < 1e-4f, "a pump gun held ready has the left hand under its fore-end");
         check(ArmHolds.place(model, SCALE, gun, new ArmHolds.Doing(0f, true, ArmActs.PUMP, -1f, ArmActs.LOADING, 1f, 0.3f, 1f, -1f, false, -1f, -1f, 2f, 0f), SAME, skins, said, carried, new ArmHolds.Settled()) == 2
                 && carried.what == ArmHolds.SHELL, "being loaded, the left hand carries a shell");
-        float away = ArmPose.apart(placed(skins[1], model.wrist, fore), gun.foreEnd());
+        float away = ArmPose.apart(placed(skins[1], model.wrist, fore), foreEndOf(gun));
         check(away > 0.05f, "and is off the fore-end");
         check(ArmHolds.place(model, SCALE, gun, new ArmHolds.Doing(0f, true, ArmActs.PUMP, -1f, ArmActs.LOADING, 1f, 0.8f, 1f, -1f, false, -1f, -1f, 2f, 0f), SAME, skins, said, carried, new ArmHolds.Settled()) == 2
                 && carried.what == ArmHolds.NOTHING, "the shell is in the gun once it has been pushed in");
@@ -474,7 +491,7 @@ final class OwnArmTests {
                 && carried.what == ArmHolds.CARTRIDGE, "a rifle loaded round by round is fed cartridges");
         // Racking a pump is done by the hand that is on the fore-end, where it is.
         check(ArmHolds.place(model, SCALE, gun, new ArmHolds.Doing(0f, true, ArmActs.PUMP, -1f, ArmActs.RACKING, 0.2f, 0f, 1f, -1f, false, -1f, -1f, 2f, 0f), SAME, skins, said, carried, new ArmHolds.Settled()) == 2
-                && ArmPose.apart(placed(skins[1], model.wrist, fore), gun.foreEnd()) < 1e-4f, "to rack it the left hand stays under the fore-end");
+                && ArmPose.apart(placed(skins[1], model.wrist, fore), foreEndOf(gun)) < 1e-4f, "to rack it the left hand stays under the fore-end");
     }
 
     private static void check(boolean condition, String what) {

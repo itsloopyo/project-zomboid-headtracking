@@ -50,6 +50,8 @@ final class OwnModel {
      * the way from the grip to the muzzle.
      */
     float foreEnd, foreEndTravel;
+    /** Where hands go on it, in its own axes and metres. */
+    WeaponShape shape;
 
     /**
      * @param what  what the model is, as the log names it: "the rifle's model"
@@ -101,6 +103,23 @@ final class OwnModel {
                 return mesh + " holds " + read.remaining() + " bytes after its head, not the " + vertices + " vertices and " + indices + " indices it says";
             }
             muzzleFar = (float) Math.sqrt(muzzle[0] * muzzle[0] + muzzle[1] * muzzle[1] + muzzle[2] * muzzle[2]);
+            // Where the hands go on it, read from its own mesh: its places are the first three floats of each vertex, and its triangles follow the vertices.
+            float[] places = new float[vertices * 3];
+            int[] corners = new int[indices];
+            int at = read.position();
+            for (int vertex = 0; vertex < vertices; vertex++) {
+                for (int axis = 0; axis < 3; axis++) {
+                    places[vertex * 3 + axis] = read.getFloat(at + vertex * VERTEX_BYTES + axis * Float.BYTES);
+                }
+            }
+            for (int index = 0; index < indices; index++) {
+                corners[index] = read.getInt(at + vertices * VERTEX_BYTES + index * Integer.BYTES);
+            }
+            StringBuilder why = new StringBuilder();
+            shape = WeaponShape.read(places, corners, new float[] {0f, 1f, 0f}, new float[] {0f, 0f, 1f}, muzzle.clone(), 1f, why);
+            if (shape == null) {
+                return "the hands cannot be put on " + what + ": " + why;
+            }
             foreEnd = heldY / muzzle[1];
             foreEndTravel = travel / muzzle[1];
             upload(program, read, vertices, indices);

@@ -70,11 +70,12 @@ public final class ViewModel {
      * @param out       how long ago the magazine left the weapon while it is being loaded or unloaded, in seconds, or less than nought if none has
      * @param fetching  how long a magazine has been on its way to the weapon, in seconds, or less than nought
      * @param fetchTakes how long the game is taken to be over that, in seconds
+     * @param leftFree  whether the left hand holds nothing
      */
     record Held(String item, boolean firearm, boolean bothHands, int attack, float reached, float past, boolean struck, float aim, float nearness, float lowered,
             float swayYaw, float swayPitch, float bobX, float bobY, float recoil, float dip, int skin, boolean female,
             int action, float cycled, int doing, float done, int rounds, float round, float handled, float pace, float seated, float drawn, float worked,
-            boolean clip, float out, float fetching, float fetchTakes) {}
+            boolean clip, float out, float fetching, float fetchTakes, boolean leftFree) {}
 
     /** What is held, or null with no weapon in hand. */
     volatile Held held;
@@ -367,7 +368,7 @@ public final class ViewModel {
         roundsBefore = rounds;
         held = new Held(item.getFullType(), firearm, item == player.getSecondaryHandItem(),
                 attack, reached, past, struck, aim, nearness, lowered, swayYaw, swayPitch, bob[0], bob[1], recoil, dip,
-                player.getHumanVisual().getSkinTextureIndex(), player.isFemale(), action, cycled, doing, done, rounds, round, handled, took[action][doing], seated, drawn, worked, clip, out, fetching, fetchTakes[action]);
+                player.getHumanVisual().getSkinTextureIndex(), player.isFemale(), action, cycled, doing, done, rounds, round, handled, took[action][doing], seated, drawn, worked, clip, out, fetching, fetchTakes[action], player.getSecondaryHandItem() == null);
     }
 
     /** Nothing is held up: the next weapon starts from the hip, still. */
@@ -520,13 +521,15 @@ public final class ViewModel {
     /** How far working the action tips the muzzle down, and draws the weapon back, in tiles, with the fore-end right back. */
     private static final float PUMP_DIPS = (float) Math.toRadians(3), PUMP_PULLS = 0.012f;
     /** How much of the way from grip to muzzle the fore-end travels. */
-    private static final float PUMP_TRAVEL = 0.12f;
+    static final float PUMP_TRAVEL = 0.12f;
     /**
      * Where the left palm is held on the weapon last placed, in the view, and where it would be with the weapon held still and its
      * fore-end forward, without the kick of a shot, the sway and the step, the dip of a landing and a pump's stroke: only with a muzzle.
      */
     final float[] foreEnd = new float[3], foreSteady = new float[3];
-    private final float[] still = new float[16], stillTop = new float[3];
+    /** The matrix `place` last made with the weapon held still: without the kick of a shot, the sway and the step, the dip of a landing and a pump's stroke. */
+    final float[] still = new float[16];
+    private final float[] stillTop = new float[3];
     /** The way the top of the weapon last placed faces in the view and the way it points, each of length one, and where its grip is. */
     final float[] over = new float[3], pointing = new float[3], gripSeen = new float[3];
     /** Where the muzzle of the weapon last placed is in the view, and whether it has one. */
