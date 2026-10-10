@@ -322,6 +322,10 @@ public final class Characters {
      */
     int draw(ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float near, float far, boolean vehicles, boolean scope) {
         kind = scope ? BY_SCOPE : BY_EYE;
+        byRoom = view.pipeline.figureRooms;
+        leftOutByRoom = 0;
+        long now = FIGURE_ROOMS && !vehicles && !scope ? System.nanoTime() : 0L;
+        figureRoomsLine = now - figureRoomsSaid >= 1_000_000_000L ? new StringBuilder() : null;
         seenHigh = tanHalfFieldOfView;
         seenWide = tanHalfFieldOfView * aspect;
         seenFrom = eyeView;
@@ -339,11 +343,29 @@ public final class Characters {
         ViewCamera.view(camera, eyeView);
         int drawn = draw(eyeView, view.pipeline.outside, false, null, camera.eyeX, camera.eyeY, Float.MAX_VALUE);
         drawnLast = vehicles ? drawnLast + drawn : drawn;
+        if (figureRoomsLine != null) {
+            figureRoomsSaid = now;
+            Log.info(String.format(Locale.ROOT, "figures by room: the eye's picture drew %d people, left out %d standing where no line of sight reaches (%s, %d rooms built)%s",
+                    drawn, leftOutByRoom, byRoom == null ? "no room test" : "room test on", byRoom == null ? 0 : byRoom.rooms(), figureRoomsLine));
+            figureRoomsLine = null;
+        }
+        byRoom = null;
         only = ALL;
         notingRoots = false;
         seenFrom = null;
         return drawn;
     }
+
+    /** While the eye's picture or a scope's is drawn, who it leaves out by the room they stand in, or null: see FigureRooms. */
+    private FigureRooms byRoom;
+    private int leftOutByRoom;
+    /**
+     * With -Dcameraunlock.zomboid.figureRooms=true, once a second, how many people the eye's
+     * picture drew and how many it left out by the room they stand in, and where those stood.
+     */
+    private static final boolean FIGURE_ROOMS = Boolean.getBoolean("cameraunlock.zomboid.figureRooms");
+    private StringBuilder figureRoomsLine;
+    private long figureRoomsSaid;
 
     /**
      * With -Dcameraunlock.zomboid.withoutModelCull=true every model within reach is drawn in
@@ -1434,6 +1456,16 @@ public final class Characters {
                         continue;
                     }
                 } else if (PictureEdges.shadesNothingSeen(eyeSees, eyeWide, eyeHigh, map, x, y, up, round)) {
+                    continue;
+                }
+            }
+            if (!WITHOUT_CULL && (kind == BY_EYE || kind == BY_SCOPE) && byRoom != null && data.character != null && !data.inVehicle) {
+                IsoGridSquare square = data.character.getCurrentSquare();
+                if (square != null && byRoom.leftOut(square.getRoomID(), square.getX(), square.getY(), square.getZ())) {
+                    leftOutByRoom++;
+                    if (FIGURE_ROOMS && figureRoomsLine != null) {
+                        figureRoomsLine.append(String.format(Locale.ROOT, " (%d,%d,%d room %d)", square.getX(), square.getY(), square.getZ(), square.getRoomID()));
+                    }
                     continue;
                 }
             }

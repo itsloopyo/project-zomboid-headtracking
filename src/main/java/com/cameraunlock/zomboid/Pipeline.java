@@ -475,6 +475,8 @@ final class Pipeline {
      * shadows, are drawn with every room.
      */
     RoomSight.Seen roomsSeen;
+    /** Who the eye's own picture and a scope's leave out by the room they stand in, or null to leave out no one by room. Set by the frame before each draw: see FigureRooms. */
+    FigureRooms figureRooms;
     /** What the world's program is told in uLaid past 1, for all that is laid: only its grass is drawn, or all of it but its grass. */
     private static final float LAID_GRASS = 2f, LAID_REST = 3f;
     /**

@@ -2934,6 +2934,9 @@ final class WorldScene {
          */
         RoomSight.Seen roomsSeen;
         float roomsAspect;
+        /** Who the eye's picture and a scope's may leave out by the room they stand in, or null for none: see FigureRooms. */
+        FigureRooms figureRooms;
+        private final FigureRooms figureRoomsKept = new FigureRooms();
         private final RoomSight.Seen roomsSeenKept = new RoomSight.Seen();
         private final RoomSight.Openings openingsInReach = new RoomSight.Openings();
         private final RoomSight.Blocks blocksInReach = new RoomSight.Blocks();
@@ -2948,6 +2951,7 @@ final class WorldScene {
          */
         private void seeRooms(IsoChunkMap map, int level, boolean fromOutside, long now) {
             roomsSeen = null;
+            figureRooms = null;
             float aspect = drawnAspect;
             if (fromOutside || gamesView || aspect <= 0f || withoutCulling) {
                 if (buildingBySight) {
@@ -3017,6 +3021,10 @@ final class WorldScene {
             }
             // What the picture draws is always built, whatever the walk round found.
             roomsBuilt.found(roomsSeenKept, now, roomsEntered);
+            if (FigureRooms.applies(Online.contested())) {
+                figureRoomsKept.fill(roomsBuilt, openingsInReach);
+                figureRooms = figureRoomsKept;
+            }
             tollRoomsNanos += System.nanoTime() - began;
             tollRoomsWalks++;
             lastOpenings = openingsInReach.count;
@@ -5755,6 +5763,7 @@ final class WorldScene {
                 float fogAt = landing == 0f ? Float.MAX_VALUE / 2f : fogEnd / landing;
                 view.pipeline.loadedWithin = landing == 0f ? Float.MAX_VALUE / 2f : loadedWithin / landing;
                 view.pipeline.roomsSeen = null;
+                view.pipeline.figureRooms = null;
                 float nearest = Math.max(outsideAway - OVERHEAD_DEPTH, ViewCamera.nearPlane(NEAR_CORNER_DISTANCE, outsideTan, aspect));
                 view.pipeline.draw(shown, outsideCamera, sky, outsideTan, nearest, outsideAway + FAR, fogAt * FOG_START, fogAt, exposure, viewport);
                 lastDrawMillis = view.pipeline.lastMillis();
@@ -5763,6 +5772,7 @@ final class WorldScene {
             view.pipeline.rangeFrom = 0f;
             view.pipeline.loadedWithin = loadedWithin;
             view.pipeline.roomsSeen = aspect == roomsAspect ? roomsSeen : null;
+            view.pipeline.figureRooms = figureRooms;
             view.pipeline.draw(shown, camera, sky, tanHalfFieldOfView, near, FAR, fogEnd * FOG_START, fogEnd, exposure, viewport);
             lastDrawMillis = view.pipeline.lastMillis();
         }

@@ -572,6 +572,16 @@ final class RoomSight {
         void clear() {
             rooms.clear();
         }
+
+        /** Adds every room kept to a set. */
+        void copyTo(Seen into) {
+            for (int slot = 0; slot < rooms.slots(); slot++) {
+                long room = rooms.at(slot);
+                if (room != OUTSIDE) {
+                    into.add(room);
+                }
+            }
+        }
     }
 
     /** The eye, which way it looks, and the half widths of its picture as tangents. */
