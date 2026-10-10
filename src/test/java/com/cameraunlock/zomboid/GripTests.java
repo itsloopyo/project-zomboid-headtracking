@@ -26,6 +26,7 @@ final class GripTests {
         Checks.run("armsOnAPistolComeUpFromUnderThePictureUnturned", () -> armsOnAPistolComeUpFromUnderThePictureUnturned(model));
         Checks.run("armsOnALongGunTurnNoFurtherThanAForearmTurns", () -> armsOnALongGunTurnNoFurtherThanAForearmTurns(model));
         Checks.run("rightPalmOnALongGunFacesAsItsHoldSays", () -> rightPalmOnALongGunFacesAsItsHoldSays(model));
+        Checks.run("heldMeshIsFilledAgainEachFrame", GripTests::heldMeshIsFilledAgainEachFrame);
     }
 
     /** Where the pistol's front edge is at a height. */
@@ -287,6 +288,18 @@ final class GripTests {
                 check(Math.abs(asked) <= Math.toDegrees(ArmPose.TWIST_MOST), "the right arm on " + how + " asks its forearm to turn no further than a forearm turns: " + asked + " degrees");
             }
         }
+    }
+
+    /** One Placed is filled again each frame from matrices its caller keeps and overwrites: it copies them, and places the mesh by the last it was given. */
+    private static void heldMeshIsFilledAgainEachFrame() {
+        WeaponShape shape = TestGuns.shape(TestGuns.pistol());
+        float[] matrix = {1f, 0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 1f};
+        ArmHolds.Placed placed = new ArmHolds.Placed();
+        placed.set(shape, matrix, matrix, 0f, Float.NaN, ArmHolds.BOLT_TRAVEL);
+        matrix[12] = 1f;
+        check(placed.at(new float[3])[0] == 0f, "a matrix changed after it was given does not move the mesh");
+        placed.set(shape, matrix, matrix, 0f, Float.NaN, ArmHolds.BOLT_TRAVEL);
+        check(placed.at(new float[3])[0] == 1f && placed.stillAt(0f, 0f, 0f)[0] == 1f, "filled again, it places the mesh by the matrix it was given last");
     }
 
     private static void leftHandIsUnderTheForeEndsUnderside(ArmModel model) {

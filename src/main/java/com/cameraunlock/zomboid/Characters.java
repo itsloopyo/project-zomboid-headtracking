@@ -914,7 +914,7 @@ public final class Characters {
             own.hold(meshStill, view.viewModel.still, weaponPlace, data.finalScale, out);
             // The shotgun's fore-end is where its maker put it and slides as far as the model's does; the rifle's bolt is drawn back as far as its model's.
             boolean shotgun = own == OwnWeapon.MODEL;
-            return new ArmHolds.Placed(own.shape, meshView.clone(), meshStill.clone(), shotgun ? own.travel * pumped : 0f,
+            return heldMesh.set(own.shape, meshView, meshStill, shotgun ? own.travel * pumped : 0f,
                     shotgun ? own.foreEnd * own.muzzle[1] : Float.NaN, shotgun ? ArmHolds.BOLT_TRAVEL : own.travel);
         }
         WeaponShape shape = shapeOf(held, view.viewModel.handgun);
@@ -923,7 +923,7 @@ public final class Characters {
         }
         meshTo(heldView, data.finalScale, meshView);
         meshTo(view.viewModel.still, data.finalScale, meshStill);
-        return new ArmHolds.Placed(shape, meshView.clone(), meshStill.clone(), ViewModel.PUMP_TRAVEL * shape.muzzle * pumped, Float.NaN, ArmHolds.BOLT_TRAVEL);
+        return heldMesh.set(shape, meshView, meshStill, ViewModel.PUMP_TRAVEL * shape.muzzle * pumped, Float.NaN, ArmHolds.BOLT_TRAVEL);
     }
 
     /** The matrix from the held weapon's mesh to a view, from the matrix from the viewer's model to that view. */
@@ -938,6 +938,7 @@ public final class Characters {
     }
 
     private final float[] meshView = new float[16], meshStill = new float[16];
+    private final ArmHolds.Placed heldMesh = new ArmHolds.Placed();
     /**
      * What each of the game's firearm meshes says of where hands go on it, as it is held by hands
      * of the size hands are, or null where it says there is nowhere: read once for the buffer the
@@ -985,7 +986,7 @@ public final class Characters {
     /** The game's mesh units in a metre of a long gun, which it makes the size long guns are: its pump gun is 0.4461 of them from grip to muzzle, 0.9015 m. */
     private static final float PER_METRE = 0.4461f / 0.9015f;
 
-    /** Room for the sums that put the mod's hand on a handle, so that each frame's makes no new arrays. */
+    /** Room for the sums that find where on a handle the mod's hand goes. Placing the arms there makes arrays of its own each frame. */
     private final float[] gripAlong = new float[3];
     private final ArmHolds.Carried armCarries = new ArmHolds.Carried();
     private final ArmHolds.Settled armSettled = new ArmHolds.Settled();

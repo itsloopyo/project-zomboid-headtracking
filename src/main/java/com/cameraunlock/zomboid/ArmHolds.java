@@ -119,16 +119,62 @@ final class ArmHolds {
     record Weapon(boolean firearm, boolean handgun, float[] grip, float[] pointing, float[] over, Placed placed) {}
 
     /**
-     * A firearm's mesh where the view has it.
-     *
-     * @param shape    what the mesh says of where hands go on it
-     * @param toView   the matrix from the mesh to the view, by columns
-     * @param still    the same with the weapon held still: without the kick of a shot, the sway of a step, the dip of a landing or a pump's stroke
-     * @param slid     how far back a pump's fore-end is drawn now, in the mesh's units
-     * @param foreRest where along the barrel the hand under the fore-end rests, in the mesh's units, or not a number for the shape to say
-     * @param travel   how far back the bolt is drawn, in metres
+     * A firearm's mesh where the view has it. Whoever places the arms each frame keeps one and
+     * fills it again.
      */
-    record Placed(WeaponShape shape, float[] toView, float[] still, float slid, float foreRest, float travel) {
+    static final class Placed {
+        private WeaponShape shape;
+        private final float[] toView = new float[16], still = new float[16];
+        private float slid, foreRest, travel;
+
+        Placed() {}
+
+        Placed(WeaponShape shape, float[] toView, float[] still, float slid, float foreRest, float travel) {
+            set(shape, toView, still, slid, foreRest, travel);
+        }
+
+        /**
+         * @param shape    what the mesh says of where hands go on it
+         * @param toView   the matrix from the mesh to the view, by columns, copied
+         * @param still    the same with the weapon held still: without the kick of a shot, the sway of a step, the dip of a landing or a pump's stroke, copied
+         * @param slid     how far back a pump's fore-end is drawn now, in the mesh's units
+         * @param foreRest where along the barrel the hand under the fore-end rests, in the mesh's units, or not a number for the shape to say
+         * @param travel   how far back the bolt is drawn, in metres
+         */
+        Placed set(WeaponShape shape, float[] toView, float[] still, float slid, float foreRest, float travel) {
+            this.shape = shape;
+            System.arraycopy(toView, 0, this.toView, 0, 16);
+            System.arraycopy(still, 0, this.still, 0, 16);
+            this.slid = slid;
+            this.foreRest = foreRest;
+            this.travel = travel;
+            return this;
+        }
+
+        WeaponShape shape() {
+            return shape;
+        }
+
+        float[] toView() {
+            return toView;
+        }
+
+        float[] still() {
+            return still;
+        }
+
+        float slid() {
+            return slid;
+        }
+
+        float foreRest() {
+            return foreRest;
+        }
+
+        float travel() {
+            return travel;
+        }
+
         /** A place of the mesh's in the view. */
         float[] at(float[] mesh) {
             float[] out = new float[3];
