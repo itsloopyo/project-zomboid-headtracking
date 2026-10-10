@@ -9,6 +9,7 @@ final class TentTests {
         Checks.run("aCanopysSquaresMeetAtTheirEdgesFromEaveToRidgeToEave", TentTests::aCanopysSquaresMeetAtTheirEdgesFromEaveToRidgeToEave);
         Checks.run("aGableReachesTheRidgeAndAStripCarriesTheSlopeOn", TentTests::aGableReachesTheRidgeAndAStripCarriesTheSlopeOn);
         Checks.run("aRopeRunsFromUnderTheEavesToTheGroundOutside", TentTests::aRopeRunsFromUnderTheEavesToTheGroundOutside);
+        Checks.run("aStripWithARopeIsTheGamesWithTheFurnitureOff", TentTests::aStripWithARopeIsTheGamesWithTheFurnitureOff);
         Checks.run("anotherSpriteIsNoTent", TentTests::anotherSpriteIsNoTent);
         Checks.run("theCanvasIsTheCeilingUnderEverySquareOfACanopy", TentTests::theCanvasIsTheCeilingUnderEverySquareOfACanopy);
         Checks.run("aGableReachesTheCanvasOverItAndNoFurther", TentTests::aGableReachesTheCanvasOverItAndNoFurther);
@@ -78,6 +79,18 @@ final class TentTests {
         }
         check(Tents.ropeOf(SHEET + 32) == null, "a strip alone has no rope");
         check(Tents.of(SHEET + 35) == null, "a rope alone has no cloth");
+    }
+
+    private static void aStripWithARopeIsTheGamesWithTheFurnitureOff() {
+        for (int place : new int[] {33, 38, 97, 102}) {
+            Tents.Piece piece = Tents.of(SHEET + place), rope = Tents.ropeOf(SHEET + place);
+            check(piece != null && rope != null, place + " is a strip with its rope");
+            check(Tents.laid(piece, rope, true), place + " is laid as a strip and a rope with the furniture on");
+            check(!Tents.laid(piece, rope, false), place + " is left to the game's sprite with the furniture off, which draws its rope with it");
+        }
+        check(Tents.laid(Tents.of(SHEET + 32), null, false) && Tents.laid(Tents.of(SHEET + 32), null, true), "a strip with no rope is laid either way");
+        check(!Tents.laid(null, Tents.ropeOf(SHEET + 35), false) && Tents.laid(null, Tents.ropeOf(SHEET + 35), true), "a rope alone is the mod's line only with the furniture on");
+        check(!Tents.laid(null, null, true), "another sprite is no tent's");
     }
 
     private static void anotherSpriteIsNoTent() {

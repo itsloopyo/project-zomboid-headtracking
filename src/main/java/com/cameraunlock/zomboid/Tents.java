@@ -171,6 +171,16 @@ final class Tents {
     }
 
     /**
+     * Whether a tent's sprite is laid as its pieces, the canvas and the rope, given the piece of
+     * canvas it is, the rope it carries and whether the mod's own furniture is drawn. The rope
+     * is the mod's own line, so with the furniture off a sprite that carries one is left whole
+     * to the game's sprite, the strip it paints with it: laid as a strip it lost its rope.
+     */
+    static boolean laid(Piece piece, Piece rope, boolean furniture) {
+        return rope == null ? piece != null : furniture;
+    }
+
+    /**
      * The four corners of a gable's lining on its square, each (a, b, h): along the gable's
      * edge from its west or north end, at its foot and then up to the canvas over it. The tent
      * is on the square when canvasHere, and on the square across the edge when not.

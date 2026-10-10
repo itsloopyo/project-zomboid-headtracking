@@ -5386,8 +5386,8 @@ final class WorldScene {
         }
 
         private boolean addTent(SpriteGeometry.Mesh mesh, IsoSprite sprite, int x, int y, int z) {
-            Tents.Piece piece = Tents.of(sprite), rope = Own.furniture() ? Tents.ropeOf(sprite) : null;
-            if (piece == null && rope == null) {
+            Tents.Piece piece = Tents.of(sprite), rope = Tents.ropeOf(sprite);
+            if (!Tents.laid(piece, rope, Own.furniture())) {
                 return false;
             }
             building.plain = false;
