@@ -126,22 +126,34 @@ final class Kerbs {
     }
 
     /**
+     * The most the field may change between two neighbouring points on an edge, an eighth of a
+     * square apart, where the line runs along the edge: a line at 6.3 degrees to it. Round the
+     * corner of a lawn at a drive's mouth the line comes onto the edge at 5.4 degrees by the
+     * last two points of the square; the shallowest slant a stair is laid at, one square across
+     * in LONGEST_TREAD, is 7.1 degrees, and a kerb that bends across an edge at a square's
+     * corner crosses it at 8.5.
+     */
+    private static final float ALONG_CHANGE = (float) Math.sin(Math.toRadians(6.3)) / FINE;
+
+    /**
      * Whether a kerb runs along some stretch of the north edge of the chunk's square (x, y), or
      * of its west edge: two neighbouring points of the field on the edge both lie nearer the
-     * line than a wall's skin is to its own line. Its face is then as good as in the plane of
-     * the edge there: round the corner of a lawn at a drive's mouth the line comes back onto
-     * the edge by a few hundredths of a square. Where the line only crosses the edge, no two
-     * neighbours are that near: they are an eighth of a square apart.
+     * line than a wall's skin is to its own line, and the line runs the way the edge does
+     * there. Its face is then as good as in the plane of the edge: round the corner of a lawn at
+     * a drive's mouth the line comes back onto the edge by a few hundredths of a square. A line
+     * that crosses the edge has two neighbours that near too where it crosses at under 40
+     * degrees, a slant of one across in two, but its face only cuts through the edge's plane
+     * there; it does not lie in it.
      */
     static boolean alongEdge(float[] field, int x, int y, boolean north) {
-        boolean last = false;
+        float last = Float.NaN;
         for (int i = 0; i <= FINE; i++) {
             int p = x * FINE + (north ? i : 0), q = y * FINE + (north ? 0 : i);
-            boolean on = Math.abs(field[p * POINTS + q]) <= WorldScene.WALL_HALF;
-            if (on && last) {
+            float here = field[p * POINTS + q];
+            if (Math.abs(here) <= WorldScene.WALL_HALF && Math.abs(last) <= WorldScene.WALL_HALF && Math.abs(here - last) <= ALONG_CHANGE) {
                 return true;
             }
-            last = on;
+            last = here;
         }
         return false;
     }

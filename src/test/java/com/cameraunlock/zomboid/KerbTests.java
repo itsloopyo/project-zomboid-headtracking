@@ -252,5 +252,22 @@ final class KerbTests {
         float[] mouth = field((x, y) -> x >= 4 || y < 3);
         check(Kerbs.alongEdge(mouth, 4, 3, false), "a kerb that leaves the edge round a corner still runs along the rest of it");
         check(!Kerbs.alongEdge(mouth, 4, 3, true), "the edge between the drive and the pavement has no kerb along it");
+        // A kerb laid on the slant crosses the edges of its squares and lies along none of them,
+        // however shallow the slant and wherever it crosses: a sheet raised there stood a kerb's
+        // height over the street.
+        for (int tread = 2; tread <= 8; tread++) {
+            for (int shift = 0; shift < tread; shift++) {
+                int across = tread, by = shift;
+                float[] slant = field((x, y) -> y * across >= x + by + 2 * across);
+                float[] other = field((x, y) -> x * across >= y + by + 2 * across);
+                for (int x = 0; x < TILES; x++) {
+                    for (int y = 0; y < TILES; y++) {
+                        check(!Kerbs.alongEdge(slant, x, y, true) && !Kerbs.alongEdge(slant, x, y, false)
+                                && !Kerbs.alongEdge(other, x, y, true) && !Kerbs.alongEdge(other, x, y, false),
+                                "a kerb slanting one across in " + tread + " lies along no edge of " + x + ", " + y + " (stair shifted " + shift + ")");
+                    }
+                }
+            }
+        }
     }
 }
