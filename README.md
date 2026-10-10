@@ -113,7 +113,7 @@ The mouse turns the view. Movement keys follow the direction you face.
 
 ### Controller and split screen
 
-**Controller** - double-tap **Back** to switch views. The aiming stick turns the view, right trigger attacks and left trigger raises firearm sights.
+**Controller** - every gamepad the game recognises plays without ticking it in the game's Controller options, and pressing **A** on the main menu gives that controller the menu. The controller that starts the game is player 1. A 3Dconnexion SpaceMouse is never taken as a controller. Double-tap **Back** to switch views. The aiming stick turns the view, right trigger attacks and left trigger raises firearm sights.
 
 **More players** - double-tap `Delete` to switch player 2's view, or hold it to switch every player's. Players on a controller can double-tap **Back**. Send player 2's tracker to port **4243**, player 3's to **4244** and player 4's to **4245**.
 

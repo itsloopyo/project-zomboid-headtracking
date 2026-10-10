@@ -202,6 +202,7 @@ public final class Agent {
         instrumentation.addTransformer(new PatchTransformer(farVehiclePatches()));
         instrumentation.addTransformer(new PatchTransformer(leftSavePatches()));
         instrumentation.addTransformer(new PatchTransformer(luaLoadedPatches()));
+        instrumentation.addTransformer(new PatchTransformer(controllerPatches()));
         chunkMarks = new PatchTransformer(chunkMarkPatches());
         instrumentation.addTransformer(chunkMarks);
         windowMarks = new PatchTransformer(windowMarkPatches());
@@ -405,6 +406,27 @@ public final class Agent {
                     return CallSite.replaceEach(classBytes, cull, new CallSite.Method(zombie, "getScreenProperY", "(I)I"),
                             new CallSite.Method(HOOKS, "screenDown", "(L" + zombie + ";I)I"), 1);
                 }));
+    }
+
+    /** Apart from everything else: without them the game takes its controllers as it does. See Gamepads. */
+    private static List<Patch> controllerPatches() {
+        String controllers = "org/lwjglx/input/Controllers", joypads = "zombie/input/JoypadManager", joypad = joypads + "$Joypad";
+        String gamepads = "com/cameraunlock/zomboid/Gamepads";
+        return List.of(
+                new Patch(controllers, "create before its returns", classBytes -> CallSite.insertBeforeReturns(classBytes,
+                        new CallSite.Method(controllers, "create", "()V"),
+                        code -> CallSite.invokeStatic(code, new CallSite.Method(gamepads, "found", "()V")))),
+                new Patch(controllers, "updateControllersCount before its returns", classBytes -> CallSite.insertBeforeReturns(classBytes,
+                        new CallSite.Method(controllers, "updateControllersCount", "(II)V"),
+                        code -> CallSite.passFirstStaticInt(code, new CallSite.Method(gamepads, "plugged", "(I)V")))),
+                new Patch(joypads, "addJoypad calling contains", classBytes -> CallSite.replaceEach(classBytes,
+                        new CallSite.Method(joypads, "addJoypad", "(ILjava/lang/String;Ljava/lang/String;)V"),
+                        new CallSite.Method("java/util/HashSet", "contains", "(Ljava/lang/Object;)Z"),
+                        new CallSite.Method(gamepads, "plays", "(Ljava/util/HashSet;Ljava/lang/Object;)Z"), 1)),
+                new Patch("zombie/GameWindow", "logic calling isAPressed", classBytes -> CallSite.replaceEach(classBytes,
+                        new CallSite.Method("zombie/GameWindow", "logic", "()V"),
+                        new CallSite.Method(joypad, "isAPressed", "()Z"),
+                        new CallSite.Method(gamepads, "pressedA", "(L" + joypad + ";)Z"), 1)));
     }
 
     /** Apart from everything else: without it the mod's settings are in CameraUnlock.ini and on its keys, as they are in any game. */
