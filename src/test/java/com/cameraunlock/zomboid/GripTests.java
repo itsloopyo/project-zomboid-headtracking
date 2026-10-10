@@ -149,15 +149,15 @@ final class GripTests {
             float[] hold = model.holds[model.pose("grip")];
             float[] held = placed(skins[0], model.wrist, hold);
             WeaponShape shape = pistol.placed().shape();
-            check(ArmPose.apart(held, TestGuns.handOn(pistol, SCALE)) < 1e-4f, "the right hand closes round the grip's middle, which is under the guard and not the frame or the slide");
+            check(ArmPose.apart(held, pistol.grip()) < 1e-4f, "the right hand closes round the grip's middle, which is under the guard and not the frame or the slide");
             float[] thumb = placed(skins[0], model.wrist, new float[] {hold[0] + model.across[0], hold[1] + model.across[1], hold[2] + model.across[2]});
             float[] across = {(thumb[0] - held[0]) / SCALE, (thumb[1] - held[1]) / SCALE, (thumb[2] - held[2]) / SCALE};
-            // The grip lies aslant across the palm: the knuckles lean back from its raked line by HANDGUN_ASLANT.
+            // The grip lies aslant across the palm: the knuckles lean back from its raked line by GRIP_ASLANT.
             float[] line = pistol.placed().way(shape.gripLine), front = new float[3], aslant = new float[3];
             float along = ArmPose.dot(pistol.pointing(), line);
             ArmPose.unit(pistol.pointing()[0] - line[0] * along, pistol.pointing()[1] - line[1] * along, pistol.pointing()[2] - line[2] * along, front);
             for (int axis = 0; axis < 3; axis++) {
-                aslant[axis] = line[axis] * (float) Math.cos(ArmHolds.HANDGUN_ASLANT) - front[axis] * (float) Math.sin(ArmHolds.HANDGUN_ASLANT);
+                aslant[axis] = line[axis] * (float) Math.cos(ArmHolds.GRIP_ASLANT) - front[axis] * (float) Math.sin(ArmHolds.GRIP_ASLANT);
             }
             check(ArmPose.dot(across, aslant) > Math.cos(Math.toRadians(3)), "its knuckles run from the little finger to the first aslant across the grip's raked line: "
                     + Math.toDegrees(Math.acos(Math.min(1f, ArmPose.dot(across, aslant)))) + " degrees off");

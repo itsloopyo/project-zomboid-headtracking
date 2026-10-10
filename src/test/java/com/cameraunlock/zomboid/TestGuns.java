@@ -103,18 +103,6 @@ final class TestGuns {
         }
     }
 
-    /** Where the middle of what the right hand holds is on a firearm: on a long gun the grip's middle, on a handgun behind it, square to its line, by ArmHolds.HANDGUN_GRIP_BEHIND. */
-    static float[] handOn(ArmHolds.Weapon weapon, float scale) {
-        float[] line = weapon.placed().way(weapon.placed().shape().gripLine), front = new float[3];
-        float along = ArmPose.dot(weapon.pointing(), line);
-        ArmPose.unit(weapon.pointing()[0] - line[0] * along, weapon.pointing()[1] - line[1] * along, weapon.pointing()[2] - line[2] * along, front);
-        float[] at = new float[3];
-        for (int axis = 0; axis < 3; axis++) {
-            at[axis] = weapon.grip()[axis] - front[axis] * (weapon.handgun() ? ArmHolds.HANDGUN_GRIP_BEHIND * scale : 0f);
-        }
-        return at;
-    }
-
     /** A mesh's shape, read with y along, z up, and a metre to a unit. */
     static WeaponShape shape(Mesh mesh) {
         StringBuilder why = new StringBuilder();

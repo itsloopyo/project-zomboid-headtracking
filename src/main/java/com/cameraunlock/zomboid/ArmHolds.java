@@ -40,22 +40,19 @@ final class ArmHolds {
     static final float[][] FROM = {{0.34f, -0.56f, 0.12f}, {-0.42f, -0.52f, -0.05f}};
     /**
      * How the right hand goes round a grip. The hand's pose closes round something as deep as
-     * a grip about a point level with its knuckles. On a handgun the palm is square to the grip's
-     * right side and the middle of what it holds is put this far behind the grip's middle,
-     * square to the grip's line, in metres: put on the middle its fingers reached past the
-     * grip's front, and this far back they go round it with the web of the hand on its back.
-     * A handgun's grip lies across the palm aslant, from the web of the thumb to the heel of
-     * the hand, so the knuckles lean back from the grip's line by this much, in radians: with
-     * them along it the forearm was turned against the hand by more than a forearm turns, the
-     * rest went into the upper arm, and the arm came at the eye from the side of the picture,
-     * where aslant it comes up from under the picture in line with the barrel. At the hip the
+     * a grip about a point level with its knuckles, and it is put on the grip's middle. A grip
+     * lies across the palm aslant, from the web of the thumb to the heel of the hand, so the
+     * knuckles lean back from the grip's line by this much, in radians. With them along it the
+     * hand asked its forearm to turn along its length further than a forearm turns, 100 to 170
+     * degrees on the game's firearms, the rest was rolled into the upper arm, and the arm came
+     * at the eye across the side of the picture; aslant, each forearm comes up from under the
+     * picture and is turned at most 45 degrees but on a straight wrist. At the hip a handgun's
      * first finger is this much of the way to the trigger from lying along the frame, which
-     * with the knuckles aslant points it at the slide. On a long gun's wrist or pistol grip the hand
-     * is turned this far about the grip's line from square, in radians, its knuckles over the
-     * wrist and its fingers round under it: held square, its arm came down onto it from over
-     * the picture.
+     * with the knuckles aslant points it at the slide. On a long gun the hand is turned this far
+     * about the grip's line from square to its right side, in radians, its knuckles over the
+     * wrist and its fingers round under it.
      */
-    static final float HANDGUN_GRIP_BEHIND = 0.035f, HANDGUN_ASLANT = (float) Math.toRadians(30), HANDGUN_HIP_TRIGGER = 0.5f, LONG_PALM_TURN = (float) Math.toRadians(-35);
+    static final float GRIP_ASLANT = (float) Math.toRadians(30), HANDGUN_HIP_TRIGGER = 0.5f, LONG_PALM_TURN = (float) Math.toRadians(-35);
     /**
      * The left hand round a pistol with the right, as a pistol is held in both: a fist on the
      * side of the grip the right palm leaves bare and round the right hand's fingers, this much
@@ -476,13 +473,12 @@ final class ArmHolds {
         float[] line = placed.way(shape.gripLine), front = new float[3];
         float along = ArmPose.dot(axes.ahead, line);
         ArmPose.unit(axes.ahead[0] - line[0] * along, axes.ahead[1] - line[1] * along, axes.ahead[2] - line[2] * along, front);
-        float palmTurn = weapon.handgun() ? 0f : LONG_PALM_TURN, behind = weapon.handgun() ? HANDGUN_GRIP_BEHIND * axes.scale : 0f;
+        float palmTurn = weapon.handgun() ? 0f : LONG_PALM_TURN;
         float cos = (float) Math.cos(palmTurn), sin = (float) Math.sin(palmTurn);
-        float aslant = weapon.handgun() ? HANDGUN_ASLANT : 0f, aslantCos = (float) Math.cos(aslant), aslantSin = (float) Math.sin(aslant);
+        float aslantCos = (float) Math.cos(GRIP_ASLANT), aslantSin = (float) Math.sin(GRIP_ASLANT);
         for (int axis = 0; axis < 3; axis++) {
             hold.across[axis] = line[axis] * aslantCos - front[axis] * aslantSin;
             hold.out[axis] = -axes.right[axis] * cos + front[axis] * sin;
-            hold.at[axis] -= front[axis] * behind;
         }
         float raised = ViewModelMath.smooth(doing.aim());
         float hipTrigger = weapon.handgun() ? HANDGUN_HIP_TRIGGER : 0f;

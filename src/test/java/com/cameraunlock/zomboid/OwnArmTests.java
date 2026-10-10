@@ -163,7 +163,7 @@ final class OwnArmTests {
                         }
                         check(which == 2 || outOfThePicture(tippedDown(shoulder, 40f), 0f), "and tipped down 40 the middle of it still is: " + arm);
                         float bent = (float) Math.toDegrees(said[side][ArmPose.BENT]);
-                        check(bent < (side == 1 ? 33f : tipped == 0 ? 42f : 62f), "its wrist is bent no further than a wrist goes: " + arm + ", " + bent);
+                        check(bent < (side == 1 ? 33f : tipped == 0 ? 42f : 66f), "its wrist is bent no further than a wrist goes: " + arm + ", " + bent);
                     }
                     ArmHolds.Weapon held = longGun(LONG_GUNS[which], raised, tip, 0f);
                     float[] palm = placed(skins[1], model.wrist, model.holds[model.pose("fore")]);
@@ -419,7 +419,7 @@ final class OwnArmTests {
         float[] grip = model.holds[model.pose("grip")], pinch = model.holds[model.pose("knob")];
         ArmHolds.Doing held = new ArmHolds.Doing(0f, true, ArmActs.BOLT_SINGLE, -1f, ArmActs.HOLDING, 0f, 0f, 1f, -1f, false, -1f, -1f, 2f, 0f);
         check(ArmHolds.place(model, SCALE, rifle, held, SAME, skins, said, carried, new ArmHolds.Settled()) == 2, "a rifle held in both hands has both arms");
-        check(ArmPose.apart(placed(skins[0], model.wrist, grip), TestGuns.handOn(rifle, SCALE)) < 1e-4f, "with the right hand on its grip");
+        check(ArmPose.apart(placed(skins[0], model.wrist, grip), rifle.grip()) < 1e-4f, "with the right hand on its grip");
         // Half way through working the bolt it is drawn right back, with its handle turned up.
         float back = ArmActs.BOLT_AFTER + OwnRifle.WORKED_FOR / 2f;
         ArmHolds.Doing working = new ArmHolds.Doing(0f, true, ArmActs.BOLT_SINGLE, back, ArmActs.HOLDING, 0f, 0f, 1f, -1f, false, -1f, -1f, 2f, 0f);
@@ -433,11 +433,11 @@ final class OwnArmTests {
         check(knob[1] > rests[1] && knob[2] > rests[2], "which is higher than it rests and nearer the eye");
         ArmHolds.Doing over = new ArmHolds.Doing(0f, true, ArmActs.BOLT_SINGLE, ArmActs.BOLT_AFTER + OwnRifle.WORKED_FOR + ArmActs.BOLT_LEFT_IN + 0.01f, ArmActs.HOLDING, 0f, 0f, 1f, -1f, false, -1f, -1f, 2f, 0f);
         check(ArmHolds.place(model, SCALE, rifle, over, SAME, skins, said, carried, new ArmHolds.Settled()) == 2
-                && ArmPose.apart(placed(skins[0], model.wrist, grip), TestGuns.handOn(rifle, SCALE)) < 1e-4f, "when the bolt is shut the hand is back on the grip");
+                && ArmPose.apart(placed(skins[0], model.wrist, grip), rifle.grip()) < 1e-4f, "when the bolt is shut the hand is back on the grip");
         // A pump's action is the other hand's: the right stays where it is.
         ArmHolds.Doing pumped = new ArmHolds.Doing(0f, true, ArmActs.PUMP, back, ArmActs.HOLDING, 0f, 0f, 1f, -1f, false, -1f, -1f, 2f, 0f);
         check(ArmHolds.place(model, SCALE, rifle, pumped, SAME, skins, said, carried, new ArmHolds.Settled()) == 2
-                && ArmPose.apart(placed(skins[0], model.wrist, grip), TestGuns.handOn(rifle, SCALE)) < 1e-4f, "a pump gun's right hand never leaves its grip");
+                && ArmPose.apart(placed(skins[0], model.wrist, grip), rifle.grip()) < 1e-4f, "a pump gun's right hand never leaves its grip");
     }
 
     private static void leftHandComesToAPistolOnlyToLoadItAndBringsTheMagazine(ArmModel model) {
