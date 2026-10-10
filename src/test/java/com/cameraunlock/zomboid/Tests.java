@@ -44,7 +44,7 @@ public final class Tests {
         // Under build, which each build clears: cameraunlock-core keeps the log open until the process ends.
         logs = Files.createDirectories(Path.of("build", "test-run").toAbsolutePath());
         Log.open(logs);
-        // A start is in the Low graphics mode, which shows nothing the mod made. The tests of what it made are of High.
+        // Until the file is read the session is in the Low graphics mode, which shows nothing the mod made. The tests of what it made are of High.
         Quality.set(Quality.HIGH);
         // And of a game in which the pictures the mod's own is drawn from have been made, which a test has no graphics card to make.
         Own.picturesMade(true);

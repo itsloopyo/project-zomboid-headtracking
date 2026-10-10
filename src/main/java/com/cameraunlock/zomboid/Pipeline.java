@@ -3809,6 +3809,7 @@ final class Pipeline {
         if (contentBegun && Quality.plain()) {
             // The mode now shows none of the mod's own: its pictures are given back, made or half made.
             giveBackContent();
+            Log.info("the graphics mode shows none of the mod's own: its surfaces, plants and weapons are given back to the graphics card");
         }
         if (contentBegun && !contentReady) {
             makes = CONTENT;
