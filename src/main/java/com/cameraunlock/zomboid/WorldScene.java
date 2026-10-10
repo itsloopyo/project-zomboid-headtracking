@@ -90,6 +90,14 @@ final class WorldScene {
     /** How far the aim is traced. */
     static final float REACH = 30f;
     static final int CHUNK_TILES = 8;
+    /**
+     * The hills' heights round an eye worked out again from the map: made once, where one made
+     * at each build would be made every frame. In a class of its own, made at its first use: the
+     * tests load WorldScene without the game's classes.
+     */
+    private static final class HillsFromMap {
+        static final Terrain.Rework<IsoCell> REWORK = Terrain.HILLS::fromMap;
+    }
     /** Half the diagonal of a chunk, rounded up: how far a chunk reaches from its centre. */
     static final float CHUNK_REACH = 6f;
     /** How much wider than the picture's corners the drawn cone is, so nothing pops in at the edges. */
@@ -2235,7 +2243,7 @@ final class WorldScene {
                 Terrain.forget();
             }
             float hills = HillHeight.drawn(Online.contested());
-            if (Terrain.HILLS.heighten(hills, view.index, pose.eyeX, pose.eyeY, Terrain.HILLS.workingOut(cell))) {
+            if (Terrain.HILLS.heighten(hills, view.index, pose.eyeX, pose.eyeY, cell, HillsFromMap.REWORK)) {
                 Log.info("hill height " + hills + ": the heights round the eye are worked out again, and every other chunk's as it is next asked for");
             }
             if (hills != farHills) {

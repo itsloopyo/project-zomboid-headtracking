@@ -325,50 +325,50 @@ final class Terrain {
     private Terrain(boolean level) {
         this.level = level;
         gain = level ? 0f : 1f;
-        Arrays.fill(roundEyeAt, gain);
     }
 
     float gain() {
         return gain;
     }
 
-    /** Works out a chunk's heights again at once: see workingOut. */
-    interface Rework {
-        void chunk(int wx, int wy);
+    /** Works out a chunk's heights again at once, from what is handed it: see fromMap. */
+    interface Rework<C> {
+        void chunk(C from, int wx, int wy);
     }
 
-    /** By view: the gain the heights round its eye were last worked out again at (heighten). */
-    private final float[] roundEyeAt = new float[View.COUNT];
+    /** A chunk's heights worked out again from the map, whatever the frame has spent on heights. Logic thread. */
+    void fromMap(IsoCell cell, int wx, int wy) {
+        corners(cell, wx, wy, true);
+    }
+
+    /** How many times the gain has changed, and by view how many times it had when the heights round its eye were last worked out again (heighten). */
+    private int changes;
+    private final int[] roundEyeAsOf = new int[View.COUNT];
 
     /**
      * Logic thread, as a view is built with its eye at (eyeX, eyeY): heighten when the gain is
-     * another, and whenever the heights round this view's eye were last worked out again at
-     * another gain, those of the chunk the eye is over and of the eight round it worked out
-     * again by now (workingOut). The views share the land, and each eye has its own. The rest
+     * another, and whenever the gain has changed since the heights round this view's eye were
+     * last worked out again, those of the chunk the eye is over and of the eight round it worked
+     * out again by now, from `from` (fromMap and the map). The views share the land, and each eye has its own. The rest
      * are worked out as they are asked for, and a build asks for the nearest first: the land an
      * eye stands in and the water beside it are never at two heights. Whether the gain changed.
      */
-    boolean heighten(float gain, int view, float eyeX, float eyeY, Rework now) {
+    <C> boolean heighten(float gain, int view, float eyeX, float eyeY, C from, Rework<C> now) {
         boolean changed = gain != this.gain;
         if (changed) {
             heighten(gain);
         }
-        if (roundEyeAt[view] == gain) {
+        if (roundEyeAsOf[view] == changes) {
             return changed;
         }
-        roundEyeAt[view] = gain;
+        roundEyeAsOf[view] = changes;
         int wx = Math.floorDiv((int) Math.floor(eyeX), CHUNK_TILES), wy = Math.floorDiv((int) Math.floor(eyeY), CHUNK_TILES);
         for (int x = wx - 1; x <= wx + 1; x++) {
             for (int y = wy - 1; y <= wy + 1; y++) {
-                now.chunk(x, y);
+                now.chunk(from, x, y);
             }
         }
         return changed;
-    }
-
-    /** A chunk's heights worked out again from the map, whatever the frame has spent on heights. Logic thread. */
-    Rework workingOut(IsoCell cell) {
-        return (wx, wy) -> corners(cell, wx, wy, true);
     }
 
     /**
@@ -383,6 +383,7 @@ final class Terrain {
             throw new IllegalStateException("the level land has no hills to raise");
         }
         this.gain = gain;
+        changes++;
         pads.clear();
         padsForNow.clear();
         rework();
