@@ -16,8 +16,13 @@ package com.cameraunlock.zomboid;
 final class WeaponShape {
     /** How finely the outline is read: this many cells along the way from the origin to the muzzle. */
     static final int CELLS_TO_MUZZLE = 400;
-    /** A firearm's outline is read in no more cells than this: a mesh that would need more is drawn far beyond its muzzle and is no firearm the outline can be read from. */
-    static final int MOST_CELLS = 4_000_000;
+    /**
+     * A firearm's outline is read in no more cells than this: a mesh that would need more is
+     * drawn far beyond its muzzle and is no firearm the outline can be read from. The game's
+     * firearms need 100 to 200 thousand, and the outline is read on the render thread the first
+     * time a firearm is drawn.
+     */
+    static final int MOST_CELLS = 1_000_000;
     /** A hole in the outline smaller across than this, in metres, is a gap between parts, not a trigger guard a finger goes through. */
     static final float SMALLEST_GUARD = 0.008f;
     /** A guard further ahead of the origin than this, in metres, is not where the hand at the origin has its finger. */
@@ -533,14 +538,27 @@ final class WeaponShape {
                     span[5] += c;
                     span[6] += r;
                 }
-                int[] next = {at - 1, at + 1, at - columns, at + columns};
-                boolean[] ok = {c > 0, c < columns - 1, r > 0, r < rows - 1};
-                for (int k = 0; k < 4; k++) {
-                    if (ok[k] && !inside[next[k]] && label[next[k]] == 0) {
-                        label[next[k]] = mark;
-                        stack[top++] = next[k];
-                    }
+                if (c > 0) {
+                    top = reach(label, stack, top, at - 1, mark);
                 }
+                if (c < columns - 1) {
+                    top = reach(label, stack, top, at + 1, mark);
+                }
+                if (r > 0) {
+                    top = reach(label, stack, top, at - columns, mark);
+                }
+                if (r < rows - 1) {
+                    top = reach(label, stack, top, at + columns, mark);
+                }
+            }
+            return top;
+        }
+
+        /** Labels an empty cell not yet reached and puts it on the stack. */
+        private int reach(int[] label, int[] stack, int top, int cell, int mark) {
+            if (!inside[cell] && label[cell] == 0) {
+                label[cell] = mark;
+                stack[top++] = cell;
             }
             return top;
         }

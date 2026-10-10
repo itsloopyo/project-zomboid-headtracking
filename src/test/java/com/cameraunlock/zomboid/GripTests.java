@@ -90,6 +90,14 @@ final class GripTests {
         why.setLength(0);
         check(WeaponShape.read(far, pistol.corners(), new float[] {0f, 1f, 0f}, new float[] {0f, 0f, 1f}, pistol.muzzle(), 1f, why) == null && why.indexOf("no firearm") >= 0,
                 "nor one with a vertex a thousand times its length off: " + why);
+        // Over three times its muzzle's way from the grip ahead and up: two million cells, read on the render thread as it is first drawn.
+        float[] big = pistol.places().clone();
+        big[3] = 0f;
+        big[4] = 0.55f;
+        big[5] = 0.55f;
+        why.setLength(0);
+        check(WeaponShape.read(big, pistol.corners(), new float[] {0f, 1f, 0f}, new float[] {0f, 0f, 1f}, pistol.muzzle(), 1f, why) == null && why.indexOf("no firearm") >= 0,
+                "nor one three times as long and as tall as its muzzle is from its grip: " + why);
     }
 
     /** The mod's own shotgun and rifle are held as the game's firearms are: their meshes say where their grips are. */
