@@ -171,7 +171,40 @@ final class OptionsPage {
             filled = false;
             Log.error("the mod's controls on the game's options screen were not read back, and what is applied there until it opens again is not taken", failure);
         }
+        try {
+            for (Control control : controls) {
+                if (control.values == null && control.described.kind != CameraUnlock.OPTION_BOOL) {
+                    KahluaTable slider = (KahluaTable) control.table.rawget("element");
+                    // The game makes a slider's name and the number beside it labels of their own and gives neither the tooltip it is handed.
+                    nameOf(control, slider).rawset("tooltip", control.described.comment);
+                    ((KahluaTable) slider.rawget("label")).rawset("tooltip", control.described.comment);
+                }
+            }
+        } catch (RuntimeException failure) {
+            // Apart from the read back: a page laid out otherwise (another mod's) loses the sliders' tooltips, and the settings are still taken.
+            Log.error("the sliders of the mod's settings on the game's options screen were not given their tooltips", failure);
+        }
         return 0;
+    }
+
+    /**
+     * The label with a slider's name. MainOptions.addSlider adds it to the page just before the
+     * panel that holds the slider and the number beside it, and keeps it nowhere else.
+     */
+    private static KahluaTable nameOf(Control control, KahluaTable slider) {
+        Object panel = slider.rawget("parent");
+        KahluaTable page = (KahluaTable) ((KahluaTable) panel).rawget("parent");
+        KahluaTable inOrder = (KahluaTable) page.rawget("childrenInOrder");
+        for (int at = 2; at <= inOrder.len(); at++) {
+            if (inOrder.rawget(at) == panel) {
+                KahluaTable before = (KahluaTable) inOrder.rawget(at - 1);
+                if (!"ISLabel".equals(UIManager.tableget(before, "Type"))) {
+                    throw new IllegalStateException("what the game's options screen has before " + control.described.id + "'s slider is no label");
+                }
+                return before;
+            }
+        }
+        throw new IllegalStateException("the game's options screen does not hold " + control.described.id + "'s slider where it was put");
     }
 
     private static void show(Control control, double value) {

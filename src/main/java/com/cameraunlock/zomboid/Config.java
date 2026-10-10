@@ -41,9 +41,9 @@ final class Config {
 
     /**
      * What the rows read again while the game runs hold: the field of view in degrees, Own's bits,
-     * the Quality row, the Style row, the FrameBlending row, the MuzzleFlash row, the SplitScreen row and the rows of [Graphics].
+     * the Quality row, the Style row, the HillHeight row, the FrameBlending row, the MuzzleFlash row, the SplitScreen row and the rows of [Graphics].
      */
-    record Live(float fieldOfView, int own, int quality, int style, boolean frameBlending, boolean muzzleFlash, int splitScreen, Quality.Picture custom) {}
+    record Live(float fieldOfView, int own, int quality, int style, float hillHeight, boolean frameBlending, boolean muzzleFlash, int splitScreen, Quality.Picture custom) {}
 
     /** The keys of [Graphics], the Custom graphics mode, in the order of Quality.Picture's parts. */
     static final String[] GRAPHICS = {"StockLook", "SpritePlants", "RenderScale", "SharpShadows", "ViewDistance", "ZombiesAndPropsDrawDistance",
@@ -53,7 +53,7 @@ final class Config {
     static final int MIN_VIEW_DISTANCE = 32, MIN_DRAW_DISTANCE = 16;
 
     private final CameraUnlock core;
-    private final int fieldOfView, quality, style, frameBlending, muzzleFlash, splitScreen, secondPlayerPort;
+    private final int fieldOfView, quality, style, hillHeight, frameBlending, muzzleFlash, splitScreen, secondPlayerPort;
     /** The rows of [Content], in the order of Own's bits. */
     private final int[] own;
     /** The rows of [Graphics], in the order of GRAPHICS. */
@@ -66,7 +66,7 @@ final class Config {
      * writable: their hotkeys save. There is no key that switches head tracking off: the
      * owner ruled the action out for this game, and the three keys there are are the game's own
      * rows on the nav keys alone (see cameraunlock-core's per_game). FieldOfView, Quality, Style,
-     * FrameBlending, MuzzleFlash, SplitScreen and the rows of [Content] are the mod's own, and the ones read
+     * HillHeight, FrameBlending, MuzzleFlash, SplitScreen and the rows of [Content] are the mod's own, and the ones read
      * again while the game runs, and so are the rows of [Graphics], which are what the Custom
      * graphics mode draws. They are writable too, and a writable row that is not a key
      * list is a setting on the game's options screen (OptionsPage). SecondPlayerUdpPort, FirstPersonKey, CycleQualityKey,
@@ -150,6 +150,19 @@ final class Config {
                         + "the sun, nearer the colours of the game's own view. The light, the weather and\n"
                         + "the hour are the same in all three. Read again while the game runs.",
                 writable | live, Style.words(), Style.VIVID.ordinal());
+        // Not a row of [Graphics]: it changes what the land looks like and not what the picture costs, in every graphics mode alike.
+        hillHeight = core.configLocalFloat("General", "HillHeight",
+                "How high the hills stand in first person. The game's map is flat, and in first\n"
+                        + "person the mod gives the land a lie of its own: the country rising and falling,\n"
+                        + "hills, higher and more of them in farmland and woods than in town, swells that\n"
+                        + "streets go over, and ground uneven underfoot. 1: as the mod makes it. 0: as level\n"
+                        + "as the game's map. Up to " + HillHeight.MOST + ": that many times as high, where the\n"
+                        + "steepest main road climbs about one in five and a half. A kerb, a bank down to water\n"
+                        + "and how far water lies below its banks are the same at every height. The game's\n"
+                        + "own view from overhead is always level, and on a\n"
+                        + "server where players can fight one another the hills stay at 1. Read again\n"
+                        + "while the game runs.",
+                writable | live, HillHeight.DEFAULT, 0f, HillHeight.MOST);
         frameBlending = core.configLocalBool("General", "FrameBlending",
                 "Whether each frame of the first person picture is mixed with the one before it.\n"
                         + "false: every frame is drawn on its own. true: fine edges, leaves and the grain of\n"
@@ -324,6 +337,10 @@ final class Config {
         });
         puts.put("Quality", value -> Quality.set((int) value));
         puts.put("Style", value -> Style.set((int) value));
+        puts.put("HillHeight", value -> {
+            HillHeight.set((float) value);
+            Log.info("hill height set to " + (float) value);
+        });
         puts.put("FrameBlending", value -> FrameBlending.set(value != 0));
         puts.put("MuzzleFlash", value -> MuzzleFlash.set(value != 0));
         puts.put("SplitScreen", value -> SplitScreen.set((int) value));
@@ -403,7 +420,7 @@ final class Config {
             custom[part] = part == RENDER_SCALE ? core.configGetFloat(graphics[part]) : core.configGetInt(graphics[part]);
         }
         return new Live(core.configGetFloat(fieldOfView), rows, core.configGetInt(quality), core.configGetInt(style),
-                core.configGetInt(frameBlending) != 0, core.configGetInt(muzzleFlash) != 0, core.configGetInt(splitScreen), picture(custom));
+                core.configGetFloat(hillHeight), core.configGetInt(frameBlending) != 0, core.configGetInt(muzzleFlash) != 0, core.configGetInt(splitScreen), picture(custom));
     }
 
     /**

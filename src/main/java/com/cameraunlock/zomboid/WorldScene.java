@@ -1306,6 +1306,8 @@ final class WorldScene {
      * left level while the view is the game's own from overhead. Set by the logic thread.
      */
     volatile Terrain terrain = Terrain.HILLS;
+    /** The height of the hills the far land was last asked for at: see HillHeight. Logic thread. */
+    private float farHills = HillHeight.DEFAULT;
 
     /** Logic thread: has the view's country level or not, and lets go of every build made on it the other way. */
     void level(boolean flat) {
@@ -2229,7 +2231,19 @@ final class WorldScene {
                 Lights.forget();
                 Roofs.forget();
                 WallFinish.forget();
+                Country.read(IsoWorld.instance.getMetaGrid());
                 Terrain.forget();
+            }
+            float hills = HillHeight.drawn();
+            if (hills != Terrain.HILLS.gain()) {
+                // The views share the land: the first one built raises it for both.
+                Terrain.HILLS.heighten(hills);
+                Log.info("hill height " + hills + ": every chunk's heights are to be worked out again as they are next asked for");
+            }
+            if (hills != farHills) {
+                // The far land is made at the height the land was when it was asked for.
+                farHills = hills;
+                farLand.forget();
             }
             mainsOn = IsoWorld.instance.isHydroPowerOn();
             long goesBy = sum(sum(sum(SUM_FROM, Float.floatToRawIntBits(unseenRed)), Float.floatToRawIntBits(unseenGreen)), Float.floatToRawIntBits(unseenBlue));

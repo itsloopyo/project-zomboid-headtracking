@@ -52,6 +52,12 @@ import zombie.util.list.PZArrayList;
  * There are two lies of the land, the hills and the country left level, and each player's
  * view is drawn on one of them (WorldScene.terrain): what a square is made of is the same for
  * both and is kept once.
+ *
+ * How high the hills stand is the player's (HillHeight): every rise of the land, the country's,
+ * the hills', the swells' and what is uneven on open ground, is that many times what it is
+ * at 1, and so is every slope the rules below give at 1. At 0 the land is as level as the game's map. What is a hand high and no part of
+ * the lie of the land stays as it is at every height: a kerb, a bank down to water, the water
+ * lying below the land round it.
  */
 final class Terrain {
     static final int CHUNK_TILES = 8;
@@ -157,6 +163,8 @@ final class Terrain {
      * the game knows nothing of hills. Kerbs and banks, which are a hand high, stay.
      */
     final boolean level;
+    /** How many times its height at 1 every rise of the land is: 0 for the level land, and the player's for the hills. Set by the logic thread. */
+    private volatile float gain;
     private final AtomicReferenceArray<Grid> grids = new AtomicReferenceArray<>(TABLE_SIDE * TABLE_SIDE * WAYS);
     private static final Kinds[] known = new Kinds[TABLE_SIDE * TABLE_SIDE * WAYS];
     private static final Kinds passing = new Kinds();
@@ -314,6 +322,27 @@ final class Terrain {
 
     private Terrain(boolean level) {
         this.level = level;
+        gain = level ? 0f : 1f;
+    }
+
+    float gain() {
+        return gain;
+    }
+
+    /**
+     * Logic thread: has the hills stand gain times their height at 1, and every chunk's
+     * heights worked out again the next time they are asked for. Whatever was built on the
+     * heights is built again as each chunk's come out otherwise (WorldScene.landOf), and the
+     * heights kept stay for any thread to read until then.
+     */
+    void heighten(float gain) {
+        if (level) {
+            throw new IllegalStateException("the level land has no hills to raise");
+        }
+        this.gain = gain;
+        pads.clear();
+        padsForNow.clear();
+        rework();
     }
 
     static Terrain of(boolean level) {
@@ -349,14 +378,19 @@ final class Terrain {
         for (Terrain terrain : new Terrain[] {HILLS, LEVEL}) {
             terrain.pads.clear();
             terrain.padsForNow.clear();
-            for (int slot = 0; slot < TABLE_SIDE * TABLE_SIDE * WAYS; slot++) {
-                Grid grid = terrain.grids.get(slot);
-                if (grid != null) {
-                    grid.settled = false;
-                    grid.loaded = loaded - 1;
-                    grid.stamp = frame - RETRIED;
-                    grid.stampNanos = frameNanos - RETRIED_NANOS;
-                }
+            terrain.rework();
+        }
+    }
+
+    /** Has every chunk's heights worked out again the next time they are asked for. */
+    private void rework() {
+        for (int slot = 0; slot < TABLE_SIDE * TABLE_SIDE * WAYS; slot++) {
+            Grid grid = grids.get(slot);
+            if (grid != null) {
+                grid.settled = false;
+                grid.loaded = loaded - 1;
+                grid.stamp = frame - RETRIED;
+                grid.stampNanos = frameNanos - RETRIED_NANOS;
             }
         }
     }
@@ -481,7 +515,8 @@ final class Terrain {
         fresh.loaded = loaded;
         // In this order: gather looks for the water round each building, and the corners want the water round the chunk.
         fresh.settled = gather(cell, wx, wy) & findWater(cell, wx, wy);
-        fresh.from = gathered();
+        // The gain with them: the same squares give other heights at another.
+        fresh.from = gathered() * 31 + Float.floatToRawIntBits(gain);
         boolean asBefore = known && grid.from == fresh.from;
         if (asBefore && !AUDITED) {
             // Every square and every footing the heights go by is as it was when they were last worked out, and so are they.
@@ -1154,7 +1189,7 @@ final class Terrain {
      * a corner of a chunk with water in it, where no hill stands on the country. Any thread.
      */
     float waterLevel(float x, float y) {
-        return (level ? 0f : rise(x, y)) - WATER_BELOW;
+        return (gain == 0f ? 0f : gain * rise(x, y)) - WATER_BELOW;
     }
 
     /** Whether a chunk whose squares have all been seen loaded has water on it. Logic thread. */
@@ -1164,12 +1199,12 @@ final class Terrain {
     }
 
     /** The height of the land at (x, y) before what is uneven on open ground and what is built is on it. After findWater. */
-    private float base(float x, float y) {
-        if (level) {
+    float base(float x, float y) {
+        if (gain == 0f) {
             return 0f;
         }
         float toWater = toWaterChunk(x, y);
-        return far(x, y, toWater) - (Paving.without ? 0f : heave(x, y) * town(x, y) * smooth(toWater / VALLEY));
+        return gain * (lie(x, y, toWater) - (Paving.without ? 0f : heave(x, y) * town(x, y) * smooth(toWater / VALLEY)));
     }
 
     /**
@@ -1178,10 +1213,15 @@ final class Terrain {
      * toWater tiles off, VALLEY and more counting as none. What a building, a street and open
      * ground's own unevenness do to it is left out, and so is the dying away of the swells in
      * a town (base): land seen from far off is up to a swell's height off what it is when the
-     * map has loaded there. Never level. Any thread.
+     * map has loaded there. Any thread.
      */
-    static float far(float x, float y, float toWater) {
-        return rise(x, y) + (stand(x, y) + heave(x, y)) * smooth(toWater / VALLEY);
+    float far(float x, float y, float toWater) {
+        return gain == 0f ? 0f : gain * lie(x, y, toWater);
+    }
+
+    /** The same at a gain of 1. */
+    private static float lie(float x, float y, float toWater) {
+        return rise(x, y) + (stand(x, y) + heave(x, y) + upland(x, y)) * smooth(toWater / VALLEY);
     }
 
     /** The rise and fall of the country over the better part of a mile. Never steeper than a rise of one in forty. */
@@ -1202,12 +1242,29 @@ final class Terrain {
     }
 
     /**
+     * The hills of farmland and woods (Country), which stand on the country as stand's do, more
+     * often and higher: round tops some two hundred and fifty tiles across and up to eight tiles
+     * high. None in a town, where the map zones none of the land round about farmland or woods,
+     * and like stand's they die away towards water.
+     */
+    static float upland(float x, float y) {
+        float country = Country.at(x, y);
+        if (country == 0f) {
+            return 0f;
+        }
+        float lumps = (float) (0.55 * Math.sin(x * 0.012 + 0.4) * Math.sin(y * 0.01044 + 2.9)
+                + 0.45 * Math.sin((x * 0.6 - y * 0.8) * 0.01356 + 1.2) * Math.sin((x * 0.8 + y * 0.6) * 0.00852 + 0.3));
+        float up = Math.max(0f, lumps + 0.35f);
+        return country * 4.5f * up * up;
+    }
+
+    /**
      * The swells and dips of the land, streets and all: a tile or so from top to bottom and
      * some hundred and thirty tiles from one crest to the next, which is near enough to see
      * both from a street. Never steeper than one in twenty.
      */
     float swells(float x, float y) {
-        return level ? 0f : heave(x, y);
+        return gain == 0f ? 0f : gain * heave(x, y);
     }
 
     private static float heave(float x, float y) {
@@ -1220,19 +1277,19 @@ final class Terrain {
      * from top to bottom. Made ground is cut level through them: a road runs between its banks.
      */
     private float knolls(float x, float y) {
-        if (level) {
+        if (gain == 0f) {
             return 0f;
         }
-        return 1.1f * (float) (Math.sin(x * 0.067 + 0.3) * Math.sin(y * 0.079 + 1.7))
-                + 0.7f * (float) (Math.sin((x + y * 0.6) * 0.045 + 3.1) * Math.sin((y - x * 0.4) * 0.057 + 0.8));
+        return gain * (1.1f * (float) (Math.sin(x * 0.067 + 0.3) * Math.sin(y * 0.079 + 1.7))
+                + 0.7f * (float) (Math.sin((x + y * 0.6) * 0.045 + 3.1) * Math.sin((y - x * 0.4) * 0.057 + 0.8)));
     }
 
     /** What is uneven underfoot on open ground, the same wherever and whenever it is asked. */
     private float roll(float x, float y) {
-        if (level) {
+        if (gain == 0f) {
             return 0f;
         }
-        return 0.2f * (float) (Math.sin(x * 0.071 + 1.3) * Math.sin(y * 0.063 + 0.4))
-                + 0.07f * (float) (Math.sin(x * 0.29 + y * 0.11) * Math.sin(y * 0.27 - x * 0.13));
+        return gain * (0.2f * (float) (Math.sin(x * 0.071 + 1.3) * Math.sin(y * 0.063 + 0.4))
+                + 0.07f * (float) (Math.sin(x * 0.29 + y * 0.11) * Math.sin(y * 0.27 - x * 0.13)));
     }
 }

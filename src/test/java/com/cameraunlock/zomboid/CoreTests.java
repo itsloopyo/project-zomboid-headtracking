@@ -101,6 +101,7 @@ public final class CoreTests {
         Checks.run("settingsOfTheGamesOptionsScreenAreSavedAndTaken", CoreTests::settingsOfTheGamesOptionsScreenAreSavedAndTaken);
         Checks.run("aGraphicsRowAppliedOnTheOptionsScreenGoesToCustom", CoreTests::aGraphicsRowAppliedOnTheOptionsScreenGoesToCustom);
         Checks.run("customKeepsItsRowsThroughTheOtherModes", CoreTests::customKeepsItsRowsThroughTheOtherModes);
+        Checks.run("theHeightOfTheHillsIsASliderThatLeavesTheGraphicsModeAsItIs", CoreTests::theHeightOfTheHillsIsASliderThatLeavesTheGraphicsModeAsItIs);
         Checks.run("aGraphicsRowEditedInTheFileGoesToCustom", CoreTests::aGraphicsRowEditedInTheFileGoesToCustom);
         Checks.run("theDrawDistancesAndReflectionsGoToCustomAsTheOtherRowsDo", CoreTests::theDrawDistancesAndReflectionsGoToCustomAsTheOtherRowsDo);
         Checks.run("gameRunsUnmoddedBesideALibraryOfAnotherBuild", CoreTests::gameRunsUnmoddedBesideALibraryOfAnotherBuild);
@@ -576,9 +577,11 @@ public final class CoreTests {
         String saved = text();
         edit(saved.replace("FieldOfView=65.0", "FieldOfView=90").replace("OwnWeapons=true", "OwnWeapons=false")
                 .replace("OwnPlants=true", "OwnPlants=false").replace("Quality=Medium", "Quality=High").replace("Style=Natural", "Style=Bleak")
-                .replace("FrameBlending=false", "FrameBlending=true").replace("MuzzleFlash=true", "MuzzleFlash=false").replace("SplitScreen=Horizontal", "SplitScreen=Vertical").replace("UdpPort=default", "UdpPort=5555"));
+                .replace("FrameBlending=false", "FrameBlending=true").replace("MuzzleFlash=true", "MuzzleFlash=false").replace("SplitScreen=Horizontal", "SplitScreen=Vertical").replace("UdpPort=default", "UdpPort=5555")
+                .replace("HillHeight=1.0", "HillHeight=0.25"));
         Tracking.watchSettings();
         check(FieldOfView.degrees() == 90f, "an edited field of view is read while the game runs");
+        check(HillHeight.asked() == 0.25f, "and the height of the hills: " + HillHeight.asked());
         check(Own.rows() == (Own.ALL & ~Own.WEAPONS & ~Own.PLANTS), "rows of [Content] switched off are, and the rest stay on: " + Own.described(Own.rows()));
         check(Quality.name().equals("High") && Style.current() == Style.BLEAK && FrameBlending.on(), "and the graphics mode, the picture style and frame blending");
         check(SplitScreen.row() == SplitScreen.VERTICAL, "and how two players share the screen");
@@ -586,7 +589,7 @@ public final class CoreTests {
         edit(saved.replace("OwnArms=true", "OwnArms=false"));
         Tracking.watchSettings();
         check(FieldOfView.degrees() == 65f && Own.rows() == (Own.ALL & ~Own.ARMS) && Quality.name().equals("Medium") && Style.current() == Style.NATURAL
-                        && !FrameBlending.on() && MuzzleFlash.on() && SplitScreen.row() == SplitScreen.HORIZONTAL,
+                        && !FrameBlending.on() && MuzzleFlash.on() && SplitScreen.row() == SplitScreen.HORIZONTAL && HillHeight.asked() == 1f,
                 "set back, they are as they were, and the arms row switched off is that row and no other: " + Own.described(Own.rows()));
         Tracking.cycleStyle();
         check(Style.current() == Style.BLEAK, "a save after an edit still saves");
@@ -614,7 +617,7 @@ public final class CoreTests {
         for (CameraUnlock.Option option : options) {
             ids.append(option.id).append(' ');
         }
-        check(ids.toString().equals("WorldSpaceYaw TrackingMode AimMode FieldOfView Quality Style FrameBlending MuzzleFlash SplitScreen StockLook SpritePlants "
+        check(ids.toString().equals("WorldSpaceYaw TrackingMode AimMode FieldOfView Quality Style HillHeight FrameBlending MuzzleFlash SplitScreen StockLook SpritePlants "
                         + "RenderScale SharpShadows ViewDistance ZombiesAndPropsDrawDistance ForwardDrivingDrawDistance RainOnGlass ShadingAndLight Reflections "
                         + "FullSizeTextures FarTrees SurfaceDepth OwnWeapons OwnFurniture "
                         + "OwnPictures OwnPlants OwnTextures OwnBuildings OwnZombies OwnPeople OwnArms OwnClothes "),
@@ -687,6 +690,27 @@ public final class CoreTests {
         void apply() {
             Tracking.applyScreen(options, described, shown, held);
         }
+    }
+
+    private static void theHeightOfTheHillsIsASliderThatLeavesTheGraphicsModeAsItIs() throws IOException, InterruptedException {
+        String mode = Quality.name();
+        Tracking.graphicsToSay();
+        Screen screen = Screen.opened();
+        CameraUnlock.Option hills = screen.described()[optionNamed(screen.described(), "HillHeight")];
+        check(hills.kind == CameraUnlock.OPTION_FLOAT && hills.min == 0 && hills.max == HillHeight.MOST && hills.step == 0.01
+                        && hills.label.equals("Hill height") && hills.comment.contains("0: as level"),
+                "the height of the hills is a slider from level to " + HillHeight.MOST + " with its row's comment: " + hills.min + " " + hills.max + " " + hills.step + " " + hills.label);
+        check(screen.shows("HillHeight") == HillHeight.asked(), "it shows the height the session has");
+        screen.set("HillHeight", 0.4);
+        screen.apply();
+        savesMade();
+        check(HillHeight.asked() == 0.4f && HillHeight.drawn() == 0.4f && Quality.name().equals(mode) && !Tracking.graphicsToSay() && saved("HillHeight=0.4", "Quality=" + mode),
+                "applied there it is taken and saved, and the graphics mode stays as it was: it is not one of the rows of [Graphics]");
+        screen = Screen.opened();
+        screen.set("HillHeight", 1);
+        screen.apply();
+        savesMade();
+        check(HillHeight.asked() == 1f && saved("HillHeight=1.0"), "and set back, it is back");
     }
 
     private static void inMode(String mode) {
