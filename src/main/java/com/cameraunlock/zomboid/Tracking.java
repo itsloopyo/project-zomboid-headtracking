@@ -157,6 +157,7 @@ final class Tracking {
         customInFile = live.custom();
         Quality.custom(live.custom());
         Quality.set(live.quality());
+        Quality.setOverhead(live.overheadQuality());
         Style.set(live.style());
         HillHeight.set(live.hillHeight());
         MuzzleFlash.set(live.muzzleFlash());
@@ -210,7 +211,7 @@ final class Tracking {
         core.viewLean(view, found, out);
     }
 
-    /** FieldOfView, Quality, Style, HillHeight, MuzzleFlash, SplitScreen and the rows of [Content] and [Graphics] are the settings read again while the game runs: every other row is read at the start. */
+    /** FieldOfView, Quality, IsometricQuality, Style, HillHeight, MuzzleFlash, SplitScreen and the rows of [Content] and [Graphics] are the settings read again while the game runs: every other row is read at the start. */
     static void watchSettings() {
         try {
             Config.Live live = config.reload();
@@ -244,6 +245,7 @@ final class Tracking {
         } else {
             Quality.set(live.quality());
         }
+        Quality.setOverhead(live.overheadQuality());
         Style.set(live.style());
         if (live.hillHeight() != HillHeight.asked()) {
             HillHeight.set(live.hillHeight());
@@ -263,19 +265,22 @@ final class Tracking {
     }
 
     /**
-     * What an option reads as now. A row of [Graphics] reads as the picture being drawn, so in Low,
-     * Medium, High and Automatic the screen shows that mode's, and in Custom the row itself. The
-     * graphics mode reads as the session's: core has the mode an apply went to only once its save,
-     * which follows on the config thread, is made.
+     * What an option reads as now. A row of [Graphics] reads as the picture first person's mode
+     * draws, so in Low, Medium, High and Automatic the screen shows that mode's, and in Custom the
+     * row itself. The graphics modes read as the session's: core has the mode an apply went to only
+     * once its save, which follows on the config thread, is made.
      */
     static double optionValue(int option) {
         String id = config.optionId(option);
         int part = Config.graphicsPart(id);
-        return part >= 0 ? Config.values(Quality.drawn())[part] : id.equals(QUALITY_OPTION) ? Quality.row() : config.optionValue(option);
+        return part >= 0 ? Config.values(Quality.firstPersonPicture())[part]
+                : id.equals(QUALITY_OPTION) ? Quality.row()
+                : id.equals(OVERHEAD_QUALITY_OPTION) ? Quality.overheadRow() - Quality.LOW
+                : config.optionValue(option);
     }
 
     private static final String YAW_MODE_OPTION = "WorldSpaceYaw";
-    static final String QUALITY_OPTION = "Quality";
+    static final String QUALITY_OPTION = "Quality", OVERHEAD_QUALITY_OPTION = "IsometricQuality";
 
     /** Whether applyOption has somewhere to put an option's value. */
     static boolean takes(CameraUnlock.Option described) {
@@ -317,7 +322,7 @@ final class Tracking {
      * What the player applied on the game's options screen: for each of its settings by its place
      * in options(), what the screen showed as it opened or was last applied and what it holds now.
      * Each setting that changed is taken as applyOption takes it. If any of the rows of [Graphics]
-     * changed, the graphics mode goes to Custom, whatever the Quality setting holds: each row the
+     * changed, first person's graphics mode goes to Custom, whatever the Quality setting holds: each row the
      * player changed takes what the screen holds, and the rest take the picture Custom starts
      * from (Quality.customFrom). Each setting taken has its shown value set to what it holds.
      * Logic thread.
@@ -399,7 +404,7 @@ final class Tracking {
         }
         graphicsToSay.set(false);
         Quality.stepSaid();
-        Log.info("said on the screen: Graphics: " + Quality.name());
+        Log.info("said on the screen: " + Quality.said());
         return true;
     }
 
@@ -555,11 +560,17 @@ final class Tracking {
         save(() -> config.saveWorldSpaceYaw(saved));
     }
 
-    /** The graphics mode after the one the session is in, kept for the next start. */
+    /** The graphics mode after the one in effect, first person's or the isometric view's, kept for the next start. */
     static void cycleGraphicsMode() {
-        int next = Quality.next();
-        Quality.set(next);
-        save(() -> config.saveQuality(next));
+        if (Quality.firstPersonInEffect()) {
+            int next = Quality.next();
+            Quality.set(next);
+            save(() -> config.saveQuality(next));
+        } else {
+            int next = Quality.nextOverhead();
+            Quality.setOverhead(next);
+            save(() -> config.saveIsometricQuality(next));
+        }
     }
 
     /** The picture style after the one the session is in, kept for the next start. */

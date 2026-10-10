@@ -285,6 +285,10 @@ public final class FirstPerson {
             Log.info(who() + "first person no longer asked for");
             return;
         }
+        if (!on) {
+            // What is made ready is what first person's graphics mode draws.
+            Quality.inFirstPerson(view.index, true);
+        }
         // With the picture already drawing the game's own view there is nothing left to make and the world is built.
         if (!on && (view.pipeline.unprepared() || view.pipeline.contentWaited() || !rehearsed && !overhead())) {
             gettingReady = true;
@@ -388,6 +392,7 @@ public final class FirstPerson {
             view.nameTags.lookAway();
             view.hearing.rest();
             view.flight.cut(false);
+            Quality.inFirstPerson(view.index, false);
             if (pictureUp) {
                 pictureUp = false;
                 RenderThread.queueInvokeOnRenderContext(view.pipeline.RELEASE::render);
@@ -411,6 +416,10 @@ public final class FirstPerson {
             Vector2 facing = player.getForwardDirection();
             setLook((float) Math.atan2(facing.y, facing.x), 0f);
             stride.begin(traceMoveX, traceMoveY, yaw);
+        }
+        if (on) {
+            said = Quality.said();
+            saidAt = System.nanoTime();
         }
         Log.info(who() + "first person " + (on ? "on, " + facings(player) : "off"));
     }
@@ -512,7 +521,7 @@ public final class FirstPerson {
             DevKeys.poll();
         }
         if ((pressed & Config.CYCLE_QUALITY) != 0) {
-            said = "Graphics: " + Quality.name();
+            said = Quality.said();
             saidAt = System.nanoTime();
         }
         if ((pressed & Config.CYCLE_STYLE) != 0) {
@@ -527,7 +536,7 @@ public final class FirstPerson {
         IsoPlayer player = view.player();
         // Asked once: the answer is several looks into the game's Lua, and the frame goes by one answer throughout.
         boolean allowed = allowed(player);
-        boolean overheadAsked = !Quality.plain() && allowed;
+        boolean overheadAsked = !Quality.overheadPlain() && allowed;
         overhead = overheadAsked && !view.pipeline.unprepared() && !view.pipeline.contentWaited();
         view.worldScene.level(overhead());
         rideAlong(player);
@@ -545,6 +554,13 @@ public final class FirstPerson {
         notePace(now, frameNanos);
         lastFrameNanos = now;
         view.flight.advance(on, sinceLastFrame, !overhead);
+        boolean wasFirstPerson = Quality.firstPersonInEffect();
+        Quality.inFirstPerson(view.index, on || gettingReady || !view.flight.home());
+        if (wasFirstPerson && !Quality.firstPersonInEffect()) {
+            // Back in the isometric view, with its own graphics mode: said, so a mode not wanted there is not played on unawares.
+            said = Quality.said();
+            saidAt = now;
+        }
         boolean wasLanded = landed;
         landed = on && view.flight.landed();
         if (landed && !wasLanded) {

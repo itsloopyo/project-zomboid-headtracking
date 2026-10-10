@@ -221,7 +221,7 @@ public final class CoreTests {
                 "config/CameraUnlock.ini is the rows' fresh render, byte for byte (pixi run render-config): " + ran.output());
     }
 
-    private static void firstStartCreatesTheCommittedFileAndRunsOnItsValues() throws IOException {
+    private static void firstStartCreatesTheCommittedFileAndRunsOnItsValues() throws IOException, InterruptedException {
         int port = Tracking.open(game, defaults);
         check(Files.readString(game.resolve(Log.FILE_NAME)).contains(Config.FILE_NAME + ": created"), "a first start with no file creates it");
         check(Arrays.equals(Files.readAllBytes(file), Files.readAllBytes(Path.of("config", Config.FILE_NAME))),
@@ -231,8 +231,11 @@ public final class CoreTests {
         String start = started();
         check(start.contains("tracking idle mode rotation and position yaw about world up") && start.contains("Aim mode: sights locked"),
                 "with tracking on, rotation and position, yaw about straight up, sights locked: " + start);
-        check(start.endsWith("field of view 65.0 | own " + Own.described(Own.ALL) + " | graphics Medium | style Vivid | frame blending false"),
-                "65 degrees, everything of the mod's own on, the Medium graphics mode, the Vivid style, no frame blending: " + start);
+        check(start.endsWith("field of view 65.0 | own " + Own.described(Own.ALL) + " | graphics Automatic (High) | style Vivid | frame blending true"),
+                "65 degrees, everything of the mod's own on, the Automatic graphics mode in first person beginning at High, the Vivid style, frame blending: "
+                        + start);
+        check(Quality.overheadRow() == Quality.LOW && Quality.overheadPlain() && holds("IsometricQuality=Low"),
+                "and the isometric view in Low, the game's own picture");
         check(Tracking.lightMultiplier() == 1.5f, "and the light turned one and a half times the head");
         check(Integer.bitCount(Config.CYCLE_TRACKING_MODE | Config.YAW_MODE | Config.AIM_MODE | Config.FIRST_PERSON
                         | Config.CYCLE_QUALITY | Config.CYCLE_STYLE | Config.SPLIT_SCREEN | Config.FIRST_PERSON_SECOND | Config.FIRST_PERSON_ALL) == 9,
@@ -519,13 +522,18 @@ public final class CoreTests {
         check(saved("TrueFreeLook=false", "FreeLookMarker=false", "StockSights=true"), "saved");
 
         Tracking.cycleGraphicsMode();
-        check(Quality.name().equals("High") && saved("Quality=High"), "the graphics mode's action goes from Medium to High and saves it");
+        check(Quality.overheadRow() == Quality.MEDIUM && saved("IsometricQuality=Medium") && Quality.name().equals("Automatic (High)") && holds("Quality=Automatic"),
+                "in the isometric view the graphics mode's action goes from Low to Medium there, saves it, and leaves first person's");
         Tracking.cycleGraphicsMode();
         Tracking.cycleGraphicsMode();
         Tracking.cycleGraphicsMode();
-        check(Quality.name().equals("Low") && saved("Quality=Low"), "on through Custom and Automatic to Low");
+        check(Quality.overheadRow() == Quality.LOW && saved("IsometricQuality=Low"), "on through High and Custom, with no Automatic, round to Low");
+        Quality.inFirstPerson(0, true);
         Tracking.cycleGraphicsMode();
-        check(Quality.name().equals("Medium") && saved("Quality=Medium"), "and round to Medium");
+        check(Quality.name().equals("Low") && saved("Quality=Low") && holds("IsometricQuality=Low"),
+                "in first person it goes from Automatic to Low, saves it, and leaves the isometric view's");
+        Tracking.cycleGraphicsMode();
+        check(Quality.name().equals("Medium") && saved("Quality=Medium"), "and on to Medium");
         Tracking.cycleStyle();
         check(Style.current() == Style.NATURAL && saved("Style=Natural"), "the picture style's action goes to Natural and saves it");
         check(SplitScreen.row() == SplitScreen.VERTICAL && holds("SplitScreen=Vertical") && holds("SplitScreenKey=F7"), "two players start side by side, with F7 to turn them");
@@ -624,7 +632,7 @@ public final class CoreTests {
         for (CameraUnlock.Option option : options) {
             ids.append(option.id).append(' ');
         }
-        check(ids.toString().equals("WorldSpaceYaw TrackingMode AimMode FieldOfView Quality Style HillHeight MuzzleFlash SplitScreen TreeQuality "
+        check(ids.toString().equals("WorldSpaceYaw TrackingMode AimMode FieldOfView Quality IsometricQuality Style HillHeight MuzzleFlash SplitScreen TreeQuality "
                         + "RenderScale SharpShadows ViewDistance ZombiesAndPropsDrawDistance FarTreeDistance RainOnGlass ShadingAndLight Reflections "
                         + "FullSizeTextures SurfaceDepth WholeFigureShadows FrameBlending OwnWeapons OwnFurniture "
                         + "OwnPictures OwnPlants OwnTextures OwnBuildings OwnZombies OwnPeople OwnArms OwnClothes "),
@@ -646,6 +654,15 @@ public final class CoreTests {
         check(options[arms].kind == CameraUnlock.OPTION_BOOL && options[arms].label.equals("Own arms") && options[arms].comment.contains("held weapon")
                         && options[arms].comment.contains("mod that changes the arms or the weapons"),
                 "the arms are a tick box whose tooltip says what they are and what they are off for: " + options[arms].label);
+
+        int overhead = optionNamed(options, "IsometricQuality");
+        check(Tracking.optionValue(overhead) == Quality.overheadRow() - Quality.LOW && options[overhead].label.equals("Isometric quality"),
+                "the isometric view's graphics mode reads as the session has it, Low as 0: " + options[overhead].label);
+        Tracking.applyOption(overhead, options[overhead], 2);
+        check(Quality.overheadRow() == Quality.HIGH && Tracking.optionValue(overhead) == 2 && saved("IsometricQuality=High"),
+                "set to High there it is taken, saved and read back");
+        Tracking.applyOption(overhead, options[overhead], 0);
+        check(Quality.overheadRow() == Quality.LOW && saved("IsometricQuality=Low"), "and set back to Low");
 
         boolean world = !Tracking.worldYaw(), flashed = !MuzzleFlash.on(), ownArms = (Own.rows() & Own.ARMS) == 0;
         int[] applied = {fov, yaw, tracking, aim, arms, flash};

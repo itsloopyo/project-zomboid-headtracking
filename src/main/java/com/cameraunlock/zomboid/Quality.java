@@ -4,12 +4,19 @@ import java.util.Arrays;
 import java.util.Locale;
 
 /**
- * How much the first person picture costs to draw: the Quality row of CameraUnlock.ini. High
+ * How much the picture costs to draw: the Quality row of CameraUnlock.ini for first person, and
+ * the IsometricQuality row for the game's isometric view, each kept apart and stepped by the
+ * graphics key in the view it is pressed in. While any view is in first person, flying to or
+ * from it or getting ready for it, every view is drawn with first person's mode. Otherwise the
+ * isometric view's mode is drawn, but for Low, where the game draws that view itself and the mod
+ * draws nothing: the picture then stays first person's, so what was made for first person is not
+ * given back and made again on every switch. High
  * is the whole picture. Medium and Low draw it with fewer pixels, cheaper trees, smaller
  * shadow maps and without the passes that shade corners, light the air, mirror and give
  * surfaces depth, for a graphics card that cannot keep up with the whole of it, and Low with
  * shorter sight. A vehicle's mirror shows Low's picture in every mode where it shows one.
- * Medium is the mode a first start is in. Automatic begins at High, steps down while the picture is drawn too slowly and back up while it
+ * A first start is in Automatic in first person and in Low in the isometric view, which has no
+ * Automatic: its frames are not counted. Automatic begins at High, steps down while the picture is drawn too slowly and back up while it
  * is drawn with room to spare: see frame. It judges the picture by the frames the player sees
  * in a stretch of time, frames over wall time, with one thing cut out: a single unbroken run
  * of stalled frames in the stretch that is a save or a load and not the picture: a frame or
@@ -84,13 +91,18 @@ final class Quality {
     private static final long BARRED_NANOS = 120_000_000_000L, TRIAL_NANOS = 60_000_000_000L;
     private static final int MOST_DOUBLINGS = 4;
 
-    private static volatile int row = LOW;
+    /** First person's mode, and the isometric view's, which is never AUTOMATIC. */
+    private static volatile int row = AUTOMATIC, overheadRow = LOW;
+    /** By view: whether it is in first person, flying to or from it, or getting ready for it. */
+    private static final boolean[] inFirstPerson = new boolean[View.COUNT];
+    /** Whether any view is: first person's mode is then the one in effect. */
+    private static volatile boolean firstPersonInEffect;
     /** The level Automatic is at. */
     private static volatile int level = HIGH;
     /** What Custom draws: the rows of [Graphics] as the session last took them. */
     private static volatile Picture custom = HIGH_PICTURE;
-    /** What the mode draws now. */
-    private static volatile Picture drawn = LOW_PICTURE;
+    /** What the mode in effect draws now. */
+    private static volatile Picture drawn = HIGH_PICTURE;
     /**
      * A frame longer than STALL_NANOS is stalled, and one longer than HITCH_NANOS is a hitch. A run
      * of stalled frames one after another is cut out of a count when it is the count's only run,
@@ -141,8 +153,55 @@ final class Quality {
         Arrays.fill(cameUpAt, 0L);
         Arrays.fill(failures, 0);
         stepUnsaid = false;
-        drawn = asked == CUSTOM ? custom : asked == AUTOMATIC ? AUTOMATIC_AT[level] : preset(asked);
-        Log.info("graphics mode: " + NAMES[asked] + (asked == CUSTOM ? ", " + described(custom) : ""));
+        refresh();
+        Log.info("first person graphics mode: " + NAMES[asked] + (asked == CUSTOM ? ", " + described(custom) : ""));
+    }
+
+    /** Sets the isometric view's mode: Low, Medium, High or Custom. */
+    static synchronized void setOverhead(int asked) {
+        if (asked == AUTOMATIC) {
+            throw new IllegalArgumentException("the isometric view has no Automatic graphics mode");
+        }
+        if (asked == overheadRow) {
+            return;
+        }
+        overheadRow = asked;
+        refresh();
+        Log.info("isometric graphics mode: " + NAMES[asked] + (asked == CUSTOM ? ", " + described(custom) : ""));
+    }
+
+    /**
+     * A view says, each frame, whether it is in first person, flying to or from it, or getting
+     * ready for it. Logic thread.
+     */
+    static synchronized void inFirstPerson(int view, boolean in) {
+        if (inFirstPerson[view] == in) {
+            return;
+        }
+        inFirstPerson[view] = in;
+        boolean any = false;
+        for (boolean other : inFirstPerson) {
+            any |= other;
+        }
+        if (any != firstPersonInEffect) {
+            firstPersonInEffect = any;
+            refresh();
+            Log.info("graphics mode in effect: " + said());
+        }
+    }
+
+    /** Whether first person's mode is the one in effect, which the graphics key steps. */
+    static boolean firstPersonInEffect() {
+        return firstPersonInEffect;
+    }
+
+    private static void refresh() {
+        drawn = firstPersonInEffect || overheadPlain() ? firstPersonPicture() : overheadRow == CUSTOM ? custom : preset(overheadRow);
+    }
+
+    /** What first person's mode draws, in effect or not: Custom's rows, the mode's picture, or that of the level Automatic is at. */
+    static Picture firstPersonPicture() {
+        return row == CUSTOM ? custom : row == AUTOMATIC ? AUTOMATIC_AT[level] : preset(row);
     }
 
     /** Takes what Custom draws. Low, Medium and High leave it as it is, for the next time the mode is Custom. */
@@ -151,9 +210,9 @@ final class Quality {
             return;
         }
         custom = picture;
-        if (row == CUSTOM) {
-            drawn = picture;
-            Log.info("graphics mode: Custom, " + described(picture));
+        refresh();
+        if (row == CUSTOM || overheadRow == CUSTOM) {
+            Log.info("graphics mode Custom: " + described(picture));
         }
     }
 
@@ -161,19 +220,19 @@ final class Quality {
         return custom;
     }
 
-    /** What the mode draws now: Custom's rows in Custom, and in the other modes the mode's picture, or that of the level Automatic is at. */
+    /** What the mode in effect draws now: Custom's rows in Custom, and in the other modes the mode's picture, or that of the level Automatic is at. */
     static Picture drawn() {
         return drawn;
     }
 
     /**
      * The picture a row of [Graphics] changed on the options screen starts Custom from, the change
-     * then made to it: what the mode draws, and in Automatic what the level it is at draws, but
+     * then made to it: what first person's mode draws, and in Automatic what the level it is at draws, but
      * for STOCK, which starts it from the level above, Low's cost with what the mod made. Stock is
      * how Automatic saves the graphics card, not a look the player chose.
      */
     static synchronized Picture customFrom() {
-        return row == AUTOMATIC && level == STOCK ? AUTOMATIC_AT[STOCK + 1] : drawn;
+        return row == AUTOMATIC && level == STOCK ? AUTOMATIC_AT[STOCK + 1] : firstPersonPicture();
     }
 
     static Picture preset(int mode) {
@@ -200,16 +259,35 @@ final class Quality {
                 picture.surfaceDepth, picture.wholeFigureShadows, picture.frameBlending);
     }
 
-    /** The mode the hotkey goes to from the one the session is in: Automatic, Low, Medium, High, Custom and round again. */
+    /** The mode the hotkey goes to from first person's: Automatic, Low, Medium, High, Custom and round again. */
     static int next() {
         return (row + 1) % NAMES.length;
+    }
+
+    /** The mode the hotkey goes to from the isometric view's: Low, Medium, High, Custom and round again. */
+    static int nextOverhead() {
+        return overheadRow == CUSTOM ? LOW : overheadRow + 1;
     }
 
     static int row() {
         return row;
     }
 
-    /** The mode, and in Automatic the level it is at: "Automatic (Medium)". */
+    static int overheadRow() {
+        return overheadRow;
+    }
+
+    /** The words CameraUnlock.ini holds for the isometric view's row, which numbers them from 0 for LOW. */
+    static String overheadWords() {
+        return String.join(",", Arrays.copyOfRange(NAMES, LOW, NAMES.length));
+    }
+
+    /** What the screen says of the mode in effect: "First person graphics: Automatic (Medium)" or "Isometric graphics: Low". */
+    static String said() {
+        return firstPersonInEffect ? "First person graphics: " + name() : "Isometric graphics: " + NAMES[overheadRow];
+    }
+
+    /** First person's mode, and in Automatic the level it is at: "Automatic (Medium)". */
     static String name() {
         return choice(row);
     }
@@ -235,12 +313,17 @@ final class Quality {
 
     /**
      * Whether the picture is Low's, the nearest there is to the game's own look, or Automatic's
-     * at STOCK: the game's own view is then the game's own picture, and
-     * the first person view, which the game has no picture of, is drawn with nothing the mod made
-     * where the game has its own. Automatic at Low's level draws less and is not this.
+     * at STOCK: the first person view, which the game has no picture of, is then drawn with
+     * nothing the mod made where the game has its own. Automatic at Low's level draws less and is
+     * not this.
      */
     static boolean plain() {
         return drawn.stockLook;
+    }
+
+    /** Whether the isometric view is the game's own picture: in its Low. */
+    static boolean overheadPlain() {
+        return overheadRow == LOW;
     }
 
     /**
@@ -348,7 +431,7 @@ final class Quality {
         barredUntil[level] = now + barred;
         int left = level;
         level--;
-        drawn = AUTOMATIC_AT[level];
+        refresh();
         countedSince = 0L;
         settlesAt = now + SETTLES_IN_NANOS;
         fastFor = 0L;
@@ -360,7 +443,7 @@ final class Quality {
     private static void stepUp(long now, float rate, float risesAt) {
         level++;
         cameUpAt[level] = now;
-        drawn = AUTOMATIC_AT[level];
+        refresh();
         countedSince = 0L;
         settlesAt = now + SETTLES_UP_NANOS;
         fastFor = 0L;

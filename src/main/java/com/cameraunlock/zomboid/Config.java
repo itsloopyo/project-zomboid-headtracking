@@ -43,9 +43,9 @@ final class Config {
 
     /**
      * What the rows read again while the game runs hold: the field of view in degrees, Own's bits,
-     * the Quality row, the Style row, the HillHeight row, the MuzzleFlash row, the SplitScreen row and the rows of [Graphics].
+     * the Quality row, the IsometricQuality row as a Quality mode, the Style row, the HillHeight row, the MuzzleFlash row, the SplitScreen row and the rows of [Graphics].
      */
-    record Live(float fieldOfView, int own, int quality, int style, float hillHeight, boolean muzzleFlash, int splitScreen,
+    record Live(float fieldOfView, int own, int quality, int overheadQuality, int style, float hillHeight, boolean muzzleFlash, int splitScreen,
             Quality.Picture custom) {}
 
     /** The keys of [Graphics], the Custom graphics mode, in the order of Quality.Picture's parts. */
@@ -57,7 +57,7 @@ final class Config {
     static final int MIN_VIEW_DISTANCE = 32, MIN_DRAW_DISTANCE = 16;
 
     private final CameraUnlock core;
-    private final int fieldOfView, quality, style, hillHeight, muzzleFlash, splitScreen;
+    private final int fieldOfView, quality, overheadQuality, style, hillHeight, muzzleFlash, splitScreen;
     /** The rows of the ports of players 2, 3 and 4. */
     private final int[] playerPorts = new int[PLAYER_PORT_ROWS.length];
     /** The rows of [Content], in the order of Own's bits. */
@@ -71,7 +71,7 @@ final class Config {
      * Describes the rows. The tracking mode pair, WorldSpaceYaw and the three aim mode rows are
      * writable: their hotkeys save. There is no key that switches head tracking off: the
      * owner ruled the action out for this game, and the three keys there are are the game's own
-     * rows on the nav keys alone (see cameraunlock-core's per_game). FieldOfView, Quality, Style,
+     * rows on the nav keys alone (see cameraunlock-core's per_game). FieldOfView, Quality, IsometricQuality, Style,
      * HillHeight, MuzzleFlash, SplitScreen and the rows of [Content] are the mod's own, and the ones read
      * again while the game runs, and so are the rows of [Graphics], which are what the Custom
      * graphics mode draws. They are writable too, and a writable row that is not a key
@@ -121,9 +121,12 @@ final class Config {
                 "Vertical field of view of the first person view, in degrees: 40 to 110.",
                 writable | live, FieldOfView.DEFAULT_DEGREES, MIN_FIELD_OF_VIEW, MAX_FIELD_OF_VIEW);
         quality = core.configLocalEnum("General", "Quality",
-                "Graphics mode: Automatic, Low, Medium, High or Custom. Automatic draws less when the frame rate drops and more again\n"
-                        + "when it recovers. Custom uses the rows of [Graphics].",
-                writable | live, Quality.words(), Quality.MEDIUM);
+                "First person graphics mode: Automatic, Low, Medium, High or Custom. Automatic draws less when the frame rate drops\n"
+                        + "and more again when it recovers. Custom uses the rows of [Graphics].",
+                writable | live, Quality.words(), Quality.AUTOMATIC);
+        overheadQuality = core.configLocalEnum("General", "IsometricQuality",
+                "Graphics mode of the game's isometric view: Low (the game's own picture), Medium, High or Custom.",
+                writable | live, Quality.overheadWords(), 0);
         style = core.configLocalEnum("General", "Style",
                 "Picture style: Vivid (strong contrast and colour), Natural (colours as lit, less contrast) or Bleak (washed out, near\n"
                         + "the game's own look).",
@@ -191,7 +194,9 @@ final class Config {
         core.configLocalHotkeyTaps("FirstPersonKey",
                 "Switches between first person and the game's own view. Tap for player 1, tap twice for player 2, hold for every player.",
                 0, "Delete", FIRST_PERSON, FIRST_PERSON_SECOND, FIRST_PERSON_ALL);
-        core.configLocalHotkey("CycleQualityKey", "Goes to the next graphics mode: Automatic, Low, Medium, High, Custom (Quality).", 0, "F9",
+        core.configLocalHotkey("CycleQualityKey",
+                "Goes to the next graphics mode of the view you are in: in first person Automatic, Low, Medium, High, Custom\n"
+                        + "(Quality), in the isometric view Low, Medium, High, Custom (IsometricQuality).", 0, "F9",
                 CYCLE_QUALITY);
         core.configLocalHotkey("CycleStyleKey", "Goes to the next picture style: Vivid, Natural, Bleak (Style).", 0, "F8",
                 CYCLE_STYLE);
@@ -242,6 +247,7 @@ final class Config {
             Log.info("first person field of view set to " + (float) value + " degrees vertical");
         });
         puts.put("Quality", value -> Quality.set((int) value));
+        puts.put("IsometricQuality", value -> Quality.setOverhead((int) value + Quality.LOW));
         puts.put("Style", value -> Style.set((int) value));
         puts.put("HillHeight", value -> {
             HillHeight.set((float) value);
@@ -324,7 +330,8 @@ final class Config {
         for (int part = 0; part < graphics.length; part++) {
             custom[part] = part == RENDER_SCALE ? core.configGetFloat(graphics[part]) : core.configGetInt(graphics[part]);
         }
-        return new Live(core.configGetFloat(fieldOfView), rows, core.configGetInt(quality), core.configGetInt(style),
+        return new Live(core.configGetFloat(fieldOfView), rows, core.configGetInt(quality), core.configGetInt(overheadQuality) + Quality.LOW,
+                core.configGetInt(style),
                 core.configGetFloat(hillHeight), core.configGetInt(muzzleFlash) != 0, core.configGetInt(splitScreen), picture(custom));
     }
 
@@ -384,7 +391,12 @@ final class Config {
     }
 
     boolean saveQuality(int row) {
-        return saved("graphics mode", core.configSaveInt(quality, row));
+        return saved("first person graphics mode", core.configSaveInt(quality, row));
+    }
+
+    /** @param row a Quality mode, LOW or after */
+    boolean saveIsometricQuality(int row) {
+        return saved("isometric graphics mode", core.configSaveInt(overheadQuality, row - Quality.LOW));
     }
 
     boolean saveStyle(Style row) {

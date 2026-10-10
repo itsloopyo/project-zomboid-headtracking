@@ -85,7 +85,7 @@ Use an app that sends the **OpenTrack UDP protocol** to your PC's local network 
 | `Page Up` | Track head rotation and movement, rotation only, or movement only |
 | `Page Down` | Switch between horizon-relative and camera-relative head turns |
 | `Insert` | Change aiming mode |
-| `F9` | Change graphics quality |
+| `F9` | Change graphics quality of the view you are in |
 | `F8` | Change picture style |
 | `F7` | Arrange two-player split screen side by side or top and bottom |
 
@@ -121,7 +121,7 @@ The mouse turns the view. Movement keys follow the direction you face.
 
 ## Settings
 
-Use **Options > Mods > Head Tracking** for tracking and graphics. For keys, ports and smoothing, edit `CameraUnlock.ini` beside the game executable. See the [configuration reference](config/CameraUnlock.ini).
+Use **Options > Mods > Head Tracking** for tracking and graphics. First person and the isometric view each keep their own graphics quality: first person starts on Automatic and the isometric view on Low, the game's own picture. Switching views shows the quality the new view uses. For keys, ports and smoothing, edit `CameraUnlock.ini` beside the game executable. See the [configuration reference](config/CameraUnlock.ini).
 
 ## Help, updates and removal
 

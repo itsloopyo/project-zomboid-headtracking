@@ -26,6 +26,7 @@ final class QualityTests {
         Checks.run("aModeThePlayerChoseIsNeverStepped", QualityTests::aModeThePlayerChoseIsNeverStepped);
         Checks.run("twoViewsAreCountedAsOnePicture", QualityTests::twoViewsAreCountedAsOnePicture);
         Checks.run("theKeyGoesAutomaticLowMediumHighCustomAndRound", QualityTests::theKeyGoesAutomaticLowMediumHighCustomAndRound);
+        Checks.run("eachViewKeepsAModeOfItsOwn", QualityTests::eachViewKeepsAModeOfItsOwn);
         Checks.run("theInstallerNamesTheModesInTheKeysOrder", QualityTests::theInstallerNamesTheModesInTheKeysOrder);
         Checks.run("customDrawsWhatEachPresetDrewFromItsRows", QualityTests::customDrawsWhatEachPresetDrewFromItsRows);
         Checks.run("eachRowOfCustomReachesItsOwnAnswer", QualityTests::eachRowOfCustomReachesItsOwnAnswer);
@@ -475,10 +476,58 @@ final class QualityTests {
         check(Quality.words().equals("Automatic,Low,Medium,High,Custom"), "and the row's words are in that order: " + Quality.words());
     }
 
+    /**
+     * First person's mode and the isometric view's are kept apart, the one in effect is first
+     * person's while any view is in it, and the isometric view's Low, the game's own picture,
+     * leaves first person's picture as it was.
+     */
+    private static void eachViewKeepsAModeOfItsOwn() {
+        Quality.set(Quality.HIGH);
+        Quality.setOverhead(Quality.LOW);
+        check(!Quality.firstPersonInEffect() && Quality.overheadPlain() && Quality.drawn().equals(Quality.HIGH_PICTURE)
+                        && Quality.said().equals("Isometric graphics: Low"),
+                "in the isometric view's Low the game draws that view, and the picture stays first person's High: " + Quality.said());
+        Quality.setOverhead(Quality.MEDIUM);
+        check(!Quality.overheadPlain() && Quality.drawn().equals(Quality.MEDIUM_PICTURE) && Quality.name().equals("High"),
+                "in its Medium the isometric view is drawn as Medium, and first person's mode stays High");
+        Quality.inFirstPerson(1, true);
+        check(Quality.firstPersonInEffect() && Quality.drawn().equals(Quality.HIGH_PICTURE) && Quality.said().equals("First person graphics: High"),
+                "a view going to first person puts first person's mode in effect: " + Quality.said());
+        Quality.inFirstPerson(0, true);
+        Quality.inFirstPerson(1, false);
+        check(Quality.firstPersonInEffect() && Quality.drawn().equals(Quality.HIGH_PICTURE), "and it stays while any view is in first person");
+        Quality.set(Quality.LOW);
+        check(Quality.plain() && Quality.overheadRow() == Quality.MEDIUM, "first person's mode set there leaves the isometric view's");
+        Quality.inFirstPerson(0, false);
+        check(!Quality.firstPersonInEffect() && Quality.drawn().equals(Quality.MEDIUM_PICTURE) && Quality.name().equals("Low"),
+                "with every view back in the isometric view, its Medium is drawn again and first person's Low is kept");
+        Quality.setOverhead(Quality.CUSTOM);
+        check(Quality.drawn().equals(Quality.custom()) && Quality.said().equals("Isometric graphics: Custom"), "its Custom draws the rows of [Graphics]");
+        check(Quality.nextOverhead() == Quality.LOW, "and the key goes from Custom round to Low, with no Automatic");
+        Quality.setOverhead(Quality.LOW);
+        check(Quality.nextOverhead() == Quality.MEDIUM && Quality.drawn().equals(Quality.LOW_PICTURE),
+                "from Low to Medium, and in Low the picture is first person's again, its Low");
+        Quality.setOverhead(Quality.MEDIUM);
+        check(Quality.nextOverhead() == Quality.HIGH, "from Medium to High");
+        Quality.setOverhead(Quality.HIGH);
+        check(Quality.nextOverhead() == Quality.CUSTOM && Quality.drawn().equals(Quality.HIGH_PICTURE), "and from High to Custom");
+        check(Quality.overheadWords().equals("Low,Medium,High,Custom"), "and the isometric row's words are in that order: " + Quality.overheadWords());
+        boolean refused = false;
+        try {
+            Quality.setOverhead(Quality.AUTOMATIC);
+        } catch (IllegalArgumentException expected) {
+            refused = true;
+        }
+        check(refused && Quality.overheadRow() == Quality.HIGH, "the isometric view has no Automatic");
+        Quality.setOverhead(Quality.LOW);
+        Quality.set(Quality.HIGH);
+    }
+
     /** What the installer says F9 does is the order the key goes in, and the file keeps the line ends cmd.exe reads. */
     private static void theInstallerNamesTheModesInTheKeysOrder() throws IOException {
         String text = new String(Files.readAllBytes(Path.of("scripts", "install.cmd")), StandardCharsets.US_ASCII);
-        String modes = String.join(", ", Quality.words().split(","));
+        String modes = String.join(", ", Quality.words().split(",")) + " in first person; " + String.join(", ", Quality.overheadWords().split(","))
+                + " in the isometric view";
         check(text.contains("F9        Cycle graphics mode: " + modes + "&echo"), "install.cmd's controls name F9's modes as " + modes);
         check(text.replace("\r\n", "").indexOf('\n') < 0, "every line of install.cmd ends in CR LF");
     }
