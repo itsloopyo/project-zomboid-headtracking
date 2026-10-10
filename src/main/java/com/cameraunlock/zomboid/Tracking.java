@@ -379,9 +379,21 @@ final class Tracking {
         }
     }
 
-    /** Whether the graphics mode went to Custom other than by its key since this was last asked, which the next frame says. */
-    static boolean graphicsToSay() {
-        return graphicsToSay.getAndSet(false);
+    /**
+     * Whether the screen says the graphics mode in this frame, with the game's menu up
+     * (OptionsPage.menuShown) or not: once after it went to Custom other than by its key or
+     * Automatic stepped, on the first frame the menu is not up. The options screen is opened
+     * from that menu in a save, and said under it, it was gone before the menu was shut. Logic
+     * thread.
+     */
+    static boolean takeGraphicsToSay(boolean menuShown) {
+        if (!graphicsToSay.get() && !Quality.stepToSay() || menuShown) {
+            return false;
+        }
+        graphicsToSay.set(false);
+        Quality.stepSaid();
+        Log.info("said on the screen: Graphics: " + Quality.name());
+        return true;
     }
 
     /** The keys pressed between now and the next frame drawn are dropped, not acted on. Logic thread. */
@@ -424,12 +436,8 @@ final class Tracking {
             if (enteringSave) {
                 graphicsToSay.set(false);
                 Quality.stepSaid();
-            } else if ((graphicsToSay.get() || Quality.stepToSay()) && !OptionsPage.menuShown()) {
-                // Not while the game's menu is up, which the options screen is opened from in a save: drawn under it, it was gone before the menu was shut.
-                graphicsToSay.set(false);
-                Quality.stepSaid();
+            } else if (takeGraphicsToSay(OptionsPage.menuShown())) {
                 told = Config.CYCLE_QUALITY;
-                Log.info("said on the screen: Graphics: " + Quality.name());
             }
             SplitScreen.frame();
             int said = pressed & (Config.AIM_MODE | Config.CYCLE_QUALITY | Config.CYCLE_STYLE | Config.SPLIT_SCREEN) | told;

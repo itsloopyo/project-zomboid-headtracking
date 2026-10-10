@@ -699,7 +699,7 @@ public final class CoreTests {
 
     private static void theHeightOfTheHillsIsASliderThatLeavesTheGraphicsModeAsItIs() throws IOException, InterruptedException {
         String mode = Quality.name();
-        Tracking.graphicsToSay();
+        said();
         Screen screen = Screen.opened();
         CameraUnlock.Option hills = screen.described()[optionNamed(screen.described(), "HillHeight")];
         check(hills.kind == CameraUnlock.OPTION_FLOAT && hills.min == 0 && hills.max == HillHeight.MOST && hills.step == 0.01
@@ -709,13 +709,18 @@ public final class CoreTests {
         screen.set("HillHeight", 0.4);
         screen.apply();
         savesMade();
-        check(HillHeight.asked() == 0.4f && HillHeight.drawn(false) == 0.4f && Quality.name().equals(mode) && !Tracking.graphicsToSay() && saved("HillHeight=0.4", "Quality=" + mode),
+        check(HillHeight.asked() == 0.4f && HillHeight.drawn(false) == 0.4f && Quality.name().equals(mode) && !said() && saved("HillHeight=0.4", "Quality=" + mode),
                 "applied there it is taken and saved, and the graphics mode stays as it was: it is not one of the rows of [Graphics]");
         screen = Screen.opened();
         screen.set("HillHeight", 1);
         screen.apply();
         savesMade();
         check(HillHeight.asked() == 1f && saved("HillHeight=1.0"), "and set back, it is back");
+    }
+
+    /** Whether the next frame says the graphics mode, with the game's menu shut. */
+    private static boolean said() {
+        return Tracking.takeGraphicsToSay(false);
     }
 
     private static void inMode(String mode) {
@@ -726,7 +731,7 @@ public final class CoreTests {
 
     private static void aGraphicsRowAppliedOnTheOptionsScreenGoesToCustom() throws IOException, InterruptedException {
         inMode("High");
-        Tracking.graphicsToSay();
+        said();
         check(saved("Quality=High", "ViewDistance=80", "RenderScale=1.0", "StockLook=false"), "High, with the rows of [Graphics] as a first start writes them");
 
         Screen screen = Screen.opened();
@@ -735,7 +740,7 @@ public final class CoreTests {
                 "the screen shows High's picture in the rows of [Graphics]");
         screen.set("FieldOfView", 70);
         screen.apply();
-        check(FieldOfView.degrees() == 70f && Quality.name().equals("High") && saved("FieldOfView=70.0", "Quality=High") && !Tracking.graphicsToSay(),
+        check(FieldOfView.degrees() == 70f && Quality.name().equals("High") && saved("FieldOfView=70.0", "Quality=High") && !said(),
                 "a setting that is not a graphics setting applied there leaves the graphics mode as it was");
 
         screen.set("ViewDistance", 56);
@@ -756,7 +761,7 @@ public final class CoreTests {
         check(Quality.name().equals("Custom") && Quality.sight() == 56 && Quality.scale() == 1f && Quality.shadowSize() == 4096 && Quality.crownsToSight(),
                 "a graphics row changed there goes straight to Custom, drawn as High was but for that row, whatever the mode list was set to: "
                         + Quality.name());
-        check(Tracking.graphicsToSay() && !Tracking.graphicsToSay(), "the next frame says so, once, as the key does");
+        check(!Tracking.takeGraphicsToSay(true) && said() && !said(), "the first frame the game's menu is not up says so, once, as the key does");
         check(saved("Quality=Custom", "ViewDistance=56", "RenderScale=1.0", "SharpShadows=true"), "Custom is saved, with the rows as applied");
         check(Tracking.optionValue(optionNamed(screen.described(), "Quality")) == Quality.CUSTOM && screen.shows("ViewDistance") == 56,
                 "and the screen's mode list now reads Custom");
@@ -794,14 +799,14 @@ public final class CoreTests {
         check(Quality.name().equals("Automatic (High)"), "the key goes round to Automatic");
         Tracking.cycleGraphicsMode();
         check(Quality.name().equals("Low"), "and to Low");
-        Tracking.graphicsToSay();
+        said();
         edit(text().replace("ViewDistance=48", "ViewDistance=72"));
         Tracking.watchSettings();
         check(Quality.name().equals("Custom") && Quality.sight() == 72 && Quality.scale() == 0.7f, "a row of [Graphics] edited in the file goes to Custom with it");
-        check(saved("Quality=Custom", "ViewDistance=72") && Tracking.graphicsToSay(), "saved, and said");
+        check(saved("Quality=Custom", "ViewDistance=72") && said(), "saved, and said");
         edit(text().replace("Quality=Custom", "Quality=Medium"));
         Tracking.watchSettings();
-        check(Quality.name().equals("Medium") && Quality.sight() == 64 && Quality.custom().viewDistance() == 72 && !Tracking.graphicsToSay(),
+        check(Quality.name().equals("Medium") && Quality.sight() == 64 && Quality.custom().viewDistance() == 72 && !said(),
                 "the mode edited alone goes to that mode, and leaves Custom's rows");
         String style = Style.current() == Style.NATURAL ? "Bleak" : "Natural";
         edit(text().replace("Style=" + Style.current().label, "Style=" + style));
@@ -815,7 +820,7 @@ public final class CoreTests {
 
     private static void theDrawDistancesAndReflectionsGoToCustomAsTheOtherRowsDo() throws IOException, InterruptedException {
         inMode("High");
-        Tracking.graphicsToSay();
+        said();
         Screen screen = Screen.opened();
         CameraUnlock.Option[] options = screen.described();
         CameraUnlock.Option props = options[optionNamed(options, "ZombiesAndPropsDrawDistance")];
@@ -836,7 +841,7 @@ public final class CoreTests {
         reach.take(0f, 0f, 0f, 0f, false);
         check(Quality.name().equals("Custom") && Quality.drawn().drawDistance() == 30 && Quality.sight() == 80 && !reach.draws(31f, 0f) && reach.draws(30f, 0f),
                 "a draw distance applied there goes straight to Custom and draws people and props no further: " + Quality.described(Quality.drawn()));
-        check(Tracking.graphicsToSay() && saved("Quality=Custom", "ZombiesAndPropsDrawDistance=30", "ForwardDrivingDrawDistance=80", "ViewDistance=80"),
+        check(said() && saved("Quality=Custom", "ZombiesAndPropsDrawDistance=30", "ForwardDrivingDrawDistance=80", "ViewDistance=80"),
                 "said, and saved with the rest of Custom's rows");
 
         Screen again = Screen.opened();
@@ -848,12 +853,12 @@ public final class CoreTests {
 
         inMode("Medium");
         check(Quality.reflections() && Quality.drawn().drawDistance() == 64, "Medium draws its own: its vehicle mirrors, and people and props to its view's end");
-        Tracking.graphicsToSay();
+        said();
         edit(text().replace("ForwardDrivingDrawDistance=80", "ForwardDrivingDrawDistance=40"));
         Tracking.watchSettings();
         check(Quality.name().equals("Custom") && Quality.drawn().drivingDrawDistance() == 40 && !Quality.reflections(),
                 "the forward driving distance edited in the file goes to Custom with it, the rest as Custom left them");
-        check(saved("Quality=Custom", "ForwardDrivingDrawDistance=40") && Tracking.graphicsToSay(), "saved, and said");
+        check(saved("Quality=Custom", "ForwardDrivingDrawDistance=40") && said(), "saved, and said");
     }
 
     /**
