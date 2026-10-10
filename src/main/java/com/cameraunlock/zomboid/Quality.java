@@ -82,9 +82,9 @@ final class Quality {
     private static final long HITCH_NANOS = 250_000_000L;
     /** When the count began (0 for none begun), when the frame before was drawn, and when the level last stepped to has settled. */
     private static long countedSince, lastFrame, settlesAt;
-    /** The frames of the count, how many of them were long (over HITCH_NANOS), whether two long ones came together, and whether the frame before was long. */
+    /** The frames of the count, how many of them were long (over HITCH_NANOS), and the time those took. */
     private static int counted, longFrames;
-    private static boolean longTogether, lastLong;
+    private static long longNanos;
     /** How long the frame rate has been judged at RISES_AT or over without a break. */
     private static long fastFor;
     /** By level: when it may be stepped up into again, when it was last stepped up into (0 for never), and how many of those steps were taken back. */
@@ -252,35 +252,39 @@ final class Quality {
         if (countedSince == 0L) {
             countedSince = now;
             counted = longFrames = 0;
-            longTogether = lastLong = false;
+            longNanos = 0L;
             return;
         }
-        boolean isLong = now - since > HITCH_NANOS;
         counted++;
-        if (isLong) {
+        if (now - since > HITCH_NANOS) {
             longFrames++;
-            longTogether |= lastLong;
+            longNanos += now - since;
         }
-        lastLong = isLong;
         long span = now - countedSince;
         if (span < JUDGED_OVER_NANOS) {
             return;
         }
-        float rate = counted * 1e9f / span;
-        // A long frame among fast ones is a hitch, a save being written or a jump across the map,
-        // and not a picture too heavy for the card: the count is not judged, and breaks a run of
-        // fast ones. Long frames that come two together, or are half of the count or more, are
-        // the picture itself, at three or four frames a second or stalling on every other frame.
-        boolean hitch = longFrames == 1 || longFrames > 1 && !longTogether && longFrames * 2 < counted;
-        countedSince = now;
-        counted = longFrames = 0;
-        longTogether = false;
-        if (hitch) {
-            fastFor = 0L;
-            return;
-        }
         float slowest = limit > 0f ? Math.min(SLOWEST, limit * SLOWEST_OF_LIMIT) : SLOWEST;
         float risesAt = limit > 0f ? Math.min(RISES_AT, limit * RISES_AT_OF_LIMIT) : RISES_AT;
+        // Long frames that are half of the count or more are the picture itself, at three or four
+        // frames a second or stalling on every other frame. Fewer are hitches, a save being written
+        // or a jump across the map, however many come together: the frames between them are judged
+        // without them, and only as too slow, since a count with a hitch is not one of room to spare.
+        boolean hitches = longFrames > 0 && !(longFrames > 1 && longFrames * 2 >= counted);
+        int between = counted - longFrames;
+        long betweenNanos = span - longNanos;
+        float rate = hitches ? between * 1e9f / betweenNanos : counted * 1e9f / span;
+        countedSince = now;
+        counted = longFrames = 0;
+        longNanos = 0L;
+        if (hitches) {
+            fastFor = 0L;
+            // Too little time between the hitches to tell a rate from.
+            if (betweenNanos >= JUDGED_OVER_NANOS / 2 && rate < slowest && level > STOCK) {
+                stepDown(now, rate);
+            }
+            return;
+        }
         if (rate < slowest) {
             fastFor = 0L;
             if (level > STOCK) {

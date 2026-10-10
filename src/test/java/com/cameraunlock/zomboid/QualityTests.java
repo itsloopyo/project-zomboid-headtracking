@@ -165,6 +165,41 @@ final class QualityTests {
             Quality.frame(0, now, 0f);
         }
         check(Quality.name().equals("Automatic (High)"), "a stall of 0.4 seconds every second among fast frames takes nothing down: " + Quality.name());
+
+        Quality.set(Quality.HIGH);
+        Quality.set(Quality.AUTOMATIC);
+        now = SECOND;
+        for (int load = 0; load < 10; load++) {
+            now = frames(now, 60f, 5f);
+            for (int stall = 0; stall < 2; stall++) {
+                now += SECOND * 6 / 10;
+                Quality.frame(0, now, 0f);
+            }
+        }
+        frames(now, 60f, 5f);
+        check(Quality.name().equals("Automatic (High)"), "a save or a load of two frames of 0.6 seconds together among sixty a second takes nothing down: " + Quality.name());
+
+        Quality.set(Quality.HIGH);
+        Quality.set(Quality.AUTOMATIC);
+        now = SECOND;
+        for (int stall = 0; stall < 6; stall++) {
+            now = frames(now, 30f, 0.7f) + SECOND * 3 / 10;
+            Quality.frame(0, now, 0f);
+        }
+        check(Quality.name().equals("Automatic (Medium)"), "thirty frames a second with a stall of 0.3 seconds every second are judged by the thirty, and slow: " + Quality.name());
+        now = frames(now + 10 * SECOND, 30f, 1f);
+        Quality.set(Quality.HIGH);
+        Quality.set(Quality.AUTOMATIC);
+        long from = now;
+        while (!Quality.name().equals("Automatic (Medium)") && now - from < 400 * SECOND) {
+            now += SECOND / 30;
+            Quality.frame(0, now, 0f);
+        }
+        while (now - from < 400 * SECOND) {
+            now = frames(now, 100f, 0.7f) + SECOND * 3 / 10;
+            Quality.frame(0, now, 0f);
+        }
+        check(Quality.name().equals("Automatic (Medium)"), "and a hundred a second with the same stall never count as room to spare: " + Quality.name());
     }
 
     /**
