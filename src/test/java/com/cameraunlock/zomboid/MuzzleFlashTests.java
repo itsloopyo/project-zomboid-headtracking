@@ -36,6 +36,7 @@ final class MuzzleFlashTests {
         Quality.set(Quality.HIGH);
         try {
             Checks.run("flashOpensFromTheMuzzleAlongTheBarrelAwayFromTheShooter", MuzzleFlashTests::flashOpensFromTheMuzzleAlongTheBarrelAwayFromTheShooter);
+            Checks.run("theBloomIsAheadOfTheMuzzleAndNoneOfItBackOverTheBarrel", MuzzleFlashTests::theBloomIsAheadOfTheMuzzleAndNoneOfItBackOverTheBarrel);
             Checks.run("flashIsASmallBloomThatLeavesTheTargetInSight", MuzzleFlashTests::flashIsASmallBloomThatLeavesTheTargetInSight);
             Checks.run("aShotFlashesOnTheFirstFrameDrawnAfterItAndIsGoneByTheThird", MuzzleFlashTests::aShotFlashesOnTheFirstFrameDrawnAfterItAndIsGoneByTheThird);
             Checks.run("flashLightsTheWorldNoMoreThanTheSunDoes", MuzzleFlashTests::flashLightsTheWorldNoMoreThanTheSunDoes);
@@ -131,6 +132,111 @@ final class MuzzleFlashTests {
             // The whole flash is further from the eye than the muzzle, so the weapon, which is between them, is drawn over it.
             check(-plume[5] > -plume[2], held.what + ": the far end of the flash is further from the eye than the muzzle");
         }
+    }
+
+    /** The lines of the bloom's fragment stage that the mirror below follows. */
+    private static final String[] BLOOM_LINES = {
+        "const int STEPS = 8;",
+        "float t = float(i) / float(STEPS - 1);",
+        "vec3 off = ray * (dot(ray, q) / rr) - q;",
+        "float wide = uWidest * (0.35 + 0.65 * smoothstep(0.0, 0.4, t)) * (1.0 - 0.4 * t) * petals;",
+        "float here = (1.0 - t * t) * (exp(-3.0 * far2 / (wide * wide)) + 0.12 * exp(-2.5 * far2 / (uGlow * uGlow)))",
+        "* (1.0 - smoothstep(0.7 * uGlow * uGlow, uGlow * uGlow, far2));",
+        "vec3 seen = uAlong - ray * (dot(ray, uAlong) / rr);",
+        "float aslant = length(seen) / length(uAlong);",
+        "vec3 fromMuzzle = ray * (dot(ray, uFrom) / rr) - uFrom;",
+        "float forwards = mix(1.0, smoothstep(-0.25 * uGlow, 0.05 * uGlow, dot(fromMuzzle, seen) / max(length(seen), 1e-9)), smoothstep(0.1, 0.3, aslant));",
+    };
+
+    private static float smoothstep(float edge0, float edge1, float x) {
+        float t = Math.clamp((x - edge0) / (edge1 - edge0), 0f, 1f);
+        return t * t * (3f - 2f * t);
+    }
+
+    private static float dot(float[] a, float[] b) {
+        return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+    }
+
+    /** Where a ray passes a point: the ray's nearest point to it, less the point. */
+    private static float[] passes(float[] ray, float[] q) {
+        float k = dot(ray, q) / dot(ray, ray);
+        return new float[] {ray[0] * k - q[0], ray[1] * k - q[1], ray[2] * k - q[2]};
+    }
+
+    /** The bloom's light along a ray from the eye, as the fragment stage has it, with the petals at their least. */
+    private static float bloom(float[] plume, float[] ray) {
+        float[] from = {plume[0], plume[1], plume[2]}, along = {plume[3] - plume[0], plume[4] - plume[1], plume[5] - plume[2]};
+        float glowReach = plume[7], light = 0f;
+        for (int i = 0; i < 8; i++) {
+            float t = i / 7f;
+            float[] off = passes(ray, new float[] {from[0] + along[0] * t, from[1] + along[1] * t, from[2] + along[2] * t});
+            float wide = plume[6] * (0.35f + 0.65f * smoothstep(0f, 0.4f, t)) * (1f - 0.4f * t);
+            float far2 = dot(off, off);
+            float here = (1f - t * t) * ((float) Math.exp(-3f * far2 / (wide * wide)) + 0.12f * (float) Math.exp(-2.5f * far2 / (glowReach * glowReach)))
+                    * (1f - smoothstep(0.7f * glowReach * glowReach, glowReach * glowReach, far2));
+            light = Math.max(light, here);
+        }
+        float k = dot(ray, along) / dot(ray, ray);
+        float[] seen = {along[0] - ray[0] * k, along[1] - ray[1] * k, along[2] - ray[2] * k};
+        float seenLength = (float) Math.sqrt(dot(seen, seen)), aslant = seenLength / (float) Math.sqrt(dot(along, along));
+        float back = smoothstep(-0.25f * glowReach, 0.05f * glowReach, dot(passes(ray, from), seen) / Math.max(seenLength, 1e-9f));
+        float forwards = 1f + (back - 1f) * smoothstep(0.1f, 0.3f, aslant);
+        return light * forwards;
+    }
+
+    /**
+     * Seen in the game (fixplayer, runs flash1 and flash2): at the hip the shotgun's and the hunting rifle's bloom lay round the
+     * muzzle on every side, back over the barrel as far as on the side away from it, a pale fan with straight sides where the
+     * quad it is drawn in cut its glow off; with the sights up, where the tongue is seen nearly end on, it was a ring of glow
+     * round a dark middle over the target. The fire leaves forwards: behind the muzzle there is none, none reaches the quad's
+     * edge, and end on it is brightest in the middle.
+     */
+    private static void theBloomIsAheadOfTheMuzzleAndNoneOfItBackOverTheBarrel() throws java.io.IOException {
+        String source = java.nio.file.Files.readString(java.nio.file.Path.of("src/main/java/com/cameraunlock/zomboid/MuzzleFlash.java"));
+        for (String line : BLOOM_LINES) {
+            check(source.contains(line), "the bloom's fragment stage has the line the test mirrors: " + line);
+        }
+        float[] plume = new float[MuzzleFlash.PLUME];
+        // Seen across: a long gun turned well aside, its barrel 50 degrees off the line of sight.
+        float[] m = {0.1f, -0.1f, -0.6f}, p = {0.766f, 0f, -0.643f};
+        MuzzleFlash.plume(m, p, LONG_REACH, plume);
+        float[] side = across(m, p);
+        float glowReach = plume[7];
+        float[] behind = new float[3], ahead = new float[3];
+        for (int axis = 0; axis < 3; axis++) {
+            behind[axis] = m[axis] - p[axis] * 0.04f + side[axis] * 0.3f * glowReach;
+            ahead[axis] = m[axis] + p[axis] * 0.03f + side[axis] * 0.2f * glowReach;
+        }
+        check(bloom(plume, behind) < 0.002f, "seen across, beside the barrel 4 cm back from the muzzle there is no bloom: " + bloom(plume, behind));
+        check(bloom(plume, ahead) > 0.05f, "seen across, just ahead of the muzzle there is: " + bloom(plume, ahead));
+        for (Held held : HELD) {
+            MuzzleFlash.plume(held.muzzle, held.pointing, held.reach, plume);
+            float[] muzzle = held.muzzle, reach = across(muzzle, held.pointing);
+            glowReach = plume[7];
+            // These are all seen nearly end on: brightest where the muzzle is seen, and dimmer only going out from it.
+            float middle = bloom(plume, muzzle), last = middle;
+            check(middle > 0.5f, held.what + ": where the muzzle is seen the bloom is bright: " + middle);
+            for (float out = 0.25f; out <= 1.0f; out += 0.25f) {
+                float[] ray = {muzzle[0] + reach[0] * out * glowReach, muzzle[1] + reach[1] * out * glowReach, muzzle[2] + reach[2] * out * glowReach};
+                float here = bloom(plume, ray);
+                check(here <= last + 1e-4f, held.what + ": the bloom only dims going out from the muzzle, " + here + " at " + out + " of its reach after " + last);
+                last = here;
+            }
+            for (int end = 0; end < 6; end += 3) {
+                float[] ray = new float[3];
+                for (int axis = 0; axis < 3; axis++) {
+                    ray[axis] = plume[end + axis] + reach[axis] * 1.05f * glowReach;
+                }
+                check(bloom(plume, ray) < 0.002f, held.what + ": past the glow's reach there is none, so the quad's edge cuts nothing: " + bloom(plume, ray));
+            }
+        }
+    }
+
+    /** A unit way square to the barrel and to the line of sight to the muzzle. */
+    private static float[] across(float[] muzzle, float[] pointing) {
+        float[] side = {pointing[1] * muzzle[2] - pointing[2] * muzzle[1], pointing[2] * muzzle[0] - pointing[0] * muzzle[2], pointing[0] * muzzle[1] - pointing[1] * muzzle[0]};
+        float length = (float) Math.sqrt(dot(side, side));
+        return new float[] {side[0] / length, side[1] / length, side[2] / length};
     }
 
     private static void flashIsASmallBloomThatLeavesTheTargetInSight() {

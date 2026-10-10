@@ -45,7 +45,7 @@ final class MuzzleFlash {
      */
     private static final float LONG_GUN_REACH = 0.67f, SMALLEST = 0.4f;
     /** The faint glow round it reaches this many times its half width. */
-    private static final float GLOW = 1.8f;
+    private static final float GLOW = 1.2f;
     /** The light is this far ahead of the muzzle along the barrel, in tiles, so the weapon's own end is lit from in front. */
     private static final float LIGHT_AHEAD = 0.05f;
 
@@ -74,10 +74,12 @@ final class MuzzleFlash {
             """;
 
     /**
-     * The flash as a tongue of fire along the barrel, looked at along each pixel's ray: the
-     * point of its axis nearest the ray says how bright it is there and how deep, so the weapon
-     * and anything else nearer the eye than the flash is drawn over it. Its edge is ragged in
-     * four petals turned to a new angle with each shot.
+     * The flash as a tongue of fire along the barrel, looked at along each pixel's ray: it is
+     * asked at points along its axis how near the ray passes and how bright the fire is there, and
+     * the brightest says the light and the depth, so the weapon and anything else nearer the eye
+     * than the flash is drawn over it. Asked of the axis's one nearest point instead, a tongue seen
+     * nearly end on, as with the sights up, came out a ring of glow round a dark middle. Its edge
+     * is ragged in four petals turned to a new angle with each shot.
      */
     private static final String BURST_FRAGMENT = """
             #version 120
@@ -92,25 +94,39 @@ final class MuzzleFlash {
             uniform float uNear;
             uniform float uFar;
 
+            const int STEPS = 8;
+
             void main() {
                 vec2 picture = gl_FragCoord.xy / uSize * 2.0 - 1.0;
                 vec3 ray = vec3(picture * uTan, -1.0);
-                float rr = dot(ray, ray), ra = dot(ray, uAlong), aa = dot(uAlong, uAlong);
-                float rf = dot(ray, uFrom), af = dot(uAlong, uFrom);
-                float across = rr * aa - ra * ra;
-                // Looked at straight down the barrel every point of the axis is as near: the muzzle's is taken.
-                float t = across > 1e-12 ? clamp((ra * rf - rr * af) / across, 0.0, 1.0) : 0.0;
-                vec3 axis = uFrom + uAlong * t;
-                vec3 off = ray * (dot(ray, axis) / rr) - axis;
+                float rr = dot(ray, ray);
                 vec3 side = normalize(abs(uAlong.y) < 0.9 * length(uAlong) ? cross(uAlong, vec3(0.0, 1.0, 0.0)) : cross(uAlong, vec3(1.0, 0.0, 0.0)));
                 vec3 over = normalize(cross(side, uAlong));
-                float petals = 1.0 + 0.6 * pow(abs(cos(2.0 * atan(dot(off, over), dot(off, side) + 1e-9) + uTurn)), 6.0) * (1.0 - t);
-                float wide = uWidest * (0.35 + 0.65 * smoothstep(0.0, 0.4, t)) * (1.0 - 0.4 * t) * petals;
-                float far2 = dot(off, off);
-                float bright = (1.0 - t * t);
-                float core = exp(-3.0 * far2 / (wide * wide));
-                float glow = 0.12 * exp(-2.5 * far2 / (uGlow * uGlow));
-                float light = bright * (core + glow);
+                float light = 0.0;
+                vec3 axis = uFrom;
+                for (int i = 0; i < STEPS; i++) {
+                    float t = float(i) / float(STEPS - 1);
+                    vec3 q = uFrom + uAlong * t;
+                    vec3 off = ray * (dot(ray, q) / rr) - q;
+                    float petals = 1.0 + 0.6 * pow(abs(cos(2.0 * atan(dot(off, over), dot(off, side) + 1e-9) + uTurn)), 6.0) * (1.0 - t);
+                    float wide = uWidest * (0.35 + 0.65 * smoothstep(0.0, 0.4, t)) * (1.0 - 0.4 * t) * petals;
+                    float far2 = dot(off, off);
+                    // Nothing reaches past uGlow from the axis: the quad drawn is the flash's box, and light
+                    // left at its edge shows as a pale fan with straight sides.
+                    float here = (1.0 - t * t) * (exp(-3.0 * far2 / (wide * wide)) + 0.12 * exp(-2.5 * far2 / (uGlow * uGlow)))
+                            * (1.0 - smoothstep(0.7 * uGlow * uGlow, uGlow * uGlow, far2));
+                    if (here > light) {
+                        light = here;
+                        axis = q;
+                    }
+                }
+                // The fire leaves the muzzle forwards: on the barrel's side of the muzzle, as the picture
+                // shows the two, there is none. Seen end on the two sides are one place, and all of it shows.
+                vec3 seen = uAlong - ray * (dot(ray, uAlong) / rr);
+                float aslant = length(seen) / length(uAlong);
+                vec3 fromMuzzle = ray * (dot(ray, uFrom) / rr) - uFrom;
+                float forwards = mix(1.0, smoothstep(-0.25 * uGlow, 0.05 * uGlow, dot(fromMuzzle, seen) / max(length(seen), 1e-9)), smoothstep(0.1, 0.3, aslant));
+                light *= forwards;
                 if (light < 0.002) {
                     discard;
                 }
