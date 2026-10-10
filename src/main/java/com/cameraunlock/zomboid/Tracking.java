@@ -313,9 +313,10 @@ final class Tracking {
      * What the player applied on the game's options screen: for each of its settings by its place
      * in options(), what the screen showed as it opened or was last applied and what it holds now.
      * Each setting that changed is taken as applyOption takes it. If any of the rows of [Graphics]
-     * changed, the graphics mode goes to Custom, whatever the Quality setting holds, and every row
-     * of [Graphics] takes what the screen holds: what it showed was the mode's picture, which the
-     * player changed. Each setting taken has its shown value set to what it holds. Logic thread.
+     * changed, the graphics mode goes to Custom, whatever the Quality setting holds: each row the
+     * player changed takes what the screen holds, and the rest take the picture Custom starts
+     * from (Quality.customFrom). Each setting taken has its shown value set to what it holds.
+     * Logic thread.
      *
      * One setting that cannot be taken is written to the log and the rest are still taken: thrown
      * on, it would stop the game from applying and saving its own options.
@@ -340,13 +341,15 @@ final class Tracking {
             return;
         }
         try {
-            double[] values = new double[Config.GRAPHICS.length];
+            double[] values = Config.values(Quality.customFrom());
             int[] rows = new int[Config.GRAPHICS.length];
             int found = 0;
             for (int i = 0; i < options.length; i++) {
                 int part = Config.graphicsPart(described[i].id);
                 if (part >= 0) {
-                    values[part] = held[i];
+                    if (held[i] != shown[i]) {
+                        values[part] = held[i];
+                    }
                     rows[part] = options[i];
                     found++;
                 }

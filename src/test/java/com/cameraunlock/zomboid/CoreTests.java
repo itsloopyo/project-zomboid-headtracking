@@ -104,6 +104,7 @@ public final class CoreTests {
         Checks.run("theHeightOfTheHillsIsASliderThatLeavesTheGraphicsModeAsItIs", CoreTests::theHeightOfTheHillsIsASliderThatLeavesTheGraphicsModeAsItIs);
         Checks.run("aGraphicsRowEditedInTheFileGoesToCustom", CoreTests::aGraphicsRowEditedInTheFileGoesToCustom);
         Checks.run("theDrawDistancesAndReflectionsGoToCustomAsTheOtherRowsDo", CoreTests::theDrawDistancesAndReflectionsGoToCustomAsTheOtherRowsDo);
+        Checks.run("aRowChangedInAutomaticStartsCustomFromItsLevelAndNeverFromStock", CoreTests::aRowChangedInAutomaticStartsCustomFromItsLevelAndNeverFromStock);
         Checks.run("gameRunsUnmoddedBesideALibraryOfAnotherBuild", CoreTests::gameRunsUnmoddedBesideALibraryOfAnotherBuild);
         Checks.tally();
     }
@@ -859,6 +860,43 @@ public final class CoreTests {
         check(Quality.name().equals("Custom") && Quality.drawn().drivingDrawDistance() == 40 && !Quality.reflections(),
                 "the forward driving distance edited in the file goes to Custom with it, the rest as Custom left them");
         check(saved("Quality=Custom", "ForwardDrivingDrawDistance=40") && said(), "saved, and said");
+    }
+
+    /** Frames of first person at ten a second until Automatic is at a level. */
+    private static void slowUntil(String level) {
+        long now = 1_000_000_000L;
+        for (int frame = 0; frame < 600 && !Quality.name().equals(level); frame++) {
+            now += 100_000_000L;
+            Quality.frame(0, now, 0f);
+        }
+        Quality.rest(0);
+    }
+
+    private static void aRowChangedInAutomaticStartsCustomFromItsLevelAndNeverFromStock() throws IOException, InterruptedException {
+        inMode("Automatic (High)");
+        slowUntil("Automatic (Stock)");
+        said();
+        Screen screen = Screen.opened();
+        check(Quality.name().equals("Automatic (Stock)") && screen.shows("StockLook") == 1, "Automatic stepped down to Stock, which the screen shows: " + Quality.name());
+        screen.set("ViewDistance", 40);
+        screen.apply();
+        savesMade();
+        check(Quality.name().equals("Custom") && !Quality.plain() && !Quality.gamesPlants() && Quality.scale() == Quality.LOW_PICTURE.renderScale()
+                        && Quality.sight() == 40 && Quality.shadowSize() == 2048 && !Quality.shadedAndLit(),
+                "a row changed at Stock starts Custom from the level above it, Low's cost with what the mod made, and the change: " + Quality.described(Quality.drawn()));
+        check(saved("Quality=Custom", "StockLook=false", "SpritePlants=false", "ViewDistance=40"), "and that is what Custom's rows hold");
+
+        inMode("Automatic (High)");
+        slowUntil("Automatic (Medium)");
+        said();
+        screen = Screen.opened();
+        screen.set("SharpShadows", 1);
+        screen.apply();
+        savesMade();
+        check(Quality.name().equals("Custom") && !Quality.plain() && !Quality.gamesPlants() && Quality.scale() == 0.8f && Quality.sight() == 64
+                        && Quality.shadowSize() == 4096,
+                "a row changed at Medium starts Custom from Automatic's Medium, with the mod's plants, and the change: " + Quality.described(Quality.drawn()));
+        check(saved("Quality=Custom", "StockLook=false", "SpritePlants=false", "ViewDistance=64", "SharpShadows=true"), "and that is what Custom's rows hold");
     }
 
     /**

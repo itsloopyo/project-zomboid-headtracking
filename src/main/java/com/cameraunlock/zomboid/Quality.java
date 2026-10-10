@@ -135,6 +135,16 @@ final class Quality {
         return drawn;
     }
 
+    /**
+     * The picture a row of [Graphics] changed on the options screen starts Custom from, the change
+     * then made to it: what the mode draws, and in Automatic what the level it is at draws, but
+     * for STOCK, which starts it from the level above, Low's cost with what the mod made. Stock is
+     * how Automatic saves the graphics card, not a look the player chose.
+     */
+    static synchronized Picture customFrom() {
+        return row == AUTOMATIC && level == STOCK ? AUTOMATIC_AT[STOCK + 1] : drawn;
+    }
+
     static Picture preset(int mode) {
         return switch (mode) {
             case LOW -> LOW_PICTURE;
