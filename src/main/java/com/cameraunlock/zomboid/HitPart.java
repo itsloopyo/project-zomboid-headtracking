@@ -70,17 +70,17 @@ final class HitPart {
      * of them, or a character whose skeleton is not posed.
      *
      * @param aim     the clean aim: where the shot is aimed from and which way, in the picture's units
-     * @param terrain how far the picture lifts the land above the game's flat map
+     * @param standsUp the height the picture stands the character at: see KerbSteps.up
      */
-    int part(ViewCamera.Pose aim, Terrain terrain, IsoGameCharacter character) {
+    int part(ViewCamera.Pose aim, float standsUp, IsoGameCharacter character) {
         // Just made or being taken out of the world, a character has no posed skeleton; the game's
         // own bone lookups answer nothing then too.
         if (character.getAnimationPlayer() == null || !character.getAnimationPlayer().isReady()) {
             return NONE;
         }
         for (int i = 0; i < COUNT; i++) {
-            place(character, PARTS[i].from, terrain, ends, i * 6);
-            place(character, PARTS[i].to, terrain, ends, i * 6 + 3);
+            place(character, PARTS[i].from, standsUp, ends, i * 6);
+            place(character, PARTS[i].to, standsUp, ends, i * 6 + 3);
             radii[i] = PARTS[i].radius;
         }
         int head = HEAD * 6, body = BODY * 6;
@@ -114,19 +114,19 @@ final class HitPart {
         if (found != BODY) {
             return PARTS[found].game.ordinal();
         }
-        place(character, CHEST, terrain, chest, 0);
+        place(character, CHEST, standsUp, chest, 0);
         float chestOn = ((chest[0] - ends[body]) * upX + (chest[1] - ends[body + 1]) * upY + (chest[2] - ends[body + 2]) * upUp) / (tall * tall * shorter);
         return (along[0] >= chestOn / 2f ? RagdollBodyPart.BODYPART_SPINE : RagdollBodyPart.BODYPART_PELVIS).ordinal();
     }
 
-    /** Where a bone of the character is in the picture: tiles across, and up as the picture has it. */
-    private void place(IsoGameCharacter character, String name, Terrain terrain, float[] out, int at) {
+    /** Where a bone of the character is in the picture: tiles across, and up as the picture has it, the whole skeleton lifted as the model is drawn. */
+    private void place(IsoGameCharacter character, String name, float standsUp, float[] out, int at) {
         if (character.getAnimationPlayer().getSkinningBoneIndex(name, -1) < 0) {
             throw new IllegalStateException("the game's skeleton has no bone " + name);
         }
         CombatManager.getBoneWorldPos(character, name, bone);
         out[at] = bone.x;
         out[at + 1] = bone.y;
-        out[at + 2] = bone.z * ViewCamera.LEVEL_HEIGHT + terrain.lift(bone.x, bone.y, character.getZ());
+        out[at + 2] = (bone.z - character.getZ()) * ViewCamera.LEVEL_HEIGHT + standsUp;
     }
 }

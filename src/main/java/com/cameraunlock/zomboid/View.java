@@ -35,6 +35,7 @@ final class View {
     final TorchLess torchLess = new TorchLess();
     final Crosshair crosshair = new Crosshair();
     final Ride ride = new Ride();
+    final KerbSteps kerbSteps = new KerbSteps();
     final GlassPull glassPull = new GlassPull();
     final MuzzleFlash muzzleFlash = new MuzzleFlash();
     final HeldDepth heldDepth = new HeldDepth();

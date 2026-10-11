@@ -662,9 +662,16 @@ public final class FirstPerson {
         eye[1] = player.getY() + headOffset[1] * share;
         // Eased from where the last frame at the eye had it. The first of them has none before it.
         eyeHigh = landed && wasLanded ? ViewModelMath.ease(eyeHigh, height, sinceLastFrame, EYE_HEIGHT_SECONDS) : height;
-        eye[2] = floorUp + eyeHigh;
-        view.headlights.gather(view.worldScene.terrain, eye[0], eye[1]);
         BaseVehicle vehicle = player.getVehicle();
+        // Up and down a kerb as legs carry the eye, and the body seen from it with it: see KerbSteps.
+        float standsUp = floorUp;
+        if (landed && wasLanded && vehicle == null) {
+            standsUp = view.kerbSteps.step(view.worldScene.terrain, player, player.getX(), player.getY(), player.getZ(), now);
+        } else {
+            view.kerbSteps.lose(player);
+        }
+        eye[2] = standsUp + eyeHigh;
+        view.headlights.gather(view.worldScene.terrain, eye[0], eye[1]);
         view.ride.note(player, vehicle, floorUp, view.worldScene.terrain, eye);
         boolean sightsUp = view.controls.sightsUp(player);
         view.fieldOfView.ease(sightsUp, sinceLastFrame);
@@ -1086,7 +1093,7 @@ public final class FirstPerson {
         // aimed at a head (measured: none of five at four tiles with the hunting rifle). On the bone
         // the aim is on, the ray goes through that part of the body.
         IsoGameCharacter aimedAt = characterAimedAt(scene);
-        if (aimedAt != null && !(aimedAt instanceof IsoAnimal) && onBone.part(aimView, view.worldScene.terrain, aimedAt) != HitPart.NONE) {
+        if (aimedAt != null && !(aimedAt instanceof IsoAnimal) && onBone.part(aimView, view.kerbSteps.up(view.worldScene.terrain, aimedAt, aimedAt.getX(), aimedAt.getY(), aimedAt.getZ()), aimedAt) != HitPart.NONE) {
             aimedX = onBone.boneX;
             aimedY = onBone.boneY;
             aimedUp = onBone.boneUp;

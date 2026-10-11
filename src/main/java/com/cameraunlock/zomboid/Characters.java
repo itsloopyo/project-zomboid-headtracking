@@ -573,7 +573,7 @@ public final class Characters {
         // Put back whatever the draw does: the other view's people are drawn by the same flag.
         CharacterDraw.fromTheEye = true;
         try {
-            character(data, eyeView, true, false, holding != null, heldBoth, 0f);
+            character(data, standsUp(data, System.nanoTime()), eyeView, true, false, holding != null, heldBoth, 0f);
         } finally {
             CharacterDraw.fromTheEye = false;
             CharacterDraw.release();
@@ -609,7 +609,7 @@ public final class Characters {
             data.ambientB = 1f;
             CharacterDraw.mirrored = true;
             try {
-                character(data, eyeView, false, false, false, false, 0f);
+                character(data, standsUp(data, System.nanoTime()), eyeView, false, false, false, false, 0f);
             } finally {
                 CharacterDraw.mirrored = false;
                 CharacterDraw.release();
@@ -1377,6 +1377,7 @@ public final class Characters {
         int drawn = 0;
         float ambientSum = 0f;
         long began = TALLY ? System.nanoTime() : 0L;
+        long now = System.nanoTime();
         if (!withViewer && TRACE) {
             StringBuilder said = new StringBuilder();
             for (int i = 0; i < noted.size(); i++) {
@@ -1405,6 +1406,8 @@ public final class Characters {
             if (toX * toX + toY * toY > reach * reach || !view.pipeline.drawDistance.draws(data.x, data.y)) {
                 continue;
             }
+            // Stepped before anything is left out, so a step is not lost while its walker is out of the picture.
+            float standsUp = data.character != null && !data.inVehicle ? standsUp(data, now) : 0f;
             if (map != null && outside(map, data)) {
                 continue;
             }
@@ -1426,7 +1429,7 @@ public final class Characters {
                 // The place is where the draw stands the model, and the ball round it is what it cannot reach out of.
                 boolean stands = data.character != null && !data.inVehicle;
                 float x = stands ? data.x : stood[i * 4], y = stands ? data.y : stood[i * 4 + 1], z = stands ? data.z : stood[i * 4 + 2];
-                float up = z * ViewCamera.LEVEL_HEIGHT + this.view.worldScene.terrain.lift(x, y, z) + (stands ? PERSON_MIDDLE : 0f);
+                float up = stands ? standsUp + PERSON_MIDDLE : z * ViewCamera.LEVEL_HEIGHT + this.view.worldScene.terrain.lift(x, y, z);
                 float round = stands ? PERSON_ROUND : MODEL_REACH;
                 if (seenFrom != null) {
                     // Left out when the ball lies wholly behind the pass's eye, wholly past one edge of
@@ -1466,14 +1469,14 @@ public final class Characters {
                 int at = rootsFound++ * 4;
                 roots[at] = data.x;
                 roots[at + 1] = data.y;
-                roots[at + 2] = data.z * ViewCamera.LEVEL_HEIGHT + this.view.worldScene.terrain.lift(data.x, data.y, data.z);
+                roots[at + 2] = standsUp;
                 roots[at + 3] = data.animPlayerAngle;
             }
             if (kind == BY_EYE && !data.inVehicle) {
                 // Who rides is not noted: they go as the vehicle goes.
                 boolean stands = data.character != null;
                 float x = stands ? data.x : stood[i * 4], y = stands ? data.y : stood[i * 4 + 1], z = stands ? data.z : stood[i * 4 + 2];
-                movers.note(stands ? data.character : data.object, x, y, z * ViewCamera.LEVEL_HEIGHT + this.view.worldScene.terrain.lift(x, y, z), stands ? data.animPlayerAngle : 0f,
+                movers.note(stands ? data.character : data.object, x, y, stands ? standsUp : z * ViewCamera.LEVEL_HEIGHT + this.view.worldScene.terrain.lift(x, y, z), stands ? data.animPlayerAngle : 0f,
                         toX * toX + toY * toY);
             }
             if (data.character == null) {
@@ -1483,7 +1486,7 @@ public final class Characters {
                 CharacterDraw.release();
                 seated(data, i * 4, viewMatrix);
             } else {
-                character(data, viewMatrix, data.character == viewer, casting, false, false, (float) Math.hypot(toX, toY));
+                character(data, standsUp, viewMatrix, data.character == viewer, casting, false, false, (float) Math.hypot(toX, toY));
             }
             data.ambientR = red;
             data.ambientG = green;
@@ -1515,9 +1518,23 @@ public final class Characters {
         return Math.abs(across) > 1f + acrossReach || Math.abs(along) > 1f + alongReach;
     }
 
-    /** @param fromEye how far the person stands from the eye along the ground, in tiles: see CharacterDraw.begin */
-    private void character(ModelSlotRenderData data, float[] viewMatrix, boolean own, boolean casting, boolean held, boolean bothHands, float fromEye) {
-        place(data.x, data.y, data.z * ViewCamera.LEVEL_HEIGHT + view.worldScene.terrain.lift(data.x, data.y, data.z), data.animPlayerAngle, CHARACTER_SCALE);
+    /**
+     * The height a person standing in the picture stands at: see KerbSteps. The viewer's own is
+     * stepped with the eye, on the logic thread, so the body seen from the eye goes up a kerb
+     * with it.
+     */
+    private float standsUp(ModelSlotRenderData data, long now) {
+        Terrain terrain = view.worldScene.terrain;
+        return data.character == view.player() ? view.kerbSteps.up(terrain, data.character, data.x, data.y, data.z)
+                : view.kerbSteps.step(terrain, data.character, data.x, data.y, data.z, now);
+    }
+
+    /**
+     * @param up      the height the person stands at: see standsUp
+     * @param fromEye how far the person stands from the eye along the ground, in tiles: see CharacterDraw.begin
+     */
+    private void character(ModelSlotRenderData data, float up, float[] viewMatrix, boolean own, boolean casting, boolean held, boolean bothHands, float fromEye) {
+        place(data.x, data.y, up, data.animPlayerAngle, CHARACTER_SCALE);
         multiply(viewMatrix, placed, combined);
         EYE.Begin();
         CharacterDraw.begin(data, combined, projection, casting, fromEye);

@@ -891,6 +891,7 @@ final class Pipeline {
                 drawFigures(camera, state, tanHalfFieldOfView, aspect, near, far, fogStart, fogEnd);
             }
             view.characters.movers.end();
+            view.kerbSteps.sweep(System.nanoTime());
             stage(STAGE_FIGURES);
             drawSky(camera, state, tanHalfFieldOfView, aspect, near, far);
             if ((state.rain > 0f || state.snow > 0f) && sheltered != Shelter.EVERYWHERE) {
@@ -4425,6 +4426,7 @@ final class Pipeline {
             view.worldScene.farLand.catchUp();
             int copies = view.characters.letGo();
             view.characters.movers.forget();
+            view.kerbSteps.forget();
             for (int other = 0; other < View.COUNT; other++) {
                 if (View.of(other) != null && View.of(other).pipeline.holds) {
                     // Another view is drawn with all of it still: this one gave its own back as it was set down.

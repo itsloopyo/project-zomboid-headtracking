@@ -5064,7 +5064,7 @@ final class WorldScene {
                 return;
             }
             float x = character.getX(), y = character.getY();
-            float base = character.getZ() * ViewCamera.LEVEL_HEIGHT + terrain.lift(x, y, character.getZ());
+            float base = view.kerbSteps.up(terrain, character, x, y, character.getZ());
             if (characters == characterX.length) {
                 characterX = Arrays.copyOf(characterX, characters * 2);
                 characterY = Arrays.copyOf(characterY, characters * 2);
