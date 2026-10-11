@@ -28,6 +28,7 @@ final class OutdoorTests {
         Checks.run("aFlagPolesTopStandsOnItsLowerLength", OutdoorTests::aFlagPolesTopStandsOnItsLowerLength);
         Checks.run("aCarParkBarrierIsColouredFromItsBooth", OutdoorTests::aCarParkBarrierIsColouredFromItsBooth);
         Checks.run("aParkingMeterStandsWhereItsSpritePaintsItsPost", OutdoorTests::aParkingMeterStandsWhereItsSpritePaintsItsPost);
+        Checks.run("aChimneysPotsStandOnItsCapInTheRowTheirSpriteShows", OutdoorTests::aChimneysPotsStandOnItsCapInTheRowTheirSpriteShows);
     }
 
     /** A piece, and its model one the jar has: Models.get throws for a name it has not. */
@@ -260,7 +261,24 @@ final class OutdoorTests {
         Checks.check(unnamed("street_roadsigns_01_0") == null && unnamed("street_roadsigns_01_32") == null, "the boards on two posts and the rest area's signs are not warning signs");
     }
 
-    private static void aParkingMeterStandsWhereItsSpritePaintsItsPost() {
+    private static void aChimneysPotsStandOnItsCapInTheRowTheirSpriteShows() {
+        Outdoors.Piece alongY = Outdoors.of("fixtures_fireplaces_01_72", null, null, Outdoors.NONE, 1, 1, 0);
+        Outdoors.Piece alongX = Outdoors.of("fixtures_fireplaces_01_73", null, null, Outdoors.NONE, 1, 1, 0);
+        holds(alongY, "fixtures_fireplaces_01_72 is a chimney's pots");
+        holds(alongX, "fixtures_fireplaces_01_73 is a chimney's pots");
+        if (alongY == null || alongX == null) {
+            return;
+        }
+        // The model's pots are in a row along its X, which a quarter turn lays along y.
+        Checks.check(alongY.turns == 1 && alongX.turns == 0, "the pots are in the row their sprite shows");
+        Checks.check(Math.abs(alongY.raised - Outdoors.CHIMNEY_CAP * ViewCamera.LEVEL_HEIGHT) < 1e-4f && alongX.raised == alongY.raised,
+                "both stand on the chimney's cap");
+        // The pot's colour is taken from over the cap, on the pot.
+        Checks.check(alongY.dyeHigh > Outdoors.CHIMNEY_CAP, "a pot is coloured from itself, over the cap");
+        Checks.check(Outdoors.of("fixtures_fireplaces_01_71", null, null, Outdoors.NONE, 1, 1, 0) == null, "the stack under them is no pots");
+    }
+
+        private static void aParkingMeterStandsWhereItsSpritePaintsItsPost() {
         for (int faces = Outdoors.NORTH; faces <= Outdoors.WEST; faces++) {
             Outdoors.Piece meter = Outdoors.of("street_decoration_01_4", "Meter", "Parking", faces, 1, 1, 0);
             holds(meter, "a parking meter facing " + faces + " has a model");

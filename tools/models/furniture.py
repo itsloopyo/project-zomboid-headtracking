@@ -4751,6 +4751,20 @@ def security_monitors():
     return model
 
 
+def chimney_pots():
+    """The top of a chimney stack: a stone cap and on it two clay pots side by side along X, tapering to a lipped rim."""
+    model = Model("chimney_pots")
+    cap = bmesh.new()
+    cuboid(cap, -0.315, 0.315, -0.315, 0.315, 0.0, 0.06)
+    model.hard(cap, "metal", bevel=0.01, segments=1)
+    pots = bmesh.new()
+    for x in (-0.15, 0.15):
+        lathe(pots, [(0.0, 0.06), (0.105, 0.06), (0.08, 0.25), (0.088, 0.26), (0.088, 0.28), (0.068, 0.28), (0.068, 0.2), (0.0, 0.2)], cx=x,
+              segments=16)
+    model.turned(pots, "paint", sharp=50.0)
+    return model
+
+
 def theatre_seats():
     """Two theatre seats side by side across X, facing -Y and standing in the back of their square: upholstered seats and backs,
     the backs in a dark shell, three wooden arm rests on steel standards, each standard on a foot along Y."""
@@ -6510,7 +6524,7 @@ def outdoors():
             deck_chair(), slab_bench(), dustbin(), road_cone(), traffic_drum(), hydrant(), pallet(), brick_pallet(),
             gravestone("gravestone_round", "round"), gravestone("gravestone_square", "square"), gravestone("gravestone_gabled", "gabled"),
             sack_barrier(), log_stack("log_stack_6", (3, 3), (0, 1)), log_stack("log_stack_5", (3, 2)),
-            twin_head(), girder(), felt_rolls("felt_roll", 1.0, (2,)), felt_rolls("felt_bundle", 0.55, (2, 1)), stop_sign(), crossing_signal(), flag_pole(), flag_top(), parking_barrier(), theatre_seats(), parking_meter(), security_monitors(), hand_truck(),
+            twin_head(), girder(), felt_rolls("felt_roll", 1.0, (2,)), felt_rolls("felt_bundle", 0.55, (2, 1)), stop_sign(), crossing_signal(), flag_pole(), flag_top(), parking_barrier(), theatre_seats(), parking_meter(), security_monitors(), chimney_pots(), hand_truck(),
             roof_case("roof_case_low", 92 / 192 * 2.45), roof_case("roof_case_tall", 190 / 192 * 2.45)]         + tyres()
 
 def rod(bm, start, end, radius, segments=10):

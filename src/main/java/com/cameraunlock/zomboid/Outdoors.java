@@ -142,7 +142,7 @@ final class Outdoors {
             MILITARY_BARRIER = "fencing_01_96", CARPENTRY = "carpentry_02_", FENCES = "fencing_01_",
             GAS2GO = "location_shop_gas2go_01_", FOSSOIL = "location_shop_fossoil_01_",
             ROAD_SIGNS = "street_roadsigns_01_", BURNT_FENCES = "fencing_burnt_01_", PYLONS = "electricity_pylon_", MASTS = "radio_tower_",
-            STREET = "street_decoration_01_";
+            STREET = "street_decoration_01_", FIREPLACES = "fixtures_fireplaces_01_";
     private static final int PAINT = 1 << Models.PAINT;
     /** How far from the edge of its square the middle of a pipe along the foot of a wall is. */
     private static final float PIPE_EDGE = 0.12f;
@@ -167,6 +167,9 @@ final class Outdoors {
      * the sheet tied over one hangs over its rim, on the side of it nearest the game's view.
      */
     private static final float RAIN_DYE = 0.31f, SHEET_AT = 0.75f, SHEET_DYE = 0.33f;
+    /** Where on its square a chimney's cap is, how high its top is over the floor of its level and where a pot is painted, in levels. */
+    static final float CHIMNEY_A = 0.485f, CHIMNEY_B = 0.515f, CHIMNEY_CAP = 0.898f;
+    private static final float CHIMNEY_POT_DYE = 0.07f;
     /** Where on its square a parking meter's post is painted, for one that faces north, east, south and west. */
     static final float[] PARKING_METER_AT = {0.53f, 0.84f, 0.25f, 0.53f, 0.54f, 0.3f, 0.83f, 0.52f};
     /** How high on a car park barrier's booth its paint is taken, in levels. */
@@ -233,6 +236,14 @@ final class Outdoors {
             Piece post = fencePost(name);
             if (post != null) {
                 return post;
+            }
+            // Two pots on the cap of a chimney stack, the stack's own top a little under the next level's floor: in a row along
+            // y and then along x.
+            int fireplace = Sheets.place(name, FIREPLACES);
+            if (fireplace == 72 || fireplace == 73) {
+                boolean alongY = fireplace == 72;
+                return new Piece("chimney_pots", alongY ? 1 : 0).at(CHIMNEY_A, CHIMNEY_B)
+                        .dye(PAINT, alongY ? 0.485f : 0.63f, alongY ? 0.36f : 0.515f, CHIMNEY_POT_DYE).raise(CHIMNEY_CAP);
             }
             Piece pump = fuelPump(name);
             if (pump != null) {
