@@ -1860,8 +1860,8 @@ final class Pipeline {
     private static final float SEEN_ON_FLOOR_FROM = 0.2f;
     private static final float RAIN_DOTS_LEAST = 1.1f, SNOW_DOTS_LEAST = 1.5f;
     /**
-     * How long the eye takes a flake in for, in seconds: a flake is drawn as long as it goes past the eye in that.
-     * A flake falls slowly, so standing in still air it is a dot; met at speed it is a streak.
+     * How long the eye takes a flake in for, in seconds: a flake is drawn out by what it goes past the eye in that,
+     * up to its own width. Standing in still air it is round; in a gale or met at speed it is a little long.
      */
     private static final float SNOW_SEEN_FOR = 0.03f;
     /**

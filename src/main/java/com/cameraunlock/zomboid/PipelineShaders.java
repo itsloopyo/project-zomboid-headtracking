@@ -3483,14 +3483,16 @@ final class PipelineShaders {
                 vec3 toEye = normalize(uEye - p);
                 vec3 side = normalize(cross(vec3(0.0, 0.0, 1.0), toEye) + vec3(1e-5, 0.0, 0.0));
                 vec3 over = cross(toEye, side);
-                // A flake is a streak along the way it goes past the eye, as long as it goes in the moment the
-                // eye takes it in: driven by a hard wind, or met at speed from a car, where every flake in the
-                // beams comes at the glass.
+                // A flake stays a flake: drawn out along the way it goes past the eye, by a hard wind or met
+                // at speed from a car, by no more than its own width, so a fast one is a little long and never a streak.
                 vec3 going = vec3(uAir, -speed) - uMoves;
                 float along = corner > 1.5 ? 1.0 : -1.0;
                 float across = corner > 0.5 && corner < 2.5 ? 1.0 : -1.0;
                 float size = max(0.014 + 0.016 * fract(seed.x * 71.0 + seed.z * 13.0), uThin);
-                vec3 at = p + side * (across * size) + over * (along * size) + going * (0.5 * uLong * along);
+                vec3 smear = going * (0.5 * uLong);
+                float smeared = length(smear);
+                smear *= smeared > size ? size / smeared : 1.0;
+                vec3 at = p + side * (across * size) + over * (along * size) + smear * along;
                 vWorld = at;
                 vIn = vec2(across, along);
                 // The harder it snows the more of the flakes there are.
