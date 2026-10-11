@@ -266,9 +266,9 @@ public final class Controls {
     }
 
     /**
-     * Called where the game's ballistics have just worked out where the muzzle is and which
-     * way it points, which is where they start a shot from and the way they send it when
-     * they have found nothing under the reticle, and the way a shotgun's spread is laid.
+     * Called where the game has just worked out where the muzzle is and which way it points.
+     * That is where a shot starts, the line a target is let into the shot's hit list along,
+     * the way a shot that found nothing is sent, and the way a shotgun's spread is laid.
      *
      * With a firearm's sights up a lean moves the weapon with the eye, and the shot starts
      * from where the weapon is drawn: the muzzle is moved by what of the lean the weapon has.
@@ -278,20 +278,17 @@ public final class Controls {
      * aim, and some degrees off it when it is up. The weapon the view draws points at the
      * aim point at the hip and with the sights up alike, so that is the way the shot goes.
      */
-    public void muzzle(BallisticsController ballistics) {
-        IsoPlayer player = view.player();
-        if (!view.firstPerson.lookCaptured() || player == null || player.getBallisticsController() != ballistics) {
+    void muzzle(BallisticsController ballistics, Vector3 muzzle, Vector3 direction) {
+        if (!view.firstPerson.lookCaptured()) {
             return;
         }
         if (FirstPerson.TRACE && filteredAim) {
             sayBallistics(ballistics);
         }
         float[] carried = view.headTracking.carried();
-        Vector3 muzzle = ballistics.getMuzzlePosition();
         muzzle.x += carried[0];
         muzzle.y += carried[1];
         muzzle.z += carried[2] / ViewCamera.LEVEL_HEIGHT;
-        Vector3 direction = ballistics.getMuzzleDirection();
         direction.x = aimPointX - muzzle.x;
         direction.y = aimPointY - muzzle.y;
         direction.z = aimPointLevel - muzzle.z;

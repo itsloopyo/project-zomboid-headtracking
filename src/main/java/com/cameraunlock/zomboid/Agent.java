@@ -248,6 +248,9 @@ public final class Agent {
         String character = "Lzombie/characters/IsoGameCharacter;";
         CallSite.Method processHit = new CallSite.Method("zombie/CombatManager", "processHit",
                 "(Lzombie/inventory/types/HandWeapon;" + character + character + ")I");
+        String vector3 = "Lzombie/iso/Vector3;";
+        CallSite.Method muzzleAt = new CallSite.Method(ballistics.owner(), "calculateMuzzlePosition", "(" + vector3 + vector3 + ")F");
+        CallSite.Method muzzle = new CallSite.Method(HOOKS, "muzzle", "(L" + ballistics.owner() + ";" + vector3 + vector3 + ")F");
         return List.of(
                 after(new CallSite.Method("zombie/gameStates/IngameState", "renderFrameInternal", "(I)V"),
                         new CallSite.Method("zombie/iso/IsoWorld", "render", "()V"),
@@ -284,9 +287,13 @@ public final class Agent {
                 returningWithThis(PLAYER, "calculateAimVector", VECTOR2_FILTER, "aimVector", byPlayer),
                 instead(ballistics, new CallSite.Method(RETICLE, "getX", INT_FILTER), "aimPointX"),
                 instead(ballistics, new CallSite.Method(RETICLE, "getY", INT_FILTER), "aimPointY"),
-                new Patch(ballistics.owner(), "update after calculateMuzzlePosition", classBytes -> CallSite.insertAfterEach(classBytes,
-                        ballistics, new CallSite.Method(ballistics.owner(), "calculateMuzzlePosition", "(Lzombie/iso/Vector3;Lzombie/iso/Vector3;)F"),
-                        code -> CallSite.passThis(code, new CallSite.Method(HOOKS, "muzzle", "(L" + ballistics.owner() + ";)V")), 1)),
+                new Patch(ballistics.owner(), "update calling calculateMuzzlePosition", classBytes -> CallSite.replaceEach(classBytes,
+                        ballistics, muzzleAt, muzzle, 1)),
+                // The line a target is let in along, and the line a shot that hit nothing is sent along.
+                new Patch(processHit.owner(), "calculateBallistics calling calculateMuzzlePosition", classBytes -> CallSite.replaceEach(classBytes,
+                        new CallSite.Method(processHit.owner(), "calculateBallistics", "(" + character + "F)V"), muzzleAt, muzzle, 1)),
+                new Patch(processHit.owner(), "fireWeapon calling calculateMuzzlePosition", classBytes -> CallSite.replaceEach(classBytes,
+                        new CallSite.Method(processHit.owner(), "fireWeapon", "(Lzombie/inventory/types/HandWeapon;" + character + ")V"), muzzleAt, muzzle, 1)),
                 new Patch(processHit.owner(), "processHit at its start", classBytes -> CallSite.insertAtStartOfInstanceMethod(classBytes, processHit, code -> {
                     code.aload(2);
                     code.aload(3);

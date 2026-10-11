@@ -18,6 +18,7 @@ import zombie.iso.IsoMovingObject;
 import zombie.iso.IsoObjectPicker;
 import zombie.iso.IsoWorld;
 import zombie.iso.Vector2;
+import zombie.iso.Vector3;
 import zombie.ui.TextDrawObject;
 import zombie.vehicles.BaseVehicle;
 
@@ -251,16 +252,18 @@ public final class Hooks {
         return aimedPart != HitPart.NONE ? aimedPart : ballistics.getCachedTargetedBodyPart(id);
     }
 
-    /** Called where the game's ballistics have just worked out where a muzzle is and which way it points. */
-    public static void muzzle(BallisticsController ballistics) {
+    /** Called in place of the game working out where a character's muzzle is and which way it points. */
+    public static float muzzle(BallisticsController ballistics, Vector3 position, Vector3 direction) {
+        float stock = ballistics.calculateMuzzlePosition(position, direction);
         for (int i = 0; i < View.COUNT; i++) {
             View view = View.of(i);
             IsoPlayer player = view == null ? null : view.player();
             if (player != null && player.getBallisticsController() == ballistics) {
-                view.controls.muzzle(ballistics);
-                return;
+                view.controls.muzzle(ballistics, position, direction);
+                break;
             }
         }
+        return stock;
     }
 
     /** Called with the binding the game holds under a name: the keyboard is the first player's. */
