@@ -51,7 +51,12 @@ public final class ViewModel {
      * @param swayPitch the same for a turn upwards
      * @param bobX      where the step has it, to the right, tiles
      * @param bobY      and upwards
-     * @param recoil    1 on the frame of a shot, falling to nought
+     * @param recoil    1 on the frame of a shot, falling to nought: how far the hip crosshair's ticks are thrown apart
+     * @param kickPitch how far the last shots have thrown the muzzle up, radians
+     * @param kickYaw   and over to the right, radians
+     * @param kickRoll  and its top over to the left, radians
+     * @param kickUp    how far they have thrown the weapon up, tiles
+     * @param kickBack  and back towards the eye, tiles
      * @param dip       1 just after landing or crouching, falling to nought
      * @param skin      which of the game's skins the holder's body wears, 0 the palest
      * @param female    whether the holder is a woman
@@ -73,7 +78,8 @@ public final class ViewModel {
      * @param leftFree  whether the left hand holds nothing
      */
     record Held(String item, boolean firearm, boolean bothHands, int attack, float reached, float past, boolean struck, float aim, float nearness, float lowered,
-            float swayYaw, float swayPitch, float bobX, float bobY, float recoil, float dip, int skin, boolean female,
+            float swayYaw, float swayPitch, float bobX, float bobY, float recoil, float kickPitch, float kickYaw, float kickRoll, float kickUp, float kickBack,
+            float dip, int skin, boolean female,
             int action, float cycled, int doing, float done, int rounds, float round, float handled, float pace, float seated, float drawn, float worked,
             boolean clip, float out, float fetching, float fetchTakes, boolean leftFree) {}
 
@@ -83,10 +89,12 @@ public final class ViewModel {
     /** The muzzle's attachment in the game's model scripts. Its own z axis runs along the barrel. */
     private static final String MUZZLE = "muzzle";
 
-    /** A kick is over, to within a twentieth, in three of these: 150 ms. */
+    /** The crosshair's ticks come back together, to within a twentieth, in three of these: 150 ms. */
     static final float RECOIL_SECONDS = 0.05f;
-    /** Shots faster than the kick falls away do not stack the weapon into the viewer's face. */
+    /** Shots faster than that do not throw them further apart than this. */
     private static final float RECOIL_MOST = 1.5f;
+    /** What a shot does to the weapon. */
+    final Kick kick = new Kick();
     private static final float LOWER_SECONDS = 0.12f;
     private static final float SWAY_SECONDS = 0.08f;
     /** How far behind the view the weapon is for each radian a second the view turns. */
@@ -257,7 +265,13 @@ public final class ViewModel {
         bobPhase = (float) ((bobPhase + speed * seconds / STRIDE * Math.PI) % (2 * Math.PI));
         ViewModelMath.bob(bobPhase, bobAmount, bob);
         recoil = Math.min(ViewModelMath.ease(recoil, 0f, seconds, RECOIL_SECONDS) + kicks, RECOIL_MOST);
-        kicks = 0;
+        kick.step(seconds);
+        if (kicks > 0) {
+            float hard = Kick.fired(weapon.getRecoilDelay(), weapon.getMaxDamage());
+            for (; kicks > 0; kicks--) {
+                kick.fire(hard, aim);
+            }
+        }
         if (sneaking != wasSneaking || wasFalling && !falling) {
             dipTo = 1f;
         }
@@ -369,7 +383,8 @@ public final class ViewModel {
         round = ArmActs.round(round, doing == ArmActs.LOADING, rounds > roundsBefore, seconds, roundTakes);
         roundsBefore = rounds;
         held = new Held(item.getFullType(), firearm, item == player.getSecondaryHandItem(),
-                attack, reached, past, struck, aim, nearness, lowered, swayYaw, swayPitch, bob[0], bob[1], recoil, dip,
+                attack, reached, past, struck, aim, nearness, lowered, swayYaw, swayPitch, bob[0], bob[1], recoil,
+                kick.weaponPitch.at, kick.weaponYaw.at, kick.weaponRoll.at, kick.weaponUp.at, kick.weaponBack.at, dip,
                 player.getHumanVisual().getSkinTextureIndex(), player.isFemale(), action, cycled, doing, done, rounds, round, handled, took[action][doing], seated, drawn, worked, clip, out, fetching, fetchTakes[action], player.getSecondaryHandItem() == null);
     }
 
@@ -401,6 +416,7 @@ public final class ViewModel {
         swayPitch = 0f;
         bobAmount = 0f;
         recoil = 0f;
+        kick.rest();
         dipTo = 0f;
         dip = 0f;
         kicks = 0;
@@ -497,7 +513,6 @@ public final class ViewModel {
     private static final float SWUNG_PITCH = (float) Math.toRadians(35), SWUNG_YAW = (float) Math.toRadians(-12), SWUNG_ROLL = (float) Math.toRadians(-10);
     /** Lowered to run: the muzzle down and across the body. */
     private static final float LOWERED_PITCH = (float) Math.toRadians(-35), LOWERED_YAW = (float) Math.toRadians(-25), LOWERED_DOWN = 0.07f;
-    private static final float KICK_PITCH = (float) Math.toRadians(5), KICK_PITCH_AIMED = (float) Math.toRadians(2.5), KICK_BACK = 0.045f, KICK_UP = 0.008f;
     private static final float DIP_DOWN = 0.04f;
     /** How much of the way from the sights back to the hip a rifle comes while its bolt is worked. */
     private static final float WORKED_LOWERS = 0.7f;
@@ -639,7 +654,7 @@ public final class ViewModel {
         float atX, atY, ahead;
         float coming = trueHands ? how.drawn : 0f;
         // What shakes the weapon, apart from where it is held: the hand under its fore-end is placed on it as it is without these.
-        float shakenPitch = how.swayPitch + how.recoil * (KICK_PITCH + (KICK_PITCH_AIMED - KICK_PITCH) * how.aim);
+        float shakenPitch = how.swayPitch + how.kickPitch;
         float pitch = shakenPitch + how.lowered * LOWERED_PITCH + coming * DRAWN_PITCH;
         float yaw = how.swayYaw + how.lowered * LOWERED_YAW;
         float roll;
@@ -702,9 +717,9 @@ public final class ViewModel {
             ViewModelMath.turn(still, pitch - shakenPitch, yaw - how.swayYaw, roll, gripX, gripY, -ahead, 0f, -how.lowered * LOWERED_DOWN - coming * DRAWN_DOWN, 0f);
             ViewModelMath.onto(fromAim, still);
         }
-        ViewModelMath.turn(out, pitch, yaw, roll, gripX, gripY, -ahead,
-                moveX + how.bobX * steady, moveY + how.bobY * steady + how.recoil * KICK_UP - how.lowered * LOWERED_DOWN - how.dip * DIP_DOWN - coming * DRAWN_DOWN,
-                moveBack + how.recoil * KICK_BACK);
+        ViewModelMath.turn(out, pitch, yaw + how.kickYaw, roll + how.kickRoll, gripX, gripY, -ahead,
+                moveX + how.bobX * steady, moveY + how.bobY * steady + how.kickUp - how.lowered * LOWERED_DOWN - how.dip * DIP_DOWN - coming * DRAWN_DOWN,
+                moveBack + how.kickBack);
         ViewModelMath.onto(fromAim, out);
         ViewModelMath.turned(out, top, over);
         ViewModelMath.turned(out, forward, pointing);

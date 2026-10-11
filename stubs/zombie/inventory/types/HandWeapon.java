@@ -7,6 +7,9 @@ public final class HandWeapon extends InventoryItem {
     public boolean isRanged() { throw new UnsupportedOperationException("reference stub"); }
     public float getMaxRange(zombie.characters.IsoGameCharacter owner) { throw new UnsupportedOperationException("reference stub"); }
     public float getRangeMod(zombie.characters.IsoGameCharacter owner) { throw new UnsupportedOperationException("reference stub"); }
+    public int getRecoilDelay() { throw new UnsupportedOperationException("reference stub"); }
+    public float getMaxDamage() { throw new UnsupportedOperationException("reference stub"); }
+    public float getActualWeight() { throw new UnsupportedOperationException("reference stub"); }
     public boolean isRackAfterShoot() { throw new UnsupportedOperationException("reference stub"); }
     public zombie.scripting.objects.WeaponReloadType getWeaponReloadType() { throw new UnsupportedOperationException("reference stub"); }
     public int getCurrentAmmoCount() { throw new UnsupportedOperationException("reference stub"); }
