@@ -78,11 +78,11 @@ final class ShaderTests {
     }
 
     private static void figuresAndTerrainShareSunsetHaze() {
-        Checks.check(PipelineShaders.WORLD_FRAGMENT_MAIN.contains("distanceHaze(-view, uLight, range)"),
+        Checks.check(PipelineShaders.WORLD_FRAGMENT_MAIN.contains("distanceHaze(-view, range)"),
                 "near terrain must use the shared directional haze");
-        Checks.check(PipelineShaders.FAR_FRAGMENT.contains("distanceHaze(-view, uLight, away)"),
+        Checks.check(PipelineShaders.FAR_FRAGMENT.contains("distanceHaze(-view, away)"),
                 "distant terrain must use the shared directional haze");
-        Checks.check(PipelineShaders.FIGURE_LIGHT_MAIN.contains("distanceHaze(normalize(ray), uLight, range)"),
+        Checks.check(PipelineShaders.FIGURE_LIGHT_MAIN.contains("distanceHaze(normalize(ray), range)"),
                 "characters must receive the same sunset haze as terrain");
     }
 

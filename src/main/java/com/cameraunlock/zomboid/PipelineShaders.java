@@ -3238,7 +3238,7 @@ final class PipelineShaders {
                 // Towards a low sun the air itself is lit: what stands far off in that quarter
                 // is veiled in gold, and the nearer for the lower the sun is.
                 vec3 air = atmosphere(-view);
-                color = mix(color, air, distanceHaze(-view, uLight, range));
+                color = mix(color, air, distanceHaze(-view, range));
                 // The world ends by fading into what stands behind it, which is the hills and
                 // not bare air: faded to air, its last tiles show as dashes against them.
                 // And it ends where the loaded map does, which at the wheel of a car at speed is
@@ -5606,7 +5606,7 @@ final class PipelineShaders {
                     discard;
                 }
                 float ends = uBeyond > 0.5 ? 0.0 : max(smoothstep(uFogStart, uFogEnd, range), smoothstep(uLoaded.z - (uFogEnd - uFogStart), uLoaded.z, length(ray.xy * ahead - uLoaded.xy)));
-                float haze = max(ends, distanceHaze(normalize(ray), uLight, range));
+                float haze = max(ends, distanceHaze(normalize(ray), range));
                 color = mix(color, atmosphere(normalize(ray)), haze);
                 if (uVeil.x > 0.0) {
                     color = mix(color, veilColor(normalize(ray)), max(veiling(range), ends * skyVeiling(normalize(ray))));
@@ -6312,7 +6312,7 @@ final class PipelineShaders {
                 }
 
                 vec3 air = atmosphere(-view);
-                color = mix(color, air, distanceHaze(-view, uLight, away));
+                color = mix(color, air, distanceHaze(-view, away));
                 // The far land ends too, in what the sky's own shader draws where nothing is: the hills, and under the skyline the air.
                 float ends = smoothstep(uReach * 0.85, uReach, length(toEye.xy));
                 if (ends > 0.0) {

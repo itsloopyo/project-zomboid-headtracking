@@ -37,9 +37,12 @@ final class Sky {
                 return pow(max(color, vec3(0.0)), vec3(2.2)) + uFlashSky * (0.15 + pow(max(dot(d, uFlashWay), 0.0), 5.0));
             }
 
-            float distanceHaze(vec3 direction, vec3 light, float range) {
-                float sunward = pow(max(dot(direction, light), 0.0), 3.0)
-                        * (1.0 - smoothstep(0.1, 0.75, light.z)) * step(0.0, light.z);
+            // The air between the eye and what it looks at, and more of it towards a low sun, which shines
+            // through a long way of air. The sun's, not whatever lights the scene: a bolt of lightning low
+            // over the land is the light for a moment and would fill the picture with glare.
+            float distanceHaze(vec3 direction, float range) {
+                float sunward = pow(max(dot(direction, uSun), 0.0), 3.0)
+                        * (1.0 - smoothstep(0.1, 0.75, uSun.z)) * step(0.0, uSun.z);
                 return 1.0 - exp(-range * (0.0022 + 0.016 * sunward));
             }
 
