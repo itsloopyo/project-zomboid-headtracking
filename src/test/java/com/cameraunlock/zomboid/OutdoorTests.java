@@ -26,6 +26,7 @@ final class OutdoorTests {
         Checks.run("aBurntFencesPostStandsWhereItsSpritePaintsItsFoot", OutdoorTests::aBurntFencesPostStandsWhereItsSpritePaintsItsFoot);
         Checks.run("aCrossingSignalFacesTheWayItsSpriteSaysAndStandsOnItsPost", OutdoorTests::aCrossingSignalFacesTheWayItsSpriteSaysAndStandsOnItsPost);
         Checks.run("aFlagPolesTopStandsOnItsLowerLength", OutdoorTests::aFlagPolesTopStandsOnItsLowerLength);
+        Checks.run("aCarParkBarrierIsColouredFromItsBooth", OutdoorTests::aCarParkBarrierIsColouredFromItsBooth);
     }
 
     /** A piece, and its model one the jar has: Models.get throws for a name it has not. */
@@ -258,7 +259,23 @@ final class OutdoorTests {
         Checks.check(unnamed("street_roadsigns_01_0") == null && unnamed("street_roadsigns_01_32") == null, "the boards on two posts and the rest area's signs are not warning signs");
     }
 
-    private static void aFlagPolesTopStandsOnItsLowerLength() {
+    private static void aCarParkBarrierIsColouredFromItsBooth() {
+        // The booth's square of each facing, as the sheet lays the four: north, east, south, west.
+        int[][] booths = {{0, 3}, {0, 0}, {0, 0}, {3, 0}};
+        for (int faces = Outdoors.NORTH; faces <= Outdoors.WEST; faces++) {
+            boolean alongY = faces == Outdoors.NORTH || faces == Outdoors.SOUTH;
+            Outdoors.Piece barrier = Outdoors.of("street_decoration_01_56", "Post", "Barrier", faces, alongY ? 1 : 4, alongY ? 4 : 1, 0);
+            holds(barrier, "a car park barrier facing " + faces + " has a model");
+            if (barrier == null) {
+                continue;
+            }
+            Checks.check(barrier.model.equals("parking_barrier") && barrier.turns == faces, "a barrier is turned the way it faces");
+            Checks.check(barrier.dyeX == booths[faces][0] && barrier.dyeY == booths[faces][1], "a barrier facing " + faces + " is coloured from its booth's square");
+        }
+        Checks.check(Outdoors.of("street_decoration_01_56", "Post", "Barrier", Outdoors.NORTH, 1, 3, 0) == null, "a barrier the game lays shorter is left to it");
+    }
+
+        private static void aFlagPolesTopStandsOnItsLowerLength() {
         Outdoors.Piece pole = Outdoors.of("street_decoration_01_24", "Pole", "American Flag", Outdoors.NONE, 1, 1, 0);
         Outdoors.Piece top = Outdoors.of("street_decoration_01_16", "Pole", "American Flag", Outdoors.NONE, 1, 1, 0);
         holds(pole, "a flag pole's lower length has a model");

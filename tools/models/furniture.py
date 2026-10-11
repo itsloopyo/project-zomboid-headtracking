@@ -4709,6 +4709,57 @@ def felt_rolls(name, length, rows):
     return model
 
 
+def theatre_seats():
+    """Two theatre seats side by side across X, facing -Y and standing in the back of their square: upholstered seats and backs,
+    the backs in a dark shell, three wooden arm rests on steel standards, each standard on a foot along Y."""
+    model = Model("theatre_seats", centred=False)
+    cushions, shells, arms, steel = bmesh.new(), bmesh.new(), bmesh.new(), bmesh.new()
+    for x in (-0.26, 0.26):
+        prism_y(cushions, (x, 0.47, 0.47, 0.12, -0.12), (x, 0.47, 0.47, 0.14, 0.3))
+        prism_y(cushions, (x, 0.7, 0.47, 0.46, 0.3), (x, 0.72, 0.47, 0.5, 0.4))
+        prism_y(cushions, (x, 0.97, 0.45, 0.12, 0.34), (x, 0.99, 0.45, 0.12, 0.46))
+        prism_y(shells, (x, 0.72, 0.49, 0.56, 0.4), (x, 0.74, 0.49, 0.6, 0.47))
+    model.hard(cushions, "vinyl", bevel=0.04, segments=2)
+    model.hard(shells, "rubber", bevel=0.015, segments=2)
+    for x in (-0.52, 0.0, 0.52):
+        cuboid(arms, x - 0.035, x + 0.035, -0.06, 0.38, 0.62, 0.66)
+        cuboid(steel, x - 0.025, x + 0.025, 0.15, 0.21, 0.0, 0.62)
+        cuboid(steel, x - 0.025, x + 0.025, -0.12, 0.46, 0.0, 0.04)
+    model.hard(arms, "wood", bevel=0.01, segments=2)
+    model.hard(steel, "plastic", bevel=0.004, segments=1)
+    return model
+
+
+def parking_barrier():
+    """A car park's barrier over the four squares the game lays it on: a painted booth with a rounded top on a concrete foot at +Y,
+    and its arm down -Y nearly three squares, white with black stripes across it, from a round mount on the booth's face. The
+    origin is the middle of the four squares."""
+    model = Model("parking_barrier", centred=False)
+    x, y = 0.03, 1.52
+    foot = bmesh.new()
+    cuboid(foot, x - 0.18, x + 0.18, y - 0.18, y + 0.18, 0.0, 0.15)
+    model.hard(foot, "metal", bevel=0.01, segments=1)
+    booth = bmesh.new()
+    cuboid(booth, x - 0.16, x + 0.16, y - 0.16, y + 0.16, 0.15, 1.12)
+    lathe(booth, [(0.16, -0.16), (0.16, 0.16)], segments=16, to=Matrix.Translation((x, y, 1.12)) @ Matrix.Rotation(math.radians(90), 4, "Y"))
+    model.hard(booth, "paint", bevel=0.01, segments=2)
+    mount = bmesh.new()
+    lathe(mount, [(0.0, 0.0), (0.09, 0.0), (0.09, 0.05), (0.0, 0.05)], segments=16,
+          to=Matrix.Translation((x, y - 0.16, 0.76)) @ Matrix.Rotation(math.radians(90), 4, "X"))
+    model.turned(mount, "rubber", sharp=50.0)
+    white, black = bmesh.new(), bmesh.new()
+    tip, root, step = -1.52, y - 0.21, 0.18
+    n = 0
+    at = root
+    while at > tip:
+        cuboid(white if n % 2 == 0 else black, x - 0.025, x + 0.025, max(at - step, tip), at, 0.71, 0.81)
+        at -= step
+        n += 1
+    model.hard(white, "enamel", bevel=0.004, segments=1)
+    model.hard(black, "rubber", bevel=0.004, segments=1)
+    return model
+
+
 # How tall a flag pole is from the ground to the floor of the storey over it, where the game paints its top and the flag.
 FLAG_POLE_LOW = 2.45
 
@@ -4723,8 +4774,8 @@ def flag_pole():
 
 
 def flag_top():
-    """A flag pole's top length with its ball, and the flag hung limp from it in folds along -X: stripes running down it in red
-    and white, and the blue of its corner at the top by the pole. The origin is the pole's axis at the foot of this length."""
+    """A flag pole's top length with its ball, and the flag hung limp from it along -X in folds that run down it: red and white
+    stripes across it and the blue of its corner at the top by the pole. The origin is the pole's axis at the foot of this length."""
     model = Model("flag_top", centred=False)
     pole = bmesh.new()
     lathe(pole, [(0.0, 0.0), (0.04, 0.0), (0.04, 1.12), (0.0, 1.12)], segments=14)
@@ -4732,13 +4783,16 @@ def flag_top():
           + [(0.0, 1.23)], segments=14)
     model.turned(pole, "metal", sharp=50.0)
     red, white, blue = bmesh.new(), bmesh.new(), bmesh.new()
-    folds = [(-0.04, 0.0), (-0.09, 0.035), (-0.14, -0.03), (-0.19, 0.03), (-0.23, -0.01)]
-    top, bottom, canton = 1.06, 0.12, 0.62
+    # Hoisted along the pole and hanging limp in folds that run down it: seven red stripes and six white across it, and the
+    # blue corner over the top six by the pole.
+    folds = [(-0.04, 0.0), (-0.075, 0.03), (-0.11, -0.025), (-0.145, 0.025), (-0.18, -0.02), (-0.21, 0.01)]
+    top, bottom, stripes, canton_x = 1.08, 0.18, 13, -0.11
+    stripe = (top - bottom) / stripes
     for n, ((x0, y0), (x1, y1)) in enumerate(zip(folds, folds[1:])):
-        for into, z0, z1 in ((red if n % 2 == 0 else white, bottom, canton if n < 2 else top), (blue, canton, top)):
-            if into is blue and n >= 2:
-                continue
-            # One fold of the cloth, a closed sheet 6 mm thick from one crease to the next.
+        for k in range(stripes):
+            z0, z1 = bottom + k * stripe, bottom + (k + 1) * stripe
+            into = blue if k >= stripes - 7 and x0 > canton_x - 0.001 else red if k % 2 == 0 else white
+            # A piece of one stripe on one fold of the cloth, a closed sheet 6 mm thick.
             vs = [into.verts.new(v) for v in ((x0, y0 - 0.003, z0), (x1, y1 - 0.003, z0), (x1, y1 + 0.003, z0), (x0, y0 + 0.003, z0),
                                               (x0, y0 - 0.003, z1), (x1, y1 - 0.003, z1), (x1, y1 + 0.003, z1), (x0, y0 + 0.003, z1))]
             for face in ((0, 3, 2, 1), (4, 5, 6, 7), (0, 1, 5, 4), (1, 2, 6, 5), (2, 3, 7, 6), (3, 0, 4, 7)):
@@ -6414,7 +6468,7 @@ def outdoors():
             deck_chair(), slab_bench(), dustbin(), road_cone(), traffic_drum(), hydrant(), pallet(), brick_pallet(),
             gravestone("gravestone_round", "round"), gravestone("gravestone_square", "square"), gravestone("gravestone_gabled", "gabled"),
             sack_barrier(), log_stack("log_stack_6", (3, 3), (0, 1)), log_stack("log_stack_5", (3, 2)),
-            twin_head(), girder(), felt_rolls("felt_roll", 1.0, (2,)), felt_rolls("felt_bundle", 0.55, (2, 1)), stop_sign(), crossing_signal(), flag_pole(), flag_top(), hand_truck(),
+            twin_head(), girder(), felt_rolls("felt_roll", 1.0, (2,)), felt_rolls("felt_bundle", 0.55, (2, 1)), stop_sign(), crossing_signal(), flag_pole(), flag_top(), parking_barrier(), theatre_seats(), hand_truck(),
             roof_case("roof_case_low", 92 / 192 * 2.45), roof_case("roof_case_tall", 190 / 192 * 2.45)]         + tyres()
 
 def rod(bm, start, end, radius, segments=10):

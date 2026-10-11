@@ -13,6 +13,7 @@ final class LeisureTests {
         Checks.run("aBasketballBoardStandsInFrontOfItsPole", LeisureTests::aBasketballBoardStandsInFrontOfItsPole);
         Checks.run("aPieceLaidOutOtherwiseThanItsModelIsNone", LeisureTests::aPieceLaidOutOtherwiseThanItsModelIsNone);
         Checks.run("aSteeplesSpireStandsOnItsBelfry", LeisureTests::aSteeplesSpireStandsOnItsBelfry);
+        Checks.run("aPairOfTheatreSeatsFacesTheWayItsSpriteSays", LeisureTests::aPairOfTheatreSeatsFacesTheWayItsSpriteSays);
     }
 
     private static void holds(Outdoors.Piece piece, String what) {
@@ -71,7 +72,17 @@ final class LeisureTests {
         Checks.check(Outdoors.of("location_community_park_01_5", "Swingset", "Playground", Outdoors.SOUTH, 1, 1, 0) == null, "a place of the sheet that is no part of one");
     }
 
-    private static void aSteeplesSpireStandsOnItsBelfry() {
+    private static void aPairOfTheatreSeatsFacesTheWayItsSpriteSays() {
+        for (int faces = Outdoors.NORTH; faces <= Outdoors.WEST; faces++) {
+            Outdoors.Piece seats = Outdoors.of("location_entertainment_theatre_01_91", "Chair", "Red Theatre", faces, 1, 1, 0);
+            holds(seats, "theatre seats facing " + faces + " have a model");
+            Checks.check(seats != null && seats.model.equals("theatre_seats") && seats.turns == faces, "theatre seats are turned the way they face");
+        }
+        Checks.check(Outdoors.of("location_entertainment_theatre_01_91", "Chair", "Red Theatre", Outdoors.NONE, 1, 1, 0) == null,
+                "seats facing no way are left to the game");
+    }
+
+        private static void aSteeplesSpireStandsOnItsBelfry() {
         Outdoors.Piece belfry = unnamed("location_community_church_small_01_35"), spire = unnamed("location_community_church_small_01_34");
         holds(belfry, "location_community_church_small_01_35 is a steeple's belfry");
         holds(spire, "location_community_church_small_01_34 is a steeple's spire");
