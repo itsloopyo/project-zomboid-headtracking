@@ -896,6 +896,7 @@ final class Pipeline {
             view.kerbSteps.sweep(System.nanoTime());
             stage(STAGE_FIGURES);
             drawSky(camera, state, tanHalfFieldOfView, aspect, near, far);
+            eyeMoves(camera);
             if (state.seenCount > 0 && !overhead) {
                 drawLightning(camera, state, tanHalfFieldOfView, aspect, near, far);
             }
@@ -1852,6 +1853,19 @@ final class Pipeline {
     private static final float SEEN_ON_FLOOR_FROM = 0.2f;
     private static final float RAIN_DOTS_LEAST = 1.1f, SNOW_DOTS_LEAST = 1.5f;
     /**
+     * How long the eye takes a flake in for, in seconds: a flake is drawn as long as it goes past the eye in that.
+     * A flake falls slowly, so standing in still air it is a dot; met at speed it is a streak.
+     */
+    private static final float SNOW_SEEN_FOR = 0.03f;
+    /**
+     * How fast the eye has been going, in tiles a second, eased over EYE_MOVES_SECONDS, for the streaks of rain
+     * and snow: see eyeMoves. A move faster than EYE_MOVES_MOST is a jump to another place, and nothing streaks.
+     */
+    private float movesX, movesY, movesUp;
+    private float lastEyeX, lastEyeY, lastEyeUp;
+    private long lastEyeNanos;
+    private static final float EYE_MOVES_SECONDS = 0.08f, EYE_MOVES_MOST = 60f;
+    /**
      * From far overhead a line of sight crosses the whole depth of the falling rain, where an
      * eye in it sees the near drops large and few. This share of the drops, and of the flakes,
      * is drawn there, which is as heavy as the game's own view has its rain and its snow.
@@ -1939,6 +1953,7 @@ final class Pipeline {
             rain.set("uThin", Math.max(RAIN_HALF_WIDE, RAIN_DOTS_LEAST * dot));
             rain.set("uPerPixel", overhead ? 0f : RAIN_DOTS_LEAST * tanHalfFieldOfView / height);
             rain.set("uLong", overhead ? RAIN_SEEN_FOR_OVERHEAD : RAIN_SEEN_FOR);
+            rain.set("uMoves", movesX, movesY, movesUp);
             rain.set("uShown", RAIN_SHOWN);
             setShelter(rain, SHELTER_UNIT, lidded);
             rain.set("uSheltering", outside ? 0f : 1f);
@@ -1963,6 +1978,8 @@ final class Pipeline {
             snow.set("uSeated", seated ? 1f : 0f);
             snow.set("uBox", rainBox[0], rainBox[1], rainBox[2], rainBox[3]);
             snow.set("uThin", SNOW_DOTS_LEAST * dot);
+            snow.set("uLong", overhead ? 0f : SNOW_SEEN_FOR);
+            snow.set("uMoves", movesX, movesY, movesUp);
             snow.set("uShown", SNOW_SHOWN);
             setShelter(snow, SHELTER_UNIT, lidded);
             snow.set("uSheltering", outside ? 0f : 1f);
@@ -2043,6 +2060,26 @@ final class Pipeline {
         GL11.glDepthMask(true);
         GL11.glDisable(GL_DEPTH_TEST);
         GL11.glDisableClientState(GL_VERTEX_ARRAY);
+    }
+
+    /** Notes how fast the eye has gone since the frame before, into movesX, movesY and movesUp. */
+    private void eyeMoves(ViewCamera.Pose camera) {
+        float seconds = (frameNanos - lastEyeNanos) / 1e9f;
+        float dx = camera.eyeX - lastEyeX, dy = camera.eyeY - lastEyeY, du = camera.eyeUp - lastEyeUp;
+        boolean jumped = lastEyeNanos == 0 || seconds <= 0f || seconds > 0.25f
+                || dx * dx + dy * dy + du * du > EYE_MOVES_MOST * EYE_MOVES_MOST * seconds * seconds;
+        lastEyeX = camera.eyeX;
+        lastEyeY = camera.eyeY;
+        lastEyeUp = camera.eyeUp;
+        lastEyeNanos = frameNanos;
+        if (jumped) {
+            movesX = movesY = movesUp = 0f;
+            return;
+        }
+        float keep = (float) Math.exp(-seconds / EYE_MOVES_SECONDS);
+        movesX = movesX * keep + dx / seconds * (1f - keep);
+        movesY = movesY * keep + dy / seconds * (1f - keep);
+        movesUp = movesUp * keep + du / seconds * (1f - keep);
     }
 
     /**

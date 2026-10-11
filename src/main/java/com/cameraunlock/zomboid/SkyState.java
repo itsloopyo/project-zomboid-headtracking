@@ -30,7 +30,7 @@ final class SkyState {
     /** How much of the sun's or the moon's light the heaviest rain or snow takes out. */
     private static final float FALLING_DIMS = 0.75f;
     /** How much of the light crossing a tile of air is caught and sent to the eye: on a clear day, and added by full fog and by full rain. */
-    private static final float MIST_CLEAR = 0.0045f, MIST_FOG = 0.022f, MIST_RAIN = 0.008f;
+    private static final float MIST_CLEAR = 0.0045f, MIST_FOG = 0.022f, MIST_RAIN = 0.008f, MIST_SNOW = 0.025f;
     /**
      * Cloud drift in noise widths per second, in still air and per unit of the game's wind
      * intensity. A cloud overhead crosses a hand's width of sky in several seconds, not in one.
@@ -228,7 +228,8 @@ final class SkyState {
         float windStrength = Wind.push(gusting);
         fog = Math.clamp(climate.getFogIntensity(), 0f, 1f);
         blowing = Math.clamp(climate.getWindIntensity(), 0f, 1f);
-        mist = MIST_CLEAR + MIST_FOG * fog + MIST_RAIN * rain;
+        // Falling snow catches a beam of light more than rain does: each flake is white and slow.
+        mist = MIST_CLEAR + MIST_FOG * fog + MIST_RAIN * rain + MIST_SNOW * snowing;
         // Morning and evening air holds more than noon's: damp rising, dust and pollen hanging.
         mist *= 1f + 1.0f * (1f - Math.clamp(sunUp / 0.6f, 0f, 1f)) * (1f - night);
 

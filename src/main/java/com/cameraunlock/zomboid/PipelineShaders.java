@@ -3409,6 +3409,8 @@ final class PipelineShaders {
             uniform float uLong;
             // Half a streak's least width for each tile it is from the eye, or 0 from far overhead, where uThin holds it.
             uniform float uPerPixel;
+            // How fast the eye is going, tiles a second: a drop is seen streaked along the way it goes past the eye.
+            uniform vec3 uMoves;
             varying vec3 vWorld;
             varying vec2 vIn;
             varying float vShare;
@@ -3424,14 +3426,15 @@ final class PipelineShaders {
                 vec3 p = vec3(seed.xy * 2.0 * BOX + uFall.xy, seed.z * HIGH - speed * uFall.z);
                 p.xy = mod(p.xy - uBox.xy + BOX, 2.0 * BOX) - BOX + uBox.xy + uTile;
                 p.z = mod(p.z - uBox.z + uBox.w, HIGH) - uBox.w + uBox.z;
-                vec3 way = normalize(vec3(uAir, -speed));
+                vec3 past = vec3(uAir, -speed) - uMoves;
+                vec3 way = normalize(past);
                 vec3 side = normalize(cross(way, uEye - p));
                 // A streak thinner than a dot of the picture flickers: it is drawn a dot wide and as much fainter.
                 float thin = max(uThin, uPerPixel * distance(uEye, p));
                 vShare = uThin / thin;
                 float along = corner > 1.5 ? 1.0 : 0.0;
                 float across = corner > 0.5 && corner < 2.5 ? 1.0 : -1.0;
-                vec3 at = p - way * (uLong * length(vec3(uAir, speed)) * along) + side * (across * thin);
+                vec3 at = p - way * (uLong * length(past) * along) + side * (across * thin);
                 vWorld = at;
                 vIn = vec2(across, along);
                 // The harder it rains the more of the drops there are.
@@ -3455,6 +3458,9 @@ final class PipelineShaders {
             uniform vec4 uBox;
             uniform vec2 uTile;
             uniform float uThin;
+            uniform float uLong;
+            // How fast the eye is going, tiles a second: see the rain's.
+            uniform vec3 uMoves;
             varying vec3 vWorld;
             varying vec2 vIn;
 
@@ -3477,12 +3483,14 @@ final class PipelineShaders {
                 vec3 toEye = normalize(uEye - p);
                 vec3 side = normalize(cross(vec3(0.0, 0.0, 1.0), toEye) + vec3(1e-5, 0.0, 0.0));
                 vec3 over = cross(toEye, side);
-                // Driven hard, a flake is a short streak along the way it is going.
-                vec3 going = vec3(uAir, -speed);
+                // A flake is a streak along the way it goes past the eye, as long as it goes in the moment the
+                // eye takes it in: driven by a hard wind, or met at speed from a car, where every flake in the
+                // beams comes at the glass.
+                vec3 going = vec3(uAir, -speed) - uMoves;
                 float along = corner > 1.5 ? 1.0 : -1.0;
                 float across = corner > 0.5 && corner < 2.5 ? 1.0 : -1.0;
                 float size = max(0.014 + 0.016 * fract(seed.x * 71.0 + seed.z * 13.0), uThin);
-                vec3 at = p + side * (across * size) + over * (along * size) + going * (0.0025 * along);
+                vec3 at = p + side * (across * size) + over * (along * size) + going * (0.5 * uLong * along);
                 vWorld = at;
                 vIn = vec2(across, along);
                 // The harder it snows the more of the flakes there are.
@@ -3526,6 +3534,7 @@ final class PipelineShaders {
 
     static final String SNOW_FRAGMENT = """
             #version 120
+            const float FLAKE_IN_BEAM = 5.0;
             uniform sampler2DShadow uRoof;
             uniform mat4 uRoofMatrix;
             uniform vec3 uTint;
@@ -3563,7 +3572,9 @@ final class PipelineShaders {
                 if (uTorchAt.w > 0.0) {
                     lit += TORCH_GIVES * torchAt(vWorld, dir);
                 }
-                gl_FragColor = vec4(uTint + vec3(1.0, 0.94, 0.82) * (lit * 1.6), body * open * uShown);
+                // A flake throws a beam back the way it came, towards a driver sat just behind the lamp: in the beam it
+                // is far brighter than the snow on the road the same beam lights.
+                gl_FragColor = vec4(uTint + vec3(1.0, 0.94, 0.82) * (lit * FLAKE_IN_BEAM), body * open * uShown);
             }
             """;
 
