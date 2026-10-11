@@ -1078,13 +1078,14 @@ public final class FirstPerson {
      */
     private void placeReticle(WorldScene.Frame scene, float floorUp) {
         pictureTanHalf = scene.tanHalfFieldOfView();
-        shotDistance = world.shotDistance(aimView, view.worldScene.terrain, floorUp, WorldScene.REACH,
+        float reach = Controls.aimReach(view.player());
+        shotDistance = world.shotDistance(aimView, view.worldScene.terrain, floorUp, reach,
                 scene.characterX, scene.characterY, scene.characterBase, scene.characters);
         // The game looks for a shot's target along a line through this point. With nothing
         // in reach it is a point as far along the view as anything could have been. The
         // picture raises the land and the game's map is flat, so the point's height is
         // taken above the flat map, in floor levels.
-        float aimed = shotDistance == Float.POSITIVE_INFINITY ? WorldScene.REACH : shotDistance;
+        float aimed = shotDistance == Float.POSITIVE_INFINITY ? reach : shotDistance;
         float aimedX = aimView.eyeX + aimView.forwardX * aimed, aimedY = aimView.eyeY + aimView.forwardY * aimed;
         float aimedUp = aimView.eyeUp + aimView.forwardUp * aimed;
         // The game finds the target down a ray from its overhead camera through this point. Where

@@ -88,7 +88,7 @@ final class WorldScene {
         this.view = view;
     }
 
-    /** How far the aim is traced. */
+    /** How far the aim is traced with no firearm in hand. */
     static final float REACH = 30f;
     static final int CHUNK_TILES = 8;
     /**
@@ -3238,11 +3238,12 @@ final class WorldScene {
          * game's own list every frame: characters move, and a chunk's build may be frames old.
          */
         private void addCharacters(ViewCamera.Pose pose) {
+            float reach = Controls.aimReach(viewer);
             for (IsoMovingObject mover : cell.getObjectList()) {
                 if (mover instanceof IsoGameCharacter character && character != viewer
                         && character.getAlpha(playerIndex) > CHARACTER_SHOWN_ALPHA && !character.isInvisible()) {
                     float toX = character.getX() - pose.eyeX, toY = character.getY() - pose.eyeY;
-                    if (toX * toX + toY * toY <= REACH * REACH) {
+                    if (toX * toX + toY * toY <= reach * reach) {
                         addCharacter(character);
                     }
                 }

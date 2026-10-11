@@ -14,6 +14,7 @@ import zombie.characters.animals.IsoAnimal;
 import zombie.core.Core;
 import zombie.core.physics.BallisticsController;
 import zombie.core.physics.RagdollBodyPart;
+import zombie.inventory.types.HandWeapon;
 import zombie.iso.IsoUtils;
 import zombie.iso.Vector2;
 import zombie.iso.Vector3;
@@ -221,6 +222,20 @@ public final class Controls {
         }
         float yaw = view.firstPerson.yaw();
         return stock.set((float) Math.cos(yaw), (float) Math.sin(yaw));
+    }
+
+    /** How far past a firearm's range the aim is traced: the game measures the range from the muzzle, which is ahead of the eye. */
+    private static final float PAST_RANGE = 1f;
+
+    /**
+     * How far the aim is traced: as far as the firearm in hand reaches, by the game's own sum
+     * of its range, or WorldScene.REACH. The point the game's ballistics are given has to be on
+     * whatever the aim meets out to that range, or the game finds no target there.
+     */
+    static float aimReach(IsoPlayer player) {
+        return player.getPrimaryHandItem() instanceof HandWeapon weapon && weapon.isAimedFirearm()
+                ? Math.max(WorldScene.REACH, weapon.getMaxRange(player) * weapon.getRangeMod(player) + PAST_RANGE)
+                : WorldScene.REACH;
     }
 
     /**
