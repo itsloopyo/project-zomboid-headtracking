@@ -241,6 +241,9 @@ final class Config {
                     "true: clothes and hair near you are sharpened, with the weave, knit, grain or strands of what they are made of.\n"
                             + "false: the game's own pictures.",
                     writable | live, true),
+            core.configLocalBool("Content", "OwnAnimals",
+                    "true: the mod's skins for animals near you, with the hair of their coats. false: the game's own skins.",
+                    writable | live, true),
         };
 
         puts.put("FieldOfView", value -> {
@@ -257,7 +260,7 @@ final class Config {
         puts.put("MuzzleFlash", value -> MuzzleFlash.set(value != 0));
         puts.put("SplitScreen", value -> SplitScreen.set((int) value));
         String[] ownKeys = {"OwnWeapons", "OwnFurniture", "OwnPictures", "OwnPlants", "OwnTextures", "OwnBuildings", "OwnZombies", "OwnPeople",
-            "OwnArms", "OwnClothes"};
+            "OwnArms", "OwnClothes", "OwnAnimals"};
         for (int i = 0; i < ownKeys.length; i++) {
             int bit = 1 << i;
             puts.put(ownKeys[i], value -> {

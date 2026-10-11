@@ -28,6 +28,7 @@ public final class Agent {
     private static final String RETICLE = "zombie/input/AimingReticle";
     private static final String CHARACTER_DRAW = "zombie/core/skinnedmodel/model/ModelSlotRenderData";
     private static final String PART_DRAW = "zombie/core/skinnedmodel/model/ModelInstanceRenderData";
+    private static final String MODEL = "zombie/core/skinnedmodel/model/Model";
     private static final String COMBINER = "zombie/core/textures/TextureCombiner";
     private static final String TEXTURE = "Lzombie/core/textures/Texture;";
     private static final String FINE_SKINS = "com/cameraunlock/zomboid/FineSkins";
@@ -449,7 +450,13 @@ public final class Agent {
                         new CallSite.Method(HOOKS, "gamesOwnDrawIsCovered", "()Z"))),
                 new Patch(PART_DRAW, "RenderCharacter left out under the first person picture", classBytes -> CallSite.returnAtOnceIf(classBytes,
                         new CallSite.Method(PART_DRAW, "RenderCharacter", "(L" + CHARACTER_DRAW + ";)V"),
-                        new CallSite.Method(HOOKS, "gamesOwnDrawIsCovered", "()Z"))));
+                        new CallSite.Method(HOOKS, "gamesOwnDrawIsCovered", "()Z"))),
+                // The game draws an animal by a program of its own, which the picture leaves to it:
+                // the picture's finer skin is handed to that draw once it has taken the model's.
+                new Patch(PART_DRAW, "RenderCharacter hands its skin to the picture", classBytes -> CallSite.replaceEach(classBytes,
+                        new CallSite.Method(PART_DRAW, "RenderCharacter", "(L" + CHARACTER_DRAW + ";)V"),
+                        new CallSite.Method(MODEL, "DrawChar", "(L" + CHARACTER_DRAW + ";L" + PART_DRAW + ";)V"),
+                        new CallSite.Method(HOOKS, "partDrawn", "(L" + MODEL + ";L" + CHARACTER_DRAW + ";L" + PART_DRAW + ";)V"), 1)));
     }
 
     /**

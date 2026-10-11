@@ -442,6 +442,8 @@ OwnArms=true
 ; true: clothes and hair near you are sharpened, with the weave, knit, grain or strands of what they are made of.
 ; false: the game's own pictures.
 OwnClothes=true
+; true: the mod's skins for animals near you, with the hair of their coats. false: the game's own skins.
+OwnAnimals=true
 ```
 <!-- /cameraunlock:config -->
 

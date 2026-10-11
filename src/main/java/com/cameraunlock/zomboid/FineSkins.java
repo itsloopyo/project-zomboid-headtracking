@@ -111,13 +111,26 @@ public final class FineSkins {
             return "/skins/" + relative.substring(0, relative.length() - 4).toLowerCase(Locale.ROOT) + ".jpg";
         }
 
+        /** How the game's names of the skins of animals begin, in small letters, under a media/textures folder. */
+        private static final String[] ANIMALS = {"body/cow", "body/bull", "body/calf", "body/farmpig", "body/pig", "body/sheep", "body/deer", "body/chick",
+            "body/turkey", "body/rabbit", "body/raccoon", "body/rat", "body/mouse"};
+
         /**
          * Which row of [Content] the mod's picture for the game's texture at this path under a
-         * media/textures folder answers to, as one of Own's bits: a zombie's body, what people
-         * wear (Tailor), or the body of the living.
+         * media/textures folder answers to, as one of Own's bits: a zombie's body, an animal's,
+         * what people wear (Tailor), or the body of the living.
          */
         static int row(String relative) {
-            return relative.toLowerCase(Locale.ROOT).contains("zedbody") ? Own.ZOMBIES : Tailor.of(relative) != null ? Own.CLOTHES : Own.PEOPLE;
+            String small = relative.toLowerCase(Locale.ROOT);
+            if (small.contains("zedbody")) {
+                return Own.ZOMBIES;
+            }
+            for (String animal : ANIMALS) {
+                if (small.startsWith(animal)) {
+                    return Own.ANIMALS;
+                }
+            }
+            return Tailor.of(relative) != null ? Own.CLOTHES : Own.PEOPLE;
         }
 
         /** Where the picture is that says what of the skin at this place in the jar is see-through. */
@@ -253,8 +266,8 @@ public final class FineSkins {
     /** The finer texture for each of the game's, the one drawn longest ago first. The game's textures are equal only to themselves. */
     private static final LinkedHashMap<Texture, Fine> fine = new LinkedHashMap<>(64, 0.75f, true);
     private static long fineBytes;
-    /** Which of the mod's own skins were worn when the finer textures now kept were composed: the [Content] rows for zombies, for the living and for what they wear, as Own's bits. */
-    private static final int WORN = Own.ZOMBIES | Own.PEOPLE | Own.CLOTHES;
+    /** Which of the mod's own skins were worn when the finer textures now kept were composed: the [Content] rows for zombies, for the living, for what they wear and for animals, as Own's bits. */
+    private static final int WORN = Own.ZOMBIES | Own.PEOPLE | Own.CLOTHES | Own.ANIMALS;
     private static int ownWorn = WORN;
     /** The mod's own picture at each place in the jar that has been asked for, null where the jar has none. */
     private static final HashMap<String, Read> own = new HashMap<>();

@@ -15,6 +15,8 @@ import zombie.core.SpriteRenderer;
 import zombie.core.physics.BallisticsController;
 import zombie.core.physics.RagdollBodyPart;
 import zombie.core.skinnedmodel.animation.AnimationPlayer;
+import zombie.core.skinnedmodel.model.Model;
+import zombie.core.skinnedmodel.model.ModelInstanceRenderData;
 import zombie.core.skinnedmodel.model.ModelSlotRenderData;
 import zombie.input.AimingReticle;
 import zombie.inventory.types.HandWeapon;
@@ -372,6 +374,15 @@ public final class Hooks {
     public static boolean gamesOwnDrawIsCovered() {
         View view = drawn();
         return view != null && view.characters.gamesOwnDrawIsCovered();
+    }
+
+    /** In place of the game's draw of one part of a model, once it has taken the part's skin from the model. */
+    public static void partDrawn(Model model, ModelSlotRenderData slot, ModelInstanceRenderData part) {
+        View view = drawn();
+        if (view != null) {
+            view.characters.wear(part);
+        }
+        model.DrawChar(slot, part);
     }
 
     /** In place of the game's asking whether a thing that moves is on the screen of the player it is drawing. */

@@ -8,6 +8,7 @@ import org.joml.Vector3f;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL20;
 import zombie.characters.IsoPlayer;
+import zombie.characters.animals.IsoAnimal;
 import zombie.core.Core;
 import zombie.core.SpriteRenderer;
 import zombie.core.skinnedmodel.ModelCamera;
@@ -19,6 +20,7 @@ import zombie.core.skinnedmodel.model.ModelSlotRenderData;
 import zombie.core.skinnedmodel.model.VehicleModelInstance;
 import zombie.core.skinnedmodel.model.VertexBufferObject;
 import zombie.core.textures.ColorInfo;
+import zombie.core.textures.Texture;
 import zombie.scripting.objects.ModelAttachment;
 import zombie.scripting.objects.ModelScript;
 import zombie.iso.IsoGridSquare;
@@ -52,6 +54,12 @@ public final class Characters {
     private static final float NO_DEPTH_SHIFT = 0.5f;
     /** Whether the part being drawn is being drawn by the picture, and not by the game for its own view. Render thread. */
     private boolean ours;
+    /**
+     * The skin the game is about to draw a part of an animal in, and the finer one the picture
+     * has it wear in its place: see wear. The game draws an animal itself, by a program of its
+     * own, so the finer skin is handed to that draw. Render thread.
+     */
+    private Texture wornFor, worn;
 
     /**
      * Whether a part the game is about to draw is one of its own view's, under a first person
@@ -59,6 +67,13 @@ public final class Characters {
      */
     public boolean gamesOwnDrawIsCovered() {
         return !ours && view.firstPerson.coversTheGamesView();
+    }
+
+    /** Called by the game's draw of a part as it begins: a part of an animal near the eye wears its finer skin. */
+    void wear(ModelInstanceRenderData part) {
+        if (ours && wornFor != null && part.tex == wornFor) {
+            part.tex = worn;
+        }
     }
 
     /** Has the game draw one part of a model for the picture. */
@@ -1569,11 +1584,21 @@ public final class Characters {
                 talliedGames[kind]++;
             }
             unshifted(model.modelInstance);
+            // Making a finer skin runs the game's combiner, so it is asked for before the
+            // game's draw sets any of its state.
+            if (data.character instanceof IsoAnimal && !casting && fromEye <= CharacterDraw.WHOLE_BEYOND && model.modelInstance.tex != null) {
+                wornFor = model.modelInstance.tex;
+                worn = FineSkins.of(wornFor);
+            }
             // The game's draw ends by putting its own remembered state back, which has depth
             // writes off. Without them the next part, or the next model, is painted over
             // whatever is nearer.
             GL11.glDepthMask(true);
-            drawPart(model, data);
+            try {
+                drawPart(model, data);
+            } finally {
+                wornFor = worn = null;
+            }
         }
         EYE.End();
     }

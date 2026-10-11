@@ -57,7 +57,7 @@ final class CharacterDraw {
     /** The game draws nothing of a person, or of a texel, fainter than this. */
     private static final float FAINTEST = 0.01f;
     /** Within this many tiles of the eye a triangle is divided most finely, and beyond the second not at all. */
-    private static final float FINE_WITHIN = 3f, WHOLE_BEYOND = 12f;
+    static final float FINE_WITHIN = 3f, WHOLE_BEYOND = 12f;
     /**
      * A person whose feet are this much further off than WHOLE_BEYOND has no edge within it, and is
      * drawn by the undivided program: divided into itself a triangle is the same triangle.
