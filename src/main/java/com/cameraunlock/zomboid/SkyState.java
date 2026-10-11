@@ -77,6 +77,8 @@ final class SkyState {
     float mist;
     /** How thick the game has its fog, 0 to 1. */
     float fog;
+    /** How hard the game has the wind blow, 0 to 1. */
+    float blowing;
     /** How hard it is raining, 0 to 1. Snow is not rain. */
     float rain;
     /** How hard it is snowing, 0 to 1, and how much of the ground snow lies on, 0 to 1. */
@@ -205,6 +207,7 @@ final class SkyState {
         float gusting = (float) ClimateManager.getWindTickFinal();
         float windStrength = Wind.push(gusting);
         fog = Math.clamp(climate.getFogIntensity(), 0f, 1f);
+        blowing = Math.clamp(climate.getWindIntensity(), 0f, 1f);
         mist = MIST_CLEAR + MIST_FOG * fog + MIST_RAIN * rain;
         // Morning and evening air holds more than noon's: damp rising, dust and pollen hanging.
         mist *= 1f + 1.0f * (1f - Math.clamp(sunUp / 0.6f, 0f, 1f)) * (1f - night);
@@ -256,7 +259,7 @@ final class SkyState {
             thick = narrowed = 0f;
             return;
         }
-        thick = Eyesight.thickness(fog, rain, snow);
+        thick = Eyesight.thickness(fog, rain, snow, blowing);
         Stats stats = viewer.getStats();
         float intoxication = stats.get(CharacterStat.INTOXICATION);
         narrowed = seen(Eyesight.narrowed(viewer.getVehicle() != null, stats.get(CharacterStat.FATIGUE), stats.isAtMaximum(CharacterStat.FATIGUE),

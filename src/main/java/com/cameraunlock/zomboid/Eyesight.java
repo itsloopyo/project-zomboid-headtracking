@@ -26,10 +26,18 @@ final class Eyesight {
      * haze over the street, and its fog thickens far faster than the game's figure for it
      * rises: here the air is that figure to the power 3, and fog 0.3 hides 9 parts in a
      * hundred at 16 tiles, fog 0.5 61 at 30 tiles. The game's rain and snow hide nothing of the map. Rain here takes
-     * three fifths of what stands 80 tiles off, where the built world of High ends, and snow
-     * nine tenths.
+     * three fifths of what stands 80 tiles off, where the built world of High ends.
+     *
+     * Falling snow is not fog, and the game lays none over it: its climate holds its fog at
+     * nought through every spell of weather, and has it only at dawn on some days. So snow
+     * hides little until it falls hard, by the square of the game's figure for it, and most
+     * where the wind drives it: the heaviest fall in still air hides a third of what stands 80
+     * tiles off, the same fall in a gale, a blizzard, about half, and a fall half as heavy an
+     * eighth. The flakes themselves are drawn falling past the eye.
      */
-    static final float FOG_THICK = 0.30f, RAIN_THICK = 0.012f, SNOW_THICK = 0.03f;
+    static final float FOG_THICK = 0.30f, RAIN_THICK = 0.012f, SNOW_THICK = 0.0062f;
+    /** How much thicker the snow's air is in the strongest wind than in still air, as a share. */
+    static final float SNOW_BLOWN = 0.75f;
     /** The power of the game's fog figure the air goes by. */
     static final double FOG_POWER = 3.0;
     /** How far round the eye the air thins away, as the game keeps its fog off the ground nearest the character. */
@@ -63,9 +71,9 @@ final class Eyesight {
         return !(sightOn && distanceSquared > gameSees * gameSees);
     }
 
-    /** How much light one tile of air takes out of a line of sight, with the game's fog, rain and snow each from 0 to 1. */
-    static float thickness(float fog, float rain, float snow) {
-        return FOG_THICK * (float) Math.pow(fog, FOG_POWER) + RAIN_THICK * rain + SNOW_THICK * snow;
+    /** How much light one tile of air takes out of a line of sight, with the game's fog, rain, snow and wind each from 0 to 1. */
+    static float thickness(float fog, float rain, float snow, float wind) {
+        return FOG_THICK * (float) Math.pow(fog, FOG_POWER) + RAIN_THICK * rain + SNOW_THICK * snow * snow * (1f + SNOW_BLOWN * wind);
     }
 
     /**

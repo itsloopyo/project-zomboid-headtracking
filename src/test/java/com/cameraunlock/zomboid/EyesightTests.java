@@ -21,12 +21,12 @@ final class EyesightTests {
     }
 
     private static void clearAirHidesNothing() {
-        check(Eyesight.thickness(0f, 0f, 0f) == 0f, "no fog, rain or snow is no air to hide anything");
+        check(Eyesight.thickness(0f, 0f, 0f, 0f) == 0f, "no fog, rain or snow is no air to hide anything");
         check(Eyesight.veiled(0f, 80f) == 0f, "and hides nothing at the end of sight");
     }
 
     private static void fullFogIsAWhiteOutBeyondAFewTiles() {
-        float fog = Eyesight.thickness(1f, 0f, 0f);
+        float fog = Eyesight.thickness(1f, 0f, 0f, 0f);
         check(Eyesight.veiled(fog, 3.7f) < 0.2f, "a zombie 3.7 tiles off is plain in full fog, as in the game's own view");
         float half = Eyesight.veiled(fog, 5.6f);
         check(half > 0.2f && half < 0.35f, "one at 5.6 is a quarter hidden, thinner than the game's view from above: " + half);
@@ -35,7 +35,7 @@ final class EyesightTests {
     }
 
     private static void lightFogIsAHaze() {
-        float fog = Eyesight.thickness(0.3f, 0f, 0f);
+        float fog = Eyesight.thickness(0.3f, 0f, 0f, 0f);
         check(Eyesight.veiled(fog, 10f) < 0.2f, "fog 0.3 leaves the street at ten tiles");
         float far = Eyesight.veiled(fog, 16f);
         check(far > 0.05f && far < 0.15f, "and hides a tenth or so at sixteen: " + far);
@@ -44,19 +44,26 @@ final class EyesightTests {
     private static void airHidesMoreTheFurtherAndTheThicker() {
         float before = -1f;
         for (float range = 0f; range <= 80f; range += 0.5f) {
-            float veiled = Eyesight.veiled(Eyesight.thickness(0.5f, 0f, 0f), range);
+            float veiled = Eyesight.veiled(Eyesight.thickness(0.5f, 0f, 0f, 0f), range);
             check(veiled >= before && veiled >= 0f && veiled <= 1f, "fog hides more the further off at " + range);
             before = veiled;
         }
-        check(Eyesight.veiled(Eyesight.thickness(0.3f, 0f, 0f), 10f) < Eyesight.veiled(Eyesight.thickness(0.6f, 0f, 0f), 10f), "and more the thicker it is");
+        check(Eyesight.veiled(Eyesight.thickness(0.3f, 0f, 0f, 0f), 10f) < Eyesight.veiled(Eyesight.thickness(0.6f, 0f, 0f, 0f), 10f), "and more the thicker it is");
     }
 
     private static void rainAndSnowLeaveTheNearStreetPlain() {
-        check(Eyesight.veiled(Eyesight.thickness(0f, 1f, 0f), 20f) < 0.25f, "the heaviest rain leaves most of the street at twenty tiles");
-        check(Eyesight.veiled(Eyesight.thickness(0f, 0f, 1f), 20f) < 0.4f, "and so does the heaviest snow");
-        float rainFar = Eyesight.veiled(Eyesight.thickness(0f, 1f, 0f), 80f);
+        check(Eyesight.veiled(Eyesight.thickness(0f, 1f, 0f, 0f), 20f) < 0.25f, "the heaviest rain leaves most of the street at twenty tiles");
+        check(Eyesight.veiled(Eyesight.thickness(0f, 0f, 1f, 0f), 20f) < 0.4f, "and so does the heaviest snow");
+        float rainFar = Eyesight.veiled(Eyesight.thickness(0f, 1f, 0f, 0f), 80f);
         check(rainFar > 0.5f && rainFar < 0.7f, "rain hides three fifths of what stands at the end of sight: " + rainFar);
-        check(Eyesight.veiled(Eyesight.thickness(0f, 0f, 1f), 80f) > 0.85f, "snow nine tenths");
+        float still = Eyesight.veiled(Eyesight.thickness(0f, 0f, 1f, 0f), 80f);
+        check(still > 0.3f && still < 0.4f, "the heaviest snow in still air hides a third of what stands at the end of sight: " + still);
+        float blizzard = Eyesight.veiled(Eyesight.thickness(0f, 0f, 1f, 0.9f), 80f);
+        check(blizzard > 0.48f && blizzard < 0.6f, "a blizzard about half: " + blizzard);
+        float moderate = Eyesight.veiled(Eyesight.thickness(0f, 0f, 0.5f, 0f), 80f);
+        check(moderate < 0.15f, "a fall half as heavy hides little, an eighth: " + moderate);
+        check(Eyesight.veiled(Eyesight.thickness(0f, 0f, 0.25f, 0.3f), 80f) < 0.05f, "light snow next to nothing");
+        check(Eyesight.thickness(0f, 0f, 0f, 1f) == 0f, "wind alone hides nothing");
     }
 
     private static void aViewNarrowsAsTheGameNarrowsItsCone() {
