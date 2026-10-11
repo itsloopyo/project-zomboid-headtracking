@@ -1364,6 +1364,23 @@ final class WorldScene {
     /** The height of the hills the far land was last asked for at: see HillHeight. Logic thread. */
     private float farHills = HillHeight.DEFAULT;
 
+    /**
+     * Logic thread, while first person is being got ready and nothing is built from the eye:
+     * asks for the far land round it, at the height the hills are drawn, as a build does. The
+     * hills stand at 1 until a build first raises them, and the far land would be made at that.
+     */
+    void tendFar(float eyeX, float eyeY) {
+        float hills = HillHeight.drawn(Online.contested());
+        if (hills != Terrain.HILLS.gain()) {
+            Terrain.HILLS.heighten(hills);
+        }
+        if (hills != farHills) {
+            farHills = hills;
+            farLand.forget();
+        }
+        farLand.tend(eyeX, eyeY);
+    }
+
     /** Logic thread: has the view's country level or not, and lets go of every build made on it the other way. */
     void level(boolean flat) {
         if (terrain.level != flat) {
@@ -2513,7 +2530,8 @@ final class WorldScene {
             loadedY = map.getWorldYMinTiles() + loadedWithin;
             fogEnd = Quality.sight();
             drawDistance.take(pose.eyeX, pose.eyeY, seated ? view.ride.aheadX : 0f, seated ? view.ride.aheadY : 0f, Online.contested());
-            if (!fromOutside) {
+            // On the camera's way between the views as well, so the far land is there when it comes into sight.
+            if (!fromOutside || !view.flight.home()) {
                 farLand.tend(pose.eyeX, pose.eyeY);
             }
             float cosCone = fromOutside ? -1f : cosDrawnCone(pose, flat);
@@ -5996,6 +6014,7 @@ final class WorldScene {
             // What the picture does without for an eye thousands of tiles off, it has again once
             // the eye is as near as the place looked at is taken to be.
             view.pipeline.outside = outside;
+            view.pipeline.landing = outside ? landing : 1f;
             view.pipeline.overhead = outside && outsideAway > OVERHEAD_RANGE;
             view.pipeline.seated = seated;
             view.pipeline.seatedX = seatedX;

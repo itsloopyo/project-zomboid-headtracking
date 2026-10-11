@@ -373,6 +373,8 @@ final class Pipeline {
     boolean overhead;
     /** The picture is drawn by a camera outside the viewer, who is then one of the people in it. */
     boolean outside;
+    /** How much of the way from the game's own view to the eye the camera has come: 0 at rest overhead, 1 at the eye. */
+    float landing;
     /** How much of the game's own picture, which is under this one, this one covers. */
     float opacity = 1f;
     /** The glass the viewer is shown in this frame, or null: see OwnReflection. */
@@ -858,8 +860,11 @@ final class Pipeline {
             FineSkins.tend();
             drawn = chunks;
             ChunkBuffers.load(chunks, ahead);
-            // Seen from outside the viewer, the picture is of the built world alone, as it was.
-            beyond = !outside && view.worldScene.farLand.load(camera.eyeX, camera.eyeY) ? 1f + (steadying ? frameNumber % SIEVES : 0) : 0f;
+            // At rest overhead the picture is of the built world alone, as the game's is. On the
+            // camera's way to the eye the far land is round the viewer and not the camera: it comes
+            // in as the built world's own ends do, which come in from far off as the camera comes down.
+            boolean farThere = view.worldScene.farLand.load(focusX, focusY);
+            beyond = (!outside || landing > 0f) && farThere ? 1f + (steadying ? frameNumber % SIEVES : 0) : 0f;
             all.of(chunks, null, true, null);
             arrays();
             stage(STAGE_LOAD);
@@ -2393,7 +2398,7 @@ final class Pipeline {
         far.set("uPicture", 0);
         far.set("uPictureSide", (float) FarLand.PICTURE);
         far.set("uStorey", ViewCamera.LEVEL_HEIGHT);
-        view.worldScene.farLand.draw(camera.eyeX, camera.eyeY);
+        view.worldScene.farLand.draw(focusX, focusY);
         drawFarTrees(camera, state, fogStart, fogEnd);
     }
 
@@ -2474,7 +2479,7 @@ final class Pipeline {
         farTree.set("uKinds", 0);
         farTree.set("uKindRows", (float) rows);
         farTree.set("uTreeReach", (float) reach);
-        view.worldScene.farLand.drawTrees(camera.eyeX, camera.eyeY, reach, farTree.attribute("aTree"), treeMeshes, treeVertices);
+        view.worldScene.farLand.drawTrees(focusX, focusY, reach, farTree.attribute("aTree"), treeMeshes, treeVertices);
         GL11.glBindTexture(GL_TEXTURE_2D, 0);
         if (culling) {
             GL11.glEnable(GL_CULL_FACE);
@@ -4219,6 +4224,14 @@ final class Pipeline {
     static int none() {
         return noneTexture;
     }
+
+    /** Queued on frames that draw no picture while first person is being got ready: hands the graphics card the far land made since the last. */
+    final TextureDraw.GenericDrawer HAND_FAR = new TextureDraw.GenericDrawer() {
+        @Override
+        public void render() {
+            view.worldScene.farLand.hand();
+        }
+    };
 
     /**
      * Queued on frames that draw no picture while first person is being got ready: makes the

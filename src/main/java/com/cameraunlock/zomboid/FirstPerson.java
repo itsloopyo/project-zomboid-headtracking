@@ -290,7 +290,7 @@ public final class FirstPerson {
             Quality.inFirstPerson(view.index, true);
         }
         // With the picture already drawing the game's own view there is nothing left to make and the world is built.
-        if (!on && (view.pipeline.unprepared() || view.pipeline.contentWaited() || !rehearsed && !overhead())) {
+        if (!on && (view.pipeline.unprepared() || view.pipeline.contentWaited() || !rehearsed && !overhead() || !view.worldScene.farLand.ready())) {
             gettingReady = true;
             readySince = System.nanoTime();
             Log.info(who() + "first person asked for: what it is drawn with is being made");
@@ -299,9 +299,20 @@ public final class FirstPerson {
         switchView(player);
     }
 
-    /** One frame of getting ready: the next piece of what the picture is drawn with, then the world built once unseen, then the switch. */
+    /**
+     * One frame of getting ready: the next piece of what the picture is drawn with, then the
+     * world built once unseen, then the land beyond the loaded map round the eye, then the
+     * switch. The camera sets off with the far land and its trees already there to come into
+     * sight on its way down, not arriving after it has landed.
+     */
     private void getReady(IsoPlayer player, long now) {
         boolean late = now - readySince > READY_WITHIN_NANOS;
+        // Made on a thread of its own, the far land comes while the rest is made.
+        view.worldScene.tendFar(player.getX(), player.getY());
+        // Drawing the game's own view, the picture hands it to the graphics card itself.
+        if (!view.characters.wanted) {
+            SpriteRenderer.instance.drawGeneric(view.pipeline.HAND_FAR);
+        }
         if (!late && (view.pipeline.unprepared() || view.pipeline.contentWaited())) {
             SpriteRenderer.instance.drawGeneric(view.pipeline.PREPARE);
             return;
@@ -309,6 +320,13 @@ public final class FirstPerson {
         if (!late && !rehearsed && !view.characters.wanted && !GameTime.isGamePaused() && !player.isDead()) {
             rehearse(player);
             return;
+        }
+        if (!late && !view.worldScene.farLand.ready()) {
+            return;
+        }
+        if (late) {
+            Log.info(String.format(Locale.ROOT, "%sfirst person switched on after %.0f ms of getting ready, with the far land %s",
+                    who(), (now - readySince) / 1e6, view.worldScene.farLand.ready() ? "round the eye" : "not yet all round the eye"));
         }
         gettingReady = false;
         switchView(player);

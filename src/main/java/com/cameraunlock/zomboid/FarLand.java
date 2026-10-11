@@ -89,6 +89,12 @@ final class FarLand {
         final AtomicInteger waiting = new AtomicInteger();
         /** What stopped the far land, once anything has. */
         volatile String failure;
+        /** The cell the eye was in when cells were last asked for round it, NONE until they first are. Set by the logic thread. */
+        volatile long round = NONE;
+        /** When the first cell was asked for. */
+        volatile long since;
+        /** Whether it has been said that every cell round the eye is on the graphics card. Render thread only. */
+        boolean wholeSaid;
 
         Asked() {
             for (int place = 0; place < WINDOW * WINDOW; place++) {
@@ -107,6 +113,10 @@ final class FarLand {
     static volatile FarTreeKinds treeKinds;
     /** Replaced by the logic thread, read by all three. */
     private volatile Asked asked = new Asked();
+    /** What was asked for and the cell it was asked round, once every cell kept round it is on the graphics card: see whole. */
+    private record Whole(Asked asked, long round) {}
+    /** Set by the render thread, read by the logic thread. */
+    private volatile Whole whole;
     private final ConcurrentLinkedQueue<Made> made = new ConcurrentLinkedQueue<>();
     /** Steps from the eye's cell to each cell kept, as pairs, the nearest first. */
     private static final int[] NEAREST_FIRST = nearestFirst();
@@ -195,6 +205,10 @@ final class FarLand {
             return;
         }
         int eyeCellX = Math.floorDiv((int) Math.floor(eyeX), FarCells.CELL), eyeCellY = Math.floorDiv((int) Math.floor(eyeY), FarCells.CELL);
+        if (asked.round == NONE) {
+            asked.since = System.nanoTime();
+        }
+        asked.round = key(eyeCellX, eyeCellY);
         for (int step = 0; step < NEAREST_FIRST.length && asked.waiting.get() < WAITING_AT_ONCE; step += 2) {
             int cellX = eyeCellX + NEAREST_FIRST[step], cellY = eyeCellY + NEAREST_FIRST[step + 1];
             long cell = key(cellX, cellY);
@@ -437,6 +451,20 @@ final class FarLand {
         asked = new Asked();
     }
 
+    /**
+     * Logic thread: whether every cell kept round the eye the far land was last tended round is
+     * on the graphics card, or there is nothing more to wait for: a map with no picture of
+     * itself, or a far land that has stopped.
+     */
+    boolean ready() {
+        Asked now = asked;
+        if (now.failure != null || looked && sources.isEmpty()) {
+            return true;
+        }
+        Whole known = whole;
+        return known != null && known.asked == now && known.round == now.round;
+    }
+
     /** Logic thread, once no view holds any of the far land: the map's pictures are looked for afresh by the next save. */
     static void forgetTheMap() {
         looked = false;
@@ -464,20 +492,7 @@ final class FarLand {
      * out into a cell that has not come yet.
      */
     boolean load(float eyeX, float eyeY) {
-        for (int landed = 0; landed < LANDED_A_FRAME; landed++) {
-            Made cell = made.poll();
-            if (cell == null) {
-                break;
-            }
-            // Looked at after the cell was taken: what is asked for now is what the cell was asked for by, or something since.
-            catchUp();
-            if (cell.asked == held) {
-                land(cell);
-            } else {
-                cell.block.free();
-            }
-        }
-        catchUp();
+        hand();
         if (picture == 0) {
             return false;
         }
@@ -494,6 +509,49 @@ final class FarLand {
                     : "far land: the land round the viewer is not all on the graphics card, and the picture ends at the loaded map until it is");
         }
         return all;
+    }
+
+    /**
+     * Render thread, once a frame while first person is asked for or drawn: hands the graphics
+     * card the cells that have been made, and notes whether every cell kept round the eye they
+     * were asked round is there (ready).
+     */
+    void hand() {
+        for (int landed = 0; landed < LANDED_A_FRAME; landed++) {
+            Made cell = made.poll();
+            if (cell == null) {
+                break;
+            }
+            // Looked at after the cell was taken: what is asked for now is what the cell was asked for by, or something since.
+            catchUp();
+            if (cell.asked == held) {
+                land(cell);
+            } else {
+                cell.block.free();
+            }
+        }
+        catchUp();
+        Asked now = held;
+        long round = now.round;
+        if (round == NONE || picture == 0) {
+            return;
+        }
+        int roundX = (int) (round >> 32), roundY = (int) round;
+        for (int step = 0; step < NEAREST_FIRST.length; step += 2) {
+            int cellX = roundX + NEAREST_FIRST[step], cellY = roundY + NEAREST_FIRST[step + 1];
+            if (shown[place(cellX, cellY)] != key(cellX, cellY)) {
+                return;
+            }
+        }
+        Whole known = whole;
+        if (known == null || known.asked != now || known.round != round) {
+            whole = new Whole(now, round);
+        }
+        if (!now.wholeSaid) {
+            now.wholeSaid = true;
+            Log.info(String.format(Locale.ROOT, "far land: all %d cells round the viewer are on the graphics card, %.0f ms after the first was asked for",
+                    NEAREST_FIRST.length / 2, (System.nanoTime() - now.since) / 1e6));
+        }
     }
 
     private void land(Made cell) {
