@@ -64,6 +64,12 @@ final class HitPart {
     private final Vector3 bone = new Vector3();
     /** After {@link #part} has found one: the point on the part's own bone level with where the aim is on it, in the picture's units. */
     float boneX, boneY, boneUp;
+    /**
+     * After {@link #part} has found one: where the aim enters the part, or passes nearest it, and
+     * the middle of the game's body part of that name, both in the picture's units.
+     */
+    float hitX, hitY, hitUp, middleX, middleY, middleUp;
+    private final float[] approach = new float[3];
 
     /**
      * The game's ordinal of the part of {@code character} the aim is on, or {@link #NONE}: none
@@ -111,12 +117,33 @@ final class HitPart {
         boneX = ends[at] + (ends[at + 3] - ends[at]) * along[0];
         boneY = ends[at + 1] + (ends[at + 4] - ends[at + 1]) * along[0];
         boneUp = ends[at + 2] + (ends[at + 5] - ends[at + 2]) * along[0];
+        Capsules.closest(aim, ends, at, approach);
+        float r = radii[found], distance = approach[0];
+        if (approach[1] < r) {
+            distance -= (float) Math.sqrt(r * r - approach[1] * approach[1]);
+        }
+        hitX = aim.eyeX + aim.forwardX * distance;
+        hitY = aim.eyeY + aim.forwardY * distance;
+        hitUp = aim.eyeUp + aim.forwardUp * distance;
         if (found != BODY) {
+            middleX = (ends[at] + ends[at + 3]) / 2f;
+            middleY = (ends[at + 1] + ends[at + 4]) / 2f;
+            middleUp = (ends[at + 2] + ends[at + 5]) / 2f;
             return PARTS[found].game.ordinal();
         }
         place(character, CHEST, standsUp, chest, 0);
         float chestOn = ((chest[0] - ends[body]) * upX + (chest[1] - ends[body + 1]) * upY + (chest[2] - ends[body + 2]) * upUp) / (tall * tall * shorter);
-        return (along[0] >= chestOn / 2f ? RagdollBodyPart.BODYPART_SPINE : RagdollBodyPart.BODYPART_PELVIS).ordinal();
+        if (along[0] >= chestOn / 2f) {
+            // The game's chest runs from the chest bone to the neck.
+            middleX = chest[0] + (ends[body] + upX - chest[0]) / 2f;
+            middleY = chest[1] + (ends[body + 1] + upY - chest[1]) / 2f;
+            middleUp = chest[2] + (ends[body + 2] + upUp - chest[2]) / 2f;
+            return RagdollBodyPart.BODYPART_SPINE.ordinal();
+        }
+        middleX = ends[body];
+        middleY = ends[body + 1];
+        middleUp = ends[body + 2];
+        return RagdollBodyPart.BODYPART_PELVIS.ordinal();
     }
 
     /** Where a bone of the character is in the picture: tiles across, and up as the picture has it, the whole skeleton lifted as the model is drawn. */

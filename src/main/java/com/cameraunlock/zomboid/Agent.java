@@ -33,6 +33,7 @@ public final class Agent {
     private static final String FINE_SKINS = "com/cameraunlock/zomboid/FineSkins";
     private static final String PLAYER = "zombie/characters/IsoPlayer";
     private static final String UI = "zombie/ui/UIManager";
+    private static final String RAGDOLL = "zombie/core/physics/RagdollController";
     private static final String LIVE_NODE = "zombie/core/skinnedmodel/advancedanimation/LiveAnimNode";
     private static final String KEY_BINDING = "Lzombie/core/Core$KeyBinding;";
     private static final String INT_FILTER = "(I)I";
@@ -252,6 +253,8 @@ public final class Agent {
         String vector3 = "Lzombie/iso/Vector3;";
         CallSite.Method muzzleAt = new CallSite.Method(ballistics.owner(), "calculateMuzzlePosition", "(" + vector3 + vector3 + ")F");
         CallSite.Method muzzle = new CallSite.Method(HOOKS, "muzzle", "(L" + ballistics.owner() + ";" + vector3 + vector3 + ")F");
+        CallSite.Method applyImpulse = new CallSite.Method("zombie/core/physics/Bullet", "applyImpulse", "(II[F)V");
+        CallSite.Method pushAlongTheShot = new CallSite.Method("com/cameraunlock/zomboid/HitImpulse", "apply", "(II[F)V");
         return List.of(
                 after(new CallSite.Method("zombie/gameStates/IngameState", "renderFrameInternal", "(I)V"),
                         new CallSite.Method("zombie/iso/IsoWorld", "render", "()V"),
@@ -319,6 +322,11 @@ public final class Agent {
                             code.aload(0);
                             CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "zombieReused", "(L" + zombie + ";)V"));
                         })),
+                // The two places the game pushes a body that has just gone into its ragdoll: for a hit on a known part, and for one it guessed.
+                new Patch(RAGDOLL, "simulateHitReaction calling applyImpulse", classBytes -> CallSite.replaceEach(classBytes,
+                        new CallSite.Method(RAGDOLL, "simulateHitReaction", "()V"), applyImpulse, pushAlongTheShot, 1)),
+                new Patch(RAGDOLL, "simulateHitReaction0 calling applyImpulse", classBytes -> CallSite.replaceEach(classBytes,
+                        new CallSite.Method(RAGDOLL, "simulateHitReaction0", "()V"), applyImpulse, pushAlongTheShot, 1)),
                 new Patch(LIVE_NODE, "getBlendInTime before its returns", classBytes -> CallSite.insertBeforeReturns(classBytes,
                         new CallSite.Method(LIVE_NODE, "getBlendInTime", "()F"),
                         code -> CallSite.passThis(code, new CallSite.Method("com/cameraunlock/zomboid/Ragdolls", "blendIn", "(FL" + LIVE_NODE + ";)F")))),

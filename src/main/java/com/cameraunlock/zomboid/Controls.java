@@ -305,7 +305,12 @@ public final class Controls {
         if (!view.firstPerson.lookCaptured() || target instanceof IsoAnimal || !Online.aimPicksThePartOf(target instanceof IsoPlayer)) {
             return HitPart.NONE;
         }
-        int part = hitPart.part(view.firstPerson.aimView(), view.kerbSteps.up(view.worldScene.terrain, target, target.getX(), target.getY(), target.getZ()), target);
+        ViewCamera.Pose aim = view.firstPerson.aimView();
+        float standsUp = view.kerbSteps.up(view.worldScene.terrain, target, target.getX(), target.getY(), target.getZ());
+        int part = hitPart.part(aim, standsUp, target);
+        if (part != HitPart.NONE) {
+            HitImpulse.aimed(target.getID(), aim, hitPart, part);
+        }
         if (FirstPerson.TRACE) {
             Log.info(String.format(Locale.ROOT, "shot part: %s of the character at (%.2f, %.2f)",
                     part == HitPart.NONE ? "none, the game's own" : RagdollBodyPart.values()[part].name(), target.getX(), target.getY()));
