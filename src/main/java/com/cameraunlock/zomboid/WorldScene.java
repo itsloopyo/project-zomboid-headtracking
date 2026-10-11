@@ -2380,6 +2380,7 @@ final class WorldScene {
                 Roofs.forget();
                 WallFinish.forget();
                 Country.read(IsoWorld.instance.getMetaGrid());
+                MapAhead.forget();
                 Terrain.forget();
             }
             float hills = HillHeight.drawn(Online.contested());
@@ -2423,6 +2424,7 @@ final class WorldScene {
                 strungWith = loadedNow;
             }
             int loadedForAll = Rounds.loaded(view.index, loadedNow);
+            MapAhead.tend(view.index, (int) Math.floor(player.getX()), (int) Math.floor(player.getY()));
             Terrain.loaded(loadedForAll);
             if (telling && roundBegins) {
                 // The game's own scale: a scene's frame has none until its first build has got as far as setting it.

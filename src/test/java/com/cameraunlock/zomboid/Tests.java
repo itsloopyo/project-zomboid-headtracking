@@ -197,6 +197,7 @@ public final class Tests {
         Checks.run("MarkTests", MarkTests::run);
         Checks.run("FarLandTests", FarLandTests::run);
         Checks.run("FarTreeTests", FarTreeTests::run);
+        Checks.run("MapAheadTests", MapAheadTests::run);
         Checks.run("VehicleSlopeTests", VehicleSlopeTests::run);
         Checks.run("OnlineTests", OnlineTests::run);
         Checks.run("EyesightTests", EyesightTests::run);

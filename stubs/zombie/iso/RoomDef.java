@@ -6,6 +6,8 @@ public final class RoomDef {
     public int level;
     public final ArrayList<RoomRect> rects = null;
 
+    public BuildingDef getBuilding() { throw new UnsupportedOperationException("reference stub"); }
+
     public static final class RoomRect {
         public int x;
         public int y;

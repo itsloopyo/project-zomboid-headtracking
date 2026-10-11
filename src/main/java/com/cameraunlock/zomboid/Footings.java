@@ -42,6 +42,13 @@ final class Footings {
     static final byte OPEN = 0, BUILT = 1, HOUSE = 2, UNLOADED = 3, HUNG = 4;
     /** Nothing over it, and made ground: a street, a pavement, a yard. */
     static final byte PAVED = 5;
+    /**
+     * With what over says of a square not loaded, read from the map's files ahead of the game
+     * (MapAhead): the save may have it otherwise, so a thing found with it is not settled.
+     */
+    static final byte GUESSED = 16;
+    /** What Site.state says of a chunk. */
+    static final byte NOT_LOADED = 0, READ_AHEAD = 1, LOADED = 2;
     /** The widest passage of made ground that what is built either side of it is one thing across, counting what hangs out over it from either side. */
     static final int PASSAGE = 4;
 
@@ -60,6 +67,14 @@ final class Footings {
          */
         default boolean loaded(int wx, int wy) {
             return over(wx * CHUNK + CHUNK / 2, wy * CHUNK + CHUNK / 2) != UNLOADED;
+        }
+
+        /**
+         * LOADED, READ_AHEAD for a chunk not loaded that over says what the map's files have of,
+         * or NOT_LOADED: what over says of its squares changes with this.
+         */
+        default byte state(int wx, int wy) {
+            return loaded(wx, wy) ? LOADED : NOT_LOADED;
         }
 
         /** The middle of the building over a HOUSE square, as key packs it. */
@@ -131,25 +146,26 @@ final class Footings {
 
     /**
      * The chunks a search that met ground the map had not loaded went by, each chunk with a
-     * square it asked about or a square round one, and which of them were loaded. While each
-     * is as loaded as it was, a search of the same thing asks the same of every square and
-     * comes out the same, and the answer holds, unless a thing found too large to look over
+     * square it asked about or a square round one, and which of them were loaded or read ahead
+     * (Site.state). While each is as it was, a search of the same thing asks the same of every
+     * square and comes out the same, and the answer holds, unless a thing found too large to look over
      * since has taken in some of its squares: a search that meets one of those stops short.
      * What is built or taken down on loaded ground is not seen until the thing is looked over
      * again, as with a settled thing.
      */
     private static final class Ground {
         final long[] chunks;
-        final boolean[] loaded;
+        /** As Site.state said of each chunk. */
+        final byte[] states;
         /** How many things had been found too large when it was found. */
         final int largeThings;
         /** The last changed it was found to hold in, and whether it has been found not to. */
         int heldIn;
         boolean gone;
 
-        Ground(long[] chunks, boolean[] loaded, int largeThings, int heldIn) {
+        Ground(long[] chunks, byte[] states, int largeThings, int heldIn) {
             this.chunks = chunks;
-            this.loaded = loaded;
+            this.states = states;
             this.largeThings = largeThings;
             this.heldIn = heldIn;
         }
@@ -417,7 +433,7 @@ final class Footings {
             return true;
         }
         for (int at = 0; at < ground.chunks.length; at++) {
-            if (site.loaded((int) (ground.chunks[at] >> 32), (int) ground.chunks[at]) != ground.loaded[at]) {
+            if (site.state((int) (ground.chunks[at] >> 32), (int) ground.chunks[at]) != ground.states[at]) {
                 ground.gone = true;
                 return false;
             }
@@ -431,11 +447,11 @@ final class Footings {
         Ground ground = null;
         if (!settled) {
             long[] chunks = Arrays.copyOf(touched, touchedCount);
-            boolean[] loaded = new boolean[touchedCount];
+            byte[] states = new byte[touchedCount];
             for (int at = 0; at < touchedCount; at++) {
-                loaded[at] = site.loaded((int) (chunks[at] >> 32), (int) chunks[at]);
+                states[at] = site.state((int) (chunks[at] >> 32), (int) chunks[at]);
             }
-            ground = new Ground(chunks, loaded, largeThings, changes);
+            ground = new Ground(chunks, states, largeThings, changes);
         }
         Answer answer = new Answer(found, free, settled, ground);
         Answers into = settled ? lasting : forNow;
@@ -458,7 +474,12 @@ final class Footings {
         }
         asked[at] = square;
         askedIn[at] = search;
-        answered[at] = site.over(x, y);
+        byte over = site.over(x, y);
+        if ((over & GUESSED) != 0) {
+            settled = false;
+            over &= ~GUESSED;
+        }
+        answered[at] = over;
         // What over said of the square went by the squares round it as well.
         for (int chunkX = Math.floorDiv(x - 1, CHUNK); chunkX <= Math.floorDiv(x + 1, CHUNK); chunkX++) {
             for (int chunkY = Math.floorDiv(y - 1, CHUNK); chunkY <= Math.floorDiv(y + 1, CHUNK); chunkY++) {

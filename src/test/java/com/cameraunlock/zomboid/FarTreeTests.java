@@ -193,13 +193,13 @@ final class FarTreeTests {
     private static final boolean[] TREE = FarTreeCells.trees(TILES);
 
     /** A square's contents as the lotpack has them: a room and its tiles, or nothing for an empty square. */
-    private record Square(int wx, int wy, int z, int x, int y, int... tiles) {}
+    record Square(int wx, int wy, int z, int x, int y, int... tiles) {}
 
     /**
      * A lotpack of one cell from the levels given, each chunk's squares written out in the game's
      * order, empty squares as runs.
      */
-    private static ByteBuffer pack(boolean magic, int minLevel, int maxLevel, Square... squares) {
+    static ByteBuffer pack(boolean magic, int minLevel, int maxLevel, Square... squares) {
         ByteBuffer out = ByteBuffer.allocate(4 << 20).order(ByteOrder.LITTLE_ENDIAN);
         if (magic) {
             out.put(new byte[] {'L', 'O', 'T', 'P'}).putInt(1);

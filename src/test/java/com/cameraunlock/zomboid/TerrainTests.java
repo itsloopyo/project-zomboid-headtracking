@@ -46,6 +46,8 @@ final class TerrainTests {
             aChangeOfHeightReworksTheLandRoundTheEyeAtOnce();
             streamedChunksShareTheirBorders();
             aBuildKeepsTheHeightsItWasMadeOn();
+            groundReadAheadGivesAChunkTheHeightsItHasOnceLoaded();
+            groundLoadedOtherwiseThanReadAheadHasItsOwnHeights();
             theLevelLandHasNoKerbs();
         } finally {
             System.arraycopy(around, 0, Terrain.around, 0, around.length);
@@ -107,6 +109,95 @@ final class TerrainTests {
         } finally {
             ChunkMarks.live = live;
             Terrain.forget();
+        }
+    }
+
+    /** The map the read-ahead tests load: grass, and water from x = 16 east. */
+    private static boolean wet(int x) {
+        return x >= 16;
+    }
+
+    /**
+     * The heights of the chunk (1, 0) with the map loaded from -from to to-1 each way, and the
+     * chunks round it not loaded read ahead as the map has them, with water from x = 16 east
+     * where waterAhead and none where not, or not read ahead at all where readAhead is false.
+     */
+    private static float[] heightsReadAhead(int from, int to, boolean readAhead, boolean waterAhead) {
+        TestMap map = new TestMap();
+        var grass = map.sprite("blends_natural_01_0", zombie.iso.SpriteDetails.IsoObjectType.normal);
+        var water = map.sprite("blends_natural_02_0", zombie.iso.SpriteDetails.IsoObjectType.normal, "water");
+        Terrain.forget();
+        MapAhead.forget();
+        for (int x = -from; x < to; x++) {
+            for (int y = -from; y < to; y++) {
+                map.cell.square(x, y, 0).floor(wet(x) ? water : grass);
+            }
+        }
+        int fromChunk = Math.floorDiv(-from, Terrain.CHUNK_TILES), toChunk = Math.floorDiv(to - 1, Terrain.CHUNK_TILES);
+        for (int wx = -12; readAhead && wx <= 13; wx++) {
+            for (int wy = -12; wy <= 13; wy++) {
+                if (wx >= fromChunk && wx <= toChunk && wy >= fromChunk && wy <= toChunk) {
+                    continue;
+                }
+                MapAhead.Guess guess = new MapAhead.Guess(wx, wy);
+                for (int i = 0; i < Terrain.CHUNK_TILES; i++) {
+                    for (int j = 0; j < Terrain.CHUNK_TILES; j++) {
+                        int at = i * Terrain.CHUNK_TILES + j;
+                        guess.kind[at] = waterAhead && wet(wx * Terrain.CHUNK_TILES + i) ? Terrain.WATER : Terrain.NATURAL;
+                        guess.house[at] = Footings.NONE;
+                        guess.above[at] = Footings.OPEN;
+                    }
+                }
+                MapAhead.put(guess);
+            }
+        }
+        Terrain.frame(3000);
+        Terrain.loaded(1);
+        Terrain.HILLS.fromMap(map.cell, 1, 0);
+        return Terrain.HILLS.corners(map.cell, 1, 0).clone();
+    }
+
+    /**
+     * A chunk's heights go by the ground up to Terrain.AROUND round it. Read ahead of the game
+     * (MapAhead), the ground not yet loaded gives a chunk at the edge of the loaded map the
+     * heights it has once all of it is loaded, where without it the chunk steps to them as
+     * the map loads.
+     */
+    private static void groundReadAheadGivesAChunkTheHeightsItHasOnceLoaded() {
+        boolean live = ChunkMarks.live;
+        Terrain.HILLS.heighten(1f);
+        Country.set(List.of());
+        try {
+            ChunkMarks.live = true;
+            float[] loaded = heightsReadAhead(48, 64, false, false);
+            float[] unread = heightsReadAhead(8, 16, false, false);
+            float[] readAhead = heightsReadAhead(8, 16, true, true);
+            check(!Arrays.equals(unread, loaded), "with nothing read ahead, the chunk at the edge has other heights than once the map round it is loaded");
+            check(Arrays.equals(readAhead, loaded), "with the map round it read ahead, the chunk at the edge has the heights it has once it is loaded: "
+                    + Arrays.toString(readAhead) + " against " + Arrays.toString(loaded));
+        } finally {
+            ChunkMarks.live = live;
+            Terrain.forget();
+            MapAhead.forget();
+        }
+    }
+
+    /** What is read ahead is the map as shipped, and a save can have it otherwise: what loads is what the heights then go by. */
+    private static void groundLoadedOtherwiseThanReadAheadHasItsOwnHeights() {
+        boolean live = ChunkMarks.live;
+        Terrain.HILLS.heighten(1f);
+        Country.set(List.of());
+        try {
+            ChunkMarks.live = true;
+            float[] loaded = heightsReadAhead(48, 64, false, false);
+            float[] misread = heightsReadAhead(8, 16, true, false);
+            float[] loadedOverMisread = heightsReadAhead(48, 64, true, false);
+            check(!Arrays.equals(misread, loaded), "read ahead without the water the save has, the chunk at the edge has other heights");
+            check(Arrays.equals(loadedOverMisread, loaded), "once the ground is loaded, its heights are the loaded ground's and not what was read ahead");
+        } finally {
+            ChunkMarks.live = live;
+            Terrain.forget();
+            MapAhead.forget();
         }
     }
 

@@ -159,6 +159,8 @@ final class Terrain {
         final boolean[] footway = new boolean[CHUNK_TILES * CHUNK_TILES];
         /** Whether every square of the chunk was loaded: then it is kept, and is the same whenever it is asked for. */
         boolean whole;
+        /** Whether it is what the map's files have of a chunk not loaded (MapAhead), which the save may have otherwise. */
+        boolean guessed;
         /** Whether footed has filled in midX, midY and free; whether what it found can no longer change; and the map it found it on. */
         boolean footed, footSettled;
         long footedAsOf;
@@ -228,7 +230,7 @@ final class Terrain {
         public byte over(int x, int y) {
             IsoGridSquare square = siteCell.getGridSquare(x, y, 0);
             if (square == null) {
-                return Footings.UNLOADED;
+                return guessedOver(x, y);
             }
             if (defOf(square) != null) {
                 return Footings.HOUSE;
@@ -251,17 +253,56 @@ final class Terrain {
         }
 
         @Override
+        public byte state(int wx, int wy) {
+            return loaded(wx, wy) ? Footings.LOADED : MapAhead.guessed(wx, wy) != null ? Footings.READ_AHEAD : Footings.NOT_LOADED;
+        }
+
+        @Override
         public long house(int x, int y) {
-            BuildingDef def = defOf(siteCell.getGridSquare(x, y, 0));
+            IsoGridSquare square = siteCell.getGridSquare(x, y, 0);
+            if (square == null) {
+                return MapAhead.guessed(Math.floorDiv(x, CHUNK_TILES), Math.floorDiv(y, CHUNK_TILES)).house[inChunk(x, y)];
+            }
+            BuildingDef def = defOf(square);
             return Footings.key(def.getX() + def.getW() / 2f, def.getY() + def.getH() / 2f);
         }
 
         @Override
         public boolean paved(int x, int y) {
-            byte kind = kind(siteCell.getGridSquare(x, y, 0));
+            IsoGridSquare square = siteCell.getGridSquare(x, y, 0);
+            byte kind = square == null ? MapAhead.guessed(Math.floorDiv(x, CHUNK_TILES), Math.floorDiv(y, CHUNK_TILES)).kind[inChunk(x, y)] : kind(square);
             return !Paving.without && (kind == STREET || kind == MADE);
         }
     };
+    /** Where a square of the map is in its chunk, as Kinds and MapAhead.Guess keep squares. */
+    private static int inChunk(int x, int y) {
+        return Math.floorMod(x, CHUNK_TILES) * CHUNK_TILES + Math.floorMod(y, CHUNK_TILES);
+    }
+
+    /**
+     * What over says of a square not loaded, as the map's files have it (MapAhead), with
+     * Footings.GUESSED: in the same order as over asks it of a loaded square. UNLOADED where
+     * nothing has been read of it.
+     */
+    private static byte guessedOver(int x, int y) {
+        MapAhead.Guess guess = MapAhead.guessed(Math.floorDiv(x, CHUNK_TILES), Math.floorDiv(y, CHUNK_TILES));
+        if (guess == null) {
+            return Footings.UNLOADED;
+        }
+        int at = inChunk(x, y);
+        byte kind = guess.kind[at];
+        byte over = guess.house[at] != Footings.NONE ? Footings.HOUSE
+                : standsNow(guess.stands[at]) ? Footings.BUILT
+                : guess.above[at] != Footings.OPEN ? guess.above[at]
+                : !Paving.without && (kind == STREET || kind == MADE) ? Footings.PAVED : Footings.OPEN;
+        return (byte) (over | Footings.GUESSED);
+    }
+
+    /** Whether something built stands on a square not loaded, as stands tells of a loaded one, from what MapAhead read of it. */
+    private static boolean standsNow(byte stands) {
+        return (stands & (MapAhead.STAIR_OR_ROOF | MapAhead.WALLED)) != 0 || (stands & MapAhead.CANOPY) != 0 && !Own.furniture();
+    }
+
     /** The height of the footing of each made thing whose footing can no longer change, by the middle of the thing. */
     private final HashMap<Long, Float> pads = new HashMap<>();
     private static final byte[] kerbKinds = new byte[Kerbs.SPAN * Kerbs.SPAN];
@@ -328,7 +369,8 @@ final class Terrain {
      * that number has changed and not otherwise.
      */
     static void loaded(int epoch) {
-        loaded = epoch;
+        // What has been read of the map not loaded is another, as much as another set of chunks loaded is.
+        loaded = epoch * 31 + MapAhead.version();
     }
 
     /** The version of a chunk's heights. After corners. */
@@ -700,8 +742,7 @@ final class Terrain {
             for (int cy = -reach; cy <= reach; cy++) {
                 Kinds kinds = known(fresh.wx + cx, fresh.wy + cy);
                 if (kinds == null) {
-                    kinds = cell.getGridSquare((fresh.wx + cx) * CHUNK_TILES + CHUNK_TILES / 2, (fresh.wy + cy) * CHUNK_TILES + CHUNK_TILES / 2, 0) == null
-                            ? null : kinds(cell, fresh.wx + cx, fresh.wy + cy);
+                    kinds = onMap(cell, fresh.wx + cx, fresh.wy + cy) ? kinds(cell, fresh.wx + cx, fresh.wy + cy) : null;
                 }
                 for (int i = 0; i < CHUNK_TILES; i++) {
                     for (int j = 0; j < CHUNK_TILES; j++) {
@@ -1007,13 +1048,12 @@ final class Terrain {
             for (int cy = -WATER_CHUNKS; cy <= WATER_CHUNKS; cy++) {
                 Kinds kept = known(wx + cx, wy + cy);
                 if (kept == null) {
-                    // A chunk with its middle square missing is not loaded, and looking over
-                    // the rest of it would find nothing to keep.
-                    kept = cell.getGridSquare((wx + cx) * CHUNK_TILES + CHUNK_TILES / 2, (wy + cy) * CHUNK_TILES + CHUNK_TILES / 2, 0) == null
-                            ? null : kinds(cell, wx + cx, wy + cy);
+                    kept = onMap(cell, wx + cx, wy + cy) ? kinds(cell, wx + cx, wy + cy) : null;
                     if (kept == null || !kept.whole) {
                         all = false;
-                        continue;
+                        if (kept == null || !kept.guessed) {
+                            continue;
+                        }
                     }
                 }
                 builtChunks[(cx + WATER_CHUNKS) * WATER_SIDE + cy + WATER_CHUNKS] = kept.builtOn;
@@ -1088,6 +1128,31 @@ final class Terrain {
         return town;
     }
 
+    /**
+     * Whether the chunk is loaded or MapAhead has read it: whether kinds has anything to say of
+     * it. A chunk with its middle square missing is not loaded, and looking over the rest of it
+     * would find nothing.
+     */
+    private static boolean onMap(IsoCell cell, int wx, int wy) {
+        return cell.getGridSquare(wx * CHUNK_TILES + CHUNK_TILES / 2, wy * CHUNK_TILES + CHUNK_TILES / 2, 0) != null || MapAhead.guessed(wx, wy) != null;
+    }
+
+    /** What the squares of a chunk not loaded are, as MapAhead read them. */
+    private static Kinds guessed(MapAhead.Guess guess) {
+        Kinds fresh = new Kinds();
+        fresh.wx = guess.wx;
+        fresh.wy = guess.wy;
+        fresh.guessed = true;
+        for (int at = 0; at < CHUNK_TILES * CHUNK_TILES; at++) {
+            fresh.kinds[at] = guess.kind[at];
+            fresh.hard[at] = guess.house[at] != Footings.NONE || standsNow(guess.stands[at]);
+            fresh.footway[at] = guess.footway[at];
+            fresh.water |= guess.kind[at] == WATER;
+            fresh.builtOn += fresh.hard[at] ? 1 : 0;
+        }
+        return fresh;
+    }
+
     /** What each square of a chunk is. Kept once every square of the chunk has been seen loaded. */
     private static Kinds kinds(IsoCell cell, int wx, int wy) {
         Kinds kept = known(wx, wy);
@@ -1101,6 +1166,12 @@ final class Terrain {
         long chunk = (long) wx << 32 | wy & 0xFFFFFFFFL;
         kept = unsure.get(chunk);
         if (kept != null) {
+            return kept;
+        }
+        MapAhead.Guess guess = cell.getGridSquare(wx * CHUNK_TILES + CHUNK_TILES / 2, wy * CHUNK_TILES + CHUNK_TILES / 2, 0) == null ? MapAhead.guessed(wx, wy) : null;
+        if (guess != null) {
+            kept = guessed(guess);
+            unsure.put(chunk, kept);
             return kept;
         }
         boolean whole = true, water = false;
@@ -1267,7 +1338,7 @@ final class Terrain {
         return hung ? Footings.HUNG : Footings.OPEN;
     }
 
-    private static boolean isRoof(IsoObjectType type) {
+    static boolean isRoof(IsoObjectType type) {
         return type == IsoObjectType.WestRoofB || type == IsoObjectType.WestRoofM || type == IsoObjectType.WestRoofT;
     }
 
@@ -1275,7 +1346,7 @@ final class Terrain {
         return square != null && defOf(square) != null;
     }
 
-    private static boolean isStair(IsoObjectType type) {
+    static boolean isStair(IsoObjectType type) {
         return type == IsoObjectType.stairsBW || type == IsoObjectType.stairsMW || type == IsoObjectType.stairsTW
                 || type == IsoObjectType.stairsBN || type == IsoObjectType.stairsMN || type == IsoObjectType.stairsTN;
     }
