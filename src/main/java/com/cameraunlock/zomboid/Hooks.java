@@ -410,6 +410,8 @@ public final class Hooks {
         } else if (roll < POPS + BURSTS) {
             wounds.burst(zombie);
             Bleeding.mist(zombie, zombie.isOnFloor() ? 0.3f : 1.2f, 7, 3f);
+            IsoPlayer shooter = IsoPlayer.getInstance();
+            Pieces.burst(zombie, shooter.getX(), shooter.getY());
             Bleeding.spray(zombie, Bleeding.SPRAY * 3, Bleeding.SPRAY_REACH * 1.8f);
             Stumps.bloody(zombie, Wounds.HEAD);
             said = "its head bursts";

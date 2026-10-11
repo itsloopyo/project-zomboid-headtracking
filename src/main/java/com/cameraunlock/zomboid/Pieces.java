@@ -48,6 +48,13 @@ final class Pieces {
     static final float GRAVITY = 9.8f;
     /** A piece's length from the joint it was cut at, as many times the bone from that joint to the next; and its radius, in units. */
     static final float LOWER_LENGTH = 1.7f, UPPER_LENGTH = 2.7f, HEAD_LENGTH = 0.14f, ARM_RADIUS = 0.03f, LEG_RADIUS = 0.045f, HEAD_RADIUS = 0.055f;
+    /**
+     * A burst head's shards: how many, how fast they leave, in metres a second, and how much of
+     * the head each is along each of the model's axes, least and most. Pressed that flat a
+     * shard is drawn as meat (CharacterDraw's stumped), not as a small head.
+     */
+    static final int SHARDS = 4;
+    static final float SHARD_SPEED = 3.5f, SHARD_LEAST = 0.03f, SHARD_MOST = 0.22f, SHARD_LENGTH = 0.05f, SHARD_RADIUS = 0.02f;
     /** How long a piece lies once it has landed, in seconds. */
     static final float LIES_FOR = 120f;
     /** How many bones a part of the game's model has. */
@@ -79,6 +86,8 @@ final class Pieces {
         float x, y, standsUp, angle, scale;
         long kept, posed;
         volatile boolean splashed;
+        /** A shard's share of the head along each of the model's axes, or null for a whole piece. */
+        float[] squash;
 
         Piece(int part, int cut, float awayX, float awayY, float up) {
             this.part = part;
@@ -117,6 +126,23 @@ final class Pieces {
         }
     }
 
+    /** A head burst by a shot from (fromX, fromY): shards of it fly every way, most away from the shot. Logic thread. */
+    static void burst(IsoZombie zombie, float fromX, float fromY) {
+        float dx = zombie.getX() - fromX, dy = zombie.getY() - fromY, length = Math.max((float) Math.hypot(dx, dy), 1e-4f);
+        for (int i = 0; i < SHARDS; i++) {
+            float angle = (float) Math.atan2(dy, dx) + (random.nextFloat() - 0.5f) * 2.4f, speed = SHARD_SPEED * (0.6f + 0.8f * random.nextFloat());
+            Piece shard = new Piece(Wounds.HEAD, Wounds.UPPER, (float) Math.cos(angle) * speed, (float) Math.sin(angle) * speed, speed * (0.3f + 0.7f * random.nextFloat()));
+            shard.squash = new float[3];
+            for (int axis = 0; axis < 3; axis++) {
+                shard.squash[axis] = SHARD_LEAST + (SHARD_MOST - SHARD_LEAST) * random.nextFloat();
+            }
+            synchronized (pieces) {
+                pieces.computeIfAbsent(zombie, z -> new ArrayList<>()).add(shard);
+                any = true;
+            }
+        }
+    }
+
     /**
      * Whether a cut part's press is held back this frame: a new piece is kept unpressed until the
      * render thread has the bones. Takes where the joint is and which way the piece runs from
@@ -131,6 +157,7 @@ final class Pieces {
             if (list == null) {
                 return false;
             }
+            boolean holds = false;
             for (Piece piece : list) {
                 if (piece.part == part && piece.state == POSED && (System.nanoTime() - piece.posed) / 1e9f > KEPT_WITHIN) {
                     // Never drawn: nothing is kept, and the piece is let go.
@@ -149,8 +176,11 @@ final class Pieces {
                         piece.bone = bone;
                         piece.state = POSED;
                     }
-                    return true;
+                    holds = true;
                 }
+            }
+            if (holds) {
+                return true;
             }
         }
         return false;
@@ -241,9 +271,10 @@ final class Pieces {
         boolean head = piece.part == Wounds.HEAD, leg = piece.part == Wounds.LEFT_LEG || piece.part == Wounds.RIGHT_LEG;
         // The head runs up from the neck; a limb runs on from its joint.
         float along = head ? -1f : 1f;
-        float length = head ? HEAD_LENGTH : piece.bone * (piece.cut == Wounds.UPPER ? UPPER_LENGTH : LOWER_LENGTH);
+        boolean shard = piece.squash != null;
+        float length = shard ? SHARD_LENGTH : head ? HEAD_LENGTH : piece.bone * (piece.cut == Wounds.UPPER ? UPPER_LENGTH : LOWER_LENGTH);
         piece.motion = new PieceMotion(piece.px, piece.py, piece.pz, piece.ax * along, piece.ay * along, piece.az * along, length,
-                head ? HEAD_RADIUS : leg ? LEG_RADIUS : ARM_RADIUS, GRAVITY / METRES_PER_UNIT);
+                shard ? SHARD_RADIUS : head ? HEAD_RADIUS : leg ? LEG_RADIUS : ARM_RADIUS, GRAVITY / METRES_PER_UNIT);
         // Into the model's axes, as Characters places a model: x along (cos, sin), z along (sin, -cos), at angle + pi.
         float cos = (float) Math.cos(angle + Math.PI), sin = (float) Math.sin(angle + Math.PI);
         float vx = (piece.awayX * cos + piece.awayY * sin) / METRES_PER_UNIT, vz = (piece.awayX * sin - piece.awayY * cos) / METRES_PER_UNIT;
@@ -298,6 +329,7 @@ final class Pieces {
         float r00 = r[0], r01 = r[1], r02 = r[2], r10 = r[3], r11 = r[4], r12 = r[5], r20 = r[6], r21 = r[7], r22 = r[8];
         float mx = now3[0] - piece.px, my = now3[1] - piece.py, mz = now3[2] - piece.pz;
         float px = piece.px, py = piece.py, pz = piece.pz;
+        float[] squash = piece.squash;
         moved.clear();
         int bones = kept.length / 16;
         for (int bone = 0; bone < bones; bone++) {
@@ -320,6 +352,11 @@ final class Pieces {
                     a0 -= px;
                     a1 -= py;
                     a2 -= pz;
+                }
+                if (squash != null) {
+                    a0 *= squash[0];
+                    a1 *= squash[1];
+                    a2 *= squash[2];
                 }
                 float b0 = r00 * a0 + r01 * a1 + r02 * a2, b1 = r10 * a0 + r11 * a1 + r12 * a2, b2 = r20 * a0 + r21 * a1 + r22 * a2;
                 if (column == 3) {
