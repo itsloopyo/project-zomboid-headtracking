@@ -38,7 +38,7 @@ fan production for non-commercial purposes made under the Indie Stone Terms
 
 ## cameraunlock-core
 
-- **Version:** commit c1a0fe608bcdefcb0eff0bebaaa412c76afa198d
+- **Version:** commit b6d65fa388103689945f3c04d1fedec57a3e58f6
 - **License:** MIT
 - **Upstream:** https://github.com/itsloopyo/cameraunlock-core
 - **Usage:** `CameraUnlockCore.dll` is built from it: the OpenTrack receiver, the pose pipeline, the settings file reader and writer, the hotkey poller and the log, which the jar loads from beside itself. Its two Java classes, the binding to that DLL and the class the game's launcher starts the mod through, are compiled into the jar. `install.cmd` and `uninstall.cmd` run the installer script bodies it provides.
