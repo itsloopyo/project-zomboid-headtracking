@@ -1,9 +1,14 @@
 package com.cameraunlock.zomboid;
 
 /**
- * Rain on the panes of the vehicle the viewer sits in, as the cabin's fragment shader draws
- * it over the glass: drops that stand where they landed, drops that gather and run down, and
- * the mist at the foot of a pane no wiper reaches.
+ * Rain and snow on the panes of the vehicle the viewer sits in, as the cabin's fragment shader
+ * draws them over the glass: drops that stand where they landed, drops that gather and run
+ * down, the mist at the foot of a pane no wiper reaches, and flakes that stick.
+ *
+ * A flake is a white star of ice that lands and stays. On the front screen, which the air
+ * inside keeps above freezing, it goes to water in a few seconds; on the side windows it stays
+ * a good while longer. The blades sweep flakes as they sweep the rain, and the snow they push
+ * down lies in a bank along the foot of the screen where they park.
  *
  * A drop is a lens and not a mark. It is nearly clear, it shows the world upside down, so its
  * lower edge holds the sky and its upper edge the dark of the ground, and no two are one
@@ -17,6 +22,8 @@ final class GlassRain {
     static final String GLSL = """
             // 0 in Low, 1 in Medium, 2 in High: see Quality.glassRain.
             uniform float uGlassRain;
+            // How hard it is snowing, 0 to 1.
+            uniform float uSnowing;
             // How the vehicle's change of speed pulls at the water on its glass: see GlassPull.
             // x is how far a run leans towards the front of the vehicle for each tile it falls,
             // y the same towards the side the panes are counted to, z the clock the runs on
@@ -103,6 +110,77 @@ final class GlassRain {
                 float soft = clamp(fine * 1.5, 0.12, 0.9);
                 float inside = (1.0 - smoothstep(1.0 - soft, 1.0, d)) * landed / max(fine * 0.8, 1.0) * smoothstep(0.0, 0.03, 0.5 - max(abs(from.x), abs(from.y)));
                 return inside * lens(p, d);
+            }
+
+            // The flakes of one size that stick to a pane, as dropsOn has its drops: a flake has a square
+            // of a grid to itself, lands when as much snow has arrived as its own pick, and stays its
+            // lifetime, which is shorter on the front screen. melt says how far it has gone to water,
+            // 0 to 1; what is returned is how much of the pixel is still ice.
+            float flakesOn(vec2 on, float shift, float cells, vec2 turn, float few, float size, float arrived, float swept, float grain, out float melt) {
+                melt = 0.0;
+                mat2 turned = mat2(turn.x, turn.y, -turn.y, turn.x);
+                vec2 grid = turned * (on + shift) * cells;
+                vec2 cell = floor(grid);
+                vec2 from = fract(grid) - 0.5;
+                float passes = 0.0;
+                if (swept > 0.5) {
+                    vec2 wiped = wipedAt(on - from * turned / cells);
+                    passes = mod(wiped.x, 89.0);
+                    arrived = min(arrived, uSnowing * backAfter(wiped.y));
+                }
+                float own = hash21(cell + 41.7);
+                // A whole number of lives an hour, as a drop's: about a minute on a side window, ten seconds on the screen.
+                float turns = floor((40.0 + 60.0 * own) * (swept > 0.5 ? 6.0 : 1.0));
+                float age = uTime * turns / 3600.0 + own * 23.0;
+                float which = floor(age);
+                age -= which;
+                which = mod(which, turns);
+                vec2 seed = cell + which * vec2(5.31, 2.17) + passes * vec2(3.11, 6.07);
+                float pick = hash21(seed);
+                float landed = smoothstep(pick, pick + 0.06, few * arrived) * (1.0 - smoothstep(0.85, 1.0, age));
+                if (landed <= 0.0) {
+                    return 0.0;
+                }
+                float radius = size * (0.5 + 0.5 * hash21(seed + 2.3));
+                // Anywhere in its square that it stays whole in: flakes land where they will, in no rows.
+                vec2 middle = (vec2(hash21(seed + 4.1), hash21(seed + 6.9)) - 0.5) * max(1.0 - 2.0 * radius, 0.0);
+                vec2 p = (from - middle) * turned / radius;
+                float fine = grain * cells / radius;
+                // Six arms and a ragged rim, turned its own way: ice, not a dot of paint.
+                float a = atan(p.y, p.x) + hash21(seed + 9.2) * 6.2832;
+                float star = 0.6 + 0.4 * pow(abs(cos(3.0 * a)), 3.0) + 0.15 * (noiseAt(p * 2.5 + seed) - 0.5);
+                float d = length(p) / star;
+                // A flake goes to water from its arms in: its ice shrinks to nothing.
+                melt = smoothstep(0.1, 0.7, age);
+                float r = 1.0 - melt;
+                float soft = clamp(fine * 1.5, 0.15, 0.9);
+                return (1.0 - smoothstep(r * (1.0 - soft), r, d)) * landed / max(fine * 0.8, 1.0) * smoothstep(0.0, 0.03, 0.5 - max(abs(from.x), abs(from.y)));
+            }
+
+            // Snow on a pane: see the top of this. on, swept and wiper as for rained.
+            vec4 snowed(vec4 glass, vec2 on, float swept, vec4 wiper) {
+                float arrived = uSnowing * (swept > 0.5 ? min(wiper.z * 1.7, 1.0) : 1.0);
+                float grain = length(fwidth(on));
+                float melt, melted;
+                float ice = flakesOn(on, 1.3, 90.0, vec2(0.6, 0.8), 0.22, 0.4, arrived, swept, grain, melt);
+                if (uGlassRain > 0.5) {
+                    ice = max(ice, flakesOn(on, 5.9, 47.0, vec2(-0.28, 0.96), 0.12, 0.36, arrived, swept, grain, melted));
+                }
+                // Ice is white and lets light through: it is lit by the sky it lies under and, on the front
+                // screen at night, by what the lamps throw back off the snow ahead, and it shows the world
+                // behind it dimly.
+                vec3 sky = atmosphere(vec3(0.0, 0.0, 1.0));
+                vec3 white = sky * 1.7 + 0.01 + vec3(1.0, 0.92, 0.76) * (0.18 * swept * step(0.5, uBeamAt[0].w));
+                glass.rgb = mix(glass.rgb, white, ice / (ice + glass.a + 1e-4));
+                glass.a = min(glass.a + ice * 0.6, 0.95);
+                if (swept > 0.5) {
+                    // The bank at the screen's foot, where the blades park, rough along its top.
+                    float top = -0.27 + 0.035 * uSnowing + 0.02 * (noiseAt(vec2(on.x * 11.0, 1.7)) - 0.5);
+                    float bank = uSnowing * (1.0 - smoothstep(top - 0.008, top + 0.004, on.y));
+                    glass.rgb = mix(glass.rgb, white * (0.85 + 0.25 * noiseAt(on * 47.0)), bank);
+                    glass.a = max(glass.a, bank * 0.97);
+                }
+                return mix(glass, vec4(0.004, 0.004, 0.005, 1.0), wiper.w);
             }
 
             // Drops that have gathered enough to run down a pane. Each keeps to a lane of

@@ -4084,7 +4084,7 @@ final class PipelineShaders {
      * Pipeline loads: a class file holds no one string of more than 65535 bytes, and the whole
      * of it is longer.
      */
-    static final String FIGURE_LIGHT_PARTS = "#version 120\n" + Sky.ATMOSPHERE + ENDS + VehicleLamps.GLSL + """
+    static final String FIGURE_LIGHT_PARTS = "#version 120\n" + Sky.ATMOSPHERE + ENDS + """
             uniform sampler2D uFigure;
             uniform sampler2D uDepth;
             uniform sampler2DShadow uShadowNear;
@@ -4644,7 +4644,13 @@ final class PipelineShaders {
             }
 
             vec4 flared(vec4 glass, vec3 look, float dirt);
-            """ + GlassRain.GLSL + """
+            """;
+
+    /**
+     * The rest of the people's light up to its main, from the rain and snow on a vehicle's panes on:
+     * Pipeline joins it on after FIGURE_LIGHT_PARTS. As one constant with it the shader is longer than a class file can hold.
+     */
+    static final String FIGURE_LIGHT_PANES = GlassRain.GLSL + """
 
             // A pane seen from the seat, over the world behind it: the sky it mirrors, more at
             // a glancing angle, and the dust and dried rain on it, which stay put on the glass
@@ -4677,6 +4683,9 @@ final class PipelineShaders {
                 vec4 glass = vec4(mix(sheen, grime, clamp(dusty / cover, 0.0, 1.0)), cover);
                 if (uRaining > 0.0) {
                     glass = rained(glass, on, swept, wiper);
+                }
+                if (uSnowing > 0.0) {
+                    glass = snowed(glass, on, swept, wiper);
                 }
                 return flared(glass, -view, dirt);
             }

@@ -25,7 +25,7 @@ final class GlassPlaceTests {
     }
 
     private static void thePlacesMirroredAreTheShaders() {
-        String shader = String.join("\n", PipelineShaders.FIGURE_LIGHT_PARTS, CabinShader.SOLIDS, CabinShader.GLASS, PipelineShaders.FIGURE_LIGHT_MAIN);
+        String shader = String.join("\n", PipelineShaders.FIGURE_LIGHT_PARTS, PipelineShaders.FIGURE_LIGHT_PANES, CabinShader.SOLIDS, CabinShader.GLASS, PipelineShaders.FIGURE_LIGHT_MAIN);
         for (String line : new String[] {
             "float wide = abs(uDash.x) + uScreen.w;",
             "float out2 = d.y > 0.0 ? mid + widths().x + 0.03 - o.y : o.y - mid + widths().x + 0.03;",

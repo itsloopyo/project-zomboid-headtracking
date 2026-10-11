@@ -186,7 +186,7 @@ final class Pipeline {
      * every sum that only colours a pixel: see drawWorld.
      */
     private static final String WORLD_FRAGMENT_DEPTH = WORLD_FRAGMENT.replace(PipelineShaders.DEPTH_ONLY_ASKED, PipelineShaders.DEPTH_ONLY_ALWAYS);
-    private static final String FIGURE_LIGHT = PipelineShaders.FIGURE_LIGHT_PARTS.concat(CabinShader.SOLIDS).concat(CabinShader.LIGHT).concat(CabinShader.GLASS)
+    private static final String FIGURE_LIGHT = PipelineShaders.FIGURE_LIGHT_PARTS.concat(PipelineShaders.FIGURE_LIGHT_PANES).concat(VehicleLamps.GLSL).concat(CabinShader.SOLIDS).concat(CabinShader.LIGHT).concat(CabinShader.GLASS)
             .concat(CharacterDraw.LIT).concat(PipelineShaders.FIGURE_LIGHT_MAIN);
 
     /**
@@ -3377,6 +3377,7 @@ final class Pipeline {
                 setCabin(camera, wheel, parts);
             }
             figureLight.set("uRaining", state.rain);
+            figureLight.set("uSnowing", state.snow);
             figureLight.set("uGlassRain", (float) Quality.glassRain());
             view.glassPull.frame(seated, state.seconds, view.ride.goingX, view.ride.goingY, view.ride.aheadX, view.ride.aheadY);
             if (FirstPerson.TRACE && seated) {
