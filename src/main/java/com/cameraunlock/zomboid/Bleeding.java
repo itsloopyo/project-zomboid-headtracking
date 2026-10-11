@@ -69,6 +69,13 @@ final class Bleeding {
         }
     }
 
+    /** Blood where a piece lands. */
+    static void splash(float x, float y, float z) {
+        for (int i = 0; i < 3; i++) {
+            lay(x + (random.nextFloat() - 0.5f) * 0.3f, y + (random.nextFloat() - 0.5f) * 0.3f, z, i == 0 ? LARGE + random.nextInt(4) : MEDIUM + random.nextInt(8), false);
+        }
+    }
+
     /** Called once a game tick: drops behind cut zombies that moved, and the trail aged and taken up. */
     static void tick(Wounds wounds) {
         double now = GameTime.getInstance().getWorldAgeHours();

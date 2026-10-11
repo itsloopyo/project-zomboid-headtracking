@@ -32,6 +32,7 @@ final class Wounds {
         final float[] taken = new float[LIMBS];
         final int[] stages = new int[LIMBS];
         final int[] cuts = new int[PARTS];
+        boolean headShot;
     }
 
     /** By the zombie's object, which the game neither compares nor hashes by value: kept no longer than the game keeps it. */
@@ -76,6 +77,15 @@ final class Wounds {
     synchronized int stage(Object zombie, int limb) {
         Limbs limbs = zombies.get(zombie);
         return limbs == null ? SOUND : limbs.stages[limb];
+    }
+
+    /** Whether this is the first killing head shot on a zombie to be rolled for. */
+    synchronized boolean firstHeadShot(Object zombie) {
+        Limbs limbs = zombies.computeIfAbsent(zombie, z -> new Limbs());
+        any = true;
+        boolean first = !limbs.headShot;
+        limbs.headShot = true;
+        return first;
     }
 
     /** Bursts a zombie's head. */

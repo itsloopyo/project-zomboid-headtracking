@@ -298,6 +298,8 @@ public final class Hooks {
         if (stage == Wounds.SEVERED) {
             Bleeding.spray(zombie);
             Stumps.bloody(zombie, limb);
+            IsoPlayer shooter = IsoPlayer.getInstance();
+            Pieces.cut(zombie, limb, wounds.cut(zombie, limb), shooter.getX(), shooter.getY());
         }
         if (zombie.isDead() || zombie.isCrawling()) {
             said = cut + (zombie.isDead() ? "as it dies" : "as it crawls");
@@ -366,12 +368,17 @@ public final class Hooks {
     /** Called as the game starts a tick of the world. */
     public static void worldUpdate() {
         Bleeding.tick(wounds);
+        Pieces.tick();
     }
 
     /** How often a zombie whose leg is ruined, and not cut off, gets up on it again rather than crawling. */
     static final float GETS_UP = 0.3f;
-    /** How far below nothing a head shot leaves a zombie's health for its head to burst, and how often it does then. */
-    static final float BURSTS_BELOW = 2f, BURSTS = 0.5f;
+    /**
+     * The least a killing head shot does for the head to come off or burst, and how often each.
+     * The game leaves a dead zombie's health at nothing, so it is the shot's damage that is read:
+     * a pistol's head shot did 1.4 and a critical one 7.5, and each pellet of a shotgun's 50 to 105.
+     */
+    static final float BURSTS_FROM = 20f, POPS = 0.3f, BURSTS = 0.3f;
     private static final java.util.Random chance = new java.util.Random();
 
     /** A head shot that killed: one that left the zombie far enough below no health may burst its head. */
@@ -379,14 +386,28 @@ public final class Hooks {
         if (!zombie.isDead()) {
             return;
         }
-        boolean bursts = zombie.getHealth() <= -BURSTS_BELOW && chance.nextFloat() < BURSTS;
-        if (bursts) {
-            wounds.burst(zombie);
-            Bleeding.spray(zombie, Bleeding.SPRAY * 2, Bleeding.SPRAY_REACH * 1.6f);
-            Stumps.bloody(zombie, Wounds.HEAD);
+        if (damage < BURSTS_FROM || !wounds.firstHeadShot(zombie)) {
+            return;
         }
-        Log.info(String.format(Locale.ROOT, "zombie %d killed by a head shot of %.2f, health %.2f: %s", zombie.getID(), damage, zombie.getHealth(),
-                bursts ? "its head bursts" : zombie.getHealth() <= -BURSTS_BELOW ? "its head holds" : "not hard enough to burst it"));
+        // A blast's pellets each come here: the head is rolled for once, by the first hard enough.
+        float roll = chance.nextFloat();
+        String said;
+        if (roll < POPS) {
+            wounds.burst(zombie);
+            Bleeding.spray(zombie, Bleeding.SPRAY, Bleeding.SPRAY_REACH);
+            Stumps.bloody(zombie, Wounds.HEAD);
+            IsoPlayer shooter = IsoPlayer.getInstance();
+            Pieces.cut(zombie, Wounds.HEAD, Wounds.UPPER, shooter.getX(), shooter.getY());
+            said = "its head comes off";
+        } else if (roll < POPS + BURSTS) {
+            wounds.burst(zombie);
+            Bleeding.spray(zombie, Bleeding.SPRAY * 3, Bleeding.SPRAY_REACH * 1.8f);
+            Stumps.bloody(zombie, Wounds.HEAD);
+            said = "its head bursts";
+        } else {
+            said = "its head holds";
+        }
+        Log.info(String.format(Locale.ROOT, "zombie %d killed by a head shot of %.2f: %s", zombie.getID(), damage, said));
     }
 
     private static final String[] LIMB_NAMES = {"left arm", "right arm", "left leg", "right leg"};

@@ -132,6 +132,9 @@ final class Stumps {
                 Log.info(String.format(Locale.ROOT, "stumps: %s's limb %d cut at %s, %.3f to %s, pressing%s",
                         whose, limb, named, length, towards, names));
             }
+            if (character != null && Pieces.holdsBack(character, limb, jx, jy, jz, ax / length, ay / length, az / length, length)) {
+                continue;
+            }
             press(animation, bone, jx, jy, jz, ax / length, ay / length, az / length, head ? HEAD_ACROSS : ACROSS);
         }
     }
@@ -154,6 +157,11 @@ final class Stumps {
                 press(animation, child, jx, jy, jz, ax, ay, az, across);
             }
         }
+    }
+
+    /** The bone a part is cut at: {@link Wounds#LOWER} or {@link Wounds#UPPER} for a limb, the head's own for the head. */
+    static String boneOf(int part, int cut) {
+        return part == Wounds.HEAD ? HEAD : JOINTS[part][cut == Wounds.UPPER ? 2 : 0];
     }
 
     private static void name(SkinningBone bone, SkinningData skeleton, StringBuilder into) {

@@ -8,6 +8,7 @@ import org.joml.Vector3f;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL20;
 import zombie.characters.IsoPlayer;
+import zombie.characters.IsoZombie;
 import zombie.characters.animals.IsoAnimal;
 import zombie.core.Core;
 import zombie.core.SpriteRenderer;
@@ -1600,7 +1601,40 @@ public final class Characters {
                 wornFor = worn = null;
             }
         }
+        if (!own && !casting && !held && data.character instanceof IsoZombie) {
+            pieces(data, up, viewMatrix, fromEye);
+        }
         EYE.End();
+    }
+
+    /** The pieces cut off a zombie: kept the first frame they are posed, then drawn where they fly to and lie. See Pieces. */
+    private void pieces(ModelSlotRenderData data, float up, float[] viewMatrix, float fromEye) {
+        for (Pieces.Piece piece : Pieces.of(data.character)) {
+            if (piece.state == Pieces.POSED) {
+                Pieces.keep(piece, parts(data), data.x, data.y, up, data.animPlayerAngle, CHARACTER_SCALE * data.finalScale);
+                continue;
+            }
+            if (!Pieces.drawn(piece)) {
+                continue;
+            }
+            place(piece.x, piece.y, piece.standsUp, piece.angle, CHARACTER_SCALE);
+            multiply(viewMatrix, placed, combined);
+            CharacterDraw.begin(data, combined, projection, false, fromEye);
+            for (int part = 0; part < parts(data).size(); part++) {
+                ModelInstanceRenderData model = parts(data).get(part);
+                java.nio.FloatBuffer bones = Pieces.bones(piece, model.model);
+                if (bones == null) {
+                    continue;
+                }
+                java.nio.FloatBuffer own = model.matrixPalette;
+                model.matrixPalette = bones;
+                try {
+                    CharacterDraw.part(model);
+                } finally {
+                    model.matrixPalette = own;
+                }
+            }
+        }
     }
 
     private static boolean onHead(ModelInstance model) {
