@@ -1,5 +1,8 @@
 package com.cameraunlock.zomboid;
 
+import zombie.iso.objects.IsoDeadBody;
+import zombie.core.skinnedmodel.advancedanimation.AnimatedModel;
+import zombie.core.skinnedmodel.DeadBodyAtlas;
 import fmod.javafmod;
 import java.util.Locale;
 import java.util.Stack;
@@ -271,11 +274,11 @@ public final class Hooks {
      * the network.
      */
     public static void zombieHit(IsoZombie zombie, HandWeapon weapon, float damage, boolean fromNetwork) {
-        if (zombie.isDead()) {
-            wounds.forget(zombie);
+        if (fromNetwork || !Online.woundsTell() || aimedPart == HitPart.NONE || !weapon.isRanged()) {
             return;
         }
-        if (fromNetwork || !Online.woundsTell() || aimedPart == HitPart.NONE || !weapon.isRanged() || zombie.isCrawling()) {
+        if (aimedPart == RagdollBodyPart.BODYPART_HEAD.ordinal()) {
+            headShot(zombie, damage);
             return;
         }
         int limb = limbOf(aimedPart);
@@ -283,16 +286,31 @@ public final class Hooks {
             return;
         }
         float whole = damage / CombatManager.getInstance().getCombatConfig().get(CombatConfigKey.LEG_HIT_DAMAGE_SPLIT_MODIFIER);
-        int stage = wounds.shot(zombie, limb, whole, zombie.getHealth());
+        boolean upper = aimedPart == RagdollBodyPart.BODYPART_LEFT_UPPER_ARM.ordinal() || aimedPart == RagdollBodyPart.BODYPART_RIGHT_UPPER_ARM.ordinal()
+                || aimedPart == RagdollBodyPart.BODYPART_LEFT_UPPER_LEG.ordinal() || aimedPart == RagdollBodyPart.BODYPART_RIGHT_UPPER_LEG.ordinal();
+        int stage = wounds.shot(zombie, limb, whole, zombie.getHealth(), zombie.getHealth() + damage, upper);
         if (stage == Wounds.SOUND) {
             return;
         }
         String said;
         boolean leg = limb == Wounds.LEFT_LEG || limb == Wounds.RIGHT_LEG;
-        if (leg && stage == Wounds.RUINED) {
+        String cut = stage == Wounds.SEVERED ? (wounds.cut(zombie, limb) == Wounds.UPPER ? "cut off at the " + (leg ? "hip" : "shoulder") : "cut off at the " + (leg ? "knee" : "elbow")) + ", " : "";
+        if (stage == Wounds.SEVERED) {
+            Bleeding.spray(zombie);
+            Stumps.bloody(zombie, limb);
+        }
+        if (zombie.isDead() || zombie.isCrawling()) {
+            said = cut + (zombie.isDead() ? "as it dies" : "as it crawls");
+        } else if (leg && stage >= Wounds.RUINED) {
             // Up as a crawler: ZombieOnGroundState makes a zombie marked to become one crawl as it
             // gets up. The game's own roll may have marked it already, which does nothing until it falls.
-            zombie.setBecomeCrawler(true);
+            // A leg ruined and still on gets up again on it as often as GETS_UP says, and shambles on.
+            boolean crawls = stage == Wounds.SEVERED || chance.nextFloat() >= GETS_UP;
+            if (crawls) {
+                zombie.setBecomeCrawler(true);
+            } else if (zombie.getWalkType() == null || !zombie.getWalkType().startsWith("slow")) {
+                zombie.doShambler();
+            }
             boolean standing = !zombie.isOnFloor();
             if (standing) {
                 // Setting knockedDown alone is cleared by the shot's own hit reaction and the zombie
@@ -300,7 +318,7 @@ public final class Hooks {
                 // as the game's own falls do.
                 zombie.knockDown(false);
             }
-            said = standing ? "ruined: it goes down to crawl" : "ruined: it is down and gets up to crawl";
+            said = cut + (standing ? "ruined: it goes down" : "ruined: it is down") + (crawls ? " and gets up to crawl" : " and gets up again to shamble");
         } else if (leg) {
             // A walk type starting "slow" is a shambler's, as IsoZombie.getSpeedTypeFromWalkType reads it.
             boolean faster = zombie.getWalkType() == null || !zombie.getWalkType().startsWith("slow");
@@ -309,9 +327,66 @@ public final class Hooks {
             }
             said = faster ? "wounded: it shambles" : "wounded: it shambled already";
         } else {
-            said = stage == Wounds.RUINED ? "ruined: it hangs dead" : "wounded: it hangs";
+            said = cut + (stage >= Wounds.RUINED ? "ruined: it hangs dead" : "wounded: it hangs");
         }
         Log.info(String.format(Locale.ROOT, "zombie %d's %s is %s (health %.2f)", zombie.getID(), LIMB_NAMES[limb], said, zombie.getHealth()));
+    }
+
+    /** The key a body's mod data keeps where its limbs are cut under, as {@link Wounds#cuts} makes it: saved with the body. */
+    static final String BODY_CUTS = "cameraunlockCuts";
+
+    /** Called as a body is made of a character that has died, once it is made. */
+    public static void bodyMade(IsoDeadBody body, IsoGameCharacter died) {
+        int cuts = died instanceof IsoZombie ? wounds.cuts(died) : 0;
+        if (cuts != 0) {
+            body.getModData().rawset(BODY_CUTS, (double) cuts);
+        }
+    }
+
+    /** Called as the game has read what to draw a picture of a body from, from the body. */
+    public static void bodyParams(DeadBodyAtlas.BodyParams params, IsoDeadBody body) {
+        params.variables.remove(BODY_CUTS);
+        if (body.hasModData() && body.getModData().rawget(BODY_CUTS) instanceof Double cuts) {
+            params.variables.put(BODY_CUTS, Integer.toString(cuts.intValue()));
+        }
+    }
+
+    /** Called with the name the game files a body's picture under: a body with a limb cut is not the picture of one without. */
+    public static String bodyKey(String key, DeadBodyAtlas.BodyParams params) {
+        String cuts = params.variables.get(BODY_CUTS);
+        return cuts == null ? key : key + " cut " + cuts;
+    }
+
+    /** Called as the game has set up the model a body's picture is drawn from, before it is posed. */
+    public static void bodyBaking(DeadBodyAtlas.BodyParams params, AnimatedModel model) {
+        String cuts = params.variables.get(BODY_CUTS);
+        Stumps.baking(model.getAnimationPlayer(), cuts == null ? 0 : Integer.parseInt(cuts));
+    }
+
+    /** Called as the game starts a tick of the world. */
+    public static void worldUpdate() {
+        Bleeding.tick(wounds);
+    }
+
+    /** How often a zombie whose leg is ruined, and not cut off, gets up on it again rather than crawling. */
+    static final float GETS_UP = 0.3f;
+    /** How far below nothing a head shot leaves a zombie's health for its head to burst, and how often it does then. */
+    static final float BURSTS_BELOW = 2f, BURSTS = 0.5f;
+    private static final java.util.Random chance = new java.util.Random();
+
+    /** A head shot that killed: one that left the zombie far enough below no health may burst its head. */
+    private static void headShot(IsoZombie zombie, float damage) {
+        if (!zombie.isDead()) {
+            return;
+        }
+        boolean bursts = zombie.getHealth() <= -BURSTS_BELOW && chance.nextFloat() < BURSTS;
+        if (bursts) {
+            wounds.burst(zombie);
+            Bleeding.spray(zombie, Bleeding.SPRAY * 2, Bleeding.SPRAY_REACH * 1.6f);
+            Stumps.bloody(zombie, Wounds.HEAD);
+        }
+        Log.info(String.format(Locale.ROOT, "zombie %d killed by a head shot of %.2f, health %.2f: %s", zombie.getID(), damage, zombie.getHealth(),
+                bursts ? "its head bursts" : zombie.getHealth() <= -BURSTS_BELOW ? "its head holds" : "not hard enough to burst it"));
     }
 
     private static final String[] LIMB_NAMES = {"left arm", "right arm", "left leg", "right leg"};
@@ -526,6 +601,15 @@ public final class Hooks {
                 view.modelHead.posed(animation);
             }
         }
+    }
+
+    /**
+     * Called from AnimationPlayer once the matrices of the bones in the model are made and the
+     * ones the model is drawn with are marked to be made again from them, whether the bones were
+     * posed by the character's own animations or copied from a skeleton shared by many.
+     */
+    public static void skinned(AnimationPlayer animation) {
+        Stumps.cut(animation, wounds);
     }
 
     /** Called where the game has worked out where on the screen of the player it is drawing to write over a person. */

@@ -21,6 +21,8 @@ public final class Agent {
     private static final String DISPLAY = "org/lwjglx/opengl/Display";
     private static final String GLFW = "org/lwjgl/glfw/GLFW";
     private static final String WINDOW_PLACEMENT = "com/cameraunlock/zomboid/WindowPlacement";
+    private static final String ATLAS = "zombie/core/skinnedmodel/DeadBodyAtlas", BODY_PARAMS = ATLAS + "$BodyParams", RENDER_JOB = ATLAS + "$RenderJob";
+    private static final String ANIMATED_MODEL = "zombie/core/skinnedmodel/advancedanimation/AnimatedModel";
     private static final String HOOKS = "com/cameraunlock/zomboid/Hooks";
     private static final String GAME_MOUSE = "zombie/input/Mouse";
     private static final String TORCH = "zombie/characters/IsoGameCharacter$TorchInfo";
@@ -356,6 +358,35 @@ public final class Agent {
                             code.aload(0);
                             CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "zombieReused", "(L" + zombie + ";)V"));
                         })),
+                new Patch("zombie/iso/objects/IsoDeadBody", "<init> of a character before its returns", classBytes -> CallSite.insertBeforeReturns(classBytes,
+                        new CallSite.Method("zombie/iso/objects/IsoDeadBody", "<init>", "(Lzombie/characters/IsoGameCharacter;ZZ)V"), code -> {
+                            code.aload(0);
+                            code.aload(1);
+                            CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "bodyMade", "(Lzombie/iso/objects/IsoDeadBody;Lzombie/characters/IsoGameCharacter;)V"));
+                        })),
+                new Patch(BODY_PARAMS, "init of a body before its returns", classBytes -> CallSite.insertBeforeReturns(classBytes,
+                        new CallSite.Method(BODY_PARAMS, "init", "(Lzombie/iso/objects/IsoDeadBody;)V"), code -> {
+                            code.aload(0);
+                            code.aload(1);
+                            CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "bodyParams", "(L" + BODY_PARAMS + ";Lzombie/iso/objects/IsoDeadBody;)V"));
+                        })),
+                new Patch(ATLAS, "getBodyKey before its returns", classBytes -> CallSite.insertBeforeReturns(classBytes,
+                        new CallSite.Method(ATLAS, "getBodyKey", "(L" + BODY_PARAMS + ";)Ljava/lang/String;"), code -> {
+                            code.aload(1);
+                            CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "bodyKey", "(Ljava/lang/String;L" + BODY_PARAMS + ";)Ljava/lang/String;"));
+                        })),
+                new Patch(RENDER_JOB, "init after setDeathPose", classBytes -> CallSite.insertAfterEach(classBytes,
+                        new CallSite.Method(RENDER_JOB, "init", "(L" + BODY_PARAMS + ";L" + ATLAS + "$AtlasEntry;)L" + RENDER_JOB + ";"),
+                        new CallSite.Method(RENDER_JOB, "setDeathPose", "()V"), code -> {
+                            code.aload(0);
+                            code.getfield(ClassDesc.ofInternalName(RENDER_JOB), "body", ClassDesc.ofInternalName(BODY_PARAMS));
+                            code.aload(0);
+                            code.getfield(ClassDesc.ofInternalName(RENDER_JOB), "animatedModel", ClassDesc.ofInternalName(ANIMATED_MODEL));
+                            CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "bodyBaking", "(L" + BODY_PARAMS + ";L" + ANIMATED_MODEL + ";)V"));
+                        }, 1)),
+                new Patch("zombie/iso/IsoWorld", "update at its start", classBytes -> CallSite.insertAtStartOfInstanceMethod(classBytes,
+                        new CallSite.Method("zombie/iso/IsoWorld", "update", "()V"),
+                        code -> CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "worldUpdate", "()V")))),
                 new Patch(RAGDOLL, "simulateHitReaction calling applyImpulse", classBytes -> CallSite.replaceEach(classBytes,
                         new CallSite.Method(RAGDOLL, "simulateHitReaction", "()V"), applyImpulse, pushAlongTheShot, 1)),
                 new Patch(LIVE_NODE, "getBlendInTime before its returns", classBytes -> CallSite.insertBeforeReturns(classBytes,
@@ -813,7 +844,14 @@ public final class Agent {
                 code -> CallSite.passThis(code, new CallSite.Method(HOOKS, "pose", "(L" + player + ";)V")), 1)),
                 new Patch(player, "updateAnimation_StandardAnimation after updateModelTransforms", classBytes -> CallSite.insertAfterEach(classBytes,
                 posing, new CallSite.Method(player, "updateModelTransforms", "()V"),
-                code -> CallSite.passThis(code, new CallSite.Method(HOOKS, "posed", "(L" + player + ";)V")), 1)));
+                code -> CallSite.passThis(code, new CallSite.Method(HOOKS, "posed", "(L" + player + ";)V")), 1)),
+                new Patch(player, "updateAnimation_StandardAnimation after UpdateSkinTransforms", classBytes -> CallSite.insertAfterEach(classBytes,
+                posing, new CallSite.Method(player, "UpdateSkinTransforms", "()V"),
+                code -> CallSite.passThis(code, new CallSite.Method(HOOKS, "skinned", "(L" + player + ";)V")), 1)),
+                new Patch(player, "updateAnimation_SharedSkeleTrack after UpdateSkinTransforms", classBytes -> CallSite.insertAfterEach(classBytes,
+                new CallSite.Method(player, "updateAnimation_SharedSkeleTrack", "(Lzombie/core/skinnedmodel/animation/sharedskele/SharedSkeleAnimationTrack;FF)V"),
+                new CallSite.Method(player, "UpdateSkinTransforms", "()V"),
+                code -> CallSite.passThis(code, new CallSite.Method(HOOKS, "skinned", "(L" + player + ";)V")), 1)));
     }
 
     /**

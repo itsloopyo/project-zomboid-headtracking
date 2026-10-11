@@ -9,6 +9,7 @@ public abstract class IsoGameCharacter extends IsoMovingObject {
     public int getJoypadBind() { throw new UnsupportedOperationException("reference stub"); }
     public zombie.characters.component.CharacterInputComponent getCharacterInputComponent() { throw new UnsupportedOperationException("reference stub"); }
     public void setAttackTargetSquare(zombie.iso.IsoGridSquare square) { throw new UnsupportedOperationException("reference stub"); }
+    public void addBlood(zombie.characterTextures.BloodBodyPartType part, boolean scratched, boolean bitten, boolean allLayers) { throw new UnsupportedOperationException("reference stub"); }
     public Vector2 getForwardDirection() { throw new UnsupportedOperationException("reference stub"); }
     public zombie.iso.Vector2 getAnimForwardDirection(zombie.iso.Vector2 out) { throw new UnsupportedOperationException("reference stub"); }
     public void setForwardDirection(Vector2 direction) { throw new UnsupportedOperationException("reference stub"); }

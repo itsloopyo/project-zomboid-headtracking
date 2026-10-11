@@ -9,6 +9,10 @@ public final class DeadBodyAtlas {
     public BodyTexture getBodyTexture(IsoDeadBody body) { throw new UnsupportedOperationException("reference stub"); }
     public void render() { throw new UnsupportedOperationException("reference stub"); }
 
+    public static final class BodyParams {
+        public final java.util.HashMap<String, String> variables = null;
+    }
+
     public static final class BodyTexture {
         public Texture getTexture() { throw new UnsupportedOperationException("reference stub"); }
         public float getRenderX(float x) { throw new UnsupportedOperationException("reference stub"); }

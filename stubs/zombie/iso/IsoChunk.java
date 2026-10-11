@@ -8,6 +8,8 @@ public final class IsoChunk {
     public static final byte[][] renderByIndex = null;
     public final zombie.core.utils.BoundedQueue<IsoFloorBloodSplat> floorBloodSplats = null;
 
+    public void addBloodSplat(float x, float y, float z, int type) { throw new UnsupportedOperationException("reference stub"); }
+    public void invalidateRenderChunkLevel(int level, long flags) { throw new UnsupportedOperationException("reference stub"); }
     public int getMinLevel() { throw new UnsupportedOperationException("reference stub"); }
     public int getMaxLevel() { throw new UnsupportedOperationException("reference stub"); }
     public IsoGridSquare getGridSquare(int x, int y, int z) { throw new UnsupportedOperationException("reference stub"); }

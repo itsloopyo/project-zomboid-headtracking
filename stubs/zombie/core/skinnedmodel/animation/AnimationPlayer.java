@@ -9,5 +9,6 @@ public final class AnimationPlayer {
     public org.lwjgl.util.vector.Matrix4f getBoneModelTransform(int bone, org.lwjgl.util.vector.Matrix4f into) { throw new UnsupportedOperationException("reference stub"); }
     public boolean isReady() { throw new UnsupportedOperationException("reference stub"); }
     public int getSkinningBoneIndex(String name, int fallback) { throw new UnsupportedOperationException("reference stub"); }
+    public org.lwjgl.util.vector.Matrix4f getModelTransformAt(int bone) { throw new UnsupportedOperationException("reference stub"); }
     public AnimatorsBoneTransform getBoneTransformAt(int bone) { throw new UnsupportedOperationException("reference stub"); }
 }

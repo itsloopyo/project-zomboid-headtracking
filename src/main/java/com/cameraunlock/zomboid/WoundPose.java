@@ -91,7 +91,7 @@ final class WoundPose {
         }
         int leftArm = wounds.stage(zombie, Wounds.LEFT_ARM), rightArm = wounds.stage(zombie, Wounds.RIGHT_ARM);
         int leftLeg = wounds.stage(zombie, Wounds.LEFT_LEG), rightLeg = wounds.stage(zombie, Wounds.RIGHT_LEG);
-        if (leftArm == Wounds.SOUND && rightArm == Wounds.SOUND && leftLeg != Wounds.WOUNDED && rightLeg != Wounds.WOUNDED) {
+        if (leftArm == Wounds.SOUND && rightArm == Wounds.SOUND && leftLeg != Wounds.WOUNDED && leftLeg != Wounds.RUINED && rightLeg != Wounds.WOUNDED && rightLeg != Wounds.RUINED) {
             return;
         }
         long start = FirstPerson.TRACE ? System.nanoTime() : 0L;
@@ -99,17 +99,17 @@ final class WoundPose {
         p.turnedIn = animation;
         p.count = 0;
         SkinningData skeleton = animation.getSkinningData();
-        if (leftLeg == Wounds.WOUNDED) {
+        if (leftLeg == Wounds.WOUNDED || leftLeg == Wounds.RUINED) {
             lurch(animation, p, skeleton, 0);
         }
-        if (rightLeg == Wounds.WOUNDED) {
+        if (rightLeg == Wounds.WOUNDED || rightLeg == Wounds.RUINED) {
             lurch(animation, p, skeleton, 1);
         }
         if (leftArm != Wounds.SOUND) {
-            hang(animation, p, skeleton, ARMS[0], leftArm == Wounds.RUINED ? RUINED_SAG : WOUNDED_SAG);
+            hang(animation, p, skeleton, ARMS[0], leftArm >= Wounds.RUINED ? RUINED_SAG : WOUNDED_SAG);
         }
         if (rightArm != Wounds.SOUND) {
-            hang(animation, p, skeleton, ARMS[1], rightArm == Wounds.RUINED ? RUINED_SAG : WOUNDED_SAG);
+            hang(animation, p, skeleton, ARMS[1], rightArm >= Wounds.RUINED ? RUINED_SAG : WOUNDED_SAG);
         }
         if (FirstPerson.TRACE) {
             long now = System.nanoTime();
