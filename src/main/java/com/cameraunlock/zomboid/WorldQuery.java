@@ -163,15 +163,10 @@ final class WorldQuery {
      * the characters given. Positive infinity when there is nothing within
      * reach, which is open sky or open ground.
      */
-    float shotDistance(ViewCamera.Pose aim, Terrain terrain, float floorUp, float reach,
+    float shotDistance(ViewCamera.Pose aim, Terrain terrain, float footing, float reach,
             float[] characterX, float[] characterY, float[] characterBase, int characters) {
         lineOfFire.start();
-        float nearest;
-        if (aim.forwardUp < 0f) {
-            nearest = downward(aim, floorUp, reach);
-        } else {
-            nearest = trace.firstBlockedEdge(solidToAShot, aim.eyeX, aim.eyeY, aim.forwardX, aim.forwardY, reach);
-        }
+        float nearest = toWallOrFloor(aim, terrain::height, footing, reach);
         if (aim.forwardUp > 0f) {
             float toCeiling = ((level + 1) * ViewCamera.LEVEL_HEIGHT + terrain.height(aim.eyeX, aim.eyeY) - aim.eyeUp) / aim.forwardUp;
             if (toCeiling < nearest && toCeiling <= reach) {
@@ -189,17 +184,19 @@ final class WorldQuery {
     }
 
     /**
-     * The distance along an aim below level to the first wall or floor. The aim's own level has
-     * a floor only where the map has one: from an upper window, a balcony or the head of a
-     * stair the shot goes on past the edge of it, down through the level below and the walls
-     * that stand there, to the ground. The ground and whatever is under it is floor everywhere.
+     * The distance along an aim to the first wall or floor. The aim's own level has a floor only
+     * where the map has one: from an upper window, a balcony or the head of a stair the shot
+     * goes on past the edge of it, down through the level below and the walls that stand there,
+     * to the ground. The ground and whatever is under it is floor everywhere.
+     *
+     * @param footing the floor the eye stands on, in tiles over the flat map
      */
-    private float downward(ViewCamera.Pose aim, float floorUp, float reach) {
+    private float toWallOrFloor(ViewCamera.Pose aim, Ground ground, float footing, float reach) {
         int aimedFrom = level;
         try {
             float from = 0f;
             while (true) {
-                float toFloor = (floorUp - (aimedFrom - level) * ViewCamera.LEVEL_HEIGHT - aim.eyeUp) / aim.forwardUp;
+                float toFloor = toFloor(aim, ground, footing - (aimedFrom - level) * ViewCamera.LEVEL_HEIGHT, from, reach);
                 float wall = from + trace.firstBlockedEdge(solidToAShot, aim.eyeX + aim.forwardX * from, aim.eyeY + aim.forwardY * from, aim.forwardX, aim.forwardY,
                         Math.min(toFloor, reach) - from);
                 if (wall <= toFloor) {
@@ -218,6 +215,57 @@ final class WorldQuery {
         } finally {
             level = aimedFrom;
         }
+    }
+
+    /** The height of the ground the picture draws over the flat map at a place, in tiles: Terrain.height. */
+    interface Ground {
+        float height(float x, float y);
+    }
+
+    /**
+     * How far apart along the aim it is tried against a floor, in tiles, and how often the
+     * crossing found is halved after. A kerb's pavement stands 0.11 over the road, and a shallow
+     * aim passes over less than a step of it.
+     */
+    private static final float FLOOR_STEP = 0.1f;
+    private static final int FLOOR_HALVINGS = 6;
+
+    /**
+     * The distance along an aim, from `from` on, at which it first comes down onto a floor `flat`
+     * tiles over the flat map as the picture draws it: raised by the ground's height at each
+     * place, as everything at a place is (Terrain.lift), so a floor in a dip is lower than the
+     * eye's own footing. Infinity where it meets none within reach.
+     */
+    static float toFloor(ViewCamera.Pose aim, Ground ground, float flat, float from, float reach) {
+        float along = from;
+        // Lying on a slope the eye can be under the ground drawn where it is: the aim leaves that before it can come down onto any.
+        while (under(aim, ground, flat, along)) {
+            if (along >= reach) {
+                return Float.POSITIVE_INFINITY;
+            }
+            along = Math.min(along + FLOOR_STEP, reach);
+        }
+        float before = along;
+        while (!under(aim, ground, flat, along)) {
+            if (along >= reach) {
+                return Float.POSITIVE_INFINITY;
+            }
+            before = along;
+            along = Math.min(along + FLOOR_STEP, reach);
+        }
+        for (int i = 0; i < FLOOR_HALVINGS; i++) {
+            float middle = (before + along) / 2f;
+            if (under(aim, ground, flat, middle)) {
+                along = middle;
+            } else {
+                before = middle;
+            }
+        }
+        return along;
+    }
+
+    private static boolean under(ViewCamera.Pose aim, Ground ground, float flat, float along) {
+        return aim.eyeUp + aim.forwardUp * along <= flat + ground.height(aim.eyeX + aim.forwardX * along, aim.eyeY + aim.forwardY * along);
     }
 
     /** Where a ray enters an upright cylinder of a character's size standing at (x, y, base), or infinity. */

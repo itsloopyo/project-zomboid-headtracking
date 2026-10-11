@@ -713,7 +713,7 @@ public final class FirstPerson {
         paceScene = scene;
         SpriteRenderer.instance.drawGeneric(scene);
         pictureUp = true;
-        placeReticle(scene, floorUp);
+        placeReticle(scene);
         if (Online.joined()) {
             view.nameTags.look(cleanView, IsoWorld.instance.currentCell, player);
         } else {
@@ -1076,10 +1076,11 @@ public final class FirstPerson {
      * another eye, and that point is no longer straight ahead of it. With nothing in reach the
      * aim is at infinity and only its direction is left to project.
      */
-    private void placeReticle(WorldScene.Frame scene, float floorUp) {
+    private void placeReticle(WorldScene.Frame scene) {
         pictureTanHalf = scene.tanHalfFieldOfView();
-        float reach = Controls.aimReach(view.player());
-        shotDistance = world.shotDistance(aimView, view.worldScene.terrain, floorUp, reach,
+        IsoPlayer player = view.player();
+        float reach = Controls.aimReach(player);
+        shotDistance = world.shotDistance(aimView, view.worldScene.terrain, player.getZ() * ViewCamera.LEVEL_HEIGHT, reach,
                 scene.characterX, scene.characterY, scene.characterBase, scene.characters);
         // The game looks for a shot's target along a line through this point. With nothing
         // in reach it is a point as far along the view as anything could have been. The
@@ -1099,7 +1100,6 @@ public final class FirstPerson {
             aimedY = onBone.boneY;
             aimedUp = onBone.boneUp;
         }
-        IsoPlayer player = view.player();
         float level = player.getZ();
         float aimedLevel = (aimedUp - view.worldScene.terrain.lift(aimedX, aimedY, level)) / ViewCamera.LEVEL_HEIGHT;
         view.controls.aimAt(aimedX, aimedY, aimedLevel);

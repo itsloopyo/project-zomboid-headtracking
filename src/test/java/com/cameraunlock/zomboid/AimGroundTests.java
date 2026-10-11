@@ -1,0 +1,86 @@
+package com.cameraunlock.zomboid;
+
+/** Tests of where the aim meets the ground the picture draws, which hills raise and lower. */
+final class AimGroundTests {
+    private AimGroundTests() {}
+
+    static void run() {
+        Checks.run("onLevelGroundTheAimMeetsItWhereTheLevelPlaneIs", AimGroundTests::onLevelGroundTheAimMeetsItWhereTheLevelPlaneIs);
+        Checks.run("aChestInADipIsReachedBeforeTheGround", AimGroundTests::aChestInADipIsReachedBeforeTheGround);
+        Checks.run("aRiseAheadStopsALevelAim", AimGroundTests::aRiseAheadStopsALevelAim);
+        Checks.run("anAimThatMeetsNoGroundWithinReachIsUnstopped", AimGroundTests::anAimThatMeetsNoGroundWithinReachIsUnstopped);
+        Checks.run("aFloorOverTheFlatMapIsRaisedByTheGroundUnderIt", AimGroundTests::aFloorOverTheFlatMapIsRaisedByTheGroundUnderIt);
+        Checks.run("anEyeUnderTheGroundMeetsTheGroundItComesDownOnto", AimGroundTests::anEyeUnderTheGroundMeetsTheGroundItComesDownOnto);
+        Checks.run("aStripOfPavementOverTheAimStopsIt", AimGroundTests::aStripOfPavementOverTheAimStopsIt);
+    }
+
+    private static ViewCamera.Pose aim(float up, float toX, float toUp) {
+        ViewCamera.Pose pose = new ViewCamera.Pose();
+        float length = (float) Math.sqrt(toX * toX + (toUp - up) * (toUp - up));
+        pose.eyeUp = up;
+        pose.forwardX = toX / length;
+        pose.forwardUp = (toUp - up) / length;
+        return pose;
+    }
+
+    /** Along the aim to the place at x, for an aim that runs along x. */
+    private static float along(ViewCamera.Pose aim, float x) {
+        return x / aim.forwardX;
+    }
+
+    private static void onLevelGroundTheAimMeetsItWhereTheLevelPlaneIs() {
+        ViewCamera.Pose aim = aim(0.7f + 1.6f, 10f, 0.7f);
+        float met = WorldQuery.toFloor(aim, (x, y) -> 0.7f, 0f, 0f, 30f);
+        Checks.check(Math.abs(met - along(aim, 10f)) < 0.01f, "on ground 0.7 up everywhere the aim at its foot 10 tiles off meets it there: " + met);
+    }
+
+    /**
+     * The ground falls 1.5 tiles over 15. A chest a tile over the ground 12 tiles off is under
+     * the eye's own footing: a level plane through the footing is met 10.7 tiles off.
+     */
+    private static void aChestInADipIsReachedBeforeTheGround() {
+        WorldQuery.Ground dip = (x, y) -> -0.1f * Math.max(x, 0f);
+        ViewCamera.Pose aim = aim(1.6f, 12f, -1.2f + 1f);
+        float met = WorldQuery.toFloor(aim, dip, 0f, 0f, 60f);
+        // The aim falls 0.15 a tile and the ground 0.1: they meet 32 tiles off.
+        Checks.check(Math.abs(met - along(aim, 32f)) < 0.01f, "the aim at a chest 12 tiles off in a dip meets the ground 32 tiles off: " + met + " against " + along(aim, 32f));
+    }
+
+    private static void aRiseAheadStopsALevelAim() {
+        WorldQuery.Ground rise = (x, y) -> Math.clamp((x - 5f) * 0.5f, 0f, 3f);
+        ViewCamera.Pose aim = aim(1.6f, 1f, 1.6f);
+        float met = WorldQuery.toFloor(aim, rise, 0f, 0f, 30f);
+        Checks.check(Math.abs(met - 8.2f) < 0.01f, "a level aim 1.6 up meets ground rising from 5 tiles off at half a tile a tile where it is 1.6 up: " + met);
+    }
+
+    private static void anAimThatMeetsNoGroundWithinReachIsUnstopped() {
+        ViewCamera.Pose aim = aim(1.6f, 40f, 0.5f);
+        float met = WorldQuery.toFloor(aim, (x, y) -> 0f, 0f, 0f, 30f);
+        Checks.check(met == Float.POSITIVE_INFINITY, "an aim that reaches the ground 40 tiles off is not stopped within 30: " + met);
+    }
+
+    private static void aFloorOverTheFlatMapIsRaisedByTheGroundUnderIt() {
+        float floor = ViewCamera.LEVEL_HEIGHT;
+        ViewCamera.Pose aim = aim(floor + 0.4f + 1.6f, 10f, floor + 0.4f);
+        float met = WorldQuery.toFloor(aim, (x, y) -> 0.4f, floor, 0f, 30f);
+        Checks.check(Math.abs(met - along(aim, 10f)) < 0.01f, "a floor a level up on ground 0.4 up is met 0.4 over the level: " + met);
+    }
+
+    /** The ground rises to 2 tiles round the eye and falls to 0 a tile off; an upward aim from 1.6 leaves it and meets nothing. */
+    private static void anEyeUnderTheGroundMeetsTheGroundItComesDownOnto() {
+        WorldQuery.Ground mound = (x, y) -> x < 1f ? 2f : 0f;
+        Checks.check(WorldQuery.toFloor(aim(1.6f, 10f, 3f), mound, 0f, 0f, 30f) == Float.POSITIVE_INFINITY,
+                "an upward aim from under the ground drawn where the eye is meets no floor");
+        ViewCamera.Pose down = aim(1.6f, 10f, 0f);
+        float met = WorldQuery.toFloor(down, mound, 0f, 0f, 30f);
+        Checks.check(Math.abs(met - along(down, 10f)) < 0.01f, "a downward aim from under it meets the ground it comes down onto, 10 tiles off: " + met);
+    }
+
+    /** Pavement 0.11 over the road from 5.03 to 5.2 tiles off, under an aim falling 0.02 a tile that is 0.1 over the road there. */
+    private static void aStripOfPavementOverTheAimStopsIt() {
+        WorldQuery.Ground kerb = (x, y) -> x >= 5.03f && x < 5.2f ? 0.11f : 0f;
+        ViewCamera.Pose aim = aim(0.2f, 10f, 0f);
+        float met = WorldQuery.toFloor(aim, kerb, 0f, 0f, 30f);
+        Checks.check(met < along(aim, 5.2f), "the aim stops on the strip of pavement: " + met);
+    }
+}
