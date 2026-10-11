@@ -737,6 +737,8 @@ final class Furniture {
             // A traffic signal's head on the upper length of its post, its arm out west, south, east and north in that order on
             // the sheet, its lights a quarter turn on from its arm.
             case 12, 13, 14, 15 -> onSignalPost(new Furniture(sprite, "traffic_light", new int[] {2, 1, 0, 3}[which - 12]));
+            // The same heads with their lights a quarter turn the other way from their arm.
+            case 20, 21, 22, 23 -> onSignalPost(new Furniture(sprite, "traffic_light_r", new int[] {0, 3, 2, 1}[which - 20]));
             default -> null;
         };
     }

@@ -34,6 +34,7 @@ final class FurnitureTests {
         Checks.run("aRestaurantsChairsFaceTheWayTheirSpritesDo", FurnitureTests::aRestaurantsChairsFaceTheWayTheirSpritesDo);
         Checks.run("restaurantBoothsAndWaitingChairsAreTheirOwnSeats", FurnitureTests::restaurantBoothsAndWaitingChairsAreTheirOwnSeats);
         Checks.run("aBarsBackShelvingStandsWithItsBackToTheWall", FurnitureTests::aBarsBackShelvingStandsWithItsBackToTheWall);
+        Checks.run("aHospitalsCurtainHangsFromItsRailBunchedWhereItsSpriteShows", FurnitureTests::aHospitalsCurtainHangsFromItsRailBunchedWhereItsSpriteShows);
         Checks.run("aPoolTableIsOneModelOverItsTwoSquares", FurnitureTests::aPoolTableIsOneModelOverItsTwoSquares);
         Checks.run("homeFittingsStandAsTheirSpritesDo", FurnitureTests::homeFittingsStandAsTheirSpritesDo);
         Checks.run("aCountersTopIsABoardOverTheCountersOwnTop", FurnitureTests::aCountersTopIsABoardOverTheCountersOwnTop);
@@ -336,7 +337,20 @@ final class FurnitureTests {
         check(Furniture.known(facingAway) == null, "nor is a sign hung whose face the game's view never shows");
     }
 
-    private static void aBarsBackShelvingStandsWithItsBackToTheWall() {
+    private static void aHospitalsCurtainHangsFromItsRailBunchedWhereItsSpriteShows() {
+        // Each: sprite, facing, which curtain, model and its quarter turns. The gathered model is bunched at its +X end.
+        String[][] curtains = {{"40", "S", "A", "curtain_rail", "0"}, {"41", "S", "B", "curtain_drawn", "0"}, {"42", "S", "C", "curtain_gathered", "0"},
+            {"43", "S", "D", "curtain_gathered", "2"}, {"44", "E", "A", "curtain_rail", "1"}, {"45", "E", "B", "curtain_drawn", "1"},
+            {"46", "E", "D", "curtain_gathered", "1"}, {"47", "E", "C", "curtain_gathered", "3"}};
+        for (String[] c : curtains) {
+            Furniture curtain = Furniture.known(sprite("location_community_medical_01_" + c[0] + "|CustomName|Curtain " + c[2] + "|Facing|" + c[1]
+                    + "|GroupName|Blue Hospital|IsMoveAble||Material|Fabric"));
+            check(model(curtain).equals(c[3]) && curtain.turns == Integer.parseInt(c[4]),
+                    "location_community_medical_01_" + c[0] + " is " + c[3] + " turned " + c[4] + ": " + model(curtain));
+        }
+    }
+
+        private static void aBarsBackShelvingStandsWithItsBackToTheWall() {
         for (String[] unit : new String[][] {{"29", "S", "Left Bar Wall"}, {"38", "E", "Bar Wall"}, {"65", "S", "Dark Bar Wall"}}) {
             Furniture shelving = Furniture.known(sprite("location_restaurant_bar_01_" + unit[0] + "|CustomName|Bar|Facing|" + unit[1] + "|GroupName|" + unit[2]
                     + "|container|shelves"));

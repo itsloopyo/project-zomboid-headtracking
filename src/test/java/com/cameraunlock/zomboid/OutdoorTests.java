@@ -305,6 +305,13 @@ final class OutdoorTests {
         private static void aTrafficSignalsHeadIsTurnedAQuarterOnFromItsArm() {
         // The sheet's four heads have their arms out west, south, east and north, and their lights face south, east, north and west.
         int[] lightsFace = {Outdoors.SOUTH, Outdoors.EAST, Outdoors.NORTH, Outdoors.WEST};
+        // The sheet's second four have their lights a quarter turn the other way: north, west, south and east.
+        int[] mirroredFace = {Outdoors.NORTH, Outdoors.WEST, Outdoors.SOUTH, Outdoors.EAST};
+        for (int place = 20; place <= 23; place++) {
+            Furniture head = Furniture.known(TileRows.sprite("lighting_outdoor_01_" + place));
+            Checks.check(head != null && head.model.name.equals("traffic_light_r") && head.turns == mirroredFace[place - 20],
+                    "lighting_outdoor_01_" + place + " is a traffic signal's head turned the other way from its arm");
+        }
         for (int place = 12; place <= 15; place++) {
             Furniture head = Furniture.known(TileRows.sprite("lighting_outdoor_01_" + place));
             Checks.check(head != null && head.model.name.equals("traffic_light") && head.turns == lightsFace[place - 12],
