@@ -118,9 +118,11 @@ final class WallObjectTests {
         check(model(shelves).equals("shop_wall_shelves"), "a shop's shelves on its wall are their model: " + model(shelves));
         Furniture zippee = Furniture.known(sprite("location_shop_zippee_01_2" + SHOP_SHELVES + "Zippee Wall"));
         check(model(zippee).equals("zippee_wall_shelves"), "Zippee's shelves are theirs: " + model(zippee));
+        Furniture rails = Furniture.known(sprite("location_shop_generic_01_54" + SHOP_SHELVES + "Clothing Shop"));
+        check(model(rails).equals("clothes_wall_rails"), "a clothes shop's rails on its wall are their model: " + model(rails));
         Furniture monitors = Furniture.known(sprite(MONITORS));
         check(model(monitors).equals("security_monitors"), "a security desk's wall of monitors is its model: " + model(monitors));
-        for (Furniture piece : new Furniture[] {phone, trophy, monitors, shelves, zippee}) {
+        for (Furniture piece : new Furniture[] {phone, trophy, monitors, shelves, zippee, rails}) {
             if (piece == null || piece.model == null) {
                 continue;
             }

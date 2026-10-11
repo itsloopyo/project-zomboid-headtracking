@@ -31,6 +31,9 @@ final class WallObjects {
     private static final float SHOP_SHELF_FOOT = 0.63f;
     /** How high over the back of its square the sprite of a shop's shelves paints the top of its upper board, in levels. */
     private static final float SHOP_SHELF_DYE = 0.64f;
+    /** How high the foot of a clothes shop's lower rail board is, in metres, and how high over the back of its square its
+     * sprite paints the upper board, in levels. */
+    private static final float CLOTHES_RAIL_FOOT = 0.82f, CLOTHES_RAIL_DYE = 0.72f;
     /** Where on the back of a pay phone's sprite, in levels, the side of its hood gives its colour. */
     private static final float PHONE_DYE = 0.5f;
 
@@ -78,6 +81,11 @@ final class WallObjects {
         if (called.equals("Shelves") && (group.equals("Beige Wall Shop") || group.equals("Zippee Wall")) && single) {
             return new Furniture(sprite, group.equals("Zippee Wall") ? "zippee_wall_shelves" : "shop_wall_shelves", turns).stand(0f, 0f, true)
                     .raise(SHOP_SHELF_FOOT).dyeAtBack(1 << Models.PAINT, SHOP_SHELF_DYE);
+        }
+        // A clothes shop's rails on its wall, the lower board's foot under it.
+        if (called.equals("Shelves") && group.equals("Clothing Shop") && single) {
+            return new Furniture(sprite, "clothes_wall_rails", turns).stand(0f, 0f, true).raise(CLOTHES_RAIL_FOOT)
+                    .dyeAtBack(1 << Models.WOOD, CLOTHES_RAIL_DYE);
         }
         if (called.equals("Monitors") && group.equals("Security Wall") && single) {
             return new Furniture(sprite, "security_monitors", turns).stand(0f, 0f, true);

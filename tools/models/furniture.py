@@ -1666,7 +1666,8 @@ def car_wash_brush():
     lathe(steel, [(0.0, 0.04), (0.04, 0.04), (0.04, 2.55), (0.0, 2.55)], segments=10)
     model.turned(steel, "metal", sharp=50.0)
     brush = bmesh.new()
-    profile = [(0.0, 0.36), (0.24, 0.36), (0.3, 0.42)] + [(0.3 + 0.012 * math.sin(n * 1.7), 0.42 + n * 0.12) for n in range(1, 15)]         + [(0.3, 2.19), (0.24, 2.25), (0.0, 2.25)]
+    profile = [(0.0, 0.36), (0.24, 0.36), (0.3, 0.42)] + [(0.3 + 0.012 * math.sin(n * 1.7), 0.42 + n * 0.12) for n in range(1, 15)]
+    profile += [(0.3, 2.19), (0.24, 2.25), (0.0, 2.25)]
     lathe(brush, profile, segments=24)
     model.soft(brush, "cloth", levels=1)
     return model
@@ -1728,6 +1729,47 @@ def sewer_pipes(name, apart, bend):
         rod(pipes, (0.0, -apart / 2, 1.3), (0.0, apart / 2 - 0.05, 1.3), 0.05, segments=12)
         lathe(pipes, [(0.0, 1.22), (0.06, 1.22), (0.06, 1.36), (0.0, 1.36)], cy=-apart / 2, segments=12)
     model.turned(pipes, "metal", sharp=50.0)
+    return model
+
+
+def clothes_wall_rails():
+    """A clothes shop's rails on its wall, the wall at +Y: two rows, each a board on the wall and a rail out in front of it on
+    one bracket from a plate in the board's middle, for clothes to hang from."""
+    model = Model("clothes_wall_rails")
+    back = 0.16
+    boards, steel = bmesh.new(), bmesh.new()
+    for top in (1.02, 1.89):
+        cuboid(boards, -0.45, 0.45, back - 0.03, back, top - 0.2, top)
+        rail = top - 0.11
+        rod(steel, (-0.47, back - 0.3, rail), (0.45, back - 0.3, rail), 0.02, segments=8)
+        cuboid(steel, -0.035, 0.035, back - 0.05, back - 0.03, rail - 0.05, rail + 0.05)
+        cuboid(steel, -0.012, 0.012, back - 0.3, back - 0.05, rail - 0.012, rail + 0.012)
+    model.hard(boards, "wood", bevel=0.005, segments=2)
+    model.turned(steel, "plastic", sharp=50.0)
+    return model
+
+
+def generator():
+    """A portable generator in its frame: the painted body with its fuel tank on top and the cap, its sockets and switches on a
+    dark panel at -Y, and the frame of round tube in an arch at each end along X, joined along the foot."""
+    model = Model("generator")
+    body = bmesh.new()
+    cuboid(body, -0.25, 0.25, -0.17, 0.17, 0.06, 0.29)
+    cuboid(body, -0.22, 0.22, -0.15, 0.15, 0.29, 0.35)
+    model.hard(body, "paint", bevel=0.02, segments=2)
+    dark = bmesh.new()
+    cuboid(dark, -0.18, 0.12, -0.18, -0.17, 0.09, 0.25)
+    lathe(dark, [(0.0, 0.35), (0.035, 0.35), (0.035, 0.38), (0.0, 0.38)], cx=-0.08, cy=0.0, segments=12)
+    model.hard(dark, "plastic", bevel=0.003, segments=1)
+    frame = bmesh.new()
+    for x in (-0.3, 0.3):
+        arch = [(x, -0.2, 0.0), (x, -0.2, 0.3)] + [(x, -0.2 * math.cos(math.radians(a)), 0.3 + 0.09 * math.sin(math.radians(a))) for a in range(30, 151, 30)]
+        arch += [(x, 0.2, 0.3), (x, 0.2, 0.0)]
+        for p0, p1 in zip(arch, arch[1:]):
+            rod(frame, p0, p1, 0.018, segments=8)
+    for y in (-0.2, 0.2):
+        rod(frame, (-0.3, y, 0.02), (0.3, y, 0.02), 0.018, segments=8)
+    model.turned(frame, "rubber", sharp=60.0)
     return model
 
 
@@ -10359,7 +10401,7 @@ def every():
               framed("frame_tall", 0.6, 0.9), framed("frame_square", 0.7, 0.7), framed("frame_wide", 0.9, 0.6), canvas(), wall_clock(),
               table("table_2", 1.9, 0.92), table("table_3", 2.9, 0.92), table("table_4", 1.9, 1.9, leg=0.08), table("narrow_table", 0.92, 0.5),
               table("low_table", 0.9, 0.5, top=0.42, leg=0.05), table("low_table_2", 1.5, 0.6, top=0.42, leg=0.05), round_table(), office_desk(),
-              cabinet("shop_counter", 0.62, 0.90, True, panelled=True), low_shelves(), wall_shelf("wall_shelf", 1), wall_shelf("wall_shelves", 2), shop_wall_shelves("shop_wall_shelves", "wood"), shop_wall_shelves("zippee_wall_shelves", "vinyl"), hood_dryer(), car_wash_brush(), car_wash_curtain(), bar_back(), sewer_pipes("sewer_pipes_bend", 0.46, True), sewer_pipes("sewer_pipes", 0.25, False),
+              cabinet("shop_counter", 0.62, 0.90, True, panelled=True), low_shelves(), wall_shelf("wall_shelf", 1), wall_shelf("wall_shelves", 2), shop_wall_shelves("shop_wall_shelves", "wood"), shop_wall_shelves("zippee_wall_shelves", "vinyl"), hood_dryer(), car_wash_brush(), car_wash_curtain(), bar_back(), sewer_pipes("sewer_pipes_bend", 0.46, True), sewer_pipes("sewer_pipes", 0.25, False), clothes_wall_rails(), generator(),
               metal_rack(), store_shelves(), plastic_chair(), folding_chair(), booth(), stool(), vending_machine(), arcade_machine(),
               radio(), microwave(), dishwasher(), chest_freezer(), register(), shower("shower", True), shower("shower_head", False),
               kettle_barbecue(), gas_barbecue(), cooler("mini_fridge", 0.5, 0.82, 1), cooler("large_fridge", 1.7, 1.95, 2),

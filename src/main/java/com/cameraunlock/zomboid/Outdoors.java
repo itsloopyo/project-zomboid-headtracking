@@ -168,6 +168,8 @@ final class Outdoors {
      * the sheet tied over one hangs over its rim, on the side of it nearest the game's view.
      */
     private static final float RAIN_DYE = 0.31f, SHEET_AT = 0.75f, SHEET_DYE = 0.33f;
+    /** How high over the middle of its square a generator's sprite paints the top of its body, in levels. */
+    private static final float GENERATOR_DYE = 0.18f;
     /** How high a sewer's pipes are painted where their colour is taken, in levels. */
     private static final float SEWER_PIPE_DYE = 0.3f;
     /** Where a car wash's brush's shaft stands on its square, how far in from the north or west edge its curtain hangs, and how
@@ -396,6 +398,11 @@ final class Outdoors {
         }
         if (called.equals("Military Barrier") && name.equals(MILITARY_BARRIER)) {
             return new Piece("sack_barrier", 0).dye(PAINT, 0.3f).fit();
+        }
+        // A portable generator, the map's and one a player sets down. The game's sprites have its panel of sockets a quarter turn
+        // the other way from the way it faces: east shows it to the south, south to the east.
+        if (called.equals("Generator") && kind.equals("Red") && faces != NONE) {
+            return new Piece("generator", 3 - faces).dye(PAINT, GENERATOR_DYE);
         }
         // A railway crossing's signal: its post a little west of the square's middle where it faces east or west, and at the
         // middle where it faces north or south. Its post is white and its bands yellow on every facing's sprite.

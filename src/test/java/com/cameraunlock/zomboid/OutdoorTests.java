@@ -32,6 +32,7 @@ final class OutdoorTests {
         Checks.run("aTrafficSignalsHeadIsTurnedAQuarterOnFromItsArm", OutdoorTests::aTrafficSignalsHeadIsTurnedAQuarterOnFromItsArm);
         Checks.run("aCarWashsCurtainsHangAlongTheWayTheirSpritesRun", OutdoorTests::aCarWashsCurtainsHangAlongTheWayTheirSpritesRun);
         Checks.run("aSewersPipesStandAlongTheWayTheirSpritesRun", OutdoorTests::aSewersPipesStandAlongTheWayTheirSpritesRun);
+        Checks.run("aGeneratorShowsItsSocketsWhereItsSpriteDoes", OutdoorTests::aGeneratorShowsItsSocketsWhereItsSpriteDoes);
     }
 
     /** A piece, and its model one the jar has: Models.get throws for a name it has not. */
@@ -264,7 +265,17 @@ final class OutdoorTests {
         Checks.check(unnamed("street_roadsigns_01_0") == null && unnamed("street_roadsigns_01_32") == null, "the boards on two posts and the rest area's signs are not warning signs");
     }
 
-    private static void aSewersPipesStandAlongTheWayTheirSpritesRun() {
+    private static void aGeneratorShowsItsSocketsWhereItsSpriteDoes() {
+        // The model's sockets face -Y, which turns as many quarters as Models.turn says: east's sprite shows them to the south.
+        int[] socketsFace = {Outdoors.WEST, Outdoors.SOUTH, Outdoors.EAST, Outdoors.NORTH};
+        for (int faces = Outdoors.NORTH; faces <= Outdoors.WEST; faces++) {
+            Outdoors.Piece generator = Outdoors.of("appliances_misc_01_" + faces, "Generator", "Red", faces, 1, 1, 0);
+            holds(generator, "a generator facing " + faces + " has a model");
+            Checks.check(generator != null && generator.turns == socketsFace[faces], "a generator facing " + faces + " shows its sockets the way its sprite does");
+        }
+    }
+
+        private static void aSewersPipesStandAlongTheWayTheirSpritesRun() {
         // The model's pipes are along its Y, the big one at +Y: unturned that is the map's y, three quarter turns its x.
         int[][] sprites = {{34, 0}, {35, 0}, {36, 3}, {37, 3}};
         for (int[] sprite : sprites) {
