@@ -25,6 +25,8 @@ import zombie.util.list.PZArrayList;
 final class Roofs {
     /** Two corner heights of a roof tile nearer than this, in levels, are one height: the tile is flat. */
     static final float FLAT = 0.03f;
+    /** A level sheet of roof painted less than this over its floor, in levels, lies under a slope and is no tile: see flatTop. */
+    private static final float FLAT_TOP_LEAST = 0.2f;
     /** How far inside a roof tile's corner its sprite is looked at, in frame pixels at tile scale 1. */
     private static final float CORNER_INSET = 4f;
     /** No roof in the game climbs more than this over a tile, in levels: a slope takes three tiles to a floor. */
@@ -646,6 +648,36 @@ final class Roofs {
             reading.add(new Laid(measure(frame, texture, x, y, z), texture, roof));
             return;
         }
+        for (int i = 0; i < objects.size(); i++) {
+            IsoObject object = objects.get(i);
+            IsoSprite sprite = object.getSprite();
+            // A tile of a roof passed over above (a parasol's, an awning's) is no flat top either.
+            if (sprite == null || sprite.getName() == null || !sprite.getName().startsWith("roofs_") || isTile(sprite.getType())) {
+                continue;
+            }
+            Texture texture = sprite.getTextureForCurrentFrame(object.getDir());
+            if (!WorldScene.usable(texture)) {
+                continue;
+            }
+            WorldScene.frameOf(frame, object, texture);
+            RoofFit.Tile tile = measure(frame, texture, x, y, z);
+            if (flatTop(tile)) {
+                reading.add(new Laid(tile, texture, roof));
+                return;
+            }
+        }
+    }
+
+    /**
+     * Whether a sprite of the roofs' sheets that the game marks as no tile of a roof is a level
+     * sheet painted over its floor: the flat crown of a hip cut short (roofs_01_90 a third of a
+     * level up, roofs_01_92 two thirds), a flat roof of corrugated sheet. It is a tile of its roof
+     * all the same: the fit carries the far slopes across it, and left out it showed the loft
+     * ceiling a step down inside the slopes. A sheet painted on its floor is the one under a
+     * slope, and no tile.
+     */
+    private static boolean flatTop(RoofFit.Tile tile) {
+        return tile.axis == RoofFit.LEVEL && tile.sure && !tile.fitting && tile.half == 0 && tile.low - tile.z >= FLAT_TOP_LEAST;
     }
 
     static boolean isTile(IsoObjectType type) {

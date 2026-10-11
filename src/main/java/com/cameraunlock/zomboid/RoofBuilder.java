@@ -518,6 +518,19 @@ final class RoofBuilder {
         }
     }
 
+    /** A sprite of the roofs' sheets that is no tile of a roof: laid as one where its roof took it as a flat top (Roofs.flatTop). */
+    void addFlatTop(SpriteGeometry.Mesh mesh, Texture texture, int x, int y, int z) {
+        // Its own sprite says first whether it can be one: the sheet under every slope cannot, and asked for, a square
+        // that holds no tile has its whole roof read again on every build of its chunk.
+        if (!Roofs.flatTop(Roofs.measure(build.frame, texture, x, y, z))) {
+            return;
+        }
+        Roofs.Laid laid = Roofs.at(build.cell, x, y, z, world.roundNow, build.frame.scale);
+        if (laid != null && laid.texture == texture) {
+            addRoof(mesh, texture, x, y, z);
+        }
+    }
+
     /** The sprite on the triangles of a folded tile that which names, bit 0 the first of RoofFit.TRIANGLES and bit 1 the second. */
     private void onFold(SpriteGeometry.Mesh mesh, RoofFit.Tile tile, int which, int x, int y, int z) {
         int[] order = RoofFit.TRIANGLES[tile.crease];

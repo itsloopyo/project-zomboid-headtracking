@@ -5369,8 +5369,9 @@ final class WorldScene {
                 return;
             }
             if (z > 0 && kind.roofSheet) {
-                // Left out. Laid level they stand proud of a gable as slabs; the sheet under each
-                // roof tile is what closes the roof.
+                // Left out, but for a flat top its roof took as a tile (Roofs.flatTop). Laid level the
+                // others stand proud of a gable as slabs; the sheet under each roof tile is what closes the roof.
+                roofBuilder.addFlatTop(mesh, texture, x, y, z);
                 return;
             }
             // A chalkboard, a notice or a map the game hangs on a wall by the way it faces and marks for no wall. Stood
