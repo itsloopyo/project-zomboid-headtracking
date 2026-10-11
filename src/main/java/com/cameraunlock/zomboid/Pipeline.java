@@ -2789,6 +2789,7 @@ final class Pipeline {
         clouds.set("uZenith", state.zenithRed, state.zenithGreen, state.zenithBlue);
         clouds.set("uHorizon", state.horizonRed, state.horizonGreen, state.horizonBlue);
         clouds.set("uCover", state.cover);
+        clouds.set("uDeck", state.deck);
         clouds.set("uDrift", state.driftX, state.driftY);
         clouds.set("uBurstWay", state.burstX, state.burstY, state.burstUp);
         clouds.set("uBurstLight", Lightning.RED * state.burst, Lightning.GREEN * state.burst, Lightning.BLUE * state.burst);

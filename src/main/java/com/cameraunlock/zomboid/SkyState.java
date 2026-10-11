@@ -71,6 +71,8 @@ final class SkyState {
     /** The eye the scene is built round, the player's own whichever camera draws the picture: how thick a layer is goes by how far off it is. See PipelineShaders.FACED. */
     float layersFromX, layersFromY, layersFromUp;
     float cover;
+    /** How closed the cloud deck is that rain or snow falls from, 0 to 1: the square of the heavier fall. */
+    float deck;
     float driftX, driftY;
     float seconds;
     /** The way the wind pushes what grows, scaled by how hard, eased after the game's wind: see Wind. */
@@ -172,6 +174,7 @@ final class SkyState {
         // Rain and snow fall from a deck of cloud, and a heavy fall from one with no gap in it.
         float falling = Math.max(rain, snowing);
         cover = COVER_CLEAR + (COVER_OVERCAST - COVER_CLEAR) * Math.max(cloudy * 0.75f, falling) + COVER_CLOSED * falling * falling;
+        deck = falling * falling;
 
         zenithRed = mix(0.010f, 0.240f, day) + 0.10f * twilight;
         zenithGreen = mix(0.016f, 0.430f, day) + 0.04f * twilight;

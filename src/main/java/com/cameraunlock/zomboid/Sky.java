@@ -135,6 +135,8 @@ final class Sky {
             uniform float uCover;
             uniform vec2 uDrift;
             uniform sampler3D uNoise;
+            // How closed the deck is that heavy rain or snow falls from: a layer of cloud with no gap in it, under the billows.
+            uniform float uDeck;
             // Lightning inside the cloud: the way to where it glows, and its light. See Lightning.see.
             uniform vec3 uBurstWay;
             uniform vec3 uBurstLight;
@@ -156,26 +158,27 @@ final class Sky {
                 float h = (p.z - BOTTOM) / (TOP - BOTTOM);
                 // Flat underneath and rounded on top, as a cloud that has risen to its base is.
                 float shape = smoothstep(0.0, 0.08, h) * (1.0 - smoothstep(0.25, 1.0, h));
+                float deck = clamp(uDeck * shape * 0.6, 0.0, 1.0);
                 // The noise of a cloud's body is at most 1 and its bank adds at most 0.17: where
                 // the most there could be is under nought there is no cloud, and the noise is
                 // not read. The tests stop a thousandth short, so rounding cannot change an answer.
                 float most = shape - (1.0 - uCover);
                 if (most <= -0.171) {
-                    return 0.0;
+                    return deck;
                 }
                 vec3 q = vec3(p.xy * 0.17 + uDrift, p.z * 0.21);
                 // A sky is not evenly sown with cloud. Over many miles there are banks of it
                 // and open blue between, and within a bank the clouds are of every size.
                 float bank = texture3D(uNoise, vec3(p.xy * 0.021 + uDrift * 0.4, 0.37)).g;
                 if (most - (0.5 - bank) * 0.34 <= -0.001) {
-                    return 0.0;
+                    return deck;
                 }
                 // The air a cloud forms in is turning over, which pulls its outline about.
                 vec3 pulled = q + (texture3D(uNoise, q * 0.9 + 0.31).rgr - 0.5) * 0.22;
                 float body = texture3D(uNoise, pulled).r * 0.68 + texture3D(uNoise, pulled * 2.3 + 0.17).g * 0.32;
                 float d = body * shape - (1.0 - uCover) - (0.5 - bank) * 0.34;
                 if (d <= 0.0) {
-                    return 0.0;
+                    return deck;
                 }
                 // The edge of a cloud is where it is drying out into the air: it frays into
                 // curls and wisps, coarse ones and fine ones, and the heart of it does not.
@@ -184,7 +187,7 @@ final class Sky {
                 float wear = texture3D(uNoise, q * 3.7 + vec3(uDrift * 0.3, 0.0)).g * 0.62
                         + texture3D(uNoise, q * 9.1 + vec3(uDrift * 0.6, 0.4)).r * 0.38;
                 d -= wear * 0.34 * (1.0 - min(d * 3.2, 1.0));
-                return clamp(d * 7.0, 0.0, 1.0);
+                return max(clamp(d * 7.0, 0.0, 1.0), deck);
             }
 
             void main() {
