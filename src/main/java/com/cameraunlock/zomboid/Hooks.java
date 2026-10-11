@@ -1,5 +1,6 @@
 package com.cameraunlock.zomboid;
 
+import zombie.core.textures.Texture;
 import zombie.iso.objects.IsoDeadBody;
 import zombie.core.skinnedmodel.advancedanimation.AnimatedModel;
 import zombie.core.skinnedmodel.DeadBodyAtlas;
@@ -365,6 +366,11 @@ public final class Hooks {
         Stumps.baking(model.getAnimationPlayer(), cuts == null ? 0 : Integer.parseInt(cuts));
     }
 
+    /** Called as the game is about to destroy a texture: true puts it off, see Pieces.keeps. */
+    public static boolean keepsTexture(Texture texture) {
+        return Pieces.keeps(texture);
+    }
+
     /** Called as the game starts a tick of the world. */
     public static void worldUpdate() {
         Bleeding.tick(wounds);
@@ -415,6 +421,7 @@ public final class Hooks {
     /** Called as the game starts making a new zombie of an object it kept from one that left the world. */
     public static void zombieReused(IsoZombie zombie) {
         wounds.forget(zombie);
+        Pieces.reused(zombie);
     }
 
     /** Which of {@link Wounds}' limbs a part of the game's is on, or -1. */

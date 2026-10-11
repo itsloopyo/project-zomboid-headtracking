@@ -1514,6 +1514,9 @@ public final class Characters {
             drawn++;
         }
         CharacterDraw.release();
+        if (!casting && map == null) {
+            drawPieces(viewMatrix, eyeX, eyeY, reach);
+        }
         if (drawn > 0) {
             ambient = ambientSum / drawn;
         }
@@ -1602,39 +1605,41 @@ public final class Characters {
             }
         }
         if (!own && !casting && !held && data.character instanceof IsoZombie) {
-            pieces(data, up, viewMatrix, fromEye);
+            keepPieces(data, up);
         }
         EYE.End();
     }
 
-    /** The pieces cut off a zombie: kept the first frame they are posed, then drawn where they fly to and lie. See Pieces. */
-    private void pieces(ModelSlotRenderData data, float up, float[] viewMatrix, float fromEye) {
+    /** The pieces cut off a zombie posed this frame are kept with its bones as drawn. See Pieces. */
+    private void keepPieces(ModelSlotRenderData data, float up) {
         for (Pieces.Piece piece : Pieces.of(data.character)) {
             if (piece.state == Pieces.POSED) {
-                Pieces.keep(piece, parts(data), data.x, data.y, up, data.animPlayerAngle, CHARACTER_SCALE * data.finalScale);
-                continue;
+                Pieces.keep(piece, data, parts(data), data.x, data.y, up, data.animPlayerAngle, CHARACTER_SCALE * data.finalScale);
             }
-            if (!Pieces.drawn(piece)) {
+        }
+    }
+
+    /** Every piece cut off a zombie, where it flies or lies, with what it kept to be drawn by. See Pieces. */
+    private void drawPieces(float[] viewMatrix, float eyeX, float eyeY, float reach) {
+        for (Pieces.Piece piece : Pieces.all()) {
+            float toX = piece.x - eyeX, toY = piece.y - eyeY;
+            if (toX * toX + toY * toY > reach * reach) {
                 continue;
             }
             place(piece.x, piece.y, piece.standsUp, piece.angle, CHARACTER_SCALE);
             multiply(viewMatrix, placed, combined);
-            CharacterDraw.begin(data, combined, projection, false, fromEye);
-            for (int part = 0; part < parts(data).size(); part++) {
-                ModelInstanceRenderData model = parts(data).get(part);
-                java.nio.FloatBuffer bones = Pieces.bones(piece, model.model);
-                if (bones == null) {
-                    continue;
-                }
-                java.nio.FloatBuffer own = model.matrixPalette;
-                model.matrixPalette = bones;
-                try {
-                    CharacterDraw.part(model);
-                } finally {
-                    model.matrixPalette = own;
-                }
+            ModelSlotRenderData person = piece.person;
+            person.ambientR = 1f;
+            person.ambientG = 1f;
+            person.ambientB = 1f;
+            CharacterDraw.begin(person, combined, projection, false, (float) Math.hypot(toX, toY));
+            for (int part = 0; part < piece.parts.size(); part++) {
+                ModelInstanceRenderData model = piece.parts.get(part);
+                model.matrixPalette = Pieces.bones(piece, part);
+                CharacterDraw.part(model);
             }
         }
+        CharacterDraw.release();
     }
 
     private static boolean onHead(ModelInstance model) {

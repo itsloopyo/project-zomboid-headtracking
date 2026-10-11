@@ -4,6 +4,9 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.IdentityHashMap;
+import java.util.Set;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -11,10 +14,12 @@ import java.util.Random;
 import java.util.WeakHashMap;
 import zombie.characters.IsoGameCharacter;
 import zombie.characters.IsoZombie;
-import zombie.core.skinnedmodel.model.Model;
+import zombie.core.skinnedmodel.model.ModelInstance;
 import zombie.core.skinnedmodel.model.ModelInstanceRenderData;
+import zombie.core.skinnedmodel.model.ModelSlotRenderData;
 import zombie.core.skinnedmodel.model.SkinningBone;
 import zombie.core.skinnedmodel.model.SkinningData;
+import zombie.core.textures.Texture;
 
 /**
  * A limb or a head cut off, flying from the zombie and lying where it lands.
@@ -24,7 +29,9 @@ import zombie.core.skinnedmodel.model.SkinningData;
  * the ones the game posed the frame before the cut was pressed in: {@link Stumps} leaves a
  * new cut unpressed until the render thread has kept that frame's bones, and presses it after.
  * The piece is drawn in the frame the zombie stood in then, so it flies on whatever the zombie
- * does after. It is drawn with the zombie's model and textures, so only while the zombie is.
+ * does after. It keeps what it is drawn with: the models, which the game shares, and the
+ * zombie's own textures, which the game would destroy with the zombie and is kept from
+ * destroying until the piece goes (see {@link #keeps}).
  *
  * Bones are made on the logic thread and kept and drawn on the render thread.
  */
@@ -62,10 +69,12 @@ final class Pieces {
         volatile int state = WAITING;
         /** Where the piece's joint is and which way the piece runs from it, in the model, the frame it was kept. */
         float px, py, pz, ax, ay, az;
-        /** Each part's bones that frame, and which of them are the piece's. */
-        final List<Model> models = new ArrayList<>();
+        /** Each part as it was drawn that frame, its bones then, and which of them are the piece's. */
+        final List<ModelInstanceRenderData> parts = new ArrayList<>();
         final List<float[]> palettes = new ArrayList<>();
         final List<boolean[]> ofPiece = new ArrayList<>();
+        /** The zombie as it was drawn that frame, to draw the piece by once the zombie is gone. */
+        final ModelSlotRenderData person = new ModelSlotRenderData();
         /** Where and how the zombie stood that frame. */
         float x, y, standsUp, angle, scale;
         long kept, posed;
@@ -81,6 +90,11 @@ final class Pieces {
     }
 
     private static final Map<IsoGameCharacter, List<Piece>> pieces = new WeakHashMap<>();
+    /** Pieces whose zombie the game has let go of or made again: kept here until they go. */
+    private static final List<Piece> orphans = new ArrayList<>();
+    /** The textures pieces are drawn with, which the game is kept from destroying. */
+    private static final Set<Texture> held = Collections.newSetFromMap(new IdentityHashMap<>());
+    private static final Set<Texture> letGo = Collections.newSetFromMap(new IdentityHashMap<>());
     private static volatile boolean any;
     private static final Random random = new Random();
     private static final FloatBuffer moved = ByteBuffer.allocateDirect(BONES * 16 * Float.BYTES).order(ByteOrder.nativeOrder()).asFloatBuffer();
@@ -142,6 +156,26 @@ final class Pieces {
         return false;
     }
 
+    /** Every piece kept and still to be drawn, whoever it was cut from. */
+    static List<Piece> all() {
+        if (!any) {
+            return List.of();
+        }
+        List<Piece> all = new ArrayList<>();
+        synchronized (pieces) {
+            for (List<Piece> list : pieces.values()) {
+                for (Piece piece : list) {
+                    if (drawn(piece)) {
+                        all.add(piece);
+                    }
+                }
+            }
+            all.addAll(orphans);
+        }
+        all.removeIf(piece -> !drawn(piece));
+        return all;
+    }
+
     /** A zombie's pieces, or none. */
     static List<Piece> of(IsoGameCharacter zombie) {
         if (!any || zombie == null) {
@@ -154,7 +188,7 @@ final class Pieces {
     }
 
     /** Keeps the bones of a posed piece's zombie as drawn this frame. Render thread. */
-    static void keep(Piece piece, List<ModelInstanceRenderData> parts, float x, float y, float standsUp, float angle, float scale) {
+    static void keep(Piece piece, ModelSlotRenderData data, List<ModelInstanceRenderData> parts, float x, float y, float standsUp, float angle, float scale) {
         for (ModelInstanceRenderData part : parts) {
             if (part.model == null || !(part.model.tag instanceof SkinningData skeleton) || part.matrixPalette == null) {
                 continue;
@@ -168,10 +202,35 @@ final class Pieces {
                 continue;
             }
             mark(bone, mine);
-            piece.models.add(part.model);
+            ModelInstance instance = new ModelInstance();
+            instance.model = part.model;
+            instance.tex = part.modelInstance.tex;
+            instance.tintR = part.modelInstance.tintR;
+            instance.tintG = part.modelInstance.tintG;
+            instance.tintB = part.modelInstance.tintB;
+            instance.modelScript = part.modelInstance.modelScript;
+            ModelInstanceRenderData own = new ModelInstanceRenderData();
+            own.model = part.model;
+            own.modelInstance = instance;
+            own.hue = part.hue;
+            own.ignoreLighting = part.ignoreLighting;
+            if (instance.tex != null) {
+                synchronized (pieces) {
+                    held.add(instance.tex);
+                }
+            }
+            piece.parts.add(own);
             piece.palettes.add(copy);
             piece.ofPiece.add(mine);
         }
+        ModelSlotRenderData person = piece.person;
+        person.alpha = 1f;
+        person.animPlayer = data.animPlayer;
+        person.finalScale = data.finalScale;
+        person.x = x;
+        person.y = y;
+        person.z = data.z;
+        person.animPlayerAngle = angle;
         piece.x = x;
         piece.y = y;
         piece.standsUp = standsUp;
@@ -194,7 +253,7 @@ final class Pieces {
         piece.state = KEPT;
         if (FirstPerson.TRACE) {
             Log.info(String.format(Locale.ROOT, "pieces: kept part %d cut %d from %d parts, joint (%.3f, %.3f, %.3f) runs (%.2f, %.2f, %.2f), scale %.3f",
-                    piece.part, piece.cut, piece.models.size(), piece.px, piece.py, piece.pz, piece.ax, piece.ay, piece.az, scale));
+                    piece.part, piece.cut, piece.parts.size(), piece.px, piece.py, piece.pz, piece.ax, piece.ay, piece.az, scale));
         }
     }
 
@@ -218,17 +277,15 @@ final class Pieces {
      * The bones of a piece's part as they are now in its flight, for {@code model}, or null
      * where the piece kept none for it. Render thread.
      */
-    static FloatBuffer bones(Piece piece, Model model) {
-        int which = piece.models.indexOf(model);
-        if (which < 0) {
-            return null;
-        }
+    static FloatBuffer bones(Piece piece, int which) {
         float[] kept = piece.palettes.get(which);
         boolean[] mine = piece.ofPiece.get(which);
         long now = System.nanoTime();
         PieceMotion motion = piece.motion;
-        motion.advance(Math.min((now - piece.stepped) / 1e9f, 0.1f));
-        piece.stepped = now;
+        if (which == 0) {
+            motion.advance(Math.min((now - piece.stepped) / 1e9f, 0.1f));
+            piece.stepped = now;
+        }
         float[] now3 = new float[3];
         motion.pivot(now3);
         if (motion.touched && !piece.landed) {
@@ -285,6 +342,36 @@ final class Pieces {
         return piece.landed ? new float[] {piece.landX, piece.landY} : null;
     }
 
+    /**
+     * Whether the game's destroying of a texture is put off: a piece is drawn with it. A texture
+     * the game asked to destroy is destroyed when the last piece drawn with it goes.
+     */
+    static boolean keeps(Texture texture) {
+        if (held.isEmpty()) {
+            return false;
+        }
+        synchronized (pieces) {
+            if (!held.contains(texture)) {
+                return false;
+            }
+            letGo.add(texture);
+            return true;
+        }
+    }
+
+    /** A zombie the game makes again: its pieces lie on, apart from it. */
+    static void reused(IsoGameCharacter zombie) {
+        if (!any) {
+            return;
+        }
+        synchronized (pieces) {
+            List<Piece> list = pieces.remove(zombie);
+            if (list != null) {
+                orphans.addAll(list);
+            }
+        }
+    }
+
     /** Called once a game tick: blood where pieces land, and pieces long lain forgotten. Logic thread. */
     static void tick() {
         if (!any) {
@@ -299,10 +386,36 @@ final class Pieces {
                         Bleeding.splash(at[0], at[1], zombie.getZ());
                     }
                 }
-                entry.getValue().removeIf(piece -> piece.state == KEPT && (System.nanoTime() - piece.kept) / 1e9f >= LIES_FOR);
+                entry.getValue().removeIf(Pieces::gone);
             }
             pieces.values().removeIf(List::isEmpty);
-            any = !pieces.isEmpty();
+            orphans.removeIf(Pieces::gone);
+            // Textures no piece is drawn with any more go as the game asked.
+            Set<Texture> still = Collections.newSetFromMap(new IdentityHashMap<>());
+            for (List<Piece> list : pieces.values()) {
+                list.forEach(piece -> piece.parts.forEach(part -> still.add(part.modelInstance.tex)));
+            }
+            orphans.forEach(piece -> piece.parts.forEach(part -> still.add(part.modelInstance.tex)));
+            held.retainAll(still);
+            for (java.util.Iterator<Texture> it = letGo.iterator(); it.hasNext(); ) {
+                Texture texture = it.next();
+                if (!held.contains(texture)) {
+                    it.remove();
+                    destroying.add(texture);
+                }
+            }
+            any = !pieces.isEmpty() || !orphans.isEmpty();
         }
+        for (Texture texture : destroying) {
+            texture.destroy();
+        }
+        destroying.clear();
+    }
+
+    private static final List<Texture> destroying = new ArrayList<>();
+
+    /** Whether a piece has lain its time, or was let go without being kept. */
+    private static boolean gone(Piece piece) {
+        return piece.state == KEPT && (System.nanoTime() - piece.kept) / 1e9f >= LIES_FOR;
     }
 }

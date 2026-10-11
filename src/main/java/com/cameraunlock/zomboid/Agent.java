@@ -384,6 +384,12 @@ public final class Agent {
                             code.getfield(ClassDesc.ofInternalName(RENDER_JOB), "animatedModel", ClassDesc.ofInternalName(ANIMATED_MODEL));
                             CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "bodyBaking", "(L" + BODY_PARAMS + ";L" + ANIMATED_MODEL + ";)V"));
                         }, 1)),
+                new Patch("zombie/core/textures/Texture", "destroy at its start", classBytes -> CallSite.insertAtStartOfInstanceMethod(classBytes,
+                        new CallSite.Method("zombie/core/textures/Texture", "destroy", "()V"), code -> {
+                            code.aload(0);
+                            CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "keepsTexture", "(Lzombie/core/textures/Texture;)Z"));
+                            code.ifThen(java.lang.classfile.Opcode.IFNE, java.lang.classfile.CodeBuilder::return_);
+                        })),
                 new Patch("zombie/iso/IsoWorld", "update at its start", classBytes -> CallSite.insertAtStartOfInstanceMethod(classBytes,
                         new CallSite.Method("zombie/iso/IsoWorld", "update", "()V"),
                         code -> CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "worldUpdate", "()V")))),
