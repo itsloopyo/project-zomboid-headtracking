@@ -119,6 +119,27 @@ final class CharacterDraw {
             uniform vec2 uThread;
             uniform float uLift;
 
+            // How much of a bone's matrix is pressed flat (Stumps): its volume against a whole one's
+            // the size of its longest axis. A bone that turns and moves the corner keeps all of it.
+            float pressed(mat4 bone) {
+                vec3 a = bone[0].xyz, b = bone[1].xyz, c = bone[2].xyz;
+                float most = max(length(a), max(length(b), length(c)));
+                if (most < 1e-6) {
+                    return 1.0;
+                }
+                return 1.0 - smoothstep(0.08, 0.3, abs(dot(a, cross(b, c))) / (most * most * most));
+            }
+
+            // How much of a corner is carried by pressed bones: the cut end of a limb, which is drawn as meat.
+            float stumped() {
+                float share = 0.0;
+                if (aWeights.x > 0.0) share += pressed(uPalette[int(aBones.x)]) * aWeights.x;
+                if (aWeights.y > 0.0) share += pressed(uPalette[int(aBones.y)]) * aWeights.y;
+                if (aWeights.z > 0.0) share += pressed(uPalette[int(aBones.z)]) * aWeights.z;
+                if (aWeights.w > 0.0) share += pressed(uPalette[int(aBones.w)]) * aWeights.w;
+                return share;
+            }
+
             mat4 posed() {
                 mat4 blend = mat4(0.0);
                 if (aWeights.x > 0.0) blend += uPalette[int(aBones.x)] * aWeights.x;
@@ -139,9 +160,11 @@ final class CharacterDraw {
             TO_NEXT vec4 vAlong;
             TO_NEXT vec2 vLay;
             TO_NEXT vec3 vEye;
+            TO_NEXT float vStump;
 
             void main() {
                 mat4 blend = posed();
+                vStump = stumped();
                 vec4 place = blend * vec4(aPlace, 1.0);
                 // The run-together normal: a seam in the texture is then no seam in the light.
                 vNormal = (blend * vec4(aSmooth, 0.0)).xyz;
@@ -165,9 +188,11 @@ final class CharacterDraw {
             TO_NEXT vec3 cLean;
             TO_NEXT vec4 cAlong;
             TO_NEXT vec2 cLay;
+            TO_NEXT float cStump;
 
             void main() {
                 mat4 blend = posed();
+                cStump = stumped();
                 vec4 place = blend * vec4(aPlace, 1.0);
                 cPlace = place.xyz * uScale;
                 cSmooth = (blend * vec4(aSmooth, 0.0)).xyz;
@@ -290,9 +315,11 @@ final class CharacterDraw {
             TO_NEXT vec2 vLay;
             TO_NEXT vec3 vEye;
             TO_NEXT float vArm;
+            TO_NEXT float vStump;
 
             void main() {
                 mat4 blend = posed();
+                vStump = stumped();
                 vec4 place = blend * vec4(aPlace, 1.0);
                 place.xyz *= uScale;
                 vNormal = (blend * vec4(aNormal, 0.0)).xyz;
@@ -327,6 +354,7 @@ final class CharacterDraw {
             in vec3 cLean[];
             in vec4 cAlong[];
             in vec2 cLay[];
+            in float cStump[];
             out vec3 ePlace[];
             out vec3 eSmooth[];
             out vec2 eUv[];
@@ -334,6 +362,7 @@ final class CharacterDraw {
             out vec3 eLean[];
             out vec4 eAlong[];
             out vec2 eLay[];
+            out float eStump[];
             uniform mat4 uModelView;
             uniform vec2 uFine;
             const float FINEST = 4.0;
@@ -351,6 +380,7 @@ final class CharacterDraw {
                 eLean[gl_InvocationID] = cLean[gl_InvocationID];
                 eAlong[gl_InvocationID] = cAlong[gl_InvocationID];
                 eLay[gl_InvocationID] = cLay[gl_InvocationID];
+                eStump[gl_InvocationID] = cStump[gl_InvocationID];
                 if (gl_InvocationID == 0) {
                     float first = pieces(cPlace[1], cPlace[2]);
                     float second = pieces(cPlace[2], cPlace[0]);
@@ -383,6 +413,7 @@ final class CharacterDraw {
             in vec3 eLean[];
             in vec4 eAlong[];
             in vec2 eLay[];
+            in float eStump[];
             out vec3 vNormal;
             out vec2 vUv;
             out vec3 vRest;
@@ -390,6 +421,7 @@ final class CharacterDraw {
             out vec4 vAlong;
             out vec2 vLay;
             out vec3 vEye;
+            out float vStump;
             uniform mat4 uModelView;
             uniform mat4 uProjection;
             uniform float uLift;
@@ -414,6 +446,7 @@ final class CharacterDraw {
                 vLean = share.x * eLean[0] + share.y * eLean[1] + share.z * eLean[2];
                 vAlong = share.x * eAlong[0] + share.y * eAlong[1] + share.z * eAlong[2];
                 vLay = share.x * eLay[0] + share.y * eLay[1] + share.z * eLay[2];
+                vStump = share.x * eStump[0] + share.y * eStump[1] + share.z * eStump[2];
                 vec3 stood = mix(level, rounded, ROUNDING) + vNormal * (uLift / max(length(vNormal), 1e-6));
                 vec4 eye = uModelView * vec4(stood, 1.0);
                 vEye = eye.xyz;
@@ -581,10 +614,20 @@ final class CharacterDraw {
             FROM_LAST vec4 vAlong;
             FROM_LAST vec2 vLay;
             FROM_LAST vec3 vEye;
+            FROM_LAST float vStump;
 
             """ + HUE + KEPT + GRAIN + """
             float grey(vec3 color) {
                 return dot(color, vec3(0.299, 0.587, 0.114));
+            }
+
+            // The cut end of a limb, by where the point was on the body as made: dark wet muscle in
+            // strands, lighter where it is torn, and flecks of bone and fat in it.
+            vec3 meat(vec3 rest) {
+                float coarse = lumps(rest * 60.0), fine = lumps(rest * 220.0 + 7.0);
+                vec3 muscle = mix(vec3(0.30, 0.03, 0.03), vec3(0.55, 0.10, 0.08), coarse * 0.7 + fine * 0.3);
+                float fleck = smoothstep(0.78, 0.86, lumps(rest * 140.0 + 31.0));
+                return mix(muscle, mix(vec3(0.80, 0.72, 0.60), vec3(0.85, 0.80, 0.70), fine), fleck);
             }
 
             // Hair as high as it stands at a place across and along its strands: locks, the
@@ -632,6 +675,9 @@ final class CharacterDraw {
                     discard;
                 }
                 vec3 color = texel.rgb;
+                if (vStump > 0.05) {
+                    color = mix(color, meat(vRest), smoothstep(0.15, 0.8, vStump));
+                }
                 // How bright the texture is round a texel, a few dots off each way, how much
                 // brighter the texel is than that, and which way over the texture it gets brighter.
                 float stands = 0.0, about = 0.0;
