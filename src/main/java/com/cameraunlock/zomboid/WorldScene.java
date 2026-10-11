@@ -117,6 +117,8 @@ final class WorldScene {
     private static final float FAR = FarLand.REACH + 80f;
     private static final float EXPOSURE_INDOORS = 1.25f;
     private static final float EYE_ADAPT_SECONDS = 0.8f;
+    /** How much further the eye closes at night over ground all under snow: 2.5 times as far at full snow and full night. */
+    private static final float SNOW_STOPS_DOWN = 1.5f;
     private static final float EXPOSURE_MOST = 3.5f;
     private static final float EXPOSURE_MOST_AT_NIGHT = 1.5f;
     /**
@@ -4046,6 +4048,9 @@ final class WorldScene {
             // An eye in the dark does not get back what the day had: it sees less, and that is
             // what makes a lit window or a pair of headlights the brightest thing in the night.
             outdoors *= 1f - NIGHT_HELD_BACK * sky.night;
+            // Snow throws back most of the little light a night has, nine times what a road does: the eye
+            // stops down to a white land, or a night of snow comes out as bright as a day.
+            outdoors /= 1f + SNOW_STOPS_DOWN * sky.snowLying * sky.night;
             float here = 1f, roomHere = 1f;
             if (under != null) {
                 // Without the viewer's own torch. The game has the torch on the square the character
