@@ -721,6 +721,8 @@ final class WorldScene {
         final int edge;
         /** The wall of its square the sprite lies flat on when nothing else is made of it: see WallObjects. */
         final int flatWall;
+        /** Whether it is a broken length of fence the game marks for no wall: see BrokenFences. */
+        final boolean brokenFence;
 
         Kind(IsoSprite sprite) {
             PropertyContainer properties = sprite.getProperties();
@@ -761,6 +763,7 @@ final class WorldScene {
             line = name == null ? Outdoors.NO_LINE : Outdoors.washingLine(name);
             edge = name == null ? Overhead.ANY_EDGE : Overhead.edgeOf(name);
             flatWall = WallObjects.flatOn(properties, sprite.getFacing());
+            brokenFence = BrokenFences.is(name);
         }
     }
 
@@ -5269,6 +5272,10 @@ final class WorldScene {
                 if (kind.edge != Overhead.ANY_EDGE) {
                     west = kind.edge != Overhead.NORTH_EDGE;
                     north = kind.edge != Overhead.WEST_EDGE;
+                }
+                if (kind.brokenFence && !west && !north) {
+                    west = BrokenFences.onWest(frame);
+                    north = BrokenFences.onNorth(frame);
                 }
             }
             // A light switch says nothing of where it is. It is on a wall of its square, and is
