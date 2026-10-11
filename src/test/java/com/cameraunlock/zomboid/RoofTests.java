@@ -41,6 +41,7 @@ final class RoofTests {
         Checks.run("hippedCornerAtTheEaveCarriesTheEaveRowOn", RoofTests::hippedCornerAtTheEaveCarriesTheEaveRowOn);
         Checks.run("hipCutFlatGetsItsFarSlopeAcrossTheCrown", RoofTests::hipCutFlatGetsItsFarSlopeAcrossTheCrown);
         Checks.run("levelSheetPaintedOverItsFloorIsAFlatTop", RoofTests::levelSheetPaintedOverItsFloorIsAFlatTop);
+        Checks.run("canopyIsNotCarriedToTheFarWall", RoofTests::canopyIsNotCarriedToTheFarWall);
     }
 
     private static void hippedCornerAtTheEaveCarriesTheEaveRowOn() {
@@ -896,6 +897,16 @@ final class RoofTests {
         check(!Roofs.flatTop(trim), "nor is a trim narrower than a tile");
         check(Roofs.ceiling("ceilings_01_0") && !Roofs.ceiling("floors_exterior_tilesandstone_01_0") && !Roofs.ceiling(null),
                 "the map's ceilings are told from a terrace's floor by their sheet");
+    }
+
+    private static void canopyIsNotCarriedToTheFarWall() {
+        // A shallow canopy along the south edge, a tenth of a level a tile: no roof has a far side at that pitch.
+        List<RoofFit.Tile> roof = new ArrayList<>();
+        for (int x = 1; x <= 3; x++) {
+            roof.add(new RoofFit.Tile(x, 4, 1, RoofFit.ALONG_Y, true, 1.27f, 1.16f));
+        }
+        RoofFit.fit(roof);
+        check(RoofFit.backs(roof, BLOCK).isEmpty(), "nothing is made over the house from a canopy");
     }
 
     private static void check(boolean condition, String what) {

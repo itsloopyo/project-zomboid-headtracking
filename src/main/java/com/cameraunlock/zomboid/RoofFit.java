@@ -539,7 +539,9 @@ final class RoofFit {
         LinkedHashMap<Long, Side> alongX = new LinkedHashMap<>(), alongY = new LinkedHashMap<>();
         for (Tile top : tiles) {
             float rise = Math.abs(top.fitHigh - top.fitLow);
-            if (!top.slopes() || rise < LEAST_RISE) {
+            // A slope at another pitch is a canopy or a lean-to over a porch, and has no far side: carried
+            // across to the far wall it laid a level roof over the whole house at the canopy's height.
+            if (!top.slopes() || rise < LEAST_RISE || Math.abs(rise - PITCH) > PITCH_SLACK) {
                 continue;
             }
             boolean isAlongX = top.fitAxis == ALONG_X;
