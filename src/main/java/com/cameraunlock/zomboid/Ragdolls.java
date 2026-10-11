@@ -16,8 +16,9 @@ import zombie.core.skinnedmodel.advancedanimation.LiveAnimNode;
  * in the pose drawn, and with the ragdoll taken in at once the idle still weighed 0.59 at 141 ms.
  * The body is drawn standing on for a third of a second and the shot looks like an animation.
  * Taken over at once both ways, the body reacts on the frame it is hit. A car that knocks a zombie
- * down sends it into a ragdoll the same way. Only while someone plays in first person: the game's
- * own view stays as the game has it.
+ * down sends it into a ragdoll the same way. Only while anyone plays in first person: with no one
+ * in it the game's own view has the game's blends, and in split screen a player in the game's view
+ * beside one in first person sees the same ragdolls as they do.
  */
 public final class Ragdolls {
     private Ragdolls() {}
@@ -27,18 +28,24 @@ public final class Ragdolls {
         return node.getSourceNode().isRagdoll() && anyoneInFirstPerson() ? 0f : stock;
     }
 
-    /** Called with how long the game would blend an animation node out as something else takes over. */
+    /**
+     * Called with how long the game would blend an animation node out. The game also asks it of a
+     * node as it starts, to time that node's early end, so only a node already on its way out is
+     * cut, and only for a ragdoll coming in: a ragdoll on its way out, as a zombie a car knocked
+     * down gets up, leaves the get-up to the game.
+     */
     public static float blendOut(float stock, LiveAnimNode node) {
-        return !node.getSourceNode().isRagdoll() && anyoneInFirstPerson() && ragdollIn(node) ? 0f : stock;
+        return node.isBlendingOut() && !node.getSourceNode().isRagdoll() && anyoneInFirstPerson() && ragdollComingIn(node) ? 0f : stock;
     }
 
     private static Field nodeLayer;
 
-    /** Whether a ragdoll has come in among the animations of the node's own layer. */
-    private static boolean ragdollIn(LiveAnimNode node) {
+    /** Whether a ragdoll is coming in or in among the animations of the node's own layer: active, which the game sets before it updates any of them. */
+    private static boolean ragdollComingIn(LiveAnimNode node) {
         List<LiveAnimNode> live = layerOf(node).getLiveAnimNodes();
         for (int i = 0; i < live.size(); i++) {
-            if (live.get(i).getSourceNode().isRagdoll()) {
+            LiveAnimNode other = live.get(i);
+            if (other.getSourceNode().isRagdoll() && other.isActive()) {
                 return true;
             }
         }
