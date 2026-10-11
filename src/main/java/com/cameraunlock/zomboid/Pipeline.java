@@ -3323,6 +3323,7 @@ final class Pipeline {
         GL11.glBindTexture(GL_TEXTURE_2D, cabin.made() ? paneColor : noneTexture);
         GL13.glActiveTexture(GL_TEXTURE0);
         figureLight.use();
+        noLamps();
         figureLight.set("uPanes", PANE_UNIT);
         figureLight.set("uHavePanes", glass != null ? 1f : 0f);
         figureLight.set("uParts", PARTS_UNIT);
@@ -3841,6 +3842,7 @@ final class Pipeline {
         GL11.glMatrixMode(GL_MODELVIEW);
         GL11.glLoadIdentity();
         figureLight.use();
+        noLamps();
         GL13.glActiveTexture(GL_TEXTURE0 + 4);
         GL11.glBindTexture(GL_TEXTURE_2D, repaintedColor);
         GL13.glActiveTexture(GL_TEXTURE0 + 3);
@@ -3914,6 +3916,7 @@ final class Pipeline {
         GL11.glDisable(GL_ALPHA_TEST);
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, sceneTarget);
         figureLight.use();
+        noLamps();
         GL13.glActiveTexture(GL_TEXTURE0 + 3);
         GL11.glBindTexture(GL_TEXTURE_2D, ownDepth);
         GL13.glActiveTexture(GL_TEXTURE0);
