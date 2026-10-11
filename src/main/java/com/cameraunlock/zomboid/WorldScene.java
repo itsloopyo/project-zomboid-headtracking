@@ -5155,6 +5155,16 @@ final class WorldScene {
             if (span != null) {
                 float x0 = x + span[0], y0 = y + span[1], x1 = x + span[2], y1 = y + span[3], up = (z + span[4]) * ViewCamera.LEVEL_HEIGHT;
                 wireBuilder.cable(x0, y0, landAt(x0, y0) + up, 0f, x1, y1, landAt(x1, y1) + up, 0f, 0f);
+                float along = PylonWires.ball(sprite.getName());
+                if (!Float.isNaN(along)) {
+                    // The ball's model is built along its X, round the wire through its middle.
+                    float ballX = x0 + (x1 - x0) * along, ballY = y0 + (y1 - y0) * along;
+                    building.plain = false;
+                    placed.add(Models.get("marker_ball"), frame, x, y, ballX, ballY, landAt(ballX, ballY) + up - MARKER_BALL_HALF,
+                            Math.abs(x1 - x0) > Math.abs(y1 - y0) ? 0 : 1, Furniture.TILES_PER_METRE, Furniture.TILES_PER_METRE, 0, 0, 0f, 0f, 0, 0f, 0f);
+                    placed.built();
+                    furnished++;
+                }
                 return;
             }
 
@@ -5776,6 +5786,8 @@ final class WorldScene {
         }
 
         final SpriteGeometry.Frame towerLight = new SpriteGeometry.Frame();
+        /** How far a pylon wire's marker ball reaches under the wire through its middle, in metres. */
+        private static final float MARKER_BALL_HALF = 0.13f;
 
         /** Whether the mains are on: read once a frame. */
         boolean mainsOn;

@@ -21,6 +21,12 @@ final class PylonWireTests {
                     "electricity_pylon_" + place + " ends where the same wire starts on the next square of its run");
             Checks.check(stepX != 0f || stepY != 0f, "electricity_pylon_" + place + " runs on to another square");
         }
+        for (int place = 170; place <= 171; place++) {
+            String name = "electricity_pylon_" + place;
+            float along = PylonWires.ball(name);
+            Checks.check(PylonWires.of(name) != null && along > 0f && along < 1f, name + " is a wire with a marker ball along it");
+        }
+        Checks.check(Float.isNaN(PylonWires.ball("electricity_pylon_162")), "a wire with no ball has none");
         Checks.check(PylonWires.of("electricity_pylon_159") == null && PylonWires.of("electricity_pylon_168") == null
                 && PylonWires.of("appliances_com_01_96") == null, "only the pylons' wires are");
     }

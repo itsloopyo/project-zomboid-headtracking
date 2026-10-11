@@ -1773,6 +1773,46 @@ def generator():
     return model
 
 
+def marker_ball():
+    """A marker ball clamped on a power line so that low flying aircraft see it: a red sphere split around the wire. The origin
+    is under its middle, and the wire runs along X through its middle."""
+    model = Model("marker_ball", centred=False)
+    ball = bmesh.new()
+    lathe(ball, [(0.13 * math.sin(math.radians(a)), 0.13 - 0.13 * math.cos(math.radians(a))) for a in range(0, 181, 15)], segments=20)
+    model.turned(ball, "vinyl", sharp=60.0)
+    seam = bmesh.new()
+    # A band round the ball where its halves meet, upright across the wire: turned about its own middle to stand on edge.
+    lathe(seam, [(0.133, 0.115), (0.133, 0.145)], segments=20, to=Matrix.Translation((0.0, 0.0, 0.13)) @ Matrix.Rotation(math.radians(90), 4, "Y")
+          @ Matrix.Translation((0.0, 0.0, -0.13)))
+    model.turned(seam, "linen", sharp=60.0)
+    return model
+
+
+# How high a hospital's curtain rail is, in metres, and how high its curtains' hems are.
+CURTAIN_RAIL_UP, CURTAIN_HEM_UP = 2.28, 0.08
+
+
+def hospital_curtain(name, x0, x1, folds):
+    """A hospital's curtain rail along X, hung from the ceiling on a rod in its middle, and its curtain from x0 to x1 in folds,
+    none where x0 is x1: drawn along the whole rail, or bunched at one end."""
+    model = Model(name, centred=False)
+    steel = bmesh.new()
+    cuboid(steel, -0.5, 0.5, -0.02, 0.02, CURTAIN_RAIL_UP - 0.03, CURTAIN_RAIL_UP + 0.01)
+    cuboid(steel, -0.012, 0.012, -0.012, 0.012, CURTAIN_RAIL_UP + 0.01, 2.45)
+    model.hard(steel, "steel", bevel=0.004, segments=1)
+    if folds:
+        cloth = bmesh.new()
+        width = (x1 - x0) / folds
+        deep = 0.05 if folds > 6 else 0.07
+        for n in range(folds):
+            a, b = x0 + n * width, x0 + (n + 1) * width
+            y = deep if n % 2 else -deep
+            prism_y(cloth, (a + width / 2, (CURTAIN_HEM_UP + CURTAIN_RAIL_UP) / 2 - 0.02, width, CURTAIN_RAIL_UP - CURTAIN_HEM_UP - 0.04, y - 0.004),
+                    (a + width / 2, (CURTAIN_HEM_UP + CURTAIN_RAIL_UP) / 2 - 0.02, width, CURTAIN_RAIL_UP - CURTAIN_HEM_UP - 0.04, y + 0.004))
+        model.hard(cloth, "cloth", bevel=0.003, segments=1)
+    return model
+
+
 def metal_rack():
     """Steel racking two squares long: four slotted uprights and three decks."""
     model = Model("metal_rack")
@@ -2233,23 +2273,23 @@ def cobra_head():
     return model
 
 
-def traffic_light():
-    """The upper length of a traffic signal's post, the game's second sprite of it: the post's top, two arms out along -X
-    and on them a dark housing with three lenses under hoods facing -Y. The origin is the post's axis."""
-    model = Model("traffic_light", centred=False)
+def traffic_light(name="traffic_light", side=-1):
+    """The upper length of a traffic signal's post, the game's second sprite of it: the post's top, two arms out along X, to
+    the side side says, and on them a dark housing with three lenses under hoods facing -Y. The origin is the post's axis."""
+    model = Model(name, centred=False)
     post = bmesh.new()
     lathe(post, [(0.0, 0.0), (0.075, 0.0), (0.075, 2.56), (0.06, 2.6), (0.0, 2.61)], segments=14)
     for z in (1.45, 2.2):
-        rod(post, (0.0, 0.0, z), (-0.68, 0.0, z), 0.022, segments=8)
+        rod(post, (0.0, 0.0, z), (side * 0.68, 0.0, z), 0.022, segments=8)
     model.turned(post, "metal", sharp=50.0)
     housing, lenses, hoods = bmesh.new(), bmesh.new(), bmesh.new()
-    cuboid(housing, -0.96, -0.66, -0.1, 0.12, 1.38, 2.26)
+    cuboid(housing, min(side * 0.96, side * 0.66), max(side * 0.96, side * 0.66), -0.1, 0.12, 1.38, 2.26)
     model.hard(housing, "plastic", bevel=0.02, segments=2)
     # Turned about X a profile's height runs out of the housing's face along -Y.
     to = Matrix.Translation((0.0, -0.1, 0.0)) @ Matrix.Rotation(math.radians(90), 4, "X")
     for z in (2.1, 1.82, 1.54):
-        lathe(lenses, [(0.0, 0.0), (0.1, 0.0), (0.1, 0.012), (0.0, 0.012)], cx=-0.81, cy=z, segments=16, to=to)
-        lathe(hoods, [(0.115, 0.0), (0.125, 0.0), (0.125, 0.14), (0.115, 0.14)], cx=-0.81, cy=z, segments=16, to=to)
+        lathe(lenses, [(0.0, 0.0), (0.1, 0.0), (0.1, 0.012), (0.0, 0.012)], cx=side * 0.81, cy=z, segments=16, to=to)
+        lathe(hoods, [(0.115, 0.0), (0.125, 0.0), (0.125, 0.14), (0.115, 0.14)], cx=side * 0.81, cy=z, segments=16, to=to)
     model.turned(lenses, "screen", sharp=50.0)
     model.turned(hoods, "rubber", sharp=50.0)
     return model
@@ -10401,12 +10441,12 @@ def every():
               framed("frame_tall", 0.6, 0.9), framed("frame_square", 0.7, 0.7), framed("frame_wide", 0.9, 0.6), canvas(), wall_clock(),
               table("table_2", 1.9, 0.92), table("table_3", 2.9, 0.92), table("table_4", 1.9, 1.9, leg=0.08), table("narrow_table", 0.92, 0.5),
               table("low_table", 0.9, 0.5, top=0.42, leg=0.05), table("low_table_2", 1.5, 0.6, top=0.42, leg=0.05), round_table(), office_desk(),
-              cabinet("shop_counter", 0.62, 0.90, True, panelled=True), low_shelves(), wall_shelf("wall_shelf", 1), wall_shelf("wall_shelves", 2), shop_wall_shelves("shop_wall_shelves", "wood"), shop_wall_shelves("zippee_wall_shelves", "vinyl"), hood_dryer(), car_wash_brush(), car_wash_curtain(), bar_back(), sewer_pipes("sewer_pipes_bend", 0.46, True), sewer_pipes("sewer_pipes", 0.25, False), clothes_wall_rails(), generator(),
+              cabinet("shop_counter", 0.62, 0.90, True, panelled=True), low_shelves(), wall_shelf("wall_shelf", 1), wall_shelf("wall_shelves", 2), shop_wall_shelves("shop_wall_shelves", "wood"), shop_wall_shelves("zippee_wall_shelves", "vinyl"), hood_dryer(), car_wash_brush(), car_wash_curtain(), bar_back(), sewer_pipes("sewer_pipes_bend", 0.46, True), sewer_pipes("sewer_pipes", 0.25, False), clothes_wall_rails(), generator(), marker_ball(), hospital_curtain("curtain_rail", 0.0, 0.0, 0), hospital_curtain("curtain_drawn", -0.49, 0.49, 10), hospital_curtain("curtain_gathered", 0.12, 0.49, 6),
               metal_rack(), store_shelves(), plastic_chair(), folding_chair(), booth(), stool(), vending_machine(), arcade_machine(),
               radio(), microwave(), dishwasher(), chest_freezer(), register(), shower("shower", True), shower("shower_head", False),
               kettle_barbecue(), gas_barbecue(), cooler("mini_fridge", 0.5, 0.82, 1), cooler("large_fridge", 1.7, 1.95, 2),
               street_lamp("cone_lamp", "cone"), street_lamp("globe_lamp", "globe"), street_lamp("lantern_lamp", "lantern"),
-              cobra_head(), traffic_light(), wall_bowl(), wall_lantern(), bulkhead_light(), wall_sink(), serving_counter(), air_conditioner(),
+              cobra_head(), traffic_light(), traffic_light("traffic_light_r", 1), wall_bowl(), wall_lantern(), bulkhead_light(), wall_sink(), serving_counter(), air_conditioner(),
               parasol("parasol", [(0.045, 2.40), (0.35, 2.25), (0.68, 2.08), (1.0, 1.91)], 0.10, 0.06),
               parasol("parasol_dome", [(0.045, 2.43), (0.24, 2.39), (0.46, 2.28), (0.66, 2.11), (0.82, 1.88), (0.92, 1.62)], 0.08, 0.06)] + (indoors() + outdoors()
             + upholstered() + barrels_and_pots() + street() + display_cases() + awnings() + hoods() + industrial()

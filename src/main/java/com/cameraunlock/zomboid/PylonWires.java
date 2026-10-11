@@ -5,6 +5,8 @@ package com.cameraunlock.zomboid;
  * sprite one straight level wire across its square: along x, along y, or along one of the
  * two diagonals. Stood up as a card a run of them was a row of dashes turned to the eye.
  *
+ * Two of the sprites have a red marker ball on the wire as well, and the ball is a model.
+ *
  * Where each wire crosses its square and how high it is were read off the sprites. A wire
  * along a diagonal is painted the whole length of the square's diagonal, so a run of them
  * meets end to end on squares that touch at their corners.
@@ -25,9 +27,23 @@ final class PylonWires {
         {-0.16f, 0.16f, 0.84f, 1.16f, 0.03f},
     };
 
+    /** The two wires that carry a red marker ball, 170 and 171 on the sheet: the same as 162 and 163. */
+    private static final int MARKED = 170, MARKED_AS = 162;
+    /** How far along its wire each of those balls is, from the wire's start, as a share of the wire. */
+    private static final float[] BALLS = {0.563f, 0.531f};
+
     /** The wire a sprite paints, as {x0, y0, x1, y1, high}, or null for a sprite that is none. */
     static float[] of(String name) {
         int place = Sheets.place(name, SHEET);
+        if (place == MARKED || place == MARKED + 1) {
+            return SPANS[place - MARKED + MARKED_AS - 160];
+        }
         return place >= 160 && place < 160 + SPANS.length ? SPANS[place - 160] : null;
+    }
+
+    /** How far along its wire the sprite paints a marker ball, as a share of the wire, or NaN for a wire with none. */
+    static float ball(String name) {
+        int place = Sheets.place(name, SHEET);
+        return place == MARKED || place == MARKED + 1 ? BALLS[place - MARKED] : Float.NaN;
     }
 }
