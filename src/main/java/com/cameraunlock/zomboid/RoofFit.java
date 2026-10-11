@@ -100,6 +100,8 @@ final class RoofFit {
          * -1 for a whole tile. See Roofs.cut.
          */
         int cutCorner = -1;
+        /** Whether the tile is a level sheet the map marks as no tile of a roof: see Roofs.flatTop and behindRidges. */
+        boolean sheet;
         private int group = -1;
 
         Tile(int x, int y, int z, int axis, boolean sure, float low, float high) {
@@ -501,6 +503,66 @@ final class RoofFit {
         int eaveLevel() {
             return (int) Math.floor(eave + LEAST_RISE);
         }
+    }
+
+    /**
+     * The level sheets of a roof (Tile.sheet) that lie behind a ridge and are no part of what
+     * shows: the map paints a sheet a third of a level up over the far side of a roof as well
+     * as over the crown of a hip cut short, and the far side is the one the game's view never
+     * sees. Sheets joined at one height are one piece. A crown is what its slopes climb to, so
+     * the slopes beside it meet it at its height; a piece whose edge runs more along slopes that
+     * meet it higher up than along slopes that meet it at its height lies behind their ridge (a
+     * long gable's ridge along one side, the ends of the house meeting it at its height). Left
+     * in, the far slope made over it stopped at the sheets' height, a step below the ridge. A
+     * piece with no slope beside it is a flat roof.
+     */
+    static List<Tile> behindRidges(List<Tile> tiles) {
+        HashMap<Long, Tile> at = new HashMap<>();
+        for (Tile tile : tiles) {
+            at.put(key(tile.x, tile.y, tile.z), tile);
+        }
+        ArrayList<Tile> behind = new ArrayList<>();
+        HashMap<Tile, Boolean> seen = new HashMap<>();
+        for (Tile first : tiles) {
+            if (!first.sheet || seen.containsKey(first)) {
+                continue;
+            }
+            ArrayList<Tile> piece = new ArrayList<>();
+            ArrayDeque<Tile> queue = new ArrayDeque<>();
+            queue.add(first);
+            seen.put(first, true);
+            int climbedTo = 0, under = 0;
+            while (!queue.isEmpty()) {
+                Tile sheet = queue.poll();
+                piece.add(sheet);
+                for (int side = 0; side < 4; side++) {
+                    int dx = side == 0 ? -1 : side == 1 ? 1 : 0, dy = side == 2 ? -1 : side == 3 ? 1 : 0;
+                    Tile next = at.get(key(sheet.x + dx, sheet.y + dy, sheet.z));
+                    if (next != null && next.sheet && Math.abs(next.low - first.low) < SAME) {
+                        if (!seen.containsKey(next)) {
+                            seen.put(next, true);
+                            queue.add(next);
+                        }
+                        continue;
+                    }
+                    for (int dz = -1; dz <= 1; dz++) {
+                        Tile beside = at.get(key(sheet.x + dx, sheet.y + dy, sheet.z + dz));
+                        if (beside == null || beside.sheet || beside.shaped) {
+                            continue;
+                        }
+                        // The slope's height along the edge it shares with the sheet: its low edge is the one nearer the map's origin.
+                        float edge = beside.axis == ALONG_X && dx != 0 ? (dx > 0 ? beside.low : beside.high)
+                                : beside.axis == ALONG_Y && dy != 0 ? (dy > 0 ? beside.low : beside.high) : Float.NaN;
+                        climbedTo += Math.abs(edge - first.low) <= PITCH / 2f ? 1 : 0;
+                        under += edge > first.low + PITCH / 2f ? 1 : 0;
+                    }
+                }
+            }
+            if (under > climbedTo) {
+                behind.addAll(piece);
+            }
+        }
+        return behind;
     }
 
     /**

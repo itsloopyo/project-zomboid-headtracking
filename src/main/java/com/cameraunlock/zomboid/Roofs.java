@@ -95,11 +95,18 @@ final class Roofs {
         /** The sprite the tile was read from, or null for a tile of a slope the map leaves out. */
         final Texture texture;
         final Roof roof;
+        /** Whether it is a sheet behind a ridge (RoofFit.behindRidges): kept so its square is not read again, and no tile. */
+        final boolean behind;
 
         Laid(RoofFit.Tile tile, Texture texture, Roof roof) {
+            this(tile, texture, roof, false);
+        }
+
+        Laid(RoofFit.Tile tile, Texture texture, Roof roof, boolean behind) {
             this.tile = tile;
             this.texture = texture;
             this.roof = roof;
+            this.behind = behind;
         }
     }
 
@@ -326,7 +333,7 @@ final class Roofs {
             read(cell, x, y, z, now, scale);
             known = laid.get(key);
         }
-        return known;
+        return known == null || known.behind ? null : known;
     }
 
     private static boolean due(Roof roof, int now) {
@@ -401,9 +408,21 @@ final class Roofs {
         // out the same whoever asks.
         reading.sort(Comparator.comparingLong(one -> RoofFit.key(one.tile.x, one.tile.y, one.tile.z)));
         tiles.clear();
+        for (Laid one : reading) {
+            tiles.add(one.tile);
+        }
+        // A sheet behind a ridge is no tile of what shows: the far slope is made over it, as over a square with none.
+        List<RoofFit.Tile> behind = RoofFit.behindRidges(tiles);
+        if (!behind.isEmpty()) {
+            reading.replaceAll(one -> behind.contains(one.tile) ? new Laid(one.tile, one.texture, roof, true) : one);
+        }
+        tiles.clear();
         shown.clear();
         WallSides.Votes votes = new WallSides.Votes();
         for (Laid one : reading) {
+            if (one.behind) {
+                continue;
+            }
             tiles.add(one.tile);
             if (one.tile.sure && one.tile.axis != RoofFit.LEVEL && one.texture.getWidth() > WHOLE_TILE_WIDE * scale) {
                 int index = shown.indexOf(one.texture);
@@ -433,7 +452,11 @@ final class Roofs {
             for (RoofFit.Tile tile : tiles) {
                 highest = Math.max(highest, tile.z);
             }
-            List<RoofFit.Tile> backs = RoofFit.backs(tiles, site(cell, highest));
+            HashSet<Long> behindKeys = new HashSet<>();
+            for (RoofFit.Tile sheet : behind) {
+                behindKeys.add(RoofFit.key(sheet.x, sheet.y, sheet.z));
+            }
+            List<RoofFit.Tile> backs = RoofFit.backs(tiles, site(cell, highest, behindKeys));
             RoofFit.peaks(tiles, backs);
             for (RoofFit.Tile back : backs) {
                 keep(new Laid(back, null, roof));
@@ -553,8 +576,17 @@ final class Roofs {
         return held;
     }
 
-    private static RoofFit.Site site(IsoCell cell, int highest) {
+    /**
+     * The building under a roof, as RoofFit.backs asks of it. behind holds the squares of the
+     * sheets behind a ridge (RoofFit.behindRidges): the far slope is made over them, so they are
+     * no roofing of the game's that a made slope would stand over.
+     */
+    private static RoofFit.Site site(IsoCell cell, int highest, HashSet<Long> behind) {
         return new RoofFit.Site() {
+            private boolean roofed(IsoGridSquare square, int x, int y, int z) {
+                return roofing(square) && !behind.contains(RoofFit.key(x, y, z));
+            }
+
             @Override
             public boolean stands(int x, int y, int z) {
                 boolean built = false;
@@ -565,7 +597,7 @@ final class Roofs {
                     }
                     built |= square.getBuilding() != null;
                     // A floor in the open air is a flat roof, and what is under it stops there.
-                    if (level > 0 && level < z && square.getRoomID() == -1L && (square.getFloor() != null || roofing(square))) {
+                    if (level > 0 && level < z && square.getRoomID() == -1L && (square.getFloor() != null || roofed(square, x, y, level))) {
                         return false;
                     }
                 }
@@ -575,7 +607,7 @@ final class Roofs {
             @Override
             public boolean floored(int x, int y, int z) {
                 IsoGridSquare square = cell.getGridSquare(x, y, z);
-                return square != null && (square.getFloor() != null || roofing(square));
+                return square != null && (square.getFloor() != null || roofed(square, x, y, z));
             }
 
             @Override
@@ -586,7 +618,7 @@ final class Roofs {
                     // slope: it is no floor the made roof would stand over. A floor of any other sheet is a terrace.
                     IsoObject floor = square.getFloor();
                     boolean terrace = floor != null && !(floor.getSprite() != null && ceiling(floor.getSprite().getName()));
-                    if (square.getRoomID() != -1L || terrace || roofing(square)) {
+                    if (square.getRoomID() != -1L || terrace || roofed(square, x, y, z)) {
                         return true;
                     }
                 }
@@ -673,6 +705,7 @@ final class Roofs {
             WorldScene.frameOf(frame, object, texture);
             RoofFit.Tile tile = measure(frame, texture, x, y, z);
             if (flatTop(tile)) {
+                tile.sheet = true;
                 reading.add(new Laid(tile, texture, roof));
                 return;
             }

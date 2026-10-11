@@ -41,6 +41,7 @@ final class RoofTests {
         Checks.run("hippedCornerAtTheEaveCarriesTheEaveRowOn", RoofTests::hippedCornerAtTheEaveCarriesTheEaveRowOn);
         Checks.run("hipCutFlatGetsItsFarSlopeAcrossTheCrown", RoofTests::hipCutFlatGetsItsFarSlopeAcrossTheCrown);
         Checks.run("levelSheetPaintedOverItsFloorIsAFlatTop", RoofTests::levelSheetPaintedOverItsFloorIsAFlatTop);
+        Checks.run("sheetsBehindARidgeAreNoPartOfTheRoof", RoofTests::sheetsBehindARidgeAreNoPartOfTheRoof);
         Checks.run("canopyIsNotCarriedToTheFarWall", RoofTests::canopyIsNotCarriedToTheFarWall);
     }
 
@@ -874,9 +875,12 @@ final class RoofTests {
         for (int x = 1; x <= 3; x++) {
             roof.add(new RoofFit.Tile(x, 4, 1, RoofFit.ALONG_Y, true, EAVE, 1f));
             for (int y = 1; y <= 3; y++) {
-                roof.add(new RoofFit.Tile(x, y, 1, RoofFit.LEVEL, true, EAVE, EAVE));
+                RoofFit.Tile crown = new RoofFit.Tile(x, y, 1, RoofFit.LEVEL, true, EAVE, EAVE);
+                crown.sheet = true;
+                roof.add(crown);
             }
         }
+        check(RoofFit.behindRidges(roof).isEmpty(), "a crown is the top of its roof and no sheet behind a ridge");
         RoofFit.fit(roof);
         List<RoofFit.Tile> made = RoofFit.backs(roof, BLOCK);
         HashMap<Long, RoofFit.Tile> over = bySquare(roof, made);
@@ -885,6 +889,50 @@ final class RoofTests {
             check(far != null && far.fitAxis == RoofFit.ALONG_Y && near(far.fitLow, 1f) && near(far.fitHigh, EAVE),
                     "the north slope stands on the north wall and climbs to the crown at x " + x);
         }
+    }
+
+    private static void sheetsBehindARidgeAreNoPartOfTheRoof() {
+        // The map's slope on row 3 falls south from a ridge at 1 + 2/3 along its north edge; the sheets north of it, a third
+        // of a level up, lie behind that ridge where the game's view never looks.
+        List<RoofFit.Tile> roof = new ArrayList<>();
+        for (int x = 1; x <= 3; x++) {
+            roof.add(new RoofFit.Tile(x, 3, 1, RoofFit.ALONG_Y, true, EAVE + THIRD, EAVE));
+            for (int y = 0; y <= 2; y++) {
+                RoofFit.Tile sheet = new RoofFit.Tile(x, y, 1, RoofFit.LEVEL, true, EAVE, EAVE);
+                sheet.sheet = true;
+                roof.add(sheet);
+            }
+        }
+        List<RoofFit.Tile> behind = RoofFit.behindRidges(roof);
+        check(behind.size() == 9 && behind.stream().allMatch(tile -> tile.sheet), "every sheet north of the ridge is behind it, joined ones too: " + behind.size());
+        // A crown that the south slope climbs to stays, though a ridge beside it on the east climbs higher.
+        List<RoofFit.Tile> crowned = new ArrayList<>();
+        for (int x = 1; x <= 3; x++) {
+            crowned.add(new RoofFit.Tile(x, 4, 1, RoofFit.ALONG_Y, true, EAVE, 1f));
+            for (int y = 1; y <= 3; y++) {
+                RoofFit.Tile sheet = new RoofFit.Tile(x, y, 1, RoofFit.LEVEL, true, EAVE, EAVE);
+                sheet.sheet = true;
+                crowned.add(sheet);
+            }
+        }
+        for (int y = 1; y <= 3; y++) {
+            crowned.add(new RoofFit.Tile(4, y, 1, RoofFit.ALONG_X, true, EAVE + THIRD, EAVE));
+        }
+        check(RoofFit.behindRidges(crowned).isEmpty(), "a crown its slope climbs to is no sheet behind a ridge");
+        // A long gable: its ridge climbs above the sheets along their whole south side, and only the slopes at the two
+        // ends of the house meet them at their height.
+        List<RoofFit.Tile> gable = new ArrayList<>();
+        for (int x = 1; x <= 8; x++) {
+            gable.add(new RoofFit.Tile(x, 3, 1, RoofFit.ALONG_Y, true, EAVE + THIRD, EAVE));
+            for (int y = 1; y <= 2; y++) {
+                RoofFit.Tile sheet = new RoofFit.Tile(x, y, 1, RoofFit.LEVEL, true, EAVE, EAVE);
+                sheet.sheet = true;
+                gable.add(sheet);
+            }
+        }
+        gable.add(new RoofFit.Tile(0, 1, 1, RoofFit.ALONG_X, true, 1f, EAVE));
+        gable.add(new RoofFit.Tile(9, 1, 1, RoofFit.ALONG_X, true, EAVE, 1f));
+        check(RoofFit.behindRidges(gable).size() == 16, "sheets a long ridge climbs above are behind it though the ends meet them");
     }
 
     private static void levelSheetPaintedOverItsFloorIsAFlatTop() {
