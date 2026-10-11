@@ -90,6 +90,14 @@ public final class Agent {
         return thunder.gap();
     }
 
+    /** The patch that has the game's vehicle shaders write their lit lamps for the picture. */
+    private static PatchTransformer lamps;
+
+    /** Why vehicle lamps are not drawn lit on this build of the game, or null once the patch is in. */
+    static String lampsGap() {
+        return lamps.gap();
+    }
+
     /** The patch that has ModelHead turn the character's head. */
     private static PatchTransformer modelHead;
 
@@ -201,6 +209,9 @@ public final class Agent {
 
         thunder = new PatchTransformer(thunderPatches());
         instrumentation.addTransformer(thunder);
+
+        lamps = new PatchTransformer(lampPatches());
+        instrumentation.addTransformer(lamps);
 
         modelHead = new PatchTransformer(modelHeadPatches());
         instrumentation.addTransformer(modelHead);
@@ -704,6 +715,14 @@ public final class Agent {
                 new Patch(COMBINER, "releaseTexture before its returns", classBytes -> CallSite.insertBeforeReturns(classBytes,
                         new CallSite.Method(COMBINER, "releaseTexture", "(" + TEXTURE + ")V"),
                         code -> CallSite.passFirstArgument(code, new CallSite.Method(FINE_SKINS, "released", "(" + TEXTURE + ")V")))));
+    }
+
+    /** Apart: without it a vehicle's lamps are drawn as paint, and nothing else is changed. See VehicleLamps. */
+    private static List<Patch> lampPatches() {
+        String unit = "zombie/core/opengl/ShaderUnit";
+        return List.of(new Patch(unit, "loadShaderFile before its returns", classBytes -> CallSite.insertBeforeReturns(classBytes,
+                new CallSite.Method(unit, "loadShaderFile", "(Ljava/lang/String;Ljava/util/ArrayList;)Ljava/lang/String;"),
+                code -> CallSite.passFirstArgument(code, new CallSite.Method(HOOKS, "shaderSource", "(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;")))));
     }
 
     /** Apart: without it there is no lightning in first person, and nothing else is changed. */

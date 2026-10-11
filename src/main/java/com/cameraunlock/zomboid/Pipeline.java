@@ -552,6 +552,13 @@ final class Pipeline {
     /** The game's vehicle draw binds its own textures over the low units, the wood's among them: the cabin reads the wood from here. */
     private static final int WOOD_UNIT = 17;
     private int figureNormal;
+    /** The lamps of the vehicles in the picture that are on, as the game's vehicle shaders write them: see VehicleLamps. */
+    private int figureLamps;
+    private static final int LAMP_UNIT = 30;
+    /** Every picture of the people's target, to clear; and the two a vehicle is drawn into, its colour and its lamps. */
+    private static final int[] FIGURE_BUFFERS = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT0 + 1, GL_COLOR_ATTACHMENT0 + 2},
+            LAMP_BUFFERS = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT0 + 2};
+    private boolean lampsSaid;
     private static final int NORMAL_UNIT = 22;
     private static final int[] FIRST_BUFFER = {GL_COLOR_ATTACHMENT0}, BOTH_BUFFERS = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT0 + 1};
     private int mirrorColor, mirrorTarget, mirrorDepth;
@@ -2062,6 +2069,14 @@ final class Pipeline {
         GL11.glDisableClientState(GL_VERTEX_ARRAY);
     }
 
+    /** No lamps for the people's light: a picture drawn with no vehicle's lamps in it. Leaves the first unit active. */
+    private void noLamps() {
+        GL13.glActiveTexture(GL_TEXTURE0 + LAMP_UNIT);
+        GL11.glBindTexture(GL_TEXTURE_2D, noneTexture);
+        GL13.glActiveTexture(GL_TEXTURE0);
+        figureLight.set("uLampsLit", LAMP_UNIT);
+    }
+
     /** Notes how fast the eye has gone since the frame before, into movesX, movesY and movesUp. */
     private void eyeMoves(ViewCamera.Pose camera) {
         float seconds = (frameNanos - lastEyeNanos) / 1e9f;
@@ -3178,7 +3193,7 @@ final class Pipeline {
             GL30.glBindFramebuffer(GL_FRAMEBUFFER, figureTarget);
             GL11.glViewport(0, 0, width, height);
             GL11.glClearColor(0f, 0f, 0f, 0f);
-            GL20.glDrawBuffers(BOTH_BUFFERS);
+            GL20.glDrawBuffers(FIGURE_BUFFERS);
             GL11.glClear(GL_COLOR_BUFFER_BIT);
             GL20.glDrawBuffers(FIRST_BUFFER);
             GL11.glEnable(GL_DEPTH_TEST);
@@ -3187,7 +3202,14 @@ final class Pipeline {
             GL11.glDisable(GL_BLEND);
             smoothSkins(true);
             CharacterDraw.bare = true;
+            boolean lamps = VehicleLamps.drawn();
+            if (!lamps && !lampsSaid) {
+                lampsSaid = true;
+                Log.info("vehicle lamps are drawn as paint: " + (Agent.lampsGap() != null ? Agent.lampsGap() : "a vehicle shader of the game's was not as expected"));
+            }
+            view.characters.lamps = lamps ? LAMP_BUFFERS : null;
             int drawn = view.characters.draw(camera, tanHalfFieldOfView, aspect, near, far, pass == 1, false);
+            view.characters.lamps = null;
             CharacterDraw.bare = false;
             smoothSkins(false);
             // The game's draw leaves its own program, buffers and arrays bound.
@@ -3233,7 +3255,10 @@ final class Pipeline {
             figureLight.set("uFigureAmbient", view.characters.ambient);
             GL13.glActiveTexture(GL_TEXTURE0 + NORMAL_UNIT);
             GL11.glBindTexture(GL_TEXTURE_2D, figureNormal);
+            GL13.glActiveTexture(GL_TEXTURE0 + LAMP_UNIT);
+            GL11.glBindTexture(GL_TEXTURE_2D, figureLamps);
             GL13.glActiveTexture(GL_TEXTURE0);
+            figureLight.set("uLampsLit", LAMP_UNIT);
             figureLight.set("uFacing", NORMAL_UNIT);
             figureLight.set("uHaveFacing", pass == 0 ? 1f : 0f);
             figureLight.set("uJersey", FIRST_MATERIAL_UNIT + 13);
@@ -3327,7 +3352,7 @@ final class Pipeline {
             figureLight.set("uPainted", seated ? 1f : 0f);
             GL13.glActiveTexture(GL_TEXTURE0 + NORMAL_UNIT);
             GL11.glBindTexture(GL_TEXTURE_2D, ownNormal);
-            GL13.glActiveTexture(GL_TEXTURE0);
+            noLamps();
             figureLight.set("uFacing", NORMAL_UNIT);
             figureLight.set("uHaveFacing", seated ? 0f : 1f);
             if (!seated) {
@@ -3592,6 +3617,7 @@ final class Pipeline {
             figureLight.set("uGlassPass", 0f);
             figureLight.set("uOwnAmbient", 1f, 1f, 1f);
             figureLight.set("uFigureAmbient", view.characters.ambient);
+            noLamps();
             figureLight.set("uFacing", NORMAL_UNIT);
             figureLight.set("uHaveFacing", pass == 0 ? 1f : 0f);
             // In a mirror the weave of a shirt is finer than a dot of the picture, and a scope shows it from too far off.
@@ -3669,6 +3695,7 @@ final class Pipeline {
         figureLight.set("uParted", 0f, 0f);
         figureLight.set("uOwnAmbient", 1f, 1f, 1f);
         figureLight.set("uFigureAmbient", view.characters.reflectedLight);
+        noLamps();
         figureLight.set("uFacing", NORMAL_UNIT);
         figureLight.set("uHaveFacing", 1f);
         figureLight.set("uJersey", FIRST_MATERIAL_UNIT + 13);
@@ -4842,6 +4869,8 @@ final class Pipeline {
         figureTarget = target(figureColor);
         figureNormal = texture(GL_RGBA8, width, height, GL_RGBA, GL_UNSIGNED_BYTE, GL_NEAREST);
         GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + 1, GL_TEXTURE_2D, figureNormal, 0);
+        figureLamps = texture(GL_RGBA8, width, height, GL_RGBA, GL_UNSIGNED_BYTE, GL_NEAREST);
+        GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + 2, GL_TEXTURE_2D, figureLamps, 0);
         GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, sceneDepth, 0);
         if (problem == null) {
             problem = complete("character");

@@ -4084,7 +4084,7 @@ final class PipelineShaders {
      * Pipeline loads: a class file holds no one string of more than 65535 bytes, and the whole
      * of it is longer.
      */
-    static final String FIGURE_LIGHT_PARTS = "#version 120\n" + Sky.ATMOSPHERE + ENDS + """
+    static final String FIGURE_LIGHT_PARTS = "#version 120\n" + Sky.ATMOSPHERE + ENDS + VehicleLamps.GLSL + """
             uniform sampler2D uFigure;
             uniform sampler2D uDepth;
             uniform sampler2DShadow uShadowNear;
@@ -5598,6 +5598,8 @@ final class PipelineShaders {
                     color = dressed(pow(figure.rgb, vec3(2.2)), n, view, strand, worn, gloss, low, uLight, sunLight * sun, around, lamps, skyBack);
                 }
 
+                // A vehicle's lamps that are on shine whatever light it stands in.
+                color += lampLight(uv);
                 float range = max(ahead * length(ray) - uRangeFrom, 0.0);
                 // With the far land behind them, figures past where the built world ends are left out as it is: see thinnedOut.
                 if (thinnedOut(ray.xy * ahead)) {

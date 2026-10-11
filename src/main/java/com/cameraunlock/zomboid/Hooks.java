@@ -433,6 +433,11 @@ public final class Hooks {
         Lightning.struck(x, y, strike && lit, hidden, System.nanoTime());
     }
 
+    /** Before ShaderUnit.loadShaderFile returns: the source of one of the game's shaders as it was read from fileName. See VehicleLamps. */
+    public static String shaderSource(String code, String fileName) {
+        return VehicleLamps.source(code, fileName);
+    }
+
     /** In place of the game's starting of a muzzle flash, which it does at the one place a firearm's shot is taken. */
     public static void muzzleFlash(EffectsManager effects, IsoGameCharacter shooter, int light) {
         Stack<IsoLightSource> lamps = IsoWorld.instance.currentCell.getLamppostPositions();

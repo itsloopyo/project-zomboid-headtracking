@@ -6,6 +6,7 @@ import java.util.Locale;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL20;
 import zombie.characters.IsoPlayer;
 import zombie.core.Core;
 import zombie.core.SpriteRenderer;
@@ -123,6 +124,9 @@ public final class Characters {
      * The game's picture of a vehicle does not otherwise say which of it is glass.
      */
     boolean repainted;
+    /** The pictures a vehicle is drawn into, its colour and its lamps, while the picture of lamps is bound; null otherwise. See VehicleLamps. */
+    int[] lamps;
+    private static final int[] COLOUR_ONLY = {0x8CE0};
     /** Which of the models a draw takes: vehicles are painted metal and are lit apart from flesh and cloth. */
     private static final int ALL = 0, ONLY_CHARACTERS = 1, ONLY_VEHICLES = 2;
     private int only = ALL;
@@ -1655,6 +1659,9 @@ public final class Characters {
         data.squareDepth = (clipZ + 1f) / 2f;
         gameCamera = ModelCamera.instance;
         ModelCamera.instance = EYE;
+        if (lamps != null) {
+            GL20.glDrawBuffers(lamps);
+        }
         for (int part = 0; part < parts(data).size(); part++) {
             GL11.glDepthMask(true);
             ModelInstanceRenderData model = parts(data).get(part);
@@ -1679,6 +1686,9 @@ public final class Characters {
             } else {
                 model.RenderVehicle(data);
             }
+        }
+        if (lamps != null) {
+            GL20.glDrawBuffers(COLOUR_ONLY);
         }
         ModelCamera.instance = gameCamera;
         data.squareDepth = squareDepth;
