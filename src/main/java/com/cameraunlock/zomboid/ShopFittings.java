@@ -164,6 +164,9 @@ final class ShopFittings {
         if (called.equals("Chair") && group.equals("Salon") && single) {
             return new Furniture(sprite, "salon_chair", turns).stand(0f, 0f, false);
         }
+        if (called.equals("Hair Dryer") && group.equals("Salon") && single) {
+            return new Furniture(sprite, "hood_dryer", turns).stand(0f, 0f, false);
+        }
         // A bar's stool on four legs, which the game calls by the colour of its upholstery.
         if (called.equals("Blue Bar Stool") && single && surface > 0) {
             float seat = surface / WorldScene.SURFACE_PIXELS_PER_LEVEL;

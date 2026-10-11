@@ -26,6 +26,11 @@ final class WallObjects {
     private static final float TROPHY_FOOT = 1.42f;
     /** How high the lowest point of a house's satellite dish is hung, in tiles: its wall plate a metre up, read off the sprites. */
     private static final float DISH_FOOT = 0.9f;
+    /** How high the lowest point of a shop's shelves on a wall is, the foot of the lower board's brackets, in metres: its boards
+     * are where the sprites paint them, 0.89 and 1.58 m up. */
+    private static final float SHOP_SHELF_FOOT = 0.63f;
+    /** How high over the back of its square the sprite of a shop's shelves paints the top of its upper board, in levels. */
+    private static final float SHOP_SHELF_DYE = 0.64f;
     /** Where on the back of a pay phone's sprite, in levels, the side of its hood gives its colour. */
     private static final float PHONE_DYE = 0.5f;
 
@@ -68,6 +73,11 @@ final class WallObjects {
             dish.onRoof = true;
             dish.posted = Models.get("satellite_dish_post");
             return dish;
+        }
+        // A shop's shelves on its wall, the lower board's foot under it on its brackets.
+        if (called.equals("Shelves") && (group.equals("Beige Wall Shop") || group.equals("Zippee Wall")) && single) {
+            return new Furniture(sprite, group.equals("Zippee Wall") ? "zippee_wall_shelves" : "shop_wall_shelves", turns).stand(0f, 0f, true)
+                    .raise(SHOP_SHELF_FOOT).dyeAtBack(1 << Models.PAINT, SHOP_SHELF_DYE);
         }
         if (called.equals("Monitors") && group.equals("Security Wall") && single) {
             return new Furniture(sprite, "security_monitors", turns).stand(0f, 0f, true);

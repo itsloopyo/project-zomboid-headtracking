@@ -156,6 +156,8 @@ final class ShopFittingTests {
                 + "GroupName|Salon|IsLow||IsMoveAble||Material|MetalScrap|Material2|Leather|MaterialType|Metal|PickUpWeight|50|ScrapSize|Small|bed||chairS||"
                 + "solidtrans|"));
         check(model(salon).equals("salon_chair") && salon.turns == 2, "a hairdresser's chair is its model: " + model(salon));
+        Furniture dryer = Furniture.known(TileRows.sprite("location_services_beauty_01_8|CustomName|Hair Dryer|Facing|W|GroupName|Salon|IsMoveAble||"));
+        check(model(dryer).equals("hood_dryer") && dryer.turns == 3, "a hairdresser's hood dryer is its model, its hood out the way it faces: " + model(dryer));
         Furniture blue = Furniture.known(TileRows.sprite("location_restaurant_bar_01_25|BedType|badBed|BlocksPlacement||CanScrap||CustomName|Blue Bar Stool|"
                 + "Facing|S|IsLow||IsMoveAble||Material|Wood|PickUpWeight|50|ScrapSize|Small|Surface|28|bed||chairS||SeatMaterial|Leather"));
         check(model(blue).equals("bar_stool"), "a bar's stool on four legs is the bar stool: " + model(blue));

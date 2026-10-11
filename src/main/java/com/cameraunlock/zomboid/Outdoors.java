@@ -142,7 +142,7 @@ final class Outdoors {
             MILITARY_BARRIER = "fencing_01_96", CARPENTRY = "carpentry_02_", FENCES = "fencing_01_",
             GAS2GO = "location_shop_gas2go_01_", FOSSOIL = "location_shop_fossoil_01_",
             ROAD_SIGNS = "street_roadsigns_01_", BURNT_FENCES = "fencing_burnt_01_", PYLONS = "electricity_pylon_", MASTS = "radio_tower_",
-            STREET = "street_decoration_01_", FIREPLACES = "fixtures_fireplaces_01_";
+            STREET = "street_decoration_01_", FIREPLACES = "fixtures_fireplaces_01_", MACHINERY = "location_business_machinery_01_";
     private static final int PAINT = 1 << Models.PAINT;
     /** How far from the edge of its square the middle of a pipe along the foot of a wall is. */
     private static final float PIPE_EDGE = 0.12f;
@@ -167,6 +167,12 @@ final class Outdoors {
      * the sheet tied over one hangs over its rim, on the side of it nearest the game's view.
      */
     private static final float RAIN_DYE = 0.31f, SHEET_AT = 0.75f, SHEET_DYE = 0.33f;
+    /** Where a car wash's brush's shaft stands on its square, how far in from the north or west edge its curtain hangs, and how
+     * high both are painted in their colour, in levels. */
+    static final float CAR_WASH_BRUSH_A = 0.45f, CAR_WASH_BRUSH_B = 0.5f, CAR_WASH_CURTAIN = 0.435f;
+    private static final float CAR_WASH_DYE = 0.5f;
+    /** How high over the floor the foot of a car wash's curtain is, in metres: the model is lowered onto the floor when it is made. */
+    private static final float CAR_WASH_STRIPS_FOOT = 0.25f;
     /** Where on its square a chimney's cap is, how high its top is over the floor of its level and where a pot is painted, in levels. */
     static final float CHIMNEY_A = 0.485f, CHIMNEY_B = 0.515f, CHIMNEY_CAP = 0.898f;
     private static final float CHIMNEY_POT_DYE = 0.07f;
@@ -236,6 +242,22 @@ final class Outdoors {
             Piece post = fencePost(name);
             if (post != null) {
                 return post;
+            }
+            // A car wash's upright brush on its floor rail, and its curtains of cloth strips hung along x and along y.
+            switch (Sheets.place(name, MACHINERY)) {
+                case 14 -> {
+                    return new Piece("car_wash_brush", 0).at(CAR_WASH_BRUSH_A, CAR_WASH_BRUSH_B).dye(1 << Models.CLOTH, CAR_WASH_BRUSH_A,
+                            CAR_WASH_BRUSH_B, CAR_WASH_DYE);
+                }
+                case 36 -> {
+                    return new Piece("car_wash_curtain", 0).at(0.5f, CAR_WASH_CURTAIN).dye(1 << Models.CLOTH, 0.5f, CAR_WASH_CURTAIN, CAR_WASH_DYE)
+                            .raise(CAR_WASH_STRIPS_FOOT / ViewCamera.LEVEL_HEIGHT);
+                }
+                case 37 -> {
+                    return new Piece("car_wash_curtain", 1).at(CAR_WASH_CURTAIN, 0.5f).dye(1 << Models.CLOTH, CAR_WASH_CURTAIN, 0.5f, CAR_WASH_DYE)
+                            .raise(CAR_WASH_STRIPS_FOOT / ViewCamera.LEVEL_HEIGHT);
+                }
+                default -> { }
             }
             // Two pots on the cap of a chimney stack, the stack's own top a little under the next level's floor: in a row along
             // y and then along x.

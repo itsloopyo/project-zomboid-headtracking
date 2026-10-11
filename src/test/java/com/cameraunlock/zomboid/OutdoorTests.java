@@ -30,6 +30,7 @@ final class OutdoorTests {
         Checks.run("aParkingMeterStandsWhereItsSpritePaintsItsPost", OutdoorTests::aParkingMeterStandsWhereItsSpritePaintsItsPost);
         Checks.run("aChimneysPotsStandOnItsCapInTheRowTheirSpriteShows", OutdoorTests::aChimneysPotsStandOnItsCapInTheRowTheirSpriteShows);
         Checks.run("aTrafficSignalsHeadIsTurnedAQuarterOnFromItsArm", OutdoorTests::aTrafficSignalsHeadIsTurnedAQuarterOnFromItsArm);
+        Checks.run("aCarWashsCurtainsHangAlongTheWayTheirSpritesRun", OutdoorTests::aCarWashsCurtainsHangAlongTheWayTheirSpritesRun);
     }
 
     /** A piece, and its model one the jar has: Models.get throws for a name it has not. */
@@ -262,7 +263,23 @@ final class OutdoorTests {
         Checks.check(unnamed("street_roadsigns_01_0") == null && unnamed("street_roadsigns_01_32") == null, "the boards on two posts and the rest area's signs are not warning signs");
     }
 
-    private static void aTrafficSignalsHeadIsTurnedAQuarterOnFromItsArm() {
+    private static void aCarWashsCurtainsHangAlongTheWayTheirSpritesRun() {
+        Outdoors.Piece alongX = Outdoors.of("location_business_machinery_01_36", null, null, Outdoors.NONE, 1, 1, 0);
+        Outdoors.Piece alongY = Outdoors.of("location_business_machinery_01_37", null, null, Outdoors.NONE, 1, 1, 0);
+        Outdoors.Piece brush = Outdoors.of("location_business_machinery_01_14", null, null, Outdoors.NONE, 1, 1, 0);
+        holds(alongX, "location_business_machinery_01_36 is a car wash's curtain");
+        holds(alongY, "location_business_machinery_01_37 is a car wash's curtain");
+        holds(brush, "location_business_machinery_01_14 is a car wash's brush");
+        if (alongX == null || alongY == null) {
+            return;
+        }
+        // The model's curtain runs along its X, which a quarter turn lays along y.
+        Checks.check(alongX.turns == 0 && alongY.turns == 1, "the curtains hang along x and along y");
+        Checks.check(alongX.b == Outdoors.CAR_WASH_CURTAIN && alongY.a == Outdoors.CAR_WASH_CURTAIN, "each hangs where its sprite paints it");
+        Checks.check(Outdoors.of("location_business_machinery_01_15", null, null, Outdoors.NONE, 1, 1, 0) == null, "a length of the brush's rail alone is none");
+    }
+
+        private static void aTrafficSignalsHeadIsTurnedAQuarterOnFromItsArm() {
         // The sheet's four heads have their arms out west, south, east and north, and their lights face south, east, north and west.
         int[] lightsFace = {Outdoors.SOUTH, Outdoors.EAST, Outdoors.NORTH, Outdoors.WEST};
         for (int place = 12; place <= 15; place++) {

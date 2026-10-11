@@ -1618,6 +1618,76 @@ def wall_shelf(name, boards, made="wood"):
     return model
 
 
+def shop_wall_shelves(name, lip):
+    """A shop's shelves on a wall, the wall at +Y: two deep boards on brackets, each with a lip along its front."""
+    model = Model(name)
+    back, deep = 0.205, 0.41
+    boards, lips, brackets = bmesh.new(), bmesh.new(), bmesh.new()
+    for top in (0.89, 1.58):
+        cuboid(boards, -0.46, 0.46, back - deep + 0.02, back, top - 0.04, top)
+        cuboid(lips, -0.46, 0.46, back - deep, back - deep + 0.02, top - 0.05, top)
+        for x in (-0.34, 0.34):
+            prism_y(brackets, (x, top - 0.06, 0.012, 0.03, back - deep + 0.06), (x, top - 0.16, 0.012, 0.2, back))
+    model.hard(boards, "paint", bevel=0.004, segments=1)
+    model.hard(lips, lip, bevel=0.003, segments=1)
+    model.hard(brackets, "metal", bevel=0.002, segments=1)
+    return model
+
+
+def hood_dryer():
+    """A salon's hood hair dryer: a five legged foot on castors, a post, the motor at its top, and on an arm out to -Y the clear
+    dome that goes over a sitting head, open below."""
+    model = Model("hood_dryer", centred=False)
+    steel = bmesh.new()
+    for n in range(5):
+        a = n * 2 * math.pi / 5
+        rod(steel, (0.0, 0.0, 0.08), (0.28 * math.cos(a), 0.28 * math.sin(a), 0.05), 0.018, segments=6)
+        lathe(steel, [(0.0, 0.0), (0.025, 0.0), (0.025, 0.05), (0.0, 0.05)], cx=0.28 * math.cos(a), cy=0.28 * math.sin(a), segments=8)
+    lathe(steel, [(0.0, 0.06), (0.03, 0.06), (0.018, 0.1), (0.018, 1.18), (0.0, 1.18)], segments=10)
+    rod(steel, (0.0, -0.05, 1.4), (0.0, -0.4, 1.46), 0.02, segments=8)
+    model.turned(steel, "steel", sharp=50.0)
+    motor = bmesh.new()
+    lathe(motor, [(0.0, 1.16), (0.08, 1.16), (0.11, 1.22), (0.11, 1.48), (0.08, 1.53), (0.0, 1.54)], segments=16)
+    model.turned(motor, "enamel", sharp=40.0)
+    dome = bmesh.new()
+    outer = [(0.22 * math.sin(math.radians(t)), 0.22 * math.cos(math.radians(t))) for t in range(0, 95, 10)]
+    inner = [(0.205 * math.sin(math.radians(t)), 0.205 * math.cos(math.radians(t))) for t in range(90, -5, -10)]
+    lathe(dome, outer + inner, cy=-0.55, segments=20, to=Matrix.Translation((0.0, 0.0, 1.36)))
+    model.turned(dome, "pane", sharp=60.0)
+    return model
+
+
+def car_wash_brush():
+    """A car wash's upright roller brush: a thick round brush of bristles on its shaft, the shaft standing in a rail along X on
+    the floor. The origin is the shaft's axis."""
+    model = Model("car_wash_brush", centred=False)
+    steel = bmesh.new()
+    cuboid(steel, -0.5, 0.5, -0.07, 0.07, 0.0, 0.04)
+    lathe(steel, [(0.0, 0.04), (0.04, 0.04), (0.04, 2.55), (0.0, 2.55)], segments=10)
+    model.turned(steel, "metal", sharp=50.0)
+    brush = bmesh.new()
+    profile = [(0.0, 0.36), (0.24, 0.36), (0.3, 0.42)] + [(0.3 + 0.012 * math.sin(n * 1.7), 0.42 + n * 0.12) for n in range(1, 15)]         + [(0.3, 2.19), (0.24, 2.25), (0.0, 2.25)]
+    lathe(brush, profile, segments=24)
+    model.soft(brush, "cloth", levels=1)
+    return model
+
+
+def car_wash_curtain():
+    """A car wash's curtain of cloth strips hung along X from a bar, on a post from the ceiling. The origin is under the post."""
+    model = Model("car_wash_curtain", centred=False)
+    steel = bmesh.new()
+    cuboid(steel, -0.5, 0.5, -0.03, 0.03, 2.23, 2.3)
+    lathe(steel, [(0.0, 2.3), (0.025, 2.3), (0.025, 2.5), (0.0, 2.5)], segments=8)
+    model.hard(steel, "steel", bevel=0.004, segments=1)
+    strips = bmesh.new()
+    for n in range(5):
+        x0 = -0.48 + n * 0.195
+        lean = 0.03 * math.sin(n * 2.3)
+        prism(strips, (x0 + 0.085, 0.0, 0.17, 0.012, 2.23), (x0 + 0.085 + lean, 0.0, 0.16, 0.012, 0.25))
+    model.hard(strips, "cloth", bevel=0.002, segments=1)
+    return model
+
+
 def metal_rack():
     """Steel racking two squares long: four slotted uprights and three decks."""
     model = Model("metal_rack")
@@ -10246,7 +10316,7 @@ def every():
               framed("frame_tall", 0.6, 0.9), framed("frame_square", 0.7, 0.7), framed("frame_wide", 0.9, 0.6), canvas(), wall_clock(),
               table("table_2", 1.9, 0.92), table("table_3", 2.9, 0.92), table("table_4", 1.9, 1.9, leg=0.08), table("narrow_table", 0.92, 0.5),
               table("low_table", 0.9, 0.5, top=0.42, leg=0.05), table("low_table_2", 1.5, 0.6, top=0.42, leg=0.05), round_table(), office_desk(),
-              cabinet("shop_counter", 0.62, 0.90, True, panelled=True), low_shelves(), wall_shelf("wall_shelf", 1), wall_shelf("wall_shelves", 2),
+              cabinet("shop_counter", 0.62, 0.90, True, panelled=True), low_shelves(), wall_shelf("wall_shelf", 1), wall_shelf("wall_shelves", 2), shop_wall_shelves("shop_wall_shelves", "wood"), shop_wall_shelves("zippee_wall_shelves", "vinyl"), hood_dryer(), car_wash_brush(), car_wash_curtain(),
               metal_rack(), store_shelves(), plastic_chair(), folding_chair(), booth(), stool(), vending_machine(), arcade_machine(),
               radio(), microwave(), dishwasher(), chest_freezer(), register(), shower("shower", True), shower("shower_head", False),
               kettle_barbecue(), gas_barbecue(), cooler("mini_fridge", 0.5, 0.82, 1), cooler("large_fridge", 1.7, 1.95, 2),
