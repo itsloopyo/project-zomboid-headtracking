@@ -18,7 +18,7 @@ It adds a first person view to the game, with a rebuilt world and new graphics.
 - **On foot and in vehicles** - press `Delete` to switch views. Play with a mouse and keyboard or controller, with sound that follows where you look.
 - **A rebuilt world** - in Medium and High: 3D buildings and furniture, new textures, detailed plants, rolling hills and distant scenery.
 - **New renderer graphics in both views** - lighting, shadows, models and textures in Medium and High. High adds reflections on roads, floors, glass and water, and light beams through fog.
-- **Combat** - custom arms and hands, melee swings, recoil and reload animations. Every shot kicks the weapon and lets it spring back, a shotgun hardest, without moving where the shot goes. Shots hit the body part you aim at, and a zombie shot through a leg goes down and crawls. Medium and High add shotgun and hunting rifle models and magnified scopes. A shot knocks a zombie along the line it flew: one that stays up is jolted where the round went in, and one that drops goes limp at once, folds at the knees and is thrown back, harder by a shotgun than a pistol. The fall needs the game's **Use Physics Hit Reactions** option, which the game turns off on a server.
+- **Combat** - custom arms and hands, melee swings, recoil and reload animations. Every shot kicks the weapon and lets it spring back, a shotgun hardest, without moving where the shot goes. Shots hit the body part you aim at. In single player a shot arm hangs limp, a shot leg slows a zombie to a lurching shamble, and a leg shot through drops it to crawl. Medium and High add shotgun and hunting rifle models and magnified scopes. A shot knocks a zombie along the line it flew: one that stays up is jolted where the round went in, and one that drops goes limp at once, folds at the knees and is thrown back, harder by a shotgun than a pistol. The fall needs the game's **Use Physics Hit Reactions** option, which the game turns off on a server.
 - **Vehicle interiors** - dashboards, seats and working mirrors and instrumentation.
 - **Adjustable graphics** - automatic or manual quality, three picture styles, field of view, hill height and optional replacement models and textures.
 
@@ -226,7 +226,7 @@ The mouse turns the view. Movement keys follow the direction you face.
 - In first person, moving sideways or backwards puts your character in the game's aiming stance, at that stance's pace, so other players see it face where you look.
 - Hills stand at height 1 whatever you set, and zombies and props are drawn at full distance.
 
-Zombies, rooms and vehicles with no other player in them look as they do offline. On a server without PvP the mod plays as it does alone.
+Zombies, rooms and vehicles with no other player in them look as they do offline. On a server without PvP the mod plays as it does alone, apart from wounds: on any server, your own co-op host included, a shot arm or leg leaves a zombie as the game does.
 
 ## Configuration
 
