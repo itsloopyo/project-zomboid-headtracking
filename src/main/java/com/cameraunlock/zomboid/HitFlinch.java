@@ -24,19 +24,23 @@ import zombie.core.skinnedmodel.model.SkinningData;
  * on the head or an arm as on the chest, and measured on a zombie that stayed up, that little turn
  * of the head was lost in the game's own stagger for a head shot.
  *
- * Only the picture is turned. The bones are turned after the game has posed them and put back
- * once the matrices the model is drawn with are made, as {@link ModelHead} does with the
- * player's head, so what the game measures a hit or a reach against is its own pose.
+ * The bones are turned after the game has posed them and put back once the matrices the model is
+ * drawn with are made, as {@link ModelHead} does with the player's head, so the next frame's pose
+ * starts from the game's own. Those matrices keep the knock until then, and what reads a bone's
+ * place in the world from them (HitPart, which part a first person shot is on, and the game's
+ * nearest target of an aim) sees the body as it is drawn for that frame.
  */
 public final class HitFlinch {
     private HitFlinch() {}
 
     /** Seconds from the hit to the most the body is turned, and how long after the hit it has let go. */
     static final float RISE = 0.05f, LASTS = 0.6f;
-    /** How far a part is turned for each unit of the push the game gives a body the round drops in the chest, and the most, in radians: a pistol (20) about 15 degrees, a rifle or a shotgun the most. */
-    static final float TURN_PER_PUSH = (float) Math.toRadians(0.75), MOST = (float) Math.toRadians(35);
-    /** How many hits a body answers at once: the latest. */
+    /** How far a part is turned for each unit of the push the game gives a body the round drops in the chest, and the most, in radians: a pistol (20) 25 degrees, a round of 36 or more the most. */
+    static final float TURN_PER_PUSH = (float) Math.toRadians(1.25), MOST = (float) Math.toRadians(45);
+    /** How many rounds a body answers at once: the latest. */
     private static final int HELD = 4;
+    /** Hits closer together than this are one round: a round's hits are worked out microseconds apart. */
+    static final long SAME_SHOT_NANOS = 40_000_000L;
 
     /** The bones a hit on each of the game's body parts turns, and each one's share of the turn. Apart, so the rest is used without the game's classes. */
     private static final class Chains {
@@ -46,7 +50,7 @@ public final class HitFlinch {
         static {
             chain(RagdollBodyPart.BODYPART_PELVIS, "Bip01_Spine", 0.6f, "Bip01_Spine1", 0.4f);
             chain(RagdollBodyPart.BODYPART_SPINE, "Bip01_Spine", 0.4f, "Bip01_Spine1", 0.6f);
-            chain(RagdollBodyPart.BODYPART_HEAD, "Bip01_Neck", 0.4f, "Bip01_Head", 0.6f);
+            chain(RagdollBodyPart.BODYPART_HEAD, "Bip01_Spine1", 0.2f, "Bip01_Neck", 0.5f, "Bip01_Head", 0.3f);
             chain(RagdollBodyPart.BODYPART_LEFT_UPPER_ARM, "Bip01_L_Clavicle", 0.3f, "Bip01_L_UpperArm", 0.7f);
             chain(RagdollBodyPart.BODYPART_LEFT_LOWER_ARM, "Bip01_L_UpperArm", 0.4f, "Bip01_L_Forearm", 0.6f);
             chain(RagdollBodyPart.BODYPART_RIGHT_UPPER_ARM, "Bip01_R_Clavicle", 0.3f, "Bip01_R_UpperArm", 0.7f);
@@ -99,6 +103,7 @@ public final class HitFlinch {
         final BoneTurn boneTurn = new BoneTurn();
         final Matrix4f joint = new Matrix4f();
         final Vector3f at = new Vector3f();
+        final float[] way = new float[3], in = new float[3];
     }
 
     private static final ThreadLocal<Scratch> scratch = ThreadLocal.withInitial(Scratch::new);
@@ -110,11 +115,26 @@ public final class HitFlinch {
      */
     static void hit(IsoGameCharacter target, int part, ViewCamera.Pose aim, HitPart where, float standsUp, float push) {
         Flinching f = flinching.computeIfAbsent(target.getID(), id -> new Flinching());
+        long now = System.nanoTime();
         synchronized (f) {
+            Hit latest = f.hits[(f.next + HELD - 1) % HELD];
+            if (latest != null && sameShot(latest.at, now)) {
+                return;
+            }
             f.hits[f.next] = new Hit(part, aim.forwardX, aim.forwardY, aim.forwardUp, where.hitX - target.getX(), where.hitY - target.getY(),
-                    where.hitUp - standsUp, Math.min(MOST, push * TURN_PER_PUSH), System.nanoTime());
+                    where.hitUp - standsUp, Math.min(MOST, push * TURN_PER_PUSH), now);
             f.next = (f.next + 1) % HELD;
         }
+    }
+
+    /**
+     * Whether a hit at {@code now} is the same round as one at {@code earlier}. The game works a
+     * ranged hit out twice, once as the shot is taken and again as the zombie takes the hit, and
+     * each of a shotgun's nine pellets is a hit (the trace's "shot part" lines: 2 a pistol round,
+     * 18 a shell), all in one call of the game's. One round knocks a body once.
+     */
+    static boolean sameShot(long earlier, long now) {
+        return now - earlier < SAME_SHOT_NANOS;
     }
 
     /** How much of a hit's turn is on at {@code seconds} after it: up to all of it at {@link #RISE}, then let go. */
@@ -154,8 +174,6 @@ public final class HitFlinch {
             }
             Scratch s = scratch.get();
             SkinningData skeleton = animation.getSkinningData();
-            // The model faces the way the body is drawn turned, and is the world reflected: see ViewCamera.eyeOffset.
-            float c = (float) Math.cos(animation.getRenderedAngle() + Math.PI), sn = (float) Math.sin(animation.getRenderedAngle() + Math.PI);
             for (Hit hit : f.hits) {
                 if (hit == null) {
                     continue;
@@ -164,9 +182,9 @@ public final class HitFlinch {
                 if (amount <= 0f) {
                     continue;
                 }
-                float px = c * hit.forwardX + sn * hit.forwardY, py = hit.forwardUp, pz = sn * hit.forwardX - c * hit.forwardY;
-                float hx = (c * hit.atX + sn * hit.atY) / Characters.CHARACTER_SCALE, hy = hit.atUp / Characters.CHARACTER_SCALE,
-                        hz = (sn * hit.atX - c * hit.atY) / Characters.CHARACTER_SCALE;
+                toModel(animation.getRenderedAngle(), hit.forwardX, hit.forwardY, hit.forwardUp, 1f, s.way);
+                toModel(animation.getRenderedAngle(), hit.atX, hit.atY, hit.atUp, Characters.CHARACTER_SCALE, s.in);
+                float px = s.way[0], py = s.way[1], pz = s.way[2], hx = s.in[0], hy = s.in[1], hz = s.in[2];
                 String[] bones = Chains.BONES[hit.part];
                 for (int i = 0; i < bones.length; i++) {
                     SkinningBone bone = skeleton.getBone(bones[i]);
@@ -186,6 +204,19 @@ public final class HitFlinch {
                 }
             }
         }
+    }
+
+    /**
+     * A point or a way in the world's axes (x, y, up, in tiles) as the model of a body drawn turned
+     * {@code bodyAngle} has it, divided by {@code scale}. The inverse of ViewCamera.eyeOffset: the
+     * model faces the way the body is drawn turned, and is the world reflected, which is its own
+     * inverse.
+     */
+    static void toModel(float bodyAngle, float x, float y, float up, float scale, float[] out) {
+        float c = (float) Math.cos(bodyAngle + Math.PI), s = (float) Math.sin(bodyAngle + Math.PI);
+        out[0] = (c * x + s * y) / scale;
+        out[1] = up / scale;
+        out[2] = (s * x - c * y) / scale;
     }
 
     /** Keeps a bone's place, turn and size as the game posed it, once a frame, to be put back. */

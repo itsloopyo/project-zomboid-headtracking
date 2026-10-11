@@ -10,6 +10,8 @@ final class RagdollTests {
         Checks.run("theShinsAreKickedLevelTowardsTheShooter", RagdollTests::theShinsAreKickedLevelTowardsTheShooter);
         Checks.run("aShotStraightDownKicksNoShin", RagdollTests::aShotStraightDownKicksNoShin);
         Checks.run("theKnockIsWholeAtItsRiseAndGoneByItsEnd", RagdollTests::theKnockIsWholeAtItsRiseAndGoneByItsEnd);
+        Checks.run("hitsOfOneRoundKnockOnce", RagdollTests::hitsOfOneRoundKnockOnce);
+        Checks.run("theModelIsTheWorldTurnedBackTheWayTheEyeIsPlaced", RagdollTests::theModelIsTheWorldTurnedBackTheWayTheEyeIsPlaced);
     }
 
     private static boolean near(float a, float b) {
@@ -43,11 +45,10 @@ final class RagdollTests {
     }
 
     private static void theShinsAreKickedLevelTowardsTheShooter() {
-        HitImpulse.Shot shot = new HitImpulse.Shot(0.6f, 0.6f, -0.53f, 0f, 0f, 0f, 1, 0L);
+        HitImpulse.Shot shot = new HitImpulse.Shot(0.48f, 0.64f, -0.6f, 0f, 0f, 0f, 1, 0L);
         float[] kick = HitImpulse.shinKick(shot);
-        float level = (float) Math.sqrt(0.72f);
-        Checks.check(near(kick[0], -0.6f / level * HitImpulse.SHIN_KICK) && near(kick[2], -0.6f / level * HitImpulse.SHIN_KICK),
-                "the kick is back along the shot's level line, x and y: " + kick[0] + ", " + kick[2]);
+        Checks.check(near(kick[0], -0.6f * HitImpulse.SHIN_KICK) && near(kick[2], -0.8f * HitImpulse.SHIN_KICK),
+                "the kick is back along the shot's level line, x then y in Bullet's x and z: " + kick[0] + ", " + kick[2]);
         Checks.check(kick[1] == 0f, "the kick is level");
         Checks.check(kick[3] == 0f && kick[4] == 0f && kick[5] == 0f, "the kick is at the shin's middle");
     }
@@ -69,5 +70,24 @@ final class RagdollTests {
         }
         Checks.check(HitFlinch.envelope(HitFlinch.LASTS - 0.001f) < 0.01f, "next to nothing is left as it ends: " + HitFlinch.envelope(HitFlinch.LASTS - 0.001f));
         Checks.check(HitFlinch.envelope(HitFlinch.LASTS) == 0f, "nothing after it ends");
+    }
+
+    private static void hitsOfOneRoundKnockOnce() {
+        long shot = 1_000_000_000L;
+        Checks.check(HitFlinch.sameShot(shot, shot), "the second working out of a hit, at once, is the same round");
+        Checks.check(HitFlinch.sameShot(shot, shot + 16_000_000L), "a pellet of the same shell a frame later is the same round");
+        Checks.check(!HitFlinch.sameShot(shot, shot + 100_000_000L), "a round a tenth of a second later knocks again");
+    }
+
+    private static void theModelIsTheWorldTurnedBackTheWayTheEyeIsPlaced() {
+        float[] a = new float[3], b = new float[3], back = new float[3];
+        for (float angle : new float[] {0f, 0.7f, 2f, -2.5f}) {
+            // Two points of the model placed in the world as the eye is; their difference leaves out the eye's own offsets.
+            ViewCamera.eyeOffset(0.1f, 0.9f, -0.2f, angle, 0.3f, a);
+            ViewCamera.eyeOffset(0.4f, 1.3f, 0.25f, angle, 0.3f, b);
+            HitFlinch.toModel(angle, b[0] - a[0], b[1] - a[1], b[2] - a[2], Characters.CHARACTER_SCALE, back);
+            Checks.check(near(back[0], 0.3f) && near(back[1], 0.4f) && near(back[2], 0.45f),
+                    "the world back into the model at " + angle + ": " + back[0] + ", " + back[1] + ", " + back[2]);
+        }
     }
 }
