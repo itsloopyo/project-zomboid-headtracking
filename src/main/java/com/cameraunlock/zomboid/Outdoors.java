@@ -168,6 +168,40 @@ final class Outdoors {
      * the sheet tied over one hangs over its rim, on the side of it nearest the game's view.
      */
     private static final float RAIN_DYE = 0.31f, SHEET_AT = 0.75f, SHEET_DYE = 0.33f;
+    /** How high a fireplace surround's pillar and its mantel are painted in their stone and on their top, in levels, and
+     * how high the mantel's foot is, in metres: the model is lowered onto the floor when it is made. */
+    private static final float MANTEL_STONE_DYE = 0.25f, MANTEL_TOP_DYE = 0.54f, MANTEL_BODY_DYE = 0.33f, MANTEL_SHELF_DYE = 0.45f,
+            MANTEL_FOOT = 0.62f;
+    /** How far from the wall a surround's pieces stand, and where along their wall its two pillars do on their squares. */
+    private static final float MANTEL_OFF_WALL = 0.02f, MANTEL_NEAR = 0.17f, MANTEL_FAR = 0.9f;
+
+    /**
+     * A piece of a fireplace's surround by its place on the sheet: along the west wall (48 to 50) and along the north wall
+     * (51 to 53), and the same eight places on. The first pillar along x stands at the far end of its square and the last at
+     * the near end, against the mantel's square between them; along y the same, the sheet having them the other way about.
+     */
+    private static Piece mantel(int place) {
+        int piece = place >= 56 ? place - 8 : place;
+        if (piece < 48 || piece > 53) {
+            return null;
+        }
+        float foot = MANTEL_FOOT / ViewCamera.LEVEL_HEIGHT;
+        return switch (piece) {
+            case 48 -> new Piece("mantel_pillar", EAST).at(MANTEL_OFF_WALL, MANTEL_NEAR).dye(PAINT, 0.2f, MANTEL_NEAR, MANTEL_STONE_DYE)
+                    .also(1 << Models.WORKTOP, MANTEL_TOP_DYE);
+            case 49 -> new Piece("mantel_lintel", EAST).at(MANTEL_OFF_WALL, 0.5f).dye(PAINT, 0.03f, 0.5f, MANTEL_BODY_DYE - foot)
+                    .also(1 << Models.WORKTOP, MANTEL_SHELF_DYE - foot).raise(foot);
+            case 50 -> new Piece("mantel_pillar", EAST).at(MANTEL_OFF_WALL, MANTEL_FAR).dye(PAINT, 0.2f, MANTEL_FAR, MANTEL_STONE_DYE)
+                    .also(1 << Models.WORKTOP, MANTEL_TOP_DYE);
+            case 51 -> new Piece("mantel_pillar", SOUTH).at(MANTEL_FAR, MANTEL_OFF_WALL).dye(PAINT, MANTEL_FAR, 0.2f, MANTEL_STONE_DYE)
+                    .also(1 << Models.WORKTOP, MANTEL_TOP_DYE);
+            case 52 -> new Piece("mantel_lintel", SOUTH).at(0.5f, MANTEL_OFF_WALL).dye(PAINT, 0.5f, 0.03f, MANTEL_BODY_DYE - foot)
+                    .also(1 << Models.WORKTOP, MANTEL_SHELF_DYE - foot).raise(foot);
+            default -> new Piece("mantel_pillar", SOUTH).at(MANTEL_NEAR, MANTEL_OFF_WALL).dye(PAINT, MANTEL_NEAR, 0.2f, MANTEL_STONE_DYE)
+                    .also(1 << Models.WORKTOP, MANTEL_TOP_DYE);
+        };
+    }
+
     /** How high over the middle of its square a generator's sprite paints the top of its body, in levels. */
     private static final float GENERATOR_DYE = 0.18f;
     /** How high a sewer's pipes are painted where their colour is taken, in levels. */
@@ -280,6 +314,12 @@ final class Outdoors {
                     return new Piece("sewer_pipes", 3).at(0.48f, 0.25f).dye(1 << Models.METAL, 0.6f, 0.25f, SEWER_PIPE_DYE);
                 }
                 default -> { }
+            }
+            // A fireplace's surround, a run of three sprites along its wall: a pillar, the mantel over the fire and a pillar. The
+            // black marble set and the white one have the same pieces eight places apart on the sheet.
+            Piece surround = mantel(Sheets.place(name, FIREPLACES));
+            if (surround != null) {
+                return surround;
             }
             // Two pots on the cap of a chimney stack, the stack's own top a little under the next level's floor: in a row along
             // y and then along x.

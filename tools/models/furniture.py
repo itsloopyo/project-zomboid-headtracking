@@ -1813,6 +1813,40 @@ def hospital_curtain(name, x0, x1, folds):
     return model
 
 
+# How high a fireplace surround's mantel shelf is at its top, in metres: its pillars' caps are as high.
+MANTEL_TOP = 1.33
+
+
+def mantel_pillar():
+    """A pillar of a fireplace's surround, its back on the wall at Y 0 and its front out to -Y: a plinth, a shaft that swells
+    out in a corbel under its capital, and a slab on top as the mantel shelf has."""
+    model = Model("mantel_pillar", centred=False)
+    stone = bmesh.new()
+    cuboid(stone, -0.12, 0.12, -0.26, 0.0, 0.0, 0.08)
+    cuboid(stone, -0.1, 0.1, -0.22, 0.0, 0.08, 0.8)
+    outline_along_x(stone, [(-0.22, 0.8), (0.0, 0.8), (0.0, 1.17), (-0.3, 1.17), (-0.3, 1.1)], -0.1, 0.1)
+    cuboid(stone, -0.12, 0.12, -0.32, 0.0, 1.17, MANTEL_TOP - 0.08)
+    model.hard(stone, "paint", bevel=0.006, segments=2)
+    slab = bmesh.new()
+    cuboid(slab, -0.14, 0.14, -0.33, 0.0, MANTEL_TOP - 0.08, MANTEL_TOP)
+    model.hard(slab, "worktop", bevel=0.006, segments=2)
+    return model
+
+
+def mantel_lintel():
+    """The middle of a fireplace's surround over the fire, a square long along X, its back on the wall at Y 0: a frieze, a
+    moulding over it, and the mantel shelf on top."""
+    model = Model("mantel_lintel", centred=False)
+    stone = bmesh.new()
+    cuboid(stone, -0.5, 0.55, -0.07, 0.0, 0.62, 1.15)
+    cuboid(stone, -0.5, 0.55, -0.13, 0.0, 1.15, MANTEL_TOP - 0.08)
+    model.hard(stone, "paint", bevel=0.006, segments=2)
+    slab = bmesh.new()
+    cuboid(slab, -0.5, 0.55, -0.2, 0.0, MANTEL_TOP - 0.08, MANTEL_TOP)
+    model.hard(slab, "worktop", bevel=0.006, segments=2)
+    return model
+
+
 def metal_rack():
     """Steel racking two squares long: four slotted uprights and three decks."""
     model = Model("metal_rack")
@@ -10441,7 +10475,7 @@ def every():
               framed("frame_tall", 0.6, 0.9), framed("frame_square", 0.7, 0.7), framed("frame_wide", 0.9, 0.6), canvas(), wall_clock(),
               table("table_2", 1.9, 0.92), table("table_3", 2.9, 0.92), table("table_4", 1.9, 1.9, leg=0.08), table("narrow_table", 0.92, 0.5),
               table("low_table", 0.9, 0.5, top=0.42, leg=0.05), table("low_table_2", 1.5, 0.6, top=0.42, leg=0.05), round_table(), office_desk(),
-              cabinet("shop_counter", 0.62, 0.90, True, panelled=True), low_shelves(), wall_shelf("wall_shelf", 1), wall_shelf("wall_shelves", 2), shop_wall_shelves("shop_wall_shelves", "wood"), shop_wall_shelves("zippee_wall_shelves", "vinyl"), hood_dryer(), car_wash_brush(), car_wash_curtain(), bar_back(), sewer_pipes("sewer_pipes_bend", 0.46, True), sewer_pipes("sewer_pipes", 0.25, False), clothes_wall_rails(), generator(), marker_ball(), hospital_curtain("curtain_rail", 0.0, 0.0, 0), hospital_curtain("curtain_drawn", -0.49, 0.49, 10), hospital_curtain("curtain_gathered", 0.12, 0.49, 6),
+              cabinet("shop_counter", 0.62, 0.90, True, panelled=True), low_shelves(), wall_shelf("wall_shelf", 1), wall_shelf("wall_shelves", 2), shop_wall_shelves("shop_wall_shelves", "wood"), shop_wall_shelves("zippee_wall_shelves", "vinyl"), hood_dryer(), car_wash_brush(), car_wash_curtain(), bar_back(), sewer_pipes("sewer_pipes_bend", 0.46, True), sewer_pipes("sewer_pipes", 0.25, False), clothes_wall_rails(), generator(), marker_ball(), hospital_curtain("curtain_rail", 0.0, 0.0, 0), hospital_curtain("curtain_drawn", -0.49, 0.49, 10), hospital_curtain("curtain_gathered", 0.12, 0.49, 6), mantel_pillar(), mantel_lintel(),
               metal_rack(), store_shelves(), plastic_chair(), folding_chair(), booth(), stool(), vending_machine(), arcade_machine(),
               radio(), microwave(), dishwasher(), chest_freezer(), register(), shower("shower", True), shower("shower_head", False),
               kettle_barbecue(), gas_barbecue(), cooler("mini_fridge", 0.5, 0.82, 1), cooler("large_fridge", 1.7, 1.95, 2),

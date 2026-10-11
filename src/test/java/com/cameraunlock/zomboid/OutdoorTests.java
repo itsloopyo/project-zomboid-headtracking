@@ -33,6 +33,7 @@ final class OutdoorTests {
         Checks.run("aCarWashsCurtainsHangAlongTheWayTheirSpritesRun", OutdoorTests::aCarWashsCurtainsHangAlongTheWayTheirSpritesRun);
         Checks.run("aSewersPipesStandAlongTheWayTheirSpritesRun", OutdoorTests::aSewersPipesStandAlongTheWayTheirSpritesRun);
         Checks.run("aGeneratorShowsItsSocketsWhereItsSpriteDoes", OutdoorTests::aGeneratorShowsItsSocketsWhereItsSpriteDoes);
+        Checks.run("aFireplacesSurroundHasItsMantelAtThePillarsHeight", OutdoorTests::aFireplacesSurroundHasItsMantelAtThePillarsHeight);
     }
 
     /** A piece, and its model one the jar has: Models.get throws for a name it has not. */
@@ -265,7 +266,24 @@ final class OutdoorTests {
         Checks.check(unnamed("street_roadsigns_01_0") == null && unnamed("street_roadsigns_01_32") == null, "the boards on two posts and the rest area's signs are not warning signs");
     }
 
-    private static void aGeneratorShowsItsSocketsWhereItsSpriteDoes() {
+    private static void aFireplacesSurroundHasItsMantelAtThePillarsHeight() {
+        for (int set : new int[] {48, 56}) {
+            for (int piece = 0; piece < 6; piece++) {
+                String name = "fixtures_fireplaces_01_" + (set + piece);
+                Outdoors.Piece part = Outdoors.of(name, null, null, Outdoors.NONE, 1, 1, 0);
+                holds(part, name + " is a piece of a fireplace's surround");
+                if (part == null) {
+                    continue;
+                }
+                float top = part.raised + Models.get(part.model).height();
+                Checks.check(Math.abs(top - Models.get("mantel_pillar").height()) < 0.01f, name + " is as high as the surround's pillars: " + top);
+                Checks.check(part.turns == (piece < 3 ? Outdoors.EAST : Outdoors.SOUTH), name + " faces out from its wall");
+            }
+        }
+        Checks.check(Outdoors.of("fixtures_fireplaces_01_54", null, null, Outdoors.NONE, 1, 1, 0) == null, "a place of the sheet that is no piece is none");
+    }
+
+        private static void aGeneratorShowsItsSocketsWhereItsSpriteDoes() {
         // The model's sockets face -Y, which turns as many quarters as Models.turn says: east's sprite shows them to the south.
         int[] socketsFace = {Outdoors.WEST, Outdoors.SOUTH, Outdoors.EAST, Outdoors.NORTH};
         for (int faces = Outdoors.NORTH; faces <= Outdoors.WEST; faces++) {
