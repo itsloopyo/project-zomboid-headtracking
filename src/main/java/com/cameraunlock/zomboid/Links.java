@@ -57,7 +57,7 @@ final class Links {
 
     private static final String VERTEX_BUFFER = "zombie/core/skinnedmodel/model/VertexBufferObject";
     private static final String VERTEX_BUFFER_HANDLE = VERTEX_BUFFER + "$Vbo";
-    /** The fields read by name, which no instruction of the mod's names: VehicleMeshes' four, the body's picture and the outlined things. */
+    /** The fields read by name, which no instruction of the mod's names: VehicleMeshes' four, the body's picture, the outlined things and the layer an animation node is in. */
     static final Field BUFFER_HANDLE = new Field(VERTEX_BUFFER, "handle", "L" + VERTEX_BUFFER_HANDLE + ";");
     static final Field BUFFER_ELEMENTS = new Field(VERTEX_BUFFER, "elements", "[I");
     static final Field HANDLE_BUFFER = new Field(VERTEX_BUFFER_HANDLE, "vboId", "I");
@@ -66,7 +66,10 @@ final class Links {
     static final Field BODY_PICTURE = new Field("zombie/iso/objects/IsoDeadBody", "atlasTex", "Lzombie/core/skinnedmodel/DeadBodyAtlas$BodyTexture;");
     /** The things the game outlines, which Outlines reads. */
     static final Field OUTLINED = new Field("zombie/iso/fboRenderChunk/FBORenderObjectOutline", "objectSet", "Ljava/util/HashSet;");
-    static final List<Field> REFLECTED = List.of(BUFFER_HANDLE, BUFFER_ELEMENTS, HANDLE_BUFFER, HANDLE_STRIDE, BODY_PICTURE, OUTLINED);
+    /** The layer an animation node is in, which Ragdolls reads. */
+    static final Field NODE_LAYER = new Field("zombie/core/skinnedmodel/advancedanimation/LiveAnimNode", "animLayer",
+            "Lzombie/core/skinnedmodel/advancedanimation/AnimLayer;");
+    static final List<Field> REFLECTED = List.of(BUFFER_HANDLE, BUFFER_ELEMENTS, HANDLE_BUFFER, HANDLE_STRIDE, BODY_PICTURE, OUTLINED, NODE_LAYER);
 
     private final Function<String, byte[]> classBytes;
     private final Map<String, Optional<ClassModel>> models = new HashMap<>();

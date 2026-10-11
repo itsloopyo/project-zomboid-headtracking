@@ -33,6 +33,7 @@ public final class Agent {
     private static final String FINE_SKINS = "com/cameraunlock/zomboid/FineSkins";
     private static final String PLAYER = "zombie/characters/IsoPlayer";
     private static final String UI = "zombie/ui/UIManager";
+    private static final String LIVE_NODE = "zombie/core/skinnedmodel/advancedanimation/LiveAnimNode";
     private static final String KEY_BINDING = "Lzombie/core/Core$KeyBinding;";
     private static final String INT_FILTER = "(I)I";
     private static final String BOOLEAN_FILTER = "(Z)Z";
@@ -318,6 +319,12 @@ public final class Agent {
                             code.aload(0);
                             CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "zombieReused", "(L" + zombie + ";)V"));
                         })),
+                new Patch(LIVE_NODE, "getBlendInTime before its returns", classBytes -> CallSite.insertBeforeReturns(classBytes,
+                        new CallSite.Method(LIVE_NODE, "getBlendInTime", "()F"),
+                        code -> CallSite.passThis(code, new CallSite.Method("com/cameraunlock/zomboid/Ragdolls", "blendIn", "(FL" + LIVE_NODE + ";)F")))),
+                new Patch(LIVE_NODE, "getBlendOutTime before its returns", classBytes -> CallSite.insertBeforeReturns(classBytes,
+                        new CallSite.Method(LIVE_NODE, "getBlendOutTime", "()F"),
+                        code -> CallSite.passThis(code, new CallSite.Method("com/cameraunlock/zomboid/Ragdolls", "blendOut", "(FL" + LIVE_NODE + ";)F")))),
                 new Patch("zombie/core/Core", "getKeyBinding before its returns", classBytes -> CallSite.insertBeforeReturns(classBytes,
                         new CallSite.Method("zombie/core/Core", "getKeyBinding", "(Ljava/lang/String;)" + KEY_BINDING),
                         code -> CallSite.passFirstArgument(code, new CallSite.Method(HOOKS, "binding",
