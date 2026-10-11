@@ -176,7 +176,7 @@ Centring belongs to your tracker, recenter there.
 | `Page Up` | Track head rotation and movement, rotation only, or movement only |
 | `Page Down` | Switch between horizon-relative and camera-relative head turns |
 | `Insert` | Change aiming mode |
-| `F9` | Change graphics quality of the view you are in |
+| `F9` | Change graphics quality |
 | `F8` | Change picture style |
 | `F7` | Arrange two-player split screen side by side or top and bottom |
 
@@ -186,7 +186,7 @@ Centring belongs to your tracker, recenter there.
   - **Sights locked** keeps your eye lined up with the sights while you aim.
   - **Free look with a marker** leaves the weapon pointing where you aim while your head looks around it, and the game's reticle marks where the shot lands.
   - **Stock sights** eases head turns and leaning out while the sights are up, so you see the game's own sight picture, and keeps only head tilt.
-- `F9` goes through Automatic, Low, Medium, High and Custom in first person, and Low, Medium, High and Custom in the isometric view.
+- `F9` goes through Automatic, Low, Medium, High and Custom, and sets first person and the isometric view to the same mode. The isometric view has no Automatic: it stays in Low while first person is in Automatic, and `F9` pressed in the isometric view skips Automatic. To give the two views different modes, set them in the game's options.
 - `F8` goes through the picture styles Vivid, Natural and Bleak.
 
 Every key except `Delete` saves its new setting to `CameraUnlock.ini` as you press it. No key turns head tracking on or off: `EnableOnStartup` in `CameraUnlock.ini` decides that. There is no recenter key: centre the view in your tracker app.
@@ -367,8 +367,9 @@ YawModeKey=PageDown
 TrueFreeLookKey=Insert
 ; Switches between first person and the game's own view. Tap for player 1, tap twice for player 2, hold for every player.
 FirstPersonKey=Delete
-; Goes to the next graphics mode of the view you are in: in first person Automatic, Low, Medium, High, Custom
-; (Quality), in the isometric view Low, Medium, High, Custom (IsometricQuality).
+; Goes to the next graphics mode and sets both views to it: Automatic, Low, Medium, High, Custom (Quality and
+; IsometricQuality). The isometric view has no Automatic: it takes Low for it, and the key skips Automatic
+; there. The game's options set the two views apart.
 CycleQualityKey=F9
 ; Goes to the next picture style: Vivid, Natural, Bleak (Style).
 CycleStyleKey=F8

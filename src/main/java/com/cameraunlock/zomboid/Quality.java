@@ -5,8 +5,8 @@ import java.util.Locale;
 
 /**
  * How much the picture costs to draw: the Quality row of CameraUnlock.ini for first person, and
- * the IsometricQuality row for the game's isometric view, each kept apart and stepped by the
- * graphics key in the view it is pressed in. While any view is in first person, flying to or
+ * the IsometricQuality row for the game's isometric view. The graphics key steps the mode of the
+ * view it is pressed in and sets the other view's to match; the options screen sets them apart. While any view is in first person, flying to or
  * from it or getting ready for it, every view is drawn with first person's mode. Otherwise the
  * isometric view's mode is drawn, but for Low, where the game draws that view itself and the mod
  * draws nothing: the picture then stays first person's, so what was made for first person is not
@@ -285,6 +285,14 @@ final class Quality {
     /** What the screen says of the mode in effect: "First person graphics: Automatic (Medium)" or "Isometric graphics: Low". */
     static String said() {
         return firstPersonInEffect ? "First person graphics: " + name() : "Isometric graphics: " + NAMES[overheadRow];
+    }
+
+    /**
+     * What the screen says when the graphics key sets both views: "Graphics: Medium", or where
+     * they differ, as in Automatic, "Graphics: Automatic (High), isometric Low".
+     */
+    static String saidOfBoth() {
+        return row == overheadRow ? "Graphics: " + NAMES[row] : "Graphics: " + name() + ", isometric " + NAMES[overheadRow];
     }
 
     /** First person's mode, and in Automatic the level it is at: "Automatic (Medium)". */

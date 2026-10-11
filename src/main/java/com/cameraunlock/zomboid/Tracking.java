@@ -566,17 +566,20 @@ final class Tracking {
         save(() -> config.saveWorldSpaceYaw(saved));
     }
 
-    /** The graphics mode after the one in effect, first person's or the isometric view's, kept for the next start. */
+    /**
+     * The graphics mode after the one in effect, first person's or the isometric view's, set for
+     * both views and kept for the next start. The isometric view has no Automatic and takes Low
+     * for it. The options screen sets the two apart.
+     */
     static void cycleGraphicsMode() {
-        if (Quality.firstPersonInEffect()) {
-            int next = Quality.next();
-            Quality.set(next);
-            save(() -> config.saveQuality(next));
-        } else {
-            int next = Quality.nextOverhead();
-            Quality.setOverhead(next);
-            save(() -> config.saveIsometricQuality(next));
-        }
+        int next = Quality.firstPersonInEffect() ? Quality.next() : Quality.nextOverhead();
+        int overhead = next == Quality.AUTOMATIC ? Quality.LOW : next;
+        Quality.set(next);
+        Quality.setOverhead(overhead);
+        save(() -> {
+            config.saveQuality(next);
+            config.saveIsometricQuality(overhead);
+        });
     }
 
     /** The picture style after the one the session is in, kept for the next start. */

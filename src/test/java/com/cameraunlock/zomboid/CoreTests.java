@@ -522,18 +522,29 @@ public final class CoreTests {
         check(saved("TrueFreeLook=false", "FreeLookMarker=false", "StockSights=true"), "saved");
 
         Tracking.cycleGraphicsMode();
-        check(Quality.overheadRow() == Quality.MEDIUM && saved("IsometricQuality=Medium") && Quality.name().equals("Automatic (High)") && holds("Quality=Automatic"),
-                "in the isometric view the graphics mode's action goes from Low to Medium there, saves it, and leaves first person's");
+        check(Quality.overheadRow() == Quality.MEDIUM && Quality.name().equals("Medium") && saved("IsometricQuality=Medium", "Quality=Medium")
+                        && Quality.saidOfBoth().equals("Graphics: Medium"),
+                "in the isometric view the graphics mode's action goes from Low to Medium, sets first person's to it too, and saves both: "
+                        + Quality.saidOfBoth());
         Tracking.cycleGraphicsMode();
         Tracking.cycleGraphicsMode();
         Tracking.cycleGraphicsMode();
-        check(Quality.overheadRow() == Quality.LOW && saved("IsometricQuality=Low"), "on through High and Custom, with no Automatic, round to Low");
+        check(Quality.overheadRow() == Quality.LOW && Quality.name().equals("Low") && saved("IsometricQuality=Low", "Quality=Low"),
+                "on through High and Custom, with no Automatic, round to Low");
         Quality.inFirstPerson(0, true);
         Tracking.cycleGraphicsMode();
-        check(Quality.name().equals("Low") && saved("Quality=Low") && holds("IsometricQuality=Low"),
-                "in first person it goes from Automatic to Low, saves it, and leaves the isometric view's");
+        check(Quality.name().equals("Medium") && Quality.overheadRow() == Quality.MEDIUM && saved("Quality=Medium", "IsometricQuality=Medium"),
+                "in first person it goes from Low to Medium, for the isometric view too");
         Tracking.cycleGraphicsMode();
-        check(Quality.name().equals("Medium") && saved("Quality=Medium"), "and on to Medium");
+        Tracking.cycleGraphicsMode();
+        Tracking.cycleGraphicsMode();
+        check(Quality.name().equals("Automatic (High)") && Quality.overheadRow() == Quality.LOW && saved("Quality=Automatic", "IsometricQuality=Low")
+                        && Quality.saidOfBoth().equals("Graphics: Automatic (High), isometric Low"),
+                "on through High and Custom to Automatic, where the isometric view, which has none, takes Low: " + Quality.saidOfBoth());
+        Tracking.cycleGraphicsMode();
+        Tracking.cycleGraphicsMode();
+        check(Quality.name().equals("Medium") && Quality.overheadRow() == Quality.MEDIUM && saved("Quality=Medium", "IsometricQuality=Medium"),
+                "and on through Low to Medium");
         Tracking.cycleStyle();
         check(Style.current() == Style.NATURAL && saved("Style=Natural"), "the picture style's action goes to Natural and saves it");
         check(SplitScreen.row() == SplitScreen.VERTICAL && holds("SplitScreen=Vertical") && holds("SplitScreenKey=F7"), "two players start side by side, with F7 to turn them");

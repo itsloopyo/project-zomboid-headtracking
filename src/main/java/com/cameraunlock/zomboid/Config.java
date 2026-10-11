@@ -195,8 +195,9 @@ final class Config {
                 "Switches between first person and the game's own view. Tap for player 1, tap twice for player 2, hold for every player.",
                 0, "Delete", FIRST_PERSON, FIRST_PERSON_SECOND, FIRST_PERSON_ALL);
         core.configLocalHotkey("CycleQualityKey",
-                "Goes to the next graphics mode of the view you are in: in first person Automatic, Low, Medium, High, Custom\n"
-                        + "(Quality), in the isometric view Low, Medium, High, Custom (IsometricQuality).", 0, "F9",
+                "Goes to the next graphics mode and sets both views to it: Automatic, Low, Medium, High, Custom (Quality and\n"
+                        + "IsometricQuality). The isometric view has no Automatic: it takes Low for it, and the key skips Automatic\n"
+                        + "there. The game's options set the two views apart.", 0, "F9",
                 CYCLE_QUALITY);
         core.configLocalHotkey("CycleStyleKey", "Goes to the next picture style: Vivid, Natural, Bleak (Style).", 0, "F8",
                 CYCLE_STYLE);

@@ -522,7 +522,7 @@ public final class FirstPerson {
             DevKeys.poll();
         }
         if ((pressed & Config.CYCLE_QUALITY) != 0) {
-            said = Quality.said();
+            said = Quality.saidOfBoth();
             saidAt = System.nanoTime();
         }
         if ((pressed & Config.CYCLE_STYLE) != 0) {
