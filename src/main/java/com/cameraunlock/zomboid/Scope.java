@@ -381,7 +381,7 @@ final class Scope {
      * lit. Four textures 1024 square, made by the first frame that draws a picture for an
      * eyepiece and given back when none has for a while: zero while they are not made.
      */
-    int pictureTarget, pictureColor, pictureDepth, figureTarget, figureColor, figureNormal;
+    int pictureTarget, pictureColor, pictureDepth, figureTarget, figureColor, figureNormal, figureLamps;
     private long picturedNanos;
     private static final int HANDS_UNIT = 3;
 
@@ -468,10 +468,12 @@ final class Scope {
         int status = GL30.glCheckFramebufferStatus(GL_FRAMEBUFFER);
         figureColor = texture(GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE, GL_NEAREST, GL_NEAREST);
         figureNormal = texture(GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE, GL_NEAREST, GL_NEAREST);
+        figureLamps = texture(GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE, GL_NEAREST, GL_NEAREST);
         figureTarget = GL30.glGenFramebuffers();
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, figureTarget);
         GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, figureColor, 0);
         GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + 1, GL_TEXTURE_2D, figureNormal, 0);
+        GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + 2, GL_TEXTURE_2D, figureLamps, 0);
         GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, pictureDepth, 0);
         int figureStatus = GL30.glCheckFramebufferStatus(GL_FRAMEBUFFER);
         if (status != GL_FRAMEBUFFER_COMPLETE || figureStatus != GL_FRAMEBUFFER_COMPLETE) {
@@ -480,9 +482,9 @@ final class Scope {
         Log.info(String.format(Locale.ROOT, "first person picture: the scope's picture made in %.1f ms", (System.nanoTime() - start) / 1e6));
     }
 
-    /** What the picture's four textures take on the graphics card, the colour's smaller copies of itself among them. */
+    /** What the picture's five textures take on the graphics card, the colour's smaller copies of itself among them. */
     long pictureBytes() {
-        return pictureTarget == 0 ? 0L : (long) PICTURE * PICTURE * (8 * 4 / 3 + 3 * 4);
+        return pictureTarget == 0 ? 0L : (long) PICTURE * PICTURE * (8 * 4 / 3 + 4 * 4);
     }
 
     /** Gives the picture's targets back if no frame has drawn into them since before. */
@@ -501,12 +503,14 @@ final class Scope {
         GL11.glDeleteTextures(pictureDepth);
         GL11.glDeleteTextures(figureColor);
         GL11.glDeleteTextures(figureNormal);
+        GL11.glDeleteTextures(figureLamps);
         pictureTarget = 0;
         figureTarget = 0;
         pictureColor = 0;
         pictureDepth = 0;
         figureColor = 0;
         figureNormal = 0;
+        figureLamps = 0;
     }
 
     private static int texture(int kept, int format, int type, int smaller, int larger) {

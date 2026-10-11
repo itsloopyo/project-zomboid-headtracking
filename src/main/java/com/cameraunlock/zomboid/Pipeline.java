@@ -563,7 +563,7 @@ final class Pipeline {
     private static final int[] FIRST_BUFFER = {GL_COLOR_ATTACHMENT0}, BOTH_BUFFERS = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT0 + 1};
     private int mirrorColor, mirrorTarget, mirrorDepth;
     /** The people and vehicles the mirror shows, as the game or the picture draws them, before they are lit into the mirror's picture. */
-    private int mirrorFigureTarget, mirrorFigureColor, mirrorFigureNormal;
+    private int mirrorFigureTarget, mirrorFigureColor, mirrorFigureNormal, mirrorFigureLamps;
     /** Nearer the mirror than this, in tiles, is the vehicle it hangs in, and is left out of its picture. */
     private static final float MIRROR_NEAR = 2.6f;
     private boolean inMirror;
@@ -1004,7 +1004,7 @@ final class Pipeline {
         inMirror = false;
         if (figures) {
             drawFiguresAside(behind, MIRROR_TAN, (float) MIRROR_WIDTH / MIRROR_HEIGHT, MIRROR_NEAR, MIRROR_WIDTH, MIRROR_HEIGHT, mirrorFigureTarget, mirrorFigureColor,
-                    mirrorFigureNormal, mirrorTarget, mirrorDepth, true, state, far, fogStart, fogEnd);
+                    mirrorFigureNormal, mirrorFigureLamps, mirrorTarget, mirrorDepth, true, state, far, fogStart, fogEnd);
         }
     }
 
@@ -1119,7 +1119,7 @@ final class Pipeline {
         drawWorld(view.scope.sees, state, tan, 1f, Scope.PICTURE_NEAR, far, fogStart, fogEnd);
         inScope = false;
         if (figures) {
-            drawFiguresAside(view.scope.sees, tan, 1f, Scope.PICTURE_NEAR, Scope.PICTURE, Scope.PICTURE, view.scope.figureTarget, view.scope.figureColor, view.scope.figureNormal,
+            drawFiguresAside(view.scope.sees, tan, 1f, Scope.PICTURE_NEAR, Scope.PICTURE, Scope.PICTURE, view.scope.figureTarget, view.scope.figureColor, view.scope.figureNormal, view.scope.figureLamps,
                     view.scope.pictureTarget, view.scope.pictureDepth, false, state, far, fogStart, fogEnd);
         }
         drawSkyInto(view.scope.pictureTarget, Scope.PICTURE, Scope.PICTURE, false, view.scope.sees, state, tan, 1f, Scope.PICTURE_NEAR, far);
@@ -3551,13 +3551,13 @@ final class Pipeline {
      * @param mirror        whether it is a vehicle's mirror
      */
     private void drawFiguresAside(ViewCamera.Pose pose, float tan, float aspect, float near, int wide, int high, int figureTarget, int figureColor,
-            int figureNormal, int worldTarget, int worldDepth, boolean mirror, SkyState state, float far, float fogStart, float fogEnd) {
+            int figureNormal, int figureLamps, int worldTarget, int worldDepth, boolean mirror, SkyState state, float far, float fogStart, float fogEnd) {
         for (int pass = 0; pass < 2; pass++) {
             GL30.glBindFramebuffer(GL_FRAMEBUFFER, figureTarget);
             GL11.glViewport(0, 0, wide, high);
             GL11.glClearColor(0f, 0f, 0f, 0f);
             GL11.glColorMask(true, true, true, true);
-            GL20.glDrawBuffers(BOTH_BUFFERS);
+            GL20.glDrawBuffers(FIGURE_BUFFERS);
             GL11.glClear(GL_COLOR_BUFFER_BIT);
             GL20.glDrawBuffers(FIRST_BUFFER);
             GL11.glEnable(GL_DEPTH_TEST);
@@ -3566,7 +3566,9 @@ final class Pipeline {
             GL11.glDisable(GL_BLEND);
             smoothSkins(true);
             CharacterDraw.bare = true;
+            view.characters.lamps = VehicleLamps.drawn() ? LAMP_BUFFERS : null;
             int drawn = mirror ? view.characters.drawBehind(pose, tan, aspect, near, far, pass == 1) : view.characters.draw(pose, tan, aspect, near, far, pass == 1, true);
+            view.characters.lamps = null;
             CharacterDraw.bare = false;
             smoothSkins(false);
             // The game's draw leaves its own program, buffers and arrays bound.
@@ -3620,7 +3622,10 @@ final class Pipeline {
             figureLight.set("uGlassPass", 0f);
             figureLight.set("uOwnAmbient", 1f, 1f, 1f);
             figureLight.set("uFigureAmbient", view.characters.ambient);
-            noLamps();
+            GL13.glActiveTexture(GL_TEXTURE0 + LAMP_UNIT);
+            GL11.glBindTexture(GL_TEXTURE_2D, figureLamps);
+            GL13.glActiveTexture(GL_TEXTURE0);
+            figureLight.set("uLampsLit", LAMP_UNIT);
             figureLight.set("uFacing", NORMAL_UNIT);
             figureLight.set("uHaveFacing", pass == 0 ? 1f : 0f);
             // In a mirror the weave of a shirt is finer than a dot of the picture, and a scope shows it from too far off.
@@ -4578,6 +4583,8 @@ final class Pipeline {
         mirrorFigureTarget = target(mirrorFigureColor);
         mirrorFigureNormal = texture(GL_RGBA8, MIRROR_WIDTH, MIRROR_HEIGHT, GL_RGBA, GL_UNSIGNED_BYTE, GL_NEAREST);
         GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + 1, GL_TEXTURE_2D, mirrorFigureNormal, 0);
+        mirrorFigureLamps = texture(GL_RGBA8, MIRROR_WIDTH, MIRROR_HEIGHT, GL_RGBA, GL_UNSIGNED_BYTE, GL_NEAREST);
+        GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + 2, GL_TEXTURE_2D, mirrorFigureLamps, 0);
         GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, mirrorDepth, 0);
         if (problem == null) {
             problem = complete("mirror's people");
