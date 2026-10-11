@@ -3611,6 +3611,45 @@ final class PipelineShaders {
             }
             """;
 
+    /**
+     * For air: whether a point has something over it, from the map from above, and the sun on
+     * it. A sun map holds a ceiling sheet behind itself by the slope offset, so air close under a
+     * ceiling, and in the thin gap over the top of a wall, reads as in the sun. Air in a room is
+     * asked at itself and AIR_BAND lower: a shaft through a window is lit at both, the grain along
+     * the top of a wall is not.
+     */
+    static final String ROOFED_AIR = """
+            uniform sampler2D uHeights;
+            uniform mat4 uRoofMatrix;
+            uniform float uRoofDeep;
+
+            const float AIR_BAND = 0.06;
+
+            bool underRoof(vec3 p) {
+                vec3 c = (uRoofMatrix * vec4(p, 1.0)).xyz * 0.5 + 0.5;
+                if (c.x <= 0.0 || c.x >= 1.0 || c.y <= 0.0 || c.y >= 1.0) {
+                    return false;
+                }
+                float over = texture2D(uHeights, c.xy).r;
+                return over < 1.0 && (c.z - over) * uRoofDeep > 0.001;
+            }
+
+            // The sun on a point of air, from the near map or else the far one, or `beyond` past both.
+            float sunInAir(vec3 p, float beyond) {
+                vec3 c = (uNearMatrix * vec4(p, 1.0)).xyz * 0.5 + 0.5;
+                if (inside(c)) {
+                    return shadow2D(uShadowNear, c).r;
+                }
+                c = (uFarMatrix * vec4(p, 1.0)).xyz * 0.5 + 0.5;
+                return inside(c) ? shadow2D(uShadowFar, c).r : beyond;
+            }
+
+            float sunInAir(vec3 p, bool roofed, float beyond) {
+                float sun = sunInAir(p, beyond);
+                return roofed && sun > 0.0 ? min(sun, sunInAir(p - vec3(0.0, 0.0, AIR_BAND), beyond)) : sun;
+            }
+            """;
+
     /** A quad over the whole picture at the far plane: with the depth test on, only pixels nothing was drawn to pass. */
     static final String SCREEN_VERTEX = """
             #version 120
@@ -3863,6 +3902,9 @@ final class PipelineShaders {
             // How much light a tile of fog, rain or snow takes out of a line of sight: what is
             // lit far off in it is seen through the air between.
             uniform float uThick;
+            // How much more a room's still air holds for light to catch than the open air's uMist:
+            // the dust that makes a shaft through a window.
+            uniform float uRoomAir;
             """ + BEAMS + """
 
             const int STEPS = 24;
@@ -3871,6 +3913,7 @@ final class PipelineShaders {
             bool inside(vec3 c) {
                 return c.x > 0.01 && c.x < 0.99 && c.y > 0.01 && c.y < 0.99 && c.z < 1.0;
             }
+            """ + ROOFED_AIR + """
 
             void main() {
                 vec2 uv = gl_FragCoord.xy / uSize;
@@ -3887,18 +3930,10 @@ final class PipelineShaders {
                     float at = (float(i) + start) * stride;
                     float through = exp(-uThick * at * along);
                     vec4 p = vec4(uEye + ray * at, 1.0);
-                    vec3 c = (uNearMatrix * p).xyz * 0.5 + 0.5;
-                    float sun = 1.0;
-                    if (inside(c)) {
-                        sun = shadow2D(uShadowNear, c).r;
-                    } else {
-                        c = (uFarMatrix * p).xyz * 0.5 + 0.5;
-                        if (inside(c)) {
-                            sun = shadow2D(uShadowFar, c).r;
-                        }
-                    }
+                    bool roofed = underRoof(p.xyz);
+                    float sun = sunInAir(p.xyz, roofed, 1.0);
                     // The air thins with height, and there is none to speak of under the ground.
-                    lit += sun * exp(-max(p.z, 0.0) * 0.12) * through;
+                    lit += sun * exp(-max(p.z, 0.0) * 0.12) * through * (roofed ? uMist + uRoomAir : uMist);
                     for (int b = 0; b < 2; b++) {
                         if (uBeamAt[b].w > 0.0) {
                             beamed += beamInAir(b, p.xyz) * through;
@@ -3919,7 +3954,7 @@ final class PipelineShaders {
                 // own blue, and a sunset's air is gold and rose, not the red of the sun's disc.
                 vec3 glow = pow(uLightColor, vec3(2.2));
                 glow = mix(glow, vec3(dot(glow, vec3(0.3, 0.5, 0.2))) * vec3(1.0, 0.82, 0.62), 0.65);
-                vec3 caught = glow * (lit / float(STEPS) * ahead * along * uMist * towards);
+                vec3 caught = glow * (lit / float(STEPS) * ahead * along * towards);
                 // A beam barely shows in clear night air, on the dust in it, and more in mist.
                 caught += vec3(1.0, 0.92, 0.76) * (beamed / float(STEPS) * ahead * along * (0.0004 + 0.2 * uMist));
                 gl_FragColor = vec4(caught, 1.0);

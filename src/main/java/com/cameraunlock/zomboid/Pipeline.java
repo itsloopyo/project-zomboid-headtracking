@@ -2724,6 +2724,20 @@ final class Pipeline {
         GL13.glActiveTexture(GL_TEXTURE0);
     }
 
+    /** The map from above for PipelineShaders.ROOFED_AIR, on a unit, read as heights. */
+    private void setRoofedAir(Program program, int unit) {
+        GL13.glActiveTexture(GL_TEXTURE0 + unit);
+        GL11.glBindTexture(GL_TEXTURE_2D, roofMap);
+        GL33.glBindSampler(unit, depthSampler);
+        GL13.glActiveTexture(GL_TEXTURE0);
+        program.set("uHeights", unit);
+        program.set("uRoofMatrix", roofMatrix);
+        program.set("uRoofDeep", 2f * ROOF_RANGE);
+    }
+
+    /** How much more a room's air holds for light to catch than the open air on a clear day: see PipelineShaders.VOLUME. */
+    private static final float ROOM_AIR = 1f;
+
     private void drawVolume(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float near, float far) {
         lend(shaded);
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, volumeTarget);
@@ -2751,6 +2765,8 @@ final class Pipeline {
         volume.set("uLightColor", state.lightRed, state.lightGreen, state.lightBlue);
         volume.set("uMist", state.mist);
         volume.set("uThick", state.thick);
+        setRoofedAir(volume, 3);
+        volume.set("uRoomAir", ROOM_AIR);
         quad();
         softenInto(softVolumeTarget, volumeColor, near, far);
     }
