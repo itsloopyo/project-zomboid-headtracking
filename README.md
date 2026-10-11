@@ -18,7 +18,7 @@ It adds a first person view to the game, with a rebuilt world and new graphics.
 - **On foot and in vehicles** - press `Delete` to switch views. Play with a mouse and keyboard or controller, with sound that follows where you look.
 - **A rebuilt world** - in Medium and High: 3D buildings and furniture, new textures, detailed plants, rolling hills and distant scenery.
 - **New renderer graphics in both views** - lighting, shadows, models and textures in Medium and High. High adds reflections on roads, floors, glass and water, and light beams through fog.
-- **Combat** - custom arms and hands, melee swings, recoil and reload animations. Medium and High add shotgun and hunting rifle models and magnified scopes.
+- **Combat** - custom arms and hands, melee swings, recoil and reload animations. Shots hit the body part you aim at, and a zombie shot through a leg goes down and crawls. Medium and High add shotgun and hunting rifle models and magnified scopes.
 - **Vehicle interiors** - dashboards, seats and working mirrors and instrumentation.
 - **Adjustable graphics** - automatic or manual quality, three picture styles, field of view, hill height and optional replacement models and textures.
 
