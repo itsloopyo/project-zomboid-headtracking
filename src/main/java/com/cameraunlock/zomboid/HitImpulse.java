@@ -8,11 +8,12 @@ import zombie.core.physics.RagdollBodyPart;
 /**
  * The push a shot gives the body it drops.
  *
- * When a hit puts a character into its ragdoll, the game pushes one body part of it once, on the
- * ragdoll's first update. It pushes level along the line from the shooter's feet to the
- * character's feet, plus a fixed lift, at the part's middle, so nothing a shot does turns a limb:
- * a shot in the knee and one in the chest throw the body the same way. Bullet's impulse takes a
- * place on the part as well, which the game always gives as the middle.
+ * When a hit puts a character into its ragdoll, the game pushes the part hit once, on the
+ * ragdoll's first update after it is set up, as hard as its table says for that part and round,
+ * along the line from the shooter's place to the character's (level, on one floor), with a lift
+ * from the same table. It pushes at the
+ * part's middle: Bullet's impulse takes a place on the part as well, which the game always gives
+ * as the middle, so no shot turns a limb.
  *
  * A first person shot is known better: the line it flew and where on the part it went in. The
  * push goes along that line, so a shot from above drives the body down and one from below lifts

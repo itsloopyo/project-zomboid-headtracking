@@ -65,8 +65,10 @@ final class HitPart {
     /** After {@link #part} has found one: the point on the part's own bone level with where the aim is on it, in the picture's units. */
     float boneX, boneY, boneUp;
     /**
-     * After {@link #part} has found one: where the aim enters the part, or passes nearest it, and
-     * the middle of the game's body part of that name, both in the picture's units.
+     * After {@link #part} has found one: where the aim enters the part, or on a near miss where it
+     * passes nearest, and the middle of this class's stand-in for the game's body part of that name
+     * (the pelvis bone for the pelvis), which stands for the middle of the physics body. Both in the
+     * picture's units.
      */
     float hitX, hitY, hitUp, middleX, middleY, middleUp;
     private final float[] approach = new float[3];

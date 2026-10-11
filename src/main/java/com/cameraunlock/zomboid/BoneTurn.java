@@ -13,7 +13,8 @@ import zombie.core.skinnedmodel.model.SkinningBone;
  * The bone's place and size in its parent stay. Its turn in its parent takes the turn in the
  * model's axes carried into the parent's: with p the parent's turn in the model, t the turn and
  * r the bone's turn in its parent, the new turn is p undone, then t, then p, on r. The parent's
- * turn in the model is the one the last frame's matrices hold.
+ * turn in the model is worked out from the bones as they are posed now, a parent this turned
+ * already included.
  */
 final class BoneTurn {
     private final Matrix4f inParent = new Matrix4f();
