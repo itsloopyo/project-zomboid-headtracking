@@ -322,11 +322,8 @@ public final class Agent {
                             code.aload(0);
                             CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "zombieReused", "(L" + zombie + ";)V"));
                         })),
-                // The two places the game pushes a body that has just gone into its ragdoll: for a hit on a known part, and for one it guessed.
                 new Patch(RAGDOLL, "simulateHitReaction calling applyImpulse", classBytes -> CallSite.replaceEach(classBytes,
                         new CallSite.Method(RAGDOLL, "simulateHitReaction", "()V"), applyImpulse, pushAlongTheShot, 1)),
-                new Patch(RAGDOLL, "simulateHitReaction0 calling applyImpulse", classBytes -> CallSite.replaceEach(classBytes,
-                        new CallSite.Method(RAGDOLL, "simulateHitReaction0", "()V"), applyImpulse, pushAlongTheShot, 1)),
                 new Patch(LIVE_NODE, "getBlendInTime before its returns", classBytes -> CallSite.insertBeforeReturns(classBytes,
                         new CallSite.Method(LIVE_NODE, "getBlendInTime", "()F"),
                         code -> CallSite.passThis(code, new CallSite.Method("com/cameraunlock/zomboid/Ragdolls", "blendIn", "(FL" + LIVE_NODE + ";)F")))),
