@@ -6238,9 +6238,19 @@ final class PipelineShaders {
             varying vec3 vColor;
             // How much of the sky and sun reaches this part of the tree: a crown shades its own lower leaves.
             varying float vReached;
+            // The place on the tree itself, in tiles from its foot, and the tree's own number: what its clumps of leaves are fixed to.
+            varying vec4 vOnTree;
+            // 1 on the crown, 0 on the bole.
+            varying float vLeafy;
 
             vec4 kindTexel(float row, float texel) {
                 return texture2D(uKinds, vec2((texel + 0.5) / %ROW%.0, (row + 0.5) / uKindRows));
+            }
+
+            float reachAt(float kind, float up) {
+                float band = clamp(up * %BANDS%.0 - 0.5, 0.0, %BANDS%.0 - 1.0);
+                float lower = floor(band);
+                return mix(kindTexel(kind, 4.0 + lower).r, kindTexel(kind, 4.0 + min(lower + 1.0, %BANDS%.0 - 1.0)).r, band - lower);
             }
 
             void main() {
@@ -6259,17 +6269,27 @@ final class PipelineShaders {
                     vNormal = vec3(outward, 0.0);
                     vColor = kindTexel(kind, 1.0).rgb;
                     vReached = 0.55;
+                    vLeafy = 0.0;
                 } else {
-                    float band = clamp(up * %BANDS%.0 - 0.5, 0.0, %BANDS%.0 - 1.0);
-                    float lower = floor(band);
-                    float reach = mix(kindTexel(kind, 4.0 + lower).r, kindTexel(kind, 4.0 + min(lower + 1.0, %BANDS%.0 - 1.0)).r, band - lower);
-                    reach *= part > 1.5 ? 0.0 : 1.0;
+                    float reach = part > 1.5 ? 0.0 : reachAt(kind, up);
+                    // A crown stands out in lumps, each tree's its own. A vertex is told by its ring and
+                    // side counted whole, so every triangle that shares it moves it alike, the last
+                    // side's angle of 2 pi with the first's of 0 included.
+                    float side = mod(floor(gl_Vertex.y * 10.1859164 + 0.5), 64.0);
+                    float lump = fract(sin(dot(vec3(floor(up * 64.0 + 0.5), side, own * 977.0), vec3(12.9898, 78.233, 37.719))) * 43758.5453);
+                    reach *= 0.82 + 0.36 * lump;
                     local = vec3(outward * reach, mix(sizes.y, sizes.z, up));
-                    vNormal = normalize(vec3(outward, part > 2.5 ? 2.0 : part > 1.5 ? -2.0 : 0.6));
+                    // The crown faces the way its outline leans: up where it narrows to its top, down
+                    // where it widens from its foot. With every side turned the same way up, the sky's
+                    // light and the snow lay on the whole crown alike.
+                    float slope = (reachAt(kind, min(up + 0.1, 1.0)) - reachAt(kind, max(up - 0.1, 0.0))) / (0.2 * max(sizes.z - sizes.y, 0.01));
+                    vNormal = part > 2.5 ? vec3(0.0, 0.0, 1.0) : part > 1.5 ? vec3(0.0, 0.0, -1.0) : normalize(vec3(outward, -slope));
                     // No two trees of a kind are quite one colour.
                     vColor = kindTexel(kind, 0.0).rgb * (0.82 + 0.3 * fract(own * 13.7)) * vec3(1.0, 0.94 + 0.12 * fract(own * 29.3), 1.0);
                     vReached = part > 1.5 && part < 2.5 ? 0.4 : mix(0.5, 1.0, up);
+                    vLeafy = 1.0;
                 }
+                vOnTree = vec4(local * grown, own);
                 vWorld = aTree.xyz + local * grown;
                 gl_Position = gl_ProjectionMatrix * gl_ModelViewMatrix * vec4(vWorld - uEye, 1.0);
             }
@@ -6279,12 +6299,19 @@ final class PipelineShaders {
      * The far trees are lit as the far land is (FAR_LIGHT), come in where the built world thins
      * out as its buildings do (ENDS), and end at uTreeReach along the ground, pixel by pixel over
      * the last stretch before it.
+     *
+     * A crown is clumps of leaves fixed to its tree, with sky between its outer clumps and,
+     * through a gap, the shaded inside of its far side, as a crown of the built world's has.
+     * Where a pixel spans more than a clump the crown is drawn whole, in the shade its clumps
+     * come to: gaps a pixel or less across would crawl as the head moves.
      */
     static final String FAR_TREE_FRAGMENT = "#version 120\n" + Sky.ATMOSPHERE + ENDS + GROUND_NOISE + FAR_LIGHT + """
             varying vec3 vWorld;
             varying vec3 vNormal;
             varying vec3 vColor;
             varying float vReached;
+            varying vec4 vOnTree;
+            varying float vLeafy;
             uniform float uTreeReach;
             uniform float uSnowLying;
 
@@ -6299,10 +6326,29 @@ final class PipelineShaders {
                     discard;
                 }
                 vec3 n = normalize(vNormal);
-                // Clumps of leaves, lighter and darker, at two sizes.
-                float clumps = patches(vWorld.xy * 1.3 + vWorld.z * 0.9) * 0.6 + patches(vWorld.xy * 3.1 - vWorld.z * 2.3) * 0.4;
-                vec3 surface = pow(vColor, vec3(2.2)) * vReached * (0.65 + 0.7 * clumps);
-                surface = mix(surface, pow(vec3(0.82, 0.845, 0.89), vec3(2.2)), min(uSnowLying * 2.0, 1.0) * max(n.z, 0.0));
+                vec3 surface = pow(vColor, vec3(2.2)) * vReached;
+                if (vLeafy > 0.5) {
+                    vec3 q = vOnTree.xyz + vOnTree.w * 97.0;
+                    float fine = max(length(dFdx(vOnTree.xyz)), length(dFdy(vOnTree.xyz)));
+                    float shown = 1.0 - smoothstep(0.3, 0.8, fine);
+                    // Clumps of leaves at two sizes.
+                    float clumps = patches(vec2(q.x + 0.7 * q.z, q.y - 0.6 * q.z) * 1.6) * 0.6 + patches(vec2(q.y + 0.5 * q.z, q.x + 0.8 * q.z) * 3.7) * 0.4;
+                    float facing = dot(n, normalize(toEye));
+                    if (clumps < (0.12 + 0.55 * smoothstep(0.35, 0.9, 1.0 - abs(facing))) * shown) {
+                        discard;
+                    }
+                    // Facing away from the eye is the far side of the crown, seen from within it.
+                    float inside = smoothstep(0.0, -0.25, facing);
+                    n = mix(n, -n, inside);
+                    float clump = smoothstep(0.3, 0.75, clumps);
+                    surface *= mix(0.85, 0.35 + clump, shown) * mix(1.0, 0.35, inside);
+                    // Snow lies on the tops of the clumps as on a crown of the built world's (snowOnMass), not over the whole crown.
+                    float top = smoothstep(0.1, 0.8, n.z) * (1.0 - inside);
+                    float lain = smoothstep(0.05, 0.45, uSnowLying * (0.3 + 1.1 * top) - 0.25 * (1.0 - clump) * shown);
+                    surface = mix(surface, pow(vec3(0.82, 0.845, 0.89), vec3(2.2)), 0.85 * top * lain * mix(0.6, clump, shown));
+                } else {
+                    surface = mix(surface, pow(vec3(0.82, 0.845, 0.89), vec3(2.2)), min(uSnowLying * 2.0, 1.0) * max(n.z, 0.0));
+                }
                 gl_FragColor = vec4(farLit(vWorld, n, surface, 0.0), 1.0);
             }
             """;
