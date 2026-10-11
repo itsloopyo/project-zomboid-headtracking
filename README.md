@@ -62,6 +62,51 @@ Original game files and saves stay untouched. Both scripts also remove the old `
 
 **Reinstalling replaces custom edits to the mod's `.site.json`.** An existing file without this mod's JAR filename is left alone: installation stops. Removing the mod's file restores normal game startup.
 
+### Manual installation
+
+You can install the mod without running any script. Mod managers cannot install it, because it needs a launch settings file made from your copy of the game's own.
+
+1. Download `ProjectZomboidHeadTracking-v<version>-installer.zip` from [Releases](https://github.com/itsloopyo/project-zomboid-headtracking/releases) and extract it.
+2. Copy `plugins\ProjectZomboidHeadTracking.jar` and `plugins\CameraUnlockCore.dll` into the folder containing `ProjectZomboid64.exe`.
+3. In that folder, copy `ProjectZomboid64.json` to `ProjectZomboid64.site.json`. Leave the original as it is. If a `ProjectZomboid64.site.json` is already there and does not mention `ProjectZomboidHeadTracking.jar`, something else made it: rename it or merge the changes below into it.
+4. Open `ProjectZomboid64.site.json` in a text editor and make three changes:
+   - Note the value of `"mainClass"`, then replace it with `"com/cameraunlock/core/agent/Boot"`.
+   - Add `"ProjectZomboidHeadTracking.jar"` as the last entry of `"classpath"`.
+   - Put these three entries first in `"vmArgs"`, with the value you noted in place of `<mainClass>`. The game's file already lists `--enable-native-access=ALL-UNNAMED`, so take it out of its old place rather than listing it twice.
+
+     ```json
+     "-Dcameraunlock.mainClass=<mainClass>",
+     "-XX:+EnableDynamicAgentLoading",
+     "--enable-native-access=ALL-UNNAMED",
+     ```
+
+   Leave everything else, such as the memory and garbage collector settings, as the game set it. JSON allows no comma after the last entry of a list.
+5. Follow [Tracker setup](#tracker-setup), launch the game and press `Delete` in a loaded game. The mod writes `ProjectZomboidHeadTracking.log` beside the exe when it loads.
+
+For the game's file of build 42.21.0, the start of the result reads:
+
+```json
+{
+    "mainClass": "com/cameraunlock/core/agent/Boot",
+    "classpath": [
+        ".",
+        "projectzomboid.jar",
+        "ProjectZomboidHeadTracking.jar"
+    ],
+    "vmArgs": [
+        "-Dcameraunlock.mainClass=zombie/gameStates/MainScreenState",
+        "-XX:+EnableDynamicAgentLoading",
+        "--enable-native-access=ALL-UNNAMED",
+        "-Djava.awt.headless=true",
+        "--add-exports=java.base/jdk.internal.misc=ALL-UNNAMED",
+        "-Xmx3072m",
+        ...
+```
+
+Start from your own `ProjectZomboid64.json` rather than copying this, since another build or store can have other settings. The game reads `ProjectZomboid64.site.json` instead of `ProjectZomboid64.json`, so after a game update that changes `ProjectZomboid64.json`, make the site file again from the new one.
+
+To remove a manual install, delete `ProjectZomboidHeadTracking.jar`, `CameraUnlockCore.dll`, `ProjectZomboid64.site.json`, `ProjectZomboidHeadTracking.log` and `ProjectZomboidHeadTracking.prev.log` from the game folder. `CameraUnlock.ini` holds your settings: delete it too if you do not want them kept.
+
 ## Tracker setup
 
 ### OpenTrack
@@ -129,8 +174,8 @@ Use **Options > Mods > Head Tracking** for tracking and graphics. First person a
 
 - **No tracking** - start the tracker, check its address and port, then press `Delete` in a loaded game.
 - **Sights or scope problems** - press `Insert` to select **sights locked**.
-- **Update** - with the standalone installer, run the new release's `install.cmd`, and rerun it after a game update too.
-- **Uninstall** - run `uninstall.cmd`. Your `CameraUnlock.ini` settings stay.
+- **Update** - with the standalone installer, run the new release's `install.cmd`, and rerun it after a game update too. For a manual install, copy the new release's two files over the old ones and redo steps 3 and 4.
+- **Uninstall** - run `uninstall.cmd`, or see [Manual installation](#manual-installation). Your `CameraUnlock.ini` settings stay.
 
 For help, use [Discord](https://discord.com/invite/dxyZdyFNT9) or [report an issue](https://github.com/itsloopyo/project-zomboid-headtracking/issues). Include `ProjectZomboidHeadTracking.log` from the game folder.
 
