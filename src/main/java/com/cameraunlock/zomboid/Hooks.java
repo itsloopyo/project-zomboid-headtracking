@@ -257,7 +257,8 @@ public final class Hooks {
         return aimedPart != HitPart.NONE ? aimedPart : ballistics.getCachedTargetedBodyPart(id);
     }
 
-    private static final LegWounds legWounds = new LegWounds();
+    /** What first person shots have done to zombies' limbs. */
+    static final Wounds wounds = new Wounds();
 
     /**
      * Called as IsoZombie.hitConsequences returns: the hit has been taken off the zombie's health,
@@ -267,18 +268,24 @@ public final class Hooks {
      */
     public static void zombieHit(IsoZombie zombie, HandWeapon weapon, float damage, boolean fromNetwork) {
         if (zombie.isDead()) {
-            legWounds.forget(zombie);
+            wounds.forget(zombie);
             return;
         }
-        if (fromNetwork || aimedPart == HitPart.NONE || !weapon.isRanged() || zombie.isCrawling()) {
+        if (fromNetwork || !Online.woundsTell() || aimedPart == HitPart.NONE || !weapon.isRanged() || zombie.isCrawling()) {
             return;
         }
-        int leg = legOf(aimedPart);
-        if (leg < 0) {
+        int limb = limbOf(aimedPart);
+        if (limb < 0) {
             return;
         }
         float whole = damage / CombatManager.getInstance().getCombatConfig().get(CombatConfigKey.LEG_HIT_DAMAGE_SPLIT_MODIFIER);
-        if (legWounds.ruins(zombie, leg, whole, zombie.getHealth())) {
+        int stage = wounds.shot(zombie, limb, whole, zombie.getHealth());
+        if (stage == Wounds.SOUND) {
+            return;
+        }
+        String said;
+        boolean leg = limb == Wounds.LEFT_LEG || limb == Wounds.RIGHT_LEG;
+        if (leg && stage == Wounds.RUINED) {
             // Up as a crawler: ZombieOnGroundState makes a zombie marked to become one crawl as it
             // gets up. The game's own roll may have marked it already, which does nothing until it falls.
             zombie.setBecomeCrawler(true);
@@ -289,23 +296,40 @@ public final class Hooks {
                 // as the game's own falls do.
                 zombie.knockDown(false);
             }
-            Log.info(String.format(Locale.ROOT, "zombie %d's %s leg is ruined: it %s to crawl (health %.2f)", zombie.getID(),
-                    leg == LegWounds.LEFT ? "left" : "right", standing ? "goes down" : "is down and gets up", zombie.getHealth()));
+            said = standing ? "ruined: it goes down to crawl" : "ruined: it is down and gets up to crawl";
+        } else if (leg) {
+            // A walk type starting "slow" is a shambler's, as IsoZombie.getSpeedTypeFromWalkType reads it.
+            boolean faster = zombie.getWalkType() == null || !zombie.getWalkType().startsWith("slow");
+            if (faster) {
+                zombie.doShambler();
+            }
+            said = faster ? "wounded: it shambles" : "wounded: it shambled already";
+        } else {
+            said = stage == Wounds.RUINED ? "ruined: it hangs dead" : "wounded: it hangs";
         }
+        Log.info(String.format(Locale.ROOT, "zombie %d's %s is %s (health %.2f)", zombie.getID(), LIMB_NAMES[limb], said, zombie.getHealth()));
     }
+
+    private static final String[] LIMB_NAMES = {"left arm", "right arm", "left leg", "right leg"};
 
     /** Called as the game starts making a new zombie of an object it kept from one that left the world. */
     public static void zombieReused(IsoZombie zombie) {
-        legWounds.forget(zombie);
+        wounds.forget(zombie);
     }
 
-    /** Which leg a part of the game's is on, or -1. */
-    private static int legOf(int part) {
+    /** Which of {@link Wounds}' limbs a part of the game's is on, or -1. */
+    private static int limbOf(int part) {
+        if (part == RagdollBodyPart.BODYPART_LEFT_UPPER_ARM.ordinal() || part == RagdollBodyPart.BODYPART_LEFT_LOWER_ARM.ordinal()) {
+            return Wounds.LEFT_ARM;
+        }
+        if (part == RagdollBodyPart.BODYPART_RIGHT_UPPER_ARM.ordinal() || part == RagdollBodyPart.BODYPART_RIGHT_LOWER_ARM.ordinal()) {
+            return Wounds.RIGHT_ARM;
+        }
         if (part == RagdollBodyPart.BODYPART_LEFT_UPPER_LEG.ordinal() || part == RagdollBodyPart.BODYPART_LEFT_LOWER_LEG.ordinal()) {
-            return LegWounds.LEFT;
+            return Wounds.LEFT_LEG;
         }
         if (part == RagdollBodyPart.BODYPART_RIGHT_UPPER_LEG.ordinal() || part == RagdollBodyPart.BODYPART_RIGHT_LOWER_LEG.ordinal()) {
-            return LegWounds.RIGHT;
+            return Wounds.RIGHT_LEG;
         }
         return -1;
     }
@@ -455,6 +479,7 @@ public final class Hooks {
     /** Called from AnimationPlayer.updateAnimation_StandardAnimation once the bones are posed and the spine is twisted. */
     public static void pose(AnimationPlayer animation) {
         HitFlinch.pose(animation);
+        WoundPose.pose(animation, wounds);
         for (int i = 0; i < View.COUNT; i++) {
             View view = View.of(i);
             if (view != null) {
@@ -465,6 +490,8 @@ public final class Hooks {
 
     /** Called from AnimationPlayer.updateAnimation_StandardAnimation once the matrices the model is drawn with are made. */
     public static void posed(AnimationPlayer animation) {
+        // Put back in the opposite order to turning: what HitFlinch keeps is the game's own pose.
+        WoundPose.posed(animation);
         HitFlinch.posed(animation);
         for (int i = 0; i < View.COUNT; i++) {
             View view = View.of(i);

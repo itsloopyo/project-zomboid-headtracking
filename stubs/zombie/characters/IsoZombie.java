@@ -6,4 +6,6 @@ public final class IsoZombie extends IsoGameCharacter {
     public boolean isCrawling() { throw new UnsupportedOperationException("reference stub"); }
     public void setBecomeCrawler(boolean becomeCrawler) { throw new UnsupportedOperationException("reference stub"); }
     public void knockDown(boolean fromBehind) { throw new UnsupportedOperationException("reference stub"); }
+    public void doShambler() { throw new UnsupportedOperationException("reference stub"); }
+    public String getWalkType() { throw new UnsupportedOperationException("reference stub"); }
 }

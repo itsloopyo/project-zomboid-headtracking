@@ -60,6 +60,16 @@ final class Online {
     }
 
     /**
+     * Whether first person shots wound a zombie's limbs: a shot leg slows it and then drops it to
+     * crawl, a shot arm hangs. Only alone. On a server the zombies are the server's, a co-op host's
+     * included, which runs apart from the host's game and without this mod, and a zombie that one
+     * player's game had made to limp would walk on for everyone else.
+     */
+    static boolean woundsTell() {
+        return !joined();
+    }
+
+    /**
      * Whether the body has to face the way the view does. The game shows a player only what
      * is in front of their character, and other players read which way a character faces to
      * tell what its player can see. In first person what is seen is what the view faces,
