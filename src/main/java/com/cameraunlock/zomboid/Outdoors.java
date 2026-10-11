@@ -535,16 +535,51 @@ final class Outdoors {
         };
     }
 
+    /** How far in from its square's edges a standing pipe is, and how high it is painted where its colour is taken, in levels. */
+    static final float UPRIGHT_IN = 0.15f;
+    private static final float UPRIGHT_DYE = 0.5f;
+    /**
+     * Per place on the sheet from 236 to 263: the corner of the square the pipe stands in (north, east, south and west, as
+     * the corners of the game's view are), which model, and the quarter turns of its run along the floor; -1 for none.
+     */
+    private static final int[][] UPRIGHTS = {
+        {236, NORTH, 1, SOUTH}, {237, NORTH, 1, EAST}, {238, NORTH, 0, 0}, {239, SOUTH, 0, 0}, {240, SOUTH, 1, NORTH}, {241, WEST, 1, NORTH},
+        {242, SOUTH, 1, WEST}, {243, EAST, 0, 0}, {244, EAST, 1, WEST}, {245, EAST, 1, SOUTH}, {246, WEST, 1, EAST}, {247, WEST, 0, 0},
+        {260, NORTH, 2, SOUTH}, {261, NORTH, 2, EAST}, {262, EAST, 2, SOUTH}, {263, WEST, 2, EAST},
+    };
+
+    /**
+     * A pipe from the floor to the ceiling in a corner of its square: straight, or bent at its foot and running along the
+     * floor to the square's edge, or bent and ending there. Its run turns the way the model's -Y is turned.
+     */
+    private static Piece pipeUpright(int place) {
+        for (int[] upright : UPRIGHTS) {
+            if (upright[0] != place) {
+                continue;
+            }
+            int corner = upright[1];
+            float a = corner == EAST || corner == SOUTH ? 1f - UPRIGHT_IN : UPRIGHT_IN, b = corner == SOUTH || corner == WEST ? 1f - UPRIGHT_IN : UPRIGHT_IN;
+            String model = upright[2] == 0 ? "pipe_upright" : upright[2] == 1 ? "pipe_upright_run" : "pipe_upright_stub";
+            return new Piece(model, upright[3]).at(a, b).dye(1 << Models.METAL, a, b, UPRIGHT_DYE);
+        }
+        return null;
+    }
+
     /**
      * The sheet of what a works has. A length of duct runs along y on one sprite and along x on
      * the next. The end of a duct that turns down is the model's back, and an elbow's two ends
      * are the model's front and its +x side, which facing north is the west: so an elbow whose
      * ends are to the north and the west is not turned, and each quarter turn takes both ends
      * on the way north goes to east. A pipe lies along one edge of its square, and two that meet
-     * lie along the two edges of one of its corners.
+     * lie along the two edges of one of its corners. A pipe that stands to the ceiling is in a
+     * corner of its square: see pipeUpright.
      */
     private static Piece works(int place) {
         float far = 1f - PIPE_EDGE;
+        Piece upright = pipeUpright(place);
+        if (upright != null) {
+            return upright;
+        }
         return switch (place) {
             case 32 -> new Piece("culvert_pipe", 0).dye(PAINT, CULVERT_DYE);
             case 33 -> new Piece("culvert_pipe", 1).dye(PAINT, CULVERT_DYE);

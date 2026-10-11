@@ -1847,6 +1847,34 @@ def mantel_lintel():
     return model
 
 
+def pipe_upright(name, run):
+    """A pipe standing from the floor to the ceiling, flanged where its lengths meet. With run "long" it bends at its foot and
+    runs out along -Y, low over the floor on a leg, to an open flange a square away; with "stub" it bends and ends there. The
+    origin is its axis."""
+    model = Model(name, centred=False)
+    pipe = bmesh.new()
+    radius, low, bend = 0.06, 0.1, 0.16
+    if not run:
+        lathe(pipe, [(0.0, 0.0), (radius + 0.03, 0.0), (radius + 0.03, 0.05), (radius, 0.05), (radius, 2.5), (0.0, 2.5)], segments=14)
+    else:
+        lathe(pipe, [(0.0, low + bend), (radius, low + bend), (radius, 2.5), (0.0, 2.5)], segments=14)
+        steps = 6
+        points = [(0.0, -bend + bend * math.cos(math.radians(90 * k / steps)), low + bend - bend * math.sin(math.radians(90 * k / steps)))
+                  for k in range(steps + 1)]
+        for p0, p1 in zip(points, points[1:]):
+            rod(pipe, p0, p1, radius, segments=14)
+        end = -0.85 if run == "long" else -bend - 0.06
+        rod(pipe, (0.0, -bend, low), (0.0, end, low), radius, segments=14)
+        # The flange at the open end, turned about Y.
+        lathe(pipe, [(radius + 0.025, 0.0), (radius + 0.025, 0.04)], segments=14,
+              to=Matrix.Translation((0.0, end + 0.04, low)) @ Matrix.Rotation(math.radians(90), 4, "X"))
+        rod(pipe, (0.0, -bend, 0.0), (0.0, -bend, low - radius), 0.012, segments=6)
+    for z in (0.9, 1.7):
+        lathe(pipe, [(radius + 0.025, z), (radius + 0.025, z + 0.05)], segments=14)
+    model.turned(pipe, "metal", sharp=50.0)
+    return model
+
+
 def metal_rack():
     """Steel racking two squares long: four slotted uprights and three decks."""
     model = Model("metal_rack")
@@ -10475,7 +10503,7 @@ def every():
               framed("frame_tall", 0.6, 0.9), framed("frame_square", 0.7, 0.7), framed("frame_wide", 0.9, 0.6), canvas(), wall_clock(),
               table("table_2", 1.9, 0.92), table("table_3", 2.9, 0.92), table("table_4", 1.9, 1.9, leg=0.08), table("narrow_table", 0.92, 0.5),
               table("low_table", 0.9, 0.5, top=0.42, leg=0.05), table("low_table_2", 1.5, 0.6, top=0.42, leg=0.05), round_table(), office_desk(),
-              cabinet("shop_counter", 0.62, 0.90, True, panelled=True), low_shelves(), wall_shelf("wall_shelf", 1), wall_shelf("wall_shelves", 2), shop_wall_shelves("shop_wall_shelves", "wood"), shop_wall_shelves("zippee_wall_shelves", "vinyl"), hood_dryer(), car_wash_brush(), car_wash_curtain(), bar_back(), sewer_pipes("sewer_pipes_bend", 0.46, True), sewer_pipes("sewer_pipes", 0.25, False), clothes_wall_rails(), generator(), marker_ball(), hospital_curtain("curtain_rail", 0.0, 0.0, 0), hospital_curtain("curtain_drawn", -0.49, 0.49, 10), hospital_curtain("curtain_gathered", 0.12, 0.49, 6), mantel_pillar(), mantel_lintel(),
+              cabinet("shop_counter", 0.62, 0.90, True, panelled=True), low_shelves(), wall_shelf("wall_shelf", 1), wall_shelf("wall_shelves", 2), shop_wall_shelves("shop_wall_shelves", "wood"), shop_wall_shelves("zippee_wall_shelves", "vinyl"), hood_dryer(), car_wash_brush(), car_wash_curtain(), bar_back(), sewer_pipes("sewer_pipes_bend", 0.46, True), sewer_pipes("sewer_pipes", 0.25, False), clothes_wall_rails(), generator(), marker_ball(), hospital_curtain("curtain_rail", 0.0, 0.0, 0), hospital_curtain("curtain_drawn", -0.49, 0.49, 10), hospital_curtain("curtain_gathered", 0.12, 0.49, 6), mantel_pillar(), mantel_lintel(), pipe_upright("pipe_upright", None), pipe_upright("pipe_upright_run", "long"), pipe_upright("pipe_upright_stub", "stub"),
               metal_rack(), store_shelves(), plastic_chair(), folding_chair(), booth(), stool(), vending_machine(), arcade_machine(),
               radio(), microwave(), dishwasher(), chest_freezer(), register(), shower("shower", True), shower("shower_head", False),
               kettle_barbecue(), gas_barbecue(), cooler("mini_fridge", 0.5, 0.82, 1), cooler("large_fridge", 1.7, 1.95, 2),

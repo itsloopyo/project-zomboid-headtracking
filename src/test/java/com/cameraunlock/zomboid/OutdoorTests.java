@@ -34,6 +34,7 @@ final class OutdoorTests {
         Checks.run("aSewersPipesStandAlongTheWayTheirSpritesRun", OutdoorTests::aSewersPipesStandAlongTheWayTheirSpritesRun);
         Checks.run("aGeneratorShowsItsSocketsWhereItsSpriteDoes", OutdoorTests::aGeneratorShowsItsSocketsWhereItsSpriteDoes);
         Checks.run("aFireplacesSurroundHasItsMantelAtThePillarsHeight", OutdoorTests::aFireplacesSurroundHasItsMantelAtThePillarsHeight);
+        Checks.run("aStandingPipesRunAlongTheFloorIntoItsSquare", OutdoorTests::aStandingPipesRunAlongTheFloorIntoItsSquare);
     }
 
     /** A piece, and its model one the jar has: Models.get throws for a name it has not. */
@@ -266,7 +267,26 @@ final class OutdoorTests {
         Checks.check(unnamed("street_roadsigns_01_0") == null && unnamed("street_roadsigns_01_32") == null, "the boards on two posts and the rest area's signs are not warning signs");
     }
 
-    private static void aFireplacesSurroundHasItsMantelAtThePillarsHeight() {
+    private static void aStandingPipesRunAlongTheFloorIntoItsSquare() {
+        for (int place = 236; place <= 263; place++) {
+            if (place > 247 && place < 260) {
+                continue;
+            }
+            String name = "industry_02_" + place;
+            Outdoors.Piece pipe = Outdoors.of(name, null, null, Outdoors.NONE, 1, 1, 0);
+            holds(pipe, name + " is a standing pipe");
+            if (pipe == null || pipe.model.equals("pipe_upright")) {
+                continue;
+            }
+            // Its run goes the way the model's -Y is turned, and so across its square and not out of it from the corner.
+            float[] run = new float[2];
+            Models.turn(pipe.turns, 0f, -1f, run);
+            float endA = pipe.a + run[0] * 0.85f, endB = pipe.b + run[1] * 0.85f;
+            Checks.check(endA > -0.05f && endA < 1.05f && endB > -0.05f && endB < 1.05f, name + "'s run stays over its square: " + endA + ", " + endB);
+        }
+    }
+
+        private static void aFireplacesSurroundHasItsMantelAtThePillarsHeight() {
         for (int set : new int[] {48, 56}) {
             for (int piece = 0; piece < 6; piece++) {
                 String name = "fixtures_fireplaces_01_" + (set + piece);
