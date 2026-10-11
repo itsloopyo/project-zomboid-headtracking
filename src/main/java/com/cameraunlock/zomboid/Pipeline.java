@@ -2422,12 +2422,15 @@ final class Pipeline {
      */
     private void drawBlood(ChunkBuffers.Listing listed) {
         GL11.glDepthMask(false);
+        int texel = world.at("uTexel");
         for (int i = listed.solidRanges(); i < listed.ranges(); i++) {
             if (listed.tint(i) == WallSides.BLOOD) {
                 GL11.glBindTexture(GL_TEXTURE_2D, listed.texture(i));
+                tellTexel(texel, listed.texture(i));
                 listed.draw(i);
             }
         }
+        GL20.glUniform2f(texel, 0f, 0f);
         GL11.glDepthMask(true);
     }
 

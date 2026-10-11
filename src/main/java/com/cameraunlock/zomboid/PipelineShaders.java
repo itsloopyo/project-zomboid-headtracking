@@ -3099,6 +3099,10 @@ final class PipelineShaders {
                     if (grown) {
                         rough = 0.9;
                     }
+                    // Blood is as glossy as it is wet.
+                    if (vMaterial > 84.5 && vMaterial < 85.5) {
+                        rough = mix(0.7, 0.3, bloodWet);
+                    }
                     // Of the mod's own furniture the wood is planed and waxed and the cloth dull.
                     // Enamel and china are glazed, a screen is glass, a worktop is wiped smooth,
                     // rubber and a lamp's shade are matt. A handle and a steel sink are bare
@@ -3269,16 +3273,46 @@ final class PipelineShaders {
             """;
 
     /**
-     * For the world's fragment main, after the texel is read: blood is the game's colour for it
-     * and covers what it is laid on as much as the game's does (see BloodBuilder). The game mixes
-     * it in over the colours as they are shown, and the picture mixes in light, before it is
-     * made into what is shown: mixed in by the game's share, a splat showed half as much of
-     * itself. A share of 1 - (1 - a)^2.2 of the light shows as a share a of what is shown.
+     * For the world's fragment main, after the texel is read: the game's blood (see BloodBuilder).
+     * The game's picture of a splat is a few dozen dots of pure red, each wholly there or not,
+     * and from the ground a dot is a finger across: magnified it was a grid of soft red squares.
+     * Where it lies is read from those dots smoothed over their neighbours, and cut at a ragged
+     * line that is fine in the world's own measure, so its edge is sharp and uneven however
+     * near it is. It is blood's colour and not the game's red: dark crimson just spilt, glossy
+     * while it is wet, and brown and dull as it dries, which the game's shade of each splat,
+     * darker the drier it is, says. It hides what it lies on where it is thick, and less as it
+     * dries, as the game's cover does. Without the mod's own textures (OwnTextures, and Low) it
+     * is the game's own: its red, as much of it as the game shows, mixed in by the game's share
+     * of what is shown, which is 1 - (1 - a)^2.2 of the light the picture mixes.
      */
     static final String BLOOD_MAIN = """
-                if (vMaterial > 84.5 && vMaterial < 85.5) {
+                float bloodWet = 0.0;
+                if (vMaterial > 84.5 && vMaterial < 85.5 && uOwnTextures < 0.5) {
                     texel.rgb *= vec3(vRoot.x, vRoot.y, vRoot.y);
                     texel.a = 1.0 - pow(1.0 - clamp(texel.a * vCover, 0.0, 1.0), 2.2);
+                } else if (vMaterial > 84.5 && vMaterial < 85.5) {
+                    float lies = texel.a;
+                    if (uTexel.x > 0.0) {
+                        lies = 0.0;
+                        for (int i = -1; i <= 1; i++) {
+                            for (int j = -1; j <= 1; j++) {
+                                lies += texture2D(uTexture, vUv + vec2(float(i), float(j)) * uTexel).a * (2.0 - abs(float(i))) * (2.0 - abs(float(j)));
+                            }
+                        }
+                        lies /= 16.0;
+                    }
+                    vec2 on = vWorld.xy + vWorld.z * vec2(0.71, 1.37);
+                    float ragged = patches(on * 23.0) * 0.6 + patches(on * 61.0) * 0.4;
+                    float cut = lies + (ragged - 0.5) * 0.3;
+                    float soft = max(fwidth(cut), 0.02);
+                    float there = smoothstep(0.42 - soft, 0.42 + soft, cut);
+                    float fresh = smoothstep(0.15, 0.75, vRoot.x);
+                    bloodWet = fresh * smoothstep(0.5, 0.75, lies);
+                    // Thicker where more of it lies, and darker there.
+                    float thick = smoothstep(0.45, 0.9, lies);
+                    vec3 spilt = mix(vec3(0.42, 0.025, 0.02), vec3(0.3, 0.012, 0.01), thick);
+                    texel.rgb = mix(vec3(0.17, 0.07, 0.05), spilt, fresh) * (0.85 + 0.3 * ragged);
+                    texel.a = there * clamp(vCover / 0.27, 0.0, 1.0) * (0.6 + 0.3 * thick);
                 }
             """;
     static final String WORLD_FRAGMENT_MAIN = WORLD_FRAGMENT_MAIN_START.concat(RoadPaint.GLSL_MAIN).concat(BLOOD_MAIN).concat(WORLD_FRAGMENT_MAIN_GROWN).concat(WORLD_FRAGMENT_MAIN_REST);
