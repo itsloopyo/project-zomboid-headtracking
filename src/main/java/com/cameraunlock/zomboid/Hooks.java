@@ -1,18 +1,23 @@
 package com.cameraunlock.zomboid;
 
 import fmod.javafmod;
+import java.util.Locale;
 import java.util.Stack;
+import zombie.CombatManager;
 import zombie.EffectsManager;
 import zombie.characters.IsoGameCharacter;
 import zombie.characters.IsoPlayer;
 import zombie.characters.IsoZombie;
 import zombie.characters.component.CharacterInputComponent;
 import zombie.chat.ChatElement;
+import zombie.combat.CombatConfigKey;
 import zombie.core.SpriteRenderer;
 import zombie.core.physics.BallisticsController;
+import zombie.core.physics.RagdollBodyPart;
 import zombie.core.skinnedmodel.animation.AnimationPlayer;
 import zombie.core.skinnedmodel.model.ModelSlotRenderData;
 import zombie.input.AimingReticle;
+import zombie.inventory.types.HandWeapon;
 import zombie.iso.IsoLightSource;
 import zombie.iso.IsoMovingObject;
 import zombie.iso.IsoObjectPicker;
@@ -250,6 +255,59 @@ public final class Hooks {
     /** Called where the game takes the part its overhead ray found. */
     public static int targetedBodyPart(BallisticsController ballistics, int id) {
         return aimedPart != HitPart.NONE ? aimedPart : ballistics.getCachedTargetedBodyPart(id);
+    }
+
+    private static final LegWounds legWounds = new LegWounds();
+
+    /**
+     * Called as IsoZombie.hitConsequences returns: the hit has been taken off the zombie's health,
+     * the game has said whether it falls, and nothing of the hit has been sent to a server yet.
+     * {@link #shotAt} has just been called for this hit again from inside it, unless it came from
+     * the network.
+     */
+    public static void zombieHit(IsoZombie zombie, HandWeapon weapon, float damage, boolean fromNetwork) {
+        if (zombie.isDead()) {
+            legWounds.forget(zombie);
+            return;
+        }
+        if (fromNetwork || aimedPart == HitPart.NONE || !weapon.isRanged() || zombie.isCrawling()) {
+            return;
+        }
+        int leg = legOf(aimedPart);
+        if (leg < 0) {
+            return;
+        }
+        float whole = damage / CombatManager.getInstance().getCombatConfig().get(CombatConfigKey.LEG_HIT_DAMAGE_SPLIT_MODIFIER);
+        if (legWounds.ruins(zombie, leg, whole, zombie.getHealth())) {
+            // Up as a crawler: ZombieOnGroundState makes a zombie marked to become one crawl as it
+            // gets up. The game's own roll may have marked it already, which does nothing until it falls.
+            zombie.setBecomeCrawler(true);
+            boolean standing = !zombie.isOnFloor();
+            if (standing) {
+                // Setting knockedDown alone is cleared by the shot's own hit reaction and the zombie
+                // stays up (measured); knockDown also drops that reaction and reports the hit again,
+                // as the game's own falls do.
+                zombie.knockDown(false);
+            }
+            Log.info(String.format(Locale.ROOT, "zombie %d's %s leg is ruined: it %s to crawl (health %.2f)", zombie.getID(),
+                    leg == LegWounds.LEFT ? "left" : "right", standing ? "goes down" : "is down and gets up", zombie.getHealth()));
+        }
+    }
+
+    /** Called as the game starts making a new zombie of an object it kept from one that left the world. */
+    public static void zombieReused(IsoZombie zombie) {
+        legWounds.forget(zombie);
+    }
+
+    /** Which leg a part of the game's is on, or -1. */
+    private static int legOf(int part) {
+        if (part == RagdollBodyPart.BODYPART_LEFT_UPPER_LEG.ordinal() || part == RagdollBodyPart.BODYPART_LEFT_LOWER_LEG.ordinal()) {
+            return LegWounds.LEFT;
+        }
+        if (part == RagdollBodyPart.BODYPART_RIGHT_UPPER_LEG.ordinal() || part == RagdollBodyPart.BODYPART_RIGHT_LOWER_LEG.ordinal()) {
+            return LegWounds.RIGHT;
+        }
+        return -1;
     }
 
     /** Called in place of the game working out where a character's muzzle is and which way it points. */

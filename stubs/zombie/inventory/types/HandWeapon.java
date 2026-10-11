@@ -4,6 +4,7 @@ import zombie.inventory.InventoryItem;
 
 public final class HandWeapon extends InventoryItem {
     public boolean isAimedFirearm() { throw new UnsupportedOperationException("reference stub"); }
+    public boolean isRanged() { throw new UnsupportedOperationException("reference stub"); }
     public float getMaxRange(zombie.characters.IsoGameCharacter owner) { throw new UnsupportedOperationException("reference stub"); }
     public float getRangeMod(zombie.characters.IsoGameCharacter owner) { throw new UnsupportedOperationException("reference stub"); }
     public boolean isRackAfterShoot() { throw new UnsupportedOperationException("reference stub"); }

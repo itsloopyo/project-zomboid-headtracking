@@ -245,7 +245,7 @@ public final class Agent {
         String input = "zombie/characters/component/CharacterInputComponent", inputFilter = "(ZL" + input + ";)Z";
         String byPlayer = "(Lzombie/iso/Vector2;L" + PLAYER + ";)Lzombie/iso/Vector2;";
         CallSite.Method ballistics = new CallSite.Method("zombie/core/physics/BallisticsController", "update", "()V");
-        String character = "Lzombie/characters/IsoGameCharacter;";
+        String character = "Lzombie/characters/IsoGameCharacter;", zombie = "zombie/characters/IsoZombie";
         CallSite.Method processHit = new CallSite.Method("zombie/CombatManager", "processHit",
                 "(Lzombie/inventory/types/HandWeapon;" + character + character + ")I");
         String vector3 = "Lzombie/iso/Vector3;";
@@ -305,6 +305,19 @@ public final class Agent {
                 new Patch(processHit.owner(), "processHit calling getCachedTargetedBodyPart", classBytes -> CallSite.replaceEach(classBytes, processHit,
                         new CallSite.Method(ballistics.owner(), "getCachedTargetedBodyPart", "(I)I"),
                         new CallSite.Method(HOOKS, "targetedBodyPart", "(L" + ballistics.owner() + ";I)I"), 1)),
+                new Patch(zombie, "hitConsequences before its returns", classBytes -> CallSite.insertBeforeReturns(classBytes,
+                        new CallSite.Method(zombie, "hitConsequences", "(Lzombie/inventory/types/HandWeapon;" + character + "ZFZ)V"), code -> {
+                            code.aload(0);
+                            code.aload(1);
+                            code.fload(4);
+                            code.iload(5);
+                            CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "zombieHit", "(L" + zombie + ";Lzombie/inventory/types/HandWeapon;FZ)V"));
+                        })),
+                new Patch(zombie, "resetForReuse at its start", classBytes -> CallSite.insertAtStartOfInstanceMethod(classBytes,
+                        new CallSite.Method(zombie, "resetForReuse", "()V"), code -> {
+                            code.aload(0);
+                            CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "zombieReused", "(L" + zombie + ";)V"));
+                        })),
                 new Patch("zombie/core/Core", "getKeyBinding before its returns", classBytes -> CallSite.insertBeforeReturns(classBytes,
                         new CallSite.Method("zombie/core/Core", "getKeyBinding", "(Ljava/lang/String;)" + KEY_BINDING),
                         code -> CallSite.passFirstArgument(code, new CallSite.Method(HOOKS, "binding",

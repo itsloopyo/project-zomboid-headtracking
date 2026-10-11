@@ -26,6 +26,7 @@ public abstract class IsoGameCharacter extends IsoMovingObject {
     public BaseVehicle getVehicle() { throw new UnsupportedOperationException("reference stub"); }
     public boolean isAimingFirearmEquipped() { throw new UnsupportedOperationException("reference stub"); }
     public boolean isKnockedDown() { throw new UnsupportedOperationException("reference stub"); }
+    public float getHealth() { throw new UnsupportedOperationException("reference stub"); }
     public zombie.inventory.InventoryItem getPrimaryHandItem() { throw new UnsupportedOperationException("reference stub"); }
     public zombie.inventory.ItemContainer getInventory() { throw new UnsupportedOperationException("reference stub"); }
     public void teleportTo(float x, float y, int level) { throw new UnsupportedOperationException("reference stub"); }

@@ -8,4 +8,6 @@ public class IsoMovingObject extends IsoObject {
     public float getZ() { throw new UnsupportedOperationException("reference stub"); }
     public void removeFromWorld() { throw new UnsupportedOperationException("reference stub"); }
     public void removeFromSquare() { throw new UnsupportedOperationException("reference stub"); }
+    public int getID() { throw new UnsupportedOperationException("reference stub"); }
+    public boolean isOnFloor() { throw new UnsupportedOperationException("reference stub"); }
 }
