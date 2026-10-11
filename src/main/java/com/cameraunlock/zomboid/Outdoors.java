@@ -167,8 +167,8 @@ final class Outdoors {
      * the sheet tied over one hangs over its rim, on the side of it nearest the game's view.
      */
     private static final float RAIN_DYE = 0.31f, SHEET_AT = 0.75f, SHEET_DYE = 0.33f;
-    /** How high the top of a car park barrier's booth is painted, in levels. */
-    private static final float BARRIER_DYE = 0.5f;
+    /** How high on a car park barrier's booth its paint is taken, in levels. */
+    private static final float BARRIER_DYE = 0.25f;
     /** How far a flag pole's top length reaches down into the storey under it, how high the sprites paint the pole and the blue
      * by the top of the flag, in levels, and how far along x that blue is. The game lays the pole as a piece over two storeys, so
      * it stands in the middle of its square. */
@@ -286,14 +286,14 @@ final class Outdoors {
                     : kind.equals("Medium") || kind.equals("Small") ? new Piece("sand_pile", 0).dye(PAINT, 0.98f, 0.98f, 0.2f) : null;
         }
         // A car park's barrier on four squares in a row: its booth on the last square behind the way it faces, the arm out the
-        // way it faces, the booth's paint taken from the top of its rounded roof.
+        // way it faces, the booth's paint taken from its south face, which every facing's sprite paints in the light.
         if (called.equals("Post") && kind.equals("Barrier") && faces != NONE && along == 4 && across == 1) {
             Piece barrier = new Piece("parking_barrier", faces);
             return switch (faces) {
-                case NORTH -> barrier.dyeOn(0, 3).dye(PAINT, 0.47f, 0.52f, BARRIER_DYE);
-                case EAST -> barrier.dyeOn(0, 0).dye(PAINT, 0.48f, 0.47f, BARRIER_DYE);
-                case SOUTH -> barrier.dyeOn(0, 0).dye(PAINT, 0.53f, 0.48f, BARRIER_DYE);
-                default -> barrier.dyeOn(3, 0).dye(PAINT, 0.52f, 0.53f, BARRIER_DYE);
+                case NORTH -> barrier.dyeOn(0, 3).dye(PAINT, 0.47f, 0.68f, BARRIER_DYE);
+                case EAST -> barrier.dyeOn(0, 0).dye(PAINT, 0.48f, 0.63f, BARRIER_DYE);
+                case SOUTH -> barrier.dyeOn(0, 0).dye(PAINT, 0.53f, 0.64f, BARRIER_DYE);
+                default -> barrier.dyeOn(3, 0).dye(PAINT, 0.52f, 0.69f, BARRIER_DYE);
             };
         }
         if (!single) {
