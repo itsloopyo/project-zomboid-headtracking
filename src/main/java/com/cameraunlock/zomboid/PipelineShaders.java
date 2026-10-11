@@ -3650,6 +3650,106 @@ final class PipelineShaders {
             }
             """;
 
+    /**
+     * Dust in the air round the eye, from the same vertices as the rain: a speck of it shows
+     * only where the sun, a torch or headlights reach it, so it is seen in a shaft through a
+     * window and not in the shade beside it. Each speck drifts on the room's slow air, a whole
+     * number of times in the hour SkyState.seconds runs, and settles a whole number of box
+     * heights in that hour, so the clock wraps unseen. A flake turns as it drifts and catches
+     * the light now and then.
+     */
+    static final String DUST_VERTEX = """
+            #version 120
+            uniform vec3 uEye;
+            uniform float uClock;
+            // Half a speck's least width for each tile it is from the eye: a dot of the picture.
+            uniform float uPerPixel;
+            // Which of the layers drawn from the one set of vertices this is: each moves the seeds.
+            uniform float uLayer;
+            varying vec2 vIn;
+            varying vec3 vWorld;
+            varying float vShare;
+
+            const float WIDE = 4.0;
+            const float HIGH = 2.6;
+            const float UNDER = 1.6;
+            const float SIZE = 0.0012;
+            const float TURN = 6.2831853 / 3600.0;
+
+            void main() {
+                vec3 seed = fract(gl_Vertex.xyz + uLayer * vec3(0.3183099, 0.618034, 0.4142136));
+                float corner = gl_Vertex.w;
+                float t = uClock * TURN;
+                // Each way about once in thirty to ninety seconds, a few centimetres a second.
+                vec3 often = vec3(40.0) + floor(vec3(80.0, 80.0, 60.0) * fract(seed.yzx * vec3(91.0, 17.0, 3.0) + seed.xyz * vec3(37.0, 53.0, 29.0)));
+                vec3 wander = vec3(sin(t * often.x + seed.y * 40.0), cos(t * often.y + seed.z * 40.0), 0.6 * sin(t * often.z + seed.x * 40.0)) * 0.08;
+                float sinks = 1.0 + floor(3.0 * fract(seed.x * 13.0 + seed.z * 7.0));
+                vec3 p = seed * vec3(2.0 * WIDE, 2.0 * WIDE, HIGH) + wander - vec3(0.0, 0.0, sinks * HIGH * uClock / 3600.0);
+                p.xy = mod(p.xy - uEye.xy + WIDE, 2.0 * WIDE) - WIDE;
+                p.z = mod(p.z - uEye.z + UNDER, HIGH) - UNDER;
+                // Faded in from the box's sides, where a speck wraps round.
+                float edge = min(WIDE - max(abs(p.x), abs(p.y)), min(p.z + UNDER, HIGH - UNDER - p.z));
+                p += uEye;
+                float far = distance(uEye, p);
+                vec3 toEye = (uEye - p) / max(far, 1e-4);
+                vec3 side = normalize(cross(vec3(0.0, 0.0, 1.0), toEye) + vec3(1e-5, 0.0, 0.0));
+                vec3 over = cross(toEye, side);
+                vec2 at = vec2(corner > 0.5 && corner < 2.5 ? 1.0 : -1.0, corner > 1.5 ? 1.0 : -1.0);
+                // Drawn a dot wide and as much fainter, as the rain is.
+                float size = max(SIZE, uPerPixel * far);
+                float glint = pow(0.5 + 0.5 * sin(t * (2000.0 + floor(3000.0 * fract(seed.z * 71.0 + seed.y * 13.0))) + seed.x * 60.0), 4.0);
+                vShare = (SIZE / size) * (SIZE / size) * smoothstep(0.0, 0.5, edge) * (0.3 + 0.7 * glint);
+                vIn = at;
+                vWorld = p;
+                vec3 v = p + side * (at.x * size) + over * (at.y * size);
+                gl_Position = far < 0.12 ? vec4(2.0, 2.0, 2.0, 1.0) : gl_ModelViewProjectionMatrix * vec4(v, 1.0);
+            }
+            """;
+
+    static final String DUST_FRAGMENT = """
+            #version 120
+            uniform sampler2DShadow uShadowNear;
+            uniform sampler2DShadow uShadowFar;
+            uniform mat4 uNearMatrix;
+            uniform mat4 uFarMatrix;
+            uniform vec3 uEye;
+            uniform vec3 uLight;
+            uniform vec3 uGlow;
+            uniform float uShown;
+            varying vec2 vIn;
+            varying vec3 vWorld;
+            varying float vShare;
+            """ + BEAMS + """
+
+            bool inside(vec3 c) {
+                return c.x > 0.01 && c.x < 0.99 && c.y > 0.01 && c.y < 0.99 && c.z < 1.0;
+            }
+            """ + ROOFED_AIR + """
+
+            void main() {
+                float r2 = dot(vIn, vIn);
+                if (r2 > 1.0) {
+                    discard;
+                }
+                float sun = sunInAir(vWorld, underRoof(vWorld), 0.0);
+                // Dust sends most of what it catches on the way the light was going.
+                float mu = max(dot(normalize(vWorld - uEye), uLight), 0.0);
+                vec3 lit = uGlow * (sun * (0.3 + 2.5 * pow(mu, 6.0)));
+                vec3 dir;
+                float beamed = 0.0;
+                for (int i = 0; i < 2; i++) {
+                    if (uBeamAt[i].w > 0.0) {
+                        beamed += beamAt(i, vWorld, dir);
+                    }
+                }
+                if (uTorchAt.w > 0.0) {
+                    beamed += TORCH_GIVES * torchAt(vWorld, dir);
+                }
+                lit += vec3(1.0, 0.92, 0.76) * beamed;
+                gl_FragColor = vec4(lit * ((1.0 - r2) * vShare * uShown), 1.0);
+            }
+            """;
+
     /** A quad over the whole picture at the far plane: with the depth test on, only pixels nothing was drawn to pass. */
     static final String SCREEN_VERTEX = """
             #version 120

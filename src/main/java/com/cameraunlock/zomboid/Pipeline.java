@@ -212,6 +212,7 @@ final class Pipeline {
     private static volatile boolean prepared;
     private static Program rain;
     private static Program snow;
+    private static Program dust;
     private static Program steady;
     /** The steadied picture of the last frame and of this one, taking turns. */
     private final int[] keptColor = new int[2], keptAhead = new int[2], keptTarget = new int[2];
@@ -912,6 +913,11 @@ final class Pipeline {
                 drawSteady(camera, tanHalfFieldOfView, aspect, near, far);
             } else {
                 keptAny = false;
+            }
+            // Dust is what the lit air is made of, so it is drawn where that is, and after the steadying,
+            // which would take a speck that has moved for flicker. A vehicle's cabin is not in the shadow maps.
+            if (!overhead && shadedAndLit && !seated) {
+                drawDust(camera, state, tanHalfFieldOfView, aspect, near, far);
             }
             stage(STAGE_SKY);
             if (shadedAndLit) {
@@ -1950,6 +1956,70 @@ final class Pipeline {
                     (float) Math.pow(0.5f * (state.horizonGreen + state.zenithGreen) + 0.35f * state.lightGreen, 2.2),
                     (float) Math.pow(0.5f * (state.horizonBlue + state.zenithBlue) + 0.35f * state.lightBlue, 2.2));
             drawBoxes(snow, boxesX, boxesY, aheadX, aheadY, reachAlong, reachAcross);
+        }
+        GL11.glDisable(GL_BLEND);
+        GL11.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        GL11.glDepthMask(true);
+        GL11.glDisable(GL_DEPTH_TEST);
+        GL11.glDisableClientState(GL_VERTEX_ARRAY);
+    }
+
+    /** How bright a speck of dust that fills a dot is under the sun, in a room and out of doors. */
+    private static final float DUST_SHOWN_INSIDE = 6f, DUST_SHOWN_OUTSIDE = 1.8f;
+    /** How many times the rain's vertices are drawn as dust, each a set of specks of its own. */
+    private static final int DUST_LAYERS = 6;
+
+    /** The dust in the air round the eye, into the picture after the steadying. */
+    private void drawDust(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float near, float far) {
+        GL30.glBindFramebuffer(GL_FRAMEBUFFER, sceneTarget);
+        GL11.glViewport(0, 0, width, height);
+        GL11.glMatrixMode(GL_PROJECTION);
+        ViewCamera.projection(tanHalfFieldOfView, aspect, near, far, projection);
+        projection[8] += asideX;
+        projection[9] += asideY;
+        GL11.glLoadMatrixf(projection);
+        GL11.glMatrixMode(GL_MODELVIEW);
+        ViewCamera.view(camera, viewed);
+        GL11.glLoadMatrixf(viewed);
+        arrays();
+        cardArrayOff();
+        GL11.glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+        GL11.glDisableClientState(GL_COLOR_ARRAY);
+        GL11.glDisableClientState(GL_NORMAL_ARRAY);
+        GL15.glBindBuffer(GL_ARRAY_BUFFER, rainDrops);
+        GL11.glVertexPointer(4, GL_FLOAT, 0, 0L);
+        GL15.glBindBuffer(GL_ARRAY_BUFFER, 0);
+        GL11.glEnable(GL_DEPTH_TEST);
+        GL11.glDepthFunc(GL_LEQUAL);
+        GL11.glDepthMask(false);
+        GL11.glDisable(GL_CULL_FACE);
+        GL11.glEnable(GL_BLEND);
+        // Light added to what is there. The picture's alpha says what mirrors and is left alone.
+        GL14.glBlendFuncSeparate(GL_ONE, GL_ONE, GL_ZERO, GL_ONE);
+        // The maps compare depths themselves: a skin's smoothing sampler on these units would not.
+        GL33.glBindSampler(1, 0);
+        GL33.glBindSampler(2, 0);
+        GL13.glActiveTexture(GL_TEXTURE0 + 1);
+        GL11.glBindTexture(GL_TEXTURE_2D, nearMap);
+        GL13.glActiveTexture(GL_TEXTURE0 + 2);
+        GL11.glBindTexture(GL_TEXTURE_2D, farMap);
+        GL13.glActiveTexture(GL_TEXTURE0);
+        dust.use();
+        dust.set("uShadowNear", 1);
+        dust.set("uShadowFar", 2);
+        dust.set("uNearMatrix", nearMatrix);
+        dust.set("uFarMatrix", farMatrix);
+        dust.set("uEye", camera.eyeX, camera.eyeY, camera.eyeUp);
+        dust.set("uClock", state.seconds);
+        dust.set("uPerPixel", 1.1f * tanHalfFieldOfView / height);
+        dust.set("uLight", state.lightX, state.lightY, state.lightUp);
+        dust.set("uGlow", (float) Math.pow(state.lightRed, 2.2), (float) Math.pow(state.lightGreen, 2.2), (float) Math.pow(state.lightBlue, 2.2));
+        dust.set("uShown", DUST_SHOWN_INSIDE + (DUST_SHOWN_OUTSIDE - DUST_SHOWN_INSIDE) * state.outdoors);
+        setRoofedAir(dust, 3);
+        setBeams(dust, TORCH_UNIT);
+        for (int layer = 0; layer < DUST_LAYERS; layer++) {
+            dust.set("uLayer", (float) layer);
+            GL11.glDrawArrays(GL_TRIANGLES, 0, RAIN_DROPS * 6);
         }
         GL11.glDisable(GL_BLEND);
         GL11.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -4169,6 +4239,7 @@ final class Pipeline {
         shadow = Program.link("shadow", SHADOW_VERTEX, SHADOW_FRAGMENT, problem);
         rain = Program.link("rain", PipelineShaders.RAIN_VERTEX, PipelineShaders.RAIN_FRAGMENT, problem);
         snow = Program.link("snow", PipelineShaders.SNOW_VERTEX, PipelineShaders.SNOW_FRAGMENT, problem);
+        dust = Program.link("dust", PipelineShaders.DUST_VERTEX, PipelineShaders.DUST_FRAGMENT, problem);
         sky = Program.link("sky", SCREEN_VERTEX, Sky.FRAGMENT, problem);
         clouds = Program.link("clouds", SCREEN_VERTEX, Sky.CLOUDS, problem);
         far = Program.link("far land", PipelineShaders.FAR_VERTEX, PipelineShaders.FAR_FRAGMENT, problem);
