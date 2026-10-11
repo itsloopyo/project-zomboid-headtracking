@@ -142,7 +142,8 @@ final class Outdoors {
             MILITARY_BARRIER = "fencing_01_96", CARPENTRY = "carpentry_02_", FENCES = "fencing_01_",
             GAS2GO = "location_shop_gas2go_01_", FOSSOIL = "location_shop_fossoil_01_",
             ROAD_SIGNS = "street_roadsigns_01_", BURNT_FENCES = "fencing_burnt_01_", PYLONS = "electricity_pylon_", MASTS = "radio_tower_",
-            STREET = "street_decoration_01_", FIREPLACES = "fixtures_fireplaces_01_", MACHINERY = "location_business_machinery_01_";
+            STREET = "street_decoration_01_", FIREPLACES = "fixtures_fireplaces_01_", MACHINERY = "location_business_machinery_01_",
+            SEWER = "location_sewer_01_";
     private static final int PAINT = 1 << Models.PAINT;
     /** How far from the edge of its square the middle of a pipe along the foot of a wall is. */
     private static final float PIPE_EDGE = 0.12f;
@@ -167,6 +168,8 @@ final class Outdoors {
      * the sheet tied over one hangs over its rim, on the side of it nearest the game's view.
      */
     private static final float RAIN_DYE = 0.31f, SHEET_AT = 0.75f, SHEET_DYE = 0.33f;
+    /** How high a sewer's pipes are painted where their colour is taken, in levels. */
+    private static final float SEWER_PIPE_DYE = 0.3f;
     /** Where a car wash's brush's shaft stands on its square, how far in from the north or west edge its curtain hangs, and how
      * high both are painted in their colour, in levels. */
     static final float CAR_WASH_BRUSH_A = 0.45f, CAR_WASH_BRUSH_B = 0.5f, CAR_WASH_CURTAIN = 0.435f;
@@ -256,6 +259,23 @@ final class Outdoors {
                 case 37 -> {
                     return new Piece("car_wash_curtain", 1).at(CAR_WASH_CURTAIN, 0.5f).dye(1 << Models.CLOTH, CAR_WASH_CURTAIN, 0.5f, CAR_WASH_DYE)
                             .raise(CAR_WASH_STRIPS_FOOT / ViewCamera.LEVEL_HEIGHT);
+                }
+                default -> { }
+            }
+            // A sewer's two pipes from floor to ceiling along y and then along x, the big one at the far end: a small one that turns
+            // into the big one at a little over a metre, or two side by side. Coloured from the big pipe.
+            switch (Sheets.place(name, SEWER)) {
+                case 34 -> {
+                    return new Piece("sewer_pipes_bend", 0).at(0.3f, 0.54f).dye(1 << Models.METAL, 0.28f, 0.77f, SEWER_PIPE_DYE);
+                }
+                case 37 -> {
+                    return new Piece("sewer_pipes_bend", 3).at(0.515f, 0.32f).dye(1 << Models.METAL, 0.74f, 0.31f, SEWER_PIPE_DYE);
+                }
+                case 35 -> {
+                    return new Piece("sewer_pipes", 0).at(0.22f, 0.515f).dye(1 << Models.METAL, 0.22f, 0.64f, SEWER_PIPE_DYE);
+                }
+                case 36 -> {
+                    return new Piece("sewer_pipes", 3).at(0.48f, 0.25f).dye(1 << Models.METAL, 0.6f, 0.25f, SEWER_PIPE_DYE);
                 }
                 default -> { }
             }

@@ -1688,6 +1688,49 @@ def car_wash_curtain():
     return model
 
 
+def bar_back():
+    """The shelving behind a bar, the wall at +Y: a panelled cabinet to counter height, a tall back board with dark panels set in
+    it, an open shelf between, and a cap along its top."""
+    model = Model("bar_back")
+    back = 0.25
+    wood = bmesh.new()
+    cuboid(wood, -0.46, 0.46, back - 0.05, back, 0.0, 1.9)
+    cuboid(wood, -0.46, 0.46, back - 0.43, back - 0.05, 0.04, 0.78)
+    cuboid(wood, -0.46, 0.46, back - 0.46, back - 0.05, 0.78, 0.82)
+    cuboid(wood, -0.46, 0.46, back - 0.42, back - 0.05, 1.47, 1.52)
+    cuboid(wood, -0.47, 0.47, back - 0.1, back, 1.9, 1.95)
+    for x0, x1 in ((-0.4, -0.02), (0.02, 0.4)):
+        cuboid(wood, x0, x1, back - 0.445, back - 0.43, 0.12, 0.7)
+    model.hard(wood, "wood", bevel=0.006, segments=2)
+    dark = bmesh.new()
+    for z0, z1 in ((0.9, 1.42), (1.58, 1.84)):
+        cuboid(dark, -0.4, 0.4, back - 0.055, back - 0.05, z0, z1)
+    model.plain(dark, "dark_wood")
+    plinth = bmesh.new()
+    cuboid(plinth, -0.45, 0.45, back - 0.4, back - 0.05, 0.0, 0.04)
+    model.hard(plinth, "dark_wood", bevel=0.003, segments=1)
+    return model
+
+
+def sewer_pipes(name, apart, bend):
+    """Two pipes standing from the floor of a sewer to its ceiling along Y, the big one at +Y, each on a flange with collars up it.
+    With bend, the small one rises to a little over a metre and turns across into the big one."""
+    model = Model(name, centred=False)
+    pipes = bmesh.new()
+    for y, radius, top in ((apart / 2, 0.066, 2.5), (-apart / 2, 0.05, 1.3 if bend else 2.5)):
+        lathe(pipes, [(0.0, 0.0), (radius + 0.04, 0.0), (radius + 0.04, 0.03), (radius, 0.035), (radius, top), (0.0, top)], cy=y, segments=14)
+        for z in (0.9, 1.6):
+            if z < top:
+                lathe(pipes, [(radius + 0.012, z), (radius + 0.012, z + 0.06)], cy=y, segments=14)
+        if not bend or radius > 0.06:
+            lathe(pipes, [(radius + 0.03, top - 0.04), (radius + 0.03, top)], cy=y, segments=14)
+    if bend:
+        rod(pipes, (0.0, -apart / 2, 1.3), (0.0, apart / 2 - 0.05, 1.3), 0.05, segments=12)
+        lathe(pipes, [(0.0, 1.22), (0.06, 1.22), (0.06, 1.36), (0.0, 1.36)], cy=-apart / 2, segments=12)
+    model.turned(pipes, "metal", sharp=50.0)
+    return model
+
+
 def metal_rack():
     """Steel racking two squares long: four slotted uprights and three decks."""
     model = Model("metal_rack")
@@ -10316,7 +10359,7 @@ def every():
               framed("frame_tall", 0.6, 0.9), framed("frame_square", 0.7, 0.7), framed("frame_wide", 0.9, 0.6), canvas(), wall_clock(),
               table("table_2", 1.9, 0.92), table("table_3", 2.9, 0.92), table("table_4", 1.9, 1.9, leg=0.08), table("narrow_table", 0.92, 0.5),
               table("low_table", 0.9, 0.5, top=0.42, leg=0.05), table("low_table_2", 1.5, 0.6, top=0.42, leg=0.05), round_table(), office_desk(),
-              cabinet("shop_counter", 0.62, 0.90, True, panelled=True), low_shelves(), wall_shelf("wall_shelf", 1), wall_shelf("wall_shelves", 2), shop_wall_shelves("shop_wall_shelves", "wood"), shop_wall_shelves("zippee_wall_shelves", "vinyl"), hood_dryer(), car_wash_brush(), car_wash_curtain(),
+              cabinet("shop_counter", 0.62, 0.90, True, panelled=True), low_shelves(), wall_shelf("wall_shelf", 1), wall_shelf("wall_shelves", 2), shop_wall_shelves("shop_wall_shelves", "wood"), shop_wall_shelves("zippee_wall_shelves", "vinyl"), hood_dryer(), car_wash_brush(), car_wash_curtain(), bar_back(), sewer_pipes("sewer_pipes_bend", 0.46, True), sewer_pipes("sewer_pipes", 0.25, False),
               metal_rack(), store_shelves(), plastic_chair(), folding_chair(), booth(), stool(), vending_machine(), arcade_machine(),
               radio(), microwave(), dishwasher(), chest_freezer(), register(), shower("shower", True), shower("shower_head", False),
               kettle_barbecue(), gas_barbecue(), cooler("mini_fridge", 0.5, 0.82, 1), cooler("large_fridge", 1.7, 1.95, 2),

@@ -33,6 +33,7 @@ final class FurnitureTests {
         Checks.run("aDinersTablesStandOnColumnsAlongTheWayTheyFace", FurnitureTests::aDinersTablesStandOnColumnsAlongTheWayTheyFace);
         Checks.run("aRestaurantsChairsFaceTheWayTheirSpritesDo", FurnitureTests::aRestaurantsChairsFaceTheWayTheirSpritesDo);
         Checks.run("restaurantBoothsAndWaitingChairsAreTheirOwnSeats", FurnitureTests::restaurantBoothsAndWaitingChairsAreTheirOwnSeats);
+        Checks.run("aBarsBackShelvingStandsWithItsBackToTheWall", FurnitureTests::aBarsBackShelvingStandsWithItsBackToTheWall);
         Checks.run("aPoolTableIsOneModelOverItsTwoSquares", FurnitureTests::aPoolTableIsOneModelOverItsTwoSquares);
         Checks.run("homeFittingsStandAsTheirSpritesDo", FurnitureTests::homeFittingsStandAsTheirSpritesDo);
         Checks.run("aCountersTopIsABoardOverTheCountersOwnTop", FurnitureTests::aCountersTopIsABoardOverTheCountersOwnTop);
@@ -335,7 +336,21 @@ final class FurnitureTests {
         check(Furniture.known(facingAway) == null, "nor is a sign hung whose face the game's view never shows");
     }
 
-    private static void aDinersTablesStandOnColumnsAlongTheWayTheyFace() {
+    private static void aBarsBackShelvingStandsWithItsBackToTheWall() {
+        for (String[] unit : new String[][] {{"29", "S", "Left Bar Wall"}, {"38", "E", "Bar Wall"}, {"65", "S", "Dark Bar Wall"}}) {
+            Furniture shelving = Furniture.known(sprite("location_restaurant_bar_01_" + unit[0] + "|CustomName|Bar|Facing|" + unit[1] + "|GroupName|" + unit[2]
+                    + "|container|shelves"));
+            check(shelving != null && shelving.model != null && shelving.model.name.equals("bar_back"), "a bar's " + unit[2] + " is its back shelving");
+            if (shelving == null) {
+                continue;
+            }
+            float[] front = new float[2];
+            Models.turn(shelving.turns, 0f, -1f, front);
+            check((shelving.centreX - 0.5f) * front[0] + (shelving.centreY - 0.5f) * front[1] < -0.1f, "a bar's " + unit[2] + " stands at the wall behind it");
+        }
+    }
+
+        private static void aDinersTablesStandOnColumnsAlongTheWayTheyFace() {
         String row = "|BlocksPlacement||CanScrap||CustomName|Table|Facing|E|GroupName|Spiffos Type B|IsLow||IsMoveAble||IsTable||Material|MetalPipe|Material2|Plastic|"
                 + "PickUpTool|Crowbar|PickUpWeight|100|Surface|36|solidtrans||SpriteGridPos|";
         IsoSprite first = sprite("location_restaurant_spiffos_02_32" + row + "0,0"), second = sprite("location_restaurant_spiffos_02_33" + row + "1,0");

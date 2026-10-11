@@ -190,17 +190,25 @@ final class Indoors {
     /** Where a cafe chair's seat gives its colour: how far in front of the middle of its square, and how high, in levels. */
     private static final float CAFE_SEAT_FORWARD = 0.15f, CAFE_SEAT_DYE = 0.18f;
 
+    /** How high the sprite of a bar's back shelving paints the front of its cabinet over the middle of its square, in levels. */
+    private static final float BAR_BACK_DYE = 0.2f;
+
     /**
      * A restaurant's tables and chairs: a diner's tables on one column, a square one or two
      * side by side or one long one, which lie along the way they face, and its chairs that
      * turn on a column; a fifties diner's long table on one column, which lies across the
-     * way it faces; and a cafe's square table on a column and its wooden chairs.
+     * way it faces; a cafe's square table on a column and its wooden chairs; and the
+     * shelving behind a bar.
      */
     private static Furniture restaurant(IsoSprite sprite, String called, String group, PropertyContainer properties, int turns, int along, int across) {
         int surface = properties.getSurface();
         float surfaceHigh = surface / WorldScene.SURFACE_PIXELS_PER_LEVEL, surfaceUp = surfaceHigh * ViewCamera.LEVEL_HEIGHT;
         boolean single = along == 1 && across == 1;
         boolean tableHigh = properties.isTable() && surface > 0 && surface <= WorldScene.TABLE_HIGHEST;
+        // The shelving behind a bar, its back to the wall behind its facing: brown or dark, and the end pieces of a run the same.
+        if (called.equals("Bar") && group.endsWith("Bar Wall") && single) {
+            return new Furniture(sprite, "bar_back", turns).dye(1 << Models.WOOD, BAR_BACK_DYE).stand(0f, 0f, true);
+        }
         if (called.equals("Chair") && group.equals("Spiffos Dinner") && single) {
             return new Furniture(sprite, "swivel_chair", turns).dye(1 << Models.VINYL, SWIVEL_SEAT_DYE).stand(0f, 0f, false);
         }

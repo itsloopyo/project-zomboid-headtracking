@@ -31,6 +31,7 @@ final class OutdoorTests {
         Checks.run("aChimneysPotsStandOnItsCapInTheRowTheirSpriteShows", OutdoorTests::aChimneysPotsStandOnItsCapInTheRowTheirSpriteShows);
         Checks.run("aTrafficSignalsHeadIsTurnedAQuarterOnFromItsArm", OutdoorTests::aTrafficSignalsHeadIsTurnedAQuarterOnFromItsArm);
         Checks.run("aCarWashsCurtainsHangAlongTheWayTheirSpritesRun", OutdoorTests::aCarWashsCurtainsHangAlongTheWayTheirSpritesRun);
+        Checks.run("aSewersPipesStandAlongTheWayTheirSpritesRun", OutdoorTests::aSewersPipesStandAlongTheWayTheirSpritesRun);
     }
 
     /** A piece, and its model one the jar has: Models.get throws for a name it has not. */
@@ -263,7 +264,18 @@ final class OutdoorTests {
         Checks.check(unnamed("street_roadsigns_01_0") == null && unnamed("street_roadsigns_01_32") == null, "the boards on two posts and the rest area's signs are not warning signs");
     }
 
-    private static void aCarWashsCurtainsHangAlongTheWayTheirSpritesRun() {
+    private static void aSewersPipesStandAlongTheWayTheirSpritesRun() {
+        // The model's pipes are along its Y, the big one at +Y: unturned that is the map's y, three quarter turns its x.
+        int[][] sprites = {{34, 0}, {35, 0}, {36, 3}, {37, 3}};
+        for (int[] sprite : sprites) {
+            Outdoors.Piece pipes = Outdoors.of("location_sewer_01_" + sprite[0], null, null, Outdoors.NONE, 1, 1, 0);
+            holds(pipes, "location_sewer_01_" + sprite[0] + " is a sewer's pipes");
+            Checks.check(pipes != null && pipes.turns == sprite[1], "location_sewer_01_" + sprite[0] + " runs the way its sprite does");
+        }
+        Checks.check(Outdoors.of("location_sewer_01_38", null, null, Outdoors.NONE, 1, 1, 0) == null, "a culvert's grate is no pipes");
+    }
+
+        private static void aCarWashsCurtainsHangAlongTheWayTheirSpritesRun() {
         Outdoors.Piece alongX = Outdoors.of("location_business_machinery_01_36", null, null, Outdoors.NONE, 1, 1, 0);
         Outdoors.Piece alongY = Outdoors.of("location_business_machinery_01_37", null, null, Outdoors.NONE, 1, 1, 0);
         Outdoors.Piece brush = Outdoors.of("location_business_machinery_01_14", null, null, Outdoors.NONE, 1, 1, 0);
