@@ -69,6 +69,23 @@ final class Bleeding {
         }
     }
 
+    /**
+     * A mist of blood thrown out of a zombie at {@code high} tiles over its feet: the impacts'
+     * blood of a shot into flesh, {@code count} of them every way and {@code size} times a
+     * handgun round's. Drawn only by the first person picture, as a shot's is.
+     */
+    static void mist(IsoZombie zombie, float high, int count, float size) {
+        if (zombie.getCurrentSquare() == null) {
+            return;
+        }
+        float x = zombie.getX(), y = zombie.getY(), floor = zombie.getZ() * ViewCamera.LEVEL_HEIGHT;
+        for (int i = 0; i < count; i++) {
+            float angle = random.nextFloat() * (float) (2 * Math.PI), rise = 0.2f + 0.8f * random.nextFloat(), flat = (float) Math.sqrt(1f - rise * rise);
+            float nx = flat * (float) Math.cos(angle), ny = flat * (float) Math.sin(angle);
+            Impacts.add(new Impacts.Struck(x + nx * 0.1f, y + ny * 0.1f, floor + high, nx, ny, rise, -nx, -ny, -rise, floor, Impacts.FLESH, size, false, 0f, 0f, 1f));
+        }
+    }
+
     /** Blood where a piece lands. */
     static void splash(float x, float y, float z) {
         for (int i = 0; i < 3; i++) {

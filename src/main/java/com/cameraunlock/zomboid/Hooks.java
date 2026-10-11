@@ -298,6 +298,7 @@ public final class Hooks {
         String cut = stage == Wounds.SEVERED ? (wounds.cut(zombie, limb) == Wounds.UPPER ? "cut off at the " + (leg ? "hip" : "shoulder") : "cut off at the " + (leg ? "knee" : "elbow")) + ", " : "";
         if (stage == Wounds.SEVERED) {
             Bleeding.spray(zombie);
+            Bleeding.mist(zombie, zombie.isOnFloor() ? 0.2f : leg ? 0.45f : 1f, 2, 1.5f);
             Stumps.bloody(zombie, limb);
             IsoPlayer shooter = IsoPlayer.getInstance();
             Pieces.cut(zombie, limb, wounds.cut(zombie, limb), shooter.getX(), shooter.getY());
@@ -404,9 +405,11 @@ public final class Hooks {
             Stumps.bloody(zombie, Wounds.HEAD);
             IsoPlayer shooter = IsoPlayer.getInstance();
             Pieces.cut(zombie, Wounds.HEAD, Wounds.UPPER, shooter.getX(), shooter.getY());
+            Bleeding.mist(zombie, zombie.isOnFloor() ? 0.3f : 1.15f, 3, 1.5f);
             said = "its head comes off";
         } else if (roll < POPS + BURSTS) {
             wounds.burst(zombie);
+            Bleeding.mist(zombie, zombie.isOnFloor() ? 0.3f : 1.2f, 7, 3f);
             Bleeding.spray(zombie, Bleeding.SPRAY * 3, Bleeding.SPRAY_REACH * 1.8f);
             Stumps.bloody(zombie, Wounds.HEAD);
             said = "its head bursts";
