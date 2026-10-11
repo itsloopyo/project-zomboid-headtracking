@@ -50,4 +50,5 @@ public abstract class IsoGameCharacter extends IsoMovingObject {
     public zombie.characters.Stats getStats() { throw new UnsupportedOperationException("reference stub"); }
     public zombie.characters.Moodles.Moodles getMoodles() { throw new UnsupportedOperationException("reference stub"); }
     public float getWornItemsVisionMultiplier() { throw new UnsupportedOperationException("reference stub"); }
+    public zombie.inventory.types.HandWeapon getAttackingWeapon() { throw new UnsupportedOperationException("reference stub"); }
 }

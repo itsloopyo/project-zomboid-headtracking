@@ -165,22 +165,44 @@ final class WorldQuery {
      */
     float shotDistance(ViewCamera.Pose aim, Terrain terrain, float footing, float reach,
             float[] characterX, float[] characterY, float[] characterBase, int characters) {
+        float nearest = toSurface(aim, terrain::height, footing, reach);
+        for (int i = 0; i < characters; i++) {
+            nearest = Math.min(nearest, cylinderDistance(aim, characterX[i], characterY[i], characterBase[i]));
+        }
+        return nearest <= reach ? nearest : Float.POSITIVE_INFINITY;
+    }
+
+    /** What the last line traced met first: a wall, a floor or the ceiling over the level it was traced on. */
+    static final int WALL = 0, FLOOR = 1, CEILING = 2;
+    int met;
+    /** Of a wall met: whether its face is across x, a wall on a square's west edge, and not across y. */
+    boolean metFacesX;
+    /** The floor level the wall or the floor met is on. */
+    int metLevel;
+
+    /**
+     * The distance along a line to the first wall, floor or ceiling a shot stops on, with what
+     * it is in met, metFacesX and metLevel. Infinity, or more than reach, where it meets none
+     * within reach.
+     *
+     * @param footing the floor the line is traced from stands on, in tiles over the flat map
+     */
+    float toSurface(ViewCamera.Pose aim, Ground ground, float footing, float reach) {
         lineOfFire.start();
-        float nearest = toWallOrFloor(aim, terrain::height, footing, reach);
+        float nearest = toWallOrFloor(aim, ground, footing, reach);
         if (aim.forwardUp > 0f) {
-            float toCeiling = ((level + 1) * ViewCamera.LEVEL_HEIGHT + terrain.height(aim.eyeX, aim.eyeY) - aim.eyeUp) / aim.forwardUp;
+            float toCeiling = ((level + 1) * ViewCamera.LEVEL_HEIGHT + ground.height(aim.eyeX, aim.eyeY) - aim.eyeUp) / aim.forwardUp;
             if (toCeiling < nearest && toCeiling <= reach) {
                 IsoGridSquare above = cell.getGridSquare((int) Math.floor(aim.eyeX + aim.forwardX * toCeiling),
                         (int) Math.floor(aim.eyeY + aim.forwardY * toCeiling), level + 1);
                 if (above != null && above.getFloor() != null) {
                     nearest = toCeiling;
+                    met = CEILING;
+                    metLevel = level + 1;
                 }
             }
         }
-        for (int i = 0; i < characters; i++) {
-            nearest = Math.min(nearest, cylinderDistance(aim, characterX[i], characterY[i], characterBase[i]));
-        }
-        return nearest <= reach ? nearest : Float.POSITIVE_INFINITY;
+        return nearest;
     }
 
     /**
@@ -200,6 +222,9 @@ final class WorldQuery {
                 float wall = from + trace.firstBlockedEdge(solidToAShot, aim.eyeX + aim.forwardX * from, aim.eyeY + aim.forwardY * from, aim.forwardX, aim.forwardY,
                         Math.min(toFloor, reach) - from);
                 if (wall <= toFloor) {
+                    met = WALL;
+                    metFacesX = trace.hitFacesX;
+                    metLevel = level;
                     return wall;
                 }
                 if (toFloor > reach) {
@@ -207,6 +232,8 @@ final class WorldQuery {
                 }
                 IsoGridSquare under = cell.getGridSquare((int) Math.floor(aim.eyeX + aim.forwardX * toFloor), (int) Math.floor(aim.eyeY + aim.forwardY * toFloor), level);
                 if (level <= 0 || under != null && under.getFloor() != null) {
+                    met = FLOOR;
+                    metLevel = level;
                     return toFloor;
                 }
                 level--;

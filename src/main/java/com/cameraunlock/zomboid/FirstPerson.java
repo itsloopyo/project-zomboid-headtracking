@@ -625,6 +625,7 @@ public final class FirstPerson {
         ModelHead.sayGap();
         NameTags.sayGap();
         Hearing.sayGap();
+        Impacts.sayGap();
         fromTheEye = landed;
         if (!flown) {
             view.fieldOfView.rest();

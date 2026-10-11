@@ -18,6 +18,7 @@ import zombie.core.skinnedmodel.animation.AnimationPlayer;
 import zombie.core.skinnedmodel.model.ModelSlotRenderData;
 import zombie.input.AimingReticle;
 import zombie.inventory.types.HandWeapon;
+import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoLightSource;
 import zombie.iso.IsoMovingObject;
 import zombie.iso.IsoObjectPicker;
@@ -112,6 +113,7 @@ public final class Hooks {
     /** Called as the game leaves a save for its menu. */
     public static void leftSave(Object state) {
         Tracking.leftSave();
+        Impacts.forget();
         for (int i = 0; i < View.COUNT; i++) {
             View view = View.of(i);
             if (view != null) {
@@ -473,6 +475,20 @@ public final class Hooks {
                 view.torchLess.shot(lamps.peek());
             }
             view.viewModel.shot();
+        }
+    }
+
+    /** Called as the game starts drawing a shot's tracer to where the shot ended: see ImpactFinder. */
+    public static void tracer(IsoGameCharacter shooter, float range, float x, float y, float z, IsoGridSquare stopped) {
+        if (shooter != null) {
+            ImpactFinder.ended(shooter, range, x, y, z, stopped, true);
+        }
+    }
+
+    /** Called as the game starts drawing a shot's tracer along the aim to the weapon's range. */
+    public static void tracerToRange(IsoGameCharacter shooter, float range) {
+        if (shooter != null) {
+            ImpactFinder.ended(shooter, range, 0f, 0f, 0f, null, false);
         }
     }
 

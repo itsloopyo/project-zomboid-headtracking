@@ -59,6 +59,10 @@ public final class GL11 {
     public static void glTexSubImage2D(int target, int level, int xoffset, int yoffset, int width, int height, int format, int type, ByteBuffer pixels) { throw stub(); }
     public static void glTexImage2D(int target, int level, int internalFormat, int width, int height, int border, int format,
             int type, ByteBuffer pixels) { throw stub(); }
+    public static void glTexSubImage2D(int target, int level, int xoffset, int yoffset, int width, int height, int format, int type, FloatBuffer pixels) { throw stub(); }
+    public static void glTexImage2D(int target, int level, int internalFormat, int width, int height, int border, int format,
+            int type, FloatBuffer pixels) { throw stub(); }
+    public static void glCopyTexSubImage2D(int target, int level, int xoffset, int yoffset, int x, int y, int width, int height) { throw stub(); }
     public static void glCopyTexImage2D(int target, int level, int internalFormat, int x, int y, int width, int height, int border) { throw stub(); }
     public static int glGenTextures() { throw stub(); }
     public static void glDeleteTextures(int name) { throw stub(); }

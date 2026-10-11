@@ -223,6 +223,11 @@ final class Pipeline {
      * target with this beside its colour. Only with FrameBlending on.
      */
     private int sceneMoves, movesTarget, movesAlone;
+    /** The scene's colour with nothing else beside it, for the holes shots leave, which read the scene's depth as they are laid. */
+    private int decalTarget;
+    private final ImpactDraw impacts = new ImpactDraw();
+    /** Whether this frame's picture shows where shots struck. */
+    private boolean struck;
     private static final String[] MOVER_AT = new String[Movers.MOST], MOVER_BEFORE = new String[Movers.MOST];
     private int keptNow;
     private boolean keptAny;
@@ -860,6 +865,8 @@ final class Pipeline {
             FineSkins.tend();
             drawn = chunks;
             ChunkBuffers.load(chunks, ahead);
+            Impacts.take(frameNanos);
+            struck = !overhead && ImpactDraw.shown();
             // At rest overhead the picture is of the built world alone, as the game's is. On the
             // camera's way to the eye the far land is round the viewer and not the camera: it comes
             // in as the built world's own ends do, which come in from far off as the camera comes down.
@@ -892,6 +899,11 @@ final class Pipeline {
             }
             stage(STAGE_WORLD);
             drawWorld(camera, state, tanHalfFieldOfView, aspect, near, far, fogStart, fogEnd);
+            if (struck) {
+                impacts.read(sceneTarget, camera, tanHalfFieldOfView, aspect, width, height);
+                lookFrom(camera, tanHalfFieldOfView, aspect, near, far, asideX, asideY);
+                impacts.holes(decalTarget, sceneDepth, camera, tanHalfFieldOfView, aspect, near, far, width, height, asideX, asideY);
+            }
             stage(STAGE_WORLD);
             if (steadying) {
                 // Nothing in the picture moves by itself until the people's light says so.
@@ -914,6 +926,11 @@ final class Pipeline {
             }
             if ((state.rain > 0f || state.snow > 0f) && sheltered != Shelter.EVERYWHERE) {
                 drawRain(camera, state, tanHalfFieldOfView, aspect, near, far);
+            }
+            // After the sky, as the rain is: the sky is painted wherever the depth has nothing, and what flies leaves the depth alone.
+            if (struck) {
+                drawDebris(steadying ? movesTarget : sceneTarget, width, height, camera, tanHalfFieldOfView, aspect, near, far, asideX, asideY,
+                        fogStart, fogEnd);
             }
             // After the sky and the rain, which are both beyond any glass: the sky is painted
             // wherever nothing else is, over whatever was there.
@@ -1123,11 +1140,18 @@ final class Pipeline {
         inScope = true;
         drawWorld(view.scope.sees, state, tan, 1f, Scope.PICTURE_NEAR, far, fogStart, fogEnd);
         inScope = false;
+        if (struck) {
+            lookFrom(view.scope.sees, tan, 1f, Scope.PICTURE_NEAR, far, 0f, 0f);
+            impacts.holes(view.scope.decalTarget, view.scope.pictureDepth, view.scope.sees, tan, 1f, Scope.PICTURE_NEAR, far, Scope.PICTURE, Scope.PICTURE, 0f, 0f);
+        }
         if (figures) {
             drawFiguresAside(view.scope.sees, tan, 1f, Scope.PICTURE_NEAR, Scope.PICTURE, Scope.PICTURE, view.scope.figureTarget, view.scope.figureColor, view.scope.figureNormal, view.scope.figureLamps,
                     view.scope.pictureTarget, view.scope.pictureDepth, false, state, far, fogStart, fogEnd);
         }
         drawSkyInto(view.scope.pictureTarget, Scope.PICTURE, Scope.PICTURE, false, view.scope.sees, state, tan, 1f, Scope.PICTURE_NEAR, far);
+        if (struck) {
+            drawDebris(view.scope.pictureTarget, Scope.PICTURE, Scope.PICTURE, view.scope.sees, tan, 1f, Scope.PICTURE_NEAR, far, 0f, 0f, fogStart, fogEnd);
+        }
         view.scope.developed();
     }
 
@@ -1840,6 +1864,33 @@ final class Pipeline {
         before.set(camera);
         aimBefore.set(aim);
         GL11.glDepthMask(true);
+    }
+
+    /** Loads the matrices of a picture drawn from a camera, drawn aside as the world was. */
+    private void lookFrom(ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float near, float far, float asideX, float asideY) {
+        GL11.glMatrixMode(GL_PROJECTION);
+        ViewCamera.projection(tanHalfFieldOfView, aspect, near, far, projection);
+        projection[8] += asideX;
+        projection[9] += asideY;
+        GL11.glLoadMatrixf(projection);
+        GL11.glMatrixMode(GL_MODELVIEW);
+        ViewCamera.view(camera, viewed);
+        GL11.glLoadMatrixf(viewed);
+    }
+
+    /** What flies from where shots struck, into a picture after its world, its people and its sky. */
+    private void drawDebris(int target, int wide, int high, ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float near, float far,
+            float asideX, float asideY, float fogStart, float fogEnd) {
+        GL30.glBindFramebuffer(GL_FRAMEBUFFER, target);
+        GL11.glViewport(0, 0, wide, high);
+        lookFrom(camera, tanHalfFieldOfView, aspect, near, far, asideX, asideY);
+        arrays();
+        cardArrayOff();
+        GL11.glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+        GL11.glDisableClientState(GL_COLOR_ARRAY);
+        GL11.glDisableClientState(GL_NORMAL_ARRAY);
+        impacts.debris(camera, frameNanos, fogStart, fogEnd);
+        GL11.glDisableClientState(GL_VERTEX_ARRAY);
     }
 
     /** The box of air rain and snow fall in: its width, its height, and how far under the eye it reaches. See the rain shader and Wind. */
@@ -4884,6 +4935,11 @@ final class Pipeline {
         sceneTarget = target(sceneColor);
         GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, sceneDepth, 0);
         String problem = complete("scene");
+        if (problem != null) {
+            return problem;
+        }
+        decalTarget = target(sceneColor);
+        problem = complete("bullet hole");
         if (problem != null) {
             return problem;
         }

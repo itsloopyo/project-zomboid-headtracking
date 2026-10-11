@@ -18,4 +18,6 @@ public final class HandWeapon extends InventoryItem {
     public void setJammed(boolean jammed) { throw new UnsupportedOperationException("reference stub"); }
     public WeaponPart getWeaponPart(String partType) { throw new UnsupportedOperationException("reference stub"); }
     public void attachWeaponPart(WeaponPart part) { throw new UnsupportedOperationException("reference stub"); }
+    public float getMaxRange() { throw new UnsupportedOperationException("reference stub"); }
+    public int getProjectileCount() { throw new UnsupportedOperationException("reference stub"); }
 }

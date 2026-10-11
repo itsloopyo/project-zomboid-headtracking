@@ -29,4 +29,5 @@ public final class BaseVehicle extends zombie.iso.IsoMovingObject {
     public float getCurrentSteering() { throw new UnsupportedOperationException("reference stub"); }
     public int getMaxPassengers() { throw new UnsupportedOperationException("reference stub"); }
     public IsoGameCharacter getCharacter(int seat) { throw new UnsupportedOperationException("reference stub"); }
+    public org.joml.Vector3f getIntersectPoint(org.joml.Vector3f start, org.joml.Vector3f end, org.joml.Vector3f result) { throw new UnsupportedOperationException("reference stub"); }
 }

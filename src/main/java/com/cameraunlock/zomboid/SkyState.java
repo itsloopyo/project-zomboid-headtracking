@@ -128,6 +128,11 @@ final class SkyState {
      */
     static final float SNOW_SETTLES = 3f, SNOW_SNAPS = 1f;
     private static volatile float snowShown = -1f;
+
+    /** How deep the snow the picture shows lying is, 0 to 1. Any thread. */
+    static float snowLyingNow() {
+        return Math.max(snowShown, 0f);
+    }
     private static final long START_NANOS = System.nanoTime();
 
     String describe() {

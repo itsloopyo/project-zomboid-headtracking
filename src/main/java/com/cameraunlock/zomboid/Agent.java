@@ -98,6 +98,14 @@ public final class Agent {
         return lamps.gap();
     }
 
+    /** The patches that tell ImpactFinder where each shot's tracer ends. */
+    private static PatchTransformer impacts;
+
+    /** Why shots leave no mark where they strike on this build of the game, or null once both patches are in. */
+    static String impactsGap() {
+        return impacts.gap();
+    }
+
     /** The patch that has ModelHead turn the character's head. */
     private static PatchTransformer modelHead;
 
@@ -212,6 +220,9 @@ public final class Agent {
 
         lamps = new PatchTransformer(lampPatches());
         instrumentation.addTransformer(lamps);
+
+        impacts = new PatchTransformer(impactPatches());
+        instrumentation.addTransformer(impacts);
 
         modelHead = new PatchTransformer(modelHeadPatches());
         instrumentation.addTransformer(modelHead);
@@ -751,6 +762,34 @@ public final class Agent {
                                 "(Lzombie/characters/IsoGameCharacter;Lzombie/inventory/types/HandWeapon;Lzombie/ai/states/SwipeStatePlayer;Lzombie/AttackType;)V"),
                         new CallSite.Method("zombie/EffectsManager", "startMuzzleFlash", "(Lzombie/characters/IsoGameCharacter;I)V"),
                         new CallSite.Method(HOOKS, "muzzleFlash", "(Lzombie/EffectsManager;Lzombie/characters/IsoGameCharacter;I)V"), 1)));
+    }
+
+    /**
+     * Apart again: without them shots leave no mark where they strike. Every firearm's shot, each
+     * of a shotgun's pellets and every other player's, is drawn by the game as a tracer to where
+     * it ended, by one of two calls: to an end it worked out, or along the aim to the weapon's
+     * range. The game's third call, to an end with no square, goes through the first.
+     */
+    private static List<Patch> impactPatches() {
+        String tracers = "zombie/iso/objects/IsoBulletTracerEffects", effect = "L" + tracers + "$Effect;";
+        String character = "Lzombie/characters/IsoGameCharacter;", square = "Lzombie/iso/IsoGridSquare;";
+        return List.of(
+                new Patch(tracers, "addEffect to an end before its returns", classBytes -> CallSite.insertBeforeReturns(classBytes,
+                        new CallSite.Method(tracers, "addEffect", "(" + character + "FFFF" + square + ")" + effect), code -> {
+                            code.aload(1);
+                            code.fload(2);
+                            code.fload(3);
+                            code.fload(4);
+                            code.fload(5);
+                            code.aload(6);
+                            CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "tracer", "(" + character + "FFFF" + square + ")V"));
+                        })),
+                new Patch(tracers, "addEffect to the range before its returns", classBytes -> CallSite.insertBeforeReturns(classBytes,
+                        new CallSite.Method(tracers, "addEffect", "(" + character + "F)" + effect), code -> {
+                            code.aload(1);
+                            code.fload(2);
+                            CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "tracerToRange", "(" + character + "F)V"));
+                        })));
     }
 
     /**

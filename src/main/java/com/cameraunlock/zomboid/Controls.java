@@ -252,6 +252,13 @@ public final class Controls {
         aimPointLevel = level;
     }
 
+    /** Where the clean aim met the world when it was last placed, in the game's measure: x, y and floor levels, into out. */
+    void aimPoint(float[] out) {
+        out[0] = aimPointX;
+        out[1] = aimPointY;
+        out[2] = aimPointLevel;
+    }
+
     /**
      * Called where the game's ballistics read the screen column of the
      * reticle. They look for a target along the line through the reticle in
