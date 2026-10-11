@@ -221,8 +221,9 @@ final class Indoors {
             return curtain.raise(model.equals("curtain_rail") ? CURTAIN_RAIL_FOOT : CURTAIN_HEM);
         }
         // The shelving behind a bar, its back to the wall behind its facing: brown or dark, and the end pieces of a run the same.
+        // The bottles the game paints on it while it holds something stand on it as ShopFittings stands a shop's goods.
         if (called.equals("Bar") && group.endsWith("Bar Wall") && single) {
-            return new Furniture(sprite, "bar_back", turns).dye(1 << Models.WOOD, BAR_BACK_DYE).stand(0f, 0f, true);
+            return ShopFittings.stocked(new Furniture(sprite, "bar_back", turns).dye(1 << Models.WOOD, BAR_BACK_DYE).stand(0f, 0f, true));
         }
         if (called.equals("Chair") && group.equals("Spiffos Dinner") && single) {
             return new Furniture(sprite, "swivel_chair", turns).dye(1 << Models.VINYL, SWIVEL_SEAT_DYE).stand(0f, 0f, false);

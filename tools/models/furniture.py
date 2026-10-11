@@ -1983,6 +1983,35 @@ def street_blade():
     return model
 
 
+# Where bar_back's cabinet top and its shelf are, in metres over its floor, and how far its bottles stand from its middle
+# across: bar_back is centred, its bounds 0.02 behind its middle, so its goods are built round the same middle.
+BAR_TOP, BAR_SHELF, BAR_MIDDLE = 0.82, 1.52, 0.02
+
+
+def bar_bottles(name, seed, fill):
+    """The bottles a bar keeps on its back shelving: a row on the cabinet's top and one on the shelf over it, fill of each
+    row's length taken. Its foot is the foot of the bottles on the cabinet. Glass, green and brown, with paper labels."""
+    model = Model(name, centred=False)
+    pick = random.Random(seed)
+    glass, dark, red, labels = bmesh.new(), bmesh.new(), bmesh.new(), bmesh.new()
+    for level in (BAR_TOP, BAR_SHELF):
+        x = -0.42
+        while x < 0.42:
+            if pick.random() < fill:
+                tall, wide = pick.uniform(0.24, 0.32), pick.uniform(0.035, 0.045)
+                y = pick.uniform(0.0, 0.08) - BAR_MIDDLE
+                into = pick.choice((glass, glass, dark, red))
+                lathe(into, [(0.0, level), (wide, level), (wide, level + tall * 0.62), (0.014, level + tall * 0.8), (0.014, level + tall),
+                             (0.0, level + tall)], cx=x, cy=y, segments=10)
+                lathe(labels, [(wide + 0.002, level + tall * 0.2), (wide + 0.002, level + tall * 0.45)], cx=x, cy=y, segments=10, caps=False)
+            x += 0.1
+    model.turned(glass, "pane", sharp=60.0)
+    model.turned(dark, "rubber", sharp=60.0)
+    model.turned(red, "vinyl", sharp=60.0)
+    model.turned(labels, "linen", sharp=60.0)
+    return model
+
+
 def metal_rack():
     """Steel racking two squares long: four slotted uprights and three decks."""
     model = Model("metal_rack")
@@ -10611,7 +10640,7 @@ def every():
               framed("frame_tall", 0.6, 0.9), framed("frame_square", 0.7, 0.7), framed("frame_wide", 0.9, 0.6), canvas(), wall_clock(),
               table("table_2", 1.9, 0.92), table("table_3", 2.9, 0.92), table("table_4", 1.9, 1.9, leg=0.08), table("narrow_table", 0.92, 0.5),
               table("low_table", 0.9, 0.5, top=0.42, leg=0.05), table("low_table_2", 1.5, 0.6, top=0.42, leg=0.05), round_table(), office_desk(),
-              cabinet("shop_counter", 0.62, 0.90, True, panelled=True), low_shelves(), wall_shelf("wall_shelf", 1), wall_shelf("wall_shelves", 2), shop_wall_shelves("shop_wall_shelves", "wood"), shop_wall_shelves("zippee_wall_shelves", "vinyl"), hood_dryer(), car_wash_brush(), car_wash_curtain(), bar_back(), sewer_pipes("sewer_pipes_bend", 0.46, True), sewer_pipes("sewer_pipes", 0.25, False), clothes_wall_rails(), generator(), marker_ball(), hospital_curtain("curtain_rail", 0.0, 0.0, 0), hospital_curtain("curtain_drawn", -0.49, 0.49, 10), hospital_curtain("curtain_gathered", 0.12, 0.49, 6), mantel_pillar(), mantel_lintel(), pipe_upright("pipe_upright", None), pipe_upright("pipe_upright_run", "long"), pipe_upright("pipe_upright_stub", "stub"), atm(), coop(), street_name_sign(), street_blade(),
+              cabinet("shop_counter", 0.62, 0.90, True, panelled=True), low_shelves(), wall_shelf("wall_shelf", 1), wall_shelf("wall_shelves", 2), shop_wall_shelves("shop_wall_shelves", "wood"), shop_wall_shelves("zippee_wall_shelves", "vinyl"), hood_dryer(), car_wash_brush(), car_wash_curtain(), bar_back(), bar_bottles("bar_bottles_many", 51, 0.9), bar_bottles("bar_bottles_few", 52, 0.35), sewer_pipes("sewer_pipes_bend", 0.46, True), sewer_pipes("sewer_pipes", 0.25, False), clothes_wall_rails(), generator(), marker_ball(), hospital_curtain("curtain_rail", 0.0, 0.0, 0), hospital_curtain("curtain_drawn", -0.49, 0.49, 10), hospital_curtain("curtain_gathered", 0.12, 0.49, 6), mantel_pillar(), mantel_lintel(), pipe_upright("pipe_upright", None), pipe_upright("pipe_upright_run", "long"), pipe_upright("pipe_upright_stub", "stub"), atm(), coop(), street_name_sign(), street_blade(),
               metal_rack(), store_shelves(), plastic_chair(), folding_chair(), booth(), stool(), vending_machine(), arcade_machine(),
               radio(), microwave(), dishwasher(), chest_freezer(), register(), shower("shower", True), shower("shower_head", False),
               kettle_barbecue(), gas_barbecue(), cooler("mini_fridge", 0.5, 0.82, 1), cooler("large_fridge", 1.7, 1.95, 2),

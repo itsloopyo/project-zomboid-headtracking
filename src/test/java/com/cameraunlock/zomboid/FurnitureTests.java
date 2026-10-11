@@ -355,6 +355,7 @@ final class FurnitureTests {
             Furniture shelving = Furniture.known(sprite("location_restaurant_bar_01_" + unit[0] + "|CustomName|Bar|Facing|" + unit[1] + "|GroupName|" + unit[2]
                     + "|container|shelves"));
             check(shelving != null && shelving.model != null && shelving.model.name.equals("bar_back"), "a bar's " + unit[2] + " is its back shelving");
+            check(shelving != null && shelving.stocked && ShopFittings.stockOf(shelving) == ShopFittings.BOTTLES, "a bar's " + unit[2] + " holds its bottles");
             if (shelving == null) {
                 continue;
             }

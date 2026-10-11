@@ -37,9 +37,10 @@ final class ShopFittings {
      * What tools/models/furniture.py builds the goods and the clothes on: in metres over the fitting's floor, the foot
      * of the tickets on the edge of a run's deck (GONDOLA_SHELVES[0] - TICKETS) and of a chiller's (CHILLER_SHELVES[0]
      * - TICKETS), the top of the packets on a pegboard's higher hooks (HOOKS_Z[1] + 0.02), the top of a long run's deck,
-     * and the tops of the rails clothes hang from: a rail's, a rack's, a stand's higher arms and an open cupboard's.
+     * and the tops of the rails clothes hang from: a rail's, a rack's, a stand's higher arms and an open cupboard's. A bar's
+     * bottles stand on its back shelving's cabinet top (BAR_TOP).
      */
-    static final float SHELF_FOOT = 0.10f, CHILLER_FOOT = 0.28f, HOOKS_TOP = 0.90f, FOLDED_FOOT = 0.14f, RAIL_TOP = 1.3f, RACK_TOP = 1.65f,
+    static final float BOTTLES_FOOT = 0.82f, SHELF_FOOT = 0.10f, CHILLER_FOOT = 0.28f, HOOKS_TOP = 0.90f, FOLDED_FOOT = 0.14f, RAIL_TOP = 1.3f, RACK_TOP = 1.65f,
             STAND_TOP = 1.42f, WARDROBE_RAIL_TOP = 1.27f;
     /** And the foot of the tickets on a magazine stand's lowest rail (MAGAZINE_TIERS[0][0] + 0.05 - TICKETS). */
     static final float MAGAZINE_FOOT = 0.23f;
@@ -63,7 +64,8 @@ final class ShopFittings {
             RACK = new Stock("rack_garments_many", "rack_garments_few", RACK_TOP, true),
             STAND = new Stock("stand_garments_many", "stand_garments_few", STAND_TOP, true),
             COATS = new Stock("coat_garments_many", "coat_garments_few", WARDROBE_RAIL_TOP, true),
-            MAGAZINES = new Stock("magazines_many", "magazines_few", MAGAZINE_FOOT, false);
+            MAGAZINES = new Stock("magazines_many", "magazines_few", MAGAZINE_FOOT, false),
+            BOTTLES = new Stock("bar_bottles_many", "bar_bottles_few", BOTTLES_FOOT, false);
 
     /**
      * ContainerOverlays.updateContainerOverlaySprite paints a container's square with its fewer things while it holds
@@ -178,7 +180,7 @@ final class ShopFittings {
         return null;
     }
 
-    private static Furniture stocked(Furniture piece) {
+    static Furniture stocked(Furniture piece) {
         piece.stocked = true;
         return piece;
     }
@@ -194,6 +196,7 @@ final class ShopFittings {
             case "clothes_stand" -> STAND;
             case "open_wardrobe" -> COATS;
             case "magazine_stand", "magazine_stand_red" -> MAGAZINES;
+            case "bar_back" -> BOTTLES;
             default -> throw new IllegalStateException(piece.model.name + " is stocked and ShopFittings has nothing to stand on it");
         };
     }
