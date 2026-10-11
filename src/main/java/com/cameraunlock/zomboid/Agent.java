@@ -393,7 +393,7 @@ public final class Agent {
      * thing that moves only while it is on the game's own screen and on ground the viewer has
      * seen: the picture sees further, and a vehicle within its sight is drawn. A zombie has a
      * model at all only near the game's screen, and from a vehicle the zombies ahead keep
-     * theirs and are drawn as well. See FarModels.
+     * theirs and are drawn as well. So does an animal. See FarModels.
      */
     private static List<Patch> farVehiclePatches() {
         String cell = "zombie/iso/fboRenderChunk/FBORenderCell", vehicle = "zombie/vehicles/BaseVehicle";
@@ -419,7 +419,10 @@ public final class Agent {
                             new CallSite.Method(HOOKS, "screenAcross", "(L" + zombie + ";I)I"), 1);
                     return CallSite.replaceEach(classBytes, cull, new CallSite.Method(zombie, "getScreenProperY", "(I)I"),
                             new CallSite.Method(HOOKS, "screenDown", "(L" + zombie + ";I)I"), 1);
-                }));
+                }),
+                new Patch(world, "sceneCullAnimals hands its choice to the picture", classBytes -> CallSite.insertBeforeReturns(classBytes,
+                        new CallSite.Method(world, "sceneCullAnimals", "()V"),
+                        code -> CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "animalsCulled", "()V")))));
     }
 
     /** Apart from everything else: without them the game takes its controllers as it does. See Gamepads. */

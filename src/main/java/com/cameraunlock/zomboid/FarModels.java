@@ -3,17 +3,23 @@ package com.cameraunlock.zomboid;
 import org.joml.Vector3f;
 import zombie.GameTime;
 import zombie.characters.IsoPlayer;
+import zombie.ai.states.FakeDeadZombieState;
+import zombie.characters.IsoGameCharacter;
 import zombie.characters.IsoZombie;
+import zombie.characters.animals.IsoAnimal;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoMovingObject;
+import zombie.iso.IsoWorld;
 import zombie.vehicles.BaseVehicle;
 
 /**
- * The vehicles and the zombies that the game's own view has no room for, or hides. The game
+ * The vehicles, zombies and animals that the game's own view has no room for, or hides. The game
  * draws the model of a thing that moves only while it stands on the game's screen, which
  * looking down on the map is some thirty tiles ahead of the viewer, and the picture draws the
  * models the game draws. From the eye the road shows for twice that and more, so a vehicle
  * stood on it came into the picture a second ahead of a car at speed, and a zombie beside it.
+ * An animal has a model only while it stands on the game's screen, so a cow in a field a few
+ * paces ahead was not drawn at all when the game's screen ended short of it.
  * And the game fades a zombie in as the viewer comes to see the square it stands on, which on
  * foot is a zombie made out of nothing a pace away as the viewer rounds a corner.
  *
@@ -48,12 +54,12 @@ public final class FarModels {
      * In place of the game's asking whether a thing that moves is on its screen, as it goes
      * through them to draw them, on its logic thread. Under the picture a vehicle within the
      * picture's sight is, wherever the game's own screen ends, and so is a zombie before the
-     * eye, which is shown whole: see screenAcross. The game draws a model in the light of the square it stands
+     * eye, which is shown whole: see screenAcross. An animal before the eye is shown whole too. The game draws a model in the light of the square it stands
      * on, which it keeps to hand only for the squares on its screen, so that is fetched here.
      */
     public boolean onScreen(IsoMovingObject moving) {
-        if (moving instanceof IsoZombie zombie && beforeTheEye(zombie)) {
-            zombie.setAlphaAndTarget(1f);
+        if ((moving instanceof IsoZombie || moving instanceof IsoAnimal) && beforeTheEye(moving)) {
+            ((IsoGameCharacter) moving).setAlphaAndTarget(1f);
         } else if (moving.isOnScreen()) {
             return true;
         } else if (!(moving instanceof BaseVehicle && withinSight(moving))) {
@@ -92,6 +98,23 @@ public final class FarModels {
 
     public int screenDown(IsoZombie zombie, int playerIndex) {
         return beforeTheEye(zombie) ? 0 : zombie.getScreenProperY(playerIndex);
+    }
+
+    /**
+     * After the game has chosen which animals have a model, by whether they stand on its
+     * screen: an animal before the eye keeps its model, as the game keeps the model of one it
+     * chose, except one playing dead, which the game gives none.
+     */
+    void keepAnimalModels() {
+        for (IsoMovingObject moving : IsoWorld.instance.currentCell.getObjectList()) {
+            if (moving instanceof IsoAnimal animal && animal.getCurrentSquare() != null && !animal.isCurrentState(FakeDeadZombieState.instance())
+                    && beforeTheEye(animal)) {
+                animal.setSceneCulled(false);
+                if (animal.hasAnimationPlayer()) {
+                    animal.getAnimationPlayer().doBlending = true;
+                }
+            }
+        }
     }
 
     /**

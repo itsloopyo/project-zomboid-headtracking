@@ -311,6 +311,16 @@ public final class Hooks {
         return view == null ? zombie.getScreenProperY(playerIndex) : view.farModels.screenDown(zombie, playerIndex);
     }
 
+    /** Called as the game ends its choice of which animals have a model. */
+    public static void animalsCulled() {
+        for (int playerIndex = 0; playerIndex < IsoPlayer.numPlayers; playerIndex++) {
+            View view = View.of(playerIndex);
+            if (view != null) {
+                view.farModels.keepAnimalModels();
+            }
+        }
+    }
+
     /**
      * In place of the game's own call where it sets a player's listener. The game numbers its
      * listeners by the players there are: with the first player gone, the second's is listener 0.
