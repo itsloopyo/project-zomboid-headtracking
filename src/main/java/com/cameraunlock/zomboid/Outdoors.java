@@ -184,14 +184,15 @@ final class Outdoors {
         };
     }
 
-    /** How high a coop's front wall is painted, in levels, over a place a little in from its square's south edge. */
-    private static final float COOP_DYE = 0.25f, COOP_DYE_B = 0.9f;
+    /** How high a coop's front wall and its roof over it are painted, in levels, over a place a little in from its square's south edge. */
+    private static final float COOP_DYE = 0.25f, COOP_DYE_B = 0.9f, COOP_ROOF_DYE = 0.65f;
 
     /** A coop's piece by its sprite: the south-east quarter stands it all while the north-east one is there, the rest follow it. */
     private static Piece coop(String name) {
         String stander = FARM + 42;
         return switch (Sheets.place(name, FARM)) {
-            case 42 -> new Piece("coop", SOUTH).at(0f, 0f).pairedWith(FARM + 43, 0, -1).dye(PAINT, 0.5f, COOP_DYE_B, COOP_DYE);
+            case 42 -> new Piece("coop", SOUTH).at(0f, 0f).pairedWith(FARM + 43, 0, -1).dye(PAINT, 0.5f, COOP_DYE_B, COOP_DYE)
+                    .also(1 << Models.METAL, COOP_ROOF_DYE);
             case 43 -> following(new Piece(null, SOUTH).pairedWith(stander, 0, 1));
             case 41, 49 -> following(new Piece(null, SOUTH).pairedWith(stander, 1, 1));
             case 48, 50, 44, 46 -> following(new Piece(null, SOUTH).pairedWith(stander, 1, 0));
