@@ -336,6 +336,12 @@ final class Terrain {
         return grid(wx, wy).version;
     }
 
+    /** The same, or -1 for a chunk whose heights are not kept. */
+    int versionIfKept(int wx, int wy) {
+        Grid grid = grid(wx, wy);
+        return grid == null ? -1 : grid.version;
+    }
+
     /** Logic thread, once a round of the views' builds: see Rounds. */
     static void frame(int number) {
         frame = number;

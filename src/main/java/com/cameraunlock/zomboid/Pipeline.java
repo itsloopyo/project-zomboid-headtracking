@@ -453,6 +453,10 @@ final class Pipeline {
     float away;
     private int shelterTexture;
     private Shelter shelterHeld;
+    /** Which air round the eye is in a room, or null before the first build: see RoomAir. */
+    RoomAir roomAir;
+    private int roomAirTexture;
+    private RoomAir roomAirHeld;
     /** The height above which everything in the viewer's building is left out, while the camera is above it. */
     float lid = Float.MAX_VALUE;
     final float[] cutBox = new float[4];
@@ -2996,6 +3000,32 @@ final class Pipeline {
 
     /** How much more a room's air holds for light to catch than the open air on a clear day: see PipelineShaders.VOLUME. */
     private static final float ROOM_AIR = 1f;
+    private static final int GL_RG32F = 0x8230;
+
+    /** The frame's RoomAir on the graphics card, on a unit, for PipelineShaders.ROOM_AIR. The one small texture goes back with the shadow maps. */
+    private void setRoomAir(Program program, int unit) {
+        GL13.glActiveTexture(GL_TEXTURE0 + unit);
+        if (roomAirTexture == 0) {
+            roomAirTexture = GL11.glGenTextures();
+            GL11.glBindTexture(GL_TEXTURE_2D, roomAirTexture);
+            GL11.glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, RoomAir.SIDE, RoomAir.SIDE, 0, GL_RG, GL_FLOAT, (ByteBuffer) null);
+            filter(GL_NEAREST);
+            roomAirHeld = null;
+        }
+        GL11.glBindTexture(GL_TEXTURE_2D, roomAirTexture);
+        if (roomAir != null && roomAir != roomAirHeld) {
+            GL11.glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+            GL11.glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+            GL11.glPixelStorei(GL_UNPACK_SKIP_ROWS, 0);
+            GL11.glPixelStorei(GL_UNPACK_SKIP_PIXELS, 0);
+            GL11.glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, RoomAir.SIDE, RoomAir.SIDE, GL_RG, GL_FLOAT, roomAir.spans);
+            roomAirHeld = roomAir;
+        }
+        GL33.glBindSampler(unit, 0);
+        GL13.glActiveTexture(GL_TEXTURE0);
+        program.set("uRoomAirMap", unit);
+        program.set("uRoomAirAt", roomAir == null ? 0f : roomAir.x, roomAir == null ? 0f : roomAir.y, roomAir == null ? 0f : 1f / RoomAir.SIDE);
+    }
 
     private void drawVolume(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float near, float far) {
         lend(shaded);
@@ -3025,6 +3055,7 @@ final class Pipeline {
         volume.set("uMist", state.mist);
         volume.set("uThick", state.thick);
         setRoofedAir(volume, 3);
+        setRoomAir(volume, 4);
         volume.set("uRoomAir", ROOM_AIR);
         quad();
         softenInto(softVolumeTarget, volumeColor, near, far);
@@ -4541,6 +4572,8 @@ final class Pipeline {
         nearMap = 0;
         GL11.glDeleteTextures(shelterTexture);
         shelterTexture = 0;
+        GL11.glDeleteTextures(roomAirTexture);
+        roomAirTexture = 0;
         giveBack(beamed);
         giveBack(torched);
     }

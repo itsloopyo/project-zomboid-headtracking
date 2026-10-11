@@ -599,6 +599,8 @@ final class WorldScene {
     private final ArrayList<BuildingDef> openBuildings = new ArrayList<>(), openBuildingsNow = new ArrayList<>();
     /** The rooms of those buildings, where rain and snow are kept out with no roof drawn: see Shelter. Null while no building is open. */
     private Shelter shelter;
+    /** Which air round the eye is in a room, kept from one build to the next: see RoomAir. */
+    private RoomAir roomAirKept;
 
     /** The rooms of the opened buildings round a square, each up to its own ceiling. */
     private Shelter shelterRound(int x, int y) {
@@ -2040,6 +2042,8 @@ final class WorldScene {
         private final float[] cutRows = new float[Cutaways.FLOATS];
         /** For such a frame, where rain and snow are kept out with no roof drawn, or null: see Shelter. */
         private Shelter sheltered;
+        /** Which air round the eye is in a room: see RoomAir. */
+        private RoomAir roomAir;
         /** The height of the floor the viewer stands on. */
         private float stoodUp;
         private int cutRowsX, cutRowsY;
@@ -2485,6 +2489,11 @@ final class WorldScene {
                 shelter = shelterRound(stoodX, stoodY);
             }
             sheltered = gamesView && level < 0 ? Shelter.EVERYWHERE : shelter;
+            int eyeSquareX = (int) Math.floor(camera.eyeX), eyeSquareY = (int) Math.floor(camera.eyeY);
+            if (roomAirKept == null || roomAirKept.staleFor(terrain, eyeSquareX, eyeSquareY)) {
+                roomAirKept = RoomAir.round(IsoWorld.instance.getMetaGrid(), terrain, eyeSquareX, eyeSquareY);
+            }
+            roomAir = roomAirKept;
             float floorUp = level * ViewCamera.LEVEL_HEIGHT + terrain.lift(player.getX(), player.getY(), level);
             stoodUp = floorUp;
             cutFrom = gamesView || indoors ? floorUp + WALL_LEFT : Float.MAX_VALUE;
@@ -6060,6 +6069,7 @@ final class WorldScene {
             view.pipeline.cutRowsY = cutRowsY;
             view.pipeline.cutBelow = outside ? cutBelow : 0f;
             view.pipeline.sheltered = sheltered;
+            view.pipeline.roomAir = roomAir;
             view.pipeline.floorUp = stoodUp;
             view.pipeline.away = outside ? outsideAway : 0f;
             view.pipeline.cutBox[0] = boxMinX;

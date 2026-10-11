@@ -4054,6 +4054,11 @@ final class PipelineShaders {
             // How much more a room's still air holds for light to catch than the open air's uMist:
             // the dust that makes a shaft through a window.
             uniform float uRoomAir;
+            // For each square of the block from uRoomAirAt.xy, the floor of its lowest room and the
+            // ceiling of its highest, both 0 where it has none: see RoomAir. uRoomAirAt.z is one
+            // over the block's side, or 0 when there is no block.
+            uniform sampler2D uRoomAirMap;
+            uniform vec3 uRoomAirAt;
             """ + BEAMS + """
 
             const int STEPS = 24;
@@ -4063,6 +4068,16 @@ final class PipelineShaders {
                 return c.x > 0.01 && c.x < 0.99 && c.y > 0.01 && c.y < 0.99 && c.z < 1.0;
             }
             """ + ROOFED_AIR + """
+
+            // Air under an awning, a porch roof or a tree is under something from above too, and out of doors.
+            bool inRoom(vec3 p) {
+                vec2 square = (p.xy - uRoomAirAt.xy) * uRoomAirAt.z;
+                if (uRoomAirAt.z <= 0.0 || square.x <= 0.0 || square.x >= 1.0 || square.y <= 0.0 || square.y >= 1.0) {
+                    return false;
+                }
+                vec2 span = texture2D(uRoomAirMap, square).rg;
+                return p.z >= span.x && p.z < span.y;
+            }
 
             void main() {
                 vec2 uv = gl_FragCoord.xy / uSize;
@@ -4082,7 +4097,7 @@ final class PipelineShaders {
                     bool roofed = underRoof(p.xyz);
                     float sun = sunInAir(p.xyz, roofed, 1.0);
                     // The air thins with height, and there is none to speak of under the ground.
-                    lit += sun * exp(-max(p.z, 0.0) * 0.12) * through * (roofed ? uMist + uRoomAir : uMist);
+                    lit += sun * exp(-max(p.z, 0.0) * 0.12) * through * (roofed && inRoom(p.xyz) ? uMist + uRoomAir : uMist);
                     for (int b = 0; b < 2; b++) {
                         if (uBeamAt[b].w > 0.0) {
                             beamed += beamInAir(b, p.xyz) * through;
