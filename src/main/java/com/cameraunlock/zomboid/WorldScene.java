@@ -695,7 +695,7 @@ final class WorldScene {
     /** The open ground's light the last time the game had it full night. */
     private float nightOpen = Evening.NIGHT_OPEN;
     /** The open ground's light as the game has it and how much of its daylight the picture keeps, for whoever lights a thing by its square. */
-    volatile float openNow, daylightKeptNow = 1f;
+    volatile float openNow, daylightKeptNow = 1f, roomKeptNow = 1f;
     private static final int REMAKES_A_FRAME = 12;
     private static final IdentityHashMap<IsoSprite, Boolean> meshes = new IdentityHashMap<>();
 
@@ -2281,11 +2281,16 @@ final class WorldScene {
                 nightOpen = gameOpen;
             }
             sky.daylightKept = Evening.kept(sky.sunUp, gameOpen, nightOpen);
+            // By day: at night a room is seen by its lamps, and the eye is held back from opening up to it.
+            // Low lights a room as the game does.
+            sky.roomKept = Quality.plain() ? 1f : Evening.ROOM_DAYLIGHT + (1f - Evening.ROOM_DAYLIGHT) * sky.night;
             if (fromOutside) {
                 sky.daylightKept = Evening.seenFrom(sky.daylightKept, view.flight.share());
+                sky.roomKept = Evening.seenFrom(sky.roomKept, view.flight.share());
             }
             openNow = gameOpen;
             daylightKeptNow = sky.daylightKept;
+            roomKeptNow = sky.roomKept;
             // The beam of this picture's own view: the one being gathered now may be a turn of the head later.
             sky.carried = view.carriedLight.light;
             sky.outlined = Outlines.gather(player.getIndex(), view.centreUse.marked);
@@ -4040,13 +4045,14 @@ final class WorldScene {
             // An eye in the dark does not get back what the day had: it sees less, and that is
             // what makes a lit window or a pair of headlights the brightest thing in the night.
             outdoors *= 1f - NIGHT_HELD_BACK * sky.night;
-            float here = 1f;
+            float here = 1f, roomHere = 1f;
             if (under != null) {
                 // Without the viewer's own torch. The game has the torch on the square the character
                 // has just stepped onto and takes it off again half a second later, so an eye that
                 // went by the square's whole light shut and opened once for every tile walked.
                 ColorInfo light = view.torchLess.light(under, player.getIndex(), torchless);
                 here = (float) Math.pow(Evening.dimmed((light.r + light.g + light.b) / 3f, gameOpen, sky.daylightKept), 2.2);
+                roomHere = (float) Math.pow(Evening.dimmed((light.r + light.g + light.b) / 3f, gameOpen, sky.daylightKept * sky.roomKept), 2.2);
             }
             // By day an eye indoors opens up to a dim room. At night it has less to open with: an
             // unlit room stays dark, and one with a lamp on is seen by the lamp.
@@ -4068,7 +4074,8 @@ final class WorldScene {
             float wooded = Math.min(trees / 9f, 1f);
             shaded += (wooded - shaded) * (1f - (float) Math.exp(-elapsed / EYE_ADAPT_SECONDS));
             outdoors *= 1f + WOODS_OPEN * shaded;
-            float indoors = Math.min(EXPOSURE_INDOORS / Math.max(here, 1e-3f), most);
+            // Opened up as it was to the game's light, and further by as much as the room's daylight is taken down.
+            float indoors = Math.min(EXPOSURE_INDOORS / Math.max(here, 1e-3f), most) * Math.max(here, 1e-3f) / Math.max(roomHere, 1e-3f);
             return indoors + (outdoors - indoors) * eyeOpen;
         }
 

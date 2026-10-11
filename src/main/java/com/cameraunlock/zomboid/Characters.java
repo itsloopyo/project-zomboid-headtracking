@@ -1597,7 +1597,8 @@ public final class Characters {
             return;
         }
         ColorInfo light = view.torchLess.light(square, view.index, stoodIn);
-        CharacterDraw.stands(Evening.dimmed((light.r + light.g + light.b) / 3f, view.worldScene.openNow, view.worldScene.daylightKeptNow), square.isOutside());
+        float kept = view.worldScene.daylightKeptNow * (square.isOutside() ? 1f : view.worldScene.roomKeptNow);
+        CharacterDraw.stands(Evening.dimmed((light.r + light.g + light.b) / 3f, view.worldScene.openNow, kept), square.isOutside());
     }
 
     /**

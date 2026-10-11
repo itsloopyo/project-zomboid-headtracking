@@ -15,6 +15,14 @@ package com.cameraunlock.zomboid;
 final class Evening {
     /** The light of open ground at full night as measured in the game: it is learnt again each night, for a game set darker or lighter. */
     static final float NIGHT_OPEN = 0.18f;
+    /**
+     * How much of the open ground's daylight a room has, as the game counts light. The game lights
+     * a room by day nearly as the street outside, so the sun on its floor and the day through its
+     * windows were hardly brighter than its walls. The eye opens up by as much as the room's
+     * daylight is taken down, so the room itself looks as it did, and the sun on its floor, the day
+     * through its windows and the lit air are that much brighter than it. 0.45 is about a sixth of the light.
+     */
+    static final float ROOM_DAYLIGHT = 0.45f;
     /** The sun's height, as the sine of its elevation, below which the ground begins to lose its light. */
     private static final float SUN_LOW = 0.30f;
 

@@ -831,6 +831,7 @@ final class PipelineShaders {
             uniform vec4 uLantern;
             uniform vec3 uOpenLight;
             uniform float uDaylightKept;
+            uniform float uRoomKept;
             """ + BEAMS + MuzzleFlash.GLSL + """
             uniform sampler2D uAsphalt;
             uniform sampler2D uGravel;
@@ -3001,7 +3002,8 @@ final class PipelineShaders {
                 // The game holds its daylight at full until dusk, when the picture's sun is
                 // already down: see Evening. A square's light up to the open ground's is that
                 // daylight, and what it has over it came from a lamp.
-                given -= min(given, pow(uOpenLight, vec3(2.2))) * (1.0 - uDaylightKept);
+                // A room has less of it: see Evening.ROOM_DAYLIGHT.
+                given -= min(given, pow(uOpenLight, vec3(2.2))) * (1.0 - mix(uRoomKept, uDaylightKept, clamp(open, 0.0, 1.0)));
                 vec3 lightHere = given * fromSky + held + pow(uLightColor, vec3(2.2)) * (2.1 * sun);
                 // The ground in the sun throws its light back up at whatever stands on it. A
                 // wall turned from the sun is lit by the street in front of it, and without

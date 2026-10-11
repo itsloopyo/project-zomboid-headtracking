@@ -2432,6 +2432,7 @@ final class Pipeline {
                 carried[CarriedLight.CONE] > 0f ? 0f : carried[CarriedLight.REACH]);
         to.set("uOpenLight", state.openRed, state.openGreen, state.openBlue);
         to.set("uDaylightKept", (float) Math.pow(state.daylightKept, 2.2));
+        to.set("uRoomKept", (float) Math.pow(state.daylightKept * state.roomKept, 2.2));
         setFlash(to);
         to.set("uLightColor", state.lightRed, state.lightGreen, state.lightBlue);
         to.set("uFogStart", fogStart);

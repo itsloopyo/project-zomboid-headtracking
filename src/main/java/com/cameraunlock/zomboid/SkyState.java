@@ -56,6 +56,8 @@ final class SkyState {
     float openRed, openGreen, openBlue;
     /** How much of the daylight the game gives the open ground the picture keeps: see Evening. */
     float daylightKept = 1f;
+    /** How much of what daylightKept keeps a room keeps: see Evening.ROOM_DAYLIGHT. The scene sets it. */
+    float roomKept = 1f;
     /** The light the character carries, as CarriedLight gathered it for this picture. The scene sets it. */
     float[] carried = new float[8];
     /** What this picture draws a line round, or null for nothing: see Outlines. */

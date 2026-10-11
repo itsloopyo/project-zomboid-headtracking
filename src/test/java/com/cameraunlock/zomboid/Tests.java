@@ -2217,8 +2217,15 @@ public final class Tests {
         }
         check(Evening.seenFrom(Evening.kept(0.9f, 1f, Evening.NIGHT_OPEN), 0.5f) == 1f, "by day the flight changes nothing");
         String scene = LowTests.scene().replaceAll("\\s+", " ");
-        check(scene.contains("if (fromOutside) { sky.daylightKept = Evening.seenFrom(sky.daylightKept, view.flight.share()); }"),
+        check(scene.contains("if (fromOutside) { sky.daylightKept = Evening.seenFrom(sky.daylightKept, view.flight.share());"),
                 "a build seen from the game's camera or on the flight keeps the game's evening light by how far the flight has come");
+        check(scene.contains("sky.roomKept = Evening.seenFrom(sky.roomKept, view.flight.share()); }"),
+                "and a room's daylight by as much: the game's own view lights a room as the game does");
+        check(scene.contains("sky.roomKept = Quality.plain() ? 1f :"), "Low lights a room as the game does");
+        check(Evening.seenFrom(Evening.ROOM_DAYLIGHT, 0f) == 1f, "from the game's own camera a room keeps all its daylight");
+        float room = Evening.dimmed(0.8f, 0.9f, Evening.ROOM_DAYLIGHT);
+        check(near(room, 0.8f * Evening.ROOM_DAYLIGHT), "a room lit by the day alone has the room's share of it");
+        check(near(Evening.dimmed(1f, 0.6f, Evening.ROOM_DAYLIGHT), 0.4f + 0.6f * Evening.ROOM_DAYLIGHT), "and a lamp's light in it stays whole");
     }
 
     private static void keysHeldThroughTheLandingKeepTheirWalk() {
