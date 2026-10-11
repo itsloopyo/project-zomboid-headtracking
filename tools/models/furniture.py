@@ -6737,6 +6737,43 @@ def altar():
     return model
 
 
+# How high a church steeple's belfry is to the top of its cap, where the spire on the storey above stands, in metres.
+BELFRY_TOP = 2.21
+
+
+def steeple_belfry():
+    """The tower of a small church's steeple, where it comes up through the ridge: a boarded box, a cornice, a hipped skirt of
+    sheet metal up to a narrower boarded lantern with two bands round it, and a low metal cap the spire stands on."""
+    model = Model("steeple_belfry")
+    boards = bmesh.new()
+    cuboid(boards, -0.47, 0.47, -0.47, 0.47, 0.0, 0.99)
+    cuboid(boards, -0.49, 0.49, -0.49, 0.49, 0.99, 1.1)
+    cuboid(boards, -0.345, 0.345, -0.345, 0.345, 1.31, 1.35)
+    cuboid(boards, -0.325, 0.325, -0.325, 0.325, 1.35, 1.86)
+    for z in (1.5, 1.66):
+        cuboid(boards, -0.333, 0.333, -0.333, 0.333, z, z + 0.02)
+    cuboid(boards, -0.35, 0.35, -0.35, 0.35, 1.86, 1.92)
+    model.hard(boards, "paint", bevel=0.008, segments=2)
+    roofing = bmesh.new()
+    prism(roofing, (0.0, 0.0, 0.98, 0.98, 1.1), (0.0, 0.0, 0.66, 0.66, 1.31))
+    prism(roofing, (0.0, 0.0, 0.46, 0.46, 1.92), (0.0, 0.0, 0.4, 0.4, BELFRY_TOP))
+    model.hard(roofing, "metal", bevel=0.006, segments=1)
+    return model
+
+
+def steeple_spire():
+    """A small church's spire, the storey over its belfry: a tall four-sided point of sheet metal with an iron cross on it."""
+    model = Model("steeple_spire")
+    point = bmesh.new()
+    prism(point, (0.0, 0.0, 0.38, 0.38, 0.0), (0.0, 0.0, 0.02, 0.02, 2.25))
+    model.hard(point, "metal", bevel=0.004, segments=1)
+    cross = bmesh.new()
+    cuboid(cross, -0.016, 0.016, -0.016, 0.016, 2.22, 2.7)
+    cuboid(cross, -0.11, 0.11, -0.016, 0.016, 2.54, 2.575)
+    model.hard(cross, "rubber", bevel=0.004, segments=1)
+    return model
+
+
 def amplifier():
     """A guitar amplifier: a covered box with its grille at -Y and its knobs on top."""
     model = Model("amplifier")
@@ -6971,7 +7008,7 @@ def leisure():
             sport_tyres("tyres_3_askew", 3, 0.04), sport_tyres("tyres_4_askew", 4, 0.04),
             play_castle(), treadmill(), weight_bench(), upright_piano(), piano_bench(), slide(), merry_go_round(),
             speaker_cabinet("speaker_tall", 0.46, 0.36, 0.82, "dark_wood"), speaker_cabinet("speaker_low", 0.46, 0.34, 0.64, "plastic"),
-            jukebox(), grand_piano(), lectern(), pinball(), altar(), amplifier(), drum_kick(), drum_stand(),
+            jukebox(), grand_piano(), lectern(), pinball(), altar(), steeple_belfry(), steeple_spire(), amplifier(), drum_kick(), drum_stand(),
             basket_pole(), basket_board(), court_net("net_first", True, False), court_net("net_middle", False, False),
             court_net("net_last", False, True), goal("goal_first", True, False), goal("goal_middle", False, False), goal("goal_last", False, True)] + \
         [fountain_part("fountain_%d" % sector, sector) for sector in range(8) if sector != 5] + [fountain_part("fountain_middle", None), fountain_tiers()]

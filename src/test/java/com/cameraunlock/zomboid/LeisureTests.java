@@ -12,6 +12,7 @@ final class LeisureTests {
         Checks.run("aGoalsCrossbarMeetsItsPostsAndARunLiesAlongTheWayItsSpritesDo", LeisureTests::aGoalsCrossbarMeetsItsPostsAndARunLiesAlongTheWayItsSpritesDo);
         Checks.run("aBasketballBoardStandsInFrontOfItsPole", LeisureTests::aBasketballBoardStandsInFrontOfItsPole);
         Checks.run("aPieceLaidOutOtherwiseThanItsModelIsNone", LeisureTests::aPieceLaidOutOtherwiseThanItsModelIsNone);
+        Checks.run("aSteeplesSpireStandsOnItsBelfry", LeisureTests::aSteeplesSpireStandsOnItsBelfry);
     }
 
     private static void holds(Outdoors.Piece piece, String what) {
@@ -68,6 +69,17 @@ final class LeisureTests {
                 "facing east the same, its x and y swapped");
         Checks.check(end.dyeA == end.a && Math.abs(end.dyeB - 0.48f) < 1e-5f && Math.abs(leg.dyeB - 0.2f) < 1e-5f, "each leg is coloured from half way up itself");
         Checks.check(Outdoors.of("location_community_park_01_5", "Swingset", "Playground", Outdoors.SOUTH, 1, 1, 0) == null, "a place of the sheet that is no part of one");
+    }
+
+    private static void aSteeplesSpireStandsOnItsBelfry() {
+        Outdoors.Piece belfry = unnamed("location_community_church_small_01_35"), spire = unnamed("location_community_church_small_01_34");
+        holds(belfry, "location_community_church_small_01_35 is a steeple's belfry");
+        holds(spire, "location_community_church_small_01_34 is a steeple's spire");
+        // The spire is on the storey over the belfry's.
+        float cap = belfry.raised + Models.get(belfry.model).height(), foot = ViewCamera.LEVEL_HEIGHT + spire.raised;
+        Checks.check(Math.abs(cap - foot) < 0.01f, "the spire's foot is on the belfry's cap: " + foot + " on " + cap);
+        Checks.check(spire.a == belfry.a && spire.b == belfry.b, "the spire stands over the middle of its belfry");
+        Checks.check(unnamed("location_community_church_small_01_33") == null, "a column of the church is no part of its steeple");
     }
 
     private static void aSwingsBeamMeetsTheTopOfItsFrame() {

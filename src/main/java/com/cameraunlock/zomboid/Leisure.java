@@ -4,7 +4,7 @@ package com.cameraunlock.zomboid;
  * What a park, a gym, a track, a church and a music room have that the mod has a model of: swings,
  * slides, a play house, a roundabout and a fountain, running machines and weight benches, walls of
  * old tyres, basketball hoops, nets across courts, football goals, pianos and their benches,
- * speakers, an amplifier, drums, a jukebox, a pinball table, a lectern and an altar. Asked by
+ * speakers, an amplifier, drums, a jukebox, a pinball table, a lectern, an altar and a steeple. Asked by
  * Outdoors.of before its own table, and stood the same way, so a piece of either is one kind of thing.
  *
  * Where each model stands on its squares was read off the game's sprites of it, laid over them in
@@ -14,7 +14,8 @@ package com.cameraunlock.zomboid;
 final class Leisure {
     private Leisure() {}
 
-    private static final String PARK = "location_community_park_01_", SPORTS = "recreational_sports_01_";
+    private static final String PARK = "location_community_park_01_", SPORTS = "recreational_sports_01_",
+            CHURCH = "location_community_church_small_01_";
     private static final int PAINT = 1 << Models.PAINT;
     private static final float LEVEL = ViewCamera.LEVEL_HEIGHT;
 
@@ -158,8 +159,27 @@ final class Leisure {
         return piece.dye(PAINT, a, b, SWING_BEAM_DYE - foot / LEVEL).raise(foot / LEVEL);
     }
 
-    /** What has no name: a park fountain's basin and the fountain in it, a basketball's pole and board, a court's net, a goal and a track's stacks of tyres. */
+    /** How far, in levels, the foot of a steeple's spire is below the floor of its storey: on the belfry's cap, which reaches up into it. */
+    static final float SPIRE_SUNK = 0.1f;
+    /** Where the middle of a steeple stands on its square, a little to the west and south of the square's middle where its sprites paint it. */
+    private static final float STEEPLE_A = 0.475f, STEEPLE_B = 0.525f;
+
+    /**
+     * What has no name: a park fountain's basin and the fountain in it, a basketball's pole and board, a court's net, a goal, a
+     * track's stacks of tyres and a church's steeple.
+     */
     private static Outdoors.Piece unnamed(String name) {
+        switch (Sheets.place(name, CHURCH)) {
+            // The belfry over the ridge, its boards white where its sprite paints the box and its metal from the skirt above them.
+            case 35 -> {
+                return new Outdoors.Piece("steeple_belfry", 0).at(STEEPLE_A, STEEPLE_B)
+                        .dye(1 << Models.PAINT, 0.5f, 0.97f, 0.25f).also(1 << Models.METAL, 0.49f);
+            }
+            case 34 -> {
+                return new Outdoors.Piece("steeple_spire", 0).at(STEEPLE_A, STEEPLE_B).dye(1 << Models.METAL, 0.55f, 0.6f, 0.2f).raise(-SPIRE_SUNK);
+            }
+            default -> { }
+        }
         int park = Sheets.place(name, PARK);
         String fountain = switch (park) {
             case 45 -> "fountain_0";
