@@ -4,7 +4,7 @@
 
 An unofficial head tracking mod for Project Zomboid that moves the view with your head while your mouse or controller keeps aiming, driven by a webcam, phone, or any OpenTrack compatible tracker, with no VR headset required.
 
-It adds a first person view to the game, with a rebuilt world and new graphics, on foot and in vehicles.
+It adds a first person view to the game, with a rebuilt world and new graphics.
 
 ## Features
 
@@ -17,9 +17,9 @@ It adds a first person view to the game, with a rebuilt world and new graphics, 
 
 - **On foot and in vehicles** - press `Delete` to switch views. Play with a mouse and keyboard or controller, with sound that follows where you look.
 - **A rebuilt world** - in Medium and High: 3D buildings and furniture, new textures, detailed plants, rolling hills and distant scenery.
-- **New graphics in both views** - lighting, shadows, models and textures in Medium and High. High adds reflections on roads, floors, glass and water, and light beams through fog.
+- **New renderer graphics in both views** - lighting, shadows, models and textures in Medium and High. High adds reflections on roads, floors, glass and water, and light beams through fog.
 - **Combat** - custom arms and hands, melee swings, recoil and reload animations. Medium and High add shotgun and hunting rifle models and magnified scopes.
-- **Vehicle interiors** - dashboards, seats and working mirrors, with a view that tilts as the vehicle moves.
+- **Vehicle interiors** - dashboards, seats and working mirrors and instrumentation.
 - **Adjustable graphics** - automatic or manual quality, three picture styles, field of view, hill height and optional replacement models and textures.
 
 ## Requirements
@@ -164,16 +164,7 @@ what it can read; the mod only ever sees what OpenTrack sends.
 
 ### Centring
 
-Centring belongs to your tracker. The mod subtracts no centre of its own: it
-applies the pose it receives exactly as it arrives, so a stream of zeros holds
-the view where the game itself puts it. Press the centre control in your tracker
-(OpenTrack's **Center** bind, or the CENTER button in Headcam) and the tracker
-zeroes its own output, which leaves the view centred with the mod doing nothing.
-
-That is why there is no centre hotkey here and nothing to re-centre in game. Two
-centres in series would drift apart, because each side re-centres at moments the
-other cannot see, and you would end up pressing twice to centre once. If the
-view sits off to one side, centre it in the tracker.
+Centring belongs to your tracker, recenter there.
 
 ## Controls
 
