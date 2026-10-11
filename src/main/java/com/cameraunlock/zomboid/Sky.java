@@ -22,6 +22,10 @@ final class Sky {
             uniform vec3 uZenith;
             uniform vec3 uHorizon;
             uniform vec3 uGlow;
+            // Lightning's light over the whole sky, as light, and the way to where it is brightest:
+            // the cloud a bolt came out of. Nought with no lightning. See Lightning.see.
+            uniform vec3 uFlashSky;
+            uniform vec3 uFlashWay;
 
             vec3 atmosphere(vec3 d) {
                 float low = 1.0 - clamp(d.z, 0.0, 1.0);
@@ -29,7 +33,8 @@ final class Sky {
                 float mu = max(dot(d, uSun), 0.0);
                 color += uGlow * (pow(mu, 2.5) * pow(low, 5.0) * 0.9 + pow(low, 14.0) * 0.25);
                 color += uSunColor * (0.16 * pow(mu, 18.0) + 0.5 * pow(mu, 300.0));
-                return pow(max(color, vec3(0.0)), vec3(2.2));
+                // A flash lights the air all round, the way to it most of all.
+                return pow(max(color, vec3(0.0)), vec3(2.2)) + uFlashSky * (0.15 + pow(max(dot(d, uFlashWay), 0.0), 5.0));
             }
 
             float distanceHaze(vec3 direction, vec3 light, float range) {
@@ -127,9 +132,14 @@ final class Sky {
             uniform float uCover;
             uniform vec2 uDrift;
             uniform sampler3D uNoise;
+            // Lightning inside the cloud: the way to where it glows, and its light. See Lightning.see.
+            uniform vec3 uBurstWay;
+            uniform vec3 uBurstLight;
 
             const float BOTTOM = 1.0;
             const float TOP = 2.3;
+            // How far round itself, in the cloud's measure, lightning inside it lights it.
+            const float BURST_REACH = 0.9;
             const int STEPS = 48;
             const int LIGHT_STEPS = 5;
 
@@ -193,6 +203,11 @@ final class Sky {
                 vec3 skyLight = pow(mix(uHorizon, uZenith, 0.55), vec3(2.2)) * 0.6 + sunLight * 0.3;
                 float through = 1.0;
                 vec3 light = vec3(0.0);
+                // Where lightning glows in the cloud: a little above its base, the way the eye
+                // sees the channel go into it. However far off, never past where the clouds fade.
+                bool bursting = dot(uBurstLight, uBurstLight) > 0.0;
+                vec3 burstAt = uBurstWay / max(uBurstWay.z, 0.04) * (BOTTOM + 0.3);
+                burstAt *= min(1.0, 26.0 / length(burstAt));
                 for (int i = 0; i < STEPS; i++) {
                     vec3 p = d * t;
                     float dens = density(p);
@@ -206,6 +221,14 @@ final class Sky {
                         float direct = max(exp(-depth * 1.3), 0.45 * exp(-depth * 0.22));
                         float h = (p.z - BOTTOM) / (TOP - BOTTOM);
                         vec3 lit = sunLight * (direct * phase) + skyLight * (0.45 + 0.75 * h);
+                        if (bursting) {
+                            // Lightning's light scatters through the whole body of the cloud
+                            // from where it is, and a little through all the deck.
+                            // Unevenly: the cloud's own billows and hollows take it in or hide it.
+                            vec3 off = p - burstAt;
+                            float billows = texture3D(uNoise, p * 0.55 + vec3(uDrift, 0.21)).r;
+                            lit += uBurstLight * (exp(-dot(off, off) / (BURST_REACH * BURST_REACH)) * (0.25 + 1.5 * billows * billows) + 0.02);
+                        }
                         float taken = 1.0 - exp(-dens * stride * 9.0);
                         light += through * taken * lit;
                         through *= 1.0 - taken;

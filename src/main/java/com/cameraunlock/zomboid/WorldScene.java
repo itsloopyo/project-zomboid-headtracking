@@ -2302,6 +2302,7 @@ final class WorldScene {
             sky.acrossX = rightX;
             sky.acrossY = rightY;
             exposure = adaptEye(player, fromOutside);
+            Lightning.see(sky, pose.eyeX, pose.eyeY, pose.eyeUp, System.nanoTime());
             playerIndex = player.getIndex();
             cell = IsoWorld.instance.currentCell;
             roofBuilder.newBuild();

@@ -3005,6 +3005,8 @@ final class PipelineShaders {
                 // A room has less of it: see Evening.ROOM_DAYLIGHT.
                 given -= min(given, pow(uOpenLight, vec3(2.2))) * (1.0 - mix(uRoomKept, uDaylightKept, clamp(open, 0.0, 1.0)));
                 vec3 lightHere = given * fromSky + held + pow(uLightColor, vec3(2.2)) * (2.1 * sun);
+                // Lightning lights all the sky, and what is under the open sky by it.
+                lightHere += uFlashSky * (open * skyOver * (0.6 + 0.4 * max(n.z, 0.0)));
                 // The ground in the sun throws its light back up at whatever stands on it. A
                 // wall turned from the sun is lit by the street in front of it, and without
                 // that the shaded side of every building is a flat dark slab.
@@ -5580,6 +5582,7 @@ final class PipelineShaders {
                         around = pow(stoodIn, 2.2) * mix(vec3(0.66 + 0.34 * n.z + 0.1 * dot(n.xy, vec2(0.6, -0.8))),
                                 vec3(0.72, 0.80, 0.95) * (0.72 + 0.28 * n.z), outdoors);
                         around += sunLight * vec3(0.9, 0.86, 0.74) * (0.3 * max(uLight.z, 0.0) * (1.0 - max(n.z, 0.0)) * outdoors);
+                        around += uFlashSky * ((0.6 + 0.4 * max(n.z, 0.0)) * outdoors);
                     }
                     color = dressed(pow(figure.rgb, vec3(2.2)), n, view, strand, worn, gloss, low, uLight, sunLight * sun, around, lamps, skyBack);
                 }
@@ -6286,7 +6289,8 @@ final class PipelineShaders {
                 vec3 sunLight = pow(uLightColor, vec3(2.2));
                 vec3 lightHere = pow(uOpenLight, vec3(2.2)) * uDaylightKept * vec3(0.72, 0.80, 0.95) * (0.72 + 0.28 * n.z)
                         + sunLight * (2.1 * reached * facing)
-                        + sunLight * vec3(0.9, 0.86, 0.74) * (0.3 * max(uLight.z, 0.0) * (1.0 - abs(n.z)));
+                        + sunLight * vec3(0.9, 0.86, 0.74) * (0.3 * max(uLight.z, 0.0) * (1.0 - abs(n.z)))
+                        + uFlashSky * (0.6 + 0.4 * max(n.z, 0.0));
                 vec3 color = surface * lightHere;
                 if (water > 0.0) {
                     vec3 mirrored = reflect(-view, vec3(0.0, 0.0, 1.0));

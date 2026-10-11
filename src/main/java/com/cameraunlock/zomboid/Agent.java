@@ -82,6 +82,14 @@ public final class Agent {
         return shot.gap();
     }
 
+    /** The patch that tells Lightning of a strike. */
+    private static PatchTransformer thunder;
+
+    /** Why no lightning is drawn on this build of the game, or null once the patch is in. */
+    static String thunderGap() {
+        return thunder.gap();
+    }
+
     /** The patch that has ModelHead turn the character's head. */
     private static PatchTransformer modelHead;
 
@@ -190,6 +198,9 @@ public final class Agent {
 
         shot = new PatchTransformer(shotPatches());
         instrumentation.addTransformer(shot);
+
+        thunder = new PatchTransformer(thunderPatches());
+        instrumentation.addTransformer(thunder);
 
         modelHead = new PatchTransformer(modelHeadPatches());
         instrumentation.addTransformer(modelHead);
@@ -693,6 +704,21 @@ public final class Agent {
                 new Patch(COMBINER, "releaseTexture before its returns", classBytes -> CallSite.insertBeforeReturns(classBytes,
                         new CallSite.Method(COMBINER, "releaseTexture", "(" + TEXTURE + ")V"),
                         code -> CallSite.passFirstArgument(code, new CallSite.Method(FINE_SKINS, "released", "(" + TEXTURE + ")V")))));
+    }
+
+    /** Apart: without it there is no lightning in first person, and nothing else is changed. */
+    private static List<Patch> thunderPatches() {
+        String storm = "zombie/iso/weather/ThunderStorm";
+        return List.of(new Patch(storm, "enqueueThunderEvent telling of a strike", classBytes -> CallSite.insertAtStartOfInstanceMethod(classBytes,
+                new CallSite.Method(storm, "enqueueThunderEvent", "(IIZZZ)V"),
+                code -> {
+                    code.iload(1);
+                    code.iload(2);
+                    code.iload(3);
+                    code.iload(4);
+                    code.iload(5);
+                    CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "thunder", "(IIZZZ)V"));
+                })));
     }
 
     /**

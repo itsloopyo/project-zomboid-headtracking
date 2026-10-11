@@ -102,6 +102,15 @@ final class SkyState {
     float thick;
     /** How narrow the character's view has become, 0 to 1: see Eyesight.narrowed. */
     float narrowed;
+    /** The light lightning adds to the sky and to what the sky lights, already as light (not squared up), and the way to it: see Lightning.see. */
+    float flashRed, flashGreen, flashBlue;
+    float flashX, flashY, flashUp = 1f;
+    /** How bright the cloud a bolt came out of glows inside, and the way from the eye to where it glows. */
+    float burst;
+    float burstX, burstY, burstUp = 1f;
+    /** The bolts to draw, the first seenCount of seen. */
+    final Lightning.Seen[] seen = {new Lightning.Seen(), new Lightning.Seen(), new Lightning.Seen(), new Lightning.Seen()};
+    int seenCount;
 
     private static float driftedX, driftedY;
     private static final Wind wind = new Wind();
@@ -120,8 +129,8 @@ final class SkyState {
     private static final long START_NANOS = System.nanoTime();
 
     String describe() {
-        return String.format(Locale.ROOT, "sun up %.2f night %.2f cover %.2f mist %.4f wind (%.2f, %.2f) rain %.2f wet %.2f fog %.2f snow %.2f air %.4f narrowed %.2f",
-                sunUp, night, cover, mist, windX, windY, rain, wet, fog, snow, thick, narrowed);
+        return String.format(Locale.ROOT, "sun up %.2f night %.2f cover %.2f mist %.4f wind (%.2f, %.2f) rain %.2f wet %.2f fog %.2f snow %.2f air %.4f narrowed %.2f lightning %.3f cloud %.2f bolts %d",
+                sunUp, night, cover, mist, windX, windY, rain, wet, fog, snow, thick, narrowed, flashBlue, burst, seenCount);
     }
 
     void capture() {

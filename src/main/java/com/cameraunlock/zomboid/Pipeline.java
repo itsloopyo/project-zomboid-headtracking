@@ -69,6 +69,7 @@ final class Pipeline {
     private static final int GL_TRIANGLES = 0x0004;
     private static final int GL_TRIANGLE_STRIP = 0x0005;
     private static final int GL_FLOAT = 0x1406;
+    private static final int GL_QUADS = 0x0007, GL_MAX = 0x8008, GL_FUNC_ADD = 0x8006;
     private static final int GL_UNSIGNED_BYTE = 0x1401;
     private static final int GL_RG = 0x8227;
     private static final int GL_RGBA = 0x1908;
@@ -234,7 +235,7 @@ final class Pipeline {
     private int jitterAt;
     /** How far to one side this frame is drawn, as the projection takes it: nothing with the frames not mixed. */
     private float asideX, asideY;
-    private static Program world, worldDepth, shadow, figureLight, sky, clouds, occlusion, soften, volume, bloomDown, bloomUp, develop, smooth;
+    private static Program world, worldDepth, shadow, figureLight, sky, clouds, bolt, occlusion, soften, volume, bloomDown, bloomUp, develop, smooth;
     private static Program far, farTree;
     /** What the shaders are told as uBeyond this frame: see PipelineShaders.ENDS. Not 0 where the far land is drawn behind the built world. */
     private float beyond;
@@ -895,6 +896,9 @@ final class Pipeline {
             view.kerbSteps.sweep(System.nanoTime());
             stage(STAGE_FIGURES);
             drawSky(camera, state, tanHalfFieldOfView, aspect, near, far);
+            if (state.seenCount > 0 && !overhead) {
+                drawLightning(camera, state, tanHalfFieldOfView, aspect, near, far);
+            }
             if ((state.rain > 0f || state.snow > 0f) && sheltered != Shelter.EVERYWHERE) {
                 drawRain(camera, state, tanHalfFieldOfView, aspect, near, far);
             }
@@ -1474,16 +1478,26 @@ final class Pipeline {
         return false;
     }
 
+    /** The light the far shadow map was last drawn along, and how near this frame's has to be to it, as the cosine between, for it to be read as it is. */
+    private float farLightX, farLightY, farLightUp = 1f;
+    private static final float FAR_LIGHT_SAME = 0.9995f;
+
     private void drawShadows(SkyState state, boolean figures) {
         lightMatrix(nearMatrix, state, NEAR_EXTENT, NEAR_RANGE);
         // The far map and the map of what is overhead are each drawn every other frame, turn about. Both are
         // of things tens of tiles off or straight overhead, and each is read through the matrix it was last
         // drawn with, so a frame late is not seen.
-        castFar = !farDrawn || (frameNumber & 1) == 0;
+        // A strike takes the light over for a few frames and gives it back: a far map drawn along
+        // another light than this frame's would cast its shadows the wrong way.
+        boolean lightMoved = state.lightX * farLightX + state.lightY * farLightY + state.lightUp * farLightUp < FAR_LIGHT_SAME;
+        castFar = !farDrawn || (frameNumber & 1) == 0 || lightMoved;
         boolean castRoof = !roofDrawn || (frameNumber & 1) == 1;
         if (castFar) {
             lightMatrix(farMatrix, state, FAR_EXTENT, FAR_RANGE);
             farDrawn = true;
+            farLightX = state.lightX;
+            farLightY = state.lightY;
+            farLightUp = state.lightUp;
         }
         GL11.glDisable(GL_SCISSOR_TEST);
         GL11.glDisable(GL_STENCIL_TEST);
@@ -1821,6 +1835,8 @@ final class Pipeline {
     private static final float RAIN_HALF_WIDE = 0.003f, RAIN_SEEN_FOR = 0.02f;
     /** How much of a drop and of a flake shows, at its middle. */
     private static final float RAIN_SHOWN = 0.55f, SNOW_SHOWN = 0.9f;
+    /** How much of lightning's light over the sky a drop of rain shows: a lit drop is a bead of the flash. */
+    private static final float RAIN_FLASHED = 1.2f;
     /**
      * From far overhead: how far under the place looked at the box reaches at least, the most
      * boxes drawn along each side of the ground in the picture, and the least a streak or a
@@ -1928,9 +1944,10 @@ final class Pipeline {
             rain.set("uSheltering", outside ? 0f : 1f);
             rain.set("uSeenOn", seenOnFloor ? camera.forwardX : 0f, seenOnFloor ? camera.forwardY : 0f, seenOnFloor ? camera.forwardUp : 0f, floorUp);
             setBeams(rain, TORCH_UNIT);
-            // A drop shows the sky it falls through.
-            rain.set("uTint", 1.6f * (float) Math.pow(state.horizonRed, 2.2), 1.6f * (float) Math.pow(state.horizonGreen, 2.2),
-                    1.6f * (float) Math.pow(state.horizonBlue, 2.2));
+            // A drop shows the sky it falls through, and a flash of lightning lights every drop in the air.
+            rain.set("uTint", 1.6f * (float) Math.pow(state.horizonRed, 2.2) + RAIN_FLASHED * state.flashRed,
+                    1.6f * (float) Math.pow(state.horizonGreen, 2.2) + RAIN_FLASHED * state.flashGreen,
+                    1.6f * (float) Math.pow(state.horizonBlue, 2.2) + RAIN_FLASHED * state.flashBlue);
             drawBoxes(rain, boxesX, boxesY, aheadX, aheadY, reachAlong, reachAcross);
         }
         if (state.snow > 0f) {
@@ -2025,6 +2042,62 @@ final class Pipeline {
         GL11.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         GL11.glDepthMask(true);
         GL11.glDisable(GL_DEPTH_TEST);
+        GL11.glDisableClientState(GL_VERTEX_ARRAY);
+    }
+
+    /**
+     * The bolts of lightning in sight, over the sky and behind whatever of the world stands
+     * before them: see Lightning. Each is its brightest where its ribbons cross, not their sum,
+     * so a channel's stretches and its branches meet without bright knots where they overlap.
+     */
+    private void drawLightning(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float near, float far) {
+        GL30.glBindFramebuffer(GL_FRAMEBUFFER, steadying ? movesTarget : sceneTarget);
+        GL11.glViewport(0, 0, width, height);
+        GL11.glMatrixMode(GL_PROJECTION);
+        ViewCamera.projection(tanHalfFieldOfView, aspect, near, far, projection);
+        projection[8] += asideX;
+        projection[9] += asideY;
+        GL11.glLoadMatrixf(projection);
+        GL11.glMatrixMode(GL_MODELVIEW);
+        ViewCamera.view(camera, viewed);
+        GL11.glLoadMatrixf(viewed);
+        arrays();
+        GL11.glDisableClientState(GL_COLOR_ARRAY);
+        GL11.glDisableClientState(GL_NORMAL_ARRAY);
+        GL13.glClientActiveTexture(GL_TEXTURE0 + 2);
+        GL11.glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+        GL11.glEnable(GL_DEPTH_TEST);
+        GL11.glDepthFunc(GL_LEQUAL);
+        GL11.glDepthMask(false);
+        GL11.glDisable(GL_CULL_FACE);
+        GL11.glEnable(GL_BLEND);
+        GL14.glBlendFuncSeparate(GL_ONE, GL_ONE, GL_ONE, GL_ONE);
+        GL14.glBlendEquation(GL_MAX);
+        bolt.use();
+        atmosphere(bolt, state);
+        bolt.set("uPixels", (float) width, (float) height);
+        bolt.set("uCore", Lightning.CORE_WIDE, Lightning.CORE_DOTS);
+        bolt.set("uHalo", Lightning.GLOW_WIDE, Lightning.GLOW_DOTS);
+        bolt.set("uLights", Lightning.CORE_LIGHT, Lightning.GLOW_LIGHT);
+        for (int i = 0; i < state.seenCount; i++) {
+            Lightning.Seen seen = state.seen[i];
+            Lightning.Bolt shape = seen.bolt();
+            bolt.set("uGlow", seen.channel(), seen.branches(), seen.reached());
+            GL11.glVertexPointer(Lightning.FLOATS, GL_FLOAT, 0, shape.ends);
+            GL13.glClientActiveTexture(GL_TEXTURE0);
+            GL11.glTexCoordPointer(Lightning.FLOATS, GL_FLOAT, 0, shape.others);
+            GL13.glClientActiveTexture(GL_TEXTURE0 + 1);
+            GL11.glTexCoordPointer(Lightning.FLOATS, GL_FLOAT, 0, shape.kinds);
+            GL11.glDrawArrays(GL_QUADS, 0, shape.vertices);
+        }
+        GL14.glBlendEquation(GL_FUNC_ADD);
+        GL11.glDisable(GL_BLEND);
+        GL11.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        GL11.glDepthMask(true);
+        GL11.glDisable(GL_DEPTH_TEST);
+        GL11.glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+        GL13.glClientActiveTexture(GL_TEXTURE0);
+        GL11.glDisableClientState(GL_TEXTURE_COORD_ARRAY);
         GL11.glDisableClientState(GL_VERTEX_ARRAY);
     }
 
@@ -2634,6 +2707,8 @@ final class Pipeline {
         program.set("uZenith", state.zenithRed, state.zenithGreen, state.zenithBlue);
         program.set("uHorizon", state.horizonRed, state.horizonGreen, state.horizonBlue);
         program.set("uGlow", state.glowRed, state.glowGreen, state.glowBlue);
+        program.set("uFlashSky", state.flashRed, state.flashGreen, state.flashBlue);
+        program.set("uFlashWay", state.burstX, state.burstY, state.burstUp);
     }
 
     private void drawSky(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float near, float far) {
@@ -2663,6 +2738,8 @@ final class Pipeline {
         clouds.set("uHorizon", state.horizonRed, state.horizonGreen, state.horizonBlue);
         clouds.set("uCover", state.cover);
         clouds.set("uDrift", state.driftX, state.driftY);
+        clouds.set("uBurstWay", state.burstX, state.burstY, state.burstUp);
+        clouds.set("uBurstLight", Lightning.RED * state.burst, Lightning.GREEN * state.burst, Lightning.BLUE * state.burst);
         quad();
         if (soft) {
             softenInto(softCloudTarget, cloudColor, near, far);
@@ -4242,6 +4319,7 @@ final class Pipeline {
         dust = Program.link("dust", PipelineShaders.DUST_VERTEX, PipelineShaders.DUST_FRAGMENT, problem);
         sky = Program.link("sky", SCREEN_VERTEX, Sky.FRAGMENT, problem);
         clouds = Program.link("clouds", SCREEN_VERTEX, Sky.CLOUDS, problem);
+        bolt = Program.link("lightning", Lightning.BOLT_VERTEX, Lightning.BOLT_FRAGMENT, problem);
         far = Program.link("far land", PipelineShaders.FAR_VERTEX, PipelineShaders.FAR_FRAGMENT, problem);
         farTree = Program.link("far trees", PipelineShaders.FAR_TREE_VERTEX, PipelineShaders.FAR_TREE_FRAGMENT, problem);
         figureLight = Program.link("character light", SCREEN_VERTEX, FIGURE_LIGHT, problem);

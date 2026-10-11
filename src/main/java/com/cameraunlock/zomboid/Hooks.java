@@ -423,6 +423,16 @@ public final class Hooks {
         return view == null ? look : view.headFollowLight.direction(view.firstPerson.sightVector(look));
     }
 
+    /**
+     * At the start of ThunderStorm.enqueueThunderEvent: the game has a strike at square (x, y), or
+     * thunder with none, alone and from a server alike. Lit is false for a strike the player has
+     * asked the game not to show lightning for.
+     */
+    public static void thunder(int x, int y, boolean strike, boolean lit, boolean rumble) {
+        boolean hidden = !strike && rumble && !zombie.core.Core.getInstance().getOptionDisableLightningDuringStorms();
+        Lightning.struck(x, y, strike && lit, hidden, System.nanoTime());
+    }
+
     /** In place of the game's starting of a muzzle flash, which it does at the one place a firearm's shot is taken. */
     public static void muzzleFlash(EffectsManager effects, IsoGameCharacter shooter, int light) {
         Stack<IsoLightSource> lamps = IsoWorld.instance.currentCell.getLamppostPositions();
