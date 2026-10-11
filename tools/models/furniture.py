@@ -2078,6 +2078,28 @@ def cobra_head():
     return model
 
 
+def traffic_light():
+    """The upper length of a traffic signal's post, the game's second sprite of it: the post's top, two arms out along -X
+    and on them a dark housing with three lenses under hoods facing -Y. The origin is the post's axis."""
+    model = Model("traffic_light", centred=False)
+    post = bmesh.new()
+    lathe(post, [(0.0, 0.0), (0.075, 0.0), (0.075, 2.56), (0.06, 2.6), (0.0, 2.61)], segments=14)
+    for z in (1.45, 2.2):
+        rod(post, (0.0, 0.0, z), (-0.68, 0.0, z), 0.022, segments=8)
+    model.turned(post, "metal", sharp=50.0)
+    housing, lenses, hoods = bmesh.new(), bmesh.new(), bmesh.new()
+    cuboid(housing, -0.96, -0.66, -0.1, 0.12, 1.38, 2.26)
+    model.hard(housing, "plastic", bevel=0.02, segments=2)
+    # Turned about X a profile's height runs out of the housing's face along -Y.
+    to = Matrix.Translation((0.0, -0.1, 0.0)) @ Matrix.Rotation(math.radians(90), 4, "X")
+    for z in (2.1, 1.82, 1.54):
+        lathe(lenses, [(0.0, 0.0), (0.1, 0.0), (0.1, 0.012), (0.0, 0.012)], cx=-0.81, cy=z, segments=16, to=to)
+        lathe(hoods, [(0.115, 0.0), (0.125, 0.0), (0.125, 0.14), (0.115, 0.14)], cx=-0.81, cy=z, segments=16, to=to)
+    model.turned(lenses, "screen", sharp=50.0)
+    model.turned(hoods, "rubber", sharp=50.0)
+    return model
+
+
 def wall_bowl():
     """A lamp on a wall that throws its light at the ceiling: a shallow bowl on a short arm, its back at +Y."""
     model = Model("wall_bowl")
@@ -10229,7 +10251,7 @@ def every():
               radio(), microwave(), dishwasher(), chest_freezer(), register(), shower("shower", True), shower("shower_head", False),
               kettle_barbecue(), gas_barbecue(), cooler("mini_fridge", 0.5, 0.82, 1), cooler("large_fridge", 1.7, 1.95, 2),
               street_lamp("cone_lamp", "cone"), street_lamp("globe_lamp", "globe"), street_lamp("lantern_lamp", "lantern"),
-              cobra_head(), wall_bowl(), wall_lantern(), bulkhead_light(), wall_sink(), serving_counter(), air_conditioner(),
+              cobra_head(), traffic_light(), wall_bowl(), wall_lantern(), bulkhead_light(), wall_sink(), serving_counter(), air_conditioner(),
               parasol("parasol", [(0.045, 2.40), (0.35, 2.25), (0.68, 2.08), (1.0, 1.91)], 0.10, 0.06),
               parasol("parasol_dome", [(0.045, 2.43), (0.24, 2.39), (0.46, 2.28), (0.66, 2.11), (0.82, 1.88), (0.92, 1.62)], 0.08, 0.06)] + (indoors() + outdoors()
             + upholstered() + barrels_and_pots() + street() + display_cases() + awnings() + hoods() + industrial()

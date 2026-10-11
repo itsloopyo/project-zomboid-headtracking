@@ -29,6 +29,7 @@ final class OutdoorTests {
         Checks.run("aCarParkBarrierIsColouredFromItsBooth", OutdoorTests::aCarParkBarrierIsColouredFromItsBooth);
         Checks.run("aParkingMeterStandsWhereItsSpritePaintsItsPost", OutdoorTests::aParkingMeterStandsWhereItsSpritePaintsItsPost);
         Checks.run("aChimneysPotsStandOnItsCapInTheRowTheirSpriteShows", OutdoorTests::aChimneysPotsStandOnItsCapInTheRowTheirSpriteShows);
+        Checks.run("aTrafficSignalsHeadIsTurnedAQuarterOnFromItsArm", OutdoorTests::aTrafficSignalsHeadIsTurnedAQuarterOnFromItsArm);
     }
 
     /** A piece, and its model one the jar has: Models.get throws for a name it has not. */
@@ -261,7 +262,19 @@ final class OutdoorTests {
         Checks.check(unnamed("street_roadsigns_01_0") == null && unnamed("street_roadsigns_01_32") == null, "the boards on two posts and the rest area's signs are not warning signs");
     }
 
-    private static void aChimneysPotsStandOnItsCapInTheRowTheirSpriteShows() {
+    private static void aTrafficSignalsHeadIsTurnedAQuarterOnFromItsArm() {
+        // The sheet's four heads have their arms out west, south, east and north, and their lights face south, east, north and west.
+        int[] lightsFace = {Outdoors.SOUTH, Outdoors.EAST, Outdoors.NORTH, Outdoors.WEST};
+        for (int place = 12; place <= 15; place++) {
+            Furniture head = Furniture.known(TileRows.sprite("lighting_outdoor_01_" + place));
+            Checks.check(head != null && head.model.name.equals("traffic_light") && head.turns == lightsFace[place - 12],
+                    "lighting_outdoor_01_" + place + " is a traffic signal's head with its lights the way its sprite shows them");
+            Checks.check(head != null && head.centreX == Furniture.SIGNAL_POST_A && head.centreY == Furniture.SIGNAL_POST_B,
+                    "lighting_outdoor_01_" + place + " stands on the axis of the post under it");
+        }
+    }
+
+        private static void aChimneysPotsStandOnItsCapInTheRowTheirSpriteShows() {
         Outdoors.Piece alongY = Outdoors.of("fixtures_fireplaces_01_72", null, null, Outdoors.NONE, 1, 1, 0);
         Outdoors.Piece alongX = Outdoors.of("fixtures_fireplaces_01_73", null, null, Outdoors.NONE, 1, 1, 0);
         holds(alongY, "fixtures_fireplaces_01_72 is a chimney's pots");

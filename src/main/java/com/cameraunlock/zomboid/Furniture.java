@@ -721,9 +721,9 @@ final class Furniture {
      * and the upper one, on the level above, is the head: an acorn lantern, or two of them on
      * arms out along x and then along y, or the arm of a road lamp, which reaches out north,
      * east, south and west in that order on the sheet, or the two flat heads of a car park's
-     * lamp, side by side along y and then along x. Null for the
-     * rest of the sheet: bare posts, which stand well enough as they are, signals, and heads
-     * the mod has no model of.
+     * lamp, side by side along y and then along x, or a traffic signal's head. Null for the
+     * rest of the sheet: bare posts, which stand well enough as they are, and heads the mod
+     * has no model of.
      */
     private static Furniture streetLamp(IsoSprite sprite, String name) {
         int which = Sheets.place(name, name.startsWith(LIT_STREET_LAMPS) ? LIT_STREET_LAMPS : STREET_LAMPS);
@@ -734,6 +734,9 @@ final class Furniture {
             case 5, 6, 7 -> onPost(new Furniture(sprite, which == 5 ? "acorn_head" : "twin_acorn_head", which == 7 ? 1 : 0).dye(1 << Models.PAINT, UPPER_POST_DYE));
             case 8, 9, 10, 11 -> new Furniture(sprite, "cobra_head", which - 8).dye(1 << Models.PAINT, UPPER_POST_DYE);
             case 18, 19 -> new Furniture(sprite, "twin_head", which - 18).dye(1 << Models.PAINT, UPPER_POST_DYE);
+            // A traffic signal's head on the upper length of its post, its arm out west, south, east and north in that order on
+            // the sheet, its lights a quarter turn on from its arm.
+            case 12, 13, 14, 15 -> onSignalPost(new Furniture(sprite, "traffic_light", new int[] {2, 1, 0, 3}[which - 12]));
             default -> null;
         };
     }
@@ -744,6 +747,15 @@ final class Furniture {
      * there, and a head stood in the square's middle met it a hand to one side.
      */
     static final float LAMP_POST_AXIS = 0.53f;
+
+    /** Where on its square the axis of a traffic signal's post stands, read off the game's sprites of its two lengths. */
+    static final float SIGNAL_POST_A = 0.54f, SIGNAL_POST_B = 0.58f;
+
+    private static Furniture onSignalPost(Furniture head) {
+        head.centreX = SIGNAL_POST_A;
+        head.centreY = SIGNAL_POST_B;
+        return head;
+    }
 
     private static Furniture onPost(Furniture head) {
         head.centreX = LAMP_POST_AXIS;
