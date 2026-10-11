@@ -3,6 +3,7 @@ package com.cameraunlock.zomboid;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.Random;
 import java.util.Set;
 import zombie.GameTime;
 import zombie.VirtualZombieManager;
@@ -44,9 +45,12 @@ import zombie.vehicles.VehiclePart;
  * 9 puts the clock on by three hours, into the next day if that is where they end: for
  * seeing the picture at any hour without waiting for it.
  *
- * Backspace holds the weather at the next of six kinds, sunny, cloudy, stormy, blizzard, clear
- * snowy day and foggy in that order, and after the last gives it back to the game. The game
- * keeps what it is held at in the save.
+ * Backspace holds the weather at the next of seven kinds, sunny, cloudy, stormy, thunderstorm,
+ * blizzard, clear snowy day and foggy in that order, and after the last gives it back to the
+ * game. The game keeps what it is held at in the save. A thunderstorm is the stormy weather with
+ * lightning striking round the first player, a few seconds apart and from a few hundred tiles
+ * to a mile and more off, and thunder rumbling with no strike seen now and then: the game's own
+ * thunder clouds cross the map and are seldom overhead for long.
  *
  * The semicolon puts a pump action shotgun in the player's hands. Whatever firearm is held is
  * kept loaded, sound and unjammed, from the moment the game loads, so a gun the save was left
@@ -126,18 +130,30 @@ public final class DevKeys {
      * A kind of weather as the game's climate has it: each of cloud, rain or snow, wind and fog
      * from 0 to 1, and how much of the ground lies under snow, from 0 to 1.
      */
-    private record Weather(String name, float cloud, float falling, float wind, float fog, boolean snow, float lying) {}
+    private record Weather(String name, float cloud, float falling, float wind, float fog, boolean snow, float lying, boolean thunder) {
+        Weather(String name, float cloud, float falling, float wind, float fog, boolean snow, float lying) {
+            this(name, cloud, falling, wind, fog, snow, lying, false);
+        }
+    }
 
     private static final Weather[] WEATHERS = {
             new Weather("sunny", 0f, 0f, 0.05f, 0f, false, 0f),
             new Weather("cloudy", 0.85f, 0f, 0.15f, 0f, false, 0f),
             new Weather("stormy", 1f, 1f, 0.9f, 0f, false, 0f),
+            new Weather("thunderstorm", 1f, 1f, 0.9f, 0f, false, 0f, true),
             new Weather("blizzard", 1f, 1f, 0.9f, 0f, true, 1f),
             new Weather("clear snowy day", 0f, 0f, 0.1f, 0f, false, 1f),
             new Weather("foggy", 0.7f, 0f, 0f, 1f, false, 0f),
     };
     /** The weather being held, and none while it is the game's own. */
     private static int weather = -1;
+    /** When the next strike of a held thunderstorm falls. */
+    private static long nextStrikeNanos;
+    private static final Random strikes = new Random();
+    /** A held thunderstorm strikes this many seconds apart at least and at most, as the game's strongest thunder cloud does. */
+    private static final float STRIKES_APART_LEAST = 1.5f, STRIKES_APART_MOST = 6f;
+    /** And this far off, in tiles. */
+    private static final float STRIKES_NEAREST = 150f, STRIKES_FURTHEST = 1600f;
     /** Lying snow drifts from what is held by more than this before it is set again. */
     private static final float LYING_DRIFT = 0.05f;
     /** The game's snow strength at which the whole ground lies under snow. */
@@ -177,7 +193,7 @@ public final class DevKeys {
     static void poll() {
         if (!said) {
             said = true;
-            Log.info("development build: 0 clears out the zombies and pressed again puts some back round you, . goes to the next place and , to the one before, 9 puts the clock on three hours, Backspace holds the next weather of sunny, cloudy, stormy, blizzard, clear snowy day and foggy, ; gives a shotgun, any gun held never runs dry, [ gives a hunting rifle with the next of the three scopes on it, / gives a lit flashlight, ' makes you invincible, F7 takes the nearest vehicle");
+            Log.info("development build: 0 clears out the zombies and pressed again puts some back round you, . goes to the next place and , to the one before, 9 puts the clock on three hours, Backspace holds the next weather of sunny, cloudy, stormy, thunderstorm, blizzard, clear snowy day and foggy, ; gives a shotgun, any gun held never runs dry, [ gives a hunting rifle with the next of the three scopes on it, / gives a lit flashlight, ' makes you invincible, F7 takes the nearest vehicle");
         }
         // On a server every one of these would be a cheat against the other players.
         if (GameClient.client) {
@@ -243,6 +259,9 @@ public final class DevKeys {
             weather = weather + 1 < WEATHERS.length ? weather + 1 : -1;
             hold(weather < 0 ? null : WEATHERS[weather]);
         }
+        if (weather >= 0 && WEATHERS[weather].thunder() && !players.isEmpty()) {
+            strike(players.get(0));
+        }
         // The game melts and adds to lying snow on the hour, so it is set again when it has moved.
         if (weather >= 0 && Math.abs(ClimateManager.getInstance().getSnowFracNow() - WEATHERS[weather].lying()) > LYING_DRIFT) {
             lie(WEATHERS[weather].lying());
@@ -289,6 +308,25 @@ public final class DevKeys {
                 takeNearestVehicle(each);
             }
         }
+    }
+
+    /**
+     * The next strike of a held thunderstorm, once its time has come: somewhere round the player,
+     * as the game's own thunder cloud strikes, through the game's own thunder so its sound and
+     * its light come as they do in any storm. About one in four is thunder alone.
+     */
+    private static void strike(IsoPlayer player) {
+        long now = System.nanoTime();
+        if (now < nextStrikeNanos) {
+            return;
+        }
+        nextStrikeNanos = now + (long) ((STRIKES_APART_LEAST + strikes.nextFloat() * (STRIKES_APART_MOST - STRIKES_APART_LEAST)) * 1e9);
+        double way = strikes.nextDouble() * Math.PI * 2;
+        float off = STRIKES_NEAREST + (float) Math.pow(strikes.nextFloat(), 1.6) * (STRIKES_FURTHEST - STRIKES_NEAREST);
+        int x = (int) (player.getX() + Math.cos(way) * off), y = (int) (player.getY() + Math.sin(way) * off);
+        boolean seen = strikes.nextFloat() < 0.75f;
+        boolean lit = seen && !Core.getInstance().getOptionDisableLightningDuringStorms();
+        ClimateManager.getInstance().getThunderStorm().triggerThunderEvent(x, y, seen, lit, !seen || strikes.nextFloat() > 0.4f);
     }
 
     /** Holds the game's climate at a kind of weather, or with none gives it back to the game. */

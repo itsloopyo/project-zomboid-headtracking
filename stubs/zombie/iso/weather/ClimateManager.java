@@ -19,6 +19,7 @@ public final class ClimateManager {
     public ClimateFloat getClimateFloat(int id) { throw new UnsupportedOperationException("reference stub"); }
     public ClimateBool getClimateBool(int id) { throw new UnsupportedOperationException("reference stub"); }
     public void resetAdmin() { throw new UnsupportedOperationException("reference stub"); }
+    public ThunderStorm getThunderStorm() { throw new UnsupportedOperationException("reference stub"); }
     public static ClimateManager getInstance() { throw new UnsupportedOperationException("reference stub"); }
     public zombie.erosion.season.ErosionSeason getSeason() { throw new UnsupportedOperationException("reference stub"); }
     public float getCloudIntensity() { throw new UnsupportedOperationException("reference stub"); }
