@@ -96,6 +96,7 @@ public final class Tests {
         Checks.run("staticIntFieldIsRequiredAsDeclared", Tests::staticIntFieldIsRequiredAsDeclared);
         Checks.run("attackHoldsTheAimForAShortTail", Tests::attackHoldsTheAimForAShortTail);
         Checks.run("aFirearmsShotWaitsForTheAimToBear", Tests::aFirearmsShotWaitsForTheAimToBear);
+        Checks.run("aFirearmsShotWaitsForThePhysicsWorld", Tests::aFirearmsShotWaitsForThePhysicsWorld);
         Checks.run("keysHeldThroughTheLandingKeepTheirWalk", Tests::keysHeldThroughTheLandingKeepTheirWalk);
         Checks.run("theGroundLosesItsLightWithTheSun", Tests::theGroundLosesItsLightWithTheSun);
         Checks.run("theGamesOwnViewKeepsTheGamesEveningLight", Tests::theGamesOwnViewKeepsTheGamesEveningLight);
@@ -2246,32 +2247,34 @@ public final class Tests {
     }
 
     private static void attackHoldsTheAimForAShortTail() {
+        // The physics world updated once a frame, as at a hundred frames a second.
+        int updates = 0;
         long start = Long.MAX_VALUE - AimInput.TAIL_NANOS / 2, frame = 16_000_000L;
         AimInput aim = new AimInput();
         check(!aim.held(false, false, start), "nothing pressed is no aim");
         check(aim.held(true, false, start), "the game's own aim input is passed on");
         // What is in hand is not a firearm, and the game reads its attack button after its aim input.
         check(aim.held(false, true, start) && !aim.attack(true, false), "the attack button holds the aim");
-        aim.frame();
+        aim.frame(++updates);
         // The click is passed on over the frames after it, and the tail runs from the last of them.
         long passed = start;
         for (int i = 0; i <= AimInput.FRAMES_PRESSED; i++) {
             passed = start + (i + 1) * frame;
             check(aim.held(false, false, passed), "the aim stays held on the frames after a one frame click");
             aim.attack(false, false);
-            aim.frame();
+            aim.frame(++updates);
         }
         check(aim.held(false, false, passed + AimInput.TAIL_NANOS - 1), "and to the end of the tail, across the clock's wrap");
         check(!aim.held(false, false, passed + AimInput.TAIL_NANOS), "and no longer");
         aim = new AimInput();
         aim.held(false, true, start);
         aim.attack(true, false);
-        aim.frame();
+        aim.frame(++updates);
         aim.held(false, true, start + 10 * frame);
         aim.attack(true, false);
-        aim.frame();
+        aim.frame(++updates);
         aim.attack(true, false);
-        aim.frame();
+        aim.frame(++updates);
         aim.attack(true, false);
         check(aim.held(false, false, start + 10 * frame + AimInput.TAIL_NANOS - 1), "the tail runs from the last frame the button was down");
         aim.held(false, true, start);
@@ -2281,21 +2284,23 @@ public final class Tests {
     }
 
     private static void aFirearmsShotWaitsForTheAimToBear() {
+        // The physics world updated once a frame, as at a hundred frames a second.
+        int updates = 0;
         long now = 1_000L, frame = 16_000_000L;
         AimInput aim = new AimInput();
         // A click of one frame with nothing aimed.
         check(aim.held(false, true, now) && !aim.attack(true, true), "a click holds the aim and is not yet an attack");
-        aim.frame();
+        aim.frame(++updates);
         for (int i = 1; i < AimInput.FRAMES_TO_BEAR; i++) {
             now += frame;
             check(aim.held(false, false, now), "the aim stays held for a click the game has not been told of, frame " + i);
             check(!aim.attack(false, true), "and the game is not told of it, frame " + i);
-            aim.frame();
+            aim.frame(++updates);
         }
         for (int i = 0; i < AimInput.FRAMES_PRESSED; i++) {
             now += frame;
             check(aim.held(false, false, now) && aim.attack(false, true), "then the click is passed on, held down, frame " + i);
-            aim.frame();
+            aim.frame(++updates);
         }
         now += frame;
         check(aim.held(false, false, now), "the tail runs from the click's last frame");
@@ -2307,17 +2312,17 @@ public final class Tests {
         for (int i = 0; i < AimInput.FRAMES_TO_BEAR; i++) {
             aim.held(false, true, now);
             check(!aim.attack(true, true), "a held button waits as a click does, frame " + i);
-            aim.frame();
+            aim.frame(++updates);
         }
         for (int i = 0; i < 10; i++) {
             aim.held(false, true, now);
             check(aim.attack(true, true), "and is then down for as long as it is held, frame " + i);
-            aim.frame();
+            aim.frame(++updates);
         }
         aim.held(false, false, now);
-        aim.frame();
+        aim.frame(++updates);
         aim.held(false, false, now);
-        aim.frame();
+        aim.frame(++updates);
         aim.held(false, false, now);
         check(!aim.attack(false, true), "and up soon after it is let go");
 
@@ -2325,7 +2330,7 @@ public final class Tests {
         aim = new AimInput();
         for (int i = 0; i < AimInput.FRAMES_TO_BEAR; i++) {
             aim.held(true, false, now);
-            aim.frame();
+            aim.frame(++updates);
         }
         aim.held(true, true, now);
         check(aim.attack(true, true), "with the aim long held a click is an attack at once");
@@ -2333,20 +2338,20 @@ public final class Tests {
         // Not a firearm: the game takes the attack on the frame after the aim went up, and a click of one frame is still passed on.
         aim = new AimInput();
         check(aim.held(false, true, now) && !aim.attack(true, false), "what is swung is not an attack on the frame of the click, when the game would not take it");
-        aim.frame();
+        aim.frame(++updates);
         for (int i = 0; i < AimInput.FRAMES_PRESSED; i++) {
             check(aim.held(false, false, now + frame) && aim.attack(false, false), "a click of one frame is passed on the frame after, held down, frame " + i);
-            aim.frame();
+            aim.frame(++updates);
         }
         check(!aim.attack(false, false), "and is then over");
         aim = new AimInput();
         aim.held(true, false, now);
-        aim.frame();
+        aim.frame(++updates);
         aim.held(true, true, now);
         check(aim.attack(true, false), "with the aim already held a click of what is swung is an attack at once");
-        aim.frame();
-        aim.frame();
-        aim.frame();
+        aim.frame(++updates);
+        aim.frame(++updates);
+        aim.frame(++updates);
         aim.held(true, true, now);
         check(aim.attack(true, false), "and the button held down goes on being one");
 
@@ -2354,10 +2359,58 @@ public final class Tests {
         aim = new AimInput();
         aim.held(false, true, now);
         for (int i = 0; i < 20; i++) {
-            aim.frame();
+            aim.frame(++updates);
             aim.held(false, false, now);
         }
         check(!aim.held(false, false, now + AimInput.TAIL_NANOS + frame), "a click the game never asked after is dropped");
+    }
+
+    private static void aFirearmsShotWaitsForThePhysicsWorld() {
+        long now = 1_000L;
+        AimInput aim = new AimInput();
+        // Two hundred frames a second: the physics world updates on every other frame.
+        int frames = 0;
+        check(aim.held(false, true, now) && !aim.attack(true, true), "a click holds the aim and is not yet an attack");
+        aim.frame(++frames / 2);
+        int waited = 1;
+        while (!aim.attack(false, true)) {
+            check(aim.held(false, false, now), "the aim stays held while the shot waits, frame " + waited);
+            aim.frame(++frames / 2);
+            waited++;
+        }
+        check(waited > AimInput.FRAMES_TO_BEAR, "the shot waited past FRAMES_TO_BEAR frames, " + waited);
+        check(frames / 2 >= AimInput.UPDATES_TO_BEAR, "for UPDATES_TO_BEAR updates of the physics world, " + frames / 2);
+        for (int i = 1; i < AimInput.FRAMES_PRESSED; i++) {
+            aim.frame(++frames / 2);
+            check(aim.held(false, false, now) && aim.attack(false, true), "and the click is then held down, frame " + i);
+        }
+
+        // The count the game keeps runs on from wherever it stood when the aim went up.
+        aim = new AimInput();
+        aim.frame(1000);
+        aim.held(false, true, now);
+        for (int i = 0; i < AimInput.FRAMES_TO_BEAR; i++) {
+            aim.frame(1001);
+            aim.held(false, true, now);
+        }
+        check(!aim.attack(true, true), "FRAMES_TO_BEAR frames with one update of the physics world are not enough");
+        aim.frame(1001 + AimInput.UPDATES_TO_BEAR);
+        aim.held(false, true, now);
+        check(aim.attack(true, true), "and once the updates are in, the shot goes");
+
+        // Paused: the physics world is not updated at all.
+        aim = new AimInput();
+        aim.frame(5);
+        aim.held(false, true, now);
+        aim.attack(true, true);
+        for (int i = 0; i <= AimInput.FRAMES_OWED; i++) {
+            aim.frame(5);
+            aim.held(false, false, now);
+            check(!aim.attack(false, true), "a click while paused is not an attack, frame " + i);
+        }
+        check(!aim.held(false, false, now + AimInput.TAIL_NANOS + 1), "and is dropped, the aim down after its tail");
+        aim.frame(50);
+        check(!aim.attack(false, true), "so it does not go off once the game runs again");
     }
 
     private static void fieldOfViewEasesToTheAimedZoomAndBack() {

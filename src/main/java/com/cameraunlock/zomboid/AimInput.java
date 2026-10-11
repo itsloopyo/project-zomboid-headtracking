@@ -9,10 +9,12 @@ package com.cameraunlock.zomboid;
  * A firearm's shot is found a target from what the game worked out on the frames before
  * it, while the aim was held: it takes up what stands under the reticle on one frame, has
  * its shape on the next, and only then finds it along the shot. A shot taken on the frame
- * the aim went up finds nothing and passes through whatever it was pointed at. So with a
- * firearm the game is not told of the attack button until it has had the aim for
- * FRAMES_TO_BEAR frames, and a click that was let go before then is still passed on, held
- * down for the FRAMES_PRESSED frames the game needs to take it.
+ * the aim went up finds nothing and passes through whatever it was pointed at. Those steps
+ * are the game's physics world's, which it steps a hundred times a second whatever the frame
+ * rate, and a shot taken after only two of them missed one time in ten. So with a firearm
+ * the game is not told of the attack button until it has had the aim for FRAMES_TO_BEAR
+ * frames and UPDATES_TO_BEAR updates of its physics world, and a click that was let go before
+ * then is still passed on, held down for the FRAMES_PRESSED frames the game needs to take it.
  *
  * What is swung needs no target found first, only the aim held on the frame before: the
  * game is told of the attack button from FRAMES_TO_SWING frames after the aim went up, and
@@ -21,21 +23,30 @@ package com.cameraunlock.zomboid;
  */
 final class AimInput {
     static final long TAIL_NANOS = 250_000_000L;
-    static final int FRAMES_TO_BEAR = 3, FRAMES_TO_SWING = 1, FRAMES_PRESSED = 2;
+    static final int FRAMES_TO_BEAR = 3, UPDATES_TO_BEAR = 3, FRAMES_TO_SWING = 1, FRAMES_PRESSED = 2;
+    /** Past this a click is dropped even with the physics world short of its updates: it is not updated while the game is paused. */
+    static final int FRAMES_OWED = 30;
 
     private boolean tailStarted;
     private long tailEnds;
     private boolean aimed, wasDown, owed;
-    private int aimedFrames, pressedFrames;
+    private int aimedFrames, aimedUpdates, borneFrames, pressedFrames, physicsUpdates;
 
-    /** Once a frame of the game's logic. */
-    void frame() {
+    /**
+     * Once a frame of the game's logic.
+     *
+     * @param physicsUpdates how many times the game's physics world has been updated, a count that only goes up
+     */
+    void frame(int physicsUpdates) {
         aimedFrames = aimed ? aimedFrames + 1 : 0;
+        aimedUpdates = aimed ? aimedUpdates + physicsUpdates - this.physicsUpdates : 0;
+        this.physicsUpdates = physicsUpdates;
+        borneFrames = borne() ? borneFrames + 1 : 0;
         if (pressedFrames > 0) {
             pressedFrames++;
         }
         // A game that never asked after its attack button in all that time is not taking attacks.
-        if (aimedFrames > FRAMES_TO_BEAR + FRAMES_PRESSED + 1) {
+        if (borneFrames > FRAMES_PRESSED + 1 || aimedFrames > FRAMES_OWED) {
             owed = false;
             pressedFrames = 0;
         }
@@ -69,7 +80,7 @@ final class AimInput {
      * @param firearm    whether what is in hand is a firearm
      */
     boolean attack(boolean attackDown, boolean firearm) {
-        if (aimedFrames < (firearm ? FRAMES_TO_BEAR : FRAMES_TO_SWING)) {
+        if (firearm ? !borne() : aimedFrames < FRAMES_TO_SWING) {
             return false;
         }
         if (owed) {
@@ -85,6 +96,11 @@ final class AimInput {
         return attackDown;
     }
 
+    /** Whether the game has had the aim long enough to find what a firearm's shot is on. */
+    private boolean borne() {
+        return aimedFrames >= FRAMES_TO_BEAR && aimedUpdates >= UPDATES_TO_BEAR;
+    }
+
     /** Forgets a click and a tail, so neither holds the aim once the filter is back on. */
     void reset() {
         tailStarted = false;
@@ -92,6 +108,8 @@ final class AimInput {
         wasDown = false;
         owed = false;
         aimedFrames = 0;
+        aimedUpdates = 0;
+        borneFrames = 0;
         pressedFrames = 0;
     }
 }

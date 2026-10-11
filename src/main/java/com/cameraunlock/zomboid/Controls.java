@@ -14,6 +14,7 @@ import zombie.characters.animals.IsoAnimal;
 import zombie.core.Core;
 import zombie.core.physics.BallisticsController;
 import zombie.core.physics.RagdollBodyPart;
+import zombie.core.physics.WorldSimulation;
 import zombie.inventory.types.HandWeapon;
 import zombie.iso.IsoUtils;
 import zombie.iso.Vector2;
@@ -159,7 +160,7 @@ public final class Controls {
 
     /** Once a frame of the game's logic. */
     void frame() {
-        aim.frame();
+        aim.frame(WorldSimulation.instance.getBulletFrameNo());
     }
 
     /**
