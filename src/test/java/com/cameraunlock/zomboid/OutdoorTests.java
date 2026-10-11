@@ -35,6 +35,8 @@ final class OutdoorTests {
         Checks.run("aGeneratorShowsItsSocketsWhereItsSpriteDoes", OutdoorTests::aGeneratorShowsItsSocketsWhereItsSpriteDoes);
         Checks.run("aFireplacesSurroundHasItsMantelAtThePillarsHeight", OutdoorTests::aFireplacesSurroundHasItsMantelAtThePillarsHeight);
         Checks.run("aStandingPipesRunAlongTheFloorIntoItsSquare", OutdoorTests::aStandingPipesRunAlongTheFloorIntoItsSquare);
+        Checks.run("aCashMachineFacesTheWayItsScreenIsPainted", OutdoorTests::aCashMachineFacesTheWayItsScreenIsPainted);
+        Checks.run("aCoopIsStoodOnceByItsSouthEastQuarter", OutdoorTests::aCoopIsStoodOnceByItsSouthEastQuarter);
     }
 
     /** A piece, and its model one the jar has: Models.get throws for a name it has not. */
@@ -267,7 +269,30 @@ final class OutdoorTests {
         Checks.check(unnamed("street_roadsigns_01_0") == null && unnamed("street_roadsigns_01_32") == null, "the boards on two posts and the rest area's signs are not warning signs");
     }
 
-    private static void aStandingPipesRunAlongTheFloorIntoItsSquare() {
+    private static void aCoopIsStoodOnceByItsSouthEastQuarter() {
+        Outdoors.Piece stander = Outdoors.of("location_farm_accesories_01_42", null, null, Outdoors.NONE, 1, 1, 0);
+        holds(stander, "a coop's south-east quarter stands the coop");
+        Checks.check(stander != null && !stander.follows && stander.a == 0f && stander.b == 0f, "it stands it at its square's north-west corner");
+        // Each other piece follows it from where it is: the north-east quarter from the square north of it, and so on.
+        int[][] followers = {{43, 0, 1}, {41, 1, 1}, {49, 1, 1}, {48, 1, 0}, {50, 1, 0}, {44, 1, 0}, {46, 1, 0}, {45, 0, 0}, {47, 0, 0}};
+        for (int[] f : followers) {
+            Outdoors.Piece piece = Outdoors.of("location_farm_accesories_01_" + f[0], null, null, Outdoors.NONE, 1, 1, 0);
+            Checks.check(piece != null && piece.follows && piece.model == null && "location_farm_accesories_01_42".equals(piece.partner)
+                    && piece.partnerX == f[1] && piece.partnerY == f[2], "location_farm_accesories_01_" + f[0] + " follows the quarter that stands the coop");
+        }
+    }
+
+        private static void aCashMachineFacesTheWayItsScreenIsPainted() {
+        Outdoors.Piece east = Outdoors.of("location_business_bank_01_64", null, null, Outdoors.NONE, 1, 1, 0);
+        Outdoors.Piece south = Outdoors.of("location_business_bank_01_65", null, null, Outdoors.NONE, 1, 1, 0);
+        holds(east, "location_business_bank_01_64 is a cash machine");
+        holds(south, "location_business_bank_01_65 is a cash machine");
+        Checks.check(east != null && east.turns == Outdoors.EAST && south != null && south.turns == Outdoors.SOUTH, "a cash machine faces its screen's way");
+        // Its back is at the wall behind it: nearer the west edge facing east and the north edge facing south.
+        Checks.check(east != null && east.a < 0.5f && south != null && south.b < 0.5f, "a cash machine stands at the wall behind it");
+    }
+
+        private static void aStandingPipesRunAlongTheFloorIntoItsSquare() {
         for (int place = 236; place <= 263; place++) {
             if (place > 247 && place < 260) {
                 continue;

@@ -1875,6 +1875,75 @@ def pipe_upright(name, run):
     return model
 
 
+# How high a cash machine's ledge with its keys is, in metres: its face leans back from there.
+LEDGE = 1.15
+
+
+def atm():
+    """A cash machine standing against a wall at +Y: a painted cabinet whose upper half leans back from the ledge with its
+    keys, the screen in the leaning face and a sign over it, and the cash slot below the ledge."""
+    model = Model("atm")
+    case = bmesh.new()
+    outline_along_x(case, [(-0.3, 0.0), (0.3, 0.0), (0.3, 1.78), (-0.02, 1.78), (-0.3, LEDGE)], -0.27, 0.27)
+    model.hard(case, "paint", bevel=0.012, segments=2)
+    lean = math.atan2(1.78 - LEDGE, 0.28)
+    # A plate laid on the leaning face: across X, from up to up + tall along the face, standing off it by off.
+    def on_face(bm, x0, x1, up, tall, off):
+        y0, z0 = -0.3 + up * math.cos(lean), LEDGE + up * math.sin(lean)
+        y1, z1 = -0.3 + (up + tall) * math.cos(lean), LEDGE + (up + tall) * math.sin(lean)
+        ny, nz = -math.sin(lean) * off, math.cos(lean) * off
+        outline_along_x(bm, [(y0, z0), (y1, z1), (y1 + ny, z1 + nz), (y0 + ny, z0 + nz)], x0, x1)
+    dark, screen = bmesh.new(), bmesh.new()
+    cuboid(dark, -0.27, 0.27, -0.32, -0.3, 0.0, 0.06)
+    cuboid(dark, -0.2, 0.2, -0.38, -0.3, LEDGE - 0.04, LEDGE)
+    on_face(dark, -0.2, 0.2, 0.48, 0.16, 0.012)
+    on_face(screen, -0.13, 0.13, 0.14, 0.26, 0.008)
+    model.hard(dark, "plastic", bevel=0.004, segments=1)
+    model.plain(screen, "screen")
+    keys = bmesh.new()
+    cuboid(keys, -0.12, 0.12, -0.37, -0.33, LEDGE, LEDGE + 0.012)
+    cuboid(keys, -0.1, 0.1, -0.312, -0.3, 0.92, 0.94)
+    model.hard(keys, "steel", bevel=0.002, segments=1)
+    return model
+
+
+def coop():
+    """A chicken coop on four squares: a boarded shed on blocks, its ridge along Y and toward its -X side, and its gable end at
+    -Y with a doorway and a plank door in it, under a roof of corrugated sheet that overhangs all round."""
+    model = Model("coop")
+    half_x, half_y, foot, eaves, ridge, ridge_x = 0.82, 0.95, 0.12, 1.25, 1.85, -0.45
+    blocks = bmesh.new()
+    for x in (-half_x + 0.08, half_x - 0.08):
+        for y in (-half_y + 0.08, 0.0, half_y - 0.08):
+            cuboid(blocks, x - 0.07, x + 0.07, y - 0.07, y + 0.07, 0.0, foot)
+    model.hard(blocks, "dark_wood", bevel=0.01, segments=1)
+    boards = bmesh.new()
+    cuboid(boards, -half_x, half_x, -half_y, half_y, foot, foot + 0.04)
+    for side in (-1, 1):
+        cuboid(boards, side * half_x - 0.03, side * half_x + 0.03, -half_y, half_y, foot, eaves)
+    cuboid(boards, -half_x, half_x, half_y - 0.03, half_y + 0.03, foot, eaves)
+    outline_along_y(boards, [(-half_x, eaves), (half_x, eaves), (ridge_x, ridge)], half_y - 0.03, half_y + 0.03)
+    # The front: boards either side of the doorway and over it, and the gable over them.
+    door_x0, door_x1, door_top = -0.15, 0.35, 0.95
+    cuboid(boards, -half_x, door_x0, -half_y - 0.03, -half_y + 0.03, foot, eaves)
+    cuboid(boards, door_x1, half_x, -half_y - 0.03, -half_y + 0.03, foot, eaves)
+    cuboid(boards, door_x0, door_x1, -half_y - 0.03, -half_y + 0.03, door_top, eaves)
+    outline_along_y(boards, [(-half_x, eaves), (half_x, eaves), (ridge_x, ridge)], -half_y - 0.03, -half_y + 0.03)
+    model.hard(boards, "paint", bevel=0.006, segments=1)
+    door = bmesh.new()
+    cuboid(door, door_x0 + 0.01, door_x1 - 0.01, -half_y - 0.05, -half_y - 0.03, foot + 0.02, door_top - 0.02)
+    model.hard(door, "dark_wood", bevel=0.006, segments=1)
+    roof = bmesh.new()
+    over = 0.12
+    for side in (-1, 1):
+        run = half_x - side * ridge_x
+        slope = [(side * (half_x + over), eaves - over * (ridge - eaves) / run), (ridge_x, ridge + 0.03), (ridge_x, ridge + 0.07),
+                 (side * (half_x + over), eaves - over * (ridge - eaves) / run + 0.04)]
+        outline_along_y(roof, slope, -half_y - over, half_y + over)
+    model.hard(roof, "metal", bevel=0.004, segments=1)
+    return model
+
+
 def metal_rack():
     """Steel racking two squares long: four slotted uprights and three decks."""
     model = Model("metal_rack")
@@ -10503,7 +10572,7 @@ def every():
               framed("frame_tall", 0.6, 0.9), framed("frame_square", 0.7, 0.7), framed("frame_wide", 0.9, 0.6), canvas(), wall_clock(),
               table("table_2", 1.9, 0.92), table("table_3", 2.9, 0.92), table("table_4", 1.9, 1.9, leg=0.08), table("narrow_table", 0.92, 0.5),
               table("low_table", 0.9, 0.5, top=0.42, leg=0.05), table("low_table_2", 1.5, 0.6, top=0.42, leg=0.05), round_table(), office_desk(),
-              cabinet("shop_counter", 0.62, 0.90, True, panelled=True), low_shelves(), wall_shelf("wall_shelf", 1), wall_shelf("wall_shelves", 2), shop_wall_shelves("shop_wall_shelves", "wood"), shop_wall_shelves("zippee_wall_shelves", "vinyl"), hood_dryer(), car_wash_brush(), car_wash_curtain(), bar_back(), sewer_pipes("sewer_pipes_bend", 0.46, True), sewer_pipes("sewer_pipes", 0.25, False), clothes_wall_rails(), generator(), marker_ball(), hospital_curtain("curtain_rail", 0.0, 0.0, 0), hospital_curtain("curtain_drawn", -0.49, 0.49, 10), hospital_curtain("curtain_gathered", 0.12, 0.49, 6), mantel_pillar(), mantel_lintel(), pipe_upright("pipe_upright", None), pipe_upright("pipe_upright_run", "long"), pipe_upright("pipe_upright_stub", "stub"),
+              cabinet("shop_counter", 0.62, 0.90, True, panelled=True), low_shelves(), wall_shelf("wall_shelf", 1), wall_shelf("wall_shelves", 2), shop_wall_shelves("shop_wall_shelves", "wood"), shop_wall_shelves("zippee_wall_shelves", "vinyl"), hood_dryer(), car_wash_brush(), car_wash_curtain(), bar_back(), sewer_pipes("sewer_pipes_bend", 0.46, True), sewer_pipes("sewer_pipes", 0.25, False), clothes_wall_rails(), generator(), marker_ball(), hospital_curtain("curtain_rail", 0.0, 0.0, 0), hospital_curtain("curtain_drawn", -0.49, 0.49, 10), hospital_curtain("curtain_gathered", 0.12, 0.49, 6), mantel_pillar(), mantel_lintel(), pipe_upright("pipe_upright", None), pipe_upright("pipe_upright_run", "long"), pipe_upright("pipe_upright_stub", "stub"), atm(), coop(),
               metal_rack(), store_shelves(), plastic_chair(), folding_chair(), booth(), stool(), vending_machine(), arcade_machine(),
               radio(), microwave(), dishwasher(), chest_freezer(), register(), shower("shower", True), shower("shower_head", False),
               kettle_barbecue(), gas_barbecue(), cooler("mini_fridge", 0.5, 0.82, 1), cooler("large_fridge", 1.7, 1.95, 2),

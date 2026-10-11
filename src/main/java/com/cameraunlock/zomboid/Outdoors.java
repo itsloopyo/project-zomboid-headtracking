@@ -143,7 +143,7 @@ final class Outdoors {
             GAS2GO = "location_shop_gas2go_01_", FOSSOIL = "location_shop_fossoil_01_",
             ROAD_SIGNS = "street_roadsigns_01_", BURNT_FENCES = "fencing_burnt_01_", PYLONS = "electricity_pylon_", MASTS = "radio_tower_",
             STREET = "street_decoration_01_", FIREPLACES = "fixtures_fireplaces_01_", MACHINERY = "location_business_machinery_01_",
-            SEWER = "location_sewer_01_";
+            SEWER = "location_sewer_01_", BANK = "location_business_bank_01_", FARM = "location_farm_accesories_01_";
     private static final int PAINT = 1 << Models.PAINT;
     /** How far from the edge of its square the middle of a pipe along the foot of a wall is. */
     private static final float PIPE_EDGE = 0.12f;
@@ -168,6 +168,24 @@ final class Outdoors {
      * the sheet tied over one hangs over its rim, on the side of it nearest the game's view.
      */
     private static final float RAIN_DYE = 0.31f, SHEET_AT = 0.75f, SHEET_DYE = 0.33f;
+    /** How high a coop's front wall is painted, in levels, over a place a little in from its square's south edge. */
+    private static final float COOP_DYE = 0.25f, COOP_DYE_B = 0.9f;
+
+    /** A coop's piece by its sprite: the south-east quarter stands it all while the north-east one is there, the rest follow it. */
+    private static Piece coop(String name) {
+        String stander = FARM + 42;
+        return switch (Sheets.place(name, FARM)) {
+            case 42 -> new Piece("coop", SOUTH).at(0f, 0f).pairedWith(FARM + 43, 0, -1).dye(PAINT, 0.5f, COOP_DYE_B, COOP_DYE);
+            case 43 -> following(new Piece(null, SOUTH).pairedWith(stander, 0, 1));
+            case 41, 49 -> following(new Piece(null, SOUTH).pairedWith(stander, 1, 1));
+            case 48, 50, 44, 46 -> following(new Piece(null, SOUTH).pairedWith(stander, 1, 0));
+            case 45, 47 -> following(new Piece(null, SOUTH).pairedWith(stander, 0, 0));
+            default -> null;
+        };
+    }
+
+    /** Where on its square a cash machine's middle is, out from its wall and along it, and how high its front is painted, in levels. */
+    private static final float ATM_BACK = 0.31f, ATM_ALONG = 0.44f, ATM_DYE = 0.25f;
     /** How high a fireplace surround's pillar and its mantel are painted in their stone and on their top, in levels, and
      * how high the mantel's foot is, in metres: the model is lowered onto the floor when it is made. */
     private static final float MANTEL_STONE_DYE = 0.25f, MANTEL_TOP_DYE = 0.54f, MANTEL_BODY_DYE = 0.33f, MANTEL_SHELF_DYE = 0.45f,
@@ -312,6 +330,22 @@ final class Outdoors {
                 }
                 case 36 -> {
                     return new Piece("sewer_pipes", 3).at(0.48f, 0.25f).dye(1 << Models.METAL, 0.6f, 0.25f, SEWER_PIPE_DYE);
+                }
+                default -> { }
+            }
+            // A chicken coop on four squares: the south-east one stands the whole coop, its middle at that square's north-west
+            // corner, and the other three and the doors the game lays over the south two stand nothing.
+            Piece coop = coop(name);
+            if (coop != null) {
+                return coop;
+            }
+            // A bank's cash machine against the wall behind it, its screen to the east and to the south; coloured from its front.
+            switch (Sheets.place(name, BANK)) {
+                case 64 -> {
+                    return new Piece("atm", EAST).at(ATM_BACK, ATM_ALONG).dye(PAINT, 0.6f, ATM_ALONG, ATM_DYE);
+                }
+                case 65 -> {
+                    return new Piece("atm", SOUTH).at(ATM_ALONG, ATM_BACK).dye(PAINT, ATM_ALONG, 0.6f, ATM_DYE);
                 }
                 default -> { }
             }
