@@ -5150,6 +5150,14 @@ final class WorldScene {
                 return;
             }
 
+            // A big pylon's wire across its square, as high over the land at each end as the wire is over its level.
+            float[] span = Own.furniture() ? PylonWires.of(sprite.getName()) : null;
+            if (span != null) {
+                float x0 = x + span[0], y0 = y + span[1], x1 = x + span[2], y1 = y + span[3], up = (z + span[4]) * ViewCamera.LEVEL_HEIGHT;
+                wireBuilder.cable(x0, y0, landAt(x0, y0) + up, 0f, x1, y1, landAt(x1, y1) + up, 0f, 0f);
+                return;
+            }
+
             // Overhead wires. The game hangs them as sprites on squares of air two floors up, each
             // the lengths of wire that cross its square, painted as its view sees them.
             if (z > 0 && hangsInAir && kind.wire && wireBuilder.addWires(texture, sprite.getName(), x, y, z)) {
