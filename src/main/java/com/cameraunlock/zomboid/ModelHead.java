@@ -7,7 +7,6 @@ import org.lwjgl.util.vector.Vector3f;
 import zombie.characters.IsoPlayer;
 import zombie.core.skinnedmodel.HelperFunctions;
 import zombie.core.skinnedmodel.animation.AnimationPlayer;
-import zombie.core.skinnedmodel.animation.AnimatorsBoneTransform;
 import zombie.core.skinnedmodel.model.SkinningBone;
 import zombie.core.skinnedmodel.model.SkinningData;
 
@@ -48,9 +47,9 @@ public final class ModelHead {
     private static final float MOST_YAW = (float) Math.toRadians(80), MOST_UP = (float) Math.toRadians(50),
             MOST_DOWN = (float) Math.toRadians(45), MOST_ROLL = (float) Math.toRadians(35);
 
-    private final Matrix4f inParent = new Matrix4f(), inModel = new Matrix4f();
-    private final Vector3f joint = new Vector3f(), place = new Vector3f(), size = new Vector3f();
-    private final Quaternion parentTurn = new Quaternion(), was = new Quaternion();
+    private final BoneTurn boneTurn = new BoneTurn();
+    private final Matrix4f inModel = new Matrix4f();
+    private final Vector3f joint = new Vector3f();
     private final Vector3f neckPlace = new Vector3f(), neckScale = new Vector3f(), topPlace = new Vector3f(),
             topScale = new Vector3f();
     private final Quaternion neckTurn = new Quaternion(), topTurn = new Quaternion();
@@ -169,49 +168,13 @@ public final class ModelHead {
         }
     }
 
-    /**
-     * Turns one bone about its own joint, in the model's axes: yaw about straight up, then
-     * pitch about the turned side, then roll about the way the head then faces.
-     *
-     * The bone's place and size in its parent stay. Its turn in its parent takes the turn in
-     * the model's axes carried into the parent's: with p the parent's turn in the model, t the
-     * turn and r the bone's turn in its parent, the new turn is p undone, then t, then p, on r.
-     */
+    /** Turns one bone about its own joint, in the model's axes: yaw about straight up, then pitch about the turned side, then roll about the way the head then faces. */
     private void turn(AnimationPlayer animation, SkinningBone bone, float yaw, float pitch, float roll) {
-        animation.getBoneModelTransform(bone.parent.index, inParent);
-        // A turn is read out of a matrix that has no size in it: the parent's is taken out first.
-        float scale = (float) Math.sqrt(inParent.m00 * inParent.m00 + inParent.m01 * inParent.m01 + inParent.m02 * inParent.m02);
-        if (!(scale > 0f)) {
-            return;
-        }
-        inParent.m00 /= scale;
-        inParent.m01 /= scale;
-        inParent.m02 /= scale;
-        inParent.m10 /= scale;
-        inParent.m11 /= scale;
-        inParent.m12 /= scale;
-        inParent.m20 /= scale;
-        inParent.m21 /= scale;
-        inParent.m22 /= scale;
-        Quaternion.setFromMatrix(inParent, parentTurn);
-        float px = parentTurn.x, py = parentTurn.y, pz = parentTurn.z, pw = parentTurn.w;
         float sy = (float) Math.sin(yaw / 2f), cy = (float) Math.cos(yaw / 2f);
         float sx = (float) Math.sin(pitch / 2f), cx = (float) Math.cos(pitch / 2f);
         // The tracker's roll is positive tilting to the left, which about the model's forward axis is a negative turn.
         float sz = (float) Math.sin(-roll / 2f), cz = (float) Math.cos(roll / 2f);
         float w = cy * cx, x = cy * sx, y = sy * cx, z = -sy * sx;
-        float tx = cz * x + y * sz, ty = cz * y - x * sz, tz = w * sz + cz * z, tw = w * cz - z * sz;
-        // p undone, then t.
-        float ax = pw * tx - px * tw - py * tz + pz * ty, ay = pw * ty + px * tz - py * tw - pz * tx;
-        float az = pw * tz - px * ty + py * tx - pz * tw, aw = pw * tw + px * tx + py * ty + pz * tz;
-        // Then p.
-        float bx = aw * px + ax * pw + ay * pz - az * py, by = aw * py - ax * pz + ay * pw + az * px;
-        float bz = aw * pz + ax * py - ay * px + az * pw, bw = aw * pw - ax * px - ay * py - az * pz;
-        AnimatorsBoneTransform kept = animation.getBoneTransformAt(bone.index);
-        kept.getPRS(place, was, size);
-        float rx = was.x, ry = was.y, rz = was.z, rw = was.w;
-        was.set(bw * rx + bx * rw + by * rz - bz * ry, bw * ry - bx * rz + by * rw + bz * rx,
-                bw * rz + bx * ry - by * rx + bz * rw, bw * rw - bx * rx - by * ry - bz * rz);
-        kept.set(place, was, size);
+        boneTurn.turn(animation, bone, cz * x + y * sz, cz * y - x * sz, w * sz + cz * z, w * cz - z * sz);
     }
 }
