@@ -313,7 +313,7 @@ public final class Controls {
         if (part != HitPart.NONE) {
             HitImpulse.aimed(target.getID(), aim, hitPart, part);
             if (target instanceof IsoZombie && view.player().getPrimaryHandItem() instanceof HandWeapon weapon && weapon.getAmmoType() != null) {
-                HitFlinch.hit(target, part, aim, hitPart, standsUp, PhysicsHitReactionScript.getImpulse(RagdollBodyPart.values()[part], weapon.getAmmoType()));
+                HitFlinch.hit(target, part, aim, hitPart, standsUp, PhysicsHitReactionScript.getImpulse(RagdollBodyPart.BODYPART_SPINE, weapon.getAmmoType()));
             }
         }
         if (FirstPerson.TRACE) {
