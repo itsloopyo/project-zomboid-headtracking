@@ -6,6 +6,7 @@ final class FarmTests {
 
     static void run() {
         Checks.run("aBaleOfHayLiesTheWayItsTwineRuns", FarmTests::aBaleOfHayLiesTheWayItsTwineRuns);
+        Checks.run("wheatTheGameMarksForNothingIsWheat", FarmTests::wheatTheGameMarksForNothingIsWheat);
         Checks.run("aBalePaintedOnOthersStandsOnThem", FarmTests::aBalePaintedOnOthersStandsOnThem);
         Checks.run("aLayerOfLogsLiesOnTheLayerUnderIt", FarmTests::aLayerOfLogsLiesOnTheLayerUnderIt);
         Checks.run("aLoadOfLogsFillsItsSixSquares", FarmTests::aLoadOfLogsFillsItsSixSquares);
@@ -30,6 +31,14 @@ final class FarmTests {
         float[] out = new float[2];
         Models.turn(piece.turns, 0f, 1f, out);
         return out[0] == 0f ? 0 : 1;
+    }
+
+    private static void wheatTheGameMarksForNothingIsWheat() {
+        for (int place = 3; place <= 5; place++) {
+            Checks.check(Farm.wheat("vegetation_farm_01_" + place), "vegetation_farm_01_" + place + " is a square of wheat");
+        }
+        Checks.check(!Farm.wheat("vegetation_farm_01_0") && !Farm.wheat("vegetation_farm_01_6") && !Farm.wheat("vegetation_farm_02_3"),
+                "the wheat the game marks as growth, and the rest of the sheet, are not this");
     }
 
     private static void aBaleOfHayLiesTheWayItsTwineRuns() {

@@ -751,7 +751,8 @@ final class WorldScene {
             natural = name != null && name.startsWith("blends_natural");
             carpet = name != null && name.startsWith("floors_interior_carpet");
             tiled = name != null && name.startsWith("floors_") && name.contains("tile");
-            grows = properties.has(IsoFlagType.vegitation) || properties.has(IsoFlagType.canBeRemoved) || properties.has("MoveWithWind");
+            grows = properties.has(IsoFlagType.vegitation) || properties.has(IsoFlagType.canBeRemoved) || properties.has("MoveWithWind")
+                    || Farm.wheat(name);
             onTop = properties.has("IsTableTop");
             holds = properties.get("container") != null;
             rail = Rails.of(name);

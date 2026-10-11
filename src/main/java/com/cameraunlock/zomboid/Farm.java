@@ -17,6 +17,15 @@ final class Farm {
             CRAFTED = "crafted_02_", FARMYARD = "location_farm_accesories_01_", DEBRIS = "d_generic_1_", MALL = "location_shop_mall_01_";
     private static final int CLOTH = 1 << Models.CLOTH, WOOD = 1 << Models.WOOD, DARK_WOOD = 1 << Models.DARK_WOOD, PAINT = 1 << Models.PAINT,
             PLASTIC = 1 << Models.PLASTIC, VINYL = 1 << Models.VINYL, CERAMIC = 1 << Models.CERAMIC, ENAMEL = 1 << Models.ENAMEL;
+    /**
+     * Whether a sprite is a square of standing wheat the game gives no property at all, which it
+     * paints as it paints the wheat it marks as growth (0 to 2 of the sheet) and lays out as fields.
+     */
+    static boolean wheat(String name) {
+        int place = Sheets.place(name, HAY);
+        return place >= 3 && place <= 5;
+    }
+
     /** How high a bale of hay is, in levels: the model's 0.41 m. A bale the game paints on others is raised by as many. */
     static final float BALE = 0.41f / ViewCamera.LEVEL_HEIGHT;
     /** Where on its sprite a bale gives the colour of its hay, in levels: one bale, and two. */
