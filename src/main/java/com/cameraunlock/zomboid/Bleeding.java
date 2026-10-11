@@ -1,6 +1,8 @@
 package com.cameraunlock.zomboid;
 
 import java.util.ArrayList;
+import java.util.IdentityHashMap;
+import java.util.List;
 import java.util.Iterator;
 import java.util.Locale;
 import java.util.Map;
@@ -40,7 +42,7 @@ final class Bleeding {
     /** The game's floor blood pictures: eight small, eight medium, four large. */
     private static final int SMALL = 0, MEDIUM = 8, LARGE = 16;
 
-    private record Drop(IsoChunk chunk, IsoFloorBloodSplat splat, double born) {}
+    private record Drop(IsoChunk chunk, IsoFloorBloodSplat splat, double born, int level) {}
 
     /** Where each cut zombie last dropped blood. */
     private static final Map<IsoZombie, float[]> lastDrop = new WeakHashMap<>();
@@ -112,6 +114,13 @@ final class Bleeding {
                 }
             }
         }
+        synchronized (trail) {
+            age(now);
+        }
+    }
+
+    /** Ages the trail and takes up what has gone. Under the trail's lock. */
+    private static void age(double now) {
         // Aged by the game hour: each step dries the trail by as much as the game's blood dries in hours, which is when both views draw it again.
         if (FirstPerson.TRACE && !trail.isEmpty() && System.nanoTime() - said > 1_000_000_000L) {
             said = System.nanoTime();
@@ -135,7 +144,7 @@ final class Bleeding {
             float worldAge = (float) (drop.born - GAME_DRIES * Math.min(1.0, age / TRAIL_DRIES));
             if (Math.floor(now - worldAge) != Math.floor(now - drop.splat.worldAge)) {
                 drop.splat.worldAge = worldAge;
-                drop.chunk.invalidateRenderChunkLevel((int) drop.splat.z, 1L);
+                drop.chunk.invalidateRenderChunkLevel(drop.level, 1L);
             }
         }
         if (FirstPerson.TRACE && trail.size() != before) {
@@ -155,7 +164,51 @@ final class Bleeding {
         chunk.addBloodSplat(x, y, z, type);
         IsoFloorBloodSplat laid = splats.size() == 0 ? null : splats.get(splats.size() - 1);
         if (fades && laid != null && laid != last) {
-            trail.add(new Drop(chunk, laid, laid.worldAge));
+            synchronized (trail) {
+                trail.add(new Drop(chunk, laid, laid.worldAge, square.getZ()));
+            }
+        }
+    }
+
+    /** The trail's drops lifted off each chunk the game is writing to its save, to be put back once it has. */
+    private static final Map<IsoChunk, List<IsoFloorBloodSplat>> lifted = new IdentityHashMap<>();
+
+    /**
+     * Called as the game writes a chunk to its save: the trail's drops on it are lifted off the
+     * floor first. Saved, they would be the game's own blood after a load, which nothing takes up.
+     */
+    static void saving(IsoChunk chunk) {
+        synchronized (trail) {
+            List<IsoFloorBloodSplat> off = null;
+            for (Drop drop : trail) {
+                if (drop.chunk != chunk) {
+                    continue;
+                }
+                BoundedQueue<IsoFloorBloodSplat> splats = chunk.floorBloodSplats;
+                for (int i = splats.size() - 1; i >= 0; i--) {
+                    if (splats.get(i) == drop.splat) {
+                        splats.remove(i);
+                        if (off == null) {
+                            off = new ArrayList<>();
+                        }
+                        off.add(drop.splat);
+                        break;
+                    }
+                }
+            }
+            if (off != null) {
+                lifted.put(chunk, off);
+            }
+        }
+    }
+
+    /** Called once the game has written a chunk to its save: the drops lifted off it go back. */
+    static void saved(IsoChunk chunk) {
+        synchronized (trail) {
+            List<IsoFloorBloodSplat> off = lifted.remove(chunk);
+            if (off != null) {
+                off.forEach(chunk.floorBloodSplats::add);
+            }
         }
     }
 
@@ -164,7 +217,7 @@ final class Bleeding {
         for (int i = splats.size() - 1; i >= 0; i--) {
             if (splats.get(i) == drop.splat) {
                 splats.remove(i);
-                drop.chunk.invalidateRenderChunkLevel((int) drop.splat.z, 1L);
+                drop.chunk.invalidateRenderChunkLevel(drop.level, 1L);
                 return;
             }
         }

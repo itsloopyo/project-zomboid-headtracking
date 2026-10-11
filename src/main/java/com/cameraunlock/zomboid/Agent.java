@@ -384,11 +384,21 @@ public final class Agent {
                             code.getfield(ClassDesc.ofInternalName(RENDER_JOB), "animatedModel", ClassDesc.ofInternalName(ANIMATED_MODEL));
                             CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "bodyBaking", "(L" + BODY_PARAMS + ";L" + ANIMATED_MODEL + ";)V"));
                         }, 1)),
-                new Patch("zombie/core/textures/Texture", "destroy at its start", classBytes -> CallSite.insertAtStartOfInstanceMethod(classBytes,
-                        new CallSite.Method("zombie/core/textures/Texture", "destroy", "()V"), code -> {
+                new Patch("zombie/core/textures/SmartTexture", "destroy at its start", classBytes -> CallSite.insertAtStartOfInstanceMethod(classBytes,
+                        new CallSite.Method("zombie/core/textures/SmartTexture", "destroy", "()V"), code -> {
                             code.aload(0);
                             CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "keepsTexture", "(Lzombie/core/textures/Texture;)Z"));
                             code.ifThen(java.lang.classfile.Opcode.IFNE, java.lang.classfile.CodeBuilder::return_);
+                        })),
+                new Patch("zombie/iso/IsoChunk", "Save to a buffer at its start", classBytes -> CallSite.insertAtStartOfInstanceMethod(classBytes,
+                        new CallSite.Method("zombie/iso/IsoChunk", "Save", "(Ljava/nio/ByteBuffer;Ljava/util/zip/CRC32;Z)Ljava/nio/ByteBuffer;"), code -> {
+                            code.aload(0);
+                            CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "chunkSaving", "(Lzombie/iso/IsoChunk;)V"));
+                        })),
+                new Patch("zombie/iso/IsoChunk", "Save to a buffer before its returns", classBytes -> CallSite.insertBeforeReturns(classBytes,
+                        new CallSite.Method("zombie/iso/IsoChunk", "Save", "(Ljava/nio/ByteBuffer;Ljava/util/zip/CRC32;Z)Ljava/nio/ByteBuffer;"), code -> {
+                            code.aload(0);
+                            CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "chunkSaved", "(Lzombie/iso/IsoChunk;)V"));
                         })),
                 new Patch("zombie/iso/IsoWorld", "update at its start", classBytes -> CallSite.insertAtStartOfInstanceMethod(classBytes,
                         new CallSite.Method("zombie/iso/IsoWorld", "update", "()V"),

@@ -14,6 +14,7 @@ import java.util.Random;
 import java.util.WeakHashMap;
 import zombie.characters.IsoGameCharacter;
 import zombie.characters.IsoZombie;
+import zombie.core.opengl.RenderThread;
 import zombie.core.skinnedmodel.model.ModelInstance;
 import zombie.core.skinnedmodel.model.ModelInstanceRenderData;
 import zombie.core.skinnedmodel.model.ModelSlotRenderData;
@@ -54,9 +55,11 @@ final class Pieces {
      * shard is drawn as meat (CharacterDraw's stumped), not as a small head.
      */
     static final int SHARDS = 4;
-    static final float SHARD_SPEED = 3.5f, SHARD_LEAST = 0.03f, SHARD_MOST = 0.22f, SHARD_LENGTH = 0.05f, SHARD_RADIUS = 0.02f;
+    static final float SHARD_SPEED = 3.5f, SHARD_THIN = 0.012f, SHARD_MOST = 0.22f, SHARD_LENGTH = 0.05f, SHARD_RADIUS = 0.02f;
     /** How long a piece lies once it has landed, in seconds. */
     static final float LIES_FOR = 120f;
+    /** How long a piece may wait to be kept, in seconds: one whose zombie is no longer posed with the cut never is. */
+    static final float KEPT_BY = 1f;
     /** How many bones a part of the game's model has. */
     private static final int BONES = 60;
 
@@ -76,10 +79,13 @@ final class Pieces {
         volatile int state = WAITING;
         /** Where the piece's joint is and which way the piece runs from it, in the model, the frame it was kept. */
         float px, py, pz, ax, ay, az;
-        /** Each part as it was drawn that frame, its bones then, and which of them are the piece's. */
-        final List<ModelInstanceRenderData> parts = new ArrayList<>();
-        final List<float[]> palettes = new ArrayList<>();
-        final List<boolean[]> ofPiece = new ArrayList<>();
+        /** Each part as it was drawn that frame, its bones then, and which of them are the piece's: published together with state KEPT. */
+        List<ModelInstanceRenderData> parts = List.of();
+        List<float[]> palettes = List.of();
+        List<boolean[]> ofPiece = List.of();
+        /** When the shot cut it, and the level it was cut on. */
+        final long born = System.nanoTime();
+        float z;
         /** The zombie as it was drawn that frame, to draw the piece by once the zombie is gone. */
         final ModelSlotRenderData person = new ModelSlotRenderData();
         /** Where and how the zombie stood that frame. */
@@ -132,9 +138,13 @@ final class Pieces {
         for (int i = 0; i < SHARDS; i++) {
             float angle = (float) Math.atan2(dy, dx) + (random.nextFloat() - 0.5f) * 2.4f, speed = SHARD_SPEED * (0.6f + 0.8f * random.nextFloat());
             Piece shard = new Piece(Wounds.HEAD, Wounds.UPPER, (float) Math.cos(angle) * speed, (float) Math.sin(angle) * speed, speed * (0.3f + 0.7f * random.nextFloat()));
+            // Two axes of a chunk's size and the third much thinner: pressed() reads a shard with
+            // all three alike as a small whole head, face, hair and all.
             shard.squash = new float[3];
+            int thin = random.nextInt(3);
             for (int axis = 0; axis < 3; axis++) {
-                shard.squash[axis] = SHARD_LEAST + (SHARD_MOST - SHARD_LEAST) * random.nextFloat();
+                shard.squash[axis] = axis == thin ? SHARD_THIN * (0.5f + random.nextFloat())
+                        : SHARD_MOST * (0.6f + 0.4f * random.nextFloat());
             }
             synchronized (pieces) {
                 pieces.computeIfAbsent(zombie, z -> new ArrayList<>()).add(shard);
@@ -160,9 +170,7 @@ final class Pieces {
             boolean holds = false;
             for (Piece piece : list) {
                 if (piece.part == part && piece.state == POSED && (System.nanoTime() - piece.posed) / 1e9f > KEPT_WITHIN) {
-                    // Never drawn: nothing is kept, and the piece is let go.
-                    piece.kept = System.nanoTime() - (long) (LIES_FOR * 1e9f);
-                    piece.state = KEPT;
+                    letGoUnkept(piece, "its zombie was not drawn");
                 }
                 if (piece.part == part && piece.state != KEPT) {
                     if (piece.state == WAITING) {
@@ -219,18 +227,29 @@ final class Pieces {
 
     /** Keeps the bones of a posed piece's zombie as drawn this frame. Render thread. */
     static void keep(Piece piece, ModelSlotRenderData data, List<ModelInstanceRenderData> parts, float x, float y, float standsUp, float angle, float scale) {
+        List<ModelInstanceRenderData> owns = new ArrayList<>();
+        List<float[]> palettes = new ArrayList<>();
+        List<boolean[]> mines = new ArrayList<>();
         for (ModelInstanceRenderData part : parts) {
             if (part.model == null || !(part.model.tag instanceof SkinningData skeleton) || part.matrixPalette == null) {
+                continue;
+            }
+            SkinningBone bone = skeleton.getBone(Stumps.boneOf(piece.part, piece.cut));
+            if (bone == null || bone.index >= BONES) {
                 continue;
             }
             FloatBuffer palette = part.matrixPalette;
             float[] copy = new float[Math.min(palette.remaining(), BONES * 16)];
             palette.get(palette.position(), copy);
-            boolean[] mine = new boolean[BONES];
-            SkinningBone bone = skeleton.getBone(Stumps.boneOf(piece.part, piece.cut));
-            if (bone == null) {
+            if (bone.index * 16 + 16 > copy.length) {
                 continue;
             }
+            if (flat(copy, bone.index)) {
+                // A frame drawn after the cut was pressed: the cut published before the piece held it back. No piece is better than a flat one.
+                letGoUnkept(piece, "its bones were already pressed");
+                return;
+            }
+            boolean[] mine = new boolean[BONES];
             mark(bone, mine);
             ModelInstance instance = new ModelInstance();
             instance.model = part.model;
@@ -244,14 +263,9 @@ final class Pieces {
             own.modelInstance = instance;
             own.hue = part.hue;
             own.ignoreLighting = part.ignoreLighting;
-            if (instance.tex != null) {
-                synchronized (pieces) {
-                    held.add(instance.tex);
-                }
-            }
-            piece.parts.add(own);
-            piece.palettes.add(copy);
-            piece.ofPiece.add(mine);
+            owns.add(own);
+            palettes.add(copy);
+            mines.add(mine);
         }
         ModelSlotRenderData person = piece.person;
         person.alpha = 1f;
@@ -281,10 +295,41 @@ final class Pieces {
         float wx = random.nextFloat() - 0.5f, wy = random.nextFloat() - 0.5f, wz = random.nextFloat() - 0.5f, w = (float) Math.sqrt(wx * wx + wy * wy + wz * wz);
         float turns = (float) (2 * Math.PI) * (SPIN_LEAST + (SPIN_MOST - SPIN_LEAST) * random.nextFloat()) / Math.max(w, 1e-4f);
         piece.motion.throwIt(vx, piece.up / METRES_PER_UNIT, vz, wx * turns, wy * turns, wz * turns);
-        piece.state = KEPT;
+        piece.z = data.z;
+        synchronized (pieces) {
+            piece.parts = owns;
+            piece.palettes = palettes;
+            piece.ofPiece = mines;
+            for (ModelInstanceRenderData own : owns) {
+                if (own.modelInstance.tex != null) {
+                    held.add(own.modelInstance.tex);
+                }
+            }
+            piece.state = KEPT;
+        }
         if (FirstPerson.TRACE) {
             Log.info(String.format(Locale.ROOT, "pieces: kept part %d cut %d from %d parts, joint (%.3f, %.3f, %.3f) runs (%.2f, %.2f, %.2f), scale %.3f",
                     piece.part, piece.cut, piece.parts.size(), piece.px, piece.py, piece.pz, piece.ax, piece.ay, piece.az, scale));
+        }
+    }
+
+    /** Whether a bone's matrix in a palette is pressed flat: see CharacterDraw's pressed, the same measure. */
+    private static boolean flat(float[] palette, int bone) {
+        int at = bone * 16;
+        float a0 = palette[at], a1 = palette[at + 1], a2 = palette[at + 2];
+        float b0 = palette[at + 4], b1 = palette[at + 5], b2 = palette[at + 6];
+        float c0 = palette[at + 8], c1 = palette[at + 9], c2 = palette[at + 10];
+        float volume = Math.abs(a0 * (b1 * c2 - b2 * c1) - a1 * (b0 * c2 - b2 * c0) + a2 * (b0 * c1 - b1 * c0));
+        float most = (float) Math.max(Math.sqrt(a0 * a0 + a1 * a1 + a2 * a2), Math.max(Math.sqrt(b0 * b0 + b1 * b1 + b2 * b2), Math.sqrt(c0 * c0 + c1 * c1 + c2 * c2)));
+        return most < 1e-6f || volume / (most * most * most) < 0.3f;
+    }
+
+    /** Lets a piece go without drawing it: its cut is then pressed as any. */
+    private static void letGoUnkept(Piece piece, String why) {
+        piece.kept = System.nanoTime() - (long) (LIES_FOR * 1e9f);
+        piece.state = KEPT;
+        if (FirstPerson.TRACE) {
+            Log.info("pieces: let part " + piece.part + " go unkept: " + why);
         }
     }
 
@@ -414,25 +459,30 @@ final class Pieces {
         if (!any) {
             return;
         }
+        List<Texture> destroying = new ArrayList<>();
         synchronized (pieces) {
-            for (var entry : pieces.entrySet()) {
-                for (Piece piece : entry.getValue()) {
-                    float[] at = piece.splashed ? null : landedAt(piece);
-                    if (at != null && entry.getKey() instanceof IsoZombie zombie) {
-                        piece.splashed = true;
-                        Bleeding.splash(at[0], at[1], zombie.getZ());
-                    }
+            List<Piece> every = new ArrayList<>(orphans);
+            pieces.values().forEach(every::addAll);
+            for (Piece piece : every) {
+                float[] at = piece.splashed ? null : landedAt(piece);
+                if (at != null) {
+                    piece.splashed = true;
+                    Bleeding.splash(at[0], at[1], piece.z);
                 }
-                entry.getValue().removeIf(Pieces::gone);
+                if (piece.state != KEPT && (System.nanoTime() - piece.born) / 1e9f > KEPT_BY) {
+                    letGoUnkept(piece, "it was never posed and drawn");
+                }
             }
+            pieces.values().forEach(list -> list.removeIf(Pieces::gone));
             pieces.values().removeIf(List::isEmpty);
             orphans.removeIf(Pieces::gone);
-            // Textures no piece is drawn with any more go as the game asked.
+            // Textures no piece is drawn with any more go as the game asked. Only a kept piece's parts are read: they are published whole.
             Set<Texture> still = Collections.newSetFromMap(new IdentityHashMap<>());
-            for (List<Piece> list : pieces.values()) {
-                list.forEach(piece -> piece.parts.forEach(part -> still.add(part.modelInstance.tex)));
+            for (Piece piece : every) {
+                if (piece.state == KEPT && !gone(piece)) {
+                    piece.parts.forEach(part -> still.add(part.modelInstance.tex));
+                }
             }
-            orphans.forEach(piece -> piece.parts.forEach(part -> still.add(part.modelInstance.tex)));
             held.retainAll(still);
             for (java.util.Iterator<Texture> it = letGo.iterator(); it.hasNext(); ) {
                 Texture texture = it.next();
@@ -443,13 +493,11 @@ final class Pieces {
             }
             any = !pieces.isEmpty() || !orphans.isEmpty();
         }
+        // The game destroys a texture on the render thread, which holds the graphics context.
         for (Texture texture : destroying) {
-            texture.destroy();
+            RenderThread.queueInvokeOnRenderContext(texture::destroy);
         }
-        destroying.clear();
     }
-
-    private static final List<Texture> destroying = new ArrayList<>();
 
     /** Whether a piece has lain its time, or was let go without being kept. */
     private static boolean gone(Piece piece) {

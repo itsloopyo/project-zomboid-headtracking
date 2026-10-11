@@ -1,5 +1,6 @@
 package com.cameraunlock.zomboid;
 
+import zombie.iso.IsoChunk;
 import zombie.core.textures.Texture;
 import zombie.iso.objects.IsoDeadBody;
 import zombie.core.skinnedmodel.advancedanimation.AnimatedModel;
@@ -367,9 +368,18 @@ public final class Hooks {
         Stumps.baking(model.getAnimationPlayer(), cuts == null ? 0 : Integer.parseInt(cuts));
     }
 
-    /** Called as the game is about to destroy a texture: true puts it off, see Pieces.keeps. */
+    /** Called as the game is about to destroy a texture it combined from others, a character's skin among them: true puts it off, see Pieces.keeps. */
     public static boolean keepsTexture(Texture texture) {
         return Pieces.keeps(texture);
+    }
+
+    /** Called as the game starts writing a chunk to its save, and once it has: see Bleeding.saving. */
+    public static void chunkSaving(IsoChunk chunk) {
+        Bleeding.saving(chunk);
+    }
+
+    public static void chunkSaved(IsoChunk chunk) {
+        Bleeding.saved(chunk);
     }
 
     /** Called as the game starts a tick of the world. */

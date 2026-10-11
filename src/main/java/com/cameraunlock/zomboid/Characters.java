@@ -1,5 +1,6 @@
 package com.cameraunlock.zomboid;
 
+import zombie.iso.IsoWorld;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Locale;
@@ -1633,6 +1634,10 @@ public final class Characters {
             person.ambientG = 1f;
             person.ambientB = 1f;
             CharacterDraw.begin(person, combined, projection, false, (float) Math.hypot(toX, toY));
+            IsoGridSquare square = IsoWorld.instance.currentCell.getGridSquare((int) Math.floor(piece.x), (int) Math.floor(piece.y), (int) Math.floor(piece.z));
+            if (square != null) {
+                lightAt(square);
+            }
             for (int part = 0; part < piece.parts.size(); part++) {
                 ModelInstanceRenderData model = piece.parts.get(part);
                 model.matrixPalette = Pieces.bones(piece, part);
@@ -1660,7 +1665,10 @@ public final class Characters {
     private final ColorInfo stoodIn = new ColorInfo();
 
     private void lightWhere(ModelSlotRenderData data) {
-        IsoGridSquare square = data.character.getCurrentSquare();
+        lightAt(data.character.getCurrentSquare());
+    }
+
+    private void lightAt(IsoGridSquare square) {
         if (view.player() == null || square == null || !square.isSeen(view.index)) {
             return;
         }
