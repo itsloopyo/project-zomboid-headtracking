@@ -305,7 +305,8 @@ final class Furniture {
         int width = grid == null ? 1 : grid.getWidth(), height = grid == null ? 1 : grid.getHeight();
         String groupName = properties.get("GroupName");
         int surface = properties.getSurface();
-        if (name != null && (grid == null || grid.getLevels() == 1)) {
+        // A piece one square across that the game paints on more than one storey, a flag pole, is a sprite a storey: each stands its own length.
+        if (name != null && (grid == null || grid.getLevels() == 1 || width == 1 && height == 1)) {
             IsoDirections way = sprite.getFacing();
             int faces = way == IsoDirections.N ? Outdoors.NORTH : way == IsoDirections.E ? Outdoors.EAST : way == IsoDirections.S ? Outdoors.SOUTH
                     : way == IsoDirections.W ? Outdoors.WEST : Outdoors.NONE;

@@ -24,6 +24,8 @@ final class OutdoorTests {
         Checks.run("aHeapOfSandIsOneModelOverItsFourSquares", OutdoorTests::aHeapOfSandIsOneModelOverItsFourSquares);
         Checks.run("aWarningSignsPlateShowsItsSpriteFacingTheWayItIsPainted", OutdoorTests::aWarningSignsPlateShowsItsSpriteFacingTheWayItIsPainted);
         Checks.run("aBurntFencesPostStandsWhereItsSpritePaintsItsFoot", OutdoorTests::aBurntFencesPostStandsWhereItsSpritePaintsItsFoot);
+        Checks.run("aCrossingSignalFacesTheWayItsSpriteSaysAndStandsOnItsPost", OutdoorTests::aCrossingSignalFacesTheWayItsSpriteSaysAndStandsOnItsPost);
+        Checks.run("aFlagPolesTopStandsOnItsLowerLength", OutdoorTests::aFlagPolesTopStandsOnItsLowerLength);
     }
 
     /** A piece, and its model one the jar has: Models.get throws for a name it has not. */
@@ -256,7 +258,36 @@ final class OutdoorTests {
         Checks.check(unnamed("street_roadsigns_01_0") == null && unnamed("street_roadsigns_01_32") == null, "the boards on two posts and the rest area's signs are not warning signs");
     }
 
-    private static void aBurntFencesPostStandsWhereItsSpritePaintsItsFoot() {
+    private static void aFlagPolesTopStandsOnItsLowerLength() {
+        Outdoors.Piece pole = Outdoors.of("street_decoration_01_24", "Pole", "American Flag", Outdoors.NONE, 1, 1, 0);
+        Outdoors.Piece top = Outdoors.of("street_decoration_01_16", "Pole", "American Flag", Outdoors.NONE, 1, 1, 0);
+        holds(pole, "a flag pole's lower length has a model");
+        holds(top, "a flag pole's top has a model");
+        if (pole == null || top == null) {
+            return;
+        }
+        float poleTop = pole.raised + Models.get(pole.model).height(), topFoot = ViewCamera.LEVEL_HEIGHT + top.raised;
+        Checks.check(topFoot < poleTop && poleTop - topFoot < 0.3f, "the top length reaches down a little into the lower one: " + topFoot + " under " + poleTop);
+        Checks.check(top.a == pole.a && top.b == pole.b, "the top stands over the lower length");
+    }
+
+        private static void aCrossingSignalFacesTheWayItsSpriteSaysAndStandsOnItsPost() {
+        for (int faces = Outdoors.NORTH; faces <= Outdoors.WEST; faces++) {
+            Outdoors.Piece signal = Outdoors.of("industry_railroad_05_" + (48 + (faces + 3) % 4), "Signal", "Train", faces, 1, 1, 0);
+            holds(signal, "a crossing signal facing " + faces + " has a model");
+            if (signal == null) {
+                continue;
+            }
+            boolean eastOrWest = faces == Outdoors.EAST || faces == Outdoors.WEST;
+            Checks.check(signal.model.equals("crossing_signal") && signal.turns == faces, "a crossing signal is turned the way it faces");
+            Checks.check(signal.a == (eastOrWest ? Outdoors.CROSSING_SIGNAL_EW_A : Outdoors.CROSSING_SIGNAL_NS)
+                    && signal.b == (eastOrWest ? Outdoors.CROSSING_SIGNAL_EW_B : Outdoors.CROSSING_SIGNAL_NS), "its post is where its sprite paints it");
+            Checks.check(signal.dyeA == signal.a && signal.dyeB == signal.b, "it is coloured from its own post");
+        }
+        Checks.check(Outdoors.of("industry_railroad_05_48", "Signal", "Train", Outdoors.NONE, 1, 1, 0) == null, "a signal facing no way is left to the game");
+    }
+
+        private static void aBurntFencesPostStandsWhereItsSpritePaintsItsFoot() {
         Object[][] posts = {{3, "burnt_picket_post", 0.96f}, {13, "burnt_tall_post", 2.33f}, {45, "burnt_rail_post", 1.35f}, {53, "fence_pole", 2.17f},
                 {61, "fence_pole_wide", 2.19f}, {69, "fence_pole_capped", 1.28f}};
         for (Object[] post : posts) {

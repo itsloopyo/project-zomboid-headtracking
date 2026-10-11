@@ -141,7 +141,8 @@ final class Outdoors {
     private static final String WORKS = "industry_02_", PLANT = "industry_01_", ROOFTOP = "rooftop_furniture_", BUILDING_SITE = "construction_01_", LAUNDRY = "appliances_laundry_01_",
             MILITARY_BARRIER = "fencing_01_96", CARPENTRY = "carpentry_02_", FENCES = "fencing_01_",
             GAS2GO = "location_shop_gas2go_01_", FOSSOIL = "location_shop_fossoil_01_",
-            ROAD_SIGNS = "street_roadsigns_01_", BURNT_FENCES = "fencing_burnt_01_", PYLONS = "electricity_pylon_", MASTS = "radio_tower_";
+            ROAD_SIGNS = "street_roadsigns_01_", BURNT_FENCES = "fencing_burnt_01_", PYLONS = "electricity_pylon_", MASTS = "radio_tower_",
+            STREET = "street_decoration_01_";
     private static final int PAINT = 1 << Models.PAINT;
     /** How far from the edge of its square the middle of a pipe along the foot of a wall is. */
     private static final float PIPE_EDGE = 0.12f;
@@ -166,6 +167,14 @@ final class Outdoors {
      * the sheet tied over one hangs over its rim, on the side of it nearest the game's view.
      */
     private static final float RAIN_DYE = 0.31f, SHEET_AT = 0.75f, SHEET_DYE = 0.33f;
+    /** How far a flag pole's top length reaches down into the storey under it, how high the sprites paint the pole and the blue
+     * by the top of the flag, in levels, and how far along x that blue is. The game lays the pole as a piece over two storeys, so
+     * it stands in the middle of its square. */
+    static final float FLAG_TOP_SUNK = 0.1f;
+    private static final float FLAG_POLE_DYE = 0.5f, FLAG_BLUE_DYE = 0.3f, FLAG_BLUE_A = 0.54f;
+    /** Where on its square a crossing signal's post is painted, and how high its sprite paints the post white and a band yellow, in levels. */
+    static final float CROSSING_SIGNAL_EW_A = 0.44f, CROSSING_SIGNAL_EW_B = 0.5f, CROSSING_SIGNAL_NS = 0.47f;
+    private static final float CROSSING_SIGNAL_WHITE = 0.45f, CROSSING_SIGNAL_YELLOW = 0.23f;
     /** Where on its square a stop sign's post is painted, for one that faces north, east, south and west. */
     private static final float[] STOP_SIGN_AT = {0.64f, 0.61f, 0.35f, 0.78f, 0.35f, 0.37f, 0.41f, 0.37f};
 
@@ -319,6 +328,23 @@ final class Outdoors {
         }
         if (called.equals("Military Barrier") && name.equals(MILITARY_BARRIER)) {
             return new Piece("sack_barrier", 0).dye(PAINT, 0.3f).fit();
+        }
+        // A railway crossing's signal: its post a little west of the square's middle where it faces east or west, and at the
+        // middle where it faces north or south. Its post is white and its bands yellow on every facing's sprite.
+        if (called.equals("Signal") && kind.equals("Train") && faces != NONE) {
+            boolean eastOrWest = faces == EAST || faces == WEST;
+            float a = eastOrWest ? CROSSING_SIGNAL_EW_A : CROSSING_SIGNAL_NS, b = eastOrWest ? CROSSING_SIGNAL_EW_B : CROSSING_SIGNAL_NS;
+            return new Piece("crossing_signal", faces).at(a, b).dye(PAINT, a, b, CROSSING_SIGNAL_WHITE)
+                    .also(1 << Models.PLASTIC, CROSSING_SIGNAL_YELLOW);
+        }
+        // A flag pole is painted a storey at a time: its lower length on the ground, and its top with the flag hung limp from it on
+        // the storey over, where the top length reaches down a little into the lower one.
+        if (called.equals("Pole") && kind.equals("American Flag")) {
+            return switch (Sheets.place(name, STREET)) {
+                case 24 -> new Piece("flag_pole", 0).dye(1 << Models.METAL, FLAG_POLE_DYE);
+                case 16 -> new Piece("flag_top", 0).dye(1 << Models.CLOTH, FLAG_BLUE_A, 0.5f, FLAG_BLUE_DYE).raise(-FLAG_TOP_SUNK);
+                default -> null;
+            };
         }
         // A stop sign's post stands near a corner of its square, a different one for each way the sign faces.
         if (called.equals("Sign") && kind.equals("Stop") && faces != NONE) {

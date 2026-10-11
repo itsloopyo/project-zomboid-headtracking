@@ -4709,6 +4709,46 @@ def felt_rolls(name, length, rows):
     return model
 
 
+# How tall a flag pole is from the ground to the floor of the storey over it, where the game paints its top and the flag.
+FLAG_POLE_LOW = 2.45
+
+
+def flag_pole():
+    """A flag pole's lower length, from a collar on the ground to the floor of the storey over it. The origin is its axis."""
+    model = Model("flag_pole", centred=False)
+    pole = bmesh.new()
+    lathe(pole, [(0.0, 0.0), (0.075, 0.0), (0.075, 0.12), (0.04, 0.14), (0.04, FLAG_POLE_LOW), (0.0, FLAG_POLE_LOW)], segments=14)
+    model.turned(pole, "metal", sharp=50.0)
+    return model
+
+
+def flag_top():
+    """A flag pole's top length with its ball, and the flag hung limp from it in folds along -X: stripes running down it in red
+    and white, and the blue of its corner at the top by the pole. The origin is the pole's axis at the foot of this length."""
+    model = Model("flag_top", centred=False)
+    pole = bmesh.new()
+    lathe(pole, [(0.0, 0.0), (0.04, 0.0), (0.04, 1.12), (0.0, 1.12)], segments=14)
+    lathe(pole, [(0.0, 1.1)] + [(0.065 * math.sin(math.radians(a)), 1.165 - 0.065 * math.cos(math.radians(a))) for a in range(30, 180, 30)]
+          + [(0.0, 1.23)], segments=14)
+    model.turned(pole, "metal", sharp=50.0)
+    red, white, blue = bmesh.new(), bmesh.new(), bmesh.new()
+    folds = [(-0.04, 0.0), (-0.09, 0.035), (-0.14, -0.03), (-0.19, 0.03), (-0.23, -0.01)]
+    top, bottom, canton = 1.06, 0.12, 0.62
+    for n, ((x0, y0), (x1, y1)) in enumerate(zip(folds, folds[1:])):
+        for into, z0, z1 in ((red if n % 2 == 0 else white, bottom, canton if n < 2 else top), (blue, canton, top)):
+            if into is blue and n >= 2:
+                continue
+            # One fold of the cloth, a closed sheet 6 mm thick from one crease to the next.
+            vs = [into.verts.new(v) for v in ((x0, y0 - 0.003, z0), (x1, y1 - 0.003, z0), (x1, y1 + 0.003, z0), (x0, y0 + 0.003, z0),
+                                              (x0, y0 - 0.003, z1), (x1, y1 - 0.003, z1), (x1, y1 + 0.003, z1), (x0, y0 + 0.003, z1))]
+            for face in ((0, 3, 2, 1), (4, 5, 6, 7), (0, 1, 5, 4), (1, 2, 6, 5), (2, 3, 7, 6), (3, 0, 4, 7)):
+                into.faces.new([vs[i] for i in face])
+    model.plain(red, "vinyl")
+    model.plain(white, "linen")
+    model.plain(blue, "cloth")
+    return model
+
+
 def stop_sign():
     """A stop sign on its post: an eight sided plate, red inside a white edge on the side it is read from and bare metal behind.
     The origin is the post's axis."""
@@ -4728,6 +4768,47 @@ def stop_sign():
     model.plain(edge, "enamel")
     plate(face, 0.245, -0.023, -0.021)
     model.plain(face, "vinyl")
+    return model
+
+
+def crossing_signal():
+    """A railway crossing's signal: a white post on a concrete foot, banded yellow and black near the ground, a pair of lamps
+    under hoods on an arm across it, and the crossed boards over them, yellow striped across in black on the side read from at -Y and
+    bare metal behind. The origin is the post's axis."""
+    model = Model("crossing_signal", centred=False)
+    foot = bmesh.new()
+    cuboid(foot, -0.17, 0.17, -0.17, 0.17, 0.0, 0.1)
+    model.hard(foot, "metal", bevel=0.01, segments=1)
+    post, yellow, black = bmesh.new(), bmesh.new(), bmesh.new()
+    lathe(post, [(0.05, 0.1), (0.05, 2.71), (0.035, 2.73), (0.0, 2.73)], segments=14)
+    for into, z0, z1 in ((yellow, 0.34, 0.43), (black, 0.43, 0.57), (yellow, 0.57, 0.64), (black, 0.64, 0.72)):
+        lathe(into, [(0.053, z0), (0.053, z1)], segments=14)
+    model.turned(post, "paint", sharp=50.0)
+    model.turned(yellow, "plastic", sharp=50.0)
+    lamps, lenses = bmesh.new(), bmesh.new()
+    cuboid(lamps, -0.26, 0.26, -0.03, 0.03, 1.67, 1.73)
+    for x in (-0.21, 0.21):
+        lathe(lamps, [(0.0, -0.06), (0.1, -0.06), (0.1, 0.07), (0.0, 0.07)], cx=x, cy=-1.7, segments=16,
+              to=Matrix.Rotation(math.radians(-90), 4, "X"))
+        prism_y(lamps, (x, 1.81, 0.21, 0.015, -0.17), (x, 1.81, 0.21, 0.015, -0.06))
+        lathe(lenses, [(0.0, -0.075), (0.075, -0.075), (0.075, -0.06), (0.0, -0.06)], cx=x, cy=-1.7, segments=16,
+              to=Matrix.Rotation(math.radians(-90), 4, "X"))
+    model.turned(lamps, "steel", sharp=50.0)
+    model.turned(lenses, "vinyl", sharp=50.0)
+    boards, stripes, backs = bmesh.new(), bmesh.new(), bmesh.new()
+    for turn in (45, -45):
+        spin = Matrix.Translation((0.0, 0.0, 2.12)) @ Matrix.Rotation(math.radians(turn), 4, "Y")
+        for into, x0, x1, y0, y1, z0, z1 in ((boards, -0.42, 0.42, -0.09, -0.07, -0.07, 0.07), (backs, -0.42, 0.42, -0.07, -0.06, -0.07, 0.07),
+                                             (stripes, -0.36, -0.28, -0.095, -0.09, -0.07, 0.07), (stripes, -0.2, -0.12, -0.095, -0.09, -0.07, 0.07),
+                                             (stripes, 0.12, 0.2, -0.095, -0.09, -0.07, 0.07), (stripes, 0.28, 0.36, -0.095, -0.09, -0.07, 0.07)):
+            first = len(into.verts)
+            cuboid(into, x0, x1, y0, y1, z0, z1)
+            into.verts.ensure_lookup_table()
+            bmesh.ops.transform(into, matrix=spin, verts=into.verts[first:])
+    model.hard(boards, "plastic", bevel=0.004, segments=1)
+    model.hard(stripes, "rubber", bevel=0.002, segments=1)
+    model.hard(backs, "metal", bevel=0.002, segments=1)
+    model.turned(black, "rubber", sharp=50.0)
     return model
 
 
@@ -6333,7 +6414,7 @@ def outdoors():
             deck_chair(), slab_bench(), dustbin(), road_cone(), traffic_drum(), hydrant(), pallet(), brick_pallet(),
             gravestone("gravestone_round", "round"), gravestone("gravestone_square", "square"), gravestone("gravestone_gabled", "gabled"),
             sack_barrier(), log_stack("log_stack_6", (3, 3), (0, 1)), log_stack("log_stack_5", (3, 2)),
-            twin_head(), girder(), felt_rolls("felt_roll", 1.0, (2,)), felt_rolls("felt_bundle", 0.55, (2, 1)), stop_sign(), hand_truck(),
+            twin_head(), girder(), felt_rolls("felt_roll", 1.0, (2,)), felt_rolls("felt_bundle", 0.55, (2, 1)), stop_sign(), crossing_signal(), flag_pole(), flag_top(), hand_truck(),
             roof_case("roof_case_low", 92 / 192 * 2.45), roof_case("roof_case_tall", 190 / 192 * 2.45)]         + tyres()
 
 def rod(bm, start, end, radius, segments=10):
