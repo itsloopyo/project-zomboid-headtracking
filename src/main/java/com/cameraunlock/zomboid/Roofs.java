@@ -581,8 +581,14 @@ final class Roofs {
             @Override
             public boolean taken(int x, int y, int z, float roof) {
                 IsoGridSquare square = cell.getGridSquare(x, y, z);
-                if (square != null && (square.getRoomID() != -1L || square.getFloor() != null || roofing(square))) {
-                    return true;
+                if (square != null) {
+                    // The map's ceiling over the rooms below lies on the level the roof's eaves stand on, under every
+                    // slope: it is no floor the made roof would stand over. A floor of any other sheet is a terrace.
+                    IsoObject floor = square.getFloor();
+                    boolean terrace = floor != null && !(floor.getSprite() != null && ceiling(floor.getSprite().getName()));
+                    if (square.getRoomID() != -1L || terrace || roofing(square)) {
+                        return true;
+                    }
                 }
                 for (int above = 1; above <= LOOKED_ABOVE; above++) {
                     int level = z + above;
@@ -593,6 +599,11 @@ final class Roofs {
                 return false;
             }
         };
+    }
+
+    /** Whether a floor's sprite is one of the map's ceilings, which it lays over rooms on the level above them. */
+    static boolean ceiling(String spriteName) {
+        return spriteName != null && spriteName.startsWith("ceilings_");
     }
 
     /** Whether a square that is floored is only floored: no room, and none of the game's roofing on it. */
@@ -676,7 +687,7 @@ final class Roofs {
      * ceiling a step down inside the slopes. A sheet painted on its floor is the one under a
      * slope, and no tile.
      */
-    private static boolean flatTop(RoofFit.Tile tile) {
+    static boolean flatTop(RoofFit.Tile tile) {
         return tile.axis == RoofFit.LEVEL && tile.sure && !tile.fitting && tile.half == 0 && tile.low - tile.z >= FLAT_TOP_LEAST;
     }
 

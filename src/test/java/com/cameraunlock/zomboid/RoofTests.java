@@ -39,6 +39,8 @@ final class RoofTests {
         Checks.run("secondSpriteOnAValleyTileLiesOnItsFold", RoofTests::secondSpriteOnAValleyTileLiesOnItsFold);
         Checks.run("unclearTileOnAValleysLineIsFoldedAsTheValleyIs", RoofTests::unclearTileOnAValleysLineIsFoldedAsTheValleyIs);
         Checks.run("hippedCornerAtTheEaveCarriesTheEaveRowOn", RoofTests::hippedCornerAtTheEaveCarriesTheEaveRowOn);
+        Checks.run("hipCutFlatGetsItsFarSlopeAcrossTheCrown", RoofTests::hipCutFlatGetsItsFarSlopeAcrossTheCrown);
+        Checks.run("levelSheetPaintedOverItsFloorIsAFlatTop", RoofTests::levelSheetPaintedOverItsFloorIsAFlatTop);
     }
 
     private static void hippedCornerAtTheEaveCarriesTheEaveRowOn() {
@@ -845,6 +847,55 @@ final class RoofTests {
         RoofFit.fit(alone);
         check(valley.shaped && valley.corners[0] == 1.4f && valley.corners[1] == 1.4f && valley.corners[3] == 1.4f && valley.corners[2] == 1.1f,
                 "a valley tile has its south-east corner low, and with no slope beside it keeps the heights its sprite gave");
+    }
+
+    /** A building over x 1..3 and rows 0..4, with nothing over its ground floor. */
+    private static final RoofFit.Site BLOCK = new RoofFit.Site() {
+        @Override
+        public boolean stands(int x, int y, int z) {
+            return x >= 1 && x <= 3 && y >= 0 && y <= 4;
+        }
+
+        @Override
+        public boolean floored(int x, int y, int z) {
+            return false;
+        }
+
+        @Override
+        public boolean taken(int x, int y, int z, float roof) {
+            return false;
+        }
+    };
+
+    private static void hipCutFlatGetsItsFarSlopeAcrossTheCrown() {
+        // The map's south slope on row 4, climbing north to the crown; the crown level over rows 1..3, as Roofs reads a flat top.
+        List<RoofFit.Tile> roof = new ArrayList<>();
+        for (int x = 1; x <= 3; x++) {
+            roof.add(new RoofFit.Tile(x, 4, 1, RoofFit.ALONG_Y, true, EAVE, 1f));
+            for (int y = 1; y <= 3; y++) {
+                roof.add(new RoofFit.Tile(x, y, 1, RoofFit.LEVEL, true, EAVE, EAVE));
+            }
+        }
+        RoofFit.fit(roof);
+        List<RoofFit.Tile> made = RoofFit.backs(roof, BLOCK);
+        HashMap<Long, RoofFit.Tile> over = bySquare(roof, made);
+        for (int x = 1; x <= 3; x++) {
+            RoofFit.Tile far = over.get(RoofFit.key(x, 0, 0));
+            check(far != null && far.fitAxis == RoofFit.ALONG_Y && near(far.fitLow, 1f) && near(far.fitHigh, EAVE),
+                    "the north slope stands on the north wall and climbs to the crown at x " + x);
+        }
+    }
+
+    private static void levelSheetPaintedOverItsFloorIsAFlatTop() {
+        check(Roofs.flatTop(new RoofFit.Tile(0, 0, 2, RoofFit.LEVEL, true, 2f + THIRD, 2f + THIRD)), "a level sheet a third of a level over its floor is a crown");
+        check(Roofs.flatTop(new RoofFit.Tile(0, 0, 2, RoofFit.LEVEL, true, 2f + 2f * THIRD, 2f + 2f * THIRD)), "and so is one two thirds over it");
+        check(!Roofs.flatTop(new RoofFit.Tile(0, 0, 2, RoofFit.LEVEL, true, 2f, 2f)), "a sheet on its floor lies under a slope");
+        check(!Roofs.flatTop(new RoofFit.Tile(0, 0, 2, RoofFit.ALONG_X, true, 2f, 2f + THIRD)), "a slope is no flat top");
+        RoofFit.Tile trim = new RoofFit.Tile(0, 0, 2, RoofFit.LEVEL, true, 2f + THIRD, 2f + THIRD);
+        trim.fitting = true;
+        check(!Roofs.flatTop(trim), "nor is a trim narrower than a tile");
+        check(Roofs.ceiling("ceilings_01_0") && !Roofs.ceiling("floors_exterior_tilesandstone_01_0") && !Roofs.ceiling(null),
+                "the map's ceilings are told from a terrace's floor by their sheet");
     }
 
     private static void check(boolean condition, String what) {
