@@ -4709,6 +4709,48 @@ def felt_rolls(name, length, rows):
     return model
 
 
+def parking_meter():
+    """A parking meter: a steel post and on it a dark head with a rounded top, its dial's window and coin slot at -Y.
+    The origin is the post's axis."""
+    model = Model("parking_meter", centred=False)
+    post = bmesh.new()
+    lathe(post, [(0.0, 0.0), (0.045, 0.0), (0.045, 0.03), (0.025, 0.04), (0.025, 1.04), (0.0, 1.04)], segments=12)
+    model.turned(post, "metal", sharp=50.0)
+    head = bmesh.new()
+    cuboid(head, -0.07, 0.07, -0.05, 0.06, 1.02, 1.28)
+    lathe(head, [(0.07, -0.05), (0.07, 0.06)], segments=16, sx=1.0, to=Matrix.Translation((0.0, 0.0, 1.28)) @ Matrix.Rotation(math.radians(-90), 4, "X"))
+    model.hard(head, "plastic", bevel=0.008, segments=2)
+    window = bmesh.new()
+    prism_y(window, (0.0, 1.27, 0.09, 0.08, -0.056), (0.0, 1.27, 0.09, 0.08, -0.049))
+    model.plain(window, "screen")
+    slot = bmesh.new()
+    cuboid(slot, -0.025, 0.025, -0.056, -0.049, 1.14, 1.17)
+    model.plain(slot, "steel")
+    return model
+
+
+def security_monitors():
+    """A security desk's wall of monitors, the wall at +Y: a steel cabinet, and over it a frame holding two rows of two
+    screens on shelves with their buttons, under a cap."""
+    model = Model("security_monitors")
+    case, dark, glass, keys = bmesh.new(), bmesh.new(), bmesh.new(), bmesh.new()
+    cuboid(case, -0.46, 0.46, -0.03, 0.06, 0.0, 0.72)
+    cuboid(case, -0.47, 0.47, -0.08, 0.06, 1.95, 2.03)
+    cuboid(dark, -0.46, 0.46, 0.0, 0.06, 0.72, 1.95)
+    for z in (0.72, 1.33):
+        cuboid(dark, -0.46, 0.46, -0.12, 0.0, z, z + 0.06)
+        for x in (-0.23, 0.23):
+            cuboid(dark, x - 0.2, x + 0.2, -0.08, 0.0, z + 0.06, z + 0.6)
+            prism_y(glass, (x, z + 0.34, 0.32, 0.42, -0.087), (x, z + 0.34, 0.32, 0.42, -0.08))
+            for k in range(3):
+                cuboid(keys, x + 0.06 + k * 0.04, x + 0.08 + k * 0.04, -0.135, -0.12, z + 0.02, z + 0.04)
+    model.hard(case, "steel", bevel=0.008, segments=2)
+    model.hard(dark, "plastic", bevel=0.01, segments=2)
+    model.plain(glass, "screen")
+    model.plain(keys, "metal")
+    return model
+
+
 def theatre_seats():
     """Two theatre seats side by side across X, facing -Y and standing in the back of their square: upholstered seats and backs,
     the backs in a dark shell, three wooden arm rests on steel standards, each standard on a foot along Y."""
@@ -6468,7 +6510,7 @@ def outdoors():
             deck_chair(), slab_bench(), dustbin(), road_cone(), traffic_drum(), hydrant(), pallet(), brick_pallet(),
             gravestone("gravestone_round", "round"), gravestone("gravestone_square", "square"), gravestone("gravestone_gabled", "gabled"),
             sack_barrier(), log_stack("log_stack_6", (3, 3), (0, 1)), log_stack("log_stack_5", (3, 2)),
-            twin_head(), girder(), felt_rolls("felt_roll", 1.0, (2,)), felt_rolls("felt_bundle", 0.55, (2, 1)), stop_sign(), crossing_signal(), flag_pole(), flag_top(), parking_barrier(), theatre_seats(), hand_truck(),
+            twin_head(), girder(), felt_rolls("felt_roll", 1.0, (2,)), felt_rolls("felt_bundle", 0.55, (2, 1)), stop_sign(), crossing_signal(), flag_pole(), flag_top(), parking_barrier(), theatre_seats(), parking_meter(), security_monitors(), hand_truck(),
             roof_case("roof_case_low", 92 / 192 * 2.45), roof_case("roof_case_tall", 190 / 192 * 2.45)]         + tyres()
 
 def rod(bm, start, end, radius, segments=10):

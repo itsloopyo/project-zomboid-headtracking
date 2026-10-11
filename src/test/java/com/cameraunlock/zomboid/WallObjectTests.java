@@ -35,6 +35,8 @@ final class WallObjectTests {
             + "ItemHeight|29|Material|Fabric|Material2|Screws|MoveType|WallObject|PickUpLevel|2|PickUpTool|Hammer|PickUpWeight|100|PlaceTool|Hammer|solidtrans|";
     private static final String BUNK = "|BlocksPlacement||CanScrap||CustomName|Bed|Facing|S|GroupName|Prisoners|IsLow||IsMoveAble||ItemHeight|29|Material|Fabric|"
             + "MoveType|WallObject|PickUpLevel|2|PickUpTool|Hammer|PickUpWeight|150|PlaceTool|Hammer|Surface|24|bed||solidtrans||SpriteGridPos|";
+    private static final String MONITORS = "security_01_4|CanScrap||CustomName|Monitors|Facing|S|GroupName|Security Wall|IsMoveAble||Material|Electric|"
+            + "MaterialType|Glass_Light|MoveType|WallObject|PickUpLevel|4|PickUpTool|Electrician|PickUpWeight|200|PlaceTool|Electrician";
     private static final String TROPHY = "camping_01_17|CustomName|Deer Trophy|Facing|E|GroupName|Mounted|IsHigh||IsMoveAble||MoveType|WallObject|PickUpWeight|30";
 
     private static IsoSprite sprite(String row) {
@@ -111,7 +113,9 @@ final class WallObjectTests {
         check(model(phone).equals("pay_phone"), "a pay phone is the pay phone's model: " + model(phone));
         Furniture trophy = Furniture.known(sprite(TROPHY));
         check(model(trophy).equals("deer_trophy"), "a deer's head on a wall is the trophy's model: " + model(trophy));
-        for (Furniture piece : new Furniture[] {phone, trophy}) {
+        Furniture monitors = Furniture.known(sprite(MONITORS));
+        check(model(monitors).equals("security_monitors"), "a security desk's wall of monitors is its model: " + model(monitors));
+        for (Furniture piece : new Furniture[] {phone, trophy, monitors}) {
             if (piece == null || piece.model == null) {
                 continue;
             }

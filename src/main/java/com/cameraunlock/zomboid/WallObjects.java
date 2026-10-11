@@ -7,10 +7,10 @@ import zombie.iso.sprite.IsoSprite;
 
 /**
  * What the game hangs on a wall by the way it faces alone: a chalkboard, a notice, a map, a
- * pay phone, a deer's head, a seat in a cell. Such a sprite is moved as a wall object and given
- * a Facing, and marked for no wall at all, so nothing that reads the edge flags found its wall:
- * it stood in the middle of its square as a picture turned to the eye. Its wall is the one
- * behind the way it faces, and its sprite is painted there.
+ * pay phone, a deer's head, a seat in a cell, a security desk's monitors. Such a sprite is moved
+ * as a wall object and given a Facing, and marked for no wall at all, so nothing that reads the
+ * edge flags found its wall: it stood in the middle of its square as a picture turned to the eye.
+ * Its wall is the one behind the way it faces, and its sprite is painted there.
  *
  * What is flat by nature lies flat on that wall. What stands out from it is a model with its
  * back to that wall.
@@ -68,6 +68,9 @@ final class WallObjects {
             dish.onRoof = true;
             dish.posted = Models.get("satellite_dish_post");
             return dish;
+        }
+        if (called.equals("Monitors") && group.equals("Security Wall") && single) {
+            return new Furniture(sprite, "security_monitors", turns).stand(0f, 0f, true);
         }
         if (called.equals("Deer Trophy") && group.equals("Mounted") && single) {
             return new Furniture(sprite, "deer_trophy", turns).stand(0f, 0f, true).raise(TROPHY_FOOT);

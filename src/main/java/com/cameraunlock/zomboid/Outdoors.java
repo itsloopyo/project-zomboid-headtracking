@@ -167,6 +167,8 @@ final class Outdoors {
      * the sheet tied over one hangs over its rim, on the side of it nearest the game's view.
      */
     private static final float RAIN_DYE = 0.31f, SHEET_AT = 0.75f, SHEET_DYE = 0.33f;
+    /** Where on its square a parking meter's post is painted, for one that faces north, east, south and west. */
+    static final float[] PARKING_METER_AT = {0.53f, 0.84f, 0.25f, 0.53f, 0.54f, 0.3f, 0.83f, 0.52f};
     /** How high on a car park barrier's booth its paint is taken, in levels. */
     private static final float BARRIER_DYE = 0.25f;
     /** How far a flag pole's top length reaches down into the storey under it, how high the sprites paint the pole and the blue
@@ -349,6 +351,10 @@ final class Outdoors {
             float a = eastOrWest ? CROSSING_SIGNAL_EW_A : CROSSING_SIGNAL_NS, b = eastOrWest ? CROSSING_SIGNAL_EW_B : CROSSING_SIGNAL_NS;
             return new Piece("crossing_signal", faces).at(a, b).dye(PAINT, a, b, CROSSING_SIGNAL_WHITE)
                     .also(1 << Models.PLASTIC, CROSSING_SIGNAL_YELLOW);
+        }
+        // A parking meter's post stands back from the middle of its square, away from the way its face is turned.
+        if (called.equals("Meter") && kind.equals("Parking") && faces != NONE) {
+            return new Piece("parking_meter", faces).at(PARKING_METER_AT[2 * faces], PARKING_METER_AT[2 * faces + 1]);
         }
         // A flag pole is painted a storey at a time: its lower length on the ground, and its top with the flag hung limp from it on
         // the storey over, where the top length reaches down a little into the lower one.

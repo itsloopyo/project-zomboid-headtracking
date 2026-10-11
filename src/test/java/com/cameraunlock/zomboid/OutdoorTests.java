@@ -27,6 +27,7 @@ final class OutdoorTests {
         Checks.run("aCrossingSignalFacesTheWayItsSpriteSaysAndStandsOnItsPost", OutdoorTests::aCrossingSignalFacesTheWayItsSpriteSaysAndStandsOnItsPost);
         Checks.run("aFlagPolesTopStandsOnItsLowerLength", OutdoorTests::aFlagPolesTopStandsOnItsLowerLength);
         Checks.run("aCarParkBarrierIsColouredFromItsBooth", OutdoorTests::aCarParkBarrierIsColouredFromItsBooth);
+        Checks.run("aParkingMeterStandsWhereItsSpritePaintsItsPost", OutdoorTests::aParkingMeterStandsWhereItsSpritePaintsItsPost);
     }
 
     /** A piece, and its model one the jar has: Models.get throws for a name it has not. */
@@ -259,7 +260,22 @@ final class OutdoorTests {
         Checks.check(unnamed("street_roadsigns_01_0") == null && unnamed("street_roadsigns_01_32") == null, "the boards on two posts and the rest area's signs are not warning signs");
     }
 
-    private static void aCarParkBarrierIsColouredFromItsBooth() {
+    private static void aParkingMeterStandsWhereItsSpritePaintsItsPost() {
+        for (int faces = Outdoors.NORTH; faces <= Outdoors.WEST; faces++) {
+            Outdoors.Piece meter = Outdoors.of("street_decoration_01_4", "Meter", "Parking", faces, 1, 1, 0);
+            holds(meter, "a parking meter facing " + faces + " has a model");
+            if (meter == null) {
+                continue;
+            }
+            Checks.check(meter.turns == faces && meter.a == Outdoors.PARKING_METER_AT[2 * faces] && meter.b == Outdoors.PARKING_METER_AT[2 * faces + 1],
+                    "a parking meter facing " + faces + " is turned that way and stands on its post");
+            // The post stands back from the way the meter faces: its face looks over the middle of the square.
+            float awayA = faces == Outdoors.EAST ? -1f : faces == Outdoors.WEST ? 1f : 0f, awayB = faces == Outdoors.SOUTH ? -1f : faces == Outdoors.NORTH ? 1f : 0f;
+            Checks.check((meter.a - 0.5f) * awayA + (meter.b - 0.5f) * awayB > 0.15f, "a parking meter facing " + faces + " stands back from its face");
+        }
+    }
+
+        private static void aCarParkBarrierIsColouredFromItsBooth() {
         // The booth's square of each facing, as the sheet lays the four: north, east, south, west.
         int[][] booths = {{0, 3}, {0, 0}, {0, 0}, {3, 0}};
         for (int faces = Outdoors.NORTH; faces <= Outdoors.WEST; faces++) {
