@@ -1812,7 +1812,7 @@ final class Pipeline {
     /** The box of air rain and snow fall in: its width, its height, and how far under the eye it reaches. See the rain shader and Wind. */
     private static final float RAIN_BOX = Wind.CARRIED_WRAP, RAIN_HIGH = 12f, RAIN_UNDER_EYE = 0.35f * RAIN_HIGH;
     /** Half the width of a streak of rain, in tiles, and how long the eye takes a drop in for, in seconds: a streak is as long as the drop goes in that. */
-    private static final float RAIN_HALF_WIDE = 0.008f, RAIN_SEEN_FOR = 0.032f;
+    private static final float RAIN_HALF_WIDE = 0.003f, RAIN_SEEN_FOR = 0.02f;
     /** How much of a drop and of a flake shows, at its middle. */
     private static final float RAIN_SHOWN = 0.55f, SNOW_SHOWN = 0.9f;
     /**
@@ -1915,6 +1915,7 @@ final class Pipeline {
             rain.set("uSeated", seated ? 1f : 0f);
             rain.set("uBox", rainBox[0], rainBox[1], rainBox[2], rainBox[3]);
             rain.set("uThin", Math.max(RAIN_HALF_WIDE, RAIN_DOTS_LEAST * dot));
+            rain.set("uPerPixel", overhead ? 0f : RAIN_DOTS_LEAST * tanHalfFieldOfView / height);
             rain.set("uLong", overhead ? RAIN_SEEN_FOR_OVERHEAD : RAIN_SEEN_FOR);
             rain.set("uShown", RAIN_SHOWN);
             setShelter(rain, SHELTER_UNIT, lidded);

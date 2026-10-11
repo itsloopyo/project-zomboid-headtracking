@@ -3403,8 +3403,11 @@ final class PipelineShaders {
             uniform vec2 uTile;
             uniform float uThin;
             uniform float uLong;
+            // Half a streak's least width for each tile it is from the eye, or 0 from far overhead, where uThin holds it.
+            uniform float uPerPixel;
             varying vec3 vWorld;
             varying vec2 vIn;
+            varying float vShare;
 
             const float BOX = 14.0;
             const float HIGH = 12.0;
@@ -3419,9 +3422,12 @@ final class PipelineShaders {
                 p.z = mod(p.z - uBox.z + uBox.w, HIGH) - uBox.w + uBox.z;
                 vec3 way = normalize(vec3(uAir, -speed));
                 vec3 side = normalize(cross(way, uEye - p));
+                // A streak thinner than a dot of the picture flickers: it is drawn a dot wide and as much fainter.
+                float thin = max(uThin, uPerPixel * distance(uEye, p));
+                vShare = uThin / thin;
                 float along = corner > 1.5 ? 1.0 : 0.0;
                 float across = corner > 0.5 && corner < 2.5 ? 1.0 : -1.0;
-                vec3 at = p - way * (uLong * length(vec3(uAir, speed)) * along) + side * (across * uThin);
+                vec3 at = p - way * (uLong * length(vec3(uAir, speed)) * along) + side * (across * thin);
                 vWorld = at;
                 vIn = vec2(across, along);
                 // The harder it rains the more of the drops there are.
@@ -3571,6 +3577,7 @@ final class PipelineShaders {
             uniform float uSheltering;
             varying vec3 vWorld;
             varying vec2 vIn;
+            varying float vShare;
             """ + BEAMS + SHELTERED + """
 
             void main() {
@@ -3598,7 +3605,7 @@ final class PipelineShaders {
                 if (uTorchAt.w > 0.0) {
                     lit += TORCH_GIVES * torchAt(vWorld, dir);
                 }
-                gl_FragColor = vec4(uTint + vec3(1.0, 0.92, 0.76) * (lit * 1.4), body * open * uShown);
+                gl_FragColor = vec4(uTint + vec3(1.0, 0.92, 0.76) * (lit * 1.4), body * open * uShown * vShare);
             }
             """;
 
