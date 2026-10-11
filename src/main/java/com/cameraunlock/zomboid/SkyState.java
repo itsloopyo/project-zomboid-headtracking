@@ -25,6 +25,10 @@ final class SkyState {
     static final float FULL_NIGHT = -0.22f;
     /** How much of the sky the clouds fill with the game's cloud intensity at 0 and at 1. */
     private static final float COVER_CLEAR = 0.29f, COVER_OVERCAST = 0.9f;
+    /** How much more of the sky the deck covers in the heaviest rain or snow: enough that no moon shows through a storm. */
+    private static final float COVER_CLOSED = 0.2f;
+    /** How much of the sun's or the moon's light the heaviest rain or snow takes out. */
+    private static final float FALLING_DIMS = 0.75f;
     /** How much of the light crossing a tile of air is caught and sent to the eye: on a clear day, and added by full fog and by full rain. */
     private static final float MIST_CLEAR = 0.0045f, MIST_FOG = 0.022f, MIST_RAIN = 0.008f;
     /**
@@ -156,7 +160,9 @@ final class SkyState {
         float overcast = Math.max(cloudy * 0.7f, Math.max(rain, snowing));
         // The game's figure is half way up for a day of broken cloud, which still shows a
         // good deal of blue: the sky only closes over near the top of it, or in rain.
-        cover = COVER_CLEAR + (COVER_OVERCAST - COVER_CLEAR) * Math.max(cloudy * 0.75f, rain);
+        // Rain and snow fall from a deck of cloud, and a heavy fall from one with no gap in it.
+        float falling = Math.max(rain, snowing);
+        cover = COVER_CLEAR + (COVER_OVERCAST - COVER_CLEAR) * Math.max(cloudy * 0.75f, falling) + COVER_CLOSED * falling * falling;
 
         zenithRed = mix(0.010f, 0.240f, day) + 0.10f * twilight;
         zenithGreen = mix(0.016f, 0.430f, day) + 0.04f * twilight;
@@ -195,6 +201,11 @@ final class SkyState {
             lightX = moonX; lightY = moonY; lightUp = moonUp;
             lightRed = 0.10f * night; lightGreen = 0.13f * night; lightBlue = 0.20f * night;
         }
+        // Under the cloud a heavy fall comes from, little of the sun or the moon gets through to throw a shadow.
+        float beneath = 1f - FALLING_DIMS * falling;
+        lightRed *= beneath;
+        lightGreen *= beneath;
+        lightBlue *= beneath;
         float through = (1f - 0.85f * overcast) * smooth(-0.02f, 0.08f, sunUp);
         rayRed = through * 0.55f;
         rayGreen = through * 0.55f * mix(0.55f, 0.95f, white);
