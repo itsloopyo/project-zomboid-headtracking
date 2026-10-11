@@ -37,6 +37,7 @@ final class OutdoorTests {
         Checks.run("aStandingPipesRunAlongTheFloorIntoItsSquare", OutdoorTests::aStandingPipesRunAlongTheFloorIntoItsSquare);
         Checks.run("aCashMachineFacesTheWayItsScreenIsPainted", OutdoorTests::aCashMachineFacesTheWayItsScreenIsPainted);
         Checks.run("aCoopIsStoodOnceByItsSouthEastQuarter", OutdoorTests::aCoopIsStoodOnceByItsSouthEastQuarter);
+        Checks.run("aStreetNameBladeReachesFromItsSignalsPostTheWayItsSpriteDoes", OutdoorTests::aStreetNameBladeReachesFromItsSignalsPostTheWayItsSpriteDoes);
     }
 
     /** A piece, and its model one the jar has: Models.get throws for a name it has not. */
@@ -269,7 +270,26 @@ final class OutdoorTests {
         Checks.check(unnamed("street_roadsigns_01_0") == null && unnamed("street_roadsigns_01_32") == null, "the boards on two posts and the rest area's signs are not warning signs");
     }
 
-    private static void aCoopIsStoodOnceByItsSouthEastQuarter() {
+    private static void aStreetNameBladeReachesFromItsSignalsPostTheWayItsSpriteDoes() {
+        // The sprites reach out east, north, west and south, and the model's +X is the way it reaches.
+        float[][] reach = {{1f, 0f}, {0f, -1f}, {-1f, 0f}, {0f, 1f}};
+        for (int place = 48; place <= 51; place++) {
+            Outdoors.Piece blade = Outdoors.of("street_decoration_01_" + place, null, null, Outdoors.NONE, 1, 1, 0);
+            holds(blade, "street_decoration_01_" + place + " is a name blade");
+            if (blade == null) {
+                continue;
+            }
+            float[] way = new float[2];
+            Models.turn(blade.turns, 1f, 0f, way);
+            float[] wanted = reach[place - 48];
+            Checks.check(Math.abs(way[0] - wanted[0]) < 1e-5f && Math.abs(way[1] - wanted[1]) < 1e-5f,
+                    "street_decoration_01_" + place + " reaches " + wanted[0] + ", " + wanted[1] + " and not " + way[0] + ", " + way[1]);
+            Checks.check(blade.a == Furniture.SIGNAL_POST_A && blade.b == Furniture.SIGNAL_POST_B, "it is clamped to the signal's post");
+        }
+        holds(Outdoors.of("street_decoration_01_22", "Streetname Sign", null, Outdoors.NONE, 1, 1, 0), "a street name sign has its model");
+    }
+
+        private static void aCoopIsStoodOnceByItsSouthEastQuarter() {
         Outdoors.Piece stander = Outdoors.of("location_farm_accesories_01_42", null, null, Outdoors.NONE, 1, 1, 0);
         holds(stander, "a coop's south-east quarter stands the coop");
         Checks.check(stander != null && !stander.follows && stander.a == 0f && stander.b == 0f, "it stands it at its square's north-west corner");

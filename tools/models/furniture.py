@@ -1944,6 +1944,45 @@ def coop():
     return model
 
 
+def name_blade(bm, frame, x0, x1, y, z):
+    """A street's name blade along X from x0 to x1 on its centre line y, its middle z high: the green plate into bm and its
+    white edge into frame."""
+    cuboid(bm, x0, x1, y - 0.008, y + 0.008, z - 0.07, z + 0.07)
+    cuboid(frame, x0 - 0.008, x1 + 0.008, y - 0.006, y + 0.006, z - 0.078, z + 0.078)
+
+
+def street_name_sign():
+    """A street name sign: a post with two name blades on its top, crossed, one along X and the one under it along Y."""
+    model = Model("street_name_sign", centred=False)
+    post = bmesh.new()
+    lathe(post, [(0.0, 0.0), (0.03, 0.0), (0.03, 2.1), (0.0, 2.1)], segments=10)
+    model.turned(post, "metal", sharp=50.0)
+    plates, frames = bmesh.new(), bmesh.new()
+    name_blade(plates, frames, -0.38, 0.38, 0.0, 2.02)
+    turned = bmesh.new()
+    name_blade(turned, frames, -0.38, 0.38, 0.0, 1.85)
+    bmesh.ops.rotate(turned, verts=turned.verts, cent=(0.0, 0.0, 0.0), matrix=Matrix.Rotation(math.radians(90), 3, "Z"))
+    model.hard(plates, "paint", bevel=0.003, segments=1)
+    model.hard(turned, "paint", bevel=0.003, segments=1)
+    model.hard(frames, "enamel", bevel=0.002, segments=1)
+    return model
+
+
+def street_blade():
+    """A street's name blade on a traffic signal's post, out along +X from a clamp round the post on two short brackets."""
+    model = Model("street_blade", centred=False)
+    steel = bmesh.new()
+    for z in (-0.045, 0.045):
+        cuboid(steel, 0.05, 0.12, -0.01, 0.01, z - 0.01, z + 0.01)
+        lathe(steel, [(0.085, z - 0.015), (0.085, z + 0.015)], segments=12, caps=False)
+    model.hard(steel, "steel", bevel=0.002, segments=1)
+    plates, frames = bmesh.new(), bmesh.new()
+    name_blade(plates, frames, 0.12, 0.82, 0.0, 0.0)
+    model.hard(plates, "paint", bevel=0.003, segments=1)
+    model.hard(frames, "enamel", bevel=0.002, segments=1)
+    return model
+
+
 def metal_rack():
     """Steel racking two squares long: four slotted uprights and three decks."""
     model = Model("metal_rack")
@@ -10572,7 +10611,7 @@ def every():
               framed("frame_tall", 0.6, 0.9), framed("frame_square", 0.7, 0.7), framed("frame_wide", 0.9, 0.6), canvas(), wall_clock(),
               table("table_2", 1.9, 0.92), table("table_3", 2.9, 0.92), table("table_4", 1.9, 1.9, leg=0.08), table("narrow_table", 0.92, 0.5),
               table("low_table", 0.9, 0.5, top=0.42, leg=0.05), table("low_table_2", 1.5, 0.6, top=0.42, leg=0.05), round_table(), office_desk(),
-              cabinet("shop_counter", 0.62, 0.90, True, panelled=True), low_shelves(), wall_shelf("wall_shelf", 1), wall_shelf("wall_shelves", 2), shop_wall_shelves("shop_wall_shelves", "wood"), shop_wall_shelves("zippee_wall_shelves", "vinyl"), hood_dryer(), car_wash_brush(), car_wash_curtain(), bar_back(), sewer_pipes("sewer_pipes_bend", 0.46, True), sewer_pipes("sewer_pipes", 0.25, False), clothes_wall_rails(), generator(), marker_ball(), hospital_curtain("curtain_rail", 0.0, 0.0, 0), hospital_curtain("curtain_drawn", -0.49, 0.49, 10), hospital_curtain("curtain_gathered", 0.12, 0.49, 6), mantel_pillar(), mantel_lintel(), pipe_upright("pipe_upright", None), pipe_upright("pipe_upright_run", "long"), pipe_upright("pipe_upright_stub", "stub"), atm(), coop(),
+              cabinet("shop_counter", 0.62, 0.90, True, panelled=True), low_shelves(), wall_shelf("wall_shelf", 1), wall_shelf("wall_shelves", 2), shop_wall_shelves("shop_wall_shelves", "wood"), shop_wall_shelves("zippee_wall_shelves", "vinyl"), hood_dryer(), car_wash_brush(), car_wash_curtain(), bar_back(), sewer_pipes("sewer_pipes_bend", 0.46, True), sewer_pipes("sewer_pipes", 0.25, False), clothes_wall_rails(), generator(), marker_ball(), hospital_curtain("curtain_rail", 0.0, 0.0, 0), hospital_curtain("curtain_drawn", -0.49, 0.49, 10), hospital_curtain("curtain_gathered", 0.12, 0.49, 6), mantel_pillar(), mantel_lintel(), pipe_upright("pipe_upright", None), pipe_upright("pipe_upright_run", "long"), pipe_upright("pipe_upright_stub", "stub"), atm(), coop(), street_name_sign(), street_blade(),
               metal_rack(), store_shelves(), plastic_chair(), folding_chair(), booth(), stool(), vending_machine(), arcade_machine(),
               radio(), microwave(), dishwasher(), chest_freezer(), register(), shower("shower", True), shower("shower_head", False),
               kettle_barbecue(), gas_barbecue(), cooler("mini_fridge", 0.5, 0.82, 1), cooler("large_fridge", 1.7, 1.95, 2),

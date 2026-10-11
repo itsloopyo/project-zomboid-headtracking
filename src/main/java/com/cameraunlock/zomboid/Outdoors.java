@@ -168,6 +168,22 @@ final class Outdoors {
      * the sheet tied over one hangs over its rim, on the side of it nearest the game's view.
      */
     private static final float RAIN_DYE = 0.31f, SHEET_AT = 0.75f, SHEET_DYE = 0.33f;
+    /** How high a street name blade on a signal's post is over its storey's floor, in metres: the model is lowered onto the
+     * floor when it is made. */
+    private static final float BLADE_UP = 1.0f;
+
+    /** A name blade by its place on the street sheet, its model turned so that its +X runs the way it reaches from the post. */
+    private static Piece streetBlade(int place) {
+        float up = BLADE_UP / ViewCamera.LEVEL_HEIGHT;
+        return switch (place) {
+            case 48 -> new Piece("street_blade", SOUTH).at(Furniture.SIGNAL_POST_A, Furniture.SIGNAL_POST_B).dye(PAINT, 0.74f, 0.58f, 0.47f - up).raise(up);
+            case 49 -> new Piece("street_blade", EAST).at(Furniture.SIGNAL_POST_A, Furniture.SIGNAL_POST_B).dye(PAINT, 0.54f, 0.38f, 0.45f - up).raise(up);
+            case 50 -> new Piece("street_blade", NORTH).at(Furniture.SIGNAL_POST_A, Furniture.SIGNAL_POST_B).dye(PAINT, 0.34f, 0.58f, 0.45f - up).raise(up);
+            case 51 -> new Piece("street_blade", WEST).at(Furniture.SIGNAL_POST_A, Furniture.SIGNAL_POST_B).dye(PAINT, 0.54f, 0.78f, 0.47f - up).raise(up);
+            default -> null;
+        };
+    }
+
     /** How high a coop's front wall is painted, in levels, over a place a little in from its square's south edge. */
     private static final float COOP_DYE = 0.25f, COOP_DYE_B = 0.9f;
 
@@ -333,6 +349,11 @@ final class Outdoors {
                 }
                 default -> { }
             }
+            // A street's name blade on a traffic signal's post, on the storey over its foot: out east, north, west and south.
+            Piece blade = streetBlade(Sheets.place(name, STREET));
+            if (blade != null) {
+                return blade;
+            }
             // A chicken coop on four squares: the south-east one stands the whole coop, its middle at that square's north-west
             // corner, and the other three and the doors the game lays over the south two stand nothing.
             Piece coop = coop(name);
@@ -485,6 +506,10 @@ final class Outdoors {
             float a = eastOrWest ? CROSSING_SIGNAL_EW_A : CROSSING_SIGNAL_NS, b = eastOrWest ? CROSSING_SIGNAL_EW_B : CROSSING_SIGNAL_NS;
             return new Piece("crossing_signal", faces).at(a, b).dye(PAINT, a, b, CROSSING_SIGNAL_WHITE)
                     .also(1 << Models.PLASTIC, CROSSING_SIGNAL_YELLOW);
+        }
+        // A street name sign: its post and two blades crossed on top, the upper along y as its sprite paints it.
+        if (called.equals("Streetname Sign")) {
+            return new Piece("street_name_sign", EAST).at(0.5f, 0.53f).dye(PAINT, 0.5f, 0.25f, 0.77f);
         }
         // A parking meter's post stands back from the middle of its square, away from the way its face is turned.
         if (called.equals("Meter") && kind.equals("Parking") && faces != NONE) {
