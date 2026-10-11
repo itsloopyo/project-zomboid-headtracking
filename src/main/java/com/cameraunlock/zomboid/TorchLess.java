@@ -108,11 +108,21 @@ final class TorchLess {
      * it go, its life run out. Held from the shot on, before the engine has it, so the squares
      * are read as they are without it.
      */
-    private IsoLightSource lampToTakeOut() {
-        if (lamp != null && lamp.id == 0 && lamp.life <= 0) {
+    private IsoLightSource lampToTakeOut(int playerX, int playerY) {
+        if (lamp != null && (lamp.id == 0 && lamp.life <= 0 || !reaches(lamp.x, lamp.y, lamp.radius, playerX, playerY))) {
             lamp = null;
         }
         return lamp == null || !MuzzleFlash.on() || Quality.plain() ? null : lamp;
+    }
+
+    /**
+     * Whether a lamp's light reaches the viewer's square. The squares read are widened to take in
+     * every square the lamp is on, so a lamp left behind must be let go: one still held after the
+     * viewer was moved across the map widened them to the distance between the two, and the light
+     * read for them to gigabytes.
+     */
+    static boolean reaches(int lampX, int lampY, int radius, int playerX, int playerY) {
+        return Math.max(Math.abs(lampX - playerX), Math.abs(lampY - playerY)) <= radius;
     }
 
     /**
@@ -122,7 +132,7 @@ final class TorchLess {
      */
     void gather(IsoCell cell, IsoPlayer player, float reach) {
         int playerX = (int) Math.floor(player.getX()), playerY = (int) Math.floor(player.getY());
-        IsoLightSource lamp = lampToTakeOut();
+        IsoLightSource lamp = lampToTakeOut(playerX, playerY);
         int lampId = lamp == null ? 0 : lamp.id;
         if (lamp != null) {
             reach = Math.max(reach, lamp.radius + Math.max(Math.abs(lamp.x - playerX), Math.abs(lamp.y - playerY)));

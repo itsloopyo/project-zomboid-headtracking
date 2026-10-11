@@ -18,6 +18,14 @@ final class TorchLessTests {
         Checks.run("nothingIsGivenLessThanItsLeast", TorchLessTests::nothingIsGivenLessThanItsLeast);
         Checks.run("aSquareKnownInPartKeepsTheColourRoundIt", TorchLessTests::aSquareKnownInPartKeepsTheColourRoundIt);
         Checks.run("aSquareTheTorchComesOntoKeepsTheLightItHad", TorchLessTests::aSquareTheTorchComesOntoKeepsTheLightItHad);
+        Checks.run("aShotsLampLeftBehindIsLetGo", TorchLessTests::aShotsLampLeftBehindIsLetGo);
+    }
+
+    private static void aShotsLampLeftBehindIsLetGo() {
+        check(TorchLess.reaches(10943, 9860, 18, 10943, 9860), "a shot's lamp on the viewer's square is taken out");
+        check(TorchLess.reaches(10943, 9860, 18, 10925, 9878), "and so is one as far off as its light reaches");
+        check(!TorchLess.reaches(10943, 9860, 18, 10924, 9860), "one a square further is let go");
+        check(!TorchLess.reaches(10943, 9860, 18, 12772, 1565), "a lamp the viewer was moved across the map from is let go");
     }
 
     private static void aSquareTheTorchComesOntoKeepsTheLightItHad() {
