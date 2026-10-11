@@ -439,6 +439,7 @@ public final class Hooks {
 
     /** Called from AnimationPlayer.updateAnimation_StandardAnimation once the bones are posed and the spine is twisted. */
     public static void pose(AnimationPlayer animation) {
+        HitFlinch.pose(animation);
         for (int i = 0; i < View.COUNT; i++) {
             View view = View.of(i);
             if (view != null) {
@@ -449,6 +450,7 @@ public final class Hooks {
 
     /** Called from AnimationPlayer.updateAnimation_StandardAnimation once the matrices the model is drawn with are made. */
     public static void posed(AnimationPlayer animation) {
+        HitFlinch.posed(animation);
         for (int i = 0; i < View.COUNT; i++) {
             View view = View.of(i);
             if (view != null) {

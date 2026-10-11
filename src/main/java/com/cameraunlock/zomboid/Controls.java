@@ -10,6 +10,7 @@ import zombie.characters.CharacterInputKeyBinding;
 import zombie.characters.CharacterJoypadButtonBinding;
 import zombie.characters.IsoGameCharacter;
 import zombie.characters.IsoPlayer;
+import zombie.characters.IsoZombie;
 import zombie.characters.animals.IsoAnimal;
 import zombie.core.Core;
 import zombie.core.physics.BallisticsController;
@@ -19,6 +20,7 @@ import zombie.inventory.types.HandWeapon;
 import zombie.iso.IsoUtils;
 import zombie.iso.Vector2;
 import zombie.iso.Vector3;
+import zombie.scripting.objects.PhysicsHitReactionScript;
 
 /**
  * What the game is told was pressed while the first person view holds the
@@ -310,6 +312,9 @@ public final class Controls {
         int part = hitPart.part(aim, standsUp, target);
         if (part != HitPart.NONE) {
             HitImpulse.aimed(target.getID(), aim, hitPart, part);
+            if (target instanceof IsoZombie && view.player().getPrimaryHandItem() instanceof HandWeapon weapon && weapon.getAmmoType() != null) {
+                HitFlinch.hit(target, part, aim, hitPart, standsUp, PhysicsHitReactionScript.getImpulse(RagdollBodyPart.values()[part], weapon.getAmmoType()));
+            }
         }
         if (FirstPerson.TRACE) {
             Log.info(String.format(Locale.ROOT, "shot part: %s of the character at (%.2f, %.2f)",
