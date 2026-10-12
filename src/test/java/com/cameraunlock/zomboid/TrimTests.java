@@ -21,7 +21,7 @@ final class TrimTests {
         Checks.run("aSkirtingStopsWhereADoorwayIs", TrimTests::aSkirtingStopsWhereADoorwayIs);
         Checks.run("aBandsColourIsItsPaintNotItsOutline", TrimTests::aBandsColourIsItsPaintNotItsOutline);
         Checks.run("aSkirtingStandsOnTheRoomsSideOfItsWallWithNoUndersideOnTheFloor", TrimTests::aSkirtingStandsOnTheRoomsSideOfItsWallWithNoUndersideOnTheFloor);
-        Checks.run("aCorniceIsCutWithItsWallInTheOverheadView", TrimTests::aCorniceIsCutWithItsWallInTheOverheadView);
+        Checks.run("everyFaceOfAMouldingIsCutWithItsWallInTheOverheadView", TrimTests::everyFaceOfAMouldingIsCutWithItsWallInTheOverheadView);
         Checks.run("everyFaceOfAMouldingLooksAwayFromItsWall", TrimTests::everyFaceOfAMouldingLooksAwayFromItsWall);
     }
 
@@ -120,16 +120,24 @@ final class TrimTests {
         }
     }
 
-    private static void aCorniceIsCutWithItsWallInTheOverheadView() {
-        // PipelineShaders.cutAway takes a face that is not hung with a wall it is within 0.3 of
-        // where it faces more along the floor than up or down.
-        SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
-        Trims.add(mesh, CORNICE, 4f, 9f, 1f, 0f, 0f, 1f, 0f, 0f, WHITE);
-        for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
-            float nx = mesh.vertices[at + 9], ny = mesh.vertices[at + 10], nz = mesh.vertices[at + 11], up = mesh.vertices[at + 2];
-            float off = mesh.vertices[at + 1] - 9f;
-            boolean upright = Math.abs(nz) <= Math.max(Math.abs(nx), Math.abs(ny));
-            check(upright && off < 0.3f || off < 0.06f, "every face of a cornice goes with its wall: normal " + nx + " " + ny + " " + nz + " at " + off + " up " + up);
+    private static void everyFaceOfAMouldingIsCutWithItsWallInTheOverheadView() {
+        // PipelineShaders.cutAway for a face not hung: one facing more up or down than along the
+        // floor goes with the north wall where it is within 0.06 of the north line; one facing more
+        // along the floor goes with the north wall where it is within 0.3 of the line and faces
+        // more along y than x. Ends of a band whole along its square and of one cut short by a door.
+        for (Trims.Band band : new Trims.Band[] {SKIRTING, CORNICE, new Trims.Band(0.4f, 0.43f, 0f, 1f, 0.5f, 0.3f, 0.2f),
+                new Trims.Band(0f, 0.12f, 0.3f, 0.7f, 0.9f, 0.9f, 0.9f)}) {
+            SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
+            Trims.add(mesh, band, 4f, 9f, 1f, 0f, 0f, 1f, 0f, 0f, WHITE);
+            for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+                float x = mesh.vertices[at], y = mesh.vertices[at + 1];
+                float nx = mesh.vertices[at + 9], ny = mesh.vertices[at + 10], nz = mesh.vertices[at + 11];
+                float offY = Math.abs(y - Math.round(y)), offX = Math.abs(x - Math.round(x));
+                boolean lying = Math.abs(nz) > Math.max(Math.abs(nx), Math.abs(ny));
+                boolean north = lying ? offY < 0.06f : offY < 0.3f && Math.abs(ny) > Math.abs(nx);
+                check(north, "every face of a moulding goes with its own wall: normal " + nx + " " + ny + " " + nz + " at " + x + " " + y
+                        + " (off the west line " + offX + ")");
+            }
         }
     }
 

@@ -235,14 +235,19 @@ final class Trims {
         return new float[] {red / (255f * taken), green / (255f * taken), blue / (255f * taken)};
     }
 
+    /** How much more an end of a moulding faces into the room than along its wall: see add. */
+    static final float END_TOWARDS_ROOM = 1.01f;
+
     /**
      * The section of a band's moulding: points (out of the wall's skin, height over the
      * level's floor), in tiles, from one end of the section to the other, each segment facing
      * away from the wall on its left as it is walked. Every point is at a height at or below
      * the one before, so the section and the wall behind it close as a strip per segment.
      * A skirting or a panel is a board with a round top and no underside, a cornice a fillet
-     * and a cove up into the ceiling, steeper than half a right angle throughout so the cut of
-     * a wall in the overhead view takes it with the wall, and a rail a board rounded above.
+     * and a cove up into the ceiling, and a rail a board rounded above. The cove's faces are
+     * steeper than half a right angle, so the cut of a wall in the overhead view takes them with
+     * the wall they face; the fillet's level underside is cut as it lies within the wall's
+     * thickness of the line.
      * A cornice falls CORNICE_FALL down the wall whatever its band.
      */
     static float[] section(Band band) {
@@ -292,7 +297,10 @@ final class Trims {
         for (int end = 0; end < 2; end++) {
             float along = end == 0 ? from : to, way = end == 0 ? -1f : 1f;
             float ex = x0 + da * along + skinX, ey = y0 + db * along + skinY, base = base0 + (base1 - base0) * along;
-            mesh.face(da * way, db * way, 0f);
+            // Turned a little more towards the room than along the wall: the overhead view's cut
+            // takes an upright face with the wall it faces most, and an end faced only along its
+            // wall would go with the wall it meets, or with none, and hang in the air.
+            mesh.face(da * way + inX * END_TOWARDS_ROOM, db * way + inY * END_TOWARDS_ROOM, 0f);
             for (int i = 0; i + 3 < section.length; i += 2) {
                 float out0 = section[i], up0 = section[i + 1], out1 = section[i + 2], up1 = section[i + 3];
                 if (up0 == up1) {
@@ -313,7 +321,7 @@ final class Trims {
         mesh.add(x, y, up, 0f, 0f, band.red * lit[0], band.green * lit[1], band.blue * lit[2]);
     }
 
-    /** The light at a place on the square, as red, green and blue into into. */
+    /** The light at a place on the square, as red, green and blue into. */
     interface Light {
         void at(float x, float y, float[] into);
     }
