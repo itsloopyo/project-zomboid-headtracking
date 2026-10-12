@@ -31,6 +31,8 @@ final class Hoods {
      * face of a shingle, clear of the dark lines between them.
      */
     static final float DYE_OUT = 0.1f, DYE_ALONG = 0.59f, DYE_HIGH = 0.968f;
+    /** How many places of a roof sheet one finish of its tiles takes up. */
+    private static final int FINISH_PLACES = 32;
 
     private static final IdentityHashMap<IsoSprite, Integer> eaves = new IdentityHashMap<>();
     private static final IdentityHashMap<IsoSprite, Boolean> ends = new IdentityHashMap<>();
@@ -46,8 +48,9 @@ final class Hoods {
     /**
      * Which wall of its square an eave tile of a roof hangs from, Outdoors.NORTH or WEST, by
      * its name and the edge the game says it is fixed to, or NONE for a sprite that is none.
-     * Every roof sheet of the game has its eave row at the same two places, the one fixed to
-     * the north edge and the one fixed to the west.
+     * Every roof sheet of the game holds its tiles twice over in two finishes, 32 places
+     * apart, and has its eave row at the same two places of each, the one fixed to the north
+     * edge and the one fixed to the west: 6 and 7, and 38 and 39, which burn to 6 and 7.
      */
     static int eaveOf(String name, boolean north, boolean west, boolean eave) {
         if (name == null || !eave || !name.startsWith("roofs_") || north == west) {
@@ -56,13 +59,14 @@ final class Hoods {
         int under = name.lastIndexOf('_');
         String sheet = name.substring(0, under), place = name.substring(under + 1);
         boolean roofSheet = sheet.equals("roofs_burnt_01") || sheet.length() == "roofs_00".length() && Character.isDigit(sheet.charAt(6)) && Character.isDigit(sheet.charAt(7));
-        if (!roofSheet) {
+        if (!roofSheet || place.isEmpty() || !place.chars().allMatch(Character::isDigit)) {
             return NONE;
         }
-        if (place.equals("6") && north) {
+        int inFinish = Integer.parseInt(place) % FINISH_PLACES;
+        if (inFinish == 6 && north) {
             return Outdoors.NORTH;
         }
-        if (place.equals("7") && west) {
+        if (inFinish == 7 && west) {
             return Outdoors.WEST;
         }
         return NONE;

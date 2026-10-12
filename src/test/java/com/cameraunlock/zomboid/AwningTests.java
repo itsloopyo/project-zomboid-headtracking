@@ -144,6 +144,9 @@ final class AwningTests {
         check(Hoods.eaveOf("roofs_04_7", false, true, true) == Outdoors.WEST, "the kiosk's eave, on its west wall");
         check(Hoods.eaveOf("roofs_04_6", true, false, true) == Outdoors.NORTH, "the other kiosk's, on its north wall");
         check(Hoods.eaveOf("roofs_burnt_01_6", true, false, true) == Outdoors.NORTH, "a burnt roof's");
+        check(Hoods.eaveOf("roofs_05_39", false, true, true) == Outdoors.WEST, "the eave of a sheet's second finish, on its west wall");
+        check(Hoods.eaveOf("roofs_01_38", true, false, true) == Outdoors.NORTH, "the other, on its north wall");
+        check(Hoods.eaveOf("roofs_01_63", false, true, true) == Hoods.NONE, "a hip's end in the second finish");
         check(Hoods.eaveOf("roofs_04_21", false, false, true) == Hoods.NONE, "a hip's end");
         check(Hoods.eaveOf("roofs_04_31", false, true, true) == Hoods.NONE, "the other hip's end");
         check(Hoods.eaveOf("roofs_04_7", false, true, false) == Hoods.NONE, "a tile the game calls no eave");
