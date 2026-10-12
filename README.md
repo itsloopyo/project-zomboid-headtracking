@@ -18,7 +18,7 @@ It adds a first person view to the game, with a rebuilt world and new graphics.
 - **On foot and in vehicles** - press `Delete` to switch views. Play with a mouse and keyboard or controller, with sound that follows where you look.
 - **A rebuilt world** - in Medium and High: 3D buildings and furniture, new textures, detailed plants, rolling hills and distant scenery.
 - **New renderer graphics in both views** - lighting, shadows, models and textures in Medium and High. High adds reflections on roads, floors, glass and water, and light beams through fog.
-- **Combat** - custom arms and hands, melee swings, recoil and reload animations. Every shot kicks the weapon and lets it spring back, a shotgun hardest, without moving where the shot goes. Shots hit the body part you aim at. In single player a shot arm hangs limp, a shot leg slows a zombie to a lurching shamble, and a leg shot through drops it to crawl. Shoot a ruined limb again and it comes off, flies and lies where it lands, and a shotgun blast to the head can knock the head off or burst it. Medium and High add shotgun and hunting rifle models and magnified scopes. A shot knocks a zombie along the line it flew: one that stays up is jolted where the round went in, and one that drops goes limp at once, folds at the knees and is thrown back, harder by a shotgun than a pistol. The fall needs the game's **Use Physics Hit Reactions** option, which the game turns off on a server. In Medium and High, shots strike what they hit: dust and chips from brick and concrete, splinters from wood, sparks from metal, blood from flesh, and a hole left in the walls, floors and ceilings.
+- **Combat** - custom arms and hands, melee swings, recoil and reload animations. Every shot kicks the weapon and lets it spring back, a shotgun hardest, without moving where the shot goes. Shots hit the body part you aim at. In single player a shot arm hangs limp, a shot leg slows a zombie to a lurching shamble, and a leg shot through drops it to crawl. Shoot a ruined limb again and it comes off, flies and lies where it lands, and a shotgun blast to the head can knock the head off or burst it. Medium and High add pump shotgun, sawn-off and hunting rifle models and magnified scopes. A shot knocks a zombie along the line it flew: one that stays up is jolted where the round went in, and one that drops goes limp at once, folds at the knees and is thrown back, harder by a shotgun than a pistol. The fall needs the game's **Use Physics Hit Reactions** option, which the game turns off on a server. In Medium and High, shots strike what they hit: dust and chips from brick and concrete, splinters from wood, sparks from metal, blood from flesh, and a hole left in the walls, floors and ceilings.
 - **Vehicle interiors** - dashboards, seats and working mirrors and instrumentation.
 - **Adjustable graphics** - automatic or manual quality, three picture styles, field of view, hill height and optional replacement models and textures.
 
@@ -416,8 +416,8 @@ WholeFigureShadows=true
 FrameBlending=true
 
 [Content]
-; true: the mod's models of the pump shotgun, the hunting rifle and rifle scopes. false: the game's own, with no picture
-; through the scope.
+; true: the mod's models of the pump shotgun, the sawn-off pump shotgun, the hunting rifle and rifle scopes. false: the
+; game's own, with no picture through the scope.
 OwnWeapons=true
 ; true: the mod's models of furniture, appliances, street lamps, clocks, picture frames, banners and flags. false: the
 ; game's sprites.

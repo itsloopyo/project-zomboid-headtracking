@@ -103,9 +103,9 @@ final class GripTests {
                 "nor one three times as long and as tall as its muzzle is from its grip: " + why);
     }
 
-    /** The mod's own shotgun and rifle are held as the game's firearms are: their meshes say where their grips are. */
+    /** The mod's own guns are held as the game's firearms are: their meshes say where their grips are. */
     private static void modsOwnModelsHaveAGripAndAForeEnd() throws IOException {
-        for (String name : new String[] {"shotgun", "rifle"}) {
+        for (String name : new String[] {"shotgun", "sawnoff", "rifle"}) {
             ByteBuffer read;
             try (InputStream packed = new GZIPInputStream(GripTests.class.getResourceAsStream("/models/" + name + ".mesh.gz"))) {
                 read = ByteBuffer.wrap(packed.readAllBytes()).order(ByteOrder.LITTLE_ENDIAN);

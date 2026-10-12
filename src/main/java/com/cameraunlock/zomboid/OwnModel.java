@@ -30,8 +30,9 @@ final class OwnModel {
     private static final int GL_FLOAT = 0x1406, GL_SHORT = 0x1402, GL_UNSIGNED_SHORT = 0x1403;
 
     static final OwnModel SHOTGUN = new OwnModel("the shotgun's model", "shotgun", "Base.Shotgun", true);
+    static final OwnModel SAWN_OFF = new OwnModel("the sawn-off shotgun's model", "sawnoff", "Base.ShotgunSawnoff", true);
     static final OwnModel RIFLE = new OwnModel("the rifle's model", "rifle", "Base.HuntingRifle", false);
-    static final OwnModel[] ALL = {SHOTGUN, RIFLE};
+    static final OwnModel[] ALL = {SHOTGUN, SAWN_OFF, RIFLE};
 
     /** What the model is, for what the log says went wrong making it. */
     private final String what;

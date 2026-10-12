@@ -1,11 +1,12 @@
 package com.cameraunlock.zomboid;
 
 /**
- * The mod's own model of the pump action shotgun, drawn in the viewer's hands in place of the
- * game's: a mesh, its colour and the shape and finish of its surface, made by
- * tools/models/shotgun.py and kept in the jar (OwnGun says how it is held, lit and drawn).
+ * The mod's own models of the pump action shotgun and of the same gun sawn off, drawn in the
+ * viewer's hands in place of the game's: a mesh, its colour and the shape and finish of its
+ * surface, made by tools/models/shotgun.py and kept in the jar (OwnGun says how each is held,
+ * lit and drawn).
  *
- * Its fore-end slides back with the hand that works it, the bolt goes with it, and as the bolt
+ * The fore-end slides back with the hand that works it, the bolt goes with it, and as the bolt
  * comes back the spent shell is thrown out of the port and falls away.
  *
  * All of it is the render thread's.

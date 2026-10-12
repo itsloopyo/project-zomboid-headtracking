@@ -1,26 +1,31 @@
-"""Builds the mod's own model of a pump action shotgun and packs it for the jar.
+"""Builds the mod's own model of a pump action shotgun, or of the same gun sawn off, and packs it for the jar.
 
 Run headless with Blender 4.4, from the repository root:
 
-    blender --background --factory-startup --python tools/models/shotgun.py -- PICTURES [--renders DIR] [--no-pack] [--cpu] [--mesh]
+    blender --background --factory-startup --python tools/models/shotgun.py -- PICTURES [--sawn-off] [--renders DIR] [--raw DIR [VIEW ...]] [--no-pack] [--cpu] [--mesh]
 
 PICTURES is the folder tools/models/shotgun_textures.py wrote. The model is made here from
 nothing: a twelve bore field gun with a ventilated rib, a walnut stock and fore-end and a
-blued receiver, of no maker's pattern. It writes shotgun.mesh.gz, the triangles, under
-src/main/resources/models, and under src/textures/models, for tools/textures/compress.py to
-pack for the jar:
+blued receiver, of no maker's pattern. With --sawn-off it is that gun cut down: its barrel,
+rib and magazine short, with the bead put back at the new muzzle, and its stock sawn off
+behind the wrist and shaped into a grip for the hand. It writes NAME.mesh.gz, the
+triangles, under src/main/resources/models, and under src/textures/models, for
+tools/textures/compress.py to pack for the jar, where NAME is shotgun or sawnoff:
 
-    shotgun.colour.gz    2048 x 2048 RGBA: the colour of the surface, and in alpha how much
+    NAME.colour.gz       2048 x 2048 RGBA: the colour of the surface, and in alpha how much
                          of the light all round reaches it past the rest of the gun
-    shotgun.surface.gz   2048 x 2048 RGBA: the x and y of the surface's normal in the
+    NAME.surface.gz      2048 x 2048 RGBA: the x and y of the surface's normal in the
                          triangle's own frame, how rough it is, and how much of a metal
+
+--raw renders the parts as they are made, unbaked, for looking at the shape.
 
 The model is in metres. Its barrel runs along +y and its top is +z, as the game's own
 weapons are made, and its origin is in the hand that holds its grip. Three parts of it
 move: the fore-end with its action bars slides back along y to work the action, and the
 bolt goes back with it and uncovers the port. With them is a fired shell, about its own
 middle and lying along y, for the mod to throw out of the port. The stock is a part of its
-own too: with the sights up it lies under the eye, and the mod leaves it out.
+own too: with the sights up it lies under the eye, and the mod leaves it out. The sawn-off's
+grip is in that part.
 
 The mesh file is gzip over this, all little-endian:
 
@@ -59,15 +64,24 @@ OUTPUT = os.path.join(HERE, "..", "..", "src", "main", "resources", "models")
 TEXTURES = os.path.join(HERE, "..", "..", "src", "textures", "models")
 TEXTURE = 2048
 
+SAWN_OFF = "--sawn-off" in sys.argv
+NAME = "sawnoff" if SAWN_OFF else "shotgun"
+
 # Laid out with the bore along y through x = 0, z = 0 and the trigger at y = 0. GRIP is
 # where the hand that holds the grip is, which the finished model has as its origin: so far
 # under the bore that the muzzle is as far above the line ahead of the hand as the muzzle
-# of the game's own shotgun is, which is how the mod points a weapon.
-MUZZLE_Y = 0.780
+# of the game's own shotgun is, which is how the mod points a weapon. The game's sawn-off
+# has its muzzle 0.3249 ahead of the origin and 0.0267 over it: cut where its muzzle is on
+# the same line from the hand, the gun is drawn at 0.5057 of the game's units to a metre,
+# where the whole one is drawn at 0.4957.
+FULL_MUZZLE_Y = 0.780
+MUZZLE_Y = 0.5225 if SAWN_OFF else FULL_MUZZLE_Y
 GRIP = Vector((0.0, -0.120, -0.0528))
 RECEIVER_FRONT, RECEIVER_REAR, RECEIVER_HALF = 0.105, -0.085, 0.0205
 RECEIVER_TOP, RECEIVER_BOTTOM = 0.023, -0.047
 TUBE_Z, TUBE_R = -0.0305, 0.0125
+# Where the magazine tube ends and its cap begins. The sawn-off's cap comes to just short of its muzzle.
+TUBE_END = MUZZLE_Y - 0.0350 if SAWN_OFF else 0.6005
 FORE_REAR, FORE_FRONT = 0.225, 0.420
 TRAVEL = 0.094
 BUTT = -0.352
@@ -87,7 +101,7 @@ def barrel_radius(y):
         return 0.0135
     if y < 0.26:
         return 0.0135 + (0.0118 - 0.0135) * (y - 0.19) / 0.07
-    return 0.0118 + (0.0108 - 0.0118) * (y - 0.26) / (MUZZLE_Y - 0.26)
+    return 0.0118 + (0.0108 - 0.0118) * (y - 0.26) / (FULL_MUZZLE_Y - 0.26)
 
 
 def rib_top(y):
@@ -252,8 +266,9 @@ def cutter(bm, bevel=0.0):
 def barrel():
     bm = bmesh.new()
     profile = [(0.0, 0.098), (0.0135, 0.098), (0.0135, 0.19), (0.0118, 0.26)]
-    profile += [(barrel_radius(y), y) for y in (0.36, 0.46, 0.56, 0.66, 0.76)]
-    profile += [(0.0108, MUZZLE_Y - 0.0012), (0.0101, MUZZLE_Y), (0.00955, MUZZLE_Y), (0.0092, MUZZLE_Y - 0.0006), (0.0092, MUZZLE_Y - 0.09), (0.0, MUZZLE_Y - 0.09)]
+    profile += [(barrel_radius(y), y) for y in (0.36, 0.46, 0.56, 0.66, 0.76) if y < MUZZLE_Y - 0.01]
+    end = round(barrel_radius(MUZZLE_Y), 5)
+    profile += [(end, MUZZLE_Y - 0.0012), (round(end - 0.0007, 5), MUZZLE_Y), (0.00955, MUZZLE_Y), (0.0092, MUZZLE_Y - 0.0006), (0.0092, MUZZLE_Y - 0.09), (0.0, MUZZLE_Y - 0.09)]
     lathe(bm, profile, along_y(), segments=56)
     take(bm, "barrel", "blued", sharp=25.0)
     collar = bmesh.new()
@@ -262,22 +277,25 @@ def barrel():
     take(collar, "barrel collar", "blued", sharp=25.0)
 
     rib = bmesh.new()
-    rear, front, half = 0.110, 0.778, 0.0038
+    rear, front, half = 0.110, MUZZLE_Y - 0.002, 0.0038
     stations = [rear + (front - rear) * n / 12 for n in range(13)]
     loft(rib, [[(sx * half, y, rib_top(y) - (0.0021 if low else 0.0)) for sx, low in ((-1, True), (1, True), (1, False), (-1, False))] for y in stations])
     take(rib, "rib", "rib", bevel=0.0003, segments=1)
 
     posts = bmesh.new()
     y = 0.132
-    while y < 0.77:
+    while y < MUZZLE_Y - 0.01:
         cuboid(posts, -0.0019, 0.0019, y - 0.008, y + 0.008, barrel_radius(y) - 0.0015, rib_top(y) - 0.0018)
         y += 0.058
     take(posts, "rib posts", "blued", bevel=0.0004, segments=1)
 
     beads = bmesh.new()
+    bead = MUZZLE_Y - 0.0085
     lathe(beads, [(0.0, 0.0), (0.0011, 0.0), (0.0011, 0.0012), (0.0019, 0.0020), (0.0021, 0.0032), (0.0015, 0.0046), (0.0, 0.0051)],
-          Matrix.Translation((0.0, 0.7715, rib_top(0.7715) - 0.0003)), segments=20)
+          Matrix.Translation((0.0, bead, rib_top(bead) - 0.0003)), segments=20)
     take(beads, "front bead", "brass", sharp=50.0)
+    if SAWN_OFF:
+        return
     middle = bmesh.new()
     lathe(middle, [(0.0, 0.0), (0.0008, 0.0), (0.0011, 0.0008), (0.0008, 0.0018), (0.0, 0.0021)], Matrix.Translation((0.0, 0.44, rib_top(0.44) - 0.0002)), segments=14)
     take(middle, "middle bead", "bright", sharp=50.0)
@@ -285,26 +303,29 @@ def barrel():
 
 def magazine():
     tube = bmesh.new()
-    lathe(tube, [(0.0, 0.098)] + [(TUBE_R, y) for y in (0.098, 0.2, 0.3, 0.35, 0.45, 0.55, 0.6005)] + [(0.0, 0.6005)], along_y(z=TUBE_Z), segments=48)
+    stations = [y for y in (0.098, 0.2, 0.3, 0.35, 0.45, 0.55) if y < TUBE_END - 0.01] + [TUBE_END]
+    lathe(tube, [(0.0, 0.098)] + [(TUBE_R, y) for y in stations] + [(0.0, TUBE_END)], along_y(z=TUBE_Z), segments=48)
     take(tube, "magazine tube", "blued")
 
     cap = bmesh.new()
-    lathe(cap, [(0.0, 0.5995), (0.0139, 0.5995), (0.0143, 0.6005), (0.0143, 0.6185), (0.0138, 0.6200), (0.0132, 0.6215), (0.0132, 0.6240), (0.0118, 0.6290),
-                (0.0085, 0.6325), (0.004, 0.6340), (0.0, 0.6342)], along_y(z=TUBE_Z), segments=48)
+    lathe(cap, [(radius, TUBE_END + y) for radius, y in ((0.0, -0.0010), (0.0139, -0.0010), (0.0143, 0.0), (0.0143, 0.0180), (0.0138, 0.0195), (0.0132, 0.0210),
+                                                         (0.0132, 0.0235), (0.0118, 0.0285), (0.0085, 0.0320), (0.004, 0.0335), (0.0, 0.0337))],
+          along_y(z=TUBE_Z), segments=48)
     take(cap, "magazine cap", "knurled", sharp=28.0)
 
     stud = bmesh.new()
     lathe(stud, [(0.0, 0.0), (0.0042, 0.0), (0.0042, 0.002), (0.0028, 0.003), (0.0028, 0.0075), (0.0046, 0.0085), (0.0046, 0.0125), (0.003, 0.014), (0.0, 0.014)],
-          Matrix.Translation((0.0, 0.610, TUBE_Z - 0.0135)) @ Matrix.Rotation(math.radians(180), 4, "X"), segments=20)
+          Matrix.Translation((0.0, TUBE_END + 0.0095, TUBE_Z - 0.0135)) @ Matrix.Rotation(math.radians(180), 4, "X"), segments=20)
     take(stud, "front stud", "blued", sharp=35.0)
 
     # The ring on the barrel that the magazine cap is screwed up against.
     ring = bmesh.new()
-    lathe(ring, [(0.0, 0.581), (0.0156, 0.581), (0.0160, 0.5816), (0.0160, 0.5984), (0.0156, 0.599), (0.0, 0.599)], along_y(z=TUBE_Z), segments=48)
+    front, back = TUBE_END - 0.0015, TUBE_END - 0.0195
+    lathe(ring, [(0.0, back), (0.0156, back), (0.0160, back + 0.0006), (0.0160, front - 0.0006), (0.0156, front), (0.0, front)], along_y(z=TUBE_Z), segments=48)
     take(ring, "barrel ring", "blued", sharp=28.0)
     web = bmesh.new()
     rings = []
-    for y in (0.581, 0.599):
+    for y in (back, front):
         rings.append([(-0.0078, y, TUBE_Z + 0.012), (0.0078, y, TUBE_Z + 0.012), (0.0056, y, -0.004), (-0.0056, y, -0.004)])
     loft(web, rings)
     take(web, "barrel ring web", "blued", bevel=0.0006)
@@ -437,6 +458,53 @@ def stock():
     lathe(stud, [(0.0, 0.0), (0.0042, 0.0), (0.0042, 0.002), (0.0028, 0.003), (0.0028, 0.0075), (0.0046, 0.0085), (0.0046, 0.0125), (0.003, 0.014), (0.0, 0.014)],
           Matrix.Translation((0.0, -0.290, -0.1335)) @ Matrix.Rotation(math.radians(180 - 27), 4, "X"), segments=20)
     take(stud, "rear stud", "blued", group=BUTT_END, sharp=35.0)
+
+
+# The sawn-off's grip, from where the stock meets the receiver down to its foot: each station
+# is a point on its front edge and one on its back edge in (y, z), the cross section's half
+# width, how square it is, and how narrow the back strap is against the front. It meets the
+# receiver below its top, so that with the sights up the eye looks over the receiver's back
+# and not into the end grain of the wood.
+GRIP_FRONT = [(-0.0830, -0.0465), (-0.0720, -0.0500), (-0.0640, -0.0560), (-0.0640, -0.0660), (-0.0680, -0.0800), (-0.0770, -0.0960), (-0.0835, -0.1110),
+              (-0.0900, -0.1245), (-0.0950, -0.1340)]
+GRIP_BACK = [(-0.0830, -0.0080), (-0.0905, -0.0135), (-0.0985, -0.0215), (-0.1055, -0.0330), (-0.1110, -0.0460), (-0.1190, -0.0680), (-0.1255, -0.0895),
+             (-0.1330, -0.1090), (-0.1460, -0.1250)]
+GRIP_SECTION = [(0.0200, 3.6, 0.98), (0.0192, 3.0, 0.94), (0.0184, 2.6, 0.90), (0.0178, 2.4, 0.88), (0.0175, 2.3, 0.88), (0.0175, 2.3, 0.88), (0.0177, 2.3, 0.88),
+                (0.0181, 2.4, 0.88), (0.0186, 2.6, 0.90)]
+
+
+def grip_ring(front, back, half, square, comb, count=56, grow=0.0, out=(0.0, 0.0)):
+    """A cross section of the grip, in the plane through its front and back edge points and across the gun."""
+    middle = ((front[0] + back[0]) / 2 + out[0], (front[1] + back[1]) / 2 + out[1])
+    deep = (back[0] - front[0], back[1] - front[1])
+    tall = math.hypot(*deep) / 2
+    way = (deep[0] / (2 * tall), deep[1] / (2 * tall))
+    ring = []
+    for i in range(count):
+        angle = 2 * math.pi * (i + 0.5) / count
+        c, s = math.cos(angle), math.sin(angle)
+        x = (half + grow) * math.copysign(abs(c) ** (2 / square), c)
+        z = (tall + grow) * math.copysign(abs(s) ** (2 / square), s)
+        if z > 0:
+            x *= 1 - (1 - comb) * (z / (tall + grow)) ** 1.5
+        ring.append((x, middle[0] + way[0] * z, middle[1] + way[1] * z))
+    return ring
+
+
+def grip_stub():
+    """The stock sawn off behind the wrist, and what is left of it shaped down into a grip, with a cap on its foot."""
+    stations = along([front + back + section for front, back, section in zip(GRIP_FRONT, GRIP_BACK, GRIP_SECTION)], 48)
+    wood = bmesh.new()
+    loft(wood, [grip_ring(s[0:2], s[2:4], *s[4:]) for s in stations])
+    take(wood, "grip", "walnut", group=BUTT_END, bevel=0.0012, segments=2, sharp=50.0, texels=1.1)
+
+    # The cap stands on the foot along the grip's length, which runs from the middle of the last station but one to the last.
+    last, before = stations[-1], stations[-2]
+    down = Vector(((last[0] + last[2] - before[0] - before[2]) / 2, (last[1] + last[3] - before[1] - before[3]) / 2)).normalized()
+    cap = bmesh.new()
+    loft(cap, [grip_ring(last[0:2], last[2:4], *last[4:], grow=grow, out=(down.x * along_it, down.y * along_it))
+               for along_it, grow in ((-0.0004, 0.0002), (0.0030, 0.0002), (0.0042, -0.0008), (0.0050, -0.0030))])
+    take(cap, "grip cap", "black", group=BUTT_END, sharp=40.0)
 
 
 def fore_ring(y, scale):
@@ -701,7 +769,7 @@ def rib(g):
 
 def knurled(g):
     colour, roughness, lines = steel(g, (0.030, 0.033, 0.044), 0.36)
-    band = g.times(g.step(g.y, 0.6005, 0.6012), g.math("SUBTRACT", 1.0, g.step(g.y, 0.6178, 0.6185)))
+    band = g.times(g.step(g.y, TUBE_END, TUBE_END + 0.0007), g.math("SUBTRACT", 1.0, g.step(g.y, TUBE_END + 0.0173, TUBE_END + 0.0180)))
     round_it = g.math("ARCTAN2", g.x, g.math("SUBTRACT", g.z, TUBE_Z))
     return g.finish(colour, roughness, 1.0, g.times(band, g.teeth(g.times(round_it, 40 / (2 * math.pi))), 0.0003))
 
@@ -740,7 +808,10 @@ def walnut(g):
     colour = g.tinted(g.mix(0.6, figure, g.tinted(figure, figure)), g.colour(1.45, 1.16, 0.98))
     # Cut into the sides of the grip and of the fore-end, a panel of fine diamonds for the hand to hold by.
     side = g.step(g.math("ABSOLUTE", g.nx), 0.30, 0.55)
-    grip = g.panel(-0.150, -0.045, 0.032, 0.0165, 0.010, math.radians(24))
+    if SAWN_OFF:
+        grip = g.panel(-0.0980, -0.0840, 0.034, 0.0140, 0.008, math.radians(69.5))
+    else:
+        grip = g.panel(-0.150, -0.045, 0.032, 0.0165, 0.010, math.radians(24))
     fore = g.panel((FORE_REAR + FORE_FRONT) / 2, -0.0395, 0.070, 0.0108, 0.005, 0.0)
     nearest = g.math("MINIMUM", grip, fore)
     cut = g.times(g.math("SUBTRACT", 1.0, g.step(nearest, -0.0003, 0.0003)), side)
@@ -792,7 +863,10 @@ def build():
     magazine()
     receiver()
     trigger_group()
-    stock()
+    if SAWN_OFF:
+        grip_stub()
+    else:
+        stock()
     fore_end()
     depsgraph = bpy.context.evaluated_depsgraph_get()
     total = 0
@@ -804,7 +878,8 @@ def build():
 
 
 
-TUBES = {"barrel": (0.0, 0.46, 0.0122), "magazine tube": (TUBE_Z, 0.35, TUBE_R)}
+# Each tube's axis, where along it its two lengths part, and the radius it is unrolled at.
+TUBES = {"barrel": (0.0, 0.31 if SAWN_OFF else 0.46, 0.0122), "magazine tube": (TUBE_Z, 0.29 if SAWN_OFF else 0.35, TUBE_R)}
 
 
 def select(obj):
@@ -888,7 +963,7 @@ def unwrap():
     bpy.context.view_layer.objects.active = PARTS[0]
     bpy.ops.object.join()
     gun = bpy.context.view_layer.objects.active
-    gun.name = "shotgun"
+    gun.name = NAME
     bpy.ops.object.mode_set(mode="EDIT")
     bpy.ops.mesh.select_all(action="SELECT")
     bpy.ops.uv.select_all(action="SELECT")
@@ -1016,9 +1091,9 @@ def pack(gun, colour, surface):
     port = (PORT - GRIP) * Vector((-1.0, 1.0, 1.0))
     head = b"CUWM" + struct.pack("<I3f3f3f3fI5I", 4, *muzzle, *held, *port, TRAVEL, SIGHT_LINE, EYE_BEHIND_GRIP, len(vertices), *counts)
     os.makedirs(OUTPUT, exist_ok=True)
-    files = [("shotgun.mesh.gz", head + vertices.tobytes() + indices.tobytes())]
+    files = [(NAME + ".mesh.gz", head + vertices.tobytes() + indices.tobytes())]
     if colour is not None:
-        files += [("shotgun.colour.gz", colour.tobytes()), ("shotgun.surface.gz", surface.tobytes())]
+        files += [(NAME + ".colour.gz", colour.tobytes()), (NAME + ".surface.gz", surface.tobytes())]
     for name, data in files:
         path = os.path.join(OUTPUT if name.endswith(".mesh.gz") else TEXTURES, name)
         with gzip.open(path, "wb", compresslevel=9) as packed:
@@ -1085,7 +1160,7 @@ def dress(gun, colour, surface, folder):
         polygon.material_index = 0
 
 
-def render(folder, size=(1600, 900), samples=64):
+def render(folder, only=(), size=(1600, 900), samples=64):
     scene = bpy.context.scene
     scene.render.engine = "CYCLES"
     use_card(scene)
@@ -1119,26 +1194,32 @@ def render(folder, size=(1600, 900), samples=64):
         holder.location = place
         holder.rotation_euler = (Vector((0.0, 0.25, 0.0)) - Vector(place)).to_track_quat("-Z", "Y").to_euler()
         scene.collection.objects.link(holder)
-    bpy.data.objects["shotgun"].location = -GRIP
+    # The gun joined in one, or its parts as they were made.
+    for obj in [bpy.data.objects[NAME]] if NAME in bpy.data.objects else PARTS:
+        obj.location = -GRIP
     camera = bpy.data.objects.new("camera", bpy.data.cameras.new("camera"))
     scene.collection.objects.link(camera)
     scene.camera = camera
     folder = os.path.abspath(folder)
     os.makedirs(folder, exist_ok=True)
+    # Half way from the butt to the muzzle, from the grip, and how far off the gun is seen whole.
+    middle, off = (0.30, 1.5) if SAWN_OFF else (0.33, 2.15)
     views = {
         # name: where the camera is, what it looks at, focal length
-        "right": ((2.15, 0.33, 0.10), (0.0, 0.33, -0.03), 60),
-        "left": ((-2.15, 0.33, 0.10), (0.0, 0.33, -0.03), 60),
+        "right": ((off, middle, 0.10), (0.0, middle, -0.03), 60),
+        "left": ((-off, middle, 0.10), (0.0, middle, -0.03), 60),
         "receiver": ((0.42, 0.02, 0.10), (0.0, 0.10, 0.03), 50),
         "receiver-left": ((-0.40, 0.30, 0.16), (0.0, 0.12, 0.03), 50),
         "under": ((0.30, 0.05, -0.16), (0.0, 0.18, 0.0), 45),
         "fore": ((0.45, 0.62, 0.16), (0.0, 0.42, 0.02), 50),
-        "muzzle": ((0.22, 1.18, 0.16), (0.0, 0.62, 0.035), 55),
+        "muzzle": ((0.22, MUZZLE_Y + 0.40, 0.16), (0.0, MUZZLE_Y - 0.16, 0.035), 55),
         "sights": ((0.0, -0.21, 0.0835), (0.0, 0.90, 0.0705), 40),
         "hip": ((-0.13, -0.36, 0.20), (0.02, 0.50, 0.02), 22),
         "stock": ((0.50, -0.42, 0.12), (0.0, -0.10, -0.03), 50),
     }
     for name, (place, target, lens) in views.items():
+        if only and name not in only:
+            continue
         camera.location = place
         camera.data.lens = lens
         camera.data.clip_start = 0.01
@@ -1154,6 +1235,11 @@ def main():
         raise SystemExit("say where the pictures from shotgun_textures.py are")
     load_pictures(args[0])
     build()
+    if "--raw" in args:
+        # The parts as they are made, under their own materials and unbaked: for looking at the shape.
+        at = args.index("--raw")
+        render(args[at + 1], [name for name in args[at + 2:] if not name.startswith("--")], samples=24)
+        return
     gun = unwrap()
     if "--mesh" in args:
         # The triangles alone, which do not change with what is baked onto them.

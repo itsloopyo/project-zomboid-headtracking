@@ -60,9 +60,9 @@ BARKS = ['bark-oak', 'bark-linden', 'bark-maple', 'bark-birch', 'bark-pine', 'ba
 RAISED = ['asphalt', 'gravel', 'soil', 'shingles', 'wood', 'planks']
 PLAIN = ['grass', 'paint', 'carpet', 'vinyl', 'cloth', 'jersey', 'litter', 'rock']
 CUT_OUT = ['leaves', 'frond', 'ivy', 'sprigs']
-MODELS = ['shotgun', 'rifle', 'arms']
+MODELS = ['shotgun', 'sawnoff', 'rifle', 'arms']
 # The weapons' colour is read by the card as what a screen shows (OwnGun). The arms' is not (OwnArms).
-SRGB = {'shotgun.colour', 'rifle.colour'}
+SRGB = {'shotgun.colour', 'sawnoff.colour', 'rifle.colour'}
 # Kept four bytes a texel, for what BC7 was measured to cost them. The form is three unrelated numbers a texel, which blocks
 # hold badly (33 dB). The frond's leaflets are a few texels wide and lose their edges (30 dB over what of it shows). The
 # gravel's heights come out grainy (35 dB), and a surface's depth is read off them.
