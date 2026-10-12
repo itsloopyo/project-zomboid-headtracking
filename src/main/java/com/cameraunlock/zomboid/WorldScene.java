@@ -5270,6 +5270,10 @@ final class WorldScene {
             if ((kind.roofAccent || Hoods.eave(sprite) != Hoods.NONE) && roofBuilder.eaveRow(x, y, z) || Hoods.endPiece(sprite) && roofBuilder.eaveRowEnd(x, y, z)) {
                 return;
             }
+            // Where no slope makes it, the row is an eave of its own, and the corner past it goes with it.
+            if (Hoods.eave(sprite) != Hoods.NONE && roofBuilder.addEaveRow(texture, x, y, z) || Hoods.endPiece(sprite) && roofBuilder.eaveRowOfItsOwnEnd(x, y, z)) {
+                return;
+            }
 
             if (overLayer == 0 && furnishingBuilder.addHung(object, sprite, texture, x, y, z)) {
                 return;

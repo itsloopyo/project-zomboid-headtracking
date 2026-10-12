@@ -227,6 +227,14 @@ final class AwningTests {
         bare.roofSprite(0, 0, 0, "roofs_02_30", "attachedN", "isEave");
         check(!bare.build.roofBuilder.eaveRow(1, 0, 0) && !bare.build.roofBuilder.eaveRowEnd(0, 0, 0),
                 "a row with no slope over it is no roof's eave row, nor the corner past it a row's");
+        check(!roofs.eaveRowOfItsOwnEnd(0, 0, 0), "the corner past a slope's eave row is no row of its own's");
+        check(bare.build.roofBuilder.addEaveRow(bare.painted, 1, 0, 0) && TestMap.plain().triangles() > 0,
+                "a row with no slope over it is made an eave of its own: its soffit, board and gutter");
+        check(bare.build.roofBuilder.eaveRowOfItsOwnEnd(0, 0, 0), "and the corner past it goes with that eave");
+        TestMap loose = new TestMap();
+        loose.roofSprite(1, 0, 0, "roofs_02_6", "attachedN", "isEave");
+        check(!loose.build.roofBuilder.addEaveRow(loose.painted, 1, 0, 0) && TestMap.plain().triangles() == 0,
+                "a row with no wall under it to hang from is made nothing");
     }
 
     private static void aKioskHasAHoodHippedAtBothEndsAndItsEndPiecesGo() {

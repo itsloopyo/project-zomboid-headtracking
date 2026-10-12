@@ -910,6 +910,13 @@ final class Roofs {
         return first < 0 ? Float.NaN : (first + last) / 2f;
     }
 
+    /** A roof of no tiles, covered in what a sprite shows: for a piece of roof the map lays with no roof of its own over it. */
+    static Roof coveredIn(Texture texture) {
+        Roof roof = new Roof();
+        paintedPlace(texture, roof);
+        return roof;
+    }
+
     /**
      * Finds a place on the sprite that is painted, with paint all round it, and makes the
      * sprite the roof's finish. Looked for from the sprite's middle outwards.

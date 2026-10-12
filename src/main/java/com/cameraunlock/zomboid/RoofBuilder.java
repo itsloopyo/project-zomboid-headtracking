@@ -2,6 +2,7 @@ package com.cameraunlock.zomboid;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.Locale;
 import zombie.core.textures.Texture;
 import zombie.iso.IsoChunk;
@@ -60,6 +61,8 @@ final class RoofBuilder {
      */
     private final HashMap<Long, Boolean> eaveRows = new HashMap<>();
     private final HashMap<Integer, Hoods.Squares> hoodLevels = new HashMap<>();
+    /** What coveredIn made of each sprite in this frame's build. */
+    private final IdentityHashMap<Texture, Roofs.Roof> coverings = new IdentityHashMap<>();
 
     RoofBuilder(WorldScene world, WorldScene.Frame build) {
         this.world = world;
@@ -70,6 +73,7 @@ final class RoofBuilder {
     void newBuild() {
         eaveRows.clear();
         hoodLevels.clear();
+        coverings.clear();
     }
 
     private Hoods.Squares hoods(int z) {
@@ -883,6 +887,48 @@ final class RoofBuilder {
     }
 
     /**
+     * Makes the row of eave the map hangs at the top of a level from the square's west or north
+     * wall where no slope comes down to that wall to make it (eaveRow): across the foot of a
+     * gable, along a wall under the storey above or under a flat roof. It is an eave of its own,
+     * a roof's pitch carried out from the top of the wall, run on along the wall as far as the
+     * row goes and closed at its ends. Hung on the wall as the map paints it, each square's
+     * length of the row was a slab slanting across the wall. False, and nothing made, for a
+     * square with no such row on a wall.
+     */
+    boolean addEaveRow(Texture texture, int x, int y, int z) {
+        Hoods.Squares level = hoods(z);
+        int wall = level.eave(x, y);
+        if (wall == Hoods.NONE || !level.walled(x, y, wall)) {
+            return false;
+        }
+        boolean west = wall == Outdoors.WEST;
+        // The square inside the wall a level up, as the roof it would fall from lies over the wall.
+        int insideX = west ? x - 1 : x, insideY = west ? y : y - 1;
+        Roofs.Laid inside = Roofs.at(build.cell, insideX, insideY, z + 1, world.roundNow, build.frame.scale);
+        roof = inside != null && inside.roof.finish != null ? inside.roof : coveredIn(texture);
+        SpriteGeometry.Mesh sheet = roofSheet();
+        int stepX = west ? 0 : 1, stepY = west ? 1 : 0;
+        int startEnd = level.eave(x - stepX, y - stepY) == wall ? Eaves.RUNS_ON : Eaves.GABLE;
+        int endEnd = level.eave(x + stepX, y + stepY) == wall ? Eaves.RUNS_ON : Eaves.GABLE;
+        hangEave(sheet, insideX, insideY, z + 1, RoofFit.PITCH, west ? -RoofFit.PITCH : 0f, west ? 0f : -RoofFit.PITCH, true, startEnd, endEnd);
+        return true;
+    }
+
+    /** Whether the square holds the piece the map ends a row of eave with, past the end of a row addEaveRow makes. */
+    boolean eaveRowOfItsOwnEnd(int x, int y, int z) {
+        Hoods.Squares level = hoods(z);
+        return Hoods.endOf(level, x, y, (nx, ny) -> {
+            int wall = level.eave(nx, ny);
+            return wall != Hoods.NONE && level.walled(nx, ny, wall) && !eaveRow(nx, ny, z);
+        });
+    }
+
+    /** A roof of no tiles that is covered in what a sprite shows, one to a sprite. */
+    private Roofs.Roof coveredIn(Texture texture) {
+        return coverings.computeIfAbsent(texture, Roofs::coveredIn);
+    }
+
+    /**
      * As addEave, for an eave that meets another at one or both ends of its run, the end at
      * the square's north or west and the one at its south or east: see Eaves.
      */
@@ -891,6 +937,15 @@ final class RoofBuilder {
         if (!isEave(x, y, z, atOrigin, alongX, alongY)) {
             return;
         }
+        boolean runsY = alongX != 0f;
+        int startEnd = Eaves.end(meetsAtStart, hasRoof(runsY ? x : x - 1, runsY ? y - 1 : y, z));
+        int endEnd = Eaves.end(meetsAtEnd, hasRoof(runsY ? x : x + 1, runsY ? y + 1 : y, z));
+        hangEave(sheet, x, y, z, atOrigin, alongX, alongY, piped, startEnd, endEnd);
+    }
+
+    /** The eave past the low edge of a sloping tile, as addEave, with how each end of its run ends given: see Eaves. */
+    private void hangEave(SpriteGeometry.Mesh sheet, int x, int y, int z, float atOrigin, float alongX, float alongY, boolean piped,
+            int startEnd, int endEnd) {
         float along = alongX != 0f ? alongX : alongY;
         boolean lowAtFar = along < 0f;
         float low = lowAtFar ? atOrigin + along : atOrigin;
@@ -900,8 +955,6 @@ final class RoofBuilder {
         float lift = meanLift();
         float high = (z + low) * ViewCamera.LEVEL_HEIGHT + lift, far = (z + low + drop) * ViewCamera.LEVEL_HEIGHT + lift;
         boolean runsY = alongX != 0f;
-        int startEnd = Eaves.end(meetsAtStart, hasRoof(runsY ? x : x - 1, runsY ? y - 1 : y, z));
-        int endEnd = Eaves.end(meetsAtEnd, hasRoof(runsY ? x : x + 1, runsY ? y + 1 : y, z));
         // The run's two ends, at the wall and at the eave's edge: where it starts and stops along the run.
         float wallFrom = -Eaves.atWall(startEnd, RAKE), edgeFrom = -Eaves.atEdge(startEnd, EAVE, RAKE);
         float wallTo = 1f + Eaves.atWall(endEnd, RAKE), edgeTo = 1f + Eaves.atEdge(endEnd, EAVE, RAKE);
