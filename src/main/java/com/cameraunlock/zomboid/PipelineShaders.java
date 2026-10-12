@@ -2098,6 +2098,12 @@ final class PipelineShaders {
                         vec3 litterOf = mix(leaf, needles, vUv.y / max(leafCover + vUv.y, 1e-4));
                         // Wet leaf is darker and its colour deeper.
                         litterOf = mix(litterOf, litterOf * litterOf * 1.6, 0.45 * uWet);
+                        // Where snow lies, what shows of the leaf through its ragged edge is frosted pale: dark
+                        // matted leaf against white read as crumbs. snowShelter is still 0 here, so this is the open sky's snow.
+                        if (uSnowLying > 0.0) {
+                            float frost = snowCovers(snowThick(vPlace.xy, foot).x);
+                            litterOf = mix(litterOf, vec3(dot(litterOf, vec3(0.3, 0.55, 0.15))) * 1.5 + 0.1, 0.65 * frost);
+                        }
                         texel = vec4(clamp(litterOf, 0.0, 1.0), 1.0);
                     } else if (vMaterial < 57.5) {
                         // A bole. Its texture coordinates say, in whole steps above where on
