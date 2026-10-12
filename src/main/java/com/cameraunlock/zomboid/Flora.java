@@ -174,6 +174,17 @@ final class Flora {
      * and shadow shaders have the same numbers.
      */
     static final float CROWN = 72f, SHADE = 80f;
+
+    /**
+     * Sets the frame to make what is stood next throw a shadow and be in no other picture
+     * (SHADE), as much shadow as a mass of leaves with that share of its leaves on it throws.
+     * The share rides in the vertex's red, which only the sun's pictures read: see
+     * PipelineShaders.SHADOW_VERTEX. The caller puts the frame's red back after.
+     */
+    static void shadeOnly(SpriteGeometry.Frame frame, float leaves) {
+        frame.material = SHADE;
+        frame.red = leaves;
+    }
     /**
      * The inside of a crown: a closed mass of leaves in shade, within the sprigs, so that a
      * look through the crown ends on leaves and not on the sky behind the tree. A real crown

@@ -27,6 +27,7 @@ final class CrownTests {
         Checks.run("aCrownLosingItsLeavesLosesWholeSprigsAndKeepsTheRest", CrownTests::aCrownLosingItsLeavesLosesWholeSprigsAndKeepsTheRest);
         Checks.run("everySprigSaysTheColourItsLeavesTurnAndHowFar", CrownTests::everySprigSaysTheColourItsLeavesTurnAndHowFar);
         Checks.run("autumnColourIsChosenByTheSpecies", CrownTests::autumnColourIsChosenByTheSpecies);
+        Checks.run("aShadowOnlyFanSaysHowMuchShadowItThrows", CrownTests::aShadowOnlyFanSaysHowMuchShadowItThrows);
     }
 
     /** The sprigs of a crown, each by where its four corners are, to the thousandth of a tile. */
@@ -97,20 +98,48 @@ final class CrownTests {
     private static void everySprigSaysTheColourItsLeavesTurnAndHowFar() {
         SpriteGeometry.Frame frame = frame();
         float[] places = Flora.leafPlaces(CrownTests::leaf, frame);
-        float[] turnings = {0f, 0.3f, 1f};
-        for (float turned : turnings) {
-            SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
-            check(Flora.addCrown(mesh, new SpriteGeometry.Mesh(), frame, places, 10.5f, 20.5f, 0f, FOOT_U, FOOT_V, 1f, 0f, 0f, 0f, Flora.BARK_OAK, Flora.MAPLE, 7, Flora.OPEN,
-                    1f, Flora.CLARET_LEAF, turned), "a crown turned " + turned);
-            int level = Math.round(turned * (Flora.TURNS - 1));
-            for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
-                float u = mesh.vertices[at + 3], v = mesh.vertices[at + 4];
-                float stepU = (float) Math.floor(u), stepV = (float) Math.floor(v);
-                check((int) Math.floor(stepU / Flora.CROWN_STEPS) == Flora.CLARET_LEAF, "a crown says across which colour its leaves turn, not " + u);
-                check((int) Math.floor(stepV / Flora.CROWN_STEPS) == level, "and down how far, " + level + " of " + (Flora.TURNS - 1) + ", not " + v);
-                float spriteU = (stepU - Flora.CROWN_STEPS * Flora.CLARET_LEAF) / Flora.CROWN_STEPS, spriteV = (stepV - Flora.CROWN_STEPS * level) / Flora.CROWN_STEPS;
-                check(spriteU >= 0.25f - 1e-3f && spriteU <= 0.5f + 1e-3f && spriteV >= 0.5f - 1e-3f && spriteV < 1f,
-                        "and under them where on the sprite it takes its colour, within the sprite's frame and short of the next step: " + spriteU + ", " + spriteV);
+        int[][] squares = {{10, 20}, {10797, 9769}, {19999, 19998}};
+        for (int[] square : squares) {
+            for (int hue = 0; hue < Flora.HUES; hue++) {
+                for (int level = 0; level < Flora.TURNS; level++) {
+                    float turned = level / (Flora.TURNS - 1f);
+                    SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh(), wood = new SpriteGeometry.Mesh();
+                    check(Flora.addCrown(mesh, wood, frame, places, square[0] + 0.5f, square[1] + 0.5f, 0f, FOOT_U, FOOT_V, 1f, 1f, 0.12f, 1.2f, Flora.BARK_OAK, Flora.MAPLE, 7,
+                            Flora.OPEN, 1f, hue, turned), "a crown of hue " + hue + " turned " + turned);
+                    for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+                        float rootX = mesh.vertices[at + SpriteGeometry.ROOT_AT], rootY = mesh.vertices[at + SpriteGeometry.ROOT_AT + 1];
+                        check(rootX == square[0] && Math.abs(rootY - square[1]) < 0.25f, "a leaf carries its tree's square, " + rootX + ", " + rootY);
+                        float code = (float) Math.floor((rootY - (float) Math.floor(rootY + 0.5f)) * Flora.AUTUMN_SPACING + 0.5f) + Flora.AUTUMN_CODES / 2;
+                        float readHue = (float) Math.floor((code + 0.5f) / Flora.TURNS);
+                        check(readHue == hue && code - readHue * Flora.TURNS == level, "and reads back as hue " + hue + " turned " + level + ", not code " + code);
+                        check(mesh.vertices[at + 3] < Flora.CROWN_STEPS && mesh.vertices[at + 4] < Flora.CROWN_STEPS, "where it takes its colour is under CROWN_STEPS");
+                    }
+                    for (int at = 0; at < wood.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+                        check(wood.vertices[at + SpriteGeometry.ROOT_AT + 1] == square[1], "its wood carries its tree's square whole");
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * What stands only to throw a shadow says in its red how much of a mass of leaves throws it,
+     * which the sun's pictures read (PipelineShaders.SHADOW_VERTEX): a crop's or a full crown's
+     * is 1 whatever the square's light, where a square unexplored, its light 0, once threw a solid
+     * shadow. Nothing in the mod makes a shadow-only fan any other way than Flora.shadeOnly.
+     */
+    private static void aShadowOnlyFanSaysHowMuchShadowItThrows() throws java.io.IOException {
+        SpriteGeometry.Frame frame = frame();
+        frame.light(0f, 0f, 0f);
+        Flora.shadeOnly(frame, 1f);
+        check(frame.material == Flora.SHADE && frame.red == 1f, "a full mass of leaves throws its whole shadow in the dark");
+        Flora.shadeOnly(frame, 0.3f);
+        check(frame.red == 0.3f, "a crown with 0.3 of its leaves says so");
+        try (java.util.stream.Stream<java.nio.file.Path> sources = java.nio.file.Files.list(java.nio.file.Path.of("src/main/java/com/cameraunlock/zomboid"))) {
+            for (java.nio.file.Path source : sources.toList()) {
+                String text = java.nio.file.Files.readString(source);
+                check(source.getFileName().toString().equals("Flora.java") || !text.contains("Flora.SHADE"),
+                        source.getFileName() + " makes a shadow-only fan without saying how much shadow it throws");
             }
         }
     }

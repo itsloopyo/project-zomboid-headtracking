@@ -353,7 +353,7 @@ final class PlantBuilder {
         float fanned = build.frame.material, red = build.frame.red;
         // A crop near the eye is grown stalk by stalk, and its cards then only throw its shadow.
         if (Own.plants() && growCrop(texture, Crops.of(grown), x, y)) {
-            build.frame.material = Flora.SHADE;
+            Flora.shadeOnly(build.frame, 1f);
         }
         // An evergreen has no leaves of its own to lay over its trunk: its sprite paints the needles with the trunk, and is its crown.
         boolean evergreen = type == IsoObjectType.tree && build.overLayer == 0 && build.geometry.keep == 1f && Flora.evergreen(grown);
@@ -363,9 +363,7 @@ final class PlantBuilder {
         boolean crowned = grown != null && (bush || type == IsoObjectType.tree && build.overLayer > 0 || evergreen || bare) && Own.plants()
                 && addCrown(texture, grown, sprig, x, y, z, leaf, seasonal ? Flora.autumnHue(grown, treeHash) : Flora.YELLOW_LEAF, seasonal ? Seasons.turned(treeHash) : 0f);
         if (crowned) {
-            // Its colour is in no picture, and says how much of the crown's shadow it throws: see PipelineShaders.SHADOW_FRAGMENT.
-            build.frame.material = Flora.SHADE;
-            build.frame.red = leaf;
+            Flora.shadeOnly(build.frame, leaf);
         }
         double turn = ((x * 73856093 ^ y * 19349663) >>> 8 & 0xff) / 255.0 * Math.PI;
         for (int card = 0; card < cards; card++) {
