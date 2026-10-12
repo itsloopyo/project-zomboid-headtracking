@@ -503,6 +503,9 @@ public final class FirstPerson {
             if (player != null && GameTime.isGamePaused()) {
                 view.hearing.whilePaused(player);
             }
+            if (player != null) {
+                view.hearing.listen(player, view.worldScene, System.nanoTime());
+            }
             // After the picture, which would cover it.
             String shown = gettingReady ? "First person: getting ready" : said != null && System.nanoTime() - saidAt < SAID_FOR_NANOS ? said : null;
             if (shown != null && player != null) {

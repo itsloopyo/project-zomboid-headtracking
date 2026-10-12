@@ -862,6 +862,46 @@ final class WorldScene {
     private SightTrace sightTrace;
     /** The rooms and their openings round the eye, and the walk through them: see RoomSight. Logic thread. */
     final RoomMap roomMap = new RoomMap();
+
+    /**
+     * Logic thread: the room map, ready to be read, and the openings of every loaded chunk of a
+     * player's map whose middle is within reach of a point, each chunk read again if it may
+     * have changed. The openings are gathered into {@code into} only when the chunks or what
+     * was read of them differ from the last gathering, whose number is {@code last}: the
+     * number of this one is returned.
+     */
+    long openingsAround(IsoCell cell, int playerIndex, float x, float y, float reach, RoomSight.Openings into, long last) {
+        roomMap.begin(cell, terrain);
+        IsoChunkMap map = cell.getChunkMap(playerIndex);
+        int side = IsoChunkMap.chunkGridWidth;
+        long now = System.nanoTime(), gathering = 17L;
+        for (int pass = 0; pass < 2; pass++) {
+            if (pass == 1) {
+                if (gathering == last) {
+                    return gathering;
+                }
+                into.clear();
+            }
+            for (int gridX = 0; gridX < side; gridX++) {
+                for (int gridY = 0; gridY < side; gridY++) {
+                    IsoChunk chunk = map.getChunk(gridX, gridY);
+                    if (chunk == null || !chunk.loaded
+                            || Math.hypot(chunk.wx * CHUNK_TILES + CHUNK_TILES / 2f - x, chunk.wy * CHUNK_TILES + CHUNK_TILES / 2f - y) > reach) {
+                        continue;
+                    }
+                    if (pass == 0) {
+                        IsoChunk north = gridY > 0 ? map.getChunk(gridX, gridY - 1) : null, west = gridX > 0 ? map.getChunk(gridX - 1, gridY) : null;
+                        int readings = roomMap.read(chunk, north != null && north.loaded ? north : null, west != null && west.loaded ? west : null, ChunkMarks.live, now);
+                        gathering = ((gathering * 31 + chunk.wx) * 31 + chunk.wy) * 31 + readings;
+                    } else {
+                        roomMap.addOpeningsTo(chunk, into);
+                    }
+                }
+            }
+        }
+        return gathering;
+    }
+
     private final RoomSight roomWalk = new RoomSight();
     /**
      * The rooms whose contents builds hold, and whether builds go by them: they do while the

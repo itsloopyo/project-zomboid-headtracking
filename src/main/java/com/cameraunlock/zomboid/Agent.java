@@ -660,11 +660,28 @@ public final class Agent {
      * the second its sounds are mixed for however far out the game's own view was left. The
      * game sets its listener at one call, and hands its sounds how far out its camera is from
      * one method. See Hearing.
+     *
+     * The other two put the walls into what is heard from the eye: without the third no sound
+     * is muffled by a wall and none rings in a room but by the game's own mix, as each event
+     * an emitter starts is noted at the one method every event starts from; without the
+     * fourth a sound behind the head is muffled as if a wall stood there, as the game takes
+     * any square its own view of the player could not see as hidden. See SoundMix.
      */
     private static List<Patch> hearingPatches() {
         String listener = "fmod/fmod/SoundListener", zoom = "zombie/audio/parameters/ParameterCameraZoom", hearing = HOOKS;
+        String emitter = "fmod/fmod/FMODSoundEmitter", occlusion = "zombie/audio/parameters/ParameterOcclusion";
         String set = "(IFFFFFFFFFFFF)V";
+        CallSite.Method startEvent = new CallSite.Method(emitter, "startEvent", "(JLzombie/audio/GameSoundClip;Z)V");
+        CallSite.Method started = new CallSite.Method(hearing, "eventStarted", "(Lfmod/fmod/FMODSoundEmitter;J)V");
         return List.of(
+                new Patch(emitter, "startEvent at its start", classBytes -> CallSite.insertAtStartOfInstanceMethod(classBytes, startEvent, code -> {
+                    code.aload(0);
+                    code.lload(1);
+                    CallSite.invokeStatic(code, started);
+                })),
+                new Patch(occlusion, "calculateCurrentValue before its returns", classBytes -> CallSite.filterReturn(classBytes,
+                        new CallSite.Method(occlusion, "calculateCurrentValue", "()F"),
+                        new CallSite.Method(hearing, "occluded", "(F)F"))),
                 new Patch(listener, "tick setting the listener", classBytes -> CallSite.replaceEach(classBytes,
                         new CallSite.Method(listener, "tick", "()V"),
                         new CallSite.Method("fmod/javafmod", "FMOD_Studio_Listener3D", set),

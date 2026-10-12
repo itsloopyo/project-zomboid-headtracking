@@ -205,6 +205,7 @@ public final class Tests {
         Checks.run("OnlineTests", OnlineTests::run);
         Checks.run("EyesightTests", EyesightTests::run);
         Checks.run("HearingTests", HearingTests::run);
+        Checks.run("AcousticsTests", AcousticsTests::run);
         Checks.run("CapsuleTests", CapsuleTests::run);
         Checks.run("RagdollTests", RagdollTests::run);
         Checks.run("KickTests", KickTests::run);

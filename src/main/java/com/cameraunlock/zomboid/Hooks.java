@@ -5,6 +5,7 @@ import zombie.core.textures.Texture;
 import zombie.iso.objects.IsoDeadBody;
 import zombie.core.skinnedmodel.advancedanimation.AnimatedModel;
 import zombie.core.skinnedmodel.DeadBodyAtlas;
+import fmod.fmod.FMODSoundEmitter;
 import fmod.javafmod;
 import java.util.Locale;
 import java.util.Stack;
@@ -76,6 +77,7 @@ public final class Hooks {
             Tracking.dropTheNextPresses();
         }
         if (first) {
+            SoundMix.frame();
             for (int i = 0; i < View.COUNT; i++) {
                 View other = View.of(i);
                 if (other == null) {
@@ -579,6 +581,31 @@ public final class Hooks {
             }
         }
         return games;
+    }
+
+    /** Called as a sound emitter of the game's starts one of its events. */
+    public static void eventStarted(FMODSoundEmitter emitter, long event) {
+        SoundMix.started(emitter, event);
+    }
+
+    /**
+     * Called with how hidden the game takes a sound to be from its players, 1 for any square
+     * outside what the game's own view of a player could see, as it hands that to the sound.
+     * From the eye that is not hidden at all: what is behind the head is not muffled, and the
+     * walls are put in by SoundMix.
+     */
+    public static float occluded(float games) {
+        if (SoundMix.withheld) {
+            return games;
+        }
+        float in = 0f;
+        for (int i = 0; i < View.COUNT; i++) {
+            View view = View.of(i);
+            if (view != null) {
+                in = Math.max(in, view.hearing.share());
+            }
+        }
+        return games * (1f - in);
     }
 
     /** Called where the game reads the look direction a torch shines along, with the player who carries it. */

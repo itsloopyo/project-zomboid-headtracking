@@ -27,7 +27,7 @@ import zombie.util.list.PZArrayList;
  * be part of a building on the chunk or round it, when the chunk or the chunks beside it are
  * loaded again, and while the game marks nothing, every second.
  */
-final class RoomMap implements RoomSight.Ground {
+final class RoomMap implements Acoustics.Walls {
     private static final int SIDE = ChunkMarks.SIDE;
     private static final long REREAD_UNTOLD_NANOS = 1_000_000_000L;
     private IsoCell cell;
@@ -102,6 +102,11 @@ final class RoomMap implements RoomSight.Ground {
         return keptReadings[slot];
     }
 
+    /** Adds the openings of a chunk read lately to what is heard round a listener. */
+    void addOpeningsTo(IsoChunk chunk, RoomSight.Openings into) {
+        into.addAll(kept[ChunkMarks.slot(chunk.wx, chunk.wy)]);
+    }
+
     /** Adds the openings and blocks of a chunk read lately to a frame's. */
     void addTo(IsoChunk chunk, RoomSight.Openings into, RoomSight.Blocks blocksInto) {
         int slot = ChunkMarks.slot(chunk.wx, chunk.wy);
@@ -129,22 +134,64 @@ final class RoomMap implements RoomSight.Ground {
             return RoomSight.SEE;
         }
         IsoGridSquare beyond = north ? cell.getGridSquare(x, y - 1, z) : cell.getGridSquare(x - 1, y, z);
-        boolean door = false, doorShut = false, window = false, wall = false;
+        read(square, north);
+        if (door) {
+            return doorBlind || curtained(square, beyond, north) ? RoomSight.SHUT : RoomSight.SEE;
+        }
+        if (window) {
+            return curtained(square, beyond, north) ? RoomSight.SHUT : RoomSight.SEE;
+        }
+        return wall ? RoomSight.SOLID : RoomSight.SEE;
+    }
+
+    @Override
+    public int heard(int x, int y, int z, boolean north) {
+        IsoGridSquare square = cell.getGridSquare(x, y, z);
+        if (square == null) {
+            return Acoustics.OPEN;
+        }
+        read(square, north);
+        if (door) {
+            return !doorShut ? Acoustics.OPEN : doorGlazed ? Acoustics.GLASS : Acoustics.DOOR;
+        }
+        if (window) {
+            return glassShut ? Acoustics.GLASS : Acoustics.OPEN;
+        }
+        return wall ? Acoustics.WALL : Acoustics.OPEN;
+    }
+
+    /** What read last found on an edge. A curtain does not stop sound, and is asked after only for sight. */
+    private boolean door, doorShut, doorGlazed, doorBlind, window, glassShut, wall;
+
+    /** Reads what stands on a square's north edge, or with north false its west edge. */
+    private void read(IsoGridSquare square, boolean north) {
+        door = false;
+        doorShut = false;
+        doorGlazed = false;
+        doorBlind = false;
+        window = false;
+        glassShut = false;
+        wall = false;
         PZArrayList<IsoObject> objects = square.getObjects();
         for (int i = 0; i < objects.size(); i++) {
             IsoObject object = objects.get(i);
             if (object instanceof IsoDoor each && each.getNorth() == north) {
                 door = true;
-                doorShut |= !each.IsOpen() && (!seeThrough(each.getSprite()) || each.HasCurtains() != null && !each.isCurtainOpen());
+                boolean glazed = seeThrough(each.getSprite());
+                doorShut |= !each.IsOpen();
+                doorGlazed |= glazed;
+                doorBlind |= !each.IsOpen() && (!glazed || each.HasCurtains() != null && !each.isCurtainOpen());
             } else if (object instanceof IsoThumpable thumpable) {
                 if (thumpable.isDoor() && thumpable.getNorth() == north) {
                     door = true;
                     doorShut |= !thumpable.IsOpen();
+                    doorBlind |= !thumpable.IsOpen();
                 } else if (north ? thumpable.isWindowN() : thumpable.isWindowW()) {
                     window = true;
                 }
             } else if (object instanceof IsoWindow each && each.getNorth() == north) {
                 window = true;
+                glassShut |= !each.IsOpen() && !each.isSmashed() && !each.isGlassRemoved();
             }
             IsoSprite sprite = object.getSprite();
             if (sprite == null) {
@@ -163,13 +210,6 @@ final class RoomMap implements RoomSight.Ground {
                     : flags.has(IsoFlagType.WallWTrans) || flags.has(IsoFlagType.transparentW) || flags.has(IsoFlagType.HoppableW) || flags.has(IsoFlagType.TallHoppableW);
             wall |= onEdge && !seen;
         }
-        if (door) {
-            return doorShut || curtained(square, beyond, north) ? RoomSight.SHUT : RoomSight.SEE;
-        }
-        if (window) {
-            return curtained(square, beyond, north) ? RoomSight.SHUT : RoomSight.SEE;
-        }
-        return wall ? RoomSight.SOLID : RoomSight.SEE;
     }
 
     /** Whether a door's picture has glass in it, which the game says of a door it lets the light of a room through. */
