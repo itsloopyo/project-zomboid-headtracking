@@ -10,6 +10,38 @@ final class SeasonsTests {
         Checks.run("treesDropOnDaysOfTheirOwn", SeasonsTests::treesDropOnDaysOfTheirOwn);
         Checks.run("leafOnlyFallsThroughAutumnAndOnlyGrowsThroughSpring", SeasonsTests::leafOnlyFallsThroughAutumnAndOnlyGrowsThroughSpring);
         Checks.run("litterDeepensThroughAutumnAndRotsThroughSpring", SeasonsTests::litterDeepensThroughAutumnAndRotsThroughSpring);
+        Checks.run("leavesTurnBeforeTheyFallAndAreBrownWhenTheLastFalls", SeasonsTests::leavesTurnBeforeTheyFallAndAreBrownWhenTheLastFalls);
+        Checks.run("theStageMovesOnlyWhenWhatTheSeasonShapesDoes", SeasonsTests::theStageMovesOnlyWhenWhatTheSeasonShapesDoes);    }
+
+    private static void leavesTurnBeforeTheyFallAndAreBrownWhenTheLastFalls() {
+        for (int i = 0; i < 300; i++) {
+            int hash = Seasons.treeHash(i, 11 * i);
+            float last = 0f;
+            boolean turnedInFullLeaf = false;
+            for (int day = 0; day <= 100; day++) {
+                float p = day / 100f, turned = Seasons.turned(Seasons.AUTUMN, p, hash), on = Seasons.leafOn(Seasons.AUTUMN, p, hash);
+                Checks.check(turned >= last, "autumn leaf turned back on day " + day);
+                Checks.check(on > 0f || turned == 1f, "a tree is bare only once its leaves are brown, day " + day);
+                turnedInFullLeaf |= on == 1f && turned > 0f;
+                last = turned;
+            }
+            Checks.check(turnedInFullLeaf, "a tree's leaves turn while it still has them all");
+            Checks.check(Seasons.turned(Seasons.SPRING, 0.5f, hash) == 0f && Seasons.turned(Seasons.SUMMER2, 0.9f, hash) == 0f, "spring and summer leaves are green");
+        }
+    }
+
+    private static void theStageMovesOnlyWhenWhatTheSeasonShapesDoes() {
+        Checks.check(Seasons.stage(Seasons.SUMMER, 0.1f) == Seasons.stage(Seasons.SUMMER2, 0.9f), "summer is one stage");
+        Checks.check(Seasons.stage(Seasons.WINTER, 0.1f) == Seasons.stage(Seasons.WINTER, 0.9f), "winter is one stage");
+        Checks.check(Seasons.stage(Seasons.WINTER, 0.5f) != Seasons.stage(Seasons.SUMMER, 0.5f), "winter is not summer");
+        java.util.HashSet<Integer> stages = new java.util.HashSet<>();
+        for (int step = 0; step <= Seasons.STEPS; step++) {
+            stages.add(Seasons.stage(Seasons.AUTUMN, (float) step / Seasons.STEPS));
+            stages.add(Seasons.stage(Seasons.SPRING, (float) step / Seasons.STEPS));
+        }
+        stages.add(Seasons.stage(Seasons.SUMMER, 0f));
+        stages.add(Seasons.stage(Seasons.WINTER, 0f));
+        Checks.check(stages.size() == 2 * (Seasons.STEPS + 1) + 2, "every step of autumn and of spring is a stage of its own: " + stages.size());
     }
 
     private static void treesAreInFullLeafThroughSummer() {

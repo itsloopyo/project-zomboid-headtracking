@@ -55,6 +55,32 @@ final class PipelineShaders {
             }
             """;
 
+    /**
+     * What autumn does to a deciduous tree's leaves: the colour its kind turns, one of
+     * Flora.HUES, and then brown as they fall. Turned is 0 green to 1 brown (Seasons.turned).
+     * Only leaves the game paints green take the kind's colour: where the game's sprite has
+     * the tree turned already, its own colour stays, and goes brown as well.
+     */
+    static final String AUTUMN = """
+            vec3 autumnHue(float hue) {
+                return hue < 0.5 ? vec3(0.86, 0.70, 0.16) : hue < 1.5 ? vec3(0.88, 0.52, 0.12) : hue < 2.5 ? vec3(0.86, 0.34, 0.08)
+                        : hue < 3.5 ? vec3(0.76, 0.14, 0.07) : vec3(0.52, 0.11, 0.15);
+            }
+
+            vec3 autumnal(vec3 painted, float hue, float turned) {
+                if (turned <= 0.0) {
+                    return painted;
+                }
+                vec3 weigh = vec3(0.299, 0.587, 0.114);
+                float light = dot(painted, weigh);
+                vec3 to = autumnHue(hue);
+                vec3 brown = vec3(0.42, 0.28, 0.15);
+                float green = clamp((painted.g - max(painted.r, painted.b)) / max(painted.g, 0.05) * 4.0, 0.0, 1.0);
+                vec3 coloured = mix(painted, to * (light / dot(to, weigh)), green * smoothstep(0.0, 0.5, turned));
+                return mix(coloured, brown * (0.85 * light / dot(brown, weigh)), smoothstep(0.6, 1.0, turned));
+            }
+            """;
+
     /** Noise that lies on the ground, the same wherever it is asked for: the clouds' shadows cross the built world and the far land as one. */
     static final String GROUND_NOISE = """
             float grain(vec2 p) {
@@ -607,8 +633,9 @@ final class PipelineShaders {
      */
     static final String WORLD_FRAGMENT_PARTS = "#version 120\n#extension GL_EXT_texture_array : require\n#extension GL_ARB_shader_texture_lod : require\n"
             + "#define CUT_FLOATS " + Cutaways.FLOATS + "\n#define CUT_FLOATS_A_ROW " + Cutaways.FLOATS_A_ROW + "\n#define CUT_SIDE " + Cutaways.SIDE + ".0\n"
+            + "#define TURNS_MOST " + (Flora.TURNS - 1) + ".0\n"
             + CanopyWindow.GLSL
-            + Sky.ATMOSPHERE + ENDS + """
+            + Sky.ATMOSPHERE + ENDS + AUTUMN + """
             uniform sampler2D uTexture;
             uniform sampler2DShadow uShadowNear;
             uniform sampler2DShadow uShadowFar;
@@ -1580,7 +1607,10 @@ final class PipelineShaders {
                         discard;
                     }
                     vec2 cell = floor(vUv);
-                    float which = floor((vUv.x - cell.x) * 8.0);
+                    float which = floor(fract(vUv.x) * 8.0);
+                    // Over where it takes its colour, the colour its leaves turn and how far: see Flora.HUES.
+                    vec2 autumn = floor(cell / 2048.0);
+                    cell -= autumn * 2048.0;
                     vec2 at = (cell + 0.5) / 2048.0;
                     vec2 wide = uTexel * 4.0;
                     vec4 sum = vec4(0.0);
@@ -1592,7 +1622,7 @@ final class PipelineShaders {
                     if (sum.a < 0.5) {
                         discard;
                     }
-                    vec3 season = sum.rgb / sum.a;
+                    vec3 season = autumnal(sum.rgb / sum.a, autumn.x, autumn.y / TURNS_MOST);
                     season *= mix(1.0, 0.4 / max(dot(season, vec3(0.299, 0.587, 0.114)), 0.05), 0.6);
                     // The sprigs' picture laid over it by where it is, whichever way it faces:
                     // leaves where the picture has them and the dark between leaves where it has none.
@@ -1627,6 +1657,8 @@ final class PipelineShaders {
                     // over it is where on the sprig the pixel is. See Flora.addCrown.
                     vec2 cell = floor(vUv);
                     vec2 on = clamp((vUv - cell - 0.25) * 2.0, 0.0, 1.0);
+                    vec2 autumn = floor(cell / 2048.0);
+                    cell -= autumn * 2048.0;
                     float each = grain(cell);
                     // Standing in a tree, the sprigs within reach are gone, a whole sprig at
                     // a time, and the view is of the wood beyond them.
@@ -1666,7 +1698,10 @@ final class PipelineShaders {
                     if (sum.a < 0.5 || solid < 0.6) {
                         discard;
                     }
-                    vec3 season = sum.rgb / sum.a;
+                    // A tree's leaves do not turn all at once: some sprigs are ahead of the rest and some behind.
+                    float turned = autumn.y / TURNS_MOST;
+                    turned = turned > 0.0 ? clamp(turned + 0.32 * (grain(cell + 31.0) - 0.5), 0.0, 1.0) : 0.0;
+                    vec3 season = autumnal(sum.rgb / sum.a, autumn.x, turned);
                     // The game paints a crown in a few flat tones, darker at each mass's rim
                     // and foot. Here the light does that, so the tone is evened out and only
                     // the hue is taken.
@@ -3358,7 +3393,8 @@ final class PipelineShaders {
                 }
                 vUv = gl_MultiTexCoord0.xy;
                 float material = floor((gl_Color.a + 0.5) / 32.0);
-                vLeaves = material > 4.5 && material < 5.5 || material > 62.5 && material < 63.5 || material > 79.5 && material < 80.5 ? 1.0 : 0.0;
+                // How much of a mass of leaves is there to throw a shadow: a crown's shadow fan says, in its colour, how much of its crown is on the tree.
+                vLeaves = material > 79.5 && material < 80.5 ? clamp(gl_Color.r, 0.0, 1.0) : material > 4.5 && material < 5.5 || material > 62.5 && material < 63.5 ? 1.0 : 0.0;
                 // A floor or a ceiling is whole however many clear pixels its sprite has: see SpriteGeometry.SHEET.
                 vSolid = gl_MultiTexCoord1.z > 5.5 ? 1.0 : 0.0;
                 // A crown's sprigs take their colour from the sprite and are no part of its outline: the fan that stands with them throws the shadow.
@@ -3414,14 +3450,15 @@ final class PipelineShaders {
                 // A crown is not a lid. The sun comes through the gaps between its boughs in
                 // patches the size of a hand to the size of a table, and the ground under a
                 // tree is dappled, not dark.
-                if (vLeaves > 0.5) {
+                if (vLeaves > 0.0) {
                     // A gap is where the ray of light meets the ground, so that it is a gap
-                    // through every bough the ray passes and not through one of them.
+                    // through every bough the ray passes and not through one of them. A crown
+                    // that has lost leaves has more gaps, in the same places from frame to frame.
                     vec2 lands = vAt.xy - uSunWay.xy * (vAt.z / max(uSunWay.z, 0.15));
                     vec2 cell = floor(lands * 1.3), fine = floor(lands * 4.1);
                     float gap = fract(sin(dot(cell, vec2(12.9898, 78.233))) * 43758.5453) * 0.6
                             + fract(sin(dot(fine, vec2(39.346, 11.135))) * 43758.5453) * 0.4;
-                    if (gap > 0.6) {
+                    if (gap > 0.6 * vLeaves) {
                         discard;
                     }
                 }
@@ -6464,12 +6501,15 @@ final class PipelineShaders {
      * at each of its bands. A vertex of the mesh is how far up its part it is, its angle round the
      * foot, and its part: 0 the bole, 1 the crown, 2 the crown's foot, 3 its top.
      */
-    static final String FAR_TREE_VERTEX = """
-            #version 120
+    static final String FAR_TREE_VERTEX = "#version 120\n" + Seasons.GLSL + AUTUMN + """
             attribute vec4 aTree;
             uniform sampler2D uKinds;
             uniform float uKindRows;
             uniform vec3 uEye;
+            // The season and how far through it: see Seasons.
+            uniform vec2 uSeason;
+            // How much of its leaves the tree has on it: see Seasons.leafOn.
+            varying float vLeaf;
             varying vec3 vWorld;
             varying vec3 vNormal;
             varying vec3 vColor;
@@ -6501,6 +6541,12 @@ final class PipelineShaders {
                 float part = gl_Vertex.z;
                 vec2 outward = vec2(cos(angle), sin(angle));
                 vec3 local;
+                // A kind that drops its leaves does it as a tree of the built world does, each tree on days of its own.
+                vec4 seasonal = kindTexel(kind, 3.0);
+                float mine = fract(own * 53.17);
+                bool deciduous = seasonal.r > 0.5;
+                vLeaf = deciduous ? leafOn(uSeason.x, uSeason.y, mine) : 1.0;
+                float turned = deciduous ? leafTurned(uSeason.x, uSeason.y, mine) : 0.0;
                 if (part < 0.5) {
                     local = vec3(outward * sizes.x, up * sizes.y * 1.1);
                     vNormal = vec3(outward, 0.0);
@@ -6514,7 +6560,8 @@ final class PipelineShaders {
                     // side's angle of 2 pi with the first's of 0 included.
                     float side = mod(floor(gl_Vertex.y * 10.1859164 + 0.5), 64.0);
                     float lump = fract(sin(dot(vec3(floor(up * 64.0 + 0.5), side, own * 977.0), vec3(12.9898, 78.233, 37.719))) * 43758.5453);
-                    reach *= 0.82 + 0.36 * lump;
+                    // Bare, a crown is its twigs, which do not reach as far out as its leaves did.
+                    reach *= (0.82 + 0.36 * lump) * mix(0.75, 1.0, vLeaf);
                     local = vec3(outward * reach, mix(sizes.y, sizes.z, up));
                     // The crown faces the way its outline leans: up where it narrows to its top, down
                     // where it widens from its foot. With every side turned the same way up, the sky's
@@ -6522,7 +6569,10 @@ final class PipelineShaders {
                     float slope = (reachAt(kind, min(up + 0.1, 1.0)) - reachAt(kind, max(up - 0.1, 0.0))) / (0.2 * max(sizes.z - sizes.y, 0.01));
                     vNormal = part > 2.5 ? vec3(0.0, 0.0, 1.0) : part > 1.5 ? vec3(0.0, 0.0, -1.0) : normalize(vec3(outward, -slope));
                     // No two trees of a kind are quite one colour.
-                    vColor = kindTexel(kind, 0.0).rgb * (0.82 + 0.3 * fract(own * 13.7)) * vec3(1.0, 0.94 + 0.12 * fract(own * 29.3), 1.0);
+                    vec3 leaves = autumnal(kindTexel(kind, 0.0).rgb, fract(own * 41.3) < 0.25 ? seasonal.b : seasonal.g, turned);
+                    // Seen from as far off as these, a crown thinning is ever more the grey of its twigs.
+                    vec3 twigs = mix(kindTexel(kind, 1.0).rgb, vec3(0.46, 0.43, 0.41), 0.45);
+                    vColor = mix(twigs, leaves, smoothstep(0.0, 0.7, vLeaf)) * (0.82 + 0.3 * fract(own * 13.7)) * vec3(1.0, 0.94 + 0.12 * fract(own * 29.3), 1.0);
                     vReached = part > 1.5 && part < 2.5 ? 0.4 : mix(0.5, 1.0, up);
                     vLeafy = 1.0;
                 }
@@ -6549,6 +6599,7 @@ final class PipelineShaders {
             varying float vReached;
             varying vec4 vOnTree;
             varying float vLeafy;
+            varying float vLeaf;
             uniform float uTreeReach;
             uniform float uSnowLying;
 
@@ -6571,7 +6622,8 @@ final class PipelineShaders {
                     // Clumps of leaves at two sizes.
                     float clumps = patches(vec2(q.x + 0.7 * q.z, q.y - 0.6 * q.z) * 1.6) * 0.6 + patches(vec2(q.y + 0.5 * q.z, q.x + 0.8 * q.z) * 3.7) * 0.4;
                     float facing = dot(n, normalize(toEye));
-                    if (clumps < (0.12 + 0.55 * smoothstep(0.35, 0.9, 1.0 - abs(facing))) * shown) {
+                    // A crown that has lost leaves has lost clumps of them, the same clumps whichever way it is looked at.
+                    if (clumps < (0.12 + 0.55 * smoothstep(0.35, 0.9, 1.0 - abs(facing)) + 0.4 * (1.0 - vLeaf)) * shown) {
                         discard;
                     }
                     // Facing away from the eye is the far side of the crown, seen from within it.

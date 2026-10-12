@@ -202,6 +202,15 @@ final class Flora {
     private static final int CROWN_TRIES = 2400;
     /** A sprig's texture coordinate holds where on the plant's sprite it takes its colour, in this many steps across the texture, under where on the sprig the vertex is. */
     static final float CROWN_STEPS = 2048f;
+    /**
+     * Over the CROWN_STEPS of where a sprig takes its colour, its texture coordinate holds in
+     * whole CROWN_STEPS the colour its kind turns in autumn, one of the HUES, across, and how
+     * far it has turned towards it, in TURNS steps from green to brown, down. The world shader
+     * takes them apart: see PipelineShaders.AUTUMN.
+     */
+    static final int YELLOW_LEAF = 0, GOLD_LEAF = 1, ORANGE_LEAF = 2, SCARLET_LEAF = 3, CLARET_LEAF = 4, HUES = 5, TURNS = 8;
+    /** A crown with less of its leaves on it than this has no inside: it is seen through. Between this and full leaf the inside draws in. */
+    private static final float CORE_GOES = 0.5f;
     /** A sprig's corners are this far in from the whole numbers either side, so that neither end of it rounds into the next step. */
     private static final float CROWN_INSET = 0.25f;
     private static final float SPRIG_SMALLEST = 0.3f, SPRIG_LARGEST = 0.8f, SHRUB_SMALLEST = 0.2f, SHRUB_LARGEST = 0.42f;
@@ -404,10 +413,15 @@ final class Flora {
      * number. A tree whose bole is boleRadius thick at its top, boleTall over its foot, has
      * a leader and limbs in wood as well: 0 for a plant with no bole, or too far off for them.
      * False, and nothing made, when the sprite shows too little to make a crown of. room is
-     * where the crown is kept to below a wall's top: see ROOM_UNDER.
+     * where the crown is kept to below a wall's top: see ROOM_UNDER. leaf is the share of its
+     * leaves the plant has on it (Seasons.leafOn), above 0; hue the colour its leaves turn
+     * in autumn, one of the HUES, and turned how far they have, 0 green and 1 brown.
      */
     static boolean addCrown(Mesh mesh, Mesh wood, SpriteGeometry.Frame frame, float[] places, float x, float y, float base, float footU, float footV,
-            float detail, float close, float boleRadius, float boleTall, int bark, int sprig, int seed, float[] room) {
+            float detail, float close, float boleRadius, float boleTall, int bark, int sprig, int seed, float[] room, float leaf, int hue, float turned) {
+        if (!(leaf > 0f && leaf <= 1f) || hue < 0 || hue >= HUES || !(turned >= 0f && turned <= 1f)) {
+            throw new IllegalArgumentException("a crown with leaf " + leaf + ", hue " + hue + " and turned " + turned);
+        }
         int count = places.length / 2;
         float[] reachLeft = new float[CROWN_BANDS], reachRight = new float[CROWN_BANDS], sizes = new float[SIZES];
         if (!measure(frame, places, footU, footV, reachLeft, reachRight, sizes)) {
@@ -451,6 +465,10 @@ final class Flora {
             float high = (footV - places[i * 2 + 1]) * up;
             float drawn = unit(hash, 0) + go / count;
             if (high < under || drawn > filled / count) {
+                continue;
+            }
+            // A tree that is losing its leaves has lost some sprigs whole, each on a day of its own, so a crown thins and no sprig comes and goes.
+            if (leaf < 1f && unit(mix(seed, go, 98), 0) >= leaf) {
                 continue;
             }
             // The leaves of a tree are its outside: most sprigs stand in a shell at the crown's
@@ -514,8 +532,7 @@ final class Flora {
             // The middle of a crown is in the shade of its outside, and a hollow in that of the boughs either side.
             float shade = inner ? 0.5f : (0.8f + 0.2f * Math.min(far / reach, 1f)) * (1f + BOUGH_SHADE * (swell - 0.7f));
             float red = frame.red * shade, green = frame.green * shade, blue = frame.blue * shade;
-            float u = (float) Math.rint((frame.uStart + (places[i * 2] - frame.left) / frame.width * (frame.uEnd - frame.uStart)) * CROWN_STEPS);
-            float v = (float) Math.rint((frame.vStart + (places[i * 2 + 1] - frame.top) / frame.height * (frame.vEnd - frame.vStart)) * CROWN_STEPS);
+            float u = colourAcross(frame, places[i * 2], hue), v = colourDown(frame, places[i * 2 + 1], turned);
             boolean mirrored = (hash >>> 28 & 1) == 1;
             float swayStem = Math.clamp((stemUp - base) * SWAY_PER_TILE, 0f, SWAY_MOST);
             float swayTip = Math.clamp((tipUp - base) * SWAY_PER_TILE, 0f, SWAY_MOST) + SPRIG_FLUTTER;
@@ -547,8 +564,10 @@ final class Flora {
             }
         }
         mesh.sway = 0f;
-        if (!bare) {
-            addCore(mesh, frame, places, x, y, base, footU, footV, across, up, lowest, tall, under, reachLeft, reachRight, lobes, rows, turnOne, turnTwo, turnThree, sprig, room);
+        float inside = Math.clamp((leaf - CORE_GOES) / (1f - CORE_GOES), 0f, 1f);
+        if (!bare && inside > 0f) {
+            addCore(mesh, frame, places, x, y, base, footU, footV, across, up, lowest, tall, under, reachLeft, reachRight, lobes, rows, turnOne, turnTwo, turnThree, sprig, room,
+                    inside, hue, turned);
         }
         if (boleRadius > 0f && !shrub && lowest + LEADER_TOP * tall > boleTall + 0.2f) {
             mark(wood, frame.open, 0f, TRUNK);
@@ -621,11 +640,12 @@ final class Flora {
      * The inside of the crown addCrown is making: rings from near its foot to near its top,
      * each as far out as CORE_OF_REACH of the crown there with the boughs' swells and hollows
      * in it, closed over at the top and drawn in underneath to a hole the limbs come in by. Each ring takes its colour from a place
-     * the sprite paints leaves at that height, half way out from the plant's middle.
+     * the sprite paints leaves at that height, half way out from the plant's middle. A crown
+     * thinning in autumn has it drawn in by share, 1 as far out as in full leaf.
      */
     private static void addCore(Mesh mesh, SpriteGeometry.Frame frame, float[] places, float x, float y, float base, float footU, float footV, float across, float up,
             float lowest, float tall, float under, float[] reachLeft, float[] reachRight, int lobes, float rows, float turnOne, float turnTwo,
-            float turnThree, int sprig, float[] room) {
+            float turnThree, int sprig, float[] room, float drawnIn, int hue, float turned) {
         int count = places.length / 2;
         int[] placeOf = new int[CORE_RINGS];
         float[] nearest = new float[CORE_RINGS];
@@ -658,8 +678,7 @@ final class Flora {
         float kind = (sprig + 0.5f) / CORE_KINDS;
         for (int ring = 0; ring < CORE_RINGS; ring++) {
             int place = placeOf[ring];
-            float u = (float) Math.rint((frame.uStart + (places[place * 2] - frame.left) / frame.width * (frame.uEnd - frame.uStart)) * CROWN_STEPS) + kind;
-            float v = (float) Math.rint((frame.vStart + (places[place * 2 + 1] - frame.top) / frame.height * (frame.vEnd - frame.vStart)) * CROWN_STEPS) + 0.5f;
+            float u = colourAcross(frame, places[place * 2], hue) + kind, v = colourDown(frame, places[place * 2 + 1], turned) + 0.5f;
             float shareLow = CORE_FOOT + (CORE_HEAD - CORE_FOOT) * ring / CORE_RINGS, shareHigh = CORE_FOOT + (CORE_HEAD - CORE_FOOT) * (ring + 1) / CORE_RINGS;
             boolean top = ring == CORE_RINGS - 1;
             for (int face = 0; face < CORE_ROUND; face++) {
@@ -669,7 +688,7 @@ final class Flora {
                     int corner = QUAD[at];
                     boolean high = corner >= 2, to = corner == 1 || corner == 2;
                     float round = to ? roundTo : roundFrom, share = high ? shareHigh : shareLow;
-                    float out = top && high ? 0f : (ring == 0 && !high ? CORE_UNDER : 1f) * CORE_OF_REACH * reachAt(reachLeft, reachRight, share)
+                    float out = top && high ? 0f : (ring == 0 && !high ? CORE_UNDER : 1f) * CORE_OF_REACH * drawnIn * reachAt(reachLeft, reachRight, share)
                             * (1f - BOUGH_HOLLOW * (1f - bough(round, share, lobes, rows, turnOne, turnTwo, turnThree)));
                     float cos = (float) Math.cos(round), sin = (float) Math.sin(round);
                     float over = lowest + share * tall;
@@ -682,6 +701,32 @@ final class Flora {
             }
         }
         mesh.sway = 0f;
+    }
+
+    /** The texture coordinate across of a sprig that takes its colour at frame pixel across, its leaves turning to hue in autumn: see HUES. */
+    private static float colourAcross(SpriteGeometry.Frame frame, float across, int hue) {
+        return step(frame.uStart + (across - frame.left) / frame.width * (frame.uEnd - frame.uStart)) + CROWN_STEPS * hue;
+    }
+
+    /** The texture coordinate down of a sprig that takes its colour at frame pixel down, its leaves turned that far: see TURNS. */
+    private static float colourDown(SpriteGeometry.Frame frame, float down, float turned) {
+        return step(frame.vStart + (down - frame.top) / frame.height * (frame.vEnd - frame.vStart)) + CROWN_STEPS * Math.round(turned * (TURNS - 1));
+    }
+
+    /** The CROWN_STEPS step a place on the texture is in: the last for its far edge, which would otherwise be read as the next hue or turn. */
+    private static float step(float share) {
+        return Math.min((float) Math.rint(share * CROWN_STEPS), CROWN_STEPS - 1f);
+    }
+
+    /**
+     * The colour a deciduous tree's leaves turn in autumn, by its sprite's name, which is its
+     * species, and which tree of its kind it is: red maples scarlet or orange, dogwood claret
+     * or scarlet, hawthorn orange or scarlet, the rest yellow or gold.
+     */
+    static int autumnHue(String name, int treeHash) {
+        boolean other = (treeHash >>> 8 & 3) == 0;
+        return name.contains("maple") ? (other ? ORANGE_LEAF : SCARLET_LEAF) : name.contains("dogwood") ? (other ? SCARLET_LEAF : CLARET_LEAF)
+                : name.contains("hawthorn") ? (other ? SCARLET_LEAF : ORANGE_LEAF) : other ? GOLD_LEAF : YELLOW_LEAF;
     }
 
     /** How far out a crown reaches at a share of the way up it: see addCrown. */

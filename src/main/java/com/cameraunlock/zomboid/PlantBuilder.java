@@ -43,6 +43,8 @@ final class PlantBuilder {
     /** A fern the game paints: its size for half the width its sprite paints, at least and at most, and how many fronds it has. */
     private static final float FERN_OF_HALF = 1.1f, FERN_SMALLEST = 0.3f, FERN_LARGEST = 0.9f;
     private static final int PAINTED_FRONDS = 6;
+    /** The least share of its leaves a deciduous tree too far off for a crown has on it and keeps the game's sprite of its leaves. */
+    private static final float FAN_KEPT = 0.5f;
     /** Whether the square, if there is one, has a wall or a fence on its north edge, or on its west edge. */
     private static boolean edged(IsoGridSquare square, boolean north) {
         if (square == null) {
@@ -340,9 +342,19 @@ final class PlantBuilder {
         if (grown != null && type != IsoObjectType.tree && Own.plants()) {
             build.frame.material = dead ? WorldScene.BARK : bush ? Flora.BUSH : WorldScene.LEAVES;
         }
+        // A deciduous tree's leaves go through autumn and come back through spring, each tree
+        // on days of its own (Seasons). A bare one has none of them drawn, nor their shadow.
+        boolean leafy = grown != null && type == IsoObjectType.tree && build.overLayer > 0 && Own.plants();
+        int treeHash = Seasons.treeHash(x, y);
+        boolean seasonal = leafy && !Flora.evergreen(grown);
+        float leaf = seasonal ? Seasons.leafOn(treeHash) : 1f;
+        // Too far off for a crown, the leaves are the game's sprite on the fan, which cannot thin: past half bare there is none.
+        if (leaf == 0f || seasonal && leaf < FAN_KEPT && !world.crownedToSight && !build.within(Crowns.REACH, true)) {
+            return;
+        }
         // The leaves of a tree and a bush, near enough to be seen as leaves, are a crown of
         // sprigs. The fan then stands only in the sun's own pictures, to throw the shadow.
-        float fanned = build.frame.material;
+        float fanned = build.frame.material, red = build.frame.red;
         // A crop near the eye is grown stalk by stalk, and its cards then only throw its shadow.
         if (Own.plants() && growCrop(texture, Crops.of(grown), x, y)) {
             build.frame.material = Flora.SHADE;
@@ -352,9 +364,12 @@ final class PlantBuilder {
         // A tree with no leaves, dead or bare for the winter, has a crown of wood alone, grown from its bole.
         boolean bare = build.overLayer == 0 && build.geometry.keep == 1f && (type == IsoObjectType.tree && !Flora.evergreen(grown) || dead) && boleX == x && boleY == y;
         int sprig = bare ? Flora.BARE : Flora.sprigOf(grown, bush);
-        boolean crowned = grown != null && (bush || type == IsoObjectType.tree && build.overLayer > 0 || evergreen || bare) && Own.plants() && addCrown(texture, grown, sprig, x, y, z);
+        boolean crowned = grown != null && (bush || type == IsoObjectType.tree && build.overLayer > 0 || evergreen || bare) && Own.plants()
+                && addCrown(texture, grown, sprig, x, y, z, leaf, seasonal ? Flora.autumnHue(grown, treeHash) : Flora.YELLOW_LEAF, seasonal ? Seasons.turned(treeHash) : 0f);
         if (crowned) {
+            // Its colour is in no picture, and says how much of the crown's shadow it throws: see PipelineShaders.SHADOW_FRAGMENT.
             build.frame.material = Flora.SHADE;
+            build.frame.red = leaf;
         }
         double turn = ((x * 73856093 ^ y * 19349663) >>> 8 & 0xff) / 255.0 * Math.PI;
         for (int card = 0; card < cards; card++) {
@@ -370,6 +385,7 @@ final class PlantBuilder {
             build.geometry.clear = 0f;
         }
         build.frame.material = fanned;
+        build.frame.red = red;
         if (bush && !crowned && Own.plants() && build.within(WorldScene.BUSH_REACH, false)) {
             // A fan of cards through one line is thin seen along that line, and from
             // above it is a star. A bush is a clump: three more cards stand round its
@@ -450,9 +466,10 @@ final class PlantBuilder {
     /**
      * Stands a crown of sprigs for the plant whose leaves the frame is set to, in the mesh of
      * the leaves' own texture, which gives the sprigs their colour. False when the plant is
-     * too far off for one or its texture shows too little to make one of.
+     * too far off for one or its texture shows too little to make one of. leaf, hue and turned
+     * are Flora.addCrown's.
      */
-    private boolean addCrown(Texture texture, String name, int sprig, int x, int y, int z) {
+    private boolean addCrown(Texture texture, String name, int sprig, int x, int y, int z, float leaf, int hue, float turned) {
         boolean bush = sprig == Flora.SHRUB;
         if (!world.crownedToSight && !build.within(Crowns.REACH, true)) {
             return false;
@@ -483,13 +500,13 @@ final class PlantBuilder {
         if (build.crownsInline) {
             boolean limbed = boled && Crowns.limbed(away, sprig);
             return Flora.addCrown(WorldScene.solid.get(texture.getID()), WorldScene.solid.get(WorldScene.PLAIN), build.frame, places, x + 0.5f, y + 0.5f, base, footU, footV, Crowns.detail(away), Crowns.close(away),
-                    limbed ? boleThick : 0f, limbed ? boleTall : 0f, limbed ? boleBark : bark, sprig, seed, build.room);
+                    limbed ? boleThick : 0f, limbed ? boleTall : 0f, limbed ? boleBark : bark, sprig, seed, build.room, leaf, hue, turned);
         }
         if (!Flora.measure(build.frame, places, footU, footV, crownLeft, crownRight, crownSizes)) {
             return false;
         }
         (build.afresh ? WorldScene.crownsChecked : world.crownsRead).add(texture.getID(), build.frame, places, x + 0.5f, y + 0.5f, base, footU, footV, away, boled ? boleThick : 0f, boled ? boleTall : 0f,
-                boled ? boleBark : bark, bark, sprig, seed, build.room);
+                boled ? boleBark : bark, bark, sprig, seed, build.room, leaf, hue, turned);
         return true;
     }
 

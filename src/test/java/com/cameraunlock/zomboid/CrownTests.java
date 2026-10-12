@@ -24,6 +24,104 @@ final class CrownTests {
         Checks.run("crownBesideAFenceKeepsToItsOwnSideInAnyWind", CrownTests::crownBesideAFenceKeepsToItsOwnSideInAnyWind);
         Checks.run("aRootIsHeldInFromAFenceByAsFarAsItReaches", CrownTests::aRootIsHeldInFromAFenceByAsFarAsItReaches);
         Checks.run("everyPartOfATreesCrownIsItsTreesAndABushIsNoTree", CrownTests::everyPartOfATreesCrownIsItsTreesAndABushIsNoTree);
+        Checks.run("aCrownLosingItsLeavesLosesWholeSprigsAndKeepsTheRest", CrownTests::aCrownLosingItsLeavesLosesWholeSprigsAndKeepsTheRest);
+        Checks.run("everySprigSaysTheColourItsLeavesTurnAndHowFar", CrownTests::everySprigSaysTheColourItsLeavesTurnAndHowFar);
+        Checks.run("autumnColourIsChosenByTheSpecies", CrownTests::autumnColourIsChosenByTheSpecies);
+    }
+
+    /** The sprigs of a crown, each by where its four corners are, to the thousandth of a tile. */
+    private static java.util.Set<String> sprigsOf(SpriteGeometry.Mesh mesh) {
+        java.util.Set<String> sprigs = new java.util.HashSet<>();
+        for (int at = 0; at < mesh.floats; at += 6 * SpriteGeometry.VERTEX_FLOATS) {
+            if ((float) Math.floor((mesh.vertices[at + 8] + 0.5f) / 32f) == Flora.CORE) {
+                continue;
+            }
+            StringBuilder corners = new StringBuilder();
+            for (int corner = 0; corner < 6; corner++) {
+                int of = at + corner * SpriteGeometry.VERTEX_FLOATS;
+                corners.append(Math.round(mesh.vertices[of] * 1000f)).append(',').append(Math.round(mesh.vertices[of + 1] * 1000f)).append(',')
+                        .append(Math.round(mesh.vertices[of + 2] * 1000f)).append(' ');
+            }
+            sprigs.add(corners.toString());
+        }
+        return sprigs;
+    }
+
+    private static int coreVertices(SpriteGeometry.Mesh mesh) {
+        return mesh.floats / SpriteGeometry.VERTEX_FLOATS - sprigVertices(mesh);
+    }
+
+    /**
+     * Through autumn a crown loses sprigs whole, about as many as the leaves it has lost, and
+     * every sprig a thinner crown has is one the fuller crown had, where it had it: nothing comes
+     * and goes as the crown thins. Its inside draws in and is gone before the crown is half bare,
+     * so the sky shows through. No leaves is no crown, and is never asked for.
+     */
+    private static void aCrownLosingItsLeavesLosesWholeSprigsAndKeepsTheRest() {
+        SpriteGeometry.Frame frame = frame();
+        float[] places = Flora.leafPlaces(CrownTests::leaf, frame);
+        float[] leaves = {1f, 0.75f, 0.5f, 0.2f};
+        SpriteGeometry.Mesh[] crowns = new SpriteGeometry.Mesh[leaves.length];
+        for (int i = 0; i < leaves.length; i++) {
+            crowns[i] = new SpriteGeometry.Mesh();
+            check(Flora.addCrown(crowns[i], new SpriteGeometry.Mesh(), frame, places, 10.5f, 20.5f, 0f, FOOT_U, FOOT_V, 1f, 1f, 0.12f, 1.2f, Flora.BARK_OAK, Flora.MAPLE, 7,
+                    Flora.OPEN, leaves[i], Flora.SCARLET_LEAF, 0.4f), "a crown with " + leaves[i] + " of its leaves is a crown");
+        }
+        java.util.Set<String> full = sprigsOf(crowns[0]);
+        for (int i = 1; i < leaves.length; i++) {
+            java.util.Set<String> thinner = sprigsOf(crowns[i]), fuller = sprigsOf(crowns[i - 1]);
+            float share = (float) thinner.size() / full.size();
+            check(Math.abs(share - leaves[i]) < 0.1f, "a crown with " + leaves[i] + " of its leaves has as much of its sprigs: " + share);
+            check(fuller.containsAll(thinner), "every sprig of the crown with " + leaves[i] + " of its leaves is one the fuller crown had, where it had it");
+        }
+        check(coreVertices(crowns[0]) > 0 && coreVertices(crowns[1]) == coreVertices(crowns[0]), "in full leaf and a quarter bare a crown has its inside");
+        check(coreVertices(crowns[2]) == 0 && coreVertices(crowns[3]) == 0, "half bare it has none");
+        boolean refused = false;
+        try {
+            Flora.addCrown(new SpriteGeometry.Mesh(), new SpriteGeometry.Mesh(), frame, places, 10.5f, 20.5f, 0f, FOOT_U, FOOT_V, 1f, 1f, 0f, 0f, Flora.BARK_OAK, Flora.MAPLE, 7,
+                    Flora.OPEN, 0f, Flora.SCARLET_LEAF, 1f);
+        } catch (IllegalArgumentException expected) {
+            refused = true;
+        }
+        check(refused, "a bare tree's crown is never made");
+    }
+
+    /**
+     * Over where on the sprite a sprig and the inside take their colour, their texture
+     * coordinate carries the colour the tree's leaves turn, in whole CROWN_STEPS across, and
+     * how far they have turned, in whole CROWN_STEPS down: see PipelineShaders.AUTUMN.
+     */
+    private static void everySprigSaysTheColourItsLeavesTurnAndHowFar() {
+        SpriteGeometry.Frame frame = frame();
+        float[] places = Flora.leafPlaces(CrownTests::leaf, frame);
+        float[] turnings = {0f, 0.3f, 1f};
+        for (float turned : turnings) {
+            SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
+            check(Flora.addCrown(mesh, new SpriteGeometry.Mesh(), frame, places, 10.5f, 20.5f, 0f, FOOT_U, FOOT_V, 1f, 0f, 0f, 0f, Flora.BARK_OAK, Flora.MAPLE, 7, Flora.OPEN,
+                    1f, Flora.CLARET_LEAF, turned), "a crown turned " + turned);
+            int level = Math.round(turned * (Flora.TURNS - 1));
+            for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+                float u = mesh.vertices[at + 3], v = mesh.vertices[at + 4];
+                float stepU = (float) Math.floor(u), stepV = (float) Math.floor(v);
+                check((int) Math.floor(stepU / Flora.CROWN_STEPS) == Flora.CLARET_LEAF, "a crown says across which colour its leaves turn, not " + u);
+                check((int) Math.floor(stepV / Flora.CROWN_STEPS) == level, "and down how far, " + level + " of " + (Flora.TURNS - 1) + ", not " + v);
+                float spriteU = (stepU - Flora.CROWN_STEPS * Flora.CLARET_LEAF) / Flora.CROWN_STEPS, spriteV = (stepV - Flora.CROWN_STEPS * level) / Flora.CROWN_STEPS;
+                check(spriteU >= 0.25f - 1e-3f && spriteU <= 0.5f + 1e-3f && spriteV >= 0.5f - 1e-3f && spriteV < 1f,
+                        "and under them where on the sprite it takes its colour, within the sprite's frame and short of the next step: " + spriteU + ", " + spriteV);
+            }
+        }
+    }
+
+    private static void autumnColourIsChosenByTheSpecies() {
+        for (int hash = 0; hash < 4096; hash += 97) {
+            int maple = Flora.autumnHue("e_redmapleJUMBO_1_10", hash);
+            check(maple == Flora.SCARLET_LEAF || maple == Flora.ORANGE_LEAF, "a red maple turns scarlet or orange");
+            int linden = Flora.autumnHue("e_americanlinden_1_10", hash);
+            check(linden == Flora.YELLOW_LEAF || linden == Flora.GOLD_LEAF, "a linden turns yellow or gold");
+            int dogwood = Flora.autumnHue("e_dogwood_1_10", hash);
+            check(dogwood == Flora.CLARET_LEAF || dogwood == Flora.SCARLET_LEAF, "a dogwood turns claret or scarlet");
+        }
+        check(Flora.autumnHue("e_redmaple_1_10", 0) != Flora.autumnHue("e_redmaple_1_10", 1 << 8), "not every tree of a kind turns one colour");
     }
 
     /**
@@ -37,7 +135,7 @@ final class CrownTests {
         float[] places = Flora.leafPlaces(CrownTests::leaf, frame);
         SpriteGeometry.Mesh leaves = new SpriteGeometry.Mesh(), wood = new SpriteGeometry.Mesh();
         leaves.rooted(3, 4);
-        check(Flora.addCrown(leaves, wood, frame, places, 10.5f, 20.5f, 0f, FOOT_U, FOOT_V, 1f, 1f, 0.12f, 1.2f, Flora.BARK_OAK, Flora.MAPLE, 7, Flora.OPEN),
+        check(Flora.addCrown(leaves, wood, frame, places, 10.5f, 20.5f, 0f, FOOT_U, FOOT_V, 1f, 1f, 0.12f, 1.2f, Flora.BARK_OAK, Flora.MAPLE, 7, Flora.OPEN, 1f, 0, 0f),
                 "a painted crown makes a crown");
         check(wood.floats > 0, "with limbs and twigs in wood");
         float leastX = Float.MAX_VALUE, mostX = -Float.MAX_VALUE;
@@ -53,7 +151,7 @@ final class CrownTests {
         check(leaves.rootX == 3f && leaves.rootY == 4f && wood.rootX == SpriteGeometry.NO_ROOT, "the meshes carry on with what they carried before");
         // Its core and the twigs inside it as well: a bush in the window was hollowed when they went by their stuff.
         SpriteGeometry.Mesh bush = new SpriteGeometry.Mesh(), twigs = new SpriteGeometry.Mesh();
-        check(Flora.addCrown(bush, twigs, frame, places, 10.5f, 20.5f, 0f, FOOT_U, FOOT_V, 1f, 1f, 0f, 0f, Flora.BARK_OAK, Flora.SHRUB, 7, Flora.OPEN),
+        check(Flora.addCrown(bush, twigs, frame, places, 10.5f, 20.5f, 0f, FOOT_U, FOOT_V, 1f, 1f, 0f, 0f, Flora.BARK_OAK, Flora.SHRUB, 7, Flora.OPEN, 1f, 0, 0f),
                 "a bush makes a crown");
         check(twigs.floats > 0, "with twigs");
         for (SpriteGeometry.Mesh mesh : new SpriteGeometry.Mesh[] {bush, twigs}) {
@@ -106,7 +204,7 @@ final class CrownTests {
         SpriteGeometry.Frame frame = frame();
         float[] places = Flora.leafPlaces(CrownTests::leaf, frame);
         SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
-        check(Flora.addCrown(mesh, new SpriteGeometry.Mesh(), frame, places, 10.5f, 20.5f, 0f, FOOT_U, FOOT_V, 1f, 0f, 0f, 0f, Flora.BARK_OAK, Flora.MAPLE, 7, Flora.OPEN), "a painted crown makes a crown");
+        check(Flora.addCrown(mesh, new SpriteGeometry.Mesh(), frame, places, 10.5f, 20.5f, 0f, FOOT_U, FOOT_V, 1f, 0f, 0f, 0f, Flora.BARK_OAK, Flora.MAPLE, 7, Flora.OPEN, 1f, 0, 0f), "a painted crown makes a crown");
         int vertices = mesh.floats / SpriteGeometry.VERTEX_FLOATS;
         int sprigs = sprigVertices(mesh), inside = 0;
         check(sprigs >= 6 * 20 && sprigs % 6 == 0, "the crown is whole sprigs of two triangles, a good many of them: " + sprigs / 6);
@@ -156,8 +254,8 @@ final class CrownTests {
         SpriteGeometry.Frame frame = frame();
         float[] places = Flora.leafPlaces(CrownTests::leaf, frame);
         SpriteGeometry.Mesh near = new SpriteGeometry.Mesh(), far = new SpriteGeometry.Mesh();
-        Flora.addCrown(near, new SpriteGeometry.Mesh(), frame, places, 0.5f, 0.5f, 0f, FOOT_U, FOOT_V, 1f, 0f, 0f, 0f, Flora.BARK_OAK, Flora.LINDEN, 7, Flora.OPEN);
-        Flora.addCrown(far, new SpriteGeometry.Mesh(), frame, places, 0.5f, 0.5f, 0f, FOOT_U, FOOT_V, 0.25f, 0f, 0f, 0f, Flora.BARK_OAK, Flora.LINDEN, 7, Flora.OPEN);
+        Flora.addCrown(near, new SpriteGeometry.Mesh(), frame, places, 0.5f, 0.5f, 0f, FOOT_U, FOOT_V, 1f, 0f, 0f, 0f, Flora.BARK_OAK, Flora.LINDEN, 7, Flora.OPEN, 1f, 0, 0f);
+        Flora.addCrown(far, new SpriteGeometry.Mesh(), frame, places, 0.5f, 0.5f, 0f, FOOT_U, FOOT_V, 0.25f, 0f, 0f, 0f, Flora.BARK_OAK, Flora.LINDEN, 7, Flora.OPEN, 1f, 0, 0f);
         int farSprigs = sprigVertices(far), nearSprigs = sprigVertices(near);
         check(farSprigs > 0 && farSprigs * 2 < nearSprigs, "a crown at a quarter of the detail has under half the sprigs: " + farSprigs + " of " + nearSprigs);
     }
@@ -166,7 +264,7 @@ final class CrownTests {
         SpriteGeometry.Frame frame = frame();
         float[] places = Flora.leafPlaces((u, v) -> u == 3 && v == 3, frame);
         SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
-        check(!Flora.addCrown(mesh, new SpriteGeometry.Mesh(), frame, places, 0.5f, 0.5f, 0f, FOOT_U, FOOT_V, 1f, 0f, 0f, 0f, Flora.BARK_OAK, Flora.LINDEN, 7, Flora.OPEN) && mesh.floats == 0,
+        check(!Flora.addCrown(mesh, new SpriteGeometry.Mesh(), frame, places, 0.5f, 0.5f, 0f, FOOT_U, FOOT_V, 1f, 0f, 0f, 0f, Flora.BARK_OAK, Flora.LINDEN, 7, Flora.OPEN, 1f, 0, 0f) && mesh.floats == 0,
                 "a sprite with one dot painted makes no crown and adds nothing");
     }
 
@@ -189,11 +287,11 @@ final class CrownTests {
         SpriteGeometry.Frame frame = frame();
         float[] places = PLACES;
         Crowns crowns = new Crowns();
-        crowns.add(LEAVES, frame, places, 10.5f, 20.5f, 0.1f, FOOT_U, FOOT_V, away, 0f, 0f, Flora.BARK_OAK, Flora.BARK_OAK, Flora.MAPLE, 7, Flora.OPEN);
+        crowns.add(LEAVES, frame, places, 10.5f, 20.5f, 0.1f, FOOT_U, FOOT_V, away, 0f, 0f, Flora.BARK_OAK, Flora.BARK_OAK, Flora.MAPLE, 7, Flora.OPEN, 1f, 0, 0f);
         frame.light(secondRed, 0.5f, 0.4f);
-        crowns.add(LEAVES + 1, frame, places, 12.5f, 21.5f, 0f, FOOT_U, FOOT_V, away, 0.12f, 0.9f, Flora.BARK_OAK + 1, Flora.BARK_OAK, Flora.LINDEN, 8, Flora.OPEN);
+        crowns.add(LEAVES + 1, frame, places, 12.5f, 21.5f, 0f, FOOT_U, FOOT_V, away, 0.12f, 0.9f, Flora.BARK_OAK + 1, Flora.BARK_OAK, Flora.LINDEN, 8, Flora.OPEN, 1f, 0, 0f);
         frame.open = 0f;
-        crowns.add(LEAVES, frame, places, 14.5f, 22.5f, 0f, FOOT_U, FOOT_V, away, 0f, 0f, Flora.BARK_OAK, Flora.BARK_OAK, Flora.SHRUB, 9, Flora.OPEN);
+        crowns.add(LEAVES, frame, places, 14.5f, 22.5f, 0f, FOOT_U, FOOT_V, away, 0f, 0f, Flora.BARK_OAK, Flora.BARK_OAK, Flora.SHRUB, 9, Flora.OPEN, 1f, 0, 0f);
         return crowns;
     }
 
@@ -207,12 +305,12 @@ final class CrownTests {
         float[] places = PLACES;
         float detail = Crowns.detail(away), close = Crowns.close(away);
         boolean limbed = Crowns.limbed(away, Flora.LINDEN);
-        Flora.addCrown(inBuild.get(LEAVES), inBuild.get(PLAIN), frame, places, 10.5f, 20.5f, 0.1f, FOOT_U, FOOT_V, detail, close, 0f, 0f, Flora.BARK_OAK, Flora.MAPLE, 7, Flora.OPEN);
+        Flora.addCrown(inBuild.get(LEAVES), inBuild.get(PLAIN), frame, places, 10.5f, 20.5f, 0.1f, FOOT_U, FOOT_V, detail, close, 0f, 0f, Flora.BARK_OAK, Flora.MAPLE, 7, Flora.OPEN, 1f, 0, 0f);
         frame.light(0.6f, 0.5f, 0.4f);
         Flora.addCrown(inBuild.get(LEAVES + 1), inBuild.get(PLAIN), frame, places, 12.5f, 21.5f, 0f, FOOT_U, FOOT_V, detail, close, limbed ? 0.12f : 0f, limbed ? 0.9f : 0f,
-                limbed ? Flora.BARK_OAK + 1 : Flora.BARK_OAK, Flora.LINDEN, 8, Flora.OPEN);
+                limbed ? Flora.BARK_OAK + 1 : Flora.BARK_OAK, Flora.LINDEN, 8, Flora.OPEN, 1f, 0, 0f);
         frame.open = 0f;
-        Flora.addCrown(inBuild.get(LEAVES), inBuild.get(PLAIN), frame, places, 14.5f, 22.5f, 0f, FOOT_U, FOOT_V, detail, close, 0f, 0f, Flora.BARK_OAK, Flora.SHRUB, 9, Flora.OPEN);
+        Flora.addCrown(inBuild.get(LEAVES), inBuild.get(PLAIN), frame, places, 14.5f, 22.5f, 0f, FOOT_U, FOOT_V, detail, close, 0f, 0f, Flora.BARK_OAK, Flora.SHRUB, 9, Flora.OPEN, 1f, 0, 0f);
     }
 
     private static void same(SpriteGeometry.MeshSet apart, SpriteGeometry.MeshSet inBuild) {
@@ -248,13 +346,13 @@ final class CrownTests {
         same(apart, inBuild);
         // Into one that held more.
         Crowns one = new Crowns();
-        one.add(LEAVES, frame(), PLACES, 1.5f, 2.5f, 0f, FOOT_U, FOOT_V, 6f, 0f, 0f, Flora.BARK_OAK, Flora.BARK_OAK, Flora.MAPLE, 3, Flora.OPEN);
+        one.add(LEAVES, frame(), PLACES, 1.5f, 2.5f, 0f, FOOT_U, FOOT_V, 6f, 0f, 0f, Flora.BARK_OAK, Flora.BARK_OAK, Flora.MAPLE, 3, Flora.OPEN, 1f, 0, 0f);
         one.copyTo(moved, 6f);
         check(moved.same(one) && !moved.same(near), "and take the place of whatever was written there before");
         // And more than a new one has room for: nine, where it starts with room for eight.
         Crowns many = new Crowns(), room = new Crowns();
         for (int i = 0; i < 9; i++) {
-            many.add(LEAVES, frame(), PLACES, i + 0.5f, 2.5f, 0f, FOOT_U, FOOT_V, 6f, 0f, 0f, Flora.BARK_OAK, Flora.BARK_OAK, Flora.MAPLE, i, Flora.OPEN);
+            many.add(LEAVES, frame(), PLACES, i + 0.5f, 2.5f, 0f, FOOT_U, FOOT_V, 6f, 0f, 0f, Flora.BARK_OAK, Flora.BARK_OAK, Flora.MAPLE, i, Flora.OPEN, 1f, 0, 0f);
         }
         many.copyTo(room, 6f);
         check(room.same(many), "nine crowns written into one that has held none are the same nine");
@@ -297,7 +395,7 @@ final class CrownTests {
         there.scrap();
         // One dot of paint is no crown, and is never written down as one: made all the same, the making fails.
         Crowns none = new Crowns();
-        none.add(LEAVES, frame(), Flora.leafPlaces((u, v) -> u == 3 && v == 3, frame()), 0.5f, 0.5f, 0f, FOOT_U, FOOT_V, 12f, 0f, 0f, Flora.BARK_OAK, Flora.BARK_OAK, Flora.LINDEN, 7, Flora.OPEN);
+        none.add(LEAVES, frame(), Flora.leafPlaces((u, v) -> u == 3 && v == 3, frame()), 0.5f, 0.5f, 0f, FOOT_U, FOOT_V, 12f, 0f, 0f, Flora.BARK_OAK, Flora.BARK_OAK, Flora.LINDEN, 7, Flora.OPEN, 1f, 0, 0f);
         Crowns.Work failing = new Crowns.Work(none, spared, 7, PLAIN, false, back);
         Crowns.begin(failing);
         check(Crowns.awaited(back) == failing && failing.failed instanceof IllegalStateException, "work that fails comes back too, with what it threw");
@@ -310,7 +408,7 @@ final class CrownTests {
         // A stroke one pixel wide up the middle: places enough, and no width.
         float[] stick = Flora.leafPlaces((u, v) -> u == (int) FOOT_U, frame);
         check(Flora.measure(frame, stick, FOOT_U, FOOT_V, reachLeft, reachRight, sizes)
-                == Flora.addCrown(new SpriteGeometry.Mesh(), new SpriteGeometry.Mesh(), frame, stick, 0.5f, 0.5f, 0f, FOOT_U, FOOT_V, 1f, 0f, 0f, 0f, Flora.BARK_OAK, Flora.LINDEN, 7, Flora.OPEN),
+                == Flora.addCrown(new SpriteGeometry.Mesh(), new SpriteGeometry.Mesh(), frame, stick, 0.5f, 0.5f, 0f, FOOT_U, FOOT_V, 1f, 0f, 0f, 0f, Flora.BARK_OAK, Flora.LINDEN, 7, Flora.OPEN, 1f, 0, 0f),
                 "what measures as a crown is made, and what does not is not");
         check(Flora.measure(frame, Flora.leafPlaces(CrownTests::leaf, frame), FOOT_U, FOOT_V, reachLeft, reachRight, sizes) && sizes[Flora.WIDEST] > 1f && sizes[Flora.TALL] > 1f,
                 "a painted crown measures as one, tiles wide and tall");
@@ -351,8 +449,8 @@ final class CrownTests {
         float fence = 10.94f;
         float[] room = {-Float.MAX_VALUE, fence, -Float.MAX_VALUE, Float.MAX_VALUE};
         SpriteGeometry.Mesh open = new SpriteGeometry.Mesh(), kept = new SpriteGeometry.Mesh(), wood = new SpriteGeometry.Mesh();
-        check(Flora.addCrown(open, new SpriteGeometry.Mesh(), frame, places, 10.5f, 20.5f, 0f, FOOT_U, FOOT_V, 1f, 1f, 0f, 0f, Flora.BARK_OAK, Flora.SHRUB, 9, Flora.OPEN)
-                && Flora.addCrown(kept, new SpriteGeometry.Mesh(), frame, places, 10.5f, 20.5f, 0f, FOOT_U, FOOT_V, 1f, 1f, 0f, 0f, Flora.BARK_OAK, Flora.SHRUB, 9, room),
+        check(Flora.addCrown(open, new SpriteGeometry.Mesh(), frame, places, 10.5f, 20.5f, 0f, FOOT_U, FOOT_V, 1f, 1f, 0f, 0f, Flora.BARK_OAK, Flora.SHRUB, 9, Flora.OPEN, 1f, 0, 0f)
+                && Flora.addCrown(kept, new SpriteGeometry.Mesh(), frame, places, 10.5f, 20.5f, 0f, FOOT_U, FOOT_V, 1f, 1f, 0f, 0f, Flora.BARK_OAK, Flora.SHRUB, 9, room, 1f, 0, 0f),
                 "a bush beside a fence has a crown");
         check(pastX(open, fence, 0f) > 0.3f, "with nothing beside it a bush reaches a good way past where the fence would be: " + pastX(open, fence, 0f));
         check(kept.floats == open.floats, "beside one it has every sprig it had");
@@ -364,15 +462,15 @@ final class CrownTests {
         }
         check(keptWestmost == westmost && westmost < 10.5f - 0.6f, "on its open side it reaches as far as it did: " + keptWestmost + ", " + westmost);
         // A tree low enough to meet the fence top, with limbs and stood under so it has twigs: its wood keeps to its side as well.
-        check(Flora.addCrown(new SpriteGeometry.Mesh(), wood, frame, places, 10.5f, 20.5f, 0f, FOOT_U, FOOT_V, 1f, 1f, 0.06f, 0.3f, Flora.BARK_OAK, Flora.MAPLE, 9, room)
+        check(Flora.addCrown(new SpriteGeometry.Mesh(), wood, frame, places, 10.5f, 20.5f, 0f, FOOT_U, FOOT_V, 1f, 1f, 0.06f, 0.3f, Flora.BARK_OAK, Flora.MAPLE, 9, room, 1f, 0, 0f)
                 && wood.floats > 0, "a low tree has wood in its crown");
         // A twig's round is a hundredth of a tile about its line, and its line keeps to the room.
         check(pastX(wood, fence + 0.011f, 0f) <= 1e-4f, "and none of it passes the fence: " + pastX(wood, fence + 0.011f, 0f));
         // A crown from a third of a wall's height to half as high again over its top: what of it is under the top keeps to its side, sprigs that reach down to it whole.
         SpriteGeometry.Mesh spanning = new SpriteGeometry.Mesh(), spanningOpen = new SpriteGeometry.Mesh();
         float[] across = Flora.leafPlaces(CrownTests::acrossTheTop, frame);
-        Flora.addCrown(spanning, new SpriteGeometry.Mesh(), frame, across, 10.5f, 20.5f, 0f, FOOT_U, FOOT_V, 1f, 0f, 0f, 0f, Flora.BARK_OAK, Flora.MAPLE, 9, room);
-        Flora.addCrown(spanningOpen, new SpriteGeometry.Mesh(), frame, across, 10.5f, 20.5f, 0f, FOOT_U, FOOT_V, 1f, 0f, 0f, 0f, Flora.BARK_OAK, Flora.MAPLE, 9, Flora.OPEN);
+        Flora.addCrown(spanning, new SpriteGeometry.Mesh(), frame, across, 10.5f, 20.5f, 0f, FOOT_U, FOOT_V, 1f, 0f, 0f, 0f, Flora.BARK_OAK, Flora.MAPLE, 9, room, 1f, 0, 0f);
+        Flora.addCrown(spanningOpen, new SpriteGeometry.Mesh(), frame, across, 10.5f, 20.5f, 0f, FOOT_U, FOOT_V, 1f, 0f, 0f, 0f, Flora.BARK_OAK, Flora.MAPLE, 9, Flora.OPEN, 1f, 0, 0f);
         check(pastX(spanningOpen, fence, 0f) > 0.3f && pastX(spanning, fence, 0f) <= 1e-4f, "a crown across a wall's top keeps to its side under the top: "
                 + pastX(spanningOpen, fence, 0f) + " then " + pastX(spanning, fence, 0f));
         float overTop = -Float.MAX_VALUE;
@@ -382,8 +480,8 @@ final class CrownTests {
         check(overTop > fence + 0.3f, "and over it reaches across: " + overTop);
         // A crown that rises over a wall's top reaches across it.
         SpriteGeometry.Mesh high = new SpriteGeometry.Mesh(), highOpen = new SpriteGeometry.Mesh();
-        Flora.addCrown(high, new SpriteGeometry.Mesh(), frame, PLACES, 10.5f, 20.5f, 0f, FOOT_U, FOOT_V, 1f, 0f, 0f, 0f, Flora.BARK_OAK, Flora.MAPLE, 9, room);
-        Flora.addCrown(highOpen, new SpriteGeometry.Mesh(), frame, PLACES, 10.5f, 20.5f, 0f, FOOT_U, FOOT_V, 1f, 0f, 0f, 0f, Flora.BARK_OAK, Flora.MAPLE, 9, Flora.OPEN);
+        Flora.addCrown(high, new SpriteGeometry.Mesh(), frame, PLACES, 10.5f, 20.5f, 0f, FOOT_U, FOOT_V, 1f, 0f, 0f, 0f, Flora.BARK_OAK, Flora.MAPLE, 9, room, 1f, 0, 0f);
+        Flora.addCrown(highOpen, new SpriteGeometry.Mesh(), frame, PLACES, 10.5f, 20.5f, 0f, FOOT_U, FOOT_V, 1f, 0f, 0f, 0f, Flora.BARK_OAK, Flora.MAPLE, 9, Flora.OPEN, 1f, 0, 0f);
         check(high.floats > 0 && Arrays.equals(high.vertices, 0, high.floats, highOpen.vertices, 0, highOpen.floats),
                 "a crown wholly over a wall's top is made as if nothing stood beside it");
     }

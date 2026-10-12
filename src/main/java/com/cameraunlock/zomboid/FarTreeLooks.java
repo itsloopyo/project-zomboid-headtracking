@@ -16,7 +16,11 @@ import zombie.core.textures.Texture;
  * trees' program (write), a row of ROW texels a kind.
  */
 final class FarTreeLooks {
-    /** Texels a kind: leaves, bark, the bole and crown's heights, then the crown's half width at each of Flora.CROWN_BANDS heights. */
+    /**
+     * Texels a kind: leaves, bark, the bole and crown's heights, its season (1 for a kind that
+     * drops its leaves, then the colour most trees of it turn in autumn and the colour the rest
+     * do, as Flora.autumnHue gives them), then the crown's half width at each of Flora.CROWN_BANDS heights.
+     */
     static final int ROW = 4 + Flora.CROWN_BANDS;
     /** How long a kind seen is not measured again, though the built world goes on making trees of it. */
     private static final long SEEN_FOR_NANOS = 4_000_000_000L;
@@ -117,7 +121,8 @@ final class FarTreeLooks {
                 }
             }
             if (look == null) {
-                plain(kind % FarTreeKinds.SIZES, count == 0 ? 0.4f : lowestSum / count, count == 0 ? 1f : wideSum / count * PLAIN_TALL[kind % FarTreeKinds.SIZES], usual, to);
+                plain(kind % FarTreeKinds.SIZES, count == 0 ? 0.4f : lowestSum / count, count == 0 ? 1f : wideSum / count * PLAIN_TALL[kind % FarTreeKinds.SIZES], usual,
+                        kinds.name(kind), to);
                 continue;
             }
             float[] colour = SpriteColours.of(look.leaves);
@@ -125,7 +130,7 @@ final class FarTreeLooks {
             to.putFloat(leaves[0]).putFloat(leaves[1]).putFloat(leaves[2]).putFloat(1f);
             to.putFloat(BARK[0]).putFloat(BARK[1]).putFloat(BARK[2]).putFloat(1f);
             to.putFloat(look.bole * scale).putFloat(look.lowest * scale).putFloat(look.highest * scale).putFloat(0f);
-            to.putFloat(0f).putFloat(0f).putFloat(0f).putFloat(0f);
+            season(kinds.name(kind), to);
             for (float reach : look.reach) {
                 to.putFloat(reach * scale).putFloat(0f).putFloat(0f).putFloat(0f);
             }
@@ -140,13 +145,19 @@ final class FarTreeLooks {
         return widest;
     }
 
+    /** The texel of a kind's season: see ROW. */
+    private static void season(String name, ByteBuffer to) {
+        boolean deciduous = !Flora.evergreen(name);
+        to.putFloat(deciduous ? 1f : 0f).putFloat(Flora.autumnHue(name, 1 << 8)).putFloat(Flora.autumnHue(name, 0)).putFloat(0f);
+    }
+
     /** A crown round as an egg, from lowest (a share of the height) to the top, with its leaves the colour given. */
-    private static void plain(int size, float lowShare, float wide, float[] leaves, ByteBuffer to) {
+    private static void plain(int size, float lowShare, float wide, float[] leaves, String name, ByteBuffer to) {
         float tall = PLAIN_TALL[size], lowest = tall * lowShare;
         to.putFloat(leaves[0]).putFloat(leaves[1]).putFloat(leaves[2]).putFloat(1f);
         to.putFloat(BARK[0]).putFloat(BARK[1]).putFloat(BARK[2]).putFloat(1f);
         to.putFloat(0.12f + 0.05f * size).putFloat(lowest).putFloat(tall).putFloat(0f);
-        to.putFloat(0f).putFloat(0f).putFloat(0f).putFloat(0f);
+        season(name, to);
         for (int band = 0; band < Flora.CROWN_BANDS; band++) {
             float t = (band + 0.5f) / Flora.CROWN_BANDS;
             to.putFloat(wide * (float) Math.sqrt(Math.max(0f, 1f - (2f * t - 0.8f) * (2f * t - 0.8f) / 1.44f))).putFloat(0f).putFloat(0f).putFloat(0f);

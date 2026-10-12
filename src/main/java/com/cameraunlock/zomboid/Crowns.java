@@ -16,10 +16,11 @@ import java.util.concurrent.TimeUnit;
  * until the new ones are ready.
  */
 final class Crowns {
-    /** A crown's foot, where its sprite shows the foot, how far off it is made for, its bole, what addCrown reads of its sprite's frame, and its room. */
+    /** A crown's foot, where its sprite shows the foot, how far off it is made for, its bole, what addCrown reads of its sprite's frame, its room, and its season. */
     private static final int X = 0, Y = 1, BASE = 2, FOOT_U = 3, FOOT_V = 4, AWAY = 5, BOLE_RADIUS = 6, BOLE_TALL = 7, SCALE = 8, LEFT = 9, TOP = 10,
-            WIDTH = 11, HEIGHT = 12, U_START = 13, V_START = 14, U_END = 15, V_END = 16, RED = 17, GREEN = 18, BLUE = 19, OPEN = 20, ROOM = 21, FLOATS = 25;
-    private static final int TEXTURE = 0, BARK = 1, BOLE_BARK = 2, SPRIG = 3, SEED = 4, INTS = 5;
+            WIDTH = 11, HEIGHT = 12, U_START = 13, V_START = 14, U_END = 15, V_END = 16, RED = 17, GREEN = 18, BLUE = 19, OPEN = 20, ROOM = 21, LEAF = 25,
+            TURNED = 26, FLOATS = 27;
+    private static final int TEXTURE = 0, BARK = 1, BOLE_BARK = 2, SPRIG = 3, SEED = 4, HUE = 5, INTS = 6;
     /** How far from the eye a plant has a crown of sprigs, and within what it has them at their smallest and most. */
     static final float REACH = 40f, NEAR = 12f;
     /** How coarse the crown of a plant at REACH is, which one nearer comes to by degrees: see Flora.addCrown. */
@@ -59,10 +60,10 @@ final class Crowns {
     /**
      * Writes down a crown to be made in the mesh of the texture, as from that far off. Its
      * bole is its tree's, with the bole's bark, and no height for a plant with none: such a
-     * crown, and any too far off for limbs, is made in its own bark. room is Flora.addCrown's.
+     * crown, and any too far off for limbs, is made in its own bark. room, leaf, hue and turned are Flora.addCrown's.
      */
     void add(int texture, SpriteGeometry.Frame frame, float[] leafPlaces, float x, float y, float base, float footU, float footV, float away,
-            float boleRadius, float boleTall, int boleBark, int bark, int sprig, int seed, float[] room) {
+            float boleRadius, float boleTall, int boleBark, int bark, int sprig, int seed, float[] room, float leaf, int hue, float turned) {
         if (count == places.length) {
             floats = Arrays.copyOf(floats, floats.length * 2);
             ints = Arrays.copyOf(ints, ints.length * 2);
@@ -91,12 +92,15 @@ final class Crowns {
         floats[at + BLUE] = frame.blue;
         floats[at + OPEN] = frame.open;
         System.arraycopy(room, 0, floats, at + ROOM, 4);
+        floats[at + LEAF] = leaf;
+        floats[at + TURNED] = turned;
         at = count * INTS;
         ints[at + TEXTURE] = texture;
         ints[at + BARK] = bark;
         ints[at + BOLE_BARK] = boleBark;
         ints[at + SPRIG] = sprig;
         ints[at + SEED] = seed;
+        ints[at + HUE] = hue;
         places[count++] = leafPlaces;
     }
 
@@ -166,7 +170,7 @@ final class Crowns {
             boolean limbed = floats[at + BOLE_TALL] > 0f && limbed(away, ints[of + SPRIG]);
             if (!Flora.addCrown(into.get(ints[of + TEXTURE]), into.get(plain), frame, places[i], floats[at + X], floats[at + Y], floats[at + BASE], floats[at + FOOT_U],
                     floats[at + FOOT_V], detail(away), close(away), limbed ? floats[at + BOLE_RADIUS] : 0f, limbed ? floats[at + BOLE_TALL] : 0f,
-                    ints[of + (limbed ? BOLE_BARK : BARK)], ints[of + SPRIG], ints[of + SEED], room)) {
+                    ints[of + (limbed ? BOLE_BARK : BARK)], ints[of + SPRIG], ints[of + SEED], room, floats[at + LEAF], ints[of + HUE], floats[at + TURNED])) {
                 throw new IllegalStateException("a crown that was measured as one is none");
             }
         }

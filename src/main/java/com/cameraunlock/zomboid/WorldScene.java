@@ -2402,7 +2402,7 @@ final class WorldScene {
             }
             mainsOn = IsoWorld.instance.isHydroPowerOn();
             long goesBy = sum(sum(sum(SUM_FROM, Float.floatToRawIntBits(unseenRed)), Float.floatToRawIntBits(unseenGreen)), Float.floatToRawIntBits(unseenBlue));
-            goesBy = sum(sum(goesBy, mainsOn ? 1 : 0), Float.floatToRawIntBits(Core.tileScale));
+            goesBy = sum(sum(sum(goesBy, mainsOn ? 1 : 0), Float.floatToRawIntBits(Core.tileScale)), Seasons.stage());
             boolean showing = Sightline.asTheGameShows(withoutSightline);
             if (showing != asTheGameShows) {
                 // A build made by the other rule, seen before it falls due, would fill or empty its rooms a frame or more late.

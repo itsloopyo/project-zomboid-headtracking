@@ -2538,6 +2538,7 @@ final class Pipeline {
         farTree.set("uKinds", 0);
         farTree.set("uKindRows", (float) rows);
         farTree.set("uTreeReach", (float) reach);
+        farTree.set("uSeason", (float) Seasons.season(), Seasons.progression());
         view.worldScene.farLand.drawTrees(focusX, focusY, reach, farTree.attribute("aTree"), treeMeshes, treeVertices);
         GL11.glBindTexture(GL_TEXTURE_2D, 0);
         if (culling) {

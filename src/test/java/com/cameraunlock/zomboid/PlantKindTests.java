@@ -94,7 +94,7 @@ final class PlantKindTests {
     private static float[] bare(SpriteGeometry.Mesh leaves, SpriteGeometry.Mesh wood, float detail, float boleRadius) {
         SpriteGeometry.Frame frame = frame();
         float[] places = Flora.leafPlaces(PlantKindTests::branches, frame);
-        boolean made = Flora.addCrown(leaves, wood, frame, places, 10.5f, 20.5f, 0f, FOOT_U, FOOT_V, detail, 0f, boleRadius, 1.2f, Flora.BARK_OAK, Flora.BARE, 7, Flora.OPEN);
+        boolean made = Flora.addCrown(leaves, wood, frame, places, 10.5f, 20.5f, 0f, FOOT_U, FOOT_V, detail, 0f, boleRadius, 1.2f, Flora.BARK_OAK, Flora.BARE, 7, Flora.OPEN, 1f, 0, 0f);
         return made ? places : null;
     }
 
