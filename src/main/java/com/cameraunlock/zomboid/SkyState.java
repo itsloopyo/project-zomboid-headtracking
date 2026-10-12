@@ -116,6 +116,8 @@ final class SkyState {
     /** The squares that burn, the first fireCount records of fires (see Fires), and how far each is from the eye, squared. */
     final float[] fires = new float[Fires.MOST * Fires.FLOATS];
     final float[] fireFar = new float[Fires.MOST];
+    /** The game's own animations (IsoAnim) of each square's flames and of its smoke, or null: see Fires.look. Objects, for the tests. */
+    final Object[] flameLook = new Object[Fires.MOST], smokeLook = new Object[Fires.MOST];
     int fireCount;
 
     private static float driftedX, driftedY;

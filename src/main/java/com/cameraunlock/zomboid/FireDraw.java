@@ -57,6 +57,8 @@ final class FireDraw {
             uniform vec3 uAmbient;
             uniform float uTime;
             uniform float uSteps;
+            // How far over the fire's foot a ceiling stops its smoke, or 0.
+            uniform float uCeiling;
 
             // The steadying's mark for what moves within itself and goes nowhere, between a crowd's and a figure's.
             const float MOVES = 0.375;
@@ -100,9 +102,14 @@ final class FireDraw {
                 if (h <= 0.0) {
                     return 0.0;
                 }
+                if (uCeiling > 0.0 && q.z > uCeiling) {
+                    return 0.0;
+                }
                 float rise = h / uSmoke;
                 vec2 level = q.xy - uDrift * h;
-                float wide = uRadius * (0.8 + 2.2 * sqrt(rise));
+                // Under a ceiling it rolls out along it.
+                float spread = uCeiling > 0.0 ? 1.0 + 1.6 * smoothstep(uCeiling - 0.7, uCeiling, q.z) : 1.0;
+                float wide = uRadius * (0.8 + 2.2 * sqrt(rise)) * spread;
                 if (rise >= 1.0 || dot(level, level) >= wide * wide * 1.44) {
                     return 0.0;
                 }
@@ -151,10 +158,10 @@ final class FireDraw {
                     return;
                 }
                 // The box the fire is in: see FireDraw.box, which is the same.
-                float reach = uRadius * (uSmoke > 0.0 ? 4.4 : 2.0);
+                float reach = uRadius * (uSmoke > 0.0 ? uCeiling > 0.0 ? 8.0 : 4.4 : 2.0);
                 vec2 drift = uDrift * uSmoke;
                 vec3 lo = vec3(min(vec2(-reach), vec2(-reach) + drift), 0.0);
-                vec3 hi = vec3(max(vec2(reach), vec2(reach) + drift), uTall * 1.3 + uSmoke);
+                vec3 hi = vec3(max(vec2(reach), vec2(reach) + drift), uCeiling > 0.0 ? min(uTall * 1.3 + uSmoke, uCeiling) : uTall * 1.3 + uSmoke);
                 vec3 from = -uFoot;
                 vec3 inv = 1.0 / (ray + vec3(1e-6));
                 vec3 t0 = (lo - from) * inv;
@@ -201,7 +208,7 @@ final class FireDraw {
 
     private static final int GL_FRAMEBUFFER = 0x8D40, GL_TEXTURE_2D = 0x0DE1, GL_TEXTURE0 = 0x84C0;
     private static final int GL_BLEND = 0x0BE2, GL_ONE = 1, GL_ZERO = 0, GL_SRC_ALPHA = 0x0302, GL_ONE_MINUS_SRC_ALPHA = 0x0303;
-    private static final int GL_DEPTH_TEST = 0x0B71, GL_CULL_FACE = 0x0B44, GL_TRIANGLE_STRIP = 0x0005;
+    private static final int GL_DEPTH_TEST = 0x0B71, GL_CULL_FACE = 0x0B44, GL_TRIANGLE_STRIP = 0x0005, GL_LEQUAL = 0x0203;
 
     private static final SmallProgram program = new SmallProgram("fire", SmallProgram.FLAT_VERTEX, FRAGMENT);
 
@@ -210,6 +217,8 @@ final class FireDraw {
     private int count;
     private float[] far = new float[Fires.MOST * 2];
     private int[] order = new int[Fires.MOST * 2];
+    /** For each of this picture's fires, the game's own animation of its flames and of its smoke, or null. */
+    private Object[] flameLooks = new Object[Fires.MOST * 2], smokeLooks = new Object[Fires.MOST * 2];
     /** The lights for uFireAt, four floats each. */
     final float[] lights = new float[Fires.LIGHTS * 4];
     private final float[] weights = new float[Fires.LIGHTS];
@@ -231,11 +240,9 @@ final class FireDraw {
      */
     void take(SkyState state, ArrayList<WorldScene.ChunkMeshes> drawn, RoomSight.Seen rooms, ViewCamera.Pose camera, long nanos) {
         count = 0;
-        if (!Fires.own()) {
-            Fires.lights(fires, 0, 0f, 0f, 0f, 0f, lights, weights);
-            return;
-        }
         System.arraycopy(state.fires, 0, fires, 0, state.fireCount * Fires.FLOATS);
+        System.arraycopy(state.flameLook, 0, flameLooks, 0, state.fireCount);
+        System.arraycopy(state.smokeLook, 0, smokeLooks, 0, state.fireCount);
         count = state.fireCount;
         for (int chunk = 0; chunk < drawn.size(); chunk++) {
             Models.Instances placed = drawn.get(chunk).placed;
@@ -247,12 +254,17 @@ final class FireDraw {
                     fires = java.util.Arrays.copyOf(fires, fires.length * 2);
                     far = java.util.Arrays.copyOf(far, far.length * 2);
                     order = java.util.Arrays.copyOf(order, order.length * 2);
+                    flameLooks = java.util.Arrays.copyOf(flameLooks, flameLooks.length * 2);
+                    smokeLooks = java.util.Arrays.copyOf(smokeLooks, smokeLooks.length * 2);
                 }
                 System.arraycopy(placed.fires, i * Fires.FLOATS, fires, count * Fires.FLOATS, Fires.FLOATS);
+                flameLooks[count] = placed.fireLooks[i];
+                smokeLooks[count] = null;
                 count++;
             }
         }
-        Fires.lights(fires, count, camera.eyeX, camera.eyeY, camera.eyeUp, seconds(nanos), lights, weights);
+        // The game lights round its own flames itself: the picture's light is for its own fire.
+        Fires.lights(fires, Fires.own() ? count : 0, camera.eyeX, camera.eyeY, camera.eyeUp, seconds(nanos), lights, weights);
         if ((count > 0) != inSight) {
             inSight = count > 0;
             Log.info(inSight ? "first person fires in sight: " + state.fireCount + " squares that burn or smoke, " + (count - state.fireCount) + " hearths"
@@ -283,8 +295,12 @@ final class FireDraw {
             float near, float[] out) {
         boolean window = fire[at + Fires.KIND] == Fires.WINDOW;
         float radius = fire[at + Fires.RADIUS], smoke = window ? 0f : fire[at + Fires.SMOKE];
-        float reach = window ? fire[at + Fires.WIDE] : radius * (smoke > 0f ? 4.4f : 2f);
+        float ceiling = fire[at + Fires.CEILING];
+        float reach = window ? fire[at + Fires.WIDE] : radius * (smoke > 0f ? ceiling > 0f ? 8f : 4.4f : 2f);
         float top = window ? fire[at + Fires.HIGH] : fire[at + Fires.TALL] * 1.3f + smoke;
+        if (ceiling > 0f) {
+            top = Math.min(top, ceiling);
+        }
         float loX = Math.min(-reach, -reach + driftX * smoke), hiX = Math.max(reach, reach + driftX * smoke);
         float loY = Math.min(-reach, -reach + driftY * smoke), hiY = Math.max(reach, reach + driftY * smoke);
         out[0] = out[1] = Float.MAX_VALUE;
@@ -326,8 +342,8 @@ final class FireDraw {
      * Draws the fires into target, the picture's light with no depth of its own, behind what is
      * nearer the eye in depth, the picture's depth.
      */
-    void draw(int target, int depth, SkyState state, ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float near, float far,
-            int width, int height, float asideX, float asideY, long nanos) {
+    void draw(int target, int depthTarget, int depth, SkyState state, ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float near,
+            float far, int width, int height, float asideX, float asideY, long nanos) {
         if (count == 0 || !program.use()) {
             return;
         }
@@ -381,15 +397,51 @@ final class FireDraw {
         GL20.glUniform3f(program.at("uAmbient"), (float) Math.pow(state.openRed, 2.2) * kept, (float) Math.pow(state.openGreen, 2.2) * kept,
                 (float) Math.pow(state.openBlue, 2.2) * kept);
         float seconds = seconds(nanos);
+        boolean own = Fires.own();
         boolean flames = sheets.begin(depth, camera, tanHalfFieldOfView, aspect, near, far, width, height, asideX, asideY);
-        // Fire by fire, the furthest first: its smoke, or a stove's glow, marched here, then its flames and embers, so a
-        // nearer fire's smoke stands before the flames of one behind it.
+        GL20.glUniform3f(sheets.uniform("uAmbient"), (float) Math.pow(state.openRed, 2.2) * kept, (float) Math.pow(state.openGreen, 2.2) * kept,
+                (float) Math.pow(state.openBlue, 2.2) * kept);
+        // Fire by fire, the furthest first, so a nearer fire's smoke stands before the flames of one behind it: the
+        // picture's own smoke, or a stove's glow, marched here, then its flames and embers; or the game's own smoke and
+        // flames, its frames stood up where they burn.
         for (int k = 0; k < count; k++) {
             int at = order[k] * Fires.FLOATS;
-            march(at, k, driftX, driftY, camera, tanX, tanY, asideX, asideY, near, crowd);
-            if (flames && fires[at + Fires.KIND] == Fires.VOLUME && fires[at + Fires.FLAME] > 0f) {
-                sheets.fire(fires, at, camera, seconds);
+            if (own) {
+                march(at, k, driftX, driftY, camera, tanX, tanY, asideX, asideY, near, crowd);
+                if (flames && fires[at + Fires.KIND] == Fires.VOLUME && fires[at + Fires.FLAME] > 0f) {
+                    sheets.fire(fires, at, camera, seconds);
+                }
+            } else {
+                if (smokeLooks[order[k]] != null) {
+                    sheets.look(fires, at, (zombie.iso.sprite.IsoAnim) smokeLooks[order[k]], true, camera, seconds);
+                }
+                if (flameLooks[order[k]] != null) {
+                    sheets.look(fires, at, (zombie.iso.sprite.IsoAnim) flameLooks[order[k]], false, camera, seconds);
+                }
             }
+        }
+        if (flames) {
+            // The flames in the picture's depth, where they are more than a glow, so glass drawn after them behind a
+            // fire is hidden by it and what is drawn by depth after, the air, sees them where they stand.
+            GL30.glBindFramebuffer(GL_FRAMEBUFFER, depthTarget);
+            GL11.glDisable(GL_BLEND);
+            GL11.glColorMask(false, false, false, false);
+            GL11.glEnable(GL_DEPTH_TEST);
+            GL11.glDepthFunc(GL_LEQUAL);
+            GL11.glDepthMask(true);
+            GL11.glBindTexture(GL_TEXTURE_2D, Pipeline.none());
+            sheets.depthOnly(true);
+            for (int k = 0; k < count; k++) {
+                int at = order[k] * Fires.FLOATS;
+                if (own && fires[at + Fires.KIND] == Fires.VOLUME && fires[at + Fires.FLAME] > 0f) {
+                    sheets.fire(fires, at, camera, seconds);
+                } else if (!own && flameLooks[order[k]] != null) {
+                    sheets.look(fires, at, (zombie.iso.sprite.IsoAnim) flameLooks[order[k]], false, camera, seconds);
+                }
+            }
+            sheets.depthOnly(false);
+            GL11.glColorMask(true, true, true, true);
+            GL11.glDisable(GL_DEPTH_TEST);
         }
         GL11.glDisable(GL_BLEND);
         GL11.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -418,6 +470,7 @@ final class FireDraw {
         GL20.glUniform4f(program.at("uWindow"), fires[at + Fires.ALONG_X], fires[at + Fires.ALONG_Y], fires[at + Fires.OUT_X], fires[at + Fires.OUT_Y]);
         GL20.glUniform2f(program.at("uWindowSize"), fires[at + Fires.WIDE], fires[at + Fires.HIGH]);
         GL20.glUniform1f(program.at("uSteps"), Math.round(steps));
+        GL20.glUniform1f(program.at("uCeiling"), fires[at + Fires.CEILING]);
         GL11.glBegin(GL_TRIANGLE_STRIP);
         GL11.glVertex2f(box[0], box[1]);
         GL11.glVertex2f(box[2], box[1]);

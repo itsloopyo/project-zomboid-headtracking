@@ -17,9 +17,10 @@ import zombie.iso.objects.IsoFireManager;
  * Two kinds: a square that burns (a house on fire, a Molotov's spill, a campfire), which the game
  * keeps as an IsoFire and the logic thread gathers each picture, and
  * a hearth, a fire inside a piece the mod stands a model of, which the chunk's build notes where
- * the model is stood (Models.Instances.fire). The OwnFire row of [Content] switches both off,
- * and the game's own look (Quality.plain) has neither: a hearth then keeps the game's flat flames,
- * and a burning square, whose flames the game draws additively and the picture cannot, has none.
+ * the model is stood (Models.Instances.fire), or where the game's sprite stands for a hearth the
+ * mod has no model of. With the OwnFire row of [Content] off, and in the game's own look
+ * (Quality.plain), the same fires are drawn as the game's own flames and smoke, its frames stood
+ * up where they burn, with no light of the picture's: the game lights round them itself.
  */
 final class Fires {
     /**
@@ -29,10 +30,11 @@ final class Fires {
      * sets its flames apart from the next fire's; whether it is a body of flame (VOLUME) or the
      * glow through a stove's grille (WINDOW). A window also has the way along it and the way out
      * of it on the map, and its half width and height. Then the light: how strong, and where.
+     * Last, how far over its foot a ceiling stops its smoke, or 0 where nothing does.
      */
     static final int X = 0, Y = 1, UP = 2, RADIUS = 3, TALL = 4, SMOKE = 5, FLAME = 6, THICK = 7, SEED = 8, KIND = 9,
-            ALONG_X = 10, ALONG_Y = 11, OUT_X = 12, OUT_Y = 13, WIDE = 14, HIGH = 15, LIGHT = 16, LIGHT_X = 17, LIGHT_Y = 18, LIGHT_UP = 19;
-    static final int FLOATS = 20;
+            ALONG_X = 10, ALONG_Y = 11, OUT_X = 12, OUT_Y = 13, WIDE = 14, HIGH = 15, LIGHT = 16, LIGHT_X = 17, LIGHT_Y = 18, LIGHT_UP = 19, CEILING = 20;
+    static final int FLOATS = 21;
     static final float VOLUME = 0f, WINDOW = 1f;
 
     /** The most squares that burn a picture draws, the nearest, and the most fires that light it. */
@@ -72,10 +74,20 @@ final class Fires {
 
     private Fires() {}
 
-    /** Whether the picture draws its own fire. */
+    /** Whether the picture draws its own fire, and not the game's flames and smoke. */
     static boolean own() {
         return Own.fire();
     }
+
+    /** A ceiling stops smoke this far under it, in tiles: it spreads there. */
+    static final float UNDER_CEILING = 0.08f;
+
+    /** Whether a sprite's name is one of the game's animations of flames or of smoke: "Fire01" .. "Smoke03". */
+    static boolean isLook(String name, String kind) {
+        return name != null && name.length() == kind.length() + 2 && name.startsWith(kind) && Character.isDigit(name.charAt(kind.length()))
+                && Character.isDigit(name.charAt(kind.length() + 1));
+    }
+
 
     /** The sizes of a square's fire: a small flame, a larger one with smoke, the fire at its height, and smoke alone as it dies. */
     static final int SMALL = 0, MEDIUM = 1, HEIGHT = 2, DYING = 3;
@@ -140,17 +152,17 @@ final class Fires {
      * its door, a window over the door's face just behind the grille's bars.
      */
     static final int HEARTH_X = 0, HEARTH_Y = 1, HEARTH_UP = 2, HEARTH_RADIUS = 3, HEARTH_TALL = 4, HEARTH_SMOKE = 5, HEARTH_THICK = 6,
-            HEARTH_KIND = 7, HEARTH_WIDE = 8, HEARTH_HIGH = 9, HEARTH_LIGHT = 10, HEARTH_LIGHT_OUT = 11, HEARTH = 12;
-    private static final float[] FIREPLACE = {0f, 0f, 0.08f, 0.17f, 0.42f, 0f, 0f, VOLUME, 0f, 0f, 0.8f, 0.25f};
-    private static final float[] BURN_BARREL = {0f, 0f, 0.58f, 0.2f, 0.65f, 2.5f, 0.4f, VOLUME, 0f, 0f, 1f, 0f};
-    private static final float[] COOKING_PIT = {0f, 0f, 0.05f, 0.2f, 0.5f, 2f, 0.35f, VOLUME, 0f, 0f, 0.9f, 0f};
-    private static final float[] COOKING_PIT_SIMPLE = {0f, 0f, 0.02f, 0.2f, 0.55f, 2f, 0.35f, VOLUME, 0f, 0f, 0.9f, 0f};
+            HEARTH_KIND = 7, HEARTH_WIDE = 8, HEARTH_HIGH = 9, HEARTH_LIGHT = 10, HEARTH_LIGHT_OUT = 11, HEARTH_LIGHT_UP = 12, HEARTH = 13;
+    private static final float[] FIREPLACE = {0f, 0f, 0.08f, 0.17f, 0.42f, 0f, 0f, VOLUME, 0f, 0f, 0.8f, 0.25f, 0f};
+    private static final float[] BURN_BARREL = {0f, 0f, 0.58f, 0.2f, 0.65f, 2.5f, 0.4f, VOLUME, 0f, 0f, 1f, 0f, 0f};
+    private static final float[] COOKING_PIT = {0f, 0f, 0.05f, 0.2f, 0.5f, 2f, 0.35f, VOLUME, 0f, 0f, 0.9f, 0f, 0f};
+    private static final float[] COOKING_PIT_SIMPLE = {0f, 0f, 0.02f, 0.2f, 0.55f, 2f, 0.35f, VOLUME, 0f, 0f, 0.9f, 0f, 0f};
     /**
      * The stove's door is its front, 0.24 m before its middle and 0.02 m thick, and the bars of
      * its grille stand 0.004 m proud of the door from x -0.16 to 0.11 and from 0.3 m up to 0.69 m
      * (tools/models/furniture.py, wood_stove): the glow is 1.5 mm out of the door's face.
      */
-    private static final float[] WOOD_STOVE = {-0.025f, -0.2615f, 0.3f, 0f, 0f, 0f, 0f, WINDOW, 0.135f, 0.39f, 0.45f, 0.35f};
+    private static final float[] WOOD_STOVE = {-0.025f, -0.2615f, 0.3f, 0f, 0f, 0f, 0f, WINDOW, 0.135f, 0.39f, 0.45f, 0.35f, 0f};
 
     static float[] hearth(String model) {
         return switch (model) {
@@ -178,7 +190,8 @@ final class Fires {
         to[at + RADIUS] = hearth[HEARTH_RADIUS] * scale;
         to[at + TALL] = hearth[HEARTH_TALL] * scaleUp;
         to[at + SMOKE] = hearth[HEARTH_SMOKE] * scaleUp;
-        to[at + FLAME] = 1f;
+        // A shut hearth, a forge, shows no flame: it glows and smokes.
+        to[at + FLAME] = hearth[HEARTH_TALL] > 0f || hearth[HEARTH_KIND] == WINDOW ? 1f : 0f;
         to[at + THICK] = hearth[HEARTH_THICK];
         to[at + SEED] = seed;
         to[at + KIND] = hearth[HEARTH_KIND];
@@ -195,8 +208,31 @@ final class Fires {
         float out = hearth[HEARTH_LIGHT_OUT] * scale;
         to[at + LIGHT_X] = to[at + X] + to[at + OUT_X] * out;
         to[at + LIGHT_Y] = to[at + Y] + to[at + OUT_Y] * out;
-        to[at + LIGHT_UP] = foot + (hearth[HEARTH_UP] + Math.max(hearth[HEARTH_TALL], hearth[HEARTH_HIGH]) * 0.5f) * scaleUp;
+        to[at + LIGHT_UP] = foot + (hearth[HEARTH_UP] + Math.max(hearth[HEARTH_TALL], hearth[HEARTH_HIGH]) * 0.5f + hearth[HEARTH_LIGHT_UP]) * scaleUp;
+        to[at + CEILING] = 0f;
     }
+
+    /**
+     * Where the fire is in a lit hearth the mod has no model of, standing as the game's sprite on
+     * the middle of its square, by the sprite's name: a brazier's basket of coals, a kiln's or a
+     * forge's shut body with its chimney, which shows no flame and smokes at the chimney's top,
+     * and any other a small fire on the floor. In tiles over the floor; HEARTH floats as hearth gives.
+     * The heights are read off the sprites, at 192 pixels a level.
+     */
+    static float[] unmodelled(String sprite) {
+        if (sprite != null && sprite.startsWith("crafted_02_4")) {
+            return BRAZIER;
+        }
+        if (sprite != null && sprite.startsWith("crafted_05_")) {
+            return FORGE;
+        }
+        return OPEN;
+    }
+
+    private static final float[] BRAZIER = {0f, 0f, 0.42f, 0.16f, 0.5f, 1.5f, 0.3f, VOLUME, 0f, 0f, 0.9f, 0f, 0f};
+    /** Shut: its smoke rises from the chimney's top, 2.1 tiles up, and its light is its body's glow, low on it. */
+    private static final float[] FORGE = {0f, 0f, 2.1f, 0.06f, 0f, 1.6f, 0.35f, VOLUME, 0f, 0f, 0.6f, 0f, -1.7f};
+    private static final float[] OPEN = {0f, 0f, 0.02f, 0.18f, 0.45f, 1.5f, 0.3f, VOLUME, 0f, 0f, 0.8f, 0f, 0f};
 
     /** A number of a square's own, the same each time it is asked, that sets one fire's flames apart from the next. */
     static float seed(int x, int y, int z) {
@@ -222,15 +258,12 @@ final class Fires {
      * their feet stood on the ground as the picture has it. A fire on a square the character
      * cannot see from where they stand gives no light: a light of the picture's casts no shadow,
      * and would come through the walls between. Where fires burn side by side the smoke of each
-     * block of two squares by two rises as one column, from the block's first square. Logic
-     * thread, which is the one that updates the game's fires. Nothing when the picture draws no
-     * fire of its own.
+     * block of two squares by two rises as one column, from the block's first square. In a room
+     * the smoke spreads under the ceiling. Logic thread, which is the one that updates the game's
+     * fires.
      */
     static void gather(SkyState sky, Terrain terrain, int playerIndex, float eyeX, float eyeY) {
         sky.fireCount = 0;
-        if (!own()) {
-            return;
-        }
         ArrayList<IsoFire> spreading = IsoFireManager.FireStack;
         for (int i = 0; i < spreading.size(); i++) {
             take(sky, terrain, spreading.get(i), playerIndex, eyeX, eyeY);
@@ -287,6 +320,9 @@ final class Fires {
         if (!square.isCouldSee(playerIndex)) {
             to[at + LIGHT] = 0f;
         }
+        to[at + CEILING] = square.getRoomID() != -1L ? ViewCamera.LEVEL_HEIGHT - UNDER_CEILING : 0f;
+        sky.flameLook[slot] = FireLooks.look(fire, "Fire");
+        sky.smokeLook[slot] = FireLooks.look(fire, "Smoke");
     }
 
     /**

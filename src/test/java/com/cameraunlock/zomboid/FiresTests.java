@@ -29,6 +29,8 @@ final class FiresTests {
             Checks.run("eachSheetPlaysTheLoopAtATimeOfItsOwn", FiresTests::eachSheetPlaysTheLoopAtATimeOfItsOwn);
             Checks.run("embersRiseOffTheFlamesAndCool", FiresTests::embersRiseOffTheFlamesAndCool);
             Checks.run("theJarHoldsTheFlamesLoop", FiresTests::theJarHoldsTheFlamesLoop);
+            Checks.run("theGamesFlamesAndSmokeAreToldByName", FiresTests::theGamesFlamesAndSmokeAreToldByName);
+            Checks.run("aHearthWithNoModelBurnsAsItsSpriteShows", FiresTests::aHearthWithNoModelBurnsAsItsSpriteShows);
         } finally {
             Own.set(rows);
             Quality.custom(custom);
@@ -257,5 +259,22 @@ final class FiresTests {
     private static void theJarHoldsTheFlamesLoop() {
         // FlameSheets.read throws for a picture that is missing or not FRAMES frames laid ACROSS a row, each twice as high as wide.
         check(FlameSheets.read() != null, "the flames' loop is in the jar and laid out as the sheets read it");
+    }
+
+    private static void theGamesFlamesAndSmokeAreToldByName() {
+        check(Fires.isLook("Fire01", "Fire") && Fires.isLook("Fire03", "Fire") && Fires.isLook("Smoke02", "Smoke"), "the game's animations of flames and smoke");
+        check(!Fires.isLook("Fireplace", "Fire") && !Fires.isLook("Fire_01_3", "Fire") && !Fires.isLook("fixtures_fireplaces_01_0", "Fire")
+                && !Fires.isLook("Fire1", "Fire") && !Fires.isLook(null, "Fire"), "and nothing else, a fireplace's sprite or a frame's name among it");
+    }
+
+    private static void aHearthWithNoModelBurnsAsItsSpriteShows() {
+        float[] fire = new float[Fires.FLOATS];
+        Fires.placeHearth(Fires.unmodelled("crafted_02_42"), 3.5f, 4.5f, 0f, 0, 1f, 1f, 0f, fire, 0);
+        check(fire[Fires.FLAME] == 1f && fire[Fires.UP] > 0.3f && fire[Fires.TALL] > 0f, "a brazier burns in its basket, up off the floor");
+        Fires.placeHearth(Fires.unmodelled("crafted_05_6"), 3.5f, 4.5f, 0f, 0, 1f, 1f, 0f, fire, 0);
+        check(fire[Fires.FLAME] == 0f && fire[Fires.SMOKE] > 0f && fire[Fires.UP] > 2f, "a forge is shut: it smokes at its chimney's top and shows no flame");
+        check(fire[Fires.LIGHT] > 0f && fire[Fires.LIGHT_UP] > 0.2f && fire[Fires.LIGHT_UP] < 0.8f, "and glows low on its body: " + fire[Fires.LIGHT_UP]);
+        Fires.placeHearth(Fires.unmodelled("some_other_hearth"), 3.5f, 4.5f, 0f, 0, 1f, 1f, 0f, fire, 0);
+        check(fire[Fires.FLAME] == 1f && fire[Fires.X] == 3.5f && fire[Fires.Y] == 4.5f && fire[Fires.CEILING] == 0f, "any other burns on the middle of its square");
     }
 }

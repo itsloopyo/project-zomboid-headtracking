@@ -383,16 +383,12 @@ final class FurnishingBuilder {
             build.building.plain = false;
             ShopFittings.addStock(build, object, piece, x, y, foot);
         }
-        // The game's flames over a lit hearth are the fire, and stay over the model while the picture draws none of its own.
-        if (build.overLayer > 0 && !Fires.own() && object instanceof IsoFireplace hearth && hearth.isLit()) {
-            return false;
-        }
         // What the game lays over the piece's sprite, a stain, has no place on the model.
         if (piece.gridX != 0 || piece.gridY != 0 || build.overLayer > 0) {
             return true;
         }
         Models.Model model = piece.withBasin != null && onSquare(x, y, z, true) != null ? piece.withBasin : piece.model;
-        boolean burning = object instanceof IsoFireplace hearth && hearth.isLit() && Fires.own();
+        boolean burning = object instanceof IsoFireplace hearth && hearth.isLit();
         if (burning && model.name.equals("barrel")) {
             // A drum lit as a burn barrel has had its top cut out: the fire is drawn burning in it.
             model = Models.get("burn_barrel");
@@ -409,7 +405,7 @@ final class FurnishingBuilder {
                 dyeTexture, piece.dyed, dyeU, dyeV, alsoDyed, alsoU, alsoV);
         float[] fire = burning ? Fires.hearth(model.name) : null;
         if (fire != null) {
-            build.placed.fire(fire, x + centreX, y + centreY, foot, piece.turns, piece.scale, piece.scaleUp, Fires.seed(x, y, z));
+            build.placed.fire(fire, x + centreX, y + centreY, foot, piece.turns, piece.scale, piece.scaleUp, Fires.seed(x, y, z), FireLooks.look(object, "Fire"));
         }
         if (piece.pictured) {
             // Each point of the pane looks at where the sprite paints it: the pane's face is paneY in front of the model's origin.

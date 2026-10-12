@@ -941,7 +941,7 @@ final class Pipeline {
                         fogStart, fogEnd);
             }
             // After the rain, which falls beyond and before a fire alike, and before any glass, which is before it.
-            fires.draw(steadying ? movesUndepthed : decalTarget, sceneDepth, state, camera, tanHalfFieldOfView, aspect, near, far, width, height, asideX, asideY, frameNanos);
+            fires.draw(steadying ? movesUndepthed : decalTarget, sceneTarget, sceneDepth, state, camera, tanHalfFieldOfView, aspect, near, far, width, height, asideX, asideY, frameNanos);
             // After the sky and the rain, which are both beyond any glass: the sky is painted
             // wherever nothing else is, over whatever was there.
             if (inTheGlass) {
@@ -1162,6 +1162,8 @@ final class Pipeline {
         if (struck) {
             drawDebris(view.scope.pictureTarget, Scope.PICTURE, Scope.PICTURE, view.scope.sees, tan, 1f, Scope.PICTURE_NEAR, far, 0f, 0f, fogStart, fogEnd);
         }
+        fires.draw(view.scope.decalTarget, view.scope.pictureTarget, view.scope.pictureDepth, state, view.scope.sees, tan, 1f, Scope.PICTURE_NEAR, far,
+                Scope.PICTURE, Scope.PICTURE, 0f, 0f, frameNanos);
         view.scope.developed();
     }
 

@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.concurrent.CompletableFuture;
 import javax.imageio.ImageIO;
 import org.lwjgl.opengl.GL11;
@@ -12,6 +13,10 @@ import org.lwjgl.opengl.GL13;
 import org.lwjgl.opengl.GL14;
 import org.lwjgl.opengl.GL20;
 import org.lwjgl.opengl.GL30;
+import zombie.core.textures.Texture;
+import zombie.iso.IsoDirections;
+import zombie.iso.sprite.IsoAnim;
+import zombie.iso.sprite.IsoDirectionFrame;
 
 /**
  * The flames of a fire and the embers that fly up from it. The flames are a fire simulated and
@@ -44,6 +49,15 @@ final class FlameSheets {
     static final float BRIGHTEST = 4f;
     /** Over how many of a fire's radii a sheet fades where it meets a surface. */
     static final float SOFT = 0.35f;
+
+    /**
+     * The game's frames of flames and smoke: the pixel of a frame that is the middle of its square
+     * on the floor, and how far a pixel is in tiles across and up: a frame 128 pixels wide spans a
+     * square's diagonal, and 192 pixels up is a level. The game shows them at about 15 frames a
+     * second, and its smoke at 0.7 of whole.
+     */
+    static final float LOOK_FOOT_X = 64f, LOOK_FOOT_Y = 224f, LOOK_WIDE_PER_PIXEL = 1.4142f / 128f, LOOK_HIGH_PER_PIXEL = ViewCamera.LEVEL_HEIGHT / 192f;
+    static final float LOOK_FRAMES_A_SECOND = 15f, LOOK_SMOKE = 0.7f;
 
     /** How many embers a fire throws up at once at its height, and how long each flies, in seconds. */
     static final int EMBERS = 18;
@@ -85,9 +99,14 @@ final class FlameSheets {
             uniform float uFrames;
             uniform float uAcross;
             uniform float uBrightest;
-            // 0 a sheet of flame, 1 an ember, and how bright an ember at its hottest is.
+            // 0 a sheet of flame, 1 an ember, 2 a frame of the game's own flames, 3 of its smoke, and how bright an ember at its hottest is.
             uniform float uKind;
             uniform float uEmberBright;
+            // The game's frame, and the light its smoke is lit by.
+            uniform sampler2D uSprite;
+            uniform vec3 uAmbient;
+            // 1 while the flames are put in the picture's depth and nothing in its light.
+            uniform float uDepthOnly;
             varying vec2 vPlace;
             varying float vAhead;
             varying vec4 vColor;
@@ -112,11 +131,28 @@ final class FlameSheets {
             }
 
             void main() {
-                float sceneZ = texture2D(uDepth, gl_FragCoord.xy / uSize).r * 2.0 - 1.0;
-                float sceneAhead = 2.0 * uNear * uFar / (uFar + uNear - sceneZ * (uFar - uNear));
-                float before = sceneAhead - vAhead;
-                if (before <= 0.0) {
-                    discard;
+                // The depth pass has the picture's depth bound to write, not to read: the depth test stands for the fade.
+                float before = 1e6;
+                if (uDepthOnly < 0.5) {
+                    float sceneZ = texture2D(uDepth, gl_FragCoord.xy / uSize).r * 2.0 - 1.0;
+                    float sceneAhead = 2.0 * uNear * uFar / (uFar + uNear - sceneZ * (uFar - uNear));
+                    before = sceneAhead - vAhead;
+                    if (before <= 0.0) {
+                        discard;
+                    }
+                }
+                float fade = smoothstep(0.0, uSoft, before) * smoothstep(uNear, uNear + 0.25, vAhead);
+                if (uKind > 1.5) {
+                    vec4 texel = texture2D(uSprite, vPlace);
+                    float a = texel.a * uStrength * fade;
+                    if (a < 0.01 || uDepthOnly > 0.5 && a < 0.5) {
+                        discard;
+                    }
+                    // The game's flames are light; its smoke is dark, lit as the air round it is.
+                    vec3 light = uKind < 2.5 ? pow(texel.rgb, vec3(2.2)) * (a * uBrightest * 0.6) : uAmbient * (0.3 * a);
+                    gl_FragData[0] = vec4(light, clamp(a * 1.5, 0.0, 1.0));
+                    gl_FragData[1] = vec4(vec3(0.375), 1.0);
+                    return;
                 }
                 if (uKind > 0.5) {
                     float r = length(vPlace);
@@ -134,9 +170,8 @@ final class FlameSheets {
                 // The simulation's flame field is a soft cloud: its thin quarter is let go and its top fifth made whole, which
                 // leaves the flames' own edges and the tongues that break off them.
                 float amount = smoothstep(0.25, 0.8, mix(amountIn(f, uv), amountIn(f + 1.0, uv), uFrame - f));
-                float fade = smoothstep(0.0, uSoft, before) * smoothstep(uNear, uNear + 0.25, vAhead);
                 float shown = amount * fade * uStrength;
-                if (shown < 0.003) {
+                if (shown < 0.003 || uDepthOnly > 0.5 && shown < 0.3) {
                     discard;
                 }
                 // Coloured by how much flame there is, and as bright as the fire burns and the fade leaves it.
@@ -287,6 +322,7 @@ final class FlameSheets {
         GL11.glBindTexture(GL_TEXTURE_2D, depth);
         GL20.glUniform1i(program.at("uDepth"), 0);
         GL20.glUniform1i(program.at("uFlames"), 1);
+        GL20.glUniform1i(program.at("uSprite"), 2);
         GL20.glUniform2f(program.at("uSize"), width, height);
         GL20.glUniform1f(program.at("uNear"), near);
         GL20.glUniform1f(program.at("uFar"), far);
@@ -342,7 +378,80 @@ final class FlameSheets {
             GL11.glVertex3f(cx - sx, cy - sy, up + high);
             GL11.glEnd();
         }
-        embers(fires, f, x, y, up, seconds);
+        if (!depthOnly) {
+            embers(fires, f, x, y, up, seconds);
+        }
+        GL30.glEnablei(GL_BLEND, 1);
+    }
+
+    /** Where a uniform of the program is, for what FireDraw tells it. */
+    int uniform(String name) {
+        return program.at(name);
+    }
+
+    private boolean depthOnly;
+
+    /** While on, what is drawn goes into the picture's depth alone, where the flames are more than a glow. */
+    void depthOnly(boolean on) {
+        depthOnly = on;
+        program.use();
+        GL20.glUniform1f(program.at("uDepthOnly"), on ? 1f : 0f);
+    }
+
+    /**
+     * A sheet of the game's own frames of a fire's flames, or of its smoke, as the game paints
+     * them for its view from above, stood up where the fire burns, facing the eye about the up:
+     * the frame's foot (pixel 64, 224 of 128 by 256, the middle of the square) at the fire's
+     * foot, at the game's own scale of a pixel, made smaller for a hearth whose flames are less.
+     * Its frames go round at the game's pace.
+     */
+    void look(float[] fires, int f, IsoAnim anim, boolean smoke, ViewCamera.Pose camera, float seconds) {
+        ArrayList<IsoDirectionFrame> frames = anim.frames;
+        if (frames == null || frames.isEmpty()) {
+            return;
+        }
+        float seed = fires[f + Fires.SEED];
+        int at = (int) Math.floor(seconds * LOOK_FRAMES_A_SECOND + seed * 7f) % frames.size();
+        Texture frame = frames.get(at).getTexture(IsoDirections.N);
+        if (frame == null || frame.getID() <= 0) {
+            return;
+        }
+        program.use();
+        if (smoke) {
+            GL14.glBlendFuncSeparate(GL_ONE, GL_ONE_MINUS_SRC_ALPHA, GL_ZERO, GL_ONE_MINUS_SRC_ALPHA);
+        } else {
+            GL14.glBlendFuncSeparate(GL_ONE, GL_ONE, GL_ZERO, GL_ONE_MINUS_SRC_ALPHA);
+        }
+        GL30.glDisablei(GL_BLEND, 1);
+        GL13.glActiveTexture(GL_TEXTURE0 + 2);
+        GL11.glBindTexture(GL_TEXTURE_2D, frame.getID());
+        GL13.glActiveTexture(GL_TEXTURE0);
+        float x = fires[f + Fires.X] - camera.eyeX, y = fires[f + Fires.Y] - camera.eyeY, up = fires[f + Fires.UP] - camera.eyeUp;
+        float level = (float) Math.hypot(x, y);
+        float acrossX = level > 1e-3f ? -y / level : camera.rightX, acrossY = level > 1e-3f ? x / level : camera.rightY;
+        float acrossLength = (float) Math.hypot(acrossX, acrossY);
+        acrossX /= acrossLength;
+        acrossY /= acrossLength;
+        float left = frame.getOffsetX(), top = frame.getOffsetY(), wide = frame.getWidth(), high = frame.getHeight();
+        // Smaller for a hearth: the frame's flames reach no higher than half as high again as the hearth's.
+        float tall = fires[f + Fires.TALL], reaches = (LOOK_FOOT_Y - top) * LOOK_HIGH_PER_PIXEL;
+        float scale = smoke || tall <= 0f || reaches <= 0f ? 1f : Math.min(1f, tall * 1.5f / reaches);
+        float from = (left - LOOK_FOOT_X) * LOOK_WIDE_PER_PIXEL * scale, to = (left + wide - LOOK_FOOT_X) * LOOK_WIDE_PER_PIXEL * scale;
+        float upper = (LOOK_FOOT_Y - top) * LOOK_HIGH_PER_PIXEL * scale, lower = (LOOK_FOOT_Y - top - high) * LOOK_HIGH_PER_PIXEL * scale;
+        GL20.glUniform1f(program.at("uKind"), smoke ? 3f : 2f);
+        GL20.glUniform1f(program.at("uStrength"), smoke ? LOOK_SMOKE : 1f);
+        GL20.glUniform1f(program.at("uSoft"), Math.max(fires[f + Fires.RADIUS], 0.15f) * SOFT);
+        float u0 = frame.getXStart(), u1 = frame.getXEnd(), v0 = frame.getYStart(), v1 = frame.getYEnd();
+        GL11.glBegin(GL_QUADS);
+        GL11.glTexCoord2f(u0, v1);
+        GL11.glVertex3f(x + acrossX * from, y + acrossY * from, up + lower);
+        GL11.glTexCoord2f(u1, v1);
+        GL11.glVertex3f(x + acrossX * to, y + acrossY * to, up + lower);
+        GL11.glTexCoord2f(u1, v0);
+        GL11.glVertex3f(x + acrossX * to, y + acrossY * to, up + upper);
+        GL11.glTexCoord2f(u0, v0);
+        GL11.glVertex3f(x + acrossX * from, y + acrossY * from, up + upper);
+        GL11.glEnd();
         GL30.glEnablei(GL_BLEND, 1);
     }
 

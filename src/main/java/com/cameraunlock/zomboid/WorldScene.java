@@ -52,7 +52,7 @@ import zombie.iso.objects.IsoBarricade;
 import zombie.iso.objects.IsoCurtain;
 import zombie.iso.objects.IsoDeadBody;
 import zombie.iso.objects.IsoDoor;
-import zombie.iso.objects.IsoFire;
+import zombie.iso.objects.IsoFireplace;
 import zombie.iso.objects.IsoLightSwitch;
 import zombie.iso.objects.IsoTelevision;
 import zombie.iso.objects.IsoThumpable;
@@ -3967,11 +3967,15 @@ final class WorldScene {
                                     shown(object.getOverlaySprite(), dir));
                             restless |= moves(object.getSprite()) || moves(object.getOverlaySprite());
                             ArrayList<IsoSpriteInstance> attached = object.getAttachedAnimSprite();
-                            // A square's fire is nothing of the build's: the picture draws it from what Fires.gather takes each picture, or not at all.
-                            if (attached != null && !(object instanceof IsoFire)) {
+                            // The game's flames and smoke are nothing of the build's: the picture draws them each picture (Fires).
+                            if (attached != null) {
                                 for (int over = 0; over < attached.size(); over++) {
-                                    thing = sum(thing, shown(attached.get(over).parentSprite, dir));
-                                    restless |= moves(attached.get(over).parentSprite);
+                                    IsoSprite on = attached.get(over).parentSprite;
+                                    if (on != null && FireLooks.isLook(on)) {
+                                        continue;
+                                    }
+                                    thing = sum(thing, shown(on, dir));
+                                    restless |= moves(on);
                                 }
                             }
                             if (object instanceof IsoTelevision set) {
@@ -4342,7 +4346,8 @@ final class WorldScene {
         }
 
         private void addOver(IsoObject object, IsoSprite under, IsoSprite over, boolean isFloor, int x, int y, int z) {
-            if (over == null) {
+            // The game's flames and smoke are drawn by the picture as fire, never as a card: see Fires.
+            if (over == null || FireLooks.isLook(over)) {
                 return;
             }
             Texture texture = over.getTextureForCurrentFrame(object.getDir());
@@ -5006,9 +5011,16 @@ final class WorldScene {
                     frame.light(0f, 0f, 0f);
                 }
                 int before = FirstPerson.TRACE ? worn(texture) : 0;
+                int firesBefore = placed.fireCount;
                 addSprite(solid.get(texture.getID()), object, sprite, texture, object == floor, x, y, z);
                 if (FirstPerson.TRACE) {
                     tally(sprite, worn(texture) - before);
+                }
+                if (object instanceof IsoFireplace hearth && hearth.isLit() && placed.fireCount == firesBefore) {
+                    // A lit hearth the mod has no model of stands as the game's sprite, its fire over the middle of its square.
+                    float[] lift = geometry.lift;
+                    float foot = z * ViewCamera.LEVEL_HEIGHT + (lift[0] + lift[1] + lift[2] + lift[3]) / 4f + geometry.raised * ViewCamera.LEVEL_HEIGHT;
+                    placed.fire(Fires.unmodelled(sprite.getName()), x + 0.5f, y + 0.5f, foot, 0, 1f, 1f, Fires.seed(x, y, z), FireLooks.look(object, "Fire"));
                 }
                 if (unexplored && object == floor) {
                     cornerLights(localX, localY);
