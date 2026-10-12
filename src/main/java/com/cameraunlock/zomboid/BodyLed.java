@@ -86,6 +86,9 @@ final class BodyLed {
      *
      * @param turn      Bip01_Head's turn in the model, its columns its own x, y and z axes, column after column
      * @param bodyAngle the angle the game draws the body at, AnimationPlayer.getRenderedAngle
+     * @param footX     where the body's feet are along the map, tiles
+     * @param footY     the same, across the map
+     * @param footUp    the height they stand at, tiles
      * @param jointX    where the head's joint is from the body's feet, along the map, tiles
      * @param jointY    the same, across the map
      * @param jointUp   the same, upwards

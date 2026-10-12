@@ -134,6 +134,7 @@ public final class FirstPerson {
     private final float[] eye = new float[3];
     private final float[] headOffset = new float[3];
     private final float[] headTurn = new float[9], headJoint = new float[3], ledTilt = new float[9];
+    /** The clean view as the mouse has it this frame, before the head takes any of it: the aim is made from it. */
     private final ViewCamera.Pose mouseView = new ViewCamera.Pose();
     /** Whether the game's own animation has the body this frame: see BodyLed. */
     private boolean bodyLeads;
@@ -708,7 +709,8 @@ public final class FirstPerson {
         eye[2] = standsUp + eyeHigh;
         view.headlights.gather(view.worldScene.terrain, eye[0], eye[1]);
         view.ride.note(player, vehicle, floorUp, view.worldScene.terrain, eye);
-        boolean sightsUp = view.controls.sightsUp(player);
+        // Nothing is aimed while the game's animation has the body: a zoom would close in on the head's view.
+        boolean sightsUp = view.controls.sightsUp(player) && !bodyLeads;
         view.fieldOfView.ease(sightsUp, sinceLastFrame);
         // The arms are the game's own while its animation has the body: they are what fights the zombie off.
         if (bodyLeads) {
@@ -743,7 +745,7 @@ public final class FirstPerson {
         float beamFlat = (float) Math.sqrt(Math.max(1f - beamUp * beamUp, 0f));
         view.carriedLight.gather(player, eye[0], eye[1], eye[2], (float) Math.cos(beamHeading) * beamFlat, (float) Math.sin(beamHeading) * beamFlat, beamUp);
         float[] carried = view.headTracking.carried();
-        aimView.set(cleanView);
+        aimView.set(mouseView);
         aimView.eyeX += carried[0];
         aimView.eyeY += carried[1];
         aimView.eyeUp += carried[2];
@@ -1324,6 +1326,10 @@ public final class FirstPerson {
      * up from any of those, dying.
      */
     private boolean bodyLeads(IsoPlayer player) {
+        // In a seat the eye goes with the vehicle; the game takes a dead player out of it.
+        if (player.getVehicle() != null) {
+            return false;
+        }
         if (player.isDead()) {
             return true;
         }
@@ -1396,6 +1402,8 @@ public final class FirstPerson {
      * @return how the clean view is turned from the level one at the mouse's yaw, for the lean to go with it: the vehicle's tilt while the head does not lead
      */
     private float[] led(IsoPlayer player, float standsUp) {
+        // The aim is the mouse's whatever the eye is: aimView is made from this.
+        mouseView.set(cleanView);
         if (view.bodyLed.holding()) {
             cleanView.set(view.bodyLed.heldClean);
             BodyLed.tipped(yaw, cleanView, ledTilt);
@@ -1423,7 +1431,6 @@ public final class FirstPerson {
         }
         head.eyeUp = Math.max(head.eyeUp, standsUp + margin);
         if (share < 1f) {
-            mouseView.set(cleanView);
             view.bodyLed.between(mouseView, head, share, cleanView);
         } else {
             cleanView.set(head);

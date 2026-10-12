@@ -16,6 +16,7 @@ final class BodyLedTests {
         Checks.run("theHeadTakesTheEyeQuicklyAndGivesItBack", BodyLedTests::theHeadTakesTheEyeQuicklyAndGivesItBack);
         Checks.run("aHitLeavesTheEyeTheMouses", BodyLedTests::aHitLeavesTheEyeTheMouses);
         Checks.run("onlyALedBodyIsHeld", BodyLedTests::onlyALedBodyIsHeld);
+        Checks.run("aTippedRolledHeadOnATurnedBodyLooksWhereItsFaceDoes", BodyLedTests::aTippedRolledHeadOnATurnedBodyLooksWhereItsFaceDoes);
     }
 
     /** The angle the game draws a body facing +x at: AnimationPlayer.getRenderedAngle, a quarter turn more than the way it faces. */
@@ -188,5 +189,34 @@ final class BodyLedTests {
         check(!led.holding(), "nothing is held while the eye is the mouse's");
         led.frame(true, true, true, 1f / 60f);
         check(led.holding(), "a dead body taken off the map holds the head's last view");
+        led.frame(false, false, true, 1f / 60f);
+        check(!led.holding(), "and lets it go once the body no longer leads");
+    }
+
+    /** A direction in the model placed in the world as the game places a body drawn at that angle. */
+    private static float[] toWorld(float[] m, float bodyAngle) {
+        double c = Math.cos(bodyAngle + Math.PI), s = Math.sin(bodyAngle + Math.PI);
+        return new float[] {(float) (c * m[0] + s * m[2]), (float) (s * m[0] - c * m[2]), m[1]};
+    }
+
+    private static float[] unit(float x, float y, float z) {
+        float n = (float) Math.sqrt(x * x + y * y + z * z);
+        return new float[] {x / n, y / n, z / n};
+    }
+
+    private static void aTippedRolledHeadOnATurnedBodyLooksWhereItsFaceDoes() {
+        float bodyAngle = 2.3f;
+        float[] face = unit(0.3f, -0.4f, -0.8f);
+        // A crown square to the face, leaning to one side: the head is tipped and rolled at once.
+        float[] side = unit(0.9f, 0.2f, 0.25f);
+        float[] crown = cross(side, face);
+        crown = unit(crown[0], crown[1], crown[2]);
+        ViewCamera.Pose head = new ViewCamera.Pose();
+        BodyLed.look(headTurn(face, crown), bodyAngle, 0f, 0f, 0f, 0f, 0f, 0f, head);
+        float[] f = toWorld(face, bodyAngle), u = toWorld(crown, bodyAngle);
+        check(near(head.forwardX, f[0]) && near(head.forwardY, f[1]) && near(head.forwardUp, f[2]),
+                "the view looks where the face does in the world: " + head.forwardX + ", " + head.forwardY + ", " + head.forwardUp);
+        check(near(head.upX, u[0]) && near(head.upY, u[1]) && near(head.upUp, u[2]), "with its up where the crown points");
+        check(square(head), "and is a view square to itself");
     }
 }

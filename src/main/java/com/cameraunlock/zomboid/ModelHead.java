@@ -90,41 +90,65 @@ public final class ModelHead {
     }
 
     /**
+     * The head as the game's animation last posed it, before the player's own head turn is put
+     * in, kept by the thread that poses for the one that builds the frame: the bones themselves
+     * hold the turn between pose and posed, and are being written while they are read.
+     */
+    private final Object posedLock = new Object();
+    private final float[] posedHead = new float[12];
+    private AnimationPlayer posedFor;
+    private float posedAngle;
+    private final Matrix4f untouched = new Matrix4f();
+
+    /**
      * The head as the game's animation has it, the player's own head turn not in it: its turn in
      * the model, column after column, into turn, and where its joint is from the feet in the
      * world, in tiles, into joint.
      *
-     * @return the angle the body is drawn at, or not a number before the skeleton is posed
+     * @return the angle the body is drawn at, or not a number before this player's skeleton is first posed
      */
     float head(IsoPlayer player, float[] turn, float[] joint) {
-        AnimationPlayer animation = player.getAnimationPlayer();
-        if (animation == null || !animation.isReady()) {
-            return Float.NaN;
+        float bodyAngle;
+        float x, y, z;
+        synchronized (posedLock) {
+            if (posedFor == null || posedFor != player.getAnimationPlayer()) {
+                return Float.NaN;
+            }
+            System.arraycopy(posedHead, 0, turn, 0, 9);
+            x = posedHead[9];
+            y = posedHead[10];
+            z = posedHead[11];
+            bodyAngle = posedAngle;
         }
-        SkinningBone head = animation.getSkinningData().getBone(HEAD);
-        if (head == null) {
-            return Float.NaN;
-        }
-        animation.getBoneModelTransform(head.index, cameraHead);
-        // The game's matrices are kept transposed, the place in m03, m13 and m23 (HelperFunctions.getPosition): a bone's own x axis is m00, m10, m20.
-        turn[0] = cameraHead.m00;
-        turn[1] = cameraHead.m10;
-        turn[2] = cameraHead.m20;
-        turn[3] = cameraHead.m01;
-        turn[4] = cameraHead.m11;
-        turn[5] = cameraHead.m21;
-        turn[6] = cameraHead.m02;
-        turn[7] = cameraHead.m12;
-        turn[8] = cameraHead.m22;
-        float bodyAngle = animation.getRenderedAngle();
         float c = (float) Math.cos(bodyAngle + Math.PI) * Characters.CHARACTER_SCALE;
         float s = (float) Math.sin(bodyAngle + Math.PI) * Characters.CHARACTER_SCALE;
-        joint[0] = c * cameraHead.m03 + s * cameraHead.m23;
-        joint[1] = s * cameraHead.m03 - c * cameraHead.m23;
-        joint[2] = cameraHead.m13 * Characters.CHARACTER_SCALE;
+        joint[0] = c * x + s * z;
+        joint[1] = s * x - c * z;
+        joint[2] = y * Characters.CHARACTER_SCALE;
         return bodyAngle;
     }
 
+    /** Keeps the head as posed, for head: see posedHead. */
+    private void keepPosed(AnimationPlayer animation, SkinningBone top) {
+        animation.getBoneModelTransform(top.index, untouched);
+        synchronized (posedLock) {
+            // The game's matrices are kept transposed, the place in m03, m13 and m23 (HelperFunctions.getPosition): a bone's own x axis is m00, m10, m20.
+            posedHead[0] = untouched.m00;
+            posedHead[1] = untouched.m10;
+            posedHead[2] = untouched.m20;
+            posedHead[3] = untouched.m01;
+            posedHead[4] = untouched.m11;
+            posedHead[5] = untouched.m21;
+            posedHead[6] = untouched.m02;
+            posedHead[7] = untouched.m12;
+            posedHead[8] = untouched.m22;
+            posedHead[9] = untouched.m03;
+            posedHead[10] = untouched.m13;
+            posedHead[11] = untouched.m23;
+            posedFor = animation;
+            posedAngle = animation.getRenderedAngle();
+        }
+    }
 
     /** Called from AnimationPlayer.updateAnimation_StandardAnimation once the bones are posed and the spine is twisted. */
     public void pose(AnimationPlayer animation) {
@@ -141,6 +165,7 @@ public final class ModelHead {
             }
             return;
         }
+        keepPosed(animation, top);
         float[] head = view.headTracking.headTurn();
         if (head != null && !player.isDead()) {
             float yaw = Math.clamp(head[0], -MOST_YAW, MOST_YAW);
