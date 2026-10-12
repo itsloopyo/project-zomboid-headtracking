@@ -1532,7 +1532,9 @@ final class PipelineShaders {
                 bool tiledTint = abs(uTint.a - 11.0) < 0.5;
                 if (tiledTint) {
                     vec3 along = normalize(vNormal);
-                    vec2 world = vec2(dot(vWorld.xy, vec2(along.y, -along.x)), vWorld.z);
+                    // Measured from the eye: the map position is a float step of 0.001 tile away from the
+                    // origin, coarser than a pixel close to a wall, and its width would jump block to block.
+                    vec2 world = vec2(dot(vPlace.xy, vec2(along.y, -along.x)), vPlace.z);
                     // On a flat face the coordinates go as the world does, so the two widths of a pixel give a tile's size.
                     vec2 worldPixel = max(fwidth(world), vec2(1e-5));
                     vec2 tileSize = worldPixel / max(fwidth(vUv), vec2(1e-6));
