@@ -18,8 +18,17 @@ function Invoke-Javac {
 
 function Get-JavaSources {
     param([string]$Directory)
-    # Relative to the repo: absolute paths in a checkout a few folders deep pass Windows' limit on a command line.
-    Get-ChildItem -Recurse -Filter *.java $Directory | ForEach-Object { Resolve-Path -Relative $_.FullName }
+    Get-ChildItem -Recurse -Filter *.java $Directory | ForEach-Object { Resolve-Path -LiteralPath $_.FullName -Relative }
+}
+
+# The sources go to javac in a file of their own: on the command line, a few hundred of them pass
+# Windows' limit on its length in a checkout a few folders deep. The file is ASCII, as javac reads
+# a byte order mark as part of the first path.
+function Invoke-Javac {
+    param([string]$Name, [string[]]$Options, [string[]]$Sources)
+    $list = Join-Path 'build' "$Name.sources"
+    Set-Content -Encoding Ascii -Path $list -Value ($Sources | ForEach-Object { '"' + ($_ -replace '\\', '/') + '"' })
+    Invoke-Tool javac ($Options + @("@$list"))
 }
 
 $versionLine = Select-String -Path pixi.toml -Pattern '^version = "(.+)"$' | Select-Object -First 1
