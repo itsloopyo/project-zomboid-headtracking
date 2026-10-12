@@ -18,7 +18,8 @@ function Invoke-Javac {
 
 function Get-JavaSources {
     param([string]$Directory)
-    Get-ChildItem -Recurse -Filter *.java $Directory | ForEach-Object FullName
+    # Relative to the repo: absolute paths in a checkout a few folders deep pass Windows' limit on a command line.
+    Get-ChildItem -Recurse -Filter *.java $Directory | ForEach-Object { Resolve-Path -Relative $_.FullName }
 }
 
 $versionLine = Select-String -Path pixi.toml -Pattern '^version = "(.+)"$' | Select-Object -First 1
