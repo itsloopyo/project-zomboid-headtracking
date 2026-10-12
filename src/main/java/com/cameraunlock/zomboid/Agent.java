@@ -403,6 +403,11 @@ public final class Agent {
                 new Patch("zombie/iso/IsoWorld", "update at its start", classBytes -> CallSite.insertAtStartOfInstanceMethod(classBytes,
                         new CallSite.Method("zombie/iso/IsoWorld", "update", "()V"),
                         code -> CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "worldUpdate", "()V")))),
+                new Patch("zombie/iso/IsoMetaGrid", "processZones before its returns", classBytes -> CallSite.insertBeforeReturns(classBytes,
+                        new CallSite.Method("zombie/iso/IsoMetaGrid", "processZones", "()V"), code -> {
+                            code.aload(0);
+                            CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "zonesProcessed", "(Lzombie/iso/IsoMetaGrid;)V"));
+                        })),
                 new Patch(RAGDOLL, "simulateHitReaction calling applyImpulse", classBytes -> CallSite.replaceEach(classBytes,
                         new CallSite.Method(RAGDOLL, "simulateHitReaction", "()V"), applyImpulse, pushAlongTheShot, 1)),
                 new Patch(LIVE_NODE, "getBlendInTime before its returns", classBytes -> CallSite.insertBeforeReturns(classBytes,

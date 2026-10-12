@@ -44,7 +44,13 @@ final class Country {
 
     private Country() {}
 
-    /** Reads the map's zones. Logic thread, as a map is loaded and before any height of it is asked for. */
+    /**
+     * Reads the map's zones. On the thread that loads a map, as IsoMetaGrid.processZones finishes
+     * with them, and so before any height of the map is asked for. Nowhere else: the game's list
+     * of zones has no lock, and once the map is loaded its chunk streamer adds to it as it
+     * generates chunks (ZoneGenerator.genForaging), so a read from another thread then can meet
+     * the list being changed under it.
+     */
     static void read(IsoMetaGrid grid) {
         long began = System.nanoTime();
         // The zones the map's cells carry, and those registered from its objects.lua (Lua's doMapZones), which grid.zones lists.

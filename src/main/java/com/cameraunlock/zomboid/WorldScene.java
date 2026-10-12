@@ -2388,7 +2388,6 @@ final class WorldScene {
                 Lights.forget();
                 Roofs.forget();
                 WallFinish.forget();
-                Country.read(IsoWorld.instance.getMetaGrid());
                 MapAhead.forget();
                 Terrain.forget();
             }

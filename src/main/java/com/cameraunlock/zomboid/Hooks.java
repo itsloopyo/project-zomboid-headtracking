@@ -27,6 +27,7 @@ import zombie.input.AimingReticle;
 import zombie.inventory.types.HandWeapon;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoLightSource;
+import zombie.iso.IsoMetaGrid;
 import zombie.iso.IsoMovingObject;
 import zombie.iso.IsoObjectPicker;
 import zombie.iso.IsoWorld;
@@ -380,6 +381,14 @@ public final class Hooks {
 
     public static void chunkSaved(IsoChunk chunk) {
         Bleeding.saved(chunk);
+    }
+
+    /**
+     * Called as the game has every zone of the map it is loading, on the thread that loads it,
+     * before the chunk streamer that adds zones of its own is made: see Country.read.
+     */
+    public static void zonesProcessed(IsoMetaGrid grid) {
+        Country.read(grid);
     }
 
     /** Called as the game starts a tick of the world. */
