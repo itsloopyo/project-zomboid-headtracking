@@ -21,6 +21,15 @@ final class PlantBuilder {
     private static final float ROOM_CLEAR = WorldScene.WALL_HALF + 0.02f;
     /** A bole is no thinner or thicker than this, in tiles, whatever its sprite says. */
     private static final float BOLE_THINNEST = 0.05f, BOLE_THICKEST = 0.4f;
+    /**
+     * Where up the part of a tree's sprite that is its bole the bole's width is read, as shares
+     * of the way up it: a tree in leaf's below its boughs, and an evergreen's just over its foot,
+     * where it is seen under the needles; and how thick an evergreen's is at most.
+     */
+    private static final float[] LEAFY_ROWS = {0.2f, 0.45f}, EVERGREEN_ROWS = {0.04f, 0.08f, 0.12f};
+    private static final float EVERGREEN_THICKEST = 0.14f, EVERGREEN_HIDDEN = 0.08f;
+    /** How high over its foot an evergreen's needles start, in tiles: below it its sprite paints its shadow on the ground. */
+    private static final float EVERGREEN_FOOT = 0.3f;
     private static final float GRASS_SPILL = 0.35f;
     /** How far in from a side where the lawn ends its plants keep, in tiles. */
     private static final float LAWN_KEEPS_IN = 0.05f;
@@ -319,7 +328,9 @@ final class PlantBuilder {
         // The leaves of a tree and a bush, near enough to be seen as leaves, are a crown of
         // sprigs. The fan then stands only in the sun's own pictures, to throw the shadow.
         float fanned = build.frame.material;
-        boolean crowned = grown != null && (bush || type == IsoObjectType.tree && build.overLayer > 0) && Own.plants() && addCrown(texture, grown, bush, x, y, z);
+        // An evergreen has no leaves of its own to lay over its trunk: its sprite paints the needles with the trunk, and is its crown.
+        boolean evergreen = type == IsoObjectType.tree && build.overLayer == 0 && build.geometry.keep == 1f && Flora.evergreen(grown);
+        boolean crowned = grown != null && (bush || type == IsoObjectType.tree && build.overLayer > 0 || evergreen) && Own.plants() && addCrown(texture, grown, bush, x, y, z);
         if (crowned) {
             build.frame.material = Flora.SHADE;
         }
@@ -381,6 +392,10 @@ final class PlantBuilder {
         float[] places = WorldScene.leafPlaces.get(texture);
         if (places == null) {
             places = Flora.leafPlaces(texture::isMaskSet, build.frame);
+            // An evergreen's sprite paints the shadow it throws on the ground round its foot, which is no needles.
+            if (!bush && Flora.evergreen(name)) {
+                places = Flora.above(places, build.frame, SpriteGeometry.frameV(build.frame, 0.5f, 0.5f, 0f), EVERGREEN_FOOT);
+            }
             // A texture that shows nothing yet may only not have its outline read yet.
             if (places.length < CROWN_LEAST_PLACES * 2) {
                 return false;
@@ -446,7 +461,7 @@ final class PlantBuilder {
         }
         float[] bole = WorldScene.boles.get(sprite);
         if (bole == null) {
-            bole = measureBole(texture);
+            bole = measureBole(texture, Flora.evergreen(sprite.getName()));
             WorldScene.boles.put(sprite, bole);
         }
         if (bole.length == 0) {
@@ -469,12 +484,12 @@ final class PlantBuilder {
 
     /**
      * Reads a bole off the tree sprite the frame is set to: how tall it is, which is as much of
-     * the sprite as a tree in leaf shows, and how thick, which is the narrower of what is
-     * painted across the sprite at two heights below where the boughs start. NO_BOLE for a
-     * sprite painted right across at those heights, which is no trunk, and for one painted at
-     * neither.
+     * the sprite as a tree in leaf shows, and how thick, which is the narrowest of what is
+     * painted across the sprite at a few heights (see LEAFY_ROWS). NO_BOLE for a sprite painted
+     * right across at those heights, which is no trunk, and for one painted at none; an
+     * evergreen's needles hide a thin trunk instead.
      */
-    private float[] measureBole(Texture texture) {
+    private float[] measureBole(Texture texture, boolean evergreen) {
         float topRow = build.frame.top + build.frame.height * (1f - WorldScene.BOLE);
         float footRow = Math.min(SpriteGeometry.frameV(build.frame, 0.5f, 0.5f, 0f), build.frame.top + build.frame.height - 1f);
         float tall = SpriteGeometry.heightDrawnAt(build.frame, 0.5f, 0.5f, topRow) * ViewCamera.LEVEL_HEIGHT;
@@ -482,8 +497,10 @@ final class PlantBuilder {
             return WorldScene.NO_BOLE;
         }
         int narrowest = Integer.MAX_VALUE;
-        for (int row = 0; row < 2; row++) {
-            int v = Math.round(footRow + (topRow - footRow) * (row == 0 ? 0.2f : 0.45f));
+        // An evergreen's needles come down to the ground: its trunk shows only just over its foot, under them.
+        float[] rows = evergreen ? EVERGREEN_ROWS : LEAFY_ROWS;
+        for (float share : rows) {
+            int v = Math.round(footRow + (topRow - footRow) * share);
             int first = -1, last = -1;
             for (int u = (int) build.frame.left; u < build.frame.left + build.frame.width; u++) {
                 if (texture.isMaskSet(u, v)) {
@@ -498,9 +515,10 @@ final class PlantBuilder {
             }
         }
         if (narrowest == Integer.MAX_VALUE || narrowest >= build.frame.width * 0.6f) {
-            return WorldScene.NO_BOLE;
+            // An evergreen whose needles sweep the ground still has a trunk up its middle, hidden by them.
+            return evergreen ? new float[] {EVERGREEN_HIDDEN, tall} : WorldScene.NO_BOLE;
         }
         float radius = narrowest / 2f * SpriteGeometry.TILES_PER_PIXEL_ACROSS / build.frame.scale;
-        return new float[] {Math.clamp(radius, BOLE_THINNEST, BOLE_THICKEST), tall};
+        return new float[] {Math.clamp(radius, BOLE_THINNEST, evergreen ? EVERGREEN_THICKEST : BOLE_THICKEST), tall};
     }
 }

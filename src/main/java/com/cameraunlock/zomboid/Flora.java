@@ -267,6 +267,20 @@ final class Flora {
         return Arrays.copyOf(found, count);
     }
 
+    /** The places of leafPlaces at least least tiles over the foot, which the sprite shows at the frame row footV. */
+    static float[] above(float[] places, SpriteGeometry.Frame frame, float footV, float least) {
+        float up = ViewCamera.LEVEL_HEIGHT / SpriteGeometry.PIXELS_PER_LEVEL / frame.scale;
+        float[] kept = new float[places.length];
+        int count = 0;
+        for (int i = 0; i < places.length; i += 2) {
+            if ((footV - places[i + 1]) * up >= least) {
+                kept[count++] = places[i];
+                kept[count++] = places[i + 1];
+            }
+        }
+        return Arrays.copyOf(kept, count);
+    }
+
     /** What measure leaves of a crown's size: how wide it is, its lowest and highest leaves over the foot, how tall, and the height under which the sprite paints only trunk. */
     static final int WIDEST = 0, LOWEST = 1, HIGHEST = 2, TALL = 3, UNDER = 4, SIZES = 5;
     static final int CROWN_BANDS = 12;
@@ -709,6 +723,14 @@ final class Flora {
                 : name.contains("yellowwood") ? (one == 0 ? BARK_LINDEN : BARK_HOLLY)
                 : name.contains("redbud") ? (one == 0 ? BARK_MAPLE : BARK_DOGWOOD)
                 : one == 0 ? BARK_OAK : one == 1 ? BARK_MAPLE : BARK_LINDEN;
+    }
+
+    /**
+     * Whether a tree, by its sprite's name, keeps its needles or leaves all year: the game paints
+     * those with the trunk, in the tree's own sprite, and lays no leaves over it.
+     */
+    static boolean evergreen(String name) {
+        return name != null && (name.contains("pine") || name.contains("hemlock") || name.contains("holly"));
     }
 
     /** Which sprig a plant bears, by its sprite's name: the game names a tree's sprites for its species. */
