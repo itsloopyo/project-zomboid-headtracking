@@ -712,7 +712,7 @@ final class WorldScene {
         /** What the sprite is made of as the floor of its square, and as anything else. */
         final float asFloor, asOther;
         final boolean laidWall, gableSheet, lies, wire, roofAccent, roofSheet, stripLamp, garageDoor, cornerTrim, papered, fenceGate,
-                boulder, bedding, longGrass, natural, carpet, tiled, grows, onTop, holds, flightPost, fireEscape, paint;
+                boulder, bedding, longGrass, natural, carpet, tiled, grows, onTop, holds, flightPost, fireEscape, paint, wallTrim;
         /** What length of handrail the sprite is, or null: see Rails. */
         final Rails.Piece rail;
         /** Which cloth the map hangs out the sprite is, if any: see Banners. */
@@ -746,6 +746,8 @@ final class WorldScene {
             garageDoor = properties.has("GarageDoor");
             cornerTrim = (properties.has("attachedNW") || properties.has("attachedSE")) && !Roofs.isTile(type) && !roofSheet;
             papered = name != null && name.startsWith("walls_interior_house");
+            wallTrim = name != null && name.startsWith("walls_detailing_") && !standsOnWestEdge(properties, type) && !onNorthEdge(properties)
+                    && !properties.has(IsoFlagType.attachedE) && !properties.has(IsoFlagType.attachedS);
             fenceGate = name != null && name.startsWith("fixtures_doors_fences");
             boulder = name != null && name.startsWith("boulders_");
             bedding = name != null && name.startsWith("furniture_bedding");
@@ -5337,6 +5339,14 @@ final class WorldScene {
                     west = BrokenFences.onWest(frame);
                     north = BrokenFences.onNorth(frame);
                 }
+            }
+            // Trim the map paints round a window or along a wall, a window's head or its sill, and
+            // marks for no wall. Stood up to face the eye each was a white slab slewed off the
+            // wall in the air. It is on the wall its square has, and where the square has both,
+            // the one its picture runs along.
+            if (!west && !north && kind.wallTrim && (wallNorth || wallWest)) {
+                north = wallNorth && (!wallWest || Banners.alongX(frame));
+                west = !north;
             }
             // A light switch says nothing of where it is. It is on a wall of its square, and is
             // laid on whichever the square has; stood up to face the eye it is a grey panel
