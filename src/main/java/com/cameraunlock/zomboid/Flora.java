@@ -214,12 +214,16 @@ final class Flora {
     /** A sprig's texture coordinate holds where on the plant's sprite it takes its colour, in this many steps across the texture, under where on the sprig the vertex is. */
     static final float CROWN_STEPS = 2048f;
     /**
-     * Over the CROWN_STEPS of where a sprig takes its colour, its texture coordinate holds in
-     * whole CROWN_STEPS the colour its kind turns in autumn, one of the HUES, across, and how
-     * far it has turned towards it, in TURNS steps from green to brown, down. The world shader
-     * takes them apart: see PipelineShaders.AUTUMN.
+     * The colours a crown's leaves turn in autumn, one of the HUES, and in how many steps they
+     * turn towards it, from green to brown. Its sprigs and its inside carry both in the square of
+     * their tree, as a fraction of one over or under its whole number y, AUTUMN_CODES codes of
+     * 1 / AUTUMN_SPACING each, centred on it: well inside the quarter of a square what reads a
+     * tree's square allows (PipelineShaders' uFaded test), and whole steps of a float at any
+     * square the map has. The world shader takes them apart: see PipelineShaders.AUTUMN.
      */
     static final int YELLOW_LEAF = 0, GOLD_LEAF = 1, ORANGE_LEAF = 2, SCARLET_LEAF = 3, CLARET_LEAF = 4, HUES = 5, TURNS = 8;
+    static final int AUTUMN_CODES = HUES * TURNS;
+    static final float AUTUMN_SPACING = 128f;
     /** A crown with less of its leaves on it than this has no inside: it is seen through. Between this and full leaf the inside draws in. */
     private static final float CORE_GOES = 0.5f;
     /** A crown with less of its leaves on it than this has a bare tree's wood in it, at any distance: see Crowns.limbed. */
@@ -444,6 +448,7 @@ final class Flora {
         float meshRootX = mesh.rootX, meshRootY = mesh.rootY, woodRootX = wood.rootX, woodRootY = wood.rootY;
         if (sprig != SHRUB) {
             mesh.rooted((int) Math.floor(x), (int) Math.floor(y));
+            mesh.rootY += autumnCode(hue, turned);
             wood.rooted((int) Math.floor(x), (int) Math.floor(y));
         }
         float across = SpriteGeometry.TILES_PER_PIXEL_ACROSS / frame.scale;
@@ -547,7 +552,8 @@ final class Flora {
             // The middle of a crown is in the shade of its outside, and a hollow in that of the boughs either side.
             float shade = inner ? 0.5f : (0.8f + 0.2f * Math.min(far / reach, 1f)) * (1f + BOUGH_SHADE * (swell - 0.7f));
             float red = frame.red * shade, green = frame.green * shade, blue = frame.blue * shade;
-            float u = colourAcross(frame, places[i * 2], hue), v = colourDown(frame, places[i * 2 + 1], turned);
+            float u = (float) Math.rint((frame.uStart + (places[i * 2] - frame.left) / frame.width * (frame.uEnd - frame.uStart)) * CROWN_STEPS);
+            float v = (float) Math.rint((frame.vStart + (places[i * 2 + 1] - frame.top) / frame.height * (frame.vEnd - frame.vStart)) * CROWN_STEPS);
             boolean mirrored = (hash >>> 28 & 1) == 1;
             float swayStem = Math.clamp((stemUp - base) * SWAY_PER_TILE, 0f, SWAY_MOST);
             float swayTip = Math.clamp((tipUp - base) * SWAY_PER_TILE, 0f, SWAY_MOST) + SPRIG_FLUTTER;
@@ -582,7 +588,7 @@ final class Flora {
         float inside = Math.clamp((leaf - CORE_GOES) / (1f - CORE_GOES), 0f, 1f);
         if (!bare && inside > 0f) {
             addCore(mesh, frame, places, x, y, base, footU, footV, across, up, lowest, tall, under, reachLeft, reachRight, lobes, rows, turnOne, turnTwo, turnThree, sprig, room,
-                    inside, hue, turned);
+                    inside);
         }
         if (boleRadius > 0f && !shrub && lowest + LEADER_TOP * tall > boleTall + 0.2f) {
             mark(wood, frame.open, 0f, TRUNK);
@@ -660,7 +666,7 @@ final class Flora {
      */
     private static void addCore(Mesh mesh, SpriteGeometry.Frame frame, float[] places, float x, float y, float base, float footU, float footV, float across, float up,
             float lowest, float tall, float under, float[] reachLeft, float[] reachRight, int lobes, float rows, float turnOne, float turnTwo,
-            float turnThree, int sprig, float[] room, float drawnIn, int hue, float turned) {
+            float turnThree, int sprig, float[] room, float drawnIn) {
         int count = places.length / 2;
         int[] placeOf = new int[CORE_RINGS];
         float[] nearest = new float[CORE_RINGS];
@@ -693,7 +699,8 @@ final class Flora {
         float kind = (sprig + 0.5f) / CORE_KINDS;
         for (int ring = 0; ring < CORE_RINGS; ring++) {
             int place = placeOf[ring];
-            float u = colourAcross(frame, places[place * 2], hue) + kind, v = colourDown(frame, places[place * 2 + 1], turned) + 0.5f;
+            float u = (float) Math.rint((frame.uStart + (places[place * 2] - frame.left) / frame.width * (frame.uEnd - frame.uStart)) * CROWN_STEPS) + kind;
+            float v = (float) Math.rint((frame.vStart + (places[place * 2 + 1] - frame.top) / frame.height * (frame.vEnd - frame.vStart)) * CROWN_STEPS) + 0.5f;
             float shareLow = CORE_FOOT + (CORE_HEAD - CORE_FOOT) * ring / CORE_RINGS, shareHigh = CORE_FOOT + (CORE_HEAD - CORE_FOOT) * (ring + 1) / CORE_RINGS;
             boolean top = ring == CORE_RINGS - 1;
             for (int face = 0; face < CORE_ROUND; face++) {
@@ -718,19 +725,9 @@ final class Flora {
         mesh.sway = 0f;
     }
 
-    /** The texture coordinate across of a sprig that takes its colour at frame pixel across, its leaves turning to hue in autumn: see HUES. */
-    private static float colourAcross(SpriteGeometry.Frame frame, float across, int hue) {
-        return step(frame.uStart + (across - frame.left) / frame.width * (frame.uEnd - frame.uStart)) + CROWN_STEPS * hue;
-    }
-
-    /** The texture coordinate down of a sprig that takes its colour at frame pixel down, its leaves turned that far: see TURNS. */
-    private static float colourDown(SpriteGeometry.Frame frame, float down, float turned) {
-        return step(frame.vStart + (down - frame.top) / frame.height * (frame.vEnd - frame.vStart)) + CROWN_STEPS * Math.round(turned * (TURNS - 1));
-    }
-
-    /** The CROWN_STEPS step a place on the texture is in: the last for its far edge, which would otherwise be read as the next hue or turn. */
-    private static float step(float share) {
-        return Math.min((float) Math.rint(share * CROWN_STEPS), CROWN_STEPS - 1f);
+    /** What a crown's sprigs and inside add to their tree's square's y for the colour its leaves turn and how far: see AUTUMN_CODES. */
+    static float autumnCode(int hue, float turned) {
+        return (hue * TURNS + Math.round(turned * (TURNS - 1)) - AUTUMN_CODES / 2) / AUTUMN_SPACING;
     }
 
     /**

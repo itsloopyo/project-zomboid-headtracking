@@ -1,5 +1,7 @@
 package com.cameraunlock.zomboid;
 
+import java.util.Locale;
+
 /**
  * The GLSL of the first-person picture's own passes, which Pipeline compiles and runs: the
  * world and its shadows, the rain, the light on figures, and what turns the lit picture into
@@ -61,7 +63,17 @@ final class PipelineShaders {
      * Only leaves the game paints green take the kind's colour: where the game's sprite has
      * the tree turned already, its own colour stays, and goes brown as well.
      */
-    static final String AUTUMN = """
+    static final String AUTUMN = String.format(Locale.ROOT, """
+            // The colour a crown's leaves turn, and how far they have, 0 to 1, as its sprigs and inside carry them in their tree's square: see Flora.AUTUMN_CODES.
+            vec2 autumnOf(vec2 root) {
+                if (root.x < 0.0) {
+                    return vec2(0.0);
+                }
+                float code = floor((root.y - floor(root.y + 0.5)) * %1$.1f + 0.5) + %2$d.0;
+                float hue = floor((code + 0.5) / %3$d.0);
+                return vec2(hue, (code - hue * %3$d.0) / %4$d.0);
+            }
+
             vec3 autumnHue(float hue) {
                 return hue < 0.5 ? vec3(0.86, 0.70, 0.16) : hue < 1.5 ? vec3(0.88, 0.52, 0.12) : hue < 2.5 ? vec3(0.86, 0.34, 0.08)
                         : hue < 3.5 ? vec3(0.76, 0.14, 0.07) : vec3(0.52, 0.11, 0.15);
@@ -79,7 +91,7 @@ final class PipelineShaders {
                 vec3 coloured = mix(painted, to * (light / dot(to, weigh)), green * smoothstep(0.0, 0.5, turned));
                 return mix(coloured, brown * (0.85 * light / dot(brown, weigh)), smoothstep(0.6, 1.0, turned));
             }
-            """;
+            """, Flora.AUTUMN_SPACING, Flora.AUTUMN_CODES / 2, Flora.TURNS, Flora.TURNS - 1);
 
     /** Noise that lies on the ground, the same wherever it is asked for: the clouds' shadows cross the built world and the far land as one. */
     static final String GROUND_NOISE = """
@@ -633,7 +645,6 @@ final class PipelineShaders {
      */
     static final String WORLD_FRAGMENT_PARTS = "#version 120\n#extension GL_EXT_texture_array : require\n#extension GL_ARB_shader_texture_lod : require\n"
             + "#define CUT_FLOATS " + Cutaways.FLOATS + "\n#define CUT_FLOATS_A_ROW " + Cutaways.FLOATS_A_ROW + "\n#define CUT_SIDE " + Cutaways.SIDE + ".0\n"
-            + "#define TURNS_MOST " + (Flora.TURNS - 1) + ".0\n"
             + CanopyWindow.GLSL
             + Sky.ATMOSPHERE + ENDS + AUTUMN + """
             uniform sampler2D uTexture;
@@ -1608,9 +1619,7 @@ final class PipelineShaders {
                     }
                     vec2 cell = floor(vUv);
                     float which = floor(fract(vUv.x) * 8.0);
-                    // Over where it takes its colour, the colour its leaves turn and how far: see Flora.HUES.
-                    vec2 autumn = floor(cell / 2048.0);
-                    cell -= autumn * 2048.0;
+                    vec2 autumn = autumnOf(vRoot);
                     vec2 at = (cell + 0.5) / 2048.0;
                     vec2 wide = uTexel * 4.0;
                     vec4 sum = vec4(0.0);
@@ -1622,7 +1631,7 @@ final class PipelineShaders {
                     if (sum.a < 0.5) {
                         discard;
                     }
-                    vec3 season = autumnal(sum.rgb / sum.a, autumn.x, autumn.y / TURNS_MOST);
+                    vec3 season = autumnal(sum.rgb / sum.a, autumn.x, autumn.y);
                     season *= mix(1.0, 0.4 / max(dot(season, vec3(0.299, 0.587, 0.114)), 0.05), 0.6);
                     // The sprigs' picture laid over it by where it is, whichever way it faces:
                     // leaves where the picture has them and the dark between leaves where it has none.
@@ -1657,8 +1666,7 @@ final class PipelineShaders {
                     // over it is where on the sprig the pixel is. See Flora.addCrown.
                     vec2 cell = floor(vUv);
                     vec2 on = clamp((vUv - cell - 0.25) * 2.0, 0.0, 1.0);
-                    vec2 autumn = floor(cell / 2048.0);
-                    cell -= autumn * 2048.0;
+                    vec2 autumn = autumnOf(vRoot);
                     float each = grain(cell);
                     // Standing in a tree, the sprigs within reach are gone, a whole sprig at
                     // a time, and the view is of the wood beyond them.
@@ -1699,7 +1707,7 @@ final class PipelineShaders {
                         discard;
                     }
                     // A tree's leaves do not turn all at once: some sprigs are ahead of the rest and some behind.
-                    float turned = autumn.y / TURNS_MOST;
+                    float turned = autumn.y;
                     turned = turned > 0.0 ? clamp(turned + 0.32 * (grain(cell + 31.0) - 0.5), 0.0, 1.0) : 0.0;
                     vec3 season = autumnal(sum.rgb / sum.a, autumn.x, turned);
                     // The game paints a crown in a few flat tones, darker at each mass's rim

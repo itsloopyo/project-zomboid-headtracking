@@ -91,9 +91,11 @@ final class CrownTests {
     }
 
     /**
-     * Over where on the sprite a sprig and the inside take their colour, their texture
-     * coordinate carries the colour the tree's leaves turn, in whole CROWN_STEPS across, and
-     * how far they have turned, in whole CROWN_STEPS down: see PipelineShaders.AUTUMN.
+     * A crown's sprigs and inside carry the colour its leaves turn and how far in their tree's
+     * square: its x whole, its y within a quarter of a square of its own, and both read back as
+     * the world shader reads them (PipelineShaders.AUTUMN's autumnOf, in float arithmetic) at
+     * squares as far out as the map goes. The wood carries the square whole, and where on the
+     * sprite a sprig takes its colour is left as it was, short of CROWN_STEPS.
      */
     private static void everySprigSaysTheColourItsLeavesTurnAndHowFar() {
         SpriteGeometry.Frame frame = frame();
@@ -173,7 +175,7 @@ final class CrownTests {
         float leastX = Float.MAX_VALUE, mostX = -Float.MAX_VALUE;
         for (SpriteGeometry.Mesh mesh : new SpriteGeometry.Mesh[] {leaves, wood}) {
             for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
-                check(mesh.vertices[at + SpriteGeometry.ROOT_AT] == 10f && mesh.vertices[at + SpriteGeometry.ROOT_AT + 1] == 20f,
+                check(mesh.vertices[at + SpriteGeometry.ROOT_AT] == 10f && Math.round(mesh.vertices[at + SpriteGeometry.ROOT_AT + 1]) == 20,
                         "a vertex of the crown at " + mesh.vertices[at] + ", " + mesh.vertices[at + 1] + " is its tree's, on square 10, 20");
                 leastX = Math.min(leastX, mesh.vertices[at]);
                 mostX = Math.max(mostX, mesh.vertices[at]);
