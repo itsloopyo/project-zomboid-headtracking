@@ -18,6 +18,7 @@ final class FiresTests {
         Quality.set(Quality.HIGH);
         try {
             Checks.run("aFireGrowsToItsHeightAndDiesAsSmoke", FiresTests::aFireGrowsToItsHeightAndDiesAsSmoke);
+            Checks.run("theSmokeOfABlockRisesAsOneColumn", FiresTests::theSmokeOfABlockRisesAsOneColumn);
             Checks.run("aHearthsFireStandsInItsModelHoweverTurned", FiresTests::aHearthsFireStandsInItsModelHoweverTurned);
             Checks.run("aStovesGlowIsOnItsDoorFacingOut", FiresTests::aStovesGlowIsOnItsDoorFacingOut);
             Checks.run("firelightFlickersAndNeverGoesOut", FiresTests::firelightFlickersAndNeverGoesOut);
@@ -29,30 +30,59 @@ final class FiresTests {
             Own.set(rows);
             Quality.custom(custom);
             Quality.set(mode);
+            // The world as the rows now are is what view 0 was last built with, as it was before.
+            Own.taken(0);
         }
     }
 
-    private static float[] square(int stage, boolean smoke, boolean campfire) {
+    private static float[] square(int size, boolean smoke, boolean campfire) {
         float[] fire = new float[Fires.FLOATS];
         fire[Fires.X] = 10.5f;
         fire[Fires.Y] = 20.5f;
-        Fires.square(stage, smoke, campfire, fire, 0);
+        Fires.square(size, smoke, campfire, fire, 0);
         return fire;
     }
 
     private static void aFireGrowsToItsHeightAndDiesAsSmoke() {
-        float[] small = square(0, false, false), growing = square(1, false, false), height = square(2, false, false), falling = square(3, false, false),
-                dying = square(4, false, false), smoke = square(0, true, false), campfire = square(0, false, true);
-        check(small[Fires.TALL] < growing[Fires.TALL] && growing[Fires.TALL] < height[Fires.TALL], "the flames grow taller from stage 0 to stage 2");
-        check(falling[Fires.TALL] == growing[Fires.TALL] && falling[Fires.SMOKE] == growing[Fires.SMOKE], "stage 3 is stage 1 again on the way down");
-        check(small[Fires.SMOKE] == 0f && height[Fires.SMOKE] > growing[Fires.SMOKE], "a small flame has no smoke, and the fire at its height the most");
-        check(dying[Fires.FLAME] == 0f && dying[Fires.SMOKE] > 0f && dying[Fires.LIGHT] == 0f, "a fire at its last stage is smoke alone, and gives no light");
+        // A fire that spreads, stage by stage as IsoFire.updateFromTimer moves it on, and a campfire as IsoFire.setLifeStage sets it.
+        int[] spreads = {Fires.SMALL, Fires.SMALL, Fires.MEDIUM, Fires.HEIGHT, Fires.MEDIUM, Fires.DYING};
+        for (int stage = 0; stage < spreads.length; stage++) {
+            check(Fires.size(stage, false) == spreads[stage], "a spreading fire at stage " + stage + " is size " + spreads[stage]);
+        }
+        int[] permanent = {Fires.SMALL, Fires.MEDIUM, Fires.HEIGHT, Fires.MEDIUM, Fires.DYING};
+        for (int stage = 0; stage < permanent.length; stage++) {
+            check(Fires.size(stage, true) == permanent[stage], "a permanent fire at stage " + stage + " is size " + permanent[stage]);
+        }
+        float[] small = square(Fires.SMALL, false, false), medium = square(Fires.MEDIUM, false, false), height = square(Fires.HEIGHT, false, false),
+                dying = square(Fires.DYING, false, false), smoke = square(Fires.SMALL, true, false), campfire = square(Fires.SMALL, false, true);
+        check(small[Fires.TALL] < medium[Fires.TALL] && medium[Fires.TALL] < height[Fires.TALL], "the flames grow taller to the fire's height");
+        check(small[Fires.SMOKE] == 0f && height[Fires.SMOKE] > medium[Fires.SMOKE], "a small flame has no smoke, and the fire at its height the most");
+        check(height[Fires.LIGHT] > medium[Fires.LIGHT] && medium[Fires.LIGHT] > small[Fires.LIGHT], "and the most light");
+        check(dying[Fires.FLAME] == 0f && dying[Fires.SMOKE] > 0f && dying[Fires.LIGHT] == 0f, "a dying fire is smoke alone, and gives no light");
         check(smoke[Fires.FLAME] == 0f && smoke[Fires.SMOKE] > 0f && smoke[Fires.LIGHT] == 0f, "a square of smoke is smoke alone");
         check(campfire[Fires.TALL] < height[Fires.TALL] && campfire[Fires.SMOKE] < height[Fires.SMOKE] && campfire[Fires.LIGHT] > 0f,
                 "a campfire is a small fire that lights round it");
         check(height[Fires.LIGHT_X] == 10.5f && height[Fires.LIGHT_Y] == 20.5f && height[Fires.LIGHT_UP] > 0f && height[Fires.LIGHT_UP] < height[Fires.TALL],
                 "a square's light is over its middle, within its flames");
         check(height[Fires.RADIUS] <= 0.5f, "the flames of a square stay on it: " + height[Fires.RADIUS]);
+    }
+
+    private static void theSmokeOfABlockRisesAsOneColumn() {
+        float[] fires = new float[5 * Fires.FLOATS];
+        // A block of four burning at its height, from (10, 20), and a fire of its own two squares off.
+        int[][] at = {{10, 20}, {11, 20}, {10, 21}, {11, 21}, {13, 20}};
+        for (int i = 0; i < at.length; i++) {
+            fires[i * Fires.FLOATS + Fires.X] = at[i][0] + 0.5f;
+            fires[i * Fires.FLOATS + Fires.Y] = at[i][1] + 0.5f;
+            Fires.square(Fires.HEIGHT, false, false, fires, i * Fires.FLOATS);
+        }
+        float one = fires[Fires.THICK];
+        Fires.smokeInBlocks(fires, at.length);
+        check(fires[Fires.SMOKE] > 0f && fires[Fires.FLOATS + Fires.SMOKE] == 0f && fires[2 * Fires.FLOATS + Fires.SMOKE] == 0f
+                && fires[3 * Fires.FLOATS + Fires.SMOKE] == 0f, "the block's smoke rises from its first square alone");
+        check(Math.abs(fires[Fires.THICK] - 2f * one) < 1e-5f, "twice as thick as one square's: " + fires[Fires.THICK]);
+        check(fires[4 * Fires.FLOATS + Fires.SMOKE] > 0f, "a fire whose block's first square does not burn keeps its own");
+        check(fires[Fires.FLOATS + Fires.FLAME] > 0f, "the flames of every square are kept");
     }
 
     private static void aHearthsFireStandsInItsModelHoweverTurned() {
@@ -139,7 +169,7 @@ final class FiresTests {
         // Looking along +x from 1.6 tiles up.
         ViewCamera.clean(eye, 0f, 0f, 1.6f, 0f, 0f);
         float tan = (float) Math.tan(Math.toRadians(32.5)), tanX = tan * 16f / 9f;
-        float[] fire = square(2, false, false);
+        float[] fire = square(Fires.HEIGHT, false, false);
         fire[Fires.X] = 10f;
         fire[Fires.Y] = 0f;
         float[] box = new float[4];

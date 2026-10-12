@@ -32,10 +32,14 @@ final class Fires {
     static final int FLOATS = 20;
     static final float VOLUME = 0f, WINDOW = 1f;
 
-    /** The most fires a picture draws, the nearest, and the most of them that light it. */
-    static final int MOST = 24, LIGHTS = 8;
-    /** How far from the eye a square that burns is gathered, in tiles. */
-    static final float WITHIN = 70f;
+    /** The most squares that burn a picture draws, the nearest, and the most fires that light it. */
+    static final int MOST = 64, LIGHTS = 8;
+    /** How far from the eye a square that burns is gathered, in tiles: as far as the game keeps the map loaded round it. */
+    static final float WITHIN = 90f;
+    /** How much further off than it is a square of smoke alone is taken to be, when there are more squares than MOST: flames are kept first. */
+    private static final float SMOKE_FARTHER = 2f;
+    /** How much of the thickness of a square's smoke goes into the column its block of two squares by two raises: four as thick fires make it twice as thick. */
+    private static final float BLOCK_SHARE = 1f / 3f;
 
     /** The colour of firelight, red, green and blue. */
     static final float RED = 1f, GREEN = 0.5f, BLUE = 0.17f;
@@ -70,23 +74,47 @@ final class Fires {
         return Own.fire();
     }
 
+    /** The sizes of a square's fire: a small flame, a larger one with smoke, the fire at its height, and smoke alone as it dies. */
+    static final int SMALL = 0, MEDIUM = 1, HEIGHT = 2, DYING = 3;
+
     /**
-     * The shape of a square's fire, into a record at `at`: by the stage of its life the game
-     * has it at, whether it is smoke alone and whether it is a campfire. The game's stages are
-     * 0 a small flame, 1 and 3 a larger one with smoke, 2 the fire at its height and 4 smoke
-     * alone as it dies (IsoFire.updateFromTimer).
+     * The size of a square's fire at a stage of its life. A fire that spreads runs through stages
+     * 0 to 5: a small flame at 0 and 1, larger with smoke at 2 and 4, its height at 3 and smoke alone
+     * at 5 (IsoFire.updateFromTimer). A permanent one, a campfire, is set to stages 0 to 4: small,
+     * larger, height, larger and smoke (IsoFire.setLifeStage).
      */
-    static void square(int stage, boolean smokeOnly, boolean campfire, float[] to, int at) {
+    static int size(int stage, boolean permanent) {
+        if (permanent) {
+            return switch (stage) {
+                case 0 -> SMALL;
+                case 2 -> HEIGHT;
+                case 4 -> DYING;
+                default -> MEDIUM;
+            };
+        }
+        return switch (stage) {
+            case 0, 1 -> SMALL;
+            case 3 -> HEIGHT;
+            case 5 -> DYING;
+            default -> MEDIUM;
+        };
+    }
+
+    /**
+     * The shape of a square's fire, into a record at `at`: by its size (see size), whether it is
+     * smoke alone and whether it is a campfire.
+     */
+    static void square(int size, boolean smokeOnly, boolean campfire, float[] to, int at) {
         float radius, tall, smoke, flame, thick, light;
         if (smokeOnly) {
             radius = 0.5f; tall = 0.3f; smoke = 5f; flame = 0f; thick = 1.6f; light = 0f;
         } else if (campfire) {
             radius = 0.2f; tall = 0.5f; smoke = 2f; flame = 0.9f; thick = 0.35f; light = 0.9f;
         } else {
-            switch (stage) {
-                case 0 -> { radius = 0.25f; tall = 0.55f; smoke = 0f; flame = 0.8f; thick = 0f; light = 0.7f; }
-                case 2 -> { radius = 0.5f; tall = 2.2f; smoke = 6f; flame = 1f; thick = 1.5f; light = 2f; }
-                case 4 -> { radius = 0.35f; tall = 0.4f; smoke = 2.5f; flame = 0f; thick = 0.6f; light = 0f; }
+            switch (size) {
+                case SMALL -> { radius = 0.25f; tall = 0.55f; smoke = 0f; flame = 0.8f; thick = 0f; light = 0.7f; }
+                case HEIGHT -> { radius = 0.5f; tall = 2.2f; smoke = 6f; flame = 1f; thick = 1.5f; light = 2f; }
+                case DYING -> { radius = 0.35f; tall = 0.4f; smoke = 2.5f; flame = 0f; thick = 0.6f; light = 0f; }
                 default -> { radius = 0.38f; tall = 1.2f; smoke = 3.5f; flame = 1f; thick = 1f; light = 1.2f; }
             }
         }
@@ -187,11 +215,15 @@ final class Fires {
     }
 
     /**
-     * Gathers the squares that burn near the eye into sky.fires, the nearest first-come up to
-     * MOST, with their feet stood on the ground as the picture has it. Logic thread, which is the
-     * one that updates the game's fires. Nothing when the picture draws the game's sprites.
+     * Gathers the squares that burn near the eye into sky.fires, up to MOST of the nearest, with
+     * their feet stood on the ground as the picture has it. A fire on a square the character
+     * cannot see from where they stand gives no light: a light of the picture's casts no shadow,
+     * and would come through the walls between. Where fires burn side by side the smoke of each
+     * block of two squares by two rises as one column, from the block's first square. Logic
+     * thread, which is the one that updates the game's fires. Nothing when the picture draws the
+     * game's sprites.
      */
-    static void gather(SkyState sky, Terrain terrain, float eyeX, float eyeY, float eyeUp) {
+    static void gather(SkyState sky, Terrain terrain, int playerIndex, float eyeX, float eyeY) {
         sky.fireCount = 0;
         if (!own()) {
             return;
@@ -210,6 +242,9 @@ final class Fires {
             float distance = dx * dx + dy * dy;
             if (distance > WITHIN * WITHIN) {
                 continue;
+            }
+            if (fire.smoke) {
+                distance *= SMOKE_FARTHER * SMOKE_FARTHER;
             }
             int slot = sky.fireCount;
             if (slot == MOST) {
@@ -232,7 +267,37 @@ final class Fires {
             to[at + Y] = y + 0.5f;
             to[at + UP] = z * ViewCamera.LEVEL_HEIGHT + terrain.lift(x + 0.5f, y + 0.5f, z);
             to[at + SEED] = seed(x, y, z);
-            square(fire.lifeStage, fire.smoke, fire.isCampfire(), to, at);
+            square(size(fire.lifeStage, fire.perm), fire.smoke, fire.isCampfire(), to, at);
+            if (!square.isCouldSee(playerIndex)) {
+                to[at + LIGHT] = 0f;
+            }
+        }
+        smokeInBlocks(to, sky.fireCount);
+    }
+
+    /**
+     * Lets the smoke of each block of two squares by two that has fires on more than its first
+     * square rise from the first alone, thicker and as high as the highest: one column where four
+     * would stand through each other, each the cost of a fire to draw.
+     */
+    static void smokeInBlocks(float[] fires, int n) {
+        for (int i = 0; i < n; i++) {
+            int at = i * FLOATS;
+            int x = (int) Math.floor(fires[at + X]), y = (int) Math.floor(fires[at + Y]);
+            int firstX = x & ~1, firstY = y & ~1;
+            if (fires[at + SMOKE] <= 0f || x == firstX && y == firstY) {
+                continue;
+            }
+            for (int k = 0; k < n; k++) {
+                int first = k * FLOATS;
+                if (k != i && (int) Math.floor(fires[first + X]) == firstX && (int) Math.floor(fires[first + Y]) == firstY
+                        && Math.abs(fires[first + UP] - fires[at + UP]) < ViewCamera.LEVEL_HEIGHT * 0.5f && fires[first + SMOKE] > 0f) {
+                    fires[first + THICK] += fires[at + THICK] * BLOCK_SHARE;
+                    fires[first + SMOKE] = Math.max(fires[first + SMOKE], fires[at + SMOKE]);
+                    fires[at + SMOKE] = 0f;
+                    break;
+                }
+            }
         }
     }
 

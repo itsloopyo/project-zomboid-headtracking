@@ -21,6 +21,8 @@ final class FireDraw {
     static final int STEPS_NEAR = 40, STEPS_FAR = 14;
     /** How far off a fire's steps are fewest, in tiles. */
     static final float FEWEST_AT = 45f;
+    /** Up to this many fires in sight each is marched in all its steps. */
+    static final float CROWD = 12f;
     /** How far smoke is carried along the ground for each tile it rises, for each tile a second the air moves. */
     static final float DRIFT = 0.25f;
     /** The most it is carried for each tile it rises, however hard the wind: smoke leans over to about 55 degrees and no lower. */
@@ -92,7 +94,8 @@ final class FireDraw {
             vec2 fireAt(vec3 q) {
                 float h = q.z;
                 vec2 there = vec2(0.0);
-                if (uFlame > 0.0 && h < uTall * 1.3) {
+                // Noise is asked only within the reach of the flames and of the smoke: most of a fire's box is clear air.
+                if (uFlame > 0.0 && h < uTall * 1.3 && dot(q.xy, q.xy) < uRadius * uRadius * 1.96) {
                     float hn = clamp(h / uTall, 0.0, 1.0);
                     vec3 p = vec3(q.xy / uRadius * 1.6, hn * 4.0) + vec3(uSeed, uSeed * 0.7, -uTime * 2.6);
                     // The flames sway more the higher they reach, and narrow to tongues.
@@ -105,9 +108,9 @@ final class FireDraw {
                 }
                 if (uSmoke > 0.0 && h > uTall * 0.45) {
                     float rise = (h - uTall * 0.45) / uSmoke;
-                    if (rise < 1.0) {
-                        vec2 level = q.xy - uDrift * (h - uTall * 0.45);
-                        float wide = uRadius * (0.8 + 2.2 * sqrt(rise));
+                    vec2 level = q.xy - uDrift * (h - uTall * 0.45);
+                    float wide = uRadius * (0.8 + 2.2 * sqrt(max(rise, 0.0)));
+                    if (rise < 1.0 && dot(level, level) < wide * wide * 1.21) {
                         vec3 p = vec3(level / wide * 1.3, rise * 4.0) + vec3(uSeed * 1.3, uSeed * 0.4, -uTime * 0.45);
                         float puff = fbm(p);
                         float r = length(level / wide);
@@ -133,7 +136,11 @@ final class FireDraw {
                         discard;
                     }
                     float ahead = dot(uFoot, out3) / facing;
-                    if (ahead <= uNear || ahead > sceneAhead + 0.002) {
+                    // The door's face is 1.5 mm behind the glow and the grille's bars 2.5 mm before it,
+                    // along the way out: the glow shows where what the picture has there is no nearer
+                    // than a millimetre behind it, however slant it is seen, and the depth's own
+                    // steps, which grow with the square of the distance, are allowed for.
+                    if (ahead <= uNear || ahead > sceneAhead + 0.001 / -facing + ahead * ahead * 0.00002) {
                         discard;
                     }
                     vec3 q = ray * ahead - uFoot;
@@ -144,7 +151,8 @@ final class FireDraw {
                     float stir = fbm(vec3(on * vec2(3.0, 2.5) + uSeed, uTime * 1.3 - on.y * 1.5));
                     float heat = clamp(stir * 1.4 - on.y * 0.45 + 0.05, 0.0, 1.0);
                     float edge = smoothstep(1.0, 0.8, abs(on.x)) * smoothstep(0.0, 0.08, on.y) * smoothstep(1.0, 0.9, on.y);
-                    gl_FragColor = vec4(flameColour(heat) * (heat * 4.0 * edge * uFlame), 0.0);
+                    gl_FragData[0] = vec4(flameColour(heat) * (heat * 4.0 * edge * uFlame), 0.0);
+                    gl_FragData[1] = vec4(1.0);
                     return;
                 }
                 // The box the fire is in: see FireDraw.box, which is the same.
@@ -177,7 +185,7 @@ final class FireDraw {
                     if (here.x > 0.0) {
                         float heat = here.x * (1.25 - clamp(q.z / uTall, 0.0, 1.0) * 0.5);
                         light += through * flameColour(heat) * (here.x * uFlame * 9.0 * span / uRadius);
-                        through *= exp(-here.x * 0.6 * span / uRadius);
+                        through *= exp(-here.x * 1.2 * span / uRadius);
                     }
                     if (here.y > 0.0) {
                         float dense = here.y * uThick * span;
@@ -192,7 +200,9 @@ final class FireDraw {
                 if (through > 0.995 && dot(light, light) < 1e-6) {
                     discard;
                 }
-                gl_FragColor = vec4(light, 1.0 - through);
+                gl_FragData[0] = vec4(light, 1.0 - through);
+                // It moves by itself: the steadying keeps little of a frame before it (PipelineShaders.STEADY).
+                gl_FragData[1] = vec4(1.0);
             }
             """;
 
@@ -211,6 +221,8 @@ final class FireDraw {
     final float[] lights = new float[Fires.LIGHTS * 4];
     private final float[] weights = new float[Fires.LIGHTS];
     private final float[] box = new float[4];
+    /** Whether the log last said there were fires in sight. */
+    private boolean inSight;
     private static final String[] FIRE_AT = new String[Fires.LIGHTS];
 
     static {
@@ -247,6 +259,11 @@ final class FireDraw {
             }
         }
         Fires.lights(fires, count, camera.eyeX, camera.eyeY, camera.eyeUp, seconds(nanos), lights, weights);
+        if ((count > 0) != inSight) {
+            inSight = count > 0;
+            Log.info(inSight ? "first person fires in sight: " + state.fireCount + " squares that burn or smoke, " + (count - state.fireCount) + " hearths"
+                    : "first person fires: none in sight");
+        }
     }
 
     /** The clock the flames move by, which starts again each hour so it keeps its fine steps. */
@@ -321,6 +338,8 @@ final class FireDraw {
             return;
         }
         float tanX = tanHalfFieldOfView * aspect, tanY = tanHalfFieldOfView;
+        // Many fires in sight, a block burning, are each marched in fewer steps, down to half.
+        float crowd = Math.clamp((float) Math.sqrt(CROWD / (float) count), 0.5f, 1f);
         for (int i = 0; i < count; i++) {
             int at = i * Fires.FLOATS;
             float dx = fires[at + Fires.X] - camera.eyeX, dy = fires[at + Fires.Y] - camera.eyeY, du = fires[at + Fires.UP] + fires[at + Fires.TALL] * 0.5f - camera.eyeUp;
@@ -343,8 +362,10 @@ final class FireDraw {
         GL11.glDepthMask(false);
         GL11.glDisable(GL_CULL_FACE);
         GL11.glEnable(GL_BLEND);
-        // Light given over what the smoke leaves of what is behind. The picture's alpha is left alone: it says what mirrors.
-        GL14.glBlendFuncSeparate(GL_ONE, GL_ONE_MINUS_SRC_ALPHA, GL_ZERO, GL_ONE);
+        // Light given over what the smoke and flames leave of what is behind. The picture's alpha says how much a
+        // surface mirrors, and what stands before it hides its mirroring as much: a wet road behind a fire shows the fire.
+        // Into the second buffer, with frame blending on, a mark that what is there moves by itself.
+        GL14.glBlendFuncSeparate(GL_ONE, GL_ONE_MINUS_SRC_ALPHA, GL_ZERO, GL_ONE_MINUS_SRC_ALPHA);
         GL13.glActiveTexture(GL_TEXTURE0);
         GL11.glBindTexture(GL_TEXTURE_2D, depth);
         GL20.glUniform1i(program.at("uDepth"), 0);
@@ -371,7 +392,7 @@ final class FireDraw {
                 continue;
             }
             float distance = (float) Math.sqrt(this.far[order[k]]);
-            float steps = STEPS_NEAR + (STEPS_FAR - STEPS_NEAR) * Math.min(distance / FEWEST_AT, 1f);
+            float steps = (STEPS_NEAR + (STEPS_FAR - STEPS_NEAR) * Math.min(distance / FEWEST_AT, 1f)) * crowd;
             GL20.glUniform3f(program.at("uFoot"), fires[at + Fires.X] - camera.eyeX, fires[at + Fires.Y] - camera.eyeY, fires[at + Fires.UP] - camera.eyeUp);
             GL20.glUniform1f(program.at("uRadius"), fires[at + Fires.RADIUS]);
             GL20.glUniform1f(program.at("uTall"), fires[at + Fires.TALL]);

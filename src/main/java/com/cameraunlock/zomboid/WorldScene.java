@@ -2395,7 +2395,7 @@ final class WorldScene {
             sky.acrossY = rightY;
             exposure = adaptEye(player, fromOutside);
             Lightning.see(sky, pose.eyeX, pose.eyeY, pose.eyeUp, System.nanoTime());
-            Fires.gather(sky, terrain, pose.eyeX, pose.eyeY, pose.eyeUp);
+            Fires.gather(sky, terrain, player.getIndex(), pose.eyeX, pose.eyeY);
             playerIndex = player.getIndex();
             cell = IsoWorld.instance.currentCell;
             roofBuilder.newBuild();

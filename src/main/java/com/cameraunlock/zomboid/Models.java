@@ -438,8 +438,8 @@ final class Models {
         /** Notes a fire burning in a hearth just stood, as Fires.placeHearth gives it, in the room the pieces added now are in. */
         void fire(float[] hearth, float centreX, float centreY, float foot, int quarterTurns, float scale, float scaleUp, float seed) {
             if ((fireCount + 1) * Fires.FLOATS > fires.length) {
-                fires = Arrays.copyOf(fires, (fireCount + 2) * Fires.FLOATS);
-                fireRooms = Arrays.copyOf(fireRooms, fireCount + 2);
+                fires = Arrays.copyOf(fires, Math.max(2, fireCount * 2) * Fires.FLOATS);
+                fireRooms = Arrays.copyOf(fireRooms, Math.max(2, fireCount * 2));
             }
             Fires.placeHearth(hearth, centreX, centreY, foot, quarterTurns, scale, scaleUp, seed, fires, fireCount * Fires.FLOATS);
             fireRooms[fireCount++] = room;

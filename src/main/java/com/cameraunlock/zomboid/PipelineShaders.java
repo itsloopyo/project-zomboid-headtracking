@@ -3257,10 +3257,11 @@ final class PipelineShaders {
                 color += pow(texel.rgb, vec3(2.2)) * beams(vWorld, n, card ? 1.0 : 0.0);
                 color += pow(texel.rgb, vec3(2.2)) * flashLight(vWorld, n);
                 // The game's light of a square stops at its walls, and the firelight here does not: it
-                // falls only where the game has a square lit over the open ground's light, which near a
-                // fire is the fire's own, given back the way it comes from and as it flickers.
+                // falls only where the game has a square lit over the open ground's light the deep orange
+                // of a fire (0.61, 0.175, 0), and not the pale light of a lamp. There it is the fire's own,
+                // given back the way it comes from and as it flickers.
                 vec3 lampLit = max(pow(max(vColor.rgb, vec3(0.0)), vec3(2.2)) - pow(uOpenLight, vec3(2.2)), 0.0);
-                color += pow(texel.rgb, vec3(2.2)) * fireLight(vWorld, n) * clamp(dot(lampLit, vec3(0.3, 0.5, 0.2)) * 12.0, 0.0, 1.0);
+                color += pow(texel.rgb, vec3(2.2)) * fireLight(vWorld, n) * clamp((lampLit.r - 1.6 * lampLit.b) * 12.0, 0.0, 1.0);
                 // A lamp that is lit is brighter than anything it lights. The game lights the
                 // square a burning lamp stands on strongly, and in the dark that is how a lamp
                 // that is on is told: its pale parts, the shade and the glass, then give light

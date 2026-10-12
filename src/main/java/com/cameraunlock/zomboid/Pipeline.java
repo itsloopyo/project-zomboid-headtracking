@@ -222,7 +222,7 @@ final class Pipeline {
      * anything else. The people's light writes it through movesTarget, which is the scene's
      * target with this beside its colour. Only with FrameBlending on.
      */
-    private int sceneMoves, movesTarget, movesAlone;
+    private int sceneMoves, movesTarget, movesAlone, movesUndepthed;
     /** The scene's colour with nothing else beside it, for the holes shots leave, which read the scene's depth as they are laid. */
     private int decalTarget;
     private final ImpactDraw impacts = new ImpactDraw();
@@ -941,7 +941,7 @@ final class Pipeline {
                         fogStart, fogEnd);
             }
             // After the rain, which falls beyond and before a fire alike, and before any glass, which is before it.
-            fires.draw(decalTarget, sceneDepth, state, camera, tanHalfFieldOfView, aspect, near, far, width, height, asideX, asideY, frameNanos);
+            fires.draw(steadying ? movesUndepthed : decalTarget, sceneDepth, state, camera, tanHalfFieldOfView, aspect, near, far, width, height, asideX, asideY, frameNanos);
             // After the sky and the rain, which are both beyond any glass: the sky is painted
             // wherever nothing else is, over whatever was there.
             if (inTheGlass) {
@@ -4918,6 +4918,10 @@ final class Pipeline {
         movesTarget = target(sceneColor);
         GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + 1, GL_TEXTURE_2D, sceneMoves, 0);
         GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, sceneDepth, 0);
+        GL20.glDrawBuffers(BOTH_BUFFERS);
+        // The fires read the scene's depth as a texture, so it is not attached where they draw.
+        movesUndepthed = target(sceneColor);
+        GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + 1, GL_TEXTURE_2D, sceneMoves, 0);
         GL20.glDrawBuffers(BOTH_BUFFERS);
         keptAny = false;
         return complete("steadied picture");
