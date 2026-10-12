@@ -87,51 +87,30 @@ final class FireDraw {
 
             // The colour of burning gas by how hot it is, 0 to 1: deep red at its edge, orange,
             // yellow, and nearly white at the root of the flames.
-            // Noise folded at its middle: ridges that part the flames into tongues.
-            float turbulence(vec3 p) {
-                float sum = 0.5 * (1.0 - abs(2.0 * noise(p) - 1.0));
-                p = p * 2.03 + vec3(1.7, 9.2, 3.1);
-                sum += 0.25 * (1.0 - abs(2.0 * noise(p) - 1.0));
-                p = p * 2.03 + vec3(1.7, 9.2, 3.1);
-                return (sum + 0.125 * (1.0 - abs(2.0 * noise(p) - 1.0))) / 0.875;
-            }
-
             vec3 flameColour(float heat) {
                 vec3 c = mix(vec3(0.5, 0.04, 0.0), vec3(1.0, 0.32, 0.03), smoothstep(0.0, 0.45, heat));
                 c = mix(c, vec3(1.0, 0.72, 0.28), smoothstep(0.4, 0.8, heat));
                 return mix(c, vec3(1.0, 0.95, 0.8), smoothstep(0.8, 1.1, heat));
             }
 
-            // At q, from the fire's foot in world axes: x how much flame there is, y how thick the smoke.
-            vec2 fireAt(vec3 q) {
-                float h = q.z;
-                vec2 there = vec2(0.0);
-                // Noise is asked only within the reach of the flames and of the smoke: most of a fire's box is clear air.
-                if (uFlame > 0.0 && h < uTall * 1.3 && dot(q.xy, q.xy) < uRadius * uRadius * 4.0) {
-                    float hn = clamp(h / uTall, 0.0, 1.0);
-                    // Noise stretched up the flames and carried up them: the gas rises faster than the flames sway.
-                    vec3 p = vec3(q.xy / uRadius * 2.2, h / uTall * 2.3) + vec3(uSeed, uSeed * 0.7, -uTime * 2.4);
-                    vec2 warp = vec2(noise(p * 0.9), noise(p * 0.9 + 17.0)) - 0.5;
-                    vec2 at = q.xy / uRadius + warp * (0.15 + 1.8 * hn);
-                    // Wide at the root, narrowing to a point, and torn into tongues the higher they reach.
-                    float wide = (1.0 - pow(hn, 1.6) * 0.92) * (0.55 + 0.45 * smoothstep(0.0, 0.12, hn));
-                    float r = length(at) / max(wide, 0.05);
-                    float tongues = turbulence(p * vec3(3.4, 3.4, 1.6) + vec3(0.0, 0.0, -uTime * 1.3));
-                    float body = 1.0 - r - hn * 0.55 + (tongues - 0.64) * (1.3 + 2.6 * hn);
-                    there.x = smoothstep(0.0, 0.45, body) * (1.0 - smoothstep(0.9, 1.25, h / uTall));
+            // How thick the smoke is at q, from the fire's foot in world axes: it rolls up off the flames in
+            // billows, noise turned about by noise of its own, spreading as it rises and carried by the air.
+            float smokeAt(vec3 q) {
+                float h = q.z - uTall * 0.45;
+                if (h <= 0.0) {
+                    return 0.0;
                 }
-                if (uSmoke > 0.0 && h > uTall * 0.45) {
-                    float rise = (h - uTall * 0.45) / uSmoke;
-                    vec2 level = q.xy - uDrift * (h - uTall * 0.45);
-                    float wide = uRadius * (0.8 + 2.2 * sqrt(max(rise, 0.0)));
-                    if (rise < 1.0 && dot(level, level) < wide * wide * 1.21) {
-                        vec3 p = vec3(level / wide * 1.3, rise * 4.0) + vec3(uSeed * 1.3, uSeed * 0.4, -uTime * 0.45);
-                        float puff = fbm(p);
-                        float r = length(level / wide);
-                        there.y = clamp(puff * 1.6 - r - 0.25, 0.0, 1.0) * smoothstep(0.0, 0.12, rise) * (1.0 - smoothstep(0.55, 1.0, rise));
-                    }
+                float rise = h / uSmoke;
+                vec2 level = q.xy - uDrift * h;
+                float wide = uRadius * (0.8 + 2.2 * sqrt(rise));
+                if (rise >= 1.0 || dot(level, level) >= wide * wide * 1.44) {
+                    return 0.0;
                 }
-                return there;
+                vec3 p = vec3(level / wide * 1.2, rise * 3.0 - uTime * 0.3) + vec3(uSeed * 1.3, uSeed * 0.4, 0.0);
+                p += (vec3(noise(p * 0.6), noise(p * 0.6 + 7.3), noise(p * 0.6 + 13.1)) - 0.5) * 1.6;
+                float puff = fbm(p);
+                float r = length(level / wide);
+                return clamp((puff - 0.32 - r * 0.42) * 3.2, 0.0, 1.0) * smoothstep(0.0, 0.1, rise) * (1.0 - smoothstep(0.5, 1.0, rise));
             }
 
             void main() {
@@ -195,18 +174,13 @@ final class FireDraw {
                         break;
                     }
                     vec3 q = from + ray * t;
-                    vec2 here = fireAt(q);
-                    if (here.x > 0.0) {
-                        // Hottest at the root, cooling to red at the tips.
-                        float heat = here.x * (0.9 - clamp(q.z / uTall, 0.0, 1.0) * 0.8);
-                        light += through * flameColour(heat) * (here.x * uFlame * 2.4 * span / uRadius);
-                        through *= exp(-here.x * 1.2 * span / uRadius);
-                    }
-                    if (here.y > 0.0) {
-                        float dense = here.y * uThick * span;
-                        // Lit from below by the fire, less the higher it has risen, and by the light round it.
-                        float glowUp = exp(-max(q.z - uTall, 0.0) * 1.2 / uTall);
-                        vec3 lit = uAmbient * 0.35 + vec3(1.0, 0.42, 0.12) * (uFlame * 1.6 * glowUp);
+                    float dense = smokeAt(q) * uThick * span;
+                    if (dense > 0.0) {
+                        // Sooty and dark where it leaves the flames, paler as it thins; lit by the light round
+                        // it, and from below by the fire, only near the flames.
+                        float soot = mix(0.16, 0.42, smoothstep(0.0, 0.5, (q.z - uTall * 0.45) / uSmoke));
+                        float glowUp = exp(-max(q.z - uTall * 0.6, 0.0) * 2.5 / max(uTall, 0.3));
+                        vec3 lit = uAmbient * soot + vec3(1.0, 0.4, 0.1) * (uFlame * 0.5 * glowUp);
                         light += through * lit * (1.0 - exp(-dense));
                         through *= exp(-dense);
                     }
@@ -238,6 +212,7 @@ final class FireDraw {
     final float[] lights = new float[Fires.LIGHTS * 4];
     private final float[] weights = new float[Fires.LIGHTS];
     private final float[] box = new float[4];
+    private final FlameSheets sheets = new FlameSheets();
     /** Whether the log last said there were fires in sight. */
     private boolean inSight;
     private static final String[] FIRE_AT = new String[Fires.LIGHTS];
@@ -405,7 +380,9 @@ final class FireDraw {
                 (float) Math.pow(state.openBlue, 2.2) * kept);
         for (int k = 0; k < count; k++) {
             int at = order[k] * Fires.FLOATS;
-            if (!box(fires, at, driftX, driftY, camera, tanX, tanY, asideX, asideY, near, box)) {
+            // The flames are FlameSheets': what is marched here is smoke, and a stove's glow.
+            if (fires[at + Fires.KIND] == Fires.VOLUME && fires[at + Fires.SMOKE] <= 0f
+                    || !box(fires, at, driftX, driftY, camera, tanX, tanY, asideX, asideY, near, box)) {
                 continue;
             }
             float distance = (float) Math.sqrt(this.far[order[k]]);
@@ -428,6 +405,7 @@ final class FireDraw {
             GL11.glVertex2f(box[2], box[3]);
             GL11.glEnd();
         }
+        sheets.draw(fires, order, count, depth, camera, tanHalfFieldOfView, aspect, near, far, width, height, asideX, asideY, seconds(nanos));
         GL11.glDisable(GL_BLEND);
         GL11.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         GL11.glDepthMask(true);

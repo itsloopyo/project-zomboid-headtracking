@@ -26,6 +26,9 @@ final class FiresTests {
             Checks.run("aFireIsDrawnOverThePartOfThePictureItIsIn", FiresTests::aFireIsDrawnOverThePartOfThePictureItIsIn);
             Checks.run("theRowAndTheGamesOwnLookLeaveFireToTheGame", FiresTests::theRowAndTheGamesOwnLookLeaveFireToTheGame);
             Checks.run("theClockStartsAgainEachHour", FiresTests::theClockStartsAgainEachHour);
+            Checks.run("eachSheetPlaysTheLoopAtATimeOfItsOwn", FiresTests::eachSheetPlaysTheLoopAtATimeOfItsOwn);
+            Checks.run("embersRiseOffTheFlamesAndCool", FiresTests::embersRiseOffTheFlamesAndCool);
+            Checks.run("theJarHoldsTheFlamesLoop", FiresTests::theJarHoldsTheFlamesLoop);
         } finally {
             Own.set(rows);
             Quality.custom(custom);
@@ -211,5 +214,44 @@ final class FiresTests {
     private static void theClockStartsAgainEachHour() {
         long hour = 3_600_000_000_000L;
         check(FireDraw.seconds(hour + 2_000_000_000L) == 2f && FireDraw.seconds(hour - 1_000_000_000L) == 3599f, "the flames' clock counts the seconds within the hour");
+    }
+
+    private static void eachSheetPlaysTheLoopAtATimeOfItsOwn() {
+        for (float seconds = 0f; seconds < 120f; seconds += 0.37f) {
+            for (int sheet = 0; sheet < FlameSheets.SHEETS; sheet++) {
+                float frame = FlameSheets.frame(seconds, 5.5f, sheet);
+                check(frame >= 0f && frame < FlameSheets.FRAMES, "a frame of the loop at " + seconds + " s: " + frame);
+            }
+        }
+        check(FlameSheets.frame(3f, 5.5f, 0) != FlameSheets.frame(3f, 5.5f, 1) && FlameSheets.frame(3f, 5.5f, 0) != FlameSheets.frame(3f, 9.5f, 0),
+                "two sheets of a fire, and two fires, are at different frames");
+        float step = FlameSheets.frame(3.5f, 5.5f, 0) - FlameSheets.frame(3f, 5.5f, 0);
+        check(Math.abs(step - FlameSheets.FRAMES_A_SECOND * 0.5f) < 1e-3f || step < 0f, "it plays at its speed: " + step);
+    }
+
+    private static void embersRiseOffTheFlamesAndCool() {
+        float[] at = new float[4];
+        float radius = 0.5f, tall = 2.2f;
+        int flying = 0;
+        for (int i = 0; i < FlameSheets.EMBERS; i++) {
+            for (float seconds = 0f; seconds < 10f; seconds += 0.05f) {
+                FlameSheets.ember(i, 3.3f, seconds, radius, tall, at);
+                check(at[3] >= 0f && at[3] <= 1f, "an ember's heat is 0 to 1: " + at[3]);
+                check(at[0] >= tall * 0.25f, "it starts among the flames and only rises: " + at[0]);
+                float off = (float) Math.hypot(at[1], at[2]);
+                check(off < radius + 0.18f * FlameSheets.EMBER_LIFE * 1.4f * FlameSheets.EMBER_LIFE * 1.4f, "it wanders no further than the hot air takes it: " + off);
+                flying += at[3] > 0.05f ? 1 : 0;
+            }
+        }
+        check(flying > FlameSheets.EMBERS * 100, "most of the time most embers are flying: " + flying);
+        FlameSheets.ember(0, 3.3f, 1f, radius, tall, at);
+        float early = at[0];
+        FlameSheets.ember(0, 3.3f, 1.2f, radius, tall, at);
+        check(at[0] > early || at[3] > 0.9f, "an ember a moment later is higher, or has been thrown up anew");
+    }
+
+    private static void theJarHoldsTheFlamesLoop() {
+        // FlameSheets.read throws for a picture that is missing or not FRAMES frames laid ACROSS a row, each twice as high as wide.
+        check(FlameSheets.read() != null, "the flames' loop is in the jar and laid out as the sheets read it");
     }
 }
