@@ -14,7 +14,7 @@ final class FireLooks {
      * first it has: a burning square's and a lit hearth's, an IsoAnim, or null for none.
      */
     static Object look(Object object, String kind) {
-        // Taken as any object: a caller that passes a burning square's IsoFire then needs no game class to load.
+        // Taken as any object, for SkyState's and Models' arrays of them, which the tests make without the game's classes.
         ArrayList<IsoSpriteInstance> attached = ((IsoObject) object).getAttachedAnimSprite();
         if (attached == null) {
             return null;

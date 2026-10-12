@@ -6,6 +6,7 @@ import org.lwjgl.opengl.GL13;
 import org.lwjgl.opengl.GL14;
 import org.lwjgl.opengl.GL20;
 import org.lwjgl.opengl.GL30;
+import zombie.iso.sprite.IsoAnim;
 
 /**
  * Draws the fires a picture holds (Fires) into its light, after its world, its people, its sky
@@ -259,7 +260,7 @@ final class FireDraw {
                 }
                 System.arraycopy(placed.fires, i * Fires.FLOATS, fires, count * Fires.FLOATS, Fires.FLOATS);
                 flameLooks[count] = placed.fireLooks[i];
-                smokeLooks[count] = null;
+                smokeLooks[count] = placed.smokeLooks[i];
                 count++;
             }
         }
@@ -342,8 +343,9 @@ final class FireDraw {
      * Draws the fires into target, the picture's light with no depth of its own, behind what is
      * nearer the eye in depth, the picture's depth.
      */
-    void draw(int target, int depthTarget, int depth, SkyState state, ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float near,
-            float far, int width, int height, float asideX, float asideY, long nanos) {
+    void draw(int target, int depth, SkyState state, ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float near, float far,
+            int width, int height, float asideX, float asideY, long nanos) {
+        flamesShown = false;
         if (count == 0 || !program.use()) {
             return;
         }
@@ -398,9 +400,9 @@ final class FireDraw {
                 (float) Math.pow(state.openBlue, 2.2) * kept);
         float seconds = seconds(nanos);
         boolean own = Fires.own();
-        boolean flames = sheets.begin(depth, camera, tanHalfFieldOfView, aspect, near, far, width, height, asideX, asideY);
-        GL20.glUniform3f(sheets.uniform("uAmbient"), (float) Math.pow(state.openRed, 2.2) * kept, (float) Math.pow(state.openGreen, 2.2) * kept,
-                (float) Math.pow(state.openBlue, 2.2) * kept);
+        boolean drawn = sheets.begin(depth, camera, tanHalfFieldOfView, aspect, near, far, width, height, asideX, asideY,
+                (float) Math.pow(state.openRed, 2.2) * kept, (float) Math.pow(state.openGreen, 2.2) * kept, (float) Math.pow(state.openBlue, 2.2) * kept);
+        boolean flames = drawn && sheets.loopReady();
         // Fire by fire, the furthest first, so a nearer fire's smoke stands before the flames of one behind it: the
         // picture's own smoke, or a stove's glow, marched here, then its flames and embers; or the game's own smoke and
         // flames, its frames stood up where they burn.
@@ -411,41 +413,64 @@ final class FireDraw {
                 if (flames && fires[at + Fires.KIND] == Fires.VOLUME && fires[at + Fires.FLAME] > 0f) {
                     sheets.fire(fires, at, camera, seconds);
                 }
-            } else {
+            } else if (drawn) {
                 if (smokeLooks[order[k]] != null) {
-                    sheets.look(fires, at, (zombie.iso.sprite.IsoAnim) smokeLooks[order[k]], true, camera, seconds);
+                    sheets.look(fires, at, (IsoAnim) smokeLooks[order[k]], true, camera, seconds);
                 }
-                if (flameLooks[order[k]] != null) {
-                    sheets.look(fires, at, (zombie.iso.sprite.IsoAnim) flameLooks[order[k]], false, camera, seconds);
+                // A shut hearth shows no flame: what the game attaches to it is behind its door.
+                if (flameLooks[order[k]] != null && fires[at + Fires.FLAME] > 0f) {
+                    sheets.look(fires, at, (IsoAnim) flameLooks[order[k]], false, camera, seconds);
                 }
             }
         }
-        if (flames) {
-            // The flames in the picture's depth, where they are more than a glow, so glass drawn after them behind a
-            // fire is hidden by it and what is drawn by depth after, the air, sees them where they stand.
-            GL30.glBindFramebuffer(GL_FRAMEBUFFER, depthTarget);
-            GL11.glDisable(GL_BLEND);
-            GL11.glColorMask(false, false, false, false);
-            GL11.glEnable(GL_DEPTH_TEST);
-            GL11.glDepthFunc(GL_LEQUAL);
-            GL11.glDepthMask(true);
-            GL11.glBindTexture(GL_TEXTURE_2D, Pipeline.none());
-            sheets.depthOnly(true);
-            for (int k = 0; k < count; k++) {
-                int at = order[k] * Fires.FLOATS;
-                if (own && fires[at + Fires.KIND] == Fires.VOLUME && fires[at + Fires.FLAME] > 0f) {
-                    sheets.fire(fires, at, camera, seconds);
-                } else if (!own && flameLooks[order[k]] != null) {
-                    sheets.look(fires, at, (zombie.iso.sprite.IsoAnim) flameLooks[order[k]], false, camera, seconds);
-                }
-            }
-            sheets.depthOnly(false);
-            GL11.glColorMask(true, true, true, true);
-            GL11.glDisable(GL_DEPTH_TEST);
-        }
+        flamesShown = own ? flames : drawn;
         GL11.glDisable(GL_BLEND);
         GL11.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         GL11.glDepthMask(true);
+    }
+
+    /** Whether the last draw had flames in the picture, which glass drawn after them must not cover where they stand before it. */
+    private boolean flamesShown;
+
+    boolean flamesShown() {
+        return flamesShown;
+    }
+
+    /**
+     * Writes the flames of the last draw into the depth of target, where they are more than a
+     * glow, and nothing into its light: the window panes drawn next then stay behind a fire that
+     * stands before them. The picture puts its own depth back after the panes, so nothing drawn
+     * by depth later takes a flame for a surface.
+     */
+    void depth(int target, ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float near, float far, int width, int height, float asideX,
+            float asideY, long nanos) {
+        GL30.glBindFramebuffer(GL_FRAMEBUFFER, target);
+        GL11.glViewport(0, 0, width, height);
+        GL11.glDisable(GL_BLEND);
+        GL11.glDisable(GL_CULL_FACE);
+        GL11.glColorMask(false, false, false, false);
+        GL11.glEnable(GL_DEPTH_TEST);
+        GL11.glDepthFunc(GL_LEQUAL);
+        GL11.glDepthMask(true);
+        // The depth being written is not read: the fade at surfaces is the depth test's.
+        if (sheets.begin(Pipeline.none(), camera, tanHalfFieldOfView, aspect, near, far, width, height, asideX, asideY, 0f, 0f, 0f)) {
+            float seconds = seconds(nanos);
+            boolean own = Fires.own();
+            sheets.depthOnly(true);
+            for (int k = 0; k < count; k++) {
+                int at = order[k] * Fires.FLOATS;
+                if (own && sheets.loopReady() && fires[at + Fires.KIND] == Fires.VOLUME && fires[at + Fires.FLAME] > 0f) {
+                    sheets.fire(fires, at, camera, seconds);
+                } else if (!own && flameLooks[order[k]] != null && fires[at + Fires.FLAME] > 0f) {
+                    sheets.look(fires, at, (IsoAnim) flameLooks[order[k]], false, camera, seconds);
+                }
+            }
+            sheets.depthOnly(false);
+        }
+        GL11.glColorMask(true, true, true, true);
+        GL11.glDisable(GL_DEPTH_TEST);
+        GL11.glDisable(GL_BLEND);
+        GL11.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     }
 
     /** Marches the fire at `at`, k-th in order, where it has smoke or is a stove's glow: its flames are FlameSheets'. */

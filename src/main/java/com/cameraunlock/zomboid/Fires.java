@@ -30,11 +30,12 @@ final class Fires {
      * sets its flames apart from the next fire's; whether it is a body of flame (VOLUME) or the
      * glow through a stove's grille (WINDOW). A window also has the way along it and the way out
      * of it on the map, and its half width and height. Then the light: how strong, and where.
-     * Last, how far over its foot a ceiling stops its smoke, or 0 where nothing does.
+     * Then how far over its foot a ceiling stops its smoke, or 0 where nothing does. Last, the
+     * scale the game draws its own frames of the fire at: 1 for a square that burns, half for a hearth.
      */
     static final int X = 0, Y = 1, UP = 2, RADIUS = 3, TALL = 4, SMOKE = 5, FLAME = 6, THICK = 7, SEED = 8, KIND = 9,
-            ALONG_X = 10, ALONG_Y = 11, OUT_X = 12, OUT_Y = 13, WIDE = 14, HIGH = 15, LIGHT = 16, LIGHT_X = 17, LIGHT_Y = 18, LIGHT_UP = 19, CEILING = 20;
-    static final int FLOATS = 21;
+            ALONG_X = 10, ALONG_Y = 11, OUT_X = 12, OUT_Y = 13, WIDE = 14, HIGH = 15, LIGHT = 16, LIGHT_X = 17, LIGHT_Y = 18, LIGHT_UP = 19, CEILING = 20, LOOK = 21;
+    static final int FLOATS = 22;
     static final float VOLUME = 0f, WINDOW = 1f;
 
     /** The most squares that burn a picture draws, the nearest, and the most fires that light it. */
@@ -88,7 +89,6 @@ final class Fires {
                 && Character.isDigit(name.charAt(kind.length() + 1));
     }
 
-
     /** The sizes of a square's fire: a small flame, a larger one with smoke, the fire at its height, and smoke alone as it dies. */
     static final int SMALL = 0, MEDIUM = 1, HEIGHT = 2, DYING = 3;
 
@@ -139,6 +139,7 @@ final class Fires {
         to[at + FLAME] = flame;
         to[at + THICK] = thick;
         to[at + KIND] = VOLUME;
+        to[at + LOOK] = 1f;
         to[at + LIGHT] = light;
         to[at + LIGHT_X] = to[at + X];
         to[at + LIGHT_Y] = to[at + Y];
@@ -210,6 +211,8 @@ final class Fires {
         to[at + LIGHT_Y] = to[at + Y] + to[at + OUT_Y] * out;
         to[at + LIGHT_UP] = foot + (hearth[HEARTH_UP] + Math.max(hearth[HEARTH_TALL], hearth[HEARTH_HIGH]) * 0.5f + hearth[HEARTH_LIGHT_UP]) * scaleUp;
         to[at + CEILING] = 0f;
+        // IsoFireplace.updateFireSprite: a hearth's flames are drawn at half the game's scale.
+        to[at + LOOK] = 0.5f;
     }
 
     /**
@@ -220,19 +223,27 @@ final class Fires {
      * The heights are read off the sprites, at 192 pixels a level.
      */
     static float[] unmodelled(String sprite) {
-        if (sprite != null && sprite.startsWith("crafted_02_4")) {
-            return BRAZIER;
+        if (sprite == null) {
+            return OPEN;
         }
-        if (sprite != null && sprite.startsWith("crafted_05_")) {
-            return FORGE;
-        }
-        return OPEN;
+        return switch (sprite) {
+            case "crafted_02_42" -> BRAZIER;
+            case "crafted_05_4", "crafted_05_5" -> OVEN_LOW;
+            case "crafted_05_6", "crafted_05_7" -> OVEN_HIGH;
+            default -> OPEN;
+        };
     }
 
     private static final float[] BRAZIER = {0f, 0f, 0.42f, 0.16f, 0.5f, 1.5f, 0.3f, VOLUME, 0f, 0f, 0.9f, 0f, 0f};
-    /** Shut: its smoke rises from the chimney's top, 2.1 tiles up, and its light is its body's glow, low on it. */
-    private static final float[] FORGE = {0f, 0f, 2.1f, 0.06f, 0f, 1.6f, 0.35f, VOLUME, 0f, 0f, 0.6f, 0f, -1.7f};
+    /**
+     * A crafted oven is shut: its smoke rises from its chimney's top and its light is its body's
+     * glow, low on it. The chimney of crafted_05_4/5 tops out at pixel 87 and of 6/7 at 53.
+     */
+    private static final float[] OVEN_LOW = {0f, 0f, 1.72f, 0.06f, 0f, 1.6f, 0.35f, VOLUME, 0f, 0f, 0.6f, 0f, -1.32f};
+    private static final float[] OVEN_HIGH = {0f, 0f, 2.15f, 0.06f, 0f, 1.6f, 0.35f, VOLUME, 0f, 0f, 0.6f, 0f, -1.75f};
     private static final float[] OPEN = {0f, 0f, 0.02f, 0.18f, 0.45f, 1.5f, 0.3f, VOLUME, 0f, 0f, 0.8f, 0f, 0f};
+    /** A lit barbecue shows no flame: its smoke rises off the grill. */
+    static final float[] BARBECUE = {0f, 0f, 0.85f, 0.15f, 0f, 1.2f, 0.25f, VOLUME, 0f, 0f, 0.3f, 0f, -0.5f};
 
     /** A number of a square's own, the same each time it is asked, that sets one fire's flames apart from the next. */
     static float seed(int x, int y, int z) {
@@ -320,7 +331,10 @@ final class Fires {
         if (!square.isCouldSee(playerIndex)) {
             to[at + LIGHT] = 0f;
         }
-        to[at + CEILING] = square.getRoomID() != -1L ? ViewCamera.LEVEL_HEIGHT - UNDER_CEILING : 0f;
+        // A room's ceiling is the floor over it, as long as that has not burnt away.
+        IsoGridSquare over = IsoWorld.instance.currentCell.getGridSquare(x, y, z + 1);
+        boolean ceiled = square.getRoomID() != -1L && over != null && over.getFloor() != null;
+        to[at + CEILING] = ceiled ? ViewCamera.LEVEL_HEIGHT - UNDER_CEILING : 0f;
         sky.flameLook[slot] = FireLooks.look(fire, "Fire");
         sky.smokeLook[slot] = FireLooks.look(fire, "Smoke");
     }

@@ -52,6 +52,7 @@ import zombie.iso.objects.IsoBarricade;
 import zombie.iso.objects.IsoCurtain;
 import zombie.iso.objects.IsoDeadBody;
 import zombie.iso.objects.IsoDoor;
+import zombie.iso.objects.IsoBarbecue;
 import zombie.iso.objects.IsoFireplace;
 import zombie.iso.objects.IsoLightSwitch;
 import zombie.iso.objects.IsoTelevision;
@@ -3969,6 +3970,12 @@ final class WorldScene {
                             restless |= moves(object.getSprite()) || moves(object.getOverlaySprite());
                             ArrayList<IsoSpriteInstance> attached = object.getAttachedAnimSprite();
                             // The game's flames and smoke are nothing of the build's: the picture draws them each picture (Fires).
+                            // Whether a hearth burns is, and the game marks nothing when one is lit or put out.
+                            if (object instanceof IsoFireplace hearth) {
+                                thing = sum(thing, hearth.isLit() ? 1 : 2);
+                            } else if (object instanceof IsoBarbecue barbecue) {
+                                thing = sum(thing, barbecue.isLit() ? 1 : 2);
+                            }
                             if (attached != null) {
                                 for (int over = 0; over < attached.size(); over++) {
                                     IsoSprite on = attached.get(over).parentSprite;
@@ -5061,11 +5068,9 @@ final class WorldScene {
                 if (FirstPerson.TRACE) {
                     tally(sprite, worn(texture) - before);
                 }
-                if (object instanceof IsoFireplace hearth && hearth.isLit() && placed.fireCount == firesBefore) {
-                    // A lit hearth the mod has no model of stands as the game's sprite, its fire over the middle of its square.
-                    float[] lift = geometry.lift;
-                    float foot = z * ViewCamera.LEVEL_HEIGHT + (lift[0] + lift[1] + lift[2] + lift[3]) / 4f + geometry.raised * ViewCamera.LEVEL_HEIGHT;
-                    placed.fire(Fires.unmodelled(sprite.getName()), x + 0.5f, y + 0.5f, foot, 0, 1f, 1f, Fires.seed(x, y, z), FireLooks.look(object, "Fire"));
+                boolean lit = object instanceof IsoFireplace hearth && hearth.isLit() || object instanceof IsoBarbecue barbecue && barbecue.isLit();
+                if (lit && placed.fireCount == firesBefore) {
+                    furnishingBuilder.addFireOverSprite(object, sprite, x, y, z);
                 }
                 if (unexplored && object == floor) {
                     cornerLights(localX, localY);

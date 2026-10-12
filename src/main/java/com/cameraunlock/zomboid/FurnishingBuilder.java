@@ -5,6 +5,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import zombie.core.textures.Texture;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoObject;
+import zombie.iso.objects.IsoBarbecue;
 import zombie.iso.objects.IsoFireplace;
 import zombie.iso.objects.IsoTelevision;
 import zombie.iso.sprite.IsoSprite;
@@ -405,7 +406,8 @@ final class FurnishingBuilder {
                 dyeTexture, piece.dyed, dyeU, dyeV, alsoDyed, alsoU, alsoV);
         float[] fire = burning ? Fires.hearth(model.name) : null;
         if (fire != null) {
-            build.placed.fire(fire, x + centreX, y + centreY, foot, piece.turns, piece.scale, piece.scaleUp, Fires.seed(x, y, z), FireLooks.look(object, "Fire"));
+            build.placed.fire(fire, x + centreX, y + centreY, foot, piece.turns, piece.scale, piece.scaleUp, Fires.seed(x, y, z), FireLooks.look(object, "Fire"),
+                    FireLooks.look(object, "Smoke"));
         }
         if (piece.pictured) {
             // Each point of the pane looks at where the sprite paints it: the pane's face is paneY in front of the model's origin.
@@ -434,6 +436,31 @@ final class FurnishingBuilder {
             }
         }
         return true;
+    }
+
+    /**
+     * Notes the fire of a lit hearth or barbecue that addFurniture stood no model of, which the
+     * game's sprite stands for: where the mod's model of it would hold it, as its piece places the
+     * model, where there is one (furniture of the mod's own switched off), a lit drum's in the drum;
+     * otherwise over the middle of its square, as its sprite shows it (Fires.unmodelled).
+     */
+    void addFireOverSprite(IsoObject object, IsoSprite sprite, int x, int y, int z) {
+        float[] lift = build.geometry.lift;
+        float foot = z * ViewCamera.LEVEL_HEIGHT + (lift[0] + lift[1] + lift[2] + lift[3]) / 4f + build.geometry.raised * ViewCamera.LEVEL_HEIGHT;
+        Object flames = FireLooks.look(object, "Fire"), smoke = FireLooks.look(object, "Smoke");
+        float seed = Fires.seed(x, y, z);
+        if (object instanceof IsoBarbecue) {
+            build.placed.fire(Fires.BARBECUE, x + 0.5f, y + 0.5f, foot, 0, 1f, 1f, seed, flames, smoke);
+            return;
+        }
+        Furniture piece = Furniture.known(sprite);
+        String model = piece == null || piece.model == null ? null : piece.model.name.equals("barrel") ? "burn_barrel" : piece.model.name;
+        float[] hearth = model == null ? null : Fires.hearth(model);
+        if (hearth != null) {
+            build.placed.fire(hearth, x + piece.centreX, y + piece.centreY, foot + piece.raised, piece.turns, piece.scale, piece.scaleUp, seed, flames, smoke);
+        } else {
+            build.placed.fire(Fires.unmodelled(sprite.getName()), x + 0.5f, y + 0.5f, foot, 0, 1f, 1f, seed, flames, smoke);
+        }
     }
 
     /**

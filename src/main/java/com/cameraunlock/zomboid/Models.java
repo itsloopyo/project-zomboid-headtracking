@@ -431,6 +431,8 @@ final class Models {
          * picture draws the game's look. Held as objects: the tests build without the game's classes.
          */
         Object[] fireLooks = new Object[0];
+        /** The same of each fire's smoke. */
+        Object[] smokeLooks = new Object[0];
         int fireCount;
 
         void clear() {
@@ -441,14 +443,16 @@ final class Models {
         }
 
         /** Notes a fire burning in a hearth just stood, as Fires.placeHearth gives it, in the room the pieces added now are in. */
-        void fire(float[] hearth, float centreX, float centreY, float foot, int quarterTurns, float scale, float scaleUp, float seed, Object look) {
+        void fire(float[] hearth, float centreX, float centreY, float foot, int quarterTurns, float scale, float scaleUp, float seed, Object look, Object smokeLook) {
             if ((fireCount + 1) * Fires.FLOATS > fires.length) {
                 fires = Arrays.copyOf(fires, Math.max(2, fireCount * 2) * Fires.FLOATS);
                 fireRooms = Arrays.copyOf(fireRooms, Math.max(2, fireCount * 2));
                 fireLooks = Arrays.copyOf(fireLooks, Math.max(2, fireCount * 2));
+                smokeLooks = Arrays.copyOf(smokeLooks, Math.max(2, fireCount * 2));
             }
             Fires.placeHearth(hearth, centreX, centreY, foot, quarterTurns, scale, scaleUp, seed, fires, fireCount * Fires.FLOATS);
             fireLooks[fireCount] = look;
+            smokeLooks[fireCount] = smokeLook;
             fireRooms[fireCount++] = room;
         }
 

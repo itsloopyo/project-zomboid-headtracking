@@ -225,6 +225,8 @@ final class Pipeline {
     private int sceneMoves, movesTarget, movesAlone, movesUndepthed;
     /** The scene's colour with nothing else beside it, for the holes shots leave, which read the scene's depth as they are laid. */
     private int decalTarget;
+    /** The scene's depth as it was before the fires' flames were put in it for the window panes, and put back after them. */
+    private int keptDepth, keptDepthTarget;
     private final ImpactDraw impacts = new ImpactDraw();
     /** Whether this frame's picture shows where shots struck. */
     private boolean struck;
@@ -941,14 +943,23 @@ final class Pipeline {
                         fogStart, fogEnd);
             }
             // After the rain, which falls beyond and before a fire alike, and before any glass, which is before it.
-            fires.draw(steadying ? movesUndepthed : decalTarget, sceneTarget, sceneDepth, state, camera, tanHalfFieldOfView, aspect, near, far, width, height, asideX, asideY, frameNanos);
+            fires.draw(steadying ? movesUndepthed : decalTarget, sceneDepth, state, camera, tanHalfFieldOfView, aspect, near, far, width, height, asideX, asideY, frameNanos);
             // After the sky and the rain, which are both beyond any glass: the sky is painted
             // wherever nothing else is, over whatever was there.
             if (inTheGlass) {
                 showReflection(camera, tanHalfFieldOfView, aspect, near, far);
             }
+            // A pane behind a fire is hidden by its flames: they are put in the depth for the panes alone.
+            boolean flamesBeforeGlass = !overhead && fires.flamesShown();
+            if (flamesBeforeGlass) {
+                copyDepth(sceneTarget, keptDepthTarget);
+                fires.depth(sceneTarget, camera, tanHalfFieldOfView, aspect, near, far, width, height, asideX, asideY, frameNanos);
+            }
             if (!overhead) {
                 drawPanes(camera, state, tanHalfFieldOfView, aspect, fogStart, fogEnd);
+            }
+            if (flamesBeforeGlass) {
+                copyDepth(keptDepthTarget, sceneTarget);
             }
             if (glazed) {
                 drawGlass();
@@ -1162,8 +1173,8 @@ final class Pipeline {
         if (struck) {
             drawDebris(view.scope.pictureTarget, Scope.PICTURE, Scope.PICTURE, view.scope.sees, tan, 1f, Scope.PICTURE_NEAR, far, 0f, 0f, fogStart, fogEnd);
         }
-        fires.draw(view.scope.decalTarget, view.scope.pictureTarget, view.scope.pictureDepth, state, view.scope.sees, tan, 1f, Scope.PICTURE_NEAR, far,
-                Scope.PICTURE, Scope.PICTURE, 0f, 0f, frameNanos);
+        fires.draw(view.scope.decalTarget, view.scope.pictureDepth, state, view.scope.sees, tan, 1f, Scope.PICTURE_NEAR, far, Scope.PICTURE, Scope.PICTURE,
+                0f, 0f, frameNanos);
         view.scope.developed();
     }
 
@@ -1876,6 +1887,14 @@ final class Pipeline {
         before.set(camera);
         aimBefore.set(aim);
         GL11.glDepthMask(true);
+    }
+
+    /** Copies the depth of one of the picture's targets into another of its size. */
+    private void copyDepth(int from, int to) {
+        GL30.glBindFramebuffer(GL_READ_FRAMEBUFFER, from);
+        GL30.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, to);
+        GL30.glBlitFramebuffer(0, 0, width, height, 0, 0, width, height, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+        GL30.glBindFramebuffer(GL_FRAMEBUFFER, to);
     }
 
     /** Loads the matrices of a picture drawn from a camera, drawn aside as the world was. */
@@ -5006,6 +5025,13 @@ final class Pipeline {
         }
         decalTarget = target(sceneColor);
         problem = complete("bullet hole");
+        if (problem != null) {
+            return problem;
+        }
+        keptDepth = texture(GL_DEPTH_COMPONENT24, width, height, GL_DEPTH_COMPONENT, GL_FLOAT, GL_NEAREST);
+        keptDepthTarget = target(sceneColor);
+        GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, keptDepth, 0);
+        problem = complete("depth kept from the fires");
         if (problem != null) {
             return problem;
         }

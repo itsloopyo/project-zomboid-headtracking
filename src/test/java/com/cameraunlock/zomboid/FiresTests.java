@@ -276,5 +276,10 @@ final class FiresTests {
         check(fire[Fires.LIGHT] > 0f && fire[Fires.LIGHT_UP] > 0.2f && fire[Fires.LIGHT_UP] < 0.8f, "and glows low on its body: " + fire[Fires.LIGHT_UP]);
         Fires.placeHearth(Fires.unmodelled("some_other_hearth"), 3.5f, 4.5f, 0f, 0, 1f, 1f, 0f, fire, 0);
         check(fire[Fires.FLAME] == 1f && fire[Fires.X] == 3.5f && fire[Fires.Y] == 4.5f && fire[Fires.CEILING] == 0f, "any other burns on the middle of its square");
+        check(Fires.unmodelled("crafted_02_43") == Fires.unmodelled("crafted_05_12") && Fires.unmodelled("crafted_05_4") != Fires.unmodelled("crafted_05_6"),
+                "only the brazier the game lights and the crafted ovens are told apart, each oven by its chimney");
+        check(fire[Fires.LOOK] == 0.5f && square(Fires.HEIGHT, false, false)[Fires.LOOK] == 1f, "the game draws a hearth's flames at half the scale of a square's");
+        Fires.placeHearth(Fires.BARBECUE, 3.5f, 4.5f, 0f, 0, 1f, 1f, 0f, fire, 0);
+        check(fire[Fires.FLAME] == 0f && fire[Fires.SMOKE] > 0f && fire[Fires.LIGHT_UP] < fire[Fires.UP], "a lit barbecue smokes off its grill and glows under it");
     }
 }
