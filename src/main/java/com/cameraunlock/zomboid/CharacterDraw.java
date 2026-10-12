@@ -675,8 +675,10 @@ final class CharacterDraw {
                     discard;
                 }
                 vec3 color = texel.rgb;
-                if (vStump > 0.05) {
-                    color = mix(color, meat(vRest), smoothstep(0.15, 0.8, vStump));
+                // Most of a cut end's corners are only partly on the pressed bones: the meat reaches up the
+                // stump from them, as far as the skin the bone above pulls in over the end.
+                if (vStump > 0.02) {
+                    color = mix(color, meat(vRest), smoothstep(0.03, 0.35, vStump));
                 }
                 // How bright the texture is round a texel, a few dots off each way, how much
                 // brighter the texel is than that, and which way over the texture it gets brighter.
