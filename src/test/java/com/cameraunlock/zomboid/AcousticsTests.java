@@ -175,7 +175,16 @@ final class AcousticsTests {
         check(open.decayMs < bathroom.decayMs, "a doorway left open lets the ringing out sooner: " + open.decayMs);
         check(soft.highCutHz < bathroom.highCutHz && soft.hfDecayPercent < bathroom.hfDecayPercent, "soft things take the top off the ringing");
         for (Acoustics.Ring ring : new Acoustics.Ring[] {bathroom, soft, warehouse, open}) {
-            check(ring.decayMs >= 150f && ring.decayMs <= 4000f && ring.wetDb >= -22f && ring.wetDb <= -4f, "every room's ring is in its bounds: " + ring);
+            check(ring.decayMs >= 150f && ring.decayMs <= 4000f && ring.wetDb >= -22f && ring.wetDb <= -3f, "every room's ring is in its bounds: " + ring);
+        }
+        check(warehouse.wetDb > -6f, "a warehouse rings loud enough to be heard over a shot's own tail: " + warehouse.wetDb);
+        check(open.wetDb < bathroom.wetDb, "an open doorway lets some of the ringing out: " + open.wetDb + " and " + bathroom.wetDb);
+        for (int squares : new int[] {4, 12, 40, 200, 2000}) {
+            Acoustics.Ring hard = new Acoustics.Ring(), medium = new Acoustics.Ring(), softer = new Acoustics.Ring();
+            Acoustics.room(squares, Acoustics.absorption("garage"), 0f, hard);
+            Acoustics.room(squares, Acoustics.absorption("hall"), 0f, medium);
+            Acoustics.room(squares, Acoustics.absorption("bedroom"), 0f, softer);
+            check(hard.wetDb >= medium.wetDb && medium.wetDb > softer.wetDb && (hard.wetDb > medium.wetDb || hard.wetDb == -3f), squares + " squares: harder rings louder, or both at the most, " + hard.wetDb + ", " + medium.wetDb + ", " + softer.wetDb);
         }
     }
 

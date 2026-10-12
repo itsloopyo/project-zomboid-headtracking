@@ -40,6 +40,8 @@ final class Acoustics {
     /** How far a way round is followed, in decibels: past this nothing is quieter than MOST anyway. */
     private static final float SEARCHED = MOST + PER_TILE * 48f;
     private static final int RAYS = 16;
+    /** A room's ring: at WET_VOLUME cubic metres, WET_HARD dB for bare tile and concrete, WET_SOFT for soft furnishing. */
+    private static final float WET_HARD = -5f, WET_SOFT = -13f, WET_PER_DECADE = 2f, WET_VOLUME = 15f;
     private static final float RAY_REACH = 30f;
 
     /** The map as sound reads it: RoomSight.Ground and what each edge does to a sound. */
@@ -78,8 +80,11 @@ final class Acoustics {
     /**
      * How a room rings: Sabine's decay for its volume and the sound its surfaces and openings
      * take up, a tile taken as a metre. The level of the ringing against what is heard straight
-     * comes from the room's constant, set down by 18 dB so that a room's ring sits under its
-     * sounds as a mix wants, and kept between -22 and -4 dB.
+     * goes by how hard the room is (WET_HARD, WET_SOFT, between them by absorption), up
+     * WET_PER_DECADE for each tenfold of volume over WET_VOLUME, and down by the share of what
+     * the room takes up that goes out of its openings; kept between -22 and -3 dB. The game's
+     * own sounds carry long tails of their own, and a big room's ring under -18 dB was lost
+     * under them (measured: a 1745 square garage at -18 dB added about 1 dB to a shot's tail).
      *
      * @param squares    the room's floor area
      * @param absorption how much of what reaches its surfaces they take: see absorption
@@ -92,8 +97,6 @@ final class Acoustics {
         float taken = surface * absorption + open;
         float seconds = Math.max(0.15f, Math.min(4f, 0.161f * volume / taken));
         float between = 4f * volume / surface;
-        float averaged = Math.min(0.9f, taken / surface);
-        float constant = taken / (1f - averaged);
         into.decayMs = seconds * 1000f;
         into.earlyMs = Math.max(1f, Math.min(300f, between / 343f * 1000f));
         into.lateMs = Math.max(1f, Math.min(100f, into.earlyMs * 2f + 4f));
@@ -101,7 +104,10 @@ final class Acoustics {
         into.highCutHz = Math.max(3000f, Math.min(12000f, 12000f - absorption * 30000f));
         into.diffusion = 100f;
         into.density = 100f;
-        into.wetDb = Math.max(-22f, Math.min(-4f, (float) (10.0 * Math.log10(201.0 / constant)) - 18f));
+        float hardness = Math.max(0f, Math.min(1f, (absorption - 0.05f) / 0.2f));
+        float kept = surface * absorption / taken;
+        into.wetDb = Math.max(-22f, Math.min(-3f, WET_HARD + (WET_SOFT - WET_HARD) * hardness
+                + WET_PER_DECADE * (float) Math.log10(volume / WET_VOLUME) + 10f * (float) Math.log10(kept)));
     }
 
     /**
