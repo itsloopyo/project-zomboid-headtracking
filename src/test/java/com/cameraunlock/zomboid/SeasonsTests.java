@@ -11,7 +11,10 @@ final class SeasonsTests {
         Checks.run("leafOnlyFallsThroughAutumnAndOnlyGrowsThroughSpring", SeasonsTests::leafOnlyFallsThroughAutumnAndOnlyGrowsThroughSpring);
         Checks.run("litterDeepensThroughAutumnAndRotsThroughSpring", SeasonsTests::litterDeepensThroughAutumnAndRotsThroughSpring);
         Checks.run("leavesTurnBeforeTheyFallAndAreBrownWhenTheLastFalls", SeasonsTests::leavesTurnBeforeTheyFallAndAreBrownWhenTheLastFalls);
-        Checks.run("theStageMovesOnlyWhenWhatTheSeasonShapesDoes", SeasonsTests::theStageMovesOnlyWhenWhatTheSeasonShapesDoes);    }
+        Checks.run("theStageMovesOnlyWhileATreeChanges", SeasonsTests::theStageMovesOnlyWhileATreeChanges);
+        Checks.run("theGamesScheduleIsTheGames", SeasonsTests::theGamesScheduleIsTheGames);
+        Checks.run("theShaderWorksOutWhatTheJavaDoes", SeasonsTests::theShaderWorksOutWhatTheJavaDoes);
+    }
 
     private static void leavesTurnBeforeTheyFallAndAreBrownWhenTheLastFalls() {
         for (int i = 0; i < 300; i++) {
@@ -30,18 +33,66 @@ final class SeasonsTests {
         }
     }
 
-    private static void theStageMovesOnlyWhenWhatTheSeasonShapesDoes() {
+    /**
+     * Every build that holds a tree the season shapes is made again when the stage moves on, so
+     * it moves on through autumn and spring at each step at which some tree is otherwise, and not
+     * once every tree has come to how it stays: bare and brown in autumn, in full leaf in spring.
+     */
+    private static void theStageMovesOnlyWhileATreeChanges() {
         Checks.check(Seasons.stage(Seasons.SUMMER, 0.1f) == Seasons.stage(Seasons.SUMMER2, 0.9f), "summer is one stage");
         Checks.check(Seasons.stage(Seasons.WINTER, 0.1f) == Seasons.stage(Seasons.WINTER, 0.9f), "winter is one stage");
         Checks.check(Seasons.stage(Seasons.WINTER, 0.5f) != Seasons.stage(Seasons.SUMMER, 0.5f), "winter is not summer");
-        java.util.HashSet<Integer> stages = new java.util.HashSet<>();
-        for (int step = 0; step <= Seasons.STEPS; step++) {
-            stages.add(Seasons.stage(Seasons.AUTUMN, (float) step / Seasons.STEPS));
-            stages.add(Seasons.stage(Seasons.SPRING, (float) step / Seasons.STEPS));
+        for (int season : new int[] {Seasons.AUTUMN, Seasons.SPRING}) {
+            int moves = 0;
+            for (int step = 1; step <= 4 * Seasons.STEPS; step++) {
+                float before = (step - 1f) / (4 * Seasons.STEPS), now = (float) step / (4 * Seasons.STEPS);
+                boolean changes = false;
+                for (int hash = 0; hash < 256; hash++) {
+                    changes |= Seasons.leafOn(season, Seasons.stepped(season, now), hash) != Seasons.leafOn(season, Seasons.stepped(season, before), hash)
+                            || Seasons.turned(season, Seasons.stepped(season, now), hash) != Seasons.turned(season, Seasons.stepped(season, before), hash);
+                }
+                boolean moved = Seasons.stage(season, now) != Seasons.stage(season, before);
+                Checks.check(moved == changes, "season " + season + " at " + now + ": the stage " + (moved ? "moved" : "stood") + " where trees " + (changes ? "changed" : "stood"));
+                moves += moved ? 1 : 0;
+            }
+            Checks.check(moves > Seasons.STEPS / 2 && moves < Seasons.STEPS, "season " + season + " moves on in steps until its trees are settled: " + moves);
         }
-        stages.add(Seasons.stage(Seasons.SUMMER, 0f));
-        stages.add(Seasons.stage(Seasons.WINTER, 0f));
-        Checks.check(stages.size() == 2 * (Seasons.STEPS + 1) + 2, "every step of autumn and of spring is a stage of its own: " + stages.size());
+        for (int hash = 0; hash < 256; hash++) {
+            Checks.check(Seasons.leafOn(Seasons.AUTUMN, Seasons.stepped(Seasons.AUTUMN, 0.95f), hash) == 0f
+                    && Seasons.turned(Seasons.AUTUMN, Seasons.stepped(Seasons.AUTUMN, 0.95f), hash) == 1f, "every tree is bare and brown once autumn is settled");
+            Checks.check(Seasons.leafOn(Seasons.SPRING, Seasons.stepped(Seasons.SPRING, 0.75f), hash) == 1f, "every tree is in full leaf once spring is settled");
+        }
+    }
+
+    /** ErosionCategory.currentSeason, as read off the game: a tree's own number is its square's magicNum. */
+    private static void theGamesScheduleIsTheGames() {
+        for (float own = 0f; own <= 1f; own += 0.125f) {
+            Checks.check(own == 1f || Seasons.gameLeafOn(Seasons.AUTUMN, 0.5f + 0.5f * own - 0.01f, own) == 1f && Seasons.gameLeafOn(Seasons.AUTUMN, 0.5f + 0.5f * own + 0.01f, own) == 0f,
+                    "in autumn a tree goes bare at half way and its own share of the rest");
+            Checks.check(Seasons.gameLeafOn(Seasons.WINTER, 0.5f, own) == 0f && Seasons.gameLeafOn(Seasons.SUMMER, 0.5f, own) == 1f, "bare in winter, in leaf in summer");
+            Checks.check(Seasons.gameLeafOn(Seasons.SPRING, own + 0.01f, own) == 1f && (own == 0f || Seasons.gameLeafOn(Seasons.SPRING, own - 0.01f, own) == 0f),
+                    "in spring a tree comes into leaf at its own share of it");
+            Checks.check(Seasons.gameTurned(Seasons.AUTUMN, 0.5f * own + 0.01f, own) == 0.5f, "its autumn picture from half its own share of autumn");
+        }
+    }
+
+    /** Seasons.GLSL, evaluated over every season, the season in hundredths and every tree's own number, works out what the Java does. */
+    private static void theShaderWorksOutWhatTheJavaDoes() {
+        GlslFunctions shader = new GlslFunctions(Seasons.GLSL);
+        float most = 0f;
+        for (int season = Seasons.DEFAULT; season <= Seasons.WINTER; season++) {
+            for (int day = 0; day <= 100; day++) {
+                float progression = day / 100f;
+                for (int hash = 0; hash < 256; hash++) {
+                    float own = Flora.unit(hash, 0);
+                    most = Math.max(most, Math.abs(shader.call("leafOn", season, progression, own) - Seasons.leafOn(season, progression, hash)));
+                    most = Math.max(most, Math.abs(shader.call("leafTurned", season, progression, own) - Seasons.turned(season, progression, hash)));
+                    most = Math.max(most, Math.abs(shader.call("gameLeafOn", season, progression, own) - Seasons.gameLeafOn(season, progression, own)));
+                    most = Math.max(most, Math.abs(shader.call("gameTurned", season, progression, own) - Seasons.gameTurned(season, progression, own)));
+                }
+            }
+        }
+        Checks.check(most < 1e-4f, "the shader's leaf and turn are the Java's to within " + most);
     }
 
     private static void treesAreInFullLeafThroughSummer() {

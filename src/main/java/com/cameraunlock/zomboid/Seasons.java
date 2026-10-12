@@ -23,46 +23,63 @@ final class Seasons {
     /** How much of autumn before a tree starts to drop its leaves they start to turn. */
     private static final float TURN_LEADS = 0.35f;
     /**
-     * How many steps a season is taken in. Every build the season shapes is made again when it
-     * moves on a step (stage), and a build is kept while what it was made from is the same to
-     * the bit: a season read to the last bit would make every build another every frame.
+     * How many steps a season is taken in by what a build holds: leafOn and turned of a tree
+     * now, and stage. A build is kept while what it was made from is the same to the bit, and a
+     * season read to the last bit would make every build another every frame.
      */
     static final int STEPS = 48;
 
-    /** The season and how many STEPS through it, as one number, so that a thread reading both never has one of them a season behind the other. */
-    private static volatile int now = SUMMER * (STEPS + 1) + STEPS / 2;
+    /** The season, in the high half, and the bits of how far through it, as one number: a thread reading both never has one of them a season behind the other. */
+    private static volatile long now = (long) SUMMER << 32 | Float.floatToRawIntBits(0.5f);
 
     private Seasons() {}
 
     static void capture(ErosionSeason erosion) {
-        now = erosion.getSeason() * (STEPS + 1) + (int) Math.floor(Math.min(Math.max(erosion.getSeasonProgression(), 0f), 1f) * STEPS);
+        now = (long) erosion.getSeason() << 32 | Float.floatToRawIntBits(Math.min(Math.max(erosion.getSeasonProgression(), 0f), 1f));
     }
 
     static int season() {
         return seasonOf(now);
     }
 
+    /** How far through the season the game is, 0 to 1, as the game has it. */
     static float progression() {
         return progressionOf(now);
     }
 
     /** The season and how far through it as one number, for a thread that wants both of one moment: seasonOf and progressionOf take it apart. */
-    static int now() {
+    static long now() {
         return now;
     }
 
-    static int seasonOf(int now) {
-        return now / (STEPS + 1);
+    static int seasonOf(long now) {
+        return (int) (now >>> 32);
     }
 
-    static float progressionOf(int now) {
-        return (float) (now % (STEPS + 1)) / STEPS;
+    static float progressionOf(long now) {
+        return Float.intBitsToFloat((int) now);
     }
 
-    /** How much of its crown a deciduous tree has on it now, 1 in full leaf and 0 bare. */
+    /**
+     * How far through the season a build takes the year to be: progression in whole STEPS,
+     * and past where every tree has come to how it stays for the rest of the season (bare and
+     * brown in autumn, in full leaf in spring) that point itself, so nothing is made again for
+     * a change no tree shows.
+     */
+    static float stepped(int season, float progression) {
+        float settled = settled(season);
+        return progression >= settled ? settled : (float) Math.floor(progression * STEPS) / STEPS;
+    }
+
+    private static float settled(int season) {
+        return season == AUTUMN ? FALL_LATEST + FALL_TAKES : season == SPRING ? LEAF_LATEST : 0f;
+    }
+
+    /** How much of its crown a deciduous tree has on it now, 1 in full leaf and 0 bare, as a build holds it: see stepped. */
     static float leafOn(int treeHash) {
-        int at = now;
-        return leafOn(at / (STEPS + 1), progressionOf(at), treeHash);
+        long at = now;
+        int season = seasonOf(at);
+        return leafOn(season, stepped(season, progressionOf(at)), treeHash);
     }
 
     /**
@@ -93,12 +110,15 @@ final class Seasons {
      * through autumn and spring, and winter's bare trees against summer's full ones.
      */
     static int stage() {
-        int at = now;
-        return stage(at / (STEPS + 1), progressionOf(at));
+        long at = now;
+        return stage(seasonOf(at), progressionOf(at));
     }
 
     static int stage(int season, float progression) {
-        return season == AUTUMN || season == SPRING ? season * (STEPS + 1) + Math.round(progression * STEPS) : season == WINTER ? -1 : 0;
+        if (season != AUTUMN && season != SPRING) {
+            return season == WINTER ? -1 : 0;
+        }
+        return season * (STEPS + 2) + (progression >= settled(season) ? STEPS + 1 : (int) Math.floor(progression * STEPS));
     }
 
     /** The hash leafOn and turned take for the tree standing on a square. */
@@ -106,11 +126,11 @@ final class Seasons {
         return Flora.mix(x, y, 21);
     }
 
-
-    /** How far a deciduous tree's leaves have turned now: see turned(int, float, int). */
+    /** How far a deciduous tree's leaves have turned now, as a build holds it: see turned(int, float, int) and stepped. */
     static float turned(int treeHash) {
-        int at = now;
-        return turned(at / (STEPS + 1), progressionOf(at), treeHash);
+        long at = now;
+        int season = seasonOf(at);
+        return turned(season, stepped(season, progressionOf(at)), treeHash);
     }
 
     /**
@@ -136,8 +156,8 @@ final class Seasons {
 
     /** How much fallen leaf lies under deciduous trees now, 1 at its deepest at the end of autumn. */
     static float litter() {
-        int at = now;
-        return litter(at / (STEPS + 1), progressionOf(at));
+        long at = now;
+        return litter(seasonOf(at), progressionOf(at));
     }
 
     static float litter(int season, float progression) {
@@ -154,37 +174,96 @@ final class Seasons {
     }
 
     /**
-     * leafOn and turned for a shader, of a tree whose own number is own, 0 to 1, where leafOn
-     * and turned take it from the hash's low eight bits: the far trees', which are no tree of
-     * the map's and have no square's hash.
+     * How much of its leaves a deciduous tree whose own number is own, 0 to 1, has on it on the
+     * game's own schedule (ErosionCategory.currentSeason, with own as the square's magicNum):
+     * all of them until a day of its own in the second half of autumn, none through winter, all
+     * again from a day of its own in spring. What the mod's trees follow where the game's plants
+     * are drawn as the game draws them (TreeQuality Low).
+     */
+    static float gameLeafOn(int season, float progression, float own) {
+        switch (season) {
+            case AUTUMN:
+                return progression < 0.5f + 0.5f * own ? 1f : 0f;
+            case WINTER:
+                return 0f;
+            case SPRING:
+                return progression < own ? 0f : 1f;
+            default:
+                return 1f;
+        }
+    }
+
+    /** How far a tree's leaves have turned on the game's own schedule: half way when the game shows its autumn picture, from a day of its own in the first half of autumn, and all the way bare. */
+    static float gameTurned(int season, float progression, float own) {
+        switch (season) {
+            case AUTUMN:
+                return (progression < 0.5f * own ? 0f : 0.5f) + (progression < 0.5f + 0.5f * own ? 0f : 0.5f);
+            case WINTER:
+                return 1f;
+            default:
+                return 0f;
+        }
+    }
+
+    /**
+     * leafOn and turned for a shader, and the game's own schedule of each, of a tree whose own
+     * number is own, 0 to 1, where leafOn and turned take it from the hash's low eight bits: the
+     * far trees', which are no tree of the map's and have no square's hash. Each function is a
+     * run of "if (abs(season - N) < 0.5) { return ...; }" and a last return, which SeasonsTests
+     * evaluates against the Java.
      */
     static final String GLSL = String.format(Locale.ROOT, """
             float seasonSmooth(float t) {
-                float c = clamp(t, 0.0, 1.0);
-                return c * c * (3.0 - 2.0 * c);
+                return clamp(t, 0.0, 1.0) * clamp(t, 0.0, 1.0) * (3.0 - 2.0 * clamp(t, 0.0, 1.0));
             }
 
             float leafOn(float season, float progression, float own) {
-                if (abs(season - %d.0) < 0.5) {
-                    return 1.0 - seasonSmooth((progression - (%f + %f * own)) / %f);
+                if (abs(season - %1$d.0) < 0.5) {
+                    return 1.0 - seasonSmooth((progression - (%4$f + %5$f * own)) / %6$f);
                 }
-                if (abs(season - %d.0) < 0.5) {
+                if (abs(season - %2$d.0) < 0.5) {
                     return 0.0;
                 }
-                if (abs(season - %d.0) < 0.5) {
-                    return seasonSmooth(progression / (%f + %f * own));
+                if (abs(season - %3$d.0) < 0.5) {
+                    return seasonSmooth(progression / (%7$f + %8$f * own));
                 }
                 return 1.0;
             }
 
             float leafTurned(float season, float progression, float own) {
-                if (abs(season - %d.0) < 0.5) {
-                    return clamp((progression - (%f + %f * own - %f)) / %f, 0.0, 1.0);
+                if (abs(season - %1$d.0) < 0.5) {
+                    return max(clamp((progression - (%4$f + %5$f * own - %9$f)) / %10$f, 0.0, 1.0), step(%4$f + %5$f * own + %6$f, progression));
                 }
-                return abs(season - %d.0) < 0.5 ? 1.0 : 0.0;
+                if (abs(season - %2$d.0) < 0.5) {
+                    return 1.0;
+                }
+                return 0.0;
             }
-            """, AUTUMN, FALL_EARLIEST, FALL_LATEST - FALL_EARLIEST, FALL_TAKES, WINTER, SPRING, LEAF_EARLIEST, LEAF_LATEST - LEAF_EARLIEST,
-            AUTUMN, FALL_EARLIEST, FALL_LATEST - FALL_EARLIEST, TURN_LEADS, TURN_LEADS + FALL_TAKES, WINTER);
+
+            float gameLeafOn(float season, float progression, float own) {
+                if (abs(season - %1$d.0) < 0.5) {
+                    return 1.0 - step(0.5 + 0.5 * own, progression);
+                }
+                if (abs(season - %2$d.0) < 0.5) {
+                    return 0.0;
+                }
+                if (abs(season - %3$d.0) < 0.5) {
+                    return step(own, progression);
+                }
+                return 1.0;
+            }
+
+            float gameTurned(float season, float progression, float own) {
+                if (abs(season - %1$d.0) < 0.5) {
+                    return 0.5 * step(0.5 * own, progression) + 0.5 * step(0.5 + 0.5 * own, progression);
+                }
+                if (abs(season - %2$d.0) < 0.5) {
+                    return 1.0;
+                }
+                return 0.0;
+            }
+            """, AUTUMN, WINTER, SPRING, FALL_EARLIEST, FALL_LATEST - FALL_EARLIEST, FALL_TAKES, LEAF_EARLIEST, LEAF_LATEST - LEAF_EARLIEST,
+            TURN_LEADS, TURN_LEADS + FALL_TAKES);
 
     private static float smooth(float t) {
         float c = Math.min(Math.max(t, 0f), 1f);

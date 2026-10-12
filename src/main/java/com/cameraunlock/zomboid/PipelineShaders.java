@@ -6514,8 +6514,9 @@ final class PipelineShaders {
             uniform sampler2D uKinds;
             uniform float uKindRows;
             uniform vec3 uEye;
-            // The season and how far through it: see Seasons.
+            // The season and how far through it, and 1 where the trees follow the game's own schedule: see Seasons.gameLeafOn.
             uniform vec2 uSeason;
+            uniform float uGameSchedule;
             // How much of its leaves the tree has on it: see Seasons.leafOn.
             varying float vLeaf;
             varying vec3 vWorld;
@@ -6553,8 +6554,9 @@ final class PipelineShaders {
                 vec4 seasonal = kindTexel(kind, 3.0);
                 float mine = fract(own * 53.17);
                 bool deciduous = seasonal.r > 0.5;
-                vLeaf = deciduous ? leafOn(uSeason.x, uSeason.y, mine) : 1.0;
-                float turned = deciduous ? leafTurned(uSeason.x, uSeason.y, mine) : 0.0;
+                bool games = uGameSchedule > 0.5;
+                vLeaf = !deciduous ? 1.0 : games ? gameLeafOn(uSeason.x, uSeason.y, mine) : leafOn(uSeason.x, uSeason.y, mine);
+                float turned = !deciduous ? 0.0 : games ? gameTurned(uSeason.x, uSeason.y, mine) : leafTurned(uSeason.x, uSeason.y, mine);
                 if (part < 0.5) {
                     local = vec3(outward * sizes.x, up * sizes.y * 1.1);
                     vNormal = vec3(outward, 0.0);

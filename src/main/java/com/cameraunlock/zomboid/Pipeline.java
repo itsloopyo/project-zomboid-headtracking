@@ -2538,8 +2538,12 @@ final class Pipeline {
         farTree.set("uKinds", 0);
         farTree.set("uKindRows", (float) rows);
         farTree.set("uTreeReach", (float) reach);
-        int season = Seasons.now();
-        farTree.set("uSeason", (float) Seasons.seasonOf(season), Seasons.progressionOf(season));
+        // Where the near trees are the game's sprites the far ones follow the game's schedule, and otherwise the mod's, in the steps its builds take.
+        long now = Seasons.now();
+        int season = Seasons.seasonOf(now);
+        boolean games = !Own.plants();
+        farTree.set("uSeason", (float) season, games ? Seasons.progressionOf(now) : Seasons.stepped(season, Seasons.progressionOf(now)));
+        farTree.set("uGameSchedule", games ? 1f : 0f);
         view.worldScene.farLand.drawTrees(focusX, focusY, reach, farTree.attribute("aTree"), treeMeshes, treeVertices);
         GL11.glBindTexture(GL_TEXTURE_2D, 0);
         if (culling) {
