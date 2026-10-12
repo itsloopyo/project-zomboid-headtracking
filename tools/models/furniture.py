@@ -1793,8 +1793,8 @@ CURTAIN_RAIL_UP, CURTAIN_HEM_UP = 2.28, 0.08
 
 
 def hospital_curtain(name, x0, x1, folds):
-    """A hospital's curtain rail along X, hung from the ceiling on a rod in its middle, and its curtain from x0 to x1 in folds,
-    none where x0 is x1: drawn along the whole rail, or bunched at one end."""
+    """A hospital's curtain rail along X, hung from the ceiling on a rod in its middle, and its curtain from x0 to x1 in that many
+    pleats, none where there are none: drawn along the whole rail, or bunched at one end."""
     model = Model(name, centred=False)
     steel = bmesh.new()
     cuboid(steel, -0.5, 0.5, -0.02, 0.02, CURTAIN_RAIL_UP - 0.03, CURTAIN_RAIL_UP + 0.01)
@@ -1804,12 +1804,11 @@ def hospital_curtain(name, x0, x1, folds):
         cloth = bmesh.new()
         width = (x1 - x0) / folds
         deep = 0.05 if folds > 6 else 0.07
-        for n in range(folds):
-            a, b = x0 + n * width, x0 + (n + 1) * width
-            y = deep if n % 2 else -deep
-            prism_y(cloth, (a + width / 2, (CURTAIN_HEM_UP + CURTAIN_RAIL_UP) / 2 - 0.02, width, CURTAIN_RAIL_UP - CURTAIN_HEM_UP - 0.04, y - 0.004),
-                    (a + width / 2, (CURTAIN_HEM_UP + CURTAIN_RAIL_UP) / 2 - 0.02, width, CURTAIN_RAIL_UP - CURTAIN_HEM_UP - 0.04, y + 0.004))
-        model.hard(cloth, "cloth", bevel=0.003, segments=1)
+        # One sheet pleated in a zigzag, each pleat a slab whose ends meet its neighbours', so no light shows between them.
+        pleat = [(x0 + n * width, deep if n % 2 else -deep) for n in range(folds + 1)]
+        for (a, ya), (b, yb) in zip(pleat, pleat[1:]):
+            outline_up(cloth, [(a, ya - 0.004), (b, yb - 0.004), (b, yb + 0.004), (a, ya + 0.004)], CURTAIN_HEM_UP, CURTAIN_RAIL_UP - 0.04)
+        model.hard(cloth, "cloth", bevel=0.002, segments=1)
     return model
 
 
