@@ -22,6 +22,7 @@ final class PlantKindTests {
         Checks.run("leafyWeedsAndFernsAreToldByName", PlantKindTests::leafyWeedsAndFernsAreToldByName);
         Checks.run("fallenSticksAreToldByName", PlantKindTests::fallenSticksAreToldByName);
         Checks.run("fallenSticksLieOnTheirSquaresGround", PlantKindTests::fallenSticksLieOnTheirSquaresGround);
+        Checks.run("ivyOnTheGroundLiesRoundTheBoleAndKeepsToItsBounds", PlantKindTests::ivyOnTheGroundLiesRoundTheBoleAndKeepsToItsBounds);
     }
 
     private static void evergreensAreToldByName() {
@@ -169,6 +170,41 @@ final class PlantKindTests {
                 check(up > ground - 0.05f && up < ground + 0.12f, "and on its ground, not " + (up - ground) + " off it");
             }
         }
+    }
+
+    private static void ivyOnTheGroundLiesRoundTheBoleAndKeepsToItsBounds() {
+        float base = 0f, radius = 0.12f, reach = 0.9f;
+        float[] lift = {0.1f, 0.3f, 0.3f, 0.1f};
+        for (int seed = 0; seed < 30; seed++) {
+            SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
+            // Free to spread east and south onto open ground, held inside its square west and north.
+            int triangles = Flora.addGroundIvy(mesh, 20.5f, 30.5f, 20, 30, base, lift, radius, reach, 20.03f, 21.6f, 30.03f, 31.6f, Flora.mix(seed, 1, 2), frame());
+            check(triangles > 0 && mesh.floats == triangles * 3 * F, "ground ivy is " + triangles + " triangles, all of them made");
+            float farthest = 0f;
+            for (int at = 0; at < mesh.floats; at += F) {
+                float x = mesh.vertices[at], y = mesh.vertices[at + 1], up = mesh.vertices[at + 2];
+                check(x >= 20.03f && x <= 21.6f && y >= 30.03f && y <= 31.6f, "every corner keeps to its bounds, not at " + x + ", " + y);
+                float dx = x - 20.5f, dy = y - 30.5f, out = (float) Math.sqrt(dx * dx + dy * dy);
+                check(out >= radius, "and is clear of the bark, not " + out + " from the bole's middle");
+                float ground = 0.1f + 0.2f * Math.clamp(x - 20f, 0f, 1f);
+                check(up > ground && up < ground + 0.08f, "and lies on the ground, not " + (up - ground) + " over it");
+                farthest = Math.max(farthest, out);
+            }
+            check(farthest > 0.4f && farthest <= radius + 0.01f + reach * 1.15f, "it spreads out from the bole, as far as " + farthest);
+        }
+        // It thins towards its rim: the share of the way out is what thins it, carried as the normal's length.
+        SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
+        Flora.addGroundIvy(mesh, 20.5f, 30.5f, 20, 30, base, lift, radius, reach, 0f, 100f, 0f, 100f, 3, frame());
+        float nearTake = Float.MAX_VALUE, farTake = 0f;
+        for (int at = 0; at < mesh.floats; at += F) {
+            float dx = mesh.vertices[at] - 20.5f, dy = mesh.vertices[at + 1] - 30.5f, out = (float) Math.sqrt(dx * dx + dy * dy);
+            float take = (float) Math.sqrt(mesh.vertices[at + 9] * mesh.vertices[at + 9] + mesh.vertices[at + 10] * mesh.vertices[at + 10] + mesh.vertices[at + 11] * mesh.vertices[at + 11]) - 1f;
+            if (out < radius + 0.02f) {
+                nearTake = Math.min(nearTake, take);
+            }
+            farTake = Math.max(farTake, take);
+        }
+        check(nearTake < 0.01f && farTake > 0.5f && farTake < 0.75f, "thick at the bole and thinning to its rim, without the whole wind a plant's top takes: " + nearTake + " to " + farTake);
     }
 
     private static void check(boolean condition, String what) {

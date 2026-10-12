@@ -67,6 +67,14 @@ final class Flora {
     static final float BARK_ACROSS = 8f, BARK_UP = 32f;
     static final int BARK_WRAPS_MOST = 16, BARK_SHIFTS = 4;
     private static final float IVY_STANDS_OFF = 0.02f;
+    /**
+     * Ivy on the ground round a bole: how many ways round and rings out it is made of, how far
+     * clear of the bark it starts, how far over the ground it lies and how much higher against
+     * the bole, and how much of the way to nothing it thins at its rim. What thins it also lets
+     * the wind stir it, so its rim never takes the whole wind a plant's top does.
+     */
+    private static final int GROUND_IVY_SIDES = 14, GROUND_IVY_RINGS = 3;
+    private static final float GROUND_IVY_STANDS_OFF = 0.01f, GROUND_IVY_LIFT = 0.02f, GROUND_IVY_HEAP = 0.04f, GROUND_IVY_THINS = 0.7f;
     /** Where across the frond's picture its stem meets the bottom edge. The picture is packed so. */
     static final float FROND_ROOT = 0.75f;
     /** A frond's width over its length, which is the shape of its picture. */
@@ -1117,6 +1125,47 @@ final class Flora {
         }
         mesh.sway = 0f;
         return (rings - 2) * TRUNK_SIDES * 2;
+    }
+
+    /**
+     * The ivy that climbs a bole, spread over the ground round its foot as well: a patch lying
+     * on the ground from the bole out to about reach, further in some ways than others, thick at
+     * the bole and going out in sprays at its rim, cut into leaves by the same picture as the
+     * ivy up the bole. (x, y) is the bole's middle, on the square whose top-left corner is
+     * (squareX, squareY), whose ground is base and as high again at its corners as lift says, in
+     * the corner order of SpriteGeometry.lift. It keeps within lowX..highX and lowY..highY.
+     * Returns the triangles added.
+     */
+    static int addGroundIvy(Mesh mesh, float x, float y, int squareX, int squareY, float base, float[] lift, float radius, float reach,
+            float lowX, float highX, float lowY, float highY, int seed, SpriteGeometry.Frame frame) {
+        mark(mesh, frame.open, 0f, IVY);
+        mesh.face(0f, 0f, 1f);
+        float[] rim = new float[GROUND_IVY_SIDES + 1];
+        double turnOne = unit(seed, 0) * 2.0 * Math.PI, turnTwo = unit(seed, 8) * 2.0 * Math.PI;
+        int lobes = 2 + (seed >>> 16 & 1);
+        for (int side = 0; side <= GROUND_IVY_SIDES; side++) {
+            double round = side * 2.0 * Math.PI / GROUND_IVY_SIDES;
+            // Runners reach out further one way than another: a lobe or two, and a ragged edge between.
+            float lobe = (float) (0.5 + 0.5 * Math.sin(lobes * round + turnOne)) * (float) (0.75 + 0.25 * Math.sin(5.0 * round + turnTwo));
+            rim[side] = side == GROUND_IVY_SIDES ? rim[0] : reach * (0.45f + 0.55f * lobe) * (0.85f + 0.3f * unit(mix(seed, side, 99), 0));
+        }
+        for (int ring = 0; ring < GROUND_IVY_RINGS; ring++) {
+            for (int side = 0; side < GROUND_IVY_SIDES; side++) {
+                for (int corner : QUAD) {
+                    int out = ring + (corner >= 2 ? 1 : 0), at = side + (corner == 1 || corner == 2 ? 1 : 0);
+                    float share = (float) out / GROUND_IVY_RINGS;
+                    double round = at * 2.0 * Math.PI / GROUND_IVY_SIDES;
+                    float from = radius + GROUND_IVY_STANDS_OFF + (rim[at] - radius) * share;
+                    float px = Math.clamp(x + (float) Math.cos(round) * from, lowX, highX), py = Math.clamp(y + (float) Math.sin(round) * from, lowY, highY);
+                    // Heaped a little against the bole, and lying on the ground at its rim.
+                    float up = base + ground(lift, Math.clamp(px - squareX, 0f, 1f), Math.clamp(py - squareY, 0f, 1f)) + GROUND_IVY_LIFT + GROUND_IVY_HEAP * (1f - share);
+                    mesh.sway = GROUND_IVY_THINS * share;
+                    mesh.add(px, py, up, px / IVY_SPAN, py / IVY_SPAN, frame.red, frame.green, frame.blue);
+                }
+            }
+        }
+        mesh.sway = 0f;
+        return GROUND_IVY_RINGS * GROUND_IVY_SIDES * 2;
     }
 
     /**

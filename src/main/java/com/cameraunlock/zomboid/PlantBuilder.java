@@ -30,6 +30,12 @@ final class PlantBuilder {
     private static final float EVERGREEN_THICKEST = 0.14f, EVERGREEN_HIDDEN = 0.08f;
     /** How high over its foot an evergreen's needles start, in tiles: below it its sprite paints its shadow on the ground. */
     private static final float EVERGREEN_FOOT = 0.3f;
+    /**
+     * Ivy on the ground round a tree: how far from the bole's middle it reaches at least and how
+     * much further at most, how far past its square it may spread onto open ground beside it, and
+     * how far in from an edge of the square it keeps where it may not.
+     */
+    private static final float GROUND_IVY_LEAST = 0.55f, GROUND_IVY_MORE = 0.5f, GROUND_IVY_SPILL = 0.6f, GROUND_IVY_IN = 0.03f;
     private static final float GRASS_SPILL = 0.35f;
     /** How far in from a side where the lawn ends its plants keep, in tiles. */
     private static final float LAWN_KEEPS_IN = 0.05f;
@@ -509,8 +515,26 @@ final class PlantBuilder {
         boleTall = bole[1];
         if (near && Flora.ivied(x, y)) {
             flora.addIvy(WorldScene.laid.get(WorldScene.PLAIN), x + 0.5f, y + 0.5f, base, bole[0], bole[1], bole[1] * (0.5f + 0.5f * Flora.unit(seed, 16)), seed, build.frame);
+            addGroundIvy(x, y, z, bole[0], seed);
         }
         return true;
+    }
+
+    /**
+     * Ivy over the ground round the foot of a tree whose bole it climbs (Flora.addGroundIvy).
+     * It keeps to the tree's square, and spreads onto a square beside it only where that is open
+     * natural ground on this side of any wall or fence: none on a path, a road or a floor.
+     */
+    private void addGroundIvy(int x, int y, int z, float radius, int seed) {
+        int own = (build.waterLocalX + 1) * WorldScene.LIGHT_SPAN + build.waterLocalY + 1;
+        roomFor(x, y, z);
+        float lowX = Math.max(spillsTo(own - WorldScene.LIGHT_SPAN) ? x - GROUND_IVY_SPILL : x + GROUND_IVY_IN, build.room[0]);
+        float highX = Math.min(spillsTo(own + WorldScene.LIGHT_SPAN) ? x + 1f + GROUND_IVY_SPILL : x + 1f - GROUND_IVY_IN, build.room[1]);
+        float lowY = Math.max(spillsTo(own - 1) ? y - GROUND_IVY_SPILL : y + GROUND_IVY_IN, build.room[2]);
+        float highY = Math.min(spillsTo(own + 1) ? y + 1f + GROUND_IVY_SPILL : y + 1f - GROUND_IVY_IN, build.room[3]);
+        float reach = GROUND_IVY_LEAST + GROUND_IVY_MORE * Flora.unit(seed, 24);
+        Flora.addGroundIvy(WorldScene.laid.get(WorldScene.PLAIN), x + 0.5f, y + 0.5f, x, y, z * ViewCamera.LEVEL_HEIGHT, build.geometry.lift, radius, reach,
+                lowX, highX, lowY, highY, seed, build.frame);
     }
 
     /**
