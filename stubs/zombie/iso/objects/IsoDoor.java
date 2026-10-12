@@ -1,9 +1,11 @@
 package zombie.iso.objects;
 
 import zombie.iso.IsoObject;
+import zombie.iso.sprite.IsoSprite;
 
 public class IsoDoor extends IsoObject {
     public boolean north;
+    private IsoSprite closedSprite;
 
     public boolean IsOpen() { throw new UnsupportedOperationException("reference stub"); }
     public boolean getNorth() { throw new UnsupportedOperationException("reference stub"); }

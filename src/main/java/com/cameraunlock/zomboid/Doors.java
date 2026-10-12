@@ -109,6 +109,15 @@ final class Doors {
         known.put(texture, shape);
     }
 
+    private static final java.util.Set<Texture> pairsTold = ConcurrentHashMap.newKeySet();
+
+    /** Says once, under FirstPerson.TRACE, which shut sprite an open one was read from. */
+    static void tellPair(Texture open, Texture shut) {
+        if (FirstPerson.TRACE && pairsTold.add(open)) {
+            Log.info("door " + open.getName() + " open is read from " + shut.getName() + " shut");
+        }
+    }
+
     /**
      * How the leaf is worked: bright holds across numbers a row, the top row first, how bright
      * each dot of the leaf is from 0 to 1 and below 0 for what is no leaf.
@@ -180,5 +189,55 @@ final class Doors {
         }
         shape.handleAtEnd = odd[1] > odd[0];
         return shape;
+    }
+
+    /**
+     * An open door as its shut sprite shows it. The game draws an open leaf half turned, and
+     * read off that picture it is a flush leaf: its panels, colour and handle's end are read off the
+     * sprite it shows shut, and laid on the outline of the open one, which is where the leaf
+     * stands. A leaf turns on hinges at the doorway's corner, so open it has them at its start
+     * (the end at that corner) and its handle at its end; the shut leaf's working is turned end
+     * for end where its handle was read at its start.
+     */
+    static Shape swung(Shape open, Shape shut) {
+        Windows.Shape from = shut.leaf, to = open.leaf, leaf = new Windows.Shape();
+        leaf.north = to.north;
+        leaf.originU = to.originU;
+        leaf.originV = to.originV;
+        leaf.scale = to.scale;
+        leaf.start = to.start;
+        leaf.end = to.end;
+        leaf.foot = to.foot;
+        leaf.head = to.head;
+        leaf.red = from.red;
+        leaf.green = from.green;
+        leaf.blue = from.blue;
+        float along = (to.end - to.start) / (from.end - from.start), up = (to.head - to.foot) / (from.head - from.foot);
+        boolean turned = !shut.handleAtEnd;
+        leaf.startWide = (turned ? from.endWide : from.startWide) * along;
+        leaf.endWide = (turned ? from.startWide : from.endWide) * along;
+        leaf.footHigh = from.footHigh * up;
+        leaf.headHigh = from.headHigh * up;
+        leaf.bars = laidOn(from.bars, 4, from, to, along, up, turned);
+        leaf.panes = laidOn(from.panes, 5, from, to, along, up, turned);
+        Shape made = new Shape();
+        made.leaf = leaf;
+        made.kind = shut.kind;
+        made.board = shut.board * along;
+        made.handleAtEnd = true;
+        return made;
+    }
+
+    /** Pieces of a leaf, size numbers each, from start to end along it then foot to head, moved off the leaf from onto the leaf to. */
+    private static float[] laidOn(float[] pieces, int size, Windows.Shape from, Windows.Shape to, float along, float up, boolean turned) {
+        float[] laid = pieces.clone();
+        for (int at = 0; at < laid.length; at += size) {
+            float a = (pieces[at] - from.start) * along, b = (pieces[at + 1] - from.start) * along;
+            laid[at] = turned ? to.end - b : to.start + a;
+            laid[at + 1] = turned ? to.end - a : to.start + b;
+            laid[at + 2] = to.foot + (pieces[at + 2] - from.foot) * up;
+            laid[at + 3] = to.foot + (pieces[at + 3] - from.foot) * up;
+        }
+        return laid;
     }
 }

@@ -57,7 +57,7 @@ final class Links {
 
     private static final String VERTEX_BUFFER = "zombie/core/skinnedmodel/model/VertexBufferObject";
     private static final String VERTEX_BUFFER_HANDLE = VERTEX_BUFFER + "$Vbo";
-    /** The fields read by name, which no instruction of the mod's names: the vertex buffer's, the body's picture, the outlined things, the layer an animation node is in and the item renderer's. */
+    /** The fields read by name, which no instruction of the mod's names: the vertex buffer's, the body's picture, the outlined things, the layer an animation node is in the item renderer's and a door's shut sprite. */
     static final Field BUFFER_HANDLE = new Field(VERTEX_BUFFER, "handle", "L" + VERTEX_BUFFER_HANDLE + ";");
     static final Field BUFFER_ELEMENTS = new Field(VERTEX_BUFFER, "elements", "[I");
     static final Field HANDLE_BUFFER = new Field(VERTEX_BUFFER_HANDLE, "vboId", "I");
@@ -78,8 +78,12 @@ final class Links {
     static final Field ITEM_TINT_G = new Field(ITEM_RENDERER, "tintG", "F");
     static final Field ITEM_TINT_B = new Field(ITEM_RENDERER, "tintB", "F");
     static final Field ITEM_TINT_MASK = new Field(ITEM_RENDERER, "tintMask", "Ljava/lang/String;");
+    /** The sprite a door shows shut, which an open door is read from: see WorldScene.shutSprite. */
+    static final Field DOOR_SHUT = new Field("zombie/iso/objects/IsoDoor", "closedSprite", "Lzombie/iso/sprite/IsoSprite;");
+    static final Field THUMPABLE_SHUT = new Field("zombie/iso/objects/IsoThumpable", "closedSprite", "Lzombie/iso/sprite/IsoSprite;");
     static final List<Field> REFLECTED = List.of(BUFFER_HANDLE, BUFFER_ELEMENTS, BUFFER_FORMAT, HANDLE_BUFFER, HANDLE_STRIDE, BODY_PICTURE, OUTLINED, NODE_LAYER,
-            ITEM_MODEL, ITEM_TRANSFORM, ITEM_TINT_R, ITEM_TINT_G, ITEM_TINT_B, ITEM_TINT_MASK);
+            ITEM_MODEL, ITEM_TRANSFORM, ITEM_TINT_R, ITEM_TINT_G, ITEM_TINT_B, ITEM_TINT_MASK,
+            DOOR_SHUT, THUMPABLE_SHUT);
 
     private final Function<String, byte[]> classBytes;
     private final Map<String, Optional<ClassModel>> models = new HashMap<>();

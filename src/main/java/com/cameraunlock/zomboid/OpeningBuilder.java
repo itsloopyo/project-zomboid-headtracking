@@ -359,6 +359,18 @@ final class OpeningBuilder {
             }
             return false;
         }
+        if (build.shutTexture != null) {
+            // Open, it is the leaf its shut sprite paints, which stands on the other edge.
+            Doors.Shape shut = Doors.of(build.shutTexture, build.shutFrame, !north);
+            if (shut == null && Doors.unread(build.shutTexture)) {
+                build.building.signed = false;
+                return false;
+            }
+            if (shut != null) {
+                Doors.tellPair(texture, build.shutTexture);
+                door = Doors.swung(door, shut);
+            }
+        }
         // A garage door rolls up in its own plane and has no jamb to fill, and a door swung open stands clear of its doorway.
         boolean measured = doorwayX == x && doorwayY == y && doorwayZ == z && doorwayNorth == north;
         boolean inDoorway = !build.doorSwung && !build.garageDoor && measured;

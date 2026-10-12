@@ -1912,6 +1912,32 @@ final class WorldScene {
         return true;
     }
 
+    private static java.lang.reflect.Field doorShut, thumpableShut;
+
+    /**
+     * The sprite a door shows shut. The game keeps it beside the open one, two places before
+     * it on the sheet (four for a double door, eight for a garage door), and shows the open
+     * one while the door is open: that one is drawn half turned and reads as a flush leaf.
+     */
+    static IsoSprite shutSprite(IsoObject door) {
+        try {
+            if (door instanceof IsoDoor) {
+                if (doorShut == null) {
+                    doorShut = IsoDoor.class.getDeclaredField(Links.DOOR_SHUT.name());
+                    doorShut.setAccessible(true);
+                }
+                return (IsoSprite) doorShut.get(door);
+            }
+            if (thumpableShut == null) {
+                thumpableShut = IsoThumpable.class.getDeclaredField(Links.THUMPABLE_SHUT.name());
+                thumpableShut.setAccessible(true);
+            }
+            return (IsoSprite) thumpableShut.get(door);
+        } catch (ReflectiveOperationException failure) {
+            throw new IllegalStateException("the sprite of a door shut could not be read", failure);
+        }
+    }
+
     /** A sprite and the texture it shows this frame turned that way, as one number. */
     private static long shown(IsoSprite sprite, IsoDirections dir) {
         if (sprite == null) {
@@ -7029,6 +7055,7 @@ final class WorldScene {
             boolean west;
             boolean north;
             doorSwung = false;
+            shutTexture = null;
             if (object instanceof IsoDoor door) {
                 // A door on hinges stands across its doorway when it is open. A garage door
                 // rolls up in its own plane, and what is left of it showing is still in the wall.
@@ -7102,6 +7129,14 @@ final class WorldScene {
             }
             // A gate in a fence is rails or wire like the fence, and stays the sheet it is.
             doorLeaf = door && !kind.fenceGate;
+            if (doorSwung && doorLeaf) {
+                IsoSprite shut = shutSprite(object);
+                Texture shown = shut == null ? null : shut.getTextureForCurrentFrame(object.getDir());
+                if (usable(shown)) {
+                    shutTexture = shown;
+                    WorldScene.frameOf(shutFrame, object, shown);
+                }
+            }
             casing = type == IsoObjectType.doorFrW || type == IsoObjectType.doorFrN;
             wallBuilder.sign = overLayer == 0 && !door && west != north && kind.sign;
             // An open garage door's sprite is the head of its opening and the jamb at an end: wall, cut to the sprite, with the
@@ -7656,6 +7691,9 @@ final class WorldScene {
         boolean doorSwung, doorLeaf;
         /** Whether the sprite being added is a garage door's, which has no hinges and no knob and is the same door seen from either side. */
         boolean garageDoor;
+        /** For a door that stands open, the texture and frame of the sprite it shows shut, which it is read from: see OpeningBuilder.addBuiltDoor. Null for any other. */
+        Texture shutTexture;
+        final SpriteGeometry.Frame shutFrame = new SpriteGeometry.Frame();
         /** Whether the sprite being added is the frame round a doorway. */
         boolean casing;
         /** Whether the sprite being added is a wall a doorway is in. */

@@ -25,6 +25,8 @@ final class DoorTests {
         Checks.run("paneWithARoomOnBothSidesHasNoStreetSide", DoorTests::paneWithARoomOnBothSidesHasNoStreetSide);
         Checks.run("openGarageDoorLiesInTheGarageWithItsTracksAtTheJambs", DoorTests::openGarageDoorLiesInTheGarageWithItsTracksAtTheJambs);
         Checks.run("capUnderAWallsFootLeavesTheDoorwayFloorBare", DoorTests::capUnderAWallsFootLeavesTheDoorwayFloorBare);
+        Checks.run("anOpenDoorIsItsShutLeafOnItsOpenOutline", DoorTests::anOpenDoorIsItsShutLeafOnItsOpenOutline);
+        Checks.run("aShutLeafReadWithItsHandleAtItsStartIsTurnedEndForEnd", DoorTests::aShutLeafReadWithItsHandleAtItsStartIsTurnedEndForEnd);
     }
 
     private static void capUnderAWallsFootLeavesTheDoorwayFloorBare() {
@@ -317,4 +319,50 @@ final class DoorTests {
         }
     }
 
+    private static Doors.Shape door(float start, float end, float foot, float head, int kind, boolean handleAtEnd, float red, float[] panes) {
+        Windows.Shape leaf = new Windows.Shape();
+        leaf.start = start;
+        leaf.end = end;
+        leaf.foot = foot;
+        leaf.head = head;
+        leaf.startWide = 0.05f;
+        leaf.endWide = 0.1f;
+        leaf.footHigh = 0.1f;
+        leaf.headHigh = 0.05f;
+        leaf.red = red;
+        leaf.green = red;
+        leaf.blue = red;
+        leaf.panes = panes;
+        Doors.Shape shape = new Doors.Shape();
+        shape.leaf = leaf;
+        shape.kind = kind;
+        shape.handleAtEnd = handleAtEnd;
+        return shape;
+    }
+
+    private static void anOpenDoorIsItsShutLeafOnItsOpenOutline() {
+        // The open sprite reads as a flush leaf, pale, from 0.05 to 0.45 along the other edge;
+        // the shut one as a dark panelled leaf from 0.1 to 0.9 with a light in its top half.
+        Doors.Shape open = door(0.05f, 0.45f, 0f, 0.8f, Doors.FLUSH, false, 0.9f, new float[0]);
+        Doors.Shape shut = door(0.1f, 0.9f, 0f, 0.8f, Doors.PANELLED, true, 0.3f, new float[] {0.3f, 0.7f, 0.4f, 0.7f, 1f});
+        Doors.Shape swung = Doors.swung(open, shut);
+        check(swung.kind == Doors.PANELLED, "an open door keeps its panels");
+        check(swung.leaf.red == 0.3f, "and its colour");
+        check(swung.leaf.start == 0.05f && swung.leaf.end == 0.45f && swung.leaf.foot == 0f && swung.leaf.head == 0.8f, "on the outline it stands at open");
+        check(swung.handleAtEnd, "hinged at the doorway's corner, the start of the leaf open, so its handle is at its end");
+        float t0 = swung.leaf.panes[0], t1 = swung.leaf.panes[1];
+        check(Math.abs(t0 - 0.15f) < 1e-5f && Math.abs(t1 - 0.35f) < 1e-5f, "its light is where it is on the leaf shut, scaled to the leaf open: " + t0 + ".." + t1);
+        check(swung.leaf.panes[4] == 1f, "and keeps its glass");
+        check(Math.abs(swung.leaf.startWide - 0.025f) < 1e-5f && Math.abs(swung.leaf.endWide - 0.05f) < 1e-5f, "its stiles are scaled as the leaf is");
+    }
+
+    private static void aShutLeafReadWithItsHandleAtItsStartIsTurnedEndForEnd() {
+        Doors.Shape open = door(0.05f, 0.45f, 0f, 0.8f, Doors.FLUSH, true, 0.9f, new float[0]);
+        Doors.Shape shut = door(0.1f, 0.9f, 0f, 0.8f, Doors.PANELLED, false, 0.3f, new float[] {0.2f, 0.4f, 0.4f, 0.7f, 1f});
+        Doors.Shape swung = Doors.swung(open, shut);
+        // The light was 0.1..0.3 of the leaf from its start, beside its handle: open, the handle is at the end.
+        float t0 = swung.leaf.panes[0], t1 = swung.leaf.panes[1];
+        check(Math.abs(t0 - 0.3f) < 1e-5f && Math.abs(t1 - 0.4f) < 1e-5f, "a light beside the handle stays beside it: " + t0 + ".." + t1);
+        check(Math.abs(swung.leaf.startWide - 0.05f) < 1e-5f && Math.abs(swung.leaf.endWide - 0.025f) < 1e-5f, "and the stiles change ends with it");
+    }
 }
