@@ -55,6 +55,9 @@ final class WallTileTests {
         Checks.run("aDoorWallPassesAWholeWallThatDisagreesWithIt", WallTileTests::aDoorWallPassesAWholeWallThatDisagreesWithIt);
         Checks.run("aWholeWallNotReadYetLeavesTheBuildToBeMadeAgain", WallTileTests::aWholeWallNotReadYetLeavesTheBuildToBeMadeAgain);
         Checks.run("aSpriteReadAsAWallIsReadAgainLaidOverOne", WallTileTests::aSpriteReadAsAWallIsReadAgainLaidOverOne);
+        Checks.run("theFarSideOfAWallTakesTheTilesOfTheRoomBeyondOnEitherEdge", WallTileTests::theFarSideOfAWallTakesTheTilesOfTheRoomBeyondOnEitherEdge);
+        Checks.run("theFarSideWaitsForTheRoomsTilesToBeRead", WallTileTests::theFarSideWaitsForTheRoomsTilesToBeRead);
+        Checks.run("theFarSideTakesNoTilesFromAWallWithAnOpening", WallTileTests::theFarSideTakesNoTilesFromAWallWithAnOpening);
     }
 
     /**
@@ -580,5 +583,42 @@ final class WallTileTests {
         check(WallTiles.of(texture, new SpriteGeometry.Frame(), true, false) == asWall && WallTiles.of(texture, new SpriteGeometry.Frame(), true, true) == panel,
                 "once read so, each way has its own reading");
         check(!WallTiles.overlayFaces(panel, 0.004f, 0.004f / ViewCamera.LEVEL_HEIGHT).isEmpty(), "and the tiles over a wall are laid as faces");
+    }
+
+    /** A sprite the room beyond a wall shows, painted. */
+    private static Texture shown(int id) {
+        Texture texture = new Texture(id, 4, 4);
+        texture.paint(0, 0, 4, 4);
+        return texture;
+    }
+
+    private static void theFarSideOfAWallTakesTheTilesOfTheRoomBeyondOnEitherEdge() {
+        TestMap map = bathroom();
+        Texture west = shown(310);
+        WallTiles.Wall whole = reading(true, CREAM);
+        // The room's sprite is a west wall's: read on the north edge it is mostly bare, an opening, and on its own edge it is tiles.
+        WallTiles.knownForTests(west, true, false, reading(false, CREAM));
+        WallTiles.knownForTests(west, false, false, whole);
+        check(map.build.wallBuilder.farTilesOf(west, true) == whole, "the far side of a north wall takes the tiles of the room beyond, read off its west wall");
+        Texture north = shown(311);
+        WallTiles.knownForTests(north, true, false, whole);
+        check(map.build.wallBuilder.farTilesOf(north, true) == whole, "and of its north wall, read on its own edge");
+    }
+
+    private static void theFarSideWaitsForTheRoomsTilesToBeRead() {
+        TestMap map = bathroom();
+        map.build.building.signed = true;
+        check(map.build.wallBuilder.farTilesOf(shown(312), true) == null && !map.build.building.signed,
+                "a room's sprite not read yet leaves the far side plain and the build to be made again once it is");
+    }
+
+    private static void theFarSideTakesNoTilesFromAWallWithAnOpening() {
+        TestMap map = bathroom();
+        Texture door = shown(313);
+        WallTiles.knownForTests(door, true, false, reading(false, CREAM));
+        WallTiles.knownForTests(door, false, false, reading(false, CREAM));
+        map.build.building.signed = true;
+        check(map.build.wallBuilder.farTilesOf(door, true) == null && map.build.building.signed,
+                "a room's sprite read with an opening in it on both edges gives the far side no tiles, and is not waited for");
     }
 }

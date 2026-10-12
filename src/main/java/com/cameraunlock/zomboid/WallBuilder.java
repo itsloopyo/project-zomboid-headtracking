@@ -69,6 +69,8 @@ final class WallBuilder {
 
     /** The plain outside wall the far skin of the wall last asked about can show, or null: see farTint. */
     private WallFinish.Facing farFacing;
+    /** The sprite the room beyond the wall last asked about shows on its walls, or null where it is no room: see farTint. */
+    private Texture farShows;
     /** Where in the chunk's lights the square beyond the wall last asked about is, or -1 when it is the same place as this side. */
     private int farLight;
     private final float[] laidTint = new float[4];
@@ -508,6 +510,17 @@ final class WallBuilder {
             fromEnd = unpainted(faced.texture, da, db, -da, -db);
             fromTop = unpaintedTop(faced.texture, 0f, 0f, da, db);
         }
+        // A room beyond whose walls are tiles has its tiles on this side too: the sprite it shows, read on the edge it is painted
+        // for (see farTilesOf), takes the frame while the far skin is added, as an outside wall's does.
+        WallTiles.Wall farTiles = null;
+        if (tint != 0 && faced == null && farShows != null && Own.textures(build.playerIndex) && WallTiles.tiledSheet(farShows.getName())) {
+            build.held.texelsOf(build.frame);
+            build.frame.takeTexels(farShows);
+            farTiles = farTilesOf(farShows, da != 0f);
+            if (farTiles == null) {
+                build.frame.texelsOf(build.held);
+            }
+        }
         if (tint != 0) {
             build.frame.material = WorldScene.PAINT;
         }
@@ -525,9 +538,12 @@ final class WallBuilder {
         }
         // The far skin is papered as the near one only where it shows the same sprite.
         paper = faced == null && tint == 0 ? paper : null;
-        tiles = faced == null && tint == 0 ? tiles : null;
+        tiles = faced == null && tint == 0 ? tiles : farTiles;
         SpriteGeometry.Mesh far = near;
-        if (faced != null) {
+        if (farTiles != null) {
+            far = tileStood;
+            build.frame.flat = tileFlat;
+        } else if (faced != null) {
             far = stoodSquare(laid(WorldScene.solid.get(faced.texture.getID()), faced.texture, Masonry.suits(faced.sprite.getName()), x, y, z, da != 0f), faced.texture, da != 0f);
         } else if (tint != 0) {
             far = WorldScene.solid.get(texture.getID(), tint);
@@ -543,7 +559,7 @@ final class WallBuilder {
         if (tint != 0 && farColour != null && WorldScene.outdoors(build.frame.open) && opening[at + OPENING_TOP] >= WHOLE_WALL) {
             addCourses(opening, at, x, y, z, 0f, 0f, da, db, -Math.signum(inX), -Math.signum(inY));
         }
-        if (faced != null) {
+        if (faced != null || farTiles != null) {
             build.frame.texelsOf(build.held);
         }
         if (build.overLayer == 0 && farLight >= 0) {
@@ -1152,6 +1168,35 @@ final class WallBuilder {
     }
 
     /**
+     * The tiles of a room's wall sprite, which the frame has taken, to lay on the far skin of a
+     * wall on the north edge (north) or the west. The sprite may be either edge's, and read on the
+     * edge it does not paint it is mostly bare, which reads as an opening (not whole) or as no
+     * tiles: so it is taken read on this edge where that is a whole wall, else on the other. Tiles
+     * look the same from either face. Sets tileBase, tileFlat and tileStood as the near skin's are.
+     * Null for one with no whole reading on either, and while one it needs is unread, when the
+     * build is made again.
+     */
+    WallTiles.Wall farTilesOf(Texture shows, boolean north) {
+        for (int edge = 0; edge < 2; edge++) {
+            boolean on = edge == 0 ? north : !north;
+            WallTiles.Wall read = WallTiles.of(shows, build.frame, on, false);
+            if (read == null && WallTiles.unread(shows, on, false)) {
+                build.building.signed = false;
+                return null;
+            }
+            if (read != null && read.whole) {
+                int stood = build.flatOf(shows, on ? Flats.NORTH : Flats.WEST, 0f, 0f, 0f);
+                tileBase = stood != 0 ? stood : shows.getID();
+                // Its picture stood square is laid along this wall, whichever edge it was read on.
+                tileFlat = stood == 0 ? 0 : north ? SpriteGeometry.FLAT_NORTH : SpriteGeometry.FLAT_WEST;
+                tileStood = WorldScene.solid.get(tileBase);
+                return read;
+            }
+        }
+        return null;
+    }
+
+    /**
      * The tiles of the wall sprite on the north edge of its square (da 1) or its west edge.
      * A wall with a door or a window in it (opens), or one whose own reading says it has one,
      * takes those of the nearest whole wall of its sheet along the same line, either way: round
@@ -1412,6 +1457,7 @@ final class WallBuilder {
         long own = build.here.getRoomID(), far = beyond == null ? -1L : beyond.getRoomID();
         farLight = -1;
         farFacing = null;
+        farShows = null;
         // Above the ground a square of open air is often no square at all. On the ground it is map not loaded yet.
         if (beyond == null && build.cell.getGridSquare(beyondX, beyondY, 0) == null) {
             return 0;
@@ -1437,6 +1483,7 @@ final class WallBuilder {
         if (shows == null || shows == texture) {
             return 0;
         }
+        farShows = far == -1L ? null : shows;
         float[] colour = SpriteColours.of(shows);
         // The picture reads a sprite's colour and how it is laid on the next frame drawn, and tells nobody when it has:
         // a build that went without either is made again when next due.
