@@ -302,8 +302,10 @@ final class MeleeHold {
 
     /**
      * How far an attack with something longer than a bat is turned to the right as it lands, in radians, so that its head
-     * lands where a bat's does and not past what it hits. Nothing shorter than a bat is turned, and nothing thrust,
-     * stabbed or shoved: those carry the head straight to what they hit.
+     * lands on what it hits and not past it: on the line a bat's lands on, and from there, the longer it is, nearer the
+     * line ahead, on which something FULL_REACH long or longer lands. A sledgehammer swung from the end of its handle,
+     * landing on a bat's line, landed past a zombie 1.1 tiles off, at its shoulder. Nothing shorter than a bat is turned,
+     * and nothing thrust, stabbed or shoved: those carry the head straight to what they hit.
      *
      * @param reach how far the far end is from the hand, in tiles
      */
@@ -313,7 +315,7 @@ final class MeleeHold {
         }
         float[] pose = new float[ViewModelMath.HOLD];
         ViewModelMath.attack(way, 1f, 0f, false, RESTS, pose);
-        float target = across(pose, BAT_REACH), yaw = pose[1], low = yaw - MOST_AIMED, high = yaw + MOST_AIMED;
+        float target = across(pose, BAT_REACH) * Math.clamp((FULL_REACH - reach) / (FULL_REACH - BAT_REACH), 0f, 1f), yaw = pose[1], low = yaw - MOST_AIMED, high = yaw + MOST_AIMED;
         for (int step = 0; step < 20; step++) {
             pose[1] = (low + high) / 2f;
             // Turning to the right moves the head to the right.
@@ -325,6 +327,9 @@ final class MeleeHold {
         }
         return (low + high) / 2f - yaw;
     }
+
+    /** How long something is whose head lands on the line ahead, in tiles: a sledgehammer held at its end reaches 0.89. */
+    static final float FULL_REACH = 0.85f;
 
     /** The most an attack is turned by `aimed`, either way, in radians. */
     private static final float MOST_AIMED = (float) Math.toRadians(60);

@@ -20,7 +20,7 @@ final class MeleeTests {
         Checks.run("whatFitsUprightStandsAsItAlwaysDid", MeleeTests::whatFitsUprightStandsAsItAlwaysDid);
         Checks.run("aSpearIsHeldLevelWithTheLeftHandAhead", MeleeTests::aSpearIsHeldLevelWithTheLeftHandAhead);
         Checks.run("handsGoWhereTheGamesHandIsOnEveryHandle", MeleeTests::handsGoWhereTheGamesHandIsOnEveryHandle);
-        Checks.run("aLongWeaponLandsWhereABatDoes", MeleeTests::aLongWeaponLandsWhereABatDoes);
+        Checks.run("aLongWeaponLandsOnWhatItHits", MeleeTests::aLongWeaponLandsOnWhatItHits);
         Checks.run("aScaledModelIsHeldInMetres", MeleeTests::aScaledModelIsHeldInMetres);
         Checks.run("toolsAndBladesStrikeAsTheirKindDoes", MeleeTests::toolsAndBladesStrikeAsTheirKindDoes);
     }
@@ -295,7 +295,7 @@ final class MeleeTests {
                 "with the left fist under the right at the end");
     }
 
-    private static void aLongWeaponLandsWhereABatDoes() {
+    private static void aLongWeaponLandsOnWhatItHits() {
         float[] rest = new float[ViewModelMath.HOLD];
         MeleeHold.rest(MeleeHold.TWO_HANDED, MeleeHold.BAT_REACH, true, rest);
         for (int way = ViewModelMath.SWUNG; way <= ViewModelMath.STABBED; way++) {
@@ -312,8 +312,9 @@ final class MeleeTests {
                 if (straight) {
                     check(MeleeHold.aimed(way, reach) == 0f, "a thrust, a shove or a stab is not turned, way " + way);
                 } else {
-                    float off = (float) Math.toDegrees(Math.atan(MeleeHold.across(turned, reach)) - Math.atan(bat));
-                    check(Math.abs(off) < 0.5f, "way " + way + " reaching " + reach + " lands its head where a bat's lands it: " + off + " degrees off");
+                    float share = Math.clamp((MeleeHold.FULL_REACH - reach) / (MeleeHold.FULL_REACH - MeleeHold.BAT_REACH), 0f, 1f);
+                    float off = (float) Math.toDegrees(Math.atan(MeleeHold.across(turned, reach)) - Math.atan(bat * share));
+                    check(Math.abs(off) < 0.5f, "way " + way + " reaching " + reach + " lands its head between a bat's line and the line ahead: " + off + " degrees off");
                 }
             }
         }
@@ -321,6 +322,6 @@ final class MeleeTests {
         float[] pose = new float[ViewModelMath.HOLD];
         ViewModelMath.attack(ViewModelMath.SWUNG, 1f, 0f, false, rest, pose);
         float sledge = 0.9f, unturned = (float) Math.toDegrees(Math.atan(MeleeHold.across(pose, sledge)) - Math.atan(MeleeHold.across(pose, MeleeHold.BAT_REACH)));
-        check(unturned < -5f && MeleeHold.aimed(ViewModelMath.SWUNG, sledge) > 0f, "a sledgehammer's swing is turned to the right to land where a bat's does: unturned " + unturned + " degrees");
+        check(unturned < -5f && MeleeHold.aimed(ViewModelMath.SWUNG, sledge) > 0f, "a sledgehammer's swing is turned to the right to land on what it hits: unturned " + unturned + " degrees");
     }
 }
