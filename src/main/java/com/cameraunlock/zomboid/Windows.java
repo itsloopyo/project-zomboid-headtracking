@@ -264,7 +264,14 @@ final class Windows {
             }
         }
         float headHigh = openHead ? 0f : side(dots, across, c0, c1, r0, r1, false, false), footHigh = side(dots, across, c0, c1, r0, r1, false, true);
-        float startWide = side(dots, across, c0, c1, r0, r1, true, false), endWide = side(dots, across, c0, c1, r0, r1, true, true);
+        // The stiles are read across the band between head and foot, where the lights are: over
+        // the whole height a door with one small light high in it is frame in every column.
+        int bandTop = r0 + (int) Math.ceil(headHigh), bandBottom = r1 - (int) Math.ceil(footHigh);
+        if (bandBottom - bandTop < 2) {
+            bandTop = r0;
+            bandBottom = r1;
+        }
+        float startWide = side(dots, across, c0, c1, bandTop, bandBottom, true, false), endWide = side(dots, across, c0, c1, bandTop, bandBottom, true, true);
         Shape shape = new Shape();
         shape.start = (float) c0 / across;
         shape.end = (float) c1 / across;

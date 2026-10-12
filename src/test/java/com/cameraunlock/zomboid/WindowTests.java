@@ -27,6 +27,31 @@ final class WindowTests {
         Checks.run("floorLaidFlatMeetsItselfAtTheSquaresEdge", WindowTests::floorLaidFlatMeetsItselfAtTheSquaresEdge);
         Checks.run("halfASquareIsNoFlatFloor", WindowTests::halfASquareIsNoFlatFloor);
         Checks.run("wallStoodSquareRunsOnIntoTheNextLength", WindowTests::wallStoodSquareRunsOnIntoTheNextLength);
+        Checks.run("doorWithOneSmallLightIsALeafWithItsLight", WindowTests::doorWithOneSmallLightIsALeafWithItsLight);
+    }
+
+    /** A flush door with a small light high in it, as the commercial doors are: a leaf with stiles as wide as the light's sides, and the light glass. */
+    private static void doorWithOneSmallLightIsALeafWithItsLight() {
+        String[] rows = new String[40];
+        for (int row = 0; row < rows.length; row++) {
+            rows[row] = row == 0 || row == 39 ? "              " : row >= 4 && row < 11 ? "  ###....###  " : "  ##########  ";
+        }
+        int across = rows[0].length();
+        byte[] dots = new byte[across * rows.length];
+        for (int row = 0; row < rows.length; row++) {
+            for (int column = 0; column < across; column++) {
+                char dot = rows[row].charAt(column);
+                dots[row * across + column] = dot == '#' ? Windows.FRAME : dot == '.' ? Windows.GLASS : Windows.EMPTY;
+            }
+        }
+        Windows.Shape leaf = Windows.measure(dots, across, rows.length, true);
+        check(leaf != null, "a door with a light a sixth of its height is a leaf");
+        if (leaf == null) {
+            return;
+        }
+        check(leaf.panes.length == 5, "it has its one light");
+        check(Math.abs(leaf.startWide - 3f / across) < 1e-4f && Math.abs(leaf.endWide - 3f / across) < 1e-4f,
+                "its stiles are as wide as the light's sides: " + leaf.startWide * across + " and " + leaf.endWide * across);
     }
 
     /** # frame, . glass, a space nothing. Every row as long as the first. */
