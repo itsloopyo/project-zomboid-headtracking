@@ -491,6 +491,19 @@ public final class Hooks {
         return View.of(SpriteRenderer.instance.getRenderingPlayerIndex());
     }
 
+    /**
+     * Called with whether the game draws someone seated in a vehicle, which no vehicle of the
+     * game's own asks for. A player of this machine in first person with a weapon raised out of
+     * their seat is drawn, so that the picture has the weapon in their hand to hold before the eye.
+     */
+    public static boolean showPassenger(boolean stock, IsoGameCharacter character) {
+        if (stock || !(character instanceof IsoPlayer player)) {
+            return stock;
+        }
+        View view = View.of(player);
+        return view != null && view.firstPerson.active() && view.viewModel.held != null;
+    }
+
     /** Called as the game has drawn a person or a vehicle into a player's part of the screen. */
     public static void drawn(ModelSlotRenderData slot) {
         View view = drawn();

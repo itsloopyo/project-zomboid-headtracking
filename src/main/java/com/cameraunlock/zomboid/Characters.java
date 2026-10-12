@@ -1610,7 +1610,8 @@ public final class Characters {
         }
         for (int i = 0; i < noted.size(); i++) {
             ModelSlotRenderData data = noted.get(i);
-            if (!withViewer && data.character != null && data.character == viewer) {
+            // Seated, the viewer's model is drawn by the game only for the weapon in its hand.
+            if (data.character != null && data.character == viewer && (!withViewer || data.inVehicle)) {
                 continue;
             }
             if (only != ALL && (data.character == null) != (only == ONLY_VEHICLES)) {
