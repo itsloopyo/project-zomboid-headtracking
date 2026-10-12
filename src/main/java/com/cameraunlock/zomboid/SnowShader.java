@@ -288,6 +288,21 @@ final class SnowShader {
                 return min(lain * max(mix(0.2, 1.0, smoothstep(-0.05, 0.6, leafUp)), rim), 0.96);
             }
 
+            // On bark and the ivy on it, by the way its surface faces, at q, a place on the map moved
+            // by its height so that a limb over another does not carry the same clumps. What faces
+            // nearly up, the top of a near-level limb, a root, a fork, holds lying snow in clumps that
+            // join along it as more lies: a light fall leaves a thin line on the flattest tops only,
+            // and steep wood none. What faces the way a blizzard came holds what it drove there.
+            // Less under cover, and nothing where no snow lies.
+            float snowOnBark(vec3 facing, vec2 q) {
+                float clumps = snowNoise(q * 7.0, vec2(420.0), 41.0).x;
+                float top = smoothstep(0.55, 0.95, facing.z);
+                float lain = top * smoothstep(0.1, 0.45, uSnowLying * (0.25 + 0.95 * top) - 0.35 * clumps);
+                float windward = dot(normalize(facing.xy + vec2(1e-5, 0.0)), uSnowPlaster) * (1.0 - smoothstep(0.6, 0.9, abs(facing.z)));
+                float stuck = smoothstep(0.12, 0.5, windward - 0.3 * clumps);
+                return min(max(lain, stuck) * clamp(1.0 - 0.8 * snowShelter, 0.0, 1.0), 0.9);
+            }
+
             // On the closed mass of leaves inside a crown, by how far up it faces.
             float snowOnMass(float up) {
                 float top = smoothstep(0.1, 0.8, up);

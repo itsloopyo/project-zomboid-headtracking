@@ -699,6 +699,8 @@ final class PipelineShaders {
             uniform float uWet;
             // How much of the ground snow lies on, 0 to 1.
             uniform float uSnowLying;
+            // Snow a strong wind has stuck to the windward side of trunks: the way such a side faces, as long as how much: see SkyState.plastered.
+            uniform vec2 uSnowPlaster;
             // How much snow lies on what grows: see GRASS_WIND.
             uniform float uPlantSnow;
             // 1 where a wet road, a polished floor and glass are mirrors, which the last pass traces: 0 outside the High graphics mode.
@@ -3020,11 +3022,16 @@ final class PipelineShaders {
                         if (uRelief > 0.5 && level.z > 0.9) {
                             lain += snowSunk(lain, view, lumpy, 1.0 - smoothstep(6.0, 10.0, range));
                         }
-                        // A bole, a limb and the ivy on a bole stay bare: the snow that stays on bark, a
-                        // streak up the weather side or a line along a limb, reads at a distance as white
-                        // paint and as an outline round the wood.
-                        float up = vMaterial > 56.5 && vMaterial < 58.5 ? 0.0 : smoothstep(0.35, 0.8, level.z);
-                        if (uOwnTextures > 0.5) {
+                        // Wood and the ivy on it hold snow where it would lie: along the tops of limbs and on
+                        // roots and forks, more as more lies, and where a blizzard drove it, up the windward
+                        // side. Upright bark out of the wind holds none. Not in Low: nothing that grows does.
+                        bool bark = vMaterial > 56.5 && vMaterial < 58.5;
+                        float up = bark ? 0.0 : smoothstep(0.35, 0.8, level.z);
+                        if (bark) {
+                            snowed = uPlantSnow > 0.0 ? snowOnBark(level, vPlace.xy + vec2(0.61, -0.43) * vPlace.z) : 0.0;
+                            texel.rgb = mix(texel.rgb, SNOW_WHITE, snowed);
+                            n = normalize(mix(n, level, snowed));
+                        } else if (uOwnTextures > 0.5) {
                             snowed = up > 0.0 ? snowLaid(vPlace.xy, lain, lumpy, snowFoot, vWorld.z) * up : 0.0;
                             // The ground just clear of the lip is wet from it, and dark.
                             texel.rgb = mix(texel.rgb * (1.0 - 0.3 * snowMelt * up), snowWhite(), snowed);

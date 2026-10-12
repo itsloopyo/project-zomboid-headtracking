@@ -89,6 +89,11 @@ final class SkyState {
     float rain;
     /** How hard it is snowing, 0 to 1, and how much of the ground snow lies on, 0 to 1. */
     float snow, snowLying;
+    /**
+     * Snow a strong wind has driven onto the windward side of what stands up out of it: the
+     * way such a side faces, as long as how much is stuck there, 0 to 1. See plastered.
+     */
+    float plasterX, plasterY;
 
     /** How much snow lies on what grows: none in Low, which draws what grows as the game does. */
     float snowOnPlants() {
@@ -134,6 +139,14 @@ final class SkyState {
      */
     static final float SNOW_SETTLES = 3f, SNOW_SNAPS = 1f;
     private static volatile float snowShown = -1f;
+    /**
+     * Snow driven onto a trunk builds up while it falls in a strong wind, over about
+     * PLASTER_BUILDS seconds of a blizzard, from a wind of PLASTER_FROM of the game's intensity
+     * at the least and fully from PLASTER_FULL, and stays until the snow lying thaws: there is
+     * never more stuck than lies. Kept from frame to frame, on the logic thread.
+     */
+    private static final float PLASTER_BUILDS = 40f, PLASTER_FROM = 0.4f, PLASTER_FULL = 0.8f;
+    private static float plasteredX, plasteredY;
 
     /** How deep the snow the picture shows lying is, 0 to 1. Any thread. */
     static float snowLyingNow() {
@@ -265,7 +278,13 @@ final class SkyState {
             driftedX -= (float) Math.floor(driftedX);
             driftedY -= (float) Math.floor(driftedY);
             wind.blow(windCos * windStrength, windSin * windStrength, Wind.speed(gusting), elapsed);
+            float driving = snowing * Math.clamp((blowing - PLASTER_FROM) / (PLASTER_FULL - PLASTER_FROM), 0f, 1f);
+            float[] plaster = plastered(plasteredX, plasteredY, -windCos, -windSin, driving, snowShown, elapsed);
+            plasteredX = plaster[0];
+            plasteredY = plaster[1];
         }
+        plasterX = plasteredX;
+        plasterY = plasteredY;
         windX = wind.pushX;
         windY = wind.pushY;
         gustX = wind.travelX;
@@ -309,6 +328,23 @@ final class SkyState {
     private static float seen(float amount) {
         float clamped = Math.clamp(amount, 0f, 1f);
         return clamped < SLIGHTEST ? 0f : clamped;
+    }
+
+    /**
+     * The snow stuck to the windward side of trunks, as plasterX and plasterY say, elapsed
+     * seconds after it was (x, y): driven towards (facingX, facingY), the way a side the wind
+     * comes at faces, as hard as driving says, 0 to 1, and no more than lying, the snow drawn
+     * as lying. It thaws as that does.
+     */
+    static float[] plastered(float x, float y, float facingX, float facingY, float driving, float lying, float elapsed) {
+        float take = Math.min(driving * elapsed / PLASTER_BUILDS, 1f);
+        float toX = x + (facingX * Math.max(lying, 0f) - x) * take, toY = y + (facingY * Math.max(lying, 0f) - y) * take;
+        float stuck = (float) Math.hypot(toX, toY), most = Math.max(lying, 0f);
+        if (stuck > most) {
+            toX *= most / stuck;
+            toY *= most / stuck;
+        }
+        return new float[] {toX, toY};
     }
 
     /** How much snow the pictures last drew as lying: none before the first. */

@@ -10,7 +10,7 @@ final class SnowOnPlantsTests {
     private SnowOnPlantsTests() {}
 
     static void run() {
-        Checks.run("barkAndIvyCarryNoSnow", SnowOnPlantsTests::barkAndIvyCarryNoSnow);
+        Checks.run("barkAndIvyHoldSnowOnlyWhereItWouldLie", SnowOnPlantsTests::barkAndIvyHoldSnowOnlyWhereItWouldLie);
         Checks.run("lowDrawsWhatGrowsBare", SnowOnPlantsTests::lowDrawsWhatGrowsBare);
         Checks.run("aCardPlantIsBuriedInBothDrawingsFromSlopesAskedBeforeAnythingIsLeftOut", SnowOnPlantsTests::aCardPlantIsBuriedInBothDrawingsFromSlopesAskedBeforeAnythingIsLeftOut);
         Checks.run("snowOnACardIsOnLeavesAndNeverSolid", SnowOnPlantsTests::snowOnACardIsOnLeavesAndNeverSolid);
@@ -29,11 +29,20 @@ final class SnowOnPlantsTests {
         return found;
     }
 
-    private static void barkAndIvyCarryNoSnow() {
+    /**
+     * Bark and ivy hold snow as snowOnBark lays it, by the way they face and where a blizzard
+     * drove it, and not the ground's lying snow, which would plaster a bole white up its whole
+     * side; and none in Low. The old look (snowOnWood, snowOnIvy) is not back.
+     */
+    private static void barkAndIvyHoldSnowOnlyWhereItWouldLie() {
         String main = PipelineShaders.WORLD_FRAGMENT_MAIN.replaceAll("\\s+", "");
-        check(main.contains("floatup=vMaterial>56.5&&vMaterial<58.5?0.0:smoothstep(0.35,0.8,level.z);"), "a bole, a limb and ivy take none of the snow that lies on what faces up");
+        check(main.contains("floatup=bark?0.0:smoothstep(0.35,0.8,level.z);"), "a bole, a limb and ivy take none of the ground's snow");
+        check(main.contains("snowed=uPlantSnow>0.0?snowOnBark(level,"), "bark and ivy take snowOnBark's, and none in Low");
+        String bark = SnowShader.GLSL.replaceAll("\\s+", "");
+        check(bark.contains("floattop=smoothstep(0.55,0.95,facing.z);"), "only wood that faces nearly up holds lying snow");
+        check(bark.contains("(1.0-smoothstep(0.6,0.9,abs(facing.z)))"), "a blizzard sticks snow on upright windward faces, not on tops or undersides");
         check(!SnowShader.GLSL.contains("snowOnWood") && !SnowShader.GLSL.contains("snowOnIvy") && !main.contains("snowOnWood") && !main.contains("snowOnIvy"),
-                "nothing else puts snow on bark or ivy");
+                "the old snow on bark and ivy is not back");
     }
 
     private static void lowDrawsWhatGrowsBare() {

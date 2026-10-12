@@ -2848,6 +2848,7 @@ final class Pipeline {
         to.set("uSeconds", state.seconds);
         to.set("uRaining", state.rain);
         to.set("uSnowLying", state.snowLying);
+        to.set("uSnowPlaster", state.plasterX, state.plasterY);
         to.set("uPlantSnow", state.snowOnPlants());
         long year = Seasons.now();
         int season = Seasons.seasonOf(year);
