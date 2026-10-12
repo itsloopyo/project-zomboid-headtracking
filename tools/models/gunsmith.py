@@ -573,14 +573,16 @@ def rubber(g):
     return g.finish(g.scaled(g.colour(0.020, 0.019, 0.018), g.add(0.6, g.times(grain, 1.5))), 0.80, 0.0, g.times(grain, 0.0006))
 
 
-def walnut(g, panels, pitch, grain=0.0, span=0.30, tint=(1.45, 1.16, 0.98), smooth=()):
+def walnut(g, panels=(), pitch=0.0, grain=0.0, span=0.30, tint=(1.45, 1.16, 0.98), smooth=()):
     """Oiled walnut, with a panel of fine diamonds `pitch` metres apart cut into each side of the wood within each of
     panels, given as Graph.panel takes them: where the hand holds it. Its grain runs `grain` radians off the barrel, the
     picture `span` metres to a repeat, coloured by `tint`. Each of smooth, (y, z, half along y, half along z), is a diamond
-    left uncut within the panels, round a screw."""
+    left uncut within the panels, round a screw. With no panels the wood is left plain."""
     figure = g.laid("walnut", span, grain)
     light = g.grey(figure)
     colour = g.tinted(g.mix(0.6, figure, g.tinted(figure, figure)), g.colour(*tint))
+    if not panels:
+        return g.finish(colour, g.add(0.27, g.times(g.math("SUBTRACT", 1.0, light), 0.16)), 0.0, g.times(light, 0.00006))
     side = g.step(g.math("ABSOLUTE", g.nx), 0.30, 0.55)
     nearest = g.panel(*panels[0])
     for panel in panels[1:]:
