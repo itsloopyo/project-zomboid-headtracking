@@ -5434,6 +5434,11 @@ final class WorldScene {
             if (kind.boulder && Own.plants() && plantBuilder.addRock(x, y, z)) {
                 return;
             }
+            // Sticks the game paints lying on the ground. Stood up as a card they float upright.
+            if (Flora.fallenWood(sprite.getName()) && Own.plants()) {
+                Flora.addFallenWood(solid.get(PLAIN), x, y, (z + geometry.raised) * ViewCamera.LEVEL_HEIGHT, geometry.lift, Flora.mix(x, y, 86), frame);
+                return;
+            }
             // What the game itself moves with the wind, and what it lets the player clear as
             // growth, is growth. A tree gets a second card across the first: from the eye it is
             // edge on and unseen, but the sun sees it, so the tree's shadow has a width whichever

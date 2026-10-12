@@ -228,6 +228,8 @@ final class Flora {
      */
     private static final float BARE_OUT = 0.82f, BARE_TWIGGED = 0.5f;
     private static final int BARE_TWIGS = 3;
+    /** How many sticks a square of fallen wood has at least: up to three more. */
+    private static final int FALLEN_STICKS_LEAST = 2;
     private static final int LEADER_SIDES = 6, LIMB_SIDES = 5, BRANCH_SIDES = 4, TWIG_SIDES = 3, LIMB_PIECES = 4;
     /** How far up the bark's picture wood in a crown starts: clear of the moss a bole has at its foot. */
     private static final float WOOD_UP = 3f;
@@ -828,6 +830,50 @@ final class Flora {
     }
 
     private static final int[] QUAD = {0, 1, 2, 0, 2, 3};
+
+    /** Whether a sprite, by its name, is fallen twigs or branches the game paints lying on the ground. */
+    static boolean fallenWood(String name) {
+        int place = name == null ? -1 : Sheets.place(name, "d_generic_1_");
+        return place == 8 || place >= 11 && place <= 15 || place == 44 || place == 45;
+    }
+
+    /**
+     * Fallen sticks lying on the square (x, y), whose ground is base and as high again at its
+     * corners as lift says, in the corner order of SpriteGeometry.lift: a few branches, each with
+     * a fork off it, in bark, sunk a little into the ground they lie on. Returns how many sticks
+     * it laid.
+     */
+    static int addFallenWood(Mesh wood, int x, int y, float base, float[] lift, int seed, SpriteGeometry.Frame frame) {
+        mark(wood, frame.open, 0f, TRUNK);
+        int sticks = FALLEN_STICKS_LEAST + (seed >>> 28 & 3);
+        for (int stick = 0; stick < sticks; stick++) {
+            int own = mix(seed, stick, 98);
+            float length = 0.35f + 0.55f * unit(own, 0), thick = 0.012f + 0.02f * unit(own, 8);
+            double turn = unit(own, 16) * Math.PI;
+            float halfX = (float) Math.cos(turn) * length / 2f, halfY = (float) Math.sin(turn) * length / 2f;
+            float midA = within(0.15f + 0.7f * unit(own, 4), Math.abs(halfX), 0.05f, 0.95f), midB = within(0.15f + 0.7f * unit(own, 12), Math.abs(halfY), 0.05f, 0.95f);
+            float fromA = midA - halfX, fromB = midB - halfY, toA = midA + halfX, toB = midB + halfY;
+            // Lying on the ground with its thicker end a little up on something: sunk by half its thickness.
+            float fromUp = base + ground(lift, fromA, fromB) + thick * (0.5f + 1.5f * unit(own, 20)), toUp = base + ground(lift, toA, toB) + thick * 0.4f;
+            int bark = barkOf("", own);
+            prism(wood, x + fromA, y + fromB, fromUp, x + toA, y + toB, toUp, thick, thick * 0.4f, LIMB_SIDES, BARK_UP * bark + WOOD_UP, 0f, 0f, own, frame);
+            // A fork off it part of the way along, lying on the ground too.
+            float along = 0.3f + 0.4f * unit(own, 24);
+            float forkA = fromA + (toA - fromA) * along, forkB = fromB + (toB - fromB) * along, forkUp = fromUp + (toUp - fromUp) * along;
+            double off = turn + ((own >>> 7 & 1) == 0 ? 0.6 : -0.6);
+            float forkLength = length * (0.25f + 0.25f * unit(own, 28));
+            float endA = Math.clamp(forkA + (float) Math.cos(off) * forkLength, 0.02f, 0.98f), endB = Math.clamp(forkB + (float) Math.sin(off) * forkLength, 0.02f, 0.98f);
+            prism(wood, x + forkA, y + forkB, forkUp, x + endA, y + endB, base + ground(lift, endA, endB) + TWIG_TIP, thick * 0.5f, TWIG_TIP, TWIG_SIDES,
+                    BARK_UP * bark + WOOD_UP, 0f, 0f, own + 1, frame);
+        }
+        wood.sway = 0f;
+        return sticks;
+    }
+
+    /** How high the ground is at (a, b) of a square whose corners are as high as lift says. */
+    private static float ground(float[] lift, float a, float b) {
+        return (lift[0] * (1f - a) + lift[1] * a) * (1f - b) + (lift[3] * (1f - a) + lift[2] * a) * b;
+    }
 
     /**
      * Which way a bole faces at each place round it, worked out once: a tree has hundreds of

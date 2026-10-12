@@ -20,6 +20,8 @@ final class PlantKindTests {
         Checks.run("aBareCrownFarOffHasNoTwigs", PlantKindTests::aBareCrownFarOffHasNoTwigs);
         Checks.run("aBareCrownHasLimbsWhateverItsDistance", PlantKindTests::aBareCrownHasLimbsWhateverItsDistance);
         Checks.run("leafyWeedsAndFernsAreToldByName", PlantKindTests::leafyWeedsAndFernsAreToldByName);
+        Checks.run("fallenSticksAreToldByName", PlantKindTests::fallenSticksAreToldByName);
+        Checks.run("fallenSticksLieOnTheirSquaresGround", PlantKindTests::fallenSticksLieOnTheirSquaresGround);
     }
 
     private static void evergreensAreToldByName() {
@@ -141,6 +143,31 @@ final class PlantKindTests {
         for (int place = 40; place < 92; place++) {
             boolean fern = place >= 48 && place <= 55 || place >= 80 && place <= 87;
             check(Flora.fernSprite("d_generic_1_" + place) == fern, "d_generic_1_" + place + (fern ? " is" : " is not") + " a fern");
+        }
+    }
+
+    private static void fallenSticksAreToldByName() {
+        for (int place = 0; place < 48; place++) {
+            boolean fallen = place == 8 || place >= 11 && place <= 15 || place == 44 || place == 45;
+            check(Flora.fallenWood("d_generic_1_" + place) == fallen, "d_generic_1_" + place + (fallen ? " is" : " is not") + " fallen sticks");
+        }
+        check(!Flora.fallenWood(null) && !Flora.fallenWood("d_generic_2_8"), "no other sheet holds fallen sticks");
+    }
+
+    private static void fallenSticksLieOnTheirSquaresGround() {
+        // A square on a slope, two levels up: its ground rises 0.3 from its west side to its east.
+        float base = 2f * ViewCamera.LEVEL_HEIGHT;
+        float[] lift = {0.1f, 0.4f, 0.4f, 0.1f};
+        for (int seed = 0; seed < 40; seed++) {
+            SpriteGeometry.Mesh wood = new SpriteGeometry.Mesh();
+            int sticks = Flora.addFallenWood(wood, 7, 9, base, lift, Flora.mix(seed, 3, 5), frame());
+            check(sticks >= 2 && sticks <= 5 && wood.floats > 0, "a square of fallen wood is a few sticks");
+            for (int at = 0; at < wood.floats; at += F) {
+                float x = wood.vertices[at], y = wood.vertices[at + 1], up = wood.vertices[at + 2];
+                check(x > 6.97f && x < 8.03f && y > 8.97f && y < 10.03f, "every stick lies on its own square, not at " + x + ", " + y);
+                float ground = base + 0.1f + 0.3f * Math.clamp(x - 7f, 0f, 1f);
+                check(up > ground - 0.05f && up < ground + 0.12f, "and on its ground, not " + (up - ground) + " off it");
+            }
         }
     }
 
