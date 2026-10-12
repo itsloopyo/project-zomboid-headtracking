@@ -113,7 +113,7 @@ public final class FineSkins {
 
         /** How the game's names of the skins of animals begin, in small letters, under a media/textures folder. */
         private static final String[] ANIMALS = {"body/cow", "body/bull", "body/calf", "body/farmpig", "body/pig", "body/sheep", "body/deer", "body/chick",
-            "body/turkey", "body/rabbit", "body/raccoon", "body/rat", "body/mouse"};
+            "body/cockerel", "body/turkey", "body/rabbit", "body/raccoon", "body/rat", "body/mouse"};
 
         /**
          * Which row of [Content] the mod's picture for the game's texture at this path under a
