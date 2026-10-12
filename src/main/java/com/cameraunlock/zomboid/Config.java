@@ -247,7 +247,7 @@ final class Config {
                     writable | live, true),
             core.configLocalBool("Content", "OwnFire",
                     "true: flames, smoke and firelight for burning buildings, Molotovs, campfires, fireplaces, wood stoves, burn barrels\n"
-                            + "and cooking pits. false: the game's flat flames on hearths, and no fire on a burning square.",
+                            + "and cooking pits. false: the game's own flat flames and smoke, stood up where they burn.",
                     writable | live, true),
         };
 
