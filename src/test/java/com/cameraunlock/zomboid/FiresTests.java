@@ -31,6 +31,9 @@ final class FiresTests {
             Checks.run("theJarHoldsTheFlamesLoop", FiresTests::theJarHoldsTheFlamesLoop);
             Checks.run("theGamesFlamesAndSmokeAreToldByName", FiresTests::theGamesFlamesAndSmokeAreToldByName);
             Checks.run("aHearthWithNoModelBurnsAsItsSpriteShows", FiresTests::aHearthWithNoModelBurnsAsItsSpriteShows);
+            Checks.run("theShaderLooksAFireShadowUpInTheFaceItWasDrawnIn", FiresTests::theShaderLooksAFireShadowUpInTheFaceItWasDrawnIn);
+            Checks.run("aFireKeepsItsShadowSlot", FiresTests::aFireKeepsItsShadowSlot);
+            Checks.run("theEyeStopsDownForFlamesAtNight", FiresTests::theEyeStopsDownForFlamesAtNight);
         } finally {
             Own.set(rows);
             Quality.custom(custom);
@@ -166,16 +169,16 @@ final class FiresTests {
         // One that gives no light is passed over wherever it is.
         fires[Fires.LIGHT] = 0f;
         float[] out = new float[Fires.LIGHTS * 4], weight = new float[Fires.LIGHTS];
-        Fires.lights(fires, n, 0f, 0f, 0f, 1f, out, weight);
+        Fires.lights(fires, n, 0f, 0f, 0f, 1f, out, new float[Fires.LIGHTS], weight);
         float furthest = 0f;
         for (int slot = 0; slot < Fires.LIGHTS; slot++) {
             check(out[slot * 4 + 3] > 0f, "every slot has a light");
             furthest = Math.max(furthest, out[slot * 4]);
         }
         check(furthest == Fires.LIGHTS * 3f, "the nearest that give light are kept, the far ones left: " + furthest);
-        Fires.lights(fires, 2, 0f, 0f, 0f, 1f, out, weight);
+        Fires.lights(fires, 2, 0f, 0f, 0f, 1f, out, new float[Fires.LIGHTS], weight);
         check(out[3] > 0f && out[7] == 0f, "one fire with light, then the end of the lights");
-        Fires.lights(fires, 0, 0f, 0f, 0f, 1f, out, weight);
+        Fires.lights(fires, 0, 0f, 0f, 0f, 1f, out, new float[Fires.LIGHTS], weight);
         check(out[3] == 0f, "no fire, no light");
     }
 
@@ -281,5 +284,93 @@ final class FiresTests {
         check(fire[Fires.LOOK] == 0.5f && square(Fires.HEIGHT, false, false)[Fires.LOOK] == 1f, "the game draws a hearth's flames at half the scale of a square's");
         Fires.placeHearth(Fires.BARBECUE, 3.5f, 4.5f, 0f, 0, 1f, 1f, 0f, fire, 0);
         check(fire[Fires.FLAME] == 0f && fire[Fires.SMOKE] > 0f && fire[Fires.LIGHT_UP] < fire[Fires.UP], "a lit barbecue smokes off its grill and glows under it");
+    }
+
+    /**
+     * FireShadows.GLSL picks a face by the way a point lies from the fire and projects it with
+     * axes of its own; the faces are drawn with FireShadows.face, ViewCamera.view and
+     * ViewCamera.projection. For points all round, the two agree on the face's picture and depth.
+     */
+    private static void theShaderLooksAFireShadowUpInTheFaceItWasDrawnIn() {
+        float far = 8f;
+        float[] view = new float[16], projection = new float[16];
+        ViewCamera.projection(1f, 1f, FireShadows.NEAR, far, projection);
+        ViewCamera.Pose pose = new ViewCamera.Pose();
+        java.util.Random random = new java.util.Random(7);
+        for (int i = 0; i < 2000; i++) {
+            float dx = random.nextFloat() * 2f - 1f, dy = random.nextFloat() * 2f - 1f, du = random.nextFloat() * 2f - 1f;
+            float ax = Math.abs(dx), ay = Math.abs(dy), au = Math.abs(du);
+            int face;
+            float[] forward, right, up;
+            // FireShadows.GLSL's choice of face and its axes.
+            if (au >= ax && au >= ay) {
+                face = du > 0f ? 4 : 5;
+                forward = new float[] {0f, 0f, Math.signum(du)};
+                right = new float[] {0f, 1f, 0f};
+                up = new float[] {-Math.signum(du), 0f, 0f};
+            } else if (ax >= ay) {
+                face = dx > 0f ? 0 : 2;
+                forward = new float[] {Math.signum(dx), 0f, 0f};
+                right = new float[] {0f, Math.signum(dx), 0f};
+                up = new float[] {0f, 0f, 1f};
+            } else {
+                face = dy > 0f ? 1 : 3;
+                forward = new float[] {0f, Math.signum(dy), 0f};
+                right = new float[] {-Math.signum(dy), 0f, 0f};
+                up = new float[] {0f, 0f, 1f};
+            }
+            float ahead = dx * forward[0] + dy * forward[1] + du * forward[2];
+            float sx = (dx * right[0] + dy * right[1] + du * right[2]) / ahead, sy = (dx * up[0] + dy * up[1] + du * up[2]) / ahead;
+            float sz = (far + 0.05f) / (far - 0.05f) - 2f * far * 0.05f / ((far - 0.05f) * ahead);
+            // The face as it was drawn.
+            FireShadows.face(face, 0f, 0f, 0f, pose);
+            ViewCamera.view(pose, view);
+            float[] eye = new float[4], clip = new float[4];
+            for (int row = 0; row < 4; row++) {
+                eye[row] = view[row] * dx + view[4 + row] * dy + view[8 + row] * du + view[12 + row];
+            }
+            for (int row = 0; row < 4; row++) {
+                clip[row] = projection[row] * eye[0] + projection[4 + row] * eye[1] + projection[8 + row] * eye[2] + projection[12 + row] * eye[3];
+            }
+            float nx = clip[0] / clip[3], ny = clip[1] / clip[3], nz = clip[2] / clip[3];
+            check(Math.abs(nx - sx) < 1e-4f && Math.abs(ny - sy) < 1e-4f && Math.abs(nz - sz) < 1e-4f,
+                    "face " + face + ": drawn at " + nx + ", " + ny + ", " + nz + ", looked up at " + sx + ", " + sy + ", " + sz);
+            check(Math.abs(sx) <= 1.0001f && Math.abs(sy) <= 1.0001f, "inside the face it is looked up in");
+        }
+    }
+
+    private static void aFireKeepsItsShadowSlot() {
+        FireShadows shadows = new FireShadows();
+        float[] lights = new float[Fires.LIGHTS * 4], reach = new float[Fires.LIGHTS], weight = new float[Fires.LIGHTS];
+        // Two fires, the second the stronger.
+        lights[0] = 1f; lights[1] = 2f; lights[2] = 0.5f; lights[3] = 1f; reach[0] = 8f; weight[0] = 1f;
+        lights[4] = 5f; lights[5] = 6f; lights[6] = 0.5f; lights[7] = 1f; reach[1] = 12f; weight[1] = 2f;
+        shadows.assign(lights, reach, weight, 1, 2);
+        check(shadows.toDraw == 2 && shadows.slotOf[0] >= 0f && shadows.slotOf[1] >= 0f && shadows.slotOf[0] != shadows.slotOf[1],
+                "two new fires get a slot each, drawn at once");
+        float first = shadows.slotOf[0], second = shadows.slotOf[1];
+        check(shadows.from[(int) second * 4 + 3] == 12f + FireShadows.PAST_REACH, "a slot sees as far as its fire's light reaches and a little more");
+        // The two swap places in the list and the first loses some light: each keeps its slot.
+        float[] swapped = new float[Fires.LIGHTS * 4], swappedReach = new float[Fires.LIGHTS], swappedWeight = new float[Fires.LIGHTS];
+        System.arraycopy(lights, 4, swapped, 0, 4);
+        System.arraycopy(lights, 0, swapped, 4, 4);
+        swappedReach[0] = 12f; swappedReach[1] = 8f; swappedWeight[0] = 2f; swappedWeight[1] = 1.5f;
+        shadows.assign(swapped, swappedReach, swappedWeight, 2, 2);
+        check(shadows.slotOf[0] == second && shadows.slotOf[1] == first && shadows.toDraw == 0, "each keeps its slot and nothing is drawn again: " + shadows.toDraw);
+        shadows.assign(swapped, swappedReach, swappedWeight, 2 + FireShadows.STALE_AFTER, 2);
+        check(shadows.toDraw >= 1, "a slot left long enough is drawn again");
+        // With one slot, only the stronger fire has a shadow.
+        FireShadows one = new FireShadows();
+        one.assign(lights, reach, weight, 1, 1);
+        check(one.slotOf[1] == 0f && one.slotOf[0] == -1f, "with one slot the strongest fire has it, and the other none");
+        one.assign(lights, reach, weight, 2, 0);
+        check(one.slotOf[0] == -1f && one.slotOf[1] == -1f && one.toDraw == 0, "with none, no fire throws a shadow");
+    }
+
+    private static void theEyeStopsDownForFlamesAtNight() {
+        check(FlameSheets.stoppedDown(0.3f) == 1f && FlameSheets.stoppedDown(FlameSheets.DAY_EXPOSURE) == 1f, "by day the flames are drawn with all their light");
+        float night = 1.5f, shown = night * FlameSheets.stoppedDown(night), day = FlameSheets.DAY_EXPOSURE;
+        check(shown > day && shown < 2f * day, "at night they show a little brighter than by day, not three times as bright: " + shown / day);
+        check(FlameSheets.stoppedDown(1f) > FlameSheets.stoppedDown(1.5f), "the more the eye has opened, the more it stops down");
     }
 }

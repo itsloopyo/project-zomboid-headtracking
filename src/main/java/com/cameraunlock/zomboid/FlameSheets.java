@@ -305,7 +305,7 @@ final class FlameSheets {
      * game's frames need nothing of it.
      */
     boolean begin(int depth, ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float near, float far, int width, int height,
-            float asideX, float asideY, float ambientRed, float ambientGreen, float ambientBlue) {
+            float asideX, float asideY, float ambientRed, float ambientGreen, float ambientBlue, float exposure) {
         if (!program.use()) {
             return false;
         }
@@ -333,8 +333,9 @@ final class FlameSheets {
         GL20.glUniform1f(program.at("uFar"), far);
         GL20.glUniform1f(program.at("uFrames"), FRAMES);
         GL20.glUniform1f(program.at("uAcross"), ACROSS);
-        GL20.glUniform1f(program.at("uBrightest"), BRIGHTEST);
-        GL20.glUniform1f(program.at("uEmberBright"), EMBER_BRIGHT);
+        float stopped = stoppedDown(exposure);
+        GL20.glUniform1f(program.at("uBrightest"), BRIGHTEST * stopped);
+        GL20.glUniform1f(program.at("uEmberBright"), EMBER_BRIGHT * stopped);
         GL20.glUniform3f(program.at("uForward"), camera.forwardX, camera.forwardY, camera.forwardUp);
         GL20.glUniform3f(program.at("uAmbient"), ambientRed, ambientGreen, ambientBlue);
         GL20.glUniform1f(program.at("uDepthOnly"), 0f);
@@ -342,6 +343,18 @@ final class FlameSheets {
     }
 
     private boolean loopReady;
+
+    /**
+     * How much of their light the flames are drawn with at a picture's exposure (WorldScene.adaptEye).
+     * The eye opens up at night by several times, and flames as bright as they are by day went
+     * past white into flat blobs: the eye stops down again for a fire in view. At the exposure of
+     * a lit day, DAY_EXPOSURE, and below, all of it; above, less, by the power STOPS_DOWN.
+     */
+    static float stoppedDown(float exposure) {
+        return exposure <= DAY_EXPOSURE ? 1f : (float) Math.pow(DAY_EXPOSURE / exposure, STOPS_DOWN);
+    }
+
+    static final float DAY_EXPOSURE = 0.5f, STOPS_DOWN = 0.85f;
 
     /** Whether the picture's own flames can be drawn: their loop is on the graphics card. */
     boolean loopReady() {

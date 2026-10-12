@@ -897,7 +897,7 @@ final class PipelineShaders {
             uniform vec3 uOpenLight;
             uniform float uDaylightKept;
             uniform float uRoomKept;
-            """ + BEAMS + MuzzleFlash.GLSL + Fires.GLSL + """
+            """ + BEAMS + MuzzleFlash.GLSL + Fires.GLSL + FireShadows.GLSL + """
             uniform sampler2D uAsphalt;
             uniform sampler2D uGravel;
             uniform sampler2D uSoil;
@@ -3302,13 +3302,11 @@ final class PipelineShaders {
                 }
                 color += pow(texel.rgb, vec3(2.2)) * beams(vWorld, n, card ? 1.0 : 0.0);
                 color += pow(texel.rgb, vec3(2.2)) * flashLight(vWorld, n);
-                // The game's light of a square stops at its walls, and the firelight here does not: it
-                // falls only where the game has a square lit over the open ground's light, as it has
-                // round a fire, and is given back from the way the fire is and as it flickers. Only a
-                // fire the character can see from where they stand lights at all (Fires.gather), so
-                // what is seen of a wall it lights is on the fire's side.
+                // A fire with a shadow map lights what it can see from where it burns (FireShadows). One
+                // without lights only where the game has the square lit over the open ground's light, as
+                // it has round a fire: the game's light stops at walls, and an unshadowed light does not.
                 vec3 lampLit = max(pow(max(vColor.rgb, vec3(0.0)), vec3(2.2)) - pow(uOpenLight, vec3(2.2)), 0.0);
-                color += pow(texel.rgb, vec3(2.2)) * fireLight(vWorld, n) * clamp(dot(lampLit, vec3(0.3, 0.5, 0.2)) * 12.0, 0.0, 1.0);
+                color += pow(texel.rgb, vec3(2.2)) * fireWorldLight(vWorld, n, clamp(dot(lampLit, vec3(0.3, 0.5, 0.2)) * 12.0, 0.0, 1.0));
                 // A lamp that is lit is brighter than anything it lights. The game lights the
                 // square a burning lamp stands on strongly, and in the dark that is how a lamp
                 // that is on is told: its pale parts, the shade and the glass, then give light

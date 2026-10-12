@@ -222,16 +222,24 @@ final class FireDraw {
     private Object[] flameLooks = new Object[Fires.MOST * 2], smokeLooks = new Object[Fires.MOST * 2];
     /** The lights for uFireAt, four floats each. */
     final float[] lights = new float[Fires.LIGHTS * 4];
+    /** How far each of them reaches, in tiles. */
+    final float[] reach = new float[Fires.LIGHTS];
     private final float[] weights = new float[Fires.LIGHTS];
+    /** Which of them throw shadows, and the slots of their shadow maps. */
+    final FireShadows shadows = new FireShadows();
+    private int frame;
     private final float[] box = new float[4];
     private final FlameSheets sheets = new FlameSheets();
     /** Whether the log last said there were fires in sight. */
     private boolean inSight;
-    private static final String[] FIRE_AT = new String[Fires.LIGHTS];
+    private static final String[] FIRE_AT = new String[Fires.LIGHTS], FIRE_FROM = new String[FireShadows.MOST];
 
     static {
         for (int i = 0; i < Fires.LIGHTS; i++) {
             FIRE_AT[i] = "uFireAt[" + i + "]";
+        }
+        for (int i = 0; i < FireShadows.MOST; i++) {
+            FIRE_FROM[i] = "uFireFrom[" + i + "]";
         }
     }
 
@@ -265,7 +273,8 @@ final class FireDraw {
             }
         }
         // The game lights round its own flames itself: the picture's light is for its own fire.
-        Fires.lights(fires, Fires.own() ? count : 0, camera.eyeX, camera.eyeY, camera.eyeUp, seconds(nanos), lights, weights);
+        Fires.lights(fires, Fires.own() ? count : 0, camera.eyeX, camera.eyeY, camera.eyeUp, seconds(nanos), lights, reach, weights);
+        shadows.assign(lights, reach, weights, ++frame, Fires.own() ? FireShadows.slots() : 0);
         if ((count > 0) != inSight) {
             inSight = count > 0;
             Log.info(inSight ? "first person fires in sight: " + state.fireCount + " squares that burn or smoke, " + (count - state.fireCount) + " hearths"
@@ -283,7 +292,18 @@ final class FireDraw {
         for (int i = 0; i < Fires.LIGHTS; i++) {
             program.set(FIRE_AT[i], lights[i * 4], lights[i * 4 + 1], lights[i * 4 + 2], lights[i * 4 + 3]);
         }
+        program.setEach("uFireReach", reach);
         program.set("uFireColor", Fires.RED, Fires.GREEN, Fires.BLUE);
+    }
+
+    /** Gives the world's program, whose source has FireShadows.GLSL in it, the fires' shadow maps on unit, which the picture has bound. */
+    void lightWorld(Program program, int unit) {
+        program.set("uFireShadow", unit);
+        program.setEach("uFireSlot", shadows.slotOf);
+        for (int slot = 0; slot < FireShadows.MOST; slot++) {
+            program.set(FIRE_FROM[slot], shadows.from[slot * 4], shadows.from[slot * 4 + 1], shadows.from[slot * 4 + 2], shadows.from[slot * 4 + 3]);
+        }
+        program.set("uFireFace", FireShadows.faceSize(), FireShadows.slots());
     }
 
     /**
@@ -344,7 +364,7 @@ final class FireDraw {
      * nearer the eye in depth, the picture's depth.
      */
     void draw(int target, int depth, SkyState state, ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float near, float far,
-            int width, int height, float asideX, float asideY, long nanos) {
+            int width, int height, float asideX, float asideY, long nanos, float exposure) {
         flamesShown = false;
         if (count == 0 || !program.use()) {
             return;
@@ -401,7 +421,8 @@ final class FireDraw {
         float seconds = seconds(nanos);
         boolean own = Fires.own();
         boolean drawn = sheets.begin(depth, camera, tanHalfFieldOfView, aspect, near, far, width, height, asideX, asideY,
-                (float) Math.pow(state.openRed, 2.2) * kept, (float) Math.pow(state.openGreen, 2.2) * kept, (float) Math.pow(state.openBlue, 2.2) * kept);
+                (float) Math.pow(state.openRed, 2.2) * kept, (float) Math.pow(state.openGreen, 2.2) * kept, (float) Math.pow(state.openBlue, 2.2) * kept,
+                exposure);
         boolean flames = drawn && sheets.loopReady();
         // Fire by fire, the furthest first, so a nearer fire's smoke stands before the flames of one behind it: the
         // picture's own smoke, or a stove's glow, marched here, then its flames and embers; or the game's own smoke and
@@ -453,7 +474,7 @@ final class FireDraw {
         GL11.glDepthFunc(GL_LEQUAL);
         GL11.glDepthMask(true);
         // The depth being written is not read: the fade at surfaces is the depth test's.
-        if (sheets.begin(Pipeline.none(), camera, tanHalfFieldOfView, aspect, near, far, width, height, asideX, asideY, 0f, 0f, 0f)) {
+        if (sheets.begin(Pipeline.none(), camera, tanHalfFieldOfView, aspect, near, far, width, height, asideX, asideY, 0f, 0f, 0f, 1f)) {
             float seconds = seconds(nanos);
             boolean own = Fires.own();
             sheets.depthOnly(true);

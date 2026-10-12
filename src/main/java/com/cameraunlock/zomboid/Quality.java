@@ -486,6 +486,11 @@ final class Quality {
         return drawn.sharpShadows ? 4096 : 2048;
     }
 
+    /** Whether shadows are drawn finer: more of the fires throw them too (FireShadows). */
+    static boolean sharpShadows() {
+        return drawn.sharpShadows;
+    }
+
     /** How far the view is built and drawn, in tiles, where the loaded map reaches that far. */
     static int sight() {
         return drawn.viewDistance;

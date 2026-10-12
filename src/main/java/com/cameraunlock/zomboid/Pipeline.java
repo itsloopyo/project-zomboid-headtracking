@@ -341,12 +341,14 @@ final class Pipeline {
     private final Lent beamed = new Lent("headlights' shadow map", this::makeBeamed);
     /** The carried torch's shadow map, at TORCH_MAP_MOST across or the shadow maps' size if that is smaller. */
     private final Lent torched = new Lent("torch's shadow map", this::makeTorched);
+    /** The fires' shadow maps, for the frames in which a fire of the picture's own lights the world. */
+    private final Lent fired = new Lent("fires' shadow maps", this::makeFired);
     /** What a vehicle's mirror shows and the people in it, at the mirror's size. */
     private final Lent mirrored = new Lent("mirror's pictures", this::makeMirror);
     /** What water shows, at a third of the picture's size: only in High, in first person, with water in sight. */
     private final Lent watered = new Lent("picture of what water shows", this::makeWatered);
     private final Lent[] SIZED = {whole, steadied, cabin, glassed, shaded, watered};
-    private final Lent[] UNSIZED = {beamed, torched, mirrored};
+    private final Lent[] UNSIZED = {beamed, torched, fired, mirrored};
     private static final long LENT_FOR_NANOS = 10_000_000_000L;
     /** The set whose pictures are being made, which texture and target note them in, or null. */
     private Lent making;
@@ -499,7 +501,8 @@ final class Pipeline {
     private final ChunkBuffers.Listing all = new ChunkBuffers.Listing();
     /** For each shadow map, the chunks it can hold as draws, when those are not all of them. */
     private final ChunkBuffers.Listing nearListed = new ChunkBuffers.Listing(), farListed = new ChunkBuffers.Listing(),
-            beamListed = new ChunkBuffers.Listing(), roofListed = new ChunkBuffers.Listing(), torchListed = new ChunkBuffers.Listing();
+            beamListed = new ChunkBuffers.Listing(), roofListed = new ChunkBuffers.Listing(), torchListed = new ChunkBuffers.Listing(),
+            fireListed = new ChunkBuffers.Listing();
     /** The chunks a vehicle's mirror can show as draws, and the listing its picture is drawn from: every chunk's when none is out of it. */
     private final ChunkBuffers.Listing behindListed = new ChunkBuffers.Listing();
     private ChunkBuffers.Listing shownBehind = all;
@@ -530,8 +533,8 @@ final class Pipeline {
     private static final int TEXEL_KEPT_FRAMES = 256;
     private int frameNumber;
     /** How many chunks the last frame drew into the near, far, headlight, roof and torch maps, and how many it had, for the log. */
-    private static final int NEAR_MAP = 0, FAR_MAP = 1, BEAM_MAP = 2, ROOF_MAP = 3, TORCH_MAP = 4;
-    private final int[] heldChunks = new int[5];
+    private static final int NEAR_MAP = 0, FAR_MAP = 1, BEAM_MAP = 2, ROOF_MAP = 3, TORCH_MAP = 4, FIRE_MAP = 5;
+    private final int[] heldChunks = new int[6];
     /** Written after heldChunks, and read before it by the logic thread. */
     private volatile int heldOf;
     /** What this view's own pictures and shadow maps take on the graphics card, as its last frame left them. Read by the logic thread. */
@@ -630,11 +633,19 @@ final class Pipeline {
     private static final int TORCH_MAP_MOST = 2048;
     private final float[] torchMatrix = new float[16], torchAt = new float[4], torchWay = new float[3];
     private int torchMap, torchTarget, torchSize;
+    /** The fires' shadow maps, all in one texture (FireShadows), and the face size and slots it was made for. */
+    private int fireMap, fireTarget, fireFace, fireSlots;
+    private final float[] fireMatrix = new float[16];
+    private final ViewCamera.Pose fireFace6 = new ViewCamera.Pose();
+    /** The texture unit the fires' shadow maps are bound to for the world's program: one none of its own samplers is on. */
+    private static final int FIRE_SHADOW_UNIT = 19;
     private final float[] sunNdc = new float[2];
     private final int[] samplers = new int[UNITS];
     /** Where the driver puts an answer: see bound. As long as the longest answer OpenGL gives to one question. */
     private final int[] asked = new int[16];
     private final float[] projection = new float[16], viewed = new float[16], flash = new float[7];
+    /** The exposure the picture being drawn is developed at. */
+    private float pictureExposure = 1f;
     /** This picture's fires and their light. */
     private final FireDraw fires = new FireDraw();
     private static final String[] BEAM_AT = new String[Headlights.BEAMS], BEAM_WAY = new String[Headlights.BEAMS];
@@ -864,6 +875,7 @@ final class Pipeline {
                 beginStages();
             }
             frameNanos = System.nanoTime();
+            pictureExposure = exposure;
             shadedAndLit = Quality.shadedAndLit();
             surfacesMirror = Quality.surfacesMirror();
             reflections = Quality.reflections();
@@ -943,7 +955,8 @@ final class Pipeline {
                         fogStart, fogEnd);
             }
             // After the rain, which falls beyond and before a fire alike, and before any glass, which is before it.
-            fires.draw(steadying ? movesUndepthed : decalTarget, sceneDepth, state, camera, tanHalfFieldOfView, aspect, near, far, width, height, asideX, asideY, frameNanos);
+            fires.draw(steadying ? movesUndepthed : decalTarget, sceneDepth, state, camera, tanHalfFieldOfView, aspect, near, far, width, height, asideX, asideY, frameNanos,
+                    exposure);
             // After the sky and the rain, which are both beyond any glass: the sky is painted
             // wherever nothing else is, over whatever was there.
             if (inTheGlass) {
@@ -1174,7 +1187,7 @@ final class Pipeline {
             drawDebris(view.scope.pictureTarget, Scope.PICTURE, Scope.PICTURE, view.scope.sees, tan, 1f, Scope.PICTURE_NEAR, far, 0f, 0f, fogStart, fogEnd);
         }
         fires.draw(view.scope.decalTarget, view.scope.pictureDepth, state, view.scope.sees, tan, 1f, Scope.PICTURE_NEAR, far, Scope.PICTURE, Scope.PICTURE,
-                0f, 0f, frameNanos);
+                0f, 0f, frameNanos, pictureExposure);
         view.scope.developed();
     }
 
@@ -1595,6 +1608,7 @@ final class Pipeline {
         GL11.glBindTexture(GL_TEXTURE_2D, beamed.made() ? beamMap : farDepth);
         GL13.glActiveTexture(GL_TEXTURE0);
         castTorch(state, figures);
+        castFires(state);
         if (castRoof) {
             castRoof(state);
             roofDrawn = true;
@@ -1693,6 +1707,70 @@ final class Pipeline {
             resumeCasting();
         }
         GL11.glViewport(0, 0, shadowSize, shadowSize);
+    }
+
+    /**
+     * The faces of the fires' shadow maps due this frame (FireShadows.assign): the world and its
+     * furniture from each fire, six ways, each face one texel in from its square's edges. People
+     * are left out: a face is kept for frames, and they move.
+     */
+    private void castFires(SkyState state) {
+        FireShadows shadows = fires.shadows;
+        heldChunks[FIRE_MAP] = 0;
+        if (shadows.toDraw == 0) {
+            return;
+        }
+        int face = FireShadows.faceSize(), slots = FireShadows.slots();
+        if (fired.made() && (fireFace != face || fireSlots != slots)) {
+            giveBack(fired);
+        }
+        fireFace = face;
+        fireSlots = slots;
+        lend(fired);
+        GL30.glBindFramebuffer(GL_FRAMEBUFFER, fireTarget);
+        shadow.use();
+        shadow.set("uSunWay", 0f, 0f, 1f);
+        GL13.glActiveTexture(GL_TEXTURE0);
+        for (int k = 0; k < shadows.toDraw; k++) {
+            int slot = shadows.draw[k];
+            float x = shadows.from[slot * 4], y = shadows.from[slot * 4 + 1], up = shadows.from[slot * 4 + 2], far = shadows.from[slot * 4 + 3];
+            GL11.glEnable(GL_SCISSOR_TEST);
+            GL11.glScissor(0, slot * 2 * face, 3 * face, 2 * face);
+            GL11.glClearDepth(1.0);
+            GL11.glClear(GL_DEPTH_BUFFER_BIT);
+            GL11.glDisable(GL_SCISSOR_TEST);
+            ViewCamera.projection(1f, 1f, FireShadows.NEAR, far, projection);
+            for (int side = 0; side < FireShadows.FACES; side++) {
+                FireShadows.face(side, x, y, up, fireFace6);
+                ViewCamera.view(fireFace6, viewed);
+                multiply(projection, viewed, fireMatrix);
+                GL11.glViewport((side % 3) * face + 1, (side / 3 + slot * 2) * face + 1, face - 2, face - 2);
+                shadow.set("uMatrix", fireMatrix);
+                castHeld(fireMatrix, state, fireListed, FIRE_MAP);
+            }
+        }
+        GL11.glViewport(0, 0, shadowSize, shadowSize);
+    }
+
+    /** The fires' shadow maps: FireShadows.slots() slots of six faces, each FireShadows.faceSize() across, in one depth texture. */
+    private String makeFired() {
+        int map = GL11.glGenTextures();
+        GL11.glBindTexture(GL_TEXTURE_2D, map);
+        GL11.glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, 3 * fireFace, 2 * fireSlots * fireFace, 0, GL_DEPTH_COMPONENT, GL_FLOAT, (ByteBuffer) null);
+        filter(GL_LINEAR);
+        GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
+        GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
+        int target = GL30.glGenFramebuffers();
+        GL30.glBindFramebuffer(GL_FRAMEBUFFER, target);
+        GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, map, 0);
+        GL11.glDrawBuffer(GL_NONE);
+        GL11.glReadBuffer(GL_NONE);
+        fireMap = map;
+        fireTarget = target;
+        fired.textures.add(map);
+        fired.targets.add(target);
+        fired.bytes = 4L * 3 * fireFace * 2 * fireSlots * fireFace;
+        return complete("fires' shadow maps");
     }
 
     /** Drawn whatever the weather: the rain is kept off by it, and the light of the sky is traced against it. */
@@ -2717,6 +2795,11 @@ final class Pipeline {
         to.set("uCutMarked", cutRowsX, cutRowsY, cutBelow);
         to.set("uLight", state.lightX, state.lightY, state.lightUp);
         setBeams(to, TORCH_UNIT_IN_WORLD);
+        GL13.glActiveTexture(GL_TEXTURE0 + FIRE_SHADOW_UNIT);
+        GL33.glBindSampler(FIRE_SHADOW_UNIT, 0);
+        GL11.glBindTexture(GL_TEXTURE_2D, fired.made() ? fireMap : farDepth);
+        GL13.glActiveTexture(GL_TEXTURE0);
+        fires.lightWorld(to, FIRE_SHADOW_UNIT);
         float[] carried = state.carried;
         // A carried light that throws a beam is the torch of setBeams: what is said here is one that throws none.
         to.set("uLantern", carried[CarriedLight.HELD], carried[CarriedLight.HELD + 1], carried[CarriedLight.HELD + 2],
