@@ -368,9 +368,9 @@ itself, and each is written here in this project's own shaders.
   https://www.iryoku.com/next-generation-post-processing-in-call-of-duty-advanced-warfare/).
   It is a published formula of three constants.
 - What a surface throws back of its surroundings, in the shaders of
-  `Scope.java`, `OwnWeapon.java` and `OwnRifle.java`, is worked out with the
-  fitted approximation Brian Karis published in "Physically Based Shading on
-  Mobile" (Epic Games, 2014). It is a published formula of three lines.
+  `Scope.java` and `OwnGun.java`, is worked out with the fitted approximation
+  Brian Karis published in "Physically Based Shading on Mobile" (Epic Games,
+  2014). It is a published formula of three lines.
 - A facing is kept in two numbers in `CharacterDraw.java` by octahedral
   encoding, from "A Survey of Efficient Representations for Independent Unit
   Vectors" by Cigolle, Donow, Evangelakos, Mara, McGuire and Meyer (Journal of

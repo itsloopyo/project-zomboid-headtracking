@@ -4026,17 +4026,11 @@ final class Pipeline {
         quad();
         GL11.glDepthFunc(GL_LEQUAL);
         GL11.glDisable(GL_DEPTH_TEST);
-        if (view.ownWeapon.waiting()) {
-            drawOwnWeapon(camera, state, tanHalfFieldOfView, aspect, near, far);
-        }
-        if (view.ownRifle.waiting() || view.scope.waiting()) {
+        if (view.ownShotgun.waiting() || view.ownRifle.waiting() || view.scope.waiting()) {
             view.heldDepth.begin(sceneColor, width, height, frameNanos);
         }
-        if (view.ownRifle.waiting()) {
-            lightHeld(view.ownRifle.begin(), camera, state);
-            view.ownRifle.draw(camera, sceneTarget, width, height, ownDepth, tanHalfFieldOfView, aspect, HELD_NEAR, far, near,
-                    asideX, asideY);
-        }
+        drawOwnGun(view.ownShotgun, camera, state, tanHalfFieldOfView, aspect, near, far);
+        drawOwnGun(view.ownRifle, camera, state, tanHalfFieldOfView, aspect, near, far);
         if (view.scope.waiting()) {
             lightHeld(view.scope.begin(), camera, state);
             view.scope.draw(camera, view.characters.aim, sceneTarget, width, height, ownDepth, tanHalfFieldOfView, aspect, HELD_NEAR, far, near,
@@ -4054,10 +4048,12 @@ final class Pipeline {
         }
     }
 
-    /** The weapon the mod has a model of its own for, over the hands that hold it, in the light of the frame. */
-    private void drawOwnWeapon(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float near, float far) {
-        lightHeld(view.ownWeapon.begin(), camera, state);
-        view.ownWeapon.draw(camera, sceneTarget, sceneColor, ownDepth, tanHalfFieldOfView, aspect, HELD_NEAR, far, near);
+    /** A gun the mod has a model of its own for, if one was placed this frame, over the hands that hold it, in the light of the frame. */
+    private void drawOwnGun(OwnGun gun, ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float near, float far) {
+        if (gun.waiting()) {
+            lightHeld(gun.begin(), camera, state);
+            gun.draw(camera, sceneTarget, width, height, ownDepth, tanHalfFieldOfView, aspect, HELD_NEAR, far, near, asideX, asideY);
+        }
     }
 
     /** A projection times a view, each sixteen floats by columns. */
@@ -4074,7 +4070,7 @@ final class Pipeline {
     }
 
     /**
-     * Gives the program of something the mod draws in the viewer's hands, a rifle or a scope,
+     * Gives the program of something the mod draws in the viewer's hands, a gun or a scope,
      * the light of the frame: the sky, the sun and its two shadow maps, the eye and its axes,
      * the flash of a shot.
      */
@@ -4087,9 +4083,9 @@ final class Pipeline {
         program.set("uLightColor", state.lightRed, state.lightGreen, state.lightBlue);
         program.set("uNearMatrix", nearMatrix);
         program.set("uFarMatrix", farMatrix);
-        GL13.glActiveTexture(GL_TEXTURE0 + OwnWeapon.SHADOW_FAR_UNIT);
+        GL13.glActiveTexture(GL_TEXTURE0 + OwnGun.SHADOW_FAR_UNIT);
         GL11.glBindTexture(GL_TEXTURE_2D, farMap);
-        GL13.glActiveTexture(GL_TEXTURE0 + OwnWeapon.SHADOW_NEAR_UNIT);
+        GL13.glActiveTexture(GL_TEXTURE0 + OwnGun.SHADOW_NEAR_UNIT);
         GL11.glBindTexture(GL_TEXTURE_2D, nearMap);
         GL13.glActiveTexture(GL_TEXTURE0);
     }
@@ -4236,8 +4232,9 @@ final class Pipeline {
             }
         }, SPRIGS, SPRIG_FORM));
         // The weapon models are given back with the pictures and made again with them: see giveBackContent.
-        pieces.add(new Piece(OwnWeapon.MODEL::readAhead, OwnWeapon.MODEL::isRead, OwnWeapon::prepare));
-        pieces.add(new Piece(OwnRifle.MODEL::readAhead, OwnRifle.MODEL::isRead, OwnRifle::prepare));
+        for (OwnModel gun : OwnModel.ALL) {
+            pieces.add(new Piece(gun::readAhead, gun::isRead, () -> OwnGun.prepare(gun)));
+        }
         return pieces;
     }
 
@@ -4841,8 +4838,9 @@ final class Pipeline {
         GL11.glDeleteTextures(sprigForm);
         sprigs = 0;
         sprigForm = 0;
-        OwnWeapon.MODEL.letGo();
-        OwnRifle.MODEL.letGo();
+        for (OwnModel gun : OwnModel.ALL) {
+            gun.letGo();
+        }
         contentPreparing = 0;
         contentBegun = false;
         contentReady = false;
@@ -4864,7 +4862,6 @@ final class Pipeline {
         for (Lent set : SIZED) {
             giveBack(set);
         }
-        view.ownWeapon.forgetTarget();
         view.heldDepth.forgetTarget();
     }
 

@@ -26,7 +26,7 @@ final class OwnArms {
 
     private static final String MESH = "/models/arms.mesh.gz", COLOUR = "/models/arms.colour.bc", SURFACE = "/models/arms.surface.bc";
     private static final int GL_TEXTURE_2D = 0x0DE1, GL_TEXTURE0 = 0x84C0;
-    /** The units the mod's own weapons keep their pictures on, each bound afresh by whoever draws. */
+    /** The units the mod's own guns keep their pictures on (OwnGun), each bound afresh by whoever draws. */
     private static final int COLOUR_UNIT = 30, SURFACE_UNIT = 31;
     private static final int GL_ARRAY_BUFFER = 0x8892, GL_ELEMENT_ARRAY_BUFFER = 0x8893, GL_STATIC_DRAW = 0x88E4;
     private static final int GL_FLOAT = 0x1406, GL_UNSIGNED_BYTE = 0x1401, GL_UNSIGNED_INT = 0x1405, GL_TRIANGLES = 0x0004;

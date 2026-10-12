@@ -29,9 +29,17 @@ final class OwnModel {
     private static final int GL_ARRAY_BUFFER = 0x8892, GL_ELEMENT_ARRAY_BUFFER = 0x8893, GL_STATIC_DRAW = 0x88E4;
     private static final int GL_FLOAT = 0x1406, GL_SHORT = 0x1402, GL_UNSIGNED_SHORT = 0x1403;
 
+    static final OwnModel SHOTGUN = new OwnModel("the shotgun's model", "shotgun", "Base.Shotgun", true);
+    static final OwnModel RIFLE = new OwnModel("the rifle's model", "rifle", "Base.HuntingRifle", false);
+    static final OwnModel[] ALL = {SHOTGUN, RIFLE};
+
     /** What the model is, for what the log says went wrong making it. */
     private final String what;
     private final String mesh, colourPath, surfacePath;
+    /** The one item of the game's that the model stands for. */
+    private final String item;
+    /** Whether it is worked by sliding its fore-end, which its file has as a part of its own: else by a bolt. */
+    final boolean pump;
 
     /** Read by the game's logic thread too, to ask whether the model stands for what is held. */
     volatile boolean onCard;
@@ -56,12 +64,26 @@ final class OwnModel {
     /**
      * @param what  what the model is, as the log names it: "the rifle's model"
      * @param name  the name its three files in the jar's models folder begin with
+     * @param item  the item of the game's it stands for
+     * @param pump  whether it is worked by its fore-end
      */
-    OwnModel(String what, String name) {
+    private OwnModel(String what, String name, String item, boolean pump) {
         this.what = what;
+        this.item = item;
+        this.pump = pump;
         mesh = "/models/" + name + ".mesh.gz";
         colourPath = "/models/" + name + ".colour.bc";
         surfacePath = "/models/" + name + ".surface.bc";
+    }
+
+    /** The model drawn for an item held, or null where it is the game's own. */
+    static OwnModel of(String held) {
+        for (OwnModel model : ALL) {
+            if (model.onCard && Own.weapons() && model.item.equals(held)) {
+                return model;
+            }
+        }
+        return null;
     }
 
     /** Reads the model out of the jar and gives it to the graphics card, its vertices laid out for the program. Null, or what went wrong. */

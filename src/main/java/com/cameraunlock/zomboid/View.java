@@ -49,7 +49,7 @@ final class View {
     final FarModels farModels = new FarModels(this);
     final ViewModel viewModel = new ViewModel(this);
     final Scope scope = new Scope(this);
-    final OwnWeapon ownWeapon = new OwnWeapon(this);
+    final OwnShotgun ownShotgun = new OwnShotgun(this);
     final OwnRifle ownRifle = new OwnRifle(this);
     final WorldScene worldScene = new WorldScene(this);
     final Pipeline pipeline = new Pipeline(this);

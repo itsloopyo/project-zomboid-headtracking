@@ -737,8 +737,8 @@ final class Scope {
         program.set("uStood", stood);
         program.set("uOutdoors", outdoors);
         program.set("uFar", far);
-        program.set("uShadowNear", OwnWeapon.SHADOW_NEAR_UNIT);
-        program.set("uShadowFar", OwnWeapon.SHADOW_FAR_UNIT);
+        program.set("uShadowNear", OwnGun.SHADOW_NEAR_UNIT);
+        program.set("uShadowFar", OwnGun.SHADOW_FAR_UNIT);
         program.set("uPicture", PICTURE_UNIT);
         program.set("uHands", HANDS_UNIT);
         program.set("uSize", (float) wide, (float) high);

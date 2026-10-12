@@ -756,7 +756,7 @@ public final class Characters {
             across[axis] -= wrist[axis];
         }
         ViewModel.Held hands = view.viewModel.held;
-        boolean laid = side == 1 && view.viewModel.hasMuzzle && hands != null && OwnWeapon.standsFor(hands.item());
+        boolean laid = side == 1 && view.viewModel.hasMuzzle && hands != null && OwnShotgun.standsFor(hands.item());
         if (side == 0 && view.viewModel.hasMuzzle) {
             // The right hand's palm is on the grip, which says which way round a palm faces
             // from a hand's length and its thumb in these axes.
@@ -784,7 +784,7 @@ public final class Characters {
         // match them. The mod's own gun is the size a gun is, and hands that size on it are a
         // giant's: they are drawn smaller about their middles, which stay where they hold,
         // and the arms behind them are as much thinner. The forearm keeps its length.
-        boolean fitted = view.viewModel.hasMuzzle && hands != null && OwnWeapon.standsFor(hands.item());
+        boolean fitted = view.viewModel.hasMuzzle && hands != null && OwnShotgun.standsFor(hands.item());
         if (fitted) {
             for (int i = 0; i < 16; i++) {
                 laying[i] = i % 5 == 0 ? HAND_FITS : 0f;
@@ -925,15 +925,14 @@ public final class Characters {
         }
         float pumped = view.viewModel.pumpedPlaced;
         String item = hands.item();
-        OwnModel own = OwnWeapon.standsFor(item) ? OwnWeapon.MODEL : OwnRifle.standsFor(item) ? OwnRifle.MODEL : null;
+        OwnModel own = OwnModel.of(item);
         if (own != null) {
             float out = muzzleOut(held);
             own.hold(meshView, heldView, weaponPlace, data.finalScale, out);
             own.hold(meshStill, view.viewModel.still, weaponPlace, data.finalScale, out);
-            // The shotgun's fore-end is where its maker put it and slides as far as the model's does; the rifle's bolt is drawn back as far as its model's.
-            boolean shotgun = own == OwnWeapon.MODEL;
-            return heldMesh.set(own.shape, meshView, meshStill, shotgun ? own.travel * pumped : 0f,
-                    shotgun ? own.foreEnd * own.muzzle[1] : Float.NaN, shotgun ? ArmHolds.BOLT_TRAVEL : own.travel);
+            // A pump gun's fore-end is where its maker put it and slides as far as the model's does; the rifle's bolt is drawn back as far as its model's.
+            return heldMesh.set(own.shape, meshView, meshStill, own.pump ? own.travel * pumped : 0f,
+                    own.pump ? own.foreEnd * own.muzzle[1] : Float.NaN, own.pump ? ArmHolds.BOLT_TRAVEL : own.travel);
         }
         WeaponShape shape = shapeOf(held, hands.item(), view.viewModel.handgun);
         if (shape == null) {
@@ -1235,24 +1234,20 @@ public final class Characters {
         ModelInstanceRenderData held = weaponOf(data);
         IsoGridSquare square = data.character.getCurrentSquare();
         boolean outside = square != null && square.isOutside();
-        boolean own = held != null && view.viewModel.hasMuzzle && OwnWeapon.standsFor(hands.item());
-        if (own) {
-            view.ownWeapon.place(heldView, weaponPlace, data.finalScale, muzzleOut(held), ownLight, outside, hands.aim());
-        }
-        // The hunting rifle is the mod's own too, and whatever is fixed to it but a scope is left out with the game's model of it.
-        boolean rifle = !own && held != null && view.viewModel.hasMuzzle && OwnRifle.standsFor(hands.item());
-        if (rifle) {
-            view.ownRifle.place(heldView, weaponPlace, data.finalScale, muzzleOut(held), ownLight, outside);
+        // Whatever is fixed to it but a scope is left out with the game's model of it.
+        OwnModel own = held != null && view.viewModel.hasMuzzle ? OwnModel.of(hands.item()) : null;
+        if (own != null) {
+            (own.pump ? view.ownShotgun : view.ownRifle).place(own, heldView, weaponPlace, data.finalScale, muzzleOut(held), ownLight, outside, hands.aim());
         }
         // A scope is drawn by the picture too, after the hands, in place of the game's model of it.
-        ModelInstanceRenderData glass = own || held == null || view.scope.fitted() == null ? null : scopeOf(data);
+        ModelInstanceRenderData glass = held == null || view.scope.fitted() == null ? null : scopeOf(data);
         if (glass != null) {
             view.scope.place(heldView, glass.xfrm.get(scopePlace), weaponPlace, data.finalScale, ownLight, outside);
         }
         // The weapon first. What the picture draws itself says, beside its colour, which way
         // it faces, and the game's draw of the weapon does not: drawn after the hands, the
         // weapon would be lit where it covers them by the way the hand under it faces.
-        for (int part = 0; !own && !rifle && part < parts(data).size(); part++) {
+        for (int part = 0; own == null && part < parts(data).size(); part++) {
             ModelInstanceRenderData model = parts(data).get(part);
             // The game's own flash is a model on the muzzle, lit like the weapon it is on.
             // The picture draws the flash itself, as light.

@@ -556,7 +556,7 @@ public final class ViewModel {
             return view.scope.forwardStop();
         }
         // The rifle's rear sight is on its barrel, further off than a lean reaches.
-        return now != null && (OwnWeapon.standsFor(now.item) || OwnRifle.standsFor(now.item)) ? Float.POSITIVE_INFINITY : FORWARD_STOP;
+        return now != null && OwnModel.of(now.item) != null ? Float.POSITIVE_INFINITY : FORWARD_STOP;
     }
     /**
      * Where a handgun and a long gun are held to be loaded: the line of the barrel to the right
@@ -692,23 +692,17 @@ public final class ViewModel {
 
         // The mod's own model has its sights where it was made with them: the eye is brought to
         // their line, which is that far over the bore at the size the model is drawn.
-        boolean own = hasMuzzle && OwnWeapon.standsFor(how.item);
+        OwnModel own = hasMuzzle ? OwnModel.of(how.item) : null;
         // The game's handguns are made for its own broad hands, nearly twice the size a handgun
         // is beside its long guns. In hands the size hands are they are drawn the size they would be.
         float fits = trueHands && handgun ? HANDGUN_FITS : 1f;
         scale *= fits;
         float aimedY = AIMED_Y * fits, aimedAhead = AIMED_AHEAD;
-        if (own) {
+        if (own != null) {
             float long3 = (float) Math.sqrt((end[0] - origin[0]) * (end[0] - origin[0]) + (end[1] - origin[1]) * (end[1] - origin[1])
                     + (end[2] - origin[2]) * (end[2] - origin[2]));
-            aimedY = -OwnWeapon.MODEL.sightLine * long3 * scale / OwnWeapon.MODEL.muzzleFar;
-            aimedAhead = OwnWeapon.MODEL.eyeBehind * long3 * scale / OwnWeapon.MODEL.muzzleFar;
-        }
-        if (hasMuzzle && OwnRifle.standsFor(how.item)) {
-            float long3 = (float) Math.sqrt((end[0] - origin[0]) * (end[0] - origin[0]) + (end[1] - origin[1]) * (end[1] - origin[1])
-                    + (end[2] - origin[2]) * (end[2] - origin[2]));
-            aimedY = -OwnRifle.MODEL.sightLine * long3 * scale / OwnRifle.MODEL.muzzleFar;
-            aimedAhead = OwnRifle.MODEL.eyeBehind * long3 * scale / OwnRifle.MODEL.muzzleFar;
+            aimedY = -own.sightLine * long3 * scale / own.muzzleFar;
+            aimedAhead = own.eyeBehind * long3 * scale / own.muzzleFar;
         }
         // Behind a scope the eye is on the scope's axis, the eye relief behind its eyepiece.
         if (hasMuzzle && view.scope.sighted(weapon, finalScale, origin, forward, top, end, scale, sighted)) {
@@ -796,13 +790,14 @@ public final class ViewModel {
         ViewModelMath.place(out, origin[0], origin[1], origin[2], gripSeen);
         if (hasMuzzle) {
             ViewModelMath.place(out, end[0], end[1], end[2], muzzle);
-            // The mod's own model says where its fore-end is and how far it slides.
-            float rests = own ? OwnWeapon.MODEL.foreEnd : FORE_END, along = rests - (own ? OwnWeapon.MODEL.foreEndTravel : PUMP_TRAVEL) * pumped;
+            // The mod's own pump gun says where its fore-end is and how far it slides.
+            boolean pump = own != null && own.pump;
+            float rests = pump ? own.foreEnd : FORE_END, along = rests - (pump ? own.foreEndTravel : PUMP_TRAVEL) * pumped;
             ViewModelMath.place(out, origin[0] + (end[0] - origin[0]) * along, origin[1] + (end[1] - origin[1]) * along,
                     origin[2] + (end[2] - origin[2]) * along, foreEnd);
             for (int axis = 0; axis < 3; axis++) {
                 // The hand on the mod's own model is laid round the fore-end, by its middle.
-                if (!own) {
+                if (!pump) {
                     foreEnd[axis] -= over[axis] * FORE_END_BELOW;
                 }
             }
