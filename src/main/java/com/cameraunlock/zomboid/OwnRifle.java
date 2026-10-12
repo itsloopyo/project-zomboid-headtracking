@@ -14,6 +14,7 @@ package com.cameraunlock.zomboid;
 final class OwnRifle extends OwnGun {
     /** The parts the file's layout names. The rifle has nothing in the second, which is a pump's, or the last, which is a stock left out. */
     private static final int FIXED = 0, BOLT = 2, CASE = 3;
+    static final int PARTS = 5;
 
     /**
      * How far the handle is turned up to open the bolt, as tools/models/rifle.py makes it, and

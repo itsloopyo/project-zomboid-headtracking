@@ -52,6 +52,9 @@ abstract class OwnGun {
             uniform vec2 uTurn;
             uniform float uSlide;
             uniform float uBore;
+            // A part that turns about a pin or hinge of its own, in the model's axes: rigid, and
+            // the same for all but such a part.
+            uniform mat4 uPart;
             // -1 where uModel is a mirror, which turns a surface's own axes inside out.
             uniform float uHanded;
             uniform vec3 uRight;
@@ -75,9 +78,9 @@ abstract class OwnGun {
 
             void main() {
                 vec3 place = turned(aPlace, uBore);
-                vec4 seen = uModel * vec4(place.x, place.y - uSlide, place.z, 1.0);
-                vec3 n = normalize(mat3(uModel) * turned(aNormal, 0.0));
-                vec3 t = normalize(mat3(uModel) * turned(aTangent, 0.0));
+                vec4 seen = uModel * (uPart * vec4(place.x, place.y - uSlide, place.z, 1.0));
+                vec3 n = normalize(mat3(uModel) * (mat3(uPart) * turned(aNormal, 0.0)));
+                vec3 t = normalize(mat3(uModel) * (mat3(uPart) * turned(aTangent, 0.0)));
                 vSeen = seen.xyz;
                 vNormal = inWorld(n);
                 vTangent = inWorld(t);
@@ -428,7 +431,38 @@ abstract class OwnGun {
         program.set("uTurn", 1f, 0f);
         program.set("uSlide", 0f);
         program.set("uCut", 0f);
+        program.set("uPart", Characters.IDENTITY);
         parts(program);
+    }
+
+    /**
+     * Fills out, by columns, with a part's turn by angle radians about a line through the
+     * model's point (x, y, z) along the axis (ax, ay, az), as uPart takes it: a turn that is
+     * positive by the right hand about the axis, in the model's own axes.
+     */
+    static void turnAbout(float[] out, float x, float y, float z, float ax, float ay, float az, float angle) {
+        float length = (float) Math.sqrt(ax * ax + ay * ay + az * az);
+        ax /= length;
+        ay /= length;
+        az /= length;
+        float c = (float) Math.cos(angle), s = (float) Math.sin(angle), k = 1f - c;
+        out[0] = c + ax * ax * k;
+        out[1] = ay * ax * k + az * s;
+        out[2] = az * ax * k - ay * s;
+        out[3] = 0f;
+        out[4] = ax * ay * k - az * s;
+        out[5] = c + ay * ay * k;
+        out[6] = az * ay * k + ax * s;
+        out[7] = 0f;
+        out[8] = ax * az * k + ay * s;
+        out[9] = ay * az * k - ax * s;
+        out[10] = c + az * az * k;
+        out[11] = 0f;
+        // The pivot stays where it is: p - R p.
+        out[12] = x - (out[0] * x + out[4] * y + out[8] * z);
+        out[13] = y - (out[1] * x + out[5] * y + out[9] * z);
+        out[14] = z - (out[2] * x + out[6] * y + out[10] * z);
+        out[15] = 1f;
     }
 
     /** A direction of the view's, x to the right, y up and z towards the viewer, in the world's axes. */

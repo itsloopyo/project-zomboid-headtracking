@@ -19,6 +19,7 @@ final class GripTests {
         Checks.run("longGunsWristFeedAndForeEndAreReadFromItsMesh", GripTests::longGunsWristFeedAndForeEndAreReadFromItsMesh);
         Checks.run("meshWithNoTriggerGuardHasNoShape", GripTests::meshWithNoTriggerGuardHasNoShape);
         Checks.run("modsOwnModelsHaveAGripAndAForeEnd", GripTests::modsOwnModelsHaveAGripAndAForeEnd);
+        Checks.run("aModelFileThatCannotBeIsNotRead", GripTests::aModelFileThatCannotBeIsNotRead);
         Checks.run("oddMeshesHaveNoShapeAndSayWhy", GripTests::oddMeshesHaveNoShapeAndSayWhy);
         Checks.run("rightHandClosesRoundAPistolsGripAlongItsRake", () -> rightHandClosesRoundAPistolsGripAlongItsRake(model));
         Checks.run("leftHandWrapsTheRightOnAPistolHeldInBoth", () -> leftHandWrapsTheRightOnAPistolHeldInBoth(model));
@@ -103,43 +104,61 @@ final class GripTests {
                 "nor one three times as long and as tall as its muzzle is from its grip: " + why);
     }
 
-    /** The mod's own guns are held as the game's firearms are: their meshes say where their grips are. */
+    /** The mod's own guns are held as the game's firearms are: their meshes say where their grips are. Every one in OwnModel.ALL. */
     private static void modsOwnModelsHaveAGripAndAForeEnd() throws IOException {
-        for (String name : new String[] {"shotgun", "sawnoff", "rifle"}) {
+        for (OwnModel model : OwnModel.ALL) {
             ByteBuffer read;
-            try (InputStream packed = new GZIPInputStream(GripTests.class.getResourceAsStream("/models/" + name + ".mesh.gz"))) {
+            try (InputStream packed = new GZIPInputStream(GripTests.class.getResourceAsStream(model.mesh))) {
                 read = ByteBuffer.wrap(packed.readAllBytes()).order(ByteOrder.LITTLE_ENDIAN);
             }
-            read.getInt();
-            read.getInt();
-            float[] muzzle = {read.getFloat(), read.getFloat(), read.getFloat()};
-            for (int skip = 0; skip < 9; skip++) {
-                read.getFloat();
-            }
-            int vertices = read.getInt(), indices = 0;
-            for (int part = 0; part < OwnModel.PARTS; part++) {
-                indices += read.getInt();
-            }
-            int vertexBytes = 3 * Float.BYTES + 9 * Short.BYTES;
-            float[] places = new float[vertices * 3];
-            int[] corners = new int[indices];
-            int at = read.position();
-            for (int vertex = 0; vertex < vertices; vertex++) {
-                for (int axis = 0; axis < 3; axis++) {
-                    places[vertex * 3 + axis] = read.getFloat(at + vertex * vertexBytes + axis * Float.BYTES);
-                }
-            }
-            for (int index = 0; index < indices; index++) {
-                corners[index] = read.getInt(at + vertices * vertexBytes + index * Integer.BYTES);
-            }
+            OwnModel.Layout layout = OwnModel.layout(read, model.mesh);
+            String name = model.what;
             StringBuilder why = new StringBuilder();
-            WeaponShape shape = WeaponShape.read(places, corners, new float[] {0f, 1f, 0f}, new float[] {0f, 0f, 1f}, muzzle, 1f, why);
-            check(shape != null, "the " + name + "'s mesh has a grip: " + why);
+            WeaponShape shape = WeaponShape.read(layout.places(read), layout.corners(read), new float[] {0f, 1f, 0f}, new float[] {0f, 0f, 1f}, layout.muzzle(), 1f, why);
+            check(shape != null, name + " has a grip: " + why);
             if (shape != null) {
-                check(ArmPose.apart(shape.grip, new float[3]) < 0.08f && shape.grip[2] < shape.bore, "the " + name + "'s grip is under its bore and within a hand of its origin: "
+                check(ArmPose.apart(shape.grip, new float[3]) < 0.08f && shape.grip[2] < shape.bore, name + "'s grip is under its bore and within a hand of its origin: "
                         + shape.grip[1] + ", " + shape.grip[2]);
                 check(shape.foreTo > shape.foreFrom && shape.levelTo > shape.levelFrom, "and it has an underside ahead of its guard");
             }
+        }
+    }
+
+    /** A model's file that is cut short, or says it has what cannot be, is refused with why, and nothing is made of it. */
+    private static void aModelFileThatCannotBeIsNotRead() {
+        // magic, version 5, twelve floats, 0 vertices, then what is under test.
+        check(refused(head(5), "cut short"), "a version 5 head that ends before its part count");
+        check(refused(head(4), "cut short"), "a version 4 head too short to hold its five counts");
+        check(refused(head(5, -1), "has -1 parts"), "a negative part count");
+        check(refused(head(5, 2_000_000_000), "parts"), "a part count no model has");
+        check(refused(head(5, 0), "no parts"), "no parts");
+        check(refused(head(5, 2, -3, 6, 0), "not whole triangles"), "a part with a negative count");
+        check(refused(head(5, 1, 6, -5), "parts move"), "a negative count of moves");
+        check(refused(head(5, 1, 3, 0), "bytes after its head"), "a part with indices and no body");
+        check(refused(head(4, 0, 0, 0, 0, 0), null), "and a head with nothing wrong is read");
+    }
+
+    /** A model's head, all of it nought but the magic and the version, then the ints given. */
+    private static ByteBuffer head(int version, int... then) {
+        ByteBuffer out = ByteBuffer.allocate(8 + 12 * Float.BYTES + Integer.BYTES + then.length * Integer.BYTES).order(ByteOrder.LITTLE_ENDIAN);
+        out.putInt('C' | 'U' << 8 | 'W' << 16 | 'M' << 24).putInt(version);
+        for (int at = 0; at < 12; at++) {
+            out.putFloat(0f);
+        }
+        out.putInt(0);
+        for (int each : then) {
+            out.putInt(each);
+        }
+        return out.flip();
+    }
+
+    /** Whether reading the head throws an IOException that says said, or with said null, reads it without one. */
+    private static boolean refused(ByteBuffer read, String said) {
+        try {
+            OwnModel.layout(read, "a test model");
+            return said == null;
+        } catch (IOException e) {
+            return said != null && e.getMessage().contains(said);
         }
     }
 

@@ -4071,11 +4071,18 @@ final class Pipeline {
         quad();
         GL11.glDepthFunc(GL_LEQUAL);
         GL11.glDisable(GL_DEPTH_TEST);
-        if (view.ownShotgun.waiting() || view.ownRifle.waiting() || view.scope.waiting()) {
+        boolean ownWaits = view.scope.waiting();
+        for (OwnGun gun : view.ownGuns) {
+            ownWaits |= gun != null && gun.waiting();
+        }
+        if (ownWaits) {
             view.heldDepth.begin(sceneColor, width, height, frameNanos);
         }
-        drawOwnGun(view.ownShotgun, camera, state, tanHalfFieldOfView, aspect, near, far);
-        drawOwnGun(view.ownRifle, camera, state, tanHalfFieldOfView, aspect, near, far);
+        for (OwnGun gun : view.ownGuns) {
+            if (gun != null) {
+                drawOwnGun(gun, camera, state, tanHalfFieldOfView, aspect, near, far);
+            }
+        }
         if (view.scope.waiting()) {
             lightHeld(view.scope.begin(), camera, state);
             view.scope.draw(camera, view.characters.aim, sceneTarget, width, height, ownDepth, tanHalfFieldOfView, aspect, HELD_NEAR, far, near,

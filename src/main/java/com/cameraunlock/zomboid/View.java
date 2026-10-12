@@ -50,11 +50,21 @@ final class View {
     final FarModels farModels = new FarModels(this);
     final ViewModel viewModel = new ViewModel(this);
     final Scope scope = new Scope(this);
-    final OwnShotgun ownShotgun = new OwnShotgun(this);
-    final OwnRifle ownRifle = new OwnRifle(this);
+    /** What works and draws each of the mod's own models, by its place in OwnModel.ALL, made the first time the model is held. Render thread. */
+    final OwnGun[] ownGuns = new OwnGun[OwnModel.ALL.length];
     final WorldScene worldScene = new WorldScene(this);
     final Pipeline pipeline = new Pipeline(this);
     final Characters characters = new Characters(this);
+
+    /** What works and draws a model of the mod's own in this view. Render thread. */
+    OwnGun ownGun(OwnModel model) {
+        OwnGun gun = ownGuns[model.index];
+        if (gun == null) {
+            gun = model.works.apply(this);
+            ownGuns[model.index] = gun;
+        }
+        return gun;
+    }
 
     private View(int index) {
         this.index = index;

@@ -121,7 +121,7 @@ public final class Characters {
      * own view. Characters are drawn at one and a half times theirs.
      */
     private static final float VEHICLE_SCALE = 1f;
-    private static final float[] IDENTITY = {1f, 0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 1f};
+    static final float[] IDENTITY = {1f, 0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 1f};
 
     private final ArrayList<ModelSlotRenderData> noted = new ArrayList<>();
     /** Where the game's own camera stood each noted model: x, y, floor level and the angle it turned it by. */
@@ -894,7 +894,7 @@ public final class Characters {
             across[axis] -= wrist[axis];
         }
         ViewModel.Held hands = armHands;
-        boolean laid = side == 1 && view.viewModel.hasMuzzle && hands != null && OwnShotgun.standsFor(hands);
+        boolean laid = side == 1 && view.viewModel.hasMuzzle && hands != null && foreEndHeld(hands);
         if (side == 0 && view.viewModel.hasMuzzle) {
             // The right hand's palm is on the grip, which says which way round a palm faces
             // from a hand's length and its thumb in these axes.
@@ -922,7 +922,7 @@ public final class Characters {
         // match them. The mod's own gun is the size a gun is, and hands that size on it are a
         // giant's: they are drawn smaller about their middles, which stay where they hold,
         // and the arms behind them are as much thinner. The forearm keeps its length.
-        boolean fitted = view.viewModel.hasMuzzle && hands != null && OwnShotgun.standsFor(hands);
+        boolean fitted = view.viewModel.hasMuzzle && hands != null && foreEndHeld(hands);
         if (fitted) {
             for (int i = 0; i < 16; i++) {
                 laying[i] = i % 5 == 0 ? HAND_FITS : 0f;
@@ -988,6 +988,13 @@ public final class Characters {
     private boolean ownArms, armsRefused, bareRefused;
     /** How the weapon was held when its arms were placed: they are drawn for that, whatever the logic thread has said since. */
     private ViewModel.Held armHands;
+
+    /** Whether what is held is one of the mod's own models whose fore-end the left hand holds with the pump gun's hold. */
+    private static boolean foreEndHeld(ViewModel.Held held) {
+        OwnModel own = held.ownDrawn();
+        return own != null && own.foreEndHeld;
+    }
+
     /** Whose arms they are: a woman's or not, and the game's skin. */
     private boolean armFemale;
     private int armSkin;
@@ -1393,7 +1400,7 @@ public final class Characters {
         // Whatever is fixed to it but a scope is left out with the game's model of it.
         OwnModel own = held != null && view.viewModel.hasMuzzle ? hands.ownDrawn() : null;
         if (own != null) {
-            (own.pump ? view.ownShotgun : view.ownRifle).place(own, heldView, weaponPlace, data.finalScale, muzzleOut(held), ownLight, outside, hands.aim());
+            view.ownGun(own).place(own, heldView, weaponPlace, data.finalScale, muzzleOut(held), ownLight, outside, hands.aim());
         }
         // A scope is drawn by the picture too, after the hands, in place of the game's model of it.
         ModelInstanceRenderData glass = held == null || view.scope.fitted() == null ? null : scopeOf(data);

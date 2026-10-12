@@ -12,8 +12,9 @@ package com.cameraunlock.zomboid;
  * All of it is the render thread's.
  */
 final class OwnShotgun extends OwnGun {
-    /** The parts the file's layout names. */
+    /** The parts the file's layout names, and how many it has. */
     private static final int FIXED = 0, SHELL = 3, STOCK = 4;
+    static final int PARTS = 5;
     /** How far from the eye the stock is first drawn with the sights up, in the model's metres. */
     private static final float NOT_DRAWN_WITHIN = 0.13f;
     /** The bolt throws the shell out once the fore-end is this far back, on its way back. */
@@ -26,12 +27,6 @@ final class OwnShotgun extends OwnGun {
     OwnShotgun(View view) {
         // Varnish and rubber mirror the sky far less cleanly than the sums for a perfect coat say: taken whole, walnut under a blue sky was purple.
         super(view, 0.45f, 0f, 0f);
-    }
-
-    /** Whether the model is what is drawn for what is held. */
-    static boolean standsFor(ViewModel.Held held) {
-        OwnModel own = held.ownDrawn();
-        return own != null && own.pump;
     }
 
     @Override
