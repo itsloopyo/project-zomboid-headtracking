@@ -833,6 +833,9 @@ final class PipelineShaders {
             }
 
             const float RELIEF = 0.05;
+            // How much more of a clear sky's light an upright face turned to the sun's side of it
+            // has, and how much less one turned away, with the sun on the horizon.
+            const float SKY_SIDE = 0.35;
             // A leaf of a crown: what it has of the crown's sun when turned edge on to it, and what more
             // when turned full to it; how much of the sun on its back shows through, and how
             // much more of it looking straight towards the sun; and how smooth its skin is.
@@ -3024,6 +3027,15 @@ final class PipelineShaders {
                     fromSky *= mix(0.88 + 0.16 * leafFace.z, 1.0, snowed);
                 }
                 fromSky *= skyOver;
+                // Which way the face itself is turned, towards the eye, as relief has not bent it.
+                vec3 face = normalize(vNormal);
+                face = dot(face, view) < 0.0 ? -face : face;
+                float sided = card || crown ? 0.0 : (1.0 - abs(face.z)) * open;
+                // A clear sky is brightest round the sun, so a face turned to the sun's side of it
+                // has more of the sky's light than one turned to the deep blue opposite: two
+                // shaded walls at a corner are not one tone. Cloud evens the sky out, and a high
+                // sun has no side.
+                fromSky *= 1.0 + SKY_SIDE * dot(normalize(face.xy + 1e-6), uLight.xy) * sided * (1.0 - 0.8 * uCover) * smoothstep(-0.05, 0.1, uLight.z);
                 if (model) {
                     // The game's light for a square comes from no direction, and a sprite needs
                     // none: its shading is painted on. A model lit the same from every side is
