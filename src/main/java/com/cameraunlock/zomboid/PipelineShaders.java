@@ -2785,6 +2785,18 @@ final class PipelineShaders {
                     texel.rgb = mix(texel.rgb, texel.rgb * vec3(1.0, 0.72, 0.76), bloom * drawn);
                     texel.rgb *= mix(0.97, 1.0, drawn) * mix(1.0, dot(texture2D(uPaint, run * 0.14).rgb, vec3(0.299, 0.587, 0.114)) * uSurfaceGain.y, 0.3);
                 }
+                // Joinery (OpeningBuilder.JOINERY): a door's leaf or a window's frame of planed
+                // wood, its grain fine streaks running up it with no joint across, as one board
+                // is. Upright, the grain runs up; lying, along x. Where a pixel takes in more than
+                // a streak's width the streaks are left out and only their slow tone stays.
+                if (uOwnTextures > 0.5 && vMaterial > 85.5 && vMaterial < 86.5) {
+                    vec2 grainOn = abs(n.z) > 0.7 ? vPlace.yx : vec2(dot(vPlace.xy, vec2(n.y, -n.x)), vPlace.z);
+                    float wave = patches(vec2(grainOn.x * 2.6, grainOn.y * 0.35));
+                    float streak = patches(vec2(grainOn.x * 70.0 + wave * 9.0, grainOn.y * 2.2)) * 0.65
+                            + patches(vec2(grainOn.x * 190.0 + wave * 20.0, grainOn.y * 5.0 + 3.0)) * 0.35;
+                    float streaksShown = 1.0 - smoothstep(0.004, 0.02, fwidth(grainOn.x));
+                    texel.rgb *= mix(1.0, 0.78 + 0.44 * streak, 0.45 * streaksShown) * (0.94 + 0.12 * wave);
+                }
                 // A curtain the picture has hung has folds of its own, and is its weave close to.
                 if (vMaterial > 68.5 && vMaterial < 69.5) {
                     texel.rgb *= mix(1.0, wrapped(uCloth, vWorld, n, 23.0) * uClothGain, 0.22);
@@ -3218,6 +3230,10 @@ final class PipelineShaders {
                     float rough = mix(0.82, 0.5, smoothstep(0.55, 0.95, pale));
                     if (vMaterial > 2.5 && vMaterial < 3.5) {
                         rough = 0.32;
+                    }
+                    // A varnished door or window frame has a satin sheen and mirrors nothing.
+                    if (vMaterial > 85.5 && vMaterial < 86.5) {
+                        rough = 0.4;
                     }
                     // Glazed tile is glossier than a varnished board.
                     if (vMaterial > 10.5 && vMaterial < 11.5) {

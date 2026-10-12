@@ -26,10 +26,25 @@ final class OpeningBuilder {
     private static final float HEM = 0.07f, HEM_SHADE = 0.86f;
     /** The colour of a curtain rod. */
     private static final float ROD_RED = 0.2f, ROD_GREEN = 0.16f, ROD_BLUE = 0.13f;
-    /** How far a moulding round a door's panel stands out of the leaf and how wide it is, in tiles. */
-    private static final float MOULDING_PROUD = 0.011f, MOULDING_WIDE = 0.024f;
-    /** A room's light is the same from every side, and shows no relief: a moulding is drawn this much darker than the leaf, as its own shadow makes it, and a panel's field this much. */
-    private static final float MOULDING_SHADE = 0.8f, FIELD_SHADE = 0.93f;
+    /**
+     * A door's raised panel: the groove cut round it, how wide the bevel rising from the groove
+     * to the flat field is, and how far the field stands out of the leaf, in tiles. The bevel is
+     * at most this share of the panel's narrower side.
+     */
+    private static final float GROOVE_WIDE = 0.007f, BEVEL_WIDE = 0.034f, FIELD_PROUD = 0.006f, BEVEL_MOST = 0.3f;
+    /**
+     * A room's light is much the same from every side, and shows little relief: the groove is
+     * drawn this much darker than the leaf, as its own shadow makes it, the bevel facing down,
+     * the two facing sideways and the one facing up these much, and the field this much.
+     */
+    private static final float GROOVE_SHADE = 0.55f, BEVEL_DOWN_SHADE = 0.74f, BEVEL_SIDE_SHADE = 0.87f, BEVEL_UP_SHADE = 1.04f, FIELD_SHADE = 0.97f;
+    /** A hinge's knuckle: how high it is and how far round, in tiles, how far out of the face it stands, and where up the leaf the three are. */
+    private static final float HINGE_HIGH = 0.09f, HINGE_ROUND = 0.007f, HINGE_OUT = 0.004f;
+    private static final float[] HINGES_AT = {0.11f, 0.5f, 0.89f};
+    /** The rose a knob stands on: how far round and how far out of the face, in tiles. */
+    private static final float ROSE_ROUND = 0.03f, ROSE_OUT = 0.004f;
+    /** Wood the picture gives a grain running along it with no joints across: a door's leaf, a window's frame. */
+    static final float JOINERY = 86f;
     /** Where the panels of a door are, as shares of the part of the leaf they are on: across, then up a whole leaf, then up what is below a light. */
     private static final float[] PANELS_ACROSS = {0.14f, 0.455f, 0.545f, 0.86f};
     private static final float[] PANELS_UP = {0.1f, 0.37f, 0.45f, 0.8f, 0.86f, 0.95f}, PANELS_UP_BELOW = {0.16f, 0.86f};
@@ -249,8 +264,9 @@ final class OpeningBuilder {
 
     /**
      * A door, built: a leaf as thick as a door in the colour of the game's sprite, with glass
-     * in its lights, mouldings round its panels or boards on ledges where the sprite draws
-     * them, and a knob on each face. Its outline, its lights and how it is worked are measured
+     * in its lights, raised panels or boards on ledges where the sprite draws them, a knob on
+     * a rose on each face and three hinges. Bare wood is joinery, its grain running up the
+     * leaf; anything else is painted. Its outline, its lights and how it is worked are measured
      * off the sprite: see Doors. False, adding nothing, for a sprite not measured yet or one
      * that is no leaf with four straight sides.
      */
@@ -290,7 +306,7 @@ final class OpeningBuilder {
         for (int side = 0; side < 2; side++) {
             float face = (side == 0 ? 1f : -1f) * DOOR_HALF;
             float r = sideRed[side], g = sideGreen[side], b = sideBlue[side];
-            wood.open = joint.open = sideOpen[side] + 32f * (wooden ? WorldScene.WOOD : WorldScene.PAINT);
+            wood.open = joint.open = sideOpen[side] + 32f * (wooden ? JOINERY : WorldScene.PAINT);
             if (door.kind == Doors.PLANKED) {
                 // Boards side by side with an open joint between each two, on a back a little behind them.
                 float board = door.board > 0.08f ? door.board : BOARD_USUAL;
@@ -322,28 +338,29 @@ final class OpeningBuilder {
                 }
             }
             if (door.kind == Doors.PANELLED && panelled - leaf.foot > 0.15f) {
-                float proud = face + Math.signum(face) * MOULDING_PROUD, high = panelled - leaf.foot, thick = MOULDING_WIDE / level;
+                float high = panelled - leaf.foot;
                 for (int column = 0; column < PANELS_ACROSS.length; column += 2) {
                     float from = leaf.start + wide * PANELS_ACROSS[column], to = leaf.start + wide * PANELS_ACROSS[column + 1];
                     for (int row = 0; row < up.length; row += 2) {
-                        float foot = leaf.foot + high * up[row], head = leaf.foot + high * up[row + 1];
-                        float mr = r * MOULDING_SHADE, mg = g * MOULDING_SHADE, mb = b * MOULDING_SHADE;
-                        addJoinery(wood, from, from + MOULDING_WIDE, foot, head, proud, mr, mg, mb);
-                        addJoinery(wood, to - MOULDING_WIDE, to, foot, head, proud, mr, mg, mb);
-                        addJoinery(wood, from + MOULDING_WIDE, to - MOULDING_WIDE, foot, foot + thick, proud, mr, mg, mb);
-                        addJoinery(wood, from + MOULDING_WIDE, to - MOULDING_WIDE, head - thick, head, proud, mr, mg, mb);
-                        // The field of the panel, raised in its middle.
-                        addJoinery(wood, from + 2f * MOULDING_WIDE, to - 2f * MOULDING_WIDE, foot + 2f * thick, head - 2f * thick,
-                                face + Math.signum(face) * MOULDING_PROUD * 0.5f, r * FIELD_SHADE, g * FIELD_SHADE, b * FIELD_SHADE);
+                        addRaisedPanel(wood, from, to, leaf.foot + high * up[row], leaf.foot + high * up[row + 1], face, r, g, b);
                     }
                 }
             }
-            // The knob: a neck and a head of eight sides.
             metal.open = sideOpen[side] + 32f * BARE_METAL;
             float[] c = build.reveal;
-            for (int part = 0; part < 2; part++) {
-                float round = part == 0 ? KNOB_ROUND * KNOB_NECK : KNOB_ROUND;
-                float from = face + Math.signum(face) * (part == 0 ? 0f : KNOB_OUT * 0.45f), to = face + Math.signum(face) * (part == 0 ? KNOB_OUT * 0.45f : KNOB_OUT);
+            // The hinges: a knuckle at the leaf's edge away from the knob, on the face the door swings to.
+            if (side == 0) {
+                float edge = door.handleAtEnd ? leaf.start : leaf.end, half = HINGE_HIGH / (2f * level);
+                for (float at : HINGES_AT) {
+                    float middle = leaf.foot + (leaf.head - leaf.foot) * at;
+                    addJoinery(metal, edge - HINGE_ROUND, edge + HINGE_ROUND, middle - half, middle + half, face + HINGE_OUT, r, g, b);
+                }
+            }
+            // The knob: a rose on the leaf, then a neck and a head, each of eight sides.
+            for (int part = 0; part < 3; part++) {
+                float round = part == 0 ? ROSE_ROUND : part == 1 ? KNOB_ROUND * KNOB_NECK : KNOB_ROUND;
+                float near = part == 0 ? 0f : part == 1 ? ROSE_OUT : KNOB_OUT * 0.45f, far = part == 0 ? ROSE_OUT : part == 1 ? KNOB_OUT * 0.45f : KNOB_OUT;
+                float from = face + Math.signum(face) * near, to = face + Math.signum(face) * far;
                 for (int turn = 0; turn < 8; turn++) {
                     float t0 = knob + round * EIGHTH_COS[turn], h0 = KNOB_HIGH + round * EIGHTH_SIN[turn] / level;
                     float t1 = knob + round * EIGHTH_COS[turn + 1], h1 = KNOB_HIGH + round * EIGHTH_SIN[turn + 1] / level;
@@ -413,7 +430,7 @@ final class OpeningBuilder {
 
         SpriteGeometry.Mesh joinery = WorldScene.solid.get(WorldScene.PLAIN, WallSides.key(shape.red, shape.green, shape.blue, WallSides.FLAT));
         joinery.sway = 0f;
-        float made = shape.red - shape.blue > WOODEN ? WorldScene.WOOD : WorldScene.PAINT;
+        float made = shape.red - shape.blue > WOODEN ? JOINERY : WorldScene.PAINT;
         float level = ViewCamera.LEVEL_HEIGHT, lap = FRAME_LAP / level;
         float deep = WorldScene.WALL_HALF + FRAME_PROUD;
         float inStart = shape.start + shape.startWide, inEnd = shape.end - shape.endWide;
@@ -597,6 +614,52 @@ final class OpeningBuilder {
             windowPoint(c, 2, along1, up1, across);
             windowPoint(c, 3, along0, up0, across);
             SpriteGeometry.addPlainQuad(mesh, c, red, green, blue);
+        }
+    }
+
+    /** Floats a quad of a raised panel takes in raisedPanel: four corners of along, up and across, then the share of the light it is drawn in. */
+    static final int PANEL_QUAD = 13;
+
+    /**
+     * A raised panel on one face of a door's leaf, from along from to along to and from foot to
+     * head in levels, on the face across tiles out of the leaf's middle: a groove round its
+     * edge, then a bevel on each side rising to the flat field in its middle. Its quads, each
+     * PANEL_QUAD floats, the groove's four first, then the bevels facing down, up and to each
+     * side, then the field. Each quad's corners go round the same way, the turn of along into up.
+     */
+    static float[] raisedPanel(float from, float to, float foot, float head, float face) {
+        float level = ViewCamera.LEVEL_HEIGHT, out = Math.signum(face);
+        float groove = GROOVE_WIDE, grooveUp = GROOVE_WIDE / level;
+        // The groove lies on the leaf's face, a hair out of it so the two are not drawn through each other.
+        float onFace = face + out * 0.0005f;
+        float a0 = from + groove, a1 = to - groove, f0 = foot + grooveUp, h0 = head - grooveUp;
+        float bevel = Math.min(BEVEL_WIDE, BEVEL_MOST * Math.min(a1 - a0, (h0 - f0) * level));
+        float b0 = a0 + bevel, b1 = a1 - bevel, g0 = f0 + bevel / level, g1 = h0 - bevel / level, field = face + out * FIELD_PROUD;
+        float[][] quads = {
+                {from, foot, onFace, a0, foot, onFace, a0, head, onFace, from, head, onFace, GROOVE_SHADE},
+                {a1, foot, onFace, to, foot, onFace, to, head, onFace, a1, head, onFace, GROOVE_SHADE},
+                {a0, foot, onFace, a1, foot, onFace, a1, f0, onFace, a0, f0, onFace, GROOVE_SHADE},
+                {a0, h0, onFace, a1, h0, onFace, a1, head, onFace, a0, head, onFace, GROOVE_SHADE},
+                {a0, f0, onFace, a1, f0, onFace, b1, g0, field, b0, g0, field, BEVEL_DOWN_SHADE},
+                {b0, g1, field, b1, g1, field, a1, h0, onFace, a0, h0, onFace, BEVEL_UP_SHADE},
+                {a0, f0, onFace, b0, g0, field, b0, g1, field, a0, h0, onFace, BEVEL_SIDE_SHADE},
+                {b1, g0, field, a1, f0, onFace, a1, h0, onFace, b1, g1, field, BEVEL_SIDE_SHADE},
+                {b0, g0, field, b1, g0, field, b1, g1, field, b0, g1, field, FIELD_SHADE}};
+        float[] made = new float[quads.length * PANEL_QUAD];
+        for (int quad = 0; quad < quads.length; quad++) {
+            System.arraycopy(quads[quad], 0, made, quad * PANEL_QUAD, PANEL_QUAD);
+        }
+        return made;
+    }
+
+    private void addRaisedPanel(SpriteGeometry.Mesh mesh, float from, float to, float foot, float head, float face, float red, float green, float blue) {
+        float[] quads = raisedPanel(from, to, foot, head, face), c = build.reveal;
+        for (int at = 0; at < quads.length; at += PANEL_QUAD) {
+            for (int corner = 0; corner < 4; corner++) {
+                windowPoint(c, corner, quads[at + 3 * corner], quads[at + 3 * corner + 1], quads[at + 3 * corner + 2]);
+            }
+            float shade = quads[at + 12];
+            SpriteGeometry.addPlainQuad(mesh, c, red * shade, green * shade, blue * shade);
         }
     }
 
