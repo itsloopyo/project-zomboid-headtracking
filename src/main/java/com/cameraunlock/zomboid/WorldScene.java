@@ -811,7 +811,7 @@ final class WorldScene {
     static final int TABLE_HIGHEST = 48;
     static final int TALL_SURFACE = 60;
     private static final float CUPBOARD_DEEP = 0.55f;
-    static final int WOOD_SPAN = CHUNK_TILES + 2 * Flora.WOOD_RING;
+    static final int WOOD_SPAN = CHUNK_TILES + 2 * Litter.RING;
     /** How far from the eye each thing Flora makes is still made, in tiles. Past TRUNK_NEAR a bole is a plain post, and past ROCK_NEAR a boulder has a quarter of its faces. */
     static final float FERN_REACH = 22f, FERN_NEAR = 12f, FALLEN_REACH = 10f, FLOWER_REACH = 14f, TRUNK_NEAR = 18f, TRUNK_REACH = 60f,
             ROCK_NEAR = 30f, BUSH_REACH = 40f;
@@ -2160,10 +2160,15 @@ final class WorldScene {
         boolean edgeNorth, edgeWest;
         String steepestSaid = "", roofName = "";
         final float[] eave = new float[12];
-        /** Which squares of the chunk being built, and of Flora.WOOD_RING more on every side, hold a tree. */
-        final boolean[] treed = new boolean[WOOD_SPAN * WOOD_SPAN];
-        /** How deep in fallen leaves each corner of the chunk being built is: see Flora.wooded. */
+        /** What tree, as Litter.kindOf names it, stands on each square of the chunk being built and of Litter.RING more on every side. */
+        final byte[] woods = new byte[WOOD_SPAN * WOOD_SPAN];
+        /** How far into a wood each corner of the chunk being built is: see Flora.wooded. */
         final float[] wooded = new float[Terrain.CORNERS * Terrain.CORNERS];
+        /** For what grows on the chunk being built: how deep each corner is in leaf and in needles, and which leaf and which needles lie on each square. See Litter.fields. */
+        final float[] leaves = new float[Terrain.CORNERS * Terrain.CORNERS], needles = new float[Terrain.CORNERS * Terrain.CORNERS];
+        final byte[] leafKinds = new byte[CHUNK_TILES * CHUNK_TILES], needleKinds = new byte[CHUNK_TILES * CHUNK_TILES];
+        /** Whether any tree stands on the chunk being built or near enough to drop litter on it. */
+        private boolean treesRound;
         /** How many of its neighbours' grounds spreadGround last laid over a square. */
         int spreadLayers;
         /** Whether the square being added has no floor. */
@@ -3747,6 +3752,16 @@ final class WorldScene {
                         readWoods(chunkX, chunkY);
                     }
                 }
+                if (z == 0) {
+                    Flora.wooded(woods, CHUNK_TILES, wooded);
+                    treesRound = false;
+                    for (byte tree : woods) {
+                        treesRound |= tree != Litter.NONE;
+                    }
+                    if (growing) {
+                        Litter.fields(woods, CHUNK_TILES, leaves, needles, leafKinds, needleKinds);
+                    }
+                }
                 if (!growing) {
                     bloodBuilder.read(chunkX, chunkY, z);
                 }
@@ -3936,8 +3951,8 @@ final class WorldScene {
                 if (z == 0) {
                     readWoods(chunkX, chunkY);
                     long trees = SUM_FROM;
-                    for (int i = 0; i < treed.length; i++) {
-                        trees = sum(trees, treed[i] ? 1 : 0);
+                    for (int i = 0; i < woods.length; i++) {
+                        trees = sum(trees, woods[i]);
                     }
                     level = sum(level, trees);
                     auditTrees = trees;
@@ -4341,16 +4356,27 @@ final class WorldScene {
             }
         }
 
-        /** Finds the trees on and round a chunk, and from them how deep in fallen leaves each of its corners is. */
+        /** Finds the trees on and round a chunk, and what each drops. */
         private void readWoods(int chunkX, int chunkY) {
             for (int i = 0; i < WOOD_SPAN; i++) {
                 for (int j = 0; j < WOOD_SPAN; j++) {
-                    int localX = i - Flora.WOOD_RING, localY = j - Flora.WOOD_RING;
+                    int localX = i - Litter.RING, localY = j - Litter.RING;
                     IsoGridSquare square = squareAt(chunkX, chunkY, chunkX + localX, chunkY + localY, 0);
-                    treed[i * WOOD_SPAN + j] = square != null && square.HasTree();
+                    woods[i * WOOD_SPAN + j] = square != null && square.HasTree() ? Litter.kindOf(treeName(square)) : Litter.NONE;
                 }
             }
-            Flora.wooded(treed, CHUNK_TILES, wooded);
+        }
+
+        /** The name of the sprite of the tree on a square that has one: the game marks a square as having a tree for any object of the tree's type on it. */
+        private static String treeName(IsoGridSquare square) {
+            PZArrayList<IsoObject> objects = square.getObjects();
+            for (int i = 0; i < objects.size(); i++) {
+                IsoObject object = objects.get(i);
+                if (object.getType() == IsoObjectType.tree) {
+                    return object.getSprite() == null ? null : object.getSprite().getName();
+                }
+            }
+            return null;
         }
 
         private void addOver(IsoObject object, IsoSprite under, IsoSprite over, boolean isFloor, int x, int y, int z) {
@@ -5117,7 +5143,7 @@ final class WorldScene {
                 // What grows here is a build of its own: see grow. It lies over these layers.
                 building.groundLayers[localX * CHUNK_TILES + localY] = (byte) (floorLayer + spreadLayers + blood + laidItems);
                 int own = (localX + 1) * LIGHT_SPAN + localY + 1;
-                building.grows |= groundKind[own] == Terrain.NATURAL && lightOpen[own] == 1;
+                building.grows |= lightOpen[own] == 1 && (groundKind[own] == Terrain.NATURAL || treesRound && Litter.keeps(groundKind[own], true) > 0f);
             }
 
             contentsOf(room);

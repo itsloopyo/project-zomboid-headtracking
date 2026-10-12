@@ -19,8 +19,12 @@ final class Flora {
      */
     static final float LITTER = 56f, TRUNK = 57f, IVY = 58f, ROCK = 59f, FROND = 60f, LEAF = 61f, FLOWER = 62f, BUSH = 63f;
 
-    /** Which leaf a LEAF card is. The card's texture coordinate across carries it in the twos above the 0 to 1 it runs over. */
-    static final int WEED = 0, FALLEN_ORANGE = 1, FALLEN_BROWN = 2, FALLEN_YELLOW = 3, TWIG = 4;
+    /**
+     * Which leaf a LEAF card is. The card's texture coordinate across carries it in the twos
+     * above the 0 to 1 it runs over, and its coordinate up carries in the same way from which
+     * step of Litter's spread a fallen leaf shows: see Litter.cardStep.
+     */
+    static final int WEED = 0, FALLEN_ORANGE = 1, FALLEN_BROWN = 2, FALLEN_YELLOW = 3, TWIG = 4, FALLEN_RED = 5, CONE = 6;
     /** Which flower a FLOWER card is, carried the same way, or that it is a flower's stalk. */
     static final int WHITE = 0, YELLOW = 1, PURPLE = 2, STALK = 3;
     /**
@@ -31,13 +35,13 @@ final class Flora {
     static final int FLOWER_THINNINGS = 8;
     private static final float PICK_STEP = 2f;
 
-    /** How far from a tree its fallen leaves reach, in tiles. */
+    /** How far from a tree the shade and the floor of a wood reach, in tiles. */
     static final float WOOD_REACH = 3.2f;
-    /** How many squares past a chunk's edge trees are looked for: all that are within WOOD_REACH of a corner on the edge. */
+    /** How many squares either way of a corner its trees are looked for: all that are within WOOD_REACH of it. */
     static final int WOOD_RING = 3;
     private static final float WOOD_GAIN = 0.9f;
 
-    static final int FLOWERS_MOST = 4, FERNS_MOST = 2, FALLEN_MOST = 3, WEED_LEAVES = 5;
+    static final int FLOWERS_MOST = 4, FERNS_MOST = 2, WEED_LEAVES = 5;
     /** Flowers come in drifts this many squares across. */
     private static final int DRIFT = 4;
 
@@ -100,22 +104,22 @@ final class Flora {
     }
 
     /**
-     * How deep in fallen leaves each corner of a chunk is, 0 on open ground and 1 in a wood.
+     * How far into a wood each corner of a chunk is, 0 on open ground and 1 in a wood, the
+     * same all year: where ferns grow and flowers do not.
      *
-     * trees says which squares hold a tree: the chunk's and WOOD_RING more on every side, x
-     * first. A corner takes something from every tree within WOOD_REACH of it, the more the
-     * nearer, so one tree on a lawn has a thin scatter round its foot and a wood is leaves
-     * from edge to edge. Two chunks that share a corner see the same trees round it and give
-     * it the same depth.
+     * trees says what tree, if any, stands on each square: the chunk's and Litter.RING more on
+     * every side, x first. A corner takes something from every tree within WOOD_REACH of it, the
+     * more the nearer. Two chunks that share a corner see the same trees round it and give it
+     * the same depth.
      */
-    static void wooded(boolean[] trees, int tiles, float[] corners) {
-        int span = tiles + 2 * WOOD_RING, across = tiles + 1;
+    static void wooded(byte[] trees, int tiles, float[] corners) {
+        int span = tiles + 2 * Litter.RING, across = tiles + 1;
         for (int i = 0; i < across; i++) {
             for (int j = 0; j < across; j++) {
                 float sum = 0f;
                 for (int di = -WOOD_RING; di < WOOD_RING; di++) {
                     for (int dj = -WOOD_RING; dj < WOOD_RING; dj++) {
-                        if (!trees[(i + WOOD_RING + di) * span + j + WOOD_RING + dj]) {
+                        if (trees[(i + Litter.RING + di) * span + j + Litter.RING + dj] == Litter.NONE) {
                             continue;
                         }
                         float awayX = di + 0.5f, awayY = dj + 0.5f;
@@ -156,11 +160,6 @@ final class Flora {
     static int ferns(int x, int y, float wooded) {
         float chance = unit(mix(x, y, 14), 0);
         return chance < 0.22f * wooded ? 2 : chance < 0.6f * wooded ? 1 : 0;
-    }
-
-    /** How many fallen leaves and twigs stand proud of the litter on such a square. */
-    static int fallen(int x, int y, float wooded) {
-        return Math.min((int) (wooded * (1f + FALLEN_MOST) * unit(mix(x, y, 15), 0) + wooded), FALLEN_MOST);
     }
 
     /** Whether ivy grows up the tree on a square. */
@@ -897,19 +896,25 @@ final class Flora {
     }
 
     /**
-     * Fallen leaves over the whole of a square, as deep at each corner as cover says, in the
-     * corner order of SpriteGeometry.lift: laid over the ground and mixed into it.
+     * Litter over a square of the ground size tiles across from (x, y), in the corner order of
+     * SpriteGeometry.lift: laid over the ground and mixed into it. Each corner carries how deep
+     * fallen leaf lies there at the end of autumn and how deep needles lie, which the world
+     * shader shows as much of as the season says, and the leaf's kind (Litter.OAK and on) in
+     * the twos above its depth, the same at every corner. lift, red, green and blue are each
+     * corner's height and light.
      */
-    static void addLitter(Mesh mesh, int x, int y, float[] lift, float[] cover, SpriteGeometry.Frame frame) {
-        mark(mesh, frame.open, 0f, LITTER);
-        mesh.face(-(lift[1] - lift[0] + lift[2] - lift[3]) / 2f, -(lift[3] - lift[0] + lift[2] - lift[1]) / 2f, 1f);
+    static void addLitter(Mesh mesh, float x, float y, float size, float[] lift, float[] leaf, float[] needle, byte kind,
+            float[] red, float[] green, float[] blue, float open) {
+        mark(mesh, open, 0f, LITTER);
+        mesh.face(-(lift[1] - lift[0] + lift[2] - lift[3]) / (2f * size), -(lift[3] - lift[0] + lift[2] - lift[1]) / (2f * size), 1f);
         for (int corner : QUAD) {
-            mesh.sway = 1f - cover[corner];
-            mesh.add(x + (corner == 1 || corner == 2 ? 1f : 0f), y + (corner >= 2 ? 1f : 0f), lift[corner], 0f, 0f,
-                    frame.cornerRed[corner], frame.cornerGreen[corner], frame.cornerBlue[corner]);
+            mesh.add(x + (corner == 1 || corner == 2 ? size : 0f), y + (corner >= 2 ? size : 0f), lift[corner], LITTER_KIND_STEP * kind + leaf[corner], needle[corner],
+                    red[corner], green[corner], blue[corner]);
         }
-        mesh.sway = 0f;
     }
+
+    /** A litter vertex's coordinate across carries its leaf's kind in steps of this above its depth. The world shader has the same number. */
+    static final float LITTER_KIND_STEP = 2f;
 
     private static final int[] QUAD = {0, 1, 2, 0, 2, 3};
 
@@ -1028,9 +1033,10 @@ final class Flora {
 
     /**
      * One leaf growing out from (x, y) at height up the way turn points, rising at the angle
-     * rise: a weed's leaf, or a fallen one lying nearly flat, or a twig. Two triangles.
+     * rise: a weed's leaf, or a fallen one lying nearly flat, a twig or a cone. Two triangles.
+     * step is from which step of Litter's spread it shows, 0 for always.
      */
-    static void addLeaf(Mesh mesh, float x, float y, float up, float length, float width, double turn, double rise, int kind,
+    static void addLeaf(Mesh mesh, float x, float y, float up, float length, float width, double turn, double rise, int kind, int step,
             float sway, SpriteGeometry.Frame frame) {
         float wayX = (float) Math.cos(turn), wayY = (float) Math.sin(turn);
         float along = length * (float) Math.cos(rise), climb = length * (float) Math.sin(rise);
@@ -1041,7 +1047,7 @@ final class Flora {
         for (int corner : QUAD) {
             float a = corner == 1 || corner == 2 ? 1f : -1f, b = corner >= 2 ? 1f : 0f;
             mesh.sway = sway * b;
-            mesh.add(x + acrossX * a + wayX * along * b, y + acrossY * a + wayY * along * b, up + climb * b, pick + (a + 1f) / 2f, b,
+            mesh.add(x + acrossX * a + wayX * along * b, y + acrossY * a + wayY * along * b, up + climb * b, pick + (a + 1f) / 2f, PICK_STEP * step + b,
                     frame.red, frame.green, frame.blue);
         }
         mesh.sway = 0f;

@@ -172,6 +172,7 @@ public final class Tests {
         Checks.run("ImpactTests", ImpactTests::run);
         Checks.run("KerbTests", KerbTests::run);
         Checks.run("SeasonsTests", SeasonsTests::run);
+        Checks.run("LitterTests", LitterTests::run);
         Checks.run("StairTests", StairTests::run);
         Checks.run("FlightTests", FlightTests::run);
         Checks.run("CutawayTests", CutawayTests::run);
@@ -665,11 +666,11 @@ public final class Tests {
                 flowered += flowers > 0 ? 1 : 0;
                 bare += flowers == 0 ? 1 : 0;
                 weeds += Flora.weed(x, y) ? 1 : 0;
-                check(Flora.ferns(x, y, 0f) == 0 && Flora.fallen(x, y, 0f) == 0, "open ground has no ferns and no fallen leaves");
+                check(Flora.ferns(x, y, 0f) == 0, "open ground has no ferns");
                 for (float wooded = 0.1f; wooded <= 1f; wooded += 0.3f) {
-                    int ferns = Flora.ferns(x, y, wooded), fallen = Flora.fallen(x, y, wooded);
-                    check(ferns == Flora.ferns(x, y, wooded) && fallen == Flora.fallen(x, y, wooded), "a wooded square has the same ferns and leaves every time");
-                    check(ferns >= 0 && ferns <= Flora.FERNS_MOST && fallen >= 0 && fallen <= Flora.FALLEN_MOST, "and never more than the most");
+                    int ferns = Flora.ferns(x, y, wooded);
+                    check(ferns == Flora.ferns(x, y, wooded), "a wooded square has the same ferns every time");
+                    check(ferns >= 0 && ferns <= Flora.FERNS_MOST, "and never more than the most");
                 }
                 check(Flora.ferns(x, y, 1f) >= Flora.ferns(x, y, 0.4f), "deeper in a wood there are no fewer ferns");
                 ferned += Flora.ferns(x, y, 1f) > 0 ? 1 : 0;
@@ -717,7 +718,7 @@ public final class Tests {
     }
 
     private static void fallenLeavesAreAsDeepFromEitherChunkThatSharesACorner() {
-        int tiles = Terrain.CHUNK_TILES, span = tiles + 2 * Flora.WOOD_RING, across = tiles + 1;
+        int tiles = Terrain.CHUNK_TILES, span = tiles + 2 * Litter.RING, across = tiles + 1;
         float[] west = new float[across * across], east = new float[across * across], none = new float[across * across];
         Flora.wooded(woodAround(0, 0, span, 5), tiles, west);
         Flora.wooded(woodAround(tiles, 0, span, 5), tiles, east);
@@ -730,7 +731,7 @@ public final class Tests {
             some |= depth > 0f && depth < 1f;
         }
         check(some, "a thin wood has corners part way deep in leaves");
-        Flora.wooded(new boolean[span * span], tiles, none);
+        Flora.wooded(new byte[span * span], tiles, none);
         for (float depth : none) {
             check(depth == 0f, "ground with no tree near has no fallen leaves");
         }
@@ -739,19 +740,23 @@ public final class Tests {
             whole |= depth == 1f;
         }
         check(whole, "a wood with a tree on every square is all leaves");
-        boolean[] lone = new boolean[span * span];
-        lone[(4 + Flora.WOOD_RING) * span + 4 + Flora.WOOD_RING] = true;
+        byte[] lone = new byte[span * span];
+        lone[(4 + Litter.RING) * span + 4 + Litter.RING] = Litter.OAK;
         Flora.wooded(lone, tiles, west);
         check(west[4 * across + 4] > 0.3f && west[4 * across + 4] < 1f, "one tree has a scatter of leaves at its foot");
         check(west[0] == 0f && west[8 * across + 4] == 0f, "and none four squares away");
     }
 
-    /** Which squares of a chunk at (chunkX, chunkY) and of the ring round it hold a tree, in a land with one on every so many squares. */
-    private static boolean[] woodAround(int chunkX, int chunkY, int span, int every) {
-        boolean[] trees = new boolean[span * span];
+    /**
+     * What tree stands on each square of a chunk at (chunkX, chunkY) and of the ring round it, in
+     * a land with one on every so many squares, of every kind Litter tells apart.
+     */
+    static byte[] woodAround(int chunkX, int chunkY, int span, int every) {
+        byte[] trees = new byte[span * span];
         for (int i = 0; i < span; i++) {
             for (int j = 0; j < span; j++) {
-                trees[i * span + j] = Math.floorMod(Flora.mix(chunkX + i - Flora.WOOD_RING, chunkY + j - Flora.WOOD_RING, 3), every) == 0;
+                int hash = Flora.mix(chunkX + i - Litter.RING, chunkY + j - Litter.RING, 3);
+                trees[i * span + j] = Math.floorMod(hash, every) == 0 ? (byte) (Litter.OAK + Math.floorMod(hash >>> 8, Litter.HOLLY)) : Litter.NONE;
             }
         }
         return trees;
@@ -916,16 +921,18 @@ public final class Tests {
 
     private static void litterShowsAsMuchAsItsCornersSay() {
         SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
-        SpriteGeometry.Frame frame = wholeFrame();
-        frame.light(0.5f, 0.5f, 0.5f);
         mesh.layers.lie(SpriteGeometry.LAYERS_UP, 3f);
-        Flora.addLitter(mesh, 5, 6, new float[] {0f, 0.1f, 0.2f, 0.1f}, new float[] {1f, 0.25f, 0f, 0.5f}, frame);
-        check(mesh.triangles() == 2, "litter over a square is two triangles");
+        float[] light = {0.5f, 0.5f, 0.5f, 0.5f};
+        Flora.addLitter(mesh, 5f, 6f, 0.5f, new float[] {0f, 0.1f, 0.2f, 0.1f}, new float[] {1f, 0.25f, 0f, 0.5f}, new float[] {0f, 0.5f, 1f, 0f},
+                Litter.RED, light, light, light, 0f);
+        check(mesh.triangles() == 2, "a piece of litter is two triangles");
         for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
             float[] f = mesh.vertices;
-            float cover = 2f - (float) Math.sqrt(f[at + 9] * f[at + 9] + f[at + 10] * f[at + 10] + f[at + 11] * f[at + 11]);
-            boolean east = near(f[at], 6f), south = near(f[at + 1], 7f);
-            check(near(cover, east ? south ? 0f : 0.25f : south ? 0.5f : 1f), "each corner shows as much litter as it was given");
+            float length = (float) Math.sqrt(f[at + 9] * f[at + 9] + f[at + 10] * f[at + 10] + f[at + 11] * f[at + 11]);
+            check(near(length, 1f), "litter does not blow about");
+            boolean east = near(f[at], 5.5f), south = near(f[at + 1], 6.5f);
+            check(near(f[at + 3], Flora.LITTER_KIND_STEP * Litter.RED + (east ? south ? 0f : 0.25f : south ? 0.5f : 1f)), "each corner carries the leaf it was given, over its kind");
+            check(near(f[at + 4], east ? south ? 1f : 0.5f : 0f), "and the needles");
             check(near(f[at + 2], east ? south ? 0.2f : 0.1f : south ? 0.1f : 0f), "and lies on the ground there");
             check(f[at + 12] == 3f && f[at + 14] == SpriteGeometry.LAYERS_UP, "as many layers over it as it was laid by, which the picture makes room for");
             check(near(f[at + 8], Flora.LITTER * 32f), "and is marked as litter");

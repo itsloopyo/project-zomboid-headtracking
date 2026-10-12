@@ -180,7 +180,7 @@ final class Pipeline {
     private static final String SHADOW_VERTEX = PipelineShaders.SHADOW_VERTEX;
     private static final String SHADOW_FRAGMENT = PipelineShaders.SHADOW_FRAGMENT;
     private static final String SCREEN_VERTEX = PipelineShaders.SCREEN_VERTEX;
-    private static final String WORLD_FRAGMENT = PipelineShaders.WORLD_FRAGMENT_PARTS.concat(PipelineShaders.WORLD_FRAGMENT_RELIEF).concat(SnowShader.GLSL).concat(RoadPaint.GLSL).concat(PipelineShaders.WORLD_FRAGMENT_MAIN);
+    private static final String WORLD_FRAGMENT = PipelineShaders.WORLD_FRAGMENT_PARTS.concat(PipelineShaders.WORLD_FRAGMENT_RELIEF).concat(SnowShader.GLSL).concat(RoadPaint.GLSL).concat(Litter.GLSL).concat(PipelineShaders.WORLD_FRAGMENT_MAIN);
     /**
      * The same program told at compile time that only depth is wanted, so the driver leaves out
      * every sum that only colours a pixel: see drawWorld.
@@ -2849,6 +2849,8 @@ final class Pipeline {
         to.set("uRaining", state.rain);
         to.set("uSnowLying", state.snowLying);
         to.set("uPlantSnow", state.snowOnPlants());
+        to.set("uLitterSeason", Litter.spread(Seasons.litter()), Litter.fresh(Seasons.season(), Seasons.progression()),
+                Litter.dark(Seasons.season(), Seasons.progression()), Litter.cardSpread(Seasons.season(), Seasons.progression()));
         for (int i = 0; i < snowTrod[0]; i++) {
             to.set(PRINT_AT[i], snowPrints[i * 4], snowPrints[i * 4 + 1], snowPrints[i * 4 + 2], snowPrints[i * 4 + 3]);
         }

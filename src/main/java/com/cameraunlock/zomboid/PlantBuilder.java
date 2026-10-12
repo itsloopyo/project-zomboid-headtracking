@@ -66,6 +66,11 @@ final class PlantBuilder {
     private final float[] crownLeft = new float[Flora.CROWN_BANDS], crownRight = new float[Flora.CROWN_BANDS], crownSizes = new float[Flora.SIZES];
     private final Flora flora = new Flora();
     private final float[] littered = new float[4];
+    /** The square being strewn: how deep in leaf and in needles each corner is as a build lays them, see Litter. */
+    private final float[] leafAt = new float[4], needleAt = new float[4];
+    /** A piece of litter being laid: each corner's height, depths and light. */
+    private final float[] pieceLift = new float[4], pieceLeaf = new float[4], pieceNeedle = new float[4];
+    private final float[] pieceRed = new float[4], pieceGreen = new float[4], pieceBlue = new float[4];
     /** The rectangle and texels of the frame as long grass found it, put back once the grass is grown. */
     private final SpriteGeometry.Frame heldTexels = new SpriteGeometry.Frame();
     /** The tree whose bole was stood last: its square, how thick and tall the bole is, and its bark. Its crown, which comes after it, grows limbs from it. */
@@ -120,39 +125,56 @@ final class PlantBuilder {
 
     /**
      * What stands in and lies on open ground besides its grass. Under trees the ground is
-     * fallen leaves, thick in a wood and a thin scatter round one tree on a lawn, with ferns
-     * growing out of them and a leaf or a twig standing proud. A lawn has flowers in drifts,
-     * and here and there a weed. The leaves are laid as far as the land is drawn; the rest
-     * only near the eye, where it can be told from the ground it stands on.
+     * litter: fallen leaf, spread as far out from them as the season says, and needles under
+     * the evergreens, with a leaf, a twig or a cone standing proud. Leaf lies on paths and in
+     * the gutter as on a lawn, and less of it out in the street. In a wood ferns grow out of
+     * it. A lawn has flowers in drifts, and here and there a weed. The litter is laid as far
+     * as the land is drawn; the rest only near the eye, where it can be told from the ground
+     * it stands on.
      */
     void strew(int x, int y, int localX, int localY, float away2) {
         int own = (localX + 1) * WorldScene.LIGHT_SPAN + localY + 1;
-        if (build.groundKind[own] != Terrain.NATURAL || build.lightOpen[own] != 1) {
+        if (build.lightOpen[own] != 1 || Litter.keeps(build.groundKind[own], true) == 0f) {
             return;
         }
+        boolean natural = build.groundKind[own] == Terrain.NATURAL;
         float deepest = 0f;
         for (int corner = 0; corner < 4; corner++) {
             int i = localX + (corner == 1 || corner == 2 ? 1 : 0), j = localY + (corner >= 2 ? 1 : 0);
-            // Leaves are swept off a road and a path, and none fall indoors: a corner that touches either has none.
+            // A corner keeps as little as the least of the squares it touches, so that a square and its neighbour agree on it.
+            float keeps = 1f;
+            // The floor of a wood is open ground: a corner that touches a road, a path or a roof is no part of one.
             boolean open = true;
             for (int ci = 0; ci <= 1; ci++) {
                 for (int cj = 0; cj <= 1; cj++) {
                     int touching = (i + ci) * WorldScene.LIGHT_SPAN + j + cj;
+                    keeps = Math.min(keeps, Litter.keeps(build.groundKind[touching], build.lightOpen[touching] == 1));
                     open &= build.groundKind[touching] == Terrain.NATURAL && build.lightOpen[touching] == 1;
                 }
             }
+            leafAt[corner] = build.leaves[i * Terrain.CORNERS + j] * keeps;
+            needleAt[corner] = build.needles[i * Terrain.CORNERS + j] * keeps;
             littered[corner] = open ? build.wooded[i * Terrain.CORNERS + j] : 0f;
-            deepest = Math.max(deepest, littered[corner]);
+            deepest = Math.max(deepest, Math.max(leafAt[corner] * Litter.SPREAD_MOST, needleAt[corner]));
         }
         SpriteGeometry.Mesh cards = WorldScene.laid.get(WorldScene.PLAIN);
+        float[] kerbs = build.kerbs;
         if (deepest > 0.02f) {
             WorldScene.layers.lie(SpriteGeometry.LAYERS_UP, build.floorLayer + build.spreadLayers + 1);
-            Flora.addLitter(cards, x, y, build.geometry.lift, littered, build.frame);
+            byte kind = build.leafKinds[localX * Terrain.CHUNK_TILES + localY];
+            // Where a kerb crosses the square or the gutter runs over it, the litter is laid in pieces, each on its own side of the kerb.
+            boolean pieces = kerbs != null && (build.geometry.kerb != null || nearKerb(kerbs, localX, localY));
+            int parts = pieces ? LITTER_PIECES : 1;
+            for (int p = 0; p < parts; p++) {
+                for (int q = 0; q < parts; q++) {
+                    layLitter(cards, x, y, localX, localY, (float) p / parts, (float) q / parts, 1f / parts, kerbs, kind);
+                }
+            }
             WorldScene.layers.none();
         }
         float deep = (littered[0] + littered[1] + littered[2] + littered[3]) / 4f;
-        boolean tree = build.treed[(localX + Flora.WOOD_RING) * WorldScene.WOOD_SPAN + localY + Flora.WOOD_RING];
-        if (away2 < WorldScene.FERN_REACH * WorldScene.FERN_REACH && !tree && isLawn(own)) {
+        boolean tree = build.woods[(localX + Litter.RING) * WorldScene.WOOD_SPAN + localY + Litter.RING] != Litter.NONE;
+        if (natural && away2 < WorldScene.FERN_REACH * WorldScene.FERN_REACH && !tree && isLawn(own)) {
             int ferns = Flora.ferns(x, y, deep);
             if (ferns > 0) {
                 roomFor(x, y, 0);
@@ -170,22 +192,11 @@ final class PlantBuilder {
                 Flora.addFern(cards, x + a, y + b, build.geometry.liftAt(a, b), size, fronds, seed, build.frame);
             }
         }
-        if (away2 < WorldScene.FALLEN_REACH * WorldScene.FALLEN_REACH) {
-            int fallen = Flora.fallen(x, y, deep);
-            for (int leaf = 0; leaf < fallen; leaf++) {
-                int seed = Flora.mix(x, y, 50 + leaf);
-                float a = 0.05f + 0.9f * Flora.unit(seed, 0), b = 0.05f + 0.9f * Flora.unit(seed, 8);
-                double turn = Flora.unit(seed, 16) * 2.0 * Math.PI;
-                float tall = Flora.unit(seed, 24);
-                if (leaf == 0 && (seed & 3) == 0) {
-                    Flora.addLeaf(cards, x + a, y + b, build.geometry.liftAt(a, b) + 0.03f, 0.22f + 0.2f * tall, 0.035f, turn, Math.toRadians(3.0 + 5.0 * tall),
-                            Flora.TWIG, 0f, build.frame);
-                } else {
-                    float length = 0.09f + 0.05f * tall;
-                    Flora.addLeaf(cards, x + a, y + b, build.geometry.liftAt(a, b) + 0.02f, length, length * 0.7f, turn, Math.toRadians(8.0 + 22.0 * tall),
-                            Flora.FALLEN_ORANGE + (seed >>> 20) % 3, 0f, build.frame);
-                }
-            }
+        if (away2 < WorldScene.FALLEN_REACH * WorldScene.FALLEN_REACH && deepest > 0.02f) {
+            addFallen(cards, x, y, localX, localY, kerbs);
+        }
+        if (!natural) {
+            return;
         }
         if (away2 < WorldScene.FLOWER_REACH * WorldScene.FLOWER_REACH && isLawn(own) && deep < 0.35f) {
             addFlowers(cards, x, y, 0.1f, 0.14f, 0.022f);
@@ -200,9 +211,101 @@ final class PlantBuilder {
                     float length = 0.13f + 0.07f * Flora.unit(each, 0);
                     Flora.addLeaf(cards, x + a, y + b, build.geometry.liftAt(a, b) + 0.01f, length, length * 0.5f,
                             (leaf + 0.6 * Flora.unit(each, 8)) * 2.0 * Math.PI / Flora.WEED_LEAVES, Math.toRadians(15.0 + 25.0 * Flora.unit(each, 16)),
-                            Flora.WEED, 0.05f, build.frame);
+                            Flora.WEED, 0, 0.05f, build.frame);
                 }
             }
+        }
+    }
+
+    /**
+     * Lays the piece of the square's litter size across from (a, b) of it, unless a kerb runs
+     * across the piece: then each side of it is laid by a piece of its own and this one is
+     * left out, a sliver of the kerb's foot with it.
+     */
+    private void layLitter(SpriteGeometry.Mesh cards, int x, int y, int localX, int localY, float a, float b, float size, float[] kerbs, byte kind) {
+        boolean street = false, land = false;
+        float shows = 0f;
+        for (int corner = 0; corner < 4; corner++) {
+            float at = a + (corner == 1 || corner == 2 ? size : 0f), bt = b + (corner >= 2 ? size : 0f);
+            float kerb = kerbs == null ? -1f : Kerbs.at(kerbs, localX + at, localY + bt);
+            street |= kerb > 0f;
+            land |= kerb <= 0f;
+            float gutter = Litter.gutter(kerb);
+            pieceLeaf[corner] = across(leafAt, at, bt) * gutter;
+            pieceNeedle[corner] = across(needleAt, at, bt) * gutter;
+            pieceLift[corner] = build.geometry.liftAt(at, bt);
+            pieceRed[corner] = across(build.frame.cornerRed, at, bt);
+            pieceGreen[corner] = across(build.frame.cornerGreen, at, bt);
+            pieceBlue[corner] = across(build.frame.cornerBlue, at, bt);
+            shows = Math.max(shows, Math.max(pieceLeaf[corner] * Litter.SPREAD_MOST, pieceNeedle[corner]));
+        }
+        if (street && land && build.geometry.kerb != null || shows <= 0.02f) {
+            return;
+        }
+        Flora.addLitter(cards, x + a, y + b, size, pieceLift, pieceLeaf, pieceNeedle, kind, pieceRed, pieceGreen, pieceBlue, build.frame.open);
+    }
+
+    /** How many pieces a side the litter of a square a kerb crosses, or whose gutter runs over it, is laid in. */
+    private static final int LITTER_PIECES = 4;
+
+    /** Whether the street of the chunk's square (localX, localY) is within a gutter's width of a kerb. */
+    private static boolean nearKerb(float[] kerbs, int localX, int localY) {
+        boolean street = false, gutter = false;
+        for (int corner = 0; corner < 4; corner++) {
+            float kerb = Kerbs.at(kerbs, localX + (corner == 1 || corner == 2 ? 1 : 0), localY + (corner >= 2 ? 1 : 0));
+            street |= kerb > 0f;
+            gutter |= kerb < Litter.GUTTER_ENDS;
+        }
+        return street && gutter;
+    }
+
+    /** A value at the point (a, b) of a square, from its corners in the order of SpriteGeometry.lift. */
+    private static float across(float[] corners, float a, float b) {
+        return (corners[0] * (1f - a) + corners[1] * a) * (1f - b) + (corners[3] * (1f - a) + corners[2] * a) * b;
+    }
+
+    /**
+     * The fallen leaves, twigs and cones that stand proud of the litter of a square near the
+     * eye: as many leaves as the leaf is deep at the end of autumn, each shown from its own step
+     * of the season's spread, in the colours of the tree that dropped most of it, and cones, or
+     * holly's leaves, as deep as the needles are.
+     */
+    private void addFallen(SpriteGeometry.Mesh cards, int x, int y, int localX, int localY, float[] kerbs) {
+        byte kind = build.leafKinds[localX * Terrain.CHUNK_TILES + localY];
+        for (int card = 0; card < Litter.CARDS_MOST; card++) {
+            int seed = Flora.mix(x, y, 50 + card);
+            float a = 0.05f + 0.9f * Flora.unit(seed, 0), b = 0.05f + 0.9f * Flora.unit(seed, 8);
+            float cover = across(leafAt, a, b) * (kerbs == null ? 1f : Litter.gutter(Kerbs.at(kerbs, localX + a, localY + b)));
+            int step = Litter.cardStep(x, y, card, cover);
+            if (step == 0) {
+                continue;
+            }
+            double turn = Flora.unit(seed, 16) * 2.0 * Math.PI;
+            float tall = Flora.unit(seed, 24);
+            if (card == 0 && (seed & 3) == 0) {
+                // A twig lies all year where the floor of a wood is leaf all year.
+                if (step <= Litter.stepOf(Litter.SPREAD_SUMMER)) {
+                    Flora.addLeaf(cards, x + a, y + b, build.geometry.liftAt(a, b) + 0.03f, 0.22f + 0.2f * tall, 0.035f, turn, Math.toRadians(3.0 + 5.0 * tall),
+                            Flora.TWIG, 0, 0f, build.frame);
+                }
+                continue;
+            }
+            float length = 0.09f + 0.05f * tall;
+            Flora.addLeaf(cards, x + a, y + b, build.geometry.liftAt(a, b) + 0.02f, length, length * 0.7f, turn, Math.toRadians(8.0 + 22.0 * tall),
+                    Litter.leafPick(kind, Flora.unit(Flora.mix(x, y, 170 + card), 0)), step, 0f, build.frame);
+        }
+        boolean holly = build.needleKinds[localX * Terrain.CHUNK_TILES + localY] == Litter.HOLLY;
+        int cones = Litter.cones(x, y, across(needleAt, 0.5f, 0.5f));
+        for (int cone = 0; cone < cones; cone++) {
+            int seed = Flora.mix(x, y, 180 + cone);
+            float a = 0.1f + 0.8f * Flora.unit(seed, 0), b = 0.1f + 0.8f * Flora.unit(seed, 8);
+            if (kerbs != null && Kerbs.at(kerbs, localX + a, localY + b) > 0f) {
+                continue;
+            }
+            double turn = Flora.unit(seed, 16) * 2.0 * Math.PI;
+            float size = 0.06f + 0.03f * Flora.unit(seed, 24);
+            Flora.addLeaf(cards, x + a, y + b, build.geometry.liftAt(a, b) + 0.015f, size, size * (holly ? 0.75f : 0.55f), turn, Math.toRadians(holly ? 10.0 : 4.0),
+                    holly ? Flora.FALLEN_BROWN : Flora.CONE, 0, 0f, build.frame);
         }
     }
 
