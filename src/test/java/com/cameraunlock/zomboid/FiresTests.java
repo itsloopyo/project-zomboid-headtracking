@@ -60,6 +60,8 @@ final class FiresTests {
         check(height[Fires.LIGHT] > medium[Fires.LIGHT] && medium[Fires.LIGHT] > small[Fires.LIGHT], "and the most light");
         check(dying[Fires.FLAME] == 0f && dying[Fires.SMOKE] > 0f && dying[Fires.LIGHT] == 0f, "a dying fire is smoke alone, and gives no light");
         check(smoke[Fires.FLAME] == 0f && smoke[Fires.SMOKE] > 0f && smoke[Fires.LIGHT] == 0f, "a square of smoke is smoke alone");
+        float[] dyingCampfire = square(Fires.DYING, false, true);
+        check(dyingCampfire[Fires.FLAME] == 0f && dyingCampfire[Fires.LIGHT] == 0f, "a campfire burnt out is smoke alone too");
         check(campfire[Fires.TALL] < height[Fires.TALL] && campfire[Fires.SMOKE] < height[Fires.SMOKE] && campfire[Fires.LIGHT] > 0f,
                 "a campfire is a small fire that lights round it");
         check(height[Fires.LIGHT_X] == 10.5f && height[Fires.LIGHT_Y] == 20.5f && height[Fires.LIGHT_UP] > 0f && height[Fires.LIGHT_UP] < height[Fires.TALL],
@@ -82,6 +84,14 @@ final class FiresTests {
                 && fires[3 * Fires.FLOATS + Fires.SMOKE] == 0f, "the block's smoke rises from its first square alone");
         check(Math.abs(fires[Fires.THICK] - 2f * one) < 1e-5f, "twice as thick as one square's: " + fires[Fires.THICK]);
         check(fires[4 * Fires.FLOATS + Fires.SMOKE] > 0f, "a fire whose block's first square does not burn keeps its own");
+        // A block whose first square is dying while the rest burn at their height.
+        for (int i = 0; i < 4; i++) {
+            Fires.square(i == 0 ? Fires.DYING : Fires.HEIGHT, false, false, fires, i * Fires.FLOATS);
+        }
+        Fires.smokeInBlocks(fires, 4);
+        float[] height = square(Fires.HEIGHT, false, false);
+        check(fires[Fires.TALL] == height[Fires.TALL] && fires[Fires.FLAME] == height[Fires.FLAME] && fires[Fires.SMOKE] == height[Fires.SMOKE],
+                "the column rises off the block's biggest flames, lit by them");
         check(fires[Fires.FLOATS + Fires.FLAME] > 0f, "the flames of every square are kept");
     }
 

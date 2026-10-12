@@ -2,6 +2,8 @@ package com.cameraunlock.zomboid;
 
 import java.util.ArrayList;
 import zombie.iso.IsoGridSquare;
+import zombie.iso.IsoObject;
+import zombie.iso.IsoWorld;
 import zombie.iso.objects.IsoFire;
 import zombie.iso.objects.IsoFireManager;
 
@@ -13,7 +15,7 @@ import zombie.iso.objects.IsoFireManager;
  * (see FireDraw), and a light that flickers as the flames do.
  *
  * Two kinds: a square that burns (a house on fire, a Molotov's spill, a campfire), which the game
- * keeps as an IsoFire in IsoFireManager.FireStack and the logic thread gathers each picture, and
+ * keeps as an IsoFire and the logic thread gathers each picture, and
  * a hearth, a fire inside a piece the mod stands a model of, which the chunk's build notes where
  * the model is stood (Models.Instances.fire). The OwnFire row of [Content] switches both off,
  * and the game's own look (Quality.plain) has neither: the picture then draws the game's sprites.
@@ -108,7 +110,7 @@ final class Fires {
         float radius, tall, smoke, flame, thick, light;
         if (smokeOnly) {
             radius = 0.5f; tall = 0.3f; smoke = 5f; flame = 0f; thick = 1.6f; light = 0f;
-        } else if (campfire) {
+        } else if (campfire && size != DYING) {
             radius = 0.2f; tall = 0.5f; smoke = 2f; flame = 0.9f; thick = 0.35f; light = 0.9f;
         } else {
             switch (size) {
@@ -228,57 +230,69 @@ final class Fires {
         if (!own()) {
             return;
         }
-        ArrayList<IsoFire> fires = IsoFireManager.FireStack;
-        float[] to = sky.fires;
-        float[] far = sky.fireFar;
-        for (int i = 0; i < fires.size(); i++) {
-            IsoFire fire = fires.get(i);
-            IsoGridSquare square = fire.getSquare();
-            if (square == null) {
-                continue;
-            }
-            int x = square.getX(), y = square.getY(), z = square.getZ();
-            float dx = x + 0.5f - eyeX, dy = y + 0.5f - eyeY;
-            float distance = dx * dx + dy * dy;
-            if (distance > WITHIN * WITHIN) {
-                continue;
-            }
-            if (fire.smoke) {
-                distance *= SMOKE_FARTHER * SMOKE_FARTHER;
-            }
-            int slot = sky.fireCount;
-            if (slot == MOST) {
-                // Full: this one takes the place of the furthest, if it is nearer.
-                slot = 0;
-                for (int k = 1; k < MOST; k++) {
-                    if (far[k] > far[slot]) {
-                        slot = k;
-                    }
-                }
-                if (far[slot] <= distance) {
-                    continue;
-                }
-            } else {
-                sky.fireCount++;
-            }
-            far[slot] = distance;
-            int at = slot * FLOATS;
-            to[at + X] = x + 0.5f;
-            to[at + Y] = y + 0.5f;
-            to[at + UP] = z * ViewCamera.LEVEL_HEIGHT + terrain.lift(x + 0.5f, y + 0.5f, z);
-            to[at + SEED] = seed(x, y, z);
-            square(size(fire.lifeStage, fire.perm), fire.smoke, fire.isCampfire(), to, at);
-            if (!square.isCouldSee(playerIndex)) {
-                to[at + LIGHT] = 0f;
+        ArrayList<IsoFire> spreading = IsoFireManager.FireStack;
+        for (int i = 0; i < spreading.size(); i++) {
+            take(sky, terrain, spreading.get(i), playerIndex, eyeX, eyeY);
+        }
+        // A permanent fire, a campfire, is not in FireStack: the game updates it with the cell's other static objects (IsoFire.addToWorld).
+        ArrayList<IsoObject> standing = IsoWorld.instance.currentCell.getStaticUpdaterObjectList();
+        for (int i = 0; i < standing.size(); i++) {
+            if (standing.get(i) instanceof IsoFire fire) {
+                take(sky, terrain, fire, playerIndex, eyeX, eyeY);
             }
         }
-        smokeInBlocks(to, sky.fireCount);
+        smokeInBlocks(sky.fires, sky.fireCount);
+    }
+
+    private static void take(SkyState sky, Terrain terrain, IsoFire fire, int playerIndex, float eyeX, float eyeY) {
+        IsoGridSquare square = fire.getSquare();
+        if (square == null) {
+            return;
+        }
+        float[] to = sky.fires;
+        float[] far = sky.fireFar;
+        int x = square.getX(), y = square.getY(), z = square.getZ();
+        float dx = x + 0.5f - eyeX, dy = y + 0.5f - eyeY;
+        float distance = dx * dx + dy * dy;
+        if (distance > WITHIN * WITHIN) {
+            return;
+        }
+        int size = size(fire.lifeStage, fire.perm);
+        if (fire.smoke || size == DYING) {
+            distance *= SMOKE_FARTHER * SMOKE_FARTHER;
+        }
+        int slot = sky.fireCount;
+        if (slot == MOST) {
+            // Full: this one takes the place of the furthest, if it is nearer.
+            slot = 0;
+            for (int k = 1; k < MOST; k++) {
+                if (far[k] > far[slot]) {
+                    slot = k;
+                }
+            }
+            if (far[slot] <= distance) {
+                return;
+            }
+        } else {
+            sky.fireCount++;
+        }
+        far[slot] = distance;
+        int at = slot * FLOATS;
+        to[at + X] = x + 0.5f;
+        to[at + Y] = y + 0.5f;
+        to[at + UP] = z * ViewCamera.LEVEL_HEIGHT + terrain.lift(x + 0.5f, y + 0.5f, z);
+        to[at + SEED] = seed(x, y, z);
+        square(size, fire.smoke, fire.perm && fire.isCampfire(), to, at);
+        if (!square.isCouldSee(playerIndex)) {
+            to[at + LIGHT] = 0f;
+        }
     }
 
     /**
      * Lets the smoke of each block of two squares by two that has fires on more than its first
-     * square rise from the first alone, thicker and as high as the highest: one column where four
-     * would stand through each other, each the cost of a fire to draw.
+     * square rise from the first alone, thicker and as high as the highest, off flames as big as
+     * the block's biggest: one column where four would stand through each other, each the cost of
+     * a fire to draw. The first square's own flames are drawn as big as that too.
      */
     static void smokeInBlocks(float[] fires, int n) {
         for (int i = 0; i < n; i++) {
@@ -292,8 +306,12 @@ final class Fires {
                 int first = k * FLOATS;
                 if (k != i && (int) Math.floor(fires[first + X]) == firstX && (int) Math.floor(fires[first + Y]) == firstY
                         && Math.abs(fires[first + UP] - fires[at + UP]) < ViewCamera.LEVEL_HEIGHT * 0.5f && fires[first + SMOKE] > 0f) {
+                    // The column rises off the block's flames, the highest of them, and is lit by them.
                     fires[first + THICK] += fires[at + THICK] * BLOCK_SHARE;
                     fires[first + SMOKE] = Math.max(fires[first + SMOKE], fires[at + SMOKE]);
+                    fires[first + TALL] = Math.max(fires[first + TALL], fires[at + TALL]);
+                    fires[first + RADIUS] = Math.max(fires[first + RADIUS], fires[at + RADIUS]);
+                    fires[first + FLAME] = Math.max(fires[first + FLAME], fires[at + FLAME]);
                     fires[at + SMOKE] = 0f;
                     break;
                 }

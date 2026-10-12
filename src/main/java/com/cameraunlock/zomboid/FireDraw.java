@@ -58,6 +58,9 @@ final class FireDraw {
             uniform float uTime;
             uniform float uSteps;
 
+            // The steadying's mark for what moves within itself and goes nowhere, between a crowd's and a figure's.
+            const float MOVES = 0.375;
+
             float hash(vec3 p) {
                 p = fract(p * vec3(0.1031, 0.1030, 0.0973));
                 p += dot(p, p.yxz + 33.33);
@@ -152,7 +155,7 @@ final class FireDraw {
                     float heat = clamp(stir * 1.4 - on.y * 0.45 + 0.05, 0.0, 1.0);
                     float edge = smoothstep(1.0, 0.8, abs(on.x)) * smoothstep(0.0, 0.08, on.y) * smoothstep(1.0, 0.9, on.y);
                     gl_FragData[0] = vec4(flameColour(heat) * (heat * 4.0 * edge * uFlame), 0.0);
-                    gl_FragData[1] = vec4(1.0);
+                    gl_FragData[1] = edge > 0.3 ? vec4(vec3(MOVES), 1.0) : vec4(0.0);
                     return;
                 }
                 // The box the fire is in: see FireDraw.box, which is the same.
@@ -201,8 +204,10 @@ final class FireDraw {
                     discard;
                 }
                 gl_FragData[0] = vec4(light, 1.0 - through);
-                // It moves by itself: the steadying keeps little of a frame before it (PipelineShaders.STEADY).
-                gl_FragData[1] = vec4(1.0);
+                // Where the fire is more than a haze it moves by itself, and the steadying keeps little of a
+                // frame before it there. Its alpha of 1 lays the mark over what was there, and of 0 leaves that.
+                float seen = max(1.0 - through, dot(light, vec3(0.3, 0.5, 0.2)));
+                gl_FragData[1] = seen > 0.15 ? vec4(vec3(MOVES), 1.0) : vec4(0.0);
             }
             """;
 

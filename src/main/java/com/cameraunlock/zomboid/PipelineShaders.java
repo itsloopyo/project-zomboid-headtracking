@@ -3257,11 +3257,12 @@ final class PipelineShaders {
                 color += pow(texel.rgb, vec3(2.2)) * beams(vWorld, n, card ? 1.0 : 0.0);
                 color += pow(texel.rgb, vec3(2.2)) * flashLight(vWorld, n);
                 // The game's light of a square stops at its walls, and the firelight here does not: it
-                // falls only where the game has a square lit over the open ground's light the deep orange
-                // of a fire (0.61, 0.175, 0), and not the pale light of a lamp. There it is the fire's own,
-                // given back the way it comes from and as it flickers.
+                // falls only where the game has a square lit over the open ground's light, as it has
+                // round a fire, and is given back from the way the fire is and as it flickers. Only a
+                // fire the character can see from where they stand lights at all (Fires.gather), so
+                // what is seen of a wall it lights is on the fire's side.
                 vec3 lampLit = max(pow(max(vColor.rgb, vec3(0.0)), vec3(2.2)) - pow(uOpenLight, vec3(2.2)), 0.0);
-                color += pow(texel.rgb, vec3(2.2)) * fireLight(vWorld, n) * clamp((lampLit.r - 1.6 * lampLit.b) * 12.0, 0.0, 1.0);
+                color += pow(texel.rgb, vec3(2.2)) * fireLight(vWorld, n) * clamp(dot(lampLit, vec3(0.3, 0.5, 0.2)) * 12.0, 0.0, 1.0);
                 // A lamp that is lit is brighter than anything it lights. The game lights the
                 // square a burning lamp stands on strongly, and in the dark that is how a lamp
                 // that is on is told: its pale parts, the shade and the glass, then give light
@@ -6305,8 +6306,10 @@ final class PipelineShaders {
                     // is one of a crowd past the nearest sixteen, of which nothing is known.
                     float off = moves > 0.75 ? 1.5 : 4.5;
                     lost = true;
+                    // Fire moves within itself and goes nowhere: a person beside it says nothing of it (FireDraw.MOVES).
+                    float movers = abs(moves - 0.375) < 0.06 ? 0.0 : uMovers;
                     for (int i = 0; i < 16; i++) {
-                        if (float(i) < uMovers) {
+                        if (float(i) < movers) {
                             float far = distance(at.xy, uMover[i].xy);
                             if (far < off) {
                                 off = far;
