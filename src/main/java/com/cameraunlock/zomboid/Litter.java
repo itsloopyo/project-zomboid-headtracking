@@ -311,12 +311,11 @@ final class Litter {
                 return result;
             }
 
-            // A duff of fallen needles: rust brown, the darker the deeper the colour of the
-            // litter's picture there, strewn with needles in short straight strokes, drawn
-            // as their mean colour where they are finer than a pixel.
-            vec3 litterNeedles(vec2 p, vec3 fallen, float foot) {
-                float tone = dot(fallen, vec3(0.299, 0.587, 0.114));
-                vec3 duff = vec3(0.34, 0.21, 0.12) * (0.55 + 1.6 * tone) * (0.75 + 0.35 * patches(p * 1.7 + 3.0));
+            // A duff of fallen needles over litter whose colour is under: redder and darker,
+            // strewn with needles in short straight strokes a little paler than it, drawn as
+            // their mean colour where they are finer than a pixel.
+            vec3 litterNeedles(vec2 p, vec3 under, float foot) {
+                vec3 duff = vec3(dot(under, vec3(0.3, 0.55, 0.15))) * vec3(1.05, 0.72, 0.5) * (0.8 + 0.3 * patches(p * 1.7 + 3.0));
                 float strokes = 0.0;
                 for (int layer = 0; layer < 2; layer++) {
                     float size = layer == 0 ? 22.0 : 31.0;
@@ -329,7 +328,7 @@ final class Litter {
                     float stroke = (1.0 - smoothstep(thick * 0.5, thick, across)) * (1.0 - smoothstep(0.36, 0.46, along)) * step(0.3, grain(cell + 3.7));
                     strokes = max(strokes, mix(stroke, 0.3, smoothstep(0.3, 0.7, foot * size)));
                 }
-                return mix(duff, vec3(0.56, 0.34, 0.16) * (0.8 + 0.4 * tone), 0.75 * strokes);
+                return mix(duff * 0.75, duff * vec3(1.7, 1.45, 1.2), strokes);
             }
 
             """;

@@ -2091,10 +2091,11 @@ final class PipelineShaders {
                         // than leaves fresh down; matted darker through the winter.
                         float tone = dot(fallen, vec3(0.299, 0.587, 0.114));
                         vec3 leaf = clamp(mix(vec3(tone), fallen, 0.7) * (0.25 + 0.13 * patches(p * 0.31 + 9.0)), 0.0, 1.0);
+                        vec3 needles = litterNeedles(p, leaf, foot);
                         leaf = mix(leaf, vec3(dot(leaf, vec3(0.3, 0.5, 0.2))) * vec3(0.78, 0.55, 0.4), 0.75 * uLitterSeason.z);
                         // What has just come down lies on top, most where most has.
                         leaf = litterFresh(p, leaf, kind, uLitterSeason.y * smoothstep(0.3, 0.9, leafCover), foot);
-                        vec3 litterOf = mix(leaf, litterNeedles(p, fallen, foot), vUv.y / max(leafCover + vUv.y, 1e-4));
+                        vec3 litterOf = mix(leaf, needles, vUv.y / max(leafCover + vUv.y, 1e-4));
                         // Wet leaf is darker and its colour deeper.
                         litterOf = mix(litterOf, litterOf * litterOf * 1.6, 0.45 * uWet);
                         texel = vec4(clamp(litterOf, 0.0, 1.0), 1.0);
