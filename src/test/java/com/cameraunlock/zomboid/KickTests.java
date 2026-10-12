@@ -16,6 +16,7 @@ final class KickTests {
         Checks.run("withTheSightsUpTheWeaponMovesLessAgainstTheEye", KickTests::withTheSightsUpTheWeaponMovesLessAgainstTheEye);
         Checks.run("aGunWithNoStockKicksAsAtTheHipWithTheSightsUp", KickTests::aGunWithNoStockKicksAsAtTheHipWithTheSightsUp);
         Checks.run("restLeavesTheWeaponWhereItIsHeld", KickTests::restLeavesTheWeaponWhereItIsHeld);
+        Checks.run("aKickPausedStandsAndPlaysOnAfter", KickTests::aKickPausedStandsAndPlaysOnAfter);
     }
 
     /** The furthest from rest a spring goes in its first second, frames of 1/240 s, and when. */
@@ -51,6 +52,28 @@ final class KickTests {
         }
         check(Math.abs(at30.at - at144.at) < 1e-5f && Math.abs(at30.speed - at144.speed) < 1e-3f,
                 "a tenth of a second in three frames or fourteen ends at the same place: " + at30.at + " against " + at144.at);
+    }
+
+    /** Paused, the view model is stepped by frames of no time at all: a kick stands where it is, and after plays out as if the pause had not been. */
+    private static void aKickPausedStandsAndPlaysOnAfter() {
+        Kick paused = new Kick(), straight = new Kick();
+        paused.fire(1f, 0f);
+        straight.fire(1f, 0f);
+        for (int frame = 0; frame < 3; frame++) {
+            paused.step(1f / 60f);
+            straight.step(1f / 60f);
+        }
+        float back = paused.weaponBack.at, muzzle = paused.weaponPitch.at;
+        for (int frame = 0; frame < 120; frame++) {
+            paused.step(0f);
+        }
+        check(paused.weaponBack.at == back && paused.weaponPitch.at == muzzle, "paused for two seconds the weapon stands where it was: " + paused.weaponPitch.at + " against " + muzzle);
+        check(Math.abs(muzzle) > Kick.WEAPON_PITCH * 0.3f, "and that is part way through the kick, not at rest: " + muzzle);
+        for (int frame = 0; frame < 20; frame++) {
+            paused.step(1f / 60f);
+            straight.step(1f / 60f);
+            check(paused.weaponPitch.at == straight.weaponPitch.at && paused.weaponBack.at == straight.weaponBack.at, "after the pause it goes on as a kick never paused, frame " + frame);
+        }
     }
 
     private static void aKickHasSettledWithinHalfASecond() {

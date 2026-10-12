@@ -727,7 +727,8 @@ public final class FirstPerson {
         if (bodyLeads) {
             view.viewModel.rest();
         } else {
-            view.viewModel.update(player, yaw, pitch, sinceLastFrame, sightsUp, shotDistance);
+            // The weapon, the hands and the kick of a shot are part of the game's picture: paused, they stand where they are.
+            view.viewModel.update(player, yaw, pitch, GameTime.isGamePaused() ? 0f : sinceLastFrame, sightsUp, shotDistance);
         }
         ViewCamera.clean(cleanView, eye[0], eye[1], eye[2], yaw, pitch);
         // From a seat the view tips and rolls with the vehicle, as the eye does.

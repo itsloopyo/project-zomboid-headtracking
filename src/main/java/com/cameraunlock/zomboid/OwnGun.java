@@ -4,6 +4,7 @@ import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL13;
 import org.lwjgl.opengl.GL20;
 import org.lwjgl.opengl.GL30;
+import zombie.GameTime;
 
 /**
  * What the mod's own firearm models share, each drawn in the viewer's hands in place of the
@@ -387,7 +388,8 @@ abstract class OwnGun {
             float sceneNear, float asideX, float asideY) {
         placed = false;
         long now = System.nanoTime();
-        float seconds = Math.min((now - workedAsOf) / 1e9f, 0.05f);
+        // What the action threw hangs in the air while the game is paused.
+        float seconds = GameTime.isGamePaused() ? 0f : Math.min((now - workedAsOf) / 1e9f, 0.05f);
         workedAsOf = now;
         work(camera, seconds);
 
