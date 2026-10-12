@@ -39,6 +39,10 @@ final class WallBuilder {
     private static final float[] CAP_COLOUR_AT = {0.5f, 0.12f, 0.88f};
     /** Wallpaper with a figure on it, which the picture prints sprig by sprig. */
     private static final float FIGURED_PAPER = 70f;
+    /** Half the width of a joint between two tiles of a wall, in tiles. */
+    private static final float TILE_JOINT_HALF = 0.004f;
+    /** How many squares along its line a wall with an opening looks for a whole wall of its sheet to read its tiles from. */
+    private static final int TILES_REACH = 4;
     /** For each of the two edges a wall can stand on: the frame origin the sprite was read with, then the opening. */
     private static final int OPENING_FLOATS = 7, OPENING_ORIGIN = 0, OPENING_START = 2, OPENING_END = 3, OPENING_FOOT = 4, OPENING_HEAD = 5, OPENING_TOP = 6;
     /** Where along a wall its height is read, and the lowest a wall's top is looked for, in levels. */
@@ -55,6 +59,15 @@ final class WallBuilder {
     private final float[] laidTint = new float[4];
     /** The paper of the wall being added, or null for a wall that shows its sprite, and whether the sprite being added is an inside wall of a house. */
     private Papers.Paper paper;
+    /**
+     * The tiles of the wall being added, or null; the picture its faces are painted over in their
+     * colours, its sprite stood square where it has been, and how the frame takes texels from it;
+     * and that picture as it is, which a course with a figure on it shows.
+     */
+    private WallTiles.Wall tiles;
+    private int tileBase, tileFlat;
+    private SpriteGeometry.Mesh tileStood;
+    private final SpriteGeometry.Frame tileFrame = new SpriteGeometry.Frame();
     /** The colour farTint last gave a far skin, or null where it gave none. */
     private float[] farColour;
     /** How far the skin being added runs on past its wall's two ends, in tiles: see WallJoins. */
@@ -284,11 +297,21 @@ final class WallBuilder {
         if (paper == null && build.overLayer == 0 && build.paperedWall && Papers.unread(texture)) {
             build.building.signed = false;
         }
+        // A tiled wall is its tiles, its joints and the strips between its bands, each a face of its own: see WallTiles.
+        tiles = paper == null && build.overLayer == 0 && build.tiledWall && Own.textures() ? tilesOf(texture, x, y, z, da, db) : null;
         SpriteGeometry.Mesh near = laid(mesh, texture, build.laidWall, x, y, z);
         if (paper != null) {
             int key = WallSides.key(paper.red, paper.green, paper.blue, WallSides.FLAT);
             WallSides.tint(key, build.paperTint);
             near = WorldScene.solid.get(texture.getID(), key);
+        }
+        if (tiles != null) {
+            // Stood square the sprite's far end, which it stops a few dots short of, is filled in: on the sprite itself the last tile had a slit cut in it there.
+            int stood = build.flatOf(texture, da != 0f ? Flats.NORTH : Flats.WEST, 0f, 0f, 0f);
+            tileBase = stood != 0 ? stood : texture.getID();
+            tileFlat = stood == 0 ? 0 : da != 0f ? SpriteGeometry.FLAT_NORTH : SpriteGeometry.FLAT_WEST;
+            tileStood = WorldScene.solid.get(tileBase);
+            near = tileStood;
         }
         // A wall that shows its own sprite shows it stood square, so its courses run on into the next length: see Flats.
         near = stoodSquare(near, texture, da != 0f);
@@ -336,6 +359,7 @@ final class WallBuilder {
         }
         // The far skin is papered as the near one only where it shows the same sprite.
         paper = faced == null && tint == 0 ? paper : null;
+        tiles = faced == null && tint == 0 ? tiles : null;
         SpriteGeometry.Mesh far = near;
         if (faced != null) {
             far = stoodSquare(laid(WorldScene.solid.get(faced.texture.getID()), faced.texture, Masonry.suits(faced.sprite.getName()), x, y, z), faced.texture, da != 0f);
@@ -347,6 +371,8 @@ final class WallBuilder {
         addSkin(far, opening, at, x, y, z, 0f, 0f, da, db, fromStart, fromEnd, fromTop, startIsLow);
         build.frame.flat = 0;
         paper = null;
+        tiles = null;
+        tileStood = null;
         // Out of doors, on a whole wall in one colour.
         if (tint != 0 && farColour != null && build.frame.open > 0.5f && opening[at + OPENING_TOP] >= WHOLE_WALL) {
             addCourses(opening, at, x, y, z, 0f, 0f, da, db, -Math.signum(inX), -Math.signum(inY));
@@ -601,6 +627,10 @@ final class WallBuilder {
     private void addPiece(SpriteGeometry.Mesh mesh, int x, int y, int z, float a, float b, float da, float db,
             float from, float to, float foot, float head, float sealFrom, float sealTo, float sealTop, boolean startIsLow) {
         build.geometry.sealTop = sealTop;
+        if (tiles != null) {
+            addTiled(x, y, z, a, b, da, db, from, to, foot, head, sealFrom, sealTo, startIsLow);
+            return;
+        }
         if (paper == null) {
             build.geometry.sealLow = startIsLow ? sealFrom : sealTo;
             build.geometry.sealHigh = startIsLow ? sealTo : sealFrom;
@@ -634,6 +664,130 @@ final class WallBuilder {
         build.frame.green = green;
         build.frame.blue = blue;
         build.frame.cornersFrom(build.paperRed, build.paperGreen, build.paperBlue);
+    }
+
+    /**
+     * The part of a tiled wall from one share of its length to another and from one height to
+     * another: each band of it, paint or a strip of trim in one face, tiles as a face for each
+     * tile and for each joint between them, each painted in its own colour. A course with a
+     * figure on it shows the sprite's dots in its tiles, with the joints drawn over them.
+     */
+    private void addTiled(int x, int y, int z, float a, float b, float da, float db,
+            float from, float to, float foot, float head, float sealFrom, float sealTo, boolean startIsLow) {
+        float made = build.frame.material;
+        build.frame.flat = tileFlat;
+        float halfUp = TILE_JOINT_HALF / ViewCamera.LEVEL_HEIGHT;
+        for (WallTiles.Band band : tiles.bands) {
+            float low = Math.max(foot, band.foot), high = Math.min(head, band.head);
+            if (high <= low) {
+                continue;
+            }
+            if (!band.tiled) {
+                build.frame.material = made;
+                SpriteGeometry.Mesh on = painted(band.red, band.green, band.blue);
+                tiledFace(on, x, y, z, a, b, da, db, from, to, low, high, from, to, sealFrom, sealTo, startIsLow);
+                continue;
+            }
+            build.frame.material = WorldScene.TILE;
+            SpriteGeometry.Mesh plain = painted(band.red, band.green, band.blue);
+            int courses = band.courses.length;
+            for (int course = 0; course <= courses; course++) {
+                SpriteGeometry.Mesh on = band.figured[course] ? tileStood : plain;
+                float courseLow = Math.max(low, course == 0 ? band.foot : band.courses[course - 1] + halfUp);
+                float courseHigh = Math.min(high, course == courses ? band.head : band.courses[course] - halfUp);
+                for (int tile = 0; tile <= band.joints.length && courseHigh > courseLow; tile++) {
+                    // The first and last tile run to the piece's ends, which at a corner are past the square's.
+                    float start = tile == 0 ? from : Math.max(from, band.joints[tile - 1] + TILE_JOINT_HALF);
+                    float end = tile == band.joints.length ? to : Math.min(to, band.joints[tile] - TILE_JOINT_HALF);
+                    if (end > start) {
+                        tiledFace(on, x, y, z, a, b, da, db, start, end, courseLow, courseHigh, from, to, sealFrom, sealTo, startIsLow);
+                    }
+                }
+            }
+            // The joints, down the band and across it between its courses. Where two cross they are one colour in one plane.
+            build.frame.material = made;
+            SpriteGeometry.Mesh joints = painted(band.jointRed, band.jointGreen, band.jointBlue);
+            for (float joint : band.joints) {
+                float start = Math.max(from, joint - TILE_JOINT_HALF), end = Math.min(to, joint + TILE_JOINT_HALF);
+                if (end > start) {
+                    tiledFace(joints, x, y, z, a, b, da, db, start, end, low, high, from, to, sealFrom, sealTo, startIsLow);
+                }
+            }
+            for (float line : band.courses) {
+                float lineLow = Math.max(low, line - halfUp), lineHigh = Math.min(high, line + halfUp);
+                if (lineHigh > lineLow) {
+                    tiledFace(joints, x, y, z, a, b, da, db, from, to, lineLow, lineHigh, from, to, sealFrom, sealTo, startIsLow);
+                }
+            }
+        }
+        build.frame.flat = 0;
+        build.frame.material = made;
+    }
+
+    /** The mesh a face of a tiled wall goes in to be the colour (r, g, b), lit as the place is: see WallSides.FINE. */
+    private SpriteGeometry.Mesh painted(float r, float g, float b) {
+        return WorldScene.solid.get(tileBase, WallSides.laid(r, g, b, 0f, 0f, 0f, WallSides.FINE));
+    }
+
+    /** One face of a tiled wall, from start to end along it and from low to high, sealed as the piece from from to to is at its ends. */
+    private void tiledFace(SpriteGeometry.Mesh on, int x, int y, int z, float a, float b, float da, float db, float start, float end, float low, float high,
+            float from, float to, float sealFrom, float sealTo, boolean startIsLow) {
+        float sealStart = start == from ? sealFrom : 0f, sealEnd = end == to ? sealTo : 0f;
+        build.geometry.sealLow = startIsLow ? sealStart : sealEnd;
+        build.geometry.sealHigh = startIsLow ? sealEnd : sealStart;
+        build.geometry.addFace(on, build.frame, x, y, z, a + da * start, b + db * start, low, da * (end - start), db * (end - start), 0f, 0f, 0f, high - low);
+    }
+
+    /**
+     * The tiles of the wall sprite on the north edge of its square (da 1) or its west edge.
+     * A wall with an opening in it takes those of the nearest whole wall of its sheet along
+     * the same line, either way: round a door or a window the sprite says too little about its
+     * courses. Null for a wall with none to take, and while a sprite it needs is unread, when the
+     * build is not signed and is made again.
+     */
+    private WallTiles.Wall tilesOf(Texture texture, int x, int y, int z, float da, float db) {
+        boolean north = da != 0f;
+        WallTiles.Wall wall = WallTiles.of(texture, build.frame, north);
+        if (wall == null || wall.whole) {
+            build.building.signed &= wall != null || !WallTiles.unread(texture, north);
+            return wall;
+        }
+        String name = texture.getName();
+        int last = name == null ? -1 : name.lastIndexOf('_');
+        if (last < 0) {
+            return null;
+        }
+        String sheet = name.substring(0, last + 1);
+        IsoFlagType along = north ? IsoFlagType.WallN : IsoFlagType.WallW;
+        for (int step = 1; step <= TILES_REACH; step++) {
+            for (int way = -1; way <= 1; way += 2) {
+                IsoGridSquare square = build.cell.getGridSquare(x + way * step * (int) da, y + way * step * (int) db, z);
+                if (square == null) {
+                    continue;
+                }
+                PZArrayList<IsoObject> objects = square.getObjects();
+                for (int i = 0; i < objects.size(); i++) {
+                    IsoSprite sprite = objects.get(i).getSprite();
+                    if (sprite == null || sprite.getName() == null || !sprite.getName().startsWith(sheet)
+                            || !(sprite.getProperties().has(along) || sprite.getProperties().has(IsoFlagType.WallNW))) {
+                        continue;
+                    }
+                    Texture other = sprite.getTextureForCurrentFrame(objects.get(i).getDir());
+                    if (!WorldScene.usable(other)) {
+                        continue;
+                    }
+                    tileFrame.scale = build.frame.scale;
+                    WorldScene.frameOf(tileFrame, objects.get(i), other);
+                    WallTiles.Wall whole = WallTiles.of(other, tileFrame, north);
+                    if (whole == null) {
+                        build.building.signed &= !WallTiles.unread(other, north);
+                    } else if (whole.whole) {
+                        return whole;
+                    }
+                }
+            }
+        }
+        return null;
     }
 
     /**

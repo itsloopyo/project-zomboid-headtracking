@@ -1520,10 +1520,13 @@ final class PipelineShaders {
                 // keeps the sprite's outline, its windows and doors, and nothing else of it:
                 // the sprite's light and dark are the other side's wallpaper or boards. It is
                 // the colour of the surface its own side has. uTint.a is 1 for paint and 2 for
-                // boards lapped one over the next. From 4 up the wall is laid further down.
-                if (uTint.a > 0.5 && uTint.a < 3.5) {
-                    texel.rgb = arcTone(uTint.rgb, vWorld);
-                    if (uTint.a > 1.5) {
+                // boards lapped one over the next. From 4 up the wall is laid further down, but
+                // for 10, a tile, a joint or a band of a tiled wall, each in a colour of its own,
+                // glazed and even: WallSides.FINE.
+                bool fineTint = abs(uTint.a - 10.0) < 0.5;
+                if (uTint.a > 0.5 && uTint.a < 3.5 || fineTint) {
+                    texel.rgb = fineTint ? uTint.rgb : arcTone(uTint.rgb, vWorld);
+                    if (uTint.a > 1.5 && uTint.a < 2.5) {
                         // Each board stands out at its foot and is in the shadow of the one
                         // above at its head. Far off, where a board is under a pixel high,
                         // the lines would crawl as the eye moves, and the wall is their mean.
@@ -1556,7 +1559,7 @@ final class PipelineShaders {
                 // the casing round a window, stays as painted. climb is lean up the wall.
                 float climb = 0.0;
                 bool boarded = uTint.a > 7.5 && uTint.a < 8.5;
-                if (uTint.a > 3.5 && !boarded) {
+                if (uTint.a > 3.5 && !boarded && !fineTint) {
                     vec3 facing = normalize(vNormal);
                     float run = dot(vPlace.xy, vec2(facing.y, -facing.x));
                     vec2 turned;

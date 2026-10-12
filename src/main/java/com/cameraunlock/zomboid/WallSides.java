@@ -34,6 +34,14 @@ final class WallSides {
      * No colour packs to this, nothing being painted in a ninth way.
      */
     static final int BLOOD = 9;
+    /**
+     * Plain paint as FLAT is, in a colour kept as finely as laid keeps a wall's (laid with this
+     * and no joints): a part of a wall made of many colours, a tile or a joint, is painted in its
+     * own and lit as the place is. Lit as a shade of a coarser colour it was not: a room's light
+     * is taken down by its daylight channel by channel (see the world program's given), and a
+     * blue band of tiles lit a few hundredths redder came out purple.
+     */
+    static final int FINE = 10;
 
     private static final int LEVELS = 15;
     private static final int BANDS = 32;
