@@ -9,14 +9,43 @@ import zombie.iso.IsoObject;
  * world's picture, and it writes into that frame's meshes.
  */
 final class KerbBuilder {
-    /** Two triangles of a strip between two ends: each corner is an end, and whether it is the top there. */
+    /** Two triangles of a strip between two ends: each corner is an end, and whether it is the upper edge of the strip there. */
     private static final int[] KERB_CORNERS = {0, 2, 3, 0, 3, 1};
+    /**
+     * The stone across, from its foot in the street to the back of its top in the verge: how far
+     * out from the kerb's line each edge is, how far below the top, the texel's second number
+     * there, the way it faces (out, up), and 1 where the height is below the ground's top rather
+     * than the stone's. The face leans back a little, its arris is rounded and its top shows
+     * between the street and the ground behind before it goes down into it. The foot and the
+     * back go into the ground wherever the stone's top has settled to.
+     */
+    private static final float ROUND = 0.02f, TOP_WIDTH = 0.12f, SUNK = 0.02f;
+    private static final float[][] PROFILE = {
+            {ROUND + 0.012f, Terrain.KERB + SUNK, 0f, 1f, 0.12f, 1f},
+            {ROUND, ROUND, 1f, 1f, 0.12f, 0f},
+            {ROUND * 0.7071f, ROUND * 0.2929f, 1.5f, 0.7071f, 0.7071f, 0f},
+            {0f, 0f, 2f, 0f, 1f, 0f},
+            {-TOP_WIDTH, 0f, 2f, 0f, 1f, 0f},
+            {-TOP_WIDTH, SUNK, 2f, -1f, 0f, 1f},
+    };
+    /** The last strip goes down from the back of the top into the ground, and faces it. */
+    private static final int BACK = PROFILE.length - 2;
+    /**
+     * How far the top stands over the verge: never under it, so the verge never hides the arris.
+     * Each cast length has settled by its own amount and leans a little along its run.
+     */
+    private static final float PROUD = 0.003f, SETTLED = 0.012f, TILT = 0.004f;
+    /** Cast lengths of a kerb are this long, their joints where the shader draws them. */
+    private static final float LENGTH = 1.5f;
     /** The mod's own kerb, of cast concrete. Its number is past those of what grows. */
     private static final float KERB_STONE = 64f;
 
     private final WorldScene.Frame build;
 
     private final float[] kerbEnds = new float[4];
+    private final float[] kerbFacing = new float[4];
+    private final float[] kerbAt = new float[6];
+    private final float[] kerbTop = new float[2];
 
     KerbBuilder(WorldScene.Frame build) {
         this.build = build;
@@ -127,8 +156,7 @@ final class KerbBuilder {
         float[] lift = build.geometry.lift;
         // The square's own height is the street's where it is street, or all on the street's side.
         float raise = build.geometry.kerb == null || build.geometry.kerbStreet ? Terrain.KERB : 0f;
-        for (int corner : KERB_CORNERS) {
-            int end = corner >> 1;
+        for (int end = 0; end < 2; end++) {
             float a = (p + kerbEnds[2 * end]) / Kerbs.FINE, b = (q + kerbEnds[2 * end + 1]) / Kerbs.FINE;
             float top = (lift[0] * (1f - a) + lift[1] * a) * (1f - b) + (lift[3] * (1f - a) + lift[2] * a) * b + raise;
             // It faces the street, and round a corner turns with the line.
@@ -147,11 +175,47 @@ final class KerbBuilder {
                 }
                 length = (float) Math.sqrt(towardsX * towardsX + towardsY * towardsY);
             }
-            mesh.face(towardsX / length, towardsY / length, 0.9f);
-            // The texel's second number says which end of the face the vertex is: 1 at the top, which snow banked against the foot leaves where it is.
-            boolean atTop = (corner & 1) != 0;
-            mesh.add(x + a, y + b, atTop ? top : top - Terrain.KERB - 0.02f, 0f, atTop ? 1f : 0f, build.frame.red, build.frame.green, build.frame.blue);
+            kerbFacing[2 * end] = towardsX / length;
+            kerbFacing[2 * end + 1] = towardsY / length;
+            kerbAt[3 * end] = x + a;
+            kerbAt[3 * end + 1] = y + b;
+            kerbAt[3 * end + 2] = top + settled(x + a, y + b, Math.abs(kerbFacing[2 * end]) > Math.abs(kerbFacing[2 * end + 1]));
+            kerbTop[end] = top;
         }
+        for (int strip = 0; strip + 1 < PROFILE.length; strip++) {
+            for (int corner : KERB_CORNERS) {
+                int end = corner >> 1;
+                float[] edge = PROFILE[strip + (corner & 1)];
+                float outX = kerbFacing[2 * end], outY = kerbFacing[2 * end + 1];
+                // The way it faces: a strip's own where its edges differ (the back), else the edge's, so the arris is lit round.
+                float[] facing = strip == BACK ? PROFILE[BACK + 1] : edge;
+                mesh.face(outX * facing[3], outY * facing[3], facing[4]);
+                float up = (edge[5] > 0f ? kerbTop[end] : kerbAt[3 * end + 2]) - edge[1];
+                // The texel's first number says which of the map's two ways the kerb runs more along there, for its joints.
+                mesh.add(kerbAt[3 * end] + outX * edge[0], kerbAt[3 * end + 1] + outY * edge[0], up,
+                        Math.abs(outX) > Math.abs(outY) ? 0f : 1f, edge[2], build.frame.red, build.frame.green, build.frame.blue);
+            }
+        }
+    }
+
+    /**
+     * How far the kerb's top stands over the verge at a place, by the length of kerb it is on:
+     * a length runs along y where the kerb faces more across x, and the step between two lengths
+     * falls in the one block of the field the joint is in.
+     */
+    static float settled(float x, float y, boolean runsAlongY) {
+        float along = (runsAlongY ? y : x) / LENGTH, across = runsAlongY ? x : y;
+        float length = (float) Math.floor(along);
+        float row = Math.round(across);
+        return PROUD + TILT + SETTLED * grain(length, row) + TILT * (2f * grain(length, row + 977f) - 1f) * (2f * (along - length) - 1f);
+    }
+
+    private static float grain(float x, float y) {
+        int h = (int) x * 73856093 ^ (int) y * 19349663;
+        h ^= h >>> 13;
+        h *= 0x5bd1e995;
+        h ^= h >>> 15;
+        return (h & 0xffff) / 65535f;
     }
 
     /** Notes where the kerb's line crosses one side of a triangle, if it does: between a point on the street's side and one that is not. */

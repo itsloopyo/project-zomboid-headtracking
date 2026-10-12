@@ -2618,13 +2618,23 @@ final class PipelineShaders {
                 // a joint where one length ends and the next begins. It goes round corners,
                 // so how far along it a point is cannot be had from the way it faces there:
                 // the joints are where the map's own lines cross it, by whichever of the two
-                // ways it runs more along, and its grey is taken from where it stands.
+                // ways it runs more along (the texel's first number, see KerbBuilder), and its
+                // grey is taken from where it stands. The texel's second number runs from 0 at
+                // the foot to 1 at the top of the face, 1.5 round the arris and 2 on the top.
+                // Road dirt gathers at the foot, the arris is worn paler and chipped, and the
+                // top is weathered in patches.
                 if (vMaterial > 63.5 && vMaterial < 64.5) {
-                    float along = abs(n.x) > abs(n.y) ? vWorld.y : vWorld.x;
+                    float along = vUv.x < 0.5 ? vWorld.y : vWorld.x;
                     float poured = patches(vWorld.xy * 2.3 + vec2(0.0, vWorld.z * 11.0)) * 0.6 + patches(vWorld.xy * 19.0 + vec2(3.0, vWorld.z * 37.0 + 3.0)) * 0.4;
                     float toJoint = abs(fract(along / 1.5) - 0.5) * 1.5;
                     float joint = (1.0 - smoothstep(0.012, 0.012 + fwidth(along) + 1e-6, 0.75 - toJoint)) * (1.0 - smoothstep(0.06, 0.2, fwidth(along)));
-                    texel.rgb = vec3(0.8, 0.79, 0.75) * (0.9 + 0.2 * poured) * (1.0 - 0.35 * joint);
+                    float dirt = (1.0 - smoothstep(0.0, 0.45, vUv.y)) * (0.6 + 0.4 * patches(vec2(along * 3.1, 7.0)));
+                    float arris = smoothstep(1.0, 1.25, vUv.y) * (1.0 - smoothstep(1.75, 2.0, vUv.y));
+                    float chip = smoothstep(0.78, 0.86, patches(vec2(along * 9.0, vUv.y * 2.0 + 11.0))) * (1.0 - smoothstep(0.02, 0.05, fwidth(along)));
+                    vec3 stone = vec3(0.8, 0.79, 0.75) * (0.9 + 0.2 * poured) * (1.0 + 0.08 * arris);
+                    stone = mix(stone, vec3(0.38, 0.35, 0.31), 0.55 * dirt);
+                    stone *= 1.0 - 0.14 * smoothstep(1.9, 2.0, vUv.y) * smoothstep(0.4, 0.8, patches(vWorld.xy * 6.0 + 17.0));
+                    texel.rgb = stone * (1.0 - 0.35 * joint) * (1.0 - 0.3 * chip * smoothstep(0.8, 1.2, vUv.y));
                 }
                 if (uOwnTextures > 0.5 && (roofing || vMaterial > 1.5 && vMaterial < 3.5 || vMaterial > 5.5 && vMaterial < 8.5)) {
                     // The place is taken within sixty tiles, not on the whole map: ten thousand
@@ -2790,12 +2800,12 @@ final class PipelineShaders {
                         // shader) is lit as a bank is shaped: level where it leaves the pavement's
                         // edge and where it meets the street, steepest between, so neither its top
                         // nor its foot shows as a crease. Its texel's second number runs from 0 at
-                        // the foot to 1 at the top. The slope is measured on vPlace, which holds a
+                        // the foot to 1 at the top of the face; above that is the arris and the top. The slope is measured on vPlace, which holds a
                         // place on the map finer than vWorld does.
                         if (vMaterial > 63.5 && vMaterial < 64.5) {
                             vec3 facet = normalize(cross(dFdx(vPlace), dFdy(vPlace)));
                             facet = facet.z < 0.0 ? -facet : facet;
-                            if (facet.z > 0.15 && length(facet.xy) > 1e-4) {
+                            if (vUv.y <= 1.0 && facet.z > 0.15 && length(facet.xy) > 1e-4) {
                                 float rise = 2.0 * vUv.y - 1.0;
                                 float lean = length(facet.xy) / facet.z * 1.5 * (1.0 - rise * rise);
                                 level = normalize(vec3(normalize(facet.xy) * lean, 1.0));
