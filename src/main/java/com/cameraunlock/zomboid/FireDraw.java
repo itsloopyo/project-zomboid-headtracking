@@ -58,6 +58,8 @@ final class FireDraw {
             uniform vec3 uAmbient;
             uniform float uTime;
             uniform float uSteps;
+            // How much of their light the flames' own glows are drawn with: FlameSheets.stoppedDown.
+            uniform float uStopped;
             // How far over the fire's foot a ceiling stops its smoke, or 0.
             uniform float uCeiling;
 
@@ -154,7 +156,7 @@ final class FireDraw {
                     // Seen slant the glow is the grille's gaps seen edge on, and fades.
                     float edge = smoothstep(1.0, 0.8, abs(on.x)) * smoothstep(0.0, 0.08, on.y) * smoothstep(1.0, 0.9, on.y)
                             * smoothstep(0.1, 0.45, -facing / length(ray));
-                    gl_FragData[0] = vec4(flameColour(heat) * (heat * 4.0 * edge * uFlame), 0.0);
+                    gl_FragData[0] = vec4(flameColour(heat) * (heat * 4.0 * edge * uFlame * uStopped), 0.0);
                     gl_FragData[1] = edge > 0.3 ? vec4(vec3(MOVES), 1.0) : vec4(0.0);
                     return;
                 }
@@ -190,7 +192,7 @@ final class FireDraw {
                         // it, and from below by the fire, only near the flames.
                         float soot = mix(0.16, 0.42, smoothstep(0.0, 0.5, (q.z - uTall * 0.45) / uSmoke));
                         float glowUp = exp(-max(q.z - uTall * 0.6, 0.0) * 2.5 / max(uTall, 0.3));
-                        vec3 lit = uAmbient * soot + vec3(1.0, 0.4, 0.1) * (uFlame * 0.5 * glowUp);
+                        vec3 lit = uAmbient * soot + vec3(1.0, 0.4, 0.1) * (uFlame * 0.5 * glowUp * uStopped);
                         light += through * lit * (1.0 - exp(-dense));
                         through *= exp(-dense);
                     }
@@ -227,6 +229,7 @@ final class FireDraw {
     private final float[] weights = new float[Fires.LIGHTS];
     /** Which of them throw shadows, and the slots of their shadow maps. */
     final FireShadows shadows = new FireShadows();
+    private final boolean[] flaming = new boolean[Fires.LIGHTS];
     private int frame;
     private final float[] box = new float[4];
     private final FlameSheets sheets = new FlameSheets();
@@ -273,8 +276,8 @@ final class FireDraw {
             }
         }
         // The game lights round its own flames itself: the picture's light is for its own fire.
-        Fires.lights(fires, Fires.own() ? count : 0, camera.eyeX, camera.eyeY, camera.eyeUp, seconds(nanos), lights, reach, weights);
-        shadows.assign(lights, reach, weights, ++frame, Fires.own() ? FireShadows.slots() : 0);
+        Fires.lights(fires, Fires.own() ? count : 0, camera.eyeX, camera.eyeY, camera.eyeUp, seconds(nanos), lights, reach, flaming, weights);
+        shadows.assign(lights, reach, weights, flaming, ++frame, Fires.own() ? FireShadows.slots() : 0, FireShadows.faceSize());
         if ((count > 0) != inSight) {
             inSight = count > 0;
             Log.info(inSight ? "first person fires in sight: " + state.fireCount + " squares that burn or smoke, " + (count - state.fireCount) + " hearths"
@@ -303,7 +306,8 @@ final class FireDraw {
         for (int slot = 0; slot < FireShadows.MOST; slot++) {
             program.set(FIRE_FROM[slot], shadows.from[slot * 4], shadows.from[slot * 4 + 1], shadows.from[slot * 4 + 2], shadows.from[slot * 4 + 3]);
         }
-        program.set("uFireFace", FireShadows.faceSize(), FireShadows.slots());
+        program.set("uFireFace", shadows.face, Math.max(shadows.slotCount, 1));
+        program.set("uFireNear", FireShadows.NEAR);
     }
 
     /**
@@ -410,6 +414,7 @@ final class FireDraw {
         GL20.glUniform3f(program.at("uUp"), camera.upX, camera.upY, camera.upUp);
         GL20.glUniform3f(program.at("uForward"), camera.forwardX, camera.forwardY, camera.forwardUp);
         GL20.glUniform1f(program.at("uTime"), seconds(nanos));
+        GL20.glUniform1f(program.at("uStopped"), FlameSheets.stoppedDown(exposure));
         // Smoke drifts with the air: in a breeze of a tile a second, a tile across for each four it rises.
         float air = (float) Math.hypot(state.airX, state.airY);
         float carried = air * DRIFT > MOST_DRIFT ? MOST_DRIFT / air : DRIFT;

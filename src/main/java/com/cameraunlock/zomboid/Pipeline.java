@@ -1720,7 +1720,7 @@ final class Pipeline {
         if (shadows.toDraw == 0) {
             return;
         }
-        int face = FireShadows.faceSize(), slots = FireShadows.slots();
+        int face = shadows.face, slots = shadows.slotCount;
         if (fired.made() && (fireFace != face || fireSlots != slots)) {
             giveBack(fired);
         }

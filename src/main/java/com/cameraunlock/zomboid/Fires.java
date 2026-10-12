@@ -63,7 +63,7 @@ final class Fires {
                 return (1.0 - smoothstep(reach * 0.55, reach, far)) / (1.0 + 0.6 * far * far);
             }
 
-            // What the fires give a surface at p that faces n, a little reaching round to what faces away.
+            // What the fires give a figure, a held weapon or a scope at p that faces n, a little reaching round to what faces away.
             vec3 fireLight(vec3 p, vec3 n) {
                 vec3 sum = vec3(0.0);
                 for (int i = 0; i < 8; i++) {
@@ -74,7 +74,9 @@ final class Fires {
                     vec3 to = at.xyz - p;
                     float far2 = dot(to, to);
                     vec3 dir = to * inversesqrt(max(far2, 0.0001));
-                    sum += vec3(at.w * (0.15 + 0.85 * max(dot(n, dir), 0.0)) * fireFalloff(sqrt(far2), uFireReach[i]));
+                    // Unshadowed, it thins faster: it reaches a figure through the walls between.
+                    sum += vec3(at.w * (0.15 + 0.85 * max(dot(n, dir), 0.0)) * (1.0 - smoothstep(uFireReach[i] * 0.55, uFireReach[i], sqrt(far2)))
+                            / (1.0 + 1.3 * far2));
                 }
                 return sum * uFireColor;
             }
@@ -164,9 +166,10 @@ final class Fires {
     static final int HEARTH_X = 0, HEARTH_Y = 1, HEARTH_UP = 2, HEARTH_RADIUS = 3, HEARTH_TALL = 4, HEARTH_SMOKE = 5, HEARTH_THICK = 6,
             HEARTH_KIND = 7, HEARTH_WIDE = 8, HEARTH_HIGH = 9, HEARTH_LIGHT = 10, HEARTH_LIGHT_OUT = 11, HEARTH_LIGHT_UP = 12, HEARTH_REACH = 13, HEARTH = 14;
     private static final float[] FIREPLACE = {0f, 0f, 0.08f, 0.17f, 0.42f, 0f, 0f, VOLUME, 0f, 0f, 0.8f, 0.25f, 0f, 6f};
-    private static final float[] BURN_BARREL = {0f, 0f, 0.58f, 0.2f, 0.65f, 2.5f, 0.4f, VOLUME, 0f, 0f, 1f, 0f, 0f, 6f};
-    private static final float[] COOKING_PIT = {0f, 0f, 0.05f, 0.2f, 0.5f, 2f, 0.35f, VOLUME, 0f, 0f, 0.9f, 0f, 0f, 6f};
-    private static final float[] COOKING_PIT_SIMPLE = {0f, 0f, 0.02f, 0.2f, 0.55f, 2f, 0.35f, VOLUME, 0f, 0f, 0.9f, 0f, 0f, 6f};
+    // The light of a hearth open at its top is over its rim, out of its own body: a drum's 0.88, a pit's grill 0.48.
+    private static final float[] BURN_BARREL = {0f, 0f, 0.58f, 0.2f, 0.65f, 2.5f, 0.4f, VOLUME, 0f, 0f, 1f, 0f, 0.35f, 6f};
+    private static final float[] COOKING_PIT = {0f, 0f, 0.05f, 0.2f, 0.5f, 2f, 0.35f, VOLUME, 0f, 0f, 0.9f, 0f, 0.35f, 6f};
+    private static final float[] COOKING_PIT_SIMPLE = {0f, 0f, 0.02f, 0.2f, 0.55f, 2f, 0.35f, VOLUME, 0f, 0f, 0.9f, 0f, 0.15f, 6f};
     /**
      * The stove's door is its front, 0.24 m before its middle and 0.02 m thick, and the bars of
      * its grille stand 0.004 m proud of the door from x -0.16 to 0.11 and from 0.3 m up to 0.69 m
@@ -244,7 +247,7 @@ final class Fires {
         };
     }
 
-    private static final float[] BRAZIER = {0f, 0f, 0.42f, 0.16f, 0.5f, 1.5f, 0.3f, VOLUME, 0f, 0f, 0.9f, 0f, 0f, 6f};
+    private static final float[] BRAZIER = {0f, 0f, 0.42f, 0.16f, 0.5f, 1.5f, 0.3f, VOLUME, 0f, 0f, 0.9f, 0f, 0.25f, 6f};
     /**
      * A crafted oven is shut: its smoke rises from its chimney's top and its light is its body's
      * glow, low on it. The chimney of crafted_05_4/5 tops out at pixel 87 and of 6/7 at 53.
@@ -383,9 +386,10 @@ final class Fires {
     /**
      * Picks the LIGHTS strongest lights where the eye is among the n records of fires, flickered
      * for seconds, into out as x, y, up and strength each, with a strength of 0 after the last,
-     * and how far each reaches into reach.
+     * how far each reaches into reach, and whether it has flames to see into flaming.
      */
-    static void lights(float[] fires, int n, float eyeX, float eyeY, float eyeUp, float seconds, float[] out, float[] reach, float[] weight) {
+    static void lights(float[] fires, int n, float eyeX, float eyeY, float eyeUp, float seconds, float[] out, float[] reach, boolean[] flaming,
+            float[] weight) {
         int kept = 0;
         for (int i = 0; i < n; i++) {
             int at = i * FLOATS;
@@ -415,6 +419,7 @@ final class Fires {
             out[slot * 4 + 2] = fires[at + LIGHT_UP];
             out[slot * 4 + 3] = strength * flicker(seconds, fires[at + SEED]);
             reach[slot] = fires[at + REACH];
+            flaming[slot] = fires[at + FLAME] > 0f;
         }
         for (int slot = kept; slot < LIGHTS; slot++) {
             out[slot * 4 + 3] = 0f;

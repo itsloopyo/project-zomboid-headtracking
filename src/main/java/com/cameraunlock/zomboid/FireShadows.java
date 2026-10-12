@@ -5,11 +5,14 @@ package com.cameraunlock.zomboid;
  * Each shadowed fire has a slot in one depth texture: six square faces, three across and two
  * down, the world as seen from the fire along +x, +y, -x, -y, up and down (ViewCamera.clean at
  * yaw 0, 90, 180, 270 and pitch up and down), slots one above another. The world's program
- * looks a point up in the face its direction from the fire falls in (FIRE_SHADOW_GLSL), so the
+ * looks a point up in the face its direction from the fire falls in (GLSL), so the
  * fire's light stops at walls and furniture as the sun's does and needs no other gate.
  *
  * What a face holds changes only with the world near the fire, not with the flames' flicker:
- * a slot is drawn again when its fire has moved or it is the oldest, a couple a frame.
+ * a slot is drawn again when its fire is new to it, and one gone stale a frame. A fire that has
+ * a slot keeps it until another outweighs it by HELD, so a fire's light does not switch between
+ * shadowed and not as the eye walks between fires of much the same strength. Only a fire with
+ * flames to see has a slot: a shut oven's or a barbecue's light is low and lit as unshadowed.
  *
  * Render thread only.
  */
@@ -18,6 +21,8 @@ final class FireShadows {
     static final int MOST = 4, FACES = 6;
     /** How many slots are drawn again a frame at most, and after how many frames a slot is drawn again anyway: a door opened by a fire. */
     static final int DRAWN_A_FRAME = 2, STALE_AFTER = 8;
+    /** How many times the weight of a fire that holds a slot another must have to take it. */
+    static final float HELD = 1.5f;
     /** The near plane of a face, in tiles, and how far past a fire's reach its faces see. */
     static final float NEAR = 0.05f, PAST_REACH = 0.5f;
     /** A fire nearer than this to where a slot's maps were drawn from, in tiles, is the same fire. */
@@ -35,6 +40,8 @@ final class FireShadows {
     /** Where each slot's maps were drawn from (x, y, up), how far they see, and the frame they were drawn in; drawnIn 0 is never. */
     final float[] from = new float[MOST * 4];
     final int[] drawnIn = new int[MOST];
+    /** The face size and the number of slots the slots were drawn for: drawn at another, none of them is drawn. */
+    int face, slotCount;
     /** For each of the picture's lights, its slot, or -1 for a light that throws no shadow. */
     final float[] slotOf = new float[Fires.LIGHTS];
     /** The slots to draw this frame, toDraw of them. */
@@ -46,10 +53,23 @@ final class FireShadows {
      * fire in the slot it had, and says which slots are to be drawn this frame. frame counts up
      * from 1.
      */
-    void assign(float[] lights, float[] reach, float[] weight, int frame, int slots) {
+    void assign(float[] lights, float[] reach, float[] weight, boolean[] flaming, int frame, int slots, int faceSize) {
+        if (slots != slotCount || faceSize != face) {
+            java.util.Arrays.fill(drawnIn, 0);
+            slotCount = slots;
+            face = faceSize;
+        }
         java.util.Arrays.fill(slotOf, -1f);
         java.util.Arrays.fill(kept, false);
-        int strong = strongest(lights, weight, slots);
+        for (int light = 0; light < Fires.LIGHTS; light++) {
+            held[light] = weight[light];
+            for (int slot = 0; slot < slots; slot++) {
+                if (drawnIn[slot] != 0 && near(slot, lights, light)) {
+                    held[light] = weight[light] * HELD;
+                }
+            }
+        }
+        int strong = strongest(lights, held, flaming, slots);
         // First the fires that still have their slot.
         for (int k = 0; k < strong; k++) {
             int light = strongest[k];
@@ -80,24 +100,24 @@ final class FireShadows {
                 }
             }
         }
-        // A slot not yet drawn is drawn now; then the oldest, if stale, up to DRAWN_A_FRAME. A light whose slot is not drawn yet throws no shadow until it is.
+        // Slots not yet drawn are drawn now, up to DRAWN_A_FRAME; then the oldest, if stale, one a frame so stale ones do not
+        // come due together. A light whose slot is not drawn yet throws no shadow until it is.
         toDraw = 0;
         for (int slot = 0; slot < slots && toDraw < DRAWN_A_FRAME; slot++) {
             if (kept[slot] && drawnIn[slot] == 0) {
                 draw[toDraw++] = slot;
             }
         }
-        while (toDraw < DRAWN_A_FRAME) {
+        if (toDraw < DRAWN_A_FRAME) {
             int oldest = -1;
             for (int slot = 0; slot < slots; slot++) {
                 if (kept[slot] && drawnIn[slot] != 0 && frame - drawnIn[slot] >= STALE_AFTER && !listed(slot) && (oldest < 0 || drawnIn[slot] < drawnIn[oldest])) {
                     oldest = slot;
                 }
             }
-            if (oldest < 0) {
-                break;
+            if (oldest >= 0) {
+                draw[toDraw++] = oldest;
             }
-            draw[toDraw++] = oldest;
         }
         for (int k = 0; k < toDraw; k++) {
             drawnIn[draw[k]] = frame;
@@ -125,20 +145,21 @@ final class FireShadows {
     }
 
     private final boolean[] kept = new boolean[MOST], taken = new boolean[Fires.LIGHTS];
+    private final float[] held = new float[Fires.LIGHTS];
     private final int[] strongest = new int[MOST];
 
-    /** Puts into strongest the up to `slots` lights of the most weight that give light at all, strongest first, and says how many. */
-    private int strongest(float[] lights, float[] weight, int slots) {
+    /** Puts into strongest the up to `slots` lights with flames of the most weight, strongest first, and says how many. */
+    private int strongest(float[] lights, float[] weight, boolean[] flaming, int slots) {
         int lit = 0;
         for (int light = 0; light < Fires.LIGHTS; light++) {
-            lit += lights[light * 4 + 3] > 0f ? 1 : 0;
+            lit += lights[light * 4 + 3] > 0f && flaming[light] ? 1 : 0;
         }
         int count = Math.min(lit, slots);
         java.util.Arrays.fill(taken, false);
         for (int k = 0; k < count; k++) {
             int best = -1;
             for (int light = 0; light < Fires.LIGHTS; light++) {
-                if (!taken[light] && lights[light * 4 + 3] > 0f && (best < 0 || weight[light] > weight[best])) {
+                if (!taken[light] && lights[light * 4 + 3] > 0f && flaming[light] && (best < 0 || weight[light] > weight[best])) {
                     best = light;
                 }
             }
@@ -150,7 +171,7 @@ final class FireShadows {
 
     /**
      * The pose of a slot's face: from the fire, along +x, +y, -x, -y, up or down, into pose.
-     * FIRE_SHADOW_GLSL picks the same axes.
+     * GLSL picks the same axes.
      */
     static void face(int face, float x, float y, float up, ViewCamera.Pose pose) {
         double half = Math.PI / 2;
@@ -164,15 +185,16 @@ final class FireShadows {
     /**
      * For the world's program: how much of a fire's light reaches a point p facing n, from slot
      * of the texture the faces are in. The face is picked by the way p lies from the fire, its
-     * axes are FireShadows.face's, and each face sits one texel in from its square's edges so
-     * the four texels a sample blends never reach the next face.
+     * axes are FireShadows.face's, and each face sits one texel in from its square's edges and
+     * is read half a texel further in, so the four texels a sample blends are all the face's.
      */
     static final String GLSL = """
             uniform sampler2DShadow uFireShadow;
             uniform vec4 uFireFrom[4];
             uniform float uFireSlot[8];
-            // Texels a face is across, and how many slots the texture holds.
+            // Texels a face is across, and how many slots the texture holds; the faces' near plane.
             uniform vec2 uFireFace;
+            uniform float uFireNear;
 
             float fireShadow(float slot, vec3 p, vec3 n) {
                 vec4 from = uFireFrom[int(slot)];
@@ -201,9 +223,11 @@ final class FireShadows {
                 float ahead = dot(d, forward);
                 vec2 ndc = vec2(dot(d, right), dot(d, up)) / ahead;
                 float far = from.w;
-                float z = (far + 0.05) / (far - 0.05) - 2.0 * far * 0.05 / ((far - 0.05) * ahead);
+                float z = (far + uFireNear) / (far - uFireNear) - 2.0 * far * uFireNear / ((far - uFireNear) * ahead);
                 vec2 tile = vec2(mod(face, 3.0), floor(face / 3.0) + slot * 2.0);
-                vec2 uv = (tile * uFireFace.x + 1.0 + (ndc * 0.5 + 0.5) * (uFireFace.x - 2.0)) / vec2(3.0 * uFireFace.x, 2.0 * uFireFace.y * uFireFace.x);
+                // Within the face's drawn texels, half a texel in, so a blend of four never takes the cleared edge round it.
+                vec2 inFace = clamp(1.0 + (ndc * 0.5 + 0.5) * (uFireFace.x - 2.0), 1.5, uFireFace.x - 1.5);
+                vec2 uv = (tile * uFireFace.x + inFace) / vec2(3.0 * uFireFace.x, 2.0 * uFireFace.y * uFireFace.x);
                 return shadow2D(uFireShadow, vec3(uv, z * 0.5 + 0.5)).r;
             }
 

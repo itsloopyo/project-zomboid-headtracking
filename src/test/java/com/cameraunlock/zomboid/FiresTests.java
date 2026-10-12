@@ -169,16 +169,16 @@ final class FiresTests {
         // One that gives no light is passed over wherever it is.
         fires[Fires.LIGHT] = 0f;
         float[] out = new float[Fires.LIGHTS * 4], weight = new float[Fires.LIGHTS];
-        Fires.lights(fires, n, 0f, 0f, 0f, 1f, out, new float[Fires.LIGHTS], weight);
+        Fires.lights(fires, n, 0f, 0f, 0f, 1f, out, new float[Fires.LIGHTS], new boolean[Fires.LIGHTS], weight);
         float furthest = 0f;
         for (int slot = 0; slot < Fires.LIGHTS; slot++) {
             check(out[slot * 4 + 3] > 0f, "every slot has a light");
             furthest = Math.max(furthest, out[slot * 4]);
         }
         check(furthest == Fires.LIGHTS * 3f, "the nearest that give light are kept, the far ones left: " + furthest);
-        Fires.lights(fires, 2, 0f, 0f, 0f, 1f, out, new float[Fires.LIGHTS], weight);
+        Fires.lights(fires, 2, 0f, 0f, 0f, 1f, out, new float[Fires.LIGHTS], new boolean[Fires.LIGHTS], weight);
         check(out[3] > 0f && out[7] == 0f, "one fire with light, then the end of the lights");
-        Fires.lights(fires, 0, 0f, 0f, 0f, 1f, out, new float[Fires.LIGHTS], weight);
+        Fires.lights(fires, 0, 0f, 0f, 0f, 1f, out, new float[Fires.LIGHTS], new boolean[Fires.LIGHTS], weight);
         check(out[3] == 0f, "no fire, no light");
     }
 
@@ -321,7 +321,7 @@ final class FiresTests {
             }
             float ahead = dx * forward[0] + dy * forward[1] + du * forward[2];
             float sx = (dx * right[0] + dy * right[1] + du * right[2]) / ahead, sy = (dx * up[0] + dy * up[1] + du * up[2]) / ahead;
-            float sz = (far + 0.05f) / (far - 0.05f) - 2f * far * 0.05f / ((far - 0.05f) * ahead);
+            float near = FireShadows.NEAR, sz = (far + near) / (far - near) - 2f * far * near / ((far - near) * ahead);
             // The face as it was drawn.
             FireShadows.face(face, 0f, 0f, 0f, pose);
             ViewCamera.view(pose, view);
@@ -339,13 +339,15 @@ final class FiresTests {
         }
     }
 
+    private static final boolean[] FLAMING = {true, true, true, true, true, true, true, true};
+
     private static void aFireKeepsItsShadowSlot() {
         FireShadows shadows = new FireShadows();
         float[] lights = new float[Fires.LIGHTS * 4], reach = new float[Fires.LIGHTS], weight = new float[Fires.LIGHTS];
         // Two fires, the second the stronger.
         lights[0] = 1f; lights[1] = 2f; lights[2] = 0.5f; lights[3] = 1f; reach[0] = 8f; weight[0] = 1f;
         lights[4] = 5f; lights[5] = 6f; lights[6] = 0.5f; lights[7] = 1f; reach[1] = 12f; weight[1] = 2f;
-        shadows.assign(lights, reach, weight, 1, 2);
+        shadows.assign(lights, reach, weight, FLAMING, 1, 2, 256);
         check(shadows.toDraw == 2 && shadows.slotOf[0] >= 0f && shadows.slotOf[1] >= 0f && shadows.slotOf[0] != shadows.slotOf[1],
                 "two new fires get a slot each, drawn at once");
         float first = shadows.slotOf[0], second = shadows.slotOf[1];
@@ -355,16 +357,32 @@ final class FiresTests {
         System.arraycopy(lights, 4, swapped, 0, 4);
         System.arraycopy(lights, 0, swapped, 4, 4);
         swappedReach[0] = 12f; swappedReach[1] = 8f; swappedWeight[0] = 2f; swappedWeight[1] = 1.5f;
-        shadows.assign(swapped, swappedReach, swappedWeight, 2, 2);
+        shadows.assign(swapped, swappedReach, swappedWeight, FLAMING, 2, 2, 256);
         check(shadows.slotOf[0] == second && shadows.slotOf[1] == first && shadows.toDraw == 0, "each keeps its slot and nothing is drawn again: " + shadows.toDraw);
-        shadows.assign(swapped, swappedReach, swappedWeight, 2 + FireShadows.STALE_AFTER, 2);
+        shadows.assign(swapped, swappedReach, swappedWeight, FLAMING, 2 + FireShadows.STALE_AFTER, 2, 256);
         check(shadows.toDraw >= 1, "a slot left long enough is drawn again");
         // With one slot, only the stronger fire has a shadow.
         FireShadows one = new FireShadows();
-        one.assign(lights, reach, weight, 1, 1);
+        one.assign(lights, reach, weight, FLAMING, 1, 1, 256);
         check(one.slotOf[1] == 0f && one.slotOf[0] == -1f, "with one slot the strongest fire has it, and the other none");
-        one.assign(lights, reach, weight, 2, 0);
+        one.assign(lights, reach, weight, FLAMING, 2, 0, 256);
         check(one.slotOf[0] == -1f && one.slotOf[1] == -1f && one.toDraw == 0, "with none, no fire throws a shadow");
+        // One slot, held by the stronger fire: the other must outweigh it by HELD to take it.
+        FireShadows hold = new FireShadows();
+        hold.assign(lights, reach, weight, FLAMING, 1, 1, 256);
+        float[] closer = weight.clone();
+        closer[0] = 2.5f;
+        hold.assign(lights, reach, closer, FLAMING, 2, 1, 256);
+        check(hold.slotOf[1] == 0f && hold.slotOf[0] == -1f, "a fire a little stronger than the one holding the slot does not take it");
+        closer[0] = 3.5f;
+        hold.assign(lights, reach, closer, FLAMING, 3, 1, 256);
+        check(hold.slotOf[0] == 0f && hold.slotOf[1] == -1f && hold.toDraw == 1, "one far stronger does, and its faces are drawn");
+        hold.assign(lights, reach, closer, FLAMING, 4, 1, 512);
+        check(hold.toDraw == 1 && hold.face == 512, "at another face size every slot is drawn again");
+        boolean[] shut = {false, true, true, true, true, true, true, true};
+        FireShadows ovens = new FireShadows();
+        ovens.assign(lights, reach, closer, shut, 1, 2, 256);
+        check(ovens.slotOf[0] == -1f && ovens.slotOf[1] >= 0f, "a light with no flames to see, a shut oven's, has no slot");
     }
 
     private static void theEyeStopsDownForFlamesAtNight() {
