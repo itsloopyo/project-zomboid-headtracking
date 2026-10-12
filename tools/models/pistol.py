@@ -451,7 +451,7 @@ def case():
 
 def coat(g):
     """The service pistol's slide: a hard black coat over steel, its rear cut across with grooves to draw it back by."""
-    colour, rough, metal, height = black_finish(g, (0.020, 0.020, 0.022), 0.42, 0.35)
+    colour, rough, metal, height = black_finish(g, (0.020, 0.020, 0.022), 0.42, 0.15)
     return g.finish(colour, rough, metal, g.add(height, serrated(g)))
 
 
@@ -472,7 +472,7 @@ def serrated(g):
 def parkerised(g):
     """The forty-five's finish: steel etched dull and grey-black, rubbed bright where hands and holster wear it."""
     grain = g.noise(3200.0, 2.0)
-    rubbed = g.worn(0.55)
+    rubbed = g.worn(0.28)
     colour = g.mix(rubbed, g.scaled(g.colour(0.040, 0.041, 0.042), g.add(0.75, g.times(grain, 0.5))), g.colour(0.36, 0.36, 0.37))
     return g.finish(colour, g.add(0.58, g.times(grain, 0.12), g.times(rubbed, -0.25)), g.add(0.55, g.times(rubbed, 0.45)), g.times(grain, 0.00003))
 
