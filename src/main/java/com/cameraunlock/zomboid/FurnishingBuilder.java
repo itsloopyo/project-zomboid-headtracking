@@ -392,6 +392,11 @@ final class FurnishingBuilder {
             return true;
         }
         Models.Model model = piece.withBasin != null && onSquare(x, y, z, true) != null ? piece.withBasin : piece.model;
+        boolean burning = object instanceof IsoFireplace hearth && hearth.isLit() && Fires.own();
+        if (burning && model.name.equals("barrel")) {
+            // A drum lit as a burn barrel has had its top cut out: the fire is drawn burning in it.
+            model = Models.get("burn_barrel");
+        }
         build.building.plain = false;
         float centreX = piece.centreX, centreY = piece.centreY;
         if (piece.onRoof && build.roofBuilder.cornersAt(x, y, z, roofCorners)) {
@@ -402,7 +407,7 @@ final class FurnishingBuilder {
         }
         build.placed.add(model, build.frame, x, y, x + centreX, y + centreY, foot, piece.turns, piece.scale, piece.scaleUp,
                 dyeTexture, piece.dyed, dyeU, dyeV, alsoDyed, alsoU, alsoV);
-        float[] fire = object instanceof IsoFireplace hearth && hearth.isLit() && Fires.own() ? Fires.hearth(model.name) : null;
+        float[] fire = burning ? Fires.hearth(model.name) : null;
         if (fire != null) {
             build.placed.fire(fire, x + centreX, y + centreY, foot, piece.turns, piece.scale, piece.scaleUp, Fires.seed(x, y, z));
         }

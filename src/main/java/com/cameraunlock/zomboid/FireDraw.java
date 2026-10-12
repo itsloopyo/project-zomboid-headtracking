@@ -129,11 +129,11 @@ final class FireDraw {
                         discard;
                     }
                     float ahead = dot(uFoot, out3) / facing;
-                    // The door's face is 1.5 mm behind the glow and the grille's bars 2.5 mm before it,
-                    // along the way out: the glow shows where what the picture has there is no nearer
-                    // than a millimetre behind it, however slant it is seen, and the depth's own
-                    // steps, which grow with the square of the distance, are allowed for.
-                    if (ahead <= uNear || ahead > sceneAhead + 0.001 / -facing + ahead * ahead * 0.00002) {
+                    // The door's face is behind the glow and the grille's bars before it: the glow shows
+                    // where nothing nearer stands than the depth's own steps allow, which grow with the
+                    // square of the distance. An allowance that grew as the door is seen slant let the
+                    // glow through the stove's own corner.
+                    if (ahead <= uNear || ahead > sceneAhead + 0.0005 + ahead * ahead * 0.00002) {
                         discard;
                     }
                     vec3 q = ray * ahead - uFoot;
@@ -143,7 +143,9 @@ final class FireDraw {
                     }
                     float stir = fbm(vec3(on * vec2(3.0, 2.5) + uSeed, uTime * 1.3 - on.y * 1.5));
                     float heat = clamp(stir * 1.4 - on.y * 0.45 + 0.05, 0.0, 1.0);
-                    float edge = smoothstep(1.0, 0.8, abs(on.x)) * smoothstep(0.0, 0.08, on.y) * smoothstep(1.0, 0.9, on.y);
+                    // Seen slant the glow is the grille's gaps seen edge on, and fades.
+                    float edge = smoothstep(1.0, 0.8, abs(on.x)) * smoothstep(0.0, 0.08, on.y) * smoothstep(1.0, 0.9, on.y)
+                            * smoothstep(0.1, 0.45, -facing / length(ray));
                     gl_FragData[0] = vec4(flameColour(heat) * (heat * 4.0 * edge * uFlame), 0.0);
                     gl_FragData[1] = edge > 0.3 ? vec4(vec3(MOVES), 1.0) : vec4(0.0);
                     return;
