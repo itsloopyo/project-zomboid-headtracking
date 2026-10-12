@@ -21,6 +21,8 @@ final class AttackClock {
     private static final float LANDS_SOONEST = 0.05f;
 
     private float at = NONE, seen = NONE, lands, pace;
+    /** How long the picture stands where the attack landed, and how long it then takes to catch up, as shares of the animation. See HitStop. */
+    private float stops, catches;
     /** Whether the frame last stepped is the one an attack began on, and the one it landed on. */
     boolean began, landed;
 
@@ -38,6 +40,7 @@ final class AttackClock {
         if (playing && (seen == NONE || fraction < seen)) {
             began = true;
             pace = 0f;
+            stops = 0f;
             at = 0f;
             lands = Math.clamp(landsAt, LANDS_SOONEST, HELD_AGAIN - LANDS_SOONEST);
             seen = fraction;
@@ -62,10 +65,27 @@ final class AttackClock {
         }
     }
 
+    /**
+     * The attack landed on something: the picture stands where it struck for this long, in
+     * seconds of the animation at the pace it has, then catches up with it. Both together take
+     * no more than HitStop.ROOM of the way to holding it again.
+     */
+    void stop(float seconds) {
+        stops = seconds * pace;
+        catches = HitStop.CATCHES_UP * pace;
+        float room = HitStop.ROOM * (HELD_AGAIN - lands);
+        if (stops + catches > room) {
+            float fits = room / (stops + catches);
+            stops *= fits;
+            catches *= fits;
+        }
+    }
+
     /** No attack is under way. */
     void reset() {
         at = NONE;
         seen = NONE;
+        stops = 0f;
         began = false;
         landed = false;
     }
@@ -75,8 +95,13 @@ final class AttackClock {
         return at == NONE ? 0f : Math.min(at / lands, 1f);
     }
 
-    /** How far past landing it is: 0 until it lands, 1 when what was swung is held again. */
+    /** How far past landing it is: 0 until it lands and while it stands where it struck, 1 when what was swung is held again. */
     float past() {
-        return at == NONE ? 0f : Math.clamp((at - lands) / (HELD_AGAIN - lands), 0f, 1f);
+        return at == NONE ? 0f : Math.clamp(HitStop.shown(at - lands, stops, catches) / (HELD_AGAIN - lands), 0f, 1f);
+    }
+
+    /** Whether an attack is under way, or one let go of is still running on. */
+    boolean under() {
+        return at != NONE;
     }
 }

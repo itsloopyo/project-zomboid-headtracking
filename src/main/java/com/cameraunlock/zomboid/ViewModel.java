@@ -287,6 +287,9 @@ public final class ViewModel {
         }
         if (swing.landed) {
             struck = player.getLastHitCount() > 0;
+            if (struck && !unshown) {
+                swing.stop(HitStop.seconds(weapon.getActualWeight()));
+            }
         }
         float reached = unshown ? 0f : swing.reached(), past = unshown ? 0f : swing.past();
         lastYaw = yaw;

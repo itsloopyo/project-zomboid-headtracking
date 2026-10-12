@@ -207,6 +207,7 @@ public final class Tests {
         Checks.run("CapsuleTests", CapsuleTests::run);
         Checks.run("RagdollTests", RagdollTests::run);
         Checks.run("KickTests", KickTests::run);
+        Checks.run("MeleeFeelTests", MeleeFeelTests::run);
         Checks.run("AimGroundTests", AimGroundTests::run);
         Checks.run("SplitScreenTests", SplitScreenTests::run);
         Checks.run("DoubleTapTests", DoubleTapTests::run);
