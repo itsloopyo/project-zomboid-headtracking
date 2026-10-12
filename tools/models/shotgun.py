@@ -56,7 +56,7 @@ from mathutils import Matrix, Vector
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUTPUT = os.path.join(HERE, "..", "..", "src", "main", "resources", "models")
-PICTURES = os.path.join(HERE, "..", "..", "src", "textures", "models")
+TEXTURES = os.path.join(HERE, "..", "..", "src", "textures", "models")
 TEXTURE = 2048
 
 # Laid out with the bore along y through x = 0, z = 0 and the trigger at y = 0. GRIP is
@@ -1020,7 +1020,7 @@ def pack(gun, colour, surface):
     if colour is not None:
         files += [("shotgun.colour.gz", colour.tobytes()), ("shotgun.surface.gz", surface.tobytes())]
     for name, data in files:
-        path = os.path.join(OUTPUT if name.endswith(".mesh.gz") else PICTURES, name)
+        path = os.path.join(OUTPUT if name.endswith(".mesh.gz") else TEXTURES, name)
         with gzip.open(path, "wb", compresslevel=9) as packed:
             packed.write(data)
         print("wrote %s, %d bytes" % (os.path.normpath(path), os.path.getsize(path)))

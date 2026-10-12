@@ -430,7 +430,7 @@ def pack(gun, colour, surface):
     if colour is not None:
         files += [("rifle.colour.gz", colour.tobytes()), ("rifle.surface.gz", surface.tobytes())]
     for name, data in files:
-        path = os.path.join(G.OUTPUT if name.endswith(".mesh.gz") else G.PICTURES, name)
+        path = os.path.join(G.OUTPUT if name.endswith(".mesh.gz") else G.TEXTURES, name)
         with gzip.open(path, "wb", compresslevel=9) as packed:
             packed.write(data)
         print("wrote %s, %d bytes" % (os.path.normpath(path), os.path.getsize(path)))
