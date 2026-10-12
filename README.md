@@ -425,7 +425,8 @@ OwnFurniture=true
 ; true: the mod's photographs, paintings, posters, signs and television programmes. false: the game's pictures, and
 ; only colour bars on a television.
 OwnPictures=true
-; true: the mod's trees, boulders, grass, ferns, flowers and fallen leaves. false: the game's sprites.
+; true: the mod's trees, bushes, boulders, grass, ferns, flowers, crops, fallen leaves and fallen sticks. false: the game's
+; sprites.
 OwnPlants=true
 ; true: the mod's textures of ground, wood, roofing, paint, carpet, cloth and wallpaper, and clean road lines. false:
 ; the colours of the game's sprites.

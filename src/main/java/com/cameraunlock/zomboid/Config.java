@@ -218,7 +218,8 @@ final class Config {
                             + "only colour bars on a television.",
                     writable | live, true),
             core.configLocalBool("Content", "OwnPlants",
-                    "true: the mod's trees, boulders, grass, ferns, flowers and fallen leaves. false: the game's sprites.",
+                    "true: the mod's trees, bushes, boulders, grass, ferns, flowers, crops, fallen leaves and fallen sticks. false: the game's\n"
+                            + "sprites.",
                     writable | live, true),
             core.configLocalBool("Content", "OwnTextures",
                     "true: the mod's textures of ground, wood, roofing, paint, carpet, cloth and wallpaper, and clean road lines. false:\n"
