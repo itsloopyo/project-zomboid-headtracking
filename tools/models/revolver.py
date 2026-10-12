@@ -279,9 +279,9 @@ def frame():
                                                       (-0.0322, -0.0375), (-0.0335, -0.0425)])
     inside = Vector((R0 - 0.0040 * s, FB + 0.0080 * s))
     inner = [tuple(Vector(p) + (inside - Vector(p)).normalized() * 0.0200 * s) for p in hump]
-    stations = along([q + p + (W, 3.0, 1.0) for p, q in zip(hump, inner)], 40)
+    stations = along([q + p + (W, 3.0, 1.0) for p, q in zip(hump, inner)], 28)
     strap = bmesh.new()
-    loft(strap, [grip_ring(st[0:2], st[2:4], *st[4:]) for st in stations])
+    loft(strap, [grip_ring(st[0:2], st[2:4], *st[4:], count=40) for st in stations])
     slot = box(-0.0042 * s, 0.0042 * s, R0 - 0.0190 * s, R0 - 0.0002, HAMMER_AT[1] - 0.0090 * s, TOP + 0.02)
     edges = top_edges()
     take(strap, "backstrap", K.metal, bevel=0.0008, segments=2, sharp=40.0, cut=[slot] + edges, texels=1.2)
@@ -407,9 +407,9 @@ def sights():
 def grip():
     front, back = scaled(K.grip_front), scaled(K.grip_back)
     sections = [(half * s, square, comb) for half, square, comb in K.grip_section]
-    stations = along([f + b + c for f, b, c in zip(front, back, sections)], 48)
+    stations = along([f + b + c for f, b, c in zip(front, back, sections)], 32)
     wood = bmesh.new()
-    loft(wood, [grip_ring(st[0:2], st[2:4], *st[4:]) for st in stations])
+    loft(wood, [grip_ring(st[0:2], st[2:4], *st[4:], count=40) for st in stations])
     take(wood, "grip", K.grip, bevel=0.0012 * s, segments=2, sharp=45.0, texels=1.15)
     if K.toy:
         # A ring at the butt, for a cord, in a lug moulded on.
@@ -495,8 +495,8 @@ def cylinder():
     for x, z in chamber_places():
         if K.toy:
             # Seats for the caps at the back, and the mouths of chambers moulded in the front.
-            cuts.append(tube_cut(K.chamber_r, CYL_REAR - 0.001, CYL_REAR + 0.0030, x=x, z=z, segments=24))
-            cuts.append(tube_cut(K.chamber_r * 1.25, -0.0030, 0.001, x=x, z=z, segments=24))
+            cuts.append(tube_cut(K.chamber_r, CYL_REAR - 0.001, CYL_REAR + 0.0030, x=x, z=z, segments=32))
+            cuts.append(tube_cut(K.chamber_r * 1.25, -0.0030, 0.001, x=x, z=z, segments=32))
         else:
             cuts.append(tube_cut(K.chamber_r, CYL_REAR - 0.001, 0.001, x=x, z=z, segments=32))
             cuts.append(tube_cut(K.rim_r + 0.0002, CYL_REAR - 0.001, CYL_REAR + K.rim_t, x=x, z=z, segments=32))
