@@ -633,6 +633,8 @@ final class Pipeline {
     /** Where the driver puts an answer: see bound. As long as the longest answer OpenGL gives to one question. */
     private final int[] asked = new int[16];
     private final float[] projection = new float[16], viewed = new float[16], flash = new float[7];
+    /** This picture's fires and their light. */
+    private final FireDraw fires = new FireDraw();
     private static final String[] BEAM_AT = new String[Headlights.BEAMS], BEAM_WAY = new String[Headlights.BEAMS];
     private static final String[] ROOT_AT = new String[Characters.ROOTS];
     private static final String[] PRINT_AT = new String[SnowPrints.PRINTS], RUT_AT = new String[SnowPrints.RUTS], RUT_UP_AT = new String[SnowPrints.RUTS];
@@ -879,6 +881,7 @@ final class Pipeline {
             beyond = (!outside || landing > 0f) && farThere ? 1f + (steadying ? frameNumber % SIEVES : 0) : 0f;
             all.of(chunks, null, true, null);
             arrays();
+            fires.take(state, chunks, eyesOwn() ? roomsSeen : null, camera, frameNanos);
             stage(STAGE_LOAD);
             boolean figures = view.characters.ready();
             glazed = false;
@@ -937,6 +940,8 @@ final class Pipeline {
                 drawDebris(steadying ? movesTarget : sceneTarget, width, height, camera, tanHalfFieldOfView, aspect, near, far, asideX, asideY,
                         fogStart, fogEnd);
             }
+            // After the rain, which falls beyond and before a fire alike, and before any glass, which is before it.
+            fires.draw(decalTarget, sceneDepth, state, camera, tanHalfFieldOfView, aspect, near, far, width, height, asideX, asideY, frameNanos);
             // After the sky and the rain, which are both beyond any glass: the sky is painted
             // wherever nothing else is, over whatever was there.
             if (inTheGlass) {
@@ -3999,6 +4004,7 @@ final class Pipeline {
         view.muzzleFlash.light(flash, frameNanos);
         program.set("uFlashAt", flash[0], flash[1], flash[2], flash[3]);
         program.set("uFlashColor", flash[4], flash[5], flash[6]);
+        fires.light(program);
     }
 
     /**

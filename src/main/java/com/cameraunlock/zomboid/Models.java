@@ -420,10 +420,29 @@ final class Models {
         /** The key of the thing the pieces added next are of: see SpriteGeometry.MeshSet.own. */
         long key = Outlines.NONE;
 
+        /**
+         * The fires burning in the pieces, Fires.FLOATS each (see Fires.placeHearth), and the room
+         * each is in, as rooms holds a piece's.
+         */
+        float[] fires = new float[0];
+        long[] fireRooms = new long[0];
+        int fireCount;
+
         void clear() {
             count = 0;
+            fireCount = 0;
             room = RoomSight.OUTSIDE;
             key = Outlines.NONE;
+        }
+
+        /** Notes a fire burning in a hearth just stood, as Fires.placeHearth gives it, in the room the pieces added now are in. */
+        void fire(float[] hearth, float centreX, float centreY, float foot, int quarterTurns, float scale, float scaleUp, float seed) {
+            if ((fireCount + 1) * Fires.FLOATS > fires.length) {
+                fires = Arrays.copyOf(fires, (fireCount + 2) * Fires.FLOATS);
+                fireRooms = Arrays.copyOf(fireRooms, fireCount + 2);
+            }
+            Fires.placeHearth(hearth, centreX, centreY, foot, quarterTurns, scale, scaleUp, seed, fires, fireCount * Fires.FLOATS);
+            fireRooms[fireCount++] = room;
         }
 
         int triangles() {

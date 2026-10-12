@@ -886,7 +886,7 @@ final class PipelineShaders {
             uniform vec3 uOpenLight;
             uniform float uDaylightKept;
             uniform float uRoomKept;
-            """ + BEAMS + MuzzleFlash.GLSL + """
+            """ + BEAMS + MuzzleFlash.GLSL + Fires.GLSL + """
             uniform sampler2D uAsphalt;
             uniform sampler2D uGravel;
             uniform sampler2D uSoil;
@@ -3256,6 +3256,11 @@ final class PipelineShaders {
                 }
                 color += pow(texel.rgb, vec3(2.2)) * beams(vWorld, n, card ? 1.0 : 0.0);
                 color += pow(texel.rgb, vec3(2.2)) * flashLight(vWorld, n);
+                // The game's light of a square stops at its walls, and the firelight here does not: it
+                // falls only where the game has a square lit over the open ground's light, which near a
+                // fire is the fire's own, given back the way it comes from and as it flickers.
+                vec3 lampLit = max(pow(max(vColor.rgb, vec3(0.0)), vec3(2.2)) - pow(uOpenLight, vec3(2.2)), 0.0);
+                color += pow(texel.rgb, vec3(2.2)) * fireLight(vWorld, n) * clamp(dot(lampLit, vec3(0.3, 0.5, 0.2)) * 12.0, 0.0, 1.0);
                 // A lamp that is lit is brighter than anything it lights. The game lights the
                 // square a burning lamp stands on strongly, and in the dark that is how a lamp
                 // that is on is told: its pale parts, the shade and the glass, then give light
@@ -4371,7 +4376,7 @@ final class PipelineShaders {
             uniform float uHaveFacing;
             uniform float uRaining;
             uniform float uTime;
-            """ + BEAMS + MuzzleFlash.GLSL + """
+            """ + BEAMS + MuzzleFlash.GLSL + Fires.GLSL + """
             // The vehicle sat in as its body is drawn this frame, in the world: the way it
             // faces, the side to the left of that and its own up. On its springs it tips
             // and rolls, and what the picture builds in it tips and rolls with the body.
@@ -5718,7 +5723,7 @@ final class PipelineShaders {
                 // their edges.
                 vec3 back = reflect(-view, n);
                 vec3 skyBack = atmosphere(back * vec3(1.0, 1.0, sign(back.z)));
-                vec3 lamps = beams(at, n, 0.25) * (1.0 - cabin) + flashLight(at, n);
+                vec3 lamps = beams(at, n, 0.25) * (1.0 - cabin) + flashLight(at, n) + fireLight(at, n);
                 color += pow(figure.rgb / max(figure.a, 0.001), vec3(2.2)) * lamps;
                 if (wheel && wheelPart > 6.5 && wheelPart < 7.5 && abs(wheelPlace.y - uMirror.y) < 0.112 && abs(wheelPlace.z - uMirror.z) < 0.029 && wheelPlace.x < uMirror.x) {
                     // The glass shows the world behind, left for right, and the sky where the

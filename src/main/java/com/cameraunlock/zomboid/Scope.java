@@ -96,7 +96,7 @@ final class Scope {
             }
             """;
 
-    private static final String FRAGMENT = "#version 120\n" + Sky.ATMOSPHERE + MuzzleFlash.GLSL + String.format(Locale.ROOT, """
+    private static final String FRAGMENT = "#version 120\n" + Sky.ATMOSPHERE + MuzzleFlash.GLSL + Fires.GLSL + String.format(Locale.ROOT, """
             const float RELIEF = %f;
             const float EYE_LENS = %f;
             const float FIELD = %f;
@@ -259,7 +259,7 @@ final class Scope {
                 float edge = min(fit.x * fit.x, exp2(-9.28 * nv)) * fit.x + fit.y;
                 vec2 share = vec2(-1.04, 1.04) * edge + fit.zw;
                 color += dull * soft + (mirror * share.x + share.y) * shown;
-                color += (dull + mirror * 0.6) * flashLight(at, n);
+                color += (dull + mirror * 0.6) * (flashLight(at, n) + fireLight(at, n));
                 return color;
             }
 
@@ -285,7 +285,7 @@ final class Scope {
                 vec3 innerBack = reflect(-view, inner);
                 color += around(innerBack, skyGives) * coat.gbr * (0.5 * base * (1.0 - 0.94 * headHides(innerBack, view)));
                 color += pow(uLightColor, vec3(2.2)) * (1.5 * sunReaches(at) * shine * thrown);
-                return color + coat * 0.02 * flashLight(at, n);
+                return color + coat * 0.02 * (flashLight(at, n) + fireLight(at, n));
             }
 
             // The eyepiece. A line of sight at an angle to the axis shows the world at that

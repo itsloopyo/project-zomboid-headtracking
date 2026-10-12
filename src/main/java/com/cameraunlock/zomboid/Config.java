@@ -245,6 +245,10 @@ final class Config {
             core.configLocalBool("Content", "OwnAnimals",
                     "true: the mod's skins for animals near you, with the hair of their coats. false: the game's own skins.",
                     writable | live, true),
+            core.configLocalBool("Content", "OwnFire",
+                    "true: flames, smoke and firelight of the mod's own for burning buildings, Molotovs, campfires, fireplaces, stoves\n"
+                            + "and burn barrels. false: the game's flat sprites of flames.",
+                    writable | live, true),
         };
 
         puts.put("FieldOfView", value -> {
@@ -261,7 +265,7 @@ final class Config {
         puts.put("MuzzleFlash", value -> MuzzleFlash.set(value != 0));
         puts.put("SplitScreen", value -> SplitScreen.set((int) value));
         String[] ownKeys = {"OwnWeapons", "OwnFurniture", "OwnPictures", "OwnPlants", "OwnTextures", "OwnBuildings", "OwnZombies", "OwnPeople",
-            "OwnArms", "OwnClothes", "OwnAnimals"};
+            "OwnArms", "OwnClothes", "OwnAnimals", "OwnFire"};
         for (int i = 0; i < ownKeys.length; i++) {
             int bit = 1 << i;
             puts.put(ownKeys[i], value -> {

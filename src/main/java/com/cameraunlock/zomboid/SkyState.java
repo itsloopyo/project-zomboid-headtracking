@@ -113,6 +113,10 @@ final class SkyState {
     /** The bolts to draw, the first seenCount of seen. */
     final Lightning.Seen[] seen = {new Lightning.Seen(), new Lightning.Seen(), new Lightning.Seen(), new Lightning.Seen()};
     int seenCount;
+    /** The squares that burn, the first fireCount records of fires (see Fires), and how far each is from the eye, squared. */
+    final float[] fires = new float[Fires.MOST * Fires.FLOATS];
+    final float[] fireFar = new float[Fires.MOST];
+    int fireCount;
 
     private static float driftedX, driftedY;
     private static final Wind wind = new Wind();

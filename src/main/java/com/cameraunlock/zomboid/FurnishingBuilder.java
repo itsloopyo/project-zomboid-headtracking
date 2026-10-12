@@ -5,6 +5,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import zombie.core.textures.Texture;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoObject;
+import zombie.iso.objects.IsoFireplace;
 import zombie.iso.objects.IsoTelevision;
 import zombie.iso.sprite.IsoSprite;
 import zombie.util.list.PZArrayList;
@@ -382,6 +383,10 @@ final class FurnishingBuilder {
             build.building.plain = false;
             ShopFittings.addStock(build, object, piece, x, y, foot);
         }
+        // The game's flames over a lit hearth are the fire, and stay over the model while the picture draws none of its own.
+        if (build.overLayer > 0 && !Fires.own() && object instanceof IsoFireplace hearth && hearth.isLit()) {
+            return false;
+        }
         // What the game lays over the piece's sprite, a stain, has no place on the model.
         if (piece.gridX != 0 || piece.gridY != 0 || build.overLayer > 0) {
             return true;
@@ -397,6 +402,10 @@ final class FurnishingBuilder {
         }
         build.placed.add(model, build.frame, x, y, x + centreX, y + centreY, foot, piece.turns, piece.scale, piece.scaleUp,
                 dyeTexture, piece.dyed, dyeU, dyeV, alsoDyed, alsoU, alsoV);
+        float[] fire = object instanceof IsoFireplace hearth && hearth.isLit() && Fires.own() ? Fires.hearth(model.name) : null;
+        if (fire != null) {
+            build.placed.fire(fire, x + centreX, y + centreY, foot, piece.turns, piece.scale, piece.scaleUp, Fires.seed(x, y, z));
+        }
         if (piece.pictured) {
             // Each point of the pane looks at where the sprite paints it: the pane's face is paneY in front of the model's origin.
             // The sprite paints it over its unmoved place, and a model stood on a roof is where the view draws that place.

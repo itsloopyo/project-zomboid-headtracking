@@ -445,6 +445,9 @@ OwnArms=true
 OwnClothes=true
 ; true: the mod's skins for animals near you, with the hair of their coats. false: the game's own skins.
 OwnAnimals=true
+; true: flames, smoke and firelight of the mod's own for burning buildings, Molotovs, campfires, fireplaces, stoves
+; and burn barrels. false: the game's flat sprites of flames.
+OwnFire=true
 ```
 <!-- /cameraunlock:config -->
 

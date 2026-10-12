@@ -87,7 +87,7 @@ abstract class OwnGun {
             }
             """;
 
-    private static final String FRAGMENT = "#version 120\n" + Sky.ATMOSPHERE + MuzzleFlash.GLSL + """
+    private static final String FRAGMENT = "#version 120\n" + Sky.ATMOSPHERE + MuzzleFlash.GLSL + Fires.GLSL + """
             uniform sampler2D uColour;
             uniform sampler2D uSurface;
             uniform sampler2DShadow uShadowNear;
@@ -249,7 +249,7 @@ abstract class OwnGun {
                 // What stands close round a point keeps the light off it, and out of its mirror more as it is rough.
                 float mirrored = mix(1.0, reached, 0.4 + 0.6 * rough);
                 color += dull * soft * reached + (mirror * share.x + share.y) * shown * (mirrored * mix(uVarnish, 1.0, metal));
-                color += (dull + mirror * 0.6) * flashLight(at, n);
+                color += (dull + mirror * 0.6) * (flashLight(at, n) + fireLight(at, n));
 
                 gl_FragColor = vec4(color, 1.0);
                 gl_FragDepth = depthWritten(ahead);

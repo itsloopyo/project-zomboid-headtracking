@@ -5,7 +5,7 @@ import java.util.Arrays;
 /**
  * What the mod made itself and shows in first person in place of the game's own: its weapon
  * models, furniture, wall pictures, plants, surface textures, built windows and doors and the
- * skins of zombies, of the living and of animals, and the cloth, leather and hair of what they wear. Each
+ * skins of zombies, of the living and of animals, the cloth, leather and hair of what they wear, and fire. Each
  * is a row of [Content] in CameraUnlock.ini, on unless the player says otherwise, and with a
  * row off the picture draws what the game has there, which may be another mod's.
  *
@@ -15,15 +15,15 @@ import java.util.Arrays;
  */
 final class Own {
     /** The bits of the rows that are on, in the order Config describes the rows of [Content]. */
-    static final int WEAPONS = 1, FURNITURE = 2, PICTURES = 4, PLANTS = 8, TEXTURES = 16, BUILDINGS = 32, ZOMBIES = 64, PEOPLE = 128, ARMS = 256, CLOTHES = 512, ANIMALS = 1024;
-    static final int ALL = WEAPONS | FURNITURE | PICTURES | PLANTS | TEXTURES | BUILDINGS | ZOMBIES | PEOPLE | ARMS | CLOTHES | ANIMALS;
+    static final int WEAPONS = 1, FURNITURE = 2, PICTURES = 4, PLANTS = 8, TEXTURES = 16, BUILDINGS = 32, ZOMBIES = 64, PEOPLE = 128, ARMS = 256, CLOTHES = 512, ANIMALS = 1024, FIRE = 2048;
+    static final int ALL = WEAPONS | FURNITURE | PICTURES | PLANTS | TEXTURES | BUILDINGS | ZOMBIES | PEOPLE | ARMS | CLOTHES | ANIMALS | FIRE;
 
     private static volatile int on = ALL;
     /** The rows each view's world was last built with, known to the logic thread alone. */
     private static final int[] built = new int[View.COUNT];
 
     static {
-        Arrays.fill(built, ALL | TEXTURES << 16);
+        Arrays.fill(built, ALL | TEXTURES << 16 | FIRE << 16);
     }
 
     private Own() {}
@@ -107,13 +107,22 @@ final class Own {
     }
 
     /**
+     * Whether the picture draws fire of its own, flames, smoke and their light (Fires), in place
+     * of the game's sprites of flames. Fire needs no picture of the mod's, so outside Low it is the
+     * row as the file has it that says. Low draws the game's sprites.
+     */
+    static boolean fire() {
+        return !Quality.plain() && (on & FIRE) != 0;
+    }
+
+    /**
      * Whether a row has changed since a view's world was last built, asked by the logic thread
      * before it builds: true once for each change, and whatever that view built before it is
      * then to be built again.
      */
     static boolean taken(int view) {
-        // The rows the mode shows, and over them the one row that is asked as the file has it: see paint.
-        int now = on() | (paint() ? TEXTURES << 16 : 0);
+        // The rows the mode shows, and over them the two rows that are asked as the file has them: see paint and fire.
+        int now = on() | (paint() ? TEXTURES << 16 : 0) | (fire() ? FIRE << 16 : 0);
         if (now == built[view]) {
             return false;
         }
@@ -126,6 +135,6 @@ final class Own {
         return "weapons " + ((bits & WEAPONS) != 0) + ", furniture " + ((bits & FURNITURE) != 0) + ", pictures " + ((bits & PICTURES) != 0)
                 + ", plants " + ((bits & PLANTS) != 0) + ", textures " + ((bits & TEXTURES) != 0) + ", buildings " + ((bits & BUILDINGS) != 0)
                 + ", zombies " + ((bits & ZOMBIES) != 0) + ", people " + ((bits & PEOPLE) != 0) + ", arms " + ((bits & ARMS) != 0)
-                + ", clothes " + ((bits & CLOTHES) != 0) + ", animals " + ((bits & ANIMALS) != 0);
+                + ", clothes " + ((bits & CLOTHES) != 0) + ", animals " + ((bits & ANIMALS) != 0) + ", fire " + ((bits & FIRE) != 0);
     }
 }
