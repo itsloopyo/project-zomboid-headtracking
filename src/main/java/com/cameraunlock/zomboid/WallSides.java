@@ -198,6 +198,11 @@ final class WallSides {
                 && Math.abs(one[0] - lighter * other[0]) + Math.abs(one[1] - lighter * other[1]) + Math.abs(one[2] - lighter * other[2]) <= SAME_PAINT;
     }
 
+    /** A colour's part as a laid key keeps a joint's: see laid. */
+    static float asJoint(float value) {
+        return part(value, JOINT_LEVELS) / (float) JOINT_LEVELS;
+    }
+
     private static int part(float value, int levels) {
         return Math.round(Math.clamp(value, 0f, 1f) * levels);
     }

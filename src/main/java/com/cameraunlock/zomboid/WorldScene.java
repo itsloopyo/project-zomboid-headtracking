@@ -4867,7 +4867,10 @@ final class WorldScene {
             int before = FirstPerson.TRACE ? worn(texture) : 0;
             // The map hangs a road's lines on the road's own floor, and what is added next is added as that floor's: see addFloor.
             paintOver = kindOf(over).paint;
+            // Tiles the map lays over a wall, a splashback or a panel, hang on the wall and are added as its: see WallBuilder.addTiledOverlay.
+            overSheet = kindOf(over).tiledWall ? over.getName().substring(0, over.getName().lastIndexOf('_') + 1) : null;
             addSprite(solid.get(texture.getID()), object, under, texture, isFloor, x, y, z);
+            overSheet = null;
             paintOver = false;
             vergeOver = false;
             if (FirstPerson.TRACE) {
@@ -6562,6 +6565,8 @@ final class WorldScene {
         boolean paperedWall;
         /** The sheet the sprite being added is of, its name up to the number, where it is a sheet of tiled walls (see WallTiles); null otherwise. */
         String tiledSheet;
+        /** The same of the sprite hung over the one being added, while it is: tiles laid over a wall. */
+        String overSheet;
         /** The colour the papered wall's mesh is painted over in, as the picture is told it, and the light of the piece being added while its stripes are. */
         final float[] paperTint = new float[4], paperRed = new float[4], paperGreen = new float[4], paperBlue = new float[4];
 

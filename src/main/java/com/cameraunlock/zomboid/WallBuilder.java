@@ -243,6 +243,12 @@ final class WallBuilder {
             }
             // And three layers more, which are thicker the further off: there the picture's depth is coarser.
             WorldScene.layers.lie(way, layer + 3f);
+            if (!door && !sign && material != WorldScene.GLASS && addTiledOverlay(mesh, texture, build.tiledSheet, x, y, z, da, db)) {
+                build.geometry.shownA = build.geometry.shownB = build.geometry.shownUp = 0f;
+                build.geometry.turned = false;
+                build.frame.material = material;
+                return;
+            }
             // A sign is laid over all it paints up and down its wall, and along it where it runs on over the next squares: see EdgeRuns.
             float from = 0f, length = 1f, foot = 0f, up = door ? doorTop(texture, 0f, 0f, da, db) : 1f;
             if (sign && material != WorldScene.GLASS) {
@@ -321,7 +327,10 @@ final class WallBuilder {
         // A wall that shows its own sprite shows it stood square, so its courses run on into the next length: see Flats.
         near = stoodSquare(near, texture, da != 0f);
         int nearFlat = build.frame.flat;
-        addSkin(near, opening, at, x, y, z, 0f, 0f, da, db, fromStart, fromEnd, fromTop, startIsLow);
+        // Tiles the map lays over the wall, hung on it, are tiles on its skin inside the square, and the rest of what is laid over a wall is as painted.
+        if (build.overLayer == 0 || !addTiledOverlay(mesh, texture, build.overSheet, x, y, z, da, db)) {
+            addSkin(near, opening, at, x, y, z, 0f, 0f, da, db, fromStart, fromEnd, fromTop, startIsLow);
+        }
         build.frame.flat = 0;
         skinStart = (startJoin & WallJoins.FAR) != 0 ? WorldScene.WALL_HALF : 0f;
         skinEnd = (endJoin & WallJoins.FAR) != 0 ? WorldScene.WALL_HALF : 0f;
@@ -739,6 +748,60 @@ final class WallBuilder {
         build.frame.material = made;
     }
 
+    /**
+     * Tiles laid over the wall on the north edge of the square (da 1) or the west edge, a
+     * splashback or a panel, built where the overlay paints them: see WallTiles. Each course is
+     * laid as runs of the tiles side by side in it that are as high as each other, each run one
+     * face with its joints laid by the picture; where no tile is beside a tile, at the overlay's
+     * outline, the face stops at the tile's edge and draws no joint there. A course with a figure
+     * shows the overlay's dots tile by tile. False, adding nothing, for an overlay of no sheet of
+     * tiles (sheet null), one not read yet or one that reads as no tiles, which is then drawn as painted.
+     */
+    private boolean addTiledOverlay(SpriteGeometry.Mesh mesh, Texture texture, String sheet, int x, int y, int z, float da, float db) {
+        if (sheet == null || !Own.textures()) {
+            return false;
+        }
+        boolean north = da != 0f;
+        WallTiles.Wall over = WallTiles.of(texture, build.frame, north, true);
+        if (over == null) {
+            build.building.signed &= !WallTiles.unread(texture, north);
+            return false;
+        }
+        // Its own dots are shown stood square: the sprite stops a few dots short of the wall's end, and there a tile of a figure would show a slit.
+        int stood = build.flatOf(texture, north ? Flats.NORTH : Flats.WEST, 0f, 0f, 0f);
+        SpriteGeometry.Mesh picture = stood != 0 ? WorldScene.solid.get(stood) : mesh;
+        int pictureFlat = stood == 0 ? 0 : north ? SpriteGeometry.FLAT_NORTH : SpriteGeometry.FLAT_WEST;
+        float made = build.frame.material;
+        for (WallTiles.Face face : WallTiles.overlayFaces(over, TILE_JOINT_HALF, TILE_JOINT_HALF / ViewCamera.LEVEL_HEIGHT)) {
+            WallTiles.Band band = face.band;
+            if (face.kind == WallTiles.Face.PICTURE) {
+                build.frame.material = band.tiled ? WorldScene.TILE : made;
+                build.frame.flat = pictureFlat;
+                tiledFace(picture, x, y, z, 0f, 0f, da, db, face.start, face.stop, face.low, face.high, 0f, 1f, 0f, 0f, true);
+                build.frame.flat = 0;
+            } else if (face.kind == WallTiles.Face.JOINTED) {
+                build.frame.material = WorldScene.TILE;
+                SpriteGeometry geometry = build.geometry;
+                geometry.alongA = da;
+                geometry.alongB = db;
+                geometry.jointPhase = band.phase;
+                geometry.jointStep = band.step;
+                geometry.footH = face.foot;
+                geometry.footV = face.footV;
+                geometry.perLevel = face.perLevel;
+                tiledFace(WorldScene.solid.get(WorldScene.PLAIN, WallSides.laid(band.red, band.green, band.blue, band.jointRed, band.jointGreen, band.jointBlue, WallSides.TILED)),
+                        x, y, z, 0f, 0f, da, db, face.start, face.stop, face.low, face.high, 0f, 1f, 0f, 0f, true);
+                geometry.jointStep = Float.NaN;
+            } else {
+                build.frame.material = made;
+                tiledFace(WorldScene.solid.get(texture.getID(), WallSides.laid(band.red, band.green, band.blue, 0f, 0f, 0f, WallSides.FINE)),
+                        x, y, z, 0f, 0f, da, db, face.start, face.stop, face.low, face.high, 0f, 1f, 0f, 0f, true);
+            }
+        }
+        build.frame.material = made;
+        return true;
+    }
+
     /** The mesh a face of a tiled wall goes in to be the colour (r, g, b), lit as the place is: see WallSides.FINE. */
     private SpriteGeometry.Mesh painted(float r, float g, float b) {
         return WorldScene.solid.get(tileBase, WallSides.laid(r, g, b, 0f, 0f, 0f, WallSides.FINE));
@@ -768,7 +831,7 @@ final class WallBuilder {
      */
     WallTiles.Wall tilesOf(Texture texture, int x, int y, int z, float da, float db, boolean opens) {
         boolean north = da != 0f;
-        WallTiles.Wall own = WallTiles.of(texture, build.frame, north);
+        WallTiles.Wall own = WallTiles.of(texture, build.frame, north, false);
         if (own == null && WallTiles.unread(texture, north)) {
             build.building.signed = false;
             return null;
@@ -796,7 +859,7 @@ final class WallBuilder {
                 }
                 tileFrame.scale = build.frame.scale;
                 WorldScene.frameOf(tileFrame, wall, other);
-                WallTiles.Wall whole = WallTiles.of(other, tileFrame, north);
+                WallTiles.Wall whole = WallTiles.of(other, tileFrame, north, false);
                 if (whole == null && WallTiles.unread(other, north)) {
                     build.building.signed = false;
                     return null;

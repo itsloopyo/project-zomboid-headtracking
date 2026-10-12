@@ -34,6 +34,15 @@ final class WallTileTests {
             Checks.run("wallWithAWindowIsNotWhole" + at, WallTileTests::wallWithAWindowIsNotWhole);
             Checks.run("doorInTilesUnderPaintIsReadAsNotWhole" + at, WallTileTests::doorInTilesUnderPaintIsReadAsNotWhole);
             Checks.run("jointsKeepTheirStepPastAJambThatIsNoJoint" + at, WallTileTests::jointsKeepTheirStepPastAJambThatIsNoJoint);
+            Checks.run("panelOverAWallIsTilesOnlyWhereItPaints" + at, WallTileTests::panelOverAWallIsTilesOnlyWhereItPaints);
+            Checks.run("paintOverAWallIsNoTiles" + at, WallTileTests::paintOverAWallIsNoTiles);
+            Checks.run("aHarlequinOverAPanelShowsItsDots" + at, WallTileTests::aHarlequinOverAPanelShowsItsDots);
+            Checks.run("aPanelsCappingIsAStripOfIt" + at, WallTileTests::aPanelsCappingIsAStripOfIt);
+            Checks.run("smallTilesOverLargeOfOneColourAreTwoGrids" + at, WallTileTests::smallTilesOverLargeOfOneColourAreTwoGrids);
+            Checks.run("aBorderOfRosettesIsNoCourseJoint" + at, WallTileTests::aBorderOfRosettesIsNoCourseJoint);
+            Checks.run("faintQuiltingOverTilesShowsItsDots" + at, WallTileTests::faintQuiltingOverTilesShowsItsDots);
+            Checks.run("aBandIsTheColourOfMostOfItsRows" + at, WallTileTests::aBandIsTheColourOfMostOfItsRows);
+            Checks.run("everyTileOfAPanelIsAFace" + at, WallTileTests::everyTileOfAPanelIsAFace);
         }
         scale = 1;
         Checks.run("aTileIsPaintedInItsOwnColourFinely", WallTileTests::aTileIsPaintedInItsOwnColourFinely);
@@ -53,6 +62,11 @@ final class WallTileTests {
      * dots of each row are unpainted.
      */
     private static WallTiles.Wall read(BiFunction<Integer, Integer, float[]> colour) {
+        return read(colour, false);
+    }
+
+    /** As read, for a wall or for tiles laid over one. */
+    private static WallTiles.Wall read(BiFunction<Integer, Integer, float[]> colour, boolean overlay) {
         int across = ACROSS * scale, high = HIGH * scale;
         float[] rgb = new float[across * high * 3];
         boolean[] solid = new boolean[across * high];
@@ -66,7 +80,7 @@ final class WallTileTests {
                 }
             }
         }
-        return WallTiles.read(rgb, solid, across, high);
+        return WallTiles.read(rgb, solid, across, high, overlay);
     }
 
     /** Whether a joint is where the game's dot at column is, as near as a dot at the scale in hand. */
@@ -198,6 +212,178 @@ final class WallTileTests {
         // A dark line seven dots from the joint before it, as a window's jamb is, is no joint.
         WallTiles.Wall wall = read((column, row) -> column == 4 ? shaded(BLUE, 0.6f) : tiles(BLUE, column, row, 11, 16, 27, 22));
         check(wall != null && wall.bands[0].joints.length == 4 && jointAt(wall.bands[0].joints[0], 11), "the joints are still every 16 dots from the eleventh");
+    }
+
+    private static void panelOverAWallIsTilesOnlyWhereItPaints() {
+        // White tiles from row 110 down, with a notch a course and a half high cut out of the top from column 30 on.
+        float[] white = {0.92f, 0.92f, 0.92f};
+        WallTiles.Wall wall = read((column, row) -> row < 110 || row < 132 && column >= 30 ? null : tiles(white, column, row, 11, 16, 120, 22), true);
+        check(wall != null && wall.whole, "a panel of tiles laid over a wall is tiles, and has no opening of its own");
+        WallTiles.Band band = null;
+        for (WallTiles.Band each : wall == null ? new WallTiles.Band[0] : wall.bands) {
+            band = each.tiled ? each : band;
+        }
+        check(band != null && Math.abs(band.head - (1f - 110f / HIGH)) < 0.01f, "up to the panel's top and no further: " + (band == null ? "none" : band.head));
+        if (band == null) {
+            return;
+        }
+        int top = band.courses.length;
+        check(band.has(top, 1) && !band.has(top, 2) && !band.has(top, 3), "its top course has the tiles left of the notch and none in it");
+        int cut = band.cell(top - 1, 2);
+        check(band.has(top - 1, 2) && Math.abs(band.cells[cut + 3] - (1f - 132f / HIGH)) < 0.006f, "the tile the notch's foot crosses is cut to it: "
+                + (band.has(top - 1, 2) ? band.cells[cut + 3] : -1f));
+        check(band.has(top - 1, 2) && band.cells[cut] == band.joints[1], "and starts at its joint, as a whole tile would");
+        check(band.has(0, band.across() - 1) && band.cells[band.cell(0, band.across() - 1) + 1] == 1f, "a tile at the wall's end runs to it, past where the sprite stops short");
+    }
+
+    private static void paintOverAWallIsNoTiles() {
+        check(read((column, row) -> row < 110 ? null : CREAM, true) == null, "paint laid over a wall is no tiles");
+    }
+
+    private static final float[] WHITE = {0.92f, 0.92f, 0.92f}, GREY = {0.66f, 0.65f, 0.62f}, ROSE = {0.70f, 0.30f, 0.30f}, PINK = {0.86f, 0.70f, 0.72f};
+
+    /** The band of a reading that rows from first to last of the wall, the top row first, lie in; null if none or several. */
+    private static WallTiles.Band bandOver(WallTiles.Wall wall, int first, int last) {
+        WallTiles.Band found = null;
+        int count = 0;
+        for (WallTiles.Band band : wall == null ? new WallTiles.Band[0] : wall.bands) {
+            if (band.foot < 1f - (float) first / HIGH && band.head > 1f - (float) last / HIGH) {
+                found = band;
+                count++;
+            }
+        }
+        return count == 1 ? found : null;
+    }
+
+    /** Tiles of a panel laid over a wall, white, joints every 16 dots from the eleventh and courses every 22 rows from row 120. */
+    private static float[] panel(int column, int row) {
+        return tiles(WHITE, column, row, 11, 16, 120, 22);
+    }
+
+    private static void aHarlequinOverAPanelShowsItsDots() {
+        // Diamonds of two colours from row 50 to 118, 16 dots across and 24 rows up (as walls_interior_detailing_bathroom_03 draws
+        // them, grey on white: the rows by a diamond's middle are mostly one colour, so they read as thin bands of alternate colour),
+        // over a panel of tiles.
+        WallTiles.Wall wall = read((column, row) -> {
+            if (row < 50) {
+                return null;
+            }
+            if (row >= 118) {
+                return panel(column, row);
+            }
+            float u = column / 16f, v = (row - 50) / 24f;
+            return Math.floorMod((int) Math.floor(u + v) + (int) Math.floor(u - v), 2) == 0 ? GREY : WHITE;
+        }, true);
+        WallTiles.Band pattern = bandOver(wall, 56, 112);
+        check(pattern != null && !pattern.tiled && pattern.figured[0], "the diamonds are one band showing the sprite's dots, no stripes of joints: "
+                + (wall == null ? "none" : WallTiles.said(wall)));
+        WallTiles.Band under = bandOver(wall, 130, 180);
+        check(under != null && under.tiled, "and the panel under them is tiles");
+    }
+
+    private static void aPanelsCappingIsAStripOfIt() {
+        // A panel of tiles from row 110 down, capped by four rows of darker trim: thin enough to read as a line, not a band.
+        WallTiles.Wall wall = read((column, row) -> row < 106 ? null : row < 110 ? GREY : panel(column, row), true);
+        float top = 0f;
+        for (WallTiles.Band band : wall == null ? new WallTiles.Band[0] : wall.bands) {
+            top = Math.max(top, band.head);
+        }
+        check(Math.abs(top - (1f - 106f / HIGH)) < 0.006f, "the panel is built up to its capping's top, the capping a strip of it: " + top);
+    }
+
+    private static void smallTilesOverLargeOfOneColourAreTwoGrids() {
+        // White tiles every 8 dots from row 40 to 106, and every 16 under them, courses of 11 rows over and 22 under.
+        WallTiles.Wall wall = read((column, row) -> row < 40 ? null
+                : row < 106 ? tiles(WHITE, column, row, 3, 8, 40, 11) : tiles(WHITE, column, row, 11, 16, 106, 22), true);
+        WallTiles.Band small = bandOver(wall, 50, 100), large = bandOver(wall, 120, 180);
+        check(small != null && small.tiled && Math.abs(small.step - 8f / ACROSS) < 0.001f, "the small tiles are joints 8 dots apart: "
+                + (wall == null ? "none" : WallTiles.said(wall)));
+        check(large != null && large.tiled && Math.abs(large.step - 16f / ACROSS) < 0.001f, "and the large ones under them 16, not 8");
+    }
+
+    private static void aBorderOfRosettesIsNoCourseJoint() {
+        // A border 23 rows high through the middle of a panel of tiles, each row mostly rose or pale pink in turn with the white
+        // between, as walls_interior_detailing_bathroom_01 draws its rosettes: every row of it reads as a line of its own colour.
+        WallTiles.Wall wall = read((column, row) -> {
+            if (row < 40) {
+                return null;
+            }
+            if (row >= 100 && row < 123) {
+                return Math.floorMod(column + 3 * row, 10) < 3 ? WHITE : row % 2 == 0 ? ROSE : PINK;
+            }
+            return panel(column, row);
+        }, true);
+        boolean shown = false;
+        for (WallTiles.Band band : wall == null ? new WallTiles.Band[0] : wall.bands) {
+            for (int course = 0; course <= band.courses.length; course++) {
+                float foot = course == 0 ? band.foot : band.courses[course - 1], head = course == band.courses.length ? band.head : band.courses[course];
+                boolean over = foot < 1f - 105f / HIGH && head > 1f - 118f / HIGH;
+                shown |= over && band.figured[band.tiled ? course : 0];
+            }
+        }
+        check(shown, "the border shows the sprite's dots, not a course joint as thick as it: " + (wall == null ? "none" : WallTiles.said(wall)));
+    }
+
+    private static void faintQuiltingOverTilesShowsItsDots() {
+        // A figure a twelfth darker than the white, from row 40 to 106, over tiles: dots scattered with no joints in them, as the
+        // quilting of walls_interior_detailing_bathroom_03 reads (its lines run across every column alike).
+        WallTiles.Wall wall = read((column, row) -> {
+            if (row < 40) {
+                return null;
+            }
+            if (row >= 106) {
+                return tiles(WHITE, column, row, 11, 16, 106, 22);
+            }
+            return Math.floorMod((column * 73856093) ^ (row * 19349663), 9) == 0 ? shaded(WHITE, 0.91f) : WHITE;
+        }, true);
+        WallTiles.Band quilted = bandOver(wall, 50, 100);
+        check(quilted != null && !quilted.tiled && quilted.figured[0], "the figure shows the sprite's dots, though it is a shade off the white: "
+                + (wall == null ? "none" : WallTiles.said(wall)));
+    }
+
+    private static void aBandIsTheColourOfMostOfItsRows() {
+        // Under a figure, the row of a band of tiles next to it is a shade warmer.
+        WallTiles.Wall wall = read((column, row) -> row < 40 ? null : row < 100 ? GREY : row == 100 ? new float[] {0.95f, 0.90f, 0.87f} : panel(column, row), true);
+        WallTiles.Band band = bandOver(wall, 130, 180);
+        check(band != null && Math.abs(band.red - WHITE[0]) < 0.01f && Math.abs(band.blue - WHITE[2]) < 0.01f,
+                "the tiles are white, not the warmer row they start at: " + (band == null ? "none" : band.red + " " + band.green + " " + band.blue));
+    }
+
+    private static void everyTileOfAPanelIsAFace() {
+        // As panelOverAWallIsTilesOnlyWhereItPaints, with a row of diamonds on one course: every tile there is, figured or not, is under a face.
+        float[] white = {0.92f, 0.92f, 0.92f};
+        WallTiles.Wall wall = read((column, row) -> {
+            if (row < 110 || row < 132 && column >= 30) {
+                return null;
+            }
+            boolean diamond = row >= 145 && row < 163 && Math.abs(Math.floorMod(column - 11, 16) - 8) + Math.abs(row - 153) < 4;
+            return diamond ? new float[] {0.2f, 0.5f, 0.6f} : tiles(white, column, row, 11, 16, 120, 22);
+        }, true);
+        check(wall != null, "a panel of tiles is read");
+        if (wall == null) {
+            return;
+        }
+        java.util.ArrayList<WallTiles.Face> faces = WallTiles.overlayFaces(wall, 0.004f, 0.004f / ViewCamera.LEVEL_HEIGHT);
+        boolean covered = true, pictured = false;
+        for (WallTiles.Band band : wall.bands) {
+            for (int course = 0; course <= band.courses.length; course++) {
+                for (int tile = 0; tile < band.across(); tile++) {
+                    if (!band.has(course, tile)) {
+                        continue;
+                    }
+                    int at = band.cell(course, tile);
+                    float along = (band.cells[at] + band.cells[at + 1]) / 2f, up = (band.cells[at + 2] + band.cells[at + 3]) / 2f;
+                    boolean under = false;
+                    for (WallTiles.Face face : faces) {
+                        under |= face.band == band && face.start <= along && along <= face.stop && face.low <= up && up <= face.high;
+                        pictured |= face.kind == WallTiles.Face.PICTURE;
+                    }
+                    covered &= under;
+                }
+            }
+        }
+        check(covered, "every tile the panel paints is under a face");
+        check(pictured, "and the course with diamonds is faces of the sprite's dots");
     }
 
     private static void aTileIsPaintedInItsOwnColourFinely() {
