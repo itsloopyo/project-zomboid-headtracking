@@ -43,9 +43,9 @@ SURFACES = {
     'bark-holly': BARK + 'smooth grey beech tree bark' + WHOLE + 'thin pale silver grey bark with faint horizontal wrinkles and patches of pale lichen, ' + EVEN,
     'bark-dogwood': BARK + 'rough mature elm tree bark' + WHOLE + 'deep vertical furrows and blocky corky ridges broken by cross cracks, dark grey, ' + EVEN,
     'planks': 'front view photograph of an old weathered wooden fence, vertical grey brown planks side by side, visible wood grain, knots, nail heads and cracks, ' + EVEN,
-    'carpet': 'top down macro photograph of plain wall to wall carpet, short dense loop pile fibres, uniform beige, ' + EVEN,
+    'carpet': 'top down macro photograph of plain wall to wall carpet, short dense cut pile fibres, tufts of twisted yarn, uniform beige, ' + EVEN,
     'vinyl': 'close-up photograph of dark charcoal grey leather, fine natural pebbled grain, soft matte surface, uniform, ' + EVEN,
-    'cloth': 'macro photograph of grey woven car seat upholstery fabric, tight flat weave cloth, uniform, ' + EVEN,
+    'cloth': 'flat scan of grey sofa upholstery fabric stretched taut, tight basket weave of fine threads, lying perfectly flat, uniform, ' + EVEN,
     'jersey': 'macro photograph of plain grey cotton fabric, fine even weave of threads, soft worn cloth, uniform, ' + EVEN,
     'litter': 'top down photograph of a forest floor seen from directly above, covered edge to edge in a dense layer of dry brown and orange fallen oak and beech leaves with a few small twigs, ' + EVEN,
     'rock': 'close-up photograph of a rough grey limestone rock face filling the whole frame, natural fractured stone with cracks, ledges and patches of pale lichen, ' + EVEN,
@@ -58,6 +58,7 @@ NEGATIVE = 'shadows, perspective, horizon, objects, leaves, text, watermark, blu
 OWN_NEGATIVE = {
     'litter': 'shadows, perspective, horizon, text, watermark, blurry, painting, illustration, vignette, border, tiles, lines, green grass, stones, mushrooms, moss',
     'rock': 'shadows, perspective, horizon, text, watermark, blurry, painting, illustration, vignette, border, tiles, lines, bricks, mortar, pebbles, leaves, objects, concrete, sand',
+    'cloth': 'folds, wrinkles, creases, drapery, waves, ripples, stripes, shadows, perspective, text, watermark, blurry, painting, illustration, vignette, border, tiles, lines',
     'grass': 'shadows, perspective, horizon, objects, fallen leaves, text, watermark, blurry, painting, illustration, vignette, border, tiles, lines, flowers, soil, path',
 }
 FOLIAGE_NEGATIVE = 'sky, trunk, branches, flowers, fruit, text, watermark, blurry, bokeh, depth of field, painting, illustration, vignette, border, brown, yellow, autumn, wall, bricks, ground'
