@@ -109,7 +109,7 @@ final class Own {
     /**
      * Whether the picture draws fire of its own, flames, smoke and their light (Fires), in place
      * of the game's sprites of flames. Fire needs no picture of the mod's, so outside Low it is the
-     * row as the file has it that says. Low draws the game's sprites.
+     * row as the file has it that says. Low draws the game's flames on hearths and none on a burning square.
      */
     static boolean fire() {
         return !Quality.plain() && (on & FIRE) != 0;

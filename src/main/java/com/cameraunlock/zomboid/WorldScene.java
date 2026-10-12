@@ -3967,8 +3967,8 @@ final class WorldScene {
                                     shown(object.getOverlaySprite(), dir));
                             restless |= moves(object.getSprite()) || moves(object.getOverlaySprite());
                             ArrayList<IsoSpriteInstance> attached = object.getAttachedAnimSprite();
-                            // A square's fire the picture draws itself is gathered afresh each picture (Fires.gather) and is nothing of the build's.
-                            if (attached != null && !(object instanceof IsoFire && Fires.own())) {
+                            // A square's fire is nothing of the build's: the picture draws it from what Fires.gather takes each picture, or not at all.
+                            if (attached != null && !(object instanceof IsoFire)) {
                                 for (int over = 0; over < attached.size(); over++) {
                                     thing = sum(thing, shown(attached.get(over).parentSprite, dir));
                                     restless |= moves(attached.get(over).parentSprite);
@@ -4339,28 +4339,6 @@ final class WorldScene {
                 }
             }
             Flora.wooded(treed, CHUNK_TILES, wooded);
-        }
-
-        /**
-         * A square's fire as the game draws it, where the picture draws none of its own: an IsoFire
-         * has no sprite of its own, only its flames and its smoke, each a sprite of several frames
-         * attached to it, and each is stood as a sprite over the square.
-         */
-        private void addFireSprites(IsoObject fire, int x, int y, int z) {
-            ArrayList<IsoSpriteInstance> flames = fire.getAttachedAnimSprite();
-            if (flames == null) {
-                return;
-            }
-            owning(Outlines.NONE);
-            contentsOf(RoomSight.OUTSIDE);
-            overLayer = 0;
-            frame.material = 0f;
-            geometry.nudgeX = geometry.nudgeY = geometry.nearer = 0f;
-            for (int k = 0; k < flames.size(); k++) {
-                IsoSprite flame = flames.get(k).parentSprite;
-                addOver(fire, flame, flame, false, x, y, z);
-            }
-            geometry.nudgeX = geometry.nudgeY = geometry.nearer = 0f;
         }
 
         private void addOver(IsoObject object, IsoSprite under, IsoSprite over, boolean isFloor, int x, int y, int z) {
@@ -4987,10 +4965,6 @@ final class WorldScene {
             for (int i = 0; i < objects.size(); i++) {
                 IsoObject object = objects.get(i);
                 IsoSprite sprite = object.getSprite();
-                if (sprite == null && object instanceof IsoFire && !Fires.own() && !empty) {
-                    addFireSprites(object, x, y, z);
-                    continue;
-                }
                 if (sprite == null || empty && object != floor && !partOfTheBuilding(object, sprite) || unsought && object != floor && withinItsRoom(object, sprite)) {
                     continue;
                 }

@@ -246,8 +246,8 @@ final class Config {
                     "true: the mod's skins for animals near you, with the hair of their coats. false: the game's own skins.",
                     writable | live, true),
             core.configLocalBool("Content", "OwnFire",
-                    "true: flames, smoke and firelight of the mod's own for burning buildings, Molotovs, campfires, fireplaces, stoves\n"
-                            + "and burn barrels. false: the game's flat sprites of flames.",
+                    "true: flames, smoke and firelight for burning buildings, Molotovs, campfires, fireplaces, wood stoves, burn barrels\n"
+                            + "and cooking pits. false: the game's flat flames on hearths, and no fire on a burning square.",
                     writable | live, true),
         };
 

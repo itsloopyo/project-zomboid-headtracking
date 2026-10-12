@@ -18,7 +18,8 @@ import zombie.iso.objects.IsoFireManager;
  * keeps as an IsoFire and the logic thread gathers each picture, and
  * a hearth, a fire inside a piece the mod stands a model of, which the chunk's build notes where
  * the model is stood (Models.Instances.fire). The OwnFire row of [Content] switches both off,
- * and the game's own look (Quality.plain) has neither: the picture then draws the game's sprites.
+ * and the game's own look (Quality.plain) has neither: a hearth then keeps the game's flat flames,
+ * and a burning square, whose flames the game draws additively and the picture cannot, has none.
  */
 final class Fires {
     /**
@@ -71,7 +72,7 @@ final class Fires {
 
     private Fires() {}
 
-    /** Whether the picture draws its own fire in place of the game's sprites. */
+    /** Whether the picture draws its own fire. */
     static boolean own() {
         return Own.fire();
     }
@@ -222,8 +223,8 @@ final class Fires {
      * cannot see from where they stand gives no light: a light of the picture's casts no shadow,
      * and would come through the walls between. Where fires burn side by side the smoke of each
      * block of two squares by two rises as one column, from the block's first square. Logic
-     * thread, which is the one that updates the game's fires. Nothing when the picture draws the
-     * game's sprites.
+     * thread, which is the one that updates the game's fires. Nothing when the picture draws no
+     * fire of its own.
      */
     static void gather(SkyState sky, Terrain terrain, int playerIndex, float eyeX, float eyeY) {
         sky.fireCount = 0;
