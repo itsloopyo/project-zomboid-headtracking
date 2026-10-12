@@ -128,7 +128,7 @@ final class FloorBuilder {
             build.frame.material = WorldScene.TILE;
         }
         if (build.floorLayer == 0 && z > build.lowestLevel) {
-            // The ceiling under a boarded floor is the sprite's own, as under any other floor: not the picture's wood.
+            // Under a floor over open air the sprite is its own underside: not the picture's wood.
             float made = build.frame.material;
             build.frame.material = ownWood ? WorldScene.TILE : made;
             addCeiling(mesh, x, y, z);
@@ -365,15 +365,19 @@ final class FloorBuilder {
     }
 
     /**
-     * A floor over a room is that room's ceiling, and one that juts out over a pavement or a
-     * porch is the underside of a canopy. Seen from below it is lit by the place beneath, not
-     * by whatever falls on the floor above, so its underside is a face of its own just under
-     * the floor, carrying the light of the square beneath: left to the floor's own back, a
-     * canopy's underside is lit by the room upstairs. Over open air with no square in it, it
-     * has the light of the open ground.
+     * A floor that juts out over a pavement or a porch is the underside of a canopy, and one
+     * over open ground shows its sprite underneath. Seen from below it is lit by the place
+     * beneath, not by whatever falls on the floor above, so its underside is a face of its own
+     * just under the floor, carrying the light of the square beneath: left to the floor's own
+     * back, a canopy's underside is lit by the room upstairs. Over open air with no square in
+     * it, it has the light of the open ground.
      */
     private void addCeiling(SpriteGeometry.Mesh mesh, int x, int y, int z) {
         IsoGridSquare below = build.cell.getGridSquare(x, y, z - 1);
+        // A room's ceiling is its own: CeilingBuilder.addRoomCeiling.
+        if (below != null && below.getRoomID() != -1L) {
+            return;
+        }
         // Under water with nothing below it there is nothing to see the ceiling from, and
         // the picture drawn from under the water would show it in place of the water it leaves out.
         if (build.frame.kind != 0f && below == null) {

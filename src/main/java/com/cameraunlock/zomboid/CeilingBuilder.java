@@ -26,17 +26,18 @@ final class CeilingBuilder {
     }
 
     /**
-     * A room has a ceiling. Where a floor lies over it the floor's underside is that ceiling:
-     * see addCeiling. Over the rest of a room the map has only what the game's view from above
-     * shows, the roof's near slopes or nothing at all, and from inside the room that is rafters
-     * and sky. Such a square is closed at the top of its level with plain plaster, lit by the
-     * room. Left open: a square the stairs go up through, one a roof comes down through, and
-     * one with a room over it, which is how the map marks a hall two floors high, and one
-     * under a tent's canopy, whose canvas is its ceiling.
+     * A room has a plaster ceiling at the top of its level, lit by the room. Under a floor too:
+     * the boards or carpet of the room upstairs are not what its ceiling is made of. Over the
+     * rest of a room the map has only what the game's view from above shows, the roof's near
+     * slopes or nothing at all, and from inside the room that is rafters and sky. Left open
+     * where nothing is laid over the square: one the stairs go up through or a roof comes down
+     * through (openAbove), one with a room over it, which is how the map marks a hall two
+     * floors high, and one under a tent's canopy, whose canvas is its ceiling.
      */
-    void addRoomCeiling(int x, int y, int z, int localX, int localY) {
+    void addRoomCeiling(int x, int y, int z, int localX, int localY, boolean openAbove) {
         IsoGridSquare above = build.cell.getGridSquare(x, y, z + 1);
-        if (above != null && (above.getFloor() != null || above.getRoomID() != -1L || Tents.canvasOn(above)) || build.madeAt(x, y, z)
+        boolean floored = above != null && above.getFloor() != null;
+        if (!floored && (openAbove || above != null && (above.getRoomID() != -1L || Tents.canvasOn(above)) || build.madeAt(x, y, z))
                 || world.cutAway(x, y)) {
             return;
         }

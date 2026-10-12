@@ -4944,8 +4944,8 @@ final class WorldScene {
             contentsOf(RoomSight.OUTSIDE);
             geometry.raised = 0f;
             frame.material = 0f;
-            if (!openAbove && square.getRoomID() != -1L) {
-                ceilingBuilder.addRoomCeiling(x, y, z, localX, localY);
+            if (square.getRoomID() != -1L) {
+                ceilingBuilder.addRoomCeiling(x, y, z, localX, localY, openAbove);
             }
             if (z == 0) {
                 if (geometry.kerb != null && beyondKerb >= 0) {
