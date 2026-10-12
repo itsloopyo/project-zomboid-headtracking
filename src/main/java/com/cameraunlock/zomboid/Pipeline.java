@@ -4021,6 +4021,18 @@ final class Pipeline {
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, sceneTarget);
         figureLight.use();
         noLamps();
+        if (seated) {
+            // The cabin's pass before this one cuts away glass, pillars and roof near the eye,
+            // which is where a weapon raised out of the window is: none of that is the weapon's.
+            figureLight.set("uInside", 0f);
+            figureLight.set("uPainted", 0f);
+            figureLight.set("uHavePanes", 0f);
+            figureLight.set("uParted", 0f, 0f);
+            figureLight.set("uWheel", 0f, 0f, 0f, 0f);
+            figureLight.set("uSeat", 0f, 0f, 0f);
+            figureLight.set("uFigureAmbient", view.characters.ownLight);
+            figureLight.set("uHaveFacing", 1f);
+        }
         GL13.glActiveTexture(GL_TEXTURE0 + 3);
         GL11.glBindTexture(GL_TEXTURE_2D, ownDepth);
         GL13.glActiveTexture(GL_TEXTURE0);

@@ -485,6 +485,7 @@ public final class Characters {
             for (int i = 0; i < noted.size(); i++) {
                 ModelSlotRenderData data = noted.get(i);
                 if (!repainted && data.character != null && data.character == viewer) {
+                    ownLight = (data.ambientR + data.ambientG + data.ambientB) / 3f;
                     settleTheWeapon(data, camera);
                     break;
                 }
