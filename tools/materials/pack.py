@@ -6,22 +6,25 @@ tools/textures/compress.py packs for the mod's jar.
     python tools/materials/pack.py form
 
 A sprig is cut out of its white ground, cleaned, and set into one picture with the others, four
-to a row, in the order the mod's Flora counts them. A surface is saved as it is. form reads the
-packed sprigs and writes sprigs-form.png beside them: which way each leaf of each sprig is turned
-out of its card, and how much light it lets through.
+to a row, in the order the mod's Flora counts them. A surface is saved as it is, its light drawn
+in to its SPREAD where it has one. form reads the packed sprigs and writes sprigs-form.png beside
+them: which way each leaf of each sprig is turned out of its card, and how much light it lets
+through.
 """
 import pathlib
 import sys
 
 import numpy
 from PIL import Image
-from scipy import ndimage
 
 OUT = pathlib.Path(__file__).resolve().parents[2] / 'src' / 'textures' / 'materials'
 SPRIGS = ['linden', 'maple', 'birch', 'pine', 'hemlock', 'holly', 'shrub', 'fern']
 TILE = 1024
 # What every sprig's leaves are on average once packed. The world shader divides by it, so a sprig gives a crown its leaves' light and dark and not its own green.
 MEAN = numpy.array([0.26, 0.42, 0.12], dtype=numpy.float32)
+# How much a surface's light may vary over its mean, as a standard deviation: the strengths the
+# world shader lays it at were set for that. A picture with more is drawn in to it round its mean.
+SPREAD = {'carpet': 0.092}
 
 
 def cut(image):
@@ -104,6 +107,7 @@ def spread(rgb, weight):
 
 
 def sprig(path):
+    from scipy import ndimage
     rgb, alpha = cut(Image.open(path).resize((TILE, TILE), Image.LANCZOS))
     rgb, alpha = whole(rgb, alpha)
     solid = alpha > 0.5
@@ -140,6 +144,7 @@ THROUGH_TWIG, THROUGH_TWO = 0.0, 0.35
 
 def form(tile, seed):
     """One sprig's leaves as a surface: the slope of each pixel across and down, and how much light passes."""
+    from scipy import ndimage
     rgb, alpha = tile[..., :3], tile[..., 3]
     solid = alpha > 0.5
     light = rgb @ numpy.array([0.299, 0.587, 0.114], dtype=numpy.float32)
@@ -198,7 +203,16 @@ def main():
         print('wrote', OUT / 'sprigs.png', (OUT / 'sprigs.png').stat().st_size, 'bytes')
     elif kind == 'surface':
         for name, pick in picks.items():
-            Image.open(folder / (pick + '.png')).convert('RGB').save(OUT / (name + '.jpg'), quality=94, subsampling=0)
+            picture = Image.open(folder / (pick + '.png')).convert('RGB')
+            if name in SPREAD:
+                rgb = numpy.asarray(picture, dtype=numpy.float32)
+                light = rgb @ numpy.array([0.299, 0.587, 0.114], dtype=numpy.float32)
+                mean = light.mean()
+                has = (light / mean).std()
+                if has > SPREAD[name]:
+                    rgb = mean + (rgb - mean) * (SPREAD[name] / has)
+                picture = Image.fromarray(numpy.clip(rgb + 0.5, 0, 255).astype(numpy.uint8), 'RGB')
+            picture.save(OUT / (name + '.jpg'), quality=94, subsampling=0)
             print('wrote', OUT / (name + '.jpg'), (OUT / (name + '.jpg')).stat().st_size, 'bytes')
     else:
         raise SystemExit('sprigs, surface or form')
