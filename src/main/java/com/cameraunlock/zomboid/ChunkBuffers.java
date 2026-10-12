@@ -516,9 +516,10 @@ final class ChunkBuffers {
             return solidRanges;
         }
 
-        /** The OpenGL name of the texture a range's triangles wear, 0 for none. */
+        /** The OpenGL name of the texture a range's triangles wear, 0 for none. A number below zero is a square of rug's, whose picture is chosen as it is drawn: see Rugs. */
         int texture(int range) {
-            return rangeTexture[range];
+            int texture = rangeTexture[range];
+            return texture < 0 ? Rugs.texture(texture) : texture;
         }
 
         int tint(int range) {

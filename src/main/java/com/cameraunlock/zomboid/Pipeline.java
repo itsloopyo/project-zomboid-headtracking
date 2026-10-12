@@ -866,6 +866,7 @@ final class Pipeline {
             steadying = Quality.frameBlending();
             frameColor = sceneColor;
             SpriteColours.read(view.index);
+            Rugs.putOnCard();
             FineSkins.tend();
             drawn = chunks;
             ChunkBuffers.load(chunks, ahead);
@@ -4778,6 +4779,7 @@ final class Pipeline {
             }
             Decor.letGo();
             Flats.letGo();
+            Rugs.letGo();
             forgetTexels();
             GL15.glDeleteBuffers(modelBuffer);
             GL15.glDeleteBuffers(modelCorners);

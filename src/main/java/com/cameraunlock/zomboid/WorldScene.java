@@ -725,6 +725,8 @@ final class WorldScene {
         final int flatWall;
         /** Whether it is a broken length of fence the game marks for no wall: see BrokenFences. */
         final boolean brokenFence;
+        /** What it is a square of rug made of, Rugs.WOVEN, FUR or HIDE, or -1 for no rug. */
+        final int rug;
 
         Kind(IsoSprite sprite) {
             PropertyContainer properties = sprite.getProperties();
@@ -754,6 +756,7 @@ final class WorldScene {
             longGrass = name != null && name.startsWith("e_newgrass");
             natural = name != null && name.startsWith("blends_natural");
             carpet = name != null && name.startsWith("floors_interior_carpet");
+            rug = Rugs.kindOf(name);
             tiled = name != null && name.startsWith("floors_") && name.contains("tile");
             grows = properties.has(IsoFlagType.vegitation) || properties.has(IsoFlagType.canBeRemoved) || properties.has("MoveWithWind")
                     || Farm.wheat(name);
@@ -5178,15 +5181,27 @@ final class WorldScene {
             // eye a sheet of newspaper is a hoarding and a length of track a fence. It reaches
             // past its square only where the next square has nothing lying on it: a rug of many
             // squares meets itself edge to edge, where each piece reaching into the next was two
-            // pieces over one another along every seam.
+            // pieces over one another along every seam. A square of rug is its picture drawn
+            // again, which reaches as far past its square as it was read.
             if (!hangsInAir && kind.lies) {
                 int layer = Flat.layer(floorLayer, x, y);
                 layers.lie(SpriteGeometry.LAYERS_UP, layer);
                 floorLayer = layer + 1;
-                float west = reachInto(x, y, x - 1, y, z), north = reachInto(x, y, x, y - 1, z);
-                float east = reachInto(x, y, x + 1, y, z), south = reachInto(x, y, x, y + 1, z);
-                geometry.addFace(laid.get(texture.getID()), frame, x, y, z, -west, -north, Flat.pile(sprite.getName()), 1f + west + east, 0f, 0f, 0f,
+                float pile = Flat.pile(sprite.getName());
+                int rug = Own.textures() ? rugOf(texture, kind.rug, pile) : 0;
+                float most = rug != 0 ? Rugs.REACH : Flat.REACH;
+                float west = Math.min(most, reachInto(x, y, x - 1, y, z)), north = Math.min(most, reachInto(x, y, x, y - 1, z));
+                float east = Math.min(most, reachInto(x, y, x + 1, y, z)), south = Math.min(most, reachInto(x, y, x, y + 1, z));
+                int flat = frame.flat;
+                float material = frame.material;
+                if (rug != 0) {
+                    frame.flat = SpriteGeometry.FLAT_RUG;
+                    frame.material = Rugs.material(kind.rug, material);
+                }
+                geometry.addFace(laid.get(rug != 0 ? rug : texture.getID()), frame, x, y, z, -west, -north, pile, 1f + west + east, 0f, 0f, 0f,
                         1f + north + south, 0f);
+                frame.flat = flat;
+                frame.material = material;
                 layers.none();
                 return;
             }
@@ -5863,6 +5878,16 @@ final class WorldScene {
         final SpriteGeometry.Frame bandFrame = new SpriteGeometry.Frame();
         /** Where fasciaOf last found a band: the square it hangs on. */
         int bandX, bandY;
+
+        /** The number of the square of rug the sprite paints, as Rugs.of: 0 for no rug, and for one no frame has read yet, with the build left to be made again. */
+        int rugOf(Texture texture, int kind, float lifted) {
+            int rug = Rugs.of(texture, frame, kind, lifted);
+            if (rug == Rugs.PENDING) {
+                building.signed = false;
+                return 0;
+            }
+            return rug;
+        }
 
         /**
          * The name of the picture of the sprite the frame holds, read as a floor, a wall or a

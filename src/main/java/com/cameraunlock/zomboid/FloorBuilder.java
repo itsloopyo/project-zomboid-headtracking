@@ -141,6 +141,14 @@ final class FloorBuilder {
             build.building.signed = false;
         }
         SpriteGeometry.Mesh on = paint != null ? WorldScene.laid.get(paint.picture) : build.floorLayer == 0 ? mesh : WorldScene.laid.get(texture.getID());
+        // A rug the game lays over the floor is its square drawn again: see Rugs.
+        int rug = !isFloor && build.floorLayer > 0 && Own.textures() ? build.rugOf(texture, sprite.rug, 0f) : 0;
+        float laidAs = build.frame.material;
+        if (rug != 0) {
+            on = WorldScene.laid.get(rug);
+            build.frame.flat = SpriteGeometry.FLAT_RUG;
+            build.frame.material = Rugs.material(sprite.rug, build.frame.material);
+        }
         if (build.frame.kind != 0f && z == 0 && build.floorLayer == 0) {
             // Water knows where its bank is: each corner says whether land touches it.
             for (int corner = 0; corner < 4; corner++) {
@@ -191,6 +199,9 @@ final class FloorBuilder {
         build.geometry.kerbKeep = SpriteGeometry.BOTH;
         build.frame.kind = 0f;
         build.frame.flat = 0;
+        if (rug != 0) {
+            build.frame.material = laidAs;
+        }
         build.geometry.cover = null;
     }
 

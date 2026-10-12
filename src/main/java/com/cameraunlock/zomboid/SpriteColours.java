@@ -162,6 +162,7 @@ final class SpriteColours {
             Tiles.read(texture, page, width, left, top, right, bottom);
             Solids.read(texture, page, width, left, top, right, bottom);
             Flats.read(texture, page, width, left, top, right, bottom);
+            Rugs.read(texture, page, width, left, top, right, bottom);
             RoadPaint.read(texture, page, width, left, top, right, bottom);
             Masonry.read(texture, page, width, left, top, right, bottom);
         }
