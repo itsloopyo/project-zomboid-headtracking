@@ -1717,6 +1717,8 @@ final class WorldScene {
 
     /** Where each plant's leaves are painted on its texture: see Flora.leafPlaces. */
     static final IdentityHashMap<Texture, float[]> leafPlaces = new IdentityHashMap<>();
+    /** Where on each crop's sprite its stalks take their colour from: see Flora.inside. */
+    static final IdentityHashMap<Texture, float[]> cropColours = new IdentityHashMap<>();
 
     /** Where each sprite the game gives no placing to has its foot: see SpriteShape.foot. Empty for a sprite with nothing painted. */
     static final IdentityHashMap<IsoSprite, float[]> feet = new IdentityHashMap<>();
@@ -2368,6 +2370,7 @@ final class WorldScene {
                 boles.clear();
                 ranks.clear();
                 leafPlaces.clear();
+                cropColours.clear();
                 doorSpans.clear();
                 wires.clear();
                 Furniture.forget();

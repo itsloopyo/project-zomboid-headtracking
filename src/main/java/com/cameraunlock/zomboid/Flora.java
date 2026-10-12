@@ -302,6 +302,23 @@ final class Flora {
         return Arrays.copyOf(kept, count);
     }
 
+    /**
+     * The places of leafPlaces painted on every side as well: inside what the sprite paints, off
+     * the dark line the game draws round everything and off the pale glint along its edges.
+     */
+    static float[] inside(float[] places, SpriteShape.Painted painted) {
+        float[] kept = new float[places.length];
+        int count = 0;
+        for (int i = 0; i < places.length; i += 2) {
+            int u = (int) places[i], v = (int) places[i + 1];
+            if (painted.at(u - 1, v) && painted.at(u + 1, v) && painted.at(u, v - 1) && painted.at(u, v + 1)) {
+                kept[count++] = places[i];
+                kept[count++] = places[i + 1];
+            }
+        }
+        return Arrays.copyOf(kept, count);
+    }
+
     /** What measure leaves of a crown's size: how wide it is, its lowest and highest leaves over the foot, how tall, and the height under which the sprite paints only trunk. */
     static final int WIDEST = 0, LOWEST = 1, HIGHEST = 2, TALL = 3, UNDER = 4, SIZES = 5;
     static final int CROWN_BANDS = 12;

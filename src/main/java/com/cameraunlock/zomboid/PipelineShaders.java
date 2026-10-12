@@ -1802,6 +1802,12 @@ final class PipelineShaders {
                     // season, pulled towards one green so a lawn is not a quilt of its squares,
                     // paler in drifts and browner where it does poorly.
                     float lit = dot(texel.rgb, vec3(0.3, 0.55, 0.15));
+                    // A crop's stalk is coloured from a texel of its sprite, which paints shaded
+                    // stalks near black and lit leaf edges near white: a strip is held to a
+                    // middle brightness.
+                    float held = clamp(lit, 0.2, 0.5);
+                    texel.rgb *= held / max(lit, 1e-3);
+                    lit = held;
                     vec3 lawn = ownA < 0.33 ? vec3(0.3, 0.47, 0.17) : ownA < 0.66 ? vec3(0.36, 0.5, 0.17) : vec3(0.43, 0.52, 0.19);
                     lawn = mix(lawn, vec3(0.44, 0.47, 0.2), 0.6 * smoothstep(0.5, 0.85, patches(vWorld.xy * 0.9 + 13.0)));
                     lawn = mix(lawn, vec3(0.5, 0.42, 0.24), 0.55 * (1.0 - vigour));

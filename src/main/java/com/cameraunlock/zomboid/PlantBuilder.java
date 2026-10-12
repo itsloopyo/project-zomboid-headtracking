@@ -343,6 +343,10 @@ final class PlantBuilder {
         // The leaves of a tree and a bush, near enough to be seen as leaves, are a crown of
         // sprigs. The fan then stands only in the sun's own pictures, to throw the shadow.
         float fanned = build.frame.material;
+        // A crop near the eye is grown stalk by stalk, and its cards then only throw its shadow.
+        if (Own.plants() && growCrop(texture, Crops.of(grown), x, y)) {
+            build.frame.material = Flora.SHADE;
+        }
         // An evergreen has no leaves of its own to lay over its trunk: its sprite paints the needles with the trunk, and is its crown.
         boolean evergreen = type == IsoObjectType.tree && build.overLayer == 0 && build.geometry.keep == 1f && Flora.evergreen(grown);
         // A tree with no leaves, dead or bare for the winter, has a crown of wood alone, grown from its bole.
@@ -382,6 +386,34 @@ final class PlantBuilder {
         build.geometry.nudgeX = build.geometry.nudgeY = 0f;
         build.geometry.roomLowA = build.geometry.roomLowB = -Float.MAX_VALUE;
         build.geometry.roomHighA = build.geometry.roomHighB = Float.MAX_VALUE;
+    }
+
+    /**
+     * Grows the crop the frame's sprite paints, if it is one and near enough: see Crops. False,
+     * and nothing grown, for no crop, one too far off, and one whose sprite is not read yet.
+     */
+    private boolean growCrop(Texture texture, int crop, int x, int y) {
+        if (crop == Crops.NONE) {
+            return false;
+        }
+        if (build.within(Crops.REACH, false)) {
+            alikeOnly();
+        }
+        if (build.bandAway >= Crops.REACH || !SpriteGeometry.boxOf(build.frame, build.box)) {
+            return false;
+        }
+        float[] places = WorldScene.cropColours.get(texture);
+        if (places == null) {
+            places = Flora.inside(Flora.leafPlaces(texture::isMaskSet, build.frame), texture::isMaskSet);
+            if (places.length < CROWN_LEAST_PLACES * 2) {
+                return false;
+            }
+            WorldScene.cropColours.put(texture, places);
+        }
+        float lowA = Math.max(0.04f, build.room[0] - x), highA = Math.min(0.96f, build.room[1] - x);
+        float lowB = Math.max(0.04f, build.room[2] - y), highB = Math.min(0.96f, build.room[3] - y);
+        Crops.grow(build.geometry, WorldScene.laid.get(texture.getID()), build.frame, places, crop, x, y, Crops.tall(build.box[3]), build.bandAway, lowA, highA, lowB, highB);
+        return true;
     }
 
     /**

@@ -23,6 +23,11 @@ final class PlantKindTests {
         Checks.run("fallenSticksAreToldByName", PlantKindTests::fallenSticksAreToldByName);
         Checks.run("fallenSticksLieOnTheirSquaresGround", PlantKindTests::fallenSticksLieOnTheirSquaresGround);
         Checks.run("ivyOnTheGroundLiesRoundTheBoleAndKeepsToItsBounds", PlantKindTests::ivyOnTheGroundLiesRoundTheBoleAndKeepsToItsBounds);
+        Checks.run("cropsAreToldByName", PlantKindTests::cropsAreToldByName);
+        Checks.run("cropStalksStandOnTheirSquareAsTallAsTheCropAndTakeTheSpritesColour", PlantKindTests::cropStalksStandOnTheirSquareAsTallAsTheCropAndTakeTheSpritesColour);
+        Checks.run("wheatThinsWithDistanceAndCornDoesNot", PlantKindTests::wheatThinsWithDistanceAndCornDoesNot);
+        Checks.run("aCropIsAsTallAsItsSpritePaintsIt", PlantKindTests::aCropIsAsTallAsItsSpritePaintsIt);
+        Checks.run("aCropsColourIsTakenOffItsOutline", PlantKindTests::aCropsColourIsTakenOffItsOutline);
     }
 
     private static void evergreensAreToldByName() {
@@ -205,6 +210,89 @@ final class PlantKindTests {
             farTake = Math.max(farTake, take);
         }
         check(nearTake < 0.01f && farTake > 0.5f && farTake < 0.75f, "thick at the bole and thinning to its rim, without the whole wind a plant's top takes: " + nearTake + " to " + farTake);
+    }
+
+    private static void cropsAreToldByName() {
+        check(Crops.of("vegetation_farm_01_0") == Crops.WHEAT && Crops.of("vegetation_farm_01_5") == Crops.WHEAT, "the first six of the farm's sheet are wheat");
+        check(Crops.of("vegetation_farm_01_32") == Crops.CORN && Crops.of("vegetation_farm_01_39") == Crops.CORN, "32 to 39 are dry corn");
+        check(Crops.of("vegetation_farm_01_40") == Crops.LEAFY && Crops.of("vegetation_farm_01_47") == Crops.LEAFY, "40 to 47 are a dead leafy crop");
+        for (String name : new String[] {"vegetation_farm_01_6", "vegetation_farm_01_8", "vegetation_farm_01_16", "vegetation_farm_01_31", "vegetation_farm_01_48",
+                "vegetation_farming_01_3", null}) {
+            check(Crops.of(name) == Crops.NONE, name + " is no standing crop: hay, a bale, another sheet");
+        }
+    }
+
+    private static boolean stalks(int u, int v) {
+        return v < FOOT_V && v > FOOT_V - 180f && (Math.abs(u - 40) < 3 || Math.abs(u - 64) < 3 || Math.abs(u - 88) < 3);
+    }
+
+    private static SpriteGeometry.Mesh crop(int kind, float away, float tall, float[] places) {
+        SpriteGeometry geometry = new SpriteGeometry();
+        SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
+        Crops.grow(geometry, mesh, frame(), places, kind, 30, 40, tall, away, 0.04f, 0.96f, 0.04f, 0.96f);
+        return mesh;
+    }
+
+    private static void cropStalksStandOnTheirSquareAsTallAsTheCropAndTakeTheSpritesColour() {
+        SpriteGeometry.Frame frame = frame();
+        float[] places = Flora.leafPlaces(PlantKindTests::stalks, frame);
+        for (int kind : new int[] {Crops.WHEAT, Crops.CORN, Crops.LEAFY}) {
+            float tall = kind == Crops.CORN ? 2f : 0.9f;
+            SpriteGeometry.Mesh mesh = crop(kind, 3f, tall, places);
+            check(mesh.floats > 0, "crop " + kind + " is grown");
+            float highest = 0f;
+            for (int at = 0; at < mesh.floats; at += F) {
+                float[] v = mesh.vertices;
+                float rootX = v[at] + v[at + 12], rootY = v[at + 1] + v[at + 13];
+                check(rootX > 30f && rootX < 31f && rootY > 40f && rootY < 41f, "crop " + kind + ": every plant stands on its own square, not at " + rootX + ", " + rootY);
+                highest = Math.max(highest, v[at + 2]);
+                // The colour is read at a place the sprite paints, never where it is empty.
+                int u = Math.round((v[at + 3] - frame.uStart) / (frame.uEnd - frame.uStart) * frame.width - 0.5f);
+                int down = Math.round((v[at + 4] - frame.vStart) / (frame.vEnd - frame.vStart) * frame.height - 0.5f);
+                boolean painted = false;
+                for (int du = -1; du <= 1 && !painted; du++) {
+                    for (int dv = -1; dv <= 1 && !painted; dv++) {
+                        painted = stalks(u + du, down + dv);
+                    }
+                }
+                check(painted, "crop " + kind + ": a stalk takes its colour from where the sprite paints the crop, not from " + u + ", " + down);
+            }
+            check(highest > 0.75f * tall && highest < 1.45f * tall, "crop " + kind + " stands about as tall as it should: " + highest + " for " + tall);
+        }
+    }
+
+    private static void wheatThinsWithDistanceAndCornDoesNot() {
+        float[] places = Flora.leafPlaces(PlantKindTests::stalks, frame());
+        SpriteGeometry.Mesh nearWheat = crop(Crops.WHEAT, 3f, 0.9f, places), farWheat = crop(Crops.WHEAT, 25f, 0.9f, places);
+        check(farWheat.floats > 0 && farWheat.floats * 3 < nearWheat.floats, "wheat far off is fewer and simpler stalks: " + farWheat.floats / F + " against " + nearWheat.floats / F);
+        SpriteGeometry.Mesh nearCorn = crop(Crops.CORN, 3f, 2f, places), farCorn = crop(Crops.CORN, 25f, 2f, places);
+        check(farCorn.floats > 0 && farCorn.floats < nearCorn.floats, "corn far off is simpler stalks");
+        check(stems(farCorn) == stems(nearCorn), "but as many of them: a square of corn is only four stalks");
+    }
+
+    private static int stems(SpriteGeometry.Mesh mesh) {
+        int feet = 0;
+        for (int at = 0; at < mesh.floats; at += F) {
+            if (mesh.vertices[at + 10] == 2f * Grass.STEM) {
+                feet++;
+            }
+        }
+        return feet / 3;
+    }
+
+    private static void aCropIsAsTallAsItsSpritePaintsIt() {
+        check(Math.abs(Crops.tall(0.5f) - 0.5f * ViewCamera.LEVEL_HEIGHT) < 1e-5f, "half a level high in the sprite is half a level high in the world");
+        check(Crops.tall(0.01f) >= 0.3f && Crops.tall(5f) <= 2.6f, "but never next to nothing high, nor higher than corn grows");
+    }
+
+    private static void aCropsColourIsTakenOffItsOutline() {
+        SpriteGeometry.Frame frame = frame();
+        float[] all = Flora.leafPlaces(PlantKindTests::stalks, frame), kept = Flora.inside(all, PlantKindTests::stalks);
+        check(kept.length > 0 && kept.length < all.length, "the inside of the stalks is kept and their edges are not: " + kept.length / 2 + " of " + all.length / 2);
+        for (int i = 0; i < kept.length; i += 2) {
+            int u = (int) kept[i], v = (int) kept[i + 1];
+            check(stalks(u - 1, v) && stalks(u + 1, v) && stalks(u, v - 1) && stalks(u, v + 1), "every place kept is painted on all four sides");
+        }
     }
 
     private static void check(boolean condition, String what) {

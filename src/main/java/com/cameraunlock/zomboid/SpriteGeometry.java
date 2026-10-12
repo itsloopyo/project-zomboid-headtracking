@@ -1217,6 +1217,13 @@ final class SpriteGeometry {
         plantUp = liftAt(a, b);
     }
 
+    /** Stands the plant whose strips are added next on the point (a, b) of the square, coloured from the texture's point (u, v). */
+    void plant(Frame frame, int tileX, int tileY, float a, float b, float u, float v) {
+        plant(frame, tileX, tileY, a, b);
+        plantU = u;
+        plantV = v;
+    }
+
     /**
      * Adds one strip of the plant last stood: a blade, a stem, or the card a head is cut from.
      * It starts fromAlong out from the root along (dirX, dirY) and fromUp above it, leaning
