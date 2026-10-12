@@ -83,6 +83,113 @@ final class WallTiles {
         boolean[] figured = new boolean[1];
     }
 
+    /**
+     * Courses of a band laid as one face, first to last from the foot up, from low to high in
+     * levels. Plain, the picture lays their joints, its texture coordinates up the face footV at
+     * low and perLevel more each level higher: whole numbers at each course line inside or on
+     * its edge, and never near one at an edge that is the band's own. With a figure, one course
+     * that shows the sprite's dots, laid tile by tile.
+     */
+    static final class Stretch {
+        int first, last;
+        float low, high, footV, perLevel;
+        boolean figured;
+    }
+
+    /** How far apart in levels two course lines may be from where an even step puts them, and how near a whole number a band's own edge may come. */
+    private static final float EVEN = 0.008f, CLEAR_OF_A_LINE = 0.2f;
+
+    /**
+     * The stretches a band of tiles is laid as, from the foot up: each run of plain courses whose
+     * lines are evenly apart one face, each course with a figure one of its own. A course line
+     * between a plain course and a course with a figure is drawn whole on the plain side: that
+     * face runs on halfUp past it, and the course with the figure starts halfUp past it.
+     */
+    static ArrayList<Stretch> stretches(Band band, float halfUp) {
+        ArrayList<Stretch> laid = new ArrayList<>();
+        int courses = band.courses.length;
+        int first = 0;
+        while (first <= courses) {
+            Stretch stretch = new Stretch();
+            stretch.first = first;
+            if (band.figured[first]) {
+                stretch.last = first;
+                stretch.figured = true;
+                stretch.low = first == 0 ? band.foot : band.courses[first - 1] + halfUp;
+                stretch.high = first == courses ? band.head : band.courses[first] - halfUp;
+                laid.add(stretch);
+                first++;
+                continue;
+            }
+            int last = first;
+            while (last < courses && !band.figured[last + 1] && even(band, first, last + 1)) {
+                last++;
+            }
+            // A run whose own edge, at the band's foot or head, comes near a whole number gives up the course at that edge to a face of its own.
+            while (last > first && !clear(band, first, last)) {
+                last = first == 0 && !clearAt(band, first, last, band.foot) ? first : last - 1;
+            }
+            stretch.last = last;
+            stretch.low = first == 0 ? band.foot : band.courses[first - 1] - (band.figured[first - 1] ? halfUp : 0f);
+            stretch.high = last == courses ? band.head : band.courses[last] + (last < courses && band.figured[last + 1] ? halfUp : 0f);
+            float[] lines = lines(band, first, last);
+            if (lines.length >= 2) {
+                float step = (lines[lines.length - 1] - lines[0]) / (lines.length - 1);
+                stretch.perLevel = 1f / step;
+                stretch.footV = (stretch.low - lines[0]) / step;
+            } else if (lines.length == 1) {
+                // One line: it is 0, and the far edges are within half a step of it.
+                float reach = 2f * Math.max(lines[0] - (first == 0 ? band.foot : band.courses[first - 1]), (last == courses ? band.head : band.courses[last]) - lines[0]);
+                stretch.perLevel = 1f / reach;
+                stretch.footV = (stretch.low - lines[0]) / reach;
+            } else {
+                // No line: a quarter to three quarters of a step, and none drawn.
+                float bottom = first == 0 ? band.foot : band.courses[first - 1], top = last == courses ? band.head : band.courses[last];
+                stretch.perLevel = 0.5f / (top - bottom);
+                stretch.footV = 0.25f + (stretch.low - bottom) * stretch.perLevel;
+            }
+            laid.add(stretch);
+            first = last + 1;
+        }
+        return laid;
+    }
+
+    /** The heights of the course lines on and inside the courses from first to last, from the foot up. */
+    private static float[] lines(Band band, int first, int last) {
+        int courses = band.courses.length;
+        int from = first == 0 ? 0 : first - 1, to = last == courses ? courses - 1 : last;
+        return to < from ? new float[0] : Arrays.copyOfRange(band.courses, from, to + 1);
+    }
+
+    /** Whether the course lines on and inside the courses from first to last are evenly apart. */
+    private static boolean even(Band band, int first, int last) {
+        float[] lines = lines(band, first, last);
+        if (lines.length < 3) {
+            return true;
+        }
+        float step = (lines[lines.length - 1] - lines[0]) / (lines.length - 1);
+        for (int k = 1; k < lines.length - 1; k++) {
+            if (Math.abs(lines[k] - (lines[0] + k * step)) > EVEN) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** Whether neither of the band's own edges that the courses from first to last reach comes near a whole number laid evenly from their lines. */
+    private static boolean clear(Band band, int first, int last) {
+        return (first > 0 || clearAt(band, first, last, band.foot)) && (last < band.courses.length || clearAt(band, first, last, band.head));
+    }
+
+    private static boolean clearAt(Band band, int first, int last, float edge) {
+        float[] lines = lines(band, first, last);
+        if (lines.length < 2) {
+            return true;
+        }
+        float v = (edge - lines[0]) / ((lines[lines.length - 1] - lines[0]) / (lines.length - 1));
+        return Math.abs(v - Math.round(v)) >= CLEAR_OF_A_LINE;
+    }
+
     /** One sprite's wall: its bands from the foot up, the first starting at 0 and the last ending at 1. */
     static final class Wall {
         /** Whether the wall had no opening in it where it was read. A wall with one may have no bands read. */

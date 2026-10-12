@@ -35,6 +35,10 @@ final class WallTileTests {
         }
         scale = 1;
         Checks.run("aTileIsPaintedInItsOwnColourFinely", WallTileTests::aTileIsPaintedInItsOwnColourFinely);
+        Checks.run("evenCoursesAreOneFaceWithWholeNumbersAtTheirLines", WallTileTests::evenCoursesAreOneFaceWithWholeNumbersAtTheirLines);
+        Checks.run("aBandsEdgeIsNeverOnAWholeNumber", WallTileTests::aBandsEdgeIsNeverOnAWholeNumber);
+        Checks.run("aCourseWithAFigureIsAFaceOfItsOwn", WallTileTests::aCourseWithAFigureIsAFaceOfItsOwn);
+        Checks.run("unevenCoursesAreTwoFaces", WallTileTests::unevenCoursesAreTwoFaces);
     }
 
     /**
@@ -196,5 +200,82 @@ final class WallTileTests {
         check(told[3] == WallSides.FINE, "the picture is told a tile is painted finely: " + told[3]);
         check(Math.abs(told[0] - 0.48f) <= 0.5f / 31f && Math.abs(told[1] - 0.56f) <= 0.5f / 31f && Math.abs(told[2] - 0.59f) <= 0.5f / 31f,
                 "and its colour to within half a step of 31");
+    }
+
+    /** A band of tiles from foot to head with course lines at those heights. */
+    private static WallTiles.Band band(float foot, float head, float... courses) {
+        WallTiles.Band band = new WallTiles.Band();
+        band.tiled = true;
+        band.foot = foot;
+        band.head = head;
+        band.courses = courses;
+        band.figured = new boolean[courses.length + 1];
+        return band;
+    }
+
+    /** The texture coordinate up a stretch's face at height h. */
+    private static float v(WallTiles.Stretch stretch, float h) {
+        return stretch.footV + (h - stretch.low) * stretch.perLevel;
+    }
+
+    private static boolean whole(float v) {
+        return Math.abs(v - Math.round(v)) < 1e-3f;
+    }
+
+    private static boolean clearOfWhole(float v) {
+        return Math.abs(v - Math.round(v)) > 0.15f;
+    }
+
+    private static void evenCoursesAreOneFaceWithWholeNumbersAtTheirLines() {
+        WallTiles.Band band = band(0f, 1f, 0.15f, 0.265f, 0.38f, 0.495f, 0.61f, 0.725f, 0.84f);
+        java.util.ArrayList<WallTiles.Stretch> laid = WallTiles.stretches(band, 0.002f);
+        check(laid.size() == 1 && laid.get(0).first == 0 && laid.get(0).last == 7, "a wall of evenly laid tiles is one face: " + laid.size());
+        boolean lines = true;
+        for (float line : band.courses) {
+            lines &= whole(v(laid.get(0), line));
+        }
+        check(lines, "with its joints laid where its texture coordinate up it is a whole number, at every course line");
+        check(clearOfWhole(v(laid.get(0), 0f)) && clearOfWhole(v(laid.get(0), 1f)), "and none at the floor or the ceiling");
+    }
+
+    private static void aBandsEdgeIsNeverOnAWholeNumber() {
+        // Courses a tenth apart from 0.11: the floor would fall at -1.1, near enough a line to draw one along the skirting.
+        WallTiles.Band band = band(0f, 0.565f, 0.11f, 0.21f, 0.31f, 0.41f, 0.51f);
+        java.util.ArrayList<WallTiles.Stretch> laid = WallTiles.stretches(band, 0.002f);
+        boolean clear = true;
+        for (WallTiles.Stretch stretch : laid) {
+            clear &= stretch.first > 0 || clearOfWhole(v(stretch, band.foot));
+            clear &= stretch.last < band.courses.length || clearOfWhole(v(stretch, band.head));
+            for (int line = Math.max(0, stretch.first - 1); line < Math.min(band.courses.length, stretch.last + 1); line++) {
+                clear &= whole(v(stretch, band.courses[line]));
+            }
+        }
+        check(laid.size() == 2 && clear, "a band whose floor a step from its lines would put on a line gives the course there a face of its own: " + laid.size());
+    }
+
+    private static void aCourseWithAFigureIsAFaceOfItsOwn() {
+        WallTiles.Band band = band(0f, 1f, 0.25f, 0.45f, 0.65f, 0.85f);
+        band.figured[2] = true;
+        java.util.ArrayList<WallTiles.Stretch> laid = WallTiles.stretches(band, 0.002f);
+        check(laid.size() == 3 && !laid.get(0).figured && laid.get(1).figured && !laid.get(2).figured, "plain courses, the course with the figure, plain courses: " + laid.size());
+        if (laid.size() != 3) {
+            return;
+        }
+        check(laid.get(0).high == 0.45f + 0.002f && laid.get(2).low == 0.65f - 0.002f, "the plain faces run on half a joint past the lines they share with it, so those are drawn whole");
+        check(laid.get(1).low == 0.45f + 0.002f && laid.get(1).high == 0.65f - 0.002f, "and it starts half a joint past them");
+        check(whole(v(laid.get(0), 0.45f)) && whole(v(laid.get(2), 0.65f)), "the lines are whole numbers on the plain faces");
+    }
+
+    private static void unevenCoursesAreTwoFaces() {
+        // Lines a fifth apart, then a tenth: one step does not put a whole number on all of them.
+        WallTiles.Band band = band(0f, 1f, 0.2f, 0.4f, 0.6f, 0.7f, 0.8f, 0.9f);
+        java.util.ArrayList<WallTiles.Stretch> laid = WallTiles.stretches(band, 0.002f);
+        boolean lines = true;
+        for (WallTiles.Stretch stretch : laid) {
+            for (int line = Math.max(0, stretch.first - 1); line < Math.min(band.courses.length, stretch.last + 1); line++) {
+                lines &= whole(v(stretch, band.courses[line]));
+            }
+        }
+        check(laid.size() >= 2 && lines, "courses laid at two steps are two faces, each with whole numbers at its own lines: " + laid.size());
     }
 }

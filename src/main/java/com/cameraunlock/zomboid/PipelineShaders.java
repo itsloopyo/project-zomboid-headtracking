@@ -925,7 +925,7 @@ final class PipelineShaders {
                         + dot(texture2D(picture, at.xy * size).rgb, tone) * share.z;
             }
 
-            """ + GROUND_NOISE + """
+            """ + GROUND_NOISE + "const float TILE_JOINT = " + WallBuilder.TILE_JOINT_HALF + ";\n" + """
 
             // Whether a pixel is in a window of that middle and those half widths, whose dither
             // runs from edgeFrom to edgeTo of them.
@@ -1524,6 +1524,24 @@ final class PipelineShaders {
                 // for 10, a tile, a joint or a band of a tiled wall, each in a colour of its own,
                 // glazed and even: WallSides.FINE.
                 bool fineTint = abs(uTint.a - 10.0) < 0.5;
+                // 11 is a band of tiles laid as one face (WallSides.TILED): the face's texture
+                // coordinates are whole numbers at the middle of each joint along the wall and of
+                // each course line up it, and a joint is TILE_JOINT either side of one in the world,
+                // whatever size the tiles are. Where a joint is narrower than a pixel the wall is
+                // the mean of tiles and joints, and nothing crawls as the eye moves.
+                bool tiledTint = abs(uTint.a - 11.0) < 0.5;
+                if (tiledTint) {
+                    vec3 along = normalize(vNormal);
+                    vec2 world = vec2(dot(vWorld.xy, vec2(along.y, -along.x)), vWorld.z);
+                    // On a flat face the coordinates go as the world does, so the two widths of a pixel give a tile's size.
+                    vec2 worldPixel = max(fwidth(world), vec2(1e-5));
+                    vec2 tileSize = worldPixel / max(fwidth(vUv), vec2(1e-6));
+                    vec2 toJoint = abs(vUv - floor(vUv + 0.5)) * tileSize;
+                    vec2 inJoint = 1.0 - smoothstep(TILE_JOINT - 0.5 * worldPixel, TILE_JOINT + 0.5 * worldPixel, toJoint);
+                    vec2 share = clamp(2.0 * TILE_JOINT / max(tileSize, vec2(1e-4)), 0.0, 1.0);
+                    inJoint = mix(inJoint, share, smoothstep(0.5 * TILE_JOINT, 2.0 * TILE_JOINT, worldPixel));
+                    texel.rgb = mix(uTint.rgb, uJoint, max(inJoint.x, inJoint.y));
+                }
                 if (uTint.a > 0.5 && uTint.a < 3.5 || fineTint) {
                     texel.rgb = fineTint ? uTint.rgb : arcTone(uTint.rgb, vWorld);
                     if (uTint.a > 1.5 && uTint.a < 2.5) {
@@ -1559,7 +1577,7 @@ final class PipelineShaders {
                 // the casing round a window, stays as painted. climb is lean up the wall.
                 float climb = 0.0;
                 bool boarded = uTint.a > 7.5 && uTint.a < 8.5;
-                if (uTint.a > 3.5 && !boarded && !fineTint) {
+                if (uTint.a > 3.5 && !boarded && !fineTint && !tiledTint) {
                     vec3 facing = normalize(vNormal);
                     float run = dot(vPlace.xy, vec2(facing.y, -facing.x));
                     vec2 turned;

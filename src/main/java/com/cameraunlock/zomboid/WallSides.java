@@ -42,6 +42,12 @@ final class WallSides {
      * blue band of tiles lit a few hundredths redder came out purple.
      */
     static final int FINE = 10;
+    /**
+     * A band of tiles, laid as one face (laid with this and the joints' colour): the picture
+     * lays the joints itself where the face's texture coordinates are whole numbers, one a joint
+     * along the wall and one a course line up it. See WallTiles.stretches.
+     */
+    static final int TILED = 11;
 
     private static final int LEVELS = 15;
     private static final int BANDS = 32;

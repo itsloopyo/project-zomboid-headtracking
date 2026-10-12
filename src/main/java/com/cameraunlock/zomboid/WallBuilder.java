@@ -39,8 +39,8 @@ final class WallBuilder {
     private static final float[] CAP_COLOUR_AT = {0.5f, 0.12f, 0.88f};
     /** Wallpaper with a figure on it, which the picture prints sprig by sprig. */
     private static final float FIGURED_PAPER = 70f;
-    /** Half the width of a joint between two tiles of a wall, in tiles. */
-    private static final float TILE_JOINT_HALF = 0.004f;
+    /** Half the width of a joint between two tiles of a wall, in tiles: the world program lays them so (TILE_JOINT). */
+    static final float TILE_JOINT_HALF = 0.004f;
     /** How many squares along its line a wall with an opening looks for a whole wall of its sheet to read its tiles from. */
     private static final int TILES_REACH = 4;
     /** For each of the two edges a wall can stand on: the frame origin the sprite was read with, then the opening. */
@@ -668,9 +668,10 @@ final class WallBuilder {
 
     /**
      * The part of a tiled wall from one share of its length to another and from one height to
-     * another: each band of it, paint or a strip of trim in one face, tiles as a face for each
-     * tile and for each joint between them, each painted in its own colour. A course with a
-     * figure on it shows the sprite's dots in its tiles, with the joints drawn over them.
+     * another: each band of it, paint or a strip of trim in one face, tiles as one face for each
+     * run of evenly laid courses with the joints laid on it by the picture (WallSides.TILED,
+     * WallTiles.stretches). A course with a figure on it shows the sprite's dots tile by tile,
+     * with its joints between them.
      */
     private void addTiled(int x, int y, int z, float a, float b, float da, float db,
             float from, float to, float foot, float head, float sealFrom, float sealTo, boolean startIsLow) {
@@ -688,35 +689,44 @@ final class WallBuilder {
                 tiledFace(on, x, y, z, a, b, da, db, from, to, low, high, from, to, sealFrom, sealTo, startIsLow);
                 continue;
             }
-            build.frame.material = WorldScene.TILE;
-            SpriteGeometry.Mesh plain = painted(band.red, band.green, band.blue);
-            int courses = band.courses.length;
-            for (int course = 0; course <= courses; course++) {
-                SpriteGeometry.Mesh on = band.figured[course] ? tileStood : plain;
-                float courseLow = Math.max(low, course == 0 ? band.foot : band.courses[course - 1] + halfUp);
-                float courseHigh = Math.min(high, course == courses ? band.head : band.courses[course] - halfUp);
-                for (int tile = 0; tile <= band.joints.length && courseHigh > courseLow; tile++) {
-                    // The first and last tile run to the piece's ends, which at a corner are past the square's.
+            SpriteGeometry.Mesh laid = WorldScene.solid.get(WorldScene.PLAIN,
+                    WallSides.laid(band.red, band.green, band.blue, band.jointRed, band.jointGreen, band.jointBlue, WallSides.TILED));
+            SpriteGeometry.Mesh joints = painted(band.jointRed, band.jointGreen, band.jointBlue);
+            for (WallTiles.Stretch stretch : WallTiles.stretches(band, halfUp)) {
+                float stretchLow = Math.max(low, stretch.low), stretchHigh = Math.min(high, stretch.high);
+                if (stretchHigh <= stretchLow) {
+                    continue;
+                }
+                if (!stretch.figured) {
+                    build.frame.material = WorldScene.TILE;
+                    SpriteGeometry geometry = build.geometry;
+                    geometry.alongA = da;
+                    geometry.alongB = db;
+                    geometry.jointPhase = band.phase;
+                    geometry.jointStep = band.step;
+                    geometry.footH = stretch.low;
+                    geometry.footV = stretch.footV;
+                    geometry.perLevel = stretch.perLevel;
+                    tiledFace(laid, x, y, z, a, b, da, db, from, to, stretchLow, stretchHigh, from, to, sealFrom, sealTo, startIsLow);
+                    geometry.jointStep = Float.NaN;
+                    continue;
+                }
+                // A course with a figure: each tile the sprite's dots, and the joints between them, and the course line under it
+                // where the course under it has a figure too.
+                build.frame.material = WorldScene.TILE;
+                for (int tile = 0; tile <= band.joints.length; tile++) {
                     float start = tile == 0 ? from : Math.max(from, band.joints[tile - 1] + TILE_JOINT_HALF);
                     float end = tile == band.joints.length ? to : Math.min(to, band.joints[tile] - TILE_JOINT_HALF);
-                    if (end > start) {
-                        tiledFace(on, x, y, z, a, b, da, db, start, end, courseLow, courseHigh, from, to, sealFrom, sealTo, startIsLow);
-                    }
+                    tiledFace(tileStood, x, y, z, a, b, da, db, start, end, stretchLow, stretchHigh, from, to, sealFrom, sealTo, startIsLow);
                 }
-            }
-            // The joints, down the band and across it between its courses. Where two cross they are one colour in one plane.
-            build.frame.material = made;
-            SpriteGeometry.Mesh joints = painted(band.jointRed, band.jointGreen, band.jointBlue);
-            for (float joint : band.joints) {
-                float start = Math.max(from, joint - TILE_JOINT_HALF), end = Math.min(to, joint + TILE_JOINT_HALF);
-                if (end > start) {
-                    tiledFace(joints, x, y, z, a, b, da, db, start, end, low, high, from, to, sealFrom, sealTo, startIsLow);
+                build.frame.material = made;
+                for (float joint : band.joints) {
+                    tiledFace(joints, x, y, z, a, b, da, db, Math.max(from, joint - TILE_JOINT_HALF), Math.min(to, joint + TILE_JOINT_HALF), stretchLow, stretchHigh,
+                            from, to, sealFrom, sealTo, startIsLow);
                 }
-            }
-            for (float line : band.courses) {
-                float lineLow = Math.max(low, line - halfUp), lineHigh = Math.min(high, line + halfUp);
-                if (lineHigh > lineLow) {
-                    tiledFace(joints, x, y, z, a, b, da, db, from, to, lineLow, lineHigh, from, to, sealFrom, sealTo, startIsLow);
+                if (stretch.first > 0 && band.figured[stretch.first - 1]) {
+                    float line = band.courses[stretch.first - 1];
+                    tiledFace(joints, x, y, z, a, b, da, db, from, to, Math.max(low, line - halfUp), Math.min(high, line + halfUp), from, to, sealFrom, sealTo, startIsLow);
                 }
             }
         }
@@ -729,9 +739,12 @@ final class WallBuilder {
         return WorldScene.solid.get(tileBase, WallSides.laid(r, g, b, 0f, 0f, 0f, WallSides.FINE));
     }
 
-    /** One face of a tiled wall, from start to end along it and from low to high, sealed as the piece from from to to is at its ends. */
+    /** One face of a tiled wall, from start to end along it and from low to high, sealed as the piece from from to to is at its ends. Nothing where it has no size. */
     private void tiledFace(SpriteGeometry.Mesh on, int x, int y, int z, float a, float b, float da, float db, float start, float end, float low, float high,
             float from, float to, float sealFrom, float sealTo, boolean startIsLow) {
+        if (end <= start || high <= low) {
+            return;
+        }
         float sealStart = start == from ? sealFrom : 0f, sealEnd = end == to ? sealTo : 0f;
         build.geometry.sealLow = startIsLow ? sealStart : sealEnd;
         build.geometry.sealHigh = startIsLow ? sealEnd : sealStart;
