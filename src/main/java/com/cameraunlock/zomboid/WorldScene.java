@@ -5340,12 +5340,14 @@ final class WorldScene {
                     north = BrokenFences.onNorth(frame);
                 }
             }
-            // Trim the map paints round a window or along a wall, a window's head or its sill, and
-            // marks for no wall. Stood up to face the eye each was a white slab slewed off the
-            // wall in the air. It is on the wall its square has, and where the square has both,
-            // the one its picture runs along.
-            if (!west && !north && kind.wallTrim && (wallNorth || wallWest)) {
-                north = wallNorth && (!wallWest || Banners.alongX(frame));
+            // Trim the map paints round a window or along a wall, a window's head or its sill, or
+            // the arch between two pillars of a belfry, and marks for no wall. Stood up to face the
+            // eye each was a slab slewed off the wall in the air, an arch a box floating squares
+            // away. It is on the wall its square has, and where the square has both or neither,
+            // on the edge its picture runs along. A pillar of the belfry, far taller than it is
+            // wide, stands on its corner as before where there is no wall to hang it on.
+            if (!west && !north && kind.wallTrim && (wallNorth || wallWest || texture.getHeight() < 2 * texture.getWidth())) {
+                north = wallNorth != wallWest ? wallNorth : Banners.alongX(frame);
                 west = !north;
             }
             // A light switch says nothing of where it is. It is on a wall of its square, and is
