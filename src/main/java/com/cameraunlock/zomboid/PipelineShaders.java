@@ -110,6 +110,17 @@ final class PipelineShaders {
                 return mix(mix(grain(cell), grain(cell + vec2(1.0, 0.0)), f.x),
                         mix(grain(cell + vec2(0.0, 1.0)), grain(cell + vec2(1.0, 1.0)), f.x), f.y);
             }
+
+            // As patches, coming round again every period cells each way. A pattern laid by vPlace,
+            // which starts again every sixty tiles, is one with no seam there when its scale times
+            // sixty is the period.
+            float wrappedPatches(vec2 p, vec2 period) {
+                vec2 cell = floor(p);
+                vec2 f = fract(p);
+                f = f * f * (3.0 - 2.0 * f);
+                return mix(mix(grain(mod(cell, period)), grain(mod(cell + vec2(1.0, 0.0), period)), f.x),
+                        mix(grain(mod(cell + vec2(0.0, 1.0), period)), grain(mod(cell + vec2(1.0, 1.0), period)), f.x), f.y);
+            }
             """;
 
     /** The headlights that are on and the torch the viewer carries, for every shader they light: the world, the figures, the air and the rain. */
@@ -2300,8 +2311,11 @@ final class PipelineShaders {
                         vec2 on = abs(vUv - 0.5) * 2.0;
                         float corners = smoothstep(0.55, 1.0, max(on.x, on.y)) * smoothstep(0.2, 1.0, min(on.x, on.y) + 0.35 * (1.0 - vUv.y));
                         float along = dot(vPlace.xy, vec2(face.y, -face.x));
-                        float runs = patches(vec2(along * 90.0, vPlace.z * 3.0)) * patches(vec2(along * 23.0 + 4.0, vPlace.z * 0.9));
-                        float bloom = 0.6 * patches(vec2(along * 19.0, vPlace.z * 19.0) + 31.0) + 0.4 * patches(vec2(along * 53.0, vPlace.z * 47.0) + 7.0);
+                        // Every scale times sixty is whole, so the dirt meets itself where vPlace starts again.
+                        float runs = wrappedPatches(vec2(along * 90.0, vPlace.z * 3.0), vec2(5400.0, 180.0))
+                                * wrappedPatches(vec2(along * 23.0 + 4.0, vPlace.z * 0.9), vec2(1380.0, 54.0));
+                        float bloom = 0.6 * wrappedPatches(vec2(along * 19.0, vPlace.z * 19.0) + 31.0, vec2(1140.0))
+                                + 0.4 * wrappedPatches(vec2(along * 53.0, vPlace.z * 47.0) + 7.0, vec2(3180.0, 2820.0));
                         soiled = 0.012 + 0.025 * bloom + 0.09 * corners * (0.4 + 0.6 * bloom) + outside * 0.04 * runs;
                         veil = veil + (1.0 - veil) * soiled;
                     }
@@ -2785,17 +2799,26 @@ final class PipelineShaders {
                     texel.rgb = mix(texel.rgb, texel.rgb * vec3(1.0, 0.72, 0.76), bloom * drawn);
                     texel.rgb *= mix(0.97, 1.0, drawn) * mix(1.0, dot(texture2D(uPaint, run * 0.14).rgb, vec3(0.299, 0.587, 0.114)) * uSurfaceGain.y, 0.3);
                 }
-                // Joinery (OpeningBuilder.JOINERY): a door's leaf or a window's frame of planed
-                // wood, its grain fine streaks running up it with no joint across, as one board
-                // is. Upright, the grain runs up; lying, along x. Where a pixel takes in more than
-                // a streak's width the streaks are left out and only their slow tone stays.
-                if (uOwnTextures > 0.5 && vMaterial > 85.5 && vMaterial < 86.5) {
-                    vec2 grainOn = abs(n.z) > 0.7 ? vPlace.yx : vec2(dot(vPlace.xy, vec2(n.y, -n.x)), vPlace.z);
-                    float wave = patches(vec2(grainOn.x * 2.6, grainOn.y * 0.35));
-                    float streak = patches(vec2(grainOn.x * 70.0 + wave * 9.0, grainOn.y * 2.2)) * 0.65
-                            + patches(vec2(grainOn.x * 190.0 + wave * 20.0, grainOn.y * 5.0 + 3.0)) * 0.35;
-                    float streaksShown = 1.0 - smoothstep(0.004, 0.02, fwidth(grainOn.x));
-                    texel.rgb *= mix(1.0, 0.78 + 0.44 * streak, 0.45 * streaksShown) * (0.94 + 0.12 * wave);
+                // Joinery (OpeningBuilder.JOINERY, and JOINERY_LEVEL for a member longer than it
+                // is high): a door's leaf or a window's frame of planed wood, its grain fine
+                // streaks with no joint across, as one board is. On an upright face the grain runs
+                // up a stile and along a rail, head or sill; on a lying face, along the map's x.
+                // Each octave of streaks is left out, to its mean, where a pixel takes in half of
+                // one, and every scale times sixty is whole, so the grain meets itself where
+                // vPlace starts again.
+                if (uOwnTextures > 0.5 && (vMaterial > 85.5 && vMaterial < 86.5 || vMaterial > 87.5 && vMaterial < 88.5)) {
+                    bool lies = abs(n.z) > 0.7;
+                    vec2 grainOn = lies ? vPlace.yx : vec2(dot(vPlace.xy, vec2(n.y, -n.x)), vPlace.z);
+                    if (!lies && vMaterial > 87.5) {
+                        grainOn = grainOn.yx;
+                    }
+                    float wave = wrappedPatches(grainOn * vec2(2.6, 0.35), vec2(156.0, 21.0));
+                    float coarse = wrappedPatches(vec2(grainOn.x * 70.0 + wave * 9.0, grainOn.y * 2.2), vec2(4200.0, 132.0));
+                    float fine = wrappedPatches(vec2(grainOn.x * 190.0 + wave * 20.0, grainOn.y * 5.0 + 3.0), vec2(11400.0, 300.0));
+                    float across = fwidth(grainOn.x);
+                    float streak = 0.5 + 0.65 * (coarse - 0.5) * (1.0 - smoothstep(0.004, 0.008, across))
+                            + 0.35 * (fine - 0.5) * (1.0 - smoothstep(0.0015, 0.003, across));
+                    texel.rgb *= mix(1.0, 0.78 + 0.44 * streak, 0.45) * (0.94 + 0.12 * wave);
                 }
                 // A curtain the picture has hung has folds of its own, and is its weave close to.
                 if (vMaterial > 68.5 && vMaterial < 69.5) {
@@ -3232,7 +3255,7 @@ final class PipelineShaders {
                         rough = 0.32;
                     }
                     // A varnished door or window frame has a satin sheen and mirrors nothing.
-                    if (vMaterial > 85.5 && vMaterial < 86.5) {
+                    if (vMaterial > 85.5 && vMaterial < 86.5 || vMaterial > 87.5 && vMaterial < 88.5) {
                         rough = 0.4;
                     }
                     // Glazed tile is glossier than a varnished board.

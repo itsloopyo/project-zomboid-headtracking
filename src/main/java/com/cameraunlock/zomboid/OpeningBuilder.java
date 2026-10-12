@@ -43,8 +43,12 @@ final class OpeningBuilder {
     private static final float[] HINGES_AT = {0.11f, 0.5f, 0.89f};
     /** The rose a knob stands on: how far round and how far out of the face, in tiles. */
     private static final float ROSE_ROUND = 0.03f, ROSE_OUT = 0.004f;
-    /** Wood the picture gives a grain running along it with no joints across: a door's leaf, a window's frame. */
-    static final float JOINERY = 86f;
+    /**
+     * Wood the picture gives a grain with no joints across: a door's leaf, a window's frame.
+     * JOINERY's runs up; JOINERY_LEVEL's runs along, for a member longer than it is high (a
+     * rail, a head, a sill). addJoinery picks between them by the member's shape.
+     */
+    static final float JOINERY = 86f, JOINERY_LEVEL = 88f;
     /** Where the panels of a door are, as shares of the part of the leaf they are on: across, then up a whole leaf, then up what is below a light. */
     private static final float[] PANELS_ACROSS = {0.14f, 0.455f, 0.545f, 0.86f};
     private static final float[] PANELS_UP = {0.1f, 0.37f, 0.45f, 0.8f, 0.86f, 0.95f}, PANELS_UP_BELOW = {0.16f, 0.86f};
@@ -600,6 +604,10 @@ final class OpeningBuilder {
      * side's light.
      */
     private void addJoinery(SpriteGeometry.Mesh mesh, float from, float to, float foot, float head, float across, float red, float green, float blue) {
+        float open = mesh.open;
+        if (Math.floor((open + 0.5f) / 32f) == JOINERY && to - from > (head - foot) * ViewCamera.LEVEL_HEIGHT) {
+            mesh.open = open + 32f * (JOINERY_LEVEL - JOINERY);
+        }
         float[] c = build.reveal;
         windowPoint(c, 0, from, foot, across);
         windowPoint(c, 1, to, foot, across);
@@ -615,6 +623,7 @@ final class OpeningBuilder {
             windowPoint(c, 3, along0, up0, across);
             SpriteGeometry.addPlainQuad(mesh, c, red, green, blue);
         }
+        mesh.open = open;
     }
 
     /** Floats a quad of a raised panel takes in raisedPanel: four corners of along, up and across, then the share of the light it is drawn in. */
