@@ -364,7 +364,9 @@ public final class Characters {
         }
         // Seen from outside the viewer is one of the people in the picture.
         ViewCamera.view(camera, eyeView);
+        CharacterDraw.nearCut = scope ? 0f : CharacterDraw.NEAR_CUT;
         int drawn = draw(eyeView, view.pipeline.outside, false, null, camera.eyeX, camera.eyeY, Float.MAX_VALUE);
+        CharacterDraw.nearCut = 0f;
         drawnLast = vehicles ? drawnLast + drawn : drawn;
         if (figureRoomsLine != null) {
             figureRoomsSaid = now;

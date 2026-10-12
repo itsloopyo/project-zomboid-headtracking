@@ -604,6 +604,7 @@ final class CharacterDraw {
             uniform mat4 uModelView;
             uniform float uBare;
             uniform float uShadow;
+            uniform float uNearCut;
             uniform float uWear;
             uniform float uShell;
             uniform vec2 uStands;
@@ -637,6 +638,11 @@ final class CharacterDraw {
             }
 
             void main() {
+                // A person nearer the eye than this is cut away there, round the eye, and not drawn
+                // swollen across the picture and torn at its near plane.
+                if (dot(vEye, vEye) < uNearCut * uNearCut) {
+                    discard;
+                }
                 // A shadow map keeps no colour: all it asks is whether the texel is there.
                 if (uShadow > 0.5) {
                     float there = TEXEL(uTexture, vUv).a;
@@ -1013,7 +1019,7 @@ final class CharacterDraw {
     /** One program and where its settings live. */
     private static final class Skin {
         final int id;
-        final int palette, modelView, projection, scale, uvScale, alpha, hue, tint, ambient, fine, bare, shadow, texSize;
+        final int palette, modelView, projection, scale, uvScale, alpha, hue, tint, ambient, fine, bare, shadow, nearCut, texSize;
         final int[] lightWay = new int[LIGHTS], lightColor = new int[LIGHTS];
         /** The person whose settings the program holds (CharacterDraw.peopleBegun): a part of the same person sets only its own. */
         int heldFor = -1;
@@ -1032,6 +1038,7 @@ final class CharacterDraw {
             fine = GL20.glGetUniformLocation(id, "uFine");
             bare = GL20.glGetUniformLocation(id, "uBare");
             shadow = GL20.glGetUniformLocation(id, "uShadow");
+            nearCut = GL20.glGetUniformLocation(id, "uNearCut");
             texSize = GL20.glGetUniformLocation(id, "uTexSize");
             for (int light = 0; light < LIGHTS; light++) {
                 lightWay[light] = GL20.glGetUniformLocation(id, "uLightWay[" + light + "]");
@@ -1093,6 +1100,15 @@ final class CharacterDraw {
      * has none either. However the head is turned, none of it is in the view.
      */
     static boolean fromTheEye;
+    /**
+     * While the eye's picture of other people is drawn, how near the eye, in tiles, they are cut
+     * away: a zombie shoved or reeling brings its head to within a few centimetres of the eye,
+     * where a face fills the picture skewed and its hair is torn by the near plane. Nought
+     * otherwise: the viewer's own body, shadows, mirrors and scopes are drawn whole.
+     */
+    static float nearCut;
+    /** That distance. A face as near as this still reads as a face in the picture. */
+    static final float NEAR_CUT = 0.15f;
     /**
      * Set while a person is drawn as a mirror shows them. A mirror turns every triangle's
      * front to its back once more.
@@ -1656,6 +1672,7 @@ final class CharacterDraw {
             GL20.glUniform1f(skin.scale, person.finalScale);
             GL20.glUniform1f(skin.bare, unlit ? 1f : 0f);
             GL20.glUniform1f(skin.shadow, shadow ? 1f : 0f);
+            GL20.glUniform1f(skin.nearCut, shadow ? 0f : nearCut);
             GL20.glUniform1f(skin.alpha, person.alpha);
             // The game's lights are read by a lit draw alone: a bare one is lit by the picture, and a shadow map keeps no colour.
             if (!bare && !shadow) {
