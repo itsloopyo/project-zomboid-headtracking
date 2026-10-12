@@ -1,9 +1,10 @@
 """Makes the pictures the mod's jar holds for the graphics card out of the ones in src/textures.
 
-    python tools/textures/compress.py [name ...]        (Python with numpy and Pillow, as the other tools here)
+    python tools/textures/compress.py [name ...] [--all] [--cpu]       (Python with numpy and Pillow, as the other tools here)
 
 A name is an output without its folder or ending (bark, asphalt, shotgun.colour). With none,
 every output whose sources have changed since it was made is made again; with --all, every one.
+--cpu has the encoder leave the graphics card alone, for while a game or another job has it.
 
 Each output is one file under src/main/resources, read by Pictures.java:
 
@@ -167,7 +168,8 @@ def blocks(pictures):
             whole = numpy.pad(texels, ((0, -high % 4), (0, -wide % 4), (0, 0)), mode='edge')
             names.append(f'{index}.dds')
             write_dds(folder / names[-1], whole)
-        ran = subprocess.run([str(encoder()), '-nologo', '-y', '-f', 'BC7_UNORM', '-m', '1', '-dx10', '-o', str(folder / 'out')]
+        card = ['-nogpu'] if '--cpu' in sys.argv else []
+        ran = subprocess.run([str(encoder()), '-nologo', '-y', '-f', 'BC7_UNORM', '-m', '1', '-dx10'] + card + ['-o', str(folder / 'out')]
                              + [str(folder / name) for name in names], capture_output=True, text=True)
         if ran.returncode != 0:
             raise SystemExit(ran.stdout + ran.stderr)
