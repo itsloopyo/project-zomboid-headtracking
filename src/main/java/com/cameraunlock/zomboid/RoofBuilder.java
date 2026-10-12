@@ -204,6 +204,25 @@ final class RoofBuilder {
     }
 
     /**
+     * Whether the building goes on past the edge of a roof tile on (x, y, z), on the square
+     * beyond: it stands there, and where rooms are under the tile on the storey below, rooms
+     * are there too. A lower wing beyond has none on that storey, only a roof of its own, and
+     * the end of this roof stands over it in the open: taking the wing's ground floor for the
+     * house going on left that gable out.
+     */
+    private boolean buildingGoesOn(int x, int y, int beyondX, int beyondY, int z) {
+        if (buildingUnder(beyondX, beyondY, z) == null) {
+            return false;
+        }
+        IsoGridSquare under = z > 0 ? build.cell.getGridSquare(x, y, z - 1) : null;
+        if (under == null || under.getRoomID() == -1L) {
+            return true;
+        }
+        IsoGridSquare beyond = build.cell.getGridSquare(beyondX, beyondY, z - 1);
+        return beyond != null && beyond.getRoomID() != -1L;
+    }
+
+    /**
      * The gable under a roof's level crown that the map lays as a floor on level z, over the
      * loft on the level below: the top of a roof cut flat a whole level up. The slopes either
      * side of the crown have their gables (addGable), and between them, under the crown's west
@@ -219,7 +238,7 @@ final class RoofBuilder {
         for (int edge = 0; edge < 2; edge++) {
             boolean north = edge == 1;
             float second = north ? northEast : southWest;
-            if (Math.max(northWest, second) < GABLE_LEAST || buildingUnder(north ? x : x - 1, north ? y - 1 : y, z) != null
+            if (Math.max(northWest, second) < GABLE_LEAST || buildingGoesOn(x, y, north ? x : x - 1, north ? y - 1 : y, z)
                     || square != null && WorldScene.wallOn(square, north) != null) {
                 continue;
             }
