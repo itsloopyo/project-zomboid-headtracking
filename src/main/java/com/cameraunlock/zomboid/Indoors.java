@@ -193,6 +193,8 @@ final class Indoors {
     /** How far from the square's edge a hospital's curtain rail hangs, how high the foot of a bare rail and the hem of a
      * curtain are, in metres, and how high the sprites paint the curtain, in levels. */
     private static final float CURTAIN_RAIL_ACROSS = 0.47f, CURTAIN_RAIL_FOOT = 2.25f, CURTAIN_HEM = 0.08f, CURTAIN_DYE = 0.5f;
+    /** How far along its model from the middle of the rail a gathered curtain's bunch is at its middle, in metres. */
+    private static final float CURTAIN_BUNCH = 0.305f;
     /** How high the sprite of a bar's back shelving paints the front of its cabinet over the middle of its square, in levels. */
     private static final float BAR_BACK_DYE = 0.2f;
 
@@ -215,9 +217,15 @@ final class Indoors {
             String model = called.equals("Curtain A") ? "curtain_rail" : called.equals("Curtain B") ? "curtain_drawn" : "curtain_gathered";
             int turned = !model.equals("curtain_gathered") ? (alongX ? 0 : 1)
                     : called.equals("Curtain C") ? (alongX ? 0 : 3) : (alongX ? 2 : 1);
-            Furniture curtain = new Furniture(sprite, model, turned).dye(1 << Models.CLOTH, CURTAIN_DYE);
+            Furniture curtain = new Furniture(sprite, model, turned);
             curtain.centreX = alongX ? 0.5f : CURTAIN_RAIL_ACROSS;
             curtain.centreY = alongX ? CURTAIN_RAIL_ACROSS : 0.5f;
+            // A bare rail has no cloth to colour. A gathered curtain's colour is taken from its bunch: the middle of the rail is bare.
+            if (!model.equals("curtain_rail")) {
+                float[] bunch = new float[2];
+                Models.turn(turned, model.equals("curtain_gathered") ? CURTAIN_BUNCH : 0f, 0f, bunch);
+                curtain.dye(1 << Models.CLOTH, curtain.centreX + bunch[0], curtain.centreY + bunch[1], CURTAIN_DYE);
+            }
             return curtain.raise(model.equals("curtain_rail") ? CURTAIN_RAIL_FOOT : CURTAIN_HEM);
         }
         // The shelving behind a bar, its back to the wall behind its facing: brown or dark, and the end pieces of a run the same.

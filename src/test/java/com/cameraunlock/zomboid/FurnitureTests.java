@@ -338,15 +338,27 @@ final class FurnitureTests {
     }
 
     private static void aHospitalsCurtainHangsFromItsRailBunchedWhereItsSpriteShows() {
-        // Each: sprite, facing, which curtain, model and its quarter turns. The gathered model is bunched at its +X end.
-        String[][] curtains = {{"40", "S", "A", "curtain_rail", "0"}, {"41", "S", "B", "curtain_drawn", "0"}, {"42", "S", "C", "curtain_gathered", "0"},
-            {"43", "S", "D", "curtain_gathered", "2"}, {"44", "E", "A", "curtain_rail", "1"}, {"45", "E", "B", "curtain_drawn", "1"},
-            {"46", "E", "D", "curtain_gathered", "1"}, {"47", "E", "C", "curtain_gathered", "3"}};
+        // Each: sprite, facing, which curtain, model and its quarter turns, and where on its square the curtain's colour is taken,
+        // a place the sprite paints cloth, or none for a bare rail. The gathered model is bunched at its +X end.
+        String[][] curtains = {{"40", "S", "A", "curtain_rail", "0", "-"}, {"41", "S", "B", "curtain_drawn", "0", "0.5,0.47"},
+            {"42", "S", "C", "curtain_gathered", "0", "0.195,0.47"}, {"43", "S", "D", "curtain_gathered", "2", "0.805,0.47"},
+            {"44", "E", "A", "curtain_rail", "1", "-"}, {"45", "E", "B", "curtain_drawn", "1", "0.47,0.5"},
+            {"46", "E", "D", "curtain_gathered", "1", "0.47,0.195"}, {"47", "E", "C", "curtain_gathered", "3", "0.47,0.805"}};
         for (String[] c : curtains) {
             Furniture curtain = Furniture.known(sprite("location_community_medical_01_" + c[0] + "|CustomName|Curtain " + c[2] + "|Facing|" + c[1]
                     + "|GroupName|Blue Hospital|IsMoveAble||Material|Fabric"));
             check(model(curtain).equals(c[3]) && curtain.turns == Integer.parseInt(c[4]),
                     "location_community_medical_01_" + c[0] + " is " + c[3] + " turned " + c[4] + ": " + model(curtain));
+            if (curtain == null) {
+                continue;
+            }
+            if (c[5].equals("-")) {
+                check(curtain.dyed == 0, "location_community_medical_01_" + c[0] + ", a bare rail, takes no colour");
+            } else {
+                String[] at = c[5].split(",");
+                check(curtain.dyed != 0 && Math.abs(curtain.dyeA - Float.parseFloat(at[0])) < 1e-4f && Math.abs(curtain.dyeB - Float.parseFloat(at[1])) < 1e-4f,
+                        "location_community_medical_01_" + c[0] + " takes its colour at (" + c[5] + "): (" + curtain.dyeA + ", " + curtain.dyeB + ")");
+            }
         }
     }
 
