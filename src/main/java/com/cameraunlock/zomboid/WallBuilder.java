@@ -684,7 +684,7 @@ final class WallBuilder {
             }
             if (!band.tiled) {
                 build.frame.material = made;
-                SpriteGeometry.Mesh on = painted(band.red, band.green, band.blue);
+                SpriteGeometry.Mesh on = band.figured[0] ? tileStood : painted(band.red, band.green, band.blue);
                 tiledFace(on, x, y, z, a, b, da, db, from, to, low, high, from, to, sealFrom, sealTo, startIsLow);
                 continue;
             }

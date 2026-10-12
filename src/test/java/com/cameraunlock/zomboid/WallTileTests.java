@@ -4,40 +4,64 @@ import static com.cameraunlock.zomboid.Checks.check;
 
 import java.util.function.BiFunction;
 
-/** Tests of what is read off a tiled wall's sprite stood square on its wall: see WallTiles. */
+/**
+ * Tests of what is read off a tiled wall's sprite stood square on its wall: see WallTiles. Each
+ * wall is drawn as the game draws it at its own scale, 64 dots long, and again twice as large,
+ * with every dot of it two each way: each case runs at both.
+ */
 final class WallTileTests {
     private static final int ACROSS = 64, HIGH = 192;
-    private static final float[] BLUE = {0.42f, 0.62f, 0.71f}, CREAM = {0.90f, 0.90f, 0.78f}, PEACH = {0.80f, 0.74f, 0.66f};
+    private static final float[] BLUE = {0.42f, 0.62f, 0.71f}, CREAM = {0.90f, 0.90f, 0.78f}, PEACH = {0.80f, 0.74f, 0.66f}, NAVY = {0.20f, 0.25f, 0.30f};
+    /** How many dots each dot of a wall below is drawn as, each way. */
+    private static int scale = 1;
 
     private WallTileTests() {}
 
     static void run() {
-        Checks.run("blueTilesAreTheirJointsAndCourses", WallTileTests::blueTilesAreTheirJointsAndCourses);
-        Checks.run("paintOverABandOfTilesIsThreeBands", WallTileTests::paintOverABandOfTilesIsThreeBands);
-        Checks.run("plainPaintIsNoTiles", WallTileTests::plainPaintIsNoTiles);
-        Checks.run("stripedPaperIsNoTiles", WallTileTests::stripedPaperIsNoTiles);
-        Checks.run("courseWithAFigureKeepsItsFigure", WallTileTests::courseWithAFigureKeepsItsFigure);
-        Checks.run("figureOnEveryOtherCourseIsOnAll", WallTileTests::figureOnEveryOtherCourseIsOnAll);
-        Checks.run("wallWithAWindowIsNotWhole", WallTileTests::wallWithAWindowIsNotWhole);
-        Checks.run("jointsKeepTheirStepPastAJambThatIsNoJoint", WallTileTests::jointsKeepTheirStepPastAJambThatIsNoJoint);
+        for (int each = 1; each <= 2; each++) {
+            scale = each;
+            String at = each == 1 ? "" : " at twice the scale";
+            Checks.run("blueTilesAreTheirJointsAndCourses" + at, WallTileTests::blueTilesAreTheirJointsAndCourses);
+            Checks.run("paintOverABandOfTilesIsThreeBands" + at, WallTileTests::paintOverABandOfTilesIsThreeBands);
+            Checks.run("plainPaintIsNoTiles" + at, WallTileTests::plainPaintIsNoTiles);
+            Checks.run("stripedPaperIsNoTiles" + at, WallTileTests::stripedPaperIsNoTiles);
+            Checks.run("courseWithAFigureKeepsItsFigure" + at, WallTileTests::courseWithAFigureKeepsItsFigure);
+            Checks.run("figureWhereTilesMeetIsOnBothCourses" + at, WallTileTests::figureWhereTilesMeetIsOnBothCourses);
+            Checks.run("shadingAndASpeckAreNoFigure" + at, WallTileTests::shadingAndASpeckAreNoFigure);
+            Checks.run("darkTilesKeepTheirCourses" + at, WallTileTests::darkTilesKeepTheirCourses);
+            Checks.run("wallWithAWindowIsNotWhole" + at, WallTileTests::wallWithAWindowIsNotWhole);
+            Checks.run("doorInTilesUnderPaintIsReadAsNotWhole" + at, WallTileTests::doorInTilesUnderPaintIsReadAsNotWhole);
+            Checks.run("jointsKeepTheirStepPastAJambThatIsNoJoint" + at, WallTileTests::jointsKeepTheirStepPastAJambThatIsNoJoint);
+        }
+        scale = 1;
         Checks.run("aTileIsPaintedInItsOwnColourFinely", WallTileTests::aTileIsPaintedInItsOwnColourFinely);
     }
 
-    /** A wall stood square: colour gives each dot's colour, or null for no wall there. As the game's walls, the last four columns are unpainted. */
+    /**
+     * A wall stood square, drawn at the scale in hand: colour gives the colour of each dot of it
+     * at the game's own scale, or null for no wall there. As the game's walls, the last four
+     * dots of each row are unpainted.
+     */
     private static WallTiles.Wall read(BiFunction<Integer, Integer, float[]> colour) {
-        float[] rgb = new float[ACROSS * HIGH * 3];
-        boolean[] solid = new boolean[ACROSS * HIGH];
-        for (int row = 0; row < HIGH; row++) {
-            for (int column = 0; column < ACROSS - 4; column++) {
-                float[] dot = colour.apply(column, row);
+        int across = ACROSS * scale, high = HIGH * scale;
+        float[] rgb = new float[across * high * 3];
+        boolean[] solid = new boolean[across * high];
+        for (int row = 0; row < high; row++) {
+            for (int column = 0; column < across - 4 * scale; column++) {
+                float[] dot = colour.apply(column / scale, row / scale);
                 if (dot != null) {
-                    int at = row * ACROSS + column;
+                    int at = row * across + column;
                     solid[at] = true;
                     System.arraycopy(dot, 0, rgb, at * 3, 3);
                 }
             }
         }
-        return WallTiles.read(rgb, solid, ACROSS, HIGH);
+        return WallTiles.read(rgb, solid, across, high);
+    }
+
+    /** Whether a joint is where the game's dot at column is, as near as a dot at the scale in hand. */
+    private static boolean jointAt(float joint, int column) {
+        return Math.abs(joint - (column + 0.5f) / ACROSS) <= 0.75f / ACROSS;
     }
 
     private static float[] shaded(float[] colour, float by) {
@@ -57,8 +81,8 @@ final class WallTileTests {
         WallTiles.Wall wall = read((column, row) -> tiles(BLUE, column, row, 11, 16, 27, 22));
         check(wall != null && wall.whole && wall.bands.length == 1, "a wall of blue tiles is one band, whole");
         WallTiles.Band band = wall.bands[0];
-        check(band.tiled && band.joints.length == 4, "with four joints along it, the last where the sprite stops short: " + (band.joints == null ? "none" : band.joints.length));
-        check(Math.abs(band.joints[0] - 11.5f / ACROSS) < 0.002f && Math.abs(band.joints[3] - 59.5f / ACROSS) < 0.002f, "a step of 16 dots from the eleventh");
+        check(band.tiled && band.joints.length == 4, "with four joints along it, the last where the sprite stops short: " + band.joints.length);
+        check(jointAt(band.joints[0], 11) && jointAt(band.joints[3], 59) && Math.abs(band.step - 16f / ACROSS) < 0.001f, "a step of 16 dots from the eleventh: " + band.phase + " " + band.step);
         check(band.courses.length >= 7, "and a joint between every course: " + band.courses.length);
         for (int c = 1; c < band.courses.length; c++) {
             check(Math.abs(band.courses[c] - band.courses[c - 1] - 22f / HIGH) < 0.012f, "courses evenly apart, from the foot up");
@@ -107,14 +131,15 @@ final class WallTileTests {
         check(low < middle && middle < high, "the one the diamonds are on");
     }
 
-    private static void figureOnEveryOtherCourseIsOnAll() {
-        // A diamond on every other tile of every other course, as the game paints them where tiles meet: a course with none between two with.
+    private static void figureWhereTilesMeetIsOnBothCourses() {
+        // A diamond where four tiles meet at every other joint of every course line, as the game paints them: half of each on the
+        // course under its line and half on the course over it.
         WallTiles.Wall wall = read((column, row) -> {
-            int across = Math.floorMod(column - 19, 32), up = Math.floorMod(row - 38, 44);
-            boolean diamond = Math.min(across, 32 - across) + Math.min(up, 44 - up) < 5;
+            int across = Math.floorMod(column - 11, 32), up = Math.floorMod(row - 28, 22);
+            boolean diamond = Math.min(across, 32 - across) + Math.min(up, 22 - up) < 5;
             return diamond ? new float[] {0.2f, 0.5f, 0.6f} : tiles(CREAM, column, row, 11, 16, 27, 22);
         });
-        check(wall != null && wall.bands[0].tiled, "a wall of tiles with a diamond where four meet is tiles");
+        check(wall != null && wall.bands[0].tiled, "a wall of tiles with a diamond where tiles meet is tiles");
         boolean all = true;
         for (boolean figured : wall.bands[0].figured) {
             all &= figured;
@@ -122,15 +147,47 @@ final class WallTileTests {
         check(all, "and every course of it shows the sprite's dots, so a figure across a joint is not cut in half");
     }
 
+    private static void shadingAndASpeckAreNoFigure() {
+        // The game shades a wall darker under the ceiling, and a few dots of one tile are a speck: neither is a figure.
+        WallTiles.Wall wall = read((column, row) -> {
+            float[] tile = tiles(BLUE, column, row, 11, 16, 27, 22);
+            boolean speck = column >= 34 && column < 36 && row >= 100 && row < 102;
+            return row < 4 ? shaded(tile, 0.55f) : speck ? new float[] {0.9f, 0.2f, 0.2f} : tile;
+        });
+        boolean none = wall != null;
+        for (boolean figured : wall == null ? new boolean[0] : wall.bands[0].figured) {
+            none &= !figured;
+        }
+        check(none, "no course of plain tiles shaded under the ceiling, with a speck on one tile, has a figure");
+    }
+
+    private static void darkTilesKeepTheirCourses() {
+        WallTiles.Wall wall = read((column, row) -> tiles(NAVY, column, row, 11, 16, 27, 22));
+        check(wall != null && wall.bands.length == 1 && wall.bands[0].courses.length >= 7, "dark tiles keep their course joints, a tenth darker as on white ones: "
+                + (wall == null ? "none" : wall.bands.length + " bands"));
+    }
+
     private static void wallWithAWindowIsNotWhole() {
         WallTiles.Wall wall = read((column, row) -> column >= 12 && column < 36 && row >= 45 && row < 120 ? null : tiles(BLUE, column, row, 11, 16, 27, 22));
         check(wall != null && !wall.whole, "a wall of tiles with a window in it says it is not whole, and takes a whole one's reading");
     }
 
+    private static void doorInTilesUnderPaintIsReadAsNotWhole() {
+        // A door to the floor through tiles a sixth of the way up under paint: nothing of the tiles is left to read beside it.
+        WallTiles.Wall wall = read((column, row) -> column >= 12 && column < 44 && row >= 40 ? null
+                : row < 157 ? CREAM : row < 161 ? shaded(PEACH, 0.7f) : tiles(PEACH, column, row, 15, 22, 400, 1000));
+        check(wall != null && !wall.whole, "a door through tiles under paint is read, and says it is not whole, so it can take a whole wall's tiles");
+        boolean paint = false;
+        for (WallTiles.Band band : wall == null ? new WallTiles.Band[0] : wall.bands) {
+            paint |= !band.tiled && Math.abs(band.red - CREAM[0]) < 0.02f;
+        }
+        check(paint, "and what it says of itself, the paint over the door, is there to check a whole wall's against");
+    }
+
     private static void jointsKeepTheirStepPastAJambThatIsNoJoint() {
         // A dark line seven dots from the joint before it, as a window's jamb is, is no joint.
         WallTiles.Wall wall = read((column, row) -> column == 4 ? shaded(BLUE, 0.6f) : tiles(BLUE, column, row, 11, 16, 27, 22));
-        check(wall != null && wall.bands[0].joints.length == 4 && Math.abs(wall.bands[0].joints[0] - 11.5f / ACROSS) < 0.002f, "the joints are still every 16 dots from the eleventh");
+        check(wall != null && wall.bands[0].joints.length == 4 && jointAt(wall.bands[0].joints[0], 11), "the joints are still every 16 dots from the eleventh");
     }
 
     private static void aTileIsPaintedInItsOwnColourFinely() {
