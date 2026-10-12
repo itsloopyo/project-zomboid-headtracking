@@ -1,6 +1,7 @@
 package com.cameraunlock.zomboid;
 
 import java.util.Arrays;
+import java.util.Locale;
 
 /**
  * What lies fallen under trees: leaf from the broad-leaved trees, which deepens through autumn
@@ -13,8 +14,11 @@ import java.util.Arrays;
  * trees and the squares are, so two chunks that share a corner give it the same litter.
  */
 final class Litter {
-    /** What a tree drops, by its kind: nothing, brown leaf, red, yellow, needles and cones, holly leaf. */
-    static final byte NONE = 0, OAK = 1, RED = 2, YELLOW = 3, PINE = 4, HOLLY = 5;
+    /**
+     * What a tree drops: nothing, leaf in the colour its crown turns (LEAF and one of Flora's
+     * HUES after it), needles and cones, or holly's leaves.
+     */
+    static final byte NONE = 0, LEAF = 1, PINE = LEAF + Flora.HUES, HOLLY = PINE + 1;
     /** How many squares round a chunk its trees are read from: further than any tree's litter reaches. */
     static final int RING = 6;
     /**
@@ -49,30 +53,36 @@ final class Litter {
      */
     static final int CARDS_MOST = 5, CONES_MOST = 2, STEPS = 15;
     static final float CARD_FROM = 0.3f;
+    /** The share of fallen leaves in their tree's own autumn colour, the rest gone brown, and how much darker on the ground than in the crown. */
+    static final float OWN_SHARE = 0.75f, FALLEN_DIM = 0.8f;
+    /** The brown of fallen leaf gone brown. */
+    static final float BROWN_RED = 0.42f, BROWN_GREEN = 0.25f, BROWN_BLUE = 0.12f;
     /** How many fewer of them show where winter has matted them into the litter. */
     private static final float CARDS_MATTED = 0.4f;
     /**
-     * How far through autumn fresh leaf starts to lie on top, and from how far through it
-     * the fresh fades to FRESH_LAST of itself by autumn's end. How far through winter the
-     * litter has matted down dark, and how dark the old litter of a summer is.
+     * How far through autumn fresh leaf starts to lie on top, and from how far through it the
+     * fresh fades, to none at autumn's end. How far through winter the litter has matted down
+     * dark, and how dark the old litter of a summer is.
      */
-    static final float FRESH_FROM = 0.05f, FRESH_TAKES = 0.2f, FRESH_FADES = 0.7f, FRESH_LAST = 0.5f, MATS_IN = 0.3f, SUMMER_DARK = 0.4f;
+    static final float FRESH_FROM = 0.05f, FRESH_TAKES = 0.2f, FRESH_FADES = 0.7f, MATS_IN = 0.3f, SUMMER_DARK = 0.4f;
 
     private Litter() {}
 
-    /** What a tree drops, by its sprite's name: the game names a tree's sprites for its species. */
-    static byte kindOf(String name) {
-        if (name == null) {
-            return OAK;
+    /**
+     * What the tree whose sprite is named name and whose square hashes to treeHash
+     * (Seasons.treeHash) drops: what Flora says of its crown, evergreen or the colour it turns,
+     * so the leaf on the ground is always the leaf that was on the tree.
+     */
+    static byte kindOf(String name, int treeHash) {
+        String species = name == null ? "" : name;
+        if (Flora.evergreen(species)) {
+            return species.contains("holly") ? HOLLY : PINE;
         }
-        return name.contains("holly") ? HOLLY : name.contains("hemlock") || name.contains("pine") ? PINE
-                : name.contains("maple") || name.contains("dogwood") || name.contains("hawthorn") ? RED
-                : name.contains("birch") || name.contains("silverbell") || name.contains("yellowwood") || name.contains("redbud") || name.contains("linden") ? YELLOW
-                : OAK;
+        return (byte) (LEAF + Flora.autumnHue(species, treeHash));
     }
 
     static boolean evergreen(byte kind) {
-        return kind == PINE || kind == HOLLY;
+        return kind >= PINE;
     }
 
     /**
@@ -88,7 +98,7 @@ final class Litter {
         int span = tiles + 2 * RING, across = tiles + 1;
         Arrays.fill(leaves, 0f);
         Arrays.fill(needles, 0f);
-        Arrays.fill(leafKinds, OAK);
+        Arrays.fill(leafKinds, LEAF);
         Arrays.fill(needleKinds, PINE);
         boolean any = false;
         for (byte kind : kinds) {
@@ -197,6 +207,32 @@ final class Litter {
         return 1f - (1f - ROAD_MIDDLE) * t * t * (3f - 2f * t);
     }
 
+    /**
+     * The part of a polygon of count corners, (a, b) each with its value of Kerbs' field, on the
+     * street's side of the kerb or on the land's (where the field is not above nothing), cut
+     * where the field, taken as running evenly along each side, is nothing. Into the out arrays,
+     * how many corners it has given back: under 3 for none.
+     */
+    static int side(int count, float[] a, float[] b, float[] kerb, boolean street, float[] outA, float[] outB, float[] outKerb) {
+        int out = 0;
+        for (int i = 0; i < count; i++) {
+            int j = (i + 1) % count;
+            boolean here = kerb[i] > 0f == street, next = kerb[j] > 0f == street;
+            if (here) {
+                outA[out] = a[i];
+                outB[out] = b[i];
+                outKerb[out++] = kerb[i];
+            }
+            if (here != next) {
+                float t = kerb[i] / (kerb[i] - kerb[j]);
+                outA[out] = a[i] + (a[j] - a[i]) * t;
+                outB[out] = b[i] + (b[j] - b[i]) * t;
+                outKerb[out++] = 0f;
+            }
+        }
+        return out;
+    }
+
     /** How far the season spreads the litter: see SPREAD_SUMMER. */
     static float spread(float litter) {
         return SPREAD_SUMMER + (SPREAD_MOST - SPREAD_SUMMER) * (litter - litterSummer()) / (1f - litterSummer());
@@ -206,12 +242,12 @@ final class Litter {
         return Seasons.litter(Seasons.SUMMER, 0.5f);
     }
 
-    /** How much of the leaf on top is freshly fallen, bright in its autumn colours: through autumn, fading at its end, none after. */
+    /** How much of the leaf on top is freshly fallen, bright in its autumn colours: through autumn, fading to none by its end. */
     static float fresh(int season, float progression) {
         if (season != Seasons.AUTUMN) {
             return 0f;
         }
-        return smooth((progression - FRESH_FROM) / FRESH_TAKES) * (1f - (1f - FRESH_LAST) * smooth((progression - FRESH_FADES) / (1f - FRESH_FADES)));
+        return smooth((progression - FRESH_FROM) / FRESH_TAKES) * (1f - smooth((progression - FRESH_FADES) / (1f - FRESH_FADES)));
     }
 
     /** How dark and matted the litter under the fresh leaf is: a summer's old leaf part way, last autumn's at its darkest through winter, brightening as autumn's falls on it. */
@@ -249,13 +285,9 @@ final class Litter {
         return (int) Math.floor(spread / SPREAD_MOST * STEPS + 1e-4f);
     }
 
-    /** Which fallen leaf a card under a tree of the kind is, by a chance from 0 to 1: mostly the tree's own colour, some faded to brown. */
+    /** Which fallen leaf a card under a broad-leaved tree of the kind is, by a chance from 0 to 1: OWN_SHARE of them the tree's own autumn colour, the rest brown. */
     static int leafPick(byte kind, float chance) {
-        return switch (kind) {
-            case RED -> chance < 0.55f ? Flora.FALLEN_RED : chance < 0.8f ? Flora.FALLEN_ORANGE : Flora.FALLEN_BROWN;
-            case YELLOW -> chance < 0.6f ? Flora.FALLEN_YELLOW : chance < 0.8f ? Flora.FALLEN_ORANGE : Flora.FALLEN_BROWN;
-            default -> chance < 0.5f ? Flora.FALLEN_BROWN : chance < 0.85f ? Flora.FALLEN_ORANGE : Flora.FALLEN_YELLOW;
-        };
+        return chance < OWN_SHARE ? Flora.FALLEN_HUE + kind - LEAF : Flora.FALLEN_BROWN;
     }
 
     /** How many cones, or holly leaves, lie on a square as deep in needles as needle says. */
@@ -268,16 +300,26 @@ final class Litter {
      * GROUND_NOISE's grain and patches. uLitterSeason is spread, fresh, dark and cardSpread,
      * and the constants are this class's.
      */
-    static final String GLSL = "uniform vec4 uLitterSeason;\nconst float LITTER_SPREAD_MOST = " + SPREAD_MOST + ";\nconst float LITTER_STEPS = " + STEPS + ".0;\n" + """
-            // The colour of a leaf freshly fallen from a tree of the kind (Litter.OAK and on), by a chance from 0 to 1, as Litter.leafPick chooses a card's.
+    static final String GLSL = String.format(Locale.ROOT, """
+            uniform vec4 uLitterSeason;
+            const float LITTER_SPREAD_MOST = %f;
+            const float LITTER_STEPS = %d.0;
+            const float LITTER_KIND_STEP = %f;
+            const float LITTER_LEAF = %d.0;
+            const float LITTER_OWN_SHARE = %f;
+            const float LITTER_FALLEN_DIM = %f;
+            const vec3 LITTER_BROWN = vec3(%f, %f, %f);
+            const float LEAF_BROWN = %d.0;
+            const float LEAF_TWIG = %d.0;
+            const float LEAF_CONE = %d.0;
+            const float LEAF_HUE = %d.0;
+
+            """, SPREAD_MOST, STEPS, Flora.LITTER_KIND_STEP, LEAF, OWN_SHARE, FALLEN_DIM, BROWN_RED, BROWN_GREEN, BROWN_BLUE,
+            Flora.FALLEN_BROWN, Flora.TWIG, Flora.CONE, Flora.FALLEN_HUE) + """
+            // The colour of a leaf fallen from a tree of the kind (LITTER_LEAF and on), by a chance from 0 to 1, as Litter.leafPick chooses a card's:
+            // the colour the tree's crown turns (autumnHue), or brown.
             vec3 litterLeafColour(float kind, float chance) {
-                if (kind > 1.5 && kind < 2.5) {
-                    return chance < 0.55 ? vec3(0.62, 0.13, 0.07) : chance < 0.8 ? vec3(0.72, 0.33, 0.08) : vec3(0.45, 0.24, 0.11);
-                }
-                if (kind > 2.5) {
-                    return chance < 0.6 ? vec3(0.8, 0.62, 0.14) : chance < 0.8 ? vec3(0.72, 0.42, 0.1) : vec3(0.48, 0.3, 0.12);
-                }
-                return chance < 0.5 ? vec3(0.46, 0.27, 0.12) : chance < 0.85 ? vec3(0.62, 0.36, 0.11) : vec3(0.7, 0.55, 0.16);
+                return chance < LITTER_OWN_SHARE ? autumnHue(kind - LITTER_LEAF) * LITTER_FALLEN_DIM : LITTER_BROWN * (0.8 + 0.4 * chance);
             }
 
             // Leaves freshly fallen on litter of the colour under: in some cells of two grids

@@ -68,9 +68,11 @@ final class PlantBuilder {
     private final float[] littered = new float[4];
     /** The square being strewn: how deep in leaf and in needles each corner is as a build lays them, see Litter. */
     private final float[] leafAt = new float[4], needleAt = new float[4];
-    /** A piece of litter being laid: each corner's height, depths and light. */
-    private final float[] pieceLift = new float[4], pieceLeaf = new float[4], pieceNeedle = new float[4];
-    private final float[] pieceRed = new float[4], pieceGreen = new float[4], pieceBlue = new float[4];
+    /** A piece of litter being laid: each corner's place on the square, kerb field, place on the map, height, depths and light, and the piece cut to one side of a kerb. */
+    private final float[] pieceA = new float[4], pieceB = new float[4], pieceKerb = new float[4];
+    private final float[] cutA = new float[8], cutB = new float[8], cutKerb = new float[8];
+    private final float[] pieceX = new float[8], pieceY = new float[8], pieceLift = new float[8], pieceLeaf = new float[8], pieceNeedle = new float[8];
+    private final float[] pieceRed = new float[8], pieceGreen = new float[8], pieceBlue = new float[8];
     /** The rectangle and texels of the frame as long grass found it, put back once the grass is grown. */
     private final SpriteGeometry.Frame heldTexels = new SpriteGeometry.Frame();
     /** The tree whose bole was stood last: its square, how thick and tall the bole is, and its bark. Its crown, which comes after it, grows limbs from it. */
@@ -141,14 +143,12 @@ final class PlantBuilder {
         float deepest = 0f;
         for (int corner = 0; corner < 4; corner++) {
             int i = localX + (corner == 1 || corner == 2 ? 1 : 0), j = localY + (corner >= 2 ? 1 : 0);
-            // A corner keeps as little as the least of the squares it touches, so that a square and its neighbour agree on it.
-            float keeps = 1f;
+            float keeps = cornerKeeps(build.groundKind, build.lightOpen, i, j);
             // The floor of a wood is open ground: a corner that touches a road, a path or a roof is no part of one.
             boolean open = true;
             for (int ci = 0; ci <= 1; ci++) {
                 for (int cj = 0; cj <= 1; cj++) {
                     int touching = (i + ci) * WorldScene.LIGHT_SPAN + j + cj;
-                    keeps = Math.min(keeps, Litter.keeps(build.groundKind[touching], build.lightOpen[touching] == 1));
                     open &= build.groundKind[touching] == Terrain.NATURAL && build.lightOpen[touching] == 1;
                 }
             }
@@ -218,38 +218,72 @@ final class PlantBuilder {
     }
 
     /**
-     * Lays the piece of the square's litter size across from (a, b) of it, unless a kerb runs
-     * across the piece: then each side of it is laid by a piece of its own and this one is
-     * left out, a sliver of the kerb's foot with it.
+     * Lays the piece of the square's litter size across from (a, b) of it. Where a kerb runs
+     * across the piece, each side of the kerb's line is laid at its own height, the street's a
+     * kerb below the land's.
      */
     private void layLitter(SpriteGeometry.Mesh cards, int x, int y, int localX, int localY, float a, float b, float size, float[] kerbs, byte kind) {
-        boolean street = false, land = false;
-        float shows = 0f;
         for (int corner = 0; corner < 4; corner++) {
-            float at = a + (corner == 1 || corner == 2 ? size : 0f), bt = b + (corner >= 2 ? size : 0f);
-            float kerb = kerbs == null ? -1f : Kerbs.at(kerbs, localX + at, localY + bt);
-            street |= kerb > 0f;
-            land |= kerb <= 0f;
-            float gutter = Litter.gutter(kerb);
+            pieceA[corner] = a + (corner == 1 || corner == 2 ? size : 0f);
+            pieceB[corner] = b + (corner >= 2 ? size : 0f);
+            pieceKerb[corner] = kerbs == null ? -1f : Kerbs.at(kerbs, localX + pieceA[corner], localY + pieceB[corner]);
+        }
+        if (build.geometry.kerb == null) {
+            layPiece(cards, x, y, 4, pieceA, pieceB, pieceKerb, kind, build.geometry.kerbStreet, false);
+            return;
+        }
+        for (int side = 0; side < 2; side++) {
+            boolean street = side == 0;
+            int count = Litter.side(4, pieceA, pieceB, pieceKerb, street, cutA, cutB, cutKerb);
+            if (count >= 3) {
+                layPiece(cards, x, y, count, cutA, cutB, cutKerb, kind, street, true);
+            }
+        }
+    }
+
+    /** Lays a polygon of the square's litter, its corners at (a, b) of the square with their kerb field: on the street's side of the kerb or the land's, where sided says one crosses the square. */
+    private void layPiece(SpriteGeometry.Mesh cards, int x, int y, int count, float[] a, float[] b, float[] kerb, byte kind, boolean street, boolean sided) {
+        float shows = 0f;
+        for (int corner = 0; corner < count; corner++) {
+            float at = a[corner], bt = b[corner];
+            float gutter = Litter.gutter(kerb[corner]);
+            pieceX[corner] = x + at;
+            pieceY[corner] = y + bt;
             pieceLeaf[corner] = across(leafAt, at, bt) * gutter;
             pieceNeedle[corner] = across(needleAt, at, bt) * gutter;
-            pieceLift[corner] = build.geometry.liftAt(at, bt);
+            float up = across(build.geometry.lift, at, bt);
+            pieceLift[corner] = sided && street != build.geometry.kerbStreet ? up + (street ? -Terrain.KERB : Terrain.KERB) : up;
             pieceRed[corner] = across(build.frame.cornerRed, at, bt);
             pieceGreen[corner] = across(build.frame.cornerGreen, at, bt);
             pieceBlue[corner] = across(build.frame.cornerBlue, at, bt);
             shows = Math.max(shows, Math.max(pieceLeaf[corner] * Litter.SPREAD_MOST, pieceNeedle[corner]));
         }
-        if (street && land && build.geometry.kerb != null || shows <= 0.02f) {
-            return;
+        if (shows > 0.02f) {
+            Flora.addLitter(cards, count, pieceX, pieceY, pieceLift, pieceLeaf, pieceNeedle, kind, pieceRed, pieceGreen, pieceBlue, build.frame.open);
         }
-        Flora.addLitter(cards, x + a, y + b, size, pieceLift, pieceLeaf, pieceNeedle, kind, pieceRed, pieceGreen, pieceBlue, build.frame.open);
+    }
+
+    /**
+     * How much of what falls at the corner (i, j) of a chunk's squares stays there: as little
+     * as the least of the four squares it touches keeps (Litter.keeps), so that a square and its
+     * neighbour agree on it. kinds and open are WorldScene.Frame's groundKind and lightOpen.
+     */
+    static float cornerKeeps(byte[] kinds, byte[] open, int i, int j) {
+        float keeps = 1f;
+        for (int ci = 0; ci <= 1; ci++) {
+            for (int cj = 0; cj <= 1; cj++) {
+                int touching = (i + ci) * WorldScene.LIGHT_SPAN + j + cj;
+                keeps = Math.min(keeps, Litter.keeps(kinds[touching], open[touching] == 1));
+            }
+        }
+        return keeps;
     }
 
     /** How many pieces a side the litter of a square a kerb crosses, or whose gutter runs over it, is laid in. */
-    private static final int LITTER_PIECES = 4;
+    static final int LITTER_PIECES = 4;
 
     /** Whether the street of the chunk's square (localX, localY) is within a gutter's width of a kerb. */
-    private static boolean nearKerb(float[] kerbs, int localX, int localY) {
+    static boolean nearKerb(float[] kerbs, int localX, int localY) {
         boolean street = false, gutter = false;
         for (int corner = 0; corner < 4; corner++) {
             float kerb = Kerbs.at(kerbs, localX + (corner == 1 || corner == 2 ? 1 : 0), localY + (corner >= 2 ? 1 : 0));

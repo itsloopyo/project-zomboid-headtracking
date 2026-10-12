@@ -1019,6 +1019,7 @@ final class WorldScene {
     private long tollCrownsWaitNanos, tollCrownsLongestNanos;
     private long tollCrownsKept, tollCrownsHere, tollCrownsHereNanos, tollCrownsThere, tollCrownsUnwanted;
     private long tollFrames, tollSums, tollSumNanos, tollBuildNanos, tollGrown, tollGrownNanos, tollChecked, tollDiffered;
+    private long tollWoods, tollWoodsNanos;
     private long tollSumsByLevel, tollLevelsRead, tollLevelsKept, tollSumsChecked, tollSumsDiffered, tollSumsLate;
 
     /** Dev only: the builds, the sums and the time they took since the last asking, for a rig run's window. */
@@ -1028,6 +1029,8 @@ final class WorldScene {
                 tollBuildNanos / 1e6, tollBuilt[NEW], tollBuilt[MOVED], tollBuilt[CHANGED], tollBuilt[AGED], tollBuilt[UNSIGNED], tollBuilt[LEFT_UNREAD],
                 tollGrown, tollGrownNanos / 1e6, tollChecked, tollDiffered);
         told += String.format(Locale.ROOT, ", telling %b quiet %d, lights asked %d taken %d", ChunkMarks.live, tollQuiet, tollPulls, tollPulled);
+        told += String.format(Locale.ROOT, ", trees read for sums %d in %.2f ms", tollWoods, tollWoodsNanos / 1e6);
+        tollWoods = tollWoodsNanos = 0;
         told += String.format(Locale.ROOT, ", built ahead of a turn %d in %.1f ms", tollAhead, tollAheadNanos / 1e6);
         told += String.format(Locale.ROOT, ", rooms walked %d times in %.2f ms each (chunks read for openings %d; last: openings %d, blocks %d, rooms seen %d, built %d, openings hidden by blocks %d)",
                 tollRoomsWalks, tollRoomsNanos / 1e6 / Math.max(1, tollRoomsWalks), roomMap.chunksRead, lastOpenings, lastBlocks, lastSeen, roomsBuilt.size(), lastHidden);
@@ -3949,7 +3952,10 @@ final class WorldScene {
                 System.arraycopy(lightBlue, 0, keptBlue, (z - from) * span, span);
                 System.arraycopy(lightOpen, 0, keptOpen, (z - from) * span, span);
                 if (z == 0) {
+                    long woodsBegan = System.nanoTime();
                     readWoods(chunkX, chunkY);
+                    tollWoods++;
+                    tollWoodsNanos += System.nanoTime() - woodsBegan;
                     long trees = SUM_FROM;
                     for (int i = 0; i < woods.length; i++) {
                         trees = sum(trees, woods[i]);
@@ -4362,7 +4368,7 @@ final class WorldScene {
                 for (int j = 0; j < WOOD_SPAN; j++) {
                     int localX = i - Litter.RING, localY = j - Litter.RING;
                     IsoGridSquare square = squareAt(chunkX, chunkY, chunkX + localX, chunkY + localY, 0);
-                    woods[i * WOOD_SPAN + j] = square != null && square.HasTree() ? Litter.kindOf(treeName(square)) : Litter.NONE;
+                    woods[i * WOOD_SPAN + j] = square != null && square.HasTree() ? Litter.kindOf(treeName(square), Seasons.treeHash(chunkX + localX, chunkY + localY)) : Litter.NONE;
                 }
             }
         }

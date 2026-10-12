@@ -2078,9 +2078,15 @@ final class PipelineShaders {
                         // turned against each other, as the ground's own pictures are.
                         litter = true;
                         vec2 p = vWorld.xy;
-                        float kind = floor(vUv.x / 2.0);
-                        float leafCover = min((vUv.x - 2.0 * kind) * uLitterSeason.x, 1.0);
+                        float kind = floor(vUv.x / LITTER_KIND_STEP);
+                        float leafCover = min((vUv.x - LITTER_KIND_STEP * kind) * uLitterSeason.x, 1.0);
                         laidCover = max(leafCover, vUv.y);
+                        // Most of what a build lays shows only at the end of autumn. Under 0.15 even the ragged
+                        // edge below cannot raise what shows to 0.03, where it is left out: so it is left out now,
+                        // before anything else is asked of it.
+                        if (laidCover < 0.15) {
+                            discard;
+                        }
                         vec3 litterToEye = uEye - vWorld;
                         float litterAway = length(litterToEye);
                         float foot = uPixel * litterAway * litterAway / max(abs(litterToEye.z), 0.1);
@@ -2091,7 +2097,7 @@ final class PipelineShaders {
                         // than leaves fresh down; matted darker through the winter.
                         float tone = dot(fallen, vec3(0.299, 0.587, 0.114));
                         vec3 leaf = clamp(mix(vec3(tone), fallen, 0.7) * (0.25 + 0.13 * patches(p * 0.31 + 9.0)), 0.0, 1.0);
-                        vec3 needles = litterNeedles(p, leaf, foot);
+                        vec3 needles = vUv.y > 0.0 ? litterNeedles(p, leaf, foot) : leaf;
                         leaf = mix(leaf, vec3(dot(leaf, vec3(0.3, 0.5, 0.2))) * vec3(0.78, 0.55, 0.4), 0.75 * uLitterSeason.z);
                         // What has just come down lies on top, most where most has.
                         leaf = litterFresh(p, leaf, kind, uLitterSeason.y * smoothstep(0.3, 0.9, leafCover), foot);
@@ -2099,9 +2105,11 @@ final class PipelineShaders {
                         // Wet leaf is darker and its colour deeper.
                         litterOf = mix(litterOf, litterOf * litterOf * 1.6, 0.45 * uWet);
                         // Where snow lies, what shows of the leaf through its ragged edge is frosted pale: dark
-                        // matted leaf against white read as crumbs. snowShelter is still 0 here, so this is the open sky's snow.
+                        // matted leaf against white read as crumbs. Less of it lies under trees, as on the ground.
                         if (uSnowLying > 0.0) {
+                            snowShelter = (1.0 - skyOverAt(vWorld + vec3(0.0, 0.0, 0.1), max(litterAway - uRangeFrom, 0.0))) / 0.62;
                             float frost = snowCovers(snowThick(vPlace.xy, foot).x);
+                            snowShelter = 0.0;
                             litterOf = mix(litterOf, vec3(dot(litterOf, vec3(0.3, 0.55, 0.15))) * 1.5 + 0.1, 0.65 * frost);
                         }
                         texel = vec4(clamp(litterOf, 0.0, 1.0), 1.0);
@@ -2211,7 +2219,7 @@ final class PipelineShaders {
                                 }
                             }
                             float off = abs(q.x - 0.5) * 2.0;
-                            if (pick > 5.5) {
+                            if (abs(pick - LEAF_CONE) < 0.5) {
                                 // A cone: an oval of scales, broadest a third of the way from its foot.
                                 float broad = 0.9 * pow(max(sin(3.14159 * pow(q.y, 0.85)), 0.0), 0.6);
                                 if (off > broad) {
@@ -2219,7 +2227,7 @@ final class PipelineShaders {
                                 }
                                 float scales = 0.75 + 0.25 * sin(q.y * 34.0 + off * 9.0) * sin(q.x * 20.0);
                                 texel = vec4(vec3(0.34, 0.22, 0.12) * scales * (0.8 + 0.25 * (1.0 - off)), 1.0);
-                            } else if (pick > 3.5 && pick < 4.5) {
+                            } else if (abs(pick - LEAF_TWIG) < 0.5) {
                                 // A twig: a brown stick along the middle of its card.
                                 if (off > 0.4) {
                                     discard;
@@ -2232,8 +2240,8 @@ final class PipelineShaders {
                                 if (off > broad * 0.95) {
                                     discard;
                                 }
-                                vec3 own = pick < 0.5 ? vec3(0.25, 0.42, 0.14) : pick < 1.5 ? vec3(0.58, 0.36, 0.14) : pick < 2.5 ? vec3(0.4, 0.26, 0.14)
-                                        : pick < 3.5 ? vec3(0.64, 0.52, 0.2) : vec3(0.6, 0.14, 0.08);
+                                // A weed's leaf is green, a fallen one brown or its tree's autumn colour (Litter.leafPick).
+                                vec3 own = pick < 0.5 ? vec3(0.25, 0.42, 0.14) : pick < LEAF_HUE - 0.5 ? LITTER_BROWN : autumnHue(pick - LEAF_HUE) * LITTER_FALLEN_DIM;
                                 // A fallen leaf is bright while it is fresh, dark brown once matted, and darker wet.
                                 if (pick > 0.5) {
                                     own = mix(own, vec3(0.22, 0.15, 0.1), 0.8 * uLitterSeason.z * (1.0 - uLitterSeason.y)) * (1.0 + 0.15 * uLitterSeason.y);
@@ -2977,7 +2985,7 @@ final class PipelineShaders {
                             float clear = uTexel.x > 0.0 ? texture2D(uTexture, vUv + vec2(0.0, clamp(upPicture * 0.4, -12.0 * uTexel.y, 12.0 * uTexel.y))).a : 1.0;
                             // Leaves and not bark: of the game's own sprite, by its colour, and of Flora's none on a twig.
                             float most = max(texel.r, max(texel.g, texel.b));
-                            bool twig = vMaterial > 60.5 && vMaterial < 61.5 && abs(floor(vUv.x / 2.0) - 4.0) < 0.5;
+                            bool twig = vMaterial > 60.5 && vMaterial < 61.5 && abs(floor(vUv.x / 2.0) - LEAF_TWIG) < 0.5;
                             float leafy = twig ? 0.0 : vMaterial > 5.5 && vMaterial < 6.5 || vMaterial < 0.5 ? smoothstep(0.25, 0.45, (max(texel.r, texel.g) - texel.b) / max(most, 0.001)) : 1.0;
                             // A clump is a few texels of the picture across, so it stays on the plant as the card turns, and round, not a square of texels.
                             float each = uTexel.x > 0.0 ? snowNoise(vUv / (uTexel * 5.0), vec2(4096.0), 31.0).x : 0.5;

@@ -22,9 +22,10 @@ final class Flora {
     /**
      * Which leaf a LEAF card is. The card's texture coordinate across carries it in the twos
      * above the 0 to 1 it runs over, and its coordinate up carries in the same way from which
-     * step of Litter's spread a fallen leaf shows: see Litter.cardStep.
+     * step of Litter's spread a fallen leaf shows: see Litter.cardStep. A fallen leaf in its
+     * tree's autumn colour is FALLEN_HUE and that colour's place among HUES after it.
      */
-    static final int WEED = 0, FALLEN_ORANGE = 1, FALLEN_BROWN = 2, FALLEN_YELLOW = 3, TWIG = 4, FALLEN_RED = 5, CONE = 6;
+    static final int WEED = 0, FALLEN_BROWN = 1, TWIG = 2, CONE = 3, FALLEN_HUE = 4;
     /** Which flower a FLOWER card is, carried the same way, or that it is a flower's stalk. */
     static final int WHITE = 0, YELLOW = 1, PURPLE = 2, STALK = 3;
     /**
@@ -896,21 +897,35 @@ final class Flora {
     }
 
     /**
-     * Litter over a square of the ground size tiles across from (x, y), in the corner order of
-     * SpriteGeometry.lift: laid over the ground and mixed into it. Each corner carries how deep
-     * fallen leaf lies there at the end of autumn and how deep needles lie, which the world
-     * shader shows as much of as the season says, and the leaf's kind (Litter.OAK and on) in
-     * the twos above its depth, the same at every corner. lift, red, green and blue are each
-     * corner's height and light.
+     * Litter over a piece of the ground: a convex polygon of count corners, the first count of
+     * x and y on the map, each at its height lift and in its light red, green and blue, laid over
+     * the ground and mixed into it. Each corner carries how deep fallen leaf lies there at the end
+     * of autumn and how deep needles lie, which the world shader shows as much of as the season
+     * says, and the leaf's kind (Litter.LEAF and on) in steps of LITTER_KIND_STEP above its depth,
+     * the same at every corner.
      */
-    static void addLitter(Mesh mesh, float x, float y, float size, float[] lift, float[] leaf, float[] needle, byte kind,
+    static void addLitter(Mesh mesh, int count, float[] x, float[] y, float[] lift, float[] leaf, float[] needle, byte kind,
             float[] red, float[] green, float[] blue, float open) {
         mark(mesh, open, 0f, LITTER);
-        mesh.face(-(lift[1] - lift[0] + lift[2] - lift[3]) / (2f * size), -(lift[3] - lift[0] + lift[2] - lift[1]) / (2f * size), 1f);
-        for (int corner : QUAD) {
-            mesh.add(x + (corner == 1 || corner == 2 ? size : 0f), y + (corner >= 2 ? size : 0f), lift[corner], LITTER_KIND_STEP * kind + leaf[corner], needle[corner],
-                    red[corner], green[corner], blue[corner]);
+        // Newell's way to the facing of a polygon, which is any of its triangles' for one that is flat.
+        float nx = 0f, ny = 0f, nz = 0f;
+        for (int i = 0; i < count; i++) {
+            int j = (i + 1) % count;
+            nx += (y[i] - y[j]) * (lift[i] + lift[j]);
+            ny += (lift[i] - lift[j]) * (x[i] + x[j]);
+            nz += (x[i] - x[j]) * (y[i] + y[j]);
         }
+        mesh.face(nz < 0f ? -nx : nx, nz < 0f ? -ny : ny, Math.abs(nz));
+        for (int i = 1; i < count - 1; i++) {
+            litterCorner(mesh, 0, x, y, lift, leaf, needle, kind, red, green, blue);
+            litterCorner(mesh, i, x, y, lift, leaf, needle, kind, red, green, blue);
+            litterCorner(mesh, i + 1, x, y, lift, leaf, needle, kind, red, green, blue);
+        }
+    }
+
+    private static void litterCorner(Mesh mesh, int corner, float[] x, float[] y, float[] lift, float[] leaf, float[] needle, byte kind,
+            float[] red, float[] green, float[] blue) {
+        mesh.add(x[corner], y[corner], lift[corner], LITTER_KIND_STEP * kind + leaf[corner], needle[corner], red[corner], green[corner], blue[corner]);
     }
 
     /** A litter vertex's coordinate across carries its leaf's kind in steps of this above its depth. The world shader has the same number. */

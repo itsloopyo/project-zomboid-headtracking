@@ -2849,8 +2849,11 @@ final class Pipeline {
         to.set("uRaining", state.rain);
         to.set("uSnowLying", state.snowLying);
         to.set("uPlantSnow", state.snowOnPlants());
-        to.set("uLitterSeason", Litter.spread(Seasons.litter()), Litter.fresh(Seasons.season(), Seasons.progression()),
-                Litter.dark(Seasons.season(), Seasons.progression()), Litter.cardSpread(Seasons.season(), Seasons.progression()));
+        long year = Seasons.now();
+        int season = Seasons.seasonOf(year);
+        float progression = Seasons.progressionOf(year);
+        to.set("uLitterSeason", Litter.spread(Seasons.litter(season, progression)), Litter.fresh(season, progression), Litter.dark(season, progression),
+                Litter.cardSpread(season, progression));
         for (int i = 0; i < snowTrod[0]; i++) {
             to.set(PRINT_AT[i], snowPrints[i * 4], snowPrints[i * 4 + 1], snowPrints[i * 4 + 2], snowPrints[i * 4 + 3]);
         }

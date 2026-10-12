@@ -741,7 +741,7 @@ public final class Tests {
         }
         check(whole, "a wood with a tree on every square is all leaves");
         byte[] lone = new byte[span * span];
-        lone[(4 + Litter.RING) * span + 4 + Litter.RING] = Litter.OAK;
+        lone[(4 + Litter.RING) * span + 4 + Litter.RING] = Litter.LEAF;
         Flora.wooded(lone, tiles, west);
         check(west[4 * across + 4] > 0.3f && west[4 * across + 4] < 1f, "one tree has a scatter of leaves at its foot");
         check(west[0] == 0f && west[8 * across + 4] == 0f, "and none four squares away");
@@ -756,7 +756,7 @@ public final class Tests {
         for (int i = 0; i < span; i++) {
             for (int j = 0; j < span; j++) {
                 int hash = Flora.mix(chunkX + i - Litter.RING, chunkY + j - Litter.RING, 3);
-                trees[i * span + j] = Math.floorMod(hash, every) == 0 ? (byte) (Litter.OAK + Math.floorMod(hash >>> 8, Litter.HOLLY)) : Litter.NONE;
+                trees[i * span + j] = Math.floorMod(hash, every) == 0 ? (byte) (Litter.LEAF + Math.floorMod(hash >>> 8, Litter.HOLLY)) : Litter.NONE;
             }
         }
         return trees;
@@ -922,20 +922,29 @@ public final class Tests {
     private static void litterShowsAsMuchAsItsCornersSay() {
         SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
         mesh.layers.lie(SpriteGeometry.LAYERS_UP, 3f);
-        float[] light = {0.5f, 0.5f, 0.5f, 0.5f};
-        Flora.addLitter(mesh, 5f, 6f, 0.5f, new float[] {0f, 0.1f, 0.2f, 0.1f}, new float[] {1f, 0.25f, 0f, 0.5f}, new float[] {0f, 0.5f, 1f, 0f},
-                Litter.RED, light, light, light, 0f);
-        check(mesh.triangles() == 2, "a piece of litter is two triangles");
+        float[] light = {0.5f, 0.5f, 0.5f, 0.5f, 0.5f};
+        byte red = (byte) (Litter.LEAF + Flora.SCARLET_LEAF);
+        Flora.addLitter(mesh, 4, new float[] {5f, 5.5f, 5.5f, 5f}, new float[] {6f, 6f, 6.5f, 6.5f}, new float[] {0f, 0.1f, 0.2f, 0.1f}, new float[] {1f, 0.25f, 0f, 0.5f},
+                new float[] {0f, 0.5f, 1f, 0f}, red, light, light, light, 0f);
+        check(mesh.triangles() == 2, "a piece of litter of four corners is two triangles");
         for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
             float[] f = mesh.vertices;
             float length = (float) Math.sqrt(f[at + 9] * f[at + 9] + f[at + 10] * f[at + 10] + f[at + 11] * f[at + 11]);
             check(near(length, 1f), "litter does not blow about");
             boolean east = near(f[at], 5.5f), south = near(f[at + 1], 6.5f);
-            check(near(f[at + 3], Flora.LITTER_KIND_STEP * Litter.RED + (east ? south ? 0f : 0.25f : south ? 0.5f : 1f)), "each corner carries the leaf it was given, over its kind");
+            check(near(f[at + 3], Flora.LITTER_KIND_STEP * red + (east ? south ? 0f : 0.25f : south ? 0.5f : 1f)), "each corner carries the leaf it was given, over its kind");
+            check(f[at + 11] > 0f, "and faces up");
             check(near(f[at + 4], east ? south ? 1f : 0.5f : 0f), "and the needles");
             check(near(f[at + 2], east ? south ? 0.2f : 0.1f : south ? 0.1f : 0f), "and lies on the ground there");
             check(f[at + 12] == 3f && f[at + 14] == SpriteGeometry.LAYERS_UP, "as many layers over it as it was laid by, which the picture makes room for");
             check(near(f[at + 8], Flora.LITTER * 32f), "and is marked as litter");
+        }
+        SpriteGeometry.Mesh cut = new SpriteGeometry.Mesh();
+        // Clockwise this time, as a cut along a kerb may give it: it still faces up.
+        Flora.addLitter(cut, 5, new float[] {0f, 0f, 0.5f, 1f, 1f}, new float[] {0f, 1f, 1f, 0.4f, 0f}, new float[5], new float[5], new float[5], red, light, light, light, 0f);
+        check(cut.triangles() == 3, "a piece of five corners is three triangles");
+        for (int at = 0; at < cut.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+            check(near(cut.vertices[at + 11], 1f), "a flat piece faces straight up whichever way round its corners go");
         }
     }
 
