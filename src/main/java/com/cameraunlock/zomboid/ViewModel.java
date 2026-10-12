@@ -106,6 +106,8 @@ public final class ViewModel {
 
     /** The crosshair's ticks come back together, to within a twentieth, in three of these: 150 ms. */
     static final float RECOIL_SECONDS = 0.05f;
+    /** What a shove with nothing in hand is taken to weigh, for how hard it lands and how long it stops: see HitStop. */
+    static final float BARE_WEIGHT = 1.5f;
     /** Shots faster than that do not throw them further apart than this. */
     private static final float RECOIL_MOST = 1.5f;
     /** What a shot does to the weapon. */
@@ -135,8 +137,6 @@ public final class ViewModel {
     private final AttackClock swing = new AttackClock();
     private int attack;
     private boolean struck, unshown, stamping;
-    /** What a shove with nothing in hand is taken to weigh, for how hard it lands and how long it stops: see HitStop. */
-    static final float BARE_WEIGHT = 1.5f;
     private final float[] swingNow = new float[2];
     private int kicks;
     private boolean placed, wasSneaking, wasFalling;

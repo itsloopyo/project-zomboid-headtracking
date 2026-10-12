@@ -545,7 +545,7 @@ public final class Characters {
             // A shove or a stamp with nothing in hand: the mod's own arms, and the body's left out.
             ViewCamera.between(aim, camera, fromAim);
             BareHands.pose(bare.way(), bare.reached(), bare.past(), bare.struck(), bareHand);
-            if (ArmHolds.bare(OwnArms.model(), ARM_SCALE * data.finalScale, bareHand, OwnArms.model().pose(BareHands.POSES[bare.way()]), fromAim, armSkins, armSaid) == 2) {
+            if (ArmHolds.bare(OwnArms.model(), ARM_SCALE * data.finalScale, bareHand, OwnArms.model().pose(BareHands.POSES[bare.way()]), fromAim, armSkins, armSaid)) {
                 holding = data;
                 armHands = null;
                 armFemale = bare.female();
@@ -553,6 +553,9 @@ public final class Characters {
                 armCarries.what = ArmHolds.NOTHING;
                 ownArms = true;
                 heldBoth = true;
+            } else if (!bareRefused) {
+                bareRefused = true;
+                Log.info("the mod's own arms could not be placed for a shove or a stamp with nothing in hand: the game's own arms are drawn for it, as often as that happens");
             }
             return;
         }
@@ -846,7 +849,7 @@ public final class Characters {
     /** For the trace: how far beside the weapon's middle the middle of the game's hand was, in tiles. */
     private float handAside;
     /** Whether the arms on the weapon held up are the mod's own, and for each, right then left, where its bones are. */
-    private boolean ownArms, armsRefused;
+    private boolean ownArms, armsRefused, bareRefused;
     /** How the weapon was held when its arms were placed: they are drawn for that, whatever the logic thread has said since. */
     private ViewModel.Held armHands;
     /** Whose arms they are: a woman's or not, and the game's skin. */

@@ -227,7 +227,7 @@ final class MeleeFeelTests {
         for (int way : new int[] {BareHands.SHOVED, BareHands.STAMPED}) {
             for (int step = 0; step <= 40; step++) {
                 BareHands.pose(way, Math.min(step / 20f, 1f), Math.max(step / 20f - 1f, 0f), step % 2 == 0, hand);
-                check(ArmHolds.bare(model, SCALE, hand, model.pose(BareHands.POSES[way]), SAME, skins, said) == 2, "both arms are placed, way " + way + " step " + step);
+                check(ArmHolds.bare(model, SCALE, hand, model.pose(BareHands.POSES[way]), SAME, skins, said), "both arms are placed, way " + way + " step " + step);
                 for (int side = 0; side < 2; side++) {
                     worst = Math.max(worst, said[side][ArmPose.BENT]);
                 }
