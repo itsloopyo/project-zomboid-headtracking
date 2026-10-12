@@ -3663,6 +3663,9 @@ final class Pipeline {
             GL11.glDepthMask(true);
             figureLight.set("uGlassPass", 0f);
             figureLight.set("uInstruments", view.ride.instrumentsLit ? 0.9f * state.night : 0f);
+            // The bonnet seen past the dash is painted the vehicle's own colour on both paths: the authored interior's
+            // as well as the built one's.
+            figureLight.set("uPaint", view.characters.cabin.paint[0], view.characters.cabin.paint[1], view.characters.cabin.paint[2]);
             float[] wheel = seated && !ownCabinDrawn ? Cabins.wheel(view.ride) : null;
             if (wheel == null) {
                 figureLight.set("uWheel", 0f, 0f, 0f, 0f);
@@ -3986,7 +3989,6 @@ final class Pipeline {
         float[] doorMirror = Cabins.doorMirror(house, measures);
         figureLight.set("uDoorMirror", doorMirror[0], doorMirror[1], doorMirror[2]);
         figureLight.set("uDoorView", Cabins.DOOR_VIEW_MIDDLE, Cabins.DOOR_VIEW_HALF, Cabins.DOOR_VIEW_FLANK);
-        figureLight.set("uPaint", view.characters.cabin.paint[0], view.characters.cabin.paint[1], view.characters.cabin.paint[2]);
         figureLight.set("uSteer", Cabins.wheelTurn(view.ride.steering));
         figureLight.set("uLamps", view.ride.instrumentsLit ? 1f : 0f, view.ride.lampsOn ? 1f : 0f);
         figureLight.set("uDome", view.ride.doorOpen ? 1f : 0f);
