@@ -133,6 +133,8 @@ final class ArmHolds {
         private WeaponShape shape;
         private final float[] toView = new float[16], still = new float[16];
         private float slid, foreRest, travel;
+        /** Where rounds go in, in the mesh's axes, where the mesh's model says, or null for the shape to say. */
+        private float[] port;
 
         Placed() {}
 
@@ -155,7 +157,18 @@ final class ArmHolds {
             this.slid = slid;
             this.foreRest = foreRest;
             this.travel = travel;
+            port = null;
             return this;
+        }
+
+        /** Says where rounds go in, in the mesh's axes, or with null leaves it to the shape. */
+        Placed port(float[] mesh) {
+            port = mesh;
+            return this;
+        }
+
+        float[] port() {
+            return port;
         }
 
         WeaponShape shape() {
@@ -748,7 +761,8 @@ final class ArmHolds {
                 yield placed.at(a, shape.under(a), 0f);
             }
             case ArmActs.BOLT_SINGLE -> placed.at(ArmPose.dot(shape.knob, shape.along) + BOLT_PORT * metre, shape.bore, 0f);
-            case ArmActs.REVOLVER -> placed.at(shape.guardFront - (shape.guardFront - shape.guardBack) * CYLINDER_BACK, shape.bore - CYLINDER_UNDER * metre, 0f);
+            case ArmActs.REVOLVER -> placed.port() != null ? placed.at(placed.port())
+                    : placed.at(shape.guardFront - (shape.guardFront - shape.guardBack) * CYLINDER_BACK, shape.bore - CYLINDER_UNDER * metre, 0f);
             default -> placed.at(shape.guardFront + BREECH * metre, shape.bore, 0f);
         };
     }

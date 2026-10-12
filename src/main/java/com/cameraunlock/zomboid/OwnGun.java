@@ -536,6 +536,14 @@ abstract class OwnGun {
 
         /** Throws one out of the port, which is at x, y, z in the model's axes, the model held as `model` says. */
         void out(ViewCamera.Pose camera, float[] model, float x, float y, float z) {
+            outAlong(camera, model, x, y, z, 0f, 0f, 0f);
+        }
+
+        /**
+         * Throws one out from x, y, z in the model's axes as `out` does, moving besides along
+         * (alongX, alongY, alongZ) of the model's own, in its metres a second.
+         */
+        void outAlong(ViewCamera.Pose camera, float[] model, float x, float y, float z, float alongX, float alongY, float alongZ) {
             int one = next;
             next = (next + 1) % age.length;
             age[one] = 0f;
@@ -544,7 +552,8 @@ abstract class OwnGun {
             at[one][0] += camera.eyeX;
             at[one][1] += camera.eyeY;
             at[one][2] += camera.eyeUp;
-            inWorld(camera, right, up, back, goes[one]);
+            ViewModelMath.turned(model, new float[] {alongX, alongY, alongZ}, scratch);
+            inWorld(camera, right + scratch[0], up + scratch[1], back + scratch[2], goes[one]);
             for (int column = 0; column < 3; column++) {
                 inWorld(camera, model[column * 4], model[column * 4 + 1], model[column * 4 + 2], scratch);
                 System.arraycopy(scratch, 0, axes[one], column * 3, 3);

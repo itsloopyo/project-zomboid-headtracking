@@ -1066,8 +1066,10 @@ public final class Characters {
             own.hold(meshView, heldView, weaponPlace, data.finalScale, out);
             own.hold(meshStill, view.viewModel.still, weaponPlace, data.finalScale, out);
             // A pump gun's fore-end is where its maker put it and slides as far as the model's does; the rifle's bolt is drawn back as far as its model's.
+            // A revolver's rounds go in at the back of the chamber the game fills next, wherever the swung out cylinder has it.
             return heldMesh.set(own.shape, meshView, meshStill, own.pump ? own.travel * pumped : 0f,
-                    own.pump ? own.foreEnd * own.muzzle[1] : Float.NaN, own.pump ? ArmHolds.BOLT_TRAVEL : own.travel);
+                    own.pump ? own.foreEnd * own.muzzle[1] : Float.NaN, own.pump ? ArmHolds.BOLT_TRAVEL : own.travel)
+                    .port(view.ownGun(own) instanceof OwnRevolver revolver ? revolver.loadingPort(own) : null);
         }
         WeaponShape shape = shapeOf(held, hands.item(), view.viewModel.handgun);
         if (shape == null) {

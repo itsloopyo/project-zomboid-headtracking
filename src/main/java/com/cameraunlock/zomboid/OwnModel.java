@@ -41,6 +41,10 @@ final class OwnModel {
         new OwnModel("the shotgun's model", "shotgun", "shotgun", "Base.Shotgun", true, true, OwnShotgun.PARTS, OwnShotgun::new),
         new OwnModel("the sawn-off shotgun's model", "sawnoff", "sawnoff", "Base.ShotgunSawnoff", true, true, OwnShotgun.PARTS, OwnShotgun::new),
         new OwnModel("the rifle's model", "rifle", "rifle", "Base.HuntingRifle", false, false, OwnRifle.PARTS, OwnRifle::new),
+        new OwnModel("the revolver's model", "revolver", "revolver", "Base.Revolver", false, false, OwnRevolver.PARTS, OwnRevolver::new),
+        new OwnModel("the magnum's model", "magnum", "magnum", "Base.Revolver_Long", false, false, OwnRevolver.PARTS, OwnRevolver::new),
+        new OwnModel("the snub-nosed revolver's model", "snubnose", "snubnose", "Base.Revolver_Short", false, false, OwnRevolver.PARTS, OwnRevolver::new),
+        new OwnModel("the cap gun's model", "capgun", "capgun", "Base.Revolver_CapGun", false, false, OwnRevolver.PARTS, OwnRevolver::new),
     };
 
     /**
@@ -221,6 +225,15 @@ final class OwnModel {
     }
 
     /**
+     * Which way the top of a model is in its own axes: +z, as the game's long guns are made, or
+     * -z for a handgun, which the game makes upside down from them and whose muzzle is then
+     * under its origin, as WeaponShape.axes reads the game's.
+     */
+    static float[] top(float[] muzzle) {
+        return new float[] {0f, 0f, muzzle[2] < 0f ? -1f : 1f};
+    }
+
+    /**
      * The model drawn for an item held, or null where it is the game's own: for a model of ours
      * that is not on the graphics card yet, the game's is drawn until it is, and it is asked for.
      * The logic thread's, as it makes ViewModel.Held, which the render thread reads it from.
@@ -342,7 +355,7 @@ final class OwnModel {
             throw new IOException(mesh + " has " + layout.counts.length + " parts, where what draws " + what + " draws " + parts);
         }
         StringBuilder why = new StringBuilder();
-        WeaponShape shape = WeaponShape.read(layout.places(read), layout.corners(read), new float[] {0f, 1f, 0f}, new float[] {0f, 0f, 1f}, layout.muzzle.clone(), 1f, why);
+        WeaponShape shape = WeaponShape.read(layout.places(read), layout.corners(read), new float[] {0f, 1f, 0f}, top(layout.muzzle), layout.muzzle.clone(), 1f, why);
         return new Read(read, layout, shape, why.toString());
     }
 
