@@ -969,8 +969,13 @@ final class WorldScene {
         withoutAlikeBands = off.contains("bands");
         withoutSightline = off.contains("sightline");
         withoutCulling = off.contains("culling");
-        if (TreeForm.withoutForms != off.contains("forms")) {
-            TreeForm.withoutForms = off.contains("forms");
+        boolean[] was = {TreeForm.withoutForms, Flora.fineOutOfShadow, Flora.nearTwiglets, Flora.piecesByDistance, Flora.twigsByDistance};
+        TreeForm.withoutForms = off.contains("forms");
+        Flora.fineOutOfShadow = !off.contains("fineshadow");
+        Flora.nearTwiglets = !off.contains("twiglets");
+        Flora.piecesByDistance = !off.contains("pieces");
+        Flora.twigsByDistance = !off.contains("twigcount");
+        if (!java.util.Arrays.equals(was, new boolean[] {TreeForm.withoutForms, Flora.fineOutOfShadow, Flora.nearTwiglets, Flora.piecesByDistance, Flora.twigsByDistance})) {
             forgetAll();
         }
     }

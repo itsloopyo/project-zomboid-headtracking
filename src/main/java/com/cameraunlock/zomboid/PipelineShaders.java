@@ -2126,6 +2126,8 @@ final class PipelineShaders {
                         float climbed = vUv.y - 32.0 * which;
                         float shifted = floor(across / 32.0);
                         across -= 32.0 * shifted;
+                        // A twig's mark (Flora.FINE_MARK) is for the shadow maps alone.
+                        shifted -= shifted > 3.5 ? 4.0 : 0.0;
                         float turned = step(15.5, across);
                         float wraps = (across - 16.0 * turned + 1.0) * 0.25;
                         vec2 own = fract(sin(vec2(which * 12.9898 + across * 78.233 + shifted * 37.719, which * 39.346 + across * 11.135 + shifted * 83.155)) * 43758.5453);
@@ -3597,7 +3599,8 @@ final class PipelineShaders {
                 // A floor or a ceiling is whole however many clear pixels its sprite has: see SpriteGeometry.SHEET.
                 vSolid = gl_MultiTexCoord1.z > 5.5 ? 1.0 : 0.0;
                 // A crown's sprigs take their colour from the sprite and are no part of its outline: the fan that stands with them throws the shadow.
-                if (material > 71.5 && material < 79.5 || material > 80.5 && material < 81.5) {
+                // Nor does a twig, finer than a texel of any of the maps: see Flora.FINE_MARK.
+                if (material > 71.5 && material < 79.5 || material > 80.5 && material < 81.5 || material > 56.5 && material < 57.5 && gl_MultiTexCoord0.x >= 1024.0) {
                     gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
                     return;
                 }
