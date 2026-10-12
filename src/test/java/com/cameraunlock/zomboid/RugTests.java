@@ -15,6 +15,7 @@ final class RugTests {
         Checks.run("theStaircaseAtASquaresEdgeIsFilledAndWhatIsPastItCut", RugTests::theStaircaseAtASquaresEdgeIsFilledAndWhatIsPastItCut);
         Checks.run("furTakesItsStrandsFromTheGrainAndKeepsItsShade", RugTests::furTakesItsStrandsFromTheGrainAndKeepsItsShade);
         Checks.run("levelsHalveDownToOneDot", RugTests::levelsHalveDownToOneDot);
+        Checks.run("everyReaderOfARunsTextureGoesThroughBound", RugTests::everyReaderOfARunsTextureGoesThroughBound);
     }
 
     private static void rugSpritesAreToldByTheirSheet() {
@@ -180,5 +181,41 @@ final class RugTests {
         byte[][] levels = Rugs.levels(dots, side);
         Checks.check(levels.length == 4, "10, 5, 2 and 1 dots across: " + levels.length);
         Checks.check(levels[3].length == 4 && (levels[3][0] & 0xff) == 200, "the last is one dot of the same colour");
+    }
+
+    /**
+     * A run's key is a texture's name or a square of rug's number, so whatever binds it binds
+     * ChunkBuffers.bound of it. Every line of the mod that reads a run's or a range's key is listed
+     * here as bookkeeping, or goes through bound: a new reader that binds the key itself fails.
+     */
+    private static void everyReaderOfARunsTextureGoesThroughBound() throws java.io.IOException {
+        java.util.List<String> keeping = java.util.List.of(
+                "WorldScene.java:runTexture = Arrays.copyOf(runTexture, runs * 2);",
+                "WorldScene.java:runTexture[runs] = mesh.texture;",
+                "ChunkBuffers.java:int slot = of.slot(build.runTexture[run], build.runTint[run]);",
+                "ChunkBuffers.java:rangeTexture[ranges] = runs.texture[slot];",
+                "ChunkBuffers.java:int slot = slot(build.runTexture[run], build.runTint[run]);",
+                "ChunkBuffers.java:texture[slot] = build.runTexture[run];");
+        int unresolved = 0;
+        StringBuilder found = new StringBuilder();
+        try (java.util.stream.Stream<java.nio.file.Path> files = java.nio.file.Files.list(java.nio.file.Path.of("src/main/java/com/cameraunlock/zomboid"))) {
+            for (java.nio.file.Path file : (Iterable<java.nio.file.Path>) files::iterator) {
+                for (String line : java.nio.file.Files.readAllLines(file)) {
+                    String code = line.strip();
+                    boolean reads = code.matches(".*\\b(runTexture|rangeTexture)\\[.*") || code.matches(".*\\bruns\\.texture\\[.*");
+                    if (!reads || code.startsWith("//") || code.startsWith("*") || code.contains("bound(")) {
+                        continue;
+                    }
+                    if (code.startsWith("private int[] rangeTexture") || code.startsWith("int[] runTexture") || code.startsWith("rangeTexture = new int")) {
+                        continue;
+                    }
+                    if (!keeping.contains(file.getFileName() + ":" + code)) {
+                        unresolved++;
+                        found.append(' ').append(file.getFileName()).append(": ").append(code);
+                    }
+                }
+            }
+        }
+        Checks.check(unresolved == 0, "every reader of a run's texture binds it through ChunkBuffers.bound:" + found);
     }
 }

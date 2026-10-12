@@ -36,6 +36,16 @@ import org.lwjgl.opengl.GL31;
  * and the build's block is taken as its picture only while it holds that version.
  */
 final class ChunkBuffers {
+    /**
+     * The OpenGL name of the texture a run or a range of them is drawn with, from the key its
+     * mesh was made under: a key below zero is a square of rug's number, whose picture is chosen
+     * as it is drawn (Rugs.texture), any other the texture's own name. Whatever binds a run's
+     * texture binds what this gives: the rug tests hold every reader of a run's key to it.
+     */
+    static int bound(int key) {
+        return key < 0 ? Rugs.texture(key) : key;
+    }
+
     private static final int GL_TRIANGLES = 0x0004;
     private static final int GL_FLOAT = 0x1406;
     private static final int GL_TEXTURE0 = 0x84C0;
@@ -516,10 +526,9 @@ final class ChunkBuffers {
             return solidRanges;
         }
 
-        /** The OpenGL name of the texture a range's triangles wear, 0 for none. A number below zero is a square of rug's, whose picture is chosen as it is drawn: see Rugs. */
+        /** The OpenGL name of the texture a range's triangles wear, 0 for none. */
         int texture(int range) {
-            int texture = rangeTexture[range];
-            return texture < 0 ? Rugs.texture(texture) : texture;
+            return bound(rangeTexture[range]);
         }
 
         int tint(int range) {

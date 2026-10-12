@@ -3161,7 +3161,7 @@ final class Pipeline {
                     // Window panes are drawn white and untinted: see drawPanes.
                     int key = build.runTint[run];
                     boolean pane = key == WallSides.PANES;
-                    int texture = pane || build.runTexture[run] == 0 ? whiteTexture : build.runTexture[run];
+                    int texture = pane || build.runTexture[run] == 0 ? whiteTexture : ChunkBuffers.bound(build.runTexture[run]);
                     GL11.glBindTexture(GL_TEXTURE_2D, texture);
                     tellTexel(texel, texture);
                     // Blood is painted in no colour of a wall's.
