@@ -14,6 +14,11 @@ final class PlantKindTests {
     static void run() {
         Checks.run("evergreensAreToldByName", PlantKindTests::evergreensAreToldByName);
         Checks.run("anEvergreensPaintedShadowIsNoNeedles", PlantKindTests::anEvergreensPaintedShadowIsNoNeedles);
+        Checks.run("deadTreesAreToldByName", PlantKindTests::deadTreesAreToldByName);
+        Checks.run("aBareCrownIsWoodAloneOutToTheOutline", PlantKindTests::aBareCrownIsWoodAloneOutToTheOutline);
+        Checks.run("aBareCrownNeedsABole", PlantKindTests::aBareCrownNeedsABole);
+        Checks.run("aBareCrownFarOffHasNoTwigs", PlantKindTests::aBareCrownFarOffHasNoTwigs);
+        Checks.run("aBareCrownHasLimbsWhateverItsDistance", PlantKindTests::aBareCrownHasLimbsWhateverItsDistance);
     }
 
     private static void evergreensAreToldByName() {
@@ -60,6 +65,66 @@ final class PlantKindTests {
             needles += (FOOT_V - all[i + 1]) * up >= 0.3f ? 1 : 0;
         }
         check(kept.length / 2 == needles, "and every such place is kept: " + kept.length / 2 + " of " + needles);
+    }
+
+    private static void deadTreesAreToldByName() {
+        for (int place = 0; place < 24; place++) {
+            check(Flora.deadTree("fencing_burnt_01_" + place) == (place >= 16 && place <= 19), "fencing_burnt_01_" + place + (place >= 16 && place <= 19 ? " is" : " is not") + " a dead tree");
+        }
+        check(!Flora.deadTree(null) && !Flora.deadTree("fencing_burnt_02_16"), "no other sheet holds the dead trees");
+    }
+
+    private static boolean branches(int u, int v) {
+        float du = Math.abs(u - FOOT_U), up = FOOT_V - v;
+        if (up < 0f || up > 220f) {
+            return false;
+        }
+        return du < 4f || up > 90f && du < (up - 90f) * 0.45f && (int) (du + up * 0.3f) % 9 < 2;
+    }
+
+    private static float[] bare(SpriteGeometry.Mesh leaves, SpriteGeometry.Mesh wood, float detail, float boleRadius) {
+        SpriteGeometry.Frame frame = frame();
+        float[] places = Flora.leafPlaces(PlantKindTests::branches, frame);
+        boolean made = Flora.addCrown(leaves, wood, frame, places, 10.5f, 20.5f, 0f, FOOT_U, FOOT_V, detail, 0f, boleRadius, 1.2f, Flora.BARK_OAK, Flora.BARE, 7, Flora.OPEN);
+        return made ? places : null;
+    }
+
+    private static void aBareCrownIsWoodAloneOutToTheOutline() {
+        SpriteGeometry.Mesh leaves = new SpriteGeometry.Mesh(), wood = new SpriteGeometry.Mesh();
+        float[] places = bare(leaves, wood, 1f, 0.1f);
+        check(places != null, "a dead tree with a bole has a crown");
+        check(leaves.floats == 0, "of no leaves at all, not " + leaves.floats / F + " vertices of them");
+        check(wood.floats > 0, "but wood");
+        float[] reachLeft = new float[Flora.CROWN_BANDS], reachRight = new float[Flora.CROWN_BANDS], sizes = new float[Flora.SIZES];
+        check(Flora.measure(frame(), places, FOOT_U, FOOT_V, reachLeft, reachRight, sizes), "its outline measures");
+        float widest = 0f, highest = 0f;
+        for (int at = 0; at < wood.floats; at += F) {
+            float dx = wood.vertices[at] - 10.5f, dy = wood.vertices[at + 1] - 20.5f;
+            widest = Math.max(widest, (float) Math.sqrt(dx * dx + dy * dy));
+            highest = Math.max(highest, wood.vertices[at + 2]);
+        }
+        check(widest > 0.7f * sizes[Flora.WIDEST], "its wood reaches out most of the way to where the sprite paints branches: " + widest + " of " + sizes[Flora.WIDEST]);
+        check(widest < 1.15f * sizes[Flora.WIDEST], "and no further than a little past it: " + widest + " of " + sizes[Flora.WIDEST]);
+        check(highest > 0.75f * sizes[Flora.HIGHEST] && highest < 1.2f * sizes[Flora.HIGHEST], "and up to its top: " + highest + " of " + sizes[Flora.HIGHEST]);
+    }
+
+    private static void aBareCrownNeedsABole() {
+        SpriteGeometry.Mesh leaves = new SpriteGeometry.Mesh(), wood = new SpriteGeometry.Mesh();
+        check(bare(leaves, wood, 1f, 0f) == null, "with no bole to grow from there is no bare crown");
+        check(leaves.floats == 0 && wood.floats == 0, "and nothing is made");
+    }
+
+    private static void aBareCrownFarOffHasNoTwigs() {
+        SpriteGeometry.Mesh nearWood = new SpriteGeometry.Mesh(), farWood = new SpriteGeometry.Mesh();
+        bare(new SpriteGeometry.Mesh(), nearWood, 1f, 0.1f);
+        bare(new SpriteGeometry.Mesh(), farWood, Crowns.detail(Crowns.REACH), 0.1f);
+        check(farWood.floats > 0, "far off it still has its limbs and branches");
+        check(farWood.floats * 2 < nearWood.floats, "but not its twigs, which are most of it near: " + farWood.floats / F + " against " + nearWood.floats / F);
+    }
+
+    private static void aBareCrownHasLimbsWhateverItsDistance() {
+        check(Crowns.limbed(Crowns.REACH * 4f, Flora.BARE), "a bare crown is its limbs: it has them at any distance");
+        check(!Crowns.limbed(Crowns.REACH * 4f, Flora.MAPLE) && Crowns.limbed(4f, Flora.MAPLE), "a crown in leaf has them only near");
     }
 
     private static void check(boolean condition, String what) {

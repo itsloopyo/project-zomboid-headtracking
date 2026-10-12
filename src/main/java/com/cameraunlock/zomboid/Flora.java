@@ -185,6 +185,11 @@ final class Flora {
     static final float CORE_KINDS = 8f;
     /** The sprigs in their picture, four to a row. */
     static final int LINDEN = 0, MAPLE = 1, BIRCH = 2, PINE = 3, HEMLOCK = 4, HOLLY = 5, SHRUB = 6;
+    /**
+     * Not a sprig: the crown of a tree with no leaves, dead or bare in winter, which is its wood
+     * alone, limbs out to where its sprite paints branches and twigs off them.
+     */
+    static final int BARE = 7;
     /** How many places are tried on a plant's sprite for where it paints leaves. */
     private static final int CROWN_TRIES = 2400;
     /** A sprig's texture coordinate holds where on the plant's sprite it takes its colour, in this many steps across the texture, under where on the sprig the vertex is. */
@@ -217,6 +222,12 @@ final class Flora {
      * leader there, with branches off each to the leaves either side.
      */
     private static final float LEADER_TOP = 0.8f, LIMB_TIP = 0.014f, LIMB_OF_LEADER = 0.7f, LIMB_OUT = 0.8f, BRANCH_OF_LIMB = 0.5f, BRANCH_TIP = 0.008f;
+    /**
+     * A bare tree's limbs and branches end this far out of its outline, its twigs carrying on
+     * past them; how many twigs each branch has; and from what detail (see addCrown) on it has them.
+     */
+    private static final float BARE_OUT = 0.82f, BARE_TWIGGED = 0.5f;
+    private static final int BARE_TWIGS = 3;
     private static final int LEADER_SIDES = 6, LIMB_SIDES = 5, BRANCH_SIDES = 4, TWIG_SIDES = 3, LIMB_PIECES = 4;
     /** How far up the bark's picture wood in a crown starts: clear of the moss a bole has at its foot. */
     private static final float WOOD_UP = 3f;
@@ -397,13 +408,17 @@ final class Flora {
         float filled = wanted * (1f + CLOSE_FILL * close);
         float middle = lowest + (highest - lowest) * 0.45f;
         float reach = Math.max(widest, (highest - lowest) / 2f);
+        boolean bare = sprig == BARE;
+        if (bare && boleRadius <= 0f) {
+            return false;
+        }
         mark(mesh, frame.open, SpriteGeometry.CARD, CROWN + sprig);
         int boughs = mix(seed, 0, 93);
         int lobes = shrub ? 2 + (boughs & 1) : 3 + (boughs & 0xff) % 3;
         float rows = shrub ? 1f : Math.clamp(1.6f * tall / Math.max(widest, 1e-3f), 1.5f, 4f);
         float turnOne = unit(boughs, 8) * 6.2832f, turnTwo = unit(boughs, 16) * 6.2832f, turnThree = unit(boughs, 24) * 6.2832f;
         // Each place is gone through once, and again for a crown near enough to be filled, whose places may each bear a second sprig.
-        for (int go = 0; go < (close > 0f ? 2 * count : count); go++) {
+        for (int go = 0; go < (bare ? 0 : close > 0f ? 2 * count : count); go++) {
             int i = go % count;
             int hash = mix(seed, go, 91);
             float high = (footV - places[i * 2 + 1]) * up;
@@ -505,12 +520,16 @@ final class Flora {
             }
         }
         mesh.sway = 0f;
-        addCore(mesh, frame, places, x, y, base, footU, footV, across, up, lowest, tall, under, reachLeft, reachRight, lobes, rows, turnOne, turnTwo, turnThree, sprig, room);
+        if (!bare) {
+            addCore(mesh, frame, places, x, y, base, footU, footV, across, up, lowest, tall, under, reachLeft, reachRight, lobes, rows, turnOne, turnTwo, turnThree, sprig, room);
+        }
         if (boleRadius > 0f && !shrub && lowest + LEADER_TOP * tall > boleTall + 0.2f) {
             mark(wood, frame.open, 0f, TRUNK);
             // Up the middle, from the bole's top.
             float topUp = lowest + LEADER_TOP * tall, thick = boleRadius * TAPER;
-            int limbs = Math.clamp(Math.round(4f + 2.5f * widest), 5, 9);
+            // With no leaves to hide it the wood is the whole tree's outline: more limbs, out to the outline.
+            int limbs = bare ? Math.clamp(Math.round(6f + 3f * widest), 7, 12) : Math.clamp(Math.round(4f + 2.5f * widest), 5, 9);
+            float limbOut = bare ? BARE_OUT : LIMB_OUT;
             for (int piece = 0; piece < 3; piece++) {
                 float from = boleTall + (topUp - boleTall) * piece / 3f, to = boleTall + (topUp - boleTall) * (piece + 1) / 3f;
                 prism(wood, x, y, base + from, x, y, base + to, thick + (LIMB_TIP - thick) * piece / 3f, thick + (LIMB_TIP - thick) * (piece + 1) / 3f,
@@ -524,7 +543,7 @@ final class Flora {
                 float round = turnOne + limb * 2.39996f + 0.5f * (unit(own, 8) - 0.5f);
                 float share = Math.clamp((fromUp - lowest) / tall + 0.16f + 0.22f * unit(own, 16), 0.08f, 0.94f);
                 float reachAt = reachAt(reachLeft, reachRight, share) * (1f - BOUGH_HOLLOW * (1f - bough(round, share, lobes, rows, turnOne, turnTwo, turnThree)));
-                float endOut = LIMB_OUT * reachAt, endUp = lowest + share * tall;
+                float endOut = limbOut * reachAt, endUp = lowest + share * tall;
                 float cos = (float) Math.cos(round), sin = (float) Math.sin(round);
                 float limbThick = Math.max((thick + (LIMB_TIP - thick) * leaves) * LIMB_OF_LEADER, LIMB_TIP * 1.4f);
                 // It leaves the leader nearly level and turns up to its end: a curve through a point out beside where it leaves.
@@ -546,12 +565,15 @@ final class Flora {
                             int which = mix(own, piece, 95 + side);
                             float toRound = round + (side == 0 ? 1f : -1f) * (0.35f + 0.45f * unit(which, 0));
                             float toShare = Math.clamp((upAt - lowest) / tall + 0.22f * unit(which, 8), 0.05f, 0.97f);
-                            float toOut = 0.85f * reachAt(reachLeft, reachRight, toShare)
+                            float toOut = (bare ? BARE_OUT : 0.85f) * reachAt(reachLeft, reachRight, toShare)
                                     * (1f - BOUGH_HOLLOW * (1f - bough(toRound, toShare, lobes, rows, turnOne, turnTwo, turnThree)));
                             float toUp = lowest + toShare * tall, toIn = BRANCH_TIP + SpriteGeometry.SWAY_REACH * limbSway(toUp, boleTall), toUnder = Math.min(upAt, toUp);
-                            prism(wood, atX, atY, base + upAt, keptX(x + (float) Math.cos(toRound) * toOut, toUnder, toIn, room),
-                                    keptY(y + (float) Math.sin(toRound) * toOut, toUnder, toIn, room), base + toUp, Math.max(thickTo * BRANCH_OF_LIMB, BRANCH_TIP), BRANCH_TIP, BRANCH_SIDES, BARK_UP * bark + WOOD_UP,
+                            float endX = keptX(x + (float) Math.cos(toRound) * toOut, toUnder, toIn, room), endY = keptY(y + (float) Math.sin(toRound) * toOut, toUnder, toIn, room);
+                            prism(wood, atX, atY, base + upAt, endX, endY, base + toUp, Math.max(thickTo * BRANCH_OF_LIMB, BRANCH_TIP), BRANCH_TIP, BRANCH_SIDES, BARK_UP * bark + WOOD_UP,
                                     limbSway(upAt, boleTall), limbSway(toUp, boleTall), which, frame);
+                            if (bare && detail > BARE_TWIGGED) {
+                                addBareTwigs(wood, atX, atY, upAt, endX, endY, toUp, base, reach, boleTall, bark, which, room, frame);
+                            }
                         }
                     }
                     lastX = atX;
@@ -704,6 +726,28 @@ final class Flora {
         }
     }
 
+    /**
+     * Off the end of each branch of a bare tree, the twigs that fill its outline, going on
+     * the way the branch went, fanned either side of it and turned up. Seen against the sky
+     * they are what makes a bare crown read as a crown and not as a few sticks.
+     */
+    private static void addBareTwigs(Mesh wood, float fromX, float fromY, float fromUp, float endX, float endY, float endUp, float base, float reach,
+            float boleTall, int bark, int seed, float[] room, SpriteGeometry.Frame frame) {
+        float dx = endX - fromX, dy = endY - fromY;
+        float flat = (float) Math.sqrt(dx * dx + dy * dy);
+        double way = flat > 1e-4f ? Math.atan2(dy, dx) : unit(seed, 0) * 2.0 * Math.PI;
+        for (int twig = 0; twig < BARE_TWIGS; twig++) {
+            int own = mix(seed, twig, 97);
+            double turn = way + (twig - (BARE_TWIGS - 1) / 2f) * 0.55 + 0.3 * (unit(own, 0) - 0.5);
+            float length = reach * (0.1f + 0.1f * unit(own, 8));
+            float rise = length * (0.35f + 0.5f * unit(own, 16));
+            float toUp = endUp + rise, in = TWIG_TIP + SpriteGeometry.SWAY_REACH * limbSway(toUp, boleTall), under = Math.min(endUp, toUp);
+            float toX = keptX(endX + (float) Math.cos(turn) * length, under, in, room), toY = keptY(endY + (float) Math.sin(turn) * length, under, in, room);
+            prism(wood, endX, endY, base + endUp, toX, toY, base + toUp, BRANCH_TIP, TWIG_TIP, TWIG_SIDES, BARK_UP * bark + WOOD_UP,
+                    limbSway(endUp, boleTall), limbSway(toUp, boleTall), own, frame);
+        }
+    }
+
     /** How far up a bough's swell the crown's outside is at an angle round it and a share of the way up it: 0 in a hollow, 1 on a bough's top. */
     private static float bough(float round, float share, int lobes, float rows, float turnOne, float turnTwo, float turnThree) {
         float about = (float) Math.sin(lobes * round + turnOne + 2f * Math.sin(4f * share + turnTwo));
@@ -731,6 +775,12 @@ final class Flora {
      */
     static boolean evergreen(String name) {
         return name != null && (name.contains("pine") || name.contains("hemlock") || name.contains("holly"));
+    }
+
+    /** Whether a sprite, by its name, is one of the game's dead trees: a bare trunk and branches the game draws as no tree. */
+    static boolean deadTree(String name) {
+        int place = name == null ? -1 : Sheets.place(name, "fencing_burnt_01_");
+        return place >= 16 && place <= 19;
     }
 
     /** Which sprig a plant bears, by its sprite's name: the game names a tree's sprites for its species. */

@@ -303,8 +303,11 @@ final class PlantBuilder {
     private void addGrownOn(SpriteGeometry.Mesh mesh, IsoSprite sprite, IsoObjectType type, Texture texture, int x, int y, int z) {
         int cards = type == IsoObjectType.tree ? 5 : 3;
         // A tree's bole is round. A tree in leaf shows nothing else of its trunk's sprite,
-        // so the bole stands in for all its cards; a bare one keeps them for its branches.
-        if (type == IsoObjectType.tree && build.overLayer == 0 && Own.plants() && addBole(sprite, texture, x, y, z) && build.geometry.keep < 1f) {
+        // so the bole stands in for all its cards. A bare one, or a dead one, goes on to have
+        // its branches made in wood as well (see bare below).
+        String grown = sprite.getName();
+        boolean dead = Flora.deadTree(grown);
+        if ((type == IsoObjectType.tree || dead) && build.overLayer == 0 && Own.plants() && addBole(sprite, texture, x, y, z) && build.geometry.keep < 1f) {
             return;
         }
         roomFor(x, y, z);
@@ -316,21 +319,23 @@ final class PlantBuilder {
             build.geometry.roomHighB = build.room[3] - y;
         }
         // A bush is leaves all over, as a tree's crown is.
-        String grown = sprite.getName();
         // A bush's leaves are smaller than a tree's.
         boolean bush = grown != null && type != IsoObjectType.tree
                 && (grown.startsWith("f_bushes") || grown.startsWith("vegetation_foliage") || grown.startsWith("vegetation_ornamental"));
         // So is every other plant the game paints with a dark line round each leaf: the
-        // line is what makes it a drawing. A bare tree's trunk is the one thing left as it is.
+        // line is what makes it a drawing. A tree's trunk is left as it is, and a dead tree is bark.
         if (grown != null && type != IsoObjectType.tree && Own.plants()) {
-            build.frame.material = bush ? Flora.BUSH : WorldScene.LEAVES;
+            build.frame.material = dead ? WorldScene.BARK : bush ? Flora.BUSH : WorldScene.LEAVES;
         }
         // The leaves of a tree and a bush, near enough to be seen as leaves, are a crown of
         // sprigs. The fan then stands only in the sun's own pictures, to throw the shadow.
         float fanned = build.frame.material;
         // An evergreen has no leaves of its own to lay over its trunk: its sprite paints the needles with the trunk, and is its crown.
         boolean evergreen = type == IsoObjectType.tree && build.overLayer == 0 && build.geometry.keep == 1f && Flora.evergreen(grown);
-        boolean crowned = grown != null && (bush || type == IsoObjectType.tree && build.overLayer > 0 || evergreen) && Own.plants() && addCrown(texture, grown, bush, x, y, z);
+        // A tree with no leaves, dead or bare for the winter, has a crown of wood alone, grown from its bole.
+        boolean bare = build.overLayer == 0 && build.geometry.keep == 1f && (type == IsoObjectType.tree && !Flora.evergreen(grown) || dead) && boleX == x && boleY == y;
+        int sprig = bare ? Flora.BARE : Flora.sprigOf(grown, bush);
+        boolean crowned = grown != null && (bush || type == IsoObjectType.tree && build.overLayer > 0 || evergreen || bare) && Own.plants() && addCrown(texture, grown, sprig, x, y, z);
         if (crowned) {
             build.frame.material = Flora.SHADE;
         }
@@ -384,7 +389,8 @@ final class PlantBuilder {
      * the leaves' own texture, which gives the sprigs their colour. False when the plant is
      * too far off for one or its texture shows too little to make one of.
      */
-    private boolean addCrown(Texture texture, String name, boolean bush, int x, int y, int z) {
+    private boolean addCrown(Texture texture, String name, int sprig, int x, int y, int z) {
+        boolean bush = sprig == Flora.SHRUB;
         if (!world.crownedToSight && !build.within(Crowns.REACH, true)) {
             return false;
         }
@@ -407,12 +413,12 @@ final class PlantBuilder {
         int seed = Flora.mix(x, y, 83);
         float base = z * ViewCamera.LEVEL_HEIGHT + build.geometry.liftAt(0.5f, 0.5f) + build.geometry.raised * ViewCamera.LEVEL_HEIGHT;
         float footU = SpriteGeometry.frameU(build.frame, 0.5f, 0.5f), footV = SpriteGeometry.frameV(build.frame, 0.5f, 0.5f, 0f);
-        int bark = Flora.barkOf(name, seed), sprig = Flora.sprigOf(name, bush);
-        if (!bush) {
+        int bark = Flora.barkOf(name, seed);
+        if (!bush && sprig != Flora.BARE) {
             seenForFar(texture, places, x, y, footU, footV, boled ? boleThick : BOLE_THINNEST);
         }
         if (build.crownsInline) {
-            boolean limbed = boled && Crowns.limbed(away);
+            boolean limbed = boled && Crowns.limbed(away, sprig);
             return Flora.addCrown(WorldScene.solid.get(texture.getID()), WorldScene.solid.get(WorldScene.PLAIN), build.frame, places, x + 0.5f, y + 0.5f, base, footU, footV, Crowns.detail(away), Crowns.close(away),
                     limbed ? boleThick : 0f, limbed ? boleTall : 0f, limbed ? boleBark : bark, sprig, seed, build.room);
         }

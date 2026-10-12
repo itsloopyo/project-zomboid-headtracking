@@ -206,7 +206,7 @@ final class CrownTests {
         SpriteGeometry.Frame frame = frame();
         float[] places = PLACES;
         float detail = Crowns.detail(away), close = Crowns.close(away);
-        boolean limbed = Crowns.limbed(away);
+        boolean limbed = Crowns.limbed(away, Flora.LINDEN);
         Flora.addCrown(inBuild.get(LEAVES), inBuild.get(PLAIN), frame, places, 10.5f, 20.5f, 0.1f, FOOT_U, FOOT_V, detail, close, 0f, 0f, Flora.BARK_OAK, Flora.MAPLE, 7, Flora.OPEN);
         frame.light(0.6f, 0.5f, 0.4f);
         Flora.addCrown(inBuild.get(LEAVES + 1), inBuild.get(PLAIN), frame, places, 12.5f, 21.5f, 0f, FOOT_U, FOOT_V, detail, close, limbed ? 0.12f : 0f, limbed ? 0.9f : 0f,
