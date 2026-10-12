@@ -279,7 +279,9 @@ public final class FrameRecorder {
 
     private static void finish(Take ending) {
         try {
-            ending.flushed.await();
+            if (!ending.flushed.await(30, TimeUnit.SECONDS)) {
+                throw new IllegalStateException("recorder: the render thread did not run the flush within 30 s: was the draw queued outside a frame?");
+            }
             StringBuilder said = new StringBuilder();
             for (Stream each : new Stream[] {ending.hud, ending.clean}) {
                 if (each != null) {
@@ -316,7 +318,10 @@ public final class FrameRecorder {
         }
     }
 
-    /** Logic thread, from IngameState.renderInternal once the world and its text are drawn and before the interface. */
+    /**
+     * Logic thread, from IngameState.renderFrameUI once the world and its text are drawn and before the interface. Both
+     * reads go inside the frame's interface pass: a draw queued outside StartFrameUI and EndFrameUI is never run.
+     */
     public static void beforeInterface() {
         Take recording = take;
         if (recording == null) {
@@ -334,7 +339,7 @@ public final class FrameRecorder {
         }
     }
 
-    /** Logic thread, from IngameState.renderFrameUI once the game has finished the interface. */
+    /** Logic thread, from IngameState.renderFrameUI once the interface is drawn, still inside its pass. */
     public static void afterInterface() {
         Take recording = take;
         if (recording == null) {

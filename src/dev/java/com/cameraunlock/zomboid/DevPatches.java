@@ -18,13 +18,12 @@ final class DevPatches {
                 new Agent.Patch("zombie/FPSTracking", "frameStep before its returns", classBytes -> CallSite.insertBeforeReturns(classBytes,
                         new CallSite.Method("zombie/FPSTracking", "frameStep", "()J"),
                         code -> CallSite.invokeStatic(code, new CallSite.Method("com/cameraunlock/zomboid/FrameRecorder", "fixStep", "()V")))),
-                new Agent.Patch("zombie/gameStates/IngameState", "renderInternal after UIManager.resize", classBytes -> CallSite.insertAfter(classBytes,
-                        new CallSite.Method("zombie/gameStates/IngameState", "renderInternal", "()V"),
-                        new CallSite.Method("zombie/ui/UIManager", "resize", "()V"),
-                        new CallSite.Method("com/cameraunlock/zomboid/FrameRecorder", "beforeInterface", "()V"))),
-                new Agent.Patch("zombie/gameStates/IngameState", "renderFrameUI after Core.EndFrameUI", classBytes -> CallSite.insertAfter(classBytes,
+                new Agent.Patch("zombie/gameStates/IngameState", "renderFrameUI after SkyBox.draw and after ActiveMods.renderUI", classBytes -> CallSite.insertAfter(
+                        CallSite.insertAfter(classBytes, new CallSite.Method("zombie/gameStates/IngameState", "renderFrameUI", "()V"),
+                                new CallSite.Method("zombie/iso/sprite/SkyBox", "draw", "()V"),
+                                new CallSite.Method("com/cameraunlock/zomboid/FrameRecorder", "beforeInterface", "()V")),
                         new CallSite.Method("zombie/gameStates/IngameState", "renderFrameUI", "()V"),
-                        new CallSite.Method("zombie/core/Core", "EndFrameUI", "()V"),
+                        new CallSite.Method("zombie/modding/ActiveMods", "renderUI", "()V"),
                         new CallSite.Method("com/cameraunlock/zomboid/FrameRecorder", "afterInterface", "()V"))));
     }
 }
