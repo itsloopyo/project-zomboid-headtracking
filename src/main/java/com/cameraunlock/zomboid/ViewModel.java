@@ -10,6 +10,7 @@ import zombie.characters.IsoPlayer;
 import zombie.core.skinnedmodel.model.ModelInstance;
 import zombie.inventory.InventoryItem;
 import zombie.inventory.types.HandWeapon;
+import zombie.inventory.types.WeaponType;
 import zombie.scripting.objects.ModelAttachment;
 import zombie.scripting.objects.ModelScript;
 
@@ -78,12 +79,13 @@ public final class ViewModel {
      * @param fetching  how long a magazine has been on its way to the weapon, in seconds, or less than nought
      * @param fetchTakes how long the game is taken to be over that, in seconds
      * @param leftFree  whether the left hand holds nothing
+     * @param swungAs   for something swung, which of MeleeHold's classes the game puts it in
      */
     record Held(String item, boolean firearm, boolean bothHands, int attack, float reached, float past, boolean struck, float aim, float nearness, float lowered,
             float swayYaw, float swayPitch, float bobX, float bobY, float recoil, float kickPitch, float kickYaw, float kickRoll, float kickUp, float kickBack,
             float dip, int skin, boolean female,
             int action, float cycled, int doing, float done, int rounds, float round, float handled, float pace, float seated, float drawn, float worked,
-            boolean clip, float out, float fetching, float fetchTakes, boolean leftFree) {}
+            boolean clip, float out, float fetching, float fetchTakes, boolean leftFree, int swungAs) {}
 
     /** What is held, or null with no weapon in hand, and while the hands are busy with a timed action. */
     volatile Held held;
@@ -218,6 +220,25 @@ public final class ViewModel {
     private boolean isSet(IsoPlayer player, String variable) {
         return "true".equalsIgnoreCase(player.GetVariable(variable));
     }
+    /**
+     * Which of MeleeHold's classes something swung is held as: the game's WeaponType, a stone by the animation the game
+     * swings it with (the flint nodule and the stone, the only two), and something made for two hands as one-handed
+     * things are while it is in one. A spear in one hand is still driven point first. Thrown things and the rest the
+     * game names are held as one-handed things are.
+     */
+    private static int swungAs(HandWeapon weapon, boolean both) {
+        if ("Stone".equalsIgnoreCase(weapon.getSwingAnim())) {
+            return MeleeHold.STONE;
+        }
+        return switch (WeaponType.getWeaponType(weapon)) {
+            case TWO_HANDED -> both ? MeleeHold.TWO_HANDED : MeleeHold.ONE_HANDED;
+            case HEAVY -> both ? MeleeHold.HEAVY : MeleeHold.ONE_HANDED;
+            case KNIFE -> MeleeHold.KNIFE;
+            case SPEAR -> MeleeHold.SPEAR;
+            default -> MeleeHold.ONE_HANDED;
+        };
+    }
+
     /** How far back the fore-end hand is, 0 to 1. Written by the logic thread, read where the weapon is placed. */
     volatile float pumped;
     /** How far back the fore-end hand was when the weapon was last placed, which the hands on it are placed for. Render thread. */
@@ -461,7 +482,7 @@ public final class ViewModel {
         held = new Held(item.getFullType(), firearm, item == player.getSecondaryHandItem(),
                 attack, reached, past, struck, aim, nearness, lowered, swayYaw, swayPitch, bob[0], bob[1], recoil,
                 kick.weaponPitch.at, kick.weaponYaw.at, kick.weaponRoll.at, kick.weaponUp.at, kick.weaponBack.at, dip,
-                player.getHumanVisual().getSkinTextureIndex(), player.isFemale(), action, cycled, doing, done, rounds, round, handled, took[action][doing], seated, drawn, worked, clip, out, fetching, fetchTakes[action], player.getSecondaryHandItem() == null);
+                player.getHumanVisual().getSkinTextureIndex(), player.isFemale(), action, cycled, doing, done, rounds, round, handled, took[action][doing], seated, drawn, worked, clip, out, fetching, fetchTakes[action], player.getSecondaryHandItem() == null, firearm ? MeleeHold.ONE_HANDED : swungAs(weapon, item == player.getSecondaryHandItem()));
     }
 
     /**
@@ -676,14 +697,6 @@ public final class ViewModel {
     static final float[] HANDLED_LONG = {0.10f, -0.04f, 0.30f, (float) Math.toRadians(24), (float) Math.toRadians(-16), (float) Math.toRadians(-42)};
     /** Between the hip and the sights the weapon goes by way of a dip and a reach forward, at the most this far off the straight line. */
     private static final float RAISE_DIPS = 0.025f, RAISE_REACHES = 0.03f;
-    /**
-     * Where the grip of something swung is held, and how it is tipped: low and to the right,
-     * forward and up, and a little across towards the middle.
-     */
-    private static final float SWUNG_X = 0.2f, SWUNG_Y = -0.22f, SWUNG_AHEAD = 0.38f;
-    /** In the mod's own hand what is swung stands steeper: a wrist holds a handle nearly square to its forearm. */
-    private static final float SWUNG_PITCH_IN_HAND = (float) Math.toRadians(60);
-    private static final float SWUNG_PITCH = (float) Math.toRadians(35), SWUNG_YAW = (float) Math.toRadians(-12), SWUNG_ROLL = (float) Math.toRadians(-10);
     /** Lowered to run: the muzzle down and across the body. */
     private static final float LOWERED_PITCH = (float) Math.toRadians(-35), LOWERED_YAW = (float) Math.toRadians(-25), LOWERED_DOWN = 0.07f;
     private static final float DIP_DOWN = 0.04f;
@@ -698,7 +711,6 @@ public final class ViewModel {
 
     private final float[] origin = new float[3], forward = new float[3], top = new float[3], end = new float[3];
     private final float[] along = new float[3], grip = new float[3], swung = new float[ViewModelMath.HOLD], sighted = new float[2];
-    private final float[] swungHold = {0f, SWUNG_YAW, SWUNG_ROLL, SWUNG_X, SWUNG_Y, SWUNG_AHEAD, 0f};
     /** How far the body is turned to the right behind the weapon last placed, in radians. */
     float turned;
     /**
@@ -727,6 +739,11 @@ public final class ViewModel {
     /** Whether the weapon last placed is a firearm held by one hand's grip with its muzzle just ahead of it. */
     boolean handgun;
     private final HashSet<String> noMuzzleSaid = new HashSet<>();
+    private final float[] meshTop = new float[3];
+    /** How what is swung is held, worked out once for each weapon taken in hand, and the one placed last, or null. */
+    private MeleeHold.Fit fit, swungFit;
+    /** Where the left fist is on what is swung, placed last, in both hands: ArmHolds.Weapon's `second`. */
+    float secondFist = -ArmHolds.LOWER_FIST;
     /** A firearm whose muzzle is nearer its grip than this, in the game's units, is a handgun. */
     private static final float HANDGUN_WITHIN = 0.25f;
     /**
@@ -747,14 +764,16 @@ public final class ViewModel {
      * @param instance   the weapon's model
      * @param scale      the model's units to tiles
      * @param trueHands  whether the hands on the weapon are the mod's own, which are the size hands are
-     * @param hand       the middle of the game's right hand, as `weapon` is given, for what is swung, or null: a hammer on a long shaft
-     *                   is made from its far end and held part way along, and it is where the hand is that is held up
+     * @param hand       the middle of the game's right hand, as `weapon` is given, for what is swung, or null: what is swung in
+     *                   the game's own hands, or whose mesh says nothing, is held where that hand has it along the handle
+     * @param swungShape what the mesh of something swung says of it, or null for a firearm and while there is nothing to say
      * @param fromAim    the matrix from the aim's axes to those of the view the frame is drawn
      *                   from: the weapon is held before the aim's eye, not the picture's
      * @param out        the matrix, from the model's axes to the view's
      * @return false while the game has no pose for the weapon
      */
-    boolean place(float[] weapon, float finalScale, ModelInstance instance, Held how, float scale, boolean trueHands, float[] hand, float[] fromAim, float[] out) {
+    boolean place(float[] weapon, float finalScale, ModelInstance instance, Held how, float scale, boolean trueHands, float[] hand, MeleeHold.Shape swungShape,
+            float[] fromAim, float[] out) {
         // Read once: the logic thread may write it again while the weapon is placed.
         float pumped = this.pumped;
         pumpedPlaced = pumped;
@@ -784,7 +803,28 @@ public final class ViewModel {
             turned(weapon, MESH_ALONG, forward);
         }
         turned(weapon, MESH_TOP, top);
-        if (hand != null) {
+        int way = MeleeHold.way(how.swungAs, how.attack);
+        float share = MeleeHold.share(how.reached, how.past, how.struck);
+        swungFit = null;
+        if (!how.firearm && swungShape != null) {
+            // Its mesh's units in metres and in tiles, as the game draws the model: its script's scale is in the matrix.
+            float unit = (float) Math.sqrt(forward[0] * forward[0] + forward[1] * forward[1] + forward[2] * forward[2]);
+            float perUnit = unit / Characters.PER_METRE, tilesPerUnit = unit * finalScale * scale;
+            if (fit == null || !fit.fits(how.swungAs, swungShape, perUnit, tilesPerUnit, trueHands)) {
+                fit = MeleeHold.fit(how.swungAs, swungShape, perUnit, tilesPerUnit, trueHands);
+            }
+            swungFit = fit;
+            // It is turned about its handle so that its striking side leads the blow.
+            MeleeHold.top(swungShape, way, share, meshTop);
+            turned(weapon, meshTop, top);
+        }
+        if (swungFit != null && trueHands) {
+            // In the mod's own hands it is held where its mesh says the hand goes on its handle.
+            for (int axis = 0; axis < 3; axis++) {
+                origin[axis] += forward[axis] * swungFit.hand() * finalScale;
+            }
+        } else if (hand != null) {
+            // In the game's hands, or with a mesh that says nothing, it is held where the game's hand has it, which those hands are on.
             float long2 = forward[0] * forward[0] + forward[1] * forward[1] + forward[2] * forward[2];
             float up = ((hand[0] - origin[0]) * forward[0] + (hand[1] - origin[1]) * forward[1] + (hand[2] - origin[2]) * forward[2]) / long2;
             for (int axis = 0; axis < 3; axis++) {
@@ -858,8 +898,15 @@ public final class ViewModel {
             shakenPitch -= pumped * PUMP_DIPS;
             moveBack = pumped * PUMP_PULLS;
         } else {
-            swungHold[0] = trueHands ? SWUNG_PITCH_IN_HAND : SWUNG_PITCH;
-            ViewModelMath.attack(how.attack, how.reached, how.past, how.struck, swungHold, swung);
+            if (swungFit != null) {
+                secondFist = swungFit.second();
+                ViewModelMath.attack(way, how.reached, how.past, how.struck, swungFit.rest(), swung);
+                // Something longer than a bat is swung so that its head lands where a bat's does.
+                swung[1] += swungFit.aimed()[way] * share;
+            } else {
+                secondFist = -ArmHolds.LOWER_FIST;
+                ViewModelMath.attack(way, how.reached, how.past, how.struck, trueHands ? MeleeHold.UPRIGHT_HELD_IN_HAND : MeleeHold.UPRIGHT_HELD, swung);
+            }
             pitch += swung[0];
             yaw += swung[1];
             roll = swung[2];

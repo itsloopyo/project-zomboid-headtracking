@@ -114,9 +114,15 @@ final class ArmHolds {
 
     /**
      * The weapon as the view has it: where the right hand holds it, the way it points and the
-     * way its top faces, each of length one, and for a firearm where its mesh is.
+     * way its top faces, each of length one, for a firearm where its mesh is, and for something
+     * swung in both hands how far along it from the right fist the left one is, in metres: less
+     * than nought nearer the end the hands hold.
      */
-    record Weapon(boolean firearm, boolean handgun, float[] grip, float[] pointing, float[] over, Placed placed) {}
+    record Weapon(boolean firearm, boolean handgun, float[] grip, float[] pointing, float[] over, Placed placed, float second) {
+        Weapon(boolean firearm, boolean handgun, float[] grip, float[] pointing, float[] over, Placed placed) {
+            this(firearm, handgun, grip, pointing, over, placed, -LOWER_FIST);
+        }
+    }
 
     /**
      * A firearm's mesh where the view has it. Whoever places the arms each frame keeps one and
@@ -615,14 +621,14 @@ final class ArmHolds {
         Hold hold = null;
         if (doing.both() && !weapon.firearm()) {
             // Something swung in both hands: the left fist is on the handle under the right, the same way round.
-            float slant = slant(weapon, axes, axes.at(-LOWER_FIST, 0f, 0f), 1, doing.turned(), fromAim);
+            float slant = slant(weapon, axes, axes.at(weapon.second(), 0f, 0f), 1, doing.turned(), fromAim);
             float cos = (float) Math.cos(slant), sin = (float) Math.sin(slant);
             float[] fingers = new float[3], slanted = new float[3];
             ArmPose.cross(axes.ahead, axes.right, fingers);
             for (int axis = 0; axis < 3; axis++) {
                 slanted[axis] = fingers[axis] * cos + axes.ahead[axis] * sin;
             }
-            Hold fist = new Hold(model).set(axes.at(-LOWER_FIST, 0f, 0f), axes.right, slanted, true, model.pose("handle"));
+            Hold fist = new Hold(model).set(axes.at(weapon.second(), 0f, 0f), axes.right, slanted, true, model.pose("handle"));
             fist.round = true;
             return fist;
         }

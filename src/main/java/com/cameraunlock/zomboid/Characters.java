@@ -577,8 +577,12 @@ public final class Characters {
             ViewCamera.between(aim, camera, fromAim);
             boolean own = Own.arms() && OwnArms.model() != null;
             float[] hand = hands.firearm() ? null : gameHand(data);
+            swungLoading = false;
+            MeleeHold.Shape swung = weapon == null || hands.firearm() ? null : swungShape(weapon, hands.item());
+            // Until the mesh of what is swung is read, the game's own arms hold it where the game has it, as a firearm's do.
+            own &= !swungLoading;
             if (weapon != null && view.viewModel.place(weapon.xfrm.get(weaponPlace), data.finalScale, weapon.modelInstance, hands,
-                    CHARACTER_SCALE, own, hand, fromAim, heldView)) {
+                    CHARACTER_SCALE, own, hand, swung, fromAim, heldView)) {
                 holding = data;
                 armHands = hands;
                 armFemale = hands.female();
@@ -593,7 +597,7 @@ public final class Characters {
                         armsRefused = true;
                         Log.info("the mod's own arms could not be placed on " + hands.item() + ": the game's own are drawn on it, as often as that happens");
                     }
-                    if (!view.viewModel.place(weapon.xfrm.get(weaponPlace), data.finalScale, weapon.modelInstance, hands, CHARACTER_SCALE, false, hand, fromAim, heldView)) {
+                    if (!view.viewModel.place(weapon.xfrm.get(weaponPlace), data.finalScale, weapon.modelInstance, hands, CHARACTER_SCALE, false, hand, swung, fromAim, heldView)) {
                         holding = null;
                         return;
                     }
@@ -980,8 +984,6 @@ public final class Characters {
         return true;
     }
 
-    /** For the trace: how far beside the weapon's middle the middle of the game's hand was, in tiles. */
-    private float handAside;
     /** Whether the arms on the weapon held up are the mod's own, and for each, right then left, where its bones are. */
     private boolean ownArms, armsRefused, bareRefused;
     /** How the weapon was held when its arms were placed: they are drawn for that, whatever the logic thread has said since. */
@@ -1014,26 +1016,11 @@ public final class Characters {
             heldBoth = hands.bothHands() || handgun && hands.leftFree();
         } else {
             heldBoth = hands.bothHands();
-            // Something swung is held where the game's own hand has it along its handle, on the handle's line.
-            for (int part = 0; part < parts(data).size(); part++) {
-                if (CharacterDraw.hand(parts(data).get(part), false, data.finalScale, joined)) {
-                    ViewModelMath.place(heldView, joined[6], joined[7], joined[8], palm);
-                    float[] ahead = view.viewModel.pointing;
-                    float along = 0f;
-                    for (int axis = 0; axis < 3; axis++) {
-                        along += (palm[axis] - view.viewModel.gripSeen[axis]) * ahead[axis];
-                    }
-                    for (int axis = 0; axis < 3; axis++) {
-                        gripAlong[axis] = palm[axis] - view.viewModel.gripSeen[axis] - ahead[axis] * along;
-                        palm[axis] = view.viewModel.gripSeen[axis] + ahead[axis] * along;
-                    }
-                    handAside = ArmPose.apart(gripAlong, NOWHERE);
-                    grip = palm;
-                    break;
-                }
-            }
+            // Something swung is held at the view model's grip: where its mesh says the hand goes on its handle, or where
+            // the game's hand has it on a mesh that says nothing.
+            grip = view.viewModel.gripSeen;
         }
-        ArmHolds.Weapon weapon = new ArmHolds.Weapon(hands.firearm(), handgun, grip, view.viewModel.pointing, view.viewModel.over, placed);
+        ArmHolds.Weapon weapon = new ArmHolds.Weapon(hands.firearm(), handgun, grip, view.viewModel.pointing, view.viewModel.over, placed, view.viewModel.secondFist);
         ArmHolds.Doing doing = new ArmHolds.Doing(hands.aim(), heldBoth, hands.action(), hands.cycled(), hands.doing(), hands.done(), hands.round(), hands.pace(), hands.seated(), hands.clip(), hands.out(), hands.fetching(), hands.fetchTakes(), view.viewModel.turned);
         long now = System.nanoTime();
         armSettled.seconds = Math.min((now - armsAsOf) / 1e9f, 0.1f);
@@ -1043,8 +1030,6 @@ public final class Characters {
         heldBoth = arms == 2;
         return arms > 0;
     }
-
-    private static final float[] NOWHERE = new float[3];
 
     /**
      * The firearm held, where the view has its mesh: the mod's own model where one stands for
@@ -1098,6 +1083,43 @@ public final class Characters {
      */
     private record Read(Model model, VertexBufferObject from, WeaponShape shape) {}
     private static final java.util.IdentityHashMap<ModelScript, Read> SHAPES = new java.util.IdentityHashMap<>();
+    /** What each of the game's models of something swung says of it, read once for the mesh and the buffer the model script has: null where it says nothing. */
+    private record Swung(Model model, VertexBufferObject from, MeleeHold.Shape shape) {}
+    private static final java.util.IdentityHashMap<ModelScript, Swung> SWUNG_SHAPES = new java.util.IdentityHashMap<>();
+    /** Whether the mesh of what is swung was still loading when its shape was asked for: the game's own arms hold it this frame. */
+    private boolean swungLoading;
+
+    /**
+     * What the mesh of something swung says of where it strikes and how far it reaches, or null while the mesh is
+     * loading (`swungLoading`) and for a mesh that says nothing, which is said once: that is held where the game's hand
+     * has it. Render thread.
+     */
+    private MeleeHold.Shape swungShape(ModelInstanceRenderData held, String item) {
+        Model model = held.model;
+        ModelScript script = held.modelInstance.modelScript;
+        VertexBufferObject from = model.mesh == null ? null : model.mesh.vb;
+        Swung known = SWUNG_SHAPES.get(script);
+        if (known != null && known.model == model && known.from == from) {
+            return known.shape;
+        }
+        StringBuilder why = new StringBuilder();
+        CharacterDraw.Shape mesh = CharacterDraw.shapeOf(model, why);
+        if (mesh == null && why.isEmpty()) {
+            swungLoading = true;
+            return null;
+        }
+        MeleeHold.Shape shape = mesh == null ? null : MeleeHold.of(mesh.places());
+        if (shape == null) {
+            Log.info("the mod's own hands cannot be put on " + item + " by its mesh (" + model.name + ": "
+                    + (why.isEmpty() ? "its mesh has no length along y" : why) + "): it is held where the game's hand has it, and swung as it comes");
+        } else {
+            Log.info(String.format(Locale.ROOT, "%s (%s) is swung from %.3f to %.3f along its mesh, striking with its side (%.2f, %.2f) in x and z",
+                    item, model.name, shape.butt(), shape.tip(), shape.strikeX(), shape.strikeZ()));
+        }
+        SWUNG_SHAPES.put(script, new Swung(model, from, shape));
+        return shape;
+    }
+
     /** Whether the held firearm's mesh was still loading when its shape was asked for, so the game's own arms hold it this frame and nothing is said. */
     private boolean gripLoading;
 
@@ -1142,10 +1164,8 @@ public final class Characters {
     }
 
     /** The game's mesh units in a metre of a long gun, which it makes the size long guns are: its pump gun is 0.4461 of them from grip to muzzle, 0.9015 m. */
-    private static final float PER_METRE = 0.4461f / 0.9015f;
+    static final float PER_METRE = 0.4461f / 0.9015f;
 
-    /** Room for the sums that find where on a handle the mod's hand goes. Placing the arms there makes arrays of its own each frame. */
-    private final float[] gripAlong = new float[3];
     private final ArmHolds.Carried armCarries = new ArmHolds.Carried();
     private final ArmHolds.Settled armSettled = new ArmHolds.Settled();
     private long armsAsOf;
@@ -1278,8 +1298,7 @@ public final class Characters {
                         side == 0 ? "right" : "; left", Math.toDegrees(of[ArmPose.BENT]), Math.toDegrees(of[ArmPose.TWISTED]), of[ArmPose.DRAWN], of[ArmPose.GAVE],
                         of[ArmPose.WRIST], of[ArmPose.WRIST + 1], of[ArmPose.WRIST + 2], of[ArmPose.ELBOW], of[ArmPose.ELBOW + 1], of[ArmPose.ELBOW + 2]));
             }
-            return armHands != null && !armHands.firearm() ? said.append(String.format(Locale.ROOT, "; the game's hand was %.3f beside the handle's line", handAside)).toString()
-                    : said.toString();
+            return said.toString();
         }
         for (int side = 0; side < (heldBoth ? 2 : 1); side++) {
             said.append(side == 0 ? "right" : "; left");

@@ -424,9 +424,10 @@ final class ViewModelMath {
 
     /**
      * The ways something held is hit with: swung across from the right shoulder, brought down from over the head, brought up from by
-     * the right hip, brought down on what lies on the ground, thrust straight ahead, and shoved out with both arms.
+     * the right hip, brought down on what lies on the ground, thrust straight ahead, shoved out with both arms, and stabbed point down
+     * into what lies on the ground.
      */
-    static final int SWUNG = 0, CHOPPED = 1, RAISED = 2, FLOORED = 3, THRUST = 4, SHOVED = 5;
+    static final int SWUNG = 0, CHOPPED = 1, RAISED = 2, FLOORED = 3, THRUST = 4, SHOVED = 5, STABBED = 6;
     /**
      * What a hold is given by: how far the far end is raised, swung to the right and the top tipped to the left, in radians as `turn`
      * takes them, where the grip is to the right, up and ahead of the eye, in tiles, and how far the body is turned to the right behind it.
@@ -490,16 +491,18 @@ final class ViewModelMath {
     private static final float[][][] ATTACKS = {
         {key(70, 50, -30, 0.28f, -0.10f, 0.22f, 25), key(30, 70, 20, 0.22f, -0.12f, 0.32f, 10), key(12, -50, 60, 0.10f, -0.15f, 0.36f, -14),
             key(-8, -115, 80, -0.12f, -0.20f, 0.26f, -34), key(16, -32, 50, 0.12f, -0.14f, 0.35f, -8)},
-        {key(110, 5, 0, 0.10f, 0.00f, 0.22f, 0), key(70, 0, 0, 0.08f, -0.04f, 0.30f, 0), key(30, -6, 0, 0.05f, -0.16f, 0.36f, 0),
+        {key(110, 5, 0, 0.13f, 0.09f, 0.20f, 0), key(70, 0, 0, 0.10f, 0.00f, 0.30f, 0), key(30, -6, 0, 0.05f, -0.16f, 0.36f, 0),
             key(-10, 4, 0, 0.00f, -0.21f, 0.27f, 8), key(24, -6, 0, 0.05f, -0.12f, 0.34f, 0)},
         {key(-25, 35, -20, 0.22f, -0.25f, 0.18f, 20), key(-8, 10, 10, 0.17f, -0.23f, 0.27f, 5), key(25, -18, 30, 0.06f, -0.16f, 0.36f, -10),
             key(65, -45, 40, -0.04f, -0.06f, 0.30f, -22), key(15, -10, 25, 0.08f, -0.18f, 0.34f, -5)},
-        {key(115, 0, 0, 0.08f, 0.02f, 0.20f, 0), key(60, -2, 0, 0.06f, -0.05f, 0.30f, 0), key(10, 4, 0, 0.00f, -0.17f, 0.34f, 8),
+        {key(115, 0, 0, 0.12f, 0.10f, 0.19f, 0), key(60, -2, 0, 0.08f, 0.00f, 0.30f, 0), key(10, 4, 0, 0.00f, -0.17f, 0.34f, 8),
             key(-15, 4, 0, 0.00f, -0.22f, 0.28f, 10), key(18, 2, 0, 0.01f, -0.16f, 0.33f, 6)},
-        {key(10, -5, -10, 0.20f, -0.16f, 0.16f, 15), key(6, -9, -10, 0.13f, -0.14f, 0.34f, 0), key(2, -12, -10, 0.07f, -0.12f, 0.44f, -15),
+        {key(16, -5, -10, 0.20f, -0.17f, 0.19f, 15), key(6, -9, -10, 0.13f, -0.14f, 0.34f, 0), key(2, -12, -10, 0.07f, -0.12f, 0.44f, -15),
             key(2, -12, -10, 0.07f, -0.12f, 0.45f, -17), key(3, -11, -10, 0.09f, -0.13f, 0.38f, -10)},
         {key(20, -60, 0, 0.12f, -0.20f, 0.18f, 0), key(15, -65, 0, 0.11f, -0.17f, 0.32f, 0), key(10, -70, 0, 0.10f, -0.14f, 0.44f, 0),
             key(10, -70, 0, 0.10f, -0.14f, 0.45f, 0), key(12, -68, 0, 0.10f, -0.15f, 0.38f, 0)},
+        {key(-55, -6, 0, 0.13f, -0.02f, 0.30f, 0), key(-68, -5, 0, 0.11f, -0.12f, 0.35f, 4), key(-76, -4, 0, 0.09f, -0.25f, 0.38f, 8),
+            key(-80, -4, 0, 0.09f, -0.29f, 0.38f, 10), key(-74, -4, 0, 0.10f, -0.22f, 0.37f, 6)},
     };
 
     /** 0 to 1 as its argument goes 0 to 1, leaving and arriving without a jerk. */
