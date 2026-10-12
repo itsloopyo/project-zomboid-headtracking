@@ -80,12 +80,22 @@ public final class ViewModel {
      * @param fetchTakes how long the game is taken to be over that, in seconds
      * @param leftFree  whether the left hand holds nothing
      * @param swungAs   for something swung, which of MeleeHold's classes the game puts it in
+     * @param own       for a firearm, the mod's own model that stands for it, as OwnModel.of said when this was made, or null
      */
     record Held(String item, boolean firearm, boolean bothHands, int attack, float reached, float past, boolean struck, float aim, float nearness, float lowered,
             float swayYaw, float swayPitch, float bobX, float bobY, float recoil, float kickPitch, float kickYaw, float kickRoll, float kickUp, float kickBack,
             float dip, int skin, boolean female,
             int action, float cycled, int doing, float done, int rounds, float round, float handled, float pace, float seated, float drawn, float worked,
-            boolean clip, float out, float fetching, float fetchTakes, boolean leftFree, int swungAs) {}
+            boolean clip, float out, float fetching, float fetchTakes, boolean leftFree, int swungAs, OwnModel own) {
+        /**
+         * The mod's own model drawn for it: decided once, as this was made, so that where it is
+         * held, the hands on it and what is drawn agree on the frame a model comes onto the
+         * graphics card. Null where the game's is drawn, and once the model has been given back.
+         */
+        OwnModel ownDrawn() {
+            return own != null && own.onCard ? own : null;
+        }
+    }
 
     /** What is held, or null with no weapon in hand, and while the hands are busy with a timed action. */
     volatile Held held;
@@ -482,7 +492,8 @@ public final class ViewModel {
         held = new Held(item.getFullType(), firearm, item == player.getSecondaryHandItem(),
                 attack, reached, past, struck, aim, nearness, lowered, swayYaw, swayPitch, bob[0], bob[1], recoil,
                 kick.weaponPitch.at, kick.weaponYaw.at, kick.weaponRoll.at, kick.weaponUp.at, kick.weaponBack.at, dip,
-                player.getHumanVisual().getSkinTextureIndex(), player.isFemale(), action, cycled, doing, done, rounds, round, handled, took[action][doing], seated, drawn, worked, clip, out, fetching, fetchTakes[action], player.getSecondaryHandItem() == null, firearm ? MeleeHold.ONE_HANDED : swungAs(weapon, item == player.getSecondaryHandItem()));
+                player.getHumanVisual().getSkinTextureIndex(), player.isFemale(), action, cycled, doing, done, rounds, round, handled, took[action][doing], seated, drawn, worked, clip, out, fetching, fetchTakes[action], player.getSecondaryHandItem() == null, firearm ? MeleeHold.ONE_HANDED : swungAs(weapon, item == player.getSecondaryHandItem()),
+                firearm ? OwnModel.of(item.getFullType()) : null);
     }
 
     /**
@@ -686,7 +697,7 @@ public final class ViewModel {
             return view.scope.forwardStop();
         }
         // The rifle's rear sight is on its barrel, further off than a lean reaches.
-        return now != null && OwnModel.of(now.item) != null ? Float.POSITIVE_INFINITY : FORWARD_STOP;
+        return now != null && now.ownDrawn() != null ? Float.POSITIVE_INFINITY : FORWARD_STOP;
     }
     /**
      * Where a handgun and a long gun are held to be loaded: the line of the barrel to the right
@@ -841,7 +852,7 @@ public final class ViewModel {
 
         // The mod's own model has its sights where it was made with them: the eye is brought to
         // their line, which is that far over the bore at the size the model is drawn.
-        OwnModel own = hasMuzzle ? OwnModel.of(how.item) : null;
+        OwnModel own = hasMuzzle ? how.ownDrawn() : null;
         // The game's handguns are made for its own broad hands, nearly twice the size a handgun
         // is beside its long guns. In hands the size hands are they are drawn the size they would be.
         float fits = trueHands && handgun ? HANDGUN_FITS : 1f;

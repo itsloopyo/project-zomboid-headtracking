@@ -4203,9 +4203,10 @@ final class Pipeline {
      */
     private static final List<Piece> CORE = corePieces();
     /**
-     * The pictures of the mod's own surfaces and plants and its weapon models, which only a
-     * graphics mode that shows the mod's own draws from: about 135 MB on the graphics card at
-     * full size, that the Low mode never reads.
+     * The pictures of the mod's own surfaces and plants, which only a graphics mode that shows
+     * the mod's own draws from: about 135 MB on the graphics card at full size, that the Low mode
+     * never reads. The weapon models are not among them: each is made, as a piece of its own, the
+     * first time its item is held once these are made (OwnModel.asked), and given back with them.
      */
     private static final List<Piece> CONTENT = contentPieces();
 
@@ -4276,10 +4277,6 @@ final class Pipeline {
                 return "the sprigs could not be read: " + e.getMessage();
             }
         }, SPRIGS, SPRIG_FORM));
-        // The weapon models are given back with the pictures and made again with them: see giveBackContent.
-        for (OwnModel gun : OwnModel.ALL) {
-            pieces.add(new Piece(gun::readAhead, gun::isRead, () -> OwnGun.prepare(gun)));
-        }
         return pieces;
     }
 
@@ -4288,6 +4285,8 @@ final class Pipeline {
     private static volatile boolean contentBegun;
     /** Which list the next piece is of: set by pieceWaits, read by prepareNext. */
     private static List<Piece> makes;
+    /** The weapon model the next piece makes where it makes one, when makes is null: set by pieceWaits. */
+    private static OwnModel heldModel;
     /** Whether the pictures on the graphics card are the half size ones, and the pieces being made again at the other size, if any are. */
     private static volatile boolean picturesSmall;
     private static volatile List<Piece> resized;
@@ -4435,7 +4434,12 @@ final class Pipeline {
             makes = resized;
             return resized.get(resizedNext).begun.getAsBoolean();
         }
-        if (contentReady || contentRefused || Quality.plain()) {
+        if (contentReady) {
+            heldModel = OwnModel.asked();
+            makes = null;
+            return heldModel != null && heldModel.isRead();
+        }
+        if (contentRefused || Quality.plain()) {
             return false;
         }
         contentBegun = true;
@@ -4453,12 +4457,16 @@ final class Pipeline {
         noRoom = false;
         String problem;
         boolean lastOfCore = false, lastOfContent = false, lastOfResized = false;
+        OwnModel model = null;
         if (makes == CORE) {
             problem = CORE.get(preparing++).make.get();
             lastOfCore = preparing == CORE.size();
         } else if (makes == CONTENT) {
             problem = CONTENT.get(contentPreparing++).make.get();
             lastOfContent = contentPreparing == CONTENT.size();
+        } else if (makes == null) {
+            model = heldModel;
+            problem = OwnGun.prepare(model);
         } else {
             problem = resized.get(resizedNext++).make.get();
             lastOfResized = resizedNext == resized.size();
@@ -4502,10 +4510,15 @@ final class Pipeline {
             preparingNanos = 0;
             preparingWorst = 0;
         }
+        if (model != null && problem == null) {
+            Log.info(String.format(Locale.ROOT, "%s is on the graphics card, made as it was first held: %.1f ms on the render thread", model.what, took / 1e6));
+            preparingNanos = 0;
+            preparingWorst = 0;
+        }
         if (lastOfContent && problem == null) {
             contentReady = true;
             Own.picturesMade(true);
-            Log.info(String.format(Locale.ROOT, "the mod's own surfaces, plants and weapons are on the graphics card: %d pieces taking %.0f ms in all, the longest %.0f ms",
+            Log.info(String.format(Locale.ROOT, "the mod's own surfaces and plants are on the graphics card: %d pieces taking %.0f ms in all, the longest %.0f ms",
                     contentPreparing, preparingNanos / 1e6, preparingWorst / 1e6));
             preparingNanos = 0;
             preparingWorst = 0;
@@ -4884,13 +4897,14 @@ final class Pipeline {
         GL11.glDeleteTextures(sprigForm);
         sprigs = 0;
         sprigForm = 0;
+        // First, or the logic thread could ask for a model again between its letting go and this.
+        Own.picturesMade(false);
         for (OwnModel gun : OwnModel.ALL) {
             gun.letGo();
         }
         contentPreparing = 0;
         contentBegun = false;
         contentReady = false;
-        Own.picturesMade(false);
     }
 
     /** Forgets the size of every texture drawn with: names given back to the graphics card are handed out again for pictures of other sizes. */

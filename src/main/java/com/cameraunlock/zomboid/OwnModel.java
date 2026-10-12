@@ -35,7 +35,7 @@ final class OwnModel {
     static final OwnModel[] ALL = {SHOTGUN, SAWN_OFF, RIFLE};
 
     /** What the model is, for what the log says went wrong making it. */
-    private final String what;
+    final String what;
     private final String mesh, colourPath, surfacePath;
     /** The one item of the game's that the model stands for. */
     private final String item;
@@ -44,6 +44,13 @@ final class OwnModel {
 
     /** Read by the game's logic thread too, to ask whether the model stands for what is held. */
     volatile boolean onCard;
+    /**
+     * Set by whichever thread finds the item held while the model is not on the graphics card:
+     * it is made then, and not before, and stays until the content is given back.
+     */
+    private volatile boolean wanted;
+    /** Whether its reading out of the jar has been begun. Render thread. */
+    private boolean begun;
     int array, vertexBuffer, indexBuffer, colour, surface;
     final int[] firstIndex = new int[PARTS], indexCount = new int[PARTS];
     /** Where the muzzle and the port are from the grip, in the model's metres, and how far back the parts that slide go. */
@@ -77,10 +84,48 @@ final class OwnModel {
         surfacePath = "/models/" + name + ".surface.bc";
     }
 
-    /** The model drawn for an item held, or null where it is the game's own. */
+    /**
+     * The model drawn for an item held, or null where it is the game's own: for a model of ours
+     * that is not on the graphics card yet, the game's is drawn until it is, and it is asked for.
+     * The logic thread's, as it makes ViewModel.Held, which the render thread reads it from.
+     */
     static OwnModel of(String held) {
+        if (!Own.weapons()) {
+            return null;
+        }
         for (OwnModel model : ALL) {
-            if (model.onCard && Own.weapons() && model.item.equals(held)) {
+            if (model.item.equals(held)) {
+                if (model.onCard) {
+                    return model;
+                }
+                model.wanted = true;
+                return null;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * A model asked for by {@link #of} that is not on the graphics card, its reading out of the
+     * jar begun on other threads, or null. Render thread.
+     */
+    static OwnModel asked() {
+        if (!Own.weapons()) {
+            // Asked for while the row was on: nobody will draw it now, so it is not made, and what was begun of its reading is let go.
+            for (OwnModel model : ALL) {
+                model.wanted = false;
+                if (model.begun && !model.onCard) {
+                    model.forgetReading();
+                }
+            }
+            return null;
+        }
+        for (OwnModel model : ALL) {
+            if (model.wanted && !model.onCard) {
+                if (!model.begun) {
+                    model.begun = true;
+                    model.readAhead();
+                }
                 return model;
             }
         }
@@ -89,7 +134,13 @@ final class OwnModel {
 
     /** Reads the model out of the jar and gives it to the graphics card, its vertices laid out for the program. Null, or what went wrong. */
     String prepare(Program program) {
-        String problem = make(program);
+        String problem;
+        try {
+            problem = make(program);
+        } catch (RuntimeException | Error thrown) {
+            letGo();
+            throw thrown;
+        }
         if (problem == null) {
             onCard = true;
         } else {
@@ -165,9 +216,8 @@ final class OwnModel {
      */
     void letGo() {
         onCard = false;
-        for (String path : new String[] {mesh, colourPath, surfacePath}) {
-            Ahead.forget(path);
-        }
+        wanted = false;
+        forgetReading();
         GL11.glDeleteTextures(colour);
         GL11.glDeleteTextures(surface);
         GL15.glDeleteBuffers(vertexBuffer);
@@ -180,8 +230,16 @@ final class OwnModel {
         array = 0;
     }
 
+    /** Lets go of whatever was begun of reading the model for a making that will not now happen. */
+    private void forgetReading() {
+        begun = false;
+        for (String path : new String[] {mesh, colourPath, surfacePath}) {
+            Ahead.forget(path);
+        }
+    }
+
     /** Begins unpacking the model and its pictures on other threads, for {@link #prepare} to find them unpacked. */
-    void readAhead() {
+    private void readAhead() {
         Ahead.begin(mesh, () -> unpacked(mesh));
         for (String path : new String[] {colourPath, surfacePath}) {
             Ahead.begin(path, () -> Pictures.packed(path, false));

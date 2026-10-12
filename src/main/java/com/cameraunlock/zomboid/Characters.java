@@ -893,8 +893,8 @@ public final class Characters {
         for (int axis = 0; axis < 3; axis++) {
             across[axis] -= wrist[axis];
         }
-        ViewModel.Held hands = view.viewModel.held;
-        boolean laid = side == 1 && view.viewModel.hasMuzzle && hands != null && OwnShotgun.standsFor(hands.item());
+        ViewModel.Held hands = armHands;
+        boolean laid = side == 1 && view.viewModel.hasMuzzle && hands != null && OwnShotgun.standsFor(hands);
         if (side == 0 && view.viewModel.hasMuzzle) {
             // The right hand's palm is on the grip, which says which way round a palm faces
             // from a hand's length and its thumb in these axes.
@@ -922,7 +922,7 @@ public final class Characters {
         // match them. The mod's own gun is the size a gun is, and hands that size on it are a
         // giant's: they are drawn smaller about their middles, which stay where they hold,
         // and the arms behind them are as much thinner. The forearm keeps its length.
-        boolean fitted = view.viewModel.hasMuzzle && hands != null && OwnShotgun.standsFor(hands.item());
+        boolean fitted = view.viewModel.hasMuzzle && hands != null && OwnShotgun.standsFor(hands);
         if (fitted) {
             for (int i = 0; i < 16; i++) {
                 laying[i] = i % 5 == 0 ? HAND_FITS : 0f;
@@ -1043,8 +1043,7 @@ public final class Characters {
             return null;
         }
         float pumped = view.viewModel.pumpedPlaced;
-        String item = hands.item();
-        OwnModel own = OwnModel.of(item);
+        OwnModel own = hands.ownDrawn();
         if (own != null) {
             float out = muzzleOut(held);
             own.hold(meshView, heldView, weaponPlace, data.finalScale, out);
@@ -1392,7 +1391,7 @@ public final class Characters {
         IsoGridSquare square = data.character.getCurrentSquare();
         boolean outside = square != null && square.isOutside();
         // Whatever is fixed to it but a scope is left out with the game's model of it.
-        OwnModel own = held != null && view.viewModel.hasMuzzle ? OwnModel.of(hands.item()) : null;
+        OwnModel own = held != null && view.viewModel.hasMuzzle ? hands.ownDrawn() : null;
         if (own != null) {
             (own.pump ? view.ownShotgun : view.ownRifle).place(own, heldView, weaponPlace, data.finalScale, muzzleOut(held), ownLight, outside, hands.aim());
         }

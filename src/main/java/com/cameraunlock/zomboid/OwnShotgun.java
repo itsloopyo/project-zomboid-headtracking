@@ -28,9 +28,9 @@ final class OwnShotgun extends OwnGun {
         super(view, 0.45f, 0f, 0f);
     }
 
-    /** Whether the model is what is drawn for an item held. */
-    static boolean standsFor(String item) {
-        OwnModel own = OwnModel.of(item);
+    /** Whether the model is what is drawn for what is held. */
+    static boolean standsFor(ViewModel.Held held) {
+        OwnModel own = held.ownDrawn();
         return own != null && own.pump;
     }
 
