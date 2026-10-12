@@ -1,5 +1,6 @@
 package com.cameraunlock.zomboid;
 
+import java.util.Set;
 import java.util.SplittableRandom;
 
 /**
@@ -11,7 +12,8 @@ import java.util.SplittableRandom;
  * Nothing the game simulates sees it: the shot leaves along the aim.
  *
  * How hard a firearm kicks is the game's own figure for it, the delay its recoil puts between
- * shots: 30 for a pump gun, 12 for a 9 mm pistol.
+ * shots: 30 for a pump gun, 12 for a 9 mm pistol. A long gun with no stock is not braced
+ * against the shoulder with the sights up, and kicks in the hands as it does at the hip.
  *
  * Logic thread.
  */
@@ -72,6 +74,9 @@ final class Kick {
     /** A shot from a firearm that does no harm, a cap gun, only twitches it. */
     static final float TOY = 0.15f;
 
+    /** The game's long guns with no stock to put to the shoulder: its sawn-off shotguns. */
+    private static final Set<String> STOCKLESS = Set.of("Base.ShotgunSawnoff", "Base.DoubleBarrelShotgunSawnoff");
+
     /** Shots faster than the kick settles do not stack the weapon past this many of a hardest shot's throw. */
     private static final float MOST = 1.6f * 1.25f;
 
@@ -91,6 +96,15 @@ final class Kick {
             return TOY;
         }
         return (float) Math.pow(Math.clamp(recoilDelay / PUMP_GUN_DELAY, 0.2f, 1.25f), 0.75);
+    }
+
+    /**
+     * How far up the sights are as far as a shot's kick goes, for a firearm of the game's type: a
+     * gun with no stock is held off the shoulder and kicks as it does at the hip, its muzzle
+     * thrown up and back in the hands.
+     */
+    static float braced(String fullType, float aim) {
+        return STOCKLESS.contains(fullType) ? 0f : aim;
     }
 
     /**

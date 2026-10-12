@@ -14,6 +14,7 @@ final class KickTests {
         Checks.run("shotsFasterThanTheKickSettlesDoNotStackItWithoutEnd", KickTests::shotsFasterThanTheKickSettlesDoNotStackItWithoutEnd);
         Checks.run("aShotThrowsTheMuzzleUpAndBack", KickTests::aShotThrowsTheMuzzleUpAndBack);
         Checks.run("withTheSightsUpTheWeaponMovesLessAgainstTheEye", KickTests::withTheSightsUpTheWeaponMovesLessAgainstTheEye);
+        Checks.run("aGunWithNoStockKicksAsAtTheHipWithTheSightsUp", KickTests::aGunWithNoStockKicksAsAtTheHipWithTheSightsUp);
         Checks.run("restLeavesTheWeaponWhereItIsHeld", KickTests::restLeavesTheWeaponWhereItIsHeld);
     }
 
@@ -97,6 +98,16 @@ final class KickTests {
         aimed.fire(1f, 1f);
         float[] atHip = furthest(hip.weaponPitch), sighted = furthest(aimed.weaponPitch);
         check(sighted[0] < atHip[0] * 0.5f, "the muzzle climbs less against the eye with the sights up: " + sighted[0] + " against " + atHip[0]);
+    }
+
+    private static void aGunWithNoStockKicksAsAtTheHipWithTheSightsUp() {
+        check(Kick.braced("Base.ShotgunSawnoff", 1f) == 0f && Kick.braced("Base.DoubleBarrelShotgunSawnoff", 0.6f) == 0f, "a sawn-off is held off the shoulder");
+        check(Kick.braced("Base.Shotgun", 1f) == 1f && Kick.braced("Base.HuntingRifle", 0.4f) == 0.4f, "a gun with a stock is braced as far as its sights are up");
+        Kick sawnOff = new Kick(), stocked = new Kick();
+        sawnOff.fire(Kick.fired(30, 2f), Kick.braced("Base.ShotgunSawnoff", 1f));
+        stocked.fire(Kick.fired(30, 2.2f), Kick.braced("Base.Shotgun", 1f));
+        float[] flip = furthest(sawnOff.weaponPitch), shouldered = furthest(stocked.weaponPitch);
+        check(flip[0] > shouldered[0] * 2f, "with the sights up the sawn-off's muzzle climbs far more than the stocked gun's: " + flip[0] + " against " + shouldered[0]);
     }
 
     private static void restLeavesTheWeaponWhereItIsHeld() {

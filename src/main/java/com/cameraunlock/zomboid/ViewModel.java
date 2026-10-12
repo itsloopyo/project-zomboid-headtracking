@@ -294,9 +294,9 @@ public final class ViewModel {
         recoil = Math.min(ViewModelMath.ease(recoil, 0f, seconds, RECOIL_SECONDS) + kicks, RECOIL_MOST);
         kick.step(seconds);
         if (kicks > 0) {
-            float hard = Kick.fired(weapon.getRecoilDelay(), weapon.getMaxDamage());
+            float hard = Kick.fired(weapon.getRecoilDelay(), weapon.getMaxDamage()), braced = Kick.braced(weapon.getFullType(), aim);
             for (; kicks > 0; kicks--) {
-                kick.fire(hard, aim);
+                kick.fire(hard, braced);
             }
         }
         if (sneaking != wasSneaking || wasFalling && !falling) {
