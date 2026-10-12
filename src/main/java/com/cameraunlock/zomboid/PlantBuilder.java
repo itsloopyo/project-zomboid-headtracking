@@ -343,15 +343,11 @@ final class PlantBuilder {
             build.frame.material = dead ? WorldScene.BARK : bush ? Flora.BUSH : WorldScene.LEAVES;
         }
         // A deciduous tree's leaves go through autumn and come back through spring, each tree
-        // on days of its own (Seasons). A bare one has none of them drawn, nor their shadow.
+        // on days of its own (Seasons). One the season has bare never gets here: see bareBySeason.
         boolean leafy = grown != null && type == IsoObjectType.tree && build.overLayer > 0 && Own.plants();
         int treeHash = Seasons.treeHash(x, y);
         boolean seasonal = leafy && !Flora.evergreen(grown);
         float leaf = seasonal ? Seasons.leafOn(treeHash) : 1f;
-        // Too far off for a crown, the leaves are the game's sprite on the fan, which cannot thin: past half bare there is none.
-        if (leaf == 0f || seasonal && leaf < FAN_KEPT && !world.crownedToSight && !build.within(Crowns.REACH, true)) {
-            return;
-        }
         // The leaves of a tree and a bush, near enough to be seen as leaves, are a crown of
         // sprigs. The fan then stands only in the sun's own pictures, to throw the shadow.
         float fanned = build.frame.material, red = build.frame.red;
@@ -448,6 +444,20 @@ final class PlantBuilder {
         Flora.addFern(WorldScene.laid.get(WorldScene.PLAIN), x + a, y + b, z * ViewCamera.LEVEL_HEIGHT + build.geometry.liftAt(a, b), size,
                 PAINTED_FRONDS + (seed >>> 24 & 1), seed, build.frame);
         return true;
+    }
+
+    /**
+     * Whether the tree on the square, its trunk's sprite named so, has none of its leaves
+     * drawn whatever the game hangs on it: a deciduous one the season has bare, or one too far
+     * off for a crown and more than half bare, whose leaves would be the game's whole sprite.
+     * It is drawn as a tree the game has bare is, with a crown of wood alone (Flora.BARE).
+     */
+    boolean bareBySeason(String name, int x, int y) {
+        if (name == null || !Own.plants() || Flora.evergreen(name)) {
+            return false;
+        }
+        float leaf = Seasons.leafOn(Seasons.treeHash(x, y));
+        return leaf == 0f || leaf < FAN_KEPT && !world.crownedToSight && !build.within(Crowns.REACH, true);
     }
 
     /**

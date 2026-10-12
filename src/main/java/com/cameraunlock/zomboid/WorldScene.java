@@ -4925,7 +4925,9 @@ final class WorldScene {
                 // inside the leaves. Drawn, they cross from one card of the fan through the leaves
                 // of the next. A bare tree is all branch and keeps them.
                 boolean inLeaf = sprite.getType() == IsoObjectType.tree && (leaves != null && !leaves.isEmpty() || object.getOverlaySprite() != null);
-                geometry.keep = inLeaf ? BOLE : 1f;
+                // The game's leaves stay on a tree until a day of its own; the mod's may have fallen sooner.
+                boolean bare = inLeaf && plantBuilder.bareBySeason(sprite.getName(), x, y);
+                geometry.keep = inLeaf && !bare ? BOLE : 1f;
                 if (unexplored && object == floor) {
                     frame.light(0f, 0f, 0f);
                 }
@@ -4940,12 +4942,14 @@ final class WorldScene {
                 geometry.keep = 1f;
                 // What the game draws over an object with the object: the leaves on a tree, the
                 // ivy and the stains on a wall. Each lies or stands as the object under it does.
-                if (leaves != null) {
+                if (leaves != null && !bare) {
                     for (int k = 0; k < leaves.size(); k++) {
                         addOver(object, sprite, leaves.get(k).parentSprite, object == floor, x, y, z);
                     }
                 }
-                addOver(object, sprite, object.getOverlaySprite(), object == floor, x, y, z);
+                if (!bare) {
+                    addOver(object, sprite, object.getOverlaySprite(), object == floor, x, y, z);
+                }
                 geometry.nudgeX = geometry.nudgeY = geometry.nearer = 0f;
                 if (object.wallBloodSplats != null && !object.wallBloodSplats.isEmpty()) {
                     PropertyContainer flags = sprite.getProperties();

@@ -29,27 +29,40 @@ final class Seasons {
      */
     static final int STEPS = 48;
 
-    private static volatile int season = SUMMER;
-    private static volatile float progression = 0.5f;
+    /** The season and how many STEPS through it, as one number, so that a thread reading both never has one of them a season behind the other. */
+    private static volatile int now = SUMMER * (STEPS + 1) + STEPS / 2;
 
     private Seasons() {}
 
     static void capture(ErosionSeason erosion) {
-        season = erosion.getSeason();
-        progression = (float) Math.floor(Math.min(Math.max(erosion.getSeasonProgression(), 0f), 1f) * STEPS) / STEPS;
+        now = erosion.getSeason() * (STEPS + 1) + (int) Math.floor(Math.min(Math.max(erosion.getSeasonProgression(), 0f), 1f) * STEPS);
     }
 
     static int season() {
-        return season;
+        return seasonOf(now);
     }
 
     static float progression() {
-        return progression;
+        return progressionOf(now);
+    }
+
+    /** The season and how far through it as one number, for a thread that wants both of one moment: seasonOf and progressionOf take it apart. */
+    static int now() {
+        return now;
+    }
+
+    static int seasonOf(int now) {
+        return now / (STEPS + 1);
+    }
+
+    static float progressionOf(int now) {
+        return (float) (now % (STEPS + 1)) / STEPS;
     }
 
     /** How much of its crown a deciduous tree has on it now, 1 in full leaf and 0 bare. */
     static float leafOn(int treeHash) {
-        return leafOn(season, progression, treeHash);
+        int at = now;
+        return leafOn(at / (STEPS + 1), progressionOf(at), treeHash);
     }
 
     /**
@@ -80,7 +93,8 @@ final class Seasons {
      * through autumn and spring, and winter's bare trees against summer's full ones.
      */
     static int stage() {
-        return stage(season, progression);
+        int at = now;
+        return stage(at / (STEPS + 1), progressionOf(at));
     }
 
     static int stage(int season, float progression) {
@@ -95,7 +109,8 @@ final class Seasons {
 
     /** How far a deciduous tree's leaves have turned now: see turned(int, float, int). */
     static float turned(int treeHash) {
-        return turned(season, progression, treeHash);
+        int at = now;
+        return turned(at / (STEPS + 1), progressionOf(at), treeHash);
     }
 
     /**
@@ -121,7 +136,8 @@ final class Seasons {
 
     /** How much fallen leaf lies under deciduous trees now, 1 at its deepest at the end of autumn. */
     static float litter() {
-        return litter(season, progression);
+        int at = now;
+        return litter(at / (STEPS + 1), progressionOf(at));
     }
 
     static float litter(int season, float progression) {
