@@ -292,6 +292,9 @@ final class WorldScene {
             unseenRead = scene.readUnseen;
         }
         private long epoch;
+        /** Whether the build holds a tree the season shapes, and the season's stage it was made at: see Frame.seasonHolds. */
+        boolean seasonal;
+        int stage;
         /** The heights the build was made on, and which chunks it took any from, those round its own and those further off: see landOf. */
         private int land, terrainVersion, heightsRound;
         private long[] heightsFar = NO_CHUNKS;
@@ -532,6 +535,8 @@ final class WorldScene {
      * a street it looked away from finds every far chunk of it aged on the same frame.
      */
     private static final int AGED_A_FRAME = 2;
+    /** Over how many frames builds that hold a tree the season shapes come to its next stage: see Frame.seasonHolds. */
+    private static final int STAGE_SPREAD = 120;
     /** How soon a chunk right by the eye that keeps changing is built again: sixty times a second, whatever the frame rate. */
     private static final long CHANGING_BUILT_EVERY_NANOS = 16_000_000L;
     /**
@@ -2154,6 +2159,14 @@ final class WorldScene {
         private long[] auditLights = new long[0], auditThings = new long[0];
         /** What every build goes by that is not of its chunk, as one number: see build. */
         private long epoch;
+        /**
+         * The season's stage (Seasons.stage) and the one before it, and the frame it moved on.
+         * Only a build that holds a tree the season shapes goes by it, and those come to the new
+         * stage over STAGE_SPREAD frames, each in a frame of its own by its slot: at once, every
+         * near chunk with a tree in it would be made again in one frame.
+         */
+        private int stage = Integer.MIN_VALUE, stageBefore;
+        private long stageMoved;
         /** Set by the last reading of a chunk: see ChunkMeshes.restless. */
         private boolean restless;
         /** Which of the chunk last looked round and the eight round it are loaded, a bit each: see surround. */
@@ -2402,7 +2415,13 @@ final class WorldScene {
             }
             mainsOn = IsoWorld.instance.isHydroPowerOn();
             long goesBy = sum(sum(sum(SUM_FROM, Float.floatToRawIntBits(unseenRed)), Float.floatToRawIntBits(unseenGreen)), Float.floatToRawIntBits(unseenBlue));
-            goesBy = sum(sum(sum(goesBy, mainsOn ? 1 : 0), Float.floatToRawIntBits(Core.tileScale)), Seasons.stage());
+            goesBy = sum(sum(goesBy, mainsOn ? 1 : 0), Float.floatToRawIntBits(Core.tileScale));
+            int seasonNow = Seasons.stage();
+            if (seasonNow != stage) {
+                stageBefore = stage == Integer.MIN_VALUE ? seasonNow : stage;
+                stage = seasonNow;
+                stageMoved = frames;
+            }
             boolean showing = Sightline.asTheGameShows(withoutSightline);
             if (showing != asTheGameShows) {
                 // A build made by the other rule, seen before it falls due, would fill or empty its rooms a frame or more late.
@@ -2715,7 +2734,7 @@ final class WorldScene {
                             || start - current.builtNanos < (distance < BUILT_EVERY_FRAME ? KEPT_WHILE_SETTLING_NANOS : Math.max(KEPT_WHILE_SETTLING_NANOS, (start - current.bornNanos) / 2)));
                     boolean landChanged = !missing && terrain.version(chunk.wx, chunk.wy) != current.terrainVersion;
                     boolean quiet = telling && !missing && !landChanged && stands && current.signed && !current.restless && marks == current.marks && toldSoFar == current.told
-                            && current.epoch == epoch && current.gamesView == gamesView && land == current.land && ringAsItWas && settled;
+                            && current.epoch == epoch && seasonHolds(current, slot) && current.gamesView == gamesView && land == current.land && ringAsItWas && settled;
                     // Only so many a frame are read for the time that has passed: a head that turns back to a street finds every chunk of it overdue at once.
                     if (quiet && since >= sweptEvery(distance, slot) && swept++ < SWEPT_A_FRAME) {
                         quiet = false;
@@ -2775,7 +2794,7 @@ final class WorldScene {
                         long summing = System.nanoTime();
                         // Read for nothing but light the game marked, which it marks by its level: the other levels are as they were summed.
                         boolean lightAlone = telling && !missing && !AUDIT_MARKS && stands && current.signed && !current.restless && settled && ringAsItWas
-                                && marks != current.marks && current.things == things && current.told == toldSoFar && current.epoch == epoch && current.land == land
+                                && marks != current.marks && current.things == things && current.told == toldSoFar && current.epoch == epoch && seasonHolds(current, slot) && current.land == land
                                 && current.litLoose == ChunkMarks.litLooseAround(chunk.wx, chunk.wy) && start - current.wholeNanos < sweptEvery(distance, slot);
                         read = signature(chunk, chunkX, chunkY, lowest, lightAlone ? current : null);
                         if (CHECK_BUILDS && readByLevel) {
@@ -2819,13 +2838,13 @@ final class WorldScene {
                         }
                         // The same triangles: the same sum, and nothing a build is told that its sum does not hold is otherwise.
                         // The sum holds the chunk's own heights. Those of the chunks round it that its build went by are in land alone.
-                        boolean same = !missing && current.signature == read && current.landSum == readLand && current.told == toldSoFar && current.epoch == epoch && current.land == land;
+                        boolean same = !missing && current.signature == read && current.landSum == readLand && current.told == toldSoFar && current.epoch == epoch && seasonHolds(current, slot) && current.land == land;
                         // Driving, the map loads a row of chunks every few frames, and the heights of every chunk
                         // within a valley's width of it are worked out again: most move by a few hundredths of a
                         // tile, and each passes its edges on to the chunks beside it. Far off, a build whose heights
                         // have moved by less than the picture can show is that build still.
                         if (!same && !missing && current.signed && distance >= BUILT_WHATEVER_IT_TAKES && current.signature == read && current.told == toldSoFar
-                                && current.epoch == epoch && (!current.wantsMap || current.loaded == loadedNow)
+                                && current.epoch == epoch && seasonHolds(current, slot) && (!current.wantsMap || current.loaded == loadedNow)
                                 && heightsHeld(current, distance * tanHalfFieldOfView / HELD_ROWS)) {
                             same = true;
                             tollHeightsHeld++;
@@ -2928,6 +2947,8 @@ final class WorldScene {
                         fresh.band = band(nearest);
                         crownsRead.clear();
                         fresh.grows = false;
+                        fresh.seasonal = false;
+                        fresh.stage = stage;
                         bandAway = BAND_AWAY[fresh.band];
                         alike = ALL_BANDS;
                         heightsRound = 0;
@@ -3717,6 +3738,15 @@ final class WorldScene {
         }
         /** The bands the chunk being built would come out the same for, a bit each. */
         int alike;
+
+        /**
+         * Whether a build is still what the season has it: it holds no tree the season shapes, or
+         * was made at the stage now, or at the one before while its slot's frame to come to the
+         * new one has not come yet.
+         */
+        private boolean seasonHolds(ChunkMeshes built, int slot) {
+            return !built.seasonal || built.stage == stage || built.stage == stageBefore && frames - stageMoved < slot % STAGE_SPREAD;
+        }
 
         /**
          * Whether what is being added is within a reach of the eye, or right at it when that

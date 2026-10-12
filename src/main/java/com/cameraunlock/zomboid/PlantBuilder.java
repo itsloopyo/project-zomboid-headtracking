@@ -454,6 +454,8 @@ final class PlantBuilder {
         if (name == null || !Own.plants() || Flora.evergreen(name)) {
             return false;
         }
+        // What the build makes of this tree goes by the season: it is made again as the season moves on.
+        build.building.seasonal = true;
         float leaf = Seasons.leafOn(Seasons.treeHash(x, y));
         return leaf == 0f || leaf < FAN_KEPT && !world.crownedToSight && !build.within(Crowns.REACH, true);
     }
