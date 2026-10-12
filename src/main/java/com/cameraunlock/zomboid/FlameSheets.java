@@ -29,16 +29,17 @@ final class FlameSheets {
     static final int FRAMES = 64, ACROSS = 8;
     static final float FRAMES_A_SECOND = 24f;
     /**
-     * Where a fire stands in a frame of the loop, and how big the frame is against it: the
-     * simulation's fuel, 0.44 of the frame across, at the frame's foot. A sheet is drawn so that
-     * its frame's fuel is as wide as the fire's flames at their root.
+     * How a frame of the loop is laid: the simulation's fuel at its foot, twice as high as it is
+     * wide, the flames reaching REACH of its height on the mean and their root ROOT of its width
+     * across (measured off the loop tools/fire/flames.py makes). A sheet is stretched so that
+     * its flames reach as high as the fire's and are as wide at their root.
      */
-    static final float FUEL_ACROSS = 0.44f / 1.2f, FRAME_HIGH_FOR_WIDE = 2f;
+    static final float FRAME_HIGH_FOR_WIDE = 2f, REACH = 0.55f, ROOT = 0.3f;
     /** How many sheets a fire is drawn as, and how far apart through it they stand, in its radius. */
     static final int SHEETS = 3;
     static final float SHEETS_APART = 0.45f;
     /** How bright the flames are at their brightest, in the picture's light: the sun lights a white wall to about 2. */
-    static final float BRIGHTEST = 9f;
+    static final float BRIGHTEST = 4f;
     /** Over how many of a fire's radii a sheet fades where it meets a surface. */
     static final float SOFT = 0.35f;
 
@@ -86,7 +87,7 @@ final class FlameSheets {
             const float FRAMES = 64.0;
             const float ACROSS = 8.0;
             // FlameSheets.BRIGHTEST.
-            const float BRIGHTEST = 9.0;
+            const float BRIGHTEST = 4.0;
 
             // The light of burning gas by how much of it there is, as the loop holds it: a deep red where
             // it is thin, through orange to a yellow white at its root.
@@ -309,10 +310,7 @@ final class FlameSheets {
             toX /= level;
             toY /= level;
             float acrossX = -toY, acrossY = toX;
-            // A frame's fuel is as wide as the flames' root; the frame is twice as high as it is wide.
-            float halfWide = radius / FUEL_ACROSS;
-            float high = Math.max(halfWide * 2f * FRAME_HIGH_FOR_WIDE, tall * 1.6f);
-            halfWide = high / FRAME_HIGH_FOR_WIDE / 2f;
+            float high = tall / REACH, halfWide = radius / ROOT;
             GL20.glUniform1f(program.at("uKind"), 0f);
             GL20.glUniform1f(program.at("uStrength"), fires[f + Fires.FLAME] / SHEETS * 1.6f);
             GL20.glUniform1f(program.at("uSoft"), radius * SOFT);

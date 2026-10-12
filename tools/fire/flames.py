@@ -34,8 +34,16 @@ FRAMES = 64
 LOOP_START = 70
 # A frame of the grid, in pixels, and how many frames a row holds.
 FRAME_WIDE, FRAME_HIGH, ACROSS = 128, 256, 8
-# How much fuel the emitter gives, how fast it burns and how fast its gas leaves it: tall, narrow tongues.
-FUEL, BURN, LIFT, BUOYANCY = (float(os.environ.get(k, d)) for k, d in (('FIRE_FUEL', 1.0), ('FIRE_BURN', 0.6), ('FIRE_LIFT', 2.0), ('FIRE_BUOYANCY', 3.0)))
+# For each fire, how much fuel the emitter gives, how fast it burns, how fast its gas leaves it and how
+# hard hot gas rises: chosen so the flames reach a little over half the frame and stand clear of its sides
+# at RESOLUTION 112. The simulation is not the same at another resolution.
+SETTINGS = {"disc": (2.2, 0.5, 3.0, 3.5), "logs": (1.6, 0.6, 2.4, 3.0)}
+
+
+def settings(kind):
+    fuel, burn, lift, buoyancy = SETTINGS[kind]
+    return (float(os.environ.get("FIRE_FUEL", fuel)), float(os.environ.get("FIRE_BURN", burn)),
+            float(os.environ.get("FIRE_LIFT", lift)), float(os.environ.get("FIRE_BUOYANCY", buoyancy)))
 # The domain, in Blender metres: the fire's foot is at the origin, its flames rise along z.
 DOMAIN_WIDE, DOMAIN_HIGH = 1.2, 2.4
 
@@ -48,10 +56,10 @@ def reset():
     return scene
 
 
-def emitter(kind):
+def emitter(kind, fuel, lift):
     """The fuel the fire burns from: a disc, or three logs crossed as a campfire's are."""
     if kind == "disc":
-        bpy.ops.mesh.primitive_cylinder_add(radius=0.22, depth=0.06, location=(0, 0, 0.03), vertices=24)
+        bpy.ops.mesh.primitive_cylinder_add(radius=0.18, depth=0.14, location=(0, 0, 0.07), vertices=24)
         parts = [bpy.context.object]
     else:
         parts = []
@@ -66,18 +74,18 @@ def emitter(kind):
         flow.flow_type = "FIRE"
         flow.flow_behavior = "INFLOW"
         flow.flow_source = "MESH"
-        flow.fuel_amount = FUEL
+        flow.fuel_amount = fuel
         flow.surface_distance = 0.25
         flow.subframes = 2
         # Pushed up out of the fuel, as hot gas leaves it: the flames lick up instead of spreading out.
         flow.use_initial_velocity = True
-        flow.velocity_coord = (0.0, 0.0, LIFT)
+        flow.velocity_coord = (0.0, 0.0, lift)
         # The fuel is not rendered: only the flame is in the loop.
         part.hide_render = True
     return parts
 
 
-def domain(cache):
+def domain(cache, burn, buoyancy):
     bpy.ops.mesh.primitive_cube_add(size=1.0, location=(0, 0, DOMAIN_HIGH / 2 - 0.02))
     box = bpy.context.object
     box.scale = (DOMAIN_WIDE, DOMAIN_WIDE, DOMAIN_HIGH)
@@ -94,8 +102,8 @@ def domain(cache):
     settings.use_adaptive_domain = False
     settings.vorticity = 0.2
     settings.alpha = 1.0
-    settings.beta = BUOYANCY
-    settings.burning_rate = BURN
+    settings.beta = buoyancy
+    settings.burning_rate = burn
     settings.flame_smoke = 0.0
     settings.flame_vorticity = 1.4
     settings.flame_ignition = 1.5
@@ -176,6 +184,15 @@ def render_frames(scene, folder):
     return frames
 
 
+def smoothed(frame):
+    """A frame with the render's grain taken out: twice over each way, a pixel's own half and a quarter of each neighbour's."""
+    for _ in range(2):
+        frame = frame.copy()
+        frame[1:-1, :] = frame[1:-1, :] * 0.5 + (frame[:-2, :] + frame[2:, :]) * 0.25
+        frame[:, 1:-1] = frame[:, 1:-1] * 0.5 + (frame[:, :-2] + frame[:, 2:]) * 0.25
+    return frame
+
+
 def loop(frames):
     """FRAMES frames whose last runs into its first: frame k is the sim's k + FRAMES crossfaded into its k."""
     out = []
@@ -187,8 +204,9 @@ def loop(frames):
 
 def simulate(kind):
     scene = reset()
-    emitter(kind)
-    box = domain(os.path.join(WORK, kind, "cache"))
+    fuel, burn, lift, buoyancy = settings(kind)
+    emitter(kind, fuel, lift)
+    box = domain(os.path.join(WORK, kind, "cache"), burn, buoyancy)
     flame_material(box)
     camera(scene)
     folder = os.path.join(WORK, kind, "frames")
@@ -196,7 +214,7 @@ def simulate(kind):
     rendered = all(os.path.exists(os.path.join(folder, "f%04d.exr" % frame)) for frame in range(LOOP_START, LOOP_START + 2 * FRAMES))
     if not rendered:
         bake(box)
-    return loop(render_frames(scene, folder))
+    return loop([smoothed(frame) for frame in render_frames(scene, folder)])
 
 
 def main():
