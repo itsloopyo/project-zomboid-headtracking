@@ -25,6 +25,29 @@ final class CabinTests {
         Checks.run("eyeIsSeatedAlongTheVehiclesOwnAxes", CabinTests::eyeIsSeatedAlongTheVehiclesOwnAxes);
         Checks.run("viewTipsAndRollsWithTheVehicle", CabinTests::viewTipsAndRollsWithTheVehicle);
         Checks.run("wheelIsTheRingBeforeTheDriverAndNotTheSpareOnTheBack", CabinTests::wheelIsTheRingBeforeTheDriverAndNotTheSpareOnTheBack);
+        Checks.run("everyInteriorAVehicleIsGivenIsInTheJarWithItsPictures", CabinTests::everyInteriorAVehicleIsGivenIsInTheJarWithItsPictures);
+        Checks.run("everyInteriorsMirrorIsInSightAndItsWipersClearTheScreen", CabinTests::everyInteriorsMirrorIsInSightAndItsWipersClearTheScreen);
+    }
+
+    private static void everyInteriorsMirrorIsInSightAndItsWipersClearTheScreen() throws java.io.IOException {
+        for (String[] family : CabinModel.FAMILIES) {
+            CabinModel model = CabinModel.named(family[1]);
+            float[] m = model.mirrors;
+            double aside = Math.toDegrees(Math.atan2(Math.abs(m[1]), m[0]));
+            check(aside <= 42.5 && m[2] > 0f, family[0] + "'s mirror on the screen hangs " + aside + " degrees aside of straight ahead, " + m[2] + " above the eye");
+            check(m[3] < -0.999f, family[0] + "'s mirror on the screen faces straight back, not " + m[3] + ", " + m[4] + ", " + m[5]);
+            check(model.wiperReach > 0.4f, family[0] + "'s wipers reach " + model.wiperReach + " up its windscreen");
+        }
+    }
+
+    private static void everyInteriorAVehicleIsGivenIsInTheJarWithItsPictures() throws java.io.IOException {
+        for (String[] family : CabinModel.FAMILIES) {
+            CabinModel model = CabinModel.named(family[1]);
+            for (String which : new String[] {".colour.bc", ".surface.bc"}) {
+                String path = "cabins/" + model.pictures + which;
+                Checks.check(java.nio.file.Files.isRegularFile(java.nio.file.Path.of("src", "main", "resources", path)), family[0] + " is drawn with " + path + ", which the jar lacks");
+            }
+        }
     }
 
     /** A ring of 36 triangles standing across the vehicle, as a body has for its wheel, that far out from its middle across and up. Returns its first vertex. */

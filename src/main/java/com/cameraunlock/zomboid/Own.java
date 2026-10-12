@@ -15,8 +15,9 @@ import java.util.Arrays;
  */
 final class Own {
     /** The bits of the rows that are on, in the order Config describes the rows of [Content]. */
-    static final int WEAPONS = 1, FURNITURE = 2, PICTURES = 4, PLANTS = 8, TEXTURES = 16, BUILDINGS = 32, ZOMBIES = 64, PEOPLE = 128, ARMS = 256, CLOTHES = 512, ANIMALS = 1024, FIRE = 2048;
-    static final int ALL = WEAPONS | FURNITURE | PICTURES | PLANTS | TEXTURES | BUILDINGS | ZOMBIES | PEOPLE | ARMS | CLOTHES | ANIMALS | FIRE;
+    static final int WEAPONS = 1, FURNITURE = 2, PICTURES = 4, PLANTS = 8, TEXTURES = 16, BUILDINGS = 32, ZOMBIES = 64, PEOPLE = 128, ARMS = 256, CLOTHES = 512, ANIMALS = 1024, FIRE = 2048,
+            CABINS = 4096;
+    static final int ALL = WEAPONS | FURNITURE | PICTURES | PLANTS | TEXTURES | BUILDINGS | ZOMBIES | PEOPLE | ARMS | CLOTHES | ANIMALS | FIRE | CABINS;
 
     private static volatile int on = ALL;
     /** The rows each view's world was last built with, known to the logic thread alone. */
@@ -97,6 +98,14 @@ final class Own {
     }
 
     /**
+     * Whether the interior of a vehicle sat in is the mod's own model of it: the row as the file
+     * has it, in every graphics mode. Off, the game's own is drawn, its glass cut away.
+     */
+    static boolean cabins() {
+        return (on & CABINS) != 0;
+    }
+
+    /**
      * Whether the lines painted on roads are laid as paint: see RoadPaint. They are the game's
      * own markings in the game's own colours and need no picture of the mod's, so outside Low
      * it is the row as the file has it that says, whether or not the pictures are made yet.
@@ -135,6 +144,7 @@ final class Own {
         return "weapons " + ((bits & WEAPONS) != 0) + ", furniture " + ((bits & FURNITURE) != 0) + ", pictures " + ((bits & PICTURES) != 0)
                 + ", plants " + ((bits & PLANTS) != 0) + ", textures " + ((bits & TEXTURES) != 0) + ", buildings " + ((bits & BUILDINGS) != 0)
                 + ", zombies " + ((bits & ZOMBIES) != 0) + ", people " + ((bits & PEOPLE) != 0) + ", arms " + ((bits & ARMS) != 0)
-                + ", clothes " + ((bits & CLOTHES) != 0) + ", animals " + ((bits & ANIMALS) != 0) + ", fire " + ((bits & FIRE) != 0);
+                + ", clothes " + ((bits & CLOTHES) != 0) + ", animals " + ((bits & ANIMALS) != 0) + ", fire " + ((bits & FIRE) != 0)
+                + ", interiors " + ((bits & CABINS) != 0);
     }
 }

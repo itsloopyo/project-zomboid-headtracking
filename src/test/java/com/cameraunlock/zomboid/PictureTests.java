@@ -35,7 +35,7 @@ final class PictureTests {
         Checks.run("blocksUnpackAsTheReferenceUnpacksThem", PictureTests::blocksUnpackAsTheReferenceUnpacksThem);
         Checks.run("aPictureUnpackedIsItsSourceToWithinWhatPackingCosts", PictureTests::aPictureUnpackedIsItsSourceToWithinWhatPackingCosts);
         Checks.run("aBarkIsItsOwnSourceAtEveryLevel", PictureTests::aBarkIsItsOwnSourceAtEveryLevel);
-        Checks.run("onlyTheWeaponsColourIsAScreens", PictureTests::onlyTheWeaponsColourIsAScreens);
+        Checks.run("onlyTheWeaponsAndInteriorsColourIsAScreens", PictureTests::onlyTheWeaponsAndInteriorsColourIsAScreens);
     }
 
     /** What made.txt lists: each output with its SHA-256 and how it was made, and under it the sources it was made from, each with its SHA-256. */
@@ -245,11 +245,12 @@ final class PictureTests {
         }
     }
 
-    private static void onlyTheWeaponsColourIsAScreens() throws IOException {
+    private static void onlyTheWeaponsAndInteriorsColourIsAScreens() throws IOException {
         for (String name : filesUnder(PACKED, ".bc")) {
             OffHeap.Block packed = Pictures.packed("/" + name, true);
-            boolean screens = java.util.Arrays.stream(OwnModel.ALL).anyMatch(model -> model.colourPath.equals("/" + name));
-            check(packed.bytes.getInt(24) == (screens ? 1 : 0), name + " says its colour is a screen's only if it is a weapon's colour, as the graphics card was told before the pictures were packed");
+            boolean screens = java.util.Arrays.stream(OwnModel.ALL).anyMatch(model -> model.colourPath.equals("/" + name))
+                    || name.startsWith("cabins/") && name.endsWith(".colour.bc");
+            check(packed.bytes.getInt(24) == (screens ? 1 : 0), name + " says its colour is a screen's only if it is a weapon's or an interior's colour, as the graphics card was told before the pictures were packed");
             packed.free();
         }
     }

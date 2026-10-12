@@ -23,7 +23,7 @@ final class Ride {
     private static final float HEAD_INBOARD = 0.64f;
     private static final float[] DRIVER = {0f, 0f};
     /** The speedometer reads to 160 km/h, a hundred miles an hour, and the rev counter to 7000. */
-    private static final float SPEEDOMETER_FULL = 160f, REV_COUNTER_FULL = 7000f;
+    static final float SPEEDOMETER_FULL = 160f, REV_COUNTER_FULL = 7000f;
 
     /** Whether the viewer is in a vehicle. */
     volatile boolean seated;
@@ -105,6 +105,7 @@ final class Ride {
     private final Vector3f going = new Vector3f();
     private int seatSaid;
     private int wearAsked;
+    private int nearAsked;
 
 
     /**
@@ -131,6 +132,12 @@ final class Ride {
             sat = vehicle;
         }
         seated = vehicle != null;
+        if (vehicle == null && Own.cabins() && ++nearAsked % 20 == 0) {
+            BaseVehicle near = player.getNearVehicle();
+            if (near != null) {
+                CabinModel.readAhead(near.getScriptName());
+            }
+        }
         instrumentsLit = vehicle != null && vehicle.isEngineRunning();
         if (vehicle == null) {
             tilt = null;

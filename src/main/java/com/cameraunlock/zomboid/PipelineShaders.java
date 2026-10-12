@@ -124,7 +124,7 @@ final class PipelineShaders {
             """;
 
     /** The headlights that are on and the torch the viewer carries, for every shader they light: the world, the figures, the air and the rain. */
-    private static final String BEAMS = """
+    static final String BEAMS = """
             uniform vec4 uBeamAt[2];
             uniform vec3 uBeamWay[2];
             uniform sampler2DShadow uBeamShadow;
@@ -4562,6 +4562,19 @@ final class PipelineShaders {
             uniform float uInside;
             // How far the eye is out of doors: see the world's fragment shader.
             uniform float uEyeOutdoors;
+            // Set where the mod's own interior is drawn in the vehicle sat in: of the body only what is
+            // outside the interior is lit here, and uCabinDepth is the interior's depth, glass and all,
+            // with uCabinNear its near plane.
+            uniform float uOwnCabin;
+            uniform sampler2D uCabinDepth;
+            uniform float uCabinNear;
+            // Set while the driver's arms on the wheel of the mod's own interior are lit: the sun reaches them
+            // as the interior's own shadow map says (uCabinSun, read from the world less the eye by
+            // uCabinSunMatrix), and the light from all round is what the cabin lets in, uCabinAround of it.
+            uniform float uCabinArms;
+            uniform sampler2DShadow uCabinSun;
+            uniform mat4 uCabinSunMatrix;
+            uniform float uCabinAround;
             uniform float uPainted;
             uniform float uGlassPass;
             uniform sampler2D uPanes;
@@ -4676,16 +4689,7 @@ final class PipelineShaders {
                 return c.x > 0.01 && c.x < 0.99 && c.y > 0.01 && c.y < 0.99 && c.z < 1.0;
             }
 
-            float noiseAt(vec2 p) {
-                vec2 cell = floor(p);
-                vec2 f = fract(p);
-                f = f * f * (3.0 - 2.0 * f);
-                float a = fract(sin(dot(cell, vec2(12.9898, 78.233))) * 43758.5453);
-                float b = fract(sin(dot(cell + vec2(1.0, 0.0), vec2(12.9898, 78.233))) * 43758.5453);
-                float c = fract(sin(dot(cell + vec2(0.0, 1.0), vec2(12.9898, 78.233))) * 43758.5453);
-                float d = fract(sin(dot(cell + vec2(1.0, 1.0), vec2(12.9898, 78.233))) * 43758.5453);
-                return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
-            }
+            """ + CabinGlass.NOISE + """
 
             // The driver's place is laid out at one and a half times the size a vehicle is
             // drawn at, and is brought down to it where it is traced.
@@ -5033,124 +5037,13 @@ final class PipelineShaders {
                 return face;
             }
 
-            float hash21(vec2 p) {
-                return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
-            }
-
-            // Half the width of the front screen, in tiles. A place on it is counted across
-            // from its middle, the driver's side below nought, and up from 0.3 under its foot.
-            float gScreenHalf = 0.72;
-
-            // A wiper goes through this much of a turn and back, in so many seconds.
-            const float WIPER_SWEEP = 1.92, WIPER_BEAT = 1.5;
-
-            // Where a place on the front screen is to one of its two wipers: x how far round
-            // the blade's sweep it is, nought where the blade is parked to 1, and under
-            // nought where the blade does not come, y how far from the wiper's foot, in tiles.
-            vec2 bladeTo(vec2 on, int i) {
-                vec2 rel = on - vec2((i == 0 ? -0.62 : 0.06) * gScreenHalf, -0.30);
-                float far2 = length(rel);
-                float q = atan(rel.y, rel.x) / WIPER_SWEEP;
-                return vec2(q < 0.02 || q > 1.0 || far2 < 0.05 ? -1.0 : q, far2);
-            }
-
-            // What the wipers have done to a place on the front screen: x how many times a
-            // blade has passed it since uTime last began again, both blades counted, and y
-            // how many seconds ago the last was, 1000 where no blade comes.
-            vec2 wipedAt(vec2 on) {
-                float reach = 0.66 * gScreenHalf;
-                float beats = uTime / WIPER_BEAT;
-                float phase = fract(beats);
-                vec2 found = vec2(0.0, 1000.0);
-                for (int i = 0; i < 2; i++) {
-                    vec2 to = bladeTo(on, i);
-                    if (to.x < 0.0 || to.y >= reach) {
-                        continue;
-                    }
-                    // A blade passes on its way up and again on its way back.
-                    float up = 0.5 * to.x, back = 1.0 - up;
-                    found.x += 2.0 * floor(beats) + step(up, phase) + step(back, phase);
-                    found.y = min(found.y, min(fract(phase - up), fract(phase - back)) * WIPER_BEAT);
-                }
-                return found;
-            }
-
-            // Where a place on the front screen is to its two wipers. They are parked along
-            // its foot, pointing away from the driver's side, and sweep up together through
-            // a little over a right angle and back. x is 1 where a blade wipes, y 1 on the
-            // line the blades leave at the end of their reach, z how long since a blade
-            // last passed, 0 just now to 1 long enough for the rain to be back, and w 1 on
-            // a blade itself while it rains.
-            vec4 sweepAt(vec2 on) {
-                float reach = 0.66 * gScreenHalf;
-                float phase = fract(uTime / WIPER_BEAT);
-                float at = phase < 0.5 ? 2.0 * phase : 2.0 - 2.0 * phase;
-                vec4 found = vec4(0.0, 0.0, 1.0, 0.0);
-                for (int i = 0; i < 2; i++) {
-                    vec2 to = bladeTo(on, i);
-                    float q = to.x, far2 = to.y;
-                    if (q < 0.0) {
-                        continue;
-                    }
-                    float past = (far2 - reach) / 0.012;
-                    found.y = max(found.y, exp(-past * past));
-                    if (far2 < reach) {
-                        found.x = 1.0;
-                        float since = phase < 0.5 ? (q < at ? phase - q * 0.5 : phase + q * 0.5) : (q > at ? phase - (1.0 - q * 0.5) : phase - q * 0.5);
-                        found.z = min(found.z, clamp(since * WIPER_BEAT / 1.1, 0.0, 1.0));
-                        found.w = max(found.w, 1.0 - smoothstep(0.004, 0.011, abs(q - at) * WIPER_SWEEP * far2));
-                    }
-                }
-                found.y *= 1.0 - found.x;
-                return found;
-            }
-
-            vec4 flared(vec4 glass, vec3 look, float dirt);
             """;
 
     /**
      * The rest of the people's light up to its main, from the rain and snow on a vehicle's panes on:
      * Pipeline joins it on after FIGURE_LIGHT_PARTS. As one constant with it the shader is longer than a class file can hold.
      */
-    static final String FIGURE_LIGHT_PANES = GlassRain.GLSL + """
-
-            // A pane seen from the seat, over the world behind it: the sky it mirrors, more at
-            // a glancing angle, and the dust and dried rain on it, which stay put on the glass
-            // as the car moves, and the rain on it: see GlassRain. on is the place on the
-            // pane, in tiles.
-            vec4 pane(vec2 on, vec3 n, vec3 view, float swept) {
-                float dust = smoothstep(0.35, 0.85, noiseAt(on * 5.0) * 0.55 + noiseAt(on * 15.0 + 3.0) * 0.3 + noiseAt(on * 61.0) * 0.15);
-                float runs = smoothstep(0.62, 0.95, noiseAt(vec2(on.x * 46.0, on.y * 2.2)));
-                float dirt = clamp(dust * 0.75 + runs * 0.45, 0.0, 1.0);
-                // The wipers keep their two arcs of the front screen clean and push what they
-                // clear to the arcs' edges, where it dries as a line.
-                vec4 wiper = vec4(0.0);
-                if (swept > 0.5) {
-                    wiper = sweepAt(on);
-                    float inside = wiper.x;
-                    dirt = dirt * (1.0 - 0.75 * inside) + 0.55 * wiper.y + 0.45 * (1.0 - inside);
-                    dirt = clamp(dirt, 0.0, 1.0);
-                }
-                float glancing = 0.04 + 0.96 * pow(clamp(1.0 - abs(dot(n, view)), 0.0, 1.0), 5.0);
-                vec3 thrown = reflect(-view, n);
-                // Glass seen from inside mirrors the inside: where the mirrored ray goes down it
-                // is the sunlit top of the dashboard, pale on the screen above it.
-                vec3 sunLight = pow(uLightColor, vec3(2.2));
-                vec3 sheen = thrown.z > 0.0 ? atmosphere(thrown) * 0.6 : vec3(0.16, 0.16, 0.17) * sunLight * (0.4 + max(uLight.z, 0.0));
-                // Dust on glass shows most where the sun is behind it.
-                float lit = 0.45 + 2.0 * pow(max(dot(-view, uLight), 0.0), 5.0);
-                vec3 grime = vec3(0.36, 0.33, 0.28) * sunLight * lit;
-                float dusty = (0.04 + 0.96 * dirt) * (0.16 + 0.2 * lit);
-                float cover = clamp(0.06 + 0.5 * glancing + dusty, 0.0, 0.8);
-                vec4 glass = vec4(mix(sheen, grime, clamp(dusty / cover, 0.0, 1.0)), cover);
-                if (uRaining > 0.0) {
-                    glass = rained(glass, on, swept, wiper);
-                }
-                if (uSnowing > 0.0) {
-                    glass = snowed(glass, on, swept, wiper);
-                }
-                return flared(glass, -view, dirt);
-            }
+    static final String FIGURE_LIGHT_PANES = CabinGlass.PANES + """
 
             vec2 paneOut(vec3 o, vec3 d);
 
@@ -5492,6 +5385,27 @@ final class PipelineShaders {
                 // With its wheel and its triangles known, a cabin is the picture's own from
                 // the sills up, and what is glass in it is told by the triangles alone.
                 bool builtCabin = uInside > 0.5 && uParted.x > 0.5 && uWheel.w > 0.0;
+                // With the mod's own interior drawn, the body is seen only where it is outside it:
+                // the bonnet ahead of the glass, and nothing of its own inside. What is left is
+                // lit as the bodywork it is, and the interior is drawn over it after.
+                bool ownBody = false;
+                if (uOwnCabin > 0.5 && uInside > 0.5) {
+                    if (uGlassPass > 0.5) {
+                        discard;
+                    }
+                    float partZ = texture2D(uPartsDepth, uv).r;
+                    if (partZ >= 1.0) {
+                        discard;
+                    }
+                    bodyAhead = 2.0 * uNear * uFar / (uFar + uNear - (partZ * 2.0 - 1.0) * (uFar - uNear));
+                    float envelopeZ = texture2D(uCabinDepth, uv).r * 2.0 - 1.0;
+                    float envelope = 2.0 * uCabinNear * uFar / (uFar + uCabinNear - envelopeZ * (uFar - uCabinNear));
+                    if (bodyAhead < envelope - 0.015) {
+                        discard;
+                    }
+                    ownBody = true;
+                    kind = 4.0;
+                }
                 // The steering wheel is found by walking each line of sight up to it.
                 float wheelFar = 0.0;
                 float wheelPart = 0.0;
@@ -5600,7 +5514,7 @@ final class PipelineShaders {
                             blind = true;
                         }
                     }
-                } else if (kind > 3.5 && !wheel && !dial) {
+                } else if (kind > 3.5 && !wheel && !dial && !ownBody) {
                     if (uGlassPass < 0.5) {
                         bonnetSeen = figure.a < 0.5 || (uHavePanes > 0.5 ? paned(uv, ahead * length(ray)) > 0.5 : glass(uv) > 0.5);
                     }
@@ -5608,6 +5522,9 @@ final class PipelineShaders {
                         // The frame of the pane, or the pane itself on the glass's own pass.
                         kind = 0.0;
                     }
+                }
+                if (ownBody) {
+                    bonnetSeen = true;
                 }
                 float bonnet = kind > 3.5 && !wheel && !dial ? 1.0 : 0.0;
                 if (figure.a < 0.5 && !wheel && !dial && !bonnetSeen) {
@@ -5878,6 +5795,14 @@ final class PipelineShaders {
                         sun = shadow2D(uShadowFar, c).r;
                     }
                 }
+                if (uCabinArms > 0.5) {
+                    // In the cabin the world's map has the vehicle's own shadow over everything: the sun
+                    // is asked well outside it towards the sun, and the cabin's own map says the rest.
+                    vec3 over = (uNearMatrix * vec4(at + uLight * 3.5, 1.0)).xyz * 0.5 + 0.5;
+                    float outside = inside(over) ? shadow2D(uShadowNear, over).r : 1.0;
+                    vec3 s = (uCabinSunMatrix * vec4(at - uEye, 1.0)).xyz;
+                    sun = outside * (s.x > 0.0 && s.x < 1.0 && s.y > 0.0 && s.y < 1.0 ? shadow2D(uCabinSun, s).r : 1.0);
+                }
                 // The vehicle in the shadow map is the one the game draws from outside, and
                 // from the seat its panels lie right on their own shadow: the sun comes and
                 // goes across them in rings. Under its roof the cabin has the sky's light only.
@@ -6066,6 +5991,7 @@ final class PipelineShaders {
                         around += sunLight * vec3(0.9, 0.86, 0.74) * (0.3 * max(uLight.z, 0.0) * (1.0 - max(n.z, 0.0)) * outdoors);
                         around += uFlashSky * ((0.6 + 0.4 * max(n.z, 0.0)) * outdoors);
                     }
+                    around *= mix(1.0, uCabinAround, uCabinArms);
                     color = dressed(pow(figure.rgb, vec3(2.2)), n, view, strand, worn, gloss, low, uLight, sunLight * sun, around, lamps, skyBack);
                 }
 

@@ -186,7 +186,7 @@ final class Pipeline {
      * every sum that only colours a pixel: see drawWorld.
      */
     private static final String WORLD_FRAGMENT_DEPTH = WORLD_FRAGMENT.replace(PipelineShaders.DEPTH_ONLY_ASKED, PipelineShaders.DEPTH_ONLY_ALWAYS);
-    private static final String FIGURE_LIGHT = PipelineShaders.FIGURE_LIGHT_PARTS.concat(PipelineShaders.FIGURE_LIGHT_PANES).concat(VehicleLamps.GLSL).concat(CabinShader.SOLIDS).concat(CabinShader.LIGHT).concat(CabinShader.GLASS)
+    private static final String FIGURE_LIGHT = PipelineShaders.FIGURE_LIGHT_PARTS.concat(PipelineShaders.FIGURE_LIGHT_PANES).concat(VehicleLamps.GLSL).concat(CabinShader.SOLIDS).concat(CabinShader.LIGHT).concat(CabinShader.GLASS).concat(CabinGlass.FLARED)
             .concat(CharacterDraw.LIT).concat(PipelineShaders.FIGURE_LIGHT_MAIN);
 
     /**
@@ -361,6 +361,21 @@ final class Pipeline {
     /** Beside the viewer's own body, which way each point of it faces, where the picture drew it itself. */
     private int ownNormal;
     private int repaintedTarget, repaintedColor, repaintedDepth;
+    /** The depth of the mod's own interior, glass and all, from the eye: what of the body is nearer is inside it. */
+    private int envelopeTarget, envelopeDepth;
+    /** The unit the pass that lights the own body reads the interior's depth on. */
+    private static final int CABIN_DEPTH_UNIT = 26;
+    /** The mod's own interiors, and what this frame draws one with. */
+    private final CabinDraw cabinDraw = new CabinDraw();
+    private final CabinDraw.Frame cabinFrame = new CabinDraw.Frame();
+    private final CabinArms cabinArms = new CabinArms();
+    private boolean armsUnplacedSaid, armsDrawnSaid;
+    /** The unit the driver's arms read the interior's shadow map on while they are lit. */
+    private static final int CABIN_SUN_UNIT = 27;
+    /** Whether this frame drew the mod's own interior of the vehicle sat in. */
+    private boolean ownCabinDrawn;
+    /** The interiors the mod could not make, by script, said once each. */
+    private final java.util.HashSet<String> cabinFailed = new java.util.HashSet<>();
     private static final float OWN_NEAR = 0.05f;
     private int occlusionTarget, occlusionColor, softTarget, softColor;
     private int volumeTarget, volumeColor, softVolumeTarget, softVolumeColor;
@@ -3487,6 +3502,9 @@ final class Pipeline {
             GL30.glBindFramebuffer(GL_FRAMEBUFFER, steadying ? movesTarget : sceneTarget);
             figureLight.use();
             figureLight.set("uMoves", pass == 0 ? 1f : 0.5f);
+            // A shadow sampler may not share a unit with a plain one, used or not.
+            figureLight.set("uCabinSun", CABIN_SUN_UNIT);
+            figureLight.set("uCabinArms", 0f);
             figureLight.set("uFigure", 0);
             figureLight.set("uDepth", 3);
             figureLight.set("uShadowNear", 1);
@@ -3579,6 +3597,7 @@ final class Pipeline {
         if (parts != null) {
             drawPartKinds(parts);
         }
+        ownCabinDrawn = parts != null && view.characters.cabin.wheel != null && prepareOwnCabin(camera, state, tanHalfFieldOfView, aspect, near, far, parts);
         // On foot the cabin's pictures are not made: nothing is drawn in each, at any depth.
         GL13.glActiveTexture(GL_TEXTURE0 + PARTS_UNIT);
         GL11.glBindTexture(GL_TEXTURE_2D, cabin.made() ? partsColor : noneTexture);
@@ -3619,6 +3638,12 @@ final class Pipeline {
             figureLight.set("uNear", OWN_NEAR);
             figureLight.set("uWriteNear", near);
             figureLight.set("uInside", seated ? 1f : 0f);
+            figureLight.set("uOwnCabin", ownCabinDrawn ? 1f : 0f);
+            figureLight.set("uCabinDepth", CABIN_DEPTH_UNIT);
+            figureLight.set("uCabinNear", near);
+            GL13.glActiveTexture(GL_TEXTURE0 + CABIN_DEPTH_UNIT);
+            GL11.glBindTexture(GL_TEXTURE_2D, ownCabinDrawn ? envelopeDepth : whiteTexture);
+            GL13.glActiveTexture(GL_TEXTURE0);
             // The pass before this was over painted metal. A vehicle sat in is that; a body is not.
             figureLight.set("uPainted", seated ? 1f : 0f);
             GL13.glActiveTexture(GL_TEXTURE0 + NORMAL_UNIT);
@@ -3638,7 +3663,7 @@ final class Pipeline {
             GL11.glDepthMask(true);
             figureLight.set("uGlassPass", 0f);
             figureLight.set("uInstruments", view.ride.instrumentsLit ? 0.9f * state.night : 0f);
-            float[] wheel = seated ? Cabins.wheel(view.ride) : null;
+            float[] wheel = seated && !ownCabinDrawn ? Cabins.wheel(view.ride) : null;
             if (wheel == null) {
                 figureLight.set("uWheel", 0f, 0f, 0f, 0f);
                 figureLight.set("uSeat", 0f, 0f, 0f);
@@ -3663,12 +3688,178 @@ final class Pipeline {
             glazed = seated;
             GL11.glDepthFunc(GL_LEQUAL);
             GL11.glDisable(GL_DEPTH_TEST);
+            if (ownCabinDrawn) {
+                drawOwnCabin(camera, state);
+                drawWheelArms(camera, tanHalfFieldOfView, aspect, near, far);
+            }
             if (view.characters.holding()) {
                 drawHeld(camera, state, tanHalfFieldOfView, aspect, near, far);
             }
         }
         view.characters.done();
         GL11.glDepthMask(true);
+    }
+
+    /**
+     * Readies the mod's own interior of the vehicle sat in, where it has one: fitted to the body,
+     * the sun's map of it drawn, and its depth drawn for the body's light to cut away what of the
+     * body is inside it. False where there is none, or it cannot be made, which is said once.
+     */
+    private boolean prepareOwnCabin(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float near, float far, VehicleMeshes.Parts parts) {
+        String script = view.ride.seatedIn;
+        if (script == null || !Own.cabins() || cabinFailed.contains(script)) {
+            return false;
+        }
+        CabinDraw.Fitted fitted;
+        try {
+            fitted = cabinDraw.fittedFor(script, parts.measures);
+        } catch (java.io.IOException e) {
+            cabinFailed.add(script);
+            Log.info("the mod's interior of " + script + " cannot be made, and the game's own is drawn: " + e.getMessage());
+            return false;
+        }
+        if (fitted == null) {
+            return false;
+        }
+        cabinFrame.fitted = fitted;
+        cameraForGlass = camera;
+        stateForGlass = state;
+        float[] sunWay = {state.lightX, state.lightY, state.lightUp};
+        cabinDraw.frame(cabinFrame, camera, view.characters.cabin.wheel, view.characters.cabin.axes, tanHalfFieldOfView, aspect, near, far, sunWay);
+        cabinFrame.steer = Cabins.wheelTurn(view.ride.steering);
+        cabinFrame.speed = view.ride.roadSpeed * Ride.SPEEDOMETER_FULL;
+        cabinFrame.revs = view.ride.engineSpeed;
+        cabinFrame.fuel = view.ride.fuel;
+        cabinFrame.heat = view.ride.instrumentsLit ? 0.5f : 0f;
+        CabinTrim.of(script, cabinFrame.tint);
+        cabinDraw.drawShadow(cabinFrame);
+        GL30.glBindFramebuffer(GL_FRAMEBUFFER, envelopeTarget);
+        GL11.glViewport(0, 0, width, height);
+        GL11.glDepthMask(true);
+        GL11.glClearDepth(1.0);
+        GL11.glClear(GL_DEPTH_BUFFER_BIT);
+        cabinDraw.drawEnvelope(cabinFrame);
+        GL11.glDisable(GL_DEPTH_TEST);
+        return true;
+    }
+
+    /**
+     * The driver's arms on the wheel of the mod's own interior, drawn as the arms on a held weapon
+     * are and lit by the pass that lights people, against the interior's depth so that the rim is
+     * before the fingers that go round it.
+     */
+    private void drawWheelArms(ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float near, float far) {
+        ArmModel model = OwnArms.model();
+        float scale = view.characters.viewerArmScale();
+        if (!view.ride.driving || !Own.arms() || model == null) {
+            if (!armsUnplacedSaid && Own.arms()) {
+                armsUnplacedSaid = true;
+                Log.info("the driver's arms are not drawn: " + (view.ride.driving ? "the arm model is not loaded" : "the viewer is not in the driver's seat"));
+            }
+            return;
+        }
+        if (!cabinArms.place(model, scale, cabinFrame, camera, cabinFrame.steer)) {
+            if (!armsUnplacedSaid) {
+                armsUnplacedSaid = true;
+                Log.info("the driver's arms are not drawn: at a scale of " + scale + " they do not reach the wheel");
+            }
+            return;
+        }
+        if (!armsDrawnSaid) {
+            armsDrawnSaid = true;
+            Log.info("the driver's arms are drawn on the wheel, at a scale of " + scale);
+        }
+        clearOwnTarget();
+        view.characters.drawWheelArms(ViewCamera.projection(tanHalfFieldOfView, aspect, HELD_NEAR, far), cabinArms.skins);
+        GL30.glBindVertexArray(0);
+        GL15.glBindBuffer(GL_ARRAY_BUFFER, 0);
+        GL11.glDisable(GL_CULL_FACE);
+        GL30.glBindFramebuffer(GL_FRAMEBUFFER, steadying ? movesTarget : sceneTarget);
+        figureLight.use();
+        noLamps();
+        figureLight.set("uOwnCabin", 0f);
+        figureLight.set("uFigureAmbient", view.characters.ownLight);
+        // What the cabin's pass left set would have the arms taken for its glass, its wheel or its seat.
+        figureLight.set("uInside", 0f);
+        figureLight.set("uPainted", 0f);
+        figureLight.set("uHavePanes", 0f);
+        figureLight.set("uParted", 0f, 0f);
+        figureLight.set("uWheel", 0f, 0f, 0f, 0f);
+        figureLight.set("uSeat", 0f, 0f, 0f);
+        figureLight.set("uHaveFacing", 1f);
+        figureLight.set("uCabinArms", 1f);
+        figureLight.set("uCabinAround", 0.45f);
+        figureLight.set("uCabinSun", CABIN_SUN_UNIT);
+        figureLight.set("uCabinSunMatrix", cabinFrame.relShadow);
+        figureLight.set("uNear", HELD_NEAR);
+        figureLight.set("uWriteNear", near);
+        GL13.glActiveTexture(GL_TEXTURE0 + CABIN_SUN_UNIT);
+        GL11.glBindTexture(GL_TEXTURE_2D, cabinDraw.shadowMap());
+        GL13.glActiveTexture(GL_TEXTURE0 + NORMAL_UNIT);
+        GL11.glBindTexture(GL_TEXTURE_2D, ownNormal);
+        GL13.glActiveTexture(GL_TEXTURE0 + 3);
+        GL11.glBindTexture(GL_TEXTURE_2D, ownDepth);
+        GL13.glActiveTexture(GL_TEXTURE0);
+        GL11.glBindTexture(GL_TEXTURE_2D, ownColor);
+        GL11.glEnable(GL_DEPTH_TEST);
+        GL11.glDepthFunc(GL_LEQUAL);
+        GL11.glDepthMask(true);
+        quad();
+        figureLight.set("uCabinArms", 0f);
+        figureLight.set("uInside", 1f);
+        figureLight.set("uOwnCabin", 1f);
+        GL11.glDisable(GL_DEPTH_TEST);
+    }
+
+    /** Where the frame is drawn from and its sky, kept for the glass, which is drawn after the sky and the rain. */
+    private ViewCamera.Pose cameraForGlass;
+    private SkyState stateForGlass;
+
+    /** The panes of the mod's own interior, over the world seen through them. */
+    private void drawOwnGlass(ViewCamera.Pose camera, SkyState state) {
+        Program glass = cabinDraw.beginGlass();
+        atmosphere(glass, state);
+        setBeams(glass, CabinDraw.TORCH_UNIT);
+        glass.set("uEye", camera.eyeX, camera.eyeY, camera.eyeUp);
+        glass.set("uLight", state.lightX, state.lightY, state.lightUp);
+        glass.set("uLightColor", state.lightRed, state.lightGreen, state.lightBlue);
+        glass.set("uTime", state.seconds);
+        glass.set("uRaining", state.rain);
+        glass.set("uSnowing", state.snow);
+        glass.set("uGlassRain", (float) Quality.glassRain());
+        glass.set("uGlassPull", view.glassPull.leanAhead, view.glassPull.leanAside, view.glassPull.front, view.glassPull.back);
+        cabinDraw.drawGlass(cabinFrame);
+        GL20.glUseProgram(0);
+    }
+
+    /** Draws the mod's own interior over what of the body was lit outside it, in the light of the frame. */
+    private void drawOwnCabin(ViewCamera.Pose camera, SkyState state) {
+        GL30.glBindFramebuffer(GL_FRAMEBUFFER, steadying ? movesTarget : sceneTarget);
+        GL11.glViewport(0, 0, width, height);
+        Program program = cabinDraw.begin();
+        lightHeld(program, camera, state);
+        setBeams(program, CabinDraw.TORCH_UNIT);
+        program.set("uShadowNear", OwnGun.SHADOW_NEAR_UNIT);
+        program.set("uShadowFar", OwnGun.SHADOW_FAR_UNIT);
+        GL13.glActiveTexture(GL_TEXTURE0 + MIRROR_UNIT);
+        GL11.glBindTexture(GL_TEXTURE_2D, mirrored.made() ? mirrorColor : noneTexture);
+        GL13.glActiveTexture(GL_TEXTURE0);
+        program.set("uBehind", MIRROR_UNIT);
+        program.set("uBehindShown", reflections ? 1f : 0f);
+        program.set("uDoorView", Cabins.DOOR_VIEW_MIDDLE, Cabins.DOOR_VIEW_HALF, Cabins.DOOR_VIEW_FLANK);
+        float[] axes = view.characters.cabin.axes;
+        program.set("uBodyAhead", axes[0], axes[1], axes[2]);
+        program.set("uBodyAside", axes[3], axes[4], axes[5]);
+        program.set("uBodyAbove", axes[6], axes[7], axes[8]);
+        program.set("uGlowColor", 0.55f, 1.0f, 0.75f);
+        float[] lamp = cabinFrame.fitted.lamps, m = cabinFrame.model;
+        float[] dome = {m[0] * lamp[0] + m[4] * lamp[1] + m[8] * lamp[2] + m[12], m[1] * lamp[0] + m[5] * lamp[1] + m[9] * lamp[2] + m[13],
+            m[2] * lamp[0] + m[6] * lamp[1] + m[10] * lamp[2] + m[14], view.ride.doorOpen ? 0.6f : 0f};
+        float[] glow = {m[0] * lamp[3] + m[4] * lamp[4] + m[8] * lamp[5] + m[12], m[1] * lamp[3] + m[5] * lamp[4] + m[9] * lamp[5] + m[13],
+            m[2] * lamp[3] + m[6] * lamp[4] + m[10] * lamp[5] + m[14]};
+        program.set("uGlowAt", glow[0], glow[1], glow[2]);
+        cabinDraw.draw(cabinFrame, view.ride.instrumentsLit ? 0.9f * state.night : 0f, dome);
+        GL20.glUseProgram(0);
     }
 
     /** Has the next draw take bare triangles of the cabin, already in the cabin's own place on the screen, with nothing culled or blended. */
@@ -4137,9 +4328,17 @@ final class Pipeline {
         GL11.glEnable(GL_BLEND);
         // The picture's alpha is left alone: it says what mirrors.
         GL14.glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ZERO, GL_ONE);
-        figureLight.set("uGlassPass", 1f);
-        quad();
-        figureLight.set("uGlassPass", 0f);
+        if (ownCabinDrawn) {
+            figureLight.set("uOwnCabin", 1f);
+            GL20.glUseProgram(0);
+            drawOwnGlass(cameraForGlass, stateForGlass);
+            figureLight.use();
+        } else {
+            figureLight.set("uGlassPass", 1f);
+            figureLight.set("uOwnCabin", 0f);
+            quad();
+            figureLight.set("uGlassPass", 0f);
+        }
         GL11.glDisable(GL_DEPTH_TEST);
         GL11.glDisable(GL_BLEND);
         GL11.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -4185,6 +4384,8 @@ final class Pipeline {
      */
     private void drawHeld(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float near, float far) {
         clearOwnTarget();
+        figureLight.use();
+        figureLight.set("uOwnCabin", 0f);
         CharacterDraw.bare = true;
         view.characters.drawHeld(tanHalfFieldOfView, aspect, HELD_NEAR, far);
         CharacterDraw.bare = false;
@@ -5151,6 +5352,13 @@ final class Pipeline {
         GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, partsDepth, 0);
         if (problem == null) {
             problem = complete("cabin parts");
+        }
+        envelopeDepth = texture(GL_DEPTH_COMPONENT24, width, height, GL_DEPTH_COMPONENT, GL_FLOAT, GL_NEAREST);
+        // Only its depth is drawn: the colour the target is made with is never written.
+        envelopeTarget = target(paneColor);
+        GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, envelopeDepth, 0);
+        if (problem == null) {
+            problem = complete("interior's depth");
         }
         return problem;
     }

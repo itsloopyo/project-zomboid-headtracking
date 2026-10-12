@@ -1,0 +1,269 @@
+"""Draws the faces of the instruments in the mod's vehicle interiors, for tools/models/cabins.py to lay
+onto the dials it bakes.
+
+    python tools/models/cabin_pictures.py DIR
+
+Each face is two square PNGs: NAME.png, white markings on black, and NAME-glow.png, white where the face
+glows when the instruments are lit. The figures are set in Inter and DejaVu Sans Mono (SIL Open Font
+License 1.1 and the Bitstream Vera licence, see THIRD-PARTY-NOTICES.md), read from Blender 4.4's own copies,
+which are found where Blender installs by default or in the folder the BLENDER_FONTS environment variable
+names. Nothing here is a maker's design: the faces are laid out as gauges of the early eighties commonly were.
+"""
+
+import math
+import os
+import sys
+
+from PIL import Image, ImageDraw, ImageFont
+
+FONTS = os.environ.get("BLENDER_FONTS", r"C:\Program Files\Blender Foundation\Blender 4.4\4.4\datafiles\fonts")
+SIZE = 1024
+# Drawn at four times the size and brought down; a round face's radius is C.
+C = SIZE * 2
+FACE = (8, 8, 9)
+WHITE = (238, 236, 228)
+ORANGE = (236, 120, 40)
+RED = (214, 46, 30)
+
+
+def font(px, mono=False):
+    return ImageFont.truetype(os.path.join(FONTS, "DejaVuSansMono.woff2" if mono else "Inter.woff2"), px)
+
+
+class Face:
+    """A face being drawn: its colour and what of it glows, side by side."""
+
+    def __init__(self, wide=C * 2, high=C * 2):
+        self.colour = Image.new("RGB", (wide, high), FACE)
+        self.glow = Image.new("L", (wide, high), 0)
+        self.c = ImageDraw.Draw(self.colour)
+        self.g = ImageDraw.Draw(self.glow)
+
+    def line(self, points, colour, width, glows=True):
+        self.c.line(points, fill=colour, width=width)
+        if glows:
+            self.g.line(points, fill=255, width=width)
+
+    def text(self, xy, words, size, colour=WHITE, glows=True, mono=False):
+        self.c.text(xy, words, font=font(size, mono), fill=colour, anchor="mm")
+        if glows:
+            self.g.text(xy, words, font=font(size, mono), fill=255, anchor="mm")
+
+    def box(self, corners, colour, outline_width=0, glows=False):
+        if outline_width:
+            self.c.rectangle(corners, outline=colour, width=outline_width)
+            if glows:
+                self.g.rectangle(corners, outline=255, width=outline_width)
+        else:
+            self.c.rectangle(corners, fill=colour)
+            if glows:
+                self.g.rectangle(corners, fill=255)
+
+    def polygon(self, points, colour, glows=False):
+        self.c.polygon(points, fill=colour)
+        if glows:
+            self.g.polygon(points, fill=255)
+
+    def ellipse(self, corners, colour, glows=True):
+        self.c.ellipse(corners, fill=colour)
+        if glows:
+            self.g.ellipse(corners, fill=255)
+
+    def save(self, folder, name, size):
+        self.colour.resize(size, Image.LANCZOS).save(os.path.join(folder, name + ".png"))
+        self.glow.resize(size, Image.LANCZOS).save(os.path.join(folder, name + "-glow.png"))
+
+
+def at(angle_from_up, radius, centre=(C, C)):
+    """A point radius from centre at an angle clockwise from straight up, in degrees."""
+    a = math.radians(angle_from_up)
+    return centre[0] + radius * math.sin(a), centre[1] - radius * math.cos(a)
+
+
+def tick(face, angle, inner, outer, width, colour, centre=(C, C)):
+    face.line([at(angle, inner, centre), at(angle, outer, centre)], colour, width)
+
+
+def speedometer():
+    """0 to 85 miles an hour over 260 degrees, a ring of kilometres within it, the odometer's window below."""
+    face = Face()
+    full, sweep = 85.0, 130.0
+    for mph in range(0, 86, 5):
+        a = -sweep + 2 * sweep * mph / full
+        major = mph % 10 == 0
+        tick(face, a, 1640 if major else 1730, 1900, 26 if major else 14, WHITE)
+        if major:
+            face.text(at(a, 1420), str(mph), 230)
+    for kmh in range(0, 141, 20):
+        a = -sweep + 2 * sweep * (kmh / 1.609) / full
+        tick(face, a, 1060, 1160, 12, ORANGE)
+        face.text(at(a, 920), str(kmh), 110, ORANGE)
+    face.text((C, C - 380), "MPH", 150)
+    face.text((C, C - 230), "km/h", 90, ORANGE)
+    # The odometer: six drums in a window, the last white on black for the tenths.
+    left, top, cell, high = C - 330, C + 470, 110, 170
+    face.box([left - 14, top - 14, left + 6 * cell + 14, top + high + 14], (34, 34, 36))
+    for k, digit in enumerate("047312"):
+        x0 = left + k * cell
+        drum, ink = ((220, 218, 210), (14, 14, 15)) if k == 5 else ((14, 14, 15), (220, 218, 210))
+        face.box([x0 + 4, top, x0 + cell - 4, top + high], drum)
+        face.text((x0 + cell / 2, top + high / 2), digit, 150, ink, glows=k < 5, mono=True)
+    return face
+
+
+def revs():
+    """The engine's speed, 0 to 7 thousand turns a minute over 260 degrees, red from 5500."""
+    face = Face()
+    full, sweep = 7.0, 130.0
+    for k in range(0, 71):
+        rpm = k / 10.0
+        a = -sweep + 2 * sweep * rpm / full
+        major = k % 10 == 0
+        half = k % 5 == 0
+        if not (major or half or k % 2 == 0):
+            continue
+        red = rpm >= 5.5
+        tick(face, a, 1640 if major else 1720 if half else 1790, 1900, 26 if major else 16 if half else 10, RED if red else WHITE)
+        if major:
+            face.text(at(a, 1420), str(int(rpm)), 230, RED if red else WHITE)
+    # The red zone as a band under its ticks.
+    for k in range(55, 71):
+        a = -sweep + 2 * sweep * (k / 10.0) / full
+        face.line([at(a, 1905), at(a + 2.6, 1905)], RED, 40)
+    face.text((C, C - 380), "RPM", 150)
+    face.text((C, C - 230), "x1000", 90)
+    return face
+
+
+def fuel_and_heat():
+    """Fuel on the left, empty below and full above, heat on the right, cold above and hot below, about two pivots
+    set either side of the middle as the needles have them."""
+    face = Face()
+    off = int(C * 0.013 / 0.040)
+    left, right = (C - off, C), (C + off, C)
+    for k in range(5):
+        a = -120 + 15 * k
+        tick(face, a, 1240, 1500 if k % 2 == 0 else 1400, 24 if k % 2 == 0 else 14, RED if k == 0 else WHITE, left)
+    face.text(at(-128, 1180, left), "E", 210, RED)
+    face.text(at(-90, 1100, left), "1/2", 130)
+    face.text(at(-52, 1180, left), "F", 210)
+    for k in range(5):
+        a = 60 + 15 * k
+        tick(face, a, 1240, 1500 if k % 2 == 0 else 1400, 24 if k % 2 == 0 else 14, RED if k == 4 else WHITE, right)
+    face.text(at(52, 1180, right), "C", 210)
+    face.text(at(128, 1180, right), "H", 210, RED)
+    # A pump and a thermometer, drawn simply, below the pivots.
+    px, py = C - 300, C + 520
+    face.box([px - 60, py - 90, px + 40, py + 90], WHITE, outline_width=18, glows=True)
+    face.line([(px + 40, py - 40), (px + 90, py - 10), (px + 90, py + 60)], WHITE, 16)
+    tx, ty = C + 300, C + 520
+    face.line([(tx, ty - 110), (tx, ty + 50)], WHITE, 22)
+    face.ellipse([tx - 45, ty + 30, tx + 45, ty + 120], WHITE)
+    for k in range(3):
+        face.line([(tx + 20, ty - 80 + k * 40), (tx + 60, ty - 80 + k * 40)], WHITE, 12)
+    return face
+
+
+def oil_and_volts():
+    """Oil pressure on the left, nothing below and full above, the battery's volts on the right, high above and low
+    below, about the same two pivots as the fuel and heat dial."""
+    face = Face()
+    off = int(C * 0.013 / 0.040)
+    left, right = (C - off, C), (C + off, C)
+    for k in range(5):
+        a = -120 + 15 * k
+        tick(face, a, 1240, 1500 if k % 2 == 0 else 1400, 24 if k % 2 == 0 else 14, RED if k == 0 else WHITE, left)
+    face.text(at(-128, 1180, left), "0", 190, RED)
+    face.text(at(-90, 1100, left), "40", 130)
+    face.text(at(-52, 1180, left), "80", 190)
+    for k in range(5):
+        a = 60 + 15 * k
+        tick(face, a, 1240, 1500 if k % 2 == 0 else 1400, 24 if k % 2 == 0 else 14, RED if k in (0, 4) else WHITE, right)
+    face.text(at(52, 1180, right), "16", 190)
+    face.text(at(128, 1180, right), "10", 190)
+    face.text((C - 300, C + 540), "OIL", 120)
+    face.text((C + 300, C + 540), "VOLTS", 110)
+    return face
+
+
+def band(width, height, below, radius, sweep, marks, label, colour_of=lambda k: WHITE, label_size=150):
+    """A wide face whose needle turns about a pivot below it: width and height in metres, the pivot below its lower
+    edge, the scale on an arc of radius about it over sweep degrees either side of up. marks: (share, text, major)."""
+    wide = C * 2
+    scale = wide / width
+    high = int(height * scale)
+    face = Face(wide, high)
+    pivot = (wide / 2, high + below * scale)
+    r = radius * scale
+    for k, (share, text, major) in enumerate(marks):
+        a = -sweep + 2 * sweep * share
+        tick(face, a, r - (0.012 if major else 0.007) * scale, r, 26 if major else 14, colour_of(share), pivot)
+        if text:
+            face.text(at(a, r - 0.022 * scale, pivot), text, int(0.011 * scale), colour_of(share))
+    face.text((wide / 2, high - 0.012 * scale), label, label_size)
+    return face, (wide, high)
+
+
+def speedometer_band():
+    """The saloon's speedometer: 0 to 85 miles an hour along an arc across a wide face, its needle pivoted below it."""
+    marks = [(mph / 85.0, str(mph) if mph % 10 == 0 else "", mph % 10 == 0) for mph in range(0, 86, 5)]
+    return band(0.24, 0.085, 0.05, 0.11, 50.0, marks, "MPH")
+
+
+def fuel_band():
+    marks = [(k / 4.0, "E" if k == 0 else "F" if k == 4 else "", k % 2 == 0) for k in range(5)]
+    return band(0.085, 0.055, 0.02, 0.06, 40.0, marks, "FUEL", lambda share: RED if share == 0 else WHITE, 110)
+
+
+def heat_band():
+    marks = [(k / 4.0, "C" if k == 0 else "H" if k == 4 else "", k % 2 == 0) for k in range(5)]
+    return band(0.085, 0.055, 0.02, 0.06, 40.0, marks, "TEMP", lambda share: RED if share == 1 else WHITE, 110)
+
+
+def lamps():
+    """Warning lamps behind a dark face: each a word in its colour, printed dark and lit only when it warns, which a
+    car at rest never does, and the turn arrows."""
+    face = Face()
+    for words, y in (("BRAKE", -560), ("OIL", -200), ("TEMP", 160), ("GEN", 520)):
+        face.text((C, C + y), words, 230, tuple(int(c * 0.30) for c in RED), glows=False)
+    for side in (-1, 1):
+        cx = C + side * 620
+        pts = [(cx + side * 150, C), (cx - side * 30, C - 150), (cx - side * 30, C - 60), (cx - side * 150, C - 60), (cx - side * 150, C + 60),
+               (cx - side * 30, C + 60), (cx - side * 30, C + 150)]
+        face.polygon(pts, (18, 52, 22))
+    return face
+
+
+def lamp_strip():
+    """The same lamps stacked in a narrow upright strip, as a truck's cluster has them beside its dials."""
+    face = Face(C * 6 // 5, C * 2)
+    # Each lamp behind a smoked lens of its own, divided from the next, its word legible while it is unlit.
+    for words, y in (("BRAKE", -720), ("OIL", -240), ("TEMP", 240), ("GEN", 720)):
+        face.box(((60, C + y - 210), (C * 6 // 5 - 60, C + y + 210)), (70, 66, 66))
+        face.text((C * 3 // 5, C + y), words, 210, (186, 184, 178), glows=False)
+    return face
+
+
+def gears():
+    """The column lever's letters in a strip: park, reverse, neutral, drive, second, first."""
+    face = Face(C * 2, C // 4)
+    for k, letter in enumerate("PRND21"):
+        face.text((C * 2 * (k + 0.5) / 6, C // 8), letter, 340, RED if letter == "P" else WHITE)
+    return face
+
+
+def main():
+    folder = sys.argv[1]
+    os.makedirs(folder, exist_ok=True)
+    for name, make, size in (("speedometer", speedometer, (SIZE, SIZE)), ("revs", revs, (SIZE, SIZE)), ("fuel-heat", fuel_and_heat, (SIZE, SIZE)), ("oil-volts", oil_and_volts, (SIZE, SIZE)), ("lamps", lamps, (SIZE, SIZE)), ("lamps-strip", lamp_strip, (SIZE * 3 // 5, SIZE)),
+                             ("gears", gears, (SIZE, SIZE // 8))):
+        make().save(folder, name, size)
+        print("drew", name)
+    # The wide faces keep their own shape: the picture's height to width is the face's.
+    for name, make in (("speedometer-band", speedometer_band), ("fuel-band", fuel_band), ("heat-band", heat_band)):
+        face, (wide, high) = make()
+        face.save(folder, name, (SIZE, max(1, int(SIZE * high / wide))))
+        print("drew", name)
+
+
+main()

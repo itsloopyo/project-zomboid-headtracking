@@ -17,6 +17,14 @@ final class Program {
 
     /** Compiles and links a program. Null if the driver refused it, with the reason added to problem. */
     static Program link(String name, String vertexSource, String fragmentSource, StringBuilder problem) {
+        return link(name, vertexSource, fragmentSource, problem, new String[0]);
+    }
+
+    /**
+     * As link, with the vertex attributes named bound to the places 0, 1, 2 and on in that order, so
+     * that programs sharing a vertex shader share one layout of vertices whatever each reads.
+     */
+    static Program link(String name, String vertexSource, String fragmentSource, StringBuilder problem, String... attributesInOrder) {
         int vertex = compile(name + " vertex", GL_VERTEX_SHADER, vertexSource, problem);
         int fragment = compile(name + " fragment", GL_FRAGMENT_SHADER, fragmentSource, problem);
         if (vertex == 0 || fragment == 0) {
@@ -27,6 +35,9 @@ final class Program {
         int id = GL20.glCreateProgram();
         GL20.glAttachShader(id, vertex);
         GL20.glAttachShader(id, fragment);
+        for (int i = 0; i < attributesInOrder.length; i++) {
+            GL20.glBindAttribLocation(id, i, attributesInOrder[i]);
+        }
         GL20.glLinkProgram(id);
         GL20.glDetachShader(id, vertex);
         GL20.glDetachShader(id, fragment);
@@ -104,9 +115,19 @@ final class Program {
         GL20.glUniformMatrix4fv(at(name), false, matrix);
     }
 
+    /** A mat3, nine floats by columns. */
+    void set3x3(String name, float[] matrix) {
+        GL20.glUniformMatrix3fv(at(name), false, matrix);
+    }
+
     /** Sets an array of floats, every element of it. */
     void setEach(String name, float[] values) {
         GL20.glUniform1fv(at(name), values);
+    }
+
+    /** A uniform array of vec4, four floats each. */
+    void setEach4(String name, float[] values) {
+        GL20.glUniform4fv(at(name), values);
     }
 
     /** A uniform array of vec3, three floats each. */

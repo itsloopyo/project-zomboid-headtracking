@@ -61,8 +61,11 @@ RAISED = ['asphalt', 'gravel', 'soil', 'shingles', 'wood', 'planks']
 PLAIN = ['grass', 'paint', 'carpet', 'vinyl', 'cloth', 'jersey', 'litter', 'rock']
 CUT_OUT = ['leaves', 'frond', 'ivy', 'sprigs']
 MODELS = ['shotgun', 'sawnoff', 'rifle', 'revolver', 'magnum', 'snubnose', 'capgun', 'arms']
-# The weapons' colour is read by the card as what a screen shows (OwnGun). The arms' is not (OwnArms).
-SRGB = {'shotgun.colour', 'sawnoff.colour', 'rifle.colour', 'revolver.colour', 'magnum.colour', 'snubnose.colour', 'capgun.colour'}
+# The vehicle interiors (tools/models/cabins.py), each a colour and a surface of its own.
+CABINS = ['carnormal', 'carstationwagon', 'smallcar02', 'smallcar', 'suv', 'pickuptruck', 'vanseats', 'van', 'carluxury', 'moderncar',
+          'moderncar02', 'sportscar', 'racecar', 'offroad', 'stepvan']
+# The weapons' colour is read by the card as what a screen shows (OwnGun), and so is the interiors'. The arms' is not (OwnArms).
+SRGB = {'shotgun.colour', 'sawnoff.colour', 'rifle.colour', 'revolver.colour', 'magnum.colour', 'snubnose.colour', 'capgun.colour'} | {f'{cabin}.colour' for cabin in CABINS}
 # Kept four bytes a texel, for what BC7 was measured to cost them. The form is three unrelated numbers a texel, which blocks
 # hold badly (33 dB). The frond's leaflets are a few texels wide and lose their edges (30 dB over what of it shows). The
 # gravel's heights come out grainy (35 dB), and a surface's depth is read off them.
@@ -81,6 +84,10 @@ def outputs():
     for model in MODELS:
         for which in ('colour', 'surface'):
             made[f'{model}.{which}'] = ('models', [[f'models/{model}.{which}.gz']])
+    made['cabins-detail.surface'] = ('cabins', [[f'cabins/detail.surface.{k}.gz'] for k in range(8)])
+    for cabin in CABINS:
+        for which in ('colour', 'surface'):
+            made[f'{cabin}.{which}'] = ('cabins', [[f'cabins/{cabin}.{which}.gz']])
     return made
 
 

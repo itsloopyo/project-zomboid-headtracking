@@ -592,35 +592,6 @@ final class CabinShader {
                 return vec3(1.0, 0.9, 0.7) * (uDome * 2.4 * (0.75 + 0.25 * cos(from.x * 400.0)));
             }
 
-            // The lamps of a vehicle that is coming the other way, in the glass: each a hard
-            // point with a soft bloom round it, more of it the dirtier the glass, and a
-            // streak across where the wipers have smeared it.
-            vec4 flared(vec4 glass, vec3 look, float dirt) {
-                vec3 light = vec3(0.0);
-                for (int i = 0; i < 2; i++) {
-                    vec3 to = uBeamAt[i].xyz - uEye;
-                    float far2 = dot(to, to);
-                    vec3 way = to * inversesqrt(max(far2, 1e-4));
-                    // Only lamps that are lit, shine towards the eye and are over two tiles from it.
-                    float towards = smoothstep(0.5, 0.95, dot(uBeamWay[i], -way));
-                    if (uBeamAt[i].w <= 0.0 || towards <= 0.0 || far2 < 4.0) {
-                        continue;
-                    }
-                    vec3 across = normalize(vec3(-uBeamWay[i].y, uBeamWay[i].x, 0.0)) * 0.42;
-                    float strength = uBeamAt[i].w * towards / (1.0 + 0.012 * far2);
-                    for (int lamp = 0; lamp < 2; lamp++) {
-                        vec3 off = look - normalize(to + across * (lamp == 0 ? -1.0 : 1.0));
-                        float round2 = dot(off, off);
-                        float level = off.z * off.z;
-                        light += vec3(1.0, 0.93, 0.78) * strength * (1.6 * exp(-round2 * 60000.0) + (0.05 + 0.3 * dirt) * exp(-round2 * 900.0)
-                                + (0.02 + 0.1 * dirt) * exp(-level * 30000.0 - (round2 - level) * 25.0));
-                    }
-                }
-                float more = clamp(max(light.r, max(light.g, light.b)), 0.0, 0.7);
-                float cover = glass.a + (1.0 - glass.a) * more;
-                return vec4((glass.rgb * glass.a + light) / max(cover, 1e-3), cover);
-            }
-
             // How far along a line of sight from o anything the picture builds can be: the
             // cabin is a box, and through the open of the windscreen nothing is past the glass.
             float cabinReach(vec3 o, vec3 d) {
@@ -690,6 +661,7 @@ final class CabinShader {
                 }
                 gPaneFar = reach;
                 gScreenHalf = widths().x * CABIN;
+                gWiperReach = 0.66 * gScreenHalf;
                 vec4 glass = pane(vec2((hit.y - mid) * CABIN, high * CABIN - 0.3), fromCabin(vec3(face.x, 0.0, face.z)), -out3, 1.0);
                 float day = clamp(dot(atmosphere(vec3(0.0, 0.0, 1.0)), vec3(1.4)) + 0.05, 0.0, 1.0);
                 vec3 thrown = reflect(d, face);

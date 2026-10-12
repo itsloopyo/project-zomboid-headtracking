@@ -504,6 +504,25 @@ public final class Characters {
         return false;
     }
 
+    /**
+     * How many tiles a metre of the mod's arm model is for the viewer, as the arms on a held weapon
+     * are drawn. The game draws every figure but an animal at a final scale of 1
+     * (ModelSlotRenderData), so it needs no figure of the viewer among the frame's models, which
+     * a seated viewer mostly is not.
+     */
+    float viewerArmScale() {
+        return ARM_SCALE;
+    }
+
+    /** Draws the driver's arms on the wheel, posed into skins, into whatever target is bound. */
+    void drawWheelArms(float[] projection, float[][] skins) {
+        IsoPlayer viewer = view.player();
+        OwnArms.Worn worn = wornOnArms();
+        float[] stains = view.ride.dress.stains;
+        OwnArms.draw(projection, skins[0], false, viewer.isFemale(), view.ride.skin, false, worn, stains);
+        OwnArms.draw(projection, skins[1], true, viewer.isFemale(), view.ride.skin, false, worn, stains);
+    }
+
     /** False if the vehicle sat in is not among the models. */
     private boolean drawOwnVehicle(ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float nearFrom, float far) {
         // Seated, what is the viewer's own is the vehicle round the eye. It is drawn here,

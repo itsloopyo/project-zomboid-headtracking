@@ -249,6 +249,10 @@ final class Config {
                     "true: flames, smoke and firelight for burning buildings, Molotovs, campfires, fireplaces, wood stoves, burn barrels\n"
                             + "and cooking pits. false: the game's own flat flames and smoke, stood up where they burn.",
                     writable | live, true),
+            core.configLocalBool("Content", "OwnCabins",
+                    "true: the mod's models of the inside of the vehicle you sit in, its dashboard, instruments, wheel, seats and doors.\n"
+                            + "false: the game's own, with its glass cut away.",
+                    writable | live, true),
         };
 
         puts.put("FieldOfView", value -> {
@@ -265,7 +269,7 @@ final class Config {
         puts.put("MuzzleFlash", value -> MuzzleFlash.set(value != 0));
         puts.put("SplitScreen", value -> SplitScreen.set((int) value));
         String[] ownKeys = {"OwnWeapons", "OwnFurniture", "OwnPictures", "OwnPlants", "OwnTextures", "OwnBuildings", "OwnZombies", "OwnPeople",
-            "OwnArms", "OwnClothes", "OwnAnimals", "OwnFire"};
+            "OwnArms", "OwnClothes", "OwnAnimals", "OwnFire", "OwnCabins"};
         for (int i = 0; i < ownKeys.length; i++) {
             int bit = 1 << i;
             puts.put(ownKeys[i], value -> {
