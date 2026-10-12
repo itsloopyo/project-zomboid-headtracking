@@ -126,6 +126,9 @@ final class AcousticsTests {
         check(around.muffled(25.5f, 4.5f, 0f) == Acoustics.AROUND_A_BUILDING, "a house between two places out of doors takes what going round it does, not its two walls");
         check(around.muffled(5.5f, 20.5f, 0f) == 0f, "with nothing in between, a sound out of doors is heard as it is");
         check(around.muffled(5.5f, 20.5f, 1f) == 0f, "and up a level in the open air, a balcony or a roof, too: no floor stands between");
+        // A line through a corner of the squares, x and y crossings at once, once walked past its end for ever.
+        Acoustics.Surroundings open = listen(new Heard(new RoomSightTests.Plan().room(1, 0, 100, 100, 101, 101)), 2.5f, 2.5f, 0);
+        check(open.muffled(5.0f, 0.0f, 0f) == 0f, "a line from a square's middle through a corner ends at the sound's square");
     }
 
     private static void aFloorMufflesAndAStairWellLetsSoundUp() {

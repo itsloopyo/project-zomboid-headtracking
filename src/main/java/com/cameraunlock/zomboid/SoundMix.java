@@ -16,7 +16,9 @@ import java.util.Locale;
  * muffled it is, scaled by how far that view's camera has come from the game's own, so that
  * the game's own view hears what it always has. A sound the walls do not muffle has no effect
  * put on it. The reverb is the one first person view's that is furthest in, and is out of the
- * mix while none is.
+ * mix while none is. The game mixes one sound for every player at the screen, so in split
+ * screen with one player in first person and one not, both hear the first person player's
+ * walls.
  *
  * Logic thread: the game starts its sounds there.
  */
@@ -76,7 +78,7 @@ final class SoundMix {
         }
         try {
             note(from, event);
-        } catch (RuntimeException thrown) {
+        } catch (RuntimeException | LinkageError thrown) {
             fail(thrown);
         }
     }
@@ -124,7 +126,8 @@ final class SoundMix {
         applied[count] = wanted;
         workedOut[count] = now;
         startedAt[count] = now;
-        held[count] = wanted >= HELD_FROM;
+        // Until the mix is found nothing is put on a sound, so nothing is held for it.
+        held[count] = system != 0L && wanted >= HELD_FROM;
         if (held[count]) {
             Fmod.pause(event, true);
         }
@@ -138,17 +141,18 @@ final class SoundMix {
         }
         try {
             mix();
-        } catch (RuntimeException thrown) {
+        } catch (RuntimeException | LinkageError thrown) {
             fail(thrown);
         }
     }
 
-    private static void fail(RuntimeException thrown) {
+    /** Fmod's own setup failing, its library or a function in it missing, comes as a LinkageError, and sound is left to the game as for any fault. */
+    private static void fail(Throwable thrown) {
         failure = thrown.toString();
         Log.error("sound is left as the game mixes it for this session: putting the walls into it threw", thrown);
         try {
             letGo();
-        } catch (RuntimeException again) {
+        } catch (RuntimeException | LinkageError again) {
             Log.error("and the mod's effects could not all be taken out of the mix", again);
         }
     }

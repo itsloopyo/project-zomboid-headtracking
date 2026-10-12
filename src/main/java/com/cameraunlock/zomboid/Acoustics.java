@@ -383,8 +383,9 @@ final class Acoustics {
             float nextX = dx == 0f ? Float.POSITIVE_INFINITY : ((dx > 0f ? cellX + 1 : cellX) - listenerX) / dx;
             float nextY = dy == 0f ? Float.POSITIVE_INFINITY : ((dy > 0f ? cellY + 1 : cellY) - listenerY) / dy;
             float perX = dx == 0f ? Float.POSITIVE_INFINITY : Math.abs(1f / dx), perY = dy == 0f ? Float.POSITIVE_INFINITY : Math.abs(1f / dy);
-            while ((cellX != endX || cellY != endY) && taken < MOST) {
-                if (nextX < nextY) {
+            // One step for each square edge between the two, so a tie at a corner cannot carry the walk past the end.
+            for (int steps = Math.abs(endX - cellX) + Math.abs(endY - cellY); steps > 0 && taken < MOST; steps--) {
+                if (cellY == endY || cellX != endX && nextX < nextY) {
                     // Leaving through the west edge of this square, or the west edge of the next.
                     taken += THROUGH[walls.heard(stepX > 0 ? cellX + 1 : cellX, cellY, listenerZ, false)];
                     cellX += stepX;

@@ -188,6 +188,7 @@ final class RoomMap implements Acoustics.Walls {
                     doorBlind |= !thumpable.IsOpen();
                 } else if (north ? thumpable.isWindowN() : thumpable.isWindowW()) {
                     window = true;
+                    glassShut |= !thumpable.IsOpen();
                 }
             } else if (object instanceof IsoWindow each && each.getNorth() == north) {
                 window = true;

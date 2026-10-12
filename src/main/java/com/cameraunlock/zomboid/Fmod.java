@@ -38,7 +38,7 @@ final class Fmod {
     private static final AddressLayout PTR = ValueLayout.ADDRESS;
     private static final MethodHandle STUDIO_INSTANCE_VALID, STUDIO_INSTANCE_GROUP, STUDIO_INSTANCE_DESCRIPTION, STUDIO_DESCRIPTION_3D,
             STUDIO_DESCRIPTION_PATH, STUDIO_INSTANCE_PAUSE, STUDIO_BUS_VALID, STUDIO_BUS_LOCK, STUDIO_BUS_GROUP;
-    private static final MethodHandle GROUP_SYSTEM, GROUP_ADD, GROUP_REMOVE, GROUP_DSP, GROUP_DSPS, SYSTEM_CREATE_DSP, DSP_INFO,
+    private static final MethodHandle GROUP_SYSTEM, GROUP_ADD, GROUP_DSP, GROUP_DSPS, SYSTEM_CREATE_DSP, DSP_INFO,
             DSP_PARAMETERS, DSP_PARAMETER_INFO, DSP_SET_FLOAT, DSP_SET_INT, DSP_DATA, DSP_BYPASS, DSP_METERING,
             DSP_METERING_INFO, DSP_RELEASE, DSP_DISCONNECT;
     /** Out parameters and names, a block for each thread that calls in: the game's logic thread and, in a dev run, the probe's. */
@@ -59,7 +59,6 @@ final class Fmod {
         STUDIO_BUS_GROUP = handle(linker, studio, "FMOD_Studio_Bus_GetChannelGroup", PTR, PTR);
         GROUP_SYSTEM = handle(linker, core, "FMOD_ChannelGroup_GetSystemObject", PTR, PTR);
         GROUP_ADD = handle(linker, core, "FMOD_ChannelGroup_AddDSP", PTR, INT_LAYOUT, PTR);
-        GROUP_REMOVE = handle(linker, core, "FMOD_ChannelGroup_RemoveDSP", PTR, PTR);
         GROUP_DSP = handle(linker, core, "FMOD_ChannelGroup_GetDSP", PTR, INT_LAYOUT, PTR);
         GROUP_DSPS = handle(linker, core, "FMOD_ChannelGroup_GetNumDSPs", PTR, PTR);
         SYSTEM_CREATE_DSP = handle(linker, core, "FMOD_System_CreateDSPByType", PTR, INT_LAYOUT, PTR);
@@ -257,10 +256,6 @@ final class Fmod {
 
     static int addEffect(long group, int index, long dsp) {
         return call(GROUP_ADD, at(group), index, at(dsp));
-    }
-
-    static int removeEffect(long group, long dsp) {
-        return call(GROUP_REMOVE, at(group), at(dsp));
     }
 
     static long groupEffect(long group, int index) {
