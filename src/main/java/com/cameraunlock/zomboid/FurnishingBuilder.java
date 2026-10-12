@@ -62,6 +62,8 @@ final class FurnishingBuilder {
     private int dyeTexture;
     /** The sprites whose second colour was not found painted, each written to the log once. */
     private static final Set<String> UNDYED = ConcurrentHashMap.newKeySet();
+    /** The sprites drawn as they are because nothing was found painted where their colour is taken, each written to the log once. */
+    private static final Set<String> UNPAINTED = ConcurrentHashMap.newKeySet();
     private final SpriteGeometry.Frame partFrame = new SpriteGeometry.Frame();
     private final float[] partAt = new float[4], wholeAt = new float[4];
     private final float[] screenAt = new float[2];
@@ -259,6 +261,10 @@ final class FurnishingBuilder {
                 }
                 return true;
             }
+        }
+        if (UNPAINTED.add(sprite)) {
+            Log.info("furniture " + sprite + ": nothing painted where its colour is taken, at (" + piece.dyeA + ", " + piece.dyeB + ", "
+                    + piece.dyeHigh + "): drawn as the game's sprite");
         }
         return false;
     }
