@@ -2,7 +2,10 @@ package com.cameraunlock.zomboid;
 
 import static com.cameraunlock.zomboid.Checks.check;
 
-/** Tests of a door's raised panels as OpeningBuilder builds them. */
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+/** Tests of a door as OpeningBuilder builds it: its raised panels, hinges and knob, and the numbers its wood and metal are drawn under. */
 final class DoorTests {
     private DoorTests() {}
 
@@ -10,8 +13,11 @@ final class DoorTests {
         Checks.run("raisedPanelHasNoGapsBetweenItsPieces", DoorTests::raisedPanelHasNoGapsBetweenItsPieces);
         Checks.run("raisedPanelFieldStandsOutOfEitherFace", DoorTests::raisedPanelFieldStandsOutOfEitherFace);
         Checks.run("raisedPanelBevelsFaceAwayFromItsMiddle", DoorTests::raisedPanelBevelsFaceAwayFromItsMiddle);
-        Checks.run("narrowPanelKeepsAField", DoorTests::narrowPanelKeepsAField);
-        Checks.run("joineryIsDrawnUnderItsOwnNumber", DoorTests::joineryIsDrawnUnderItsOwnNumber);
+        Checks.run("narrowPanelKeepsAFieldAndABevel", DoorTests::narrowPanelKeepsAFieldAndABevel);
+        Checks.run("grooveStandsClearOfTheLeafsFace", DoorTests::grooveStandsClearOfTheLeafsFace);
+        Checks.run("doorsWoodAndMetalAreDrawnUnderNumbersOfTheirOwn", DoorTests::doorsWoodAndMetalAreDrawnUnderNumbersOfTheirOwn);
+        Checks.run("hingesAreOnTheEdgeAwayFromTheKnobAndTheFaceAwayFromTheWall", DoorTests::hingesAreOnTheEdgeAwayFromTheKnobAndTheFaceAwayFromTheWall);
+        Checks.run("roseKeepsClearOfThePanelBesideTheKnob", DoorTests::roseKeepsClearOfThePanelBesideTheKnob);
     }
 
     private static final float LEVEL = ViewCamera.LEVEL_HEIGHT, FACE = 0.022f;
@@ -87,15 +93,71 @@ final class DoorTests {
         }
     }
 
-    private static void narrowPanelKeepsAField() {
+    private static void narrowPanelKeepsAFieldAndABevel() {
         // The top panels of a six-panel door are a little more than a hand high.
         float[] quads = OpeningBuilder.raisedPanel(0.2f, 0.45f, 0.7f, 0.74f, FACE);
-        float[] c0 = corner(quads, 8, 0), c2 = corner(quads, 8, 2);
-        check(c2[0] - c0[0] > 0f && c2[1] - c0[1] > 0f, "a panel a tenth of a tile high still has a field between its bevels");
+        float[] g0 = corner(quads, 4, 0), g1 = corner(quads, 5, 2), f0 = corner(quads, 8, 0), f2 = corner(quads, 8, 2);
+        float innerWide = g1[0] - g0[0], innerHigh = g1[1] - g0[1];
+        check(f2[0] - f0[0] >= 0.3f * innerWide && f2[1] - f0[1] >= 0.3f * innerHigh, "the field of a panel a tenth of a tile high is at least 0.3 of it each way");
+        check(f0[1] - g0[1] >= 0.01f, "its bevel is at least a centimetre across, enough to catch the light");
     }
 
-    private static void joineryIsDrawnUnderItsOwnNumber() {
-        String wanted = "vMaterial > " + (OpeningBuilder.JOINERY - 0.5f) + " && vMaterial < " + (OpeningBuilder.JOINERY + 0.5f);
-        check(PipelineShaders.WORLD_FRAGMENT_MAIN.contains(wanted), "the world's fragment program gives joinery its grain under OpeningBuilder.JOINERY");
+    private static void grooveStandsClearOfTheLeafsFace() {
+        for (float face : new float[] {FACE, -FACE}) {
+            float[] quads = OpeningBuilder.raisedPanel(0.2f, 0.45f, 0.1f, 0.3f, face);
+            check(Math.abs(corner(quads, 0, 0)[2]) - Math.abs(face) >= 0.0015f - 1e-6f, "the groove on the face at " + face + " lies at least 1.5 mm out of it");
+        }
+    }
+
+    /**
+     * Each number of the door's own is tested by exactly the blocks of the world's program that
+     * are its, and by none on the way into it: a block taken out, or another material given the
+     * same number or a range over it, fails.
+     */
+    private static void doorsWoodAndMetalAreDrawnUnderNumbersOfTheirOwn() {
+        Pattern range = Pattern.compile("vMaterial > ([0-9.]+) && vMaterial < ([0-9.]+)");
+        float[] numbers = {OpeningBuilder.JOINERY, OpeningBuilder.JOINERY_LEVEL, OpeningBuilder.HARDWARE};
+        // The grain and the gloss for each wood; the colour and the gloss for the metal.
+        int[] blocks = {2, 2, 2};
+        for (int i = 0; i < numbers.length; i++) {
+            check(ranges(range, PipelineShaders.WORLD_FRAGMENT_MAIN, numbers[i]) == blocks[i],
+                    "the world's fragment program has " + blocks[i] + " blocks for " + numbers[i] + ", and no other range over it");
+            check(ranges(range, PipelineShaders.WORLD_VERTEX, numbers[i]) == 0, "the world's vertex program reads " + numbers[i] + " as it is: no floorboard, no model");
+        }
+    }
+
+    private static int ranges(Pattern range, String program, float number) {
+        int found = 0;
+        for (Matcher m = range.matcher(program); m.find(); ) {
+            if (Float.parseFloat(m.group(1)) < number && number < Float.parseFloat(m.group(2))) {
+                found++;
+            }
+        }
+        return found;
+    }
+
+    private static void hingesAreOnTheEdgeAwayFromTheKnobAndTheFaceAwayFromTheWall() {
+        for (boolean handleAtEnd : new boolean[] {false, true}) {
+            float[] hinges = OpeningBuilder.hinges(0.1f, 0.85f, 0f, 0.79f, handleAtEnd);
+            float edge = handleAtEnd ? 0.1f : 0.85f;
+            check(hinges.length == 12, "three hinges");
+            for (int at = 0; at < hinges.length; at += 4) {
+                check(hinges[at] < edge && edge < hinges[at + 1], "a hinge straddles the edge at " + edge + " with the knob at the " + (handleAtEnd ? "end" : "start"));
+                check(at == 0 || hinges[at + 2] > hinges[at - 1], "the hinges go up the edge one above another");
+            }
+        }
+        // Swung open the leaf stands into its square, out from the wall it is back against, and
+        // its knuckles stand out of the face further from that wall.
+        float faceWay = OpeningBuilder.HINGED_SIDE == 0 ? 1f : -1f;
+        float knuckle = OpeningBuilder.SWUNG_OUT + faceWay * (OpeningBuilder.DOOR_HALF + OpeningBuilder.HINGE_OUT);
+        check(OpeningBuilder.SWUNG_OUT > 0f && knuckle > OpeningBuilder.SWUNG_OUT, "a swung door's knuckles are on the face away from the wall it is back against");
+    }
+
+    private static void roseKeepsClearOfThePanelBesideTheKnob() {
+        for (float wide : new float[] {0.55f, 0.65f, 0.78f, 0.9f}) {
+            float rose = OpeningBuilder.rose(true, wide);
+            check(rose > 0f && OpeningBuilder.KNOB_IN * wide + rose < OpeningBuilder.PANELS_ACROSS[0] * wide,
+                    "on a panelled leaf " + wide + " wide the rose (" + rose + ") ends short of the panel");
+        }
     }
 }

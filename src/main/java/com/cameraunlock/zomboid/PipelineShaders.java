@@ -2727,6 +2727,10 @@ final class PipelineShaders {
                 if (vMaterial > 8.5 && vMaterial < 10.5) {
                     texel.rgb = vMaterial < 9.5 ? vec3(0.86, 0.86, 0.83) : vec3(0.2, 0.17, 0.14);
                 }
+                // A door's hinges and knob (OpeningBuilder.HARDWARE): satin nickel, as a model's bare metal.
+                if (vMaterial > 86.5 && vMaterial < 87.5) {
+                    texel.rgb = vec3(0.62, 0.6, 0.56);
+                }
                 // A kerb is cast in lengths: pale concrete, a little uneven in its grey, with
                 // a joint where one length ends and the next begins. It goes round corners,
                 // so how far along it a point is cannot be had from the way it faces there:
@@ -3257,6 +3261,9 @@ final class PipelineShaders {
                     // A varnished door or window frame has a satin sheen and mirrors nothing.
                     if (vMaterial > 85.5 && vMaterial < 86.5 || vMaterial > 87.5 && vMaterial < 88.5) {
                         rough = 0.4;
+                    }
+                    if (vMaterial > 86.5 && vMaterial < 87.5) {
+                        rough = 0.28;
                     }
                     // Glazed tile is glossier than a varnished board.
                     if (vMaterial > 10.5 && vMaterial < 11.5) {

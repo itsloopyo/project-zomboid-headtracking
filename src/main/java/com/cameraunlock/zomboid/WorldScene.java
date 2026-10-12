@@ -5531,6 +5531,7 @@ final class WorldScene {
             seeThrough = isSheet(properties);
             // A gate in a fence is rails or wire like the fence, and stays the sheet it is.
             doorLeaf = door && !kind.fenceGate;
+            doorHardware = !kind.garageDoor;
             casing = type == IsoObjectType.doorFrW || type == IsoObjectType.doorFrN;
             wallBuilder.sign = overLayer == 0 && !door && west != north && EdgeRuns.sign(sprite.getName(), properties.get("CustomName"));
             if (west) {
@@ -6049,8 +6050,8 @@ final class WorldScene {
         /** Whether the sprite being added is of a sheet of outside walls, and of one of the walls under a roof's end: see laid. */
         boolean laidWall, gableSheet;
 
-        /** Whether the door being added stands open across its doorway, and whether it is a leaf with a thickness. */
-        boolean doorSwung, doorLeaf;
+        /** Whether the door being added stands open across its doorway, whether it is a leaf with a thickness, and whether it hangs on hinges with a knob, as a garage door does not. */
+        boolean doorSwung, doorLeaf, doorHardware;
         /** Whether the sprite being added is the frame round a doorway. */
         boolean casing;
 

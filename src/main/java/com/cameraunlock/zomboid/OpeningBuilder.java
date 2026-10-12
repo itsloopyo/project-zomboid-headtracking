@@ -11,7 +11,7 @@ import zombie.iso.SpriteDetails.IsoObjectType;
  */
 final class OpeningBuilder {
     /** Half the thickness of a door's leaf, in tiles. */
-    private static final float DOOR_HALF = 0.022f;
+    static final float DOOR_HALF = 0.022f;
     /** How high up a door its width is read, in levels, and how far in from its edge the colour of its edges is taken, in frame pixels at tile scale 1. */
     private static final float DOOR_READ_AT = 0.4f, DOOR_STILE = 2.5f;
     private static final int SPAN_FLOATS = 4;
@@ -32,6 +32,8 @@ final class OpeningBuilder {
      * at most this share of the panel's narrower side.
      */
     private static final float GROOVE_WIDE = 0.007f, BEVEL_WIDE = 0.034f, FIELD_PROUD = 0.006f, BEVEL_MOST = 0.3f;
+    /** How far the groove lies out of the leaf's face, so the two are not drawn through each other. */
+    static final float GROOVE_PROUD = 0.0015f;
     /**
      * A room's light is much the same from every side, and shows little relief: the groove is
      * drawn this much darker than the leaf, as its own shadow makes it, the bevel facing down,
@@ -39,10 +41,19 @@ final class OpeningBuilder {
      */
     private static final float GROOVE_SHADE = 0.55f, BEVEL_DOWN_SHADE = 0.74f, BEVEL_SIDE_SHADE = 0.87f, BEVEL_UP_SHADE = 1.04f, FIELD_SHADE = 0.97f;
     /** A hinge's knuckle: how high it is and how far round, in tiles, how far out of the face it stands, and where up the leaf the three are. */
-    private static final float HINGE_HIGH = 0.09f, HINGE_ROUND = 0.007f, HINGE_OUT = 0.004f;
+    private static final float HINGE_HIGH = 0.09f, HINGE_ROUND = 0.007f;
+    static final float HINGE_OUT = 0.004f;
     private static final float[] HINGES_AT = {0.11f, 0.5f, 0.89f};
-    /** The rose a knob stands on: how far round and how far out of the face, in tiles. */
-    private static final float ROSE_ROUND = 0.03f, ROSE_OUT = 0.004f;
+    /**
+     * The face of a leaf its hinges' knuckles stand out of: side 0, the one at +across. Swung
+     * open, the leaf stands SWUNG_OUT into its square from the wall it is back against, so that
+     * face looks away from the wall, as a door's knuckles do when it is open square.
+     */
+    static final int HINGED_SIDE = 0;
+    /** The rose a knob stands on: how far round and how far out of the face, and the least it keeps clear of a panel beside it, in tiles. */
+    private static final float ROSE_ROUND = 0.03f, ROSE_OUT = 0.004f, ROSE_CLEAR = 0.003f;
+    /** How far a door swung open stands into its square from the wall it is back against, to the leaf's middle, in tiles. */
+    static final float SWUNG_OUT = WorldScene.WALL_HALF + WorldScene.HUNG_CLEAR + DOOR_HALF;
     /**
      * Wood the picture gives a grain with no joints across: a door's leaf, a window's frame.
      * JOINERY's runs up; JOINERY_LEVEL's runs along, for a member longer than it is high (a
@@ -50,7 +61,7 @@ final class OpeningBuilder {
      */
     static final float JOINERY = 86f, JOINERY_LEVEL = 88f;
     /** Where the panels of a door are, as shares of the part of the leaf they are on: across, then up a whole leaf, then up what is below a light. */
-    private static final float[] PANELS_ACROSS = {0.14f, 0.455f, 0.545f, 0.86f};
+    static final float[] PANELS_ACROSS = {0.14f, 0.455f, 0.545f, 0.86f};
     private static final float[] PANELS_UP = {0.1f, 0.37f, 0.45f, 0.8f, 0.86f, 0.95f}, PANELS_UP_BELOW = {0.16f, 0.86f};
     /** A boarded door: the gap between two boards, how far its ledges stand out and how high each is, in tiles, and where up the leaf they are. */
     private static final float BOARD_GAP = 0.005f, BOARD_USUAL = 0.16f, LEDGE_PROUD = 0.014f, LEDGE_HIGH = 0.085f;
@@ -58,9 +69,12 @@ final class OpeningBuilder {
     /** How much darker than the boards the open joint between two is. */
     private static final float JOINT_SHADE = 0.4f;
     /** A door's knob: how high up it is in levels, how far in from the leaf's end as a share of the leaf, how thick and how far out, in tiles. */
-    private static final float KNOB_HIGH = 0.4f, KNOB_IN = 0.1f, KNOB_ROUND = 0.017f, KNOB_OUT = 0.034f, KNOB_NECK = 0.4f;
-    /** The picture's number for bare metal: see the furniture's surfaces in the world's fragment program. */
-    private static final float BARE_METAL = 21f;
+    static final float KNOB_HIGH = 0.4f, KNOB_IN = 0.1f, KNOB_ROUND = 0.017f, KNOB_OUT = 0.034f, KNOB_NECK = 0.4f;
+    /**
+     * A door's hinges and knob, of metal. A model's own metal is numbered among the models'
+     * surfaces, which on a face of the world's own are kinds of floorboard: see WORLD_VERTEX.
+     */
+    static final float HARDWARE = 87f;
     /** How far a window's frame stands out of the wall's skins and laps over the edge of its opening, in tiles. */
     private static final float FRAME_PROUD = 0.006f, FRAME_LAP = 0.012f;
     /** A bar is this much as deep as it is wide, between the least and the most, in tiles. */
@@ -140,7 +154,7 @@ final class OpeningBuilder {
             return false;
         }
         float top = build.wallBuilder.doorTop(texture, a, b, da, db);
-        float out = build.doorSwung ? WorldScene.WALL_HALF + WorldScene.HUNG_CLEAR + DOOR_HALF : 0f;
+        float out = build.doorSwung ? SWUNG_OUT : 0f;
         for (int side = -1; side <= 1; side += 2) {
             build.geometry.shownA = db * (out + side * DOOR_HALF);
             build.geometry.shownB = da * (out + side * DOOR_HALF);
@@ -284,7 +298,7 @@ final class OpeningBuilder {
             return false;
         }
         Windows.Shape leaf = door.leaf;
-        float out = build.doorSwung ? WorldScene.WALL_HALF + WorldScene.HUNG_CLEAR + DOOR_HALF : 0f;
+        float out = build.doorSwung ? SWUNG_OUT : 0f;
         windowX = x + db * out;
         windowY = y + da * out;
         windowAlongX = da;
@@ -350,19 +364,23 @@ final class OpeningBuilder {
                     }
                 }
             }
-            metal.open = sideOpen[side] + 32f * BARE_METAL;
+            // A garage door is lifted by a handle at its foot and rides in tracks: no knob, no hinges.
+            if (!build.doorHardware) {
+                continue;
+            }
+            metal.open = sideOpen[side] + 32f * HARDWARE;
             float[] c = build.reveal;
-            // The hinges: a knuckle at the leaf's edge away from the knob, on the face the door swings to.
-            if (side == 0) {
-                float edge = door.handleAtEnd ? leaf.start : leaf.end, half = HINGE_HIGH / (2f * level);
-                for (float at : HINGES_AT) {
-                    float middle = leaf.foot + (leaf.head - leaf.foot) * at;
-                    addJoinery(metal, edge - HINGE_ROUND, edge + HINGE_ROUND, middle - half, middle + half, face + HINGE_OUT, r, g, b);
+            if (side == HINGED_SIDE) {
+                float[] hinges = hinges(leaf.start, leaf.end, leaf.foot, leaf.head, door.handleAtEnd);
+                for (int at = 0; at < hinges.length; at += 4) {
+                    addJoinery(metal, hinges[at], hinges[at + 1], hinges[at + 2], hinges[at + 3], face + Math.signum(face) * HINGE_OUT, r, g, b);
                 }
             }
-            // The knob: a rose on the leaf, then a neck and a head, each of eight sides.
+            // The knob: a rose on the leaf, then a neck and a head, each of eight sides. The rose
+            // keeps clear of a panel beside it.
+            float rose = rose(door.kind == Doors.PANELLED, wide);
             for (int part = 0; part < 3; part++) {
-                float round = part == 0 ? ROSE_ROUND : part == 1 ? KNOB_ROUND * KNOB_NECK : KNOB_ROUND;
+                float round = part == 0 ? rose : part == 1 ? KNOB_ROUND * KNOB_NECK : KNOB_ROUND;
                 float near = part == 0 ? 0f : part == 1 ? ROSE_OUT : KNOB_OUT * 0.45f, far = part == 0 ? ROSE_OUT : part == 1 ? KNOB_OUT * 0.45f : KNOB_OUT;
                 float from = face + Math.signum(face) * near, to = face + Math.signum(face) * far;
                 for (int turn = 0; turn < 8; turn++) {
@@ -626,6 +644,29 @@ final class OpeningBuilder {
         mesh.open = open;
     }
 
+    /** How far round a knob's rose is on a leaf so wide, in tiles: on a panelled one, no further than leaves it clear of the panel beside the knob. */
+    static float rose(boolean panelled, float wide) {
+        return panelled ? Math.min(ROSE_ROUND, (PANELS_ACROSS[0] - KNOB_IN) * wide - ROSE_CLEAR) : ROSE_ROUND;
+    }
+
+    /**
+     * Where a leaf's three hinges are, from start to end along the edge and foot to head in
+     * levels: each knuckle's along from, along to, foot and head. They are on the edge away
+     * from the knob.
+     */
+    static float[] hinges(float start, float end, float foot, float head, boolean handleAtEnd) {
+        float edge = handleAtEnd ? start : end, half = HINGE_HIGH / (2f * ViewCamera.LEVEL_HEIGHT);
+        float[] made = new float[4 * HINGES_AT.length];
+        for (int i = 0; i < HINGES_AT.length; i++) {
+            float middle = foot + (head - foot) * HINGES_AT[i];
+            made[4 * i] = edge - HINGE_ROUND;
+            made[4 * i + 1] = edge + HINGE_ROUND;
+            made[4 * i + 2] = middle - half;
+            made[4 * i + 3] = middle + half;
+        }
+        return made;
+    }
+
     /** Floats a quad of a raised panel takes in raisedPanel: four corners of along, up and across, then the share of the light it is drawn in. */
     static final int PANEL_QUAD = 13;
 
@@ -639,8 +680,7 @@ final class OpeningBuilder {
     static float[] raisedPanel(float from, float to, float foot, float head, float face) {
         float level = ViewCamera.LEVEL_HEIGHT, out = Math.signum(face);
         float groove = GROOVE_WIDE, grooveUp = GROOVE_WIDE / level;
-        // The groove lies on the leaf's face, a hair out of it so the two are not drawn through each other.
-        float onFace = face + out * 0.0005f;
+        float onFace = face + out * GROOVE_PROUD;
         float a0 = from + groove, a1 = to - groove, f0 = foot + grooveUp, h0 = head - grooveUp;
         float bevel = Math.min(BEVEL_WIDE, BEVEL_MOST * Math.min(a1 - a0, (h0 - f0) * level));
         float b0 = a0 + bevel, b1 = a1 - bevel, g0 = f0 + bevel / level, g1 = h0 - bevel / level, field = face + out * FIELD_PROUD;
