@@ -260,7 +260,9 @@ abstract class OwnGun {
             """;
 
     /** Linked the first time a model is made and kept: the models' buffers and pictures are what is given back. */
-    private static Program program;
+    private static volatile Program program;
+    /** Set once the program has been refused, which is said once: the game's own guns are drawn from then on. */
+    private static boolean refused;
 
     /** The finish, as the fragment shader's uVarnish, uGrain and uHeadShade. */
     private final float varnish, grain, headShade;
@@ -282,14 +284,31 @@ abstract class OwnGun {
 
     /** Reads a model out of the jar and gives it to the graphics card, laid out for the program. Null, or what went wrong. */
     static String prepare(OwnModel model) {
-        if (program == null) {
-            StringBuilder problem = new StringBuilder();
-            program = Program.link("own gun", VERTEX, FRAGMENT, problem);
-            if (program == null) {
-                return problem.toString();
-            }
-        }
         return model.prepare(program);
+    }
+
+    /**
+     * Links the program the models are drawn with, as a piece of the core: linked as a gun is
+     * first held, it held that frame. Always null: a refusal leaves the game's own guns drawn,
+     * and first person goes on, in every graphics mode.
+     */
+    static String link() {
+        if (program != null || refused) {
+            return null;
+        }
+        StringBuilder problem = new StringBuilder();
+        program = Program.link("own gun", VERTEX, FRAGMENT, problem);
+        if (program == null) {
+            // Only the mod's own guns are drawn with it: first person goes on with the game's.
+            refused = true;
+            Log.info("the mod's own guns cannot be drawn on this machine, and the game's own are drawn: " + problem);
+        }
+        return null;
+    }
+
+    /** Whether the mod's own guns can be drawn: read by the logic thread too. */
+    static boolean linked() {
+        return program != null;
     }
 
     /**

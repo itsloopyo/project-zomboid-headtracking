@@ -226,7 +226,7 @@ final class OwnModel {
      * The logic thread's, as it makes ViewModel.Held, which the render thread reads it from.
      */
     static OwnModel of(String held) {
-        if (!Own.weapons()) {
+        if (!Own.weapons() || !OwnGun.linked()) {
             return null;
         }
         for (OwnModel model : ALL) {
@@ -247,14 +247,26 @@ final class OwnModel {
      */
     static OwnModel asked() {
         if (!Own.weapons()) {
-            // Asked for while the row was on: nobody will draw it now, so it is not made, and what was begun of its reading is let go.
+            // Asked for while the row was on: nobody will draw it now, so it is not made. What was made of
+            // it is given back to the graphics card, and what was begun of its reading is let go.
             for (OwnModel model : ALL) {
                 model.wanted = false;
-                if (model.begun && !model.onCard) {
+                if (model.onCard) {
+                    continue;
+                }
+                if (model.steps > 0) {
+                    model.letGo();
+                } else {
                     model.forgetReading();
                 }
             }
             return null;
+        }
+        // One model at a time, from its reading to its last step: the one begun is finished before another is begun.
+        for (OwnModel model : ALL) {
+            if (model.begun && !model.onCard) {
+                return model;
+            }
         }
         for (OwnModel model : ALL) {
             if (model.wanted && !model.onCard) {
@@ -272,26 +284,77 @@ final class OwnModel {
     String prepare(Program program) {
         String problem;
         try {
-            problem = make(program);
+            problem = switch (steps) {
+                case 0 -> make(program);
+                case 1 -> made(() -> colour = picture(colourPath));
+                default -> made(() -> surface = picture(surfacePath));
+            };
         } catch (RuntimeException | Error thrown) {
             letGo();
             throw thrown;
         }
-        if (problem == null) {
-            onCard = true;
-        } else {
+        if (problem != null) {
             letGo();
+        } else if (++steps == STEPS) {
+            onCard = true;
         }
         return problem;
     }
 
+    /**
+     * The making is in three steps, each on a frame of its own: the mesh, the colour and the
+     * surface. Made in one, the longest took 74 ms of the render thread.
+     */
+    static final int STEPS = 3;
+    private int steps;
+
+    /** How many steps of the making are done. Render thread. */
+    int steps() {
+        return steps;
+    }
+
+    private interface Step {
+        void run() throws IOException;
+    }
+
+    /** Null once a step has run, or what went wrong. */
+    private String made(Step step) {
+        try {
+            step.run();
+        } catch (IOException e) {
+            return e.getMessage();
+        }
+        int error = GL11.glGetError();
+        Pipeline.noted(error);
+        return error == 0 ? null : "OpenGL error 0x" + Integer.toHexString(error) + " making " + what;
+    }
+
+    /**
+     * The model's file unpacked and read, and where the hands go on it: worked out on another
+     * thread, as reading where the hands go took a whole frame of the render thread's.
+     */
+    private record Read(ByteBuffer bytes, Layout layout, WeaponShape shape, String why) {}
+
+    private Read read() throws IOException {
+        ByteBuffer read = ByteBuffer.wrap(unpacked(mesh)).order(ByteOrder.LITTLE_ENDIAN);
+        Layout layout = layout(read, mesh);
+        if (layout.counts.length != parts) {
+            throw new IOException(mesh + " has " + layout.counts.length + " parts, where what draws " + what + " draws " + parts);
+        }
+        StringBuilder why = new StringBuilder();
+        WeaponShape shape = WeaponShape.read(layout.places(read), layout.corners(read), new float[] {0f, 1f, 0f}, new float[] {0f, 0f, 1f}, layout.muzzle.clone(), 1f, why);
+        return new Read(read, layout, shape, why.toString());
+    }
+
     private String make(Program program) {
         try {
-            ByteBuffer read = ByteBuffer.wrap(Ahead.take(mesh, () -> unpacked(mesh))).order(ByteOrder.LITTLE_ENDIAN);
-            Layout layout = layout(read, mesh);
-            if (layout.counts.length != parts) {
-                throw new IOException(mesh + " has " + layout.counts.length + " parts, where what draws " + what + " draws " + parts);
+            Read made = Ahead.take(mesh, this::read);
+            if (made.shape == null) {
+                return "the hands cannot be put on " + what + ": " + made.why;
             }
+            ByteBuffer read = made.bytes;
+            Layout layout = made.layout;
+            shape = made.shape;
             System.arraycopy(layout.muzzle, 0, muzzle, 0, 3);
             System.arraycopy(layout.port, 0, port, 0, 3);
             travel = layout.travel;
@@ -307,19 +370,9 @@ final class OwnModel {
             }
             int vertices = layout.vertices;
             muzzleFar = (float) Math.sqrt(muzzle[0] * muzzle[0] + muzzle[1] * muzzle[1] + muzzle[2] * muzzle[2]);
-            // Where the hands go on it, read from its own mesh.
-            float[] places = layout.places(read);
-            int[] corners = layout.corners(read);
-            StringBuilder why = new StringBuilder();
-            shape = WeaponShape.read(places, corners, new float[] {0f, 1f, 0f}, new float[] {0f, 0f, 1f}, muzzle.clone(), 1f, why);
-            if (shape == null) {
-                return "the hands cannot be put on " + what + ": " + why;
-            }
             foreEnd = layout.heldY / muzzle[1];
             foreEndTravel = travel / muzzle[1];
             upload(program, read, vertices, indices);
-            colour = picture(colourPath);
-            surface = picture(surfacePath);
         } catch (IOException e) {
             return e.getMessage();
         }
@@ -337,6 +390,7 @@ final class OwnModel {
      */
     void letGo() {
         onCard = false;
+        steps = 0;
         wanted = false;
         forgetReading();
         letGoOf(colourPath, colour);
@@ -358,7 +412,7 @@ final class OwnModel {
         }
         begun = false;
         Ahead.forget(mesh);
-        // A picture is read for one model at a time: asked() begins one model's reading and makes it before it begins another's.
+        // A picture is read for one model at a time: asked() finishes the model it has begun before it begins another.
         for (String path : new String[] {colourPath, surfacePath}) {
             if (!PICTURES.containsKey(path)) {
                 Ahead.forget(path);
@@ -368,7 +422,7 @@ final class OwnModel {
 
     /** Begins unpacking the model and its pictures on other threads, for {@link #prepare} to find them unpacked. */
     private void readAhead() {
-        Ahead.begin(mesh, () -> unpacked(mesh));
+        Ahead.begin(mesh, this::read);
         for (String path : new String[] {colourPath, surfacePath}) {
             if (!PICTURES.containsKey(path)) {
                 Ahead.begin(path, () -> Pictures.packed(path, false));
@@ -376,9 +430,13 @@ final class OwnModel {
         }
     }
 
-    /** Whether everything {@link #readAhead} began is unpacked. */
+    /** Whether what the next step of the making reads is unpacked: each step takes what it reads, so a step's is not there after it. */
     boolean isRead() {
-        return Ahead.done(mesh) && (PICTURES.containsKey(colourPath) || Ahead.done(colourPath)) && (PICTURES.containsKey(surfacePath) || Ahead.done(surfacePath));
+        return switch (steps) {
+            case 0 -> Ahead.done(mesh);
+            case 1 -> PICTURES.containsKey(colourPath) || Ahead.done(colourPath);
+            default -> PICTURES.containsKey(surfacePath) || Ahead.done(surfacePath);
+        };
     }
 
     /**

@@ -4378,6 +4378,8 @@ final class Pipeline {
             return makeNoise();
         }));
         pieces.add(new Piece(Scope::prepare));
+        // Linked on a frame that draws no picture, as the rest of the core is. It never fails the core: see OwnGun.link.
+        pieces.add(new Piece(OwnGun::link));
         pieces.add(new Piece(() -> {
             makeSamplers();
             makeRainDrops();
@@ -4415,6 +4417,7 @@ final class Pipeline {
             String picture = "/materials/" + NATURE[nature] + ".bc";
             pieces.add(Piece.ofPictures(() -> loadPicture(picture, natureTexture, natureGain, nature), picture));
         }
+        // The weapon models are made as each is first held, once the content is made: see OwnModel.asked.
         pieces.add(Piece.ofPictures(() -> {
             try {
                 int newSprigs = Pictures.load(SPRIGS, false), newForm;
@@ -4443,6 +4446,8 @@ final class Pipeline {
     private static List<Piece> makes;
     /** The weapon model the next piece makes where it makes one, when makes is null: set by pieceWaits. */
     private static OwnModel heldModel;
+    /** How long each step of making the last of them took, in milliseconds. */
+    private static final float[] heldSteps = new float[OwnModel.STEPS];
     /** Whether the pictures on the graphics card are the half size ones, and the pieces being made again at the other size, if any are. */
     private static volatile boolean picturesSmall;
     private static volatile List<Piece> resized;
@@ -4614,6 +4619,7 @@ final class Pipeline {
         String problem;
         boolean lastOfCore = false, lastOfContent = false, lastOfResized = false;
         OwnModel model = null;
+        int step = 0;
         if (makes == CORE) {
             problem = CORE.get(preparing++).make.get();
             lastOfCore = preparing == CORE.size();
@@ -4622,6 +4628,7 @@ final class Pipeline {
             lastOfContent = contentPreparing == CONTENT.size();
         } else if (makes == null) {
             model = heldModel;
+            step = model.steps();
             problem = OwnGun.prepare(model);
         } else {
             problem = resized.get(resizedNext++).make.get();
@@ -4657,8 +4664,13 @@ final class Pipeline {
             Pictures.letGoOfReadAhead();
         }
         long took = System.nanoTime() - start;
-        preparingNanos += took;
-        preparingWorst = Math.max(preparingWorst, took);
+        if (model != null) {
+            // A model's steps are counted for it alone.
+            heldSteps[step] = took / 1e6f;
+        } else {
+            preparingNanos += took;
+            preparingWorst = Math.max(preparingWorst, took);
+        }
         if (lastOfCore && problem == null) {
             prepared = true;
             Log.info(String.format(Locale.ROOT, "first person picture ready: its pieces took %.0f ms in all, the longest %.0f ms",
@@ -4666,10 +4678,10 @@ final class Pipeline {
             preparingNanos = 0;
             preparingWorst = 0;
         }
-        if (model != null && problem == null) {
-            Log.info(String.format(Locale.ROOT, "%s is on the graphics card, made as it was first held: %.1f ms on the render thread", model.what, took / 1e6));
-            preparingNanos = 0;
-            preparingWorst = 0;
+        if (model != null && problem == null && model.onCard) {
+            Log.info(String.format(Locale.ROOT, "%s is on the graphics card, made as it was first held: %.1f ms of the render thread in all, the longest frame's %.1f ms"
+                    + " (the mesh %.1f, the colour %.1f, the surface %.1f)", model.what, heldSteps[0] + heldSteps[1] + heldSteps[2],
+                    Math.max(heldSteps[0], Math.max(heldSteps[1], heldSteps[2])), heldSteps[0], heldSteps[1], heldSteps[2]));
         }
         if (lastOfContent && problem == null) {
             contentReady = true;
