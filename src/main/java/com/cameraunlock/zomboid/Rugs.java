@@ -36,11 +36,14 @@ import zombie.core.textures.Texture;
  *
  * A square drawn sharp is 2 MB on the graphics card and takes tens of milliseconds to draw, and a
  * town holds hundreds of rugs. So a build is given a number for the square, not a picture, and
- * the picture is chosen as each frame draws it (texture): the square as read, at half its size,
- * from the moment it is read, and its sharp picture once one is made. Sharp pictures are made on
- * a thread of their own for the squares frames draw, no more than MOST_SHARP at a time, and given
- * back once a square has not been drawn for KEPT_NANOS. What a square was read as is kept, so its
- * sharp picture can be made again without the sprite's sheet.
+ * the picture is chosen as each frame draws it (texture): the square as it was read, at the
+ * density it was read at, which is the sprite's own or finer, and its sharp picture once one is
+ * made. Only the copying of the read is done on the thread that draws, where the sprite's sheet
+ * is: what is made of it is made on a thread of its own and put on the graphics card a few
+ * pictures a frame. The squares frames draw are ranked by how near the eye a place they lie at
+ * is, and the nearest MOST_SHARP have sharp pictures: a square that comes nearer takes the slot
+ * of the furthest, and one no frame has drawn for KEPT_NANOS gives its slot back. What a square
+ * was read as is kept, so its sharp picture can be made again without the sprite's sheet.
  */
 final class Rugs {
     /** Dots a tile is read at: as Flats lays a floor. */
@@ -55,7 +58,7 @@ final class Rugs {
     static final float FROM = (float) MARGIN / READ, SPAN = (float) SIDE / READ;
     /** How far past its square, in tiles, a square of rug may reach: no further than it was read. */
     static final float REACH = (float) MARGIN / SIDE;
-    /** What of says of a square no frame has read yet. */
+    /** What of says of a square whose picture as read is not on the graphics card yet. */
     static final int PENDING = Integer.MIN_VALUE;
     /** What a rug is made of: woven in flat colours, a fur rug, or an animal's hide. */
     static final int WOVEN = 0, FUR = 1, HIDE = 2;
@@ -85,10 +88,10 @@ final class Rugs {
     /** How strongly the strands of fur or hair show over a fur rug's or a hide's own shades, and how many times a picture of them repeats across a tile. */
     private static final float GRAIN_STRENGTH = 0.55f;
     private static final float GRAIN_REPEAT = 1f;
-    /** How many sharp pictures are put on the graphics card a frame at most, and kept on it at most. */
-    private static final int MADE_A_FRAME = 2, MOST_SHARP = 48;
-    /** How long a sharp picture no frame has drawn is kept, and how often that is looked at. */
-    private static final long KEPT_NANOS = 3_000_000_000L, SWEPT_NANOS = 1_000_000_000L;
+    /** How many pictures as read, and how many sharp ones, are put on the graphics card a frame at most, and how many sharp ones are kept on it at most. */
+    private static final int READ_A_FRAME = 8, SHARP_A_FRAME = 2, MOST_SHARP = 48;
+    /** How long a sharp picture no frame has drawn is kept, and how often the squares are ranked. */
+    private static final long KEPT_NANOS = 3_000_000_000L, RANKED_NANOS = 250_000_000L;
 
     private static final int GL_TEXTURE_2D = 0x0DE1, GL_TEXTURE_BINDING_2D = 0x8069, GL_RGBA = 0x1908, GL_RGBA8 = 0x8058, GL_UNSIGNED_BYTE = 0x1401;
     private static final int GL_TEXTURE_MIN_FILTER = 0x2801, GL_TEXTURE_MAG_FILTER = 0x2800, GL_TEXTURE_WRAP_S = 0x2802, GL_TEXTURE_WRAP_T = 0x2803;
@@ -102,55 +105,66 @@ final class Rugs {
     /** A square of rug as read: its colour, three numbers a dot from 0 to 255, and how much of each dot it covers. */
     record Read(float[] colour, float[] cover) {}
 
-    /** A sharp picture drawn, its levels from the whole picture down to one dot, for the round of pictures it was asked for in. */
-    private record Made(Square square, byte[][] levels, int round) {}
+    /** A picture made for a square, its levels from the whole picture down to one dot (null where it could not be made), whether it is the sharp one, and the round it was asked for in. */
+    private record Made(Square square, byte[][] levels, boolean sharp, int round) {}
 
     /** A square of rug that has been read, and the pictures it has on the graphics card. */
-    private static final class Square {
-        /** The number a build is given for it: below zero, see ChunkBuffers.Listing.texture. */
+    static final class Square {
+        /** The number a build is given for it: below zero, see ChunkBuffers.bound. */
         final int number;
         final int kind;
         /** What it was read as, four bytes a dot: red, green, blue and how much of the dot it covers. */
         final byte[] read;
         final String name;
-        /** Its picture at half the size it was read at, which every frame can draw. */
-        final int small;
-        /** Its sharp picture, 0 while it has none. Render thread. */
+        /** Its picture as read: 0 until it is on the graphics card, -1 where it could not be made. Set on the render thread, asked by builds. */
+        volatile int asRead;
+        /** Its sharp picture, 0 while it has none, and whether that was put on the card at half size (Quality.smallerPictures). Render thread. */
         int sharp;
+        boolean sharpSmaller;
         /** Whether a sharp picture is being drawn for it, or could not be: it is not asked for again. Render thread. */
         boolean drawing, failed;
         /** When a frame last drew it. Render thread. */
         long drawnAt;
+        /** Where builds have laid it, each square as x, y and z packed by place: see near. */
+        final Set<Long> places = ConcurrentHashMap.newKeySet();
 
-        Square(int number, int kind, byte[] read, String name, int small) {
+        Square(int number, int kind, byte[] read, String name) {
             this.number = number;
             this.kind = kind;
             this.read = read;
             this.name = name;
-            this.small = small;
         }
     }
 
     private static final ConcurrentHashMap<Texture, Set<Want>> asked = new ConcurrentHashMap<>();
     /** Each square read, or NONE for one that paints too little of its square to be one. */
     private static final ConcurrentHashMap<Want, Square> squares = new ConcurrentHashMap<>();
-    private static final Square NONE = new Square(0, WOVEN, null, null, 0);
-    /** Each square read, the one numbered -1 first. Render thread: a frame looks a square up for every range of rug it draws. */
+    private static final Square NONE = new Square(0, WOVEN, null, null);
+    /**
+     * Each square of this round, the one numbered -1 - firstOfRound first. Render thread: a frame
+     * looks a square up for every range of rug it draws. Numbers go on from one round to the next,
+     * so a number a build kept past letGo names no square of the next round.
+     */
     private static final ArrayList<Square> numbered = new ArrayList<>();
+    private static int firstOfRound;
     private static final ConcurrentLinkedQueue<Made> made = new ConcurrentLinkedQueue<>();
-    /** Counts the times every picture has been given back: what was being drawn for an earlier round is not put on the card. */
+    /** Counts the times every picture has been given back: what was being made for an earlier round is dropped. */
     private static volatile int round;
-    /** Render thread: how many sharp pictures are on the card or being drawn, when this frame began, and when they were last looked over. */
+    /** Render thread: how many sharp pictures are on the card or being drawn, when this frame began, and when the squares were last ranked. */
     private static int sharpOrDrawing;
-    private static long frameNanos, sweptAt;
+    private static long frameNanos, rankedAt;
     private static final ExecutorService drawer = Executors.newSingleThreadExecutor(work -> {
         Thread thread = new Thread(work, "CameraUnlock rugs");
         thread.setDaemon(true);
         return thread;
     });
-    /** The strands of a fur rug and the hair of a hide, square pictures of each dot's light over the mean. Read on the rugs' own thread when first wanted. */
-    private static float[] fur, hide;
-    private static int furSide, hideSide;
+    /** The strands of a fur rug and the hair of a hide: see Grain. Read on the rugs' own thread when first wanted, let go with every picture. */
+    private static volatile Grain grain;
+    /** Why the grain could not be read, once it could not: logged once, and every fur rug and hide is drawn as read after. */
+    private static volatile IllegalStateException grainFailed;
+
+    /** Square pictures of each dot's light over the mean, side dots to a side. */
+    private record Grain(float[] fur, int furSide, float[] hide, int hideSide) {}
 
     private Rugs() {}
 
@@ -170,22 +184,27 @@ final class Rugs {
 
     /**
      * The number of the square of rug the sprite paints, as the frame holds it and laid lifted
-     * levels over the floor, for a build to key its faces by: PENDING until a frame has read it,
-     * 0 for a kind of -1, no rug, and for a sprite that paints too little of its square.
+     * levels over the floor at (x, y, z), for a build to key its faces by: PENDING until its
+     * picture as read is on the graphics card, 0 for a kind of -1, no rug, and for a sprite that
+     * paints too little of its square or whose picture could not be made.
      */
-    static int of(Texture texture, SpriteGeometry.Frame frame, int kind, float lifted) {
+    static int of(Texture texture, SpriteGeometry.Frame frame, int kind, float lifted, int x, int y, int z) {
         if (kind < 0) {
             return 0;
         }
         Want want = new Want(texture, kind, frame.originU, frame.originV, frame.scale, frame.left, frame.top, frame.width, frame.height, lifted);
         Square square = squares.get(want);
-        if (square != null) {
-            return square.number;
+        if (square == null) {
+            if (asked.computeIfAbsent(texture, sprite -> ConcurrentHashMap.newKeySet()).add(want)) {
+                SpriteColours.readAgain(texture);
+            }
+            return PENDING;
         }
-        if (asked.computeIfAbsent(texture, sprite -> ConcurrentHashMap.newKeySet()).add(want)) {
-            SpriteColours.readAgain(texture);
+        if (square == NONE || square.asRead < 0) {
+            return 0;
         }
-        return PENDING;
+        square.places.add(place(x, y, z));
+        return square.asRead == 0 ? PENDING : square.number;
     }
 
     /**
@@ -198,7 +217,26 @@ final class Rugs {
         return kind == HIDE ? 0f : given;
     }
 
-    /** Reads every square of rug the sprite was asked for as, and puts each on the graphics card at half the size it was read at. On the thread that draws. */
+    /** A square of the map as one number, for Square.places. */
+    static long place(int x, int y, int z) {
+        return (long) (x & 0xffffff) << 40 | (long) (y & 0xffffff) << 16 | z & 0xffff;
+    }
+
+    /** The squared distance, in tiles, from the eye to the nearest place a square lies at. The map's squares are at x and y from 0. */
+    static float distanceTo(Set<Long> places, float eyeX, float eyeY, float eyeUp) {
+        float least = Float.MAX_VALUE;
+        for (long at : places) {
+            float dx = (int) (at >>> 40) + 0.5f - eyeX, dy = (int) (at >>> 16 & 0xffffff) + 0.5f - eyeY;
+            float dz = (short) at * ViewCamera.LEVEL_HEIGHT - eyeUp;
+            least = Math.min(least, dx * dx + dy * dy + dz * dz);
+        }
+        return least;
+    }
+
+    /**
+     * Reads every square of rug the sprite was asked for as, and has its picture as read made on
+     * the rugs' own thread. On the thread that draws: only the copying of the square is done here.
+     */
     static void read(Texture texture, ByteBuffer sheet, int width, int left, int top, int right, int bottom) {
         Set<Want> wants = asked.get(texture);
         if (wants == null) {
@@ -208,14 +246,15 @@ final class Rugs {
             if (squares.containsKey(want)) {
                 continue;
             }
-            Read read = sampled(sheet, width, left, top, right, bottom, want);
+            byte[] read = sampled(sheet, width, left, top, right, bottom, want);
             if (read == null) {
                 squares.put(want, NONE);
                 continue;
             }
-            Square square = new Square(-1 - numbered.size(), want.kind, packed(read), texture.getName(), picture(levels(small(straightened(read, want.kind)), READ / 2), 0));
+            Square square = new Square(-1 - firstOfRound - numbered.size(), want.kind, read, texture.getName());
             numbered.add(square);
             squares.put(want, square);
+            make(square, false);
             if (FirstPerson.TRACE) {
                 Log.info("rugs: " + square.name + " read as square " + square.number);
             }
@@ -223,115 +262,209 @@ final class Rugs {
     }
 
     /**
-     * The OpenGL name of the picture a frame draws the square of rug of that number with: its
-     * sharp picture where it has one, and until then the square as read, at half its size, with
-     * a sharp one asked for. Render thread, as a frame draws.
+     * Has a picture of the square made on the rugs' own thread: as read, or sharp. A picture asked
+     * for in a round that has ended is not made, nor handed in.
      */
-    static int texture(int number) {
-        int at = -1 - number;
-        if (at >= numbered.size()) {
-            throw new IllegalStateException("no square of rug has the number " + number + ": a build kept one past Rugs.letGo");
-        }
-        Square square = numbered.get(at);
-        square.drawnAt = frameNanos;
-        if (square.sharp != 0) {
-            return square.sharp;
-        }
-        if (!square.drawing && !square.failed && sharpOrDrawing < MOST_SHARP) {
-            square.drawing = true;
-            sharpOrDrawing++;
-            int now = round;
-            drawer.execute(() -> {
-                byte[][] levels = null;
-                try {
-                    float[] grain = square.kind == WOVEN ? null : grain(square.kind);
-                    int side = square.kind == FUR ? furSide : hideSide;
-                    levels = levels(drawn(unpacked(square.read), square.kind, grain, side), DRAWN);
-                } catch (RuntimeException failed) {
-                    Log.error("a square of rug, " + square.name + ", could not be drawn sharp and is drawn as it was read", failed);
+    private static void make(Square square, boolean sharp) {
+        int now = round;
+        drawer.execute(() -> {
+            byte[][] levels = null;
+            try {
+                if (round != now) {
+                    return;
                 }
-                made.add(new Made(square, levels, now));
-            });
-        }
-        return square.small;
+                Read read = unpacked(square.read);
+                if (sharp) {
+                    Grain strands = square.kind == WOVEN ? null : grain();
+                    float[] lights = strands == null ? null : square.kind == FUR ? strands.fur : strands.hide;
+                    int side = strands == null ? 0 : square.kind == FUR ? strands.furSide : strands.hideSide;
+                    levels = levels(drawn(read, square.kind, lights, side), DRAWN);
+                } else {
+                    levels = levels(asRead(straightened(read, square.kind)), READ);
+                }
+            } catch (Throwable thrown) {
+                if (thrown != grainFailed) {
+                    Log.error("a square of rug, " + square.name + ", could not be drawn " + (sharp ? "sharp and is drawn as it was read" : "as read and is drawn from its sprite"), thrown);
+                }
+            } finally {
+                if (round == now) {
+                    made.add(new Made(square, levels, sharp, now));
+                }
+            }
+        });
     }
 
     /**
-     * Render thread, as each frame begins: puts the sharp pictures drawn since the last frame on
-     * the graphics card, a few a frame, and gives back those no frame has drawn for KEPT_NANOS.
+     * The OpenGL name of the picture a frame draws the square of rug of that number with: its
+     * sharp picture where it has one, and its picture as read until then. Render thread, as a
+     * frame draws: see ChunkBuffers.bound.
      */
-    static void putOnCard() {
+    static int texture(int number) {
+        Square square = square(number);
+        square.drawnAt = frameNanos;
+        return square.sharp != 0 ? square.sharp : square.asRead;
+    }
+
+    /** The square of this round with that number. A number from an earlier round is a build kept past letGo, which never happens and is said loudly. */
+    static Square square(int number) {
+        int at = -1 - number - firstOfRound;
+        if (at < 0 || at >= numbered.size()) {
+            throw new IllegalStateException("no square of rug of this round has the number " + number + ": a build kept one past Rugs.letGo");
+        }
+        return numbered.get(at);
+    }
+
+    /**
+     * Render thread, as each frame begins, with the eye of the picture about to be drawn: puts
+     * the pictures made since the last frame on the graphics card, a few a frame, and now and
+     * then ranks the squares frames draw by how near the eye they lie and hands out sharp pictures
+     * to the nearest.
+     */
+    static void putOnCard(float eyeX, float eyeY, float eyeUp) {
         frameNanos = System.nanoTime();
-        for (int count = 0; count < MADE_A_FRAME; count++) {
-            Made one = made.poll();
-            if (one == null) {
-                break;
-            }
+        int reads = 0, sharps = 0;
+        for (Made one = made.peek(); one != null && reads < READ_A_FRAME && sharps < SHARP_A_FRAME; one = made.peek()) {
+            made.poll();
             if (one.round != round) {
                 continue;
             }
-            one.square.drawing = false;
+            Square square = one.square;
+            if (!one.sharp) {
+                reads++;
+                square.asRead = one.levels == null ? -1 : picture(one.levels, 0);
+                continue;
+            }
+            sharps++;
+            square.drawing = false;
             if (one.levels == null) {
-                one.square.failed = true;
+                square.failed = true;
                 sharpOrDrawing--;
-            } else {
-                one.square.sharp = picture(one.levels, Quality.smallerPictures() ? 1 : 0);
-                if (FirstPerson.TRACE) {
-                    Log.info("rugs: square " + one.square.number + " drawn sharp, " + sharpOrDrawing + " sharp or being drawn");
-                }
+                continue;
+            }
+            square.sharpSmaller = Quality.smallerPictures();
+            square.sharp = picture(one.levels, square.sharpSmaller ? 1 : 0);
+            if (FirstPerson.TRACE) {
+                Log.info("rugs: square " + square.number + " drawn sharp, " + sharpOrDrawing + " sharp or being drawn");
             }
         }
-        if (frameNanos - sweptAt < SWEPT_NANOS) {
-            return;
+        if (frameNanos - rankedAt >= RANKED_NANOS) {
+            rankedAt = frameNanos;
+            rank(eyeX, eyeY, eyeUp);
         }
-        sweptAt = frameNanos;
+    }
+
+    /**
+     * Gives back the sharp pictures of squares no frame has drawn for KEPT_NANOS, and of those put
+     * on the card at the other size, then asks for sharp pictures for the nearest of the squares
+     * frames draw, taking the slot of the furthest that has one when every slot is taken.
+     */
+    private static void rank(float eyeX, float eyeY, float eyeUp) {
+        boolean smaller = Quality.smallerPictures();
         int gave = 0;
+        ArrayList<Square> drawn = new ArrayList<>();
         for (Square square : numbered) {
-            if (square.sharp != 0 && frameNanos - square.drawnAt > KEPT_NANOS) {
-                GL11.glDeleteTextures(square.sharp);
-                square.sharp = 0;
-                sharpOrDrawing--;
+            boolean stale = frameNanos - square.drawnAt > KEPT_NANOS;
+            if (square.sharp != 0 && (stale || square.sharpSmaller != smaller)) {
+                giveBack(square);
                 gave++;
             }
+            if (!stale && square.asRead > 0 && !square.failed) {
+                drawn.add(square);
+            }
+        }
+        float[] distance = new float[drawn.size()];
+        for (int i = 0; i < distance.length; i++) {
+            distance[i] = distanceTo(drawn.get(i).places, eyeX, eyeY, eyeUp);
+        }
+        boolean[] wanted = nearestOf(distance, MOST_SHARP);
+        for (int i = 0; i < distance.length; i++) {
+            Square square = drawn.get(i);
+            if (!wanted[i] || square.sharp != 0 || square.drawing) {
+                continue;
+            }
+            if (sharpOrDrawing >= MOST_SHARP) {
+                int furthest = -1;
+                for (int j = 0; j < distance.length; j++) {
+                    if (!wanted[j] && drawn.get(j).sharp != 0 && (furthest < 0 || distance[j] > distance[furthest])) {
+                        furthest = j;
+                    }
+                }
+                if (furthest < 0) {
+                    break;
+                }
+                giveBack(drawn.get(furthest));
+                gave++;
+            }
+            square.drawing = true;
+            sharpOrDrawing++;
+            make(square, true);
         }
         if (gave > 0) {
             Pipeline.forgetTexels();
             if (FirstPerson.TRACE) {
-                Log.info("rugs: " + gave + " sharp pictures no frame drew for a while given back");
+                Log.info("rugs: " + gave + " sharp pictures given back");
             }
         }
     }
 
-    /** Render thread, as Flats.letGo, once every build has been let go: gives every picture back to the graphics card. A build made after this asks again. */
+    /** Which of the squares at those squared distances are among the most nearest: ties go to the one listed first. */
+    static boolean[] nearestOf(float[] distance, int most) {
+        Integer[] order = new Integer[distance.length];
+        for (int i = 0; i < order.length; i++) {
+            order[i] = i;
+        }
+        Arrays.sort(order, (a, b) -> Float.compare(distance[a], distance[b]));
+        boolean[] wanted = new boolean[distance.length];
+        for (int i = 0; i < Math.min(most, order.length); i++) {
+            wanted[order[i]] = true;
+        }
+        return wanted;
+    }
+
+    private static void giveBack(Square square) {
+        GL11.glDeleteTextures(square.sharp);
+        square.sharp = 0;
+        sharpOrDrawing--;
+    }
+
+    /** Render thread, as Flats.letGo, once every build has been let go: gives every picture back to the graphics card and lets go of what was read. A build made after this asks again. */
     static void letGo() {
+        int[] names = forget();
+        for (int name : names) {
+            GL11.glDeleteTextures(name);
+        }
+        Log.info(names.length + " pictures of rugs are given back to the graphics card");
+    }
+
+    /** Ends the round: what is being made for it is dropped, and the next round's numbers go on from this one's. The OpenGL names of every picture this round put on the card. */
+    static int[] forget() {
         round++;
+        int[] names = new int[numbered.size() * 2];
         int count = 0;
         for (Square square : numbered) {
-            GL11.glDeleteTextures(square.small);
-            count++;
+            if (square.asRead > 0) {
+                names[count++] = square.asRead;
+            }
             if (square.sharp != 0) {
-                GL11.glDeleteTextures(square.sharp);
-                count++;
+                names[count++] = square.sharp;
             }
         }
+        firstOfRound += numbered.size();
         numbered.clear();
         squares.clear();
         asked.clear();
         made.clear();
         sharpOrDrawing = 0;
-        Log.info(count + " pictures of rugs are given back to the graphics card");
+        grain = null;
+        return Arrays.copyOf(names, count);
     }
 
-    /** A square as read, four bytes a dot: what is kept of it to draw it sharp again. */
-    private static byte[] packed(Read read) {
-        byte[] bytes = new byte[READ * READ * 4];
-        for (int at = 0; at < READ * READ; at++) {
-            for (int c = 0; c < 3; c++) {
-                bytes[at * 4 + c] = (byte) Math.round(Math.clamp(read.colour[at * 3 + c], 0f, 255f));
-            }
-            bytes[at * 4 + 3] = (byte) Math.round(Math.clamp(read.cover[at], 0f, 1f) * 255f);
-        }
-        return bytes;
+    /** Adds a square to this round as read does, for the tests: its picture as read is the OpenGL name given. */
+    static Square adopted(int asRead) {
+        Square square = new Square(-1 - firstOfRound - numbered.size(), WOVEN, new byte[READ * READ * 4], "test");
+        square.asRead = asRead;
+        numbered.add(square);
+        return square;
     }
 
     private static Read unpacked(byte[] bytes) {
@@ -345,41 +478,37 @@ final class Rugs {
         return new Read(colour, cover);
     }
 
-    /** A square as read at half its size, each dot the mean of the four it stands for, solid where half of them are: what a frame draws until the sharp picture is made. */
-    static byte[] small(Read read) {
+    /** A square as read, READ dots to a side, four bytes a dot, solid where the rug covers half a dot: what a frame draws until the sharp picture is made. */
+    static byte[] asRead(Read read) {
         float[] colour = filled(read.colour, read.cover);
-        int half = READ / 2;
-        byte[] dots = new byte[half * half * 4];
-        for (int y = 0; y < half; y++) {
-            for (int x = 0; x < half; x++) {
-                float red = 0f, green = 0f, blue = 0f, covered = 0f;
-                for (int k = 0; k < 4; k++) {
-                    int at = (2 * y + (k >> 1)) * READ + 2 * x + (k & 1);
-                    red += colour[at * 3];
-                    green += colour[at * 3 + 1];
-                    blue += colour[at * 3 + 2];
-                    covered += read.cover[at] >= COVERED ? 1f : 0f;
-                }
-                int out = (y * half + x) * 4;
-                dots[out] = (byte) Math.round(red / 4f);
-                dots[out + 1] = (byte) Math.round(green / 4f);
-                dots[out + 2] = (byte) Math.round(blue / 4f);
-                dots[out + 3] = (byte) (covered >= 2f ? 255 : 0);
+        byte[] dots = new byte[READ * READ * 4];
+        for (int at = 0; at < READ * READ; at++) {
+            for (int c = 0; c < 3; c++) {
+                dots[at * 4 + c] = (byte) Math.round(Math.clamp(colour[at * 3 + c], 0f, 255f));
             }
+            dots[at * 4 + 3] = (byte) (read.cover[at] >= COVERED ? 255 : 0);
         }
         return dots;
     }
 
-    /** The mod's picture of a fur rug's strands or a hide's hair, read once. On the rugs' own thread. */
-    private static float[] grain(int kind) {
-        if (kind == FUR && fur == null) {
-            fur = lights("/rugs/fur.jpg");
-            furSide = (int) Math.round(Math.sqrt(fur.length));
-        } else if (kind == HIDE && hide == null) {
-            hide = lights("/rugs/hide.jpg");
-            hideSide = (int) Math.round(Math.sqrt(hide.length));
+    /** The strands of fur and the hair of hides, read from the jar the first time either is wanted. A jar without them is a fault of its packing: said once, and thrown each time after. On the rugs' own thread. */
+    private static Grain grain() {
+        if (grainFailed != null) {
+            throw grainFailed;
         }
-        return kind == FUR ? fur : hide;
+        Grain read = grain;
+        if (read == null) {
+            try {
+                float[] fur = lights("/rugs/fur.jpg"), hide = lights("/rugs/hide.jpg");
+                read = new Grain(fur, (int) Math.round(Math.sqrt(fur.length)), hide, (int) Math.round(Math.sqrt(hide.length)));
+            } catch (RuntimeException failed) {
+                grainFailed = new IllegalStateException("the strands of fur and hair for rugs could not be read from the jar, so fur rugs and hides are drawn as read", failed);
+                Log.error(grainFailed.getMessage(), failed);
+                throw grainFailed;
+            }
+            grain = read;
+        }
+        return read;
     }
 
     /** A square picture in the jar as the light of each dot over the picture's mean light. */
@@ -417,15 +546,15 @@ final class Rugs {
     /**
      * The square of rug a sprite paints, read flat a MARGIN past each edge of its square, as
      * Flats.laid reads a floor: each dot the blend of the four dots of the sprite round the
-     * place the game draws that point at, each counted by how solid it is. Null for a sprite
-     * that paints too little of it.
+     * place the game draws that point at, each counted by how solid it is, as four bytes, red,
+     * green, blue and how much of the dot it covers. Null for a sprite that paints too little of it.
      */
-    private static Read sampled(ByteBuffer sheet, int width, int left, int top, int right, int bottom, Want want) {
+    private static byte[] sampled(ByteBuffer sheet, int width, int left, int top, int right, int bottom, Want want) {
         int wide = right - left, high = bottom - top;
         if (wide <= 0 || high <= 0) {
             return null;
         }
-        float[] colour = new float[READ * READ * 3], cover = new float[READ * READ];
+        byte[] read = new byte[READ * READ * 4];
         float perU = wide / want.width, perV = high / want.height;
         int painted = 0;
         for (int j = 0; j < READ; j++) {
@@ -447,17 +576,17 @@ final class Rugs {
                     blue += weight * (sheet.get(place + 2) & 0xff);
                     covered += weight;
                 }
-                int at = j * READ + i;
-                cover[at] = covered;
+                int at = (j * READ + i) * 4;
                 if (covered > 0f) {
-                    colour[at * 3] = red / covered;
-                    colour[at * 3 + 1] = green / covered;
-                    colour[at * 3 + 2] = blue / covered;
+                    read[at] = (byte) Math.round(red / covered);
+                    read[at + 1] = (byte) Math.round(green / covered);
+                    read[at + 2] = (byte) Math.round(blue / covered);
                 }
+                read[at + 3] = (byte) Math.round(Math.min(covered, 1f) * 255f);
                 painted += covered >= COVERED && a >= 0f && a < 1f && b >= 0f && b < 1f ? 1 : 0;
             }
         }
-        return painted >= LEAST_PAINTED * SIDE * SIDE ? new Read(colour, cover) : null;
+        return painted >= LEAST_PAINTED * SIDE * SIDE ? read : null;
     }
 
     /**
@@ -481,6 +610,7 @@ final class Rugs {
         }
         byte[] dots = new byte[DRAWN * DRAWN * 4];
         float[] wx = new float[4], wy = new float[4], share = new float[Math.max(colours, 1)];
+        int span = grain == null ? 1 : Math.max(1, Math.round(side * GRAIN_REPEAT / (SIDE * UP)));
         for (int y = 0; y < DRAWN; y++) {
             float at = (y + 0.5f) / UP - 0.5f;
             int y0 = (int) Math.floor(at);
@@ -527,8 +657,15 @@ final class Rugs {
                     blue = palette[first * 3 + 2] * firstShare + palette[other * 3 + 2] * (1f - firstShare);
                 }
                 if (grain != null) {
-                    float a = ((x + 0.5f) / UP - MARGIN) / SIDE * GRAIN_REPEAT, b = ((y + 0.5f) / UP - MARGIN) / SIDE * GRAIN_REPEAT;
-                    float lit = grain[Math.floorMod((int) Math.floor(b * side), side) * side + Math.floorMod((int) Math.floor(a * side), side)];
+                    // A dot drawn spans span dots of the grain each way: it takes their mean, or the grain's finest strands alias.
+                    int gx = (int) Math.floor(((float) x / UP - MARGIN) / SIDE * GRAIN_REPEAT * side), gy = (int) Math.floor(((float) y / UP - MARGIN) / SIDE * GRAIN_REPEAT * side);
+                    float lit = 0f;
+                    for (int sy = 0; sy < span; sy++) {
+                        for (int sx = 0; sx < span; sx++) {
+                            lit += grain[Math.floorMod(gy + sy, side) * side + Math.floorMod(gx + sx, side)];
+                        }
+                    }
+                    lit /= span * span;
                     float by = 1f + GRAIN_STRENGTH * (lit - 1f);
                     red *= by;
                     green *= by;

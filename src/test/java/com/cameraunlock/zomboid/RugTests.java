@@ -1,5 +1,6 @@
 package com.cameraunlock.zomboid;
 
+import java.util.Arrays;
 import java.util.Random;
 
 /** Tests of a square of rug drawn again: Rugs.drawn and what it is drawn from. */
@@ -8,14 +9,18 @@ final class RugTests {
 
     static void run() {
         Checks.run("rugSpritesAreToldByTheirSheet", RugTests::rugSpritesAreToldByTheirSheet);
-        Checks.run("theSquareSitsInThePictureWithTheSameMarginAllRound", RugTests::theSquareSitsInThePictureWithTheSameMarginAllRound);
+        Checks.run("theSquareIsDrawnWhereFaceTexelsSayItIs", RugTests::theSquareIsDrawnWhereFaceTexelsSayItIs);
+        Checks.run("aFrameDrawsASquaresSharpPictureOnceItHasOneAndItsReadOneUntilThen", RugTests::aFrameDrawsASquaresSharpPictureOnceItHasOneAndItsReadOneUntilThen);
+        Checks.run("aNumberFromAnEndedRoundNamesNoSquare", RugTests::aNumberFromAnEndedRoundNamesNoSquare);
+        Checks.run("theNearestSquaresHaveTheSharpPictures", RugTests::theNearestSquaresHaveTheSharpPictures);
+        Checks.run("aPlaceIsMeasuredFromTheEye", RugTests::aPlaceIsMeasuredFromTheEye);
+        Checks.run("everyReaderOfARunsTextureGoesThroughBound", RugTests::everyReaderOfARunsTextureGoesThroughBound);
         Checks.run("aWovenRugIsItsFlatColoursWithoutTheSpeckle", RugTests::aWovenRugIsItsFlatColoursWithoutTheSpeckle);
         Checks.run("aBorderIsDrawnAsAStraightSharpLine", RugTests::aBorderIsDrawnAsAStraightSharpLine);
         Checks.run("theOutlineIsCutWhereHalfADotIsCovered", RugTests::theOutlineIsCutWhereHalfADotIsCovered);
         Checks.run("theStaircaseAtASquaresEdgeIsFilledAndWhatIsPastItCut", RugTests::theStaircaseAtASquaresEdgeIsFilledAndWhatIsPastItCut);
         Checks.run("furTakesItsStrandsFromTheGrainAndKeepsItsShade", RugTests::furTakesItsStrandsFromTheGrainAndKeepsItsShade);
         Checks.run("levelsHalveDownToOneDot", RugTests::levelsHalveDownToOneDot);
-        Checks.run("everyReaderOfARunsTextureGoesThroughBound", RugTests::everyReaderOfARunsTextureGoesThroughBound);
     }
 
     private static void rugSpritesAreToldByTheirSheet() {
@@ -28,10 +33,118 @@ final class RugTests {
         Checks.check(Rugs.material(Rugs.HIDE, WorldScene.CARPET) == 0f, "a hide carries its hair in its picture alone");
     }
 
-    private static void theSquareSitsInThePictureWithTheSameMarginAllRound() {
-        Checks.check(Math.abs(2f * Rugs.FROM + Rugs.SPAN - 1f) < 1e-6f, "margin, square and margin fill the picture: " + (2f * Rugs.FROM + Rugs.SPAN));
+    /**
+     * A face takes its texels at FROM + SPAN times where on the square it is (SpriteGeometry,
+     * FLAT_RUG): a hide that covers exactly its square has to be drawn over exactly those texels,
+     * and a face reaching REACH past the square ends at the picture's edge.
+     */
+    private static void theSquareIsDrawnWhereFaceTexelsSayItIs() {
+        int n = Rugs.READ;
+        float[] colour = new float[n * n * 3], cover = new float[n * n];
+        for (int j = 0; j < n; j++) {
+            for (int i = 0; i < n; i++) {
+                boolean in = i >= Rugs.MARGIN && i < Rugs.MARGIN + Rugs.SIDE && j >= Rugs.MARGIN && j < Rugs.MARGIN + Rugs.SIDE;
+                cover[j * n + i] = in ? 1f : 0f;
+                colour[(j * n + i) * 3] = 120f;
+            }
+        }
+        byte[] dots = Rugs.drawn(new Rugs.Read(colour, cover), Rugs.HIDE, null, 0);
+        int side = Rugs.DRAWN, wrong = 0;
+        for (int y = 0; y < side; y++) {
+            for (int x = 0; x < side; x++) {
+                float u = (x + 0.5f) / side, v = (y + 0.5f) / side;
+                float a = (u - Rugs.FROM) / Rugs.SPAN, b = (v - Rugs.FROM) / Rugs.SPAN;
+                boolean onSquare = a > 0f && a < 1f && b > 0f && b < 1f;
+                float edge = Math.min(Math.min(Math.abs(a), Math.abs(1f - a)), Math.min(Math.abs(b), Math.abs(1f - b))) * Rugs.SIDE;
+                boolean drawn = (dots[(y * side + x) * 4 + 3] & 0xff) == 255;
+                wrong += drawn != onSquare && edge > 0.6f ? 1 : 0;
+            }
+        }
+        Checks.check(wrong == 0, "the square is drawn where its face's texels put it, within a dot read: " + wrong + " dots off");
         Checks.check(Math.abs(Rugs.FROM - Rugs.REACH * Rugs.SPAN) < 1e-6f, "a face reaching its most past the square ends at the picture's edge");
-        Checks.check(Rugs.DRAWN == Rugs.READ * Rugs.UP, "drawn UP times as fine as read");
+    }
+
+    private static void aFrameDrawsASquaresSharpPictureOnceItHasOneAndItsReadOneUntilThen() {
+        Rugs.forget();
+        Rugs.Square square = Rugs.adopted(7);
+        Checks.check(ChunkBuffers.bound(square.number) == 7, "a run keyed by the square's number is drawn with its picture as read");
+        square.sharp = 9;
+        Checks.check(ChunkBuffers.bound(square.number) == 9, "and with its sharp picture once it has one");
+        Checks.check(ChunkBuffers.bound(12) == 12 && ChunkBuffers.bound(0) == 0, "any other key is the texture's own name");
+        int[] given = Rugs.forget();
+        Arrays.sort(given);
+        Checks.check(Arrays.equals(given, new int[] {7, 9}), "ending the round gives back both pictures: " + Arrays.toString(given));
+    }
+
+    private static void aNumberFromAnEndedRoundNamesNoSquare() {
+        Rugs.forget();
+        int old = Rugs.adopted(3).number;
+        Rugs.forget();
+        Rugs.Square next = Rugs.adopted(4);
+        Checks.check(next.number != old, "the next round numbers on: " + old + " then " + next.number);
+        boolean refused = false;
+        try {
+            Rugs.texture(old);
+        } catch (IllegalStateException expected) {
+            refused = true;
+        }
+        Checks.check(refused, "a number kept past the end of its round is refused, not taken for a square of the next");
+        Checks.check(Rugs.texture(next.number) == 4, "and the next round's square is found by its own");
+        Rugs.forget();
+    }
+
+    private static void theNearestSquaresHaveTheSharpPictures() {
+        boolean[] wanted = Rugs.nearestOf(new float[] {50f, 4f, 900f, 9f, 4f}, 3);
+        Checks.check(Arrays.equals(wanted, new boolean[] {false, true, false, true, true}), "the three nearest: " + Arrays.toString(wanted));
+        boolean[] all = Rugs.nearestOf(new float[] {5f, 1f}, 48);
+        Checks.check(all[0] && all[1], "every square, where there are fewer than slots");
+    }
+
+    private static void aPlaceIsMeasuredFromTheEye() {
+        java.util.Set<Long> places = new java.util.HashSet<>();
+        places.add(Rugs.place(10654, 9367, 0));
+        places.add(Rugs.place(10660, 9300, 1));
+        float d = Rugs.distanceTo(places, 10654.5f, 9369.5f, 0f);
+        Checks.check(Math.abs(d - 4f) < 1e-3f, "the nearer place, two tiles off: " + d);
+        java.util.Set<Long> under = java.util.Set.of(Rugs.place(3, 4, -1));
+        float below = Rugs.distanceTo(under, 3.5f, 4.5f, 0f);
+        Checks.check(Math.abs(below - ViewCamera.LEVEL_HEIGHT * ViewCamera.LEVEL_HEIGHT) < 1e-3f, "a place a level below is a level off: " + below);
+    }
+
+    /**
+     * A run's key is a texture's name or a square of rug's number, so whatever binds it binds
+     * ChunkBuffers.bound of it. Every line of the mod that reads a run's or a range's key is listed
+     * here as bookkeeping, or goes through bound: a new reader that binds the key itself fails.
+     */
+    private static void everyReaderOfARunsTextureGoesThroughBound() throws java.io.IOException {
+        java.util.List<String> keeping = java.util.List.of(
+                "WorldScene.java:runTexture = Arrays.copyOf(runTexture, runs * 2);",
+                "WorldScene.java:runTexture[runs] = mesh.texture;",
+                "ChunkBuffers.java:int slot = of.slot(build.runTexture[run], build.runTint[run]);",
+                "ChunkBuffers.java:rangeTexture[ranges] = runs.texture[slot];",
+                "ChunkBuffers.java:int slot = slot(build.runTexture[run], build.runTint[run]);",
+                "ChunkBuffers.java:texture[slot] = build.runTexture[run];");
+        int unresolved = 0;
+        StringBuilder found = new StringBuilder();
+        try (java.util.stream.Stream<java.nio.file.Path> files = java.nio.file.Files.list(java.nio.file.Path.of("src/main/java/com/cameraunlock/zomboid"))) {
+            for (java.nio.file.Path file : (Iterable<java.nio.file.Path>) files::iterator) {
+                for (String line : java.nio.file.Files.readAllLines(file)) {
+                    String code = line.strip();
+                    boolean reads = code.matches(".*\\b(runTexture|rangeTexture)\\[.*") || code.matches(".*\\bruns\\.texture\\[.*");
+                    if (!reads || code.startsWith("//") || code.startsWith("*") || code.contains("bound(")) {
+                        continue;
+                    }
+                    if (code.startsWith("private int[] rangeTexture") || code.startsWith("int[] runTexture") || code.startsWith("rangeTexture = new int")) {
+                        continue;
+                    }
+                    if (!keeping.contains(file.getFileName() + ":" + code)) {
+                        unresolved++;
+                        found.append(' ').append(file.getFileName()).append(": ").append(code);
+                    }
+                }
+            }
+        }
+        Checks.check(unresolved == 0, "every reader of a run's texture binds it through ChunkBuffers.bound:" + found);
     }
 
     /** A square read as two colours split at a column, with the game's speckle over both: measured on its rugs, a few steps of 255 a channel. */
@@ -181,41 +294,5 @@ final class RugTests {
         byte[][] levels = Rugs.levels(dots, side);
         Checks.check(levels.length == 4, "10, 5, 2 and 1 dots across: " + levels.length);
         Checks.check(levels[3].length == 4 && (levels[3][0] & 0xff) == 200, "the last is one dot of the same colour");
-    }
-
-    /**
-     * A run's key is a texture's name or a square of rug's number, so whatever binds it binds
-     * ChunkBuffers.bound of it. Every line of the mod that reads a run's or a range's key is listed
-     * here as bookkeeping, or goes through bound: a new reader that binds the key itself fails.
-     */
-    private static void everyReaderOfARunsTextureGoesThroughBound() throws java.io.IOException {
-        java.util.List<String> keeping = java.util.List.of(
-                "WorldScene.java:runTexture = Arrays.copyOf(runTexture, runs * 2);",
-                "WorldScene.java:runTexture[runs] = mesh.texture;",
-                "ChunkBuffers.java:int slot = of.slot(build.runTexture[run], build.runTint[run]);",
-                "ChunkBuffers.java:rangeTexture[ranges] = runs.texture[slot];",
-                "ChunkBuffers.java:int slot = slot(build.runTexture[run], build.runTint[run]);",
-                "ChunkBuffers.java:texture[slot] = build.runTexture[run];");
-        int unresolved = 0;
-        StringBuilder found = new StringBuilder();
-        try (java.util.stream.Stream<java.nio.file.Path> files = java.nio.file.Files.list(java.nio.file.Path.of("src/main/java/com/cameraunlock/zomboid"))) {
-            for (java.nio.file.Path file : (Iterable<java.nio.file.Path>) files::iterator) {
-                for (String line : java.nio.file.Files.readAllLines(file)) {
-                    String code = line.strip();
-                    boolean reads = code.matches(".*\\b(runTexture|rangeTexture)\\[.*") || code.matches(".*\\bruns\\.texture\\[.*");
-                    if (!reads || code.startsWith("//") || code.startsWith("*") || code.contains("bound(")) {
-                        continue;
-                    }
-                    if (code.startsWith("private int[] rangeTexture") || code.startsWith("int[] runTexture") || code.startsWith("rangeTexture = new int")) {
-                        continue;
-                    }
-                    if (!keeping.contains(file.getFileName() + ":" + code)) {
-                        unresolved++;
-                        found.append(' ').append(file.getFileName()).append(": ").append(code);
-                    }
-                }
-            }
-        }
-        Checks.check(unresolved == 0, "every reader of a run's texture binds it through ChunkBuffers.bound:" + found);
     }
 }

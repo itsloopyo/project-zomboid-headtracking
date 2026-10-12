@@ -725,8 +725,9 @@ final class WorldScene {
         final int flatWall;
         /** Whether it is a broken length of fence the game marks for no wall: see BrokenFences. */
         final boolean brokenFence;
-        /** What it is a square of rug made of, Rugs.WOVEN, FUR or HIDE, or -1 for no rug. */
+        /** What it is a square of rug made of, Rugs.WOVEN, FUR or HIDE, or -1 for no rug, and how high its top lies over the floor, in levels: see Flat.pile. */
         final int rug;
+        final float pile;
 
         Kind(IsoSprite sprite) {
             PropertyContainer properties = sprite.getProperties();
@@ -757,6 +758,7 @@ final class WorldScene {
             natural = name != null && name.startsWith("blends_natural");
             carpet = name != null && name.startsWith("floors_interior_carpet");
             rug = Rugs.kindOf(name);
+            pile = Flat.pile(name);
             tiled = name != null && name.startsWith("floors_") && name.contains("tile");
             grows = properties.has(IsoFlagType.vegitation) || properties.has(IsoFlagType.canBeRemoved) || properties.has("MoveWithWind")
                     || Farm.wheat(name);
@@ -1171,7 +1173,8 @@ final class WorldScene {
                 for (int k = 0; k < mesh.floats; k++) {
                     sum = sum(sum, Float.floatToRawIntBits(mesh.vertices[k]));
                 }
-                of[at++] = (long) set << 62 | (long) mesh.texture << 32 | mesh.tint & 0xffffffffL;
+                // A rug's key is below zero: kept to 30 bits, it neither sign-extends over the set nor reaches it.
+                of[at++] = (long) set << 62 | (mesh.texture & 0x3fffffffL) << 32 | mesh.tint & 0xffffffffL;
                 of[at++] = mesh.floats;
                 of[at++] = sum;
             }
@@ -5187,8 +5190,8 @@ final class WorldScene {
                 int layer = Flat.layer(floorLayer, x, y);
                 layers.lie(SpriteGeometry.LAYERS_UP, layer);
                 floorLayer = layer + 1;
-                float pile = Flat.pile(sprite.getName());
-                int rug = Own.textures() ? rugOf(texture, kind.rug, pile) : 0;
+                float pile = kind.pile;
+                int rug = Own.textures() ? rugOf(texture, kind.rug, pile, x, y, z) : 0;
                 float most = rug != 0 ? Rugs.REACH : Flat.REACH;
                 float west = Math.min(most, reachInto(x, y, x - 1, y, z)), north = Math.min(most, reachInto(x, y, x, y - 1, z));
                 float east = Math.min(most, reachInto(x, y, x + 1, y, z)), south = Math.min(most, reachInto(x, y, x, y + 1, z));
@@ -5879,9 +5882,9 @@ final class WorldScene {
         /** Where fasciaOf last found a band: the square it hangs on. */
         int bandX, bandY;
 
-        /** The number of the square of rug the sprite paints, as Rugs.of: 0 for no rug, and for one no frame has read yet, with the build left to be made again. */
-        int rugOf(Texture texture, int kind, float lifted) {
-            int rug = Rugs.of(texture, frame, kind, lifted);
+        /** The number of the square of rug the sprite paints, laid at (x, y, z), as Rugs.of: 0 for no rug, and for one whose picture is not on the card yet, with the build left to be made again. */
+        int rugOf(Texture texture, int kind, float lifted, int x, int y, int z) {
+            int rug = Rugs.of(texture, frame, kind, lifted, x, y, z);
             if (rug == Rugs.PENDING) {
                 building.signed = false;
                 return 0;

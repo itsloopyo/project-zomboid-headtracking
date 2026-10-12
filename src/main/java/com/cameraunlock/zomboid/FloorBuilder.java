@@ -142,7 +142,7 @@ final class FloorBuilder {
         }
         SpriteGeometry.Mesh on = paint != null ? WorldScene.laid.get(paint.picture) : build.floorLayer == 0 ? mesh : WorldScene.laid.get(texture.getID());
         // A rug the game lays over the floor is its square drawn again: see Rugs.
-        int rug = !isFloor && build.floorLayer > 0 && Own.textures() ? build.rugOf(texture, sprite.rug, 0f) : 0;
+        int rug = !isFloor && build.floorLayer > 0 && Own.textures() ? build.rugOf(texture, sprite.rug, sprite.pile, x, y, z) : 0;
         float laidAs = build.frame.material;
         if (rug != 0) {
             on = WorldScene.laid.get(rug);
