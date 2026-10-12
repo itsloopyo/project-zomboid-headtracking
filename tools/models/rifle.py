@@ -14,40 +14,23 @@ five parts that layout names, the rifle has three: what is fixed, the bolt, and 
 out of the port. The bolt is turned up about the bore before it is drawn back, which the
 mod does: here it is closed.
 
-The tools that turn, loft, bevel, unwrap and bake a part are shotgun.py's own, and so are
-the steel, the rubber and the bake. That file builds its shotgun as it is read, so it is
-read here without its last line.
+The tools that turn, loft, bevel, unwrap and bake a part, the steel, the rubber, the walnut
+and the bake are gunsmith.py's.
 """
 
-import gzip
 import math
 import os
-import struct
 import sys
-import types
 
 import bmesh
 import bpy
 import numpy
 from mathutils import Matrix, Vector
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import gunsmith as G  # noqa: E402
+from gunsmith import along, along_y, cuboid, cutter, lathe, loft, rod, screw, sweep, take  # noqa: E402
 
-
-def tools():
-    path = os.path.join(HERE, "shotgun.py")
-    with open(path, encoding="utf-8") as file:
-        source = file.read().rstrip()
-    if not source.endswith("\nmain()"):
-        raise SystemExit("shotgun.py no longer ends by calling main(): import it here instead of reading it")
-    module = types.ModuleType("gunsmith")
-    module.__file__ = path
-    exec(compile(source[:-len("main()")], path, "exec"), module.__dict__)
-    return module
-
-
-G = tools()
-lathe, loft, cuboid, sweep, take, cutter, along, along_y, along_x = G.lathe, G.loft, G.cuboid, G.sweep, G.take, G.cutter, G.along, G.along_y, G.along_x
 # The parts of the file's layout that the rifle has: of the five, the second is a pump's and the last a stock that is left out.
 FIXED, BOLT, CASE = 0, 2, 3
 
@@ -82,22 +65,6 @@ def barrel_radius(y):
         return 0.0150 + (0.0138 - 0.0150) * (y - 0.215) / 0.02
     t = (y - 0.235) / (MUZZLE_Y - 0.235)
     return 0.0086 + (0.0138 - 0.0086) * (1.0 - t) ** 1.6
-
-
-def rod(bm, path, radii, segments=16):
-    """A round bar along a path of points, as thick at each as radii says."""
-    rings = []
-    for n, point in enumerate(path):
-        before, after = Vector(path[max(n - 1, 0)]), Vector(path[min(n + 1, len(path) - 1)])
-        turn = (after - before).normalized().to_track_quat("Z", "Y").to_matrix()
-        rings.append([Vector(point) + turn @ Vector((radii[n] * math.cos(2 * math.pi * i / segments), radii[n] * math.sin(2 * math.pi * i / segments), 0.0))
-                      for i in range(segments)])
-    loft(bm, rings)
-
-
-def screw(bm, x, y, z, radius, to):
-    """A slotted screw's head, a little proud of what it is in, its top the way `to` turns +z."""
-    lathe(bm, [(0.0, -0.0006), (radius, -0.0006), (radius, 0.0004), (radius - 0.0004, 0.0008), (0.0, 0.0008)], Matrix.Translation((x, y, z)) @ to, segments=20)
 
 
 def barrel():
@@ -322,22 +289,7 @@ CHECKER_PITCH = 0.0016
 
 def walnut(g):
     """An oiled walnut stock, with a panel of fine diamonds cut into each side of the grip and of the fore-end."""
-    figure = g.laid("walnut", 0.30)
-    light = g.grey(figure)
-    colour = g.tinted(g.mix(0.6, figure, g.tinted(figure, figure)), g.colour(1.45, 1.16, 0.98))
-    side = g.step(g.math("ABSOLUTE", g.nx), 0.30, 0.55)
-    grip = g.panel(-0.1240, -0.0600, 0.0270, 0.0140, 0.007, math.radians(56))
-    fore = g.panel(0.300, -0.0235, 0.078, 0.0100, 0.005, math.radians(-2.5))
-    nearest = g.math("MINIMUM", grip, fore)
-    cut = g.times(g.math("SUBTRACT", 1.0, g.step(nearest, -0.0003, 0.0003)), side)
-    line = g.times(g.math("SUBTRACT", 1.0, g.step(g.math("ABSOLUTE", g.add(nearest, 0.0016)), 0.0003, 0.0007)), side)
-    one = g.teeth(g.add(g.times(g.y, 0.866 / CHECKER_PITCH), g.times(g.z, 0.5 / CHECKER_PITCH)))
-    other = g.teeth(g.math("SUBTRACT", g.times(g.y, 0.866 / CHECKER_PITCH), g.times(g.z, 0.5 / CHECKER_PITCH)))
-    diamond = g.math("MINIMUM", one, other)
-    height = g.add(g.times(light, 0.00006), g.times(cut, g.math("SUBTRACT", g.times(diamond, 0.00050), 0.00030)), g.times(line, -0.00030))
-    colour = g.scaled(colour, g.math("SUBTRACT", 1.0, g.times(cut, g.math("SUBTRACT", 0.50, g.times(diamond, 0.38)))))
-    rough = g.add(0.27, g.times(g.math("SUBTRACT", 1.0, light), 0.16), g.times(cut, 0.25))
-    return g.finish(colour, rough, 0.0, height)
+    return G.walnut(g, ((-0.1240, -0.0600, 0.0270, 0.0140, 0.007, math.radians(56)), (0.300, -0.0235, 0.078, 0.0100, 0.005, math.radians(-2.5))), CHECKER_PITCH)
 
 
 def ebony(g):
@@ -364,8 +316,7 @@ G.TUBES = {"barrel": (0.0, 0.53, 0.0110)}
 
 
 def build():
-    for obj in list(bpy.data.objects):
-        bpy.data.objects.remove(obj)
+    G.clear()
     case()
     barrel()
     receiver()
@@ -373,68 +324,16 @@ def build():
     furniture()
     stock()
     sights()
-    depsgraph = bpy.context.evaluated_depsgraph_get()
-    total = 0
-    for obj in G.PARTS:
-        triangles = sum(len(polygon.vertices) - 2 for polygon in obj.evaluated_get(depsgraph).data.polygons)
-        total += triangles
-        print("%-18s %6d triangles" % (obj.name, triangles))
-    print("%-18s %6d triangles" % ("in all", total))
+    G.count_triangles()
 
 
 def pack(gun, colour, surface):
-    """Writes the rifle's files: shotgun.py's pack, with the rifle's own measures in the head."""
-    mesh = gun.data
-    mesh.calc_tangents(uvmap=mesh.uv_layers.active.name)
-    corners = len(mesh.loops)
-    index = numpy.empty(corners, dtype=numpy.int32)
-    mesh.loops.foreach_get("vertex_index", index)
-    place = numpy.empty(len(mesh.vertices) * 3, dtype=numpy.float32)
-    mesh.vertices.foreach_get("co", place)
-    place = place.reshape(-1, 3)[index] - numpy.array(GRIP, dtype=numpy.float32)
-    normal = numpy.empty(corners * 3, dtype=numpy.float32)
-    mesh.loops.foreach_get("normal", normal)
-    tangent = numpy.empty(corners * 3, dtype=numpy.float32)
-    mesh.loops.foreach_get("tangent", tangent)
-    way = numpy.empty(corners, dtype=numpy.float32)
-    mesh.loops.foreach_get("bitangent_sign", way)
-    uv = numpy.empty(corners * 2, dtype=numpy.float32)
-    mesh.uv_layers.active.data.foreach_get("uv", uv)
-    group = numpy.empty(len(mesh.polygons), dtype=numpy.int32)
-    mesh.attributes["group"].data.foreach_get("value", group)
-    starts = numpy.empty(len(mesh.polygons), dtype=numpy.int32)
-    mesh.polygons.foreach_get("loop_start", starts)
-
-    rows = numpy.zeros(corners, dtype=[("place", "<f4", 3), ("normal", "<i2", 3), ("tangent", "<i2", 3), ("way", "<i2"), ("uv", "<u2", 2)])
+    """Writes the rifle's files, with the rifle's own measures in the head."""
     # The mod holds a weapon up as the game's own are made, which is the mirror image of how this one is laid out
     # here: its right side, with the bolt's handle and the port, has x less than nought in the file.
-    mirror = numpy.array((-1.0, 1.0, 1.0), dtype=numpy.float32)
-    corner_group = numpy.repeat(group, 3)
-    place[corner_group == CASE] -= numpy.array(CASE_AT - GRIP, dtype=numpy.float32)
-    rows["place"] = place * mirror
-    rows["normal"] = numpy.round(normal.reshape(-1, 3) * mirror * 32767)
-    rows["tangent"] = numpy.round(tangent.reshape(-1, 3) * mirror * 32767)
-    rows["way"] = numpy.where(way < 0, 1, -1)
-    rows["uv"] = numpy.round(numpy.clip(uv.reshape(-1, 2), 0.0, 1.0) * 65535)
-    vertices, which = numpy.unique(rows.view([("all", "V%d" % rows.dtype.itemsize)]), return_inverse=True)
-    which = which.reshape(-1)
-    order = numpy.argsort(group, kind="stable")
-    indices = numpy.concatenate([which[start:start + 3] for start in starts[order]]).astype("<u4")
-    counts = [int((group == part).sum()) * 3 for part in range(5)]
     muzzle = Vector((0.0, MUZZLE_Y, 0.0)) - GRIP
-    held = HELD - GRIP
     port = (PORT - GRIP) * Vector((-1.0, 1.0, 1.0))
-    head = b"CUWM" + struct.pack("<I3f3f3f3fI5I", 4, *muzzle, *held, *port, TRAVEL, SIGHT_LINE, EYE_BEHIND_GRIP, len(vertices), *counts)
-    os.makedirs(G.OUTPUT, exist_ok=True)
-    files = [("rifle.mesh.gz", head + vertices.tobytes() + indices.tobytes())]
-    if colour is not None:
-        files += [("rifle.colour.gz", colour.tobytes()), ("rifle.surface.gz", surface.tobytes())]
-    for name, data in files:
-        path = os.path.join(G.OUTPUT if name.endswith(".mesh.gz") else G.TEXTURES, name)
-        with gzip.open(path, "wb", compresslevel=9) as packed:
-            packed.write(data)
-        print("wrote %s, %d bytes" % (os.path.normpath(path), os.path.getsize(path)))
-    print("%d vertices, %d triangles: %d fixed, %d bolt, %d case" % (len(vertices), len(indices) // 3, counts[0] // 3, counts[2] // 3, counts[3] // 3))
+    G.pack(gun, "rifle", GRIP, colour, surface, range(5), G.head_v4(muzzle, HELD - GRIP, port, TRAVEL, SIGHT_LINE, EYE_BEHIND_GRIP), moved=((CASE, CASE_AT),))
 
 
 VIEWS = {
@@ -452,54 +351,6 @@ VIEWS = {
 }
 
 
-def render(gun, folder, only, size=(1600, 900), samples=48):
-    scene = bpy.context.scene
-    scene.render.engine = "CYCLES"
-    G.use_card(scene)
-    scene.cycles.samples = samples
-    scene.cycles.use_denoising = True
-    scene.render.resolution_x, scene.render.resolution_y = size
-    scene.view_settings.view_transform = "Filmic"
-    world = bpy.data.worlds.new("studio")
-    world.use_nodes = True
-    sky = world.node_tree.nodes.new("ShaderNodeTexSky")
-    sky.sky_type = "NISHITA"
-    sky.sun_elevation = math.radians(38)
-    sky.sun_rotation = math.radians(130)
-    sky.sun_intensity = 0.25
-    world.node_tree.links.new(sky.outputs["Color"], world.node_tree.nodes["Background"].inputs["Color"])
-    world.node_tree.nodes["Background"].inputs["Strength"].default_value = 0.35
-    scene.world = world
-    floor = bpy.data.meshes.new("floor")
-    floor.from_pydata([(-4, -4, -0.2), (4, -4, -0.2), (4, 4, -0.2), (-4, 4, -0.2)], [], [(0, 1, 2, 3)])
-    ground = bpy.data.objects.new("floor", floor)
-    paper = bpy.data.materials.new("paper")
-    paper.use_nodes = True
-    paper.node_tree.nodes["Principled BSDF"].inputs["Base Color"].default_value = (0.11, 0.11, 0.115, 1.0)
-    floor.materials.append(paper)
-    scene.collection.objects.link(ground)
-    for place, energy, size_of in (((1.2, -0.6, 1.4), 60, 1.5), ((-1.5, 1.0, 0.8), 30, 2.0), ((0.2, 1.6, 0.4), 16, 1.0)):
-        lamp = bpy.data.lights.new("lamp", "AREA")
-        lamp.energy = energy
-        lamp.size = size_of
-        holder = bpy.data.objects.new("lamp", lamp)
-        holder.location = place
-        holder.rotation_euler = (Vector((0.0, 0.25, 0.0)) - Vector(place)).to_track_quat("-Z", "Y").to_euler()
-        scene.collection.objects.link(holder)
-    camera = bpy.data.objects.new("camera", bpy.data.cameras.new("camera"))
-    scene.collection.objects.link(camera)
-    scene.camera = camera
-    for name, (place, target, lens) in VIEWS.items():
-        if only and name not in only:
-            continue
-        camera.location = place
-        camera.data.lens = lens
-        camera.data.clip_start = 0.01
-        camera.rotation_euler = (Vector(target) - Vector(place)).to_track_quat("-Z", "Y").to_euler()
-        scene.render.filepath = os.path.join(folder, name + ".png")
-        bpy.ops.render.render(write_still=True)
-
-
 def main():
     args = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
     if not args:
@@ -510,10 +361,9 @@ def main():
         # The parts as they are made, under their own materials and unbaked: for looking at the shape.
         folder = os.path.abspath(args[args.index("--raw") + 1])
         os.makedirs(folder, exist_ok=True)
-        render(None, folder, [name for name in args if name in VIEWS])
+        G.render(folder, VIEWS, [name for name in args if name in VIEWS], samples=48)
         return
-    gun = G.unwrap()
-    gun.name = "rifle"
+    gun = G.unwrap("rifle")
     if "--mesh" in args:
         pack(gun, None, None)
         return
@@ -524,7 +374,7 @@ def main():
         folder = os.path.abspath(args[args.index("--renders") + 1])
         os.makedirs(folder, exist_ok=True)
         G.dress(gun, colour, surface, folder)
-        render(gun, folder, [name for name in args if name in VIEWS])
+        G.render(folder, VIEWS, [name for name in args if name in VIEWS], samples=48)
 
 
 main()
