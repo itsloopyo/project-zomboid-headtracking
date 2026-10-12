@@ -7,6 +7,15 @@ function Invoke-Tool {
     if ($LASTEXITCODE -ne 0) { throw "$Tool failed with exit code $LASTEXITCODE" }
 }
 
+# The sources go to javac in an argument file: listed on its command line they pass Windows'
+# 32767 character limit from a checkout as deep as a worktree.
+function Invoke-Javac {
+    param([string]$Name, [string[]]$Options, [string[]]$Sources)
+    $list = "build/$Name.sources"
+    $Sources | ForEach-Object { '"' + ($_ -replace '\\', '/') + '"' } | Set-Content -Encoding ascii $list
+    Invoke-Tool javac ($Options + @("@$list"))
+}
+
 function Get-JavaSources {
     param([string]$Directory)
     Get-ChildItem -Recurse -Filter *.java $Directory | ForEach-Object FullName
@@ -20,16 +29,16 @@ if (Test-Path build) { Remove-Item -Recurse -Force build }
 New-Item -ItemType Directory -Force build | Out-Null
 
 $javac = @('--release', '25', '-Xlint:all', '-Werror')
-Invoke-Tool javac ($javac + @('-d', 'build/stubs') + (Get-JavaSources stubs))
+Invoke-Javac stubs ($javac + @('-d', 'build/stubs')) (Get-JavaSources stubs)
 # cameraunlock-core's Java is compiled into the mod's jars from the submodule's source: the binding
 # to CameraUnlockCore.dll and the boot class the installed site JVM config names.
 $core = Get-JavaSources cameraunlock-core/java/src
 # Two jars from one source tree. The one that ships is compiled with src/shipped, whose DevKeys
 # is empty. The development one is compiled with src/dev, whose DevKeys is the development
 # keys, so none of that code is in a jar a player installs.
-Invoke-Tool javac ($javac + @('-cp', 'build/stubs', '-d', 'build/classes') + $core + (Get-JavaSources src/main/java) + (Get-JavaSources src/shipped/java))
-Invoke-Tool javac ($javac + @('-cp', 'build/stubs', '-d', 'build/dev-classes') + $core + (Get-JavaSources src/main/java) + (Get-JavaSources src/dev/java))
-Invoke-Tool javac ($javac + @('-cp', 'build/classes', '-d', 'build/test-classes') + (Get-JavaSources src/test/java))
+Invoke-Javac classes ($javac + @('-cp', 'build/stubs', '-d', 'build/classes')) ($core + (Get-JavaSources src/main/java) + (Get-JavaSources src/shipped/java))
+Invoke-Javac dev-classes ($javac + @('-cp', 'build/stubs', '-d', 'build/dev-classes')) ($core + (Get-JavaSources src/main/java) + (Get-JavaSources src/dev/java))
+Invoke-Javac test-classes ($javac + @('-cp', 'build/classes', '-d', 'build/test-classes')) (Get-JavaSources src/test/java)
 
 Copy-Item -Recurse -Force src/main/resources/* build/classes/
 Copy-Item -Recurse -Force src/main/resources/* build/dev-classes/
