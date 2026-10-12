@@ -847,6 +847,8 @@ final class PipelineShaders {
             // joint in brick and in stone, in tiles. Each divides sixty tiles a whole number
             // of times: see vPlace.
             const float BRICK_LONG = 0.2, BRICK_HIGH = 0.0625, BRICK_JOINT = 0.0045, LAP_HIGH = 0.125, STONE_JOINT = 0.008;
+            // How far the foot of a lapped board stands out of the board under it, in tiles: about 12 mm.
+            const float LAP_PROUD = 0.012;
             // A cast block, three courses of brick high and three bricks long, and half its joint.
             const float BLOCK_LONG = 0.6, BLOCK_HIGH = 0.1875, BLOCK_JOINT = 0.005;
             // 1 while timber() is making a post or a brace and not a wall of boards.
@@ -1173,6 +1175,8 @@ final class PipelineShaders {
             // from there to where the next board covers it. Each board is a few paces long,
             // and where two meet end to end there is a fine dark joint. The paint on it has
             // the brush's strokes along the board and a little dirt held under each lap.
+            // How much of the sun reaches a lapped board past the foot of the one over it: see facLapped.
+            float lapSun = 1.0;
             vec3 facLapped(vec3 body, float run, float up, out vec2 lean) {
                 float board = up / LAP_HIGH;
                 float tier = mod(floor(board), 480.0), part = fract(board);
@@ -1180,8 +1184,16 @@ final class PipelineShaders {
                 float seen = 1.0 - smoothstep(0.2, 0.55, soft);
                 float r1 = facHash(vec2(tier, 3.0)), r2 = facHash(vec2(tier, 11.0));
                 vec3 made = body * mix(1.0, 0.98 + 0.04 * r1, seen);
-                // Under the foot of the board above: its shadow, and under that what the rain left.
-                float shadow = smoothstep(1.0 - 0.1 - soft, 1.0 - 0.03, part);
+                // The foot of the board above stands LAP_PROUD out of this one and throws the sun's
+                // shadow down it: a hair line in a low sun that faces the wall, a broad band when
+                // the sun is high or comes along the wall. Far off, the board takes its share.
+                vec3 outward = normalize(vNormal);
+                outward = dot(outward, uEye - vWorld) < 0.0 ? -outward : outward;
+                float into = dot(normalize(outward.xy + 1e-6), uLight.xy);
+                float drop = into > 0.0 ? min(LAP_PROUD * max(uLight.z, 0.0) / (max(into, 0.02) * LAP_HIGH), 1.0) : 0.0;
+                lapSun = mix(1.0 - drop, smoothstep(drop - soft - 0.002, drop + soft + 0.002, 1.0 - part), seen);
+                // Under the foot of the board above: the crease the sky gets little into, and under that what the rain left.
+                float shadow = smoothstep(1.0 - 0.06 - soft, 1.0 - 0.015, part);
                 float grime = smoothstep(0.55, 1.0, part) * (0.5 + 0.5 * patches(vec2(run * 3.1, tier * 1.7)));
                 float foot = 1.0 - smoothstep(0.0, 0.06 + soft, part);
                 float butt = run / 7.5 + r2;
@@ -1549,6 +1561,7 @@ final class PipelineShaders {
                     texel.rgb = mix(texel.rgb, laid, own);
                     lean = turned.x * own;
                     climb = turned.y * own;
+                    lapSun = mix(1.0, lapSun, own);
                 }
                 arcWhole = vMaterial > 65.5 && vMaterial < 66.5 ? 1.0 : 0.0;
                 if (uOwnTextures > 0.5 && (vMaterial > 51.5 && vMaterial < 52.5 || arcWhole > 0.5) && (uTint.a < 0.5 || boarded) && uTexel.x > 0.0) {
@@ -3005,8 +3018,9 @@ final class PipelineShaders {
                         // The snow on it passes none: in shade it is in shade.
                         reached = mix(mix(0.42, 1.0, reached), reached, snowed);
                     }
-                    // A stone's foot is in the shade of the next stone, and a groove of its own lip.
-                    reached *= reliefShade;
+                    // A stone's foot is in the shade of the next stone, a groove of its own lip, and a
+                    // lapped board under the foot of the one above.
+                    reached *= reliefShade * lapSun;
                     sun = reached * facing;
                 }
                 // As the game's own view the picture has the roof and the floors above off a
