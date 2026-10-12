@@ -3432,6 +3432,22 @@ final class WorldScene {
             }
         }
 
+        /** How far something lying on the square (x, y) reaches into the square (toX, toY) beside it: none where something lies there too. */
+        private float reachInto(int x, int y, int toX, int toY, int z) {
+            IsoGridSquare next = squareAt(Math.floorDiv(x, CHUNK_TILES) * CHUNK_TILES, Math.floorDiv(y, CHUNK_TILES) * CHUNK_TILES, toX, toY, z);
+            if (next == null) {
+                return Flat.REACH;
+            }
+            PZArrayList<IsoObject> objects = next.getObjects();
+            for (int i = 0; i < objects.size(); i++) {
+                IsoSprite sprite = objects.get(i).getSprite();
+                if (sprite != null && kindOf(sprite).lies) {
+                    return 0f;
+                }
+            }
+            return Flat.REACH;
+        }
+
         /**
          * The square at (x, y, z), which is on the chunk at (chunkX, chunkY) or within a chunk of
          * it: taken from the chunk it is on, which the cell would have to find among the map's
@@ -5148,10 +5164,18 @@ final class WorldScene {
 
             // What the game draws with the floor though it is no floor: railway track, and the
             // litter it calls a rug. Each is painted lying on the ground, and stood up to face the
-            // eye a sheet of newspaper is a hoarding and a length of track a fence.
+            // eye a sheet of newspaper is a hoarding and a length of track a fence. It reaches
+            // past its square only where the next square has nothing lying on it: a rug of many
+            // squares meets itself edge to edge, where each piece reaching into the next was two
+            // pieces over one another along every seam.
             if (!hangsInAir && kind.lies) {
-                layers.lie(SpriteGeometry.LAYERS_UP, floorLayer++);
-                geometry.addFace(laid.get(texture.getID()), frame, x, y, z, -Flat.REACH, -Flat.REACH, 0f, 1f + 2f * Flat.REACH, 0f, 0f, 0f, 1f + 2f * Flat.REACH, 0f);
+                int layer = Flat.layer(floorLayer, x, y);
+                layers.lie(SpriteGeometry.LAYERS_UP, layer);
+                floorLayer = layer + 1;
+                float west = reachInto(x, y, x - 1, y, z), north = reachInto(x, y, x, y - 1, z);
+                float east = reachInto(x, y, x + 1, y, z), south = reachInto(x, y, x, y + 1, z);
+                geometry.addFace(laid.get(texture.getID()), frame, x, y, z, -west, -north, Flat.pile(sprite.getName()), 1f + west + east, 0f, 0f, 0f,
+                        1f + north + south, 0f);
                 layers.none();
                 return;
             }

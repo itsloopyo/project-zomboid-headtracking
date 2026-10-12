@@ -130,6 +130,24 @@ final class ShapeTests {
     private static void litterAndLowSlabsLieFlat() {
         check(Flat.lies("Floor", null) && Flat.lies(null, "FloorRug") && !Flat.lies(null, "WallObject") && !Flat.lies(null, null),
                 "what the game draws with the floor or lets be moved as a rug lies on the ground");
+        boolean apart = true, over = true;
+        for (int x = 1; x < 5; x++) {
+            for (int y = 1; y < 5; y++) {
+                for (int floor = 0; floor < 10; floor++) {
+                    int layer = Flat.layer(floor, x, y);
+                    over &= layer >= floor && layer >= Flat.BLOCK_LAYERS;
+                    for (int dx = -1; dx <= 1; dx++) {
+                        for (int dy = -1; dy <= 1; dy++) {
+                            for (int other = 0; other < 10 && (dx != 0 || dy != 0); other++) {
+                                apart &= layer != Flat.layer(other, x + dx, y + dy);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        check(apart, "a rug's pieces that reach over the squares beside never lie on one layer with a piece of a square they touch, whatever floor is under either");
+        check(over, "and lie over the floor of their own square");
         check(Flat.isSlab(0.4f, 0.1f), "a vent on a roof is a slab");
         check(!Flat.isSlab(0.4f, 0.5f) && !Flat.isSlab(0.1f, 0.05f) && !Flat.isSlab(0.25f, 0.2f), "a crate, a pebble and a stool are not");
     }
