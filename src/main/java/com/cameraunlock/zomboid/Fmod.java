@@ -196,9 +196,17 @@ final class Fmod {
         return result[0] == OK ? pointerOut(scratch) : 0L;
     }
 
-    /** Holds an instance where it is, or lets it go on. One started while held is held from its start. */
-    static void pause(long instance, boolean paused) {
-        check(call(STUDIO_INSTANCE_PAUSE, at(instance), paused ? 1 : 0), "EventInstance_SetPaused");
+    /**
+     * Holds an instance where it is, or lets it go on, and says whether it is still there: one
+     * the game has let go of answers INVALID_HANDLE. One started while held is held from its start.
+     */
+    static boolean pause(long instance, boolean paused) {
+        int result = call(STUDIO_INSTANCE_PAUSE, at(instance), paused ? 1 : 0);
+        if (result == INVALID_HANDLE) {
+            return false;
+        }
+        check(result, "EventInstance_SetPaused");
+        return true;
     }
 
     /** The event an instance plays, or 0 once the instance is let go. */
@@ -252,6 +260,16 @@ final class Fmod {
         MemorySegment scratch = SCRATCH.get();
         check(call(GROUP_SYSTEM, at(group), scratch), "ChannelGroup_GetSystemObject");
         return pointerOut(scratch);
+    }
+
+    /** Puts an effect into a mix, and says whether the mix is still there: one let go of with its sound answers INVALID_HANDLE. */
+    static boolean addEffectIfThere(long group, int index, long dsp) {
+        int result = call(GROUP_ADD, at(group), index, at(dsp));
+        if (result == INVALID_HANDLE) {
+            return false;
+        }
+        check(result, "ChannelGroup_AddDSP");
+        return true;
     }
 
     static int addEffect(long group, int index, long dsp) {

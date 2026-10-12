@@ -223,8 +223,10 @@ final class SoundMix {
             long group = Fmod.instanceGroup(instance[i], result);
             if (result[0] == Fmod.NOT_LOADED) {
                 if (held[i] && now - startedAt[i] > HELD_AT_MOST_NANOS) {
-                    Fmod.pause(instance[i], false);
                     held[i] = false;
+                    if (!Fmod.pause(instance[i], false)) {
+                        return false;
+                    }
                     if (!heldTooLongSaid) {
                         heldTooLongSaid = true;
                         Log.info("sound: a muffled sound had no mix from FMOD after 250 ms and was let go on unmuffled");
@@ -236,7 +238,10 @@ final class SoundMix {
                 return false;
             }
             Fmod.check(result[0], "EventInstance_GetChannelGroup");
-            put(i, group);
+            if (!put(i, group)) {
+                // The sound ended between FMOD giving its mix and the effects going on.
+                return false;
+            }
         }
         applied[i] = held[i] ? muffled[i] : applied[i] + (muffled[i] - applied[i]) * step;
         boolean off = applied[i] < 0.05f;
@@ -251,8 +256,8 @@ final class SoundMix {
             set[i] = applied[i];
         }
         if (held[i]) {
-            Fmod.pause(instance[i], false);
             held[i] = false;
+            return Fmod.pause(instance[i], false);
         }
         return true;
     }
@@ -274,8 +279,11 @@ final class SoundMix {
         return muffledBy;
     }
 
-    /** Puts an EQ and a fader on a sound's mix, at the end of its chain nearest its output. */
-    private static void put(int i, long group) {
+    /**
+     * Puts an EQ and a fader on a sound's mix, at the end of its chain nearest its output, and
+     * says whether the mix was still there. Either way the effects are the sound's until giveBack.
+     */
+    private static boolean put(int i, long group) {
         if (spare > 0) {
             spare--;
             eq[i] = spareEq[spare];
@@ -289,8 +297,7 @@ final class SoundMix {
         Fmod.bypass(fader[i], false);
         bypassed[i] = false;
         set[i] = -1f;
-        Fmod.check(Fmod.addEffect(group, Fmod.HEAD, fader[i]), "ChannelGroup_AddDSP fader");
-        Fmod.check(Fmod.addEffect(group, Fmod.HEAD, eq[i]), "ChannelGroup_AddDSP EQ");
+        return Fmod.addEffectIfThere(group, Fmod.HEAD, fader[i]) && Fmod.addEffectIfThere(group, Fmod.HEAD, eq[i]);
     }
 
     /** Takes a sound's effects out of its mix, which FMOD may already have let go of with the sound, to be put on another. */
