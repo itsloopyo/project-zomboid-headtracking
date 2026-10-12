@@ -1,6 +1,8 @@
 package com.cameraunlock.zomboid;
 
 import java.util.Arrays;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import zombie.core.textures.Texture;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoObject;
@@ -43,6 +45,8 @@ final class WallBuilder {
     static final float TILE_JOINT_HALF = 0.004f;
     /** How many squares along its line a wall with an opening looks for a whole wall of its sheet to read its tiles from. */
     private static final int TILES_REACH = 4;
+    /** The walls with an opening the log has said keep their sprite, by texture and edge. */
+    private static final Set<String> KEPT_SPRITE = ConcurrentHashMap.newKeySet();
     /** For each of the two edges a wall can stand on: the frame origin the sprite was read with, then the opening. */
     private static final int OPENING_FLOATS = 7, OPENING_ORIGIN = 0, OPENING_START = 2, OPENING_END = 3, OPENING_FOOT = 4, OPENING_HEAD = 5, OPENING_TOP = 6;
     /** Where along a wall its height is read, and the lowest a wall's top is looked for, in levels. */
@@ -298,7 +302,8 @@ final class WallBuilder {
             build.building.signed = false;
         }
         // A tiled wall is its tiles, its joints and the strips between its bands, each a face of its own: see WallTiles.
-        tiles = paper == null && build.overLayer == 0 && build.tiledWall && Own.textures() ? tilesOf(texture, x, y, z, da, db) : null;
+        tiles = paper == null && build.overLayer == 0 && build.tiledSheet != null && Own.textures()
+                ? tilesOf(texture, x, y, z, da, db, opening[at + OPENING_START] >= 0f || build.wallOpens) : null;
         SpriteGeometry.Mesh near = laid(mesh, texture, build.laidWall, x, y, z);
         if (paper != null) {
             int key = WallSides.key(paper.red, paper.green, paper.blue, WallSides.FLAT);
@@ -753,51 +758,69 @@ final class WallBuilder {
 
     /**
      * The tiles of the wall sprite on the north edge of its square (da 1) or its west edge.
-     * A wall with an opening in it takes those of the nearest whole wall of its sheet along
-     * the same line, either way: round a door or a window the sprite says too little about its
-     * courses. Null for a wall with none to take, and while a sprite it needs is unread, when the
-     * build is not signed and is made again.
+     * A wall with a door or a window in it (opens), or one whose own reading says it has one,
+     * takes those of the nearest whole wall of its sheet along the same line, either way: round
+     * an opening the sprite says too little about its courses. The search keeps to the wall's
+     * room, stops at the first square that has no wall of the sheet on that edge, and takes a
+     * whole wall only where what the wall reads of itself, if anything, agrees with it. Null for
+     * a wall with none to take, which keeps its sprite, and while a sprite it needs is unread,
+     * when the build is not signed and is made again.
      */
-    private WallTiles.Wall tilesOf(Texture texture, int x, int y, int z, float da, float db) {
+    WallTiles.Wall tilesOf(Texture texture, int x, int y, int z, float da, float db, boolean opens) {
         boolean north = da != 0f;
-        WallTiles.Wall wall = WallTiles.of(texture, build.frame, north);
-        if (wall == null || wall.whole) {
-            build.building.signed &= wall != null || !WallTiles.unread(texture, north);
-            return wall;
-        }
-        String name = texture.getName();
-        int last = name == null ? -1 : name.lastIndexOf('_');
-        if (last < 0) {
+        WallTiles.Wall own = WallTiles.of(texture, build.frame, north);
+        if (own == null && WallTiles.unread(texture, north)) {
+            build.building.signed = false;
             return null;
         }
-        String sheet = name.substring(0, last + 1);
+        if (!opens && (own == null || own.whole)) {
+            return own;
+        }
+        IsoGridSquare here = build.cell.getGridSquare(x, y, z);
+        long room = here == null ? -1L : here.getRoomID();
         IsoFlagType along = north ? IsoFlagType.WallN : IsoFlagType.WallW;
-        for (int step = 1; step <= TILES_REACH; step++) {
-            for (int way = -1; way <= 1; way += 2) {
+        for (int way = -1; way <= 1; way += 2) {
+            for (int step = 1; step <= TILES_REACH; step++) {
+                // A square not loaded is on a chunk round this one, and the build is made again when that chunk loads.
                 IsoGridSquare square = build.cell.getGridSquare(x + way * step * (int) da, y + way * step * (int) db, z);
-                if (square == null) {
-                    continue;
+                if (square == null || square.getRoomID() != room) {
+                    break;
                 }
-                PZArrayList<IsoObject> objects = square.getObjects();
-                for (int i = 0; i < objects.size(); i++) {
-                    IsoSprite sprite = objects.get(i).getSprite();
-                    if (sprite == null || sprite.getName() == null || !sprite.getName().startsWith(sheet)
-                            || !(sprite.getProperties().has(along) || sprite.getProperties().has(IsoFlagType.WallNW))) {
-                        continue;
-                    }
-                    Texture other = sprite.getTextureForCurrentFrame(objects.get(i).getDir());
-                    if (!WorldScene.usable(other)) {
-                        continue;
-                    }
-                    tileFrame.scale = build.frame.scale;
-                    WorldScene.frameOf(tileFrame, objects.get(i), other);
-                    WallTiles.Wall whole = WallTiles.of(other, tileFrame, north);
-                    if (whole == null) {
-                        build.building.signed &= !WallTiles.unread(other, north);
-                    } else if (whole.whole) {
-                        return whole;
-                    }
+                IsoObject wall = wallOfSheet(square, along);
+                if (wall == null) {
+                    break;
                 }
+                Texture other = wall.getSprite().getTextureForCurrentFrame(wall.getDir());
+                if (!WorldScene.usable(other)) {
+                    break;
+                }
+                tileFrame.scale = build.frame.scale;
+                WorldScene.frameOf(tileFrame, wall, other);
+                WallTiles.Wall whole = WallTiles.of(other, tileFrame, north);
+                if (whole == null && WallTiles.unread(other, north)) {
+                    build.building.signed = false;
+                    return null;
+                }
+                if (whole != null && whole.whole && WallTiles.agrees(own, whole)) {
+                    return whole;
+                }
+            }
+        }
+        if (KEPT_SPRITE.add(texture.getName() + (north ? " north" : " west"))) {
+            Log.info("wall tiles: " + texture.getName() + (north ? " north" : " west") + " at " + x + "," + y + "," + z
+                    + " has an opening, and no whole wall of its sheet along it in its room agrees with it: it keeps its sprite");
+        }
+        return null;
+    }
+
+    /** The wall of the sheet being added that stands on the north edge of the square (along WallN) or the west edge, or null. */
+    private IsoObject wallOfSheet(IsoGridSquare square, IsoFlagType along) {
+        PZArrayList<IsoObject> objects = square.getObjects();
+        for (int i = 0; i < objects.size(); i++) {
+            IsoSprite sprite = objects.get(i).getSprite();
+            if (sprite != null && sprite.getName() != null && sprite.getName().startsWith(build.tiledSheet)
+                    && (sprite.getProperties().has(along) || sprite.getProperties().has(IsoFlagType.WallNW))) {
+                return objects.get(i);
             }
         }
         return null;

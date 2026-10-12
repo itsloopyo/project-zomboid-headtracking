@@ -238,6 +238,34 @@ final class WallTiles {
         return null;
     }
 
+    /** Tests only: that the sprite reads as wall on that edge, as though it had been read. */
+    static void knownForTests(Texture texture, boolean north, Wall wall) {
+        known.put(new Edge(texture, north), wall == null ? NONE : wall);
+    }
+
+    /**
+     * Whether a whole wall's reading can stand for a wall with an opening in it: each band the
+     * wall reads of itself has, at its middle, a band of the whole wall of its colour, and tiles
+     * where it has tiles. A wall that read nothing of itself takes any.
+     */
+    static boolean agrees(Wall own, Wall whole) {
+        if (own == null) {
+            return true;
+        }
+        for (Band band : own.bands) {
+            float middle = (band.foot + band.head) / 2f;
+            Band there = null;
+            for (Band other : whole.bands) {
+                there = other.foot <= middle && middle <= other.head ? other : there;
+            }
+            if (there == null || band.tiled && !there.tiled
+                    || !same(new float[] {band.red, band.green, band.blue}, new float[] {there.red, there.green, there.blue}, 2f)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     /** Whether the sprite has still to be read for that edge. */
     static boolean unread(Texture texture, boolean north) {
         return !known.containsKey(new Edge(texture, north));

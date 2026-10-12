@@ -5460,7 +5460,7 @@ final class WorldScene {
             boolean door = object instanceof IsoDoor || object instanceof IsoThumpable hinged && hinged.isDoor();
             glazedWall = object instanceof IsoWindow;
             paperedWall = kind.papered;
-            tiledWall = kind.tiledWall;
+            tiledSheet = kind.tiledWall ? sprite.getName().substring(0, sprite.getName().lastIndexOf('_') + 1) : null;
             wallOpens = properties.has(IsoFlagType.DoorWallN) || properties.has(IsoFlagType.DoorWallW)
                     || properties.has(IsoFlagType.WindowN) || properties.has(IsoFlagType.WindowW);
             seeThrough = isSheet(properties);
@@ -5998,8 +5998,8 @@ final class WorldScene {
         final ArrayList<IsoLightSource> lampsNear = new ArrayList<>();
 
         boolean paperedWall;
-        /** Whether the sprite being added is a wall of a sheet of tiled walls: see WallTiles. */
-        boolean tiledWall;
+        /** The sheet the sprite being added is of, its name up to the number, where it is a sheet of tiled walls (see WallTiles); null otherwise. */
+        String tiledSheet;
         /** The colour the papered wall's mesh is painted over in, as the picture is told it, and the light of the piece being added while its stripes are. */
         final float[] paperTint = new float[4], paperRed = new float[4], paperGreen = new float[4], paperBlue = new float[4];
 

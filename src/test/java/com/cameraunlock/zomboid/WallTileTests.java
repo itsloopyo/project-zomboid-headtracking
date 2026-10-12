@@ -3,6 +3,8 @@ package com.cameraunlock.zomboid;
 import static com.cameraunlock.zomboid.Checks.check;
 
 import java.util.function.BiFunction;
+import zombie.core.textures.Texture;
+import zombie.iso.SpriteDetails.IsoObjectType;
 
 /**
  * Tests of what is read off a tiled wall's sprite stood square on its wall: see WallTiles. Each
@@ -39,6 +41,10 @@ final class WallTileTests {
         Checks.run("aBandsEdgeIsNeverOnAWholeNumber", WallTileTests::aBandsEdgeIsNeverOnAWholeNumber);
         Checks.run("aCourseWithAFigureIsAFaceOfItsOwn", WallTileTests::aCourseWithAFigureIsAFaceOfItsOwn);
         Checks.run("unevenCoursesAreTwoFaces", WallTileTests::unevenCoursesAreTwoFaces);
+        Checks.run("aDoorWallTakesTheWholeWallBesideItInItsRoom", WallTileTests::aDoorWallTakesTheWholeWallBesideItInItsRoom);
+        Checks.run("aDoorWallLooksNoFurtherThanItsRoomAndItsWall", WallTileTests::aDoorWallLooksNoFurtherThanItsRoomAndItsWall);
+        Checks.run("aDoorWallPassesAWholeWallThatDisagreesWithIt", WallTileTests::aDoorWallPassesAWholeWallThatDisagreesWithIt);
+        Checks.run("aWholeWallNotReadYetLeavesTheBuildToBeMadeAgain", WallTileTests::aWholeWallNotReadYetLeavesTheBuildToBeMadeAgain);
     }
 
     /**
@@ -277,5 +283,94 @@ final class WallTileTests {
             }
         }
         check(laid.size() >= 2 && lines, "courses laid at two steps are two faces, each with whole numbers at its own lines: " + laid.size());
+    }
+
+    private static final String SHEET = "walls_interior_bathroom_01_";
+
+    /**
+     * A test map with north walls of the bathroom sheet on squares 0 to 4 of row 0, all in room
+     * 1, each sprite with a texture of its own (id 100 + x) read as no tiles, but on the squares
+     * named bare, which have no wall.
+     */
+    private static TestMap bathroom(int... bare) {
+        TestMap map = new TestMap();
+        map.build.tiledSheet = SHEET;
+        for (int x = 0; x <= 4; x++) {
+            map.cell.square(x, 0, 0).setRoomID(1L);
+            boolean none = false;
+            for (int each : bare) {
+                none |= each == x;
+            }
+            if (!none) {
+                Texture texture = new Texture(100 + x, 4, 4);
+                texture.paint(0, 0, 4, 4);
+                map.cell.square(x, 0, 0).add(map.spriteWith(SHEET + (x == 1 ? 15 : 13), IsoObjectType.wall, texture, "WallN", ""));
+                WallTiles.knownForTests(texture, true, null);
+            }
+        }
+        return map;
+    }
+
+    private static Texture textureAt(TestMap map, int x) {
+        return map.cell.square(x, 0, 0).getObjects().get(0).getSprite().getTextureForCurrentFrame(null);
+    }
+
+    /** A whole wall's reading, of peach tiles to a sixth of the way up under cream paint, or the paint alone (with an opening) as a door wall reads. */
+    private static WallTiles.Wall reading(boolean whole, float[] paint) {
+        WallTiles.Wall wall = new WallTiles.Wall();
+        wall.whole = whole;
+        WallTiles.Band tiles = band(0f, 0.16f);
+        tiles.red = PEACH[0];
+        tiles.green = PEACH[1];
+        tiles.blue = PEACH[2];
+        WallTiles.Band above = new WallTiles.Band();
+        above.foot = 0.16f;
+        above.head = 1f;
+        above.red = paint[0];
+        above.green = paint[1];
+        above.blue = paint[2];
+        wall.bands = whole ? new WallTiles.Band[] {tiles, above} : new WallTiles.Band[] {above};
+        if (!whole) {
+            above.foot = 0.8f;
+        }
+        return wall;
+    }
+
+    private static void aDoorWallTakesTheWholeWallBesideItInItsRoom() {
+        TestMap map = bathroom();
+        WallTiles.Wall whole = reading(true, CREAM);
+        WallTiles.knownForTests(textureAt(map, 2), true, whole);
+        check(map.build.wallBuilder.tilesOf(textureAt(map, 1), 1, 0, 0, 1f, 0f, true) == whole, "a door through tiles under paint takes the whole wall beside it");
+        WallTiles.knownForTests(textureAt(map, 1), true, reading(false, CREAM));
+        check(map.build.wallBuilder.tilesOf(textureAt(map, 1), 1, 0, 0, 1f, 0f, true) == whole, "and does so where it read its paint over the door, which agrees");
+    }
+
+    private static void aDoorWallLooksNoFurtherThanItsRoomAndItsWall() {
+        TestMap map = bathroom();
+        WallTiles.knownForTests(textureAt(map, 3), true, reading(true, CREAM));
+        map.cell.square(2, 0, 0).setRoomID(2L);
+        check(map.build.wallBuilder.tilesOf(textureAt(map, 1), 1, 0, 0, 1f, 0f, true) == null, "not past a square of another room");
+        map = bathroom(2);
+        WallTiles.knownForTests(textureAt(map, 3), true, reading(true, CREAM));
+        check(map.build.wallBuilder.tilesOf(textureAt(map, 1), 1, 0, 0, 1f, 0f, true) == null, "nor past a square with no wall of its sheet on that edge");
+    }
+
+    private static void aDoorWallPassesAWholeWallThatDisagreesWithIt() {
+        TestMap map = bathroom();
+        WallTiles.knownForTests(textureAt(map, 1), true, reading(false, CREAM));
+        WallTiles.knownForTests(textureAt(map, 2), true, reading(true, BLUE));
+        WallTiles.Wall agrees = reading(true, CREAM);
+        WallTiles.knownForTests(textureAt(map, 3), true, agrees);
+        check(map.build.wallBuilder.tilesOf(textureAt(map, 1), 1, 0, 0, 1f, 0f, true) == agrees, "a whole wall in another colour of the sheet is passed for the next that agrees");
+    }
+
+    private static void aWholeWallNotReadYetLeavesTheBuildToBeMadeAgain() {
+        TestMap map = bathroom(2);
+        Texture unread = new Texture(200, 4, 4);
+        unread.paint(0, 0, 4, 4);
+        map.cell.square(2, 0, 0).add(map.spriteWith(SHEET + 13, IsoObjectType.wall, unread, "WallN", ""));
+        map.build.building.signed = true;
+        check(map.build.wallBuilder.tilesOf(textureAt(map, 1), 1, 0, 0, 1f, 0f, true) == null && !map.build.building.signed,
+                "a whole wall beside it not read yet leaves the build to be made again once it is");
     }
 }
