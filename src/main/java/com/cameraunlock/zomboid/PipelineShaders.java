@@ -803,6 +803,17 @@ final class PipelineShaders {
                 return c.x > 0.01 && c.x < 0.99 && c.y > 0.01 && c.y < 0.99 && c.z < 1.0;
             }
 
+            // Whether the sun reaches a point of air, from the near map or else the far one, and
+            // in the sun past both.
+            float sunOnAir(vec3 p) {
+                vec3 c = (uNearMatrix * vec4(p, 1.0)).xyz * 0.5 + 0.5;
+                if (inside(c)) {
+                    return shadow2D(uShadowNear, c).r;
+                }
+                c = (uFarMatrix * vec4(p, 1.0)).xyz * 0.5 + 0.5;
+                return inside(c) ? shadow2D(uShadowFar, c).r : 1.0;
+            }
+
             // Where a point under something asks a sun map about itself. A map holds every surface behind
             // where it is, by uSlopeOffset texels of the surface's slope in the map, and the lookup is
             // answered by the texels round it, a texel more, and those its soft edge spreads over. A sheet
@@ -3034,8 +3045,10 @@ final class PipelineShaders {
 
                 // The game's light for the square is the light that is there without the sun
                 // falling straight on it. Out of doors that light comes from the sky, more of it
-                // onto what faces up and bluer than the sun.
-                vec3 fromSky = mix(vec3(1.0), vec3(0.72, 0.80, 0.95) * (0.72 + 0.28 * (card ? mix(n.z, 1.0, snowed) : n.z)), open);
+                // onto what faces up and bluer than the sun. An upright face sees half the sky,
+                // which is what lets the sun stand out on a wall; one turned down sees the
+                // ground. A card stands for a plant the sky gets into from every side.
+                vec3 fromSky = mix(vec3(1.0), vec3(0.72, 0.80, 0.95) * (card ? 0.72 + 0.28 * mix(n.z, 1.0, snowed) : 0.55 + (n.z > 0.0 ? 0.45 : 0.17) * n.z), open);
                 if (crown) {
                     // A leaf turned up has more of the sky on it than one turned down.
                     fromSky *= mix(0.88 + 0.16 * leafFace.z, 1.0, snowed);
@@ -3094,8 +3107,15 @@ final class PipelineShaders {
                 lightHere += uFlashSky * (open * skyOver * (0.6 + 0.4 * max(n.z, 0.0)));
                 // The ground in the sun throws its light back up at whatever stands on it. A
                 // wall turned from the sun is lit by the street in front of it, and without
-                // that the shaded side of every building is a flat dark slab.
-                lightHere += pow(uLightColor, vec3(2.2)) * vec3(0.9, 0.86, 0.74) * (0.3 * max(uLight.z, 0.0) * (1.0 - abs(n.z)) * open);
+                // that the shaded side of every building is a flat dark slab. Only ground the sun
+                // is on throws it: a wall turned from a low sun stands in its own long shadow and
+                // has little from the ground, where at noon its shadow is short and the street
+                // beyond it is bright. Asked of the air a pace and two paces out from the face.
+                float groundLit = 1.0;
+                if (sided > 0.5) {
+                    groundLit = 0.5 * (sunOnAir(vWorld + vec3(face.xy, 0.0) * 1.0) + sunOnAir(vWorld + vec3(face.xy, 0.0) * 2.5));
+                }
+                lightHere += pow(uLightColor, vec3(2.2)) * vec3(0.9, 0.86, 0.74) * (0.3 * max(uLight.z, 0.0) * (1.0 - abs(n.z)) * open * groundLit);
                 vec3 color = pow(texel.rgb, vec3(2.2)) * lightHere;
                 if (card) {
                     // A leaf lets the sun through. Looked at against the light, foliage and
