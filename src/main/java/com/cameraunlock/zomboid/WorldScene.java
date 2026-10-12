@@ -718,7 +718,7 @@ final class WorldScene {
         /** What the sprite is made of as the floor of its square, and as anything else. */
         final float asFloor, asOther;
         final boolean laidWall, gableSheet, lies, wire, roofAccent, roofSheet, stripLamp, garageDoor, cornerTrim, papered, tiledWall, fenceGate,
-                boulder, bedding, longGrass, natural, carpet, tiled, grows, onTop, holds, flightPost, fireEscape, paint, wallTrim;
+                boulder, bedding, longGrass, natural, carpet, tiled, grows, onTop, holds, flightPost, fireEscape, paint, wallTrim, trim;
         /** What length of handrail the sprite is, or null: see Rails. */
         final Rails.Piece rail;
         /** Which cloth the map hangs out the sprite is, if any: see Banners. */
@@ -759,6 +759,7 @@ final class WorldScene {
             wallTrim = name != null && name.startsWith("walls_detailing_") && !standsOnWestEdge(properties, type) && !onNorthEdge(properties)
                     && !properties.has(IsoFlagType.attachedE) && !properties.has(IsoFlagType.attachedS);
             fenceGate = name != null && name.startsWith("fixtures_doors_fences");
+            trim = Trims.is(name);
             boulder = name != null && name.startsWith("boulders_");
             bedding = name != null && name.startsWith("furniture_bedding");
             longGrass = name != null && name.startsWith("e_newgrass");
@@ -4384,6 +4385,10 @@ final class WorldScene {
                     return;
                 }
             }
+            // A skirting, a rail or a cornice is a moulding along its wall: see Trims.
+            if (!isFloor && kindOf(over).trim && Own.buildings() && addTrim(over, texture, x, y, z)) {
+                return;
+            }
             // Where a street steps along a verge the map paints grass over half of the street's
             // square, to slant the edge, from the ground's own sheet or from the sheet of painted
             // kerbs that have grass behind them. That grass is the verge's, and the verge ends at the kerb:
@@ -4403,6 +4408,46 @@ final class WorldScene {
             if (FirstPerson.TRACE) {
                 tally(under, worn(texture) - before);
             }
+        }
+
+        /**
+         * Builds the trim sprite over a wall as mouldings on the edges it is laid on. False
+         * where it is drawn as its sprite: on no north or west edge, panelling, or not read yet,
+         * in which case the build is made again once it is.
+         */
+        private boolean addTrim(IsoSprite over, Texture texture, int x, int y, int z) {
+            PropertyContainer flags = over.getProperties();
+            boolean corner = flags.has("attachedNW");
+            boolean north = corner || flags.has(IsoFlagType.attachedN), west = corner || flags.has(IsoFlagType.attachedW);
+            Trims.Band[] onNorth = north ? Trims.of(texture, frame, true) : null, onWest = west ? Trims.of(texture, frame, false) : null;
+            if (north && onNorth == null || west && onWest == null) {
+                building.signed = false;
+                return false;
+            }
+            if (north && onNorth.length == 0 || west && onWest.length == 0 || !north && !west) {
+                return false;
+            }
+            SpriteGeometry.Mesh plain = solid.get(PLAIN);
+            plain.open = frame.open;
+            plain.sway = 0f;
+            float base = z * ViewCamera.LEVEL_HEIGHT;
+            Trims.Light light = (atX, atY, into) -> {
+                float a = Math.clamp(atX - x, 0f, 1f), b = Math.clamp(atY - y, 0f, 1f);
+                into[0] = (frame.cornerRed[0] * (1f - a) + frame.cornerRed[1] * a) * (1f - b) + (frame.cornerRed[3] * (1f - a) + frame.cornerRed[2] * a) * b;
+                into[1] = (frame.cornerGreen[0] * (1f - a) + frame.cornerGreen[1] * a) * (1f - b) + (frame.cornerGreen[3] * (1f - a) + frame.cornerGreen[2] * a) * b;
+                into[2] = (frame.cornerBlue[0] * (1f - a) + frame.cornerBlue[1] * a) * (1f - b) + (frame.cornerBlue[3] * (1f - a) + frame.cornerBlue[2] * a) * b;
+            };
+            for (int edge = 0; edge < 2; edge++) {
+                Trims.Band[] bands = edge == 0 ? onNorth : onWest;
+                if (bands == null) {
+                    continue;
+                }
+                float da = edge == 0 ? 1f : 0f, db = 1f - da;
+                for (Trims.Band band : bands) {
+                    Trims.add(plain, band, x, y, da, db, db, da, base + geometry.liftAt(0f, 0f), base + geometry.liftAt(da, db), light);
+                }
+            }
+            return true;
         }
 
         private int worn(Texture texture) {

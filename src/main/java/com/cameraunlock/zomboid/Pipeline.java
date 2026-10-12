@@ -4803,6 +4803,7 @@ final class Pipeline {
             Decor.letGo();
             Flats.letGo();
             Rugs.letGo();
+            Trims.letGo();
             forgetTexels();
             GL15.glDeleteBuffers(modelBuffer);
             GL15.glDeleteBuffers(modelCorners);
