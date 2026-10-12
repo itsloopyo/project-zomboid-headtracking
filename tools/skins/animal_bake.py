@@ -432,11 +432,13 @@ def nose(colour, where, facing, landmarks, picture, part, ragged):
 
 def eyes(colour, where, places, ball, lid):
     """A dark glossy eyeball in a lid of bare dark skin at each place."""
+    # The lid is a thin rim: drawn as wide as KINDS has it, an eye read as a target.
+    lid = min(lid, ball * 1.3)
     for place in places:
         reach = numpy.linalg.norm(where - place, axis=2)
-        inside = bake.ramp(ball, ball * 0.7, reach)
+        inside = bake.ramp(ball, ball * 0.85, reach)
         rim = bake.ramp(lid, ball * 1.05, reach) * (1 - inside)
-        iris = numpy.array([0.12, 0.07, 0.04], dtype=numpy.float32) * (0.6 + 0.4 * bake.ramp(0.0, ball, reach))[..., None]
+        iris = numpy.array([0.07, 0.045, 0.03], dtype=numpy.float32)
         colour = colour * (1 - rim[..., None] * 0.75)
         colour = colour * (1 - inside[..., None]) + iris * inside[..., None]
     return colour
