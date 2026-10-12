@@ -21,6 +21,8 @@ final class AttackClock {
     private static final float LANDS_SOONEST = 0.05f;
 
     private float at = NONE, seen = NONE, lands, pace;
+    /** The length of the frame that read `seen`: the animation moved from `at` to `seen` over it. */
+    private float seenOver;
     /** How long the picture stands where the attack landed, and how long it then takes to catch up, as shares of the animation. See HitStop. */
     private float stops, catches;
     /** Whether the frame last stepped is the one an attack began on, and the one it landed on. */
@@ -44,15 +46,17 @@ final class AttackClock {
             at = 0f;
             lands = Math.clamp(landsAt, LANDS_SOONEST, HELD_AGAIN - LANDS_SOONEST);
             seen = fraction;
+            seenOver = seconds;
         } else if (playing) {
             // An animation that has not moved on has fired nothing new: the game is paused.
             if (fraction > seen) {
                 boolean before = at >= lands;
-                if (seconds > 1e-4f) {
-                    pace = (seen - at) / seconds;
+                if (seenOver > 1e-4f) {
+                    pace = (seen - at) / seenOver;
                 }
                 at = seen;
                 seen = fraction;
+                seenOver = seconds;
                 landed = !before && at >= lands;
             }
         } else if (at != NONE) {

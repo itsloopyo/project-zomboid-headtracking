@@ -20,6 +20,7 @@ final class MeleeFeelTests {
         Checks.run("aStopPausedStaysAndGoesOnAfter", MeleeFeelTests::aStopPausedStaysAndGoesOnAfter);
         Checks.run("aStopInAFastAttackStillRejoinsBeforeItIsHeldAgain", MeleeFeelTests::aStopInAFastAttackStillRejoinsBeforeItIsHeldAgain);
         Checks.run("aStopEndsWithItsAttack", MeleeFeelTests::aStopEndsWithItsAttack);
+        Checks.run("aHitchAroundTheLandingDoesNotChangeTheStop", MeleeFeelTests::aHitchAroundTheLandingDoesNotChangeTheStop);
         Checks.run("aShoveLeadsWithThePalmsIntoThePicture", MeleeFeelTests::aShoveLeadsWithThePalmsIntoThePicture);
         Checks.run("bareHandsMoveNoFarInATinyStep", MeleeFeelTests::bareHandsMoveNoFarInATinyStep);
         Checks.run("bothArmsArePlacedThroughAShoveAndAStamp", () -> bothArmsArePlacedThroughAShoveAndAStamp(model));
@@ -140,6 +141,39 @@ final class MeleeFeelTests {
         clock.step(true, 0.3f, LANDS, FRAME);
         clock.step(true, 0.35f, LANDS, FRAME);
         check(clock.past() > 0f, "and the next attack, landing on nothing, has no stop of the last one's");
+    }
+
+    /**
+     * The game's animation moves on by the length of each frame. Frames are a 60th of a second
+     * but for one of a tenth, on the frame the attack lands or the one before it: the stop is as
+     * long in the animation's own time as with even frames.
+     */
+    private static void aHitchAroundTheLandingDoesNotChangeTheStop() {
+        float stop = HitStop.seconds(5f);
+        boolean onLanding = false, before = false;
+        for (int hitch = 5; hitch < 25; hitch++) {
+            AttackClock clock = new AttackClock();
+            float fraction = 0f, read = 0f;
+            int landedOn = -1;
+            for (int frame = 0; fraction < 1f; frame++) {
+                float seconds = frame == hitch ? 0.1f : FRAME;
+                read = fraction;
+                fraction += frame == 0 ? 0f : PACE * seconds;
+                clock.step(true, fraction, LANDS, seconds);
+                if (clock.landed) {
+                    clock.stop(stop);
+                    landedOn = frame;
+                    onLanding |= hitch == frame;
+                    before |= hitch == frame - 1;
+                }
+                if (landedOn >= 0) {
+                    float expected = Math.clamp(HitStop.shown(read - LANDS, stop * PACE, HitStop.CATCHES_UP * PACE) / (AttackClock.HELD_AGAIN - LANDS), 0f, 1f);
+                    check(Math.abs(clock.past() - expected) < 1e-4f, "with a hitch on frame " + hitch + " and the landing on " + landedOn + ", frame " + frame + " shows "
+                            + clock.past() + " where even frames show " + expected);
+                }
+            }
+        }
+        check(onLanding && before, "a hitch fell on a landing's frame and on the frame before one");
     }
 
     /** A place in the aim's axes in the picture of a view this tall, as tangents: how far down and across it is seen. */
