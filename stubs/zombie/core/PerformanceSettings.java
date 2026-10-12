@@ -4,5 +4,8 @@ public final class PerformanceSettings {
     public static final PerformanceSettings instance = null;
     public static boolean fboRenderChunk;
     public boolean isFramerateUncapped() { throw new UnsupportedOperationException("reference stub"); }
+    public void setFramerateUncapped(boolean uncapped) { throw new UnsupportedOperationException("reference stub"); }
+    public static int getLockFPS() { throw new UnsupportedOperationException("reference stub"); }
+    public static void setLockFPS(int fps) { throw new UnsupportedOperationException("reference stub"); }
     public int getFramerate() { throw new UnsupportedOperationException("reference stub"); }
 }
