@@ -7380,6 +7380,40 @@ def steeple_spire():
     return model
 
 
+# A church tower's spire over its two squares by two, as its sprites paint it: how high its face is, in metres, at each
+# distance out from the apex towards the middle of a side, in squares. The flared one's faces sweep out to the foot.
+TOWER_SPIRE = [(0.0, 2.6), (1.04, 0.0)]
+TOWER_SPIRE_FLARED = [(0.0, 2.6), (0.125, 2.04), (0.25, 1.48), (0.375, 1.07), (0.5, 0.74), (0.625, 0.49), (0.75, 0.31), (0.875, 0.15),
+                      (1.0, 0.0)]
+
+
+def tower_spire(name, profile):
+    """The spire on a church's tower: four faces of slate rising from the tower's top to a point over its middle."""
+    model = Model(name)
+    slate = bmesh.new()
+    apex = slate.verts.new((0.0, 0.0, profile[0][1]))
+    rings = [[slate.verts.new((dx * out, dy * out, high)) for dx, dy in ((-1, -1), (1, -1), (1, 1), (-1, 1))] for out, high in profile[1:]]
+    for i in range(4):
+        slate.faces.new((apex, rings[0][i], rings[0][(i + 1) % 4]))
+    for upper, lower in zip(rings, rings[1:]):
+        for i in range(4):
+            j = (i + 1) % 4
+            slate.faces.new((upper[i], lower[i], lower[j], upper[j]))
+    slate.faces.new(rings[-1][::-1])
+    model.turned(slate, "metal", sharp=40.0)
+    return model
+
+
+def tower_cross():
+    """The iron cross on a church tower's spire, its arms along X."""
+    model = Model("tower_cross")
+    cross = bmesh.new()
+    cuboid(cross, -0.04, 0.04, -0.04, 0.04, 0.0, 1.28)
+    cuboid(cross, -0.35, 0.35, -0.04, 0.04, 0.78, 0.86)
+    model.hard(cross, "rubber", bevel=0.006, segments=1)
+    return model
+
+
 def amplifier():
     """A guitar amplifier: a covered box with its grille at -Y and its knobs on top."""
     model = Model("amplifier")
@@ -7614,7 +7648,8 @@ def leisure():
             sport_tyres("tyres_3_askew", 3, 0.04), sport_tyres("tyres_4_askew", 4, 0.04),
             play_castle(), treadmill(), weight_bench(), upright_piano(), piano_bench(), slide(), merry_go_round(),
             speaker_cabinet("speaker_tall", 0.46, 0.36, 0.82, "dark_wood"), speaker_cabinet("speaker_low", 0.46, 0.34, 0.64, "plastic"),
-            jukebox(), grand_piano(), lectern(), pinball(), altar(), steeple_belfry(), steeple_spire(), amplifier(), drum_kick(), drum_stand(),
+            jukebox(), grand_piano(), lectern(), pinball(), altar(), steeple_belfry(), steeple_spire(), tower_spire("tower_spire", TOWER_SPIRE),
+            tower_spire("tower_spire_flared", TOWER_SPIRE_FLARED), tower_cross(), amplifier(), drum_kick(), drum_stand(),
             basket_pole(), basket_board(), court_net("net_first", True, False), court_net("net_middle", False, False),
             court_net("net_last", False, True), goal("goal_first", True, False), goal("goal_middle", False, False), goal("goal_last", False, True)] + \
         [fountain_part("fountain_%d" % sector, sector) for sector in range(8) if sector != 5] + [fountain_part("fountain_middle", None), fountain_tiers()]

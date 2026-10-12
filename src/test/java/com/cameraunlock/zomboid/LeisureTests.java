@@ -13,6 +13,7 @@ final class LeisureTests {
         Checks.run("aBasketballBoardStandsInFrontOfItsPole", LeisureTests::aBasketballBoardStandsInFrontOfItsPole);
         Checks.run("aPieceLaidOutOtherwiseThanItsModelIsNone", LeisureTests::aPieceLaidOutOtherwiseThanItsModelIsNone);
         Checks.run("aSteeplesSpireStandsOnItsBelfry", LeisureTests::aSteeplesSpireStandsOnItsBelfry);
+        Checks.run("aTowersSpireStandsOnItsFrontSquareAndItsCrossOnItsPoint", LeisureTests::aTowersSpireStandsOnItsFrontSquareAndItsCrossOnItsPoint);
         Checks.run("aPairOfTheatreSeatsFacesTheWayItsSpriteSays", LeisureTests::aPairOfTheatreSeatsFacesTheWayItsSpriteSays);
     }
 
@@ -91,6 +92,32 @@ final class LeisureTests {
         Checks.check(Math.abs(cap - foot) < 0.01f, "the spire's foot is on the belfry's cap: " + foot + " on " + cap);
         Checks.check(spire.a == belfry.a && spire.b == belfry.b, "the spire stands over the middle of its belfry");
         Checks.check(unnamed("location_community_church_small_01_33") == null, "a column of the church is no part of its steeple");
+    }
+
+    private static void aTowersSpireStandsOnItsFrontSquareAndItsCrossOnItsPoint() {
+        String sheet = "location_community_church_small_01_";
+        int[][] kinds = {{179, 180, 181}, {187, 188, 189}, {195, 196, 197}};
+        for (int[] kind : kinds) {
+            Outdoors.Piece front = unnamed(sheet + kind[0]), west = unnamed(sheet + kind[1]), north = unnamed(sheet + kind[2]);
+            holds(front, sheet + kind[0] + " is a tower's spire");
+            Checks.check(west != null && north != null && west.follows && north.follows && !front.follows, "the spire's other pieces stand nothing of their own");
+            if (front == null || west == null || north == null) {
+                continue;
+            }
+            Checks.check(front.a == 0f && front.b == 0f, "the apex is over the front square's north-west corner");
+            Checks.check((sheet + kind[1]).equals(front.partner) && front.partnerX == -1 && front.partnerY == 0, "the front square stands the spire only beside its west piece");
+            Checks.check((sheet + kind[0]).equals(west.partner) && west.partnerX == 1 && west.partnerY == 0, kind[1] + " is west of the front square");
+            Checks.check((sheet + kind[0]).equals(north.partner) && north.partnerX == 0 && north.partnerY == 1, kind[2] + " is north of the front square");
+            Models.Model spire = Models.get(front.model);
+            Checks.check(Math.abs(spire.width() - 2f) < 0.1f && Math.abs(spire.depth() - 2f) < 0.1f, front.model + " covers the tower's two squares by two: " + spire.width());
+        }
+        Outdoors.Piece cross = unnamed(sheet + "39"), spire = unnamed(sheet + "187");
+        holds(cross, sheet + "39 is the cross on a tower's spire");
+        float point = spire.raised + Models.get(spire.model).height(), foot = ViewCamera.LEVEL_HEIGHT + cross.raised;
+        // A quarter of a metre under its tip each spire is still wider than the cross's post.
+        Checks.check(foot < point && point - foot < 0.25f, "the cross's foot is in the spire's point: " + foot + " under " + point);
+        Checks.check(cross.a == spire.a && cross.b == spire.b, "the cross stands over the spire's apex");
+        Checks.check(unnamed(sheet + "176") == null && unnamed(sheet + "192") == null, "a long run of the spires' sheet is no tower's spire");
     }
 
     private static void aSwingsBeamMeetsTheTopOfItsFrame() {

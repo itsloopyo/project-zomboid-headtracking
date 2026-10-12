@@ -16,7 +16,7 @@ final class Leisure {
 
     private static final String PARK = "location_community_park_01_", SPORTS = "recreational_sports_01_",
             CHURCH = "location_community_church_small_01_";
-    private static final int PAINT = 1 << Models.PAINT;
+    private static final int PAINT = 1 << Models.PAINT, METAL = 1 << Models.METAL;
     private static final float LEVEL = ViewCamera.LEVEL_HEIGHT;
 
     /** Where a swing's beam runs across its squares, and where along it the frame's apex stands, both from the square's corner. */
@@ -167,12 +167,51 @@ final class Leisure {
     /** Where the middle of a steeple stands on its square, a little to the west and south of the square's middle where its sprites paint it. */
     private static final float STEEPLE_A = 0.475f, STEEPLE_B = 0.525f;
 
+    /** Where on the square of a tower spire's front a sprite gives the colour of its slate, and how high on each kind, in levels. */
+    private static final float SLATE_A = 0.3f, SLATE_B = 0.5f, SLATE_HIGH = 0.557f, SLATE_HIGH_FLARED = 0.302f;
+    /** How far, in levels, the foot of the cross on a tower's spire is below the floor of its storey: down in the spire's point. */
+    static final float CROSS_SUNK = 0.033f;
+
+    /**
+     * The spire on a church's tower of two squares by two. The game paints the part of it over each square and leaves out
+     * the square behind: the apex's piece on the front square, whose north-west corner the apex is over, and a piece each
+     * on the squares west and north of it. The front square stands the whole spire; the others stand nothing, and none
+     * does unless the square the pairing names holds its piece, so a sheet's pieces laid as a roof of another shape stay roofing.
+     */
+    private static Outdoors.Piece spire(int place) {
+        return switch (place) {
+            case 179, 195 -> new Outdoors.Piece("tower_spire", 0).at(0f, 0f).pairedWith(CHURCH + (place + 1), -1, 0).dye(METAL, SLATE_A, SLATE_B, SLATE_HIGH);
+            case 187 -> new Outdoors.Piece("tower_spire_flared", 0).at(0f, 0f).pairedWith(CHURCH + 188, -1, 0).dye(METAL, SLATE_A, SLATE_B, SLATE_HIGH_FLARED);
+            case 180, 188, 196 -> following(new Outdoors.Piece(null, 0).pairedWith(CHURCH + (place - 1), 1, 0));
+            case 181, 189, 197 -> following(new Outdoors.Piece(null, 0).pairedWith(CHURCH + (place - 2), 0, 1));
+            default -> null;
+        };
+    }
+
+    private static Outdoors.Piece following(Outdoors.Piece piece) {
+        piece.follows = true;
+        return piece;
+    }
+
+    /** Whether a sprite is a piece of a church tower's spire, which the game marks as a roof's. */
+    static boolean spirePiece(String name) {
+        return spire(Sheets.place(name, CHURCH)) != null;
+    }
+
     /**
      * What has no name: a park fountain's basin and the fountain in it, a basketball's pole and board, a court's net, a goal, a
-     * track's stacks of tyres and a church's steeple.
+     * track's stacks of tyres, a church's steeple and the spire on its tower and the cross on that.
      */
     private static Outdoors.Piece unnamed(String name) {
-        switch (Sheets.place(name, CHURCH)) {
+        int church = Sheets.place(name, CHURCH);
+        Outdoors.Piece spire = spire(church);
+        if (spire != null) {
+            return spire;
+        }
+        switch (church) {
+            case 39 -> {
+                return new Outdoors.Piece("tower_cross", 0).at(0f, 0f).raise(-CROSS_SUNK);
+            }
             // The belfry over the ridge, its boards white where its sprite paints the box and its metal from the skirt above them.
             case 35 -> {
                 return new Outdoors.Piece("steeple_belfry", 0).at(STEEPLE_A, STEEPLE_B)

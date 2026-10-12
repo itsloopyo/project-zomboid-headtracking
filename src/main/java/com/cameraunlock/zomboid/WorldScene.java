@@ -5402,6 +5402,10 @@ final class WorldScene {
             // and its edges. Their sprites do not say which way they lie, and stood upright like
             // furniture they are boxes floating over the house.
             if (Roofs.isTile(type)) {
+                // A church tower's spire, which the game marks as a roof, is one model of the whole spire.
+                if (sprite.getName() != null && Leisure.spirePiece(sprite.getName()) && furnishingBuilder.addFurniture(object, sprite, x, y, z)) {
+                    return;
+                }
                 // The game marks a few things that are no roof as one, so that they are cut away
                 // with the roof when the player walks under: a church's columns. Laid as a roof
                 // tile a column is a slab leaning on the wall.
