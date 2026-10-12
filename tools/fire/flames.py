@@ -2,19 +2,20 @@
 from the side, as a loop of greyscale frames of how much flame there is, laid in a grid.
 
 Two fires are simulated from emitters of different shapes, and their loops are the red and the
-green of one picture; FireDraw gives them their colour. Each loop is cut from frames
+green of one picture, each on a scale of its own; FlameSheets gives them their colour. Each loop is cut from frames
 LOOP_START .. LOOP_START + 2 * FRAMES and crossfaded so its last frame runs into its first.
 
 Run headless with Blender 4.4, from the repository root:
 
-    blender --background --factory-startup --threads 4 --python tools/fire/flames.py -- <work folder> [resolution] [samples]
+    blender --background --factory-startup --threads 4 --python tools/fire/flames.py -- <work folder> [resolution 112] [samples 24]
 
 It writes src/main/resources/fire/flames.png. The work folder holds the bake caches and the frames;
 frames already there are not made again. FIRE_KINDS (disc,logs) picks the fires, so the two can
 be made by two runs at once into one work folder and laid together by a third. FIRE_FUEL,
 FIRE_BURN, FIRE_LIFT and FIRE_BUOYANCY change the fire, and FIRE_OUT where the picture goes.
 
-The shipped picture: resolution 112, 24 samples, the defaults.
+The shipped picture is what the defaults make. Frames are kept in a folder named for the resolution,
+the samples and the fire's settings, so a run with any of them changed makes its own.
 """
 import math
 import os
@@ -25,7 +26,7 @@ import numpy as np
 
 ARGS = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
 WORK = os.path.abspath(ARGS[0] if ARGS else "fire-work")
-RESOLUTION = int(ARGS[1]) if len(ARGS) > 1 else 96
+RESOLUTION = int(ARGS[1]) if len(ARGS) > 1 else 112
 SAMPLES = int(ARGS[2]) if len(ARGS) > 2 else 24
 OUT = os.environ.get("FIRE_OUT") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "src", "main", "resources", "fire", "flames.png")
 
@@ -209,7 +210,7 @@ def simulate(kind):
     box = domain(os.path.join(WORK, kind, "cache"), burn, buoyancy)
     flame_material(box)
     camera(scene)
-    folder = os.path.join(WORK, kind, "frames")
+    folder = os.path.join(WORK, kind, "frames-%d-%d-%g-%g-%g-%g" % (RESOLUTION, SAMPLES, fuel, burn, lift, buoyancy))
     # Frames already rendered in the work folder are kept, and with all of them there nothing is baked again.
     rendered = all(os.path.exists(os.path.join(folder, "f%04d.exr" % frame)) for frame in range(LOOP_START, LOOP_START + 2 * FRAMES))
     if not rendered:
@@ -221,14 +222,14 @@ def main():
     os.makedirs(WORK, exist_ok=True)
     kinds = os.environ.get("FIRE_KINDS", "disc,logs").split(",")
     channels = [simulate(kind) for kind in kinds]
-    # One scale for both, so a frame's brightness is how much flame there is, the same in each loop.
-    top = max(float(np.percentile(np.stack(c), 99.9)) for c in channels)
+    # Each loop on its own scale: either fire's flames are at their fullest at the top of the eight bits.
+    tops = [float(np.percentile(np.stack(c), 99.9)) for c in channels]
     rows = FRAMES // ACROSS
     grid = np.zeros((rows * FRAME_HIGH, ACROSS * FRAME_WIDE, 3), dtype=np.float32)
     for channel, frames in enumerate(channels):
         for k, frame in enumerate(frames):
             y, x = (k // ACROSS) * FRAME_HIGH, (k % ACROSS) * FRAME_WIDE
-            grid[y:y + FRAME_HIGH, x:x + FRAME_WIDE, channel] = np.clip(frame / top, 0, 1)
+            grid[y:y + FRAME_HIGH, x:x + FRAME_WIDE, channel] = np.clip(frame / tops[channel], 0, 1)
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     image = bpy.data.images.new("flames", ACROSS * FRAME_WIDE, rows * FRAME_HIGH, alpha=False)
     rgba = np.ones((rows * FRAME_HIGH, ACROSS * FRAME_WIDE, 4), dtype=np.float32)
@@ -238,7 +239,7 @@ def main():
     image.filepath_raw = OUT
     image.file_format = "PNG"
     image.save()
-    print("flames: wrote", os.path.abspath(OUT), "scale", top, flush=True)
+    print("flames: wrote", os.path.abspath(OUT), "scales", tops, flush=True)
 
 
 main()

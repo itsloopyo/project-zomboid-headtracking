@@ -380,36 +380,49 @@ final class FireDraw {
         float kept = state.daylightKept;
         GL20.glUniform3f(program.at("uAmbient"), (float) Math.pow(state.openRed, 2.2) * kept, (float) Math.pow(state.openGreen, 2.2) * kept,
                 (float) Math.pow(state.openBlue, 2.2) * kept);
+        float seconds = seconds(nanos);
+        boolean flames = sheets.begin(depth, camera, tanHalfFieldOfView, aspect, near, far, width, height, asideX, asideY);
+        // Fire by fire, the furthest first: its smoke, or a stove's glow, marched here, then its flames and embers, so a
+        // nearer fire's smoke stands before the flames of one behind it.
         for (int k = 0; k < count; k++) {
             int at = order[k] * Fires.FLOATS;
-            // The flames are FlameSheets': what is marched here is smoke, and a stove's glow.
-            if (fires[at + Fires.KIND] == Fires.VOLUME && fires[at + Fires.SMOKE] <= 0f
-                    || !box(fires, at, driftX, driftY, camera, tanX, tanY, asideX, asideY, near, box)) {
-                continue;
+            march(at, k, driftX, driftY, camera, tanX, tanY, asideX, asideY, near, crowd);
+            if (flames && fires[at + Fires.KIND] == Fires.VOLUME && fires[at + Fires.FLAME] > 0f) {
+                sheets.fire(fires, at, camera, seconds);
             }
-            float distance = (float) Math.sqrt(this.far[order[k]]);
-            float steps = (STEPS_NEAR + (STEPS_FAR - STEPS_NEAR) * Math.min(distance / FEWEST_AT, 1f)) * crowd;
-            GL20.glUniform3f(program.at("uFoot"), fires[at + Fires.X] - camera.eyeX, fires[at + Fires.Y] - camera.eyeY, fires[at + Fires.UP] - camera.eyeUp);
-            GL20.glUniform1f(program.at("uRadius"), fires[at + Fires.RADIUS]);
-            GL20.glUniform1f(program.at("uTall"), fires[at + Fires.TALL]);
-            GL20.glUniform1f(program.at("uSmoke"), fires[at + Fires.SMOKE]);
-            GL20.glUniform1f(program.at("uFlame"), fires[at + Fires.FLAME]);
-            GL20.glUniform1f(program.at("uThick"), fires[at + Fires.THICK]);
-            GL20.glUniform1f(program.at("uSeed"), fires[at + Fires.SEED]);
-            GL20.glUniform1f(program.at("uKind"), fires[at + Fires.KIND]);
-            GL20.glUniform4f(program.at("uWindow"), fires[at + Fires.ALONG_X], fires[at + Fires.ALONG_Y], fires[at + Fires.OUT_X], fires[at + Fires.OUT_Y]);
-            GL20.glUniform2f(program.at("uWindowSize"), fires[at + Fires.WIDE], fires[at + Fires.HIGH]);
-            GL20.glUniform1f(program.at("uSteps"), Math.round(steps));
-            GL11.glBegin(GL_TRIANGLE_STRIP);
-            GL11.glVertex2f(box[0], box[1]);
-            GL11.glVertex2f(box[2], box[1]);
-            GL11.glVertex2f(box[0], box[3]);
-            GL11.glVertex2f(box[2], box[3]);
-            GL11.glEnd();
         }
-        sheets.draw(fires, order, count, depth, camera, tanHalfFieldOfView, aspect, near, far, width, height, asideX, asideY, seconds(nanos));
         GL11.glDisable(GL_BLEND);
         GL11.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         GL11.glDepthMask(true);
+    }
+
+    /** Marches the fire at `at`, k-th in order, where it has smoke or is a stove's glow: its flames are FlameSheets'. */
+    private void march(int at, int k, float driftX, float driftY, ViewCamera.Pose camera, float tanX, float tanY, float asideX, float asideY,
+            float near, float crowd) {
+        if (fires[at + Fires.KIND] == Fires.VOLUME && fires[at + Fires.SMOKE] <= 0f
+                || !box(fires, at, driftX, driftY, camera, tanX, tanY, asideX, asideY, near, box)) {
+            return;
+        }
+        program.use();
+        GL14.glBlendFuncSeparate(GL_ONE, GL_ONE_MINUS_SRC_ALPHA, GL_ZERO, GL_ONE_MINUS_SRC_ALPHA);
+        float distance = (float) Math.sqrt(this.far[order[k]]);
+        float steps = (STEPS_NEAR + (STEPS_FAR - STEPS_NEAR) * Math.min(distance / FEWEST_AT, 1f)) * crowd;
+        GL20.glUniform3f(program.at("uFoot"), fires[at + Fires.X] - camera.eyeX, fires[at + Fires.Y] - camera.eyeY, fires[at + Fires.UP] - camera.eyeUp);
+        GL20.glUniform1f(program.at("uRadius"), fires[at + Fires.RADIUS]);
+        GL20.glUniform1f(program.at("uTall"), fires[at + Fires.TALL]);
+        GL20.glUniform1f(program.at("uSmoke"), fires[at + Fires.SMOKE]);
+        GL20.glUniform1f(program.at("uFlame"), fires[at + Fires.FLAME]);
+        GL20.glUniform1f(program.at("uThick"), fires[at + Fires.THICK]);
+        GL20.glUniform1f(program.at("uSeed"), fires[at + Fires.SEED]);
+        GL20.glUniform1f(program.at("uKind"), fires[at + Fires.KIND]);
+        GL20.glUniform4f(program.at("uWindow"), fires[at + Fires.ALONG_X], fires[at + Fires.ALONG_Y], fires[at + Fires.OUT_X], fires[at + Fires.OUT_Y]);
+        GL20.glUniform2f(program.at("uWindowSize"), fires[at + Fires.WIDE], fires[at + Fires.HIGH]);
+        GL20.glUniform1f(program.at("uSteps"), Math.round(steps));
+        GL11.glBegin(GL_TRIANGLE_STRIP);
+        GL11.glVertex2f(box[0], box[1]);
+        GL11.glVertex2f(box[2], box[1]);
+        GL11.glVertex2f(box[0], box[3]);
+        GL11.glVertex2f(box[2], box[3]);
+        GL11.glEnd();
     }
 }

@@ -9,9 +9,9 @@ import java.util.concurrent.CompletableFuture;
 import javax.imageio.ImageIO;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL13;
+import org.lwjgl.opengl.GL14;
 import org.lwjgl.opengl.GL20;
 import org.lwjgl.opengl.GL30;
-import org.lwjgl.opengl.GL40;
 
 /**
  * The flames of a fire and the embers that fly up from it. The flames are a fire simulated and
@@ -30,14 +30,16 @@ final class FlameSheets {
     static final float FRAMES_A_SECOND = 24f;
     /**
      * How a frame of the loop is laid: the simulation's fuel at its foot, twice as high as it is
-     * wide, the flames reaching REACH of its height on the mean and their root ROOT of its width
-     * across (measured off the loop tools/fire/flames.py makes). A sheet is stretched so that
-     * its flames reach as high as the fire's and are as wide at their root.
+     * wide, the flames, where the program draws any, reaching REACH of its height on the mean and
+     * their root ROOT of its width across (measured off the loop tools/fire/flames.py makes). A
+     * sheet is stretched so that its flames reach as high as the fire's and are as wide at their root.
      */
-    static final float FRAME_HIGH_FOR_WIDE = 2f, REACH = 0.55f, ROOT = 0.3f;
+    static final float FRAME_HIGH_FOR_WIDE = 2f, REACH = 0.65f, ROOT = 0.3f;
     /** How many sheets a fire is drawn as, and how far apart through it they stand, in its radius. */
     static final int SHEETS = 3;
     static final float SHEETS_APART = 0.45f;
+    /** How much of a fire's light each of its sheets gives: they stand through each other, and where they cross they add. */
+    static final float SHEET_SHARE = 0.55f;
     /** How bright the flames are at their brightest, in the picture's light: the sun lights a white wall to about 2. */
     static final float BRIGHTEST = 4f;
     /** Over how many of a fire's radii a sheet fades where it meets a surface. */
@@ -50,6 +52,8 @@ final class FlameSheets {
     static final float EMBER_RISE = 1.6f, EMBER_SIZE = 0.012f, EMBER_BRIGHT = 14f;
     /** How long a streak an ember draws, in seconds of its flight: the eye's own blur of a bright moving point. */
     static final float EMBER_STREAK = 0.035f;
+    /** The least an ember is drawn across, in tiles for each tile it is from the eye: about a pixel of the picture. */
+    static final float EMBER_LEAST_PER_TILE = 0.0012f;
 
     private static final String VERTEX = """
             #version 120
@@ -77,6 +81,10 @@ final class FlameSheets {
             uniform float uLoop;
             uniform float uStrength;
             uniform float uSoft;
+            // The loop's frames, how many a row of the picture holds, and how bright its flames are at their brightest.
+            uniform float uFrames;
+            uniform float uAcross;
+            uniform float uBrightest;
             // 0 a sheet of flame, 1 an ember, and how bright an ember at its hottest is.
             uniform float uKind;
             uniform float uEmberBright;
@@ -84,10 +92,6 @@ final class FlameSheets {
             varying float vAhead;
             varying vec4 vColor;
 
-            const float FRAMES = 64.0;
-            const float ACROSS = 8.0;
-            // FlameSheets.BRIGHTEST.
-            const float BRIGHTEST = 4.0;
 
             // The light of burning gas by how much of it there is, as the loop holds it: a deep red where
             // it is thin, through orange to a yellow white at its root.
@@ -98,10 +102,10 @@ final class FlameSheets {
             }
 
             float amountIn(float frame, vec2 uv) {
-                float i = mod(frame, FRAMES);
-                vec2 cell = vec2(mod(i, ACROSS), floor(i / ACROSS));
+                float i = mod(frame, uFrames);
+                vec2 cell = vec2(mod(i, uAcross), floor(i / uAcross));
                 // The picture's first row is its top, and a frame's flames stand on its foot.
-                vec2 at = (cell + vec2(uv.x, 1.0 - uv.y)) / vec2(ACROSS, FRAMES / ACROSS);
+                vec2 at = (cell + vec2(uv.x, 1.0 - uv.y)) / vec2(uAcross, uFrames / uAcross);
                 vec2 both = texture2D(uFlames, at).rg;
                 float stored = mix(both.r, both.g, uLoop);
                 return stored * stored;
@@ -121,7 +125,7 @@ final class FlameSheets {
                         discard;
                     }
                     gl_FragData[0] = vec4(vColor.rgb * (spot * uEmberBright), 0.0);
-                    gl_FragData[1] = vec4(0.0);
+                    gl_FragData[1] = vec4(vec3(0.375), 1.0);
                     return;
                 }
                 // Inset half a texel so no frame reads its neighbour's edge.
@@ -131,14 +135,15 @@ final class FlameSheets {
                 // leaves the flames' own edges and the tongues that break off them.
                 float amount = smoothstep(0.25, 0.8, mix(amountIn(f, uv), amountIn(f + 1.0, uv), uFrame - f));
                 float fade = smoothstep(0.0, uSoft, before) * smoothstep(uNear, uNear + 0.25, vAhead);
-                amount *= fade * uStrength;
-                if (amount < 0.003) {
+                float shown = amount * fade * uStrength;
+                if (shown < 0.003) {
                     discard;
                 }
-                vec3 light = glowOf(amount) * (amount * BRIGHTEST);
-                // Flame hides what a wet road behind it mirrors, as much as it is there.
-                gl_FragData[0] = vec4(light, clamp(amount * 3.0, 0.0, 1.0));
-                gl_FragData[1] = amount > 0.05 ? vec4(vec3(0.375), 1.0) : vec4(0.0);
+                // Coloured by how much flame there is, and as bright as the fire burns and the fade leaves it.
+                vec3 light = glowOf(amount) * (shown * uBrightest);
+                // Flame hides what a wet road behind it mirrors, as much as it is there. It moves by itself (FireDraw.MOVES).
+                gl_FragData[0] = vec4(light, clamp(shown * 3.0, 0.0, 1.0));
+                gl_FragData[1] = vec4(vec3(0.375), 1.0);
             }
             """;
 
@@ -146,7 +151,7 @@ final class FlameSheets {
     private static final int GL_TEXTURE_MIN_FILTER = 0x2801, GL_TEXTURE_MAG_FILTER = 0x2800, GL_LINEAR = 0x2601, GL_LINEAR_MIPMAP_LINEAR = 0x2703;
     private static final int GL_TEXTURE_WRAP_S = 0x2802, GL_TEXTURE_WRAP_T = 0x2803, GL_CLAMP_TO_EDGE = 0x812F, GL_UNPACK_ALIGNMENT = 0x0CF5;
     private static final int GL_QUADS = 0x0007, GL_PROJECTION = 0x1701, GL_MODELVIEW = 0x1700;
-    private static final int GL_ONE = 1, GL_ZERO = 0, GL_ONE_MINUS_SRC_ALPHA = 0x0303;
+    private static final int GL_ONE = 1, GL_ZERO = 0, GL_ONE_MINUS_SRC_ALPHA = 0x0303, GL_BLEND = 0x0BE2;
 
     static final String PICTURE = "/fire/flames.png";
 
@@ -256,100 +261,99 @@ final class FlameSheets {
     private final float[] at = new float[4], before = new float[4];
 
     /**
-     * Draws the flames and embers of fires (Fires records), into the picture bound, behind what
-     * is nearer the eye in depth, the picture's depth. The camera's matrices are loaded here,
-     * turned but not moved: every point is given from the eye.
+     * Readies the program for drawing fires into the picture bound, behind what is nearer the eye
+     * in depth, the picture's depth: false while the loop is still being read. The camera's
+     * matrices are loaded, turned but not moved: every point is given from the eye.
      */
-    void draw(float[] fires, int[] order, int count, int depth, ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float near, float far,
-            int width, int height, float asideX, float asideY, float seconds) {
+    boolean begin(int depth, ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float near, float far, int width, int height,
+            float asideX, float asideY) {
         int loop = texture();
         if (loop == 0 || !program.use()) {
-            return;
+            return false;
         }
         GL11.glMatrixMode(GL_PROJECTION);
-        GL11.glPushMatrix();
         ViewCamera.projection(tanHalfFieldOfView, aspect, near, far, projection);
         projection[8] += asideX;
         projection[9] += asideY;
         GL11.glLoadMatrixf(projection);
         GL11.glMatrixMode(GL_MODELVIEW);
-        GL11.glPushMatrix();
         atEye.set(camera);
         atEye.eyeX = atEye.eyeY = atEye.eyeUp = 0f;
         ViewCamera.view(atEye, turned);
         GL11.glLoadMatrixf(turned);
-        GL13.glActiveTexture(GL_TEXTURE0);
-        GL11.glBindTexture(GL_TEXTURE_2D, depth);
         GL13.glActiveTexture(GL_TEXTURE0 + 1);
         GL11.glBindTexture(GL_TEXTURE_2D, loop);
         GL13.glActiveTexture(GL_TEXTURE0);
+        GL11.glBindTexture(GL_TEXTURE_2D, depth);
         GL20.glUniform1i(program.at("uDepth"), 0);
         GL20.glUniform1i(program.at("uFlames"), 1);
         GL20.glUniform2f(program.at("uSize"), width, height);
         GL20.glUniform1f(program.at("uNear"), near);
         GL20.glUniform1f(program.at("uFar"), far);
+        GL20.glUniform1f(program.at("uFrames"), FRAMES);
+        GL20.glUniform1f(program.at("uAcross"), ACROSS);
+        GL20.glUniform1f(program.at("uBrightest"), BRIGHTEST);
+        GL20.glUniform1f(program.at("uEmberBright"), EMBER_BRIGHT);
         GL20.glUniform3f(program.at("uForward"), camera.forwardX, camera.forwardY, camera.forwardUp);
-        // Light added to the picture; how much a surface behind mirrors taken down as far as the flame hides it; the
-        // second buffer, with frame blending on, marked where the flame is as moving by itself.
-        GL40.glBlendFuncSeparatei(0, GL_ONE, GL_ONE, GL_ZERO, GL_ONE_MINUS_SRC_ALPHA);
-        GL40.glBlendFuncSeparatei(1, GL_ONE, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
-        for (int k = 0; k < count; k++) {
-            int f = order[k] * Fires.FLOATS;
-            if (fires[f + Fires.KIND] != Fires.VOLUME || fires[f + Fires.FLAME] <= 0f) {
-                continue;
-            }
-            float x = fires[f + Fires.X] - camera.eyeX, y = fires[f + Fires.Y] - camera.eyeY, up = fires[f + Fires.UP] - camera.eyeUp;
-            float radius = fires[f + Fires.RADIUS], tall = fires[f + Fires.TALL], seed = fires[f + Fires.SEED];
-            // The sheets face the eye about the up: across them is level and square to the line from the eye.
-            float toX = x, toY = y, level = (float) Math.hypot(toX, toY);
-            if (level < 1e-4f) {
-                toX = camera.forwardX;
-                toY = camera.forwardY;
-                level = Math.max((float) Math.hypot(toX, toY), 1e-4f);
-            }
-            toX /= level;
-            toY /= level;
-            float acrossX = -toY, acrossY = toX;
-            float high = tall / REACH, halfWide = radius / ROOT;
-            GL20.glUniform1f(program.at("uKind"), 0f);
-            GL20.glUniform1f(program.at("uStrength"), fires[f + Fires.FLAME] / SHEETS * 1.6f);
-            GL20.glUniform1f(program.at("uSoft"), radius * SOFT);
-            for (int sheet = 0; sheet < SHEETS; sheet++) {
-                float through = (sheet - (SHEETS - 1) / 2f) * SHEETS_APART * radius;
-                float aside = (hash(seed + sheet * 3.3f) - 0.5f) * 0.3f * radius;
-                float cx = x + toX * through + acrossX * aside, cy = y + toY * through + acrossY * aside;
-                GL20.glUniform1f(program.at("uFrame"), frame(seconds, seed, sheet));
-                GL20.glUniform1f(program.at("uLoop"), sheet % 2);
-                // Every other sheet is the loop seen from behind.
-                float flip = sheet == 1 ? -1f : 1f;
-                GL11.glBegin(GL_QUADS);
-                GL11.glTexCoord2f(0f, 0f);
-                GL11.glVertex3f(cx - acrossX * halfWide * flip, cy - acrossY * halfWide * flip, up);
-                GL11.glTexCoord2f(1f, 0f);
-                GL11.glVertex3f(cx + acrossX * halfWide * flip, cy + acrossY * halfWide * flip, up);
-                GL11.glTexCoord2f(1f, 1f);
-                GL11.glVertex3f(cx + acrossX * halfWide * flip, cy + acrossY * halfWide * flip, up + high);
-                GL11.glTexCoord2f(0f, 1f);
-                GL11.glVertex3f(cx - acrossX * halfWide * flip, cy - acrossY * halfWide * flip, up + high);
-                GL11.glEnd();
-            }
-            drawEmbers(fires, f, x, y, up, camera, seconds);
+        return true;
+    }
+
+    /**
+     * Draws one fire's flames and embers, the Fires record at f, once begin has readied the
+     * program. Light is added to the picture and a surface behind mirrors as little as the flame
+     * hides it; with frame blending on, the second buffer is given, over whatever it held, the
+     * mark that what is there moves by itself.
+     */
+    void fire(float[] fires, int f, ViewCamera.Pose camera, float seconds) {
+        program.use();
+        GL14.glBlendFuncSeparate(GL_ONE, GL_ONE, GL_ZERO, GL_ONE_MINUS_SRC_ALPHA);
+        GL30.glDisablei(GL_BLEND, 1);
+        float x = fires[f + Fires.X] - camera.eyeX, y = fires[f + Fires.Y] - camera.eyeY, up = fires[f + Fires.UP] - camera.eyeUp;
+        float radius = fires[f + Fires.RADIUS], tall = fires[f + Fires.TALL], seed = fires[f + Fires.SEED];
+        // The sheets face the eye about the up: across them is level and square to the line from the eye. Over the
+        // fire's very middle that line is straight down, and across is the view's own right.
+        float level = (float) Math.hypot(x, y);
+        float acrossX = level > 1e-3f ? -y / level : camera.rightX, acrossY = level > 1e-3f ? x / level : camera.rightY;
+        float acrossLength = (float) Math.hypot(acrossX, acrossY);
+        acrossX /= acrossLength;
+        acrossY /= acrossLength;
+        float toX = acrossY, toY = -acrossX;
+        float high = tall / REACH, halfWide = radius / ROOT;
+        GL20.glUniform1f(program.at("uKind"), 0f);
+        GL20.glUniform1f(program.at("uStrength"), fires[f + Fires.FLAME] * SHEET_SHARE);
+        GL20.glUniform1f(program.at("uSoft"), radius * SOFT);
+        for (int sheet = 0; sheet < SHEETS; sheet++) {
+            float through = (sheet - (SHEETS - 1) / 2f) * SHEETS_APART * radius;
+            float aside = (hash(seed + sheet * 3.3f) - 0.5f) * 0.3f * radius;
+            float cx = x + toX * through + acrossX * aside, cy = y + toY * through + acrossY * aside;
+            GL20.glUniform1f(program.at("uFrame"), frame(seconds, seed, sheet));
+            GL20.glUniform1f(program.at("uLoop"), sheet % 2);
+            // The middle sheet is the loop seen from behind.
+            float flip = sheet == 1 ? -1f : 1f;
+            float sx = acrossX * halfWide * flip, sy = acrossY * halfWide * flip;
+            GL11.glBegin(GL_QUADS);
+            GL11.glTexCoord2f(0f, 0f);
+            GL11.glVertex3f(cx - sx, cy - sy, up);
+            GL11.glTexCoord2f(1f, 0f);
+            GL11.glVertex3f(cx + sx, cy + sy, up);
+            GL11.glTexCoord2f(1f, 1f);
+            GL11.glVertex3f(cx + sx, cy + sy, up + high);
+            GL11.glTexCoord2f(0f, 1f);
+            GL11.glVertex3f(cx - sx, cy - sy, up + high);
+            GL11.glEnd();
         }
-        GL11.glMatrixMode(GL_PROJECTION);
-        GL11.glPopMatrix();
-        GL11.glMatrixMode(GL_MODELVIEW);
-        GL11.glPopMatrix();
+        embers(fires, f, x, y, up, seconds);
+        GL30.glEnablei(GL_BLEND, 1);
     }
 
     /** The embers of one fire whose foot is at (x, y, up) from the eye. */
-    private void drawEmbers(float[] fires, int f, float x, float y, float up, ViewCamera.Pose camera, float seconds) {
+    private void embers(float[] fires, int f, float x, float y, float up, float seconds) {
         float radius = fires[f + Fires.RADIUS], tall = fires[f + Fires.TALL], seed = fires[f + Fires.SEED];
         int embers = Math.round(EMBERS * Math.min(tall / 2.2f, 1f) * fires[f + Fires.FLAME]);
         if (embers == 0) {
             return;
         }
         GL20.glUniform1f(program.at("uKind"), 1f);
-        GL20.glUniform1f(program.at("uEmberBright"), EMBER_BRIGHT);
         GL11.glBegin(GL_QUADS);
         for (int i = 0; i < embers; i++) {
             ember(i, seed, seconds, radius, tall, at);
@@ -358,19 +362,20 @@ final class FlameSheets {
             }
             ember(i, seed, seconds - EMBER_STREAK, radius, tall, before);
             float hx = x + at[1], hy = y + at[2], hu = up + at[0];
-            // Streaked from where it was a moment ago, and as wide as it is across the line of sight.
+            // Streaked from where it was a moment ago, and as wide as it is across the line of sight; one just thrown up is a point.
             float sx = at[1] - before[1], sy = at[2] - before[2], su = at[0] - before[0];
             if (before[3] <= 0.01f) {
                 sx = sy = 0f;
                 su = 0.001f;
             }
-            float toX = hx, toY = hy, toUp = hu;
-            float wx = sy * toUp - su * toY, wy = su * toX - sx * toUp, wu = sx * toY - sy * toX;
+            float wx = sy * hu - su * hy, wy = su * hx - sx * hu, wu = sx * hy - sy * hx;
             float wl = (float) Math.sqrt(wx * wx + wy * wy + wu * wu);
-            if (wl < 1e-6f) {
+            if (wl < 1e-9f) {
                 continue;
             }
-            float size = EMBER_SIZE * (0.6f + 0.8f * hash(seed + i * 0.91f));
+            // No thinner than about a pixel, as far off as it is, or a far ember twinkles in and out between pixels.
+            float distance = (float) Math.sqrt(hx * hx + hy * hy + hu * hu);
+            float size = Math.max(EMBER_SIZE * (0.6f + 0.8f * hash(seed + i * 0.91f)), distance * EMBER_LEAST_PER_TILE);
             wx *= size / wl;
             wy *= size / wl;
             wu *= size / wl;

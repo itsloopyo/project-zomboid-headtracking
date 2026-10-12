@@ -230,24 +230,28 @@ final class FiresTests {
     }
 
     private static void embersRiseOffTheFlamesAndCool() {
-        float[] at = new float[4];
+        float[] at = new float[4], later = new float[4];
         float radius = 0.5f, tall = 2.2f;
-        int flying = 0;
+        // An ember wanders by up to 0.18 t squared each way, across both axes at once, in a flight of at most 1.4 lives.
+        float flight = FlameSheets.EMBER_LIFE * 1.4f, farthest = radius * 0.8f + 0.18f * flight * flight * (float) Math.sqrt(2.0);
+        int flying = 0, rose = 0, pairs = 0;
         for (int i = 0; i < FlameSheets.EMBERS; i++) {
             for (float seconds = 0f; seconds < 10f; seconds += 0.05f) {
                 FlameSheets.ember(i, 3.3f, seconds, radius, tall, at);
                 check(at[3] >= 0f && at[3] <= 1f, "an ember's heat is 0 to 1: " + at[3]);
-                check(at[0] >= tall * 0.25f, "it starts among the flames and only rises: " + at[0]);
-                float off = (float) Math.hypot(at[1], at[2]);
-                check(off < radius + 0.18f * FlameSheets.EMBER_LIFE * 1.4f * FlameSheets.EMBER_LIFE * 1.4f, "it wanders no further than the hot air takes it: " + off);
+                check(at[0] >= tall * 0.25f - 1e-5f, "it is thrown up from among the flames: " + at[0]);
+                check((float) Math.hypot(at[1], at[2]) <= farthest, "it wanders no further than the hot air takes it: " + Math.hypot(at[1], at[2]));
                 flying += at[3] > 0.05f ? 1 : 0;
+                FlameSheets.ember(i, 3.3f, seconds + 0.02f, radius, tall, later);
+                // A moment later in the same flight it is higher and cooler.
+                if (at[3] > 0.1f && later[3] > 0.1f && later[3] < at[3]) {
+                    pairs++;
+                    rose += later[0] > at[0] ? 1 : 0;
+                }
             }
         }
         check(flying > FlameSheets.EMBERS * 100, "most of the time most embers are flying: " + flying);
-        FlameSheets.ember(0, 3.3f, 1f, radius, tall, at);
-        float early = at[0];
-        FlameSheets.ember(0, 3.3f, 1.2f, radius, tall, at);
-        check(at[0] > early || at[3] > 0.9f, "an ember a moment later is higher, or has been thrown up anew");
+        check(pairs > 1000 && rose == pairs, "an ember cooling in flight always rises: " + rose + " of " + pairs);
     }
 
     private static void theJarHoldsTheFlamesLoop() {
