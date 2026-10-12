@@ -203,6 +203,17 @@ final class RoofBuilder {
         build.frame.cornersFrom(build.heldRed, build.heldGreen, build.heldBlue);
     }
 
+    /**
+     * The gable under a roof's level crown that the map lays as a floor on level z, over the
+     * loft on the level below: the top of a roof cut flat a whole level up. The slopes either
+     * side of the crown have their gables (addGable), and between them, under the crown's west
+     * or north edge, the end of the house was open from the loft's floor up to the crown, and
+     * the crown's underside showed through it.
+     */
+    void addCrownGable(int x, int y, int z) {
+        addGable(x, y, z - 1, 1f, 1f, 1f, 0f, 0);
+    }
+
     private void addGableWalls(IsoGridSquare square, IsoBuilding standing, int ground, long room, int x, int y, int z, float northWest, float northEast, float southWest,
             float peak, int peakAxis) {
         for (int edge = 0; edge < 2; edge++) {
