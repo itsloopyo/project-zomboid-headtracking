@@ -221,9 +221,10 @@ final class MeleeHold {
      * Where the hands go on a handle, in metres. The game's own hand is this far in from the end of the handle on the
      * one-handed weapons measured, in its idle and its swings (0.06 to 0.13); the same is where the left fist is on
      * something held in both, with the right one a fist above it. A spear's rear hand is this far in from its butt (the
-     * game's own: 0.22 to 0.30), and the left one is out along the shaft this far ahead of it (the game's own: 0.46 to 0.55).
+     * game's own: 0.22 to 0.30), and the left one is out along the shaft this far ahead of it: nearer than the game's own
+     * (0.46 to 0.55), which drew the left arm out so far that its elbow came into the picture as the spear was thrust.
      */
-    static final float HAND_IN = 0.1f, SPEAR_BUTT = 0.24f, SPEAR_APART = 0.5f;
+    static final float HAND_IN = 0.1f, SPEAR_BUTT = 0.24f, SPEAR_APART = 0.36f;
 
     /**
      * Where along the mesh the right hand holds something swung, in the mesh's units. Taken from the mesh and not from
