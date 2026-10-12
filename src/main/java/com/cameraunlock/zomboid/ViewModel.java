@@ -210,6 +210,8 @@ public final class ViewModel {
     /** A weapon is up, to within a twentieth, in three of these. */
     private static final float DRAW_SECONDS = 0.07f;
     private float drawn, worked;
+    /** How far under the picture a weapon being put away goes before it is gone. */
+    private static final float PUT_AWAY = 0.95f;
     private static final float WORK_SECONDS = 0.07f;
     private InventoryItem inHand;
 
@@ -256,11 +258,15 @@ public final class ViewModel {
         if (busy(player, seconds)) {
             return;
         }
-        if (player.getVehicle() != null) {
+        // Seated, a firearm is in view only while its sights are up out of a seat the game lets
+        // it be fired from, and is put away under the picture as they come down.
+        boolean inSeat = player.getVehicle() != null;
+        InventoryItem item = !inSeat || Ride.armedFromSeat(player) && player.isAimingFirearmEquipped() ? player.getPrimaryHandItem() : null;
+        boolean away = inSeat && !sightsUp;
+        if (inSeat && (!(item instanceof HandWeapon) || away && item != inHand)) {
             rest();
             return;
         }
-        InventoryItem item = player.getPrimaryHandItem();
         if (!(item instanceof HandWeapon weapon)) {
             // An attack under way was made with what was in hand.
             if (inHand != null) {
@@ -299,7 +305,11 @@ public final class ViewModel {
             clipBefore = false;
             roundsBefore = Integer.MAX_VALUE;
         }
-        drawn = ViewModelMath.ease(drawn, 0f, seconds, DRAW_SECONDS);
+        drawn = ViewModelMath.ease(drawn, away ? 1f : 0f, seconds, DRAW_SECONDS);
+        if (away && drawn > PUT_AWAY) {
+            rest();
+            return;
+        }
         if (!placed) {
             placed = true;
             lastYaw = yaw;

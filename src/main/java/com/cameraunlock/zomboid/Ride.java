@@ -8,6 +8,7 @@ import zombie.characters.IsoPlayer;
 import zombie.scripting.objects.VehicleScript;
 import zombie.vehicles.BaseVehicle;
 import zombie.vehicles.VehiclePart;
+import zombie.vehicles.VehicleWindow;
 
 /**
  * The vehicle the viewer sits in, as the first-person picture needs it: which seat, where the
@@ -191,6 +192,22 @@ final class Ride {
     float heading(BaseVehicle vehicle) {
         vehicle.getForwardVector(facing);
         return (float) Math.atan2(facing.z, facing.x);
+    }
+
+    /**
+     * Whether the game lets someone seated attack from where they sit: the window in the door of
+     * their seat is open, broken or gone (IsoPlayer.updateWhileInVehicle). Then the aim input
+     * raises the weapon and the attack button uses it, out of the window or any other way. With
+     * the glass whole the aim input only turns the head (isLookingWhileInVehicle).
+     */
+    static boolean armedFromSeat(IsoPlayer player) {
+        BaseVehicle vehicle = player.getVehicle();
+        if (vehicle == null) {
+            return false;
+        }
+        VehiclePart door = vehicle.getPassengerDoor(vehicle.getSeat(player));
+        VehicleWindow window = door == null ? null : door.findWindow();
+        return window != null && !window.isHittable();
     }
 
     private void seatTheEye(BaseVehicle vehicle, int seat, float floorUp, float[] eye) {

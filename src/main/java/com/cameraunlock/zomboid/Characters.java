@@ -480,6 +480,15 @@ public final class Characters {
         holding = null;
         tasking = null;
         if (view.pipeline.seated) {
+            // The body is not drawn from a seat, so a weapon raised out of a window is held by
+            // the hands drawHeld draws on it and by nothing else.
+            for (int i = 0; i < noted.size(); i++) {
+                ModelSlotRenderData data = noted.get(i);
+                if (!repainted && data.character != null && data.character == viewer) {
+                    settleTheWeapon(data, camera);
+                    break;
+                }
+            }
             return drawOwnVehicle(camera, tanHalfFieldOfView, aspect, nearFrom, far);
         }
         for (int i = 0; i < noted.size(); i++) {

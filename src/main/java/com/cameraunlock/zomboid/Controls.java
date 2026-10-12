@@ -167,11 +167,12 @@ public final class Controls {
 
     /**
      * Whether a firearm's sights are up: the player's own aim input, never the
-     * aim an attack click implies, with a firearm in hand and on foot.
+     * aim an attack click implies, with a firearm in hand, on foot or in a seat the
+     * game lets it be fired from.
      */
     boolean sightsUp(IsoPlayer player) {
         boolean aiming = stockAim || togglesAim(player) && player.isAiming();
-        return aiming && view.firstPerson.lookCaptured() && player.getVehicle() == null && player.isAimingFirearmEquipped();
+        return aiming && view.firstPerson.lookCaptured() && (player.getVehicle() == null || Ride.armedFromSeat(player)) && player.isAimingFirearmEquipped();
     }
 
     /**
