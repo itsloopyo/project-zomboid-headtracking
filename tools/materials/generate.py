@@ -46,6 +46,8 @@ SURFACES = {
     'carpet': 'top down macro photograph of plain wall to wall carpet, short dense cut pile fibres, tufts of twisted yarn, uniform beige, ' + EVEN,
     'vinyl': 'close-up photograph of dark charcoal grey leather, fine natural pebbled grain, soft matte surface, uniform, ' + EVEN,
     'cloth': 'flat scan of grey sofa upholstery fabric stretched taut, tight basket weave of fine threads, lying perfectly flat, uniform, ' + EVEN,
+    'fur': 'top down macro photograph of a thick white sheepskin rug, dense soft curly wool locks, deep shaggy pile, uniform, ' + EVEN,
+    'hide': 'top down macro photograph of a cowhide rug, short smooth glossy hair lying flat in one direction, fine strands, uniform pale cream, ' + EVEN,
     'jersey': 'macro photograph of plain grey cotton fabric, fine even weave of threads, soft worn cloth, uniform, ' + EVEN,
     'litter': 'top down photograph of a forest floor seen from directly above, covered edge to edge in a dense layer of dry brown and orange fallen oak and beech leaves with a few small twigs, ' + EVEN,
     'rock': 'close-up photograph of a rough grey limestone rock face filling the whole frame, natural fractured stone with cracks, ledges and patches of pale lichen, ' + EVEN,
@@ -59,6 +61,8 @@ OWN_NEGATIVE = {
     'litter': 'shadows, perspective, horizon, text, watermark, blurry, painting, illustration, vignette, border, tiles, lines, green grass, stones, mushrooms, moss',
     'rock': 'shadows, perspective, horizon, text, watermark, blurry, painting, illustration, vignette, border, tiles, lines, bricks, mortar, pebbles, leaves, objects, concrete, sand',
     'cloth': 'folds, wrinkles, creases, drapery, waves, ripples, stripes, shadows, perspective, text, watermark, blurry, painting, illustration, vignette, border, tiles, lines',
+    'fur': 'edge of the rug, floor, folds, shadows, perspective, objects, text, watermark, blurry, painting, illustration, vignette, border, tiles, lines',
+    'hide': 'spots, patches, edge of the rug, floor, folds, shadows, perspective, objects, text, watermark, blurry, painting, illustration, vignette, border, tiles, lines',
     'grass': 'shadows, perspective, horizon, objects, fallen leaves, text, watermark, blurry, painting, illustration, vignette, border, tiles, lines, flowers, soil, path',
 }
 FOLIAGE_NEGATIVE = 'sky, trunk, branches, flowers, fruit, text, watermark, blurry, bokeh, depth of field, painting, illustration, vignette, border, brown, yellow, autumn, wall, bricks, ground'
