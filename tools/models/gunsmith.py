@@ -2,7 +2,7 @@
 cut a part, the materials of steel, alloy, brass and rubber, and the unwrapping, baking,
 packing and rendering of the finished gun.
 
-It is imported by shotgun.py and rifle.py, which run headless in Blender 4.4 and
+It is imported by shotgun.py, rifle.py and revolver.py, which run headless in Blender 4.4 and
 say how each is made and run. A model is in metres, its barrel along +y and its top +z, as
 the game's own weapons are made; what a script makes is packed about the hand that holds its
 grip. A part is an object made by `take`, which every script's parts go through, in the
@@ -387,13 +387,18 @@ class Graph:
         self.put(node.inputs[0], colour)
         return node.outputs[0]
 
-    def laid(self, name, span):
-        """A picture laid with its lines along the barrel, span metres to a repeat. It is drawn out through the gun
-        on a slant, so that it is not smeared on any face but one that slants the same way."""
+    def laid(self, name, span, turn=0.0):
+        """A picture laid with its lines along the barrel, or turned from it by `turn` radians in the plane the gun is
+        symmetrical about, span metres to a repeat. It is drawn out through the gun on a slant, so that it is not
+        smeared on any face but one that slants the same way."""
         angle = GRAIN[name]
-        over = self.add(self.times(self.z, 0.82), self.times(self.x, 0.57))
-        u = self.math("SUBTRACT", self.times(self.y, math.cos(angle) / span), self.times(over, math.sin(angle) / span))
-        v = self.add(self.times(self.y, math.sin(angle) / span), self.times(over, math.cos(angle) / span))
+        lengthwise, up = self.y, self.z
+        if turn:
+            lengthwise = self.add(self.times(self.y, math.cos(turn)), self.times(self.z, math.sin(turn)))
+            up = self.math("SUBTRACT", self.times(self.z, math.cos(turn)), self.times(self.y, math.sin(turn)))
+        over = self.add(self.times(up, 0.82), self.times(self.x, 0.57))
+        u = self.math("SUBTRACT", self.times(lengthwise, math.cos(angle) / span), self.times(over, math.sin(angle) / span))
+        v = self.add(self.times(lengthwise, math.sin(angle) / span), self.times(over, math.cos(angle) / span))
         place = self.tree.nodes.new("ShaderNodeCombineXYZ")
         self.put(place.inputs[0], u)
         self.put(place.inputs[1], v)
@@ -523,10 +528,10 @@ def rubber(g):
     return g.finish(g.scaled(g.colour(0.020, 0.019, 0.018), g.add(0.6, g.times(grain, 1.5))), 0.80, 0.0, g.times(grain, 0.0006))
 
 
-def walnut(g, panels, pitch):
+def walnut(g, panels, pitch, grain=0.0):
     """Oiled walnut, with a panel of fine diamonds `pitch` metres apart cut into each side of the wood within each of
-    panels, given as Graph.panel takes them: where the hand holds it."""
-    figure = g.laid("walnut", 0.30)
+    panels, given as Graph.panel takes them: where the hand holds it. Its grain runs `grain` radians off the barrel."""
+    figure = g.laid("walnut", 0.30, grain)
     light = g.grey(figure)
     colour = g.tinted(g.mix(0.6, figure, g.tinted(figure, figure)), g.colour(1.45, 1.16, 0.98))
     side = g.step(g.math("ABSOLUTE", g.nx), 0.30, 0.55)
