@@ -321,11 +321,11 @@ final class CrownTests {
         SpriteGeometry.Frame frame = frame();
         float[] places = PLACES;
         Crowns crowns = new Crowns();
-        crowns.add(LEAVES, frame, places, 10.5f, 20.5f, 0.1f, FOOT_U, FOOT_V, away, 0f, 0f, Flora.BARK_OAK, Flora.BARK_OAK, Flora.MAPLE, 7, Flora.OPEN, 1f, 0, 0f);
+        crowns.add(LEAVES, frame, places, 10.5f, 20.5f, 0.1f, FOOT_U, FOOT_V, away, 0f, 0f, Flora.BARK_OAK, Flora.BARK_OAK, Flora.MAPLE, 7, Flora.OPEN, 1f, 0, 0f, TreeForm.NONE, null);
         frame.light(secondRed, 0.5f, 0.4f);
-        crowns.add(LEAVES + 1, frame, places, 12.5f, 21.5f, 0f, FOOT_U, FOOT_V, away, 0.12f, 0.9f, Flora.BARK_OAK + 1, Flora.BARK_OAK, Flora.LINDEN, 8, Flora.OPEN, 1f, 0, 0f);
+        crowns.add(LEAVES + 1, frame, places, 12.5f, 21.5f, 0f, FOOT_U, FOOT_V, away, 0.12f, 0.9f, Flora.BARK_OAK + 1, Flora.BARK_OAK, Flora.LINDEN, 8, Flora.OPEN, 1f, 0, 0f, TreeForm.NONE, null);
         frame.open = 0f;
-        crowns.add(LEAVES, frame, places, 14.5f, 22.5f, 0f, FOOT_U, FOOT_V, away, 0f, 0f, Flora.BARK_OAK, Flora.BARK_OAK, Flora.SHRUB, 9, Flora.OPEN, 1f, 0, 0f);
+        crowns.add(LEAVES, frame, places, 14.5f, 22.5f, 0f, FOOT_U, FOOT_V, away, 0f, 0f, Flora.BARK_OAK, Flora.BARK_OAK, Flora.SHRUB, 9, Flora.OPEN, 1f, 0, 0f, TreeForm.NONE, null);
         return crowns;
     }
 
@@ -380,13 +380,13 @@ final class CrownTests {
         same(apart, inBuild);
         // Into one that held more.
         Crowns one = new Crowns();
-        one.add(LEAVES, frame(), PLACES, 1.5f, 2.5f, 0f, FOOT_U, FOOT_V, 6f, 0f, 0f, Flora.BARK_OAK, Flora.BARK_OAK, Flora.MAPLE, 3, Flora.OPEN, 1f, 0, 0f);
+        one.add(LEAVES, frame(), PLACES, 1.5f, 2.5f, 0f, FOOT_U, FOOT_V, 6f, 0f, 0f, Flora.BARK_OAK, Flora.BARK_OAK, Flora.MAPLE, 3, Flora.OPEN, 1f, 0, 0f, TreeForm.NONE, null);
         one.copyTo(moved, 6f);
         check(moved.same(one) && !moved.same(near), "and take the place of whatever was written there before");
         // And more than a new one has room for: nine, where it starts with room for eight.
         Crowns many = new Crowns(), room = new Crowns();
         for (int i = 0; i < 9; i++) {
-            many.add(LEAVES, frame(), PLACES, i + 0.5f, 2.5f, 0f, FOOT_U, FOOT_V, 6f, 0f, 0f, Flora.BARK_OAK, Flora.BARK_OAK, Flora.MAPLE, i, Flora.OPEN, 1f, 0, 0f);
+            many.add(LEAVES, frame(), PLACES, i + 0.5f, 2.5f, 0f, FOOT_U, FOOT_V, 6f, 0f, 0f, Flora.BARK_OAK, Flora.BARK_OAK, Flora.MAPLE, i, Flora.OPEN, 1f, 0, 0f, TreeForm.NONE, null);
         }
         many.copyTo(room, 6f);
         check(room.same(many), "nine crowns written into one that has held none are the same nine");
@@ -429,7 +429,7 @@ final class CrownTests {
         there.scrap();
         // One dot of paint is no crown, and is never written down as one: made all the same, the making fails.
         Crowns none = new Crowns();
-        none.add(LEAVES, frame(), Flora.leafPlaces((u, v) -> u == 3 && v == 3, frame()), 0.5f, 0.5f, 0f, FOOT_U, FOOT_V, 12f, 0f, 0f, Flora.BARK_OAK, Flora.BARK_OAK, Flora.LINDEN, 7, Flora.OPEN, 1f, 0, 0f);
+        none.add(LEAVES, frame(), Flora.leafPlaces((u, v) -> u == 3 && v == 3, frame()), 0.5f, 0.5f, 0f, FOOT_U, FOOT_V, 12f, 0f, 0f, Flora.BARK_OAK, Flora.BARK_OAK, Flora.LINDEN, 7, Flora.OPEN, 1f, 0, 0f, TreeForm.NONE, null);
         Crowns.Work failing = new Crowns.Work(none, spared, 7, PLAIN, false, back);
         Crowns.begin(failing);
         check(Crowns.awaited(back) == failing && failing.failed instanceof IllegalStateException, "work that fails comes back too, with what it threw");

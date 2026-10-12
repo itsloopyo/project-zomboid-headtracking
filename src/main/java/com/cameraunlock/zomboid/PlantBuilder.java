@@ -78,6 +78,9 @@ final class PlantBuilder {
     /** The tree whose bole was stood last: its square, how thick and tall the bole is, and its bark. Its crown, which comes after it, grows limbs from it. */
     private int boleX = Integer.MIN_VALUE, boleY, boleBark;
     private float boleThick, boleTall;
+    /** The species of the tree whose bole was stood last (TreeForm), and the outline its trunk sprite paints (Flora.woodShape), or null. */
+    private int boleKind = TreeForm.NONE;
+    private float[] boleShape;
 
     PlantBuilder(WorldScene world, WorldScene.Frame build) {
         this.world = world;
@@ -647,13 +650,14 @@ final class PlantBuilder {
         if (build.crownsInline) {
             boolean limbed = boled && Crowns.limbed(away, sprig, leaf);
             return Flora.addCrown(WorldScene.solid.get(texture.getID()), WorldScene.solid.get(WorldScene.PLAIN), build.frame, places, x + 0.5f, y + 0.5f, base, footU, footV, Crowns.detail(away), Crowns.close(away),
-                    limbed ? boleThick : 0f, limbed ? boleTall : 0f, limbed ? boleBark : bark, sprig, seed, build.room, leaf, hue, turned);
+                    limbed ? boleThick : 0f, limbed ? boleTall : 0f, limbed ? boleBark : bark, sprig, seed, build.room, leaf, hue, turned,
+                    boled ? boleKind : TreeForm.NONE, boled ? boleShape : null);
         }
         if (!Flora.measure(build.frame, places, footU, footV, crownLeft, crownRight, crownSizes)) {
             return false;
         }
         (build.afresh ? WorldScene.crownsChecked : world.crownsRead).add(texture.getID(), build.frame, places, x + 0.5f, y + 0.5f, base, footU, footV, away, boled ? boleThick : 0f, boled ? boleTall : 0f,
-                boled ? boleBark : bark, bark, sprig, seed, build.room, leaf, hue, turned);
+                boled ? boleBark : bark, bark, sprig, seed, build.room, leaf, hue, turned, boled ? boleKind : TreeForm.NONE, boled ? boleShape : null);
         return true;
     }
 
@@ -704,16 +708,50 @@ final class PlantBuilder {
         int seed = Flora.mix(x, y, 81);
         float base = z * ViewCamera.LEVEL_HEIGHT + build.geometry.liftAt(0.5f, 0.5f);
         boleBark = Flora.barkOf(sprite.getName(), seed);
-        flora.addTrunk(WorldScene.solid.get(WorldScene.PLAIN), x + 0.5f, y + 0.5f, base, bole[0], bole[1], near, boleBark, seed, build.frame);
+        boleKind = TreeForm.withoutForms ? TreeForm.NONE : TreeForm.kindOf(sprite.getName());
+        boleShape = boleKind == TreeForm.NONE ? null : woodShape(sprite, texture);
+        // Where its crown will show its wood (see Crowns.limbed), a broad-leaved tree's limbs leave the bole lower than
+        // where its leaves begin, and a birch or a hawthorn is stems from a short foot, ending in a low dome they go on up from.
+        boolean wooded = boleShape != null && (world.crownedToSight || build.within(Crowns.REACH, true))
+                && (build.geometry.keep == 1f || Seasons.leafOn(Seasons.treeHash(x, y)) < Flora.WOOD_SHOWS || build.within(Crowns.LIMB_REACH, false));
+        boolean footed = wooded && TreeForm.footed(boleKind);
+        float thick = footed ? bole[0] * TreeForm.FOOT_THICK : bole[0];
+        float tall = footed ? bole[1] * TreeForm.FOOT_TALL : wooded ? bole[1] * TreeForm.UNDER_WOOD : bole[1];
+        flora.addTrunk(WorldScene.solid.get(WorldScene.PLAIN), x + 0.5f, y + 0.5f, base, thick, tall, near, !footed, boleBark, seed, build.frame);
         boleX = x;
         boleY = y;
-        boleThick = bole[0];
-        boleTall = bole[1];
+        boleThick = thick;
+        boleTall = tall;
         if (near && Flora.ivied(x, y)) {
-            flora.addIvy(WorldScene.laid.get(WorldScene.PLAIN), x + 0.5f, y + 0.5f, base, bole[0], bole[1], bole[1] * (0.5f + 0.5f * Flora.unit(seed, 16)), seed, build.frame);
-            addGroundIvy(x, y, z, bole[0], seed);
+            flora.addIvy(WorldScene.laid.get(WorldScene.PLAIN), x + 0.5f, y + 0.5f, base, thick, tall, tall * (0.5f + 0.5f * Flora.unit(seed, 16)), seed, build.frame);
+            addGroundIvy(x, y, z, thick, seed);
         }
         return true;
+    }
+
+    /**
+     * The outline of the branches the tree sprite the frame is set to paints, as Flora.woodShape
+     * measures it, kept by sprite: what a broad-leaved tree's wood is grown to from its first
+     * lost leaf to bare. Null, and nothing kept, while the sprite's outline is not read yet.
+     */
+    private float[] woodShape(IsoSprite sprite, Texture texture) {
+        float[] known = WorldScene.woodShapes.get(sprite);
+        if (known != null) {
+            return known;
+        }
+        float[] places = WorldScene.leafPlaces.get(texture);
+        if (places == null) {
+            places = Flora.leafPlaces(texture::isMaskSet, build.frame);
+            if (places.length < CROWN_LEAST_PLACES * 2) {
+                return null;
+            }
+            WorldScene.leafPlaces.put(texture, places);
+        }
+        float[] shape = Flora.woodShape(build.frame, places, SpriteGeometry.frameU(build.frame, 0.5f, 0.5f), SpriteGeometry.frameV(build.frame, 0.5f, 0.5f, 0f));
+        if (shape != null) {
+            WorldScene.woodShapes.put(sprite, shape);
+        }
+        return shape;
     }
 
     /**

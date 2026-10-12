@@ -820,6 +820,8 @@ final class WorldScene {
     /** What was read off each tree's sprite: how thick its bole is and how tall, in tiles. Empty for a sprite with no bole to read. */
     static final IdentityHashMap<IsoSprite, float[]> boles = new IdentityHashMap<>();
     static final float[] NO_BOLE = new float[0];
+    /** The outline of the branches each broad-leaved tree's trunk sprite paints: see Flora.woodShape. */
+    static final IdentityHashMap<IsoSprite, float[]> woodShapes = new IdentityHashMap<>();
     /** How far down the wall of a quay goes from its top: past the water's surface. */
     private static final float QUAY_DEPTH = 0.6f;
     /** How far a layer of cards stands from the one under it besides what any layer does, in tiles: leaves on the card of their trunk. */
@@ -967,6 +969,10 @@ final class WorldScene {
         withoutAlikeBands = off.contains("bands");
         withoutSightline = off.contains("sightline");
         withoutCulling = off.contains("culling");
+        if (TreeForm.withoutForms != off.contains("forms")) {
+            TreeForm.withoutForms = off.contains("forms");
+            forgetAll();
+        }
     }
 
     /** Why the chunks are read through over and over to find what has changed, said once, or null while the game tells. */
@@ -2440,6 +2446,7 @@ final class WorldScene {
                 meshes.clear();
                 kinds.clear();
                 boles.clear();
+                woodShapes.clear();
                 ranks.clear();
                 leafPlaces.clear();
                 cropColours.clear();
