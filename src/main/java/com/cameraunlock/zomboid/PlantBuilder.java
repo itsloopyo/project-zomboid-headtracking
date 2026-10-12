@@ -34,6 +34,9 @@ final class PlantBuilder {
     /** How far in from a side where the lawn ends its plants keep, in tiles. */
     private static final float LAWN_KEEPS_IN = 0.05f;
     private static final int CROWN_LEAST_PLACES = 12;
+    /** A fern the game paints: its size for half the width its sprite paints, at least and at most, and how many fronds it has. */
+    private static final float FERN_OF_HALF = 1.1f, FERN_SMALLEST = 0.3f, FERN_LARGEST = 0.9f;
+    private static final int PAINTED_FRONDS = 6;
     /** Whether the square, if there is one, has a wall or a fence on its north edge, or on its west edge. */
     private static boolean edged(IsoGridSquare square, boolean north) {
         if (square == null) {
@@ -310,6 +313,10 @@ final class PlantBuilder {
         if ((type == IsoObjectType.tree || dead) && build.overLayer == 0 && Own.plants() && addBole(sprite, texture, x, y, z) && build.geometry.keep < 1f) {
             return;
         }
+        // A fern the game paints is a fern of the mod's own, as big as the painted one.
+        if (Flora.fernSprite(grown) && Own.plants() && addFern(x, y, z)) {
+            return;
+        }
         roomFor(x, y, z);
         // A tree's cards are its whole crown, which over a wall's top reaches across it: only its crown of sprigs is kept to its room.
         if (type != IsoObjectType.tree) {
@@ -321,7 +328,7 @@ final class PlantBuilder {
         // A bush is leaves all over, as a tree's crown is.
         // A bush's leaves are smaller than a tree's.
         boolean bush = grown != null && type != IsoObjectType.tree
-                && (grown.startsWith("f_bushes") || grown.startsWith("vegetation_foliage") || grown.startsWith("vegetation_ornamental"));
+                && (grown.startsWith("f_bushes") || grown.startsWith("vegetation_foliage") || grown.startsWith("vegetation_ornamental") || Flora.leafyWeed(grown));
         // So is every other plant the game paints with a dark line round each leaf: the
         // line is what makes it a drawing. A tree's trunk is left as it is, and a dead tree is bark.
         if (grown != null && type != IsoObjectType.tree && Own.plants()) {
@@ -369,6 +376,24 @@ final class PlantBuilder {
         build.geometry.nudgeX = build.geometry.nudgeY = 0f;
         build.geometry.roomLowA = build.geometry.roomLowB = -Float.MAX_VALUE;
         build.geometry.roomHighA = build.geometry.roomHighB = Float.MAX_VALUE;
+    }
+
+    /**
+     * Stands a fern where the frame's sprite paints one, its fronds reaching as far as the
+     * painted fern does. False for a sprite whose outline says too little to size it by.
+     */
+    private boolean addFern(int x, int y, int z) {
+        if (!SpriteGeometry.boxOf(build.frame, build.box)) {
+            return false;
+        }
+        float size = Math.clamp(build.box[2] * FERN_OF_HALF, FERN_SMALLEST, FERN_LARGEST), reach = Flora.fernReach(size);
+        roomFor(x, y, z);
+        float a = Flora.within(Math.clamp(build.box[0], 0.2f, 0.8f), reach, build.room[0] - x, build.room[1] - x);
+        float b = Flora.within(Math.clamp(build.box[1], 0.2f, 0.8f), reach, build.room[2] - y, build.room[3] - y);
+        int seed = Flora.mix(x, y, 85);
+        Flora.addFern(WorldScene.laid.get(WorldScene.PLAIN), x + a, y + b, z * ViewCamera.LEVEL_HEIGHT + build.geometry.liftAt(a, b), size,
+                PAINTED_FRONDS + (seed >>> 24 & 1), seed, build.frame);
+        return true;
     }
 
     /**

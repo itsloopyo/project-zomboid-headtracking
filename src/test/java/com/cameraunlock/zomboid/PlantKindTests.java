@@ -19,6 +19,7 @@ final class PlantKindTests {
         Checks.run("aBareCrownNeedsABole", PlantKindTests::aBareCrownNeedsABole);
         Checks.run("aBareCrownFarOffHasNoTwigs", PlantKindTests::aBareCrownFarOffHasNoTwigs);
         Checks.run("aBareCrownHasLimbsWhateverItsDistance", PlantKindTests::aBareCrownHasLimbsWhateverItsDistance);
+        Checks.run("leafyWeedsAndFernsAreToldByName", PlantKindTests::leafyWeedsAndFernsAreToldByName);
     }
 
     private static void evergreensAreToldByName() {
@@ -125,6 +126,22 @@ final class PlantKindTests {
     private static void aBareCrownHasLimbsWhateverItsDistance() {
         check(Crowns.limbed(Crowns.REACH * 4f, Flora.BARE), "a bare crown is its limbs: it has them at any distance");
         check(!Crowns.limbed(Crowns.REACH * 4f, Flora.MAPLE) && Crowns.limbed(4f, Flora.MAPLE), "a crown in leaf has them only near");
+    }
+
+    private static void leafyWeedsAndFernsAreToldByName() {
+        int[] leafy = {16, 17, 23, 32, 39, 48, 55, 64};
+        int[] other = {0, 7, 8, 15, 24, 31, 40, 47, 56, 63, 65};
+        for (int place : leafy) {
+            check(Flora.leafyWeed("d_plants_1_" + place), "d_plants_1_" + place + " is a leafy wild plant");
+        }
+        for (int place : other) {
+            check(!Flora.leafyWeed("d_plants_1_" + place), "d_plants_1_" + place + " is a seedling, a dried plant or a flower, and no bush");
+        }
+        check(!Flora.leafyWeed(null) && !Flora.leafyWeed("d_plants_2_16"), "no other sheet holds them");
+        for (int place = 40; place < 92; place++) {
+            boolean fern = place >= 48 && place <= 55 || place >= 80 && place <= 87;
+            check(Flora.fernSprite("d_generic_1_" + place) == fern, "d_generic_1_" + place + (fern ? " is" : " is not") + " a fern");
+        }
     }
 
     private static void check(boolean condition, String what) {

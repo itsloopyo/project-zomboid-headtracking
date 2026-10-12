@@ -783,6 +783,22 @@ final class Flora {
         return place >= 16 && place <= 19;
     }
 
+    /**
+     * Whether a sprite, by its name, is one of the wild plants the game paints as a clump of
+     * broad leaves: of the weeds the map's erosion grows, the leafy ones, which are small bushes.
+     * Its seedlings, its dried plants and its flowers are none.
+     */
+    static boolean leafyWeed(String name) {
+        int place = name == null ? -1 : Sheets.place(name, "d_plants_1_");
+        return place >= 16 && place <= 23 || place >= 32 && place <= 39 || place >= 48 && place <= 55 || place == 64;
+    }
+
+    /** Whether a sprite, by its name, is one of the ferns the game paints among its wild plants. */
+    static boolean fernSprite(String name) {
+        int place = name == null ? -1 : Sheets.place(name, "d_generic_1_");
+        return place >= 48 && place <= 55 || place >= 80 && place <= 87;
+    }
+
     /** Which sprig a plant bears, by its sprite's name: the game names a tree's sprites for its species. */
     static int sprigOf(String name, boolean bush) {
         if (bush) {
