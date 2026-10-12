@@ -2190,13 +2190,14 @@ final class PipelineShaders {
                             if (shownFrom * LITTER_SPREAD_MOST / LITTER_STEPS > uLitterSeason.w + 1e-4) {
                                 discard;
                             }
-                            // What lies on the ground lies under lying snow: a few of the leaves poke out where it is thin.
+                            // What lies on the ground lies under lying snow: a few of the leaves poke out where it is thin. The snow is asked
+                            // without its fine ragged edge, which would cut a leaf into crumbs.
                             if (pick > 0.5 && uSnowLying > 0.0 && vKind - 2.0 > 0.5) {
                                 vec3 leafToEye = uEye - vWorld;
                                 float leafAway = length(leafToEye);
                                 float leafFoot = uPixel * leafAway * leafAway / max(abs(leafToEye.z), 0.1);
                                 snowShelter = (1.0 - skyOverAt(vWorld + vec3(0.0, 0.0, 0.1), max(leafAway - uRangeFrom, 0.0))) / 0.62;
-                                float lies = snowCover(vPlace.xy, leafFoot);
+                                float lies = snowCovers(snowThick(vPlace.xy, leafFoot).x);
                                 snowShelter = 0.0;
                                 if (lies > (grain(floor(vWorld.xy * 2.0) + 23.0) < 0.3 ? 0.85 : 0.3)) {
                                     discard;
