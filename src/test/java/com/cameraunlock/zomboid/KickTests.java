@@ -12,6 +12,7 @@ final class KickTests {
         Checks.run("aKickHasSettledWithinHalfASecond", KickTests::aKickHasSettledWithinHalfASecond);
         Checks.run("aPumpGunKicksHarderThanARifleAndARifleThanAPistol", KickTests::aPumpGunKicksHarderThanARifleAndARifleThanAPistol);
         Checks.run("shotsFasterThanTheKickSettlesDoNotStackItWithoutEnd", KickTests::shotsFasterThanTheKickSettlesDoNotStackItWithoutEnd);
+        Checks.run("anAutomaticBurstHoldsTheMuzzleAboutAShotHigh", KickTests::anAutomaticBurstHoldsTheMuzzleAboutAShotHigh);
         Checks.run("aShotThrowsTheMuzzleUpAndBack", KickTests::aShotThrowsTheMuzzleUpAndBack);
         Checks.run("withTheSightsUpTheWeaponMovesLessAgainstTheEye", KickTests::withTheSightsUpTheWeaponMovesLessAgainstTheEye);
         Checks.run("aGunWithNoStockKicksAsAtTheHipWithTheSightsUp", KickTests::aGunWithNoStockKicksAsAtTheHipWithTheSightsUp);
@@ -121,6 +122,42 @@ final class KickTests {
             most = Math.max(most, Math.abs(kick.weaponBack.at));
         }
         check(most <= Kick.WEAPON_BACK * 2f + 1e-6f, "a shot every frame for two seconds keeps the weapon within twice a shot's throw: " + most);
+    }
+
+    /**
+     * The assault rifle fires a round every 0.08 s on automatic, faster than one kick settles:
+     * each shot strikes the springs once more, and the burst holds the muzzle about as high as
+     * one shot throws it, shaking, and never stacks it towards the springs' end stops.
+     */
+    private static void anAutomaticBurstHoldsTheMuzzleAboutAShotHigh() {
+        float hard = Kick.fired(15, 1.6f);
+        for (float aim : new float[] {0f, 1f}) {
+            Kick one = new Kick();
+            one.fire(hard, aim);
+            float shot = 0f;
+            for (int frame = 0; frame < 60; frame++) {
+                one.step(1f / 60f);
+                shot = Math.max(shot, one.weaponPitch.at);
+            }
+            Kick burst = new Kick();
+            float most = 0f, held = 0f, next = 0f, time = 0f;
+            int shots = 0, counted = 0;
+            for (int frame = 0; frame < 150; frame++) {
+                burst.step(1f / 60f);
+                time += 1f / 60f;
+                for (; shots < 30 && time >= next; shots++, next += 0.08f) {
+                    burst.fire(hard, aim);
+                }
+                most = Math.max(most, burst.weaponPitch.at);
+                if (time > 0.4f && shots < 30) {
+                    held += burst.weaponPitch.at;
+                    counted++;
+                }
+            }
+            held /= counted;
+            check(most < 1.6f * shot, "the burst throws the muzzle no higher than 1.6 times a shot does, aim " + aim + ": " + most / shot);
+            check(held > 0.5f * shot && held < 1.1f * shot, "and holds it about a shot high once it is going: " + held / shot);
+        }
     }
 
     private static void aShotThrowsTheMuzzleUpAndBack() {
