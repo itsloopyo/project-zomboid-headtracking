@@ -3,6 +3,7 @@ package com.cameraunlock.zomboid;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import zombie.iso.SpriteDetails.IsoObjectType;
 
 /** Tests of which sprites are a shop's awning or a hood over a lone wall, and of the models that hang in their place. */
 final class AwningTests {
@@ -235,6 +236,10 @@ final class AwningTests {
         loose.roofSprite(1, 0, 0, "roofs_02_6", "attachedN", "isEave");
         check(!loose.build.roofBuilder.addEaveRow(loose.painted, 1, 0, 0) && TestMap.plain().triangles() == 0,
                 "a row with no wall under it to hang from is made nothing");
+        TestMap glazed = new TestMap();
+        glazed.roofSprite(1, 0, 0, "roofs_02_6", "attachedN", "isEave");
+        glazed.cell.square(1, 0, 0).add(glazed.sprite("walls_exterior_house_02_41", IsoObjectType.wall, "WindowN"));
+        check(glazed.build.roofBuilder.addEaveRow(glazed.painted, 1, 0, 0), "a row over a wall a window is in hangs from that wall");
     }
 
     private static void aKioskHasAHoodHippedAtBothEndsAndItsEndPiecesGo() {

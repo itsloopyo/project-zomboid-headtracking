@@ -172,6 +172,16 @@ final class Hoods {
         return wall == Outdoors.WEST ? DYED_WEST : DYED_NORTH;
     }
 
+    /** Whether what has these flags is a wall on the north edge of its square: a plain one, or one a window or a doorway is in. */
+    static boolean walledNorth(PropertyContainer flags) {
+        return flags.has(IsoFlagType.WallN) || flags.has(IsoFlagType.WallNTrans) || flags.has(IsoFlagType.WindowN) || flags.has(IsoFlagType.DoorWallN);
+    }
+
+    /** Whether what has these flags is a wall on the west edge of its square: a plain one, or one a window or a doorway is in. */
+    static boolean walledWest(PropertyContainer flags) {
+        return flags.has(IsoFlagType.WallW) || flags.has(IsoFlagType.WallWTrans) || flags.has(IsoFlagType.WindowW) || flags.has(IsoFlagType.DoorWallW);
+    }
+
     static Squares on(IsoCell cell, int z) {
         return new Squares() {
             @Override
@@ -204,7 +214,7 @@ final class Hoods {
                         continue;
                     }
                     PropertyContainer flags = sprite.getProperties();
-                    if (flags.has(IsoFlagType.WallNW) || flags.has(wall == Outdoors.WEST ? IsoFlagType.WallW : IsoFlagType.WallN)) {
+                    if (flags.has(IsoFlagType.WallNW) || (wall == Outdoors.WEST ? walledWest(flags) : walledNorth(flags))) {
                         return true;
                     }
                 }
