@@ -1532,7 +1532,6 @@ public final class Characters {
         data.ambientR = 1f;
         data.ambientG = 1f;
         data.ambientB = 1f;
-        EYE.Begin();
         IsoGridSquare square = data.character.getCurrentSquare();
         boolean outside = square != null && square.isOutside();
         for (int part = 0; part < parts(data).size(); part++) {
@@ -1544,16 +1543,18 @@ public final class Characters {
             if (!right && !inLeftHand(model.modelInstance)) {
                 continue;
             }
+            // The game's draw takes the matrix pushed when the camera is begun: each hand's is pushed for what that hand holds.
             System.arraycopy(right ? heldView : leftView, 0, combined, 0, 16);
+            EYE.Begin();
             unshifted(model.modelInstance);
             GL11.glDepthMask(true);
             drawPart(model, data);
+            EYE.End();
         }
         OwnArms.Worn worn = wornOnArms();
         float[] stains = view.ride.dress.stains;
         OwnArms.draw(projection, armSkins[0], false, armFemale, armSkin, outside, worn, stains);
         OwnArms.draw(projection, armSkins[1], true, armFemale, armSkin, outside, worn, stains);
-        EYE.End();
         data.ambientR = red;
         data.ambientG = green;
         data.ambientB = blue;
