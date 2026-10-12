@@ -100,6 +100,63 @@ final class ViewModelMath {
     private static final float NO_LENGTH = 1e-6f;
 
     /**
+     * How far a point is from the middle of a hand of the game's, along the line square to the
+     * hand's length and to the line across its wrist. That line is either way out of the palm:
+     * which, the wrist's own shape does not say.
+     *
+     * @param hand  what CharacterDraw.hand says of the hand
+     * @param point in the same axes
+     */
+    static float palmFacing(float[] hand, float[] point) {
+        float[] along = new float[3], square = new float[3];
+        handLines(hand, along, square);
+        return (point[0] - hand[6]) * square[0] + (point[1] - hand[7]) * square[1] + (point[2] - hand[8]) * square[2];
+    }
+
+    /**
+     * The matrix that carries a hand of the game's, and what it holds, to where another hand is
+     * in the view: the game's hand's length goes along `fingers`, its palm out along `palm` and
+     * its middle `back` behind `at`. Like `hold` it reads the game's axes mirrored, at `scale`.
+     *
+     * @param hand     what CharacterDraw.hand says of the hand, in the axes the person is stood from
+     * @param palmSide 1 if the hand's palm faces along the line palmFacing measures by, -1 against it
+     * @param fingers  the way the hand's fingers run in the view, of length one
+     * @param palm     the way out of its palm, of length one and square to `fingers`
+     * @param at       the middle of what it holds, in the view
+     * @param scale    the game's units to the view's
+     */
+    static void carry(float[] hand, float palmSide, float[] fingers, float[] palm, float[] at, float scale, float back, float[] out) {
+        float[] along = new float[3], out3 = new float[3], third = new float[3], third2 = new float[3];
+        handLines(hand, along, out3);
+        for (int axis = 0; axis < 3; axis++) {
+            out3[axis] *= palmSide;
+        }
+        ArmPose.cross(along, out3, third);
+        ArmPose.cross(fingers, palm, third2);
+        // The third line goes the other way: the game's axes are the view's in a mirror.
+        for (int row = 0; row < 3; row++) {
+            for (int column = 0; column < 3; column++) {
+                out[column * 4 + row] = (fingers[row] * along[column] + palm[row] * out3[column] - third2[row] * third[column]) * scale;
+            }
+            out[row * 4 + 3] = 0f;
+        }
+        out[15] = 1f;
+        for (int row = 0; row < 3; row++) {
+            out[12 + row] = at[row] - palm[row] * back - (out[row] * hand[6] + out[4 + row] * hand[7] + out[8 + row] * hand[8]);
+        }
+    }
+
+    /** A hand of the game's: the way it runs from the wrist, and the line square to that and to the line across the wrist. */
+    private static void handLines(float[] hand, float[] along, float[] square) {
+        ArmPose.unit(hand[0] - hand[3], hand[1] - hand[4], hand[2] - hand[5], along);
+        float ax = hand[9] - hand[0], ay = hand[10] - hand[1], az = hand[11] - hand[2];
+        float lengthwise = ax * along[0] + ay * along[1] + az * along[2];
+        float[] across = new float[3];
+        ArmPose.unit(ax - along[0] * lengthwise, ay - along[1] * lengthwise, az - along[2] * lengthwise, across);
+        ArmPose.cross(along, across, square);
+    }
+
+    /**
      * Turns and moves what a matrix has placed, about a point that stays where it is but for
      * the move: rolled about the line ahead, then pitched, then yawed, in radians. Positive
      * pitch raises what points ahead, positive yaw swings it to the right and positive roll

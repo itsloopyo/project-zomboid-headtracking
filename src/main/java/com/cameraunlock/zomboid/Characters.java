@@ -468,6 +468,7 @@ public final class Characters {
         noted.clear();
         notedFrames++;
         holding = null;
+        tasking = null;
     }
 
     /**
@@ -477,6 +478,7 @@ public final class Characters {
     boolean drawViewer(ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float nearFrom, float far) {
         IsoPlayer viewer = view.player();
         holding = null;
+        tasking = null;
         if (view.pipeline.seated) {
             return drawOwnVehicle(camera, tanHalfFieldOfView, aspect, nearFrom, far);
         }
@@ -484,6 +486,7 @@ public final class Characters {
             ModelSlotRenderData data = noted.get(i);
             if (data.character != null && data.character == viewer && !data.inVehicle) {
                 settleTheWeapon(data, camera);
+                settleTheTask(data, camera);
                 drawOwnBody(data, camera, tanHalfFieldOfView, aspect, nearFrom, far);
                 return true;
             }
@@ -601,6 +604,127 @@ public final class Characters {
             }
         }
     }
+
+    /**
+     * Whether the hands can be brought up to the timed action under way is settled before the
+     * body is drawn, as for a weapon. Only the mod's own arms are brought up: with the game's
+     * own, its animation of the action is drawn as it is.
+     */
+    private void settleTheTask(ModelSlotRenderData data, ViewCamera.Pose camera) {
+        ViewModel.Task task = view.viewModel.task;
+        if (task == null || holding != null || !CharacterDraw.cuts() || !Own.arms() || OwnArms.model() == null) {
+            return;
+        }
+        ViewCamera.between(aim, camera, fromAim);
+        ModelInstanceRenderData right = weaponOf(data), left = leftOf(data);
+        TimedActs.hands(task.kind(), task.low(), task.time(), right != null, left != null, task.up(), taskHands[0], taskHands[1]);
+        float scale = ARM_SCALE * data.finalScale;
+        for (int side = 0; side < 2; side++) {
+            TimedActs.Hand from = taskHands[side], to = seenHands[side];
+            ViewModelMath.place(fromAim, from.at[0] * scale, from.at[1] * scale, from.at[2] * scale, to.at);
+            ViewModelMath.turned(fromAim, from.fingers, to.fingers);
+            ViewModelMath.turned(fromAim, from.out, to.out);
+            to.pose = from.pose;
+        }
+        if (right != null && !inTheHand(data, 0, right, seenHands[0], scale, heldView) || left != null && !inTheHand(data, 1, left, seenHands[1], scale, leftView)) {
+            return;
+        }
+        if (!ArmHolds.placeTask(OwnArms.model(), scale, seenHands, fromAim, armSkins, armSaid)) {
+            if (!taskRefused) {
+                taskRefused = true;
+                Log.info("the mod's own arms could not be placed at " + task.anim() + ": the game's own animation of it is drawn, as often as that happens");
+            }
+            return;
+        }
+        holding = data;
+        tasking = task;
+        armHands = null;
+        armFemale = task.female();
+        armSkin = task.skin();
+        ownArms = true;
+        heldBoth = true;
+        // Nothing with a muzzle is held up: no flash is drawn.
+        view.viewModel.hasMuzzle = false;
+    }
+
+    /**
+     * The matrix that carries what a hand of the game's holds, with that hand, to where the
+     * mod's hand is before the eye: from the axes the person is stood from, at the scale the
+     * game draws them, to the view's. False while the hand or what it holds cannot be read.
+     *
+     * @param side 0 the right hand, 1 the left
+     * @param hand the mod's hand, in the view
+     */
+    private boolean inTheHand(ModelSlotRenderData data, int side, ModelInstanceRenderData item, TimedActs.Hand hand, float scale, float[] out) {
+        Model model = item.model;
+        if (model.mesh == null) {
+            return false;
+        }
+        boolean found = false;
+        for (int part = 0; !found && part < parts(data).size(); part++) {
+            found = CharacterDraw.hand(parts(data).get(part), side == 1, data.finalScale, joined);
+        }
+        if (!found) {
+            return false;
+        }
+        // The line across the wrist is the wrist's widest, either way along it: the palm is on
+        // the side of the hand what it holds is on, and kept when that is not plain.
+        float[] xfrm = item.xfrm.get(itemPlace);
+        Vector3f low = model.mesh.minXyz, high = model.mesh.maxXyz;
+        float cx = (low.x + high.x) / 2f, cy = (low.y + high.y) / 2f, cz = (low.z + high.z) / 2f;
+        for (int axis = 0; axis < 3; axis++) {
+            itemMiddle[axis] = (xfrm[axis * 4] * cx + xfrm[axis * 4 + 1] * cy + xfrm[axis * 4 + 2] * cz + xfrm[axis * 4 + 3]) * data.finalScale;
+        }
+        float facing = ViewModelMath.palmFacing(joined, itemMiddle) * CHARACTER_SCALE;
+        if (Math.abs(facing) > PALM_PLAIN || palmSides[side] == 0f) {
+            float sideFound = facing < 0f ? -1f : 1f;
+            if (palmSides[side] == 0f) {
+                Log.info(String.format(Locale.ROOT, "the %s palm is first found facing %s the game's hand's own line, %.3f tiles from the middle of %s", side == 0 ? "right" : "left",
+                        sideFound > 0f ? "along" : "against", facing, model.name));
+            }
+            palmSides[side] = sideFound;
+        }
+        // The middle of the game's hand goes where the middle of the mod's is, behind what it holds.
+        ViewModelMath.carry(joined, palmSides[side], hand.fingers, hand.out, hand.at, CHARACTER_SCALE, HELD_IN * scale, out);
+        return true;
+    }
+
+    /** What is in the viewer's left hand, or null: the one part the game hangs from that hand's bone. */
+    private static ModelInstanceRenderData leftOf(ModelSlotRenderData data) {
+        for (int part = 0; part < parts(data).size(); part++) {
+            ModelInstanceRenderData model = parts(data).get(part);
+            if (model.model != null && model.model.isStatic && LEFT_HAND_BONE.equals(model.modelInstance.parentBoneName)) {
+                return model;
+            }
+        }
+        return null;
+    }
+
+    /** Whether a part is what the left hand holds, or is fixed to it. */
+    private static boolean inLeftHand(ModelInstance instance) {
+        for (ModelInstance of = instance; of != null; of = of.parent) {
+            if (LEFT_HAND_BONE.equals(of.parentBoneName)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** The bone the game hangs what is in the left hand from. */
+    private static final String LEFT_HAND_BONE = "Bip01_Prop2";
+    /** The timed action the hands are drawn at, from drawViewer until the frame is done, or null. */
+    private ViewModel.Task tasking;
+    private boolean taskRefused;
+    private final TimedActs.Hand[] taskHands = {new TimedActs.Hand(), new TimedActs.Hand()}, seenHands = {new TimedActs.Hand(), new TimedActs.Hand()};
+    /** The matrix that carries what the left hand holds to before the eye, as heldView does what the right holds. */
+    private final float[] leftView = new float[16], itemPlace = new float[16];
+    private final float[] itemMiddle = new float[3];
+    /** For each hand, right then left, which way along the game's hand's own line (ViewModelMath.palmFacing) its palm faces: 0 until it is found. */
+    private final float[] palmSides = new float[2];
+    /** Further than this from the plane of the game's hand, in tiles, what it holds says which side its palm is on. */
+    private static final float PALM_PLAIN = 0.01f;
+    /** How far behind the middle of what the mod's hand holds the middle of the hand is, in metres. */
+    private static final float HELD_IN = 0.03f;
 
     private void drawOwnBody(ModelSlotRenderData data, ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float nearFrom, float far) {
         ViewCamera.projection(tanHalfFieldOfView, aspect, nearFrom, far, projection);
@@ -1220,6 +1344,10 @@ public final class Characters {
      * out of.
      */
     void drawHeld(float tanHalfFieldOfView, float aspect, float nearFrom, float far) {
+        if (tasking != null) {
+            drawTask(tanHalfFieldOfView, aspect, nearFrom, far);
+            return;
+        }
         ModelSlotRenderData data = holding;
         ViewCamera.projection(tanHalfFieldOfView, aspect, nearFrom, far, projection);
         System.arraycopy(heldView, 0, combined, 0, 16);
@@ -1297,6 +1425,41 @@ public final class Characters {
             }
         }
         CharacterDraw.release();
+        EYE.End();
+        data.ambientR = red;
+        data.ambientG = green;
+        data.ambientB = blue;
+    }
+
+    /** Draws the hands at a timed action and what the game has in them for it, as drawHeld does the weapon. */
+    private void drawTask(float tanHalfFieldOfView, float aspect, float nearFrom, float far) {
+        ModelSlotRenderData data = holding;
+        ViewCamera.projection(tanHalfFieldOfView, aspect, nearFrom, far, projection);
+        float red = data.ambientR, green = data.ambientG, blue = data.ambientB;
+        data.ambientR = 1f;
+        data.ambientG = 1f;
+        data.ambientB = 1f;
+        EYE.Begin();
+        IsoGridSquare square = data.character.getCurrentSquare();
+        boolean outside = square != null && square.isOutside();
+        for (int part = 0; part < parts(data).size(); part++) {
+            ModelInstanceRenderData model = parts(data).get(part);
+            if (model.model == null || !model.model.isStatic) {
+                continue;
+            }
+            boolean right = inHand(model.modelInstance);
+            if (!right && !inLeftHand(model.modelInstance)) {
+                continue;
+            }
+            System.arraycopy(right ? heldView : leftView, 0, combined, 0, 16);
+            unshifted(model.modelInstance);
+            GL11.glDepthMask(true);
+            drawPart(model, data);
+        }
+        OwnArms.Worn worn = wornOnArms();
+        float[] stains = view.ride.dress.stains;
+        OwnArms.draw(projection, armSkins[0], false, armFemale, armSkin, outside, worn, stains);
+        OwnArms.draw(projection, armSkins[1], true, armFemale, armSkin, outside, worn, stains);
         EYE.End();
         data.ambientR = red;
         data.ambientG = green;
@@ -1592,8 +1755,8 @@ public final class Characters {
                 continue;
             }
             if (held) {
-                // The weapon and the arms on it are drawn apart, held up before the eye.
-                if (inHand(model.modelInstance)) {
+                // The weapon and the arms on it are drawn apart, held up before the eye, and so is what the left hand holds at a timed action.
+                if (inHand(model.modelInstance) || tasking != null && inLeftHand(model.modelInstance)) {
                     continue;
                 }
                 CharacterDraw.release();

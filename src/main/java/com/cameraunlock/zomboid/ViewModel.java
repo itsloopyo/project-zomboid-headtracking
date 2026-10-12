@@ -3,7 +3,9 @@ package com.cameraunlock.zomboid;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Locale;
+import java.util.Stack;
 import org.joml.Vector3f;
+import zombie.characters.CharacterTimedActions.BaseAction;
 import zombie.characters.IsoPlayer;
 import zombie.core.skinnedmodel.model.ModelInstance;
 import zombie.inventory.InventoryItem;
@@ -83,7 +85,7 @@ public final class ViewModel {
             int action, float cycled, int doing, float done, int rounds, float round, float handled, float pace, float seated, float drawn, float worked,
             boolean clip, float out, float fetching, float fetchTakes, boolean leftFree) {}
 
-    /** What is held, or null with no weapon in hand. */
+    /** What is held, or null with no weapon in hand, and while the hands are busy with a timed action. */
     volatile Held held;
 
     /**
@@ -100,6 +102,36 @@ public final class ViewModel {
 
     /** The shove or stamp under way with nothing in hand, or null. */
     volatile Bare bare;
+
+    /**
+     * A timed action the hands are busy with before the eye.
+     *
+     * @param kind   the way of working it is: one of TimedActs' kinds
+     * @param low    whether it is worked at something on the floor
+     * @param time   how long it has gone on, in seconds
+     * @param done   how much of it the game has done, 0 to 1: its progress bar
+     * @param up     0 with the hands below the picture, 1 up at the work
+     * @param anim   the game's name for its animation of it
+     * @param skin   which of the game's skins the body wears, 0 the palest
+     * @param female whether the body is a woman's
+     */
+    record Task(int kind, boolean low, float time, float done, float up, String anim, int skin, boolean female) {}
+
+    /** The timed action the hands are busy with, or null. While there is one, nothing is held up. */
+    volatile Task task;
+
+    /** The hands come up to a timed action, to within a twentieth, in three of these, and go down from it as fast. */
+    private static final float TASK_SECONDS = 0.08f;
+    /** Nearer than this to below the picture, hands leaving a timed action are gone. */
+    private static final float TASK_GONE = 0.02f;
+    private String taskAnim;
+    private final HashSet<String> animsSaid = new HashSet<>();
+    private int taskWearAsked;
+    /** How far up the hands are left when one action follows another of another kind. */
+    private static final float TASK_BETWEEN = 0.4f;
+    private int taskKind;
+    private boolean taskLow;
+    private float taskTime, taskUp, taskDone;
 
     /** The muzzle's attachment in the game's model scripts. Its own z axis runs along the barrel. */
     private static final String MUZZLE = "muzzle";
@@ -221,6 +253,9 @@ public final class ViewModel {
      * @param aimedAt  how far off the aim meets the world, in tiles, or infinity
      */
     void update(IsoPlayer player, float yaw, float pitch, float seconds, boolean sightsUp, float aimedAt) {
+        if (busy(player, seconds)) {
+            return;
+        }
         if (player.getVehicle() != null) {
             rest();
             return;
@@ -442,8 +477,67 @@ public final class ViewModel {
                 ? new Bare(attack, swing.reached(), swing.past(), struck, player.getHumanVisual().getSkinTextureIndex(), player.isFemale()) : null;
     }
 
-    /** Nothing is held up, and no attack is under way: the next weapon starts from the hip, still. */
+    /**
+     * Follows the timed action the game's animation of the holder says is under way, as it
+     * sets PerformingAction for it, and returns whether the hands are busy with one. Reloading a
+     * firearm is not one: the weapon's own working shows that. The hands come up as an action
+     * starts and go down after it ends; while they are up the weapon is put away, and it comes
+     * up again from under the picture once they are down.
+     */
+    private boolean busy(IsoPlayer player, float seconds) {
+        String anim = player.getVehicle() == null && isSet(player, "IsPerformingAnAction") && !isSet(player, "isLoading")
+                && !isSet(player, "isUnloading") && !isSet(player, "isRacking") ? player.GetVariable("PerformingAction") : null;
+        int kind = anim == null ? TimedActs.NONE : TimedActs.kind(anim);
+        if (kind != TimedActs.NONE) {
+            if (!anim.equals(taskAnim)) {
+                // One action straight after another: the hands drop part of the way and come up to the next.
+                if (taskAnim != null && kind != taskKind) {
+                    taskUp = Math.min(taskUp, TASK_BETWEEN);
+                }
+                if (animsSaid.add(anim)) {
+                    Log.info("hands at a timed action, first time this session: " + anim + " (way of working " + kind + (TimedActs.low(anim) ? ", on the floor" : "") + ")");
+                }
+                taskAnim = anim;
+                taskKind = kind;
+                taskLow = TimedActs.low(anim);
+                taskTime = 0f;
+            } else {
+                taskTime += seconds;
+            }
+            taskUp = ViewModelMath.ease(taskUp, 1f, seconds, TASK_SECONDS);
+            Stack<BaseAction> actions = player.getCharacterActions();
+            taskDone = actions.isEmpty() ? 0f : actions.get(0).getJobDelta();
+        } else if (taskUp > 0f) {
+            taskTime += seconds;
+            taskUp = ViewModelMath.ease(taskUp, 0f, seconds, TASK_SECONDS);
+            if (taskUp < TASK_GONE) {
+                taskUp = 0f;
+                taskAnim = null;
+            }
+        }
+        if (taskUp == 0f) {
+            task = null;
+            return false;
+        }
+        putAway();
+        // What the arms wear changes seldom, and asking makes a list for every garment.
+        if ((taskWearAsked++ & 31) == 0) {
+            Cabins.noteWear(player, view.ride.dress);
+        }
+        task = new Task(taskKind, taskLow, taskTime, taskDone, taskUp, taskAnim, player.getHumanVisual().getSkinTextureIndex(), player.isFemale());
+        return true;
+    }
+
+    /** Nothing is held up, no attack is under way and the hands are at nothing: the next weapon starts from the hip, still. */
     void rest() {
+        putAway();
+        task = null;
+        taskAnim = null;
+        taskUp = 0f;
+    }
+
+    /** Nothing is held up and no attack is under way. */
+    private void putAway() {
         restHeld();
         kick.rest();
         swing.reset();
@@ -486,6 +580,11 @@ public final class ViewModel {
     /** For the trace. */
     String describe() {
         Held now = held;
+        Task doing = task;
+        if (doing != null) {
+            return String.format(Locale.ROOT, "hands at %s (kind %d%s) for %.2f s, %.2f done, up %.2f, %s", doing.anim(), doing.kind(), doing.low() ? ", low" : "",
+                    doing.time(), doing.done(), doing.up(), view.characters.describeArms());
+        }
         Bare empty = bare;
         if (now == null && empty != null) {
             return String.format(Locale.ROOT, "held nothing, bare way %d reached %.2f past %.2f struck %b, %s", empty.way, empty.reached, empty.past, empty.struck, view.characters.describeArms());

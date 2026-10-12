@@ -481,6 +481,38 @@ final class ArmHolds {
         return solve(model, weapon, scale, doing.turned(), left, fromAim, 1, skins, said) ? 2 : 0;
     }
 
+    /**
+     * Places both arms on hands busy with a timed action (TimedActs), each hand given in the
+     * view: where the middle of what it holds is, the way its fingers run and the way out of
+     * its palm. Each hand is laid exactly as given, so that what the game has in it can be put
+     * in it by the same lines: it is not turned back as a hand on a weapon is, and TimedActs
+     * gives no hand more turn than a forearm takes. False if either arm cannot be placed.
+     *
+     * @param scale   the model's metres to tiles
+     * @param fromAim the matrix from the aim's axes, which the shoulders are fixed in, to the view's
+     * @param skins   the answer, right then left: for each bone the matrix ArmPose gives
+     * @param said    the answer, right then left: what ArmPose says of each arm
+     */
+    static boolean placeTask(ArmModel model, float scale, TimedActs.Hand[] hands, float[] fromAim, float[][] skins, float[][] said) {
+        float[] shoulder = new float[3], from = new float[3], across = new float[3];
+        for (int side = 0; side < 2; side++) {
+            TimedActs.Hand hand = hands[side];
+            float[] weights = new float[model.poses.length];
+            weights[model.pose(TimedActs.POSE_NAMES[hand.pose])] = 1f;
+            // The thumb's side is square to the fingers and the palm, on the side that hand has its thumb.
+            if (side == 1) {
+                ArmPose.cross(hand.out, hand.fingers, across);
+            } else {
+                ArmPose.cross(hand.fingers, hand.out, across);
+            }
+            starts(false, side, scale, 0f, fromAim, shoulder, from);
+            if (!ArmPose.solve(model, scale, weights, hand.at, across, hand.out, shoulder, from, side == 1, false, skins[side], said[side])) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     /** How long a magazine is, and how far behind where it is pinched a round's base is, in metres. */
     static final float MAGAZINE_LONG = 0.115f, ROUND_BEHIND = 0.02f;
 
@@ -861,8 +893,11 @@ final class ArmHolds {
 
     /** Where an arm on this weapon starts and where its forearm is to seem to come from, in the view. */
     private static void starts(Weapon weapon, int side, float scale, float turned, float[] fromAim, float[] shoulder, float[] from) {
+        starts(weapon.firearm() && !weapon.handgun(), side, scale, turned, fromAim, shoulder, from);
+    }
+
+    private static void starts(boolean longGun, int side, float scale, float turned, float[] fromAim, float[] shoulder, float[] from) {
         float sign = side == 1 ? -1f : 1f;
-        boolean longGun = weapon.firearm() && !weapon.handgun();
         float[] at = longGun ? LONG_SHOULDERS[side] : new float[] {SHOULDER[0] * sign, SHOULDER[1], SHOULDER[2]};
         turnedPlace(at, turned, scale, fromAim, shoulder);
         turnedPlace(longGun && side == 1 ? LONG_FROM : FROM[side], turned, scale, fromAim, from);
