@@ -45,6 +45,9 @@ final class OwnModel {
         new OwnModel("the magnum's model", "magnum", "magnum", "Base.Revolver_Long", false, false, true, OwnRevolver.PARTS, OwnRevolver::new),
         new OwnModel("the snub-nosed revolver's model", "snubnose", "snubnose", "Base.Revolver_Short", false, false, true, OwnRevolver.PARTS, OwnRevolver::new),
         new OwnModel("the cap gun's model", "capgun", "capgun", "Base.Revolver_CapGun", false, false, true, OwnRevolver.PARTS, OwnRevolver::new),
+        new OwnModel("the service pistol's model", "pistol", "pistol", "Base.Pistol", false, false, true, OwnPistol.PARTS, OwnPistol::new),
+        new OwnModel("the forty-five's model", "pistol2", "pistol2", "Base.Pistol2", false, false, true, OwnPistol.PARTS, OwnPistol::new),
+        new OwnModel("the magnum pistol's model", "pistol3", "pistol3", "Base.Pistol3", false, false, true, OwnPistol.PARTS, OwnPistol::new),
     };
 
     /**

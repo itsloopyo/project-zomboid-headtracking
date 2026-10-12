@@ -1136,7 +1136,8 @@ public final class Characters {
         }
         meshTo(heldView, data.finalScale, meshView);
         meshTo(view.viewModel.still, data.finalScale, meshStill);
-        return heldMesh.set(shape, meshView, meshStill, ViewModel.PUMP_TRAVEL * shape.muzzle * pumped, Float.NaN, ArmHolds.BOLT_TRAVEL);
+        return heldMesh.set(shape, meshView, meshStill, ViewModel.PUMP_TRAVEL * shape.muzzle * pumped, Float.NaN,
+                view.viewModel.handgun ? ArmHolds.SLIDE_TRAVEL : ArmHolds.BOLT_TRAVEL);
     }
 
     /** The matrix from the held weapon's mesh to a view, from the matrix from the viewer's model to that view. */

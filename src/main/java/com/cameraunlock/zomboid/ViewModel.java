@@ -84,12 +84,14 @@ public final class ViewModel {
      * @param swungAs   for something swung, which of MeleeHold's classes the game puts it in
      * @param own       for a firearm, the mod's own model that stands for it, as OwnModel.of said when this was made, or null
      * @param paused    whether the game is paused this frame: what the action threw hangs where it is
+     * @param shots     how many shots the holder has taken with what has been held, counted up from when the game began
+     * @param chambered whether the weapon has a round in its chamber
      */
     record Held(String item, int itemId, boolean firearm, boolean bothHands, int attack, float reached, float past, boolean struck, float aim, float nearness, float lowered,
             float swayYaw, float swayPitch, float bobX, float bobY, float recoil, float kickPitch, float kickYaw, float kickRoll, float kickUp, float kickBack,
             float dip, int skin, boolean female,
             int action, float cycled, int doing, float done, int rounds, int spent, float round, float handled, float pace, float seated, float drawn, float worked,
-            boolean clip, float out, float fetching, float fetchTakes, boolean leftFree, int swungAs, OwnModel own, boolean paused) {
+            boolean clip, float out, float fetching, float fetchTakes, boolean leftFree, int swungAs, OwnModel own, boolean paused, int shots, boolean chambered) {
         /**
          * The mod's own model drawn for it: decided once, as this was made, so that where it is
          * held, the hands on it and what is drawn agree on the frame a model comes onto the
@@ -188,7 +190,7 @@ public final class ViewModel {
     private int attack;
     private boolean struck, unshown, stamping;
     private final float[] swingNow = new float[2];
-    private int kicks;
+    private int kicks, shots;
     private boolean placed, wasSneaking, wasFalling;
     private float lastYaw, lastPitch, lastX, lastY;
     private final float[] bob = new float[2];
@@ -274,6 +276,7 @@ public final class ViewModel {
         }
         if (held != null) {
             kicks++;
+            shots++;
             view.muzzleFlash.fire();
             if (racked) {
                 sinceShot = 0f;
@@ -503,7 +506,7 @@ public final class ViewModel {
                 attack, reached, past, struck, aim, nearness, lowered, swayYaw, swayPitch, bob[0], bob[1], recoil,
                 kick.weaponPitch.at, kick.weaponYaw.at, kick.weaponRoll.at, kick.weaponUp.at, kick.weaponBack.at, dip,
                 player.getHumanVisual().getSkinTextureIndex(), player.isFemale(), action, cycled, doing, done, rounds, firearm ? weapon.getSpentRoundCount() : 0, round, handled, took[action][doing], seated, drawn, worked, clip, out, fetching, fetchTakes[action], !steering && player.getSecondaryHandItem() == null, firearm ? MeleeHold.ONE_HANDED : swungAs(weapon, item == player.getSecondaryHandItem()),
-                firearm ? OwnModel.of(item.getFullType()) : null, paused);
+                firearm ? OwnModel.of(item.getFullType()) : null, paused, shots, firearm && weapon.isRoundChambered());
     }
 
     /**
@@ -708,8 +711,10 @@ public final class ViewModel {
         if (now != null && now.firearm && view.scope.fitted() != null) {
             return view.scope.forwardStop();
         }
-        // The rifle's rear sight is on its barrel, further off than a lean reaches.
-        return now != null && now.ownDrawn() != null ? Float.POSITIVE_INFINITY : FORWARD_STOP;
+        // The mod's own long guns' rear sights are on their barrels, further off than a lean reaches. A handgun's is over
+        // its grip, where the game's handguns have theirs.
+        OwnModel own = now == null ? null : now.ownDrawn();
+        return own != null && !own.handgun ? Float.POSITIVE_INFINITY : FORWARD_STOP;
     }
     /**
      * Where a handgun and a long gun are held to be loaded: the line of the barrel to the right
@@ -811,7 +816,8 @@ public final class ViewModel {
         if (how.firearm && !hasMuzzle && noMuzzleSaid.add(how.item)) {
             Log.info("the model of " + how.item + " has no attachment called " + MUZZLE + ": the game's own arms hold it and its shots have no flash");
         }
-        handgun = hasMuzzle && Math.hypot(barrel.getOffset().x, Math.hypot(barrel.getOffset().y, barrel.getOffset().z)) < HANDGUN_WITHIN;
+        float muzzleOut = hasMuzzle ? (float) Math.hypot(barrel.getOffset().x, Math.hypot(barrel.getOffset().y, barrel.getOffset().z)) : 0f;
+        handgun = hasMuzzle && muzzleOut < HANDGUN_WITHIN;
         if (hasMuzzle) {
             Vector3f offset = barrel.getOffset(), rotate = barrel.getRotate();
             // The attachment is turned about x, then y, then z, and its own z is the barrel:
@@ -872,8 +878,9 @@ public final class ViewModel {
         // their line, which is that far over the bore at the size the model is drawn.
         OwnModel own = hasMuzzle ? how.ownDrawn() : null;
         // The game's handguns are made for its own broad hands, nearly twice the size a handgun
-        // is beside its long guns. In hands the size hands are they are drawn the size they would be.
-        float fits = trueHands && handgun ? HANDGUN_FITS : 1f;
+        // is beside its long guns. In hands the size hands are they are drawn the size they would be:
+        // the mod's own handgun, which is made the size it is, at the size the long guns are drawn.
+        float fits = trueHands && handgun ? own != null ? Characters.PER_METRE * own.muzzleFar / muzzleOut : HANDGUN_FITS : 1f;
         scale *= fits;
         float aimedY = AIMED_Y * fits, aimedAhead = AIMED_AHEAD;
         if (own != null) {

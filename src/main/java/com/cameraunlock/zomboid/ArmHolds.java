@@ -148,7 +148,7 @@ final class ArmHolds {
          * @param still    the same with the weapon held still: without the kick of a shot, the sway of a step, the dip of a landing or a pump's stroke, copied
          * @param slid     how far back a pump's fore-end is drawn now, in the mesh's units
          * @param foreRest where along the barrel the hand under the fore-end rests, in the mesh's units, or not a number for the shape to say
-         * @param travel   how far back the bolt is drawn, in metres
+         * @param travel   how far back the bolt is drawn, or a handgun's slide, in metres
          */
         Placed set(WeaponShape shape, float[] toView, float[] still, float slid, float foreRest, float travel) {
             this.shape = shape;
@@ -419,6 +419,17 @@ final class ArmHolds {
             return out;
         }
     }
+
+    /**
+     * How far back a pistol's slide is drawn by the hand that racks it, 0 to 1, a share of the
+     * way through racking it: drawn back, and let go to run forward of itself.
+     */
+    static float slideRacked(float done) {
+        return between(done, 0.3f, SLIDE_LET_GO) - between(done, SLIDE_LET_GO, 0.56f);
+    }
+
+    /** Racking, the hand lets go of the slide this far through it. */
+    static final float SLIDE_LET_GO = 0.5f;
 
     /** 0 before `from`, 1 after `to`, and eased between. */
     private static float between(float time, float from, float to) {
@@ -701,7 +712,7 @@ final class ArmHolds {
                 return hold;
             }
             // Over the top of the slide from behind and to the left, drawn back with it, let go.
-            float back = (between(done, 0.3f, 0.5f) - between(done, 0.5f, 0.56f)) * SLIDE_TRAVEL;
+            float back = slideRacked(done) * placed.travel();
             Hold onSlide = new Hold(model).set(along(placed.at(shape.slide), axes.ahead, -back * axes.scale), axes.way(0f, -1f, 0.1f), axes.way(0.3f, 0.15f, 0.94f), true,
                     model.pose("slide"));
             float on = between(done, 0f, 0.3f) - between(done, 0.6f, 0.95f);

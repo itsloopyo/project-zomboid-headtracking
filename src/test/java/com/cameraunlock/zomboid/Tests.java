@@ -167,6 +167,7 @@ public final class Tests {
         Checks.run("LowTests", LowTests::run);
         Checks.run("ScopeTests", ScopeTests::run);
         Checks.run("RifleTests", RifleTests::run);
+        Checks.run("PistolTests", PistolTests::run);
         Checks.run("MuzzleFlashTests", MuzzleFlashTests::run);
         Checks.run("FiresTests", FiresTests::run);
         Checks.run("LightningTests", LightningTests::run);
