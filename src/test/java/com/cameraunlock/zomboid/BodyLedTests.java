@@ -17,6 +17,10 @@ final class BodyLedTests {
         Checks.run("aHitLeavesTheEyeTheMouses", BodyLedTests::aHitLeavesTheEyeTheMouses);
         Checks.run("onlyALedBodyIsHeld", BodyLedTests::onlyALedBodyIsHeld);
         Checks.run("aTippedRolledHeadOnATurnedBodyLooksWhereItsFaceDoes", BodyLedTests::aTippedRolledHeadOnATurnedBodyLooksWhereItsFaceDoes);
+        Checks.run("aHeadThrownBackPastStraightUpLooksStraightUp", BodyLedTests::aHeadThrownBackPastStraightUpLooksStraightUp);
+        Checks.run("aHeadRolledPastItsSideLiesOnItsSide", BodyLedTests::aHeadRolledPastItsSideLiesOnItsSide);
+        Checks.run("aHeadStraightUpsideDownLooksStraightUp", BodyLedTests::aHeadStraightUpsideDownLooksStraightUp);
+        Checks.run("aViewTheRightWayUpIsLeftAlone", BodyLedTests::aViewTheRightWayUpIsLeftAlone);
     }
 
     /** The angle the game draws a body facing +x at: AnimationPlayer.getRenderedAngle, a quarter turn more than the way it faces. */
@@ -218,5 +222,46 @@ final class BodyLedTests {
                 "the view looks where the face does in the world: " + head.forwardX + ", " + head.forwardY + ", " + head.forwardUp);
         check(near(head.upX, u[0]) && near(head.upY, u[1]) && near(head.upUp, u[2]), "with its up where the crown points");
         check(square(head), "and is a view square to itself");
+    }
+
+    private static void aHeadThrownBackPastStraightUpLooksStraightUp() {
+        ViewCamera.Pose pose = new ViewCamera.Pose();
+        // Facing +x and pitched up 120 degrees: past straight up, looking back over the head, the picture upside down.
+        ViewCamera.clean(pose, 0f, 0f, 0f, 0f, 0f);
+        ViewCamera.turn(pose, 0f, (float) Math.toRadians(120), 0f, false);
+        check(pose.upUp < 0f, "the test view is upside down to begin with");
+        new BodyLed().upright(pose);
+        check(near(pose.forwardUp, 1f), "it looks straight up: " + pose.forwardUp);
+        check(near(pose.upX, -1f) && near(pose.upUp, 0f), "with the top of the picture back the way the head came from");
+        check(square(pose), "and is a view square to itself");
+    }
+
+    private static void aHeadRolledPastItsSideLiesOnItsSide() {
+        ViewCamera.Pose pose = new ViewCamera.Pose();
+        ViewCamera.clean(pose, 0f, 0f, 0f, 0.4f, 0.2f);
+        float fx = pose.forwardX, fy = pose.forwardY, fu = pose.forwardUp;
+        ViewCamera.turn(pose, 0f, 0f, (float) Math.toRadians(130), false);
+        check(pose.upUp < 0f, "the test view is rolled past its side");
+        new BodyLed().upright(pose);
+        check(near(pose.upUp, 0f) && square(pose), "the top of the picture is level with the horizon: " + pose.upUp);
+        check(pose.forwardX * fx + pose.forwardY * fy + pose.forwardUp * fu > 0.97f, "and it still looks nearly where it did");
+    }
+
+    private static void aHeadStraightUpsideDownLooksStraightUp() {
+        ViewCamera.Pose pose = new ViewCamera.Pose();
+        ViewCamera.clean(pose, 0f, 0f, 0f, 1.1f, 0f);
+        ViewCamera.turn(pose, 0f, 0f, (float) Math.PI, false);
+        new BodyLed().upright(pose);
+        check(near(pose.forwardUp, 1f) && near(pose.upUp, 0f) && square(pose), "standing on its head, the view is turned to look straight up: " + pose.forwardUp);
+    }
+
+    private static void aViewTheRightWayUpIsLeftAlone() {
+        ViewCamera.Pose pose = new ViewCamera.Pose(), before = new ViewCamera.Pose();
+        ViewCamera.clean(pose, 1f, 2f, 3f, 0.7f, -0.5f);
+        ViewCamera.turn(pose, 0f, 0f, (float) Math.toRadians(80), false);
+        before.set(pose);
+        new BodyLed().upright(pose);
+        check(pose.forwardX == before.forwardX && pose.upUp == before.upUp && pose.rightY == before.rightY && pose.eyeX == before.eyeX,
+                "a view rolled short of its side is not touched");
     }
 }

@@ -1423,6 +1423,7 @@ public final class FirstPerson {
         ViewCamera.Pose head = view.bodyLed.head;
         float x = player.getX(), y = player.getY();
         BodyLed.look(headTurn, bodyAngle, x, y, standsUp, headJoint[0], headJoint[1], headJoint[2], head);
+        view.bodyLed.upright(head);
         // Held off walls along the map as the standing eye is, a head thrown back against one stopping short of it, and
         // off the floor as far: face down, the eye ahead of the head's joint is under it.
         float margin = Tracking.settings().collisionMargin;

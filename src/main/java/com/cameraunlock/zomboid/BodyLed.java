@@ -113,6 +113,63 @@ final class BodyLed {
         out.eyeUp = footUp + jointUp + out.forwardUp * ViewCamera.EYES_AHEAD + out.upUp * ViewCamera.EYES_ABOVE_JOINT;
     }
 
+    /**
+     * Turns a view by the least it takes to keep the top of the picture from going below the
+     * horizon: a head thrown back past looking straight up looks straight up, and one rolled
+     * past lying on its side lies on its side. A view the right way up is left as it is.
+     */
+    void upright(ViewCamera.Pose pose) {
+        if (pose.upUp >= 0f) {
+            return;
+        }
+        float flatX = pose.upX, flatY = pose.upY;
+        float flat = (float) Math.hypot(flatX, flatY);
+        // Straight upside down, every way along the ground is as near: the one the face looks along turns it to look straight up.
+        if (flat < 1e-4f) {
+            flatX = pose.forwardX;
+            flatY = pose.forwardY;
+            flat = (float) Math.hypot(flatX, flatY);
+        }
+        flatX /= flat;
+        flatY /= flat;
+        // The turn that takes up to level along the ground the way it leans: about up x level, by the angle between them.
+        float axisX = -pose.upUp * flatY, axisY = pose.upUp * flatX, axisUp = pose.upX * flatY - pose.upY * flatX;
+        float sin = (float) Math.sqrt(axisX * axisX + axisY * axisY + axisUp * axisUp);
+        float cos = pose.upX * flatX + pose.upY * flatY;
+        axisX /= sin;
+        axisY /= sin;
+        axisUp /= sin;
+        forward[0] = pose.forwardX;
+        forward[1] = pose.forwardY;
+        forward[2] = pose.forwardUp;
+        up[0] = pose.upX;
+        up[1] = pose.upY;
+        up[2] = pose.upUp;
+        turn(forward, axisX, axisY, axisUp, cos, sin);
+        turn(up, axisX, axisY, axisUp, cos, sin);
+        pose.forwardX = forward[0];
+        pose.forwardY = forward[1];
+        pose.forwardUp = forward[2];
+        pose.upX = up[0];
+        pose.upY = up[1];
+        pose.upUp = 0f;
+        orthonormal(pose);
+    }
+
+    private final float[] forward = new float[3], up = new float[3];
+
+    /** Turns a direction about a unit axis by an angle given as its cosine and sine. */
+    private static void turn(float[] v, float ax, float ay, float az, float cos, float sin) {
+        float along = ax * v[0] + ay * v[1] + az * v[2];
+        float cx = ay * v[2] - az * v[1], cy = az * v[0] - ax * v[2], cz = ax * v[1] - ay * v[0];
+        float x = v[0] * cos + cx * sin + ax * along * (1f - cos);
+        float y = v[1] * cos + cy * sin + ay * along * (1f - cos);
+        float z = v[2] * cos + cz * sin + az * along * (1f - cos);
+        v[0] = x;
+        v[1] = y;
+        v[2] = z;
+    }
+
     /** One part of a direction given in a bone's own axes, in the axes its turn is given in. */
     private static float column(float[] turn, float[] in, int row) {
         return turn[row] * in[0] + turn[3 + row] * in[1] + turn[6 + row] * in[2];
