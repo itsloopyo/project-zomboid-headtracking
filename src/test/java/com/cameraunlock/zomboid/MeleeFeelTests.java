@@ -24,6 +24,7 @@ final class MeleeFeelTests {
         Checks.run("aShoveLeadsWithThePalmsIntoThePicture", MeleeFeelTests::aShoveLeadsWithThePalmsIntoThePicture);
         Checks.run("bareHandsMoveNoFarInATinyStep", MeleeFeelTests::bareHandsMoveNoFarInATinyStep);
         Checks.run("bothArmsArePlacedThroughAShoveAndAStamp", () -> bothArmsArePlacedThroughAShoveAndAStamp(model));
+        Checks.run("aHandWithSomethingInItGoesWithTheShove", MeleeFeelTests::aHandWithSomethingInItGoesWithTheShove);
     }
 
     private static final float FRAME = 1f / 60f, LANDS = 0.25f, PACE = 1f;
@@ -220,19 +221,45 @@ final class MeleeFeelTests {
     private static final float SCALE = 0.74f;
     private static final float[] SAME = {1f, 0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 1f};
 
+    /** Every way of holding the hands in a shove or a stamp: both empty, a torch in the right, a bag in the left, and both full. */
+    private static final boolean[][] FULL = {{false, false}, {true, false}, {false, true}, {true, true}};
+
     private static void bothArmsArePlacedThroughAShoveAndAStamp(ArmModel model) {
-        float[][] skins = new float[2][24 * 16], said = new float[2][ArmPose.SAYS];
-        float[] hand = new float[BareHands.SAYS];
-        float worst = 0f;
-        for (int way : new int[] {BareHands.SHOVED, BareHands.STAMPED}) {
-            for (int step = 0; step <= 40; step++) {
-                BareHands.pose(way, Math.min(step / 20f, 1f), Math.max(step / 20f - 1f, 0f), step % 2 == 0, hand);
-                check(ArmHolds.bare(model, SCALE, hand, model.pose(BareHands.POSES[way]), SAME, skins, said), "both arms are placed, way " + way + " step " + step);
-                for (int side = 0; side < 2; side++) {
-                    worst = Math.max(worst, said[side][ArmPose.BENT]);
+        float[][] skins = new float[2][24 * 16], said = new float[2][ArmPose.SAYS], hands = new float[2][BareHands.SAYS];
+        int[] poses = new int[2];
+        for (boolean[] full : FULL) {
+            float worst = 0f;
+            for (int way : new int[] {BareHands.SHOVED, BareHands.STAMPED}) {
+                for (int step = 0; step <= 40; step++) {
+                    for (int side = 0; side < 2; side++) {
+                        BareHands.hand(way, Math.min(step / 20f, 1f), Math.max(step / 20f - 1f, 0f), step % 2 == 0, full[side], side == 1, hands[side]);
+                        poses[side] = model.pose(BareHands.poseOf(way, full[side]));
+                    }
+                    check(ArmHolds.bare(model, SCALE, hands, poses, SAME, skins, said), "both arms are placed, way " + way + " step " + step + " full " + full[0] + " " + full[1]);
+                    for (int side = 0; side < 2; side++) {
+                        worst = Math.max(worst, said[side][ArmPose.BENT]);
+                    }
                 }
             }
+            check(Math.toDegrees(worst) < 50.0, "no wrist is bent past 50 degrees, full " + full[0] + " " + full[1] + ": " + Math.toDegrees(worst));
         }
-        check(Math.toDegrees(worst) < 50.0, "no wrist is bent past 50 degrees: " + Math.toDegrees(worst));
+    }
+
+    /** A hand with something in it goes out and back with the shove, closed round what it holds, and the free one is the hand it always was. */
+    private static void aHandWithSomethingInItGoesWithTheShove() {
+        float[] free = new float[BareHands.SAYS], full = new float[BareHands.SAYS], left = new float[BareHands.SAYS], mirrored = new float[BareHands.SAYS];
+        float[] before = new float[BareHands.SAYS];
+        BareHands.hand(BareHands.SHOVED, 0.3f, 0f, false, true, false, before);
+        BareHands.hand(BareHands.SHOVED, 1f, 0f, false, false, false, free);
+        BareHands.hand(BareHands.SHOVED, 1f, 0f, false, true, false, full);
+        check(full[0] == free[0] && full[1] == free[1] && full[2] == free[2], "the full hand is where the free one would be");
+        check(-full[2] > -before[2] + 0.1f, "and goes out with the shove: " + before[2] + " to " + full[2]);
+        check(full[3] < -0.9f && Math.abs(full[4]) < 0.1f && Math.abs(full[5]) < 0.1f, "its palm faces in across the body, not ahead: " + full[3] + ", " + full[4] + ", " + full[5]);
+        float palmDotFingers = full[3] * full[6] + full[4] * full[7] + full[5] * full[8];
+        check(Math.abs(palmDotFingers) < 1e-6f, "its fingers run square to its palm: " + palmDotFingers);
+        check(BareHands.poseOf(BareHands.SHOVED, true).equals(BareHands.FULL_POSE) && BareHands.poseOf(BareHands.SHOVED, false).equals("open"), "it is a fist, the free hand open");
+        BareHands.hand(BareHands.SHOVED, 1f, 0f, false, false, true, left);
+        BareHands.pose(BareHands.SHOVED, 1f, 0f, false, mirrored);
+        check(left[0] == -mirrored[0] && left[1] == mirrored[1] && left[3] == -mirrored[3] && left[6] == -mirrored[6], "the left hand is the right in a mirror");
     }
 }

@@ -468,7 +468,7 @@ public final class Characters {
         noted.clear();
         notedFrames++;
         holding = null;
-        tasking = null;
+        carrying = false;
     }
 
     /**
@@ -478,7 +478,7 @@ public final class Characters {
     boolean drawViewer(ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float nearFrom, float far) {
         IsoPlayer viewer = view.player();
         holding = null;
-        tasking = null;
+        carrying = false;
         if (view.pipeline.seated) {
             // The body is not drawn from a seat, so a weapon raised out of a window is held by
             // the hands drawHeld draws on it and by nothing else.
@@ -574,20 +574,41 @@ public final class Characters {
         ViewModel.Held hands = view.viewModel.held;
         ViewModel.Bare bare = view.viewModel.bare;
         if (hands == null && bare != null && CharacterDraw.cuts() && Own.arms() && OwnArms.model() != null) {
-            // A shove or a stamp with nothing in hand: the mod's own arms, and the body's left out.
+            // A shove or a stamp with no weapon in hand: the mod's own arms, and the body's left out.
+            // Whatever else the game has in a hand is carried in that hand through it.
             ViewCamera.between(aim, camera, fromAim);
-            BareHands.pose(bare.way(), bare.reached(), bare.past(), bare.struck(), bareHand);
-            if (ArmHolds.bare(OwnArms.model(), ARM_SCALE * data.finalScale, bareHand, OwnArms.model().pose(BareHands.POSES[bare.way()]), fromAim, armSkins, armSaid)) {
+            ArmModel model = OwnArms.model();
+            float scale = ARM_SCALE * data.finalScale;
+            ModelInstanceRenderData right = weaponOf(data), left = leftOf(data);
+            for (int side = 0; side < 2; side++) {
+                boolean full = side == 0 ? bare.rightFull() || right != null : bare.leftFull() || left != null;
+                BareHands.hand(bare.way(), bare.reached(), bare.past(), bare.struck(), full, side == 1, bareHands[side]);
+                barePoses[side] = model.pose(BareHands.poseOf(bare.way(), full));
+                float[] hand = bareHands[side];
+                TimedActs.Hand seen = seenHands[side];
+                ViewModelMath.place(fromAim, hand[0] * scale, hand[1] * scale, hand[2] * scale, seen.at);
+                ViewModelMath.turned(fromAim, new float[] {hand[3], hand[4], hand[5]}, seen.out);
+                ViewModelMath.turned(fromAim, new float[] {hand[6], hand[7], hand[8]}, seen.fingers);
+                ArmPose.unit(seen.out[0], seen.out[1], seen.out[2], seen.out);
+                ArmPose.unit(seen.fingers[0], seen.fingers[1], seen.fingers[2], seen.fingers);
+            }
+            if (right != null && !inTheHand(data, 0, right, seenHands[0], scale, heldView) || left != null && !inTheHand(data, 1, left, seenHands[1], scale, leftView)) {
+                return;
+            }
+            if (ArmHolds.bare(model, scale, bareHands, barePoses, fromAim, armSkins, armSaid)) {
                 holding = data;
+                carrying = true;
                 armHands = null;
                 armFemale = bare.female();
                 armSkin = bare.skin();
                 armCarries.what = ArmHolds.NOTHING;
                 ownArms = true;
                 heldBoth = true;
+                // Nothing with a muzzle is held up: no flash is drawn.
+                view.viewModel.hasMuzzle = false;
             } else if (!bareRefused) {
                 bareRefused = true;
-                Log.info("the mod's own arms could not be placed for a shove or a stamp with nothing in hand: the game's own arms are drawn for it, as often as that happens");
+                Log.info("the mod's own arms could not be placed for a shove or a stamp with no weapon in hand: the game's own arms are drawn for it, as often as that happens");
             }
             return;
         }
@@ -670,7 +691,7 @@ public final class Characters {
             return;
         }
         holding = data;
-        tasking = task;
+        carrying = true;
         armHands = null;
         armFemale = task.female();
         armSkin = task.skin();
@@ -745,8 +766,11 @@ public final class Characters {
 
     /** The bone the game hangs what is in the left hand from. */
     private static final String LEFT_HAND_BONE = "Bip01_Prop2";
-    /** The timed action the hands are drawn at, from drawViewer until the frame is done, or null. */
-    private ViewModel.Task tasking;
+    /**
+     * Whether the hands are drawn with what the game has in them, as they are at a timed action
+     * and in a shove or a stamp with no weapon in hand, from drawViewer until the frame is done.
+     */
+    private boolean carrying;
     private boolean taskRefused;
     private final TimedActs.Hand[] taskHands = {new TimedActs.Hand(), new TimedActs.Hand()}, seenHands = {new TimedActs.Hand(), new TimedActs.Hand()};
     /** The matrix that carries what the left hand holds to before the eye, as heldView does what the right holds. */
@@ -1027,8 +1051,9 @@ public final class Characters {
     /** Whose arms they are: a woman's or not, and the game's skin. */
     private boolean armFemale;
     private int armSkin;
-    /** Where the right hand is in a shove or a stamp with nothing in hand: see BareHands. */
-    private final float[] bareHand = new float[BareHands.SAYS];
+    /** Where each hand is in a shove or a stamp with no weapon in hand, right then left, and its pose: see BareHands. */
+    private final float[][] bareHands = new float[2][BareHands.SAYS];
+    private final int[] barePoses = new int[2];
     private final float[][] armSkins = new float[2][24 * 16], armSaid = new float[2][ArmPose.SAYS];
     /**
      * The model's metres to tiles as the game draws a person of scale one: its pump gun's grip
@@ -1410,7 +1435,7 @@ public final class Characters {
      * out of.
      */
     void drawHeld(float tanHalfFieldOfView, float aspect, float nearFrom, float far) {
-        if (tasking != null) {
+        if (carrying) {
             drawTask(tanHalfFieldOfView, aspect, nearFrom, far);
             return;
         }
@@ -1497,7 +1522,7 @@ public final class Characters {
         data.ambientB = blue;
     }
 
-    /** Draws the hands at a timed action and what the game has in them for it, as drawHeld does the weapon. */
+    /** Draws the hands at a timed action, or in a shove or a stamp, and what the game has in them, as drawHeld does the weapon. */
     private void drawTask(float tanHalfFieldOfView, float aspect, float nearFrom, float far) {
         ModelSlotRenderData data = holding;
         ViewCamera.projection(tanHalfFieldOfView, aspect, nearFrom, far, projection);
@@ -1823,7 +1848,7 @@ public final class Characters {
             }
             if (held) {
                 // The weapon and the arms on it are drawn apart, held up before the eye, and so is what the left hand holds at a timed action.
-                if (inHand(model.modelInstance) || tasking != null && inLeftHand(model.modelInstance)) {
+                if (inHand(model.modelInstance) || carrying && inLeftHand(model.modelInstance)) {
                     continue;
                 }
                 CharacterDraw.release();

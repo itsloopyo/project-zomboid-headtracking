@@ -1,21 +1,29 @@
 package com.cameraunlock.zomboid;
 
 /**
- * Where the hands are while the viewer, with nothing in them, shoves or stamps: for a shove both
+ * Where the hands are while the viewer, with no weapon in them, shoves or stamps: for a shove both
  * come up from under the picture, palms first, are pushed out into what is shoved and are brought
- * back; for a stamp they come up to the sides and brace as the foot goes down.
+ * back; for a stamp they come up to the sides and brace as the foot goes down. A hand with
+ * something else in it, a torch or a bag, goes the same way as a fist round what it holds: the
+ * free hand does the shoving, and what is held goes out and back with the other.
  *
- * Each hand is given, the right's, in the aim's axes (x to the right, y up, z towards the viewer)
- * and in metres from the eye, as nine numbers: the place just before its palm, the way out of its
- * palm, and the way its fingers run. The left hand is the right one in a mirror.
+ * Each hand is given in the aim's axes (x to the right, y up, z towards the viewer) and in metres
+ * from the eye, as nine numbers: the place just before its palm, the way out of its palm, and the
+ * way its fingers run. The left hand is the right one in a mirror.
  */
 final class BareHands {
     private BareHands() {}
 
     /** The ways something is hit with nothing in hand. */
     static final int SHOVED = 0, STAMPED = 1;
-    /** The hand's own pose for each way, by its name in ArmModel. */
+    /** The hand's own pose for each way, by its name in ArmModel, and a hand's with something in it. */
     static final String[] POSES = {"open", "handle"};
+    static final String FULL_POSE = "handle";
+    /**
+     * A right hand with something in it faces in across the body with its fingers ahead, as a fist
+     * is on a bat's handle: what it holds runs up through the fist.
+     */
+    private static final float[] FULL_PALM = {-1f, 0f, 0f}, FULL_FINGERS = {0f, -0.2f, -1f};
     /** How many numbers say where a hand is. */
     static final int SAYS = 9;
 
@@ -68,6 +76,31 @@ final class BareHands {
         } else {
             between(end, keys[REST], ViewModelMath.smooth((p - turns) / (1f - turns)), out);
         }
+    }
+
+    /**
+     * Where one hand is at a moment of a shove or a stamp, as `pose` has the right, with something
+     * in it or not.
+     *
+     * @param full whether the hand has something in it
+     * @param left whether it is the left hand
+     */
+    static void hand(int way, float reached, float past, boolean struck, boolean full, boolean left, float[] out) {
+        pose(way, reached, past, struck, out);
+        if (full) {
+            System.arraycopy(FULL_PALM, 0, out, 3, 3);
+            System.arraycopy(FULL_FINGERS, 0, out, 6, 3);
+        }
+        if (left) {
+            out[0] = -out[0];
+            out[3] = -out[3];
+            out[6] = -out[6];
+        }
+    }
+
+    /** The name in ArmModel of the pose of a hand in a shove or a stamp, with something in it or not. */
+    static String poseOf(int way, boolean full) {
+        return full ? FULL_POSE : POSES[way];
     }
 
     private static void between(float[] from, float[] to, float share, float[] out) {

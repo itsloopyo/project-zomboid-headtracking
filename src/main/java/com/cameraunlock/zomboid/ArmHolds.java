@@ -889,22 +889,22 @@ final class ArmHolds {
     }
 
     /**
-     * Places both arms with nothing in their hands.
+     * Places both arms in a shove or a stamp with no weapon in their hands.
      *
-     * @param right   where the right hand is, as BareHands gives it: the left is placed in a mirror of it
-     * @param pose    the hands' pose in the model
+     * @param hands   where each hand is, right then left, as BareHands.hand gives it
+     * @param poses   each hand's pose in the model, right then left
      * @param fromAim the matrix from the aim's axes, which the hands are given in, to the view's
      * @return false if an arm cannot be placed
      */
-    static boolean bare(ArmModel model, float scale, float[] right, int pose, float[] fromAim, float[][] skins, float[][] said) {
+    static boolean bare(ArmModel model, float scale, float[][] hands, int[] poses, float[] fromAim, float[][] skins, float[][] said) {
         Weapon none = new Weapon(false, false, null, null, null, null);
         float[] at = new float[3], palm = new float[3], fingers = new float[3];
         for (int side = 0; side < 2; side++) {
-            float sign = side == 1 ? -1f : 1f;
-            ViewModelMath.place(fromAim, right[0] * sign * scale, right[1] * scale, right[2] * scale, at);
-            ViewModelMath.turned(fromAim, new float[] {right[3] * sign, right[4], right[5]}, palm);
-            ViewModelMath.turned(fromAim, new float[] {right[6] * sign, right[7], right[8]}, fingers);
-            Hold hold = new Hold(model).set(at, palm, fingers, side == 1, pose);
+            float[] hand = hands[side];
+            ViewModelMath.place(fromAim, hand[0] * scale, hand[1] * scale, hand[2] * scale, at);
+            ViewModelMath.turned(fromAim, new float[] {hand[3], hand[4], hand[5]}, palm);
+            ViewModelMath.turned(fromAim, new float[] {hand[6], hand[7], hand[8]}, fingers);
+            Hold hold = new Hold(model).set(at, palm, fingers, side == 1, poses[side]);
             if (!solve(model, none, scale, 0f, hold, fromAim, side, skins, said)) {
                 return false;
             }

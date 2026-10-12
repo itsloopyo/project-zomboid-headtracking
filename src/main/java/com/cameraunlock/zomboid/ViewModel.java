@@ -103,18 +103,21 @@ public final class ViewModel {
     volatile Held held;
 
     /**
-     * A shove or a stamp made with nothing in either hand, which the mod's own arms show.
+     * A shove or a stamp made with no weapon in hand, which the mod's own arms show. A hand with
+     * something else in it, a torch or a bag, keeps it through the shove.
      *
-     * @param way     one of BareHands' ways
-     * @param reached as Held's
-     * @param past    as Held's
-     * @param struck  as Held's
-     * @param skin    as Held's
-     * @param female  as Held's
+     * @param way       one of BareHands' ways
+     * @param reached   as Held's
+     * @param past      as Held's
+     * @param struck    as Held's
+     * @param rightFull whether the right hand has something in it
+     * @param leftFull  and the left
+     * @param skin      as Held's
+     * @param female    as Held's
      */
-    record Bare(int way, float reached, float past, boolean struck, int skin, boolean female) {}
+    record Bare(int way, float reached, float past, boolean struck, boolean rightFull, boolean leftFull, int skin, boolean female) {}
 
-    /** The shove or stamp under way with nothing in hand, or null. */
+    /** The shove or stamp under way with no weapon in hand, or null. */
     volatile Bare bare;
 
     /**
@@ -306,7 +309,7 @@ public final class ViewModel {
                 unshown = true;
             }
             restHeld();
-            bareHands(player, item == null && player.getSecondaryHandItem() == null, seconds);
+            bareHands(player, item != null, player.getSecondaryHandItem() != null, seconds);
             return;
         }
         bare = null;
@@ -501,10 +504,10 @@ public final class ViewModel {
     }
 
     /**
-     * A frame with nothing in hand that is a weapon. A shove or a stamp still shakes the view and,
-     * with both hands empty, is shown by the mod's own arms.
+     * A frame with nothing in hand that is a weapon. A shove or a stamp still shakes the view and
+     * is shown by the mod's own arms, with whatever else is in either hand kept in it.
      */
-    private void bareHands(IsoPlayer player, boolean empty, float seconds) {
+    private void bareHands(IsoPlayer player, boolean rightFull, boolean leftFull, float seconds) {
         kick.step(seconds);
         swing.step(GameAttack.progress(player, swingNow), swingNow[0], swingNow[1], seconds);
         if (swing.began) {
@@ -512,6 +515,8 @@ public final class ViewModel {
             attack = stamping ? BareHands.STAMPED : BareHands.SHOVED;
             struck = false;
             unshown = false;
+            // What the arms wear is asked once a shove: with no weapon in hand nothing else asks.
+            Cabins.noteWear(player, view.ride.dress);
         }
         if (swing.landed && !unshown) {
             struck = player.getLastHitCount() > 0;
@@ -519,8 +524,8 @@ public final class ViewModel {
                 swing.stop(HitStop.seconds(BARE_WEIGHT));
             }
         }
-        bare = empty && !unshown && swing.under()
-                ? new Bare(attack, swing.reached(), swing.past(), struck, player.getHumanVisual().getSkinTextureIndex(), player.isFemale()) : null;
+        bare = !unshown && swing.under()
+                ? new Bare(attack, swing.reached(), swing.past(), struck, rightFull, leftFull, player.getHumanVisual().getSkinTextureIndex(), player.isFemale()) : null;
     }
 
     /**
