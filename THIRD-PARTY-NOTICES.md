@@ -129,6 +129,16 @@ Copyright (c) 2026 itsloopyo
 - **Usage:** The game composes what a person wears from the body's skin, dirt, blood and clothes. For a zombie or one of the living near the eye the first person view has the game's own combiner compose it again with the mod's skin in place of the game's, and draws the result. The settled blood and veins on a zombie's skin and the hair on a man's body are arithmetic in `tools/skins/bake.py`, with no model. The prompts are in `tools/skins/generate.py`.
 - **Bundled:** the skins, yes. The model is not.
 
+## Generated skins for animals
+
+- **Files:** the skins of animals among the `skins/body/*.jpg` inside the mod's jar (`cow_*`, `bull_*`, `farmpig*`, `sheep*`, `deer*`, `chicken*`, `cockerel*`, `chick`, `turkey*`, `rabbit_*`, `raccoon`, `rat*`, `mouse_*`): the skins animals wear near the eye in the first person view, one for each of the game's skins of a living animal.
+- **Version:** baked by `tools/skins/animal_bake.py` in this repository from pictures made with Stable Diffusion XL base 1.0, from text prompts alone, for this mod: close pictures of short hair, wool, fur, feathers, down, bare skin, hoof horn and the scaly skin of a bird's leg, each asked for as the material and not as the animal. No image from Project Zomboid or anywhere else was given to the model. The markings of a breed (patches, a white face, a mask, a ringed tail, spots), the nose and its nostrils, the eyes, a comb and a wattle are arithmetic in `tools/skins/animal_bake.py`, with no model.
+- **License:** the model is under the CreativeML Open RAIL++-M License, https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/blob/main/LICENSE.md, Copyright (c) 2023 Stability AI, on the same terms as the generated material textures above.
+- **Upstream:** https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0
+- **Layout:** a skin has to lie on the game's model of the animal as the game's own does. `tools/skins/animal_bake.py` reads the animals' models (`CowBody.x`, `Bull_Body.x`, `FarmPig_SowBody.x` and the rest) from an installed copy of the game for where each point of the picture lies on the animal and which way it faces there, and lays the pictures on by that. Where a nose, an eye or a hoof is was measured off views of those models with a grid laid over them, and is kept as numbers in that file. No part of the models is in the skins or in this repository, and nothing of the game's textures is read.
+- **Usage:** The game composes an animal's skin with its own combiner, as it does a person's. For an animal near the eye the first person view has the combiner compose it again with the mod's skin in place of the game's, and hands the result to the game's own draw of the animal. The prompts are in `tools/skins/animal_pictures.py`.
+- **Bundled:** the skins, yes. The model is not.
+
 
 ---
 
