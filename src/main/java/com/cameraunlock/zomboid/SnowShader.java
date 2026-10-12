@@ -296,8 +296,8 @@ final class SnowShader {
             // Less under cover, and nothing where no snow lies.
             float snowOnBark(vec3 facing, vec2 q) {
                 float clumps = snowNoise(q * 7.0, vec2(420.0), 41.0).x;
-                float top = smoothstep(0.55, 0.95, facing.z);
-                float lain = top * smoothstep(0.1, 0.45, uSnowLying * (0.25 + 0.95 * top) - 0.35 * clumps);
+                float top = smoothstep(0.45, 0.9, facing.z);
+                float lain = top * smoothstep(0.05, 0.35, uSnowLying * (0.3 + 0.9 * top) - 0.25 * clumps);
                 float windward = dot(normalize(facing.xy + vec2(1e-5, 0.0)), uSnowPlaster) * (1.0 - smoothstep(0.6, 0.9, abs(facing.z)));
                 float stuck = smoothstep(0.12, 0.5, windward - 0.3 * clumps);
                 return min(max(lain, stuck) * clamp(1.0 - 0.8 * snowShelter, 0.0, 1.0), 0.9);
