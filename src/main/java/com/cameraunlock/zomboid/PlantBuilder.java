@@ -508,7 +508,7 @@ final class PlantBuilder {
             seenForFar(texture, places, x, y, footU, footV, boled ? boleThick : BOLE_THINNEST);
         }
         if (build.crownsInline) {
-            boolean limbed = boled && Crowns.limbed(away, sprig);
+            boolean limbed = boled && Crowns.limbed(away, sprig, leaf);
             return Flora.addCrown(WorldScene.solid.get(texture.getID()), WorldScene.solid.get(WorldScene.PLAIN), build.frame, places, x + 0.5f, y + 0.5f, base, footU, footV, Crowns.detail(away), Crowns.close(away),
                     limbed ? boleThick : 0f, limbed ? boleTall : 0f, limbed ? boleBark : bark, sprig, seed, build.room, leaf, hue, turned);
         }

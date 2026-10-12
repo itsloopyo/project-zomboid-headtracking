@@ -38,9 +38,9 @@ final class Crowns {
         return Math.clamp((CLOSING - away) / (CLOSING - CLOSE), 0f, 1f);
     }
 
-    /** Whether a crown that far off grows limbs from its tree's bole. */
-    static boolean limbed(float away, int sprig) {
-        return sprig == Flora.BARE || away < LIMB_REACH;
+    /** Whether a crown that far off, with that share of its leaves on it, grows limbs from its tree's bole. */
+    static boolean limbed(float away, int sprig, float leaf) {
+        return sprig == Flora.BARE || leaf < Flora.WOOD_SHOWS || away < LIMB_REACH;
     }
 
     private float[] floats = new float[FLOATS * 8];
@@ -167,7 +167,7 @@ final class Crowns {
             frame.open = floats[at + OPEN];
             float away = floats[at + AWAY];
             System.arraycopy(floats, at + ROOM, room, 0, 4);
-            boolean limbed = floats[at + BOLE_TALL] > 0f && limbed(away, ints[of + SPRIG]);
+            boolean limbed = floats[at + BOLE_TALL] > 0f && limbed(away, ints[of + SPRIG], floats[at + LEAF]);
             if (!Flora.addCrown(into.get(ints[of + TEXTURE]), into.get(plain), frame, places[i], floats[at + X], floats[at + Y], floats[at + BASE], floats[at + FOOT_U],
                     floats[at + FOOT_V], detail(away), close(away), limbed ? floats[at + BOLE_RADIUS] : 0f, limbed ? floats[at + BOLE_TALL] : 0f,
                     ints[of + (limbed ? BOLE_BARK : BARK)], ints[of + SPRIG], ints[of + SEED], room, floats[at + LEAF], ints[of + HUE], floats[at + TURNED])) {

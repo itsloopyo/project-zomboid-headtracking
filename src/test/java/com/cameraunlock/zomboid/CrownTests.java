@@ -61,12 +61,15 @@ final class CrownTests {
         SpriteGeometry.Frame frame = frame();
         float[] places = Flora.leafPlaces(CrownTests::leaf, frame);
         float[] leaves = {1f, 0.75f, 0.5f, 0.2f};
-        SpriteGeometry.Mesh[] crowns = new SpriteGeometry.Mesh[leaves.length];
+        SpriteGeometry.Mesh[] crowns = new SpriteGeometry.Mesh[leaves.length], woods = new SpriteGeometry.Mesh[leaves.length];
         for (int i = 0; i < leaves.length; i++) {
             crowns[i] = new SpriteGeometry.Mesh();
-            check(Flora.addCrown(crowns[i], new SpriteGeometry.Mesh(), frame, places, 10.5f, 20.5f, 0f, FOOT_U, FOOT_V, 1f, 1f, 0.12f, 1.2f, Flora.BARK_OAK, Flora.MAPLE, 7,
+            woods[i] = new SpriteGeometry.Mesh();
+            check(Flora.addCrown(crowns[i], woods[i], frame, places, 10.5f, 20.5f, 0f, FOOT_U, FOOT_V, 1f, 0f, 0.12f, 1.2f, Flora.BARK_OAK, Flora.MAPLE, 7,
                     Flora.OPEN, leaves[i], Flora.SCARLET_LEAF, 0.4f), "a crown with " + leaves[i] + " of its leaves is a crown");
         }
+        // The leaves left are on wood: a crown that has lost some has a bare tree's limbs, branches and twigs in it.
+        check(woods[2].floats > 2 * woods[0].floats, "half bare, a crown has a bare tree's wood: " + woods[2].floats + " floats of wood against " + woods[0].floats + " in full leaf");
         java.util.Set<String> full = sprigsOf(crowns[0]);
         for (int i = 1; i < leaves.length; i++) {
             java.util.Set<String> thinner = sprigsOf(crowns[i]), fuller = sprigsOf(crowns[i - 1]);
@@ -304,7 +307,7 @@ final class CrownTests {
         SpriteGeometry.Frame frame = frame();
         float[] places = PLACES;
         float detail = Crowns.detail(away), close = Crowns.close(away);
-        boolean limbed = Crowns.limbed(away, Flora.LINDEN);
+        boolean limbed = Crowns.limbed(away, Flora.LINDEN, 1f);
         Flora.addCrown(inBuild.get(LEAVES), inBuild.get(PLAIN), frame, places, 10.5f, 20.5f, 0.1f, FOOT_U, FOOT_V, detail, close, 0f, 0f, Flora.BARK_OAK, Flora.MAPLE, 7, Flora.OPEN, 1f, 0, 0f);
         frame.light(0.6f, 0.5f, 0.4f);
         Flora.addCrown(inBuild.get(LEAVES + 1), inBuild.get(PLAIN), frame, places, 12.5f, 21.5f, 0f, FOOT_U, FOOT_V, detail, close, limbed ? 0.12f : 0f, limbed ? 0.9f : 0f,

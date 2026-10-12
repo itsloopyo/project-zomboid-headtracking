@@ -132,8 +132,8 @@ final class PlantKindTests {
     }
 
     private static void aBareCrownHasLimbsWhateverItsDistance() {
-        check(Crowns.limbed(Crowns.REACH * 4f, Flora.BARE), "a bare crown is its limbs: it has them at any distance");
-        check(!Crowns.limbed(Crowns.REACH * 4f, Flora.MAPLE) && Crowns.limbed(4f, Flora.MAPLE), "a crown in leaf has them only near");
+        check(Crowns.limbed(Crowns.REACH * 4f, Flora.BARE, 1f), "a bare crown is its limbs: it has them at any distance");
+        check(!Crowns.limbed(Crowns.REACH * 4f, Flora.MAPLE, 1f) && Crowns.limbed(4f, Flora.MAPLE, 1f) && Crowns.limbed(Crowns.REACH * 4f, Flora.MAPLE, 0.5f), "a crown in leaf has them only near, and one losing its leaves at any distance");
     }
 
     private static void leafyWeedsAndFernsAreToldByName() {

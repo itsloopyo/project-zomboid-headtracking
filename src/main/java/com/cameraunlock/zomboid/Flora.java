@@ -211,6 +211,8 @@ final class Flora {
     static final int YELLOW_LEAF = 0, GOLD_LEAF = 1, ORANGE_LEAF = 2, SCARLET_LEAF = 3, CLARET_LEAF = 4, HUES = 5, TURNS = 8;
     /** A crown with less of its leaves on it than this has no inside: it is seen through. Between this and full leaf the inside draws in. */
     private static final float CORE_GOES = 0.5f;
+    /** A crown with less of its leaves on it than this has a bare tree's wood in it, at any distance: see Crowns.limbed. */
+    static final float WOOD_SHOWS = 0.9f;
     /** A sprig's corners are this far in from the whole numbers either side, so that neither end of it rounds into the next step. */
     private static final float CROWN_INSET = 0.25f;
     private static final float SPRIG_SMALLEST = 0.3f, SPRIG_LARGEST = 0.8f, SHRUB_SMALLEST = 0.2f, SHRUB_LARGEST = 0.42f;
@@ -450,6 +452,8 @@ final class Flora {
         float middle = lowest + (highest - lowest) * 0.45f;
         float reach = Math.max(widest, (highest - lowest) / 2f);
         boolean bare = sprig == BARE;
+        // A crown that has lost leaves shows the wood that bore them: a bare tree's, with the leaves left on it.
+        boolean wooded = bare || !shrub && leaf < WOOD_SHOWS;
         if (bare && boleRadius <= 0f) {
             return false;
         }
@@ -574,8 +578,8 @@ final class Flora {
             // Up the middle, from the bole's top.
             float topUp = lowest + LEADER_TOP * tall, thick = boleRadius * TAPER;
             // With no leaves to hide it the wood is the whole tree's outline: more limbs, out to the outline.
-            int limbs = bare ? Math.clamp(Math.round(6f + 3f * widest), 7, 12) : Math.clamp(Math.round(4f + 2.5f * widest), 5, 9);
-            float limbOut = bare ? BARE_OUT : LIMB_OUT;
+            int limbs = wooded ? Math.clamp(Math.round(6f + 3f * widest), 7, 12) : Math.clamp(Math.round(4f + 2.5f * widest), 5, 9);
+            float limbOut = wooded ? BARE_OUT : LIMB_OUT;
             for (int piece = 0; piece < 3; piece++) {
                 float from = boleTall + (topUp - boleTall) * piece / 3f, to = boleTall + (topUp - boleTall) * (piece + 1) / 3f;
                 prism(wood, x, y, base + from, x, y, base + to, thick + (LIMB_TIP - thick) * piece / 3f, thick + (LIMB_TIP - thick) * (piece + 1) / 3f,
@@ -611,13 +615,13 @@ final class Flora {
                             int which = mix(own, piece, 95 + side);
                             float toRound = round + (side == 0 ? 1f : -1f) * (0.35f + 0.45f * unit(which, 0));
                             float toShare = Math.clamp((upAt - lowest) / tall + 0.22f * unit(which, 8), 0.05f, 0.97f);
-                            float toOut = (bare ? BARE_OUT : 0.85f) * reachAt(reachLeft, reachRight, toShare)
+                            float toOut = (wooded ? BARE_OUT : 0.85f) * reachAt(reachLeft, reachRight, toShare)
                                     * (1f - BOUGH_HOLLOW * (1f - bough(toRound, toShare, lobes, rows, turnOne, turnTwo, turnThree)));
                             float toUp = lowest + toShare * tall, toIn = BRANCH_TIP + SpriteGeometry.SWAY_REACH * limbSway(toUp, boleTall), toUnder = Math.min(upAt, toUp);
                             float endX = keptX(x + (float) Math.cos(toRound) * toOut, toUnder, toIn, room), endY = keptY(y + (float) Math.sin(toRound) * toOut, toUnder, toIn, room);
                             prism(wood, atX, atY, base + upAt, endX, endY, base + toUp, Math.max(thickTo * BRANCH_OF_LIMB, BRANCH_TIP), BRANCH_TIP, BRANCH_SIDES, BARK_UP * bark + WOOD_UP,
                                     limbSway(upAt, boleTall), limbSway(toUp, boleTall), which, frame);
-                            if (bare && detail > BARE_TWIGGED) {
+                            if (wooded && detail > BARE_TWIGGED) {
                                 addBareTwigs(wood, atX, atY, upAt, endX, endY, toUp, base, reach, boleTall, bark, which, room, frame);
                             }
                         }
