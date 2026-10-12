@@ -835,6 +835,30 @@ final class ArmHolds {
         return Math.clamp((float) (Math.PI / 2 - Math.acos(Math.clamp(ArmPose.dot(arm, axes.ahead), -1f, 1f))), HANDLE_SLANT, HANDLE_SLANT_MOST);
     }
 
+    /**
+     * Places both arms with nothing in their hands.
+     *
+     * @param right   where the right hand is, as BareHands gives it: the left is placed in a mirror of it
+     * @param pose    the hands' pose in the model
+     * @param fromAim the matrix from the aim's axes, which the hands are given in, to the view's
+     * @return 2, or 0 if an arm cannot be placed
+     */
+    static int bare(ArmModel model, float scale, float[] right, int pose, float[] fromAim, float[][] skins, float[][] said) {
+        Weapon none = new Weapon(false, false, null, null, null, null);
+        float[] at = new float[3], palm = new float[3], fingers = new float[3];
+        for (int side = 0; side < 2; side++) {
+            float sign = side == 1 ? -1f : 1f;
+            ViewModelMath.place(fromAim, right[0] * sign * scale, right[1] * scale, right[2] * scale, at);
+            ViewModelMath.turned(fromAim, new float[] {right[3] * sign, right[4], right[5]}, palm);
+            ViewModelMath.turned(fromAim, new float[] {right[6] * sign, right[7], right[8]}, fingers);
+            Hold hold = new Hold(model).set(at, palm, fingers, side == 1, pose);
+            if (!solve(model, none, scale, 0f, hold, fromAim, side, skins, said)) {
+                return 0;
+            }
+        }
+        return 2;
+    }
+
     /** Where an arm on this weapon starts and where its forearm is to seem to come from, in the view. */
     private static void starts(Weapon weapon, int side, float scale, float turned, float[] fromAim, float[] shoulder, float[] from) {
         float sign = side == 1 ? -1f : 1f;

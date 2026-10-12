@@ -2,17 +2,27 @@ package com.cameraunlock.zomboid;
 
 import static com.cameraunlock.zomboid.Checks.check;
 
-/** Tests of how a blow that lands stops in the picture. */
+import java.io.IOException;
+import java.io.InputStream;
+
+/** Tests of how a blow that lands stops in the picture, and of the arms in a shove or a stamp with nothing in hand. */
 final class MeleeFeelTests {
     private MeleeFeelTests() {}
 
-    static void run() {
+    static void run() throws IOException {
+        ArmModel model;
+        try (InputStream packed = MeleeFeelTests.class.getResourceAsStream("/models/arms.mesh.gz")) {
+            model = new ArmModel(packed);
+        }
         Checks.run("aHeavierBlowStopsLonger", MeleeFeelTests::aHeavierBlowStopsLonger);
         Checks.run("aBlowThatLandsStandsForItsTimeThenCatchesUp", MeleeFeelTests::aBlowThatLandsStandsForItsTimeThenCatchesUp);
         Checks.run("aMissDoesNotStop", MeleeFeelTests::aMissDoesNotStop);
         Checks.run("aStopPausedStaysAndGoesOnAfter", MeleeFeelTests::aStopPausedStaysAndGoesOnAfter);
         Checks.run("aStopInAFastAttackStillRejoinsBeforeItIsHeldAgain", MeleeFeelTests::aStopInAFastAttackStillRejoinsBeforeItIsHeldAgain);
         Checks.run("aStopEndsWithItsAttack", MeleeFeelTests::aStopEndsWithItsAttack);
+        Checks.run("aShoveLeadsWithThePalmsIntoThePicture", MeleeFeelTests::aShoveLeadsWithThePalmsIntoThePicture);
+        Checks.run("bareHandsMoveNoFarInATinyStep", MeleeFeelTests::bareHandsMoveNoFarInATinyStep);
+        Checks.run("bothArmsArePlacedThroughAShoveAndAStamp", () -> bothArmsArePlacedThroughAShoveAndAStamp(model));
     }
 
     private static final float FRAME = 1f / 60f, LANDS = 0.25f, PACE = 1f;
@@ -130,5 +140,65 @@ final class MeleeFeelTests {
         clock.step(true, 0.3f, LANDS, FRAME);
         clock.step(true, 0.35f, LANDS, FRAME);
         check(clock.past() > 0f, "and the next attack, landing on nothing, has no stop of the last one's");
+    }
+
+    /** A place in the aim's axes in the picture of a view this tall, as tangents: how far down and across it is seen. */
+    private static float down(float[] hand) {
+        return -hand[1] / -hand[2];
+    }
+
+    private static void aShoveLeadsWithThePalmsIntoThePicture() {
+        float[] hand = new float[BareHands.SAYS];
+        float tanHalf = (float) Math.tan(Math.toRadians(35));
+        BareHands.pose(BareHands.SHOVED, 0f, 0f, false, hand);
+        check(-hand[2] < 0.3f && down(hand) > tanHalf, "before a shove the hands are under the picture: " + down(hand));
+        BareHands.pose(BareHands.SHOVED, 1f, 0f, false, hand);
+        float palmAhead = -hand[5] / (float) Math.sqrt(hand[3] * hand[3] + hand[4] * hand[4] + hand[5] * hand[5]);
+        check(palmAhead > 0.8f, "as it lands the palms face ahead: " + palmAhead);
+        check(hand[7] > 1.5f * Math.abs(hand[8]) && hand[7] > 4f * Math.abs(hand[6]), "with the fingers up");
+        check(-hand[2] > 0.4f && down(hand) < tanHalf && hand[0] / -hand[2] < tanHalf, "out ahead and in the picture: " + hand[0] + ", " + hand[1] + ", " + hand[2]);
+        float[] through = new float[BareHands.SAYS], sprung = new float[BareHands.SAYS];
+        BareHands.pose(BareHands.SHOVED, 1f, ViewModelMath.SPRINGS, true, sprung);
+        BareHands.pose(BareHands.SHOVED, 1f, ViewModelMath.FOLLOWS, false, through);
+        check(-sprung[2] < -hand[2] && -through[2] > -hand[2], "landed on something they spring back off it, and on nothing they go on past");
+        BareHands.pose(BareHands.SHOVED, 1f, 1f, true, hand);
+        check(down(hand) > tanHalf, "and after it they are down again");
+        BareHands.pose(BareHands.STAMPED, 1f, 0f, false, hand);
+        check(hand[4] < -0.8f && hand[0] > 0.2f, "in a stamp the hands brace out to the sides, palms down");
+    }
+
+    private static void bareHandsMoveNoFarInATinyStep() {
+        float[] before = new float[BareHands.SAYS], at = new float[BareHands.SAYS];
+        for (int way : new int[] {BareHands.SHOVED, BareHands.STAMPED}) {
+            for (boolean struck : new boolean[] {false, true}) {
+                BareHands.pose(way, 0f, 0f, struck, before);
+                for (int step = 1; step <= 2000; step++) {
+                    BareHands.pose(way, Math.min(step / 1000f, 1f), Math.max(step / 1000f - 1f, 0f), struck, at);
+                    for (int part = 0; part < BareHands.SAYS; part++) {
+                        check(Math.abs(at[part] - before[part]) < 0.01f, "no part of a hand moves far in a thousandth of the way");
+                    }
+                    System.arraycopy(at, 0, before, 0, BareHands.SAYS);
+                }
+            }
+        }
+    }
+
+    private static final float SCALE = 0.74f;
+    private static final float[] SAME = {1f, 0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 1f};
+
+    private static void bothArmsArePlacedThroughAShoveAndAStamp(ArmModel model) {
+        float[][] skins = new float[2][24 * 16], said = new float[2][ArmPose.SAYS];
+        float[] hand = new float[BareHands.SAYS];
+        float worst = 0f;
+        for (int way : new int[] {BareHands.SHOVED, BareHands.STAMPED}) {
+            for (int step = 0; step <= 40; step++) {
+                BareHands.pose(way, Math.min(step / 20f, 1f), Math.max(step / 20f - 1f, 0f), step % 2 == 0, hand);
+                check(ArmHolds.bare(model, SCALE, hand, model.pose(BareHands.POSES[way]), SAME, skins, said) == 2, "both arms are placed, way " + way + " step " + step);
+                for (int side = 0; side < 2; side++) {
+                    worst = Math.max(worst, said[side][ArmPose.BENT]);
+                }
+            }
+        }
+        check(Math.toDegrees(worst) < 50.0, "no wrist is bent past 50 degrees: " + Math.toDegrees(worst));
     }
 }

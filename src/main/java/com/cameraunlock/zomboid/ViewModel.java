@@ -86,6 +86,21 @@ public final class ViewModel {
     /** What is held, or null with no weapon in hand. */
     volatile Held held;
 
+    /**
+     * A shove or a stamp made with nothing in either hand, which the mod's own arms show.
+     *
+     * @param way     one of BareHands' ways
+     * @param reached as Held's
+     * @param past    as Held's
+     * @param struck  as Held's
+     * @param skin    as Held's
+     * @param female  as Held's
+     */
+    record Bare(int way, float reached, float past, boolean struck, int skin, boolean female) {}
+
+    /** The shove or stamp under way with nothing in hand, or null. */
+    volatile Bare bare;
+
     /** The muzzle's attachment in the game's model scripts. Its own z axis runs along the barrel. */
     private static final String MUZZLE = "muzzle";
 
@@ -119,7 +134,9 @@ public final class ViewModel {
     private float aim, lowered, swayYaw, swayPitch, bobAmount, bobPhase, recoil, dipTo, dip;
     private final AttackClock swing = new AttackClock();
     private int attack;
-    private boolean struck, unshown;
+    private boolean struck, unshown, stamping;
+    /** What a shove with nothing in hand is taken to weigh, for how hard it lands and how long it stops: see HitStop. */
+    static final float BARE_WEIGHT = 1.5f;
     private final float[] swingNow = new float[2];
     private int kicks;
     private boolean placed, wasSneaking, wasFalling;
@@ -204,11 +221,21 @@ public final class ViewModel {
      * @param aimedAt  how far off the aim meets the world, in tiles, or infinity
      */
     void update(IsoPlayer player, float yaw, float pitch, float seconds, boolean sightsUp, float aimedAt) {
-        InventoryItem item = player.getVehicle() == null ? player.getPrimaryHandItem() : null;
-        if (!(item instanceof HandWeapon weapon)) {
+        if (player.getVehicle() != null) {
             rest();
             return;
         }
+        InventoryItem item = player.getPrimaryHandItem();
+        if (!(item instanceof HandWeapon weapon)) {
+            // An attack under way was made with what was in hand.
+            if (inHand != null) {
+                unshown = true;
+            }
+            restHeld();
+            bareHands(player, item == null && player.getSecondaryHandItem() == null, seconds);
+            return;
+        }
+        bare = null;
         view.scope.fitted(weapon);
         // What is worn changes seldom, and asking makes a list for every garment.
         if ((wearAsked++ & 31) == 0) {
@@ -283,11 +310,12 @@ public final class ViewModel {
             attack = GameAttack.way(player);
             struck = false;
             // A stamp of the foot is not made with what is held.
-            unshown = player.isDoStomp();
+            stamping = player.isDoStomp();
+            unshown = stamping;
         }
         if (swing.landed) {
             struck = player.getLastHitCount() > 0;
-            if (struck && !unshown) {
+            if (!stamping && struck && !unshown) {
                 swing.stop(HitStop.seconds(weapon.getActualWeight()));
             }
         }
@@ -391,8 +419,39 @@ public final class ViewModel {
                 player.getHumanVisual().getSkinTextureIndex(), player.isFemale(), action, cycled, doing, done, rounds, round, handled, took[action][doing], seated, drawn, worked, clip, out, fetching, fetchTakes[action], player.getSecondaryHandItem() == null);
     }
 
-    /** Nothing is held up: the next weapon starts from the hip, still. */
+    /**
+     * A frame with nothing in hand that is a weapon. A shove or a stamp still shakes the view and,
+     * with both hands empty, is shown by the mod's own arms.
+     */
+    private void bareHands(IsoPlayer player, boolean empty, float seconds) {
+        kick.step(seconds);
+        swing.step(GameAttack.progress(player, swingNow), swingNow[0], swingNow[1], seconds);
+        if (swing.began) {
+            stamping = player.isDoStomp();
+            attack = stamping ? BareHands.STAMPED : BareHands.SHOVED;
+            struck = false;
+            unshown = false;
+        }
+        if (swing.landed && !unshown) {
+            struck = player.getLastHitCount() > 0;
+            if (struck) {
+                swing.stop(HitStop.seconds(BARE_WEIGHT));
+            }
+        }
+        bare = empty && !unshown && swing.under()
+                ? new Bare(attack, swing.reached(), swing.past(), struck, player.getHumanVisual().getSkinTextureIndex(), player.isFemale()) : null;
+    }
+
+    /** Nothing is held up, and no attack is under way: the next weapon starts from the hip, still. */
     void rest() {
+        restHeld();
+        kick.rest();
+        swing.reset();
+        bare = null;
+    }
+
+    /** Nothing is held up: the next weapon starts from the hip, still. */
+    private void restHeld() {
         view.scope.fitted(null);
         wearAsked = 0;
         sinceShot = NOT_PUMPING;
@@ -419,16 +478,18 @@ public final class ViewModel {
         swayPitch = 0f;
         bobAmount = 0f;
         recoil = 0f;
-        kick.rest();
         dipTo = 0f;
         dip = 0f;
         kicks = 0;
-        swing.reset();
     }
 
     /** For the trace. */
     String describe() {
         Held now = held;
+        Bare empty = bare;
+        if (now == null && empty != null) {
+            return String.format(Locale.ROOT, "held nothing, bare way %d reached %.2f past %.2f struck %b, %s", empty.way, empty.reached, empty.past, empty.struck, view.characters.describeArms());
+        }
         return now == null ? "held nothing" : String.format(Locale.ROOT, "held %s%s%s aim %.2f recoil %.2f bob phase %.2f at (%.3f, %.3f) lowered %.2f attack %d reached %.2f past %.2f struck %b, action %d cycled %.2f doing %d for %.2f of %.2f rounds %d round %.2f seated %.2f handled %.2f worked %.2f drawn %.2f clip %b out %.2f fetching %.2f of %.2f, %s",
                 now.item, now.firearm ? " (firearm)" : "", now.bothHands ? " in both hands" : "", now.aim, now.recoil, bobPhase, now.bobX, now.bobY,
                 now.lowered, now.attack, now.reached, now.past, now.struck, now.action, now.cycled, now.doing, now.done, now.pace, now.rounds, now.round, now.seated, now.handled, now.worked, now.drawn, now.clip, now.out, now.fetching, now.fetchTakes, view.characters.describeArms());

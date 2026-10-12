@@ -540,6 +540,22 @@ public final class Characters {
      */
     private void settleTheWeapon(ModelSlotRenderData data, ViewCamera.Pose camera) {
         ViewModel.Held hands = view.viewModel.held;
+        ViewModel.Bare bare = view.viewModel.bare;
+        if (hands == null && bare != null && CharacterDraw.cuts() && Own.arms() && OwnArms.model() != null) {
+            // A shove or a stamp with nothing in hand: the mod's own arms, and the body's left out.
+            ViewCamera.between(aim, camera, fromAim);
+            BareHands.pose(bare.way(), bare.reached(), bare.past(), bare.struck(), bareHand);
+            if (ArmHolds.bare(OwnArms.model(), ARM_SCALE * data.finalScale, bareHand, OwnArms.model().pose(BareHands.POSES[bare.way()]), fromAim, armSkins, armSaid) == 2) {
+                holding = data;
+                armHands = null;
+                armFemale = bare.female();
+                armSkin = bare.skin();
+                armCarries.what = ArmHolds.NOTHING;
+                ownArms = true;
+                heldBoth = true;
+            }
+            return;
+        }
         if (hands != null && CharacterDraw.cuts()) {
             ModelInstanceRenderData weapon = weaponOf(data);
             ViewCamera.between(aim, camera, fromAim);
@@ -549,6 +565,8 @@ public final class Characters {
                     CHARACTER_SCALE, own, hand, fromAim, heldView)) {
                 holding = data;
                 armHands = hands;
+                armFemale = hands.female();
+                armSkin = hands.skin();
                 ownArms = own && reachOwn(data, hands);
                 if (ownArms) {
                     return;
@@ -831,6 +849,11 @@ public final class Characters {
     private boolean ownArms, armsRefused;
     /** How the weapon was held when its arms were placed: they are drawn for that, whatever the logic thread has said since. */
     private ViewModel.Held armHands;
+    /** Whose arms they are: a woman's or not, and the game's skin. */
+    private boolean armFemale;
+    private int armSkin;
+    /** Where the right hand is in a shove or a stamp with nothing in hand: see BareHands. */
+    private final float[] bareHand = new float[BareHands.SAYS];
     private final float[][] armSkins = new float[2][24 * 16], armSaid = new float[2][ArmPose.SAYS];
     /**
      * The model's metres to tiles as the game draws a person of scale one: its pump gun's grip
@@ -1241,9 +1264,9 @@ public final class Characters {
         if (ownArms) {
             OwnArms.Worn worn = wornOnArms();
             float[] stains = view.ride.dress.stains;
-            OwnArms.draw(projection, armSkins[0], false, armHands.female(), armHands.skin(), outside, worn, stains);
+            OwnArms.draw(projection, armSkins[0], false, armFemale, armSkin, outside, worn, stains);
             if (heldBoth) {
-                OwnArms.draw(projection, armSkins[1], true, armHands.female(), armHands.skin(), outside, worn, stains);
+                OwnArms.draw(projection, armSkins[1], true, armFemale, armSkin, outside, worn, stains);
                 OwnArms.carried(projection, armCarries.what, armCarries.at, outside);
             }
             EYE.End();
