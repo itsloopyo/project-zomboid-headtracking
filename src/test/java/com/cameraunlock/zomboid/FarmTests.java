@@ -37,6 +37,7 @@ final class FarmTests {
         for (int place = 3; place <= 5; place++) {
             Checks.check(Farm.wheat("vegetation_farm_01_" + place), "vegetation_farm_01_" + place + " is a square of wheat");
         }
+        Checks.check(!Farm.wheat(null), "a sprite with no name is no wheat");
         Checks.check(!Farm.wheat("vegetation_farm_01_0") && !Farm.wheat("vegetation_farm_01_6") && !Farm.wheat("vegetation_farm_02_3"),
                 "the wheat the game marks as growth, and the rest of the sheet, are not this");
     }

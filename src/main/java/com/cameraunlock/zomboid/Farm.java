@@ -22,7 +22,7 @@ final class Farm {
      * paints as it paints the wheat it marks as growth (0 to 2 of the sheet) and lays out as fields.
      */
     static boolean wheat(String name) {
-        int place = Sheets.place(name, HAY);
+        int place = name == null ? -1 : Sheets.place(name, HAY);
         return place >= 3 && place <= 5;
     }
 
