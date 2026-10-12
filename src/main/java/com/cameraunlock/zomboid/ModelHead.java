@@ -89,6 +89,42 @@ public final class ModelHead {
         return true;
     }
 
+    /**
+     * The head as the game's animation has it, the player's own head turn not in it: its turn in
+     * the model, column after column, into turn, and where its joint is from the feet in the
+     * world, in tiles, into joint.
+     *
+     * @return the angle the body is drawn at, or not a number before the skeleton is posed
+     */
+    float head(IsoPlayer player, float[] turn, float[] joint) {
+        AnimationPlayer animation = player.getAnimationPlayer();
+        if (animation == null || !animation.isReady()) {
+            return Float.NaN;
+        }
+        SkinningBone head = animation.getSkinningData().getBone(HEAD);
+        if (head == null) {
+            return Float.NaN;
+        }
+        animation.getBoneModelTransform(head.index, cameraHead);
+        // The game's matrices are kept transposed, the place in m03, m13 and m23 (HelperFunctions.getPosition): a bone's own x axis is m00, m10, m20.
+        turn[0] = cameraHead.m00;
+        turn[1] = cameraHead.m10;
+        turn[2] = cameraHead.m20;
+        turn[3] = cameraHead.m01;
+        turn[4] = cameraHead.m11;
+        turn[5] = cameraHead.m21;
+        turn[6] = cameraHead.m02;
+        turn[7] = cameraHead.m12;
+        turn[8] = cameraHead.m22;
+        float bodyAngle = animation.getRenderedAngle();
+        float c = (float) Math.cos(bodyAngle + Math.PI) * Characters.CHARACTER_SCALE;
+        float s = (float) Math.sin(bodyAngle + Math.PI) * Characters.CHARACTER_SCALE;
+        joint[0] = c * cameraHead.m03 + s * cameraHead.m23;
+        joint[1] = s * cameraHead.m03 - c * cameraHead.m23;
+        joint[2] = cameraHead.m13 * Characters.CHARACTER_SCALE;
+        return bodyAngle;
+    }
+
 
     /** Called from AnimationPlayer.updateAnimation_StandardAnimation once the bones are posed and the spine is twisted. */
     public void pose(AnimationPlayer animation) {

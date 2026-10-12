@@ -334,7 +334,7 @@ public final class CoreTests {
     private static void frame() throws InterruptedException {
         Thread.sleep((long) (FRAME_SECONDS * 1000));
         // No weapon is in hand, and the lean is not handed to one.
-        headTracking.view(true, clean, cleanYaw, null, noMap, sightsUp, false, ViewModel.FORWARD_STOP, inVehicle, out);
+        headTracking.view(true, clean, cleanYaw, null, noMap, sightsUp, false, ViewModel.FORWARD_STOP, inVehicle, false, out);
     }
 
     private static boolean within(int milliseconds, BooleanSupplier reached) throws InterruptedException {

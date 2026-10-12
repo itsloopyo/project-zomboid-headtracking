@@ -5,6 +5,13 @@ import java.util.Locale;
 import java.util.Set;
 import org.joml.Vector3f;
 import zombie.GameTime;
+import zombie.ai.State;
+import zombie.ai.states.PlayerFallDownState;
+import zombie.ai.states.PlayerGetUpState;
+import zombie.ai.states.PlayerHitReactionPVPState;
+import zombie.ai.states.PlayerHitReactionState;
+import zombie.ai.states.PlayerKnockedDown;
+import zombie.ai.states.PlayerOnGroundState;
 import zombie.characters.CharacterJoypadAxis2dBinding;
 import zombie.characters.IsoGameCharacter;
 import zombie.characters.IsoPlayer;
@@ -126,6 +133,14 @@ public final class FirstPerson {
     private float eyeHigh;
     private final float[] eye = new float[3];
     private final float[] headOffset = new float[3];
+    private final float[] headTurn = new float[9], headJoint = new float[3], ledTilt = new float[9];
+    private final ViewCamera.Pose mouseView = new ViewCamera.Pose();
+    /** Whether the game's own animation has the body this frame: see BodyLed. */
+    private boolean bodyLeads;
+    /** Whether the whole view is the head's while the game's animation has the body, and the mouse turns nothing. */
+    private boolean bodyWhole;
+    /** The character the body led last frame was, so a new one after a death starts with the mouse's view. */
+    private IsoPlayer ledPlayer;
     static final boolean TRACE = Boolean.getBoolean("cameraunlock.zomboid.trace");
     private static final long TRACE_INTERVAL_NANOS = 1_000_000_000L;
 
@@ -593,6 +608,7 @@ public final class FirstPerson {
         } else if (!on) {
             stride.reset();
         }
+        lead(player, sinceLastFrame);
         // The game stops drawing the world of a player who sleeps once their screen has faded, and with it this frame:
         // the look is let go of as the sleep begins, while frames still come to let go of the mouse.
         active = landed && !GameTime.isGamePaused() && !player.isDead() && !player.isAsleep();
@@ -602,7 +618,7 @@ public final class FirstPerson {
             point();
         }
         lookCaptured = active && !pointer.on();
-        if (lookCaptured && View.onController(player)) {
+        if (lookCaptured && View.onController(player) && !bodyWhole) {
             stickLook(player, sinceLastFrame);
         }
         if (lookCaptured && !wasCaptured) {
@@ -694,20 +710,32 @@ public final class FirstPerson {
         view.ride.note(player, vehicle, floorUp, view.worldScene.terrain, eye);
         boolean sightsUp = view.controls.sightsUp(player);
         view.fieldOfView.ease(sightsUp, sinceLastFrame);
-        view.viewModel.update(player, yaw, pitch, sinceLastFrame, sightsUp, shotDistance);
+        // The arms are the game's own while its animation has the body: they are what fights the zombie off.
+        if (bodyLeads) {
+            view.viewModel.rest();
+        } else {
+            view.viewModel.update(player, yaw, pitch, sinceLastFrame, sightsUp, shotDistance);
+        }
         ViewCamera.clean(cleanView, eye[0], eye[1], eye[2], yaw, pitch);
         // From a seat the view tips and rolls with the vehicle, as the eye does.
         if (view.ride.tilt != null) {
             ViewCamera.tilt(cleanView, view.ride.tilt);
         }
-        if (lookCaptured && vehicle == null) {
+        float[] tilt = led(player, standsUp);
+        if (lookCaptured && vehicle == null && !bodyLeads) {
             view.centreUse.mark(cleanView, floorUp, player, IsoWorld.instance.currentCell);
         } else {
             view.centreUse.marked = Outlines.NONE;
         }
         // The head is in the view the camera flies to and from, so it lands on what is drawn next.
-        view.headTracking.view(!GameTime.isGamePaused() && !player.isDead(), cleanView, yaw, view.ride.tilt, world, sightsUp,
-                vehicle == null && Online.leanCarriesTheShot(), view.viewModel.forwardStop(), vehicle != null, trackedView);
+        if (view.bodyLed.holding()) {
+            view.headTracking.rest();
+            trackedView.set(view.bodyLed.heldTracked);
+        } else {
+            view.headTracking.view(!GameTime.isGamePaused() && (!player.isDead() || bodyLeads), cleanView, yaw, tilt, world, sightsUp,
+                    vehicle == null && Online.leanCarriesTheShot() && !bodyLeads, view.viewModel.forwardStop(), vehicle != null,
+                    view.bodyLed.share() > 0f, trackedView);
+        }
         // The game's beam has the clean view's heading turned by the head's share for a light, and no height: it is
         // given the height the view has with that same share, so the beam is one pose and not two.
         double beamHeading = Math.atan2(cleanView.forwardY, cleanView.forwardX) + view.headFollowLight.turn();
@@ -1290,6 +1318,120 @@ public final class FirstPerson {
         return landed ? view.scope.hidesReticle() || view.controls.turnedOnly() ? RETICLE_HIDDEN : reticleY : stock;
     }
 
+    /**
+     * Whether the game's own animation has the body, and not the player: a hit or a bite and the
+     * struggle with it, being dragged down, knocked or falling over, lying on the ground, getting
+     * up from any of those, dying.
+     */
+    private boolean bodyLeads(IsoPlayer player) {
+        if (player.isDead()) {
+            return true;
+        }
+        State state = player.getCurrentState();
+        // Getting up from sitting is the player's own doing; from the ground after a fall it is the end of the fall.
+        if (state == PlayerGetUpState.instance()) {
+            return bodyLeads;
+        }
+        return hitReaction(state) || state == PlayerFallDownState.instance() || state == PlayerKnockedDown.instance()
+                || state == PlayerOnGroundState.instance();
+    }
+
+    /**
+     * Whether the game's animation has the view as well as the body: not for a hit or a bite and the struggle with
+     * it, which the character stays on its feet through and the view is the mouse's through.
+     */
+    private boolean bodyWhole(IsoPlayer player) {
+        State state = player.getCurrentState();
+        if (player.isDead() || state != PlayerGetUpState.instance()) {
+            return player.isDead() || !hitReaction(state);
+        }
+        return bodyWhole;
+    }
+
+    private static boolean hitReaction(State state) {
+        return state == PlayerHitReactionState.instance() || state == PlayerHitReactionPVPState.instance();
+    }
+
+    /** Hands the eye to the head and back as the game's animation takes the body and lets it go: see BodyLed. */
+    private void lead(IsoPlayer player, float seconds) {
+        if (player != ledPlayer) {
+            ledPlayer = player;
+            view.bodyLed.reset();
+            bodyLeads = false;
+            bodyWhole = false;
+        }
+        boolean wasLed = bodyLeads, wasWhole = bodyWhole, wasHolding = view.bodyLed.holding();
+        if (landed) {
+            // The game makes a dead character a body on the ground and takes it off the map: it is posed no more.
+            view.bodyLed.frame(bodyLeads(player), bodyWhole(player), player.isDead() && player.getCurrentSquare() == null, seconds);
+        } else {
+            view.bodyLed.reset();
+        }
+        bodyLeads = view.bodyLed.leads();
+        bodyWhole = view.bodyLed.whole();
+        if (bodyLeads != wasLed || bodyWhole != wasWhole) {
+            State state = player.getCurrentState();
+            Log.info(String.format(Locale.ROOT, "%sthe eye is %s (%s, hit reaction '%s'%s)", who(),
+                    bodyWhole ? "the head's: the game's animation has the body"
+                            : bodyLeads ? "the mouse's: the game's animation has the body, the view stays" : "the mouse's again",
+                    state == null ? "no state" : state.getClass().getSimpleName(), player.getHitReaction(), player.isDead() ? ", dead" : ""));
+        }
+        if (wasWhole && !bodyWhole && !player.isDead()) {
+            // The mouse takes the view back facing where the head last did, so nothing turns as it does.
+            ViewCamera.Pose head = view.bodyLed.head;
+            setLook((float) Math.atan2(head.forwardY, head.forwardX), (float) Math.asin(Math.clamp(head.forwardUp, -1f, 1f)));
+        }
+        if (view.bodyLed.holding() && !wasHolding) {
+            view.bodyLed.heldClean.set(cleanView);
+            view.bodyLed.heldTracked.set(trackedView);
+            Log.info(String.format(Locale.ROOT, "%sthe game has made the body: the eye stays where the head last was, at (%.2f, %.2f, %.2f) looking (%.2f, %.2f, %.2f)",
+                    who(), cleanView.eyeX, cleanView.eyeY, cleanView.eyeUp, cleanView.forwardX, cleanView.forwardY, cleanView.forwardUp));
+        }
+    }
+
+    /**
+     * Makes the clean view the head's, or the share of the way to it the hand-over has reached,
+     * while the game's animation has the body.
+     *
+     * @return how the clean view is turned from the level one at the mouse's yaw, for the lean to go with it: the vehicle's tilt while the head does not lead
+     */
+    private float[] led(IsoPlayer player, float standsUp) {
+        if (view.bodyLed.holding()) {
+            cleanView.set(view.bodyLed.heldClean);
+            BodyLed.tipped(yaw, cleanView, ledTilt);
+            return ledTilt;
+        }
+        float share = view.bodyLed.share();
+        if (share <= 0f) {
+            return view.ride.tilt;
+        }
+        float bodyAngle = view.modelHead.head(player, headTurn, headJoint);
+        if (Float.isNaN(bodyAngle)) {
+            throw new IllegalStateException("the head leads the eye but the character's skeleton is not posed");
+        }
+        ViewCamera.Pose head = view.bodyLed.head;
+        float x = player.getX(), y = player.getY();
+        BodyLed.look(headTurn, bodyAngle, x, y, standsUp, headJoint[0], headJoint[1], headJoint[2], head);
+        // Held off walls along the map as the standing eye is, a head thrown back against one stopping short of it, and
+        // off the floor as far: face down, the eye ahead of the head's joint is under it.
+        float margin = Tracking.settings().collisionMargin;
+        float awayX = head.eyeX - x, awayY = head.eyeY - y, reach = (float) Math.hypot(awayX, awayY);
+        if (reach > 0f) {
+            float room = world.roomForTheEye(x, y, awayX / reach, awayY / reach, reach, margin) / reach;
+            head.eyeX = x + awayX * room;
+            head.eyeY = y + awayY * room;
+        }
+        head.eyeUp = Math.max(head.eyeUp, standsUp + margin);
+        if (share < 1f) {
+            mouseView.set(cleanView);
+            view.bodyLed.between(mouseView, head, share, cleanView);
+        } else {
+            cleanView.set(head);
+        }
+        BodyLed.tipped(yaw, cleanView, ledTilt);
+        return ledTilt;
+    }
+
     private float eyeHeight(IsoPlayer player) {
         if (view.modelHead.eyeOffset(player, yaw, headOffset)) {
             return headOffset[2];
@@ -1342,7 +1484,7 @@ public final class FirstPerson {
         if (MouseGrab.moved.get() > 0 || System.nanoTime() - capturedNanos < LOOK_SETTLES_NANOS) {
             haveRawX = false;
         }
-        if (haveRawX && !MouseGrab.ISOLATED) {
+        if (haveRawX && !MouseGrab.ISOLATED && !bodyWhole) {
             float turn = (raw - lastRawX) * RADIANS_PER_PIXEL * view.fieldOfView.zoom() * view.scope.turn();
             mouseTurned += turn;
             mouseMost = Math.max(mouseMost, Math.abs(raw - lastRawX));
@@ -1366,7 +1508,7 @@ public final class FirstPerson {
         if (System.nanoTime() - capturedNanos < LOOK_SETTLES_NANOS) {
             haveRawY = false;
         }
-        if (haveRawY && !MouseGrab.ISOLATED) {
+        if (haveRawY && !MouseGrab.ISOLATED && !bodyWhole) {
             setLook(yaw, pitch - (raw - lastRawY) * RADIANS_PER_PIXEL * view.fieldOfView.zoom() * view.scope.turn());
         }
         lastRawY = raw;
@@ -1417,7 +1559,8 @@ public final class FirstPerson {
         if (move.x == 0f && move.y == 0f) {
             stride.reset();
             movingAside = false;
-            if (!player.isAiming()) {
+            // While the game's animation has the body it faces where that left it: turned, the struggle would be played to one side.
+            if (!player.isAiming() && !bodyLeads) {
                 player.setForwardDirection(forward.set((float) Math.cos(yaw), (float) Math.sin(yaw)));
             }
             return move;

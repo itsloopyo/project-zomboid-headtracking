@@ -36,6 +36,7 @@ final class View {
     final Crosshair crosshair = new Crosshair();
     final Ride ride = new Ride();
     final KerbSteps kerbSteps = new KerbSteps();
+    final BodyLed bodyLed = new BodyLed();
     final GlassPull glassPull = new GlassPull();
     final MuzzleFlash muzzleFlash = new MuzzleFlash();
     final HeldDepth heldDepth = new HeldDepth();

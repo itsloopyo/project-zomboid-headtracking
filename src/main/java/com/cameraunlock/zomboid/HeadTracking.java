@@ -42,6 +42,8 @@ final class HeadTracking {
 
     /** The view rides a vehicle, which turns and tilts under it: the head's yaw is about the view's own up there, whatever is saved. */
     private boolean seated;
+    /** Whether the view is the character's head's, led by the game's animation (BodyLed), which can have it on its back or its side. */
+    private boolean bodyLed;
 
     private boolean applied;
     private boolean fresh;
@@ -191,17 +193,19 @@ final class HeadTracking {
      * Writes the view the frame is drawn from: the clean view, turned and
      * moved by the head when tracking applies.
      *
-     * @param inGameplay the first-person view is on, the game is running and the character is alive
+     * @param inGameplay the first-person view is on, the game is running and the character is alive, or dying with the eye still led by its head
      * @param cleanYaw   the yaw the clean view was built from, which the lean follows
-     * @param tilt       how the vehicle sat in is turned from level, which the clean view has in it, or null on foot
+     * @param tilt       how the clean view is turned from level at that yaw: by the vehicle sat in, or by the head while it leads, or null for neither
      * @param sightsUp   whether a firearm's sights are up this frame
      * @param rigAvailable whether the weapon can be moved with the eye: on foot, and not where players fight
      * @param forwardStop with the sights up, how far along the aim a lean may take the eye
      * @param inVehicle  whether the view is from a vehicle's seat
+     * @param bodyLed    whether the view is led by the character's head (BodyLed): yaw turns about the view's own up
      */
     void view(boolean inGameplay, ViewCamera.Pose clean, float cleanYaw, float[] tilt, WorldQuery world, boolean sightsUp,
-            boolean rigAvailable, float forwardStop, boolean inVehicle, ViewCamera.Pose out) {
+            boolean rigAvailable, float forwardStop, boolean inVehicle, boolean bodyLed, ViewCamera.Pose out) {
         ride(inVehicle);
+        this.bodyLed = bodyLed;
         out.set(clean);
         input.forwardStop = forwardStop;
         input.aimForward[0] = clean.forwardX;
@@ -287,7 +291,7 @@ final class HeadTracking {
     }
 
     private boolean yawAboutWorldUp() {
-        return Tracking.worldYaw() && !seated;
+        return Tracking.worldYaw() && !seated && !bodyLed;
     }
 
     private void ride(boolean inVehicle) {
