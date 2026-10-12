@@ -146,6 +146,7 @@ final class SkyState {
         float hour = time.getTimeOfDay();
         // The season's sunrise and sunset, in hours. GameTime's own getDawn and getDusk are not hours.
         float dawn = climate.getSeason().getDawn(), dusk = climate.getSeason().getDusk();
+        Seasons.capture(climate.getSeason());
 
         // One turn a day: across the sky from east, +x, to west between dawn and dusk, and
         // round underneath for the rest of it.

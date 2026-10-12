@@ -163,6 +163,7 @@ public final class Tests {
         Checks.run("LightningTests", LightningTests::run);
         Checks.run("ImpactTests", ImpactTests::run);
         Checks.run("KerbTests", KerbTests::run);
+        Checks.run("SeasonsTests", SeasonsTests::run);
         Checks.run("StairTests", StairTests::run);
         Checks.run("FlightTests", FlightTests::run);
         Checks.run("CutawayTests", CutawayTests::run);
