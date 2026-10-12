@@ -490,7 +490,7 @@ final class ViewModelMath {
     /** For each way of hitting: drawn back, on the way, landing, gone through, and sprung back off what it landed on. */
     private static final float[][][] ATTACKS = {
         {key(70, 50, -30, 0.28f, -0.10f, 0.22f, 25), key(30, 70, 20, 0.22f, -0.12f, 0.32f, 10), key(12, -50, 60, 0.10f, -0.15f, 0.36f, -14),
-            key(-8, -115, 80, -0.12f, -0.20f, 0.26f, -34), key(16, -32, 50, 0.12f, -0.14f, 0.35f, -8)},
+            key(-8, -110, 70, -0.12f, -0.20f, 0.26f, -38), key(16, -32, 50, 0.12f, -0.14f, 0.35f, -8)},
         {key(110, 5, 0, 0.13f, 0.09f, 0.20f, 0), key(70, 0, 0, 0.10f, 0.00f, 0.30f, 0), key(30, -6, 0, 0.05f, -0.16f, 0.36f, 0),
             key(-10, 4, 0, 0.00f, -0.21f, 0.27f, 8), key(24, -6, 0, 0.05f, -0.12f, 0.34f, 0)},
         {key(-25, 35, -20, 0.22f, -0.25f, 0.18f, 20), key(-8, 10, 10, 0.17f, -0.23f, 0.27f, 5), key(25, -18, 30, 0.06f, -0.16f, 0.36f, -10),

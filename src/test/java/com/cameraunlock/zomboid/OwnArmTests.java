@@ -33,6 +33,7 @@ final class OwnArmTests {
         wristIsWhereTheArmPutsIt(model);
         Checks.run("longGunIsHeldNearerAtTheHipThanItsSightsAsk", OwnArmTests::longGunIsHeldNearerAtTheHipThanItsSightsAsk);
         armsAreTheSizeArmsAreAndStartWhereShouldersAre(model);
+        everyMeleeClassKeepsItsWristsThroughEveryBlow(model);
     }
 
     private static final float SCALE = 0.74f;
@@ -613,5 +614,61 @@ final class OwnArmTests {
                 "a hand is placed palm down and palm inwards");
         float turned = Math.abs(palmDown[ArmPose.TWISTED] - palmIn[ArmPose.TWISTED]);
         check(turned > Math.toRadians(50) && turned < Math.toRadians(130), "between the two the forearm turns about a quarter turn along its length, and said " + Math.toDegrees(turned));
+    }
+
+    /**
+     * Something swung of each class, of the lengths the game has, held as ViewModel holds it in the mod's own hands, through
+     * every way its class is hit with: no wrist bent past 45 degrees.
+     */
+    private static void everyMeleeClassKeepsItsWristsThroughEveryBlow(ArmModel model) {
+        // Class, both hands, butt and tip in the mesh's units at scale 1: a hammer, a machete, a bat, a fire axe, a sledgehammer, a knife, a spear.
+        float[][] weapons = {{MeleeHold.ONE_HANDED, 0f, -0.015f, 0.235f}, {MeleeHold.ONE_HANDED, 0f, -0.026f, 0.306f}, {MeleeHold.TWO_HANDED, 1f, -0.026f, 0.467f},
+            {MeleeHold.TWO_HANDED, 1f, -0.025f, 0.388f}, {MeleeHold.HEAVY, 1f, -0.038f, 0.653f}, {MeleeHold.KNIFE, 0f, -0.028f, 0.248f}, {MeleeHold.SPEAR, 1f, -0.09f, 0.68f}};
+        float perUnit = 1f / Characters.PER_METRE, tilesPerUnit = 1.5f;
+        float worst = 0f;
+        for (float[] w : weapons) {
+            int kind = (int) w[0];
+            boolean both = w[1] > 0f;
+            MeleeHold.Shape shape = new MeleeHold.Shape(w[2], w[3], 0f, -1f);
+            MeleeHold.Fit fit = MeleeHold.fit(kind, shape, perUnit, tilesPerUnit, true);
+            for (int attack = ViewModelMath.SWUNG; attack <= ViewModelMath.SHOVED; attack++) {
+                // Only the ways the game hits with each: a knife and a spear thrust, every class goes onto the floor and shoves, and a heavy weapon has no uppercut.
+                boolean point = kind == MeleeHold.KNIFE || kind == MeleeHold.SPEAR;
+                if (point ? attack != ViewModelMath.THRUST && attack != ViewModelMath.FLOORED && attack != ViewModelMath.SHOVED
+                        : attack == ViewModelMath.THRUST || kind == MeleeHold.HEAVY && attack == ViewModelMath.RAISED) {
+                    continue;
+                }
+                int way = MeleeHold.way(kind, attack);
+                for (int frame = 0; frame <= 24; frame++) {
+                    float t = frame / 24f, lands = 0.45f;
+                    float reached = Math.min(t / lands, 1f), past = t <= lands ? 0f : (t - lands) / (1f - lands);
+                    float[] pose = new float[ViewModelMath.HOLD], top = new float[3], matrix = new float[16];
+                    ViewModelMath.attack(way, reached, past, false, fit.rest(), pose);
+                    float share = MeleeHold.share(reached, past, false);
+                    pose[1] += fit.aimed()[way] * share;
+                    MeleeHold.top(shape, way, share, top);
+                    float[] origin = {0f, fit.hand(), 0f};
+                    ViewModelMath.hold(origin, new float[] {0f, 1f, 0f}, top, null, tilesPerUnit, pose[3], pose[4], pose[5], matrix);
+                    ViewModelMath.turn(matrix, pose[0], pose[1], pose[2], pose[3], pose[4], -pose[5], 0f, 0f, 0f);
+                    float[] grip = new float[3], pointing = new float[3], over = new float[3];
+                    ViewModelMath.place(matrix, 0f, fit.hand(), 0f, grip);
+                    ViewModelMath.turned(matrix, new float[] {0f, 1f, 0f}, pointing);
+                    ViewModelMath.turned(matrix, top, over);
+                    ArmPose.unit(pointing[0], pointing[1], pointing[2], pointing);
+                    ArmPose.unit(over[0], over[1], over[2], over);
+                    ArmHolds.Weapon held = new ArmHolds.Weapon(false, false, grip, pointing, over, null, fit.second());
+                    ArmHolds.Doing doing = new ArmHolds.Doing(0f, both, ArmActs.NO_ACTION, -1f, ArmActs.HOLDING, 0f, 0f, 1f, -1f, false, -1f, -1f, 2f, pose[6]);
+                    float[][] skins = new float[2][model.bones.length * 16], said = new float[2][ArmPose.SAYS];
+                    int arms = ArmHolds.place(model, SCALE, held, doing, SAME, skins, said, new ArmHolds.Carried(), new ArmHolds.Settled());
+                    check(arms == (both ? 2 : 1), "class " + kind + " way " + way + " frame " + frame + " has its arms");
+                    for (int side = 0; side < arms; side++) {
+                        float bent = (float) Math.toDegrees(said[side][ArmPose.BENT]);
+                        worst = Math.max(worst, bent);
+                        check(bent <= 45.5f, "class " + kind + " way " + way + " frame " + frame + (side == 0 ? " right" : " left") + " wrist bent " + bent);
+                    }
+                }
+            }
+        }
+        check(worst > 30f, "and the wrists were measured: " + worst);
     }
 }

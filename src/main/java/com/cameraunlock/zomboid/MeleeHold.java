@@ -167,7 +167,7 @@ final class MeleeHold {
     /** A spear at rest is held low and level, its point ahead, a little in from the right. */
     private static final float[] LEVELLED = {(float) Math.toRadians(7), (float) Math.toRadians(-7), 0f, 0.15f, -0.22f, 0.27f, 0f};
     /** How far up the picture, in parts of the way from its middle to its top edge, the far end of what is held at rest may come. */
-    static final float REST_TOP = 0.85f;
+    static final float REST_TOP = 0.75f;
     /** The tangent of half the height of the picture the rest is fitted to: the default field of view's. */
     private static final float TAN = (float) Math.tan(Math.toRadians(FieldOfView.DEFAULT_DEGREES) / 2);
 
