@@ -255,16 +255,24 @@ final class Flora {
      * limbs off it out to the boughs, each as thick where it leaves as LIMB_OF_LEADER of the
      * leader there, with branches off each to the leaves either side.
      */
-    private static final float LEADER_TOP = 0.8f, LIMB_TIP = 0.014f, LIMB_OF_LEADER = 0.7f, LIMB_OUT = 0.8f, BRANCH_OF_LIMB = 0.5f, BRANCH_TIP = 0.008f;
+    private static final float LEADER_TOP = 0.62f, LIMB_TIP = 0.014f, LIMB_OF_LEADER = 0.7f, LIMB_OUT = 0.8f, BRANCH_OF_LIMB = 0.5f, BRANCH_TIP = 0.008f;
     /**
      * A bare tree's limbs and branches end this far out of its outline, its twigs carrying on
      * past them; how many twigs each branch has; and from what detail (see addCrown) on it has them.
      */
-    private static final float BARE_OUT = 0.82f, BARE_TWIGGED = 0.5f;
+    private static final float BARE_OUT = 0.9f, BARE_TWIGGED = 0.5f, TWIGLETS = 0.8f;
     private static final int BARE_TWIGS = 3;
     /** How many sticks a square of fallen wood has at least: up to three more. */
     private static final int FALLEN_STICKS_LEAST = 2;
-    private static final int LEADER_SIDES = 6, LIMB_SIDES = 5, BRANCH_SIDES = 4, TWIG_SIDES = 3, LIMB_PIECES = 4;
+    private static final int LEADER_SIDES = 6, LIMB_SIDES = 5, BRANCH_SIDES = 4, TWIG_SIDES = 3, LIMB_PIECES = 4, LEADER_PIECES = 4;
+    /**
+     * Wood is not straight: how far a leader wanders aside at each joint, as a share of the
+     * crown's height; how far a limb or a branch kinks aside at each joint, and how much a
+     * branch bows up, as shares of its length.
+     */
+    private static final float WAVER = 0.025f, KINK = 0.16f, BOW = 0.06f;
+    /** The longest a piece of a branch near the eye runs straight, as a share of the crown's height: twice as long far off. */
+    private static final float STRAIGHT_MOST = 0.12f;
     /** How far up the bark's picture wood in a crown starts: clear of the moss a bole has at its foot. */
     private static final float WOOD_UP = 3f;
     /**
@@ -647,20 +655,30 @@ final class Flora {
             int stems = formed ? TreeForm.STEMS_LEAST[kind] + (seed >>> 4 & 0xff) % (TreeForm.STEMS_MOST[kind] - TreeForm.STEMS_LEAST[kind] + 1) : 1;
             float lean = formed ? (float) Math.tan(Math.toRadians(TreeForm.STEM_LEAN[kind])) : 0f;
             float stemThick = stems > 1 ? thick * 1.15f / (float) Math.sqrt(stems) : thick;
-            float[] stemX = new float[stems], stemY = new float[stems], stemTop = new float[stems];
+            float[] stemTop = new float[stems];
+            // Where each stem is at each of its joints, across and along from the tree's middle: no trunk runs dead straight.
+            // In as many pieces as keep each short: see STRAIGHT_MOST.
+            int leaderPieces = Math.max(LEADER_PIECES, (int) Math.ceil((topUp - boleTall) / (STRAIGHT_MOST * woodTall)));
+            float[] stemX = new float[stems * (leaderPieces + 1)], stemY = new float[stems * (leaderPieces + 1)];
             for (int stem = 0; stem < stems; stem++) {
                 int own = mix(seed, stem, 99);
                 float round = turnOne + stem * 6.2832f / stems + (stems > 1 ? 0.6f * (unit(own, 0) - 0.5f) : 0f);
                 stemTop[stem] = stems > 1 ? topUp - 0.12f * woodTall * unit(own, 8) : topUp;
                 float out = lean * (stemTop[stem] - boleTall);
-                stemX[stem] = (float) Math.cos(round) * out;
-                stemY[stem] = (float) Math.sin(round) * out;
-                for (int piece = 0; piece < 3; piece++) {
-                    float a = piece / 3f, b = (piece + 1) / 3f;
+                for (int joint = 0; joint <= leaderPieces; joint++) {
+                    float a = (float) joint / leaderPieces;
+                    int wavers = mix(own, joint, 101);
+                    float waver = joint == 0 ? 0f : WAVER * woodTall;
+                    stemX[stem * (leaderPieces + 1) + joint] = (float) Math.cos(round) * out * a + waver * (unit(wavers, 0) - 0.5f);
+                    stemY[stem * (leaderPieces + 1) + joint] = (float) Math.sin(round) * out * a + waver * (unit(wavers, 8) - 0.5f);
+                }
+                for (int piece = 0; piece < leaderPieces; piece++) {
+                    float a = (float) piece / leaderPieces, b = (float) (piece + 1) / leaderPieces;
                     float from = boleTall + (stemTop[stem] - boleTall) * a, to = boleTall + (stemTop[stem] - boleTall) * b;
-                    prism(wood, x + stemX[stem] * a, y + stemY[stem] * a, base + from, x + stemX[stem] * b, y + stemY[stem] * b, base + to,
+                    int at = stem * (leaderPieces + 1) + piece;
+                    prism(wood, x + stemX[at], y + stemY[at], base + from, x + stemX[at + 1], y + stemY[at + 1], base + to,
                             stemThick + (LIMB_TIP - stemThick) * a, stemThick + (LIMB_TIP - stemThick) * b,
-                            LEADER_SIDES, BARK_UP * bark + WOOD_UP, limbSway(from, boleTall), limbSway(to, boleTall), seed + piece + 3 * stem, frame);
+                            LEADER_SIDES, BARK_UP * bark + WOOD_UP, limbSway(from, boleTall), limbSway(to, boleTall), seed + piece + leaderPieces * stem, frame);
                 }
             }
             boolean paired = formed && TreeForm.OPPOSITE[kind];
@@ -679,7 +697,8 @@ final class Flora {
                         : turnOne + limb * 2.39996f + 0.5f * (unit(own, 8) - 0.5f);
                 if (stems > 1) {
                     // A stem of several bears its limbs on its outer side: the inside of the fork is the other stems'.
-                    float stemRound = (float) Math.atan2(stemY[stem], stemX[stem]);
+                    int stemEnd = stem * (leaderPieces + 1) + leaderPieces;
+                    float stemRound = (float) Math.atan2(stemY[stemEnd], stemX[stemEnd]);
                     round = stemRound + 0.55f * (float) Math.atan2(Math.sin(round - stemRound), Math.cos(round - stemRound));
                 }
                 float share = Math.clamp((fromUp - woodLowest) / woodTall + limbRise + 0.22f * unit(own, 16), 0.08f, 0.94f);
@@ -689,20 +708,29 @@ final class Flora {
                 float limbThick = Math.max((stemThick + (LIMB_TIP - stemThick) * leaves) * LIMB_OF_LEADER, LIMB_TIP * 1.4f);
                 // It leaves the stem nearly level and turns up to its end: a curve through a point out beside where it leaves.
                 float bendOut = 0.7f * endOut, bendUp = fromUp + 0.1f * (endUp - fromUp);
-                float startX = stemX[stem] * leaves, startY = stemY[stem] * leaves;
+                // It leaves the stem where the stem is at that height.
+                float along = leaves * leaderPieces;
+                int joint = Math.min((int) along, leaderPieces - 1);
+                float part = along - joint;
+                int at0 = stem * (leaderPieces + 1) + joint;
+                float startX = stemX[at0] + (stemX[at0 + 1] - stemX[at0]) * part, startY = stemY[at0] + (stemY[at0 + 1] - stemY[at0]) * part;
                 float lastX = x + startX, lastY = y + startY, lastUp = fromUp;
-                for (int piece = 1; piece <= LIMB_PIECES; piece++) {
-                    float t = (float) piece / LIMB_PIECES, s = 1f - t;
+                int limbPieces = Math.max(LIMB_PIECES, (int) Math.ceil(1.15f * (float) Math.hypot(endOut, endUp - fromUp) / (STRAIGHT_MOST * woodTall)));
+                for (int piece = 1; piece <= limbPieces; piece++) {
+                    float t = (float) piece / limbPieces, s = 1f - t;
                     float outAt = 2f * s * t * bendOut + t * t * endOut, upAt = s * s * fromUp + 2f * s * t * bendUp + t * t * endUp;
                     // It keeps its thickness most of its length, and thins fastest at its end.
-                    float thickFrom = limbThick + (LIMB_TIP - limbThick) * (t - 1f / LIMB_PIECES) * (t - 1f / LIMB_PIECES), thickTo = limbThick + (LIMB_TIP - limbThick) * t * t;
+                    float thickFrom = limbThick + (LIMB_TIP - limbThick) * (t - 1f / limbPieces) * (t - 1f / limbPieces), thickTo = limbThick + (LIMB_TIP - limbThick) * t * t;
                     // A piece that starts under the room's top is kept to it to its end, wherever that is.
                     float in = thickTo + SpriteGeometry.SWAY_REACH * limbSway(upAt, boleTall), fromUnder = Math.min(lastUp, upAt);
-                    float atX = keptX(x + cos * outAt + startX * s, fromUnder, in, room), atY = keptY(y + sin * outAt + startY * s, fromUnder, in, room);
+                    // It kinks a little at each joint, as wood grows from bud to bud.
+                    float kink = piece < limbPieces ? KINK * endOut / limbPieces * (unit(mix(own, piece, 102 + limb % 2), 0) - 0.5f) : 0f;
+                    float atX = keptX(x + cos * outAt + startX * s - sin * kink, fromUnder, in, room), atY = keptY(y + sin * outAt + startY * s + cos * kink, fromUnder, in, room);
                     prism(wood, lastX, lastY, base + lastUp, atX, atY, base + upAt, thickFrom, thickTo,
                             LIMB_SIDES, BARK_UP * bark + WOOD_UP, limbSway(lastUp, boleTall), limbSway(upAt, boleTall), own + piece + (paired ? 7 * (limb % 2) : 0), frame);
-                    if (piece >= 2) {
-                        // Two branches off the end of each piece but the first, to the leaves on either side of the limb and above it.
+                    // Two branches at each quarter of the limb past its first, however many pieces it is made of.
+                    int quarter = (int) Math.floor(t * LIMB_PIECES + 1e-4f), before = (int) Math.floor((float) (piece - 1) / limbPieces * LIMB_PIECES + 1e-4f);
+                    if (quarter >= 2 && quarter != before) {
                         for (int side = 0; side < 2; side++) {
                             int which = mix(own + (paired ? 7 * (limb % 2) : 0), piece, 95 + side);
                             float toRound = round + (side == 0 ? 1f : -1f) * (0.35f + 0.45f * unit(which, 0));
@@ -711,10 +739,11 @@ final class Flora {
                                     * (1f - BOUGH_HOLLOW * (1f - bough(toRound, toShare, lobes, woodRows, turnOne, turnTwo, turnThree)));
                             float toUp = woodLowest + toShare * woodTall, toIn = BRANCH_TIP + SpriteGeometry.SWAY_REACH * limbSway(toUp, boleTall), toUnder = Math.min(upAt, toUp);
                             float endX = keptX(x + (float) Math.cos(toRound) * toOut, toUnder, toIn, room), endY = keptY(y + (float) Math.sin(toRound) * toOut, toUnder, toIn, room);
-                            prism(wood, atX, atY, base + upAt, endX, endY, base + toUp, Math.max(thickTo * BRANCH_OF_LIMB, BRANCH_TIP), BRANCH_TIP, BRANCH_SIDES, BARK_UP * bark + WOOD_UP,
-                                    limbSway(upAt, boleTall), limbSway(toUp, boleTall), which, frame);
+                            float[] last = addBranch(wood, atX, atY, upAt, endX, endY, toUp, base, Math.max(thickTo * BRANCH_OF_LIMB, BRANCH_TIP),
+                                    (detail > BARE_TWIGGED ? 1f : 2f) * STRAIGHT_MOST * woodTall, boleTall, bark, which, room, frame);
                             if (wooded && detail > BARE_TWIGGED) {
-                                addBareTwigs(wood, atX, atY, upAt, endX, endY, toUp, base, woodReach, boleTall, bark, which, room, frame, twigs, twigRise);
+                                addBareTwigs(wood, last[0], last[1], last[2], endX, endY, toUp, base, woodReach, boleTall, bark, which, room, frame, twigs, twigRise,
+                                        detail > TWIGLETS);
                             }
                         }
                     }
@@ -891,20 +920,66 @@ final class Flora {
      * they are what makes a bare crown read as a crown and not as a few sticks.
      */
     private static void addBareTwigs(Mesh wood, float fromX, float fromY, float fromUp, float endX, float endY, float endUp, float base, float reach,
-            float boleTall, int bark, int seed, float[] room, SpriteGeometry.Frame frame, int twigs, float rises) {
+            float boleTall, int bark, int seed, float[] room, SpriteGeometry.Frame frame, int twigs, float rises, boolean forked) {
         float dx = endX - fromX, dy = endY - fromY;
         float flat = (float) Math.sqrt(dx * dx + dy * dy);
         double way = flat > 1e-4f ? Math.atan2(dy, dx) : unit(seed, 0) * 2.0 * Math.PI;
         for (int twig = 0; twig < twigs; twig++) {
             int own = mix(seed, twig, 97);
             double turn = way + (twig - (twigs - 1) / 2f) * 0.55 + 0.3 * (unit(own, 0) - 0.5);
-            float length = reach * (0.1f + 0.1f * unit(own, 8));
+            float length = reach * (0.08f + 0.07f * unit(own, 8));
             float rise = length * (0.35f + 0.5f * unit(own, 16)) * rises;
             float toUp = endUp + rise, in = TWIG_TIP + SpriteGeometry.SWAY_REACH * limbSway(toUp, boleTall), under = Math.min(endUp, toUp);
             float toX = keptX(endX + (float) Math.cos(turn) * length, under, in, room), toY = keptY(endY + (float) Math.sin(turn) * length, under, in, room);
-            prism(wood, endX, endY, base + endUp, toX, toY, base + toUp, BRANCH_TIP, TWIG_TIP, TWIG_SIDES, BARK_UP * bark + WOOD_UP,
+            prism(wood, endX, endY, base + endUp, toX, toY, base + toUp, BRANCH_TIP, forked ? (BRANCH_TIP + TWIG_TIP) / 2f : TWIG_TIP, TWIG_SIDES, BARK_UP * bark + WOOD_UP,
                     limbSway(endUp, boleTall), limbSway(toUp, boleTall), own, frame);
+            if (!forked) {
+                continue;
+            }
+            // Each twig forks at its end into two shorter, finer ones, so a bare crown's edge is a haze of fine wood and not spikes.
+            for (int fork = 0; fork < 2; fork++) {
+                int each = mix(own, fork, 98);
+                double split = turn + (fork == 0 ? 1.0 : -1.0) * (0.3 + 0.3 * unit(each, 0));
+                float shorter = length * (0.45f + 0.25f * unit(each, 8));
+                float tipUp = toUp + shorter * (0.3f + 0.6f * unit(each, 16)) * rises, tipIn = TWIG_TIP + SpriteGeometry.SWAY_REACH * limbSway(tipUp, boleTall);
+                float tipX = keptX(toX + (float) Math.cos(split) * shorter, Math.min(toUp, tipUp), tipIn, room), tipY = keptY(toY + (float) Math.sin(split) * shorter, Math.min(toUp, tipUp), tipIn, room);
+                prism(wood, toX, toY, base + toUp, tipX, tipY, base + tipUp, (BRANCH_TIP + TWIG_TIP) / 2f, TWIG_TIP, TWIG_SIDES, BARK_UP * bark + WOOD_UP,
+                        limbSway(toUp, boleTall), limbSway(tipUp, boleTall), each, frame);
+            }
         }
+    }
+
+    /**
+     * A branch from (fromX, fromY, fromUp) out to (toX, toY, toUp), thick at its start and
+     * BRANCH_TIP at its end, in pieces no longer than longest, each joint kinked a little aside and the whole bowed
+     * up, as wood grows from bud to bud and not as a rod. Returns where its last piece starts,
+     * for the twigs to go on the way it goes.
+     */
+    private static float[] addBranch(Mesh wood, float fromX, float fromY, float fromUp, float toX, float toY, float toUp, float base, float thick, float longest,
+            float boleTall, int bark, int seed, float[] room, SpriteGeometry.Frame frame) {
+        float dx = toX - fromX, dy = toY - fromY, dz = toUp - fromUp;
+        float length = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
+        int pieces = Math.max(2, (int) Math.ceil(length / longest));
+        float flat = Math.max((float) Math.sqrt(dx * dx + dy * dy), 1e-4f);
+        float sideX = -dy / flat, sideY = dx / flat;
+        float lastX = fromX, lastY = fromY, lastUp = fromUp, startX = fromX, startY = fromY, startUp = fromUp;
+        for (int piece = 1; piece <= pieces; piece++) {
+            float t = (float) piece / pieces;
+            float kink = piece < pieces ? KINK * length * (unit(mix(seed, piece, 103), 0) - 0.5f) : 0f;
+            float bow = piece < pieces ? BOW * length * 4f * t * (1f - t) : 0f;
+            float up = fromUp + dz * t + bow, in = BRANCH_TIP + SpriteGeometry.SWAY_REACH * limbSway(up, boleTall), under = Math.min(lastUp, up);
+            float atX = keptX(fromX + dx * t + sideX * kink, under, in, room), atY = keptY(fromY + dy * t + sideY * kink, under, in, room);
+            float thickFrom = thick + (BRANCH_TIP - thick) * (piece - 1f) / pieces, thickTo = thick + (BRANCH_TIP - thick) * t;
+            prism(wood, lastX, lastY, base + lastUp, atX, atY, base + up, thickFrom, thickTo, BRANCH_SIDES, BARK_UP * bark + WOOD_UP,
+                    limbSway(lastUp, boleTall), limbSway(up, boleTall), seed + piece, frame);
+            startX = lastX;
+            startY = lastY;
+            startUp = lastUp;
+            lastX = atX;
+            lastY = atY;
+            lastUp = up;
+        }
+        return new float[] {startX, startY, startUp};
     }
 
     /** How far up a bough's swell the crown's outside is at an angle round it and a share of the way up it: 0 in a hollow, 1 on a bough's top. */

@@ -19,8 +19,11 @@ final class TreeForm {
      */
     static final int[] STEMS_LEAST = {1, 1, 2, 2, 1, 1, 1, 2}, STEMS_MOST = {1, 1, 3, 3, 1, 1, 1, 3};
     static final float[] STEM_LEAN = {0f, 0f, 9f, 16f, 0f, 0f, 0f, 24f};
-    /** How far up the crown the leader or each stem goes, as a share of it. */
-    static final float[] LEADER_TOP = {0.8f, 0.86f, 0.92f, 0.8f, 0.62f, 0.94f, 0.84f, 0.72f};
+    /**
+     * How far up the crown the leader or each stem goes before it parts into limbs, as a share
+     * of it: below the top, but for a silverbell, whose leader runs on up, wavering.
+     */
+    static final float[] LEADER_TOP = {0.6f, 0.64f, 0.72f, 0.62f, 0.5f, 0.9f, 0.62f, 0.55f};
     /** How many limbs, for as many as the crown's width gives a tree, and how far up the crown a limb climbs to its end besides a share of its own. */
     static final float[] LIMBS = {1f, 1.1f, 0.85f, 1f, 1.05f, 1.25f, 1f, 0.9f};
     static final float[] LIMB_RISE = {0.16f, 0.28f, 0.1f, 0.2f, 0.03f, 0.02f, 0.18f, 0.12f};

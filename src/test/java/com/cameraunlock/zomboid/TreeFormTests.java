@@ -10,6 +10,8 @@ final class TreeFormTests {
         Checks.run("evergreensAndOtherTilesHaveNoForm", TreeFormTests::evergreensAndOtherTilesHaveNoForm);
         Checks.run("aThinningCrownsWoodIsItsBareTreesWood", TreeFormTests::aThinningCrownsWoodIsItsBareTreesWood);
         Checks.run("aSpeciesWoodCostsAboutWhatAnyTreesDoes", TreeFormTests::aSpeciesWoodCostsAboutWhatAnyTreesDoes);
+        Checks.run("noWoodRunsStraightForLong", TreeFormTests::noWoodRunsStraightForLong);
+        Checks.run("aLeaderPartsIntoLimbsBelowTheTop", TreeFormTests::aLeaderPartsIntoLimbsBelowTheTop);
     }
 
     private static void evergreensAndOtherTilesHaveNoForm() {
@@ -75,6 +77,57 @@ final class TreeFormTests {
         }
     }
 
+    /** A bare crown's wood of the kind (NONE for any tree), standing on (10.5, 20.5). */
+    private static SpriteGeometry.Mesh bareWood(int kind, float[] shape) {
+        SpriteGeometry.Frame frame = frame();
+        SpriteGeometry.Mesh wood = new SpriteGeometry.Mesh();
+        Checks.check(Flora.addCrown(new SpriteGeometry.Mesh(), wood, frame, Flora.leafPlaces(TreeFormTests::trunk, frame), 10.5f, 20.5f, 0f, FOOT_U, FOOT_V, 1f, 0f,
+                0.08f, 0.8f, Flora.BARK_MAPLE, Flora.BARE, 99, Flora.OPEN, 1f, 0, 0f, kind, shape), "kind " + kind + " has a bare crown");
+        return wood;
+    }
+
+    private static float[] shape() {
+        SpriteGeometry.Frame frame = frame();
+        return Flora.woodShape(frame, Flora.leafPlaces(TreeFormTests::trunk, frame), FOOT_U, FOOT_V);
+    }
+
+    /**
+     * Wood grows from bud to bud, bending a little at each: no piece of a bare tree's wood,
+     * leader, limb, branch or twig, runs straight for more than a fifth of the crown's height,
+     * so no long straight rod stands out of its outline.
+     */
+    private static void noWoodRunsStraightForLong() {
+        float[] shape = shape();
+        float most = 0.2f * shape[Flora.TALL];
+        for (int kind = TreeForm.NONE; kind < TreeForm.KINDS; kind++) {
+            SpriteGeometry.Mesh wood = bareWood(kind, shape);
+            float longest = 0f;
+            // Each side of a piece is a quad of six vertices, the first at the piece's start and the last at its end.
+            for (int at = 0; at + 6 * SpriteGeometry.VERTEX_FLOATS <= wood.floats; at += 6 * SpriteGeometry.VERTEX_FLOATS) {
+                int end = at + 5 * SpriteGeometry.VERTEX_FLOATS;
+                float dx = wood.vertices[end] - wood.vertices[at], dy = wood.vertices[end + 1] - wood.vertices[at + 1], dz = wood.vertices[end + 2] - wood.vertices[at + 2];
+                longest = Math.max(longest, (float) Math.sqrt(dx * dx + dy * dy + dz * dz));
+            }
+            Checks.check(longest <= most, "kind " + kind + ": a straight piece of wood " + longest + " tiles long, in a crown " + shape[Flora.TALL] + " tall");
+        }
+    }
+
+    /** A leader ends by parting into limbs below the crown's top: none stands up through it as a pole, but a silverbell's, which runs on up. */
+    private static void aLeaderPartsIntoLimbsBelowTheTop() {
+        float[] shape = shape();
+        for (int kind = TreeForm.NONE; kind < TreeForm.KINDS; kind++) {
+            SpriteGeometry.Mesh wood = bareWood(kind, shape);
+            float highest = 0f;
+            for (int at = 0; at < wood.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+                if (Math.hypot(wood.vertices[at] - 10.5f, wood.vertices[at + 1] - 20.5f) < 0.06f) {
+                    highest = Math.max(highest, wood.vertices[at + 2]);
+                }
+            }
+            float top = shape[Flora.LOWEST] + (kind == TreeForm.SILVERBELL ? 1f : 0.76f) * shape[Flora.TALL];
+            Checks.check(highest <= top, "kind " + kind + ": wood up the tree's middle to " + highest + ", over " + top);
+        }
+    }
+
     /** No species grows much more wood than any other tree of its size does. */
     private static void aSpeciesWoodCostsAboutWhatAnyTreesDoes() {
         SpriteGeometry.Frame frame = frame();
@@ -87,7 +140,7 @@ final class TreeFormTests {
             SpriteGeometry.Mesh wood = new SpriteGeometry.Mesh();
             Flora.addCrown(new SpriteGeometry.Mesh(), wood, frame, bareAt, 10.5f, 20.5f, 0f, FOOT_U, FOOT_V, 1f, 0f, 0.08f, 0.8f, Flora.BARK_MAPLE, Flora.BARE, 99,
                     Flora.OPEN, 1f, 0, 0f, kind, shape);
-            Checks.check(wood.triangles() > 0 && wood.triangles() < 1.4f * plain.triangles(),
+            Checks.check(wood.triangles() > 0 && wood.triangles() < 1.6f * plain.triangles(),
                     "kind " + kind + ": " + wood.triangles() + " triangles of wood against " + plain.triangles() + " for any tree");
         }
     }
