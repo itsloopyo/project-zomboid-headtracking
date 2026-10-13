@@ -140,6 +140,8 @@ final class CabinDraw {
             uniform sampler2D uBehind;
             uniform float uBehindShown;
             uniform vec3 uDoorView;
+            // A door mirror's glass's height for its width, times the picture behind's width for its height.
+            uniform float uDoorTall;
             uniform vec3 uBodyAhead;
             uniform vec3 uBodyAside;
             uniform vec3 uBodyAbove;
@@ -156,6 +158,8 @@ final class CabinDraw {
             varying vec3 vLocalNormal;
 
             const float PI = 3.14159265;
+            // Where a door mirror's view is centred up the picture behind, and so the most of its height it can show.
+            const float DOOR_LEVEL = 0.36, DOOR_HIGHEST = 2.0 * DOOR_LEVEL;
 
             // The fine relief of a repeating surface laid on a part from three sides, by the way it faces: a tilt of
             // its normal in the interior's own frame.
@@ -224,9 +228,13 @@ final class CabinDraw {
                     vec2 on = vec2(fract(vUv.x), vUv.y);
                     if (which > 0.5) {
                         float side = which < 1.5 ? 1.0 : -1.0;
-                        on.x = 0.5 - side * uDoorView.x + (on.x - 0.5) * 2.0 * uDoorView.y;
-                        // A door mirror is set to show the road beside and behind, below the horizon the screen's shows.
-                        on.y = 0.36 + (on.y - 0.5) * 0.42;
+                        // A door mirror is set to show the road beside and behind, below the horizon the screen's shows,
+                        // as much of the picture as keeps it in the glass's own proportions: a tall glass shows less across.
+                        float wide = uDoorView.y;
+                        float high = min(2.0 * wide * uDoorTall, DOOR_HIGHEST);
+                        wide = high / (2.0 * uDoorTall);
+                        on.x = 0.5 - side * uDoorView.x + (on.x - 0.5) * 2.0 * wide;
+                        on.y = DOOR_LEVEL + (on.y - 0.5) * high;
                     }
                     vec3 n = normalize(vNormal);
                     float glancing = 0.04 + 0.96 * pow(clamp(1.0 - dot(n, view), 0.0, 1.0), 5.0);
@@ -751,6 +759,8 @@ final class CabinDraw {
         GL30.glBindVertexArray(fit.array);
         program.set("uMirrorPass", 0f);
         drawGroups(program, f, false, false);
+        float[] mirrors = f.fitted.model.mirrors;
+        program.set("uDoorTall", mirrors[11 + 10] / mirrors[11 + 9] * Pipeline.MIRROR_WIDTH / Pipeline.MIRROR_HEIGHT);
         program.set("uMirrorPass", 1f);
         drawGroups(program, f, false, true);
         program.set("uMirrorPass", 0f);
