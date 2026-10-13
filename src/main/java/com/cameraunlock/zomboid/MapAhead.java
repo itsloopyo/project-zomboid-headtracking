@@ -251,8 +251,8 @@ final class MapAhead {
 
     /**
      * The logic thread's: the guesses by chunk, at ((wx, wy) mod TABLE_SIDE) * View.COUNT and the
-     * ways after it. A view's window is narrower than the table, so its chunks never share a place,
-     * and each view's take one way of a place at most.
+     * ways after it. A view's window is no wider than the table (side() refuses one that is), so
+     * its chunks never share a place, and each view's take one way of a place at most.
      */
     private static final int TABLE_SIDE = 128;
     private static final Guess[] guesses = new Guess[TABLE_SIDE * TABLE_SIDE * View.COUNT];
@@ -386,8 +386,14 @@ final class MapAhead {
         take();
     }
 
+    /** The chunks a side of a view's window, which must be no wider than the table (see TABLE_SIDE). */
     private static int side() {
-        return zombie.iso.IsoChunkMap.chunkGridWidth + 2 * BEYOND;
+        int side = zombie.iso.IsoChunkMap.chunkGridWidth + 2 * BEYOND;
+        if (side > TABLE_SIDE) {
+            throw new IllegalStateException("map ahead: a window " + side + " chunks a side, the game's loaded map of " + zombie.iso.IsoChunkMap.chunkGridWidth
+                    + " and " + BEYOND + " beyond it each way, is wider than the table of " + TABLE_SIDE + ": two of its chunks would share a place");
+        }
+        return side;
     }
 
     /** A chunk to read, and the cell of the map it is in. */
