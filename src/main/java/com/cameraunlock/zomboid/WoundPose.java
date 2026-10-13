@@ -1,6 +1,7 @@
 package com.cameraunlock.zomboid;
 
 import java.util.Locale;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import org.lwjgl.util.vector.Matrix4f;
 import org.lwjgl.util.vector.Quaternion;
@@ -72,6 +73,8 @@ final class WoundPose {
     }
 
     private static final ThreadLocal<Posing> posing = ThreadLocal.withInitial(Posing::new);
+    /** How many threads have turned bones not yet put back: none, and posed has nothing to look up. */
+    private static final AtomicInteger turning = new AtomicInteger();
     private static volatile boolean chestChecked;
     /** For the trace: when a lurch and a hang were last written, a line every so often whichever thread poses. */
     private static volatile long lurchSaid, hangSaid;
@@ -96,6 +99,9 @@ final class WoundPose {
         }
         long start = FirstPerson.TRACE ? System.nanoTime() : 0L;
         Posing p = posing.get();
+        if (p.turnedIn == null) {
+            turning.incrementAndGet();
+        }
         p.turnedIn = animation;
         p.count = 0;
         SkinningData skeleton = animation.getSkinningData();
@@ -245,6 +251,9 @@ final class WoundPose {
 
     /** Called from AnimationPlayer.updateAnimation_StandardAnimation once the matrices the model is drawn with are made. */
     static void posed(AnimationPlayer animation) {
+        if (turning.get() == 0) {
+            return;
+        }
         Posing p = posing.get();
         if (p.turnedIn != animation) {
             return;
@@ -255,5 +264,6 @@ final class WoundPose {
         }
         p.count = 0;
         p.turnedIn = null;
+        turning.decrementAndGet();
     }
 }
