@@ -580,6 +580,16 @@ public final class Hooks {
         return mass * Knockdown.bodyPush(Online.joined());
     }
 
+    /** Called with what a thing a vehicle touches slows it by, where BaseVehicle.breakingObjects takes the most of them. */
+    public static float slowFactor(float slows) {
+        return Knockdown.slowFactor(Online.joined(), slows);
+    }
+
+    /** Asked as BaseVehicle.applyImpulseFromHitPlant begins: true where the plant gives way and the push is passed over. */
+    public static boolean plantGivesWay() {
+        return Knockdown.plantsGiveWay(Online.joined());
+    }
+
     /** Called with what the game's off-road check reads where CarController.update sets the engine's force. */
     public static boolean offRoadEngine(boolean offRoad) {
         return Knockdown.engineHeldOffRoad(Online.joined(), offRoad);

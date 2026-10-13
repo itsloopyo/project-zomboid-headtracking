@@ -33,6 +33,8 @@ public final class KnockdownTests {
         check(!Knockdown.engineHeldOffRoad(true, false), "and on the road it never is");
         check(Knockdown.bodyPush(false) == Knockdown.BODY_PUSH && Knockdown.BODY_PUSH < 1f, "alone a zombie hit or a body run over pushes a car back less than the game has it");
         check(Knockdown.bodyPush(true) == 1f, "on a server as much as the game has it");
+        check(Knockdown.slowFactor(false, 28f) == 0f && Knockdown.plantsGiveWay(false), "alone nothing a car touches caps its speed and plants give way");
+        check(Knockdown.slowFactor(true, 28f) == 28f && !Knockdown.plantsGiveWay(true), "on a server the game's cap and push stand");
     }
 
     private static void fencesAndPostsAreKnockedDownAndNothingElse() {

@@ -41,6 +41,21 @@ final class Knockdown {
     }
 
     /**
+     * Alone, nothing a vehicle is in holds it to a lower speed, and no bush, plant or sapling it
+     * brushes pushes back on it. The game caps a vehicle's speed through the physics engine at 34
+     * less 23 plus the CarSlowFactor of whatever it touches, about 10 to 40 km/h, until it is
+     * clear, and pushes back on it by its speed at every plant it brushes.
+     */
+    static boolean plantsGiveWay(boolean online) {
+        return !online;
+    }
+
+    /** What a thing a vehicle touches slows it by, as the game counts it (IsoObject.GetVehicleSlowFactor): see plantsGiveWay. */
+    static float slowFactor(boolean online, float slows) {
+        return plantsGiveWay(online) ? 0f : slows;
+    }
+
+    /**
      * Whether the engine gives less off the road, as the game's own off-road check says it does:
      * there it cuts the engine's force to 0.6 of itself and less in the higher gears, times the
      * vehicle's off-road efficiency. Alone it does not; the softer grip and the bumps off the road

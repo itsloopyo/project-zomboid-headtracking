@@ -627,6 +627,13 @@ public final class Agent {
                         new CallSite.Method("zombie/core/physics/CarController", "update", "()V"),
                         new CallSite.Method(vehicle, "isDoingOffroad", "()Z"),
                         new CallSite.Method(HOOKS, "offRoadEngine", "(Z)Z"), 1)),
+                new Patch(vehicle, "breakingObjects' slowing by what it touches", classBytes -> CallSite.insertAfterEach(classBytes,
+                        new CallSite.Method(vehicle, "breakingObjects", "()V"),
+                        new CallSite.Method(object, "GetVehicleSlowFactor", "(L" + vehicle + ";)F"),
+                        new CallSite.Method(HOOKS, "slowFactor", "(F)F"), 2)),
+                new Patch(vehicle, "applyImpulseFromHitPlant passed over where plants give way", classBytes -> CallSite.returnAtOnceIf(classBytes,
+                        new CallSite.Method(vehicle, "applyImpulseFromHitPlant", "(L" + object + ";F)V"),
+                        new CallSite.Method(HOOKS, "plantGivesWay", "()Z"))),
                 new Patch(vehicle, "the push of a person and of a body it meets", classBytes -> CallSite.insertAfterEach(
                         CallSite.insertAfterEach(classBytes,
                                 new CallSite.Method(vehicle, "applyImpulseFromHitPedestrian", "(Lzombie/characters/IsoGameCharacter;)V"),
