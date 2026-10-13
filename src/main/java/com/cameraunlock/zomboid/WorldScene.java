@@ -145,6 +145,8 @@ final class WorldScene {
 
     /** The land beyond the loaded map, round this view's eye. */
     final FarLand farLand = new FarLand();
+    /** The game's light of each square the builds read, by its lighting engine's pass. Logic thread. */
+    private final SquareLights squareLights = new SquareLights();
     /**
      * The frames handed to the render thread in turn. One is filled again only after the
      * other three were handed on, and by then the render thread has drawn it.
@@ -1151,6 +1153,7 @@ final class WorldScene {
             scene.lampsNear.clear();
             scene.keptFrame = -1;
         }
+        squareLights.forget();
         chunkMap = null;
         builtAt[view.index] = 0L;
         if (building(System.nanoTime()) == 0) {
@@ -2451,6 +2454,7 @@ final class WorldScene {
             if (cell != builtIn.get()) {
                 // Another save, loaded without leaving the game: every build is of the world before.
                 builtIn = new WeakReference<>(cell);
+                squareLights.forget();
                 roomShare = lampLevel = roomShareFollowed = lampLevelFollowed = -1f;
                 strung.clear();
                 bannerRuns.clear();
@@ -4310,6 +4314,7 @@ final class WorldScene {
          * under a roof and -1 where there is no square.
          */
         private void readLights(int chunkX, int chunkY, int z) {
+            int pass = LightingJNI.getUpdateCounter(playerIndex);
             for (int i = 0; i < LIGHT_SPAN; i++) {
                 for (int j = 0; j < LIGHT_SPAN; j++) {
                     boolean inChunk = i >= 1 && i <= CHUNK_TILES && j >= 1 && j <= CHUNK_TILES;
@@ -4329,7 +4334,7 @@ final class WorldScene {
                     // Read from the lighting engine, which holds every loaded square. getLightInfo is
                     // a copy the game's own render takes of it, and only for the squares its camera
                     // has on screen.
-                    ColorInfo light = view.torchLess.light(square, playerIndex, torchless);
+                    ColorInfo light = view.torchLess.light(square, squareLights.of(square, playerIndex, pass), torchless);
                     boolean outside = square.isOutside();
                     // As the game's own view a room keeps the engine's light whether or not it has
                     // been seen: none in a room the player has not seen into, and less in one

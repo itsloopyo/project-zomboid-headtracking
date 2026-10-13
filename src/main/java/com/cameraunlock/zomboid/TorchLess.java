@@ -377,7 +377,11 @@ final class TorchLess {
      * For either thread.
      */
     ColorInfo light(IsoGridSquare square, int playerIndex, ColorInfo answer) {
-        ColorInfo with = square.lighting[playerIndex].lightInfo();
+        return light(square, square.lighting[playerIndex].lightInfo(), answer);
+    }
+
+    /** The same, given the square's light as the game has it. */
+    ColorInfo light(IsoGridSquare square, ColorInfo with, ColorInfo answer) {
         Taken now = taken;
         if (now == null) {
             return with;
