@@ -31,6 +31,7 @@ import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoLightSource;
 import zombie.iso.IsoMetaGrid;
 import zombie.iso.IsoMovingObject;
+import zombie.iso.IsoObject;
 import zombie.iso.IsoObjectPicker;
 import zombie.iso.IsoWorld;
 import zombie.iso.Vector2;
@@ -542,6 +543,16 @@ public final class Hooks {
     public static boolean onScreen(IsoMovingObject moving) {
         View view = drawing();
         return view == null ? moving.isOnScreen() : view.farModels.onScreen(moving);
+    }
+
+    /** Called from IsoObject.Collision as it starts, with what met the thing. True where the game's own handling of the meeting is passed over. */
+    public static boolean knockedDown(IsoObject thing, IsoObject by) {
+        return by instanceof BaseVehicle vehicle && CarSmash.struck(thing, vehicle);
+    }
+
+    /** Called from BaseVehicle.breakingObjects as it starts, before the game looks for what the vehicle has met. */
+    public static void meeting(BaseVehicle vehicle) {
+        CarSmash.sweep(vehicle);
     }
 
     /** Called with what the game goes by as it draws a vehicle for a player. */

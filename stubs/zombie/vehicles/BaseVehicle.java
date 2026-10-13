@@ -20,6 +20,11 @@ public final class BaseVehicle extends zombie.iso.IsoMovingObject {
     public boolean isSeatOccupied(int seat) { throw new UnsupportedOperationException("reference stub"); }
     public VehicleParts getParts() { throw new UnsupportedOperationException("reference stub"); }
     public float getCurrentSpeedKmHour() { throw new UnsupportedOperationException("reference stub"); }
+    public float getSpeed2D() { throw new UnsupportedOperationException("reference stub"); }
+    public boolean shouldCollideWithObjects() { throw new UnsupportedOperationException("reference stub"); }
+    public Vector3f getLocalPos(float x, float y, float z, Vector3f out) { throw new UnsupportedOperationException("reference stub"); }
+    public float getFudgedMass() { throw new UnsupportedOperationException("reference stub"); }
+    public void applyImpulseFromHitObject(zombie.iso.IsoObject object, float amount) { throw new UnsupportedOperationException("reference stub"); }
     public double getEngineSpeed() { throw new UnsupportedOperationException("reference stub"); }
     public VehiclePart getPassengerDoor(int seat) { throw new UnsupportedOperationException("reference stub"); }
     public VehiclePart getPartById(String id) { throw new UnsupportedOperationException("reference stub"); }

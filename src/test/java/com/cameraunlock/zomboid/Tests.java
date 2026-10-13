@@ -218,6 +218,7 @@ public final class Tests {
         Checks.run("MapAheadTests", MapAheadTests::run);
         Checks.run("VehicleSlopeTests", VehicleSlopeTests::run);
         Checks.run("OnlineTests", OnlineTests::run);
+        Checks.run("KnockdownTests", KnockdownTests::run);
         Checks.run("EyesightTests", EyesightTests::run);
         Checks.run("HearingTests", HearingTests::run);
         Checks.run("AcousticsTests", AcousticsTests::run);

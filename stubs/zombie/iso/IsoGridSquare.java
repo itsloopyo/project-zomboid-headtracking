@@ -26,6 +26,7 @@ public final class IsoGridSquare {
     public final ILighting[] lighting = null;
 
     public PZArrayList<IsoObject> getObjects() { throw new UnsupportedOperationException("reference stub"); }
+    public int transmitRemoveItemFromSquare(IsoObject object) { throw new UnsupportedOperationException("reference stub"); }
     public zombie.iso.areas.IsoBuilding getBuilding() { throw new UnsupportedOperationException("reference stub"); }
     public zombie.iso.areas.IsoRoom getRoom() { throw new UnsupportedOperationException("reference stub"); }
     public long getRoomID() { throw new UnsupportedOperationException("reference stub"); }

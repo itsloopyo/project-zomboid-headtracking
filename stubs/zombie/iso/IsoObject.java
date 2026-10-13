@@ -15,6 +15,10 @@ public class IsoObject {
     public zombie.inventory.ItemContainer getContainer() { throw new UnsupportedOperationException("reference stub"); }
     public IsoGridSquare getSquare() { throw new UnsupportedOperationException("reference stub"); }
     public int getObjectIndex() { throw new UnsupportedOperationException("reference stub"); }
+    public float getX() { throw new UnsupportedOperationException("reference stub"); }
+    public float getY() { throw new UnsupportedOperationException("reference stub"); }
+    public zombie.core.properties.PropertyContainer getProperties() { throw new UnsupportedOperationException("reference stub"); }
+    public void HitByVehicle(zombie.vehicles.BaseVehicle vehicle, float amount) { throw new UnsupportedOperationException("reference stub"); }
     public zombie.iso.SpriteDetails.IsoObjectType getType() { throw new UnsupportedOperationException("reference stub"); }
     public void setAlphaAndTarget(float alpha) { throw new UnsupportedOperationException("reference stub"); }
     public float getAlpha(int playerIndex) { throw new UnsupportedOperationException("reference stub"); }

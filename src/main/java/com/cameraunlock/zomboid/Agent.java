@@ -240,6 +240,7 @@ public final class Agent {
         instrumentation.addTransformer(new PatchTransformer(farVehiclePatches()));
         instrumentation.addTransformer(new PatchTransformer(leftSavePatches()));
         instrumentation.addTransformer(new PatchTransformer(luaLoadedPatches()));
+        instrumentation.addTransformer(new PatchTransformer(knockdownPatches()));
         instrumentation.addTransformer(new PatchTransformer(controllerPatches()));
         chunkMarks = new PatchTransformer(chunkMarkPatches());
         instrumentation.addTransformer(chunkMarks);
@@ -602,6 +603,29 @@ public final class Agent {
         return List.of(new Patch(lua, "LoadDirBase before its returns", classBytes -> CallSite.insertBeforeReturns(classBytes,
                 new CallSite.Method(lua, "LoadDirBase", "()V"),
                 code -> CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "luaLoaded", "()V")))));
+    }
+
+    /**
+     * Apart from everything else, and each from the other: without both a vehicle meets fences
+     * and lamp posts as the game has it. Once an update the game looks round a vehicle for what
+     * it has met, in one method, and hands each thing its tiles mark as hit by cars that it
+     * finds to another. The first is where the mod looks ahead of the vehicle, the second is
+     * taken over for fences and posts. See CarSmash.
+     */
+    private static List<Patch> knockdownPatches() {
+        String object = "zombie/iso/IsoObject", vehicle = "zombie/vehicles/BaseVehicle";
+        CallSite.Method collision = new CallSite.Method(object, "Collision", "(Lzombie/iso/Vector2;L" + object + ";)V");
+        return List.of(
+                new Patch(vehicle, "breakingObjects looking ahead for fences and posts at its start", classBytes ->
+                        CallSite.insertAtStartOfInstanceMethod(classBytes, new CallSite.Method(vehicle, "breakingObjects", "()V"),
+                                code -> CallSite.passThis(code, new CallSite.Method(HOOKS, "meeting", "(L" + vehicle + ";)V")))),
+                new Patch(object, "Collision passed over where a vehicle knocks the thing down", classBytes ->
+                        CallSite.insertAtStartOfInstanceMethod(classBytes, collision, code -> {
+                            code.aload(0);
+                            code.aload(2);
+                            CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "knockedDown", "(L" + object + ";L" + object + ";)Z"));
+                            code.ifThen(Opcode.IFNE, CodeBuilder::return_);
+                        })));
     }
 
     /**
