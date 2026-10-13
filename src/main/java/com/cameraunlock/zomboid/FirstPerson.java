@@ -73,6 +73,8 @@ public final class FirstPerson {
     private static final float OVERHEAD_AWAY = 6000f;
     private static final float OVERHEAD_YAW = (float) (-0.75 * Math.PI), OVERHEAD_PITCH = (float) Math.toRadians(-30);
     private boolean overhead;
+    /** The overhead view is asked to be the mod's and is the game's until what it is drawn with is made. */
+    private boolean overheadWaited;
     private int overheadSaid;
     private final ViewCamera.Pose overheadView = new ViewCamera.Pose(), standingView = new ViewCamera.Pose();
     /** What the overhead camera last took in above and below the place it looks at, in tiles. */
@@ -371,6 +373,7 @@ public final class FirstPerson {
      */
     void leftSave() {
         SnowPrints.forget();
+        view.modeFade.giveBack("the save was left");
         giveBack("the save was left");
     }
 
@@ -387,6 +390,7 @@ public final class FirstPerson {
         } else if (on || held || pictureUp || !view.flight.home()) {
             giveBack("player " + (view.index + 1) + " is gone");
         }
+        view.modeFade.giveBack("player " + (view.index + 1) + " is gone");
         // After giveBack, whose rest of the head tracking marks the view as one played in.
         Tracking.gone(view.index);
         Quality.rest(view.index);
@@ -503,6 +507,11 @@ public final class FirstPerson {
         view.controls.frame();
         try {
             frame(pressed);
+            // Over the world and under what the game draws over it, as the picture before was taken.
+            view.modeFade.frame(gettingReady || overheadWaited || on && view.pipeline.contentWaited());
+            if (Tracking.graphicsModeOwed()) {
+                view.modeFade.take();
+            }
             IsoPlayer player = view.player();
             if (player != null && GameTime.isGamePaused()) {
                 view.hearing.whilePaused(player);
@@ -584,6 +593,7 @@ public final class FirstPerson {
         boolean allowed = allowed(player);
         boolean overheadAsked = !Quality.overheadPlain() && allowed;
         overhead = overheadAsked && !view.pipeline.unprepared() && !view.pipeline.contentWaited();
+        overheadWaited = overheadAsked && !overhead;
         view.worldScene.level(overhead());
         rideAlong(player);
         tread(player);

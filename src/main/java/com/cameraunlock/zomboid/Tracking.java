@@ -414,6 +414,14 @@ final class Tracking {
         return true;
     }
 
+    /** The graphics mode key was pressed in this frame, and the mode changes at the start of the next. Logic thread. */
+    private static boolean graphicsModeOwed;
+
+    /** Whether the graphics mode changes at the start of the next frame: this frame's picture is the one before. Logic thread. */
+    static boolean graphicsModeOwed() {
+        return graphicsModeOwed;
+    }
+
     /** The keys pressed between now and the next frame drawn are dropped, not acted on. Logic thread. */
     static void dropTheNextPresses() {
         outOfSave = true;
@@ -430,6 +438,11 @@ final class Tracking {
         if (first) {
             int pressed = 0, told = 0;
             boolean enteringSave = outOfSave;
+            if (graphicsModeOwed) {
+                graphicsModeOwed = false;
+                cycleGraphicsMode();
+                told = Config.CYCLE_QUALITY;
+            }
             // The hotkeys are heard whatever the game is doing with the keyboard, so a key that goes into one of its text boxes is not an action as well.
             if (outOfSave || zombie.core.Core.getInstance().isDoingTextEntry()) {
                 outOfSave = false;
@@ -437,7 +450,9 @@ final class Tracking {
             } else {
                 pressed = act(core.hotkeysTake());
                 if ((pressed & Config.CYCLE_QUALITY) != 0) {
-                    cycleGraphicsMode();
+                    // Changed on the next frame: this one's picture is each view's picture before (ModeFade).
+                    graphicsModeOwed = true;
+                    pressed &= ~Config.CYCLE_QUALITY;
                 }
                 if ((pressed & Config.CYCLE_STYLE) != 0) {
                     cycleStyle();
@@ -454,7 +469,7 @@ final class Tracking {
             if (enteringSave) {
                 graphicsToSay.set(false);
                 Quality.stepSaid();
-            } else if (takeGraphicsToSay(OptionsPage.menuShown())) {
+            } else if (told == 0 && takeGraphicsToSay(OptionsPage.menuShown())) {
                 told = Config.CYCLE_QUALITY;
             }
             SplitScreen.frame();
@@ -504,6 +519,10 @@ final class Tracking {
     /** A save was left: what is pressed until a frame of the next is not acted on. */
     static void leftSave() {
         outOfSave = true;
+        if (graphicsModeOwed) {
+            graphicsModeOwed = false;
+            cycleGraphicsMode();
+        }
     }
 
     /** Acts on the head tracking actions among the bits, and hands them all back. */

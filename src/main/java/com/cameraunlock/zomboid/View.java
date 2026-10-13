@@ -28,6 +28,7 @@ final class View {
     final int index;
 
     final Flight flight = new Flight();
+    final ModeFade modeFade;
     final FieldOfView fieldOfView = new FieldOfView();
     final Hearing hearing = new Hearing();
     final HeadFollowLight headFollowLight = new HeadFollowLight();
@@ -69,6 +70,7 @@ final class View {
 
     private View(int index) {
         this.index = index;
+        modeFade = new ModeFade(index);
         headTracking = new HeadTracking(index, fieldOfView, headFollowLight);
     }
 
