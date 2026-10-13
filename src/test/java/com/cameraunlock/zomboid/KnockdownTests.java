@@ -50,6 +50,14 @@ public final class KnockdownTests {
         check(!Knockdown.smashing(false, true, Knockdown.WALKING_KMH), "nor just at the limit");
         check(Knockdown.smashing(false, true, Knockdown.WALKING_KMH + 0.5f), "just over it");
         check(Knockdown.smashing(false, true, -20f), "reversing hard");
+        check(Knockdown.smashing(false, true, 300f), "faster than any vehicle the game defines, off a ramp");
+        check(!Knockdown.smashing(false, true, Knockdown.MOST_KMH + 1f), "not at a speed no vehicle goes");
+        check(!Knockdown.smashing(false, true, Float.POSITIVE_INFINITY), "nor at an endless one");
+        check(!Knockdown.smashing(false, true, Float.NaN), "nor at one that is no number");
+        check(Knockdown.flung(Knockdown.MOST_KMH + 1f) && Knockdown.flung(Float.NaN) && !Knockdown.flung(120f), "flung past the most, or at no number");
+        // The sweep looks at a square (2 * around + 1) across: around is the box, the clearance and ahead, plus one.
+        int around = (int) Math.ceil(3f + Knockdown.ahead(Knockdown.MOST_KMH / 3.6f) + Knockdown.CLEARANCE) + 1;
+        check((2 * around + 1) * (2 * around + 1) < 2000, "at the most a vehicle goes, the sweep looks at under 2000 squares: " + around);
     }
 
     private static void aPostCostsMoreThanAFenceAndPiecesMetAtOnceCompound() {

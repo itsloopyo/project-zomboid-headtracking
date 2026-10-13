@@ -17,9 +17,22 @@ final class Knockdown {
     /** A push slower than this is a push: the thing stands, as it does in the game. */
     static final float WALKING_KMH = 10f;
 
-    /** Whether a vehicle knocks things down at all: alone, with its engine running, faster than a walk. */
+    /**
+     * Faster than this is the physics engine's velocity gone wrong, not a drive: the fastest
+     * vehicle the game defines tops out at 120 km/h. How far ahead a vehicle is looked at grows
+     * with its speed, and a vehicle flung at thousands of tiles a second had the logic thread
+     * look through hundreds of millions of squares an update, which froze the game.
+     */
+    static final float MOST_KMH = 400f;
+
+    /** Whether a vehicle knocks things down at all: alone, with its engine running, faster than a walk and no faster than any vehicle goes. */
     static boolean smashing(boolean online, boolean engineRunning, float kmh) {
-        return !online && engineRunning && Math.abs(kmh) > WALKING_KMH;
+        return !online && engineRunning && Math.abs(kmh) > WALKING_KMH && Math.abs(kmh) <= MOST_KMH;
+    }
+
+    /** Whether a vehicle is going faster than any vehicle goes, or at a speed that is no number. */
+    static boolean flung(float kmh) {
+        return !(Math.abs(kmh) <= MOST_KMH);
     }
 
     /**

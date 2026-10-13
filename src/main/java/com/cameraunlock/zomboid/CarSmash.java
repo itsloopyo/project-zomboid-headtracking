@@ -90,9 +90,22 @@ final class CarSmash {
         return true;
     }
 
+    /** When a flung vehicle was last said, so a vehicle flung for many updates is said every few seconds and not every update. */
+    private static long flungSaidAt;
+    private static final long FLUNG_SAID_EVERY_NANOS = 5_000_000_000L;
+
     /** Knocks down what the vehicle is about to touch, the way it is going, before the game looks for what it has met. */
     static void sweep(BaseVehicle vehicle) {
-        if (!Knockdown.smashing(Online.joined(), vehicle.shouldCollideWithObjects(), kmh(vehicle))) {
+        float kmh = kmh(vehicle);
+        if (Knockdown.flung(kmh) && vehicle.shouldCollideWithObjects()) {
+            long now = System.nanoTime();
+            if (flungSaidAt == 0L || now - flungSaidAt >= FLUNG_SAID_EVERY_NANOS) {
+                flungSaidAt = now;
+                Log.info(String.format(Locale.ROOT, "a vehicle (%s) at %.4g, %.4g has a speed of %.4g km/h from the game's physics: it is left to the game's own rules",
+                        vehicle.getScriptName(), vehicle.getX(), vehicle.getY(), kmh));
+            }
+        }
+        if (!Knockdown.smashing(Online.joined(), vehicle.shouldCollideWithObjects(), kmh)) {
             return;
         }
         VehicleScript script = vehicle.getScript();
