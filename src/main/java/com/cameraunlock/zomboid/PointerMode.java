@@ -67,6 +67,12 @@ final class PointerMode {
         ignoredPanels = panels;
     }
 
+    /** Has the pointer out for the newest of the panels open now, until it closes. */
+    void forNewest(int panels) {
+        byPanel = true;
+        ignoredPanels = panels - 1;
+    }
+
     /** Brings the pointer out as the inventory key does, for a container opened from the look. */
     void open() {
         byKey = true;

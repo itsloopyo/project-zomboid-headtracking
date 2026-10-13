@@ -49,6 +49,8 @@ final class CentreUse {
 
     /** How far along the view the key reaches, in tiles. The game's own handlers decide what is near enough to act on. */
     private static final float REACH = 2.5f;
+    /** How far along a line through the pointer the world menu looks, in tiles: the game walks the player to what it is for. */
+    private static final float MENU_REACH = WorldScene.REACH;
     /** How near the view's line has to pass to something lying on the ground or on a table. */
     private static final float ITEM_RADIUS = 0.3f;
     /** The view runs this far on past the floor it meets, so a thing lying where it lands is in reach of it. */
@@ -65,7 +67,7 @@ final class CentreUse {
 
     /** Notes what the key would act on with the view as it is, or that there is nothing. */
     void mark(ViewCamera.Pose view, float floorUp, IsoPlayer player, IsoCell cell) {
-        IsoObject found = find(view, floorUp, cell, (int) Math.floor(player.getZ()));
+        IsoObject found = find(view, floorUp, cell, (int) Math.floor(player.getZ()), false);
         marked = found == null ? Outlines.NONE : Outlines.key(found);
     }
 
@@ -91,7 +93,7 @@ final class CentreUse {
      * @param pointer whether the player has a pointer to work a container's panels with
      */
     Outcome press(ViewCamera.Pose view, float floorUp, IsoPlayer player, IsoCell cell, boolean pointer) {
-        IsoObject found = find(view, floorUp, cell, (int) Math.floor(player.getZ()));
+        IsoObject found = find(view, floorUp, cell, (int) Math.floor(player.getZ()), false);
         if (found == null) {
             return Outcome.NOTHING;
         }
@@ -140,15 +142,26 @@ final class CentreUse {
     }
 
     /**
+     * What the game's world menu is for along a line from the eye, or null. It is what the
+     * key would act on, else the wall, the counter or the fridge the line stops at, else the
+     * floor where the line comes down. The menu is for the whole square that is on, as the
+     * game's own is for what its view has under the pointer.
+     */
+    IsoObject forMenu(ViewCamera.Pose line, float floorUp, IsoPlayer player, IsoCell cell) {
+        return find(line, floorUp, cell, (int) Math.floor(player.getZ()), true);
+    }
+
+    /**
      * The first thing along the view that the game takes a click on, or null. The map is
      * squares with walls on their edges: a door, a window or a curtain is met where the view
      * crosses an edge, and everything else on the square it stands on.
+     *
+     * @param menu whether it is for the world menu, which is for anything the view meets
      */
-    private IsoObject find(ViewCamera.Pose view, float floorUp, IsoCell cell, int level) {
-        float reach = REACH;
-        if (view.forwardUp < 0f) {
-            reach = Math.min(reach, (floorUp - view.eyeUp) / view.forwardUp + PAST_THE_FLOOR);
-        }
+    private IsoObject find(ViewCamera.Pose view, float floorUp, IsoCell cell, int level, boolean menu) {
+        float reach = menu ? MENU_REACH : REACH;
+        float down = view.forwardUp < 0f ? (floorUp - view.eyeUp) / view.forwardUp : Float.POSITIVE_INFINITY;
+        reach = Math.min(reach, down + PAST_THE_FLOOR);
         int tileX = (int) Math.floor(view.eyeX), tileY = (int) Math.floor(view.eyeY);
         int stepX = view.forwardX > 0f ? 1 : -1, stepY = view.forwardY > 0f ? 1 : -1;
         float nextX = view.forwardX == 0f ? Float.POSITIVE_INFINITY : ((view.forwardX > 0f ? tileX + 1 : tileX) - view.eyeX) / view.forwardX;
@@ -164,7 +177,7 @@ final class CentreUse {
             boolean crossX = nextX <= nextY;
             float distance = crossX ? nextX : nextY;
             if (distance > reach) {
-                return null;
+                return menu && down <= MENU_REACH ? floorAt(cell, view, down, level) : null;
             }
             int toX = crossX ? tileX + stepX : tileX, toY = crossX ? tileY : tileY + stepY;
             IsoGridSquare to = cell.getGridSquare(toX, toY, level);
@@ -179,6 +192,10 @@ final class CentreUse {
                 if (edge != null) {
                     return edge;
                 }
+                if (menu && from.isBlockedTo(to)) {
+                    IsoObject wall = switchOn(from);
+                    return wall != null ? wall : (ownerIsTo ? to : from).getWall(!crossX);
+                }
             }
             if (from.isBlockedTo(to)) {
                 return switchOn(from);
@@ -186,6 +203,9 @@ final class CentreUse {
             if (to.isSolid() || to.isSolidTrans()) {
                 // A counter, a fridge, a shelf unit: the view stops on it, and it is what is looked at.
                 IsoObject there = onSquare(to, view, Float.POSITIVE_INFINITY);
+                if (there == null && menu) {
+                    there = standing(to);
+                }
                 return there != null ? there : switchOn(from);
             }
             from = to;
@@ -278,6 +298,25 @@ final class CentreUse {
             }
         }
         return null;
+    }
+
+    /** The floor where the view comes down to it, or null where there is no square or no floor there. */
+    private static IsoObject floorAt(IsoCell cell, ViewCamera.Pose view, float down, int level) {
+        IsoGridSquare square = cell.getGridSquare((int) Math.floor(view.eyeX + view.forwardX * down),
+                (int) Math.floor(view.eyeY + view.forwardY * down), level);
+        return square == null ? null : square.getFloor();
+    }
+
+    /** Something standing on a square, which is not its floor: a sink, a counter, a stove. */
+    private static IsoObject standing(IsoGridSquare square) {
+        IsoObject floor = square.getFloor();
+        PZArrayList<IsoObject> objects = square.getObjects();
+        for (int i = 0; i < objects.size(); i++) {
+            if (objects.get(i) != floor) {
+                return objects.get(i);
+            }
+        }
+        return floor;
     }
 
     private IsoObject switchOn(IsoGridSquare square) {

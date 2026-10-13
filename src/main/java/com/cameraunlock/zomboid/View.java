@@ -45,6 +45,7 @@ final class View {
     final Controls controls = new Controls(this);
     final CarriedLight carriedLight = new CarriedLight(this);
     final CentreUse centreUse = new CentreUse(this);
+    final WorldMenu worldMenu = new WorldMenu(this);
     final NameTags nameTags = new NameTags(this);
     final ModelHead modelHead = new ModelHead(this);
     final FarModels farModels = new FarModels(this);

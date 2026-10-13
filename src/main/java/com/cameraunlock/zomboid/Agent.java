@@ -323,6 +323,11 @@ public final class Agent {
                 returningWithThis(input, "isInteractButtonDownInternal", "()Z", "interactKey", inputFilter),
                 returningWithThis(input, "isMeleeButtonDownInternal", "()Z", "meleeKey", inputFilter),
                 returning(UI, "checkPicked", "()Z", "picked", BOOLEAN_FILTER),
+                // OnMouseDown, OnMouseUp, OnRightMouseDown and OnRightMouseUp.
+                new Patch(UI, "updateMouseButtons telling the Lua of buttons", classBytes -> CallSite.replaceEach(classBytes,
+                        new CallSite.Method(UI, "updateMouseButtons", "(II)I"),
+                        new CallSite.Method("zombie/Lua/LuaEventManager", "triggerEvent", "(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V"),
+                        new CallSite.Method(HOOKS, "mouseButton", "(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V"), 4)),
                 new Patch(UI, "update after isAiming", classBytes -> CallSite.insertAfter(classBytes,
                         new CallSite.Method(UI, "update", "()V"), aiming, clickAiming)),
                 // Once where a right press reaches the object under the cursor and once where its release does.

@@ -10,6 +10,7 @@ import fmod.javafmod;
 import java.util.Locale;
 import java.util.Stack;
 import zombie.CombatManager;
+import zombie.Lua.LuaEventManager;
 import zombie.EffectsManager;
 import zombie.characters.IsoGameCharacter;
 import zombie.characters.IsoPlayer;
@@ -223,6 +224,15 @@ public final class Hooks {
     /** Called with whether the game's own view has an object under the mouse pointer for a click to act on. */
     public static boolean picked(boolean stock) {
         return View.first().controls.picked(stock);
+    }
+
+    /**
+     * Called in place of the game's telling its Lua that a mouse button went down or up where none
+     * of its panels took it. The Lua is told first.
+     */
+    public static void mouseButton(String event, Object x, Object y) {
+        LuaEventManager.triggerEvent(event, x, y);
+        View.first().worldMenu.mouse(event, (Double) x, (Double) y);
     }
 
     /** Called where the game asks whether the player with the mouse is aiming before it hands a click to the object under the pointer. */

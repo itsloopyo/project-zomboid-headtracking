@@ -26,6 +26,7 @@ import zombie.input.Mouse;
 import zombie.iso.IsoCamera;
 import zombie.iso.IsoCell;
 import zombie.iso.IsoGridSquare;
+import zombie.iso.IsoObject;
 import zombie.iso.IsoUtils;
 import zombie.iso.IsoWorld;
 import zombie.iso.PlayerCamera;
@@ -481,6 +482,9 @@ public final class FirstPerson {
         }
         if (gap == null) {
             gap = CentreUse.gap();
+        }
+        if (gap == null) {
+            gap = WorldMenu.gap();
         }
         if (gap == null) {
             gap = failure;
@@ -1260,8 +1264,7 @@ public final class FirstPerson {
         if (player.getVehicle() != null) {
             return false;
         }
-        float floorUp = player.getZ() * ViewCamera.LEVEL_HEIGHT + view.worldScene.terrain.lift(player.getX(), player.getY(), player.getZ());
-        CentreUse.Outcome outcome = view.centreUse.press(cleanView, floorUp, player, IsoWorld.instance.currentCell, view.onMouse());
+        CentreUse.Outcome outcome = view.centreUse.press(cleanView, floorUp(player), player, IsoWorld.instance.currentCell, view.onMouse());
         if (outcome == CentreUse.Outcome.CONTAINER) {
             pointer.open();
         }
@@ -1269,6 +1272,55 @@ public final class FirstPerson {
             Log.info("interact at the middle of the view: " + outcome + " on " + Thread.currentThread().getName());
         }
         return outcome != CentreUse.Outcome.NOTHING;
+    }
+
+    /** The height of the floor a player stands on, in tiles above level 0. */
+    private float floorUp(IsoPlayer player) {
+        return player.getZ() * ViewCamera.LEVEL_HEIGHT + view.worldScene.terrain.lift(player.getX(), player.getY(), player.getZ());
+    }
+
+    /** Whether the mouse is out as a pointer over the first person picture. */
+    boolean pointerOut() {
+        return active() && pointer.on();
+    }
+
+    /**
+     * What the game's world menu is for at a place on the screen: what the line from the eye
+     * through it meets, in the picture as it was last drawn, the head's turn and lean included.
+     * Null where it meets nothing, or no picture has been drawn.
+     *
+     * @param x across the game's window, in pixels
+     * @param y down it
+     */
+    IsoObject underPointer(float x, float y) {
+        float aspect = view.worldScene.drawnAspect();
+        if (aspect == 0f || pictureTanHalf == 0f) {
+            return null;
+        }
+        float across = ((x - IsoCamera.getScreenLeft(view.index)) / IsoCamera.getScreenWidth(view.index) * 2f - 1f) * pictureTanHalf * aspect;
+        float up = (1f - (y - IsoCamera.getScreenTop(view.index)) / IsoCamera.getScreenHeight(view.index) * 2f) * pictureTanHalf;
+        pointerLine.set(trackedView);
+        float forwardX = trackedView.forwardX + trackedView.rightX * across + trackedView.upX * up;
+        float forwardY = trackedView.forwardY + trackedView.rightY * across + trackedView.upY * up;
+        float forwardUp = trackedView.forwardUp + trackedView.rightUp * across + trackedView.upUp * up;
+        float length = (float) Math.sqrt(forwardX * forwardX + forwardY * forwardY + forwardUp * forwardUp);
+        pointerLine.forwardX = forwardX / length;
+        pointerLine.forwardY = forwardY / length;
+        pointerLine.forwardUp = forwardUp / length;
+        IsoPlayer player = view.player();
+        return view.centreUse.forMenu(pointerLine, floorUp(player), player, IsoWorld.instance.currentCell);
+    }
+
+    /** The line from the eye through the pointer. Only its eye and its forward are set. */
+    private final ViewCamera.Pose pointerLine = new ViewCamera.Pose();
+
+    /**
+     * Keeps the pointer out for a menu just opened over the picture until the menu closes. The
+     * right click that opened it is not the aim, whose panels the pointer passes over.
+     */
+    void holdPointerForMenu() {
+        aimedAt = System.nanoTime() - AFTER_AIM_NANOS;
+        pointer.forNewest(Panels.open(view.index));
     }
 
     /** Whether a key of a binding went down this frame. The game eats the press, so its own handlers never see the key come up. */
