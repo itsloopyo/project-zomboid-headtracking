@@ -47,42 +47,63 @@ final class SnowOnPlantsTests {
     }
 
     /**
-     * Wood carries a ridge of snow along its top, raised in the world's vertex shader as high as
-     * a share of the wood's thickness there, as far down from its top as the lying snow reaches,
-     * and as much as the fragment shader whitens it where the sky is hidden; the fragment shader
-     * draws that same ridge white. The shadows cast it. Wood that carries no ridge stays where it is.
+     * Wood carries a ridge of snow along its top, raised as high as a share of the wood's
+     * thickness there and as far down from its top as the lying snow reaches, by one function
+     * (snowAlongWood) in the world's vertex shader and in the shadows', after the wind in both, so
+     * the shadow is cast by the ridge that is drawn. The fragment shader draws that same ridge
+     * white by the same two functions, under cover or not, so nothing raised stays bark and
+     * nothing white is not raised. Wood that holds no snow of its own is told so, and neither
+     * raised nor frosted. A twig is frosted the more the thinner it is.
      */
     private static void woodCarriesARidgeOfSnowAlongItsTop() {
         check(SnowShader.RIDGE_HIGH > 0f && SnowShader.RIDGE_OF_THICK > 1f && SnowShader.RIDGE_WIDE > 0f && SnowShader.RIDGE_WIDE < 1f,
                 "a ridge stands higher than the half-round of the wood's top and spreads a little to each side, up to a limit");
-        check(SnowShader.FINE > 0f && SnowShader.FINE < SnowShader.RIDGE_HIGH / SnowShader.RIDGE_OF_THICK, "only wood whose ridge is lower than the limit is frosted all round");
+        check(SnowShader.FINE_FROM > 0f && SnowShader.FINE_FROM < SnowShader.FINE_TO && SnowShader.FINE_TO < Flora.LIMB_TIP,
+                "frost fades from the finest twigs to branches, and never reaches a limb");
+        check(SnowShader.UNSNOWED >= 0.5f, "wood that holds no snow of its own is told apart from any thickness of wood");
         String ridge = SnowShader.RIDGE.replaceAll("\\s+", "");
         check(ridge.contains("floatsnowRidgeTop(vec3facing){returnsmoothstep(0.15,0.75,facing.z);}"), "upright and downward wood has no top");
         check(ridge.contains("floatsnowRidgeLain(floattop){returnsmoothstep(0.0,0.2,top-1.0+min(uSnowLying*2.5,1.0));}"),
                 "a light fall lies on the crest alone, a deep one as far as the ridge reaches");
-        check(ridge.contains("vec3snowRidge(vec3facing,floatthick,floatopen){floattop=snowRidgeTop(facing);"
-                + "floathigh=uSnowLying*open*min(SNOW_RIDGE_OF_THICK*max(thick,0.0),SNOW_RIDGE_HIGH)*top*snowRidgeLain(top);"
+        check(ridge.contains("vec3snowAlongWood(vec3facing,floatcode,booloutdoors,outvec2held){if(code<-0.5*SNOW_UNSNOWED){held=vec2(0.0);returnvec3(0.0);}"
+                + "floattop=snowRidgeTop(facing);held=vec2(top,abs(code));if(!outdoors||code<=0.0||top<=0.0){returnvec3(0.0);}"
+                + "floathigh=uSnowLying*min(SNOW_RIDGE_OF_THICK*code,SNOW_RIDGE_HIGH)*top*snowRidgeLain(top);"
                 + "returnvec3(facing.xy*(SNOW_RIDGE_WIDE*high),high);}"),
-                "the ridge stands up and out, by the wood's thickness, where it lies and as much as lies");
+                "the ridge stands up and out, by the wood's thickness, as far as it lies and as much as lies, on wood that holds snow out of doors");
+        check(ridge.contains(String.format(java.util.Locale.ROOT, "SNOW_FINE_FROM=%.4f,SNOW_FINE_TO=%.4f,SNOW_UNSNOWED=%.4f;", SnowShader.FINE_FROM, SnowShader.FINE_TO, SnowShader.UNSNOWED)),
+                "the shaders hold Java's numbers");
         String vertex = PipelineShaders.WORLD_VERTEX.replaceAll("\\s+", "");
-        check(vertex.contains("if(uModel<0.5&&uPlantSnow>0.0&&gl_MultiTexCoord1.z<-0.5){vec3facing=normalize(gl_Normal);"
-                + "floatopen=vKind>0.5?clamp(1.0-0.8*(1.0-skyOverAt(at.xyz+facing*0.1,max(length(at.xyz-uEye)-uRangeFrom,0.0)))/0.62,0.0,1.0):0.0;"
-                + "at.xyz+=snowRidge(facing,gl_MultiTexCoord1.x,open);vBlade.xy=vec2(snowRidgeTop(facing),abs(gl_MultiTexCoord1.x));}"),
-                "only wood is raised, in nothing but Low, as the fragment shader is told, less under cover as it whitens less there, and none indoors");
-        int raised = vertex.indexOf("at.xyz+=snowRidge(");
+        check(vertex.contains("if(uModel<0.5&&uPlantSnow>0.0&&gl_MultiTexCoord1.z<-0.5){vec2held;"
+                + "at.xyz+=snowAlongWood(normalize(gl_Normal),gl_MultiTexCoord1.x,vKind>0.5,held);vBlade.xy=held;}"),
+                "only wood is raised, none indoors and none in Low, and the fragment shader is told what it holds");
+        int raised = vertex.indexOf("at.xyz+=snowAlongWood(");
         check(raised > vertex.indexOf("vec4at=strip?") && raised < vertex.indexOf("vWorld=at.xyz+lies;"), "the ridge is in the place drawn, after the wind");
+        check(!vertex.substring(raised - 200, raised + 200).contains("skyOverAt"), "the ridge stands whatever is overhead, as it does in the shadows");
         check(vertex.contains("}elseif(kind>-0.5){") && SpriteGeometry.WOOD < -0.5f && SpriteGeometry.WOOD > -1.5f, "wood carries its thickness where a card is turned, and is not moved by it");
+        String shadow = PipelineShaders.SHADOW_VERTEX.replaceAll("\\s+", "");
+        check(shadow.contains("vec3ridge=vec3(0.0);if(gl_MultiTexCoord1.z<-0.5&&uPlantSnow>0.0&&uFromAbove<0.5){vec2held;"
+                + "ridge=snowAlongWood(normalize(gl_Normal),gl_MultiTexCoord1.x,mod(gl_Color.a,32.0)>0.5,held);}"),
+                "the shadows cast the same ridge, out of doors as the view has it, and none in the map of what keeps the sky off");
+        check(shadow.contains("gl_Position=uMatrix*(blown(stands,gl_Normal)+vec4(ridge,0.0));") && !shadow.contains("stands.xyz+=snowAlongWood"),
+                "after the wind, as the view adds it");
         String main = PipelineShaders.WORLD_FRAGMENT_MAIN.replaceAll("\\s+", "");
         check(main.contains("snowed=uPlantSnow>0.0?snowOnBark(level,vPlace.xy+vec2(0.61,-0.43)*vPlace.z,vBlade.x,vBlade.y):0.0;"),
                 "the fragment shader is told the wood's top and thickness");
         String bark = SnowShader.GLSL.replaceAll("\\s+", "");
         check(bark.contains("floatladen=ridgeTop>0.0?snowRidgeLain(ridgeTop):0.0;"), "the ridge is white where it lies");
-        check(bark.contains("floatfrost=thick>0.0&&thick<SNOW_FINE?0.85*smoothstep(0.05,0.45,uSnowLying*(0.6+0.6*ridgeTop)):0.0;"), "a twig is frosted");
-        check(bark.contains("returnmin(max(max(lain,laden),max(frost,stuck))*clamp(1.0-0.8*snowShelter,0.0,1.0),0.9);"),
-                "the ridge, the frost, what lies on the top and what a blizzard drove are all drawn, less under cover");
-        String shadow = PipelineShaders.SHADOW_VERTEX.replaceAll("\\s+", "");
-        check(shadow.contains("if(gl_MultiTexCoord1.z<-0.5&&uPlantSnow>0.0&&uFromAbove<0.5){stands.xyz+=snowRidge(normalize(gl_Normal),gl_MultiTexCoord1.x,1.0);}"),
-                "the ridge casts its shadow, and keeps no sky off what is under it");
+        check(bark.contains("floatfrost=thick>0.0?0.85*(1.0-smoothstep(SNOW_FINE_FROM,SNOW_FINE_TO,thick))*smoothstep(0.05,0.45,uSnowLying*(0.6+0.6*ridgeTop)):0.0;"),
+                "a twig is frosted, the more the thinner, with no step along it");
+        check(bark.contains("returnmin(max(laden,max(max(lain,frost),stuck)*clamp(1.0-0.8*snowShelter,0.0,1.0)),0.9);"),
+                "the ridge is white wherever it stands, and the rest of the snow on bark less under cover");
+        String pipeline;
+        try {
+            pipeline = Files.readString(Path.of("src/main/java/com/cameraunlock/zomboid/Pipeline.java")).replaceAll("\\s+", "");
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        check(pipeline.contains("shadow.set(\"uFromAbove\",1f);try{castHeld(roofMatrix,state,roofListed,ROOF_MAP);}finally{")
+                && pipeline.contains("shadow.set(\"uFromAbove\",0f);}}") && count(pipeline, "\"uFromAbove\"") == 2,
+                "the map of what keeps the sky off is the one cast with uFromAbove, and every other map is cast without it");
     }
 
     private static void lowDrawsWhatGrowsBare() {

@@ -255,7 +255,7 @@ final class Flora {
      * limbs off it out to the boughs, each as thick where it leaves as LIMB_OF_LEADER of the
      * leader there, with branches off each to the leaves either side.
      */
-    private static final float LEADER_TOP = 0.62f, LIMB_TIP = 0.014f, LIMB_OF_LEADER = 0.7f, LIMB_OUT = 0.8f, BRANCH_OF_LIMB = 0.5f, BRANCH_TIP = 0.008f;
+    static final float LEADER_TOP = 0.62f, LIMB_TIP = 0.014f, LIMB_OF_LEADER = 0.7f, LIMB_OUT = 0.8f, BRANCH_OF_LIMB = 0.5f, BRANCH_TIP = 0.008f;
     /**
      * A bare tree's limbs and branches end this far out of its outline, its twigs carrying on
      * past them; how many twigs each branch has; and from what detail (see addCrown) on it has them.
@@ -684,7 +684,7 @@ final class Flora {
                     int at = stem * (leaderPieces + 1) + joint;
                     tubePoint(line, joint, x + stemX[at], y + stemY[at], base + boleTall + (stemTop[stem] - boleTall) * a, stemThick + (LIMB_TIP - stemThick) * a);
                 }
-                tube(wood, line, leaderPieces + 1, LEADER_SIDES, BARK_UP * bark + WOOD_UP, base, boleTall, seed + leaderPieces * stem, 0f, frame, false);
+                tube(wood, line, leaderPieces + 1, LEADER_SIDES, BARK_UP * bark + WOOD_UP, base, boleTall, seed + leaderPieces * stem, 0f, frame, wooded, false);
             }
             boolean paired = formed && TreeForm.OPPOSITE[kind];
             int nodes = paired ? (limbs + 1) / 2 : limbs;
@@ -747,7 +747,7 @@ final class Flora {
                             float endX = keptX(x + (float) Math.cos(toRound) * toOut, toUnder, toIn, room), endY = keptY(y + (float) Math.sin(toRound) * toOut, toUnder, toIn, room);
                             boolean twigged = wooded && detail > BARE_TWIGGED;
                             float[] last = addBranch(wood, atX, atY, upAt, endX, endY, toUp, base, Math.max(thickTo * BRANCH_OF_LIMB, BRANCH_TIP),
-                                    straight, boleTall, bark, which, room, frame, twigged);
+                                    straight, boleTall, bark, which, room, frame, wooded, twigged);
                             if (twigged) {
                                 // Further off, fewer twigs, and none forking: what forks is finer than a pixel there.
                                 int twigsHere = twigsByDistance && detail < NEAR_BENDS ? Math.max(twigs - 1, 2) : twigs;
@@ -760,7 +760,7 @@ final class Flora {
                     lastY = atY;
                     lastUp = upAt;
                 }
-                tube(wood, line, limbPieces + 1, LIMB_SIDES, BARK_UP * bark + WOOD_UP, base, boleTall, own + (paired ? 7 * (limb % 2) : 0), 0f, frame, false);
+                tube(wood, line, limbPieces + 1, LIMB_SIDES, BARK_UP * bark + WOOD_UP, base, boleTall, own + (paired ? 7 * (limb % 2) : 0), 0f, frame, wooded, false);
             }
         }
         wood.sway = 0f;
@@ -887,21 +887,22 @@ final class Flora {
     /**
      * A round piece of wood from one point to another, thickFrom at the first and thickTo at
      * the second, in the bark whose picture starts at up: open at both ends, which the next
-     * piece or the leaves cover. A quarter of the bark's picture goes round it. It carries no
-     * ridge of snow: a twig among leaves, whose snow is on the leaves, or a stick on the ground.
+     * piece or the leaves cover. A quarter of the bark's picture goes round it. It holds no
+     * snow of its own: a twig among leaves, whose snow is on the leaves, or a stick on the
+     * ground, which the snow on the ground buries. See woodCode.
      */
     private static void prism(Mesh mesh, float fromX, float fromY, float fromUp, float toX, float toY, float toUp, float thickFrom, float thickTo, int sides,
             float up, float swayFrom, float swayTo, int seed, SpriteGeometry.Frame frame) {
-        prism(mesh, fromX, fromY, fromUp, toX, toY, toUp, thickFrom, thickTo, sides, up, swayFrom, swayTo, seed, frame, 0f, false, false);
+        prism(mesh, fromX, fromY, fromUp, toX, toY, toUp, thickFrom, thickTo, sides, up, swayFrom, swayTo, seed, frame, 0f, false, false, false);
     }
 
     /**
-     * The same, its texture coordinate across marked as mark says (see FINE_MARK), with a ridge
-     * of snow along its top at its first end if ridgedFrom says and at its second if ridgedTo
-     * does: see SnowShader.RIDGE. A free end has none, so the ridge runs out to nothing there.
+     * The same, its texture coordinate across marked as mark says (see FINE_MARK), holding snow
+     * of its own as snowed says, with a ridge of it along its top at its first end if ridgedFrom
+     * says and at its second if ridgedTo does: see woodCode.
      */
     private static void prism(Mesh mesh, float fromX, float fromY, float fromUp, float toX, float toY, float toUp, float thickFrom, float thickTo, int sides,
-            float up, float swayFrom, float swayTo, int seed, SpriteGeometry.Frame frame, float mark, boolean ridgedFrom, boolean ridgedTo) {
+            float up, float swayFrom, float swayTo, int seed, SpriteGeometry.Frame frame, float mark, boolean snowed, boolean ridgedFrom, boolean ridgedTo) {
         float dx = toX - fromX, dy = toY - fromY, dz = toUp - fromUp;
         float length = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
         if (length < 1e-4f) {
@@ -929,7 +930,7 @@ final class Flora {
                 float thick = far ? thickTo : thickFrom;
                 mesh.face(outX, outY, outUp);
                 mesh.sway = far ? swayTo : swayFrom;
-                mesh.wood = (far ? ridgedTo : ridgedFrom) ? thick : -thick;
+                mesh.wood = woodCode(thick, snowed, far ? ridgedTo : ridgedFrom);
                 mesh.add((far ? toX : fromX) + outX * thick, (far ? toY : fromY) + outY * thick, (far ? toUp : fromUp) + outUp * thick,
                         across + (side + on) * 0.25f / sides, up + (far ? length / span : 0f), frame.red, frame.green, frame.blue);
             }
@@ -955,7 +956,7 @@ final class Flora {
             float toUp = endUp + rise, in = TWIG_TIP + SpriteGeometry.SWAY_REACH * limbSway(toUp, boleTall), under = Math.min(endUp, toUp);
             float toX = keptX(endX + (float) Math.cos(turn) * length, under, in, room), toY = keptY(endY + (float) Math.sin(turn) * length, under, in, room);
             prism(wood, endX, endY, base + endUp, toX, toY, base + toUp, BRANCH_TIP, forked ? (BRANCH_TIP + TWIG_TIP) / 2f : TWIG_TIP, TWIG_SIDES, BARK_UP * bark + WOOD_UP,
-                    limbSway(endUp, boleTall), limbSway(toUp, boleTall), own, frame, fineMark(), true, forked);
+                    limbSway(endUp, boleTall), limbSway(toUp, boleTall), own, frame, fineMark(), true, true, forked);
             if (!forked) {
                 continue;
             }
@@ -967,7 +968,7 @@ final class Flora {
                 float tipUp = toUp + shorter * (0.3f + 0.6f * unit(each, 16)) * rises, tipIn = TWIG_TIP + SpriteGeometry.SWAY_REACH * limbSway(tipUp, boleTall);
                 float tipX = keptX(toX + (float) Math.cos(split) * shorter, Math.min(toUp, tipUp), tipIn, room), tipY = keptY(toY + (float) Math.sin(split) * shorter, Math.min(toUp, tipUp), tipIn, room);
                 prism(wood, toX, toY, base + toUp, tipX, tipY, base + tipUp, (BRANCH_TIP + TWIG_TIP) / 2f, TWIG_TIP, TWIG_SIDES, BARK_UP * bark + WOOD_UP,
-                        limbSway(toUp, boleTall), limbSway(tipUp, boleTall), each, frame, fineMark(), true, false);
+                        limbSway(toUp, boleTall), limbSway(tipUp, boleTall), each, frame, fineMark(), true, true, false);
             }
         }
     }
@@ -976,10 +977,11 @@ final class Flora {
      * A branch from (fromX, fromY, fromUp) out to (toX, toY, toUp), thick at its start and
      * BRANCH_TIP at its end, in pieces no longer than longest, each joint kinked a little aside and the whole bowed
      * up, as wood grows from bud to bud and not as a rod. Returns where its last piece starts,
-     * for the twigs to go on the way it goes; twigged says whether they do.
+     * for the twigs to go on the way it goes; twigged says whether they do, and snowed whether
+     * it holds snow of its own (see woodCode).
      */
     private static float[] addBranch(Mesh wood, float fromX, float fromY, float fromUp, float toX, float toY, float toUp, float base, float thick, float longest,
-            float boleTall, int bark, int seed, float[] room, SpriteGeometry.Frame frame, boolean twigged) {
+            float boleTall, int bark, int seed, float[] room, SpriteGeometry.Frame frame, boolean snowed, boolean twigged) {
         float dx = toX - fromX, dy = toY - fromY, dz = toUp - fromUp;
         float length = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
         int pieces = Math.max(2, (int) Math.ceil(length / longest));
@@ -1002,8 +1004,18 @@ final class Flora {
             lastY = atY;
             lastUp = up;
         }
-        tube(wood, line, pieces + 1, BRANCH_SIDES, BARK_UP * bark + WOOD_UP, base, boleTall, seed, 0f, frame, twigged);
+        tube(wood, line, pieces + 1, BRANCH_SIDES, BARK_UP * bark + WOOD_UP, base, boleTall, seed, 0f, frame, snowed, twigged);
         return new float[] {startX, startY, startUp};
+    }
+
+    /**
+     * What a ring of wood thick as a radius carries for the snow on it (SpriteGeometry.WOOD):
+     * the radius where it bears a ridge of snow along its top, less than 0 where it holds snow
+     * but bears no ridge, at a free end, and less than -SnowShader.UNSNOWED where it holds no
+     * snow of its own: wood among leaves, whose snow is on the leaves, and wood on the ground.
+     */
+    static float woodCode(float thick, boolean snowed, boolean ridged) {
+        return !snowed ? -(SnowShader.UNSNOWED + thick) : ridged ? thick : -thick;
     }
 
     private static void tubePoint(float[] line, int point, float x, float y, float up, float thick) {
@@ -1020,10 +1032,10 @@ final class Flora {
      * and the bark runs on unbroken along it. Open at both ends. Wood sways as limbSway says
      * for the height of each ring over base. It carries a ridge of snow along its top (see
      * SnowShader.RIDGE) that runs out to nothing at its last ring unless carriedOn says wood
-     * goes on from there.
+     * goes on from there, if snowed says it holds snow of its own: see woodCode.
      */
     private static void tube(Mesh mesh, float[] line, int points, int sides, float up, float base, float boleTall, int seed, float mark, SpriteGeometry.Frame frame,
-            boolean carriedOn) {
+            boolean snowed, boolean carriedOn) {
         float across = mark + BARK_ACROSS * (BARK_WRAPS_MOST * (seed >>> 16 & 1) + 2 * BARK_WRAPS_MOST * (seed >>> 17 & BARK_SHIFTS - 1));
         float span = Math.max((line[3] + line[(points - 1) * 4 + 3]) * (float) Math.PI * 4f, 0.2f);
         float[] ring = new float[points * 6];
@@ -1073,7 +1085,7 @@ final class Flora {
                     float thick = line[p * 4 + 3];
                     mesh.face(outX, outY, outUp);
                     mesh.sway = limbSway(line[p * 4 + 2] - base, boleTall);
-                    mesh.wood = p < points - 1 || carriedOn ? thick : -thick;
+                    mesh.wood = woodCode(thick, snowed, p < points - 1 || carriedOn);
                     mesh.add(line[p * 4] + outX * thick, line[p * 4 + 1] + outY * thick, line[p * 4 + 2] + outUp * thick,
                             across + (side + on) * 0.25f / sides, up + (run + (far ? length : 0f)) / span, frame.red, frame.green, frame.blue);
                 }

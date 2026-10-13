@@ -30,7 +30,7 @@ final class SpriteGeometry {
      * ceiling, which lies up as LAYERS_UP does and is whole in the shadow maps where its sprite
      * has clear pixels: a roof of one sheet lets no sun through them; and WOOD for a ring of a
      * limb, a branch or a twig, whose first is how thick the wood is there, as a radius in tiles,
-     * less than 0 where it carries no ridge of snow (see SnowShader.RIDGE). The first of the three is how
+     * coded as Flora.woodCode says for the snow on it (see SnowShader.RIDGE). The first of the three is how
      * far along its card a vertex of FACES is, in tiles, how many layers of cards one of
      * CLEARS stands clear by, and how many layers one of LAYERS lies off. The second is how
      * many layers of cards the vertex stands towards the camera. How far a layer is, the
@@ -162,7 +162,7 @@ final class SpriteGeometry {
         boolean faces;
         /** For a card that does not turn: that along is how many layers of cards the vertices added next stand clear of the card's own plane, on the side the camera is. */
         boolean clears;
-        /** For a ring of wood, how thick it is, less than 0 where it carries no ridge of snow: see WOOD. 0 for anything else. */
+        /** For a ring of wood, how thick it is and what snow it holds, as Flora.woodCode codes it: see WOOD. 0 for anything else. */
         float wood;
         /** How many layers off its plane anything added next that is no card lies: the set's own, for a mesh of a set. */
         Layers layers = new Layers();

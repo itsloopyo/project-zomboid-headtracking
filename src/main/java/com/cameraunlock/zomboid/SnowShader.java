@@ -163,19 +163,22 @@ final class SnowShader {
     /**
      * How high snow stands along the top of wood for each 1 of uSnowLying, in tiles: as high as
      * RIDGE_OF_THICK of the wood's radius there, and never higher than RIDGE_HIGH; how far out to
-     * each side it reaches for each tile it stands; and how thick wood is at most, as a radius,
-     * that a real fall frosts white nearly all round.
+     * each side it reaches for each tile it stands; and how thick wood is, as a radius, that a
+     * real fall frosts white nearly all round: all of it up to FINE_FROM, none from FINE_TO.
      */
-    static final float RIDGE_HIGH = 0.06f, RIDGE_OF_THICK = 2.5f, RIDGE_WIDE = 0.5f, FINE = 0.007f;
+    static final float RIDGE_HIGH = 0.06f, RIDGE_OF_THICK = 2.5f, RIDGE_WIDE = 0.5f, FINE_FROM = 0.005f, FINE_TO = 0.009f;
+    /** How far under 0 wood that holds no snow of its own carries its thickness: see Flora.woodCode. */
+    static final float UNSNOWED = 1f;
 
     /**
      * The ridge of snow along the top of wood: snow stands on a limb higher than the half-round
      * of its bark and a little wider, so from under it its edge shows white against the sky.
-     * For the world's vertex shader, which raises it, the shadows', which cast it, and the
-     * world's fragment shader, which draws it white as far as snowRidgeLain says. It uses uSnowLying.
+     * For the world's vertex shader, which raises it, the shadows', which cast it from the very
+     * same snowAlongWood, and the world's fragment shader, which draws it white as far as
+     * snowRidgeLain says, under cover or not: the ridge is the snow that lies there. It uses uSnowLying.
      */
     static final String RIDGE = String.format(Locale.ROOT, """
-            const float SNOW_RIDGE_HIGH = %.4f, SNOW_RIDGE_OF_THICK = %.4f, SNOW_RIDGE_WIDE = %.4f, SNOW_FINE = %.4f;
+            const float SNOW_RIDGE_HIGH = %.4f, SNOW_RIDGE_OF_THICK = %.4f, SNOW_RIDGE_WIDE = %.4f, SNOW_FINE_FROM = %.4f, SNOW_FINE_TO = %.4f, SNOW_UNSNOWED = %.4f;
             // How far up wood faces at a place, as the ridge has it: 0 on what faces the side, a
             // bole's flank, or down, and 1 on the top of a level limb.
             float snowRidgeTop(vec3 facing) {
@@ -186,15 +189,24 @@ final class SnowShader {
             float snowRidgeLain(float top) {
                 return smoothstep(0.0, 0.2, top - 1.0 + min(uSnowLying * 2.5, 1.0));
             }
-            // How far the ridge moves a vertex of wood that faces so, thick as SpriteGeometry.WOOD
-            // has it (below 0 for no ridge there), where open of the snow lies (see snowOnBark):
-            // up, and out to its sides.
-            vec3 snowRidge(vec3 facing, float thick, float open) {
+            // How far the ridge moves a vertex of wood that faces so and carries code for its
+            // snow (SpriteGeometry.WOOD, Flora.woodCode), out of doors as outdoors says: up, and
+            // out to its sides. held is what the fragment shader is told: how far up the wood
+            // faces for its ridge and how thick it is, both 0 where it holds no snow of its own.
+            vec3 snowAlongWood(vec3 facing, float code, bool outdoors, out vec2 held) {
+                if (code < -0.5 * SNOW_UNSNOWED) {
+                    held = vec2(0.0);
+                    return vec3(0.0);
+                }
                 float top = snowRidgeTop(facing);
-                float high = uSnowLying * open * min(SNOW_RIDGE_OF_THICK * max(thick, 0.0), SNOW_RIDGE_HIGH) * top * snowRidgeLain(top);
+                held = vec2(top, abs(code));
+                if (!outdoors || code <= 0.0 || top <= 0.0) {
+                    return vec3(0.0);
+                }
+                float high = uSnowLying * min(SNOW_RIDGE_OF_THICK * code, SNOW_RIDGE_HIGH) * top * snowRidgeLain(top);
                 return vec3(facing.xy * (SNOW_RIDGE_WIDE * high), high);
             }
-            """, RIDGE_HIGH, RIDGE_OF_THICK, RIDGE_WIDE, FINE);
+            """, RIDGE_HIGH, RIDGE_OF_THICK, RIDGE_WIDE, FINE_FROM, FINE_TO, UNSNOWED);
 
     /** COVER and the snow's shape, joined on after WORLD_FRAGMENT_RELIEF and before the world's main: it uses facHash and uSnowLying. */
     static final String GLSL = COVER + RIDGE + """
@@ -333,18 +345,19 @@ final class SnowShader {
             // and steep wood none. What faces the way a blizzard came holds what it drove there.
             // ridgeTop is how far up the wood faces at the place as the ridge of snow along its
             // top has it (snowRidgeTop, as the vertex shader worked it out), 0 on ivy: the ridge
-            // is white as far as snowRidgeLain says. thick is the wood's radius there, 0 on a bole
-            // and on ivy: a twig, thinner than SNOW_FINE, a real fall frosts white nearly all round.
-            // Less under cover, and nothing where no snow lies: the ridge stands as high as that.
+            // is white as far as snowRidgeLain says, under cover or not, as it stands. thick is the
+            // wood's radius there, 0 on a bole, on ivy and on wood with no snow of its own: a twig
+            // a real fall frosts white nearly all round, the thinner the whiter. The rest is less
+            // under cover, and there is nothing where no snow lies.
             float snowOnBark(vec3 facing, vec2 q, float ridgeTop, float thick) {
                 float clumps = snowNoise(q * 7.0, vec2(420.0), 41.0).x;
                 float top = smoothstep(0.45, 0.9, facing.z);
                 float lain = top * smoothstep(0.05, 0.35, uSnowLying * (0.3 + 0.9 * top) - 0.25 * clumps);
                 float laden = ridgeTop > 0.0 ? snowRidgeLain(ridgeTop) : 0.0;
-                float frost = thick > 0.0 && thick < SNOW_FINE ? 0.85 * smoothstep(0.05, 0.45, uSnowLying * (0.6 + 0.6 * ridgeTop)) : 0.0;
+                float frost = thick > 0.0 ? 0.85 * (1.0 - smoothstep(SNOW_FINE_FROM, SNOW_FINE_TO, thick)) * smoothstep(0.05, 0.45, uSnowLying * (0.6 + 0.6 * ridgeTop)) : 0.0;
                 float windward = dot(normalize(facing.xy + vec2(1e-5, 0.0)), uSnowPlaster) * (1.0 - smoothstep(0.6, 0.9, abs(facing.z)));
                 float stuck = smoothstep(0.12, 0.5, windward - 0.3 * clumps);
-                return min(max(max(lain, laden), max(frost, stuck)) * clamp(1.0 - 0.8 * snowShelter, 0.0, 1.0), 0.9);
+                return min(max(laden, max(max(lain, frost), stuck) * clamp(1.0 - 0.8 * snowShelter, 0.0, 1.0)), 0.9);
             }
 
             // On the closed mass of leaves inside a crown, by how far up it faces.

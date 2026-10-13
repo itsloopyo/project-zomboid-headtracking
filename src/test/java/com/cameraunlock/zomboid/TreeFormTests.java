@@ -83,7 +83,7 @@ final class TreeFormTests {
      * its top (SpriteGeometry.WOOD, SnowShader.RIDGE): as thick as the wood is, and marked as
      * carrying no ridge where the wood ends free, so the ridge runs out to nothing at a tip and
      * leaves no open end standing; and nowhere on a twig among leaves, whose snow is on the
-     * leaves. A bole carries none.
+     * leaves, nor on a crown in leaf: wood among leaves holds no snow of its own. A bole carries none.
      */
     private static void woodCarriesItsThicknessForItsSnow() {
         int f = SpriteGeometry.VERTEX_FLOATS;
@@ -92,15 +92,17 @@ final class TreeFormTests {
             int ridged = 0, free = 0, limbEnds = 0, branchEndsFree = 0;
             for (int at = 0; at < wood.floats; at += f) {
                 float thick = wood.vertices[at + SpriteGeometry.ALONG_AT];
-                // A limb and the leader end free as thin as Flora's LIMB_TIP; a branch ends as thin as BRANCH_TIP, where its twigs carry on.
-                limbEnds += Math.abs(thick + 0.014f) < 1e-5f ? 1 : 0;
-                branchEndsFree += Math.abs(thick + 0.008f) < 1e-5f ? 1 : 0;
+                // A limb and the leader end free as thin as LIMB_TIP; a branch ends as thin as BRANCH_TIP, where its twigs carry on.
+                limbEnds += Math.abs(thick + Flora.LIMB_TIP) < 1e-5f ? 1 : 0;
+                branchEndsFree += Math.abs(thick + Flora.BRANCH_TIP) < 1e-5f ? 1 : 0;
                 Checks.check(wood.vertices[at + SpriteGeometry.WAY_AT] == SpriteGeometry.WOOD, "kind " + kind + ": every vertex of the wood is wood");
-                Checks.check(Math.abs(thick) >= 0.0039f && Math.abs(thick) < 0.2f, "kind " + kind + ": wood is as thick as it is, not " + thick);
+                Checks.check(Math.abs(thick) >= 0.0039f && Math.abs(thick) < 0.2f, "kind " + kind + ": a bare tree's wood holds its own snow, as thick as it is, not " + thick);
                 if (thick > 0f) {
                     ridged++;
                 } else {
                     free++;
+                    // Only the very end of a piece of wood is free: a ring further in is thicker than any end.
+                    Checks.check(-thick <= Flora.LIMB_TIP + 1e-5f, "kind " + kind + ": only the end of wood bears no ridge, not a ring " + -thick + " thick");
                 }
             }
             Checks.check(ridged > free && free > 0, "kind " + kind + ": most wood carries a ridge, its free ends none: " + ridged + " and " + free);
@@ -121,15 +123,17 @@ final class TreeFormTests {
             }
             Checks.check(met == 0, "kind " + kind + ": a ring carries one thickness: " + met + " differ");
         }
-        // A crown in leaf, stood under, with no bole to bear limbs: all its wood is twigs among its leaves.
+        // A crown in leaf, stood under: its twigs, its leader and its limbs are among its leaves.
         SpriteGeometry.Frame frame = frame();
-        SpriteGeometry.Mesh twigs = new SpriteGeometry.Mesh();
-        Checks.check(Flora.addCrown(new SpriteGeometry.Mesh(), twigs, frame, Flora.leafPlaces(TreeFormTests::leaves, frame), 10.5f, 20.5f, 0f, FOOT_U, FOOT_V, 1f, 1f,
-                0f, 0f, Flora.BARK_MAPLE, Flora.MAPLE, 99, Flora.OPEN, 1f, 0, 0f), "a crown in leaf");
-        Checks.check(twigs.floats > 0, "stood under, a crown in leaf has twigs");
-        for (int at = 0; at < twigs.floats; at += f) {
-            Checks.check(twigs.vertices[at + SpriteGeometry.WAY_AT] == SpriteGeometry.WOOD && twigs.vertices[at + SpriteGeometry.ALONG_AT] < 0f,
-                    "a twig among leaves carries no ridge");
+        for (float bole : new float[] {0f, 0.08f}) {
+            SpriteGeometry.Mesh twigs = new SpriteGeometry.Mesh();
+            Checks.check(Flora.addCrown(new SpriteGeometry.Mesh(), twigs, frame, Flora.leafPlaces(TreeFormTests::leaves, frame), 10.5f, 20.5f, 0f, FOOT_U, FOOT_V, 1f, 1f,
+                    bole, bole > 0f ? 0.8f : 0f, Flora.BARK_MAPLE, Flora.MAPLE, 99, Flora.OPEN, 1f, 0, 0f), "a crown in leaf");
+            Checks.check(twigs.floats > 0, "stood under, a crown in leaf has wood in it");
+            for (int at = 0; at < twigs.floats; at += f) {
+                Checks.check(twigs.vertices[at + SpriteGeometry.WAY_AT] == SpriteGeometry.WOOD && twigs.vertices[at + SpriteGeometry.ALONG_AT] < -SnowShader.UNSNOWED,
+                        "wood among leaves holds no snow of its own");
+            }
         }
         SpriteGeometry.Mesh bole = new SpriteGeometry.Mesh();
         new Flora().addTrunk(bole, 10.5f, 20.5f, 0f, 0.12f, 0.8f, true, Flora.BARK_MAPLE, 99, frame);
