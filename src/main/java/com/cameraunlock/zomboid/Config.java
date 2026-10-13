@@ -130,7 +130,7 @@ final class Config {
         style = core.configLocalEnum("General", "Style",
                 "Picture style: Vivid (strong contrast and colour), Natural (colours as lit, less contrast) or Bleak (washed out, near\n"
                         + "the game's own look).",
-                writable | live, Style.words(), Style.VIVID.ordinal());
+                writable | live, Style.words(), Style.BLEAK.ordinal());
         // Not a row of [Graphics]: it changes what the land looks like and not what the picture costs, in every graphics mode alike.
         hillHeight = core.configLocalFloat("General", "HillHeight",
                 "How high the first person hills stand: 0 is as flat as the game's map, 1 as the mod makes them, up to " + HillHeight.MOST + ".\n"

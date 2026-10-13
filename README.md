@@ -313,7 +313,7 @@ Quality=Automatic
 IsometricQuality=Low
 ; Picture style: Vivid (strong contrast and colour), Natural (colours as lit, less contrast) or Bleak (washed out, near
 ; the game's own look).
-Style=Vivid
+Style=Bleak
 ; How high the first person hills stand: 0 is as flat as the game's map, 1 as the mod makes them, up to 2.0.
 ; Held at 1 where players can fight.
 HillHeight=1.5

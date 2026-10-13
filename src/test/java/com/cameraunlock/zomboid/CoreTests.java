@@ -231,8 +231,8 @@ public final class CoreTests {
         String start = started();
         check(start.contains("tracking idle mode rotation and position yaw about world up") && start.contains("Aim mode: sights locked"),
                 "with tracking on, rotation and position, yaw about straight up, sights locked: " + start);
-        check(start.endsWith("field of view 65.0 | own " + Own.described(Own.ALL) + " | graphics Automatic (High) | style Vivid | frame blending true"),
-                "65 degrees, everything of the mod's own on, the Automatic graphics mode in first person beginning at High, the Vivid style, frame blending: "
+        check(start.endsWith("field of view 65.0 | own " + Own.described(Own.ALL) + " | graphics Automatic (High) | style Bleak | frame blending true"),
+                "65 degrees, everything of the mod's own on, the Automatic graphics mode in first person beginning at High, the Bleak style, frame blending: "
                         + start);
         check(Quality.overheadRow() == Quality.LOW && Quality.overheadPlain() && holds("IsometricQuality=Low"),
                 "and the isometric view in Low, the game's own picture");
@@ -546,7 +546,7 @@ public final class CoreTests {
         check(Quality.name().equals("Medium") && Quality.overheadRow() == Quality.MEDIUM && saved("Quality=Medium", "IsometricQuality=Medium"),
                 "and on through Low to Medium");
         Tracking.cycleStyle();
-        check(Style.current() == Style.NATURAL && saved("Style=Natural"), "the picture style's action goes to Natural and saves it");
+        check(Style.current() == Style.VIVID && saved("Style=Vivid"), "the picture style's action goes round to Vivid and saves it");
         check(SplitScreen.row() == SplitScreen.VERTICAL && holds("SplitScreen=Vertical") && holds("SplitScreenKey=F7"), "two players start side by side, with F7 to turn them");
         Tracking.turnSplitScreen();
         check(SplitScreen.row() == SplitScreen.HORIZONTAL && saved("SplitScreen=Horizontal"), "the split screen's action goes to one above the other and saves it");
@@ -576,7 +576,7 @@ public final class CoreTests {
         check(next.contains(Config.FILE_NAME + ": read"), "the saved file is read at the next start");
         check(next.contains("tracking idle mode rotation and position yaw about world up") && next.contains("Aim mode: stock sights"),
                 "which has tracking on again, and the saved modes: " + next);
-        check(next.contains("graphics Medium | style Natural"), "and the saved graphics mode and picture style");
+        check(next.contains("graphics Medium | style Vivid"), "and the saved graphics mode and picture style");
     }
 
     private static void freeLookWithNoMarkerIsReadAsFreeLookWithOne() throws IOException, InterruptedException {
@@ -602,30 +602,30 @@ public final class CoreTests {
         Tracking.watchSettings();
         String saved = text();
         edit(saved.replace("FieldOfView=65.0", "FieldOfView=90").replace("OwnWeapons=true", "OwnWeapons=false")
-                .replace("OwnPlants=true", "OwnPlants=false").replace("Quality=Medium", "Quality=High").replace("Style=Natural", "Style=Bleak")
+                .replace("OwnPlants=true", "OwnPlants=false").replace("Quality=Medium", "Quality=High").replace("Style=Vivid", "Style=Natural")
                 .replace("MuzzleFlash=true", "MuzzleFlash=false").replace("SplitScreen=Horizontal", "SplitScreen=Vertical").replace("UdpPort=default", "UdpPort=5555")
                 .replace("HillHeight=1.5", "HillHeight=0.25"));
         Tracking.watchSettings();
         check(FieldOfView.degrees() == 90f, "an edited field of view is read while the game runs");
         check(HillHeight.asked() == 0.25f, "and the height of the hills: " + HillHeight.asked());
         check(Own.rows() == (Own.ALL & ~Own.WEAPONS & ~Own.PLANTS), "rows of [Content] switched off are, and the rest stay on: " + Own.described(Own.rows()));
-        check(Quality.name().equals("High") && Style.current() == Style.BLEAK, "and the graphics mode and the picture style");
+        check(Quality.name().equals("High") && Style.current() == Style.NATURAL, "and the graphics mode and the picture style");
         check(SplitScreen.row() == SplitScreen.VERTICAL, "and how two players share the screen");
         check(!MuzzleFlash.on(), "and the muzzle flash switched off");
         edit(saved.replace("OwnArms=true", "OwnArms=false"));
         Tracking.watchSettings();
-        check(FieldOfView.degrees() == 65f && Own.rows() == (Own.ALL & ~Own.ARMS) && Quality.name().equals("Medium") && Style.current() == Style.NATURAL
+        check(FieldOfView.degrees() == 65f && Own.rows() == (Own.ALL & ~Own.ARMS) && Quality.name().equals("Medium") && Style.current() == Style.VIVID
                         && MuzzleFlash.on() && SplitScreen.row() == SplitScreen.HORIZONTAL && HillHeight.asked() == 1.5f,
                 "set back, they are as they were, and the arms row switched off is that row and no other: " + Own.described(Own.rows()));
         Tracking.cycleStyle();
-        check(Style.current() == Style.BLEAK, "a save after an edit still saves");
-        check(saved("Style=Bleak", "OwnArms=false"), "and leaves the edited row in the file");
+        check(Style.current() == Style.NATURAL, "a save after an edit still saves");
+        check(saved("Style=Natural", "OwnArms=false"), "and leaves the edited row in the file");
 
         edit(text().replace("FieldOfView=65.0", "FieldOfView=80"));
         Tracking.cycleStyle();
-        check(saved("Style=Vivid", "FieldOfView=80", "OwnArms=false"), "a save made before the watch has looked at an edit leaves the edited row in the file too");
+        check(saved("Style=Bleak", "FieldOfView=80", "OwnArms=false"), "a save made before the watch has looked at an edit leaves the edited row in the file too");
         Tracking.watchSettings();
-        check(FieldOfView.degrees() == 80f && Style.current() == Style.VIVID, "and the watch still reads the edit: " + FieldOfView.degrees());
+        check(FieldOfView.degrees() == 80f && Style.current() == Style.BLEAK, "and the watch still reads the edit: " + FieldOfView.degrees());
     }
 
     private static int optionNamed(CameraUnlock.Option[] options, String id) {

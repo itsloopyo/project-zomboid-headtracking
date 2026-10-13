@@ -32,7 +32,7 @@ enum Style {
     /** What the dark of the picture and the bright of it are multiplied by, red, green and blue. */
     final float[] shade, sunlit;
 
-    private static volatile Style row = VIVID;
+    private static volatile Style row = BLEAK;
 
     Style(String label, float curve, float saturation, float vignette, float bloom, float flare, float[] shade, float[] sunlit) {
         this.label = label;
