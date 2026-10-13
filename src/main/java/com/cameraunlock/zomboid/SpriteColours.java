@@ -5,8 +5,11 @@ import java.util.ArrayList;
 import java.util.Locale;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import org.lwjgl.opengl.GL;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL15;
+import org.lwjgl.opengl.GL45;
+import org.lwjgl.opengl.GLCapabilities;
 import zombie.core.textures.Texture;
 
 /**
@@ -27,7 +30,7 @@ final class SpriteColours {
     private static final ConcurrentHashMap<Texture, float[]> known = new ConcurrentHashMap<>();
     private static final ConcurrentLinkedQueue<Texture> asked = new ConcurrentLinkedQueue<>();
     private static final ArrayList<Texture> waiting = new ArrayList<>();
-    /** The copy of the sheet being read, and the memory it is in, kept while sprites go on being asked for and for a few seconds after. */
+    /** The copy of the part of the sheet being read, and the memory it is in, kept while sprites go on being asked for and for a few seconds after. */
     private static ByteBuffer page;
     private static OffHeap.Block pageBlock;
     private static long pageUsedNanos;
@@ -36,6 +39,8 @@ final class SpriteColours {
     /** How many frames running a sheet with no size on the graphics card is waited for before its sprites are kept as painting nothing. */
     private static final int WAITED_FOR_A_SHEET = 240;
     private static int sizeless;
+    /** Whether the graphics card copies back part of a sheet, asked once on the first reading. */
+    private static boolean cardAsked, inParts;
 
     private SpriteColours() {}
 
@@ -79,10 +84,10 @@ final class SpriteColours {
 
     /**
      * Reads the sprites asked for since the last frame. The game keeps many sprites on one
-     * sheet, and OpenGL hands back a sheet whole, so every sprite waiting on one sheet is read
-     * from one copy of it. One sheet a frame: a sheet is tens of megabytes to copy, and a
-     * street's walls are on a handful of them. A frame in which two players' pictures are
-     * drawn is still one, and the sheet is read for the first of them.
+     * sheet, and every sprite waiting on one sheet is read from one copy of the part of it that
+     * holds them all. With OpenGL 4.5 or ARB_get_texture_sub_image only that part is copied
+     * back; without, the sheet whole, which is tens of megabytes. One sheet a frame. A frame in
+     * which two players' pictures are drawn is still one, and the sheet is read for the first of them.
      *
      * @param view the number of the player whose picture is about to be drawn
      */
@@ -99,6 +104,14 @@ final class SpriteColours {
             }
             return;
         }
+        if (!cardAsked) {
+            GLCapabilities card = GL.getCapabilities();
+            cardAsked = true;
+            inParts = card.OpenGL45 || card.GL_ARB_get_texture_sub_image;
+            if (!inParts) {
+                Log.info("this graphics card has neither OpenGL 4.5 nor ARB_get_texture_sub_image: the colours of sprites are read from a copy of their whole sheet");
+            }
+        }
         pageUsedNanos = System.nanoTime();
         int sheet = waiting.get(0).getID();
         int was = GL11.glGetInteger(GL_TEXTURE_BINDING_2D);
@@ -113,15 +126,43 @@ final class SpriteColours {
         GL11.glBindTexture(GL_TEXTURE_2D, sheet);
         int width = GL11.glGetTexLevelParameteri(GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH);
         int height = GL11.glGetTexLevelParameteri(GL_TEXTURE_2D, 0, GL_TEXTURE_HEIGHT);
+        // The part of the sheet copied, and its width: every sprite's place is read from it less its corner.
+        int fromX = 0, fromY = 0, across = width, down = height;
         if (width > 0 && height > 0) {
-            if (page == null || page.capacity() < width * height * 4) {
+            if (inParts) {
+                int left = width, top = height, right = 0, bottom = 0;
+                for (int i = 0; i < waiting.size(); i++) {
+                    Texture texture = waiting.get(i);
+                    if (texture.getID() == sheet) {
+                        place(texture, width, height);
+                        left = Math.min(left, placed[0]);
+                        top = Math.min(top, placed[1]);
+                        right = Math.max(right, placed[2]);
+                        bottom = Math.max(bottom, placed[3]);
+                    }
+                }
+                fromX = Math.min(left, right);
+                fromY = Math.min(top, bottom);
+                across = right - fromX;
+                down = bottom - fromY;
+            }
+            if (page == null || page.capacity() < Math.max(across * down * 4, 1)) {
                 letGoOfThePage();
-                pageBlock = OffHeap.take(width * height * 4);
+                pageBlock = OffHeap.take(Math.max(across * down * 4, 1));
                 page = pageBlock.bytes;
             }
-            GL11.glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, page);
+            page.clear();
+            page.limit(across * down * 4);
+            if (inParts) {
+                if (across > 0 && down > 0) {
+                    GL45.glGetTextureSubImage(sheet, 0, fromX, fromY, 0, across, down, 1, GL_RGBA, GL_UNSIGNED_BYTE, page);
+                }
+            } else {
+                GL11.glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, page);
+            }
             if (FirstPerson.TRACE) {
-                Log.info(String.format(Locale.ROOT, "sprite colours: a sheet of %d by %d copied back in %.2f ms", width, height, (System.nanoTime() - pageUsedNanos) / 1e6));
+                Log.info(String.format(Locale.ROOT, "sprite colours: %d by %d of a sheet of %d by %d copied back in %.2f ms", across, down, width, height,
+                        (System.nanoTime() - pageUsedNanos) / 1e6));
             }
         }
         GL11.glBindTexture(GL_TEXTURE_2D, was);
@@ -146,30 +187,37 @@ final class SpriteColours {
                 continue;
             }
             float[] colour = new float[WallSides.MEAN + 3];
-            int left = Math.clamp(Math.round(Math.min(texture.getXStart(), texture.getXEnd()) * width), 0, width);
-            int right = Math.clamp(Math.round(Math.max(texture.getXStart(), texture.getXEnd()) * width), 0, width);
-            int top = Math.clamp(Math.round(Math.min(texture.getYStart(), texture.getYEnd()) * height), 0, height);
-            int bottom = Math.clamp(Math.round(Math.max(texture.getYStart(), texture.getYEnd()) * height), 0, height);
-            boolean painted = WallSides.usualColour(page, width, left, top, right, bottom, colour);
+            place(texture, width, height);
+            int left = placed[0] - fromX, top = placed[1] - fromY, right = placed[2] - fromX, bottom = placed[3] - fromY;
+            boolean painted = WallSides.usualColour(page, across, left, top, right, bottom, colour);
             if (painted) {
-                WallSides.meanColour(page, width, left, top, right, bottom, colour);
+                WallSides.meanColour(page, across, left, top, right, bottom, colour);
             }
             known.put(texture, painted ? colour : UNPAINTED);
-            Windows.read(texture, page, width, left, top, right, bottom);
-            Drapes.read(texture, page, width, left, top, right, bottom);
-            Doors.read(texture, page, width, left, top, right, bottom);
-            Papers.read(texture, page, width, left, top, right, bottom);
-            WallTiles.read(texture, page, width, left, top, right, bottom);
-            Tiles.read(texture, page, width, left, top, right, bottom);
-            Solids.read(texture, page, width, left, top, right, bottom);
-            Flats.read(texture, page, width, left, top, right, bottom);
-            Rugs.read(texture, page, width, left, top, right, bottom);
-            Trims.read(texture, page, width, left, top, right, bottom);
-            RoadPaint.read(texture, page, width, left, top, right, bottom);
-            Masonry.read(texture, page, width, left, top, right, bottom);
+            Windows.read(texture, page, across, left, top, right, bottom);
+            Drapes.read(texture, page, across, left, top, right, bottom);
+            Doors.read(texture, page, across, left, top, right, bottom);
+            Papers.read(texture, page, across, left, top, right, bottom);
+            WallTiles.read(texture, page, across, left, top, right, bottom);
+            Tiles.read(texture, page, across, left, top, right, bottom);
+            Solids.read(texture, page, across, left, top, right, bottom);
+            Flats.read(texture, page, across, left, top, right, bottom);
+            Rugs.read(texture, page, across, left, top, right, bottom);
+            Trims.read(texture, page, across, left, top, right, bottom);
+            RoadPaint.read(texture, page, across, left, top, right, bottom);
+            Masonry.read(texture, page, across, left, top, right, bottom);
         }
         while (waiting.size() > kept) {
             waiting.remove(waiting.size() - 1);
         }
     }
+
+    /** Where a sprite lies on its sheet, in texels: left, top, right and bottom, into placed. */
+    private static void place(Texture texture, int width, int height) {
+        placed[0] = Math.clamp(Math.round(Math.min(texture.getXStart(), texture.getXEnd()) * width), 0, width);
+        placed[2] = Math.clamp(Math.round(Math.max(texture.getXStart(), texture.getXEnd()) * width), 0, width);
+        placed[1] = Math.clamp(Math.round(Math.min(texture.getYStart(), texture.getYEnd()) * height), 0, height);
+        placed[3] = Math.clamp(Math.round(Math.max(texture.getYStart(), texture.getYEnd()) * height), 0, height);
+    }
+    private static final int[] placed = new int[4];
 }
