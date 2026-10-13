@@ -3955,6 +3955,19 @@ final class PipelineShaders {
             }
             """;
 
+    /** The sun on a point of air, for a source that declares the two sun maps, their matrices and inside(c). */
+    static final String SUN_IN_AIR = """
+            // The sun on a point of air, from the near map or else the far one, or `beyond` past both.
+            float sunInAir(vec3 p, float beyond) {
+                vec3 c = (uNearMatrix * vec4(p, 1.0)).xyz * 0.5 + 0.5;
+                if (inside(c)) {
+                    return shadow2D(uShadowNear, c).r;
+                }
+                c = (uFarMatrix * vec4(p, 1.0)).xyz * 0.5 + 0.5;
+                return inside(c) ? shadow2D(uShadowFar, c).r : beyond;
+            }
+            """;
+
     /**
      * For air: whether a point has something over it, from the map from above, and the sun on
      * it. A sun map holds a ceiling sheet behind itself by the slope offset, so air close under a
@@ -3977,16 +3990,7 @@ final class PipelineShaders {
                 float over = texture2D(uHeights, c.xy).r;
                 return over < 1.0 && (c.z - over) * uRoofDeep > 0.001;
             }
-
-            // The sun on a point of air, from the near map or else the far one, or `beyond` past both.
-            float sunInAir(vec3 p, float beyond) {
-                vec3 c = (uNearMatrix * vec4(p, 1.0)).xyz * 0.5 + 0.5;
-                if (inside(c)) {
-                    return shadow2D(uShadowNear, c).r;
-                }
-                c = (uFarMatrix * vec4(p, 1.0)).xyz * 0.5 + 0.5;
-                return inside(c) ? shadow2D(uShadowFar, c).r : beyond;
-            }
+            """ + SUN_IN_AIR + """
 
             float sunInAir(vec3 p, bool roofed, float beyond) {
                 float sun = sunInAir(p, beyond);
@@ -4153,7 +4157,7 @@ final class PipelineShaders {
             bool inside(vec3 c) {
                 return c.x > 0.01 && c.x < 0.99 && c.y > 0.01 && c.y < 0.99 && c.z < 1.0;
             }
-            """ + ROOFED_AIR + """
+            """ + SUN_IN_AIR + """
 
             void main() {
                 // The vehicle the viewer sits in has a roof and sides nothing else here knows of.
