@@ -21,7 +21,9 @@ import zombie.core.textures.Texture;
  * then is kept for good.
  */
 final class SpriteColours {
-    private static final int GL_TEXTURE_2D = 0x0DE1, GL_TEXTURE_BINDING_2D = 0x8069, GL_TEXTURE_WIDTH = 0x1000, GL_TEXTURE_HEIGHT = 0x1001;
+    private static final int GL_TEXTURE_2D = 0x0DE1, GL_TEXTURE_BINDING_2D = 0x8069, GL_TEXTURE_WIDTH = 0x1000, GL_TEXTURE_HEIGHT = 0x1001, GL_TEXTURE_COMPRESSED = 0x86A1;
+    /** A compressed sheet is copied back in whole blocks of this many texels a side. */
+    private static final int BLOCK = 4;
     private static final int GL_RGBA = 0x1908, GL_UNSIGNED_BYTE = 0x1401;
     private static final int GL_PIXEL_PACK_BUFFER = 0x88EB, GL_PIXEL_PACK_BUFFER_BINDING = 0x88ED;
     private static final int GL_PACK_ROW_LENGTH = 0x0D02, GL_PACK_SKIP_ROWS = 0x0D03, GL_PACK_SKIP_PIXELS = 0x0D04, GL_PACK_ALIGNMENT = 0x0D05;
@@ -40,7 +42,9 @@ final class SpriteColours {
     private static final int WAITED_FOR_A_SHEET = 240;
     private static int sizeless;
     /** Whether the graphics card copies back part of a sheet, asked once on the first reading. */
-    private static boolean cardAsked, inParts;
+    private static boolean cardAsked, inParts, errorLeftLogged;
+    /** OpenGL keeps at most one flag for each kind of error it has. */
+    private static final int GL_ERROR_FLAGS = 8;
 
     private SpriteColours() {}
 
@@ -113,6 +117,13 @@ final class SpriteColours {
             }
         }
         pageUsedNanos = System.nanoTime();
+        // What OpenGL has flagged before anything here is asked of it is not this reading's: one flag a kind of error at most, and a lost context flags for ever.
+        for (int flag = 0, error = GL11.glGetError(); flag < GL_ERROR_FLAGS && error != 0; flag++, error = GL11.glGetError()) {
+            if (!errorLeftLogged) {
+                errorLeftLogged = true;
+                Log.info(String.format(Locale.ROOT, "sprite colours: OpenGL error 0x%X was left by the drawing before a sheet was read (said once)", error));
+            }
+        }
         int sheet = waiting.get(0).getID();
         int was = GL11.glGetInteger(GL_TEXTURE_BINDING_2D);
         // With a buffer bound to pack into, OpenGL would write the sheet into that buffer and
@@ -127,7 +138,7 @@ final class SpriteColours {
         int width = GL11.glGetTexLevelParameteri(GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH);
         int height = GL11.glGetTexLevelParameteri(GL_TEXTURE_2D, 0, GL_TEXTURE_HEIGHT);
         // The part of the sheet copied, and its width: every sprite's place is read from it less its corner.
-        int fromX = 0, fromY = 0, across = width, down = height;
+        int fromX = 0, fromY = 0, across = width, down = height, copyError = 0;
         if (width > 0 && height > 0) {
             if (inParts) {
                 int left = width, top = height, right = 0, bottom = 0;
@@ -143,6 +154,13 @@ final class SpriteColours {
                 }
                 fromX = Math.min(left, right);
                 fromY = Math.min(top, bottom);
+                if (GL11.glGetTexLevelParameteri(GL_TEXTURE_2D, 0, GL_TEXTURE_COMPRESSED) != 0) {
+                    // OpenGL copies part of a compressed sheet only from a block's corner to a block's corner or the sheet's edge.
+                    fromX = fromX / BLOCK * BLOCK;
+                    fromY = fromY / BLOCK * BLOCK;
+                    right = Math.min((right + BLOCK - 1) / BLOCK * BLOCK, width);
+                    bottom = Math.min((bottom + BLOCK - 1) / BLOCK * BLOCK, height);
+                }
                 across = right - fromX;
                 down = bottom - fromY;
             }
@@ -160,6 +178,7 @@ final class SpriteColours {
             } else {
                 GL11.glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, page);
             }
+            copyError = GL11.glGetError();
             if (FirstPerson.TRACE) {
                 Log.info(String.format(Locale.ROOT, "sprite colours: %d by %d of a sheet of %d by %d copied back in %.2f ms", across, down, width, height,
                         (System.nanoTime() - pageUsedNanos) / 1e6));
@@ -167,6 +186,10 @@ final class SpriteColours {
         }
         GL11.glBindTexture(GL_TEXTURE_2D, was);
         GL15.glBindBuffer(GL_PIXEL_PACK_BUFFER, packBuffer);
+        if (copyError != 0) {
+            throw new IllegalStateException(String.format(Locale.ROOT, "OpenGL error 0x%X copying back %d by %d at %d, %d of the sprite sheet %d (%d by %d)", copyError, across, down,
+                    fromX, fromY, sheet, width, height));
+        }
         if (width > 0 && height > 0) {
             sizeless = 0;
         } else if (++sizeless <= WAITED_FOR_A_SHEET) {
