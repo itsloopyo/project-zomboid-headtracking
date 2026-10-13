@@ -53,7 +53,7 @@ final class LeafFall {
         /** The height of the ground at (x, y), in tiles. */
         float height(float x, float y);
 
-        /** Whether a leaf at that height cannot be on the square: inside a storey of a building, behind its walls (see storey). */
+        /** Whether a leaf at that height cannot be on the square: inside a storey of a building, behind its walls, the storey counted (see storey) from the ground in the middle of the square. */
         boolean walled(int x, int y, float up);
     }
 
@@ -204,9 +204,13 @@ final class LeafFall {
         return Math.max((int) Math.floor((up - ground) / ViewCamera.LEVEL_HEIGHT), 0);
     }
 
-    /** A number for the square and storey a leaf at (x, y, up) over ground at that height is in: the walls are asked again only when it changes. */
-    private static int squareOf(float x, float y, float up, float ground) {
-        return (int) Math.floor(x) * 73856093 ^ (int) Math.floor(y) * 19349663 ^ storey(up, ground) * 83492791;
+    /**
+     * A number for the square and storey a leaf at (x, y, up) is in, the storey counted from the
+     * ground in the middle of that square, as the walls are asked: they are asked again only when it changes.
+     */
+    private static int squareOf(float x, float y, float up, Ground on) {
+        int sx = (int) Math.floor(x), sy = (int) Math.floor(y);
+        return sx * 73856093 ^ sy * 19349663 ^ storey(up, on.height(sx + 0.5f, sy + 0.5f)) * 83492791;
     }
 
     /** The share of its leaves a tree that far from the eye is given to let go of: all within NEAR, less further off. */
@@ -314,7 +318,7 @@ final class LeafFall {
         if (fromX * fromX + fromY * fromY > KEPT * KEPT) {
             return false;
         }
-        int at = squareOf(x[i], y[i], up[i], ground[i]);
+        int at = squareOf(x[i], y[i], up[i], on);
         if (at != square[i]) {
             square[i] = at;
             if (on.walled((int) Math.floor(x[i]), (int) Math.floor(y[i]), up[i])) {
@@ -398,7 +402,7 @@ final class LeafFall {
         half[i] = HALF_LEAST + (HALF_MOST - HALF_LEAST) * next();
         hue[i] = treeHue[t];
         turned[i] = Math.clamp(Seasons.turned(season, Seasons.stepped(season, progression), treeHash[t]) + 0.35f * (next() - 0.4f), 0f, 1f);
-        square[i] = squareOf(fromX, fromY, fromUp, treeGround[t]);
+        square[i] = squareOf(fromX, fromY, fromUp, on);
         caught[i] = false;
         spawned++;
     }

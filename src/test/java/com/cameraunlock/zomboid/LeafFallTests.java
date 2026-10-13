@@ -27,6 +27,7 @@ final class LeafFallTests {
         Checks.run("aGroundFloorOnAHillCatchesALeaf", LeafFallTests::aGroundFloorOnAHillCatchesALeaf);
         Checks.run("noLeafLetsGoInsideAHouseACrownReachesOver", LeafFallTests::noLeafLetsGoInsideAHouseACrownReachesOver);
         Checks.run("aLeafFallingOntoARoofIsCaughtAtIt", LeafFallTests::aLeafFallingOntoARoofIsCaughtAtIt);
+        Checks.run("aLeafFallingOntoARoofDownhillIsCaughtAtIt", LeafFallTests::aLeafFallingOntoARoofDownhillIsCaughtAtIt);
         Checks.run("treesAreReadRoundTheEyeWhereverItIs", LeafFallTests::treesAreReadRoundTheEyeWhereverItIs);
         Checks.run("nothingMovesWhileThePictureWaits", LeafFallTests::nothingMovesWhileThePictureWaits);
     }
@@ -57,6 +58,19 @@ final class LeafFallTests {
     }
 
     private static final Flat OPEN = new Flat(Integer.MAX_VALUE, 0);
+
+    /** A slope: a building on every square from x = wallFrom on, on ground at houseLift, with the ground outside it at outsideLift. */
+    private record Terraced(int wallFrom, int storeys, float houseLift, float outsideLift) implements LeafFall.Ground {
+        @Override
+        public float height(float x, float y) {
+            return x >= wallFrom ? houseLift : outsideLift;
+        }
+
+        @Override
+        public boolean walled(int x, int y, float up) {
+            return x >= wallFrom && LeafFall.storey(up, height(x + 0.5f, y + 0.5f)) < storeys;
+        }
+    }
 
     /** A sim whose trees stand on a grid round (0, 0), count of them, all red maples in leaf. */
     private static LeafFall grove(int count) {
@@ -480,6 +494,33 @@ final class LeafFallTests {
                 if (leaves[at + LeafFall.X] > 0.5f) {
                     overRoof++;
                     Checks.check(leaves[at + LeafFall.UP] >= ViewCamera.LEVEL_HEIGHT, "a leaf over the roof stays on top of it: " + leaves[at + LeafFall.UP]);
+                }
+            }
+        }
+        Checks.check(overRoof > 100, "leaves came down over the roof: " + overRoof);
+    }
+
+    /**
+     * A tree uphill of a bungalow, its crown over the roof: a leaf let go over the roof is counted
+     * in the storeys of the house's ground, not of the tree's, and is caught on top of the roof.
+     */
+    private static void aLeafFallingOntoARoofDownhillIsCaughtAtIt() {
+        float uphill = 0.8f;
+        LeafFall fall = new LeafFall();
+        fall.beginTrees(0f, 0f);
+        fall.offer(-0.5f, 0.5f, uphill, MAPLE, shedding(1f), true, ViewCamera.LEVEL_HEIGHT - uphill + 0.2f, HIGH, OUT);
+        fall.endTrees();
+        Terraced slope = new Terraced(0, 1, 0f, uphill);
+        float[] leaves = new float[LeafFall.MOST * LeafFall.FLOATS];
+        int overRoof = 0;
+        for (int round = 0; round < 600; round++) {
+            fall.step(1f / 30f, 0f, 0f, 0.5f, Seasons.AUTUMN, PEAK_AUTUMN, 0f, 0f, slope);
+            int count = fall.write(leaves, 0f, 0f);
+            for (int i = 0; i < count; i++) {
+                int at = i * LeafFall.FLOATS;
+                if (leaves[at + LeafFall.X] > 0.5f) {
+                    overRoof++;
+                    Checks.check(leaves[at + LeafFall.UP] >= ViewCamera.LEVEL_HEIGHT, "a leaf over the roof downhill stays on top of it: " + leaves[at + LeafFall.UP]);
                 }
             }
         }
