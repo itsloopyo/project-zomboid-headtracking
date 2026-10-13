@@ -626,7 +626,15 @@ public final class Agent {
                 new Patch("zombie/core/physics/CarController", "update's off-road engine force", classBytes -> CallSite.insertAfterEach(classBytes,
                         new CallSite.Method("zombie/core/physics/CarController", "update", "()V"),
                         new CallSite.Method(vehicle, "isDoingOffroad", "()Z"),
-                        new CallSite.Method(HOOKS, "offRoadEngine", "(Z)Z"), 1)));
+                        new CallSite.Method(HOOKS, "offRoadEngine", "(Z)Z"), 1)),
+                new Patch(vehicle, "the push of a person and of a body it meets", classBytes -> CallSite.insertAfterEach(
+                        CallSite.insertAfterEach(classBytes,
+                                new CallSite.Method(vehicle, "applyImpulseFromHitPedestrian", "(Lzombie/characters/IsoGameCharacter;)V"),
+                                new CallSite.Method("zombie/characters/IsoGameCharacter", "getMass", "()F"),
+                                new CallSite.Method(HOOKS, "pedestrianMass", "(F)F"), 1),
+                        new CallSite.Method(vehicle, "applyImpulseFromHitCorpse", "(Lzombie/iso/objects/IsoDeadBody;)V"),
+                        new CallSite.Method(vehicle, "getFudgedMass", "()F"),
+                        new CallSite.Method(HOOKS, "corpseMass", "(F)F"), 1)));
     }
 
     /**

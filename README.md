@@ -23,6 +23,7 @@ It adds a first person view to the game, with a rebuilt world and new graphics.
 - **Vehicle interiors** - dashboards, seats and working mirrors and instrumentation.
 - **Smash through fences** - offline and in either view, a vehicle faster than a walk knocks down fences and street lamp posts and drives on, a little slower and a little dented.
 - **Drive through bushes** - offline, bushes and other growth no longer slow a vehicle, and the engine keeps its full pull on grass and dirt. Grip off the road and the bumps are the game's own.
+- **Plough through zombies** - offline, a zombie hit or a body run over pushes back on a vehicle a quarter as hard as the game has it, so a crowd barely slows or turns the car.
 - **Adjustable graphics** - automatic or manual quality, three picture styles, field of view, hill height and optional replacement models and textures.
 
 ## Requirements

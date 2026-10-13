@@ -31,6 +31,8 @@ public final class KnockdownTests {
         check(!Knockdown.engineHeldOffRoad(false, true), "alone the engine gives all of itself off the road");
         check(Knockdown.engineHeldOffRoad(true, true), "on a server the game holds it back off the road");
         check(!Knockdown.engineHeldOffRoad(true, false), "and on the road it never is");
+        check(Knockdown.bodyPush(false) == Knockdown.BODY_PUSH && Knockdown.BODY_PUSH < 1f, "alone a zombie hit or a body run over pushes a car back less than the game has it");
+        check(Knockdown.bodyPush(true) == 1f, "on a server as much as the game has it");
     }
 
     private static void fencesAndPostsAreKnockedDownAndNothingElse() {

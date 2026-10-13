@@ -50,6 +50,18 @@ final class Knockdown {
         return online && offRoad;
     }
 
+    /**
+     * How much of its push back on a vehicle a person it hits, or a body it drives over, gives.
+     * The game pushes back by the person's mass and by the vehicle's own for a body, off the
+     * vehicle's middle, so a crowd slows a car and turns it aside. Alone a quarter of that, as in
+     * an open-world driving game; on a server the game's own.
+     */
+    static float bodyPush(boolean online) {
+        return online ? 1f : BODY_PUSH;
+    }
+
+    static final float BODY_PUSH = 0.25f;
+
     /** Whether a vehicle is going faster than any vehicle goes, or at a speed that is no number. */
     static boolean flung(float kmh) {
         return !(Math.abs(kmh) <= MOST_KMH);

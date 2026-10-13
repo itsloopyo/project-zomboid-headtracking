@@ -564,6 +564,16 @@ public final class Hooks {
         return by instanceof BaseVehicle vehicle && (CarSmash.struck(thing, vehicle) || CarSmash.brushedThrough(thing));
     }
 
+    /** Called with a person's mass as BaseVehicle.applyImpulseFromHitPedestrian works out the push they give the vehicle. */
+    public static float pedestrianMass(float mass) {
+        return mass * Knockdown.bodyPush(Online.joined());
+    }
+
+    /** Called with the vehicle's mass as BaseVehicle.applyImpulseFromHitCorpse works out the push a body gives it. */
+    public static float corpseMass(float mass) {
+        return mass * Knockdown.bodyPush(Online.joined());
+    }
+
     /** Called with what the game's off-road check reads where CarController.update sets the engine's force. */
     public static boolean offRoadEngine(boolean offRoad) {
         return Knockdown.engineHeldOffRoad(Online.joined(), offRoad);
