@@ -899,6 +899,10 @@ final class PipelineShaders {
             uniform vec3 uOpenLight;
             uniform float uDaylightKept;
             uniform float uRoomKept;
+            // How far the eye is out of doors, 0 to 1. The sky's haze is the open air's: none of it
+            // lies between an eye in a room and that room's walls. Sun through a window into the
+            // room's own air is the volume pass's.
+            uniform float uEyeOutdoors;
             """ + BEAMS + MuzzleFlash.GLSL + Fires.GLSL + FireShadows.GLSL + """
             uniform sampler2D uAsphalt;
             uniform sampler2D uGravel;
@@ -3501,7 +3505,7 @@ final class PipelineShaders {
                 // Towards a low sun the air itself is lit: what stands far off in that quarter
                 // is veiled in gold, and the nearer for the lower the sun is.
                 vec3 air = atmosphere(-view);
-                color = mix(color, air, distanceHaze(-view, range));
+                color = mix(color, air, distanceHaze(-view, range) * mix(uEyeOutdoors, 1.0, clamp(open, 0.0, 1.0)));
                 // The world ends by fading into what stands behind it, which is the hills and
                 // not bare air: faded to air, its last tiles show as dashes against them.
                 // And it ends where the loaded map does, which at the wheel of a car at speed is
@@ -4424,6 +4428,8 @@ final class PipelineShaders {
             uniform vec3 uLight;
             uniform vec3 uLightColor;
             uniform float uInside;
+            // How far the eye is out of doors: see the world's fragment shader.
+            uniform float uEyeOutdoors;
             uniform float uPainted;
             uniform float uGlassPass;
             uniform sampler2D uPanes;
@@ -5936,7 +5942,7 @@ final class PipelineShaders {
                     discard;
                 }
                 float ends = uBeyond > 0.5 ? 0.0 : max(smoothstep(uFogStart, uFogEnd, range), smoothstep(uLoaded.z - (uFogEnd - uFogStart), uLoaded.z, length(ray.xy * ahead - uLoaded.xy)));
-                float haze = max(ends, distanceHaze(normalize(ray), range));
+                float haze = max(ends, distanceHaze(normalize(ray), range) * mix(uEyeOutdoors, 1.0, outdoors));
                 color = mix(color, atmosphere(normalize(ray)), haze);
                 if (uVeil.x > 0.0) {
                     color = mix(color, veilColor(normalize(ray)), max(veiling(range), ends * skyVeiling(normalize(ray))));

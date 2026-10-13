@@ -2808,6 +2808,7 @@ final class Pipeline {
         to.set("uOpenLight", state.openRed, state.openGreen, state.openBlue);
         to.set("uDaylightKept", (float) Math.pow(state.daylightKept, 2.2));
         to.set("uRoomKept", (float) Math.pow(state.daylightKept * state.roomKept, 2.2));
+        to.set("uEyeOutdoors", state.outdoors);
         setFlash(to);
         to.set("uLightColor", state.lightRed, state.lightGreen, state.lightBlue);
         to.set("uFogStart", fogStart);
@@ -3452,6 +3453,7 @@ final class Pipeline {
             figureLight.set("uFar", far);
             figureLight.set("uEye", camera.eyeX, camera.eyeY, camera.eyeUp);
             figureLight.set("uRangeFrom", rangeFrom);
+            figureLight.set("uEyeOutdoors", state.outdoors);
             setBasis(figureLight, camera);
             figureLight.set("uLight", state.lightX, state.lightY, state.lightUp);
             setBeams(figureLight, TORCH_UNIT);
@@ -3820,6 +3822,7 @@ final class Pipeline {
             figureLight.set("uFar", far);
             figureLight.set("uEye", pose.eyeX, pose.eyeY, pose.eyeUp);
             figureLight.set("uRangeFrom", 0f);
+            figureLight.set("uEyeOutdoors", state.outdoors);
             setBasis(figureLight, pose);
             figureLight.set("uLight", state.lightX, state.lightY, state.lightUp);
             setBeams(figureLight, TORCH_UNIT);
@@ -3899,6 +3902,7 @@ final class Pipeline {
         figureLight.set("uFar", far);
         figureLight.set("uEye", inGlass.eyeX, inGlass.eyeY, inGlass.eyeUp);
         figureLight.set("uRangeFrom", 0f);
+        figureLight.set("uEyeOutdoors", 1f);
         setBasis(figureLight, inGlass);
         figureLight.set("uLight", state.lightX, state.lightY, state.lightUp);
         setBeams(figureLight, TORCH_UNIT);
