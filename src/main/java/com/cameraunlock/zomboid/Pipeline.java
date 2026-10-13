@@ -1472,7 +1472,8 @@ final class Pipeline {
      * them.
      *
      * @param lit     whether the program lights and colours what it draws, or only casts it into the map heldBy last took the bounds of
-     * @param shaded  whether a piece's light is told to the program: its depth alone is drawn without it, since the light is only ever colour
+     * @param shaded  whether a piece's light, surfaces and picture are told to the program: its depth alone is drawn without them,
+     *                since they only ever colour it
      * @param within  the eye of a picture that pieces wholly behind it or beyond far are left out of, or null to draw them all
      * @param pixel   how far apart two things a tile from that eye are when they are a pixel apart in its picture: see
      *                Models.Instances.plain. A map of shadows is always cast by the plain models, and a picture with no eye
@@ -1480,20 +1481,21 @@ final class Pipeline {
      * @param only    the key of the one thing whose pieces are drawn (Outlines.key), or Outlines.NONE for every piece
      */
     private void drawModels(Program program, boolean lit, boolean shaded, ViewCamera.Pose within, float far, float pixel, long only) {
-        if (lit) {
-            Screens.giveBack();
-        }
-        boolean any = false;
-        int bound = 0;
-        int placeAt = 0, footAt = 0, turnAt = 0, litAt = 0, alongAt = 0, downAt = 0, acrossAt = 0, surfacesAt = 0, dyeAt = 0, pictureAt = 0, texelAt = 0;
-        // Whether the program was last told of a tube showing part of its picture, which the next piece is not.
-        int tubeAt = 0;
-        boolean tubed = false;
-        // The piece whose turn, surfaces, dye and picture the program was last told, none yet: a
-        // row of one kind of shelf shares all four, and telling the program what it already
-        // holds is a call into the driver for nothing.
-        int told = -1;
-        float[] toldOf = null;
+        listModels(lit, within, far, pixel, only);
+        drawListed(program, lit, shaded);
+    }
+
+    /**
+     * The pieces drawModels drew last, each as the chunk it stands on and twice its place among
+     * that chunk's pieces, with one added for a plain model: a second drawing of the same picture
+     * draws them again without working out once more which are in it.
+     */
+    private int[] modelChunk = new int[256], modelPiece = new int[256];
+    private int modelsListed;
+
+    /** Lists the pieces drawModels draws, as it is given them. */
+    private void listModels(boolean lit, ViewCamera.Pose within, float far, float pixel, long only) {
+        modelsListed = 0;
         // The eye's own picture draws a room's furniture only while it sees into the room, and
         // it and a scope's only what can be in their pictures: seenBy has just set the bounds of each.
         RoomSight.Seen rooms = within != null && eyesOwn() ? roomsSeen : null;
@@ -1537,87 +1539,113 @@ final class Pipeline {
                     // A piece wholly outside the map being drawn puts nothing in it.
                     continue;
                 }
-                if (!any) {
-                    any = true;
-                    modelArrays();
-                    program.set("uModel", 1f);
-                    placeAt = program.at("uPlace");
-                    footAt = program.at("uFoot");
-                    turnAt = program.at("uTurn");
-                    if (lit) {
-                        litAt = program.at("uLit");
-                        alongAt = program.at("uLitAlong");
-                        downAt = program.at("uLitDown");
-                        acrossAt = program.at("uLitAcross");
-                        surfacesAt = program.at("uSurfaces");
-                        dyeAt = program.at("uDye");
-                        pictureAt = program.at("uPicture");
-                        texelAt = program.at("uTexel");
-                        tubeAt = program.at("uTube");
-                        GL20.glUniform4f(tubeAt, 0.5f, 0.5f, 1f, Screens.IN_COLOUR);
-                    } else {
-                        GL11.glBindTexture(GL_TEXTURE_2D, whiteTexture);
-                    }
+                if (modelsListed == modelChunk.length) {
+                    modelChunk = Arrays.copyOf(modelChunk, modelsListed * 2);
+                    modelPiece = Arrays.copyOf(modelPiece, modelsListed * 2);
                 }
-                int place = at + Models.Instances.PLACE, foot = at + Models.Instances.FOOT, turn = at + Models.Instances.TURN;
-                GL20.glUniform4f(placeAt, f[place], f[place + 1], f[place + 2], f[place + 3]);
-                GL20.glUniform3f(footAt, f[foot], f[foot + 1], f[foot + 2]);
-                if (toldOf == null || differ(f, turn, toldOf, told + Models.Instances.TURN, 4)) {
-                    GL20.glUniform4f(turnAt, f[turn], f[turn + 1], f[turn + 2], f[turn + 3]);
-                }
-                if (lit) {
-                    int light = at + Models.Instances.LIGHT, surfaces = at + Models.Instances.SURFACES, dye = at + Models.Instances.DYE;
-                    if (shaded) {
-                        GL20.glUniform3f(litAt, f[light], f[light + 1], f[light + 2]);
-                        GL20.glUniform3f(alongAt, f[light + 3], f[light + 4], f[light + 5]);
-                        GL20.glUniform3f(downAt, f[light + 6], f[light + 7], f[light + 8]);
-                        GL20.glUniform3f(acrossAt, f[light + 9], f[light + 10], f[light + 11]);
-                    }
-                    if (toldOf == null || differ(f, surfaces, toldOf, told + Models.Instances.SURFACES, 3)) {
-                        GL20.glUniform3f(surfacesAt, f[surfaces], f[surfaces + 1], f[surfaces + 2]);
-                    }
-                    if (toldOf == null || differ(f, dye, toldOf, told + Models.Instances.DYE, 4)) {
-                        GL20.glUniform4f(dyeAt, f[dye], f[dye + 1], f[dye + 2], f[dye + 3]);
-                    }
-                    int picture = at + Models.Instances.PICTURE;
-                    if (toldOf == null || differ(f, picture, toldOf, told + Models.Instances.PICTURE, 4)) {
-                        GL20.glUniform4f(pictureAt, f[picture], f[picture + 1], f[picture + 2], f[picture + 3]);
-                    }
-                    // A number below zero is one of the mod's own pictures: see Decor.held.
-                    int named = whole[ints + Models.Instances.TEXTURE];
-                    boolean live = named < 0 && Screens.live(named);
-                    if (live) {
-                        // The glass of a set showing a programme: which shot it shows and what part of the shot is
-                        // worked out now, and the picture is laid so that the part fills the glass.
-                        named = Screens.now(named, tube);
-                        float of = tube[2];
-                        GL20.glUniform4f(dyeAt, tube[0] + (f[dye] - 0.5f) * of, tube[1] + (f[dye + 1] - 0.5f) * of, f[dye + 2], f[dye + 3]);
-                        GL20.glUniform4f(pictureAt, f[picture] * of, f[picture + 1] * of, f[picture + 2] * of, f[picture + 3] * of);
-                        GL20.glUniform4f(tubeAt, tube[0], tube[1], of, tube[3] == Screens.SNOW ? Screens.SNOW : f[dye + 2]);
-                        tubed = true;
-                    } else if (tubed) {
-                        GL20.glUniform4f(tubeAt, 0.5f, 0.5f, 1f, Screens.IN_COLOUR);
-                        tubed = false;
-                    }
-                    int texture = named == 0 ? whiteTexture : named < 0 ? Decor.texture(named) : named;
-                    if (texture != bound) {
-                        bound = texture;
-                        GL11.glBindTexture(GL_TEXTURE_2D, texture);
-                        tellTexel(texelAt, texture);
-                    }
-                }
-                // What a tube was told of its dye and its picture is not what the piece holds: the next piece is told its own.
-                toldOf = tubed ? null : f;
-                told = at;
-                GL11.glDrawElements(GL_TRIANGLES, whole[ints + (plain ? Models.Instances.PLAIN_COUNT : Models.Instances.COUNT)], GL_UNSIGNED_INT,
-                        (long) whole[ints + (plain ? Models.Instances.PLAIN_FIRST : Models.Instances.FIRST)] * Integer.BYTES);
+                modelChunk[modelsListed] = chunk;
+                modelPiece[modelsListed++] = piece * 2 + (plain ? 1 : 0);
             }
         }
-        if (any) {
-            GL15.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-            program.set("uModel", 0f);
-            arrays();
+    }
+
+    /** Draws the pieces listModels listed last, as drawModels does. */
+    private void drawListed(Program program, boolean lit, boolean shaded) {
+        if (modelsListed == 0) {
+            return;
         }
+        boolean coloured = lit && shaded;
+        if (coloured) {
+            Screens.giveBack();
+        }
+        int bound = 0;
+        modelArrays();
+        program.set("uModel", 1f);
+        int placeAt = program.at("uPlace"), footAt = program.at("uFoot"), turnAt = program.at("uTurn");
+        int litAt = 0, alongAt = 0, downAt = 0, acrossAt = 0, surfacesAt = 0, dyeAt = 0, pictureAt = 0, texelAt = 0, tubeAt = 0;
+        // Whether the program was last told of a tube showing part of its picture, which the next piece is not.
+        boolean tubed = false;
+        if (coloured) {
+            litAt = program.at("uLit");
+            alongAt = program.at("uLitAlong");
+            downAt = program.at("uLitDown");
+            acrossAt = program.at("uLitAcross");
+            surfacesAt = program.at("uSurfaces");
+            dyeAt = program.at("uDye");
+            pictureAt = program.at("uPicture");
+            texelAt = program.at("uTexel");
+            tubeAt = program.at("uTube");
+            GL20.glUniform4f(tubeAt, 0.5f, 0.5f, 1f, Screens.IN_COLOUR);
+        } else {
+            // A model is solid all over: a pass that keeps only where it is reads none of its colour.
+            GL11.glBindTexture(GL_TEXTURE_2D, whiteTexture);
+        }
+        // The piece whose turn, surfaces, dye and picture the program was last told, none yet: a
+        // row of one kind of shelf shares all four, and telling the program what it already
+        // holds is a call into the driver for nothing.
+        int told = -1;
+        float[] toldOf = null;
+        for (int listed = 0; listed < modelsListed; listed++) {
+            Models.Instances placed = drawn.get(modelChunk[listed]).placed;
+            float[] f = placed.floats;
+            int[] whole = placed.ints;
+            int piece = modelPiece[listed] >> 1;
+            boolean plain = (modelPiece[listed] & 1) != 0;
+            int at = piece * Models.Instances.FLOATS, ints = piece * Models.Instances.INTS;
+            int place = at + Models.Instances.PLACE, foot = at + Models.Instances.FOOT, turn = at + Models.Instances.TURN;
+            GL20.glUniform4f(placeAt, f[place], f[place + 1], f[place + 2], f[place + 3]);
+            GL20.glUniform3f(footAt, f[foot], f[foot + 1], f[foot + 2]);
+            if (toldOf == null || differ(f, turn, toldOf, told + Models.Instances.TURN, 4)) {
+                GL20.glUniform4f(turnAt, f[turn], f[turn + 1], f[turn + 2], f[turn + 3]);
+            }
+            if (coloured) {
+                int light = at + Models.Instances.LIGHT, surfaces = at + Models.Instances.SURFACES, dye = at + Models.Instances.DYE;
+                GL20.glUniform3f(litAt, f[light], f[light + 1], f[light + 2]);
+                GL20.glUniform3f(alongAt, f[light + 3], f[light + 4], f[light + 5]);
+                GL20.glUniform3f(downAt, f[light + 6], f[light + 7], f[light + 8]);
+                GL20.glUniform3f(acrossAt, f[light + 9], f[light + 10], f[light + 11]);
+                if (toldOf == null || differ(f, surfaces, toldOf, told + Models.Instances.SURFACES, 3)) {
+                    GL20.glUniform3f(surfacesAt, f[surfaces], f[surfaces + 1], f[surfaces + 2]);
+                }
+                if (toldOf == null || differ(f, dye, toldOf, told + Models.Instances.DYE, 4)) {
+                    GL20.glUniform4f(dyeAt, f[dye], f[dye + 1], f[dye + 2], f[dye + 3]);
+                }
+                int picture = at + Models.Instances.PICTURE;
+                if (toldOf == null || differ(f, picture, toldOf, told + Models.Instances.PICTURE, 4)) {
+                    GL20.glUniform4f(pictureAt, f[picture], f[picture + 1], f[picture + 2], f[picture + 3]);
+                }
+                // A number below zero is one of the mod's own pictures: see Decor.held.
+                int named = whole[ints + Models.Instances.TEXTURE];
+                boolean live = named < 0 && Screens.live(named);
+                if (live) {
+                    // The glass of a set showing a programme: which shot it shows and what part of the shot is
+                    // worked out now, and the picture is laid so that the part fills the glass.
+                    named = Screens.now(named, tube);
+                    float of = tube[2];
+                    GL20.glUniform4f(dyeAt, tube[0] + (f[dye] - 0.5f) * of, tube[1] + (f[dye + 1] - 0.5f) * of, f[dye + 2], f[dye + 3]);
+                    GL20.glUniform4f(pictureAt, f[picture] * of, f[picture + 1] * of, f[picture + 2] * of, f[picture + 3] * of);
+                    GL20.glUniform4f(tubeAt, tube[0], tube[1], of, tube[3] == Screens.SNOW ? Screens.SNOW : f[dye + 2]);
+                    tubed = true;
+                } else if (tubed) {
+                    GL20.glUniform4f(tubeAt, 0.5f, 0.5f, 1f, Screens.IN_COLOUR);
+                    tubed = false;
+                }
+                int texture = named == 0 ? whiteTexture : named < 0 ? Decor.texture(named) : named;
+                if (texture != bound) {
+                    bound = texture;
+                    GL11.glBindTexture(GL_TEXTURE_2D, texture);
+                    tellTexel(texelAt, texture);
+                }
+            }
+            // What a tube was told of its dye and its picture is not what the piece holds: the next piece is told its own.
+            toldOf = tubed ? null : f;
+            told = at;
+            GL11.glDrawElements(GL_TRIANGLES, whole[ints + (plain ? Models.Instances.PLAIN_COUNT : Models.Instances.COUNT)], GL_UNSIGNED_INT,
+                    (long) whole[ints + (plain ? Models.Instances.PLAIN_FIRST : Models.Instances.FIRST)] * Integer.BYTES);
+        }
+        GL15.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+        program.set("uModel", 0f);
+        arrays();
     }
 
     /** Whether two runs of floats differ anywhere, bit for bit: a number that is not one differs from itself here, which only costs a call. */
@@ -2601,7 +2629,12 @@ final class Pipeline {
             stage(STAGE_DEPTH);
         }
         drawRanges(listed, 0, listed.solidRanges(), world);
-        drawModels(world, true, true, camera, far, pixel, Outlines.NONE);
+        if (depthFirst) {
+            // The pieces the depth was drawn with: the two drawings must agree on which are there.
+            drawListed(world, true, true);
+        } else {
+            drawModels(world, true, true, camera, far, pixel, Outlines.NONE);
+        }
         if (own) {
             stage(STAGE_SOLID);
         }
