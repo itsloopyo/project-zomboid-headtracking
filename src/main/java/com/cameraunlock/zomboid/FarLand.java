@@ -591,16 +591,20 @@ final class FarLand {
         GL11.glBindTexture(GL_TEXTURE_2D, picture);
         picture(place, bytes);
         GL11.glBindTexture(GL_TEXTURE_2D, 0);
+        // The boxes are read before the uploads below move the limit: picture leaves it at the end of the picture.
+        bytes.clear();
+        int end = FarCells.PICTURE_BYTES + (FarCells.LAND_VERTICES + cell.blockVertices) * FarCells.VERTEX_BYTES;
+        box(bytes, FarCells.PICTURE_BYTES, FarCells.LAND_VERTICES + cell.blockVertices, FarCells.VERTEX_BYTES, landBoxes, place * 6);
+        if (cell.trees > 0) {
+            box(bytes, end, cell.trees, FarTrees.TREE_BYTES, treeBoxes, place * 6);
+        }
         if (buffers[place] == 0) {
             buffers[place] = GL15.glGenBuffers();
         }
-        int end = FarCells.PICTURE_BYTES + (FarCells.LAND_VERTICES + cell.blockVertices) * FarCells.VERTEX_BYTES;
-        box(bytes, FarCells.PICTURE_BYTES, FarCells.LAND_VERTICES + cell.blockVertices, FarCells.VERTEX_BYTES, landBoxes, place * 6);
         bytes.position(FarCells.PICTURE_BYTES).limit(end);
         GL15.glBindBuffer(GL_ARRAY_BUFFER, buffers[place]);
         GL15.glBufferData(GL_ARRAY_BUFFER, bytes, GL_STATIC_DRAW);
         if (cell.trees > 0) {
-            box(bytes, end, cell.trees, FarTrees.TREE_BYTES, treeBoxes, place * 6);
             if (treeBuffers[place] == 0) {
                 treeBuffers[place] = GL15.glGenBuffers();
             }
