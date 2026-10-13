@@ -1835,13 +1835,16 @@ final class CharacterDraw {
         // Bound for the draw alone: the game's combiner, run for the next part's skin, pushes and
         // pops client state, and what it pops goes into whichever vertex array is bound.
         GL30.glBindVertexArray(copy.array);
-        for (int layer = 0; layer <= layers; layer++) {
-            if (skin != depth) {
-                shell(skin.id, layer, layers, person.finalScale);
+        try {
+            for (int layer = 0; layer <= layers; layer++) {
+                if (skin != depth) {
+                    shell(skin.id, layer, layers, person.finalScale);
+                }
+                GL11.glDrawElements(skin == divided ? GL_PATCHES : GL_TRIANGLES, copy.count, GL_UNSIGNED_INT, 0L);
             }
-            GL11.glDrawElements(skin == divided ? GL_PATCHES : GL_TRIANGLES, copy.count, GL_UNSIGNED_INT, 0L);
+        } finally {
+            GL30.glBindVertexArray(0);
         }
-        GL30.glBindVertexArray(0);
         return true;
     }
 
@@ -1866,6 +1869,8 @@ final class CharacterDraw {
             return;
         }
         drawing = false;
+        // On the default vertex array: one the game left bound is not the picture's to change.
+        GL30.glBindVertexArray(0);
         GL15.glBindBuffer(GL_ARRAY_BUFFER, 0);
         GL15.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
         if (bothBuffers) {
