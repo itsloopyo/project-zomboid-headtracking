@@ -27,6 +27,7 @@ final class LeafFallTests {
         Checks.run("aGroundFloorOnAHillCatchesALeaf", LeafFallTests::aGroundFloorOnAHillCatchesALeaf);
         Checks.run("noLeafLetsGoInsideAHouseACrownReachesOver", LeafFallTests::noLeafLetsGoInsideAHouseACrownReachesOver);
         Checks.run("aLeafFallingOntoARoofIsCaughtAtIt", LeafFallTests::aLeafFallingOntoARoofIsCaughtAtIt);
+        Checks.run("everyLeafLandsOrIsCaughtOnce", LeafFallTests::everyLeafLandsOrIsCaughtOnce);
         Checks.run("aLeafFallingOntoARoofDownhillIsCaughtAtIt", LeafFallTests::aLeafFallingOntoARoofDownhillIsCaughtAtIt);
         Checks.run("treesAreReadRoundTheEyeWhereverItIs", LeafFallTests::treesAreReadRoundTheEyeWhereverItIs);
         Checks.run("nothingMovesWhileThePictureWaits", LeafFallTests::nothingMovesWhileThePictureWaits);
@@ -523,6 +524,20 @@ final class LeafFallTests {
             }
         }
         Checks.check(overRoof > 100, "leaves came down over the roof: " + overRoof);
+    }
+
+    /** In still air beside a wall every leaf let go comes down once: it lands, or the wall catches it, and is counted as one or the other. */
+    private static void everyLeafLandsOrIsCaughtOnce() {
+        LeafFall fall = new LeafFall();
+        fall.beginTrees(0f, 0f);
+        fall.offer(-1.2f, 0.5f, 0f, MAPLE, shedding(1f), true, 0.3f, 2f, OUT);
+        fall.endTrees();
+        Flat house = new Flat(0, 1);
+        // Long steps, so that many a leaf comes down in the step its swing takes it to the wall.
+        run(fall, 120f, LeafFall.STEP_MOST, 0f, 0f, 0.05f, Seasons.AUTUMN, PEAK_AUTUMN, house);
+        run(fall, 10f, LeafFall.STEP_MOST, 0f, 0f, 0.05f, Seasons.SUMMER, 0.5f, house);
+        Checks.check(fall.spawned > 50 && fall.caughts > 5 && fall.landings + fall.caughts == fall.spawned, "every leaf landed or was caught, once: " + fall.landings + " landed and "
+                + fall.caughts + " caught of " + fall.spawned);
     }
 
     /** Far from the map's corner the trees are read, kept and weighed by how far they are from the eye, not from the corner. */

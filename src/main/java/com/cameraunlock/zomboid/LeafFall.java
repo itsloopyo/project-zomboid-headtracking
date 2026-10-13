@@ -93,6 +93,8 @@ final class LeafFall {
      * eye does: a leaf that fades or is carried off is all but gone in the step before it is.
      */
     long spawned, landings, vanished;
+    /** Leaves caught against a wall or a roof, counted since the sim was made. */
+    long caughts;
 
     /** Starts a list of the trees round the eye at (eyeX, eyeY), offered one by one, which endTrees makes the trees that shed. */
     void beginTrees(float eyeX, float eyeY) {
@@ -311,8 +313,6 @@ final class LeafFall {
         age[i] += into;
         if (into < dt) {
             up[i] = ground[i];
-            landed[i] = dt - into;
-            landings++;
         }
         float fromX = x[i] - eyeX, fromY = y[i] - eyeY;
         if (fromX * fromX + fromY * fromY > KEPT * KEPT) {
@@ -330,9 +330,15 @@ final class LeafFall {
                 up[i] = wasUp;
                 age[i] = wasAge;
                 caught[i] = true;
+                caughts++;
                 landed[i] = 0f;
                 lies[i] = 0f;
+                return true;
             }
+        }
+        if (into < dt) {
+            landed[i] = dt - into;
+            landings++;
         }
         return true;
     }
