@@ -3012,7 +3012,7 @@ final class Pipeline {
         to.set("uCover", state.cover);
         to.set("uDrift", state.driftX, state.driftY);
         boolean fewerTaps = !Quality.sharpShadows();
-        to.set("uSunTaps", fewerTaps ? 1f : 0f, fewerTaps && steadying && !inMirror && !inScope && !inWater ? 1f : 0f);
+        to.set("uSunTaps", fewerTaps ? 1f : 0f, fewerTaps && steadying && !inMirror && !inScope && !inWater ? frameNumber % 64 : 0f);
         // Texels of soft edge for each unit of the map's depth between caster and ground.
         to.set("uSoftPerDepth", 2f * NEAR_RANGE * SUN_WIDTH * shadowSize / (2f * NEAR_EXTENT));
         // A texel of a sun map is 2 * extent / size tiles across, and under a level sheet spans that times the

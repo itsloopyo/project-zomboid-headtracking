@@ -692,8 +692,9 @@ final class PipelineShaders {
             uniform vec2 uDrift;
             uniform float uSoftPerDepth;
             // x 1 where the shadow maps are not drawn sharp: a soft edge is asked of half the samples, and
-            // grass and crowns, whose shade is mostly their own, of none for its width. y 1 to turn the
-            // samples' spiral each frame as well, where the frames are mixed and smooth the grain away.
+            // grass and crowns, whose shade is mostly their own, of none for its width. y is the frame's
+            // number of 64 to turn the samples' spiral by, where the frames are mixed and smooth the grain
+            // away, and 0 elsewhere.
             uniform vec2 uSunTaps;
             // For sunAsked: how much height a texel of the near sun map and of the far one spans under a
             // level sheet, which is a texel times the cosine of the sun's elevation; how many texels of its
@@ -826,7 +827,7 @@ final class PipelineShaders {
 
             // How far round a pixel's spiral of samples of a sun map is turned: see uSunTaps.
             float sunTurn() {
-                vec2 at = gl_FragCoord.xy + (uSunTaps.y > 0.5 ? 5.588238 * mod(floor(uSeconds * 60.0), 64.0) : 0.0);
+                vec2 at = gl_FragCoord.xy + 5.588238 * uSunTaps.y;
                 return 6.2831853 * fract(52.9829189 * fract(dot(at, vec2(0.06711056, 0.00583715))));
             }
 
