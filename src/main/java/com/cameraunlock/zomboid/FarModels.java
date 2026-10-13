@@ -103,9 +103,13 @@ public final class FarModels {
     /**
      * After the game has chosen which animals have a model, by whether they stand on its
      * screen: an animal before the eye keeps its model, as the game keeps the model of one it
-     * chose, except one playing dead, which the game gives none.
+     * chose, except one playing dead, which the game gives none. Only under the picture: from
+     * the game's own view no animal is before the eye (withinSight).
      */
     void keepAnimalModels() {
+        if (!view.firstPerson.coversTheGamesView()) {
+            return;
+        }
         for (IsoMovingObject moving : IsoWorld.instance.currentCell.getObjectList()) {
             if (moving instanceof IsoAnimal animal && animal.getCurrentSquare() != null && !animal.isCurrentState(FakeDeadZombieState.instance())
                     && beforeTheEye(animal)) {
