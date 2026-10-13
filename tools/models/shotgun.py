@@ -248,15 +248,7 @@ def stock():
     loft(wood, [stock_ring(*station) for station in stations])
     take(wood, "stock", "walnut", group=BUTT_END, bevel=0.0012, segments=2, sharp=50.0, texels=1.1)
 
-    # Behind the wood: a white line, a hard black plate, and a pad of rubber rounded at the back.
-    last = STOCK[-1]
-    for name, material, layers in (
-            ("spacer", "ivory", ((0.0, 0.0002), (-0.0016, 0.0002))),
-            ("pad plate", "black", ((-0.0016, 0.0), (-0.0050, 0.0))),
-            ("pad", "rubber", ((-0.0050, 0.0003), (-0.0200, 0.0003), (-0.0235, -0.0008), (-0.0258, -0.0030), (-0.0268, -0.0065)))):
-        part = bmesh.new()
-        loft(part, [stock_ring(BUTT + back, *last[1:], grow=grow) for back, grow in layers])
-        take(part, name, material, group=BUTT_END, sharp=40.0)
+    G.butt_pad(BUTT, STOCK[-1][1:], group=BUTT_END)
 
     stud = bmesh.new()
     lathe(stud, [(0.0, 0.0), (0.0042, 0.0), (0.0042, 0.002), (0.0028, 0.003), (0.0028, 0.0075), (0.0046, 0.0085), (0.0046, 0.0125), (0.003, 0.014), (0.0, 0.014)],
@@ -325,21 +317,11 @@ def fore_end():
     take(bars, "action bars", "blued", group=PUMP, bevel=0.0004, segments=1)
 
 
-def rib(g):
-    colour, roughness, lines = G.steel(g, (0.024, 0.026, 0.032), 0.55, wear=0.5)
-    # The top of the rib is cut across with fine lines so that it does not shine in the eye.
-    top = g.step(g.nz, 0.6, 0.9)
-    return g.finish(colour, roughness, 1.0, g.times(top, g.teeth(g.times(g.y, 1.0 / 0.0011)), 0.00013))
-
-
 def knurled(g):
     colour, roughness, lines = G.steel(g, (0.030, 0.033, 0.044), 0.36)
     band = g.times(g.step(g.y, TUBE_END, TUBE_END + 0.0007), g.math("SUBTRACT", 1.0, g.step(g.y, TUBE_END + 0.0173, TUBE_END + 0.0180)))
     round_it = g.math("ARCTAN2", g.x, g.math("SUBTRACT", g.z, TUBE_Z))
     return g.finish(colour, roughness, 1.0, g.times(band, g.teeth(g.times(round_it, 40 / (2 * math.pi))), 0.0003))
-
-
-CHECKER_PITCH = 0.0017
 
 
 def walnut(g):
@@ -348,27 +330,17 @@ def walnut(g):
         grip = (-0.0980, -0.0840, 0.034, 0.0140, 0.008, math.radians(69.5))
     else:
         grip = (-0.150, -0.045, 0.032, 0.0165, 0.010, math.radians(24))
-    return G.walnut(g, (grip, ((FORE_REAR + FORE_FRONT) / 2, -0.0395, 0.070, 0.0108, 0.005, 0.0)), CHECKER_PITCH)
+    return G.walnut(g, (grip, ((FORE_REAR + FORE_FRONT) / 2, -0.0395, 0.070, 0.0108, 0.005, 0.0)), G.CHECKER_PITCH)
 
 
-def hull(g):
-    """The plastic body of a shell, ribbed along its length."""
-    round_it = g.math("ARCTAN2", g.x, g.math("SUBTRACT", g.z, SHELL_AT.z))
-    ribs = g.teeth(g.times(round_it, 30 / (2 * math.pi)))
-    return g.finish(g.scaled(g.colour(0.42, 0.025, 0.02), g.add(0.85, g.times(ribs, 0.2))), 0.42, 0.0, g.times(ribs, 0.00012))
-
-
-
-
-G.MAKERS.update({"hull": hull, "rib": rib, "knurled": knurled, "walnut": walnut})
+G.MAKERS.update({"hull": G.hull_at(SHELL_AT.z), "knurled": knurled, "walnut": walnut})
 
 
 def shell():
     """A fired shell: a brass head with its rim, and the plastic body open at the mouth where the crimp unfolded."""
     to = along_y(SHELL_AT.x, SHELL_AT.y, SHELL_AT.z)
     head = bmesh.new()
-    lathe(head, [(0.0, -0.0350), (0.0040, -0.0350), (0.0040, -0.0342), (0.0108, -0.0342), (0.0112, -0.0338), (0.0112, -0.0328), (0.0103, -0.0322),
-                 (0.0103, -0.0190), (0.0, -0.0190)], to, segments=28)
+    G.shell_head(head, to, -0.0350)
     take(head, "shell head", "brass", group=SHELL, sharp=30.0)
     body = bmesh.new()
     lathe(body, [(0.0, -0.0195), (0.0100, -0.0195), (0.0100, 0.0338), (0.0097, 0.0350), (0.0090, 0.0350), (0.0090, -0.0150), (0.0, -0.0150)], to, segments=28)

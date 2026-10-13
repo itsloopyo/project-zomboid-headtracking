@@ -225,15 +225,7 @@ def stock():
     loft(tip, [G.stock_ring(*station) for station in along(keys, 20)])
     take(tip, "fore-end tip", "ebony", bevel=0.0010, segments=2, sharp=50.0)
 
-    # Behind the wood: a white line, a hard black plate, and a pad of rubber rounded at the back.
-    last = STOCK[-1]
-    for name, material, layers in (
-            ("spacer", "ivory", ((0.0, 0.0002), (-0.0016, 0.0002))),
-            ("pad plate", "black", ((-0.0016, 0.0), (-0.0050, 0.0))),
-            ("pad", "rubber", ((-0.0050, 0.0003), (-0.0200, 0.0003), (-0.0235, -0.0008), (-0.0258, -0.0030), (-0.0268, -0.0065)))):
-        part = bmesh.new()
-        loft(part, [G.stock_ring(BUTT + back, *last[1:], grow=grow) for back, grow in layers])
-        take(part, name, material, sharp=40.0)
+    G.butt_pad(BUTT, STOCK[-1][1:])
 
     studs = bmesh.new()
     profile = [(0.0, 0.0), (0.0042, 0.0), (0.0042, 0.002), (0.0028, 0.003), (0.0028, 0.0075), (0.0046, 0.0085), (0.0046, 0.0125), (0.003, 0.014), (0.0, 0.014)]

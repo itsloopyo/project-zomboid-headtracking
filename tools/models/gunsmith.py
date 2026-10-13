@@ -2,7 +2,7 @@
 cut a part, the materials of steel, alloy, brass and rubber, and the unwrapping, baking,
 packing and rendering of the finished gun.
 
-It is imported by shotgun.py, rifle.py and revolver.py, which run headless in Blender 4.4 and
+It is imported by shotgun.py, rifle.py, revolver.py and dbarrel.py, which run headless in Blender 4.4 and
 say how each is made and run. A model is in metres, its barrel along +y and its top +z, as
 the game's own weapons are made; what a script makes is packed about the hand that holds its
 grip. A part is an object made by `take`, which every script's parts go through, in the
@@ -16,7 +16,7 @@ The mesh file each script writes is gzip over this, all little-endian:
     float32   x 3: the middle of what the hand that works the action holds, if anything
     float32   x 3: the middle of the port a spent shell or case leaves by
     float32   how far back what slides to work the action travels
-    float32   how far over the middle of the bore the eye is with the sights lined up
+    float32   how far over the grip, the file's origin, the eye is with the sights lined up: not the bore, which is higher
     float32   how far behind the grip the eye is then
     uint32    number of vertices
     version 4:
@@ -587,8 +587,51 @@ def walnut(g, panels, pitch, grain=0.0, span=0.30, tint=(1.45, 1.16, 0.98), smoo
     return g.finish(colour, rough, 0.0, height)
 
 
+def rib(g):
+    """The ventilated rib over a shotgun's barrel: steel, its top cut across with fine lines so that it does not shine in the eye."""
+    colour, roughness, lines = steel(g, (0.024, 0.026, 0.032), 0.55, wear=0.5)
+    top = g.step(g.nz, 0.6, 0.9)
+    return g.finish(colour, roughness, 1.0, g.times(top, g.teeth(g.times(g.y, 1.0 / 0.0011)), 0.00013))
+
+
+def hull_at(z):
+    """The plastic body of a shotgun shell, ribbed along its length, for a shell lying along y at height z."""
+    def make(g):
+        round_it = g.math("ARCTAN2", g.x, g.math("SUBTRACT", g.z, z))
+        ribs = g.teeth(g.times(round_it, 30 / (2 * math.pi)))
+        return g.finish(g.scaled(g.colour(0.42, 0.025, 0.02), g.add(0.85, g.times(ribs, 0.2))), 0.42, 0.0, g.times(ribs, 0.00012))
+    return make
+
+
+# How far apart the diamonds a shotgun's walnut is checkered with are, in metres.
+CHECKER_PITCH = 0.0017
+# A twelve bore shell's brass head with its rim, as (radius, how far from the back of the rim) along the shell.
+SHELL_HEAD = [(0.0, 0.0), (0.0040, 0.0), (0.0040, 0.0008), (0.0108, 0.0008), (0.0112, 0.0012), (0.0112, 0.0022), (0.0103, 0.0028), (0.0103, 0.0160),
+              (0.0, 0.0160)]
+
+
+def shell_head(bm, to, rim):
+    """A shell's head turned along the shell's length, the back of its rim at rim along it, moved by to."""
+    lathe(bm, [(radius, rim + along_it) for radius, along_it in SHELL_HEAD], to, segments=28)
+
+
+# Behind a stock's wood: a white line, a hard black plate, and a pad of rubber rounded at the back. Each layer is
+# how far behind the butt and how much the cross section has grown, as stock_ring takes them.
+PAD = (("spacer", "ivory", ((0.0, 0.0002), (-0.0016, 0.0002))),
+       ("pad plate", "black", ((-0.0016, 0.0), (-0.0050, 0.0))),
+       ("pad", "rubber", ((-0.0050, 0.0003), (-0.0200, 0.0003), (-0.0235, -0.0008), (-0.0258, -0.0030), (-0.0268, -0.0065))))
+
+
+def butt_pad(butt, last, group=0, layers=PAD):
+    """The layers behind a stock whose last cross section, as stock_ring takes it without its y, is last, at butt."""
+    for name, material, pad in layers:
+        part = bmesh.new()
+        loft(part, [stock_ring(butt + back, *last, grow=grow) for back, grow in pad])
+        take(part, name, material, group=group, sharp=40.0)
+
+
 # Each material by name: a script adds its own, and may put its own in place of one of these.
-MAKERS = {"blued": blued, "receiver": lambda g: blued(g, 0.27), "bright": bright, "black": black, "brass": brass, "ivory": ivory, "rubber": rubber}
+MAKERS = {"blued": blued, "receiver": lambda g: blued(g, 0.27), "bright": bright, "black": black, "brass": brass, "ivory": ivory, "rubber": rubber, "rib": rib}
 GRAPHS = {}
 
 
