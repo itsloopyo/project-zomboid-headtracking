@@ -43,7 +43,7 @@ final class OwnRevolver extends OwnGun {
         worked = drawn;
         workedFrom = camera;
         if (held != null && drawn.moves.length >= MOVES) {
-            cylinder.step(held.item(), (int) drawn.moves[CHAMBERS], Cylinder.live(held.rounds(), held.spent()), held.doing(), seconds, this::thrown);
+            cylinder.step(held.item(), (int) drawn.moves[CHAMBERS], Cylinder.live(held.rounds(), held.spent(), (int) drawn.moves[CHAMBERS]), held.doing(), seconds, this::thrown);
         }
         cases.fly(camera, seconds);
         rounds.fly(camera, seconds);
@@ -161,12 +161,14 @@ final class OwnRevolver extends OwnGun {
      */
     static final class Cylinder {
         /**
-         * How many live rounds are in the cylinder: the game counts a revolver's fired rounds among
-         * its rounds until a reload throws them out, as getSpentRoundCount says (measured on 42.21:
-         * six rounds and three spent after three shots, six and none after the reload).
+         * How many live rounds are in the cylinder: what the game counts, but no more than the
+         * chambers its fired rounds leave. ISReloadWeaponAction.onShoot takes a round off the count
+         * and adds a spent one with each shot; where the count is put back, by a cheat or another
+         * mod (seen on the rig, 42.21: six rounds and three spent after three shots), the spent
+         * ones are still in the chambers.
          */
-        static int live(int rounds, int spent) {
-            return Math.max(rounds - spent, 0);
+        static int live(int rounds, int spent, int chambers) {
+            return Math.max(Math.min(rounds, chambers - spent), 0);
         }
 
         /** What a chamber holds. */

@@ -15,6 +15,7 @@ final class RevolverTests {
         Checks.run("unloadingThrowsOutTheRoundsAsTheGameTakesThem", RevolverTests::unloadingThrowsOutTheRoundsAsTheGameTakesThem);
         Checks.run("chambersAreTurnedAboutTheCylindersAxis", RevolverTests::chambersAreTurnedAboutTheCylindersAxis);
         Checks.run("firedRoundsTheGameStillCountsAreSpentUntilThrownOut", RevolverTests::firedRoundsTheGameStillCountsAreSpentUntilThrownOut);
+        Checks.run("eachShotTakesARoundAndLeavesASpentOne", RevolverTests::eachShotTakesARoundAndLeavesASpentOne);
     }
 
     private static final float FRAME = 1f / 60f;
@@ -78,17 +79,23 @@ final class RevolverTests {
         check(chambers(cylinder).equals("------"), "and it is empty: " + chambers(cylinder));
     }
 
-    /** As the game has it: three shots leave six rounds with three spent; a reload clears the spent at once and leaves six. */
+    /** A count put back after each shot: three shots leave six rounds with three spent; a reload clears the spent at once and leaves six. */
     private static void firedRoundsTheGameStillCountsAreSpentUntilThrownOut() {
         OwnRevolver.Cylinder cylinder = new OwnRevolver.Cylinder();
         List<String> thrown = new ArrayList<>();
-        hold(cylinder, OwnRevolver.Cylinder.live(6, 0), ArmActs.HOLDING, 0.1f, thrown);
-        hold(cylinder, OwnRevolver.Cylinder.live(6, 3), ArmActs.HOLDING, 0.3f, thrown);
+        hold(cylinder, OwnRevolver.Cylinder.live(6, 0, 6), ArmActs.HOLDING, 0.1f, thrown);
+        hold(cylinder, OwnRevolver.Cylinder.live(6, 3, 6), ArmActs.HOLDING, 0.3f, thrown);
         check(chambers(cylinder).equals("LLLSSS"), "three shots: three spent: " + chambers(cylinder));
-        hold(cylinder, OwnRevolver.Cylinder.live(6, 0), ArmActs.LOADING, 0.2f, thrown);
+        hold(cylinder, OwnRevolver.Cylinder.live(6, 0, 6), ArmActs.LOADING, 0.2f, thrown);
         check(chambers(cylinder).equals("LLLSSS") && thrown.isEmpty(), "the reload clears the game's spent count, and the cases stay until the push: " + chambers(cylinder));
-        hold(cylinder, OwnRevolver.Cylinder.live(6, 0), ArmActs.LOADING, 0.4f, thrown);
+        hold(cylinder, OwnRevolver.Cylinder.live(6, 0, 6), ArmActs.LOADING, 0.4f, thrown);
         check(thrown.size() == 3 && chambers(cylinder).equals("LLLLLL"), "then they are thrown out and the six the game counts are in: " + thrown + " " + chambers(cylinder));
+    }
+
+    /** As ISReloadWeaponAction.onShoot has it: each shot takes a round off the count and adds a spent one. */
+    private static void eachShotTakesARoundAndLeavesASpentOne() {
+        check(OwnRevolver.Cylinder.live(3, 3, 6) == 3 && OwnRevolver.Cylinder.live(6, 3, 6) == 3 && OwnRevolver.Cylinder.live(5, 0, 5) == 5,
+                "the live rounds are the count, within what the spent ones leave");
     }
 
     private static void chambersAreTurnedAboutTheCylindersAxis() {
