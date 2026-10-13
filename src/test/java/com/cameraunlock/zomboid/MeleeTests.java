@@ -21,6 +21,7 @@ final class MeleeTests {
         Checks.run("aSpearIsHeldLevelWithTheLeftHandAhead", MeleeTests::aSpearIsHeldLevelWithTheLeftHandAhead);
         Checks.run("handsGoWhereTheGamesHandIsOnEveryHandle", MeleeTests::handsGoWhereTheGamesHandIsOnEveryHandle);
         Checks.run("aLongWeaponLandsOnWhatItHits", MeleeTests::aLongWeaponLandsOnWhatItHits);
+        Checks.run("aMeshMadeAlongAnotherAxisIsReadAlongIt", MeleeTests::aMeshMadeAlongAnotherAxisIsReadAlongIt);
         Checks.run("aScaledModelIsHeldInMetres", MeleeTests::aScaledModelIsHeldInMetres);
         Checks.run("toolsAndBladesStrikeAsTheirKindDoes", MeleeTests::toolsAndBladesStrikeAsTheirKindDoes);
     }
@@ -328,5 +329,37 @@ final class MeleeTests {
                 check(Math.abs(aside) <= half, "a " + weapon[0] + "'s head lands on a zombie " + distance + " tiles off, way " + way + ": " + aside + " degrees aside of " + half);
             }
         }
+    }
+
+    private static void aMeshMadeAlongAnotherAxisIsReadAlongIt() {
+        // The hand axe as the game's art makes it, along y with its edge to -z, and the same made along z, edge to +y, as the
+        // old railroad spike puller is made, for a frame that turns z to y and -y to z.
+        List<Float> axe = new ArrayList<>();
+        box(axe, -0.01f, 0.01f, -0.02f, 0.25f, -0.01f, 0.01f);
+        box(axe, -0.013f, 0.013f, 0.2f, 0.256f, -0.063f, 0.027f);
+        float[] made = floats(axe), turned = new float[made.length];
+        for (int i = 0; i < made.length; i += 3) {
+            turned[i] = made[i];
+            turned[i + 1] = -made[i + 2];
+            turned[i + 2] = made[i + 1];
+        }
+        MeleeHold.Shape standing = MeleeHold.of(made), lying = MeleeHold.of(turned);
+        check(java.util.Arrays.equals(standing.along(), new float[] {0f, 1f, 0f}) && java.util.Arrays.equals(standing.top(), new float[] {0f, 0f, 1f}),
+                "a mesh made along y is read as it is made");
+        check(java.util.Arrays.equals(lying.along(), new float[] {0f, 0f, 1f}) && java.util.Arrays.equals(lying.top(), new float[] {0f, -1f, 0f}),
+                "one made along z is read along z: " + java.util.Arrays.toString(lying.along()) + ", top " + java.util.Arrays.toString(lying.top()));
+        check(Math.abs(lying.butt() - standing.butt()) < 1e-6f && Math.abs(lying.tip() - standing.tip()) < 1e-6f, "from the same butt to the same tip");
+        float[] edge = new float[3];
+        lying.across(lying.strikeX(), lying.strikeZ(), edge);
+        check(Math.abs(edge[1] - 1f) < 1e-5f, "and strikes with its edge, which it is made with to +y: " + java.util.Arrays.toString(edge));
+        // Made along y but pointing the other way, from an origin at its head's end.
+        float[] backwards = made.clone();
+        for (int i = 0; i < backwards.length; i += 3) {
+            backwards[i + 1] = -backwards[i + 1];
+            backwards[i + 2] = -backwards[i + 2];
+        }
+        MeleeHold.Shape reversed = MeleeHold.of(backwards);
+        check(java.util.Arrays.equals(reversed.along(), new float[] {0f, -1f, 0f}) && Math.abs(reversed.tip() - standing.tip()) < 1e-6f,
+                "and one made along -y is read along -y, from the end nearer its origin");
     }
 }

@@ -752,7 +752,7 @@ public final class ViewModel {
     /** Whether the weapon last placed is a firearm held by one hand's grip with its muzzle just ahead of it. */
     boolean handgun;
     private final HashSet<String> noMuzzleSaid = new HashSet<>();
-    private final float[] meshTop = new float[3];
+    private final float[] meshTop = new float[3], meshAcross = new float[3];
     /** How what is swung is held, worked out once for each weapon taken in hand, and the one placed last, or null. */
     private MeleeHold.Fit fit, swungFit;
     /** Where the left fist is on what is swung, placed last, in both hands: ArmHolds.Weapon's `second`. */
@@ -815,7 +815,8 @@ public final class ViewModel {
             end[1] = (weapon[4] * offset.x + weapon[5] * offset.y + weapon[6] * offset.z + weapon[7]) * finalScale;
             end[2] = (weapon[8] * offset.x + weapon[9] * offset.y + weapon[10] * offset.z + weapon[11]) * finalScale;
         } else {
-            turned(weapon, MESH_ALONG, forward);
+            // Something swung runs along its mesh's long axis, which is y but for a mesh made along another.
+            turned(weapon, how.firearm || swungShape == null ? MESH_ALONG : swungShape.along(), forward);
         }
         turned(weapon, MESH_TOP, top);
         int way = MeleeHold.way(how.swungAs, how.attack);
@@ -833,7 +834,8 @@ public final class ViewModel {
             swungFit = fit;
             // It is turned about its handle so that its striking side leads the blow.
             MeleeHold.top(swungShape, way, share, meshTop);
-            turned(weapon, meshTop, top);
+            swungShape.across(meshTop[0], meshTop[2], meshAcross);
+            turned(weapon, meshAcross, top);
         }
         if (swungFit != null && trueHands) {
             // In the mod's own hands it is held where its mesh says the hand goes on its handle.

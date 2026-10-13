@@ -8,21 +8,40 @@ package com.cameraunlock.zomboid;
  * plate facing that way, a pan's, strikes with its face, whichever way the plate is turned about the handle: the game's
  * frying pan is turned 45 degrees.
  *
- * Mesh axes throughout: y along the handle from the hand, z and x across it.
+ * Mesh axes throughout: y along the handle from the hand, z and x across it. A mesh made along another of its axes (the
+ * old railroad spike puller is made along z, and the game stands it up by its mesh's own frame) is read in a basis of
+ * its own, its long axis taken for y: see Shape.
  */
 final class MeleeHold {
     private MeleeHold() {}
 
     /**
-     * What a mesh says of what is swung.
+     * What a mesh says of what is swung, in the basis the mesh is read in: along its long axis from the end nearer its
+     * origin, which is y for every melee mesh of the game but one, and across it.
      *
-     * @param butt     how far along y the end behind the hand is, in the mesh's units: nought or less
-     * @param tip      how far along y the far end is
-     * @param strikeX  the striking side, a way across the handle of length one: its x
-     * @param strikeZ  and its z
+     * @param butt     how far along the end behind the hand is, in the mesh's units: nought or less
+     * @param tip      how far along the far end is
+     * @param strikeX  the striking side, a way across the handle of length one: its part along `side`
+     * @param strikeZ  and its part along `top`
+     * @param side     the mesh's own way that the basis has for x, of length one
+     * @param along    and for y: the long axis
+     * @param top      and for z
      */
-    record Shape(float butt, float tip, float strikeX, float strikeZ) {}
+    record Shape(float butt, float tip, float strikeX, float strikeZ, float[] side, float[] along, float[] top) {
+        Shape(float butt, float tip, float strikeX, float strikeZ) {
+            this(butt, tip, strikeX, strikeZ, new float[] {1f, 0f, 0f}, new float[] {0f, 1f, 0f}, new float[] {0f, 0f, 1f});
+        }
 
+        /** A way given in the basis, x and z across the handle, as the mesh's own. */
+        void across(float x, float z, float[] out) {
+            for (int axis = 0; axis < 3; axis++) {
+                out[axis] = side[axis] * x + top[axis] * z;
+            }
+        }
+    }
+
+    /** How much longer than its y another of a mesh's axes has to be for the mesh to be read along that one. */
+    static final float CLEARLY_LONGER = 1.25f;
     /** The share of the length, from the far end, that is the head. */
     static final float HEAD = 0.35f;
     /**
@@ -35,10 +54,39 @@ final class MeleeHold {
     /**
      * Reads a mesh.
      *
-     * @param places the mesh's vertices, three floats each
-     * @return null for a mesh with no length along y
+     * @param raw the mesh's vertices, three floats each
+     * @return null for a mesh with no length
      */
-    static Shape of(float[] places) {
+    static Shape of(float[] raw) {
+        // The long axis, pointing from the end nearer the origin, where the hand holds, and the turn that takes y onto it
+        // by the shortest way, which takes z to the top.
+        float[] low = {Float.MAX_VALUE, Float.MAX_VALUE, Float.MAX_VALUE}, high = {-Float.MAX_VALUE, -Float.MAX_VALUE, -Float.MAX_VALUE};
+        for (int i = 0; i < raw.length; i++) {
+            low[i % 3] = Math.min(low[i % 3], raw[i]);
+            high[i % 3] = Math.max(high[i % 3], raw[i]);
+        }
+        // Y unless another axis is clearly the longer: a stone is as deep as it is long.
+        int longest = 1;
+        for (int axis = 0; axis < 3; axis++) {
+            if (high[axis] - low[axis] > (high[longest] - low[longest]) * (longest == 1 ? CLEARLY_LONGER : 1f)) {
+                longest = axis;
+            }
+        }
+        float pointsUp = Math.abs(low[longest]) <= Math.abs(high[longest]) ? 1f : -1f;
+        float[] along = new float[3], top = new float[3], side = new float[3];
+        along[longest] = pointsUp;
+        switch (longest) {
+            case 0 -> top[2] = 1f;
+            case 2 -> top[1] = -pointsUp;
+            default -> top[2] = pointsUp;
+        }
+        ArmPose.cross(along, top, side);
+        float[] places = new float[raw.length];
+        for (int i = 0; i < raw.length; i += 3) {
+            places[i] = raw[i] * side[0] + raw[i + 1] * side[1] + raw[i + 2] * side[2];
+            places[i + 1] = raw[i] * along[0] + raw[i + 1] * along[1] + raw[i + 2] * along[2];
+            places[i + 2] = raw[i] * top[0] + raw[i + 1] * top[1] + raw[i + 2] * top[2];
+        }
         float butt = Float.MAX_VALUE, tip = -Float.MAX_VALUE;
         for (int i = 1; i < places.length; i += 3) {
             butt = Math.min(butt, places[i]);
@@ -88,7 +136,7 @@ final class MeleeHold {
             sx = (float) (nx / across * sign);
             sz = (float) (nz / across * sign);
         }
-        return new Shape(Math.min(butt, 0f), tip, sx, sz);
+        return new Shape(Math.min(butt, 0f), tip, sx, sz, side, along, top);
     }
 
     /** The eigenvalues and eigenvectors (by columns) of a symmetric 3 by 3 matrix, by rows, by Jacobi's turns. */
