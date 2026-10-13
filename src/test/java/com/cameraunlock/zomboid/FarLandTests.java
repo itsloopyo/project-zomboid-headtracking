@@ -34,6 +34,7 @@ final class FarLandTests {
         Checks.run("aCellOfNothingIsToldFromOneWithSomething", FarLandTests::aCellOfNothingIsToldFromOneWithSomething);
         Checks.run("anIndexIsReadNoFurtherThanAnIndexRuns", FarLandTests::anIndexIsReadNoFurtherThanAnIndexRuns);
         Checks.run("aTileLargerThanACellIsRefusedBeforeItsDots", FarLandTests::aTileLargerThanACellIsRefusedBeforeItsDots);
+        Checks.run("aCellsBoxHoldsEveryPointOfIt", FarLandTests::aCellsBoxHoldsEveryPointOfIt);
     }
 
     private static void anIndexIsReadNoFurtherThanAnIndexRuns() throws IOException {
@@ -240,5 +241,19 @@ final class FarLandTests {
     private static void aCellarAloneIsNoBuilding() {
         int[] buildings = {3, 1, 12600, 1300, 4, 3, -1};
         check(FarCells.blocks(buildings, DRY, 49, 5).limit() == 0, "rooms under the ground are no block on it");
+    }
+
+    private static void aCellsBoxHoldsEveryPointOfIt() {
+        ByteBuffer bytes = ByteBuffer.allocate(8 + 3 * FarCells.VERTEX_BYTES).order(ByteOrder.nativeOrder());
+        float[][] points = {{512f, 300f, 2f}, {700f, 260f, -1f}, {600f, 511f, 14f}};
+        for (int i = 0; i < points.length; i++) {
+            int at = 8 + i * FarCells.VERTEX_BYTES;
+            bytes.putFloat(at, points[i][0]).putFloat(at + 4, points[i][1]).putFloat(at + 8, points[i][2]);
+            bytes.putFloat(at + 12, 99f);
+        }
+        float[] box = new float[12];
+        FarLand.box(bytes, 8, points.length, FarCells.VERTEX_BYTES, box, 6);
+        Checks.check(Arrays.equals(Arrays.copyOfRange(box, 6, 12), new float[] {512f, 260f, -1f, 700f, 511f, 14f}),
+                "the box is from the least of each to the greatest, read where the points are: " + Arrays.toString(box));
     }
 }

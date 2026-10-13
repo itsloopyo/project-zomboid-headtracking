@@ -2631,7 +2631,7 @@ final class Pipeline {
         far.set("uPicture", 0);
         far.set("uPictureSide", (float) FarLand.PICTURE);
         far.set("uStorey", ViewCamera.LEVEL_HEIGHT);
-        view.worldScene.farLand.draw(focusX, focusY);
+        view.worldScene.farLand.draw(focusX, focusY, projection, viewed, camera);
         drawFarTrees(camera, state, fogStart, fogEnd);
     }
 
@@ -2718,7 +2718,7 @@ final class Pipeline {
         boolean games = !Own.plants();
         farTree.set("uSeason", (float) season, games ? Seasons.progressionOf(now) : Seasons.stepped(season, Seasons.progressionOf(now)));
         farTree.set("uGameSchedule", games ? 1f : 0f);
-        view.worldScene.farLand.drawTrees(focusX, focusY, reach, farTree.attribute("aTree"), treeMeshes, treeVertices);
+        view.worldScene.farLand.drawTrees(focusX, focusY, reach, farTree.attribute("aTree"), treeMeshes, treeVertices, camera);
         GL11.glBindTexture(GL_TEXTURE_2D, 0);
         if (culling) {
             GL11.glEnable(GL_CULL_FACE);

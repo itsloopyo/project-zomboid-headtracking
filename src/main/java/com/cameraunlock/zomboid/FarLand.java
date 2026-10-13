@@ -131,6 +131,10 @@ final class FarLand {
     private final long[] shown = new long[WINDOW * WINDOW];
     private final int[] buffers = new int[WINDOW * WINDOW], blockVertices = new int[WINDOW * WINDOW];
     private final int[] treeBuffers = new int[WINDOW * WINDOW], trees = new int[WINDOW * WINDOW];
+    /** The box round each place's land and buildings, and round the feet of its trees: the least x, y and height, then the greatest (see box). */
+    private final float[] landBoxes = new float[WINDOW * WINDOW * 6], treeBoxes = new float[WINDOW * WINDOW * 6];
+    /** The picture a cell is drawn into, to leave out a cell wholly outside it. */
+    private final MapBounds seen = new MapBounds();
     private boolean covered;
     /** What the cells on the graphics card were asked for by. */
     private Asked held = asked;
@@ -591,10 +595,12 @@ final class FarLand {
             buffers[place] = GL15.glGenBuffers();
         }
         int end = FarCells.PICTURE_BYTES + (FarCells.LAND_VERTICES + cell.blockVertices) * FarCells.VERTEX_BYTES;
+        box(bytes, FarCells.PICTURE_BYTES, FarCells.LAND_VERTICES + cell.blockVertices, FarCells.VERTEX_BYTES, landBoxes, place * 6);
         bytes.position(FarCells.PICTURE_BYTES).limit(end);
         GL15.glBindBuffer(GL_ARRAY_BUFFER, buffers[place]);
         GL15.glBufferData(GL_ARRAY_BUFFER, bytes, GL_STATIC_DRAW);
         if (cell.trees > 0) {
+            box(bytes, end, cell.trees, FarTrees.TREE_BYTES, treeBoxes, place * 6);
             if (treeBuffers[place] == 0) {
                 treeBuffers[place] = GL15.glGenBuffers();
             }
@@ -609,6 +615,35 @@ final class FarLand {
         cell.block.free();
     }
 
+    /** Puts the box round count points, each three floats at the start of stride bytes from from on, into into at at: the least x, y and height, then the greatest. */
+    static void box(ByteBuffer bytes, int from, int count, int stride, float[] into, int at) {
+        float minX = Float.POSITIVE_INFINITY, minY = Float.POSITIVE_INFINITY, minUp = Float.POSITIVE_INFINITY;
+        float maxX = Float.NEGATIVE_INFINITY, maxY = Float.NEGATIVE_INFINITY, maxUp = Float.NEGATIVE_INFINITY;
+        for (int i = 0, point = from; i < count; i++, point += stride) {
+            float x = bytes.getFloat(point), y = bytes.getFloat(point + 4), up = bytes.getFloat(point + 8);
+            minX = Math.min(minX, x);
+            minY = Math.min(minY, y);
+            minUp = Math.min(minUp, up);
+            maxX = Math.max(maxX, x);
+            maxY = Math.max(maxY, y);
+            maxUp = Math.max(maxUp, up);
+        }
+        into[at] = minX;
+        into[at + 1] = minY;
+        into[at + 2] = minUp;
+        into[at + 3] = maxX;
+        into[at + 4] = maxY;
+        into[at + 5] = maxUp;
+    }
+
+    /** Whether the box at place of boxes, grown by out along the ground and up upwards, is wholly outside the picture seen was last told of, from an eye at (eyeX, eyeY, eyeUp). */
+    private boolean unseen(float[] boxes, int place, float out, float up, float eyeX, float eyeY, float eyeUp) {
+        int at = place * 6;
+        float minX = boxes[at] - out, minY = boxes[at + 1] - out, minUp = boxes[at + 2], maxX = boxes[at + 3] + out, maxY = boxes[at + 4] + out, maxUp = boxes[at + 5] + up;
+        return seen.outside((minX + maxX) / 2f - eyeX, (minY + maxY) / 2f - eyeY, (minUp + maxUp) / 2f - eyeUp, (maxX - minX) / 2f, (maxY - minY) / 2f,
+                (maxUp - minUp) / 2f);
+    }
+
     /** Puts a cell's picture and its halvings, as FarCells.picture wrote them from the start of bytes, at its place in the texture bound. */
     private static void picture(int place, ByteBuffer bytes) {
         int from = 0;
@@ -621,10 +656,12 @@ final class FarLand {
 
     /**
      * Render thread, after load has said the land is there: draws every cell kept round the
-     * eye with whatever program is in use, the picture on the first texture unit. The vertex
-     * arrays are left switched off and nothing is left bound.
+     * eye that comes into the picture the projection makes from camera, turned as
+     * ViewCamera.turned has it, with whatever program is in use, the picture on the first
+     * texture unit. The vertex arrays are left switched off and nothing is left bound.
      */
-    void draw(float eyeX, float eyeY) {
+    void draw(float eyeX, float eyeY, float[] projection, float[] turned, ViewCamera.Pose camera) {
+        seen.ofTurned(projection, turned);
         int eyeCellX = Math.floorDiv((int) Math.floor(eyeX), FarCells.CELL), eyeCellY = Math.floorDiv((int) Math.floor(eyeY), FarCells.CELL);
         GL13.glActiveTexture(GL_TEXTURE0);
         GL11.glBindTexture(GL_TEXTURE_2D, picture);
@@ -636,7 +673,7 @@ final class FarLand {
         for (int step = 0; step < NEAREST_FIRST.length; step += 2) {
             int cellX = eyeCellX + NEAREST_FIRST[step], cellY = eyeCellY + NEAREST_FIRST[step + 1];
             int place = place(cellX, cellY);
-            if (shown[place] != key(cellX, cellY)) {
+            if (shown[place] != key(cellX, cellY) || unseen(landBoxes, place, 0f, 0f, camera.eyeX, camera.eyeY, camera.eyeUp)) {
                 continue;
             }
             GL15.glBindBuffer(GL_ARRAY_BUFFER, buffers[place]);
@@ -659,14 +696,21 @@ final class FarLand {
 
     /** How far from the eye, in tiles, a cell of trees is drawn with the finer of the two tree meshes. */
     private static final float FINER_TREES_WITHIN = 200f;
+    /**
+     * Further than any far tree reaches out from its foot and stands over it, in tiles: the
+     * largest size is FarTreeLooks' tallest plain tree, 11, or a measured crown grown to it,
+     * and the picture grows each tree by a tenth at most.
+     */
+    private static final float TREE_OUT = 20f, TREE_UP = 40f;
 
     /**
-     * Render thread, after draw: the trees of every cell kept round the eye that comes within
-     * reach tiles of it, with the program in use, which reads each tree from the attribute given
-     * (FarTrees.TREE_BYTES a tree). meshes and vertices are the finer and the coarser tree mesh,
-     * three floats a vertex. Nothing is left bound.
+     * Render thread, after draw, which told it the picture: the trees of every cell kept round
+     * the eye that comes within reach tiles of it and into the picture, with the program in
+     * use, which reads each tree from the attribute given (FarTrees.TREE_BYTES a tree). meshes
+     * and vertices are the finer and the coarser tree mesh, three floats a vertex. Nothing is
+     * left bound.
      */
-    void drawTrees(float eyeX, float eyeY, float reach, int attribute, int[] meshes, int[] vertices) {
+    void drawTrees(float eyeX, float eyeY, float reach, int attribute, int[] meshes, int[] vertices, ViewCamera.Pose camera) {
         int eyeCellX = Math.floorDiv((int) Math.floor(eyeX), FarCells.CELL), eyeCellY = Math.floorDiv((int) Math.floor(eyeY), FarCells.CELL);
         GL11.glEnableClientState(GL_VERTEX_ARRAY);
         GL20.glEnableVertexAttribArray(attribute);
@@ -681,7 +725,7 @@ final class FarLand {
             float awayX = Math.max(0f, Math.max(minX - eyeX, eyeX - minX - FarCells.CELL));
             float awayY = Math.max(0f, Math.max(minY - eyeY, eyeY - minY - FarCells.CELL));
             float away = (float) Math.hypot(awayX, awayY);
-            if (away > reach) {
+            if (away > reach || unseen(treeBoxes, place, TREE_OUT, TREE_UP, camera.eyeX, camera.eyeY, camera.eyeUp)) {
                 continue;
             }
             int lod = away < FINER_TREES_WITHIN ? 0 : 1;
