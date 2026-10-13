@@ -731,7 +731,7 @@ final class SpriteGeometry {
         if (kerb != null && tileZ == 0 && up1 == 0f && up2 == 0f && h < LAID_BELOW) {
             int before = mesh.triangles();
             if (wholeSquare(from, count)) {
-                laySquare(mesh, frame, tileX, tileY, h);
+                laySquare(mesh, frame, tileX, tileY, from);
             } else {
                 System.arraycopy(from, 0, split[0], 0, count * CORNER_FLOATS);
                 split(mesh, frame, tileX, tileY, 0, count, 0, 0, Kerbs.FINE);
@@ -860,7 +860,7 @@ final class SpriteGeometry {
             return;
         }
         if (cutting) {
-            keepPiece(piece, count, side);
+            step(PIECE, piece, null, count, side, 0, 0f);
             return;
         }
         kerbSide = side;
@@ -869,20 +869,20 @@ final class SpriteGeometry {
     }
 
     /**
-     * The pieces split cuts the whole of the square into, on both sides of the kerb, each its
-     * corners' a and b and which side it is on, in the order split adds them: worked out once for
-     * the square and the kerb across it, and laid again for every face of its ground. The kerb is
-     * the one through the square at the points of kerbField.
+     * What split does to the whole of the square, worked out once for the square and the kerb
+     * across it (the one through the square at the points of kerbField) and done again for every
+     * face of its ground: each step a corner copied, or mixed from two corners, from one of the
+     * arrays of split into another, or a piece added. Done again from the face's own corners,
+     * the same steps make the same floats split would, without looking at the kerb.
      */
-    private float[] pieceCorners = new float[64];
-    private int[] pieceCount = new int[16], pieceSide = new int[16];
-    private int pieces, pieceFloats;
+    private static final int COPIED = 0, MIXED = 1, PIECE = 2;
+    private int[] stepKind = new int[256], stepFrom = new int[256], stepTo = new int[256], stepCurrent = new int[256], stepNext = new int[256], stepInto = new int[256];
+    private float[] stepMix = new float[256];
+    private int steps;
     private final float[] kerbField = new float[(Kerbs.FINE + 1) * (Kerbs.FINE + 1)];
-    private boolean piecesKnown;
-    /** Whether split is keeping the pieces it cuts (keepPiece) and not adding them. */
+    private boolean stepsKnown;
+    /** Whether split is keeping its steps (step) and not adding what it cuts. */
     private boolean cutting;
-    /** A piece being laid again, as split would have handed it to addSide. */
-    private final float[] laidPiece = new float[SPLIT_CORNERS * CORNER_FLOATS];
 
     /** Whether the face of count corners is the whole square, from (0, 0) round by (1, 0). */
     private static boolean wholeSquare(float[] face, int count) {
@@ -890,12 +890,9 @@ final class SpriteGeometry {
                 && face[2 * CORNER_FLOATS] == 1f && face[2 * CORNER_FLOATS + 1] == 1f && face[3 * CORNER_FLOATS] == 0f && face[3 * CORNER_FLOATS + 1] == 1f;
     }
 
-    /**
-     * Adds the whole of the square, laid on the ground h levels up, as split does: by the pieces
-     * it cuts the square into, each piece's texels worked out from where its corners are.
-     */
-    private void laySquare(Mesh mesh, Frame frame, int tileX, int tileY, float h) {
-        boolean same = piecesKnown && !afresh;
+    /** Adds the whole of the square, whose corners are those of face, as split does, by the steps split took over it. */
+    private void laySquare(Mesh mesh, Frame frame, int tileX, int tileY, float[] face) {
+        boolean same = stepsKnown && !afresh;
         for (int i = 0; i <= Kerbs.FINE && same; i++) {
             for (int j = 0; j <= Kerbs.FINE; j++) {
                 same &= kerbField[i * (Kerbs.FINE + 1) + j] == kerb[(kerbX * Kerbs.FINE + i) * Kerbs.POINTS + kerbY * Kerbs.FINE + j];
@@ -907,61 +904,76 @@ final class SpriteGeometry {
                     kerbField[i * (Kerbs.FINE + 1) + j] = kerb[(kerbX * Kerbs.FINE + i) * Kerbs.POINTS + kerbY * Kerbs.FINE + j];
                 }
             }
-            float[] square = split[0];
-            Arrays.fill(square, 0, 4 * CORNER_FLOATS, 0f);
-            square[CORNER_FLOATS] = square[2 * CORNER_FLOATS] = square[2 * CORNER_FLOATS + 1] = square[3 * CORNER_FLOATS + 1] = 1f;
-            pieces = 0;
-            pieceFloats = 0;
+            System.arraycopy(face, 0, split[0], 0, 4 * CORNER_FLOATS);
+            steps = 0;
             int keep = kerbKeep;
             kerbKeep = BOTH;
             cutting = true;
             split(mesh, frame, tileX, tileY, 0, 4, 0, 0, Kerbs.FINE);
             cutting = false;
             kerbKeep = keep;
-            piecesKnown = true;
+            stepsKnown = true;
         }
-        for (int piece = 0, from = 0; piece < pieces; from += 2 * pieceCount[piece], piece++) {
-            int side = pieceSide[piece];
-            if (kerbKeep != BOTH && kerbKeep != side) {
+        System.arraycopy(face, 0, split[0], 0, 4 * CORNER_FLOATS);
+        for (int at = 0; at < steps; at++) {
+            float[] from = split[stepFrom[at]];
+            if (stepKind[at] == PIECE) {
+                int side = stepNext[at];
+                if (kerbKeep == BOTH || kerbKeep == side) {
+                    kerbSide = side;
+                    fan(mesh, frame, tileX, tileY, 0, from, stepCurrent[at]);
+                    kerbSide = BOTH;
+                }
                 continue;
             }
-            for (int corner = 0; corner < pieceCount[piece]; corner++) {
-                float a = pieceCorners[from + 2 * corner], b = pieceCorners[from + 2 * corner + 1];
-                int at = corner * CORNER_FLOATS;
-                laidPiece[at] = a;
-                laidPiece[at + 1] = b;
-                laidPiece[at + 2] = h;
-                laidPiece[at + CORNER_U] = frameU(frame, a, b);
-                laidPiece[at + CORNER_V] = frameV(frame, a, b, h);
+            float[] to = split[stepTo[at]];
+            int current = stepCurrent[at], next = stepNext[at], into = stepInto[at];
+            if (stepKind[at] == COPIED) {
+                System.arraycopy(from, current, to, into, CORNER_FLOATS);
+            } else {
+                float t = stepMix[at];
+                for (int k = 0; k < CORNER_FLOATS; k++) {
+                    to[into + k] = from[current + k] + (from[next + k] - from[current + k]) * t;
+                }
             }
-            kerbSide = side;
-            fan(mesh, frame, tileX, tileY, 0, laidPiece, pieceCount[piece]);
-            kerbSide = BOTH;
         }
     }
 
-    /** Keeps a piece split has cut, for laySquare. */
-    private void keepPiece(float[] piece, int count, int side) {
-        if (pieces == pieceCount.length) {
-            pieceCount = Arrays.copyOf(pieceCount, pieces * 2);
-            pieceSide = Arrays.copyOf(pieceSide, pieces * 2);
+    /** Keeps a step of split's over the whole square, for laySquare: see COPIED. */
+    private void step(int kind, float[] from, float[] to, int current, int next, int into, float mix) {
+        if (steps == stepKind.length) {
+            int more = steps * 2;
+            stepKind = Arrays.copyOf(stepKind, more);
+            stepFrom = Arrays.copyOf(stepFrom, more);
+            stepTo = Arrays.copyOf(stepTo, more);
+            stepCurrent = Arrays.copyOf(stepCurrent, more);
+            stepNext = Arrays.copyOf(stepNext, more);
+            stepInto = Arrays.copyOf(stepInto, more);
+            stepMix = Arrays.copyOf(stepMix, more);
         }
-        if (pieceFloats + 2 * count > pieceCorners.length) {
-            pieceCorners = Arrays.copyOf(pieceCorners, Math.max(pieceFloats + 2 * count, pieceCorners.length * 2));
+        stepKind[steps] = kind;
+        stepFrom[steps] = splitOf(from);
+        stepTo[steps] = to == null ? 0 : splitOf(to);
+        stepCurrent[steps] = current;
+        stepNext[steps] = next;
+        stepInto[steps] = into;
+        stepMix[steps++] = mix;
+    }
+
+    private int splitOf(float[] array) {
+        for (int i = 0; i < split.length; i++) {
+            if (split[i] == array) {
+                return i;
+            }
         }
-        for (int corner = 0; corner < count; corner++) {
-            pieceCorners[pieceFloats++] = piece[corner * CORNER_FLOATS];
-            pieceCorners[pieceFloats++] = piece[corner * CORNER_FLOATS + 1];
-        }
-        pieceCount[pieces] = count;
-        pieceSide[pieces++] = side;
+        throw new IllegalStateException("a kerb's piece is in none of split's arrays");
     }
 
     /**
      * Sutherland-Hodgman against the line where perA * a + perB * b + atOrigin is nothing,
      * keeping the side where it is above nothing or the side where it is not.
      */
-    private static int cut(float[] from, int count, float[] to, float perA, float perB, float atOrigin, boolean keepAbove) {
+    private int cut(float[] from, int count, float[] to, float perA, float perB, float atOrigin, boolean keepAbove) {
         int out = 0;
         for (int i = 0; i < count; i++) {
             int current = i * CORNER_FLOATS;
@@ -972,11 +984,17 @@ final class SpriteGeometry {
             boolean nextIn = nextValue > 0f == keepAbove;
             if (currentIn) {
                 System.arraycopy(from, current, to, out * CORNER_FLOATS, CORNER_FLOATS);
+                if (cutting) {
+                    step(COPIED, from, to, current, 0, out * CORNER_FLOATS, 0f);
+                }
                 out++;
             }
             if (currentIn != nextIn) {
                 float t = currentValue / (currentValue - nextValue);
                 int at = out * CORNER_FLOATS;
+                if (cutting) {
+                    step(MIXED, from, to, current, next, at, t);
+                }
                 for (int k = 0; k < CORNER_FLOATS; k++) {
                     to[at + k] = from[current + k] + (from[next + k] - from[current + k]) * t;
                 }
