@@ -5518,7 +5518,7 @@ final class WorldScene {
          */
         private void addLimb(LimbDecals.Laid laid) {
             SpriteGeometry.Mesh mesh = solid.get(LimbDecals.texture());
-            mesh.open = frame.open;
+            mesh.open = frame.open + 32f * BODY;
             mesh.face(0f, 0f, 1f);
             float base = laid.z() * ViewCamera.LEVEL_HEIGHT + BODY_UP, side = 2f * laid.half();
             float share = (float) LimbDecals.SLOT / LimbDecals.SIDE, u0 = laid.u0(), v0 = laid.v0();
