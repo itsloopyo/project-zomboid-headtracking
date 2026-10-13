@@ -36,6 +36,8 @@ final class OwnPistol extends OwnGun {
     private final Thrown cases = new Thrown(4, 0.8f, 1.6f, 1.3f, 0.2f, 7.5f, 26f);
     private final Slide action = new Slide();
     private boolean magazineIn;
+    /** The game's frame the action was last moved on in. */
+    private int workedIn = Integer.MIN_VALUE;
 
     OwnPistol(View view) {
         // Plastic, rubber and oiled walnut grips seen along their length do not turn into mirrors of the sky either.
@@ -47,17 +49,29 @@ final class OwnPistol extends OwnGun {
         return ViewModelMath.smooth(seconds / BACK) - ViewModelMath.smooth((seconds - BACK - HELD_BACK) / FORWARD);
     }
 
-    /** Whether the magazine is in its well, as against in the hand that takes it out or puts it in: ArmHolds.carries says when the hand has it. */
-    static boolean magazineIn(ViewModel.Held held) {
-        boolean handled = held.doing() == ArmActs.LOADING || held.doing() == ArmActs.UNLOADING;
-        boolean pushedHome = !handled && held.seated() >= 0f && held.seated() < ArmActs.HOME_IN;
-        return held.clip() && !pushedHome;
+    /**
+     * Whether the magazine is in its well, as against in the hand that takes it out or puts it in:
+     * ArmHolds.carries says when the hand has it.
+     *
+     * @param clip   whether the game has a magazine in the pistol
+     * @param doing  what the holder is doing to it: one of ArmActs' doings
+     * @param seated how long ago the game finished loading a magazine, in seconds, or less than nought
+     */
+    static boolean magazineIn(boolean clip, int doing, float seated) {
+        boolean handled = doing == ArmActs.LOADING || doing == ArmActs.UNLOADING;
+        boolean pushedHome = !handled && seated >= 0f && seated < ArmActs.HOME_IN;
+        return clip && !pushedHome;
+    }
+
+    /** Whether an empty magazine holds the slide back: one in the pistol, no rounds in it and nothing in the chamber. */
+    static boolean heldOpen(boolean chambered, int rounds, boolean clip) {
+        return clip && rounds == 0 && !chambered;
     }
 
     /**
      * Where the slide is, from what the game says of the pistol frame by frame: driven back and
-     * let run forward by each shot, held back by an empty magazine after the last round, and
-     * drawn back and let go by the hand that racks it.
+     * let run forward by each shot, held back by an empty magazine once back from the last round
+     * or from racking, and drawn back and let go by the hand that racks it.
      */
     static final class Slide {
         private int item = NO_ITEM;
@@ -73,21 +87,24 @@ final class OwnPistol extends OwnGun {
          * Moves it on by a frame.
          *
          * @param item      the game's id of the item held: another is another pistol, whose slide is as it was put away
-         * @param shots     ViewModel.Held's count of shots
+         * @param carriedOn whether it was moved on in the frame before this: shots taken while it was not, with another
+         *                  weapon or with this one not drawn, are not worked now
+         * @param shots     ViewModel.Held's count of shots, which counts every firearm's
          * @param chambered whether the pistol has a round in its chamber
          * @param rounds    how many rounds its magazine holds
          * @param clip      whether it has a magazine in it
          * @param doing     what the holder is doing to it: one of ArmActs' doings
          * @param through   how far through that the holder is, as a share of how long it is taken to take
          */
-        void step(int item, int shots, boolean chambered, int rounds, boolean clip, int doing, float through, float seconds) {
+        void step(int item, boolean carriedOn, int shots, boolean chambered, int rounds, boolean clip, int doing, float through, float seconds) {
             thrown = false;
-            if (item != this.item) {
-                // Taken in hand: its slide was held back if it is empty.
+            boolean open = heldOpen(chambered, rounds, clip);
+            if (item != this.item || !carriedOn) {
+                // Taken in hand or seen again: as the game has it now, its slide held back if it is empty.
                 this.item = item;
                 shotsSeen = shots;
                 sinceShot = NOT_CYCLING;
-                locked = !chambered && rounds == 0 && clip;
+                locked = open;
             }
             if (shots != shotsSeen) {
                 shotsSeen = shots;
@@ -98,8 +115,7 @@ final class OwnPistol extends OwnGun {
             }
             float drawn = 0f;
             if (sinceShot != NOT_CYCLING) {
-                // Back from the last round, nothing in the chamber and nothing to feed it: the empty magazine holds the slide there.
-                locked |= sinceShot >= BACK && !chambered && rounds == 0;
+                locked |= sinceShot >= BACK && open;
                 drawn = locked && sinceShot >= BACK ? 1f : slideAt(sinceShot);
                 if (!caseThrown && (drawn >= THROWN_AT || sinceShot >= BACK)) {
                     caseThrown = true;
@@ -110,8 +126,11 @@ final class OwnPistol extends OwnGun {
                 }
             }
             if (doing == ArmActs.RACKING) {
-                // The slide goes with the hand that racks it, back, and forward of itself once the hand lets go of it.
-                locked &= through < ArmHolds.SLIDE_LET_GO;
+                // The slide goes with the hand that racks it, back, and once the hand lets go of it forward of itself,
+                // or not, if the magazine it comes back over is empty.
+                if (through >= ArmHolds.SLIDE_LET_GO) {
+                    locked = open;
+                }
                 drawn = Math.max(drawn, ArmHolds.slideRacked(through));
             }
             // A round chambered, by racking it or by the slide let go, and it is shut.
@@ -124,12 +143,14 @@ final class OwnPistol extends OwnGun {
     void work(ViewCamera.Pose camera, float seconds) {
         ViewModel.Held held = view.viewModel.held;
         if (held != null) {
-            action.step(held.itemId(), held.shots(), held.chambered(), held.rounds(), held.clip(), held.doing(), held.done() / Math.max(held.pace(), ArmActs.SHORTEST),
+            int frame = Pipeline.frame();
+            action.step(held.itemId(), workedIn == frame - 1, held.shots(), held.chambered(), held.rounds(), held.clip(), held.doing(), held.done() / Math.max(held.pace(), ArmActs.SHORTEST),
                     seconds);
             if (action.thrown) {
                 cases.out(camera, model, drawn.port[0], drawn.port[1] - action.back * drawn.travel * 0.5f, drawn.port[2]);
             }
-            magazineIn = magazineIn(held);
+            magazineIn = magazineIn(held.clip(), held.doing(), held.seated());
+            workedIn = frame;
         }
         cases.fly(camera, seconds);
     }
