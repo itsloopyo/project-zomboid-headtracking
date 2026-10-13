@@ -149,14 +149,14 @@ final class Pieces {
         }
     }
 
-    /** A head burst by a shot from (fromX, fromY): shards of it fly every way, most away from the shot. Logic thread. */
-    static void burst(IsoZombie zombie, float fromX, float fromY) {
+    /** A part burst by a shot from (fromX, fromY), from the cut on: shards of it fly every way, most away from the shot. Logic thread. */
+    static void burst(IsoZombie zombie, int part, int cut, float fromX, float fromY) {
         float dx = zombie.getX() - fromX, dy = zombie.getY() - fromY, length = Math.max((float) Math.hypot(dx, dy), 1e-4f);
         for (int i = 0; i < SHARDS; i++) {
             float angle = (float) Math.atan2(dy, dx) + (random.nextFloat() - 0.5f) * 2.4f, speed = SHARD_SPEED * (0.6f + 0.8f * random.nextFloat());
-            Piece shard = new Piece(Wounds.HEAD, Wounds.UPPER, (float) Math.cos(angle) * speed, (float) Math.sin(angle) * speed, speed * (0.3f + 0.7f * random.nextFloat()));
+            Piece shard = new Piece(part, cut, (float) Math.cos(angle) * speed, (float) Math.sin(angle) * speed, speed * (0.3f + 0.7f * random.nextFloat()));
             // Two axes of a chunk's size and the third much thinner: pressed() reads a shard with
-            // all three alike as a small whole head, face, hair and all.
+            // all three alike as a small whole part, a head's face and hair and all.
             shard.squash = new float[3];
             int thin = random.nextInt(3);
             for (int axis = 0; axis < 3; axis++) {

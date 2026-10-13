@@ -324,13 +324,21 @@ public final class Hooks {
         boolean leg = limb == Wounds.LEFT_LEG || limb == Wounds.RIGHT_LEG;
         int where = wounds.cut(zombie, limb);
         String joint = where == Wounds.UPPER ? leg ? "hip" : "shoulder" : where == Wounds.LOWER ? leg ? "knee" : "elbow" : leg ? "ankle" : "wrist";
-        String cut = stage == Wounds.SEVERED ? "cut off at the " + joint + ", " : "";
+        boolean bursts = stage == Wounds.SEVERED && chance.nextFloat() < LIMB_BURSTS;
+        String cut = stage != Wounds.SEVERED ? "" : (bursts ? "burst at the " : "cut off at the ") + joint + ", ";
         if (stage == Wounds.SEVERED) {
-            Bleeding.spray(zombie);
-            Bleeding.mist(zombie, zombie.isOnFloor() ? 0.2f : leg ? 0.45f : 1f, 2, 1.5f);
-            Stumps.bloody(zombie, limb, where);
+            float high = zombie.isOnFloor() ? 0.2f : leg ? 0.45f : 1f;
             IsoPlayer shooter = IsoPlayer.getInstance();
-            Pieces.cut(zombie, limb, where, shooter.getX(), shooter.getY());
+            Stumps.bloody(zombie, limb, where);
+            if (bursts) {
+                Bleeding.mist(zombie, high, 7, 3f);
+                Bleeding.spray(zombie, Bleeding.SPRAY * 3, Bleeding.SPRAY_REACH * 1.8f);
+                Pieces.burst(zombie, limb, where, shooter.getX(), shooter.getY());
+            } else {
+                Bleeding.spray(zombie);
+                Bleeding.mist(zombie, high, 2, 1.5f);
+                Pieces.cut(zombie, limb, where, shooter.getX(), shooter.getY());
+            }
         }
         if (zombie.isDead() || zombie.isCrawling()) {
             said = cut + (zombie.isDead() ? "as it dies" : "as it crawls");
@@ -424,6 +432,8 @@ public final class Hooks {
         Pieces.tick();
     }
 
+    /** How often a limb a shot takes off bursts in blood and shards rather than coming off whole. */
+    static final float LIMB_BURSTS = 0.8f;
     /** How often a zombie whose leg is ruined, and not cut off, gets up on it again rather than crawling. */
     static final float GETS_UP = 0.3f;
     /**
@@ -464,7 +474,7 @@ public final class Hooks {
             wounds.burst(zombie);
             Bleeding.mist(zombie, zombie.isOnFloor() ? 0.3f : 1.2f, 7, 3f);
             IsoPlayer shooter = IsoPlayer.getInstance();
-            Pieces.burst(zombie, shooter.getX(), shooter.getY());
+            Pieces.burst(zombie, Wounds.HEAD, Wounds.UPPER, shooter.getX(), shooter.getY());
             Bleeding.spray(zombie, Bleeding.SPRAY * 3, Bleeding.SPRAY_REACH * 1.8f);
             Stumps.bloody(zombie, Wounds.HEAD, Wounds.UPPER);
             said = "its head bursts";
