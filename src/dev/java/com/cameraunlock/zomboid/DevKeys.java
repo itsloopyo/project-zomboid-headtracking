@@ -53,10 +53,10 @@ import zombie.vehicles.VehiclePart;
  * and round again, for the game's own trees and for what the mod draws alike, and says on the
  * screen which. The game works the season out again each day, so it is held there until the
  * session ends. Winter is a clear sky over ground under snow. The other three give the weather
- * back to the game, unless the backslash holds one, and keep the ground clear of snow, so
+ * back to the game, unless End holds one, and keep the ground clear of snow, so
  * winter's does not lie on into spring.
  *
- * The backslash holds the weather at the next of clear, rainy, snowy and stormy, and round
+ * End holds the weather at the next of clear, rainy, snowy and stormy, and round
  * again, over whatever the season key holds. Snowy lays snow over the whole ground. Stormy is
  * heavy rain and wind with lightning striking round the first player a few seconds apart,
  * from a few hundred tiles to a mile off, as the game's own thunder cloud strikes. The game
@@ -160,8 +160,8 @@ public final class DevKeys {
     private static final float FULL_SNOW_STRENGTH = 7.5f;
     private static Field snowStrength, wasForceSnow;
 
-    /** The backslash. */
-    private static final int WEATHER_KEY = 43;
+    /** End. */
+    private static final int WEATHER_KEY = 207;
 
     /** A kind of weather as the game's climate has it: each of cloud, rain or snow, and wind from 0 to 1. */
     private record Weather(String name, float cloud, float falling, float wind, boolean snow, boolean thunder) {}
@@ -217,7 +217,7 @@ public final class DevKeys {
         String told = null;
         if (!said) {
             said = true;
-            Log.info("development build: 0 clears out the zombies and pressed again puts some back round you, . goes to the next place and , to the one before, 9 puts the clock on three hours, Backspace holds the next season of spring, summer, autumn and winter, \\ holds the next weather of clear, rainy, snowy and stormy, ; gives a shotgun, any gun held never runs dry, [ gives a hunting rifle with the next of the three scopes on it, / gives a lit flashlight, ' makes you invincible, F7 takes the nearest vehicle");
+            Log.info("development build: 0 clears out the zombies and pressed again puts some back round you, . goes to the next place and , to the one before, 9 puts the clock on three hours, Backspace holds the next season of spring, summer, autumn and winter, End holds the next weather of clear, rainy, snowy and stormy, ; gives a shotgun, any gun held never runs dry, [ gives a hunting rifle with the next of the three scopes on it, / gives a lit flashlight, ' makes you invincible, F7 takes the nearest vehicle");
         }
         // On a server every one of these would be a cheat against the other players.
         if (GameClient.client) {
@@ -420,7 +420,7 @@ public final class DevKeys {
         ClimateManager.ClimateBool snow = climate.getClimateBool(ClimateManager.BOOL_IS_SNOW);
         snow.setEnableAdmin(true);
         snow.setAdminValue(held.snow());
-        Log.info("Backslash: the weather held at " + held.name() + ", " + (weather + 1) + " of " + WEATHERS.length);
+        Log.info("End: the weather held at " + held.name() + ", " + (weather + 1) + " of " + WEATHERS.length);
     }
 
     /**
