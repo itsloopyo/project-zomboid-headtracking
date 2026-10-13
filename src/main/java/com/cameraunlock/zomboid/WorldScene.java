@@ -1661,6 +1661,8 @@ final class WorldScene {
     static final float BOARDS = 52f;
     /** The game's blood on a floor or a wall: its texels take the colour its vertices carry where a tree's carry its square, and it covers as much as they say. See BloodBuilder. */
     static final float BLOOD = 85f;
+    /** The picture of a body lying on the ground: it fell on the snow, and settled snow does not cover it. */
+    static final float BODY = 89f;
 
     /** What a sprite that is no floor is made of: see materialOf. A wall the game says is of wood, on a sheet made for one place, is boarded. */
     static float materialOf(IsoSprite sprite) {
@@ -5255,7 +5257,7 @@ final class WorldScene {
                 building.traced.add(body);
             }
             SpriteGeometry.Mesh mesh = solid.get(texture.getID());
-            mesh.open = frame.open;
+            mesh.open = frame.open + 32f * BODY;
             mesh.face(0f, 0f, 1f);
             float x = body.getX(), y = body.getY(), z = body.getZ();
             // Where the game draws the picture, in its own pixels from where it draws the body's place on the floor.

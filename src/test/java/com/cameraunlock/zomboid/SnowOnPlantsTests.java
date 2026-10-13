@@ -47,7 +47,7 @@ final class SnowOnPlantsTests {
 
     private static void lowDrawsWhatGrowsBare() {
         String main = PipelineShaders.WORLD_FRAGMENT_MAIN.replaceAll("\\s+", "");
-        check(main.contains("if(uSnowLying>0.0&&open>0.5&&!water&&!model&&(uPlantSnow>0.0||!(strip||grass||crown||core||card))){"),
+        check(main.contains("if(uSnowLying>0.0&&open>0.5&&!water&&!model&&!body&&(uPlantSnow>0.0||!(strip||grass||crown||core||card))){"),
                 "with no snow on what grows, grass, crowns and cards take none of the snow drawn on the ground");
         check(main.contains("if(uPlantSnow>0.0&&vKind>2.5&&"), "nor is a card plant buried in it");
         String vertex = PipelineShaders.WORLD_VERTEX.replaceAll("\\s+", "");
