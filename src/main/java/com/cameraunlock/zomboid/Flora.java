@@ -197,7 +197,7 @@ final class Flora {
      * which shares of its height it stands, how much of the crown's light gets to it, how
      * far it draws in at its foot as a share of how far out it is there, and how many rings
      * it is made of and how many faces round; and as many of each for a crown made coarser
-     * than CORE_FAR_DETAIL (see addCrown), as one more than about 26 tiles off is (Crowns.detail),
+     * than CORE_FAR_DETAIL (see addCrown), as one more than 24 tiles off is (Crowns.detail),
      * whose inside is a few pixels of shade behind its sprigs.
      */
     private static final float CORE_OF_REACH = 0.74f, CORE_FOOT = 0.06f, CORE_HEAD = 0.95f, CORE_SHADE = 0.6f, CORE_UNDER = 0.3f;
