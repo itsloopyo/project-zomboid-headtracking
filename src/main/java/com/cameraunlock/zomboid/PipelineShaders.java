@@ -129,6 +129,7 @@ final class PipelineShaders {
             uniform vec3 uBeamWay[2];
             uniform sampler2DShadow uBeamShadow;
             uniform mat4 uBeamMatrix;
+            uniform float uBeamTexel;
             // Where the viewer's torch is held and how far it reaches, 0 when none throws a
             // beam, the way it points, and the scene as the torch sees it.
             uniform vec4 uTorchAt;
@@ -182,7 +183,7 @@ final class PipelineShaders {
                 if (s.x <= 0.0 || s.x >= 1.0 || s.y <= 0.0 || s.y >= 1.0 || s.z >= 1.0) {
                     return 1.0;
                 }
-                float e = 1.5 / 4096.0;
+                float e = 1.5 * uBeamTexel;
                 return 0.25 * (shadow2D(uBeamShadow, s + vec3(e, e, 0.0)).r + shadow2D(uBeamShadow, s + vec3(-e, e, 0.0)).r
                         + shadow2D(uBeamShadow, s + vec3(e, -e, 0.0)).r + shadow2D(uBeamShadow, s + vec3(-e, -e, 0.0)).r);
             }

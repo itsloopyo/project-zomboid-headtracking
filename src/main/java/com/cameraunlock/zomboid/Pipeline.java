@@ -4586,6 +4586,7 @@ final class Pipeline {
         }
         program.set("uBeamShadow", BEAM_UNIT);
         program.set("uBeamMatrix", beamMatrix);
+        program.set("uBeamTexel", 1f / beamSize());
         program.set("uTorchAt", torchAt[0], torchAt[1], torchAt[2], torchAt[3]);
         program.set("uTorchWay", torchWay[0], torchWay[1], torchWay[2]);
         // Bound here and not once a frame: no unit is free in every program the torch lights.
