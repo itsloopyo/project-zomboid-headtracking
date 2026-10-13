@@ -29,6 +29,7 @@ final class CrownTests {
         Checks.run("autumnColourIsChosenByTheSpecies", CrownTests::autumnColourIsChosenByTheSpecies);
         Checks.run("aShadowOnlyFanSaysHowMuchShadowItThrows", CrownTests::aShadowOnlyFanSaysHowMuchShadowItThrows);
         Checks.run("woodAndRoundThingsAreLitByAWayOfLengthOne", CrownTests::woodAndRoundThingsAreLitByAWayOfLengthOne);
+        Checks.run("aSprigIsLitByHowTheBoughsItIsOnSlope", CrownTests::aSprigIsLitByHowTheBoughsItIsOnSlope);
     }
 
     /** The sprigs of a crown, each by where its four corners are, to the thousandth of a tile. */
@@ -194,6 +195,23 @@ final class CrownTests {
                 check(mesh.vertices[at + SpriteGeometry.ROOT_AT] == SpriteGeometry.NO_ROOT, "a bush's vertex is no tree's, its core and twigs included");
             }
         }
+    }
+
+    /** How a crown's boughs slope under a sprig, round the crown and up it, is how fast where it is on them changes going either way. */
+    private static void aSprigIsLitByHowTheBoughsItIsOnSlope() {
+        float[] at = new float[3], ahead = new float[3], behind = new float[3];
+        boolean round = true, up = true;
+        for (int i = 0; i < 400; i++) {
+            float turn = i * 0.0157f, share = (i % 23) / 22f;
+            Flora.boughSlopes(turn, share, 3 + i % 3, 1.5f + (i % 5) * 0.6f, 0.3f, 1.1f, 2.2f, at);
+            Flora.boughSlopes(turn + 1e-3f, share, 3 + i % 3, 1.5f + (i % 5) * 0.6f, 0.3f, 1.1f, 2.2f, ahead);
+            Flora.boughSlopes(turn - 1e-3f, share, 3 + i % 3, 1.5f + (i % 5) * 0.6f, 0.3f, 1.1f, 2.2f, behind);
+            round &= Math.abs((ahead[0] - behind[0]) / 2e-3f - at[1]) < 0.01f;
+            Flora.boughSlopes(turn, share + 1e-3f, 3 + i % 3, 1.5f + (i % 5) * 0.6f, 0.3f, 1.1f, 2.2f, ahead);
+            Flora.boughSlopes(turn, share - 1e-3f, 3 + i % 3, 1.5f + (i % 5) * 0.6f, 0.3f, 1.1f, 2.2f, behind);
+            up &= Math.abs((ahead[0] - behind[0]) / 2e-3f - at[2]) < 0.02f;
+        }
+        check(round && up, "the slope a sprig is lit by is the boughs' own, round the crown and up it");
     }
 
     /**

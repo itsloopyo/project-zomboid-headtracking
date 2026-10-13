@@ -541,9 +541,9 @@ final class Flora {
             int band = Math.min((int) ((high - lowest) / tall * CROWN_BANDS), CROWN_BANDS - 1);
             float round = unit(hash, 8) * 6.2832f, share = (high - lowest) / tall;
             // How far this place is up a bough's swell, 1 its top and 0 the hollow, and how that changes round the crown and up it.
-            float swell = bough(round, share, lobes, rows, turnOne, turnTwo, turnThree);
-            float swellRound = (bough(round + 0.05f, share, lobes, rows, turnOne, turnTwo, turnThree) - bough(round - 0.05f, share, lobes, rows, turnOne, turnTwo, turnThree)) / 0.1f;
-            float swellUp = (bough(round, share + 0.03f, lobes, rows, turnOne, turnTwo, turnThree) - bough(round, share - 0.03f, lobes, rows, turnOne, turnTwo, turnThree)) / 0.06f;
+            float[] swells = workings.swells;
+            boughSlopes(round, share, lobes, rows, turnOne, turnTwo, turnThree, swells);
+            float swell = swells[0], swellRound = swells[1], swellUp = swells[2];
             float full = Math.max((reachLeft[band] + reachRight[band]) / 2f, size * 0.2f);
             float surface = 1f - BOUGH_HOLLOW * (1f - swell);
             float out = full * (filling ? surface * (0.12f + 0.73f * unit(hash, 20)) : inner ? 0.3f + 0.3f * unit(hash, 20)
@@ -875,6 +875,8 @@ final class Flora {
         /** For a crown's inside: each ring's share of the way up the crown and how far out the crown is there, how far out of that the boughs' swells are at each way round each ring, and those ways. */
         final float[] coreShare = new float[CORE_RINGS + 1], coreReach = new float[CORE_RINGS + 1], coreBough = new float[(CORE_RINGS + 1) * (CORE_ROUND + 1)];
         final float[] coreCos = new float[CORE_ROUND + 1], coreSin = new float[CORE_ROUND + 1];
+        /** A sprig's place on the boughs: see boughSlopes. */
+        final float[] swells = new float[3];
     }
 
     /** The array, or a larger one in its place when it holds fewer than size. */
@@ -1184,6 +1186,17 @@ final class Flora {
         float about = (float) Math.sin(lobes * round + turnOne + 2f * Math.sin(4f * share + turnTwo));
         float along = (float) Math.sin(Math.PI * rows * share + turnThree + 1.2f * Math.sin(round + turnTwo));
         return 0.5f + 0.5f * about * along;
+    }
+
+    /** bough into into[0], and how fast it changes round the crown and up it into into[1] and into[2]. */
+    static void boughSlopes(float round, float share, int lobes, float rows, float turnOne, float turnTwo, float turnThree, float[] into) {
+        double upAbout = 4f * share + turnTwo, roundAlong = round + turnTwo;
+        double aboutAt = lobes * round + turnOne + 2f * Math.sin(upAbout), alongAt = Math.PI * rows * share + turnThree + 1.2f * Math.sin(roundAlong);
+        float about = (float) Math.sin(aboutAt), along = (float) Math.sin(alongAt);
+        double aboutSlope = Math.cos(aboutAt), alongSlope = Math.cos(alongAt);
+        into[0] = 0.5f + 0.5f * about * along;
+        into[1] = (float) (0.5 * (aboutSlope * lobes * along + about * alongSlope * 1.2f * Math.cos(roundAlong)));
+        into[2] = (float) (0.5 * (aboutSlope * 8.0 * Math.cos(upAbout) * along + about * alongSlope * Math.PI * rows));
     }
 
     /**
