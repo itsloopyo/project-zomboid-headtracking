@@ -503,6 +503,8 @@ final class SpriteGeometry {
     private final float[] corners = new float[MAX_CORNERS * CORNER_FLOATS];
     private final float[] clipped = new float[MAX_CORNERS * CORNER_FLOATS];
     private final float[] spare = new float[MAX_CORNERS * CORNER_FLOATS];
+    /** Where clipToFrame cuts the face being added at each edge of the sprite: its left, right, top and bottom. */
+    private final float[] limits = new float[4];
     private float[] result;
     private float centreU, centreV;
     /** For an upright face, how many frame pixels down its level lines run for each pixel across. */
@@ -518,6 +520,8 @@ final class SpriteGeometry {
      * along the frame's own rows and columns.
      */
     private float edgeU1, edgeV1, edgeU2, edgeV2;
+    /** For a face that lies or leans, what emit takes its inset along its edges by, the same for each of its corners: see fan. */
+    private float sheet, in1, in2;
     /** How far the face being added stands from where its texels are taken, along a and b: see addBox. */
     float shownA, shownB;
     /** The same up, in levels: the underside of a beam shows what its top does. */
@@ -737,6 +741,17 @@ final class SpriteGeometry {
      * follow each other. A corner is worked out once and written again for each triangle it is in.
      */
     private void fan(Mesh mesh, Frame frame, int tileX, int tileY, int tileZ, float[] polygon, int count) {
+        sheet = edgeU1 * edgeV2 - edgeV1 * edgeU2;
+        if (frame.flat == 0 && !drawnInFirst && Math.abs(sheet) > 1e-3f) {
+            float inset = insetPixels(drawnIn) * frame.scale;
+            float length1 = (float) Math.hypot(edgeU1, edgeV1), length2 = (float) Math.hypot(edgeU2, edgeV2);
+            // Each corner ends half the inset inside both edges it lies on, square to them: a
+            // diamond's left and right corners as far in as the inset across put them, its top
+            // and bottom ones less far than the inset down did.
+            float deep = inset / 2f / (Math.abs(sheet) / (length1 * length2));
+            in1 = Math.min(deep, length1 / 4f) / length1;
+            in2 = Math.min(deep, length2 / 4f) / length2;
+        }
         if (afresh) {
             for (int i = 1; i < count - 1; i++) {
                 emit(mesh, frame, tileX, tileY, tileZ, polygon, 0);
@@ -985,11 +1000,9 @@ final class SpriteGeometry {
      */
     private int clipToFrame(Frame frame, float slack) {
         System.arraycopy(corners, 0, clipped, 0, 4 * CORNER_FLOATS);
-        float[] from = clipped;
-        float[] to = spare;
-        int count = 4;
         wasCut = false;
-        for (int edge = 0; edge < 4 && count > 0; edge++) {
+        boolean inside = true;
+        for (int edge = 0; edge < 4; edge++) {
             int axis = edge < 2 ? CORNER_U : CORNER_V;
             boolean keepAbove = (edge & 1) == 0;
             float furthest = corners[axis];
@@ -1007,7 +1020,20 @@ final class SpriteGeometry {
                 default -> frame.top + frame.height - kept;
             };
             float limit = axis == CORNER_U ? side + (keepAbove ? -slack : slack) : Math.abs(furthest - side) <= slack ? furthest : side;
-            count = clip(from, count, to, axis, limit, keepAbove);
+            limits[edge] = limit;
+            inside &= keepAbove ? furthest >= limit : furthest <= limit;
+        }
+        // Most faces are wholly on the sprite: they come through as they are, with no pass over their corners.
+        if (inside) {
+            result = clipped;
+            return 4;
+        }
+        float[] from = clipped;
+        float[] to = spare;
+        int count = 4;
+        for (int edge = 0; edge < 4 && count > 0; edge++) {
+            int axis = edge < 2 ? CORNER_U : CORNER_V;
+            count = clip(from, count, to, axis, limits[edge], (edge & 1) == 0);
             float[] swap = from;
             from = to;
             to = swap;
@@ -1809,7 +1835,6 @@ final class SpriteGeometry {
         // face's centre would run along them without leaving the sprite's empty edge columns.
         float inset = insetPixels(drawnIn) * frame.scale;
         float insetAcross = inset + (pixelU < centreU ? sealLow : sealHigh);
-        float sheet = edgeU1 * edgeV2 - edgeV1 * edgeU2;
         // A face that stands was drawn in before it was cut: see addFace.
         if (!drawnInFirst && Math.abs(sheet) > 1e-3f) {
             // A face that lies or leans is drawn smaller onto itself along its own two edges, so
@@ -1818,12 +1843,6 @@ final class SpriteGeometry {
             // texels from across its own width at a slant and step where it meets the next.
             float dU = pixelU - centreU, dV = pixelV - centreV;
             float s = Math.clamp(2f * (dU * edgeV2 - dV * edgeU2) / sheet, -1f, 1f), t = Math.clamp(2f * (edgeU1 * dV - edgeV1 * dU) / sheet, -1f, 1f);
-            float length1 = (float) Math.hypot(edgeU1, edgeV1), length2 = (float) Math.hypot(edgeU2, edgeV2);
-            // Each corner ends half the inset inside both edges it lies on, square to them: a
-            // diamond's left and right corners as far in as the inset across put them, its top
-            // and bottom ones less far than the inset down did.
-            float deep = inset / 2f / (Math.abs(sheet) / (length1 * length2));
-            float in1 = Math.min(deep, length1 / 4f) / length1, in2 = Math.min(deep, length2 / 4f) / length2;
             pixelU -= s * in1 * edgeU1 + t * in2 * edgeU2;
             pixelV -= s * in1 * edgeV1 + t * in2 * edgeV2;
         } else if (!drawnInFirst) {
