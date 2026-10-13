@@ -255,8 +255,10 @@ POSES = {
     # Round the grip of a pistol or the wrist of a stock, the first finger laid along the frame and the thumb
     # lying forward along the near side: brought over the top, it goes through whatever the top of the weapon is.
     "grip": {"fingers": [(6, 14, 8, 4), (26, 82, 46, 0), (30, 84, 48, 0), (34, 86, 50, 0)], "thumb": (12, 36, 0, 6, 4), "cup": 10},
-    # The same with the first finger on the trigger.
-    "trigger": {"fingers": [(24, 60, 28, 2), (26, 82, 46, 0), (30, 84, 48, 0), (34, 86, 50, 0)], "thumb": (12, 36, 0, 6, 4), "cup": 10},
+    # The first finger on the trigger, and the thumb lifted off the palm and swung in and forward so that, over the top of a
+    # handgun's grip, it lies forward along the frame on the far side above the other hand's: laid as in "grip" it ran up
+    # across the back of the grip in the eye's line.
+    "trigger": {"fingers": [(24, 60, 28, 2), (26, 82, 46, 0), (30, 84, 48, 0), (34, 86, 50, 0)], "thumb": (-15, 60, 20, 10, 5), "cup": 10},
     # Under a fore-end, which lies in the palm with the fingers up its far side and the thumb up its near side.
     "fore": {"fingers": [(40, 72, 38, 2), (42, 74, 40, 0), (44, 76, 40, 0), (46, 78, 42, -2)], "thumb": (10, 20, -10, 15, 10), "cup": 12},
     # A fist round a handle, the thumb lying up it: wrapped over, it goes through a handle any thicker than the fist was made for.
