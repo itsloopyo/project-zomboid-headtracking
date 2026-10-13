@@ -72,6 +72,12 @@ final class CarSmash {
         return vehicle.getSpeed2D() * 3.6f;
     }
 
+    /** Whether a vehicle meeting a thing goes through it unslowed: see Knockdown.brushedThrough. */
+    static boolean brushedThrough(IsoObject thing) {
+        PropertyContainer properties = thing.getProperties();
+        return Knockdown.brushedThrough(Online.joined(), properties.has("CarSlowFactor"), properties.has("HitByCar"));
+    }
+
     /** The game hands it each thing marked as hit by cars that a vehicle has met. True where the thing was knocked down and the game's own rule is passed over. */
     static boolean struck(IsoObject thing, BaseVehicle vehicle) {
         if (!Knockdown.smashing(Online.joined(), vehicle.shouldCollideWithObjects(), kmh(vehicle))) {

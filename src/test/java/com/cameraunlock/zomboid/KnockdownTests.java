@@ -16,10 +16,21 @@ public final class KnockdownTests {
         Checks.run("aFenceIsLookedForAlongItsOwnEdge", KnockdownTests::aFenceIsLookedForAlongItsOwnEdge);
         Checks.run("aFenceFallsAwayFromTheVehicleAndTheEndThatHitIsDamaged", KnockdownTests::aFenceFallsAwayFromTheVehicleAndTheEndThatHitIsDamaged);
         Checks.run("onlyTheStreetLampOverAPostGoesWithIt", KnockdownTests::onlyTheStreetLampOverAPostGoesWithIt);
+        Checks.run("aloneBushesDoNotSlowACarAndTheEngineIsWholeOffTheRoad", KnockdownTests::aloneBushesDoNotSlowACarAndTheEngineIsWholeOffTheRoad);
     }
 
     private static void check(boolean condition, String what) {
         Checks.check(condition, what);
+    }
+
+    private static void aloneBushesDoNotSlowACarAndTheEngineIsWholeOffTheRoad() {
+        check(Knockdown.brushedThrough(false, true, false), "alone a car goes through what only slows it unslowed");
+        check(!Knockdown.brushedThrough(true, true, false), "on a server the game slows it");
+        check(!Knockdown.brushedThrough(false, true, true), "a thing a car can also hit is the game's to handle");
+        check(!Knockdown.brushedThrough(false, false, false), "and a thing that does not slow a car is nothing to go through");
+        check(!Knockdown.engineHeldOffRoad(false, true), "alone the engine gives all of itself off the road");
+        check(Knockdown.engineHeldOffRoad(true, true), "on a server the game holds it back off the road");
+        check(!Knockdown.engineHeldOffRoad(true, false), "and on the road it never is");
     }
 
     private static void fencesAndPostsAreKnockedDownAndNothingElse() {

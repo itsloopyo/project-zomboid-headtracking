@@ -561,7 +561,12 @@ public final class Hooks {
 
     /** Whether a vehicle knocked down the thing it met, so the game's own handling of the meeting is passed over. */
     public static boolean knockedDown(IsoObject thing, IsoObject by) {
-        return by instanceof BaseVehicle vehicle && CarSmash.struck(thing, vehicle);
+        return by instanceof BaseVehicle vehicle && (CarSmash.struck(thing, vehicle) || CarSmash.brushedThrough(thing));
+    }
+
+    /** Called with what the game's off-road check reads where CarController.update sets the engine's force. */
+    public static boolean offRoadEngine(boolean offRoad) {
+        return Knockdown.engineHeldOffRoad(Online.joined(), offRoad);
     }
 
     /** Knocks down what a vehicle is about to meet. */

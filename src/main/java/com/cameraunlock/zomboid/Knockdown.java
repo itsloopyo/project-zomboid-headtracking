@@ -30,6 +30,26 @@ final class Knockdown {
         return !online && engineRunning && Math.abs(kmh) > WALKING_KMH && Math.abs(kmh) <= MOST_KMH;
     }
 
+    /**
+     * Whether a vehicle goes through a thing the game marks only as slowing a car (CarSlowFactor
+     * and not HitByCar: bushes, shrubs and other growth) without being slowed: alone it does, as
+     * in an open-world driving game. The game pushes back on a car by its speed and that factor at
+     * every one it meets.
+     */
+    static boolean brushedThrough(boolean online, boolean slows, boolean hitByCar) {
+        return !online && slows && !hitByCar;
+    }
+
+    /**
+     * Whether the engine gives less off the road, as the game's own off-road check says it does:
+     * there it cuts the engine's force to 0.6 of itself and less in the higher gears, times the
+     * vehicle's off-road efficiency. Alone it does not; the softer grip and the bumps off the road
+     * are left as the game has them.
+     */
+    static boolean engineHeldOffRoad(boolean online, boolean offRoad) {
+        return online && offRoad;
+    }
+
     /** Whether a vehicle is going faster than any vehicle goes, or at a speed that is no number. */
     static boolean flung(float kmh) {
         return !(Math.abs(kmh) <= MOST_KMH);

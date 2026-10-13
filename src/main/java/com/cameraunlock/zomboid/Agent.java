@@ -622,7 +622,11 @@ public final class Agent {
                             code.aload(2);
                             CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "knockedDown", "(L" + object + ";L" + object + ";)Z"));
                             code.ifThen(Opcode.IFNE, CodeBuilder::return_);
-                        })));
+                        })),
+                new Patch("zombie/core/physics/CarController", "update's off-road engine force", classBytes -> CallSite.insertAfterEach(classBytes,
+                        new CallSite.Method("zombie/core/physics/CarController", "update", "()V"),
+                        new CallSite.Method(vehicle, "isDoingOffroad", "()Z"),
+                        new CallSite.Method(HOOKS, "offRoadEngine", "(Z)Z"), 1)));
     }
 
     /**
