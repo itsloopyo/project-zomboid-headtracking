@@ -462,7 +462,7 @@ abstract class OwnGun {
 
         GL11.glDisable(GL_DEPTH_TEST);
         GL30.glBindVertexArray(0);
-        GL20.glUseProgram(0);
+        Program.useOther(0);
     }
 
     private void drawParts() {

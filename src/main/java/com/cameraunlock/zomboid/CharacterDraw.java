@@ -1081,7 +1081,7 @@ final class CharacterDraw {
                 lightWay[light] = GL20.glGetUniformLocation(id, "uLightWay[" + light + "]");
                 lightColor[light] = GL20.glGetUniformLocation(id, "uLightColor[" + light + "]");
             }
-            GL20.glUseProgram(id);
+            Program.useOther(id);
             GL20.glUniform1i(GL20.glGetUniformLocation(id, "uTexture"), 0);
         }
     }
@@ -1568,7 +1568,7 @@ final class CharacterDraw {
         GL11.glDepthFunc(GL_LEQUAL);
         GL11.glDepthMask(true);
         GL11.glDisable(GL_BLEND);
-        GL20.glUseProgram(sleeve);
+        Program.useOther(sleeve);
         for (int joint = 0; joint < 3; joint++) {
             GL20.glUniform3f(sleeveJoint[joint], joints[joint * 3], joints[joint * 3 + 1], joints[joint * 3 + 2]);
         }
@@ -1719,7 +1719,7 @@ final class CharacterDraw {
 
         Skin skin = cutBones != null ? cut : divided != null && !shadow && away < WHOLE_BEYOND + PERSON_REACHES ? divided : whole;
         if (skin.id != programInUse) {
-            GL20.glUseProgram(skin.id);
+            Program.useOther(skin.id);
             programInUse = skin.id;
         }
         GL20.glUniform1f(skin.inside, inside);
@@ -1893,7 +1893,7 @@ final class CharacterDraw {
             cutArm = GL20.glGetUniformLocation(pieces, "uArm");
             cutKeep = GL20.glGetUniformLocation(pieces, "uKeepArms");
             sleeve = arm;
-            GL20.glUseProgram(arm);
+            Program.useOther(arm);
             GL20.glUniform1i(GL20.glGetUniformLocation(arm, "uTexture"), 0);
             sleeveBend = GL20.glGetUniformLocation(arm, "uBend");
             sleeveCuff = GL20.glGetUniformLocation(arm, "uCuff");

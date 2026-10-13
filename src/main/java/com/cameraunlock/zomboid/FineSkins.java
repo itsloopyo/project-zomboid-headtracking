@@ -981,6 +981,7 @@ public final class FineSkins {
             GL30.glBindVertexArray(arrays);
             GL15.glBindBuffer(GL_ARRAY_BUFFER, vertices);
             GL15.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, elements);
+            // The program current before, so Program's note of which of its own is current holds again.
             GL20.glUseProgram(program);
             Texture.lastTextureID = remembered;
         }

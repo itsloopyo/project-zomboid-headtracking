@@ -42,7 +42,7 @@ final class SmallProgram {
         if (id == 0) {
             return false;
         }
-        GL20.glUseProgram(id);
+        Program.useOther(id);
         return true;
     }
 

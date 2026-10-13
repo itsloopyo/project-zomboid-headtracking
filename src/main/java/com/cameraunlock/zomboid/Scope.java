@@ -703,7 +703,7 @@ final class Scope {
         float metre = unit(a);
         if (!(metre > 0f)) {
             // The view the weapon is held in has no size: there is nothing to draw, and nothing measured from it is kept.
-            GL20.glUseProgram(0);
+            Program.useOther(0);
             return;
         }
         ViewModelMath.turned(model, TOP, b);
@@ -783,7 +783,7 @@ final class Scope {
 
         GL11.glDisable(GL_DEPTH_TEST);
         GL30.glBindVertexArray(0);
-        GL20.glUseProgram(0);
+        Program.useOther(0);
 
         // Where the next frame's picture is drawn from: the objective, as it stands against the aim.
         ViewModelMath.place(model, 0f, glass.length() - ScopeModel.FRONT_GLASS_IN, ScopeModel.AXIS_UP, d);

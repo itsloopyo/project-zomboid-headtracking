@@ -832,6 +832,7 @@ final class Pipeline {
         frameNumber++;
 
         int program = bound(GL_CURRENT_PROGRAM);
+        Program.forgetInUse();
         int drawTarget = bound(GL_DRAW_FRAMEBUFFER_BINDING);
         int readTarget = bound(GL_READ_FRAMEBUFFER_BINDING);
         int vertexArray = bound(GL_VERTEX_ARRAY_BINDING);
@@ -899,7 +900,7 @@ final class Pipeline {
             GL11.glPopMatrix();
             GL11.glPopClientAttrib();
             GL11.glPopAttrib();
-            GL20.glUseProgram(program);
+            Program.useOther(program);
         }
         lastMillis = (System.nanoTime() - start) / 1e6f;
     }
@@ -4030,7 +4031,7 @@ final class Pipeline {
         glass.set("uGlassRain", (float) Quality.glassRain());
         glass.set("uGlassPull", view.glassPull.leanAhead, view.glassPull.leanAside, view.glassPull.front, view.glassPull.back);
         cabinDraw.drawGlass(cabinFrame);
-        GL20.glUseProgram(0);
+        Program.useOther(0);
     }
 
     /** Draws the mod's own interior over what of the body was lit outside it, in the light of the frame. */
@@ -4060,7 +4061,7 @@ final class Pipeline {
             m[2] * lamp[3] + m[6] * lamp[4] + m[10] * lamp[5] + m[14]};
         program.set("uGlowAt", glow[0], glow[1], glow[2]);
         cabinDraw.draw(cabinFrame, view.ride.instrumentsLit ? 0.9f * state.night : 0f, dome);
-        GL20.glUseProgram(0);
+        Program.useOther(0);
     }
 
     /** Has the next draw take bare triangles of the cabin, already in the cabin's own place on the screen, with nothing culled or blended. */
@@ -4456,6 +4457,7 @@ final class Pipeline {
 
     /** The frame's arrays and depth test again, after the game's own draw of a character into a shadow map. */
     private void resumeCasting() {
+        Program.forgetInUse();
         arrays();
         GL13.glActiveTexture(GL_TEXTURE0);
         GL11.glDisable(GL_CULL_FACE);
@@ -4468,6 +4470,7 @@ final class Pipeline {
 
     /** Nothing of the game's bound and no depth test, for a pass over the whole picture after the game's own draw of a character. */
     private static void resumeFlat() {
+        Program.forgetInUse();
         GL30.glBindVertexArray(0);
         GL15.glBindBuffer(GL_ARRAY_BUFFER, 0);
         GL13.glActiveTexture(GL_TEXTURE0);
@@ -4532,7 +4535,7 @@ final class Pipeline {
         GL14.glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ZERO, GL_ONE);
         if (ownCabinDrawn) {
             figureLight.set("uOwnCabin", 1f);
-            GL20.glUseProgram(0);
+            Program.useOther(0);
             drawOwnGlass(cameraForGlass, stateForGlass);
             figureLight.use();
         } else {

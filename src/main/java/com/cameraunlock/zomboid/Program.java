@@ -107,6 +107,7 @@ final class Program {
         Uniform uniform = changed(name, 1, value, 0, 0, 0);
         if (uniform != null) {
             GL20.glUniform1i(uniform.location, value);
+            uniform.sent(1, value, 0, 0, 0);
         }
     }
 
@@ -114,6 +115,7 @@ final class Program {
         Uniform uniform = changed(name, 1, bits(x), 0, 0, 0);
         if (uniform != null) {
             GL20.glUniform1f(uniform.location, x);
+            uniform.sent(1, bits(x), 0, 0, 0);
         }
     }
 
@@ -121,6 +123,7 @@ final class Program {
         Uniform uniform = changed(name, 2, bits(x), bits(y), 0, 0);
         if (uniform != null) {
             GL20.glUniform2f(uniform.location, x, y);
+            uniform.sent(2, bits(x), bits(y), 0, 0);
         }
     }
 
@@ -128,6 +131,7 @@ final class Program {
         Uniform uniform = changed(name, 3, bits(x), bits(y), bits(z), 0);
         if (uniform != null) {
             GL20.glUniform3f(uniform.location, x, y, z);
+            uniform.sent(3, bits(x), bits(y), bits(z), 0);
         }
     }
 
@@ -135,6 +139,7 @@ final class Program {
         Uniform uniform = changed(name, 4, bits(x), bits(y), bits(z), bits(w));
         if (uniform != null) {
             GL20.glUniform4f(uniform.location, x, y, z, w);
+            uniform.sent(4, bits(x), bits(y), bits(z), bits(w));
         }
     }
 
@@ -142,6 +147,7 @@ final class Program {
         Uniform uniform = changed(name, matrix);
         if (uniform != null) {
             GL20.glUniformMatrix4fv(uniform.location, false, matrix);
+            uniform.sent(matrix);
         }
     }
 
@@ -150,6 +156,7 @@ final class Program {
         Uniform uniform = changed(name, matrix);
         if (uniform != null) {
             GL20.glUniformMatrix3fv(uniform.location, false, matrix);
+            uniform.sent(matrix);
         }
     }
 
@@ -158,6 +165,7 @@ final class Program {
         Uniform uniform = changed(name, values);
         if (uniform != null) {
             GL20.glUniform1fv(uniform.location, values);
+            uniform.sent(values);
         }
     }
 
@@ -166,6 +174,7 @@ final class Program {
         Uniform uniform = changed(name, values);
         if (uniform != null) {
             GL20.glUniform4fv(uniform.location, values);
+            uniform.sent(values);
         }
     }
 
@@ -174,16 +183,32 @@ final class Program {
         Uniform uniform = changed(name, values);
         if (uniform != null) {
             GL20.glUniform3fv(uniform.location, values);
+            uniform.sent(values);
         }
     }
 
     /**
-     * The program that use made current last. Programs keep their uniforms while others are in
-     * use, so a value sent once stands until it is sent again, and set sends only what differs from
-     * it. That holds while every value is sent with its own program current: set to a program that
-     * is not would land in the one that is.
+     * The program that use made current last, or 0 once anything else has been made current.
+     * Programs keep their uniforms while others are in use, so a value sent once stands until it
+     * is sent again, and set sends only what differs from it. That holds while every value is
+     * sent with its own program current: set to a program that is not would land in the one that
+     * is, and set throws instead.
      */
     private static int inUse;
+
+    /**
+     * Makes current a program that is not one of these, or none with 0. Every other program the
+     * mod makes current goes through here, so that inUse never names a program that is not current.
+     */
+    static void useOther(int program) {
+        GL20.glUseProgram(program);
+        inUse = 0;
+    }
+
+    /** The game's own code may have made another program current since use: a frame's start and end, and after the game draws. */
+    static void forgetInUse() {
+        inUse = 0;
+    }
 
     private static int bits(float x) {
         return Float.floatToRawIntBits(x);
@@ -199,22 +224,6 @@ final class Program {
         if (held != null && held.length == count && held[0] == a && (count < 2 || held[1] == b) && (count < 3 || held[2] == c)
                 && (count < 4 || held[3] == d)) {
             return null;
-        }
-        if (!uniform.raw) {
-            if (held == null || held.length != count) {
-                held = new int[count];
-                uniform.held = held;
-            }
-            held[0] = a;
-            if (count > 1) {
-                held[1] = b;
-            }
-            if (count > 2) {
-                held[2] = c;
-            }
-            if (count > 3) {
-                held[3] = d;
-            }
         }
         return uniform;
     }
@@ -232,15 +241,6 @@ final class Program {
             }
             if (i == values.length) {
                 return null;
-            }
-        }
-        if (!uniform.raw) {
-            if (held == null || held.length != values.length) {
-                held = new int[values.length];
-                uniform.held = held;
-            }
-            for (int i = 0; i < values.length; i++) {
-                held[i] = bits(values[i]);
             }
         }
         return uniform;
@@ -265,6 +265,38 @@ final class Program {
 
         Uniform(int location) {
             this.location = location;
+        }
+
+        /** Notes values the driver has just been given, as changed takes them. */
+        void sent(int count, int a, int b, int c, int d) {
+            if (raw) {
+                return;
+            }
+            if (held == null || held.length != count) {
+                held = new int[count];
+            }
+            held[0] = a;
+            if (count > 1) {
+                held[1] = b;
+            }
+            if (count > 2) {
+                held[2] = c;
+            }
+            if (count > 3) {
+                held[3] = d;
+            }
+        }
+
+        void sent(float[] values) {
+            if (raw) {
+                return;
+            }
+            if (held == null || held.length != values.length) {
+                held = new int[values.length];
+            }
+            for (int i = 0; i < values.length; i++) {
+                held[i] = bits(values[i]);
+            }
         }
     }
 }

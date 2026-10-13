@@ -340,10 +340,10 @@ final class OwnArms {
         dirtAt = GL20.glGetUniformLocation(id, "uDirt");
         snowAt = GL20.glGetUniformLocation(id, "uSnowOn");
         upAt = GL20.glGetUniformLocation(id, "uUpSeen");
-        GL20.glUseProgram(id);
+        Program.useOther(id);
         GL20.glUniform1i(GL20.glGetUniformLocation(id, "uColour"), COLOUR_UNIT);
         GL20.glUniform1i(GL20.glGetUniformLocation(id, "uSurface"), SURFACE_UNIT);
-        GL20.glUseProgram(0);
+        Program.useOther(0);
         bonesAt = GL20.glGetUniformLocation(id, "uBones[0]");
     }
 
@@ -487,7 +487,7 @@ final class OwnArms {
         GL11.glDepthFunc(GL_LESS);
         GL11.glDepthMask(true);
         GL11.glDisable(GL_BLEND);
-        GL20.glUseProgram(program);
+        Program.useOther(program);
         GL20.glUniformMatrix4fv(projectionAt, false, projection);
         loaded.clear();
         loaded.put(at, 0, 16).flip();
@@ -597,7 +597,7 @@ final class OwnArms {
         GL11.glDepthFunc(GL_LESS);
         GL11.glDepthMask(true);
         GL11.glDisable(GL_BLEND);
-        GL20.glUseProgram(program);
+        Program.useOther(program);
         GL20.glUniformMatrix4fv(projectionAt, false, projection);
         loaded.clear();
         loaded.put(skins, 0, model.bones.length * 16).flip();
