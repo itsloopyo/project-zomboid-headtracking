@@ -232,6 +232,21 @@ final class KerbTests {
         geometry.kerbKeep = SpriteGeometry.LAND;
         geometry.addFace(mesh, frame, 3, 3, 0, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f, 0f);
         check(Math.abs(areaAt(mesh, 1f, 1f) - land) < 1e-5f, "a floor that ends at the kerb is the land's part alone");
+
+        // The square is cut once for all the layers of its ground, and again for another kerb.
+        SpriteGeometry.Mesh layer = new SpriteGeometry.Mesh();
+        geometry.addFace(layer, frame, 3, 3, 0, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f, 0f);
+        check(Arrays.equals(Arrays.copyOf(mesh.vertices, mesh.floats), Arrays.copyOf(layer.vertices, layer.floats)), "every layer of a floor is cut as the first was");
+        geometry.kerbKeep = SpriteGeometry.BOTH;
+        geometry.kerb = field((x, y) -> x >= 4 || y >= 5);
+        SpriteGeometry.Mesh other = new SpriteGeometry.Mesh(), otherLongWay = new SpriteGeometry.Mesh();
+        geometry.addFace(other, frame, 3, 3, 0, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f, 0f);
+        geometry.afresh = true;
+        geometry.addFace(otherLongWay, frame, 3, 3, 0, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f, 0f);
+        geometry.afresh = false;
+        check(!Arrays.equals(Arrays.copyOf(longWay.vertices, longWay.floats), Arrays.copyOf(other.vertices, other.floats))
+                && Arrays.equals(Arrays.copyOf(other.vertices, other.floats), Arrays.copyOf(otherLongWay.vertices, otherLongWay.floats)),
+                "and a square another kerb crosses is cut by that kerb");
     }
 
     /**

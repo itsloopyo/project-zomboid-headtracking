@@ -730,8 +730,12 @@ final class SpriteGeometry {
         float[] from = result;
         if (kerb != null && tileZ == 0 && up1 == 0f && up2 == 0f && h < LAID_BELOW) {
             int before = mesh.triangles();
-            System.arraycopy(from, 0, split[0], 0, count * CORNER_FLOATS);
-            split(mesh, frame, tileX, tileY, 0, count, 0, 0, Kerbs.FINE);
+            if (wholeSquare(from, count)) {
+                laySquare(mesh, frame, tileX, tileY, h);
+            } else {
+                System.arraycopy(from, 0, split[0], 0, count * CORNER_FLOATS);
+                split(mesh, frame, tileX, tileY, 0, count, 0, 0, Kerbs.FINE);
+            }
             return mesh.triangles() - before;
         }
         fan(mesh, frame, tileX, tileY, tileZ, from, count);
@@ -832,8 +836,12 @@ final class SpriteGeometry {
                 addSide(mesh, frame, tileX, tileY, half, kept, here > 0f ? STREET : LAND);
                 continue;
             }
-            addSide(mesh, frame, tileX, tileY, part, cut(half, kept, part, perA, perB, atOrigin, true), STREET);
-            addSide(mesh, frame, tileX, tileY, part, cut(half, kept, part, perA, perB, atOrigin, false), LAND);
+            if (kerbKeep != LAND) {
+                addSide(mesh, frame, tileX, tileY, part, cut(half, kept, part, perA, perB, atOrigin, true), STREET);
+            }
+            if (kerbKeep != STREET) {
+                addSide(mesh, frame, tileX, tileY, part, cut(half, kept, part, perA, perB, atOrigin, false), LAND);
+            }
         }
     }
 
@@ -851,9 +859,102 @@ final class SpriteGeometry {
         if (Math.abs(twice) < 1e-6f) {
             return;
         }
+        if (cutting) {
+            keepPiece(piece, count, side);
+            return;
+        }
         kerbSide = side;
         fan(mesh, frame, tileX, tileY, 0, piece, count);
         kerbSide = BOTH;
+    }
+
+    /**
+     * The pieces split cuts the whole of the square into, on both sides of the kerb, each its
+     * corners' a and b and which side it is on, in the order split adds them: worked out once for
+     * the square and the kerb across it, and laid again for every face of its ground. The kerb is
+     * the one through the square at the points of kerbField.
+     */
+    private float[] pieceCorners = new float[64];
+    private int[] pieceCount = new int[16], pieceSide = new int[16];
+    private int pieces, pieceFloats;
+    private final float[] kerbField = new float[(Kerbs.FINE + 1) * (Kerbs.FINE + 1)];
+    private boolean piecesKnown;
+    /** Whether split is keeping the pieces it cuts (keepPiece) and not adding them. */
+    private boolean cutting;
+    /** A piece being laid again, as split would have handed it to addSide. */
+    private final float[] laidPiece = new float[SPLIT_CORNERS * CORNER_FLOATS];
+
+    /** Whether the face of count corners is the whole square, from (0, 0) round by (1, 0). */
+    private static boolean wholeSquare(float[] face, int count) {
+        return count == 4 && face[0] == 0f && face[1] == 0f && face[CORNER_FLOATS] == 1f && face[CORNER_FLOATS + 1] == 0f
+                && face[2 * CORNER_FLOATS] == 1f && face[2 * CORNER_FLOATS + 1] == 1f && face[3 * CORNER_FLOATS] == 0f && face[3 * CORNER_FLOATS + 1] == 1f;
+    }
+
+    /**
+     * Adds the whole of the square, laid on the ground h levels up, as split does: by the pieces
+     * it cuts the square into, each piece's texels worked out from where its corners are.
+     */
+    private void laySquare(Mesh mesh, Frame frame, int tileX, int tileY, float h) {
+        boolean same = piecesKnown && !afresh;
+        for (int i = 0; i <= Kerbs.FINE && same; i++) {
+            for (int j = 0; j <= Kerbs.FINE; j++) {
+                same &= kerbField[i * (Kerbs.FINE + 1) + j] == kerb[(kerbX * Kerbs.FINE + i) * Kerbs.POINTS + kerbY * Kerbs.FINE + j];
+            }
+        }
+        if (!same) {
+            for (int i = 0; i <= Kerbs.FINE; i++) {
+                for (int j = 0; j <= Kerbs.FINE; j++) {
+                    kerbField[i * (Kerbs.FINE + 1) + j] = kerb[(kerbX * Kerbs.FINE + i) * Kerbs.POINTS + kerbY * Kerbs.FINE + j];
+                }
+            }
+            float[] square = split[0];
+            Arrays.fill(square, 0, 4 * CORNER_FLOATS, 0f);
+            square[CORNER_FLOATS] = square[2 * CORNER_FLOATS] = square[2 * CORNER_FLOATS + 1] = square[3 * CORNER_FLOATS + 1] = 1f;
+            pieces = 0;
+            pieceFloats = 0;
+            int keep = kerbKeep;
+            kerbKeep = BOTH;
+            cutting = true;
+            split(mesh, frame, tileX, tileY, 0, 4, 0, 0, Kerbs.FINE);
+            cutting = false;
+            kerbKeep = keep;
+            piecesKnown = true;
+        }
+        for (int piece = 0, from = 0; piece < pieces; from += 2 * pieceCount[piece], piece++) {
+            int side = pieceSide[piece];
+            if (kerbKeep != BOTH && kerbKeep != side) {
+                continue;
+            }
+            for (int corner = 0; corner < pieceCount[piece]; corner++) {
+                float a = pieceCorners[from + 2 * corner], b = pieceCorners[from + 2 * corner + 1];
+                int at = corner * CORNER_FLOATS;
+                laidPiece[at] = a;
+                laidPiece[at + 1] = b;
+                laidPiece[at + 2] = h;
+                laidPiece[at + CORNER_U] = frameU(frame, a, b);
+                laidPiece[at + CORNER_V] = frameV(frame, a, b, h);
+            }
+            kerbSide = side;
+            fan(mesh, frame, tileX, tileY, 0, laidPiece, pieceCount[piece]);
+            kerbSide = BOTH;
+        }
+    }
+
+    /** Keeps a piece split has cut, for laySquare. */
+    private void keepPiece(float[] piece, int count, int side) {
+        if (pieces == pieceCount.length) {
+            pieceCount = Arrays.copyOf(pieceCount, pieces * 2);
+            pieceSide = Arrays.copyOf(pieceSide, pieces * 2);
+        }
+        if (pieceFloats + 2 * count > pieceCorners.length) {
+            pieceCorners = Arrays.copyOf(pieceCorners, Math.max(pieceFloats + 2 * count, pieceCorners.length * 2));
+        }
+        for (int corner = 0; corner < count; corner++) {
+            pieceCorners[pieceFloats++] = piece[corner * CORNER_FLOATS];
+            pieceCorners[pieceFloats++] = piece[corner * CORNER_FLOATS + 1];
+        }
+        pieceCount[pieces] = count;
+        pieceSide[pieces++] = side;
     }
 
     /**
