@@ -72,21 +72,30 @@ final class Bleeding {
     }
 
     /**
-     * A mist of blood thrown out of a zombie at {@code high} tiles over its feet: the impacts'
-     * blood of a shot into flesh, {@code count} of them every way and {@code size} times a
-     * handgun round's. Drawn only by the first person picture, as a shot's is.
+     * A mist of blood thrown out of a zombie at {@code high} tiles over its feet by a shot from
+     * (fromX, fromY): the impacts' blood of a shot into flesh, {@code count} of them blown on the
+     * way the shot went, spread to either side and nearly level, and {@code size} times a handgun
+     * round's. Drawn only by the first person picture, as a shot's is, so its feet are
+     * where the picture stands them, on the land as the picture lifts it (ImpactFinder.flesh).
      */
-    static void mist(IsoZombie zombie, float high, int count, float size) {
-        if (zombie.getCurrentSquare() == null) {
+    static void mist(IsoZombie zombie, float high, int count, float size, float fromX, float fromY) {
+        View view = View.first();
+        if (zombie.getCurrentSquare() == null || view == null) {
             return;
         }
-        float x = zombie.getX(), y = zombie.getY(), floor = zombie.getZ() * ViewCamera.LEVEL_HEIGHT;
+        float x = zombie.getX(), y = zombie.getY();
+        float floor = zombie.getZ() * ViewCamera.LEVEL_HEIGHT + view.worldScene.terrain.lift(x, y, zombie.getZ());
+        float away = (float) Math.atan2(y - fromY, x - fromX);
         for (int i = 0; i < count; i++) {
-            float angle = random.nextFloat() * (float) (2 * Math.PI), rise = 0.2f + 0.8f * random.nextFloat(), flat = (float) Math.sqrt(1f - rise * rise);
+            float angle = away + (random.nextFloat() - 0.5f) * 2f * MIST_SPREAD, rise = MIST_LOWEST + (MIST_HIGHEST - MIST_LOWEST) * random.nextFloat();
+            float flat = (float) Math.sqrt(1f - rise * rise);
             float nx = flat * (float) Math.cos(angle), ny = flat * (float) Math.sin(angle);
             Impacts.add(new Impacts.Struck(x + nx * 0.1f, y + ny * 0.1f, floor + high, nx, ny, rise, -nx, -ny, -rise, floor, Impacts.FLESH, size, false, 0f, 0f, 1f));
         }
     }
+
+    /** How far to either side of the shot's way a mist is blown, in radians, and how far down and up, as the sine of it. */
+    static final float MIST_SPREAD = 1.4f, MIST_LOWEST = -0.2f, MIST_HIGHEST = 0.35f;
 
     /** Blood where a piece lands. */
     static void splash(float x, float y, float z) {

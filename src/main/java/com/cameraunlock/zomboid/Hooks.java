@@ -331,12 +331,12 @@ public final class Hooks {
             IsoPlayer shooter = IsoPlayer.getInstance();
             Stumps.bloody(zombie, limb, where);
             if (bursts) {
-                Bleeding.mist(zombie, high, 7, 3f);
+                Bleeding.mist(zombie, high, 7, 3f, shooter.getX(), shooter.getY());
                 Bleeding.spray(zombie, Bleeding.SPRAY * 3, Bleeding.SPRAY_REACH * 1.8f);
                 Pieces.burst(zombie, limb, where, shooter.getX(), shooter.getY());
             } else {
                 Bleeding.spray(zombie);
-                Bleeding.mist(zombie, high, 2, 1.5f);
+                Bleeding.mist(zombie, high, 2, 1.5f, shooter.getX(), shooter.getY());
                 Pieces.cut(zombie, limb, where, shooter.getX(), shooter.getY());
             }
         }
@@ -445,6 +445,8 @@ public final class Hooks {
      */
     static final float BURSTS_FROM = 20f, POPS = 0.04f, BURSTS = 0.12f;
     static final float CLOSE_BLAST = 5f, CLOSE_BLAST_BURSTS = 0.8f;
+    /** How high a standing zombie's head is over its feet, in tiles, just under a standing eye (FirstPerson.EYE_HEIGHT_STANDING). */
+    static final float HEAD_HIGH = 1.55f;
     private static final java.util.Random chance = new java.util.Random();
 
     /** A head shot that killed: one that left the zombie far enough below no health may burst its head. */
@@ -468,11 +470,11 @@ public final class Hooks {
             Stumps.bloody(zombie, Wounds.HEAD, Wounds.UPPER);
             IsoPlayer shooter = IsoPlayer.getInstance();
             Pieces.cut(zombie, Wounds.HEAD, Wounds.UPPER, shooter.getX(), shooter.getY());
-            Bleeding.mist(zombie, zombie.isOnFloor() ? 0.3f : 1.15f, 3, 1.5f);
+            Bleeding.mist(zombie, zombie.isOnFloor() ? 0.3f : HEAD_HIGH, 3, 1.5f, from.getX(), from.getY());
             said = "its head comes off";
         } else if (roll < pops + bursts) {
             wounds.burst(zombie);
-            Bleeding.mist(zombie, zombie.isOnFloor() ? 0.3f : 1.2f, 7, 3f);
+            Bleeding.mist(zombie, zombie.isOnFloor() ? 0.3f : HEAD_HIGH, 7, 3f, from.getX(), from.getY());
             IsoPlayer shooter = IsoPlayer.getInstance();
             Pieces.burst(zombie, Wounds.HEAD, Wounds.UPPER, shooter.getX(), shooter.getY());
             Bleeding.spray(zombie, Bleeding.SPRAY * 3, Bleeding.SPRAY_REACH * 1.8f);
