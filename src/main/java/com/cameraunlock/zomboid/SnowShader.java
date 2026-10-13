@@ -21,16 +21,13 @@ final class SnowShader {
     private SnowShader() {}
 
     /**
-     * Where snow lies and how deep, for the world's fragment shader and for the vertex shaders
-     * that stand grass in it. It uses uSnowLying, which the shader it is joined into declares.
+     * What every shader that draws snow shares, on the ground or on a person or a vehicle: its
+     * colour and the noise its unevenness is made of.
      */
-    static final String COVER = """
-            // How deep snow lies where it covers the ground, in tiles, for each 1 of uSnowLying: what grows there stands in it that far.
-            const float SNOW_DEPTH = 0.45;
-            // How much thinner the snow is for each 1 of snowShelter.
-            const float SNOW_SHELTERED = 1.3;
-            // Set by the caller: how much of the sky is hidden from the place by what stands over it, 0 to 1.
-            float snowShelter = 0.0;
+    static final String BASICS = """
+            // Snow on its tops and down in its hollows. Whiter than this, a field of it in the
+            // sun is past what the picture can show and its shape is lost in the glare.
+            const vec3 SNOW_WHITE = vec3(0.82, 0.845, 0.89), SNOW_HOLLOW = vec3(0.6, 0.69, 0.86);
 
             // A number from 0 to 1 for each cell of the snow's unevenness, with no pattern from one cell to the next.
             // It is the hash12 of Hash without Sine, as the world shader's facHash is (THIRD-PARTY-NOTICES.md), which a vertex shader does not have.
@@ -38,12 +35,6 @@ final class SnowShader {
                 vec3 q = fract(vec3(p.xyx) * 0.1031);
                 q += dot(q, q.yzx + 33.33);
                 return fract((q.x + q.y) * q.z);
-            }
-
-            // How much of an unevenness of that many cells to a tile can be drawn where a pixel
-            // covers foot tiles: finer than two pixels to a cell it would only crawl.
-            float snowDrawn(float foot, float size) {
-                return 1.0 - smoothstep(0.2, 0.5, foot * size);
             }
 
             // Smooth noise at a place and how fast it changes each way. The corner vPlace is
@@ -58,6 +49,26 @@ final class SnowShader {
                 float c = snowHash(mod(cell + vec2(0.0, 1.0), wrap) + seed), d = snowHash(mod(cell + vec2(1.0, 1.0), wrap) + seed);
                 float k = a - b - c + d;
                 return vec3(a + (b - a) * u.x + (c - a) * u.y + k * u.x * u.y, du * vec2(b - a + k * u.y, c - a + k * u.x));
+            }
+
+            """;
+
+    /**
+     * Where snow lies and how deep, for the world's fragment shader and for the vertex shaders
+     * that stand grass in it. It uses uSnowLying, which the shader it is joined into declares.
+     */
+    static final String COVER = BASICS + """
+            // How deep snow lies where it covers the ground, in tiles, for each 1 of uSnowLying: what grows there stands in it that far.
+            const float SNOW_DEPTH = 0.45;
+            // How much thinner the snow is for each 1 of snowShelter.
+            const float SNOW_SHELTERED = 1.3;
+            // Set by the caller: how much of the sky is hidden from the place by what stands over it, 0 to 1.
+            float snowShelter = 0.0;
+
+            // How much of an unevenness of that many cells to a tile can be drawn where a pixel
+            // covers foot tiles: finer than two pixels to a cell it would only crawl.
+            float snowDrawn(float foot, float size) {
+                return 1.0 - smoothstep(0.2, 0.5, foot * size);
             }
 
             // One size of unevenness, so many of its cells to a tile: sixty times that has to be a whole number.
@@ -217,9 +228,6 @@ final class SnowShader {
             const float SNOW_STEEP = 4.5;
             // How deep under its tops a lump's hollow is drawn, in tiles: see snowSunk.
             const float SNOW_DEEP = 0.05;
-            // Snow on its tops and down in its hollows. Whiter than this, a field of it in the
-            // sun is past what the picture can show and its shape is lost in the glare.
-            const vec3 SNOW_WHITE = vec3(0.82, 0.845, 0.89), SNOW_HOLLOW = vec3(0.6, 0.69, 0.86);
             // How bright a crystal that throws the sun at the eye is, against the sun on white.
             const float SNOW_GLINT = 14.0;
             // What snowLaid found besides how much snow lies: the height of its surface in
@@ -489,4 +497,98 @@ final class SnowShader {
             }
 
             """;
+
+    /** The most of a person's upward faces snow covers: one who moves about holds no more than a dusting. */
+    static final float DUSTING = 0.8f;
+
+    /**
+     * Snow settled on a person, for the fragment shaders that draw people for the picture to
+     * light (CharacterDraw, OwnArms). How much has settled on the person drawn comes from
+     * FigureSnow, as uSnowOn: 0 in Low and wherever none falls.
+     */
+    static final String ON_PEOPLE = BASICS + String.format(Locale.ROOT, """
+            // How much snow has settled on the person drawn, 0 to 1, and the world's up as the eye sees it.
+            uniform float uSnowOn;
+            uniform vec3 uUpSeen;
+            const float SNOW_DUSTING = %.4f;
+
+            // How much snow lies at a point of a person, or of what they wear and hold, 0 to 1. up
+            // is how far the surface there faces up, and at where the point is on the body as it
+            // was made, so a flake stays where it settled as the body moves. Snow settles on what
+            // faces up, the crown of the head or a hat, the shoulders, the tops of the arms and of
+            // what is held, flake by flake and in little clumps that join as more settles.
+            float snowOnPerson(float up, vec2 at) {
+                if (uSnowOn <= 0.0) {
+                    return 0.0;
+                }
+                float top = smoothstep(0.35, 0.85, up);
+                float flakes = snowNoise(at * 24.0, vec2(4096.0), 51.0).x * 0.6 + snowNoise(at * 90.0, vec2(4096.0), 52.0).x * 0.4;
+                return SNOW_DUSTING * top * smoothstep(0.1, 0.45, uSnowOn * (0.45 + 0.5 * top) - 0.55 * flakes);
+            }
+
+            """, DUSTING);
+
+    /** The most vehicles the picture lays snow on at once, the nearest. */
+    static final int MOST_CARS = 16;
+
+    /**
+     * Snow on vehicles, for the pass that lights the picture's people and vehicles. Which
+     * vehicles stand where, and how much each carries, comes from Characters and FigureSnow.
+     */
+    static final String ON_VEHICLES = BASICS + String.format(Locale.ROOT, """
+            // The vehicles drawn, uCars of them: the ground under each one's middle and half its length, the
+            // way it faces and half its width, its own up and its height, and how much snow it
+            // carries on its roof and the rest of its top, on its bonnet and on its windscreen, 0 to
+            // 1 (see FigureSnow). uSatSnow is what the bonnet of the vehicle the viewer sits in carries.
+            uniform float uCars;
+            uniform vec4 uCarAt[%d];
+            uniform vec4 uCarAhead[%d];
+            uniform vec4 uCarUp[%d];
+            uniform vec4 uCarSnow[%d];
+            uniform float uSatSnow;
+
+            // How much snow lies on a panel of a vehicle that faces up so far, where lain of it has
+            // settled, 0 to 1, at on, a place counted on the vehicle in tiles, so the snow goes where
+            // the vehicle goes. It holds on what is nearly level, a roof, a bonnet, a boot lid, and
+            // the more has lain the steeper it holds, so a deep fall lies on a raked windscreen too.
+            // Thin, it lies in patches with the paint between; deep, it is one slab.
+            float snowOnPanel(float up, vec2 on, float lain) {
+                if (lain <= 0.0) {
+                    return 0.0;
+                }
+                float holds = smoothstep(0.55 - 0.25 * lain, 0.85 - 0.15 * lain, up);
+                float lumps = snowNoise(on * 2.5, vec2(4096.0), 61.0).x * 0.65 + snowNoise(on * 9.0, vec2(4096.0), 62.0).x * 0.35;
+                return smoothstep(0.05, 0.3, lain * holds * 1.3 - 0.3 * lumps);
+            }
+
+            // How much snow lies on a vehicle drawn at a point of it whose surface faces n, 0 to 1:
+            // what its roof, its bonnet or its windscreen carries, by where on it the point is, and
+            // none on the wheels, the sills and what is under them.
+            float snowOnVehicle(vec3 at, vec3 n) {
+                for (int i = 0; i < %d; i++) {
+                    if (float(i) >= uCars) {
+                        break;
+                    }
+                    vec3 ahead = uCarAhead[i].xyz, up = uCarUp[i].xyz;
+                    vec3 from = at - uCarAt[i].xyz;
+                    float along = dot(from, ahead), aside = dot(from, cross(up, ahead)), high = dot(from, up);
+                    float halfLength = uCarAt[i].w, wide = uCarAhead[i].w, tall = uCarUp[i].w;
+                    if (abs(along) > halfLength + 0.3 || abs(aside) > wide + 0.3 || high < -0.2 || high > tall + 0.4) {
+                        continue;
+                    }
+                    // The roof is the top of it, whatever is under it; ahead of the roof is the
+                    // bonnet, and between them the windscreen, steeper than the bonnet. Measured
+                    // on a CarNormal from this ground: sills 0.1 to 0.2 up, tyre tops about 0.4,
+                    // bonnet about 0.65, roof about 1.05 of its 1.18.
+                    float roof = smoothstep(0.82, 0.9, high / tall);
+                    float front = smoothstep(0.05, 0.3, along / halfLength) * (1.0 - roof);
+                    float screen = front * (1.0 - smoothstep(0.75, 0.9, n.z));
+                    vec4 carried = uCarSnow[i];
+                    float lain = mix(mix(carried.x, carried.y, front), carried.z, screen);
+                    return snowOnPanel(n.z, vec2(along, aside), lain) * smoothstep(0.4, 0.5, high);
+                }
+                return 0.0;
+            }
+
+            """, MOST_CARS, MOST_CARS, MOST_CARS, MOST_CARS, MOST_CARS);
 }

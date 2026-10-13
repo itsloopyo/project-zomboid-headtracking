@@ -5777,6 +5777,19 @@ final class PipelineShaders {
                 if (dot(n, view) < 0.0) {
                     n = -n;
                 }
+                // Snow lies on the tops of vehicles out in it, and on the bonnet seen from the seat:
+                // see snowOnVehicle. Where it lies it is the surface, white and facing up, and no lacquer.
+                float snowLies = 0.0;
+                if (bonnet > 0.5) {
+                    snowLies = snowOnPanel(n.z, (uSeat + inCabin((at - uEye) / CABIN)).xy * CABIN, uSatSnow);
+                } else if (uPainted > 0.5 && cabin < 0.5) {
+                    snowLies = snowOnVehicle(at, n);
+                }
+                if (snowLies > 0.0) {
+                    figure = vec4(mix(figure.rgb / max(figure.a, 0.001), SNOW_WHITE, snowLies), 1.0);
+                    n = normalize(mix(n, vec3(0.0, 0.0, 1.0), 0.6 * snowLies));
+                }
+                float lacquered = bonnet * (1.0 - snowLies);
 
                 // Stepped a little towards the light: the character is in the shadow map itself,
                 // and its lit side must not be shaded by its own skin.
@@ -5967,18 +5980,18 @@ final class PipelineShaders {
                 }
                 // The trim of a cabin is cloth and dull plastic, whatever the body outside is.
                 // In the modes that mirror nothing, paint takes the sky and the sun as cloth does.
-                float lacquer = uPainted * (1.0 - roofed) * uShines;
+                float lacquer = uPainted * (1.0 - roofed) * uShines * (1.0 - snowLies);
                 float glancing = 0.04 + 0.96 * pow(clamp(1.0 - dot(n, view), 0.0, 1.0), 5.0);
                 // The bonnet is seen from the seat at a glance, where lacquer mirrors most and
                 // shows least of the paint under it.
-                color *= 1.0 - 0.45 * glancing * bonnet * uShines;
+                color *= 1.0 - 0.45 * glancing * lacquered * uShines;
                 color += skyBack * mix(0.22 * glance, 0.1 + 0.6 * glance, lacquer) * (1.0 - 0.7 * roofed) * (1.0 - 0.6 * bonnet) * (1.0 - housed);
                 // Cloth and skin scatter the sun and do not mirror it: with a hard glint a sleeve is a
                 // length of rubber hose.
                 color += sunLight * (pow(max(dot(back, uLight), 0.0), mix(48.0, 260.0, lacquer)) * mix(0.45 * (1.0 - 0.85 * bare), 3.0, lacquer) * sun) * (1.0 - housed);
                 // The sky lies along it, and the sun in it is a broad soft light round the
                 // small hard one.
-                color += bonnet * uShines * (skyBack * (0.3 * glancing) + sunLight * (pow(max(dot(back, uLight), 0.0), 22.0) * 0.5 * sun));
+                color += lacquered * uShines * (skyBack * (0.3 * glancing) + sunLight * (pow(max(dot(back, uLight), 0.0), 22.0) * 0.5 * sun));
                 if (worn < 2.5) {
                     // A person the picture drew, by what each point of them is made of, in
                     // the light the world round them has: the game's light for the square
@@ -6010,7 +6023,7 @@ final class PipelineShaders {
                 }
                 // Alpha says how much of a mirror the surface is, 1 for none: the last pass
                 // traces what the bonnet's lacquer shows of the world over it.
-                gl_FragData[0] = vec4(color, 1.0 - 0.5 * bonnet * uShines);
+                gl_FragData[0] = vec4(color, 1.0 - 0.5 * lacquered * uShines);
                 // The viewer's own body and vehicle are drawn with a depth of their own. Here
                 // it is put into the picture's depth, in the picture's own measure, so that
                 // what is worked out from depth afterwards, the shade in corners and the

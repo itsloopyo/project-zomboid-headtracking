@@ -619,7 +619,7 @@ final class CharacterDraw {
             FROM_LAST vec3 vEye;
             FROM_LAST float vStump;
 
-            """ + HUE + KEPT + GRAIN + """
+            """ + HUE + KEPT + GRAIN + SnowShader.ON_PEOPLE + """
             float grey(vec3 color) {
                 return dot(color, vec3(0.299, 0.587, 0.114));
             }
@@ -858,6 +858,19 @@ final class CharacterDraw {
                         vec2 finish = wear < 2.5 ? vec2(0.05, 0.5) : wear < 3.5 ? vec2(0.07, 0.3) : wear < 4.5 ? vec2(0.02, 0.9) : wear < 5.5 ? vec2(0.6, 0.0) : vec2(0.45, 0.0);
                         gloss = max(finish.x, 0.7 * blood);
                         low = finish.y * (1.0 - blood);
+                    }
+                }
+                // Snow settled on the person, by how far the surface faces up as it is made, not as
+                // its grain tilts it: where it lies thick it is what the surface is, and faces up.
+                float snowLies = snowOnPerson(dot(normalize(mat3(uModelView) * n), uUpSeen), vRest.xz);
+                if (snowLies > 0.0) {
+                    paint = mix(paint, SNOW_WHITE, snowLies);
+                    facing = normalize(facing + uUpSeen * snowLies);
+                    if (snowLies > 0.5) {
+                        hair = false;
+                        kind = 2.0;
+                        gloss = 0.0;
+                        low = 0.9;
                     }
                 }
                 vec2 kept = floor(folded(facing) * 255.0 + 0.5) / 255.0;
@@ -1172,6 +1185,9 @@ final class CharacterDraw {
     /** The game's light on the square the person begun stands on, or less than nought when nobody has said, and whether that square is out of doors. */
     private static float standsIn = -1f;
     private static boolean standsOut;
+    /** How much snow has settled on the person begun, and the world's up as the view they are drawn through sees it. */
+    private static float snowOn;
+    private static final float[] upSeen = {0f, 1f, 0f};
     private static final boolean TRACE = Boolean.getBoolean("cameraunlock.zomboid.trace");
     /** For each program, by its number, where its settings for what a part is made of live. */
     private static int[][] dressing = new int[0][];
@@ -1198,6 +1214,7 @@ final class CharacterDraw {
         shadow = casting;
         away = (float) Math.sqrt(standing[12] * standing[12] + standing[13] * standing[13] + standing[14] * standing[14]);
         standsIn = -1f;
+        snowOn = 0f;
         if (!off && !bare && !casting) {
             lights(data);
         }
@@ -1211,6 +1228,23 @@ final class CharacterDraw {
     static void stands(float light, boolean outside) {
         standsIn = Math.clamp(light, 0f, 1f);
         standsOut = outside;
+    }
+
+    /** How much snow has settled on the person begun, 0 to 1: see SnowCarried. Said after begin, or none is drawn on them. */
+    static void snowed(float dust) {
+        snowOn = dust;
+    }
+
+    /** The view the people are drawn through from here on, by columns: the world's up as it sees it is what snow settles on. */
+    static void looking(float[] view) {
+        upSeen[0] = view[8];
+        upSeen[1] = view[9];
+        upSeen[2] = view[10];
+    }
+
+    /** The world's up as the eye of the view people are drawn through sees it: see looking. */
+    static float[] upSeen() {
+        return upSeen;
     }
 
     /**
@@ -1278,7 +1312,8 @@ final class CharacterDraw {
         }
         if (dressing[program] == null) {
             dressing[program] = new int[] {GL20.glGetUniformLocation(program, "uWear"), GL20.glGetUniformLocation(program, "uThread"),
-                GL20.glGetUniformLocation(program, "uStands"), GL20.glGetUniformLocation(program, "uShell"), GL20.glGetUniformLocation(program, "uLift")};
+                GL20.glGetUniformLocation(program, "uStands"), GL20.glGetUniformLocation(program, "uShell"), GL20.glGetUniformLocation(program, "uLift"),
+                GL20.glGetUniformLocation(program, "uSnowOn"), GL20.glGetUniformLocation(program, "uUpSeen")};
         }
         return dressing[program];
     }
@@ -1289,6 +1324,8 @@ final class CharacterDraw {
         GL20.glUniform1f(at[0], wear);
         GL20.glUniform2f(at[1], lay[0], lay[1]);
         GL20.glUniform2f(at[2], standsIn, standsOut ? 1f : 0f);
+        GL20.glUniform1f(at[5], snowOn);
+        GL20.glUniform3f(at[6], upSeen[0], upSeen[1], upSeen[2]);
     }
 
     /** Tells the program in use which layer of a part is about to be drawn: nought is the part itself, the rest its fringe, outermost last. */

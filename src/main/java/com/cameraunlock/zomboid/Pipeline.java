@@ -187,7 +187,7 @@ final class Pipeline {
      */
     private static final String WORLD_FRAGMENT_DEPTH = WORLD_FRAGMENT.replace(PipelineShaders.DEPTH_ONLY_ASKED, PipelineShaders.DEPTH_ONLY_ALWAYS);
     private static final String FIGURE_LIGHT = PipelineShaders.FIGURE_LIGHT_PARTS.concat(PipelineShaders.FIGURE_LIGHT_PANES).concat(VehicleLamps.GLSL).concat(CabinShader.SOLIDS).concat(CabinShader.LIGHT).concat(CabinShader.GLASS).concat(CabinGlass.FLARED)
-            .concat(CharacterDraw.LIT).concat(PipelineShaders.FIGURE_LIGHT_MAIN);
+            .concat(CharacterDraw.LIT).concat(SnowShader.ON_VEHICLES).concat(PipelineShaders.FIGURE_LIGHT_MAIN);
 
     /**
      * Why no view's picture can be drawn on this machine, or null: a piece of what they are all
@@ -667,6 +667,8 @@ final class Pipeline {
     private final FireDraw fires = new FireDraw();
     private static final String[] BEAM_AT = new String[Headlights.BEAMS], BEAM_WAY = new String[Headlights.BEAMS];
     private static final String[] ROOT_AT = new String[Characters.ROOTS];
+    /** uCarAt, uCarAhead, uCarUp and uCarSnow by the vehicle's number: see SnowShader.ON_VEHICLES. */
+    private static final String[][] CAR_AT = new String[4][SnowShader.MOST_CARS];
     private static final String[] PRINT_AT = new String[SnowPrints.PRINTS], RUT_AT = new String[SnowPrints.RUTS], RUT_UP_AT = new String[SnowPrints.RUTS];
     private final float[] snowPrints = new float[SnowPrints.PRINTS * 4], snowRuts = new float[SnowPrints.RUTS * 4], snowRutsUp = new float[SnowPrints.RUTS];
     private final float[] snowTrod = new float[6];
@@ -678,6 +680,12 @@ final class Pipeline {
         }
         for (int i = 0; i < ROOT_AT.length; i++) {
             ROOT_AT[i] = "uRoot[" + i + "]";
+        }
+        for (int i = 0; i < SnowShader.MOST_CARS; i++) {
+            CAR_AT[0][i] = "uCarAt[" + i + "]";
+            CAR_AT[1][i] = "uCarAhead[" + i + "]";
+            CAR_AT[2][i] = "uCarUp[" + i + "]";
+            CAR_AT[3][i] = "uCarSnow[" + i + "]";
         }
         for (int i = 0; i < Movers.MOST; i++) {
             MOVER_AT[i] = "uMover[" + i + "]";
@@ -3470,6 +3478,23 @@ final class Pipeline {
         quad();
     }
 
+    /**
+     * Tells the people's light which vehicles the pass just drew stand where and how much snow
+     * each carries, or that it drew none, and what the bonnet of the vehicle sat in carries.
+     */
+    private void setCars(boolean drawn, float satBonnet) {
+        Characters people = view.characters;
+        int count = drawn ? people.carsFound : 0;
+        figureLight.set("uCars", (float) count);
+        for (int i = 0; i < count; i++) {
+            for (int part = 0; part < 4; part++) {
+                int at = i * Characters.CAR_FLOATS + part * 4;
+                figureLight.set(CAR_AT[part][i], people.cars[at], people.cars[at + 1], people.cars[at + 2], people.cars[at + 3]);
+            }
+        }
+        figureLight.set("uSatSnow", satBonnet);
+    }
+
     private void drawFigures(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect,
             float near, float far, float fogStart, float fogEnd) {
         // Flesh and cloth first, then painted metal, which is lit as lacquer.
@@ -3559,6 +3584,7 @@ final class Pipeline {
             }
             atmosphere(figureLight, state);
             figureLight.set("uPainted", pass == 1 ? 1f : 0f);
+            setCars(pass == 1, 0f);
             // With nothing drawn there is nothing to light. What the program was told stays told: the viewer's own body is lit by it next.
             if (drawn > 0) {
                 quad();
@@ -3683,6 +3709,7 @@ final class Pipeline {
             figureLight.set("uGlassPull", view.glassPull.leanAhead, view.glassPull.leanAside, view.glassPull.front, view.glassPull.back);
             figureLight.set("uGauges", view.ride.roadSpeed, view.ride.engineSpeed, view.ride.fuel);
             figureLight.set("uTime", state.seconds);
+            setCars(false, seated && view.ride.sat != null ? SnowCarried.on(view.ride.sat)[FigureSnow.BONNET] : 0f);
             float[] axes = view.characters.cabin.axes;
             figureLight.set("uBodyAhead", axes[0], axes[1], axes[2]);
             figureLight.set("uBodyAside", axes[3], axes[4], axes[5]);
@@ -4096,6 +4123,7 @@ final class Pipeline {
             figureLight.set("uRoots", 0f);
             atmosphere(figureLight, state);
             figureLight.set("uPainted", pass == 1 ? 1f : 0f);
+            setCars(pass == 1, 0f);
             quad();
         }
         GL11.glDepthMask(true);
@@ -4178,6 +4206,7 @@ final class Pipeline {
         figureLight.set("uRoots", 0f);
         atmosphere(figureLight, state);
         figureLight.set("uPainted", 0f);
+        setCars(false, 0f);
         quad();
         return true;
     }

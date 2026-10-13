@@ -362,9 +362,16 @@ public final class Characters {
         if (notingRoots) {
             rootsFound = 0;
         }
+        notingCars = vehicles;
+        if (notingCars) {
+            carsFound = 0;
+            carsFromX = camera.eyeX;
+            carsFromY = camera.eyeY;
+        }
         // Seen from outside the viewer is one of the people in the picture.
         ViewCamera.view(camera, eyeView);
         CharacterDraw.nearCut = scope ? 0f : CharacterDraw.NEAR_CUT;
+        CharacterDraw.looking(eyeView);
         int drawn = draw(eyeView, view.pipeline.outside, false, null, camera.eyeX, camera.eyeY, Float.MAX_VALUE);
         CharacterDraw.nearCut = 0f;
         drawnLast = vehicles ? drawnLast + drawn : drawn;
@@ -377,6 +384,7 @@ public final class Characters {
         byRoom = null;
         only = ALL;
         notingRoots = false;
+        notingCars = false;
         seenFrom = null;
         return drawn;
     }
@@ -453,7 +461,15 @@ public final class Characters {
         mirrorWayY = camera.forwardY;
         mirrorWide = tanHalfFieldOfView * aspect;
         ViewCamera.view(camera, eyeView);
+        CharacterDraw.looking(eyeView);
+        notingCars = vehicles;
+        if (notingCars) {
+            carsFound = 0;
+            carsFromX = camera.eyeX;
+            carsFromY = camera.eyeY;
+        }
         int drawn = draw(eyeView, false, false, null, camera.eyeX, camera.eyeY, vehicles ? MIRROR_VEHICLES : MIRROR_PEOPLE);
+        notingCars = false;
         mirrored = false;
         only = ALL;
         return drawn;
@@ -521,6 +537,8 @@ public final class Characters {
         IsoPlayer viewer = view.player();
         OwnArms.Worn worn = wornOnArms();
         float[] stains = view.ride.dress.stains;
+        // Under the vehicle's roof no snow falls on them.
+        OwnArms.snowed(0f);
         OwnArms.draw(projection, skins[0], false, viewer.isFemale(), view.ride.skin, false, worn, stains);
         OwnArms.draw(projection, skins[1], true, viewer.isFemale(), view.ride.skin, false, worn, stains);
     }
@@ -543,6 +561,7 @@ public final class Characters {
                 aboard(sat, at);
                 String script = view.ride.seatedIn;
                 ViewCamera.view(camera, eyeView);
+                CharacterDraw.looking(eyeView);
                 if (script != null && !parts(data).isEmpty()) {
                     multiply(projection, eyeView, combined);
                     VehicleMeshes.note(cabin, view.ride, script, parts(data).get(0), placed, view.pipeline.seatedAxes, WHEEL_SETTLES, view.pipeline.seatedX, view.pipeline.seatedY, groundUp,
@@ -805,6 +824,7 @@ public final class Characters {
         data.ambientG = 1f;
         data.ambientB = 1f;
         ViewCamera.view(camera, eyeView);
+        CharacterDraw.looking(eyeView);
         // Put back whatever the draw does: the other view's people are drawn by the same flag.
         CharacterDraw.fromTheEye = true;
         try {
@@ -836,6 +856,7 @@ public final class Characters {
             ViewCamera.projection(tanHalfFieldOfView, aspect, near, far, projection);
             aside(projection);
             ViewCamera.view(camera, eyeView);
+            CharacterDraw.looking(eyeView);
             OwnReflection.mirror(eyeView, glass);
             float red = data.ambientR, green = data.ambientG, blue = data.ambientB;
             reflectedLight = (red + green + blue) / 3f;
@@ -1496,6 +1517,7 @@ public final class Characters {
             drawPart(model, data);
         }
         if (ownArms) {
+            OwnArms.snowed(SnowCarried.on(data.character));
             OwnArms.Worn worn = wornOnArms();
             float[] stains = view.ride.dress.stains;
             OwnArms.draw(projection, armSkins[0], false, armFemale, armSkin, outside, worn, stains);
@@ -1511,6 +1533,7 @@ public final class Characters {
         }
         CharacterDraw.release();
         CharacterDraw.begin(data, handViews[0], projection, false, 0f);
+        CharacterDraw.snowed(SnowCarried.on(data.character));
         for (int part = 0; part < parts(data).size(); part++) {
             ModelInstanceRenderData model = parts(data).get(part);
             if (model.model == null || !model.model.isStatic) {
@@ -1519,6 +1542,7 @@ public final class Characters {
         }
         if (heldBoth) {
             CharacterDraw.begin(data, handViews[1], projection, false, 0f);
+            CharacterDraw.snowed(SnowCarried.on(data.character));
             for (int part = 0; part < parts(data).size(); part++) {
                 ModelInstanceRenderData model = parts(data).get(part);
                 if (model.model == null || !model.model.isStatic) {
@@ -1566,6 +1590,7 @@ public final class Characters {
             drawPart(model, data);
             EYE.End();
         }
+        OwnArms.snowed(SnowCarried.on(data.character));
         OwnArms.Worn worn = wornOnArms();
         float[] stains = view.ride.dress.stains;
         OwnArms.draw(projection, armSkins[0], false, armFemale, armSkin, outside, worn, stains);
@@ -1660,6 +1685,20 @@ public final class Characters {
     final float[] roots = new float[ROOTS * 4];
     int rootsFound;
     private boolean notingRoots;
+
+    /**
+     * The vehicles nearest the eye drawn into the view last drawn, for the snow on them
+     * (SnowShader.ON_VEHICLES), CAR_FLOATS each: the ground under the middle and half the length,
+     * the way it faces and half the width, its up and its height, what it carries by FigureSnow's
+     * ROOF, BONNET and SCREEN, and how far it is from the eye, squared.
+     */
+    static final int CAR_FLOATS = 16;
+    final float[] cars = new float[SnowShader.MOST_CARS * CAR_FLOATS];
+    int carsFound;
+    private boolean notingCars;
+    /** Where the eye stands that the vehicles noted are drawn for: the nearest are kept. */
+    private float carsFromX, carsFromY;
+    private final Vector3f carAhead = new Vector3f();
 
     /**
      * Read from a vehicle's model, its steering wheel comes out this much higher than the wheel
@@ -1859,6 +1898,9 @@ public final class Characters {
         if (!own && !casting) {
             lightWhere(data);
         }
+        if (!casting) {
+            CharacterDraw.snowed(SnowCarried.on(data.character));
+        }
         for (int part = 0; part < parts(data).size(); part++) {
             ModelInstanceRenderData model = parts(data).get(part);
             if (own && onHead(model.modelInstance)) {
@@ -2011,6 +2053,9 @@ public final class Characters {
     private void vehicle(ModelSlotRenderData data, int at, float[] viewMatrix) {
         if (data.object instanceof BaseVehicle standing) {
             aboard(standing, at);
+            if (notingCars) {
+                noteCar(standing);
+            }
         } else {
             place(stood[at], stood[at + 1], stood[at + 2] * ViewCamera.LEVEL_HEIGHT + view.worldScene.terrain.lift(stood[at], stood[at + 1], stood[at + 2]) + VEHICLE_RAISE,
                     stood[at + 3], VEHICLE_SCALE);
@@ -2058,6 +2103,63 @@ public final class Characters {
         }
         ModelCamera.instance = gameCamera;
         data.squareDepth = squareDepth;
+    }
+
+    /**
+     * Notes the vehicle aboard just placed for the snow on it, in place of the furthest noted
+     * when there is no room and it is nearer the eye. Its up is where placed takes the model's
+     * up, and the way it faces the game's own forward laid on the plane it is tipped onto.
+     */
+    private void noteCar(BaseVehicle vehicle) {
+        float toX = placed[12] - carsFromX, toY = placed[13] - carsFromY;
+        float away = toX * toX + toY * toY;
+        int slot = carsFound;
+        if (slot == SnowShader.MOST_CARS) {
+            slot = 0;
+            for (int i = 1; i < SnowShader.MOST_CARS; i++) {
+                if (cars[i * CAR_FLOATS + 15] > cars[slot * CAR_FLOATS + 15]) {
+                    slot = i;
+                }
+            }
+            if (cars[slot * CAR_FLOATS + 15] <= away) {
+                return;
+            }
+        } else {
+            carsFound++;
+        }
+        float upX = placed[4], upY = placed[5], up = placed[6];
+        float upLength = (float) Math.sqrt(upX * upX + upY * upY + up * up);
+        upX /= upLength;
+        upY /= upLength;
+        up /= upLength;
+        // The game's forward along the map, laid in the plane the vehicle is tipped onto. The model's
+        // own axes do not say it: the game's vehicle draw turns the model a quarter round from them.
+        vehicle.getForwardVector(carAhead);
+        float alongX = carAhead.x, alongY = carAhead.z;
+        float lift = alongX * upX + alongY * upY;
+        alongX -= upX * lift;
+        alongY -= upY * lift;
+        float alongUp = -up * lift;
+        float alongLength = (float) Math.sqrt(alongX * alongX + alongY * alongY + alongUp * alongUp);
+        Vector3f extents = vehicle.getScript().getExtents();
+        float[] snow = SnowCarried.on(vehicle);
+        int at = slot * CAR_FLOATS;
+        cars[at] = placed[12] - upX * VEHICLE_RAISE;
+        cars[at + 1] = placed[13] - upY * VEHICLE_RAISE;
+        cars[at + 2] = placed[14] - up * VEHICLE_RAISE;
+        cars[at + 3] = extents.z / 2f;
+        cars[at + 4] = alongX / alongLength;
+        cars[at + 5] = alongY / alongLength;
+        cars[at + 6] = alongUp / alongLength;
+        cars[at + 7] = extents.x / 2f;
+        cars[at + 8] = upX;
+        cars[at + 9] = upY;
+        cars[at + 10] = up;
+        cars[at + 11] = extents.y;
+        cars[at + 12] = snow[FigureSnow.ROOF];
+        cars[at + 13] = snow[FigureSnow.BONNET];
+        cars[at + 14] = snow[FigureSnow.SCREEN];
+        cars[at + 15] = away;
     }
 
     /** How each vehicle noted lies on the land this frame, by its slot. */

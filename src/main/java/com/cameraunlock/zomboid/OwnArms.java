@@ -87,7 +87,7 @@ final class OwnArms {
      * chance and chance3 are hash12 and hash13 of David Hoskins's Hash without Sine, used under
      * its MIT licence: the notice is in THIRD-PARTY-NOTICES.md.
      */
-    private static final String FRAGMENT = "#version 120\n" + CharacterDraw.KEPT + """
+    private static final String FRAGMENT = "#version 120\n" + CharacterDraw.KEPT + SnowShader.ON_PEOPLE + """
             uniform sampler2D uColour;
             uniform sampler2D uSurface;
             // What is drawn: 0 for skin, and for what is worn what CharacterDraw calls it, a weave, a knit or leather.
@@ -200,6 +200,11 @@ final class OwnArms {
                     paint = mix(mix(paint, paint * grime * 2.2, stain.y), gore * 0.8, stain.x * 0.9);
                     // How glossy what is worn is, and how much nap it has, as CharacterDraw has them.
                     vec2 finish = uWear < 2.5 ? vec2(0.05, 0.5) : uWear < 3.5 ? vec2(0.07, 0.3) : uWear < 4.5 ? vec2(0.02, 0.9) : uWear < 5.5 ? vec2(0.6, 0.0) : vec2(0.45, 0.0);
+                    // Snow settled on the sleeve or the glove, where it faces up: see snowOnPerson.
+                    float snowLies = snowOnPerson(dot(n, uUpSeen), vRest.xz);
+                    paint = mix(paint, SNOW_WHITE, snowLies);
+                    facing = normalize(facing + uUpSeen * snowLies);
+                    finish = mix(finish, vec2(0.0, 0.9), step(0.5, snowLies));
                     vec2 kept = floor(folded(facing) * 255.0 + 0.5) / 255.0;
                     float what = 128.0 + 64.0 + (uOutside > 0.5 ? 16.0 : 0.0) + floor(finish.y * 15.0 + 0.5);
                     gl_FragData[0] = vec4(clamp(paint, 0.0, 1.0), 1.0);
@@ -219,8 +224,14 @@ final class OwnArms {
                 float thin = 0.7 * smoothstep(2.35, 2.75, vAlong) * (1.0 - stain.x);
                 // A nail shines and skin does not, and blood shines.
                 float gloss = max(0.6 * smoothstep(0.55, 0.75, surface.b), 0.45 * stain.x);
+                // Snow settled on the back of the hand: where it lies thick it is what the surface is.
+                float snowLies = snowOnPerson(dot(n, uUpSeen), vRest.xz);
+                paint = mix(paint, SNOW_WHITE, snowLies);
+                facing = normalize(facing + uUpSeen * snowLies);
+                float snowy = step(0.5, snowLies);
+                gloss *= 1.0 - snowy;
                 vec2 kept = floor(folded(facing) * 255.0 + 0.5) / 255.0;
-                float what = 128.0 + 32.0 + (uOutside > 0.5 ? 16.0 : 0.0) + floor(thin * 15.0 + 0.5);
+                float what = 128.0 + 32.0 + 32.0 * snowy + (uOutside > 0.5 ? 16.0 : 0.0) + floor(mix(thin, 0.9, snowy) * 15.0 + 0.5);
                 gl_FragData[0] = vec4(clamp(paint, 0.0, 1.0), 1.0);
                 gl_FragData[1] = vec4(kept, gloss, what / 255.0);
             }
@@ -229,7 +240,9 @@ final class OwnArms {
     private static boolean tried;
     private static ArmModel model;
     private static int program, vertices, indices, colour, surface;
-    private static int projectionAt, femaleAt, toneAt, outsideAt, handedAt, wearAt, clothAt, spanAt, bloodAt, dirtAt;
+    private static int projectionAt, femaleAt, toneAt, outsideAt, handedAt, wearAt, clothAt, spanAt, bloodAt, dirtAt, snowAt, upAt;
+    /** How much snow has settled on the viewer, 0 to 1: see SnowCarried. */
+    private static float snowOn;
     /** The first of uBones: the rest follow it, so one call sets them all. */
     private static int bonesAt;
     private static final FloatBuffer loaded = ByteBuffer.allocateDirect(MOST_BONES * 16 * Float.BYTES).order(ByteOrder.nativeOrder()).asFloatBuffer();
@@ -325,6 +338,8 @@ final class OwnArms {
         spanAt = GL20.glGetUniformLocation(id, "uSpan");
         bloodAt = GL20.glGetUniformLocation(id, "uBlood");
         dirtAt = GL20.glGetUniformLocation(id, "uDirt");
+        snowAt = GL20.glGetUniformLocation(id, "uSnowOn");
+        upAt = GL20.glGetUniformLocation(id, "uUpSeen");
         GL20.glUseProgram(id);
         GL20.glUniform1i(GL20.glGetUniformLocation(id, "uColour"), COLOUR_UNIT);
         GL20.glUniform1i(GL20.glGetUniformLocation(id, "uSurface"), SURFACE_UNIT);
@@ -445,6 +460,18 @@ final class OwnArms {
         count[0]++;
     }
 
+    /** How much snow has settled on the viewer whose arms are drawn next, 0 to 1. */
+    static void snowed(float dust) {
+        snowOn = dust;
+    }
+
+    /** Tells the program in use how much snow is on the viewer, and the world's up as the eye of the view sees it. */
+    private static void snowed() {
+        float[] up = CharacterDraw.upSeen();
+        GL20.glUniform1f(snowAt, snowOn);
+        GL20.glUniform3f(upAt, up[0], up[1], up[2]);
+    }
+
     /**
      * Draws what a hand carries, as an arm is drawn.
      *
@@ -472,6 +499,7 @@ final class OwnArms {
         GL20.glUniform2f(spanAt, -1f, 4f);
         GL20.glUniform3f(bloodAt, 0f, 0f, 0f);
         GL20.glUniform3f(dirtAt, 0f, 0f, 0f);
+        snowed();
         GL20.glDrawBuffers(BOTH);
         GL15.glBindBuffer(GL_ARRAY_BUFFER, props);
         for (int attribute = 0; attribute < ATTRIBUTES.length; attribute++) {
@@ -582,6 +610,7 @@ final class OwnArms {
         int at = left ? 6 : 0;
         GL20.glUniform3f(bloodAt, stains[at], stains[at + 2], stains[at + 4]);
         GL20.glUniform3f(dirtAt, stains[at + 1], stains[at + 3], stains[at + 5]);
+        snowed();
         GL13.glActiveTexture(GL_TEXTURE0 + COLOUR_UNIT);
         GL11.glBindTexture(GL_TEXTURE_2D, colour);
         GL13.glActiveTexture(GL_TEXTURE0 + SURFACE_UNIT);

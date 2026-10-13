@@ -155,6 +155,13 @@ final class SkyState {
     static float snowLyingNow() {
         return Math.max(snowShown, 0f);
     }
+
+    private static volatile float snowFalling;
+
+    /** How hard snow falls, 0 to 1, as the pictures last had it. Any thread. */
+    static float snowFallingNow() {
+        return snowFalling;
+    }
     private static final long START_NANOS = System.nanoTime();
 
     String describe() {
@@ -266,6 +273,7 @@ final class SkyState {
 
         this.rain = climate.isSnowing() ? 0f : rain;
         snow = snowing;
+        snowFalling = snowing;
         long now = System.nanoTime();
         float lying = Math.clamp(climate.getSnowFracNow(), 0f, 1f);
         snowShown = shown(snowShown, lying, (now - lastNanos) / 1e9f, GameTime.isGamePaused());
