@@ -2229,6 +2229,8 @@ final class WorldScene {
         }
         /** The aim the held weapon is drawn on: see FirstPerson. */
         private final ViewCamera.Pose aim = new ViewCamera.Pose();
+        /** Where the eye the frame is drawn from is from the aim's: see ViewCamera.between. */
+        private final float[] eyeFromAim = new float[3];
         private float rightX, rightY;
         /**
          * Where the camera the frame is drawn from is, which is what an upright sprite is turned to
@@ -2487,13 +2489,14 @@ final class WorldScene {
         /**
          * @param pose               the eye and orientation the frame is drawn from, head tracking included
          * @param aimed              the aim, which the weapon in hand is held on
+         * @param eyeFromAim         where pose's eye is from aimed's, in the world's axes: see ViewCamera.between
          * @param tanHalfFieldOfView the tangent of half the vertical field of view the frame is drawn with
          * @param tanHalfSet         the tangent of half the vertical field of view the player set, which
          *                           the first is narrower than while a firearm is aimed
          * @param from               the camera the frame is drawn by when that is somewhere else, or null: see seenFrom
          * @param opened             the frame is the game's own view: what the game leaves out of that view is not built, and the walls it cuts away are cut
          */
-        void build(IsoPlayer player, ViewCamera.Pose pose, ViewCamera.Pose aimed, float tanHalfFieldOfView, float tanHalfSet,
+        void build(IsoPlayer player, ViewCamera.Pose pose, ViewCamera.Pose aimed, float[] eyeFromAim, float tanHalfFieldOfView, float tanHalfSet,
                 ViewCamera.Pose from, boolean opened) {
             long start = System.nanoTime();
             builtAt[view.index] = start;
@@ -2511,6 +2514,7 @@ final class WorldScene {
             facedX = fromOutside ? from.eyeX : pose.eyeX;
             facedY = fromOutside ? from.eyeY : pose.eyeY;
             aim.set(aimed);
+            System.arraycopy(eyeFromAim, 0, this.eyeFromAim, 0, 3);
             outside = false;
             opacity = 1f;
             seated = view.ride.seated;
@@ -6700,6 +6704,7 @@ final class WorldScene {
                         view.headTracking.zoomFactor(), near));
             }
             view.characters.aim.set(aim);
+            System.arraycopy(eyeFromAim, 0, view.characters.eyeFromAim, 0, 3);
             // What the picture does without for an eye thousands of tiles off, it has again once
             // the eye is as near as the place looked at is taken to be.
             view.pipeline.outside = outside;

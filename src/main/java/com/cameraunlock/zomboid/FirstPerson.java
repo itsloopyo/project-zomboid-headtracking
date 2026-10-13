@@ -142,6 +142,8 @@ public final class FirstPerson {
     private final float[] headTurn = new float[9], headJoint = new float[3], ledTilt = new float[9];
     /** The clean view as the mouse has it this frame, before the head takes any of it: the aim is made from it. */
     private final ViewCamera.Pose mouseView = new ViewCamera.Pose();
+    /** Where the tracked view's eye is from the aim's, and the flying camera's: see ViewCamera.between. */
+    private final float[] eyeFromAim = new float[3], flightFromAim = new float[3];
     /** Whether the game's own animation has the body this frame: see BodyLed. */
     private boolean bodyLeads;
     /** Whether the whole view is the head's while the game's animation has the body, and the mouse turns nothing. */
@@ -775,12 +777,22 @@ public final class FirstPerson {
         aimView.eyeX += carried[0];
         aimView.eyeY += carried[1];
         aimView.eyeUp += carried[2];
+        if (view.bodyLed.holding()) {
+            ViewCamera.eyeFrom(aimView, trackedView, eyeFromAim);
+        } else {
+            // From the lean itself, not from the two places: see ViewCamera.between. Apart from
+            // while the head leads, the clean view and the mouse's are the same.
+            float[] alone = view.headTracking.eyeAlone();
+            eyeFromAim[0] = cleanView.eyeX - mouseView.eyeX + alone[0];
+            eyeFromAim[1] = cleanView.eyeY - mouseView.eyeY + alone[1];
+            eyeFromAim[2] = cleanView.eyeUp - mouseView.eyeUp + alone[2];
+        }
         held = true;
         offSince = now;
         rehearsed = true;
         WorldScene.Frame scene = view.worldScene.next();
         if (landed) {
-            scene.build(player, trackedView, aimView, view.fieldOfView.tanHalfVertical(), FieldOfView.setTanHalfVertical(), null, false);
+            scene.build(player, trackedView, aimView, eyeFromAim, view.fieldOfView.tanHalfVertical(), FieldOfView.setTanHalfVertical(), null, false);
             view.hearing.face(trackedView, 0f, 1f);
         } else {
             fly(player, scene, floorUp);
@@ -825,12 +837,13 @@ public final class FirstPerson {
             standingView.eyeY = eye[1];
             standingView.eyeUp = eye[2];
             view.ride.seated = false;
-            scene.build(player, standingView, standingView, view.fieldOfView.tanHalfVertical(), FieldOfView.setTanHalfVertical(), flightView, false);
+            scene.build(player, standingView, standingView, ViewCamera.SAME_EYE, view.fieldOfView.tanHalfVertical(), FieldOfView.setTanHalfVertical(), flightView, false);
             scene.seenFrom(flightView, view.flight.tanHalfFieldOfView(), view.flight.away(), view.flight.share());
             scene.canopyWindow(canopyX, canopyY, floorUp, canopyAimed, canopyAimX, canopyAimY, canopyFaded, canopyFadedCount);
         } else {
             fromTheEye = true;
-            scene.build(player, flightView, aimView, view.flight.tanHalfFieldOfView(), FieldOfView.setTanHalfVertical(), null, false);
+            ViewCamera.eyeFrom(aimView, flightView, flightFromAim);
+            scene.build(player, flightView, aimView, flightFromAim, view.flight.tanHalfFieldOfView(), FieldOfView.setTanHalfVertical(), null, false);
         }
         scene.mixed(view.flight.shown());
     }
@@ -999,7 +1012,7 @@ public final class FirstPerson {
         WorldScene.Frame scene = view.worldScene.next();
         view.worldScene.rehearsing = true;
         try {
-            scene.build(player, standingView, standingView, view.fieldOfView.tanHalfVertical(), FieldOfView.setTanHalfVertical(), null, false);
+            scene.build(player, standingView, standingView, ViewCamera.SAME_EYE, view.fieldOfView.tanHalfVertical(), FieldOfView.setTanHalfVertical(), null, false);
         } finally {
             view.worldScene.rehearsing = false;
         }
@@ -1045,7 +1058,7 @@ public final class FirstPerson {
         scene.seenOnly(overheadView.eyeX + overheadView.forwardX * OVERHEAD_AWAY, overheadView.eyeY + overheadView.forwardY * OVERHEAD_AWAY,
                 overheadView.forwardX / flat, overheadView.forwardY / flat, halfWide, (float) (overheadHalfHigh / Math.sin(-OVERHEAD_PITCH)),
                 (float) (ViewCamera.LEVEL_HEIGHT / Math.tan(-OVERHEAD_PITCH)));
-        scene.build(player, standingView, standingView, view.fieldOfView.tanHalfVertical(), FieldOfView.setTanHalfVertical(), overheadView, true);
+        scene.build(player, standingView, standingView, ViewCamera.SAME_EYE, view.fieldOfView.tanHalfVertical(), FieldOfView.setTanHalfVertical(), overheadView, true);
         scene.seenFrom(overheadView, overheadHalfHigh / OVERHEAD_AWAY, OVERHEAD_AWAY, 0f);
         scene.canopyWindow(canopyX, canopyY, floorUp, canopyAimed, canopyAimX, canopyAimY, canopyFaded, canopyFadedCount);
         paceScene = scene;

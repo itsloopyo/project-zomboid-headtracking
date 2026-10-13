@@ -245,6 +245,7 @@ final class Pipeline {
     private int keptNow;
     private boolean keptAny;
     private final ViewCamera.Pose before = new ViewCamera.Pose(), aimBefore = new ViewCamera.Pose();
+    private final float[] eyeFromAimBefore = new float[3];
     /** How much of the last frame's picture goes into this one at the most: see STEADY for where it is less. */
     private static final float KEPT = 0.93f;
     /** Where in its pixel each frame of the cycle is drawn, from the middle, in pixels times two: the Halton points of bases 2 and 3. */
@@ -2408,11 +2409,12 @@ final class Pipeline {
         steady.set("uUpBefore", before.upX, before.upY, before.upUp);
         steady.set("uForwardBefore", before.forwardX, before.forwardY, before.forwardUp);
         ViewCamera.Pose aim = view.characters.aim;
-        steady.set("uAimEye", aim.eyeX, aim.eyeY, aim.eyeUp);
+        float[] eyeFromAim = view.characters.eyeFromAim;
+        steady.set("uEyeFromAim", eyeFromAim[0], eyeFromAim[1], eyeFromAim[2]);
         steady.set("uAimRight", aim.rightX, aim.rightY, aim.rightUp);
         steady.set("uAimUp", aim.upX, aim.upY, aim.upUp);
         steady.set("uAimForward", aim.forwardX, aim.forwardY, aim.forwardUp);
-        steady.set("uAimEyeBefore", aimBefore.eyeX, aimBefore.eyeY, aimBefore.eyeUp);
+        steady.set("uEyeFromAimBefore", eyeFromAimBefore[0], eyeFromAimBefore[1], eyeFromAimBefore[2]);
         steady.set("uAimRightBefore", aimBefore.rightX, aimBefore.rightY, aimBefore.rightUp);
         steady.set("uAimUpBefore", aimBefore.upX, aimBefore.upY, aimBefore.upUp);
         steady.set("uAimForwardBefore", aimBefore.forwardX, aimBefore.forwardY, aimBefore.forwardUp);
@@ -2436,6 +2438,7 @@ final class Pipeline {
         keptAny = true;
         before.set(camera);
         aimBefore.set(aim);
+        System.arraycopy(eyeFromAim, 0, eyeFromAimBefore, 0, 3);
         GL11.glDepthMask(true);
     }
 

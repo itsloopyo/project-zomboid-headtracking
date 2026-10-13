@@ -6747,11 +6747,12 @@ final class PipelineShaders {
             uniform vec3 uRightBefore;
             uniform vec3 uUpBefore;
             uniform vec3 uForwardBefore;
-            uniform vec3 uAimEye;
+            // Where the eye is from the aim's, now and a frame ago, in the world's axes: see ViewCamera.between.
+            uniform vec3 uEyeFromAim;
             uniform vec3 uAimRight;
             uniform vec3 uAimUp;
             uniform vec3 uAimForward;
-            uniform vec3 uAimEyeBefore;
+            uniform vec3 uEyeFromAimBefore;
             uniform vec3 uAimRightBefore;
             uniform vec3 uAimUpBefore;
             uniform vec3 uAimForwardBefore;
@@ -6835,17 +6836,22 @@ final class PipelineShaders {
                     }
                 }
                 vec2 ndc = nearest * 2.0 - 1.0;
-                vec3 at = uEye + (uForward + uRight * (ndc.x * uTan.x) + uUp * (ndc.y * uTan.y)) * ahead;
+                vec3 seen = (uForward + uRight * (ndc.x * uTan.x) + uUp * (ndc.y * uTan.y)) * ahead;
+                vec3 at = uEye + seen;
                 // What is held in the hands is not a thing of the world that stood still. It
                 // stands in the aim's view: it turns as the mouse turns the view and stays put
                 // on the picture, and it stays behind as the head turns from the aim. Where it
-                // was is where the same place of the aim's view then was.
+                // was is where the same place of the aim's view then was. It is measured from
+                // the eyes, not from places on the map, which a float holds to a millimetre there.
                 vec3 stood = at;
                 float moves = texture2D(uMoves, nearest).r;
                 bool lost = false;
-                if (ahead < uHeldWithin) {
-                    vec3 inAim = at - uAimEye;
-                    stood = uAimEyeBefore + uAimRightBefore * dot(inAim, uAimRight) + uAimUpBefore * dot(inAim, uAimUp) + uAimForwardBefore * dot(inAim, uAimForward);
+                bool inHands = ahead < uHeldWithin;
+                vec3 heldFrom = vec3(0.0);
+                if (inHands) {
+                    vec3 inAim = seen + uEyeFromAim;
+                    heldFrom = uAimRightBefore * dot(inAim, uAimRight) + uAimUpBefore * dot(inAim, uAimUp) + uAimForwardBefore * dot(inAim, uAimForward)
+                            - uEyeFromAimBefore;
                 } else if (moves > 0.25) {
                     // A person or a vehicle goes as a whole: where it stood and how it was
                     // turned a frame ago say where this point of it then was. It is the
@@ -6868,7 +6874,7 @@ final class PipelineShaders {
                         }
                     }
                 }
-                vec3 from = stood - uEyeBefore;
+                vec3 from = inHands ? heldFrom : stood - uEyeBefore;
                 float was = dot(from, uForwardBefore);
                 vec2 moved = vec2(dot(from, uRightBefore) / (was * uTan.x), dot(from, uUpBefore) / (was * uTan.y)) * 0.5 + 0.5 - nearest;
                 vec2 before = uv + moved;

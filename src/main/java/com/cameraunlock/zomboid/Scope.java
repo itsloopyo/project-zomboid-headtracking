@@ -840,9 +840,10 @@ final class Scope {
         float y = camera.rightY * seen[0] + camera.upY * seen[1] - camera.forwardY * seen[2];
         float up = camera.rightUp * seen[0] + camera.upUp * seen[1] - camera.forwardUp * seen[2];
         if (point) {
-            x += camera.eyeX - aim.eyeX;
-            y += camera.eyeY - aim.eyeY;
-            up += camera.eyeUp - aim.eyeUp;
+            float[] eyeFromAim = view.characters.eyeFromAim;
+            x += eyeFromAim[0];
+            y += eyeFromAim[1];
+            up += eyeFromAim[2];
         }
         held[at] = aim.rightX * x + aim.rightY * y + aim.rightUp * up;
         held[at + 1] = aim.upX * x + aim.upY * y + aim.upUp * up;

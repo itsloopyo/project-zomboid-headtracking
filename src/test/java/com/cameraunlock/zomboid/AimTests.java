@@ -16,6 +16,7 @@ final class AimTests {
         Checks.run("weaponStaysOnTheAimWhileTheHeadTurnsAndLeans", AimTests::weaponStaysOnTheAimWhileTheHeadTurnsAndLeans);
         Checks.run("weaponComesWithTheEyeWhenItHasTheLean", AimTests::weaponComesWithTheEyeWhenItHasTheLean);
         Checks.run("betweenAgreesWithTheViewMatrices", AimTests::betweenAgreesWithTheViewMatrices);
+        Checks.run("weaponHoldsStillOutOnTheMap", AimTests::weaponHoldsStillOutOnTheMap);
     }
 
     private static void check(boolean condition, String what) {
@@ -65,8 +66,14 @@ final class AimTests {
 
     /** Where a point of the aim's view lands in the picture, through the matrix the weapon is drawn with. */
     private static float[] drawn(ViewCamera.Pose aim, ViewCamera.Pose camera, float x, float y, float ahead) {
+        float[] eyeFromAim = new float[3];
+        ViewCamera.eyeFrom(aim, camera, eyeFromAim);
+        return drawn(aim, camera, eyeFromAim, x, y, ahead);
+    }
+
+    private static float[] drawn(ViewCamera.Pose aim, ViewCamera.Pose camera, float[] eyeFromAim, float x, float y, float ahead) {
         float[] fromAim = new float[16], seen = new float[3];
-        ViewCamera.between(aim, camera, fromAim);
+        ViewCamera.between(aim, camera, eyeFromAim, fromAim);
         ViewModelMath.place(fromAim, x, y, -ahead, seen);
         return new float[] {seen[0] / -seen[2] / (TAN * ASPECT), seen[1] / -seen[2] / TAN};
     }
@@ -116,8 +123,9 @@ final class AimTests {
     private static void betweenAgreesWithTheViewMatrices() {
         ViewCamera.Pose from = pose(3f, 4f, 1.6f, radians(40), radians(-10)), to = pose(3.2f, 3.9f, 1.7f, radians(55), radians(5));
         ViewCamera.turn(to, 0f, 0f, radians(10), true);
-        float[] between = new float[16], seen = new float[3];
-        ViewCamera.between(from, to, between);
+        float[] between = new float[16], seen = new float[3], toFromFrom = new float[3];
+        ViewCamera.eyeFrom(from, to, toFromFrom);
+        ViewCamera.between(from, to, toFromFrom, between);
         // A point of the first view, taken to the world by hand and through the second view's own matrix.
         float x = 0.13f, y = -0.14f, z = -0.27f;
         float worldX = from.eyeX + from.rightX * x + from.upX * y - from.forwardX * z;
@@ -128,8 +136,42 @@ final class AimTests {
         float[] through = new float[3];
         ViewModelMath.place(between, x, y, z, through);
         check(near(seen[0], through[0]) && near(seen[1], through[1]) && near(seen[2], through[2]), "between two views is the second's matrix on the first's inverse");
-        ViewCamera.between(from, from, between);
+        ViewCamera.between(from, from, ViewCamera.SAME_EYE, between);
         ViewModelMath.place(between, x, y, z, through);
         check(near(through[0], x) && near(through[1], y) && near(through[2], z), "a view to itself changes nothing");
+    }
+
+    /**
+     * Out on the map a float holds a place to about a millimetre. With the lean on the weapon,
+     * the aim's eye and the picture's are each the clean eye plus the lean, rounded on their
+     * own: their difference wanders by a millimetre as the lean moves, and the eyepiece of a
+     * scope 9 cm from the eye jumped about the picture with it. Held by the lean's own share
+     * the eye has, the weapon does not move in the frame.
+     */
+    private static void weaponHoldsStillOutOnTheMap() {
+        ViewCamera.Pose clean = pose(10792.4f, 9776.73f, 2.85f, radians(101), radians(0));
+        // The eye's own share of the lean is the part along the aim, which the weapon is not moved with.
+        float[] eyeAlone = {clean.forwardX * 0.012f, clean.forwardY * 0.012f, clean.forwardUp * 0.012f}, first = null;
+        float most = 0f, apart = 0f;
+        for (int i = 0; i < 200; i++) {
+            float lean = 0.01f * (float) Math.sin(i * 0.37);
+            ViewCamera.Pose aim = new ViewCamera.Pose(), camera = new ViewCamera.Pose();
+            aim.set(clean);
+            aim.eyeX += clean.rightX * lean;
+            aim.eyeY += clean.rightY * lean;
+            camera.set(clean);
+            camera.eyeX += eyeAlone[0] + clean.rightX * lean;
+            camera.eyeY += eyeAlone[1] + clean.rightY * lean;
+            camera.eyeUp += eyeAlone[2];
+            float[] eyepiece = drawn(aim, camera, eyeAlone, 0f, 0f, 0.09f);
+            if (first == null) {
+                first = eyepiece;
+            }
+            most = Math.max(most, Math.max(Math.abs(eyepiece[0] - first[0]), Math.abs(eyepiece[1] - first[1])));
+            float[] byPlaces = drawn(aim, camera, 0f, 0f, 0.09f);
+            apart = Math.max(apart, Math.abs(byPlaces[0] - first[0]));
+        }
+        check(most < 1e-5f, "the eyepiece stays put in the picture as the lean on the weapon moves, out on the map");
+        check(apart > 0.005f, "where the difference of the two eyes would move it");
     }
 }

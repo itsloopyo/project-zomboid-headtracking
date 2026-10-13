@@ -78,6 +78,11 @@ final class HeadTracking {
         return lean.rig;
     }
 
+    /** How far the eye alone is moved this frame, in world axes: the part of the lean the weapon is not moved with. */
+    float[] eyeAlone() {
+        return lean.camera;
+    }
+
     /**
      * The matrix that takes the tracker's position to a lean in the world's axes, three rows of
      * three. The tracker sends x positive to the head's left and z positive away from the

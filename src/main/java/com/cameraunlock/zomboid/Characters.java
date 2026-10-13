@@ -685,7 +685,7 @@ public final class Characters {
         if (hands == null && bare != null && CharacterDraw.cuts() && Own.arms() && OwnArms.model() != null) {
             // A shove or a stamp with no weapon in hand: the mod's own arms, and the body's left out.
             // Whatever else the game has in a hand is carried in that hand through it.
-            ViewCamera.between(aim, camera, fromAim);
+            ViewCamera.between(aim, camera, eyeFromAim, fromAim);
             ArmModel model = OwnArms.model();
             float scale = ARM_SCALE * data.finalScale;
             ModelInstanceRenderData right = weaponOf(data), left = leftOf(data);
@@ -729,7 +729,7 @@ public final class Characters {
         }
         if (hands != null && CharacterDraw.cuts()) {
             ModelInstanceRenderData weapon = weaponOf(data);
-            ViewCamera.between(aim, camera, fromAim);
+            ViewCamera.between(aim, camera, eyeFromAim, fromAim);
             boolean own = Own.arms() && OwnArms.model() != null;
             float[] hand = hands.firearm() ? null : gameHand(data);
             swungLoading = false;
@@ -784,7 +784,7 @@ public final class Characters {
         if (task == null || holding != null || !CharacterDraw.cuts() || !Own.arms() || OwnArms.model() == null) {
             return;
         }
-        ViewCamera.between(aim, camera, fromAim);
+        ViewCamera.between(aim, camera, eyeFromAim, fromAim);
         ModelInstanceRenderData right = weaponOf(data), left = leftOf(data);
         TimedActs.hands(task.kind(), task.low(), task.time(), right != null, left != null, task.up(), taskHands[0], taskHands[1]);
         float scale = ARM_SCALE * data.finalScale;
@@ -982,6 +982,8 @@ public final class Characters {
      * while the head turns and leans the picture.
      */
     final ViewCamera.Pose aim = new ViewCamera.Pose();
+    /** Where the eye the frame is drawn from is from the aim's, in the world's axes: see ViewCamera.between. */
+    final float[] eyeFromAim = new float[3];
     private final float[] fromAim = new float[16], pole = new float[3];
     /**
      * The views the hands on the weapon are drawn through, right then left: the weapon's, with

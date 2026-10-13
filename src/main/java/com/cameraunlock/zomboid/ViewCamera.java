@@ -147,6 +147,16 @@ final class ViewCamera {
         return out;
     }
 
+    /** Where one view's eye is from another's when both are drawn from one place. */
+    static final float[] SAME_EYE = new float[3];
+
+    /** Where one view's eye is from another's, as the difference of the two: for views a long way apart, where a millimetre is nothing. */
+    static void eyeFrom(Pose from, Pose to, float[] out) {
+        out[0] = to.eyeX - from.eyeX;
+        out[1] = to.eyeY - from.eyeY;
+        out[2] = to.eyeUp - from.eyeUp;
+    }
+
     /** As view, into a matrix the caller keeps: a frame that makes one each time it draws makes garbage. */
     static void view(Pose pose, float[] out) {
         turned(pose, out);
@@ -159,8 +169,13 @@ final class ViewCamera {
      * The matrix that takes a point from one view's axes to another's: x to the right, y up
      * and z towards the viewer, each from its own eye. It is the second view's matrix times
      * the inverse of the first's.
+     *
+     * @param toFromFrom where the second view's eye is from the first's, in the world's axes. Not
+     *                   the difference of the two eyes: out on the map a float holds a place to
+     *                   about a millimetre, and two eyes a lean apart, each rounded on its own,
+     *                   are a millimetre further apart or nearer from one frame to the next.
      */
-    static void between(Pose from, Pose to, float[] out) {
+    static void between(Pose from, Pose to, float[] toFromFrom, float[] out) {
         out[0] = to.rightX * from.rightX + to.rightY * from.rightY + to.rightUp * from.rightUp;
         out[1] = to.upX * from.rightX + to.upY * from.rightY + to.upUp * from.rightUp;
         out[2] = -(to.forwardX * from.rightX + to.forwardY * from.rightY + to.forwardUp * from.rightUp);
@@ -173,7 +188,7 @@ final class ViewCamera {
         out[9] = -(to.upX * from.forwardX + to.upY * from.forwardY + to.upUp * from.forwardUp);
         out[10] = to.forwardX * from.forwardX + to.forwardY * from.forwardY + to.forwardUp * from.forwardUp;
         out[11] = 0f;
-        float x = from.eyeX - to.eyeX, y = from.eyeY - to.eyeY, up = from.eyeUp - to.eyeUp;
+        float x = -toFromFrom[0], y = -toFromFrom[1], up = -toFromFrom[2];
         out[12] = to.rightX * x + to.rightY * y + to.rightUp * up;
         out[13] = to.upX * x + to.upY * y + to.upUp * up;
         out[14] = -(to.forwardX * x + to.forwardY * y + to.forwardUp * up);
