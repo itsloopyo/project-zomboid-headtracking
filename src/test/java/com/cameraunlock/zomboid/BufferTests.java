@@ -254,6 +254,23 @@ final class BufferTests {
         build.fill(solid, laid);
         check(build.turned == 0f && build.layered == 0f, "a build filled again without them forgets both");
         build.scrap();
+        SpriteGeometry.Mesh wood = laid.get(4);
+        wood.wood = 0.02f;
+        wood.add(4f, 1f, 5f, 0f, 0f, 1f, 1f, 1f);
+        wood.wood = 0f;
+        build.fill(solid, laid);
+        float side = SnowShader.RIDGE_WIDE * SnowShader.RIDGE_HIGH;
+        check(build.maxUp == 6f && build.minX == 3f && build.minUp == -1f && build.turned == 0f && build.layered == 0f,
+                "wood within the box leaves it as it was, and is no card nor in layers");
+        wood.clear();
+        wood.wood = -0.02f;
+        wood.add(7f, 9f, 6f, 0f, 0f, 1f, 1f, 1f);
+        wood.wood = 0f;
+        build.scrap();
+        build.fill(solid, laid);
+        check(build.maxUp == 6f + SnowShader.RIDGE_HIGH && build.maxX == 7f + side && build.maxY == 9f + side && build.minUp == -1f,
+                "the box takes in the ridge of snow wood at its edge may carry, up and to its sides: " + build.maxUp + ", " + build.maxX + ", " + build.maxY);
+        build.scrap();
     }
 
     /** Whether a point is in what a matrix puts in a picture: inside all six sides of clip space. */

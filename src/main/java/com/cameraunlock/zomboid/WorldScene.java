@@ -433,19 +433,20 @@ final class WorldScene {
                 for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
                     float x = from[at], y = from[at + 1], up = from[at + 2];
                     float moved = from[at + SpriteGeometry.WAY_AT];
-                    // Snow may stand on wood as high as its ridge: see SnowShader.RIDGE.
-                    float top = up;
+                    // Snow may stand on wood as high as its ridge, and as far out to its sides: see SnowShader.RIDGE.
+                    float top = up, side = 0f;
                     if (moved == SpriteGeometry.FACES) {
                         along = Math.max(along, Math.abs(from[at + SpriteGeometry.ALONG_AT]));
                     } else if (moved == SpriteGeometry.WOOD) {
                         top += SnowShader.RIDGE_HIGH;
+                        side = SnowShader.RIDGE_WIDE * SnowShader.RIDGE_HIGH;
                     } else if (moved != 0f) {
                         layers = Math.max(layers, Math.abs(from[at + SpriteGeometry.ALONG_AT]));
                     }
-                    lowX = Math.min(lowX, x);
-                    highX = Math.max(highX, x);
-                    lowY = Math.min(lowY, y);
-                    highY = Math.max(highY, y);
+                    lowX = Math.min(lowX, x - side);
+                    highX = Math.max(highX, x + side);
+                    lowY = Math.min(lowY, y - side);
+                    highY = Math.max(highY, y + side);
                     lowUp = Math.min(lowUp, up);
                     highUp = Math.max(highUp, top);
                 }
