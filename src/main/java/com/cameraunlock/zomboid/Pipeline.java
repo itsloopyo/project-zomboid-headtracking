@@ -20,6 +20,7 @@ import org.lwjgl.opengl.GL14;
 import org.lwjgl.opengl.GL15;
 import org.lwjgl.opengl.GL20;
 import org.lwjgl.opengl.GL30;
+import org.lwjgl.opengl.GL31;
 import org.lwjgl.opengl.GL33;
 import org.lwjgl.opengl.GL44;
 import org.lwjgl.opengl.GLCapabilities;
@@ -1464,22 +1465,20 @@ final class Pipeline {
     private final float[] tube = new float[4];
 
     /**
-     * Draws the furniture standing on the chunks the frame shows, each piece from the one copy
-     * of its model the graphics card holds, and leaves the frame's own arrays set as it found
-     * them.
+     * Draws the furniture standing on the chunks the frame shows into a picture, each piece from
+     * the one copy of its model the graphics card holds, and leaves the frame's own arrays set as
+     * it found them. The shadow maps cast it with castModels.
      *
-     * @param lit     whether the program lights and colours what it draws, or only casts it into the map heldBy last took the bounds of
      * @param shaded  whether a piece's light, surfaces and picture are told to the program: its depth alone is drawn without them,
      *                since they only ever colour it
-     * @param within  the eye of a picture that pieces wholly behind it or beyond far are left out of, or null to draw them all
+     * @param within  the eye of the picture: pieces wholly behind it or beyond far are left out
      * @param pixel   how far apart two things a tile from that eye are when they are a pixel apart in its picture: see
-     *                Models.Instances.plain. A map of shadows is always cast by the plain models, and a picture with no eye
-     *                given is drawn whole.
+     *                Models.Instances.plain
      * @param only    the key of the one thing whose pieces are drawn (Outlines.key), or Outlines.NONE for every piece
      */
-    private void drawModels(Program program, boolean lit, boolean shaded, ViewCamera.Pose within, float far, float pixel, long only) {
-        listModels(lit, within, far, pixel, only);
-        drawListed(program, lit, shaded);
+    private void drawModels(Program program, boolean shaded, ViewCamera.Pose within, float far, float pixel, long only) {
+        listModels(true, within, far, pixel, only);
+        drawListed(program, shaded);
     }
 
     /**
@@ -1490,7 +1489,11 @@ final class Pipeline {
     private int[] modelChunk = new int[256], modelPiece = new int[256];
     private int modelsListed;
 
-    /** Lists the pieces drawModels draws, as it is given them. */
+    /**
+     * Lists the pieces drawModels draws, as it is given them, or with lit false and no eye the
+     * pieces a shadow map holds, the map heldBy last took the bounds of: a map is always cast by
+     * the plain models.
+     */
     private void listModels(boolean lit, ViewCamera.Pose within, float far, float pixel, long only) {
         modelsListed = 0;
         // The eye's own picture draws a room's furniture only while it sees into the room, and
@@ -1547,12 +1550,11 @@ final class Pipeline {
     }
 
     /** Draws the pieces listModels listed last, as drawModels does. */
-    private void drawListed(Program program, boolean lit, boolean shaded) {
+    private void drawListed(Program program, boolean shaded) {
         if (modelsListed == 0) {
             return;
         }
-        boolean coloured = lit && shaded;
-        if (coloured) {
+        if (shaded) {
             Screens.giveBack();
         }
         int bound = 0;
@@ -1562,7 +1564,7 @@ final class Pipeline {
         int litAt = 0, alongAt = 0, downAt = 0, acrossAt = 0, surfacesAt = 0, dyeAt = 0, pictureAt = 0, texelAt = 0, tubeAt = 0;
         // Whether the program was last told of a tube showing part of its picture, which the next piece is not.
         boolean tubed = false;
-        if (coloured) {
+        if (shaded) {
             litAt = program.at("uLit");
             alongAt = program.at("uLitAlong");
             downAt = program.at("uLitDown");
@@ -1595,7 +1597,7 @@ final class Pipeline {
             if (toldOf == null || differ(f, turn, toldOf, told + Models.Instances.TURN, 4)) {
                 GL20.glUniform4f(turnAt, f[turn], f[turn + 1], f[turn + 2], f[turn + 3]);
             }
-            if (coloured) {
+            if (shaded) {
                 int light = at + Models.Instances.LIGHT, surfaces = at + Models.Instances.SURFACES, dye = at + Models.Instances.DYE;
                 GL20.glUniform3f(litAt, f[light], f[light + 1], f[light + 2]);
                 GL20.glUniform3f(alongAt, f[light + 3], f[light + 4], f[light + 5]);
@@ -1642,6 +1644,84 @@ final class Pipeline {
         }
         GL15.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
         program.set("uModel", 0f);
+        arrays();
+    }
+
+    /** The order castModels casts the pieces listed in, model by model: each as its model's first corner, then its place in the list. */
+    private long[] castOrder = new long[256];
+    /** Where each piece castModels casts stands, as the shadow program's aPlace, aFoot and aTurn take it, and the buffer it is given in. */
+    private FloatBuffer castPlaces;
+    private int castBuffer;
+    private static final int CAST_FLOATS = 11, CAST_STRIDE = CAST_FLOATS * Float.BYTES;
+    private static final int GL_STREAM_DRAW = 0x88E0;
+
+    /**
+     * Casts the pieces listModels listed last into the map bound, by the shadow program, which is
+     * in use: one draw for all the pieces that share a model, each told where it stands by its
+     * own row of castPlaces.
+     */
+    private void castModels() {
+        if (modelsListed == 0) {
+            return;
+        }
+        if (castOrder.length < modelsListed) {
+            castOrder = new long[modelsListed * 2];
+        }
+        for (int listed = 0; listed < modelsListed; listed++) {
+            int[] whole = drawn.get(modelChunk[listed]).placed.ints;
+            castOrder[listed] = (long) whole[(modelPiece[listed] >> 1) * Models.Instances.INTS + Models.Instances.PLAIN_FIRST] << 32 | listed;
+        }
+        Arrays.sort(castOrder, 0, modelsListed);
+        if (castPlaces == null || castPlaces.capacity() < modelsListed * CAST_FLOATS) {
+            castPlaces = ByteBuffer.allocateDirect(modelsListed * 2 * CAST_STRIDE).order(ByteOrder.nativeOrder()).asFloatBuffer();
+        }
+        castPlaces.clear();
+        for (int i = 0; i < modelsListed; i++) {
+            int listed = (int) castOrder[i];
+            float[] f = drawn.get(modelChunk[listed]).placed.floats;
+            int at = (modelPiece[listed] >> 1) * Models.Instances.FLOATS;
+            castPlaces.put(f, at + Models.Instances.PLACE, 4).put(f, at + Models.Instances.FOOT, 3).put(f, at + Models.Instances.TURN, 4);
+        }
+        castPlaces.flip();
+        if (castBuffer == 0) {
+            castBuffer = GL15.glGenBuffers();
+        }
+        modelArrays();
+        shadow.set("uModel", 1f);
+        GL11.glBindTexture(GL_TEXTURE_2D, whiteTexture);
+        GL15.glBindBuffer(GL_ARRAY_BUFFER, castBuffer);
+        GL15.glBufferData(GL_ARRAY_BUFFER, castPlaces, GL_STREAM_DRAW);
+        int place = shadow.attribute("aPlace"), foot = shadow.attribute("aFoot"), turn = shadow.attribute("aTurn");
+        GL20.glEnableVertexAttribArray(place);
+        GL20.glEnableVertexAttribArray(foot);
+        GL20.glEnableVertexAttribArray(turn);
+        GL33.glVertexAttribDivisor(place, 1);
+        GL33.glVertexAttribDivisor(foot, 1);
+        GL33.glVertexAttribDivisor(turn, 1);
+        for (int from = 0, to; from < modelsListed; from = to) {
+            to = from + 1;
+            while (to < modelsListed && castOrder[to] >>> 32 == castOrder[from] >>> 32) {
+                to++;
+            }
+            int listed = (int) castOrder[from];
+            int[] whole = drawn.get(modelChunk[listed]).placed.ints;
+            int ints = (modelPiece[listed] >> 1) * Models.Instances.INTS;
+            long row = (long) from * CAST_STRIDE;
+            GL20.glVertexAttribPointer(place, 4, GL_FLOAT, false, CAST_STRIDE, row);
+            GL20.glVertexAttribPointer(foot, 3, GL_FLOAT, false, CAST_STRIDE, row + 4L * Float.BYTES);
+            GL20.glVertexAttribPointer(turn, 4, GL_FLOAT, false, CAST_STRIDE, row + 7L * Float.BYTES);
+            GL31.glDrawElementsInstanced(GL_TRIANGLES, whole[ints + Models.Instances.PLAIN_COUNT], GL_UNSIGNED_INT,
+                    (long) whole[ints + Models.Instances.PLAIN_FIRST] * Integer.BYTES, to - from);
+        }
+        GL33.glVertexAttribDivisor(place, 0);
+        GL33.glVertexAttribDivisor(foot, 0);
+        GL33.glVertexAttribDivisor(turn, 0);
+        GL20.glDisableVertexAttribArray(place);
+        GL20.glDisableVertexAttribArray(foot);
+        GL20.glDisableVertexAttribArray(turn);
+        GL15.glBindBuffer(GL_ARRAY_BUFFER, 0);
+        GL15.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+        shadow.set("uModel", 0f);
         arrays();
     }
 
@@ -1918,7 +1998,8 @@ final class Pipeline {
     private void castHeld(float[] matrix, SkyState state, ChunkBuffers.Listing own, int map) {
         ChunkBuffers.Listing held = heldBy(matrix, state, own, map);
         drawRanges(held, 0, held.solidRanges());
-        drawModels(shadow, false, false, null, 0f, 0f, Outlines.NONE);
+        listModels(false, null, 0f, 0f, Outlines.NONE);
+        castModels();
     }
 
     /**
@@ -2618,7 +2699,7 @@ final class Pipeline {
         if (depthFirst) {
             GL11.glColorMask(false, false, false, false);
             drawRanges(listed, 0, listed.solidRanges(), worldDepth);
-            drawModels(worldDepth, true, false, camera, far, pixel, Outlines.NONE);
+            drawModels(worldDepth, false, camera, far, pixel, Outlines.NONE);
             GL11.glColorMask(true, true, true, true);
             GL11.glDepthFunc(GL_EQUAL);
             GL11.glDepthMask(false);
@@ -2632,9 +2713,9 @@ final class Pipeline {
         drawRanges(listed, 0, listed.solidRanges(), world);
         if (depthFirst) {
             // The pieces the depth was drawn with: the two drawings must agree on which are there.
-            drawListed(world, true, true);
+            drawListed(world, true);
         } else {
-            drawModels(world, true, true, camera, far, pixel, Outlines.NONE);
+            drawModels(world, true, camera, far, pixel, Outlines.NONE);
         }
         if (own) {
             stage(STAGE_SOLID);
@@ -3470,7 +3551,7 @@ final class Pipeline {
             GL20.glUniform4f(painted, 0f, 0f, 0f, 0f);
             worldDepth.set("uLaid", 0f);
             worldDepth.set("uCut", SOLID_CUT);
-            drawModels(worldDepth, true, false, camera, far, pixel, keys[k]);
+            drawModels(worldDepth, false, camera, far, pixel, keys[k]);
         }
         GL20.glUniform4f(outline, 0f, 0f, 0f, 0f);
         GL11.glDepthMask(true);

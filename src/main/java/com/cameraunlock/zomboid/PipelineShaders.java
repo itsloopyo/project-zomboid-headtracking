@@ -3605,16 +3605,22 @@ final class PipelineShaders {
             // 1 while the map drawn is the one read as what stands over the ground and keeps the sky off it.
             uniform float uFromAbove;
             uniform float uSnowLying;
+            // Where a piece of the mod's furniture stands, each piece cast in one draw with the rest
+            // of its model's: MODEL_STANDS's uPlace, uFoot and uTurn, which the picture is told.
+            attribute vec4 aPlace;
+            attribute vec3 aFoot;
+            attribute vec4 aTurn;
             """ + GRASS_WIND + MODEL_STANDS + FACED + SnowShader.COVER + SnowShader.RIDGE + """
             void main() {
                 if (uModel > 0.5) {
                     // A model is solid all over and nothing of it blows about. It is drawn with
                     // the white texture, of which any place will do.
-                    vec3 on = over(gl_Vertex.xyz);
+                    vec2 turned = vec2(dot(aTurn.xy, gl_Vertex.xy), dot(aTurn.zw, gl_Vertex.xy));
+                    vec3 on = vec3(aFoot.xy + turned * aPlace.z, aFoot.z + gl_Vertex.z * aPlace.w);
                     vUv = vec2(0.0);
                     vLeaves = 0.0;
                     vSolid = 1.0;
-                    vAt = vec3(uPlace.xy + on.xy, on.z);
+                    vAt = vec3(aPlace.xy + on.xy, on.z);
                     gl_Position = uMatrix * vec4(vAt, 1.0);
                     return;
                 }
