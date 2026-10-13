@@ -327,6 +327,12 @@ final class Fires {
     private static long lookedAt;
     private static final long LOOK_EVERY_NANOS = 250_000_000L;
 
+    /** Lets go of the campfires found, as the game leaves a save. */
+    static void forget() {
+        standing.clear();
+        lookedIn = null;
+    }
+
     private static void take(SkyState sky, Terrain terrain, IsoFire fire, int playerIndex, float eyeX, float eyeY) {
         IsoGridSquare square = fire.getSquare();
         if (square == null) {

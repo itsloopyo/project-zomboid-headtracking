@@ -125,6 +125,7 @@ public final class Hooks {
     public static void leftSave(Object state) {
         Tracking.leftSave();
         Impacts.forget();
+        Fires.forget();
         for (int i = 0; i < View.COUNT; i++) {
             View view = View.of(i);
             if (view != null) {
