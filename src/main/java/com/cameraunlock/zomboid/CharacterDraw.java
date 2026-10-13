@@ -605,9 +605,11 @@ final class CharacterDraw {
             uniform float uBare;
             uniform float uShadow;
             uniform float uNearCut;
+            uniform float uInside;
             uniform float uWear;
             uniform float uShell;
             uniform vec2 uStands;
+            const float INSIDE_REACH = 0.6, INSIDE_SHADE = 0.15;
             FROM_LAST vec3 vNormal;
             FROM_LAST vec2 vUv;
             FROM_LAST vec3 vRest;
@@ -681,6 +683,27 @@ final class CharacterDraw {
                     discard;
                 }
                 vec3 color = texel.rgb;
+                // Where the cut round the eye opens a person, the inside of what it went through
+                // shows: drawn as a solid cut end in that part's own colour, in shade, and not as
+                // a hole onto what is behind. Further off no inside is seen through a cut.
+                if (uInside != 0.0 && gl_FrontFacing == (uInside > 0.0)) {
+                    if (dot(vEye, vEye) > INSIDE_REACH * INSIDE_REACH) {
+                        discard;
+                    }
+                    vec3 inner = clamp(color * uTint * INSIDE_SHADE, 0.0, 1.0);
+                    if (uBare < 0.5) {
+                        gl_FragData[0] = vec4(uAlpha * inner, alpha);
+                        return;
+                    }
+                    if (alpha < 0.5) {
+                        discard;
+                    }
+                    vec2 toEye = floor(folded(normalize(-vEye)) * 255.0 + 0.5) / 255.0;
+                    float stood = uStands.x < 0.0 ? 255.0 : 128.0 + floor(clamp(uStands.x, 0.0, 1.0) * 126.0 + 0.5);
+                    gl_FragData[0] = vec4(inner, stood / 255.0);
+                    gl_FragData[1] = vec4(toEye, 0.0, (128.0 + 64.0 + (uStands.y > 0.5 ? 16.0 : 0.0)) / 255.0);
+                    return;
+                }
                 // Most of a cut end's corners are only partly on the pressed bones: the meat reaches up the
                 // stump from them, as far as the skin the bone above pulls in over the end.
                 if (vStump > 0.02) {
@@ -1019,7 +1042,7 @@ final class CharacterDraw {
     /** One program and where its settings live. */
     private static final class Skin {
         final int id;
-        final int palette, modelView, projection, scale, uvScale, alpha, hue, tint, ambient, fine, bare, shadow, nearCut, texSize;
+        final int palette, modelView, projection, scale, uvScale, alpha, hue, tint, ambient, fine, bare, shadow, nearCut, inside, texSize;
         final int[] lightWay = new int[LIGHTS], lightColor = new int[LIGHTS];
         /** The person whose settings the program holds (CharacterDraw.peopleBegun): a part of the same person sets only its own. */
         int heldFor = -1;
@@ -1039,6 +1062,7 @@ final class CharacterDraw {
             bare = GL20.glGetUniformLocation(id, "uBare");
             shadow = GL20.glGetUniformLocation(id, "uShadow");
             nearCut = GL20.glGetUniformLocation(id, "uNearCut");
+            inside = GL20.glGetUniformLocation(id, "uInside");
             texSize = GL20.glGetUniformLocation(id, "uTexSize");
             for (int light = 0; light < LIGHTS; light++) {
                 lightWay[light] = GL20.glGetUniformLocation(id, "uLightWay[" + light + "]");
@@ -1109,6 +1133,8 @@ final class CharacterDraw {
     static float nearCut;
     /** That distance. A face as near as this still reads as a face in the picture. */
     static final float NEAR_CUT = 0.15f;
+    /** A person whose middle is further than this from the eye, in tiles, has nothing within the cut. */
+    private static final float INSIDE_WITHIN = 3f;
     /**
      * Set while a person is drawn as a mirror shows them. A mirror turns every triangle's
      * front to its back once more.
@@ -1636,6 +1662,12 @@ final class CharacterDraw {
         // The matrix that stands a model in the world mirrors it, which turns every triangle's front to its back.
         int face = script != null && script.cullFace != -1 ? script.cullFace : GL_FRONT;
         int cull = script != null && script.cullFace == 0 ? 0 : mirrored ? face == GL_FRONT ? GL_BACK : GL_FRONT : face;
+        // Near enough for the cut round the eye to open it, a person is drawn from both sides, and what was culled is its inside.
+        float inside = 0f;
+        if (cull != 0 && nearCut > 0f && !shadow && away < INSIDE_WITHIN) {
+            inside = cull == GL_FRONT ? 1f : -1f;
+            cull = 0;
+        }
         if (cull != culled) {
             if (cull == 0) {
                 GL11.glDisable(GL_CULL_FACE);
@@ -1653,6 +1685,7 @@ final class CharacterDraw {
             GL20.glUseProgram(skin.id);
             programInUse = skin.id;
         }
+        GL20.glUniform1f(skin.inside, inside);
         boolean unlit = bare && !shadow;
         int wear = WEAVE;
         if (unlit) {
