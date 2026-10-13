@@ -68,6 +68,7 @@ public final class ViewModel {
      * @param doing     what the holder is doing to the weapon besides holding it: one of ArmActs' doings
      * @param done      how long the holder has been doing that, in seconds
      * @param rounds    how many rounds the weapon holds now
+     * @param spent     how many of them a revolver has fired and still holds, the game counting them among its rounds until they are thrown out
      * @param round     how far through loading one round the hand is, 0 to 1
      * @param handled   0 held ready, 1 brought up before the eye and tipped over to be loaded
      * @param pace      how long the game is taken to be over what the holder is doing, in seconds
@@ -85,7 +86,7 @@ public final class ViewModel {
     record Held(String item, boolean firearm, boolean bothHands, int attack, float reached, float past, boolean struck, float aim, float nearness, float lowered,
             float swayYaw, float swayPitch, float bobX, float bobY, float recoil, float kickPitch, float kickYaw, float kickRoll, float kickUp, float kickBack,
             float dip, int skin, boolean female,
-            int action, float cycled, int doing, float done, int rounds, float round, float handled, float pace, float seated, float drawn, float worked,
+            int action, float cycled, int doing, float done, int rounds, int spent, float round, float handled, float pace, float seated, float drawn, float worked,
             boolean clip, float out, float fetching, float fetchTakes, boolean leftFree, int swungAs, OwnModel own) {
         /**
          * The mod's own model drawn for it: decided once, as this was made, so that where it is
@@ -494,7 +495,7 @@ public final class ViewModel {
         held = new Held(item.getFullType(), firearm, !steering && item == player.getSecondaryHandItem(),
                 attack, reached, past, struck, aim, nearness, lowered, swayYaw, swayPitch, bob[0], bob[1], recoil,
                 kick.weaponPitch.at, kick.weaponYaw.at, kick.weaponRoll.at, kick.weaponUp.at, kick.weaponBack.at, dip,
-                player.getHumanVisual().getSkinTextureIndex(), player.isFemale(), action, cycled, doing, done, rounds, round, handled, took[action][doing], seated, drawn, worked, clip, out, fetching, fetchTakes[action], !steering && player.getSecondaryHandItem() == null, firearm ? MeleeHold.ONE_HANDED : swungAs(weapon, item == player.getSecondaryHandItem()),
+                player.getHumanVisual().getSkinTextureIndex(), player.isFemale(), action, cycled, doing, done, rounds, firearm ? weapon.getSpentRoundCount() : 0, round, handled, took[action][doing], seated, drawn, worked, clip, out, fetching, fetchTakes[action], !steering && player.getSecondaryHandItem() == null, firearm ? MeleeHold.ONE_HANDED : swungAs(weapon, item == player.getSecondaryHandItem()),
                 firearm ? OwnModel.of(item.getFullType()) : null);
     }
 

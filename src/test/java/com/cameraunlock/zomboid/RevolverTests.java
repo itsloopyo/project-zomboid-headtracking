@@ -14,6 +14,7 @@ final class RevolverTests {
         Checks.run("loadingSwingsItOutThrowsOutWhatWasFiredAndFillsItInOrder", RevolverTests::loadingSwingsItOutThrowsOutWhatWasFiredAndFillsItInOrder);
         Checks.run("unloadingThrowsOutTheRoundsAsTheGameTakesThem", RevolverTests::unloadingThrowsOutTheRoundsAsTheGameTakesThem);
         Checks.run("chambersAreTurnedAboutTheCylindersAxis", RevolverTests::chambersAreTurnedAboutTheCylindersAxis);
+        Checks.run("firedRoundsTheGameStillCountsAreSpentUntilThrownOut", RevolverTests::firedRoundsTheGameStillCountsAreSpentUntilThrownOut);
     }
 
     private static final float FRAME = 1f / 60f;
@@ -75,6 +76,19 @@ final class RevolverTests {
         hold(cylinder, 0, ArmActs.UNLOADING, 0.2f, thrown);
         check(thrown.equals(List.of("case 5", "round 0", "round 1", "round 2", "round 3", "round 4")), "the fired case at the push, the rounds as the game takes them: " + thrown);
         check(chambers(cylinder).equals("------"), "and it is empty: " + chambers(cylinder));
+    }
+
+    /** As the game has it: three shots leave six rounds with three spent; a reload clears the spent at once and leaves six. */
+    private static void firedRoundsTheGameStillCountsAreSpentUntilThrownOut() {
+        OwnRevolver.Cylinder cylinder = new OwnRevolver.Cylinder();
+        List<String> thrown = new ArrayList<>();
+        hold(cylinder, OwnRevolver.Cylinder.live(6, 0), ArmActs.HOLDING, 0.1f, thrown);
+        hold(cylinder, OwnRevolver.Cylinder.live(6, 3), ArmActs.HOLDING, 0.3f, thrown);
+        check(chambers(cylinder).equals("LLLSSS"), "three shots: three spent: " + chambers(cylinder));
+        hold(cylinder, OwnRevolver.Cylinder.live(6, 0), ArmActs.LOADING, 0.2f, thrown);
+        check(chambers(cylinder).equals("LLLSSS") && thrown.isEmpty(), "the reload clears the game's spent count, and the cases stay until the push: " + chambers(cylinder));
+        hold(cylinder, OwnRevolver.Cylinder.live(6, 0), ArmActs.LOADING, 0.4f, thrown);
+        check(thrown.size() == 3 && chambers(cylinder).equals("LLLLLL"), "then they are thrown out and the six the game counts are in: " + thrown + " " + chambers(cylinder));
     }
 
     private static void chambersAreTurnedAboutTheCylindersAxis() {

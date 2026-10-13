@@ -43,7 +43,7 @@ final class OwnRevolver extends OwnGun {
         worked = drawn;
         workedFrom = camera;
         if (held != null && drawn.moves.length >= MOVES) {
-            cylinder.step(held.item(), (int) drawn.moves[CHAMBERS], held.rounds(), held.doing(), seconds, this::thrown);
+            cylinder.step(held.item(), (int) drawn.moves[CHAMBERS], Cylinder.live(held.rounds(), held.spent()), held.doing(), seconds, this::thrown);
         }
         cases.fly(camera, seconds);
         rounds.fly(camera, seconds);
@@ -160,6 +160,15 @@ final class OwnRevolver extends OwnGun {
      * recent last of all.
      */
     static final class Cylinder {
+        /**
+         * How many live rounds are in the cylinder: the game counts a revolver's fired rounds among
+         * its rounds until a reload throws them out, as getSpentRoundCount says (measured on 42.21:
+         * six rounds and three spent after three shots, six and none after the reload).
+         */
+        static int live(int rounds, int spent) {
+            return Math.max(rounds - spent, 0);
+        }
+
         /** What a chamber holds. */
         static final int EMPTY = 0, LIVE = 1, SPENT = 2;
         /** The most chambers a cylinder has: the cap gun's eight. */
@@ -242,7 +251,10 @@ final class OwnRevolver extends OwnGun {
             } else {
                 opened = NEVER;
             }
-            rounds = loaded;
+            // Opened to be loaded, the game counts what was fired as gone at once: it is in the chambers until the ejector throws it out.
+            if (!open || pushedOut || loaded <= rounds) {
+                rounds = loaded;
+            }
             spent = Math.min(spent, chambers - rounds);
         }
 
