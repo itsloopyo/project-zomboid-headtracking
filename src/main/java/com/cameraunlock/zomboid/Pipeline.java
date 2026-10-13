@@ -680,7 +680,6 @@ final class Pipeline {
     private static final String[] ROOT_AT = new String[Characters.ROOTS];
     /** uCarAt, uCarAhead, uCarUp and uCarSnow by the vehicle's number: see SnowShader.ON_VEHICLES. */
     private static final String[][] CAR_AT = new String[4][SnowShader.MOST_CARS];
-    private static final String[] PRINT_AT = new String[SnowPrints.PRINTS], RUT_AT = new String[SnowPrints.RUTS], RUT_UP_AT = new String[SnowPrints.RUTS];
     private final float[] snowPrints = new float[SnowPrints.PRINTS * 4], snowRuts = new float[SnowPrints.RUTS * 4], snowRutsUp = new float[SnowPrints.RUTS];
     private final float[] snowTrod = new float[6];
 
@@ -701,13 +700,6 @@ final class Pipeline {
         for (int i = 0; i < Movers.MOST; i++) {
             MOVER_AT[i] = "uMover[" + i + "]";
             MOVER_BEFORE[i] = "uMoverBefore[" + i + "]";
-        }
-        for (int i = 0; i < PRINT_AT.length; i++) {
-            PRINT_AT[i] = "uSnowPrint[" + i + "]";
-        }
-        for (int i = 0; i < RUT_AT.length; i++) {
-            RUT_AT[i] = "uSnowRut[" + i + "]";
-            RUT_UP_AT[i] = "uSnowRutUp[" + i + "]";
         }
     }
     private volatile float lastMillis;
@@ -3022,13 +3014,10 @@ final class Pipeline {
         float progression = Seasons.progressionOf(year);
         to.set("uLitterSeason", Litter.spread(Seasons.litter(season, progression)), Litter.fresh(season, progression), Litter.dark(season, progression),
                 Litter.cardSpread(season, progression));
-        for (int i = 0; i < snowTrod[0]; i++) {
-            to.set(PRINT_AT[i], snowPrints[i * 4], snowPrints[i * 4 + 1], snowPrints[i * 4 + 2], snowPrints[i * 4 + 3]);
-        }
-        for (int i = 0; i < snowTrod[1]; i++) {
-            to.set(RUT_AT[i], snowRuts[i * 4], snowRuts[i * 4 + 1], snowRuts[i * 4 + 2], snowRuts[i * 4 + 3]);
-            to.set(RUT_UP_AT[i], snowRutsUp[i]);
-        }
+        // Whole, each in one call: the shader reads only as many as uSnowTrod counts.
+        to.setEach4("uSnowPrint", snowPrints);
+        to.setEach4("uSnowRut", snowRuts);
+        to.setEach("uSnowRutUp", snowRutsUp);
         to.set("uSnowTrod", snowTrod[0], snowTrod[1]);
         to.set("uSnowTrodBox", snowTrod[2], snowTrod[3], snowTrod[4], snowTrod[5]);
         to.set("uDark", state.night);
