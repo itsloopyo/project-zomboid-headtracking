@@ -1825,7 +1825,6 @@ final class CharacterDraw {
             GL20.glUniform2f(skin.texSize, worn.getWidth() / uvScale.x, worn.getHeight() / uvScale.y);
         }
 
-        GL30.glBindVertexArray(copy.array);
         if (skin == divided) {
             GL20.glUniform2f(skin.fine, FINE_WITHIN, WHOLE_BEYOND);
             GL40.glPatchParameteri(GL_PATCH_VERTICES, 3);
@@ -1833,12 +1832,16 @@ final class CharacterDraw {
         // Hair is drawn again in a few layers stood off it, each thinner than the last: its
         // outline is then strands and not the edge of a helmet. The viewer's own is not seen.
         int layers = unlit && !fromTheEye && !plainly && cutBones == null ? fringe(wear, away) : 0;
+        // Bound for the draw alone: the game's combiner, run for the next part's skin, pushes and
+        // pops client state, and what it pops goes into whichever vertex array is bound.
+        GL30.glBindVertexArray(copy.array);
         for (int layer = 0; layer <= layers; layer++) {
             if (skin != depth) {
                 shell(skin.id, layer, layers, person.finalScale);
             }
             GL11.glDrawElements(skin == divided ? GL_PATCHES : GL_TRIANGLES, copy.count, GL_UNSIGNED_INT, 0L);
         }
+        GL30.glBindVertexArray(0);
         return true;
     }
 
@@ -1853,9 +1856,8 @@ final class CharacterDraw {
     private static final int UNKNOWN = -1;
 
     /**
-     * Before anything else draws, and at the end of a pass over the people: the parts' vertex
-     * arrays are let go, so that the game's draws go back to its own, the buffers are let go
-     * and the second draw buffer closed. What the programs were told is told again, since
+     * Before anything else draws, and at the end of a pass over the people: the buffers are let
+     * go and the second draw buffer closed. What the programs were told is told again, since
      * whatever drew in between may have used them.
      */
     static void release() {
@@ -1864,7 +1866,6 @@ final class CharacterDraw {
             return;
         }
         drawing = false;
-        GL30.glBindVertexArray(0);
         GL15.glBindBuffer(GL_ARRAY_BUFFER, 0);
         GL15.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
         if (bothBuffers) {
@@ -2212,7 +2213,6 @@ final class CharacterDraw {
             made.put(along, vertex * 4, 4);
         }
         made.flip();
-        // A copy can be made between two parts, with the last part's vertex array bound: that is bound again after.
         int bound = GL11.glGetInteger(GL_VERTEX_ARRAY_BINDING);
         int array = GL30.glGenVertexArrays();
         GL30.glBindVertexArray(array);
