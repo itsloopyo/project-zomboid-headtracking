@@ -855,10 +855,11 @@ def accelerator(at):
     return parts
 
 
-# The mirror on the screen: its glass's width and height (the picture of the road behind is 640 by 180), how far its
-# middle hangs behind the windscreen at its own height, how far above its middle the stem meets the glass, and the
-# furthest aside of straight ahead it is let hang from the eye, in degrees.
-MIRROR_GLASS = (0.160, 0.045)
+# The mirror on the screen: the angle its glass's width takes up seen from the eye, in degrees, and its height for its
+# width (the picture of the road behind is 640 by 180), how far its middle hangs behind the windscreen at its own
+# height, how far above its middle the stem meets the glass, and the furthest aside of straight ahead it is let hang
+# from the eye, in degrees.
+MIRROR_SEEN, MIRROR_TALL = 19.0, 0.045 / 0.160
 MIRROR_HANG, MIRROR_PAD_UP, MIRROR_ASIDE = 0.035, 0.05, 42.0
 
 
@@ -926,12 +927,23 @@ def visors_and_mirror(house, visors=True):
         parts.append(b.finish("visor clip", "plastic", SHELL, bevel=0.002, texels=1.0))
     # The mirror: a stem from a pad on the windscreen to a slim housing, its glass a part the mod shows the road behind in.
     at = screen_mirror_at(house)
+    # As wide from the seat in every body: one hung further off, as in a step van, is bigger.
+    width = 2.0 * at.length * math.tan(math.radians(MIRROR_SEEN / 2))
+    glass = (width, width * MIRROR_TALL)
+    # Set back where the windscreen curves back towards its sides and leans over its top, so the housing's front
+    # corners, 0.024 ahead of the glass, stay a little behind it.
+    half_w, half_h = glass[0] / 2 + 0.007, glass[1] / 2 + 0.0065
+    need = max(at.x + 0.030 - house.screen_x(half_w, at.z + dz) for dz in (-half_h, half_h))
+    if need > 0.0:
+        at = at - v(need, 0, 0)
     top = house.screen_at(0.0, screen_up_at(house, at.z + MIRROR_PAD_UP))
-    b = Builder()
-    path = spline([top + v(-0.004, 0, 0), top.lerp(at, 0.5) + v(0, 0, 0.01), at + v(0.012, 0, 0.012)], 8)
-    b.sweep(path, circle(0.007, 12), ups=[v(1, 0, 0)] * 8)
-    parts.append(b.finish("mirror stem", "black", SHELL, texels=1.0))
     glass_up = (house.screen_at(0.0, 1.0) - house.screen_at(0.0, 0.0)).normalized()
+    # The stem leaves its pad square to the windscreen, so its end lies flat on the glass.
+    inward = glass_up.cross(v(0, 1, 0))
+    b = Builder()
+    path = spline([top + inward * 0.004, top + inward * 0.02, top.lerp(at, 0.5) + v(0, 0, 0.01), at + v(0.012, 0, 0.012)], 10)
+    b.sweep(path, circle(0.007, 12), ups=[v(0, 1, 0)] * 10)
+    parts.append(b.finish("mirror stem", "black", SHELL, texels=1.0))
     b = Builder()
     b.slab(rounded_rect(0.028, 0.032, 0.008), top - glass_up * 0.004, (0, 1, 0), glass_up, -0.005)
     parts.append(b.finish("mirror button", "black", SHELL, bevel=0.0015, texels=1.0))
@@ -942,15 +954,15 @@ def visors_and_mirror(house, visors=True):
     b = Builder()
     rings = []
     for k, (d, scale) in enumerate(((-0.024, 0.92), (-0.016, 1.0), (0.0, 1.0), (0.003, 0.985))):
-        rings.append([at + facing * d + left * u * scale + up * w * scale for (u, w) in rounded_rect(MIRROR_GLASS[0] + 0.014, MIRROR_GLASS[1] + 0.013, 0.02, 8)])
+        rings.append([at + facing * d + left * u * scale + up * w * scale for (u, w) in rounded_rect(glass[0] + 0.014, glass[1] + 0.013, 0.02, 8)])
     b.loft(rings, closed=True, caps=True)
     parts.append(b.finish("mirror housing", "black", SHELL, subdivide=1, texels=1.2))
     b = Builder()
-    b.slab(rounded_rect(MIRROR_GLASS[0], MIRROR_GLASS[1], 0.014, 8), at + facing * 0.0032, left, up, 0.0005)
+    b.slab(rounded_rect(glass[0], glass[1], 0.014, 8), at + facing * 0.0032, left, up, 0.0005)
     parts.append(b.finish("mirror glass", "mirror", MIRROR, smooth_shade=False))
     # The day and night tab under the housing's lower edge.
     b = Builder()
-    b.slab(rounded_rect(0.026, 0.012, 0.004), at - up * (MIRROR_GLASS[1] / 2 + 0.012) - facing * 0.008, left, facing, 0.006, both=True)
+    b.slab(rounded_rect(0.026, 0.012, 0.004), at - up * (glass[1] / 2 + 0.012) - facing * 0.008, left, facing, 0.006, both=True)
     parts.append(b.finish("mirror tab", "black", SHELL, bevel=0.0015, texels=1.4))
     # The lamp in the roof, between the front and rear seats.
     b = Builder()
