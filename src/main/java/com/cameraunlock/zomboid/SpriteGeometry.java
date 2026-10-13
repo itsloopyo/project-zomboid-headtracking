@@ -450,6 +450,8 @@ final class SpriteGeometry {
          * light runs smoothly from one square into the next.
          */
         final float[] cornerRed = new float[4], cornerGreen = new float[4], cornerBlue = new float[4];
+        /** What a crown made with the frame is worked out in: see Flora.Workings. Null until one is. */
+        Flora.Workings crownWorkings;
 
         /** The rectangle of the frame a texture holds, and where in the texture it is. */
         void takeTexels(Texture texture) {
@@ -1597,7 +1599,7 @@ final class SpriteGeometry {
      * way from its middle line, closed at both ends, every vertex with the one texel (u, v): a
      * brace from a post up to the beam it carries.
      */
-    static void addStrut(Mesh mesh, float[] from, float[] to, float half, float u, float v, float red, float green, float blue) {
+    void addStrut(Mesh mesh, float[] from, float[] to, float half, float u, float v, float red, float green, float blue) {
         float ax = to[0] - from[0], ay = to[1] - from[1], az = to[2] - from[2];
         float length = (float) Math.sqrt(ax * ax + ay * ay + az * az);
         ax /= length;
@@ -1607,7 +1609,7 @@ final class SpriteGeometry {
         float flat = (float) Math.sqrt(ax * ax + ay * ay);
         float sx = flat < 1e-4f ? 1f : -ay / flat, sy = flat < 1e-4f ? 0f : ax / flat;
         float tx = -az * sy, ty = az * sx, tz = ax * sy - ay * sx;
-        float[] c = new float[12];
+        float[] c = strutCorners;
         for (int side = 0; side < 4; side++) {
             float s0 = side == 0 || side == 3 ? -half : half, t0 = side < 2 ? -half : half;
             float s1 = side < 2 ? half : -half, t1 = side == 0 || side == 3 ? -half : half;

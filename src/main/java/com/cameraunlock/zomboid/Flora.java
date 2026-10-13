@@ -480,7 +480,8 @@ final class Flora {
             throw new IllegalArgumentException("a crown with leaf " + leaf + ", hue " + hue + " and turned " + turned);
         }
         int count = places.length / 2;
-        float[] reachLeft = new float[CROWN_BANDS], reachRight = new float[CROWN_BANDS], sizes = new float[SIZES];
+        Workings workings = frame.crownWorkings == null ? frame.crownWorkings = new Workings() : frame.crownWorkings;
+        float[] reachLeft = workings.reachLeft, reachRight = workings.reachRight, sizes = workings.sizes;
         if (!measure(frame, places, footU, footV, reachLeft, reachRight, sizes)) {
             return false;
         }
@@ -628,7 +629,7 @@ final class Flora {
         float inside = Math.clamp((leaf - CORE_GOES) / (1f - CORE_GOES), 0f, 1f);
         if (!bare && inside > 0f) {
             addCore(mesh, frame, places, x, y, base, footU, footV, across, up, lowest, tall, under, reachLeft, reachRight, lobes, rows, turnOne, turnTwo, turnThree, sprig, room,
-                    inside);
+                    inside, workings);
         }
         // The wood's own outline. Once a crown has lost leaves its wood is the bare tree's, grown
         // to the outline of the branches the tree's trunk sprite paints (woodShape), so it stands
@@ -636,8 +637,10 @@ final class Flora {
         float[] woodLeft = reachLeft, woodRight = reachRight;
         float woodLowest = lowest, woodTall = tall, woodWidest = widest, woodReach = reach, woodRows = rows;
         if (wooded && woodShape != null) {
-            woodLeft = Arrays.copyOfRange(woodShape, SIZES, SIZES + CROWN_BANDS);
-            woodRight = Arrays.copyOfRange(woodShape, SIZES + CROWN_BANDS, SIZES + 2 * CROWN_BANDS);
+            woodLeft = workings.woodLeft;
+            woodRight = workings.woodRight;
+            System.arraycopy(woodShape, SIZES, woodLeft, 0, CROWN_BANDS);
+            System.arraycopy(woodShape, SIZES + CROWN_BANDS, woodRight, 0, CROWN_BANDS);
             woodLowest = woodShape[LOWEST];
             woodTall = woodShape[TALL];
             woodWidest = woodShape[WIDEST];
@@ -659,13 +662,13 @@ final class Flora {
             int stems = formed ? TreeForm.STEMS_LEAST[kind] + (seed >>> 4 & 0xff) % (TreeForm.STEMS_MOST[kind] - TreeForm.STEMS_LEAST[kind] + 1) : 1;
             float lean = formed ? (float) Math.tan(Math.toRadians(TreeForm.STEM_LEAN[kind])) : 0f;
             float stemThick = stems > 1 ? thick * 1.15f / (float) Math.sqrt(stems) : thick;
-            float[] stemTop = new float[stems];
+            float[] stemTop = workings.stemTop = atLeast(workings.stemTop, stems);
             // Where each stem is at each of its joints, across and along from the tree's middle: no trunk runs dead straight.
             // In as many pieces as keep each short: see STRAIGHT_MOST.
             // Bent at every joint near the eye; far off, where a bend is finer than a pixel, in fewer, longer pieces.
             float straight = STRAIGHT_MOST * woodTall * (piecesByDistance ? detail >= NEAR_BENDS ? 1f : detail > BARE_TWIGGED ? 1.8f : 3f : 1f);
             int leaderPieces = Math.max(LEADER_PIECES, (int) Math.ceil((topUp - boleTall) / straight));
-            float[] stemX = new float[stems * (leaderPieces + 1)], stemY = new float[stems * (leaderPieces + 1)];
+            float[] stemX = workings.stemX = atLeast(workings.stemX, stems * (leaderPieces + 1)), stemY = workings.stemY = atLeast(workings.stemY, stems * (leaderPieces + 1));
             for (int stem = 0; stem < stems; stem++) {
                 int own = mix(seed, stem, 99);
                 float round = turnOne + stem * 6.2832f / stems + (stems > 1 ? 0.6f * (unit(own, 0) - 0.5f) : 0f);
@@ -678,13 +681,13 @@ final class Flora {
                     stemX[stem * (leaderPieces + 1) + joint] = (float) Math.cos(round) * out * a + waver * (unit(wavers, 0) - 0.5f);
                     stemY[stem * (leaderPieces + 1) + joint] = (float) Math.sin(round) * out * a + waver * (unit(wavers, 8) - 0.5f);
                 }
-                float[] line = new float[(leaderPieces + 1) * 4];
+                float[] line = workings.leader = atLeast(workings.leader, (leaderPieces + 1) * 4);
                 for (int joint = 0; joint <= leaderPieces; joint++) {
                     float a = (float) joint / leaderPieces;
                     int at = stem * (leaderPieces + 1) + joint;
                     tubePoint(line, joint, x + stemX[at], y + stemY[at], base + boleTall + (stemTop[stem] - boleTall) * a, stemThick + (LIMB_TIP - stemThick) * a);
                 }
-                tube(wood, line, leaderPieces + 1, LEADER_SIDES, BARK_UP * bark + WOOD_UP, base, boleTall, seed + leaderPieces * stem, 0f, frame, wooded, false);
+                tube(wood, line, leaderPieces + 1, LEADER_SIDES, BARK_UP * bark + WOOD_UP, base, boleTall, seed + leaderPieces * stem, 0f, frame, wooded, false, workings);
             }
             boolean paired = formed && TreeForm.OPPOSITE[kind];
             int nodes = paired ? (limbs + 1) / 2 : limbs;
@@ -721,7 +724,7 @@ final class Flora {
                 float startX = stemX[at0] + (stemX[at0 + 1] - stemX[at0]) * part, startY = stemY[at0] + (stemY[at0 + 1] - stemY[at0]) * part;
                 float lastX = x + startX, lastY = y + startY, lastUp = fromUp;
                 int limbPieces = Math.max(LIMB_PIECES, (int) Math.ceil(1.15f * (float) Math.hypot(endOut, endUp - fromUp) / straight));
-                float[] line = new float[(limbPieces + 1) * 4];
+                float[] line = workings.limb = atLeast(workings.limb, (limbPieces + 1) * 4);
                 tubePoint(line, 0, lastX, lastY, base + fromUp, limbThick);
                 for (int piece = 1; piece <= limbPieces; piece++) {
                     float t = (float) piece / limbPieces, s = 1f - t;
@@ -747,7 +750,7 @@ final class Flora {
                             float endX = keptX(x + (float) Math.cos(toRound) * toOut, toUnder, toIn, room), endY = keptY(y + (float) Math.sin(toRound) * toOut, toUnder, toIn, room);
                             boolean twigged = wooded && detail > BARE_TWIGGED;
                             float[] last = addBranch(wood, atX, atY, upAt, endX, endY, toUp, base, Math.max(thickTo * BRANCH_OF_LIMB, BRANCH_TIP),
-                                    straight, boleTall, bark, which, room, frame, wooded, twigged);
+                                    straight, boleTall, bark, which, room, frame, wooded, twigged, workings);
                             if (twigged) {
                                 // Further off, fewer twigs, and none forking: what forks is finer than a pixel there.
                                 int twigsHere = twigsByDistance && detail < NEAR_BENDS ? Math.max(twigs - 1, 2) : twigs;
@@ -760,7 +763,7 @@ final class Flora {
                     lastY = atY;
                     lastUp = upAt;
                 }
-                tube(wood, line, limbPieces + 1, LIMB_SIDES, BARK_UP * bark + WOOD_UP, base, boleTall, own + (paired ? 7 * (limb % 2) : 0), 0f, frame, wooded, false);
+                tube(wood, line, limbPieces + 1, LIMB_SIDES, BARK_UP * bark + WOOD_UP, base, boleTall, own + (paired ? 7 * (limb % 2) : 0), 0f, frame, wooded, false, workings);
             }
         }
         wood.sway = 0f;
@@ -780,10 +783,10 @@ final class Flora {
      */
     private static void addCore(Mesh mesh, SpriteGeometry.Frame frame, float[] places, float x, float y, float base, float footU, float footV, float across, float up,
             float lowest, float tall, float under, float[] reachLeft, float[] reachRight, int lobes, float rows, float turnOne, float turnTwo,
-            float turnThree, int sprig, float[] room, float drawnIn) {
+            float turnThree, int sprig, float[] room, float drawnIn, Workings workings) {
         int count = places.length / 2;
-        int[] placeOf = new int[CORE_RINGS];
-        float[] nearest = new float[CORE_RINGS];
+        int[] placeOf = workings.placeOf;
+        float[] nearest = workings.nearest;
         Arrays.fill(placeOf, -1);
         Arrays.fill(nearest, Float.MAX_VALUE);
         for (int i = 0; i < count; i++) {
@@ -837,6 +840,27 @@ final class Flora {
             }
         }
         mesh.sway = 0f;
+    }
+
+    /**
+     * What addCrown works a crown out in, so that a crown makes no garbage. It is kept with the
+     * frame the crown is made with (SpriteGeometry.Frame.crownWorkings), and so is only ever
+     * used on the one thread that frame is.
+     */
+    static final class Workings {
+        final float[] reachLeft = new float[CROWN_BANDS], reachRight = new float[CROWN_BANDS], sizes = new float[SIZES];
+        final float[] woodLeft = new float[CROWN_BANDS], woodRight = new float[CROWN_BANDS];
+        float[] stemTop = new float[0], stemX = new float[0], stemY = new float[0];
+        /** The points along a leader, a limb and a branch, which are made one inside another, and the rings of the one being made. */
+        float[] leader = new float[0], limb = new float[0], branch = new float[0], ring = new float[0];
+        final float[] branchStart = new float[3];
+        final int[] placeOf = new int[CORE_RINGS];
+        final float[] nearest = new float[CORE_RINGS];
+    }
+
+    /** The array, or a larger one in its place when it holds fewer than size. */
+    private static float[] atLeast(float[] array, int size) {
+        return array.length >= size ? array : new float[Math.max(size, 2 * array.length)];
     }
 
     /** What a crown's sprigs and inside add to their tree's square's y for the colour its leaves turn and how far: see AUTUMN_CODES. */
@@ -989,18 +1013,18 @@ final class Flora {
      * A branch from (fromX, fromY, fromUp) out to (toX, toY, toUp), thick at its start and
      * BRANCH_TIP at its end, in pieces no longer than longest, each joint kinked a little aside and the whole bowed
      * up, as wood grows from bud to bud and not as a rod. Returns where its last piece starts,
-     * for the twigs to go on the way it goes; twigged says whether they do, and snowed whether
+     * for the twigs to go on the way it goes, in workings until the next branch; twigged says whether they do, and snowed whether
      * it holds snow of its own (see woodCode).
      */
     private static float[] addBranch(Mesh wood, float fromX, float fromY, float fromUp, float toX, float toY, float toUp, float base, float thick, float longest,
-            float boleTall, int bark, int seed, float[] room, SpriteGeometry.Frame frame, boolean snowed, boolean twigged) {
+            float boleTall, int bark, int seed, float[] room, SpriteGeometry.Frame frame, boolean snowed, boolean twigged, Workings workings) {
         float dx = toX - fromX, dy = toY - fromY, dz = toUp - fromUp;
         float length = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
         int pieces = Math.max(2, (int) Math.ceil(length / longest));
         float flat = Math.max((float) Math.sqrt(dx * dx + dy * dy), 1e-4f);
         float sideX = -dy / flat, sideY = dx / flat;
         float lastX = fromX, lastY = fromY, lastUp = fromUp, startX = fromX, startY = fromY, startUp = fromUp;
-        float[] line = new float[(pieces + 1) * 4];
+        float[] line = workings.branch = atLeast(workings.branch, (pieces + 1) * 4);
         tubePoint(line, 0, fromX, fromY, base + fromUp, thick);
         for (int piece = 1; piece <= pieces; piece++) {
             float t = (float) piece / pieces;
@@ -1016,8 +1040,12 @@ final class Flora {
             lastY = atY;
             lastUp = up;
         }
-        tube(wood, line, pieces + 1, BRANCH_SIDES, BARK_UP * bark + WOOD_UP, base, boleTall, seed, 0f, frame, snowed, twigged);
-        return new float[] {startX, startY, startUp};
+        tube(wood, line, pieces + 1, BRANCH_SIDES, BARK_UP * bark + WOOD_UP, base, boleTall, seed, 0f, frame, snowed, twigged, workings);
+        float[] start = workings.branchStart;
+        start[0] = startX;
+        start[1] = startY;
+        start[2] = startUp;
+        return start;
     }
 
     /**
@@ -1047,10 +1075,10 @@ final class Flora {
      * goes on from there, if snowed says it holds snow of its own: see woodCode.
      */
     private static void tube(Mesh mesh, float[] line, int points, int sides, float up, float base, float boleTall, int seed, float mark, SpriteGeometry.Frame frame,
-            boolean snowed, boolean carriedOn) {
+            boolean snowed, boolean carriedOn, Workings workings) {
         float across = mark + BARK_ACROSS * (BARK_WRAPS_MOST * (seed >>> 16 & 1) + 2 * BARK_WRAPS_MOST * (seed >>> 17 & BARK_SHIFTS - 1));
         float span = Math.max((line[3] + line[(points - 1) * 4 + 3]) * (float) Math.PI * 4f, 0.2f);
-        float[] ring = new float[points * 6];
+        float[] ring = workings.ring = atLeast(workings.ring, points * 6);
         float ax = 0f, ay = 0f, az = 0f;
         for (int point = 0; point < points; point++) {
             int from = Math.max(point - 1, 0) * 4, to = Math.min(point + 1, points - 1) * 4;

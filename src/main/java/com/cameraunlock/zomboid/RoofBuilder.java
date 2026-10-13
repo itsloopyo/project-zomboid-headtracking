@@ -1065,12 +1065,12 @@ final class RoofBuilder {
                 pipeFrom[1] = pipeTo[1] = py;
                 pipeFrom[2] = foot + Eaves.SHOE_HIGH;
                 pipeTo[2] = head;
-                SpriteGeometry.addStrut(plain, pipeFrom, pipeTo, PIPE, 0f, 0f, build.frame.red, build.frame.green, build.frame.blue);
+                build.geometry.addStrut(plain, pipeFrom, pipeTo, PIPE, 0f, 0f, build.frame.red, build.frame.green, build.frame.blue);
                 // The shoe: the pipe's foot turned out from the wall, to throw the water clear of it.
                 pipeTo[0] = px + Math.signum(ox) * Eaves.SHOE_OUT;
                 pipeTo[1] = py + Math.signum(oy) * Eaves.SHOE_OUT;
                 pipeTo[2] = foot + PIPE;
-                SpriteGeometry.addStrut(plain, pipeFrom, pipeTo, PIPE, 0f, 0f, build.frame.red, build.frame.green, build.frame.blue);
+                build.geometry.addStrut(plain, pipeFrom, pipeTo, PIPE, 0f, 0f, build.frame.red, build.frame.green, build.frame.blue);
             }
         }
         sheet.open = roofing;

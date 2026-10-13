@@ -281,7 +281,7 @@ final class ShapeTests {
     private static void strutIsABoxAlongItsLine() {
         SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
         float[] from = {1f, 2f, 1f}, to = {1.6f, 2f, 1.5f};
-        SpriteGeometry.addStrut(mesh, from, to, 0.05f, 0.5f, 0.5f, 1f, 1f, 1f);
+        new SpriteGeometry().addStrut(mesh, from, to, 0.05f, 0.5f, 0.5f, 1f, 1f, 1f);
         check(mesh.triangles() == 12, "a strut is four sides and two ends");
         float length = (float) Math.sqrt(0.6f * 0.6f + 0.5f * 0.5f);
         for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {

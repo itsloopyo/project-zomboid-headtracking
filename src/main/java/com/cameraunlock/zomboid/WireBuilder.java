@@ -249,12 +249,12 @@ final class WireBuilder {
         float armX = axisX - alongY * out, armY = axisY + alongX * out, armUp = floor + Poles.ARM_UP * level;
         WorldScene.set(poleFrom, 0, armX - alongX * arm.half(), armY - alongY * arm.half(), armUp);
         WorldScene.set(poleTo, 0, armX + alongX * arm.half(), armY + alongY * arm.half(), armUp);
-        SpriteGeometry.addStrut(mesh, poleFrom, poleTo, Poles.ARM_HALF, u, v, build.frame.red, build.frame.green, build.frame.blue);
+        build.geometry.addStrut(mesh, poleFrom, poleTo, Poles.ARM_HALF, u, v, build.frame.red, build.frame.green, build.frame.blue);
         for (int side = -1; side <= 1; side += 2) {
             float at = side * arm.half() * Poles.BRACE_AT;
             WorldScene.set(poleFrom, 0, axisX - alongY * (thin + Poles.BRACE_HALF), axisY + alongX * (thin + Poles.BRACE_HALF), floor + Poles.BRACE_UP * level);
             WorldScene.set(poleTo, 0, armX + alongX * at, armY + alongY * at, armUp - Poles.ARM_HALF);
-            SpriteGeometry.addStrut(mesh, poleFrom, poleTo, Poles.BRACE_HALF, u, v, build.frame.red, build.frame.green, build.frame.blue);
+            build.geometry.addStrut(mesh, poleFrom, poleTo, Poles.BRACE_HALF, u, v, build.frame.red, build.frame.green, build.frame.blue);
         }
         SpriteGeometry.Mesh glazed = WorldScene.solid.get(WorldScene.PLAIN, WallSides.key(Poles.INSULATOR_RED, Poles.INSULATOR_GREEN, Poles.INSULATOR_BLUE, WallSides.FLAT));
         glazed.open = build.frame.open;
