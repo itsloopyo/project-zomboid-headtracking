@@ -270,6 +270,9 @@ final class WallTileTests {
         check(laid.get(0).high == 0.45f + 0.002f && laid.get(2).low == 0.65f - 0.002f, "the plain faces run on half a joint past the lines they share with it, so those are drawn whole");
         check(laid.get(1).low == 0.45f + 0.002f && laid.get(1).high == 0.65f - 0.002f, "and it starts half a joint past them");
         check(whole(v(laid.get(0), 0.45f)) && whole(v(laid.get(2), 0.65f)), "the lines are whole numbers on the plain faces");
+        check(WallTiles.stretches(band, 0.002f) == laid, "a band is laid once, and the same at every asking");
+        java.util.ArrayList<WallTiles.Stretch> wider = WallTiles.stretches(band, 0.003f);
+        check(wider != laid && wider.get(1).low == 0.45f + 0.003f, "and laid again for joints of another width");
     }
 
     private static void unevenCoursesAreTwoFaces() {

@@ -81,7 +81,11 @@ final class WallTiles {
          * course joint, and both courses have it.
          */
         boolean[] figured = new boolean[1];
+        /** What stretches made of the band, and for what halfUp: a wall is read once, and laid the same at every build of it. */
+        private volatile Laid laid;
     }
+
+    private record Laid(float halfUp, ArrayList<Stretch> stretches) {}
 
     /**
      * Courses of a band laid as one face, first to last from the foot up, from low to high in
@@ -104,8 +108,19 @@ final class WallTiles {
      * lines are evenly apart one face, each course with a figure one of its own. A course line
      * between a plain course and a course with a figure is drawn whole on the plain side: that
      * face runs on halfUp past it, and the course with the figure starts halfUp past it.
+     * The same list at every asking for the same halfUp: it is not to be changed.
      */
     static ArrayList<Stretch> stretches(Band band, float halfUp) {
+        Laid was = band.laid;
+        if (was != null && was.halfUp() == halfUp) {
+            return was.stretches();
+        }
+        ArrayList<Stretch> laid = layStretches(band, halfUp);
+        band.laid = new Laid(halfUp, laid);
+        return laid;
+    }
+
+    private static ArrayList<Stretch> layStretches(Band band, float halfUp) {
         ArrayList<Stretch> laid = new ArrayList<>();
         int courses = band.courses.length;
         int first = 0;
@@ -199,12 +214,18 @@ final class WallTiles {
 
     private record Asked(float originU, float originV, float scale, float left, float top, float width, float height) {}
 
-    /** A sprite on one of the two edges: a corner's sprite stands on both, and is read for each. */
-    private record Edge(Texture texture, boolean north) {}
-
     private static final Wall NONE = new Wall();
-    private static final ConcurrentHashMap<Edge, Asked> asked = new ConcurrentHashMap<>();
-    private static final ConcurrentHashMap<Edge, Wall> known = new ConcurrentHashMap<>();
+    /** By sprite, for each of the two edges, north then west: a corner's sprite stands on both, and is read for each. */
+    private static final ConcurrentHashMap<Texture, Asked> askedNorth = new ConcurrentHashMap<>(), askedWest = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<Texture, Wall> knownNorth = new ConcurrentHashMap<>(), knownWest = new ConcurrentHashMap<>();
+
+    private static ConcurrentHashMap<Texture, Asked> asked(boolean north) {
+        return north ? askedNorth : askedWest;
+    }
+
+    private static ConcurrentHashMap<Texture, Wall> known(boolean north) {
+        return north ? knownNorth : knownWest;
+    }
 
     private WallTiles() {}
 
@@ -227,12 +248,11 @@ final class WallTiles {
      * tiles on that edge, or too little wall to tell.
      */
     static Wall of(Texture texture, SpriteGeometry.Frame frame, boolean north) {
-        Edge edge = new Edge(texture, north);
-        Wall wall = known.get(edge);
+        Wall wall = known(north).get(texture);
         if (wall != null) {
             return wall == NONE ? null : wall;
         }
-        if (asked.putIfAbsent(edge, new Asked(frame.originU, frame.originV, frame.scale, frame.left, frame.top, frame.width, frame.height)) == null) {
+        if (asked(north).putIfAbsent(texture, new Asked(frame.originU, frame.originV, frame.scale, frame.left, frame.top, frame.width, frame.height)) == null) {
             SpriteColours.readAgain(texture);
         }
         return null;
@@ -240,7 +260,7 @@ final class WallTiles {
 
     /** Tests only: that the sprite reads as wall on that edge, as though it had been read. */
     static void knownForTests(Texture texture, boolean north, Wall wall) {
-        known.put(new Edge(texture, north), wall == null ? NONE : wall);
+        known(north).put(texture, wall == null ? NONE : wall);
     }
 
     /**
@@ -258,8 +278,12 @@ final class WallTiles {
             for (Band other : whole.bands) {
                 there = other.foot <= middle && middle <= other.head ? other : there;
             }
-            if (there == null || band.tiled && !there.tiled
-                    || !same(new float[] {band.red, band.green, band.blue}, new float[] {there.red, there.green, there.blue}, 2f)) {
+            if (there == null) {
+                return false;
+            }
+            float apart = Math.max(Math.abs(band.red - there.red), Math.max(Math.abs(band.green - there.green), Math.abs(band.blue - there.blue)));
+            float brighter = Math.max(0.299f * band.red + 0.587f * band.green + 0.114f * band.blue, 0.299f * there.red + 0.587f * there.green + 0.114f * there.blue);
+            if (band.tiled && !there.tiled || apart > 2f * Math.max(LEAST_SAME, SAME_SHARE * brighter)) {
                 return false;
             }
         }
@@ -268,20 +292,20 @@ final class WallTiles {
 
     /** Whether the sprite has still to be read for that edge. */
     static boolean unread(Texture texture, boolean north) {
-        return !known.containsKey(new Edge(texture, north));
+        return !known(north).containsKey(texture);
     }
 
     /** Reads the sprite for each edge it was asked for on: see Windows.read. */
     static void read(Texture texture, ByteBuffer sheet, int width, int left, int top, int right, int bottom) {
         for (int side = 0; side < 2; side++) {
-            Edge edge = new Edge(texture, side == 0);
-            Asked wanted = asked.get(edge);
-            if (wanted == null || known.containsKey(edge)) {
+            boolean north = side == 0;
+            Asked wanted = asked(north).get(texture);
+            if (wanted == null || known(north).containsKey(texture)) {
                 continue;
             }
             int across = Windows.across(wanted.scale), high = Windows.high(wanted.scale);
             int[] at = new int[across * high];
-            byte[] dots = Windows.laid(sheet, width, left, top, right, bottom, edge.north(), false, wanted.originU, wanted.originV, wanted.scale,
+            byte[] dots = Windows.laid(sheet, width, left, top, right, bottom, north, false, wanted.originU, wanted.originV, wanted.scale,
                     wanted.left, wanted.top, wanted.width, wanted.height, at);
             float[] rgb = new float[across * high * 3];
             boolean[] solid = new boolean[across * high];
@@ -295,9 +319,9 @@ final class WallTiles {
             }
             Wall wall = read(rgb, solid, across, high);
             if (FirstPerson.TRACE) {
-                Log.info("wall tiles " + texture.getName() + (edge.north() ? " north" : " west") + (wall == null ? " none" : said(wall)));
+                Log.info("wall tiles " + texture.getName() + (north ? " north" : " west") + (wall == null ? " none" : said(wall)));
             }
-            known.put(edge, wall == null ? NONE : wall);
+            known(north).put(texture, wall == null ? NONE : wall);
         }
     }
 

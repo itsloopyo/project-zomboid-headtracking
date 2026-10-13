@@ -45,8 +45,8 @@ final class WallBuilder {
     static final float TILE_JOINT_HALF = 0.004f;
     /** How many squares along its line a wall with an opening looks for a whole wall of its sheet to read its tiles from. */
     private static final int TILES_REACH = 4;
-    /** The walls with an opening the log has said keep their sprite, by texture and edge. */
-    private static final Set<String> KEPT_SPRITE = ConcurrentHashMap.newKeySet();
+    /** The walls with an opening the log has said keep their sprite, by texture name, on the north edge and on the west. */
+    private static final Set<String> KEPT_NORTH = ConcurrentHashMap.newKeySet(), KEPT_WEST = ConcurrentHashMap.newKeySet();
     /** For each of the two edges a wall can stand on: the frame origin the sprite was read with, then the opening. */
     private static final int OPENING_FLOATS = 7, OPENING_ORIGIN = 0, OPENING_START = 2, OPENING_END = 3, OPENING_FOOT = 4, OPENING_HEAD = 5, OPENING_TOP = 6;
     /** Where along a wall its height is read, and the lowest a wall's top is looked for, in levels. */
@@ -806,7 +806,7 @@ final class WallBuilder {
                 }
             }
         }
-        if (KEPT_SPRITE.add(texture.getName() + (north ? " north" : " west"))) {
+        if ((north ? KEPT_NORTH : KEPT_WEST).add(texture.getName())) {
             Log.info("wall tiles: " + texture.getName() + (north ? " north" : " west") + " at " + x + "," + y + "," + z
                     + " has an opening, and no whole wall of its sheet along it in its room agrees with it: it keeps its sprite");
         }
