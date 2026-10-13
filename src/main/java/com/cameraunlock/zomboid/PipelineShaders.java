@@ -4288,6 +4288,13 @@ final class PipelineShaders {
             uniform sampler2D uScene;
             uniform vec3 uSunEye;
 
+            // Where what the picture shows at the middle of one of its pixels is, from the depth read there.
+            vec3 placeOf(vec2 uv, float depth) {
+                float z = depth * 2.0 - 1.0;
+                float ahead = 2.0 * uNear * uFar / (uFar + uNear - z * (uFar - uNear));
+                return vec3((uv * 2.0 - 1.0) * uTan * ahead, ahead);
+            }
+
             // Where what the picture shows at a place in it is, seen from the eye: x to the right, y up, z ahead, in tiles.
             vec3 placeAt(vec2 at) {
                 // This pass is half the picture's size, so the middle of each of its pixels is
@@ -4297,9 +4304,7 @@ final class PipelineShaders {
                 // each change was a step in the ground: a grid of lines of shade. The place is
                 // moved to the middle of the pixel it is in first.
                 vec2 uv = (floor(at * uFull) + 0.5) / uFull;
-                float z = texture2D(uDepth, uv).r * 2.0 - 1.0;
-                float ahead = 2.0 * uNear * uFar / (uFar + uNear - z * (uFar - uNear));
-                return vec3((uv * 2.0 - 1.0) * uTan * ahead, ahead);
+                return placeOf(uv, texture2D(uDepth, uv).r);
             }
 
             // Whether a place is in the picture. Read past its edge, the picture's depth comes
@@ -4314,9 +4319,11 @@ final class PipelineShaders {
                 vec2 uv = gl_FragCoord.xy / uSize;
                 // Before any pixel leaves: a slope across the screen is taken from the pixel's
                 // neighbours, which must all have got this far.
-                vec3 p = placeAt(uv);
+                vec2 middle = (floor(uv * uFull) + 0.5) / uFull;
+                float depth = texture2D(uDepth, middle).r;
+                vec3 p = placeOf(middle, depth);
                 vec3 n = normalize(cross(dFdx(p), dFdy(p)));
-                if (texture2D(uDepth, uv).r >= 0.9999995) {
+                if (depth >= 0.9999995) {
                     gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
                     return;
                 }
