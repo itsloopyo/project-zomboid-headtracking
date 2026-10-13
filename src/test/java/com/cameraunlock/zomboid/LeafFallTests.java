@@ -24,6 +24,7 @@ final class LeafFallTests {
         Checks.run("aLeafCarriedOffIsLetGoPastKept", LeafFallTests::aLeafCarriedOffIsLetGoPastKept);
         Checks.run("aJumpOfTheEyeLetsEveryLeafGo", LeafFallTests::aJumpOfTheEyeLetsEveryLeafGo);
         Checks.run("aLeafBlownAtABuildingIsCaughtAndFadesOrGoesOver", LeafFallTests::aLeafBlownAtABuildingIsCaughtAndFadesOrGoesOver);
+        Checks.run("aGroundFloorOnAHillCatchesALeaf", LeafFallTests::aGroundFloorOnAHillCatchesALeaf);
         Checks.run("nothingMovesWhileThePictureWaits", LeafFallTests::nothingMovesWhileThePictureWaits);
     }
 
@@ -32,20 +33,27 @@ final class LeafFallTests {
     private static final float LOW = 1.8f, HIGH = 5f, OUT = 1.6f;
     private static final String MAPLE = "e_redmaple_1_3";
 
-    /** Flat ground at height 0 with a building on every square from x = wallFrom on, up to wallTop. */
-    private record Flat(int wallFrom, float wallTop) implements LeafFall.Ground {
+    /**
+     * Level ground at height lift with a building on every square from x = wallFrom on, its
+     * rooms the storeys under storeys, asked as the game's map is: by the storey LeafFall.storey gives.
+     */
+    private record Flat(int wallFrom, int storeys, float lift) implements LeafFall.Ground {
+        Flat(int wallFrom, int storeys) {
+            this(wallFrom, storeys, 0f);
+        }
+
         @Override
         public float height(float x, float y) {
-            return 0f;
+            return lift;
         }
 
         @Override
         public boolean walled(int x, int y, float up) {
-            return x >= wallFrom && up < wallTop;
+            return x >= wallFrom && LeafFall.storey(up, lift) < storeys;
         }
     }
 
-    private static final Flat OPEN = new Flat(Integer.MAX_VALUE, 0f);
+    private static final Flat OPEN = new Flat(Integer.MAX_VALUE, 0);
 
     /** A sim whose trees stand on a grid round (0, 0), count of them, all red maples in leaf. */
     private static LeafFall grove(int count) {
@@ -376,7 +384,7 @@ final class LeafFallTests {
         fall.beginTrees(0f, 0f);
         fall.offer(-0.5f, 0.5f, 0f, MAPLE, shedding(1f), true, LOW, HIGH, OUT);
         fall.endTrees();
-        Flat bungalow = new Flat(3, ViewCamera.LEVEL_HEIGHT);
+        Flat bungalow = new Flat(3, 1);
         float[] leaves = new float[LeafFall.MOST * LeafFall.FLOATS];
         int over = 0;
         for (int round = 0; round < 1200; round++) {
@@ -392,6 +400,29 @@ final class LeafFallTests {
         }
         Checks.check(fall.spawned > 100 && over > 0, "leaves were let go towards the building and some went over it: " + fall.spawned + ", " + over);
         Checks.check(fall.vanished == 0, "none vanished in the air: " + fall.vanished);
+    }
+
+    /** On a hill a ground floor stands as high over the flat map as the hill: a leaf blown at it is caught, not let in as if it were upstairs. */
+    private static void aGroundFloorOnAHillCatchesALeaf() {
+        float hill = 1.5f * ViewCamera.LEVEL_HEIGHT;
+        Checks.check(LeafFall.storey(hill + 0.5f, hill) == 0 && LeafFall.storey(hill + ViewCamera.LEVEL_HEIGHT + 0.1f, hill) == 1 && LeafFall.storey(hill - 0.1f, hill) == 0,
+                "a storey is counted from the ground under it");
+        LeafFall fall = new LeafFall();
+        fall.beginTrees(0f, 0f);
+        fall.offer(-0.5f, 0.5f, hill, MAPLE, shedding(1f), true, LOW, HIGH, OUT);
+        fall.endTrees();
+        Flat house = new Flat(3, 1, hill);
+        float[] leaves = new float[LeafFall.MOST * LeafFall.FLOATS];
+        for (int round = 0; round < 900; round++) {
+            fall.step(1f / 30f, 12f, 0f, 0.6f, Seasons.AUTUMN, PEAK_AUTUMN, 0f, 0f, house);
+            int count = fall.write(leaves, 0f, 0f);
+            for (int i = 0; i < count; i++) {
+                int at = i * LeafFall.FLOATS;
+                Checks.check(leaves[at + LeafFall.X] < 3.5f || leaves[at + LeafFall.UP] > hill + ViewCamera.LEVEL_HEIGHT - 0.35f,
+                        "no leaf goes on into the ground floor on the hill: " + leaves[at + LeafFall.X] + " at " + leaves[at + LeafFall.UP]);
+            }
+        }
+        Checks.check(fall.spawned > 100, "leaves were let go towards the house: " + fall.spawned);
     }
 
     private static void nothingMovesWhileThePictureWaits() {

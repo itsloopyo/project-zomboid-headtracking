@@ -112,7 +112,7 @@ final class LeafTrees implements LeafFall.Ground {
 
     @Override
     public boolean walled(int x, int y, float up) {
-        IsoGridSquare square = cell.getGridSquare(x, y, Math.max((int) Math.floor(up / ViewCamera.LEVEL_HEIGHT), 0));
+        IsoGridSquare square = cell.getGridSquare(x, y, LeafFall.storey(up, terrain.lift(x + 0.5f, y + 0.5f, 0)));
         return square != null && square.getRoomID() != -1L;
     }
 }

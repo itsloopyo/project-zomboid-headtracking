@@ -48,7 +48,7 @@ final class LeafFall {
         /** The height of the ground at (x, y), in tiles. */
         float height(float x, float y);
 
-        /** Whether a leaf at that height cannot be on the square: inside a storey of a building, behind its walls. */
+        /** Whether a leaf at that height cannot be on the square: inside a storey of a building, behind its walls (see storey). */
         boolean walled(int x, int y, float up);
     }
 
@@ -184,6 +184,11 @@ final class LeafFall {
         return PEAK * Math.max(TRICKLE * smooth(turned / 0.5f) * on, 4f * on * (1f - on));
     }
 
+    /** The storey of a building a leaf at height up is in, over ground at that height: the map's buildings stand on the ground as the hills lift it. */
+    static int storey(float up, float ground) {
+        return Math.max((int) Math.floor((up - ground) / ViewCamera.LEVEL_HEIGHT), 0);
+    }
+
     /** The share of its leaves a tree that far from the eye is given to let go of: all within NEAR, less further off. */
     static float nearness(float away) {
         return 1f - 0.7f * smooth((away - NEAR) / (REACH - NEAR));
@@ -282,7 +287,7 @@ final class LeafFall {
         if (fromX * fromX + fromY * fromY > KEPT * KEPT) {
             return false;
         }
-        int sx = (int) Math.floor(x[i]), sy = (int) Math.floor(y[i]), level = (int) Math.floor(up[i] / ViewCamera.LEVEL_HEIGHT);
+        int sx = (int) Math.floor(x[i]), sy = (int) Math.floor(y[i]), level = storey(up[i], ground[i]);
         int at = sx * 73856093 ^ sy * 19349663 ^ level * 83492791;
         if (at != square[i]) {
             square[i] = at;
