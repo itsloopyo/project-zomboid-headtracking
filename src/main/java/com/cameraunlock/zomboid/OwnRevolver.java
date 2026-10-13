@@ -20,6 +20,8 @@ final class OwnRevolver extends OwnGun {
     /** Where each of the numbers that say how the parts move is in the file's list of them: see tools/models/revolver.py. */
     static final int HAMMER_Y = 0, HAMMER_Z = 1, COCKED = 2, TRIGGER_Y = 3, TRIGGER_Z = 4, PULLED = 5, AXIS_X = 6, AXIS_Z = 7, TURN = 8, CHAMBERS = 9,
             CRANE_X = 10, CRANE_Z = 11, SWING = 12, PUSHED = 13, CHAMBER_X = 14, CHAMBER_Y = 15, CHAMBER_Z = 16;
+    /** How many of them are read. */
+    static final int MOVES = CHAMBER_Z + 1;
     /** How fast what the ejector pushes out leaves the chambers, in metres a second of the model, along their length. */
     private static final float THROWN_OUT = 0.9f;
 
@@ -61,6 +63,7 @@ final class OwnRevolver extends OwnGun {
      * next, wherever the cylinder is, from the moment it begins to swing out. Null while it is
      * shut, or full. The array is this one's and is filled again on the next call.
      */
+    @Override
     float[] loadingPort(OwnModel own) {
         return places.port(own.moves, cylinder, port) ? port : null;
     }

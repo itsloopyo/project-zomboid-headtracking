@@ -1121,14 +1121,14 @@ public final class Characters {
         float pumped = view.viewModel.pumpedPlaced;
         OwnModel own = hands.ownDrawn();
         if (own != null) {
-            float out = muzzleOut(held);
+            float out = muzzleOut();
             own.hold(meshView, heldView, weaponPlace, data.finalScale, out);
             own.hold(meshStill, view.viewModel.still, weaponPlace, data.finalScale, out);
             // A pump gun's fore-end is where its maker put it and slides as far as the model's does; the rifle's bolt is drawn back as far as its model's.
-            // A revolver's rounds go in at the back of the chamber the game fills next, wherever the swung out cylinder has it.
+            // A gun that opens to be loaded says where its rounds go in, wherever its moving parts have it.
             return heldMesh.set(own.shape, meshView, meshStill, own.pump ? own.travel * pumped : 0f,
                     own.pump ? own.foreEnd * own.muzzle[1] : Float.NaN, own.pump ? ArmHolds.BOLT_TRAVEL : own.travel)
-                    .port(view.ownGun(own) instanceof OwnRevolver revolver ? revolver.loadingPort(own) : null);
+                    .port(view.ownGun(own).loadingPort(own));
         }
         WeaponShape shape = shapeOf(held, hands.item(), view.viewModel.handgun);
         if (shape == null) {
@@ -1472,7 +1472,8 @@ public final class Characters {
         // Whatever is fixed to it but a scope is left out with the game's model of it.
         OwnModel own = held != null && view.viewModel.hasMuzzle ? hands.ownDrawn() : null;
         if (own != null) {
-            view.ownGun(own).place(own, heldView, weaponPlace, data.finalScale, muzzleOut(held), ownLight, outside, hands.aim(), hands.paused());
+            view.ownGun(own).place(own, held.modelInstance.modelScript == null ? null : held.modelInstance.modelScript.name, heldView, weaponPlace, data.finalScale,
+                    muzzleOut(), ownLight, outside, hands.aim(), hands.paused());
         }
         // A scope is drawn by the picture too, after the hands, in place of the game's model of it.
         ModelInstanceRenderData glass = held == null || view.scope.fitted() == null ? null : scopeOf(data);
@@ -1574,9 +1575,9 @@ public final class Characters {
         data.ambientB = blue;
     }
 
-    /** How far the muzzle of what the hand holds is from where the game hangs it, in the model's own measure. */
-    private static float muzzleOut(ModelInstanceRenderData held) {
-        Vector3f muzzle = held.modelInstance.modelScript.getAttachmentById(MUZZLE).getOffset();
+    /** How far the muzzle of what the hand holds is from where the game hangs it, in the model's own measure: of the game's model the view model was placed by. */
+    private float muzzleOut() {
+        Vector3f muzzle = view.viewModel.muzzleScript.getAttachmentById(MUZZLE).getOffset();
         return (float) Math.sqrt(muzzle.x * muzzle.x + muzzle.y * muzzle.y + muzzle.z * muzzle.z);
     }
 

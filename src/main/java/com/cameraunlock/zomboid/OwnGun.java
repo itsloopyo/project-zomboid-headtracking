@@ -269,6 +269,8 @@ abstract class OwnGun {
 
     /** The model placed this frame, and its matrix from the model's axes to the view's. */
     OwnModel drawn;
+    /** The name of the game's model of the gun that the game draws in its place this frame: it may change as the gun is worked. */
+    String gameModel;
     final float[] model = new float[16];
     private final float[] projection = new float[16];
     private boolean placed;
@@ -318,6 +320,7 @@ abstract class OwnGun {
      * Notes where the gun is this frame, to be drawn once the hands on it have been.
      *
      * @param what        the model to draw
+     * @param drawnAs     the name of the model of the game's that the game draws for the gun this frame
      * @param heldView    ViewModel's matrix for the weapon held up: from the character's axes to the view's
      * @param weapon      where the game has the weapon in its character's axes, read by rows
      * @param finalScale  the scale the game draws the character's parts at
@@ -327,14 +330,25 @@ abstract class OwnGun {
      * @param aim         0 at the hip, 1 with the sights up
      * @param paused      whether the game is paused in that frame
      */
-    final void place(OwnModel what, float[] heldView, float[] weapon, float finalScale, float gameMuzzle, float light, boolean outside, float aim, boolean paused) {
+    final void place(OwnModel what, String drawnAs, float[] heldView, float[] weapon, float finalScale, float gameMuzzle, float light, boolean outside, float aim,
+            boolean paused) {
         drawn = what;
+        gameModel = drawnAs;
         stillFrame = paused;
         handed = what.hold(model, heldView, weapon, finalScale, gameMuzzle);
         stood = light;
         outdoors = outside ? 1f : 0f;
         placed(aim);
         placed = true;
+    }
+
+    /**
+     * Where the next round goes into the gun now, in the model's own axes and metres, where that
+     * is not where its shape says: null where it is. A gun that opens to be loaded says where.
+     * The array may be the gun's own, filled again on the next call.
+     */
+    float[] loadingPort(OwnModel own) {
+        return null;
     }
 
     /** What the gun makes of where it is held this frame, once its matrix is filled. */

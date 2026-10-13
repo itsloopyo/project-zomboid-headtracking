@@ -16,7 +16,7 @@ package com.cameraunlock.zomboid;
  */
 final class OwnPistol extends OwnGun {
     /** The parts the file's layout names. A pistol has nothing in the second, which is a pump's. */
-    static final int PARTS = 5;
+    static final int PARTS = 5, MOVES = 0;
     private static final int FIXED = 0, SLIDE = 2, CASE = 3, MAGAZINE = 4;
 
     /**

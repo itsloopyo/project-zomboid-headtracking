@@ -12,6 +12,7 @@ public final class HandWeapon extends InventoryItem {
     public float getActualWeight() { throw new UnsupportedOperationException("reference stub"); }
     public boolean isRackAfterShoot() { throw new UnsupportedOperationException("reference stub"); }
     public zombie.scripting.objects.WeaponReloadType getWeaponReloadType() { throw new UnsupportedOperationException("reference stub"); }
+    public String getWeaponSprite() { throw new UnsupportedOperationException("reference stub"); }
     public int getCurrentAmmoCount() { throw new UnsupportedOperationException("reference stub"); }
     public int getSpentRoundCount() { throw new UnsupportedOperationException("reference stub"); }
     public boolean isContainsClip() { throw new UnsupportedOperationException("reference stub"); }

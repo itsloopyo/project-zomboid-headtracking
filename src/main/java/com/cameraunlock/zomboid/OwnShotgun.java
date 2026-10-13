@@ -14,7 +14,7 @@ package com.cameraunlock.zomboid;
 final class OwnShotgun extends OwnGun {
     /** The parts the file's layout names, and how many it has. */
     private static final int FIXED = 0, SHELL = 3, STOCK = 4;
-    static final int PARTS = 5;
+    static final int PARTS = 5, MOVES = 0;
     /** How far from the eye the stock is first drawn with the sights up, in the model's metres. */
     private static final float NOT_DRAWN_WITHIN = 0.13f;
     /** The bolt throws the shell out once the fore-end is this far back, on its way back. */

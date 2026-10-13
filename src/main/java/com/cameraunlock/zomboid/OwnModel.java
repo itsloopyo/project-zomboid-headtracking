@@ -38,16 +38,25 @@ final class OwnModel {
      */
     private static int made;
     static final OwnModel[] ALL = {
-        new OwnModel("the shotgun's model", "shotgun", "shotgun", "Base.Shotgun", true, true, false, OwnShotgun.PARTS, OwnShotgun::new),
-        new OwnModel("the sawn-off shotgun's model", "sawnoff", "sawnoff", "Base.ShotgunSawnoff", true, true, false, OwnShotgun.PARTS, OwnShotgun::new),
-        new OwnModel("the rifle's model", "rifle", "rifle", "Base.HuntingRifle", false, false, false, OwnRifle.PARTS, OwnRifle::new),
-        new OwnModel("the revolver's model", "revolver", "revolver", "Base.Revolver", false, false, true, OwnRevolver.PARTS, OwnRevolver::new),
-        new OwnModel("the magnum's model", "magnum", "magnum", "Base.Revolver_Long", false, false, true, OwnRevolver.PARTS, OwnRevolver::new),
-        new OwnModel("the snub-nosed revolver's model", "snubnose", "snubnose", "Base.Revolver_Short", false, false, true, OwnRevolver.PARTS, OwnRevolver::new),
-        new OwnModel("the cap gun's model", "capgun", "capgun", "Base.Revolver_CapGun", false, false, true, OwnRevolver.PARTS, OwnRevolver::new),
-        new OwnModel("the service pistol's model", "pistol", "pistol", "Base.Pistol", false, false, true, OwnPistol.PARTS, OwnPistol::new),
-        new OwnModel("the forty-five's model", "pistol2", "pistol2", "Base.Pistol2", false, false, true, OwnPistol.PARTS, OwnPistol::new),
-        new OwnModel("the magnum pistol's model", "pistol3", "pistol3", "Base.Pistol3", false, false, true, OwnPistol.PARTS, OwnPistol::new),
+        new OwnModel("the shotgun's model", "shotgun", "shotgun", "Base.Shotgun", true, true, false, OwnShotgun.PARTS, OwnShotgun.MOVES,
+                OwnShotgun::new),
+        new OwnModel("the sawn-off shotgun's model", "sawnoff", "sawnoff", "Base.ShotgunSawnoff", true, true, false, OwnShotgun.PARTS,
+                OwnShotgun.MOVES, OwnShotgun::new),
+        new OwnModel("the rifle's model", "rifle", "rifle", "Base.HuntingRifle", false, false, false, OwnRifle.PARTS, OwnRifle.MOVES, OwnRifle::new),
+        new OwnModel("the revolver's model", "revolver", "revolver", "Base.Revolver", false, false, true, OwnRevolver.PARTS, OwnRevolver.MOVES, OwnRevolver::new),
+        new OwnModel("the magnum's model", "magnum", "magnum", "Base.Revolver_Long", false, false, true, OwnRevolver.PARTS, OwnRevolver.MOVES, OwnRevolver::new),
+        new OwnModel("the snub-nosed revolver's model", "snubnose", "snubnose", "Base.Revolver_Short", false, false, true, OwnRevolver.PARTS,
+                OwnRevolver.MOVES, OwnRevolver::new),
+        new OwnModel("the cap gun's model", "capgun", "capgun", "Base.Revolver_CapGun", false, false, true, OwnRevolver.PARTS,
+                OwnRevolver.MOVES, OwnRevolver::new),
+        new OwnModel("the service pistol's model", "pistol", "pistol", "Base.Pistol", false, false, true, OwnPistol.PARTS, OwnPistol.MOVES, OwnPistol::new),
+        new OwnModel("the forty-five's model", "pistol2", "pistol2", "Base.Pistol2", false, false, true, OwnPistol.PARTS, OwnPistol.MOVES, OwnPistol::new),
+        new OwnModel("the magnum pistol's model", "pistol3", "pistol3", "Base.Pistol3", false, false, true, OwnPistol.PARTS, OwnPistol.MOVES,
+                OwnPistol::new),
+        new OwnModel("the double barrelled shotgun's model", "dbarrel", "dbarrel", "Base.DoubleBarrelShotgun", false, true, false, OwnDouble.PARTS, OwnDouble.MOVES,
+                OwnDouble::new),
+        new OwnModel("the sawn-off double barrelled shotgun's model", "dbarrelsawn", "dbarrel", "Base.DoubleBarrelShotgunSawnoff", false, true, false,
+                OwnDouble.PARTS, OwnDouble.MOVES, OwnDouble::new),
     };
 
     /**
@@ -82,6 +91,8 @@ final class OwnModel {
     final Function<View, OwnGun> works;
     /** How many parts that class draws, which the model's file must have. */
     private final int parts;
+    /** How many numbers saying how its parts move its class reads. */
+    private final int movesRead;
     /** Where the model is in ALL. */
     final int index = made++;
 
@@ -104,7 +115,7 @@ final class OwnModel {
     float travel;
     /**
      * In the model's metres: how far the muzzle is from the grip, and where the eye is with the
-     * sights lined up, over the bore and behind the grip.
+     * sights lined up, over the grip and behind it.
      */
     float muzzleFar, sightLine, eyeBehind;
     /** In the model's metres, how far ahead of the grip its rear sight is, which with the sights up is what the eye is behind. */
@@ -126,16 +137,18 @@ final class OwnModel {
      * @param foreEndHeld whether the left hand holds its fore-end with the pump gun's hold
      * @param handgun     whether it is a handgun, its top towards -z
      * @param parts       how many parts the class that works it draws: its file must have as many
+     * @param moves       how many numbers saying how its parts move that class reads: its file must have at least as many
      * @param works       makes the class that works its action and draws it
      */
     private OwnModel(String what, String name, String pictures, String item, boolean pump, boolean foreEndHeld, boolean handgun, int parts,
-            Function<View, OwnGun> works) {
+            int moves, Function<View, OwnGun> works) {
         this.what = what;
         this.item = item;
         this.pump = pump;
         this.foreEndHeld = foreEndHeld;
         this.handgun = handgun;
         this.parts = parts;
+        this.movesRead = moves;
         this.works = works;
         mesh = "/models/" + name + ".mesh.gz";
         colourPath = "/models/" + pictures + ".colour.bc";
@@ -363,6 +376,9 @@ final class OwnModel {
         Layout layout = layout(read, mesh);
         if (layout.counts.length != parts) {
             throw new IOException(mesh + " has " + layout.counts.length + " parts, where what draws " + what + " draws " + parts);
+        }
+        if (layout.moves.length < movesRead) {
+            throw new IOException(mesh + " has " + layout.moves.length + " numbers saying how its parts move, where what draws " + what + " reads " + movesRead);
         }
         StringBuilder why = new StringBuilder();
         float[] places = layout.places(read);

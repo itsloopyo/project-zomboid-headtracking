@@ -12,6 +12,7 @@ import zombie.inventory.InventoryItem;
 import zombie.inventory.types.HandWeapon;
 import zombie.inventory.types.WeaponType;
 import zombie.scripting.objects.ModelAttachment;
+import zombie.scripting.ScriptManager;
 import zombie.scripting.objects.ModelScript;
 
 /**
@@ -86,12 +87,14 @@ public final class ViewModel {
      * @param paused    whether the game is paused this frame: what the action threw hangs where it is
      * @param shots     how many shots the holder has taken with what has been held, counted up from when the game began
      * @param chambered whether the weapon has a round in its chamber
+     * @param gunModel  for a firearm, the name of the game's model of it as the item has it, which a model it draws while the gun is worked may stand in for
      */
     record Held(String item, int itemId, boolean firearm, boolean bothHands, int attack, float reached, float past, boolean struck, float aim, float nearness, float lowered,
             float swayYaw, float swayPitch, float bobX, float bobY, float recoil, float kickPitch, float kickYaw, float kickRoll, float kickUp, float kickBack,
             float dip, int skin, boolean female,
             int action, float cycled, int doing, float done, int rounds, int spent, float round, float handled, float pace, float seated, float drawn, float worked,
-            boolean clip, float out, float fetching, float fetchTakes, boolean leftFree, int swungAs, OwnModel own, boolean paused, int shots, boolean chambered) {
+            boolean clip, float out, float fetching, float fetchTakes, boolean leftFree, int swungAs, OwnModel own, boolean paused, int shots, boolean chambered,
+            String gunModel) {
         /**
          * The mod's own model drawn for it: decided once, as this was made, so that where it is
          * held, the hands on it and what is drawn agree on the frame a model comes onto the
@@ -506,7 +509,8 @@ public final class ViewModel {
                 attack, reached, past, struck, aim, nearness, lowered, swayYaw, swayPitch, bob[0], bob[1], recoil,
                 kick.weaponPitch.at, kick.weaponYaw.at, kick.weaponRoll.at, kick.weaponUp.at, kick.weaponBack.at, dip,
                 player.getHumanVisual().getSkinTextureIndex(), player.isFemale(), action, cycled, doing, done, rounds, firearm ? weapon.getSpentRoundCount() : 0, round, handled, took[action][doing], seated, drawn, worked, clip, out, fetching, fetchTakes[action], !steering && player.getSecondaryHandItem() == null, firearm ? MeleeHold.ONE_HANDED : swungAs(weapon, item == player.getSecondaryHandItem()),
-                firearm ? OwnModel.of(item.getFullType()) : null, paused, shots, firearm && weapon.isRoundChambered());
+                firearm ? OwnModel.of(item.getFullType()) : null, paused, shots, firearm && weapon.isRoundChambered(),
+                firearm ? weapon.getWeaponSprite() : null);
     }
 
     /**
@@ -796,6 +800,8 @@ public final class ViewModel {
     /** Where the muzzle of the weapon last placed is in the view, and whether it has one. */
     final float[] muzzle = new float[3];
     boolean hasMuzzle;
+    /** The game's model of the gun held that the muzzle was last read from. Render thread. */
+    ModelScript muzzleScript;
     /** Whether the weapon last placed is a firearm held by one hand's grip with its muzzle just ahead of it. */
     boolean handgun;
     private final HashSet<String> noMuzzleSaid = new HashSet<>();
@@ -844,8 +850,20 @@ public final class ViewModel {
         origin[2] = weapon[11] * finalScale;
         ModelScript script = instance.modelScript;
         ModelAttachment barrel = how.firearm && script != null ? script.getAttachmentById(MUZZLE) : null;
+        // The game draws its double barrelled guns broken open with a model that has no muzzle, placed as
+        // the gun's own model is. Where the mod draws its own model of the gun, which breaks open itself,
+        // it is held by the gun's own model's muzzle.
+        ModelScript closed = barrel == null && how.firearm && how.gunModel != null ? ScriptManager.instance.getModelScript(how.gunModel) : null;
+        ModelAttachment closedMuzzle = closed == null ? null : closed.getAttachmentById(MUZZLE);
+        if (closedMuzzle != null && how.ownDrawn() != null) {
+            script = closed;
+            barrel = closedMuzzle;
+        }
+        if (barrel != null) {
+            muzzleScript = script;
+        }
         hasMuzzle = barrel != null;
-        if (how.firearm && !hasMuzzle && noMuzzleSaid.add(how.item)) {
+        if (how.firearm && !hasMuzzle && closedMuzzle == null && noMuzzleSaid.add(how.item)) {
             Log.info("the model of " + how.item + " has no attachment called " + MUZZLE + ": the game's own arms hold it and its shots have no flash");
         }
         float muzzleOut = hasMuzzle ? (float) Math.hypot(barrel.getOffset().x, Math.hypot(barrel.getOffset().y, barrel.getOffset().z)) : 0f;
