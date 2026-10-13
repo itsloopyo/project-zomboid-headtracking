@@ -10,7 +10,10 @@ import java.util.List;
 final class DevPatches {
     private DevPatches() {}
 
-    /** The invincible key (see DevKeys.cheatsAllowed), and the frame recorder's clock and its two places in a frame (see FrameRecorder). */
+    /**
+     * The invincible key (see DevKeys.cheatsAllowed), the frame recorder's clock and its two places in a frame, and the
+     * mod's own words on the screen, which the recorder keeps out of a take (see FrameRecorder).
+     */
     static List<Agent.Patch> list() {
         return List.of(new Agent.Patch("zombie/characters/PlayerCheats", "isCheatAllowed before its returns", classBytes -> CallSite.filterReturn(classBytes,
                         new CallSite.Method("zombie/characters/PlayerCheats", "isCheatAllowed", "()Z"),
@@ -24,6 +27,11 @@ final class DevPatches {
                                 new CallSite.Method("com/cameraunlock/zomboid/FrameRecorder", "beforeInterface", "()V")),
                         new CallSite.Method("zombie/gameStates/IngameState", "renderFrameUI", "()V"),
                         new CallSite.Method("zombie/modding/ActiveMods", "renderUI", "()V"),
-                        new CallSite.Method("com/cameraunlock/zomboid/FrameRecorder", "afterInterface", "()V"))));
+                        new CallSite.Method("com/cameraunlock/zomboid/FrameRecorder", "afterInterface", "()V"))),
+                new Agent.Patch("com/cameraunlock/zomboid/FirstPerson", "afterWorldText's words on the screen", classBytes -> CallSite.replaceEach(classBytes,
+                        new CallSite.Method("com/cameraunlock/zomboid/FirstPerson", "afterWorldText", "(I)V"),
+                        new CallSite.Method("zombie/ui/TextManager", "DrawStringCentre", "(Lzombie/ui/UIFont;DDLjava/lang/String;DDDD)V"),
+                        new CallSite.Method("com/cameraunlock/zomboid/FrameRecorder", "said",
+                                "(Lzombie/ui/TextManager;Lzombie/ui/UIFont;DDLjava/lang/String;DDDD)V"), 1)));
     }
 }

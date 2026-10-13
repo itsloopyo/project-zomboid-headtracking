@@ -21,6 +21,8 @@ import zombie.core.Core;
 import zombie.core.PerformanceSettings;
 import zombie.core.SpriteRenderer;
 import zombie.core.textures.TextureDraw;
+import zombie.ui.TextManager;
+import zombie.ui.UIFont;
 
 /**
  * Records the game's frames to video files, there only in a development build: for filming
@@ -262,6 +264,16 @@ public final class FrameRecorder {
         Thread finisher = new Thread(() -> finish(ending), "recorder finish " + ending.name);
         finisher.setDaemon(true);
         finisher.start();
+    }
+
+    /**
+     * The mod's own words on the screen (the graphics mode said at a switch, "getting ready"): drawn as ever, except
+     * while a take records or is being written, so a take has none of them. Logic thread.
+     */
+    public static void said(TextManager text, UIFont font, double x, double y, String words, double r, double g, double b, double a) {
+        if (!busy()) {
+            text.DrawStringCentre(font, x, y, words, r, g, b, a);
+        }
     }
 
     /** How far into the take the frame being made is, in milliseconds of the film, or -1 with none recording. */
