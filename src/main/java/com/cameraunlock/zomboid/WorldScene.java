@@ -1442,6 +1442,8 @@ final class WorldScene {
      * left level while the view is the game's own from overhead. Set by the logic thread.
      */
     volatile Terrain terrain = Terrain.HILLS;
+    /** The leaves falling round this view's eye. */
+    private final LeafTrees leafTrees = new LeafTrees();
     /** The height of the hills the far land was last asked for at: see HillHeight. Logic thread. */
     private float farHills = HillHeight.DEFAULT;
 
@@ -2425,6 +2427,7 @@ final class WorldScene {
             Fires.gather(sky, terrain, player.getIndex(), pose.eyeX, pose.eyeY);
             playerIndex = player.getIndex();
             cell = IsoWorld.instance.currentCell;
+            leafTrees.gather(sky, cell, terrain, pose.eyeX, pose.eyeY, start);
             roofBuilder.newBuild();
             if (Own.taken(view.index)) {
                 // A row of [Content] was switched: every build holds what the rows were, and so does every roof read and every square's ground, which leave a parasol out by its row.
@@ -4394,7 +4397,7 @@ final class WorldScene {
         }
 
         /** The name of the sprite of the tree on a square that has one: the game marks a square as having a tree for any object of the tree's type on it. */
-        private static String treeName(IsoGridSquare square) {
+        static String treeName(IsoGridSquare square) {
             PZArrayList<IsoObject> objects = square.getObjects();
             for (int i = 0; i < objects.size(); i++) {
                 IsoObject object = objects.get(i);

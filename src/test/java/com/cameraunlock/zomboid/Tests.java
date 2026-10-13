@@ -173,6 +173,7 @@ public final class Tests {
         Checks.run("KerbTests", KerbTests::run);
         Checks.run("SeasonsTests", SeasonsTests::run);
         Checks.run("LitterTests", LitterTests::run);
+        Checks.run("LeafFallTests", LeafFallTests::run);
         Checks.run("TreeFormTests", TreeFormTests::run);
         Checks.run("PlasterTests", PlasterTests::run);
         Checks.run("StairTests", StairTests::run);

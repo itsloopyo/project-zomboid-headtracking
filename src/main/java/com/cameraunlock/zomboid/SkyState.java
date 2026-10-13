@@ -124,6 +124,9 @@ final class SkyState {
     /** The game's own animations (IsoAnim) of each square's flames and of its smoke, or null: see Fires.look. Objects, for the tests. */
     final Object[] flameLook = new Object[Fires.MOST], smokeLook = new Object[Fires.MOST];
     int fireCount;
+    /** The leaves falling and lying round the eye, the first leafCount records of leaves: see LeafFall. */
+    final float[] leaves = new float[LeafFall.MOST * LeafFall.FLOATS];
+    int leafCount;
 
     private static float driftedX, driftedY;
     private static final Wind wind = new Wind();

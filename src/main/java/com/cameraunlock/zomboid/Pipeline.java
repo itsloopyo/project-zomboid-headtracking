@@ -214,6 +214,7 @@ final class Pipeline {
     private static Program rain;
     private static Program snow;
     private static Program dust;
+    private static Program leaf;
     private static Program steady;
     /** The steadied picture of the last frame and of this one, taking turns. */
     private final int[] keptColor = new int[2], keptAhead = new int[2], keptTarget = new int[2];
@@ -228,6 +229,7 @@ final class Pipeline {
     /** The scene's depth as it was before the fires' flames were put in it for the window panes, and put back after them. */
     private int keptDepth, keptDepthTarget;
     private final ImpactDraw impacts = new ImpactDraw();
+    private final LeafDraw leaves = new LeafDraw();
     /** Whether this frame's picture shows where shots struck. */
     private boolean struck;
     private static final String[] MOVER_AT = new String[Movers.MOST], MOVER_BEFORE = new String[Movers.MOST];
@@ -953,6 +955,9 @@ final class Pipeline {
             if (struck) {
                 drawDebris(steadying ? movesTarget : sceneTarget, width, height, camera, tanHalfFieldOfView, aspect, near, far, asideX, asideY,
                         fogStart, fogEnd);
+            }
+            if (state.leafCount > 0 && !overhead) {
+                drawLeaves(steadying ? movesTarget : sceneTarget, camera, state, tanHalfFieldOfView, aspect, near, far, fogStart, fogEnd);
             }
             // After the rain, which falls beyond and before a fire alike, and before any glass, which is before it.
             fires.draw(steadying ? movesUndepthed : decalTarget, sceneDepth, state, camera, tanHalfFieldOfView, aspect, near, far, width, height, asideX, asideY, frameNanos,
@@ -2047,6 +2052,54 @@ final class Pipeline {
     /** How long a drop is taken in for from far overhead: the game's own view has its rain as short strokes, a fifth of a tile or so. */
     private static final float RAIN_SEEN_FOR_OVERHEAD = 0.014f;
     private final float[] rainBox = new float[4];
+
+    /** The leaves falling and lying round the eye (LeafFall), into the target after the sky, as what flies from a shot is. */
+    private void drawLeaves(int target, ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float near, float far,
+            float fogStart, float fogEnd) {
+        GL30.glBindFramebuffer(GL_FRAMEBUFFER, target);
+        GL11.glViewport(0, 0, width, height);
+        lookFrom(camera, tanHalfFieldOfView, aspect, near, far, asideX, asideY);
+        arrays();
+        cardArrayOff();
+        GL11.glDisableClientState(GL_COLOR_ARRAY);
+        leaves.point(state.leaves, state.leafCount);
+        GL11.glEnable(GL_DEPTH_TEST);
+        GL11.glDepthFunc(GL_LEQUAL);
+        GL11.glDepthMask(false);
+        GL11.glDisable(GL_CULL_FACE);
+        GL11.glEnable(GL_BLEND);
+        // Laid over what is there, already multiplied by how much shows. The picture's alpha says what mirrors and is left alone.
+        GL14.glBlendFuncSeparate(GL_ONE, GL_ONE_MINUS_SRC_ALPHA, GL_ZERO, GL_ONE);
+        GL33.glBindSampler(1, 0);
+        GL33.glBindSampler(2, 0);
+        GL13.glActiveTexture(GL_TEXTURE0 + 1);
+        GL11.glBindTexture(GL_TEXTURE_2D, nearMap);
+        GL13.glActiveTexture(GL_TEXTURE0 + 2);
+        GL11.glBindTexture(GL_TEXTURE_2D, farMap);
+        GL13.glActiveTexture(GL_TEXTURE0);
+        leaf.use();
+        leaf.set("uShadowNear", 1);
+        leaf.set("uShadowFar", 2);
+        leaf.set("uNearMatrix", nearMatrix);
+        leaf.set("uFarMatrix", farMatrix);
+        leaf.set("uEye", camera.eyeX, camera.eyeY, camera.eyeUp);
+        leaf.set("uPerPixel", 2f * tanHalfFieldOfView / height);
+        leaf.set("uLight", state.lightX, state.lightY, state.lightUp);
+        leaf.set("uLightColor", state.lightRed, state.lightGreen, state.lightBlue);
+        leaf.set("uOpenLight", state.openRed, state.openGreen, state.openBlue);
+        leaf.set("uDaylightKept", (float) Math.pow(state.daylightKept, 2.2));
+        leaf.set("uFog", fogStart, fogEnd);
+        setBeams(leaf, TORCH_UNIT);
+        leaves.draw(state.leafCount);
+        GL11.glDisable(GL_BLEND);
+        GL11.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        GL11.glDepthMask(true);
+        GL11.glDisable(GL_DEPTH_TEST);
+        cardArrayOff();
+        GL11.glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+        GL11.glDisableClientState(GL_NORMAL_ARRAY);
+        GL11.glDisableClientState(GL_VERTEX_ARRAY);
+    }
 
     /** The rain or the snow, into the picture after the world and the sky and before anything is made of the picture. */
     private void drawRain(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float near, float far) {
@@ -4646,6 +4699,7 @@ final class Pipeline {
         rain = Program.link("rain", PipelineShaders.RAIN_VERTEX, PipelineShaders.RAIN_FRAGMENT, problem);
         snow = Program.link("snow", PipelineShaders.SNOW_VERTEX, PipelineShaders.SNOW_FRAGMENT, problem);
         dust = Program.link("dust", PipelineShaders.DUST_VERTEX, PipelineShaders.DUST_FRAGMENT, problem);
+        leaf = Program.link("falling leaves", PipelineShaders.LEAF_VERTEX, PipelineShaders.LEAF_FRAGMENT, problem);
         sky = Program.link("sky", SCREEN_VERTEX, Sky.FRAGMENT, problem);
         clouds = Program.link("clouds", SCREEN_VERTEX, Sky.CLOUDS, problem);
         bolt = Program.link("lightning", Lightning.BOLT_VERTEX, Lightning.BOLT_FRAGMENT, problem);
@@ -4927,6 +4981,7 @@ final class Pipeline {
             int copies = view.characters.letGo();
             view.characters.movers.forget();
             view.kerbSteps.forget();
+            leaves.letGo();
             for (int other = 0; other < View.COUNT; other++) {
                 if (View.of(other) != null && View.of(other).pipeline.holds) {
                     // Another view is drawn with all of it still: this one gave its own back as it was set down.

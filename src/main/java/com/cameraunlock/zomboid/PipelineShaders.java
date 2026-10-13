@@ -4094,6 +4094,107 @@ final class PipelineShaders {
             }
             """;
 
+    /**
+     * A leaf falling or lying round the eye (LeafFall): a vertex is the leaf's middle and how
+     * much of it shows, and its normal is the way out from the middle to its corner. Its first
+     * texture coordinate is where the corner is on the leaf, the colour its tree turns and how
+     * far, and its second the way its face looks. A leaf smaller than a dot or two of the picture
+     * is drawn that wide and as much fainter, so a far one does not wink in and out as it turns.
+     */
+    static final String LEAF_VERTEX = """
+            #version 120
+            uniform vec3 uEye;
+            // The width of a dot of the picture one tile from the eye.
+            uniform float uPerPixel;
+            varying vec3 vWorld;
+            varying vec3 vFace;
+            varying vec2 vIn;
+            varying vec2 vLeaf;
+            varying float vShown;
+
+            void main() {
+                vec3 middle = gl_Vertex.xyz;
+                float size = length(gl_Normal);
+                float grow = max(1.0, 1.5 * uPerPixel * distance(uEye, middle) / max(size, 1e-5));
+                vShown = gl_Vertex.w / (grow * grow);
+                vWorld = middle + gl_Normal * grow;
+                vFace = gl_MultiTexCoord1.xyz;
+                vIn = gl_MultiTexCoord0.xy;
+                vLeaf = gl_MultiTexCoord0.zw;
+                gl_Position = gl_ModelViewProjectionMatrix * vec4(vWorld, 1.0);
+            }
+            """;
+
+    /**
+     * A leaf, lit as the world is: the open sky's light as the game has it, the sun or the moon
+     * where the shadow maps let it through, on the leaf and through it from behind, and a torch
+     * or headlights. Its colour is its tree's autumn colour, going brown.
+     */
+    static final String LEAF_FRAGMENT = """
+            #version 120
+            uniform sampler2DShadow uShadowNear;
+            uniform sampler2DShadow uShadowFar;
+            uniform mat4 uNearMatrix;
+            uniform mat4 uFarMatrix;
+            uniform vec3 uEye;
+            uniform vec3 uLight;
+            uniform vec3 uLightColor;
+            uniform vec3 uOpenLight;
+            uniform float uDaylightKept;
+            uniform vec2 uFog;
+            varying vec3 vWorld;
+            varying vec3 vFace;
+            varying vec2 vIn;
+            varying vec2 vLeaf;
+            varying float vShown;
+            """ + BEAMS + AUTUMN + """
+
+            bool inside(vec3 c) {
+                return c.x > 0.01 && c.x < 0.99 && c.y > 0.01 && c.y < 0.99 && c.z < 1.0;
+            }
+            """ + ROOFED_AIR + """
+
+            void main() {
+                // Pointed at the tip, broadest below its middle, on a short stalk.
+                float off = abs(vIn.x - 0.5) * 2.0;
+                float broad = pow(max(sin(3.14159 * pow(clamp((vIn.y - 0.08) / 0.92, 0.0, 1.0), 0.75)), 0.0), 0.8);
+                bool stalk = vIn.y < 0.1 && off < 0.12;
+                if (off > broad * 0.95 && !stalk) {
+                    discard;
+                }
+                float turned = vLeaf.y;
+                vec3 painted = mix(vec3(0.30, 0.40, 0.12), autumnHue(vLeaf.x) * 0.85, smoothstep(0.0, 0.45, turned));
+                painted = mix(painted, vec3(0.38, 0.25, 0.13), smoothstep(0.6, 1.0, turned));
+                // A rib down the middle and veins off it.
+                painted *= (0.78 + 0.22 * smoothstep(0.0, 0.08, off)) * (0.92 + 0.08 * sin((vIn.y - off * 0.35) * 40.0));
+                vec3 n = normalize(vFace);
+                vec3 view = normalize(uEye - vWorld);
+                if (dot(n, view) < 0.0) {
+                    n = -n;
+                }
+                vec3 sunColor = pow(uLightColor, vec3(2.2));
+                float sun = sunInAir(vWorld, 1.0) * step(0.0, uLight.z);
+                float on = max(dot(n, uLight), 0.0), through = max(-dot(n, uLight), 0.0);
+                vec3 albedo = pow(painted, vec3(2.2));
+                vec3 sky = pow(uOpenLight, vec3(2.2)) * uDaylightKept * vec3(0.62, 0.69, 0.82) * (0.8 + 0.2 * abs(n.z));
+                vec3 lit = albedo * (sky + sunColor * (2.1 * sun * on)) + albedo * vec3(1.25, 1.2, 0.55) * sunColor * (1.4 * sun * through);
+                vec3 dir;
+                float beamed = 0.0;
+                for (int i = 0; i < 2; i++) {
+                    if (uBeamAt[i].w > 0.0) {
+                        beamed += beamAt(i, vWorld, dir);
+                    }
+                }
+                if (uTorchAt.w > 0.0) {
+                    beamed += TORCH_GIVES * torchAt(vWorld, dir);
+                }
+                lit += albedo * vec3(1.0, 0.92, 0.76) * beamed;
+                float a = vShown * (1.0 - smoothstep(uFog.x, max(uFog.y, uFog.x + 1e-3), distance(uEye, vWorld)));
+                gl_FragData[0] = vec4(lit * a, a);
+                gl_FragData[1] = vec4(a);
+            }
+            """;
+
     /** A quad over the whole picture at the far plane: with the depth test on, only pixels nothing was drawn to pass. */
     static final String SCREEN_VERTEX = """
             #version 120
