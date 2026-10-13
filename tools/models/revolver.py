@@ -184,18 +184,6 @@ def behind(points):
     return [(R0 + y * s, TOP + z * s) for y, z in points]
 
 
-def extrude(bm, outline, x0, x1):
-    """A flat piece: an outline of (y, z), counter-clockwise seen from +x, between two planes across the gun."""
-    left = [bm.verts.new((x0, y, z)) for y, z in outline]
-    right = [bm.verts.new((x1, y, z)) for y, z in outline]
-    bm.faces.new(right)
-    bm.faces.new(left[::-1])
-    count = len(outline)
-    for i in range(count):
-        j = (i + 1) % count
-        bm.faces.new((left[i], left[j], right[j], right[i]))
-
-
 def box(x0, x1, y0, y1, z0, z1, bevel=0.0):
     bm = bmesh.new()
     cuboid(bm, x0, x1, y0, y1, z0, z1)
@@ -257,7 +245,7 @@ def frame():
     outline += [(TRIGGER_AT[0] - 0.006 * s, FB - 0.0006), (0.0040 * s, FB - 0.0002), (0.0090 * s, FB + 0.0030), (0.0110 * s, FB + 0.0080),
                 (0.0110 * s, -(K.barrel_r[0] + 0.0014)), (LUG_END, -(K.barrel_r[0] + 0.0014))]
     bm = bmesh.new()
-    extrude(bm, outline, -W, W)
+    G.prism(bm, outline, "x", -W, W)
     cuts = [
         # The window the cylinder turns in, and the room for the crane's yoke ahead of it, under the barrel.
         box(-0.05, 0.05, CYL_REAR - 0.0006, LUG, WINDOW_BOTTOM, ZC + K.cyl_r + 0.0006),
@@ -289,7 +277,7 @@ def frame():
     outline += scaled([(-0.0300, -0.0010), (0.0010, -0.0045), (0.0060, -0.0040)])
     outline += [(R0 + 0.0060 * s, FB - 0.0040 * s)]
     block = bmesh.new()
-    extrude(block, outline, -W, W)
+    G.prism(block, outline, "x", -W, W)
     cuts = [box(-0.0042 * s, 0.0042 * s, R0 - 0.0190 * s, R0 - 0.0002, HAMMER_AT[1] - 0.0090 * s, TOP + 0.02)]
     take(block, "frame back", K.metal, bevel=0.0012 * s, segments=3, sharp=35.0, cut=cuts, texels=1.2)
     done_with(*cuts)
@@ -454,7 +442,7 @@ def hammer():
     outline += [(R0 - 0.0165 * s, ZC + 0.0010 * s), (hy - 0.0060 * s, hz - 0.0010 * s), (hy - 0.0035 * s, hz - 0.0058 * s), (hy + 0.0020 * s, hz - 0.0065 * s),
                 (R0 - 0.0025, -0.0085 * s)]
     bm = bmesh.new()
-    extrude(bm, [(y, z) for y, z in reversed(outline)], -0.0037 * s, 0.0037 * s)
+    G.prism(bm, [(y, z) for y, z in reversed(outline)], "x", -0.0037 * s, 0.0037 * s)
     take(bm, "hammer", K.parts_metal, group=HAMMER, bevel=0.0009 * s, segments=3, sharp=35.0, texels=1.2)
     nose = bmesh.new()
     lathe(nose, [(0.0, R0 + 0.0008), (0.0011, R0 + 0.0008), (0.0014, R0 - 0.0010), (0.0, R0 - 0.0010)], G.along_y(), segments=16)
@@ -712,10 +700,7 @@ def toyplastic(g):
     nearest = g.panel(middle.x, middle.y, long * 0.36, 0.0110, 0.006, turn)
     side = g.step(g.math("ABSOLUTE", g.nx), 0.30, 0.55)
     cut = g.times(g.math("SUBTRACT", 1.0, g.step(nearest, -0.0004, 0.0004)), side)
-    pitch = 0.0034
-    one = g.teeth(g.add(g.times(g.y, 0.866 / pitch), g.times(g.z, 0.5 / pitch)))
-    other = g.teeth(g.math("SUBTRACT", g.times(g.y, 0.866 / pitch), g.times(g.z, 0.5 / pitch)))
-    diamond = g.math("MINIMUM", one, other)
+    diamond = g.diamonds(0.0034)
     colour = g.scaled(g.colour(0.80, 0.74, 0.60), g.math("SUBTRACT", 1.0, g.times(cut, g.math("SUBTRACT", 0.14, g.times(diamond, 0.12)))))
     return g.finish(colour, g.add(0.34, g.times(cut, 0.08)), 0.0, g.add(g.times(cut, diamond, 0.00045), g.times(seam(g), 0.00015)))
 

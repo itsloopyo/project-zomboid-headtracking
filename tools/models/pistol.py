@@ -142,21 +142,6 @@ GRIP = Vector((0.0, GRIP_Y, -(K.muzzle_y - GRIP_Y) * K.game_muzzle[1] / K.game_m
 PORT = Vector((K.slide_half, (K.port[0] + K.port[1]) / 2, 0.004))
 
 
-def prism(bm, outline, across, low, high):
-    """A flat piece: an outline of points in the plane square to `across` ("x", "y" or "z"), given in the order of the
-    other two axes, stood between low and high along it."""
-    def point(a, b, c):
-        return {"x": (c, a, b), "y": (a, c, b), "z": (a, b, c)}[across]
-    lower = [bm.verts.new(point(a, b, low)) for a, b in outline]
-    upper = [bm.verts.new(point(a, b, high)) for a, b in outline]
-    count = len(outline)
-    for i in range(count):
-        j = (i + 1) % count
-        bm.faces.new((lower[i], lower[j], upper[j], upper[i]))
-    bm.faces.new(lower[::-1])
-    bm.faces.new(upper)
-
-
 def both_sides(outline, near, far):
     """The x ranges of a piece on the right side and its mirror on the left."""
     return ((near, far), (-far, -near))
@@ -171,19 +156,6 @@ def section(half, top, bottom, round_top, round_bottom=0.0012, steps=7):
             angle = math.radians(start + 90 * n / (steps - 1))
             points.append((cx + r * math.cos(angle), cz + r * math.sin(angle)))
     return points
-
-
-def grip_point(front, back, half, angle, grow, square=3.2):
-    """A point on the grip's outline at an angle round it, as gunsmith.grip_ring lays the grip's rings: from the front
-    at -90 through the right side at 0 to the back at 90, grown out by `grow`."""
-    middle = ((front[0] + back[0]) / 2, (front[1] + back[1]) / 2)
-    deep = (back[0] - front[0], back[1] - front[1])
-    tall = math.hypot(*deep) / 2
-    way = (deep[0] / (2 * tall), deep[1] / (2 * tall))
-    c, s = math.cos(math.radians(angle)), math.sin(math.radians(angle))
-    x = (half + grow) * math.copysign(abs(c) ** (2 / square), c)
-    along_it = (tall + grow) * math.copysign(abs(s) ** (2 / square), s)
-    return (x, middle[0] + way[0] * along_it, middle[1] + way[1] * along_it)
 
 
 def disc(bm, centre, radius, thick, facing, segments=20, dome=0.0):
@@ -215,7 +187,7 @@ def slide():
         outline = [(half * math.cos(math.radians(a)), end - half + half * math.sin(math.radians(a))) for a in range(0, 181, 15)]
         outline += [(-half * math.cos(math.radians(a)), rear + half - half * math.sin(math.radians(a))) for a in range(0, 181, 15)]
         top = bmesh.new()
-        prism(top, outline, "z", 0.0030, 0.03)
+        G.prism(top, outline, "z", 0.0030, 0.03)
         cuts.append(cutter(top))
     if K.item == "Base.Pistol2":
         # The bushing and the plug that holds the spring under it are let into the front of the slide.
@@ -246,7 +218,7 @@ def levers_on_slide():
     outline += [(at_y - 0.0095, at_z + 0.0020), (at_y - 0.0115, at_z - 0.0005), (at_y - 0.0070, at_z - 0.0040)]
     bm = bmesh.new()
     for low, high in both_sides(outline, K.slide_half - 0.0004, K.slide_half + 0.0030):
-        prism(bm, outline, "x", low, high)
+        G.prism(bm, outline, "x", low, high)
     take(bm, "safety levers", K.finish, group=SLIDE, bevel=0.0007, segments=2, sharp=40.0)
     # A red mark on each, showing when it is off safe.
     mark = bmesh.new()
@@ -261,13 +233,13 @@ def sights():
     outline = [(-half, base), (half, base), (half * 0.92, K.sight_top), (notch, K.sight_top), (notch, K.sight_top - deep), (-notch, K.sight_top - deep),
                (-notch, K.sight_top), (-half * 0.92, K.sight_top)]
     rear = bmesh.new()
-    prism(rear, outline, "y", rear_y0, rear_y1)
+    G.prism(rear, outline, "y", rear_y0, rear_y1)
     take(rear, "rear sight", "sight", group=SLIDE, bevel=0.0003, segments=1, sharp=40.0)
     front_y0, front_y1, blade = K.front_sight
     front_base = (K.slide_top if K.barrel_r else K.rib_top) - 0.0012
     outline = [(front_y0, front_base), (front_y1 + 0.003, front_base), (front_y1 + 0.003, front_base + 0.0018), (front_y1, K.sight_top), (front_y0, K.sight_top)]
     front = bmesh.new()
-    prism(front, outline, "x", -blade, blade)
+    G.prism(front, outline, "x", -blade, blade)
     # The service pistol's front sight is on its slide, the magnum's on its barrel's rib, which does not move.
     take(front, "front sight", "sight", group=SLIDE if K.barrel_r else FIXED, bevel=0.0003, segments=1, sharp=40.0)
     if K.dots:
@@ -331,7 +303,7 @@ def frame():
     back = K.grip_line(K.grip_top_z - 0.004)[1]
     outline += [(back + 0.004, K.grip_top_z - 0.0040)] + list(reversed(K.tang[1:]))
     bm = bmesh.new()
-    prism(bm, outline, "x", -K.frame_half, K.frame_half)
+    G.prism(bm, outline, "x", -K.frame_half, K.frame_half)
     take(bm, "frame", K.frame_finish, bevel=0.0007, segments=2, sharp=35.0, texels=1.1)
 
     guard = bmesh.new()
@@ -345,7 +317,7 @@ def frame():
     take(trigger, "trigger", "black" if K.finish != "stainless" else "stainless", bevel=0.0009, segments=3, sharp=50.0)
 
     hammer = bmesh.new()
-    prism(hammer, K.hammer, "x", -K.hammer_half, K.hammer_half)
+    G.prism(hammer, K.hammer, "x", -K.hammer_half, K.hammer_half)
     take(hammer, "hammer", K.finish if K.finish != "coat" else "black", bevel=0.0008, segments=2, sharp=40.0)
 
 
@@ -374,8 +346,8 @@ def grip():
             z = top + (foot - top) * n / 11
             front, back = K.grip_line(z)
             angles = [first + (last - first) * i / 23 for i in range(24)]
-            outer = [grip_point((front, z), (back, z), K.grip_half, angle, thick) for angle in angles]
-            inner = [grip_point((front, z), (back, z), K.grip_half, angle, -0.0005) for angle in reversed(angles)]
+            outer = [G.grip_point((front, z), (back, z), K.grip_half, 3.2, 1.0, math.radians(angle), thick) for angle in angles]
+            inner = [G.grip_point((front, z), (back, z), K.grip_half, 3.2, 1.0, math.radians(angle), -0.0005) for angle in reversed(angles)]
             rings.append(outer + inner)
         loft(panels, rings)
     take(panels, "grip panels", K.grips, bevel=0.0012, segments=3, sharp=35.0, texels=1.15)
@@ -393,7 +365,7 @@ def grip():
                 (y - 0.0010, K.grip_top_z + 0.0020), (y - 0.0030, K.grip_top_z - 0.0160), (y + 0.0010, K.grip_top_z - 0.0165), (y + 0.0020, K.grip_top_z),
                 (-0.0020, K.slide_bottom - 0.0025)]
         safety = bmesh.new()
-        prism(safety, spur, "x", -0.0085, 0.0085)
+        G.prism(safety, spur, "x", -0.0085, 0.0085)
         take(safety, "grip safety", K.finish, bevel=0.0010, segments=2, sharp=40.0)
 
 
@@ -403,7 +375,7 @@ def controls():
     stop = [(over, K.slide_bottom - 0.0016), (over + 0.034, K.slide_bottom - 0.0012), (over + 0.039, K.slide_bottom - 0.0030), (over + 0.036, K.slide_bottom - 0.0065),
             (over + 0.010, K.slide_bottom - 0.0080), (over, K.slide_bottom - 0.0060)]
     bm = bmesh.new()
-    prism(bm, stop, "x", -K.frame_half - 0.0020, -K.frame_half + 0.0004)
+    G.prism(bm, stop, "x", -K.frame_half - 0.0020, -K.frame_half + 0.0004)
     take(bm, "slide stop", K.finish if K.finish != "coat" else "black", bevel=0.0006, segments=2, sharp=40.0)
     pins = bmesh.new()
     disc(pins, (K.frame_half - 0.0001, over + 0.030, K.slide_bottom - 0.0050), 0.0022, 0.0004, "x", segments=16)
@@ -416,7 +388,7 @@ def controls():
         thumb = [(-0.0040, K.slide_bottom - 0.0075), (0.0040, K.slide_bottom - 0.0075), (0.0150, K.slide_bottom - 0.0040), (0.0215, K.slide_bottom - 0.0025),
                  (0.0222, K.slide_bottom - 0.0006), (0.0150, K.slide_bottom - 0.0002), (0.0040, K.slide_bottom - 0.0004), (-0.0045, K.slide_bottom - 0.0020)]
         safety = bmesh.new()
-        prism(safety, thumb, "x", -K.frame_half - 0.0024, -K.frame_half + 0.0004)
+        G.prism(safety, thumb, "x", -K.frame_half - 0.0024, -K.frame_half + 0.0004)
         take(safety, "thumb safety", K.finish, bevel=0.0006, segments=2, sharp=40.0)
         tube = bmesh.new()
         lathe(tube, [(0.0, 0.0240), (0.0021, 0.0240), (0.0024, 0.0250), (0.0024, 0.0400), (0.0021, 0.0410), (0.0, 0.0410)],
@@ -439,7 +411,7 @@ def magazine():
     plate = bmesh.new()
     outline = [(back, K.grip_foot - K.foot_plate), (front - 0.003, K.grip_foot - K.foot_plate), (front, K.grip_foot - K.foot_plate + 0.0020), (front, K.grip_foot),
                (back, K.grip_foot)]
-    prism(plate, outline, "x", -K.grip_half - 0.0012, K.grip_half + 0.0012)
+    G.prism(plate, outline, "x", -K.grip_half - 0.0012, K.grip_half + 0.0012)
     take(plate, "magazine foot", K.foot_finish, group=MAGAZINE, bevel=0.0010, segments=2, sharp=40.0)
 
 
@@ -449,16 +421,13 @@ def case():
     take(brass, "case", "brass", group=CASE, sharp=30.0)
 
 
+BARE_COAT = (0.45, 0.45, 0.47)
+
+
 def coat(g):
     """The service pistol's slide: a hard black coat over steel, its rear cut across with grooves to draw it back by."""
-    colour, rough, metal, height = black_finish(g, (0.020, 0.020, 0.022), 0.42, 0.15)
+    colour, rough, metal, height = G.black_coat(g, (0.020, 0.020, 0.022), 0.42, 0.15, BARE_COAT)
     return g.finish(colour, rough, metal, g.add(height, serrated(g)))
-
-
-def black_finish(g, colour, rough, wear):
-    rubbed = g.worn(wear)
-    grain = g.noise(2600.0, 1.0)
-    return g.mix(rubbed, g.colour(*colour), g.colour(0.45, 0.45, 0.47)), g.add(rough, g.times(grain, 0.10)), rubbed, g.times(grain, 0.00002)
 
 
 def serrated(g):
@@ -477,14 +446,6 @@ def parkerised(g):
     return g.finish(colour, g.add(0.58, g.times(grain, 0.12), g.times(rubbed, -0.25)), g.add(0.55, g.times(rubbed, 0.45)), g.times(grain, 0.00003))
 
 
-def parkerised_slide(g):
-    graph = parkerised(g)
-    bump = graph.tree.nodes["Bump"]
-    height = bump.inputs["Height"].links[0].from_socket
-    graph.tree.links.new(g.add(height, serrated(g)), bump.inputs["Height"])
-    return graph
-
-
 def stainless(g, rough=0.30):
     """Brushed stainless steel: pale, the lines of its polishing along the gun."""
     lines = g.streaks()
@@ -493,31 +454,29 @@ def stainless(g, rough=0.30):
     return g.finish(colour, g.add(rough, g.times(lines, 0.22), g.times(rubbed, -0.10)), 1.0, g.times(lines, 0.00002))
 
 
-def stainless_slide(g):
-    graph = stainless(g)
-    bump = graph.tree.nodes["Bump"]
-    height = bump.inputs["Height"].links[0].from_socket
-    graph.tree.links.new(g.add(height, serrated(g)), bump.inputs["Height"])
-    return graph
+def serrated_slide(finish):
+    """A slide in `finish`, with grooves across the sides of its back."""
+    def make(g):
+        graph = finish(g)
+        bump = graph.tree.nodes["Bump"]
+        height = bump.inputs["Height"].links[0].from_socket
+        graph.tree.links.new(g.add(height, serrated(g)), bump.inputs["Height"])
+        return graph
+    return make
 
 
-def checkered(g, nearest, pitch):
-    """Fine diamonds cut into the sides of a grip within a panel `nearest` measures, `pitch` metres apart: how deep each
-    place is cut, where the line round the panel is, and the diamonds."""
-    side = g.step(g.math("ABSOLUTE", g.nx), 0.30, 0.55)
-    cut = g.times(g.math("SUBTRACT", 1.0, g.step(nearest, -0.0003, 0.0003)), side)
-    line = g.times(g.math("SUBTRACT", 1.0, g.step(g.math("ABSOLUTE", g.add(nearest, 0.0016)), 0.0003, 0.0007)), side)
-    one = g.teeth(g.add(g.times(g.y, 0.866 / pitch), g.times(g.z, 0.5 / pitch)))
-    other = g.teeth(g.math("SUBTRACT", g.times(g.y, 0.866 / pitch), g.times(g.z, 0.5 / pitch)))
-    return cut, line, g.math("MINIMUM", one, other)
+def grip_area(inset):
+    """The panel of the grip's side that is chequered, `inset` metres in from the grip's front and back, as Graph.panel takes it."""
+    panel_z = (K.grip_top_z + K.grip_foot) / 2
+    front, back = K.grip_line(panel_z)
+    return ((front + back) / 2, panel_z, (K.grip_top_z - K.grip_foot) / 2 - 0.009, (front - back) / 2 - inset, 0.004 if inset > 0.0078 else 0.003,
+            math.radians(90 - K.rake))
 
 
 def polygrip(g):
     """Black plastic grips moulded in fine diamonds, a smooth border round them."""
-    panel_z = (K.grip_top_z + K.grip_foot) / 2
-    front, back = K.grip_line(panel_z)
-    area = g.panel((front + back) / 2, panel_z, (K.grip_top_z - K.grip_foot) / 2 - 0.009, (front - back) / 2 - 0.0080, 0.004, math.radians(90 - K.rake))
-    cut, line, diamond = checkered(g, area, 0.0012)
+    side = g.step(g.math("ABSOLUTE", g.nx), 0.30, 0.55)
+    cut, line, diamond = g.checkered(g.panel(*grip_area(0.0080)), 0.0012, side)
     grain = g.noise(1800.0, 2.0)
     colour = g.scaled(g.colour(0.016, 0.016, 0.017), g.add(1.0, g.times(cut, g.math("SUBTRACT", g.times(diamond, 0.6), 0.3))))
     return g.finish(colour, g.add(0.55, g.times(cut, 0.2), g.times(grain, 0.06)), 0.0,
@@ -526,22 +485,11 @@ def polygrip(g):
 
 def walnut(g):
     """Walnut grips, chequered all over but for a diamond left smooth round each screw."""
-    figure = g.laid("walnut", 0.12)
-    light = g.grey(figure)
-    colour = g.tinted(g.mix(0.6, figure, g.tinted(figure, figure)), g.colour(1.35, 1.02, 0.80))
-    panel_z = (K.grip_top_z + K.grip_foot) / 2
-    front, back = K.grip_line(panel_z)
-    area = g.panel((front + back) / 2, panel_z, (K.grip_top_z - K.grip_foot) / 2 - 0.009, (front - back) / 2 - 0.0075, 0.003, math.radians(90 - K.rake))
+    screws = []
     for z in (K.grip_top_z - 0.0150, K.grip_foot + 0.0140):
         f, b = K.grip_line(z)
-        # A diamond about the screw, its long way up the grip: outside it, more than nought.
-        dy, dz = g.math("SUBTRACT", g.y, (f + b) / 2), g.math("SUBTRACT", g.z, z)
-        diamond = g.math("SUBTRACT", g.add(g.times(g.math("ABSOLUTE", dy), 1.0 / 0.0110), g.times(g.math("ABSOLUTE", dz), 1.0 / 0.0150)), 1.0)
-        area = g.math("MAXIMUM", area, g.times(diamond, -0.010))
-    cut, line, diamond = checkered(g, area, 0.0011)
-    height = g.add(g.times(light, 0.00005), g.times(cut, g.math("SUBTRACT", g.times(diamond, 0.00045), 0.00028)), g.times(line, -0.00025))
-    colour = g.scaled(colour, g.math("SUBTRACT", 1.0, g.times(cut, g.math("SUBTRACT", 0.50, g.times(diamond, 0.38)))))
-    return g.finish(colour, g.add(0.32, g.times(g.math("SUBTRACT", 1.0, light), 0.14), g.times(cut, 0.22)), 0.0, height)
+        screws.append(((f + b) / 2, z, 0.0110, 0.0150))
+    return G.walnut(g, (grip_area(0.0075),), 0.0011, span=0.12, tint=(1.35, 1.02, 0.80), smooth=screws)
 
 
 def red(g):
@@ -553,8 +501,7 @@ def dot(g):
 
 
 def sight(g):
-    colour, rough, metal, height = black_finish(g, (0.014, 0.014, 0.016), 0.60, 0.15)
-    return g.finish(colour, rough, metal, height)
+    return g.finish(*G.black_coat(g, (0.014, 0.014, 0.016), 0.60, 0.15, BARE_COAT))
 
 
 def polymer(g):
@@ -572,7 +519,7 @@ def screw(g):
     return G.blued(g, 0.35) if K.finish != "stainless" else stainless(g, 0.35)
 
 
-SLIDES = {"coat": coat, "parkerised": parkerised_slide, "stainless": stainless_slide}
+SLIDES = {"coat": coat, "parkerised": serrated_slide(parkerised), "stainless": serrated_slide(stainless)}
 G.MAKERS.update({"coat": coat, "parkerised": parkerised, "stainless": stainless, "polygrip": polygrip, "walnut": walnut, "red": red, "dot": dot, "sight": sight,
                  "polymer": polymer, "rib": rib, "screw": screw, NAME + " slide": SLIDES[K.finish]})
 

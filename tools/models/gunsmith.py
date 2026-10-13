@@ -175,22 +175,39 @@ def stock_ring(y, top, bottom, half, square, comb, count=56, grow=0.0):
     return ring
 
 
-def grip_ring(front, back, half, square, comb, count=56, grow=0.0, out=(0.0, 0.0)):
-    """A cross section of a grip, in the plane through its front and back edge points (y, z) and across the gun."""
+def grip_point(front, back, half, square, comb, angle, grow=0.0, out=(0.0, 0.0)):
+    """A point of a grip's cross section, in the plane through its front and back edge points (y, z) and across the gun,
+    `angle` radians round it: from its front at minus a quarter turn through its right side at nought to its back."""
     middle = ((front[0] + back[0]) / 2 + out[0], (front[1] + back[1]) / 2 + out[1])
     deep = (back[0] - front[0], back[1] - front[1])
     tall = math.hypot(*deep) / 2
     way = (deep[0] / (2 * tall), deep[1] / (2 * tall))
-    ring = []
+    c, s = math.cos(angle), math.sin(angle)
+    x = (half + grow) * math.copysign(abs(c) ** (2 / square), c)
+    z = (tall + grow) * math.copysign(abs(s) ** (2 / square), s)
+    if z > 0:
+        x *= 1 - (1 - comb) * (z / (tall + grow)) ** 1.5
+    return (x, middle[0] + way[0] * z, middle[1] + way[1] * z)
+
+
+def grip_ring(front, back, half, square, comb, count=56, grow=0.0, out=(0.0, 0.0)):
+    """A cross section of a grip, in the plane through its front and back edge points (y, z) and across the gun."""
+    return [grip_point(front, back, half, square, comb, 2 * math.pi * (i + 0.5) / count, grow, out) for i in range(count)]
+
+
+def prism(bm, outline, across, low, high):
+    """A flat piece: an outline of points in the plane square to `across` ("x", "y" or "z"), given in the order of the
+    other two axes (counter-clockwise seen from + across), stood between the planes at low and high along it."""
+    def point(a, b, c):
+        return {"x": (c, a, b), "y": (a, c, b), "z": (a, b, c)}[across]
+    lower = [bm.verts.new(point(a, b, low)) for a, b in outline]
+    upper = [bm.verts.new(point(a, b, high)) for a, b in outline]
+    bm.faces.new(upper)
+    bm.faces.new(lower[::-1])
+    count = len(outline)
     for i in range(count):
-        angle = 2 * math.pi * (i + 0.5) / count
-        c, s = math.cos(angle), math.sin(angle)
-        x = (half + grow) * math.copysign(abs(c) ** (2 / square), c)
-        z = (tall + grow) * math.copysign(abs(s) ** (2 / square), s)
-        if z > 0:
-            x *= 1 - (1 - comb) * (z / (tall + grow)) ** 1.5
-        ring.append((x, middle[0] + way[0] * z, middle[1] + way[1] * z))
-    return ring
+        j = (i + 1) % count
+        bm.faces.new((lower[i], lower[j], upper[j], upper[i]))
 
 
 PARTS = []
@@ -354,6 +371,19 @@ class Graph:
         """A row of ridges one apart: nought in each groove, one on each crest."""
         return self.times(self.math("ABSOLUTE", self.math("SUBTRACT", self.math("FRACT", value), 0.5)), 2.0)
 
+    def diamonds(self, pitch):
+        """Diamonds `pitch` metres apart across the sides of the gun: nought in each cut, one on each crest."""
+        one = self.teeth(self.add(self.times(self.y, 0.866 / pitch), self.times(self.z, 0.5 / pitch)))
+        other = self.teeth(self.math("SUBTRACT", self.times(self.y, 0.866 / pitch), self.times(self.z, 0.5 / pitch)))
+        return self.math("MINIMUM", one, other)
+
+    def checkered(self, nearest, pitch, side):
+        """Chequering within a panel that `nearest` measures, on what `side` says is the side of the gun: how deep each
+        place is cut, where the line round the panel is, and the diamonds."""
+        cut = self.times(self.math("SUBTRACT", 1.0, self.step(nearest, -0.0003, 0.0003)), side)
+        line = self.times(self.math("SUBTRACT", 1.0, self.step(self.math("ABSOLUTE", self.add(nearest, 0.0016)), 0.0003, 0.0007)), side)
+        return cut, line, self.diamonds(pitch)
+
     def colour(self, red, green, blue):
         node = self.tree.nodes.new("ShaderNodeRGB")
         node.outputs[0].default_value = (red, green, blue, 1.0)
@@ -508,11 +538,16 @@ def bright(g):
     return g.finish(g.scaled(g.colour(0.52, 0.52, 0.535), g.add(1.0, g.times(lines, 0.4))), g.add(0.24, g.times(lines, 0.4)), 1.0, g.times(lines, 0.00003))
 
 
+def black_coat(g, colour=(0.016, 0.016, 0.018), rough=0.40, wear=0.3, bare=(0.50, 0.50, 0.52)):
+    """A hard black coat, which wears to the pale metal at its edges: its colour, roughness, metal and height, for finish."""
+    rubbed = g.worn(wear)
+    grain = g.noise(2600.0, 1.0)
+    return g.mix(rubbed, g.colour(*colour), g.colour(*bare)), g.add(rough, g.times(grain, 0.10)), rubbed, g.times(grain, 0.00002)
+
+
 def black(g):
     """An alloy part in a hard black coat, which wears to the pale metal at its edges."""
-    rubbed = g.worn(0.3)
-    grain = g.noise(2600.0, 1.0)
-    return g.finish(g.mix(rubbed, g.colour(0.016, 0.016, 0.018), g.colour(0.50, 0.50, 0.52)), g.add(0.40, g.times(grain, 0.10)), rubbed, g.times(grain, 0.00002))
+    return g.finish(*black_coat(g))
 
 
 def brass(g):
@@ -528,21 +563,24 @@ def rubber(g):
     return g.finish(g.scaled(g.colour(0.020, 0.019, 0.018), g.add(0.6, g.times(grain, 1.5))), 0.80, 0.0, g.times(grain, 0.0006))
 
 
-def walnut(g, panels, pitch, grain=0.0):
+def walnut(g, panels, pitch, grain=0.0, span=0.30, tint=(1.45, 1.16, 0.98), smooth=()):
     """Oiled walnut, with a panel of fine diamonds `pitch` metres apart cut into each side of the wood within each of
-    panels, given as Graph.panel takes them: where the hand holds it. Its grain runs `grain` radians off the barrel."""
-    figure = g.laid("walnut", 0.30, grain)
+    panels, given as Graph.panel takes them: where the hand holds it. Its grain runs `grain` radians off the barrel, the
+    picture `span` metres to a repeat, coloured by `tint`. Each of smooth, (y, z, half along y, half along z), is a diamond
+    left uncut within the panels, round a screw."""
+    figure = g.laid("walnut", span, grain)
     light = g.grey(figure)
-    colour = g.tinted(g.mix(0.6, figure, g.tinted(figure, figure)), g.colour(1.45, 1.16, 0.98))
+    colour = g.tinted(g.mix(0.6, figure, g.tinted(figure, figure)), g.colour(*tint))
     side = g.step(g.math("ABSOLUTE", g.nx), 0.30, 0.55)
     nearest = g.panel(*panels[0])
     for panel in panels[1:]:
         nearest = g.math("MINIMUM", nearest, g.panel(*panel))
-    cut = g.times(g.math("SUBTRACT", 1.0, g.step(nearest, -0.0003, 0.0003)), side)
-    line = g.times(g.math("SUBTRACT", 1.0, g.step(g.math("ABSOLUTE", g.add(nearest, 0.0016)), 0.0003, 0.0007)), side)
-    one = g.teeth(g.add(g.times(g.y, 0.866 / pitch), g.times(g.z, 0.5 / pitch)))
-    other = g.teeth(g.math("SUBTRACT", g.times(g.y, 0.866 / pitch), g.times(g.z, 0.5 / pitch)))
-    diamond = g.math("MINIMUM", one, other)
+    for y, z, half_y, half_z in smooth:
+        # Outside the diamond, more than nought.
+        outside = g.math("SUBTRACT", g.add(g.times(g.math("ABSOLUTE", g.math("SUBTRACT", g.y, y)), 1.0 / half_y),
+                                           g.times(g.math("ABSOLUTE", g.math("SUBTRACT", g.z, z)), 1.0 / half_z)), 1.0)
+        nearest = g.math("MAXIMUM", nearest, g.times(outside, -0.010))
+    cut, line, diamond = g.checkered(nearest, pitch, side)
     height = g.add(g.times(light, 0.00006), g.times(cut, g.math("SUBTRACT", g.times(diamond, 0.00050), 0.00030)), g.times(line, -0.00030))
     colour = g.scaled(colour, g.math("SUBTRACT", 1.0, g.times(cut, g.math("SUBTRACT", 0.50, g.times(diamond, 0.38)))))
     rough = g.add(0.27, g.times(g.math("SUBTRACT", 1.0, light), 0.16), g.times(cut, 0.25))
