@@ -1184,8 +1184,9 @@ final class Pipeline {
         inWater = true;
         drawWorld(under, state, tan, aspect, near, far, fogStart, fogEnd);
         inWater = false;
+        // The sky too only where it is read, and its clouds, which are marched at this picture's own size.
+        drawSkyInto(waterTarget, waterDepth, waterWidth, waterHeight, false, under, state, tan, aspect, near, far);
         GL11.glDisable(GL_SCISSOR_TEST);
-        drawSkyInto(waterTarget, waterWidth, waterHeight, false, under, state, tan, aspect, near, far);
         // Far water reads it coarser than it was drawn: see overWater in the world's program.
         GL11.glBindTexture(GL_TEXTURE_2D, waterColor);
         GL30.glGenerateMipmap(GL_TEXTURE_2D);
@@ -1210,7 +1211,7 @@ final class Pipeline {
             drawFiguresAside(view.scope.sees, tan, 1f, Scope.PICTURE_NEAR, Scope.PICTURE, Scope.PICTURE, view.scope.figureTarget, view.scope.figureColor, view.scope.figureNormal, view.scope.figureLamps,
                     view.scope.pictureTarget, view.scope.pictureDepth, false, state, far, fogStart, fogEnd);
         }
-        drawSkyInto(view.scope.pictureTarget, Scope.PICTURE, Scope.PICTURE, false, view.scope.sees, state, tan, 1f, Scope.PICTURE_NEAR, far);
+        drawSkyInto(view.scope.pictureTarget, view.scope.pictureDepth, Scope.PICTURE, Scope.PICTURE, false, view.scope.sees, state, tan, 1f, Scope.PICTURE_NEAR, far);
         if (struck) {
             drawDebris(view.scope.pictureTarget, Scope.PICTURE, Scope.PICTURE, view.scope.sees, tan, 1f, Scope.PICTURE_NEAR, far, 0f, 0f, fogStart, fogEnd);
         }
@@ -3028,26 +3029,35 @@ final class Pipeline {
     }
 
     private void drawSky(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float near, float far) {
-        drawSkyInto(sceneTarget, width, height, true, camera, state, tanHalfFieldOfView, aspect, near, far);
+        drawSkyInto(sceneTarget, sceneDepth, width, height, true, camera, state, tanHalfFieldOfView, aspect, near, far);
     }
 
     /**
-     * The sky, behind whatever a picture's depth says is drawn in it already.
+     * The sky, behind whatever a picture's depth says is drawn in it already. Its clouds are
+     * marched at half the eye's picture's size, or at the picture's own where that is less.
      *
+     * @param depth the picture's depth, which says where the sky shows
      * @param soft whether the clouds' edges are softened first, against the depth of the eye's own picture
      */
-    private void drawSkyInto(int target, int wide, int high, boolean soft, ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView,
+    private void drawSkyInto(int target, int depth, int wide, int high, boolean soft, ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView,
             float aspect, float near, float far) {
+        int cloudWide = Math.min(wide, levelWidth[0]), cloudHigh = Math.min(high, levelHeight[0]);
         GL11.glDepthMask(false);
         GL11.glDisable(GL_DEPTH_TEST);
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, cloudTarget);
-        GL11.glViewport(0, 0, levelWidth[0], levelHeight[0]);
+        GL11.glViewport(0, 0, cloudWide, cloudHigh);
         clouds.use();
+        GL13.glActiveTexture(GL_TEXTURE0 + 1);
+        GL11.glBindTexture(GL_TEXTURE_2D, depth);
+        GL13.glActiveTexture(GL_TEXTURE0);
         GL11.glBindTexture(GL_TEXTURE_3D, noiseTexture);
         clouds.set("uNoise", 0);
+        clouds.set("uDepth", 1);
+        clouds.set("uDepthSize", (float) wide, (float) high);
+        clouds.set("uReach", soft ? 3f : 1f);
         setBasis(clouds, camera);
         clouds.set("uTan", tanHalfFieldOfView * aspect, tanHalfFieldOfView);
-        clouds.set("uSize", (float) levelWidth[0], (float) levelHeight[0]);
+        clouds.set("uSize", (float) cloudWide, (float) cloudHigh);
         clouds.set("uLight", state.lightX, state.lightY, state.lightUp);
         clouds.set("uLightColor", state.lightRed, state.lightGreen, state.lightBlue);
         clouds.set("uZenith", state.zenithRed, state.zenithGreen, state.zenithBlue);
@@ -3071,6 +3081,7 @@ final class Pipeline {
         sky.use();
         GL11.glBindTexture(GL_TEXTURE_2D, soft ? softCloudColor : cloudColor);
         sky.set("uClouds", 0);
+        sky.set("uCloudPart", (float) cloudWide / levelWidth[0], (float) cloudHigh / levelHeight[0]);
         setBasis(sky, camera);
         sky.set("uTan", tanHalfFieldOfView * aspect, tanHalfFieldOfView);
         sky.set("uSize", (float) wide, (float) high);

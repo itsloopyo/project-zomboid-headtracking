@@ -140,6 +140,12 @@ final class Sky {
             // Lightning inside the cloud: the way to where it glows, and its light. See Lightning.see.
             uniform vec3 uBurstWay;
             uniform vec3 uBurstLight;
+            // The depth of the picture the clouds are drawn for, and its size in pixels.
+            uniform sampler2D uDepth;
+            uniform vec2 uDepthSize;
+            // How many of this pass's pixels either side of one the picture can read it from: one through
+            // its own filtering, and two more where the clouds are softened first.
+            uniform float uReach;
 
             const float BOTTOM = 1.0;
             const float TOP = 2.3;
@@ -190,11 +196,28 @@ final class Sky {
                 return max(clamp(d * 7.0, 0.0, 1.0), deck);
             }
 
+            // Whether any pixel of the picture that can read this one shows the sky: the sky is drawn
+            // only where nothing is, at the far plane. Where all of them are walls or leaves, what
+            // the clouds would be here is never seen and is not marched.
+            bool skyRead() {
+                vec2 scale = uDepthSize / uSize;
+                vec2 from = max(ceil((gl_FragCoord.xy - uReach) * scale - 0.5), vec2(0.0));
+                vec2 to = min(floor((gl_FragCoord.xy + uReach) * scale - 0.5), uDepthSize - 1.0);
+                for (float y = from.y; y <= to.y; y += 1.0) {
+                    for (float x = from.x; x <= to.x; x += 1.0) {
+                        if (texture2D(uDepth, (vec2(x, y) + 0.5) / uDepthSize).r >= 1.0) {
+                            return true;
+                        }
+                    }
+                }
+                return false;
+            }
+
             void main() {
                 vec2 ndc = gl_FragCoord.xy / uSize * 2.0 - 1.0;
                 vec3 d = normalize(uForward + uRight * (ndc.x * uTan.x) + uUp * (ndc.y * uTan.y));
                 gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
-                if (d.z < 0.03) {
+                if (d.z < 0.03 || !skyRead()) {
                     return;
                 }
                 float near = BOTTOM / d.z;
@@ -258,6 +281,8 @@ final class Sky {
             uniform float uNight;
             uniform float uTime;
             uniform sampler2D uClouds;
+            // How much of the clouds' texture their pass drew into, across and up.
+            uniform vec2 uCloudPart;
 
             float hash3(vec3 p) {
                 return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453);
@@ -302,7 +327,7 @@ final class Sky {
                     color += vec3(0.95, 0.96, 1.0) * uNight * (0.1 * pow(max(moon, 0.0), 300.0) + 0.03 * pow(max(moon, 0.0), 40.0));
                 }
 
-                vec4 c = texture2D(uClouds, uv);
+                vec4 c = texture2D(uClouds, uv * uCloudPart);
                 color = color * c.a + c.rgb;
                 color = ridges(d, color);
                 vec3 air = atmosphere(vec3(d.xy, 0.0));
