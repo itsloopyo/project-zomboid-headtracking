@@ -3,19 +3,21 @@ package com.cameraunlock.zomboid;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
-import java.util.Random;
 import java.util.Set;
 import zombie.GameTime;
 import zombie.VirtualZombieManager;
 import zombie.characters.IsoGameCharacter;
 import zombie.characters.IsoPlayer;
 import zombie.characters.IsoZombie;
-import zombie.core.Core;
+import zombie.erosion.ErosionMain;
+import zombie.erosion.season.ErosionSeason;
 import zombie.input.GameKeyboard;
 import zombie.inventory.InventoryItem;
 import zombie.inventory.InventoryItemFactory;
 import zombie.inventory.types.HandWeapon;
 import zombie.inventory.types.WeaponPart;
+import zombie.iso.IsoChunk;
+import zombie.iso.IsoChunkMap;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoWorld;
 import zombie.iso.weather.ClimateManager;
@@ -45,12 +47,9 @@ import zombie.vehicles.VehiclePart;
  * 9 puts the clock on by three hours, into the next day if that is where they end: for
  * seeing the picture at any hour without waiting for it.
  *
- * Backspace holds the weather at the next of seven kinds, sunny, cloudy, stormy, thunderstorm,
- * blizzard, clear snowy day and foggy in that order, and after the last gives it back to the
- * game. The game keeps what it is held at in the save. A thunderstorm is the stormy weather with
- * lightning striking round the first player, a few seconds apart and from a few hundred tiles
- * to a mile and more off, and thunder rumbling with no strike seen now and then: the game's own
- * thunder clouds cross the map and are seldom overhead for long.
+ * Backspace holds the year at the next of the four seasons, spring, summer, autumn and winter,
+ * and round again, for the game's own trees and for what the mod draws alike. The game works
+ * the season out again each day, so it is held there until the session ends.
  *
  * The semicolon puts a pump action shotgun in the player's hands. Whatever firearm is held is
  * kept loaded, sound and unjammed, from the moment the game loads, so a gun the save was left
@@ -124,41 +123,27 @@ public final class DevKeys {
     /** How far a press puts the clock on, in hours. */
     private static final float LATER = 3f;
     /** Backspace: of the keys the game leaves alone, the nearest to 9 on its row. */
-    private static final int WEATHER_KEY = 14;
+    private static final int SEASON_KEY = 14;
+
+    /** A season as ErosionSeason numbers it, and how far through it the year is held. */
+    private record Season(String name, int number, float progression) {}
 
     /**
-     * A kind of weather as the game's climate has it: each of cloud, rain or snow, wind and fog
-     * from 0 to 1, and how much of the ground lies under snow, from 0 to 1.
+     * Spring is held where most trees have come into leaf, and autumn where most crowns have
+     * turned and a few are bare: see Seasons.
      */
-    private record Weather(String name, float cloud, float falling, float wind, float fog, boolean snow, float lying, boolean thunder) {
-        Weather(String name, float cloud, float falling, float wind, float fog, boolean snow, float lying) {
-            this(name, cloud, falling, wind, fog, snow, lying, false);
-        }
-    }
-
-    private static final Weather[] WEATHERS = {
-            new Weather("sunny", 0f, 0f, 0.05f, 0f, false, 0f),
-            new Weather("cloudy", 0.85f, 0f, 0.15f, 0f, false, 0f),
-            new Weather("stormy", 1f, 1f, 0.9f, 0f, false, 0f),
-            new Weather("thunderstorm", 1f, 1f, 0.9f, 0f, false, 0f, true),
-            new Weather("blizzard", 1f, 1f, 0.9f, 0f, true, 1f),
-            new Weather("clear snowy day", 0f, 0f, 0.1f, 0f, false, 1f),
-            new Weather("foggy", 0.7f, 0f, 0f, 1f, false, 0f),
+    private static final Season[] SEASONS = {
+            new Season("spring", Seasons.SPRING, 0.6f),
+            new Season("summer", Seasons.SUMMER, 0.5f),
+            new Season("autumn", Seasons.AUTUMN, 0.55f),
+            new Season("winter", Seasons.WINTER, 0.5f),
     };
-    /** The weather being held, and none while it is the game's own. */
-    private static int weather = -1;
-    /** When the next strike of a held thunderstorm falls. */
-    private static long nextStrikeNanos;
-    private static final Random strikes = new Random();
-    /** A held thunderstorm strikes this many seconds apart at least and at most, as the game's strongest thunder cloud does. */
-    private static final float STRIKES_APART_LEAST = 1.5f, STRIKES_APART_MOST = 6f;
-    /** And this far off, in tiles. */
-    private static final float STRIKES_NEAREST = 150f, STRIKES_FURTHEST = 1600f;
-    /** Lying snow drifts from what is held by more than this before it is set again. */
-    private static final float LYING_DRIFT = 0.05f;
-    /** The game's snow strength at which the whole ground lies under snow. */
-    private static final float FULL_SNOW_STRENGTH = 7.5f;
-    private static Field snowStrength, wasForceSnow;
+    /** The season being held, and none before the first press. */
+    private static int season = -1;
+    /** The held season's progression drifts by more than this before it is set again. */
+    private static final float SEASON_DRIFT = 0.01f;
+    private static Field curSeason, curSeasonDay, curSeasonProgression, erosionTicks;
+
     /** The semicolon. */
     private static final int ARM_KEY = 39;
     private static final String SHOTGUN = "Base.Shotgun";
@@ -193,7 +178,7 @@ public final class DevKeys {
     static void poll() {
         if (!said) {
             said = true;
-            Log.info("development build: 0 clears out the zombies and pressed again puts some back round you, . goes to the next place and , to the one before, 9 puts the clock on three hours, Backspace holds the next weather of sunny, cloudy, stormy, thunderstorm, blizzard, clear snowy day and foggy, ; gives a shotgun, any gun held never runs dry, [ gives a hunting rifle with the next of the three scopes on it, / gives a lit flashlight, ' makes you invincible, F7 takes the nearest vehicle");
+            Log.info("development build: 0 clears out the zombies and pressed again puts some back round you, . goes to the next place and , to the one before, 9 puts the clock on three hours, Backspace holds the next season of spring, summer, autumn and winter, ; gives a shotgun, any gun held never runs dry, [ gives a hunting rifle with the next of the three scopes on it, / gives a lit flashlight, ' makes you invincible, F7 takes the nearest vehicle");
         }
         // On a server every one of these would be a cheat against the other players.
         if (GameClient.client) {
@@ -255,16 +240,15 @@ public final class DevKeys {
             GameTime.getInstance().setTimeOfDay(hour);
             Log.info("9: the clock put on to " + hour);
         }
-        if (GameKeyboard.isKeyPressed(WEATHER_KEY)) {
-            weather = weather + 1 < WEATHERS.length ? weather + 1 : -1;
-            hold(weather < 0 ? null : WEATHERS[weather]);
-        }
-        if (weather >= 0 && WEATHERS[weather].thunder() && !players.isEmpty()) {
-            strike(players.get(0));
-        }
-        // The game melts and adds to lying snow on the hour, so it is set again when it has moved.
-        if (weather >= 0 && Math.abs(ClimateManager.getInstance().getSnowFracNow() - WEATHERS[weather].lying()) > LYING_DRIFT) {
-            lie(WEATHERS[weather].lying());
+        if (GameKeyboard.isKeyPressed(SEASON_KEY)) {
+            season = (season + 1) % SEASONS.length;
+            hold(SEASONS[season], true);
+        } else if (season >= 0) {
+            // The game works the season out again as each day begins.
+            ErosionSeason trees = ErosionMain.getInstance().getSeasons();
+            if (trees.getSeason() != SEASONS[season].number() || Math.abs(trees.getSeasonProgression() - SEASONS[season].progression()) > SEASON_DRIFT) {
+                hold(SEASONS[season], false);
+            }
         }
         if (GameKeyboard.isKeyPressed(ARM_KEY)) {
             for (IsoPlayer each : players) {
@@ -311,69 +295,53 @@ public final class DevKeys {
     }
 
     /**
-     * The next strike of a held thunderstorm, once its time has come: somewhere round the player,
-     * as the game's own thunder cloud strikes, through the game's own thunder so its sound and
-     * its light come as they do in any storm. About one in four is thunder alone.
+     * Holds the year at a season for the game's trees (ErosionMain's) and for the sky and the
+     * mod (the climate's, which Seasons captures), then has the game's erosion run again on
+     * every loaded chunk: it runs only a chunk whose stamp differs from its tick count.
      */
-    private static void strike(IsoPlayer player) {
-        long now = System.nanoTime();
-        if (now < nextStrikeNanos) {
-            return;
-        }
-        nextStrikeNanos = now + (long) ((STRIKES_APART_LEAST + strikes.nextFloat() * (STRIKES_APART_MOST - STRIKES_APART_LEAST)) * 1e9);
-        double way = strikes.nextDouble() * Math.PI * 2;
-        float off = STRIKES_NEAREST + (float) Math.pow(strikes.nextFloat(), 1.6) * (STRIKES_FURTHEST - STRIKES_NEAREST);
-        int x = (int) (player.getX() + Math.cos(way) * off), y = (int) (player.getY() + Math.sin(way) * off);
-        boolean seen = strikes.nextFloat() < 0.75f;
-        boolean lit = seen && !Core.getInstance().getOptionDisableLightningDuringStorms();
-        ClimateManager.getInstance().getThunderStorm().triggerThunderEvent(x, y, seen, lit, !seen || strikes.nextFloat() > 0.4f);
-    }
-
-    /** Holds the game's climate at a kind of weather, or with none gives it back to the game. */
-    private static void hold(Weather held) {
-        ClimateManager climate = ClimateManager.getInstance();
-        if (held == null) {
-            climate.resetAdmin();
-            Core.getInstance().setForceSnow(false);
-            Log.info("Backspace: the weather is the game's own again");
-            return;
-        }
-        hold(climate.getClimateFloat(ClimateManager.FLOAT_CLOUD_INTENSITY), held.cloud());
-        hold(climate.getClimateFloat(ClimateManager.FLOAT_PRECIPITATION_INTENSITY), held.falling());
-        hold(climate.getClimateFloat(ClimateManager.FLOAT_WIND_INTENSITY), held.wind());
-        hold(climate.getClimateFloat(ClimateManager.FLOAT_FOG_INTENSITY), held.fog());
-        ClimateManager.ClimateBool snow = climate.getClimateBool(ClimateManager.BOOL_IS_SNOW);
-        snow.setEnableAdmin(true);
-        snow.setAdminValue(held.snow());
-        lie(held.lying());
-        Log.info("Backspace: the weather held at " + held.name() + ", " + (weather + 1) + " of " + WEATHERS.length);
-    }
-
-    /**
-     * Lays snow over that share of the ground. The game's forced snow lies at 0.7 whatever is
-     * asked, so the strength it works lying snow out from is set instead, and the field that
-     * makes its next tick work it out from that strength.
-     */
-    private static void lie(float lying) {
-        ClimateManager climate = ClimateManager.getInstance();
-        Core.getInstance().setForceSnow(false);
+    private static void hold(Season held, boolean pressed) {
+        ErosionMain erosion = ErosionMain.getInstance();
         try {
-            if (snowStrength == null) {
-                snowStrength = ClimateManager.class.getDeclaredField("snowStrength");
-                snowStrength.setAccessible(true);
-                wasForceSnow = ClimateManager.class.getDeclaredField("wasForceSnow");
-                wasForceSnow.setAccessible(true);
+            if (curSeason == null) {
+                curSeason = seasonField("curSeason");
+                curSeasonDay = seasonField("curSeasonDay");
+                curSeasonProgression = seasonField("curSeasonProgression");
+                erosionTicks = ErosionMain.class.getDeclaredField("eTicks");
+                erosionTicks.setAccessible(true);
             }
-            snowStrength.setFloat(climate, FULL_SNOW_STRENGTH * lying);
-            wasForceSnow.setBoolean(climate, true);
+            for (ErosionSeason on : new ErosionSeason[] {erosion.getSeasons(), ClimateManager.getInstance().getSeason()}) {
+                float days = on.getSeasonDays();
+                curSeason.setInt(on, held.number());
+                curSeasonDay.setFloat(on, held.progression() * days);
+                curSeasonProgression.setFloat(on, held.progression());
+            }
+            int ticks = erosionTicks.getInt(erosion);
+            int chunks = 0;
+            for (int player = 0; player < IsoPlayer.numPlayers; player++) {
+                IsoChunkMap map = IsoWorld.instance.currentCell.getChunkMap(player);
+                for (int x = 0; x < IsoChunkMap.chunkGridWidth; x++) {
+                    for (int y = 0; y < IsoChunkMap.chunkGridWidth; y++) {
+                        IsoChunk chunk = map.getChunk(x, y);
+                        if (chunk != null) {
+                            chunk.getErosionData().eTickStamp = ticks - 1;
+                            chunks++;
+                        }
+                    }
+                }
+            }
+            erosion.DebugUpdateMapNow();
+            Log.info("Backspace: the year " + (pressed ? "held at " : "held again at ") + held.name() + ", " + (season + 1) + " of " + SEASONS.length
+                    + ", erosion run again on " + chunks + " chunks; the trees' season reads " + erosion.getSeasons().getSeason() + " at "
+                    + erosion.getSeasons().getSeasonProgression() + " and the climate's " + ClimateManager.getInstance().getSeason().getSeason());
         } catch (ReflectiveOperationException e) {
-            throw new IllegalStateException("the game's climate has no snowStrength or wasForceSnow to set lying snow with", e);
+            throw new IllegalStateException("the game's seasons cannot be held this way: " + e, e);
         }
     }
 
-    private static void hold(ClimateManager.ClimateFloat value, float at) {
-        value.setEnableAdmin(true);
-        value.setAdminValue(at);
+    private static Field seasonField(String name) throws NoSuchFieldException {
+        Field field = ErosionSeason.class.getDeclaredField(name);
+        field.setAccessible(true);
+        return field;
     }
 
     private static void keepWhole(IsoPlayer safe) {

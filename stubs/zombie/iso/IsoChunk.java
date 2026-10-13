@@ -12,6 +12,7 @@ public final class IsoChunk {
     public void invalidateRenderChunkLevel(int level, long flags) { throw new UnsupportedOperationException("reference stub"); }
     public int getMinLevel() { throw new UnsupportedOperationException("reference stub"); }
     public int getMaxLevel() { throw new UnsupportedOperationException("reference stub"); }
+    public zombie.erosion.ErosionData.Chunk getErosionData() { throw new UnsupportedOperationException("reference stub"); }
     public IsoGridSquare getGridSquare(int x, int y, int z) { throw new UnsupportedOperationException("reference stub"); }
     public zombie.iso.fboRenderChunk.FBORenderLevels getRenderLevels(int playerIndex) { throw new UnsupportedOperationException("reference stub"); }
 }
