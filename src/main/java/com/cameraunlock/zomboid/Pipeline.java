@@ -744,7 +744,9 @@ final class Pipeline {
 
     /**
      * Binds each of the textures to a unit, from first on, each to its own kind of texture. Leaves
-     * the first unit active.
+     * unit 0 active. A 0 unbinds that kind of texture from its unit one unit at a time, and every
+     * kind from it in a run: the paths differ only for a unit that holds two kinds at once, which
+     * none given here does, and a program samples each unit as one kind alone.
      */
     private static void bindTextures(int first, int[] each, int[] kinds) {
         if (bindsMany()) {
