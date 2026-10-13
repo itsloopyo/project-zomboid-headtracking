@@ -825,8 +825,10 @@ public final class ViewModel {
             // Its mesh's units in metres and in tiles, as the game draws the model: its script's scale is in the matrix.
             float unit = (float) Math.sqrt(forward[0] * forward[0] + forward[1] * forward[1] + forward[2] * forward[2]);
             float perUnit = unit / Characters.PER_METRE, tilesPerUnit = unit * finalScale * scale;
-            if (fit == null || !fit.fits(how.swungAs, swungShape, perUnit, tilesPerUnit, trueHands)) {
-                fit = MeleeHold.fit(how.swungAs, swungShape, perUnit, tilesPerUnit, trueHands);
+            // The picture's height as the player set it: what is held at rest is fitted inside it.
+            float tan = (float) Math.tan(Math.toRadians(FieldOfView.degrees()) / 2);
+            if (fit == null || !fit.fits(how.swungAs, swungShape, perUnit, tilesPerUnit, trueHands, tan)) {
+                fit = MeleeHold.fit(how.swungAs, swungShape, perUnit, tilesPerUnit, trueHands, tan);
             }
             swungFit = fit;
             // It is turned about its handle so that its striking side leads the blow.

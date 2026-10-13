@@ -166,33 +166,36 @@ final class MeleeHold {
     private static final float[] IN_THE_FIST = {(float) Math.toRadians(40), (float) Math.toRadians(-12), (float) Math.toRadians(-10), 0.2f, -0.235f, 0.42f, 0f};
     /** A spear at rest is held low and level, its point ahead, a little in from the right. */
     private static final float[] LEVELLED = {(float) Math.toRadians(7), (float) Math.toRadians(-7), 0f, 0.15f, -0.22f, 0.27f, 0f};
+    /**
+     * How far past ACROSS, in parts of the way to it from upright, something is leant at the most: in the narrowest picture
+     * the player may set, 40 degrees, the longest weapons need more than ACROSS.
+     */
+    static final float FURTHEST_ACROSS = 1.6f;
     /** How far up the picture, in parts of the way from its middle to its top edge, the far end of what is held at rest may come. */
     static final float REST_TOP = 0.75f;
-    /** The tangent of half the height of the picture the rest is fitted to: the default field of view's. */
-    private static final float TAN = (float) Math.tan(Math.toRadians(FieldOfView.DEFAULT_DEGREES) / 2);
-
     /**
      * How something swung is held at rest.
      *
      * @param kind      one of the classes
      * @param reach     how far its far end is from the hand, in tiles
      * @param trueHands whether it is in the mod's own hands
+     * @param tan       the tangent of half the height of the picture it is drawn in: the player's field of view's
      * @param out       the hold, as ViewModelMath.attack takes it
      */
-    static void rest(int kind, float reach, boolean trueHands, float[] out) {
+    static void rest(int kind, float reach, boolean trueHands, float tan, float[] out) {
         if (kind == SPEAR || kind == STONE) {
             System.arraycopy(kind == SPEAR ? LEVELLED : IN_THE_FIST, 0, out, 0, ViewModelMath.HOLD);
             return;
         }
         float[] upright = trueHands ? UPRIGHT_HELD_IN_HAND : UPRIGHT_HELD;
-        float low = 0f, high = 1f;
-        if (farEndUp(upright, reach) <= REST_TOP * TAN) {
+        float low = 0f, high = FURTHEST_ACROSS;
+        if (farEndUp(upright, reach) <= REST_TOP * tan) {
             high = 0f;
         } else {
             for (int step = 0; step < 16; step++) {
                 float mid = (low + high) / 2f;
                 between(upright, ACROSS, mid, out);
-                if (farEndUp(out, reach) <= REST_TOP * TAN) {
+                if (farEndUp(out, reach) <= REST_TOP * tan) {
                     high = mid;
                 } else {
                     low = mid;
@@ -262,27 +265,29 @@ final class MeleeHold {
     /**
      * How a weapon is held, worked out once for it and kept while it is held: where the right hand is on its mesh, in
      * its units, how far its far end is from the hand, in tiles, where the left fist is, ArmHolds.Weapon's `second`,
-     * the hold at rest, and for each way of hitting how far it is turned to land where a bat does (`aimed`).
+     * the hold at rest, and for each way of hitting how far it is turned to land its head on what it hits (`aimed`).
      */
-    record Fit(int kind, Shape shape, float perUnit, float tilesPerUnit, boolean trueHands, float hand, float reach, float second,
+    record Fit(int kind, Shape shape, float perUnit, float tilesPerUnit, boolean trueHands, float tan, float hand, float reach, float second,
             float[] rest, float[] aimed) {
-        boolean fits(int kind, Shape shape, float perUnit, float tilesPerUnit, boolean trueHands) {
-            return this.kind == kind && this.shape == shape && this.perUnit == perUnit && this.tilesPerUnit == tilesPerUnit && this.trueHands == trueHands;
+        boolean fits(int kind, Shape shape, float perUnit, float tilesPerUnit, boolean trueHands, float tan) {
+            return this.kind == kind && this.shape == shape && this.perUnit == perUnit && this.tilesPerUnit == tilesPerUnit && this.trueHands == trueHands
+                    && this.tan == tan;
         }
     }
 
     /**
      * @param perUnit      how long one of the mesh's units is, in metres
      * @param tilesPerUnit and in the view's tiles
+     * @param tan          the tangent of half the height of the picture it is drawn in
      */
-    static Fit fit(int kind, Shape shape, float perUnit, float tilesPerUnit, boolean trueHands) {
+    static Fit fit(int kind, Shape shape, float perUnit, float tilesPerUnit, boolean trueHands, float tan) {
         float hand = hand(kind, shape, perUnit), reach = (shape.tip() - hand) * tilesPerUnit;
         float[] rest = new float[ViewModelMath.HOLD], aimed = new float[ViewModelMath.LUNGED + 1];
-        rest(kind, reach, trueHands, rest);
+        rest(kind, reach, trueHands, tan, rest);
         for (int way = 0; way < aimed.length; way++) {
             aimed[way] = aimed(way, reach);
         }
-        return new Fit(kind, shape, perUnit, tilesPerUnit, trueHands, hand, reach, second(kind, shape, perUnit), rest, aimed);
+        return new Fit(kind, shape, perUnit, tilesPerUnit, trueHands, tan, hand, reach, second(kind, shape, perUnit), rest, aimed);
     }
 
     /** How far into an attack the hands are, 0 at rest and 1 from when it is drawn back until it is being brought back, in step with ViewModelMath.attack. */

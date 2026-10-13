@@ -630,7 +630,7 @@ final class OwnArmTests {
             int kind = (int) w[0];
             boolean both = w[1] > 0f;
             MeleeHold.Shape shape = new MeleeHold.Shape(w[2], w[3], 0f, -1f);
-            MeleeHold.Fit fit = MeleeHold.fit(kind, shape, perUnit, tilesPerUnit, true);
+            MeleeHold.Fit fit = MeleeHold.fit(kind, shape, perUnit, tilesPerUnit, true, PICTURE);
             for (int attack = ViewModelMath.SWUNG; attack <= ViewModelMath.SHOVED; attack++) {
                 // Only the ways the game hits with each: a knife and a spear thrust, every class goes onto the floor and shoves, and a heavy weapon has no uppercut.
                 boolean point = kind == MeleeHold.KNIFE || kind == MeleeHold.SPEAR;

@@ -122,7 +122,7 @@ final class MeleeTests {
 
     private static void everyBlowLandsWithTheStrikingSideLeading() {
         float[] rest = new float[ViewModelMath.HOLD];
-        MeleeHold.rest(MeleeHold.ONE_HANDED, 0.4f, true, rest);
+        MeleeHold.rest(MeleeHold.ONE_HANDED, 0.4f, true, TAN, rest);
         MeleeHold.Shape[] shapes = {new MeleeHold.Shape(0f, 0.47f, 0f, -1f), new MeleeHold.Shape(0f, 0.26f, 0.7071f, -0.7071f), new MeleeHold.Shape(0f, 0.26f, -1f, 0f)};
         for (MeleeHold.Shape shape : shapes) {
             for (int way = ViewModelMath.SWUNG; way <= ViewModelMath.FLOORED; way++) {
@@ -174,13 +174,18 @@ final class MeleeTests {
     private static final float TAN = (float) Math.tan(Math.toRadians(FieldOfView.DEFAULT_DEGREES) / 2);
 
     private static void atRestTheFarEndIsInThePicture() {
-        for (int kind = MeleeHold.ONE_HANDED; kind <= MeleeHold.KNIFE; kind++) {
-            for (float reach = 0.1f; reach <= 1.4f; reach += 0.05f) {
-                for (boolean trueHands : new boolean[] {true, false}) {
-                    float[] rest = new float[ViewModelMath.HOLD];
-                    MeleeHold.rest(kind, reach, trueHands, rest);
-                    float up = MeleeHold.farEndUp(rest, reach);
-                    check(up <= MeleeHold.REST_TOP * TAN + 1e-3f, "class " + kind + " reaching " + reach + " has its far end in the picture: " + up);
+        // Every field of view the player may set, narrowest first, and every reach up to the longest the game has: its double
+        // canoe paddle, held at one end, reaches 1.26 tiles.
+        for (float degrees = Config.MIN_FIELD_OF_VIEW; degrees <= Config.MAX_FIELD_OF_VIEW; degrees += 5f) {
+            float tan = (float) Math.tan(Math.toRadians(degrees) / 2);
+            for (int kind = MeleeHold.ONE_HANDED; kind <= MeleeHold.KNIFE; kind++) {
+                for (float reach = 0.1f; reach <= 1.3f; reach += 0.05f) {
+                    for (boolean trueHands : new boolean[] {true, false}) {
+                        float[] rest = new float[ViewModelMath.HOLD];
+                        MeleeHold.rest(kind, reach, trueHands, tan, rest);
+                        float up = MeleeHold.farEndUp(rest, reach);
+                        check(up <= MeleeHold.REST_TOP * tan + 1e-3f, "at " + degrees + " degrees class " + kind + " reaching " + reach + " has its far end in the picture: " + up / tan);
+                    }
                 }
             }
         }
@@ -195,7 +200,7 @@ final class MeleeTests {
             for (float reach = 0.1f; reach <= MeleeHold.BAT_REACH; reach += 0.05f) {
                 for (boolean trueHands : new boolean[] {true, false}) {
                     float[] rest = new float[ViewModelMath.HOLD];
-                    MeleeHold.rest(kind, reach, trueHands, rest);
+                    MeleeHold.rest(kind, reach, trueHands, TAN, rest);
                     for (int i = 0; i < ViewModelMath.HOLD; i++) {
                         check(Math.abs(rest[i] - (trueHands ? before : beforeGame)[i]) < 1e-6f, "class " + kind + " reaching " + reach + " stands where it stood, part " + i);
                     }
@@ -211,7 +216,7 @@ final class MeleeTests {
             float perUnit = scale / Characters.PER_METRE;
             float hand = MeleeHold.hand(MeleeHold.ONE_HANDED, club, perUnit);
             check(Math.abs((hand - club.butt()) * perUnit - MeleeHold.HAND_IN) < 1e-5f, "at " + scale + " the hand is a tenth of a metre in from the end: " + (hand - club.butt()) * perUnit);
-            MeleeHold.Fit fit = MeleeHold.fit(MeleeHold.ONE_HANDED, club, perUnit, scale * 1.5f, true);
+            MeleeHold.Fit fit = MeleeHold.fit(MeleeHold.ONE_HANDED, club, perUnit, scale * 1.5f, true, TAN);
             check(Math.abs(fit.reach() - (club.tip() - hand) * scale * 1.5f) < 1e-5f, "and its reach is in the tiles it is drawn at");
             MeleeHold.Shape spear = new MeleeHold.Shape(-0.09f, 0.68f, 0f, -1f);
             float spearHand = MeleeHold.hand(MeleeHold.SPEAR, spear, perUnit);
@@ -268,7 +273,7 @@ final class MeleeTests {
 
     private static void aSpearIsHeldLevelWithTheLeftHandAhead() {
         float[] rest = new float[ViewModelMath.HOLD];
-        MeleeHold.rest(MeleeHold.SPEAR, 1.0f, true, rest);
+        MeleeHold.rest(MeleeHold.SPEAR, 1.0f, true, TAN, rest);
         check(Math.abs(rest[0]) < Math.toRadians(15), "a spear points ahead, not up: " + Math.toDegrees(rest[0]));
         // The game's crafted spear, and its short forged one, whose mesh is made from its middle.
         MeleeHold.Shape crafted = new MeleeHold.Shape(-0.09f, 0.68f, 0f, -1f), forged = new MeleeHold.Shape(-0.373f, 0.373f, 0f, -1f);
@@ -297,7 +302,7 @@ final class MeleeTests {
 
     private static void aLongWeaponLandsOnWhatItHits() {
         float[] rest = new float[ViewModelMath.HOLD];
-        MeleeHold.rest(MeleeHold.TWO_HANDED, MeleeHold.BAT_REACH, true, rest);
+        MeleeHold.rest(MeleeHold.TWO_HANDED, MeleeHold.BAT_REACH, true, TAN, rest);
         for (int way = ViewModelMath.SWUNG; way <= ViewModelMath.LUNGED; way++) {
             for (float reach = 0.1f; reach <= MeleeHold.BAT_REACH; reach += 0.05f) {
                 check(MeleeHold.aimed(way, reach) == 0f, "nothing as long as a bat or shorter is turned, way " + way + " reaching " + reach);
