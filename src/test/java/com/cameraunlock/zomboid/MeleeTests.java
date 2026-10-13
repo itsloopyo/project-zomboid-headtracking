@@ -150,7 +150,7 @@ final class MeleeTests {
     private static void theTurnAboutTheHandleComesAndGoesWithTheBlow() {
         MeleeHold.Shape pan = new MeleeHold.Shape(0f, 0.26f, 0.7071f, -0.7071f);
         float[] top = new float[3];
-        for (int way = ViewModelMath.SWUNG; way <= ViewModelMath.STABBED; way++) {
+        for (int way = ViewModelMath.SWUNG; way <= ViewModelMath.LUNGED; way++) {
             MeleeHold.top(pan, way, MeleeHold.share(0f, 0f, false), top);
             check(top[0] == 0f && top[2] == 1f, "at rest it stands in the hand as the game's art has it, its top the mesh's z, way " + way);
             check(MeleeHold.share(1f, 0f, false) == 1f, "as it lands it is turned all the way, way " + way);
@@ -162,7 +162,7 @@ final class MeleeTests {
                 last = now;
             }
         }
-        check(MeleeHold.LEADS[ViewModelMath.THRUST] == 0f && MeleeHold.LEADS[ViewModelMath.SHOVED] == 0f && MeleeHold.LEADS[ViewModelMath.STABBED] == 0f,
+        check(MeleeHold.LEADS[ViewModelMath.THRUST] == 0f && MeleeHold.LEADS[ViewModelMath.SHOVED] == 0f && MeleeHold.LEADS[ViewModelMath.STABBED] == 0f && MeleeHold.LEADS[ViewModelMath.LUNGED] == 0f,
                 "a thrust, a shove and a stab are not turned to lead");
         MeleeHold.top(new MeleeHold.Shape(0f, 0.26f, 0f, -1f), ViewModelMath.THRUST, 1f, top);
         check(top[0] == 0f && top[2] == 1f, "and something striking with -z is not turned for them at all");
@@ -298,7 +298,7 @@ final class MeleeTests {
     private static void aLongWeaponLandsOnWhatItHits() {
         float[] rest = new float[ViewModelMath.HOLD];
         MeleeHold.rest(MeleeHold.TWO_HANDED, MeleeHold.BAT_REACH, true, rest);
-        for (int way = ViewModelMath.SWUNG; way <= ViewModelMath.STABBED; way++) {
+        for (int way = ViewModelMath.SWUNG; way <= ViewModelMath.LUNGED; way++) {
             for (float reach = 0.1f; reach <= MeleeHold.BAT_REACH; reach += 0.05f) {
                 check(MeleeHold.aimed(way, reach) == 0f, "nothing as long as a bat or shorter is turned, way " + way + " reaching " + reach);
             }
@@ -308,7 +308,7 @@ final class MeleeTests {
             for (float reach = 0.65f; reach <= 1.4f; reach += 0.05f) {
                 float[] turned = pose.clone();
                 turned[1] += MeleeHold.aimed(way, reach);
-                boolean straight = way == ViewModelMath.THRUST || way == ViewModelMath.SHOVED || way == ViewModelMath.STABBED;
+                boolean straight = way >= ViewModelMath.THRUST;
                 if (straight) {
                     check(MeleeHold.aimed(way, reach) == 0f, "a thrust, a shove or a stab is not turned, way " + way);
                 } else {

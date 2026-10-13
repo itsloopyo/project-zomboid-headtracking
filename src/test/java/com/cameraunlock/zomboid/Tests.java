@@ -320,7 +320,7 @@ public final class Tests {
 
     private static void attackStartsAndEndsWhereTheWeaponIsHeld() {
         float[] at = new float[ViewModelMath.HOLD];
-        for (int way = ViewModelMath.SWUNG; way <= ViewModelMath.STABBED; way++) {
+        for (int way = ViewModelMath.SWUNG; way <= ViewModelMath.LUNGED; way++) {
             for (boolean struck : new boolean[] {false, true}) {
                 ViewModelMath.attack(way, 0f, 0f, struck, HELD, at);
                 for (int part = 0; part < ViewModelMath.HOLD; part++) {
@@ -359,7 +359,7 @@ public final class Tests {
 
     private static void attackComesInFasterAndFasterUntilItLands() {
         float[] at = new float[ViewModelMath.HOLD], before = new float[ViewModelMath.HOLD];
-        for (int way = ViewModelMath.SWUNG; way <= ViewModelMath.STABBED; way++) {
+        for (int way = ViewModelMath.SWUNG; way <= ViewModelMath.LUNGED; way++) {
             float slow = 0f, fast = 0f;
             for (int step = 0; step <= 100; step++) {
                 float reached = ViewModelMath.WINDS + (1f - ViewModelMath.WINDS) * step / 100f;
@@ -381,7 +381,7 @@ public final class Tests {
 
     private static void attackMovesWithoutAJump() {
         float[] at = new float[ViewModelMath.HOLD], before = new float[ViewModelMath.HOLD];
-        for (int way = ViewModelMath.SWUNG; way <= ViewModelMath.STABBED; way++) {
+        for (int way = ViewModelMath.SWUNG; way <= ViewModelMath.LUNGED; way++) {
             for (boolean struck : new boolean[] {false, true}) {
                 System.arraycopy(HELD, 0, before, 0, ViewModelMath.HOLD);
                 for (int step = 1; step <= 2000; step++) {

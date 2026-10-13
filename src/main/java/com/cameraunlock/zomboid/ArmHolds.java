@@ -901,16 +901,18 @@ final class ArmHolds {
     private static void starts(Weapon weapon, int side, float scale, float turned, float[] fromAim, float[] shoulder, float[] from) {
         starts(weapon.firearm() && !weapon.handgun(), side, scale, turned, fromAim, shoulder, from);
         if (side == 1 && !weapon.firearm() && weapon.second() > 0f) {
+            turnedPlace(SPEAR_SHOULDER, turned, scale, fromAim, shoulder);
             turnedPlace(SPEAR_FROM, turned, scale, fromAim, from);
         }
     }
 
     /**
-     * Where the left forearm seems to come from to a spear's shaft, out ahead of the right hand, in metres from the eye:
-     * lower than FROM and nearer the middle, so that the arm rises to the shaft along its length. From FROM's corner the
-     * elbow and the upper arm came into the lower left of the picture as the spear was thrust, cut off by the near plane.
+     * Where the left arm's shoulder is, and where its forearm seems to come from, to a spear's shaft out ahead of the right
+     * hand, in metres from the eye: both well under the picture, as a body lunging leans. From the shoulder beside the
+     * eye and FROM's corner, the upper arm came across the lower left of the picture as the spear was thrust, cut off by
+     * the near plane, and the shirt's sleeve on it showed as a dark flap.
      */
-    static final float[] SPEAR_FROM = {-0.28f, -0.68f, -0.10f};
+    static final float[] SPEAR_SHOULDER = {-0.22f, -0.60f, 0.10f}, SPEAR_FROM = {-0.28f, -0.68f, -0.10f};
 
     private static void starts(boolean longGun, int side, float scale, float turned, float[] fromAim, float[] shoulder, float[] from) {
         float sign = side == 1 ? -1f : 1f;

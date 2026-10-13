@@ -277,7 +277,7 @@ final class MeleeHold {
      */
     static Fit fit(int kind, Shape shape, float perUnit, float tilesPerUnit, boolean trueHands) {
         float hand = hand(kind, shape, perUnit), reach = (shape.tip() - hand) * tilesPerUnit;
-        float[] rest = new float[ViewModelMath.HOLD], aimed = new float[ViewModelMath.STABBED + 1];
+        float[] rest = new float[ViewModelMath.HOLD], aimed = new float[ViewModelMath.LUNGED + 1];
         rest(kind, reach, trueHands, rest);
         for (int way = 0; way < aimed.length; way++) {
             aimed[way] = aimed(way, reach);
@@ -311,7 +311,7 @@ final class MeleeHold {
      * @param reach how far the far end is from the hand, in tiles
      */
     static float aimed(int way, float reach) {
-        if (!(reach > BAT_REACH) || way == ViewModelMath.THRUST || way == ViewModelMath.SHOVED || way == ViewModelMath.STABBED) {
+        if (!(reach > BAT_REACH) || way >= ViewModelMath.THRUST) {
             return 0f;
         }
         float[] pose = new float[ViewModelMath.HOLD];
@@ -346,10 +346,14 @@ final class MeleeHold {
 
     /**
      * The way the game's attack is drawn with something of a class: a knife or a spear brought down on what lies on the ground
-     * is stabbed into it point first, where anything else is brought down on it.
+     * is stabbed into it point first, where anything else is brought down on it, and a spear's thrust is driven in low and
+     * level from where it rests, with both hands: raised as a knife's is, it brought the left elbow up into the picture.
      */
     static int way(int kind, int attack) {
-        return attack == ViewModelMath.FLOORED && (kind == KNIFE || kind == SPEAR) ? ViewModelMath.STABBED : attack;
+        if (attack == ViewModelMath.FLOORED && (kind == KNIFE || kind == SPEAR)) {
+            return ViewModelMath.STABBED;
+        }
+        return attack == ViewModelMath.THRUST && kind == SPEAR ? ViewModelMath.LUNGED : attack;
     }
 
     /**
@@ -357,7 +361,7 @@ final class MeleeHold {
      * the blow as it lands, as `top` turns it: worked out from where ViewModelMath.attack carries the far end
      * just before it lands and as it lands. A thrust and a stab lead with the point and a shove with the shaft, and are not turned.
      */
-    static final float[] LEADS = new float[ViewModelMath.STABBED + 1];
+    static final float[] LEADS = new float[ViewModelMath.LUNGED + 1];
     static {
         for (int way = ViewModelMath.SWUNG; way <= ViewModelMath.FLOORED; way++) {
             LEADS[way] = lead(way);
