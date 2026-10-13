@@ -28,6 +28,8 @@ public final class BaseVehicle extends zombie.iso.IsoMovingObject {
     public double getEngineSpeed() { throw new UnsupportedOperationException("reference stub"); }
     public VehiclePart getPassengerDoor(int seat) { throw new UnsupportedOperationException("reference stub"); }
     public VehiclePart getPartById(String id) { throw new UnsupportedOperationException("reference stub"); }
+    public void transmitPartItem(VehiclePart part) { throw new UnsupportedOperationException("reference stub"); }
+    public void playSound(String name) { throw new UnsupportedOperationException("reference stub"); }
     public zombie.scripting.objects.VehicleScript getScript() { throw new UnsupportedOperationException("reference stub"); }
     public org.joml.Vector3f getWorldPos(org.joml.Vector3f local, org.joml.Vector3f out) { throw new UnsupportedOperationException("reference stub"); }
     public Vector3f getLinearVelocity(Vector3f out) { throw new UnsupportedOperationException("reference stub"); }

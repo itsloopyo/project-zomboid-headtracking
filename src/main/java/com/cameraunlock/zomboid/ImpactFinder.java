@@ -133,7 +133,9 @@ final class ImpactFinder {
         IsoGridSquare under = cell.getGridSquare((int) Math.floor(endX), (int) Math.floor(endY), (int) Math.floor(endZ));
         BaseVehicle vehicle = under == null ? null : under.getVehicleContainer();
         float body = vehicle == null ? Float.POSITIVE_INFINITY : vehicleSide(vehicle, startX, startY, startZ, Math.max(length, (float) Math.hypot(endX - startX, endY - startY)));
+        ShotLights.along(cell, terrain, line, Math.min(body, Math.min(distance, reach)));
         if (body < Math.min(distance, reach)) {
+            ShotLights.vehicleHit(vehicle, line.eyeX + line.forwardX * (body + VEHICLE_OFF), line.eyeY + line.forwardY * (body + VEHICLE_OFF));
             float up = line.eyeUp + line.forwardUp * body;
             add(line.eyeX + line.forwardX * body, line.eyeY + line.forwardY * body, up, -line.forwardX, -line.forwardY, -line.forwardUp,
                     line.forwardX, line.forwardY, line.forwardUp, up - 1f, Impacts.METAL, size, false, 0f, 0f, 1f);
