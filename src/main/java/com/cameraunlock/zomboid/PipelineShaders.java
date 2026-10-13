@@ -3725,6 +3725,16 @@ final class PipelineShaders {
             """;
 
     /**
+     * What casts a model into a shadow map: a model is solid all over and leaves no pixel out, so
+     * the program does nothing to a pixel and the driver writes its depth alone.
+     */
+    static final String SOLID_SHADOW_FRAGMENT = """
+            #version 120
+            void main() {
+            }
+            """;
+
+    /**
      * Rain as drops in the world. Each is a streak as long as the drop falls while the eye
      * takes it in, somewhere in a box of air that goes with the eye: a drop that falls out of
      * the bottom of the box, or is left behind, comes back in on the other side. A vertex

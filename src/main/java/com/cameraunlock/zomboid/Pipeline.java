@@ -248,7 +248,7 @@ final class Pipeline {
     private int jitterAt;
     /** How far to one side this frame is drawn, as the projection takes it: nothing with the frames not mixed. */
     private float asideX, asideY;
-    private static Program world, worldDepth, shadow, figureLight, sky, clouds, skyNear, bolt, occlusion, soften, volume, bloomDown, bloomUp, develop, smooth;
+    private static Program world, worldDepth, shadow, solidShadow, figureLight, sky, clouds, skyNear, bolt, occlusion, soften, volume, bloomDown, bloomUp, develop, smooth;
     private static Program far, farTree;
     /** What the shaders are told as uBeyond this frame: see PipelineShaders.ENDS. Not 0 where the far land is drawn behind the built world. */
     private float beyond;
@@ -1661,12 +1661,12 @@ final class Pipeline {
 
     /** The order castModels casts the pieces listed in, model by model: each as its model's first corner, then its place in the list. */
     private long[] castOrder = new long[256];
-    /** Where each piece castModels casts stands, as the shadow program's aPlace, aFoot and aTurn take it, and the buffer it is given in. */
+    /** Where each piece castModels casts stands, as the shadow programs' aPlace, aFoot and aTurn take it, and the buffer it is given in. */
     private FloatBuffer castPlaces;
     private int castBuffer;
     private static final int CAST_FLOATS = 11, CAST_STRIDE = CAST_FLOATS * Float.BYTES;
     /**
-     * Where the shadow program's aPlace, aFoot and aTurn are bound, in that order. Some drivers
+     * Where both shadow programs' aPlace, aFoot and aTurn are bound, in that order. Some drivers
      * share a generic attribute's place with a built-in one (NVIDIA's gl_Vertex is 0, gl_Normal 2,
      * gl_Color 3, gl_MultiTexCoord0 and 1 are 8 and 9, all of which the program reads); 5, 6 and 7
      * are the fog coordinate's and two no built-in has, and the program reads none of them.
@@ -1675,11 +1675,11 @@ final class Pipeline {
     private static final int GL_STREAM_DRAW = 0x88E0;
 
     /**
-     * Casts the pieces listModels listed last into the map bound, by the shadow program, which is
-     * in use: one draw for all the pieces that share a model, each told where it stands by its
-     * own row of castPlaces.
+     * Casts the pieces listModels listed last into the map bound, along the matrix, by the solid
+     * shadow program, and leaves the shadow program in use: one draw for all the pieces that share
+     * a model, each told where it stands by its own row of castPlaces.
      */
-    private void castModels() {
+    private void castModels(float[] matrix) {
         if (modelsListed == 0) {
             return;
         }
@@ -1706,11 +1706,13 @@ final class Pipeline {
             castBuffer = GL15.glGenBuffers();
         }
         modelArrays();
-        shadow.set("uModel", 1f);
+        solidShadow.use();
+        solidShadow.set("uMatrix", matrix);
+        solidShadow.set("uModel", 1f);
         GL11.glBindTexture(GL_TEXTURE_2D, whiteTexture);
         GL15.glBindBuffer(GL_ARRAY_BUFFER, castBuffer);
         GL15.glBufferData(GL_ARRAY_BUFFER, castPlaces, GL_STREAM_DRAW);
-        int place = shadow.attribute("aPlace"), foot = shadow.attribute("aFoot"), turn = shadow.attribute("aTurn");
+        int place = solidShadow.attribute("aPlace"), foot = solidShadow.attribute("aFoot"), turn = solidShadow.attribute("aTurn");
         GL20.glEnableVertexAttribArray(place);
         GL20.glEnableVertexAttribArray(foot);
         GL20.glEnableVertexAttribArray(turn);
@@ -1740,7 +1742,8 @@ final class Pipeline {
         GL20.glDisableVertexAttribArray(turn);
         GL15.glBindBuffer(GL_ARRAY_BUFFER, 0);
         GL15.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-        shadow.set("uModel", 0f);
+        solidShadow.set("uModel", 0f);
+        shadow.use();
         arrays();
     }
 
@@ -2018,7 +2021,7 @@ final class Pipeline {
         ChunkBuffers.Listing held = heldBy(matrix, state, own, map);
         drawRanges(held, 0, held.solidRanges());
         listModels(false, null, 0f, 0f, Outlines.NONE);
-        castModels();
+        castModels(matrix);
     }
 
     /**
@@ -5150,6 +5153,7 @@ final class Pipeline {
         selfShown = Program.link("viewer in the glass", PipelineShaders.PANE_VERTEX, OwnReflection.SHOWN, problem);
         partKind = Program.link("cabin parts", PipelineShaders.PANE_VERTEX, PipelineShaders.PART_FRAGMENT, problem);
         shadow = Program.link("shadow", SHADOW_VERTEX, SHADOW_FRAGMENT, problem, SHADOW_PLACES_FROM, "aPlace", "aFoot", "aTurn");
+        solidShadow = Program.link("solid shadow", SHADOW_VERTEX, PipelineShaders.SOLID_SHADOW_FRAGMENT, problem, SHADOW_PLACES_FROM, "aPlace", "aFoot", "aTurn");
         rain = Program.link("rain", PipelineShaders.RAIN_VERTEX, PipelineShaders.RAIN_FRAGMENT, problem);
         snow = Program.link("snow", PipelineShaders.SNOW_VERTEX, PipelineShaders.SNOW_FRAGMENT, problem);
         dust = Program.link("dust", PipelineShaders.DUST_VERTEX, PipelineShaders.DUST_FRAGMENT, problem);
