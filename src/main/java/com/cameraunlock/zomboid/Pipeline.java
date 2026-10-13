@@ -21,6 +21,7 @@ import org.lwjgl.opengl.GL15;
 import org.lwjgl.opengl.GL20;
 import org.lwjgl.opengl.GL30;
 import org.lwjgl.opengl.GL31;
+import org.lwjgl.opengl.GL32;
 import org.lwjgl.opengl.GL33;
 import org.lwjgl.opengl.GL44;
 import org.lwjgl.opengl.GLCapabilities;
@@ -158,6 +159,10 @@ final class Pipeline {
     private static final int GL_STATIC_DRAW = 0x88E4;
     private static final int GL_PIXEL_UNPACK_BUFFER = 0x88EC;
     private static final int GL_PIXEL_UNPACK_BUFFER_BINDING = 0x88EF;
+    private static final int GL_PIXEL_PACK_BUFFER = 0x88EB;
+    private static final int GL_PIXEL_PACK_BUFFER_BINDING = 0x88ED;
+    private static final int GL_STREAM_READ = 0x88E1;
+    private static final int GL_SYNC_GPU_COMMANDS_COMPLETE = 0x9117, GL_ALREADY_SIGNALED = 0x911A, GL_CONDITION_SATISFIED = 0x911C;
     private static final int GL_SAMPLER_BINDING = 0x8919;
     private static final int GL_UNPACK_ALIGNMENT = 0x0CF5;
     private static final int GL_UNPACK_ROW_LENGTH = 0x0CF2;
@@ -248,7 +253,7 @@ final class Pipeline {
     private int jitterAt;
     /** How far to one side this frame is drawn, as the projection takes it: nothing with the frames not mixed. */
     private float asideX, asideY;
-    private static Program world, worldDepth, shadow, solidShadow, figureLight, sky, clouds, skyNear, bolt, occlusion, soften, volume, bloomDown, bloomUp, develop, smooth;
+    private static Program world, worldDepth, shadow, solidShadow, figureLight, sky, clouds, skyNear, bolt, occlusion, soften, volume, bloomDown, bloomUp, develop, smooth, meter;
     private static Program far, farTree;
     /** What the shaders are told as uBeyond this frame: see PipelineShaders.ENDS. Not 0 where the far land is drawn behind the built world. */
     private float beyond;
@@ -682,6 +687,20 @@ final class Pipeline {
     /** Where the driver puts an answer: see bound. As long as the longest answer OpenGL gives to one question. */
     private final int[] asked = new int[16];
     private final float[] projection = new float[16], viewed = new float[16], flash = new float[7];
+    /**
+     * The eye's light meter: the picture before its exposure, weighted to the middle of the view,
+     * at METER_WIDE by METER_HIGH as the log of its light and the weight, halved down to one texel
+     * on the card and read back METER_READS frames later through a buffer of its own, so the read
+     * never waits on the card.
+     */
+    private static final int METER_WIDE = 64, METER_HIGH = 32, METER_LAST_LEVEL = 6, METER_READS = 3;
+    private int meterColor, meterTarget, meterAt;
+    private final int[] meterBuffers = new int[METER_READS];
+    private final long[] meterFences = new long[METER_READS];
+    private final ByteBuffer meterRead = ByteBuffer.allocateDirect(2 * Float.BYTES).order(ByteOrder.nativeOrder());
+    /** What the meter last read: the log2 of the picture's light before its exposure, NaN before its first reading. Render thread writes it. */
+    private volatile float meteredLight = Float.NaN;
+
     /** The exposure the picture being drawn is developed at. */
     private float pictureExposure = 1f;
     /** This picture's fires and their light. */
@@ -771,6 +790,11 @@ final class Pipeline {
         return lastMillis;
     }
 
+    /** What the eye's light meter last read of the picture: see meter. Logic thread. */
+    float meteredLight() {
+        return meteredLight;
+    }
+
     /** How many of the last frame's chunks each shadow map was drawn from. */
     String describeShadows() {
         int of = heldOf;
@@ -844,6 +868,7 @@ final class Pipeline {
         int vertexArray = bound(GL_VERTEX_ARRAY_BINDING);
         int arrayBuffer = bound(GL_ARRAY_BUFFER_BINDING);
         int unpackBuffer = bound(GL_PIXEL_UNPACK_BUFFER_BINDING);
+        int packBuffer = bound(GL_PIXEL_PACK_BUFFER_BINDING);
         GL11.glPushAttrib(GL_ALL_ATTRIB_BITS);
         GL11.glPushClientAttrib(GL_CLIENT_ALL_ATTRIB_BITS);
         GL11.glMatrixMode(GL_PROJECTION);
@@ -898,6 +923,7 @@ final class Pipeline {
             GL30.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, drawTarget);
             GL30.glBindFramebuffer(GL_READ_FRAMEBUFFER, readTarget);
             GL15.glBindBuffer(GL_PIXEL_UNPACK_BUFFER, unpackBuffer);
+            GL15.glBindBuffer(GL_PIXEL_PACK_BUFFER, packBuffer);
             GL15.glBindBuffer(GL_ARRAY_BUFFER, arrayBuffer);
             GL30.glBindVertexArray(vertexArray);
             GL11.glMatrixMode(GL_PROJECTION);
@@ -1091,6 +1117,9 @@ final class Pipeline {
                 drawVolume(camera, state, tanHalfFieldOfView, aspect, near, far);
             }
             stage(STAGE_AIR);
+            if (!overhead) {
+                meter();
+            }
             drawBloom(exposure);
             stage(STAGE_GLOW);
             outlinesDrawn = !overhead && state.outlined != null;
@@ -3507,6 +3536,43 @@ final class Pipeline {
         quad();
     }
 
+    /**
+     * Meters the picture before its exposure into meterColor, has the card halve it down to one
+     * texel, and asks for that texel into the next of the meter's buffers. The buffer asked for
+     * METER_READS - 1 frames before is read if the card has filled it, into meteredLight.
+     */
+    private void meter() {
+        GL30.glBindFramebuffer(GL_FRAMEBUFFER, meterTarget);
+        GL11.glViewport(0, 0, METER_WIDE, METER_HIGH);
+        meter.use();
+        meter.set("uScene", 0);
+        meter.set("uSize", (float) METER_WIDE, (float) METER_HIGH);
+        GL11.glBindTexture(GL_TEXTURE_2D, frameColor);
+        quad();
+        GL11.glBindTexture(GL_TEXTURE_2D, meterColor);
+        GL30.glGenerateMipmap(GL_TEXTURE_2D);
+        GL15.glBindBuffer(GL_PIXEL_PACK_BUFFER, meterBuffers[meterAt]);
+        GL11.glGetTexImage(GL_TEXTURE_2D, METER_LAST_LEVEL, GL_RG, GL_FLOAT, 0L);
+        if (meterFences[meterAt] != 0L) {
+            GL32.glDeleteSync(meterFences[meterAt]);
+        }
+        meterFences[meterAt] = GL32.glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+        meterAt = (meterAt + 1) % METER_READS;
+        long oldest = meterFences[meterAt];
+        if (oldest != 0L) {
+            int waited = GL32.glClientWaitSync(oldest, 0, 0L);
+            if (waited == GL_ALREADY_SIGNALED || waited == GL_CONDITION_SATISFIED) {
+                GL15.glBindBuffer(GL_PIXEL_PACK_BUFFER, meterBuffers[meterAt]);
+                meterRead.clear();
+                GL15.glGetBufferSubData(GL_PIXEL_PACK_BUFFER, 0L, meterRead);
+                meteredLight = meterRead.getFloat(0) / meterRead.getFloat(Float.BYTES);
+                GL32.glDeleteSync(oldest);
+                meterFences[meterAt] = 0L;
+            }
+        }
+        GL15.glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+    }
+
     /** Halves the picture five times, keeping only what is too bright to show, then adds the halves back up. */
     private void drawBloom(float exposure) {
         bloomDown.use();
@@ -5195,6 +5261,7 @@ final class Pipeline {
         bloomDown = Program.link("glow down", SCREEN_VERTEX, PipelineShaders.BLOOM_DOWN, problem);
         bloomUp = Program.link("glow up", SCREEN_VERTEX, PipelineShaders.BLOOM_UP, problem);
         develop = Program.link("develop", SCREEN_VERTEX, PipelineShaders.DEVELOP, problem);
+        meter = Program.link("light meter", SCREEN_VERTEX, PipelineShaders.METER, problem);
         smooth = Program.link("smooth", SCREEN_VERTEX, PipelineShaders.SMOOTH, problem);
         steady = Program.link("steady", SCREEN_VERTEX, PipelineShaders.STEADY, problem);
         return problem.length() > 0 ? problem.toString() : null;
@@ -5571,6 +5638,17 @@ final class Pipeline {
         for (Lent set : SIZED) {
             giveBack(set);
         }
+        for (int i = 0; i < METER_READS; i++) {
+            if (meterFences[i] != 0L) {
+                GL32.glDeleteSync(meterFences[i]);
+                meterFences[i] = 0L;
+            }
+            if (meterBuffers[i] != 0) {
+                GL15.glDeleteBuffers(meterBuffers[i]);
+                meterBuffers[i] = 0;
+            }
+        }
+        meteredLight = Float.NaN;
         view.heldDepth.forgetTarget();
     }
 
@@ -5698,6 +5776,19 @@ final class Pipeline {
         if (problem != null) {
             return problem;
         }
+        meterColor = texture(GL_RG32F, METER_WIDE, METER_HIGH, GL_RG, GL_FLOAT, GL_NEAREST);
+        GL30.glGenerateMipmap(GL_TEXTURE_2D);
+        meterTarget = target(meterColor);
+        problem = complete("light meter");
+        if (problem != null) {
+            return problem;
+        }
+        for (int i = 0; i < METER_READS; i++) {
+            meterBuffers[i] = GL15.glGenBuffers();
+            GL15.glBindBuffer(GL_PIXEL_PACK_BUFFER, meterBuffers[i]);
+            GL15.glBufferData(GL_PIXEL_PACK_BUFFER, 2L * Float.BYTES, GL_STREAM_READ);
+        }
+        GL15.glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
         keptDepth = texture(GL_DEPTH_COMPONENT24, width, height, GL_DEPTH_COMPONENT, GL_FLOAT, GL_NEAREST);
         keptDepthTarget = target(sceneColor);
         GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, keptDepth, 0);
@@ -5767,7 +5858,7 @@ final class Pipeline {
         int texture = GL11.glGenTextures();
         if (making != null) {
             making.textures.add(texture);
-            making.bytes += (long) w * h * (internal == GL_RGBA16F ? 8 : internal == GL_R16F ? 2 : internal == GL_R8 ? 1 : 4);
+            making.bytes += (long) w * h * (internal == GL_RGBA16F || internal == GL_RG32F ? 8 : internal == GL_R16F ? 2 : internal == GL_R8 ? 1 : 4);
         }
         GL11.glBindTexture(GL_TEXTURE_2D, texture);
         GL11.glTexImage2D(GL_TEXTURE_2D, 0, internal, w, h, 0, format, type, (ByteBuffer) null);

@@ -4261,6 +4261,29 @@ final class PipelineShaders {
             }
             """;
 
+    /**
+     * The eye's light meter (Pipeline.meter): each texel the log2 of the light of four places of
+     * the picture before its exposure, times its weight, and the weight. The middle of the view
+     * counts most, as it does for an eye fixed on it, and the edges a tenth as much. The light is held under
+     * METER_MOST so the sun's disc does not stop the eye down for the whole sky.
+     */
+    static final String METER = """
+            #version 120
+            uniform sampler2D uScene;
+            uniform vec2 uSize;
+            const float METER_MOST = 40.0;
+            void main() {
+                vec2 uv = gl_FragCoord.xy / uSize;
+                vec2 q = 0.25 / uSize;
+                vec3 c = texture2D(uScene, uv - q).rgb + texture2D(uScene, uv + vec2(q.x, -q.y)).rgb
+                        + texture2D(uScene, uv + vec2(-q.x, q.y)).rgb + texture2D(uScene, uv + q).rgb;
+                float light = clamp(dot(c * 0.25, vec3(0.2126, 0.7152, 0.0722)), 1e-4, METER_MOST);
+                vec2 off = (uv - 0.5) * 2.0;
+                float weight = 0.1 + exp(-5.0 * dot(off, off));
+                gl_FragColor = vec4(log2(light) * weight, weight, 0.0, 1.0);
+            }
+            """;
+
     static final String BLOOM_DOWN = """
             #version 120
             uniform sampler2D uSource;

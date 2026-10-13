@@ -161,6 +161,18 @@ final class WorldScene {
     private float loggedTanHalfSet, loggedAspect;
     private float eyeOpen = -1f;
     private float shaded;
+    /** The exposure the eye has come to by what it sees: see adaptEye. */
+    private float eyeSeen = -1f;
+    /**
+     * What the light meter reads, as a log2, of a picture the eye is adapted to (Pipeline.meter),
+     * in a room and in the open air: a room by day is drawn brighter than the open air at noon.
+     * Measured offline at noon, the exposure by place against the meter: a bedroom 10.2 at -4.7,
+     * a street 0.53 at -1.97. A view brighter than that stops the eye down and a darker one opens
+     * it up, as far as the exposures for a room and for the open air between them reach.
+     */
+    private static final float METER_KEY_INDOORS = -1.35f, METER_KEY_OUTDOORS = -2.88f;
+    /** How long the eye takes to stop down to a brighter view, and to open up to a darker one, in seconds: an eye is slower to open. */
+    private static final float EYE_CLOSES_SECONDS = 0.5f, EYE_OPENS_SECONDS = 2.5f;
     /** How much further the eye opens deep in a wood than on open ground. */
     private static final float WOODS_OPEN = 1.1f;
     private long lastAdapt;
@@ -2188,7 +2200,9 @@ final class WorldScene {
         /** How far from the eye people, zombies, vehicles and furniture are drawn, from the eye's frame: see DrawDistance. */
         private final DrawDistance drawDistance = new DrawDistance();
         /** How much light the eye lets in this frame: see adaptEye. */
-        private float exposure;
+        float exposure;
+        /** What the eye would let in by where the viewer stands alone, and what the light meter read: see adaptEye. */
+        float located, metered;
         private IsoPlayer viewer;
         IsoCell cell;
         int playerIndex;
@@ -2404,9 +2418,9 @@ final class WorldScene {
 
         String describe() {
             return String.format(Locale.ROOT, "chunks %d waiting %d built %d (new %d moved %d changed %d aged %d unsigned %d unread %d) grown %d kept %d quiet %d squares %d seen %d sprites %d triangles %d build %.2f ms draw %.2f ms"
-                            + " exposure %.2f tan half fov %.4f aspect %.4f fog end %.1f roofs n-s %d w-e %d flat %d unclear %d boxes %d furniture %d spread %d lifted %d models %d | %s",
+                            + " exposure %.2f (by place %.2f, metered %.2f) tan half fov %.4f aspect %.4f fog end %.1f roofs n-s %d w-e %d flat %d unclear %d boxes %d furniture %d spread %d lifted %d models %d | %s",
                     chunksDrawn, chunksWaiting, chunksBuilt, builtBecause[NEW], builtBecause[MOVED], builtBecause[CHANGED], builtBecause[AGED],
-                    builtBecause[UNSIGNED], builtBecause[LEFT_UNREAD], chunksGrown, chunksKept, chunksQuiet, squaresLoaded, squaresSeen, sprites, triangles, buildMillis, lastDrawMillis, exposure,
+                    builtBecause[UNSIGNED], builtBecause[LEFT_UNREAD], chunksGrown, chunksKept, chunksQuiet, squaresLoaded, squaresSeen, sprites, triangles, buildMillis, lastDrawMillis, exposure, located, metered,
                     tanHalfFieldOfView, drawnAspect, fogEnd, roofsNorthSouth, roofsWestEast, roofsFlat, roofsUnclear, boxes, furnished, spreadFaces, lifted, view.characters.drawnLast(), sky.describe()) + " | " + view.pipeline.describeShadows() + " | " + ChunkBuffers.describe()
                     + String.format(Locale.ROOT, ", builds are filled from %d meshes with room for %.0f MB", solid.kept() + laid.kept(), (solid.room() + laid.room()) * Float.BYTES / 1048576f)
                     + " | noted " + view.characters.described + " | steepest roof " + steepestSaid + " | roofs folded " + roofsFolded
@@ -4316,10 +4330,14 @@ final class WorldScene {
 
         /**
          * An eye lets in less light in the open at noon than in a room, and takes a moment to
-         * change when its owner walks through a door. What it is adapted to is where the character
-         * stands, in a room or out of doors, and how strong the sun or moon is. A roof that is no
-         * room's, a gazebo's, a stall's or a porch's, has the open air round it and the eye stays
-         * adapted to that.
+         * change when its owner walks through a door. Where the character stands, in a room or
+         * out of doors, and how strong the sun or moon is, give the exposure for each. A roof that
+         * is no room's, a gazebo's, a stall's or a porch's, has the open air round it.
+         *
+         * Between those two the eye goes by what it sees: the light meter's reading of the picture
+         * (Pipeline.meter). At a window looking out into the sun it stops down towards the open
+         * air's exposure, and turned back to the room it opens up again, faster to close than to
+         * open.
          */
         private float adaptEye(IsoPlayer player, boolean fromOutside) {
             IsoGridSquare under = player.getCurrentSquare();
@@ -4374,7 +4392,21 @@ final class WorldScene {
             outdoors *= 1f + WOODS_OPEN * shaded;
             // Opened up as it was to the game's light, and further by as much as the room's daylight is taken down.
             float indoors = Math.min(EXPOSURE_INDOORS / Math.max(here, 1e-3f), most) * Math.max(here, 1e-3f) / Math.max(roomHere, 1e-3f);
-            return indoors + (outdoors - indoors) * eyeOpen;
+            located = indoors + (outdoors - indoors) * eyeOpen;
+            metered = view.pipeline.meteredLight();
+            // Until the meter's first reading has come back from the card.
+            if (Float.isNaN(metered)) {
+                eyeSeen = located;
+                return located;
+            }
+            float key = METER_KEY_INDOORS + (METER_KEY_OUTDOORS - METER_KEY_INDOORS) * eyeOpen;
+            float seen = Math.clamp((float) Math.pow(2.0, key - metered), Math.min(indoors, outdoors), Math.max(indoors, outdoors));
+            if (eyeSeen < 0f) {
+                eyeSeen = seen;
+            }
+            float seconds = seen < eyeSeen ? EYE_CLOSES_SECONDS : EYE_OPENS_SECONDS;
+            eyeSeen *= (float) Math.pow(seen / eyeSeen, 1f - Math.exp(-elapsed / seconds));
+            return eyeSeen;
         }
 
         /**
