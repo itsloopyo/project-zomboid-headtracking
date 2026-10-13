@@ -376,7 +376,8 @@ def mirror_uv(obj, which):
     pts = numpy.array([v.co[:] for v in mesh.vertices])
     centre = pts.mean(0)
     _, _, vt = numpy.linalg.svd(pts - centre)
-    across, up = vt[0], vt[1]
+    # Across is whichever way along the glass is nearer level: a van's door mirror is taller than it is wide.
+    across, up = (vt[0], vt[1]) if abs(vt[0][2]) <= abs(vt[1][2]) else (vt[1], vt[0])
     if up[2] < 0:
         up = -up
     # Across runs to the driver's right as seen from the seat, which is the mirror's left for right.
