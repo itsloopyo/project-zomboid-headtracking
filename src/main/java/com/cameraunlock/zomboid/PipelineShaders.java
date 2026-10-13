@@ -471,7 +471,7 @@ final class PipelineShaders {
             uniform float uRangeFrom;
             uniform sampler2D uHeights;
             uniform mat4 uRoofMatrix;
-            """ + GRASS_WIND + MODEL_STANDS + FACED + SKY_SEEN + SnowShader.COVER + SnowShader.STOOD + """
+            """ + GRASS_WIND + MODEL_STANDS + FACED + SKY_SEEN + SnowShader.COVER + SnowShader.STOOD + SnowShader.RIDGE + """
             uniform vec3 uLit;
             uniform vec3 uLitAlong;
             uniform vec3 uLitDown;
@@ -598,6 +598,16 @@ final class PipelineShaders {
                     float trodden = (1.0 - smoothstep(0.12, 0.6, off)) * step(0.8, under) * step(under, 2.3);
                     at.xy += from / max(off, 0.02) * (trodden * high * 1.1);
                     at.z -= trodden * high * 0.65;
+                }
+                // Snow lies along the top of a limb, a branch and a twig as a ridge higher than the
+                // half-round of the bark and a little wider: from under the tree its edge shows
+                // white against the sky, as on a real one. The bark's facing is the vertex's own.
+                // Not in Low, where nothing that grows holds snow.
+                if (uModel < 0.5 && vMaterial > 56.5 && vMaterial < 57.5 && uPlantSnow > 0.0 && uSnowLying > 0.0) {
+                    vec3 facing = normalize(gl_Normal);
+                    float fine = gl_MultiTexCoord0.x >= 1024.0 ? 1.0 : 0.0;
+                    at.xyz += snowRidge(facing, fine);
+                    vBlade.xy = vec2(snowRidgeShare(facing), fine);
                 }
                 // Snow lies deeper than a kerb is high and buries its face in a bank that runs
                 // out into the street, broad in one place and narrow in the next as the wind
@@ -3043,7 +3053,9 @@ final class PipelineShaders {
                         bool bark = vMaterial > 56.5 && vMaterial < 58.5;
                         float up = bark ? 0.0 : smoothstep(0.35, 0.8, level.z);
                         if (bark) {
-                            snowed = uPlantSnow > 0.0 ? snowOnBark(level, vPlace.xy + vec2(0.61, -0.43) * vPlace.z) : 0.0;
+                            // On wood the vertex shader left how much of the ridge of snow along its top the place holds, and whether it is a twig, where a strip of grass keeps its blade: see snowRidge.
+                            bool wood = vMaterial < 57.5;
+                            snowed = uPlantSnow > 0.0 ? snowOnBark(level, vPlace.xy + vec2(0.61, -0.43) * vPlace.z, wood ? vBlade.x : 0.0, wood && vBlade.y > 0.5) : 0.0;
                             texel.rgb = mix(texel.rgb, SNOW_WHITE, snowed);
                             n = normalize(mix(n, level, snowed));
                         } else if (uOwnTextures > 0.5) {

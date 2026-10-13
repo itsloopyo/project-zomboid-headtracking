@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Locale;
 
 /** Tests of lying snow on bark and on plants drawn as cards. They read the shaders' text, since nothing here runs a shader. */
 final class SnowOnPlantsTests {
@@ -11,6 +12,7 @@ final class SnowOnPlantsTests {
 
     static void run() {
         Checks.run("barkAndIvyHoldSnowOnlyWhereItWouldLie", SnowOnPlantsTests::barkAndIvyHoldSnowOnlyWhereItWouldLie);
+        Checks.run("woodCarriesARidgeOfSnowAlongItsTop", SnowOnPlantsTests::woodCarriesARidgeOfSnowAlongItsTop);
         Checks.run("lowDrawsWhatGrowsBare", SnowOnPlantsTests::lowDrawsWhatGrowsBare);
         Checks.run("aCardPlantIsBuriedInBothDrawingsFromSlopesAskedBeforeAnythingIsLeftOut", SnowOnPlantsTests::aCardPlantIsBuriedInBothDrawingsFromSlopesAskedBeforeAnythingIsLeftOut);
         Checks.run("snowOnACardIsOnLeavesAndNeverSolid", SnowOnPlantsTests::snowOnACardIsOnLeavesAndNeverSolid);
@@ -43,6 +45,31 @@ final class SnowOnPlantsTests {
         check(bark.contains("(1.0-smoothstep(0.6,0.9,abs(facing.z)))"), "a blizzard sticks snow on upright windward faces, not on tops or undersides");
         check(!SnowShader.GLSL.contains("snowOnWood") && !SnowShader.GLSL.contains("snowOnIvy") && !main.contains("snowOnWood") && !main.contains("snowOnIvy"),
                 "the old snow on bark and ivy is not back");
+    }
+
+    /**
+     * Wood that faces up carries a ridge of snow higher and wider than its bark, raised in the
+     * vertex shader and drawn white from its crest, so its edge shows from under the tree;
+     * an upright bole's flank and the underside carry none, nor ivy, nor anything in Low.
+     */
+    private static void woodCarriesARidgeOfSnowAlongItsTop() {
+        check(SnowShader.ridgeShare(1f) == 1f, "the top of a level limb holds the whole ridge");
+        check(SnowShader.ridgeShare(0f) == 0f && SnowShader.ridgeShare(-1f) == 0f, "an upright bole's flank and a limb's underside hold none");
+        check(SnowShader.ridgeShare(0.5f) > 0.3f && SnowShader.ridgeShare(0.5f) < 1f, "a limb's upper side holds some, less than its top");
+        for (int step = -100; step < 100; step++) {
+            check(SnowShader.ridgeShare((step + 1) / 100f) >= SnowShader.ridgeShare(step / 100f), "the more a place faces up the more it holds");
+        }
+        check(SnowShader.RIDGE_HIGH_FINE > 0f && SnowShader.RIDGE_HIGH_FINE < SnowShader.RIDGE_HIGH, "a twig holds a lower ridge than a limb");
+        String ridge = SnowShader.RIDGE.replaceAll("\\s+", "");
+        check(ridge.contains(String.format(Locale.ROOT, "smoothstep(%.4f,%.4f,facing.z)", SnowShader.RIDGE_FROM, SnowShader.RIDGE_FULL)), "the shader's share is ridgeShare");
+        check(ridge.contains("floathigh=uSnowLying*"), "the ridge stands as high as the snow lies deep, and none with none");
+        String vertex = PipelineShaders.WORLD_VERTEX.replaceAll("\\s+", "");
+        check(vertex.contains("if(uModel<0.5&&vMaterial>56.5&&vMaterial<57.5&&uPlantSnow>0.0&&uSnowLying>0.0){"), "only wood is raised, not ivy, and not in Low");
+        check(vertex.contains(String.format(Locale.ROOT, "floatfine=gl_MultiTexCoord0.x>=%.1f", Flora.FINE_MARK)), "a twig is told by Flora's mark");
+        int raised = vertex.indexOf("at.xyz+=snowRidge(");
+        check(raised > 0 && raised < vertex.indexOf("vWorld=at.xyz+lies;"), "the ridge is in the place drawn");
+        String main = PipelineShaders.WORLD_FRAGMENT_MAIN.replaceAll("\\s+", "");
+        check(main.contains("snowOnBark(level,vPlace.xy+vec2(0.61,-0.43)*vPlace.z,wood?vBlade.x:0.0,wood&&vBlade.y>0.5)"), "the fragment shader whitens the ridge the vertex shader raised");
     }
 
     private static void lowDrawsWhatGrowsBare() {
