@@ -730,7 +730,8 @@ final class SpriteGeometry {
         float[] from = result;
         if (kerb != null && tileZ == 0 && up1 == 0f && up2 == 0f && h < LAID_BELOW) {
             int before = mesh.triangles();
-            if (wholeSquare(from, count)) {
+            // Made the long way, a check builds the square as split cuts it, to hold laySquare to that.
+            if (!afresh && wholeSquare(from, count)) {
                 laySquare(mesh, frame, tileX, tileY, from);
             } else {
                 System.arraycopy(from, 0, split[0], 0, count * CORNER_FLOATS);
@@ -892,7 +893,7 @@ final class SpriteGeometry {
 
     /** Adds the whole of the square, whose corners are those of face, as split does, by the steps split took over it. */
     private void laySquare(Mesh mesh, Frame frame, int tileX, int tileY, float[] face) {
-        boolean same = stepsKnown && !afresh;
+        boolean same = stepsKnown;
         for (int i = 0; i <= Kerbs.FINE && same; i++) {
             for (int j = 0; j <= Kerbs.FINE; j++) {
                 same &= kerbField[i * (Kerbs.FINE + 1) + j] == kerb[(kerbX * Kerbs.FINE + i) * Kerbs.POINTS + kerbY * Kerbs.FINE + j];
