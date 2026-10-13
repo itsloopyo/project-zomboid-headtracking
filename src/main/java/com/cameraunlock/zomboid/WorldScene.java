@@ -739,6 +739,8 @@ final class WorldScene {
         final int flatWall;
         /** Whether it is a broken length of fence the game marks for no wall: see BrokenFences. */
         final boolean brokenFence;
+        /** As a tree, what it drops, for a tree that turns the first of its kind's colours and for one that turns the other: see Litter.kindOf. */
+        final byte drops, dropsOther;
         /** What it is a square of rug made of, Rugs.WOVEN, FUR or HIDE, or -1 for no rug, and how high its top lies over the floor, in levels: see Flat.pile. */
         final int rug;
         final float pile;
@@ -775,6 +777,8 @@ final class WorldScene {
             carpet = name != null && name.startsWith("floors_interior_carpet");
             rug = Rugs.kindOf(name);
             pile = Flat.pile(name);
+            drops = Litter.kindOf(name, false);
+            dropsOther = Litter.kindOf(name, true);
             tiled = name != null && name.startsWith("floors_") && name.contains("tile");
             grows = properties.has(IsoFlagType.vegitation) || properties.has(IsoFlagType.canBeRemoved) || properties.has("MoveWithWind")
                     || Farm.wheat(name);
@@ -4504,21 +4508,28 @@ final class WorldScene {
                 for (int j = 0; j < WOOD_SPAN; j++) {
                     int localX = i - Litter.RING, localY = j - Litter.RING;
                     IsoGridSquare square = squareAt(chunkX, chunkY, chunkX + localX, chunkY + localY, 0);
-                    woods[i * WOOD_SPAN + j] = square != null && square.HasTree() ? Litter.kindOf(treeName(square), Seasons.treeHash(chunkX + localX, chunkY + localY)) : Litter.NONE;
+                    woods[i * WOOD_SPAN + j] = square != null && square.HasTree() ? treeDrops(square, Flora.otherHue(Seasons.treeHash(chunkX + localX, chunkY + localY))) : Litter.NONE;
                 }
             }
         }
 
-        /** The name of the sprite of the tree on a square that has one: the game marks a square as having a tree for any object of the tree's type on it. */
-        private static String treeName(IsoGridSquare square) {
+        /**
+         * What the tree on a square that has one drops (Litter.kindOf), by its sprite: the game
+         * marks a square as having a tree for any object of the tree's type on it.
+         */
+        private byte treeDrops(IsoGridSquare square, boolean otherHue) {
             PZArrayList<IsoObject> objects = square.getObjects();
             for (int i = 0; i < objects.size(); i++) {
                 IsoObject object = objects.get(i);
                 if (object.getType() == IsoObjectType.tree) {
-                    return object.getSprite() == null ? null : object.getSprite().getName();
+                    if (object.getSprite() == null) {
+                        break;
+                    }
+                    Kind kind = kindOf(object.getSprite());
+                    return otherHue ? kind.dropsOther : kind.drops;
                 }
             }
-            return null;
+            return Litter.kindOf(null, otherHue);
         }
 
         private void addOver(IsoObject object, IsoSprite under, IsoSprite over, boolean isFloor, int x, int y, int z) {

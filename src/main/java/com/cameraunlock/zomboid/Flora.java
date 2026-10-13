@@ -850,7 +850,15 @@ final class Flora {
      * or scarlet, hawthorn orange or scarlet, the rest yellow or gold.
      */
     static int autumnHue(String name, int treeHash) {
-        boolean other = (treeHash >>> 8 & 3) == 0;
+        return autumnHue(name, otherHue(treeHash));
+    }
+
+    /** Whether the tree whose square hashes to treeHash (Seasons.treeHash) turns the second of its kind's two colours. */
+    static boolean otherHue(int treeHash) {
+        return (treeHash >>> 8 & 3) == 0;
+    }
+
+    static int autumnHue(String name, boolean other) {
         return name.contains("maple") ? (other ? ORANGE_LEAF : SCARLET_LEAF) : name.contains("dogwood") ? (other ? SCARLET_LEAF : CLARET_LEAF)
                 : name.contains("hawthorn") ? (other ? SCARLET_LEAF : ORANGE_LEAF) : other ? GOLD_LEAF : YELLOW_LEAF;
     }

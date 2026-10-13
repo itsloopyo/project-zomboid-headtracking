@@ -74,11 +74,16 @@ final class Litter {
      * so the leaf on the ground is always the leaf that was on the tree.
      */
     static byte kindOf(String name, int treeHash) {
+        return kindOf(name, Flora.otherHue(treeHash));
+    }
+
+    /** The same, given which of its kind's two colours the tree turns: see Flora.otherHue. */
+    static byte kindOf(String name, boolean otherHue) {
         String species = name == null ? "" : name;
         if (Flora.evergreen(species)) {
             return species.contains("holly") ? HOLLY : PINE;
         }
-        return (byte) (LEAF + Flora.autumnHue(species, treeHash));
+        return (byte) (LEAF + Flora.autumnHue(species, otherHue));
     }
 
     static boolean evergreen(byte kind) {

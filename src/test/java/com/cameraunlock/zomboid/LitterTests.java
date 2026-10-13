@@ -30,6 +30,7 @@ final class LitterTests {
         for (String name : names) {
             for (int hash = 0; hash < 4096; hash += 97) {
                 byte kind = Litter.kindOf(name, hash);
+                Checks.check(kind == Litter.kindOf(name, Flora.otherHue(hash)), name + " drops what a build keeps for its sprite and its square's colour");
                 Checks.check(Litter.evergreen(kind) == Flora.evergreen(name), name + " drops needles exactly when Flora makes it evergreen");
                 if (!Flora.evergreen(name)) {
                     Checks.check(kind - Litter.LEAF == Flora.autumnHue(name, hash), name + " drops leaf of the colour its crown turns");
