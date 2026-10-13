@@ -430,8 +430,9 @@ public final class Hooks {
      * The least a killing head shot does for the head to come off or burst, and how often each.
      * The game leaves a dead zombie's health at nothing, so it is the shot's damage that is read:
      * a pistol's head shot did 1.4 and a critical one 7.5, and each pellet of a shotgun's 50 to 105.
+     * A bullet seldom takes a head off whole; a heavy one bursts it now and then.
      */
-    static final float BURSTS_FROM = 20f, POPS = 0.3f, BURSTS = 0.3f;
+    static final float BURSTS_FROM = 20f, POPS = 0.04f, BURSTS = 0.12f;
     private static final java.util.Random chance = new java.util.Random();
 
     /** A head shot that killed: one that left the zombie far enough below no health may burst its head. */
