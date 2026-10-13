@@ -181,6 +181,34 @@ final class CharacterDraw {
             }
             """;
 
+    /** Into a shadow map: where the corner is and where on the texture, and nothing the picture lights it by. */
+    private static final String DEPTH_VERTEX = POSED + """
+            uniform mat4 uModelView;
+            uniform mat4 uProjection;
+            TO_NEXT vec2 vUv;
+
+            void main() {
+                vec4 place = posed() * vec4(aPlace, 1.0);
+                place.xyz *= uScale;
+                vUv = aUv * uUvScale;
+                gl_Position = uProjection * (uModelView * place);
+            }
+            """;
+
+    /** A shadow map keeps no colour: all it asks is whether the texel is there. */
+    private static final String DEPTH_FRAGMENT = """
+            uniform sampler2D uTexture;
+            uniform float uAlpha;
+            FROM_LAST vec2 vUv;
+
+            void main() {
+                float there = TEXEL(uTexture, vUv).a;
+                if (there < 0.01 || uAlpha * there <= 0.01) {
+                    discard;
+                }
+            }
+            """;
+
     private static final String DIVIDED_VERTEX = POSED + """
             TO_NEXT vec3 cPlace;
             TO_NEXT vec3 cSmooth;
@@ -1119,7 +1147,7 @@ final class CharacterDraw {
     private static boolean prepared;
     /** Set once something of the game's is not as this build knows it: every person is then the game's to draw. */
     private static boolean off;
-    private static Skin whole, divided;
+    private static Skin whole, divided, depth;
     /** The program that draws the viewer's body in its two pieces, or null if the driver refused it. */
     private static Skin cut;
     private static int cutArm, cutKeep;
@@ -1729,18 +1757,20 @@ final class CharacterDraw {
             culled = cull;
         }
 
-        Skin skin = cutBones != null ? cut : divided != null && !shadow && !plainly && away < WHOLE_BEYOND + PERSON_REACHES ? divided : whole;
+        Skin skin = cutBones != null ? cut : shadow ? depth : divided != null && !plainly && away < WHOLE_BEYOND + PERSON_REACHES ? divided : whole;
         if (skin.id != programInUse) {
             Program.useOther(skin.id);
             programInUse = skin.id;
         }
-        GL20.glUniform1f(skin.inside, inside);
         boolean unlit = bare && !shadow;
         int wear = WEAVE;
         if (unlit) {
             wear = wearOf(copy, model, texture);
         }
-        dress(skin.id, wear, copy.lay);
+        if (skin != depth) {
+            GL20.glUniform1f(skin.inside, inside);
+            dress(skin.id, wear, copy.lay);
+        }
         if (cutBones != null) {
             GL20.glUniform1fv(cutArm, cutBones);
             GL20.glUniform1f(cutKeep, cutKeepsThem ? 1f : 0f);
@@ -1770,8 +1800,10 @@ final class CharacterDraw {
             GL20.glDrawBuffers(unlit ? BOTH : FIRST);
             bothBuffers = unlit;
         }
-        GL20.glUniform1f(skin.hue, part.hue);
-        GL20.glUniform3f(skin.tint, instance.tintR, instance.tintG, instance.tintB);
+        if (skin != depth) {
+            GL20.glUniform1f(skin.hue, part.hue);
+            GL20.glUniform3f(skin.tint, instance.tintR, instance.tintG, instance.tintB);
+        }
         if (!bare && !shadow) {
             if (part.ignoreLighting) {
                 GL20.glUniform3f(skin.ambient, 1f, 1f, 1f);
@@ -1789,7 +1821,9 @@ final class CharacterDraw {
         worn.bind();
         worn.getUVScale(uvScale);
         GL20.glUniform2f(skin.uvScale, uvScale.x, uvScale.y);
-        GL20.glUniform2f(skin.texSize, worn.getWidth() / uvScale.x, worn.getHeight() / uvScale.y);
+        if (skin != depth) {
+            GL20.glUniform2f(skin.texSize, worn.getWidth() / uvScale.x, worn.getHeight() / uvScale.y);
+        }
 
         GL30.glBindVertexArray(copy.array);
         if (skin == divided) {
@@ -1800,7 +1834,9 @@ final class CharacterDraw {
         // outline is then strands and not the edge of a helmet. The viewer's own is not seen.
         int layers = unlit && !fromTheEye && !plainly && cutBones == null ? fringe(wear, away) : 0;
         for (int layer = 0; layer <= layers; layer++) {
-            shell(skin.id, layer, layers, person.finalScale);
+            if (skin != depth) {
+                shell(skin.id, layer, layers, person.finalScale);
+            }
             GL11.glDrawElements(skin == divided ? GL_PATCHES : GL_TRIANGLES, copy.count, GL_UNSIGNED_INT, 0L);
         }
         return true;
@@ -1877,6 +1913,7 @@ final class CharacterDraw {
         }
         StringBuilder problem = new StringBuilder();
         int plain = program("character", problem, GL_VERTEX_SHADER, OLD + WHOLE_VERTEX, GL_FRAGMENT_SHADER, OLD + FRAGMENT);
+        int cast = program("character's shadow", problem, GL_VERTEX_SHADER, OLD + DEPTH_VERTEX, GL_FRAGMENT_SHADER, OLD + DEPTH_FRAGMENT);
         boolean divides = Integer.parseInt(numbers.group(1)) >= 4;
         int bowed = divides ? program("rounded character", problem, GL_VERTEX_SHADER, NEW + DIVIDED_VERTEX, GL_TESS_CONTROL_SHADER, DIVIDE,
                 GL_TESS_EVALUATION_SHADER, BOW, GL_FRAGMENT_SHADER, NEW + FRAGMENT) : 0;
@@ -1886,6 +1923,7 @@ final class CharacterDraw {
         }
         uvScale = new Vector2();
         whole = new Skin(plain);
+        depth = new Skin(cast);
         // Apart from the others: without it people are drawn as before, and the viewer's own
         // body and weapon stay where the game holds them.
         StringBuilder cutProblem = new StringBuilder();
