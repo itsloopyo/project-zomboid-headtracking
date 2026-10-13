@@ -6,7 +6,7 @@ import static com.cameraunlock.zomboid.Checks.check;
 final class RoomLineTests {
     private RoomLineTests() {}
 
-    private static final long FORGET = 1_000L;
+    private static final long FORGET = 1_000L, PATIENCE = 10_000L;
 
     static void run() {
         Checks.run("roomThatFitsIsTakenWithNobodyWaiting", RoomLineTests::roomThatFitsIsTakenWithNobodyWaiting);
@@ -15,16 +15,17 @@ final class RoomLineTests {
         Checks.run("aPlaceInLineIsLostByNotAsking", RoomLineTests::aPlaceInLineIsLostByNotAsking);
         Checks.run("theLineMovesOnOnceServed", RoomLineTests::theLineMovesOnOnceServed);
         Checks.run("theFirstInLineIsServedHoweverTheyMove", RoomLineTests::theFirstInLineIsServedHoweverTheyMove);
+        Checks.run("oneNeverServedIsPutAsideForTheRest", RoomLineTests::oneNeverServedIsPutAsideForTheRest);
     }
 
     private static void roomThatFitsIsTakenWithNobodyWaiting() {
-        RoomLine line = new RoomLine(FORGET);
+        RoomLine line = new RoomLine(FORGET, PATIENCE);
         check(line.ask(new Object(), 4f, 0L, true), "with nobody waiting, room that fits is taken");
         check(!line.ask(new Object(), 4f, 0L, false), "and room that does not fit is not");
     }
 
     private static void theNearestWaitingHasTheRoomFirst() {
-        RoomLine line = new RoomLine(FORGET);
+        RoomLine line = new RoomLine(FORGET, PATIENCE);
         Object near = new Object(), far = new Object();
         line.ask(near, 1f, 0L, false);
         check(!line.ask(far, 3f, 10L, true), "someone further off is not let room that frees while someone nearer waits");
@@ -32,7 +33,7 @@ final class RoomLineTests {
     }
 
     private static void someoneNearerGoesAheadOfTheFirstInLine() {
-        RoomLine line = new RoomLine(FORGET);
+        RoomLine line = new RoomLine(FORGET, PATIENCE);
         Object far = new Object(), near = new Object();
         line.ask(far, 3f, 0L, false);
         line.ask(near, 1f, 10L, false);
@@ -41,13 +42,13 @@ final class RoomLineTests {
     }
 
     private static void aPlaceInLineIsLostByNotAsking() {
-        RoomLine line = new RoomLine(FORGET);
+        RoomLine line = new RoomLine(FORGET, PATIENCE);
         line.ask(new Object(), 1f, 0L, false);
         check(line.ask(new Object(), 3f, FORGET + 1L, true), "someone who stopped asking holds nobody back for good");
     }
 
     private static void theLineMovesOnOnceServed() {
-        RoomLine line = new RoomLine(FORGET);
+        RoomLine line = new RoomLine(FORGET, PATIENCE);
         Object near = new Object();
         line.ask(near, 1f, 0L, false);
         line.ask(near, 1f, 10L, true);
@@ -55,7 +56,7 @@ final class RoomLineTests {
     }
 
     private static void theFirstInLineIsServedHoweverTheyMove() {
-        RoomLine line = new RoomLine(FORGET);
+        RoomLine line = new RoomLine(FORGET, PATIENCE);
         Object walker = new Object();
         long now = 0L;
         for (int frame = 0; frame < 50; frame++) {
@@ -63,5 +64,22 @@ final class RoomLineTests {
             line.ask(walker, 1f + frame * 0.05f, now, false);
         }
         check(line.ask(walker, 4f, now + 10L, true), "walking away while waiting keeps their place");
+    }
+
+    private static void oneNeverServedIsPutAsideForTheRest() {
+        RoomLine line = new RoomLine(FORGET, PATIENCE);
+        Object stuck = new Object(), behind = new Object(), other = new Object();
+        long now = 0L;
+        boolean anyServed = false;
+        for (; now <= PATIENCE; now += 100L) {
+            line.ask(stuck, 1f, now, false);
+            anyServed |= line.ask(behind, 3f, now, true);
+        }
+        check(!anyServed, "while the first in line is within its patience, nobody further off is served");
+        line.ask(stuck, 1f, now, false);
+        check(line.ask(behind, 3f, now, true), "once it has waited past its patience, whoever is behind is served");
+        line.ask(other, 3f, now, false);
+        check(!line.ask(stuck, 1f, now + 10L, true), "while put aside it takes no room ahead of whoever is now first, however near");
+        check(line.ask(stuck, 1f, now + PATIENCE + 1L, true), "and after as long again it is served like anyone");
     }
 }

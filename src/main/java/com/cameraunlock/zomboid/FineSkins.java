@@ -304,7 +304,7 @@ public final class FineSkins {
      */
     private static final ArrayList<String> wanted = new ArrayList<>();
     /** Who is let room among the jar's pictures first, by the recipe or texture that asked. */
-    private static final RoomLine line = new RoomLine(1_000_000_000L);
+    private static final RoomLine line = new RoomLine(1_000_000_000L, 10_000_000_000L);
     /** How far from the eye whoever asks now stands, in tiles. */
     private static float asking;
     /** The mod's own pictures the texture being answered for was found to read: kept from being let go only once they are worn. */
@@ -755,7 +755,9 @@ public final class FineSkins {
      * pictures nothing has worn for OWN_KEPT_NANOS are let go (tendOwn).
      */
     private static void settle(Object who) {
-        if (wanted.isEmpty()) {
+        // More than the cap can ever hold is never read: whoever wants it wears the game's.
+        if (wanted.isEmpty() || jarMost() * wanted.size() > JAR_MOST_BYTES) {
+            wanted.clear();
             return;
         }
         long now = System.nanoTime();
