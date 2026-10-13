@@ -34,6 +34,8 @@ final class OwnArmTests {
         Checks.run("longGunIsHeldNearerAtTheHipThanItsSightsAsk", OwnArmTests::longGunIsHeldNearerAtTheHipThanItsSightsAsk);
         armsAreTheSizeArmsAreAndStartWhereShouldersAre(model);
         everyMeleeClassKeepsItsWristsThroughEveryBlow(model);
+        aSpearsLeftArmStaysUnderThePictureThroughAThrust(model);
+        aTwoHandedSwingGoesThroughWithTheLeftWristEasy(model);
     }
 
     private static final float SCALE = 0.74f;
@@ -670,5 +672,76 @@ final class OwnArmTests {
             }
         }
         check(worst > 30f, "and the wrists were measured: " + worst);
+    }
+
+    /**
+     * The arms on something swung of a class, at a moment of an attack, held as ViewModel holds it in the mod's own hands:
+     * the answer of ArmHolds.place, with `said` filled.
+     */
+    private static int swungArms(ArmModel model, int kind, boolean both, MeleeHold.Shape shape, int attack, float reached, float past, boolean struck, float[][] said) {
+        MeleeHold.Fit fit = MeleeHold.fit(kind, shape, 1f / Characters.PER_METRE, 1.5f, true, PICTURE);
+        int way = MeleeHold.way(kind, attack);
+        float[] pose = new float[ViewModelMath.HOLD], top = new float[3], matrix = new float[16];
+        ViewModelMath.attack(way, reached, past, struck, fit.rest(), pose);
+        float share = MeleeHold.share(reached, past, struck);
+        pose[1] += fit.aimed()[way] * share;
+        MeleeHold.top(shape, way, share, top);
+        ViewModelMath.hold(new float[] {0f, fit.hand(), 0f}, new float[] {0f, 1f, 0f}, top, null, 1.5f, pose[3], pose[4], pose[5], matrix);
+        ViewModelMath.turn(matrix, pose[0], pose[1], pose[2], pose[3], pose[4], -pose[5], 0f, 0f, 0f);
+        float[] grip = new float[3], pointing = new float[3], over = new float[3];
+        ViewModelMath.place(matrix, 0f, fit.hand(), 0f, grip);
+        ViewModelMath.turned(matrix, new float[] {0f, 1f, 0f}, pointing);
+        ViewModelMath.turned(matrix, top, over);
+        ArmPose.unit(pointing[0], pointing[1], pointing[2], pointing);
+        ArmPose.unit(over[0], over[1], over[2], over);
+        ArmHolds.Weapon held = new ArmHolds.Weapon(false, false, grip, pointing, over, null, fit.second(), kind == MeleeHold.SPEAR);
+        ArmHolds.Doing doing = new ArmHolds.Doing(0f, both, ArmActs.NO_ACTION, -1f, ArmActs.HOLDING, 0f, 0f, 1f, -1f, false, -1f, -1f, 2f, pose[6]);
+        float[][] skins = new float[2][model.bones.length * 16];
+        return ArmHolds.place(model, SCALE, held, doing, SAME, skins, said, new ArmHolds.Carried(), new ArmHolds.Settled());
+    }
+
+    /**
+     * A spear thrust, whether it lands on something or goes on through: the left elbow stays under the foot of the
+     * picture, by at least the half thickness of an arm about it, and so does the upper arm from it to the shoulder, which
+     * is lower still. Its shirt's sleeve came into the lower left of the picture as a dark flap while the shoulder was
+     * beside the eye.
+     */
+    private static void aSpearsLeftArmStaysUnderThePictureThroughAThrust(ArmModel model) {
+        MeleeHold.Shape spear = new MeleeHold.Shape(-0.09f, 0.68f, 0f, -1f);
+        float highest = -Float.MAX_VALUE;
+        for (boolean struck : new boolean[] {true, false}) {
+            for (int frame = 0; frame <= 40; frame++) {
+                float t = frame / 40f, lands = 0.45f;
+                float reached = Math.min(t / lands, 1f), past = t <= lands ? 0f : (t - lands) / (1f - lands);
+                float[][] said = new float[2][ArmPose.SAYS];
+                check(swungArms(model, MeleeHold.SPEAR, true, spear, ViewModelMath.THRUST, reached, past, struck, said) == 2, "a spear is held in both hands, frame " + frame);
+                float x = said[1][ArmPose.ELBOW], y = said[1][ArmPose.ELBOW + 1], z = said[1][ArmPose.ELBOW + 2];
+                // How far above the foot of the picture the elbow is, at its distance ahead, in tiles: under it is less than nought.
+                float above = y + -z * PICTURE;
+                highest = Math.max(highest, above);
+                check(above < -ARM_HALF * SCALE, (struck ? "struck" : "missed") + ", frame " + frame + ": the left elbow is under the picture: " + above + " (at " + x + ", " + y + ", " + z + ")");
+                check(ArmHolds.SPEAR_SHOULDER[1] * SCALE < y, "and the shoulder is lower still");
+            }
+        }
+        check(highest < 0f, "under the picture all the way: " + highest);
+    }
+
+    /** About half as thick as an arm is at the elbow, in metres. */
+    private static final float ARM_HALF = 0.04f;
+
+    /**
+     * Something swung in both hands, the length of a bat, goes on through its swing with the left wrist bent no further
+     * than a wrist goes: the swing's gone-through key bent it 49 degrees before it was eased.
+     */
+    private static void aTwoHandedSwingGoesThroughWithTheLeftWristEasy(ArmModel model) {
+        MeleeHold.Shape bat = new MeleeHold.Shape(-0.026f, 0.467f, 0f, -1f);
+        float worst = 0f;
+        for (int frame = 0; frame <= 20; frame++) {
+            float past = frame / 20f;
+            float[][] said = new float[2][ArmPose.SAYS];
+            check(swungArms(model, MeleeHold.TWO_HANDED, true, bat, ViewModelMath.SWUNG, 1f, past, false, said) == 2, "a bat is held in both hands");
+            worst = Math.max(worst, (float) Math.toDegrees(said[1][ArmPose.BENT]));
+        }
+        check(worst <= 45f, "the left wrist through a bat's follow-through: " + worst);
     }
 }
