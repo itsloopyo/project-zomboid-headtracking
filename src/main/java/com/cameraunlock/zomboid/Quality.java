@@ -65,7 +65,7 @@ final class Quality {
     static final int MOST_FAR_TREES = (int) FarLand.REACH;
 
     static final Picture LOW_PICTURE = new Picture(true, TREES_SPRITES, 0.62f, false, 48, 48, 300, 0, false, true, false, false, false, false);
-    static final Picture MEDIUM_PICTURE = new Picture(false, TREES_NEAR, 0.8f, false, 80, 80, 300, 1, false, true, false, false, false, false);
+    static final Picture MEDIUM_PICTURE = new Picture(false, TREES_NEAR, 0.8f, false, 80, 80, 300, 1, false, true, false, false, false, true);
     static final Picture HIGH_PICTURE = new Picture(false, TREES_TO_SIGHT, 1f, true, 80, 80, MOST_FAR_TREES, 2, true, true, true, true, true, true);
     /**
      * Automatic's levels, cheapest first. STOCK is the Low mode's picture, the game's own look;
