@@ -508,7 +508,7 @@ abstract class OwnGun {
         private final float[] age;
         /** Each one in the world: where it is, how it moves, the gun's own axes as they were when it left, and where the eye sees it. */
         private final float[][] at, goes, axes, seen;
-        private final float[] scratch = new float[3], tumbled = new float[3];
+        private final float[] scratch = new float[3], tumbled = new float[3], along = new float[3];
         private int next;
 
         /**
@@ -552,7 +552,10 @@ abstract class OwnGun {
             at[one][0] += camera.eyeX;
             at[one][1] += camera.eyeY;
             at[one][2] += camera.eyeUp;
-            ViewModelMath.turned(model, new float[] {alongX, alongY, alongZ}, scratch);
+            along[0] = alongX;
+            along[1] = alongY;
+            along[2] = alongZ;
+            ViewModelMath.turned(model, along, scratch);
             inWorld(camera, right + scratch[0], up + scratch[1], back + scratch[2], goes[one]);
             for (int column = 0; column < 3; column++) {
                 inWorld(camera, model[column * 4], model[column * 4 + 1], model[column * 4 + 2], scratch);
