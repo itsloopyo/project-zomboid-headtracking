@@ -374,8 +374,14 @@ final class LeafFallTests {
         run(fall, 3f, 1f / 60f, 0f, 0f, 0.5f, Seasons.AUTUMN, PEAK_AUTUMN);
         run(fall, 3f, 1f / 60f, 0f, 0f, 0.5f, Seasons.SUMMER, 0.5f);
         Checks.check(fall.count() > 10, "leaves lie round the trees: " + fall.count());
+        float[] leaves = new float[LeafFall.MOST * LeafFall.FLOATS];
+        int written = fall.write(leaves, 0f, 0f), showing = 0;
+        for (int i = 0; i < written; i++) {
+            showing += leaves[i * LeafFall.FLOATS + LeafFall.SHOWN] > 0.5f ? 1 : 0;
+        }
         fall.step(1f / 60f, 0f, 0f, 0.5f, Seasons.SUMMER, 0.5f, LeafFall.KEPT + 1f, 0f, OPEN);
-        Checks.check(fall.count() == 0, "an eye that jumps away lets every leaf go: " + fall.count());
+        Checks.check(fall.count() == 0 && fall.vanished == showing && showing > 10, "an eye that jumps away lets every leaf go, and those that showed are counted as vanished: "
+                + fall.count() + " left, " + fall.vanished + " of " + showing + " vanished");
     }
 
     /** A bungalow downwind: a leaf that meets its walls is caught there and fades, one over its roof goes on, and none vanishes. */

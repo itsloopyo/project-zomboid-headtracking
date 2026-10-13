@@ -40,6 +40,8 @@ final class LeafFall {
     private static final float GROUND_ASKED = 0.6f;
     /** The longest step taken at once, in seconds: past it the game has hitched, and the leaves wait. */
     static final float STEP_MOST = 0.25f;
+    /** How much of a leaf showing in one step and gone in the next has vanished, rather than faded or been carried off. */
+    private static final float SHOWING = 0.5f;
     /** An eye that moves further than this between two steps has jumped: its leaves are let go. */
     private static final float JUMPED = 40f;
 
@@ -82,7 +84,11 @@ final class LeafFall {
     private int refused;
     private int random = 0x2545F491;
     private float lastEyeX = Float.NaN, lastEyeY = Float.NaN;
-    /** Counted since the sim was made: leaves let go of by trees, leaves landed, and leaves let go of while they still showed, which only a jump of the eye does. */
+    /**
+     * Counted since the sim was made: leaves let go of by trees, leaves landed, and leaves gone
+     * from one step to the next that showed more than SHOWING before it, which only a jump of the
+     * eye does: a leaf that fades or is carried off is all but gone in the step before it is.
+     */
     long spawned, landings, vanished;
 
     /** Starts a list of the trees round the eye at (eyeX, eyeY), offered one by one, which endTrees makes the trees that shed. */
@@ -212,6 +218,9 @@ final class LeafFall {
      */
     void step(float elapsed, float airX, float airY, float intensity, int season, float progression, float eyeX, float eyeY, Ground on) {
         if (!Float.isNaN(lastEyeX) && Math.hypot(eyeX - lastEyeX, eyeY - lastEyeY) > JUMPED) {
+            for (int i = 0; i < count; i++) {
+                vanished += shown(i, lastEyeX, lastEyeY) > SHOWING ? 1 : 0;
+            }
             count = 0;
         }
         lastEyeX = eyeX;
@@ -225,6 +234,7 @@ final class LeafFall {
         int crowded = refused;
         refused = 0;
         for (int i = 0; i < count; ) {
+            float showed = shown(i, eyeX, eyeY);
             // Where there was no room, lying leaves make it by fading now: none is taken away while it shows.
             if (crowded > 0 && landed[i] >= 0f && landed[i] < lies[i]) {
                 lies[i] = landed[i];
@@ -233,7 +243,7 @@ final class LeafFall {
             if (move(i, dt, driftX, driftY, eyeX, eyeY, on)) {
                 i++;
             } else {
-                vanished += shown(i, eyeX, eyeY) > 0.02f ? 1 : 0;
+                vanished += showed > SHOWING ? 1 : 0;
                 drop(i);
             }
         }
