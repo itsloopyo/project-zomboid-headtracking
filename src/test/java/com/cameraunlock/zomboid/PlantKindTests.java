@@ -173,6 +173,8 @@ final class PlantKindTests {
                 check(x > 6.97f && x < 8.03f && y > 8.97f && y < 10.03f, "every stick lies on its own square, not at " + x + ", " + y);
                 float ground = base + 0.1f + 0.3f * Math.clamp(x - 7f, 0f, 1f);
                 check(up > ground - 0.05f && up < ground + 0.12f, "and on its ground, not " + (up - ground) + " off it");
+                check(wood.vertices[at + SpriteGeometry.WAY_AT] == SpriteGeometry.WOOD && wood.vertices[at + SpriteGeometry.ALONG_AT] < 0f,
+                        "a stick lying in the snow carries no ridge of its own");
             }
         }
     }

@@ -433,7 +433,8 @@ final class PipelineShaders {
                     // A card that does not turn, standing clear of its own plane on the camera's side.
                     vec2 square = normalize(gl_Normal.xy);
                     stands -= square * (dot(square, from) > 0.0 ? 1.0 : -1.0) * (gl_MultiTexCoord1.x * card);
-                } else {
+                } else if (kind > -0.5) {
+                    // Not wood (SpriteGeometry.WOOD), which carries how thick it is here and stands where it is.
                     stands += right * gl_MultiTexCoord1.x;
                 }
                 return vec4(stands, at.zw);
@@ -601,13 +602,15 @@ final class PipelineShaders {
                 }
                 // Snow lies along the top of a limb, a branch and a twig as a ridge higher than the
                 // half-round of the bark and a little wider: from under the tree its edge shows
-                // white against the sky, as on a real one. The bark's facing is the vertex's own.
-                // Not in Low, where nothing that grows holds snow.
-                if (uModel < 0.5 && vMaterial > 56.5 && vMaterial < 57.5 && uPlantSnow > 0.0 && uSnowLying > 0.0) {
+                // white against the sky, as on a real one. It is as high as the fragment shader
+                // draws it white: less where the sky is hidden, none indoors, and none in Low,
+                // where nothing that grows holds snow. The wood's facing and thickness are the
+                // vertex's own, and both go on to the fragment shader where a strip of grass keeps its blade.
+                if (uModel < 0.5 && uPlantSnow > 0.0 && gl_MultiTexCoord1.z < -0.5) {
                     vec3 facing = normalize(gl_Normal);
-                    float fine = gl_MultiTexCoord0.x >= 1024.0 ? 1.0 : 0.0;
-                    at.xyz += snowRidge(facing, fine);
-                    vBlade.xy = vec2(snowRidgeShare(facing), fine);
+                    float open = vKind > 0.5 ? clamp(1.0 - 0.8 * (1.0 - skyOverAt(at.xyz + facing * 0.1, max(length(at.xyz - uEye) - uRangeFrom, 0.0))) / 0.62, 0.0, 1.0) : 0.0;
+                    at.xyz += snowRidge(facing, gl_MultiTexCoord1.x, open);
+                    vBlade.xy = vec2(snowRidgeTop(facing), abs(gl_MultiTexCoord1.x));
                 }
                 // Snow lies deeper than a kerb is high and buries its face in a bank that runs
                 // out into the street, broad in one place and narrow in the next as the wind
@@ -3053,9 +3056,8 @@ final class PipelineShaders {
                         bool bark = vMaterial > 56.5 && vMaterial < 58.5;
                         float up = bark ? 0.0 : smoothstep(0.35, 0.8, level.z);
                         if (bark) {
-                            // On wood the vertex shader left how much of the ridge of snow along its top the place holds, and whether it is a twig, where a strip of grass keeps its blade: see snowRidge.
-                            bool wood = vMaterial < 57.5;
-                            snowed = uPlantSnow > 0.0 ? snowOnBark(level, vPlace.xy + vec2(0.61, -0.43) * vPlace.z, wood ? vBlade.x : 0.0, wood && vBlade.y > 0.5) : 0.0;
+                            // How far up the wood faces for its ridge of snow, and how thick it is: see the world's vertex shader.
+                            snowed = uPlantSnow > 0.0 ? snowOnBark(level, vPlace.xy + vec2(0.61, -0.43) * vPlace.z, vBlade.x, vBlade.y) : 0.0;
                             texel.rgb = mix(texel.rgb, SNOW_WHITE, snowed);
                             n = normalize(mix(n, level, snowed));
                         } else if (uOwnTextures > 0.5) {
@@ -3605,7 +3607,7 @@ final class PipelineShaders {
             // 1 while the map drawn is the one read as what stands over the ground and keeps the sky off it.
             uniform float uFromAbove;
             uniform float uSnowLying;
-            """ + GRASS_WIND + MODEL_STANDS + FACED + SnowShader.COVER + """
+            """ + GRASS_WIND + MODEL_STANDS + FACED + SnowShader.COVER + SnowShader.RIDGE + """
             void main() {
                 if (uModel > 0.5) {
                     // A model is solid all over and nothing of it blows about. It is drawn with
@@ -3641,6 +3643,11 @@ final class PipelineShaders {
                 vec3 lies;
                 vec4 stands = faced(gl_Vertex, right, lies);
                 stands.xyz += lies;
+                // The ridge of snow along the top of wood casts its shadow, as high as it stands in
+                // the open: see the world's vertex shader. It keeps no sky off what is under it.
+                if (gl_MultiTexCoord1.z < -0.5 && uPlantSnow > 0.0 && uFromAbove < 0.5) {
+                    stands.xyz += snowRidge(normalize(gl_Normal), gl_MultiTexCoord1.x, 1.0);
+                }
                 // Snow has no height in the picture, so a kerb it has buried would still stand
                 // proud of it and throw a dash of shadow on it at every cast length. It is let
                 // down as deep as the snow lies, asked no finer than the eighth of a tile its

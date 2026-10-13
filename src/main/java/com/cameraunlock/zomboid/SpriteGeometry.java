@@ -28,7 +28,9 @@ final class SpriteGeometry {
      * CLEARS for one that stands clear of its plane, LAYERS_X, LAYERS_Y or LAYERS_UP for a
      * face that lies some layers off its plane along that axis, and SHEET for a floor or a
      * ceiling, which lies up as LAYERS_UP does and is whole in the shadow maps where its sprite
-     * has clear pixels: a roof of one sheet lets no sun through them. The first of the three is how
+     * has clear pixels: a roof of one sheet lets no sun through them; and WOOD for a ring of a
+     * limb, a branch or a twig, whose first is how thick the wood is there, as a radius in tiles,
+     * less than 0 where it carries no ridge of snow (see SnowShader.RIDGE). The first of the three is how
      * far along its card a vertex of FACES is, in tiles, how many layers of cards one of
      * CLEARS stands clear by, and how many layers one of LAYERS lies off. The second is how
      * many layers of cards the vertex stands towards the camera. How far a layer is, the
@@ -42,7 +44,7 @@ final class SpriteGeometry {
     /** Where in a vertex what the picture places it by is: how far along or how many layers, and what that is; and its tree's square. */
     static final int ALONG_AT = 12, WAY_AT = 14, ROOT_AT = 15;
     static final float NO_ROOT = -1f;
-    static final float FACES = 1f, CLEARS = 2f, LAYERS_X = 3f, LAYERS_Y = 4f, LAYERS_UP = 5f, SHEET = 6f;
+    static final float FACES = 1f, CLEARS = 2f, LAYERS_X = 3f, LAYERS_Y = 4f, LAYERS_UP = 5f, SHEET = 6f, WOOD = -1f;
 
     /**
      * How many layers off its plane everything added next lies, in every mesh that shares
@@ -160,6 +162,8 @@ final class SpriteGeometry {
         boolean faces;
         /** For a card that does not turn: that along is how many layers of cards the vertices added next stand clear of the card's own plane, on the side the camera is. */
         boolean clears;
+        /** For a ring of wood, how thick it is, less than 0 where it carries no ridge of snow: see WOOD. 0 for anything else. */
+        float wood;
         /** How many layers off its plane anything added next that is no card lies: the set's own, for a mesh of a set. */
         Layers layers = new Layers();
         /** The square of the tree the vertices added next are part of, or NO_ROOT. */
@@ -232,9 +236,9 @@ final class SpriteGeometry {
             vertices[floats++] = normalX * (1f + sway);
             vertices[floats++] = normalY * (1f + sway);
             vertices[floats++] = normalUp * (1f + sway);
-            vertices[floats++] = faces || clears ? along : layers.count;
+            vertices[floats++] = wood != 0f ? wood : faces || clears ? along : layers.count;
             vertices[floats++] = nearer;
-            vertices[floats++] = faces ? FACES : clears ? CLEARS : layers.way;
+            vertices[floats++] = wood != 0f ? WOOD : faces ? FACES : clears ? CLEARS : layers.way;
             vertices[floats++] = rootX;
             vertices[floats++] = rootY;
         }

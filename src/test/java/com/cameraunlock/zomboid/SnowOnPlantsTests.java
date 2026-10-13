@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Locale;
 
 /** Tests of lying snow on bark and on plants drawn as cards. They read the shaders' text, since nothing here runs a shader. */
 final class SnowOnPlantsTests {
@@ -48,28 +47,42 @@ final class SnowOnPlantsTests {
     }
 
     /**
-     * Wood that faces up carries a ridge of snow higher and wider than its bark, raised in the
-     * vertex shader and drawn white from its crest, so its edge shows from under the tree;
-     * an upright bole's flank and the underside carry none, nor ivy, nor anything in Low.
+     * Wood carries a ridge of snow along its top, raised in the world's vertex shader as high as
+     * a share of the wood's thickness there, as far down from its top as the lying snow reaches,
+     * and as much as the fragment shader whitens it where the sky is hidden; the fragment shader
+     * draws that same ridge white. The shadows cast it. Wood that carries no ridge stays where it is.
      */
     private static void woodCarriesARidgeOfSnowAlongItsTop() {
-        check(SnowShader.ridgeShare(1f) == 1f, "the top of a level limb holds the whole ridge");
-        check(SnowShader.ridgeShare(0f) == 0f && SnowShader.ridgeShare(-1f) == 0f, "an upright bole's flank and a limb's underside hold none");
-        check(SnowShader.ridgeShare(0.5f) > 0.3f && SnowShader.ridgeShare(0.5f) < 1f, "a limb's upper side holds some, less than its top");
-        for (int step = -100; step < 100; step++) {
-            check(SnowShader.ridgeShare((step + 1) / 100f) >= SnowShader.ridgeShare(step / 100f), "the more a place faces up the more it holds");
-        }
-        check(SnowShader.RIDGE_HIGH_FINE > 0f && SnowShader.RIDGE_HIGH_FINE < SnowShader.RIDGE_HIGH, "a twig holds a lower ridge than a limb");
+        check(SnowShader.RIDGE_HIGH > 0f && SnowShader.RIDGE_OF_THICK > 1f && SnowShader.RIDGE_WIDE > 0f && SnowShader.RIDGE_WIDE < 1f,
+                "a ridge stands higher than the half-round of the wood's top and spreads a little to each side, up to a limit");
+        check(SnowShader.FINE > 0f && SnowShader.FINE < SnowShader.RIDGE_HIGH / SnowShader.RIDGE_OF_THICK, "only wood whose ridge is lower than the limit is frosted all round");
         String ridge = SnowShader.RIDGE.replaceAll("\\s+", "");
-        check(ridge.contains(String.format(Locale.ROOT, "smoothstep(%.4f,%.4f,facing.z)", SnowShader.RIDGE_FROM, SnowShader.RIDGE_FULL)), "the shader's share is ridgeShare");
-        check(ridge.contains("floathigh=uSnowLying*"), "the ridge stands as high as the snow lies deep, and none with none");
+        check(ridge.contains("floatsnowRidgeTop(vec3facing){returnsmoothstep(0.15,0.75,facing.z);}"), "upright and downward wood has no top");
+        check(ridge.contains("floatsnowRidgeLain(floattop){returnsmoothstep(0.0,0.2,top-1.0+min(uSnowLying*2.5,1.0));}"),
+                "a light fall lies on the crest alone, a deep one as far as the ridge reaches");
+        check(ridge.contains("vec3snowRidge(vec3facing,floatthick,floatopen){floattop=snowRidgeTop(facing);"
+                + "floathigh=uSnowLying*open*min(SNOW_RIDGE_OF_THICK*max(thick,0.0),SNOW_RIDGE_HIGH)*top*snowRidgeLain(top);"
+                + "returnvec3(facing.xy*(SNOW_RIDGE_WIDE*high),high);}"),
+                "the ridge stands up and out, by the wood's thickness, where it lies and as much as lies");
         String vertex = PipelineShaders.WORLD_VERTEX.replaceAll("\\s+", "");
-        check(vertex.contains("if(uModel<0.5&&vMaterial>56.5&&vMaterial<57.5&&uPlantSnow>0.0&&uSnowLying>0.0){"), "only wood is raised, not ivy, and not in Low");
-        check(vertex.contains(String.format(Locale.ROOT, "floatfine=gl_MultiTexCoord0.x>=%.1f", Flora.FINE_MARK)), "a twig is told by Flora's mark");
+        check(vertex.contains("if(uModel<0.5&&uPlantSnow>0.0&&gl_MultiTexCoord1.z<-0.5){vec3facing=normalize(gl_Normal);"
+                + "floatopen=vKind>0.5?clamp(1.0-0.8*(1.0-skyOverAt(at.xyz+facing*0.1,max(length(at.xyz-uEye)-uRangeFrom,0.0)))/0.62,0.0,1.0):0.0;"
+                + "at.xyz+=snowRidge(facing,gl_MultiTexCoord1.x,open);vBlade.xy=vec2(snowRidgeTop(facing),abs(gl_MultiTexCoord1.x));}"),
+                "only wood is raised, in nothing but Low, as the fragment shader is told, less under cover as it whitens less there, and none indoors");
         int raised = vertex.indexOf("at.xyz+=snowRidge(");
-        check(raised > 0 && raised < vertex.indexOf("vWorld=at.xyz+lies;"), "the ridge is in the place drawn");
+        check(raised > vertex.indexOf("vec4at=strip?") && raised < vertex.indexOf("vWorld=at.xyz+lies;"), "the ridge is in the place drawn, after the wind");
+        check(vertex.contains("}elseif(kind>-0.5){") && SpriteGeometry.WOOD < -0.5f && SpriteGeometry.WOOD > -1.5f, "wood carries its thickness where a card is turned, and is not moved by it");
         String main = PipelineShaders.WORLD_FRAGMENT_MAIN.replaceAll("\\s+", "");
-        check(main.contains("snowOnBark(level,vPlace.xy+vec2(0.61,-0.43)*vPlace.z,wood?vBlade.x:0.0,wood&&vBlade.y>0.5)"), "the fragment shader whitens the ridge the vertex shader raised");
+        check(main.contains("snowed=uPlantSnow>0.0?snowOnBark(level,vPlace.xy+vec2(0.61,-0.43)*vPlace.z,vBlade.x,vBlade.y):0.0;"),
+                "the fragment shader is told the wood's top and thickness");
+        String bark = SnowShader.GLSL.replaceAll("\\s+", "");
+        check(bark.contains("floatladen=ridgeTop>0.0?snowRidgeLain(ridgeTop):0.0;"), "the ridge is white where it lies");
+        check(bark.contains("floatfrost=thick>0.0&&thick<SNOW_FINE?0.85*smoothstep(0.05,0.45,uSnowLying*(0.6+0.6*ridgeTop)):0.0;"), "a twig is frosted");
+        check(bark.contains("returnmin(max(max(lain,laden),max(frost,stuck))*clamp(1.0-0.8*snowShelter,0.0,1.0),0.9);"),
+                "the ridge, the frost, what lies on the top and what a blizzard drove are all drawn, less under cover");
+        String shadow = PipelineShaders.SHADOW_VERTEX.replaceAll("\\s+", "");
+        check(shadow.contains("if(gl_MultiTexCoord1.z<-0.5&&uPlantSnow>0.0&&uFromAbove<0.5){stands.xyz+=snowRidge(normalize(gl_Normal),gl_MultiTexCoord1.x,1.0);}"),
+                "the ridge casts its shadow, and keeps no sky off what is under it");
     }
 
     private static void lowDrawsWhatGrowsBare() {

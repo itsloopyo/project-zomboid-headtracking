@@ -12,6 +12,7 @@ final class TreeFormTests {
         Checks.run("aSpeciesWoodCostsAboutWhatAnyTreesDoes", TreeFormTests::aSpeciesWoodCostsAboutWhatAnyTreesDoes);
         Checks.run("noWoodRunsStraightForLong", TreeFormTests::noWoodRunsStraightForLong);
         Checks.run("aLeaderPartsIntoLimbsBelowTheTop", TreeFormTests::aLeaderPartsIntoLimbsBelowTheTop);
+        Checks.run("woodCarriesItsThicknessForItsSnow", TreeFormTests::woodCarriesItsThicknessForItsSnow);
     }
 
     private static void evergreensAndOtherTilesHaveNoForm() {
@@ -74,6 +75,62 @@ final class TreeFormTests {
                 Checks.check(Arrays.equals(bareWood.vertices, 0, bareWood.floats, thinWood.vertices, 0, thinWood.floats),
                         "kind " + kind + " with " + leaf + " of its leaves has its bare tree's wood: " + thinWood.floats + " floats against " + bareWood.floats);
             }
+        }
+    }
+
+    /**
+     * Every ring of a crown's wood carries how thick it is there, for the ridge of snow along
+     * its top (SpriteGeometry.WOOD, SnowShader.RIDGE): as thick as the wood is, and marked as
+     * carrying no ridge where the wood ends free, so the ridge runs out to nothing at a tip and
+     * leaves no open end standing; and nowhere on a twig among leaves, whose snow is on the
+     * leaves. A bole carries none.
+     */
+    private static void woodCarriesItsThicknessForItsSnow() {
+        int f = SpriteGeometry.VERTEX_FLOATS;
+        for (int kind = -1; kind < TreeForm.KINDS; kind++) {
+            SpriteGeometry.Mesh wood = bareWood(kind < 0 ? TreeForm.NONE : kind, kind < 0 ? null : shape());
+            int ridged = 0, free = 0;
+            for (int at = 0; at < wood.floats; at += f) {
+                float thick = wood.vertices[at + SpriteGeometry.ALONG_AT];
+                Checks.check(wood.vertices[at + SpriteGeometry.WAY_AT] == SpriteGeometry.WOOD, "kind " + kind + ": every vertex of the wood is wood");
+                Checks.check(Math.abs(thick) >= 0.0039f && Math.abs(thick) < 0.2f, "kind " + kind + ": wood is as thick as it is, not " + thick);
+                if (thick > 0f) {
+                    ridged++;
+                } else {
+                    free++;
+                }
+            }
+            Checks.check(ridged > free && free > 0, "kind " + kind + ": most wood carries a ridge, its free ends none: " + ridged + " and " + free);
+            // Every vertex at one place carries one thickness, so the ridge has no step there.
+            java.util.Map<String, Float> at = new java.util.HashMap<>();
+            int met = 0;
+            for (int v = 0; v < wood.floats; v += f) {
+                float thick = wood.vertices[v + SpriteGeometry.ALONG_AT];
+                if (thick <= 0f) {
+                    continue;
+                }
+                String place = wood.vertices[v] + "," + wood.vertices[v + 1] + "," + wood.vertices[v + 2];
+                Float other = at.putIfAbsent(place, thick);
+                if (other != null && other != thick) {
+                    met++;
+                }
+            }
+            Checks.check(met == 0, "kind " + kind + ": a ring carries one thickness: " + met + " differ");
+        }
+        // A crown in leaf, stood under, with no bole to bear limbs: all its wood is twigs among its leaves.
+        SpriteGeometry.Frame frame = frame();
+        SpriteGeometry.Mesh twigs = new SpriteGeometry.Mesh();
+        Checks.check(Flora.addCrown(new SpriteGeometry.Mesh(), twigs, frame, Flora.leafPlaces(TreeFormTests::leaves, frame), 10.5f, 20.5f, 0f, FOOT_U, FOOT_V, 1f, 1f,
+                0f, 0f, Flora.BARK_MAPLE, Flora.MAPLE, 99, Flora.OPEN, 1f, 0, 0f), "a crown in leaf");
+        Checks.check(twigs.floats > 0, "stood under, a crown in leaf has twigs");
+        for (int at = 0; at < twigs.floats; at += f) {
+            Checks.check(twigs.vertices[at + SpriteGeometry.WAY_AT] == SpriteGeometry.WOOD && twigs.vertices[at + SpriteGeometry.ALONG_AT] < 0f,
+                    "a twig among leaves carries no ridge");
+        }
+        SpriteGeometry.Mesh bole = new SpriteGeometry.Mesh();
+        new Flora().addTrunk(bole, 10.5f, 20.5f, 0f, 0.12f, 0.8f, true, Flora.BARK_MAPLE, 99, frame);
+        for (int at = 0; at < bole.floats; at += f) {
+            Checks.check(bole.vertices[at + SpriteGeometry.WAY_AT] != SpriteGeometry.WOOD, "a bole carries no ridge");
         }
     }
 

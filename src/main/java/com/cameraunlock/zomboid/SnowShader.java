@@ -1,5 +1,7 @@
 package com.cameraunlock.zomboid;
 
+import java.util.Locale;
+
 /**
  * Snow that has settled, as the world's fragment shader draws it on the ground, on a roof and
  * on the top of anything else under the open sky.
@@ -159,42 +161,43 @@ final class SnowShader {
             """;
 
     /**
-     * How high snow stands along the top of a limb or a branch for each 1 of uSnowLying, in
-     * tiles, and on a twig; and how far out to each side it reaches for each tile it stands.
+     * How high snow stands along the top of wood for each 1 of uSnowLying, in tiles: as high as
+     * RIDGE_OF_THICK of the wood's radius there, and never higher than RIDGE_HIGH; how far out to
+     * each side it reaches for each tile it stands; and how thick wood is at most, as a radius,
+     * that a real fall frosts white nearly all round.
      */
-    static final float RIDGE_HIGH = 0.06f, RIDGE_HIGH_FINE = 0.025f, RIDGE_WIDE = 0.6f;
-    /** What of wood faces up enough to hold a ridge of snow: none from facing.z RIDGE_FROM, all from RIDGE_FULL. */
-    static final float RIDGE_FROM = 0.15f, RIDGE_FULL = 0.75f;
+    static final float RIDGE_HIGH = 0.06f, RIDGE_OF_THICK = 2.5f, RIDGE_WIDE = 0.5f, FINE = 0.007f;
 
     /**
-     * How much of the ridge of snow along the top of wood a place on it holds, by how far up the
-     * wood faces there, as snowRidge has it: what faces the side, a bole's flank, holds none.
+     * The ridge of snow along the top of wood: snow stands on a limb higher than the half-round
+     * of its bark and a little wider, so from under it its edge shows white against the sky.
+     * For the world's vertex shader, which raises it, the shadows', which cast it, and the
+     * world's fragment shader, which draws it white as far as snowRidgeLain says. It uses uSnowLying.
      */
-    static float ridgeShare(float facingUp) {
-        float t = Math.clamp((facingUp - RIDGE_FROM) / (RIDGE_FULL - RIDGE_FROM), 0f, 1f);
-        return t * t * (3f - 2f * t);
-    }
-
-    /**
-     * The ridge of snow along the top of wood, for the world's vertex shader: snow stands on a
-     * limb higher than the half-round of its bark and a little wider, so from under it its
-     * edge shows white against the sky. Joined on after COVER: it uses uSnowLying.
-     */
-    static final String RIDGE = String.format(java.util.Locale.ROOT, """
-            const float SNOW_RIDGE_HIGH = %.4f, SNOW_RIDGE_HIGH_FINE = %.4f, SNOW_RIDGE_WIDE = %.4f;
-            // How much of the ridge a place on wood that faces so holds, 0 to 1.
-            float snowRidgeShare(vec3 facing) {
-                return smoothstep(%.4f, %.4f, facing.z);
+    static final String RIDGE = String.format(Locale.ROOT, """
+            const float SNOW_RIDGE_HIGH = %.4f, SNOW_RIDGE_OF_THICK = %.4f, SNOW_RIDGE_WIDE = %.4f, SNOW_FINE = %.4f;
+            // How far up wood faces at a place, as the ridge has it: 0 on what faces the side, a
+            // bole's flank, or down, and 1 on the top of a level limb.
+            float snowRidgeTop(vec3 facing) {
+                return smoothstep(0.15, 0.75, facing.z);
             }
-            // How far a vertex of wood that faces so is moved out by the ridge: up, and out to its side, more as more lies. fine is 1 on a twig.
-            vec3 snowRidge(vec3 facing, float fine) {
-                float high = uSnowLying * mix(SNOW_RIDGE_HIGH, SNOW_RIDGE_HIGH_FINE, fine) * snowRidgeShare(facing);
+            // How much of the ridge lies at a place on wood whose top is so: the crest alone
+            // with a light fall, a thin line, and as far as the ridge reaches with a deep one.
+            float snowRidgeLain(float top) {
+                return smoothstep(0.0, 0.2, top - 1.0 + min(uSnowLying * 2.5, 1.0));
+            }
+            // How far the ridge moves a vertex of wood that faces so, thick as SpriteGeometry.WOOD
+            // has it (below 0 for no ridge there), where open of the snow lies (see snowOnBark):
+            // up, and out to its sides.
+            vec3 snowRidge(vec3 facing, float thick, float open) {
+                float top = snowRidgeTop(facing);
+                float high = uSnowLying * open * min(SNOW_RIDGE_OF_THICK * max(thick, 0.0), SNOW_RIDGE_HIGH) * top * snowRidgeLain(top);
                 return vec3(facing.xy * (SNOW_RIDGE_WIDE * high), high);
             }
-            """, RIDGE_HIGH, RIDGE_HIGH_FINE, RIDGE_WIDE, RIDGE_FROM, RIDGE_FULL);
+            """, RIDGE_HIGH, RIDGE_OF_THICK, RIDGE_WIDE, FINE);
 
     /** COVER and the snow's shape, joined on after WORLD_FRAGMENT_RELIEF and before the world's main: it uses facHash and uSnowLying. */
-    static final String GLSL = COVER + """
+    static final String GLSL = COVER + RIDGE + """
             // How high snow stands at its lip over what it lies on, and how far its swells,
             // its lumps, its wind ripples and the grains of its crust stand out of it, in tiles.
             const float SNOW_RIM = 0.035, SNOW_SWELL = 0.05, SNOW_LUMP = 0.02, SNOW_RIPPLE = 0.005, SNOW_CRUST = 0.0011;
@@ -328,17 +331,17 @@ final class SnowShader {
             // nearly up, the top of a near-level limb, a root, a fork, holds lying snow in clumps that
             // join along it as more lies: a light fall leaves a thin line on the flattest tops only,
             // and steep wood none. What faces the way a blizzard came holds what it drove there.
-            // ridge is how much of the ridge of snow the vertex shader stood along the top of wood
-            // the place holds (see snowRidge), 0 on ivy: it is white from its crest down, a thin line
-            // with a light fall and as far as it reaches with a deep one. fine is whether the place
-            // is on a twig, which a real fall frosts white nearly all round.
-            // Less under cover, and nothing where no snow lies.
-            float snowOnBark(vec3 facing, vec2 q, float ridge, bool fine) {
+            // ridgeTop is how far up the wood faces at the place as the ridge of snow along its
+            // top has it (snowRidgeTop, as the vertex shader worked it out), 0 on ivy: the ridge
+            // is white as far as snowRidgeLain says. thick is the wood's radius there, 0 on a bole
+            // and on ivy: a twig, thinner than SNOW_FINE, a real fall frosts white nearly all round.
+            // Less under cover, and nothing where no snow lies: the ridge stands as high as that.
+            float snowOnBark(vec3 facing, vec2 q, float ridgeTop, float thick) {
                 float clumps = snowNoise(q * 7.0, vec2(420.0), 41.0).x;
                 float top = smoothstep(0.45, 0.9, facing.z);
                 float lain = top * smoothstep(0.05, 0.35, uSnowLying * (0.3 + 0.9 * top) - 0.25 * clumps);
-                float laden = ridge > 0.0 ? smoothstep(0.0, 0.2, ridge - 1.0 + min(uSnowLying * 2.5, 1.0) - 0.25 * clumps) : 0.0;
-                float frost = fine ? 0.85 * smoothstep(0.05, 0.45, uSnowLying * (0.6 + 0.6 * ridge)) : 0.0;
+                float laden = ridgeTop > 0.0 ? snowRidgeLain(ridgeTop) : 0.0;
+                float frost = thick > 0.0 && thick < SNOW_FINE ? 0.85 * smoothstep(0.05, 0.45, uSnowLying * (0.6 + 0.6 * ridgeTop)) : 0.0;
                 float windward = dot(normalize(facing.xy + vec2(1e-5, 0.0)), uSnowPlaster) * (1.0 - smoothstep(0.6, 0.9, abs(facing.z)));
                 float stuck = smoothstep(0.12, 0.5, windward - 0.3 * clumps);
                 return min(max(max(lain, laden), max(frost, stuck)) * clamp(1.0 - 0.8 * snowShelter, 0.0, 1.0), 0.9);
