@@ -691,6 +691,10 @@ final class PipelineShaders {
             uniform float uCover;
             uniform vec2 uDrift;
             uniform float uSoftPerDepth;
+            // x 1 where the shadow maps are not drawn sharp: a soft edge is asked of half the samples, and
+            // grass and crowns, whose shade is mostly their own, of none for its width. y 1 to turn the
+            // samples' spiral each frame as well, where the frames are mixed and smooth the grain away.
+            uniform vec2 uSunTaps;
             // For sunAsked: how much height a texel of the near sun map and of the far one spans under a
             // level sheet, which is a texel times the cosine of the sun's elevation; how many texels of its
             // slope every map holds a surface behind itself; twice the depth of the map from above, in tiles;
@@ -820,19 +824,29 @@ final class PipelineShaders {
             varying vec4 vBlade;
             varying float vClouds;
 
+            // How far round a pixel's spiral of samples of a sun map is turned: see uSunTaps.
+            float sunTurn() {
+                vec2 at = gl_FragCoord.xy + (uSunTaps.y > 0.5 ? 5.588238 * mod(floor(uSeconds * 60.0), 64.0) : 0.0);
+                return 6.2831853 * fract(52.9829189 * fract(dot(at, vec2(0.06711056, 0.00583715))));
+            }
+
             float shadowAt(sampler2DShadow map, vec3 c, float soft) {
                 // The sun is not a point, so a shadow has a soft edge. Sixteen samples in a
                 // spiral over a disc, the spiral turned a different way at every pixel: the
                 // edge comes out as a fine grain that the picture's last pass smooths away,
                 // where the same sixteen everywhere would show as stripes.
-                float turn = 6.2831853 * fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
+                float turn = sunTurn();
+                float taps = uSunTaps.x > 0.5 ? 8.0 : 16.0;
                 float lit = 0.0;
                 for (int i = 0; i < 16; i++) {
+                    if (float(i) >= taps) {
+                        break;
+                    }
                     float a = turn + float(i) * 2.3999632;
-                    float away = sqrt((float(i) + 0.5) / 16.0) * soft * uShadowTexel;
+                    float away = sqrt((float(i) + 0.5) / taps) * soft * uShadowTexel;
                     lit += shadow2D(map, c + vec3(cos(a) * away, sin(a) * away, 0.0)).r;
                 }
-                return lit / 16.0;
+                return lit / taps;
             }
 
             bool inside(vec3 c) {
@@ -3163,17 +3177,24 @@ final class PipelineShaders {
                         // soft far from it: the foot of a post against the top of its shadow. How
                         // far off the caster is, is found by looking round in the map for what is
                         // nearer the sun than this point.
-                        float turn = 6.2831853 * fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
-                        float nearer = 0.0, casters = 0.0;
-                        for (int i = 0; i < 8; i++) {
-                            float a = turn + float(i) * 2.3999632;
-                            float d = texture2D(uShadowDepth, c.xy + vec2(cos(a), sin(a)) * (sqrt((float(i) + 0.5) / 8.0) * 10.0 * uShadowTexel)).r;
-                            if (d < c.z - 0.0008) {
-                                nearer += d;
-                                casters += 1.0;
+                        float soft = 3.0;
+                        if (uSunTaps.x < 0.5 || !grass && !crown) {
+                            float turn = sunTurn();
+                            float looks = uSunTaps.x > 0.5 ? 4.0 : 8.0;
+                            float nearer = 0.0, casters = 0.0;
+                            for (int i = 0; i < 8; i++) {
+                                if (float(i) >= looks) {
+                                    break;
+                                }
+                                float a = turn + float(i) * 2.3999632;
+                                float d = texture2D(uShadowDepth, c.xy + vec2(cos(a), sin(a)) * (sqrt((float(i) + 0.5) / looks) * 10.0 * uShadowTexel)).r;
+                                if (d < c.z - 0.0008) {
+                                    nearer += d;
+                                    casters += 1.0;
+                                }
                             }
+                            soft = casters > 0.0 ? clamp((c.z - nearer / casters) * uSoftPerDepth, 1.2, 14.0) : 1.2;
                         }
-                        float soft = casters > 0.0 ? clamp((c.z - nearer / casters) * uSoftPerDepth, 1.2, 14.0) : 1.2;
                         if (roofed) {
                             c = (uNearMatrix * vec4(sunAsked(from.xyz, soft, uSunTexelUp.x, beneath), 1.0)).xyz * 0.5 + 0.5;
                             // Lowered out past the near map's edge, it is asked of the far map.
