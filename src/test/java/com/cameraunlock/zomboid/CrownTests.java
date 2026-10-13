@@ -348,6 +348,7 @@ final class CrownTests {
         Flora.addCrown(far, new SpriteGeometry.Mesh(), frame, places, 0.5f, 0.5f, 0f, FOOT_U, FOOT_V, 0.25f, 0f, 0f, 0f, Flora.BARK_OAK, Flora.LINDEN, 7, Flora.OPEN, 1f, 0, 0f);
         int farSprigs = sprigVertices(far), nearSprigs = sprigVertices(near);
         check(farSprigs > 0 && farSprigs * 2 < nearSprigs, "a crown at a quarter of the detail has under half the sprigs: " + farSprigs + " of " + nearSprigs);
+        check(coreVertices(far) > 0 && coreVertices(far) * 3 < coreVertices(near), "and an inside of under a third as many faces: " + coreVertices(far) + " of " + coreVertices(near));
     }
 
     private static void spriteWithNextToNothingPaintedHasNoCrown() {

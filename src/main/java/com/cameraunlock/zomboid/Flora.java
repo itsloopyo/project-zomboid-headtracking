@@ -196,10 +196,13 @@ final class Flora {
      * How far out the inside of a crown comes, as a share of the crown's own reach, between
      * which shares of its height it stands, how much of the crown's light gets to it, how
      * far it draws in at its foot as a share of how far out it is there, and how many rings
-     * it is made of and how many faces round.
+     * it is made of and how many faces round; and as many of each for a crown made coarser
+     * than CORE_FAR_DETAIL (see addCrown), as one more than about 26 tiles off is (Crowns.detail),
+     * whose inside is a few pixels of shade behind its sprigs.
      */
     private static final float CORE_OF_REACH = 0.74f, CORE_FOOT = 0.06f, CORE_HEAD = 0.95f, CORE_SHADE = 0.6f, CORE_UNDER = 0.3f;
-    private static final int CORE_RINGS = 6, CORE_ROUND = 10;
+    private static final int CORE_RINGS = 6, CORE_ROUND = 10, CORE_RINGS_FAR = 3, CORE_ROUND_FAR = 6;
+    private static final float CORE_FAR_DETAIL = 0.7f;
     /** How many kinds of sprig a vertex of the inside can say it is among: its texture coordinate's part over the whole number is the kind's place in so many. */
     static final float CORE_KINDS = 8f;
     /** The sprigs in their picture, four to a row. */
@@ -629,7 +632,7 @@ final class Flora {
         float inside = Math.clamp((leaf - CORE_GOES) / (1f - CORE_GOES), 0f, 1f);
         if (!bare && inside > 0f) {
             addCore(mesh, frame, places, x, y, base, footU, footV, across, up, lowest, tall, under, reachLeft, reachRight, lobes, rows, turnOne, turnTwo, turnThree, sprig, room,
-                    inside, workings);
+                    inside, detail < CORE_FAR_DETAIL, workings);
         }
         // The wood's own outline. Once a crown has lost leaves its wood is the bare tree's, grown
         // to the outline of the branches the tree's trunk sprite paints (woodShape), so it stands
@@ -783,8 +786,9 @@ final class Flora {
      */
     private static void addCore(Mesh mesh, SpriteGeometry.Frame frame, float[] places, float x, float y, float base, float footU, float footV, float across, float up,
             float lowest, float tall, float under, float[] reachLeft, float[] reachRight, int lobes, float rows, float turnOne, float turnTwo,
-            float turnThree, int sprig, float[] room, float drawnIn, Workings workings) {
+            float turnThree, int sprig, float[] room, float drawnIn, boolean coarse, Workings workings) {
         int count = places.length / 2;
+        int rings = coarse ? CORE_RINGS_FAR : CORE_RINGS, around = coarse ? CORE_ROUND_FAR : CORE_ROUND;
         int[] placeOf = workings.placeOf;
         float[] nearest = workings.nearest;
         Arrays.fill(placeOf, -1);
@@ -795,7 +799,7 @@ final class Flora {
                 continue;
             }
             float share = (high - lowest) / tall;
-            int ring = Math.clamp((int) ((share - CORE_FOOT) / (CORE_HEAD - CORE_FOOT) * CORE_RINGS), 0, CORE_RINGS - 1);
+            int ring = Math.clamp((int) ((share - CORE_FOOT) / (CORE_HEAD - CORE_FOOT) * rings), 0, rings - 1);
             // Half way out to one side: up the sprite's middle is where it paints the trunk's shade, and at its rim the leaves' edges.
             float half = 0.5f * reachAt(reachLeft, reachRight, share) / across;
             float off = Math.abs(Math.abs(places[i * 2] - footU) - half);
@@ -805,14 +809,13 @@ final class Flora {
             }
         }
         // A ring at whose height the sprite paints nothing has the colour of the ring nearest it that has one.
-        for (int ring = 0; ring < CORE_RINGS; ring++) {
-            for (int off = 1; placeOf[ring] < 0 && off < CORE_RINGS; off++) {
+        for (int ring = 0; ring < rings; ring++) {
+            for (int off = 1; placeOf[ring] < 0 && off < rings; off++) {
                 int below = ring - off, above = ring + off;
-                placeOf[ring] = below >= 0 && placeOf[below] >= 0 ? placeOf[below] : above < CORE_RINGS && placeOf[above] >= 0 ? placeOf[above] : -1;
+                placeOf[ring] = below >= 0 && placeOf[below] >= 0 ? placeOf[below] : above < rings && placeOf[above] >= 0 ? placeOf[above] : -1;
             }
         }
         // Every face's corners are on the rings' heights and the same ways round: how far out the inside is at each is worked out once.
-        int rings = CORE_RINGS, around = CORE_ROUND;
         float[] coreShare = workings.coreShare, coreReach = workings.coreReach, coreBough = workings.coreBough, coreCos = workings.coreCos, coreSin = workings.coreSin;
         for (int face = 0; face <= around; face++) {
             float round = face * 6.2832f / around;
