@@ -1037,7 +1037,7 @@ public final class Characters {
             // the game's hand has it on a mesh that says nothing.
             grip = view.viewModel.gripSeen;
         }
-        ArmHolds.Weapon weapon = new ArmHolds.Weapon(hands.firearm(), handgun, grip, view.viewModel.pointing, view.viewModel.over, placed, view.viewModel.secondFist);
+        ArmHolds.Weapon weapon = new ArmHolds.Weapon(hands.firearm(), handgun, grip, view.viewModel.pointing, view.viewModel.over, placed, view.viewModel.secondFist, !hands.firearm() && view.viewModel.spearHeld);
         ArmHolds.Doing doing = new ArmHolds.Doing(hands.aim(), heldBoth, hands.action(), hands.cycled(), hands.doing(), hands.done(), hands.round(), hands.pace(), hands.seated(), hands.clip(), hands.out(), hands.fetching(), hands.fetchTakes(), view.viewModel.turned);
         long now = System.nanoTime();
         armSettled.seconds = Math.min((now - armsAsOf) / 1e9f, 0.1f);

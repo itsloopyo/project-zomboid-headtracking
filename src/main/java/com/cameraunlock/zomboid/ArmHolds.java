@@ -116,11 +116,12 @@ final class ArmHolds {
      * The weapon as the view has it: where the right hand holds it, the way it points and the
      * way its top faces, each of length one, for a firearm where its mesh is, and for something
      * swung in both hands how far along it from the right fist the left one is, in metres: less
-     * than nought nearer the end the hands hold.
+     * than nought nearer the end the hands hold. Whether it is a spear, whose left arm comes to its
+     * shaft from under the picture in every way it is held: see SPEAR_SHOULDER.
      */
-    record Weapon(boolean firearm, boolean handgun, float[] grip, float[] pointing, float[] over, Placed placed, float second) {
+    record Weapon(boolean firearm, boolean handgun, float[] grip, float[] pointing, float[] over, Placed placed, float second, boolean spear) {
         Weapon(boolean firearm, boolean handgun, float[] grip, float[] pointing, float[] over, Placed placed) {
-            this(firearm, handgun, grip, pointing, over, placed, -LOWER_FIST);
+            this(firearm, handgun, grip, pointing, over, placed, -LOWER_FIST, false);
         }
     }
 
@@ -900,7 +901,7 @@ final class ArmHolds {
     /** Where an arm on this weapon starts and where its forearm is to seem to come from, in the view. */
     private static void starts(Weapon weapon, int side, float scale, float turned, float[] fromAim, float[] shoulder, float[] from) {
         starts(weapon.firearm() && !weapon.handgun(), side, scale, turned, fromAim, shoulder, from);
-        if (side == 1 && !weapon.firearm() && weapon.second() > 0f) {
+        if (side == 1 && weapon.spear()) {
             turnedPlace(SPEAR_SHOULDER, turned, scale, fromAim, shoulder);
             turnedPlace(SPEAR_FROM, turned, scale, fromAim, from);
         }
@@ -908,7 +909,9 @@ final class ArmHolds {
 
     /**
      * Where the left arm's shoulder is, and where its forearm seems to come from, to a spear's shaft out ahead of the right
-     * hand, in metres from the eye: both well under the picture, as a body lunging leans. From the shoulder beside the
+     * hand, in metres from the eye: both well under the picture, as a body lunging leans, in every way a spear is held, at
+     * rest, thrust, stabbed down and shoved, where the left wrist is bent 14 to 28 degrees and the arm rises to the shaft
+     * from the foot of the picture. From the shoulder beside the
      * eye and FROM's corner, the upper arm came across the lower left of the picture as the spear was thrust, cut off by
      * the near plane, and the shirt's sleeve on it showed as a dark flap.
      */

@@ -757,6 +757,8 @@ public final class ViewModel {
     private MeleeHold.Fit fit, swungFit;
     /** Where the left fist is on what is swung, placed last, in both hands: ArmHolds.Weapon's `second`. */
     float secondFist = -ArmHolds.LOWER_FIST;
+    /** Whether what was placed last is a spear: ArmHolds.Weapon's `spear`. */
+    boolean spearHeld;
     /** A firearm whose muzzle is nearer its grip than this, in the game's units, is a handgun. */
     private static final float HANDGUN_WITHIN = 0.25f;
     /**
@@ -911,6 +913,7 @@ public final class ViewModel {
             shakenPitch -= pumped * PUMP_DIPS;
             moveBack = pumped * PUMP_PULLS;
         } else {
+            spearHeld = how.swungAs == MeleeHold.SPEAR;
             if (swungFit != null) {
                 secondFist = swungFit.second();
                 ViewModelMath.attack(way, how.reached, how.past, how.struck, swungFit.rest(), swung);
