@@ -157,7 +157,7 @@ public final class FineSkins {
         volatile boolean fineAsItIs;
         /** Set by the reader of a tailored picture whose file Java could not read as a picture. */
         volatile IOException unreadable;
-        /** What a tailored picture is counted as holding of the card, from when it is asked for until it is let go. */
+        /** What the picture is counted as holding of the card, from when it is asked for until it is let go. */
         long bytes;
 
         /** Takes the picture a reader made, or frees it where this was let go of while it was being made. Under this Read's lock. */
@@ -289,6 +289,14 @@ public final class FineSkins {
     /** How much of the card the pictures Tailor made or is making hold, and the most they may. */
     private static long tailoredBytes;
     private static final long TAILORED_MOST_BYTES = 384L << 20;
+    /**
+     * The same for the jar's own pictures, each counted as the largest the jar holds until it
+     * is read: a crowd's bodies are each a 2048 by 2048 picture, and with every one of the
+     * jar's read at once they would hold nearly two gigabytes.
+     */
+    private static long jarBytes;
+    private static final long JAR_MOST_BYTES = 512L << 20;
+    private static final int JAR_LARGEST = 2048;
 
     /** The pack's picture for each name the game has shown, null for a name the pack has nothing for. */
     private static final HashMap<String, Texture> packed = new HashMap<>();
@@ -432,7 +440,11 @@ public final class FineSkins {
                 read.pixels = null;
             }
         }
-        tailoredBytes -= read.bytes;
+        if (read.tailored) {
+            tailoredBytes -= read.bytes;
+        } else {
+            jarBytes -= read.bytes;
+        }
         read.bytes = 0;
         if (read.texture != null) {
             read.texture.destroy();
@@ -701,7 +713,15 @@ public final class FineSkins {
                 jarless.add(path);
                 return tailored(relative, name);
             }
+            int across = Quality.smallerPictures() ? JAR_LARGEST / 2 : JAR_LARGEST;
+            long most = bytesOf(across, across);
+            if (jarBytes + most > JAR_MOST_BYTES) {
+                waiting = true;
+                return null;
+            }
             Read asked = new Read();
+            asked.bytes = most;
+            jarBytes += most;
             own.put(path, asked);
             reader.execute(() -> read(path, asked));
         }
@@ -770,12 +790,14 @@ public final class FineSkins {
             // It copies the picture into memory of its own, so the picture as read is given back.
             int bound = GL11.glGetInteger(GL_TEXTURE_BINDING_2D), remembered = Texture.lastTextureID;
             read.texture = new Texture(new TextureID(read.wide, read.high, pixels), "CameraUnlock" + path);
+            // Counted as the most it could be when it was asked for, and as what it is now that it is made.
+            long is = bytesOf(read.wide, read.high);
             if (read.tailored) {
-                // Counted as the most it could be when it was asked for, and as what it is now that it is made.
-                long is = bytesOf(read.wide, read.high);
                 tailoredBytes += is - read.bytes;
-                read.bytes = is;
+            } else {
+                jarBytes += is - read.bytes;
             }
+            read.bytes = is;
             GL11.glBindTexture(GL_TEXTURE_2D, bound);
             Texture.lastTextureID = remembered;
             read.pixels = null;
