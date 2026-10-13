@@ -1,5 +1,6 @@
 package com.cameraunlock.zomboid;
 
+import java.util.IdentityHashMap;
 import zombie.core.textures.Texture;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoObject;
@@ -81,6 +82,33 @@ final class PlantBuilder {
     /** The species of the tree whose bole was stood last (TreeForm), and the outline its trunk sprite paints (Flora.woodShape), or null. */
     private int boleKind = TreeForm.NONE;
     private float[] boleShape;
+
+    /**
+     * What a plant's sprite's name says of it, read once a sprite and not at every build of every
+     * square it stands on: whether it is a dead tree, a fern, a bush or a leafy weed, an evergreen,
+     * a crop (Crops.of), the sprig a tree of it bears, its bark (Flora.barkedAs), the colours it
+     * turns (Flora.turnsAs) and its species (TreeForm.kindOf). A sprite with no name is none of
+     * these, and bears what an unnamed tree would, which nothing asks of it.
+     */
+    private record Plant(String name, boolean dead, boolean fern, boolean bushy, boolean evergreen, int crop, int treeSprig, int barkedAs, int turnsAs,
+            int kind) {}
+
+    private final IdentityHashMap<IsoSprite, Plant> plants = new IdentityHashMap<>();
+
+    private Plant plantOf(IsoSprite sprite) {
+        String name = sprite.getName();
+        Plant plant = plants.get(sprite);
+        if (plant != null && plant.name() == name) {
+            return plant;
+        }
+        boolean named = name != null;
+        plant = new Plant(name, Flora.deadTree(name), Flora.fernSprite(name),
+                named && (name.startsWith("f_bushes") || name.startsWith("vegetation_foliage") || name.startsWith("vegetation_ornamental") || Flora.leafyWeed(name)),
+                Flora.evergreen(name), Crops.of(name), named ? Flora.sprigOf(name, false) : Flora.LINDEN, named ? Flora.barkedAs(name) : Flora.BARKED_AS_ANY,
+                named ? Flora.turnsAs(name) : Flora.TURNS_AS_ANY, named ? TreeForm.kindOf(name) : TreeForm.NONE);
+        plants.put(sprite, plant);
+        return plant;
+    }
 
     PlantBuilder(WorldScene world, WorldScene.Frame build) {
         this.world = world;
@@ -456,13 +484,14 @@ final class PlantBuilder {
         // A tree's bole is round. A tree in leaf shows nothing else of its trunk's sprite,
         // so the bole stands in for all its cards. A bare one, or a dead one, goes on to have
         // its branches made in wood as well (see bare below).
-        String grown = sprite.getName();
-        boolean dead = Flora.deadTree(grown);
+        Plant plant = plantOf(sprite);
+        String grown = plant.name();
+        boolean dead = plant.dead();
         if ((type == IsoObjectType.tree || dead) && build.overLayer == 0 && Own.plants() && addBole(sprite, texture, x, y, z) && build.geometry.keep < 1f) {
             return;
         }
         // A fern the game paints is a fern of the mod's own, as big as the painted one.
-        if (Flora.fernSprite(grown) && Own.plants() && addFern(x, y, z)) {
+        if (plant.fern() && Own.plants() && addFern(x, y, z)) {
             return;
         }
         roomFor(x, y, z);
@@ -475,8 +504,7 @@ final class PlantBuilder {
         }
         // A bush is leaves all over, as a tree's crown is.
         // A bush's leaves are smaller than a tree's.
-        boolean bush = grown != null && type != IsoObjectType.tree
-                && (grown.startsWith("f_bushes") || grown.startsWith("vegetation_foliage") || grown.startsWith("vegetation_ornamental") || Flora.leafyWeed(grown));
+        boolean bush = type != IsoObjectType.tree && plant.bushy();
         // So is every other plant the game paints with a dark line round each leaf: the
         // line is what makes it a drawing. A tree's trunk is left as it is, and a dead tree is bark.
         if (grown != null && type != IsoObjectType.tree && Own.plants()) {
@@ -486,22 +514,22 @@ final class PlantBuilder {
         // on days of its own (Seasons). One the season has bare never gets here: see bareBySeason.
         boolean leafy = grown != null && type == IsoObjectType.tree && build.overLayer > 0 && Own.plants();
         int treeHash = Seasons.treeHash(x, y);
-        boolean seasonal = leafy && !Flora.evergreen(grown);
+        boolean seasonal = leafy && !plant.evergreen();
         float leaf = seasonal ? Seasons.leafOn(treeHash) : 1f;
         // The leaves of a tree and a bush, near enough to be seen as leaves, are a crown of
         // sprigs. The fan then stands only in the sun's own pictures, to throw the shadow.
         float fanned = build.frame.material, red = build.frame.red;
         // A crop near the eye is grown stalk by stalk, and its cards then only throw its shadow.
-        if (Own.plants() && growCrop(texture, Crops.of(grown), x, y)) {
+        if (Own.plants() && growCrop(texture, plant.crop(), x, y)) {
             Flora.shadeOnly(build.frame, 1f);
         }
         // An evergreen has no leaves of its own to lay over its trunk: its sprite paints the needles with the trunk, and is its crown.
-        boolean evergreen = type == IsoObjectType.tree && build.overLayer == 0 && build.geometry.keep == 1f && Flora.evergreen(grown);
+        boolean evergreen = type == IsoObjectType.tree && build.overLayer == 0 && build.geometry.keep == 1f && plant.evergreen();
         // A tree with no leaves, dead or bare for the winter, has a crown of wood alone, grown from its bole.
-        boolean bare = build.overLayer == 0 && build.geometry.keep == 1f && (type == IsoObjectType.tree && !Flora.evergreen(grown) || dead) && boleX == x && boleY == y;
-        int sprig = bare ? Flora.BARE : Flora.sprigOf(grown, bush);
+        boolean bare = build.overLayer == 0 && build.geometry.keep == 1f && (type == IsoObjectType.tree && !plant.evergreen() || dead) && boleX == x && boleY == y;
+        int sprig = bare ? Flora.BARE : bush ? Flora.SHRUB : plant.treeSprig();
         boolean crowned = grown != null && (bush || type == IsoObjectType.tree && build.overLayer > 0 || evergreen || bare) && Own.plants()
-                && addCrown(texture, grown, sprig, x, y, z, leaf, seasonal ? Flora.autumnHue(grown, treeHash) : Flora.YELLOW_LEAF, seasonal ? Seasons.turned(treeHash) : 0f);
+                && addCrown(texture, plant, sprig, x, y, z, leaf, seasonal ? Flora.autumnHue(plant.turnsAs(), Flora.otherHue(treeHash)) : Flora.YELLOW_LEAF, seasonal ? Seasons.turned(treeHash) : 0f);
         if (crowned) {
             Flora.shadeOnly(build.frame, leaf);
         }
@@ -619,7 +647,7 @@ final class PlantBuilder {
      * too far off for one or its texture shows too little to make one of. leaf, hue and turned
      * are Flora.addCrown's.
      */
-    private boolean addCrown(Texture texture, String name, int sprig, int x, int y, int z, float leaf, int hue, float turned) {
+    private boolean addCrown(Texture texture, Plant plant, int sprig, int x, int y, int z, float leaf, int hue, float turned) {
         boolean bush = sprig == Flora.SHRUB;
         if (!world.crownedToSight && !build.within(Crowns.REACH, true)) {
             return false;
@@ -629,7 +657,7 @@ final class PlantBuilder {
         if (places == null) {
             places = Flora.leafPlaces(texture::isMaskSet, build.frame);
             // An evergreen's sprite paints the shadow it throws on the ground round its foot, which is no needles.
-            if (!bush && Flora.evergreen(name)) {
+            if (!bush && plant.evergreen()) {
                 places = Flora.above(places, build.frame, SpriteGeometry.frameV(build.frame, 0.5f, 0.5f, 0f), EVERGREEN_FOOT);
             }
             // A texture that shows nothing yet may only not have its outline read yet.
@@ -643,7 +671,7 @@ final class PlantBuilder {
         int seed = Flora.mix(x, y, 83);
         float base = z * ViewCamera.LEVEL_HEIGHT + build.geometry.liftAt(0.5f, 0.5f) + build.geometry.raised * ViewCamera.LEVEL_HEIGHT;
         float footU = SpriteGeometry.frameU(build.frame, 0.5f, 0.5f), footV = SpriteGeometry.frameV(build.frame, 0.5f, 0.5f, 0f);
-        int bark = Flora.barkOf(name, seed);
+        int bark = Flora.barkOf(plant.barkedAs(), seed);
         if (!bush && sprig != Flora.BARE) {
             seenForFar(texture, places, x, y, footU, footV, boled ? boleThick : BOLE_THINNEST);
             seenForLeafFall(places, x, y, footU, footV);
@@ -707,7 +735,7 @@ final class PlantBuilder {
         }
         float[] bole = WorldScene.boles.get(sprite);
         if (bole == null) {
-            bole = measureBole(texture, Flora.evergreen(sprite.getName()));
+            bole = measureBole(texture, plantOf(sprite).evergreen());
             WorldScene.boles.put(sprite, bole);
         }
         if (bole.length == 0) {
@@ -716,8 +744,9 @@ final class PlantBuilder {
         boolean near = build.within(WorldScene.TRUNK_NEAR, false);
         int seed = Flora.mix(x, y, 81);
         float base = z * ViewCamera.LEVEL_HEIGHT + build.geometry.liftAt(0.5f, 0.5f);
-        boleBark = Flora.barkOf(sprite.getName(), seed);
-        boleKind = TreeForm.withoutForms ? TreeForm.NONE : TreeForm.kindOf(sprite.getName());
+        Plant plant = plantOf(sprite);
+        boleBark = Flora.barkOf(plant.barkedAs(), seed);
+        boleKind = TreeForm.withoutForms ? TreeForm.NONE : plant.kind();
         boleShape = boleKind == TreeForm.NONE ? null : woodShape(sprite, texture);
         // Where its crown will show its wood (see Crowns.limbed), a broad-leaved tree's limbs leave the bole lower than
         // where its leaves begin, and a birch or a hawthorn is stems from a short foot, ending in a low dome they go on up from.

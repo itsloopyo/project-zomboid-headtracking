@@ -874,7 +874,7 @@ final class Flora {
      * or scarlet, hawthorn orange or scarlet, the rest yellow or gold.
      */
     static int autumnHue(String name, int treeHash) {
-        return autumnHue(name, otherHue(treeHash));
+        return autumnHue(turnsAs(name), otherHue(treeHash));
     }
 
     /** Whether the tree whose square hashes to treeHash (Seasons.treeHash) turns the second of its kind's two colours. */
@@ -883,8 +883,24 @@ final class Flora {
     }
 
     static int autumnHue(String name, boolean other) {
-        return name.contains("maple") ? (other ? ORANGE_LEAF : SCARLET_LEAF) : name.contains("dogwood") ? (other ? SCARLET_LEAF : CLARET_LEAF)
-                : name.contains("hawthorn") ? (other ? SCARLET_LEAF : ORANGE_LEAF) : other ? GOLD_LEAF : YELLOW_LEAF;
+        return autumnHue(turnsAs(name), other);
+    }
+
+    /** Which species' autumn colours a tree's sprite's name says it turns: see autumnHue. */
+    static final int TURNS_AS_MAPLE = 0, TURNS_AS_DOGWOOD = 1, TURNS_AS_HAWTHORN = 2, TURNS_AS_ANY = 3;
+
+    static int turnsAs(String name) {
+        return name.contains("maple") ? TURNS_AS_MAPLE : name.contains("dogwood") ? TURNS_AS_DOGWOOD : name.contains("hawthorn") ? TURNS_AS_HAWTHORN : TURNS_AS_ANY;
+    }
+
+    /** autumnHue for a tree whose name turnsAs says that. */
+    static int autumnHue(int turnsAs, boolean other) {
+        return switch (turnsAs) {
+            case TURNS_AS_MAPLE -> other ? ORANGE_LEAF : SCARLET_LEAF;
+            case TURNS_AS_DOGWOOD -> other ? SCARLET_LEAF : CLARET_LEAF;
+            case TURNS_AS_HAWTHORN -> other ? SCARLET_LEAF : ORANGE_LEAF;
+            default -> other ? GOLD_LEAF : YELLOW_LEAF;
+        };
     }
 
     /** How far out a crown reaches at a share of the way up it: see addCrown. */
@@ -1156,13 +1172,32 @@ final class Flora {
      * species have one of their own, and the rest have one of two or three.
      */
     static int barkOf(String name, int seed) {
-        int one = (seed >>> 9 & 0xff) % 3;
+        return barkOf(barkedAs(name), seed);
+    }
+
+    /**
+     * Which bark a tree's sprite's name says it has: the bark itself where its species has one
+     * of its own, or which of the choices between two or three barks it has, each below 0.
+     */
+    static final int BARKED_AS_MAPLE = -1, BARKED_AS_YELLOWWOOD = -2, BARKED_AS_REDBUD = -3, BARKED_AS_ANY = -4;
+
+    static int barkedAs(String name) {
         return name.contains("holly") ? BARK_HOLLY : name.contains("hemlock") ? BARK_HEMLOCK : name.contains("pine") ? BARK_PINE
                 : name.contains("birch") ? BARK_BIRCH : name.contains("hawthorn") || name.contains("dogwood") ? BARK_DOGWOOD
-                : name.contains("maple") ? (one == 0 ? BARK_OAK : BARK_MAPLE)
-                : name.contains("yellowwood") ? (one == 0 ? BARK_LINDEN : BARK_HOLLY)
-                : name.contains("redbud") ? (one == 0 ? BARK_MAPLE : BARK_DOGWOOD)
-                : one == 0 ? BARK_OAK : one == 1 ? BARK_MAPLE : BARK_LINDEN;
+                : name.contains("maple") ? BARKED_AS_MAPLE : name.contains("yellowwood") ? BARKED_AS_YELLOWWOOD
+                : name.contains("redbud") ? BARKED_AS_REDBUD : BARKED_AS_ANY;
+    }
+
+    /** barkOf for a tree whose name barkedAs says that. */
+    static int barkOf(int barkedAs, int seed) {
+        int one = (seed >>> 9 & 0xff) % 3;
+        return switch (barkedAs) {
+            case BARKED_AS_MAPLE -> one == 0 ? BARK_OAK : BARK_MAPLE;
+            case BARKED_AS_YELLOWWOOD -> one == 0 ? BARK_LINDEN : BARK_HOLLY;
+            case BARKED_AS_REDBUD -> one == 0 ? BARK_MAPLE : BARK_DOGWOOD;
+            case BARKED_AS_ANY -> one == 0 ? BARK_OAK : one == 1 ? BARK_MAPLE : BARK_LINDEN;
+            default -> barkedAs;
+        };
     }
 
     /**
