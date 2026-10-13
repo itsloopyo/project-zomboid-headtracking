@@ -1251,7 +1251,7 @@ final class CharacterDraw {
         projection = seen;
         shadow = casting;
         away = (float) Math.sqrt(standing[12] * standing[12] + standing[13] * standing[13] + standing[14] * standing[14]);
-        finelySkinned = !casting && !plainly && FINE_SKINS.wears(data.object != null ? data.object : data, away, Pipeline.frame());
+        finelySkinned = !casting && !plainly && FINE_SKINS.wears(data.object != null ? data.object : data, fromEye, Pipeline.frame());
         standsIn = -1f;
         snowOn = 0f;
         if (!off && !bare && !casting) {
