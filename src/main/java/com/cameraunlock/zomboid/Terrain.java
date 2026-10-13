@@ -915,8 +915,10 @@ final class Terrain {
             int midWx = Math.floorDiv(x, CHUNK_TILES), midWy = Math.floorDiv(y, CHUNK_TILES);
             // Only the chunks round the middle: the height asked for there is the land's and the street's own, which reach no further.
             boolean lasting = lay(cell, midWx, midWy, true, 1, true) & findWater(cell, midWx, midWy);
-            streets(midWx * CHUNK_TILES - AROUND, midWy * CHUNK_TILES - AROUND, AROUND, AROUND + CHUNK_TILES, false);
-            (lasting ? pads : padsForNow).put(freeKeys[asked], corner(x, y, x - midWx * CHUNK_TILES + AROUND, y - midWy * CHUNK_TILES + AROUND));
+            // The streets round that one corner, which is all that is read.
+            int cornerI = x - midWx * CHUNK_TILES + AROUND, cornerJ = y - midWy * CHUNK_TILES + AROUND;
+            streets(midWx * CHUNK_TILES - AROUND, midWy * CHUNK_TILES - AROUND, Math.min(cornerI, cornerJ), Math.max(cornerI, cornerJ), false);
+            (lasting ? pads : padsForNow).put(freeKeys[asked], corner(x, y, cornerI, cornerJ));
             all &= lasting;
         }
         return all & lay(cell, wx, wy, false, AROUND / CHUNK_TILES, true);
@@ -1422,8 +1424,8 @@ final class Terrain {
         if (gain == 0f) {
             return 0f;
         }
-        float toWater = toWaterChunk(x, y);
-        return gain * (lie(x, y, toWater) - (Paving.without ? 0f : heave(x, y) * town(x, y) * smooth(toWater / VALLEY)));
+        float toWater = toWaterChunk(x, y), heave = heave(x, y);
+        return gain * (lie(x, y, toWater, heave) - (Paving.without ? 0f : heave * town(x, y) * smooth(toWater / VALLEY)));
     }
 
     /**
@@ -1435,12 +1437,12 @@ final class Terrain {
      * map has loaded there. Any thread.
      */
     float far(float x, float y, float toWater) {
-        return gain == 0f ? 0f : gain * lie(x, y, toWater);
+        return gain == 0f ? 0f : gain * lie(x, y, toWater, heave(x, y));
     }
 
-    /** The same at a gain of 1. */
-    private static float lie(float x, float y, float toWater) {
-        return rise(x, y) + (stand(x, y) + heave(x, y) + upland(x, y)) * smooth(toWater / VALLEY);
+    /** The same at a gain of 1, where heave is heave's at (x, y). */
+    private static float lie(float x, float y, float toWater, float heave) {
+        return rise(x, y) + (stand(x, y) + heave + upland(x, y)) * smooth(toWater / VALLEY);
     }
 
     /** The rise and fall of the country over the better part of a mile. Never steeper than a rise of one in forty. */
