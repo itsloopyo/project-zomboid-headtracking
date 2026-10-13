@@ -405,8 +405,8 @@ final class LeafFallTests {
             int count = fall.write(leaves, 0f, 0f);
             for (int i = 0; i < count; i++) {
                 int at = i * LeafFall.FLOATS;
-                // Its middle's drift stops at the wall; its swing may take the drawn middle a little past it.
-                Checks.check(leaves[at + LeafFall.X] < 3.5f || leaves[at + LeafFall.UP] > ViewCamera.LEVEL_HEIGHT - 0.35f,
+                // Its middle's drift stops outside the wall; its swing, under a quarter of a tile in this wind, may take the drawn middle a little past it.
+                Checks.check(leaves[at + LeafFall.X] < 3.25f || leaves[at + LeafFall.UP] >= ViewCamera.LEVEL_HEIGHT,
                         "no leaf goes on inside the building: " + leaves[at + LeafFall.X] + " at " + leaves[at + LeafFall.UP]);
                 over += leaves[at + LeafFall.X] > 6f ? 1 : 0;
             }
@@ -431,7 +431,7 @@ final class LeafFallTests {
             int count = fall.write(leaves, 0f, 0f);
             for (int i = 0; i < count; i++) {
                 int at = i * LeafFall.FLOATS;
-                Checks.check(leaves[at + LeafFall.X] < 3.5f || leaves[at + LeafFall.UP] > hill + ViewCamera.LEVEL_HEIGHT - 0.35f,
+                Checks.check(leaves[at + LeafFall.X] < 3.25f || leaves[at + LeafFall.UP] >= hill + ViewCamera.LEVEL_HEIGHT,
                         "no leaf goes on into the ground floor on the hill: " + leaves[at + LeafFall.X] + " at " + leaves[at + LeafFall.UP]);
             }
         }
@@ -479,7 +479,7 @@ final class LeafFallTests {
                 int at = i * LeafFall.FLOATS;
                 if (leaves[at + LeafFall.X] > 0.5f) {
                     overRoof++;
-                    Checks.check(leaves[at + LeafFall.UP] > ViewCamera.LEVEL_HEIGHT - 0.35f, "a leaf over the roof stays on top of it: " + leaves[at + LeafFall.UP]);
+                    Checks.check(leaves[at + LeafFall.UP] >= ViewCamera.LEVEL_HEIGHT, "a leaf over the roof stays on top of it: " + leaves[at + LeafFall.UP]);
                 }
             }
         }

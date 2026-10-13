@@ -288,6 +288,7 @@ final class LeafFall {
             landed[i] += dt;
             return landed[i] < lies[i] + FADES;
         }
+        float wasX = x[i], wasY = y[i], wasUp = up[i];
         float k = (float) Math.exp(-dt / DRAG);
         // Falls to the ground within the step: only as much of the step as that takes moves it.
         float into = dt;
@@ -317,9 +318,12 @@ final class LeafFall {
         if (at != square[i]) {
             square[i] = at;
             if (on.walled((int) Math.floor(x[i]), (int) Math.floor(y[i]), up[i])) {
-                // Caught against the wall where it met it, and fades there.
+                // Caught against the wall or on the roof it met, where it was before the step took it through, and fades there.
+                x[i] = wasX;
+                y[i] = wasY;
+                up[i] = wasUp;
                 caught[i] = true;
-                landed[i] = Math.max(landed[i], 0f);
+                landed[i] = 0f;
                 lies[i] = 0f;
             }
         }
