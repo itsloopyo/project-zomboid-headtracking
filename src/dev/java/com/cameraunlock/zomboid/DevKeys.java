@@ -3,6 +3,7 @@ package com.cameraunlock.zomboid;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.Random;
 import java.util.Set;
 import zombie.GameTime;
 import zombie.VirtualZombieManager;
@@ -52,7 +53,14 @@ import zombie.vehicles.VehiclePart;
  * and round again, for the game's own trees and for what the mod draws alike, and says on the
  * screen which. The game works the season out again each day, so it is held there until the
  * session ends. Winter is a clear sky over ground under snow. The other three give the weather
- * back to the game and keep the ground clear of snow, so winter's does not lie on into spring.
+ * back to the game, unless the backslash holds one, and keep the ground clear of snow, so
+ * winter's does not lie on into spring.
+ *
+ * The backslash holds the weather at the next of clear, rainy, snowy and stormy, and round
+ * again, over whatever the season key holds. Snowy lays snow over the whole ground. Stormy is
+ * heavy rain and wind with lightning striking round the first player a few seconds apart,
+ * from a few hundred tiles to a mile off, as the game's own thunder cloud strikes. The game
+ * keeps the weather it is held at in the save.
  *
  * The semicolon puts a pump action shotgun in the player's hands. Whatever firearm is held is
  * kept loaded, sound and unjammed, from the moment the game loads, so a gun the save was left
@@ -152,6 +160,28 @@ public final class DevKeys {
     private static final float FULL_SNOW_STRENGTH = 7.5f;
     private static Field snowStrength, wasForceSnow;
 
+    /** The backslash. */
+    private static final int WEATHER_KEY = 43;
+
+    /** A kind of weather as the game's climate has it: each of cloud, rain or snow, and wind from 0 to 1. */
+    private record Weather(String name, float cloud, float falling, float wind, boolean snow, boolean thunder) {}
+
+    private static final Weather[] WEATHERS = {
+            new Weather("Clear", 0f, 0f, 0.05f, false, false),
+            new Weather("Rainy", 0.9f, 0.5f, 0.3f, false, false),
+            new Weather("Snowy", 1f, 0.7f, 0.3f, true, false),
+            new Weather("Stormy", 1f, 1f, 0.9f, false, true),
+    };
+    /** The weather being held, and none before the first press. */
+    private static int weather = -1;
+    /** When the next strike of a held storm falls. */
+    private static long nextStrikeNanos;
+    private static final Random strikes = new Random();
+    /** A held storm strikes this many seconds apart at least and at most, as the game's strongest thunder cloud does. */
+    private static final float STRIKES_APART_LEAST = 1.5f, STRIKES_APART_MOST = 6f;
+    /** And this far off, in tiles. */
+    private static final float STRIKES_NEAREST = 150f, STRIKES_FURTHEST = 1600f;
+
     /** The semicolon. */
     private static final int ARM_KEY = 39;
     private static final String SHOTGUN = "Base.Shotgun";
@@ -187,7 +217,7 @@ public final class DevKeys {
         String told = null;
         if (!said) {
             said = true;
-            Log.info("development build: 0 clears out the zombies and pressed again puts some back round you, . goes to the next place and , to the one before, 9 puts the clock on three hours, Backspace holds the next season of spring, summer, autumn and winter, ; gives a shotgun, any gun held never runs dry, [ gives a hunting rifle with the next of the three scopes on it, / gives a lit flashlight, ' makes you invincible, F7 takes the nearest vehicle");
+            Log.info("development build: 0 clears out the zombies and pressed again puts some back round you, . goes to the next place and , to the one before, 9 puts the clock on three hours, Backspace holds the next season of spring, summer, autumn and winter, \\ holds the next weather of clear, rainy, snowy and stormy, ; gives a shotgun, any gun held never runs dry, [ gives a hunting rifle with the next of the three scopes on it, / gives a lit flashlight, ' makes you invincible, F7 takes the nearest vehicle");
         }
         // On a server every one of these would be a cheat against the other players.
         if (GameClient.client) {
@@ -259,10 +289,19 @@ public final class DevKeys {
             if (trees.getSeason() != SEASONS[season].number() || Math.abs(trees.getSeasonProgression() - SEASONS[season].progression()) > SEASON_DRIFT) {
                 hold(SEASONS[season], false);
             }
-            // The game melts and adds to lying snow on the hour, so it is set again when it has moved.
-            if (Math.abs(ClimateManager.getInstance().getSnowFracNow() - SEASONS[season].lying()) > LYING_DRIFT) {
-                lie(SEASONS[season].lying());
-            }
+        }
+        if (GameKeyboard.isKeyPressed(WEATHER_KEY)) {
+            weather = (weather + 1) % WEATHERS.length;
+            hold(WEATHERS[weather]);
+            lie(lying());
+            told = "Weather: " + WEATHERS[weather].name();
+        }
+        if (weather >= 0 && WEATHERS[weather].thunder() && !players.isEmpty()) {
+            strike(players.get(0));
+        }
+        // The game melts and adds to lying snow on the hour, so it is set again when it has moved.
+        if (lying() >= 0f && Math.abs(ClimateManager.getInstance().getSnowFracNow() - lying()) > LYING_DRIFT) {
+            lie(lying());
         }
         if (GameKeyboard.isKeyPressed(ARM_KEY)) {
             for (IsoPlayer each : players) {
@@ -345,14 +384,62 @@ public final class DevKeys {
                 }
             }
             erosion.DebugUpdateMapNow();
-            clearSky(held.lying() > 0f);
-            lie(held.lying());
+            if (weather < 0) {
+                clearSky(held.lying() > 0f);
+            }
+            lie(lying());
             Log.info("Backspace: the year " + (pressed ? "held at " : "held again at ") + held.name() + ", " + (season + 1) + " of " + SEASONS.length
                     + ", erosion run again on " + chunks + " chunks; the trees' season reads " + erosion.getSeasons().getSeason() + " at "
                     + erosion.getSeasons().getSeasonProgression() + " and the climate's " + ClimateManager.getInstance().getSeason().getSeason());
         } catch (ReflectiveOperationException e) {
             throw new IllegalStateException("the game's seasons cannot be held this way: " + e, e);
         }
+    }
+
+    /**
+     * How much of the ground lies under snow: all of it in held snowy weather, else as the held
+     * season has it, else none in other held weather, and -1 with neither held.
+     */
+    private static float lying() {
+        if (weather >= 0 && WEATHERS[weather].snow()) {
+            return 1f;
+        }
+        if (season >= 0) {
+            return SEASONS[season].lying();
+        }
+        return weather >= 0 ? 0f : -1f;
+    }
+
+    /** Holds the game's climate at a kind of weather, with no fog. */
+    private static void hold(Weather held) {
+        ClimateManager climate = ClimateManager.getInstance();
+        hold(climate.getClimateFloat(ClimateManager.FLOAT_CLOUD_INTENSITY), held.cloud());
+        hold(climate.getClimateFloat(ClimateManager.FLOAT_PRECIPITATION_INTENSITY), held.falling());
+        hold(climate.getClimateFloat(ClimateManager.FLOAT_WIND_INTENSITY), held.wind());
+        hold(climate.getClimateFloat(ClimateManager.FLOAT_FOG_INTENSITY), 0f);
+        ClimateManager.ClimateBool snow = climate.getClimateBool(ClimateManager.BOOL_IS_SNOW);
+        snow.setEnableAdmin(true);
+        snow.setAdminValue(held.snow());
+        Log.info("Backslash: the weather held at " + held.name() + ", " + (weather + 1) + " of " + WEATHERS.length);
+    }
+
+    /**
+     * The next strike of a held storm, once its time has come: somewhere round the player, as the
+     * game's own thunder cloud strikes, through the game's own thunder so its sound and its light
+     * come as they do in any storm. About one in four is thunder alone.
+     */
+    private static void strike(IsoPlayer player) {
+        long now = System.nanoTime();
+        if (now < nextStrikeNanos) {
+            return;
+        }
+        nextStrikeNanos = now + (long) ((STRIKES_APART_LEAST + strikes.nextFloat() * (STRIKES_APART_MOST - STRIKES_APART_LEAST)) * 1e9);
+        double way = strikes.nextDouble() * Math.PI * 2;
+        float off = STRIKES_NEAREST + (float) Math.pow(strikes.nextFloat(), 1.6) * (STRIKES_FURTHEST - STRIKES_NEAREST);
+        int x = (int) (player.getX() + Math.cos(way) * off), y = (int) (player.getY() + Math.sin(way) * off);
+        boolean seen = strikes.nextFloat() < 0.75f;
+        boolean lit = seen && !Core.getInstance().getOptionDisableLightningDuringStorms();
+        ClimateManager.getInstance().getThunderStorm().triggerThunderEvent(x, y, seen, lit, !seen || strikes.nextFloat() > 0.4f);
     }
 
     /** Holds the sky clear, with nothing falling and little wind, or gives the weather back to the game. */
