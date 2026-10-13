@@ -642,6 +642,8 @@ final class Pipeline {
      * is drawn; room for WaterMirror.takeIn; and the projection cut down to what is drawn.
      */
     private final float[] waterRect = new float[4], cropRect = new float[4], boxCorners = new float[32], cropped = new float[16];
+    /** The scissor box of that picture's drawn part, in its pixels: from x and y, wide and high. */
+    private final int[] waterScissor = new int[4];
     /** How many of its pixels the picture of what water shows is drawn past the part of it that is read: what its coarser levels take in. */
     private static final int WATER_RECT_TEXELS = 16;
     private static final int WATER_UNIT = 18;
@@ -1227,6 +1229,10 @@ final class Pipeline {
         int toX = Math.min(waterWidth, (int) Math.ceil((waterRect[2] * 0.5f + 0.5f) * waterWidth) + WATER_RECT_TEXELS);
         int toY = Math.min(waterHeight, (int) Math.ceil((waterRect[3] * 0.5f + 0.5f) * waterHeight) + WATER_RECT_TEXELS);
         GL11.glScissor(fromX, fromY, toX - fromX, toY - fromY);
+        waterScissor[0] = fromX;
+        waterScissor[1] = fromY;
+        waterScissor[2] = toX - fromX;
+        waterScissor[3] = toY - fromY;
         cropRect[0] = Math.max(-1f, waterRect[0] - 2f * WATER_RECT_TEXELS / waterWidth);
         cropRect[1] = Math.max(-1f, waterRect[1] - 2f * WATER_RECT_TEXELS / waterHeight);
         cropRect[2] = Math.min(1f, waterRect[2] + 2f * WATER_RECT_TEXELS / waterWidth);
@@ -1235,9 +1241,10 @@ final class Pipeline {
         inWater = true;
         drawWorld(under, state, tan, aspect, near, far, fogStart, fogEnd);
         inWater = false;
-        // The sky too only where it is read, and its clouds, which are marched at this picture's own size.
-        drawSkyInto(waterTarget, waterDepth, waterWidth, waterHeight, false, under, state, tan, aspect, near, far);
         GL11.glDisable(GL_SCISSOR_TEST);
+        // The clouds are marched, at this picture's own size, only where the world was drawn: the
+        // rest of it is plain sky, which far water still reads through the coarser levels.
+        drawSkyInto(waterTarget, waterDepth, waterWidth, waterHeight, false, waterScissor, under, state, tan, aspect, near, far);
         // Far water reads it coarser than it was drawn: see overWater in the world's program.
         GL11.glBindTexture(GL_TEXTURE_2D, waterColor);
         GL30.glGenerateMipmap(GL_TEXTURE_2D);
@@ -1262,7 +1269,7 @@ final class Pipeline {
             drawFiguresAside(view.scope.sees, tan, 1f, Scope.PICTURE_NEAR, Scope.PICTURE, Scope.PICTURE, view.scope.figureTarget, view.scope.figureColor, view.scope.figureNormal, view.scope.figureLamps,
                     view.scope.pictureTarget, view.scope.pictureDepth, false, state, far, fogStart, fogEnd);
         }
-        drawSkyInto(view.scope.pictureTarget, view.scope.pictureDepth, Scope.PICTURE, Scope.PICTURE, false, view.scope.sees, state, tan, 1f, Scope.PICTURE_NEAR, far);
+        drawSkyInto(view.scope.pictureTarget, view.scope.pictureDepth, Scope.PICTURE, Scope.PICTURE, false, null, view.scope.sees, state, tan, 1f, Scope.PICTURE_NEAR, far);
         if (struck) {
             drawDebris(view.scope.pictureTarget, Scope.PICTURE, Scope.PICTURE, view.scope.sees, tan, 1f, Scope.PICTURE_NEAR, far, 0f, 0f, fogStart, fogEnd);
         }
@@ -3192,7 +3199,7 @@ final class Pipeline {
     }
 
     private void drawSky(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float near, float far) {
-        drawSkyInto(sceneTarget, sceneDepth, width, height, true, camera, state, tanHalfFieldOfView, aspect, near, far);
+        drawSkyInto(sceneTarget, sceneDepth, width, height, true, null, camera, state, tanHalfFieldOfView, aspect, near, far);
     }
 
     /**
@@ -3201,8 +3208,10 @@ final class Pipeline {
      *
      * @param depth the picture's depth, which says where the sky shows
      * @param soft whether the clouds' edges are softened first, against the depth of the eye's own picture
+     * @param cloudsWithin the part of the picture the clouds are marched in, as a scissor box at the picture's own size,
+     *                     with none anywhere else; or null for all of it
      */
-    private void drawSkyInto(int target, int depth, int wide, int high, boolean soft, ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView,
+    private void drawSkyInto(int target, int depth, int wide, int high, boolean soft, int[] cloudsWithin, ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView,
             float aspect, float near, float far) {
         int cloudWide = Math.min(wide, levelWidth[0]), cloudHigh = Math.min(high, levelHeight[0]);
         GL11.glDepthMask(false);
@@ -3216,6 +3225,12 @@ final class Pipeline {
         skyNear.set("uSize", (float) cloudWide, (float) cloudHigh);
         quad();
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, cloudTarget);
+        if (cloudsWithin != null) {
+            GL11.glClearColor(0f, 0f, 0f, 1f);
+            GL11.glClear(GL_COLOR_BUFFER_BIT);
+            GL11.glScissor(cloudsWithin[0], cloudsWithin[1], cloudsWithin[2], cloudsWithin[3]);
+            GL11.glEnable(GL_SCISSOR_TEST);
+        }
         clouds.use();
         GL13.glActiveTexture(GL_TEXTURE0 + 1);
         GL11.glBindTexture(GL_TEXTURE_2D, skyNearColor);
@@ -3238,6 +3253,7 @@ final class Pipeline {
         clouds.set("uBurstWay", state.burstX, state.burstY, state.burstUp);
         clouds.set("uBurstLight", Lightning.RED * state.burst, Lightning.GREEN * state.burst, Lightning.BLUE * state.burst);
         quad();
+        GL11.glDisable(GL_SCISSOR_TEST);
         if (soft) {
             softenInto(softCloudTarget, cloudColor, near, far);
             stage(STAGE_CLOUDS);
