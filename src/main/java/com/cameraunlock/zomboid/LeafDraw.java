@@ -32,8 +32,10 @@ final class LeafDraw {
             buffer = GL15.glGenBuffers();
         }
         GL15.glBindBuffer(GL_ARRAY_BUFFER, buffer);
-        // Orphaned and filled again, as long as the frame's leaves: the card need not wait for last frame's draw to finish with it.
-        GL15.glBufferData(GL_ARRAY_BUFFER, corners, GL_STREAM_DRAW);
+        // Orphaned at the one size it always has, which drivers keep a store of that size for, and filled with the frame's leaves:
+        // the card need not wait for last frame's draw to finish with it.
+        GL15.glBufferData(GL_ARRAY_BUFFER, (long) corners.capacity() * Float.BYTES, GL_STREAM_DRAW);
+        GL15.glBufferSubData(GL_ARRAY_BUFFER, 0L, corners);
         GL11.glEnableClientState(GL_VERTEX_ARRAY);
         GL11.glVertexPointer(4, GL_FLOAT, STRIDE, 0L);
         GL11.glEnableClientState(GL_NORMAL_ARRAY);
