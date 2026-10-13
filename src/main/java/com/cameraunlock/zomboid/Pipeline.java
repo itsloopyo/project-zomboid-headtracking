@@ -2089,6 +2089,7 @@ final class Pipeline {
         leaf.set("uOpenLight", state.openRed, state.openGreen, state.openBlue);
         leaf.set("uDaylightKept", (float) Math.pow(state.daylightKept, 2.2));
         leaf.set("uFog", fogStart, fogEnd);
+        leaf.set("uSeated", seated ? 1f : 0f);
         setBeams(leaf, TORCH_UNIT);
         leaves.draw(state.leafCount);
         GL11.glDisable(GL_BLEND);

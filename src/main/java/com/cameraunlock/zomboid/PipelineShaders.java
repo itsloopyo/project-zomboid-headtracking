@@ -4142,6 +4142,7 @@ final class PipelineShaders {
             uniform vec3 uOpenLight;
             uniform float uDaylightKept;
             uniform vec2 uFog;
+            uniform float uSeated;
             varying vec3 vWorld;
             varying vec3 vFace;
             varying vec2 vIn;
@@ -4155,6 +4156,10 @@ final class PipelineShaders {
             """ + ROOFED_AIR + """
 
             void main() {
+                // The vehicle the viewer sits in has a roof and sides nothing else here knows of.
+                if (uSeated > 0.5 && distance(vWorld.xy, uEye.xy) < 0.9 && vWorld.z < uEye.z + 0.3) {
+                    discard;
+                }
                 // Pointed at the tip, broadest below its middle, on a short stalk.
                 float off = abs(vIn.x - 0.5) * 2.0;
                 float broad = pow(max(sin(3.14159 * pow(clamp((vIn.y - 0.08) / 0.92, 0.0, 1.0), 0.75)), 0.0), 0.8);
@@ -4177,7 +4182,8 @@ final class PipelineShaders {
                 float on = max(dot(n, uLight), 0.0), through = max(-dot(n, uLight), 0.0);
                 vec3 albedo = pow(painted, vec3(2.2));
                 vec3 sky = pow(uOpenLight, vec3(2.2)) * uDaylightKept * vec3(0.62, 0.69, 0.82) * (0.8 + 0.2 * abs(n.z));
-                vec3 lit = albedo * (sky + sunColor * (2.1 * sun * on)) + albedo * vec3(1.25, 1.2, 0.55) * sunColor * (1.4 * sun * through);
+                // A leaf is thin: the sky shows through it as well as lighting it, and the sun through it from behind.
+                vec3 lit = albedo * (sky + sunColor * (2.1 * sun * on)) + albedo * vec3(1.25, 1.2, 0.55) * (0.6 * sky + sunColor * (1.4 * sun * through));
                 vec3 dir;
                 float beamed = 0.0;
                 for (int i = 0; i < 2; i++) {
