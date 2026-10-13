@@ -261,17 +261,46 @@ final class ImpactDraw {
             }
             """;
 
+    /**
+     * A corner of a hole's square, every hole in one array: the corner, the kind of mark and its
+     * seed in the vertex, the face's normal in the normal, where the shot struck and the mark's
+     * radius in the first texture coordinate and the grain in the second. See holes.
+     */
     private static final String HOLE_VERTEX = """
             #version 120
-            uniform vec3 uAt;
-            uniform vec3 uNormal;
-            uniform vec3 uAlong;
-            uniform float uRadius;
+            uniform vec3 uEye;
+            uniform vec3 uForward;
+            uniform float uNear;
+            uniform float uReach;
+            // How wide a mark a tile from the eye has to be to be drawn.
+            uniform float uSmallest;
+            // Where the shot struck from the eye, and the rest of what the fragments read of the hole: the same at every corner.
+            varying vec3 vAt;
+            varying vec3 vNormal;
+            varying vec3 vAlong;
+            varying float vRadius;
+            varying float vKind;
+            varying float vSeed;
 
             void main() {
-                vec3 across = cross(uNormal, uAlong);
+                vec3 to = gl_MultiTexCoord0.xyz - uEye;
+                float radius = gl_MultiTexCoord0.w;
+                vAt = to;
+                vNormal = gl_Normal;
+                vAlong = gl_MultiTexCoord1.xyz;
+                vRadius = radius;
+                vKind = gl_Vertex.z;
+                vSeed = gl_Vertex.w;
+                float ahead = dot(to, uForward);
+                // Behind the eye, too far, too small to see, or seen from behind the face it is in: so at every
+                // corner alike, and the square is drawn as a point off the picture.
+                if (ahead < -radius || dot(to, to) > uReach * uReach || radius < uSmallest * max(ahead, uNear) || dot(to, gl_Normal) >= 0.0) {
+                    gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+                    return;
+                }
+                vec3 across = cross(gl_Normal, vAlong);
                 // Drawn a little larger than the mark and a little off the face, so that it covers the mark however the face is seen.
-                vec3 at = uAt + (uAlong * gl_Vertex.x + across * gl_Vertex.y) * (uRadius * 1.3) + uNormal * 0.01;
+                vec3 at = gl_MultiTexCoord0.xyz + (vAlong * gl_Vertex.x + across * gl_Vertex.y) * (radius * 1.3) + gl_Normal * 0.01;
                 gl_Position = gl_ModelViewProjectionMatrix * vec4(at, 1.0);
             }
             """;
@@ -289,17 +318,22 @@ final class ImpactDraw {
             uniform vec2 uAside;
             uniform float uNear;
             uniform float uFar;
-            uniform vec3 uEye;
             uniform vec3 uRight;
             uniform vec3 uUp;
             uniform vec3 uForward;
-            uniform vec3 uAt;
-            uniform vec3 uNormal;
-            uniform vec3 uAlong;
-            uniform float uRadius;
-            uniform float uKind;
-            uniform float uSeed;
             uniform float uThick;
+            varying vec3 vAt;
+            varying vec3 vNormal;
+            varying vec3 vAlong;
+            varying float vRadius;
+            varying float vKind;
+            varying float vSeed;
+
+            // The seed is carried in hundredths, as a whole number: carried across a square as it
+            // is, its last bits could differ from pixel to pixel, and so would the grit it seeds.
+            float holeSeed() {
+                return floor(vSeed + 0.5) / 100.0;
+            }
 
             float aheadAt(vec2 uv) {
                 float z = texture2D(uDepth, uv).r * 2.0 - 1.0;
@@ -307,36 +341,36 @@ final class ImpactDraw {
             }
 
             float rnd(vec2 cell) {
-                return fract(sin(dot(cell, vec2(12.9898, 78.233)) + uSeed) * 43758.5453);
+                return fract(sin(dot(cell, vec2(12.9898, 78.233)) + holeSeed()) * 43758.5453);
             }
 
             void main() {
                 vec2 uv = gl_FragCoord.xy / uSize;
                 float ahead = aheadAt(uv);
                 vec2 ndc = uv * 2.0 - 1.0 + uAside;
-                vec3 d = uEye + (uForward + uRight * (ndc.x * uTan.x) + uUp * (ndc.y * uTan.y)) * ahead - uAt;
-                if (abs(dot(d, uNormal)) > uThick) {
+                vec3 d = (uForward + uRight * (ndc.x * uTan.x) + uUp * (ndc.y * uTan.y)) * ahead - vAt;
+                if (abs(dot(d, vNormal)) > uThick) {
                     discard;
                 }
-                vec3 across = cross(uNormal, uAlong);
-                vec2 q = vec2(dot(d, uAlong), dot(d, across)) / uRadius;
+                vec3 across = cross(vNormal, vAlong);
+                vec2 q = vec2(dot(d, vAlong), dot(d, across)) / vRadius;
                 float r = length(q);
                 if (r >= 1.0) {
                     discard;
                 }
                 float angle = atan(q.y, q.x);
-                float rough = 0.8 + 0.12 * sin(angle * 5.0 + uSeed) + 0.08 * sin(angle * 11.0 + uSeed * 2.3);
+                float rough = 0.8 + 0.12 * sin(angle * 5.0 + holeSeed()) + 0.08 * sin(angle * 11.0 + holeSeed() * 2.3);
                 float grit = 0.88 + 0.24 * rnd(floor(q * 9.0));
                 float m;
-                if (uKind < 0.5) {
+                if (vKind < 0.5) {
                     // Masonry: a dark hole, a crater of broken stuff round it, and a pale lip where the face broke away.
                     float rr = r / rough;
                     m = rr < 0.18 ? 0.05 : rr < 0.55 ? mix(0.4, 0.85, (rr - 0.18) / 0.37) * grit : rr < 0.85 ? 1.2 * grit : 1.0;
-                } else if (uKind < 1.5) {
+                } else if (vKind < 1.5) {
                     // Wood: a dark hole, and pale splinters lifted along the grain either side of it.
                     float lifted = 0.22 * (1.0 - abs(q.x)) * (0.5 + rnd(vec2(floor(q.x * 7.0), 3.0)));
                     m = r < 0.2 * rough ? 0.07 : abs(q.y) < lifted ? 1.35 : r < 0.38 ? 0.65 : 1.0;
-                } else if (uKind < 2.5) {
+                } else if (vKind < 2.5) {
                     // Metal: a clean dark hole, a ring of bright bare metal, and scorched paint round that.
                     m = r < 0.32 ? 0.08 : r < 0.55 ? 1.9 : r < 0.75 * rough ? 0.75 : 1.0;
                 } else {
@@ -353,6 +387,7 @@ final class ImpactDraw {
     private static final SmallProgram holeProgram = new SmallProgram("bullet holes", HOLE_VERTEX, HOLE_FRAGMENT);
 
     private static final int GL_TEXTURE_2D = 0x0DE1, GL_RGBA16F = 0x881A, GL_RGBA = 0x1908, GL_FLOAT = 0x1406;
+    private static final int GL_VERTEX_ARRAY = 0x8074, GL_NORMAL_ARRAY = 0x8075, GL_COLOR_ARRAY = 0x8076, GL_TEXTURE_COORD_ARRAY = 0x8078;
     private static final int GL_TEXTURE_MIN_FILTER = 0x2801, GL_TEXTURE_MAG_FILTER = 0x2800, GL_LINEAR = 0x2601, GL_TEXTURE0 = 0x84C0;
     private static final int GL_TEXTURE_WRAP_S = 0x2802, GL_TEXTURE_WRAP_T = 0x2803, GL_CLAMP_TO_EDGE = 0x812F;
     private static final int GL_READ_FRAMEBUFFER = 0x8CA8, GL_FRAMEBUFFER = 0x8D40, GL_COLOR_ATTACHMENT0 = 0x8CE0;
@@ -454,33 +489,63 @@ final class ImpactDraw {
         GL20.glUniform3f(holeProgram.at("uRight"), camera.rightX, camera.rightY, camera.rightUp);
         GL20.glUniform3f(holeProgram.at("uUp"), camera.upX, camera.upY, camera.upUp);
         GL20.glUniform3f(holeProgram.at("uForward"), camera.forwardX, camera.forwardY, camera.forwardUp);
-        float pixel = 2f * tanHalfFieldOfView / height;
-        for (int i = 0; i < Impacts.holeCount; i++) {
-            Impacts.Struck hole = Impacts.holes[i];
-            float toX = hole.x() - camera.eyeX, toY = hole.y() - camera.eyeY, toUp = hole.up() - camera.eyeUp;
-            float ahead = toX * camera.forwardX + toY * camera.forwardY + toUp * camera.forwardUp;
-            float radius = holeRadius(hole.kind()) * hole.size();
-            // Behind the eye, too far, too small to see, or seen from behind the face it is in.
-            if (ahead < -radius || toX * toX + toY * toY + toUp * toUp > HOLE_REACH * HOLE_REACH || radius < HOLE_PIXELS * pixel * Math.max(ahead, near)
-                    || toX * hole.normalX() + toY * hole.normalY() + toUp * hole.normalUp() >= 0f) {
-                continue;
-            }
-            GL20.glUniform3f(holeProgram.at("uAt"), hole.x(), hole.y(), hole.up());
-            GL20.glUniform3f(holeProgram.at("uNormal"), hole.normalX(), hole.normalY(), hole.normalUp());
-            GL20.glUniform3f(holeProgram.at("uAlong"), hole.grainX(), hole.grainY(), hole.grainUp());
-            GL20.glUniform1f(holeProgram.at("uRadius"), radius);
-            GL20.glUniform1f(holeProgram.at("uKind"), holeKind(hole.kind()));
-            GL20.glUniform1f(holeProgram.at("uSeed"), seed(hole));
-            GL11.glBegin(GL_TRIANGLE_STRIP);
-            GL11.glVertex2f(-1f, -1f);
-            GL11.glVertex2f(1f, -1f);
-            GL11.glVertex2f(-1f, 1f);
-            GL11.glVertex2f(1f, 1f);
-            GL11.glEnd();
+        GL20.glUniform1f(holeProgram.at("uReach"), HOLE_REACH);
+        GL20.glUniform1f(holeProgram.at("uSmallest"), HOLE_PIXELS * 2f * tanHalfFieldOfView / height);
+        if (holesMade != Impacts.holesChanged || holeCorners == 0) {
+            makeHoles();
         }
+        GL15.glBindBuffer(GL_ARRAY_BUFFER, holeCorners);
+        GL11.glDisableClientState(GL_COLOR_ARRAY);
+        GL11.glEnableClientState(GL_VERTEX_ARRAY);
+        GL11.glVertexPointer(4, GL_FLOAT, HOLE_STRIDE, 0L);
+        GL11.glEnableClientState(GL_NORMAL_ARRAY);
+        GL11.glNormalPointer(GL_FLOAT, HOLE_STRIDE, 4L * Float.BYTES);
+        GL13.glClientActiveTexture(GL_TEXTURE0 + 1);
+        GL11.glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+        GL11.glTexCoordPointer(3, GL_FLOAT, HOLE_STRIDE, 11L * Float.BYTES);
+        GL13.glClientActiveTexture(GL_TEXTURE0);
+        GL11.glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+        GL11.glTexCoordPointer(4, GL_FLOAT, HOLE_STRIDE, 7L * Float.BYTES);
+        GL15.glBindBuffer(GL_ARRAY_BUFFER, 0);
+        GL11.glDrawArrays(GL_TRIANGLES, 0, Impacts.holeCount * 6);
+        GL11.glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+        GL13.glClientActiveTexture(GL_TEXTURE0 + 1);
+        GL11.glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+        GL13.glClientActiveTexture(GL_TEXTURE0);
+        GL11.glDisableClientState(GL_NORMAL_ARRAY);
+        GL11.glDisableClientState(GL_VERTEX_ARRAY);
         GL11.glDisable(GL_BLEND);
         GL11.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         GL11.glDepthMask(true);
+    }
+
+    /** The corners of every hole, six to a hole, and the count of Impacts.holesChanged they were made at. Render thread. */
+    private static int holeCorners, holesMade;
+    private static final int HOLE_FLOATS = 14, HOLE_STRIDE = HOLE_FLOATS * Float.BYTES;
+    private static final FloatBuffer holeVertices = ByteBuffer.allocateDirect(Impacts.MOST_HOLES * 6 * HOLE_STRIDE).order(ByteOrder.nativeOrder()).asFloatBuffer();
+    private static final float[] HOLE_CORNERS = {-1f, -1f, 1f, -1f, -1f, 1f, -1f, 1f, 1f, -1f, 1f, 1f};
+
+    /** Gives the graphics card the corners of the holes Impacts holds now, which the hole program reads. */
+    private static void makeHoles() {
+        holeVertices.clear();
+        for (int i = 0; i < Impacts.holeCount; i++) {
+            Impacts.Struck hole = Impacts.holes[i];
+            float radius = holeRadius(hole.kind()) * hole.size();
+            for (int corner = 0; corner < HOLE_CORNERS.length; corner += 2) {
+                holeVertices.put(HOLE_CORNERS[corner]).put(HOLE_CORNERS[corner + 1]).put(holeKind(hole.kind())).put(seedHundredths(hole));
+                holeVertices.put(hole.normalX()).put(hole.normalY()).put(hole.normalUp());
+                holeVertices.put(hole.x()).put(hole.y()).put(hole.up()).put(radius);
+                holeVertices.put(hole.grainX()).put(hole.grainY()).put(hole.grainUp());
+            }
+        }
+        holeVertices.flip();
+        if (holeCorners == 0) {
+            holeCorners = GL15.glGenBuffers();
+        }
+        GL15.glBindBuffer(GL_ARRAY_BUFFER, holeCorners);
+        GL15.glBufferData(GL_ARRAY_BUFFER, holeVertices, GL_STATIC_DRAW);
+        GL15.glBindBuffer(GL_ARRAY_BUFFER, 0);
+        holesMade = Impacts.holesChanged;
     }
 
     /** How wide a hole's mark is in a kind of surface for a handgun's round, in tiles. */
@@ -505,8 +570,12 @@ final class ImpactDraw {
 
     /** A number of its own for each impact, 0 to 100, from where it struck. */
     private static float seed(Impacts.Struck struck) {
+        return seedHundredths(struck) / 100f;
+    }
+
+    private static int seedHundredths(Impacts.Struck struck) {
         int hash = Float.floatToIntBits(struck.x()) * 31 + Float.floatToIntBits(struck.y()) * 17 + Float.floatToIntBits(struck.up());
-        return (hash & 0x7fffffff) % 10000 / 100f;
+        return (hash & 0x7fffffff) % 10000;
     }
 
     /**
