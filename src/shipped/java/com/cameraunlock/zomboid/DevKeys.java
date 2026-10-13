@@ -10,5 +10,7 @@ final class DevKeys {
 
     private DevKeys() {}
 
-    static void poll() {}
+    static String poll() {
+        return null;
+    }
 }

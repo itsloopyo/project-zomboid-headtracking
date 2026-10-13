@@ -560,7 +560,11 @@ public final class FirstPerson {
             saidAt = System.nanoTime();
         }
         if (view.hasMouse()) {
-            DevKeys.poll();
+            String told = DevKeys.poll();
+            if (told != null) {
+                said = told;
+                saidAt = System.nanoTime();
+            }
         }
         if ((pressed & Config.CYCLE_QUALITY) != 0) {
             said = Quality.saidOfBoth();
