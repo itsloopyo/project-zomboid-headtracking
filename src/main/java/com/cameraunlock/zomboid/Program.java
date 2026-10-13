@@ -9,7 +9,7 @@ final class Program {
     private static final int GL_COMPILE_STATUS = 0x8B81, GL_LINK_STATUS = 0x8B82;
 
     final int id;
-    private final HashMap<String, Integer> uniforms = new HashMap<>();
+    private final HashMap<String, Uniform> uniforms = new HashMap<>();
 
     private Program(int id) {
         this.id = id;
@@ -63,17 +63,29 @@ final class Program {
         return shader;
     }
 
+    /**
+     * Where a uniform lives, for a caller that writes it with GL20 itself. What the program holds
+     * there is then not known here, and set always sends that uniform from then on.
+     */
     int at(String name) {
-        Integer location = uniforms.get(name);
-        if (location == null) {
-            location = GL20.glGetUniformLocation(id, name);
-            uniforms.put(name, location);
+        Uniform uniform = uniform(name);
+        uniform.raw = true;
+        uniform.held = null;
+        return uniform.location;
+    }
+
+    private Uniform uniform(String name) {
+        Uniform uniform = uniforms.get(name);
+        if (uniform == null) {
+            uniform = new Uniform(GL20.glGetUniformLocation(id, name));
+            uniforms.put(name, uniform);
         }
-        return location;
+        return uniform;
     }
 
     void use() {
         GL20.glUseProgram(id);
+        inUse = id;
     }
 
     private final HashMap<String, Integer> attributes = new HashMap<>();
@@ -92,46 +104,167 @@ final class Program {
     }
 
     void set(String name, int value) {
-        GL20.glUniform1i(at(name), value);
+        Uniform uniform = changed(name, 1, value, 0, 0, 0);
+        if (uniform != null) {
+            GL20.glUniform1i(uniform.location, value);
+        }
     }
 
     void set(String name, float x) {
-        GL20.glUniform1f(at(name), x);
+        Uniform uniform = changed(name, 1, bits(x), 0, 0, 0);
+        if (uniform != null) {
+            GL20.glUniform1f(uniform.location, x);
+        }
     }
 
     void set(String name, float x, float y) {
-        GL20.glUniform2f(at(name), x, y);
+        Uniform uniform = changed(name, 2, bits(x), bits(y), 0, 0);
+        if (uniform != null) {
+            GL20.glUniform2f(uniform.location, x, y);
+        }
     }
 
     void set(String name, float x, float y, float z) {
-        GL20.glUniform3f(at(name), x, y, z);
+        Uniform uniform = changed(name, 3, bits(x), bits(y), bits(z), 0);
+        if (uniform != null) {
+            GL20.glUniform3f(uniform.location, x, y, z);
+        }
     }
 
     void set(String name, float x, float y, float z, float w) {
-        GL20.glUniform4f(at(name), x, y, z, w);
+        Uniform uniform = changed(name, 4, bits(x), bits(y), bits(z), bits(w));
+        if (uniform != null) {
+            GL20.glUniform4f(uniform.location, x, y, z, w);
+        }
     }
 
     void set(String name, float[] matrix) {
-        GL20.glUniformMatrix4fv(at(name), false, matrix);
+        Uniform uniform = changed(name, matrix);
+        if (uniform != null) {
+            GL20.glUniformMatrix4fv(uniform.location, false, matrix);
+        }
     }
 
     /** A mat3, nine floats by columns. */
     void set3x3(String name, float[] matrix) {
-        GL20.glUniformMatrix3fv(at(name), false, matrix);
+        Uniform uniform = changed(name, matrix);
+        if (uniform != null) {
+            GL20.glUniformMatrix3fv(uniform.location, false, matrix);
+        }
     }
 
     /** Sets an array of floats, every element of it. */
     void setEach(String name, float[] values) {
-        GL20.glUniform1fv(at(name), values);
+        Uniform uniform = changed(name, values);
+        if (uniform != null) {
+            GL20.glUniform1fv(uniform.location, values);
+        }
     }
 
     /** A uniform array of vec4, four floats each. */
     void setEach4(String name, float[] values) {
-        GL20.glUniform4fv(at(name), values);
+        Uniform uniform = changed(name, values);
+        if (uniform != null) {
+            GL20.glUniform4fv(uniform.location, values);
+        }
     }
 
     /** A uniform array of vec3, three floats each. */
     void setEach3(String name, float[] values) {
-        GL20.glUniform3fv(at(name), values);
+        Uniform uniform = changed(name, values);
+        if (uniform != null) {
+            GL20.glUniform3fv(uniform.location, values);
+        }
+    }
+
+    /**
+     * The program that use made current last. Programs keep their uniforms while others are in
+     * use, so a value sent once stands until it is sent again, and set sends only what differs from
+     * it. That holds while every value is sent with its own program current: set to a program that
+     * is not would land in the one that is.
+     */
+    private static int inUse;
+
+    private static int bits(float x) {
+        return Float.floatToRawIntBits(x);
+    }
+
+    /** The uniform to send these values to, or null where the program has no such uniform or holds them already. */
+    private Uniform changed(String name, int count, int a, int b, int c, int d) {
+        Uniform uniform = sendable(name);
+        if (uniform == null) {
+            return null;
+        }
+        int[] held = uniform.held;
+        if (held != null && held.length == count && held[0] == a && (count < 2 || held[1] == b) && (count < 3 || held[2] == c)
+                && (count < 4 || held[3] == d)) {
+            return null;
+        }
+        if (!uniform.raw) {
+            if (held == null || held.length != count) {
+                held = new int[count];
+                uniform.held = held;
+            }
+            held[0] = a;
+            if (count > 1) {
+                held[1] = b;
+            }
+            if (count > 2) {
+                held[2] = c;
+            }
+            if (count > 3) {
+                held[3] = d;
+            }
+        }
+        return uniform;
+    }
+
+    private Uniform changed(String name, float[] values) {
+        Uniform uniform = sendable(name);
+        if (uniform == null) {
+            return null;
+        }
+        int[] held = uniform.held;
+        if (held != null && held.length == values.length) {
+            int i = 0;
+            while (i < values.length && held[i] == bits(values[i])) {
+                i++;
+            }
+            if (i == values.length) {
+                return null;
+            }
+        }
+        if (!uniform.raw) {
+            if (held == null || held.length != values.length) {
+                held = new int[values.length];
+                uniform.held = held;
+            }
+            for (int i = 0; i < values.length; i++) {
+                held[i] = bits(values[i]);
+            }
+        }
+        return uniform;
+    }
+
+    private Uniform sendable(String name) {
+        Uniform uniform = uniform(name);
+        if (uniform.location < 0) {
+            return null;
+        }
+        if (inUse != id) {
+            throw new IllegalStateException("a uniform " + name + " was set to a program that is not the one in use");
+        }
+        return uniform;
+    }
+
+    /** Where a uniform lives and the values it was last sent, as raw bits: null until it is sent, and always for one written outside this class. */
+    private static final class Uniform {
+        final int location;
+        boolean raw;
+        int[] held;
+
+        Uniform(int location) {
+            this.location = location;
+        }
     }
 }
