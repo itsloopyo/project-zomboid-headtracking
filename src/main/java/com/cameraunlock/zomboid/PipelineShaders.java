@@ -695,7 +695,8 @@ final class PipelineShaders {
             uniform float uRangeFrom;
             uniform float uCutAbove;
             uniform vec3 uLight;
-            uniform vec3 uLightColor;
+            // The sun's colour and the light the game gives the open air, made linear on the CPU.
+            uniform vec3 uLightLinear;
             uniform float uSeconds;
             // For the glass of a set that is on: where across and down its picture the middle of the glass
             // is and how much of the picture the glass shows, and 1 for a tube with no colour, 2 for snow.
@@ -909,7 +910,7 @@ final class PipelineShaders {
             uniform float uRaining;
             uniform float uDark;
             uniform vec4 uLantern;
-            uniform vec3 uOpenLight;
+            uniform vec3 uOpenLinear;
             uniform float uDaylightKept;
             uniform float uRoomKept;
             // How far the eye is out of doors, 0 to 1. The sky's haze is the open air's: none of it
@@ -3245,7 +3246,7 @@ final class PipelineShaders {
                     // came from it: it falls from the hand, on the side that faces it, less
                     // with distance. A torch that throws a beam is not this: see torchAt.
                     float within = 1.0 - smoothstep(uLantern.w, uLantern.w + 3.0, length(vWorld.xy - uLantern.xy));
-                    vec3 over = open > 0.5 ? max(given - pow(uOpenLight, vec3(2.2)), 0.0) * within : vec3(0.0);
+                    vec3 over = open > 0.5 ? max(given - uOpenLinear, 0.0) * within : vec3(0.0);
                     // In the evening and before dawn the game still has every square at full
                     // daylight, in the light and out of it, and the picture has taken that
                     // daylight down (see Evening): nothing is left over for the lantern to be
@@ -3263,8 +3264,8 @@ final class PipelineShaders {
                 // already down: see Evening. A square's light up to the open ground's is that
                 // daylight, and what it has over it came from a lamp.
                 // A room has less of it: see Evening.ROOM_DAYLIGHT.
-                given -= min(given, pow(uOpenLight, vec3(2.2))) * (1.0 - mix(uRoomKept, uDaylightKept, clamp(open, 0.0, 1.0)));
-                vec3 lightHere = given * fromSky + held + pow(uLightColor, vec3(2.2)) * (2.1 * sun);
+                given -= min(given, uOpenLinear) * (1.0 - mix(uRoomKept, uDaylightKept, clamp(open, 0.0, 1.0)));
+                vec3 lightHere = given * fromSky + held + uLightLinear * (2.1 * sun);
                 // Lightning lights all the sky, and what is under the open sky by it.
                 lightHere += uFlashSky * (open * skyOver * (0.6 + 0.4 * max(n.z, 0.0)));
                 // The ground in the sun throws its light back up at whatever stands on it. A
@@ -3277,7 +3278,7 @@ final class PipelineShaders {
                 if (sided > 0.5) {
                     groundLit = 0.5 * (sunOnAir(vWorld + vec3(face.xy, 0.0) * 1.0) + sunOnAir(vWorld + vec3(face.xy, 0.0) * 2.5));
                 }
-                lightHere += pow(uLightColor, vec3(2.2)) * vec3(0.9, 0.86, 0.74) * (0.3 * max(uLight.z, 0.0) * (1.0 - abs(n.z)) * open * groundLit);
+                lightHere += uLightLinear * vec3(0.9, 0.86, 0.74) * (0.3 * max(uLight.z, 0.0) * (1.0 - abs(n.z)) * open * groundLit);
                 vec3 color = pow(texel.rgb, vec3(2.2)) * lightHere;
                 if (card) {
                     // A leaf lets the sun through. Looked at against the light, foliage and
@@ -3290,12 +3291,12 @@ final class PipelineShaders {
                     // a little more, as all foliage does, straight towards the eye.
                     float through = grass ? 0.55 + 0.9 * bladeUp : crown ? LEAF_GLOW_AGAINST * leafThrough : core ? 0.2 : 1.0;
                     // Snow on a leaf lets none of it through.
-                    color += leaf * pow(uLightColor, vec3(2.2)) * ((2.8 * through * against + LEAF_GLOW * leafBehind) * reached * step(0.0, uLight.z) * (1.0 - snowed));
+                    color += leaf * uLightLinear * ((2.8 * through * against + LEAF_GLOW * leafBehind) * reached * step(0.0, uLight.z) * (1.0 - snowed));
                     if (crown && reached > 0.0) {
                         // The upper skin of a leaf is waxed, and throws the sun off as a
                         // white glint where the leaf is turned just so. Far off, where a
                         // leaf is under a pixel, the glints would only crawl.
-                        color += pow(uLightColor, vec3(2.2)) * (2.1 * reached * step(0.0, uLight.z) * (1.0 - smoothstep(16.0, 34.0, range)) * (1.0 - snowed)
+                        color += uLightLinear * (2.1 * reached * step(0.0, uLight.z) * (1.0 - smoothstep(16.0, 34.0, range)) * (1.0 - snowed)
                                 * glossed(leafFace, view, uLight, LEAF_ROUGH, 0.05));
                     }
                     if (grass && reached > 0.0) {
@@ -3314,7 +3315,7 @@ final class PipelineShaders {
                             vec3 breadth = normalize(cross(flatOf, vec3(0.0, 0.0, 1.0)) + vec3(1e-5, 0.0, 0.0));
                             facet = normalize(flatOf + breadth * (vBlade.x * 0.45));
                         }
-                        color += pow(uLightColor, vec3(2.2)) * (2.1 * reached * (strip ? stripGloss : 1.0) * (0.25 + 0.75 * bladeUp) * (1.0 - snowed) * glossed(facet, view, uLight, 0.42, 0.04));
+                        color += uLightLinear * (2.1 * reached * (strip ? stripGloss : 1.0) * (0.25 + 0.75 * bladeUp) * (1.0 - snowed) * glossed(facet, view, uLight, 0.42, 0.04));
                     }
                     // Deep in the plant the leaves stand in each other's light: darker towards
                     // the foot of a card than at its top.
@@ -3394,10 +3395,10 @@ final class PipelineShaders {
                     // Snow is pale and nearly as dull as anything is: taken for pale paint, a field of it had a sheen.
                     rough = mix(rough, 0.82, snowed);
                     rough = mix(rough, 0.18, shine);
-                    color += pow(uLightColor, vec3(2.2)) * (2.1 * reached * glossed(n, view, uLight, rough, mirrors));
+                    color += uLightLinear * (2.1 * reached * glossed(n, view, uLight, rough, mirrors));
                     if (snowed > 0.0 && uLight.z > 0.0 && uOwnTextures > 0.5) {
                         // And it glitters: see snowGlints.
-                        color += pow(uLightColor, vec3(2.2)) * (SNOW_GLINT * snowed * reached * snowGlints(vPlace.xy, n, view, uLight, sqrt(length(dFdx(vPlace.xy)) * length(dFdy(vPlace.xy)))));
+                        color += uLightLinear * (SNOW_GLINT * snowed * reached * snowGlints(vPlace.xy, n, view, uLight, sqrt(length(dFdx(vPlace.xy)) * length(dFdy(vPlace.xy)))));
                     }
                 }
                 color += pow(texel.rgb, vec3(2.2)) * beams(vWorld, n, card ? 1.0 : 0.0);
@@ -3405,7 +3406,7 @@ final class PipelineShaders {
                 // A fire with a shadow map lights what it can see from where it burns (FireShadows). One
                 // without lights only where the game has the square lit over the open ground's light, as
                 // it has round a fire: the game's light stops at walls, and an unshadowed light does not.
-                vec3 lampLit = max(pow(max(vColor.rgb, vec3(0.0)), vec3(2.2)) - pow(uOpenLight, vec3(2.2)), 0.0);
+                vec3 lampLit = max(pow(max(vColor.rgb, vec3(0.0)), vec3(2.2)) - uOpenLinear, 0.0);
                 color += pow(texel.rgb, vec3(2.2)) * fireWorldLight(vWorld, n, clamp(dot(lampLit, vec3(0.3, 0.5, 0.2)) * 12.0, 0.0, 1.0));
                 // A lamp that is lit is brighter than anything it lights. The game lights the
                 // square a burning lamp stands on strongly, and in the dark that is how a lamp
@@ -3442,7 +3443,7 @@ final class PipelineShaders {
                 if (grit > 0.0 && sun > 0.0) {
                     // Grit glints: each stone has a face or two that throws the sun at the eye.
                     vec3 back = reflect(-view, n);
-                    color += pow(uLightColor, vec3(2.2)) * (pow(max(dot(back, uLight), 0.0), 24.0) * 0.5 * grit * sun);
+                    color += uLightLinear * (pow(max(dot(back, uLight), 0.0), 24.0) * 0.5 * grit * sun);
                 }
                 if (shine > 0.0) {
                     // The surface of water is many trains of ripples of every size crossing one
@@ -3491,7 +3492,7 @@ final class PipelineShaders {
                         shows = ridges(mirrored, atmosphere(mirrored));
                     }
                     color = mix(color, shows * (0.35 + 0.65 * open), glance * shine);
-                    color += pow(uLightColor, vec3(2.2)) * (2.1 * shine * reached * glossed(surface, view, uLight, water ? 0.09 : 0.2, 0.02));
+                    color += uLightLinear * (2.1 * shine * reached * glossed(surface, view, uLight, water ? 0.09 : 0.2, 0.02));
                     // Headlights on a wet road are a long streak of glare towards the eye.
                     for (int i = 0; i < 2; i++) {
                         if (uBeamAt[i].w > 0.0) {
@@ -3512,7 +3513,7 @@ final class PipelineShaders {
                     // each carries the more for being one of few.
                     // Dust is grey whatever lights it: under an open sky its share of the pane came out blue.
                     color = vec3(dot(color, vec3(0.299, 0.587, 0.114))) * step(0.0001, soiled) + (surroundings(reflect(-view, pane), vPlace) * thrown
-                            + pow(uLightColor, vec3(2.2)) * (2.1 * reached * glossed(pane, view, uLight, 0.07, 0.08))) / veil;
+                            + uLightLinear * (2.1 * reached * glossed(pane, view, uLight, 0.07, 0.08))) / veil;
                     // A lamp burning behind a window lights the dust on the glass, warm and
                     // faint. The room is what shows lit, through the pane: laid over all of
                     // it, the lamp's light was a bright sheet that hid a room far dimmer.

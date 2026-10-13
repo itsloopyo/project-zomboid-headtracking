@@ -3068,12 +3068,12 @@ final class Pipeline {
         // A carried light that throws a beam is the torch of setBeams: what is said here is one that throws none.
         to.set("uLantern", carried[CarriedLight.HELD], carried[CarriedLight.HELD + 1], carried[CarriedLight.HELD + 2],
                 carried[CarriedLight.CONE] > 0f ? 0f : carried[CarriedLight.REACH]);
-        to.set("uOpenLight", state.openRed, state.openGreen, state.openBlue);
+        to.set("uOpenLinear", (float) Math.pow(state.openRed, 2.2), (float) Math.pow(state.openGreen, 2.2), (float) Math.pow(state.openBlue, 2.2));
         to.set("uDaylightKept", (float) Math.pow(state.daylightKept, 2.2));
         to.set("uRoomKept", (float) Math.pow(state.daylightKept * state.roomKept, 2.2));
         to.set("uEyeOutdoors", state.outdoors);
         setFlash(to);
-        to.set("uLightColor", state.lightRed, state.lightGreen, state.lightBlue);
+        to.set("uLightLinear", (float) Math.pow(state.lightRed, 2.2), (float) Math.pow(state.lightGreen, 2.2), (float) Math.pow(state.lightBlue, 2.2));
         to.set("uFogStart", fogStart);
         to.set("uFogEnd", fogEnd);
         to.set("uLoaded", loadedX - camera.eyeX, loadedY - camera.eyeY, loadedWithin);
