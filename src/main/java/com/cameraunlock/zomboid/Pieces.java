@@ -50,8 +50,11 @@ final class Pieces {
     /** How fast a piece leaves, in metres a second: away from the shot, and up; and how fast it spins, in turns a second, least and most. */
     static final float AWAY = 2.5f, UP = 2.5f, HEAD_UP = 3.5f, SPIN_LEAST = 1.2f, SPIN_MOST = 2.4f;
     static final float GRAVITY = 9.8f;
-    /** A piece's length from the joint it was cut at, as many times the bone from that joint to the next; and its radius, in units. */
-    static final float LOWER_LENGTH = 1.7f, UPPER_LENGTH = 2.7f, HEAD_LENGTH = 0.14f, ARM_RADIUS = 0.03f, LEG_RADIUS = 0.045f, HEAD_RADIUS = 0.055f;
+    /**
+     * A piece's length from the joint it was cut at, as many times the bone from that joint to the
+     * next (for a hand, the wrist to the knuckles; for a foot, the ankle to the ball of the foot); and its radius, in units.
+     */
+    static final float END_LENGTH_HAND = 2f, END_LENGTH_FOOT = 1.5f, LOWER_LENGTH = 1.7f, UPPER_LENGTH = 2.7f, HEAD_LENGTH = 0.14f, ARM_RADIUS = 0.03f, LEG_RADIUS = 0.045f, HEAD_RADIUS = 0.055f;
     /**
      * A burst head's shards: how many, how fast they leave, in metres a second, and how much of
      * the head each is along each of the model's axes, least and most. Pressed that flat a
@@ -300,7 +303,8 @@ final class Pieces {
         // The head runs up from the neck; a limb runs on from its joint.
         float along = head ? -1f : 1f;
         boolean shard = piece.squash != null;
-        float length = shard ? SHARD_LENGTH : head ? HEAD_LENGTH : piece.bone * (piece.cut == Wounds.UPPER ? UPPER_LENGTH : LOWER_LENGTH);
+        float length = shard ? SHARD_LENGTH : head ? HEAD_LENGTH
+                : piece.bone * (piece.cut == Wounds.UPPER ? UPPER_LENGTH : piece.cut == Wounds.LOWER ? LOWER_LENGTH : leg ? END_LENGTH_FOOT : END_LENGTH_HAND);
         float radius = shard ? SHARD_RADIUS : head ? HEAD_RADIUS : leg ? LEG_RADIUS : ARM_RADIUS;
         piece.motion = new PieceMotion(piece.px, piece.py, piece.pz, piece.ax * along, piece.ay * along, piece.az * along, length, radius, GRAVITY / METRES_PER_UNIT);
         piece.pictureHalf = length / 2f + radius + PICTURE_PAST;

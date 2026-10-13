@@ -26,8 +26,8 @@ final class HitPart {
     /** No part: the aim passes none of them, and the game decides as it would. */
     static final int NONE = Capsules.NONE;
 
-    /** How far the head reaches past its bone, and the radius of each part, in tiles. */
-    static final float HEAD_LENGTH = 0.22f;
+    /** How far the head reaches past its bone, a hand past the wrist and a foot past the ankle, in tiles. */
+    static final float HEAD_LENGTH = 0.22f, HAND_LENGTH = 0.15f, FOOT_LENGTH = 0.18f;
     /**
      * How far from a part the aim may pass and still be on it. The to-hit roll is the game's: when
      * it has the character as its target, an aim that only just misses an arm or the head was
@@ -37,8 +37,15 @@ final class HitPart {
     /** Head and pelvis bones nearer than this, in tiles, are a skeleton not posed yet: posed, lying or standing, they are about 0.43 apart. */
     private static final float UNPOSED = 0.1f;
 
-    /** A part: the bone it starts at, the bone it runs to, its radius in tiles, and the game's name for it. */
-    private record Part(String from, String to, float radius, RagdollBodyPart game) {}
+    /**
+     * A part: the bone it starts at, the bone it runs to, its radius in tiles, the game's name for
+     * it, and whether it is a hand or a foot, which the game counts with the forearm or the calf.
+     */
+    private record Part(String from, String to, float radius, RagdollBodyPart game, boolean end) {
+        Part(String from, String to, float radius, RagdollBodyPart game) {
+            this(from, to, radius, game, false);
+        }
+    }
 
     private static final int HEAD = 0, BODY = 1;
     private static final String CHEST = "Bip01_Spine1";
@@ -54,7 +61,12 @@ final class HitPart {
             new Part("Bip01_L_Calf", "Bip01_L_Foot", 0.06f, RagdollBodyPart.BODYPART_LEFT_LOWER_LEG),
             new Part("Bip01_R_Thigh", "Bip01_R_Calf", 0.08f, RagdollBodyPart.BODYPART_RIGHT_UPPER_LEG),
             new Part("Bip01_R_Calf", "Bip01_R_Foot", 0.06f, RagdollBodyPart.BODYPART_RIGHT_LOWER_LEG),
+            new Part("Bip01_L_Hand", "Bip01_L_Finger1", 0.04f, RagdollBodyPart.BODYPART_LEFT_LOWER_ARM, true),
+            new Part("Bip01_R_Hand", "Bip01_R_Finger1", 0.04f, RagdollBodyPart.BODYPART_RIGHT_LOWER_ARM, true),
+            new Part("Bip01_L_Foot", "Bip01_L_Toe0", 0.045f, RagdollBodyPart.BODYPART_LEFT_LOWER_LEG, true),
+            new Part("Bip01_R_Foot", "Bip01_R_Toe0", 0.045f, RagdollBodyPart.BODYPART_RIGHT_LOWER_LEG, true),
     };
+    private static final int LEFT_HAND = 10, RIGHT_FOOT = 13;
     static final int COUNT = PARTS.length;
 
     private final float[] ends = new float[COUNT * 6];
@@ -62,6 +74,8 @@ final class HitPart {
     private final float[] chest = new float[3];
     private final float[] along = new float[1];
     private final Vector3 bone = new Vector3();
+    /** After {@link #part} has found one: whether it is a hand or a foot. */
+    boolean end;
     /** After {@link #part} has found one: the point on the part's own bone level with where the aim is on it, in the picture's units. */
     float boneX, boneY, boneUp;
     /**
@@ -104,6 +118,17 @@ final class HitPart {
         ends[head + 3] = ends[head] + alongX / length * HEAD_LENGTH;
         ends[head + 4] = ends[head + 1] + alongY / length * HEAD_LENGTH;
         ends[head + 5] = ends[head + 2] + alongUp / length * HEAD_LENGTH;
+        // A hand runs on from the wrist past the knuckles to the fingertips, and a foot from the ankle past the ball of the foot to the toes.
+        for (int end = LEFT_HAND * 6; end <= RIGHT_FOOT * 6; end += 6) {
+            float reach = end < (LEFT_HAND + 2) * 6 ? HAND_LENGTH : FOOT_LENGTH;
+            float wayX = ends[end + 3] - ends[end], wayY = ends[end + 4] - ends[end + 1], wayUp = ends[end + 5] - ends[end + 2];
+            float way = (float) Math.sqrt(wayX * wayX + wayY * wayY + wayUp * wayUp);
+            if (way > 1e-5f) {
+                ends[end + 3] = ends[end] + wayX / way * reach;
+                ends[end + 4] = ends[end + 1] + wayY / way * reach;
+                ends[end + 5] = ends[end + 2] + wayUp / way * reach;
+            }
+        }
         // The body's rounded top ends at the neck bone.
         float upX = ends[body + 3] - ends[body], upY = ends[body + 4] - ends[body + 1], upUp = ends[body + 5] - ends[body + 2];
         float tall = (float) Math.sqrt(upX * upX + upY * upY + upUp * upUp);
@@ -115,6 +140,7 @@ final class HitPart {
         if (found == NONE) {
             return NONE;
         }
+        end = PARTS[found].end;
         int at = found * 6;
         boneX = ends[at] + (ends[at + 3] - ends[at]) * along[0];
         boneY = ends[at + 1] + (ends[at + 4] - ends[at + 1]) * along[0];

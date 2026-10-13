@@ -36,12 +36,15 @@ final class Stumps {
     /** How much of its width a burst head keeps across: a ragged knot on top of the neck, not a disc as wide as the head. */
     static final float HEAD_ACROSS = 0.35f;
 
-    /** For each of {@link Wounds}' limbs: the bone cut at the lower joint and the next one down, then at the upper. */
+    /**
+     * For each of {@link Wounds}' limbs: the bone cut at the wrist or ankle and one further along
+     * the hand or foot, then the same at the elbow or knee, then at the shoulder or hip.
+     */
     private static final String[][] JOINTS = {
-            {"Bip01_L_Forearm", "Bip01_L_Hand", "Bip01_L_UpperArm", "Bip01_L_Forearm"},
-            {"Bip01_R_Forearm", "Bip01_R_Hand", "Bip01_R_UpperArm", "Bip01_R_Forearm"},
-            {"Bip01_L_Calf", "Bip01_L_Foot", "Bip01_L_Thigh", "Bip01_L_Calf"},
-            {"Bip01_R_Calf", "Bip01_R_Foot", "Bip01_R_Thigh", "Bip01_R_Calf"},
+            {"Bip01_L_Hand", "Bip01_L_Finger1", "Bip01_L_Forearm", "Bip01_L_Hand", "Bip01_L_UpperArm", "Bip01_L_Forearm"},
+            {"Bip01_R_Hand", "Bip01_R_Finger1", "Bip01_R_Forearm", "Bip01_R_Hand", "Bip01_R_UpperArm", "Bip01_R_Forearm"},
+            {"Bip01_L_Foot", "Bip01_L_Toe0", "Bip01_L_Calf", "Bip01_L_Foot", "Bip01_L_Thigh", "Bip01_L_Calf"},
+            {"Bip01_R_Foot", "Bip01_R_Toe0", "Bip01_R_Calf", "Bip01_R_Foot", "Bip01_R_Thigh", "Bip01_R_Calf"},
     };
     /** The head is pressed into its own joint, along the line up the neck to it. */
     private static final String HEAD = "Bip01_Head", NECK = "Bip01_Neck";
@@ -61,13 +64,14 @@ final class Stumps {
     private static final Set<String> said = ConcurrentHashMap.newKeySet();
 
     /**
-     * Bloodies a limb from the joint above its cut down, skin and clothes, as the game bloodies a
-     * wound: the stump and the flat end the limb is pressed into are then red.
+     * Bloodies a limb from the part its stump is on down, skin and clothes, as the game bloodies
+     * a wound: the stump and the flat end the limb is pressed into are then red. A hand or a foot
+     * leaves its stump on the forearm or calf; any other cut, the whole limb.
      */
-    static void bloody(IsoZombie zombie, int limb) {
-        for (BloodBodyPartType part : PARTS[limb]) {
+    static void bloody(IsoZombie zombie, int limb, int cut) {
+        for (int at = cut == Wounds.END ? 1 : 0; at < PARTS[limb].length; at++) {
             for (int i = 0; i < BLOODIED; i++) {
-                zombie.addBlood(part, false, false, true);
+                zombie.addBlood(PARTS[limb][at], false, false, true);
             }
         }
     }
@@ -114,7 +118,7 @@ final class Stumps {
                 continue;
             }
             boolean head = limb == Wounds.HEAD;
-            int at = cut == Wounds.UPPER ? 2 : 0;
+            int at = (cut - 1) * 2;
             String named = head ? HEAD : JOINTS[limb][at], towards = head ? NECK : JOINTS[limb][at + 1];
             SkinningBone bone = bone(skeleton, named), next = bone(skeleton, towards);
             Matrix4f joint = animation.getModelTransformAt(bone.index), below = animation.getModelTransformAt(next.index);
@@ -161,7 +165,7 @@ final class Stumps {
 
     /** The bone a part is cut at: {@link Wounds#LOWER} or {@link Wounds#UPPER} for a limb, the head's own for the head. */
     static String boneOf(int part, int cut) {
-        return part == Wounds.HEAD ? HEAD : JOINTS[part][cut == Wounds.UPPER ? 2 : 0];
+        return part == Wounds.HEAD ? HEAD : JOINTS[part][(cut - 1) * 2];
     }
 
     private static void name(SkinningBone bone, SkinningData skeleton, StringBuilder into) {

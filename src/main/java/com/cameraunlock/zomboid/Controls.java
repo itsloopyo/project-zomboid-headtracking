@@ -331,6 +331,11 @@ public final class Controls {
         return part;
     }
 
+    /** Whether the part {@link #aimedPart} last found is a hand or a foot, which the game counts with the forearm or the calf. */
+    boolean aimedEnd() {
+        return hitPart.end;
+    }
+
     /**
      * Called with the binding the game holds under a name. The escape menu's
      * key page is read and saved through the same lookup, so while that menu

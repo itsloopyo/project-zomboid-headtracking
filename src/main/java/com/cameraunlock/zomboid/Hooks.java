@@ -268,13 +268,17 @@ public final class Hooks {
         return view == null ? stock : view.controls.aimPointY(stock);
     }
 
-    /** The part {@link #shotAt} found the hit being worked out is on, or none. */
+    /** The part {@link #shotAt} found the hit being worked out is on, or none, and whether it is a hand or a foot of that part. */
     private static int aimedPart = HitPart.NONE;
+    private static boolean aimedEnd;
+    /** How many times a player here has fired: each of a blast's pellets is of the same one. */
+    private static int fired;
 
     /** Called as the game starts working out where a shot one character dealt another lands. */
     public static void shotAt(IsoGameCharacter wielder, IsoGameCharacter target) {
         View view = wielder instanceof IsoPlayer player ? View.of(player) : null;
         aimedPart = view == null ? HitPart.NONE : view.controls.aimedPart(target);
+        aimedEnd = aimedPart != HitPart.NONE && view.controls.aimedEnd();
     }
 
     /** Called where the game asks whether its overhead ray found the target, which decides whether it takes a part from that ray. */
@@ -311,19 +315,22 @@ public final class Hooks {
         float whole = damage / CombatManager.getInstance().getCombatConfig().get(CombatConfigKey.LEG_HIT_DAMAGE_SPLIT_MODIFIER);
         boolean upper = aimedPart == RagdollBodyPart.BODYPART_LEFT_UPPER_ARM.ordinal() || aimedPart == RagdollBodyPart.BODYPART_RIGHT_UPPER_ARM.ordinal()
                 || aimedPart == RagdollBodyPart.BODYPART_LEFT_UPPER_LEG.ordinal() || aimedPart == RagdollBodyPart.BODYPART_RIGHT_UPPER_LEG.ordinal();
-        int stage = wounds.shot(zombie, limb, whole, zombie.getHealth(), zombie.getHealth() + damage, upper);
+        int at = upper ? Wounds.UPPER : aimedEnd ? Wounds.END : Wounds.LOWER;
+        int stage = wounds.shot(zombie, limb, whole, zombie.getHealth(), zombie.getHealth() + damage, at, fired, chance.nextFloat());
         if (stage == Wounds.SOUND) {
             return;
         }
         String said;
         boolean leg = limb == Wounds.LEFT_LEG || limb == Wounds.RIGHT_LEG;
-        String cut = stage == Wounds.SEVERED ? (wounds.cut(zombie, limb) == Wounds.UPPER ? "cut off at the " + (leg ? "hip" : "shoulder") : "cut off at the " + (leg ? "knee" : "elbow")) + ", " : "";
+        int where = wounds.cut(zombie, limb);
+        String joint = where == Wounds.UPPER ? leg ? "hip" : "shoulder" : where == Wounds.LOWER ? leg ? "knee" : "elbow" : leg ? "ankle" : "wrist";
+        String cut = stage == Wounds.SEVERED ? "cut off at the " + joint + ", " : "";
         if (stage == Wounds.SEVERED) {
             Bleeding.spray(zombie);
             Bleeding.mist(zombie, zombie.isOnFloor() ? 0.2f : leg ? 0.45f : 1f, 2, 1.5f);
-            Stumps.bloody(zombie, limb);
+            Stumps.bloody(zombie, limb, where);
             IsoPlayer shooter = IsoPlayer.getInstance();
-            Pieces.cut(zombie, limb, wounds.cut(zombie, limb), shooter.getX(), shooter.getY());
+            Pieces.cut(zombie, limb, where, shooter.getX(), shooter.getY());
         }
         if (zombie.isDead() || zombie.isCrawling()) {
             said = cut + (zombie.isDead() ? "as it dies" : "as it crawls");
@@ -359,7 +366,7 @@ public final class Hooks {
     }
 
     /** The key a body's mod data keeps where its limbs are cut under, as {@link Wounds#cuts} makes it: saved with the body. */
-    static final String BODY_CUTS = "cameraunlockCuts";
+    static final String BODY_CUTS = "cameraunlockLimbCuts";
 
     /** Called as a body is made of a character that has died, once it is made. */
     public static void bodyMade(IsoDeadBody body, IsoGameCharacter died) {
@@ -441,7 +448,7 @@ public final class Hooks {
         if (roll < POPS) {
             wounds.burst(zombie);
             Bleeding.spray(zombie, Bleeding.SPRAY, Bleeding.SPRAY_REACH);
-            Stumps.bloody(zombie, Wounds.HEAD);
+            Stumps.bloody(zombie, Wounds.HEAD, Wounds.UPPER);
             IsoPlayer shooter = IsoPlayer.getInstance();
             Pieces.cut(zombie, Wounds.HEAD, Wounds.UPPER, shooter.getX(), shooter.getY());
             Bleeding.mist(zombie, zombie.isOnFloor() ? 0.3f : 1.15f, 3, 1.5f);
@@ -452,7 +459,7 @@ public final class Hooks {
             IsoPlayer shooter = IsoPlayer.getInstance();
             Pieces.burst(zombie, shooter.getX(), shooter.getY());
             Bleeding.spray(zombie, Bleeding.SPRAY * 3, Bleeding.SPRAY_REACH * 1.8f);
-            Stumps.bloody(zombie, Wounds.HEAD);
+            Stumps.bloody(zombie, Wounds.HEAD, Wounds.UPPER);
             said = "its head bursts";
         } else {
             said = "its head holds";
@@ -677,6 +684,7 @@ public final class Hooks {
         effects.startMuzzleFlash(shooter, light);
         View view = shooter instanceof IsoPlayer player ? View.of(player) : null;
         if (view != null) {
+            fired++;
             if (lamps.size() > before) {
                 view.torchLess.shot(lamps.peek());
             }
