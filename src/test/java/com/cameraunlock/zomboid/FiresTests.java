@@ -33,6 +33,7 @@ final class FiresTests {
             Checks.run("aHearthWithNoModelBurnsAsItsSpriteShows", FiresTests::aHearthWithNoModelBurnsAsItsSpriteShows);
             Checks.run("theShaderLooksAFireShadowUpInTheFaceItWasDrawnIn", FiresTests::theShaderLooksAFireShadowUpInTheFaceItWasDrawnIn);
             Checks.run("aFireKeepsItsShadowSlot", FiresTests::aFireKeepsItsShadowSlot);
+            Checks.run("aFiresShadowIsDrawnAgainWhenABuildInItsReachIs", FiresTests::aFiresShadowIsDrawnAgainWhenABuildInItsReachIs);
             Checks.run("theEyeStopsDownForFlamesAtNight", FiresTests::theEyeStopsDownForFlamesAtNight);
         } finally {
             Own.set(rows);
@@ -340,6 +341,9 @@ final class FiresTests {
     }
 
     private static final boolean[] FLAMING = {true, true, true, true, true, true, true, true};
+    private static final java.util.ArrayList<WorldScene.ChunkMeshes> NONE_BUILT = new java.util.ArrayList<>();
+    /** A frame at 60 a second, in nanoseconds. */
+    private static final long FRAME = 16_666_667L;
 
     private static void aFireKeepsItsShadowSlot() {
         FireShadows shadows = new FireShadows();
@@ -347,7 +351,7 @@ final class FiresTests {
         // Two fires, the second the stronger.
         lights[0] = 1f; lights[1] = 2f; lights[2] = 0.5f; lights[3] = 1f; reach[0] = 8f; weight[0] = 1f;
         lights[4] = 5f; lights[5] = 6f; lights[6] = 0.5f; lights[7] = 1f; reach[1] = 12f; weight[1] = 2f;
-        shadows.assign(lights, reach, weight, FLAMING, 1, 2, 256);
+        shadows.assign(lights, reach, weight, FLAMING, NONE_BUILT, 1, FRAME, 2, 256);
         check(shadows.toDraw == 2 && shadows.slotOf[0] >= 0f && shadows.slotOf[1] >= 0f && shadows.slotOf[0] != shadows.slotOf[1],
                 "two new fires get a slot each, drawn at once");
         float first = shadows.slotOf[0], second = shadows.slotOf[1];
@@ -357,32 +361,70 @@ final class FiresTests {
         System.arraycopy(lights, 4, swapped, 0, 4);
         System.arraycopy(lights, 0, swapped, 4, 4);
         swappedReach[0] = 12f; swappedReach[1] = 8f; swappedWeight[0] = 2f; swappedWeight[1] = 1.5f;
-        shadows.assign(swapped, swappedReach, swappedWeight, FLAMING, 2, 2, 256);
+        shadows.assign(swapped, swappedReach, swappedWeight, FLAMING, NONE_BUILT, 2, 2 * FRAME, 2, 256);
         check(shadows.slotOf[0] == second && shadows.slotOf[1] == first && shadows.toDraw == 0, "each keeps its slot and nothing is drawn again: " + shadows.toDraw);
-        shadows.assign(swapped, swappedReach, swappedWeight, FLAMING, 2 + FireShadows.STALE_AFTER, 2, 256);
+        shadows.assign(swapped, swappedReach, swappedWeight, FLAMING, NONE_BUILT, 3, 2 * FRAME + FireShadows.STALE_NANOS, 2, 256);
         check(shadows.toDraw >= 1, "a slot left long enough is drawn again");
         // With one slot, only the stronger fire has a shadow.
         FireShadows one = new FireShadows();
-        one.assign(lights, reach, weight, FLAMING, 1, 1, 256);
+        one.assign(lights, reach, weight, FLAMING, NONE_BUILT, 1, FRAME, 1, 256);
         check(one.slotOf[1] == 0f && one.slotOf[0] == -1f, "with one slot the strongest fire has it, and the other none");
-        one.assign(lights, reach, weight, FLAMING, 2, 0, 256);
+        one.assign(lights, reach, weight, FLAMING, NONE_BUILT, 2, 2 * FRAME, 0, 256);
         check(one.slotOf[0] == -1f && one.slotOf[1] == -1f && one.toDraw == 0, "with none, no fire throws a shadow");
         // One slot, held by the stronger fire: the other must outweigh it by HELD to take it.
         FireShadows hold = new FireShadows();
-        hold.assign(lights, reach, weight, FLAMING, 1, 1, 256);
+        hold.assign(lights, reach, weight, FLAMING, NONE_BUILT, 1, FRAME, 1, 256);
         float[] closer = weight.clone();
         closer[0] = 2.5f;
-        hold.assign(lights, reach, closer, FLAMING, 2, 1, 256);
+        hold.assign(lights, reach, closer, FLAMING, NONE_BUILT, 2, 2 * FRAME, 1, 256);
         check(hold.slotOf[1] == 0f && hold.slotOf[0] == -1f, "a fire a little stronger than the one holding the slot does not take it");
         closer[0] = 3.5f;
-        hold.assign(lights, reach, closer, FLAMING, 3, 1, 256);
+        hold.assign(lights, reach, closer, FLAMING, NONE_BUILT, 3, 3 * FRAME, 1, 256);
         check(hold.slotOf[0] == 0f && hold.slotOf[1] == -1f && hold.toDraw == 1, "one far stronger does, and its faces are drawn");
-        hold.assign(lights, reach, closer, FLAMING, 4, 1, 512);
+        hold.assign(lights, reach, closer, FLAMING, NONE_BUILT, 4, 4 * FRAME, 1, 512);
         check(hold.toDraw == 1 && hold.face == 512, "at another face size every slot is drawn again");
         boolean[] shut = {false, true, true, true, true, true, true, true};
         FireShadows ovens = new FireShadows();
-        ovens.assign(lights, reach, closer, shut, 1, 2, 256);
+        ovens.assign(lights, reach, closer, shut, NONE_BUILT, 1, FRAME, 2, 256);
         check(ovens.slotOf[0] == -1f && ovens.slotOf[1] >= 0f, "a light with no flames to see, a shut oven's, has no slot");
+    }
+
+    /** A build with runs whose box is from (x, y, 0) to a tile and a storey past it. */
+    private static WorldScene.ChunkMeshes builtAt(float x, float y) {
+        WorldScene.ChunkMeshes build = new WorldScene.ChunkMeshes(0);
+        build.runs = 1;
+        build.minX = x;
+        build.minY = y;
+        build.minUp = 0f;
+        build.maxX = x + 1f;
+        build.maxY = y + 1f;
+        build.maxUp = 1f;
+        return build;
+    }
+
+    private static void aFiresShadowIsDrawnAgainWhenABuildInItsReachIs() {
+        float[] lights = new float[Fires.LIGHTS * 4], reach = new float[Fires.LIGHTS], weight = new float[Fires.LIGHTS];
+        lights[0] = 10f; lights[1] = 10f; lights[2] = 0.5f; lights[3] = 1f; reach[0] = 6f; weight[0] = 1f;
+        WorldScene.ChunkMeshes near = builtAt(12f, 10f), far = builtAt(40f, 10f);
+        java.util.ArrayList<WorldScene.ChunkMeshes> drawn = new java.util.ArrayList<>(java.util.List.of(near, far));
+        FireShadows shadows = new FireShadows();
+        shadows.assign(lights, reach, weight, FLAMING, drawn, 1, FRAME, 1, 256);
+        check(shadows.toDraw == 1, "a new fire's faces are drawn");
+        shadows.assign(lights, reach, weight, FLAMING, drawn, 2, 2 * FRAME, 1, 256);
+        check(shadows.toDraw == 0, "nothing changed, nothing is drawn again");
+        far.version++;
+        shadows.assign(lights, reach, weight, FLAMING, drawn, 3, 3 * FRAME, 1, 256);
+        check(shadows.toDraw == 0, "a build out of the fire's reach made again draws nothing again");
+        near.version++;
+        shadows.assign(lights, reach, weight, FLAMING, drawn, 4, 4 * FRAME, 1, 256);
+        check(shadows.toDraw == 1, "a build within it made again draws its faces again");
+        shadows.assign(lights, reach, weight, FLAMING, drawn, 5, 5 * FRAME, 1, 256);
+        check(shadows.toDraw == 0, "once");
+        drawn.remove(near);
+        shadows.assign(lights, reach, weight, FLAMING, drawn, 6, 6 * FRAME, 1, 256);
+        check(shadows.toDraw == 1, "and a build within it gone does too");
+        shadows.assign(lights, reach, weight, FLAMING, drawn, 7, 6 * FRAME + FireShadows.STALE_NANOS, 1, 256);
+        check(shadows.toDraw == 1, "the faces are drawn again after a while whatever: the wind moves the plants");
     }
 
     private static void theEyeStopsDownForFlamesAtNight() {

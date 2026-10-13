@@ -277,7 +277,7 @@ final class FireDraw {
         }
         // The game lights round its own flames itself: the picture's light is for its own fire.
         Fires.lights(fires, Fires.own() ? count : 0, camera.eyeX, camera.eyeY, camera.eyeUp, seconds(nanos), lights, reach, flaming, weights);
-        shadows.assign(lights, reach, weights, flaming, ++frame, Fires.own() ? FireShadows.slots() : 0, FireShadows.faceSize());
+        shadows.assign(lights, reach, weights, flaming, drawn, ++frame, nanos, Fires.own() ? FireShadows.slots() : 0, FireShadows.faceSize());
         if ((count > 0) != inSight) {
             inSight = count > 0;
             Log.info(inSight ? "first person fires in sight: " + state.fireCount + " squares that burn or smoke, " + (count - state.fireCount) + " hearths"

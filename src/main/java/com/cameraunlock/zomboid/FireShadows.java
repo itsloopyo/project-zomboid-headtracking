@@ -1,5 +1,7 @@
 package com.cameraunlock.zomboid;
 
+import java.util.ArrayList;
+
 /**
  * Which of a picture's firelights throw shadows, and when their shadow maps are drawn again.
  * Each shadowed fire has a slot in one depth texture: six square faces, three across and two
@@ -9,7 +11,9 @@ package com.cameraunlock.zomboid;
  * fire's light stops at walls and furniture as the sun's does and needs no other gate.
  *
  * What a face holds changes only with the world near the fire, not with the flames' flicker:
- * a slot is drawn again when its fire is new to it, and one gone stale a frame. A fire that has
+ * a slot is drawn again when its fire is new to it, when a build of a chunk within its reach
+ * has been made again or has come or gone, and, one gone stale a frame, after STALE_NANOS
+ * whatever: the wind moves the plants it holds, and no build says so. A fire that has
  * a slot keeps it until another outweighs it by HELD, so a fire's light does not switch between
  * shadowed and not as the eye walks between fires of much the same strength. Only a fire with
  * flames to see has a slot: a shut oven's or a barbecue's light is low and lit as unshadowed.
@@ -19,14 +23,18 @@ package com.cameraunlock.zomboid;
 final class FireShadows {
     /** The most slots, the most fires that throw shadows, and how many faces a slot has. */
     static final int MOST = 4, FACES = 6;
-    /** How many slots are drawn again a frame at most, and after how many frames a slot is drawn again anyway: a door opened by a fire. */
-    static final int DRAWN_A_FRAME = 2, STALE_AFTER = 8;
+    /** How many slots are drawn again a frame at most. */
+    static final int DRAWN_A_FRAME = 2;
+    /** How long a slot whose builds are the same is kept before it is drawn again anyway, in nanoseconds. */
+    static final long STALE_NANOS = 500_000_000L;
     /** How many times the weight of a fire that holds a slot another must have to take it. */
     static final float HELD = 1.5f;
     /** The near plane of a face, in tiles, and how far past a fire's reach its faces see. */
     static final float NEAR = 0.05f, PAST_REACH = 0.5f;
     /** A fire nearer than this to where a slot's maps were drawn from, in tiles, is the same fire. */
     private static final float SAME = 0.05f;
+    /** How far past its box a build is taken to reach a slot's faces, in tiles: more than the wind moves a plant or a card is turned out. */
+    private static final float BUILD_MARGIN = 1f;
 
     /** How many slots there are, and how many texels a face is across, for the picture's mode: sharper shadows, more and finer. */
     static int slots() {
@@ -40,6 +48,8 @@ final class FireShadows {
     /** Where each slot's maps were drawn from (x, y, up), how far they see, and the frame they were drawn in; drawnIn 0 is never. */
     final float[] from = new float[MOST * 4];
     final int[] drawnIn = new int[MOST];
+    /** When each slot's maps were drawn, on System.nanoTime's clock, and the builds within its reach then (builds). */
+    private final long[] drawnNanos = new long[MOST], drawnOf = new long[MOST];
     /** The face size and the number of slots the slots were drawn for: drawn at another, none of them is drawn. */
     int face, slotCount;
     /** For each of the picture's lights, its slot, or -1 for a light that throws no shadow. */
@@ -50,10 +60,11 @@ final class FireShadows {
 
     /**
      * Gives the strongest of the lights (Fires.lights' out, reach and weight) slots, keeping each
-     * fire in the slot it had, and says which slots are to be drawn this frame. frame counts up
-     * from 1.
+     * fire in the slot it had, and says which slots are to be drawn this frame, the frame's builds
+     * drawn and its time nanos. frame counts up from 1.
      */
-    void assign(float[] lights, float[] reach, float[] weight, boolean[] flaming, int frame, int slots, int faceSize) {
+    void assign(float[] lights, float[] reach, float[] weight, boolean[] flaming, ArrayList<WorldScene.ChunkMeshes> drawn, int frame, long nanos, int slots,
+            int faceSize) {
         if (slots != slotCount || faceSize != face) {
             java.util.Arrays.fill(drawnIn, 0);
             slotCount = slots;
@@ -100,8 +111,8 @@ final class FireShadows {
                 }
             }
         }
-        // Slots not yet drawn are drawn now, up to DRAWN_A_FRAME; then the oldest, if stale, one a frame so stale ones do not
-        // come due together. A light whose slot is not drawn yet throws no shadow until it is.
+        // Slots not yet drawn are drawn now, up to DRAWN_A_FRAME; then the oldest of those whose builds changed or that are
+        // stale, one a frame so they do not come due together. A light whose slot is not drawn yet throws no shadow until it is.
         toDraw = 0;
         for (int slot = 0; slot < slots && toDraw < DRAWN_A_FRAME; slot++) {
             if (kept[slot] && drawnIn[slot] == 0) {
@@ -111,7 +122,8 @@ final class FireShadows {
         if (toDraw < DRAWN_A_FRAME) {
             int oldest = -1;
             for (int slot = 0; slot < slots; slot++) {
-                if (kept[slot] && drawnIn[slot] != 0 && frame - drawnIn[slot] >= STALE_AFTER && !listed(slot) && (oldest < 0 || drawnIn[slot] < drawnIn[oldest])) {
+                if (kept[slot] && drawnIn[slot] != 0 && !listed(slot) && (oldest < 0 || drawnIn[slot] < drawnIn[oldest])
+                        && (nanos - drawnNanos[slot] >= STALE_NANOS || builds(slot, drawn) != drawnOf[slot])) {
                     oldest = slot;
                 }
             }
@@ -121,6 +133,8 @@ final class FireShadows {
         }
         for (int k = 0; k < toDraw; k++) {
             drawnIn[draw[k]] = frame;
+            drawnNanos[draw[k]] = nanos;
+            drawnOf[draw[k]] = builds(draw[k], drawn);
         }
         for (int light = 0; light < Fires.LIGHTS; light++) {
             int slot = (int) slotOf[light];
@@ -128,6 +142,31 @@ final class FireShadows {
                 slotOf[light] = -1f;
             }
         }
+    }
+
+    /**
+     * The builds whose boxes come within a slot's reach, each as which build it is and which
+     * filling of it, as one number that is another once any of them is filled again, comes or goes.
+     */
+    private long builds(int slot, ArrayList<WorldScene.ChunkMeshes> drawn) {
+        float x = from[slot * 4], y = from[slot * 4 + 1], up = from[slot * 4 + 2], far = from[slot * 4 + 3] + BUILD_MARGIN;
+        long sum = 0L;
+        for (int i = 0; i < drawn.size(); i++) {
+            WorldScene.ChunkMeshes build = drawn.get(i);
+            // A build with no runs has no box: its furniture, if it has any, is counted wherever it is, a drawing too many at worst.
+            if (build.runs == 0 ? build.placed.count == 0 : build.minX > x + far || build.maxX < x - far || build.minY > y + far || build.maxY < y - far
+                    || build.minUp > up + far || build.maxUp < up - far) {
+                continue;
+            }
+            sum += mixed((long) System.identityHashCode(build) << 32 | build.version & 0xFFFFFFFFL);
+        }
+        return sum;
+    }
+
+    private static long mixed(long z) {
+        z = (z ^ z >>> 30) * 0xBF58476D1CE4E5B9L;
+        z = (z ^ z >>> 27) * 0x94D049BB133111EBL;
+        return z ^ z >>> 31;
     }
 
     private boolean listed(int slot) {
