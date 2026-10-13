@@ -1,10 +1,12 @@
 package com.cameraunlock.zomboid;
 
+import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 import java.util.ArrayList;
 import java.util.Random;
+import zombie.iso.weather.ThunderStorm;
 
 /**
  * Lightning, as the eye sees it in first person. The game decides when and where lightning
@@ -20,7 +22,10 @@ import java.util.Random;
  * is the light of the world: the cloud it came out of glows from inside, the sky lightens, and
  * what stands in the open is lit from the bolt's side and throws its shadow away from it.
  *
- * Thunder the game has, and nothing here touches it. A rumble with no strike in it is lightning
+ * The game's own flash, the whole map's light lifted towards noon's and let down over as much
+ * as a second and a half, is taken back for a player in first person: there it read as a
+ * second of daylight with no shadow after the bolt had gone. Thunder the game has, and nothing
+ * here touches it. A rumble with no strike in it is lightning
  * hidden in the cloud: no bolt, a flicker through the cloud deck. The game's option to have no
  * lightning in storms is respected: the game sends no lightning for a strike then, and no
  * flicker is made of a rumble.
@@ -201,6 +206,46 @@ final class Lightning {
      * The game has told of a strike at map square (x, y). A bolt is made of it when the game
      * has it lit; a rumble with lightning allowed is lightning hidden in the cloud.
      */
+    private static Field lightningInfos, lightningState, lightningStrength;
+    private static Object idle;
+
+    /**
+     * Takes back the flash the game has just started for each player in first person
+     * (ThunderStorm.enqueueThunderEvent sets their PlayerLightningInfo to ApplyLightning), so
+     * neither its lifted daylight nor its global light reaches what they see. Logic thread.
+     */
+    static void leaveTheGamesFlash(ThunderStorm storm) {
+        try {
+            if (lightningInfos == null) {
+                lightningInfos = ThunderStorm.class.getDeclaredField("lightningInfos");
+                lightningInfos.setAccessible(true);
+                Class<?> info = lightningInfos.getType().getComponentType();
+                lightningState = info.getDeclaredField("lightningState");
+                lightningState.setAccessible(true);
+                lightningStrength = info.getDeclaredField("lightningStrength");
+                lightningStrength.setAccessible(true);
+                for (Object state : lightningState.getType().getEnumConstants()) {
+                    if (((Enum<?>) state).name().equals("Idle")) {
+                        idle = state;
+                    }
+                }
+                if (idle == null) {
+                    throw new NoSuchFieldException("ThunderStorm.LightningState.Idle");
+                }
+            }
+            Object[] infos = (Object[]) lightningInfos.get(storm);
+            for (int player = 0; player < infos.length; player++) {
+                View view = View.of(player);
+                if (view != null && view.firstPerson.active()) {
+                    lightningState.set(infos[player], idle);
+                    lightningStrength.setFloat(infos[player], 0f);
+                }
+            }
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException("the game's ThunderStorm has no lightningInfos with a lightningState and lightningStrength to take its flash back with", e);
+        }
+    }
+
     static void struck(int x, int y, boolean bolt, boolean hidden, long now) {
         if (!bolt && !hidden) {
             return;

@@ -36,6 +36,7 @@ import zombie.iso.IsoObjectPicker;
 import zombie.iso.IsoWorld;
 import zombie.iso.Vector2;
 import zombie.iso.Vector3;
+import zombie.iso.weather.ThunderStorm;
 import zombie.ui.TextDrawObject;
 import zombie.vehicles.BaseVehicle;
 
@@ -670,6 +671,11 @@ public final class Hooks {
     public static void thunder(int x, int y, boolean strike, boolean lit, boolean rumble) {
         boolean hidden = !strike && rumble && !zombie.core.Core.getInstance().getOptionDisableLightningDuringStorms();
         Lightning.struck(x, y, strike && lit, hidden, System.nanoTime());
+    }
+
+    /** Before ThunderStorm.enqueueThunderEvent returns, once it has started its own flash for each player near enough. */
+    public static void thunderTold(ThunderStorm storm) {
+        Lightning.leaveTheGamesFlash(storm);
     }
 
     /** Before ShaderUnit.loadShaderFile returns: the source of one of the game's shaders as it was read from fileName. See VehicleLamps. */

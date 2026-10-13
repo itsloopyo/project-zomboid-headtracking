@@ -872,7 +872,13 @@ public final class Agent {
                     code.iload(4);
                     code.iload(5);
                     CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "thunder", "(IIZZZ)V"));
-                })));
+                })),
+                new Patch(storm, "enqueueThunderEvent before its returns", classBytes -> CallSite.insertBeforeReturns(classBytes,
+                        new CallSite.Method(storm, "enqueueThunderEvent", "(IIZZZ)V"),
+                        code -> {
+                            code.aload(0);
+                            CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "thunderTold", "(L" + storm + ";)V"));
+                        })));
     }
 
     /**
