@@ -1889,7 +1889,7 @@ public final class Characters {
             drawn++;
         }
         CharacterDraw.release();
-        if (!casting && map == null) {
+        if (!casting && map == null && only != ONLY_VEHICLES) {
             drawPieces(viewMatrix, eyeX, eyeY, reach);
         }
         if (drawn > 0) {
