@@ -1440,6 +1440,31 @@ final class SpriteGeometry {
         mesh.sway = 0f;
         int stations = post.heights.length;
         float highest = Math.max(top, post.heights[stations - 1]);
+        // Each corner round a station is in the faces of two sides, and of the stations either side of it: where it is and its texel are worked out once.
+        int around = sides + 1;
+        if (cornerX.length < stations * around) {
+            cornerX = new float[stations * around];
+            cornerY = new float[stations * around];
+            cornerUp = new float[stations * around];
+            cornerU = new float[stations * around];
+            cornerV = new float[stations * around];
+        }
+        for (int station = 0; station < stations; station++) {
+            float h = station == stations - 1 ? highest : post.heights[station], r = post.halves[station] * out;
+            for (int at = 0; at <= sides; at++) {
+                int corner = station * around + at;
+                float da = postCos[at] * r, db = postSin[at] * r;
+                cornerX[corner] = x + da;
+                cornerY[corner] = y + db;
+                cornerUp[corner] = foot + h * ViewCamera.LEVEL_HEIGHT;
+                cornerU[corner] = texelU;
+                cornerV[corner] = texelV;
+                if (!oneTexel) {
+                    cornerV[corner] = postTexel(frame, a, b, da, db, h, highest, postAt);
+                    cornerU[corner] = postAt[0];
+                }
+            }
+        }
         for (int station = 0; station < stations - 1; station++) {
             float h0 = post.heights[station], h1 = station == stations - 2 ? highest : post.heights[station + 1];
             float r0 = post.halves[station] * out, r1 = post.halves[station + 1] * out;
@@ -1450,39 +1475,51 @@ final class SpriteGeometry {
                 continue;
             }
             float flat = rise / length, upward = lean / length;
+            if (round) {
+                for (int at = 0; at <= sides; at++) {
+                    float faceX = postCos[at] * flat, faceY = postSin[at] * flat;
+                    float faceLength = (float) Math.sqrt(faceX * faceX + faceY * faceY + upward * upward);
+                    facingX[at] = faceX / faceLength;
+                    facingY[at] = faceY / faceLength;
+                    facingUp[at] = upward / faceLength;
+                }
+            }
             for (int side = 0; side < sides; side++) {
+                if (!round) {
+                    mesh.face(postMiddleCos[side] * flat, postMiddleSin[side] * flat, upward);
+                }
                 for (int corner = 0; corner < 6; corner++) {
                     // Two triangles: low from, low to, high to, then low from, high to, high from.
                     boolean far = corner == 1 || corner == 2 || corner == 4, high = corner == 2 || corner >= 4;
-                    int at = far ? side + 1 : side;
-                    float cos = postCos[at], sin = postSin[at];
-                    float r = high ? r1 : r0, h = high ? h1 : h0;
-                    mesh.face((round ? cos : postMiddleCos[side]) * flat, (round ? sin : postMiddleSin[side]) * flat, upward);
-                    postVertex(mesh, frame, x, y, foot, a, b, cos * r, sin * r, h, highest, oneTexel, texelU, texelV, red, green, blue);
+                    int at = far ? side + 1 : side, of = (high ? station + 1 : station) * around + at;
+                    if (round) {
+                        mesh.faceUnit(facingX[at], facingY[at], facingUp[at]);
+                    }
+                    mesh.add(cornerX[of], cornerY[of], cornerUp[of], cornerU[of], cornerV[of], red, green, blue);
                 }
             }
         }
         if (!capped) {
             return;
         }
-        float r = post.halves[stations - 1] * out;
+        float middleU = texelU, middleV = texelV;
+        if (!oneTexel) {
+            middleV = postTexel(frame, a, b, 0f, 0f, highest, highest, postAt);
+            middleU = postAt[0];
+        }
         mesh.face(0f, 0f, 1f);
         for (int side = 0; side < sides; side++) {
-            postVertex(mesh, frame, x, y, foot, a, b, 0f, 0f, highest, highest, oneTexel, texelU, texelV, red, green, blue);
-            postVertex(mesh, frame, x, y, foot, a, b, postCos[side] * r, postSin[side] * r, highest, highest, oneTexel, texelU, texelV, red, green, blue);
-            postVertex(mesh, frame, x, y, foot, a, b, postCos[side + 1] * r, postSin[side + 1] * r, highest, highest, oneTexel, texelU, texelV, red, green, blue);
+            int from = (stations - 1) * around + side;
+            mesh.add(x, y, foot + highest * ViewCamera.LEVEL_HEIGHT, middleU, middleV, red, green, blue);
+            mesh.add(cornerX[from], cornerY[from], cornerUp[from], cornerU[from], cornerV[from], red, green, blue);
+            mesh.add(cornerX[from + 1], cornerY[from + 1], cornerUp[from + 1], cornerU[from + 1], cornerV[from + 1], red, green, blue);
         }
     }
 
-    private void postVertex(Mesh mesh, Frame frame, float x, float y, float foot, float a, float b, float da, float db, float h, float highest,
-            boolean oneTexel, float texelU, float texelV, float red, float green, float blue) {
-        float u = texelU, v = texelV;
-        if (!oneTexel) {
-            v = postTexel(frame, a, b, da, db, h, highest, postAt);
-            u = postAt[0];
-        }
-        mesh.add(x + da, y + db, foot + h * ViewCamera.LEVEL_HEIGHT, u, v, red, green, blue);
-    }
+    /** Each corner of the post being added, station by station and round each: where it is, and its texel. */
+    private float[] cornerX = new float[0], cornerY = new float[0], cornerUp = new float[0], cornerU = new float[0], cornerV = new float[0];
+    /** The way a round post being added faces at each corner round one station. */
+    private final float[] facingX = new float[MOST_POST_SIDES + 1], facingY = new float[MOST_POST_SIDES + 1], facingUp = new float[MOST_POST_SIDES + 1];
 
     private final float[] postAt = new float[1];
 
