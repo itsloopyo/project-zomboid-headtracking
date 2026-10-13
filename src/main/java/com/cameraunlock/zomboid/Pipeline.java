@@ -1663,6 +1663,13 @@ final class Pipeline {
     private FloatBuffer castPlaces;
     private int castBuffer;
     private static final int CAST_FLOATS = 11, CAST_STRIDE = CAST_FLOATS * Float.BYTES;
+    /**
+     * Where the shadow program's aPlace, aFoot and aTurn are bound, in that order. Some drivers
+     * share a generic attribute's place with a built-in one (NVIDIA's gl_Vertex is 0, gl_Normal 2,
+     * gl_Color 3, gl_MultiTexCoord0 and 1 are 8 and 9, all of which the program reads); 5, 6 and 7
+     * are the fog coordinate's and two no built-in has, and the program reads none of them.
+     */
+    private static final int SHADOW_PLACES_FROM = 5;
     private static final int GL_STREAM_DRAW = 0x88E0;
 
     /**
@@ -5141,7 +5148,7 @@ final class Pipeline {
         paneMask = Program.link("pane mask", PipelineShaders.PANE_VERTEX, PipelineShaders.PANE_FRAGMENT, problem);
         selfShown = Program.link("viewer in the glass", PipelineShaders.PANE_VERTEX, OwnReflection.SHOWN, problem);
         partKind = Program.link("cabin parts", PipelineShaders.PANE_VERTEX, PipelineShaders.PART_FRAGMENT, problem);
-        shadow = Program.link("shadow", SHADOW_VERTEX, SHADOW_FRAGMENT, problem);
+        shadow = Program.link("shadow", SHADOW_VERTEX, SHADOW_FRAGMENT, problem, SHADOW_PLACES_FROM, "aPlace", "aFoot", "aTurn");
         rain = Program.link("rain", PipelineShaders.RAIN_VERTEX, PipelineShaders.RAIN_FRAGMENT, problem);
         snow = Program.link("snow", PipelineShaders.SNOW_VERTEX, PipelineShaders.SNOW_FRAGMENT, problem);
         dust = Program.link("dust", PipelineShaders.DUST_VERTEX, PipelineShaders.DUST_FRAGMENT, problem);

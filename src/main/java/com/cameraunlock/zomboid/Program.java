@@ -25,6 +25,11 @@ final class Program {
      * that programs sharing a vertex shader share one layout of vertices whatever each reads.
      */
     static Program link(String name, String vertexSource, String fragmentSource, StringBuilder problem, String... attributesInOrder) {
+        return link(name, vertexSource, fragmentSource, problem, 0, attributesInOrder);
+    }
+
+    /** As link, with the vertex attributes named bound to the places from first on, in that order. */
+    static Program link(String name, String vertexSource, String fragmentSource, StringBuilder problem, int first, String... attributesInOrder) {
         int vertex = compile(name + " vertex", GL_VERTEX_SHADER, vertexSource, problem);
         int fragment = compile(name + " fragment", GL_FRAGMENT_SHADER, fragmentSource, problem);
         if (vertex == 0 || fragment == 0) {
@@ -36,7 +41,7 @@ final class Program {
         GL20.glAttachShader(id, vertex);
         GL20.glAttachShader(id, fragment);
         for (int i = 0; i < attributesInOrder.length; i++) {
-            GL20.glBindAttribLocation(id, i, attributesInOrder[i]);
+            GL20.glBindAttribLocation(id, first + i, attributesInOrder[i]);
         }
         GL20.glLinkProgram(id);
         GL20.glDetachShader(id, vertex);
