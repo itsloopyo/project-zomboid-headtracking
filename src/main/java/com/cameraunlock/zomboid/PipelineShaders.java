@@ -3016,6 +3016,12 @@ final class PipelineShaders {
                                 float lean = length(facet.xy) / facet.z * 1.5 * (1.0 - rise * rise);
                                 level = normalize(vec3(normalize(facet.xy) * lean, 1.0));
                             }
+                            // The arris and the back are a couple of centimetres across and snow caps
+                            // them with the top. By the way they face they would take none, a grey
+                            // line along a kerb the snow has buried.
+                            if (vUv.y > 1.0) {
+                                level = vec3(0.0, 0.0, 1.0);
+                            }
                         }
                         // Over grass and rough ground snow lies in lumps, over a road or a roof nearly smooth.
                         float most = max(texel.r, max(texel.g, texel.b));
@@ -3579,7 +3585,8 @@ final class PipelineShaders {
             varying vec3 vAt;
             // 1 while the map drawn is the one read as what stands over the ground and keeps the sky off it.
             uniform float uFromAbove;
-            """ + GRASS_WIND + MODEL_STANDS + FACED + """
+            uniform float uSnowLying;
+            """ + GRASS_WIND + MODEL_STANDS + FACED + SnowShader.COVER + """
             void main() {
                 if (uModel > 0.5) {
                     // A model is solid all over and nothing of it blows about. It is drawn with
@@ -3615,6 +3622,13 @@ final class PipelineShaders {
                 vec3 lies;
                 vec4 stands = faced(gl_Vertex, right, lies);
                 stands.xyz += lies;
+                // Snow has no height in the picture, so a kerb it has buried would still stand
+                // proud of it and throw a dash of shadow on it at every cast length. It is let
+                // down as deep as the snow lies, asked no finer than the eighth of a tile its
+                // vertices stand apart.
+                if (material > 63.5 && material < 64.5) {
+                    stands.z -= SNOW_DEPTH * uSnowLying * snowCover(mod(stands.xy, 60.0), 0.125);
+                }
                 vAt = stands.xyz;
                 // An overhead wire swings where the view has it, and so does a bulb that hangs on a cord: see swung.
                 if (material > 11.5 && material < 12.5 || material > 81.5 && material < 82.5 || material > 13.5 && material < 14.5 && dot(gl_Normal, gl_Normal) > 1.004) {

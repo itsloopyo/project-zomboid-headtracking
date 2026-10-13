@@ -12,6 +12,8 @@ final class SnowCoverTests {
         Checks.run("grassIsLetDownOnlyUnderTheSkyAndLessWhereTheSkyIsHidden", SnowCoverTests::grassIsLetDownOnlyUnderTheSkyAndLessWhereTheSkyIsHidden);
         Checks.run("theSnowGrassStandsInEndsWhereTheSnowDrawnEnds", SnowCoverTests::theSnowGrassStandsInEndsWhereTheSnowDrawnEnds);
         Checks.run("aStripAsksOnceAtItsRootAndNotWhereGrassIsLeftOut", SnowCoverTests::aStripAsksOnceAtItsRootAndNotWhereGrassIsLeftOut);
+        Checks.run("aKerbTheSnowBuriesThrowsNoShadowOnIt", SnowCoverTests::aKerbTheSnowBuriesThrowsNoShadowOnIt);
+        Checks.run("aKerbsArrisAndBackTakeSnowAsItsTopDoes", SnowCoverTests::aKerbsArrisAndBackTakeSnowAsItsTopDoes);
     }
 
     private static void check(boolean condition, String what) {
@@ -83,6 +85,19 @@ final class SnowCoverTests {
         check(world.contains("if(uModel<0.5&&vMaterial>63.5&&vMaterial<64.5&&gl_MultiTexCoord0.y<0.5){floatbanked=snowStood(at.xyz,vKind>0.5);"),
                 "a kerb asks how deep the snow banked against it is at the foot of its face only");
         check(count(world, "snowStood(") == 3, "and nowhere else in the vertex program");
-        check(!PipelineShaders.SHADOW_VERTEX.contains("snowStood"), "grass is in no shadow map, and the shadow program asks nothing of where snow lies");
+        check(!PipelineShaders.SHADOW_VERTEX.contains("snowStood"), "grass is in no shadow map, and the shadow program asks nothing of how deep a plant stands");
+    }
+
+    private static void aKerbTheSnowBuriesThrowsNoShadowOnIt() {
+        String shadow = PipelineShaders.SHADOW_VERTEX.replaceAll("\\s+", "");
+        check(shadow.contains("if(material>63.5&&material<64.5){stands.z-=SNOW_DEPTH*uSnowLying*snowCover(mod(stands.xy,60.0),0.125);}vAt=stands.xyz;"),
+                "a kerb is let down in every shadow map as deep as the snow drawn over it lies");
+        check(count(shadow, "snowCover(") == 2, "and nothing else in the shadow program asks where snow lies");
+        check(PipelineShaders.SHADOW_VERTEX.contains("uniform float uSnowLying;"), "the shadow program is told how much snow lies");
+    }
+
+    private static void aKerbsArrisAndBackTakeSnowAsItsTopDoes() {
+        String main = PipelineShaders.WORLD_FRAGMENT_MAIN.replaceAll("\\s+", "");
+        check(main.contains("if(vUv.y>1.0){level=vec3(0.0,0.0,1.0);}}"), "past the top of its face a kerb takes snow as a level surface");
     }
 }

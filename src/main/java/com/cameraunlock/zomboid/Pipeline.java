@@ -1593,6 +1593,7 @@ final class Pipeline {
         shadow.set("uWind", state.windX, state.windY, state.seconds);
         shadow.set("uGust", state.gustX, state.gustY, state.flutter);
         shadow.set("uPlantSnow", state.snowOnPlants());
+        shadow.set("uSnowLying", state.snowLying);
         shadow.set("uFaced", state.facedX, state.facedY);
         shadow.set("uLayerFrom", state.layersFromX, state.layersFromY, state.layersFromUp);
         shadow.set("uLayer", WorldScene.STAND_OFF, WorldScene.STAND_OFF_PER_TILE_SQUARED, WorldScene.CARD_LAYER);
