@@ -41,6 +41,14 @@ final class CarSmash {
     /** How hard each end of a vehicle is hit, private to BaseVehicle and called by name: see Links.REFLECTED_METHODS. */
     private static final Method FRONT = damager(Links.FRONT_DAMAGE), REAR = damager(Links.REAR_DAMAGE);
 
+    /**
+     * The game's impulse from a hit thing for each unit of mass times speed (m/s) to be taken off.
+     * Measured in a Base.CarNormal of 1118 kg: an impulse of mass times the speed to lose took off
+     * 0.27 of it (a post at 34 and 44 km/h lost 9.8 and 9.5 percent where 35 was asked for).
+     * With this, two fence panels met at 50 km/h took 21 percent where 19 was asked for.
+     */
+    private static final float IMPULSE_PER_SPEED_LOST = 3.7f;
+
     /** Where a fence is looked for along its edge, as shares of the edge. */
     private static final float[] ALONG = {0.05f, 0.275f, 0.5f, 0.725f, 0.95f};
 
@@ -154,7 +162,7 @@ final class CarSmash {
         String what = thing.getSprite().getName();
         float kmh = vehicle.getCurrentSpeedKmHour(), speed = vehicle.getSpeed2D();
         // Pushed back from the thing while it still stands where it was hit: the game takes its place from its square.
-        vehicle.applyImpulseFromHitObject(thing, vehicle.getFudgedMass() * speed * (1f - Knockdown.speedKept(kind)));
+        vehicle.applyImpulseFromHitObject(thing, IMPULSE_PER_SPEED_LOST * vehicle.getFudgedMass() * speed * (1f - Knockdown.speedKept(kind)));
         // The game's own sound of a vehicle hitting a thing, and the noise of it zombies hear. Nothing of the thing is changed by a hit of no strength.
         thing.HitByVehicle(vehicle, 0f);
         int lamps = 0;
