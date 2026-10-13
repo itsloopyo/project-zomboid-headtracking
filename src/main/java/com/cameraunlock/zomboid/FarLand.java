@@ -698,8 +698,9 @@ final class FarLand {
     private static final float FINER_TREES_WITHIN = 200f;
     /**
      * Further than any far tree reaches out from its foot and stands over it, in tiles: the
-     * largest size is FarTreeLooks' tallest plain tree, 11, or a measured crown grown to it,
-     * and the picture grows each tree by a tenth at most.
+     * largest size is FarTreeLooks' tallest plain tree, 11, or a measured crown grown to it;
+     * the picture grows each tree by a tenth at most, and stands a crown out in lumps to 1.18
+     * times its reach (PipelineShaders.FAR_TREE_VERTEX).
      */
     private static final float TREE_OUT = 20f, TREE_UP = 40f;
 
