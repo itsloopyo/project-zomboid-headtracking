@@ -272,8 +272,6 @@ public final class Hooks {
     /** The part {@link #shotAt} found the hit being worked out is on, or none, and whether it is a hand or a foot of that part. */
     private static int aimedPart = HitPart.NONE;
     private static boolean aimedEnd;
-    /** How many times a player here has fired: each of a blast's pellets is of the same one. */
-    private static int fired;
 
     /** Called as the game starts working out where a shot one character dealt another lands. */
     public static void shotAt(IsoGameCharacter wielder, IsoGameCharacter target) {
@@ -317,7 +315,7 @@ public final class Hooks {
         boolean upper = aimedPart == RagdollBodyPart.BODYPART_LEFT_UPPER_ARM.ordinal() || aimedPart == RagdollBodyPart.BODYPART_RIGHT_UPPER_ARM.ordinal()
                 || aimedPart == RagdollBodyPart.BODYPART_LEFT_UPPER_LEG.ordinal() || aimedPart == RagdollBodyPart.BODYPART_RIGHT_UPPER_LEG.ordinal();
         int at = upper ? Wounds.UPPER : aimedEnd ? Wounds.END : Wounds.LOWER;
-        int stage = wounds.shot(zombie, limb, whole, zombie.getHealth(), zombie.getHealth() + damage, at, fired, chance.nextFloat());
+        int stage = wounds.shot(zombie, limb, whole, zombie.getHealth(), zombie.getHealth() + damage, at);
         if (stage == Wounds.SOUND) {
             return;
         }
@@ -686,7 +684,6 @@ public final class Hooks {
         effects.startMuzzleFlash(shooter, light);
         View view = shooter instanceof IsoPlayer player ? View.of(player) : null;
         if (view != null) {
-            fired++;
             if (lamps.size() > before) {
                 view.torchLess.shot(lamps.peek());
             }
