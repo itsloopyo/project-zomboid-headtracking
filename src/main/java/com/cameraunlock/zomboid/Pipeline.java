@@ -1913,7 +1913,7 @@ final class Pipeline {
         beginCast(torchTarget, torchMatrix);
         castHeld(torchMatrix, state, torchListed, TORCH_MAP);
         if (figures) {
-            view.characters.castOthers(torchMatrix);
+            view.characters.castOthers(torchMatrix, seen, TORCH_TAN, torchAt[3] + TORCH_PAST_REACH);
             resumeCasting();
         }
         GL11.glViewport(0, 0, shadowSize, shadowSize);

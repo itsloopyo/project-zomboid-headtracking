@@ -1667,10 +1667,20 @@ public final class Characters {
         notingRoots = false;
     }
 
-    /** And for the shadow map of the torch in the viewer's own hand: everyone and every vehicle but the viewer, who would stand in their own beam. */
-    void castOthers(float[] lightMatrix) {
+    /**
+     * And for the shadow map of the torch in the viewer's own hand: everyone and every vehicle
+     * but the viewer, who would stand in their own beam, and nobody the torch's picture has no
+     * room for. The parameters are castCharacters'.
+     */
+    void castOthers(float[] lightMatrix, float[] torchView, float tanHalf, float reaches) {
         System.arraycopy(IDENTITY, 0, projection, 0, 16);
+        seenFrom = torchView;
+        seenWide = tanHalf;
+        seenHigh = tanHalf;
+        seenWithin = reaches;
         draw(lightMatrix, false, true, null, view.pipeline.focusX, view.pipeline.focusY, SHADOW_REACH);
+        seenFrom = null;
+        seenWithin = 0f;
         notingRoots = false;
     }
 
