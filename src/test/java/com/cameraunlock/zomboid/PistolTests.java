@@ -5,7 +5,7 @@ final class PistolTests {
     private PistolTests() {}
 
     private static final float FRAME = 1f / 60f;
-    private static final String GUN = "Base.Pistol";
+    private static final int GUN = 101;
 
     static void run() {
         Checks.run("slideGoesRightBackOnceAShotAndIsHomeAfter", PistolTests::slideGoesRightBackOnceAShotAndIsHomeAfter);
@@ -92,7 +92,7 @@ final class PistolTests {
         OwnPistol.Slide slide = new OwnPistol.Slide();
         slide.step(GUN, 2, false, 0, true, ArmActs.HOLDING, 0f, FRAME);
         check(slide.back == 1f, "an empty magazine in and nothing chambered: back, not " + slide.back);
-        slide.step("Base.Pistol2", 2, true, 7, true, ArmActs.HOLDING, 0f, FRAME);
+        slide.step(102, 2, true, 7, true, ArmActs.HOLDING, 0f, FRAME);
         check(slide.back == 0f, "another, loaded, taken in hand: home, not " + slide.back);
         slide.step(GUN, 2, false, 0, false, ArmActs.HOLDING, 0f, FRAME);
         check(slide.back == 0f, "an empty pistol with no magazine in it: home, not " + slide.back);

@@ -30,6 +30,7 @@ final class OwnPistol extends OwnGun {
     /** The case is thrown out once the slide is this far back, on its way back. */
     private static final float THROWN_AT = 0.7f;
     private static final float NOT_CYCLING = -1f;
+    private static final int NO_ITEM = Integer.MIN_VALUE;
 
     /** Fired cases: thrown out to the right and up, a little back, and tumbling fast. */
     private final Thrown cases = new Thrown(4, 0.8f, 1.6f, 1.3f, 0.2f, 7.5f, 26f);
@@ -59,7 +60,7 @@ final class OwnPistol extends OwnGun {
      * drawn back and let go by the hand that racks it.
      */
     static final class Slide {
-        private String item;
+        private int item = NO_ITEM;
         private int shotsSeen;
         private float sinceShot = NOT_CYCLING;
         private boolean locked, caseThrown;
@@ -71,7 +72,7 @@ final class OwnPistol extends OwnGun {
         /**
          * Moves it on by a frame.
          *
-         * @param item      the item held: another is another pistol, whose slide is as it was put away
+         * @param item      the game's id of the item held: another is another pistol, whose slide is as it was put away
          * @param shots     ViewModel.Held's count of shots
          * @param chambered whether the pistol has a round in its chamber
          * @param rounds    how many rounds its magazine holds
@@ -79,9 +80,9 @@ final class OwnPistol extends OwnGun {
          * @param doing     what the holder is doing to it: one of ArmActs' doings
          * @param through   how far through that the holder is, as a share of how long it is taken to take
          */
-        void step(String item, int shots, boolean chambered, int rounds, boolean clip, int doing, float through, float seconds) {
+        void step(int item, int shots, boolean chambered, int rounds, boolean clip, int doing, float through, float seconds) {
             thrown = false;
-            if (!item.equals(this.item)) {
+            if (item != this.item) {
                 // Taken in hand: its slide was held back if it is empty.
                 this.item = item;
                 shotsSeen = shots;
@@ -123,7 +124,7 @@ final class OwnPistol extends OwnGun {
     void work(ViewCamera.Pose camera, float seconds) {
         ViewModel.Held held = view.viewModel.held;
         if (held != null) {
-            action.step(held.item(), held.shots(), held.chambered(), held.rounds(), held.clip(), held.doing(), held.done() / Math.max(held.pace(), ArmActs.SHORTEST),
+            action.step(held.itemId(), held.shots(), held.chambered(), held.rounds(), held.clip(), held.doing(), held.done() / Math.max(held.pace(), ArmActs.SHORTEST),
                     seconds);
             if (action.thrown) {
                 cases.out(camera, model, drawn.port[0], drawn.port[1] - action.back * drawn.travel * 0.5f, drawn.port[2]);
