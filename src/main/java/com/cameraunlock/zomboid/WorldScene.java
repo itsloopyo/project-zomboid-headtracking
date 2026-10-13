@@ -2553,6 +2553,7 @@ final class WorldScene {
                 doorSpans.clear();
                 wires.clear();
                 Furniture.forget();
+                PlantBuilder.forget();
                 Parasols.forget();
                 Awnings.forget();
                 Tents.forget();

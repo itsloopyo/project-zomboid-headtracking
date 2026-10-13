@@ -93,7 +93,12 @@ final class PlantBuilder {
     private record Plant(String name, boolean dead, boolean fern, boolean bushy, boolean evergreen, int crop, int treeSprig, int barkedAs, int turnsAs,
             int kind) {}
 
-    private final IdentityHashMap<IsoSprite, Plant> plants = new IdentityHashMap<>();
+    private static final IdentityHashMap<IsoSprite, Plant> plants = new IdentityHashMap<>();
+
+    /** Logic thread, when the world being built is another (WorldScene): its sprites are read afresh. */
+    static void forget() {
+        plants.clear();
+    }
 
     private Plant plantOf(IsoSprite sprite) {
         String name = sprite.getName();
