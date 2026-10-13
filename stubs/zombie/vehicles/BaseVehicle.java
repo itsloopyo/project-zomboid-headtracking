@@ -32,6 +32,7 @@ public final class BaseVehicle extends zombie.iso.IsoMovingObject {
     public void playSound(String name) { throw new UnsupportedOperationException("reference stub"); }
     public zombie.scripting.objects.VehicleScript getScript() { throw new UnsupportedOperationException("reference stub"); }
     public org.joml.Vector3f getWorldPos(org.joml.Vector3f local, org.joml.Vector3f out) { throw new UnsupportedOperationException("reference stub"); }
+    public org.joml.Vector3f getWorldPos(float x, float y, float z, org.joml.Vector3f out) { throw new UnsupportedOperationException("reference stub"); }
     public Vector3f getLinearVelocity(Vector3f out) { throw new UnsupportedOperationException("reference stub"); }
     public float getCurrentSteering() { throw new UnsupportedOperationException("reference stub"); }
     public int getMaxPassengers() { throw new UnsupportedOperationException("reference stub"); }
