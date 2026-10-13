@@ -617,7 +617,6 @@ public final class FineSkins {
             recipe.plain = true;
             return bound;
         }
-        wornNow();
         while (fineBytes >= MOST_BYTES) {
             Iterator<Fine> longestAgo = fine.values().iterator();
             Fine least = longestAgo.next();
@@ -630,6 +629,7 @@ public final class FineSkins {
             fineBytes -= least.bytes;
             TextureCombiner.instance.releaseTexture(least.texture);
         }
+        wornNow();
         Texture made = composedWithStateKept(recipe);
         composedFrame = Pipeline.frame();
         Fine kept = new Fine(made, System.nanoTime());
