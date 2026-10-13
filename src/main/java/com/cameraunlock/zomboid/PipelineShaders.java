@@ -6843,8 +6843,17 @@ final class PipelineShaders {
                     // Clumps of leaves at two sizes.
                     float clumps = patches(vec2(q.x + 0.7 * q.z, q.y - 0.6 * q.z) * 1.6) * 0.6 + patches(vec2(q.y + 0.5 * q.z, q.x + 0.8 * q.z) * 3.7) * 0.4;
                     float facing = dot(n, normalize(toEye));
-                    // A crown that has lost leaves has lost clumps of them, the same clumps whichever way it is looked at.
-                    if (clumps < (0.12 + 0.55 * smoothstep(0.35, 0.9, 1.0 - abs(facing)) + 0.4 * (1.0 - vLeaf)) * shown) {
+                    // About half of each face of a crown is gaps seen face on, more towards its rim. A crown that has lost
+                    // leaves has lost clumps of them, the same clumps whichever way it is looked at. The far face shows
+                    // through the near one's gaps, so about a quarter of a crown is sky, as with the built world's crowns.
+                    float open = 0.48 + 0.3 * smoothstep(0.35, 0.9, 1.0 - abs(facing)) + 0.4 * (1.0 - vLeaf);
+                    if (clumps < open * shown) {
+                        discard;
+                    }
+                    // Where a pixel spans more than a clump, as much of the face is left out pixel by pixel as gaps would
+                    // leave out (smoothstep(0.2, 0.8) is the share of clumps under a threshold), on a pattern of its own
+                    // and not ENDS' sieve, which the far trees come in on. Frame blending turns it into a thin crown.
+                    if (fract(dither + 0.618034 * uBeyond) < smoothstep(0.2, 0.8, open) * (1.0 - shown)) {
                         discard;
                     }
                     // Facing away from the eye is the far side of the crown, seen from within it.
