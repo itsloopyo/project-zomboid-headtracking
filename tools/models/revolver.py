@@ -56,7 +56,6 @@ turn about an axis through it, as the file has them:
     the crane's pin x, z; how far it turns about +y to swing the cylinder out
     how far the ejector pushes back
     where the back of the chamber under the hammer is: x, y, z
-    how long a round is
 """
 
 import math
@@ -680,11 +679,26 @@ def spent(g):
     return g.finish(colour, g.add(0.30, g.times(soot, 0.35)), g.math("SUBTRACT", 1.0, g.times(soot, 0.7)), 0.0)
 
 
+def seam(g):
+    """The line where a toy's mould's two halves met, down its middle: one on it, nought off it."""
+    return g.math("SUBTRACT", 1.0, g.step(g.math("ABSOLUTE", g.x), 0.0002, 0.0005))
+
+
+def grip_panel(share):
+    """Where the hand holds the grip: its middle `share` of the way from its top to its foot, its length, how deep it is front to back
+    half way down, and which way it runs in y and z, in radians."""
+    front, back = scaled(K.grip_front), scaled(K.grip_back)
+    top = Vector(((front[1][0] + back[1][0]) / 2, (front[1][1] + back[1][1]) / 2))
+    foot = Vector(((front[-1][0] + back[-1][0]) / 2, (front[-1][1] + back[-1][1]) / 2))
+    middle = top + (foot - top) * share
+    deep = (Vector(front[len(front) // 2]) - Vector(back[len(back) // 2])).length
+    return middle, (foot - top).length, deep, math.atan2(foot.y - top.y, foot.x - top.x)
+
+
 def chrome(g):
     """A toy's plated zinc: a bright, smooth plate with the casting's ripples under it."""
     ripple = g.noise(180.0, 2.0)
-    seam = g.math("SUBTRACT", 1.0, g.step(g.math("ABSOLUTE", g.x), 0.0002, 0.0005))
-    return g.finish(g.colour(0.78, 0.78, 0.80), g.add(0.08, g.times(ripple, 0.06)), 1.0, g.add(g.times(ripple, 0.00004), g.times(seam, 0.00012)))
+    return g.finish(g.colour(0.78, 0.78, 0.80), g.add(0.08, g.times(ripple, 0.06)), 1.0, g.add(g.times(ripple, 0.00004), g.times(seam(g), 0.00012)))
 
 
 def gold(g):
@@ -694,21 +708,16 @@ def gold(g):
 
 def toyplastic(g):
     """Cream plastic moulded with coarse diamonds, and the seam where the mould's halves met."""
-    front, back = scaled(K.grip_front), scaled(K.grip_back)
-    top = Vector(((front[1][0] + back[1][0]) / 2, (front[1][1] + back[1][1]) / 2))
-    foot = Vector(((front[-1][0] + back[-1][0]) / 2, (front[-1][1] + back[-1][1]) / 2))
-    middle = top + (foot - top) * 0.52
-    turn = math.atan2(foot.y - top.y, foot.x - top.x)
-    nearest = g.panel(middle.x, middle.y, (foot - top).length * 0.36, 0.0110, 0.006, turn)
+    middle, long, deep, turn = grip_panel(0.52)
+    nearest = g.panel(middle.x, middle.y, long * 0.36, 0.0110, 0.006, turn)
     side = g.step(g.math("ABSOLUTE", g.nx), 0.30, 0.55)
     cut = g.times(g.math("SUBTRACT", 1.0, g.step(nearest, -0.0004, 0.0004)), side)
     pitch = 0.0034
     one = g.teeth(g.add(g.times(g.y, 0.866 / pitch), g.times(g.z, 0.5 / pitch)))
     other = g.teeth(g.math("SUBTRACT", g.times(g.y, 0.866 / pitch), g.times(g.z, 0.5 / pitch)))
     diamond = g.math("MINIMUM", one, other)
-    seam = g.math("SUBTRACT", 1.0, g.step(g.math("ABSOLUTE", g.x), 0.0002, 0.0005))
     colour = g.scaled(g.colour(0.80, 0.74, 0.60), g.math("SUBTRACT", 1.0, g.times(cut, g.math("SUBTRACT", 0.14, g.times(diamond, 0.12)))))
-    return g.finish(colour, g.add(0.34, g.times(cut, 0.08)), 0.0, g.add(g.times(cut, diamond, 0.00045), g.times(seam, 0.00015)))
+    return g.finish(colour, g.add(0.34, g.times(cut, 0.08)), 0.0, g.add(g.times(cut, diamond, 0.00045), g.times(seam(g), 0.00015)))
 
 
 def blaze(g):
@@ -726,13 +735,8 @@ def burnt(g):
 
 def walnut(g):
     """The grips: walnut, with a panel of fine diamonds on each side where the hand holds it, the grain down the grip."""
-    front, back = scaled(K.grip_front), scaled(K.grip_back)
-    top = Vector(((front[1][0] + back[1][0]) / 2, (front[1][1] + back[1][1]) / 2))
-    foot = Vector(((front[-1][0] + back[-1][0]) / 2, (front[-1][1] + back[-1][1]) / 2))
-    middle = top + (foot - top) * 0.50
-    turn = math.atan2(foot.y - top.y, foot.x - top.x)
-    deep = (Vector(front[len(front) // 2]) - Vector(back[len(back) // 2])).length
-    return G.walnut(g, ((middle.x, middle.y, (foot - top).length * 0.36, deep * 0.32, 0.006, turn),), 0.0016, grain=turn)
+    middle, long, deep, turn = grip_panel(0.50)
+    return G.walnut(g, ((middle.x, middle.y, long * 0.36, deep * 0.32, 0.006, turn),), 0.0016, grain=turn)
 
 
 G.MAKERS.update({"blued": blued, "stainless": stainless, "matte": matte, "latch": latch, "knurled": knurled, "ramp": ramp, "sight": sight, "insert": insert, "copper": copper,
@@ -768,11 +772,10 @@ def pack(gun, colour, surface):
     hammer_at, trigger_at = in_file((0.0, *HAMMER_AT)), in_file((0.0, *TRIGGER_AT))
     axis, crane_at = in_file((0.0, 0.0, ZC)), in_file((CRANE_AT[0], 0.0, CRANE_AT[1]))
     chamber = in_file((0.0, CYL_REAR, 0.0))
-    round_long = K.case_len + K.bullet_len if not K.toy else 0.0026
     # Mirrored in z, a turn about +x or +y goes the other way.
     # It turns one chamber a shot anticlockwise seen from behind, which is about -y as it is made and +y in the file.
     moves = [hammer_at.y, hammer_at.z, -COCKED, trigger_at.y, trigger_at.z, -PULLED, axis.x, axis.z, 2 * math.pi / K.chambers, float(K.chambers),
-             crane_at.x, crane_at.z, -SWING, K.travel, *chamber, round_long]
+             crane_at.x, crane_at.z, -SWING, K.travel, *chamber]
     G.pack(gun, K.name, GRIP, colour, surface, range(8), G.head_v5(muzzle, nothing, nothing, K.travel, SIGHT_LINE, EYE_BEHIND_GRIP, moves),
            moved=((ROUND, ROUND_AT), (CASE, CASE_AT)), mirror=(1.0, 1.0, -1.0))
 
