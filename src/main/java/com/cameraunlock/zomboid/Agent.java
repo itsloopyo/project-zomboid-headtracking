@@ -607,10 +607,7 @@ public final class Agent {
 
     /**
      * Apart from everything else, and each from the other: without both a vehicle meets fences
-     * and lamp posts as the game has it. Once an update the game looks round a vehicle for what
-     * it has met, in one method, and hands each thing its tiles mark as hit by cars that it
-     * finds to another. The first is where the mod looks ahead of the vehicle, the second is
-     * taken over for fences and posts. See CarSmash.
+     * and lamp posts as the game has it. See CarSmash.
      */
     private static List<Patch> knockdownPatches() {
         String object = "zombie/iso/IsoObject", vehicle = "zombie/vehicles/BaseVehicle";

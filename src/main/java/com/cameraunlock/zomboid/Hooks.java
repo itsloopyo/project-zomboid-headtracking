@@ -545,12 +545,12 @@ public final class Hooks {
         return view == null ? moving.isOnScreen() : view.farModels.onScreen(moving);
     }
 
-    /** Called from IsoObject.Collision as it starts, with what met the thing. True where the game's own handling of the meeting is passed over. */
+    /** Whether a vehicle knocked down the thing it met, so the game's own handling of the meeting is passed over. */
     public static boolean knockedDown(IsoObject thing, IsoObject by) {
         return by instanceof BaseVehicle vehicle && CarSmash.struck(thing, vehicle);
     }
 
-    /** Called from BaseVehicle.breakingObjects as it starts, before the game looks for what the vehicle has met. */
+    /** Knocks down what a vehicle is about to meet. */
     public static void meeting(BaseVehicle vehicle) {
         CarSmash.sweep(vehicle);
     }
