@@ -128,6 +128,10 @@ final class CabinShader {
                     return min(nearest, round4);
                 }
                 for (int i = 0; i < 2; i++) {
+                    // Across counts to the driver's right, so the hand on the low side is the left.
+                    if ((i == 0 ? uWheelHands.y : uWheelHands.x) < 0.5) {
+                        continue;
+                    }
                     float way = i == 0 ? -1.0 : 1.0;
                     vec3 along = gAlong[i], wrist = gWrist[i], elbow = gElbow[i];
                     vec3 shoulder = vec3(-0.06, uWheel.y + way * 0.25, -0.27);

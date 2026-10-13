@@ -827,6 +827,16 @@ public final class Characters {
     private final float[] turn = new float[16];
     /** Whether the left hand is on the weapon held up, with the right. */
     private boolean heldBoth;
+
+    /** Whether the driver's right hand is on the wheel this frame: not while it holds a weapon up. Read after drawViewer. */
+    boolean rightOnWheel() {
+        return holding == null;
+    }
+
+    /** Whether the driver's left hand is on the wheel this frame: not while it is on the weapon too. Read after drawViewer. */
+    boolean leftOnWheel() {
+        return holding == null || !heldBoth;
+    }
     /**
      * The picture's own arms behind the hands on the weapon, right then left: whether each is
      * drawn, its wrist, elbow and shoulder as the eye sees them, the line square to both its

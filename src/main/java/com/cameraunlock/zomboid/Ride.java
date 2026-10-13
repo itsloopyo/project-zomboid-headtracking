@@ -210,6 +210,12 @@ final class Ride {
         return window != null && !window.isHittable();
     }
 
+    /** Whether the player sits in the driver's seat of a vehicle. */
+    static boolean inDriversSeat(IsoPlayer player) {
+        BaseVehicle vehicle = player.getVehicle();
+        return vehicle != null && vehicle.getSeat(player) == 0;
+    }
+
     private void seatTheEye(BaseVehicle vehicle, int seat, float floorUp, float[] eye) {
         vehicle.getPassengerWorldPos(seat, seatAt);
         // The game's seat is at the door. The head is further in, straight across

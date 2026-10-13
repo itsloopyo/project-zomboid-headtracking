@@ -4606,13 +4606,16 @@ final class PipelineShaders {
             // screen, along and up, and how thick the pillars are. uPad is where the shelf of
             // the dashboard begins and where the pillar behind the driver's door stands, both
             // along. uTrade is what the vehicle carries for its work. uArms is whether the
-            // driver's hands are on the wheel, and uSkin and uSleeve what they are covered in,
-            // the sleeve's fourth part being how far down the arm it comes: 1 to the wrist,
-            // a half to the elbow, and nought for a bare arm.
+            // driver's hands are on the wheel, and uWheelHands which of them, right then left:
+            // a weapon held up out of the window takes the right, and the left too while it
+            // loads. uSkin and uSleeve are what they are covered in, the sleeve's fourth part
+            // being how far down the arm it comes: 1 to the wrist, a half to the elbow, and
+            // nought for a bare arm.
             uniform vec3 uHouse;
             uniform vec2 uPad;
             uniform float uTrade;
             uniform float uArms;
+            uniform vec2 uWheelHands;
             uniform vec3 uSkin;
             uniform vec4 uSleeve;
             uniform vec3 uBare;

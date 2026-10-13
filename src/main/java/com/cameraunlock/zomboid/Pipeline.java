@@ -3775,6 +3775,7 @@ final class Pipeline {
         float[] skin = Cabins.skin(view.ride.skin);
         Cabins.Wear wear = view.ride.dress.worn;
         figureLight.set("uArms", view.ride.driving ? 1f : 0f);
+        figureLight.set("uWheelHands", view.characters.rightOnWheel() ? 1f : 0f, view.characters.leftOnWheel() ? 1f : 0f);
         figureLight.set("uBare", skin[0], skin[1], skin[2]);
         if (wear.glove() == null) {
             figureLight.set("uSkin", skin[0], skin[1], skin[2]);
