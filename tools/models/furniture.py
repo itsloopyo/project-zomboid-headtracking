@@ -3175,7 +3175,7 @@ def carton(name, width, depth, high):
     for side in (-1, 1):
         low, far = sorted((side * hx, side * (hx + 0.002)))
         cuboid(tape, low, far, -0.03, 0.03, high - 0.11, high + 0.002)
-    model.plain(tape, "shade")
+    model.plain(tape, "paint")
     return model
 
 
@@ -3184,7 +3184,7 @@ def computer():
     model = Model("computer")
     case = bmesh.new()
     cuboid(case, -0.21, 0.21, -0.12, 0.28, 0.0, 0.105)
-    model.hard(case, "shade", bevel=0.006, segments=2)
+    model.hard(case, "paint", bevel=0.006, segments=2)
     slots = bmesh.new()
     cuboid(slots, 0.04, 0.17, -0.123, -0.12, 0.06, 0.07)
     cuboid(slots, 0.04, 0.17, -0.123, -0.12, 0.032, 0.042)
@@ -3193,13 +3193,13 @@ def computer():
     lathe(tube, [(0.0, 0.105), (0.11, 0.105), (0.12, 0.115), (0.07, 0.14), (0.0, 0.14)], cy=0.06, segments=14)
     cuboid(tube, -0.185, 0.185, -0.1, 0.02, 0.14, 0.46)
     prism_y(tube, (0.0, 0.3, 0.36, 0.31, 0.02), (0.0, 0.29, 0.22, 0.2, 0.27))
-    model.hard(tube, "shade", bevel=0.012, segments=2)
+    model.hard(tube, "paint", bevel=0.012, segments=2)
     glass = bmesh.new()
     cuboid(glass, -0.15, 0.15, -0.104, -0.1, 0.185, 0.425)
     model.hard(glass, "screen", bevel=0.01, segments=2)
     keys = bmesh.new()
     prism(keys, (0.0, -0.3, 0.44, 0.16, 0.0), (0.0, -0.295, 0.44, 0.15, 0.022))
-    model.hard(keys, "shade", bevel=0.004, segments=1)
+    model.hard(keys, "paint", bevel=0.004, segments=1)
     caps = bmesh.new()
     cuboid(caps, -0.2, 0.2, -0.36, -0.235, 0.022, 0.027)
     model.plain(caps, "linen")
@@ -3211,7 +3211,7 @@ def water_cooler():
     model = Model("water_cooler")
     body = bmesh.new()
     cuboid(body, -0.16, 0.16, -0.16, 0.16, 0.0, 0.98)
-    model.hard(body, "shade", bevel=0.012, segments=2)
+    model.hard(body, "paint", bevel=0.012, segments=2)
     trim = bmesh.new()
     cuboid(trim, -0.1, 0.1, -0.2, -0.16, 0.6, 0.615)
     for x in (-0.045, 0.045):
