@@ -505,6 +505,11 @@ public final class Agent {
                 // ground's slope and depth as it is added, and drawn into its own view only.
                 new Patch(shadows, "shadows not added under the first person picture", classBytes -> CallSite.returnAtOnceIf(classBytes,
                         new CallSite.Method(shadows, "addShadow", "(FFFFFFFFFFFFFFFLzombie/core/textures/Texture;Z)V"), covered)),
+                // The dark the game lays over what its player cannot see: worked out from the player's
+                // cone of sight over the walls round them and drawn into its own view only. The
+                // picture goes by the mod's own walk through the rooms (RoomSight), not by this.
+                new Patch("zombie/vispoly/VisibilityPolygon2", "the cone of sight not drawn under the first person picture", classBytes -> CallSite.returnAtOnceIf(classBytes,
+                        new CallSite.Method("zombie/vispoly/VisibilityPolygon2", "renderMain", "(I)V"), covered)),
                 // The game's own draw of each person into its own view, which the picture then
                 // covers: the picture draws every part of them again itself, by RenderCharacter.
                 // performRenderCharacter is the whole of that draw, the GL state and the model
