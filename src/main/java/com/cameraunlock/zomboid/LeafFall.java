@@ -166,6 +166,15 @@ final class LeafFall {
         return lying;
     }
 
+    /** How many leaves on the ground were set fading for room before they had lain PRESSED_AFTER. */
+    int pressedEarly() {
+        int early = 0;
+        for (int i = 0; i < count; i++) {
+            early += landed[i] >= 0f && !caught[i] && lies[i] < PRESSED_AFTER ? 1 : 0;
+        }
+        return early;
+    }
+
     /** How many leaves the tree t places from the nearest has let go of since the list was made. */
     int released(int t) {
         return released[t];

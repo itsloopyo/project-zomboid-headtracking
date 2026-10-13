@@ -412,6 +412,7 @@ final class LeafFallTests {
         for (int second = 0; second < 20; second++) {
             run(fall, 1f, 1f / 30f, 0f, 0f, 0.5f, Seasons.AUTUMN, PEAK_AUTUMN);
             carpetLeast = Math.min(carpetLeast, fall.carpet());
+            Checks.check(fall.pressedEarly() == 0, "no leaf is faded for room before it has lain a while: " + fall.pressedEarly());
         }
         Checks.check(carpetLeast >= LeafFall.CARPET - 40, "a carpet of leaves still lies out its time: at least " + carpetLeast + " of " + LeafFall.CARPET);
         float perSecond = (fall.spawned - before) / 20f;
