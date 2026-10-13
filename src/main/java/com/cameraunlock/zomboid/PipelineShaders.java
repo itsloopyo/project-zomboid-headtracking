@@ -365,13 +365,15 @@ final class PipelineShaders {
             // houses is dim, the ground under a tree is dim, a lawn in the open is not.
             float skySeen(vec3 at) {
                 float hidden = 0.0;
+                // The map is placed by an affine matrix, so a step along the ground moves in it by its first two columns.
+                vec3 here = (uRoofMatrix * vec4(at, 1.0)).xyz;
                 for (int way = 0; way < 6; way++) {
                     float a = float(way) * 1.0471976 + 0.4;
-                    vec2 dir = vec2(cos(a), sin(a));
+                    vec3 step = uRoofMatrix[0].xyz * cos(a) + uRoofMatrix[1].xyz * sin(a);
                     float highest = 0.0;
                     for (int far = 0; far < 3; far++) {
                         float d = far == 0 ? 0.7 : far == 1 ? 1.7 : 3.6;
-                        vec3 c = (uRoofMatrix * vec4(at.xy + dir * d, at.z, 1.0)).xyz * 0.5 + 0.5;
+                        vec3 c = (here + step * d) * 0.5 + 0.5;
                         if (c.x < 0.0 || c.x > 1.0 || c.y < 0.0 || c.y > 1.0) {
                             continue;
                         }
