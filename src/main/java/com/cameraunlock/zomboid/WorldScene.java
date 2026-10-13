@@ -744,6 +744,18 @@ final class WorldScene {
         /** What it is a square of rug made of, Rugs.WOVEN, FUR or HIDE, or -1 for no rug, and how high its top lies over the floor, in levels: see Flat.pile. */
         final int rug;
         final float pile;
+        /** What it is of a string of lights, a round canopy, an awning, a tent, a roof's hood and a structure the mod has models of: see each class's own reading. */
+        final int lights, parasol, eave;
+        final Awnings.Hung awning;
+        final Tents.Piece tent, rope;
+        final boolean endPiece;
+        final Towers.Part[] tower;
+        /** Whether it is the letters of a sign: see EdgeRuns.sign. */
+        final boolean sign;
+        /** For a sprite of tiled walls, its sheet: see Frame.tiledSheet. */
+        final String tiledSheet;
+        /** What of partOfTheBuilding and withinItsRoom goes by the sprite alone. */
+        final boolean ofTheBuilding, keptInItsRoom;
 
         Kind(IsoSprite sprite) {
             PropertyContainer properties = sprite.getProperties();
@@ -794,6 +806,18 @@ final class WorldScene {
             edge = name == null ? Overhead.ANY_EDGE : Overhead.edgeOf(name);
             flatWall = WallObjects.flatOn(properties, sprite.getFacing());
             brokenFence = BrokenFences.is(name);
+            lights = Lights.slice(sprite);
+            parasol = Parasols.quarter(sprite);
+            eave = Hoods.eave(sprite);
+            endPiece = Hoods.endPiece(sprite);
+            awning = Awnings.of(sprite);
+            tent = Tents.of(sprite);
+            rope = Tents.ropeOf(sprite);
+            tower = Towers.of(sprite);
+            sign = EdgeRuns.sign(name, properties.get("CustomName"));
+            tiledSheet = tiledWall ? name.substring(0, name.lastIndexOf('_') + 1) : null;
+            ofTheBuilding = ofTheBuilding(sprite);
+            keptInItsRoom = keptInItsRoom(sprite);
         }
     }
 
@@ -1780,9 +1804,16 @@ final class WorldScene {
      * window is seen through the glass from outside however the room is shut off.
      */
     static boolean withinItsRoom(IsoObject object, IsoSprite sprite) {
-        if (partOfTheBuilding(object, sprite) || object instanceof IsoCurtain || object instanceof IsoBarricade) {
-            return false;
-        }
+        return withinItsRoom(object, ofTheBuilding(sprite), keptInItsRoom(sprite));
+    }
+
+    /** The same, given what of it goes by the sprite alone: see Kind. */
+    static boolean withinItsRoom(IsoObject object, boolean ofTheBuilding, boolean keptInItsRoom) {
+        return !partOfTheBuilding(object, ofTheBuilding) && !(object instanceof IsoCurtain) && !(object instanceof IsoBarricade) && keptInItsRoom;
+    }
+
+    /** What of withinItsRoom goes by the sprite alone: what hangs on a wall, a curtain and an overlay on a wall are not kept in. */
+    private static boolean keptInItsRoom(IsoSprite sprite) {
         IsoObjectType type = sprite.getType();
         if (type == IsoObjectType.curtainN || type == IsoObjectType.curtainS || type == IsoObjectType.curtainE || type == IsoObjectType.curtainW) {
             return false;
@@ -1794,9 +1825,16 @@ final class WorldScene {
 
     /** Whether an object is the house itself and not something in it: a wall, a door, a window, stairs, a roof. */
     static boolean partOfTheBuilding(IsoObject object, IsoSprite sprite) {
-        if (object instanceof IsoDoor || object instanceof IsoWindow || object instanceof IsoThumpable thumpable && thumpable.isDoor()) {
-            return true;
-        }
+        return partOfTheBuilding(object, ofTheBuilding(sprite));
+    }
+
+    /** The same, given what of it goes by the sprite alone: see Kind. */
+    static boolean partOfTheBuilding(IsoObject object, boolean ofTheBuilding) {
+        return ofTheBuilding || object instanceof IsoDoor || object instanceof IsoWindow || object instanceof IsoThumpable thumpable && thumpable.isDoor();
+    }
+
+    /** What of partOfTheBuilding goes by the sprite alone. */
+    private static boolean ofTheBuilding(IsoSprite sprite) {
         IsoObjectType type = sprite.getType();
         if (Roofs.isTile(type) || isStair(type)) {
             return true;
@@ -5081,8 +5119,7 @@ final class WorldScene {
          * How finely they are turned, and whether they are there, goes by the chunk's band: see
          * Lights.FINE_WITHIN.
          */
-        private boolean addLights(IsoObject object, IsoSprite sprite, int x, int y, int z) {
-            int slice = Lights.slice(sprite);
+        private boolean addLights(int slice, IsoObject object, IsoSprite sprite, int x, int y, int z) {
             if (slice == Lights.NONE) {
                 return false;
             }
@@ -5201,10 +5238,15 @@ final class WorldScene {
             for (int i = 0; i < objects.size(); i++) {
                 IsoObject object = objects.get(i);
                 IsoSprite sprite = object.getSprite();
-                if (sprite == null || empty && object != floor && !partOfTheBuilding(object, sprite) || unsought && object != floor && withinItsRoom(object, sprite)) {
+                if (sprite == null) {
                     continue;
                 }
-                contentsOf(object != floor && withinItsRoom(object, sprite) ? room : RoomSight.OUTSIDE);
+                Kind kind = kindOf(sprite);
+                boolean inItsRoom = object != floor && withinItsRoom(object, kind.ofTheBuilding, kind.keptInItsRoom);
+                if (empty && object != floor && !partOfTheBuilding(object, kind.ofTheBuilding) || unsought && inItsRoom) {
+                    continue;
+                }
+                contentsOf(inItsRoom ? room : RoomSight.OUTSIDE);
                 Texture texture = sprite.getTextureForCurrentFrame(object.getDir());
                 if (!usable(texture)) {
                     continue;
@@ -5220,7 +5262,6 @@ final class WorldScene {
                 owning(Outlines.key(object));
                 frameOf(object, texture);
                 standOn(object);
-                Kind kind = kindOf(sprite);
                 frame.material = object == floor ? kind.asFloor : kind.asOther;
                 laidWall = kind.laidWall;
                 gableSheet = kind.gableSheet;
@@ -5581,23 +5622,23 @@ final class WorldScene {
                 return;
             }
 
-            if (Own.furniture() && addParasol(object, sprite, texture, properties, x, y, z)) {
+            if (Own.furniture() && addParasol(kind.parasol, object, sprite, properties, x, y, z)) {
                 return;
             }
 
-            if (Own.furniture() && (addAwning(sprite, texture, x, y, z) || addHood(sprite, texture, x, y, z))) {
+            if (Own.furniture() && (addAwning(kind.awning, texture, x, y, z) || addHood(kind, texture, x, y, z))) {
                 return;
             }
 
-            if (Own.furniture() && addTower(sprite, x, y, z)) {
+            if (Own.furniture() && addTower(kind.tower, sprite, x, y, z)) {
                 return;
             }
 
-            if (addTent(mesh, sprite, x, y, z)) {
+            if (addTent(mesh, kind.tent, kind.rope, x, y, z)) {
                 return;
             }
 
-            if (Own.furniture() && addLights(object, sprite, x, y, z)) {
+            if (Own.furniture() && addLights(kind.lights, object, sprite, x, y, z)) {
                 return;
             }
 
@@ -5614,11 +5655,11 @@ final class WorldScene {
             }
             // The eave the map hangs on the wall under a slope's foot, the trims painted on it and
             // the corner piece past each end of it: the slope's lowest tile makes that eave.
-            if ((kind.roofAccent || Hoods.eave(sprite) != Hoods.NONE) && roofBuilder.eaveRow(x, y, z) || Hoods.endPiece(sprite) && roofBuilder.eaveRowEnd(x, y, z)) {
+            if ((kind.roofAccent || kind.eave != Hoods.NONE) && roofBuilder.eaveRow(x, y, z) || kind.endPiece && roofBuilder.eaveRowEnd(x, y, z)) {
                 return;
             }
             // Where no slope makes it, the row is an eave of its own, and the corner past it goes with it.
-            if (Hoods.eave(sprite) != Hoods.NONE && roofBuilder.addEaveRow(texture, x, y, z) || Hoods.endPiece(sprite) && roofBuilder.eaveRowOfItsOwnEnd(x, y, z)) {
+            if (kind.eave != Hoods.NONE && roofBuilder.addEaveRow(texture, x, y, z) || kind.endPiece && roofBuilder.eaveRowOfItsOwnEnd(x, y, z)) {
                 return;
             }
 
@@ -5704,7 +5745,7 @@ final class WorldScene {
             boolean door = object instanceof IsoDoor || object instanceof IsoThumpable hinged && hinged.isDoor();
             glazedWall = object instanceof IsoWindow;
             paperedWall = kind.papered;
-            tiledSheet = kind.tiledWall ? sprite.getName().substring(0, sprite.getName().lastIndexOf('_') + 1) : null;
+            tiledSheet = kind.tiledSheet;
             wallOpens = properties.has(IsoFlagType.DoorWallN) || properties.has(IsoFlagType.DoorWallW)
                     || properties.has(IsoFlagType.WindowN) || properties.has(IsoFlagType.WindowW);
             seeThrough = isSheet(properties);
@@ -5712,7 +5753,7 @@ final class WorldScene {
             doorLeaf = door && !kind.fenceGate;
             doorHardware = !kind.garageDoor;
             casing = type == IsoObjectType.doorFrW || type == IsoObjectType.doorFrN;
-            wallBuilder.sign = overLayer == 0 && !door && west != north && EdgeRuns.sign(sprite.getName(), properties.get("CustomName"));
+            wallBuilder.sign = overLayer == 0 && !door && west != north && kind.sign;
             if (west) {
                 wallBuilder.addEdge(mesh, texture, isWall(properties, type), door, x, y, z, westLayer++, 0f, 1f);
             }
@@ -5955,8 +5996,7 @@ final class WorldScene {
          * missing and for one whose south-east sprite has nothing painted where the cloth's
          * colours are taken. Every quarter reaches the same answer.
          */
-        private boolean addParasol(IsoObject object, IsoSprite sprite, Texture texture, PropertyContainer properties, int x, int y, int z) {
-            int quarter = Parasols.quarter(sprite);
+        private boolean addParasol(int quarter, IsoObject object, IsoSprite sprite, PropertyContainer properties, int x, int y, int z) {
             // The pole is a post of a building's wall. A fence's corner post on the south-east square is the fence's.
             boolean pole = properties.has(IsoFlagType.WallSE) && sprite.getName() != null && sprite.getName().startsWith("walls_");
             if (quarter == Parasols.NONE && !pole) {
@@ -6001,8 +6041,7 @@ final class WorldScene {
          * sprite's two colours, from two places on the slope a stripe apart. False, which leaves
          * the sprite to be drawn as it was, for a sprite with nothing painted at either place.
          */
-        private boolean addAwning(IsoSprite sprite, Texture texture, int x, int y, int z) {
-            Awnings.Hung hung = Awnings.of(sprite);
+        private boolean addAwning(Awnings.Hung hung, Texture texture, int x, int y, int z) {
             if (hung == null) {
                 return false;
             }
@@ -6070,8 +6109,7 @@ final class WorldScene {
             }
         }
 
-        private boolean addTent(SpriteGeometry.Mesh mesh, IsoSprite sprite, int x, int y, int z) {
-            Tents.Piece piece = Tents.of(sprite), rope = Tents.ropeOf(sprite);
+        private boolean addTent(SpriteGeometry.Mesh mesh, Tents.Piece piece, Tents.Piece rope, int x, int y, int z) {
             if (!Tents.laid(piece, rope, Own.furniture())) {
                 return false;
             }
@@ -6116,10 +6154,10 @@ final class WorldScene {
          * hips stand in for: see Hoods. Its roofing takes the sprite's colour. False for any
          * other sprite, and for a hood's sprite with nothing painted where the colour is taken.
          */
-        private boolean addHood(IsoSprite sprite, Texture texture, int x, int y, int z) {
-            int wall = Hoods.eave(sprite);
+        private boolean addHood(Kind kind, Texture texture, int x, int y, int z) {
+            int wall = kind.eave;
             if (wall == Hoods.NONE) {
-                return Hoods.endPiece(sprite) && Hoods.endOfAHood(Hoods.on(cell, z), x, y);
+                return kind.endPiece && Hoods.endOfAHood(Hoods.on(cell, z), x, y);
             }
             Hoods.Squares squares = Hoods.on(cell, z);
             if (!Hoods.hood(squares, x, y)) {
@@ -6150,8 +6188,7 @@ final class WorldScene {
          * nothing. A section with a square not loaded yet adds nothing either, and the build is
          * made again when the map has more.
          */
-        private boolean addTower(IsoSprite sprite, int x, int y, int z) {
-            Towers.Part[] parts = Towers.of(sprite);
+        private boolean addTower(Towers.Part[] parts, IsoSprite sprite, int x, int y, int z) {
             boolean dealt = false;
             String stood = null;
             for (Towers.Part part : parts) {
