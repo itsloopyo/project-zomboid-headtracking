@@ -860,7 +860,7 @@ def accelerator(at):
 # height, how far above its middle the stem meets the glass, and the furthest aside of straight ahead it is let hang
 # from the eye, in degrees.
 MIRROR_SEEN, MIRROR_TALL = 19.0, 0.045 / 0.160
-MIRROR_HANG, MIRROR_PAD_UP, MIRROR_ASIDE = 0.035, 0.05, 42.0
+MIRROR_HANG, MIRROR_PAD_UP, MIRROR_PAD_AT, MIRROR_ASIDE = 0.035, 0.05, 0.93, 50.0
 
 
 def screen_up_at(house, z):
@@ -870,9 +870,12 @@ def screen_up_at(house, z):
 
 
 def screen_mirror_at(house):
-    """The middle of the mirror's glass: on the vehicle's middle line, at the height above the eye the mod's own drawn
-    cabin hangs its mirror (Cabins.house), MIRROR_HANG behind the windscreen there; lower down the glass where that would
-    put it more than MIRROR_ASIDE aside from the eye."""
+    """The middle of the mirror's glass and the glass's width and height: on the vehicle's middle line, at the height
+    above the eye the mod's own drawn cabin hangs its mirror (Cabins.house), MIRROR_HANG behind the windscreen there and
+    further back where the windscreen curves back towards its sides and leans over its top, so the housing's front
+    corners, 0.024 ahead of the glass, stay a little behind it; lower down the glass where that would put it more than
+    MIRROR_ASIDE aside from the eye. As wide from the seat in every body: one hung further off, as in a step van, is
+    bigger."""
     angle, rail = house.spec["glasshouse"]
     m = house.spec["measures"]
     scale, wheel_along, wheel_up = 2.0 / 3.0, 0.531, -0.447
@@ -882,10 +885,17 @@ def screen_mirror_at(house):
     z = (rail - (rail - foot_up) * down - 0.01) * scale
 
     def hung(z):
-        return v(house.screen_at(0.0, screen_up_at(house, z)).x - MIRROR_HANG, house.mid, z)
+        at = v(house.screen_at(0.0, screen_up_at(house, z)).x - MIRROR_HANG, house.mid, z)
+        width = 2.0 * at.length * math.tan(math.radians(MIRROR_SEEN / 2))
+        glass = (width, width * MIRROR_TALL)
+        half_w, half_h = glass[0] / 2 + 0.007, glass[1] / 2 + 0.0065
+        need = max(at.x + 0.030 - house.screen_x(half_w, at.z + dz) for dz in (-half_h, half_h))
+        return (at - v(need, 0, 0) if need > 0.0 else at), glass
 
+    foot, top = house.screen_at(0.0, 0.0), house.screen_at(0.0, 1.0)
+    z = foot.z + MIRROR_PAD_AT * (top.z - foot.z) - MIRROR_PAD_UP
     least = abs(house.mid) / math.tan(math.radians(MIRROR_ASIDE))
-    while hung(z).x < least:
+    while hung(z)[0].x < least:
         z -= 0.002
     if screen_up_at(house, z + MIRROR_PAD_UP) > 1.0 or screen_up_at(house, z) < 0.3:
         raise ValueError("the mirror at %.3f up does not hang from the windscreen" % z)
@@ -926,16 +936,7 @@ def visors_and_mirror(house, visors=True):
                max(0.018, house.roof_z(inboard) - cz))
         parts.append(b.finish("visor clip", "plastic", SHELL, bevel=0.002, texels=1.0))
     # The mirror: a stem from a pad on the windscreen to a slim housing, its glass a part the mod shows the road behind in.
-    at = screen_mirror_at(house)
-    # As wide from the seat in every body: one hung further off, as in a step van, is bigger.
-    width = 2.0 * at.length * math.tan(math.radians(MIRROR_SEEN / 2))
-    glass = (width, width * MIRROR_TALL)
-    # Set back where the windscreen curves back towards its sides and leans over its top, so the housing's front
-    # corners, 0.024 ahead of the glass, stay a little behind it.
-    half_w, half_h = glass[0] / 2 + 0.007, glass[1] / 2 + 0.0065
-    need = max(at.x + 0.030 - house.screen_x(half_w, at.z + dz) for dz in (-half_h, half_h))
-    if need > 0.0:
-        at = at - v(need, 0, 0)
+    at, glass = screen_mirror_at(house)
     top = house.screen_at(0.0, screen_up_at(house, at.z + MIRROR_PAD_UP))
     glass_up = (house.screen_at(0.0, 1.0) - house.screen_at(0.0, 0.0)).normalized()
     # The stem leaves its pad square to the windscreen, so its end lies flat on the glass.

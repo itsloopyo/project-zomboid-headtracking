@@ -34,7 +34,7 @@ final class CabinTests {
             CabinModel model = CabinModel.named(family[1]);
             float[] m = model.mirrors;
             double aside = Math.toDegrees(Math.atan2(Math.abs(m[1]), m[0]));
-            check(aside <= 42.5 && m[2] > 0f, family[0] + "'s mirror on the screen hangs " + aside + " degrees aside of straight ahead, " + m[2] + " above the eye");
+            check(aside <= 50.5 && m[2] > 0f, family[0] + "'s mirror on the screen hangs " + aside + " degrees aside of straight ahead, " + m[2] + " above the eye");
             check(m[3] < -0.999f, family[0] + "'s mirror on the screen faces straight back, not " + m[3] + ", " + m[4] + ", " + m[5]);
             check(model.wiperReach > 0.4f, family[0] + "'s wipers reach " + model.wiperReach + " up its windscreen");
         }
