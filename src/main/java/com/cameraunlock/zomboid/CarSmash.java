@@ -7,6 +7,7 @@ import java.util.Locale;
 import org.joml.Vector3f;
 import zombie.core.properties.IsoPropertyType;
 import zombie.core.properties.PropertyContainer;
+import zombie.iso.BentFences;
 import zombie.iso.BrokenFences;
 import zombie.iso.IsoDirections;
 import zombie.iso.IsoGridSquare;
@@ -70,11 +71,11 @@ final class CarSmash {
     private static Knockdown.Kind knockable(IsoObject thing, float kmh) {
         IsoSprite sprite = thing.getSprite();
         PropertyContainer properties = thing.getProperties();
-        if (Online.joined() || !Knockdown.fastEnough(kmh) || sprite == null || thing.getSquare() == null || properties == null
-                || !properties.has(IsoPropertyType.HIT_BY_CAR)) {
+        if (Online.joined() || !Knockdown.fastEnough(kmh) || sprite == null || thing.getSquare() == null || properties == null) {
             return null;
         }
-        return Knockdown.of(sprite.getName(), properties.get(IsoPropertyType.MATERIAL));
+        return Knockdown.of(sprite.getName(), properties.get(IsoPropertyType.MATERIAL), properties.has(IsoPropertyType.HIT_BY_CAR),
+                properties.has(IsoFlagType.collideN) || properties.has(IsoFlagType.collideW));
     }
 
     /** Called from IsoObject.Collision as it starts. True where the vehicle knocked the thing down and the game's own rule is passed over. */
@@ -167,8 +168,12 @@ final class CarSmash {
         thing.HitByVehicle(vehicle, 0f);
         int lamps = 0;
         BrokenFences fences = BrokenFences.getInstance();
+        BentFences bent = BentFences.getInstance();
         if (kind == Knockdown.Kind.FENCE && fences.isBreakableObject(thing)) {
             fences.destroyFence(thing, awayFrom(vehicle, thing, properties));
+        } else if (kind == Knockdown.Kind.FENCE && bent.isBendableFence(thing)) {
+            // The tall chain link no piece of which the game breaks alone: it comes down a whole span at a time, as zombies bring it down.
+            bent.smashFence(thing, awayFrom(vehicle, thing, properties));
         } else {
             square.transmitRemoveItemFromSquare(thing);
             if (kind == Knockdown.Kind.POST) {

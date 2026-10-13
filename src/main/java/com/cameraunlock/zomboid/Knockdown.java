@@ -16,19 +16,23 @@ final class Knockdown {
     static final float WALKING_KMH = 10f;
 
     /**
-     * What a thing the game's tiles mark as hit by cars is, by its sprite and the Material its
-     * tile names, or null for anything else. Fences are every sheet of them, chain link, wire,
-     * wood and metal bars, but stone: a stone fence is a low wall. Lamp posts are the posts of
-     * the street lamp sheet; the lamps on top of them are on the level above.
+     * What a thing is, by its sprite, the Material its tile names, whether the tile marks it as
+     * hit by cars and whether it stands along a square's edge, or null for anything else.
+     * Fences are every sheet of them the tiles mark, chain link, wire, wood and metal bars, but
+     * stone: a stone fence is a low wall. Chain link and wire (Material MetalWire) are fences
+     * whether marked or not, as long as they stand along an edge: the tall chain link
+     * fencing_01_80 to 92 is not marked, and what is left lying of a broken one stands on no
+     * edge. Lamp posts are the marked posts of the street lamp sheet; the lamps on top of them
+     * are on the level above.
      */
-    static Kind of(String sprite, String material) {
+    static Kind of(String sprite, String material, boolean hitByCar, boolean onEdge) {
         if (sprite == null) {
             return null;
         }
         if (sprite.startsWith("fencing_")) {
-            return "Stone".equals(material) ? null : Kind.FENCE;
+            return "Stone".equals(material) || !hitByCar && !("MetalWire".equals(material) && onEdge) ? null : Kind.FENCE;
         }
-        return sprite.startsWith("lighting_outdoor_01_") ? Kind.POST : null;
+        return hitByCar && sprite.startsWith("lighting_outdoor_01_") ? Kind.POST : null;
     }
 
     /** How near the vehicle's box a thing is met on every side, so a fence brushed along the side is met too. In tiles. */

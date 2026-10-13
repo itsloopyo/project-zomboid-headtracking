@@ -32,19 +32,24 @@ public final class KnockdownTests {
     }
 
     private static void fencesAndPostsAreKnockedDownAndNothingElse() {
-        check(Knockdown.of("fencing_01_57", "MetalWire") == Knockdown.Kind.FENCE, "tall chain link is a fence");
-        check(Knockdown.of("fencing_01_21", "MetalWire") == Knockdown.Kind.FENCE, "short chain link is a fence");
-        check(Knockdown.of("fencing_01_5", "Wood") == Knockdown.Kind.FENCE, "a white picket fence is a fence");
-        check(Knockdown.of("fencing_01_9", "Wood") == Knockdown.Kind.FENCE, "a tall wooden fence is a fence");
-        check(Knockdown.of("fencing_01_19", "Wood") == Knockdown.Kind.FENCE, "a fence post goes with its fence");
-        check(Knockdown.of("fencing_damaged_01_34", "MetalWire") == Knockdown.Kind.FENCE, "so does a piece already broken at one side");
-        check(Knockdown.of("fencing_01_104", "Stone") == null, "a stone fence is a low wall and stands");
-        check(Knockdown.of("lighting_outdoor_01_16", null) == Knockdown.Kind.POST, "the bare post under a tall street lamp is a post");
-        check(Knockdown.of("lighting_outdoor_01_4", null) == Knockdown.Kind.POST, "and so is the black post under an acorn lamp");
-        check(Knockdown.of("street_decoration_01_0", "MetalBars") == null, "a stop sign is left to the game");
-        check(Knockdown.of("trashcontainers_01_0", "PlasticHard") == null, "and so is a bin");
-        check(Knockdown.of("walls_exterior_house_01_0", "Wood") == null, "a wall stands");
-        check(Knockdown.of(null, null) == null, "a thing with no sprite is nothing");
+        check(Knockdown.of("fencing_01_57", "MetalWire", true, true) == Knockdown.Kind.FENCE, "tall chain link is a fence");
+        check(Knockdown.of("fencing_01_21", "MetalWire", true, true) == Knockdown.Kind.FENCE, "short chain link is a fence");
+        check(Knockdown.of("fencing_01_81", "MetalWire", false, true) == Knockdown.Kind.FENCE, "the tall chain link the tiles do not mark is a fence");
+        check(Knockdown.of("fencing_01_89", "MetalWire", false, true) == Knockdown.Kind.FENCE, "and so is the unmarked wire fence");
+        check(Knockdown.of("fencing_damaged_01_81", "MetalWire", false, false) == null, "chain link lying broken on no edge is left lying");
+        check(Knockdown.of("fencing_01_9", "Wood", false, true) == null, "an unmarked wooden fence is left to the game");
+        check(Knockdown.of("fencing_01_5", "Wood", true, true) == Knockdown.Kind.FENCE, "a white picket fence is a fence");
+        check(Knockdown.of("fencing_01_9", "Wood", true, true) == Knockdown.Kind.FENCE, "a tall wooden fence is a fence");
+        check(Knockdown.of("fencing_01_19", "Wood", true, false) == Knockdown.Kind.FENCE, "a fence post goes with its fence");
+        check(Knockdown.of("fencing_damaged_01_34", "MetalWire", true, true) == Knockdown.Kind.FENCE, "so does a piece already broken at one side");
+        check(Knockdown.of("fencing_01_104", "Stone", true, true) == null, "a stone fence is a low wall and stands");
+        check(Knockdown.of("lighting_outdoor_01_16", null, true, false) == Knockdown.Kind.POST, "the bare post under a tall street lamp is a post");
+        check(Knockdown.of("lighting_outdoor_01_4", null, true, false) == Knockdown.Kind.POST, "and so is the black post under an acorn lamp");
+        check(Knockdown.of("lighting_outdoor_01_24", null, false, false) == null, "a lamp on a wall is not a post");
+        check(Knockdown.of("street_decoration_01_0", "MetalBars", true, false) == null, "a stop sign is left to the game");
+        check(Knockdown.of("trashcontainers_01_0", "PlasticHard", true, false) == null, "and so is a bin");
+        check(Knockdown.of("walls_exterior_house_01_0", "Wood", false, true) == null, "a wall stands");
+        check(Knockdown.of(null, null, true, true) == null, "a thing with no sprite is nothing");
     }
 
     private static void aPushAtAWalkKnocksNothingDown() {
