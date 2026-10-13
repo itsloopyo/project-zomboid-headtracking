@@ -114,7 +114,7 @@ final class GripTests {
             OwnModel.Layout layout = OwnModel.layout(read, model.mesh);
             String name = model.what;
             StringBuilder why = new StringBuilder();
-            WeaponShape shape = WeaponShape.read(layout.places(read), layout.corners(read), new float[] {0f, 1f, 0f}, OwnModel.top(layout.muzzle()), layout.muzzle(), 1f,
+            WeaponShape shape = WeaponShape.read(layout.places(read), layout.corners(read), new float[] {0f, 1f, 0f}, model.top(), layout.muzzle(), 1f,
                     why);
             check(shape != null, name + " has a grip: " + why);
             if (shape == null) {
@@ -122,7 +122,8 @@ final class GripTests {
             }
             check(ArmPose.apart(shape.grip, new float[3]) < 0.08f && ArmPose.dot(shape.grip, shape.up) < shape.bore, name + "'s grip is under its bore and within a hand of its origin: "
                     + shape.grip[1] + ", " + shape.grip[2]);
-            if (layout.muzzle()[2] < 0f) {
+            check(model.handgun == layout.muzzle()[2] < 0f, name + " is made with its top towards -z if and only if it is a handgun");
+            if (model.handgun) {
                 // A revolver's grip leans back from its bore, and its guard is ahead of the hand, under the cylinder.
                 float lean = (float) Math.toDegrees(Math.atan2(ArmPose.dot(shape.gripLine, shape.along), ArmPose.dot(shape.gripLine, shape.up)));
                 check(lean > 10f && lean < 35f, name + "'s grip leans back 10 to 35 degrees from upright: " + lean);

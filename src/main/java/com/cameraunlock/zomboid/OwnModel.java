@@ -38,13 +38,13 @@ final class OwnModel {
      */
     private static int made;
     static final OwnModel[] ALL = {
-        new OwnModel("the shotgun's model", "shotgun", "shotgun", "Base.Shotgun", true, true, OwnShotgun.PARTS, OwnShotgun::new),
-        new OwnModel("the sawn-off shotgun's model", "sawnoff", "sawnoff", "Base.ShotgunSawnoff", true, true, OwnShotgun.PARTS, OwnShotgun::new),
-        new OwnModel("the rifle's model", "rifle", "rifle", "Base.HuntingRifle", false, false, OwnRifle.PARTS, OwnRifle::new),
-        new OwnModel("the revolver's model", "revolver", "revolver", "Base.Revolver", false, false, OwnRevolver.PARTS, OwnRevolver::new),
-        new OwnModel("the magnum's model", "magnum", "magnum", "Base.Revolver_Long", false, false, OwnRevolver.PARTS, OwnRevolver::new),
-        new OwnModel("the snub-nosed revolver's model", "snubnose", "snubnose", "Base.Revolver_Short", false, false, OwnRevolver.PARTS, OwnRevolver::new),
-        new OwnModel("the cap gun's model", "capgun", "capgun", "Base.Revolver_CapGun", false, false, OwnRevolver.PARTS, OwnRevolver::new),
+        new OwnModel("the shotgun's model", "shotgun", "shotgun", "Base.Shotgun", true, true, false, OwnShotgun.PARTS, OwnShotgun::new),
+        new OwnModel("the sawn-off shotgun's model", "sawnoff", "sawnoff", "Base.ShotgunSawnoff", true, true, false, OwnShotgun.PARTS, OwnShotgun::new),
+        new OwnModel("the rifle's model", "rifle", "rifle", "Base.HuntingRifle", false, false, false, OwnRifle.PARTS, OwnRifle::new),
+        new OwnModel("the revolver's model", "revolver", "revolver", "Base.Revolver", false, false, true, OwnRevolver.PARTS, OwnRevolver::new),
+        new OwnModel("the magnum's model", "magnum", "magnum", "Base.Revolver_Long", false, false, true, OwnRevolver.PARTS, OwnRevolver::new),
+        new OwnModel("the snub-nosed revolver's model", "snubnose", "snubnose", "Base.Revolver_Short", false, false, true, OwnRevolver.PARTS, OwnRevolver::new),
+        new OwnModel("the cap gun's model", "capgun", "capgun", "Base.Revolver_CapGun", false, false, true, OwnRevolver.PARTS, OwnRevolver::new),
     };
 
     /**
@@ -70,6 +70,11 @@ final class OwnModel {
      * left hand on its fore-end.
      */
     final boolean foreEndHeld;
+    /**
+     * Whether it is a handgun, made upside down from the long guns as the game makes its own:
+     * its top is towards -z in its file.
+     */
+    final boolean handgun;
     /** Makes the class that works the model's action and draws it, one for each view. */
     final Function<View, OwnGun> works;
     /** How many parts that class draws, which the model's file must have. */
@@ -114,14 +119,17 @@ final class OwnModel {
      * @param item        the item of the game's it stands for
      * @param pump        whether it is worked by its fore-end
      * @param foreEndHeld whether the left hand holds its fore-end with the pump gun's hold
+     * @param handgun     whether it is a handgun, its top towards -z
      * @param parts       how many parts the class that works it draws: its file must have as many
      * @param works       makes the class that works its action and draws it
      */
-    private OwnModel(String what, String name, String pictures, String item, boolean pump, boolean foreEndHeld, int parts, Function<View, OwnGun> works) {
+    private OwnModel(String what, String name, String pictures, String item, boolean pump, boolean foreEndHeld, boolean handgun, int parts,
+            Function<View, OwnGun> works) {
         this.what = what;
         this.item = item;
         this.pump = pump;
         this.foreEndHeld = foreEndHeld;
+        this.handgun = handgun;
         this.parts = parts;
         this.works = works;
         mesh = "/models/" + name + ".mesh.gz";
@@ -225,13 +233,9 @@ final class OwnModel {
         return count;
     }
 
-    /**
-     * Which way the top of a model is in its own axes: +z, as the game's long guns are made, or
-     * -z for a handgun, which the game makes upside down from them and whose muzzle is then
-     * under its origin, as WeaponShape.axes reads the game's.
-     */
-    static float[] top(float[] muzzle) {
-        return new float[] {0f, 0f, muzzle[2] < 0f ? -1f : 1f};
+    /** Which way the top of the model is in its own axes: +z, as the game's long guns are made, or -z for a handgun. */
+    float[] top() {
+        return new float[] {0f, 0f, handgun ? -1f : 1f};
     }
 
     /**
@@ -356,7 +360,7 @@ final class OwnModel {
             throw new IOException(mesh + " has " + layout.counts.length + " parts, where what draws " + what + " draws " + parts);
         }
         StringBuilder why = new StringBuilder();
-        WeaponShape shape = WeaponShape.read(layout.places(read), layout.corners(read), new float[] {0f, 1f, 0f}, top(layout.muzzle), layout.muzzle.clone(), 1f, why);
+        WeaponShape shape = WeaponShape.read(layout.places(read), layout.corners(read), new float[] {0f, 1f, 0f}, top(), layout.muzzle.clone(), 1f, why);
         return new Read(read, layout, shape, why.toString());
     }
 
