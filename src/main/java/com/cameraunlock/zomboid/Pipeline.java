@@ -2562,7 +2562,9 @@ final class Pipeline {
         }
         ChunkBuffers.Listing listed = inMirror ? shownBehind : seenBy(camera, state);
         // The picture of what water shows is mostly far off, where little hides anything else, and is drawn once.
-        boolean depthFirst = !WITHOUT.contains("depth") && !inWater;
+        boolean grassFirst = !WITHOUT.contains("depth") && !inWater;
+        // So is the solid world in the mirror, whose picture is too small for what the first drawing saves to pay for the second.
+        boolean depthFirst = grassFirst && !inMirror;
         // Read once for both drawings of the world: read for each, a mark the logic thread added between them would be in one and not the other.
         placeSnowPrints(camera);
         tellWorld(world, camera, state, tanHalfFieldOfView, aspect, fogStart, fogEnd);
@@ -2580,17 +2582,19 @@ final class Pipeline {
         // pinhole, and without=depth is the picture to hold a capture against.
         // The same in both drawings of the solid world, which must agree on which model of a piece is there.
         float pixel = 2f * tanHalfFieldOfView / drawnHigh();
-        if (depthFirst) {
+        if (grassFirst) {
             tellWorld(worldDepth, camera, state, tanHalfFieldOfView, aspect, fogStart, fogEnd);
             worldDepth.set("uLaid", 0f);
+        }
+        if (depthFirst) {
             GL11.glColorMask(false, false, false, false);
             drawRanges(listed, 0, listed.solidRanges(), worldDepth);
             drawModels(worldDepth, true, false, camera, far, pixel, Outlines.NONE);
             GL11.glColorMask(true, true, true, true);
-            world.use();
             GL11.glDepthFunc(GL_EQUAL);
             GL11.glDepthMask(false);
         }
+        world.use();
         // The three parts of the view's own picture of the world are timed apart: what "world" then has left is the scope and what water shows.
         boolean own = !inMirror && !inScope && !inWater;
         if (own) {
@@ -2619,7 +2623,7 @@ final class Pipeline {
         // as the solid world's is, and then a pixel is lit only for the blade nearest the eye
         // there. The rest lies on the ground in layers that are mixed each over the last, and
         // is drawn once, in the order listed.
-        if (depthFirst) {
+        if (grassFirst) {
             GL11.glDisable(GL_BLEND);
             worldDepth.use();
             worldDepth.set("uCut", 0.02f);
