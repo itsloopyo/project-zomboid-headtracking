@@ -41,6 +41,7 @@ public final class ViewModel {
      * How the weapon is held this frame.
      *
      * @param item      the game's name for what is held
+     * @param itemId    the game's id of the very thing held, which another of the same kind does not share
      * @param firearm   whether it is aimed down its sights, as against swung
      * @param bothHands whether it is held in the left hand too
      * @param attack    how it is being hit with, or was last: one of ViewModelMath's ways
@@ -83,7 +84,7 @@ public final class ViewModel {
      * @param swungAs   for something swung, which of MeleeHold's classes the game puts it in
      * @param own       for a firearm, the mod's own model that stands for it, as OwnModel.of said when this was made, or null
      */
-    record Held(String item, boolean firearm, boolean bothHands, int attack, float reached, float past, boolean struck, float aim, float nearness, float lowered,
+    record Held(String item, int itemId, boolean firearm, boolean bothHands, int attack, float reached, float past, boolean struck, float aim, float nearness, float lowered,
             float swayYaw, float swayPitch, float bobX, float bobY, float recoil, float kickPitch, float kickYaw, float kickRoll, float kickUp, float kickBack,
             float dip, int skin, boolean female,
             int action, float cycled, int doing, float done, int rounds, int spent, float round, float handled, float pace, float seated, float drawn, float worked,
@@ -492,7 +493,7 @@ public final class ViewModel {
         roundsBefore = rounds;
         // A driver keeps the left hand on the wheel and holds the firearm in the right alone.
         boolean steering = Ride.inDriversSeat(player);
-        held = new Held(item.getFullType(), firearm, !steering && item == player.getSecondaryHandItem(),
+        held = new Held(item.getFullType(), item.getID(), firearm, !steering && item == player.getSecondaryHandItem(),
                 attack, reached, past, struck, aim, nearness, lowered, swayYaw, swayPitch, bob[0], bob[1], recoil,
                 kick.weaponPitch.at, kick.weaponYaw.at, kick.weaponRoll.at, kick.weaponUp.at, kick.weaponBack.at, dip,
                 player.getHumanVisual().getSkinTextureIndex(), player.isFemale(), action, cycled, doing, done, rounds, firearm ? weapon.getSpentRoundCount() : 0, round, handled, took[action][doing], seated, drawn, worked, clip, out, fetching, fetchTakes[action], !steering && player.getSecondaryHandItem() == null, firearm ? MeleeHold.ONE_HANDED : swungAs(weapon, item == player.getSecondaryHandItem()),
