@@ -919,7 +919,7 @@ public final class ViewModel {
             if (swungFit != null) {
                 secondFist = swungFit.second();
                 ViewModelMath.attack(way, how.reached, how.past, how.struck, swungFit.rest(), swung);
-                // Something longer than a bat is swung so that its head lands where a bat's does.
+                // Something longer than a bat is swung so that its head lands on what it hits.
                 swung[1] += swungFit.aimed()[way] * share;
             } else {
                 secondFist = -ArmHolds.LOWER_FIST;

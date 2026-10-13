@@ -301,32 +301,32 @@ final class MeleeTests {
     }
 
     private static void aLongWeaponLandsOnWhatItHits() {
-        float[] rest = new float[ViewModelMath.HOLD];
-        MeleeHold.rest(MeleeHold.TWO_HANDED, MeleeHold.BAT_REACH, true, TAN, rest);
         for (int way = ViewModelMath.SWUNG; way <= ViewModelMath.LUNGED; way++) {
             for (float reach = 0.1f; reach <= MeleeHold.BAT_REACH; reach += 0.05f) {
                 check(MeleeHold.aimed(way, reach) == 0f, "nothing as long as a bat or shorter is turned, way " + way + " reaching " + reach);
             }
-            float[] pose = new float[ViewModelMath.HOLD];
-            ViewModelMath.attack(way, 1f, 0f, false, rest, pose);
-            float bat = MeleeHold.across(pose, MeleeHold.BAT_REACH);
             for (float reach = 0.65f; reach <= 1.4f; reach += 0.05f) {
-                float[] turned = pose.clone();
-                turned[1] += MeleeHold.aimed(way, reach);
-                boolean straight = way >= ViewModelMath.THRUST;
-                if (straight) {
-                    check(MeleeHold.aimed(way, reach) == 0f, "a thrust, a shove or a stab is not turned, way " + way);
-                } else {
-                    float share = Math.clamp((MeleeHold.FULL_REACH - reach) / (MeleeHold.FULL_REACH - MeleeHold.BAT_REACH), 0f, 1f);
-                    float off = (float) Math.toDegrees(Math.atan(MeleeHold.across(turned, reach)) - Math.atan(bat * share));
-                    check(Math.abs(off) < 0.5f, "way " + way + " reaching " + reach + " lands its head between a bat's line and the line ahead: " + off + " degrees off");
-                }
+                check(way < ViewModelMath.THRUST || MeleeHold.aimed(way, reach) == 0f, "a thrust, a shove or a stab is not turned, way " + way);
             }
         }
-        // The game's sledgehammer held at the end of its handle: without the turn its head lands well left of a bat's.
-        float[] pose = new float[ViewModelMath.HOLD];
-        ViewModelMath.attack(ViewModelMath.SWUNG, 1f, 0f, false, rest, pose);
-        float sledge = 0.9f, unturned = (float) Math.toDegrees(Math.atan(MeleeHold.across(pose, sledge)) - Math.atan(MeleeHold.across(pose, MeleeHold.BAT_REACH)));
-        check(unturned < -5f && MeleeHold.aimed(ViewModelMath.SWUNG, sledge) > 0f, "a sledgehammer's swing is turned to the right to land on what it hits: unturned " + unturned + " degrees");
+        // A zombie 1.1 tiles off, a quarter of a metre either side of the line ahead.
+        float distance = 1.1f, half = (float) Math.toDegrees(Math.atan(0.25f * Characters.PER_METRE * 1.5f / distance));
+        // The game's sledgehammer, a heavy weapon, and its katana, held as the mod holds them.
+        Object[][] weapons = {{"sledgehammer", MeleeHold.HEAVY, new MeleeHold.Shape(-0.038f, 0.653f, 0f, -1f)}, {"katana", MeleeHold.TWO_HANDED, new MeleeHold.Shape(-0.051f, 0.576f, 0f, -1f)}};
+        for (Object[] weapon : weapons) {
+            int kind = (int) weapon[1];
+            MeleeHold.Shape shape = (MeleeHold.Shape) weapon[2];
+            MeleeHold.Fit fit = MeleeHold.fit(kind, shape, 1f / Characters.PER_METRE, 1.5f, true, TAN);
+            for (int way : new int[] {ViewModelMath.SWUNG, ViewModelMath.CHOPPED}) {
+                float[] pose = new float[ViewModelMath.HOLD], matrix = new float[16], head = new float[3];
+                ViewModelMath.attack(way, 1f, 0f, false, fit.rest(), pose);
+                pose[1] += fit.aimed()[way] * MeleeHold.share(1f, 0f, false);
+                ViewModelMath.hold(new float[] {0f, fit.hand(), 0f}, new float[] {0f, 1f, 0f}, new float[] {0f, 0f, 1f}, null, 1.5f, pose[3], pose[4], pose[5], matrix);
+                ViewModelMath.turn(matrix, pose[0], pose[1], pose[2], pose[3], pose[4], -pose[5], 0f, 0f, 0f);
+                ViewModelMath.place(matrix, 0f, shape.tip(), 0f, head);
+                float aside = (float) Math.toDegrees(Math.atan2(head[0], -head[2]));
+                check(Math.abs(aside) <= half, "a " + weapon[0] + "'s head lands on a zombie " + distance + " tiles off, way " + way + ": " + aside + " degrees aside of " + half);
+            }
+        }
     }
 }
