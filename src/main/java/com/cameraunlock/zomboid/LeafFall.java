@@ -36,8 +36,8 @@ final class LeafFall {
     private static final float HALF_LEAST = 0.045f, HALF_MOST = 0.07f, BROAD = 0.65f;
     /** How far out into its crown's reach a leaf lets go from, at the most. */
     private static final float OUT_MOST = 0.85f;
-    /** A leaf that has fallen to this near the ground asks what the ground is under it again, in tiles. */
-    private static final float GROUND_ASKED = 0.6f;
+    /** A leaf this near what it last found under it asks again each step, in tiles: more than the steepest roof climbs across a tile (Roofs.STEEPEST, 0.55 levels), so a slope rising under a drifting leaf is met. */
+    private static final float GROUND_ASKED = 1.5f;
     /** The longest step taken at once, in seconds: past it the game has hitched, and the leaves wait. */
     static final float STEP_MOST = 0.25f;
     /** How many lying leaves room is never made by fading, and how long a leaf lies before it may be faded for room, in seconds. */
@@ -50,10 +50,17 @@ final class LeafFall {
 
     /** The ground under the leaves and what stands on it. */
     interface Ground {
-        /** The height of the ground at (x, y), in tiles. */
-        float height(float x, float y);
+        /** The height of the land at (x, y), in tiles: what the buildings stand on. */
+        float ground(float x, float y);
 
-        /** Whether a leaf at that height cannot be on the square: inside a storey of a building, behind its walls, the storey counted (see storey) from the ground in the middle of the square. */
+        /**
+         * The height of what a leaf at height up over (x, y) comes down onto, in tiles: the roof
+         * whose storey it is in or is over, as the picture draws the roof, even where the leaf is
+         * already inside it, or else the land.
+         */
+        float surface(float x, float y, float up);
+
+        /** Whether a leaf at that height cannot be on the square: inside a storey of a building, behind its walls, the storey counted (see storey) from the land in the middle of the square. */
         boolean walled(int x, int y, float up);
     }
 
@@ -212,7 +219,7 @@ final class LeafFall {
      */
     private static int squareOf(float x, float y, float up, Ground on) {
         int sx = (int) Math.floor(x), sy = (int) Math.floor(y);
-        return sx * 73856093 ^ sy * 19349663 ^ storey(up, on.height(sx + 0.5f, sy + 0.5f)) * 83492791;
+        return sx * 73856093 ^ sy * 19349663 ^ storey(up, on.ground(sx + 0.5f, sy + 0.5f)) * 83492791;
     }
 
     /** The share of its leaves a tree that far from the eye is given to let go of: all within NEAR, less further off. */
@@ -299,7 +306,7 @@ final class LeafFall {
         // Falls to the ground within the step: only as much of the step as that takes moves it.
         float into = dt;
         if (up[i] - fall[i] * dt <= ground[i] + GROUND_ASKED) {
-            ground[i] = on.height(x[i], y[i]);
+            ground[i] = on.surface(x[i] + swungX(i), y[i] + swungY(i), up[i]);
             if (up[i] - fall[i] * dt <= ground[i]) {
                 into = Math.max((up[i] - ground[i]) / fall[i], 0f);
                 k = (float) Math.exp(-into / DRAG);
@@ -335,8 +342,15 @@ final class LeafFall {
                 lies[i] = 0f;
                 return true;
             }
+            // Over another square or in another storey there may be another roof under it.
+            ground[i] = on.surface(drawnX, drawnY, up[i]);
+        } else if (up[i] <= ground[i] + GROUND_ASKED) {
+            // Near what it falls onto, which on a pitched roof is higher a little way up the slope.
+            ground[i] = on.surface(drawnX, drawnY, up[i]);
         }
-        if (into < dt) {
+        if (into < dt || up[i] <= ground[i]) {
+            // It lies where it is drawn, its swing held where it came down, on what is there.
+            up[i] = on.surface(drawnX, drawnY, wasUp);
             landed[i] = dt - into;
             landings++;
         }
@@ -413,6 +427,7 @@ final class LeafFall {
             return;
         }
         square[i] = squareOf(drawnX, drawnY, fromUp, on);
+        ground[i] = on.surface(drawnX, drawnY, fromUp);
         count++;
         released[t]++;
         spawned++;

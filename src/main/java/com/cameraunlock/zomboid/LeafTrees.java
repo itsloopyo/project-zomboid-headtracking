@@ -32,6 +32,8 @@ final class LeafTrees implements LeafFall.Ground {
     private long lastNanos;
     private IsoCell cell;
     private Terrain terrain;
+    private int round;
+    private float scale;
 
     /** Whether the game hangs leaves on a tree: one its erosion has bare has none, and its crown is drawn bare. */
     static boolean inLeaf(IsoObject tree) {
@@ -49,8 +51,11 @@ final class LeafTrees implements LeafFall.Ground {
         CROWNS.putIfAbsent(tile, new float[] {sizes[Flora.LOWEST], sizes[Flora.HIGHEST], sizes[Flora.WIDEST]});
     }
 
-    /** Reads on, moves the leaves on to now and writes them into the sky, or none where the mod's plants are not drawn. */
-    void gather(SkyState sky, IsoCell cell, Terrain terrain, float eyeX, float eyeY, long now) {
+    /**
+     * Reads on, moves the leaves on to now and writes them into the sky, or none where the mod's
+     * plants are not drawn. round and scale are what the builds read roofs at (Roofs.at).
+     */
+    void gather(SkyState sky, IsoCell cell, Terrain terrain, int round, float scale, float eyeX, float eyeY, long now) {
         float elapsed = lastNanos == 0L || GameTime.isGamePaused() ? 0f : (now - lastNanos) / 1e9f;
         lastNanos = now;
         if (!Own.plants() || cell == null) {
@@ -61,6 +66,8 @@ final class LeafTrees implements LeafFall.Ground {
         }
         this.cell = cell;
         this.terrain = terrain;
+        this.round = round;
+        this.scale = scale;
         read(eyeX, eyeY);
         long season = Seasons.now();
         fall.step(elapsed, sky.airX, sky.airY, sky.blowing, Seasons.seasonOf(season), Seasons.progressionOf(season), eyeX, eyeY, this);
@@ -107,8 +114,22 @@ final class LeafTrees implements LeafFall.Ground {
     }
 
     @Override
-    public float height(float x, float y) {
+    public float ground(float x, float y) {
         return terrain.lift(x, y, 0);
+    }
+
+    @Override
+    public float surface(float x, float y, float up) {
+        int sx = (int) Math.floor(x), sy = (int) Math.floor(y);
+        float land = terrain.lift(x, y, 0);
+        for (int z = LeafFall.storey(up, terrain.lift(sx + 0.5f, sy + 0.5f, 0)); z >= 1; z--) {
+            // A leaf in the storey of a roof's tiles, over its square, is over the roof or in it: either way the roof is what it comes down onto.
+            float roof = roofAt(sx, sy, z, x - sx, y - sy);
+            if (!Float.isNaN(roof)) {
+                return roof * ViewCamera.LEVEL_HEIGHT + land;
+            }
+        }
+        return land;
     }
 
     @Override
@@ -116,4 +137,39 @@ final class LeafTrees implements LeafFall.Ground {
         IsoGridSquare square = cell.getGridSquare(x, y, LeafFall.storey(up, terrain.lift(x + 0.5f, y + 0.5f, 0)));
         return square != null && square.getRoomID() != -1L;
     }
+
+    /**
+     * The height in levels of the roof tile laid on level z of the square at (x, y), at (a, b)
+     * within the square, on the plane the roof's fit gave it as RoofBuilder lays it, or NaN where
+     * none is: no tile, a trim on the roof, or half a tile at a ridge, which the ridge stands for.
+     */
+    private float roofAt(int x, int y, int z, float a, float b) {
+        Roofs.Laid laid = Roofs.at(cell, x, y, z, round, scale);
+        if (laid == null) {
+            laid = Roofs.madeAt(x, y, z, round);
+        }
+        if (laid == null) {
+            return Float.NaN;
+        }
+        RoofFit.Tile tile = laid.tile;
+        if (tile.half != 0 || tile.fitting) {
+            return Float.NaN;
+        }
+        if (tile.shaped) {
+            System.arraycopy(tile.corners, 0, corners, 0, 4);
+        } else if (tile.axis == RoofFit.LEVEL && tile.fitAxis == RoofFit.LEVEL) {
+            if (tile.peak > 0f) {
+                float across = tile.peakAxis == RoofFit.ALONG_X ? a : b;
+                return tile.fitLow + tile.peak * (1f - Math.abs(2f * across - 1f));
+            }
+            return (tile.low + tile.high) / 2f;
+        } else {
+            RoofFit.cornersOf(tile.fitAxis, tile.fitLow, tile.fitHigh, corners);
+        }
+        // North-west, north-east, south-east and south-west.
+        float north = corners[0] + (corners[1] - corners[0]) * a, south = corners[3] + (corners[2] - corners[3]) * a;
+        return north + (south - north) * b;
+    }
+
+    private final float[] corners = new float[4];
 }

@@ -27,6 +27,7 @@ final class LeafFallTests {
         Checks.run("aGroundFloorOnAHillCatchesALeaf", LeafFallTests::aGroundFloorOnAHillCatchesALeaf);
         Checks.run("noLeafLetsGoInsideAHouseACrownReachesOver", LeafFallTests::noLeafLetsGoInsideAHouseACrownReachesOver);
         Checks.run("aLeafFallingOntoARoofIsCaughtAtIt", LeafFallTests::aLeafFallingOntoARoofIsCaughtAtIt);
+        Checks.run("leavesLieOnAPitchedRoofAndItsEaves", LeafFallTests::leavesLieOnAPitchedRoofAndItsEaves);
         Checks.run("everyLeafLandsOrIsCaughtOnce", LeafFallTests::everyLeafLandsOrIsCaughtOnce);
         Checks.run("aLeafFallingOntoARoofDownhillIsCaughtAtIt", LeafFallTests::aLeafFallingOntoARoofDownhillIsCaughtAtIt);
         Checks.run("treesAreReadRoundTheEyeWhereverItIs", LeafFallTests::treesAreReadRoundTheEyeWhereverItIs);
@@ -48,7 +49,12 @@ final class LeafFallTests {
         }
 
         @Override
-        public float height(float x, float y) {
+        public float ground(float x, float y) {
+            return lift;
+        }
+
+        @Override
+        public float surface(float x, float y, float up) {
             return lift;
         }
 
@@ -60,16 +66,50 @@ final class LeafFallTests {
 
     private static final Flat OPEN = new Flat(Integer.MAX_VALUE, 0);
 
-    /** A slope: a building on every square from x = wallFrom on, on ground at houseLift, with the ground outside it at outsideLift. */
-    private record Terraced(int wallFrom, int storeys, float houseLift, float outsideLift) implements LeafFall.Ground {
+    /**
+     * A bungalow from x = 0 to 5 on level ground at 0, under a pitched roof from x = -1 to 6 that
+     * climbs RISE levels a tile from its eaves on either side to its ridge over x = 2.5: one tile
+     * of eaves over open ground each side. Its rooms are walled, and a leaf over the roof or in it comes down onto it.
+     */
+    private record Pitched() implements LeafFall.Ground {
+        static final float RISE = 0.4f;
+
+        static float roof(float x) {
+            return x < -1f || x >= 6f ? Float.NaN : (1f + RISE * Math.min(x + 1f, 6f - x)) * ViewCamera.LEVEL_HEIGHT;
+        }
+
         @Override
-        public float height(float x, float y) {
-            return x >= wallFrom ? houseLift : outsideLift;
+        public float ground(float x, float y) {
+            return 0f;
+        }
+
+        @Override
+        public float surface(float x, float y, float up) {
+            float roof = roof(x);
+            return !Float.isNaN(roof) && LeafFall.storey(up, 0f) >= 1 ? roof : 0f;
         }
 
         @Override
         public boolean walled(int x, int y, float up) {
-            return x >= wallFrom && LeafFall.storey(up, height(x + 0.5f, y + 0.5f)) < storeys;
+            return x >= 0 && x < 5 && LeafFall.storey(up, 0f) == 0;
+        }
+    }
+
+    /** A slope: a building on every square from x = wallFrom on, on ground at houseLift, with the ground outside it at outsideLift. */
+    private record Terraced(int wallFrom, int storeys, float houseLift, float outsideLift) implements LeafFall.Ground {
+        @Override
+        public float ground(float x, float y) {
+            return x >= wallFrom ? houseLift : outsideLift;
+        }
+
+        @Override
+        public float surface(float x, float y, float up) {
+            return ground(x, y);
+        }
+
+        @Override
+        public boolean walled(int x, int y, float up) {
+            return x >= wallFrom && LeafFall.storey(up, ground(x + 0.5f, y + 0.5f)) < storeys;
         }
     }
 
@@ -538,6 +578,32 @@ final class LeafFallTests {
         run(fall, 10f, LeafFall.STEP_MOST, 0f, 0f, 0.05f, Seasons.SUMMER, 0.5f, house);
         Checks.check(fall.spawned > 50 && fall.caughts > 5 && fall.landings + fall.caughts == fall.spawned, "every leaf landed or was caught, once: " + fall.landings + " landed and "
                 + fall.caughts + " caught of " + fall.spawned);
+    }
+
+    /** A tree over the eaves and the slope of a pitched roof: no leaf is drawn inside the roof, under its surface over the wall top, and leaves come to lie on it. */
+    private static void leavesLieOnAPitchedRoofAndItsEaves() {
+        LeafFall fall = new LeafFall();
+        fall.beginTrees(0f, 0f);
+        fall.offer(-1f, 0.5f, 0f, MAPLE, shedding(1f), true, 3.2f * ViewCamera.LEVEL_HEIGHT - 1f, 3.2f * ViewCamera.LEVEL_HEIGHT, 2f);
+        fall.endTrees();
+        Pitched house = new Pitched();
+        float[] leaves = new float[LeafFall.MOST * LeafFall.FLOATS];
+        int onRoof = 0;
+        for (int round = 0; round < 1800; round++) {
+            fall.step(1f / 30f, round < 900 ? 0f : 1.5f, 0f, round < 900 ? 0.05f : 0.3f, Seasons.AUTUMN, PEAK_AUTUMN, 0f, 0f, house);
+            int count = fall.write(leaves, 0f, 0f);
+            for (int i = 0; i < count; i++) {
+                int at = i * LeafFall.FLOATS;
+                float roof = Pitched.roof(leaves[at + LeafFall.X]);
+                // Under the eaves, below the wall top, is open air.
+                if (Float.isNaN(roof) || leaves[at + LeafFall.UP] < ViewCamera.LEVEL_HEIGHT) {
+                    continue;
+                }
+                Checks.check(leaves[at + LeafFall.UP] >= roof - 0.01f, "no leaf is drawn under the roof: " + leaves[at + LeafFall.UP] + " under " + roof + " at " + leaves[at + LeafFall.X]);
+                onRoof += leaves[at + LeafFall.UP] < roof + 0.02f ? 1 : 0;
+            }
+        }
+        Checks.check(fall.spawned > 100 && onRoof > 100, "leaves lie on the roof: " + onRoof + " of " + fall.spawned + " let go");
     }
 
     /** Far from the map's corner the trees are read, kept and weighed by how far they are from the eye, not from the corner. */
