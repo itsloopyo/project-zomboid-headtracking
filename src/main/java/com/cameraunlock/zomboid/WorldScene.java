@@ -1151,6 +1151,9 @@ final class WorldScene {
             Arrays.fill(scene.lightSquare, null);
             Arrays.fill(scene.around, null);
             scene.lampsNear.clear();
+            scene.lampsBurning.clear();
+            scene.lampsSortedFrame = -1;
+            scene.roomAsked = null;
             scene.keptFrame = -1;
         }
         squareLights.forget();
@@ -1855,14 +1858,12 @@ final class WorldScene {
         if (room == null) {
             return false;
         }
-        for (int i = 0; i < room.roomLights.size(); i++) {
-            if (room.roomLights.get(i).active) {
-                return true;
-            }
+        if (roomLightsOn(room)) {
+            return true;
         }
         for (int i = 0; i < lamps.size(); i++) {
             IsoLightSource lamp = lamps.get(i);
-            if (!lamp.active || lamp.z != square.getZ() || Math.abs(lamp.x - square.getX()) > lamp.radius || Math.abs(lamp.y - square.getY()) > lamp.radius) {
+            if (!reaches(lamp, square)) {
                 continue;
             }
             IsoGridSquare stands = cell.getGridSquare(lamp.x, lamp.y, lamp.z);
@@ -1872,6 +1873,23 @@ final class WorldScene {
         }
         return false;
     }
+
+    /** Whether any of the lights the game gives a room from its switches burns. */
+    private static boolean roomLightsOn(IsoRoom room) {
+        for (int i = 0; i < room.roomLights.size(); i++) {
+            if (room.roomLights.get(i).active) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Whether a lamp burns and reaches the square, on its level. */
+    private static boolean reaches(IsoLightSource lamp, IsoGridSquare square) {
+        return lamp.active && lamp.z == square.getZ() && Math.abs(lamp.x - square.getX()) <= lamp.radius && Math.abs(lamp.y - square.getY()) <= lamp.radius;
+    }
+
+    private static final byte LAMP_UNASKED = 0, LAMP_OUT = 1, LAMP_BURNS = 2;
 
     /** How bright the game's light on a square has to be for a lamp burning in its room to count as reaching it. */
     private static final float LAMPLIT = 0.55f;
@@ -4024,7 +4042,7 @@ final class WorldScene {
                             thing = sum(sum(sum(thing, groundKind[at]), groundRank[at]), groundTexture[at] == null ? 0 : groundTexture[at].getID());
                         }
                         IsoGridSquare square = lightSquare[at];
-                        thing = sum(sum(sum(thing, square.getRoomID()), unexplored(square) ? 1 : 0), Math.max(lightRed[at], Math.max(lightGreen[at], lightBlue[at])) > LAMPLIT && lampBurns(cell, square, lampsNear) ? 1 : 0);
+                        thing = sum(sum(sum(thing, square.getRoomID()), unexplored(square) ? 1 : 0), Math.max(lightRed[at], Math.max(lightGreen[at], lightBlue[at])) > LAMPLIT && lampBurnsAt(at, square) ? 1 : 0);
                         PZArrayList<IsoObject> objects = square.getObjects();
                         thing = sum(thing, objects.size());
                         for (int k = 0; k < objects.size(); k++) {
@@ -4294,17 +4312,89 @@ final class WorldScene {
             return indoors + (outdoors - indoors) * eyeOpen;
         }
 
-        /** The lamps that burn near enough to reach a square of a chunk or of the ring of squares round it, into lampsNear. */
+        /**
+         * The lamps that burn near enough to reach a square of a chunk or of the ring of squares
+         * round it, into lampsNear, and the room each stands in into lampRooms. The map's lamps
+         * that burn are sorted by x once a frame, and only those within the farthest reach of
+         * any of them along x are looked at.
+         */
         private void lampsRound(int chunkX, int chunkY) {
+            if (lampsSortedFrame != frames) {
+                lampsSortedFrame = frames;
+                lampsBurning.clear();
+                farthestLamp = 0;
+                Stack<IsoLightSource> lamps = cell.getLamppostPositions();
+                for (int i = 0; i < lamps.size(); i++) {
+                    IsoLightSource lamp = lamps.get(i);
+                    if (lamp.active) {
+                        lampsBurning.add(lamp);
+                        farthestLamp = Math.max(farthestLamp, lamp.radius);
+                    }
+                }
+                lampsBurning.sort((one, other) -> Integer.compare(one.x, other.x));
+            }
             lampsNear.clear();
-            Stack<IsoLightSource> lamps = cell.getLamppostPositions();
-            for (int i = 0; i < lamps.size(); i++) {
-                IsoLightSource lamp = lamps.get(i);
-                if (lamp.active && lamp.x + lamp.radius >= chunkX - 1 && lamp.x - lamp.radius <= chunkX + CHUNK_TILES && lamp.y + lamp.radius >= chunkY - 1
+            int low = 0, high = lampsBurning.size();
+            while (low < high) {
+                int middle = (low + high) >>> 1;
+                if (lampsBurning.get(middle).x < chunkX - 1 - farthestLamp) {
+                    low = middle + 1;
+                } else {
+                    high = middle;
+                }
+            }
+            for (int i = low; i < lampsBurning.size() && lampsBurning.get(i).x <= chunkX + CHUNK_TILES + farthestLamp; i++) {
+                IsoLightSource lamp = lampsBurning.get(i);
+                if (lamp.x + lamp.radius >= chunkX - 1 && lamp.x - lamp.radius <= chunkX + CHUNK_TILES && lamp.y + lamp.radius >= chunkY - 1
                         && lamp.y - lamp.radius <= chunkY + CHUNK_TILES) {
                     lampsNear.add(lamp);
                 }
             }
+            if (lampRooms.length < lampsNear.size()) {
+                lampRooms = new long[lampsNear.size() * 2];
+            }
+            for (int i = 0; i < lampsNear.size(); i++) {
+                IsoLightSource lamp = lampsNear.get(i);
+                IsoGridSquare stands = cell.getGridSquare(lamp.x, lamp.y, lamp.z);
+                lampRooms[i] = stands == null ? TorchLess.NOT_THERE : stands.getRoomID();
+            }
+        }
+        private final ArrayList<IsoLightSource> lampsBurning = new ArrayList<>();
+        private int lampsSortedFrame = -1, farthestLamp;
+        private long[] lampRooms = new long[16];
+        /** For each square readLights last read, whether a lamp burns in its room and reaches it, once asked. */
+        private final byte[] lampAt = new byte[LIGHT_SPAN * LIGHT_SPAN];
+        /** The room last asked in the reading readLights last made whether its lights are on, and the answer. */
+        private IsoRoom roomAsked;
+        private boolean roomAskedLit;
+
+        /** lampBurns for the square readLights last read at a place in its grid, worked out once a reading. */
+        private boolean lampBurnsAt(int at, IsoGridSquare square) {
+            if (lampAt[at] == LAMP_UNASKED) {
+                lampAt[at] = burnsNear(square) ? LAMP_BURNS : LAMP_OUT;
+            }
+            return lampAt[at] == LAMP_BURNS;
+        }
+
+        /** lampBurns, with the lamps lampsRound found and the rooms they stand in. */
+        private boolean burnsNear(IsoGridSquare square) {
+            IsoRoom room = square.getRoom();
+            if (room == null) {
+                return false;
+            }
+            if (room != roomAsked) {
+                roomAsked = room;
+                roomAskedLit = roomLightsOn(room);
+            }
+            if (roomAskedLit) {
+                return true;
+            }
+            for (int i = 0; i < lampsNear.size(); i++) {
+                if (reaches(lampsNear.get(i), square) && lampRooms[i] == square.getRoomID()) {
+                    return true;
+                }
+            }
+            return false;
         }
 
         /**
@@ -4315,6 +4405,8 @@ final class WorldScene {
          */
         private void readLights(int chunkX, int chunkY, int z) {
             int pass = LightingJNI.getUpdateCounter(playerIndex);
+            Arrays.fill(lampAt, LAMP_UNASKED);
+            roomAsked = null;
             for (int i = 0; i < LIGHT_SPAN; i++) {
                 for (int j = 0; j < LIGHT_SPAN; j++) {
                     boolean inChunk = i >= 1 && i <= CHUNK_TILES && j >= 1 && j <= CHUNK_TILES;
@@ -4344,14 +4436,14 @@ final class WorldScene {
                     if (!seen && !(gamesView && inRoom)) {
                         // From the eye a room the game has not shown is a room like the ones in sight: see seenRooms.
                         // Shown only as the game shows it, it stands empty and lit as the open ground is.
-                        light = !inRoom || asTheGameShows ? unseenLight : lampBurns(cell, square, lampsNear) ? lampLight : roomLight;
+                        light = !inRoom || asTheGameShows ? unseenLight : lampBurnsAt(at, square) ? lampLight : roomLight;
                     } else if (seen && inChunk) {
                         squaresSeen++;
                         if (outside && tallying) {
                             reading.add(light.r, light.g, light.b);
                         } else if (inRoom && tallying && !gamesView && square.isCanSee(playerIndex)) {
                             // In sight now: one seen and out of sight has the game's darkening on it.
-                            if (Math.max(light.r, Math.max(light.g, light.b)) > LAMPLIT && lampBurns(cell, square, lampsNear)) {
+                            if (Math.max(light.r, Math.max(light.g, light.b)) > LAMPLIT && lampBurnsAt(at, square)) {
                                 readingLamplit.add(light.r, light.g, light.b);
                             } else {
                                 readingRooms.add(light.r, light.g, light.b);
