@@ -73,8 +73,8 @@ public final class Hearing {
 
     /**
      * Works out what is round the ears where the player stands: the ways round to the rooms
-     * near them, and how their space rings. Again when they step onto another square, when
-     * the openings near them may have changed, and every AROUND_EVERY_NANOS.
+     * near them, and how their space rings. Again when they step onto another square, and
+     * every AROUND_EVERY_NANOS, which is when a door opened or shut near them is heard.
      */
     void listen(IsoPlayer player, WorldScene scene, long now) {
         if (share == 0f) {
@@ -84,12 +84,11 @@ public final class Hearing {
         earsX = player.getX();
         earsY = player.getY();
         int x = (int) Math.floor(earsX), y = (int) Math.floor(earsY), z = (int) Math.floor(player.getZ());
-        IsoCell cell = IsoWorld.instance.currentCell;
-        long gathered = scene.openingsAround(cell, player.getIndex(), earsX, earsY, OPENINGS_REACH, openings, openingsGathered);
-        if (heardAround && gathered == openingsGathered && x == aroundX && y == aroundY && z == aroundZ && now - aroundAt < AROUND_EVERY_NANOS) {
+        if (heardAround && x == aroundX && y == aroundY && z == aroundZ && now - aroundAt < AROUND_EVERY_NANOS) {
             return;
         }
-        openingsGathered = gathered;
+        IsoCell cell = IsoWorld.instance.currentCell;
+        openingsGathered = scene.openingsAround(cell, player.getIndex(), earsX, earsY, OPENINGS_REACH, openings, openingsGathered);
         aroundX = x;
         aroundY = y;
         aroundZ = z;

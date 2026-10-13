@@ -896,8 +896,7 @@ final class WorldScene {
             for (int gridX = 0; gridX < side; gridX++) {
                 for (int gridY = 0; gridY < side; gridY++) {
                     IsoChunk chunk = map.getChunk(gridX, gridY);
-                    if (chunk == null || !chunk.loaded
-                            || Math.hypot(chunk.wx * CHUNK_TILES + CHUNK_TILES / 2f - x, chunk.wy * CHUNK_TILES + CHUNK_TILES / 2f - y) > reach) {
+                    if (chunk == null || !chunk.loaded || farther(chunk, x, y, reach)) {
                         continue;
                     }
                     if (pass == 0) {
@@ -911,6 +910,12 @@ final class WorldScene {
             }
         }
         return gathering;
+    }
+
+    /** Whether the middle of a chunk is further than reach from (x, y). */
+    static boolean farther(IsoChunk chunk, float x, float y, float reach) {
+        float dx = chunk.wx * CHUNK_TILES + CHUNK_TILES / 2f - x, dy = chunk.wy * CHUNK_TILES + CHUNK_TILES / 2f - y;
+        return dx * dx + dy * dy > reach * reach;
     }
 
     private final RoomSight roomWalk = new RoomSight();
@@ -3320,8 +3325,7 @@ final class WorldScene {
         /** A loaded chunk of the map whose middle is within reach of the eye, or null. */
         private IsoChunk reachable(IsoChunkMap map, int gridX, int gridY, float reach) {
             IsoChunk chunk = map.getChunk(gridX, gridY);
-            return chunk == null || !chunk.loaded
-                    || Math.hypot(chunk.wx * CHUNK_TILES + CHUNK_TILES / 2f - camera.eyeX, chunk.wy * CHUNK_TILES + CHUNK_TILES / 2f - camera.eyeY) > reach ? null : chunk;
+            return chunk == null || !chunk.loaded || farther(chunk, camera.eyeX, camera.eyeY, reach) ? null : chunk;
         }
 
         /** Has every chunk of the loaded map built again, as the rule its rooms are built by has changed. */
