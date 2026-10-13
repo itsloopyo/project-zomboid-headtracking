@@ -113,9 +113,6 @@ final class LeafFall {
         if (!gameLeaves || high <= 0f || !sheds(name)) {
             return;
         }
-        if (offered == CANDIDATES) {
-            throw new IllegalStateException("more trees offered than there are squares in the read round the eye: " + CANDIDATES);
-        }
         int k = offered++;
         offeredX[k] = x;
         offeredY[k] = y;
