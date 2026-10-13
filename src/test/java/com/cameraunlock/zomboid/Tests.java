@@ -73,6 +73,7 @@ public final class Tests {
         Checks.run("GlassPullTests", GlassPullTests::run);
         Checks.run("GlassPlaceTests", GlassPlaceTests::run);
         Checks.run("MoversTests", MoversTests::run);
+        Checks.run("FineSkinRangeTests", FineSkinRangeTests::run);
         Checks.run("SnowPrintTests", SnowPrintTests::run);
         Checks.run("SnowCoverTests", SnowCoverTests::run);
         Checks.run("SnowOnPlantsTests", SnowOnPlantsTests::run);

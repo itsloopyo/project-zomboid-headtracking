@@ -1952,7 +1952,7 @@ public final class Characters {
             unshifted(model.modelInstance);
             // Making a finer skin runs the game's combiner, so it is asked for before the
             // game's draw sets any of its state.
-            if (data.character instanceof IsoAnimal && !casting && fromEye <= CharacterDraw.WHOLE_BEYOND && model.modelInstance.tex != null) {
+            if (data.character instanceof IsoAnimal && CharacterDraw.finelySkinned() && model.modelInstance.tex != null) {
                 wornFor = model.modelInstance.tex;
                 worn = FineSkins.of(wornFor);
             }

@@ -1179,6 +1179,9 @@ final class CharacterDraw {
     private static float away;
     /** How far from the viewer's eye the person begun stands along the ground, in tiles, in every pass alike. */
     private static float fromEye;
+    /** Whether the person begun wears finer skins: see FineSkinRange. */
+    private static boolean finelySkinned;
+    private static final FineSkinRange FINE_SKINS = new FineSkinRange();
     /**
      * Set while people are drawn into a target that has a second picture for the way their
      * surfaces face: they are then drawn unlit, for the picture to light.
@@ -1215,11 +1218,17 @@ final class CharacterDraw {
         projection = seen;
         shadow = casting;
         away = (float) Math.sqrt(standing[12] * standing[12] + standing[13] * standing[13] + standing[14] * standing[14]);
+        finelySkinned = !casting && FINE_SKINS.wears(data.object != null ? data.object : data, away, Pipeline.frame());
         standsIn = -1f;
         snowOn = 0f;
         if (!off && !bare && !casting) {
             lights(data);
         }
+    }
+
+    /** Whether the person begun wears finer skins in this pass. */
+    static boolean finelySkinned() {
+        return finelySkinned;
     }
 
     /**
@@ -1681,9 +1690,8 @@ final class CharacterDraw {
             return true;
         }
         // Making a finer skin runs the game's combiner, so it is asked for before any of
-        // this part's state is set. Further off than triangles are divided a person is too
-        // small on the screen for a finer skin to show, and a shadow has no skin at all.
-        Texture worn = shadow || away > WHOLE_BEYOND ? texture : FineSkins.of(texture);
+        // this part's state is set. A shadow has no skin at all.
+        Texture worn = finelySkinned ? FineSkins.of(texture) : texture;
 
         if (!drawing) {
             GL11.glEnable(GL_DEPTH_TEST);
