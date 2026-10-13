@@ -4,7 +4,6 @@ import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL13;
 import org.lwjgl.opengl.GL20;
 import org.lwjgl.opengl.GL30;
-import zombie.GameTime;
 
 /**
  * What the mod's own firearm models share, each drawn in the viewer's hands in place of the
@@ -288,6 +287,9 @@ abstract class OwnGun {
         return model.prepare(program);
     }
 
+    /** Whether the game was paused in the frame the gun was last placed for, as the logic thread had it. */
+    private boolean stillFrame;
+
     /**
      * Links the program the models are drawn with, as a piece of the core: linked as a gun is
      * first held, it held that frame. Always null: a refusal leaves the game's own guns drawn,
@@ -323,9 +325,11 @@ abstract class OwnGun {
      * @param light       the game's light where the viewer stands
      * @param outside     whether the viewer stands out of doors
      * @param aim         0 at the hip, 1 with the sights up
+     * @param paused      whether the game is paused in that frame
      */
-    final void place(OwnModel what, float[] heldView, float[] weapon, float finalScale, float gameMuzzle, float light, boolean outside, float aim) {
+    final void place(OwnModel what, float[] heldView, float[] weapon, float finalScale, float gameMuzzle, float light, boolean outside, float aim, boolean paused) {
         drawn = what;
+        stillFrame = paused;
         handed = what.hold(model, heldView, weapon, finalScale, gameMuzzle);
         stood = light;
         outdoors = outside ? 1f : 0f;
@@ -389,7 +393,7 @@ abstract class OwnGun {
         placed = false;
         long now = System.nanoTime();
         // What the action threw hangs in the air while the game is paused.
-        float seconds = GameTime.isGamePaused() ? 0f : Math.min((now - workedAsOf) / 1e9f, 0.05f);
+        float seconds = stillFrame ? 0f : Math.min((now - workedAsOf) / 1e9f, 0.05f);
         workedAsOf = now;
         work(camera, seconds);
 

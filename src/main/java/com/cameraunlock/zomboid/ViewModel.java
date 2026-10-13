@@ -83,12 +83,13 @@ public final class ViewModel {
      * @param leftFree  whether the left hand holds nothing
      * @param swungAs   for something swung, which of MeleeHold's classes the game puts it in
      * @param own       for a firearm, the mod's own model that stands for it, as OwnModel.of said when this was made, or null
+     * @param paused    whether the game is paused this frame: what the action threw hangs where it is
      */
     record Held(String item, int itemId, boolean firearm, boolean bothHands, int attack, float reached, float past, boolean struck, float aim, float nearness, float lowered,
             float swayYaw, float swayPitch, float bobX, float bobY, float recoil, float kickPitch, float kickYaw, float kickRoll, float kickUp, float kickBack,
             float dip, int skin, boolean female,
             int action, float cycled, int doing, float done, int rounds, int spent, float round, float handled, float pace, float seated, float drawn, float worked,
-            boolean clip, float out, float fetching, float fetchTakes, boolean leftFree, int swungAs, OwnModel own) {
+            boolean clip, float out, float fetching, float fetchTakes, boolean leftFree, int swungAs, OwnModel own, boolean paused) {
         /**
          * The mod's own model drawn for it: decided once, as this was made, so that where it is
          * held, the hands on it and what is drawn agree on the frame a model comes onto the
@@ -286,11 +287,13 @@ public final class ViewModel {
      *
      * @param yaw      the clean view's yaw, radians
      * @param pitch    the clean view's pitch, radians
-     * @param seconds  the length of the frame
+     * @param frame    the length of the frame
+     * @param paused   whether the game is paused: the weapon, the hands and the kick of a shot stand where they are
      * @param sightsUp whether a firearm's sights are up
      * @param aimedAt  how far off the aim meets the world, in tiles, or infinity
      */
-    void update(IsoPlayer player, float yaw, float pitch, float seconds, boolean sightsUp, float aimedAt) {
+    void update(IsoPlayer player, float yaw, float pitch, float frame, boolean paused, boolean sightsUp, float aimedAt) {
+        float seconds = paused ? 0f : frame;
         if (busy(player, seconds)) {
             return;
         }
@@ -500,7 +503,7 @@ public final class ViewModel {
                 attack, reached, past, struck, aim, nearness, lowered, swayYaw, swayPitch, bob[0], bob[1], recoil,
                 kick.weaponPitch.at, kick.weaponYaw.at, kick.weaponRoll.at, kick.weaponUp.at, kick.weaponBack.at, dip,
                 player.getHumanVisual().getSkinTextureIndex(), player.isFemale(), action, cycled, doing, done, rounds, firearm ? weapon.getSpentRoundCount() : 0, round, handled, took[action][doing], seated, drawn, worked, clip, out, fetching, fetchTakes[action], !steering && player.getSecondaryHandItem() == null, firearm ? MeleeHold.ONE_HANDED : swungAs(weapon, item == player.getSecondaryHandItem()),
-                firearm ? OwnModel.of(item.getFullType()) : null);
+                firearm ? OwnModel.of(item.getFullType()) : null, paused);
     }
 
     /**
