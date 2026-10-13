@@ -589,12 +589,18 @@ public final class Characters {
                 float[] hand = bareHands[side];
                 TimedActs.Hand seen = seenHands[side];
                 ViewModelMath.place(fromAim, hand[0] * scale, hand[1] * scale, hand[2] * scale, seen.at);
-                ViewModelMath.turned(fromAim, new float[] {hand[3], hand[4], hand[5]}, seen.out);
-                ViewModelMath.turned(fromAim, new float[] {hand[6], hand[7], hand[8]}, seen.fingers);
+                System.arraycopy(hand, 3, bareWay, 0, 3);
+                ViewModelMath.turned(fromAim, bareWay, seen.out);
+                System.arraycopy(hand, 6, bareWay, 0, 3);
+                ViewModelMath.turned(fromAim, bareWay, seen.fingers);
                 ArmPose.unit(seen.out[0], seen.out[1], seen.out[2], seen.out);
                 ArmPose.unit(seen.fingers[0], seen.fingers[1], seen.fingers[2], seen.fingers);
             }
             if (right != null && !inTheHand(data, 0, right, seenHands[0], scale, heldView) || left != null && !inTheHand(data, 1, left, seenHands[1], scale, leftView)) {
+                if (!bareCarryRefused) {
+                    bareCarryRefused = true;
+                    Log.info("what is in the viewer's hand could not be put in the mod's own hand for a shove or a stamp (the game's hand or the item's mesh is not read yet): the game's own arms are drawn for it, as often as that happens");
+                }
                 return;
             }
             if (ArmHolds.bare(model, scale, bareHands, barePoses, fromAim, armSkins, armSaid)) {
@@ -683,6 +689,10 @@ public final class Characters {
             to.pose = from.pose;
         }
         if (right != null && !inTheHand(data, 0, right, seenHands[0], scale, heldView) || left != null && !inTheHand(data, 1, left, seenHands[1], scale, leftView)) {
+            if (!taskCarryRefused) {
+                taskCarryRefused = true;
+                Log.info("what is in the viewer's hand could not be put in the mod's own hand at " + task.anim() + " (the game's hand or the item's mesh is not read yet): the game's own animation of it is drawn, as often as that happens");
+            }
             return;
         }
         if (!ArmHolds.placeTask(OwnArms.model(), scale, seenHands, fromAim, armSkins, armSaid)) {
@@ -1055,6 +1065,9 @@ public final class Characters {
     private int armSkin;
     /** Where each hand is in a shove or a stamp with no weapon in hand, right then left, and its pose: see BareHands. */
     private final float[][] bareHands = new float[2][BareHands.SAYS];
+    /** A way out of a palm or along the fingers being turned into the view: scratch. */
+    private final float[] bareWay = new float[3];
+    private boolean bareCarryRefused, taskCarryRefused;
     private final int[] barePoses = new int[2];
     private final float[][] armSkins = new float[2][24 * 16], armSaid = new float[2][ArmPose.SAYS];
     /**
@@ -1458,7 +1471,7 @@ public final class Characters {
         // Whatever is fixed to it but a scope is left out with the game's model of it.
         OwnModel own = held != null && view.viewModel.hasMuzzle ? hands.ownDrawn() : null;
         if (own != null) {
-            view.ownGun(own).place(own, heldView, weaponPlace, data.finalScale, muzzleOut(held), ownLight, outside, hands.aim());
+            view.ownGun(own).place(own, heldView, weaponPlace, data.finalScale, muzzleOut(held), ownLight, outside, hands.aim(), hands.paused());
         }
         // A scope is drawn by the picture too, after the hands, in place of the game's model of it.
         ModelInstanceRenderData glass = held == null || view.scope.fitted() == null ? null : scopeOf(data);
