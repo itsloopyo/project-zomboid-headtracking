@@ -2221,11 +2221,13 @@ final class WorldScene {
          * The lights of every level of the chunk last summed, as readLights left each: a chunk
          * found changed is built in the same frame, and its build takes them from here in place
          * of asking the game for every square a second time. The ground and the woods are of
-         * level 0 alone and stay where they were read into.
+         * level 0 alone and stay where they were read into. A level the reading took its sum of
+         * from the build has nothing kept, and keptLevels has a bit for each level that has.
          */
         private float[] keptRed = new float[0], keptGreen = new float[0], keptBlue = new float[0];
         private byte[] keptOpen = new byte[0];
         private int keptWx, keptWy, keptFrom, keptTo, keptFrame = -1;
+        private long keptLevels;
         /** Whether any square of the chunk last read through, on any level, has a canopy's floor over it. */
         boolean canopied;
         /** The squares readLights last read, laid out as the lights are. */
@@ -3759,8 +3761,8 @@ final class WorldScene {
                 canopied = false;
             }
             // What grows on a chunk is another build of the same chunk, and a check is a second build: neither is the reading the chunk's light is taken from.
-            tallying = !kept && !growing && !afresh;
-            if (tallying) {
+            // A level the reading left unread is read here, and its squares are counted with the reading's.
+            if (!kept && !growing && !afresh) {
                 reading.clear();
                 readingRooms.clear();
                 readingLamplit.clear();
@@ -3769,16 +3771,26 @@ final class WorldScene {
                 lampsRound(chunkX, chunkY);
             }
             for (int z = Math.max(lowest, chunk.getMinLevel()); z <= (growing ? 0 : chunk.getMaxLevel()); z++) {
-                if (kept && z >= keptFrom && z <= keptTo) {
-                    int at = (z - keptFrom) * lightRed.length;
+                boolean inKept = kept && z >= keptFrom && z <= keptTo;
+                int at = (z - keptFrom) * lightRed.length;
+                if (inKept && (keptLevels >> (z - keptFrom) & 1L) != 0L) {
                     System.arraycopy(keptRed, at, lightRed, 0, lightRed.length);
                     System.arraycopy(keptGreen, at, lightGreen, 0, lightRed.length);
                     System.arraycopy(keptBlue, at, lightBlue, 0, lightRed.length);
                     System.arraycopy(keptOpen, at, lightOpen, 0, lightRed.length);
                 } else {
+                    tallying = !growing && !afresh;
                     readLights(chunkX, chunkY, z);
                     if (z == 0) {
                         readWoods(chunkX, chunkY);
+                    }
+                    // Kept for the build of what grows on the chunk, which follows in the same frame.
+                    if (inKept) {
+                        System.arraycopy(lightRed, 0, keptRed, at, lightRed.length);
+                        System.arraycopy(lightGreen, 0, keptGreen, at, lightRed.length);
+                        System.arraycopy(lightBlue, 0, keptBlue, at, lightRed.length);
+                        System.arraycopy(lightOpen, 0, keptOpen, at, lightRed.length);
+                        keptLevels |= 1L << (z - keptFrom);
                     }
                 }
                 if (z == 0) {
@@ -3904,8 +3916,8 @@ final class WorldScene {
          *
          * Each level is summed apart and the sums summed. Given a build whose chunk has had
          * nothing but light marked since it was read, a level whose light no mark names takes the
-         * sum the build has for it and is not read. What is then kept of the reading is not whole,
-         * and a build that follows reads the chunk's light itself.
+         * sum the build has for it and is not read. A build that follows reads the light of those
+         * levels itself, and takes the others' from the reading.
          *
          * @param readFor a build of the chunk to take the sums of its unmarked levels from, or null to read every level
          */
@@ -3957,6 +3969,7 @@ final class WorldScene {
             keptFrom = from;
             keptTo = to;
             keptFrame = frames;
+            keptLevels = 0L;
             canopied = false;
             restless = false;
             tallying = true;
@@ -3977,6 +3990,7 @@ final class WorldScene {
                 System.arraycopy(lightGreen, 0, keptGreen, (z - from) * span, span);
                 System.arraycopy(lightBlue, 0, keptBlue, (z - from) * span, span);
                 System.arraycopy(lightOpen, 0, keptOpen, (z - from) * span, span);
+                keptLevels |= 1L << (z - from);
                 if (z == 0) {
                     long woodsBegan = System.nanoTime();
                     readWoods(chunkX, chunkY);
@@ -4072,9 +4086,6 @@ final class WorldScene {
             }
             for (int z = from; z <= to; z++) {
                 sum = sum(sum, readSums[z - from]);
-            }
-            if (readByLevel) {
-                keptFrame = -1;
             }
             if (restless) {
                 tollRestless++;
