@@ -419,8 +419,7 @@ final class LeafFallTests {
             int count = fall.write(leaves, 0f, 0f);
             for (int i = 0; i < count; i++) {
                 int at = i * LeafFall.FLOATS;
-                // Its middle's drift stops outside the wall; its swing, under a quarter of a tile in this wind, may take the drawn middle a little past it.
-                Checks.check(leaves[at + LeafFall.X] < 3.25f || leaves[at + LeafFall.UP] >= ViewCamera.LEVEL_HEIGHT,
+                                Checks.check(leaves[at + LeafFall.X] < 3f || leaves[at + LeafFall.UP] >= ViewCamera.LEVEL_HEIGHT,
                         "no leaf goes on inside the building: " + leaves[at + LeafFall.X] + " at " + leaves[at + LeafFall.UP]);
                 over += leaves[at + LeafFall.X] > 6f ? 1 : 0;
             }
@@ -445,7 +444,7 @@ final class LeafFallTests {
             int count = fall.write(leaves, 0f, 0f);
             for (int i = 0; i < count; i++) {
                 int at = i * LeafFall.FLOATS;
-                Checks.check(leaves[at + LeafFall.X] < 3.25f || leaves[at + LeafFall.UP] >= hill + ViewCamera.LEVEL_HEIGHT,
+                Checks.check(leaves[at + LeafFall.X] < 3f || leaves[at + LeafFall.UP] >= hill + ViewCamera.LEVEL_HEIGHT,
                         "no leaf goes on into the ground floor on the hill: " + leaves[at + LeafFall.X] + " at " + leaves[at + LeafFall.UP]);
             }
         }
@@ -467,8 +466,7 @@ final class LeafFallTests {
             fall.step(1f / 30f, 0f, 0f, 0.5f, Seasons.AUTUMN, PEAK_AUTUMN, 0f, 0f, house);
             int count = fall.write(leaves, 0f, 0f);
             for (int i = 0; i < count; i++) {
-                // Its swing takes the drawn middle a little either side of where it drifts.
-                Checks.check(leaves[i * LeafFall.FLOATS + LeafFall.X] < 0.5f, "no leaf is in the house: " + leaves[i * LeafFall.FLOATS + LeafFall.X]);
+                Checks.check(leaves[i * LeafFall.FLOATS + LeafFall.X] < 0f, "no leaf is in the house: " + leaves[i * LeafFall.FLOATS + LeafFall.X]);
             }
         }
         Checks.check(fall.spawned > 30, "leaves let go outside it: " + fall.spawned);
@@ -491,7 +489,7 @@ final class LeafFallTests {
             int count = fall.write(leaves, 0f, 0f);
             for (int i = 0; i < count; i++) {
                 int at = i * LeafFall.FLOATS;
-                if (leaves[at + LeafFall.X] > 0.5f) {
+                if (leaves[at + LeafFall.X] > 0f) {
                     overRoof++;
                     Checks.check(leaves[at + LeafFall.UP] >= ViewCamera.LEVEL_HEIGHT, "a leaf over the roof stays on top of it: " + leaves[at + LeafFall.UP]);
                 }
@@ -518,7 +516,7 @@ final class LeafFallTests {
             int count = fall.write(leaves, 0f, 0f);
             for (int i = 0; i < count; i++) {
                 int at = i * LeafFall.FLOATS;
-                if (leaves[at + LeafFall.X] > 0.5f) {
+                if (leaves[at + LeafFall.X] > 0f) {
                     overRoof++;
                     Checks.check(leaves[at + LeafFall.UP] >= ViewCamera.LEVEL_HEIGHT, "a leaf over the roof downhill stays on top of it: " + leaves[at + LeafFall.UP]);
                 }

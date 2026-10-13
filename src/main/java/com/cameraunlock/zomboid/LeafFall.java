@@ -292,7 +292,7 @@ final class LeafFall {
             landed[i] += dt;
             return landed[i] < lies[i] + FADES;
         }
-        float wasX = x[i], wasY = y[i], wasUp = up[i];
+        float wasX = x[i], wasY = y[i], wasUp = up[i], wasAge = age[i];
         float k = (float) Math.exp(-dt / DRAG);
         // Falls to the ground within the step: only as much of the step as that takes moves it.
         float into = dt;
@@ -318,14 +318,17 @@ final class LeafFall {
         if (fromX * fromX + fromY * fromY > KEPT * KEPT) {
             return false;
         }
-        int at = squareOf(x[i], y[i], up[i], on);
+        // The walls are asked where the leaf is drawn, its swing included.
+        float drawnX = x[i] + swungX(i), drawnY = y[i] + swungY(i);
+        int at = squareOf(drawnX, drawnY, up[i], on);
         if (at != square[i]) {
             square[i] = at;
-            if (on.walled((int) Math.floor(x[i]), (int) Math.floor(y[i]), up[i])) {
-                // Caught against the wall or on the roof it met, where it was before the step took it through, and fades there.
+            if (on.walled((int) Math.floor(drawnX), (int) Math.floor(drawnY), up[i])) {
+                // Caught against the wall or on the roof it met, drawn where it was before the step took it through, and fades there.
                 x[i] = wasX;
                 y[i] = wasY;
                 up[i] = wasUp;
+                age[i] = wasAge;
                 caught[i] = true;
                 landed[i] = 0f;
                 lies[i] = 0f;
@@ -374,12 +377,7 @@ final class LeafFall {
         float out = OUT_MOST * treeReach[t] * (float) Math.sqrt(0.3f + 0.7f * next());
         float fromX = treeX[t] + out * (float) Math.cos(angle), fromY = treeY[t] + out * (float) Math.sin(angle);
         float fromUp = treeGround[t] + treeLow[t] + (treeHigh[t] - treeLow[t]) * next();
-        // A crown that reaches over a house has no leaves inside its rooms to let go of.
-        if (on.walled((int) Math.floor(fromX), (int) Math.floor(fromY), fromUp)) {
-            return;
-        }
-        int i = count++;
-        released[t]++;
+        int i = count;
         x[i] = fromX;
         y[i] = fromY;
         up[i] = fromUp;
@@ -402,8 +400,15 @@ final class LeafFall {
         half[i] = HALF_LEAST + (HALF_MOST - HALF_LEAST) * next();
         hue[i] = treeHue[t];
         turned[i] = Math.clamp(Seasons.turned(season, Seasons.stepped(season, progression), treeHash[t]) + 0.35f * (next() - 0.4f), 0f, 1f);
-        square[i] = squareOf(fromX, fromY, fromUp, on);
         caught[i] = false;
+        // A crown that reaches over a house has no leaves inside its rooms to let go of: the slot is left for the next.
+        float drawnX = fromX + swungX(i), drawnY = fromY + swungY(i);
+        if (on.walled((int) Math.floor(drawnX), (int) Math.floor(drawnY), fromUp)) {
+            return;
+        }
+        square[i] = squareOf(drawnX, drawnY, fromUp, on);
+        count++;
+        released[t]++;
         spawned++;
     }
 
@@ -443,7 +448,7 @@ final class LeafFall {
         float wayNow = way[i] + 0.25f * t;
         float dx = (float) Math.cos(wayNow), dy = (float) Math.sin(wayNow);
         float s = (float) Math.sin(swung), c = (float) Math.cos(swung);
-        float cx = x[i] + dx * swing[i] * s, cy = y[i] + dy * swing[i] * s;
+        float cx = x[i] + swungX(i), cy = y[i] + swungY(i);
         // At either end of its swing a leaf glides up a little, as a pendulum's bob does.
         float cz = up[i] + 0.3f * swing[i] * s * s;
         float rock;
@@ -474,6 +479,15 @@ final class LeafFall {
         into[at + ACROSS_X] = (-ex * ss + fx * cs) * breadth;
         into[at + ACROSS_Y] = (-ey * ss + fy * cs) * breadth;
         into[at + ACROSS_UP] = fz * cs * breadth;
+    }
+
+    /** How far leaf i's swing takes where it is drawn from where it drifts, along x and along y, at how long it has been falling. */
+    private float swungX(int i) {
+        return (float) Math.cos(way[i] + 0.25f * age[i]) * swing[i] * (float) Math.sin(rate[i] * age[i] + phase[i]);
+    }
+
+    private float swungY(int i) {
+        return (float) Math.sin(way[i] + 0.25f * age[i]) * swing[i] * (float) Math.sin(rate[i] * age[i] + phase[i]);
     }
 
     /** What the leaves are now, for a log line or a probe. */
