@@ -96,8 +96,10 @@ final class LeafFall {
     private float lastEyeX = Float.NaN, lastEyeY = Float.NaN;
     /**
      * Counted since the sim was made: leaves let go of by trees, leaves landed, and leaves gone
-     * from one step to the next that showed more than SHOWING before it, which only a jump of the
-     * eye does: a leaf that fades or is carried off is all but gone in the step before it is.
+     * from one step to the next that showed more than SHOWING before it. A leaf that fades, or is
+     * carried off past KEPT in steps of a frame, is all but gone in the step before it is: one
+     * vanishes when the eye jumps, or when a gale carries it from well in sight past KEPT in one
+     * long step.
      */
     long spawned, landings, vanished;
     /** Leaves caught against a wall or a roof, counted since the sim was made. */

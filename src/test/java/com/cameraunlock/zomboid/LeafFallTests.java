@@ -23,6 +23,7 @@ final class LeafFallTests {
         Checks.run("whenThereIsNoRoomLyingLeavesFadeToMakeIt", LeafFallTests::whenThereIsNoRoomLyingLeavesFadeToMakeIt);
         Checks.run("aLeafCarriedOffIsLetGoPastKept", LeafFallTests::aLeafCarriedOffIsLetGoPastKept);
         Checks.run("aJumpOfTheEyeLetsEveryLeafGo", LeafFallTests::aJumpOfTheEyeLetsEveryLeafGo);
+        Checks.run("aGaleInLongStepsCarriesLeavesFromSightPastKept", LeafFallTests::aGaleInLongStepsCarriesLeavesFromSightPastKept);
         Checks.run("aLeafBlownAtABuildingIsCaughtAndFadesOrGoesOver", LeafFallTests::aLeafBlownAtABuildingIsCaughtAndFadesOrGoesOver);
         Checks.run("aGroundFloorOnAHillCatchesALeaf", LeafFallTests::aGroundFloorOnAHillCatchesALeaf);
         Checks.run("noLeafLetsGoInsideAHouseACrownReachesOver", LeafFallTests::noLeafLetsGoInsideAHouseACrownReachesOver);
@@ -444,6 +445,16 @@ final class LeafFallTests {
         fall.step(1f / 60f, 0f, 0f, 0.5f, Seasons.SUMMER, 0.5f, LeafFall.KEPT + 1f, 0f, OPEN);
         Checks.check(fall.count() == 0 && fall.vanished == showing && showing > 10, "an eye that jumps away lets every leaf go, and those that showed are counted as vanished: "
                 + fall.count() + " left, " + fall.vanished + " of " + showing + " vanished");
+    }
+
+    /** Hitching, a step at a time as long as STEP_MOST: a gale carries some leaves from well in sight to past KEPT in one step, and they are counted as vanished. */
+    private static void aGaleInLongStepsCarriesLeavesFromSightPastKept() {
+        LeafFall fall = new LeafFall();
+        fall.beginTrees(0f, 0f);
+        fall.offer(20.5f, 0.5f, 0f, MAPLE, shedding(1f), true, LOW, HIGH, OUT);
+        fall.endTrees();
+        run(fall, 60f, LeafFall.STEP_MOST, 33f, 0f, 1f, Seasons.AUTUMN, PEAK_AUTUMN);
+        Checks.check(fall.spawned > 100 && fall.vanished > 0, "some leaves vanished: " + fall.vanished + " of " + fall.spawned);
     }
 
     /** A bungalow downwind: a leaf that meets its walls is caught there and fades, one over its roof goes on, and none vanishes. */
