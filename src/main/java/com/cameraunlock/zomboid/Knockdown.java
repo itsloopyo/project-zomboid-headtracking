@@ -1,5 +1,7 @@
 package com.cameraunlock.zomboid;
 
+import zombie.iso.IsoDirections;
+
 /**
  * What a vehicle driven into a fence or a lamp post does to it, played alone: faster than a
  * walk it knocks the thing down and drives on, a little slower and a little dented, as in an
@@ -15,49 +17,81 @@ final class Knockdown {
     /** A push slower than this is a push: the thing stands, as it does in the game. */
     static final float WALKING_KMH = 10f;
 
+    /** Whether a vehicle knocks things down at all: alone, with its engine running, faster than a walk. */
+    static boolean smashing(boolean online, boolean engineRunning, float kmh) {
+        return !online && engineRunning && Math.abs(kmh) > WALKING_KMH;
+    }
+
     /**
-     * What a thing is, by its sprite, the Material its tile names, whether the tile marks it as
-     * hit by cars and whether it stands along a square's edge, or null for anything else.
-     * Fences are every sheet of them the tiles mark, chain link, wire, wood and metal bars, but
-     * stone: a stone fence is a low wall. Chain link and wire (Material MetalWire) are fences
-     * whether marked or not, as long as they stand along an edge: the tall chain link
-     * fencing_01_80 to 92 is not marked, and what is left lying of a broken one stands on no
-     * edge. Lamp posts are the marked posts of the street lamp sheet; the lamps on top of them
-     * are on the level above.
+     * What a thing is, or null for anything else, by its sprite, the Material its tile names,
+     * whether the game knows how to knock it down (its tile marks it as hit by cars, or the game
+     * breaks or bends it as zombies do) and whether it stands along a square's edge.
+     * Fences are every sheet of them the game knows how to knock down, chain link, wire, wood and
+     * metal bars, the pieces either side of a hole included, but stone: a stone fence is a low
+     * wall. Chain link and wire (Material MetalWire) standing along an edge are fences whether
+     * the game knows them or not; what is left lying of a broken one stands on no edge. Lamp
+     * posts are the marked posts of the street lamp sheet.
      */
-    static Kind of(String sprite, String material, boolean hitByCar, boolean onEdge) {
+    static Kind of(String sprite, String material, boolean known, boolean onEdge) {
         if (sprite == null) {
             return null;
         }
         if (sprite.startsWith("fencing_")) {
-            return "Stone".equals(material) || !hitByCar && !("MetalWire".equals(material) && onEdge) ? null : Kind.FENCE;
+            return "Stone".equals(material) || !known && !("MetalWire".equals(material) && onEdge) ? null : Kind.FENCE;
         }
-        return hitByCar && sprite.startsWith("lighting_outdoor_01_") ? Kind.POST : null;
+        return known && sprite.startsWith("lighting_outdoor_01_") ? Kind.POST : null;
     }
 
-    /** How near the vehicle's box a thing is met on every side, so a fence brushed along the side is met too. In tiles. */
+    /** Whether a thing on the level over a post is the post's street lamp: the street lamp sheet has no CustomName, its wall lamps, signs and floodlights do. */
+    static boolean streetLamp(String sprite, String customName) {
+        return sprite != null && sprite.startsWith("lighting_outdoor_01_") && customName == null;
+    }
+
+    /** A point a share of the way along a square's edge: the north edge runs along x, the west edge along y. */
+    static float edgeX(int x, boolean north, float share) {
+        return north ? x + share : x;
+    }
+
+    static float edgeY(int y, boolean north, float share) {
+        return north ? y : y + share;
+    }
+
+    /** How near the front of the vehicle's box, the way it is going, a thing is met before the box reaches it. In tiles. */
     static final float CLEARANCE = 0.2f;
 
     /**
-     * How far ahead of the vehicle's box, the way it is going, a thing is met: the ground it
-     * covers in a tenth of a second, so the thing is gone before the game's physics meets it.
-     * In tiles, from the vehicle's speed in tiles a second.
+     * How far ahead of the vehicle's box, the way it is going, a thing is met beyond the
+     * clearance: the ground it covers in a tenth of a second, so the thing is gone before the
+     * game's physics meets it. In tiles, from the vehicle's speed in tiles a second.
      */
     static float ahead(float tilesPerSecond) {
         return Math.abs(tilesPerSecond) * 0.1f;
     }
 
     /**
-     * Whether a point, across and along the vehicle from the middle of its box, with along
-     * counted the way the vehicle is going, is within reach of a box this wide and long.
+     * Whether a point is met: it is in front of the middle of the vehicle's box the way the
+     * vehicle is going, and the box, carried on that way by up to the clearance and ahead, takes
+     * it in. The point is across and along the vehicle from the middle of its box; the way it
+     * goes is a direction across and along, of any length. Nothing beside or behind the box is
+     * met, and nothing at all while it stands.
      */
-    static boolean inReach(float across, float along, float halfAcross, float halfAlong, float ahead) {
-        return Math.abs(across) < halfAcross + CLEARANCE && along > -halfAlong - CLEARANCE && along < halfAlong + CLEARANCE + ahead;
-    }
-
-    /** Whether a vehicle going this fast, either way, knocks a thing down. */
-    static boolean fastEnough(float kmh) {
-        return Math.abs(kmh) > WALKING_KMH;
+    static boolean met(float across, float along, float goingAcross, float goingAlong, float halfAcross, float halfAlong, float ahead) {
+        float length = (float) Math.hypot(goingAcross, goingAlong);
+        if (length == 0f) {
+            return false;
+        }
+        float wayAcross = goingAcross / length, wayAlong = goingAlong / length;
+        if (across * wayAcross + along * wayAlong <= 0f) {
+            return false;
+        }
+        float reach = ahead + CLEARANCE;
+        for (int step = 0; step <= 4; step++) {
+            float carried = reach * step / 4f;
+            if (Math.abs(across - wayAcross * carried) <= halfAcross && Math.abs(along - wayAlong * carried) <= halfAlong) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** The share of its speed a vehicle keeps through one piece of a thing: a post is a pole set in concrete. */
@@ -65,12 +99,34 @@ final class Knockdown {
         return kind == Kind.FENCE ? 0.9f : 0.65f;
     }
 
+    /** The share kept through several pieces met at once: each takes its share of what the last left. */
+    static float speedKept(Iterable<Kind> kinds) {
+        float kept = 1f;
+        for (Kind kind : kinds) {
+            kept *= speedKept(kind);
+        }
+        return kept;
+    }
+
     /**
-     * How hard the end of the vehicle that hit is damaged, in the game's own measure of a crash:
-     * each part there loses that much condition, give or take five (BaseVehicle.addDamageFront).
-     * A fence panel at 50 km/h is 3, a post 10.
+     * How hard a crash knocking a thing down is, in the game's own measure (BaseVehicle.crash):
+     * a fence panel at 50 km/h is 3, a post 10. Several met at once are one crash, as hard as the
+     * hardest of them.
      */
     static int damage(Kind kind, float kmh) {
         return Math.round(Math.abs(kmh) / (kind == Kind.FENCE ? 20f : 5f));
+    }
+
+    /** Whether the front of the vehicle took a knock, by which way along it the vehicle was going. */
+    static boolean front(float goingAlong) {
+        return goingAlong >= 0f;
+    }
+
+    /** The way the game itself breaks a fence a vehicle hits (IsoObject.Collision): away from the side the vehicle is on. */
+    static IsoDirections breakTowards(boolean north, float vehicleX, float vehicleY, float fenceX, float fenceY) {
+        if (north) {
+            return vehicleY >= fenceY ? IsoDirections.N : IsoDirections.S;
+        }
+        return vehicleX >= fenceX ? IsoDirections.W : IsoDirections.E;
     }
 }

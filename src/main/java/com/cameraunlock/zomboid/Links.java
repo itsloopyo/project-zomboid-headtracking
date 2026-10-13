@@ -52,9 +52,6 @@ final class Links {
     /** A field, by internal class name, name and descriptor. */
     record Field(String owner, String name, String descriptor) {}
 
-    /** A method, by internal class name, name and descriptor. */
-    record Method(String owner, String name, String descriptor) {}
-
     /** How many distinct things of the game were looked up, and what was said of each that was not found as used. */
     record Result(int references, List<String> unresolved) {}
 
@@ -73,10 +70,6 @@ final class Links {
     static final Field NODE_LAYER = new Field("zombie/core/skinnedmodel/advancedanimation/LiveAnimNode", "animLayer",
             "Lzombie/core/skinnedmodel/advancedanimation/AnimLayer;");
     static final List<Field> REFLECTED = List.of(BUFFER_HANDLE, BUFFER_ELEMENTS, HANDLE_BUFFER, HANDLE_STRIDE, BODY_PICTURE, OUTLINED, NODE_LAYER);
-    /** The game's damage to the end of a vehicle that hit something, which CarSmash calls by name: the game keeps both private. */
-    static final Method FRONT_DAMAGE = new Method("zombie/vehicles/BaseVehicle", "addDamageFront", "(I)V");
-    static final Method REAR_DAMAGE = new Method("zombie/vehicles/BaseVehicle", "addDamageRear", "(I)V");
-    static final List<Method> REFLECTED_METHODS = List.of(FRONT_DAMAGE, REAR_DAMAGE);
 
     private final Function<String, byte[]> classBytes;
     private final Map<String, Optional<ClassModel>> models = new HashMap<>();
@@ -111,7 +104,7 @@ final class Links {
                 }
             }
         }
-        return check(ours, REFLECTED, REFLECTED_METHODS, Links::running);
+        return check(ours, REFLECTED, Links::running);
     }
 
     /** The class file of a class the game runs from, by internal name, or null where there is none. */
@@ -157,19 +150,15 @@ final class Links {
     /**
      * @param ours       the mod's class files
      * @param reflected  fields the mod reads by name, each declared by the class named
-     * @param reflectedMethods methods the mod calls by name, each declared by the class named
      * @param classBytes the class file of a class by internal name, or null where there is none
      */
-    static Result check(Collection<byte[]> ours, List<Field> reflected, List<Method> reflectedMethods, Function<String, byte[]> classBytes) {
+    static Result check(Collection<byte[]> ours, List<Field> reflected, Function<String, byte[]> classBytes) {
         Links links = new Links(classBytes);
         for (byte[] bytes : ours) {
             links.classOfOurs(ClassFile.of().parse(bytes));
         }
         for (Field field : reflected) {
             links.declared(field);
-        }
-        for (Method method : reflectedMethods) {
-            links.declared(method);
         }
         return new Result(links.seen.size(), List.copyOf(links.unresolved));
     }
@@ -363,27 +352,5 @@ final class Links {
             }
         }
         fail(what, "no such field");
-    }
-
-    /** A method called by name on one object: the class named declares it, by that descriptor, and it is not static. */
-    private void declared(Method method) {
-        String what = method.owner() + "." + method.name() + method.descriptor();
-        if (!seen.add("declared " + what)) {
-            return;
-        }
-        Optional<ClassModel> model = model(method.owner());
-        if (model.isEmpty()) {
-            fail(what, "no such class");
-            return;
-        }
-        for (MethodModel candidate : model.get().methods()) {
-            if (candidate.methodName().equalsString(method.name()) && candidate.methodType().equalsString(method.descriptor())) {
-                if (candidate.flags().has(AccessFlag.STATIC)) {
-                    fail(what, "the method is now static");
-                }
-                return;
-            }
-        }
-        fail(what, "no such method");
     }
 }

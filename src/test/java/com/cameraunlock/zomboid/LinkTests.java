@@ -39,7 +39,6 @@ final class LinkTests {
         Checks.run("aClassOnlyNamedIsLookedUp", LinkTests::aClassOnlyNamedIsLookedUp);
         Checks.run("aMethodReferenceIsLookedUp", LinkTests::aMethodReferenceIsLookedUp);
         Checks.run("aFieldReadByNameIsDeclaredAsRead", LinkTests::aFieldReadByNameIsDeclaredAsRead);
-        Checks.run("aMethodCalledByNameIsDeclared", LinkTests::aMethodCalledByNameIsDeclared);
         Checks.run("aClassMadeOfOneOfTheGamesFitsIt", LinkTests::aClassMadeOfOneOfTheGamesFitsIt);
         Checks.run("aGameThatIsNotThereResolvesNothing", LinkTests::aGameThatIsNotThereResolvesNothing);
         Checks.run("aMethodIsHandedOnOnlyWhereItIsInheritedWithABody", LinkTests::aMethodIsHandedOnOnlyWhereItIsInheritedWithABody);
@@ -110,15 +109,11 @@ final class LinkTests {
     }
 
     private static Links.Result check(byte[] ours, List<Links.Field> reflected, byte[]... game) {
-        return check(ours, reflected, List.of(), game);
-    }
-
-    private static Links.Result check(byte[] ours, List<Links.Field> reflected, List<Links.Method> reflectedMethods, byte[]... game) {
         Map<String, byte[]> classes = new HashMap<>();
         for (byte[] one : game) {
             classes.put(ClassFile.of().parse(one).thisClass().asInternalName(), one);
         }
-        return Links.check(List.of(ours), reflected, reflectedMethods, name -> {
+        return Links.check(List.of(ours), reflected, name -> {
             if (!name.startsWith("java/")) {
                 return classes.get(name);
             }
@@ -215,22 +210,6 @@ final class LinkTests {
         refused("a field read by name moved to the parent", "no such field",
                 check(nothingUsed, List.of(new Links.Field("game/Thing", "count", "I")), base(), thing(THING_AS_USED)));
         refused("a field read by name of a class that is gone", "no such class", check(nothingUsed, hidden, base()));
-    }
-
-    private static void aMethodCalledByNameIsDeclared() {
-        byte[] nothingUsed = ours(OBJECT, type -> { }, code -> { });
-        List<Links.Method> hidden = List.of(new Links.Method("game/Thing", "hidden", "(I)V"));
-        MethodTypeDesc takesInt = MethodTypeDesc.of(ConstantDescs.CD_void, INT);
-        accepted("a private method called by name is found", check(nothingUsed, List.of(), hidden, base(), thing(method("hidden", takesInt, ClassFile.ACC_PRIVATE))));
-        refused("a method called by name and gone", "no such method", check(nothingUsed, List.of(), hidden, base(), thing(THING_AS_USED)));
-        refused("a method called by name that takes another type", "no such method",
-                check(nothingUsed, List.of(), hidden, base(), thing(method("hidden", MethodTypeDesc.of(ConstantDescs.CD_void, LONG), ClassFile.ACC_PRIVATE))));
-        refused("a method called by name made static", "the method is now static",
-                check(nothingUsed, List.of(), hidden, base(), thing(method("hidden", takesInt, ClassFile.ACC_PRIVATE | STATIC))));
-        // getDeclaredMethod does not look above the class it is asked of.
-        refused("a method called by name moved to the parent", "no such method",
-                check(nothingUsed, List.of(), List.of(new Links.Method("game/Thing", "inherited", "()I")), base(), thing(THING_AS_USED)));
-        refused("a method called by name of a class that is gone", "no such class", check(nothingUsed, List.of(), hidden, base()));
     }
 
     private static void aClassMadeOfOneOfTheGamesFitsIt() {

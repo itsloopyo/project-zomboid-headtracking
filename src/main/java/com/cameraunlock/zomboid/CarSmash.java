@@ -1,7 +1,5 @@
 package com.cameraunlock.zomboid;
 
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Locale;
 import org.joml.Vector3f;
@@ -9,7 +7,6 @@ import zombie.core.properties.IsoPropertyType;
 import zombie.core.properties.PropertyContainer;
 import zombie.iso.BentFences;
 import zombie.iso.BrokenFences;
-import zombie.iso.IsoDirections;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoObject;
 import zombie.iso.IsoWorld;
@@ -25,89 +22,87 @@ import zombie.vehicles.BaseVehicle;
  * The game meets a thing its tiles mark as hit by cars only once the middle of the thing's
  * square is inside the vehicle (BaseVehicle.breakingObjects, IsoObject.Collision), and its
  * physics stops the vehicle at a fence on the near edge of a square well before that. So each
- * update, before the game looks, this looks a little ahead of the vehicle for the fences and
- * posts it is about to touch: a fence along the edge it stands on, a post at its middle. The
- * game's own meeting is taken over as well, for a thing this did not see first.
+ * update, before the game looks, this looks a little ahead of the vehicle, the way it is going,
+ * for the fences and posts it is about to touch: a fence along the edge it stands on, a post at
+ * its middle. The game's own meeting is taken over as well, for a thing this did not see first.
  *
- * A fence the game knows how to break (BrokenFences) is broken as zombies and sledgehammers
- * break it, into its broken sprite and debris with the pieces either side damaged; any other
+ * A fence the game breaks alone (BrokenFences) is broken as zombies and sledgehammers break
+ * it, into its broken sprite and debris with the pieces either side damaged; a fence the game
+ * brings down a span at a time (BentFences, the tall chain link) comes down a span; any other
  * fence piece is taken away, as the game takes away what a car flattens. A lamp post is taken
- * away with the lamp on the level above it, whose light goes with it
- * (IsoLightSwitch.removeFromWorld). On a server the world is the server's, and the game's own
- * rules stand.
+ * away with the street lamp on the level above it, whose light goes with it
+ * (IsoLightSwitch.removeFromWorld). What is met at once slows the vehicle once, against the way
+ * it goes, and is one crash of the game's (BaseVehicle.crash). On a server the world is the
+ * server's, and the game's own rules stand.
  */
 final class CarSmash {
     private CarSmash() {}
 
-    /** How hard each end of a vehicle is hit, private to BaseVehicle and called by name: see Links.REFLECTED_METHODS. */
-    private static final Method FRONT = damager(Links.FRONT_DAMAGE), REAR = damager(Links.REAR_DAMAGE);
-
     /**
-     * The game's impulse from a hit thing for each unit of mass times speed (m/s) to be taken off.
-     * Measured in a Base.CarNormal of 1118 kg: an impulse of mass times the speed to lose took off
-     * 0.27 of it (a post at 34 and 44 km/h lost 9.8 and 9.5 percent where 35 was asked for).
-     * With this, two fence panels met at 50 km/h took 21 percent where 19 was asked for.
+     * The game's impulse from a hit plant, against the vehicle's motion, for each share of its
+     * speed to be taken off. Measured in a Base.CarNormal of 1118 kg, where an impulse of mass
+     * times the speed to lose took off 0.27 of it.
      */
-    private static final float IMPULSE_PER_SPEED_LOST = 3.7f;
+    private static final float IMPULSE_PER_SHARE_LOST = 3.7f;
 
     /** Where a fence is looked for along its edge, as shares of the edge. */
     private static final float[] ALONG = {0.05f, 0.275f, 0.5f, 0.725f, 0.95f};
 
     /** Logic thread only. */
     private static final ArrayList<IsoObject> MET = new ArrayList<>();
-    private static final Vector3f LOCAL = new Vector3f();
-
-    private static Method damager(Links.Method named) {
-        try {
-            Method method = BaseVehicle.class.getDeclaredMethod(named.name(), int.class);
-            method.setAccessible(true);
-            return method;
-        } catch (NoSuchMethodException missing) {
-            throw new IllegalStateException(named + " is not in this build of the game, which Links should have found", missing);
-        }
-    }
+    private static final ArrayList<Knockdown.Kind> KINDS = new ArrayList<>();
+    private static final Vector3f LOCAL = new Vector3f(), ORIGIN = new Vector3f();
 
     /** What a vehicle going this fast knocks down of a thing, or null where the game's own rules stand. */
-    private static Knockdown.Kind knockable(IsoObject thing, float kmh) {
+    private static Knockdown.Kind knockable(IsoObject thing) {
         IsoSprite sprite = thing.getSprite();
         PropertyContainer properties = thing.getProperties();
-        if (Online.joined() || !Knockdown.fastEnough(kmh) || sprite == null || thing.getSquare() == null || properties == null) {
+        if (sprite == null || thing.getSquare() == null || properties == null) {
             return null;
         }
-        return Knockdown.of(sprite.getName(), properties.get(IsoPropertyType.MATERIAL), properties.has(IsoPropertyType.HIT_BY_CAR),
+        boolean known = properties.has(IsoPropertyType.HIT_BY_CAR) || BrokenFences.getInstance().isBreakableObject(thing)
+                || BentFences.getInstance().isBendableFence(thing);
+        return Knockdown.of(sprite.getName(), properties.get(IsoPropertyType.MATERIAL), known,
                 properties.has(IsoFlagType.collideN) || properties.has(IsoFlagType.collideW));
     }
 
-    /** Called from IsoObject.Collision as it starts. True where the vehicle knocked the thing down and the game's own rule is passed over. */
+    private static float kmh(BaseVehicle vehicle) {
+        return vehicle.getSpeed2D() * 3.6f;
+    }
+
+    /** The game hands it each thing marked as hit by cars that a vehicle has met. True where the thing was knocked down and the game's own rule is passed over. */
     static boolean struck(IsoObject thing, BaseVehicle vehicle) {
-        Knockdown.Kind kind = knockable(thing, vehicle.getCurrentSpeedKmHour());
+        if (!Knockdown.smashing(Online.joined(), vehicle.shouldCollideWithObjects(), kmh(vehicle))) {
+            return false;
+        }
+        Knockdown.Kind kind = knockable(thing);
         if (kind == null) {
             return false;
         }
-        knockDown(thing, vehicle, kind, "met");
+        MET.clear();
+        KINDS.clear();
+        MET.add(thing);
+        KINDS.add(kind);
+        knockDown(vehicle, localGoingAlong(vehicle), "met");
         return true;
     }
 
-    /** Called from BaseVehicle.breakingObjects as it starts: knocks down what the vehicle is about to touch. */
+    /** Knocks down what the vehicle is about to touch, the way it is going, before the game looks for what it has met. */
     static void sweep(BaseVehicle vehicle) {
-        float kmh = vehicle.getCurrentSpeedKmHour();
-        if (Online.joined() || !Knockdown.fastEnough(kmh) || !vehicle.shouldCollideWithObjects()) {
+        if (!Knockdown.smashing(Online.joined(), vehicle.shouldCollideWithObjects(), kmh(vehicle))) {
             return;
         }
         VehicleScript script = vehicle.getScript();
         Vector3f extents = script.getExtents(), middle = script.getCenterOfMassOffset();
         float halfAcross = extents.x / 2f, halfAlong = extents.z / 2f, ahead = Knockdown.ahead(vehicle.getSpeed2D());
-        // Which way along the vehicle's own length it is going: the game's forward is (x, z) of its forward vector on the map.
-        vehicle.getForwardVector(LOCAL);
-        float forwardX = LOCAL.x, forwardY = LOCAL.z;
-        vehicle.getLocalPos(vehicle.getX() + forwardX, vehicle.getY() + forwardY, 0f, LOCAL);
-        if (Math.abs(LOCAL.z) < 0.5f) {
-            throw new IllegalStateException("a vehicle's length is not along its own z as the game's testCollisionWithObject has it: a tile ahead is " + LOCAL);
-        }
-        float going = Math.signum(LOCAL.z) * Math.signum(kmh);
+        vehicle.getLinearVelocity(LOCAL);
+        float goingX = LOCAL.x, goingY = LOCAL.z;
+        localOf(vehicle, vehicle.getX() + goingX, vehicle.getY() + goingY);
+        float goingAcross = LOCAL.x, goingAlong = LOCAL.z;
         int around = (int) Math.ceil(Math.max(halfAcross, halfAlong) + Math.max(Math.abs(middle.x), Math.abs(middle.z)) + ahead + Knockdown.CLEARANCE) + 1;
         int x0 = (int) Math.floor(vehicle.getX()), y0 = (int) Math.floor(vehicle.getY()), z = (int) Math.floor(vehicle.getZ());
         MET.clear();
+        KINDS.clear();
         for (int y = y0 - around; y <= y0 + around; y++) {
             for (int x = x0 - around; x <= x0 + around; x++) {
                 IsoGridSquare square = IsoWorld.instance.currentCell.getGridSquare(x, y, z);
@@ -116,85 +111,109 @@ final class CarSmash {
                 }
                 for (int i = 0; i < square.getObjects().size(); i++) {
                     IsoObject thing = square.getObjects().get(i);
-                    if (knockable(thing, kmh) == null) {
+                    Knockdown.Kind kind = knockable(thing);
+                    if (kind == null) {
                         continue;
                     }
                     PropertyContainer properties = thing.getProperties();
                     boolean north = properties.has(IsoFlagType.collideN), west = properties.has(IsoFlagType.collideW);
-                    boolean touched = north && touches(vehicle, x, y, 1f, 0f, middle, halfAcross, halfAlong, ahead, going)
-                            || west && touches(vehicle, x, y, 0f, 1f, middle, halfAcross, halfAlong, ahead, going)
-                            || !north && !west && inReach(vehicle, x + 0.5f, y + 0.5f, middle, halfAcross, halfAlong, ahead, going);
+                    boolean touched = north && touches(vehicle, x, y, true, middle, goingAcross, goingAlong, halfAcross, halfAlong, ahead)
+                            || west && touches(vehicle, x, y, false, middle, goingAcross, goingAlong, halfAcross, halfAlong, ahead)
+                            || !north && !west && met(vehicle, x + 0.5f, y + 0.5f, middle, goingAcross, goingAlong, halfAcross, halfAlong, ahead);
                     if (touched) {
                         MET.add(thing);
+                        KINDS.add(kind);
                     }
                 }
             }
         }
-        for (IsoObject thing : MET) {
-            Knockdown.Kind kind = knockable(thing, kmh);
-            // Breaking one fence piece changes the pieces either side of it, which may have been met too.
-            if (kind != null && thing.getSquare() != null && thing.getSquare().getObjects().contains(thing)) {
-                knockDown(thing, vehicle, kind, "ahead");
-            }
+        if (!MET.isEmpty()) {
+            knockDown(vehicle, goingAlong, "ahead");
         }
-        MET.clear();
     }
 
-    /** Whether any point along the edge from (x, y) the given way is within reach of the vehicle. */
-    private static boolean touches(BaseVehicle vehicle, int x, int y, float wayX, float wayY, Vector3f middle, float halfAcross, float halfAlong,
-            float ahead, float going) {
+    /** Whether any point along the edge of the square at (x, y), north or west, is met. */
+    private static boolean touches(BaseVehicle vehicle, int x, int y, boolean north, Vector3f middle, float goingAcross, float goingAlong,
+            float halfAcross, float halfAlong, float ahead) {
         for (float share : ALONG) {
-            if (inReach(vehicle, x + wayX * share, y + wayY * share, middle, halfAcross, halfAlong, ahead, going)) {
+            if (met(vehicle, Knockdown.edgeX(x, north, share), Knockdown.edgeY(y, north, share), middle, goingAcross, goingAlong, halfAcross, halfAlong, ahead)) {
                 return true;
             }
         }
         return false;
     }
 
-    /** Whether a point of the map is within reach of the vehicle's box, which the game finds a point in as this does (testCollisionWithObject). */
-    private static boolean inReach(BaseVehicle vehicle, float x, float y, Vector3f middle, float halfAcross, float halfAlong, float ahead, float going) {
+    private static boolean met(BaseVehicle vehicle, float x, float y, Vector3f middle, float goingAcross, float goingAlong,
+            float halfAcross, float halfAlong, float ahead) {
+        localOf(vehicle, x, y);
+        return Knockdown.met(LOCAL.x - middle.x, LOCAL.z - middle.z, goingAcross, goingAlong, halfAcross, halfAlong, ahead);
+    }
+
+    /**
+     * Where a point of the map is across (x) and along (z) the vehicle, in the frame the game
+     * finds a point in its box by (testCollisionWithObject), as a difference from where the
+     * vehicle itself is in that frame.
+     */
+    private static void localOf(BaseVehicle vehicle, float x, float y) {
+        vehicle.getLocalPos(vehicle.getX(), vehicle.getY(), 0f, ORIGIN);
         vehicle.getLocalPos(x, y, 0f, LOCAL);
-        return Knockdown.inReach(LOCAL.x - middle.x, (LOCAL.z - middle.z) * going, halfAcross, halfAlong, ahead);
+        LOCAL.x -= ORIGIN.x;
+        LOCAL.y -= ORIGIN.y;
+        LOCAL.z -= ORIGIN.z;
     }
 
-    private static void knockDown(IsoObject thing, BaseVehicle vehicle, Knockdown.Kind kind, String how) {
-        IsoGridSquare square = thing.getSquare();
-        PropertyContainer properties = thing.getProperties();
-        String what = thing.getSprite().getName();
-        float kmh = vehicle.getCurrentSpeedKmHour(), speed = vehicle.getSpeed2D();
-        // Pushed back from the thing while it still stands where it was hit: the game takes its place from its square.
-        vehicle.applyImpulseFromHitObject(thing, IMPULSE_PER_SPEED_LOST * vehicle.getFudgedMass() * speed * (1f - Knockdown.speedKept(kind)));
-        // The game's own sound of a vehicle hitting a thing, and the noise of it zombies hear. Nothing of the thing is changed by a hit of no strength.
-        thing.HitByVehicle(vehicle, 0f);
-        int lamps = 0;
-        BrokenFences fences = BrokenFences.getInstance();
+    private static float localGoingAlong(BaseVehicle vehicle) {
+        vehicle.getLinearVelocity(LOCAL);
+        float goingX = LOCAL.x, goingY = LOCAL.z;
+        localOf(vehicle, vehicle.getX() + goingX, vehicle.getY() + goingY);
+        return LOCAL.z;
+    }
+
+    /** Knocks down everything in MET at once: one slowing against the way the vehicle goes, then each thing, then one crash. */
+    private static void knockDown(BaseVehicle vehicle, float goingAlong, String how) {
+        float kmh = kmh(vehicle);
+        float kept = Knockdown.speedKept(KINDS);
+        // Taken while the first thing still stands where it was hit: the game takes its place from its square.
+        vehicle.applyImpulseFromHitPlant(MET.getFirst(), IMPULSE_PER_SHARE_LOST * (1f - kept));
+        int crash = 0;
+        BrokenFences broken = BrokenFences.getInstance();
         BentFences bent = BentFences.getInstance();
-        if (kind == Knockdown.Kind.FENCE && fences.isBreakableObject(thing)) {
-            fences.destroyFence(thing, awayFrom(vehicle, thing, properties));
-        } else if (kind == Knockdown.Kind.FENCE && bent.isBendableFence(thing)) {
-            // The tall chain link no piece of which the game breaks alone: it comes down a whole span at a time, as zombies bring it down.
-            bent.smashFence(thing, awayFrom(vehicle, thing, properties));
-        } else {
-            square.transmitRemoveItemFromSquare(thing);
-            if (kind == Knockdown.Kind.POST) {
-                lamps = takeLampsAbove(square);
+        for (int i = 0; i < MET.size(); i++) {
+            IsoObject thing = MET.get(i);
+            Knockdown.Kind kind = KINDS.get(i);
+            IsoGridSquare square = thing.getSquare();
+            // Breaking one fence piece changes the pieces either side of it, which may have been met too.
+            if (square == null || !square.getObjects().contains(thing)) {
+                continue;
             }
+            String what = thing.getSprite().getName();
+            PropertyContainer properties = thing.getProperties();
+            // The game's own sound of a vehicle hitting a thing, and the noise of it zombies hear. Nothing of the thing is changed by a hit of no strength.
+            thing.HitByVehicle(vehicle, 0f);
+            int lamps = 0;
+            if (kind == Knockdown.Kind.FENCE && broken.isBreakableObject(thing)) {
+                broken.destroyFence(thing, Knockdown.breakTowards(properties.has(IsoFlagType.collideN), vehicle.getX(), vehicle.getY(), thing.getX(), thing.getY()));
+            } else if (kind == Knockdown.Kind.FENCE && bent.isBendableFence(thing)) {
+                bent.smashFence(thing, Knockdown.breakTowards(properties.has(IsoFlagType.collideN), vehicle.getX(), vehicle.getY(), thing.getX(), thing.getY()));
+            } else {
+                square.transmitRemoveItemFromSquare(thing);
+                if (kind == Knockdown.Kind.POST) {
+                    lamps = takeLampAbove(square);
+                }
+            }
+            crash = Math.max(crash, Knockdown.damage(kind, kmh));
+            Log.info(String.format(Locale.ROOT, "a vehicle at %.1f km/h knocked down %s at %d,%d,%d, %s%s", kmh, what, square.getX(), square.getY(), square.getZ(),
+                    how, lamps > 0 ? ", and the street lamp over it" : ""));
         }
-        damage(kmh > 0f ? FRONT : REAR, vehicle, Knockdown.damage(kind, kmh));
-        Log.info(String.format(Locale.ROOT, "a vehicle at %.1f km/h (%.2f) knocked down %s at %d,%d,%d, %s%s", kmh, speed, what, square.getX(), square.getY(), square.getZ(),
-                how, lamps > 0 ? ", and " + lamps + " lamp thing(s) over it" : ""));
-    }
-
-    /** The way the game itself breaks a fence a vehicle hits: away from the side the vehicle is on. */
-    private static IsoDirections awayFrom(BaseVehicle vehicle, IsoObject fence, PropertyContainer properties) {
-        if (properties.has(IsoFlagType.collideN)) {
-            return vehicle.getY() >= fence.getY() ? IsoDirections.N : IsoDirections.S;
-        }
-        return vehicle.getX() >= fence.getX() ? IsoDirections.W : IsoDirections.E;
+        vehicle.crash(crash, Knockdown.front(goingAlong));
+        Log.info(String.format(Locale.ROOT, "the vehicle keeps %.2f of its speed through %d thing(s), crash %d at the %s", kept, MET.size(), crash,
+                Knockdown.front(goingAlong) ? "front" : "back"));
+        MET.clear();
+        KINDS.clear();
     }
 
     /** Takes away the street lamp on the level over a post, and says how many things that was. */
-    private static int takeLampsAbove(IsoGridSquare post) {
+    private static int takeLampAbove(IsoGridSquare post) {
         IsoGridSquare above = IsoWorld.instance.currentCell.getGridSquare(post.getX(), post.getY(), post.getZ() + 1);
         if (above == null) {
             return 0;
@@ -203,21 +222,11 @@ final class CarSmash {
         for (int i = above.getObjects().size() - 1; i >= 0; i--) {
             IsoObject each = above.getObjects().get(i);
             IsoSprite sprite = each.getSprite();
-            if (sprite != null && sprite.getName() != null && sprite.getName().startsWith("lighting_outdoor_01_")) {
+            if (sprite != null && Knockdown.streetLamp(sprite.getName(), each.getProperties().get(IsoPropertyType.CUSTOM_NAME))) {
                 above.transmitRemoveItemFromSquare(each);
                 taken++;
             }
         }
         return taken;
-    }
-
-    private static void damage(Method end, BaseVehicle vehicle, int amount) {
-        try {
-            end.invoke(vehicle, amount);
-        } catch (IllegalAccessException failure) {
-            throw new IllegalStateException(failure);
-        } catch (InvocationTargetException thrown) {
-            throw new IllegalStateException("the game's " + end.getName() + " threw", thrown.getCause());
-        }
     }
 }
