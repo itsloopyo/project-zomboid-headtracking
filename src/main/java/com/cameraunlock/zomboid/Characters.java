@@ -1970,7 +1970,7 @@ public final class Characters {
             // game's draw sets any of its state.
             if (data.character instanceof IsoAnimal && CharacterDraw.finelySkinned() && model.modelInstance.tex != null) {
                 wornFor = model.modelInstance.tex;
-                worn = FineSkins.of(wornFor);
+                worn = FineSkins.of(wornFor, fromEye);
             }
             // The game's draw ends by putting its own remembered state back, which has depth
             // writes off. Without them the next part, or the next model, is painted over

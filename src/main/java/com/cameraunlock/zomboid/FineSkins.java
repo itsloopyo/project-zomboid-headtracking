@@ -297,6 +297,18 @@ public final class FineSkins {
     private static long jarBytes;
     private static final long JAR_MOST_BYTES = 512L << 20;
     private static final int JAR_LARGEST = 2048;
+    /**
+     * The jar's pictures one skin, or one texture worn as it is, still wants read: all of them
+     * are read or none, so that no skin holds room on the card for a part of what it needs
+     * while the rest waits for room that skins like it are holding.
+     */
+    private static final ArrayList<String> wanted = new ArrayList<>();
+    /** Who is let room among the jar's pictures first, by the recipe or texture that asked. */
+    private static final RoomLine line = new RoomLine(1_000_000_000L);
+    /** How far from the eye whoever asks now stands, in tiles. */
+    private static float asking;
+    /** The mod's own pictures the texture being answered for was found to read: kept from being let go only once they are worn. */
+    private static final ArrayList<Read> asked = new ArrayList<>();
 
     /** The pack's picture for each name the game has shown, null for a name the pack has nothing for. */
     private static final HashMap<String, Texture> packed = new HashMap<>();
@@ -317,7 +329,7 @@ public final class FineSkins {
      * putting back the state the game remembers, not the picture's: all of it is put back
      * here, and the caller sets its own state after this, not before. Render thread only.
      */
-    static synchronized Texture of(Texture bound) {
+    static synchronized Texture of(Texture bound, float away) {
         if (wornFrame != Pipeline.frame()) {
             wornFrame = Pipeline.frame();
             worn.clear();
@@ -326,6 +338,7 @@ public final class FineSkins {
         if (answer != null) {
             return answer;
         }
+        asking = away;
         try {
             answer = finer(bound);
         } catch (Exception | LinkageError failure) {
@@ -550,6 +563,8 @@ public final class FineSkins {
         }
         waiting = false;
         gone = false;
+        wanted.clear();
+        asked.clear();
         if ((Own.on() & WORN) != ownWorn || ownSmall != Quality.smallerPictures()) {
             // The player has switched some of the mod's own skins on or off, or gone to a graphics mode that reads them at
             // another size: what was composed with things as they were is composed again.
@@ -558,6 +573,10 @@ public final class FineSkins {
         }
         if (!(bound instanceof SmartTexture smart)) {
             Texture pack = packed(bound);
+            settle(bound);
+            if (pack != null) {
+                wornNow();
+            }
             return pack != null ? pack : bound;
         }
         Texture result = smart.result;
@@ -582,6 +601,7 @@ public final class FineSkins {
             return bound;
         }
         boolean any = anyPacked(recipe);
+        settle(recipe);
         if (gone) {
             recipe.plain = true;
             if (!goneSaid) {
@@ -597,6 +617,7 @@ public final class FineSkins {
             recipe.plain = true;
             return bound;
         }
+        wornNow();
         while (fineBytes >= MOST_BYTES) {
             Iterator<Fine> longestAgo = fine.values().iterator();
             Fine least = longestAgo.next();
@@ -658,7 +679,7 @@ public final class FineSkins {
             if (mine.texture == null) {
                 waiting = true;
             }
-            mine.used = System.nanoTime();
+            asked.add(mine);
             return mine.texture;
         }
         Texture pack;
@@ -713,19 +734,51 @@ public final class FineSkins {
                 jarless.add(path);
                 return tailored(relative, name);
             }
-            int across = Quality.smallerPictures() ? JAR_LARGEST / 2 : JAR_LARGEST;
-            long most = bytesOf(across, across);
-            if (jarBytes + most > JAR_MOST_BYTES) {
-                waiting = true;
-                return null;
+            if (!wanted.contains(path)) {
+                wanted.add(path);
             }
-            Read asked = new Read();
-            asked.bytes = most;
-            jarBytes += most;
-            own.put(path, asked);
-            reader.execute(() -> read(path, asked));
+            waiting = true;
+            return null;
         }
         return made(own.get(path), path, name);
+    }
+
+    /** The most one of the jar's pictures can hold of the card. */
+    private static long jarMost() {
+        int across = Quality.smallerPictures() ? JAR_LARGEST / 2 : JAR_LARGEST;
+        return bytesOf(across, across);
+    }
+
+    /**
+     * Has the jar's pictures that whoever asked still wants read, all of them, when there is
+     * room for them all and nobody nearer waits for room: see RoomLine. Room is made as
+     * pictures nothing has worn for OWN_KEPT_NANOS are let go (tendOwn).
+     */
+    private static void settle(Object who) {
+        if (wanted.isEmpty()) {
+            return;
+        }
+        long now = System.nanoTime();
+        if (line.ask(who, asking, now, jarBytes + jarMost() * wanted.size() <= JAR_MOST_BYTES)) {
+            for (String path : wanted) {
+                Read reading = new Read();
+                reading.bytes = jarMost();
+                reading.used = now;
+                jarBytes += reading.bytes;
+                own.put(path, reading);
+                reader.execute(() -> read(path, reading));
+            }
+        }
+        wanted.clear();
+    }
+
+    /** The mod's own pictures just asked for are worn: kept from being let go for OWN_KEPT_NANOS more. */
+    private static void wornNow() {
+        long now = System.nanoTime();
+        for (Read read : asked) {
+            read.used = now;
+        }
+        asked.clear();
     }
 
     /**
@@ -751,12 +804,13 @@ public final class FineSkins {
                 waiting = true;
                 return null;
             }
-            Read asked = new Read();
-            asked.tailored = true;
-            asked.bytes = most;
+            Read making = new Read();
+            making.tailored = true;
+            making.bytes = most;
+            making.used = System.nanoTime();
             tailoredBytes += most;
-            own.put(key, asked);
-            tailor.execute(() -> tailor(file, fabric, small, asked));
+            own.put(key, making);
+            tailor.execute(() -> tailor(file, fabric, small, making));
         }
         return made(own.get(key), key, name);
     }

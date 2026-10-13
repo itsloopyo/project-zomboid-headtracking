@@ -1603,7 +1603,7 @@ final class CharacterDraw {
             return;
         }
         // As for a part: the finer skin is asked for before any state is set.
-        Texture worn = FineSkins.of(texture);
+        Texture worn = FineSkins.of(texture, 0f);
 
         // The arm is seen from outside only, and each part's is the same mesh at the same
         // depth: one drawn later has to be let through where it is as near.
@@ -1724,7 +1724,7 @@ final class CharacterDraw {
         }
         // Making a finer skin runs the game's combiner, so it is asked for before any of
         // this part's state is set. A shadow has no skin at all.
-        Texture worn = finelySkinned && !plainly ? FineSkins.of(texture) : texture;
+        Texture worn = finelySkinned && !plainly ? FineSkins.of(texture, away) : texture;
 
         if (!drawing) {
             GL11.glEnable(GL_DEPTH_TEST);
