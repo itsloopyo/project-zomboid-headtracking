@@ -490,6 +490,13 @@ final class PipelineShaders {
                 return mod(floor((bits + 0.5) / exp2(surface)), 2.0) > 0.5;
             }
             void main() {
+                // What is laid may be drawn in two parts, its grass and the rest: see
+                // Pipeline.drawWorld. A vertex of the part not being drawn is in no picture.
+                // What is laid is never a model, so its kind is the colour's alpha as vKind is made below.
+                if (uLaid > 1.5 && (gl_Color.a - 32.0 * floor((gl_Color.a + 0.5) / 32.0) > 7.5) == (uLaid > 2.5)) {
+                    gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+                    return;
+                }
                 vec4 stands = gl_Vertex;
                 vec3 looks = gl_Normal;
                 vec3 lies = vec3(0.0);
@@ -567,12 +574,6 @@ final class PipelineShaders {
                 vBoards = boarded ? 3.0 + floor((vMaterial - 16.0) / 2.0) : 0.0;
                 vLie = boarded ? mod(vMaterial - 16.0, 2.0) : 0.0;
                 vMaterial = boarded ? 3.0 : vMaterial;
-                // What is laid may be drawn in two parts, its grass and the rest: see
-                // Pipeline.drawWorld. A vertex of the part not being drawn is in no picture.
-                if (uLaid > 1.5 && (vKind > 7.5) == (uLaid > 2.5)) {
-                    gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
-                    return;
-                }
                 // What stands only to throw a crown's shadow is in no picture but the sun's.
                 if (vMaterial > 79.5 && vMaterial < 80.5) {
                     gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
