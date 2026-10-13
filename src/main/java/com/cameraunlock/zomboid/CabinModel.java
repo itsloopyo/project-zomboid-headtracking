@@ -50,11 +50,11 @@ final class CabinModel {
     /** Half the windscreen's width, which the wipers' arcs are laid out on. */
     float screenHalf;
     /**
-     * How far the wipers' blades reach from their feet, in tiles: WIPER_SHARE of the way up the windscreen, no more
-     * than WIPER_WIDE of its half width, so the two arcs overlap only a little in the middle.
+     * How far the wipers' blades reach from their feet, in tiles: WIPER_SHARE of the way up the windscreen. The two
+     * arcs overlap in the middle and run off the glass at its sides, as a car's do.
      */
     final float wiperReach;
-    private static final float WIPER_SHARE = 0.85f, WIPER_WIDE = 0.9f;
+    private static final float WIPER_SHARE = 0.85f;
     /** A windscreen's texture place is counted up from this far under its foot, where the wipers stand: see CabinGlass. */
     private static final float WIPERS_BELOW = 0.3f;
     /** Whose pictures the interior is drawn with: one style's are shared by the bodies built in it. */
@@ -130,7 +130,7 @@ final class CabinModel {
         if (slant <= 0f) {
             throw new IOException(name + " has no windscreen the wipers sweep");
         }
-        wiperReach = Math.min(WIPER_SHARE * slant, WIPER_WIDE * screenHalf);
+        wiperReach = WIPER_SHARE * slant;
     }
 
     /**

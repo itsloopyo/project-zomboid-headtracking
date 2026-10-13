@@ -661,7 +661,7 @@ final class CabinShader {
                 }
                 gPaneFar = reach;
                 gScreenHalf = widths().x * CABIN;
-                gWiperReach = 0.66 * gScreenHalf;
+                gWiperReach = 0.85 * span * CABIN;
                 vec4 glass = pane(vec2((hit.y - mid) * CABIN, high * CABIN - 0.3), fromCabin(vec3(face.x, 0.0, face.z)), -out3, 1.0);
                 float day = clamp(dot(atmosphere(vec3(0.0, 0.0, 1.0)), vec3(1.4)) + 0.05, 0.0, 1.0);
                 vec3 thrown = reflect(d, face);
