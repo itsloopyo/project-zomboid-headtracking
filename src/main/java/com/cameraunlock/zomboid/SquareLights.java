@@ -13,34 +13,55 @@ import zombie.iso.IsoGridSquare;
  * is the game's, as before, and marks the chunk where the light has changed (ChunkMarks).
  *
  * Logic thread only. Kept by chunk and level in the places of ChunkMarks' table, so the
- * squares of the loaded map never share one; a square is known by itself as well as by its
- * place, and one the map has let go of is never taken for another.
+ * chunks of the loaded map never share one, and a place taken by another chunk starts empty.
+ * No square is held: a light is known by its square's place and the pass. What is kept for a
+ * chunk the map no longer holds is let go (forgetOutside), so what is kept is never more than
+ * the loaded map's levels that have been read.
  */
 final class SquareLights {
     private static final int LEVELS = 64, LOWEST_LEVEL = -32;
     private static final int TILES = WorldScene.CHUNK_TILES * WorldScene.CHUNK_TILES;
+    private static final int PLACES = ChunkMarks.SIDE * ChunkMarks.SIDE;
 
     private static final class Block {
-        final IsoGridSquare[] square = new IsoGridSquare[TILES];
+        int wx, wy;
+        final boolean[] known = new boolean[TILES];
         final int[] pass = new int[TILES];
         final float[] light = new float[TILES * 4];
+
+        /** Takes the block for another chunk, with nothing known of it. */
+        void take(int wx, int wy) {
+            this.wx = wx;
+            this.wy = wy;
+            Arrays.fill(known, false);
+        }
     }
 
-    private final Block[] blocks = new Block[ChunkMarks.SIDE * ChunkMarks.SIDE * LEVELS];
+    /** By level, each made at its first asking: by place in ChunkMarks' table. */
+    private final Block[][] levels = new Block[LEVELS][];
     /** What a square asked for again in the same pass is handed back in: only until the next asking. */
     private final ColorInfo kept = new ColorInfo();
 
     /** The square's light for the player as the game has it in the engine's pass given. */
     ColorInfo of(IsoGridSquare square, int playerIndex, int pass) {
         int x = square.getX(), y = square.getY();
-        int index = ChunkMarks.slot(Math.floorDiv(x, WorldScene.CHUNK_TILES), Math.floorDiv(y, WorldScene.CHUNK_TILES)) * LEVELS + square.getZ() - LOWEST_LEVEL;
-        Block block = blocks[index];
+        int wx = Math.floorDiv(x, WorldScene.CHUNK_TILES), wy = Math.floorDiv(y, WorldScene.CHUNK_TILES);
+        Block[] places = levels[square.getZ() - LOWEST_LEVEL];
+        if (places == null) {
+            places = new Block[PLACES];
+            levels[square.getZ() - LOWEST_LEVEL] = places;
+        }
+        int slot = ChunkMarks.slot(wx, wy);
+        Block block = places[slot];
         if (block == null) {
             block = new Block();
-            blocks[index] = block;
+            block.take(wx, wy);
+            places[slot] = block;
+        } else if (block.wx != wx || block.wy != wy) {
+            block.take(wx, wy);
         }
         int at = (x & WorldScene.CHUNK_TILES - 1) * WorldScene.CHUNK_TILES + (y & WorldScene.CHUNK_TILES - 1);
-        if (block.square[at] == square && block.pass[at] == pass) {
+        if (block.known[at] && block.pass[at] == pass) {
             kept.r = block.light[at * 4];
             kept.g = block.light[at * 4 + 1];
             kept.b = block.light[at * 4 + 2];
@@ -48,7 +69,7 @@ final class SquareLights {
             return kept;
         }
         ColorInfo light = square.lighting[playerIndex].lightInfo();
-        block.square[at] = square;
+        block.known[at] = true;
         block.pass[at] = pass;
         block.light[at * 4] = light.r;
         block.light[at * 4 + 1] = light.g;
@@ -57,8 +78,23 @@ final class SquareLights {
         return light;
     }
 
-    /** Lets go of every square: the map they are of is gone. */
+    /** Lets go of what is kept for every chunk outside the loaded map, whose west and north chunk and width in chunks are given. */
+    void forgetOutside(int mapWx, int mapWy, int mapSide) {
+        for (Block[] places : levels) {
+            if (places == null) {
+                continue;
+            }
+            for (int slot = 0; slot < places.length; slot++) {
+                Block block = places[slot];
+                if (block != null && (block.wx < mapWx || block.wx >= mapWx + mapSide || block.wy < mapWy || block.wy >= mapWy + mapSide)) {
+                    places[slot] = null;
+                }
+            }
+        }
+    }
+
+    /** Lets go of everything: the map it is of is gone. */
     void forget() {
-        Arrays.fill(blocks, null);
+        Arrays.fill(levels, null);
     }
 }

@@ -1563,6 +1563,7 @@ final class WorldScene {
                 forgetCrowns(slot);
             }
         }
+        squareLights.forgetOutside(mapWx, mapWy, mapSide);
         solid.clear();
         laid.clear();
         solid.trim();
