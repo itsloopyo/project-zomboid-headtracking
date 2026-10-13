@@ -979,20 +979,29 @@ final class Pipeline {
             stage(STAGE_LOAD);
             boolean figures = view.characters.ready();
             glazed = false;
+            float[] cabin = seated ? Cabins.wheel(view.ride) : null;
+            // The mirror keeps its picture between drawings: see MIRROR_EVERY_NANOS.
+            boolean behindDrawn = cabin != null && reflections && (!mirrored.made() || System.nanoTime() - mirrorDrawnAt >= MIRROR_EVERY_NANOS);
+            boolean throughScope = view.scope.wanted(view.characters.aim, tanHalfFieldOfView / FieldOfView.setTanHalfVertical());
             // A mirror and a scope look where the eye does not, at ground the same maps shade.
-            view.characters.seenBy(camera, tanHalfFieldOfView, aspect, !seated && view.scope.fitted() == null);
+            view.characters.seenBy(camera, tanHalfFieldOfView, aspect);
+            if (behindDrawn) {
+                placeBehind(camera, cabin);
+                view.characters.alsoSeenBy(behind, MIRROR_TAN, (float) MIRROR_WIDTH / MIRROR_HEIGHT);
+            }
+            if (throughScope) {
+                view.characters.alsoSeenBy(view.scope.sees, view.scope.pictureTan(), 1f);
+            }
             drawShadows(state, figures);
             boolean inTheGlass = figures && !outside && !seated && reflection != null && surfacesMirror
                     && drawReflection(camera, state, tanHalfFieldOfView, aspect, near, far, fogStart, fogEnd);
             stage(STAGE_SHADOWS);
-            float[] cabin = seated ? Cabins.wheel(view.ride) : null;
-            // The mirror keeps its picture between drawings: see MIRROR_EVERY_NANOS.
-            if (cabin != null && reflections && (!mirrored.made() || System.nanoTime() - mirrorDrawnAt >= MIRROR_EVERY_NANOS)) {
+            if (behindDrawn) {
                 mirrorDrawnAt = System.nanoTime();
-                drawBehind(camera, state, cabin, far, fogStart, fogEnd, figures);
+                drawBehind(state, far, fogStart, fogEnd, figures);
                 stage(STAGE_MIRROR);
             }
-            if (view.scope.wanted(view.characters.aim, tanHalfFieldOfView / FieldOfView.setTanHalfVertical())) {
+            if (throughScope) {
                 drawThroughScope(state, far, fogStart, fogEnd, figures);
             }
             waterDrawn = water != null && surfacesMirror && !outside && waterInSight(camera, state, tanHalfFieldOfView, aspect, near, far);
@@ -1105,14 +1114,8 @@ final class Pipeline {
         }
     }
 
-    private void drawBehind(ViewCamera.Pose camera, SkyState state, float[] cabin, float far, float fogStart, float fogEnd,
-            boolean figures) {
-        // What the mirror on the screen shows: the world behind, from where the mirror
-        // hangs, drawn small, and as Low draws it whatever the mode: no further than Low's
-        // sight, with no depth in its surfaces and no shine on who is in it.
-        float sight = Math.min(fogEnd, Quality.sightBehind());
-        fogStart *= sight / fogEnd;
-        fogEnd = sight;
+    /** Where the mirror on the screen hangs this frame, and the way it looks: into behind. */
+    private void placeBehind(ViewCamera.Pose camera, float[] cabin) {
         float aheadX = view.ride.aheadX, aheadY = view.ride.aheadY;
         behind.eyeX = camera.eyeX + (aheadX * cabin[7] - aheadY * cabin[8]) * Cabins.SCALE;
         behind.eyeY = camera.eyeY + (aheadY * cabin[7] + aheadX * cabin[8]) * Cabins.SCALE;
@@ -1136,6 +1139,15 @@ final class Pipeline {
         behind.upX = 0f;
         behind.upY = 0f;
         behind.upUp = 1f;
+    }
+
+    private void drawBehind(SkyState state, float far, float fogStart, float fogEnd, boolean figures) {
+        // What the mirror on the screen shows: the world behind, from where the mirror
+        // hangs, drawn small, and as Low draws it whatever the mode: no further than Low's
+        // sight, with no depth in its surfaces and no shine on who is in it.
+        float sight = Math.min(fogEnd, Quality.sightBehind());
+        fogStart *= sight / fogEnd;
+        fogEnd = sight;
         shownBehind = listBehind(behind, state, fogEnd);
         lend(mirrored);
         inMirror = true;

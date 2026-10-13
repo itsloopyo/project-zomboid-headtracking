@@ -412,23 +412,38 @@ public final class Characters {
     private float seenWide, seenHigh;
     /** A lamp's map shows nothing further from the lamp than this, or everything while it is nought. */
     private float seenWithin;
-    /** The eye's view of the frame and the tangents of half its picture, as the sun's maps are cast, and whether nothing else looks at what those maps shade. */
-    private final float[] eyeSees = new float[16];
-    private float eyeWide, eyeHigh;
-    private boolean eyeAlone;
+    /** The views of the pictures this frame that read the sun's maps, the eye's first, and the tangents of half of each picture's width and height. */
+    private final float[][] seers = new float[SEERS][16];
+    private final float[] seersWide = new float[SEERS], seersHigh = new float[SEERS];
+    private int seersFound;
+    /** The eye, a mirror and a scope. */
+    private static final int SEERS = 3;
     private final float[] past = new float[5];
 
     /**
      * Said before the sun's maps are cast: what the frame's eye will see. A model whose shadow
-     * cannot fall where the eye sees is then left out of them.
-     *
-     * @param alone whether the eye's picture is the only one this frame that reads those maps: a mirror and a scope look elsewhere
+     * cannot fall where any picture this frame sees is then left out of them.
      */
-    void seenBy(ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, boolean alone) {
-        ViewCamera.view(camera, eyeSees);
-        eyeHigh = tanHalfFieldOfView;
-        eyeWide = tanHalfFieldOfView * aspect;
-        eyeAlone = alone;
+    void seenBy(ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect) {
+        seersFound = 0;
+        alsoSeenBy(camera, tanHalfFieldOfView, aspect);
+    }
+
+    /** Said after seenBy, of another picture this frame that reads the sun's maps: a mirror's or a scope's. */
+    void alsoSeenBy(ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect) {
+        ViewCamera.view(camera, seers[seersFound]);
+        seersHigh[seersFound] = tanHalfFieldOfView;
+        seersWide[seersFound] = tanHalfFieldOfView * aspect;
+        seersFound++;
+    }
+
+    private boolean shadesNothingSeen(float[] map, float x, float y, float up, float round) {
+        for (int i = 0; i < seersFound; i++) {
+            if (!PictureEdges.shadesNothingSeen(seers[i], seersWide[i], seersHigh[i], map, x, y, up, round)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
@@ -1789,7 +1804,7 @@ public final class Characters {
                 if (data.object == sat || data.inVehicle && toX * toX + toY * toY < OWN_VEHICLE * OWN_VEHICLE || behind < 0f || aside > behind * mirrorWide + MIRROR_MARGIN) {
                     continue;
                 }
-            } else if (!WITHOUT_CULL && (seenFrom != null || map != null && eyeAlone)) {
+            } else if (!WITHOUT_CULL && (seenFrom != null || map != null)) {
                 // The place is where the draw stands the model, and the ball round it is what it cannot reach out of.
                 boolean stands = data.character != null && !data.inVehicle;
                 float x = stands ? data.x : stood[i * 4], y = stands ? data.y : stood[i * 4 + 1], z = stands ? data.z : stood[i * 4 + 2];
@@ -1804,7 +1819,7 @@ public final class Characters {
                             || seenWithin > 0f && -past[0] > seenWithin + round) {
                         continue;
                     }
-                } else if (PictureEdges.shadesNothingSeen(eyeSees, eyeWide, eyeHigh, map, x, y, up, round)) {
+                } else if (shadesNothingSeen(map, x, y, up, round)) {
                     continue;
                 }
             }
