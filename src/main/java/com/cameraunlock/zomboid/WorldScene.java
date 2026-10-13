@@ -2521,6 +2521,14 @@ final class WorldScene {
                 // Another save, loaded without leaving the game: every build is of the world before.
                 builtIn = new WeakReference<>(cell);
                 squareLights.forget();
+                for (Frame scene : scenes) {
+                    scene.lampsBurning.clear();
+                    scene.lampsSortedFrame = -1;
+                    scene.lampsNear.clear();
+                    scene.roomAsked = null;
+                    Arrays.fill(scene.groundObject, null);
+                    Arrays.fill(scene.around, null);
+                }
                 roomShare = lampLevel = roomShareFollowed = lampLevelFollowed = -1f;
                 strung.clear();
                 bannerRuns.clear();
