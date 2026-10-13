@@ -1210,7 +1210,7 @@ final class CharacterDraw {
     private static boolean shadow;
     /** How far from the eye the person begun stands, in tiles. */
     private static float away;
-    /** How far from the viewer's eye the person begun stands along the ground, in tiles, in every pass alike. */
+    /** How far from the viewer's eye the person begun stands, in tiles, in every pass alike: see Characters.fromViewer. */
     private static float fromEye;
     /** Whether the person begun wears finer skins: see FineSkinRange. */
     private static boolean finelySkinned;
@@ -1241,7 +1241,7 @@ final class CharacterDraw {
      * Before the parts of one person: the matrix that stands them before the eye, the eye's
      * projection, whether this is a shadow map, which is drawn undivided since nothing of
      * a shadow's edge shows the difference, and how far from the viewer's eye the person
-     * stands along the ground, in tiles, which a shadow map's own matrix does not say.
+     * stands, in tiles (Characters.fromViewer), which a shadow map's own matrix does not say.
      */
     static void begin(ModelSlotRenderData data, float[] standing, float[] seen, boolean casting, float fromTheViewer) {
         person = data;

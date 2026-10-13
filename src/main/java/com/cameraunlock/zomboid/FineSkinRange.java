@@ -21,7 +21,7 @@ final class FineSkinRange {
      * Whether this person wears a finer skin in this frame's pictures.
      *
      * @param who   the person, the same object every frame
-     * @param away  how far from the viewer's eye they stand along the ground, in tiles, nought for the viewer: the same whichever picture, a window's reflection among them, they are drawn into
+     * @param away  how far from the viewer's eye they stand, in tiles (Characters.fromViewer), nought for the viewer: the same whichever picture, a window's reflection among them, they are drawn into
      * @param frame the game's frame
      */
     boolean wears(Object who, float away, int frame) {

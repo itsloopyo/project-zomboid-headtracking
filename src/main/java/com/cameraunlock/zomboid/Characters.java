@@ -1881,7 +1881,7 @@ public final class Characters {
                 CharacterDraw.release();
                 seated(data, i * 4, viewMatrix);
             } else {
-                character(data, standsUp, viewMatrix, data.character == viewer, casting, false, false, data.character == viewer ? 0f : (float) Math.hypot(toX, toY));
+                character(data, standsUp, viewMatrix, data.character == viewer, casting, false, false, data.character == viewer ? 0f : fromViewer(toX, toY, data.z - viewer.getZ()));
             }
             data.ambientR = red;
             data.ambientG = green;
@@ -1929,7 +1929,7 @@ public final class Characters {
 
     /**
      * @param up      the height the person stands at: see standsUp
-     * @param fromEye how far the person stands from the eye along the ground, in tiles: see CharacterDraw.begin
+     * @param fromEye how far the person stands from the eye, in tiles: see fromViewer
      */
     private void character(ModelSlotRenderData data, float up, float[] viewMatrix, boolean own, boolean casting, boolean held, boolean bothHands, float fromEye) {
         place(data.x, data.y, up, data.animPlayerAngle, CHARACTER_SCALE);
@@ -1997,6 +1997,12 @@ public final class Characters {
         }
     }
 
+    /** How far from the viewer's eye someone stands, in tiles: along the ground, and a storey's height for each floor between them. */
+    private static float fromViewer(float toX, float toY, float levels) {
+        float up = levels * ViewCamera.LEVEL_HEIGHT;
+        return (float) Math.sqrt(toX * toX + toY * toY + up * up);
+    }
+
     /** Every piece cut off a zombie, where it flies or lies, with what it kept to be drawn by. See Pieces. */
     private void drawPieces(float[] viewMatrix, float eyeX, float eyeY, float reach) {
         for (Pieces.Piece piece : Pieces.all()) {
@@ -2010,7 +2016,7 @@ public final class Characters {
             person.ambientR = 1f;
             person.ambientG = 1f;
             person.ambientB = 1f;
-            CharacterDraw.begin(person, combined, projection, false, (float) Math.hypot(toX, toY));
+            CharacterDraw.begin(person, combined, projection, false, fromViewer(toX, toY, piece.z - view.player().getZ()));
             IsoGridSquare square = IsoWorld.instance.currentCell.getGridSquare((int) Math.floor(piece.x), (int) Math.floor(piece.y), (int) Math.floor(piece.z));
             if (square != null) {
                 lightAt(square);
