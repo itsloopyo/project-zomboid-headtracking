@@ -293,14 +293,39 @@ final class Fires {
             take(sky, terrain, spreading.get(i), playerIndex, eyeX, eyeY);
         }
         // A permanent fire, a campfire, is not in FireStack: the game updates it with the cell's other static objects (IsoFire.addToWorld).
-        ArrayList<IsoObject> standing = IsoWorld.instance.currentCell.getStaticUpdaterObjectList();
+        ArrayList<IsoObject> statics = IsoWorld.instance.currentCell.getStaticUpdaterObjectList();
+        long now = System.nanoTime();
+        if (statics != lookedIn || statics.size() != lookedInSize || now - lookedAt >= LOOK_EVERY_NANOS) {
+            standing.clear();
+            for (int i = 0; i < statics.size(); i++) {
+                if (statics.get(i) instanceof IsoFire fire) {
+                    standing.add(fire);
+                }
+            }
+            lookedIn = statics;
+            lookedInSize = statics.size();
+            lookedAt = now;
+        }
         for (int i = 0; i < standing.size(); i++) {
-            if (standing.get(i) instanceof IsoFire fire) {
+            IsoFire fire = standing.get(i);
+            // Put out, a campfire is taken off its square as it leaves the static objects (SCampfireGlobalObject.removeFireObject, IsoFire.extinctFire).
+            if (fire.getObjectIndex() >= 0) {
                 take(sky, terrain, fire, playerIndex, eyeX, eyeY);
             }
         }
         smokeInBlocks(sky.fires, sky.fireCount);
     }
+
+    /**
+     * The campfires among the cell's static objects at the last look, which list that was and
+     * how long, and when. They are looked for again when the list is another or of another
+     * length, which a campfire lit makes it, and every LOOK_EVERY_NANOS. Logic thread.
+     */
+    private static final ArrayList<IsoFire> standing = new ArrayList<>();
+    private static ArrayList<IsoObject> lookedIn;
+    private static int lookedInSize;
+    private static long lookedAt;
+    private static final long LOOK_EVERY_NANOS = 250_000_000L;
 
     private static void take(SkyState sky, Terrain terrain, IsoFire fire, int playerIndex, float eyeX, float eyeY) {
         IsoGridSquare square = fire.getSquare();

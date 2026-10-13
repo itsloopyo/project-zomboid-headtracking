@@ -14,6 +14,7 @@ public class IsoObject {
     public float getRenderYOffset() { throw new UnsupportedOperationException("reference stub"); }
     public zombie.inventory.ItemContainer getContainer() { throw new UnsupportedOperationException("reference stub"); }
     public IsoGridSquare getSquare() { throw new UnsupportedOperationException("reference stub"); }
+    public int getObjectIndex() { throw new UnsupportedOperationException("reference stub"); }
     public zombie.iso.SpriteDetails.IsoObjectType getType() { throw new UnsupportedOperationException("reference stub"); }
     public void setAlphaAndTarget(float alpha) { throw new UnsupportedOperationException("reference stub"); }
     public float getAlpha(int playerIndex) { throw new UnsupportedOperationException("reference stub"); }
