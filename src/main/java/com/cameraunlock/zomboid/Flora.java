@@ -811,25 +811,41 @@ final class Flora {
                 placeOf[ring] = below >= 0 && placeOf[below] >= 0 ? placeOf[below] : above < CORE_RINGS && placeOf[above] >= 0 ? placeOf[above] : -1;
             }
         }
+        // Every face's corners are on the rings' heights and the same ways round: how far out the inside is at each is worked out once.
+        int rings = CORE_RINGS, around = CORE_ROUND;
+        float[] coreShare = workings.coreShare, coreReach = workings.coreReach, coreBough = workings.coreBough, coreCos = workings.coreCos, coreSin = workings.coreSin;
+        for (int face = 0; face <= around; face++) {
+            float round = face * 6.2832f / around;
+            coreCos[face] = (float) Math.cos(round);
+            coreSin[face] = (float) Math.sin(round);
+        }
+        for (int ring = 0; ring <= rings; ring++) {
+            float share = CORE_FOOT + (CORE_HEAD - CORE_FOOT) * ring / rings;
+            coreShare[ring] = share;
+            coreReach[ring] = reachAt(reachLeft, reachRight, share);
+            for (int face = 0; face <= around; face++) {
+                coreBough[ring * (around + 1) + face] = 1f - BOUGH_HOLLOW * (1f - bough(face * 6.2832f / around, share, lobes, rows, turnOne, turnTwo, turnThree));
+            }
+        }
         mark(mesh, frame.open, SpriteGeometry.CARD, CORE);
         float red = frame.red * CORE_SHADE, green = frame.green * CORE_SHADE, blue = frame.blue * CORE_SHADE;
         float kind = (sprig + 0.5f) / CORE_KINDS;
-        for (int ring = 0; ring < CORE_RINGS; ring++) {
+        for (int ring = 0; ring < rings; ring++) {
             int place = placeOf[ring];
             float u = (float) Math.rint((frame.uStart + (places[place * 2] - frame.left) / frame.width * (frame.uEnd - frame.uStart)) * CROWN_STEPS) + kind;
             float v = (float) Math.rint((frame.vStart + (places[place * 2 + 1] - frame.top) / frame.height * (frame.vEnd - frame.vStart)) * CROWN_STEPS) + 0.5f;
-            float shareLow = CORE_FOOT + (CORE_HEAD - CORE_FOOT) * ring / CORE_RINGS, shareHigh = CORE_FOOT + (CORE_HEAD - CORE_FOOT) * (ring + 1) / CORE_RINGS;
-            boolean top = ring == CORE_RINGS - 1;
-            for (int face = 0; face < CORE_ROUND; face++) {
-                float roundFrom = face * 6.2832f / CORE_ROUND, roundTo = (face + 1) * 6.2832f / CORE_ROUND;
+            float shareLow = coreShare[ring];
+            boolean top = ring == rings - 1;
+            for (int face = 0; face < around; face++) {
                 // The top ring closes to a point, which makes the second of a face's two triangles nothing: it is left out.
                 for (int at = 0; at < (top ? 3 : QUAD.length); at++) {
                     int corner = QUAD[at];
                     boolean high = corner >= 2, to = corner == 1 || corner == 2;
-                    float round = to ? roundTo : roundFrom, share = high ? shareHigh : shareLow;
-                    float out = top && high ? 0f : (ring == 0 && !high ? CORE_UNDER : 1f) * CORE_OF_REACH * drawnIn * reachAt(reachLeft, reachRight, share)
-                            * (1f - BOUGH_HOLLOW * (1f - bough(round, share, lobes, rows, turnOne, turnTwo, turnThree)));
-                    float cos = (float) Math.cos(round), sin = (float) Math.sin(round);
+                    int on = high ? ring + 1 : ring, way = to ? face + 1 : face;
+                    float share = coreShare[on];
+                    float out = top && high ? 0f
+                            : (ring == 0 && !high ? CORE_UNDER : 1f) * CORE_OF_REACH * drawnIn * coreReach[on] * coreBough[on * (around + 1) + way];
+                    float cos = coreCos[way], sin = coreSin[way];
                     float over = lowest + share * tall;
                     mesh.face(cos, sin, 0.1f + 1.4f * (share - 0.4f));
                     mesh.sway = Math.clamp(over * SWAY_PER_TILE, 0f, SWAY_MOST);
@@ -856,6 +872,9 @@ final class Flora {
         final float[] branchStart = new float[3];
         final int[] placeOf = new int[CORE_RINGS];
         final float[] nearest = new float[CORE_RINGS];
+        /** For a crown's inside: each ring's share of the way up the crown and how far out the crown is there, how far out of that the boughs' swells are at each way round each ring, and those ways. */
+        final float[] coreShare = new float[CORE_RINGS + 1], coreReach = new float[CORE_RINGS + 1], coreBough = new float[(CORE_RINGS + 1) * (CORE_ROUND + 1)];
+        final float[] coreCos = new float[CORE_ROUND + 1], coreSin = new float[CORE_ROUND + 1];
     }
 
     /** The array, or a larger one in its place when it holds fewer than size. */
