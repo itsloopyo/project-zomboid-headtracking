@@ -40,6 +40,9 @@ final class LeafFall {
     private static final float GROUND_ASKED = 0.6f;
     /** The longest step taken at once, in seconds: past it the game has hitched, and the leaves wait. */
     static final float STEP_MOST = 0.25f;
+    /** How many lying leaves room is never made by fading, and how long a leaf lies before it may be faded for room, in seconds. */
+    static final int CARPET = MOST / 4;
+    static final float PRESSED_AFTER = 1.5f;
     /** How much of a leaf showing in one step and gone in the next has vanished, rather than faded or been carried off. */
     private static final float SHOWING = 0.5f;
     /** An eye that moves further than this between two steps has jumped: its leaves are let go. */
@@ -146,6 +149,15 @@ final class LeafFall {
         }
     }
 
+    /** How many leaves lie on the ground and are not fading. */
+    int carpet() {
+        int lying = 0;
+        for (int i = 0; i < count; i++) {
+            lying += landed[i] >= 0f && landed[i] < lies[i] ? 1 : 0;
+        }
+        return lying;
+    }
+
     /** How many leaves the tree t places from the nearest has let go of since the list was made. */
     int released(int t) {
         return released[t];
@@ -236,14 +248,16 @@ final class LeafFall {
         }
         float take = carried(intensity);
         float driftX = airX * take, driftY = airY * take;
-        int crowded = refused;
+        int crowded = refused, carpet = crowded > 0 ? carpet() : 0;
         refused = 0;
         for (int i = 0; i < count; ) {
             float showed = shown(i, eyeX, eyeY);
-            // Where there was no room, lying leaves make it by fading now: none is taken away while it shows.
-            if (crowded > 0 && landed[i] >= 0f && landed[i] < lies[i]) {
+            // Where there was no room, lying leaves that have lain a while make it by fading now, none
+            // taken away while it shows, and a carpet of CARPET of them is left lying out its time.
+            if (crowded > 0 && carpet > CARPET && landed[i] >= PRESSED_AFTER && landed[i] < lies[i]) {
                 lies[i] = landed[i];
                 crowded--;
+                carpet--;
             }
             if (move(i, dt, driftX, driftY, eyeX, eyeY, on)) {
                 i++;

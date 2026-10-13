@@ -350,12 +350,16 @@ final class LeafFallTests {
         run(fall, 15f, 1f / 30f, 0f, 0f, 0.5f, Seasons.AUTUMN, PEAK_AUTUMN);
         Checks.check(fall.count() > LeafFall.MOST - 50, "the wood fills the room: " + fall.count());
         long before = fall.spawned;
-        int nearBefore = fall.released(0);
-        run(fall, 20f, 1f / 30f, 0f, 0f, 0.5f, Seasons.AUTUMN, PEAK_AUTUMN);
+        int nearBefore = fall.released(0), carpetLeast = Integer.MAX_VALUE;
+        for (int second = 0; second < 20; second++) {
+            run(fall, 1f, 1f / 30f, 0f, 0f, 0.5f, Seasons.AUTUMN, PEAK_AUTUMN);
+            carpetLeast = Math.min(carpetLeast, fall.carpet());
+        }
+        Checks.check(carpetLeast >= LeafFall.CARPET - 40, "a carpet of leaves still lies out its time: at least " + carpetLeast + " of " + LeafFall.CARPET);
         float perSecond = (fall.spawned - before) / 20f;
         // Lying out its time, a leaf would hold its place for (LIES_LEAST + LIES_MOST) / 2 + FADES seconds after its fall.
         float layingOut = LeafFall.MOST / ((LeafFall.LIES_LEAST + LeafFall.LIES_MOST) / 2f + LeafFall.FADES);
-        Checks.check(perSecond > 1.3f * layingOut, "leaves keep coming faster than lying out their time would let them: " + perSecond + " a second against " + layingOut);
+        Checks.check(perSecond > layingOut, "leaves keep coming faster than lying out their time would let them: " + perSecond + " a second against " + layingOut);
         float nearRate = LeafFall.letGo(0.5f) * LeafFall.shedding(true, Seasons.AUTUMN, PEAK_AUTUMN, hash);
         Checks.check(fall.released(0) - nearBefore >= 0.8f * nearRate * 20f, "the nearest tree sheds all it would: " + (fall.released(0) - nearBefore) + " of " + nearRate * 20f);
         Checks.check(fall.vanished == 0, "no leaf vanished while it showed: " + fall.vanished);
