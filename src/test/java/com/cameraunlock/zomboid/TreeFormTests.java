@@ -89,9 +89,12 @@ final class TreeFormTests {
         int f = SpriteGeometry.VERTEX_FLOATS;
         for (int kind = -1; kind < TreeForm.KINDS; kind++) {
             SpriteGeometry.Mesh wood = bareWood(kind < 0 ? TreeForm.NONE : kind, kind < 0 ? null : shape());
-            int ridged = 0, free = 0;
+            int ridged = 0, free = 0, limbEnds = 0, branchEndsFree = 0;
             for (int at = 0; at < wood.floats; at += f) {
                 float thick = wood.vertices[at + SpriteGeometry.ALONG_AT];
+                // A limb and the leader end free as thin as Flora's LIMB_TIP; a branch ends as thin as BRANCH_TIP, where its twigs carry on.
+                limbEnds += Math.abs(thick + 0.014f) < 1e-5f ? 1 : 0;
+                branchEndsFree += Math.abs(thick + 0.008f) < 1e-5f ? 1 : 0;
                 Checks.check(wood.vertices[at + SpriteGeometry.WAY_AT] == SpriteGeometry.WOOD, "kind " + kind + ": every vertex of the wood is wood");
                 Checks.check(Math.abs(thick) >= 0.0039f && Math.abs(thick) < 0.2f, "kind " + kind + ": wood is as thick as it is, not " + thick);
                 if (thick > 0f) {
@@ -101,6 +104,7 @@ final class TreeFormTests {
                 }
             }
             Checks.check(ridged > free && free > 0, "kind " + kind + ": most wood carries a ridge, its free ends none: " + ridged + " and " + free);
+            Checks.check(limbEnds > 0 && branchEndsFree == 0, "kind " + kind + ": the end of a limb is free, the end of a twigged branch is not: " + limbEnds + " and " + branchEndsFree);
             // Every vertex at one place carries one thickness, so the ridge has no step there.
             java.util.Map<String, Float> at = new java.util.HashMap<>();
             int met = 0;
