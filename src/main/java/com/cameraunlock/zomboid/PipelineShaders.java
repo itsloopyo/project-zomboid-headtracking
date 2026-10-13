@@ -6280,20 +6280,28 @@ final class PipelineShaders {
             // pixel, mostly those as far off as the pixel is. Read as the plain mean of the four,
             // the air and the shade that belong to what is far off lie over the edge of whatever
             // is held near the eye, a weapon or a hand, in blocks two pixels across.
-            vec4 ofItsOwnDepth(sampler2D low, vec2 uv, float ahead) {
+            // The weights are worked out once for both passes, which are the same size: whole is
+            // the lowest of the four dots.
+            vec4 ownDepthWeights(vec2 uv, float ahead, out vec2 whole) {
                 vec2 at = uv * uLow - 0.5;
-                vec2 whole = floor(at), part = at - whole;
-                vec4 sum = vec4(0.0);
-                float total = 0.0;
+                whole = floor(at);
+                vec2 part = at - whole;
+                vec4 w;
                 for (int i = 0; i < 4; i++) {
                     vec2 corner = vec2(mod(float(i), 2.0), floor(float(i) / 2.0));
-                    vec2 dot1 = (whole + corner + 0.5) / uLow;
-                    float w = mix(1.0 - part.x, part.x, corner.x) * mix(1.0 - part.y, part.y, corner.y);
-                    w = (w + 0.01) / (0.02 + abs(placeAt(dot1).z - ahead) / ahead);
-                    sum += texture2D(low, dot1) * w;
-                    total += w;
+                    float bilinear = mix(1.0 - part.x, part.x, corner.x) * mix(1.0 - part.y, part.y, corner.y);
+                    w[i] = (bilinear + 0.01) / (0.02 + abs(placeAt((whole + corner + 0.5) / uLow).z - ahead) / ahead);
                 }
-                return sum / total;
+                return w;
+            }
+
+            vec4 ofItsOwnDepth(sampler2D low, vec2 whole, vec4 w) {
+                vec4 sum = vec4(0.0);
+                for (int i = 0; i < 4; i++) {
+                    vec2 corner = vec2(mod(float(i), 2.0), floor(float(i) / 2.0));
+                    sum += texture2D(low, (whole + corner + 0.5) / uLow) * w[i];
+                }
+                return sum / (w.x + w.y + w.z + w.w);
             }
 
             // Banks of fog as a pattern over the map that comes round every 32 squares of its
@@ -6335,8 +6343,10 @@ final class PipelineShaders {
                 // A pass that is switched off has drawn nothing into its picture, and what a
                 // picture nothing was drawn into holds is the driver's to choose: it is not read.
                 vec4 around = vec4(0.0, 0.0, 0.0, 1.0);
+                vec2 whole = vec2(0.0);
+                vec4 weights = uWithout.x < 0.5 || uWithout.y < 0.5 ? ownDepthWeights(uv, ahead, whole) : vec4(0.0);
                 if (uWithout.x < 0.5) {
-                    around = ofItsOwnDepth(uOcclusion, uv, ahead);
+                    around = ofItsOwnDepth(uOcclusion, whole, weights);
                 }
                 vec4 here = texture2D(uScene, uv);
                 // The world's shader has already hidden in the fog, rain or snow as much of the
@@ -6354,7 +6364,7 @@ final class PipelineShaders {
                     c += shafts(uv);
                 }
                 if (uWithout.y < 0.5) {
-                    c += ofItsOwnDepth(uVolume, uv, ahead).rgb;
+                    c += ofItsOwnDepth(uVolume, whole, weights).rgb;
                 }
                 if (uFog.x > 0.0) {
                     c = mix(c, uFogColor, fogged(uv * 2.0 - 1.0));
