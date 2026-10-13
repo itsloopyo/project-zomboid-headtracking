@@ -1,5 +1,10 @@
 package com.cameraunlock.zomboid;
 
+import java.util.Map;
+import zombie.core.properties.PropertyContainer;
+import zombie.iso.SpriteDetails.IsoObjectType;
+import zombie.iso.sprite.IsoSprite;
+
 /** Tests of the litter under trees: what each tree drops, how far it lies, and what the season shows of it. */
 final class LitterTests {
     private static final int TILES = Terrain.CHUNK_TILES, SPAN = TILES + 2 * Litter.RING, ACROSS = TILES + 1;
@@ -21,6 +26,7 @@ final class LitterTests {
         Checks.run("fallenLeavesShowInTheSameOrderAndMoreWhereMoreLies", LitterTests::fallenLeavesShowInTheSameOrderAndMoreWhereMoreLies);
         Checks.run("fallenLeavesAreTheColourOfTheirTree", LitterTests::fallenLeavesAreTheColourOfTheirTree);
         Checks.run("fieldsOfADenseWoodAreQuick", LitterTests::fieldsOfADenseWoodAreQuick);
+        Checks.run("aTreeSpriteKeepsWhatItDropsForEverySquare", LitterTests::aTreeSpriteKeepsWhatItDropsForEverySquare);
     }
 
     private static void theLeafOnTheGroundIsTheLeafOfItsCrown() {
@@ -30,7 +36,6 @@ final class LitterTests {
         for (String name : names) {
             for (int hash = 0; hash < 4096; hash += 97) {
                 byte kind = Litter.kindOf(name, hash);
-                Checks.check(kind == Litter.kindOf(name, Flora.otherHue(hash)), name + " drops what a build keeps for its sprite and its square's colour");
                 Checks.check(Litter.evergreen(kind) == Flora.evergreen(name), name + " drops needles exactly when Flora makes it evergreen");
                 if (!Flora.evergreen(name)) {
                     Checks.check(kind - Litter.LEAF == Flora.autumnHue(name, hash), name + " drops leaf of the colour its crown turns");
@@ -39,6 +44,27 @@ final class LitterTests {
         }
         Checks.check(Litter.kindOf("e_americanholly_1_4", 0) == Litter.HOLLY && Litter.kindOf("e_virginiapine_1_0", 0) == Litter.PINE, "holly drops its leaves, a pine its needles");
         Checks.check(Litter.kindOf(null, 0) == Litter.LEAF + Flora.autumnHue("", 0), "a tree with no name drops leaf as an unnamed crown turns");
+    }
+
+    /** A build reads what a tree drops off its sprite's Kind, chosen by its square's hash: the same as worked out from the name and the hash. */
+    private static void aTreeSpriteKeepsWhatItDropsForEverySquare() {
+        String[] names = {"e_americanholly_1_4", "e_canadianhemlock_1_2", "e_virginiapine_1_0", "e_redmaple_1_3", "e_dogwood_1_1", "e_cockspurhawthorn_1_0",
+            "e_riverbirch_1_0", "e_americanlinden_1_9", "jumbo_tree_01_5"};
+        for (String name : names) {
+            WorldScene.Kind kind = new WorldScene.Kind(new IsoSprite(name, new PropertyContainer(Map.of()), IsoObjectType.tree, null));
+            for (int x = -40; x < 40; x += 3) {
+                for (int y = -40; y < 40; y += 7) {
+                    int hash = Seasons.treeHash(x, y);
+                    byte drops = kind.drops(Flora.otherHue(hash));
+                    Checks.check(Litter.evergreen(drops) == Flora.evergreen(name), name + " keeps needles exactly when it is evergreen");
+                    if (!Flora.evergreen(name)) {
+                        Checks.check(drops - Litter.LEAF == Flora.autumnHue(name, hash), name + " at " + x + ", " + y + " keeps the leaf its crown turns there");
+                    } else {
+                        Checks.check(drops == Litter.kindOf(name, hash), name + " keeps its needles or holly leaves");
+                    }
+                }
+            }
+        }
     }
 
     private static void chunksThatShareACornerLayTheSameLitterThere() {

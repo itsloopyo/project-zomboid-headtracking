@@ -740,7 +740,7 @@ final class WorldScene {
         /** Whether it is a broken length of fence the game marks for no wall: see BrokenFences. */
         final boolean brokenFence;
         /** As a tree, what it drops, for a tree that turns the first of its kind's colours and for one that turns the other: see Litter.kindOf. */
-        final byte drops, dropsOther;
+        private final byte falls, fallsOther;
         /** What it is a square of rug made of, Rugs.WOVEN, FUR or HIDE, or -1 for no rug, and how high its top lies over the floor, in levels: see Flat.pile. */
         final int rug;
         final float pile;
@@ -756,6 +756,11 @@ final class WorldScene {
         final String tiledSheet;
         /** What of partOfTheBuilding and withinItsRoom goes by the sprite alone. */
         final boolean ofTheBuilding, keptInItsRoom;
+
+        /** What a tree of the sprite drops, given which of its kind's two colours it turns: see Flora.otherHue. */
+        byte drops(boolean otherHue) {
+            return otherHue ? fallsOther : falls;
+        }
 
         Kind(IsoSprite sprite) {
             PropertyContainer properties = sprite.getProperties();
@@ -789,8 +794,8 @@ final class WorldScene {
             carpet = name != null && name.startsWith("floors_interior_carpet");
             rug = Rugs.kindOf(name);
             pile = Flat.pile(name);
-            drops = Litter.kindOf(name, false);
-            dropsOther = Litter.kindOf(name, true);
+            falls = Litter.kindOf(name, false);
+            fallsOther = Litter.kindOf(name, true);
             tiled = name != null && name.startsWith("floors_") && name.contains("tile");
             grows = properties.has(IsoFlagType.vegitation) || properties.has(IsoFlagType.canBeRemoved) || properties.has("MoveWithWind")
                     || Farm.wheat(name);
@@ -4582,7 +4587,7 @@ final class WorldScene {
                         break;
                     }
                     Kind kind = kindOf(object.getSprite());
-                    return otherHue ? kind.dropsOther : kind.drops;
+                    return kind.drops(otherHue);
                 }
             }
             return Litter.kindOf(null, otherHue);
