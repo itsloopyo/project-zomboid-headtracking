@@ -20,9 +20,10 @@ final class LeafTrees implements LeafFall.Ground {
     private static final int ROWS = 6;
     private static final int SIDE = 2 * (int) LeafFall.REACH + 1;
     /**
-     * Each tree tile's crown as the built world last measured it (Flora.measure): its lowest and
+     * Each tree tile's crown as the built world first measured it (Flora.measure): its lowest and
      * highest leaves over the tree's foot and how far out they reach, in tiles. A tile names the
-     * species, the size and the erosion's stage, so a young tree's crown is a young tree's.
+     * species, the size and the erosion's stage, so a young tree's crown is a young tree's, and
+     * its picture is the same each time a tree of it is built: one measure of it is kept.
      */
     private static final ConcurrentHashMap<String, float[]> CROWNS = new ConcurrentHashMap<>();
 
@@ -43,7 +44,7 @@ final class LeafTrees implements LeafFall.Ground {
         return !CROWNS.containsKey(tile);
     }
 
-    /** Notes a crown of the tree tile as the built world measured it, with Flora.measure's sizes. Any thread. */
+    /** Notes a crown of the tree tile as the built world measured it, with Flora.measure's sizes, unless one is noted already. Any thread. */
     static void crownSeen(String tile, float[] sizes) {
         CROWNS.putIfAbsent(tile, new float[] {sizes[Flora.LOWEST], sizes[Flora.HIGHEST], sizes[Flora.WIDEST]});
     }
