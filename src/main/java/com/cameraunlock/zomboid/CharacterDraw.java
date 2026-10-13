@@ -1251,7 +1251,7 @@ final class CharacterDraw {
         projection = seen;
         shadow = casting;
         away = (float) Math.sqrt(standing[12] * standing[12] + standing[13] * standing[13] + standing[14] * standing[14]);
-        finelySkinned = !casting && FINE_SKINS.wears(data.object != null ? data.object : data, away, Pipeline.frame());
+        finelySkinned = !casting && !plainly && FINE_SKINS.wears(data.object != null ? data.object : data, away, Pipeline.frame());
         standsIn = -1f;
         snowOn = 0f;
         if (!off && !bare && !casting) {
@@ -1259,7 +1259,7 @@ final class CharacterDraw {
         }
     }
 
-    /** Whether the person begun wears finer skins in this pass. */
+    /** Whether the person begun wears finer skins in this pass: never in a shadow map or the vehicle mirror, which then leave FineSkinRange alone. */
     static boolean finelySkinned() {
         return finelySkinned;
     }
@@ -1724,7 +1724,7 @@ final class CharacterDraw {
         }
         // Making a finer skin runs the game's combiner, so it is asked for before any of
         // this part's state is set. A shadow has no skin at all.
-        Texture worn = finelySkinned && !plainly ? FineSkins.of(texture, away) : texture;
+        Texture worn = finelySkinned ? FineSkins.of(texture, away) : texture;
 
         if (!drawing) {
             GL11.glEnable(GL_DEPTH_TEST);
