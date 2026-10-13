@@ -26,6 +26,8 @@ final class LeafFallTests {
         Checks.run("aLeafBlownAtABuildingIsCaughtAndFadesOrGoesOver", LeafFallTests::aLeafBlownAtABuildingIsCaughtAndFadesOrGoesOver);
         Checks.run("aGroundFloorOnAHillCatchesALeaf", LeafFallTests::aGroundFloorOnAHillCatchesALeaf);
         Checks.run("noLeafLetsGoInsideAHouseACrownReachesOver", LeafFallTests::noLeafLetsGoInsideAHouseACrownReachesOver);
+        Checks.run("aLeafFallingOntoARoofIsCaughtAtIt", LeafFallTests::aLeafFallingOntoARoofIsCaughtAtIt);
+        Checks.run("treesAreReadRoundTheEyeWhereverItIs", LeafFallTests::treesAreReadRoundTheEyeWhereverItIs);
         Checks.run("nothingMovesWhileThePictureWaits", LeafFallTests::nothingMovesWhileThePictureWaits);
     }
 
@@ -456,6 +458,48 @@ final class LeafFallTests {
             }
         }
         Checks.check(fall.spawned > 30, "leaves let go outside it: " + fall.spawned);
+    }
+
+    /**
+     * In still air a leaf let go from a crown over a bungalow's roof falls straight down without
+     * leaving its square: it is caught where it comes down into the storey under the roof.
+     */
+    private static void aLeafFallingOntoARoofIsCaughtAtIt() {
+        LeafFall fall = new LeafFall();
+        fall.beginTrees(0f, 0f);
+        fall.offer(-0.5f, 0.5f, 0f, MAPLE, shedding(1f), true, ViewCamera.LEVEL_HEIGHT + 0.3f, HIGH, OUT);
+        fall.endTrees();
+        Flat bungalow = new Flat(0, 1);
+        float[] leaves = new float[LeafFall.MOST * LeafFall.FLOATS];
+        int overRoof = 0;
+        for (int round = 0; round < 600; round++) {
+            fall.step(1f / 30f, 0f, 0f, 0.5f, Seasons.AUTUMN, PEAK_AUTUMN, 0f, 0f, bungalow);
+            int count = fall.write(leaves, 0f, 0f);
+            for (int i = 0; i < count; i++) {
+                int at = i * LeafFall.FLOATS;
+                if (leaves[at + LeafFall.X] > 0.5f) {
+                    overRoof++;
+                    Checks.check(leaves[at + LeafFall.UP] > ViewCamera.LEVEL_HEIGHT - 0.35f, "a leaf over the roof stays on top of it: " + leaves[at + LeafFall.UP]);
+                }
+            }
+        }
+        Checks.check(overRoof > 100, "leaves came down over the roof: " + overRoof);
+    }
+
+    /** Far from the map's corner the trees are read, kept and weighed by how far they are from the eye, not from the corner. */
+    private static void treesAreReadRoundTheEyeWhereverItIs() {
+        float eyeX = 5000.5f, eyeY = 3000.5f;
+        int hash = shedding(1f);
+        LeafFall fall = new LeafFall();
+        fall.beginTrees(eyeX, eyeY);
+        fall.offer(eyeX - 30f, eyeY, 0f, MAPLE, hash, true, LOW, HIGH, OUT);
+        fall.offer(eyeX + 2f, eyeY, 0f, MAPLE, hash, true, LOW, HIGH, OUT);
+        fall.endTrees();
+        for (float t = 0f; t < 120f; t += 1f / 30f) {
+            fall.step(1f / 30f, 0f, 0f, 0.1f, Seasons.AUTUMN, PEAK_AUTUMN, eyeX, eyeY, OPEN);
+        }
+        Checks.check(fall.released(0) > 2 * fall.released(1) && fall.released(1) > 0, "the tree beside the eye is kept first and sheds more than the far one: "
+                + fall.released(0) + " against " + fall.released(1));
     }
 
     private static void nothingMovesWhileThePictureWaits() {
