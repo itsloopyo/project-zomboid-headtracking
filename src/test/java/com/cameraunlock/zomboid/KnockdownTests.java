@@ -11,7 +11,7 @@ public final class KnockdownTests {
         Checks.run("fencesAndPostsAreKnockedDownAndNothingElse", KnockdownTests::fencesAndPostsAreKnockedDownAndNothingElse);
         Checks.run("onlyAVehicleDrivenFasterThanAWalkAloneKnocksThingsDown", KnockdownTests::onlyAVehicleDrivenFasterThanAWalkAloneKnocksThingsDown);
         Checks.run("aPostCostsMoreThanAFenceAndPiecesMetAtOnceCompound", KnockdownTests::aPostCostsMoreThanAFenceAndPiecesMetAtOnceCompound);
-        Checks.run("theDamageGrowsWithTheSpeedEitherWay", KnockdownTests::theDamageGrowsWithTheSpeedEitherWay);
+        Checks.run("theCrashIsTheGamesForTheSpeedLost", KnockdownTests::theCrashIsTheGamesForTheSpeedLost);
         Checks.run("onlyWhatIsAheadTheWayTheVehicleGoesIsMet", KnockdownTests::onlyWhatIsAheadTheWayTheVehicleGoesIsMet);
         Checks.run("aFenceIsLookedForAlongItsOwnEdge", KnockdownTests::aFenceIsLookedForAlongItsOwnEdge);
         Checks.run("aFenceFallsAwayFromTheVehicleAndTheEndThatHitIsDamaged", KnockdownTests::aFenceFallsAwayFromTheVehicleAndTheEndThatHitIsDamaged);
@@ -57,20 +57,28 @@ public final class KnockdownTests {
         check(fence > post, "a post takes more of the speed than a fence panel");
         check(fence >= 0.85f && fence < 1f, "a fence panel takes a little: " + fence);
         check(post >= 0.5f && post < 0.8f, "a post takes a good share and the vehicle still goes on: " + post);
-        float three = Knockdown.speedKept(List.of(Knockdown.Kind.FENCE, Knockdown.Kind.FENCE, Knockdown.Kind.FENCE));
+        float three = Knockdown.speedKept(List.of(fence, fence, fence));
         check(Math.abs(three - fence * fence * fence) < 1e-6f, "three panels at once each take their share of what is left: " + three);
-        float seven = Knockdown.speedKept(List.of(Knockdown.Kind.FENCE, Knockdown.Kind.FENCE, Knockdown.Kind.FENCE, Knockdown.Kind.FENCE,
-                Knockdown.Kind.FENCE, Knockdown.Kind.FENCE, Knockdown.Kind.FENCE));
-        check(seven > 0.45f && seven < 0.5f, "a drift along seven panels keeps under half, and never goes backwards: " + seven);
         check(Knockdown.speedKept(List.of()) == 1f, "nothing met takes nothing");
-        check(Knockdown.damage(Knockdown.Kind.POST, 50f) > Knockdown.damage(Knockdown.Kind.FENCE, 50f), "a post dents more than a fence panel");
+        check(Knockdown.squareness(true, false, 0f, 13.9f) == 1f, "a north fence driven at from the north is met square on");
+        check(Knockdown.squareness(true, false, 13.9f, 0f) == 0f, "and one driven along not at all");
+        check(Math.abs(Knockdown.squareness(false, true, 1f, 1f) - 0.7071f) < 1e-3f, "a west fence met at 45 degrees is met at its sine");
+        check(Knockdown.squareness(false, false, 13.9f, 0f) == 1f, "a post is met whole whichever way");
+        check(Knockdown.squareness(true, true, 13.9f, 0f) == 1f, "a corner piece is met as squarely as its squarer edge");
+        check(Knockdown.speedKept(Knockdown.Kind.FENCE, 1f) == fence && Knockdown.speedKept(Knockdown.Kind.FENCE, 0f) == 1f,
+                "a panel met square on takes its share, one grazed takes nothing");
+        float grazed = 1f;
+        for (int panel = 0; panel < 20; panel++) {
+            grazed *= Knockdown.speedKept(Knockdown.Kind.FENCE, Knockdown.squareness(false, true, 1f, 10f));
+        }
+        check(grazed > 0.8f, "twenty panels grazed at about 6 degrees keep most of the speed: " + grazed);
     }
 
-    private static void theDamageGrowsWithTheSpeedEitherWay() {
-        check(Knockdown.damage(Knockdown.Kind.FENCE, 50f) == 3, "a fence panel at 50 km/h: " + Knockdown.damage(Knockdown.Kind.FENCE, 50f));
-        check(Knockdown.damage(Knockdown.Kind.POST, 50f) == 10, "a post at 50 km/h: " + Knockdown.damage(Knockdown.Kind.POST, 50f));
-        check(Knockdown.damage(Knockdown.Kind.POST, 100f) > Knockdown.damage(Knockdown.Kind.POST, 50f), "faster hits harder");
-        check(Knockdown.damage(Knockdown.Kind.FENCE, -40f) == Knockdown.damage(Knockdown.Kind.FENCE, 40f), "backwards as hard as forwards");
+    private static void theCrashIsTheGamesForTheSpeedLost() {
+        check(Knockdown.crash(0.5f) == 0f, "losing half a metre a second is no crash");
+        check(Knockdown.crash(1f) == 0f, "nor is losing one");
+        check(Knockdown.crash(1.39f) > 4f && Knockdown.crash(1.39f) < 4.3f, "a panel square on at 50 km/h is a crash of about 4");
+        check(Knockdown.crash(4.86f) > Knockdown.crash(1.39f), "a post at 50 km/h is a harder one");
     }
 
     private static void onlyWhatIsAheadTheWayTheVehicleGoesIsMet() {

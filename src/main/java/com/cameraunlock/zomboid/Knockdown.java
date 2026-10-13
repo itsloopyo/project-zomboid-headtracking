@@ -94,27 +94,46 @@ final class Knockdown {
         return false;
     }
 
-    /** The share of its speed a vehicle keeps through one piece of a thing: a post is a pole set in concrete. */
+    /** The share of its speed a vehicle keeps through one piece of a thing met square on: a post is a pole set in concrete. */
     static float speedKept(Kind kind) {
         return kind == Kind.FENCE ? 0.9f : 0.65f;
     }
 
+    /**
+     * How square on a thing is met, 0 to 1: of a fence, the share of the way the vehicle goes
+     * that runs across its edge, so a fence grazed along its length takes almost nothing; of
+     * anything standing on no edge, a post, the whole. A north edge runs along x, a west edge
+     * along y; a corner piece on both is met as squarely as either.
+     */
+    static float squareness(boolean north, boolean west, float goingX, float goingY) {
+        float length = (float) Math.hypot(goingX, goingY);
+        if (!north && !west || length == 0f) {
+            return 1f;
+        }
+        return Math.max(north ? Math.abs(goingY) / length : 0f, west ? Math.abs(goingX) / length : 0f);
+    }
+
+    /** The share of its speed a vehicle keeps through one piece met this squarely. */
+    static float speedKept(Kind kind, float squareness) {
+        return 1f - (1f - speedKept(kind)) * squareness;
+    }
+
     /** The share kept through several pieces met at once: each takes its share of what the last left. */
-    static float speedKept(Iterable<Kind> kinds) {
+    static float speedKept(Iterable<Float> eachKept) {
         float kept = 1f;
-        for (Kind kind : kinds) {
-            kept *= speedKept(kind);
+        for (float each : eachKept) {
+            kept *= each;
         }
         return kept;
     }
 
     /**
-     * How hard a crash knocking a thing down is, in the game's own measure (BaseVehicle.crash):
-     * a fence panel at 50 km/h is 3, a post 10. Several met at once are one crash, as hard as the
-     * hardest of them.
+     * How hard a crash a loss of this much speed is, in metres a second, or 0 for none: the
+     * game's own rule for a vehicle that meets something (BaseVehicle.update), a crash of three
+     * times the change of speed where that change is over 1.
      */
-    static int damage(Kind kind, float kmh) {
-        return Math.round(Math.abs(kmh) / (kind == Kind.FENCE ? 20f : 5f));
+    static float crash(float speedLost) {
+        return speedLost > 1f ? speedLost * 3f : 0f;
     }
 
     /** Whether the front of the vehicle took a knock, by which way along it the vehicle was going. */

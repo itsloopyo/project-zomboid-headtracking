@@ -32,8 +32,9 @@ import zombie.vehicles.BaseVehicle;
  * fence piece is taken away, as the game takes away what a car flattens. A lamp post is taken
  * away with the street lamp on the level above it, whose light goes with it
  * (IsoLightSwitch.removeFromWorld). What is met at once slows the vehicle once, against the way
- * it goes, and is one crash of the game's (BaseVehicle.crash). On a server the world is the
- * server's, and the game's own rules stand.
+ * it goes, by as much as it was met square on, and is one crash of the game's (BaseVehicle.crash)
+ * where the game would count that loss of speed as one. On a server the world is the server's,
+ * and the game's own rules stand.
  */
 final class CarSmash {
     private CarSmash() {}
@@ -51,6 +52,7 @@ final class CarSmash {
     /** Logic thread only. */
     private static final ArrayList<IsoObject> MET = new ArrayList<>();
     private static final ArrayList<Knockdown.Kind> KINDS = new ArrayList<>();
+    private static final ArrayList<Float> KEPT = new ArrayList<>();
     private static final Vector3f LOCAL = new Vector3f(), ORIGIN = new Vector3f();
 
     /** What a vehicle going this fast knocks down of a thing, or null where the game's own rules stand. */
@@ -79,10 +81,11 @@ final class CarSmash {
         if (kind == null) {
             return false;
         }
-        MET.clear();
-        KINDS.clear();
         MET.add(thing);
         KINDS.add(kind);
+        vehicle.getLinearVelocity(LOCAL);
+        PropertyContainer properties = thing.getProperties();
+        KEPT.add(Knockdown.speedKept(kind, Knockdown.squareness(properties.has(IsoFlagType.collideN), properties.has(IsoFlagType.collideW), LOCAL.x, LOCAL.z)));
         knockDown(vehicle, localGoingAlong(vehicle), "met");
         return true;
     }
@@ -101,8 +104,6 @@ final class CarSmash {
         float goingAcross = LOCAL.x, goingAlong = LOCAL.z;
         int around = (int) Math.ceil(Math.max(halfAcross, halfAlong) + Math.max(Math.abs(middle.x), Math.abs(middle.z)) + ahead + Knockdown.CLEARANCE) + 1;
         int x0 = (int) Math.floor(vehicle.getX()), y0 = (int) Math.floor(vehicle.getY()), z = (int) Math.floor(vehicle.getZ());
-        MET.clear();
-        KINDS.clear();
         for (int y = y0 - around; y <= y0 + around; y++) {
             for (int x = x0 - around; x <= x0 + around; x++) {
                 IsoGridSquare square = IsoWorld.instance.currentCell.getGridSquare(x, y, z);
@@ -123,6 +124,7 @@ final class CarSmash {
                     if (touched) {
                         MET.add(thing);
                         KINDS.add(kind);
+                        KEPT.add(Knockdown.speedKept(kind, Knockdown.squareness(north, west, goingX, goingY)));
                     }
                 }
             }
@@ -169,13 +171,12 @@ final class CarSmash {
         return LOCAL.z;
     }
 
-    /** Knocks down everything in MET at once: one slowing against the way the vehicle goes, then each thing, then one crash. */
+    /** Knocks down everything in MET at once: one slowing against the way the vehicle goes, then each thing, then one crash where the game would have one. */
     private static void knockDown(BaseVehicle vehicle, float goingAlong, String how) {
         float kmh = kmh(vehicle);
-        float kept = Knockdown.speedKept(KINDS);
+        float kept = Knockdown.speedKept(KEPT), crash = Knockdown.crash(vehicle.getSpeed2D() * (1f - kept));
         // Taken while the first thing still stands where it was hit: the game takes its place from its square.
         vehicle.applyImpulseFromHitPlant(MET.getFirst(), IMPULSE_PER_SHARE_LOST * (1f - kept));
-        int crash = 0;
         BrokenFences broken = BrokenFences.getInstance();
         BentFences bent = BentFences.getInstance();
         for (int i = 0; i < MET.size(); i++) {
@@ -201,15 +202,17 @@ final class CarSmash {
                     lamps = takeLampAbove(square);
                 }
             }
-            crash = Math.max(crash, Knockdown.damage(kind, kmh));
             Log.info(String.format(Locale.ROOT, "a vehicle at %.1f km/h knocked down %s at %d,%d,%d, %s%s", kmh, what, square.getX(), square.getY(), square.getZ(),
                     how, lamps > 0 ? ", and the street lamp over it" : ""));
         }
-        vehicle.crash(crash, Knockdown.front(goingAlong));
-        Log.info(String.format(Locale.ROOT, "the vehicle keeps %.2f of its speed through %d thing(s), crash %d at the %s", kept, MET.size(), crash,
+        if (crash > 0f) {
+            vehicle.crash(crash, Knockdown.front(goingAlong));
+        }
+        Log.info(String.format(Locale.ROOT, "the vehicle keeps %.2f of its speed through %d thing(s), crash %.1f at the %s", kept, MET.size(), crash,
                 Knockdown.front(goingAlong) ? "front" : "back"));
         MET.clear();
         KINDS.clear();
+        KEPT.clear();
     }
 
     /** Takes away the street lamp on the level over a post, and says how many things that was. */
