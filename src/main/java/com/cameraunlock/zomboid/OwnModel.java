@@ -58,7 +58,8 @@ final class OwnModel {
     final String what;
     /** Where its mesh and pictures are in the jar: two models may share pictures, which are then on the graphics card once. */
     final String mesh;
-    private final String colourPath, surfacePath;
+    final String colourPath;
+    private final String surfacePath;
     /** The one item of the game's that the model stands for. */
     private final String item;
     /** Whether it is worked by sliding its fore-end, which its file has as a part of its own: else by a bolt, if it has one. */

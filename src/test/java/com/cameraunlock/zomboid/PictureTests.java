@@ -248,7 +248,7 @@ final class PictureTests {
     private static void onlyTheWeaponsColourIsAScreens() throws IOException {
         for (String name : filesUnder(PACKED, ".bc")) {
             OffHeap.Block packed = Pictures.packed("/" + name, true);
-            boolean screens = name.equals("models/shotgun.colour.bc") || name.equals("models/sawnoff.colour.bc") || name.equals("models/rifle.colour.bc");
+            boolean screens = java.util.Arrays.stream(OwnModel.ALL).anyMatch(model -> model.colourPath.equals("/" + name));
             check(packed.bytes.getInt(24) == (screens ? 1 : 0), name + " says its colour is a screen's only if it is a weapon's colour, as the graphics card was told before the pictures were packed");
             packed.free();
         }
