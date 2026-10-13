@@ -2058,7 +2058,7 @@ final class WorldScene {
 
     /** One frame of the picture: what of the world this view shows in it, built on the logic thread and drawn on the picture's. */
     final class Frame extends TextureDraw.GenericDrawer implements Grass.Ground {
-        final FloorBuilder floorBuilder = new FloorBuilder(WorldScene.this, this);
+        final FloorBuilder floorBuilder = new FloorBuilder(this);
         private final KerbBuilder kerbBuilder = new KerbBuilder(this);
         private final PlantBuilder plantBuilder = new PlantBuilder(WorldScene.this, this);
         final WallBuilder wallBuilder = new WallBuilder(WorldScene.this, this);
@@ -4411,6 +4411,23 @@ final class WorldScene {
         private IsoRoom roomAsked;
         private boolean roomAskedLit;
 
+        /**
+         * The lighting engine's pass the lights of the chunk being built were read in. Where the
+         * build takes a level's lights from the reading made before it (kept), that is the
+         * reading's pass, which may be one the engine has gone past: a square asked again in it
+         * gives what the build's own lights were read as, and a floor and its square agree.
+         */
+        private int lightPass;
+
+        /**
+         * A square's light for the picture as the build takes it: the game's, asked once in the
+         * lighting pass the chunk's lights were read in, without the viewer's torch. Written into
+         * torchless or one of SquareLights' own, and good until the next asking.
+         */
+        ColorInfo lightOf(IsoGridSquare square) {
+            return view.torchLess.light(square, squareLights.of(square, playerIndex, lightPass), torchless);
+        }
+
         /** lampBurns for the square readLights last read at a place in its grid, worked out once a reading. */
         private boolean lampBurnsAt(int at, IsoGridSquare square) {
             if (lampAt[at] == LAMP_UNASKED) {
@@ -4447,7 +4464,7 @@ final class WorldScene {
          * under a roof and -1 where there is no square.
          */
         private void readLights(int chunkX, int chunkY, int z) {
-            int pass = LightingJNI.getUpdateCounter(playerIndex);
+            lightPass = LightingJNI.getUpdateCounter(playerIndex);
             Arrays.fill(lampAt, LAMP_UNASKED);
             roomAsked = null;
             for (int i = 0; i < LIGHT_SPAN; i++) {
@@ -4469,7 +4486,7 @@ final class WorldScene {
                     // Read from the lighting engine, which holds every loaded square. getLightInfo is
                     // a copy the game's own render takes of it, and only for the squares its camera
                     // has on screen.
-                    ColorInfo light = view.torchLess.light(square, squareLights.of(square, playerIndex, pass), torchless);
+                    ColorInfo light = lightOf(square);
                     boolean outside = square.isOutside();
                     // As the game's own view a room keeps the engine's light whether or not it has
                     // been seen: none in a room the player has not seen into, and less in one

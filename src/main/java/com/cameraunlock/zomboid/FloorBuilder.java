@@ -20,15 +20,13 @@ final class FloorBuilder {
     /** How far past the canopy's edge its lining runs, to meet the band hung just outside the edge. */
     private static final float CANOPY_LIP = 0.1f;
 
-    private final WorldScene world;
     private final WorldScene.Frame build;
 
     private final int[] spreading = new int[8];
     private final float[] tileTint = new float[4];
     private final float[] canopyRed = new float[4], canopyGreen = new float[4], canopyBlue = new float[4];
 
-    FloorBuilder(WorldScene world, WorldScene.Frame build) {
-        this.world = world;
+    FloorBuilder(WorldScene.Frame build) {
         this.build = build;
     }
 
@@ -313,7 +311,7 @@ final class FloorBuilder {
         for (int under = z - 1; under >= 0 && ground == null; under--) {
             ground = build.cell.getGridSquare(x, y, under);
         }
-        ColorInfo light = ground != null && ground.isSeen(build.playerIndex) ? world.view.torchLess.light(ground, build.playerIndex, build.torchless) : build.unseenLight;
+        ColorInfo light = ground != null && ground.isSeen(build.playerIndex) ? build.lightOf(ground) : build.unseenLight;
         boolean lit = build.mainsOn || build.here.haveElectricity();
         float red = lit ? Soffits.under(light.r, Soffits.GLOW_RED) : light.r, green = lit ? Soffits.under(light.g, Soffits.GLOW_GREEN) : light.g;
         float blue = lit ? Soffits.under(light.b, Soffits.GLOW_BLUE) : light.b;
@@ -403,7 +401,7 @@ final class FloorBuilder {
         }
         float red = build.frame.red, green = build.frame.green, blue = build.frame.blue, open = build.frame.open, kind = build.frame.kind;
         build.frame.cornersInto(build.heldRed, build.heldGreen, build.heldBlue);
-        ColorInfo light = below != null && below.isSeen(build.playerIndex) ? world.view.torchLess.light(below, build.playerIndex, build.torchless)
+        ColorInfo light = below != null && below.isSeen(build.playerIndex) ? build.lightOf(below)
                 : below == null || below.getRoomID() == -1L || build.asTheGameShows || build.gamesView ? build.unseenLight : WorldScene.lampBurns(build.cell, below, build.lampsNear) ? build.lampLight : build.roomLight;
         build.frame.light(light.r, light.g, light.b);
         build.frame.open = 0f;
