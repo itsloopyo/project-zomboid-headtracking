@@ -598,8 +598,10 @@ public final class FineSkins {
         // Whether a finer one could be composed now is asked before what it would be composed
         // of: that is read out of the names of every texture the recipe uses, and with a crowd
         // on the screen and no room for more skins it was read for every part of every one of
-        // them on every frame, which held a frame for a fifteenth of a second.
-        if (composedFrame == Pipeline.frame() || fineBytes >= MOST_BYTES && now - fine.values().iterator().next().used < KEPT_NANOS) {
+        // them on every frame, which held a frame for a fifteenth of a second. It is asked before
+        // any of the jar's pictures are read for it, too: read for a skin that then finds no room,
+        // they would be let go unused and read again.
+        if (composedFrame == Pipeline.frame() || !roomForASkin(now)) {
             return bound;
         }
         boolean any = anyPacked(recipe);
@@ -643,6 +645,19 @@ public final class FineSkins {
         fine.put(result, kept);
         fineBytes += kept.bytes;
         return made;
+    }
+
+    /** Whether a skin composed now would find room: under MOST_BYTES, or with enough of those kept not drawn for KEPT_NANOS to give up. */
+    private static boolean roomForASkin(long now) {
+        long kept = fineBytes;
+        for (Iterator<Fine> longestAgo = fine.values().iterator(); kept >= MOST_BYTES;) {
+            Fine least = longestAgo.next();
+            if (now - least.used < KEPT_NANOS) {
+                return false;
+            }
+            kept -= least.bytes;
+        }
+        return true;
     }
 
     /** Whether anything a recipe reads has a finer picture in the pack. Sets waiting and gone. */
