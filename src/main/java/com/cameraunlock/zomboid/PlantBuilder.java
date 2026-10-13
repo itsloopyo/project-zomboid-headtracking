@@ -685,13 +685,14 @@ final class PlantBuilder {
             boolean limbed = boled && Crowns.limbed(away, sprig, leaf);
             return Flora.addCrown(WorldScene.solid.get(texture.getID()), WorldScene.solid.get(WorldScene.PLAIN), build.frame, places, x + 0.5f, y + 0.5f, base, footU, footV, Crowns.detail(away), Crowns.close(away),
                     limbed ? boleThick : 0f, limbed ? boleTall : 0f, limbed ? boleBark : bark, sprig, seed, build.room, leaf, hue, turned,
-                    boled ? boleKind : TreeForm.NONE, boled ? boleShape : null);
+                    boled ? boleKind : TreeForm.NONE, boled ? boleShape : null, world.twiggedFrom);
         }
         if (!Flora.measure(build.frame, places, footU, footV, crownLeft, crownRight, crownSizes)) {
             return false;
         }
         (build.afresh ? WorldScene.crownsChecked : world.crownsRead).add(texture.getID(), build.frame, places, x + 0.5f, y + 0.5f, base, footU, footV, away, boled ? boleThick : 0f, boled ? boleTall : 0f,
-                boled ? boleBark : bark, bark, sprig, seed, build.room, leaf, hue, turned, boled ? boleKind : TreeForm.NONE, boled ? boleShape : null);
+                boled ? boleBark : bark, bark, sprig, seed, build.room, leaf, hue, turned, boled ? boleKind : TreeForm.NONE, boled ? boleShape : null,
+                world.twiggedFrom);
         return true;
     }
 

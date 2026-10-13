@@ -349,18 +349,25 @@ final class CrownTests {
         int farSprigs = sprigVertices(far), nearSprigs = sprigVertices(near);
         check(farSprigs > 0 && farSprigs * 2 < nearSprigs, "a crown at a quarter of the detail has under half the sprigs: " + farSprigs + " of " + nearSprigs);
         check(coreVertices(far) > 0 && coreVertices(far) * 3 < coreVertices(near), "and an inside of under a third as many faces: " + coreVertices(far) + " of " + coreVertices(near));
-        // A bare tree's twigs are wood too fine to throw a shadow: see Flora.FINE_MARK.
-        boolean twigsNear = false, twigsFar = false;
-        for (float away : new float[] {12f, 20f}) {
-            SpriteGeometry.Mesh wood = new SpriteGeometry.Mesh();
-            Flora.addCrown(new SpriteGeometry.Mesh(), wood, frame, places, 0.5f, 0.5f, 0f, FOOT_U, FOOT_V, Crowns.detail(away), 0f, 0.12f, 1.2f, Flora.BARK_OAK, Flora.BARE, 7, Flora.OPEN, 1f, 0, 0f);
-            for (int at = 0; at < wood.floats; at += SpriteGeometry.VERTEX_FLOATS) {
-                boolean twig = wood.vertices[at + 3] >= Flora.FINE_MARK;
-                twigsNear |= twig && away < 16f;
-                twigsFar |= twig && away > 16f;
+        // A bare tree's twigs reach as far as a twig is half a pixel across: further in a taller picture, and less far in a wider view.
+        float set = (float) Math.tan(Math.toRadians(FieldOfView.DEFAULT_DEGREES) / 2.0), wide = (float) Math.tan(Math.toRadians(90.0) / 2.0);
+        check(Flora.twiggedFrom(2160, set) < Flora.TWIGGED_AT_1080 && Flora.twiggedFrom(1080, wide) > Flora.TWIGGED_AT_1080 && Flora.TWIGGED_AT_1080 == Flora.twiggedFrom(1080, set),
+                "twigs reach further in a taller picture and less far in a wider view");
+        check(twigged(frame, places, 20f, Flora.TWIGGED_AT_1080) && !twigged(frame, places, 30f, Flora.TWIGGED_AT_1080) && twigged(frame, places, 30f, Flora.twiggedFrom(2160, set)),
+                "at 1080 pixels high a bare crown 20 tiles off has twigs and one 30 off none, and at 2160 that one has them too");
+    }
+
+    /** Whether a bare crown that far off has twigs, which are wood too fine to throw a shadow: see Flora.FINE_MARK. */
+    private static boolean twigged(SpriteGeometry.Frame frame, float[] places, float away, float twiggedFrom) {
+        SpriteGeometry.Mesh wood = new SpriteGeometry.Mesh();
+        Flora.addCrown(new SpriteGeometry.Mesh(), wood, frame, places, 0.5f, 0.5f, 0f, FOOT_U, FOOT_V, Crowns.detail(away), 0f, 0.12f, 1.2f, Flora.BARK_OAK, Flora.BARE, 7,
+                Flora.OPEN, 1f, 0, 0f, TreeForm.NONE, null, twiggedFrom);
+        for (int at = 0; at < wood.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+            if (wood.vertices[at + 3] >= Flora.FINE_MARK) {
+                return true;
             }
         }
-        check(twigsNear && !twigsFar, "a bare crown has twigs off its branches near the eye and none where a twig is under a pixel");
+        return false;
     }
 
     private static void spriteWithNextToNothingPaintedHasNoCrown() {
@@ -390,11 +397,11 @@ final class CrownTests {
         SpriteGeometry.Frame frame = frame();
         float[] places = PLACES;
         Crowns crowns = new Crowns();
-        crowns.add(LEAVES, frame, places, 10.5f, 20.5f, 0.1f, FOOT_U, FOOT_V, away, 0f, 0f, Flora.BARK_OAK, Flora.BARK_OAK, Flora.MAPLE, 7, Flora.OPEN, 1f, 0, 0f, TreeForm.NONE, null);
+        crowns.add(LEAVES, frame, places, 10.5f, 20.5f, 0.1f, FOOT_U, FOOT_V, away, 0f, 0f, Flora.BARK_OAK, Flora.BARK_OAK, Flora.MAPLE, 7, Flora.OPEN, 1f, 0, 0f, TreeForm.NONE, null, Flora.TWIGGED_AT_1080);
         frame.light(secondRed, 0.5f, 0.4f);
-        crowns.add(LEAVES + 1, frame, places, 12.5f, 21.5f, 0f, FOOT_U, FOOT_V, away, 0.12f, 0.9f, Flora.BARK_OAK + 1, Flora.BARK_OAK, Flora.LINDEN, 8, Flora.OPEN, 1f, 0, 0f, TreeForm.NONE, null);
+        crowns.add(LEAVES + 1, frame, places, 12.5f, 21.5f, 0f, FOOT_U, FOOT_V, away, 0.12f, 0.9f, Flora.BARK_OAK + 1, Flora.BARK_OAK, Flora.LINDEN, 8, Flora.OPEN, 1f, 0, 0f, TreeForm.NONE, null, Flora.TWIGGED_AT_1080);
         frame.open = 0f;
-        crowns.add(LEAVES, frame, places, 14.5f, 22.5f, 0f, FOOT_U, FOOT_V, away, 0f, 0f, Flora.BARK_OAK, Flora.BARK_OAK, Flora.SHRUB, 9, Flora.OPEN, 1f, 0, 0f, TreeForm.NONE, null);
+        crowns.add(LEAVES, frame, places, 14.5f, 22.5f, 0f, FOOT_U, FOOT_V, away, 0f, 0f, Flora.BARK_OAK, Flora.BARK_OAK, Flora.SHRUB, 9, Flora.OPEN, 1f, 0, 0f, TreeForm.NONE, null, Flora.TWIGGED_AT_1080);
         return crowns;
     }
 
@@ -449,13 +456,13 @@ final class CrownTests {
         same(apart, inBuild);
         // Into one that held more.
         Crowns one = new Crowns();
-        one.add(LEAVES, frame(), PLACES, 1.5f, 2.5f, 0f, FOOT_U, FOOT_V, 6f, 0f, 0f, Flora.BARK_OAK, Flora.BARK_OAK, Flora.MAPLE, 3, Flora.OPEN, 1f, 0, 0f, TreeForm.NONE, null);
+        one.add(LEAVES, frame(), PLACES, 1.5f, 2.5f, 0f, FOOT_U, FOOT_V, 6f, 0f, 0f, Flora.BARK_OAK, Flora.BARK_OAK, Flora.MAPLE, 3, Flora.OPEN, 1f, 0, 0f, TreeForm.NONE, null, Flora.TWIGGED_AT_1080);
         one.copyTo(moved, 6f);
         check(moved.same(one) && !moved.same(near), "and take the place of whatever was written there before");
         // And more than a new one has room for: nine, where it starts with room for eight.
         Crowns many = new Crowns(), room = new Crowns();
         for (int i = 0; i < 9; i++) {
-            many.add(LEAVES, frame(), PLACES, i + 0.5f, 2.5f, 0f, FOOT_U, FOOT_V, 6f, 0f, 0f, Flora.BARK_OAK, Flora.BARK_OAK, Flora.MAPLE, i, Flora.OPEN, 1f, 0, 0f, TreeForm.NONE, null);
+            many.add(LEAVES, frame(), PLACES, i + 0.5f, 2.5f, 0f, FOOT_U, FOOT_V, 6f, 0f, 0f, Flora.BARK_OAK, Flora.BARK_OAK, Flora.MAPLE, i, Flora.OPEN, 1f, 0, 0f, TreeForm.NONE, null, Flora.TWIGGED_AT_1080);
         }
         many.copyTo(room, 6f);
         check(room.same(many), "nine crowns written into one that has held none are the same nine");
@@ -498,7 +505,7 @@ final class CrownTests {
         there.scrap();
         // One dot of paint is no crown, and is never written down as one: made all the same, the making fails.
         Crowns none = new Crowns();
-        none.add(LEAVES, frame(), Flora.leafPlaces((u, v) -> u == 3 && v == 3, frame()), 0.5f, 0.5f, 0f, FOOT_U, FOOT_V, 12f, 0f, 0f, Flora.BARK_OAK, Flora.BARK_OAK, Flora.LINDEN, 7, Flora.OPEN, 1f, 0, 0f, TreeForm.NONE, null);
+        none.add(LEAVES, frame(), Flora.leafPlaces((u, v) -> u == 3 && v == 3, frame()), 0.5f, 0.5f, 0f, FOOT_U, FOOT_V, 12f, 0f, 0f, Flora.BARK_OAK, Flora.BARK_OAK, Flora.LINDEN, 7, Flora.OPEN, 1f, 0, 0f, TreeForm.NONE, null, Flora.TWIGGED_AT_1080);
         Crowns.Work failing = new Crowns.Work(none, spared, 7, PLAIN, false, back);
         Crowns.begin(failing);
         check(Crowns.awaited(back) == failing && failing.failed instanceof IllegalStateException, "work that fails comes back too, with what it threw");

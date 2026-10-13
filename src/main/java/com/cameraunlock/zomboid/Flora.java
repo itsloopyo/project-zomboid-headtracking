@@ -261,10 +261,10 @@ final class Flora {
     static final float LEADER_TOP = 0.62f, LIMB_TIP = 0.014f, LIMB_OF_LEADER = 0.7f, LIMB_OUT = 0.8f, BRANCH_OF_LIMB = 0.5f, BRANCH_TIP = 0.008f;
     /**
      * A bare tree's limbs and branches end this far out of its outline, its twigs carrying on
-     * past them; how many twigs each branch has; and from what detail (see addCrown) on it has
-     * them: nearer than about 18 tiles (Crowns.detail), past which a twig is thinner than a pixel at 1080p.
+     * past them; and how many twigs each branch has. It has them wherever a twig is at least
+     * TWIG_PIXELS across in the picture: see twiggedFrom.
      */
-    private static final float BARE_OUT = 0.9f, BARE_TWIGGED = 0.85f, TWIGLETS = 0.95f;
+    private static final float BARE_OUT = 0.9f, TWIGLETS = 0.95f, TWIG_PIXELS = 0.5f;
     private static final int BARE_TWIGS = 3;
     /** How many sticks a square of fallen wood has at least: up to three more. */
     private static final int FALLEN_STICKS_LEAST = 2;
@@ -468,18 +468,32 @@ final class Flora {
     static boolean addCrown(Mesh mesh, Mesh wood, SpriteGeometry.Frame frame, float[] places, float x, float y, float base, float footU, float footV,
             float detail, float close, float boleRadius, float boleTall, int bark, int sprig, int seed, float[] room, float leaf, int hue, float turned) {
         return addCrown(mesh, wood, frame, places, x, y, base, footU, footV, detail, close, boleRadius, boleTall, bark, sprig, seed, room, leaf, hue, turned,
-                TreeForm.NONE, null);
+                TreeForm.NONE, null, TWIGGED_AT_1080);
     }
+
+    /**
+     * The detail (see addCrown) from which a bare crown has twigs, in a picture pixelsHigh
+     * pixels high whose field of view up has tanHalfVertical for the tangent of its half: as far
+     * as a twig, as thick on average as from BRANCH_TIP to TWIG_TIP, is TWIG_PIXELS across.
+     * The field of view the player set is what goes in, and not one a zoom narrows, so that a
+     * crown is not made again as the sights come up.
+     */
+    static float twiggedFrom(int pixelsHigh, float tanHalfVertical) {
+        return Crowns.detail((BRANCH_TIP + TWIG_TIP) * pixelsHigh / (2f * TWIG_PIXELS * tanHalfVertical));
+    }
+
+    /** twiggedFrom for a picture 1080 pixels high at the default field of view: about 20 tiles. */
+    static final float TWIGGED_AT_1080 = twiggedFrom(1080, (float) Math.tan(Math.toRadians(FieldOfView.DEFAULT_DEGREES) / 2.0));
 
     /**
      * The same, for a tree of a broad-leaved species, TreeForm's kind (NONE for any other),
      * whose wood is grown to that species' proportions, and, once it shows, to woodShape: the
      * outline of the branches the tree's trunk sprite paints, as woodShape measures it (null
-     * for the crown's own).
+     * for the crown's own). A bare crown has twigs from the detail twiggedFrom on (see twiggedFrom).
      */
     static boolean addCrown(Mesh mesh, Mesh wood, SpriteGeometry.Frame frame, float[] places, float x, float y, float base, float footU, float footV,
             float detail, float close, float boleRadius, float boleTall, int bark, int sprig, int seed, float[] room, float leaf, int hue, float turned,
-            int kind, float[] woodShape) {
+            int kind, float[] woodShape, float twiggedFrom) {
         if (!(leaf > 0f && leaf <= 1f) || hue < 0 || hue >= HUES || !(turned >= 0f && turned <= 1f)) {
             throw new IllegalArgumentException("a crown with leaf " + leaf + ", hue " + hue + " and turned " + turned);
         }
@@ -752,7 +766,7 @@ final class Flora {
                                     * (1f - BOUGH_HOLLOW * (1f - bough(toRound, toShare, lobes, woodRows, turnOne, turnTwo, turnThree)));
                             float toUp = woodLowest + toShare * woodTall, toIn = BRANCH_TIP + SpriteGeometry.SWAY_REACH * limbSway(toUp, boleTall), toUnder = Math.min(upAt, toUp);
                             float endX = keptX(x + (float) Math.cos(toRound) * toOut, toUnder, toIn, room), endY = keptY(y + (float) Math.sin(toRound) * toOut, toUnder, toIn, room);
-                            boolean twigged = wooded && detail > BARE_TWIGGED;
+                            boolean twigged = wooded && detail >= twiggedFrom;
                             float[] last = addBranch(wood, atX, atY, upAt, endX, endY, toUp, base, Math.max(thickTo * BRANCH_OF_LIMB, BRANCH_TIP),
                                     straight, boleTall, bark, which, room, frame, wooded, twigged, workings);
                             if (twigged) {

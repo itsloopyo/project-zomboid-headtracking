@@ -67,11 +67,11 @@ final class TreeFormTests {
         for (int kind = 0; kind < TreeForm.KINDS; kind++) {
             SpriteGeometry.Mesh bareWood = new SpriteGeometry.Mesh(), thinWood = new SpriteGeometry.Mesh();
             Checks.check(Flora.addCrown(new SpriteGeometry.Mesh(), bareWood, frame, bareAt, 10.5f, 20.5f, 0f, FOOT_U, FOOT_V, 1f, 0f, 0.08f, 0.8f, Flora.BARK_MAPLE,
-                    Flora.BARE, 99, Flora.OPEN, 1f, 0, 0f, kind, shape), "kind " + kind + " bare");
+                    Flora.BARE, 99, Flora.OPEN, 1f, 0, 0f, kind, shape, Flora.TWIGGED_AT_1080), "kind " + kind + " bare");
             for (float leaf : new float[] {0.85f, 0.5f, 0.1f}) {
                 thinWood.clear();
                 Checks.check(Flora.addCrown(new SpriteGeometry.Mesh(), thinWood, frame, leafAt, 10.5f, 20.5f, 0f, FOOT_U, FOOT_V, 1f, 0f, 0.08f, 0.8f, Flora.BARK_MAPLE,
-                        Flora.MAPLE, 99, Flora.OPEN, leaf, Flora.SCARLET_LEAF, 0.5f, kind, shape), "kind " + kind + " with " + leaf + " of its leaves");
+                        Flora.MAPLE, 99, Flora.OPEN, leaf, Flora.SCARLET_LEAF, 0.5f, kind, shape, Flora.TWIGGED_AT_1080), "kind " + kind + " with " + leaf + " of its leaves");
                 Checks.check(Arrays.equals(bareWood.vertices, 0, bareWood.floats, thinWood.vertices, 0, thinWood.floats),
                         "kind " + kind + " with " + leaf + " of its leaves has its bare tree's wood: " + thinWood.floats + " floats against " + bareWood.floats);
             }
@@ -147,7 +147,7 @@ final class TreeFormTests {
         SpriteGeometry.Frame frame = frame();
         SpriteGeometry.Mesh wood = new SpriteGeometry.Mesh();
         Checks.check(Flora.addCrown(new SpriteGeometry.Mesh(), wood, frame, Flora.leafPlaces(TreeFormTests::trunk, frame), 10.5f, 20.5f, 0f, FOOT_U, FOOT_V, 1f, 0f,
-                0.08f, 0.8f, Flora.BARK_MAPLE, Flora.BARE, 99, Flora.OPEN, 1f, 0, 0f, kind, shape), "kind " + kind + " has a bare crown");
+                0.08f, 0.8f, Flora.BARK_MAPLE, Flora.BARE, 99, Flora.OPEN, 1f, 0, 0f, kind, shape, Flora.TWIGGED_AT_1080), "kind " + kind + " has a bare crown");
         return wood;
     }
 
@@ -200,11 +200,11 @@ final class TreeFormTests {
         float[] shape = Flora.woodShape(frame, bareAt, FOOT_U, FOOT_V);
         SpriteGeometry.Mesh plain = new SpriteGeometry.Mesh();
         Flora.addCrown(new SpriteGeometry.Mesh(), plain, frame, bareAt, 10.5f, 20.5f, 0f, FOOT_U, FOOT_V, 1f, 0f, 0.08f, 0.8f, Flora.BARK_MAPLE, Flora.BARE, 99,
-                Flora.OPEN, 1f, 0, 0f, TreeForm.NONE, shape);
+                Flora.OPEN, 1f, 0, 0f, TreeForm.NONE, shape, Flora.TWIGGED_AT_1080);
         for (int kind = 0; kind < TreeForm.KINDS; kind++) {
             SpriteGeometry.Mesh wood = new SpriteGeometry.Mesh();
             Flora.addCrown(new SpriteGeometry.Mesh(), wood, frame, bareAt, 10.5f, 20.5f, 0f, FOOT_U, FOOT_V, 1f, 0f, 0.08f, 0.8f, Flora.BARK_MAPLE, Flora.BARE, 99,
-                    Flora.OPEN, 1f, 0, 0f, kind, shape);
+                    Flora.OPEN, 1f, 0, 0f, kind, shape, Flora.TWIGGED_AT_1080);
             Checks.check(wood.triangles() > 0 && wood.triangles() < 1.6f * plain.triangles(),
                     "kind " + kind + ": " + wood.triangles() + " triangles of wood against " + plain.triangles() + " for any tree");
         }

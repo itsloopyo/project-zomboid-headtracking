@@ -639,6 +639,8 @@ final class WorldScene {
      * Crowns.REACH of it.
      */
     boolean crownedToSight;
+    /** The detail from which the builds standing gave a bare crown twigs, for this view's picture: Flora.twiggedFrom. */
+    float twiggedFrom = Float.NaN;
 
     /**
      * Whether the roof and the ceilings the mod makes over a square are left out so that the
@@ -2515,6 +2517,12 @@ final class WorldScene {
             if (crownedToSight != Quality.crownsToSight()) {
                 // Every build in the last band holds whether its trees were given crowns and boles.
                 crownedToSight = Quality.crownsToSight();
+                forgetAll();
+            }
+            float twigged = Flora.twiggedFrom(zombie.iso.IsoCamera.getScreenHeight(view.index), tanHalfSet);
+            if (twigged != twiggedFrom) {
+                // As are their bare crowns' twigs, which reach as far as the picture is high and narrow.
+                twiggedFrom = twigged;
                 forgetAll();
             }
             if (cell != builtIn.get()) {
