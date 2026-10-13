@@ -6,6 +6,7 @@
 
 - A first person view for Project Zomboid, which has none of its own. `Delete` flies the camera from the game's isometric view to your character's eyes, and back again. In first person the mouse turns the view and the movement keys follow it, on foot and from a seat in a vehicle.
 - Head tracking in the first person view, from any tracker that sends the OpenTrack UDP protocol to port `4242`. Turning your head turns the view and leaning moves it, while the mouse keeps the aim: a shot goes where the mouse points, wherever you are looking.
+- In first person the eye is steady as you walk and run: the bob and sway of each step are taken out of it, and crouching or sitting still lowers it smoothly.
 - The reticle follows the shot. While you hold the aim, the game's own reticle is drawn where the shot will land in the view your head has turned. With a weapon in hand and the aim not held, where the game draws none, the mod draws a small crosshair at that point.
 - A lean stops at walls, so the view does not end up inside one.
 - Sound is heard the way the view faces in first person. What is to the left in the picture is heard on the left, and it turns as the mouse or your head turns the view, where the game's own view hears everything by its place on the screen. As the camera flies between the two views, what you hear turns with it. In first person the game's sounds are also given a camera zoomed all the way in, whatever zoom the game's own view was left at.

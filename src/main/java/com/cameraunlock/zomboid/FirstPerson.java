@@ -700,7 +700,7 @@ public final class FirstPerson {
         float zoom = Core.getInstance().getZoom(player.getIndex());
         holdTheCursorAhead(player, zoom);
         float floorUp = player.getZ() * ViewCamera.LEVEL_HEIGHT + view.worldScene.terrain.lift(player.getX(), player.getY(), player.getZ());
-        float height = eyeHeight(player);
+        float height = eyeHeight(player, sinceLastFrame);
         world.look(IsoWorld.instance.currentCell, (int) Math.floor(player.getZ()));
         float reach = (float) Math.hypot(headOffset[0], headOffset[1]);
         float share = reach > 0f ? world.roomForTheEye(player.getX(), player.getY(), headOffset[0] / reach,
@@ -976,7 +976,7 @@ public final class FirstPerson {
     private void rehearse(IsoPlayer player) {
         float x = player.getX(), y = player.getY(), level = player.getZ();
         Vector2 facing = player.getForwardDirection();
-        ViewCamera.clean(standingView, x, y, level * ViewCamera.LEVEL_HEIGHT + view.worldScene.terrain.lift(x, y, level) + eyeHeight(player),
+        ViewCamera.clean(standingView, x, y, level * ViewCamera.LEVEL_HEIGHT + view.worldScene.terrain.lift(x, y, level) + eyeHeight(player, 0f),
                 (float) Math.atan2(facing.y, facing.x), 0f);
         view.headlights.gather(view.worldScene.terrain, x, y);
         float facingLength = Math.max((float) Math.hypot(facing.x, facing.y), 1e-3f);
@@ -1006,7 +1006,7 @@ public final class FirstPerson {
         float x = player.getX(), y = player.getY(), level = player.getZ();
         float floorUp = level * ViewCamera.LEVEL_HEIGHT;
         aimOverhead(player, floorUp);
-        ViewCamera.clean(standingView, x, y, floorUp + view.worldScene.terrain.lift(x, y, level) + eyeHeight(player), OVERHEAD_YAW, OVERHEAD_PITCH);
+        ViewCamera.clean(standingView, x, y, floorUp + view.worldScene.terrain.lift(x, y, level) + eyeHeight(player, 0f), OVERHEAD_YAW, OVERHEAD_PITCH);
         if (TRACE && (overheadSaid & 127) == 1) {
             int index = player.getIndex();
             ViewCamera.project(overheadView, overheadHalfHigh / OVERHEAD_AWAY, (float) IsoCamera.getScreenWidth(index) / IsoCamera.getScreenHeight(index),
@@ -1501,8 +1501,8 @@ public final class FirstPerson {
         return ledTilt;
     }
 
-    private float eyeHeight(IsoPlayer player) {
-        if (view.modelHead.eyeOffset(player, yaw, headOffset)) {
+    private float eyeHeight(IsoPlayer player, float seconds) {
+        if (view.modelHead.eyeOffset(player, yaw, seconds, headOffset)) {
             return headOffset[2];
         }
         headOffset[0] = 0f;

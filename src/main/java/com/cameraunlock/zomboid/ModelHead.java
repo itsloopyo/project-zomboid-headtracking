@@ -74,7 +74,13 @@ public final class ModelHead {
     private final Matrix4f cameraHead = new Matrix4f();
     private final Vector3f cameraJoint = new Vector3f();
 
-    boolean eyeOffset(IsoPlayer player, float yaw, float[] out) {
+    /**
+     * Where the eye is from the feet, in the world, into out, as the game's animation has the
+     * head's joint, followed through two eases in the body's own axes, so the bob and sway of
+     * each step are taken out and a crouch or a sit still moves the eye. False where the
+     * character is not posed.
+     */
+    boolean eyeOffset(IsoPlayer player, float yaw, float seconds, float[] out) {
         AnimationPlayer animation = player.getAnimationPlayer();
         if (animation == null || !animation.isReady()) {
             return false;
@@ -85,9 +91,31 @@ public final class ModelHead {
         }
         animation.getBoneModelTransform(head.index, cameraHead);
         HelperFunctions.getPosition(cameraHead, cameraJoint);
-        ViewCamera.eyeOffset(cameraJoint.x, cameraJoint.y, cameraJoint.z, animation.getRenderedAngle(), yaw, out);
+        boolean follow = steadyFor != player;
+        steadyFor = player;
+        steady(0, cameraJoint.x, follow, seconds);
+        steady(1, cameraJoint.y, follow, seconds);
+        steady(2, cameraJoint.z, follow, seconds);
+        ViewCamera.eyeOffset(steadyJoint[0], steadyJoint[1], steadyJoint[2], animation.getRenderedAngle(), yaw, out);
         return true;
     }
+
+    /**
+     * The time constant of each of the two eases the joint is followed through. A walk bobs the head about twice a second, which two of these leave a seventh of.
+     */
+    private static final float STEADY_SECONDS = 0.2f;
+    private final float[] steadyNear = new float[3], steadyJoint = new float[3];
+
+    private void steady(int axis, float joint, boolean follow, float seconds) {
+        if (follow) {
+            steadyNear[axis] = joint;
+            steadyJoint[axis] = joint;
+        } else {
+            steadyNear[axis] = ViewModelMath.ease(steadyNear[axis], joint, seconds, STEADY_SECONDS);
+            steadyJoint[axis] = ViewModelMath.ease(steadyJoint[axis], steadyNear[axis], seconds, STEADY_SECONDS);
+        }
+    }
+    private IsoPlayer steadyFor;
 
     /**
      * The head as the game's animation last posed it, before the player's own head turn is put
