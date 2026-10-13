@@ -2802,7 +2802,7 @@ final class Pipeline {
             kindsFor = kinds;
             kindsWritten = frameNumber;
         }
-        boolean culling = GL11.glIsEnabled(GL_CULL_FACE);
+        // Every pass of the picture draws with culling off: the world's own drawing before this does too.
         GL11.glDisable(GL_CULL_FACE);
         farTree.use();
         farUniforms(farTree, camera, state, fogStart, fogEnd);
@@ -2817,9 +2817,6 @@ final class Pipeline {
         farTree.set("uGameSchedule", games ? 1f : 0f);
         view.worldScene.farLand.drawTrees(focusX, focusY, reach, farTree.attribute("aTree"), treeMeshes, treeVertices, camera);
         GL11.glBindTexture(GL_TEXTURE_2D, 0);
-        if (culling) {
-            GL11.glEnable(GL_CULL_FACE);
-        }
     }
 
     /**
