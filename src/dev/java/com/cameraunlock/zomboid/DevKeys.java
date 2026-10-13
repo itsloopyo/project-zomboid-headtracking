@@ -22,6 +22,7 @@ import zombie.iso.IsoChunk;
 import zombie.iso.IsoChunkMap;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoWorld;
+import zombie.iso.objects.IsoFireManager;
 import zombie.iso.weather.ClimateManager;
 import zombie.network.GameClient;
 import zombie.vehicles.BaseVehicle;
@@ -55,6 +56,10 @@ import zombie.vehicles.VehiclePart;
  * session ends. Winter is a clear sky over ground under snow. The other three give the weather
  * back to the game, unless End holds one, and keep the ground clear of snow, so
  * winter's does not lie on into spring.
+ *
+ * Home starts a fire where the reticle is, or a few paces ahead of a player not in first
+ * person: for seeing the flames, their light and smoke without finding a stove left on. It
+ * burns and spreads as any fire in the game does.
  *
  * End holds the weather at the next of clear, rainy, snowy and stormy, and round
  * again, over whatever the season key holds. Snowy lays snow over the whole ground. Stormy is
@@ -162,6 +167,11 @@ public final class DevKeys {
 
     /** End. */
     private static final int WEATHER_KEY = 207;
+    /** Home, beside End. */
+    private static final int FIRE_KEY = 199;
+    /** How far ahead of a player not in first person a fire is started, in tiles, and how much it starts with. */
+    private static final float FIRE_AHEAD = 3f;
+    private static final int FIRE_ENERGY = 100;
 
     /** A kind of weather as the game's climate has it: each of cloud, rain or snow, and wind from 0 to 1. */
     private record Weather(String name, float cloud, float falling, float wind, boolean snow, boolean thunder) {}
@@ -217,7 +227,7 @@ public final class DevKeys {
         String told = null;
         if (!said) {
             said = true;
-            Log.info("development build: 0 clears out the zombies and pressed again puts some back round you, . goes to the next place and , to the one before, 9 puts the clock on three hours, Backspace holds the next season of spring, summer, autumn and winter, End holds the next weather of clear, rainy, snowy and stormy, ; gives a shotgun, any gun held never runs dry, [ gives a hunting rifle with the next of the three scopes on it, / gives a lit flashlight, ' makes you invincible, F7 takes the nearest vehicle");
+            Log.info("development build: 0 clears out the zombies and pressed again puts some back round you, . goes to the next place and , to the one before, 9 puts the clock on three hours, Backspace holds the next season of spring, summer, autumn and winter, End holds the next weather of clear, rainy, snowy and stormy, Home starts a fire where the reticle is, ; gives a shotgun, any gun held never runs dry, [ gives a hunting rifle with the next of the three scopes on it, / gives a lit flashlight, ' makes you invincible, F7 takes the nearest vehicle");
         }
         // On a server every one of these would be a cheat against the other players.
         if (GameClient.client) {
@@ -295,6 +305,11 @@ public final class DevKeys {
             hold(WEATHERS[weather]);
             lie(lying());
             told = "Weather: " + WEATHERS[weather].name();
+        }
+        if (GameKeyboard.isKeyPressed(FIRE_KEY)) {
+            for (IsoPlayer each : players) {
+                startFire(each);
+            }
         }
         if (weather >= 0 && WEATHERS[weather].thunder() && !players.isEmpty()) {
             strike(players.get(0));
@@ -408,6 +423,26 @@ public final class DevKeys {
             return SEASONS[season].lying();
         }
         return weather >= 0 ? 0f : -1f;
+    }
+
+    /** Starts a fire where the player's reticle is in first person, else a few paces ahead of them. */
+    private static void startFire(IsoPlayer player) {
+        View view = View.of(player);
+        float[] at = new float[3];
+        if (view != null && view.firstPerson.active()) {
+            view.controls.aimPoint(at);
+        } else {
+            at[0] = player.getX() + player.getForwardDirection().x * FIRE_AHEAD;
+            at[1] = player.getY() + player.getForwardDirection().y * FIRE_AHEAD;
+            at[2] = player.getZ();
+        }
+        IsoGridSquare square = IsoWorld.instance.currentCell.getGridSquare((int) Math.floor(at[0]), (int) Math.floor(at[1]), (int) Math.floor(at[2]));
+        if (square == null) {
+            Log.info("Home: no square at (" + at[0] + ", " + at[1] + ", " + at[2] + ") to start a fire on");
+            return;
+        }
+        IsoFireManager.StartFire(IsoWorld.instance.currentCell, square, true, FIRE_ENERGY);
+        Log.info("Home: a fire started at " + square.getX() + ", " + square.getY() + ", " + square.getZ());
     }
 
     /** Holds the game's climate at a kind of weather, with no fog. */
