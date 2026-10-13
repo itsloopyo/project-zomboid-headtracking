@@ -4207,12 +4207,14 @@ final class WorldScene {
         /**
          * An eye lets in less light in the open at noon than in a room, and takes a moment to
          * change when its owner walks through a door. What it is adapted to is where the character
-         * stands, in or out of doors, and how strong the sun or moon is.
+         * stands, in a room or out of doors, and how strong the sun or moon is. A roof that is no
+         * room's, a gazebo's, a stall's or a porch's, has the open air round it and the eye stays
+         * adapted to that.
          */
         private float adaptEye(IsoPlayer player, boolean fromOutside) {
             IsoGridSquare under = player.getCurrentSquare();
             // Seen from outside the picture is of the open air, whatever roof the viewer is under.
-            float target = fromOutside || under == null || under.isOutside() ? 1f : 0f;
+            float target = fromOutside || under == null || under.isOutside() || under.getRoom() == null ? 1f : 0f;
             long now = System.nanoTime();
             float elapsed = lastAdapt == 0 ? 1f : Math.min((now - lastAdapt) / 1e9f, 1f);
             lastAdapt = now;
