@@ -305,7 +305,7 @@ public final class Hooks {
             return;
         }
         if (aimedPart == RagdollBodyPart.BODYPART_HEAD.ordinal()) {
-            headShot(zombie, damage);
+            headShot(zombie, weapon, damage);
             return;
         }
         int limb = limbOf(aimedPart);
@@ -430,13 +430,15 @@ public final class Hooks {
      * The least a killing head shot does for the head to come off or burst, and how often each.
      * The game leaves a dead zombie's health at nothing, so it is the shot's damage that is read:
      * a pistol's head shot did 1.4 and a critical one 7.5, and each pellet of a shotgun's 50 to 105.
-     * A bullet seldom takes a head off whole; a heavy one bursts it now and then.
+     * A bullet seldom takes a head off whole; a heavy one bursts it now and then. A shotgun's
+     * blast from within CLOSE_BLAST tiles bursts it most times and never takes it off whole.
      */
     static final float BURSTS_FROM = 20f, POPS = 0.04f, BURSTS = 0.12f;
+    static final float CLOSE_BLAST = 5f, CLOSE_BLAST_BURSTS = 0.8f;
     private static final java.util.Random chance = new java.util.Random();
 
     /** A head shot that killed: one that left the zombie far enough below no health may burst its head. */
-    private static void headShot(IsoZombie zombie, float damage) {
+    private static void headShot(IsoZombie zombie, HandWeapon weapon, float damage) {
         if (!zombie.isDead()) {
             return;
         }
@@ -445,8 +447,12 @@ public final class Hooks {
         }
         // A blast's pellets each come here: the head is rolled for once, by the first hard enough.
         float roll = chance.nextFloat();
+        IsoPlayer from = IsoPlayer.getInstance();
+        boolean closeBlast = ImpactFinder.size(weapon) == ImpactFinder.PELLET
+                && Math.hypot(zombie.getX() - from.getX(), zombie.getY() - from.getY()) <= CLOSE_BLAST;
+        float pops = closeBlast ? 0f : POPS, bursts = closeBlast ? CLOSE_BLAST_BURSTS : BURSTS;
         String said;
-        if (roll < POPS) {
+        if (roll < pops) {
             wounds.burst(zombie);
             Bleeding.spray(zombie, Bleeding.SPRAY, Bleeding.SPRAY_REACH);
             Stumps.bloody(zombie, Wounds.HEAD, Wounds.UPPER);
@@ -454,7 +460,7 @@ public final class Hooks {
             Pieces.cut(zombie, Wounds.HEAD, Wounds.UPPER, shooter.getX(), shooter.getY());
             Bleeding.mist(zombie, zombie.isOnFloor() ? 0.3f : 1.15f, 3, 1.5f);
             said = "its head comes off";
-        } else if (roll < POPS + BURSTS) {
+        } else if (roll < pops + bursts) {
             wounds.burst(zombie);
             Bleeding.mist(zombie, zombie.isOnFloor() ? 0.3f : 1.2f, 7, 3f);
             IsoPlayer shooter = IsoPlayer.getInstance();
