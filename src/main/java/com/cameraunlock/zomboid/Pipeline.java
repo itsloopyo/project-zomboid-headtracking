@@ -248,7 +248,7 @@ final class Pipeline {
     private int jitterAt;
     /** How far to one side this frame is drawn, as the projection takes it: nothing with the frames not mixed. */
     private float asideX, asideY;
-    private static Program world, worldDepth, shadow, figureLight, sky, clouds, bolt, occlusion, soften, volume, bloomDown, bloomUp, develop, smooth;
+    private static Program world, worldDepth, shadow, figureLight, sky, clouds, skyNear, bolt, occlusion, soften, volume, bloomDown, bloomUp, develop, smooth;
     private static Program far, farTree;
     /** What the shaders are told as uBeyond this frame: see PipelineShaders.ENDS. Not 0 where the far land is drawn behind the built world. */
     private float beyond;
@@ -399,6 +399,8 @@ final class Pipeline {
     /** How wide the sun is, as the width of a shadow's soft edge for each tile between caster and ground. Wider than the real sun's: the real one's edge is too fine to read at this scale. */
     private static final float SUN_WIDTH = 0.06f;
     private int cloudTarget, cloudColor, softCloudTarget, softCloudColor;
+    /** For each pixel of the clouds' pass, whether the picture shows the sky in it: see Sky.SKY_NEAR. */
+    private int skyNearTarget, skyNearColor;
 
     private static final boolean TIMES = Boolean.getBoolean("cameraunlock.zomboid.gpuTimes");
     /**
@@ -3205,16 +3207,23 @@ final class Pipeline {
         int cloudWide = Math.min(wide, levelWidth[0]), cloudHigh = Math.min(high, levelHeight[0]);
         GL11.glDepthMask(false);
         GL11.glDisable(GL_DEPTH_TEST);
-        GL30.glBindFramebuffer(GL_FRAMEBUFFER, cloudTarget);
+        GL30.glBindFramebuffer(GL_FRAMEBUFFER, skyNearTarget);
         GL11.glViewport(0, 0, cloudWide, cloudHigh);
+        skyNear.use();
+        GL11.glBindTexture(GL_TEXTURE_2D, depth);
+        skyNear.set("uDepth", 0);
+        skyNear.set("uDepthSize", (float) wide, (float) high);
+        skyNear.set("uSize", (float) cloudWide, (float) cloudHigh);
+        quad();
+        GL30.glBindFramebuffer(GL_FRAMEBUFFER, cloudTarget);
         clouds.use();
         GL13.glActiveTexture(GL_TEXTURE0 + 1);
-        GL11.glBindTexture(GL_TEXTURE_2D, depth);
+        GL11.glBindTexture(GL_TEXTURE_2D, skyNearColor);
         GL13.glActiveTexture(GL_TEXTURE0);
         GL11.glBindTexture(GL_TEXTURE_3D, noiseTexture);
         clouds.set("uNoise", 0);
-        clouds.set("uDepth", 1);
-        clouds.set("uDepthSize", (float) wide, (float) high);
+        clouds.set("uSkyNear", 1);
+        clouds.set("uSkyNearSize", (float) levelWidth[0], (float) levelHeight[0]);
         clouds.set("uReach", soft ? 3f : 1f);
         setBasis(clouds, camera);
         clouds.set("uTan", tanHalfFieldOfView * aspect, tanHalfFieldOfView);
@@ -5122,6 +5131,7 @@ final class Pipeline {
         leaf = Program.link("falling leaves", PipelineShaders.LEAF_VERTEX, PipelineShaders.LEAF_FRAGMENT, problem);
         sky = Program.link("sky", SCREEN_VERTEX, Sky.FRAGMENT, problem);
         clouds = Program.link("clouds", SCREEN_VERTEX, Sky.CLOUDS, problem);
+        skyNear = Program.link("sky near", SCREEN_VERTEX, Sky.SKY_NEAR, problem);
         bolt = Program.link("lightning", Lightning.BOLT_VERTEX, Lightning.BOLT_FRAGMENT, problem);
         far = Program.link("far land", PipelineShaders.FAR_VERTEX, PipelineShaders.FAR_FRAGMENT, problem);
         farTree = Program.link("far trees", PipelineShaders.FAR_TREE_VERTEX, PipelineShaders.FAR_TREE_FRAGMENT, problem);
@@ -5689,6 +5699,8 @@ final class Pipeline {
             cloudTarget = target(cloudColor);
             softCloudColor = texture(GL_RGBA16F, levelWidth[0], levelHeight[0], GL_RGBA, GL_FLOAT, GL_LINEAR);
             softCloudTarget = target(softCloudColor);
+            skyNearColor = texture(GL_R8, levelWidth[0], levelHeight[0], GL_RED, GL_UNSIGNED_BYTE, GL_LINEAR);
+            skyNearTarget = target(skyNearColor);
             problem = complete("clouds");
         }
         if (problem == null) {

@@ -140,9 +140,9 @@ final class Sky {
             // Lightning inside the cloud: the way to where it glows, and its light. See Lightning.see.
             uniform vec3 uBurstWay;
             uniform vec3 uBurstLight;
-            // The depth of the picture the clouds are drawn for, and its size in pixels.
-            uniform sampler2D uDepth;
-            uniform vec2 uDepthSize;
+            // SKY_NEAR's answer for each of this pass's pixels, and the size of the texture it is in.
+            uniform sampler2D uSkyNear;
+            uniform vec2 uSkyNearSize;
             // How many of this pass's pixels either side of one the picture can read it from: one through
             // its own filtering, and two more where the clouds are softened first.
             uniform float uReach;
@@ -199,13 +199,14 @@ final class Sky {
             // Whether any pixel of the picture that can read this one shows the sky: the sky is drawn
             // only where nothing is, at the far plane. Where all of them are walls or leaves, what
             // the clouds would be here is never seen and is not marched.
+            // The pixels within uReach of this one each way are read two by two, at the corner the four
+            // of each square share: filtered there, the answer is above nought if any of the four is.
             bool skyRead() {
-                vec2 scale = uDepthSize / uSize;
-                vec2 from = max(ceil((gl_FragCoord.xy - uReach) * scale - 0.5), vec2(0.0));
-                vec2 to = min(floor((gl_FragCoord.xy + uReach) * scale - 0.5), uDepthSize - 1.0);
-                for (float y = from.y; y <= to.y; y += 1.0) {
-                    for (float x = from.x; x <= to.x; x += 1.0) {
-                        if (texture2D(uDepth, (vec2(x, y) + 0.5) / uDepthSize).r >= 1.0) {
+                vec2 here = floor(gl_FragCoord.xy);
+                for (float y = -uReach; y <= uReach; y += 2.0) {
+                    for (float x = -uReach; x <= uReach; x += 2.0) {
+                        vec2 corner = here + min(vec2(x, y), vec2(uReach - 1.0)) + 1.0;
+                        if (texture2D(uSkyNear, corner / uSkyNearSize).r > 0.0) {
                             return true;
                         }
                     }
@@ -268,6 +269,35 @@ final class Sky {
                     t += stride;
                 }
                 gl_FragColor = vec4(light * fade, 1.0 - (1.0 - through) * fade);
+            }
+            """;
+
+    /**
+     * For each pixel of the clouds' pass, 1 where the picture shows the sky at any of its own
+     * pixels whose middles fall in that one, and 0 where it shows none. The sky is drawn only
+     * where nothing is, at the far plane.
+     */
+    static final String SKY_NEAR = """
+            #version 120
+            uniform sampler2D uDepth;
+            // The picture's size, whose depth uDepth is, and the clouds' pass's.
+            uniform vec2 uDepthSize;
+            uniform vec2 uSize;
+
+            void main() {
+                vec2 scale = uDepthSize / uSize;
+                vec2 cell = floor(gl_FragCoord.xy);
+                vec2 from = ceil(cell * scale - 0.5);
+                vec2 to = min(ceil((cell + 1.0) * scale - 0.5), uDepthSize) - 1.0;
+                float sky = 0.0;
+                for (float y = from.y; y <= to.y; y += 1.0) {
+                    for (float x = from.x; x <= to.x; x += 1.0) {
+                        if (texture2D(uDepth, (vec2(x, y) + 0.5) / uDepthSize).r >= 1.0) {
+                            sky = 1.0;
+                        }
+                    }
+                }
+                gl_FragColor = vec4(sky);
             }
             """;
 
