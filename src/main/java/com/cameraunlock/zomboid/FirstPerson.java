@@ -596,6 +596,7 @@ public final class FirstPerson {
         overheadWaited = overheadAsked && !overhead;
         view.worldScene.level(overhead());
         rideAlong(player);
+        Panels.dashboard(view.index, active() && player != null && player.getVehicle() != null);
         tread(player);
         if ((on || !view.flight.home()) && !allowed) {
             if (on) {

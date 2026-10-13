@@ -31,6 +31,11 @@ final class Panels {
     /** Made of ISPanelJoypad too, and on the screen through play with nothing in them to point at. */
     private static final List<String> HEADS_UP_CLASSES = List.of("ISHotbar", "ISMiniMapOuter");
 
+    /** The Lua class of the panel the game shows a driver's instruments on. */
+    private static final String DASHBOARD_CLASS = "ISVehicleDashboard";
+    /** For each player, whether their dashboard panel is hidden by dashboard and not by the game. */
+    private static final boolean[] dashboardHidden = new boolean[4];
+
     private static final KahluaTable[] windowClasses = new KahluaTable[WINDOW_CLASSES.size()];
     private static final KahluaTable[] headsUpClasses = new KahluaTable[HEADS_UP_CLASSES.size()];
 
@@ -72,6 +77,35 @@ final class Panels {
             }
         }
         return open;
+    }
+
+    /**
+     * Hides the game's panel of a driver's instruments while the player is seated in first person,
+     * where the vehicle's own dials, wheel and lamps show it all, and shows it again when the view
+     * leaves first person in the seat. The game shows the panel as the player sits down and takes
+     * it off the screen as they get out, so it is hidden again on any frame it is up.
+     */
+    static void dashboard(int playerIndex, boolean hidden) {
+        KahluaTable dashboardClass = LuaManager.env.rawget(DASHBOARD_CLASS) instanceof KahluaTable table ? table : null;
+        if (dashboardClass == null || !hidden && !dashboardHidden[playerIndex]) {
+            return;
+        }
+        List<UIElementInterface> elements = UIManager.getUI();
+        for (int i = 0; i < elements.size(); i++) {
+            if (elements.get(i) instanceof UIElement element && element.getTable() != null && element.getTable().getMetatable() == dashboardClass
+                    && !isAnothers(element.getTable(), playerIndex)) {
+                if (hidden && element.isVisible()) {
+                    element.setVisible(false);
+                    dashboardHidden[playerIndex] = true;
+                } else if (!hidden) {
+                    element.setVisible(true);
+                    dashboardHidden[playerIndex] = false;
+                }
+            }
+        }
+        if (!hidden) {
+            dashboardHidden[playerIndex] = false;
+        }
     }
 
     /** The fields the game's panels keep their player in: a number in the first two, the player itself in the rest. */

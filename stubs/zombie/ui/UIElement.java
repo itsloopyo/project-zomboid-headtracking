@@ -6,6 +6,7 @@ public class UIElement implements UIElementInterface {
     public Double getY() { throw new UnsupportedOperationException("reference stub"); }
     public void setY(double y) { throw new UnsupportedOperationException("reference stub"); }
     public Boolean isVisible() { throw new UnsupportedOperationException("reference stub"); }
+    public void setVisible(boolean visible) { throw new UnsupportedOperationException("reference stub"); }
     public boolean isWantKeyEvents() { throw new UnsupportedOperationException("reference stub"); }
     public boolean isForceCursorVisible() { throw new UnsupportedOperationException("reference stub"); }
     public se.krka.kahlua.vm.KahluaTable getTable() { throw new UnsupportedOperationException("reference stub"); }
