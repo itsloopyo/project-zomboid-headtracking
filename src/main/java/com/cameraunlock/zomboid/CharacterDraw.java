@@ -14,6 +14,7 @@ import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL13;
 import org.lwjgl.opengl.GL15;
 import org.lwjgl.opengl.GL20;
+import org.lwjgl.opengl.GL30;
 import org.lwjgl.opengl.GL40;
 import zombie.core.skinnedmodel.model.Model;
 import zombie.core.skinnedmodel.model.ModelInstance;
@@ -80,7 +81,7 @@ final class CharacterDraw {
     private static final int GL_VERSION = 0x1F02;
     private static final int GL_TRIANGLES = 0x0004, GL_PATCHES = 0x000E, GL_PATCH_VERTICES = 0x8E72;
     private static final int GL_FLOAT = 0x1406, GL_UNSIGNED_INT = 0x1405;
-    private static final int GL_ARRAY_BUFFER = 0x8892, GL_ELEMENT_ARRAY_BUFFER = 0x8893, GL_BUFFER_SIZE = 0x8764, GL_STATIC_DRAW = 0x88E4;
+    private static final int GL_ARRAY_BUFFER = 0x8892, GL_ELEMENT_ARRAY_BUFFER = 0x8893, GL_BUFFER_SIZE = 0x8764, GL_STATIC_DRAW = 0x88E4, GL_VERTEX_ARRAY_BINDING = 0x85B5;
     private static final int GL_VERTEX_SHADER = 0x8B31, GL_FRAGMENT_SHADER = 0x8B30, GL_TESS_CONTROL_SHADER = 0x8E88, GL_TESS_EVALUATION_SHADER = 0x8E87;
     private static final int GL_COMPILE_STATUS = 0x8B81, GL_LINK_STATUS = 0x8B82;
     private static final int GL_CULL_FACE = 0x0B44, GL_FRONT = 0x0404, GL_DEPTH_TEST = 0x0B71, GL_LESS = 0x0201, GL_LEQUAL = 0x0203, GL_BLEND = 0x0BE2, GL_BACK = 0x0405;
@@ -1090,8 +1091,8 @@ final class CharacterDraw {
     private static final class Copy {
         final VertexBufferObject from;
         final int modification;
-        /** Zero for a mesh the picture cannot draw, which is left to the game. */
-        final int vertices, indices, count;
+        /** Zero for a mesh the picture cannot draw, which is left to the game. The vertex array holds the other two and how the vertices are read. */
+        final int vertices, indices, array, count;
         /** The right arm and the left, and the bone of each hand: null for a mesh that is not drawn. */
         final Limb[] limbs;
         final int[] handBone;
@@ -1100,11 +1101,12 @@ final class CharacterDraw {
         /** What this mesh was found to be made of in each texture it has been drawn in. */
         final HashMap<String, Integer> wears = new HashMap<>();
 
-        Copy(VertexBufferObject from, int modification, int vertices, int indices, int count, Limb[] limbs, int[] handBone, float[] lay) {
+        Copy(VertexBufferObject from, int modification, int vertices, int indices, int array, int count, Limb[] limbs, int[] handBone, float[] lay) {
             this.from = from;
             this.modification = modification;
             this.vertices = vertices;
             this.indices = indices;
+            this.array = array;
             this.count = count;
             this.limbs = limbs;
             this.handBone = handBone;
@@ -1688,9 +1690,6 @@ final class CharacterDraw {
             GL11.glDepthFunc(GL_LESS);
             GL11.glDepthMask(true);
             GL11.glDisable(GL_BLEND);
-            for (int attribute = 0; attribute < ATTRIBUTES; attribute++) {
-                GL20.glEnableVertexAttribArray(attribute);
-            }
             drawing = true;
             culled = UNKNOWN;
             programInUse = 0;
@@ -1779,11 +1778,7 @@ final class CharacterDraw {
         GL20.glUniform2f(skin.uvScale, uvScale.x, uvScale.y);
         GL20.glUniform2f(skin.texSize, worn.getWidth() / uvScale.x, worn.getHeight() / uvScale.y);
 
-        GL15.glBindBuffer(GL_ARRAY_BUFFER, copy.vertices);
-        for (int attribute = 0; attribute < ATTRIBUTES; attribute++) {
-            GL20.glVertexAttribPointer(attribute, SIZE[attribute], GL_FLOAT, false, STRIDE, OFFSET[attribute]);
-        }
-        GL15.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, copy.indices);
+        GL30.glBindVertexArray(copy.array);
         if (skin == divided) {
             GL20.glUniform2f(skin.fine, FINE_WITHIN, WHOLE_BEYOND);
             GL40.glPatchParameteri(GL_PATCH_VERTICES, 3);
@@ -1800,7 +1795,7 @@ final class CharacterDraw {
 
     /**
      * Whether parts are being drawn one after another (part): what every part sets alike,
-     * the depth test, no blending, the vertex arrays, is then set already, and the culling, the
+     * the depth test and no blending, is then set already, and the culling, the
      * program and the draw buffers are as the last part left them. peopleBegun counts the people
      * begun, for what a program is told once a person (Skin.heldFor).
      */
@@ -1809,9 +1804,8 @@ final class CharacterDraw {
     private static final int UNKNOWN = -1;
 
     /**
-     * Before anything else draws, and at the end of a pass over the people: the game's draw of
-     * a part turns on only the arrays its own mesh has, and one left on from here would be read
-     * past the end of the last part's buffer, so they are turned off; the buffers are let go
+     * Before anything else draws, and at the end of a pass over the people: the parts' vertex
+     * arrays are let go, so that the game's draws go back to its own, the buffers are let go
      * and the second draw buffer closed. What the programs were told is told again, since
      * whatever drew in between may have used them.
      */
@@ -1821,9 +1815,7 @@ final class CharacterDraw {
             return;
         }
         drawing = false;
-        for (int attribute = 0; attribute < ATTRIBUTES; attribute++) {
-            GL20.glDisableVertexAttribArray(attribute);
-        }
+        GL30.glBindVertexArray(0);
         GL15.glBindBuffer(GL_ARRAY_BUFFER, 0);
         GL15.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
         if (bothBuffers) {
@@ -1962,6 +1954,7 @@ final class CharacterDraw {
         int had = copies.size();
         for (Copy copy : copies.values()) {
             if (copy.count != 0) {
+                GL30.glDeleteVertexArrays(copy.array);
                 GL15.glDeleteBuffers(copy.vertices);
                 GL15.glDeleteBuffers(copy.indices);
             }
@@ -2065,6 +2058,7 @@ final class CharacterDraw {
             return null;
         }
         if (copy != null && copy.count != 0) {
+            GL30.glDeleteVertexArrays(copy.array);
             GL15.glDeleteBuffers(copy.vertices);
             GL15.glDeleteBuffers(copy.indices);
         }
@@ -2099,7 +2093,7 @@ final class CharacterDraw {
                 : count == 0 ? "it has no triangles" : null;
         if (lacks != null) {
             Log.info("the model " + name + " is left to the game's own draw: " + lacks);
-            return new Copy(buffer, modification, 0, 0, 0, null, null, null);
+            return new Copy(buffer, modification, 0, 0, 0, 0, null, null, null);
         }
 
         GL15.glBindBuffer(GL_ARRAY_BUFFER, handle.vboId);
@@ -2111,7 +2105,7 @@ final class CharacterDraw {
             if (elements[corner] < 0 || elements[corner] >= vertices) {
                 GL15.glBindBuffer(GL_ARRAY_BUFFER, 0);
                 Log.info("the model " + name + " is left to the game's own draw: a triangle names vertex " + elements[corner] + " of " + vertices);
-                return new Copy(buffer, modification, 0, 0, 0, null, null, null);
+                return new Copy(buffer, modification, 0, 0, 0, 0, null, null, null);
             }
         }
 
@@ -2128,7 +2122,7 @@ final class CharacterDraw {
             if (!Float.isFinite(places[vertex * 3]) || !Float.isFinite(places[vertex * 3 + 1]) || !Float.isFinite(places[vertex * 3 + 2])) {
                 GL15.glBindBuffer(GL_ARRAY_BUFFER, 0);
                 Log.info("the model " + name + " is left to the game's own draw: vertex " + vertex + " has a place that is not a number");
-                return new Copy(buffer, modification, 0, 0, 0, null, null, null);
+                return new Copy(buffer, modification, 0, 0, 0, 0, null, null, null);
             }
         }
         int[] one = firstAt(places);
@@ -2167,15 +2161,23 @@ final class CharacterDraw {
             made.put(along, vertex * 4, 4);
         }
         made.flip();
+        // A copy can be made between two parts, with the last part's vertex array bound: that is bound again after.
+        int bound = GL11.glGetInteger(GL_VERTEX_ARRAY_BINDING);
+        int array = GL30.glGenVertexArrays();
+        GL30.glBindVertexArray(array);
         int ours = GL15.glGenBuffers();
         GL15.glBindBuffer(GL_ARRAY_BUFFER, ours);
         GL15.glBufferData(GL_ARRAY_BUFFER, made, GL_STATIC_DRAW);
+        for (int attribute = 0; attribute < ATTRIBUTES; attribute++) {
+            GL20.glVertexAttribPointer(attribute, SIZE[attribute], GL_FLOAT, false, STRIDE, OFFSET[attribute]);
+            GL20.glEnableVertexAttribArray(attribute);
+        }
         GL15.glBindBuffer(GL_ARRAY_BUFFER, 0);
         int indices = GL15.glGenBuffers();
         GL15.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indices);
         GL15.glBufferData(GL_ELEMENT_ARRAY_BUFFER, elements.length == count ? elements : Arrays.copyOf(elements, count), GL_STATIC_DRAW);
-        GL15.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-        return new Copy(buffer, modification, ours, indices, count, limbs, handBone, laid(places, uvs, elements, count));
+        GL30.glBindVertexArray(bound);
+        return new Copy(buffer, modification, ours, indices, array, count, limbs, handBone, laid(places, uvs, elements, count));
     }
 
     /** Which vertex is the first at each place a mesh has a vertex: a mesh holds a corner several times over where its texture has a seam there. */
