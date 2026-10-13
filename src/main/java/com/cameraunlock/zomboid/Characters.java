@@ -483,7 +483,13 @@ public final class Characters {
             carsFromX = camera.eyeX;
             carsFromY = camera.eyeY;
         }
-        int drawn = draw(eyeView, false, false, null, camera.eyeX, camera.eyeY, vehicles ? MIRROR_VEHICLES : MIRROR_PEOPLE);
+        CharacterDraw.plainly = true;
+        int drawn;
+        try {
+            drawn = draw(eyeView, false, false, null, camera.eyeX, camera.eyeY, vehicles ? MIRROR_VEHICLES : MIRROR_PEOPLE);
+        } finally {
+            CharacterDraw.plainly = false;
+        }
         notingCars = false;
         mirrored = false;
         only = ALL;

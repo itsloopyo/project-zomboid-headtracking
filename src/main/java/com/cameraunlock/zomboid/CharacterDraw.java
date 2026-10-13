@@ -58,7 +58,7 @@ final class CharacterDraw {
     /** The game draws nothing of a person, or of a texel, fainter than this. */
     private static final float FAINTEST = 0.01f;
     /** Within this many tiles of the eye a triangle is divided most finely, and beyond the second not at all. */
-    static final float FINE_WITHIN = 3f, WHOLE_BEYOND = 12f;
+    static final float FINE_WITHIN = 3f, WHOLE_BEYOND = 7f;
     /**
      * A person whose feet are this much further off than WHOLE_BEYOND has no edge within it, and is
      * drawn by the undivided program: divided into itself a triangle is the same triangle.
@@ -1155,6 +1155,11 @@ final class CharacterDraw {
      * front to its back once more.
      */
     static boolean mirrored;
+    /**
+     * Set while people are drawn into the small picture of a vehicle's mirror, where nobody is
+     * big enough to show divided triangles, a finer skin or a fringe of hair.
+     */
+    static boolean plainly;
     /** For each skeleton, the bones of its head. */
     private static final IdentityHashMap<SkinningData, int[]> heads = new IdentityHashMap<>();
     private static final String HEAD_BONE = "Bip01_Head";
@@ -1691,7 +1696,7 @@ final class CharacterDraw {
         }
         // Making a finer skin runs the game's combiner, so it is asked for before any of
         // this part's state is set. A shadow has no skin at all.
-        Texture worn = finelySkinned ? FineSkins.of(texture) : texture;
+        Texture worn = finelySkinned && !plainly ? FineSkins.of(texture) : texture;
 
         if (!drawing) {
             GL11.glEnable(GL_DEPTH_TEST);
@@ -1724,7 +1729,7 @@ final class CharacterDraw {
             culled = cull;
         }
 
-        Skin skin = cutBones != null ? cut : divided != null && !shadow && away < WHOLE_BEYOND + PERSON_REACHES ? divided : whole;
+        Skin skin = cutBones != null ? cut : divided != null && !shadow && !plainly && away < WHOLE_BEYOND + PERSON_REACHES ? divided : whole;
         if (skin.id != programInUse) {
             Program.useOther(skin.id);
             programInUse = skin.id;
@@ -1793,7 +1798,7 @@ final class CharacterDraw {
         }
         // Hair is drawn again in a few layers stood off it, each thinner than the last: its
         // outline is then strands and not the edge of a helmet. The viewer's own is not seen.
-        int layers = unlit && !fromTheEye && cutBones == null ? fringe(wear, away) : 0;
+        int layers = unlit && !fromTheEye && !plainly && cutBones == null ? fringe(wear, away) : 0;
         for (int layer = 0; layer <= layers; layer++) {
             shell(skin.id, layer, layers, person.finalScale);
             GL11.glDrawElements(skin == divided ? GL_PATCHES : GL_TRIANGLES, copy.count, GL_UNSIGNED_INT, 0L);
