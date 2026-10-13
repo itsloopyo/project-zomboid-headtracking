@@ -107,6 +107,8 @@ final class OwnModel {
      * sights lined up, over the bore and behind the grip.
      */
     float muzzleFar, sightLine, eyeBehind;
+    /** In the model's metres, how far ahead of the grip its rear sight is, which with the sights up is what the eye is behind. */
+    float rearSight;
     /**
      * Where the hand under the fore-end holds it and how far the fore-end travels, as shares of
      * the way from the grip to the muzzle.
@@ -354,7 +356,7 @@ final class OwnModel {
      * The model's file unpacked and read, and where the hands go on it: worked out on another
      * thread, as reading where the hands go took a whole frame of the render thread's.
      */
-    private record Read(ByteBuffer bytes, Layout layout, WeaponShape shape, String why) {}
+    private record Read(ByteBuffer bytes, Layout layout, WeaponShape shape, float rearSight, String why) {}
 
     private Read read() throws IOException {
         ByteBuffer read = ByteBuffer.wrap(unpacked(mesh)).order(ByteOrder.LITTLE_ENDIAN);
@@ -363,8 +365,26 @@ final class OwnModel {
             throw new IOException(mesh + " has " + layout.counts.length + " parts, where what draws " + what + " draws " + parts);
         }
         StringBuilder why = new StringBuilder();
-        WeaponShape shape = WeaponShape.read(layout.places(read), layout.corners(read), new float[] {0f, 1f, 0f}, top(), layout.muzzle.clone(), 1f, why);
-        return new Read(read, layout, shape, why.toString());
+        float[] places = layout.places(read);
+        WeaponShape shape = WeaponShape.read(places, layout.corners(read), new float[] {0f, 1f, 0f}, top(), layout.muzzle.clone(), 1f, why);
+        return new Read(read, layout, shape, rearSight(places, layout.muzzle, top()), why.toString());
+    }
+
+    /**
+     * How far ahead of the grip a handgun's rear sight is, in the model's metres, along its bore:
+     * the highest point of the back half of the model, over its top. Behind the grip it is less
+     * than nought.
+     */
+    static float rearSight(float[] places, float[] muzzle, float[] top) {
+        float highest = Float.NEGATIVE_INFINITY, along = Float.NaN;
+        for (int at = 0; at < places.length; at += 3) {
+            float up = places[at] * top[0] + places[at + 1] * top[1] + places[at + 2] * top[2];
+            if (places[at + 1] < muzzle[1] / 2f && up > highest) {
+                highest = up;
+                along = places[at + 1];
+            }
+        }
+        return along;
     }
 
     private String make(Program program) {
@@ -381,6 +401,7 @@ final class OwnModel {
             travel = layout.travel;
             sightLine = layout.sightLine;
             eyeBehind = layout.eyeBehind;
+            rearSight = made.rearSight;
             moves = layout.moves;
             int parts = layout.counts.length, indices = 0;
             firstIndex = new int[parts];

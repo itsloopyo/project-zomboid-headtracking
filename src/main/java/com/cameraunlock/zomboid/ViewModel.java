@@ -699,6 +699,35 @@ public final class ViewModel {
      * with and a margin.
      */
     static final float FORWARD_STOP = AIMED_AHEAD - 0.08f - 0.02f;
+    /** The near plane the weapon is drawn with and the margin, which the eye stops short of the rear sight by, in tiles. */
+    private static final float SHORT_OF_SIGHT = AIMED_AHEAD - FORWARD_STOP;
+
+    /**
+     * The forward stop for the mod's own handgun: its rear sight's way from the eye with the
+     * sights up, less the near plane and the margin.
+     *
+     * @param eyeBehind      how far behind the grip the model's eye is, in the model's metres
+     * @param rearSight      how far ahead of the grip its rear sight is, in the model's metres
+     * @param tilesPerMetre  the size it is drawn at
+     */
+    static float handgunStop(float eyeBehind, float rearSight, float tilesPerMetre) {
+        return (eyeBehind + rearSight) * tilesPerMetre - SHORT_OF_SIGHT;
+    }
+
+    /**
+     * How much the mod's own handgun is scaled from the game's model it stands for, held in the
+     * mod's own hands: to the size the long guns are drawn at, a metre of it PER_METRE of the
+     * game's units.
+     *
+     * @param muzzleFar  how far its muzzle is from its grip, in its metres
+     * @param gameMuzzle how far the game's model's muzzle is from its grip, in that model's units
+     */
+    static float ownHandgunFits(float muzzleFar, float gameMuzzle) {
+        return Characters.PER_METRE * muzzleFar / gameMuzzle;
+    }
+
+    /** The forward stop for the mod's own handgun held now, worked out where it is placed. */
+    private volatile float ownStop = FORWARD_STOP;
 
     /**
      * The same for what is held now. The mod's own shotgun has no rear sight: with the sights
@@ -711,10 +740,13 @@ public final class ViewModel {
         if (now != null && now.firearm && view.scope.fitted() != null) {
             return view.scope.forwardStop();
         }
-        // The mod's own long guns' rear sights are on their barrels, further off than a lean reaches. A handgun's is over
-        // its grip, where the game's handguns have theirs.
+        // The mod's own long guns' rear sights are on their barrels, further off than a lean reaches. A handgun's is on
+        // its top, about over its grip, where the eye with the sights up is a model's own way behind it.
         OwnModel own = now == null ? null : now.ownDrawn();
-        return own != null && !own.handgun ? Float.POSITIVE_INFINITY : FORWARD_STOP;
+        if (own == null) {
+            return FORWARD_STOP;
+        }
+        return own.handgun ? ownStop : Float.POSITIVE_INFINITY;
     }
     /**
      * Where a handgun and a long gun are held to be loaded: the line of the barrel to the right
@@ -880,7 +912,7 @@ public final class ViewModel {
         // The game's handguns are made for its own broad hands, nearly twice the size a handgun
         // is beside its long guns. In hands the size hands are they are drawn the size they would be:
         // the mod's own handgun, which is made the size it is, at the size the long guns are drawn.
-        float fits = trueHands && handgun ? own != null ? Characters.PER_METRE * own.muzzleFar / muzzleOut : HANDGUN_FITS : 1f;
+        float fits = trueHands && handgun ? own != null ? ownHandgunFits(own.muzzleFar, muzzleOut) : HANDGUN_FITS : 1f;
         scale *= fits;
         float aimedY = AIMED_Y * fits, aimedAhead = AIMED_AHEAD;
         if (own != null) {
@@ -888,6 +920,9 @@ public final class ViewModel {
                     + (end[2] - origin[2]) * (end[2] - origin[2]));
             aimedY = -own.sightLine * long3 * scale / own.muzzleFar;
             aimedAhead = own.eyeBehind * long3 * scale / own.muzzleFar;
+            if (own.handgun) {
+                ownStop = handgunStop(own.eyeBehind, own.rearSight, long3 * scale / own.muzzleFar);
+            }
         }
         // Behind a scope the eye is on the scope's axis, the eye relief behind its eyepiece.
         if (hasMuzzle && view.scope.sighted(weapon, finalScale, origin, forward, top, end, scale, sighted)) {
