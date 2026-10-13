@@ -4,7 +4,10 @@ import java.util.Arrays;
 import java.util.Locale;
 import java.util.concurrent.ConcurrentHashMap;
 import org.joml.Vector3f;
+import zombie.Lua.LuaManager;
 import zombie.characters.IsoPlayer;
+import zombie.inventory.InventoryItem;
+import zombie.inventory.types.HandWeapon;
 import zombie.scripting.objects.VehicleScript;
 import zombie.vehicles.BaseVehicle;
 import zombie.vehicles.VehiclePart;
@@ -106,6 +109,7 @@ final class Ride {
     private int seatSaid;
     private int wearAsked;
     private int nearAsked;
+    private boolean wasDriving;
 
 
     /**
@@ -141,6 +145,7 @@ final class Ride {
         instrumentsLit = vehicle != null && vehicle.isEngineRunning();
         if (vehicle == null) {
             tilt = null;
+            wasDriving = false;
             return;
         }
         vehicle.getForwardVector(facing);
@@ -184,6 +189,10 @@ final class Ride {
 
         int seat = vehicle.getSeat(player);
         driving = seat == 0;
+        if (driving && !wasDriving) {
+            putOutHandLights(player);
+        }
+        wasDriving = driving;
         doorOpen = seat >= 0 && Cabins.doorOpen(vehicle, seat);
         skin = player.getHumanVisual().getSkinTextureIndex();
         // What is worn changes seldom, and asking makes a list for every garment.
@@ -215,6 +224,21 @@ final class Ride {
         VehiclePart door = vehicle.getPassengerDoor(vehicle.getSeat(player));
         VehicleWindow window = door == null ? null : door.findWindow();
         return window != null && !window.isHittable();
+    }
+
+    /**
+     * A driver's hands are on the wheel, so a light carried in one is switched off as they take
+     * the seat, as the game's own toggle does it. They can switch it on again.
+     */
+    private static void putOutHandLights(IsoPlayer player) {
+        for (InventoryItem held : new InventoryItem[] {player.getPrimaryHandItem(), player.getSecondaryHandItem()}) {
+            if (held != null && !(held instanceof HandWeapon) && held.canBeActivated() && held.isActivated() && held.getLightDistance() > 0) {
+                held.setActivated(false);
+                LuaManager.GlobalObject.syncItemActivated(player, held);
+                held.playActivateDeactivateSound();
+                Log.info("a " + held.getFullType() + " in hand switched off as the player took the driver's seat");
+            }
+        }
     }
 
     /** Whether the player sits in the driver's seat of a vehicle. */

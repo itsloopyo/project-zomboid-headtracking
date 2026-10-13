@@ -14,6 +14,9 @@ public class InventoryItem {
     public int getConditionMax() { throw new UnsupportedOperationException("reference stub"); }
     public void setCondition(int condition) { throw new UnsupportedOperationException("reference stub"); }
     public void setCurrentUsesFloat(float share) { throw new UnsupportedOperationException("reference stub"); }
+    public boolean canBeActivated() { throw new UnsupportedOperationException("reference stub"); }
+    public boolean isActivated() { throw new UnsupportedOperationException("reference stub"); }
+    public void playActivateDeactivateSound() { throw new UnsupportedOperationException("reference stub"); }
     public void setActivated(boolean activated) { throw new UnsupportedOperationException("reference stub"); }
     public int getLightDistance() { throw new UnsupportedOperationException("reference stub"); }
     public boolean isTorchCone() { throw new UnsupportedOperationException("reference stub"); }
