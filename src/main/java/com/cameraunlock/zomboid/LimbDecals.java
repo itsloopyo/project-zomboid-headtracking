@@ -227,7 +227,26 @@ final class LimbDecals {
         return ((long) x << 36) ^ ((long) (y & 0xFFFFFFF) << 8) ^ (z & 0xFF);
     }
 
-    /** Everything lying is forgotten. Tests only. */
+    /**
+     * Gives the graphics card back the pictures and the target they are made in, and forgets
+     * everything lying: no build is left to draw them. Render thread.
+     */
+    static void letGo() {
+        if (atlas == 0) {
+            forget();
+            return;
+        }
+        GL30.glDeleteFramebuffers(atlasTarget);
+        GL30.glDeleteFramebuffers(scratch);
+        GL11.glDeleteTextures(atlas);
+        GL11.glDeleteTextures(scratchColor);
+        GL11.glDeleteTextures(scratchDepth);
+        atlas = atlasTarget = scratch = scratchColor = scratchDepth = 0;
+        forget();
+        Log.info("the pictures of pieces lying on the ground are given back to the graphics card");
+    }
+
+    /** Everything lying is forgotten: the save it lay in was left. Any thread. */
     static void forget() {
         synchronized (lock) {
             java.util.Arrays.fill(bySlot, null);

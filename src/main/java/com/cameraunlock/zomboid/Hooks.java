@@ -133,6 +133,7 @@ public final class Hooks {
         Tracking.leftSave();
         Impacts.forget();
         Fires.forget();
+        LimbDecals.forget();
         for (int i = 0; i < View.COUNT; i++) {
             View view = View.of(i);
             if (view != null) {

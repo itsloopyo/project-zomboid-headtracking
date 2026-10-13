@@ -5481,6 +5481,7 @@ final class Pipeline {
                 }
             }
             Decor.letGo();
+            LimbDecals.letGo();
             Flats.letGo();
             Rugs.letGo();
             Trims.letGo();
