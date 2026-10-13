@@ -3722,6 +3722,14 @@ final class Pipeline {
             float near, float far, float fogStart, float fogEnd) {
         // Flesh and cloth first, then painted metal, which is lit as lacquer.
         for (int pass = 0; pass < 2; pass++) {
+            if (pass == 1 && !view.characters.vehiclesNoted()) {
+                // Nothing to draw, and the program is left told what the vehicles' pass tells it: the viewer's own body is lit by it next.
+                figureLight.set("uMoves", 0.5f);
+                figureLight.set("uHaveFacing", 0f);
+                figureLight.set("uRoots", 0f);
+                figureLight.set("uPainted", 1f);
+                break;
+            }
             GL30.glBindFramebuffer(GL_FRAMEBUFFER, figureTarget);
             GL11.glViewport(0, 0, width, height);
             GL11.glClearColor(0f, 0f, 0f, 0f);
@@ -4265,7 +4273,7 @@ final class Pipeline {
      */
     private void drawFiguresAside(ViewCamera.Pose pose, float tan, float aspect, float near, int wide, int high, int figureTarget, int figureColor,
             int figureNormal, int figureLamps, int worldTarget, int worldDepth, boolean mirror, SkyState state, float far, float fogStart, float fogEnd) {
-        for (int pass = 0; pass < 2; pass++) {
+        for (int pass = 0; pass < 2 && (pass == 0 || view.characters.vehiclesNoted()); pass++) {
             GL30.glBindFramebuffer(GL_FRAMEBUFFER, figureTarget);
             GL11.glViewport(0, 0, wide, high);
             GL11.glClearColor(0f, 0f, 0f, 0f);

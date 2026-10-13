@@ -336,6 +336,16 @@ public final class Characters {
         return true;
     }
 
+    /** Whether the game drew any vehicle this frame: with none, a picture's pass for vehicles has nothing to draw. */
+    boolean vehiclesNoted() {
+        for (int i = 0; i < noted.size(); i++) {
+            if (noted.get(i).character == null) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /**
      * Draws the models the game drew this frame through the first-person camera, into
      * whatever target is bound. The target's depth has to be the world's, so a zombie behind a
