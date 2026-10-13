@@ -25,6 +25,7 @@ final class LeafFallTests {
         Checks.run("aJumpOfTheEyeLetsEveryLeafGo", LeafFallTests::aJumpOfTheEyeLetsEveryLeafGo);
         Checks.run("aLeafBlownAtABuildingIsCaughtAndFadesOrGoesOver", LeafFallTests::aLeafBlownAtABuildingIsCaughtAndFadesOrGoesOver);
         Checks.run("aGroundFloorOnAHillCatchesALeaf", LeafFallTests::aGroundFloorOnAHillCatchesALeaf);
+        Checks.run("noLeafLetsGoInsideAHouseACrownReachesOver", LeafFallTests::noLeafLetsGoInsideAHouseACrownReachesOver);
         Checks.run("nothingMovesWhileThePictureWaits", LeafFallTests::nothingMovesWhileThePictureWaits);
     }
 
@@ -429,6 +430,28 @@ final class LeafFallTests {
             }
         }
         Checks.check(fall.spawned > 100, "leaves were let go towards the house: " + fall.spawned);
+    }
+
+    /**
+     * A tree beside a two-storey house whose crown reaches over it: in still air no leaf lets
+     * go inside its rooms, so none is ever seen within its walls, and some fall outside.
+     */
+    private static void noLeafLetsGoInsideAHouseACrownReachesOver() {
+        LeafFall fall = new LeafFall();
+        fall.beginTrees(0f, 0f);
+        fall.offer(-0.5f, 0.5f, 0f, MAPLE, shedding(1f), true, LOW, HIGH, OUT);
+        fall.endTrees();
+        Flat house = new Flat(0, 3);
+        float[] leaves = new float[LeafFall.MOST * LeafFall.FLOATS];
+        for (int round = 0; round < 600; round++) {
+            fall.step(1f / 30f, 0f, 0f, 0.5f, Seasons.AUTUMN, PEAK_AUTUMN, 0f, 0f, house);
+            int count = fall.write(leaves, 0f, 0f);
+            for (int i = 0; i < count; i++) {
+                // Its swing takes the drawn middle a little either side of where it drifts.
+                Checks.check(leaves[i * LeafFall.FLOATS + LeafFall.X] < 0.5f, "no leaf is in the house: " + leaves[i * LeafFall.FLOATS + LeafFall.X]);
+            }
+        }
+        Checks.check(fall.spawned > 30, "leaves let go outside it: " + fall.spawned);
     }
 
     private static void nothingMovesWhileThePictureWaits() {

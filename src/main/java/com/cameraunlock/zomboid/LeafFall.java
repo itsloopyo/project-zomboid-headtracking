@@ -195,6 +195,11 @@ final class LeafFall {
         return Math.max((int) Math.floor((up - ground) / ViewCamera.LEVEL_HEIGHT), 0);
     }
 
+    /** A number for the square and storey a leaf at (x, y, up) over ground at that height is in: the walls are asked again only when it changes. */
+    private static int squareOf(float x, float y, float up, float ground) {
+        return (int) Math.floor(x) * 73856093 ^ (int) Math.floor(y) * 19349663 ^ storey(up, ground) * 83492791;
+    }
+
     /** The share of its leaves a tree that far from the eye is given to let go of: all within NEAR, less further off. */
     static float nearness(float away) {
         return 1f - 0.7f * smooth((away - NEAR) / (REACH - NEAR));
@@ -261,7 +266,7 @@ final class LeafFall {
             owed[t] += rate * more * dt;
             while (owed[t] >= 1f) {
                 owed[t] -= 1f;
-                spawn(t, season, progression, windy, driftX, driftY);
+                spawn(t, season, progression, windy, driftX, driftY, on);
             }
         }
     }
@@ -297,11 +302,10 @@ final class LeafFall {
         if (fromX * fromX + fromY * fromY > KEPT * KEPT) {
             return false;
         }
-        int sx = (int) Math.floor(x[i]), sy = (int) Math.floor(y[i]), level = storey(up[i], ground[i]);
-        int at = sx * 73856093 ^ sy * 19349663 ^ level * 83492791;
+        int at = squareOf(x[i], y[i], up[i], ground[i]);
         if (at != square[i]) {
             square[i] = at;
-            if (on.walled(sx, sy, up[i])) {
+            if (on.walled((int) Math.floor(x[i]), (int) Math.floor(y[i]), up[i])) {
                 // Caught against the wall where it met it, and fades there.
                 caught[i] = true;
                 landed[i] = Math.max(landed[i], 0f);
@@ -341,19 +345,25 @@ final class LeafFall {
     }
 
     /** Lets a leaf go from somewhere in tree t's crown. With every place taken none is, and a lying leaf starts to fade in the next step to make room. */
-    private void spawn(int t, int season, float progression, float windy, float driftX, float driftY) {
+    private void spawn(int t, int season, float progression, float windy, float driftX, float driftY, Ground on) {
         if (count == MOST) {
             refused++;
             return;
         }
-        int i = count++;
-        released[t]++;
         // From the outer part of the crown, which is where the wind gets at the leaves.
         double angle = 2.0 * Math.PI * next();
         float out = OUT_MOST * treeReach[t] * (float) Math.sqrt(0.3f + 0.7f * next());
-        x[i] = treeX[t] + out * (float) Math.cos(angle);
-        y[i] = treeY[t] + out * (float) Math.sin(angle);
-        up[i] = treeGround[t] + treeLow[t] + (treeHigh[t] - treeLow[t]) * next();
+        float fromX = treeX[t] + out * (float) Math.cos(angle), fromY = treeY[t] + out * (float) Math.sin(angle);
+        float fromUp = treeGround[t] + treeLow[t] + (treeHigh[t] - treeLow[t]) * next();
+        // A crown that reaches over a house has no leaves inside its rooms to let go of.
+        if (on.walled((int) Math.floor(fromX), (int) Math.floor(fromY), fromUp)) {
+            return;
+        }
+        int i = count++;
+        released[t]++;
+        x[i] = fromX;
+        y[i] = fromY;
+        up[i] = fromUp;
         ground[i] = treeGround[t];
         vx[i] = driftX * 0.3f;
         vy[i] = driftY * 0.3f;
@@ -373,7 +383,7 @@ final class LeafFall {
         half[i] = HALF_LEAST + (HALF_MOST - HALF_LEAST) * next();
         hue[i] = treeHue[t];
         turned[i] = Math.clamp(Seasons.turned(season, Seasons.stepped(season, progression), treeHash[t]) + 0.35f * (next() - 0.4f), 0f, 1f);
-        square[i] = Integer.MIN_VALUE;
+        square[i] = squareOf(fromX, fromY, fromUp, treeGround[t]);
         caught[i] = false;
         spawned++;
     }
