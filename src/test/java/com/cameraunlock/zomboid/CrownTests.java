@@ -28,6 +28,7 @@ final class CrownTests {
         Checks.run("everySprigSaysTheColourItsLeavesTurnAndHowFar", CrownTests::everySprigSaysTheColourItsLeavesTurnAndHowFar);
         Checks.run("autumnColourIsChosenByTheSpecies", CrownTests::autumnColourIsChosenByTheSpecies);
         Checks.run("aShadowOnlyFanSaysHowMuchShadowItThrows", CrownTests::aShadowOnlyFanSaysHowMuchShadowItThrows);
+        Checks.run("woodAndRoundThingsAreLitByAWayOfLengthOne", CrownTests::woodAndRoundThingsAreLitByAWayOfLengthOne);
     }
 
     /** The sprigs of a crown, each by where its four corners are, to the thousandth of a tile. */
@@ -192,6 +193,43 @@ final class CrownTests {
             for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
                 check(mesh.vertices[at + SpriteGeometry.ROOT_AT] == SpriteGeometry.NO_ROOT, "a bush's vertex is no tree's, its core and twigs included");
             }
+        }
+    }
+
+    /**
+     * Wood and a round thing are lit by the way out of them, given as it is with no length taken
+     * off it: it has to be of length 1 already, with only the wind's share (at most 0.3) on
+     * it, or the picture takes the wrong sway off it. A round thing stands still, and faces
+     * straight out from its axis.
+     */
+    private static void woodAndRoundThingsAreLitByAWayOfLengthOne() {
+        SpriteGeometry.Frame frame = frame();
+        float[] places = Flora.leafPlaces(CrownTests::leaf, frame);
+        for (int sprig : new int[] {Flora.MAPLE, Flora.BARE}) {
+            for (float detail : new float[] {1f, 0.8f}) {
+                SpriteGeometry.Mesh leaves = new SpriteGeometry.Mesh(), wood = new SpriteGeometry.Mesh();
+                check(Flora.addCrown(leaves, wood, frame, places, 10.5f, 20.5f, 0f, FOOT_U, FOOT_V, detail, 1f, 0.12f, 1.2f, Flora.BARK_OAK, sprig, 7, Flora.OPEN, 1f, 0, 0f)
+                        && wood.floats > 0, "a crown with wood in it");
+                boolean unit = true;
+                for (int at = 0; at < wood.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+                    float length = (float) Math.sqrt(wood.vertices[at + 9] * wood.vertices[at + 9] + wood.vertices[at + 10] * wood.vertices[at + 10]
+                            + wood.vertices[at + 11] * wood.vertices[at + 11]);
+                    unit &= length > 1f - 1e-5f && length < 1.3f + 1e-5f;
+                }
+                check(unit, "every vertex of its wood is lit by a way of length 1 and the wind's share on it");
+            }
+        }
+        SpriteGeometry.Mesh round = new SpriteGeometry.Mesh();
+        for (int sides : new int[] {6, 8, 12}) {
+            round.clear();
+            SpriteGeometry.addRound(round, 1.5f, 2.5f, 0.1f, 0.9f, 0.2f, 0.1f, sides, 0f, 0f, 1f, 1f, 1f);
+            boolean outward = true;
+            for (int at = 0; at < sides * 6 * SpriteGeometry.VERTEX_FLOATS; at += SpriteGeometry.VERTEX_FLOATS) {
+                float nx = round.vertices[at + 9], ny = round.vertices[at + 10], nz = round.vertices[at + 11];
+                float ox = round.vertices[at] - 1.5f, oy = round.vertices[at + 1] - 2.5f;
+                outward &= Math.abs(nx * nx + ny * ny + nz * nz - 1f) < 1e-5f && Math.abs(nx * oy - ny * ox) < 1e-5f && nx * ox + ny * oy > 0f;
+            }
+            check(outward, "a round thing of " + sides + " sides faces straight out of its axis, by a way of length 1");
         }
     }
 

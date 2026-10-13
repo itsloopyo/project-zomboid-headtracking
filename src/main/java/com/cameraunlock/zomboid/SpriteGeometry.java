@@ -209,6 +209,13 @@ final class SpriteGeometry {
             normalUp = up / length;
         }
 
+        /** As face, for a way that is already of length 1. */
+        void faceUnit(float x, float y, float up) {
+            normalX = x;
+            normalY = y;
+            normalUp = up;
+        }
+
         void clear() {
             most = Math.max(most, floats);
             floats = 0;
@@ -1372,9 +1379,38 @@ final class SpriteGeometry {
     private static final float DIAGONAL = (float) (Math.PI / 4.0);
     /** The most sides a post is drawn with. */
     private static final int MOST_POST_SIDES = 20;
-    /** The cosine and sine at each corner round the post being added, and at the middle of each side. */
-    private final float[] postCos = new float[MOST_POST_SIDES + 1], postSin = new float[MOST_POST_SIDES + 1];
-    private final float[] postMiddleCos = new float[MOST_POST_SIDES], postMiddleSin = new float[MOST_POST_SIDES];
+    /**
+     * By how many sides it has, the cosine and sine at each corner round a post, from the
+     * diagonal on, and at the middle of each side; and at each corner round a round thing
+     * (addRound), from along x on.
+     */
+    private static final float[][] POST_COS = new float[MOST_POST_SIDES + 1][], POST_SIN = new float[MOST_POST_SIDES + 1][];
+    private static final float[][] POST_MIDDLE_COS = new float[MOST_POST_SIDES + 1][], POST_MIDDLE_SIN = new float[MOST_POST_SIDES + 1][];
+    private static final float[][] ROUND_COS = new float[MOST_POST_SIDES + 1][], ROUND_SIN = new float[MOST_POST_SIDES + 1][];
+
+    static {
+        for (int sides = 3; sides <= MOST_POST_SIDES; sides++) {
+            POST_COS[sides] = new float[sides + 1];
+            POST_SIN[sides] = new float[sides + 1];
+            POST_MIDDLE_COS[sides] = new float[sides];
+            POST_MIDDLE_SIN[sides] = new float[sides];
+            ROUND_COS[sides] = new float[sides + 1];
+            ROUND_SIN[sides] = new float[sides + 1];
+            for (int side = 0; side <= sides; side++) {
+                float angle = DIAGONAL + side * 2f * (float) Math.PI / sides;
+                POST_COS[sides][side] = (float) Math.cos(angle);
+                POST_SIN[sides][side] = (float) Math.sin(angle);
+                if (side < sides) {
+                    float middle = (angle + (DIAGONAL + (side + 1) * 2f * (float) Math.PI / sides)) / 2f;
+                    POST_MIDDLE_COS[sides][side] = (float) Math.cos(middle);
+                    POST_MIDDLE_SIN[sides][side] = (float) Math.sin(middle);
+                }
+                double round = side * 2.0 * Math.PI / sides;
+                ROUND_COS[sides][side] = (float) Math.cos(round);
+                ROUND_SIN[sides][side] = (float) Math.sin(round);
+            }
+        }
+    }
 
     /**
      * Stands a post as the solid Posts read off its sprite: a round one turned about its axis
@@ -1391,17 +1427,7 @@ final class SpriteGeometry {
             boolean oneTexel, float texelU, float texelV) {
         boolean round = post.kind == Posts.ROUND;
         int sides = !round ? 4 : post.half >= 0.2f ? MOST_POST_SIDES : post.half >= 0.05f ? 12 : 8;
-        // Worked out once for the post: every station up it has the same corners round it.
-        for (int side = 0; side <= sides; side++) {
-            float angle = DIAGONAL + side * 2f * (float) Math.PI / sides;
-            postCos[side] = (float) Math.cos(angle);
-            postSin[side] = (float) Math.sin(angle);
-            if (side < sides) {
-                float middle = (angle + (DIAGONAL + (side + 1) * 2f * (float) Math.PI / sides)) / 2f;
-                postMiddleCos[side] = (float) Math.cos(middle);
-                postMiddleSin[side] = (float) Math.sin(middle);
-            }
-        }
+        float[] postCos = POST_COS[sides], postSin = POST_SIN[sides], postMiddleCos = POST_MIDDLE_COS[sides], postMiddleSin = POST_MIDDLE_SIN[sides];
         float out = round ? 1f : (float) Math.sqrt(2.0);
         float inA = Math.clamp(a, 0f, 1f), inB = Math.clamp(b, 0f, 1f);
         float w0 = (1f - inA) * (1f - inB), w1 = inA * (1f - inB), w2 = inA * inB, w3 = (1f - inA) * inB;
@@ -1485,23 +1511,21 @@ final class SpriteGeometry {
             float red, float green, float blue) {
         float rise = up1 - up0, lean = r0 - r1, length = (float) Math.sqrt(rise * rise + lean * lean);
         float flat = rise / length, upward = lean / length;
+        float[] cosAround = ROUND_COS[sides], sinAround = ROUND_SIN[sides];
         for (int side = 0; side < sides; side++) {
-            double from = side * 2.0 * Math.PI / sides, to = (side + 1) * 2.0 * Math.PI / sides;
-            float cosFrom = (float) Math.cos(from), sinFrom = (float) Math.sin(from), cosTo = (float) Math.cos(to), sinTo = (float) Math.sin(to);
             for (int corner = 0; corner < 6; corner++) {
                 // Two triangles: low from, low to, high to, then low from, high to, high from.
                 boolean far = corner == 1 || corner == 2 || corner == 4, high = corner == 2 || corner >= 4;
-                float cos = far ? cosTo : cosFrom, sin = far ? sinTo : sinFrom, r = high ? r1 : r0;
-                mesh.face(cos * flat, sin * flat, upward);
+                float cos = cosAround[far ? side + 1 : side], sin = sinAround[far ? side + 1 : side], r = high ? r1 : r0;
+                mesh.faceUnit(cos * flat, sin * flat, upward);
                 mesh.add(x + cos * r, y + sin * r, high ? up1 : up0, u, v, red, green, blue);
             }
         }
         mesh.face(0f, 0f, 1f);
         for (int side = 0; side < sides; side++) {
-            double from = side * 2.0 * Math.PI / sides, to = (side + 1) * 2.0 * Math.PI / sides;
             mesh.add(x, y, up1, u, v, red, green, blue);
-            mesh.add(x + (float) Math.cos(from) * r1, y + (float) Math.sin(from) * r1, up1, u, v, red, green, blue);
-            mesh.add(x + (float) Math.cos(to) * r1, y + (float) Math.sin(to) * r1, up1, u, v, red, green, blue);
+            mesh.add(x + cosAround[side] * r1, y + sinAround[side] * r1, up1, u, v, red, green, blue);
+            mesh.add(x + cosAround[side + 1] * r1, y + sinAround[side + 1] * r1, up1, u, v, red, green, blue);
         }
     }
 
@@ -1609,9 +1633,9 @@ final class SpriteGeometry {
             float slab = over - (over - under) * CAPITAL_SLAB_SHARE;
             float[] c = strutCorners;
             int sides = 20;
+            float[] cosAround = POST_COS[sides], sinAround = POST_SIN[sides];
             for (int side = 0; side < sides; side++) {
-                float from = DIAGONAL + side * 2f * (float) Math.PI / sides, to = DIAGONAL + (side + 1) * 2f * (float) Math.PI / sides;
-                float cos0 = (float) Math.cos(from), sin0 = (float) Math.sin(from), cos1 = (float) Math.cos(to), sin1 = (float) Math.sin(to);
+                float cos0 = cosAround[side], sin0 = sinAround[side], cos1 = cosAround[side + 1], sin1 = sinAround[side + 1];
                 float x = tileX + a, y = tileY + b, wide = r * CAPITAL_SWELL;
                 putCorner(c, 0, x + cos0 * r, y + sin0 * r, under);
                 putCorner(c, 1, x + cos1 * r, y + sin1 * r, under);

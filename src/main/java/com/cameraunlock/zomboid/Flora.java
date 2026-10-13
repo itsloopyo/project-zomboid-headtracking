@@ -919,24 +919,28 @@ final class Flora {
         dx /= length;
         dy /= length;
         dz /= length;
-        // Two ways square to it and to each other.
-        float ax = Math.abs(dz) > 0.95f ? 1f : -dy, ay = Math.abs(dz) > 0.95f ? 0f : dx;
+        // Two ways square to it and to each other. Near upright, the first is along x, which is not square to it, and the second is then short of 1.
+        boolean upright = Math.abs(dz) > 0.95f;
+        float ax = upright ? 1f : -dy, ay = upright ? 0f : dx;
         float flat = (float) Math.sqrt(ax * ax + ay * ay);
         ax /= flat;
         ay /= flat;
         float bx = -dz * ay, by = dz * ax, bz = dx * ay - dy * ax;
         float across = mark + BARK_ACROSS * (BARK_WRAPS_MOST * (seed >>> 16 & 1) + 2 * BARK_WRAPS_MOST * (seed >>> 17 & BARK_SHIFTS - 1));
         float span = Math.max((thickFrom + thickTo) * (float) Math.PI * 4f, 0.2f);
+        float[] cosAround = WOOD_COS[sides], sinAround = WOOD_SIN[sides];
         for (int side = 0; side < sides; side++) {
-            double here = side * 2.0 * Math.PI / sides, next = (side + 1) * 2.0 * Math.PI / sides;
-            float cosHere = (float) Math.cos(here), sinHere = (float) Math.sin(here), cosNext = (float) Math.cos(next), sinNext = (float) Math.sin(next);
             for (int corner : QUAD) {
                 int on = corner == 1 || corner == 2 ? 1 : 0;
                 boolean far = corner >= 2;
-                float cos = on == 1 ? cosNext : cosHere, sin = on == 1 ? sinNext : sinHere;
+                float cos = cosAround[side + on], sin = sinAround[side + on];
                 float outX = ax * cos + bx * sin, outY = ay * cos + by * sin, outUp = bz * sin;
                 float thick = far ? thickTo : thickFrom;
-                mesh.face(outX, outY, outUp);
+                if (upright) {
+                    mesh.face(outX, outY, outUp);
+                } else {
+                    mesh.faceUnit(outX, outY, outUp);
+                }
                 mesh.sway = far ? swayTo : swayFrom;
                 mesh.wood = woodCode(thick, snowed, far ? ridgedTo : ridgedFrom);
                 mesh.add((far ? toX : fromX) + outX * thick, (far ? toY : fromY) + outY * thick, (far ? toUp : fromUp) + outUp * thick,
@@ -1077,21 +1081,20 @@ final class Flora {
             ring[point * 6 + 5] = tx * ay - ty * ax;
         }
         float run = 0f;
+        float[] cosAround = WOOD_COS[sides], sinAround = WOOD_SIN[sides];
         for (int piece = 1; piece < points; piece++) {
             int a = (piece - 1) * 4, b = piece * 4;
             float dx = line[b] - line[a], dy = line[b + 1] - line[a + 1], dz = line[b + 2] - line[a + 2];
             float length = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
             for (int side = 0; side < sides; side++) {
-                double here = side * 2.0 * Math.PI / sides, next = (side + 1) * 2.0 * Math.PI / sides;
                 for (int corner : QUAD) {
                     int on = corner == 1 || corner == 2 ? 1 : 0;
                     boolean far = corner >= 2;
                     int p = far ? piece : piece - 1, r = p * 6;
-                    double angle = on == 1 ? next : here;
-                    float cos = (float) Math.cos(angle), sin = (float) Math.sin(angle);
+                    float cos = cosAround[side + on], sin = sinAround[side + on];
                     float outX = ring[r] * cos + ring[r + 3] * sin, outY = ring[r + 1] * cos + ring[r + 4] * sin, outUp = ring[r + 2] * cos + ring[r + 5] * sin;
                     float thick = line[p * 4 + 3];
-                    mesh.face(outX, outY, outUp);
+                    mesh.faceUnit(outX, outY, outUp);
                     mesh.sway = limbSway(line[p * 4 + 2] - base, boleTall);
                     mesh.wood = woodCode(thick, snowed, p < points - 1 || carriedOn);
                     mesh.add(line[p * 4] + outX * thick, line[p * 4 + 1] + outY * thick, line[p * 4 + 2] + outUp * thick,
@@ -1266,6 +1269,15 @@ final class Flora {
     private static final float[] FAR_COS = round(TRUNK_SIDES_FAR, 0.0, false), FAR_SIN = round(TRUNK_SIDES_FAR, 0.0, true);
     /** The same half a side on, where the faces of a near bole run up to its point. */
     private static final float[] SPIRE_COS = round(TRUNK_SIDES, 0.5, false), SPIRE_SIN = round(TRUNK_SIDES, 0.5, true);
+    /** The same for wood in a crown and on the ground, by how many sides it has. */
+    private static final float[][] WOOD_COS = new float[LEADER_SIDES + 1][], WOOD_SIN = new float[LEADER_SIDES + 1][];
+
+    static {
+        for (int sides = TWIG_SIDES; sides <= LEADER_SIDES; sides++) {
+            WOOD_COS[sides] = round(sides, 0.0, false);
+            WOOD_SIN[sides] = round(sides, 0.0, true);
+        }
+    }
 
     private static float[] round(int sides, double from, boolean sine) {
         float[] out = new float[sides + 1];
