@@ -754,13 +754,24 @@ public final class FineSkins {
     /**
      * Has the jar's pictures that whoever asked still wants read, all of them, when there is
      * room for them all and nobody nearer waits for room: see RoomLine. Room is made as
-     * pictures nothing has worn for OWN_KEPT_NANOS are let go (tendOwn).
+     * pictures nothing has worn for OWN_KEPT_NANOS are let go (tendOwn). False, and nothing
+     * read, when what is asked for comes to more than the cap could ever hold: the jar's
+     * pictures it already has, at their size, and those still to be read, at the largest.
      */
-    private static void settle(Object who) {
-        // More than the cap can ever hold is never read: whoever wants it wears the game's.
-        if (wanted.isEmpty() || jarMost() * wanted.size() > JAR_MOST_BYTES) {
+    private static boolean settle(Object who) {
+        if (wanted.isEmpty()) {
+            return true;
+        }
+        long need = jarMost() * wanted.size();
+        for (int i = 0; i < asked.size(); i++) {
+            Read read = asked.get(i);
+            if (!read.tailored && asked.indexOf(read) == i) {
+                need += read.bytes;
+            }
+        }
+        if (need > JAR_MOST_BYTES) {
             wanted.clear();
-            return;
+            return false;
         }
         long now = System.nanoTime();
         if (line.ask(who, asking, now, jarBytes + jarMost() * wanted.size() <= JAR_MOST_BYTES)) {
@@ -774,6 +785,7 @@ public final class FineSkins {
             }
         }
         wanted.clear();
+        return true;
     }
 
     /** The mod's own pictures just asked for are worn: kept from being let go for OWN_KEPT_NANOS more. */
