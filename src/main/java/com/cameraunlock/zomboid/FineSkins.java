@@ -309,14 +309,31 @@ public final class FineSkins {
      * putting back the state the game remembers, not the picture's: all of it is put back
      * here, and the caller sets its own state after this, not before. Render thread only.
      */
-    static Texture of(Texture bound) {
+    static synchronized Texture of(Texture bound) {
+        if (wornFrame != Pipeline.frame()) {
+            wornFrame = Pipeline.frame();
+            worn.clear();
+        }
+        Texture answer = worn.get(bound);
+        if (answer != null) {
+            return answer;
+        }
         try {
-            return finer(bound);
+            answer = finer(bound);
         } catch (Exception | LinkageError failure) {
             refuse("a finer skin could not be made", failure);
             return bound;
         }
+        worn.put(bound, answer);
+        return answer;
     }
+
+    /**
+     * What of answered for each texture this frame: a crowd's parts ask thousands of times a
+     * frame for a few dozen textures. Emptied whenever a skin or picture it may hold is let go.
+     */
+    private static final IdentityHashMap<Texture, Texture> worn = new IdentityHashMap<>();
+    private static int wornFrame = -1;
 
     /** Called by the game's combiner as it hands back what it composed from these steps. */
     public static Texture combined(Texture result, ArrayList<TextureCombinerCommand> commands) {
@@ -362,6 +379,7 @@ public final class FineSkins {
             Log.error("fine skins are off for this session, and characters wear the game's own: " + why, cause);
         }
         off = true;
+        worn.clear();
         // Destroyed, not handed to the combiner, which would keep each for a next skin of its size: with the skins off there is none.
         for (Fine each : fine.values()) {
             each.texture.destroy();
@@ -383,6 +401,7 @@ public final class FineSkins {
      * looked at afresh the next time it is worn. Render thread, under the class's lock.
      */
     private static void letGoOfAll() {
+        worn.clear();
         // Destroyed, not handed back to the combiner: it keeps what it is handed for the next skin of that size,
         // and after a change of size or with the view off there is none.
         for (Fine each : fine.values()) {
@@ -404,6 +423,7 @@ public final class FineSkins {
 
     /** Gives back one of the mod's own pictures: its texture, or what was read of it, or what its reader is still reading when that is done. */
     private static void letGoOf(Read read) {
+        worn.clear();
         synchronized (read) {
             read.dropped = true;
             if (read.memory != null) {
@@ -479,6 +499,7 @@ public final class FineSkins {
      */
     private static void destroy(Fine made) {
         if (made != null) {
+            worn.clear();
             fineBytes -= made.bytes;
             made.texture.destroy();
         }
@@ -523,7 +544,6 @@ public final class FineSkins {
             ownWorn = Own.on() & WORN;
             letGoOfAll();
         }
-        tendOwn();
         if (!(bound instanceof SmartTexture smart)) {
             Texture pack = packed(bound);
             return pack != null ? pack : bound;
@@ -572,6 +592,7 @@ public final class FineSkins {
                 return bound;
             }
             longestAgo.remove();
+            worn.clear();
             // Handed back to the combiner, which gives it to the next skin composed at that size: one is about to be.
             fineBytes -= least.bytes;
             TextureCombiner.instance.releaseTexture(least.texture);
