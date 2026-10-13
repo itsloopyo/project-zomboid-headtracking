@@ -34,6 +34,9 @@ import zombie.core.textures.Texture;
  * zombie's own textures, which the game would destroy with the zombie and is kept from
  * destroying until the piece goes (see {@link #keeps}).
  *
+ * Once it lies still it is pictured and laid on the ground as a body is (see {@link LimbDecals}),
+ * and nothing of it is kept or drawn after.
+ *
  * Bones are made on the logic thread and kept and drawn on the render thread.
  */
 final class Pieces {
@@ -56,8 +59,15 @@ final class Pieces {
      */
     static final int SHARDS = 4;
     static final float SHARD_SPEED = 3.5f, SHARD_THIN = 0.012f, SHARD_MOST = 0.22f, SHARD_LENGTH = 0.05f, SHARD_RADIUS = 0.02f;
-    /** How long a piece lies once it has landed, in seconds. */
+    /** How long a piece is drawn as a model at most, in seconds: one that never comes to rest goes then. */
     static final float LIES_FOR = 120f;
+    /**
+     * How long a piece laid on the ground is still drawn as a model, in seconds, while its
+     * chunk is built again with the picture of it in.
+     */
+    static final float LAID_OVERLAP = 1f;
+    /** How far past the ends and sides of its rod a piece's picture reaches, in units: a foot or a hand stands off it. */
+    static final float PICTURE_PAST = 0.1f;
     /** How long a piece may wait to be kept, in seconds: one whose zombie is no longer posed with the cut never is. */
     static final float KEPT_BY = 1f;
     /** How many bones a part of the game's model has. */
@@ -94,6 +104,10 @@ final class Pieces {
         volatile boolean splashed;
         /** A shard's share of the head along each of the model's axes, or null for a whole piece. */
         float[] squash;
+        /** Half the side of the piece's picture on the ground, in units. */
+        float pictureHalf;
+        /** When it was laid on the ground as a picture, or 0: set on the render thread. */
+        volatile long laid;
 
         Piece(int part, int cut, float awayX, float awayY, float up) {
             this.part = part;
@@ -287,8 +301,9 @@ final class Pieces {
         float along = head ? -1f : 1f;
         boolean shard = piece.squash != null;
         float length = shard ? SHARD_LENGTH : head ? HEAD_LENGTH : piece.bone * (piece.cut == Wounds.UPPER ? UPPER_LENGTH : LOWER_LENGTH);
-        piece.motion = new PieceMotion(piece.px, piece.py, piece.pz, piece.ax * along, piece.ay * along, piece.az * along, length,
-                shard ? SHARD_RADIUS : head ? HEAD_RADIUS : leg ? LEG_RADIUS : ARM_RADIUS, GRAVITY / METRES_PER_UNIT);
+        float radius = shard ? SHARD_RADIUS : head ? HEAD_RADIUS : leg ? LEG_RADIUS : ARM_RADIUS;
+        piece.motion = new PieceMotion(piece.px, piece.py, piece.pz, piece.ax * along, piece.ay * along, piece.az * along, length, radius, GRAVITY / METRES_PER_UNIT);
+        piece.pictureHalf = length / 2f + radius + PICTURE_PAST;
         // Into the model's axes, as Characters places a model: x along (cos, sin), z along (sin, -cos), at angle + pi.
         float cos = (float) Math.cos(angle + Math.PI), sin = (float) Math.sin(angle + Math.PI);
         float vx = (piece.awayX * cos + piece.awayY * sin) / METRES_PER_UNIT, vz = (piece.awayX * sin - piece.awayY * cos) / METRES_PER_UNIT;
@@ -346,7 +361,29 @@ final class Pieces {
 
     /** Whether a piece is kept and still to be drawn. */
     static boolean drawn(Piece piece) {
-        return piece.state == KEPT && (System.nanoTime() - piece.kept) / 1e9f < LIES_FOR;
+        long now = System.nanoTime();
+        return piece.state == KEPT && (now - piece.kept) / 1e9f < LIES_FOR && (piece.laid == 0 || (now - piece.laid) / 1e9f < LAID_OVERLAP);
+    }
+
+    /** Whether a drawn piece has come to rest and is not yet laid on the ground. Render thread. */
+    static boolean toLay(Piece piece) {
+        return piece.laid == 0 && piece.motion != null && piece.motion.resting;
+    }
+
+    /**
+     * Where a piece at rest lies: the middle of its picture on the map, x and y, and half the
+     * picture's side, in tiles. Render thread.
+     */
+    static float[] lies(Piece piece) {
+        float[] middle = piece.motion.middle;
+        float cos = (float) Math.cos(piece.angle + Math.PI), sin = (float) Math.sin(piece.angle + Math.PI);
+        return new float[] {piece.x + (middle[0] * cos + middle[2] * sin) * piece.scale, piece.y + (middle[0] * sin - middle[2] * cos) * piece.scale,
+                piece.pictureHalf * piece.scale};
+    }
+
+    /** The piece is laid on the ground: it is drawn as a model a moment longer, and then goes. Render thread. */
+    static void laid(Piece piece) {
+        piece.laid = System.nanoTime();
     }
 
     /**
@@ -499,8 +536,9 @@ final class Pieces {
         }
     }
 
-    /** Whether a piece has lain its time, or was let go without being kept. */
+    /** Whether a piece has lain its time, was let go without being kept, or is laid on the ground as a picture. */
     private static boolean gone(Piece piece) {
-        return piece.state == KEPT && (System.nanoTime() - piece.kept) / 1e9f >= LIES_FOR;
+        long now = System.nanoTime(), laid = piece.laid;
+        return piece.state == KEPT && ((now - piece.kept) / 1e9f >= LIES_FOR || laid != 0 && (now - laid) / 1e9f >= LAID_OVERLAP);
     }
 }

@@ -4161,6 +4161,7 @@ final class WorldScene {
                                 restless |= picture == 0 && (askPicture(dead) || dead.getAtlasTexture() != null);
                             }
                         }
+                        thing = sum(thing, LimbDecals.sumAt(square.getX(), square.getY(), z));
                         level = sum(sum(level, lit), thing);
                         if (AUDIT_MARKS) {
                             auditLights[(z - from) * span + at] = lit;
@@ -5393,6 +5394,11 @@ final class WorldScene {
                     owning(Outlines.NONE);
                 }
             }
+            if (!empty && !unsought) {
+                for (LimbDecals.Laid laid : LimbDecals.at(x, y, z)) {
+                    addLimb(laid);
+                }
+            }
             contentsOf(RoomSight.OUTSIDE);
         }
 
@@ -5505,6 +5511,38 @@ final class WorldScene {
         }
 
         private final float[] bodyGrid = new float[(BODY_CELLS + 1) * (BODY_CELLS + 1) * 3];
+
+        /**
+         * A piece cut off a zombie, lying on the ground: a picture of it from straight above,
+         * laid as a body's is, over the ground round it. See LimbDecals.
+         */
+        private void addLimb(LimbDecals.Laid laid) {
+            SpriteGeometry.Mesh mesh = solid.get(LimbDecals.texture());
+            mesh.open = frame.open;
+            mesh.face(0f, 0f, 1f);
+            float base = laid.z() * ViewCamera.LEVEL_HEIGHT + BODY_UP, side = 2f * laid.half();
+            float share = (float) LimbDecals.SLOT / LimbDecals.SIDE, u0 = laid.u0(), v0 = laid.v0();
+            for (int i = 0; i <= BODY_CELLS; i++) {
+                for (int j = 0; j <= BODY_CELLS; j++) {
+                    float atX = laid.x() - laid.half() + side * i / BODY_CELLS, atY = laid.y() - laid.half() + side * j / BODY_CELLS;
+                    int at = (i * (BODY_CELLS + 1) + j) * 3;
+                    bodyGrid[at] = atX;
+                    bodyGrid[at + 1] = atY;
+                    bodyGrid[at + 2] = base + groundUnder(atX, atY, laid.z(), laid.half() / BODY_CELLS);
+                }
+            }
+            for (int i = 0; i < BODY_CELLS; i++) {
+                for (int j = 0; j < BODY_CELLS; j++) {
+                    for (int corner : BODY_CORNERS) {
+                        int ci = i + (corner == 1 || corner == 2 ? 1 : 0), cj = j + (corner >= 2 ? 1 : 0);
+                        int at = (ci * (BODY_CELLS + 1) + cj) * 3;
+                        // The picture's foot is the south side of the square it shows.
+                        mesh.add(bodyGrid[at], bodyGrid[at + 1], bodyGrid[at + 2], u0 + share * ci / BODY_CELLS, v0 + share * (1f - (float) cj / BODY_CELLS),
+                                frame.red, frame.green, frame.blue);
+                    }
+                }
+            }
+        }
 
         /** The highest the ground is at (x, y) and reach along the map either way from it. */
         private float groundUnder(float x, float y, float z, float reach) {

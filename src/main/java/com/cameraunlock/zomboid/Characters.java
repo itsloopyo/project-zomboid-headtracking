@@ -3,6 +3,7 @@ package com.cameraunlock.zomboid;
 import zombie.iso.IsoWorld;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Locale;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
@@ -2005,7 +2006,13 @@ public final class Characters {
 
     /** Every piece cut off a zombie, where it flies or lies, with what it kept to be drawn by. See Pieces. */
     private void drawPieces(float[] viewMatrix, float eyeX, float eyeY, float reach) {
-        for (Pieces.Piece piece : Pieces.all()) {
+        List<Pieces.Piece> pieces = Pieces.all();
+        for (Pieces.Piece piece : pieces) {
+            if (Pieces.toLay(piece)) {
+                layPiece(piece);
+            }
+        }
+        for (Pieces.Piece piece : pieces) {
             float toX = piece.x - eyeX, toY = piece.y - eyeY;
             if (toX * toX + toY * toY > reach * reach) {
                 continue;
@@ -2028,6 +2035,66 @@ public final class Characters {
             }
         }
         CharacterDraw.release();
+    }
+
+    /** The eye and the projection a piece at rest is pictured from, looking straight down on it: see LimbDecals. */
+    private final float[] layView = new float[16], layProjection = new float[16], layCombined = new float[16];
+    /** How far over the piece the picture's eye is, and how far down it sees, in tiles: a level is 2.4 high. */
+    private static final float LAY_ABOVE = 1f, LAY_DEPTH = 2f;
+
+    /**
+     * Pictures a piece that has come to rest from straight above and lays the picture on the
+     * ground, as the game's own picture of a body is laid: see LimbDecals. Drawn in full white
+     * light, as the game draws that picture, and lit where it lies like anything on the ground.
+     */
+    private void layPiece(Pieces.Piece piece) {
+        float[] lies = Pieces.lies(piece);
+        float x = lies[0], y = lies[1], half = lies[2];
+        // Rows right, up and towards the eye: x to the right, y up the picture against the map's y, which runs south.
+        Arrays.fill(layView, 0f);
+        layView[0] = 1f;
+        layView[5] = -1f;
+        layView[10] = 1f;
+        layView[12] = -x;
+        layView[13] = y;
+        layView[14] = -(piece.standsUp + LAY_ABOVE);
+        layView[15] = 1f;
+        Arrays.fill(layProjection, 0f);
+        layProjection[0] = 1f / half;
+        layProjection[5] = 1f / half;
+        layProjection[10] = -2f / LAY_DEPTH;
+        layProjection[14] = -1f;
+        layProjection[15] = 1f;
+        LimbDecals.lay(x, y, (int) Math.floor(piece.z), half, () -> {
+            boolean bare = CharacterDraw.bare, mirrored = CharacterDraw.mirrored;
+            CharacterDraw.release();
+            CharacterDraw.bare = false;
+            CharacterDraw.mirrored = false;
+            try {
+                place(piece.x, piece.y, piece.standsUp, piece.angle, CHARACTER_SCALE);
+                multiply(layView, placed, layCombined);
+                CharacterDraw.begin(piece.person, layCombined, layProjection, false, 0f);
+                for (int part = 0; part < piece.parts.size(); part++) {
+                    ModelInstanceRenderData model = piece.parts.get(part);
+                    model.matrixPalette = Pieces.bones(piece, part);
+                    boolean unlit = model.ignoreLighting;
+                    model.ignoreLighting = true;
+                    try {
+                        CharacterDraw.part(model);
+                    } finally {
+                        model.ignoreLighting = unlit;
+                    }
+                }
+            } finally {
+                CharacterDraw.release();
+                CharacterDraw.bare = bare;
+                CharacterDraw.mirrored = mirrored;
+            }
+        });
+        Pieces.laid(piece);
+        if (FirstPerson.TRACE) {
+            Log.info(String.format(Locale.ROOT, "pieces: part %d laid on the ground at (%.2f, %.2f, %d), %.2f tiles across", piece.part, x, y, (int) Math.floor(piece.z), 2f * half));
+        }
     }
 
     private static boolean onHead(ModelInstance model) {
