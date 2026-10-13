@@ -603,7 +603,12 @@ public final class FineSkins {
             return bound;
         }
         boolean any = anyPacked(recipe);
-        settle(recipe);
+        if (!settle(recipe)) {
+            recipe.plain = true;
+            Log.info("the finer skin for " + result.getName() + " would need more of the mod's own pictures than the "
+                    + (JAR_MOST_BYTES >> 20) + " MB they may hold on the card: it stays the game's own");
+            return bound;
+        }
         if (gone) {
             recipe.plain = true;
             if (!goneSaid) {
