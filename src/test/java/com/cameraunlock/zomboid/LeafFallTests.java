@@ -34,6 +34,7 @@ final class LeafFallTests {
         Checks.run("treesAreReadRoundTheEyeWhereverItIs", LeafFallTests::treesAreReadRoundTheEyeWhereverItIs);
         Checks.run("nothingMovesWhileThePictureWaits", LeafFallTests::nothingMovesWhileThePictureWaits);
         Checks.run("forgottenTreesShedNothingAndTheirLeavesFallOn", LeafFallTests::forgottenTreesShedNothingAndTheirLeavesFallOn);
+        Checks.run("aLeafIsDrawnAsAQuadAboutItsMiddle", LeafFallTests::aLeafIsDrawnAsAQuadAboutItsMiddle);
     }
 
     private static final float PEAK_AUTUMN = 0.45f;
@@ -655,5 +656,26 @@ final class LeafFallTests {
         run(fall, 10f, 1f / 30f, 0f, 0f, 0.3f, Seasons.AUTUMN, PEAK_AUTUMN);
         Checks.check(airborne > 0 && fall.spawned == let, "no tree is left to let go: " + airborne + " in the air, " + (fall.spawned - let) + " more let go");
         Checks.check(fall.landings > landed, "the leaves already falling land: " + (fall.landings - landed));
+    }
+
+    private static void aLeafIsDrawnAsAQuadAboutItsMiddle() {
+        float[] leaves = new float[2 * LeafFall.FLOATS];
+        int at = LeafFall.FLOATS;
+        leaves[at + LeafFall.X] = 10f;
+        leaves[at + LeafFall.Y] = 20f;
+        leaves[at + LeafFall.UP] = 1f;
+        leaves[at + LeafFall.ALONG_X] = 0.1f;
+        leaves[at + LeafFall.ACROSS_Y] = 0.05f;
+        leaves[at + LeafFall.HUE] = 3f;
+        leaves[at + LeafFall.TURNED] = 0.5f;
+        leaves[at + LeafFall.SHOWN] = 0.8f;
+        float[] into = new float[2 * 4 * LeafDraw.FLOATS_A_CORNER];
+        Checks.check(LeafDraw.fill(leaves, 2, into) == into.length, "four corners a leaf, every float of each written");
+        // The second leaf's third corner: u 1, v 1, out along and across from the middle, its face up.
+        int corner = (4 + 2) * LeafDraw.FLOATS_A_CORNER;
+        float[] expected = {10f, 20f, 1f, 0.8f, 0.1f, 0.05f, 0f, 1f, 1f, 3f, 0.5f, 0f, 0f, 0.1f * 0.05f};
+        Checks.check(Arrays.equals(Arrays.copyOfRange(into, corner, corner + LeafDraw.FLOATS_A_CORNER), expected),
+                "a corner is the middle, the way out to it, where it is on the leaf, the colour and turn and the face: "
+                        + Arrays.toString(Arrays.copyOfRange(into, corner, corner + LeafDraw.FLOATS_A_CORNER)));
     }
 }
