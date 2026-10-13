@@ -2431,7 +2431,6 @@ final class WorldScene {
         void build(IsoPlayer player, ViewCamera.Pose pose, ViewCamera.Pose aimed, float tanHalfFieldOfView, float tanHalfSet,
                 ViewCamera.Pose from, boolean opened) {
             long start = System.nanoTime();
-            Stall.beat();
             builtAt[view.index] = start;
             int sharing = building(start);
             // What every view shares is tended once a round of their builds, not once for each: see Rounds.

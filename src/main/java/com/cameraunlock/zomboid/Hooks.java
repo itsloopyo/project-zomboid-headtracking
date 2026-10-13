@@ -79,6 +79,7 @@ public final class Hooks {
             Tracking.dropTheNextPresses();
         }
         if (first) {
+            Stall.beat();
             SoundMix.frame();
             for (int i = 0; i < View.COUNT; i++) {
                 View other = View.of(i);
@@ -120,6 +121,11 @@ public final class Hooks {
             // Thrown on, it would stop the game inside its own loading of its Lua.
             Log.error("the mod's settings are not on the game's options screen", failure);
         }
+    }
+
+    /** Called as the game begins to leave a save, before it saves. */
+    public static void leavingSave() {
+        Stall.leaving();
     }
 
     /** Called as the game leaves a save for its menu. */
