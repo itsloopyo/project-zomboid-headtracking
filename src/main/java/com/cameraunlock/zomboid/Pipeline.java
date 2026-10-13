@@ -983,9 +983,11 @@ final class Pipeline {
             // The mirror keeps its picture between drawings: see MIRROR_EVERY_NANOS.
             boolean behindDrawn = cabin != null && reflections && (!mirrored.made() || System.nanoTime() - mirrorDrawnAt >= MIRROR_EVERY_NANOS);
             boolean throughScope = view.scope.wanted(view.characters.aim, tanHalfFieldOfView / FieldOfView.setTanHalfVertical());
-            // A mirror and a scope look where the eye does not, at ground the same maps shade.
+            // A mirror and a scope look where the eye does not, at ground the same maps shade. The
+            // mirror counts whether or not it is drawn this frame: the far and roof maps are cast
+            // every other frame, and one cast now is read by the mirror drawn next frame.
             view.characters.seenBy(camera, tanHalfFieldOfView, aspect);
-            if (behindDrawn) {
+            if (cabin != null && reflections) {
                 placeBehind(camera, cabin);
                 view.characters.alsoSeenBy(behind, MIRROR_TAN, (float) MIRROR_WIDTH / MIRROR_HEIGHT);
             }
