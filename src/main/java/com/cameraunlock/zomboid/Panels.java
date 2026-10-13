@@ -31,8 +31,8 @@ final class Panels {
     /** Made of ISPanelJoypad too, and on the screen through play with nothing in them to point at. */
     private static final List<String> HEADS_UP_CLASSES = List.of("ISHotbar", "ISMiniMapOuter");
 
-    /** The Lua class of the panel the game shows a driver's instruments on. */
-    private static final String DASHBOARD_CLASS = "ISVehicleDashboard";
+    /** The Lua function that hands back a player's panel of a driver's instruments. */
+    private static final String DASHBOARD = "getPlayerVehicleDashboard";
     /** For each player, whether their dashboard panel is hidden by dashboard and not by the game. */
     private static final boolean[] dashboardHidden = new boolean[4];
 
@@ -86,25 +86,26 @@ final class Panels {
      * it off the screen as they get out, so it is hidden again on any frame it is up.
      */
     static void dashboard(int playerIndex, boolean hidden) {
-        KahluaTable dashboardClass = LuaManager.env.rawget(DASHBOARD_CLASS) instanceof KahluaTable table ? table : null;
-        if (dashboardClass == null || !hidden && !dashboardHidden[playerIndex]) {
+        if (!hidden && !dashboardHidden[playerIndex]) {
             return;
         }
-        List<UIElementInterface> elements = UIManager.getUI();
-        for (int i = 0; i < elements.size(); i++) {
-            if (elements.get(i) instanceof UIElement element && element.getTable() != null && element.getTable().getMetatable() == dashboardClass
-                    && !isAnothers(element.getTable(), playerIndex)) {
-                if (hidden && element.isVisible()) {
-                    element.setVisible(false);
-                    dashboardHidden[playerIndex] = true;
-                } else if (!hidden) {
-                    element.setVisible(true);
-                    dashboardHidden[playerIndex] = false;
-                }
-            }
+        Object[] found = LuaManager.caller.pcall(UIManager.getDefaultThread(), LuaManager.env.rawget(DASHBOARD), Double.valueOf(playerIndex));
+        if (found.length < 2 || !Boolean.TRUE.equals(found[0]) || !(found[1] instanceof KahluaTable panel)
+                || !(panel.rawget("javaObject") instanceof UIElementInterface shown)) {
+            sayOnce(playerIndex, "the game's " + DASHBOARD + "(" + playerIndex + ") gave no panel to hide or show: " + Arrays.toString(found));
+            return;
         }
-        if (!hidden) {
+        if (hidden && shown.isVisible()) {
+            LuaManager.caller.pcallvoid(UIManager.getDefaultThread(), UIManager.tableget(panel, "setVisible"), panel, false);
+            dashboardHidden[playerIndex] = true;
+            Log.info("the game's dashboard panel of player " + (playerIndex + 1) + " hidden: the vehicle's own dials show it in first person");
+        } else if (!hidden) {
+            // Shown again only for a vehicle still sat in: out of one, the game has taken it off the screen itself.
+            if (panel.rawget("vehicle") != null) {
+                LuaManager.caller.pcallvoid(UIManager.getDefaultThread(), UIManager.tableget(panel, "setVisible"), panel, true);
+            }
             dashboardHidden[playerIndex] = false;
+            Log.info("the game's dashboard panel of player " + (playerIndex + 1) + " given back");
         }
     }
 
