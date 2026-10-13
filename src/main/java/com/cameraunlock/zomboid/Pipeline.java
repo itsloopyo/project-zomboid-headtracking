@@ -12,6 +12,7 @@ import java.util.Random;
 import java.util.Set;
 import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
+import org.lwjgl.opengl.GL;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL12;
 import org.lwjgl.opengl.GL13;
@@ -20,6 +21,8 @@ import org.lwjgl.opengl.GL15;
 import org.lwjgl.opengl.GL20;
 import org.lwjgl.opengl.GL30;
 import org.lwjgl.opengl.GL33;
+import org.lwjgl.opengl.GL44;
+import org.lwjgl.opengl.GLCapabilities;
 import zombie.core.textures.TextureDraw;
 
 /**
@@ -296,6 +299,14 @@ final class Pipeline {
     private static final int SPRIG_UNIT = 28;
     private static int sprigs, sprigForm;
     private static final int SPRIG_FORM_UNIT = 29;
+    /** What tellWorld binds to the material units and to the nature and sprig units, and the kind of texture each is. */
+    private static final int[] materialBound = new int[MATERIALS.length], natureBound = new int[SPRIG_FORM_UNIT - FIRST_NATURE_UNIT + 1];
+    private static final int[] MATERIAL_KINDS = new int[MATERIALS.length], NATURE_KINDS = new int[natureBound.length];
+    static {
+        Arrays.fill(MATERIAL_KINDS, GL_TEXTURE_2D);
+        MATERIAL_KINDS[BARK] = Pictures.GL_TEXTURE_2D_ARRAY;
+        Arrays.fill(NATURE_KINDS, GL_TEXTURE_2D);
+    }
     private int width, height;
     private int sceneTarget, sceneColor, sceneDepth, shownTarget, shownColor, figureTarget, figureColor;
     /** What is outlined, each thing in the colour of its line where it is the nearest thing, over the scene's depth: see drawOutlined. */
@@ -703,6 +714,47 @@ final class Pipeline {
     /** Whether any texture unit has been found with a sampler of the game's or another mod's bound to it, and how often they are looked at until one has. */
     private static boolean samplersSeen;
     private static final int SAMPLERS_ASKED_EVERY = 256;
+    private static final int[] NO_SAMPLERS = new int[UNITS];
+    /** Whether the card binds a run of units in one call (OpenGL 4.4 or ARB_multi_bind), asked once, and whether it has been asked. */
+    private static boolean bindsMany, bindsManyAsked;
+
+    private static boolean bindsMany() {
+        if (!bindsManyAsked) {
+            bindsManyAsked = true;
+            GLCapabilities card = GL.getCapabilities();
+            bindsMany = card.OpenGL44 || card.GL_ARB_multi_bind;
+            Log.info(bindsMany ? "textures and samplers are bound a run of units at a time (OpenGL 4.4 or ARB_multi_bind)"
+                    : "this graphics card has neither OpenGL 4.4 nor ARB_multi_bind: textures and samplers are bound a unit at a time");
+        }
+        return bindsMany;
+    }
+
+    /** Binds each of the samplers to a unit, from first on. */
+    private static void bindSamplers(int first, int[] each) {
+        if (bindsMany()) {
+            GL44.glBindSamplers(first, each);
+        } else {
+            for (int i = 0; i < each.length; i++) {
+                GL33.glBindSampler(first + i, each[i]);
+            }
+        }
+    }
+
+    /**
+     * Binds each of the textures to a unit, from first on, each to its own kind of texture. Leaves
+     * the first unit active.
+     */
+    private static void bindTextures(int first, int[] each, int[] kinds) {
+        if (bindsMany()) {
+            GL44.glBindTextures(first, each);
+        } else {
+            for (int i = 0; i < each.length; i++) {
+                GL13.glActiveTexture(GL_TEXTURE0 + first + i);
+                GL11.glBindTexture(kinds[i], each[i]);
+            }
+        }
+        GL13.glActiveTexture(GL_TEXTURE0);
+    }
 
 
     /** Why first person cannot be drawn here, for the log and to keep the view off, or null. */
@@ -803,15 +855,15 @@ final class Pipeline {
         // there are thirty-two units. They are asked on one frame in 256, and on every
         // frame from then on once any unit has held one, which another mod could see to.
         boolean looked = samplersSeen || (frameNumber & SAMPLERS_ASKED_EVERY - 1) == 1;
-        for (int unit = 0; unit < UNITS; unit++) {
-            if (looked) {
+        if (looked) {
+            for (int unit = 0; unit < UNITS; unit++) {
                 GL13.glActiveTexture(GL_TEXTURE0 + unit);
                 samplers[unit] = bound(GL_SAMPLER_BINDING);
                 samplersSeen |= samplers[unit] != 0;
             }
-            GL33.glBindSampler(unit, 0);
+            GL13.glActiveTexture(GL_TEXTURE0);
         }
-        GL13.glActiveTexture(GL_TEXTURE0);
+        bindSamplers(0, NO_SAMPLERS);
 
         // Whatever the frame throws, the game gets its own state back: a frame that left its
         // pushes behind would leave more on every frame the fault came again.
@@ -837,9 +889,7 @@ final class Pipeline {
             // The other view's frames go on, and are not to find this as the throw left it.
             CharacterDraw.bare = false;
         } finally {
-            for (int unit = 0; unit < UNITS; unit++) {
-                GL33.glBindSampler(unit, samplers[unit]);
-            }
+            bindSamplers(0, samplers);
             GL30.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, drawTarget);
             GL30.glBindFramebuffer(GL_READ_FRAMEBUFFER, readTarget);
             GL15.glBindBuffer(GL_PIXEL_UNPACK_BUFFER, unpackBuffer);
@@ -2964,11 +3014,10 @@ final class Pipeline {
 
     private void bindMaterials(Program to) {
         for (int material = 0; material < MATERIALS.length; material++) {
-            GL13.glActiveTexture(GL_TEXTURE0 + FIRST_MATERIAL_UNIT + material);
             // Until the mod's own pictures are made a unit holds plain white, which leaves whatever reads it as it was.
-            GL11.glBindTexture(material == BARK ? Pictures.GL_TEXTURE_2D_ARRAY : GL_TEXTURE_2D,
-                    material == BARK || materialTexture[material] != 0 ? materialTexture[material] : whiteTexture);
+            materialBound[material] = material == BARK || materialTexture[material] != 0 ? materialTexture[material] : whiteTexture;
         }
+        bindTextures(FIRST_MATERIAL_UNIT, materialBound, MATERIAL_KINDS);
         to.set("uAsphalt", FIRST_MATERIAL_UNIT);
         to.set("uGravel", FIRST_MATERIAL_UNIT + 1);
         to.set("uSoil", FIRST_MATERIAL_UNIT + 2);
@@ -2987,19 +3036,17 @@ final class Pipeline {
         to.set("uCloth", FIRST_MATERIAL_UNIT + 12);
         to.set("uClothGain", materialGain[12]);
         for (int nature = 0; nature < NATURE.length; nature++) {
-            GL13.glActiveTexture(GL_TEXTURE0 + FIRST_NATURE_UNIT + nature);
-            GL11.glBindTexture(GL_TEXTURE_2D, natureTexture[nature] != 0 ? natureTexture[nature] : whiteTexture);
+            natureBound[nature] = natureTexture[nature] != 0 ? natureTexture[nature] : whiteTexture;
         }
+        natureBound[SPRIG_UNIT - FIRST_NATURE_UNIT] = sprigs != 0 ? sprigs : whiteTexture;
+        natureBound[SPRIG_FORM_UNIT - FIRST_NATURE_UNIT] = sprigForm != 0 ? sprigForm : whiteTexture;
+        bindTextures(FIRST_NATURE_UNIT, natureBound, NATURE_KINDS);
         to.set("uLitter", FIRST_NATURE_UNIT);
         to.set("uRock", FIRST_NATURE_UNIT + 1);
         to.set("uFrond", FIRST_NATURE_UNIT + 2);
         to.set("uIvy", FIRST_NATURE_UNIT + 3);
         to.set("uNatureGain", natureGain[0], natureGain[1]);
-        GL13.glActiveTexture(GL_TEXTURE0 + SPRIG_UNIT);
-        GL11.glBindTexture(GL_TEXTURE_2D, sprigs != 0 ? sprigs : whiteTexture);
         to.set("uSprigs", SPRIG_UNIT);
-        GL13.glActiveTexture(GL_TEXTURE0 + SPRIG_FORM_UNIT);
-        GL11.glBindTexture(GL_TEXTURE_2D, sprigForm != 0 ? sprigForm : whiteTexture);
         to.set("uSprigForm", SPRIG_FORM_UNIT);
         to.set("uRelief", WITHOUT.contains("relief") || !Own.textures() || !Quality.relief() || inMirror || inWater ? 0f : 1f);
         to.set("uMirrors", surfacesMirror && !inWater ? 1f : 0f);
@@ -4337,10 +4384,10 @@ final class Pipeline {
      * is a staircase, so there the skin is read with its dots run together.
      */
     private void smoothSkins(boolean smooth) {
-        for (int unit = 0; unit < SKIN_UNITS; unit++) {
-            GL33.glBindSampler(unit, smooth ? skinSampler : 0);
-        }
+        bindSamplers(0, smooth ? SMOOTH_SKINS : HARD_SKINS);
     }
+
+    private static final int[] SMOOTH_SKINS = new int[SKIN_UNITS], HARD_SKINS = new int[SKIN_UNITS];
 
     /**
      * The panes of the vehicle the viewer sits in, over everything seen through them: the
@@ -5018,6 +5065,7 @@ final class Pipeline {
         depthSampler = sampler(GL_NEAREST, GL_CLAMP_TO_EDGE);
         GL33.glSamplerParameteri(depthSampler, GL_TEXTURE_COMPARE_MODE, GL_NONE);
         skinSampler = sampler(GL_LINEAR, GL_REPEAT);
+        Arrays.fill(SMOOTH_SKINS, skinSampler);
         spriteSampler = sampler(GL_LINEAR, GL_CLAMP_TO_EDGE);
     }
 
