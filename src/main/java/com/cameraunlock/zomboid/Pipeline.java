@@ -659,6 +659,11 @@ final class Pipeline {
     private static final float TORCH_TAN = 1.6f, TORCH_NEAR = 0.08f, TORCH_PAST_REACH = 3.5f;
     /** A torch lights a room, not a road: its map is no bigger than this across, in any mode. */
     private static final int TORCH_MAP_MOST = 2048;
+    /**
+     * Nor are the headlights' map and the map of what stands overhead, which covers ROOF_EXTENT
+     * either way: at 2048 a texel of it is two hundredths of a tile.
+     */
+    private static final int BEAM_MAP_MOST = 2048, ROOF_MAP_MOST = 2048;
     private final float[] torchMatrix = new float[16], torchAt = new float[4], torchWay = new float[3];
     private int torchMap, torchTarget, torchSize;
     /** The fires' shadow maps, all in one texture (FireShadows), and the face size and slots it was made for. */
@@ -769,7 +774,7 @@ final class Pipeline {
 
     /** Every map and picture of this view's own, four bytes to a texel of depth or of a screen's colour and eight to one of light. */
     private long held() {
-        long bytes = nearMap == 0 ? 0L : 3L * 4 * shadowSize * shadowSize;
+        long bytes = nearMap == 0 ? 0L : 4L * (2L * shadowSize * shadowSize + (long) roofSize() * roofSize());
         for (Lent set : SIZED) {
             bytes += set.bytes;
         }
@@ -1711,6 +1716,7 @@ final class Pipeline {
         castFires(state);
         if (castRoof) {
             castRoof(state);
+            GL11.glViewport(0, 0, shadowSize, shadowSize);
             roofDrawn = true;
         }
         heldOf = drawn.size();
@@ -1765,12 +1771,14 @@ final class Pipeline {
             ViewCamera.projection(BEAM_TAN, 1f, BEAM_NEAR, BEAM_FAR, cast);
             multiply(cast, seen, beamMatrix);
             lend(beamed);
+            GL11.glViewport(0, 0, beamSize(), beamSize());
             beginCast(beamTarget, beamMatrix);
             castHeld(beamMatrix, state, beamListed, BEAM_MAP);
             if (figures) {
                 view.characters.castCharacters(beamMatrix, seen, BEAM_TAN, BEAM_FAR);
                 resumeCasting();
             }
+            GL11.glViewport(0, 0, shadowSize, shadowSize);
         }
     }
 
@@ -1875,7 +1883,7 @@ final class Pipeline {
 
     /** Drawn whatever the weather: the rain is kept off by it, and the light of the sky is traced against it. */
     private void castRoof(SkyState state) {
-        float texel = 2f * ROOF_EXTENT / shadowSize;
+        float texel = 2f * ROOF_EXTENT / roofSize();
         Arrays.fill(roofMatrix, 0f);
         roofMatrix[0] = 1f / ROOF_EXTENT;
         roofMatrix[12] = -(float) Math.floor(focusX / texel) * texel / ROOF_EXTENT;
@@ -1884,6 +1892,7 @@ final class Pipeline {
         roofMatrix[10] = -1f / ROOF_RANGE;
         roofMatrix[14] = focusUp / ROOF_RANGE;
         roofMatrix[15] = 1f;
+        GL11.glViewport(0, 0, roofSize(), roofSize());
         beginCast(roofTarget, roofMatrix);
         shadow.set("uFromAbove", 1f);
         try {
@@ -5129,22 +5138,30 @@ final class Pipeline {
         String far = shadowMap(made, shadowSize);
         farMap = made[0];
         farTarget = made[1];
-        String roof = shadowMap(made, shadowSize);
+        String roof = shadowMap(made, roofSize());
         roofMap = made[0];
         roofTarget = made[1];
         return near != null ? near : far != null ? far : roof;
     }
 
-    /** The headlights' shadow map, for the frames in which a headlight is lit: at High's size it is 64 MB. */
+    /** The headlights' shadow map, for the frames in which a headlight is lit: 16 MB at its largest. */
     private String makeBeamed() {
         int[] made = new int[2];
-        String problem = shadowMap(made, shadowSize);
+        String problem = shadowMap(made, beamSize());
         beamMap = made[0];
         beamTarget = made[1];
         beamed.textures.add(beamMap);
         beamed.targets.add(beamTarget);
-        beamed.bytes = 4L * shadowSize * shadowSize;
+        beamed.bytes = 4L * beamSize() * beamSize();
         return problem;
+    }
+
+    private int beamSize() {
+        return Math.min(shadowSize, BEAM_MAP_MOST);
+    }
+
+    private int roofSize() {
+        return Math.min(shadowSize, ROOF_MAP_MOST);
     }
 
     /** The torch's shadow map, for the frames in which the viewer's torch throws a beam: 16 MB at its largest. */
