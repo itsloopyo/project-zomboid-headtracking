@@ -261,9 +261,10 @@ final class Flora {
     static final float LEADER_TOP = 0.62f, LIMB_TIP = 0.014f, LIMB_OF_LEADER = 0.7f, LIMB_OUT = 0.8f, BRANCH_OF_LIMB = 0.5f, BRANCH_TIP = 0.008f;
     /**
      * A bare tree's limbs and branches end this far out of its outline, its twigs carrying on
-     * past them; how many twigs each branch has; and from what detail (see addCrown) on it has them.
+     * past them; how many twigs each branch has; and from what detail (see addCrown) on it has
+     * them: nearer than about 18 tiles (Crowns.detail), past which a twig is thinner than a pixel at 1080p.
      */
-    private static final float BARE_OUT = 0.9f, BARE_TWIGGED = 0.5f, TWIGLETS = 0.95f;
+    private static final float BARE_OUT = 0.9f, BARE_TWIGGED = 0.85f, TWIGLETS = 0.95f;
     private static final int BARE_TWIGS = 3;
     /** How many sticks a square of fallen wood has at least: up to three more. */
     private static final int FALLEN_STICKS_LEAST = 2;
@@ -276,8 +277,8 @@ final class Flora {
     private static final float WAVER = 0.025f, KINK = 0.16f, BOW = 0.06f;
     /** The longest a piece of a branch near the eye runs straight, as a share of the crown's height: twice as long far off. */
     private static final float STRAIGHT_MOST = 0.12f;
-    /** From this detail (see addCrown) on wood is bent at every joint, and its twigs as many as its species has. */
-    private static final float NEAR_BENDS = 0.9f;
+    /** From this detail (see addCrown) on wood is bent at every joint, and its twigs as many as its species has; and at or below the second, in its longest pieces. */
+    private static final float NEAR_BENDS = 0.9f, FAR_BENDS = 0.5f;
     /** Dev only, each a saving in what bare wood costs, on unless switched off to set it beside the wood without it: see WorldScene.without. */
     static volatile boolean fineOutOfShadow = true, nearTwiglets = true, piecesByDistance = true, twigsByDistance = true;
     /** How far up the bark's picture wood in a crown starts: clear of the moss a bole has at its foot. */
@@ -669,7 +670,7 @@ final class Flora {
             // Where each stem is at each of its joints, across and along from the tree's middle: no trunk runs dead straight.
             // In as many pieces as keep each short: see STRAIGHT_MOST.
             // Bent at every joint near the eye; far off, where a bend is finer than a pixel, in fewer, longer pieces.
-            float straight = STRAIGHT_MOST * woodTall * (piecesByDistance ? detail >= NEAR_BENDS ? 1f : detail > BARE_TWIGGED ? 1.8f : 3f : 1f);
+            float straight = STRAIGHT_MOST * woodTall * (piecesByDistance ? detail >= NEAR_BENDS ? 1f : detail > FAR_BENDS ? 1.8f : 3f : 1f);
             int leaderPieces = Math.max(LEADER_PIECES, (int) Math.ceil((topUp - boleTall) / straight));
             float[] stemX = workings.stemX = atLeast(workings.stemX, stems * (leaderPieces + 1)), stemY = workings.stemY = atLeast(workings.stemY, stems * (leaderPieces + 1));
             for (int stem = 0; stem < stems; stem++) {

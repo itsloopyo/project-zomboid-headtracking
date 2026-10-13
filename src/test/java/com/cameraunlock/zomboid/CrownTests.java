@@ -349,6 +349,18 @@ final class CrownTests {
         int farSprigs = sprigVertices(far), nearSprigs = sprigVertices(near);
         check(farSprigs > 0 && farSprigs * 2 < nearSprigs, "a crown at a quarter of the detail has under half the sprigs: " + farSprigs + " of " + nearSprigs);
         check(coreVertices(far) > 0 && coreVertices(far) * 3 < coreVertices(near), "and an inside of under a third as many faces: " + coreVertices(far) + " of " + coreVertices(near));
+        // A bare tree's twigs are wood too fine to throw a shadow: see Flora.FINE_MARK.
+        boolean twigsNear = false, twigsFar = false;
+        for (float away : new float[] {12f, 20f}) {
+            SpriteGeometry.Mesh wood = new SpriteGeometry.Mesh();
+            Flora.addCrown(new SpriteGeometry.Mesh(), wood, frame, places, 0.5f, 0.5f, 0f, FOOT_U, FOOT_V, Crowns.detail(away), 0f, 0.12f, 1.2f, Flora.BARK_OAK, Flora.BARE, 7, Flora.OPEN, 1f, 0, 0f);
+            for (int at = 0; at < wood.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+                boolean twig = wood.vertices[at + 3] >= Flora.FINE_MARK;
+                twigsNear |= twig && away < 16f;
+                twigsFar |= twig && away > 16f;
+            }
+        }
+        check(twigsNear && !twigsFar, "a bare crown has twigs off its branches near the eye and none where a twig is under a pixel");
     }
 
     private static void spriteWithNextToNothingPaintedHasNoCrown() {
