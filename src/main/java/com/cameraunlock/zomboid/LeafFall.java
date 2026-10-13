@@ -157,6 +157,11 @@ final class LeafFall {
         }
     }
 
+    /** Lets go of the trees that shed, until endTrees makes the list again. */
+    void forgetTrees() {
+        trees = 0;
+    }
+
     /** How many leaves lie on the ground and are not fading. */
     int carpet() {
         int lying = 0;

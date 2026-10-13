@@ -68,8 +68,14 @@ final class LeafTrees implements LeafFall.Ground {
         this.terrain = terrain;
         this.round = round;
         this.scale = scale;
-        read(eyeX, eyeY);
         long season = Seasons.now();
+        // No tree sheds outside autumn (LeafFall.shedding), so the trees are not read then; leaves still falling go on.
+        if (Seasons.seasonOf(season) == Seasons.AUTUMN) {
+            read(eyeX, eyeY);
+        } else {
+            fall.forgetTrees();
+            row = 0;
+        }
         fall.step(elapsed, sky.airX, sky.airY, sky.blowing, Seasons.seasonOf(season), Seasons.progressionOf(season), eyeX, eyeY, this);
         sky.leafCount = fall.write(sky.leaves, eyeX, eyeY);
     }

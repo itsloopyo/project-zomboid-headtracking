@@ -33,6 +33,7 @@ final class LeafFallTests {
         Checks.run("aLeafFallingOntoARoofDownhillIsCaughtAtIt", LeafFallTests::aLeafFallingOntoARoofDownhillIsCaughtAtIt);
         Checks.run("treesAreReadRoundTheEyeWhereverItIs", LeafFallTests::treesAreReadRoundTheEyeWhereverItIs);
         Checks.run("nothingMovesWhileThePictureWaits", LeafFallTests::nothingMovesWhileThePictureWaits);
+        Checks.run("forgottenTreesShedNothingAndTheirLeavesFallOn", LeafFallTests::forgottenTreesShedNothingAndTheirLeavesFallOn);
     }
 
     private static final float PEAK_AUTUMN = 0.45f;
@@ -643,5 +644,16 @@ final class LeafFallTests {
             fall.step(0f, 1f, 0f, 0.3f, Seasons.AUTUMN, PEAK_AUTUMN, 0f, 0f, OPEN);
         }
         Checks.check(Arrays.deepEquals(before, sorted(fall)) && fall.spawned == let, "paused, nothing moves and nothing more falls");
+    }
+
+    private static void forgottenTreesShedNothingAndTheirLeavesFallOn() {
+        LeafFall fall = grove(10);
+        run(fall, 2f, 1f / 30f, 0f, 0f, 0.3f, Seasons.AUTUMN, PEAK_AUTUMN);
+        int airborne = fall.count();
+        long let = fall.spawned, landed = fall.landings;
+        fall.forgetTrees();
+        run(fall, 10f, 1f / 30f, 0f, 0f, 0.3f, Seasons.AUTUMN, PEAK_AUTUMN);
+        Checks.check(airborne > 0 && fall.spawned == let, "no tree is left to let go: " + airborne + " in the air, " + (fall.spawned - let) + " more let go");
+        Checks.check(fall.landings > landed, "the leaves already falling land: " + (fall.landings - landed));
     }
 }
