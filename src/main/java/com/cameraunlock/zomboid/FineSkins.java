@@ -328,6 +328,8 @@ public final class FineSkins {
      * runs the game's combiner, which binds its own targets, programs and buffers and ends by
      * putting back the state the game remembers, not the picture's: all of it is put back
      * here, and the caller sets its own state after this, not before. Render thread only.
+     *
+     * @param away how far from the viewer's eye the wearer stands along the ground, in tiles, and nought for the viewer: see RoomLine
      */
     static synchronized Texture of(Texture bound, float away) {
         if (wornFrame != Pipeline.frame()) {

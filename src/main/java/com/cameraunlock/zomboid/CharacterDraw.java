@@ -1724,7 +1724,7 @@ final class CharacterDraw {
         }
         // Making a finer skin runs the game's combiner, so it is asked for before any of
         // this part's state is set. A shadow has no skin at all.
-        Texture worn = finelySkinned ? FineSkins.of(texture, away) : texture;
+        Texture worn = finelySkinned ? FineSkins.of(texture, fromEye) : texture;
 
         if (!drawing) {
             GL11.glEnable(GL_DEPTH_TEST);

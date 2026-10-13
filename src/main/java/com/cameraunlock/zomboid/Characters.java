@@ -1881,7 +1881,7 @@ public final class Characters {
                 CharacterDraw.release();
                 seated(data, i * 4, viewMatrix);
             } else {
-                character(data, standsUp, viewMatrix, data.character == viewer, casting, false, false, (float) Math.hypot(toX, toY));
+                character(data, standsUp, viewMatrix, data.character == viewer, casting, false, false, data.character == viewer ? 0f : (float) Math.hypot(toX, toY));
             }
             data.ambientR = red;
             data.ambientG = green;
