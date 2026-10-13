@@ -60,10 +60,12 @@ final class SnowCoverTests {
         String main = PipelineShaders.WORLD_FRAGMENT_MAIN.replaceAll("\\s+", "");
         check(main.contains("floatrange=max(away-uRangeFrom,0.0);") && main.contains("floatskyOver=open>0.5&&!crown?skyOverAt(vWorld+n*0.1,range):1.0;"),
                 "the ground's pixel asks the sky as snowStood has it");
-        check(main.contains("if(uSnowLying>0.0&&open>0.5&&!water&&!model&&!body&&(uPlantSnow>0.0||!(strip||grass||crown||core||card))){") && main.contains("snowShelter=(1.0-skyOver)/0.62;"),
+        check(main.contains("if(uSnowLying>0.0&&open>0.5&&!water&&!model&&!body&&!blood&&(uPlantSnow>0.0||!(strip||grass||crown||core||card))){") && main.contains("snowShelter=(1.0-skyOver)/0.62;"),
                 "snow is drawn only under the sky, thinned by what hides it, as snowStood has it");
         check(WorldScene.BODY == 89f && main.contains("boolbody=vMaterial>88.5&&vMaterial<89.5;"),
                 "a body lying on the ground is told apart by its material, and settled snow does not cover it");
+        check(WorldScene.BLOOD == 85f && main.contains("boolblood=vMaterial>84.5&&vMaterial<85.5;"),
+                "nor blood spilt on the snow");
         check(body(SnowShader.COVER, "vec3 snowThick(vec2 q, float foot)").contains("-SNOW_SHELTERED*snowShelter"), "the snow drawn is thinned by the same share");
         check(PipelineShaders.WORLD_VERTEX.replaceAll("\\s+", "").contains(",mod(gl_Color.a,32.0)>24.5);"), "a strip's vertex says whether its square is under the sky, and snowStood is told");
     }

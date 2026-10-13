@@ -2958,8 +2958,10 @@ final class PipelineShaders {
                 float snowed = 0.0;
                 // How much ground a pixel covers here: what is finer than that is not drawn.
                 float snowFoot = max(length(dFdx(vPlace.xy)), length(dFdy(vPlace.xy)));
+                // A body and the blood spilt round it fell on the snow: settled snow does not cover them.
                 bool body = vMaterial > 88.5 && vMaterial < 89.5;
-                if (uSnowLying > 0.0 && open > 0.5 && !water && !model && !body && (uPlantSnow > 0.0 || !(strip || grass || crown || core || card))) {
+                bool blood = vMaterial > 84.5 && vMaterial < 85.5;
+                if (uSnowLying > 0.0 && open > 0.5 && !water && !model && !body && !blood && (uPlantSnow > 0.0 || !(strip || grass || crown || core || card))) {
                     // Less of it gets under a tree or the eaves of a house than falls in the open.
                     snowShelter = (1.0 - skyOver) / 0.62;
                     if (strip || grass) {
