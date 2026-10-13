@@ -503,8 +503,12 @@ public final class Agent {
                         new CallSite.Method(cutaways, "checkExteriorWalls", "(Ljava/util/ArrayList;)Z"), covered)),
                 // The game's shadows under its people, bodies and mannequins, each worked out over the
                 // ground's slope and depth as it is added, and drawn into its own view only.
-                new Patch(shadows, "shadows not added under the first person picture", classBytes -> CallSite.returnAtOnceIf(classBytes,
-                        new CallSite.Method(shadows, "addShadow", "(FFFFFFFFFFFFFFFLzombie/core/textures/Texture;Z)V"), covered)),
+                new Patch(shadows, "shadows not added under the first person picture", classBytes -> {
+                    for (String added : new String[] {"(FFFLorg/joml/Vector3f;FFFFFFFZ)V", "(FFFFFFFFFFFFFFFLzombie/core/textures/Texture;Z)V"}) {
+                        classBytes = CallSite.returnAtOnceIf(classBytes, new CallSite.Method(shadows, "addShadow", added), covered);
+                    }
+                    return classBytes;
+                }),
                 // The dark the game lays over what its player cannot see: worked out from the player's
                 // cone of sight over the walls round them and drawn into its own view only. The
                 // picture goes by the mod's own walk through the rooms (RoomSight), not by this.
