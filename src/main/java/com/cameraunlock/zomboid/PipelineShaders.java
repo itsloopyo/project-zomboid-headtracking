@@ -466,7 +466,11 @@ final class PipelineShaders {
             uniform float uCutAbove;
             varying vec3 vPlace;
             varying vec4 vBlade;
+            // The body of the cloud over the place, as the sun sees it: see the world's fragment shader.
+            varying float vClouds;
             uniform vec3 uWind;
+            uniform vec3 uLight;
+            uniform vec2 uDrift;
             uniform float uLaid;
             uniform float uSnowLying;
             uniform vec3 uEye;
@@ -474,7 +478,7 @@ final class PipelineShaders {
             uniform float uRangeFrom;
             uniform sampler2D uHeights;
             uniform mat4 uRoofMatrix;
-            """ + GRASS_WIND + MODEL_STANDS + FACED + SKY_SEEN + SnowShader.COVER + SnowShader.STOOD + SnowShader.RIDGE + """
+            """ + GROUND_NOISE + GRASS_WIND + MODEL_STANDS + FACED + SKY_SEEN + SnowShader.COVER + SnowShader.STOOD + SnowShader.RIDGE + """
             uniform vec3 uLit;
             uniform vec3 uLitAlong;
             uniform vec3 uLitDown;
@@ -645,6 +649,9 @@ final class PipelineShaders {
                     vCover = 1.0;
                 }
                 vWorld = at.xyz + lies;
+                // A cloud's shadow changes over tens of tiles, so it is worked out at the vertices.
+                vec2 under = (vWorld.xy + uLight.xy / max(uLight.z, 0.25) * 30.0) / 22.0 + uDrift * 6.0;
+                vClouds = patches(under) * 0.6 + patches(under * 2.7 + 7.0) * 0.4;
                 // The map is thousands of tiles across and a number here holds seven digits, so
                 // a place on it is known to a millimetre and no finer. Multiplied as it stands
                 // by a matrix that takes the eye's own place off again, a vertex's depth came out
@@ -811,6 +818,7 @@ final class PipelineShaders {
             uniform int uFadedCount;
             varying vec3 vPlace;
             varying vec4 vBlade;
+            varying float vClouds;
 
             float shadowAt(sampler2DShadow map, vec3 c, float soft) {
                 // The sun is not a point, so a shadow has a soft edge. Sixteen samples in a
@@ -3184,9 +3192,7 @@ final class PipelineShaders {
                     }
                     // The clouds overhead pass between the sun and the ground, and their
                     // shadows cross the land with the wind: fields go dull and bright by turns.
-                    vec2 under = (vWorld.xy + uLight.xy / max(uLight.z, 0.25) * 30.0) / 22.0 + uDrift * 6.0;
-                    float body = patches(under) * 0.6 + patches(under * 2.7 + 7.0) * 0.4;
-                    reached *= 1.0 - 0.65 * smoothstep(-0.06, 0.06, body - (1.12 - uCover));
+                    reached *= 1.0 - 0.65 * smoothstep(-0.06, 0.06, vClouds - (1.12 - uCover));
                     if (crown) {
                         // Inside a crown the sun still arrives, through the leaves above and
                         // between them: the shade a tree gives itself is green and never deep.
