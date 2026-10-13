@@ -4397,7 +4397,7 @@ final class WorldScene {
         }
 
         /** The name of the sprite of the tree on a square that has one: the game marks a square as having a tree for any object of the tree's type on it. */
-        static String treeName(IsoGridSquare square) {
+        private static String treeName(IsoGridSquare square) {
             PZArrayList<IsoObject> objects = square.getObjects();
             for (int i = 0; i < objects.size(); i++) {
                 IsoObject object = objects.get(i);

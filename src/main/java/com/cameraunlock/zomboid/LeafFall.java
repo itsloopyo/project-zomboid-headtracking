@@ -15,9 +15,9 @@ import java.util.Locale;
  */
 final class LeafFall {
     /** How far from the eye a tree sheds leaves that are drawn, and past what a leaf carried off is let go, in tiles. */
-    static final float REACH = 32f, KEPT = REACH + 8f;
+    static final float REACH = 32f, KEPT = REACH + 8f, NEAR = 10f;
     /** The most leaves in the air and lying at once, and the most trees that shed them. */
-    static final int MOST = 768, MOST_TREES = 512;
+    static final int MOST = 1024, MOST_TREES = 512;
     /**
      * One leaf as a frame carries it to the picture, FLOATS long: its middle, the half of its
      * length and the half of its breadth as ways in the world, the colour its tree turns
@@ -25,8 +25,8 @@ final class LeafFall {
      */
     static final int X = 0, Y = 1, UP = 2, ALONG_X = 3, ALONG_Y = 4, ALONG_UP = 5, ACROSS_X = 6, ACROSS_Y = 7, ACROSS_UP = 8, HUE = 9, TURNED = 10, SHOWN = 11;
     static final int FLOATS = 12;
-    /** Leaves a second a tree lets go of in still air as its crown thins fastest, and the share of that while its leaves only turn. */
-    static final float PEAK = 1.5f, TRICKLE = 0.12f;
+    /** Leaves a second a tree lets go of in still air as its crown thins fastest, and the share of that once its leaves have turned and before it thins. */
+    static final float PEAK = 4f, TRICKLE = 0.3f;
     /** How long a landed leaf lies before it fades, the least and the most, and how long it fades over, in seconds. */
     static final float LIES_LEAST = 3f, LIES_MOST = 7f, FADES = 1.5f;
     /** How long the air takes to bring a leaf to its own speed, in seconds. */
@@ -34,7 +34,7 @@ final class LeafFall {
     /** A leaf's half length, the least and the most, in tiles, and its breadth over its length. */
     private static final float HALF_LEAST = 0.045f, HALF_MOST = 0.07f, BROAD = 0.65f;
     /** A crown, from the ground, its least and its most height and how far out it reaches, in tiles; and a jumbo tree's. */
-    private static final float CROWN_LOW = 1.8f, CROWN_HIGH = 5f, CROWN_REACH = 1.1f, JUMBO_LOW = 2.6f, JUMBO_HIGH = 7.5f, JUMBO_REACH = 1.8f;
+    private static final float CROWN_LOW = 1.8f, CROWN_HIGH = 5f, CROWN_REACH = 1.6f, JUMBO_LOW = 2.6f, JUMBO_HIGH = 7.5f, JUMBO_REACH = 2.6f;
     /** A leaf that has fallen to this near the ground asks what the ground is under it again, in tiles. */
     private static final float GROUND_ASKED = 0.6f;
     /** The longest step taken at once, in seconds: past it the game has hitched, and the leaves wait. */
@@ -55,7 +55,7 @@ final class LeafFall {
     private final float[] treeX = new float[MOST_TREES], treeY = new float[MOST_TREES], treeGround = new float[MOST_TREES], owed = new float[MOST_TREES];
     private final int[] treeHash = new int[MOST_TREES];
     private final byte[] treeHue = new byte[MOST_TREES];
-    private final boolean[] treeJumbo = new boolean[MOST_TREES];
+    private final boolean[] treeJumbo = new boolean[MOST_TREES], treeInLeaf = new boolean[MOST_TREES];
     private int trees;
 
     // Each leaf: where its drift has got to, how fast it drifts, how long it has fallen and how long since it landed (or below 0 in the air).
@@ -72,8 +72,8 @@ final class LeafFall {
     /** Counted since the sim was made: leaves let go of by trees, and leaves landed. */
     long spawned, landings;
 
-    /** Replaces the trees that shed: tree i stands at (xs[i], ys[i]) on ground grounds[i], hashes to hashes[i] (Seasons.treeHash), turns hues[i], and is a jumbo tree if jumbos[i]. */
-    void trees(int count, float[] xs, float[] ys, float[] grounds, int[] hashes, byte[] hues, boolean[] jumbos) {
+    /** Replaces the trees that shed: tree i stands at (xs[i], ys[i]) on ground grounds[i], hashes to hashes[i] (Seasons.treeHash), turns hues[i], is a jumbo tree if jumbos[i], and has the game's leaves on it if inLeaf[i]. */
+    void trees(int count, float[] xs, float[] ys, float[] grounds, int[] hashes, byte[] hues, boolean[] jumbos, boolean[] inLeaf) {
         if (count > MOST_TREES) {
             throw new IllegalArgumentException("more trees than " + MOST_TREES + ": " + count);
         }
@@ -84,6 +84,7 @@ final class LeafFall {
             treeHash[i] = hashes[i];
             treeHue[i] = hues[i];
             treeJumbo[i] = jumbos[i];
+            treeInLeaf[i] = inLeaf[i];
             // A start of its own between nothing and one leaf owed, so a tree sheds as often as it should whenever the list is made again.
             owed[i] = next();
         }
@@ -108,25 +109,39 @@ final class LeafFall {
     }
 
     /**
-     * How many leaves a second a deciduous tree whose square hashes to treeHash lets go of in
-     * still air: none outside autumn, a few while its leaves turn, most as its crown thins
-     * fastest, and none once it is bare.
+     * How much leaf a deciduous tree's crown is drawn with, 1 full and 0 bare, as PlantBuilder
+     * draws it: none where the game has no leaves on the tree (gameLeaves false: its own erosion
+     * has it bare), else Seasons.leafOn at the step of the season the crowns are built at.
      */
-    static float shedding(int season, float progression, int treeHash) {
+    static float crownLeaf(boolean gameLeaves, int season, float progression, int treeHash) {
+        return gameLeaves ? Seasons.leafOn(season, Seasons.stepped(season, progression), treeHash) : 0f;
+    }
+
+    /**
+     * How many leaves a second a deciduous tree whose square hashes to treeHash lets go of in
+     * still air: none outside autumn and none from a crown drawn bare; while its leaves turn, more
+     * the further they have turned, and most as its crown thins fastest.
+     */
+    static float shedding(boolean gameLeaves, int season, float progression, int treeHash) {
         if (season != Seasons.AUTUMN) {
             return 0f;
         }
-        float on = Seasons.leafOn(season, progression, treeHash);
-        if (on <= 0f || Seasons.turned(season, progression, treeHash) <= 0f) {
+        float on = crownLeaf(gameLeaves, season, progression, treeHash), turned = Seasons.turned(season, Seasons.stepped(season, progression), treeHash);
+        if (on <= 0f || turned <= 0f) {
             return 0f;
         }
-        // leafOn is 1 less a smoothstep: its slope, 6t(1 - t), is 4 * on * (1 - on) to within a few hundredths, and peaks at 1.
-        return PEAK * Math.max(TRICKLE, 4f * on * (1f - on));
+        // leafOn is 1 less a smoothstep, whose slope, 6t(1 - t), is 4 * on * (1 - on) to within a few hundredths, and peaks at 1.
+        return PEAK * Math.max(TRICKLE * smooth(turned / 0.5f) * on, 4f * on * (1f - on));
+    }
+
+    /** The share of its leaves a tree that far from the eye is given to let go of: all within NEAR, less further off. */
+    static float nearness(float away) {
+        return 1f - 0.7f * smooth((away - NEAR) / (REACH - NEAR));
     }
 
     /** How many times as many leaves the wind takes as still air would let fall, by the game's wind intensity, 0 still to 1 at 120 km/h. */
     static float letGo(float intensity) {
-        return 0.5f + 3.5f * smooth(intensity / 0.5f);
+        return 0.8f + 3.2f * smooth(intensity / 0.5f);
     }
 
     /** How much of the air's speed a falling leaf takes on: little in the lightest air, near the ground and among trees, and more of a strong wind. */
@@ -165,7 +180,8 @@ final class LeafFall {
             if (dx * dx + dy * dy > REACH * REACH) {
                 continue;
             }
-            float rate = shedding(season, progression, treeHash[t]);
+            // A tree near the eye sheds all it would; one further off a share of that, so in a wood the room goes to the leaves that can be seen as leaves.
+            float rate = shedding(treeInLeaf[t], season, progression, treeHash[t]) * nearness((float) Math.sqrt(dx * dx + dy * dy));
             if (rate <= 0f) {
                 continue;
             }
@@ -289,7 +305,7 @@ final class LeafFall {
         tumble[i] = tumbles ? (next() < 0.5f ? -1f : 1f) * (6f + 8f * next()) : 0f;
         half[i] = HALF_LEAST + (HALF_MOST - HALF_LEAST) * next();
         hue[i] = treeHue[t];
-        turned[i] = Math.clamp(Seasons.turned(season, progression, treeHash[t]) + 0.35f * (next() - 0.4f), 0f, 1f);
+        turned[i] = Math.clamp(Seasons.turned(season, Seasons.stepped(season, progression), treeHash[t]) + 0.35f * (next() - 0.4f), 0f, 1f);
         square[i] = Integer.MIN_VALUE;
         spawned++;
     }
@@ -338,7 +354,7 @@ final class LeafFall {
             rock = tumble[i] * t + turn[i];
         } else {
             // Tilted along the way it swings, the most as it passes the middle.
-            rock = 0.6f * c;
+            rock = 0.9f * c;
         }
         // The leaf's face: up, tipped towards the way it swings by rock.
         float sr = (float) Math.sin(rock), cr = (float) Math.cos(rock);
@@ -366,7 +382,12 @@ final class LeafFall {
         for (int i = 0; i < count; i++) {
             lying += landed[i] >= 0f ? 1 : 0;
         }
-        return String.format(Locale.ROOT, "leaves %d (%d lying) from %d trees, %d let go and %d landed in all", count, lying, trees, spawned, landings);
+        int inLeaf = 0;
+        for (int t = 0; t < trees; t++) {
+            inLeaf += treeInLeaf[t] ? 1 : 0;
+        }
+        return String.format(Locale.ROOT, "leaves %d (%d lying) from %d trees (%d with the game's leaves), %d let go and %d landed in all", count, lying, trees, inLeaf,
+                spawned, landings);
     }
 
     /** 0 to 1, from the xorshift kept here: the same leaves for the same steps. */

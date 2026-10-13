@@ -10,6 +10,7 @@ final class LeafFallTests {
         Checks.run("onlyBroadLeavedTreesShed", LeafFallTests::onlyBroadLeavedTreesShed);
         Checks.run("nothingFallsOutsideAutumn", LeafFallTests::nothingFallsOutsideAutumn);
         Checks.run("treesShedAsTheyTurnMostAsTheyThinAndNoneBare", LeafFallTests::treesShedAsTheyTurnMostAsTheyThinAndNoneBare);
+        Checks.run("aBareCrownShedsNothingAndAFullAutumnOneDoes", LeafFallTests::aBareCrownShedsNothingAndAFullAutumnOneDoes);
         Checks.run("theWindTakesMoreLeavesAndCarriesThemFurther", LeafFallTests::theWindTakesMoreLeavesAndCarriesThemFurther);
         Checks.run("leavesLetGoFromTheCrownTheColourItTurned", LeafFallTests::leavesLetGoFromTheCrownTheColourItTurned);
         Checks.run("aLeafMovesTheSameAtAnyFrameRate", LeafFallTests::aLeafMovesTheSameAtAnyFrameRate);
@@ -42,7 +43,7 @@ final class LeafFallTests {
         float[] xs = new float[count], ys = new float[count], grounds = new float[count];
         int[] hashes = new int[count];
         byte[] hues = new byte[count];
-        boolean[] jumbos = new boolean[count];
+        boolean[] jumbos = new boolean[count], inLeaf = new boolean[count];
         int side = (int) Math.ceil(Math.sqrt(count));
         for (int i = 0; i < count; i++) {
             int x = (i % side) * 3 - side, y = (i / side) * 3 - side;
@@ -50,8 +51,9 @@ final class LeafFallTests {
             ys[i] = y + 0.5f;
             hashes[i] = Seasons.treeHash(x, y);
             hues[i] = (byte) Flora.autumnHue("e_redmaple_1_3", hashes[i]);
+            inLeaf[i] = true;
         }
-        fall.trees(count, xs, ys, grounds, hashes, hues, jumbos);
+        fall.trees(count, xs, ys, grounds, hashes, hues, jumbos, inLeaf);
         return fall;
     }
 
@@ -72,7 +74,7 @@ final class LeafFallTests {
         for (int season : new int[] {Seasons.SPRING, Seasons.SUMMER, Seasons.SUMMER2, Seasons.WINTER}) {
             for (int day = 0; day <= 20; day++) {
                 for (int hash = 0; hash < 256; hash += 7) {
-                    Checks.check(LeafFall.shedding(season, day / 20f, hash) == 0f, "season " + season + " sheds nothing");
+                    Checks.check(LeafFall.shedding(true, season, day / 20f, hash) == 0f, "season " + season + " sheds nothing");
                 }
             }
             LeafFall fall = grove(30);
@@ -86,8 +88,8 @@ final class LeafFallTests {
             float most = 0f, mostAt = -1f, first = -1f;
             for (int day = 0; day <= 400; day++) {
                 float p = day / 400f;
-                float shed = LeafFall.shedding(Seasons.AUTUMN, p, hash), on = Seasons.leafOn(Seasons.AUTUMN, p, hash);
-                float turned = Seasons.turned(Seasons.AUTUMN, p, hash);
+                float shed = LeafFall.shedding(true, Seasons.AUTUMN, p, hash), on = LeafFall.crownLeaf(true, Seasons.AUTUMN, p, hash);
+                float turned = Seasons.turned(Seasons.AUTUMN, Seasons.stepped(Seasons.AUTUMN, p), hash);
                 Checks.check(shed >= 0f, "shedding is never less than none");
                 if (on == 0f || turned == 0f) {
                     Checks.check(shed == 0f, "a bare tree or one still green sheds nothing, day " + day);
@@ -104,17 +106,45 @@ final class LeafFallTests {
             }
             Checks.check(first == 1f, "a tree starts to shed while it still has all its leaves");
             Checks.check(mostAt > 0.3f && mostAt < 0.7f, "a tree sheds most as its crown is half gone: " + mostAt);
-            Checks.check(most > 5f * LeafFall.PEAK * LeafFall.TRICKLE, "the thinning sheds many times what the turning does");
+            Checks.check(most > 3f * LeafFall.PEAK * LeafFall.TRICKLE, "the thinning sheds a few times what the turning does");
         }
+    }
+
+    /** What falls goes by the crown as it is drawn: the mod's leaf at the crowns' step, and none where the game has the tree bare. */
+    private static void aBareCrownShedsNothingAndAFullAutumnOneDoes() {
+        int bare = 0, full = 0;
+        for (int hash = 0; hash < 4096; hash += 3) {
+            for (int day = 0; day <= 200; day++) {
+                float p = day / 200f, crown = LeafFall.crownLeaf(true, Seasons.AUTUMN, p, hash);
+                float turned = Seasons.turned(Seasons.AUTUMN, Seasons.stepped(Seasons.AUTUMN, p), hash);
+                Checks.check(LeafFall.shedding(false, Seasons.AUTUMN, p, hash) == 0f, "a tree the game has bare sheds nothing, whatever the season says");
+                Checks.check(crown == Seasons.leafOn(Seasons.AUTUMN, Seasons.stepped(Seasons.AUTUMN, p), hash), "the crown's leaf is the one PlantBuilder builds it with");
+                if (crown == 0f) {
+                    bare++;
+                    Checks.check(LeafFall.shedding(true, Seasons.AUTUMN, p, hash) == 0f, "a bare crown sheds nothing, day " + day);
+                }
+                if (crown == 1f && turned >= 0.3f) {
+                    full++;
+                    Checks.check(LeafFall.shedding(true, Seasons.AUTUMN, p, hash) > 0.5f * LeafFall.PEAK * LeafFall.TRICKLE, "a crown still full of autumn colour sheds, day " + day);
+                }
+            }
+        }
+        Checks.check(bare > 1000 && full > 1000, "both kinds of crown were met: " + bare + " bare, " + full + " full and turned");
+        LeafFall fall = new LeafFall();
+        fall.trees(1, new float[] {0.5f}, new float[] {0.5f}, new float[1], new int[] {Seasons.treeHash(0, 0)}, new byte[1], new boolean[1], new boolean[] {false});
+        run(fall, 30f, 1f / 60f, 1f, 0f, 0.5f, Seasons.AUTUMN, PEAK_AUTUMN);
+        Checks.check(fall.spawned == 0, "a tree the game has bare lets no leaf go in a gale at the height of autumn: " + fall.spawned);
     }
 
     private static void theWindTakesMoreLeavesAndCarriesThemFurther() {
         Checks.check(LeafFall.letGo(0f) < LeafFall.letGo(0.1f) && LeafFall.letGo(0.1f) < LeafFall.letGo(0.4f) && LeafFall.letGo(0.6f) >= 3f, "the wind lets more go");
         Checks.check(LeafFall.carried(0.02f) < LeafFall.carried(0.3f), "a strong wind carries a leaf more than still air");
+        Checks.check(LeafFall.nearness(0f) == 1f && LeafFall.nearness(LeafFall.NEAR) == 1f && LeafFall.nearness(20f) < 1f
+                && LeafFall.nearness(LeafFall.REACH) > 0.25f && LeafFall.nearness(LeafFall.REACH) < LeafFall.nearness(20f), "a tree near the eye sheds all it would, one further off a share");
         LeafFall calm = grove(20), windy = grove(20);
         run(calm, 20f, 1f / 60f, 0.1f, 0f, 0.02f, Seasons.AUTUMN, PEAK_AUTUMN);
         run(windy, 20f, 1f / 60f, 15f, 0f, 0.5f, Seasons.AUTUMN, PEAK_AUTUMN);
-        Checks.check(windy.spawned > 4 * calm.spawned && calm.spawned > 20, "a gale takes many times the leaves still air does: " + windy.spawned + " against " + calm.spawned);
+        Checks.check(windy.spawned > 3 * calm.spawned && calm.spawned > 20, "a gale takes many times the leaves still air does: " + windy.spawned + " against " + calm.spawned);
         float[] leaves = new float[LeafFall.MOST * LeafFall.FLOATS];
         int calmCount = calm.write(leaves, 0f, 0f);
         float calmEast = meanX(leaves, calmCount);

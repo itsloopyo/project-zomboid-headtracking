@@ -1,8 +1,13 @@
 package com.cameraunlock.zomboid;
 
+import java.util.ArrayList;
 import zombie.GameTime;
 import zombie.iso.IsoCell;
 import zombie.iso.IsoGridSquare;
+import zombie.iso.IsoObject;
+import zombie.iso.SpriteDetails.IsoObjectType;
+import zombie.iso.sprite.IsoSpriteInstance;
+import zombie.util.list.PZArrayList;
 
 /**
  * The game's side of LeafFall for one view, on the logic thread: reads the broad-leaved trees
@@ -18,7 +23,7 @@ final class LeafTrees implements LeafFall.Ground {
     private final float[] xs = new float[LeafFall.MOST_TREES], ys = new float[LeafFall.MOST_TREES], grounds = new float[LeafFall.MOST_TREES];
     private final int[] hashes = new int[LeafFall.MOST_TREES];
     private final byte[] hues = new byte[LeafFall.MOST_TREES];
-    private final boolean[] jumbos = new boolean[LeafFall.MOST_TREES];
+    private final boolean[] jumbos = new boolean[LeafFall.MOST_TREES], inLeaf = new boolean[LeafFall.MOST_TREES];
     private int found, row, fromX, fromY;
     private boolean full;
     private long lastNanos;
@@ -57,10 +62,14 @@ final class LeafTrees implements LeafFall.Ground {
                 if (square == null || !square.HasTree()) {
                     continue;
                 }
-                String name = WorldScene.Frame.treeName(square);
+                IsoObject tree = treeOn(square);
+                String name = tree == null || tree.getSprite() == null ? null : tree.getSprite().getName();
                 if (!LeafFall.sheds(name)) {
                     continue;
                 }
+                // As WorldScene reads it: a tree the game's erosion has bare has no leaves hung on it, and its crown is drawn bare.
+                ArrayList<IsoSpriteInstance> leaves = tree.getAttachedAnimSprite();
+                inLeaf[found] = leaves != null && !leaves.isEmpty() || tree.getOverlaySprite() != null;
                 int hash = Seasons.treeHash(x, y);
                 xs[found] = x + 0.5f;
                 ys[found] = y + 0.5f;
@@ -72,9 +81,19 @@ final class LeafTrees implements LeafFall.Ground {
             }
         }
         if (row == SIDE) {
-            fall.trees(found, xs, ys, grounds, hashes, hues, jumbos);
+            fall.trees(found, xs, ys, grounds, hashes, hues, jumbos, inLeaf);
             row = 0;
         }
+    }
+
+    private static IsoObject treeOn(IsoGridSquare square) {
+        PZArrayList<IsoObject> objects = square.getObjects();
+        for (int i = 0; i < objects.size(); i++) {
+            if (objects.get(i).getType() == IsoObjectType.tree) {
+                return objects.get(i);
+            }
+        }
+        return null;
     }
 
     @Override
