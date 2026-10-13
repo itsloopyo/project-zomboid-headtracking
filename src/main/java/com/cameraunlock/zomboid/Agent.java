@@ -454,6 +454,7 @@ public final class Agent {
     private static List<Patch> coveredPatches() {
         String world = "zombie/iso/IsoWorld", cell = "zombie/iso/fboRenderChunk/FBORenderCell";
         String cutaways = "zombie/iso/fboRenderChunk/FBORenderCutaways", outline = "zombie/iso/fboRenderChunk/FBORenderObjectOutline";
+        String shadows = "zombie/iso/fboRenderChunk/FBORenderShadows";
         CallSite.Method covered = new CallSite.Method(HOOKS, "coversTheGamesView", "()Z");
         return List.of(
                 new Patch(world, "renderWeatherFX left out under the first person picture", classBytes -> CallSite.returnAtOnceIf(classBytes,
@@ -500,6 +501,10 @@ public final class Agent {
                         new CallSite.Method(cell, "prepareChunksForUpdating", "(I)V"), covered)),
                 new Patch(cutaways, "the levels' cut away walls not worked out under the first person picture", classBytes -> CallSite.falseAtOnceIf(classBytes,
                         new CallSite.Method(cutaways, "checkExteriorWalls", "(Ljava/util/ArrayList;)Z"), covered)),
+                // The game's shadows under its people, bodies and mannequins, each worked out over the
+                // ground's slope and depth as it is added, and drawn into its own view only.
+                new Patch(shadows, "shadows not added under the first person picture", classBytes -> CallSite.returnAtOnceIf(classBytes,
+                        new CallSite.Method(shadows, "addShadow", "(FFFFFFFFFFFFFFFLzombie/core/textures/Texture;Z)V"), covered)),
                 // The game's own draw of each person into its own view, which the picture then
                 // covers: the picture draws every part of them again itself, by RenderCharacter.
                 // performRenderCharacter is the whole of that draw, the GL state and the model
