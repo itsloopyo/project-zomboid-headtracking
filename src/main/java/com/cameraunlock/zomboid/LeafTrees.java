@@ -33,7 +33,7 @@ final class LeafTrees implements LeafFall.Ground {
     private IsoCell cell;
     private Terrain terrain;
 
-    /** Whether the game hangs leaves on a tree: one its erosion has bare has none, and its crown is drawn bare. WorldScene reads a tree in leaf by this too. */
+    /** Whether the game hangs leaves on a tree: one its erosion has bare has none, and its crown is drawn bare. */
     static boolean inLeaf(IsoObject tree) {
         ArrayList<IsoSpriteInstance> leaves = tree.getAttachedAnimSprite();
         return leaves != null && !leaves.isEmpty() || tree.getOverlaySprite() != null;

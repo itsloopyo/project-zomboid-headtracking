@@ -675,7 +675,7 @@ final class PlantBuilder {
         }
     }
 
-    /** Notes the crown of a broad-leaved tree's tile the first time one is built, which is where its falling leaves let go from (LeafTrees). */
+    /** Notes the crown of a broad-leaved tree's tile the first time one is built, which is where its falling leaves let go from. */
     private void seenForLeafFall(float[] places, int x, int y, float footU, float footV) {
         String tile = treeX == x && treeY == y ? treeTile : null;
         if (tile != null && LeafFall.sheds(tile) && LeafTrees.crownWanted(tile) && Flora.measure(build.frame, places, footU, footV, crownLeft, crownRight, crownSizes)) {
