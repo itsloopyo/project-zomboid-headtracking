@@ -15,6 +15,7 @@ final class MapAheadTests {
         Checks.run("theGroundsFirstFloorAndWhatIsAboveAreRead", MapAheadTests::theGroundsFirstFloorAndWhatIsAboveAreRead);
         Checks.run("aSquareIsMadeOfWhatTheGameWouldMakeOfIt", MapAheadTests::aSquareIsMadeOfWhatTheGameWouldMakeOfIt);
         Checks.run("whatStandsOnASquareAndWhatIsOverItAreRead", MapAheadTests::whatStandsOnASquareAndWhatIsOverItAreRead);
+        Checks.run("theWindowIsAskedRingByRingInTheOrderOfTheWholeBox", MapAheadTests::theWindowIsAskedRingByRingInTheOrderOfTheWholeBox);
     }
 
     private static void check(boolean condition, String what) {
@@ -118,5 +119,23 @@ final class MapAheadTests {
         MapAhead.Rooms upstairs = (x, y, z) -> x == 80 && y == 160 && z == 2 ? 1L : Footings.NONE;
         check(MapAhead.guess(raw(grass, 0, MapAhead.ANY, 1 << 2), upstairs).above[0] == Footings.BUILT, "a room above is built over the square");
         check(MapAhead.guess(raw(grass, 0, 0, 0), upstairs).above[0] == Footings.OPEN, "a room above on no square the map has is nothing over it");
+    }
+
+    private static void theWindowIsAskedRingByRingInTheOrderOfTheWholeBox() {
+        int midX = -3, midY = 1250, rings = 9;
+        java.util.ArrayList<Long> walked = new java.util.ArrayList<>(), boxed = new java.util.ArrayList<>();
+        MapAhead.ringsOut(midX, midY, rings, (wx, wy) -> walked.add((long) wx << 32 | wy & 0xFFFFFFFFL));
+        // Each ring's whole box walked, its edge kept.
+        for (int ring = 0; ring <= rings; ring++) {
+            for (int wx = midX - ring; wx <= midX + ring; wx++) {
+                for (int wy = midY - ring; wy <= midY + ring; wy++) {
+                    if (Math.max(Math.abs(wx - midX), Math.abs(wy - midY)) == ring) {
+                        boxed.add((long) wx << 32 | wy & 0xFFFFFFFFL);
+                    }
+                }
+            }
+        }
+        check(walked.equals(boxed) && walked.size() == (2 * rings + 1) * (2 * rings + 1), "every chunk of the window once, nearest first, in the order walking each ring's box gave: "
+                + walked.size());
     }
 }

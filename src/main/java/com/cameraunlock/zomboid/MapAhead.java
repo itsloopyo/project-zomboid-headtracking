@@ -10,8 +10,6 @@ import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -258,7 +256,14 @@ final class MapAhead {
      */
     private static final int TABLE_SIDE = 128;
     private static final Guess[] guesses = new Guess[TABLE_SIDE * TABLE_SIDE * View.COUNT];
-    private static final HashSet<Long> asked = new HashSet<>();
+    /** The chunks asked to be read and not since let go of, as key packs them, in places as guesses has them: NONE in a way that holds none. */
+    private static final long[] asked = new long[TABLE_SIDE * TABLE_SIDE * View.COUNT];
+    private static final long NONE = Long.MIN_VALUE;
+
+    static {
+        Arrays.fill(asked, NONE);
+    }
+
     /** Each cell's lotpack and traits, or null for a cell the map has no lotpack for. */
     private static final HashMap<Long, Cell> cells = new HashMap<>();
     private static final HashMap<String, Integer> traitsByName = new HashMap<>();
@@ -342,7 +347,7 @@ final class MapAhead {
     static void forget() {
         generation++;
         Arrays.fill(guesses, null);
-        asked.clear();
+        Arrays.fill(asked, NONE);
         cells.clear();
         traitsByName.clear();
         read.clear();
@@ -366,13 +371,17 @@ final class MapAhead {
         int wx = Math.floorDiv(x, CHUNK), wy = Math.floorDiv(y, CHUNK);
         long round = key(wx, wy);
         if (!windowed[view] || roundOf[view] != round || windowSide[view] != side()) {
+            boolean had = windowed[view];
+            int wasX = windowX[view], wasY = windowY[view], wasSide = windowSide[view];
             windowed[view] = true;
             roundOf[view] = round;
             windowSide[view] = side();
             windowX[view] = wx - side() / 2;
             windowY[view] = wy - side() / 2;
             ask(view);
-            forgetOutside();
+            if (had) {
+                forgetOutside(wasX, wasY, wasSide);
+            }
         }
         take();
     }
@@ -388,20 +397,12 @@ final class MapAhead {
         ArrayList<Job> jobs = new ArrayList<>();
         int side = windowSide[view];
         int midX = windowX[view] + side / 2, midY = windowY[view] + side / 2;
-        // Nearest first.
-        for (int ring = 0; ring <= side / 2; ring++) {
-            for (int wx = midX - ring; wx <= midX + ring; wx++) {
-                for (int wy = midY - ring; wy <= midY + ring; wy++) {
-                    if (Math.max(Math.abs(wx - midX), Math.abs(wy - midY)) != ring || !asked.add(key(wx, wy))) {
-                        continue;
-                    }
-                    Cell cell = cell(Math.floorDiv(wx, CELL_CHUNKS), Math.floorDiv(wy, CELL_CHUNKS));
-                    if (cell != null) {
-                        jobs.add(new Job(wx, wy, cell));
-                    }
-                }
+        ringsOut(midX, midY, side / 2, (wx, wy) -> {
+            Cell cell = noteAsked(wx, wy) ? cell(Math.floorDiv(wx, CELL_CHUNKS), Math.floorDiv(wy, CELL_CHUNKS)) : null;
+            if (cell != null) {
+                jobs.add(new Job(wx, wy, cell));
             }
-        }
+        });
         if (jobs.isEmpty()) {
             return;
         }
@@ -421,6 +422,23 @@ final class MapAhead {
                 failure = "the map could not be read ahead: " + thrown;
             }
         });
+    }
+
+    /** A chunk, by where it is on the map. */
+    interface ChunkAt {
+        void at(int wx, int wy);
+    }
+
+    /** Gives each the chunks round (midX, midY) out to rings chunks from it, nearest first: ring by ring, each walked along its edge alone, x before y. */
+    static void ringsOut(int midX, int midY, int rings, ChunkAt each) {
+        for (int ring = 0; ring <= rings; ring++) {
+            for (int wx = midX - ring; wx <= midX + ring; wx++) {
+                boolean end = wx == midX - ring || wx == midX + ring;
+                for (int wy = midY - ring; wy <= midY + ring; wy += end || ring == 0 ? 1 : 2 * ring) {
+                    each.at(wx, wy);
+                }
+            }
+        }
     }
 
     /** The thread's: the lotpack, mapped once for as long as it is among the last few read. */
@@ -473,7 +491,7 @@ final class MapAhead {
         boolean took = false;
         Raw raw;
         while (System.nanoTime() - began < TAKEN_NANOS_A_FRAME && (raw = read.poll()) != null) {
-            if (raw.generation() != generation || !asked.contains(key(raw.wx(), raw.wy()))) {
+            if (raw.generation() != generation || !asked(raw.wx(), raw.wy())) {
                 continue;
             }
             keep(guess(raw, ROOMS));
@@ -484,14 +502,48 @@ final class MapAhead {
         }
     }
 
-    /** Lets go of what lies outside every view's window. */
-    private static void forgetOutside() {
-        Iterator<Long> each = asked.iterator();
-        while (each.hasNext()) {
-            long chunk = each.next();
-            int wx = (int) (chunk >> 32), wy = (int) chunk;
-            if (!inAnyWindow(wx, wy)) {
-                each.remove();
+    /** Whether the chunk has been asked to be read and not since let go of. */
+    private static boolean asked(int wx, int wy) {
+        int slot = slot(wx, wy);
+        long chunk = key(wx, wy);
+        for (int way = 0; way < View.COUNT; way++) {
+            if (asked[slot + way] == chunk) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Notes the chunk as asked to be read, in place of one no view's window holds, unless it is already: whether it was not. */
+    private static boolean noteAsked(int wx, int wy) {
+        if (asked(wx, wy)) {
+            return false;
+        }
+        int slot = slot(wx, wy);
+        for (int way = 0; way < View.COUNT; way++) {
+            long held = asked[slot + way];
+            if (held == NONE || !inAnyWindow((int) (held >> 32), (int) held)) {
+                asked[slot + way] = key(wx, wy);
+                return true;
+            }
+        }
+        throw new IllegalStateException("no place to note chunk " + wx + ", " + wy + " asked: every way holds a chunk some view's window has");
+    }
+
+    /** Lets go of what was asked in a view's window from (fromX, fromY), side chunks a side, and lies outside every view's window now. */
+    private static void forgetOutside(int fromX, int fromY, int side) {
+        for (int wx = fromX; wx < fromX + side; wx++) {
+            for (int wy = fromY; wy < fromY + side; wy++) {
+                if (inAnyWindow(wx, wy)) {
+                    continue;
+                }
+                int slot = slot(wx, wy);
+                long chunk = key(wx, wy);
+                for (int way = 0; way < View.COUNT; way++) {
+                    if (asked[slot + way] == chunk) {
+                        asked[slot + way] = NONE;
+                    }
+                }
             }
         }
     }
