@@ -11,60 +11,76 @@ final class LeafFallTests {
         Checks.run("nothingFallsOutsideAutumn", LeafFallTests::nothingFallsOutsideAutumn);
         Checks.run("treesShedAsTheyTurnMostAsTheyThinAndNoneBare", LeafFallTests::treesShedAsTheyTurnMostAsTheyThinAndNoneBare);
         Checks.run("aBareCrownShedsNothingAndAFullAutumnOneDoes", LeafFallTests::aBareCrownShedsNothingAndAFullAutumnOneDoes);
+        Checks.run("onlyTreesInLeafWithACrownWithinReachShed", LeafFallTests::onlyTreesInLeafWithACrownWithinReachShed);
+        Checks.run("theNearestTreesAreKeptWhateverTheOrderTheyCome", LeafFallTests::theNearestTreesAreKeptWhateverTheOrderTheyCome);
+        Checks.run("aNearTreeShedsMoreThanAFarOne", LeafFallTests::aNearTreeShedsMoreThanAFarOne);
         Checks.run("theWindTakesMoreLeavesAndCarriesThemFurther", LeafFallTests::theWindTakesMoreLeavesAndCarriesThemFurther);
         Checks.run("leavesLetGoFromTheCrownTheColourItTurned", LeafFallTests::leavesLetGoFromTheCrownTheColourItTurned);
         Checks.run("aLeafMovesTheSameAtAnyFrameRate", LeafFallTests::aLeafMovesTheSameAtAnyFrameRate);
+        Checks.run("asManyLeavesLetGoAtAnyFrameRate", LeafFallTests::asManyLeavesLetGoAtAnyFrameRate);
+        Checks.run("aHitchIsTakenAsAQuarterSecond", LeafFallTests::aHitchIsTakenAsAQuarterSecond);
         Checks.run("leavesLandLieAndFade", LeafFallTests::leavesLandLieAndFade);
-        Checks.run("noMoreLeavesThanThereIsRoomFor", LeafFallTests::noMoreLeavesThanThereIsRoomFor);
-        Checks.run("aLeafBlownIntoABuildingIsGone", LeafFallTests::aLeafBlownIntoABuildingIsGone);
+        Checks.run("whenThereIsNoRoomLyingLeavesFadeToMakeIt", LeafFallTests::whenThereIsNoRoomLyingLeavesFadeToMakeIt);
+        Checks.run("aLeafCarriedOffIsLetGoPastKept", LeafFallTests::aLeafCarriedOffIsLetGoPastKept);
+        Checks.run("aJumpOfTheEyeLetsEveryLeafGo", LeafFallTests::aJumpOfTheEyeLetsEveryLeafGo);
+        Checks.run("aLeafBlownAtABuildingIsCaughtAndFadesOrGoesOver", LeafFallTests::aLeafBlownAtABuildingIsCaughtAndFadesOrGoesOver);
         Checks.run("nothingMovesWhileThePictureWaits", LeafFallTests::nothingMovesWhileThePictureWaits);
     }
 
     private static final float PEAK_AUTUMN = 0.45f;
+    /** A test tree's crown: lowest and highest leaves over the ground and how far out, in tiles. */
+    private static final float LOW = 1.8f, HIGH = 5f, OUT = 1.6f;
+    private static final String MAPLE = "e_redmaple_1_3";
 
-    /** Flat ground at height 0 with walls on every square from x = wallFrom on. */
-    private record Flat(int wallFrom) implements LeafFall.Ground {
+    /** Flat ground at height 0 with a building on every square from x = wallFrom on, up to wallTop. */
+    private record Flat(int wallFrom, float wallTop) implements LeafFall.Ground {
         @Override
         public float height(float x, float y) {
             return 0f;
         }
 
         @Override
-        public boolean walled(int x, int y) {
-            return x >= wallFrom;
+        public boolean walled(int x, int y, float up) {
+            return x >= wallFrom && up < wallTop;
         }
     }
 
-    private static final Flat OPEN = new Flat(Integer.MAX_VALUE);
+    private static final Flat OPEN = new Flat(Integer.MAX_VALUE, 0f);
 
-    /** A sim whose trees stand on a grid round (0, 0), count of them, all red maples. */
+    /** A sim whose trees stand on a grid round (0, 0), count of them, all red maples in leaf. */
     private static LeafFall grove(int count) {
         LeafFall fall = new LeafFall();
-        float[] xs = new float[count], ys = new float[count], grounds = new float[count];
-        int[] hashes = new int[count];
-        byte[] hues = new byte[count];
-        boolean[] jumbos = new boolean[count], inLeaf = new boolean[count];
+        fall.beginTrees(0f, 0f);
         int side = (int) Math.ceil(Math.sqrt(count));
         for (int i = 0; i < count; i++) {
             int x = (i % side) * 3 - side, y = (i / side) * 3 - side;
-            xs[i] = x + 0.5f;
-            ys[i] = y + 0.5f;
-            hashes[i] = Seasons.treeHash(x, y);
-            hues[i] = (byte) Flora.autumnHue("e_redmaple_1_3", hashes[i]);
-            inLeaf[i] = true;
+            fall.offer(x + 0.5f, y + 0.5f, 0f, MAPLE, Seasons.treeHash(x, y), true, LOW, HIGH, OUT);
         }
-        fall.trees(count, xs, ys, grounds, hashes, hues, jumbos, inLeaf);
+        fall.endTrees();
         return fall;
     }
 
+    /** A hash whose tree sheds at the height of autumn at least that many leaves a second in still air. */
+    private static int shedding(float least) {
+        for (int hash = 0; ; hash++) {
+            if (LeafFall.shedding(true, Seasons.AUTUMN, PEAK_AUTUMN, hash) >= least) {
+                return hash;
+            }
+        }
+    }
+
     private static void run(LeafFall fall, float seconds, float step, float airX, float airY, float intensity, int season, float progression) {
+        run(fall, seconds, step, airX, airY, intensity, season, progression, OPEN);
+    }
+
+    private static void run(LeafFall fall, float seconds, float step, float airX, float airY, float intensity, int season, float progression, LeafFall.Ground on) {
         for (float t = 0f; t < seconds - 1e-4f; t += step) {
-            fall.step(step, airX, airY, intensity, season, progression, 0f, 0f, OPEN);
+            fall.step(step, airX, airY, intensity, season, progression, 0f, 0f, on);
         }
     }
 
     private static void onlyBroadLeavedTreesShed() {
-        Checks.check(LeafFall.sheds("e_redmaple_1_3") && LeafFall.sheds("e_americanlindenJUMBO_1_0") && LeafFall.sheds("e_riverbirch_1_2"), "maple, linden and birch shed");
+        Checks.check(LeafFall.sheds(MAPLE) && LeafFall.sheds("e_americanlindenJUMBO_1_0") && LeafFall.sheds("e_riverbirch_1_2"), "maple, linden and birch shed");
         Checks.check(!LeafFall.sheds("e_americanholly_1_3") && !LeafFall.sheds("e_easternwhitepine_1_2") && !LeafFall.sheds("e_canadianhemlockJUMBO_1_1"),
                 "holly, pine and hemlock keep theirs");
         Checks.check(!LeafFall.sheds("fencing_burnt_01_17") && !LeafFall.sheds(null), "a dead tree and an unread one shed nothing");
@@ -118,7 +134,6 @@ final class LeafFallTests {
                 float p = day / 200f, crown = LeafFall.crownLeaf(true, Seasons.AUTUMN, p, hash);
                 float turned = Seasons.turned(Seasons.AUTUMN, Seasons.stepped(Seasons.AUTUMN, p), hash);
                 Checks.check(LeafFall.shedding(false, Seasons.AUTUMN, p, hash) == 0f, "a tree the game has bare sheds nothing, whatever the season says");
-                Checks.check(crown == Seasons.leafOn(Seasons.AUTUMN, Seasons.stepped(Seasons.AUTUMN, p), hash), "the crown's leaf is the one PlantBuilder builds it with");
                 if (crown == 0f) {
                     bare++;
                     Checks.check(LeafFall.shedding(true, Seasons.AUTUMN, p, hash) == 0f, "a bare crown sheds nothing, day " + day);
@@ -130,17 +145,66 @@ final class LeafFallTests {
             }
         }
         Checks.check(bare > 1000 && full > 1000, "both kinds of crown were met: " + bare + " bare, " + full + " full and turned");
+    }
+
+    /** A tree with the game's leaves off it, one no crown of which has been built, an evergreen, and one past REACH let nothing go; one in leaf beside them does. */
+    private static void onlyTreesInLeafWithACrownWithinReachShed() {
+        int hash = shedding(1f);
+        LeafFall none = new LeafFall();
+        none.beginTrees(0f, 0f);
+        none.offer(1.5f, 0.5f, 0f, MAPLE, hash, false, LOW, HIGH, OUT);
+        none.offer(-1.5f, 0.5f, 0f, MAPLE, hash, true, 0f, 0f, 0f);
+        none.offer(0.5f, 2.5f, 0f, "e_americanholly_1_3", hash, true, LOW, HIGH, OUT);
+        none.offer(LeafFall.REACH + 0.5f, 0.5f, 0f, MAPLE, hash, true, LOW, HIGH, OUT);
+        none.endTrees();
+        run(none, 30f, 1f / 60f, 0f, 0f, 0.5f, Seasons.AUTUMN, PEAK_AUTUMN);
+        Checks.check(none.spawned == 0, "none of them lets a leaf go: " + none.spawned);
+        LeafFall one = new LeafFall();
+        one.beginTrees(0f, 0f);
+        one.offer(1.5f, 0.5f, 0f, MAPLE, hash, true, LOW, HIGH, OUT);
+        one.endTrees();
+        run(one, 30f, 1f / 60f, 0f, 0f, 0.5f, Seasons.AUTUMN, PEAK_AUTUMN);
+        Checks.check(one.spawned > 30, "a tree in leaf with a crown lets them go: " + one.spawned);
+    }
+
+    /** A wood with more trees than are kept: the one beside the eye sheds wherever in the read it comes. */
+    private static void theNearestTreesAreKeptWhateverTheOrderTheyCome() {
+        int hash = shedding(1f);
         LeafFall fall = new LeafFall();
-        fall.trees(1, new float[] {0.5f}, new float[] {0.5f}, new float[1], new int[] {Seasons.treeHash(0, 0)}, new byte[1], new boolean[1], new boolean[] {false});
-        run(fall, 30f, 1f / 60f, 1f, 0f, 0.5f, Seasons.AUTUMN, PEAK_AUTUMN);
-        Checks.check(fall.spawned == 0, "a tree the game has bare lets no leaf go in a gale at the height of autumn: " + fall.spawned);
+        fall.beginTrees(0f, 0f);
+        int offered = 0;
+        for (int y = -30; y <= 30 && offered < 2 * LeafFall.MOST_TREES; y += 2) {
+            for (int x = -30; x <= 30 && offered < 2 * LeafFall.MOST_TREES; x += 2) {
+                if (x * x + y * y > 9) {
+                    fall.offer(x + 0.5f, y + 0.5f, 0f, MAPLE, Seasons.treeHash(x, y), true, LOW, HIGH, OUT);
+                    offered++;
+                }
+            }
+        }
+        fall.offer(0.5f, 0.5f, 0f, MAPLE, hash, true, LOW, HIGH, OUT);
+        fall.endTrees();
+        Checks.check(offered > LeafFall.MOST_TREES, "more trees offered than are kept: " + offered);
+        run(fall, 10f, 1f / 60f, 0f, 0f, 0.5f, Seasons.AUTUMN, PEAK_AUTUMN);
+        Checks.check(fall.released(0) > 20, "the tree beside the eye, offered last, is the first kept and sheds: " + fall.released(0));
+    }
+
+    private static void aNearTreeShedsMoreThanAFarOne() {
+        Checks.check(LeafFall.nearness(0f) == 1f && LeafFall.nearness(LeafFall.NEAR) == 1f && LeafFall.nearness(20f) < 1f
+                && LeafFall.nearness(LeafFall.REACH) > 0.25f && LeafFall.nearness(LeafFall.REACH) < LeafFall.nearness(20f), "a tree near the eye sheds all it would, one further off a share");
+        int hash = shedding(1f);
+        LeafFall fall = new LeafFall();
+        fall.beginTrees(0f, 0f);
+        fall.offer(30.5f, 0.5f, 0f, MAPLE, hash, true, LOW, HIGH, OUT);
+        fall.offer(2.5f, 0.5f, 0f, MAPLE, hash, true, LOW, HIGH, OUT);
+        fall.endTrees();
+        run(fall, 120f, 1f / 30f, 0f, 0f, 0.1f, Seasons.AUTUMN, PEAK_AUTUMN);
+        Checks.check(fall.released(0) > 2 * fall.released(1) && fall.released(1) > 0, "the near tree lets go more than twice what the same tree far off does: "
+                + fall.released(0) + " against " + fall.released(1));
     }
 
     private static void theWindTakesMoreLeavesAndCarriesThemFurther() {
         Checks.check(LeafFall.letGo(0f) < LeafFall.letGo(0.1f) && LeafFall.letGo(0.1f) < LeafFall.letGo(0.4f) && LeafFall.letGo(0.6f) >= 3f, "the wind lets more go");
         Checks.check(LeafFall.carried(0.02f) < LeafFall.carried(0.3f), "a strong wind carries a leaf more than still air");
-        Checks.check(LeafFall.nearness(0f) == 1f && LeafFall.nearness(LeafFall.NEAR) == 1f && LeafFall.nearness(20f) < 1f
-                && LeafFall.nearness(LeafFall.REACH) > 0.25f && LeafFall.nearness(LeafFall.REACH) < LeafFall.nearness(20f), "a tree near the eye sheds all it would, one further off a share");
         LeafFall calm = grove(20), windy = grove(20);
         run(calm, 20f, 1f / 60f, 0.1f, 0f, 0.02f, Seasons.AUTUMN, PEAK_AUTUMN);
         run(windy, 20f, 1f / 60f, 15f, 0f, 0.5f, Seasons.AUTUMN, PEAK_AUTUMN);
@@ -163,25 +227,25 @@ final class LeafFallTests {
     }
 
     private static void leavesLetGoFromTheCrownTheColourItTurned() {
-        LeafFall fall = grove(1);
+        int hash = shedding(1f);
+        LeafFall fall = new LeafFall();
+        fall.beginTrees(0f, 0f);
+        fall.offer(-0.5f, -0.5f, 0f, MAPLE, hash, true, 3f, 4f, 1f);
+        fall.endTrees();
         float[] leaves = new float[LeafFall.MOST * LeafFall.FLOATS];
-        int hash = Seasons.treeHash(-1, -1);
         int seen = 0;
         for (int round = 0; round < 400; round++) {
             fall.step(0.25f, 0f, 0f, 0.5f, Seasons.AUTUMN, PEAK_AUTUMN, 0f, 0f, OPEN);
-            // A leaf fades in over its first moments: a little later it shows.
+            // A leaf fades in over its first moments: a little later it shows. In that time it falls a little and swings.
             fall.step(0.3f, 0f, 0f, 0.5f, Seasons.SUMMER, 0.5f, 0f, 0f, OPEN);
             int count = fall.write(leaves, 0f, 0f);
             for (int i = 0; i < count; i++) {
                 int at = i * LeafFall.FLOATS;
-                if (leaves[at + LeafFall.UP] < 1.2f) {
-                    continue;
-                }
                 seen++;
                 float out = (float) Math.hypot(leaves[at + LeafFall.X] + 0.5f, leaves[at + LeafFall.Y] + 0.5f);
-                Checks.check(out < 2f, "a leaf in the air near its crown is within reach of its tree: " + out);
-                Checks.check(leaves[at + LeafFall.UP] < 5.5f, "and no higher than the crown");
-                Checks.check(leaves[at + LeafFall.HUE] == Flora.autumnHue("e_redmaple_1_3", hash), "a leaf is its tree's colour");
+                Checks.check(out < 1.3f, "a leaf just let go is within its crown's reach: " + out);
+                Checks.check(leaves[at + LeafFall.UP] > 3f - 0.6f && leaves[at + LeafFall.UP] < 4.2f, "and between its crown's lowest and highest leaves: " + leaves[at + LeafFall.UP]);
+                Checks.check(leaves[at + LeafFall.HUE] == Flora.autumnHue(MAPLE, hash), "a leaf is its tree's colour");
             }
             fall.clear();
         }
@@ -212,6 +276,23 @@ final class LeafFallTests {
         }
     }
 
+    private static void asManyLeavesLetGoAtAnyFrameRate() {
+        LeafFall slow = grove(20), fast = grove(20);
+        run(slow, 20f, 1f / 30f, 0.5f, 0f, 0.2f, Seasons.AUTUMN, PEAK_AUTUMN);
+        run(fast, 20f, 1f / 144f, 0.5f, 0f, 0.2f, Seasons.AUTUMN, PEAK_AUTUMN);
+        Checks.check(slow.spawned > 200 && Math.abs(slow.spawned - fast.spawned) <= 3, "as many leaves let go at 30 and 144 frames a second: " + slow.spawned + " and " + fast.spawned);
+    }
+
+    private static void aHitchIsTakenAsAQuarterSecond() {
+        LeafFall hitched = grove(20), steady = grove(20);
+        hitched.step(LeafFall.STEP_MOST, 0f, 0f, 0.5f, Seasons.AUTUMN, PEAK_AUTUMN, 0f, 0f, OPEN);
+        steady.step(LeafFall.STEP_MOST, 0f, 0f, 0.5f, Seasons.AUTUMN, PEAK_AUTUMN, 0f, 0f, OPEN);
+        hitched.step(5f, 0f, 0f, 0.5f, Seasons.AUTUMN, PEAK_AUTUMN, 0f, 0f, OPEN);
+        steady.step(LeafFall.STEP_MOST, 0f, 0f, 0.5f, Seasons.AUTUMN, PEAK_AUTUMN, 0f, 0f, OPEN);
+        Checks.check(Arrays.deepEquals(sorted(hitched), sorted(steady)) && hitched.spawned == steady.spawned,
+                "a five second hitch moves the leaves and lets them go as a quarter second does: " + hitched.spawned + " and " + steady.spawned);
+    }
+
     private static float[][] sorted(LeafFall fall) {
         float[] leaves = new float[LeafFall.MOST * LeafFall.FLOATS];
         int count = fall.write(leaves, 0f, 0f);
@@ -238,32 +319,79 @@ final class LeafFallTests {
             Checks.check(Math.abs(leaves[at + LeafFall.ALONG_UP]) < 0.01f && Math.abs(leaves[at + LeafFall.ACROSS_UP]) < 0.01f, "and lies near flat");
         }
         run(fall, LeafFall.LIES_MOST + LeafFall.FADES + 0.1f, 1f / 60f, 0f, 0f, 0.5f, Seasons.SUMMER, 0.5f);
-        Checks.check(fall.count() == 0, "every landed leaf has faded: " + fall.count());
+        Checks.check(fall.count() == 0 && fall.vanished == 0, "every landed leaf has faded, none vanished: " + fall.count() + " left, " + fall.vanished + " vanished");
     }
 
-    private static void noMoreLeavesThanThereIsRoomFor() {
-        LeafFall fall = grove(LeafFall.MOST_TREES);
-        for (int round = 0; round < 600; round++) {
-            fall.step(1f / 30f, 20f, 5f, 0.9f, Seasons.AUTUMN, PEAK_AUTUMN, 0f, 0f, OPEN);
-            Checks.check(fall.count() <= LeafFall.MOST, "no more leaves than there is room for");
+    /**
+     * A wood where more leaves let go than there is room for: the room is made by lying leaves
+     * fading sooner, so leaves keep coming at a rate their lying out their time would not allow,
+     * the nearest tree keeps shedding, and none vanishes while it shows.
+     */
+    private static void whenThereIsNoRoomLyingLeavesFadeToMakeIt() {
+        int hash = shedding(1f);
+        LeafFall fall = new LeafFall();
+        fall.beginTrees(0f, 0f);
+        for (int y = -30; y <= 30; y += 2) {
+            for (int x = -30; x <= 30; x += 2) {
+                fall.offer(x + 1.5f, y + 1.5f, 0f, MAPLE, Seasons.treeHash(x, y), true, LOW, HIGH, OUT);
+            }
         }
-        Checks.check(fall.count() > LeafFall.MOST / 2, "a wood in a gale fills it: " + fall.count());
+        fall.offer(0.5f, 0.5f, 0f, MAPLE, hash, true, LOW, HIGH, OUT);
+        fall.endTrees();
+        run(fall, 15f, 1f / 30f, 0f, 0f, 0.5f, Seasons.AUTUMN, PEAK_AUTUMN);
+        Checks.check(fall.count() > LeafFall.MOST - 50, "the wood fills the room: " + fall.count());
+        long before = fall.spawned;
+        int nearBefore = fall.released(0);
+        run(fall, 20f, 1f / 30f, 0f, 0f, 0.5f, Seasons.AUTUMN, PEAK_AUTUMN);
+        float perSecond = (fall.spawned - before) / 20f;
+        // Lying out its time, a leaf would hold its place for (LIES_LEAST + LIES_MOST) / 2 + FADES seconds after its fall.
+        float layingOut = LeafFall.MOST / ((LeafFall.LIES_LEAST + LeafFall.LIES_MOST) / 2f + LeafFall.FADES);
+        Checks.check(perSecond > 1.3f * layingOut, "leaves keep coming faster than lying out their time would let them: " + perSecond + " a second against " + layingOut);
+        float nearRate = LeafFall.letGo(0.5f) * LeafFall.shedding(true, Seasons.AUTUMN, PEAK_AUTUMN, hash);
+        Checks.check(fall.released(0) - nearBefore >= 0.8f * nearRate * 20f, "the nearest tree sheds all it would: " + (fall.released(0) - nearBefore) + " of " + nearRate * 20f);
+        Checks.check(fall.vanished == 0, "no leaf vanished while it showed: " + fall.vanished);
     }
 
-    private static void aLeafBlownIntoABuildingIsGone() {
-        LeafFall fall = grove(1);
-        Flat walled = new Flat(3);
+    private static void aLeafCarriedOffIsLetGoPastKept() {
+        LeafFall fall = grove(4);
+        run(fall, 2f, 1f / 60f, 20f, 0f, 0.6f, Seasons.AUTUMN, PEAK_AUTUMN);
+        run(fall, 3f, 1f / 60f, 20f, 0f, 0.6f, Seasons.SUMMER, 0.5f);
         float[] leaves = new float[LeafFall.MOST * LeafFall.FLOATS];
+        Checks.check(fall.spawned > 20 && fall.count() == fall.write(leaves, 0f, 0f), "every leaf left is within KEPT of the eye: " + fall.count() + " kept of " + fall.spawned);
+        Checks.check(fall.vanished == 0, "and none vanished while it showed: " + fall.vanished);
+    }
+
+    private static void aJumpOfTheEyeLetsEveryLeafGo() {
+        LeafFall fall = grove(4);
+        run(fall, 3f, 1f / 60f, 0f, 0f, 0.5f, Seasons.AUTUMN, PEAK_AUTUMN);
+        run(fall, 3f, 1f / 60f, 0f, 0f, 0.5f, Seasons.SUMMER, 0.5f);
+        Checks.check(fall.count() > 10, "leaves lie round the trees: " + fall.count());
+        fall.step(1f / 60f, 0f, 0f, 0.5f, Seasons.SUMMER, 0.5f, LeafFall.KEPT + 1f, 0f, OPEN);
+        Checks.check(fall.count() == 0, "an eye that jumps away lets every leaf go: " + fall.count());
+    }
+
+    /** A bungalow downwind: a leaf that meets its walls is caught there and fades, one over its roof goes on, and none vanishes. */
+    private static void aLeafBlownAtABuildingIsCaughtAndFadesOrGoesOver() {
+        LeafFall fall = new LeafFall();
+        fall.beginTrees(0f, 0f);
+        fall.offer(-0.5f, 0.5f, 0f, MAPLE, shedding(1f), true, LOW, HIGH, OUT);
+        fall.endTrees();
+        Flat bungalow = new Flat(3, ViewCamera.LEVEL_HEIGHT);
+        float[] leaves = new float[LeafFall.MOST * LeafFall.FLOATS];
+        int over = 0;
         for (int round = 0; round < 1200; round++) {
-            fall.step(1f / 30f, 12f, 0f, 0.6f, Seasons.AUTUMN, PEAK_AUTUMN, 0f, 0f, walled);
+            fall.step(1f / 30f, 12f, 0f, 0.6f, Seasons.AUTUMN, PEAK_AUTUMN, 0f, 0f, bungalow);
             int count = fall.write(leaves, 0f, 0f);
             for (int i = 0; i < count; i++) {
                 int at = i * LeafFall.FLOATS;
-                // Its middle's drift is out of the walls; its swing may take its drawn middle a little past.
-                Checks.check(leaves[at + LeafFall.X] < 3.5f, "no leaf goes on inside a building: " + leaves[at + LeafFall.X]);
+                // Its middle's drift stops at the wall; its swing may take the drawn middle a little past it.
+                Checks.check(leaves[at + LeafFall.X] < 3.5f || leaves[at + LeafFall.UP] > ViewCamera.LEVEL_HEIGHT - 0.35f,
+                        "no leaf goes on inside the building: " + leaves[at + LeafFall.X] + " at " + leaves[at + LeafFall.UP]);
+                over += leaves[at + LeafFall.X] > 6f ? 1 : 0;
             }
         }
-        Checks.check(fall.spawned > 100, "leaves were let go towards the building: " + fall.spawned);
+        Checks.check(fall.spawned > 100 && over > 0, "leaves were let go towards the building and some went over it: " + fall.spawned + ", " + over);
+        Checks.check(fall.vanished == 0, "none vanished in the air: " + fall.vanished);
     }
 
     private static void nothingMovesWhileThePictureWaits() {

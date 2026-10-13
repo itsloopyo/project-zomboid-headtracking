@@ -5110,7 +5110,7 @@ final class WorldScene {
                 // A tree in leaf shows its bole and not the branches in its crown: they are
                 // inside the leaves. Drawn, they cross from one card of the fan through the leaves
                 // of the next. A bare tree is all branch and keeps them.
-                boolean inLeaf = sprite.getType() == IsoObjectType.tree && (leaves != null && !leaves.isEmpty() || object.getOverlaySprite() != null);
+                boolean inLeaf = sprite.getType() == IsoObjectType.tree && LeafTrees.inLeaf(object);
                 // The game's leaves stay on a tree until a day of its own; the mod's may have fallen sooner.
                 boolean bare = inLeaf && plantBuilder.bareBySeason(sprite.getName(), x, y);
                 geometry.keep = inLeaf && !bare ? BOLE : 1f;

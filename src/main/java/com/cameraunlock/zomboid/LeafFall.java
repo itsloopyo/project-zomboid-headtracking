@@ -1,5 +1,6 @@
 package com.cameraunlock.zomboid;
 
+import java.util.Arrays;
 import java.util.Locale;
 
 /**
@@ -16,8 +17,8 @@ import java.util.Locale;
 final class LeafFall {
     /** How far from the eye a tree sheds leaves that are drawn, and past what a leaf carried off is let go, in tiles. */
     static final float REACH = 32f, KEPT = REACH + 8f, NEAR = 10f;
-    /** The most leaves in the air and lying at once, and the most trees that shed them. */
-    static final int MOST = 1024, MOST_TREES = 512;
+    /** The most leaves in the air and lying at once, the most trees that shed them, the nearest, and the most offered in a read of the square round the eye. */
+    static final int MOST = 1024, MOST_TREES = 512, CANDIDATES = (2 * (int) REACH + 1) * (2 * (int) REACH + 1);
     /**
      * One leaf as a frame carries it to the picture, FLOATS long: its middle, the half of its
      * length and the half of its breadth as ways in the world, the colour its tree turns
@@ -33,8 +34,8 @@ final class LeafFall {
     static final float DRAG = 0.5f;
     /** A leaf's half length, the least and the most, in tiles, and its breadth over its length. */
     private static final float HALF_LEAST = 0.045f, HALF_MOST = 0.07f, BROAD = 0.65f;
-    /** A crown, from the ground, its least and its most height and how far out it reaches, in tiles; and a jumbo tree's. */
-    private static final float CROWN_LOW = 1.8f, CROWN_HIGH = 5f, CROWN_REACH = 1.6f, JUMBO_LOW = 2.6f, JUMBO_HIGH = 7.5f, JUMBO_REACH = 2.6f;
+    /** How far out into its crown's reach a leaf lets go from, at the most. */
+    private static final float OUT_MOST = 0.85f;
     /** A leaf that has fallen to this near the ground asks what the ground is under it again, in tiles. */
     private static final float GROUND_ASKED = 0.6f;
     /** The longest step taken at once, in seconds: past it the game has hitched, and the leaves wait. */
@@ -47,16 +48,24 @@ final class LeafFall {
         /** The height of the ground at (x, y), in tiles. */
         float height(float x, float y);
 
-        /** Whether a leaf cannot be on the square: a building's inside, behind its walls. */
-        boolean walled(int x, int y);
+        /** Whether a leaf at that height cannot be on the square: inside a storey of a building, behind its walls. */
+        boolean walled(int x, int y, float up);
     }
 
-    // The trees that shed, set whole by trees().
+    // The trees that shed, nearest first, set whole by endTrees: where each stands, its crown's lowest and highest leaves over the ground and how far out they reach.
     private final float[] treeX = new float[MOST_TREES], treeY = new float[MOST_TREES], treeGround = new float[MOST_TREES], owed = new float[MOST_TREES];
-    private final int[] treeHash = new int[MOST_TREES];
+    private final float[] treeLow = new float[MOST_TREES], treeHigh = new float[MOST_TREES], treeReach = new float[MOST_TREES];
+    private final int[] treeHash = new int[MOST_TREES], released = new int[MOST_TREES];
     private final byte[] treeHue = new byte[MOST_TREES];
-    private final boolean[] treeJumbo = new boolean[MOST_TREES], treeInLeaf = new boolean[MOST_TREES];
     private int trees;
+    // The trees offered since beginTrees, and the eye they are offered round.
+    private final float[] offeredX = new float[CANDIDATES], offeredY = new float[CANDIDATES], offeredGround = new float[CANDIDATES];
+    private final float[] offeredLow = new float[CANDIDATES], offeredHigh = new float[CANDIDATES], offeredReach = new float[CANDIDATES];
+    private final int[] offeredHash = new int[CANDIDATES];
+    private final byte[] offeredHue = new byte[CANDIDATES];
+    private final long[] nearest = new long[CANDIDATES];
+    private int offered;
+    private float offeredFromX, offeredFromY;
 
     // Each leaf: where its drift has got to, how fast it drifts, how long it has fallen and how long since it landed (or below 0 in the air).
     private final float[] x = new float[MOST], y = new float[MOST], up = new float[MOST], vx = new float[MOST], vy = new float[MOST];
@@ -66,33 +75,74 @@ final class LeafFall {
     private final float[] spin = new float[MOST], turn = new float[MOST], tumble = new float[MOST], half = new float[MOST], turned = new float[MOST];
     private final byte[] hue = new byte[MOST];
     private final int[] square = new int[MOST];
+    /** A leaf the wind has caught against a wall: it stays where it was stopped and fades. */
+    private final boolean[] caught = new boolean[MOST];
     private int count;
+    /** Leaves no room was left for in the last step: as many lying leaves start to fade in the next. */
+    private int refused;
     private int random = 0x2545F491;
     private float lastEyeX = Float.NaN, lastEyeY = Float.NaN;
-    /** Counted since the sim was made: leaves let go of by trees, and leaves landed. */
-    long spawned, landings;
+    /** Counted since the sim was made: leaves let go of by trees, leaves landed, and leaves let go of while they still showed, which only a jump of the eye does. */
+    long spawned, landings, vanished;
 
-    /** Replaces the trees that shed: tree i stands at (xs[i], ys[i]) on ground grounds[i], hashes to hashes[i] (Seasons.treeHash), turns hues[i], is a jumbo tree if jumbos[i], and has the game's leaves on it if inLeaf[i]. */
-    void trees(int count, float[] xs, float[] ys, float[] grounds, int[] hashes, byte[] hues, boolean[] jumbos, boolean[] inLeaf) {
-        if (count > MOST_TREES) {
-            throw new IllegalArgumentException("more trees than " + MOST_TREES + ": " + count);
-        }
-        for (int i = 0; i < count; i++) {
-            treeX[i] = xs[i];
-            treeY[i] = ys[i];
-            treeGround[i] = grounds[i];
-            treeHash[i] = hashes[i];
-            treeHue[i] = hues[i];
-            treeJumbo[i] = jumbos[i];
-            treeInLeaf[i] = inLeaf[i];
-            // A start of its own between nothing and one leaf owed, so a tree sheds as often as it should whenever the list is made again.
-            owed[i] = next();
-        }
-        trees = count;
+    /** Starts a list of the trees round the eye at (eyeX, eyeY), offered one by one, which endTrees makes the trees that shed. */
+    void beginTrees(float eyeX, float eyeY) {
+        offered = 0;
+        offeredFromX = eyeX;
+        offeredFromY = eyeY;
     }
 
-    int trees() {
-        return trees;
+    /**
+     * A tree standing at (x, y) on ground at that height, its sprite named name, its square
+     * hashing to hash (Seasons.treeHash), with the game's leaves on it or not, and its crown's
+     * leaves from low to high over the ground and reaching that far out, in tiles, or high 0
+     * where no crown of it has been built. Only a broad-leaved tree in leaf with a crown is kept:
+     * endTrees keeps the nearest of them, and step lets none further than REACH from the eye shed.
+     */
+    void offer(float x, float y, float ground, String name, int hash, boolean gameLeaves, float low, float high, float reach) {
+        float dx = x - offeredFromX, dy = y - offeredFromY;
+        if (!gameLeaves || high <= 0f || !sheds(name)) {
+            return;
+        }
+        if (offered == CANDIDATES) {
+            throw new IllegalStateException("more trees offered than there are squares in the read round the eye: " + CANDIDATES);
+        }
+        int k = offered++;
+        offeredX[k] = x;
+        offeredY[k] = y;
+        offeredGround[k] = ground;
+        offeredLow[k] = low;
+        offeredHigh[k] = high;
+        offeredReach[k] = reach;
+        offeredHash[k] = hash;
+        offeredHue[k] = (byte) Flora.autumnHue(name, hash);
+        // The distance's bits order as the distance does, with the tree's place in the low half.
+        nearest[k] = (long) Float.floatToIntBits(dx * dx + dy * dy) << 32 | k;
+    }
+
+    /** Makes the MOST_TREES nearest of the trees offered the trees that shed, nearest first, so where there is not room for every leaf the nearest have it. */
+    void endTrees() {
+        Arrays.sort(nearest, 0, offered);
+        trees = Math.min(offered, MOST_TREES);
+        for (int t = 0; t < trees; t++) {
+            int k = (int) nearest[t];
+            treeX[t] = offeredX[k];
+            treeY[t] = offeredY[k];
+            treeGround[t] = offeredGround[k];
+            treeLow[t] = offeredLow[k];
+            treeHigh[t] = offeredHigh[k];
+            treeReach[t] = offeredReach[k];
+            treeHash[t] = offeredHash[k];
+            treeHue[t] = offeredHue[k];
+            released[t] = 0;
+            // A start of its own between nothing and one leaf owed, so a tree sheds as often as it should whenever the list is made again.
+            owed[t] = next();
+        }
+    }
+
+    /** How many leaves the tree t places from the nearest has let go of since the list was made. */
+    int released(int t) {
+        return released[t];
     }
 
     int count() {
@@ -167,10 +217,18 @@ final class LeafFall {
         }
         float take = carried(intensity);
         float driftX = airX * take, driftY = airY * take;
+        int crowded = refused;
+        refused = 0;
         for (int i = 0; i < count; ) {
+            // Where there was no room, lying leaves make it by fading now: none is taken away while it shows.
+            if (crowded > 0 && landed[i] >= 0f && landed[i] < lies[i]) {
+                lies[i] = landed[i];
+                crowded--;
+            }
             if (move(i, dt, driftX, driftY, eyeX, eyeY, on)) {
                 i++;
             } else {
+                vanished += shown(i, eyeX, eyeY) > 0.02f ? 1 : 0;
                 drop(i);
             }
         }
@@ -181,7 +239,7 @@ final class LeafFall {
                 continue;
             }
             // A tree near the eye sheds all it would; one further off a share of that, so in a wood the room goes to the leaves that can be seen as leaves.
-            float rate = shedding(treeInLeaf[t], season, progression, treeHash[t]) * nearness((float) Math.sqrt(dx * dx + dy * dy));
+            float rate = shedding(true, season, progression, treeHash[t]) * nearness((float) Math.sqrt(dx * dx + dy * dy));
             if (rate <= 0f) {
                 continue;
             }
@@ -224,11 +282,16 @@ final class LeafFall {
         if (fromX * fromX + fromY * fromY > KEPT * KEPT) {
             return false;
         }
-        int sx = (int) Math.floor(x[i]), sy = (int) Math.floor(y[i]);
-        int at = sx * 73856093 ^ sy * 19349663;
+        int sx = (int) Math.floor(x[i]), sy = (int) Math.floor(y[i]), level = (int) Math.floor(up[i] / ViewCamera.LEVEL_HEIGHT);
+        int at = sx * 73856093 ^ sy * 19349663 ^ level * 83492791;
         if (at != square[i]) {
             square[i] = at;
-            return !on.walled(sx, sy);
+            if (on.walled(sx, sy, up[i])) {
+                // Caught against the wall where it met it, and fades there.
+                caught[i] = true;
+                landed[i] = Math.max(landed[i], 0f);
+                lies[i] = 0f;
+            }
         }
         return true;
     }
@@ -259,34 +322,23 @@ final class LeafFall {
         turned[i] = turned[last];
         hue[i] = hue[last];
         square[i] = square[last];
+        caught[i] = caught[last];
     }
 
-    /** Lets a leaf go from tree t's crown. When every place is taken, a lying leaf gives up its place, or none is let go. */
+    /** Lets a leaf go from somewhere in tree t's crown. With every place taken none is, and a lying leaf starts to fade in the next step to make room. */
     private void spawn(int t, int season, float progression, float windy, float driftX, float driftY) {
-        int i = count;
-        if (i == MOST) {
-            i = -1;
-            float longest = -1f;
-            for (int j = 0; j < MOST; j++) {
-                if (landed[j] > longest) {
-                    longest = landed[j];
-                    i = j;
-                }
-            }
-            if (longest < 0f) {
-                return;
-            }
-        } else {
-            count++;
+        if (count == MOST) {
+            refused++;
+            return;
         }
-        boolean jumbo = treeJumbo[t];
-        float reach = jumbo ? JUMBO_REACH : CROWN_REACH, low = jumbo ? JUMBO_LOW : CROWN_LOW, high = jumbo ? JUMBO_HIGH : CROWN_HIGH;
+        int i = count++;
+        released[t]++;
         // From the outer part of the crown, which is where the wind gets at the leaves.
         double angle = 2.0 * Math.PI * next();
-        float out = reach * (float) Math.sqrt(0.3f + 0.7f * next());
+        float out = OUT_MOST * treeReach[t] * (float) Math.sqrt(0.3f + 0.7f * next());
         x[i] = treeX[t] + out * (float) Math.cos(angle);
         y[i] = treeY[t] + out * (float) Math.sin(angle);
-        up[i] = treeGround[t] + low + (high - low) * next();
+        up[i] = treeGround[t] + treeLow[t] + (treeHigh[t] - treeLow[t]) * next();
         ground[i] = treeGround[t];
         vx[i] = driftX * 0.3f;
         vy[i] = driftY * 0.3f;
@@ -307,6 +359,7 @@ final class LeafFall {
         hue[i] = treeHue[t];
         turned[i] = Math.clamp(Seasons.turned(season, Seasons.stepped(season, progression), treeHash[t]) + 0.35f * (next() - 0.4f), 0f, 1f);
         square[i] = Integer.MIN_VALUE;
+        caught[i] = false;
         spawned++;
     }
 
@@ -317,12 +370,7 @@ final class LeafFall {
     int write(float[] into, float eyeX, float eyeY) {
         int written = 0;
         for (int i = 0; i < count; i++) {
-            float fromX = x[i] - eyeX, fromY = y[i] - eyeY;
-            float far = (float) Math.sqrt(fromX * fromX + fromY * fromY);
-            float shown = (1f - smooth((far - REACH) / (KEPT - REACH))) * smooth(age[i] / 0.2f);
-            if (landed[i] >= 0f) {
-                shown *= 1f - smooth((landed[i] - lies[i]) / FADES);
-            }
+            float shown = shown(i, eyeX, eyeY);
             if (shown <= 0f) {
                 continue;
             }
@@ -333,6 +381,14 @@ final class LeafFall {
             into[at + SHOWN] = shown;
         }
         return written;
+    }
+
+    /** How much of leaf i shows: it comes in over its first moments, fades towards KEPT of the eye, and fades once it has lain its time. */
+    private float shown(int i, float eyeX, float eyeY) {
+        float fromX = x[i] - eyeX, fromY = y[i] - eyeY;
+        float far = (float) Math.sqrt(fromX * fromX + fromY * fromY);
+        float shown = (1f - smooth((far - REACH) / (KEPT - REACH))) * smooth(age[i] / 0.2f);
+        return landed[i] >= 0f ? shown * (1f - smooth((landed[i] - lies[i]) / FADES)) : shown;
     }
 
     /** Where leaf i is and how it is turned, into its record at at. */
@@ -347,7 +403,7 @@ final class LeafFall {
         // At either end of its swing a leaf glides up a little, as a pendulum's bob does.
         float cz = up[i] + 0.3f * swing[i] * s * s;
         float rock;
-        if (landed[i] >= 0f) {
+        if (landed[i] >= 0f && !caught[i]) {
             cz = up[i] + 0.004f;
             rock = 0.12f * (float) Math.sin(turn[i] * 3f);
         } else if (tumble[i] != 0f) {
@@ -382,12 +438,8 @@ final class LeafFall {
         for (int i = 0; i < count; i++) {
             lying += landed[i] >= 0f ? 1 : 0;
         }
-        int inLeaf = 0;
-        for (int t = 0; t < trees; t++) {
-            inLeaf += treeInLeaf[t] ? 1 : 0;
-        }
-        return String.format(Locale.ROOT, "leaves %d (%d lying) from %d trees (%d with the game's leaves), %d let go and %d landed in all", count, lying, trees, inLeaf,
-                spawned, landings);
+        return String.format(Locale.ROOT, "leaves %d (%d lying) from %d trees in leaf with a crown, the nearest %.1f tiles off, which has let go %d since the trees were read; %d let go, %d landed, %d vanished in all",
+                count, lying, trees, trees == 0 ? 0f : (float) Math.hypot(treeX[0] - lastEyeX, treeY[0] - lastEyeY), trees == 0 ? 0 : released[0], spawned, landings, vanished);
     }
 
     /** 0 to 1, from the xorshift kept here: the same leaves for the same steps. */

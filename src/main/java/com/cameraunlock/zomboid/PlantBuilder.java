@@ -646,6 +646,7 @@ final class PlantBuilder {
         int bark = Flora.barkOf(name, seed);
         if (!bush && sprig != Flora.BARE) {
             seenForFar(texture, places, x, y, footU, footV, boled ? boleThick : BOLE_THINNEST);
+            seenForLeafFall(places, x, y, footU, footV);
         }
         if (build.crownsInline) {
             boolean limbed = boled && Crowns.limbed(away, sprig, leaf);
@@ -671,6 +672,14 @@ final class PlantBuilder {
         long now = System.nanoTime();
         if (tile != null && FarTreeLooks.wants(tile, now) && Flora.measure(build.frame, places, footU, footV, crownLeft, crownRight, crownSizes)) {
             FarTreeLooks.saw(tile, crownSizes, crownLeft, crownRight, bole, leaves, now);
+        }
+    }
+
+    /** Notes the crown of a broad-leaved tree's tile the first time one is built, which is where its falling leaves let go from (LeafTrees). */
+    private void seenForLeafFall(float[] places, int x, int y, float footU, float footV) {
+        String tile = treeX == x && treeY == y ? treeTile : null;
+        if (tile != null && LeafFall.sheds(tile) && LeafTrees.crownWanted(tile) && Flora.measure(build.frame, places, footU, footV, crownLeft, crownRight, crownSizes)) {
+            LeafTrees.crownSeen(tile, crownSizes);
         }
     }
 
