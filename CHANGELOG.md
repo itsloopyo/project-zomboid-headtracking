@@ -36,7 +36,7 @@
 - Aiming a firearm zooms the view. Head movement is scaled so the zoom doesn't magnify it.
 - Held weapons are drawn like a modern shooter: low right at the hip, raised to the sights, swaying, with recoil based on each weapon's recoil stat and a muzzle flash (`MuzzleFlash`).
 - The mod's own arms and hands hold each gun by its real grip, read from the gun's model, so guns from other mods are held right too. Handguns are held two-handed when your left hand is free. `OwnArms=false` uses the game's arms.
-- Reload and action animations: pump shotguns rack, pistols cycle their slide, lock back when empty and swap magazines, revolvers turn the cylinder and load one round at a time, double barrels break open and throw out the spent shells.
+- Reload and action animations: pump shotguns rack, pistols cycle their slide, lock back when empty and swap magazines, revolvers turn the cylinder and load one round at a time, double barrels break open and throw out the spent shells, the assault rifle and the battle rifle cycle their bolt and throw out a case with every shot, hold the bolt back on the last round and let an empty magazine fall from the hand.
 - A sawn-off has no stock, so it kicks in your hands when aiming too.
 - Red dot sights, lasers and gun lights are drawn on the mod's gun models.
 - `Medium` and `High`: x2, x4 and x8 scopes are real scopes with magnified view. Moving your eye off the scope's axis darkens the picture.
