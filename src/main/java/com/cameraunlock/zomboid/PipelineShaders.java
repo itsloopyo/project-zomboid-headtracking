@@ -461,7 +461,8 @@ final class PipelineShaders {
             varying float vBoards;
             varying float vLie;
             varying float vHung;
-            // The square of the tree the vertex is part of, below 0 for none: see SpriteGeometry.VERTEX_FLOATS.
+            // The square of the tree the vertex is part of, below 0 for none: see SpriteGeometry.VERTEX_FLOATS. A model has
+            // none, and carries in y the piece of its surface the vertex is on.
             varying vec2 vRoot;
             uniform float uCutAbove;
             varying vec3 vPlace;
@@ -515,6 +516,9 @@ final class PipelineShaders {
                 }
                 // Where a model's vertex is from the eye: see the end of main.
                 vec3 fromEye = vec3(0.0);
+                // Which piece of a model's surface the vertex is on, told apart from the same piece of the model stood on
+                // another square: see Models.Model.piece.
+                float piece = 0.0;
                 vUv = gl_MultiTexCoord0.xy;
                 vColor = gl_Color;
                 if (uModel > 0.5) {
@@ -528,7 +532,10 @@ final class PipelineShaders {
                     fromEye = vec3((uPlace.xy - uEye.xy) + on.xy, on.z - uEye.z);
                     looks = vec3(turned(gl_Normal.xy), gl_Normal.z);
                     vec2 share = clamp(on.xy, 0.0, 1.0);
-                    float surface = floor(gl_MultiTexCoord0.x + 0.5);
+                    // The surface comes with the piece of it the vertex is on, 32 to a piece: see Models.PIECE_STEP.
+                    float coded = floor(gl_MultiTexCoord0.x + 0.5);
+                    float surface = mod(coded, 32.0);
+                    piece = floor(coded / 32.0) + mod(uPlace.x * 7.0 + uPlace.y * 13.0, 997.0);
                     bool dyed = has(uSurfaces.y, surface), also = has(uSurfaces.z, surface);
                     vUv = dyed ? uDye.xy : also ? uDye.zw : vec2(0.0);
                     // What a frame holds shows the sprite itself, laid over the model's face: each
@@ -564,7 +571,8 @@ final class PipelineShaders {
                 }
                 vNormal = looks;
                 vHung = uModel > 0.5 && uFoot.z > uCutAbove - 0.45 ? 1.0 : 0.0;
-                vRoot = uModel > 0.5 ? vec2(-1.0) : gl_MultiTexCoord2.xy;
+                // A model has no tree, and carries the piece of its surface in the place of the square of one.
+                vRoot = uModel > 0.5 ? vec2(-1.0, piece) : gl_MultiTexCoord2.xy;
                 // What is laid on the ground does not blow about: there the normal's length says
                 // how much of the layer shows at the vertex.
                 // Nor does water: there the length says how far the vertex is from the bank.
@@ -2557,10 +2565,11 @@ final class PipelineShaders {
                     if (surface > 15.5) { own = vec3(0.74, 0.79, 0.82); }
                     if (surface > 16.5) { own = vec3(0.42, 0.13, 0.11); }
                     if (surface > 11.5 && surface < 12.5) {
-                        // A shelf of books is a row of spines, each its own colour. Which book a
-                        // place is on is told by how far along the shelf it is.
-                        float along = abs(vNormal.x) > abs(vNormal.y) ? vWorld.y : vWorld.x;
-                        vec2 book = vec2(floor(along * 30.0), floor(vWorld.z * 2.6));
+                        // A shelf of books is a row of spines, each its own colour all over. Which book
+                        // a place is on is the piece of the surface it is: see Models.Model.piece. Every
+                        // vertex of a book carries the same whole number, which comes out of the
+                        // interpolation a hair off it, and grain makes noise of the hair: it is rounded.
+                        vec2 book = vec2(floor(vRoot.y + 0.5), 0.0);
                         float which = grain(book);
                         own = which < 0.2 ? vec3(0.45, 0.12, 0.1) : which < 0.4 ? vec3(0.12, 0.2, 0.36) : which < 0.6 ? vec3(0.16, 0.3, 0.18)
                                 : which < 0.8 ? vec3(0.62, 0.5, 0.3) : vec3(0.75, 0.72, 0.66);

@@ -8,7 +8,9 @@ import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.zip.GZIPInputStream;
 
@@ -77,9 +79,16 @@ final class Models {
     static final int VERTEX_FLOATS = 6;
     /**
      * Floats per vertex in the buffer the graphics card keeps of every model: its position, the
-     * way it looks, its surface, and what the light it is given is multiplied by.
+     * way it looks, its surface with the piece of it the vertex is on, and what the light it is given is multiplied by.
      */
     static final int BUFFER_FLOATS = 8;
+    /**
+     * A vertex's surface goes to the graphics card as the surface plus this times its piece: see Model.piece. The world's
+     * vertex shader takes the two apart again.
+     */
+    static final int PIECE_STEP = 32;
+    /** How many different pieces a surface tells apart. */
+    static final int PIECES = 4096;
 
     static final class Model {
         final String name;
@@ -108,6 +117,13 @@ final class Models {
          * share to the power 1 / 2.2.
          */
         final float[] dimmed;
+        /**
+         * Which piece of the model each vertex is on, for the surfaces whose pieces differ from each other: the books on
+         * a shelf are each a colour of their own. A piece is the triangles that meet at their corners, a book's six
+         * faces, and is known by where its lowest corner is, so the plain model's books are the whole one's. 0 for
+         * every other surface.
+         */
+        final int[] piece;
 
         private Model(String name, float[] bounds, float apart, Shape shape, int start, int from, Model plain) {
             this.name = name;
@@ -138,6 +154,7 @@ final class Models {
             for (int i = 1; i <= SURFACES; i++) {
                 first[i] = Math.max(first[i], first[i - 1]);
             }
+            piece = pieces(vertices, corners, first[BOOKS], first[BOOKS + 1]);
         }
 
         int triangles() {
@@ -157,6 +174,74 @@ final class Models {
         float height() {
             return maxZ - minZ;
         }
+    }
+
+    /**
+     * The piece each vertex from one to before another is on, as Model.piece says, and 0 for every other vertex. The
+     * same corner of two faces is two vertices where the faces are flat, so corners are joined by where they are.
+     */
+    static int[] pieces(float[] vertices, int[] corners, int from, int to) {
+        int[] piece = new int[vertices.length / VERTEX_FLOATS];
+        if (from == to) {
+            return piece;
+        }
+        int[] joined = new int[to - from];
+        for (int i = 0; i < joined.length; i++) {
+            joined[i] = i;
+        }
+        Map<List<Float>, Integer> at = new HashMap<>();
+        for (int vertex = from; vertex < to; vertex++) {
+            Integer same = at.putIfAbsent(List.of(vertices[vertex * VERTEX_FLOATS], vertices[vertex * VERTEX_FLOATS + 1], vertices[vertex * VERTEX_FLOATS + 2]),
+                    vertex - from);
+            if (same != null) {
+                join(joined, same, vertex - from);
+            }
+        }
+        for (int corner = 0; corner < corners.length; corner += 3) {
+            if (corners[corner] >= from && corners[corner] < to) {
+                join(joined, corners[corner] - from, corners[corner + 1] - from);
+                join(joined, corners[corner] - from, corners[corner + 2] - from);
+            }
+        }
+        // A piece's lowest corner: least z, then y, then x.
+        int[] lowest = new int[joined.length];
+        for (int i = 0; i < joined.length; i++) {
+            lowest[i] = -1;
+        }
+        for (int i = 0; i < joined.length; i++) {
+            int root = root(joined, i), held = lowest[root];
+            if (held < 0 || below(vertices, from + i, from + held)) {
+                lowest[root] = i;
+            }
+        }
+        for (int i = 0; i < joined.length; i++) {
+            int low = (from + lowest[root(joined, i)]) * VERTEX_FLOATS;
+            int key = Arrays.hashCode(new float[] {vertices[low], vertices[low + 1], vertices[low + 2]});
+            piece[from + i] = Math.floorMod(key, PIECES);
+        }
+        return piece;
+    }
+
+    private static boolean below(float[] vertices, int a, int b) {
+        for (int k = 2; k >= 0; k--) {
+            float x = vertices[a * VERTEX_FLOATS + k], y = vertices[b * VERTEX_FLOATS + k];
+            if (x != y) {
+                return x < y;
+            }
+        }
+        return false;
+    }
+
+    private static int root(int[] joined, int i) {
+        while (joined[i] != i) {
+            joined[i] = joined[joined[i]];
+            i = joined[i];
+        }
+        return i;
+    }
+
+    private static void join(int[] joined, int a, int b) {
+        joined[root(joined, a)] = root(joined, b);
     }
 
     /** One of a model's two, as the file holds it. */
@@ -313,7 +398,7 @@ final class Models {
             for (Model model : new Model[] {whole, whole.plain}) {
                 for (int vertex = 0, at = model.start * BUFFER_FLOATS; vertex < model.surface.length; vertex++, at += BUFFER_FLOATS) {
                     System.arraycopy(model.vertices, vertex * VERTEX_FLOATS, out, at, VERTEX_FLOATS);
-                    out[at + 6] = model.surface[vertex];
+                    out[at + 6] = model.surface[vertex] + PIECE_STEP * model.piece[vertex];
                     out[at + 7] = model.dimmed[vertex];
                 }
             }

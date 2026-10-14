@@ -60,7 +60,8 @@ final class CanopyTests {
         check(shader.contains("bool tree = vRoot.x >= 0.0 && !(vMaterial > 84.5 && vMaterial < 85.5);"), "a tree is what carries a tree's square, and blood, which carries its colour there, is none");
         check(shader.contains("if (all(lessThan(abs(uFaded[i].xy - vRoot), vec2(0.25)))) {"), "a tree is looked up by its own square");
         check(shader.contains("if (grain(gl_FragCoord.xy + vec2(613.0, 211.0)) >= shown) {"), "and that share of its pixels is drawn");
-        check(PipelineShaders.WORLD_VERTEX.contains("vRoot = uModel > 0.5 ? vec2(-1.0) : gl_MultiTexCoord2.xy;"), "the square comes from the vertex, and a model has none");
+        check(PipelineShaders.WORLD_VERTEX.contains("vRoot = uModel > 0.5 ? vec2(-1.0, piece) : gl_MultiTexCoord2.xy;"),
+                "the square comes from the vertex, and a model has none: it carries the piece of its surface in the place of one");
         // The pattern lets through the share asked for: GLSL's grain, here in Java, over a stretch of the screen.
         for (float share : new float[] {0.05f, 0.3f, 0.7f}) {
             int kept = 0, all = 0;

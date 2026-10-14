@@ -40,6 +40,7 @@ final class FurnitureTests {
         Checks.run("aCountersTopIsABoardOverTheCountersOwnTop", FurnitureTests::aCountersTopIsABoardOverTheCountersOwnTop);
         Checks.run("aBarsPanellingStandsAlongTheEdgeItsSpritePaintsFacingTheRoom", FurnitureTests::aBarsPanellingStandsAlongTheEdgeItsSpritePaintsFacingTheRoom);
         Checks.run("aBarsPanellingStandsWithItsFootRailUndyedWhereTheBrassIsNotPainted", FurnitureTests::aBarsPanellingStandsWithItsFootRailUndyedWhereTheBrassIsNotPainted);
+        Checks.run("eachBookOnAShelfIsAPieceOfItsOwnInBothModels", FurnitureTests::eachBookOnAShelfIsAPieceOfItsOwnInBothModels);
     }
 
     private static IsoSprite sprite(String row) {
@@ -677,4 +678,38 @@ final class FurnitureTests {
             check(Furniture.known(sprite("location_restaurant_bar_01_" + place + row)) == null, "the bar sheet's " + place + " is no panelling");
         }
     }
+
+    private static void eachBookOnAShelfIsAPieceOfItsOwnInBothModels() {
+        Models.Model bookcase = Models.get("bookcase");
+        java.util.Set<Integer> whole = null;
+        for (Models.Model shape : new Models.Model[] {bookcase, bookcase.plain}) {
+            int from = shape.first[Models.BOOKS], to = shape.first[Models.BOOKS + 1];
+            boolean faces = true, corners = true;
+            for (int corner = 0; corner < shape.corners.length; corner += 3) {
+                int a = shape.corners[corner];
+                if (a >= from && a < to) {
+                    faces &= shape.piece[a] == shape.piece[shape.corners[corner + 1]] && shape.piece[a] == shape.piece[shape.corners[corner + 2]];
+                }
+            }
+            java.util.Map<java.util.List<Float>, Integer> at = new java.util.HashMap<>();
+            java.util.Set<Integer> pieces = new java.util.HashSet<>();
+            for (int vertex = from; vertex < to; vertex++) {
+                int v = vertex * Models.VERTEX_FLOATS;
+                Integer there = at.putIfAbsent(java.util.List.of(shape.vertices[v], shape.vertices[v + 1], shape.vertices[v + 2]), shape.piece[vertex]);
+                corners &= there == null || there == shape.piece[vertex];
+                pieces.add(shape.piece[vertex]);
+            }
+            check(faces, "the three corners of a face of a book are on one piece");
+            check(corners, "and the faces that meet at a corner of it are on the same one, so a book is one colour all over");
+            // Two books may be told by the same number, as two spines may be the same colour.
+            check(pieces.size() > 50, "a bookcase holds many books of many colours, and had " + pieces.size());
+            if (whole == null) {
+                whole = pieces;
+            } else {
+                check(pieces.equals(whole), "the plain model's books are the whole one's, so a book keeps its colour seen from far");
+            }
+        }
+        check(Models.get("counter").piece[0] == 0, "a surface whose pieces are all alike carries none");
+    }
+
 }
