@@ -3,6 +3,7 @@ package com.cameraunlock.zomboid;
 import com.cameraunlock.core.CameraUnlock;
 import java.nio.file.Path;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.DoubleConsumer;
 
@@ -37,16 +38,20 @@ final class Config {
     /** Player 2's port; each player after them has the next. */
     private static final int SECOND_PLAYER_PORT = 4243;
     private static final String[] PLAYER_PORT_ROWS = {"SecondPlayerUdpPort", "ThirdPlayerUdpPort", "FourthPlayerUdpPort"};
+    /** Each player's microphone, player 1's first. */
+    static final String[] MICROPHONE_ROWS = {"Microphone", "SecondPlayerMicrophone", "ThirdPlayerMicrophone", "FourthPlayerMicrophone"};
+    static final String TALKING_MOUTHS = "TalkingMouths";
 
     private static final String[] LOAD_STATUS = {"read", "imported", "created", "deferred", "legacy refused", "unreadable"};
     private static final String[] SAVE_STATUS = {"saved", "not saved", "may not be saved"};
 
     /**
      * What the rows read again while the game runs hold: the field of view in degrees, Own's bits,
-     * the Quality row, the IsometricQuality row as a Quality mode, the Style row, the HillHeight row, the MuzzleFlash row, the SplitScreen row and the rows of [Graphics].
+     * the Quality row, the IsometricQuality row as a Quality mode, the Style row, the HillHeight row, the MuzzleFlash row, the SplitScreen row, the rows of [Graphics], the TalkingMouths row
+     * and each player's microphone.
      */
     record Live(float fieldOfView, int own, int quality, int overheadQuality, int style, float hillHeight, boolean muzzleFlash, int splitScreen,
-            Quality.Picture custom) {}
+            Quality.Picture custom, boolean talkingMouths, List<String> microphones) {}
 
     /** The keys of [Graphics], the Custom graphics mode, in the order of Quality.Picture's parts. */
     static final String[] GRAPHICS = {"TreeQuality", "RenderScale", "SharpShadows", "ViewDistance", "ZombiesAndPropsDrawDistance",
@@ -57,7 +62,9 @@ final class Config {
     static final int MIN_VIEW_DISTANCE = 32, MIN_DRAW_DISTANCE = 16;
 
     private final CameraUnlock core;
-    private final int fieldOfView, quality, overheadQuality, style, hillHeight, muzzleFlash, splitScreen;
+    private final int fieldOfView, quality, overheadQuality, style, hillHeight, muzzleFlash, splitScreen, talkingMouths;
+    /** The rows of each player's microphone, in the order of MICROPHONE_ROWS. */
+    private final int[] microphones = new int[MICROPHONE_ROWS.length];
     /** The rows of the ports of players 2, 3 and 4. */
     private final int[] playerPorts = new int[PLAYER_PORT_ROWS.length];
     /** The rows of [Content], in the order of Own's bits. */
@@ -74,8 +81,9 @@ final class Config {
      * rows on the nav keys alone (see cameraunlock-core's per_game). FieldOfView, Quality, IsometricQuality, Style,
      * HillHeight, MuzzleFlash, SplitScreen and the rows of [Content] are the mod's own, and the ones read
      * again while the game runs, and so are the rows of [Graphics], which are what the Custom
-     * graphics mode draws. They are writable too, and a writable row that is not a key
-     * list is a setting on the game's options screen (OptionsPage). SecondPlayerUdpPort, ThirdPlayerUdpPort, FourthPlayerUdpPort, FirstPersonKey, CycleQualityKey,
+     * graphics mode draws, and the rows of [Voice]. They are writable too, and a writable row that is not a key
+     * list or a microphone's name is a setting on the game's options screen (OptionsPage), which shows the
+     * microphones as lists of its own. SecondPlayerUdpPort, ThirdPlayerUdpPort, FourthPlayerUdpPort, FirstPersonKey, CycleQualityKey,
      * CycleStyleKey and SplitScreenKey are the mod's own too, and read at the start.
      */
     Config(CameraUnlock core) {
@@ -256,6 +264,18 @@ final class Config {
                     writable | live, true),
         };
 
+        talkingMouths = core.configLocalBool("Voice", TALKING_MOUTHS,
+                "true: your character's mouth moves while you speak into your microphone, and online other players' mouths move\n"
+                        + "while the game's voice chat plays them. Only how loud your microphone is, is read: nothing is recorded or sent.\n"
+                        + "false: no microphone is opened.",
+                writable | live, false);
+        for (int player = 0; player < microphones.length; player++) {
+            microphones[player] = core.configLocalText("Voice", MICROPHONE_ROWS[player],
+                    (player == 0 ? "Your microphone" : "The microphone of player " + (player + 1) + " at the screen") + ", by the name Windows gives it, "
+                            + Microphones.DEFAULT + " for Windows' own default, or " + Microphones.NONE + ".",
+                    writable | live, player == 0 ? Microphones.DEFAULT : Microphones.NONE);
+        }
+
         puts.put("FieldOfView", value -> {
             FieldOfView.set((float) value);
             Log.info("first person field of view set to " + (float) value + " degrees vertical");
@@ -269,6 +289,11 @@ final class Config {
         });
         puts.put("MuzzleFlash", value -> MuzzleFlash.set(value != 0));
         puts.put("SplitScreen", value -> SplitScreen.set((int) value));
+        puts.put(TALKING_MOUTHS, value -> {
+            Mouths.set(value != 0);
+            Microphones.set(value != 0, Tracking.microphones().toArray(String[]::new));
+            Log.info("talking mouths " + (value != 0 ? "on" : "off: no microphone is opened"));
+        });
         String[] ownKeys = {"OwnWeapons", "OwnFurniture", "OwnPictures", "OwnPlants", "OwnTextures", "OwnBuildings", "OwnZombies", "OwnPeople",
             "OwnArms", "OwnClothes", "OwnAnimals", "OwnFire", "OwnCabins"};
         for (int i = 0; i < ownKeys.length; i++) {
@@ -346,7 +371,21 @@ final class Config {
         }
         return new Live(core.configGetFloat(fieldOfView), rows, core.configGetInt(quality), core.configGetInt(overheadQuality) + Quality.LOW,
                 core.configGetInt(style),
-                core.configGetFloat(hillHeight), core.configGetInt(muzzleFlash) != 0, core.configGetInt(splitScreen), picture(custom));
+                core.configGetFloat(hillHeight), core.configGetInt(muzzleFlash) != 0, core.configGetInt(splitScreen), picture(custom),
+                core.configGetInt(talkingMouths) != 0, List.of(microphones()));
+    }
+
+    /** Each player's microphone as the file names it now, player 1's first. */
+    private String[] microphones() {
+        String[] names = new String[microphones.length];
+        for (int player = 0; player < names.length; player++) {
+            names[player] = core.configGetText(microphones[player]);
+        }
+        return names;
+    }
+
+    boolean saveMicrophone(int player, String name) {
+        return saved(MICROPHONE_ROWS[player] + " \"" + name + "\" from the game's options screen", core.configSaveText(microphones[player], name));
     }
 
     /**

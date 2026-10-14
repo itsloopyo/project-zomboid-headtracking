@@ -17,6 +17,9 @@ import zombie.ui.UIManager;
  * its writable rows, with the tracking mode and the aim mode as a list each. A row is on the
  * screen because Config marks it writable, and nothing here names one.
  *
+ * Each player's microphone is a name and no option of core's: the page lists the microphones
+ * connected as it opens, for each player, below the settings.
+ *
  * The game saves what its mod page shows in a file of its own, ModOptions.ini, and reads that
  * back when it builds the page. The mod never takes a value from there: the controls are filled
  * from core each time the screen opens, and what the player applies there the session takes at
@@ -50,9 +53,30 @@ final class OptionsPage {
         }
     }
 
+    /**
+     * The list of microphones for one player: `table` is the game's Lua table for it, `names`
+     * the name of the microphone each line stands for, as a row of [Voice] holds it, in the order
+     * the list shows them, and `shown` the name the list had when the screen opened or was last
+     * applied.
+     */
+    private static final class MicrophoneList {
+        final int player;
+        final KahluaTable table;
+        List<String> names = List.of();
+        String shown;
+
+        MicrophoneList(int player, KahluaTable table) {
+            this.player = player;
+            this.table = table;
+        }
+    }
+
+    private static final String MICROPHONE_TIP = "Read for Talking mouths alone, and only for how loud it is.";
+
     private static final JavaFunction OPENED = OptionsPage::opened, APPLIED = OptionsPage::applied;
 
     private static List<Control> controls = List.of();
+    private static List<MicrophoneList> microphones = List.of();
     /** Whether the controls hold what core gave them as the screen last opened: until they do, what they hold is the game's own file's. */
     private static boolean filled;
     /** MainOptions.toUI as the game's Lua has it, which fills the screen's controls as it opens. */
@@ -95,12 +119,23 @@ final class OptionsPage {
             show(control, Tracking.optionValue(option));
             made.add(control);
         }
+        List<MicrophoneList> lists = new ArrayList<>();
+        for (int player = 0; player < Config.MICROPHONE_ROWS.length; player++) {
+            KahluaTable table = (KahluaTable) call(section, "addComboBox", Config.MICROPHONE_ROWS[player],
+                    player == 0 ? "Microphone" : "Player " + (player + 1) + "'s microphone",
+                    MICROPHONE_TIP);
+            MicrophoneList list = new MicrophoneList(player, table);
+            list(list, Tracking.microphones().get(player));
+            lists.add(list);
+        }
         filled = false;
         section.rawset("apply", APPLIED);
         gameOpens = screen.rawget("toUI");
         screen.rawset("toUI", OPENED);
         controls = made;
-        Log.info("the game's options screen has " + made.size() + " of the mod's settings under " + HEADING);
+        microphones = lists;
+        Log.info("the game's options screen has " + made.size() + " of the mod's settings and " + lists.size() + " lists of microphones under "
+                + HEADING);
     }
 
     private static Control control(KahluaTable section, int option, CameraUnlock.Option described) {
@@ -145,6 +180,9 @@ final class OptionsPage {
             for (Control control : controls) {
                 show(control, Tracking.optionValue(control.option));
                 nameLevel(control);
+            }
+            for (MicrophoneList list : microphones) {
+                list(list, Tracking.microphones().get(list.player));
             }
             filled = true;
         } catch (RuntimeException failure) {
@@ -207,6 +245,43 @@ final class OptionsPage {
             }
         }
         throw new IllegalStateException("the game's options screen does not hold " + control.described.id + "'s slider where it was put");
+    }
+
+    /**
+     * Fills a list of microphones with none, Windows' own default and each microphone connected
+     * now, with the one the player has chosen among them, said to be not connected where it is not,
+     * and that one chosen: in the page's own list, which a screen made after this is made from, and
+     * in the list on the screen.
+     */
+    private static void list(MicrophoneList list, String chosen) {
+        List<String> present = Microphones.present();
+        List<String> names = new ArrayList<>(List.of(Microphones.NONE, Microphones.DEFAULT));
+        names.addAll(present);
+        if (!names.contains(chosen)) {
+            names.add(chosen);
+        }
+        KahluaTable lines = LuaManager.platform.newTable();
+        for (int line = 0; line < names.size(); line++) {
+            String name = names.get(line);
+            lines.rawset(line + 1, name.equals(Microphones.NONE) ? "None" : name.equals(Microphones.DEFAULT) ? "Windows default"
+                    : present.contains(name) ? name : name + " (not connected)");
+        }
+        Double selected = (double) (names.indexOf(chosen) + 1);
+        list.table.rawset("values", lines);
+        list.table.rawset("selected", selected);
+        if (list.table.rawget("element") instanceof KahluaTable element) {
+            call(element, "clear");
+            for (int line = 1; line <= lines.len(); line++) {
+                call(element, "addOption", lines.rawget(line));
+            }
+            element.rawset("selected", selected);
+            // The game gives a list of the mod page no tooltip, though its lists show one.
+            KahluaTable tips = LuaManager.platform.newTable();
+            tips.rawset("defaultTooltip", MICROPHONE_TIP);
+            call(element, "setToolTipMap", tips);
+        }
+        list.names = names;
+        list.shown = chosen;
     }
 
     private static void show(Control control, double value) {
@@ -274,6 +349,18 @@ final class OptionsPage {
         Tracking.applyScreen(options, described, shown, held);
         for (int i = 0; i < count; i++) {
             controls.get(i).shown = shown[i];
+        }
+        for (MicrophoneList list : microphones) {
+            try {
+                String chosen = list.names.get((int) (double) (Double) list.table.rawget("selected") - 1);
+                if (!chosen.equals(list.shown)) {
+                    Tracking.applyMicrophone(list.player, chosen);
+                    list.shown = chosen;
+                }
+            } catch (RuntimeException failure) {
+                // Thrown on, it would stop the game from applying and saving its own options.
+                Log.error(Config.MICROPHONE_ROWS[list.player] + " as applied on the game's options screen was not read, and is not taken", failure);
+            }
         }
         // The screen stays open after Apply. The graphics mode and the rows of [Graphics] may now read otherwise than the
         // screen holds: Custom after a row was changed, or another mode's picture after the mode was.

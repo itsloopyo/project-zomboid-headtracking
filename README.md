@@ -28,6 +28,7 @@ It adds a first person view to the game, with a rebuilt world and new graphics.
 - **Plough through zombies** - offline, a zombie hit or a body run over pushes back on a vehicle a quarter as hard as the game has it, so a crowd barely slows or turns the car.
 - **Hills that drive** - offline, a car you drive is pulled down the first person hills and leaves the ground over a crest at speed, with no drive or brakes until it lands.
 - **Rollovers and burning wrecks** - offline, a vehicle thrown hard across, round a bend too fast or hit side on, rolls over, and one left on its roof catches fire after four seconds, throws out whoever is inside and goes up six seconds later, leaving the game's burnt wreck. What was in it burns with it.
+- **Talking mouths** - off unless you turn it on: tick **Talking mouths** in the game's options and your character's jaw opens and closes with how loudly you speak into your microphone, as another player at your screen sees them in first person. Each player at the screen picks their own microphone there. Online, other players' mouths move while the game's voice chat plays them. Only how loud your microphone is, is read: nothing is recorded or sent.
 - **Adjustable graphics** - automatic or manual quality, three picture styles, field of view, hill height and optional replacement models and textures.
 
 ## Requirements
@@ -460,6 +461,20 @@ OwnFire=true
 ; true: the mod's models of the inside of the vehicle you sit in, its dashboard, instruments, wheel, seats and doors.
 ; false: the game's own, with its glass cut away.
 OwnCabins=true
+
+[Voice]
+; true: your character's mouth moves while you speak into your microphone, and online other players' mouths move
+; while the game's voice chat plays them. Only how loud your microphone is, is read: nothing is recorded or sent.
+; false: no microphone is opened.
+TalkingMouths=false
+; Your microphone, by the name Windows gives it, Default for Windows' own default, or None.
+Microphone=Default
+; The microphone of player 2 at the screen, by the name Windows gives it, Default for Windows' own default, or None.
+SecondPlayerMicrophone=None
+; The microphone of player 3 at the screen, by the name Windows gives it, Default for Windows' own default, or None.
+ThirdPlayerMicrophone=None
+; The microphone of player 4 at the screen, by the name Windows gives it, Default for Windows' own default, or None.
+FourthPlayerMicrophone=None
 ```
 <!-- /cameraunlock:config -->
 

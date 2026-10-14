@@ -119,6 +119,40 @@ final class CharacterDraw {
             uniform vec2 uUvScale;
             uniform vec2 uThread;
             uniform float uLift;
+            uniform float uMouth;
+            uniform float uHeadBone;
+            // The jaw, in the model as made (the face looks along -z): the hinge in front of the ear,
+            // and how far it turns the chin down with the mouth wide open, in radians.
+            const vec3 JAW_HINGE = vec3(0.0, 0.857, 0.028);
+            const float JAW_WIDEST = 0.17;
+
+            // How far the jaw turns a corner: by its share of the head's bone, if it is below the
+            // lips and ahead of the ear. The male and female heads have their lips within half a
+            // thousandth of each other, so one line between them serves both, and a beard is made
+            // over the same head and goes with the chin.
+            float jawTurn() {
+                if (uMouth <= 0.0 || uHeadBone < 0.0) {
+                    return 0.0;
+                }
+                float head = 0.0;
+                if (aWeights.x > 0.0 && abs(aBones.x - uHeadBone) < 0.5) head += aWeights.x;
+                if (aWeights.y > 0.0 && abs(aBones.y - uHeadBone) < 0.5) head += aWeights.y;
+                if (aWeights.z > 0.0 && abs(aBones.z - uHeadBone) < 0.5) head += aWeights.z;
+                if (aWeights.w > 0.0 && abs(aBones.w - uHeadBone) < 0.5) head += aWeights.w;
+                float below = 1.0 - smoothstep(0.8476, 0.8514, aPlace.y);
+                float ahead = 1.0 - smoothstep(-0.002, 0.03, aPlace.z);
+                return -JAW_WIDEST * uMouth * head * below * ahead;
+            }
+
+            // A way in the model as made, turned with the jaw about the line across the head.
+            vec3 jawed(vec3 way, float turn) {
+                float c = cos(turn), s = sin(turn);
+                return vec3(way.x, way.y * c - way.z * s, way.y * s + way.z * c);
+            }
+
+            vec3 jawedPlace(float turn) {
+                return JAW_HINGE + jawed(aPlace - JAW_HINGE, turn);
+            }
 
             // How much of a bone's matrix is pressed flat (Stumps): its volume against a whole one's
             // the size of its longest axis. A bone that turns and moves the corner keeps all of it.
@@ -166,14 +200,15 @@ final class CharacterDraw {
             void main() {
                 mat4 blend = posed();
                 vStump = stumped();
-                vec4 place = blend * vec4(aPlace, 1.0);
+                float turn = jawTurn();
+                vec4 place = blend * vec4(jawedPlace(turn), 1.0);
                 // The run-together normal: a seam in the texture is then no seam in the light.
-                vNormal = (blend * vec4(aSmooth, 0.0)).xyz;
+                vNormal = (blend * vec4(jawed(aSmooth, turn), 0.0)).xyz;
                 place.xyz = place.xyz * uScale + vNormal * (uLift / max(length(vNormal), 1e-6));
                 vUv = aUv * uUvScale;
                 vRest = aPlace;
                 vLean = aSmooth;
-                vAlong = vec4((blend * vec4(aAlong.xyz, 0.0)).xyz, aAlong.w);
+                vAlong = vec4((blend * vec4(jawed(aAlong.xyz, turn), 0.0)).xyz, aAlong.w);
                 vLay = aUv * uThread;
                 vec4 eye = uModelView * place;
                 vEye = eye.xyz;
@@ -188,7 +223,7 @@ final class CharacterDraw {
             TO_NEXT vec2 vUv;
 
             void main() {
-                vec4 place = posed() * vec4(aPlace, 1.0);
+                vec4 place = posed() * vec4(jawedPlace(jawTurn()), 1.0);
                 place.xyz *= uScale;
                 vUv = aUv * uUvScale;
                 gl_Position = uProjection * (uModelView * place);
@@ -222,13 +257,14 @@ final class CharacterDraw {
             void main() {
                 mat4 blend = posed();
                 cStump = stumped();
-                vec4 place = blend * vec4(aPlace, 1.0);
+                float turn = jawTurn();
+                vec4 place = blend * vec4(jawedPlace(turn), 1.0);
                 cPlace = place.xyz * uScale;
-                cSmooth = (blend * vec4(aSmooth, 0.0)).xyz;
+                cSmooth = (blend * vec4(jawed(aSmooth, turn), 0.0)).xyz;
                 cUv = aUv * uUvScale;
                 cRest = aPlace;
                 cLean = aSmooth;
-                cAlong = vec4((blend * vec4(aAlong.xyz, 0.0)).xyz, aAlong.w);
+                cAlong = vec4((blend * vec4(jawed(aAlong.xyz, turn), 0.0)).xyz, aAlong.w);
                 cLay = aUv * uThread;
             }
             """;
@@ -349,13 +385,14 @@ final class CharacterDraw {
             void main() {
                 mat4 blend = posed();
                 vStump = stumped();
-                vec4 place = blend * vec4(aPlace, 1.0);
+                float turn = jawTurn();
+                vec4 place = blend * vec4(jawedPlace(turn), 1.0);
                 place.xyz *= uScale;
-                vNormal = (blend * vec4(aNormal, 0.0)).xyz;
+                vNormal = (blend * vec4(jawed(aNormal, turn), 0.0)).xyz;
                 vUv = aUv * uUvScale;
                 vRest = aPlace;
                 vLean = aSmooth;
-                vAlong = vec4((blend * vec4(aAlong.xyz, 0.0)).xyz, aAlong.w);
+                vAlong = vec4((blend * vec4(jawed(aAlong.xyz, turn), 0.0)).xyz, aAlong.w);
                 vLay = aUv * uThread;
                 vEye = (uModelView * place).xyz;
                 float arm = 0.0;
@@ -638,6 +675,8 @@ final class CharacterDraw {
             uniform float uWear;
             uniform float uShell;
             uniform vec2 uStands;
+            uniform float uMouthGap;
+            const vec3 MOUTH_INSIDE = vec3(0.14, 0.05, 0.05);
             const float INSIDE_REACH = 0.6, INSIDE_SHADE = 0.15;
             FROM_LAST vec3 vNormal;
             FROM_LAST vec2 vUv;
@@ -772,6 +811,15 @@ final class CharacterDraw {
                 if (uHue != 0.0) {
                     color = turned(color, uHue);
                 }
+                float gap = 0.0;
+                if (uMouthGap > 0.0) {
+                    // Between the lips, which the jaw pulls open: the strip of the head as made from
+                    // the lower lip's top up to the line where the lips meet, inside the corners.
+                    gap = smoothstep(0.8462, 0.8478, vRest.y) * (1.0 - smoothstep(0.8512, 0.8524, vRest.y))
+                            * (1.0 - smoothstep(0.012, 0.019, abs(vRest.x))) * (1.0 - smoothstep(-0.027, -0.022, vRest.z))
+                            * min(uMouthGap * 3.0, 1.0);
+                    color = mix(color, MOUTH_INSIDE, gap);
+                }
                 vec3 n = normalize(vNormal);
                 if (uBare < 0.5) {
                     vec3 light = uAmbient;
@@ -822,7 +870,9 @@ final class CharacterDraw {
                     float most = max(paint.r, max(paint.g, paint.b)), least = min(paint.r, min(paint.g, paint.b));
                     float strong = (most - least) / max(most, 0.001);
                     // Blood is a dark red, redder by half again than it is green or blue.
-                    float blood = smoothstep(1.4, 1.8, paint.r / max(max(paint.g, paint.b), 0.02)) * step(0.12, paint.r) * (1.0 - smoothstep(0.62, 0.8, paint.r));
+                    // The inside of an open mouth is as red as that, and is no blood.
+                    float blood = smoothstep(1.4, 1.8, paint.r / max(max(paint.g, paint.b), 0.02)) * step(0.12, paint.r) * (1.0 - smoothstep(0.62, 0.8, paint.r))
+                            * (1.0 - gap);
                     float flesh = 0.0, wet = 0.0;
                     vec2 ball = vec2(0.0);
                     if (body) {
@@ -847,7 +897,8 @@ final class CharacterDraw {
                         float tone = grey(color);
                         float white = smoothstep(0.1, 0.2, stands) * smoothstep(0.78, 0.88, tone) * (1.0 - smoothstep(0.1, 0.2, strong));
                         float dark = smoothstep(0.22, 0.36, -stands) * (1.0 - smoothstep(0.1, 0.2, tone));
-                        wet = max(white, dark) * face;
+                        // The inside of an open mouth is darker than the face round it too, and is in shadow: it does not shine as an eye does.
+                        wet = max(white, dark) * face * (1.0 - gap);
                         // An eye is a ball set in the face, and its wet shows as a point of
                         // light only if it is round. The middle of a white has white all
                         // round it and its rim has not, so how white it is round a texel
@@ -1084,7 +1135,8 @@ final class CharacterDraw {
     /** One program and where its settings live. */
     private static final class Skin {
         final int id;
-        final int palette, modelView, projection, scale, uvScale, alpha, hue, tint, ambient, fine, bare, shadow, nearCut, inside, texSize;
+        final int palette, modelView, projection, scale, uvScale, alpha, hue, tint, ambient, fine, bare, shadow, nearCut, inside, texSize, mouth,
+                headBone, mouthGap;
         final int[] lightWay = new int[LIGHTS], lightColor = new int[LIGHTS];
         /** The person whose settings the program holds (CharacterDraw.peopleBegun): a part of the same person sets only its own. */
         int heldFor = -1;
@@ -1106,6 +1158,9 @@ final class CharacterDraw {
             nearCut = GL20.glGetUniformLocation(id, "uNearCut");
             inside = GL20.glGetUniformLocation(id, "uInside");
             texSize = GL20.glGetUniformLocation(id, "uTexSize");
+            mouth = GL20.glGetUniformLocation(id, "uMouth");
+            headBone = GL20.glGetUniformLocation(id, "uHeadBone");
+            mouthGap = GL20.glGetUniformLocation(id, "uMouthGap");
             for (int light = 0; light < LIGHTS; light++) {
                 lightWay[light] = GL20.glGetUniformLocation(id, "uLightWay[" + light + "]");
                 lightColor[light] = GL20.glGetUniformLocation(id, "uLightColor[" + light + "]");
@@ -1210,6 +1265,8 @@ final class CharacterDraw {
     private static boolean shadow;
     /** How far from the eye the person begun stands, in tiles. */
     private static float away;
+    /** How far the mouth of the person begun is open, 0 to 1: see Mouths. */
+    private static float mouthOpen;
     /** How far from the viewer's eye the person begun stands, in tiles, in every pass alike: see Characters.fromViewer. */
     private static float fromEye;
     /** Whether the person begun wears finer skins: see FineSkinRange. */
@@ -1254,6 +1311,7 @@ final class CharacterDraw {
         finelySkinned = !casting && !plainly && FINE_SKINS.wears(data.object != null ? data.object : data, fromEye, Pipeline.frame());
         standsIn = -1f;
         snowOn = 0f;
+        mouthOpen = Mouths.open(data.character);
         if (!off && !bare && !casting) {
             lights(data);
         }
@@ -1463,6 +1521,15 @@ final class CharacterDraw {
             headless.put(at + 11, eyeZ);
         }
         return headless;
+    }
+
+    /** The number of a part's head bone, or -1 for a part that has none: a part with no skeleton of its own, or one whose head is not among the bones posed for it. */
+    private static float headBone(Model model) {
+        if (!(model.tag instanceof SkinningData skeleton)) {
+            return -1f;
+        }
+        SkinningBone head = skeleton.getBone(HEAD_BONE);
+        return head != null && head.index < BONES ? head.index : -1f;
     }
 
     /** Writes the numbers of a bone and of every bone that hangs from it, and returns how many are written. */
@@ -1786,6 +1853,7 @@ final class CharacterDraw {
             GL20.glUniform1f(skin.shadow, shadow ? 1f : 0f);
             GL20.glUniform1f(skin.nearCut, shadow ? 0f : nearCut);
             GL20.glUniform1f(skin.alpha, person.alpha);
+            GL20.glUniform1f(skin.mouth, mouthOpen);
             // The game's lights are read by a lit draw alone: a bare one is lit by the picture, and a shadow map keeps no colour.
             if (!bare && !shadow) {
                 for (int light = 0; light < LIGHTS; light++) {
@@ -1803,7 +1871,10 @@ final class CharacterDraw {
         if (skin != depth) {
             GL20.glUniform1f(skin.hue, part.hue);
             GL20.glUniform3f(skin.tint, instance.tintR, instance.tintG, instance.tintB);
+            // The lips part on the body alone: whatever else is worn over the mouth moves with the jaw and keeps its own colour.
+            GL20.glUniform1f(skin.mouthGap, mouthOpen > 0f && wearOf(copy, model, texture) == BODY ? mouthOpen : 0f);
         }
+        GL20.glUniform1f(skin.headBone, mouthOpen > 0f ? headBone(model) : -1f);
         if (!bare && !shadow) {
             if (part.ignoreLighting) {
                 GL20.glUniform3f(skin.ambient, 1f, 1f, 1f);

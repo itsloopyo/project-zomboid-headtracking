@@ -99,6 +99,7 @@ public final class CoreTests {
         Checks.run("aFileFromBeforeTheKeysMovedStartsOnTheNavKeys", CoreTests::aFileFromBeforeTheKeysMovedStartsOnTheNavKeys);
         Checks.run("rowsReadAgainWhileTheGameRuns", CoreTests::rowsReadAgainWhileTheGameRuns);
         Checks.run("settingsOfTheGamesOptionsScreenAreSavedAndTaken", CoreTests::settingsOfTheGamesOptionsScreenAreSavedAndTaken);
+        Checks.run("eachPlayersMicrophoneIsChosenAndSavedByItsName", CoreTests::eachPlayersMicrophoneIsChosenAndSavedByItsName);
         Checks.run("aGraphicsRowAppliedOnTheOptionsScreenGoesToCustom", CoreTests::aGraphicsRowAppliedOnTheOptionsScreenGoesToCustom);
         Checks.run("customKeepsItsRowsThroughTheOtherModes", CoreTests::customKeepsItsRowsThroughTheOtherModes);
         Checks.run("theHeightOfTheHillsIsASliderThatLeavesTheGraphicsModeAsItIs", CoreTests::theHeightOfTheHillsIsASliderThatLeavesTheGraphicsModeAsItIs);
@@ -237,6 +238,10 @@ public final class CoreTests {
         check(Quality.overheadRow() == Quality.LOW && Quality.overheadPlain() && holds("IsometricQuality=Low"),
                 "and the isometric view in Low, the game's own picture");
         check(Tracking.lightMultiplier() == 1.5f, "and the light turned one and a half times the head");
+        check(!Mouths.on() && holds("TalkingMouths=false") && Tracking.microphones().equals(List.of("Default", "None", "None", "None"))
+                        && holds("Microphone=Default") && holds("SecondPlayerMicrophone=None") && holds("FourthPlayerMicrophone=None"),
+                "and talking mouths off, so no microphone is opened, with player 1 on Windows' default microphone and the others on none: "
+                        + Tracking.microphones());
         check(Integer.bitCount(Config.CYCLE_TRACKING_MODE | Config.YAW_MODE | Config.AIM_MODE | Config.FIRST_PERSON
                         | Config.CYCLE_QUALITY | Config.CYCLE_STYLE | Config.SPLIT_SCREEN | Config.FIRST_PERSON_SECOND | Config.FIRST_PERSON_ALL) == 9,
                 "the seven actions have a bit each, and the first person key three");
@@ -646,8 +651,8 @@ public final class CoreTests {
         check(ids.toString().equals("WorldSpaceYaw TrackingMode AimMode FieldOfView Quality IsometricQuality Style HillHeight MuzzleFlash SplitScreen TreeQuality "
                         + "RenderScale SharpShadows ViewDistance ZombiesAndPropsDrawDistance FarTreeDistance RainOnGlass ShadingAndLight Reflections "
                         + "FullSizeTextures SurfaceDepth WholeFigureShadows FrameBlending OwnWeapons OwnFurniture "
-                        + "OwnPictures OwnPlants OwnTextures OwnBuildings OwnZombies OwnPeople OwnArms OwnClothes OwnAnimals OwnFire OwnCabins "),
-                "the game's options screen is given the modes, the yaw mode and the mod's own rows, and no key list or port: " + ids);
+                        + "OwnPictures OwnPlants OwnTextures OwnBuildings OwnZombies OwnPeople OwnArms OwnClothes OwnAnimals OwnFire OwnCabins TalkingMouths "),
+                "the game's options screen is given the modes, the yaw mode and the mod's own rows, and no key list, port or microphone: " + ids);
         int fov = optionNamed(options, "FieldOfView"), yaw = optionNamed(options, "WorldSpaceYaw"), tracking = optionNamed(options, "TrackingMode"),
                 aim = optionNamed(options, "AimMode"), arms = optionNamed(options, "OwnArms"), flash = optionNamed(options, "MuzzleFlash");
         boolean taken = true;
@@ -727,6 +732,43 @@ public final class CoreTests {
         void apply() {
             Tracking.applyScreen(options, described, shown, held);
         }
+    }
+
+    /**
+     * No microphone is opened here: each player's is set to none before talking mouths are turned
+     * on, so the run reads no sound on a machine that has a microphone.
+     */
+    private static void eachPlayersMicrophoneIsChosenAndSavedByItsName() throws IOException, InterruptedException {
+        String spanish = "Micrófono (USB Audio Device)";
+        Tracking.applyMicrophone(1, spanish);
+        check(Tracking.microphones().get(1).equals(spanish) && !Mouths.on(), "a microphone chosen for player 2 is the session's at once, with the mouths still off");
+        savesMade();
+        byte[] written = (Config.MICROPHONE_ROWS[1] + "=" + spanish + "\r\n").getBytes(StandardCharsets.UTF_8);
+        check(indexOf(Files.readAllBytes(file), written) >= 0, "and saved by its name, as UTF-8");
+        for (int player = 0; player < Config.MICROPHONE_ROWS.length; player++) {
+            Tracking.applyMicrophone(player, Microphones.NONE);
+        }
+        CameraUnlock.Option[] options = Tracking.options();
+        int talking = optionNamed(options, Config.TALKING_MOUTHS);
+        check(options[talking].kind == CameraUnlock.OPTION_BOOL && options[talking].label.equals("Talking mouths")
+                        && options[talking].comment.contains("nothing is recorded or sent"),
+                "talking mouths are a tick box whose tooltip says nothing is recorded or sent: " + options[talking].label);
+        Tracking.applyOption(talking, options[talking], 1);
+        check(Mouths.on() && saved("TalkingMouths=true", "Microphone=None", "SecondPlayerMicrophone=None"),
+                "turned on there they are on and saved, with every microphone on none");
+        check(Microphones.open(0) == 0f && Microphones.open(1) == 0f, "and no mouth opens with no microphone to read");
+        Tracking.applyOption(talking, options[talking], 0);
+        Tracking.applyMicrophone(0, Microphones.DEFAULT);
+        check(!Mouths.on() && saved("TalkingMouths=false", "Microphone=Default"), "and off again, with player 1 back on the default");
+    }
+
+    private static int indexOf(byte[] in, byte[] part) {
+        for (int at = 0; at + part.length <= in.length; at++) {
+            if (Arrays.equals(in, at, at + part.length, part, 0, part.length)) {
+                return at;
+            }
+        }
+        return -1;
     }
 
     private static void theHeightOfTheHillsIsASliderThatLeavesTheGraphicsModeAsItIs() throws IOException, InterruptedException {

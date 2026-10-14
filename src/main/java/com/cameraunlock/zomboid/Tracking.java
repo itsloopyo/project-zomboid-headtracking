@@ -2,6 +2,7 @@ package com.cameraunlock.zomboid;
 
 import com.cameraunlock.core.CameraUnlock;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -163,6 +164,7 @@ final class Tracking {
         MuzzleFlash.set(live.muzzleFlash());
         SplitScreen.set(live.splitScreen());
         FieldOfView.set(live.fieldOfView());
+        talk(live);
         Log.info("the mod's own in first person: " + Own.described(Own.rows()));
         Log.info("hill height " + HillHeight.asked());
         Log.info("first person field of view set to " + FieldOfView.degrees() + " degrees vertical");
@@ -257,6 +259,20 @@ final class Tracking {
             Own.set(live.own());
             Log.info(Config.FILE_NAME + " changed: the mod's own in first person: " + Own.described(live.own()));
         }
+        if (live.talkingMouths() != Mouths.on() || !live.microphones().equals(microphones)) {
+            talk(live);
+        }
+    }
+
+    /** Each player's microphone as last taken from the file or the game's options screen. */
+    private static volatile List<String> microphones = List.of();
+
+    /** Puts TalkingMouths and the microphones on the mouths, opening and closing microphones to match. */
+    private static void talk(Config.Live live) {
+        microphones = live.microphones();
+        Mouths.set(live.talkingMouths());
+        Microphones.set(live.talkingMouths(), microphones.toArray(String[]::new));
+        Log.info("talking mouths " + (live.talkingMouths() ? "on, microphones " + microphones : "off: no microphone is opened"));
     }
 
     /** The settings the game's options screen shows. Logic thread, once the file is read. */
@@ -537,6 +553,24 @@ final class Tracking {
             cycleAimMode();
         }
         return pressed;
+    }
+
+    /** Each player's microphone, player 1's first, as the session has them. */
+    static List<String> microphones() {
+        return microphones;
+    }
+
+    /**
+     * A microphone the player chose for a player on the game's options screen. As with a key, the
+     * session takes it at once and its save follows on the config thread. Logic thread.
+     */
+    static void applyMicrophone(int player, String name) {
+        String[] names = microphones.toArray(String[]::new);
+        names[player] = name;
+        microphones = List.of(names);
+        Microphones.set(Mouths.on(), names);
+        Log.info("player " + (player + 1) + "'s microphone set to \"" + name + "\"");
+        save(() -> config.saveMicrophone(player, name));
     }
 
     /** The new value is already applied. A save that fails leaves the session on it, and the log says why. */
