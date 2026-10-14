@@ -201,14 +201,15 @@ public final class ViewModel {
     private int wearAsked;
 
     /**
-     * A pump action is worked after every shot: the hand on the fore-end draws it back and
-     * shoves it forward again. The game's own animation of that is made for its distant view
-     * and turns the hand about; here the hand keeps its hold and slides.
+     * A pump action is worked whenever the game racks it, after every shot and after loading:
+     * the hand on the fore-end draws it back and shoves it forward again, timed by the game's
+     * own animation of racking. That animation is made for its distant view and turns the hand
+     * about; here the hand keeps its hold and slides.
      */
-    private static final float PUMP_AFTER = 0.16f, PUMP_BACK = 0.14f, PUMP_FORWARD = 0.16f;
+    private final PumpStroke stroke = new PumpStroke();
     private static final float NOT_PUMPING = -1f;
     private boolean racked;
-    private float sinceShot = NOT_PUMPING, cycled = NOT_PUMPING, done;
+    private float cycled = NOT_PUMPING, done;
     /** The way of reloading the weapon last held had, as the game hands it over, and the kind of action that is. */
     private Object reloadTypeSeen;
     private int actionSeen = ArmActs.NO_ACTION;
@@ -260,17 +261,13 @@ public final class ViewModel {
         };
     }
 
-    /** How far back the fore-end hand is, 0 to 1. Written by the logic thread, read where the weapon is placed. */
+    /** How far back a pump gun's fore-end is, 0 to 1. Written by the logic thread, read once where the weapon is placed. */
     volatile float pumped;
-    /** How far back the fore-end hand was when the weapon was last placed, which the hands on it are placed for. Render thread. */
+    /**
+     * How far back the fore-end was when the weapon was last placed. Render thread. The hand on
+     * it, the fore-end and bolt drawn and the shell thrown all go by this, so they agree.
+     */
     float pumpedPlaced;
-
-    /** How far back the hand is at a time after the shot: still, then back, then forward. */
-    static float pumpAt(float seconds) {
-        float back = (seconds - PUMP_AFTER) / PUMP_BACK;
-        float forward = (seconds - PUMP_AFTER - PUMP_BACK) / PUMP_FORWARD;
-        return ViewModelMath.smooth(back) - ViewModelMath.smooth(forward);
-    }
 
     /** Called by the game straight after it starts its own muzzle flash, which is where a firearm's shot is taken. */
     public void shot() {
@@ -282,7 +279,6 @@ public final class ViewModel {
             shots++;
             view.muzzleFlash.fire();
             if (racked) {
-                sinceShot = 0f;
                 cycled = 0f;
             }
         }
@@ -342,7 +338,7 @@ public final class ViewModel {
             drawn = 1f;
             // What was being done to the weapon before is not being done to this one: an attack under way was the other's.
             unshown = true;
-            sinceShot = NOT_PUMPING;
+            stroke.rest();
             cycled = NOT_PUMPING;
             seated = ArmActs.NOT_SEATING;
             out = ArmActs.NOT_SEATING;
@@ -417,13 +413,6 @@ public final class ViewModel {
         wasSneaking = sneaking;
         wasFalling = falling;
         racked = firearm && weapon.isRackAfterShoot();
-        if (sinceShot != NOT_PUMPING) {
-            sinceShot += seconds;
-            if (sinceShot > PUMP_AFTER + PUMP_BACK + PUMP_FORWARD) {
-                sinceShot = NOT_PUMPING;
-            }
-        }
-        pumped = sinceShot == NOT_PUMPING ? 0f : pumpAt(sinceShot);
         int action = ArmActs.NO_ACTION;
         if (firearm) {
             // Asked every frame, and naming the kind makes a string each time: it is named again only for another way of reloading.
@@ -459,14 +448,13 @@ public final class ViewModel {
             // Racked by hand, the action is worked as it is after a shot.
             if (now == ArmActs.RACKING && cycled < 0f) {
                 cycled = 0f;
-                if (racked) {
-                    sinceShot = 0f;
-                }
             }
         } else {
             done += seconds;
         }
         actionBefore = action;
+        stroke.step(action == ArmActs.PUMP && doing == ArmActs.RACKING ? GameAttack.rack(player) : NOT_PUMPING, seconds);
+        pumped = stroke.back;
         if (magazineFed && (doing == ArmActs.LOADING || doing == ArmActs.UNLOADING)) {
             out = clipBefore && !clip ? 0f : out < 0f ? out : out + seconds;
             if (!clip && doing == ArmActs.LOADING) {
@@ -609,7 +597,7 @@ public final class ViewModel {
     private void restHeld() {
         view.scope.fitted(null);
         wearAsked = 0;
-        sinceShot = NOT_PUMPING;
+        stroke.rest();
         cycled = NOT_PUMPING;
         doing = ArmActs.HOLDING;
         done = 0f;
@@ -784,8 +772,12 @@ public final class ViewModel {
      * wherever it goes.
      */
     private static final float FORE_END = 0.42f, FORE_END_BELOW = 0.035f;
-    /** How far working the action tips the muzzle down, and draws the weapon back, in tiles, with the fore-end right back. */
+    /**
+     * How far working the action tips the muzzle down, and draws the weapon back, in tiles, with the fore-end right back,
+     * at the hip and with the sights up: in the shoulder the gun is held into it and hardly moves off the sight line.
+     */
     private static final float PUMP_DIPS = (float) Math.toRadians(3), PUMP_PULLS = 0.012f;
+    private static final float PUMP_DIPS_AIMED = (float) Math.toRadians(1), PUMP_PULLS_AIMED = 0.006f;
     /** How much of the way from grip to muzzle the fore-end travels. */
     static final float PUMP_TRAVEL = 0.12f;
     /**
@@ -983,9 +975,10 @@ public final class ViewModel {
             yaw += to[4] * brought;
             roll += (to[5] - roll) * brought;
             // Working the action drags the muzzle down and the whole gun back a little, and lets it go again.
-            pitch -= pumped * PUMP_DIPS;
-            shakenPitch -= pumped * PUMP_DIPS;
-            moveBack = pumped * PUMP_PULLS;
+            float dips = pumped * (PUMP_DIPS + (PUMP_DIPS_AIMED - PUMP_DIPS) * raised);
+            pitch -= dips;
+            shakenPitch -= dips;
+            moveBack = pumped * (PUMP_PULLS + (PUMP_PULLS_AIMED - PUMP_PULLS) * raised);
         } else {
             spearHeld = how.swungAs == MeleeHold.SPEAR;
             if (swungFit != null) {

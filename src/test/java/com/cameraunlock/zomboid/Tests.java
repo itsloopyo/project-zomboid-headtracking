@@ -258,6 +258,8 @@ public final class Tests {
         Checks.run("litterShowsAsMuchAsItsCornersSay", Tests::litterShowsAsMuchAsItsCornersSay);
         Checks.run("elbowKeepsBothBonesTheirLengthsAndDropsTheWayThePolePoints", Tests::elbowKeepsBothBonesTheirLengthsAndDropsTheWayThePolePoints);
         Checks.run("pumpGoesBackAndComesForwardAgain", Tests::pumpGoesBackAndComesForwardAgain);
+        Checks.run("pumpWaitsOutTheKickAndFillsTheGamesRack", Tests::pumpWaitsOutTheKickAndFillsTheGamesRack);
+        Checks.run("pumpRunsOnWhenTheGameLetsGoOfItsRack", Tests::pumpRunsOnWhenTheGameLetsGoOfItsRack);
         Checks.run("armTooShortToReachBringsItsShoulderWithIt", Tests::armTooShortToReachBringsItsShoulderWithIt);
         Checks.run("armWithNoWayForItsElbowToDropHasNone", Tests::armWithNoWayForItsElbowToDropHasNone);
         Checks.run("attackStartsAndEndsWhereTheWeaponIsHeld", Tests::attackStartsAndEndsWhereTheWeaponIsHeld);
@@ -279,14 +281,70 @@ public final class Tests {
     }
 
     private static void pumpGoesBackAndComesForwardAgain() {
-        check(ViewModel.pumpAt(0f) == 0f && ViewModel.pumpAt(0.1f) == 0f, "the hand is still while the shot kicks");
-        check(Math.abs(ViewModel.pumpAt(0.3f) - 1f) < 1e-4f, "the fore-end is right back at the end of the pull");
-        check(ViewModel.pumpAt(0.46f) < 1e-4f && ViewModel.pumpAt(2f) == 0f, "and forward again after the shove");
+        check(PumpStroke.at(0f) == 0f && PumpStroke.at(PumpStroke.BACK_FROM) == 0f, "the hand is still while the shot kicks");
+        check(PumpStroke.at(PumpStroke.BACK_TO) == 1f && PumpStroke.at(PumpStroke.FORWARD_FROM) == 1f, "the fore-end stands right back between the pull and the shove");
+        check(PumpStroke.at(PumpStroke.FORWARD_TO) == 0f && PumpStroke.at(1f) == 0f, "and is home again before the game's rack is over");
         float last = 0f;
-        for (float t = 0.16f; t <= 0.3f; t += 0.01f) {
-            check(ViewModel.pumpAt(t) >= last - 1e-6f, "the pull only goes back");
-            last = ViewModel.pumpAt(t);
+        for (float rack = 0f; rack <= PumpStroke.BACK_TO; rack += 0.01f) {
+            check(PumpStroke.at(rack) >= last - 1e-6f, "the pull only goes back");
+            last = PumpStroke.at(rack);
         }
+        for (float rack = PumpStroke.FORWARD_FROM; rack <= 1f; rack += 0.01f) {
+            check(PumpStroke.at(rack) <= last + 1e-6f, "the shove only goes forward");
+            last = PumpStroke.at(rack);
+        }
+    }
+
+    /** The game's sights-up rack takes 0.77 s at its usual pace and starts as the shot is fired. */
+    private static final float RACK_TAKES = 0.77f, FRAME = 1f / 60f;
+
+    private static void pumpWaitsOutTheKickAndFillsTheGamesRack() {
+        PumpStroke stroke = new PumpStroke();
+        Kick kick = new Kick();
+        kick.fire(1f, 0f);
+        float started = -1f, home = -1f, peak = 0f, before = 0f;
+        int thrown = 0;
+        for (float t = 0f; t < RACK_TAKES; t += FRAME) {
+            stroke.step(t / RACK_TAKES, FRAME);
+            kick.step(FRAME);
+            peak = Math.max(peak, Math.abs(kick.weaponPitch.at));
+            if (started < 0f && stroke.back > 0f) {
+                started = t;
+                check(Math.abs(kick.weaponPitch.at) < 0.25f * peak, "the pull starts once the kick has mostly died away: " + Math.abs(kick.weaponPitch.at) / peak + " of its peak");
+            }
+            if (started >= 0f && home < 0f && stroke.back == 0f) {
+                home = t;
+            }
+            thrown += PumpStroke.throwsShell(before, stroke.back) ? 1 : 0;
+            before = stroke.back;
+        }
+        check(started > 0.15f, "the hand waits after the shot: " + started);
+        check(home - started >= 0.3f && home - started <= 0.5f, "a practised stroke, 0.3 to 0.5 s: " + (home - started));
+        check(home > 0f && home < RACK_TAKES, "and home before the game's rack is over");
+        check(thrown == 1, "one shell thrown, at the back of the stroke: " + thrown);
+    }
+
+    private static void pumpRunsOnWhenTheGameLetsGoOfItsRack() {
+        PumpStroke stroke = new PumpStroke();
+        float t = 0f, last = 0f;
+        for (; t < 0.6f * RACK_TAKES; t += FRAME) {
+            stroke.step(t / RACK_TAKES, FRAME);
+            last = stroke.back;
+        }
+        check(last > 0.5f, "part way through the shove when the game lets go: " + last);
+        float frames = 0;
+        while (stroke.back > 0f && frames < 200) {
+            stroke.step(-1f, FRAME);
+            check(stroke.back <= last + 1e-6f && last - stroke.back < 0.2f, "the fore-end goes on home at the pace it had, without a jump");
+            last = stroke.back;
+            frames++;
+        }
+        check(stroke.back == 0f && frames < 30, "and gets there: " + frames + " frames");
+        stroke.step(-1f, FRAME);
+        check(stroke.back == 0f, "and stays there");
+        stroke.step(0.4f, FRAME);
+        stroke.rest();
+        check(stroke.back == 0f, "a weapon put away is home");
     }
 
     private static void elbowKeepsBothBonesTheirLengthsAndDropsTheWayThePolePoints() {

@@ -10,7 +10,7 @@ import zombie.core.skinnedmodel.advancedanimation.LiveAnimNode;
 import zombie.core.skinnedmodel.animation.AnimationTrack;
 import zombie.inventory.types.WeaponType;
 
-/** What the game says of an attack with what is held: which way it hits, how far through it is, and when it lands. Logic thread. */
+/** What the game says of an attack with what is held, which way it hits, how far through it is and when it lands, and how far through racking a firearm it is. Logic thread. */
 final class GameAttack {
     private GameAttack() {}
 
@@ -59,6 +59,38 @@ final class GameAttack {
             }
         }
         return found;
+    }
+
+    /** The game's name for the end of its animations of racking a firearm, which only they have. */
+    private static final String RACKED = "rackingFinished";
+
+    /**
+     * How far through its animation of racking a firearm the game is, 0 to 1, by its primary
+     * track. Of two, one fading as the next begins, the one less far through.
+     *
+     * @return less than nought while the game plays none
+     */
+    static float rack(IsoPlayer player) {
+        AdvancedAnimator animator = player.getAdvancedAnimator();
+        float through = -1f;
+        for (int layer = -1; layer < animator.getSubLayerCount(); layer++) {
+            List<LiveAnimNode> nodes = (layer < 0 ? animator.getRootLayer() : animator.getSubLayerAt(layer)).getLiveAnimNodes();
+            for (int node = 0; node < nodes.size(); node++) {
+                LiveAnimNode live = nodes.get(node);
+                List<AnimEvent> events = live.getSourceNode().events;
+                boolean racking = false;
+                for (int event = 0; event < events.size() && !racking; event++) {
+                    racking = RACKED.equalsIgnoreCase(events.get(event).eventName);
+                }
+                for (int track = 0; racking && track < live.getMainAnimationTracksCount(); track++) {
+                    AnimationTrack primary = live.getMainAnimationTrackAt(track);
+                    if (primary.isPrimary && (through < 0f || primary.getCurrentTimeFraction() < through)) {
+                        through = primary.getCurrentTimeFraction();
+                    }
+                }
+            }
+        }
+        return through;
     }
 
     /** The way the game has chosen to hit with what is held. */
