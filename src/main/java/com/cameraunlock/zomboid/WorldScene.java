@@ -171,6 +171,13 @@ final class WorldScene {
      * it up, as far as the exposures for a room and for the open air between them reach.
      */
     private static final float METER_KEY_INDOORS = -1.35f, METER_KEY_OUTDOORS = -2.88f;
+    /**
+     * How much more the meter reads of the street than of a room, in stops, from the same two
+     * noon measurements: -1.97 against -4.7. A view from a room that reads this much more than
+     * the room would is all daylight, a window into the sun, and the eye takes it at the open
+     * air's key.
+     */
+    private static final float ROOM_TO_STREET = 2.73f;
     /** How long the eye takes to stop down to a brighter view, and to open up to a darker one, in seconds: an eye is slower to open. */
     private static final float EYE_CLOSES_SECONDS = 0.5f, EYE_OPENS_SECONDS = 2.5f;
     /** How much further the eye opens deep in a wood than on open ground. */
@@ -4400,6 +4407,11 @@ final class WorldScene {
                 return located;
             }
             float key = METER_KEY_INDOORS + (METER_KEY_OUTDOORS - METER_KEY_INDOORS) * eyeOpen;
+            // The room's key is for a view of the room. As much of the view as is brighter than
+            // the room, a window with the day through it, is taken at the open air's key, or the
+            // eye stays open for the room with the day blown out to white in front of it.
+            float daylit = Math.clamp((metered - (METER_KEY_INDOORS - (float) (Math.log(indoors) / Math.log(2.0)))) / ROOM_TO_STREET, 0f, 1f);
+            key += (METER_KEY_OUTDOORS - key) * daylit;
             float seen = Math.clamp((float) Math.pow(2.0, key - metered), Math.min(indoors, outdoors), Math.max(indoors, outdoors));
             if (eyeSeen < 0f) {
                 eyeSeen = seen;
