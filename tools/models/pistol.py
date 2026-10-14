@@ -579,7 +579,14 @@ def main():
     def placed(where):
         return tuple(float(v) * m + 0.0 for v, m in zip(where - GRIP, mirror))
 
-    head = G.head_v4(placed(Vector((0.0, K.muzzle_y, 0.0))), placed(GRIP), placed(PORT), K.travel, K.sight_top, EYE_BEHIND_GRIP)
+    # The game's laser and light, each clamped under the dust cover from just ahead of the trigger guard, at the game's
+    # units to a metre of this pistol: its model's muzzle is as far from the hand as this one's.
+    units = math.hypot(*K.game_muzzle) / (Vector((0.0, K.muzzle_y, 0.0)) - GRIP).length
+    back = K.guard[-1][0] + 0.003
+    laser = Vector((0.0, back - G.GAME_LASER_BACK / units, K.dust_bottom - G.GAME_LASER_TOP / units))
+    light = Vector((0.0, back, K.dust_bottom - G.GAME_LIGHT_TOP / units))
+    head = G.head_v6(placed(Vector((0.0, K.muzzle_y, 0.0))), placed(GRIP), placed(PORT), K.travel, K.sight_top, EYE_BEHIND_GRIP, [], None, placed(laser),
+                     placed(light))
     if "--stats" in args:
         G.stats(gun, os.path.join(args[args.index("--stats") + 1], NAME + "-layout.png"))
         return

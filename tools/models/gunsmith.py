@@ -979,6 +979,14 @@ def head_v5(muzzle, held, port, travel, sight_line, eye_behind, moves):
                                      + struct.pack("<I%dI" % len(counts), len(counts), *counts) + struct.pack("<I%df" % len(moves), len(moves), *moves))
 
 
+# The game's red dot sight, laser and light, which it draws on the mod's own guns where their files say (head_v6), as their
+# meshes are made, in the game's units from the point it fixes each by: how far ahead of that point the middle of the
+# sight's clamp and the back of its tube are, how far over it the laser's top is and how far ahead its back (behind it,
+# less than nought), and how far over it the light's top is.
+GAME_RED_DOT_CLAMP, GAME_RED_DOT_BACK = 0.045, 0.0102
+GAME_LASER_TOP, GAME_LASER_BACK = 0.014, -0.0034
+GAME_LIGHT_TOP = 0.0302
+
 
 def head_v6(muzzle, held, port, travel, sight_line, eye_behind, moves, red_dot=None, laser=None, light=None):
     """The head of a version 6 file, for pack: a version 5 head, and after it where the game's red dot sight, laser and
@@ -987,6 +995,7 @@ def head_v6(muzzle, held, port, travel, sight_line, eye_behind, moves, red_dot=N
     return lambda vertices, counts: (b"CUWM" + struct.pack("<I3f3f3f3fI", 6, *muzzle, *held, *port, travel, sight_line, eye_behind, vertices)
                                      + struct.pack("<I%dI" % len(counts), len(counts), *counts) + struct.pack("<I%df" % len(moves), len(moves), *moves)
                                      + struct.pack("<9f", *mounts))
+
 
 def dress(gun, colour, surface, folder):
     """Puts the baked pictures on the gun in place of the materials they were baked from, as the mod will draw it."""

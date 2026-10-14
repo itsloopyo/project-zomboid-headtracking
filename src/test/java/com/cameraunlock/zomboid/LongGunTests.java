@@ -66,8 +66,8 @@ final class LongGunTests {
         String[][] fitted = {{"shotgun", "", "", ""}, {"sawnoff", "", "", ""}, {"rifle", "", "", ""}, {"dbarrel", "", "", ""}, {"dbarrelsawn", "", "", ""},
                 {"varmint", "", "", ""}, {"leverrifle", "", "", ""}, {"levercarbine", "", "", ""}, {"toy", "", "", ""}, {"js14", "reddot", "", ""},
                 {"trapper", "reddot", "laser", ""}, {"js3t", "reddot", "", ""}, {"tactical", "", "laser", ""}, {"revolver", "", "", ""},
-                {"magnum", "", "", ""}, {"snubnose", "", "", ""}, {"capgun", "", "", ""}, {"pistol", "", "", ""},
-                {"pistol2", "", "", ""}, {"pistol3", "", "", ""},
+                {"magnum", "", "", ""}, {"snubnose", "", "", ""}, {"capgun", "", "", ""}, {"pistol", "", "laser", "gunlight"},
+                {"pistol2", "", "laser", "gunlight"}, {"pistol3", "", "laser", "gunlight"},
                 {"assault", "reddot", "laser", ""}, {"battle", "reddot", "laser", ""}};
         for (OwnModel model : OwnModel.ALL) {
             String name = model.mesh.substring("/models/".length(), model.mesh.length() - ".mesh.gz".length());
