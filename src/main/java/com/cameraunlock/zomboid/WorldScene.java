@@ -178,6 +178,13 @@ final class WorldScene {
      * air's key.
      */
     private static final float ROOM_TO_STREET = 2.73f;
+    /**
+     * How far, in stops, the brightest tenth of a view may lie over the eye's centre-weighted
+     * reading before it counts for more than that reading. In an evenly lit view it lies about
+     * this far over and changes nothing; a window into the sun filling a tenth of the view or
+     * more lies further over and stops the eye down for it. Set by eye, not measured.
+     */
+    private static final float UPPER_OVER_MEAN = 1.5f;
     /** How long the eye takes to stop down to a brighter view, and to open up to a darker one, in seconds: an eye is slower to open. */
     private static final float EYE_CLOSES_SECONDS = 0.5f, EYE_OPENS_SECONDS = 2.5f;
     /** How much further the eye opens deep in a wood than on open ground. */
@@ -4401,6 +4408,12 @@ final class WorldScene {
             float indoors = Math.min(EXPOSURE_INDOORS / Math.max(here, 1e-3f), most) * Math.max(here, 1e-3f) / Math.max(roomHere, 1e-3f);
             located = indoors + (outdoors - indoors) * eyeOpen;
             metered = view.pipeline.meteredLight();
+            // A mean of the view's light in stops barely moves for a bright window in a dim
+            // room: the eye is also stopped down for the brightest tenth of what it sees.
+            float upper = view.pipeline.meteredUpper();
+            if (!Float.isNaN(upper)) {
+                metered = Math.max(metered, upper - UPPER_OVER_MEAN);
+            }
             // Until the meter's first reading has come back from the card.
             if (Float.isNaN(metered)) {
                 eyeSeen = located;

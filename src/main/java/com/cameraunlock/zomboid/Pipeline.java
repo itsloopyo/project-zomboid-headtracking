@@ -711,7 +711,7 @@ final class Pipeline {
     /** The texture unit the develop pass reads the light meter's halvings from. */
     private static final int DEVELOP_METER_UNIT = 7;
     /** What the meter last read: the log2 of the picture's light before its exposure, NaN before its first reading. Render thread writes it. */
-    private volatile float meteredLight = Float.NaN;
+    private volatile float meteredLight = Float.NaN, meteredUpper = Float.NaN;
 
     /** The exposure the picture being drawn is developed at. */
     private float pictureExposure = 1f;
@@ -805,6 +805,11 @@ final class Pipeline {
     /** What the eye's light meter last read of the picture: see meter. Logic thread. */
     float meteredLight() {
         return meteredLight;
+    }
+
+    /** The light the brightest tenth of the picture the meter last read lies over: see Develop.upper. Logic thread. */
+    float meteredUpper() {
+        return meteredUpper;
     }
 
     /** How many of the last frame's chunks each shadow map was drawn from. */
@@ -3599,6 +3604,7 @@ final class Pipeline {
                     meterBlues[i] = meterRead.getFloat((4 * i + 3) * Float.BYTES);
                 }
                 meteredLight = developed.read(meterLights, meterWeights, METER_CELLS);
+                meteredUpper = developed.upper();
                 developed.readCast(meterLights, meterReds, meterBlues, METER_CELLS);
                 GL32.glDeleteSync(oldest);
                 meterFences[meterAt] = 0L;
@@ -5704,6 +5710,7 @@ final class Pipeline {
             }
         }
         meteredLight = Float.NaN;
+        meteredUpper = Float.NaN;
         developed.forget();
         view.heldDepth.forgetTarget();
     }

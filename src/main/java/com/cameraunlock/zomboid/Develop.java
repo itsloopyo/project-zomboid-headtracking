@@ -17,6 +17,8 @@ final class Develop {
     static final float LOWEST = -16f, SPAN = 24f;
     /** How much of the frame lies under the dark it is set by, and over the bright. */
     static final float DARK_SHARE = 0.02f, BRIGHT_SHARE = 0.99f;
+    /** How much of the frame lies under its brightest tenth, which the eye stops down for: see WorldScene.adaptEye. */
+    static final float UPPER_SHARE = 0.9f;
     /** Where the dark and the bright come out, out of the film and before the style's curve: a near black, and short of white. */
     static final float DARK_SHOWN = 0.055f, BRIGHT_SHOWN = 0.9f;
     /** The most of the frame's dark taken away: the rest of it is kept, so a frame that is dark all over keeps its dark. */
@@ -39,7 +41,7 @@ final class Develop {
 
     private final int[] counts = new int[BINS];
     /** Where the frame's dark and bright lie and its middle, log2 of the light before exposure. NaN before the first reading. */
-    private float dark = Float.NaN, bright = Float.NaN, middle = Float.NaN;
+    private float dark = Float.NaN, bright = Float.NaN, middle = Float.NaN, upper = Float.NaN;
     /** The light taken from every pixel's, before exposure, and the gain: what the shader is given. */
     private float taken, gain = 1f;
     private long settledAt;
@@ -69,7 +71,13 @@ final class Develop {
         dark = share(DARK_SHARE, cells);
         bright = share(BRIGHT_SHARE, cells);
         middle = share(0.5f, cells);
+        upper = share(UPPER_SHARE, cells);
         return (float) (weighted / weightSum);
+    }
+
+    /** The light, log2, under which UPPER_SHARE of the frame read last lies. NaN before the first reading. */
+    float upper() {
+        return upper;
     }
 
     /**
