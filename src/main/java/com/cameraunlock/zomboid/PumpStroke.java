@@ -8,7 +8,7 @@ package com.cameraunlock.zomboid;
  * fired with them up, and the rack after it starts as the shot is fired: the hand waits out
  * the kick, draws the fore-end straight back, stops a moment with the bolt open and drives it
  * home before the game lets go of its animation at 0.80 of the way through. At its usual pace
- * (0.77 s) the pull takes 0.19 s, the shove 0.18 s, and the first quarter, while the hand
+ * (0.77 s) the pull takes 0.19 s, the shove 0.16 s, and the first quarter, while the hand
  * waits, is when the kick of the shot has mostly died away. Its rack from the hip, as after
  * loading, has no kick to wait out, and the stroke keeps to where the game's own hand makes
  * it: the pull over its first 30 percent and the shove from 37.5 to 75 percent.
@@ -28,7 +28,7 @@ final class PumpStroke {
     }
 
     /** The game's racks with the sights up and from the hip. */
-    static final Rack AIMED = new Rack(0.25f, 0.5f, 0.55f, 0.78f), HIP = new Rack(0.02f, 0.3f, 0.375f, 0.75f);
+    static final Rack AIMED = new Rack(0.25f, 0.5f, 0.55f, 0.76f), HIP = new Rack(0.02f, 0.3f, 0.375f, 0.75f);
     /** How far back the fore-end is when the bolt throws the spent shell out of the port: at the back of the pull. */
     static final float THROWN_AT = 0.95f;
     /** What `step` is given while the game plays no rack. */
