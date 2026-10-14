@@ -17,8 +17,6 @@ final class OwnShotgun extends OwnGun {
     static final int PARTS = 5, MOVES = 0;
     /** How far from the eye the stock is first drawn with the sights up, in the model's metres. */
     private static final float NOT_DRAWN_WITHIN = 0.13f;
-    /** The bolt throws the shell out once the fore-end is this far back, on its way back. */
-    private static final float THROWN_AT = 0.7f;
 
     /** Spent shells: thrown out to the right, up and a little back, and tumbling fast. */
     private final Thrown shells = new Thrown(3, 0.9f, 1.5f, 1.1f, 0.35f, 7.5f, 17f);
@@ -40,8 +38,8 @@ final class OwnShotgun extends OwnGun {
 
     @Override
     void work(ViewCamera.Pose camera, float seconds) {
-        float pumped = view.viewModel.pumped;
-        if (pumped >= THROWN_AT && pumpedBefore < THROWN_AT) {
+        float pumped = view.viewModel.pumpedPlaced;
+        if (PumpStroke.throwsShell(pumpedBefore, pumped)) {
             shells.out(camera, model, drawn.port[0], drawn.port[1] - pumped * drawn.travel * 0.5f, drawn.port[2]);
         }
         pumpedBefore = pumped;
@@ -51,7 +49,7 @@ final class OwnShotgun extends OwnGun {
     @Override
     void parts(Program drawing) {
         for (int part = 0; part < SHELL; part++) {
-            drawing.set("uSlide", part == FIXED ? 0f : view.viewModel.pumped * drawn.travel);
+            drawing.set("uSlide", part == FIXED ? 0f : view.viewModel.pumpedPlaced * drawn.travel);
             part(part);
         }
         drawing.set("uSlide", 0f);
