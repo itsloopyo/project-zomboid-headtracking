@@ -696,6 +696,7 @@ final class Pipeline {
      * develop pass's local tone.
      */
     private static final int METER_WIDE = 64, METER_HIGH = 32, METER_READS = 3, METER_CELLS = METER_WIDE * METER_HIGH;
+    private static final int GL_PACK_ROW_LENGTH = 0x0D02, GL_PACK_SKIP_ROWS = 0x0D03, GL_PACK_SKIP_PIXELS = 0x0D04, GL_PACK_ALIGNMENT = 0x0D05;
     private int meterColor, meterTarget, meterAt;
     private final int[] meterBuffers = new int[METER_READS];
     private final long[] meterFences = new long[METER_READS];
@@ -3548,9 +3549,10 @@ final class Pipeline {
     }
 
     /**
-     * Meters the picture before its exposure into meterColor, has the card halve it down to one
-     * texel, and asks for that texel into the next of the meter's buffers. The buffer asked for
-     * METER_READS - 1 frames before is read if the card has filled it, into meteredLight.
+     * Meters the picture before its exposure into meterColor, has the card halve it down for the
+     * develop pass, and asks for the whole of it into the next of the meter's buffers. The buffer
+     * asked for METER_READS - 1 frames before is read if the card has filled it, into Develop and
+     * meteredLight.
      */
     private void meter() {
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, meterTarget);
@@ -3563,6 +3565,12 @@ final class Pipeline {
         GL11.glBindTexture(GL_TEXTURE_2D, meterColor);
         GL30.glGenerateMipmap(GL_TEXTURE_2D);
         GL15.glBindBuffer(GL_PIXEL_PACK_BUFFER, meterBuffers[meterAt]);
+        // Whatever the game left in the pack state would lay the rows out otherwise, past the end
+        // of the buffer. The frame's glPushClientAttrib gives the game its own back.
+        GL11.glPixelStorei(GL_PACK_ROW_LENGTH, 0);
+        GL11.glPixelStorei(GL_PACK_SKIP_ROWS, 0);
+        GL11.glPixelStorei(GL_PACK_SKIP_PIXELS, 0);
+        GL11.glPixelStorei(GL_PACK_ALIGNMENT, 4);
         GL11.glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_FLOAT, 0L);
         if (meterFences[meterAt] != 0L) {
             GL32.glDeleteSync(meterFences[meterAt]);
@@ -3724,7 +3732,7 @@ final class Pipeline {
         develop.set("uExposure", exposure);
         Style style = Style.current();
         // The game's own view drawn from overhead, and Low, which is the game's look, are developed as they always were.
-        boolean ownTone = !overhead && shadedAndLit && !WITHOUT.contains("tone");
+        boolean ownTone = !overhead && !Quality.plain() && !WITHOUT.contains("tone");
         float cover = Math.max(state.cover, state.rain);
         developed.settle(exposure, ownTone ? style.levels : 0f, state.night, state.fog, ownTone && !WITHOUT.contains("balance") ? 1f - state.outdoors : 0f, System.nanoTime());
         develop.set("uBalance", ownTone ? developed.balanceRed() : 1f, ownTone ? developed.balanceBlue() : 1f);

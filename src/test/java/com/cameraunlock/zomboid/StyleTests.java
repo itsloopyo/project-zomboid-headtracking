@@ -8,7 +8,7 @@ final class StyleTests {
         Style before = Style.current();
         try {
             f10GoesRoundTheThree();
-            vividIsThePictureAsItWas();
+            vividKeepsTheGradeItHadBeforeThereWereStyles();
             eachStyleAfterVividIsQuieter();
             everyStyleSetsItsOwnRange();
         } finally {
@@ -29,7 +29,7 @@ final class StyleTests {
         check(Style.words().equals("Vivid,Natural,Bleak"), "the row's words in CameraUnlock.ini are the styles in their order");
     }
 
-    private static void vividIsThePictureAsItWas() {
+    private static void vividKeepsTheGradeItHadBeforeThereWereStyles() {
         Style v = Style.VIVID;
         check(v.curve == 0.34f && v.saturation == 1.08f && v.vignette == 0.32f && v.bloom == 0.1f && v.flare == 1f,
                 "Vivid has the curve, colour, corners, glow and glare the picture had before there were styles");

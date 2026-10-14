@@ -4262,10 +4262,14 @@ final class PipelineShaders {
             """;
 
     /**
-     * The eye's light meter (Pipeline.meter): each texel the log2 of the light of four places of
-     * the picture before its exposure, times its weight, and the weight. The middle of the view
-     * counts most, as it does for an eye fixed on it, and the edges a tenth as much. The light is held under
-     * METER_MOST so the sun's disc does not stop the eye down for the whole sky.
+     * The eye's light meter (Pipeline.meter): each texel the log2 of the mean light of sixteen
+     * places of the picture before its exposure, the weight the eye's reading takes it by, and
+     * the colour of that light as red and blue against green, log2. The middle of the view
+     * counts most, as it does for an eye fixed on it, and the edges a tenth as much. The light is
+     * held under METER_MOST so the sun's disc does not stop the eye down for the whole sky.
+     * Sixteen places and not four, since the meter's halvings are the light round each part of
+     * the picture for the develop pass: from four, a lamp or a bright edge going in and out of
+     * them as the view turned made that light flicker.
      */
     static final String METER = """
             #version 120
@@ -4274,11 +4278,14 @@ final class PipelineShaders {
             const float METER_MOST = 40.0;
             void main() {
                 vec2 uv = gl_FragCoord.xy / uSize;
-                vec2 q = 0.25 / uSize;
-                vec3 c = texture2D(uScene, uv - q).rgb + texture2D(uScene, uv + vec2(q.x, -q.y)).rgb
-                        + texture2D(uScene, uv + vec2(-q.x, q.y)).rgb + texture2D(uScene, uv + q).rgb;
-                c = max(c * 0.25, vec3(1e-5));
+                vec3 c = vec3(0.0);
+                for (int i = 0; i < 16; i++) {
+                    vec2 at = vec2(mod(float(i), 4.0), floor(float(i) / 4.0)) * 0.25 - 0.375;
+                    c += texture2D(uScene, uv + at / uSize).rgb;
+                }
+                c *= 1.0 / 16.0;
                 float light = clamp(dot(c, vec3(0.2126, 0.7152, 0.0722)), 1e-4, METER_MOST);
+                c = max(c, vec3(1e-5));
                 vec2 off = (uv - 0.5) * 2.0;
                 float weight = 0.1 + exp(-5.0 * dot(off, off));
                 // The log of the light alone, so that each halving of it is the mean light of a
@@ -6172,11 +6179,11 @@ final class PipelineShaders {
             uniform vec3 uLevels;
             // The local tone: x how far a part of the picture is brought towards the frame's
             // middle light, y how far a pixel's own light is set apart from its part's (clarity),
-            // z how far the edges between pixels are sharpened. All 0 leaves the picture as it was.
+            // z how far the edges between pixels are sharpened, 0 to 1. All 0 leaves the picture as it was.
             uniform vec3 uLocal;
             // How much more the colours that are still weak are filled than those already full.
             uniform float uVibrance;
-            // What red and blue are multiplied by to take the cast of the light out: see Develop.balance.
+            // What red and blue are multiplied by to take the cast of the light out: see Develop.settle.
             uniform vec2 uBalance;
             // How much of the film works on each colour alone: see film.
             uniform float uEachColour;
@@ -6366,20 +6373,22 @@ final class PipelineShaders {
 
             // The scene's light at uv with its edges drawn a little sharper again, after the
             // steadying has softened them: each pixel is set apart from the four round it by as
-            // much as there is room for between them, so an edge already hard is left as it is
-            // and nothing is sharpened past black or past the brightest of its neighbours.
+            // much as there is room for between them, so an edge already hard is sharpened less.
+            // It is worked out on the light as the eye will see it, rolled off towards white, and
+            // turned back into light after: worked on the light itself, a bright edge was driven
+            // to twice its neighbours.
             vec3 sharpened(vec2 uv, vec3 here) {
                 vec2 px = 1.0 / uSize;
                 vec3 n = texture2D(uScene, uv + vec2(0.0, px.y)).rgb, s = texture2D(uScene, uv - vec2(0.0, px.y)).rgb;
                 vec3 e = texture2D(uScene, uv + vec2(px.x, 0.0)).rgb, w = texture2D(uScene, uv - vec2(px.x, 0.0)).rgb;
-                // Measured as the eye will see it, so a sunlit wall is not sharpened as if it were dark.
                 vec3 h = here * uExposure, hn = n * uExposure, hs = s * uExposure, he = e * uExposure, hw = w * uExposure;
                 h /= 1.0 + h; hn /= 1.0 + hn; hs /= 1.0 + hs; he /= 1.0 + he; hw /= 1.0 + hw;
                 vec3 least = min(h, min(min(hn, hs), min(he, hw)));
                 vec3 most = max(h, max(max(hn, hs), max(he, hw)));
                 vec3 room = sqrt(clamp(min(least, 1.0 - most) / max(most, 1e-4), 0.0, 1.0));
-                vec3 weight = -room * mix(0.125, 0.2, uLocal.z);
-                return max((here + weight * (n + s + e + w)) / (1.0 + 4.0 * weight), vec3(0.0));
+                vec3 weight = -room * (0.2 * uLocal.z);
+                vec3 seen = clamp((h + weight * (hn + hs + he + hw)) / (1.0 + 4.0 * weight), 0.0, 0.999);
+                return seen / (1.0 - seen) / uExposure;
             }
 
             // A half-size pass read at a full-size pixel: of the four of its dots round the
@@ -6489,14 +6498,18 @@ final class PipelineShaders {
                 }
                 c *= uExposure;
                 float light = dot(c, vec3(0.2126, 0.7152, 0.0722));
-                vec3 balanced = c * vec3(uBalance.x, 1.0, uBalance.y);
-                c = balanced * (light / max(dot(balanced, vec3(0.2126, 0.7152, 0.0722)), 1e-6));
+                if (uBalance.x != 1.0 || uBalance.y != 1.0) {
+                    vec3 balanced = c * vec3(uBalance.x, 1.0, uBalance.y);
+                    c = balanced * (light / max(dot(balanced, vec3(0.2126, 0.7152, 0.0722)), 1e-6));
+                }
                 // How far this pixel stands above or below the light round it, in stops: the lit
                 // and the shaded side of the same street, more than the paint of what is there.
                 float lifted = 0.0;
                 if (uLocal.x + uLocal.y > 0.0) {
                     float nearby = (texture2DLod(uMeter, uv, 1.0).r + 2.0 * texture2DLod(uMeter, uv, 2.0).r + texture2DLod(uMeter, uv, 3.0).r) * 0.25;
-                    float own = log2(max(light / uExposure, 1e-4));
+                    // The scene's own light, as the meter reads it: not the shade, the lit air,
+                    // the glow and the rest laid over it since, which the meter never sees.
+                    float own = log2(max(dot(here.rgb, vec3(0.2126, 0.7152, 0.0722)), 1e-4));
                     lifted = own - nearby;
                     // A part of the picture far darker or brighter than the frame's middle, a
                     // room seen past a window or a window seen from a room, is brought some way

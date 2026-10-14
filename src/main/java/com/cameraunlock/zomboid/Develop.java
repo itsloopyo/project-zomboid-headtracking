@@ -32,7 +32,11 @@ final class Develop {
     private final int[] counts = new int[BINS];
     /** Where the frame's dark and bright lie and its middle, log2 of the light before exposure. NaN before the first reading. */
     private float dark = Float.NaN, bright = Float.NaN, middle = Float.NaN;
-    /** The dark taken away, as a share of the exposed light, and the gain: what the shader is given. */
+    /**
+     * How much of the frame's dark is taken away, as a share of it, and the gain. The share is
+     * what eases, not the light taken: the frame's dark moves by stops at a doorway, and light
+     * taken away for the street outside, easing down, flattened a dark room for a second and more.
+     */
     private float taken, gain = 1f;
     private long settledAt;
     /** The cast of the frame's brightest light, red and blue against green in stops, and what red and blue are multiplied by against it. */
@@ -56,8 +60,7 @@ final class Develop {
         for (int i = 0; i < cells; i++) {
             weighted += (double) lights[i] * weights[i];
             weightSum += weights[i];
-            int bin = (int) ((lights[i] - LOWEST) / SPAN * BINS);
-            counts[Math.clamp(bin, 0, BINS - 1)]++;
+            counts[bin(lights[i])]++;
         }
         dark = share(DARK_SHARE, cells);
         bright = share(BRIGHT_SHARE, cells);
@@ -71,11 +74,14 @@ final class Develop {
      * reds[i] and blues[i] are a cell's red and blue against its green, log2. Call after read.
      */
     void readCast(float[] lights, float[] reds, float[] blues, int cells) {
-        float from = share(CAST_FROM, cells), to = share(CAST_TO, cells);
+        // By bins, as the shares were read: a band of the frame all of one light, a plain wall
+        // filling the view, lies in one bin and is counted whole.
+        int from = bin(share(CAST_FROM, cells)), to = bin(share(CAST_TO, cells));
         double red = 0, blue = 0;
         int counted = 0;
         for (int i = 0; i < cells; i++) {
-            if (lights[i] >= from && lights[i] <= to) {
+            int at = bin(lights[i]);
+            if (at >= from && at <= to) {
                 red += reds[i];
                 blue += blues[i];
                 counted++;
@@ -83,6 +89,10 @@ final class Develop {
         }
         castRed = (float) (red / counted);
         castBlue = (float) (blue / counted);
+    }
+
+    private static int bin(float light) {
+        return Math.clamp((int) ((light - LOWEST) / SPAN * BINS), 0, BINS - 1);
     }
 
     /** The light, log2, under which this share of the cells lies, read off the counts between bins. */
@@ -141,8 +151,6 @@ final class Develop {
             float least = LEAST_GAIN + (1f - LEAST_GAIN) * dark;
             float fits = filmInverse((float) Math.pow(BRIGHT_SHOWN, 2.2)) / Math.max(rest, 1e-6f);
             wantGain = 1f + (Math.clamp(fits, least, most) - 1f) * strength;
-            // What is taken away is counted in the frame's dark at this exposure: as a share of the exposure, it holds while the eye moves.
-            wantTaken = taking * darkLight / exposure;
         }
         float step = 1f - (float) Math.exp(-elapsed / SETTLE_SECONDS);
         taken += (wantTaken - taken) * step;
@@ -173,7 +181,7 @@ final class Develop {
 
     /** The light taken from every pixel's before the film, in exposed light: see settle. */
     float takenAt(float exposure) {
-        return taken * exposure;
+        return Float.isNaN(dark) ? 0f : taken * exposure * (float) Math.pow(2.0, dark);
     }
 
     float gain() {

@@ -18,6 +18,8 @@ final class DevelopTests {
         itMovesTowardsWhatTheFrameAsksOverTime();
         theLightTintsByDaySunAndNight();
         aGreenCastIndoorsIsTakenOutAndAWarmOneMostlyKept();
+        aDarkRoomAfterTheStreetIsNotFlattened();
+        aPlainWallHoldsItsBalanceStill();
     }
 
     private static void check(boolean condition, String what) {
@@ -187,6 +189,42 @@ final class DevelopTests {
         floor.readCast(lights, reds, blues, CELLS);
         settleLong(floor, 4f, 1f, 0f, 0f, 1f);
         check(Math.abs(floor.balanceRed() - 1f) < 1e-3f, "a cast in the dark half of the frame is not the light's: " + floor.balanceRed());
+    }
+
+    private static void aDarkRoomAfterTheStreetIsNotFlattened() {
+        Develop d = new Develop();
+        float exposure = 4f;
+        // A hazy street: its dark is mostly taken away.
+        d.read(even(log2(0.06f / exposure), log2(0.35f / exposure)), filled(1f), CELLS);
+        settleLong(d, exposure, 1f, 0f, 0f, 0f);
+        // Through the door: a room five stops darker, one frame later.
+        d.read(even(log2(0.002f / exposure), log2(0.011f / exposure)), filled(1f), CELLS);
+        d.settle(exposure, 1f, 0f, 0f, 0f, 11 * SECOND + SECOND / 60);
+        float darkLight = exposure * (float) Math.pow(2.0, d.dark());
+        check(d.takenAt(exposure) <= Develop.MOST_TAKEN * darkLight + 1e-6f,
+                "the first frame in the room takes no more than its own dark allows, not the street's: " + d.takenAt(exposure) + " of " + darkLight);
+    }
+
+    private static void aPlainWallHoldsItsBalanceStill() {
+        // A green-lit plain wall fills the view: nearly every cell has one light, drifting a little from frame to frame.
+        long now = SECOND;
+        Develop d = new Develop();
+        float lowest = Float.MAX_VALUE, highest = -Float.MAX_VALUE;
+        for (int frame = 0; frame < 600; frame++) {
+            float[] lights = filled(-5f + 0.03f * (float) Math.sin(frame * 0.37));
+            for (int i = 0; i < CELLS / 20; i++) {
+                lights[i] = -9f;
+            }
+            d.read(lights, filled(1f), CELLS);
+            d.readCast(lights, filled(-0.3f), filled(-0.3f), CELLS);
+            now += SECOND / 60;
+            d.settle(4f, 1f, 0f, 0f, 1f, now);
+            if (frame > 300) {
+                lowest = Math.min(lowest, d.balanceRed());
+                highest = Math.max(highest, d.balanceRed());
+            }
+        }
+        check(lowest > 1.15f && highest - lowest < 0.01f, "the wall's cast is taken out and held, not taken and dropped by turns: " + lowest + " to " + highest);
     }
 
     private static Develop castOf(float[] lights, float red, float blue, float indoors) {
