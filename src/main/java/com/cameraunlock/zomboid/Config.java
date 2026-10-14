@@ -193,7 +193,7 @@ final class Config {
 
         core.configLocalHotkeyTaps("FirstPersonKey",
                 "Switches between first person and the game's own view. Tap for player 1, tap twice for player 2, hold for every player.",
-                0, "Delete", FIRST_PERSON, FIRST_PERSON_SECOND, FIRST_PERSON_ALL);
+                0, "Delete", new int[] {FIRST_PERSON, FIRST_PERSON_SECOND}, FIRST_PERSON_ALL);
         core.configLocalHotkey("CycleQualityKey",
                 "Goes to the next graphics mode and sets both views to it: Automatic, Low, Medium, High, Custom (Quality and\n"
                         + "IsometricQuality). The isometric view has no Automatic: it takes Low for it, and the key skips Automatic\n"
