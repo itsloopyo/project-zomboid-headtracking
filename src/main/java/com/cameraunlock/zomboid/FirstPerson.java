@@ -101,10 +101,11 @@ public final class FirstPerson {
     private static final String INVENTORY_BINDING = "Toggle Inventory";
     private static final int ESCAPE_KEY = 1;
     /**
-     * The middle mouse button, which brings the pointer out for as long as it is held. Nothing
-     * in the game's default bindings uses it, and every letter key is taken.
+     * The middle mouse button, a click of which brings the pointer out and the next puts it
+     * back. Nothing in the game's default bindings uses it, and every letter key is taken.
      */
     private static final int POINT_BUTTON = 2;
+    private boolean pointButtonWasDown;
     private static final int AIM_BUTTON = 1;
     /** How long after the aim button is let go the game may still be opening what it opens on a right click. */
     private static final long AFTER_AIM_NANOS = 400_000_000L;
@@ -1286,7 +1287,7 @@ public final class FirstPerson {
         Core.KeyBinding inventory = Core.getInstance().getKeyBinding(INVENTORY_BINDING);
         boolean inventoryKey = pressed(inventory.keyValue()) | pressed(inventory.altKey());
         boolean escape = GameKeyboard.isKeyPressed(ESCAPE_KEY);
-        if (escape && pointer.byKey()) {
+        if (escape && pointer.escapeTakes()) {
             // Or the same press would go on to open the game's menu.
             GameKeyboard.eatKeyPress(ESCAPE_KEY);
         }
@@ -1299,7 +1300,10 @@ public final class FirstPerson {
         if (now - aimedAt < AFTER_AIM_NANOS && !pointer.byKey()) {
             pointer.passOver(panels);
         }
-        PointerMode.Inventory inventoryPanels = pointer.update(inventoryKey, escape, Mouse.isButtonDown(POINT_BUTTON), panels);
+        boolean pointButton = Mouse.isButtonDown(POINT_BUTTON);
+        boolean pointClick = pointButton && !pointButtonWasDown;
+        pointButtonWasDown = pointButton;
+        PointerMode.Inventory inventoryPanels = pointer.update(inventoryKey, escape, pointClick, panels);
         if (inventoryPanels != PointerMode.Inventory.LEAVE) {
             Panels.showInventory(view.index, inventoryPanels == PointerMode.Inventory.OPEN);
         }

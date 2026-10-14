@@ -108,7 +108,7 @@ public final class Tests {
         Checks.run("theGamesOwnViewKeepsTheGamesEveningLight", Tests::theGamesOwnViewKeepsTheGamesEveningLight);
         Checks.run("fieldOfViewEasesToTheAimedZoomAndBack", Tests::fieldOfViewEasesToTheAimedZoomAndBack);
         Checks.run("firstPersonKeysReplaceTheStockOnes", Tests::firstPersonKeysReplaceTheStockOnes);
-        Checks.run("pointerComesOutForTheInventoryKeyAPanelAndAHeldButton", Tests::pointerComesOutForTheInventoryKeyAPanelAndAHeldButton);
+        Checks.run("pointerComesOutForTheInventoryKeyAPanelAndAClickedButton", Tests::pointerComesOutForTheInventoryKeyAPanelAndAClickedButton);
         Checks.run("transformerHasNoGapOnceEveryPatchIsIn", Tests::transformerHasNoGapOnceEveryPatchIsIn);
         Checks.run("exceptionTheGameCaughtFromTheModIsWrittenOnce", Tests::exceptionTheGameCaughtFromTheModIsWrittenOnce);
         Checks.run("hookIsGivenAStaticMethodsFirstArgument", Tests::hookIsGivenAStaticMethodsFirstArgument);
@@ -2712,7 +2712,7 @@ public final class Tests {
         }
     }
 
-    private static void pointerComesOutForTheInventoryKeyAPanelAndAHeldButton() {
+    private static void pointerComesOutForTheInventoryKeyAPanelAndAClickedButton() {
         PointerMode.Inventory leave = PointerMode.Inventory.LEAVE, open = PointerMode.Inventory.OPEN, close = PointerMode.Inventory.CLOSE;
         PointerMode pointer = new PointerMode();
         check(pointer.update(false, false, false, 0) == leave && !pointer.on(), "the look has the mouse to begin with");
@@ -2728,11 +2728,20 @@ public final class Tests {
         check(pointer.update(false, true, false, 0) == close && !pointer.on(), "Escape closes it too");
         check(pointer.update(false, true, false, 0) == leave && !pointer.on(), "and Escape with the inventory shut is the game's own");
 
-        check(pointer.update(false, false, true, 0) == leave && pointer.on(), "the held button brings the pointer out and leaves the inventory alone");
-        check("true held".equals(pointer.describe()), "for being held");
-        pointer.update(false, false, true, 1);
-        check("true panel+held".equals(pointer.describe()), "a menu opened from it keeps the pointer");
-        check(pointer.update(false, false, false, 1) == leave && pointer.on(), "after the button is let go");
+        check(pointer.update(false, false, true, 0) == leave && pointer.on(), "a click of the button brings the pointer out and leaves the inventory alone");
+        check("true clicked".equals(pointer.describe()), "for the click");
+        check(pointer.update(false, false, false, 0) == leave && pointer.on() && pointer.escapeTakes(), "and it stays out once the button is let go");
+        check(pointer.update(false, false, true, 0) == leave && !pointer.on(), "the next click puts it back");
+        pointer.update(false, false, true, 0);
+        check(pointer.update(false, true, false, 0) == leave && !pointer.on(), "and so does Escape, which leaves the inventory alone");
+        pointer.update(false, false, true, 0);
+        pointer.update(true, false, false, 0);
+        check(pointer.update(true, false, false, 0) == close && !pointer.on(), "closing the inventory goes back to the look past a click too");
+
+        pointer.update(false, false, true, 0);
+        pointer.update(false, false, false, 1);
+        check("true panel+clicked".equals(pointer.describe()), "a menu opened from it keeps the pointer");
+        check(pointer.update(false, false, true, 1) == leave && pointer.on(), "after the button is clicked again");
         check(pointer.update(false, false, false, 0) == leave && !pointer.on(), "until the menu closes");
 
         pointer.update(false, false, false, 2);
