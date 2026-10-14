@@ -161,7 +161,9 @@ final class Ride {
         held.copy(slope);
         slope.follow(ground, 1f - (float) Math.exp(-seconds / SPRUNG_FOR), jumped);
         // On a server the vehicle keeps to the land: there the game's level ground is what moves it.
-        air.step(slope.groundUp, seconds, jumped || Online.joined());
+        // On the ground it goes where its springs carry it; in the air it comes down on the land itself.
+        air.step(air.airborne ? ground.groundUp : slope.groundUp, seconds, jumped || Online.joined());
+        slope.groundUp = air.height;
         if (air.airborne) {
             // In the air nothing holds it to the land: it keeps the lie it left the ground with.
             slope.copy(held);

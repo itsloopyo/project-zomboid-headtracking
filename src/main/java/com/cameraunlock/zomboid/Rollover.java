@@ -6,7 +6,8 @@ package com.cameraunlock.zomboid;
  * at 85 km/h on full lock was thrown across at 1.4 g for two seconds and leaned 3 degrees, and a
  * knock on its side at that speed laid it past its side and back onto its wheels. This gives a
  * roll about the vehicle's own length for as much as it is thrown across beyond what tips it, so
- * a tall van taken round a bend too fast goes over and a car hit side on rolls. See CarPhysics.
+ * a tall van taken round a bend too fast goes over, and a car knocked aside rolls over its
+ * wheels as they catch. Only what its wheels throw it by is counted. See CarPhysics.
  */
 final class Rollover {
     /**
@@ -26,6 +27,12 @@ final class Rollover {
     static final float MOST = 60f;
     /** Tipped this far, its own up this low, the physics carries the roll on by the vehicle's weight, or brings it back: nothing more is given. */
     static final float TIPPED = 0.5f;
+    /**
+     * Going sideways faster than this, metres a second, a vehicle is sliding: a throw across the
+     * same way as it slides is something else pushing it (another vehicle, a wall it scrapes),
+     * not its wheels, and is not counted. Its wheels only ever push against its slide.
+     */
+    static final float SLIDING = 0.5f;
     /** How long the throw across is averaged over, seconds: the physics' speed steps from one update to the next. */
     static final float AVERAGED_OVER = 0.1f;
 
@@ -58,8 +65,13 @@ final class Rollover {
         if (flat < 1e-3f) {
             return 0f;
         }
-        // Thrown towards (forwardY, -forwardX), its wheels are pulled that way and its top goes the other.
+        // Thrown towards (forwardY, -forwardX) by its wheels, they are pulled that way and its top
+        // goes the other: so a vehicle knocked aside rolls as it is tripped by its wheels after the knock.
         float side = (thrownX * forwardY - thrownY * forwardX) / flat;
+        float sliding = (goingX * forwardY - goingY * forwardX) / flat;
+        if (side * sliding > 0f && Math.abs(sliding) > SLIDING) {
+            side = 0f;
+        }
         across += (Math.max(-MOST, Math.min(MOST, side)) - across) * Math.min(1f, seconds / AVERAGED_OVER);
         if (upUp < TIPPED || Math.abs(across) <= tipsAt) {
             return 0f;

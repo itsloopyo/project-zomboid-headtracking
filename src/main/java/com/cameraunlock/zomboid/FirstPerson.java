@@ -731,8 +731,9 @@ public final class FirstPerson {
             view.kerbSteps.lose(player);
         }
         eye[2] = standsUp + eyeHigh;
-        view.headlights.gather(view.worldScene.terrain, eye[0], eye[1], view.ride);
         view.ride.note(player, vehicle, floorUp, view.worldScene.terrain, eye);
+        // After the ride is noted: the beam of the vehicle sat in comes from where it lies this frame.
+        view.headlights.gather(view.worldScene.terrain, eye[0], eye[1], view.ride);
         // Nothing is aimed while the game's animation has the body: a zoom would close in on the head's view.
         boolean sightsUp = view.controls.sightsUp(player) && !bodyLeads;
         view.fieldOfView.ease(sightsUp, sinceLastFrame);

@@ -57,4 +57,5 @@ public final class IsoGridSquare {
     public zombie.core.properties.PropertyContainer getProperties() { throw new UnsupportedOperationException("reference stub"); }
     public zombie.vehicles.BaseVehicle getVehicleContainer() { throw new UnsupportedOperationException("reference stub"); }
     public IsoChunk chunk;
+    public zombie.iso.objects.IsoFire getFire() { throw new UnsupportedOperationException("reference stub"); }
 }

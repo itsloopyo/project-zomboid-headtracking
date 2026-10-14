@@ -645,6 +645,11 @@ public final class Hooks {
         CarPhysics.update(vehicle);
     }
 
+    /** Called before each physics step for each vehicle: see CarPhysics.step. */
+    public static void vehicleStepped(BaseVehicle vehicle) {
+        CarPhysics.step(vehicle);
+    }
+
     /** In place of CarController.update handing a vehicle's engine, brakes and steering to the physics. */
     public static void controlVehicle(int id, float engine, float brake, float steering) {
         CarPhysics.control(id, engine, brake, steering);

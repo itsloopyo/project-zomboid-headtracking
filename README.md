@@ -26,8 +26,8 @@ It adds a first person view to the game, with a rebuilt world and new graphics.
 - **Smash through fences** - offline and in either view, a vehicle faster than a walk knocks down fences and street lamp posts and drives on, a little slower and a little dented.
 - **Drive through bushes** - offline, bushes, plants, saplings and other growth no longer slow or cap a vehicle, and the engine keeps its full pull on grass and dirt. Grip off the road and the bumps are the game's own.
 - **Plough through zombies** - offline, a zombie hit or a body run over pushes back on a vehicle a quarter as hard as the game has it, so a crowd barely slows or turns the car.
-- **Hills that drive** - offline, a car you drive is pulled down the first person hills and leaves the ground over a crest at speed, with no grip until it lands.
-- **Rollovers and burning wrecks** - offline, a vehicle thrown hard across, round a bend too fast or hit side on, rolls over, and one left on its roof catches fire after four seconds, throws out whoever is inside and goes up six seconds later, leaving the game's burnt wreck.
+- **Hills that drive** - offline, a car you drive is pulled down the first person hills and leaves the ground over a crest at speed, with no drive or brakes until it lands.
+- **Rollovers and burning wrecks** - offline, a vehicle thrown hard across, round a bend too fast or hit side on, rolls over, and one left on its roof catches fire after four seconds, throws out whoever is inside and goes up six seconds later, leaving the game's burnt wreck. What was in it burns with it.
 - **Adjustable graphics** - automatic or manual quality, three picture styles, field of view, hill height and optional replacement models and textures.
 
 ## Requirements

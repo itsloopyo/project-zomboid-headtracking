@@ -56,4 +56,5 @@ public final class BaseVehicle extends zombie.iso.IsoMovingObject {
     public void setSquare(zombie.iso.IsoGridSquare square) { throw new UnsupportedOperationException("reference stub"); }
     public void addToWorld() { throw new UnsupportedOperationException("reference stub"); }
     public void permanentlyRemove() { throw new UnsupportedOperationException("reference stub"); }
+    public boolean isRemovedFromWorld() { throw new UnsupportedOperationException("reference stub"); }
 }
