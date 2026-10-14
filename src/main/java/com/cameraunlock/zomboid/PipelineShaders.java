@@ -4485,12 +4485,16 @@ final class PipelineShaders {
             }
             """;
 
-    /** Averages a half-size pass, the occlusion, the lit air or the clouds, over four by four of its pixels, which takes the grain of its sampling out. */
+    /**
+     * Averages a half-size pass, the occlusion, the lit air or the clouds, over four by four of its
+     * pixels uStride apart, which takes the grain of its sampling out.
+     */
     static final String SOFTEN = """
             #version 120
             uniform sampler2D uSource;
             uniform sampler2D uDepth;
             uniform vec2 uSize;
+            uniform float uStride;
             uniform float uNear;
             uniform float uFar;
 
@@ -4509,7 +4513,7 @@ final class PipelineShaders {
                 // table does not leak onto the wall seen past its edge.
                 for (int x = -2; x < 2; x++) {
                     for (int y = -2; y < 2; y++) {
-                        vec2 at = uv + (vec2(float(x), float(y)) + 0.5) * texel;
+                        vec2 at = uv + (vec2(float(x), float(y)) + 0.5) * uStride * texel;
                         float w = 1.0 / (1.0 + 40.0 * abs(aheadAt(at) - here) / here) ;
                         w *= w;
                         sum += texture2D(uSource, at) * w;

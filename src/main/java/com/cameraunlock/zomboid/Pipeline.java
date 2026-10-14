@@ -3324,7 +3324,7 @@ final class Pipeline {
         quad();
         GL11.glDisable(GL_SCISSOR_TEST);
         if (soft) {
-            softenInto(softCloudTarget, cloudColor, near, far);
+            softenInto(softCloudTarget, cloudColor, near, far, 1f);
             stage(STAGE_CLOUDS);
         }
 
@@ -3448,6 +3448,7 @@ final class Pipeline {
         soften.set("uNear", near);
         soften.set("uFar", far);
         soften.set("uSize", (float) levelWidth[0], (float) levelHeight[0]);
+        soften.set("uStride", 1f);
         quad();
         GL13.glActiveTexture(GL_TEXTURE0 + 1);
         GL11.glBindTexture(GL_TEXTURE_2D, frameColor);
@@ -3466,7 +3467,7 @@ final class Pipeline {
     }
 
     /** How much more a room's air holds for light to catch than the open air on a clear day: see PipelineShaders.VOLUME. */
-    private static final float ROOM_AIR = 1f;
+    private static final float ROOM_AIR = 0.5f;
     private static final int GL_RG32F = 0x8230;
 
     /** The frame's RoomAir on the graphics card, on a unit, for PipelineShaders.ROOM_AIR. The one small texture goes back with the shadow maps. */
@@ -3525,15 +3526,21 @@ final class Pipeline {
         setRoomAir(volume, 4);
         volume.set("uRoomAir", ROOM_AIR);
         quad();
-        softenInto(softVolumeTarget, volumeColor, near, far);
+        // Wide and then fine, back into volumeColor, so the edge of a shaft through a window fades
+        // over a hand's width and does not follow the window's frame like a slab of glass.
+        softenInto(softVolumeTarget, volumeColor, near, far, AIR_SOFTEN_STRIDE);
+        softenInto(volumeTarget, softVolumeColor, near, far, 1f);
     }
+
+    /** How far apart, in pixels of the half-size picture, the lit air's wide averaging takes its samples. */
+    private static final float AIR_SOFTEN_STRIDE = 3f;
 
     /**
      * The soften pass weighs each pixel by how near its distance is to the middle one's, so it
      * is given the scene's depth and the planes it was drawn between every time: what an
      * earlier pass left in its uniforms is another texture and, on a session's first frame, nought.
      */
-    private void softenInto(int target, int source, float near, float far) {
+    private void softenInto(int target, int source, float near, float far, float stride) {
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, target);
         soften.use();
         GL13.glActiveTexture(GL_TEXTURE0 + 1);
@@ -3545,6 +3552,7 @@ final class Pipeline {
         soften.set("uNear", near);
         soften.set("uFar", far);
         soften.set("uSize", (float) levelWidth[0], (float) levelHeight[0]);
+        soften.set("uStride", stride);
         quad();
     }
 
@@ -3718,7 +3726,7 @@ final class Pipeline {
                 WITHOUT.contains("air") || overhead || !shadedAndLit ? 1f : 0f, WITHOUT.contains("glow") ? 1f : 0f);
         develop.set("uVolume", 4);
         GL13.glActiveTexture(GL_TEXTURE0 + 4);
-        GL11.glBindTexture(GL_TEXTURE_2D, shaded.made() ? softVolumeColor : noneTexture);
+        GL11.glBindTexture(GL_TEXTURE_2D, shaded.made() ? volumeColor : noneTexture);
         GL13.glActiveTexture(GL_TEXTURE0 + 3);
         GL11.glBindTexture(GL_TEXTURE_2D, shaded.made() ? softColor : noneTexture);
         GL13.glActiveTexture(GL_TEXTURE0 + 2);
