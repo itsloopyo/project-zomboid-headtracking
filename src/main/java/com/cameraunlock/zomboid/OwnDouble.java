@@ -18,6 +18,8 @@ final class OwnDouble extends OwnGun {
     /** The parts the file's layout names, and how many it has. */
     private static final int FIXED = 0, BARRELS = 1, LEVER = 2, SPENT = 3, LIVE = 4, STOCK = 5;
     static final int PARTS = 6;
+    /** No part slides back toward the eye as the action is worked. */
+    static final int SLIDES = OwnModel.NO_PART;
     /** The numbers in the file that say how the parts move: tools/models/dbarrel.py writes them in this order. */
     static final int HINGE_Y = 0, HINGE_Z = 1, OPENS = 2, LEVER_Y = 3, LEVER_TURNS = 4, BREECH_Y = 5, LOWER_Z = 6, UPPER_Z = 7, SHELL_LONG = 8;
     static final int MOVES = SHELL_LONG + 1;

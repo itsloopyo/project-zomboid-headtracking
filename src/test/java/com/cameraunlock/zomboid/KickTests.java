@@ -17,6 +17,7 @@ final class KickTests {
         Checks.run("aGunWithNoStockKicksAsAtTheHipWithTheSightsUp", KickTests::aGunWithNoStockKicksAsAtTheHipWithTheSightsUp);
         Checks.run("restLeavesTheWeaponWhereItIsHeld", KickTests::restLeavesTheWeaponWhereItIsHeld);
         Checks.run("aKickPausedStandsAndPlaysOnAfter", KickTests::aKickPausedStandsAndPlaysOnAfter);
+        Checks.run("backMostIsAsFarAsShotsThrowTheGun", KickTests::backMostIsAsFarAsShotsThrowTheGun);
     }
 
     /** The furthest from rest a spring goes in its first second, frames of 1/240 s, and when. */
@@ -52,6 +53,22 @@ final class KickTests {
         }
         check(Math.abs(at30.at - at144.at) < 1e-5f && Math.abs(at30.speed - at144.speed) < 1e-3f,
                 "a tenth of a second in three frames or fourteen ends at the same place: " + at30.at + " against " + at144.at);
+    }
+
+    /**
+     * backMost is a gun's single hardest throw back, or more where shots come faster than a
+     * kick settles; a gun with no stock is thrown back as far with the sights up as down.
+     */
+    private static void backMostIsAsFarAsShotsThrowTheGun() {
+        for (int delay : new int[] {11, 12, 15, 17, 20, 23, 28, 30, 34}) {
+            float strength = Kick.fired(delay, 1f), aimed = Kick.backMost(delay, 1f, 1f), hip = Kick.backMost(delay, 1f, 0f);
+            check(aimed >= strength * Kick.WEAPON_BACK_AIMED - 1e-5f && aimed <= strength * Kick.WEAPON_BACK_AIMED * 1.05f,
+                    "a recoil delay of " + delay + " throws the gun back " + aimed + " with the sights up, about one shot's " + strength * Kick.WEAPON_BACK_AIMED);
+            check(hip > aimed, "and further at the hip, " + hip);
+        }
+        check(Kick.backMost(2, 1f, 1f) > Kick.fired(2, 1f) * Kick.WEAPON_BACK_AIMED * 1.5f, "shots faster than the kick settles stack");
+        float sawnOff = Kick.backMost(30, 1f, Kick.braced("Base.ShotgunSawnoff", 1f));
+        check(sawnOff == Kick.backMost(30, 1f, 0f), "a sawn-off is thrown back as far with the sights up as at the hip, " + sawnOff);
     }
 
     /** Paused, the view model is stepped by frames of no time at all: a kick stands where it is, and after plays out as if the pause had not been. */

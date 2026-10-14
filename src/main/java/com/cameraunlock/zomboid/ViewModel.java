@@ -88,13 +88,15 @@ public final class ViewModel {
      * @param shots     how many shots the holder has taken with what has been held, counted up from when the game began
      * @param chambered whether the weapon has a round in its chamber
      * @param gunModel  for a firearm, the name of the game's model of it as the item has it, which a model it draws while the gun is worked may stand in for
+     * @param backAimed for a firearm, how far its shots throw it back toward the eye at the most with the sights up, in tiles (Kick.backMost), and a
+     *                  pump's pull
      */
     record Held(String item, int itemId, boolean firearm, boolean bothHands, int attack, float reached, float past, boolean struck, float aim, float nearness, float lowered,
             float swayYaw, float swayPitch, float bobX, float bobY, float recoil, float kickPitch, float kickYaw, float kickRoll, float kickUp, float kickBack,
             float dip, int skin, boolean female,
             int action, float cycled, int doing, float done, int rounds, int spent, float round, float handled, float pace, float seated, float drawn, float worked,
             boolean clip, float out, float fetching, float fetchTakes, boolean leftFree, int swungAs, OwnModel own, boolean paused, int shots, boolean chambered,
-            String gunModel) {
+            String gunModel, float backAimed) {
         /**
          * The mod's own model drawn for it: decided once, as this was made, so that where it is
          * held, the hands on it and what is drawn agree on the frame a model comes onto the
@@ -499,7 +501,8 @@ public final class ViewModel {
                 kick.weaponPitch.at, kick.weaponYaw.at, kick.weaponRoll.at, kick.weaponUp.at, kick.weaponBack.at, dip,
                 player.getHumanVisual().getSkinTextureIndex(), player.isFemale(), action, cycled, doing, done, rounds, firearm ? weapon.getSpentRoundCount() : 0, round, handled, took[action][doing], seated, drawn, worked, clip, out, fetching, fetchTakes[action], !steering && player.getSecondaryHandItem() == null, firearm ? MeleeHold.ONE_HANDED : swungAs(weapon, item == player.getSecondaryHandItem()),
                 firearm ? OwnModel.of(item.getFullType()) : null, paused, shots, firearm && weapon.isRoundChambered(),
-                firearm ? weapon.getWeaponSprite() : null);
+                firearm ? weapon.getWeaponSprite() : null,
+                firearm ? Kick.backMost(weapon.getRecoilDelay(), weapon.getMaxDamage(), Kick.braced(weapon.getFullType(), 1f)) + (pump ? PUMP_PULLS_AIMED : 0f) : 0f);
     }
 
     /**
@@ -692,19 +695,22 @@ public final class ViewModel {
      * with and a margin.
      */
     static final float FORWARD_STOP = AIMED_AHEAD - 0.08f - 0.02f;
-    /** The near plane the weapon is drawn with and the margin, which the eye stops short of the rear sight by, in tiles. */
-    private static final float SHORT_OF_SIGHT = AIMED_AHEAD - FORWARD_STOP;
+    /** The size the mod's own guns are drawn at, in tiles to a metre of them: the long guns', which its handguns are drawn at too. */
+    static final float OWN_TILES_PER_METRE = Characters.PER_METRE * Characters.CHARACTER_SCALE;
 
     /**
-     * The forward stop for the mod's own handgun: its rear sight's way from the eye with the
-     * sights up, less the near plane and the margin.
+     * The forward stop for the mod's own gun, in tiles: as far as the eye may lean in with the
+     * sights up before the nearest of the gun in its line of sight, thrown as far back as shots
+     * throw it with the sights up, would cross the near plane the mod draws its own guns with
+     * (Scope.NEAREST). It holds for the sights up: core's lean handover blends it in as they come
+     * up, while the gun is still off the line of sight and its harder throw at the hip is not
+     * toward the eye.
      *
-     * @param eyeBehind      how far behind the grip the model's eye is, in the model's metres
-     * @param rearSight      how far ahead of the grip its rear sight is, in the model's metres
-     * @param tilesPerMetre  the size it is drawn at
+     * @param clear     how far the eye is from that nearest part with no lean, in tiles
+     * @param aimedBack how far shots throw the gun back with the sights up, in tiles
      */
-    static float handgunStop(float eyeBehind, float rearSight, float tilesPerMetre) {
-        return (eyeBehind + rearSight) * tilesPerMetre - SHORT_OF_SIGHT;
+    static float sightStop(float clear, float aimedBack) {
+        return clear - Scope.NEAREST - aimedBack;
     }
 
     /**
@@ -719,28 +725,35 @@ public final class ViewModel {
         return Characters.PER_METRE * muzzleFar / gameMuzzle;
     }
 
-    /** The forward stop for the mod's own handgun held now, worked out where it is placed. */
-    private volatile float ownStop = FORWARD_STOP;
+
 
     /**
-     * The same for what is held now. The mod's own shotgun has no rear sight: with the sights
-     * up the eye is over its comb and looks along the top of its rib, and leaning in carries
-     * it on over the receiver, with nothing of the gun in its way, as far as the lean goes.
-     * Behind a scope the eye is stopped short of the eyepiece's glass.
+     * The same for what is held now. Behind a scope the eye is stopped short of the eyepiece's
+     * glass, and on the mod's own gun short of the nearest of it in the line of sight
+     * (OwnModel.rearSight): a handgun's rear sight, a long gun's rear sight or, where the eye looks
+     * along a rib or a rail, its front one, and on a long gun with nothing in the line, not at all.
      */
     float forwardStop() {
         Held now = held;
         if (now != null && now.firearm && view.scope.fitted() != null) {
             return view.scope.forwardStop();
         }
-        // The mod's own long guns' rear sights are on their barrels, further off than a lean reaches. A handgun's is on
-        // its top, about over its grip, where the eye with the sights up is a model's own way behind it.
         OwnModel own = now == null ? null : now.ownDrawn();
         if (own == null) {
             return FORWARD_STOP;
         }
-        return own.handgun ? ownStop : Float.POSITIVE_INFINITY;
+        // At the size the gun was last held up at, and before it has been, at the size the mod's own guns are made to be drawn at.
+        float clear = own.clearIrons, drawnAt = own.tilesPerMetre;
+        if (Float.isNaN(clear)) {
+            return Float.POSITIVE_INFINITY;
+        }
+        float stop = sightStop(clear * (Float.isNaN(drawnAt) ? OWN_TILES_PER_METRE : drawnAt), now.backAimed());
+        if (!(stop >= 0f)) {
+            throw new IllegalStateException(own.what + " held up at " + drawnAt + " tiles a metre stops a lean in at " + stop + ", " + clear + " m from its sight");
+        }
+        return stop;
     }
+
     /**
      * Where a handgun and a long gun are held to be loaded: the line of the barrel to the right
      * and up and the grip ahead, in tiles from the eye, then how far the muzzle is raised and
@@ -778,7 +791,7 @@ public final class ViewModel {
      * at the hip and with the sights up: in the shoulder the gun is held into it and hardly moves off the sight line.
      */
     private static final float PUMP_DIPS = (float) Math.toRadians(3), PUMP_PULLS = 0.012f;
-    private static final float PUMP_DIPS_AIMED = (float) Math.toRadians(1), PUMP_PULLS_AIMED = 0.006f;
+    static final float PUMP_DIPS_AIMED = (float) Math.toRadians(1), PUMP_PULLS_AIMED = 0.006f;
     /** How much of the way from grip to muzzle the fore-end travels. */
     static final float PUMP_TRAVEL = 0.12f;
     /**
@@ -929,11 +942,14 @@ public final class ViewModel {
         if (own != null) {
             float long3 = (float) Math.sqrt((end[0] - origin[0]) * (end[0] - origin[0]) + (end[1] - origin[1]) * (end[1] - origin[1])
                     + (end[2] - origin[2]) * (end[2] - origin[2]));
-            aimedY = -own.sightLine * long3 * scale / own.muzzleFar;
-            aimedAhead = own.eyeBehind * long3 * scale / own.muzzleFar;
-            if (own.handgun) {
-                ownStop = handgunStop(own.eyeBehind, own.rearSight, long3 * scale / own.muzzleFar);
+            float tilesPerMetre = long3 * scale / own.muzzleFar;
+            aimedY = -own.sightLine * tilesPerMetre;
+            aimedAhead = own.eyeBehind * tilesPerMetre;
+            if (Float.isNaN(own.tilesPerMetre)) {
+                Log.info(own.what + " is held up at " + tilesPerMetre + " tiles a metre, where it is made to be drawn at " + OWN_TILES_PER_METRE
+                        + ": its eye is " + own.clearIrons * tilesPerMetre + " tiles behind its sights");
             }
+            own.tilesPerMetre = tilesPerMetre;
         }
         // Behind a scope the eye is on the scope's axis, the eye relief behind its eyepiece.
         if (hasMuzzle && view.scope.sighted(weapon, finalScale, origin, forward, top, end, scale, sighted)) {

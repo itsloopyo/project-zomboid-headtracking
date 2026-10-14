@@ -18,6 +18,8 @@ final class OwnPistol extends OwnGun {
     /** The parts the file's layout names. A pistol has nothing in the second, which is a pump's. */
     static final int PARTS = 5, MOVES = 0;
     private static final int FIXED = 0, SLIDE = 2, CASE = 3, MAGAZINE = 4;
+    /** The part that slides back toward the eye by the file's travel as the action is worked: its slide, with the rear sight on it. */
+    static final int SLIDES = SLIDE;
 
     /** Fired cases: thrown out to the right and up, a little back, and tumbling fast. */
     private final Thrown cases = new Thrown(4, 0.8f, 1.6f, 1.3f, 0.2f, 7.5f, 26f);

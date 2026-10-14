@@ -79,6 +79,33 @@ final class Kick {
 
     /** Shots faster than the kick settles do not stack the weapon past this many of a hardest shot's throw. */
     private static final float MOST = 1.6f * 1.25f;
+    /** What backMost has worked out, by recoil delay, harm and how far up the sights are. */
+    private static final java.util.Map<String, Float> BACK_MOST = new java.util.HashMap<>();
+
+    /**
+     * The furthest a gun is thrown back toward the eye by shots fired with it as fast as they
+     * come, in tiles: a shot every `recoilDelay` sixtieths of a second (the game takes 0.625 times
+     * GameTime's multiplier off the delay each update). Worked out by firing them, once for each
+     * gun. Logic thread.
+     *
+     * @param aim how far up the sights are, as braced gives it: nought for a gun with no stock
+     */
+    static float backMost(int recoilDelay, float maxDamage, float aim) {
+        return BACK_MOST.computeIfAbsent(recoilDelay + " " + (maxDamage > 0f) + " " + aim, key -> {
+            Kick kick = new Kick();
+            float every = Math.max(recoilDelay, 1) / 60f, since = every, strength = fired(recoilDelay, maxDamage), most = 0f;
+            for (int step = 0; step < 2400; step++) {
+                if (since >= every) {
+                    kick.fire(strength, aim);
+                    since -= every;
+                }
+                kick.step(1f / 240f);
+                since += 1f / 240f;
+                most = Math.max(most, kick.weaponBack.at);
+            }
+            return most;
+        });
+    }
 
     final Spring weaponPitch = new Spring(24f, 0.42f, WEAPON_PITCH * MOST);
     final Spring weaponBack = new Spring(32f, 0.55f, WEAPON_BACK * MOST);

@@ -38,25 +38,25 @@ final class OwnModel {
      */
     private static int made;
     static final OwnModel[] ALL = {
-        new OwnModel("the shotgun's model", "shotgun", "shotgun", "Base.Shotgun", true, true, false, OwnShotgun.PARTS, OwnShotgun.MOVES,
-                OwnShotgun::new),
+        new OwnModel("the shotgun's model", "shotgun", "shotgun", "Base.Shotgun", true, true, false, OwnShotgun.PARTS, OwnShotgun.MOVES, OwnShotgun.SLIDES,
+                OwnShotgun::poses, OwnShotgun::new),
         new OwnModel("the sawn-off shotgun's model", "sawnoff", "sawnoff", "Base.ShotgunSawnoff", true, true, false, OwnShotgun.PARTS,
-                OwnShotgun.MOVES, OwnShotgun::new),
-        new OwnModel("the rifle's model", "rifle", "rifle", "Base.HuntingRifle", false, false, false, OwnRifle.PARTS, OwnRifle.MOVES, OwnRifle::new),
-        new OwnModel("the revolver's model", "revolver", "revolver", "Base.Revolver", false, false, true, OwnRevolver.PARTS, OwnRevolver.MOVES, OwnRevolver::new),
-        new OwnModel("the magnum's model", "magnum", "magnum", "Base.Revolver_Long", false, false, true, OwnRevolver.PARTS, OwnRevolver.MOVES, OwnRevolver::new),
+                OwnShotgun.MOVES, OwnShotgun.SLIDES, OwnShotgun::poses, OwnShotgun::new),
+        new OwnModel("the rifle's model", "rifle", "rifle", "Base.HuntingRifle", false, false, false, OwnRifle.PARTS, OwnRifle.MOVES, OwnRifle.SLIDES, OwnRifle::poses, OwnRifle::new),
+        new OwnModel("the revolver's model", "revolver", "revolver", "Base.Revolver", false, false, true, OwnRevolver.PARTS, OwnRevolver.MOVES, OwnRevolver.SLIDES, OwnRevolver::poses, OwnRevolver::new),
+        new OwnModel("the magnum's model", "magnum", "magnum", "Base.Revolver_Long", false, false, true, OwnRevolver.PARTS, OwnRevolver.MOVES, OwnRevolver.SLIDES, OwnRevolver::poses, OwnRevolver::new),
         new OwnModel("the snub-nosed revolver's model", "snubnose", "snubnose", "Base.Revolver_Short", false, false, true, OwnRevolver.PARTS,
-                OwnRevolver.MOVES, OwnRevolver::new),
+                OwnRevolver.MOVES, OwnRevolver.SLIDES, OwnRevolver::poses, OwnRevolver::new),
         new OwnModel("the cap gun's model", "capgun", "capgun", "Base.Revolver_CapGun", false, false, true, OwnRevolver.PARTS,
-                OwnRevolver.MOVES, OwnRevolver::new),
-        new OwnModel("the service pistol's model", "pistol", "pistol", "Base.Pistol", false, false, true, OwnPistol.PARTS, OwnPistol.MOVES, OwnPistol::new),
-        new OwnModel("the forty-five's model", "pistol2", "pistol2", "Base.Pistol2", false, false, true, OwnPistol.PARTS, OwnPistol.MOVES, OwnPistol::new),
-        new OwnModel("the magnum pistol's model", "pistol3", "pistol3", "Base.Pistol3", false, false, true, OwnPistol.PARTS, OwnPistol.MOVES,
-                OwnPistol::new),
-        new OwnModel("the double barrelled shotgun's model", "dbarrel", "dbarrel", "Base.DoubleBarrelShotgun", false, true, false, OwnDouble.PARTS, OwnDouble.MOVES,
-                OwnDouble::new),
+                OwnRevolver.MOVES, OwnRevolver.SLIDES, OwnRevolver::poses, OwnRevolver::new),
+        new OwnModel("the service pistol's model", "pistol", "pistol", "Base.Pistol", false, false, true, OwnPistol.PARTS, OwnPistol.MOVES, OwnPistol.SLIDES, OwnPistol::poses, OwnPistol::new),
+        new OwnModel("the forty-five's model", "pistol2", "pistol2", "Base.Pistol2", false, false, true, OwnPistol.PARTS, OwnPistol.MOVES, OwnPistol.SLIDES, OwnPistol::poses, OwnPistol::new),
+        new OwnModel("the magnum pistol's model", "pistol3", "pistol3", "Base.Pistol3", false, false, true, OwnPistol.PARTS, OwnPistol.MOVES, OwnPistol.SLIDES,
+                OwnPistol::poses, OwnPistol::new),
+        new OwnModel("the double barrelled shotgun's model", "dbarrel", "dbarrel", "Base.DoubleBarrelShotgun", false, true, false, OwnDouble.PARTS, OwnDouble.MOVES, OwnDouble.SLIDES,
+                OwnDouble::poses, OwnDouble::new),
         new OwnModel("the sawn-off double barrelled shotgun's model", "dbarrelsawn", "dbarrel", "Base.DoubleBarrelShotgunSawnoff", false, true, false,
-                OwnDouble.PARTS, OwnDouble.MOVES, OwnDouble::new),
+                OwnDouble.PARTS, OwnDouble.MOVES, OwnDouble.SLIDES, OwnDouble::poses, OwnDouble::new),
     };
 
     /**
@@ -110,6 +110,11 @@ final class OwnModel {
     int[] firstIndex = new int[0], indexCount = new int[0];
     /** The numbers that say how the parts move, as the model's file has them: what each is, its class knows. */
     float[] moves = new float[0];
+    /** The part that slides back toward the eye by the file's travel as the action is worked, or NO_PART. */
+    private final int slides;
+    /** How its class turns its parts with the sights up, from the numbers that say how they move: see OwnGun.poses. */
+    private final Function<float[], float[][]> poses;
+    static final int NO_PART = -1;
     /** Where the muzzle and the port are from the grip, in the model's metres, and how far back the parts that slide go. */
     final float[] muzzle = new float[3], port = new float[3];
     float travel;
@@ -118,8 +123,17 @@ final class OwnModel {
      * sights lined up, over the grip and behind it.
      */
     float muzzleFar, sightLine, eyeBehind;
-    /** In the model's metres, how far ahead of the grip its rear sight is, which with the sights up is what the eye is behind. */
-    float rearSight;
+    /**
+     * In the model's metres, how far the eye with the sights up is from the nearest of the gun that
+     * stands in its line of sight (OwnModel.inTheWay over its parts in every place they move to as
+     * it is fired). NaN where nothing stands in the line.
+     */
+    float clearIrons = Float.NaN;
+    /**
+     * Tiles to a metre of the model as ViewModel last held it up, or NaN before it has been:
+     * ViewModel.OWN_TILES_PER_METRE stands for it till then.
+     */
+    volatile float tilesPerMetre = Float.NaN;
     /**
      * Where the hand under the fore-end holds it and how far the fore-end travels, as shares of
      * the way from the grip to the muzzle.
@@ -141,7 +155,9 @@ final class OwnModel {
      * @param works       makes the class that works its action and draws it
      */
     private OwnModel(String what, String name, String pictures, String item, boolean pump, boolean foreEndHeld, boolean handgun, int parts,
-            int moves, Function<View, OwnGun> works) {
+            int moves, int slides, Function<float[], float[][]> poses, Function<View, OwnGun> works) {
+        this.slides = slides;
+        this.poses = poses;
         this.what = what;
         this.item = item;
         this.pump = pump;
@@ -369,7 +385,7 @@ final class OwnModel {
      * The model's file unpacked and read, and where the hands go on it: worked out on another
      * thread, as reading where the hands go took a whole frame of the render thread's.
      */
-    private record Read(ByteBuffer bytes, Layout layout, WeaponShape shape, float rearSight, String why) {}
+    private record Read(ByteBuffer bytes, Layout layout, WeaponShape shape, float clearIrons, String why) {}
 
     private Read read() throws IOException {
         ByteBuffer read = ByteBuffer.wrap(unpacked(mesh)).order(ByteOrder.LITTLE_ENDIAN);
@@ -382,25 +398,83 @@ final class OwnModel {
         }
         StringBuilder why = new StringBuilder();
         float[] places = layout.places(read);
-        WeaponShape shape = WeaponShape.read(places, layout.corners(read), new float[] {0f, 1f, 0f}, top(), layout.muzzle.clone(), 1f, why);
-        return new Read(read, layout, shape, rearSight(places, layout.muzzle, top()), why.toString());
+        int[] corners = layout.corners(read);
+        WeaponShape shape = WeaponShape.read(places, corners, new float[] {0f, 1f, 0f}, top(), layout.muzzle.clone(), 1f, why);
+        float[] reached = reached(layout, places, corners);
+        float clearIrons = layout.eyeBehind + inTheWay(reached, layout.muzzle, layout.sightLine, layout.eyeBehind, top());
+        if (clearIrons * ViewModel.OWN_TILES_PER_METRE <= Scope.NEAREST) {
+            throw new IOException(mesh + " has the eye of " + what + " " + clearIrons + " m behind its sight with the sights up, within the near plane of it");
+        }
+        return new Read(read, layout, shape, clearIrons, why.toString());
     }
 
     /**
-     * How far ahead of the grip a handgun's rear sight is, in the model's metres, along its bore:
-     * the highest point of the back half of the model, over its top. Behind the grip it is less
-     * than nought.
+     * Every place a part of the model is at with the sights up, three floats each: each vertex as
+     * the file has it, and again where it goes as the gun is fired, the part that slides back
+     * (slides) its full travel and each part its class turns (OwnGun.poses) at each end of its turn.
      */
-    static float rearSight(float[] places, float[] muzzle, float[] top) {
-        float highest = Float.NEGATIVE_INFINITY, along = Float.NaN;
-        for (int at = 0; at < places.length; at += 3) {
-            float up = places[at] * top[0] + places[at + 1] * top[1] + places[at + 2] * top[2];
-            if (places[at + 1] < muzzle[1] / 2f && up > highest) {
-                highest = up;
-                along = places[at + 1];
+    float[] reached(Layout layout, float[] places, int[] corners) {
+        int[] partOf = new int[places.length / 3];
+        java.util.Arrays.fill(partOf, NO_PART);
+        int from = 0;
+        for (int part = 0; part < layout.counts.length; part++) {
+            for (int corner = from; corner < from + layout.counts[part]; corner++) {
+                partOf[corners[corner]] = part;
+            }
+            from += layout.counts[part];
+        }
+        float[][] turns = poses.apply(layout.moves);
+        java.util.ArrayList<float[]> more = new java.util.ArrayList<>();
+        float[] matrix = new float[16], to = new float[3];
+        for (int vertex = 0; vertex < partOf.length; vertex++) {
+            float x = places[vertex * 3], y = places[vertex * 3 + 1], z = places[vertex * 3 + 2];
+            if (partOf[vertex] == slides && slides != NO_PART) {
+                more.add(new float[] {x, y - layout.travel, z});
+            }
+            for (float[] turn : turns) {
+                if ((int) turn[0] == partOf[vertex]) {
+                    OwnGun.turnAbout(matrix, turn[1], turn[2], turn[3], turn[4], turn[5], turn[6], turn[7]);
+                    ViewModelMath.place(matrix, x, y, z, to);
+                    more.add(to.clone());
+                }
             }
         }
-        return along;
+        float[] all = java.util.Arrays.copyOf(places, places.length + more.size() * 3);
+        for (int at = 0; at < more.size(); at++) {
+            System.arraycopy(more.get(at), 0, all, places.length + at * 3, 3);
+        }
+        return all;
+    }
+
+    /**
+     * What stands in the line of sight, in metres: a point no more than SIGHT_CLEARS under it nor
+     * SIGHT_OVER over it, and no more than SIGHT_ACROSS to either side of it, where a sight's leaf,
+     * aperture, ears or blade stand, or a hammer's spur. A side knob, a case packed clear of the
+     * gun or a stock's comb under the line are not.
+     */
+    static final float SIGHT_CLEARS = 0.003f, SIGHT_OVER = 0.03f, SIGHT_ACROSS = 0.012f;
+
+    /** Whether the point at `at` of places stands in the line of sight, that far over the bore on the model's top. */
+    static boolean inLine(float[] places, int at, float[] muzzle, float sightLine, float[] top) {
+        float over = (places[at] - muzzle[0]) * top[0] + (places[at + 1] - muzzle[1]) * top[1] + (places[at + 2] - muzzle[2]) * top[2];
+        return over >= sightLine - SIGHT_CLEARS && over <= sightLine + SIGHT_OVER && Math.abs(places[at]) <= SIGHT_ACROSS;
+    }
+
+    /**
+     * How far ahead of the grip the nearest of the places given is that stands in the line of
+     * sight, between the eye and the muzzle, in the model's metres: a rear sight, behind the grip
+     * on some guns, a hammer's spur, or a front sight where the eye looks along a rib or a rail to
+     * it. NaN where nothing there stands in it.
+     */
+    static float inTheWay(float[] places, float[] muzzle, float sightLine, float eyeBehind, float[] top) {
+        float nearest = Float.NaN;
+        for (int at = 0; at < places.length; at += 3) {
+            float along = places[at + 1];
+            if (along > -eyeBehind && along <= muzzle[1] && !(along >= nearest) && inLine(places, at, muzzle, sightLine, top)) {
+                nearest = along;
+            }
+        }
+        return nearest;
     }
 
     private String make(Program program) {
@@ -417,7 +491,7 @@ final class OwnModel {
             travel = layout.travel;
             sightLine = layout.sightLine;
             eyeBehind = layout.eyeBehind;
-            rearSight = made.rearSight;
+            clearIrons = made.clearIrons;
             moves = layout.moves;
             int parts = layout.counts.length, indices = 0;
             firstIndex = new int[parts];

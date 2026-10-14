@@ -14,6 +14,8 @@ package com.cameraunlock.zomboid;
 final class OwnRifle extends OwnGun {
     /** The parts the file's layout names. The rifle has nothing in the second, which is a pump's, or the last, which is a stock left out. */
     private static final int FIXED = 0, BOLT = 2, CASE = 3;
+    /** The part that slides back toward the eye by the file's travel as the action is worked: its bolt. */
+    static final int SLIDES = BOLT;
     static final int PARTS = 5, MOVES = 0;
 
     /**

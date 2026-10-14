@@ -351,6 +351,16 @@ abstract class OwnGun {
         return null;
     }
 
+    /**
+     * How its class turns a model's parts as the gun is fired with the sights up, at each end of
+     * each turn, from the numbers that say how the parts move: rows of the part, a point on the
+     * axis, the axis's way and the angle, as turnAbout takes them. OwnModel reads where they go
+     * for what stands in the line of sight. A class that turns none of them leaves this one.
+     */
+    static float[][] poses(float[] moves) {
+        return new float[0][];
+    }
+
     /** What the gun makes of where it is held this frame, once its matrix is filled. */
     void placed(float aim) {
     }

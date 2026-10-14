@@ -18,6 +18,7 @@ final class PistolTests {
         Checks.run("aShotWithRoundsLeftThrowsOneCaseAndLetsTheSlideHome", PistolTests::aShotWithRoundsLeftThrowsOneCaseAndLetsTheSlideHome);
         Checks.run("theLastRoundLeavesTheSlideBackThroughAChangeOfMagazineUntilRacked", PistolTests::theLastRoundLeavesTheSlideBackThroughAChangeOfMagazineUntilRacked);
         Checks.run("anEmptyPistolTakenInHandHasItsSlideBack", PistolTests::anEmptyPistolTakenInHandHasItsSlideBack);
+        Checks.run("nothingThatMovesOrKicksBackReachesTheEyeAtTheStop", PistolTests::nothingThatMovesOrKicksBackReachesTheEyeAtTheStop);
         Checks.run("rackingDrawsTheSlideBackAndLetsItGo", PistolTests::rackingDrawsTheSlideBackAndLetsItGo);
         Checks.run("rackingOverAnEmptyMagazineLeavesTheSlideBack", PistolTests::rackingOverAnEmptyMagazineLeavesTheSlideBack);
         Checks.run("theLastRoundWithNoMagazineInLetsTheSlideHome", PistolTests::theLastRoundWithNoMagazineInLetsTheSlideHome);
@@ -174,8 +175,6 @@ final class PistolTests {
         check(!SelfLoading.magazineIn(false, ArmActs.LOADING, -1f), "being loaded, until the game has it in: in the hand");
         check(!SelfLoading.magazineIn(true, ArmActs.HOLDING, ArmActs.HOME_IN / 2f), "pushed home: the hand's, as ArmHolds.carries has it");
         check(SelfLoading.magazineIn(true, ArmActs.HOLDING, ArmActs.HOME_IN + 0.01f), "and the well's once home");
-        check(!SelfLoading.magazineIn(true, ArmActs.HOLDING, ArmActs.HOME_IN / 2f), "pushed home: the hand's, as ArmHolds.carries has it");
-        check(SelfLoading.magazineIn(true, ArmActs.HOLDING, ArmActs.HOME_IN + 0.01f), "and the well's once home");
         check(SelfLoading.magazineIn(true, ArmActs.LOADING, 0f), "a magazine the game has in while loading is the well's");
     }
 
@@ -190,9 +189,10 @@ final class PistolTests {
     }
 
     private static void eachOwnHandgunStopsTheEyeShortOfItsOwnRearSight() throws IOException {
-        float tiles = Characters.PER_METRE * Characters.CHARACTER_SCALE;
-        // With the eye and the rear sight where the game's handguns have them, the stop is theirs.
-        check(Math.abs(ViewModel.handgunStop(ViewModel.AIMED_AHEAD / tiles, 0f, tiles) - ViewModel.FORWARD_STOP) < 1e-6f, "the stock eye and sight give FORWARD_STOP");
+        float tiles = ViewModel.OWN_TILES_PER_METRE;
+        // With the eye and the rear sight where the game's handguns have them, the stop is short of the sight by the near plane and a shot's throw.
+        check(Math.abs(ViewModel.sightStop(ViewModel.AIMED_AHEAD, 0.02f) - (ViewModel.AIMED_AHEAD - Scope.NEAREST - 0.02f)) < 1e-6f,
+                "the stock eye and sight give " + (ViewModel.AIMED_AHEAD - Scope.NEAREST - 0.02f));
         for (OwnModel model : OwnModel.ALL) {
             if (!model.handgun) {
                 continue;
@@ -202,11 +202,60 @@ final class PistolTests {
                 read = ByteBuffer.wrap(packed.readAllBytes()).order(ByteOrder.LITTLE_ENDIAN);
             }
             OwnModel.Layout layout = OwnModel.layout(read, model.mesh);
-            float rear = OwnModel.rearSight(layout.places(read), layout.muzzle(), model.top());
-            check(rear > -0.06f && rear < 0.06f, model.what + "'s rear sight is within a hand of its grip along the bore: " + rear);
-            float stop = ViewModel.handgunStop(layout.eyeBehind(), rear, tiles);
+            float rear = OwnModel.inTheWay(model.reached(layout, layout.places(read), layout.corners(read)), layout.muzzle(), layout.sightLine(),
+                    layout.eyeBehind(), model.top());
+            check(rear > -0.1f && rear < 0.06f, model.what + "'s rear sight, or its slide's back all the way back, is within a hand of its grip along the bore: "
+                    + rear);
+            float stop = ViewModel.sightStop((layout.eyeBehind() + rear) * tiles, 0.02f);
             check(stop > 0f && stop < (layout.eyeBehind() + rear) * tiles, model.what + " stops the eye short of its rear sight: " + stop + " of "
                     + (layout.eyeBehind() + rear) * tiles + " tiles");
+        }
+    }
+
+    /** The game's recoil delays (B42 scripts) of the items the mod's own models stand for, by model: a toy's shot does no harm. */
+    private static final java.util.Map<String, Integer> RECOIL_DELAYS = java.util.Map.ofEntries(java.util.Map.entry("shotgun", 30),
+            java.util.Map.entry("sawnoff", 30), java.util.Map.entry("rifle", 23), java.util.Map.entry("revolver", 16), java.util.Map.entry("magnum", 17),
+            java.util.Map.entry("snubnose", 11), java.util.Map.entry("capgun", 11), java.util.Map.entry("pistol", 12), java.util.Map.entry("pistol2", 15),
+            java.util.Map.entry("pistol3", 17), java.util.Map.entry("dbarrel", 30), java.util.Map.entry("dbarrelsawn", 34), java.util.Map.entry("varmint", 17),
+            java.util.Map.entry("js14", 15), java.util.Map.entry("leverrifle", 20), java.util.Map.entry("levercarbine", 12), java.util.Map.entry("trapper", 12),
+            java.util.Map.entry("js3t", 28), java.util.Map.entry("tactical", 21), java.util.Map.entry("toy", 17));
+    private static final java.util.Set<String> TOYS = java.util.Set.of("capgun", "toy"), STOCKLESS = java.util.Set.of("sawnoff", "dbarrelsawn");
+
+    /**
+     * Every own gun leaned in to its stop with the sights up: every point of every part that
+     * stands in the line of sight, wherever the gun's firing moves it (OwnModel.reached), thrown
+     * back as far as the gun's shots throw it, stays the near plane clear of the eye.
+     */
+    private static void nothingThatMovesOrKicksBackReachesTheEyeAtTheStop() throws IOException {
+        float tiles = ViewModel.OWN_TILES_PER_METRE;
+        for (OwnModel model : OwnModel.ALL) {
+            String name = model.mesh.substring("/models/".length(), model.mesh.length() - ".mesh.gz".length());
+            check(RECOIL_DELAYS.containsKey(name), name + " has its game item's recoil delay here");
+            if (!RECOIL_DELAYS.containsKey(name)) {
+                continue;
+            }
+            ByteBuffer read;
+            try (InputStream packed = new GZIPInputStream(PistolTests.class.getResourceAsStream(model.mesh))) {
+                read = ByteBuffer.wrap(packed.readAllBytes()).order(ByteOrder.LITTLE_ENDIAN);
+            }
+            OwnModel.Layout layout = OwnModel.layout(read, model.mesh);
+            float[] reached = model.reached(layout, layout.places(read), layout.corners(read)), top = model.top();
+            float nearest = OwnModel.inTheWay(reached, layout.muzzle(), layout.sightLine(), layout.eyeBehind(), top);
+            if (Float.isNaN(nearest)) {
+                continue;
+            }
+            int delay = RECOIL_DELAYS.get(name);
+            float harm = TOYS.contains(name) ? 0f : 1f, aim = STOCKLESS.contains(name) ? 0f : 1f;
+            float aimed = Kick.backMost(delay, harm, aim) + (model.pump ? ViewModel.PUMP_PULLS_AIMED : 0f);
+            float stop = ViewModel.sightStop((layout.eyeBehind() + nearest) * tiles, aimed);
+            check(stop > 0f, model.what + " lets the eye lean in, " + stop + " tiles");
+            float eye = -layout.eyeBehind() + stop / tiles, closest = Float.POSITIVE_INFINITY;
+            for (int at = 0; at < reached.length; at += 3) {
+                if (reached[at + 1] > -layout.eyeBehind() && OwnModel.inLine(reached, at, layout.muzzle(), layout.sightLine(), top)) {
+                    closest = Math.min(closest, (reached[at + 1] - eye) * tiles - aimed);
+                }
+            }
+            check(closest >= Scope.NEAREST - 1e-5f, model.what + ": what stands in the line of sight, thrown back, stays " + closest + " tiles from the eye at the stop");
         }
     }
 

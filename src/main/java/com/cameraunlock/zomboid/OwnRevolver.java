@@ -17,6 +17,8 @@ final class OwnRevolver extends OwnGun {
     /** The parts the file's layout names. */
     private static final int FIXED = 0, TRIGGER = 1, HAMMER = 2, CYLINDER = 3, CRANE = 4, EJECTOR = 5, ROUND = 6, CASE = 7;
     static final int PARTS = 8;
+    /** No part slides back toward the eye as the action is worked. */
+    static final int SLIDES = OwnModel.NO_PART;
     /** Where each of the numbers that say how the parts move is in the file's list of them: see tools/models/revolver.py. */
     static final int HAMMER_Y = 0, HAMMER_Z = 1, COCKED = 2, TRIGGER_Y = 3, TRIGGER_Z = 4, PULLED = 5, AXIS_X = 6, AXIS_Z = 7, TURN = 8, CHAMBERS = 9,
             CRANE_X = 10, CRANE_Z = 11, SWING = 12, PUSHED = 13, CHAMBER_X = 14, CHAMBER_Y = 15, CHAMBER_Z = 16;
@@ -34,6 +36,17 @@ final class OwnRevolver extends OwnGun {
     private final Cylinder.Throws thrower = this::thrown;
     /** The camera the cylinder was last worked with, for what it throws out. */
     private ViewCamera.Pose workedFrom;
+
+    /** With the sights up the hammer is cocked and falls, and the cylinder turns a chamber on: at the ends of their turns, and between. */
+    static float[][] poses(float[] moves) {
+        float[][] turns = new float[2 + 8][];
+        turns[0] = new float[] {HAMMER, 0f, moves[HAMMER_Y], moves[HAMMER_Z], 1f, 0f, 0f, moves[COCKED]};
+        turns[1] = new float[] {TRIGGER, 0f, moves[TRIGGER_Y], moves[TRIGGER_Z], 1f, 0f, 0f, moves[PULLED]};
+        for (int step = 0; step < 8; step++) {
+            turns[2 + step] = new float[] {CYLINDER, moves[AXIS_X], 0f, moves[AXIS_Z], 0f, 1f, 0f, -moves[TURN] * (step + 1) / 8f};
+        }
+        return turns;
+    }
 
     OwnRevolver(View view) {
         // Oiled walnut grips, and with the arms out the head is far from what the eye sees of them.
