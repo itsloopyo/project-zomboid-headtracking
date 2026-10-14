@@ -1002,6 +1002,17 @@ final class WorldScene {
      * else has its room built in that time.
      */
     private static final long ROUND_EVERY_NANOS = 250_000_000L;
+    /**
+     * How often the walk is held to RoomRays while the eye's own picture goes by it, and how
+     * far and how finely the lines are followed: a room the lines reach and the walk leaves out
+     * stands empty in the picture, and the log says so with what the walk started from.
+     */
+    private static final long ROOMS_CHECKED_EVERY_NANOS = 500_000_000L;
+    private static final int ROOM_LINES_ACROSS = 64, ROOM_LINES_UP = 36;
+    private static final float ROOM_LINES_REACH = 16f;
+    private final RoomSight.Seen roomsByLines = new RoomSight.Seen();
+    private long roomsCheckedNanos, roomChecksNanos;
+    private int roomChecks, roomsMissed;
     /** Dev only, for the rig: the time the walks took and how many there were, and what the last one had. */
     private long tollRoomsNanos, tollRoomsWalks;
     private int lastOpenings, lastBlocks, lastSeen, lastHidden;
@@ -2439,6 +2450,7 @@ final class WorldScene {
                     builtBecause[UNSIGNED], builtBecause[LEFT_UNREAD], chunksGrown, chunksKept, chunksQuiet, squaresLoaded, squaresSeen, sprites, triangles, buildMillis, lastDrawMillis, exposure, located, metered,
                     tanHalfFieldOfView, drawnAspect, fogEnd, roofsNorthSouth, roofsWestEast, roofsFlat, roofsUnclear, boxes, furnished, spreadFaces, lifted, view.characters.drawnLast(), sky.describe()) + " | " + view.pipeline.describeShadows() + " | " + ChunkBuffers.describe()
                     + String.format(Locale.ROOT, ", builds are filled from %d meshes with room for %.0f MB", solid.kept() + laid.kept(), (solid.room() + laid.room()) * Float.BYTES / 1048576f)
+                    + String.format(Locale.ROOT, " | rooms held to lines %d times in %.2f ms each, %d left out", roomChecks, roomChecks == 0 ? 0f : roomChecksNanos / 1e6f / roomChecks, roomsMissed)
                     + " | noted " + view.characters.described + " | steepest roof " + steepestSaid + " | roofs folded " + roofsFolded
                     + " | gables faced " + gablesFaced + " painted " + gablesPainted + " bare " + gablesBare
                     + " | " + view.carriedLight.describe() + String.format(Locale.ROOT, " open light (%.2f, %.2f, %.2f)", floorRed, floorGreen, floorBlue);
@@ -3340,6 +3352,25 @@ final class WorldScene {
         /** What the openings in reach were last gathered from: see seeRooms. */
         private long openingsReach;
 
+        /** Logs each room a line through the picture reaches that the walk left out of roomsSeenKept: see ROOMS_CHECKED_EVERY_NANOS. */
+        private void checkRoomsAgainstLines(int level, int eyeX, int eyeY, float aspect) {
+            long began = System.nanoTime();
+            roomsByLines.clear();
+            RoomRays.trace(roomMap, camera, tanHalfFieldOfView * aspect, tanHalfFieldOfView, ROOM_LINES_ACROSS, ROOM_LINES_UP, ROOM_LINES_REACH, level, roomsByLines);
+            for (int slot = 0; slot < roomsByLines.slots(); slot++) {
+                long room = roomsByLines.at(slot);
+                if (room != RoomSight.OUTSIDE && !roomsSeenKept.contains(room)) {
+                    roomsMissed++;
+                    Log.info(String.format(Locale.ROOT, "rooms: room %d is reached by a line through the picture and left out by the walk: eye (%.3f, %.3f, %.3f) looking (%.3f, %.3f, %.3f)"
+                                    + " on level %d in region %d of building %d, %d openings, %d blocks, %d hidden by blocks, %d rooms walked",
+                            room, camera.eyeX, camera.eyeY, camera.eyeUp, camera.forwardX, camera.forwardY, camera.forwardUp, level, roomMap.region(eyeX, eyeY, level),
+                            roomMap.building(eyeX, eyeY, level), openingsInReach.count, blocksInReach.count, roomWalk.hiddenByBlocks, roomsSeenKept.size()));
+                }
+            }
+            roomChecks++;
+            roomChecksNanos += System.nanoTime() - began;
+        }
+
         /**
          * Works out which rooms the eye sees into, from the openings of every chunk the picture
          * can reach, and which rooms it could see into soon, whose contents are built: see
@@ -3396,6 +3427,10 @@ final class WorldScene {
             roomsSeen = roomsSeenKept;
             roomsAspect = aspect;
             lastHidden = roomWalk.hiddenByBlocks;
+            if (now - roomsCheckedNanos >= ROOMS_CHECKED_EVERY_NANOS) {
+                roomsCheckedNanos = now;
+                checkRoomsAgainstLines(level, eyeX, eyeY, aspect);
+            }
             float seconds = (now - roundNanos) / 1e9f;
             float moved = (float) Math.hypot(camera.eyeX - roundEyeX, camera.eyeY - roundEyeY);
             float grow = GROW_TILES + eyeSpeed * GROW_SECONDS;
