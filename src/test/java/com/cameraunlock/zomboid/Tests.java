@@ -1546,7 +1546,7 @@ public final class Tests {
                 "picnic_table", "crate", "barrel", "frame_tall", "frame_square", "frame_wide", "canvas", "wall_clock", "table_2", "table_3", "table_4",
                 "narrow_table", "low_table", "low_table_2", "round_table", "office_desk", "shop_counter", "low_shelves", "wall_shelf", "wall_shelves",
                 "metal_rack", "store_shelves", "plastic_chair", "folding_chair", "booth", "stool", "vending_machine", "arcade_machine", "dumpster_sloped", "dumpster_domed",
-                "radio", "microwave", "dishwasher", "chest_freezer", "register", "counter_rack", "shower", "shower_head", "kettle_barbecue", "gas_barbecue",
+                "radio", "microwave", "dishwasher", "chest_freezer", "register", "counter_rack", "open_counter", "shower", "shower_head", "kettle_barbecue", "gas_barbecue",
                 "mini_fridge", "large_fridge",
                 "pool_table"};
         for (String name : names) {

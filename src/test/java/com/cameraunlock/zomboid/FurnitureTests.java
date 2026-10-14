@@ -42,6 +42,7 @@ final class FurnitureTests {
         Checks.run("aBarsPanellingStandsWithItsFootRailUndyedWhereTheBrassIsNotPainted", FurnitureTests::aBarsPanellingStandsWithItsFootRailUndyedWhereTheBrassIsNotPainted);
         Checks.run("aWireRackOnACounterStandsOnTheCounterLongTheWayItFaces", FurnitureTests::aWireRackOnACounterStandsOnTheCounterLongTheWayItFaces);
         Checks.run("eachBookOnAShelfIsAPieceOfItsOwnInBothModels", FurnitureTests::eachBookOnAShelfIsAPieceOfItsOwnInBothModels);
+        Checks.run("aShopCounterOpenOverShelvesOpensWhereItsSpritePaintsTheShelves", FurnitureTests::aShopCounterOpenOverShelvesOpensWhereItsSpritePaintsTheShelves);
     }
 
     private static IsoSprite sprite(String row) {
@@ -734,4 +735,17 @@ final class FurnitureTests {
         check(Models.get("counter").piece[0] == 0, "a surface whose pieces are all alike carries none");
     }
 
+    private static void aShopCounterOpenOverShelvesOpensWhereItsSpritePaintsTheShelves() {
+        String row = "|BlocksPlacement||CanBreak||CanScrap||ContainerPosition|Low|CustomName|Shelves|GroupName|Generic Shop Low|IsLow||IsMoveAble||IsTable||"
+                + "Material|Wood|PickUpLevel|2|PickUpTool|Hammer|PickUpWeight|100|PlaceTool|Hammer|Surface|34|container|counter|solidtrans||Facing|";
+        Furniture south = Furniture.known(sprite("location_shop_generic_01_108" + row + "S"));
+        Furniture east = Furniture.known(sprite("location_shop_generic_01_109" + row + "E"));
+        check(model(south).equals("open_counter") && model(east).equals("open_counter"), "a shop's low shelves are the open counter: " + model(south) + ", " + model(east));
+        if (south == null || east == null || south.model == null || east.model == null) {
+            return;
+        }
+        // The sprite facing south paints its shelves on its east side, the one facing east on its south side.
+        check(south.turns == 1 && east.turns == 2, "each opens where its sprite paints the shelves: " + south.turns + ", " + east.turns);
+        check(Math.abs(south.model.height() * south.scaleUp - 34 * SURFACE_TILES) < 1e-4f, "as high as the counters of its run");
+    }
 }

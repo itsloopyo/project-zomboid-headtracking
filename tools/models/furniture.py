@@ -6948,6 +6948,28 @@ def counter_rack():
     return model
 
 
+def open_counter():
+    """One square of a shop's counter, a metre wide as cabinet's shop_counter is so that it meets the run, open at its
+    front over two shelves: two sides, a back, a deck over the kick and a shelf half way up, under the same worktop."""
+    model = Model("open_counter")
+    deep, high, kick, lip, board = 0.62, 0.90, 0.10, 0.02, 0.02
+    top, back = high - 0.04, deep / 2
+    front = back - deep
+    body = bmesh.new()
+    cuboid(body, -0.5, 0.5, front + lip + 0.06, back, 0.0, kick)
+    for side in (-1, 1):
+        cuboid(body, *sorted((side * 0.5, side * (0.5 - board))), front + lip, back, kick, top)
+    cuboid(body, -0.5 + board, 0.5 - board, back - board, back, kick, top)
+    cuboid(body, -0.5 + board, 0.5 - board, front + lip, back - board, kick, kick + board)
+    cuboid(body, -0.5 + board, 0.5 - board, front + lip + 0.01, back - board, 0.47 - board, 0.47)
+    cuboid(body, -0.5 + board, 0.5 - board, front + lip, back - board, top - board, top)
+    model.hard(body, "wood", bevel=0.004)
+    tops = bmesh.new()
+    cuboid(tops, -0.5, 0.5, front, back, top, high)
+    model.hard(tops, "worktop", bevel=0.005, segments=2)
+    return model
+
+
 def shop_fittings():
     """What stands in shops, malls, bars and salons: the pieces ShopFittings.java places, and what they hold."""
     return [gondola("shop_gondola", 1, "wood"), gondola("shop_gondola_m", -1, "wood"), gondola("shop_gondola_red", 1, "vinyl"),
@@ -6964,7 +6986,7 @@ def shop_fittings():
             open_chiller(), chiller_goods("chiller_goods_many", 55, 0.95, 3), chiller_goods("chiller_goods_few", 56, 0.45, 1),
             mall_chair(), pedestal_stool(), salon_chair(), glass_counter(),
             magazine_stand("magazine_stand", 0.49, "wood"), magazine_stand("magazine_stand_red", 0.98, "vinyl"),
-            magazines("magazines_many", 57, 0.95), magazines("magazines_few", 58, 0.4), mall_table_quarter(), counter_rack()]
+            magazines("magazines_many", 57, 0.95), magazines("magazines_few", 58, 0.4), mall_table_quarter(), counter_rack(), open_counter()]
 
 
 def outdoors():

@@ -552,6 +552,15 @@ final class Furniture {
             Furniture table = new Furniture(sprite, model, turns).dye(1 << Models.WOOD, surfaceHigh);
             return table.stand(surfaceUp, table.model.height(), false);
         }
+        // A shop's counter open over two shelves, which the game calls shelves. Its sprite paints the shelves on the
+        // other of the two sides the game's view sees from the one it says it faces: facing south it is open to the
+        // east, facing east to the south.
+        if (called.equals("Shelves") && group.equals("Generic Shop Low") && holds.equals("counter") && single && low && properties.isTable()
+                && counterHigh && (facing == IsoDirections.S || facing == IsoDirections.E)) {
+            Furniture counter = new Furniture(sprite, "open_counter", facing == IsoDirections.S ? 1 : 2)
+                    .dye(1 << Models.WOOD, surfaceHigh * 0.45f).also(1 << Models.WORKTOP, surfaceHigh);
+            return counter.meet(surfaceUp, counter.model.height(), true);
+        }
         if (called.equals("Counter") && single) {
             boolean corner = group.contains("Corner");
             // A shop's counter or a bar: a counter with no doors on the side it is seen from, at
