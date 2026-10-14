@@ -1479,7 +1479,8 @@ public final class Characters {
     private static ModelInstanceRenderData scopeOf(ModelSlotRenderData data) {
         for (int part = 0; part < parts(data).size(); part++) {
             ModelInstanceRenderData model = parts(data).get(part);
-            if (model.model != null && model.model.isStatic && Scope.ATTACHMENT.equals(model.modelInstance.attachmentNameParent) && inHand(model.modelInstance)) {
+            if (model.model != null && model.model.isStatic && model.modelInstance.attachmentNameParent != null
+                    && Scope.ATTACHMENTS.contains(model.modelInstance.attachmentNameParent) && inHand(model.modelInstance)) {
                 return model;
             }
         }

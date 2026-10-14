@@ -38,8 +38,11 @@ final class Scope {
 
     /** The part of a firearm the game keeps its sight under. */
     private static final String PART = "Scope";
-    /** The attachment of a weapon's model that a scope is fixed to. */
-    static final String ATTACHMENT = "scope";
+    /**
+     * The attachments of a weapon's model that a scope is fixed to: most are fixed to the first,
+     * and the game fixes some to the second on some rifles (the x4 on the MSR700 Rifle).
+     */
+    static final java.util.Set<String> ATTACHMENTS = java.util.Set.of("scope", "scope2");
     /**
      * The game's model units to a metre: the measure the mod's own shotgun is sized by, whose
      * muzzle is 0.9015 m from its grip where the game's is 0.4469 units.
