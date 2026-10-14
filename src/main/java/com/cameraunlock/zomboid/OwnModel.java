@@ -85,6 +85,7 @@ final class OwnModel {
                 OwnShotgun::poses, OwnShotgun::new),
         new OwnModel("the tactical rifle's model", "tactical", "tactical", "Base.MSR7T_Rifle", false, false, false, OwnRifle.PARTS, OwnRifle.MOVES, OwnRifle.SLIDES,
                 OwnRifle::poses, OwnRifle::new),
+        new OwnModel("the toy cap rifle's model", "toy", "toy", "Base.Rifle_CapGun", false, false, false, OwnToy.PARTS, OwnToy.MOVES, OwnToy.SLIDES, OwnToy::poses, OwnToy::new),
     };
 
     /**

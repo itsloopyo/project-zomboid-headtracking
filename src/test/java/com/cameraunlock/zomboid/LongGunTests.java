@@ -7,8 +7,8 @@ import java.nio.ByteOrder;
 import java.util.zip.GZIPInputStream;
 
 /**
- * Tests of the mod's own long guns: how the self-loading and lever guns work their actions, how far the eye leans in
- * to them with the sights up, and where what the game fits to them goes.
+ * Tests of the mod's own long guns: how the self-loading and lever guns and the toy cap rifle work their actions, how
+ * far the eye leans in to them with the sights up, and where what the game fits to them goes.
  */
 final class LongGunTests {
     private LongGunTests() {}
@@ -27,6 +27,8 @@ final class LongGunTests {
         Checks.run("theEyeIsStoppedShortOfWhatStandsInTheLineOfSight", LongGunTests::theEyeIsStoppedShortOfWhatStandsInTheLineOfSight);
         Checks.run("aRedDotOrLaserGoesWhereTheModelHasAPlaceForIt", LongGunTests::aRedDotOrLaserGoesWhereTheModelHasAPlaceForIt);
         Checks.run("aVersionSixFileSaysWhereItsRedDotAndLaserGo", LongGunTests::aVersionSixFileSaysWhereItsRedDotAndLaserGo);
+        Checks.run("capRiflesHammerFallsAndIsCockedAgain", LongGunTests::capRiflesHammerFallsAndIsCockedAgain);
+        Checks.run("capRifleCountsOnlyShotsTakenWhileItIsDrawn", LongGunTests::capRifleCountsOnlyShotsTakenWhileItIsDrawn);
     }
 
     private static void leverIsShutUntilTheShotIsWorkedAndAfter() {
@@ -291,6 +293,24 @@ final class LongGunTests {
         check(mounts[OwnModel.GUN_LIGHT + 2] == -0.03f, "and the light's");
         check(layout.moves().length == 2 && layout.moves()[1] == 0.25f, "after its moves, which are as they were");
         check(file.remaining() == 0, "and nothing is left over");
+    }
+
+    private static void capRiflesHammerFallsAndIsCockedAgain() {
+        check(OwnToy.cocked(-1f) == 1f, "the toy's hammer is cocked before it is fired");
+        check(OwnToy.cocked(0f) == 0f && OwnToy.cocked(0.1f) == 0f, "it is down at the shot and a moment after");
+        check(OwnToy.cocked(1f) == 1f, "and cocked again within a second");
+    }
+
+    private static void capRifleCountsOnlyShotsTakenWhileItIsDrawn() {
+        OwnToy.Caps caps = new OwnToy.Caps();
+        caps.step(GUN, true, 5, FRAME);
+        check(caps.since < 0f && caps.turned == 0, "shots counted before it was taken in hand are not its own");
+        caps.step(GUN, true, 6, FRAME);
+        check(caps.since == 0f && caps.turned == 1, "a shot taken while it is drawn is timed from the frame it is seen, and turns the cylinder");
+        caps.step(GUN, true, 6, FRAME);
+        check(Math.abs(caps.since - FRAME) < 1e-6f, "and timed on by the frames after");
+        caps.step(GUN, false, 9, FRAME);
+        check(caps.since < 0f && caps.turned == 1, "shots counted while it was out of sight are not its own");
     }
 
     private static void check(boolean condition, String what) {
