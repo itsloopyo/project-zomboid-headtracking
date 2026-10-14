@@ -34,6 +34,8 @@ final class ArmModel {
     static final int ARM = 0, SLEEVE = 1, GLOVE = 2;
     private static final String[] PARTS = {"arm", "sleeve", "glove"};
     final int[] partFirst = new int[PARTS.length], partCount = new int[PARTS.length];
+    /** How far along the arm the sleeve reaches: smoothing draws its open end back short of where tools/models/arms.py cut it. */
+    final float sleeveEnd;
     final String[] poses;
     /** For each pose and each bone, the quaternion (w, x, y, z) that turns it from rest; for each pose, the middle of what it holds. */
     final float[][] turns, holds;
@@ -112,6 +114,11 @@ final class ArmModel {
             partFirst[part] = file.getInt();
             this.partCount[part] = file.getInt();
         }
+        float reach = 0f;
+        for (int index = partFirst[SLEEVE]; index < partFirst[SLEEVE] + this.partCount[SLEEVE]; index++) {
+            reach = Math.max(reach, vertices.getFloat(indices.getInt(index * Integer.BYTES) * VERTEX_BYTES + ALONG_AT));
+        }
+        sleeveEnd = reach;
         int poseBytes = (boneCount * 4 + 3) * Float.BYTES;
         need(file, poseCount * (1L + poseBytes));
         poses = new String[poseCount];

@@ -574,7 +574,7 @@ final class OwnArms {
     record Worn(boolean sleeve, float sleeveTo, int sleeveWear, float[] sleeveColour, boolean glove, int gloveWear, float[] gloveColour) {}
 
     static final Worn BARE = new Worn(false, 0f, 0, null, false, 0, null);
-    /** Where a long sleeve ends and a glove begins, as tools/models/arms.py cut them, and where a short sleeve ends. */
+    /** Where tools/models/arms.py cut a long sleeve and a glove (ArmModel.sleeveEnd is where the sleeve ends), and where a short sleeve ends. */
     static final float CUFF_AT = 1.93f, GLOVE_FROM = 1.86f, SHORT_TO = 0.55f;
     /** Skin under what is worn is not drawn to within this of its edge: the cloth is smoothed, and a muscle would come through it. */
     private static final float UNDER = 0.06f;
@@ -592,7 +592,7 @@ final class OwnArms {
      */
     static void draw(float[] projection, float[] skins, boolean left, boolean female, int skin, boolean outside, Worn worn, float[] stains) {
         GL11.glEnable(GL_CULL_FACE);
-        GL11.glCullFace(left ? GL_BACK : GL_FRONT);
+        GL11.glCullFace(left ? GL_FRONT : GL_BACK);
         GL11.glEnable(GL_DEPTH_TEST);
         GL11.glDepthFunc(GL_LESS);
         GL11.glDepthMask(true);
@@ -624,7 +624,7 @@ final class OwnArms {
             GL20.glEnableVertexAttribArray(attribute);
         }
         GL15.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indices);
-        float from = worn.sleeve() ? worn.sleeveTo() - UNDER : -1f, to = worn.glove() ? GLOVE_FROM + UNDER : 4f;
+        float from = worn.sleeve() ? Math.min(worn.sleeveTo(), model.sleeveEnd) - UNDER : -1f, to = worn.glove() ? GLOVE_FROM + UNDER : 4f;
         // A glove under a long sleeve leaves no skin to show between them.
         if (!(worn.glove() && worn.sleeve() && worn.sleeveTo() > GLOVE_FROM)) {
             GL20.glUniform1f(wearAt, 0f);
