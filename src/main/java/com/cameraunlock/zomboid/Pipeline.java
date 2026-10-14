@@ -3182,6 +3182,8 @@ final class Pipeline {
         to.set("uWet", state.wet);
         to.set("uSeconds", state.seconds);
         to.set("uRaining", state.rain);
+        // Low is the game's look: its surfaces mirror only what they always did, and so do its people (uFigureMirror).
+        to.set("uSkyMirror", Quality.plain() || WITHOUT.contains("skymirror") ? 0f : 1f);
         to.set("uSnowLying", state.snowLying);
         to.set("uSnowPlaster", state.plasterX, state.plasterY);
         to.set("uPlantSnow", state.snowOnPlants());
@@ -3262,6 +3264,8 @@ final class Pipeline {
     }
 
     private void atmosphere(Program program, SkyState state) {
+        // People mirror what is round them as the world's surfaces do, but in Low, which keeps the look it has always had (CharacterDraw.dressed).
+        program.set("uFigureMirror", Quality.plain() || WITHOUT.contains("skymirror") ? 0f : 1f);
         // From far overhead the fog is the develop pass's sheet, as the game has it over its own view. On the
         // flight between the two the air thins away as the sheet comes in, so neither leaves the picture clear.
         float sheet = overhead ? Math.clamp((away - WorldScene.OVERHEAD_RANGE) / (2f * WorldScene.OVERHEAD_RANGE), 0f, 1f) : 0f;

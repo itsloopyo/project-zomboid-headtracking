@@ -1006,6 +1006,12 @@ final class CharacterDraw {
                 return n;
             }
 
+            // How much skin and what is worn mirror looked at square on: water and oil, and cloth, leather and rubber.
+            const float SKIN_MIRRORS = 0.028, WORN_MIRRORS = 0.04;
+            // 1 where skin and what is worn mirror as the world's surfaces do (glossed, mirroredShare),
+            // 0 in Low, which keeps the look it has always had.
+            uniform float uFigureMirror;
+
             // paint is the surface's own colour, way the way to the sun, sunLit the sun's
             // light where it reaches, around the light from all round, lamps what lamps
             // give, skyBack the sky the surface would mirror.
@@ -1040,20 +1046,35 @@ final class CharacterDraw {
                     float edge = smoothstep(0.0, 0.25, lit) * (1.0 - smoothstep(0.25, 0.6, lit));
                     color += paint * sunLit * vec3(0.55, 0.16, 0.08) * edge;
                     color += paint * sunLit * vec3(0.95, 0.28, 0.14) * (0.9 * low * clamp(0.35 - towards, 0.0, 1.0));
-                    float glance = 0.028 + 0.972 * pow(1.0 - clamp(dot(view, between), 0.0, 1.0), 5.0);
                     float dry = 1.0 - gloss;
-                    float shine = dry * (0.05 * pow(high, 10.0) + (0.02 + 0.3 * glance) * pow(high, 48.0))
-                            + gloss * mix(0.5, 6.0, gloss) * pow(high, mix(90.0, 380.0, gloss * gloss));
-                    color += sunLit * (shine * smoothstep(-0.05, 0.15, towards));
-                    color += skyBack * (mirror * (0.22 * dry + 0.35 * gloss) + 0.05 * gloss * gloss);
+                    if (uFigureMirror > 0.5) {
+                        // Skin's oil mirrors as the world's surfaces do, in two lobes, a broad one
+                        // and a tighter, fainter one, and sweat or blood on it tighter still.
+                        float broad = mix(0.48, 0.2, gloss), tight = mix(0.3, 0.18, gloss);
+                        color += sunLit * (1.5 * mix(glossed(n, view, way, broad, SKIN_MIRRORS), glossed(n, view, way, tight, SKIN_MIRRORS), 0.15));
+                        color += skyBack * mirroredShare(SKIN_MIRRORS, broad, max(seen, 0.001));
+                    } else {
+                        float glance = 0.028 + 0.972 * pow(1.0 - clamp(dot(view, between), 0.0, 1.0), 5.0);
+                        float shine = dry * (0.05 * pow(high, 10.0) + (0.02 + 0.3 * glance) * pow(high, 48.0))
+                                + gloss * mix(0.5, 6.0, gloss) * pow(high, mix(90.0, 380.0, gloss * gloss));
+                        color += sunLit * (shine * smoothstep(-0.05, 0.15, towards));
+                        color += skyBack * (mirror * (0.22 * dry + 0.35 * gloss) + 0.05 * gloss * gloss);
+                    }
                     color += paint * around * (0.35 * rim * dry);
                     return color;
                 }
                 float lit = clamp((towards + 0.12) / 1.12, 0.0, 1.0);
                 vec3 color = paint * (around + lamps + sunLit * (1.5 * lit));
                 color += paint * (around * (0.9 * rim * low) + sunLit * (0.5 * rim * low * lit));
-                color += sunLit * (max(towards, 0.0) * mix(0.035, 0.75, gloss) * pow(high, mix(7.0, 110.0, gloss)));
-                color += skyBack * mirror * (0.1 + 0.7 * gloss);
+                if (uFigureMirror > 0.5) {
+                    // What is worn mirrors as the world's surfaces do, from felt to wet rubber by its gloss.
+                    float rough = mix(0.9, 0.28, gloss);
+                    color += sunLit * (1.5 * glossed(n, view, way, rough, WORN_MIRRORS));
+                    color += skyBack * mirroredShare(WORN_MIRRORS, rough, max(seen, 0.001));
+                } else {
+                    color += sunLit * (max(towards, 0.0) * mix(0.035, 0.75, gloss) * pow(high, mix(7.0, 110.0, gloss)));
+                    color += skyBack * mirror * (0.1 + 0.7 * gloss);
+                }
                 return color;
             }
             """;

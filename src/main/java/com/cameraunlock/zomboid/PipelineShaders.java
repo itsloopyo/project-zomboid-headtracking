@@ -916,22 +916,20 @@ final class PipelineShaders {
             // 1 while timber() is making a post or a brace and not a wall of boards.
             float arcWhole = 0.0;
 
-            // How much of the sun a surface throws at the eye: the microfacet model every
-            // modern renderer uses (GGX facets, Schlick's Fresnel, Smith's shadowing). rough
-            // is how rough the surface is, 0 a mirror and 1 chalk; f0 is how much it mirrors
-            // seen square on, 0.04 for anything that is not metal.
-            float glossed(vec3 n, vec3 v, vec3 l, float rough, float f0) {
-                vec3 h = normalize(v + l);
-                float nl = max(dot(n, l), 0.0), nv = max(dot(n, v), 0.001), nh = max(dot(n, h), 0.0), vh = clamp(dot(v, h), 0.0, 1.0);
-                float a = rough * rough, a2 = a * a;
-                float d = nh * nh * (a2 - 1.0) + 1.0;
-                float facets = a2 / (3.14159265 * d * d);
-                float k = (rough + 1.0) * (rough + 1.0) / 8.0;
-                float seen = 1.0 / ((nv * (1.0 - k) + k) * (nl * (1.0 - k) + k));
-                float fresnel = f0 + (1.0 - f0) * pow(1.0 - vh, 5.0);
-                return facets * seen * fresnel * 0.25 * nl;
-            }
             uniform float uRaining;
+            // 1 where every surface mirrors what is round it, 0 where none does: see the world's light.
+            uniform float uSkyMirror;
+            // How much of the light that falls on the ground it throws back up: a street, a lawn.
+            const float GROUND_GIVES = 0.18;
+            // How rough tarmac, the stones of a drive and earth are; how much rougher what lies low
+            // in a surface with depth is, and how much smoother its tops.
+            const float TARMAC_ROUGH = 0.72, GRAVEL_ROUGH = 0.55, EARTH_ROUGH = 0.95, LOW_ROUGHER = 0.2, WORN_SMOOTHER = 0.12;
+            // reliefShare holds how deep each of tarmac, gravel and earth is drawn: these are the
+            // depths the ground block gives each, which divided out leave what the ground is made of.
+            const float TARMAC_DEPTH_SHARE = 0.14, EARTH_DEPTH_SHARE = 0.8;
+            // Over how many tiles what every surface mirrors of what is round it fades out, before
+            // the built world itself begins to: see gone.
+            const float MIRROR_FADE = 25.0;
             uniform float uDark;
             uniform vec4 uLantern;
             uniform vec3 uOpenLinear;
@@ -1358,7 +1356,7 @@ final class PipelineShaders {
             float reliefKind = 0.0;
             // Where on the surface the pixel is, and how fast that changes over the screen.
             vec2 reliefBase = vec2(0.0), reliefAcross = vec2(0.0), reliefDown = vec2(0.0);
-            // Open ground: where on each of its two copies of the picture, which copy, and how much of it is tarmac, gravel and earth.
+            // Open ground: where on each of its two copies of the picture, which copy, and how deep its tarmac, gravel and earth are drawn.
             vec2 reliefOne = vec2(0.0), reliefTwo = vec2(0.0), reliefOneAcross = vec2(0.0), reliefOneDown = vec2(0.0), reliefTwoAcross = vec2(0.0), reliefTwoDown = vec2(0.0);
             float reliefWhich = 0.0;
             vec3 reliefShare = vec3(0.0);
@@ -2767,7 +2765,7 @@ final class PipelineShaders {
                     // Stones stand up out of a drive and clods out of earth, a finger deep; tarmac
                     // is pitted, a seventh as deep. The place seen among them is found by relieve.
                     if (dark + loose + earth > 0.02) {
-                        reliefShare = vec3(dark * 0.14, loose, earth * 0.8);
+                        reliefShare = vec3(dark * TARMAC_DEPTH_SHARE, loose, earth * EARTH_DEPTH_SHARE);
                         reliefOne = one;
                         reliefTwo = two;
                         reliefOneAcross = oneAcross;
@@ -3309,6 +3307,10 @@ final class PipelineShaders {
                 }
                 lightHere += uLightLinear * vec3(0.9, 0.86, 0.74) * (0.3 * max(uLight.z, 0.0) * (1.0 - abs(n.z)) * open * groundLit);
                 vec3 color = pow(texel.rgb, vec3(2.2)) * lightHere;
+                // The light the surface scatters, and how much of all it scatters is left once
+                // what it mirrors is taken out: see the all-round mirror below.
+                vec3 scattered = color;
+                float scatterKept = 1.0;
                 if (card) {
                     // A leaf lets the sun through. Looked at against the light, foliage and
                     // grass glow from behind, yellower than they are lit from in front, and
@@ -3351,6 +3353,10 @@ final class PipelineShaders {
                     color *= strip ? 1.0 : mix(0.72 + 0.28 * clamp(vCover < 1.0 ? 1.0 - vCover : 1.0, 0.0, 1.0), 1.0, snowed);
                 }
 
+            """;
+
+    /** The world's fragment shader from water and wet ground on: it is a constant of its own as Java holds no longer one. */
+    static final String WORLD_FRAGMENT_MAIN_WET = """
                 // Water, and ground that rain has wetted, show the sky: little of it looking
                 // straight down, nearly all of it at a glancing angle, and the sun as a streak
                 // of light. Wet ground is darker than dry, and holds the most water where it
@@ -3380,7 +3386,14 @@ final class PipelineShaders {
                 if (uRaining > 0.0 && !card && open > 0.5 && n.z > 0.8 && range < 22.0) {
                     color += atmosphere(vec3(0.0, 0.0, 1.0)) * (landing(vWorld.xy).y * uRaining * 0.6);
                 }
-                if (!card && !water && reached > 0.0) {
+                // A varnished floor mirrors a little too: the window across the room, the legs of
+                // a chair.
+                float polish = vMaterial > 2.5 && vMaterial < 3.5 ? 0.22 : vMaterial > 10.5 && vMaterial < 11.5 ? 0.3 : 0.0;
+                // A window pane mirrors whichever way it faces, and so does the glass of a screen.
+                // So does a mirror in its frame, and more than either.
+                float pane = glazed > 0.5 ? 0.6 : showing ? 0.0 : surface > 9.5 && surface < 10.5 ? 0.4
+                        : surface > 15.5 && surface < 16.5 && !pictured ? 0.55 : 0.0;
+                if (!card && !water) {
                     // Every surface has a gloss of its own: dull for earth and render, more for
                     // paint and planed wood, and much more for anything with water lying on it.
                     float pale = max(texel.r, max(texel.g, texel.b));
@@ -3421,22 +3434,63 @@ final class PipelineShaders {
                         mirrors = surface > 4.5 && surface < 5.5 || surface > 7.5 && surface < 8.5 ? 0.55 : surface > 9.5 && surface < 10.5 ? 0.06
                                 : surface > 15.5 && surface < 16.5 && !pictured ? 0.9 : 0.04;
                     }
+                    // Where the mod's own picture says what the ground is, its roughness is the
+                    // stuff's and not the paint's: tarmac's binder, smooth stones in a drive, earth.
+                    vec3 madeOf = reliefShare / vec3(TARMAC_DEPTH_SHARE, 1.0, EARTH_DEPTH_SHARE) * step(0.5, open);
+                    float made = madeOf.x + madeOf.y + madeOf.z;
+                    if (made > 0.02) {
+                        float stuff = dot(madeOf, vec3(TARMAC_ROUGH, GRAVEL_ROUGH, EARTH_ROUGH)) / made;
+                        rough = mix(rough, stuff, min(made, 1.0));
+                    }
+                    // Within any surface with depth of its own, what lies low, the pits of tarmac,
+                    // between stones, the joints of boards, the gaps between shingles, holds dust and
+                    // grit and is rougher; the tops are worn smoother by weather, and on the ground by
+                    // feet and wheels.
+                    rough = clamp(rough + LOW_ROUGHER * reliefLow - WORN_SMOOTHER * (reliefKind > 0.5 ? reliefNear - reliefLow : 0.0), 0.05, 1.0);
                     // Snow is pale and nearly as dull as anything is: taken for pale paint, a field of it had a sheen.
                     rough = mix(rough, 0.82, snowed);
                     rough = mix(rough, 0.18, shine);
-                    color += uLightLinear * (2.1 * reached * glossed(n, view, uLight, rough, mirrors));
-                    if (snowed > 0.0 && uLight.z > 0.0 && uOwnTextures > 0.5) {
-                        // And it glitters: see snowGlints.
-                        color += uLightLinear * (SNOW_GLINT * snowed * reached * snowGlints(vPlace.xy, n, view, uLight, sqrt(length(dFdx(vPlace.xy)) * length(dFdy(vPlace.xy)))));
+                    if (reached > 0.0) {
+                        color += uLightLinear * (2.1 * reached * glossed(n, view, uLight, rough, mirrors));
+                        if (snowed > 0.0 && uLight.z > 0.0 && uOwnTextures > 0.5) {
+                            // And it glitters: see snowGlints.
+                            color += uLightLinear * (SNOW_GLINT * snowed * reached * snowGlints(vPlace.xy, n, view, uLight, sqrt(length(dFdx(vPlace.xy)) * length(dFdy(vPlace.xy)))));
+                        }
+                    }
+                    // And every surface mirrors a little of what is round it, most at a glance:
+                    // out of doors the sky, in a room its own light, and the lit ground below.
+                    // The sun's disc is left out, as its glint is above. Water and wet ground
+                    // mirror the world itself further down, and what they mirror is not counted twice.
+                    // What it mirrors is light it does not scatter: a metal scatters next to none.
+                    // Far off it fades out before the built world ends, where the land beyond
+                    // the map, drawn without it, takes over. Glass and a mirror in its frame
+                    // keep what they had: the last pass traces the world in them, and a mirror
+                    // has the viewer drawn in it.
+                    vec2 fromEye = vWorld.xy - uEye.xy;
+                    float toEdge = min(uFogEnd - length(fromEye), uLoaded.z - length(fromEye - uLoaded.xy)) - (uFogEnd - uFogStart);
+                    float share = uSkyMirror * (1.0 - step(0.35, pane)) * smoothstep(0.0, MIRROR_FADE, toEdge);
+                    if (share > 0.0) {
+                        float outside = clamp(open, 0.0, 1.0);
+                        vec3 way = mirroredWay(n, reflect(-view, n), rough);
+                        // The ground is lit by the sun only out of doors; a room has its own light on its floor.
+                        vec3 ground = (uLightLinear * (2.1 * max(uLight.z, 0.0) * outside) + given) * GROUND_GIVES;
+                        vec3 above = given * fromSky;
+                        if (outside > 0.0) {
+                            above = mix(above, skyAround(way, 0.0) * skyOver, outside);
+                        }
+                        vec3 round = mix(ground, above, smoothstep(-0.15, 0.1, way.z));
+                        share *= mirroredShare(mirrors, rough, max(dot(n, view), 0.001));
+                        color = max(color + (round - scattered) * share, vec3(0.0));
+                        scatterKept = 1.0 - share;
                     }
                 }
-                color += pow(texel.rgb, vec3(2.2)) * beams(vWorld, n, card ? 1.0 : 0.0);
-                color += pow(texel.rgb, vec3(2.2)) * flashLight(vWorld, n);
+                color += pow(texel.rgb, vec3(2.2)) * (beams(vWorld, n, card ? 1.0 : 0.0) * scatterKept);
+                color += pow(texel.rgb, vec3(2.2)) * (flashLight(vWorld, n) * scatterKept);
                 // A fire with a shadow map lights what it can see from where it burns (FireShadows). One
                 // without lights only where the game has the square lit over the open ground's light, as
                 // it has round a fire: the game's light stops at walls, and an unshadowed light does not.
                 vec3 lampLit = max(pow(max(vColor.rgb, vec3(0.0)), vec3(2.2)) - uOpenLinear, 0.0);
-                color += pow(texel.rgb, vec3(2.2)) * fireWorldLight(vWorld, n, clamp(dot(lampLit, vec3(0.3, 0.5, 0.2)) * 12.0, 0.0, 1.0));
+                color += pow(texel.rgb, vec3(2.2)) * (fireWorldLight(vWorld, n, clamp(dot(lampLit, vec3(0.3, 0.5, 0.2)) * 12.0, 0.0, 1.0)) * scatterKept);
                 // A lamp that is lit is brighter than anything it lights. The game lights the
                 // square a burning lamp stands on strongly, and in the dark that is how a lamp
                 // that is on is told: its pale parts, the shade and the glass, then give light
@@ -3568,14 +3622,7 @@ final class PipelineShaders {
                 }
                 // What is laid over the ground is mixed in by its alpha. For everything else the
                 // alpha says how much of a mirror the surface is, 1 for none, which the last
-                // pass reads to trace what the mirror shows.
-                // A varnished floor mirrors a little too: the window across the room, the legs of
-                // a chair.
-                float polish = vMaterial > 2.5 && vMaterial < 3.5 ? 0.22 : vMaterial > 10.5 && vMaterial < 11.5 ? 0.3 : 0.0;
-                // A window pane mirrors whichever way it faces, and so does the glass of a screen.
-                // So does a mirror in its frame, and more than either.
-                float pane = glazed > 0.5 ? 0.6 : showing ? 0.0 : surface > 9.5 && surface < 10.5 ? 0.4
-                        : surface > 15.5 && surface < 16.5 && !pictured ? 0.55 : 0.0;
+                // pass reads to trace what the mirror shows: see traced above.
                 // Where water shows the world by the picture drawn from under it, it is no mirror for the last pass to trace.
                 gl_FragColor = vec4(color, sheet ? veil : uLaid > 0.5 ? texel.a * shown : 1.0 - uMirrors * max(max(water && uWater.z > 0.0 ? 0.0 : shine, polish) * step(0.8, n.z), pane));
             }
@@ -3624,7 +3671,7 @@ final class PipelineShaders {
                     texel.a = there * clamp(vCover / 0.27, 0.0, 1.0) * (0.6 + 0.3 * thick);
                 }
             """;
-    static final String WORLD_FRAGMENT_MAIN = WORLD_FRAGMENT_MAIN_START.concat(RoadPaint.GLSL_MAIN).concat(BLOOD_MAIN).concat(WORLD_FRAGMENT_MAIN_GROWN).concat(WORLD_FRAGMENT_MAIN_REST);
+    static final String WORLD_FRAGMENT_MAIN = WORLD_FRAGMENT_MAIN_START.concat(RoadPaint.GLSL_MAIN).concat(BLOOD_MAIN).concat(WORLD_FRAGMENT_MAIN_GROWN).concat(WORLD_FRAGMENT_MAIN_REST).concat(WORLD_FRAGMENT_MAIN_WET);
 
     static final String SHADOW_VERTEX = """
             #version 120
@@ -6107,7 +6154,10 @@ final class PipelineShaders {
                         around += uFlashSky * ((0.6 + 0.4 * max(n.z, 0.0)) * outdoors);
                     }
                     around *= mix(1.0, uCabinAround, uCabinArms);
-                    color = dressed(pow(figure.rgb, vec3(2.2)), n, view, strand, worn, gloss, low, uLight, sunLight * sun, around, lamps, skyBack);
+                    // As the world's surfaces mirror: out of doors the sky without the sun's
+                    // disc, whose glint is the sun's own, and under a roof the light round them.
+                    vec3 mirrored = uFigureMirror > 0.5 ? mix(around, skyAround(back * vec3(1.0, 1.0, sign(back.z)), 0.0), outdoors * (1.0 - roofed)) : skyBack;
+                    color = dressed(pow(figure.rgb, vec3(2.2)), n, view, strand, worn, gloss, low, uLight, sunLight * sun, around, lamps, mirrored);
                 }
 
                 // A vehicle's lamps that are on shine whatever light it stands in.

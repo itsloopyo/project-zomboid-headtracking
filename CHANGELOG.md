@@ -108,6 +108,7 @@
 - Water flows and reflects.
 - `Medium` and `High`: burning houses, Molotovs and campfires have flames, smoke and flickering firelight. Fireplaces and stoves burn inside. `OwnFire` turns the mod's fire off.
 - The picture adjusts to the brightness of what you're looking at, like an eye.
+- `Medium` and `High`: every surface reflects the sky, the room or the ground by how rough it is, so metal looks like metal. Skin and clothes take the light the same way.
 
 #### Graphics settings
 

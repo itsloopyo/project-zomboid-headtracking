@@ -27,14 +27,55 @@ final class Sky {
             uniform vec3 uFlashSky;
             uniform vec3 uFlashWay;
 
-            vec3 atmosphere(vec3 d) {
+            // The sky's light that way, with as much of the sun's disc in it as disc says.
+            vec3 skyAround(vec3 d, float disc) {
                 float low = 1.0 - clamp(d.z, 0.0, 1.0);
                 vec3 color = mix(uZenith, uHorizon, pow(low, 2.6));
                 float mu = max(dot(d, uSun), 0.0);
                 color += uGlow * (pow(mu, 2.5) * pow(low, 5.0) * 0.9 + pow(low, 14.0) * 0.25);
-                color += uSunColor * (0.16 * pow(mu, 18.0) + 0.5 * pow(mu, 300.0));
+                color += uSunColor * (0.16 * pow(mu, 18.0) + disc * 0.5 * pow(mu, 300.0));
                 // A flash lights the air all round, the way to it most of all.
                 return pow(max(color, vec3(0.0)), vec3(2.2)) + uFlashSky * (0.15 + pow(max(dot(d, uFlashWay), 0.0), 5.0));
+            }
+
+            vec3 atmosphere(vec3 d) {
+                return skyAround(d, 1.0);
+            }
+
+            // How much of the sun a surface throws at the eye: the microfacet model every
+            // modern renderer uses (GGX facets, Schlick's Fresnel, Smith's shadowing). rough
+            // is how rough the surface is, 0 a mirror and 1 chalk; f0 is how much it mirrors
+            // seen square on, 0.04 for anything that is not metal.
+            float glossed(vec3 n, vec3 v, vec3 l, float rough, float f0) {
+                vec3 h = normalize(v + l);
+                float nl = max(dot(n, l), 0.0), nv = max(dot(n, v), 0.001), nh = max(dot(n, h), 0.0), vh = clamp(dot(v, h), 0.0, 1.0);
+                float a = rough * rough, a2 = a * a;
+                float d = nh * nh * (a2 - 1.0) + 1.0;
+                float facets = a2 / (3.14159265 * d * d);
+                float k = (rough + 1.0) * (rough + 1.0) / 8.0;
+                float seen = 1.0 / ((nv * (1.0 - k) + k) * (nl * (1.0 - k) + k));
+                float fresnel = f0 + (1.0 - f0) * pow(1.0 - vh, 5.0);
+                return facets * seen * fresnel * 0.25 * nl;
+            }
+
+            // What a surface mirrors of all that is round it, as a share of that light: f0 how
+            // much it mirrors looked at square on, rough how rough it is, nv how square on it is
+            // looked at. The rougher, the less it mirrors at a glance. (Karis's fit of the
+            // split-sum integral of the GGX lobe.)
+            float mirroredShare(float f0, float rough, float nv) {
+                vec4 r = rough * vec4(-1.0, -0.0275, -0.572, 0.022) + vec4(1.0, 0.0425, 1.04, -0.04);
+                float a004 = min(r.x * r.x, exp2(-9.28 * nv)) * r.x + r.y;
+                vec2 ab = vec2(-1.04, 1.04) * a004 + r.zw;
+                return f0 * ab.x + ab.y;
+            }
+
+            // The way a rough surface mirrors most from: between the way a mirror would throw the
+            // eye's line and the way the surface faces (Lagarde's dominant direction).
+            vec3 mirroredWay(vec3 n, vec3 thrown, float rough) {
+                float glossy = 1.0 - rough;
+                vec3 way = mix(n, thrown, glossy * (sqrt(glossy) + rough));
+                // A line thrown back through a face turned away from the eye mirrors nothing past it.
+                return dot(way, n) > 0.001 ? normalize(way) : n;
             }
 
             // The air between the eye and what it looks at, and more of it towards a low sun, which shines
