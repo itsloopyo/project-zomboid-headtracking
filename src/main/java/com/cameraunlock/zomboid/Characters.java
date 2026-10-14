@@ -571,8 +571,13 @@ public final class Characters {
         float[] stains = view.ride.dress.stains;
         // Under the vehicle's roof no snow falls on them.
         OwnArms.snowed(0f);
-        OwnArms.draw(projection, skins[0], false, viewer.isFemale(), view.ride.skin, false, worn, stains);
-        OwnArms.draw(projection, skins[1], true, viewer.isFemale(), view.ride.skin, false, worn, stains);
+        // A hand that holds a weapon up is on the weapon, and not on the wheel as well.
+        if (rightOnWheel()) {
+            OwnArms.draw(projection, skins[0], false, viewer.isFemale(), view.ride.skin, false, worn, stains);
+        }
+        if (leftOnWheel()) {
+            OwnArms.draw(projection, skins[1], true, viewer.isFemale(), view.ride.skin, false, worn, stains);
+        }
     }
 
     /** False if the vehicle sat in is not among the models. */
