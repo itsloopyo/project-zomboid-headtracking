@@ -60,14 +60,14 @@ BARKS = ['bark-oak', 'bark-linden', 'bark-maple', 'bark-birch', 'bark-pine', 'ba
 RAISED = ['asphalt', 'gravel', 'soil', 'shingles', 'wood', 'planks']
 PLAIN = ['grass', 'paint', 'carpet', 'vinyl', 'cloth', 'jersey', 'litter', 'rock']
 CUT_OUT = ['leaves', 'frond', 'ivy', 'sprigs']
-MODELS = ['shotgun', 'sawnoff', 'rifle', 'revolver', 'magnum', 'snubnose', 'capgun', 'pistol', 'pistol2', 'pistol3', 'dbarrel', 'assault', 'battle', 'arms']
+MODELS = ['shotgun', 'sawnoff', 'rifle', 'revolver', 'magnum', 'snubnose', 'capgun', 'pistol', 'pistol2', 'pistol3', 'dbarrel', 'assault', 'battle', 'varmint', 'arms']
 # The models whose pictures are twice as wide as high (tools/models/gunsmith.py, WIDE): every other is square.
-WIDE = {'rifle', 'shotgun', 'dbarrel', 'assault', 'battle'}
+WIDE = {'rifle', 'shotgun', 'dbarrel', 'assault', 'battle', 'varmint'}
 # The vehicle interiors (tools/models/cabins.py), each a colour and a surface of its own.
 CABINS = ['carnormal', 'carstationwagon', 'smallcar02', 'smallcar', 'suv', 'pickuptruck', 'vanseats', 'van', 'carluxury', 'moderncar',
           'moderncar02', 'sportscar', 'racecar', 'offroad', 'stepvan']
 # The weapons' colour is read by the card as what a screen shows (OwnGun), and so is the interiors'. The arms' is not (OwnArms).
-SRGB = {'shotgun.colour', 'sawnoff.colour', 'rifle.colour', 'revolver.colour', 'magnum.colour', 'snubnose.colour', 'capgun.colour', 'pistol.colour', 'pistol2.colour', 'pistol3.colour', 'dbarrel.colour', 'assault.colour', 'battle.colour'} | {f'{cabin}.colour' for cabin in CABINS}
+SRGB = {'shotgun.colour', 'sawnoff.colour', 'rifle.colour', 'revolver.colour', 'magnum.colour', 'snubnose.colour', 'capgun.colour', 'pistol.colour', 'pistol2.colour', 'pistol3.colour', 'dbarrel.colour', 'assault.colour', 'battle.colour', 'varmint.colour'} | {f'{cabin}.colour' for cabin in CABINS}
 # Kept four bytes a texel, for what BC7 was measured to cost them. The form is three unrelated numbers a texel, which blocks
 # hold badly (33 dB). The frond's leaflets are a few texels wide and lose their edges (30 dB over what of it shows). The
 # gravel's heights come out grainy (35 dB), and a surface's depth is read off them.

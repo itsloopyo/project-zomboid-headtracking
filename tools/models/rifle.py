@@ -1,8 +1,8 @@
-"""Builds the mod's own model of a bolt action hunting rifle and packs it for the jar.
+"""Builds the mod's own model of a bolt action hunting rifle or of a varmint rifle, and packs it for the jar.
 
 Run headless with Blender 4.4, from the repository root:
 
-    blender --background --factory-startup --threads 1 --python tools/models/rifle.py -- PICTURES [--renders DIR] [--no-pack] [--cpu] [--mesh]
+    blender --background --factory-startup --threads 1 --python tools/models/rifle.py -- PICTURES [--varmint] [--raw DIR [VIEW ...]] [--renders DIR] [--no-pack] [--cpu] [--mesh]
 
 PICTURES is the folder tools/models/shotgun_textures.py wrote: the rifle's stock is the same
 walnut. The model is made here from nothing: a sporting rifle with a round receiver, a
@@ -13,6 +13,10 @@ and rifle.surface.gz, laid out exactly as shotgun.py lays out the shotgun's, whi
 five parts that layout names, the rifle has three: what is fixed, the bolt, and a fired case for the mod to throw
 out of the port. The bolt is turned up about the bore before it is drawn back, which the
 mod does: here it is closed.
+
+With --varmint it is a varmint rifle on the same action (varmint, for the game's MSR700
+Rifle): a short round receiver with two scope bases, a heavy fluted barrel with a target
+crown and low open sights clear of a scope, and a thumbhole stock of laminated wood.
 
 The tools that turn, loft, bevel, unwrap and bake a part, the steel, the rubber, the walnut
 and the bake are gunsmith.py's.
@@ -30,6 +34,11 @@ from mathutils import Matrix, Vector
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import gunsmith as G  # noqa: E402
 from gunsmith import along, along_y, cuboid, cutter, lathe, loft, rod, screw, sweep, take  # noqa: E402
+import longgun as L  # noqa: E402
+
+VARMINT = "--varmint" in sys.argv
+HUNTING = not VARMINT
+NAME = "varmint" if VARMINT else "rifle"
 
 # The parts of the file's layout that the rifle has: of the five, the second is a pump's and the last a stock that is left out.
 FIXED, BOLT, CASE = 0, 2, 3
@@ -37,10 +46,22 @@ FIXED, BOLT, CASE = 0, 2, 3
 # Laid out with the bore along y through x = 0, z = 0 and the trigger at y = 0. GRIP is
 # where the hand that holds the grip is, which the finished model has as its origin: where
 # the game's own hunting rifle has its hand against its muzzle, so that the muzzle of this
-# one is where the game takes the shot to leave from.
-MUZZLE_Y = 0.892
-GRIP = Vector((0.0, -0.110, -0.0621))
-RECEIVER_REAR, RECEIVER_FRONT, RECEIVER_R = -0.045, 0.170, 0.0172
+# one is where the game takes the shot to leave from. The varmint rifle's muzzle is where the
+# game's MSR700 mesh has its muzzle attachment, (0, 0.5065, 0.0331), at the 0.4957 of the game's
+# units to a metre the hunting rifle and its scopes are drawn at.
+if VARMINT:
+    GRIP = Vector((0.0, -0.110, -0.0331 / 0.4957))
+    MUZZLE_Y = GRIP.y + 0.5065 / 0.4957
+else:
+    MUZZLE_Y = 0.892
+    GRIP = Vector((0.0, -0.110, -0.0621))
+RECEIVER_REAR, RECEIVER_FRONT, RECEIVER_R = -0.045, 0.170, 0.0155 if VARMINT else 0.0172
+# Where a scope fitted by the game stands the foot of its own rail: 22 mm under the point the game fixes it by
+# (ScopeModel.SEAT). The game fixes some scopes at one point and some at another: on the varmint rifle at (0, 0.0509,
+# 0.0516) or (0, 0.0416, 0.0499) of the MSR700 mesh. The bases are as high as the higher foot: a scope fixed there
+# stands on them, and the rail of one fixed at the other is let down into them, its rings standing clear.
+SEAT = GRIP.z + max(0.0516, 0.0499) / 0.4957 - 0.022
+BASE_TOP = SEAT
 BOLT_R = 0.0088
 BUTT = -0.345
 WOOD_TOP = -0.0040
@@ -50,7 +71,7 @@ TRAVEL = 0.085
 # The case is made well clear of the rifle, so that neither shades the other, and is packed about its own middle.
 CASE_AT = Vector((0.0, 0.30, 0.40))
 PORT = Vector((0.0172, 0.085, 0.006))
-# Over the bore: the top of the rear sight's notch and of the bead at the muzzle.
+# Over the bore: the top of the rear sight's notch and of the bead or blade at the muzzle.
 SIGHT_LINE = 0.0262
 # With the cheek on the comb.
 EYE_BEHIND_GRIP = 0.13
@@ -59,6 +80,12 @@ HELD = Vector((0.0, 0.30, -0.030))
 
 
 def barrel_radius(y):
+    if not HUNTING:
+        # A heavy barrel, nearly straight.
+        if y < 0.215:
+            return 0.0150
+        t = (y - 0.215) / (MUZZLE_Y - 0.215)
+        return 0.0146 + (0.0122 - 0.0146) * t
     if y < 0.215:
         return 0.0150
     if y < 0.235:
@@ -67,7 +94,35 @@ def barrel_radius(y):
     return 0.0086 + (0.0138 - 0.0086) * (1.0 - t) ** 1.6
 
 
+def heavy_barrel():
+    """The varmint rifle's barrel, fluted along its middle and crowned for a target."""
+    end = MUZZLE_Y
+    bm = bmesh.new()
+    profile = [(0.0, RECEIVER_FRONT - 0.004), (0.0150, RECEIVER_FRONT - 0.004)]
+    profile += [(barrel_radius(y), y) for y in (0.215, 0.30, 0.40, 0.50, 0.60, 0.70, 0.80) if y < end - 0.01]
+    r = barrel_radius(end)
+    profile += [(r, end - 0.0012), (r - 0.0012, end), (0.0058, end), (0.0050, end - 0.0040), (0.0029, end - 0.0040), (0.0029, end - 0.09), (0.0, end - 0.09)]
+    lathe(bm, profile, along_y(), segments=64)
+    flutes = []
+    for n in range(6):
+        a = 2 * math.pi * (n + 0.5) / 6
+        c, s = math.cos(a), math.sin(a)
+        groove = bmesh.new()
+        rings = []
+        for y in numpy.linspace(0.300, end - 0.075, 8):
+            deep = barrel_radius(y) - 0.0018
+            rings.append([(c * (deep + d) - s * w, y, s * (deep + d) + c * w) for d, w in ((0.0, -0.0016), (0.0, 0.0016), (0.006, 0.0024), (0.006, -0.0024))])
+        loft(groove, rings)
+        flutes.append(cutter(groove))
+    take(bm, "barrel", "blued", sharp=25.0, cut=flutes)
+    for used in flutes:
+        bpy.data.objects.remove(used)
+
+
 def barrel():
+    if not HUNTING:
+        heavy_barrel()
+        return
     bm = bmesh.new()
     profile = [(0.0, RECEIVER_FRONT - 0.004), (0.0150, RECEIVER_FRONT - 0.004), (0.0150, 0.215), (0.0138, 0.235)]
     profile += [(barrel_radius(y), y) for y in (0.30, 0.37, 0.44, 0.51, 0.58, 0.65, 0.72, 0.79, 0.85)]
@@ -98,14 +153,14 @@ def receiver():
     for used in (port_cut, tunnel_cut, notch_cut):
         bpy.data.objects.remove(used)
 
-    # The holes a scope's base is screwed into, filled with their screws.
-    plugs = bmesh.new()
-    for y in (-0.034, -0.016, 0.140, 0.158):
-        screw(plugs, 0.0, y, RECEIVER_R - 0.0002, 0.0026, Matrix.Identity(4))
-    take(plugs, "base screws", "blued", sharp=40.0)
+    if VARMINT:
+        bases()
+    else:
+        base_screws()
 
     # The safety: a short lever on the right of the tang, behind the handle, with a pad for the thumb.
     safety = bmesh.new()
+
     rod(safety, [(0.0128, -0.0500, 0.0030), (0.0150, -0.0545, 0.0052), (0.0158, -0.0600, 0.0078)], [0.0030, 0.0027, 0.0027], segments=12)
     lathe(safety, [(0.0040 * math.sin(math.radians(a)), -0.0030 * math.cos(math.radians(a))) for a in range(0, 181, 20)],
           Matrix.Translation((0.0160, -0.0612, 0.0086)), segments=14)
@@ -115,6 +170,35 @@ def receiver():
     stop = bmesh.new()
     cuboid(stop, -RECEIVER_R - 0.0016, -RECEIVER_R + 0.0010, -0.0400, -0.0250, -0.0010, 0.0052)
     take(stop, "bolt stop", "blued", bevel=0.0009, segments=2)
+
+
+def base_screws():
+    """The holes a scope's base is screwed into, filled with their screws."""
+    plugs = bmesh.new()
+    for y in (-0.034, -0.016, 0.140, 0.158):
+        screw(plugs, 0.0, y, RECEIVER_R - 0.0002, 0.0026, Matrix.Identity(4))
+    take(plugs, "base screws", "blued", sharp=40.0)
+
+
+def bases():
+    """Two scope bases, one on the bridge and one on the ring, each with its cross slot and its screws."""
+    for name, rear, front in (("rear base", RECEIVER_REAR + 0.004, -0.018), ("front base", 0.128, RECEIVER_FRONT - 0.004)):
+        bm = bmesh.new()
+        rings = []
+        for y in numpy.linspace(rear, front, 6):
+            rings.append([(-0.0095, y, RECEIVER_R - 0.004), (0.0095, y, RECEIVER_R - 0.004), (0.0098, y, BASE_TOP - 0.0045), (0.0080, y, BASE_TOP),
+                          (-0.0080, y, BASE_TOP), (-0.0098, y, BASE_TOP - 0.0045)])
+        loft(bm, rings)
+        slot = bmesh.new()
+        middle = (rear + front) / 2
+        cuboid(slot, -0.02, 0.02, middle - 0.0022, middle + 0.0022, BASE_TOP - 0.0030, BASE_TOP + 0.01)
+        slot_cut = cutter(slot)
+        take(bm, name, "blued", bevel=0.0006, segments=2, cut=(slot_cut,))
+        bpy.data.objects.remove(slot_cut)
+        heads = bmesh.new()
+        for y in (rear + 0.004, front - 0.004):
+            screw(heads, 0.0, y, BASE_TOP - 0.0002, 0.0022, Matrix.Identity(4))
+        take(heads, name + " screws", "blued", sharp=40.0)
 
 
 def bolt():
@@ -139,7 +223,8 @@ def bolt():
     rod(handle, path, [0.0058, 0.0052, 0.0046, 0.0043, 0.0042, 0.0044, 0.0050], segments=18)
     take(handle, "bolt handle", "blued", group=BOLT, sharp=40.0)
     knob = bmesh.new()
-    lathe(knob, [(0.0108 * math.sin(math.radians(a)), -0.0108 * math.cos(math.radians(a))) for a in range(0, 181, 12)],
+    size = 0.0108
+    lathe(knob, [(size * math.sin(math.radians(a)), -size * math.cos(math.radians(a))) for a in range(0, 181, 12)],
           Matrix.Translation(ball) @ (ball - root).normalized().to_track_quat("Z", "Y").to_matrix().to_4x4(), segments=28)
     take(knob, "bolt knob", "blued", group=BOLT, sharp=50.0)
 
@@ -174,7 +259,7 @@ def furniture():
     take(screws, "action screws", "blued", sharp=40.0)
 
 
-STOCK = [
+HUNTING_STOCK = [
     # y, top, bottom, half width, how square, how narrow the comb is against the belly
     (TIP_FROM - 0.0016, WOOD_TOP, -0.0310, 0.0170, 3.2, 1.0),
     (0.4000, WOOD_TOP, -0.0340, 0.0182, 3.2, 1.0),
@@ -198,6 +283,28 @@ STOCK = [
     (-0.3300, -0.0238, -0.1320, 0.0218, 2.6, 0.74),
     (BUTT, -0.0260, -0.1380, 0.0218, 2.7, 0.75),
 ]
+# The varmint rifle's stock: a broad flat fore-end to rest on a bag, and behind the receiver a comb that stays high over
+# a thumbhole, the grip upright below it.
+VARMINT_STOCK = [
+    (0.470, -0.0060, -0.0300, 0.0190, 3.4, 1.0),
+    (0.420, -0.0040, -0.0400, 0.0232, 4.2, 1.0),
+    (0.300, -0.0040, -0.0450, 0.0240, 4.6, 1.0),
+    (0.180, -0.0040, -0.0480, 0.0236, 4.4, 1.0),
+    (0.100, -0.0040, -0.0490, 0.0226, 3.8, 1.0),
+    (0.020, -0.0040, -0.0490, 0.0218, 3.6, 1.0),
+    (-0.0350, -0.0045, -0.0485, 0.0205, 3.2, 0.98),
+    (-0.0600, -0.0010, -0.0520, 0.0190, 2.8, 0.95),
+    (-0.0850, -0.0020, -0.0640, 0.0178, 2.6, 0.92),
+    (-0.1080, -0.0040, -0.0950, 0.0180, 2.5, 0.90),
+    (-0.1300, -0.0050, -0.1180, 0.0186, 2.5, 0.86),
+    (-0.1480, -0.0060, -0.1200, 0.0190, 2.6, 0.84),
+    (-0.1640, -0.0070, -0.1000, 0.0194, 2.5, 0.80),
+    (-0.2000, -0.0090, -0.1000, 0.0200, 2.5, 0.76),
+    (-0.2600, -0.0120, -0.1180, 0.0208, 2.6, 0.75),
+    (-0.3100, -0.0150, -0.1330, 0.0214, 2.7, 0.76),
+    (BUTT, -0.0160, -0.1380, 0.0216, 2.8, 0.77),
+]
+STOCK = VARMINT_STOCK if VARMINT else HUNTING_STOCK
 
 
 def stock_bottom(y):
@@ -209,7 +316,41 @@ def stock_bottom(y):
     raise ValueError("the stock does not reach %s" % y)
 
 
+def thumbhole():
+    """What is cut out of the varmint rifle's stock for the thumb to pass through, behind the grip and under the comb."""
+    bm = bmesh.new()
+    rings = []
+    for x in (-0.04, 0.04):
+        ring = []
+        for n in range(40):
+            a = 2 * math.pi * n / 40
+            # An oval leaning back with the grip, rounder at its foot.
+            along_it, up_it = 0.0300 * math.cos(a), 0.0150 * math.sin(a) * (1.0 if math.sin(a) > 0 else 1.25)
+            lean = math.radians(-58)
+            ring.append((x, -0.1350 + along_it * math.cos(lean) - up_it * math.sin(lean), -0.0420 + along_it * math.sin(lean) + up_it * math.cos(lean)))
+        rings.append(ring)
+    loft(bm, rings)
+    return cutter(bm)
+
+
 def stock():
+    if not HUNTING:
+        holes = [thumbhole()]
+        wood = bmesh.new()
+        loft(wood, [G.stock_ring(*station) for station in along(STOCK, 96)])
+        take(wood, "stock", "laminate", bevel=0.0016, segments=3, sharp=50.0, cut=holes, texels=1.1)
+        for used in holes:
+            bpy.data.objects.remove(used)
+        last = STOCK[-1]
+        part = bmesh.new()
+        loft(part, [G.stock_ring(BUTT + back, *last[1:], grow=grow)
+                    for back, grow in ((0.0, 0.0003), (-0.0150, 0.0003), (-0.0195, -0.0008), (-0.0220, -0.0030), (-0.0230, -0.0065))])
+        take(part, "pad", "rubber", sharp=40.0)
+        studs = bmesh.new()
+        L.stud(studs, BUTT + 0.060, stock_bottom(BUTT + 0.060), 22)
+        L.stud(studs, 0.405, stock_bottom(0.405), 0)
+        take(studs, "sling studs", "blued", sharp=35.0)
+        return
     wood = bmesh.new()
     loft(wood, [G.stock_ring(*station) for station in along(STOCK, 96)])
     take(wood, "stock", "walnut", bevel=0.0012, segments=2, sharp=50.0, texels=1.1)
@@ -235,6 +376,14 @@ def stock():
 
 
 def sights():
+    if VARMINT:
+        # Low open sights for when no scope is fitted, clear of every scope's tube: a leaf on the barrel ahead of the
+        # longest scope's objective, its foot down in the barrel's top flute, and a blade on a ramp at the muzzle.
+        at = 0.360
+        L.notch_leaf(at, barrel_radius(at) - 0.0030, SIGHT_LINE)
+        front = MUZZLE_Y - 0.020
+        L.ramp_and_blade(front, barrel_radius(front) + 0.0060, SIGHT_LINE)
+        return
     # The rear sight: a base on the barrel, and a leaf standing on it with a notch in its top.
     at = 0.335
     r = barrel_radius(at)
@@ -291,22 +440,24 @@ def ebony(g):
                     g.times(light, 0.00004))
 
 
-def sight(g):
-    """A sight's own steel: blued and left dull, so that its edges are black against what is aimed at."""
-    colour, roughness, lines = G.steel(g, (0.020, 0.022, 0.028), 0.62, wear=0.25)
-    return g.finish(colour, roughness, 1.0, g.times(lines, 0.00002))
+def laminate(g):
+    """Wood laminated of veneers glued face to face along the gun, stained in turn brown and grey: on the flat sides one
+    veneer's figure, and where the surface curves through them, their edges in bands."""
+    figure = g.laid("walnut", 0.30)
+    light = g.grey(figure)
+    wave = g.times(g.noise(18.0, 2.0), 0.0016)
+    layer = g.teeth(g.add(g.times(g.x, 1.0 / 0.0022), g.times(wave, 1.0 / 0.0022)))
+    brown = g.tinted(figure, g.colour(1.15, 0.84, 0.62))
+    grey = g.tinted(g.mix(0.6, figure, g.colour(0.16, 0.15, 0.13)), g.colour(0.80, 0.80, 0.76))
+    colour = g.mix(g.step(layer, 0.42, 0.58), brown, grey)
+    rough = g.add(0.34, g.times(g.math("SUBTRACT", 1.0, light), 0.12))
+    return g.finish(colour, rough, 0.0, g.times(light, 0.00005))
 
 
-def ramp(g):
-    colour, roughness, lines = G.steel(g, (0.026, 0.028, 0.036), 0.50, wear=0.5)
-    top = g.step(g.nz, 0.35, 0.8)
-    return g.finish(colour, roughness, 1.0, g.times(top, g.teeth(g.times(g.y, 1.0 / 0.0012)), 0.00014))
-
-
-G.MAKERS.update({"walnut": walnut, "ebony": ebony, "sight": sight, "ramp": ramp})
-# Long and thin: its pictures are twice as wide as high.
+G.MAKERS.update({"walnut": walnut, "ebony": ebony, "laminate": laminate})
+# Long and thin: their pictures are twice as wide as high.
 G.WIDE = True
-G.TUBES = {"barrel": (0.0, 0.53, 0.0110)}
+G.TUBES = {"barrel": (0.0, 0.53, 0.0110 if HUNTING else 0.0135)}
 
 
 def build():
@@ -327,7 +478,7 @@ def pack(gun, colour, surface):
     # here: its right side, with the bolt's handle and the port, has x less than nought in the file.
     muzzle = Vector((0.0, MUZZLE_Y, 0.0)) - GRIP
     port = (PORT - GRIP) * Vector((-1.0, 1.0, 1.0))
-    G.pack(gun, "rifle", GRIP, colour, surface, range(5), G.head_v4(muzzle, HELD - GRIP, port, TRAVEL, SIGHT_LINE, EYE_BEHIND_GRIP), moved=((CASE, CASE_AT),))
+    G.pack(gun, NAME, GRIP, colour, surface, range(5), G.head_v4(muzzle, HELD - GRIP, port, TRAVEL, SIGHT_LINE, EYE_BEHIND_GRIP), moved=((CASE, CASE_AT),))
 
 
 VIEWS = {
@@ -357,7 +508,7 @@ def main():
         os.makedirs(folder, exist_ok=True)
         G.render(folder, VIEWS, [name for name in args if name in VIEWS], samples=48)
         return
-    gun = G.unwrap("rifle")
+    gun = G.unwrap(NAME)
     if "--mesh" in args:
         pack(gun, None, None)
         return
