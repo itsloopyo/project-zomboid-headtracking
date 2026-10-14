@@ -248,9 +248,10 @@ final class Config {
                 SPLIT_SCREEN);
         own = new int[] {
             core.configLocalBool("Content", "OwnWeapons",
-                    "true: the mod's models of the pump shotgun and its sawn-off, the hunting rifle, the double barrelled shotgun and its\n"
-                            + "sawn-off, the pistols, the revolvers, the toy cap pistol, the assault rifle, the battle rifle and rifle scopes.\n"
-                            + "false: the game's own, with no picture through the scope.",
+                    "true: the mod's models of the pump shotgun and its sawn-off, the tactical pump shotgun, the hunting, varmint and\n"
+                            + "tactical rifles, the lever action rifle and carbine, the self-loading rifle and carbine, the double barrelled shotgun\n"
+                            + "and its sawn-off, the pistols, the revolvers, the toy cap pistol and rifle, the assault rifle, the battle rifle and\n"
+                            + "rifle scopes. false: the game's own, with no picture through the scope.",
                     writable | live, true),
             core.configLocalBool("Content", "OwnFurniture",
                     "true: the mod's models of furniture, appliances, street lamps, clocks, picture frames, banners and flags. false: the\n"

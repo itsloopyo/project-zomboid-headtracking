@@ -36,9 +36,11 @@
 - Aiming a firearm zooms the view. Head movement is scaled so the zoom doesn't magnify it.
 - Held weapons are drawn like a modern shooter: low right at the hip, raised to the sights, swaying, with recoil based on each weapon's recoil stat and a muzzle flash (`MuzzleFlash`).
 - The mod's own arms and hands hold each gun by its real grip, read from the gun's model, so guns from other mods are held right too. Handguns are held two-handed when your left hand is free. `OwnArms=false` uses the game's arms.
-- Reload and action animations: pump shotguns rack, pistols cycle their slide, lock back when empty and swap magazines, revolvers turn the cylinder and load one round at a time, double barrels break open and throw out the spent shells, the assault rifle and the battle rifle cycle their bolt and throw out a case with every shot, hold the bolt back on the last round and let an empty magazine fall from the hand.
+- Reload and action animations: pump shotguns rack, pistols cycle their slide, lock back when empty and swap magazines, revolvers turn the cylinder and load one round at a time, double barrels break open and throw out the spent shells, the assault rifle, the battle rifle and the self-loading rifle and carbine cycle their bolt and throw out a case with every shot, hold the bolt back on the last round and let an empty magazine fall from the hand, lever guns swing the lever down and back and throw the fired case out of the top, and the toy cap rifle's hammer falls and its cylinder turns with each shot.
 - A sawn-off has no stock, so it kicks in your hands when aiming too.
-- Red dot sights, lasers and gun lights are drawn on the mod's gun models.
+- Red dot sights, lasers and gun lights are drawn on the mod's gun models. With a red dot sight on a long gun the eye is raised to look through it.
+- The varmint rifle has low open sights for when no scope is fitted.
+- Leaning in with the sights up stops short of a long gun's rear sight.
 - `Medium` and `High`: x2, x4 and x8 scopes are real scopes with magnified view. Moving your eye off the scope's axis darkens the picture.
 - Melee swings, overhead blows, stabs and shoves follow the game's timing, with a separate motion for each weapon type. A hit pauses the weapon at contact for a moment.
 - Bare-handed shoves and stomps use your own hands.
