@@ -5,11 +5,13 @@ package com.cameraunlock.zomboid;
  * game is, frame by frame.
  *
  * The game has two animations of it, by whether the sights are up when it starts. A shot is
- * fired with them up, and the rack after it starts as the shot is fired: the hand waits out the kick, draws the fore-end straight back, stops a moment
- * with the bolt open, drives it home and holds still for what is left. At its usual pace
- * (0.77 s) the pull takes 0.19 s, the shove 0.23 s, and the first quarter, while the hand
+ * fired with them up, and the rack after it starts as the shot is fired: the hand waits out
+ * the kick, draws the fore-end straight back, stops a moment with the bolt open and drives it
+ * home before the game lets go of its animation at 0.80 of the way through. At its usual pace
+ * (0.77 s) the pull takes 0.19 s, the shove 0.18 s, and the first quarter, while the hand
  * waits, is when the kick of the shot has mostly died away. Its rack from the hip, as after
- * loading, has no kick to wait out and the stroke keeps to where the game's own hand makes it, the pull over its first 30 percent and the shove from 37.5 to 75 percent.
+ * loading, has no kick to wait out, and the stroke keeps to where the game's own hand makes
+ * it: the pull over its first 30 percent and the shove from 37.5 to 75 percent.
  *
  * Should the game let go of its animation part way through, the stroke runs on at the pace
  * it had to the end, so the fore-end never jumps home.
@@ -18,7 +20,7 @@ package com.cameraunlock.zomboid;
  */
 final class PumpStroke {
     /** Shares of the game's rack at which the pull starts and ends, and the shove starts and ends, with the sights up and from the hip. */
-    static final float[] AIMED = {0.25f, 0.5f, 0.55f, 0.85f}, HIP = {0.02f, 0.3f, 0.375f, 0.75f};
+    static final float[] AIMED = {0.25f, 0.5f, 0.55f, 0.78f}, HIP = {0.02f, 0.3f, 0.375f, 0.75f};
     private static final int BACK_FROM = 0, BACK_TO = 1, FORWARD_FROM = 2, FORWARD_TO = 3;
     /** How far back the fore-end is when the bolt throws the spent shell out of the port: at the back of the pull. */
     static final float THROWN_AT = 0.95f;

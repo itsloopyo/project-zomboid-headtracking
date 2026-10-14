@@ -323,7 +323,7 @@ public final class Tests {
         }
         check(started > 0.15f, "the hand waits after the shot: " + started);
         check(home - started >= 0.3f && home - started <= 0.5f, "a practised stroke, 0.3 to 0.5 s: " + (home - started));
-        check(home > 0f && home < RACK_TAKES, "and home before the game's rack is over");
+        check(home > 0f && home <= RACK_LET_GO * RACK_TAKES, "and home before the game lets go of its rack: " + home);
         check(thrown == 1, "one shell thrown, at the back of the stroke: " + thrown);
     }
 
