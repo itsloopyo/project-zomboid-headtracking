@@ -34,6 +34,74 @@ final class LookingGlass {
     static final float CLEAR = 0.002f;
     /** The most mirrors in the plane whose glass is shown. */
     static final int MOST = 16;
+    /** Floats a corner of the glass is drawn with: its place from the eye, how far across and up the glass it is, 0 to 1, and the glass's width and height in tiles. */
+    static final int CORNER_FLOATS = 7;
+
+    /**
+     * The glass of the frame's mirrors, laid over the eye's picture: each corner from the eye,
+     * then how far across and up its glass it is and how wide and high that glass is.
+     */
+    static final String VERTEX = """
+            #version 120
+            varying vec3 vPlace;
+            varying vec4 vOn;
+            void main() {
+                vPlace = gl_Vertex.xyz;
+                vOn = gl_MultiTexCoord0;
+                gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;
+            }
+            """;
+
+    /**
+     * What a mirror shows, as glass silvered at the back shows it. The picture drawn from
+     * behind the glass is what the silver throws back, a little short of all of it and tinted
+     * by the glass it passes through twice. The front of the glass throws back a little more
+     * the flatter it is seen, a faint second image as far before the silver as the glass is
+     * thick. Smudges on the glass scatter the light round them, and at the very edge the
+     * silver has worn thin.
+     */
+    static final String SHOWN = "#version 120\n" + CabinGlass.NOISE + """
+            uniform sampler2D uPicture;
+            uniform vec2 uSize;
+            // The way the glass faces, on the map: the corners are the map's from the eye.
+            uniform vec3 uFacing;
+            varying vec3 vPlace;
+            varying vec4 vOn;
+            const float SILVER = 0.9;
+            const vec3 TINT = vec3(0.93, 0.97, 0.94);
+            // How thick the glass is, in tiles.
+            const float THICK = 0.005;
+
+            float smudged(vec2 on) {
+                float n = noiseAt(on * 9.0) * 0.5 + noiseAt(on * 23.0 + 7.1) * 0.3 + noiseAt(on * 61.0 + 3.7) * 0.2;
+                return smoothstep(0.58, 0.85, n);
+            }
+
+            vec3 pictureAt(vec2 uv) {
+                return texture2D(uPicture, clamp(uv, vec2(0.0), vec2(1.0))).rgb;
+            }
+
+            void main() {
+                vec2 uv = gl_FragCoord.xy / uSize;
+                vec3 view = normalize(-vPlace);
+                float square = clamp(dot(view, uFacing), 0.0, 1.0);
+                float front = 0.04 + 0.96 * pow(1.0 - square, 5.0);
+                // The front's image of a place stands as far before the silver's as twice the
+                // glass is thick. Taken for a place as far behind the glass as the eye is before it.
+                vec4 at = gl_ModelViewProjectionMatrix * vec4(vPlace * 2.0, 1.0);
+                vec4 near = gl_ModelViewProjectionMatrix * vec4(vPlace * 2.0 + uFacing * (2.0 * THICK), 1.0);
+                vec2 shift = (near.xy / near.w - at.xy / at.w) * 0.5;
+                vec3 color = pictureAt(uv) * (SILVER * (1.0 - front) * (1.0 - front)) * TINT + pictureAt(uv + shift) * front;
+                vec2 spread = 24.0 / uSize;
+                vec3 round = (pictureAt(uv + vec2(spread.x, 0.0)) + pictureAt(uv - vec2(spread.x, 0.0))
+                        + pictureAt(uv + vec2(0.0, spread.y)) + pictureAt(uv - vec2(0.0, spread.y))) * 0.25;
+                float smudge = smudged(vOn.xy * vOn.zw);
+                color = mix(color, round, smudge * 0.3) + round * (smudge * 0.06);
+                vec2 edge = min(vOn.xy, 1.0 - vOn.xy) * vOn.zw;
+                color *= mix(0.75, 1.0, smoothstep(0.0, 0.02, min(edge.x, edge.y)));
+                gl_FragColor = vec4(color, 1.0);
+            }
+            """;
 
     /** The plane the glass of this frame's mirrors lies in: the way it faces and how far along that it is from the map's corner. */
     final float[] plane = new float[4];

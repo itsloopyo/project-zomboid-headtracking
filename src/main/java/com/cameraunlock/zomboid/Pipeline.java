@@ -428,6 +428,8 @@ final class Pipeline {
     OwnReflection.Glass reflection;
     private int selfTarget, selfColor;
     private static Program selfShown;
+    /** What a mirror's glass shows: see LookingGlass.SHOWN. */
+    private static Program glassShown;
     private final ViewCamera.Pose inGlass = new ViewCamera.Pose();
     private final float[] selfView = new float[16], selfProjection = new float[16];
     private final FloatBuffer selfCorners = buffer(OwnReflection.MOST * 18);
@@ -671,11 +673,9 @@ final class Pipeline {
     private boolean lookingGlassDrawn;
     /** The scissor box of that picture's drawn part, in its pixels, and the same at the size the clouds are marched at. */
     private final int[] lookScissor = new int[4], lookCloudScissor = new int[4];
-    /** How much of the light a mirror throws back: the silver behind the glass keeps a little of it. */
-    private static final float GLASS_THROWN = 0.9f;
     /** How many pixels round the glass that picture is drawn: the glass's edge falls part way across a pixel. */
     private static final int LOOK_RECT_PIXELS = 4;
-    private final FloatBuffer glassCorners = buffer(LookingGlass.MOST * 18);
+    private final FloatBuffer glassCorners = buffer(LookingGlass.MOST * 6 * LookingGlass.CORNER_FLOATS);
     static final int MIRROR_WIDTH = 640, MIRROR_HEIGHT = 180;
     private static final int MIRROR_UNIT = 21;
     /** Half of how much of the world behind the mirror takes in, top to bottom, as a tangent. */
@@ -1435,7 +1435,6 @@ final class Pipeline {
         GL11.glViewport(0, 0, width, height);
         arrays();
         cardArrayOff();
-        GL11.glDisableClientState(GL_TEXTURE_COORD_ARRAY);
         GL11.glDisableClientState(GL_COLOR_ARRAY);
         GL11.glDisableClientState(GL_NORMAL_ARRAY);
         ViewCamera.projection(tanHalfFieldOfView, aspect, near, far, selfProjection);
@@ -1446,14 +1445,12 @@ final class Pipeline {
         GL11.glLoadMatrixf(selfProjection);
         GL11.glMatrixMode(GL_MODELVIEW);
         GL11.glLoadMatrixf(selfView);
-        selfShown.use();
+        glassShown.use();
         GL13.glActiveTexture(GL_TEXTURE0);
         GL11.glBindTexture(GL_TEXTURE_2D, lookColor);
-        selfShown.set("uSelf", 0);
-        selfShown.set("uSize", (float) width, (float) height);
-        selfShown.set("uThrown", GLASS_THROWN);
-        selfShown.set("uMark", 1f);
-        selfShown.set("uOnly", 0f);
+        glassShown.set("uPicture", 0);
+        glassShown.set("uSize", (float) width, (float) height);
+        glassShown.set("uFacing", lookingGlass.plane[0], lookingGlass.plane[1], lookingGlass.plane[2]);
         glassCorners.clear();
         float[] glass = lookingGlass.glass;
         for (int i = 0; i < lookingGlass.count; i++) {
@@ -1466,7 +1463,11 @@ final class Pipeline {
             glassCorner(glass, at, camera, 0f, 1f);
         }
         glassCorners.flip();
-        GL11.glVertexPointer(3, GL_FLOAT, 0, glassCorners);
+        int stride = LookingGlass.CORNER_FLOATS * Float.BYTES;
+        GL11.glVertexPointer(3, GL_FLOAT, stride, glassCorners);
+        glassCorners.position(3);
+        GL11.glTexCoordPointer(4, GL_FLOAT, stride, glassCorners);
+        glassCorners.position(0);
         GL11.glEnable(GL_DEPTH_TEST);
         GL11.glDepthFunc(GL_LEQUAL);
         GL11.glDepthMask(false);
@@ -1476,6 +1477,7 @@ final class Pipeline {
         GL11.glDisable(GL_DEPTH_TEST);
         GL11.glDepthMask(true);
         GL11.glDisableClientState(GL_VERTEX_ARRAY);
+        GL11.glDisableClientState(GL_TEXTURE_COORD_ARRAY);
         GL11.glLoadIdentity();
         GL11.glMatrixMode(GL_PROJECTION);
         GL11.glLoadIdentity();
@@ -1483,9 +1485,9 @@ final class Pipeline {
     }
 
     /**
-     * A corner of a mirror's glass, s along its edge across and t up it, from the eye, into
-     * glassCorners: LookingGlass.CLEAR before the glass, which the world drew in its plane by
-     * other sums, and well behind its frame.
+     * A corner of a mirror's glass, s along its edge across and t up it, into glassCorners:
+     * from the eye, LookingGlass.CLEAR before the glass, which the world drew in its plane by
+     * other sums, and well behind its frame; then s, t and the glass's width and height.
      */
     private void glassCorner(float[] glass, int at, ViewCamera.Pose camera, float s, float t) {
         for (int axis = 0; axis < 3; axis++) {
@@ -1493,6 +1495,8 @@ final class Pipeline {
             glassCorners.put(glass[at + LookingGlass.CORNER + axis] + s * glass[at + LookingGlass.ACROSS + axis] + t * glass[at + LookingGlass.UP + axis]
                     + LookingGlass.CLEAR * glass[at + LookingGlass.FACING + axis] - eye);
         }
+        glassCorners.put(s).put(t).put(length(glass[at + LookingGlass.ACROSS], glass[at + LookingGlass.ACROSS + 1], glass[at + LookingGlass.ACROSS + 2]))
+                .put(length(glass[at + LookingGlass.UP], glass[at + LookingGlass.UP + 1], glass[at + LookingGlass.UP + 2]));
     }
 
     /**
@@ -5520,6 +5524,7 @@ final class Pipeline {
         worldDepth = Program.link("world depth", WORLD_VERTEX, WORLD_FRAGMENT_DEPTH, problem);
         paneMask = Program.link("pane mask", PipelineShaders.PANE_VERTEX, PipelineShaders.PANE_FRAGMENT, problem);
         selfShown = Program.link("viewer in the glass", PipelineShaders.PANE_VERTEX, OwnReflection.SHOWN, problem);
+        glassShown = Program.link("mirror's glass", LookingGlass.VERTEX, LookingGlass.SHOWN, problem);
         partKind = Program.link("cabin parts", PipelineShaders.PANE_VERTEX, PipelineShaders.PART_FRAGMENT, problem);
         shadow = Program.link("shadow", SHADOW_VERTEX, SHADOW_FRAGMENT, problem, SHADOW_PLACES_FROM, "aPlace", "aFoot", "aTurn");
         solidShadow = Program.link("solid shadow", SHADOW_VERTEX, PipelineShaders.SOLID_SHADOW_FRAGMENT, problem, SHADOW_PLACES_FROM, "aPlace", "aFoot", "aTurn");
