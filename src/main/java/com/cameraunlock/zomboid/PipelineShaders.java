@@ -3450,8 +3450,10 @@ final class PipelineShaders {
                     color += atmosphere(vec3(0.0, 0.0, 1.0)) * (landing(vWorld.xy).y * uRaining * 0.6);
                 }
                 // A varnished floor mirrors a little too: the window across the room, the legs of
-                // a chair.
-                float polish = vMaterial > 2.5 && vMaterial < 3.5 ? 0.22 : vMaterial > 10.5 && vMaterial < 11.5 ? 0.3 : 0.0;
+                // a chair. Under the sky boards and tiles are a deck and paving slabs
+                // (floors_exterior_tilesandstone), weathered dull: glazed, they were sheets of ice under snow.
+                bool indoors = open <= 0.5;
+                float polish = !indoors ? 0.0 : vMaterial > 2.5 && vMaterial < 3.5 ? 0.22 : vMaterial > 10.5 && vMaterial < 11.5 ? 0.3 : 0.0;
                 // A window pane mirrors whichever way it faces, and so does the glass of a screen.
                 // So does a mirror in its frame, and more than either.
                 float pane = glazed > 0.5 ? 0.6 : showing ? 0.0 : surface > 9.5 && surface < 10.5 ? 0.4
@@ -3461,7 +3463,7 @@ final class PipelineShaders {
                     // paint and planed wood, and much more for anything with water lying on it.
                     float pale = max(texel.r, max(texel.g, texel.b));
                     float rough = mix(0.82, 0.5, smoothstep(0.55, 0.95, pale));
-                    if (vMaterial > 2.5 && vMaterial < 3.5) {
+                    if (indoors && vMaterial > 2.5 && vMaterial < 3.5) {
                         rough = 0.32;
                     }
                     // A varnished door or window frame has a satin sheen and mirrors nothing.
@@ -3472,7 +3474,7 @@ final class PipelineShaders {
                         rough = 0.28;
                     }
                     // Glazed tile is glossier than a varnished board.
-                    if (vMaterial > 10.5 && vMaterial < 11.5) {
+                    if (indoors && vMaterial > 10.5 && vMaterial < 11.5) {
                         rough = 0.22;
                     }
                     // Bark, rock and dry leaves are as dull as anything is, however pale.
