@@ -124,7 +124,7 @@ public final class Hooks {
         }
     }
 
-    /** Called as the game begins to leave a save, before it saves. */
+    /** Called as the game begins to leave a save for its menu, or to quit, before it saves. */
     public static void leavingSave() {
         Stall.leaving();
     }

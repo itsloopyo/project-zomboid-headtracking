@@ -647,12 +647,16 @@ public final class Agent {
     /**
      * Apart again: without it first person works as it does, what it holds on the graphics
      * card when a save is left for the menu stays held until another save is played, and the
-     * saving done on the way out is written down as a stall (Stall).
+     * saving done on the way out, to the menu or by quitting the game, is written down as a
+     * stall (Stall).
      */
     private static List<Patch> leftSavePatches() {
         String state = "zombie/gameStates/IngameState";
         return List.of(new Patch(state, "exit at its start", classBytes -> CallSite.insertAtStartOfInstanceMethod(classBytes,
                         new CallSite.Method(state, "exit", "()V"),
+                        code -> CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "leavingSave", "()V")))),
+                new Patch("zombie/GameWindow", "exit at its start", classBytes -> CallSite.insertAtStartOfStaticMethod(classBytes,
+                        new CallSite.Method("zombie/GameWindow", "exit", "()V"),
                         code -> CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "leavingSave", "()V")))),
                 new Patch(state, "exit before its returns", classBytes -> CallSite.insertBeforeReturns(classBytes,
                         new CallSite.Method(state, "exit", "()V"),
