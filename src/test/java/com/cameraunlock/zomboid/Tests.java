@@ -261,6 +261,8 @@ public final class Tests {
         Checks.run("pumpWaitsOutTheKickAndFillsTheGamesRack", Tests::pumpWaitsOutTheKickAndFillsTheGamesRack);
         Checks.run("pumpFromTheHipStartsAtOnce", Tests::pumpFromTheHipStartsAtOnce);
         Checks.run("pumpRunsOnWhenTheGameLetsGoOfItsRack", Tests::pumpRunsOnWhenTheGameLetsGoOfItsRack);
+        Checks.run("pumpStoppedShortEasesHomeWithNoShell", Tests::pumpStoppedShortEasesHomeWithNoShell);
+        Checks.run("pumpRackedAgainWhileGoingHomeTakesItUp", Tests::pumpRackedAgainWhileGoingHomeTakesItUp);
         Checks.run("armTooShortToReachBringsItsShoulderWithIt", Tests::armTooShortToReachBringsItsShoulderWithIt);
         Checks.run("armWithNoWayForItsElbowToDropHasNone", Tests::armWithNoWayForItsElbowToDropHasNone);
         Checks.run("attackStartsAndEndsWhereTheWeaponIsHeld", Tests::attackStartsAndEndsWhereTheWeaponIsHeld);
@@ -377,6 +379,63 @@ public final class Tests {
         stroke.step(0.4f, true, FRAME);
         stroke.rest();
         check(stroke.back == 0f, "a weapon put away is home");
+    }
+
+    /** Racks a stroke frame by frame through a share of the game's rack, from one share to another, and counts the shells thrown. */
+    private static int racked(PumpStroke stroke, boolean aimed, float takes, float from, float to, float[] most) {
+        int thrown = 0;
+        for (float t = from * takes; t < to * takes; t += FRAME) {
+            float before = stroke.back;
+            stroke.step(t / takes, aimed, FRAME);
+            thrown += PumpStroke.throwsShell(before, stroke.back) ? 1 : 0;
+            most[0] = Math.max(most[0], stroke.back);
+        }
+        return thrown;
+    }
+
+    private static void pumpStoppedShortEasesHomeWithNoShell() {
+        for (boolean aimed : new boolean[] {true, false}) {
+            PumpStroke.Rack rack = aimed ? PumpStroke.AIMED : PumpStroke.HIP;
+            float[] most = {0f};
+            PumpStroke stroke = new PumpStroke();
+            int thrown = racked(stroke, aimed, rack.takes(), 0f, 0.1f, most);
+            for (int frame = 0; frame < 120; frame++) {
+                float before = stroke.back;
+                stroke.step(PumpStroke.NO_RACK, aimed, FRAME);
+                thrown += PumpStroke.throwsShell(before, stroke.back) ? 1 : 0;
+                most[0] = Math.max(most[0], stroke.back);
+            }
+            check(thrown == 0 && most[0] < 0.5f && stroke.back == 0f, "a rack stopped before the pull draws no stroke and throws no shell: most " + most[0] + ", " + thrown + " thrown");
+            stroke = new PumpStroke();
+            racked(stroke, aimed, rack.takes(), 0f, (rack.backFrom() + rack.backTo()) / 2f, most);
+            float last = stroke.back;
+            thrown = 0;
+            int frames = 0;
+            for (; frames < 120 && stroke.back > 0f; frames++) {
+                stroke.step(PumpStroke.NO_RACK, aimed, FRAME);
+                thrown += PumpStroke.throwsShell(last, stroke.back) ? 1 : 0;
+                check(stroke.back <= last && last - stroke.back < 0.2f, "one stopped in the pull eases home without a jump");
+                last = stroke.back;
+            }
+            check(thrown == 0 && stroke.back == 0f && frames > 2, "and throws no shell on the way: " + thrown + " thrown, home in " + frames + " frames");
+        }
+    }
+
+    private static void pumpRackedAgainWhileGoingHomeTakesItUp() {
+        PumpStroke stroke = new PumpStroke();
+        float[] most = {0f};
+        int thrown = racked(stroke, false, PumpStroke.HIP.takes(), 0f, 0.5f, most);
+        stroke.step(PumpStroke.NO_RACK, false, FRAME);
+        stroke.step(PumpStroke.NO_RACK, false, FRAME);
+        float last = stroke.back;
+        check(last > 0.3f, "running on home in the shove: " + last);
+        for (float t = 0f; t < RACK_TAKES; t += FRAME) {
+            float before = stroke.back;
+            stroke.step(t / RACK_TAKES, true, FRAME);
+            thrown += PumpStroke.throwsShell(before, stroke.back) ? 1 : 0;
+            check(Math.abs(stroke.back - before) < 0.2f, "a rack started again takes the fore-end up where it is, without a jump: " + before + " to " + stroke.back);
+        }
+        check(thrown == 2 && stroke.back == 0f, "each rack throws its one shell and ends home: " + thrown);
     }
 
     private static void elbowKeepsBothBonesTheirLengthsAndDropsTheWayThePolePoints() {

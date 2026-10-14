@@ -14,7 +14,10 @@ package com.cameraunlock.zomboid;
  * it: the pull over its first 30 percent and the shove from 37.5 to 75 percent.
  *
  * Should the game let go of its animation in the shove, the stroke runs on to the end at the
- * pace that rack has at the game's usual speed, so the fore-end never jumps home.
+ * pace that rack has at the game's usual speed, so the fore-end never jumps home. Let go of
+ * sooner, the rack was stopped short: the fore-end eases home from wherever it is, and no shell
+ * is thrown that the pull had not already thrown. A rack started again while the fore-end is
+ * still on its way home takes it up from there.
  *
  * Logic thread.
  */
@@ -28,6 +31,11 @@ final class PumpStroke {
         float at(float through) {
             return ViewModelMath.smooth((through - backFrom) / (backTo - backFrom)) - ViewModelMath.smooth((through - forwardFrom) / (forwardTo - forwardFrom));
         }
+
+        /** How fast a fore-end left part way back is eased home, all the way in the time the shove takes, a second. */
+        float easesHome() {
+            return 1f / ((forwardTo - forwardFrom) * takes);
+        }
     }
 
     /** The game's racks with the sights up (Bob_AttackShotgun_AimRack) and from the hip (Bob_Reload_Shotgun_Rack, at a reload speed of 1). */
@@ -38,6 +46,8 @@ final class PumpStroke {
     static final float NO_RACK = -1f;
 
     private float at = NO_RACK;
+    /** Where a stroke stopped short or started again left the fore-end, as it is eased home, and how fast, a second. */
+    private float left, easing;
     private Rack rack = AIMED;
     /** How far back the fore-end is, 0 home to 1 right back. */
     float back;
@@ -56,18 +66,34 @@ final class PumpStroke {
      */
     void step(float through, boolean aimed, float seconds) {
         if (through >= 0f) {
+            if (at >= 0f && through < at) {
+                easeHome();
+            }
             rack = aimed ? AIMED : HIP;
             at = through;
-        } else if (at >= 0f && at < rack.forwardTo()) {
+        } else if (at >= rack.forwardFrom() && at < rack.forwardTo()) {
             at = Math.min(at + seconds / rack.takes(), rack.forwardTo());
         } else {
+            if (at >= 0f) {
+                easeHome();
+            }
             at = NO_RACK;
         }
-        back = at < 0f ? 0f : rack.at(at);
+        left = Math.max(left - easing * seconds, 0f);
+        back = Math.max(at < 0f ? 0f : rack.at(at), left);
+    }
+
+    /** Leaves the fore-end where it is now, to be eased home. */
+    private void easeHome() {
+        if (back > left) {
+            left = back;
+            easing = rack.easesHome();
+        }
     }
 
     void rest() {
         at = NO_RACK;
+        left = 0f;
         back = 0f;
     }
 }
