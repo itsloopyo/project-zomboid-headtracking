@@ -105,6 +105,7 @@ public final class CoreTests {
         Checks.run("theHeightOfTheHillsIsASliderThatLeavesTheGraphicsModeAsItIs", CoreTests::theHeightOfTheHillsIsASliderThatLeavesTheGraphicsModeAsItIs);
         Checks.run("aGraphicsRowEditedInTheFileGoesToCustom", CoreTests::aGraphicsRowEditedInTheFileGoesToCustom);
         Checks.run("theDrawDistanceFarTreesAndReflectionsGoToCustomAsTheOtherRowsDo", CoreTests::theDrawDistanceFarTreesAndReflectionsGoToCustomAsTheOtherRowsDo);
+        Checks.run("theGrassDensityGoesToCustomAsTheOtherRowsDo", CoreTests::theGrassDensityGoesToCustomAsTheOtherRowsDo);
         Checks.run("aRowChangedInAutomaticStartsCustomFromItsLevelAndNeverFromStock", CoreTests::aRowChangedInAutomaticStartsCustomFromItsLevelAndNeverFromStock);
         Checks.run("gameRunsUnmoddedBesideALibraryOfAnotherBuild", CoreTests::gameRunsUnmoddedBesideALibraryOfAnotherBuild);
         Checks.tally();
@@ -649,7 +650,7 @@ public final class CoreTests {
             ids.append(option.id).append(' ');
         }
         check(ids.toString().equals("WorldSpaceYaw TrackingMode AimMode FieldOfView Quality IsometricQuality Style HillHeight MuzzleFlash SplitScreen TreeQuality "
-                        + "RenderScale SharpShadows ViewDistance ZombiesAndPropsDrawDistance FarTreeDistance RainOnGlass ShadingAndLight Reflections "
+                        + "GrassDensity RenderScale SharpShadows ViewDistance ZombiesAndPropsDrawDistance FarTreeDistance RainOnGlass ShadingAndLight Reflections "
                         + "FullSizeTextures SurfaceDepth WholeFigureShadows FrameBlending OwnWeapons OwnFurniture "
                         + "OwnPictures OwnPlants OwnTextures OwnBuildings OwnZombies OwnPeople OwnArms OwnClothes OwnAnimals OwnFire OwnCabins TalkingMouths "),
                 "the game's options screen is given the modes, the yaw mode and the mod's own rows, and no key list, port or microphone: " + ids);
@@ -898,6 +899,33 @@ public final class CoreTests {
         Tracking.watchSettings();
         check(Quality.name().equals("Custom") && Quality.sight() == 60 && saved("Quality=Custom", "ViewDistance=60"),
                 "and the mode and a row edited together is Custom with the edit");
+    }
+
+    private static void theGrassDensityGoesToCustomAsTheOtherRowsDo() throws IOException, InterruptedException {
+        inMode("High");
+        said();
+        Screen screen = Screen.opened();
+        CameraUnlock.Option[] options = screen.described();
+        CameraUnlock.Option grass = options[optionNamed(options, "GrassDensity")];
+        check(grass.kind == CameraUnlock.OPTION_INT && grass.min == Quality.LEAST_GRASS && grass.max == Quality.ALL_GRASS && grass.label.equals("Grass density"),
+                "the grass density is a slider of percentages from " + Quality.LEAST_GRASS + " to " + Quality.ALL_GRASS);
+        check(screen.shows("GrassDensity") == 100, "High grows all of the grass");
+
+        screen.set("GrassDensity", 40);
+        screen.apply();
+        check(Quality.name().equals("Custom") && Quality.grassDensity() == 40 && Quality.sight() == 80,
+                "a grass density applied there goes straight to Custom: " + Quality.described(Quality.drawn()));
+        check(said() && saved("Quality=Custom", "GrassDensity=40", "ViewDistance=80"), "said, and saved with the rest of Custom's rows");
+        check(Grass.density(Quality.grassDensity(), false) == 0.4f && Grass.density(Quality.grassDensity(), true) == 1f,
+                "grass grows that share of its plants, and all of them where players can fight");
+
+        inMode("Low");
+        check(Quality.grassDensity() == 100, "Low grows all of the grass too");
+        said();
+        edit(text().replace("GrassDensity=40", "GrassDensity=70"));
+        Tracking.watchSettings();
+        check(Quality.name().equals("Custom") && Quality.grassDensity() == 70, "the grass density edited in the file goes to Custom with it");
+        check(saved("Quality=Custom", "GrassDensity=70") && said(), "saved, and said");
     }
 
     private static void theDrawDistanceFarTreesAndReflectionsGoToCustomAsTheOtherRowsDo() throws IOException, InterruptedException {

@@ -54,10 +54,10 @@ final class Config {
             Quality.Picture custom, boolean talkingMouths, List<String> microphones) {}
 
     /** The keys of [Graphics], the Custom graphics mode, in the order of Quality.Picture's parts. */
-    static final String[] GRAPHICS = {"TreeQuality", "RenderScale", "SharpShadows", "ViewDistance", "ZombiesAndPropsDrawDistance",
+    static final String[] GRAPHICS = {"TreeQuality", "GrassDensity", "RenderScale", "SharpShadows", "ViewDistance", "ZombiesAndPropsDrawDistance",
         "FarTreeDistance", "RainOnGlass", "ShadingAndLight", "Reflections", "FullSizeTextures", "SurfaceDepth", "WholeFigureShadows",
         "FrameBlending"};
-    private static final int RENDER_SCALE = 1;
+    private static final int RENDER_SCALE = 2;
     static final float MIN_RENDER_SCALE = 0.5f;
     static final int MIN_VIEW_DISTANCE = 32, MIN_DRAW_DISTANCE = 16;
 
@@ -156,6 +156,12 @@ final class Config {
                     "Low: the game's plant sprites. Medium: the mod's trees, the game's sprites past " + (int) Crowns.REACH + " tiles.\n"
                             + "High: the mod's trees as far as you see.",
                     writable | live, Quality.TREE_QUALITIES, high.treeQuality()),
+            core.configLocalInt("Graphics", "GrassDensity",
+                    "How much of the grass the mod grows blade by blade is grown, as a percentage: " + Quality.LEAST_GRASS + " to " + Quality.ALL_GRASS + ".\n"
+                            + "Lower, fewer and broader plants cover the same lawns and long grass, which costs less to\n"
+                            + "build and draw. Every mode grows all of it. On a server where players can hurt each\n"
+                            + "other it grows all of it.",
+                    writable | live, high.grassDensity(), Quality.LEAST_GRASS, Quality.ALL_GRASS),
             core.configLocalFloat("Graphics", "RenderScale",
                     "Share of the window's resolution the first person picture is drawn at, each way: 0.5 to 1.",
                     writable | live, high.renderScale(), MIN_RENDER_SCALE, 1f),
@@ -322,16 +328,16 @@ final class Config {
 
     /** A picture as the options of the rows of [Graphics] hold it, in the order of GRAPHICS. */
     static double[] values(Quality.Picture picture) {
-        return new double[] {picture.treeQuality(), picture.renderScale(), bit(picture.sharpShadows()), picture.viewDistance(),
+        return new double[] {picture.treeQuality(), picture.grassDensity(), picture.renderScale(), bit(picture.sharpShadows()), picture.viewDistance(),
             picture.drawDistance(), picture.farTreeDistance(), picture.rainOnGlass(), bit(picture.shadingAndLight()), bit(picture.reflections()),
             bit(picture.fullSizeTextures()), bit(picture.surfaceDepth()), bit(picture.wholeFigureShadows()), bit(picture.frameBlending())};
     }
 
     /** The picture the options of the rows of [Graphics] hold, in the order of GRAPHICS: Custom always draws what the mod made. */
     static Quality.Picture picture(double[] values) {
-        return new Quality.Picture(false, (int) Math.rint(values[0]), (float) values[1], values[2] != 0, (int) Math.rint(values[3]),
-                (int) Math.rint(values[4]), (int) Math.rint(values[5]), (int) Math.rint(values[6]), values[7] != 0, values[8] != 0,
-                values[9] != 0, values[10] != 0, values[11] != 0, values[12] != 0);
+        return new Quality.Picture(false, (int) Math.rint(values[0]), (int) Math.rint(values[1]), (float) values[2], values[3] != 0,
+                (int) Math.rint(values[4]), (int) Math.rint(values[5]), (int) Math.rint(values[6]), (int) Math.rint(values[7]), values[8] != 0,
+                values[9] != 0, values[10] != 0, values[11] != 0, values[12] != 0, values[13] != 0);
     }
 
     private static double bit(boolean on) {

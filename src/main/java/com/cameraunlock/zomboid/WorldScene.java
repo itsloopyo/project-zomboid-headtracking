@@ -667,6 +667,8 @@ final class WorldScene {
      * Crowns.REACH of it.
      */
     boolean crownedToSight;
+    /** The share of its plants grass was grown with by the builds standing: Grass.density as the logic thread last read it. */
+    float grassGrown = Float.NaN;
     /** The detail from which the builds standing gave a bare crown twigs, for this view's picture: Flora.twiggedFrom. */
     float twiggedFrom = Float.NaN;
 
@@ -2120,6 +2122,11 @@ final class WorldScene {
 
     /** One frame of the picture: what of the world this view shows in it, built on the logic thread and drawn on the picture's. */
     final class Frame extends TextureDraw.GenericDrawer implements Grass.Ground {
+        /** The share of its plants grass grows in this build: see Grass.density. */
+        float grassDensity() {
+            return grassGrown;
+        }
+
         final FloorBuilder floorBuilder = new FloorBuilder(this);
         private final KerbBuilder kerbBuilder = new KerbBuilder(this);
         private final PlantBuilder plantBuilder = new PlantBuilder(WorldScene.this, this);
@@ -2570,6 +2577,12 @@ final class WorldScene {
                 forgetAll();
                 Roofs.forget();
                 Terrain.reread();
+            }
+            float grass = Grass.density(Quality.grassDensity(), Online.contested());
+            if (grass != grassGrown) {
+                // Every build holds the grass it grew.
+                grassGrown = grass;
+                forgetAll();
             }
             if (crownedToSight != Quality.crownsToSight()) {
                 // Every build in the last band holds whether its trees were given crowns and boles.

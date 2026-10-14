@@ -72,6 +72,15 @@ final class Grass {
         return low * (1f - partY) + high * partY;
     }
 
+    /**
+     * The share of its plants grass grows, from the GrassDensity row's percentage. Where players
+     * can fight it grows them all: grass that hides a player from the stock game's view hides
+     * them from the mod's too.
+     */
+    static float density(int percent, boolean contested) {
+        return contested ? 1f : percent / 100f;
+    }
+
     /** What share of its plants a place this far from the eye, in tiles squared, still has. */
     static float kept(float away2) {
         if (away2 <= FULL_WITHIN * FULL_WITHIN) {
@@ -90,10 +99,11 @@ final class Grass {
     /**
      * Grows the lawn of the square (x, y) into mesh, between lowA and highA across it and lowB
      * and highB down it. The eye is at (eyeX, eyeY) and looks along (lookX, lookY): what is well
-     * behind it is not grown, since nothing of it is in the picture.
+     * behind it is not grown, since nothing of it is in the picture. density is the share of its
+     * plants grown (see density): the plants left are broader, as they are far off.
      */
     static void lawn(SpriteGeometry geometry, SpriteGeometry.Mesh mesh, SpriteGeometry.Frame frame, int x, int y, float eyeX, float eyeY,
-            float lookX, float lookY, float lowA, float highA, float lowB, float highB, Ground ground) {
+            float lookX, float lookY, float lowA, float highA, float lowB, float highB, Ground ground, float density) {
         float toX = x + 0.5f - eyeX, toY = y + 0.5f - eyeY;
         float away2 = toX * toX + toY * toY;
         if (away2 > LAWN_ENDS * LAWN_ENDS || behind(toX, toY, away2, lookX, lookY, 0.07f)) {
@@ -109,7 +119,7 @@ final class Grass {
             for (int j = 0; j < LAWN_SITES; j++) {
                 int hash = Flora.mix(x * LAWN_SITES + i, y * LAWN_SITES + j, 7);
                 float a = (i + Flora.unit(hash, 8)) / LAWN_SITES, b = (j + Flora.unit(hash, 16)) / LAWN_SITES;
-                float kept = (kept00 * (1f - a) + kept10 * a) * (1f - b) + (kept01 * (1f - a) + kept11 * a) * b;
+                float kept = ((kept00 * (1f - a) + kept10 * a) * (1f - b) + (kept01 * (1f - a) + kept11 * a) * b) * density;
                 float rank = Flora.unit(hash, 0);
                 if (rank >= kept || a < lowA || a > highA || b < lowB || b > highB || !ground.grows(a, b)) {
                     continue;
@@ -155,10 +165,10 @@ final class Grass {
 
     /**
      * Grows the long grass of the square (x, y): knee to waist high, mostly tussocks and stalks
-     * in seed, fewer and broader with distance and gone by RANK_ENDS.
+     * in seed, fewer and broader with distance and gone by RANK_ENDS. density as for lawn.
      */
     static void rank(SpriteGeometry geometry, SpriteGeometry.Mesh mesh, SpriteGeometry.Frame frame, int x, int y, float eyeX, float eyeY,
-            float lookX, float lookY, float lowA, float highA, float lowB, float highB, Ground ground) {
+            float lookX, float lookY, float lowA, float highA, float lowB, float highB, Ground ground, float density) {
         float toX = x + 0.5f - eyeX, toY = y + 0.5f - eyeY;
         float away2 = toX * toX + toY * toY;
         if (behind(toX, toY, away2, lookX, lookY, 0.2f)) {
@@ -166,7 +176,7 @@ final class Grass {
         }
         float away = (float) Math.sqrt(away2);
         float lasts = 1f - smooth(RANK_THINS, RANK_ENDS, away);
-        float kept = kept(away2 * 0.8f);
+        float kept = kept(away2 * 0.8f) * density;
         float broadens = Math.min(1f / (float) Math.sqrt(kept), BROADEST);
         float seedy = field(x, y, 223);
         int steps = away < 4.5f ? 3 : away < 9f ? 2 : 1;

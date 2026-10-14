@@ -117,6 +117,7 @@
 - `Low` is the game's own look. `Medium` and `High` also redraw the isometric view.
 - `F8` cycles the picture styles `Vivid`, `Natural` and `Bleak` (default).
 - `ZombiesAndPropsDrawDistance` (16 to 80 tiles) and `Reflections` settings.
+- `GrassDensity` setting (10 to 100 percent): fewer grass plants for a faster picture. Every mode grows all of it.
 
 #### Sound
 

@@ -158,7 +158,7 @@ final class PlantBuilder {
         build.frameOf(build.groundObject[own], build.groundTexture[own]);
         // Looking no way, as long grass is grown: a lawn left out behind the view was bare when the head turned to it.
         Grass.lawn(build.geometry, WorldScene.laid.get(build.groundTexture[own].getID()), build.frame, x, y, build.camera.eyeX, build.camera.eyeY, 0f, 0f,
-                build.lawnWest ? 0f : LAWN_KEEPS_IN, build.lawnEast ? 1f : 1f - LAWN_KEEPS_IN, build.lawnNorth ? 0f : LAWN_KEEPS_IN, build.lawnSouth ? 1f : 1f - LAWN_KEEPS_IN, build);
+                build.lawnWest ? 0f : LAWN_KEEPS_IN, build.lawnEast ? 1f : 1f - LAWN_KEEPS_IN, build.lawnNorth ? 0f : LAWN_KEEPS_IN, build.lawnSouth ? 1f : 1f - LAWN_KEEPS_IN, build, build.grassDensity());
     }
 
     /**
@@ -425,10 +425,12 @@ final class PlantBuilder {
             build.grownLocalY = build.waterLocalY;
             build.grownUnder = 0.7f;
             // Grown as from an eye the band's distance off and looking no way: none of it is left out as behind the view.
-            Grass.rank(build.geometry, mesh, build.frame, x, y, x + 0.5f - away, y + 0.5f, 0f, 0f, lowA, highA, lowB, highB, build);
+            Grass.rank(build.geometry, mesh, build.frame, x, y, x + 0.5f - away, y + 0.5f, 0f, 0f, lowA, highA, lowB, highB, build, build.grassDensity());
         }
         float carded = Math.clamp((away - Grass.RANK_THINS) / (Grass.RANK_ENDS - Grass.RANK_THINS), 0f, 1f);
-        for (int tuft = 0; tuft < LONG_TUFTS && carded > 0f; tuft++) {
+        // Fewer cards with fewer plants, and never none: a clump of long grass is still there to be seen.
+        int tufts = Math.max(1, Math.round(LONG_TUFTS * build.grassDensity()));
+        for (int tuft = 0; tuft < tufts && carded > 0f; tuft++) {
             int hash = x * 19349663 ^ y * 83492791 ^ tuft * 73856093;
             hash = (hash ^ hash >>> 13) * 0x5bd1e995;
             hash ^= hash >>> 15;

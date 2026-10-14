@@ -537,7 +537,7 @@ final class QualityTests {
         return Quality.plain() + " " + Quality.gamesPlants() + " " + Quality.scale() + " " + Quality.shadowSize() + " " + Quality.sight() + " "
                 + reaches() + " " + Quality.glassRain() + " " + Quality.shadedAndLit() + " " + Quality.reflections() + " " + Quality.surfacesMirror() + " "
                 + Quality.smallerPictures() + " " + Quality.crownsToSight() + " " + Quality.relief() + " " + Quality.wholeFigureShadows() + " " + Quality.sightBehind()
-                + " " + Quality.farTreeDistance() + " " + Quality.frameBlending();
+                + " " + Quality.farTreeDistance() + " " + Quality.frameBlending() + " " + Quality.grassDensity();
     }
 
     /**
@@ -564,9 +564,9 @@ final class QualityTests {
 
     private static void customDrawsWhatEachPresetDrewFromItsRows() {
         String[] expected = {
-            "true true 0.62 2048 48 all/all 0 false true false true false false false 48 300 false",
-            "false false 0.8 2048 80 all/all 1 false true false true false false false 48 300 true",
-            "false false 1.0 4096 80 all/all 2 true true true false true true true 48 768 true",
+            "true true 0.62 2048 48 all/all 0 false true false true false false false 48 300 false 100",
+            "false false 0.8 2048 80 all/all 1 false true false true false false false 48 300 true 100",
+            "false false 1.0 4096 80 all/all 2 true true true false true true true 48 768 true 100",
         };
         for (int mode = Quality.LOW; mode <= Quality.HIGH; mode++) {
             Quality.set(mode);
@@ -586,21 +586,22 @@ final class QualityTests {
         Quality.custom(Quality.HIGH_PICTURE);
         Quality.set(Quality.CUSTOM);
         String high = answers();
-        double[] changed = {Quality.TREES_NEAR, 0.7, 0, 40, 30, 300, 0, 0, 0, 0, 0, 0, 0};
+        double[] changed = {Quality.TREES_NEAR, 40, 0.7, 0, 40, 30, 300, 0, 0, 0, 0, 0, 0, 0};
         String[] answer = {
-            "false false 1.0 4096 80 all/all 2 true true true false false true true 48 768 true",
-            "false false 0.7 4096 80 all/all 2 true true true false true true true 48 768 true",
-            "false false 1.0 2048 80 all/all 2 true true true false true true true 48 768 true",
-            "false false 1.0 4096 40 all/all 2 true true true false true true true 48 768 true",
-            "false false 1.0 4096 80 30/all 2 true true true false true true true 48 768 true",
-            "false false 1.0 4096 80 all/all 2 true true true false true true true 48 300 true",
-            "false false 1.0 4096 80 all/all 0 true true true false true true true 48 768 true",
-            "false false 1.0 4096 80 all/all 2 false true false false true true true 48 768 true",
-            "false false 1.0 4096 80 all/all 2 true false false false true true true 48 768 true",
-            "false false 1.0 4096 80 all/all 2 true true true true true true true 48 768 true",
-            "false false 1.0 4096 80 all/all 2 true true true false true false true 48 768 true",
-            "false false 1.0 4096 80 all/all 2 true true true false true true false 48 768 true",
-            "false false 1.0 4096 80 all/all 2 true true true false true true true 48 768 false",
+            "false false 1.0 4096 80 all/all 2 true true true false false true true 48 768 true 100",
+            "false false 1.0 4096 80 all/all 2 true true true false true true true 48 768 true 40",
+            "false false 0.7 4096 80 all/all 2 true true true false true true true 48 768 true 100",
+            "false false 1.0 2048 80 all/all 2 true true true false true true true 48 768 true 100",
+            "false false 1.0 4096 40 all/all 2 true true true false true true true 48 768 true 100",
+            "false false 1.0 4096 80 30/all 2 true true true false true true true 48 768 true 100",
+            "false false 1.0 4096 80 all/all 2 true true true false true true true 48 300 true 100",
+            "false false 1.0 4096 80 all/all 0 true true true false true true true 48 768 true 100",
+            "false false 1.0 4096 80 all/all 2 false true false false true true true 48 768 true 100",
+            "false false 1.0 4096 80 all/all 2 true false false false true true true 48 768 true 100",
+            "false false 1.0 4096 80 all/all 2 true true true true true true true 48 768 true 100",
+            "false false 1.0 4096 80 all/all 2 true true true false true false true 48 768 true 100",
+            "false false 1.0 4096 80 all/all 2 true true true false true true false 48 768 true 100",
+            "false false 1.0 4096 80 all/all 2 true true true false true true true 48 768 false 100",
         };
         for (int part = 0; part < Config.GRAPHICS.length; part++) {
             double[] values = Config.values(Quality.HIGH_PICTURE);
@@ -614,7 +615,7 @@ final class QualityTests {
 
     private static void thePresetsLeaveCustomAsItWas() {
         double[] values = Config.values(Quality.MEDIUM_PICTURE);
-        values[3] = 56;
+        values[Config.graphicsPart("ViewDistance")] = 56;
         Quality.Picture mine = Config.picture(values);
         Quality.set(Quality.CUSTOM);
         Quality.custom(mine);

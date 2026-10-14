@@ -41,6 +41,7 @@ final class Quality {
      *
      * @param stockLook        see plain
      * @param treeQuality      TREES_SPRITES, TREES_NEAR or TREES_TO_SIGHT: see gamesPlants and crownsToSight
+     * @param grassDensity     see grassDensity
      * @param renderScale      see scale
      * @param sharpShadows     shadow maps 4096 texels across, where they are otherwise 2048
      * @param viewDistance     see sight
@@ -54,19 +55,21 @@ final class Quality {
      * @param wholeFigureShadows see wholeFigureShadows
      * @param frameBlending    see frameBlending
      */
-    record Picture(boolean stockLook, int treeQuality, float renderScale, boolean sharpShadows, int viewDistance, int drawDistance,
+    record Picture(boolean stockLook, int treeQuality, int grassDensity, float renderScale, boolean sharpShadows, int viewDistance, int drawDistance,
             int farTreeDistance, int rainOnGlass, boolean shadingAndLight, boolean reflections, boolean fullSizeTextures, boolean surfaceDepth,
             boolean wholeFigureShadows, boolean frameBlending) {}
 
     /** The TreeQuality row's words by number: the game's sprites, the mod's crowns within Crowns.REACH, the mod's crowns as far as the view goes. */
     static final int TREES_SPRITES = 0, TREES_NEAR = 1, TREES_TO_SIGHT = 2;
     static final String TREE_QUALITIES = "Low,Medium,High";
+    /** The GrassDensity row's range, a percentage of the plants grass grows: every mode grows them all. */
+    static final int LEAST_GRASS = 10, ALL_GRASS = 100;
     /** How far the trees beyond the loaded map can be drawn, in tiles: the far land reaches no further. */
     static final int MOST_FAR_TREES = (int) FarLand.REACH;
 
-    static final Picture LOW_PICTURE = new Picture(true, TREES_SPRITES, 0.62f, false, 48, 48, 300, 0, false, true, false, false, false, false);
-    static final Picture MEDIUM_PICTURE = new Picture(false, TREES_NEAR, 0.8f, false, 80, 80, 300, 1, false, true, false, false, false, true);
-    static final Picture HIGH_PICTURE = new Picture(false, TREES_TO_SIGHT, 1f, true, 80, 80, MOST_FAR_TREES, 2, true, true, true, true, true, true);
+    static final Picture LOW_PICTURE = new Picture(true, TREES_SPRITES, ALL_GRASS, 0.62f, false, 48, 48, 300, 0, false, true, false, false, false, false);
+    static final Picture MEDIUM_PICTURE = new Picture(false, TREES_NEAR, ALL_GRASS, 0.8f, false, 80, 80, 300, 1, false, true, false, false, false, true);
+    static final Picture HIGH_PICTURE = new Picture(false, TREES_TO_SIGHT, ALL_GRASS, 1f, true, 80, 80, MOST_FAR_TREES, 2, true, true, true, true, true, true);
     /**
      * Automatic's levels, cheapest first. STOCK is the Low mode's picture, the game's own look;
      * the three above it are Low's, Medium's and High's cost, still with everything the mod made.
@@ -245,16 +248,16 @@ final class Quality {
     }
 
     private static Picture automatic(Picture at) {
-        return new Picture(false, Math.max(at.treeQuality, TREES_NEAR), at.renderScale, at.sharpShadows, at.viewDistance, at.drawDistance,
+        return new Picture(false, Math.max(at.treeQuality, TREES_NEAR), at.grassDensity, at.renderScale, at.sharpShadows, at.viewDistance, at.drawDistance,
                 at.farTreeDistance, at.rainOnGlass, at.shadingAndLight, at.reflections, at.fullSizeTextures, at.surfaceDepth, at.wholeFigureShadows,
                 at.frameBlending);
     }
 
     static String described(Picture picture) {
-        return String.format(Locale.ROOT, "stock look %b, tree quality %d, render scale %.2f, sharp shadows %b, view distance %d, "
+        return String.format(Locale.ROOT, "stock look %b, tree quality %d, grass density %d, render scale %.2f, sharp shadows %b, view distance %d, "
                         + "zombies and props draw distance %d, far tree distance %d, rain on glass %d, shading and light %b, reflections %b, "
                         + "full size textures %b, surface depth %b, whole figure shadows %b, frame blending %b",
-                picture.stockLook, picture.treeQuality, picture.renderScale, picture.sharpShadows, picture.viewDistance, picture.drawDistance,
+                picture.stockLook, picture.treeQuality, picture.grassDensity, picture.renderScale, picture.sharpShadows, picture.viewDistance, picture.drawDistance,
                 picture.farTreeDistance, picture.rainOnGlass, picture.shadingAndLight, picture.reflections, picture.fullSizeTextures,
                 picture.surfaceDepth, picture.wholeFigureShadows, picture.frameBlending);
     }
@@ -551,6 +554,11 @@ final class Quality {
      */
     static boolean crownsToSight() {
         return drawn.treeQuality == TREES_TO_SIGHT;
+    }
+
+    /** The share of its plants grass grows, as a percentage: see Grass.density. */
+    static int grassDensity() {
+        return drawn.grassDensity;
     }
 
     /**

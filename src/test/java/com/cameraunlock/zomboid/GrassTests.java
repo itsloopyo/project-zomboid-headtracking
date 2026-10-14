@@ -14,6 +14,7 @@ final class GrassTests {
         Checks.run("headStartsWhereItsStemEnds", GrassTests::headStartsWhereItsStemEnds);
         Checks.run("lawnIsTheSameEveryTimeItIsGrown", GrassTests::lawnIsTheSameEveryTimeItIsGrown);
         Checks.run("lawnFurtherOffIsFewerPlants", GrassTests::lawnFurtherOffIsFewerPlants);
+        Checks.run("lowerDensityGrowsFewerPlantsOfTheSameGrass", GrassTests::lowerDensityGrowsFewerPlantsOfTheSameGrass);
         Checks.run("lawnBehindTheEyeIsNotGrown", GrassTests::lawnBehindTheEyeIsNotGrown);
         Checks.run("lawnKeepsInsideItsBounds", GrassTests::lawnKeepsInsideItsBounds);
         Checks.run("poorGroundGrowsLess", GrassTests::poorGroundGrowsLess);
@@ -138,9 +139,26 @@ final class GrassTests {
     }
 
     private static int lawn(float eyeX, float eyeY, float lookX, float lookY, float low, float high, Grass.Ground ground, SpriteGeometry.Mesh mesh) {
+        return lawn(eyeX, eyeY, lookX, lookY, low, high, ground, mesh, 1f);
+    }
+
+    private static int lawn(float eyeX, float eyeY, float lookX, float lookY, float low, float high, Grass.Ground ground, SpriteGeometry.Mesh mesh, float density) {
         SpriteGeometry geometry = new SpriteGeometry();
-        Grass.lawn(geometry, mesh, frame(), 10, 20, eyeX, eyeY, lookX, lookY, low, high, low, high, ground);
+        Grass.lawn(geometry, mesh, frame(), 10, 20, eyeX, eyeY, lookX, lookY, low, high, low, high, ground, density);
         return mesh.triangles();
+    }
+
+    private static void lowerDensityGrowsFewerPlantsOfTheSameGrass() {
+        int all = 0, half = 0, tenth = 0;
+        // Near the eye and a few tiles off, where a lawn is grown in full and where it is already thinned by distance.
+        float[][] eyes = {{10.5f, 20.5f}, {10.5f, 26.5f}};
+        for (float[] eye : eyes) {
+            all += lawn(eye[0], eye[1], 0f, -1f, 0f, 1f, (a, b) -> 1f, new SpriteGeometry.Mesh(), 1f);
+            half += lawn(eye[0], eye[1], 0f, -1f, 0f, 1f, (a, b) -> 1f, new SpriteGeometry.Mesh(), 0.5f);
+            tenth += lawn(eye[0], eye[1], 0f, -1f, 0f, 1f, (a, b) -> 1f, new SpriteGeometry.Mesh(), 0.1f);
+        }
+        check(half < 0.7f * all && half > 0.3f * all, "half the density grows about half the triangles: " + half + " of " + all);
+        check(tenth > 0 && tenth < 0.25f * all, "a tenth grows a few, and some: " + tenth + " of " + all);
     }
 
     private static void lawnIsTheSameEveryTimeItIsGrown() {
