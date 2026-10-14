@@ -840,10 +840,11 @@ def grab():
 def mounts():
     """Where the game's red dot sight and laser are fixed to the gun, by the point each is fixed by: the red dot on the
     handle's top or the scope's base, so far back that its clamp, 0.0908 m ahead of that point, is on it; the laser
-    under the handguard or the fore-end, the 0.0282 m its top stands over that point below it."""
+    under the handguard or the fore-end, the 0.0282 m its top stands over that point below it, its 0.125 m body
+    clear ahead of the hand that holds the gun there."""
     if BATTLE:
         return Vector((0.0, B_BASE_FROM + 0.0908 - 0.060, B_SEAT)), Vector((0.0, 0.400, stock_bottom(0.400) - 0.0282))
-    return Vector((0.0, -0.002 - 0.0908, A_HANDLE_TOP)), Vector((0.0, 0.300, -A_HANDGUARD_R - 0.0282))
+    return Vector((0.0, -0.002 - 0.0908, A_HANDLE_TOP)), Vector((0.0, 0.329, -A_HANDGUARD_R - 0.0282))
 
 
 def pack(gun, colour, surface):
