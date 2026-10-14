@@ -32,7 +32,8 @@ The mesh file each script writes is gzip over this, all little-endian:
       uint16 x 2    place in the texture, 65535 for 1, v from the bottom
     uint32 per index, each part's after the last's
 
-and two pictures beside it, TEXTURE texels square, four bytes a texel from the bottom row up:
+and two pictures beside it, TEXTURE texels wide and texture_high() high, four bytes a texel from
+the bottom row up:
 
     NAME.colour.gz   the colour of the surface, and in alpha how much of the light all round
                      reaches it past the rest of the gun
@@ -56,6 +57,14 @@ OUTPUT = os.path.join(HERE, "..", "..", "src", "main", "resources", "models")
 TEXTURES = os.path.join(HERE, "..", "..", "src", "textures", "models")
 # The side of the pictures baked, in texels: a script sets its own before it unwraps.
 TEXTURE = 2048
+# Whether the pictures are twice as wide as high, TEXTURE by TEXTURE / 2, which halves what a long thin gun's cost the
+# jar: a long gun's script sets it before it unwraps, and tools/textures/compress.py lists the gun in WIDE. Else square.
+WIDE = False
+
+
+def texture_high():
+    """How many rows the pictures have."""
+    return TEXTURE // 2 if WIDE else TEXTURE
 
 
 def smooth(t):
@@ -679,6 +688,43 @@ def unwrap_tube(mesh, axis_z, halfway, radius):
     bm.free()
 
 
+# Each island's margin, as a share of the width of the texture: on every side of it, along each axis, as many texels.
+ISLAND_MARGIN = 0.0028
+
+
+def pack_wide(gun):
+    """Packs the islands of a gun in edit mode into a texture wider than high, so that a texel is as long as it is
+    broad on the gun and the margin round each island is as many texels each way: into a box as much wider than high,
+    then drawn out up the texture to fill it. Each is first turned to lie along the texture, the way there is room."""
+    bpy.ops.uv.pack_islands(rotate=True, rotate_method="AXIS_ALIGNED_X", margin_method="FRACTION", margin=ISLAND_MARGIN, shape_method="CONCAVE")
+    high = texture_high() / TEXTURE
+    # Packing to the islands' own bounds packs into a box of their shape: a speck of a triangle at each of two corners
+    # makes it the texture's, and they are taken away again after.
+    edit = bmesh.from_edit_mesh(gun.data)
+    layer = edit.loops.layers.uv.active
+    for loop_face in edit.faces:
+        for loop in loop_face.loops:
+            loop[layer].uv = loop[layer].uv * high
+    real = len(edit.verts)
+    for corner, way in (((0.0, 0.0), 1.0), ((1.0, high), -1.0)):
+        verts = [edit.verts.new((0.0, 0.0, 0.0)) for _ in range(3)]
+        face = edit.faces.new(verts)
+        for loop, (du, dv) in zip(face.loops, ((0.0, 0.0), (1e-5, 0.0), (0.0, 1e-5))):
+            loop[layer].uv = (corner[0] + way * du, corner[1] + way * dv)
+    bmesh.update_edit_mesh(gun.data)
+    bpy.ops.mesh.select_all(action="SELECT")
+    bpy.ops.uv.select_all(action="SELECT")
+    bpy.ops.uv.pack_islands(rotate=False, margin_method="FRACTION", margin=ISLAND_MARGIN, shape_method="CONCAVE", udim_source="ORIGINAL_AABB")
+    edit = bmesh.from_edit_mesh(gun.data)
+    edit.verts.ensure_lookup_table()
+    bmesh.ops.delete(edit, geom=edit.verts[real:], context="VERTS")
+    layer = edit.loops.layers.uv.active
+    for loop_face in edit.faces:
+        for loop in loop_face.loops:
+            loop[layer].uv = (loop[layer].uv[0], loop[layer].uv[1] / high)
+    bmesh.update_edit_mesh(gun.data)
+
+
 def unwrap(name):
     """Gives every part a place in the texture, at one size to the metre but for what a part is given over the rest,
     and joins them into one object called name."""
@@ -731,14 +777,17 @@ def unwrap(name):
     bpy.ops.object.mode_set(mode="EDIT")
     bpy.ops.mesh.select_all(action="SELECT")
     bpy.ops.uv.select_all(action="SELECT")
-    bpy.ops.uv.pack_islands(rotate=True, margin_method="FRACTION", margin=0.0028, shape_method="CONCAVE")
+    if WIDE:
+        pack_wide(gun)
+    else:
+        bpy.ops.uv.pack_islands(rotate=True, margin_method="FRACTION", margin=ISLAND_MARGIN, shape_method="CONCAVE")
     bpy.ops.object.mode_set(mode="OBJECT")
     mesh = gun.data
     uv = numpy.empty(len(mesh.loops) * 2)
     mesh.uv_layers.active.data.foreach_get("uv", uv)
     uv = uv.reshape(-1, 3, 2)
     flat = 0.5 * numpy.abs(numpy.cross(uv[:, 1] - uv[:, 0], uv[:, 2] - uv[:, 0])).sum()
-    print("the texture is %.0f%% used, at %.0f dots to the metre" % (flat * 100, TEXTURE * math.sqrt(flat / sum(polygon.area for polygon in mesh.polygons))))
+    print("the texture is %.0f%% used, at %.0f dots to the metre" % (flat * 100, math.sqrt(TEXTURE * texture_high() * flat / sum(polygon.area for polygon in mesh.polygons))))
     return gun
 
 
@@ -784,7 +833,7 @@ def bake(gun):
     world = bpy.data.worlds.new("bake")
     world.light_settings.distance = 0.05
     scene.world = world
-    target = bpy.data.images.new("bake", TEXTURE, TEXTURE, float_buffer=True, is_data=True)
+    target = bpy.data.images.new("bake", TEXTURE, texture_high(), float_buffer=True, is_data=True)
     for graph in GRAPHS.values():
         graph.baked.image = target
         graph.tree.nodes.active = graph.baked
@@ -792,9 +841,9 @@ def bake(gun):
     out = {}
 
     def taken():
-        pixels = numpy.empty(TEXTURE * TEXTURE * 4, dtype=numpy.float32)
+        pixels = numpy.empty(TEXTURE * texture_high() * 4, dtype=numpy.float32)
         target.pixels.foreach_get(pixels)
-        return pixels.reshape(TEXTURE, TEXTURE, 4)[..., :3].copy()
+        return pixels.reshape(texture_high(), TEXTURE, 4)[..., :3].copy()
 
     for which in ("colour", "rough", "metal"):
         for graph in GRAPHS.values():
@@ -920,7 +969,7 @@ def dress(gun, colour, surface, folder):
     shader = tree.nodes["Principled BSDF"]
 
     def picture(name, array, is_colour):
-        image = bpy.data.images.new(name, TEXTURE, TEXTURE, alpha=True, is_data=not is_colour)
+        image = bpy.data.images.new(name, TEXTURE, texture_high(), alpha=True, is_data=not is_colour)
         image.pixels.foreach_set((array.astype(numpy.float32) / 255.0).reshape(-1))
         image.filepath_raw = os.path.join(folder, name + ".png")
         image.file_format = "PNG"

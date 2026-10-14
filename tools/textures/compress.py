@@ -61,6 +61,8 @@ RAISED = ['asphalt', 'gravel', 'soil', 'shingles', 'wood', 'planks']
 PLAIN = ['grass', 'paint', 'carpet', 'vinyl', 'cloth', 'jersey', 'litter', 'rock']
 CUT_OUT = ['leaves', 'frond', 'ivy', 'sprigs']
 MODELS = ['shotgun', 'sawnoff', 'rifle', 'revolver', 'magnum', 'snubnose', 'capgun', 'pistol', 'pistol2', 'pistol3', 'dbarrel', 'arms']
+# The models whose pictures are twice as wide as high (tools/models/gunsmith.py, WIDE): every other is square.
+WIDE = set()
 # The vehicle interiors (tools/models/cabins.py), each a colour and a surface of its own.
 CABINS = ['carnormal', 'carstationwagon', 'smallcar02', 'smallcar', 'suv', 'pickuptruck', 'vanseats', 'van', 'carluxury', 'moderncar',
           'moderncar02', 'sportscar', 'racecar', 'offroad', 'stepvan']
@@ -111,10 +113,12 @@ def layer(sources):
     first = SOURCES / sources[0]
     if first.suffix == '.gz':
         raw = gzip.decompress(first.read_bytes())
-        side = int(round((len(raw) / 4) ** 0.5))
-        if side * side * 4 != len(raw):
-            raise SystemExit(f'{first} is not a square picture of four bytes a texel')
-        return numpy.frombuffer(raw, dtype=numpy.uint8).reshape(side, side, 4).copy(), 1.0
+        # A model's pictures are square, or twice as wide as high for a gun in WIDE (tools/models/gunsmith.py, WIDE).
+        across = 2 if first.name.split('.')[0] in WIDE else 1
+        high = int(round((len(raw) / 4 / across) ** 0.5))
+        if high * high * across * 4 != len(raw):
+            raise SystemExit(f'{first} is not a picture of four bytes a texel {across} times as wide as high')
+        return numpy.frombuffer(raw, dtype=numpy.uint8).reshape(high, high * across, 4).copy(), 1.0
     texels = numpy.array(Image.open(first).convert('RGBA'))
     solid = texels[..., 3] > 127
     light = (texels[..., :3][solid].astype(numpy.int64) * [299, 587, 114]).sum()
