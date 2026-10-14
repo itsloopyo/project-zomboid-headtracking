@@ -14,7 +14,7 @@ package com.cameraunlock.zomboid;
  */
 final class SnowPrints {
     /** How many footprints and how many stretches of rut are kept: the lengths of SnowShader's uSnowPrint and uSnowRut. RUTS is a whole number of fours, as uSnowRutUp holds four to a vec4. */
-    static final int PRINTS = 96, RUTS = 128;
+    static final int PRINTS = 48, RUTS = 64;
     /** The most wheels a vehicle has: the game's BaseVehicle.MAX_WHEELS. */
     static final int WHEELS = 4;
     /** A stride, and how far to either side of the walker's middle a foot lands, in tiles. */
