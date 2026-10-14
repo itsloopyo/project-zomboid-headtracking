@@ -67,9 +67,10 @@ import zombie.vehicles.VehiclePart;
  * from a few hundred tiles to a mile off, as the game's own thunder cloud strikes. The game
  * keeps the weather it is held at in the save.
  *
- * The semicolon puts a pump action shotgun in the player's hands. Whatever firearm is held is
- * kept loaded, sound and unjammed, from the moment the game loads, so a gun the save was left
- * holding fires too: for trying the view as a shooter without first finding a gun and shells.
+ * The semicolon puts the next of the game's firearms in the player's hands, round and round,
+ * and says on the screen which. Whatever firearm is held is kept loaded, sound and unjammed,
+ * from the moment the game loads, so a gun the save was left holding fires too: for trying the
+ * view with every gun without first finding each one and its rounds.
  *
  * The left square bracket does the same with a hunting rifle that has a scope on it: the
  * weakest of the game's three on the first press, the next on each press after, and round
@@ -194,7 +195,15 @@ public final class DevKeys {
 
     /** The semicolon. */
     private static final int ARM_KEY = 39;
-    private static final String SHOTGUN = "Base.Shotgun";
+    /** Every item the game's scripts give the Firearm subcategory, in media/scripts/generated/items/weapon.txt. */
+    private static final String[] FIREARMS = {
+            "Base.Pistol", "Base.Pistol2", "Base.Pistol3", "Base.Revolver_Short", "Base.Revolver", "Base.Revolver_Long", "Base.Revolver_CapGun",
+            "Base.Shotgun", "Base.ShotgunSawnoff", "Base.DoubleBarrelShotgun", "Base.DoubleBarrelShotgunSawnoff", "Base.JS3T_Shotgun",
+            "Base.HuntingRifle", "Base.VarmintRifle", "Base.MSR7T_Rifle", "Base.L94_Rifle", "Base.L92_Carbine", "Base.TrapperCarbine",
+            "Base.AssaultRifle", "Base.AssaultRifle2", "Base.JS14_Rifle", "Base.Rifle_CapGun",
+    };
+    /** The firearm last handed out, and none before the first press. */
+    private static int firearm = -1;
     /** The left square bracket, which is beside the semicolon and the apostrophe. */
     private static final int SCOPED_KEY = 26;
     /** The slash, beside the full stop. The right square bracket is the game's own, for its furniture panel. */
@@ -227,7 +236,7 @@ public final class DevKeys {
         String told = null;
         if (!said) {
             said = true;
-            Log.info("development build: 0 clears out the zombies and pressed again puts some back round you, . goes to the next place and , to the one before, 9 puts the clock on three hours, Backspace holds the next season of spring, summer, autumn and winter, End holds the next weather of clear, rainy, snowy and stormy, Home starts a fire where the reticle is, ; gives a shotgun, any gun held never runs dry, [ gives a hunting rifle with the next of the three scopes on it, / gives a lit flashlight, ' makes you invincible, F7 takes the nearest vehicle");
+            Log.info("development build: 0 clears out the zombies and pressed again puts some back round you, . goes to the next place and , to the one before, 9 puts the clock on three hours, Backspace holds the next season of spring, summer, autumn and winter, End holds the next weather of clear, rainy, snowy and stormy, Home starts a fire where the reticle is, ; gives the next of the game's firearms, any gun held never runs dry, [ gives a hunting rifle with the next of the three scopes on it, / gives a lit flashlight, ' makes you invincible, F7 takes the nearest vehicle");
         }
         // On a server every one of these would be a cheat against the other players.
         if (GameClient.client) {
@@ -319,12 +328,14 @@ public final class DevKeys {
             lie(lying());
         }
         if (GameKeyboard.isKeyPressed(ARM_KEY)) {
+            firearm = (firearm + 1) % FIREARMS.length;
             for (IsoPlayer each : players) {
-                InventoryItem shotgun = each.getInventory().AddItem(SHOTGUN);
-                each.setPrimaryHandItem(shotgun);
-                each.setSecondaryHandItem(shotgun);
+                InventoryItem gun = each.getInventory().AddItem(FIREARMS[firearm]);
+                each.setPrimaryHandItem(gun);
+                each.setSecondaryHandItem(gun);
             }
-            Log.info(";: a shotgun in hand for " + players.size() + " players, kept loaded");
+            Log.info(";: " + FIREARMS[firearm] + " in hand for " + players.size() + " players, " + (firearm + 1) + " of " + FIREARMS.length + ", kept loaded");
+            told = "Firearm: " + FIREARMS[firearm].substring("Base.".length());
         }
         if (GameKeyboard.isKeyPressed(SCOPED_KEY)) {
             scope = (scope + 1) % ScopeOptics.KNOWN.length;
