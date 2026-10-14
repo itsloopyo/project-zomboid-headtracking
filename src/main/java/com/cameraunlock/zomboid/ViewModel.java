@@ -742,8 +742,9 @@ public final class ViewModel {
         if (own == null) {
             return FORWARD_STOP;
         }
-        // At the size the gun was last held up at, and before it has been, at the size the mod's own guns are made to be drawn at.
-        float clear = own.clearIrons, drawnAt = own.tilesPerMetre;
+        // Along the red dot sight's tube with one fitted, else along the iron sights; at the size the gun was last held up at,
+        // and before it has been, at the size the mod's own guns are made to be drawn at.
+        float clear = view.scope.redDot() && !Float.isNaN(own.clearDot) ? own.clearDot : own.clearIrons, drawnAt = own.tilesPerMetre;
         if (Float.isNaN(clear)) {
             return Float.POSITIVE_INFINITY;
         }
@@ -943,11 +944,12 @@ public final class ViewModel {
             float long3 = (float) Math.sqrt((end[0] - origin[0]) * (end[0] - origin[0]) + (end[1] - origin[1]) * (end[1] - origin[1])
                     + (end[2] - origin[2]) * (end[2] - origin[2]));
             float tilesPerMetre = long3 * scale / own.muzzleFar;
-            aimedY = -own.sightLine * tilesPerMetre;
+            // A red dot sight on it is looked through along its tube's axis.
+            aimedY = -(view.scope.redDot() && !Float.isNaN(own.dotSightLine) ? own.dotSightLine : own.sightLine) * tilesPerMetre;
             aimedAhead = own.eyeBehind * tilesPerMetre;
             if (Float.isNaN(own.tilesPerMetre)) {
                 Log.info(own.what + " is held up at " + tilesPerMetre + " tiles a metre, where it is made to be drawn at " + OWN_TILES_PER_METRE
-                        + ": its eye is " + own.clearIrons * tilesPerMetre + " tiles behind its sights");
+                        + ": its eye is " + own.clearIrons * tilesPerMetre + " tiles behind its sights, " + own.clearDot * tilesPerMetre + " behind a red dot sight");
             }
             own.tilesPerMetre = tilesPerMetre;
         }

@@ -12,4 +12,6 @@ public final class ModelInstanceRenderData {
     public void RenderCharacter(ModelSlotRenderData data) { throw new UnsupportedOperationException("reference stub"); }
     public void RenderVehicle(ModelSlotRenderData data) { throw new UnsupportedOperationException("reference stub"); }
     public final org.joml.Matrix4f xfrm = null;
+    // Declared on AnimatedModel.AnimatedModelInstanceRenderData in the game, as tex is.
+    public final zombie.core.rendering.ShaderPropertyBlock properties = null;
 }

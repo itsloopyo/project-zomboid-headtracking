@@ -414,6 +414,16 @@ final class Scope {
     void fitted(HandWeapon weapon) {
         WeaponPart part = weapon == null ? null : weapon.getWeaponPart(PART);
         fitted = part == null || !Own.weapons() ? null : ScopeOptics.of(part.getFullType());
+        redDot = part != null && RED_DOT.equals(part.getFullType());
+    }
+
+    /** The game's red dot sight, which it fits where a scope goes. */
+    private static final String RED_DOT = "Base.RedDot";
+    private volatile boolean redDot;
+
+    /** Whether the firearm in hand has a red dot sight fitted. */
+    boolean redDot() {
+        return redDot;
     }
 
     /** The scope the firearm in hand is fitted with, or null. */

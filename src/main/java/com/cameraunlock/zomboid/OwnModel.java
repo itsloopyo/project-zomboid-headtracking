@@ -22,11 +22,22 @@ final class OwnModel {
     /** A vertex in the file: its place, its normal, the tangent along the texture, which way the texture's other axis runs, its place in the texture. */
     private static final int VERTEX_BYTES = 3 * Float.BYTES + 3 * Short.BYTES + 3 * Short.BYTES + Short.BYTES + 2 * Short.BYTES;
     private static final int MAGIC = 'C' | 'U' << 8 | 'W' << 16 | 'M' << 24;
-    /** Version 4 has five parts; version 5 says how many it has, and after them the numbers that say how they move. */
-    private static final int FIVE_PARTS = 4, ANY_PARTS = 5;
+    /**
+     * Version 4 has five parts; version 5 says how many it has, and after them the numbers that
+     * say how they move; version 6 has after those where a red dot sight, a laser and a light are
+     * fixed to it.
+     */
+    private static final int FIVE_PARTS = 4, ANY_PARTS = 5, MOUNTED = 6;
     private static final int HEAD_BYTES = 4 + 4 + 12 * Float.BYTES + Integer.BYTES;
     /** More parts, or more numbers saying how they move, than any model has: a file that says so is not read. */
     private static final int MOST_PARTS = 64, MOST_MOVES = 1024;
+    /** Where in mounts each attachment's point is, and how many numbers there are. */
+    static final int RED_DOT = 0, LASER = 3, GUN_LIGHT = 6, MOUNT_NUMBERS = 9;
+    /**
+     * The game's red dot sight, as its mesh is made, in the weapon's units from the point it is
+     * fixed by: how far over it the axis of its tube is, and how far ahead of it the tube's back.
+     */
+    static final float RED_DOT_AXIS = 0.0132f, RED_DOT_BACK = 0.0102f;
 
     private static final int GL_TEXTURE_2D = 0x0DE1;
     private static final int GL_ARRAY_BUFFER = 0x8892, GL_ELEMENT_ARRAY_BUFFER = 0x8893, GL_STATIC_DRAW = 0x88E4;
@@ -110,6 +121,12 @@ final class OwnModel {
     int[] firstIndex = new int[0], indexCount = new int[0];
     /** The numbers that say how the parts move, as the model's file has them: what each is, its class knows. */
     float[] moves = new float[0];
+    /**
+     * Where the game's red dot sight, laser and light are fixed to the model, the point the game
+     * fixes each by, in the model's metres from the grip: null where none goes on it, and NaN in
+     * each place where that one does not.
+     */
+    float[] mounts;
     /** The part that slides back toward the eye by the file's travel as the action is worked, or NO_PART. */
     private final int slides;
     /** How its class turns its parts with the sights up, from the numbers that say how they move: see OwnGun.poses. */
@@ -126,9 +143,12 @@ final class OwnModel {
     /**
      * In the model's metres, how far the eye with the sights up is from the nearest of the gun that
      * stands in its line of sight (OwnModel.inTheWay over its parts in every place they move to as
-     * it is fired). NaN where nothing stands in the line.
+     * it is fired): along its iron sights, and with a red dot sight fitted along the sight's tube,
+     * whose back stops it too. NaN where nothing stands in the line, and for the red dot sight
+     * where the model has no place for one. With the red dot sight the eye is dotSightLine over
+     * the bore, in the model's metres.
      */
-    float clearIrons = Float.NaN;
+    float clearIrons = Float.NaN, clearDot = Float.NaN, dotSightLine = Float.NaN;
     /**
      * Tiles to a metre of the model as ViewModel last held it up, or NaN before it has been:
      * ViewModel.OWN_TILES_PER_METRE stands for it till then.
@@ -177,9 +197,10 @@ final class OwnModel {
      *
      * @param counts how many indices each part has
      * @param moves  the numbers that say how the parts move: none in a version 4 file
+     * @param mounts where a red dot sight, a laser and a light are fixed, three numbers each: null before version 6
      */
     record Layout(float[] muzzle, float heldY, float[] port, float travel, float sightLine, float eyeBehind, int vertices, int[] counts, float[] moves,
-            int vertexStart) {
+            float[] mounts, int vertexStart) {
         int indices() {
             int all = 0;
             for (int count : counts) {
@@ -211,7 +232,7 @@ final class OwnModel {
 
     /**
      * Reads the head of a model's file, little-endian, from its start, and leaves the buffer at
-     * its first vertex. Throws where it is not a weapon model of version 4 or 5, says what
+     * its first vertex. Throws where it is not a weapon model of version 4, 5 or 6, says what
      * cannot be, or is not as long as it says.
      */
     static Layout layout(ByteBuffer read, String path) throws IOException {
@@ -219,8 +240,8 @@ final class OwnModel {
             throw new IOException(path + " is not a weapon model");
         }
         int version = read.getInt();
-        if (version != FIVE_PARTS && version != ANY_PARTS) {
-            throw new IOException(path + " is a weapon model of version " + version + ", not 4 or 5");
+        if (version != FIVE_PARTS && version != ANY_PARTS && version != MOUNTED) {
+            throw new IOException(path + " is a weapon model of version " + version + ", not 4, 5 or 6");
         }
         float[] muzzle = {read.getFloat(), read.getFloat(), read.getFloat()};
         read.getFloat();
@@ -248,11 +269,18 @@ final class OwnModel {
         for (int at = 0; at < moves.length; at++) {
             moves[at] = read.getFloat();
         }
+        float[] mounts = version == MOUNTED ? new float[MOUNT_NUMBERS] : null;
+        if (mounts != null && read.remaining() < MOUNT_NUMBERS * Float.BYTES) {
+            throw new IOException(path + " is cut short in its head");
+        }
+        for (int at = 0; mounts != null && at < MOUNT_NUMBERS; at++) {
+            mounts[at] = read.getFloat();
+        }
         long body = (long) vertices * VERTEX_BYTES + indices * Integer.BYTES;
         if (vertices < 0 || read.remaining() != body) {
             throw new IOException(path + " holds " + read.remaining() + " bytes after its head, not the " + vertices + " vertices and " + indices + " indices it says");
         }
-        return new Layout(muzzle, heldY, port, travel, sightLine, eyeBehind, vertices, counts, moves, read.position());
+        return new Layout(muzzle, heldY, port, travel, sightLine, eyeBehind, vertices, counts, moves, mounts, read.position());
     }
 
     /** A count in a file's head that is at most most, or what the file says of it that cannot be. */
@@ -265,6 +293,20 @@ final class OwnModel {
             throw new IOException(path + " says it has " + count + " " + what + ", where a model has from 0 to " + most);
         }
         return count;
+    }
+
+    /**
+     * Where the game's part at this attachment of its weapon is fixed to the model, the point the
+     * game fixes it by in the model's metres from the grip, into into: null where it does not go
+     * on the model, which then leaves it out.
+     */
+    float[] mount(String attachment, float[] into) {
+        int at = "reddot".equals(attachment) ? RED_DOT : "laser".equals(attachment) ? LASER : "gunlight".equals(attachment) ? GUN_LIGHT : -1;
+        if (at < 0 || mounts == null || Float.isNaN(mounts[at])) {
+            return null;
+        }
+        System.arraycopy(mounts, at, into, 0, 3);
+        return into;
     }
 
     /** Which way the top of the model is in its own axes: +z, as the game's long guns are made, or -z for a handgun. */
@@ -385,7 +427,7 @@ final class OwnModel {
      * The model's file unpacked and read, and where the hands go on it: worked out on another
      * thread, as reading where the hands go took a whole frame of the render thread's.
      */
-    private record Read(ByteBuffer bytes, Layout layout, WeaponShape shape, float clearIrons, String why) {}
+    private record Read(ByteBuffer bytes, Layout layout, WeaponShape shape, float clearIrons, float clearDot, float dotSightLine, String why) {}
 
     private Read read() throws IOException {
         ByteBuffer read = ByteBuffer.wrap(unpacked(mesh)).order(ByteOrder.LITTLE_ENDIAN);
@@ -402,10 +444,23 @@ final class OwnModel {
         WeaponShape shape = WeaponShape.read(places, corners, new float[] {0f, 1f, 0f}, top(), layout.muzzle.clone(), 1f, why);
         float[] reached = reached(layout, places, corners);
         float clearIrons = layout.eyeBehind + inTheWay(reached, layout.muzzle, layout.sightLine, layout.eyeBehind, top());
-        if (clearIrons * ViewModel.OWN_TILES_PER_METRE <= Scope.NEAREST) {
-            throw new IOException(mesh + " has the eye of " + what + " " + clearIrons + " m behind its sight with the sights up, within the near plane of it");
+        float clearDot = Float.NaN, dotSightLine = Float.NaN;
+        if (layout.mounts != null && !Float.isNaN(layout.mounts[RED_DOT])) {
+            if (handgun) {
+                throw new IOException(mesh + " has a place for a red dot sight on " + what + ", a handgun, whose sight line the mod does not raise to one");
+            }
+            float[] dot = {layout.mounts[RED_DOT], layout.mounts[RED_DOT + 1], layout.mounts[RED_DOT + 2]};
+            float metresPerUnit = 1f / Characters.PER_METRE;
+            dotSightLine = over(dot, layout.muzzle, top()) + RED_DOT_AXIS * metresPerUnit;
+            float back = dot[1] + RED_DOT_BACK * metresPerUnit, nearest = inTheWay(reached, layout.muzzle, dotSightLine, layout.eyeBehind, top());
+            clearDot = layout.eyeBehind + (nearest < back ? nearest : back);
         }
-        return new Read(read, layout, shape, clearIrons, why.toString());
+        for (float clear : new float[] {clearIrons, clearDot}) {
+            if (clear * ViewModel.OWN_TILES_PER_METRE <= Scope.NEAREST) {
+                throw new IOException(mesh + " has the eye of " + what + " " + clear + " m behind its sight with the sights up, within the near plane of it");
+            }
+        }
+        return new Read(read, layout, shape, clearIrons, clearDot, dotSightLine, why.toString());
     }
 
     /**
@@ -444,6 +499,11 @@ final class OwnModel {
             System.arraycopy(more.get(at), 0, all, places.length + at * 3, 3);
         }
         return all;
+    }
+
+    /** How far a place is over the bore, on the model's top. */
+    static float over(float[] place, float[] muzzle, float[] top) {
+        return (place[0] - muzzle[0]) * top[0] + (place[1] - muzzle[1]) * top[1] + (place[2] - muzzle[2]) * top[2];
     }
 
     /**
@@ -492,7 +552,10 @@ final class OwnModel {
             sightLine = layout.sightLine;
             eyeBehind = layout.eyeBehind;
             clearIrons = made.clearIrons;
+            clearDot = made.clearDot;
+            dotSightLine = made.dotSightLine;
             moves = layout.moves;
+            mounts = layout.mounts;
             int parts = layout.counts.length, indices = 0;
             firstIndex = new int[parts];
             indexCount = layout.counts.clone();

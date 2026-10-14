@@ -1475,6 +1475,40 @@ public final class Characters {
 
     private final float[] scopePlace = new float[16];
 
+    private final float[] partPlace = new float[16], partWas = new float[16], mountAt = new float[3];
+
+    /**
+     * Draws a part the game fixes to its weapon on the mod's own model of the weapon instead,
+     * where the model says it goes (OwnModel.mount): the part moved for the one draw so that the
+     * point the game fixes it by is there, and left out where the model has no place for it.
+     *
+     * @param unitsPerMetre the weapon's units to a metre of the model, as it is held (OwnModel.hold)
+     */
+    private void drawOnOwn(ModelInstanceRenderData part, ModelSlotRenderData data, OwnModel own, float unitsPerMetre) {
+        float[] at = own.mount(part.modelInstance.attachmentNameParent, mountAt);
+        if (at == null) {
+            return;
+        }
+        unshifted(part.modelInstance);
+        GL11.glDepthMask(true);
+        part.xfrm.get(partWas);
+        System.arraycopy(partWas, 0, partPlace, 0, 16);
+        float[] weapon = weaponPlace;
+        for (int row = 0; row < 3; row++) {
+            partPlace[row * 4 + 3] = weapon[row * 4 + 3]
+                    + (weapon[row * 4] * at[0] + weapon[row * 4 + 1] * at[1] + weapon[row * 4 + 2] * at[2]) * unitsPerMetre;
+        }
+        // The game's shader takes the part's place from its properties, which the game filled from xfrm before the frame was drawn.
+        part.xfrm.set(partPlace);
+        part.properties.SetMatrix4("transform", part.xfrm);
+        try {
+            drawPart(part, data);
+        } finally {
+            part.xfrm.set(partWas);
+            part.properties.SetMatrix4("transform", part.xfrm);
+        }
+    }
+
     /** The game's model of the scope on what the right hand holds, or null. */
     private static ModelInstanceRenderData scopeOf(ModelSlotRenderData data) {
         for (int part = 0; part < parts(data).size(); part++) {
@@ -1523,7 +1557,7 @@ public final class Characters {
         ModelInstanceRenderData held = weaponOf(data);
         IsoGridSquare square = data.character.getCurrentSquare();
         boolean outside = square != null && square.isOutside();
-        // Whatever is fixed to it but a scope is left out with the game's model of it.
+        // Whatever is fixed to it but a scope, a red dot sight, a laser or a light is left out with the game's model of it.
         OwnModel own = held != null && view.viewModel.hasMuzzle ? hands.ownDrawn() : null;
         if (own != null) {
             view.ownGun(own).place(own, held.modelInstance.modelScript == null ? null : held.modelInstance.modelScript.name, heldView, weaponPlace, data.finalScale,
@@ -1537,17 +1571,24 @@ public final class Characters {
         // The weapon first. What the picture draws itself says, beside its colour, which way
         // it faces, and the game's draw of the weapon does not: drawn after the hands, the
         // weapon would be lit where it covers them by the way the hand under it faces.
-        for (int part = 0; own == null && part < parts(data).size(); part++) {
+        for (int part = 0; part < parts(data).size(); part++) {
             ModelInstanceRenderData model = parts(data).get(part);
             // The game's own flash is a model on the muzzle, lit like the weapon it is on.
             // The picture draws the flash itself, as light.
             if (model.model == null || !model.model.isStatic || !inHand(model.modelInstance) || model == glass
-                    || model.ignoreLighting && MUZZLE.equals(model.modelInstance.attachmentNameParent)) {
+                    || model.ignoreLighting && MUZZLE.equals(model.modelInstance.attachmentNameParent)
+                    || own != null && model.modelInstance.attachmentNameParent == null) {
                 continue;
             }
-            unshifted(model.modelInstance);
-            GL11.glDepthMask(true);
-            drawPart(model, data);
+            // With the mod's own model in hand, of what is fixed to it only a red dot sight, a laser or a light is the game's, drawn where the
+            // model has a place for it.
+            if (own != null) {
+                drawOnOwn(model, data, own, muzzleOut() / own.muzzleFar);
+            } else {
+                unshifted(model.modelInstance);
+                GL11.glDepthMask(true);
+                drawPart(model, data);
+            }
         }
         if (ownArms) {
             OwnArms.snowed(SnowCarried.on(data.character));
