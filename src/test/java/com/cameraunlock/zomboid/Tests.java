@@ -334,10 +334,39 @@ public final class Tests {
 
     private static void pumpFromTheHipStartsAtOnce() {
         PumpStroke stroke = new PumpStroke();
-        stroke.step(0.1f, false, FRAME);
-        check(stroke.back > 0f, "racked from the hip, with no kick to wait out, the pull is under way at once: " + stroke.back);
-        stroke.step(0.1f, true, FRAME);
-        check(stroke.back == 0f, "with the sights up it waits: " + stroke.back);
+        float takes = PumpStroke.HIP.takes(), started = -1f, back = -1f, home = -1f, before = 0f;
+        int thrown = 0;
+        for (float t = 0f; t < takes; t += FRAME) {
+            stroke.step(t / takes, false, FRAME);
+            if (started < 0f && stroke.back > 0f) {
+                started = t;
+            }
+            if (back < 0f && stroke.back == 1f) {
+                back = t;
+            }
+            if (back >= 0f && home < 0f && stroke.back == 0f) {
+                home = t;
+            }
+            thrown += PumpStroke.throwsShell(before, stroke.back) ? 1 : 0;
+            before = stroke.back;
+        }
+        check(started >= 0f && started < 0.1f * takes, "racked from the hip, with no kick to wait out, the pull is under way at once: " + started);
+        check(back > 0f && back <= 0.31f * takes, "right back by the end of the game's own pull: " + back);
+        check(home > back && home <= 0.76f * takes && stroke.back == 0f, "home by the end of the game's own shove, and staying there: " + home);
+        check(thrown == 1, "one shell thrown: " + thrown);
+        PumpStroke cut = new PumpStroke();
+        for (float t = 0f; t < 0.5f * takes; t += FRAME) {
+            cut.step(t / takes, false, FRAME);
+        }
+        float last = cut.back;
+        int frames = 0;
+        for (; frames < 200 && cut.back > 0f; frames++) {
+            cut.step(PumpStroke.NO_RACK, false, FRAME);
+            check(cut.back <= last && last - cut.back < 0.1f, "let go of in the shove, the hip stroke runs on home without a jump");
+            last = cut.back;
+        }
+        float expected = (PumpStroke.HIP.forwardTo() - 0.5f) * takes / FRAME;
+        check(cut.back == 0f && Math.abs(frames - expected) <= 2f, "at the hip rack's own pace: " + frames + " frames, " + expected + " expected");
     }
 
     private static void pumpRunsOnWhenTheGameLetsGoOfItsRack() {
