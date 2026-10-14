@@ -202,26 +202,86 @@ final class FurnishingBuilder {
         return every;
     }
 
+    /** How far from the square ready was asked about the first square of its piece is, along x and y. */
+    private final int[] readyOrigin = new int[2];
+
+    /** What the squares round one hold: the object of that sprite on the square dx, dy from it, or null. */
+    interface Around<T> {
+        T holding(int dx, int dy, IsoSprite sprite);
+    }
+
+    /**
+     * Whether every square of the piece holds its part, found from what the squares round the one asked about hold:
+     * the part that gives the piece its colour (self for a piece on one square), or null. Leaves in origin how far from
+     * the square asked about the piece's first square is.
+     *
+     * A run one square deep and three or more long is laid by the map's makers with any of its middle sprites on its
+     * middle squares, which the game paints alike: a pharmacy in Rosewood has a shop's shelving of four laid first,
+     * third, third, last. So on such a run a middle square is as far along as the run's first square is behind it, past
+     * middle squares only, and holds its part if it holds any middle sprite; an end is where its sprite says.
+     */
+    static <T> T whole(Furniture piece, T self, Around<T> around, int[] origin) {
+        origin[0] = -piece.gridX;
+        origin[1] = -piece.gridY;
+        if (piece.grid == null) {
+            return self;
+        }
+        boolean alongX = piece.width > 1;
+        int length = Math.max(piece.width, piece.height), stepX = alongX ? 1 : 0, stepY = 1 - stepX;
+        boolean run = Math.min(piece.width, piece.height) == 1 && length >= 3;
+        if (run && middle(piece, alongX ? piece.gridX : piece.gridY)) {
+            IsoSprite first = piece.grid.getSprite(0, 0);
+            for (int back = 1; back < length - 1; back++) {
+                if (around.holding(-back * stepX, -back * stepY, first) != null) {
+                    origin[0] = -back * stepX;
+                    origin[1] = -back * stepY;
+                    break;
+                }
+                if (holdingMiddle(around, -back * stepX, -back * stepY, piece) == null) {
+                    break;
+                }
+            }
+        }
+        T dyer = self;
+        for (int i = 0; i < piece.width; i++) {
+            for (int j = 0; j < piece.height; j++) {
+                int dx = origin[0] + i, dy = origin[1] + j;
+                T part = run && middle(piece, alongX ? i : j) ? holdingMiddle(around, dx, dy, piece) : around.holding(dx, dy, piece.grid.getSprite(i, j));
+                if (part == null) {
+                    return null;
+                }
+                if (i == piece.dyeX && j == piece.dyeY) {
+                    dyer = part;
+                }
+            }
+        }
+        return dyer;
+    }
+
+    private static boolean middle(Furniture piece, int at) {
+        return at > 0 && at < Math.max(piece.width, piece.height) - 1;
+    }
+
+    /** What the square dx, dy from the one asked about holds of any middle square of the run the piece is, or null. */
+    private static <T> T holdingMiddle(Around<T> around, int dx, int dy, Furniture piece) {
+        for (int k = 1; k < Math.max(piece.width, piece.height) - 1; k++) {
+            T part = around.holding(dx, dy, piece.width > 1 ? piece.grid.getSprite(k, 0) : piece.grid.getSprite(0, k));
+            if (part != null) {
+                return part;
+            }
+        }
+        return null;
+    }
+
     /**
      * Whether the piece the object is a square of can stand as its model: every square of it is
      * there, and the sprite that is to give it its colour is painted where the colour is
      * taken. Leaves where the colours are taken in dyeU to alsoV, alsoDyed and dyeTexture.
      */
     private boolean ready(IsoObject object, Furniture piece, int x, int y, int z) {
-        int originX = x - piece.gridX, originY = y - piece.gridY;
-        IsoObject dyer = object;
-        if (piece.grid != null) {
-            for (int i = 0; i < piece.width; i++) {
-                for (int j = 0; j < piece.height; j++) {
-                    IsoObject part = holding(build.cell.getGridSquare(originX + i, originY + j, z), piece.grid.getSprite(i, j));
-                    if (part == null) {
-                        return false;
-                    }
-                    if (i == piece.dyeX && j == piece.dyeY) {
-                        dyer = part;
-                    }
-                }
-            }
+        IsoObject dyer = whole(piece, object, (dx, dy, sprite) -> holding(build.cell.getGridSquare(x + dx, y + dy, z), sprite), readyOrigin);
+        if (dyer == null) {
+            return false;
         }
         dyeTexture = WorldScene.PLAIN;
         alsoDyed = piece.alsoDyed;
@@ -392,7 +452,7 @@ final class FurnishingBuilder {
             ShopFittings.addStock(build, object, piece, x, y, foot);
         }
         // What the game lays over the piece's sprite, a stain, has no place on the model.
-        if (piece.gridX != 0 || piece.gridY != 0 || build.overLayer > 0) {
+        if (readyOrigin[0] != 0 || readyOrigin[1] != 0 || build.overLayer > 0) {
             return true;
         }
         Models.Model model = piece.withBasin != null && onSquare(x, y, z, true) != null ? piece.withBasin : piece.model;

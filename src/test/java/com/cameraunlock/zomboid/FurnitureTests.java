@@ -43,6 +43,7 @@ final class FurnitureTests {
         Checks.run("aWireRackOnACounterStandsOnTheCounterLongTheWayItFaces", FurnitureTests::aWireRackOnACounterStandsOnTheCounterLongTheWayItFaces);
         Checks.run("eachBookOnAShelfIsAPieceOfItsOwnInBothModels", FurnitureTests::eachBookOnAShelfIsAPieceOfItsOwnInBothModels);
         Checks.run("aShopCounterOpenOverShelvesOpensWhereItsSpritePaintsTheShelves", FurnitureTests::aShopCounterOpenOverShelvesOpensWhereItsSpritePaintsTheShelves);
+        Checks.run("aShelvingRunStandsWithItsMiddleSquaresLaidInAnyOrder", FurnitureTests::aShelvingRunStandsWithItsMiddleSquaresLaidInAnyOrder);
     }
 
     private static IsoSprite sprite(String row) {
@@ -747,5 +748,44 @@ final class FurnitureTests {
         // The sprite facing south paints its shelves on its east side, the one facing east on its south side.
         check(south.turns == 1 && east.turns == 2, "each opens where its sprite paints the shelves: " + south.turns + ", " + east.turns);
         check(Math.abs(south.model.height() * south.scaleUp - 34 * SURFACE_TILES) < 1e-4f, "as high as the counters of its run");
+    }
+
+    /**
+     * A shop's shelving run of four laid along x as the places of its sprites say, each square asked as the build asks it:
+     * which squares stand as the model, and which of them stands the model itself.
+     */
+    private static String layRun(IsoSprite[] run, int... places) {
+        IsoSprite[] map = new IsoSprite[places.length];
+        for (int k = 0; k < places.length; k++) {
+            map[k] = run[places[k]];
+        }
+        StringBuilder stands = new StringBuilder();
+        int[] origin = new int[2];
+        for (int k = 0; k < map.length; k++) {
+            int at = k;
+            IsoSprite part = FurnishingBuilder.whole(Furniture.known(map[k]), map[k],
+                    (dx, dy, sprite) -> dy == 0 && at + dx >= 0 && at + dx < map.length && map[at + dx] == sprite ? sprite : null, origin);
+            stands.append(part == null ? '-' : origin[0] == 0 ? 'M' : 's');
+        }
+        return stands.toString();
+    }
+
+    private static void aShelvingRunStandsWithItsMiddleSquaresLaidInAnyOrder() {
+        String row = "|BlocksPlacement||CanBreak||CanScrap||ContainerCapacity|20|CustomName|Shelves|Facing|S|GroupName|Beige Rack Shop|IsLow||"
+                + "IsMoveAble||Material|Wood|PickUpLevel|1|PickUpTool|Hammer|PickUpWeight|75|PlaceTool|Hammer|container|shelves|solidtrans||SpriteGridPos|";
+        IsoSprite[] run = new IsoSprite[4];
+        for (int k = 0; k < 4; k++) {
+            run[k] = sprite("location_shop_generic_01_" + (8 + k) + row + k + ",0");
+        }
+        piece(4, 1, run);
+        check(model(Furniture.known(run[0])).equals("shop_gondola"), "the run is the shop's shelving: " + model(Furniture.known(run[0])));
+        // M stands the model, s is a square of it, - is left to the game's sprite.
+        check(layRun(run, 0, 1, 2, 3).equals("Msss"), "a run laid as made stands from its first square: " + layRun(run, 0, 1, 2, 3));
+        check(layRun(run, 0, 2, 2, 3).equals("Msss"), "and laid first, third, third, last, as Rosewood's pharmacy has it: " + layRun(run, 0, 2, 2, 3));
+        check(layRun(run, 0, 1, 1, 3).equals("Msss"), "and first, second, second, last: " + layRun(run, 0, 1, 1, 3));
+        check(layRun(run, 0, 2, 3).equals("---"), "a run a square short is left to the sprites: " + layRun(run, 0, 2, 3));
+        check(layRun(run, 0, 1, 1, 2, 3).equals("-----"), "and so is one a square long: " + layRun(run, 0, 1, 1, 2, 3));
+        check(layRun(run, 0, 1, 2, 0, 1, 2, 3).equals("---Msss"), "of a short run and a whole one after it only the whole one stands: "
+                + layRun(run, 0, 1, 2, 0, 1, 2, 3));
     }
 }
