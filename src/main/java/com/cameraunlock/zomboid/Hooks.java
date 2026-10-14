@@ -303,7 +303,11 @@ public final class Hooks {
 
     /** Called where the game deals a hit its damage: a target reached through a wall gets the share of it the round has left. */
     public static float hitThrough(IsoMovingObject target, HandWeapon weapon, IsoGameCharacter wielder, float damageSplit, boolean ignoreDamage, float modDelta) {
-        return target.Hit(weapon, wielder, damageSplit * Penetration.shareOf(target.getID()), ignoreDamage, modDelta);
+        float share = Penetration.shareOf(target.getID());
+        if (FirstPerson.TRACE && share < Penetration.WHOLE) {
+            Log.info(String.format(Locale.ROOT, "penetration: %d hit through what is in the way, share %.3f of %.4f", target.getID(), share, damageSplit));
+        }
+        return target.Hit(weapon, wielder, damageSplit * share, ignoreDamage, modDelta);
     }
 
     /** Called where the game asks whether its overhead ray found the target, which decides whether it takes a part from that ray. */
