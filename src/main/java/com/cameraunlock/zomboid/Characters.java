@@ -326,6 +326,12 @@ public final class Characters {
         return CharacterDraw.letGo();
     }
 
+    /**
+     * Render thread: the player the frame being drawn was built for. The game empties the slot
+     * of a player who has died while frames built before that are still to be drawn.
+     */
+    IsoPlayer viewer;
+
     /** Whether there is anything to draw this frame, asked as each picture begins. The noted models of an earlier frame are dropped. */
     boolean ready() {
         drawing |= 1 << view.index;
@@ -573,7 +579,6 @@ public final class Characters {
      * False if the viewer is not among the models.
      */
     boolean drawViewer(ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float nearFrom, float far) {
-        IsoPlayer viewer = view.player();
         holding = null;
         carrying = false;
         if (view.pipeline.seated) {
@@ -613,7 +618,6 @@ public final class Characters {
 
     /** Draws the driver's arms on the wheel, posed into skins, into whatever target is bound. */
     void drawWheelArms(float[] projection, float[][] skins) {
-        IsoPlayer viewer = view.player();
         OwnArms.Worn worn = wornOnArms();
         float[] stains = view.ride.dress.stains;
         // Under the vehicle's roof no snow falls on them.
@@ -933,7 +937,6 @@ public final class Characters {
      * the glass. False if the viewer is not among the models.
      */
     boolean drawReflected(ViewCamera.Pose camera, OwnReflection.Glass glass, float tanHalfFieldOfView, float aspect, float near, float far) {
-        IsoPlayer viewer = view.player();
         for (int i = 0; i < noted.size(); i++) {
             ModelSlotRenderData data = noted.get(i);
             if (data.character == null || data.character != viewer || data.inVehicle) {
@@ -1867,7 +1870,6 @@ public final class Characters {
      * @param map     the matrix of a shadow map that looks along the sun's rays, which a model standing outside is left out of, or null
      */
     private int draw(float[] viewMatrix, boolean withViewer, boolean casting, float[] map, float eyeX, float eyeY, float reach) {
-        IsoPlayer viewer = view.player();
         BaseVehicle sat = view.ride.sat;
         int drawn = 0;
         float ambientSum = 0f;
@@ -2040,7 +2042,7 @@ public final class Characters {
      */
     private float standsUp(ModelSlotRenderData data, long now) {
         Terrain terrain = view.worldScene.terrain;
-        return data.character == view.player() ? view.kerbSteps.up(terrain, data.character, data.x, data.y, data.z)
+        return data.character == viewer ? view.kerbSteps.up(terrain, data.character, data.x, data.y, data.z)
                 : view.kerbSteps.step(terrain, data.character, data.x, data.y, data.z, now);
     }
 
@@ -2139,7 +2141,7 @@ public final class Characters {
             person.ambientR = 1f;
             person.ambientG = 1f;
             person.ambientB = 1f;
-            CharacterDraw.begin(person, combined, projection, false, fromViewer(toX, toY, piece.z - view.player().getZ()));
+            CharacterDraw.begin(person, combined, projection, false, fromViewer(toX, toY, piece.z - viewer.getZ()));
             IsoGridSquare square = IsoWorld.instance.currentCell.getGridSquare((int) Math.floor(piece.x), (int) Math.floor(piece.y), (int) Math.floor(piece.z));
             if (square != null) {
                 lightAt(square);
@@ -2235,7 +2237,7 @@ public final class Characters {
     }
 
     private void lightAt(IsoGridSquare square) {
-        if (view.player() == null || square == null || !square.isSeen(view.index)) {
+        if (square == null || !square.isSeen(view.index)) {
             return;
         }
         ColorInfo light = view.torchLess.light(square, view.index, stoodIn);

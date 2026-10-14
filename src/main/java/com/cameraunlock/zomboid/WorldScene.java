@@ -6675,6 +6675,7 @@ final class WorldScene {
 
         private void draw() {
             MouseGrab.sync();
+            view.characters.viewer = viewer;
 
             GL11.glGetIntegerv(GL_VIEWPORT, viewport);
             if (viewport[2] <= 0 || viewport[3] <= 0) {
