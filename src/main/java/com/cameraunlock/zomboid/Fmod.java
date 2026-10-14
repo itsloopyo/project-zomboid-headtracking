@@ -9,6 +9,8 @@ import java.lang.foreign.MemorySegment;
 import java.lang.foreign.SymbolLookup;
 import java.lang.foreign.ValueLayout;
 import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
 import java.nio.charset.StandardCharsets;
 
 /**
@@ -30,6 +32,8 @@ final class Fmod {
     static final int ALREADY_LOCKED = 78;
     /** FMOD_CHANNELCONTROL_DSP_HEAD: the end of a mix's chain of effects nearest its output. */
     static final int HEAD = -1;
+    /** FMOD_STUDIO_EVENT_CALLBACK_STARTING, _STARTED and _START_FAILED. */
+    static final int STARTING = 0x4, STARTED = 0x8, START_FAILED = 0x40;
     /** FMOD_DSP_PARAMETER_TYPE_FLOAT, _INT and _DATA. */
     static final int FLOAT = 0, INT = 1, DATA = 3;
 
@@ -37,7 +41,7 @@ final class Fmod {
     private static final ValueLayout.OfFloat FLOAT_LAYOUT = ValueLayout.JAVA_FLOAT;
     private static final AddressLayout PTR = ValueLayout.ADDRESS;
     private static final MethodHandle STUDIO_INSTANCE_VALID, STUDIO_INSTANCE_GROUP, STUDIO_INSTANCE_DESCRIPTION, STUDIO_DESCRIPTION_3D,
-            STUDIO_DESCRIPTION_PATH, STUDIO_INSTANCE_PAUSE, STUDIO_BUS_VALID, STUDIO_BUS_LOCK, STUDIO_BUS_GROUP;
+            STUDIO_DESCRIPTION_PATH, STUDIO_INSTANCE_PAUSE, STUDIO_INSTANCE_CALLBACK, STUDIO_BUS_VALID, STUDIO_BUS_LOCK, STUDIO_BUS_GROUP;
     private static final MethodHandle GROUP_SYSTEM, GROUP_ADD, GROUP_DSP, GROUP_DSPS, SYSTEM_CREATE_DSP, DSP_INFO,
             DSP_PARAMETERS, DSP_PARAMETER_INFO, DSP_SET_FLOAT, DSP_SET_INT, DSP_DATA, DSP_BYPASS, DSP_METERING,
             DSP_METERING_INFO, DSP_RELEASE, DSP_DISCONNECT;
@@ -54,6 +58,7 @@ final class Fmod {
         STUDIO_DESCRIPTION_3D = handle(linker, studio, "FMOD_Studio_EventDescription_Is3D", PTR, PTR);
         STUDIO_DESCRIPTION_PATH = handle(linker, studio, "FMOD_Studio_EventDescription_GetPath", PTR, PTR, INT_LAYOUT, PTR);
         STUDIO_INSTANCE_PAUSE = handle(linker, studio, "FMOD_Studio_EventInstance_SetPaused", PTR, INT_LAYOUT);
+        STUDIO_INSTANCE_CALLBACK = handle(linker, studio, "FMOD_Studio_EventInstance_SetCallback", PTR, PTR, INT_LAYOUT);
         STUDIO_BUS_VALID = handle(linker, studio, "FMOD_Studio_Bus_IsValid", PTR);
         STUDIO_BUS_LOCK = handle(linker, studio, "FMOD_Studio_Bus_LockChannelGroup", PTR);
         STUDIO_BUS_GROUP = handle(linker, studio, "FMOD_Studio_Bus_GetChannelGroup", PTR, PTR);
@@ -112,6 +117,14 @@ final class Fmod {
     }
 
     private static int call(MethodHandle handle, MemorySegment a, int b, MemorySegment c) {
+        try {
+            return (int) handle.invokeExact(a, b, c);
+        } catch (Throwable thrown) {
+            throw failed(thrown);
+        }
+    }
+
+    private static int call(MethodHandle handle, MemorySegment a, MemorySegment b, int c) {
         try {
             return (int) handle.invokeExact(a, b, c);
         } catch (Throwable thrown) {
@@ -209,6 +222,31 @@ final class Fmod {
         return true;
     }
 
+    /**
+     * A function of FMOD_STUDIO_EVENT_CALLBACK's shape that calls the static method named, found
+     * through its class's own lookup, which takes (int type, MemorySegment instance,
+     * MemorySegment parameters) and answers an FMOD_RESULT. FMOD calls it on its own Studio
+     * thread: it must catch whatever it throws, as a throw out of it ends the game.
+     */
+    static MemorySegment eventCallback(MethodHandles.Lookup owner, String method) {
+        try {
+            MethodHandle target = owner.findStatic(owner.lookupClass(), method, MethodType.methodType(int.class, int.class, MemorySegment.class, MemorySegment.class));
+            return Linker.nativeLinker().upcallStub(target, FunctionDescriptor.of(INT_LAYOUT, INT_LAYOUT, PTR, PTR), Arena.global());
+        } catch (ReflectiveOperationException missing) {
+            throw new IllegalStateException(missing);
+        }
+    }
+
+    /** Has FMOD call back on the instance's events of the mask's types, and says whether the instance is still there. */
+    static boolean setCallback(long instance, MemorySegment callback, int mask) {
+        int result = call(STUDIO_INSTANCE_CALLBACK, at(instance), callback, mask);
+        if (result == INVALID_HANDLE) {
+            return false;
+        }
+        check(result, "EventInstance_SetCallback");
+        return true;
+    }
+
     /** The event an instance plays, or 0 once the instance is let go. */
     static long instanceDescription(long instance) {
         MemorySegment scratch = SCRATCH.get();
@@ -260,16 +298,6 @@ final class Fmod {
         MemorySegment scratch = SCRATCH.get();
         check(call(GROUP_SYSTEM, at(group), scratch), "ChannelGroup_GetSystemObject");
         return pointerOut(scratch);
-    }
-
-    /** Puts an effect into a mix, and says whether the mix is still there: one let go of with its sound answers INVALID_HANDLE. */
-    static boolean addEffectIfThere(long group, int index, long dsp) {
-        int result = call(GROUP_ADD, at(group), index, at(dsp));
-        if (result == INVALID_HANDLE) {
-            return false;
-        }
-        check(result, "ChannelGroup_AddDSP");
-        return true;
     }
 
     static int addEffect(long group, int index, long dsp) {

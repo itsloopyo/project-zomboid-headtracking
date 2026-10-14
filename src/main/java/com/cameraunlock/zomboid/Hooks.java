@@ -680,6 +680,11 @@ public final class Hooks {
         SoundMix.started(emitter, event);
     }
 
+    /** Called as the game has FMOD call it back on an event instance's events. */
+    public static void gameCallsBack(long event) {
+        SoundMix.gameCallsBack(event);
+    }
+
     /**
      * Called with how hidden the game takes a sound to be from its players, 1 for any square
      * outside what the game's own view of a player could see, as it hands that to the sound.

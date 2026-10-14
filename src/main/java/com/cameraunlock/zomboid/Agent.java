@@ -733,6 +733,10 @@ public final class Agent {
      * an emitter starts is noted at the one method every event starts from; without the
      * fourth a sound behind the head is muffled as if a wall stood there, as the game takes
      * any square its own view of the player could not see as hidden. See SoundMix.
+     *
+     * The first notes each sound the game has FMOD call back on, as FMOD keeps one callback a
+     * sound and the mod puts its effects on from its own: without it the mod's would take the
+     * place of the game's, which says when the power goes off.
      */
     private static List<Patch> hearingPatches() {
         String listener = "fmod/fmod/SoundListener", zoom = "zombie/audio/parameters/ParameterCameraZoom", hearing = HOOKS;
@@ -740,7 +744,13 @@ public final class Agent {
         String set = "(IFFFFFFFFFFFF)V";
         CallSite.Method startEvent = new CallSite.Method(emitter, "startEvent", "(JLzombie/audio/GameSoundClip;Z)V");
         CallSite.Method started = new CallSite.Method(hearing, "eventStarted", "(Lfmod/fmod/FMODSoundEmitter;J)V");
+        CallSite.Method setCallback = new CallSite.Method("fmod/javafmod", "FMOD_Studio_EventInstance_SetCallback", "(JLfmod/fmod/FMOD_STUDIO_EVENT_CALLBACK;I)I");
+        CallSite.Method calledBack = new CallSite.Method(hearing, "gameCallsBack", "(J)V");
         return List.of(
+                new Patch("fmod/javafmod", "FMOD_Studio_EventInstance_SetCallback at its start", classBytes -> CallSite.insertAtStartOfStaticMethod(classBytes, setCallback, code -> {
+                    code.lload(0);
+                    CallSite.invokeStatic(code, calledBack);
+                })),
                 new Patch(emitter, "startEvent at its start", classBytes -> CallSite.insertAtStartOfInstanceMethod(classBytes, startEvent, code -> {
                     code.aload(0);
                     code.lload(1);

@@ -148,6 +148,25 @@ final class CallSite {
         return transform(classBytes, within, insert);
     }
 
+    /** Inserts {@code code} before the first instruction of {@code within}, which has to be a static method with a body. */
+    static byte[] insertAtStartOfStaticMethod(byte[] classBytes, Method within, Consumer<CodeBuilder> inserted) {
+        for (MethodModel method : ClassFile.of().parse(classBytes).methods()) {
+            if (method.methodName().equalsString(within.name()) && method.methodType().equalsString(within.descriptor())
+                    && (!method.flags().has(AccessFlag.STATIC) || method.flags().has(AccessFlag.NATIVE))) {
+                throw new IllegalStateException(within + " is not static or has no body");
+            }
+        }
+        boolean[] begun = {false};
+        CodeTransform insert = (code, element) -> {
+            if (!begun[0]) {
+                begun[0] = true;
+                inserted.accept(code);
+            }
+            code.with(element);
+        };
+        return transform(classBytes, within, insert);
+    }
+
     /**
      * Makes {@code within}, a static method that takes one object and returns one, work an
      * answer out once for each thing asked about. At its start it returns what the static

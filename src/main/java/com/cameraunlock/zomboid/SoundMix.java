@@ -2,8 +2,14 @@ package com.cameraunlock.zomboid;
 
 import fmod.fmod.FMODSoundEmitter;
 import fmod.javafmod;
+import java.lang.foreign.MemorySegment;
+import java.lang.invoke.MethodHandles;
 import java.util.Arrays;
 import java.util.Locale;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicIntegerArray;
 
 /**
  * Puts what Acoustics works out into the game's sound: a low pass and a fall in level on each
@@ -20,7 +26,10 @@ import java.util.Locale;
  * screen with one player in first person and one not, both hear the first person player's
  * walls.
  *
- * Logic thread: the game starts its sounds there.
+ * Logic thread: the game starts its sounds there. A sound's effects go into its mix on FMOD's
+ * own Studio thread, from the instance's callback as it starts (onStudioEvent): FMOD frees an
+ * instance's mix on that thread whenever the sound ends, so only there is the mix certain to
+ * be there while the effects go on.
  */
 final class SoundMix {
     /** The bus every sound of the world is mixed through, and not the music or the menus. */
@@ -43,6 +52,7 @@ final class SoundMix {
 
     private static int count;
     private static long[] instance = new long[256], eq = new long[256], fader = new long[256];
+    private static Attachment[] attachment = new Attachment[256];
     private static FMODSoundEmitter[] emitter = new FMODSoundEmitter[256];
     private static int[] state = new int[256];
     /** Decibels the walls take from each sound now, what is applied as that is followed, and what its effects were last set to. */
@@ -68,6 +78,42 @@ final class SoundMix {
     /** Why sound is left as the game mixes it for the rest of the session, or null. */
     private static String failure;
     private static final int[] result = new int[1];
+    /** The sounds whose effects the Studio thread is still to put on, by instance. */
+    private static final ConcurrentHashMap<Long, Attachment> waiting = new ConcurrentHashMap<>();
+    private static MemorySegment callback;
+    /** The callback's own, as it runs on FMOD's thread: whether it is to do nothing more, and what it threw. */
+    private static volatile boolean callbacksOff;
+    private static volatile Throwable callbackFault;
+    private static final int[] callbackResult = new int[1];
+    private static boolean notLoadedSaid;
+    /**
+     * Instances the game has FMOD call back on, which are left as the game mixes them: FMOD
+     * keeps one callback an instance, and the game's says when the power goes off
+     * (AmbientStreamManager).
+     */
+    private static final Set<Long> gamesCallbacks = ConcurrentHashMap.newKeySet();
+    private static long gamesCallbacksChecked;
+    /** How the effects handed out came out since the last trace line, by Attachment state: set on the Studio thread, and ABANDONED on the game's. */
+    private static final AtomicIntegerArray outcomes = new AtomicIntegerArray(9);
+
+    /**
+     * A sound's EQ and fader, and how far the Studio thread got putting them into its mix. The
+     * Studio thread takes it from WAITING to ADDING and then to how that came out; the game's
+     * thread takes it from WAITING to ABANDONED, and while it is ADDING waits for the outcome
+     * before the effects go to another sound.
+     */
+    private static final class Attachment {
+        static final int WAITING = 0, ADDING = 1, ON = 2, GONE = 3, REFUSED = 4, NOT_LOADED = 5, ABANDONED = 6, FAULTED = 7, NOT_STARTED = 8;
+        final long instance, eq, fader;
+        final AtomicInteger state = new AtomicInteger(WAITING);
+        volatile int refusal;
+
+        Attachment(long instance, long eq, long fader) {
+            this.instance = instance;
+            this.eq = eq;
+            this.fader = fader;
+        }
+    }
 
     private SoundMix() {}
 
@@ -96,6 +142,7 @@ final class SoundMix {
             }
             for (int i = kept; i < count; i++) {
                 emitter[i] = null;
+                attachment[i] = null;
             }
             count = kept;
         }
@@ -104,6 +151,7 @@ final class SoundMix {
             instance = Arrays.copyOf(instance, grown);
             eq = Arrays.copyOf(eq, grown);
             fader = Arrays.copyOf(fader, grown);
+            attachment = Arrays.copyOf(attachment, grown);
             emitter = Arrays.copyOf(emitter, grown);
             state = Arrays.copyOf(state, grown);
             muffled = Arrays.copyOf(muffled, grown);
@@ -118,6 +166,7 @@ final class SoundMix {
         emitter[count] = from;
         eq[count] = 0L;
         fader[count] = 0L;
+        attachment[count] = null;
         long description = Fmod.instanceDescription(event);
         state[count] = description != 0L && Fmod.description3D(description) ? PLACED : FLAT;
         long now = System.nanoTime();
@@ -126,12 +175,28 @@ final class SoundMix {
         applied[count] = wanted;
         workedOut[count] = now;
         startedAt[count] = now;
+        held[count] = false;
         // Until the mix is found nothing is put on a sound, so nothing is held for it.
-        held[count] = system != 0L && wanted >= HELD_FROM;
+        if (state[count] == PLACED && system != 0L && !gamesCallbacks.contains(event) && !attach(count, event, wanted)) {
+            giveBack(count);
+            emitter[count] = null;
+            return;
+        }
+        held[count] = attachment[count] != null && wanted >= HELD_FROM;
         if (held[count]) {
             Fmod.pause(event, true);
         }
         count++;
+    }
+
+    /** Called as the game has FMOD call it back on an instance's events, before it starts it. */
+    static void gameCallsBack(long event) {
+        gamesCallbacks.add(event);
+        long now = System.nanoTime();
+        if (now - gamesCallbacksChecked > TRACE_INTERVAL_NANOS) {
+            gamesCallbacksChecked = now;
+            gamesCallbacks.removeIf(called -> !Fmod.instanceValid(called));
+        }
     }
 
     /** Once a frame, after the first view's world is drawn. */
@@ -164,6 +229,10 @@ final class SoundMix {
         if (system == 0L && !findTheMix()) {
             return;
         }
+        Throwable thrown = callbackFault;
+        if (thrown != null) {
+            throw new IllegalStateException("putting a sound's effects into its mix on FMOD's Studio thread threw", thrown);
+        }
         Hearing ring = null;
         for (int i = 0; i < View.COUNT; i++) {
             View view = View.of(i);
@@ -188,21 +257,29 @@ final class SoundMix {
         }
         for (int i = kept; i < count; i++) {
             emitter[i] = null;
+            attachment[i] = null;
         }
         count = kept;
         reverb(ring, seconds);
         if (FirstPerson.TRACE && now - lastTrace > TRACE_INTERVAL_NANOS && (ring != null || ringOn)) {
             lastTrace = now;
-            int muffledNow = 0;
+            int muffledNow = 0, on = 0;
             float most = 0f;
             for (int i = 0; i < count; i++) {
+                if (attachment[i] != null && attachment[i].state.get() == Attachment.ON) {
+                    on++;
+                }
                 if (applied[i] > 0.1f) {
                     muffledNow++;
                     most = Math.max(most, applied[i]);
                 }
             }
-            Log.info(String.format(Locale.ROOT, "sound: %d events, %d muffled (most %.1f dB), %d spare effects, reverb %s at %.2f: %s",
-                    count, muffledNow, most, spare, ringOn ? "in" : "out", ringShare, ringApplied));
+            Log.info(String.format(Locale.ROOT, "sound: %d events, %d muffled (most %.1f dB), %d spare effects, reverb %s at %.2f: %s; "
+                            + "%d with effects on; effects handed out since: put on %d, no mix at the start %d, ended before its start %d, FMOD did not start %d, let go before its start %d; "
+                            + "%d instances left to the game's callbacks",
+                    count, muffledNow, most, spare, ringOn ? "in" : "out", ringShare, ringApplied, on,
+                    outcomes.getAndSet(Attachment.ON, 0), outcomes.getAndSet(Attachment.NOT_LOADED, 0), outcomes.getAndSet(Attachment.GONE, 0),
+                    outcomes.getAndSet(Attachment.NOT_STARTED, 0), outcomes.getAndSet(Attachment.ABANDONED, 0), gamesCallbacks.size()));
         }
     }
 
@@ -215,32 +292,30 @@ final class SoundMix {
             workedOut[i] = now;
             muffled[i] = muffledFor(emitter[i]);
         }
-        if (eq[i] == 0L && muffled[i] < 0.1f && applied[i] < 0.1f) {
+        Attachment on = attachment[i];
+        if (on == null) {
+            // Started before the mix was found: nothing is put on it.
             applied[i] = 0f;
             return true;
         }
-        if (eq[i] == 0L) {
-            long group = Fmod.instanceGroup(instance[i], result);
-            if (result[0] == Fmod.NOT_LOADED) {
-                if (held[i] && now - startedAt[i] > HELD_AT_MOST_NANOS) {
-                    held[i] = false;
-                    if (!Fmod.pause(instance[i], false)) {
-                        return false;
-                    }
-                    if (!heldTooLongSaid) {
-                        heldTooLongSaid = true;
-                        Log.info("sound: a muffled sound had no mix from FMOD after 250 ms and was let go on unmuffled");
-                    }
-                }
+        int reached = on.state.get();
+        if (reached == Attachment.GONE || reached == Attachment.NOT_STARTED) {
+            return false;
+        }
+        if (reached == Attachment.REFUSED) {
+            Fmod.check(on.refusal, "ChannelGroup_AddDSP or EventInstance_GetChannelGroup");
+        }
+        if (reached == Attachment.NOT_LOADED && !notLoadedSaid) {
+            notLoadedSaid = true;
+            Log.info("sound: a sound had no mix from FMOD as it started and is heard unmuffled");
+        }
+        if (held[i] && reached == Attachment.WAITING) {
+            if (now - startedAt[i] <= HELD_AT_MOST_NANOS) {
                 return true;
             }
-            if (result[0] == Fmod.INVALID_HANDLE) {
-                return false;
-            }
-            Fmod.check(result[0], "EventInstance_GetChannelGroup");
-            if (!put(i, group)) {
-                // The sound ended between FMOD giving its mix and the effects going on.
-                return false;
+            if (!heldTooLongSaid) {
+                heldTooLongSaid = true;
+                Log.info("sound: a muffled sound had no mix from FMOD after 250 ms and was let go on unmuffled");
             }
         }
         applied[i] = held[i] ? muffled[i] : applied[i] + (muffled[i] - applied[i]) * step;
@@ -280,10 +355,11 @@ final class SoundMix {
     }
 
     /**
-     * Puts an EQ and a fader on a sound's mix, at the end of its chain nearest its output, and
-     * says whether the mix was still there. Either way the effects are the sound's until giveBack.
+     * Gives a placed sound an EQ and a fader, set for how muffled it is as it starts, for the
+     * Studio thread to put into its mix as it starts, and says whether the instance is still
+     * there. Either way the effects are the sound's until giveBack.
      */
-    private static boolean put(int i, long group) {
+    private static boolean attach(int i, long event, float wanted) {
         if (spare > 0) {
             spare--;
             eq[i] = spareEq[spare];
@@ -293,11 +369,78 @@ final class SoundMix {
             Fmod.setInt(eq[i], eqFilter, lowpassFilter);
             fader[i] = make(faderType);
         }
-        Fmod.bypass(eq[i], false);
-        Fmod.bypass(fader[i], false);
-        bypassed[i] = false;
+        boolean off = wanted < 0.05f;
+        Fmod.bypass(eq[i], off);
+        Fmod.bypass(fader[i], off);
+        bypassed[i] = off;
         set[i] = -1f;
-        return Fmod.addEffectIfThere(group, Fmod.HEAD, fader[i]) && Fmod.addEffectIfThere(group, Fmod.HEAD, eq[i]);
+        if (!off) {
+            Fmod.setFloat(eq[i], eqFrequency, Acoustics.cutoff(wanted));
+            Fmod.setFloat(fader[i], faderGain, -wanted);
+            set[i] = wanted;
+        }
+        Attachment on = new Attachment(event, eq[i], fader[i]);
+        attachment[i] = on;
+        waiting.put(event, on);
+        return Fmod.setCallback(event, callback, Fmod.STARTING | Fmod.STARTED | Fmod.START_FAILED);
+    }
+
+    /**
+     * FMOD_STUDIO_EVENT_CALLBACK, on FMOD's Studio thread: puts a starting sound's effects at
+     * the end of its mix's chain nearest its output. FMOD frees a sound's mix on this thread as
+     * the sound ends, so only here can the mix not go between being asked for and taking them.
+     */
+    private static int onStudioEvent(int type, MemorySegment event, MemorySegment parameters) {
+        try {
+            Attachment on = callbacksOff ? null : waiting.get(event.address());
+            if (on == null) {
+                return Fmod.OK;
+            }
+            if (type == Fmod.START_FAILED) {
+                if (on.state.compareAndSet(Attachment.WAITING, Attachment.NOT_STARTED)) {
+                    waiting.remove(event.address(), on);
+                    outcomes.incrementAndGet(Attachment.NOT_STARTED);
+                }
+                return Fmod.OK;
+            }
+            long group = Fmod.instanceGroup(event.address(), callbackResult);
+            int found = callbackResult[0];
+            if (found == Fmod.NOT_LOADED && type == Fmod.STARTING || !on.state.compareAndSet(Attachment.WAITING, Attachment.ADDING)) {
+                return Fmod.OK;
+            }
+            // Taken: the state leaves ADDING whatever happens, as the game's thread waits on it.
+            int outcome = Attachment.FAULTED;
+            try {
+                outcome = attachOn(on, found, group);
+            } catch (Throwable thrown) {
+                callbackFault = thrown;
+            } finally {
+                on.state.set(outcome);
+                outcomes.incrementAndGet(outcome);
+            }
+        } catch (Throwable thrown) {
+            callbackFault = thrown;
+        }
+        return Fmod.OK;
+    }
+
+    /** On the Studio thread, puts a taken sound's effects into the mix FMOD gave for it, and says how that came out. */
+    private static int attachOn(Attachment on, int found, long group) {
+        waiting.remove(on.instance, on);
+        if (found == Fmod.INVALID_HANDLE) {
+            return Attachment.GONE;
+        }
+        if (found == Fmod.NOT_LOADED) {
+            return Attachment.NOT_LOADED;
+        }
+        if (found == Fmod.OK) {
+            found = Fmod.addEffect(group, Fmod.HEAD, on.fader);
+        }
+        if (found == Fmod.OK) {
+            found = Fmod.addEffect(group, Fmod.HEAD, on.eq);
+        }
+        on.refusal = found;
+        return found == Fmod.OK ? Attachment.ON : Attachment.REFUSED;
     }
 
     /** Takes a sound's effects out of its mix, which FMOD may already have let go of with the sound, to be put on another. */
@@ -305,6 +448,20 @@ final class SoundMix {
         if (eq[i] == 0L) {
             return;
         }
+        Attachment on = attachment[i];
+        if (on != null) {
+            waiting.remove(instance[i], on);
+            if (on.state.compareAndSet(Attachment.WAITING, Attachment.ABANDONED)) {
+                outcomes.incrementAndGet(Attachment.ABANDONED);
+            }
+            while (on.state.get() == Attachment.ADDING) {
+                Thread.onSpinWait();
+            }
+            if (on.state.get() == Attachment.FAULTED) {
+                throw new IllegalStateException("putting a sound's effects into its mix on FMOD's Studio thread threw", callbackFault);
+            }
+        }
+        attachment[i] = null;
         Fmod.disconnect(eq[i]);
         Fmod.disconnect(fader[i]);
         if (spare == spareEq.length) {
@@ -326,6 +483,7 @@ final class SoundMix {
         emitter[to] = emitter[from];
         eq[to] = eq[from];
         fader[to] = fader[from];
+        attachment[to] = attachment[from];
         state[to] = state[from];
         muffled[to] = muffled[from];
         applied[to] = applied[from];
@@ -414,6 +572,7 @@ final class SoundMix {
         if (eqType < 0 || faderType < 0 || reverbType < 0) {
             throw new IllegalStateException("FMOD has no " + (eqType < 0 ? EQ_NAME : faderType < 0 ? FADER_NAME : REVERB_NAME) + " effect: it has " + offered);
         }
+        callback = Fmod.eventCallback(MethodHandles.lookup(), "onStudioEvent");
         system = found;
         long probe = make(eqType);
         eqFilter = Fmod.parameter(probe, "A) Filter", Fmod.INT);
@@ -449,6 +608,8 @@ final class SoundMix {
 
     /** After a fault: every effect of the mod's out of the mix, as far as FMOD lets them be taken out. */
     private static void letGo() {
+        callbacksOff = true;
+        waiting.clear();
         for (int i = 0; i < count; i++) {
             if (eq[i] != 0L) {
                 Fmod.bypass(eq[i], true);
@@ -458,6 +619,7 @@ final class SoundMix {
                 Fmod.pause(instance[i], false);
             }
             emitter[i] = null;
+            attachment[i] = null;
         }
         count = 0;
         if (reverb != 0L) {
