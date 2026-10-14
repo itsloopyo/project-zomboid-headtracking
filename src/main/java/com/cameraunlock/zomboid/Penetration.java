@@ -21,7 +21,8 @@ import zombie.util.list.PZArrayList;
  * a budget by its cartridge, and each wall or door it passes spends from it by what the game says
  * the wall is made of (the sprite's MaterialType, the word the game picks the sound of a hit by).
  * Brick, block, concrete, stone, tile, metal plate, sandbags and anything the game names no
- * material for stop every round, as the game stops them all. What is left of the budget when the
+ * material for stop every round, as the game stops them all. A door the game names no material for
+ * is told by its sound. What is left of the budget when the
  * round reaches a target is the share of the game's damage it does.
  *
  * The game decides everything else about the hit: its chance, its damage, the blood, the fall.
@@ -80,6 +81,7 @@ final class Penetration {
         return switch (materialType) {
             case "Fabric" -> 0f;
             case "Glass", "Glass_Light" -> 0.25f;
+            case "Glass_Solid", BARS -> 0.5f;
             case "Plaster", "Plastic" -> 1f;
             case "Wood" -> 2f;
             case "Metal_Light" -> 2.5f;
@@ -97,6 +99,9 @@ final class Penetration {
     static boolean applies(IsoGameCharacter shooter, HandWeapon weapon) {
         return !Online.joined() && shooter instanceof IsoPlayer player && View.of(player) != null && weapon != null && weapon.isAimedFirearm();
     }
+
+    /** The bars of a metal gate, which the game names no material for: a round mostly passes between them. */
+    static final String BARS = "Bars";
 
     /** A clear line through nothing that stops a shot: the whole of the round's damage. */
     static final float WHOLE = 1f;
@@ -159,7 +164,7 @@ final class Penetration {
             if (object instanceof IsoDoor door && door.getNorth() == north && !door.IsOpen()
                     || object instanceof IsoThumpable thumpable && thumpable.isDoor() && thumpable.getNorth() == north && !thumpable.IsOpen()) {
                 String made = materialOf(object);
-                return cost(made == null ? "Wood" : made);
+                return cost(made != null ? made : doorMaterial(object));
             }
             if (object instanceof IsoWindow window && window.getNorth() == north) {
                 // Stopped by its curtain, or by a barricade, which stops a round as the game has it.
@@ -168,6 +173,28 @@ final class Penetration {
         }
         IsoObject wall = WorldScene.wallOn(square, north);
         return wall == null ? STOPS : cost(materialOf(wall));
+    }
+
+    /**
+     * What a door or gate the game names no material for is made of, by the sound it makes
+     * (DoorSound): wood, a garage door's sheet metal, a sliding door's glass, or the bars of a metal
+     * gate. Any other stops a round, as the game has it.
+     */
+    static String doorMaterialBySound(String sound) {
+        if (sound == null) {
+            return null;
+        }
+        return switch (sound) {
+            case "WoodDoor", "FarmGate", "WoodGateSmall" -> "Wood";
+            case "GarageDoor" -> "Metal_Light";
+            case "SlidingGlassDoor" -> "Glass_Solid";
+            case "MetalGate", "MetalPoleGate", "MetalPoleGateSmall", "MetalPoleGateDouble" -> BARS;
+            default -> null;
+        };
+    }
+
+    private static String doorMaterial(IsoObject door) {
+        return door.getSprite() == null ? null : doorMaterialBySound(door.getSprite().getProperties().get("DoorSound"));
     }
 
     private static String materialOf(IsoObject object) {

@@ -14,6 +14,7 @@ final class PenetrationTests {
         Checks.run("aRifleRoundGoesFurtherThanAHandgunsAndAHandgunsThanAPellet", PenetrationTests::aRifleRoundGoesFurtherThanAHandgunsAndAHandgunsThanAPellet);
         Checks.run("whatIsLeftOfTheBudgetIsTheShareOfTheDamage", PenetrationTests::whatIsLeftOfTheBudgetIsTheShareOfTheDamage);
         Checks.run("whereTheRoundsGoAsTheOwnerAsked", PenetrationTests::whereTheRoundsGoAsTheOwnerAsked);
+        Checks.run("aDoorWithNoMaterialIsToldByItsSound", PenetrationTests::aDoorWithNoMaterialIsToldByItsSound);
     }
 
     private static void check(boolean condition, String what) {
@@ -59,6 +60,23 @@ final class PenetrationTests {
         check(Math.abs(Penetration.left(4f, 1f) - 0.75f) < 1e-6f, "a quarter of the budget spent leaves three quarters of the damage");
         check(Penetration.left(4f, 4f) == 0f, "a budget spent to the end does nothing");
         check(Penetration.left(4f, Penetration.STOPS) == 0f, "nor does a round a wall stopped");
+    }
+
+    /**
+     * Placed in the shipped map with a DoorSound and no MaterialType: WoodDoor 7,336, FarmGate 1,951,
+     * MetalGate 1,928, GarageDoor 1,324, WoodGateSmall 1,009, SlidingGlassDoor 335, the metal pole gates
+     * 332 (census of the map's placements).
+     */
+    private static void aDoorWithNoMaterialIsToldByItsSound() {
+        check("Wood".equals(Penetration.doorMaterialBySound("WoodDoor")), "a door that sounds wooden is a wooden door");
+        check("Wood".equals(Penetration.doorMaterialBySound("FarmGate")) && "Wood".equals(Penetration.doorMaterialBySound("WoodGateSmall")), "and so are the wooden gates");
+        check("Metal_Light".equals(Penetration.doorMaterialBySound("GarageDoor")), "a garage door is sheet metal");
+        check("Glass_Solid".equals(Penetration.doorMaterialBySound("SlidingGlassDoor")), "a sliding door is glass");
+        check(Penetration.BARS.equals(Penetration.doorMaterialBySound("MetalGate")) && Penetration.cost(Penetration.BARS) < Penetration.cost("Plaster"),
+                "a metal gate is bars, which cost a round less than a stud wall");
+        check(Penetration.doorMaterialBySound("Unheard") == null, "a sound the table does not know names nothing, and the door stops a round");
+        check(Penetration.doorMaterialBySound(null) == null, "nor does a door with no sound");
+        check(Penetration.cost("Glass_Solid") < Penetration.cost("Plaster"), "a glass door costs less than a stud wall");
     }
 
     /** The owner's own cases: brick stops it, plasterboard, glass and a wooden door do not. */
