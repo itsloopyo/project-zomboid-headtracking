@@ -67,10 +67,11 @@ import zombie.vehicles.VehiclePart;
  * from a few hundred tiles to a mile off, as the game's own thunder cloud strikes. The game
  * keeps the weather it is held at in the save.
  *
- * The semicolon puts the next of the game's firearms in the player's hands, round and round,
- * and says on the screen which. Whatever firearm is held is kept loaded, sound and unjammed,
- * from the moment the game loads, so a gun the save was left holding fires too: for trying the
- * view with every gun without first finding each one and its rounds.
+ * The semicolon puts the next of the game's firearms in the player's hands, then the next of a
+ * few melee weapons, round and round, and says on the screen which. Whatever firearm is held is
+ * kept loaded, sound and unjammed, from the moment the game loads, so a gun the save was left
+ * holding fires too: for trying the view with every gun and each kind of melee weapon without
+ * first finding each one and its rounds.
  *
  * The left square bracket does the same with a hunting rifle that has a scope on it: the
  * weakest of the game's three on the first press, the next on each press after, and round
@@ -202,8 +203,18 @@ public final class DevKeys {
             "Base.HuntingRifle", "Base.VarmintRifle", "Base.MSR7T_Rifle", "Base.L94_Rifle", "Base.L92_Carbine", "Base.TrapperCarbine",
             "Base.AssaultRifle", "Base.AssaultRifle2", "Base.JS14_Rifle", "Base.Rifle_CapGun",
     };
-    /** The firearm last handed out, and none before the first press. */
-    private static int firearm = -1;
+    /**
+     * Two or more of each kind of melee weapon the game's scripts have (short blade, long blade,
+     * axe, blunt, small blunt, spear) out of its 353: every one of them would be hundreds of
+     * presses round.
+     */
+    private static final String[] MELEE = {
+            "Base.KitchenKnife", "Base.HuntingKnife", "Base.Machete", "Base.Katana", "Base.HandAxe", "Base.Axe", "Base.WoodAxe",
+            "Base.BaseballBat", "Base.BaseballBat_Nails", "Base.Crowbar", "Base.Sledgehammer", "Base.Shovel", "Base.Golfclub",
+            "Base.Hammer", "Base.Pan", "Base.LeadPipe", "Base.Nightstick", "Base.SpearCrafted", "Base.SpearLong",
+    };
+    /** The weapon last handed out, of the firearms and then the melee weapons, and none before the first press. */
+    private static int armed = -1;
     /** The left square bracket, which is beside the semicolon and the apostrophe. */
     private static final int SCOPED_KEY = 26;
     /** The slash, beside the full stop. The right square bracket is the game's own, for its furniture panel. */
@@ -328,14 +339,23 @@ public final class DevKeys {
             lie(lying());
         }
         if (GameKeyboard.isKeyPressed(ARM_KEY)) {
-            firearm = (firearm + 1) % FIREARMS.length;
+            armed = (armed + 1) % (FIREARMS.length + MELEE.length);
+            boolean firearm = armed < FIREARMS.length;
+            String name = firearm ? FIREARMS[armed] : MELEE[armed - FIREARMS.length];
             for (IsoPlayer each : players) {
-                InventoryItem gun = each.getInventory().AddItem(FIREARMS[firearm]);
-                each.setPrimaryHandItem(gun);
-                each.setSecondaryHandItem(gun);
+                InventoryItem weapon = each.getInventory().AddItem(name);
+                InventoryItem was = each.getPrimaryHandItem();
+                each.setPrimaryHandItem(weapon);
+                // A weapon for one hand leaves the other as it was, a flashlight in it included, unless it held the weapon put down.
+                if (firearm || weapon.isTwoHandWeapon()) {
+                    each.setSecondaryHandItem(weapon);
+                } else if (was != null && each.getSecondaryHandItem() == was) {
+                    each.setSecondaryHandItem(null);
+                }
             }
-            Log.info(";: " + FIREARMS[firearm] + " in hand for " + players.size() + " players, " + (firearm + 1) + " of " + FIREARMS.length + ", kept loaded");
-            told = "Firearm: " + FIREARMS[firearm].substring("Base.".length());
+            Log.info(";: " + name + " in hand for " + players.size() + " players, " + (armed + 1) + " of " + (FIREARMS.length + MELEE.length)
+                    + (firearm ? ", kept loaded" : ""));
+            told = (firearm ? "Firearm: " : "Melee: ") + name.substring("Base.".length());
         }
         if (GameKeyboard.isKeyPressed(SCOPED_KEY)) {
             scope = (scope + 1) % ScopeOptics.KNOWN.length;
