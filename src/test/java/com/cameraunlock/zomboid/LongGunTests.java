@@ -33,7 +33,8 @@ final class LongGunTests {
             java.util.Map.entry("varmint", 0.469f), java.util.Map.entry("leverrifle", 0.015f), java.util.Map.entry("levercarbine", 0.015f),
             java.util.Map.entry("js14", 0.000f), java.util.Map.entry("trapper", 0.274f), java.util.Map.entry("js3t", 0.039f),
             java.util.Map.entry("toy", 0.018f), java.util.Map.entry("shotgun", Float.NaN), java.util.Map.entry("sawnoff", Float.NaN),
-            java.util.Map.entry("dbarrel", Float.NaN), java.util.Map.entry("dbarrelsawn", Float.NaN), java.util.Map.entry("tactical", Float.NaN));
+            java.util.Map.entry("dbarrel", Float.NaN), java.util.Map.entry("dbarrelsawn", Float.NaN), java.util.Map.entry("tactical", Float.NaN),
+            java.util.Map.entry("assault", -0.029f), java.util.Map.entry("battle", 0.011f));
 
     private static void theEyeIsStoppedShortOfWhatStandsInTheLineOfSight() throws IOException {
         for (OwnModel model : OwnModel.ALL) {
@@ -66,7 +67,8 @@ final class LongGunTests {
                 {"varmint", "", "", ""}, {"leverrifle", "", "", ""}, {"levercarbine", "", "", ""}, {"toy", "", "", ""}, {"js14", "reddot", "", ""},
                 {"trapper", "reddot", "laser", ""}, {"js3t", "reddot", "", ""}, {"tactical", "", "laser", ""}, {"revolver", "", "", ""},
                 {"magnum", "", "", ""}, {"snubnose", "", "", ""}, {"capgun", "", "", ""}, {"pistol", "", "", ""},
-                {"pistol2", "", "", ""}, {"pistol3", "", "", ""}};
+                {"pistol2", "", "", ""}, {"pistol3", "", "", ""},
+                {"assault", "reddot", "laser", ""}, {"battle", "reddot", "laser", ""}};
         for (OwnModel model : OwnModel.ALL) {
             String name = model.mesh.substring("/models/".length(), model.mesh.length() - ".mesh.gz".length());
             String[] gun = null;

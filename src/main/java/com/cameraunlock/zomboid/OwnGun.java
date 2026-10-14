@@ -361,6 +361,20 @@ abstract class OwnGun {
         return new float[0][];
     }
 
+    /**
+     * Where the right hand takes hold of what it draws back to charge the gun, in the model's
+     * axes and metres from its grip, when it is drawn straight back; null for a gun whose hand
+     * on its bolt turns it up first, or that has none.
+     */
+    float[] handle(OwnModel model) {
+        return null;
+    }
+
+    /** Whether the gun draws its own magazine in the hand that carries one, in place of the arms' own. */
+    boolean ownMagazine() {
+        return false;
+    }
+
     /** What the gun makes of where it is held this frame, once its matrix is filled. */
     void placed(float aim) {
     }

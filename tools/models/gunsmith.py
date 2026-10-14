@@ -12,7 +12,7 @@ unwrapping and the bake.
 The mesh file each script writes is gzip over this, all little-endian:
 
     4 bytes   the ASCII letters CUWM
-    uint32    format version, 4 or 5
+    uint32    format version, 4, 5 or 6
     float32   x 3: where the muzzle is
     float32   x 3: the middle of what the hand that works the action holds, if anything
     float32   x 3: the middle of the port a spent shell or case leaves by
@@ -22,9 +22,12 @@ The mesh file each script writes is gzip over this, all little-endian:
     uint32    number of vertices
     version 4:
       uint32 x 5: how many indices each of five parts has
-    version 5:
+    version 5 and 6:
       uint32    how many parts there are, then that many uint32: how many indices each has
       uint32    how many numbers follow that say how the parts move, then the float32s
+    version 6:
+      float32 x 9   where the game's red dot sight, its laser and its light are fixed to the gun, the point it
+                    fixes each by, NaN where that one does not go on it
     per vertex:
       float32 x 3   position
       int16 x 3     unit normal, 32767 for 1
@@ -975,6 +978,15 @@ def head_v5(muzzle, held, port, travel, sight_line, eye_behind, moves):
     return lambda vertices, counts: (b"CUWM" + struct.pack("<I3f3f3f3fI", 5, *muzzle, *held, *port, travel, sight_line, eye_behind, vertices)
                                      + struct.pack("<I%dI" % len(counts), len(counts), *counts) + struct.pack("<I%df" % len(moves), len(moves), *moves))
 
+
+
+def head_v6(muzzle, held, port, travel, sight_line, eye_behind, moves, red_dot=None, laser=None, light=None):
+    """The head of a version 6 file, for pack: a version 5 head, and after it where the game's red dot sight, laser and
+    light are fixed to the gun, the point the game fixes each by from the grip, or None where that one does not go on it."""
+    mounts = [coordinate for at in (red_dot, laser, light) for coordinate in (tuple(at) if at is not None else (math.nan,) * 3)]
+    return lambda vertices, counts: (b"CUWM" + struct.pack("<I3f3f3f3fI", 6, *muzzle, *held, *port, travel, sight_line, eye_behind, vertices)
+                                     + struct.pack("<I%dI" % len(counts), len(counts), *counts) + struct.pack("<I%df" % len(moves), len(moves), *moves)
+                                     + struct.pack("<9f", *mounts))
 
 def dress(gun, colour, surface, folder):
     """Puts the baked pictures on the gun in place of the materials they were baked from, as the mod will draw it."""

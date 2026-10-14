@@ -68,6 +68,10 @@ final class OwnModel {
                 OwnDouble::poses, OwnDouble::new),
         new OwnModel("the sawn-off double barrelled shotgun's model", "dbarrelsawn", "dbarrel", "Base.DoubleBarrelShotgunSawnoff", false, true, false,
                 OwnDouble.PARTS, OwnDouble.MOVES, OwnDouble.SLIDES, OwnDouble::poses, OwnDouble::new),
+        new OwnModel("the assault rifle's model", "assault", "assault", "Base.AssaultRifle", false, false, false, OwnSelfLoader.PARTS, OwnSelfLoader.MOVES,
+                OwnSelfLoader.SLIDES, OwnSelfLoader::poses, OwnSelfLoader::new),
+        new OwnModel("the battle rifle's model", "battle", "battle", "Base.AssaultRifle2", false, false, false, OwnSelfLoader.PARTS, OwnSelfLoader.MOVES,
+                OwnSelfLoader.SLIDES, OwnSelfLoader::poses, OwnSelfLoader::new),
     };
 
     /**

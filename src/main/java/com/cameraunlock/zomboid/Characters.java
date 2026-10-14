@@ -1224,7 +1224,7 @@ public final class Characters {
             // A gun that opens to be loaded says where its rounds go in, wherever its moving parts have it.
             return heldMesh.set(own.shape, meshView, meshStill, own.pump ? own.travel * pumped : 0f,
                     own.pump ? own.foreEnd * own.muzzle[1] : Float.NaN, own.pump ? ArmHolds.BOLT_TRAVEL : own.travel)
-                    .port(view.ownGun(own).loadingPort(own));
+                    .port(view.ownGun(own).loadingPort(own)).charged(view.ownGun(own).handle(own));
         }
         WeaponShape shape = shapeOf(held, hands.item(), view.viewModel.handgun);
         if (shape == null) {
@@ -1345,6 +1345,11 @@ public final class Characters {
     static final float PER_METRE = 0.4461f / 0.9015f;
 
     private final ArmHolds.Carried armCarries = new ArmHolds.Carried();
+
+    /** What the mod's own left hand carries this frame and where, or null where the game's own arms are drawn this frame. Render thread. */
+    ArmHolds.Carried carried() {
+        return ownArms ? armCarries : null;
+    }
     private final ArmHolds.Settled armSettled = new ArmHolds.Settled();
     private long armsAsOf;
     private Cabins.Wear wearSeen;
@@ -1643,7 +1648,11 @@ public final class Characters {
             OwnArms.draw(projection, armSkins[0], false, armFemale, armSkin, ownLight, outside, worn, stains);
             if (heldBoth) {
                 OwnArms.draw(projection, armSkins[1], true, armFemale, armSkin, ownLight, outside, worn, stains);
-                OwnArms.carried(projection, armCarries.what, armCarries.at, ownLight, outside);
+                // A gun of the mod's own that has a magazine of its own draws it in the hand itself.
+                OwnModel drawsItsOwn = hands == null ? null : hands.ownDrawn();
+                if (drawsItsOwn == null || !view.ownGun(drawsItsOwn).ownMagazine()) {
+                    OwnArms.carried(projection, armCarries.what, armCarries.at, ownLight, outside);
+                }
             }
             EYE.End();
             data.ambientR = red;

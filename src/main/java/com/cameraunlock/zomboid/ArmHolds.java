@@ -78,6 +78,8 @@ final class ArmHolds {
     static final int REACH_PASSES = 4;
     /** How far a bolt's handle turns up to open it, in radians, and how far the bolt of a firearm of no particular make is drawn back, in metres. */
     static final float BOLT_LIFT = (float) Math.toRadians(55), BOLT_TRAVEL = 0.09f;
+    /** A charging handle further out to the side of the bore than this, in metres, is on the gun's side and not on top of it. */
+    static final float HANDLE_OUTSIDE = 0.015f;
     /** How far a handgun's slide is drawn back, in metres. */
     static final float SLIDE_TRAVEL = 0.03f;
     /** How much of the way from the grip to the muzzle the hand under a fore-end rests, on a firearm that does not say. */
@@ -135,6 +137,8 @@ final class ArmHolds {
         private float slid, foreRest, travel;
         /** Where rounds go in, in the mesh's axes, where the mesh's model says, or null for the shape to say. */
         private float[] port;
+        /** Where the hand takes hold of a handle that is drawn straight back to charge the gun, in the mesh's axes, or null. */
+        private float[] handle;
 
         Placed() {}
 
@@ -158,7 +162,18 @@ final class ArmHolds {
             this.foreRest = foreRest;
             this.travel = travel;
             port = null;
+            handle = null;
             return this;
+        }
+
+        /** Says that the gun is charged by a handle drawn straight back, held at handle in the mesh's axes, or with null that it is not. */
+        Placed charged(float[] mesh) {
+            handle = mesh;
+            return this;
+        }
+
+        float[] handle() {
+            return handle;
         }
 
         /** Says where rounds go in, in the mesh's axes, or with null leaves it to the shape. */
@@ -605,7 +620,11 @@ final class ArmHolds {
         hold.weights[model.pose("grip")] = 1f - raised;
         hold.weights[model.pose("trigger")] = raised;
         float cycled = doing.cycled();
-        if (cycled >= 0f && (doing.action() == ArmActs.BOLT || doing.action() == ArmActs.BOLT_SINGLE)) {
+        if (placed.handle() != null) {
+            if (doing.doing() == ArmActs.RACKING) {
+                onChargingHandle(model, placed, axes, doing, hold);
+            }
+        } else if (cycled >= 0f && (doing.action() == ArmActs.BOLT || doing.action() == ArmActs.BOLT_SINGLE)) {
             // The hand goes to the knob as the bolt is about to be worked, turns it up, draws
             // it back, shoves it home, turns it down, and goes back to the grip.
             float[] worked = new float[2];
@@ -639,6 +658,31 @@ final class ArmHolds {
             ArmPose.turned(turn, hold.out.clone(), hold.out);
         }
         return hold;
+    }
+
+    /**
+     * The right hand on a charging handle while the game racks the gun: it reaches the handle,
+     * draws it straight back as a slide is racked, lets it fly home and goes back to the grip,
+     * all as shares of how long the game takes over it, so that a short rack ends as cleanly as
+     * a long one.
+     */
+    private static void onChargingHandle(ArmModel model, Placed placed, Axes axes, Doing doing, Hold hold) {
+        WeaponShape shape = placed.shape();
+        // A charging handle: the hand reaches it, draws it straight back as a slide is racked, lets it fly home and
+        // goes back to the grip. One out on the right is taken as a bolt's knob is; one on top from above, the palm
+        // forward and the fingers across to the left.
+        float through = doing.done() / Math.max(doing.pace(), ArmActs.SHORTEST);
+        float on = between(through, 0f, 0.3f) - between(through, 0.6f, 0.95f);
+        float drawn = through < SLIDE_LET_GO ? slideRacked(through) : 1f;
+        float[] grab = placed.handle(), drawnTo = new float[3];
+        for (int axis = 0; axis < 3; axis++) {
+            drawnTo[axis] = grab[axis] - shape.along[axis] * placed.travel() * drawn;
+        }
+        float[] at = placed.at(drawnTo);
+        boolean outside = Math.abs(ArmPose.dot(grab, shape.side)) > HANDLE_OUTSIDE;
+        Hold onHandle = outside ? new Hold(model).set(at, axes.way(0f, 0.3f, -1f), axes.way(0.7f, 0.6f, -0.3f), false, model.pose("knob"))
+                : new Hold(model).set(at, axes.way(0.6f, -0.8f, 0f), axes.way(0f, -0.2f, -1f), false, model.pose("knob"));
+        hold.towards(onHandle, on);
     }
 
     /** The left hand, or null when it is not on the weapon nor busy with it. */

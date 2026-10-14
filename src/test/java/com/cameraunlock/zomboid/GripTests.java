@@ -28,6 +28,7 @@ final class GripTests {
         Checks.run("armsOnALongGunTurnNoFurtherThanAForearmTurns", () -> armsOnALongGunTurnNoFurtherThanAForearmTurns(model));
         Checks.run("armsWorkingTheActionTurnNoFurtherThanAForearmTurns", () -> armsWorkingTheActionTurnNoFurtherThanAForearmTurns(model));
         Checks.run("rightPalmOnALongGunFacesAsItsHoldSays", () -> rightPalmOnALongGunFacesAsItsHoldSays(model));
+        Checks.run("aRifleRackedByAHandleTurnsNoKnobAfter", () -> aRifleRackedByAHandleTurnsNoKnobAfter(model));
         Checks.run("heldMeshIsFilledAgainEachFrame", GripTests::heldMeshIsFilledAgainEachFrame);
         Checks.run("meshAxesComeFromTheMuzzleAttachment", GripTests::meshAxesComeFromTheMuzzleAttachment);
     }
@@ -297,6 +298,28 @@ final class GripTests {
         float[] grip = {at[0] * SCALE, at[1] * SCALE, at[2] * SCALE};
         ArmHolds.Placed placed = TestGuns.placed(shape, grip, pointing, over, SCALE, 0f, Float.NaN);
         return new ArmHolds.Weapon(true, handgun, placed.at(shape.grip), pointing, over, placed);
+    }
+
+    /**
+     * A rifle charged by a handle drawn straight back has no bolt knob to turn: once the game
+     * has racked it, however short the rack was, the right hand is on the grip while the time
+     * since the rack runs on, as it is with no rack at all.
+     */
+    private static void aRifleRackedByAHandleTurnsNoKnobAfter(ArmModel model) {
+        WeaponShape rifleShape = TestGuns.shape(TestGuns.longGun(true));
+        float[] handle = {0f, -0.02f, 0.03f};
+        float[][] still = new float[2][model.bones.length * 16], said = new float[2][ArmPose.SAYS];
+        ArmHolds.Weapon gun = worked(rifleShape, false, 0f, 0f);
+        gun.placed().charged(handle);
+        ArmHolds.place(model, SCALE, gun, new ArmHolds.Doing(0f, true, ArmActs.BOLT, -1f, ArmActs.HOLDING, 0f, 0f, 1f, -1f, true, -1f, -1f, 2f, 0f), SAME, still, said,
+                new ArmHolds.Carried(), new ArmHolds.Settled());
+        for (float since : new float[] {0.3f, 0.6f, 0.9f}) {
+            float[][] skins = new float[2][model.bones.length * 16];
+            gun.placed().charged(handle);
+            ArmHolds.place(model, SCALE, gun, new ArmHolds.Doing(0f, true, ArmActs.BOLT, since, ArmActs.HOLDING, 0f, 0f, 1f, -1f, true, -1f, -1f, 2f, 0f), SAME, skins, said,
+                    new ArmHolds.Carried(), new ArmHolds.Settled());
+            check(java.util.Arrays.equals(skins[0], still[0]), "the right hand is on the grip " + since + " s after a short rack, as with none");
+        }
     }
 
     /**

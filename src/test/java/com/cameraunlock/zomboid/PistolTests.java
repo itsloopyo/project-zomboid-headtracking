@@ -218,7 +218,8 @@ final class PistolTests {
             java.util.Map.entry("snubnose", 11), java.util.Map.entry("capgun", 11), java.util.Map.entry("pistol", 12), java.util.Map.entry("pistol2", 15),
             java.util.Map.entry("pistol3", 17), java.util.Map.entry("dbarrel", 30), java.util.Map.entry("dbarrelsawn", 34), java.util.Map.entry("varmint", 17),
             java.util.Map.entry("js14", 15), java.util.Map.entry("leverrifle", 20), java.util.Map.entry("levercarbine", 12), java.util.Map.entry("trapper", 12),
-            java.util.Map.entry("js3t", 28), java.util.Map.entry("tactical", 21), java.util.Map.entry("toy", 17));
+            java.util.Map.entry("js3t", 28), java.util.Map.entry("tactical", 21), java.util.Map.entry("toy", 17),
+            java.util.Map.entry("assault", 15), java.util.Map.entry("battle", 20));
     private static final java.util.Set<String> TOYS = java.util.Set.of("capgun", "toy"), STOCKLESS = java.util.Set.of("sawnoff", "dbarrelsawn");
 
     /**
