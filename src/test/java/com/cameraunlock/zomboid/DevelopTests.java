@@ -19,6 +19,7 @@ final class DevelopTests {
         theLightTintsByDaySunAndNight();
         aGreenCastIndoorsIsTakenOutAndAWarmOneMostlyKept();
         aDarkRoomAfterTheStreetIsNotFlattened();
+        aDarkThingComingIntoTheFrameDoesNotFlickerItsBlacks();
         aPlainWallHoldsItsBalanceStill();
     }
 
@@ -197,12 +198,42 @@ final class DevelopTests {
         // A hazy street: its dark is mostly taken away.
         d.read(even(log2(0.06f / exposure), log2(0.35f / exposure)), filled(1f), CELLS);
         settleLong(d, exposure, 1f, 0f, 0f, 0f);
-        // Through the door: a room five stops darker, one frame later.
+        // Through the door: a room five stops darker. Fifteen frames, a quarter of a second, later.
         d.read(even(log2(0.002f / exposure), log2(0.011f / exposure)), filled(1f), CELLS);
-        d.settle(exposure, 1f, 0f, 0f, 0f, 11 * SECOND + SECOND / 60);
-        float darkLight = exposure * (float) Math.pow(2.0, d.dark());
-        check(d.takenAt(exposure) <= Develop.MOST_TAKEN * darkLight + 1e-6f,
-                "the first frame in the room takes no more than its own dark allows, not the street's: " + d.takenAt(exposure) + " of " + darkLight);
+        long now = 11 * SECOND;
+        for (int i = 0; i < 15; i++) {
+            now += SECOND / 60;
+            d.settle(exposure, 1f, 0f, 0f, 0f, now);
+        }
+        float darkLight = exposure * (float) Math.pow(2.0, d.dark()), middleLight = exposure * (float) Math.pow(2.0, d.middle());
+        check(d.takenAt(exposure) < 0.15f * middleLight,
+                "a quarter of a second into the room its middle keeps its light, where the street's dark taken away flattened it: "
+                        + d.takenAt(exposure) + " of " + middleLight);
+        check(d.takenAt(exposure) < 0.5f * darkLight, "and its own dark is not crushed: " + d.takenAt(exposure) + " of " + darkLight);
+    }
+
+    private static void aDarkThingComingIntoTheFrameDoesNotFlickerItsBlacks() {
+        Develop d = new Develop();
+        float exposure = 4f;
+        float[] hazy = even(log2(0.06f / exposure), log2(0.35f / exposure));
+        d.read(hazy, filled(1f), CELLS);
+        settleLong(d, exposure, 1f, 0f, 0f, 0f);
+        float settled = d.takenAt(exposure);
+        // A dark coat fills the darkest share for one frame, then is gone again.
+        float[] coat = hazy.clone();
+        for (int i = 0; i < CELLS * 3 / 100; i++) {
+            coat[i] = log2(0.004f / exposure);
+        }
+        d.read(coat, filled(1f), CELLS);
+        long now = 11 * SECOND + SECOND / 60;
+        d.settle(exposure, 1f, 0f, 0f, 0f, now);
+        float dipped = d.takenAt(exposure);
+        d.read(hazy, filled(1f), CELLS);
+        d.settle(exposure, 1f, 0f, 0f, 0f, now + SECOND / 60);
+        float after = d.takenAt(exposure);
+        check(dipped < 0.8f * settled, "the frame with the coat takes less away at once: " + dipped + " of " + settled);
+        check(after < dipped + 0.1f * (settled - dipped),
+                "the frame after the coat has gone takes back little of its black level at once: " + dipped + " then " + after + " of " + settled);
     }
 
     private static void aPlainWallHoldsItsBalanceStill() {

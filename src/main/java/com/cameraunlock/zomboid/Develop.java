@@ -26,17 +26,21 @@ final class Develop {
     /** At night the range is stretched by no more than this, so night stays dark, and never held in: a lit window is the brightest thing in a night. */
     static final float MOST_GAIN_AT_NIGHT = 1.12f;
     static final float SETTLE_SECONDS = 0.6f;
+    /**
+     * How fast less light is taken away. A frame's dark falls by stops at a doorway, and light
+     * taken for the street outside, easing down over SETTLE_SECONDS, flattened a dark room for a
+     * second and more; and a dark coat or doorway going in and out of the frame's darkest part
+     * would make its blacks flicker if more were taken as fast. So less is taken at once, and
+     * more only slowly.
+     */
+    static final float RELEASE_SECONDS = 0.03f;
     /** The film's white, as the develop shader's WHITE. */
     static final float WHITE = 3.2f;
 
     private final int[] counts = new int[BINS];
     /** Where the frame's dark and bright lie and its middle, log2 of the light before exposure. NaN before the first reading. */
     private float dark = Float.NaN, bright = Float.NaN, middle = Float.NaN;
-    /**
-     * How much of the frame's dark is taken away, as a share of it, and the gain. The share is
-     * what eases, not the light taken: the frame's dark moves by stops at a doorway, and light
-     * taken away for the street outside, easing down, flattened a dark room for a second and more.
-     */
+    /** The light taken from every pixel's, before exposure, and the gain: what the shader is given. */
     private float taken, gain = 1f;
     private long settledAt;
     /** The cast of the frame's brightest light, red and blue against green in stops, and what red and blue are multiplied by against it. */
@@ -151,9 +155,10 @@ final class Develop {
             float least = LEAST_GAIN + (1f - LEAST_GAIN) * dark;
             float fits = filmInverse((float) Math.pow(BRIGHT_SHOWN, 2.2)) / Math.max(rest, 1e-6f);
             wantGain = 1f + (Math.clamp(fits, least, most) - 1f) * strength;
+            wantTaken = taking * darkLight / exposure;
         }
         float step = 1f - (float) Math.exp(-elapsed / SETTLE_SECONDS);
-        taken += (wantTaken - taken) * step;
+        taken += (wantTaken - taken) * (wantTaken < taken ? 1f - (float) Math.exp(-elapsed / RELEASE_SECONDS) : step);
         gain += (wantGain - gain) * step;
         // Out of doors the light is the sky's and the sun's, and its colour is the hour's: it is left
         // as it is. Under a room's lamps the eye takes out most of a green or purple cast, which no
@@ -181,7 +186,7 @@ final class Develop {
 
     /** The light taken from every pixel's before the film, in exposed light: see settle. */
     float takenAt(float exposure) {
-        return Float.isNaN(dark) ? 0f : taken * exposure * (float) Math.pow(2.0, dark);
+        return taken * exposure;
     }
 
     float gain() {

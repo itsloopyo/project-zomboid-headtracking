@@ -6387,6 +6387,8 @@ final class PipelineShaders {
                 vec3 most = max(h, max(max(hn, hs), max(he, hw)));
                 vec3 room = sqrt(clamp(min(least, 1.0 - most) / max(most, 1e-4), 0.0, 1.0));
                 vec3 weight = -room * (0.2 * uLocal.z);
+                // Held under 0.999, a thousand times the light the film shows as white: past
+                // that a value is all the same to the film and turns back into nothing finite.
                 vec3 seen = clamp((h + weight * (hn + hs + he + hw)) / (1.0 + 4.0 * weight), 0.0, 0.999);
                 return seen / (1.0 - seen) / uExposure;
             }
@@ -6464,6 +6466,8 @@ final class PipelineShaders {
                     around = ofItsOwnDepth(uOcclusion, whole, weights);
                 }
                 vec4 here = texture2D(uScene, uv);
+                // The scene's own light, as the meter reads it, before the sharpening.
+                float sceneLight = dot(here.rgb, vec3(0.2126, 0.7152, 0.0722));
                 if (uLocal.z > 0.0) {
                     here.rgb = sharpened(uv, here.rgb);
                 }
@@ -6507,9 +6511,9 @@ final class PipelineShaders {
                 float lifted = 0.0;
                 if (uLocal.x + uLocal.y > 0.0) {
                     float nearby = (texture2DLod(uMeter, uv, 1.0).r + 2.0 * texture2DLod(uMeter, uv, 2.0).r + texture2DLod(uMeter, uv, 3.0).r) * 0.25;
-                    // The scene's own light, as the meter reads it: not the shade, the lit air,
-                    // the glow and the rest laid over it since, which the meter never sees.
-                    float own = log2(max(dot(here.rgb, vec3(0.2126, 0.7152, 0.0722)), 1e-4));
+                    // Not the shade, the lit air, the glow and the rest laid over it since, nor
+                    // the sharpening, which the meter never sees.
+                    float own = log2(max(sceneLight, 1e-4));
                     lifted = own - nearby;
                     // A part of the picture far darker or brighter than the frame's middle, a
                     // room seen past a window or a window seen from a room, is brought some way
