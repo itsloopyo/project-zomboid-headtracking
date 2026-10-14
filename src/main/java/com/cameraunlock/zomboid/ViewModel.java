@@ -471,11 +471,15 @@ public final class ViewModel {
                 seated = ArmActs.NOT_SEATING;
             }
         }
-        // A bolt or a lever is worked with the rifle off the eye: its hand passes where the eye was.
-        boolean working = cycled >= 0f && (action == ArmActs.BOLT || action == ArmActs.BOLT_SINGLE || action == ArmActs.LEVER);
+        // A magazine-fed rifle that is not racked after each shot loads itself, and is charged by a handle drawn straight back.
+        boolean selfLoading = action == ArmActs.BOLT && !racked;
+        // A bolt or a lever is worked with the rifle off the eye: its hand passes where the eye was. A self-loader is
+        // brought up instead, and only while the game racks it.
+        boolean working = cycled >= 0f && !selfLoading && (action == ArmActs.BOLT || action == ArmActs.BOLT_SINGLE || action == ArmActs.LEVER);
         worked = ViewModelMath.ease(worked, working ? 1f : 0f, seconds, WORK_SECONDS);
-        // Loaded, or a pistol racked, the weapon is brought up where both hands can be seen at it.
-        boolean brought = doing == ArmActs.LOADING || doing == ArmActs.UNLOADING || doing == ArmActs.RACKING && action == ArmActs.HANDGUN || seated >= 0f && seated < ArmActs.SEATED_UP_FOR;
+        // Loaded, or a pistol or a rifle with a charging handle racked, the weapon is brought up where both hands can be seen at it.
+        boolean charged = action == ArmActs.HANDGUN || selfLoading;
+        boolean brought = doing == ArmActs.LOADING || doing == ArmActs.UNLOADING || doing == ArmActs.RACKING && charged || seated >= 0f && seated < ArmActs.SEATED_UP_FOR;
         handled = ViewModelMath.ease(handled, brought ? 1f : 0f, seconds, HANDLE_SECONDS);
         int rounds = weapon.getCurrentAmmoCount();
         // Rounds go in at the game's own pace, which the first two to go in show.
