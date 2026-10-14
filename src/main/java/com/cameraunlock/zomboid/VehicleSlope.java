@@ -79,6 +79,27 @@ final class VehicleSlope {
         up(x / length, y / length, up / length);
     }
 
+    /** Makes this lie as other does. */
+    void copy(VehicleSlope other) {
+        groundUp = other.groundUp;
+        up(other.upX, other.upY, other.upUp);
+    }
+
+    /** The sine of how steep the plane is, and the way down it along the map: a unit vector, or none on level ground. */
+    float steep() {
+        return (float) Math.hypot(upX, upY);
+    }
+
+    float downX() {
+        float sin = steep();
+        return sin < 1e-7f ? 0f : upX / sin;
+    }
+
+    float downY() {
+        float sin = steep();
+        return sin < 1e-7f ? 0f : upY / sin;
+    }
+
     /** Sets the plane's up, a unit vector, and the turn and the way down that follow from it. */
     private void up(float x, float y, float up) {
         upX = x;

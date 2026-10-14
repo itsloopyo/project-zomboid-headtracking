@@ -731,7 +731,7 @@ public final class FirstPerson {
             view.kerbSteps.lose(player);
         }
         eye[2] = standsUp + eyeHigh;
-        view.headlights.gather(view.worldScene.terrain, eye[0], eye[1]);
+        view.headlights.gather(view.worldScene.terrain, eye[0], eye[1], view.ride);
         view.ride.note(player, vehicle, floorUp, view.worldScene.terrain, eye);
         // Nothing is aimed while the game's animation has the body: a zoom would close in on the head's view.
         boolean sightsUp = view.controls.sightsUp(player) && !bodyLeads;
@@ -991,7 +991,7 @@ public final class FirstPerson {
         Vector2 facing = player.getForwardDirection();
         ViewCamera.clean(standingView, x, y, level * ViewCamera.LEVEL_HEIGHT + view.worldScene.terrain.lift(x, y, level) + eyeHeight(player, 0f),
                 (float) Math.atan2(facing.y, facing.x), 0f);
-        view.headlights.gather(view.worldScene.terrain, x, y);
+        view.headlights.gather(view.worldScene.terrain, x, y, view.ride);
         float facingLength = Math.max((float) Math.hypot(facing.x, facing.y), 1e-3f);
         view.carriedLight.gather(player, standingView.eyeX, standingView.eyeY, standingView.eyeUp, facing.x / facingLength, facing.y / facingLength, 0f);
         WorldScene.Frame scene = view.worldScene.next();
@@ -1028,7 +1028,7 @@ public final class FirstPerson {
                     (ndc[0] * 0.5f + 0.5f) * IsoCamera.getScreenWidth(index), (0.5f - ndc[1] * 0.5f) * IsoCamera.getScreenHeight(index),
                     view.worldScene.terrain.lift(x, y, level)));
         }
-        view.headlights.gather(view.worldScene.terrain, x, y);
+        view.headlights.gather(view.worldScene.terrain, x, y, view.ride);
         Vector2 facing = player.getForwardDirection();
         float facingLength = Math.max((float) Math.hypot(facing.x, facing.y), 1e-3f);
         view.carriedLight.gather(player, standingView.eyeX, standingView.eyeY, standingView.eyeUp, facing.x / facingLength, facing.y / facingLength, 0f);

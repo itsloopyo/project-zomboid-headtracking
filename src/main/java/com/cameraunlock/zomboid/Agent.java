@@ -241,6 +241,7 @@ public final class Agent {
         instrumentation.addTransformer(new PatchTransformer(leftSavePatches()));
         instrumentation.addTransformer(new PatchTransformer(luaLoadedPatches()));
         instrumentation.addTransformer(new PatchTransformer(knockdownPatches()));
+        instrumentation.addTransformer(new PatchTransformer(carPhysicsPatches()));
         instrumentation.addTransformer(new PatchTransformer(controllerPatches()));
         chunkMarks = new PatchTransformer(chunkMarkPatches());
         instrumentation.addTransformer(chunkMarks);
@@ -674,6 +675,22 @@ public final class Agent {
                         new CallSite.Method(vehicle, "applyImpulseFromHitCorpse", "(Lzombie/iso/objects/IsoDeadBody;)V"),
                         new CallSite.Method(vehicle, "getFudgedMass", "()F"),
                         new CallSite.Method(HOOKS, "corpseMass", "(F)F"), 1)));
+    }
+
+    /**
+     * Apart from everything else: without it vehicles keep to the game's level ground, never
+     * roll over and never burn out on their roofs, as they do in the game. See CarPhysics.
+     */
+    private static List<Patch> carPhysicsPatches() {
+        String vehicle = "zombie/vehicles/BaseVehicle", controller = "zombie/core/physics/CarController";
+        return List.of(
+                new Patch(vehicle, "update at its start", classBytes -> CallSite.insertAtStartOfInstanceMethod(classBytes,
+                        new CallSite.Method(vehicle, "update", "()V"),
+                        code -> CallSite.passThis(code, new CallSite.Method(HOOKS, "vehicleUpdate", "(L" + vehicle + ";)V")))),
+                new Patch(controller, "update's handing the engine, brakes and steering to the physics", classBytes -> CallSite.replaceEach(classBytes,
+                        new CallSite.Method(controller, "update", "()V"),
+                        new CallSite.Method("zombie/core/physics/Bullet", "controlVehicle", "(IFFF)V"),
+                        new CallSite.Method(HOOKS, "controlVehicle", "(IFFF)V"), 2)));
     }
 
     /**

@@ -38,4 +38,22 @@ public final class BaseVehicle extends zombie.iso.IsoMovingObject {
     public int getMaxPassengers() { throw new UnsupportedOperationException("reference stub"); }
     public IsoGameCharacter getCharacter(int seat) { throw new UnsupportedOperationException("reference stub"); }
     public org.joml.Vector3f getIntersectPoint(org.joml.Vector3f start, org.joml.Vector3f end, org.joml.Vector3f result) { throw new UnsupportedOperationException("reference stub"); }
+    public zombie.iso.IsoChunk chunk;
+    public float savedPhysicsZ;
+    public final org.joml.Quaternionf savedRot = null;
+    public final zombie.core.physics.Transform jniTransform = null;
+    public BaseVehicle(zombie.iso.IsoCell cell) { throw new UnsupportedOperationException("reference stub"); }
+    public short getId() { throw new UnsupportedOperationException("reference stub"); }
+    public float getMass() { throw new UnsupportedOperationException("reference stub"); }
+    public boolean isBurntOrSmashed() { throw new UnsupportedOperationException("reference stub"); }
+    public boolean exit(IsoGameCharacter character) { throw new UnsupportedOperationException("reference stub"); }
+    public void setCharacterPosition(IsoGameCharacter character, int seat, String position) { throw new UnsupportedOperationException("reference stub"); }
+    public int getSkinIndex() { throw new UnsupportedOperationException("reference stub"); }
+    public void setSkinIndex(int index) { throw new UnsupportedOperationException("reference stub"); }
+    public void setScriptName(String name) { throw new UnsupportedOperationException("reference stub"); }
+    public void setScript() { throw new UnsupportedOperationException("reference stub"); }
+    public void setDir(zombie.iso.IsoDirections dir) { throw new UnsupportedOperationException("reference stub"); }
+    public void setSquare(zombie.iso.IsoGridSquare square) { throw new UnsupportedOperationException("reference stub"); }
+    public void addToWorld() { throw new UnsupportedOperationException("reference stub"); }
+    public void permanentlyRemove() { throw new UnsupportedOperationException("reference stub"); }
 }

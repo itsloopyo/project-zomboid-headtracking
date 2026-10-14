@@ -640,6 +640,16 @@ public final class Hooks {
         return Knockdown.engineHeldOffRoad(Online.joined(), offRoad);
     }
 
+    /** Called as the game begins each update of a vehicle: see CarPhysics. */
+    public static void vehicleUpdate(BaseVehicle vehicle) {
+        CarPhysics.update(vehicle);
+    }
+
+    /** In place of CarController.update handing a vehicle's engine, brakes and steering to the physics. */
+    public static void controlVehicle(int id, float engine, float brake, float steering) {
+        CarPhysics.control(id, engine, brake, steering);
+    }
+
     /** Knocks down what a vehicle is about to meet. */
     public static void meeting(BaseVehicle vehicle) {
         CarSmash.sweep(vehicle);

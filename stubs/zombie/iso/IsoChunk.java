@@ -15,4 +15,6 @@ public final class IsoChunk {
     public zombie.erosion.ErosionData.Chunk getErosionData() { throw new UnsupportedOperationException("reference stub"); }
     public IsoGridSquare getGridSquare(int x, int y, int z) { throw new UnsupportedOperationException("reference stub"); }
     public zombie.iso.fboRenderChunk.FBORenderLevels getRenderLevels(int playerIndex) { throw new UnsupportedOperationException("reference stub"); }
+    public final java.util.ArrayList<zombie.vehicles.BaseVehicle> vehicles = null;
+    public static boolean doSpawnedVehiclesInInvalidPosition(zombie.vehicles.BaseVehicle vehicle) { throw new UnsupportedOperationException("reference stub"); }
 }

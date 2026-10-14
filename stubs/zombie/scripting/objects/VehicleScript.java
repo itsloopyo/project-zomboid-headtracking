@@ -16,6 +16,7 @@ public final class VehicleScript {
 
     public static final class Wheel {
         public boolean front;
+        public float radius;
         public String getId() { throw new UnsupportedOperationException("reference stub"); }
         public Vector3f getOffset() { throw new UnsupportedOperationException("reference stub"); }
     }
@@ -23,4 +24,5 @@ public final class VehicleScript {
     public static final class Position {
         public Vector3f getOffset() { throw new UnsupportedOperationException("reference stub"); }
     }
+    public String getFullName() { throw new UnsupportedOperationException("reference stub"); }
 }

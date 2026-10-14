@@ -32,8 +32,11 @@ final class Headlights {
     private final VehicleSlope slope = new VehicleSlope();
     private final Vector3f lampAt = new Vector3f(), noseAt = new Vector3f();
 
-    /** @param terrain the lie of the land the view the beams are gathered for is drawn on */
-    void gather(Terrain terrain, float eyeX, float eyeY) {
+    /**
+     * @param terrain the lie of the land the view the beams are gathered for is drawn on
+     * @param ride    the vehicle the viewer sits in, which lies on its springs, or in the air, as the ride has it
+     */
+    void gather(Terrain terrain, float eyeX, float eyeY, Ride ride) {
         float[] found = new float[BEAMS * STRIDE];
         float nearest = Float.MAX_VALUE, second = Float.MAX_VALUE;
         for (BaseVehicle vehicle : IsoWorld.instance.currentCell.getVehicles()) {
@@ -75,7 +78,11 @@ final class Headlights {
                 asideX = lampAt.x - noseAt.x;
                 asideY = lampAt.y - noseAt.y;
             }
-            slope.lie(terrain, vehicle.getX(), vehicle.getY(), vehicle.getZ(), wayX, wayY, extents.z, extents.x);
+            if (ride.seated && vehicle == ride.sat) {
+                slope.copy(ride.lie());
+            } else {
+                slope.lie(terrain, vehicle.getX(), vehicle.getY(), vehicle.getZ(), wayX, wayY, extents.z, extents.x);
+            }
             int at = slot * STRIDE;
             // The lamps are on the vehicle's nose, and shine the way it is tipped on the land.
             found[at] = wayX * NOSE;

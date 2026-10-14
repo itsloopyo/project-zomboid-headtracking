@@ -26,6 +26,8 @@ It adds a first person view to the game, with a rebuilt world and new graphics.
 - **Smash through fences** - offline and in either view, a vehicle faster than a walk knocks down fences and street lamp posts and drives on, a little slower and a little dented.
 - **Drive through bushes** - offline, bushes, plants, saplings and other growth no longer slow or cap a vehicle, and the engine keeps its full pull on grass and dirt. Grip off the road and the bumps are the game's own.
 - **Plough through zombies** - offline, a zombie hit or a body run over pushes back on a vehicle a quarter as hard as the game has it, so a crowd barely slows or turns the car.
+- **Hills that drive** - offline, a car you drive is pulled down the first person hills and leaves the ground over a crest at speed, with no grip until it lands.
+- **Rollovers and burning wrecks** - offline, a vehicle thrown hard across, round a bend too fast or hit side on, rolls over, and one left on its roof catches fire after four seconds, throws out whoever is inside and goes up six seconds later, leaving the game's burnt wreck.
 - **Adjustable graphics** - automatic or manual quality, three picture styles, field of view, hill height and optional replacement models and textures.
 
 ## Requirements
@@ -232,7 +234,7 @@ The mouse turns the view. Movement keys follow the direction you face.
 - In first person, moving sideways or backwards puts your character in the game's aiming stance, at that stance's pace, so other players see it face where you look.
 - Hills stand at height 1 whatever you set, and zombies and props are drawn at full distance.
 
-Zombies, rooms and vehicles with no other player in them look as they do offline. On a server without PvP the mod plays as it does alone, apart from wounds: on any server, your own co-op host included, a shot arm or leg leaves a zombie as the game does.
+Zombies, rooms and vehicles with no other player in them look as they do offline. On a server without PvP the mod plays as it does alone, apart from wounds and vehicles: on any server, your own co-op host included, a shot arm or leg leaves a zombie as the game does, and vehicles drive and roll as the game has them, on its level ground, and none burns out on its roof.
 
 ## Configuration
 

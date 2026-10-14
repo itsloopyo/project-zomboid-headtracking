@@ -35,7 +35,11 @@ final class Ride {
     /** How the vehicle lies on the land under it (VehicleSlope.turn), which the picture tips the vehicle and all in it by. */
     final float[] turn = new float[9];
     /** How the vehicle lies on its springs, and how the ground under its wheels would have it this frame. */
-    private final VehicleSlope slope = new VehicleSlope(), ground = new VehicleSlope();
+    private final VehicleSlope slope = new VehicleSlope(), ground = new VehicleSlope(), held = new VehicleSlope();
+    /** Whether the vehicle has left the land, flying over a crest, and how high it is: see Airtime. */
+    private final Airtime air = new Airtime();
+    /** How long the vehicle had been in the air, and how far over the land it has been at most, for the dev build's line on landing. */
+    private float wasAloft, highest;
     /** How long the springs take to carry the vehicle most of the way to a new lie of the ground: seconds. */
     private static final float SPRUNG_FOR = 0.08f;
     /** A gap between frames longer than this, or another vehicle, puts the vehicle straight where the ground has it. */
@@ -153,7 +157,25 @@ final class Ride {
         ground.lie(terrain, vehicle.getX(), vehicle.getY(), vehicle.getZ(), facing.x, facing.z, extents.z, extents.x);
         long now = System.nanoTime();
         boolean jumped = vehicle != carried || now - followedAt > SPRINGS_LOST_NANOS;
-        slope.follow(ground, 1f - (float) Math.exp(-(now - followedAt) / 1e9 / SPRUNG_FOR), jumped);
+        float seconds = (now - followedAt) / 1e9f;
+        held.copy(slope);
+        slope.follow(ground, 1f - (float) Math.exp(-seconds / SPRUNG_FOR), jumped);
+        // On a server the vehicle keeps to the land: there the game's level ground is what moves it.
+        air.step(slope.groundUp, seconds, jumped || Online.joined());
+        if (air.airborne) {
+            // In the air nothing holds it to the land: it keeps the lie it left the ground with.
+            slope.copy(held);
+            slope.groundUp = air.height;
+            highest = Math.max(highest, air.height - ground.groundUp);
+        }
+        if (DevBuild.ON && air.landedAt > 0f && wasAloft >= Airtime.FLYING_AFTER) {
+            Log.info(String.format(Locale.ROOT, "a %s at %.1f km/h landed at %.1f, %.1f after %.2f s in the air, up to %.2f over the land, falling at %.1f m/s",
+                    vehicle.getScriptName(), Math.abs(vehicle.getCurrentSpeedKmHour()), vehicle.getX(), vehicle.getY(), wasAloft, highest, air.landedAt));
+        }
+        if (!air.airborne) {
+            highest = 0f;
+        }
+        wasAloft = air.aloft;
         carried = vehicle;
         followedAt = now;
         atX = vehicle.getX();
@@ -189,6 +211,9 @@ final class Ride {
 
         int seat = vehicle.getSeat(player);
         driving = seat == 0;
+        if (driving) {
+            CarPhysics.land(vehicle, ground, air.flying(), vehicle.getCurrentSteering());
+        }
         if (driving && !wasDriving) {
             putOutHandLights(player);
         }
@@ -202,6 +227,11 @@ final class Ride {
         if (seat >= 0) {
             seatTheEye(vehicle, seat, floorUp, eye);
         }
+    }
+
+    /** How the vehicle the viewer sits in lies, on its springs or in the air, as the last note had it. Logic thread. */
+    VehicleSlope lie() {
+        return slope;
     }
 
     /** The way the vehicle faces on the map, as a yaw. The game gives its forward vector with y as up. */

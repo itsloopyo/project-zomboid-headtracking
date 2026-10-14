@@ -56,4 +56,5 @@ public final class IsoGridSquare {
     public void cacheLightInfo() { throw new UnsupportedOperationException("reference stub"); }
     public zombie.core.properties.PropertyContainer getProperties() { throw new UnsupportedOperationException("reference stub"); }
     public zombie.vehicles.BaseVehicle getVehicleContainer() { throw new UnsupportedOperationException("reference stub"); }
+    public IsoChunk chunk;
 }
