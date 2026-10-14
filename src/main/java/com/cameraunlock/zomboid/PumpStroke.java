@@ -13,28 +13,31 @@ package com.cameraunlock.zomboid;
  * loading, has no kick to wait out, and the stroke keeps to where the game's own hand makes
  * it: the pull over its first 30 percent and the shove from 37.5 to 75 percent.
  *
- * Should the game let go of its animation part way through, the stroke runs on at the pace
- * it had to the end, so the fore-end never jumps home.
+ * Should the game let go of its animation in the shove, the stroke runs on to the end at the
+ * pace that rack has at the game's usual speed, so the fore-end never jumps home.
  *
  * Logic thread.
  */
 final class PumpStroke {
-    /** A rack of the game's: the shares of it at which the pull starts and ends, and the shove starts and ends. */
-    record Rack(float backFrom, float backTo, float forwardFrom, float forwardTo) {
+    /**
+     * A rack of the game's: the shares of it at which the pull starts and ends, and the shove
+     * starts and ends, and how long it takes at the game's usual speed, in seconds.
+     */
+    record Rack(float backFrom, float backTo, float forwardFrom, float forwardTo, float takes) {
         /** How far back the fore-end is a share of the way through it. */
         float at(float through) {
             return ViewModelMath.smooth((through - backFrom) / (backTo - backFrom)) - ViewModelMath.smooth((through - forwardFrom) / (forwardTo - forwardFrom));
         }
     }
 
-    /** The game's racks with the sights up and from the hip. */
-    static final Rack AIMED = new Rack(0.25f, 0.5f, 0.55f, 0.76f), HIP = new Rack(0.02f, 0.3f, 0.375f, 0.75f);
+    /** The game's racks with the sights up (Bob_AttackShotgun_AimRack) and from the hip (Bob_Reload_Shotgun_Rack, at a reload speed of 1). */
+    static final Rack AIMED = new Rack(0.25f, 0.5f, 0.55f, 0.76f, 0.767f), HIP = new Rack(0.02f, 0.3f, 0.375f, 0.75f, 1.4f);
     /** How far back the fore-end is when the bolt throws the spent shell out of the port: at the back of the pull. */
     static final float THROWN_AT = 0.95f;
     /** What `step` is given while the game plays no rack. */
     static final float NO_RACK = -1f;
 
-    private float at = NO_RACK, pace;
+    private float at = NO_RACK;
     private Rack rack = AIMED;
     /** How far back the fore-end is, 0 home to 1 right back. */
     float back;
@@ -54,22 +57,17 @@ final class PumpStroke {
     void step(float through, boolean aimed, float seconds) {
         if (through >= 0f) {
             rack = aimed ? AIMED : HIP;
-            if (at >= 0f && through > at && seconds > 0f) {
-                pace = (through - at) / seconds;
-            }
             at = through;
-        } else if (at >= 0f && at < rack.forwardTo() && pace > 0f) {
-            at = Math.min(at + pace * seconds, rack.forwardTo());
+        } else if (at >= 0f && at < rack.forwardTo()) {
+            at = Math.min(at + seconds / rack.takes(), rack.forwardTo());
         } else {
             at = NO_RACK;
-            pace = 0f;
         }
         back = at < 0f ? 0f : rack.at(at);
     }
 
     void rest() {
         at = NO_RACK;
-        pace = 0f;
         back = 0f;
     }
 }

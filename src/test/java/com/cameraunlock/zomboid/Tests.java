@@ -349,11 +349,29 @@ public final class Tests {
         float frames = 0;
         while (stroke.back > 0f && frames < 200) {
             stroke.step(PumpStroke.NO_RACK, true, FRAME);
-            check(stroke.back <= last + 1e-6f && last - stroke.back < 0.2f, "the fore-end goes on home at the pace it had, without a jump");
+            check(stroke.back <= last + 1e-6f && last - stroke.back < 0.2f, "the fore-end goes on home at the rack's pace, without a jump");
             last = stroke.back;
             frames++;
         }
         check(stroke.back == 0f && frames < 30, "and gets there: " + frames + " frames");
+        PumpStroke paused = new PumpStroke();
+        for (t = 0f; t < 0.65f * RACK_TAKES; t += FRAME) {
+            paused.step(t / RACK_TAKES, true, FRAME);
+        }
+        paused.step(PumpStroke.NO_RACK, true, FRAME);
+        float held = paused.back;
+        for (int frame = 0; frame < 10; frame++) {
+            paused.step(PumpStroke.NO_RACK, true, 0f);
+        }
+        check(held > 0f && paused.back == held, "a pause while it runs on holds the fore-end where it is: " + held + " " + paused.back);
+        PumpStroke hitched = new PumpStroke();
+        hitched.step(0.6f, true, FRAME);
+        hitched.step(0.62f, true, 0.3f);
+        hitched.step(PumpStroke.NO_RACK, true, FRAME);
+        PumpStroke even = new PumpStroke();
+        even.step(0.62f, true, FRAME);
+        even.step(PumpStroke.NO_RACK, true, FRAME);
+        check(hitched.back == even.back, "a hitch before the game lets go does not change the pace it runs on at: " + hitched.back + " " + even.back);
         stroke.step(PumpStroke.NO_RACK, true, FRAME);
         check(stroke.back == 0f, "and stays there");
         stroke.step(0.4f, true, FRAME);
