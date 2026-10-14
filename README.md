@@ -418,8 +418,8 @@ RainOnGlass=High
 ; true: shaded corners, light from what stands near and lit air, and with Reflections, mirroring wet roads, floors,
 ; glass and water.
 ShadingAndLight=true
-; true: your vehicle's mirrors show the road behind, and with ShadingAndLight, wet roads, floors, glass and water
-; mirror the world.
+; true: mirrors in rooms show the room and you, your vehicle's mirrors show the road behind, and with
+; ShadingAndLight, wet roads, floors, glass and water mirror the world.
 Reflections=true
 ; true: the mod's surface, wall and skin pictures at full size. false: half size, a quarter of the memory.
 FullSizeTextures=true
