@@ -913,6 +913,8 @@ final class PipelineShaders {
             const float LAP_PROUD = 0.012;
             // A cast block, three courses of brick high and three bricks long, and half its joint.
             const float BLOCK_LONG = 0.6, BLOCK_HIGH = 0.1875, BLOCK_JOINT = 0.005;
+            // How far the mortar lies back from the face of a brick, a block and a cut stone, in tiles.
+            const float BRICK_DEPTH = 0.008, BLOCK_DEPTH = 0.006, STONE_DEPTH = 0.016;
             // 1 while timber() is making a post or a brace and not a wall of boards.
             float arcWhole = 0.0;
 
@@ -1205,8 +1207,7 @@ final class PipelineShaders {
             // worn round. The mortar lies back between them. lean says how far the surface
             // turns at a brick's edge, along the wall and up it, so the sun picks the courses
             // out. Whatever is finer than a pixel is left as its mean.
-            vec3 facBrick(vec3 body, vec3 mortar, float run, float up, vec2 size, float gapHalf, float vary, out vec2 lean) {
-                vec2 soft = vec2(fwidth(run), fwidth(up));
+            vec3 facBrick(vec3 body, vec3 mortar, float run, float up, vec2 soft, vec2 size, float gapHalf, float vary, out vec2 lean) {
                 float course = up / size.y;
                 float row = floor(course);
                 float along = run / size.x + 0.5 * mod(row, 2.0);
@@ -1241,10 +1242,10 @@ final class PipelineShaders {
             // the brush's strokes along the board and a little dirt held under each lap.
             // How much of the sun reaches a lapped board past the foot of the one over it: see facLapped.
             float lapSun = 1.0;
-            vec3 facLapped(vec3 body, float run, float up, out vec2 lean) {
+            vec3 facLapped(vec3 body, float run, float up, vec2 softs, out vec2 lean) {
                 float board = up / LAP_HIGH;
                 float tier = mod(floor(board), 480.0), part = fract(board);
-                float soft = fwidth(up) / LAP_HIGH, softRun = fwidth(run);
+                float soft = softs.y / LAP_HIGH, softRun = softs.x;
                 float seen = 1.0 - smoothstep(0.2, 0.55, soft);
                 float r1 = facHash(vec2(tier, 3.0)), r2 = facHash(vec2(tier, 11.0));
                 vec3 made = body * mix(1.0, 0.98 + 0.04 * r1, seen);
@@ -1263,7 +1264,7 @@ final class PipelineShaders {
                 float butt = run / 7.5 + r2;
                 float end = abs(fract(butt) - 0.5) * 7.5;
                 float joint = (1.0 - smoothstep(0.0015, 0.0015 + softRun + 1e-6, 3.75 - end)) * (1.0 - smoothstep(0.004, 0.012, softRun)) * seen;
-                float near = 1.0 - smoothstep(0.003, 0.014, max(softRun, fwidth(up)));
+                float near = 1.0 - smoothstep(0.003, 0.014, max(softRun, softs.y));
                 float stroke = patches(vec2(run * 6.0 + tier * 3.3, part * 9.0 + tier)) * 0.6 + patches(vec2(run * 31.0, part * 23.0 + tier * 7.0)) * 0.4;
                 made *= 1.0 + near * 0.07 * (stroke - 0.5);
                 made *= mix(0.9, (1.0 - 0.5 * shadow) * (1.0 - 0.1 * grime) * (1.0 + 0.07 * foot) * (1.0 - 0.3 * joint), seen);
@@ -1274,16 +1275,21 @@ final class PipelineShaders {
             // A wall of cut stone in courses, a deep course and a shallow one by turns, each
             // stone as long as it happened to be cut. No stone is the colour of the next, and
             // a stone's face is left rough from the chisel. The joints are wide and lie back.
-            vec3 facStone(vec3 body, vec3 mortar, float run, float up, out vec2 lean) {
-                vec2 soft = vec2(fwidth(run), fwidth(up));
+            // Where a place lies in a wall of cut stone: how far from the joints before it (low)
+            // and after it (far), along the wall and up it, which stone of which course, and how
+            // long a stone of that course and how high the course.
+            void stoneLaid(float run, float up, out vec2 low, out vec2 far, out float which, out float tier, out float wide, out float high) {
                 float band = up / 0.5;
                 float within = fract(band) * 0.5;
                 bool deep = within < 0.3;
-                float high = deep ? 0.3 : 0.2, at = deep ? within : within - 0.3;
-                float tier = mod(floor(band), 120.0) * 2.0 + (deep ? 0.0 : 1.0);
-                float wide = deep ? 0.5 : 0.4, count = deep ? 120.0 : 150.0;
+                high = deep ? 0.3 : 0.2;
+                float at = deep ? within : within - 0.3;
+                tier = mod(floor(band), 120.0) * 2.0 + (deep ? 0.0 : 1.0);
+                wide = deep ? 0.5 : 0.4;
+                float count = deep ? 120.0 : 150.0;
                 float along = run / wide + facHash(vec2(tier, 7.0));
-                float which = floor(along), x = fract(along);
+                which = floor(along);
+                float x = fract(along);
                 // Each joint between two stones stands a little to one side of where an even
                 // spacing would put it.
                 float left = (facHash(vec2(mod(which, count), tier)) - 0.5) * 0.5;
@@ -1300,7 +1306,14 @@ final class PipelineShaders {
                     right = 1.0 + (facHash(vec2(mod(which + 1.0, count), tier)) - 0.5) * 0.5;
                 }
                 which = mod(which, count);
-                vec2 low = vec2((x - left) * wide, at), far = vec2((right - x) * wide, high - at);
+                low = vec2((x - left) * wide, at);
+                far = vec2((right - x) * wide, high - at);
+            }
+
+            vec3 facStone(vec3 body, vec3 mortar, float run, float up, vec2 soft, out vec2 lean) {
+                vec2 low, far;
+                float which, tier, wide, high;
+                stoneLaid(run, up, low, far, which, tier, wide, high);
                 vec2 edge = min(low, far);
                 vec2 seen = 1.0 - smoothstep(0.2, 0.55, soft / vec2(wide, high));
                 vec2 gap = 1.0 - smoothstep(vec2(STONE_JOINT) - 0.5 * soft, vec2(STONE_JOINT) + 0.5 * soft + 0.001, edge);
@@ -1352,7 +1365,8 @@ final class PipelineShaders {
             uniform float uRelief;
             // 1 where the mod's own textures are laid over the game's surfaces, 0 where a surface shows its sprite alone.
             uniform float uOwnTextures;
-            // What the surface is: 1 boards side by side, 2 shingles, 3 a wooden floor, 4 planks, 5 open ground.
+            // What the surface is: 1 boards side by side, 2 shingles, 3 a wooden floor, 4 planks, 5 open ground,
+            // 6 a wall of brick, 7 of blocks, 8 of cut stone.
             float reliefKind = 0.0;
             // Where on the surface the pixel is, and how fast that changes over the screen.
             vec2 reliefBase = vec2(0.0), reliefAcross = vec2(0.0), reliefDown = vec2(0.0);
@@ -1398,6 +1412,28 @@ final class PipelineShaders {
 
             // How far the surface stands out so far along it from the pixel's own place: 1 at its top, 0 at its deepest.
             float raisedAt(vec2 moved) {
+                if (reliefKind > 5.5) {
+                    // A wall of brick or blocks (6 and 7) or of cut stone (8): each face stands
+                    // out of the mortar, which lies back, and is worn round at its edges, in the
+                    // courses and joints facBrick and facStone draw. A stone's face is rough as
+                    // well, from a chisel of its own here.
+                    vec2 at = reliefBase + moved;
+                    if (reliefKind < 7.5) {
+                        bool block = reliefKind > 6.5;
+                        vec2 size = block ? vec2(BLOCK_LONG, BLOCK_HIGH) : vec2(BRICK_LONG, BRICK_HIGH);
+                        float gapHalf = block ? BLOCK_JOINT : BRICK_JOINT;
+                        float course = at.y / size.y;
+                        vec2 part = fract(vec2(at.x / size.x + 0.5 * mod(floor(course), 2.0), course));
+                        vec2 edge = min(part, 1.0 - part) * size;
+                        return smoothstep(gapHalf, gapHalf + 0.007, min(edge.x, edge.y));
+                    }
+                    vec2 low, far;
+                    float which, tier, wide, high;
+                    stoneLaid(at.x, at.y, low, far, which, tier, wide, high);
+                    vec2 edge = min(low, far);
+                    float chisel = patches(vec2(at.x * 9.0, at.y * 11.0) + which * 3.1 + tier) * 0.6 + patches(vec2(at.x * 37.0, at.y * 43.0)) * 0.4;
+                    return smoothstep(STONE_JOINT, STONE_JOINT + 0.016, min(edge.x, edge.y)) * (0.78 + 0.22 * chisel);
+                }
                 if (reliefKind < 1.5) {
                     // Boards butted edge to edge, each eased off at its edges: a groove at every joint.
                     float part = fract((reliefBase.x + moved.x) / BOARD_WIDE);
@@ -1631,6 +1667,8 @@ final class PipelineShaders {
                 // and uJoint the colour of its joints. What on the sprite is neither colour,
                 // the casing round a window, stays as painted. climb is lean up the wall.
                 float climb = 0.0;
+                // How much of the pixel is a wall laid with depth: see the sprite's own relief below.
+                float walledNear = 0.0;
                 bool boarded = uTint.a > 7.5 && uTint.a < 8.5;
                 if (uTint.a > 3.5 && !boarded && !fineTint && !tiledTint) {
                     vec3 facing = normalize(vNormal);
@@ -1639,15 +1677,40 @@ final class PipelineShaders {
                     // From 12 up the sprite is another wall's, the paper of the room behind: it
                     // gives the wall its outline and none of its colour.
                     float how = uTint.a > 11.5 ? uTint.a - 8.0 : uTint.a;
-                    // A block is a brick three times the size, and every one the same grey.
-                    vec3 laid = how < 4.5 ? facBrick(uTint.rgb, uJoint, run, vPlace.z, vec2(BRICK_LONG, BRICK_HIGH), BRICK_JOINT, 1.0, turned)
-                            : how < 5.5 ? facLapped(uTint.rgb, run, vPlace.z, turned)
-                            : how < 6.5 ? facStone(uTint.rgb, uJoint, run, vPlace.z, turned)
-                            : facBrick(uTint.rgb, uJoint, run, vPlace.z, vec2(BLOCK_LONG, BLOCK_HIGH), BLOCK_JOINT, 0.3, turned);
+                    // Brick, blocks and stone have depth: the line of sight is followed in past the
+                    // faces into the mortar, and the sun's shade falls into the joints (relieve).
+                    // A lapped board has its own shadow under each lap: see facLapped.
+                    float up = vPlace.z;
+                    // How fast the place changes over the screen, taken before relieve moves it: a
+                    // place moved for depth jumps at every lip, and its own change there is no
+                    // measure of how fine a joint can be drawn.
+                    vec2 soft = vec2(fwidth(run), fwidth(up));
+                    float walled = how < 4.5 ? 6.0 : how < 5.5 ? 0.0 : how < 6.5 ? 8.0 : 7.0;
                     float own = uTint.a > 11.5 ? 1.0 : 1.0 - smoothstep(0.3, 0.45, min(length(texel.rgb - uTint.rgb), length(texel.rgb - uJoint)));
-                    texel.rgb = mix(texel.rgb, laid, own);
-                    lean = turned.x * own;
-                    climb = turned.y * own;
+                    // Only what of the sprite is brick or stone has its depth: the casing round a
+                    // window stays as flat as it was painted.
+                    if (walled > 0.5 && vKind < 1.5 && own > 0.0) {
+                        reliefBase = vec2(run, up);
+                        float shadeBefore = reliefShade;
+                        vec2 moved = relieve(walled, vec3(facing.y, -facing.x, 0.0), vec3(0.0, 0.0, 1.0), dot(facing, uEye - vWorld) < 0.0 ? -facing : facing,
+                                walled < 6.5 ? BRICK_DEPTH : walled < 7.5 ? BLOCK_DEPTH : STONE_DEPTH);
+                        run += moved.x * own;
+                        up += moved.y * own;
+                        bent = reliefBend * own;
+                        reliefShade = mix(shadeBefore, reliefShade, own);
+                        reliefLow *= own;
+                        reliefNear *= own;
+                        walledNear = reliefNear;
+                    }
+                    // A block is a brick three times the size, and every one the same grey.
+                    vec3 laid = how < 4.5 ? facBrick(uTint.rgb, uJoint, run, up, soft, vec2(BRICK_LONG, BRICK_HIGH), BRICK_JOINT, 1.0, turned)
+                            : how < 5.5 ? facLapped(uTint.rgb, run, up, soft, turned)
+                            : how < 6.5 ? facStone(uTint.rgb, uJoint, run, up, soft, turned)
+                            : facBrick(uTint.rgb, uJoint, run, up, soft, vec2(BLOCK_LONG, BLOCK_HIGH), BLOCK_JOINT, 0.3, turned);
+                    texel.rgb = mix(texel.rgb, laid, own) * (1.0 - 0.12 * reliefLow);
+                    // Where the depth is drawn, its own lean is the edges' turn: the drawn one gives way to it.
+                    lean = turned.x * own * (1.0 - walledNear);
+                    climb = turned.y * own * (1.0 - walledNear);
                     lapSun = mix(1.0, lapSun, own);
                 }
                 arcWhole = vMaterial > 65.5 && vMaterial < 66.5 ? 1.0 : 0.0;
@@ -3105,7 +3168,7 @@ final class PipelineShaders {
                 // a wall or a lawn stops being a photograph of one. It fades with distance,
                 // where it would only shimmer.
                 // Less of it where relieve has tilted the surface by its real height.
-                float relief = water || grass || crown ? 0.0 : RELIEF * (1.0 - smoothstep(14.0, 38.0, range)) * (1.0 - 0.6 * timbered) * (1.0 - 0.75 * reliefNear) * (1.0 - snowed);
+                float relief = water || grass || crown ? 0.0 : RELIEF * (1.0 - smoothstep(14.0, 38.0, range)) * (1.0 - 0.6 * timbered) * (1.0 - 0.75 * reliefNear) * (1.0 - walledNear) * (1.0 - snowed);
                 // A boulder's faces are flat only because it is built of few of them: the rock's
                 // own cracks and ledges stand out of each far more than paint does from a wall.
                 if (vMaterial > 58.5 && vMaterial < 59.5) {
@@ -3443,10 +3506,10 @@ final class PipelineShaders {
                         rough = mix(rough, stuff, min(made, 1.0));
                     }
                     // Within any surface with depth of its own, what lies low, the pits of tarmac,
-                    // between stones, the joints of boards, the gaps between shingles, holds dust and
-                    // grit and is rougher; the tops are worn smoother by weather, and on the ground by
-                    // feet and wheels.
-                    rough = clamp(rough + LOW_ROUGHER * reliefLow - WORN_SMOOTHER * (reliefKind > 0.5 ? reliefNear - reliefLow : 0.0), 0.05, 1.0);
+                    // between stones, the joints of boards and of brick, the gaps between shingles,
+                    // holds dust and grit and is rougher. The tops of open ground are worn smoother
+                    // by feet and wheels.
+                    rough = clamp(rough + LOW_ROUGHER * reliefLow - WORN_SMOOTHER * (reliefKind > 4.5 && reliefKind < 5.5 ? reliefNear - reliefLow : 0.0), 0.05, 1.0);
                     // Snow is pale and nearly as dull as anything is: taken for pale paint, a field of it had a sheen.
                     rough = mix(rough, 0.82, snowed);
                     rough = mix(rough, 0.18, shine);
