@@ -77,6 +77,8 @@ final class OwnModel {
                 OwnSelfLoader.SLIDES, OwnSelfLoader::poses, OwnSelfLoader::new),
         new OwnModel("the lever action rifle's model", "leverrifle", "leverrifle", "Base.L94_Rifle", false, false, false, OwnLever.PARTS, OwnLever.MOVES, OwnLever.SLIDES,
                 OwnLever::poses, OwnLever::new),
+        new OwnModel("the lever action carbine's model", "levercarbine", "levercarbine", "Base.L92_Carbine", false, false, false, OwnLever.PARTS,
+                OwnLever.MOVES, OwnLever.SLIDES, OwnLever::poses, OwnLever::new),
     };
 
     /**
