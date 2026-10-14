@@ -19,23 +19,25 @@ package com.cameraunlock.zomboid;
  * Logic thread.
  */
 final class PumpStroke {
-    /** Shares of the game's rack at which the pull starts and ends, and the shove starts and ends, with the sights up and from the hip. */
-    static final float[] AIMED = {0.25f, 0.5f, 0.55f, 0.78f}, HIP = {0.02f, 0.3f, 0.375f, 0.75f};
-    private static final int BACK_FROM = 0, BACK_TO = 1, FORWARD_FROM = 2, FORWARD_TO = 3;
+    /** A rack of the game's: the shares of it at which the pull starts and ends, and the shove starts and ends. */
+    record Rack(float backFrom, float backTo, float forwardFrom, float forwardTo) {
+        /** How far back the fore-end is a share of the way through it. */
+        float at(float through) {
+            return ViewModelMath.smooth((through - backFrom) / (backTo - backFrom)) - ViewModelMath.smooth((through - forwardFrom) / (forwardTo - forwardFrom));
+        }
+    }
+
+    /** The game's racks with the sights up and from the hip. */
+    static final Rack AIMED = new Rack(0.25f, 0.5f, 0.55f, 0.78f), HIP = new Rack(0.02f, 0.3f, 0.375f, 0.75f);
     /** How far back the fore-end is when the bolt throws the spent shell out of the port: at the back of the pull. */
     static final float THROWN_AT = 0.95f;
-    private static final float NONE = -1f;
+    /** What `step` is given while the game plays no rack. */
+    static final float NO_RACK = -1f;
 
-    private float at = NONE, pace;
-    private float[] phases = AIMED;
+    private float at = NO_RACK, pace;
+    private Rack rack = AIMED;
     /** How far back the fore-end is, 0 home to 1 right back. */
     float back;
-
-    /** How far back the fore-end is a share of the way through the game's rack, of AIMED or HIP. */
-    static float at(float rack, float[] phases) {
-        return ViewModelMath.smooth((rack - phases[BACK_FROM]) / (phases[BACK_TO] - phases[BACK_FROM]))
-                - ViewModelMath.smooth((rack - phases[FORWARD_FROM]) / (phases[FORWARD_TO] - phases[FORWARD_FROM]));
-    }
 
     /** Whether the fore-end, going from one place to another, passed the place at which the shell is thrown out on its way back. */
     static boolean throwsShell(float before, float now) {
@@ -45,28 +47,28 @@ final class PumpStroke {
     /**
      * Moves on by a frame.
      *
-     * @param rack    how far through its animation of racking the game is, or less than nought while it plays none
+     * @param through how far through its animation of racking the game is, or NO_RACK while it plays none
      * @param aimed   whether that is its sights-up rack
      * @param seconds the length of the frame
      */
-    void step(float rack, boolean aimed, float seconds) {
-        if (rack >= 0f) {
-            phases = aimed ? AIMED : HIP;
-            if (at >= 0f && rack > at && seconds > 0f) {
-                pace = (rack - at) / seconds;
+    void step(float through, boolean aimed, float seconds) {
+        if (through >= 0f) {
+            rack = aimed ? AIMED : HIP;
+            if (at >= 0f && through > at && seconds > 0f) {
+                pace = (through - at) / seconds;
             }
-            at = rack;
-        } else if (at >= 0f && at < phases[FORWARD_TO] && pace > 0f) {
-            at = Math.min(at + pace * seconds, phases[FORWARD_TO]);
+            at = through;
+        } else if (at >= 0f && at < rack.forwardTo() && pace > 0f) {
+            at = Math.min(at + pace * seconds, rack.forwardTo());
         } else {
-            at = NONE;
+            at = NO_RACK;
             pace = 0f;
         }
-        back = at < 0f ? 0f : at(at, phases);
+        back = at < 0f ? 0f : rack.at(at);
     }
 
     void rest() {
-        at = NONE;
+        at = NO_RACK;
         pace = 0f;
         back = 0f;
     }

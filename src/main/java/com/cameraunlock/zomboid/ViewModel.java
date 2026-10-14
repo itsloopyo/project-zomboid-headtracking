@@ -453,7 +453,8 @@ public final class ViewModel {
             done += seconds;
         }
         actionBefore = action;
-        stroke.step(action == ArmActs.PUMP && doing == ArmActs.RACKING ? GameAttack.rack(player) : NOT_PUMPING, isSet(player, "RackAiming"), seconds);
+        boolean pump = action == ArmActs.PUMP;
+        stroke.step(pump && doing == ArmActs.RACKING ? GameAttack.rack(player) : PumpStroke.NO_RACK, pump && isSet(player, "RackAiming"), seconds);
         pumped = stroke.back;
         if (magazineFed && (doing == ArmActs.LOADING || doing == ArmActs.UNLOADING)) {
             out = clipBefore && !clip ? 0f : out < 0f ? out : out + seconds;

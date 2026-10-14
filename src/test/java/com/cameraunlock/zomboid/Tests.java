@@ -282,18 +282,21 @@ public final class Tests {
     }
 
     private static void pumpGoesBackAndComesForwardAgain() {
-        for (float[] phases : new float[][] {PumpStroke.AIMED, PumpStroke.HIP}) {
-            check(PumpStroke.at(0f, phases) == 0f && PumpStroke.at(phases[0], phases) == 0f, "the hand is still until the pull");
-            check(PumpStroke.at(phases[1], phases) == 1f && PumpStroke.at(phases[2], phases) == 1f, "the fore-end stands right back between the pull and the shove");
-            check(PumpStroke.at(phases[3], phases) == 0f && PumpStroke.at(1f, phases) == 0f, "and is home again before the game's rack is over");
+        for (PumpStroke.Rack rack : new PumpStroke.Rack[] {PumpStroke.AIMED, PumpStroke.HIP}) {
+            check(rack.at(0f) == 0f && rack.at(rack.backFrom()) == 0f, "the hand is still until the pull");
+            check(rack.at(rack.backTo()) == 1f && rack.at(rack.forwardFrom()) == 1f, "the fore-end stands right back between the pull and the shove");
+            check(rack.at(rack.forwardTo()) == 0f && rack.at(1f) == 0f, "and is home again before the game's rack is over");
+            int steps = 100;
             float last = 0f;
-            for (float rack = 0f; rack <= phases[1]; rack += 0.01f) {
-                check(PumpStroke.at(rack, phases) >= last - 1e-6f, "the pull only goes back");
-                last = PumpStroke.at(rack, phases);
+            for (int step = 0; step <= steps; step++) {
+                float now = rack.at(rack.backTo() * step / steps);
+                check(now >= last, "the pull only goes back");
+                last = now;
             }
-            for (float rack = phases[2]; rack <= 1f; rack += 0.01f) {
-                check(PumpStroke.at(rack, phases) <= last + 1e-6f, "the shove only goes forward");
-                last = PumpStroke.at(rack, phases);
+            for (int step = 0; step <= steps; step++) {
+                float now = rack.at(rack.forwardFrom() + (1f - rack.forwardFrom()) * step / steps);
+                check(now <= last, "the shove only goes forward");
+                last = now;
             }
         }
     }
@@ -308,7 +311,7 @@ public final class Tests {
         float started = -1f, home = -1f, peak = 0f, before = 0f;
         int thrown = 0;
         for (float t = 0f; t < RACK_TAKES; t += FRAME) {
-            stroke.step(t / RACK_TAKES < RACK_LET_GO ? t / RACK_TAKES : -1f, true, FRAME);
+            stroke.step(t / RACK_TAKES < RACK_LET_GO ? t / RACK_TAKES : PumpStroke.NO_RACK, true, FRAME);
             kick.step(FRAME);
             peak = Math.max(peak, Math.abs(kick.weaponPitch.at));
             if (started < 0f && stroke.back > 0f) {
@@ -345,13 +348,13 @@ public final class Tests {
         check(last > 0.5f, "part way through the shove when the game lets go: " + last);
         float frames = 0;
         while (stroke.back > 0f && frames < 200) {
-            stroke.step(-1f, true, FRAME);
+            stroke.step(PumpStroke.NO_RACK, true, FRAME);
             check(stroke.back <= last + 1e-6f && last - stroke.back < 0.2f, "the fore-end goes on home at the pace it had, without a jump");
             last = stroke.back;
             frames++;
         }
         check(stroke.back == 0f && frames < 30, "and gets there: " + frames + " frames");
-        stroke.step(-1f, true, FRAME);
+        stroke.step(PumpStroke.NO_RACK, true, FRAME);
         check(stroke.back == 0f, "and stays there");
         stroke.step(0.4f, true, FRAME);
         stroke.rest();
