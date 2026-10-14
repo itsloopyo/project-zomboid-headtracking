@@ -3195,7 +3195,7 @@ final class Pipeline {
         // Whole, each in one call: the shader reads only as many as uSnowTrod counts.
         to.setEach4("uSnowPrint", snowPrints);
         to.setEach4("uSnowRut", snowRuts);
-        to.setEach("uSnowRutUp", snowRutsUp);
+        to.setEach4("uSnowRutUp", snowRutsUp);
         to.set("uSnowTrod", snowTrod[0], snowTrod[1]);
         to.set("uSnowTrodBox", snowTrod[2], snowTrod[3], snowTrod[4], snowTrod[5]);
         to.set("uDark", state.night);

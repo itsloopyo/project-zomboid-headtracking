@@ -220,7 +220,7 @@ final class SnowShader {
             """, RIDGE_HIGH, RIDGE_OF_THICK, RIDGE_WIDE, FINE_FROM, FINE_TO, UNSNOWED);
 
     /** COVER and the snow's shape, joined on after WORLD_FRAGMENT_RELIEF and before the world's main: it uses facHash and uSnowLying. */
-    static final String GLSL = COVER + RIDGE + """
+    static final String GLSL = COVER + RIDGE + String.format(Locale.ROOT, """
             // How high snow stands at its lip over what it lies on, and how far its swells,
             // its lumps, its wind ripples and the grains of its crust stand out of it, in tiles.
             const float SNOW_RIM = 0.035, SNOW_SWELL = 0.05, SNOW_LUMP = 0.02, SNOW_RIPPLE = 0.005, SNOW_CRUST = 0.0011;
@@ -241,12 +241,12 @@ final class SnowShader {
             // footprint is its place, counted as vPlace is, with the way the foot pointed
             // and how high the ground it trod stands. A rut is a stretch of one wheel's
             // path from one place to the next, down the middle of its tyre.
-            // uSnowRutUp is how high the ground under each stretch stands, uSnowTrodBox
+            // uSnowRutUp is how high the ground under each stretch stands, four stretches to a vec4, uSnowTrodBox
             // holds every mark, its least corner and its greatest, and uSnowTrod is how many
             // footprints there are and how many stretches of rut.
-            uniform vec4 uSnowPrint[48];
-            uniform vec4 uSnowRut[64];
-            uniform float uSnowRutUp[64];
+            uniform vec4 uSnowPrint[%d];
+            uniform vec4 uSnowRut[%d];
+            uniform vec4 uSnowRutUp[%d];
             uniform vec4 uSnowTrodBox;
             uniform vec2 uSnowTrod;
             // How deep a boot and a tyre sink, and half a tyre's width, in tiles.
@@ -274,7 +274,7 @@ final class SnowShader {
                 }
                 float nearest = 2.0;
                 float printed = snowDrawn(foot, 12.0), rutted = snowDrawn(foot, 4.0);
-                for (int i = 0; i < 48; i++) {
+                for (int i = 0; i < %d; i++) {
                     if (float(i) >= uSnowTrod.x || printed <= 0.0) {
                         break;
                     }
@@ -297,11 +297,11 @@ final class SnowShader {
                         pressed = vec3(dent.x, way * turn.x + vec2(-way.y, way.x) * turn.y) * printed;
                     }
                 }
-                for (int i = 0; i < 64; i++) {
+                for (int i = 0; i < %d; i++) {
                     if (float(i) >= uSnowTrod.y) {
                         break;
                     }
-                    if (abs(floorUp - uSnowRutUp[i]) > SNOW_SAME_FLOOR) {
+                    if (abs(floorUp - uSnowRutUp[i / 4][i - 4 * (i / 4)]) > SNOW_SAME_FLOOR) {
                         continue;
                     }
                     vec4 rut = uSnowRut[i];
@@ -496,7 +496,7 @@ final class SnowShader {
                 return sum * (1.0 - smoothstep(8.0, 9.0, level));
             }
 
-            """;
+            """, SnowPrints.PRINTS, SnowPrints.RUTS, SnowPrints.RUTS / 4, SnowPrints.PRINTS, SnowPrints.RUTS);
 
     /** The most of a person's upward faces snow covers: one who moves about holds no more than a dusting. */
     static final float DUSTING = 0.8f;
