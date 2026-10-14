@@ -30,7 +30,7 @@ final class Roofs {
     /** How far inside a roof tile's corner its sprite is looked at, in frame pixels at tile scale 1. */
     private static final float CORNER_INSET = 4f;
     /** No roof in the game climbs more than this over a tile, in levels: a slope takes three tiles to a floor. */
-    private static final float STEEPEST = 0.55f;
+    static final float STEEPEST = 0.55f;
     /** A roof sprite narrower than this, in unscaled pixels, is a fitting on the roof and not a tile of it. */
     static final float WHOLE_TILE_WIDE = 50f;
     /** This many rows of a sprite with nothing painted on them end what is painted above them, in frame pixels at tile scale 1. */

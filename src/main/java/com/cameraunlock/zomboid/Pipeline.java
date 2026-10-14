@@ -2325,6 +2325,9 @@ final class Pipeline {
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, target);
         GL11.glViewport(0, 0, width, height);
         lookFrom(camera, tanHalfFieldOfView, aspect, near, far, asideX, asideY);
+        // Only the turn: the leaf's vertex program takes the eye's place off each vertex itself.
+        ViewCamera.turned(camera, viewed);
+        GL11.glLoadMatrixf(viewed);
         arrays();
         cardArrayOff();
         GL11.glDisableClientState(GL_COLOR_ARRAY);
@@ -2350,6 +2353,8 @@ final class Pipeline {
         leaf.set("uFarMatrix", farMatrix);
         leaf.set("uEye", camera.eyeX, camera.eyeY, camera.eyeUp);
         leaf.set("uPerPixel", 2f * tanHalfFieldOfView / height);
+        leaf.set("uLayerFrom", state.layersFromX, state.layersFromY, state.layersFromUp);
+        leaf.set("uLayer", WorldScene.STAND_OFF, WorldScene.STAND_OFF_PER_TILE_SQUARED, WorldScene.CARD_LAYER);
         leaf.set("uLight", state.lightX, state.lightY, state.lightUp);
         leaf.set("uLightColor", state.lightRed, state.lightGreen, state.lightBlue);
         leaf.set("uOpenLight", state.openRed, state.openGreen, state.openBlue);

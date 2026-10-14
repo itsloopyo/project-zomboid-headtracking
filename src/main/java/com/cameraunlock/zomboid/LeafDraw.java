@@ -11,12 +11,13 @@ import org.lwjgl.opengl.GL15;
  * The falling leaves' vertices on the graphics card, made again each frame from the frame's
  * records (LeafFall.FLOATS) into one buffer kept for it: a quad a leaf, four corners, each
  * the leaf's middle and how much shows, the way out to the corner, where the corner is on the
- * leaf with the leaf's colour and turn, and the way its face looks. Render thread.
+ * leaf with the leaf's colour and turn, the way its face looks and the layers it lies over.
+ * Render thread.
  */
 final class LeafDraw {
     private static final int GL_ARRAY_BUFFER = 0x8892, GL_STREAM_DRAW = 0x88E0, GL_FLOAT = 0x1406, GL_QUADS = 0x0007;
     private static final int GL_VERTEX_ARRAY = 0x8074, GL_NORMAL_ARRAY = 0x8075, GL_TEXTURE_COORD_ARRAY = 0x8078, GL_TEXTURE0 = 0x84C0;
-    static final int FLOATS_A_CORNER = 14;
+    static final int FLOATS_A_CORNER = 15;
     private static final int STRIDE = FLOATS_A_CORNER * Float.BYTES;
     private static final float[] CORNER_U = {0f, 1f, 1f, 0f}, CORNER_V = {0f, 0f, 1f, 1f};
 
@@ -45,7 +46,7 @@ final class LeafDraw {
         GL11.glTexCoordPointer(4, GL_FLOAT, STRIDE, 7L * Float.BYTES);
         GL13.glClientActiveTexture(GL_TEXTURE0 + 1);
         GL11.glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-        GL11.glTexCoordPointer(3, GL_FLOAT, STRIDE, 11L * Float.BYTES);
+        GL11.glTexCoordPointer(4, GL_FLOAT, STRIDE, 11L * Float.BYTES);
         GL13.glClientActiveTexture(GL_TEXTURE0);
         GL15.glBindBuffer(GL_ARRAY_BUFFER, 0);
     }
@@ -75,6 +76,7 @@ final class LeafDraw {
                 into[to++] = faceX;
                 into[to++] = faceY;
                 into[to++] = faceUp;
+                into[to++] = leaves[at + LeafFall.LAYERS];
             }
         }
         return to;

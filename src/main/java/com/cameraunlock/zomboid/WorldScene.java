@@ -1027,6 +1027,21 @@ final class WorldScene {
         return !buildingBySight || roomsBuilt.contains(room);
     }
 
+    /**
+     * How many layers are laid over the land on the square (x, y) of the ground level, as its
+     * chunk's build laid them: its floor, what spreads over it, blood, what was dropped there,
+     * and over those, in the build of what grows, the litter. 0 where the chunk has no build,
+     * where nothing is drawn either. Logic thread.
+     */
+    float layersOnTheLand(int x, int y) {
+        int wx = Math.floorDiv(x, CHUNK_TILES), wy = Math.floorDiv(y, CHUNK_TILES);
+        ChunkMeshes held = latest[(wx & (TABLE_SIDE - 1)) * TABLE_SIDE + (wy & (TABLE_SIDE - 1))];
+        if (held == null || held.wx != wx || held.wy != wy) {
+            return 0f;
+        }
+        return held.groundLayers[Math.floorMod(x, CHUNK_TILES) * CHUNK_TILES + Math.floorMod(y, CHUNK_TILES)] + 1f;
+    }
+
     /** Dev only: the build a chunk has, shown or not, or null. */
     ChunkMeshes latestOf(int wx, int wy) {
         ChunkMeshes held = latest[(wx & (TABLE_SIDE - 1)) * TABLE_SIDE + (wy & (TABLE_SIDE - 1))];
@@ -1530,7 +1545,7 @@ final class WorldScene {
      */
     volatile Terrain terrain = Terrain.HILLS;
     /** The leaves falling round this view's eye. */
-    private final LeafTrees leafTrees = new LeafTrees();
+    private final LeafTrees leafTrees = new LeafTrees(this);
     /** The height of the hills the far land was last asked for at: see HillHeight. Logic thread. */
     private float farHills = HillHeight.DEFAULT;
 

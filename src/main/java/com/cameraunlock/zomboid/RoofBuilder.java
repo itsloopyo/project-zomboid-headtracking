@@ -23,7 +23,7 @@ final class RoofBuilder {
      */
     private static final float CAP_HALF = 0.11f, CAP_CROWN = 0.035f, CAP_RISE = 0.03f, CAP_CLEAR = 0.008f;
     /** How many layers of a floor a flat roof's covering lies above the floor it is on: more than a floor has of its own. */
-    private static final float FLAT_ROOF_LAYERS = 4f;
+    static final float FLAT_ROOF_LAYERS = 4f;
     /** A flat roof read lower over its floor than this, in levels, lies on the floor. */
     private static final float FLAT_ROOF_ON_FLOOR = 0.06f;
     /** The cap along a ridge or a hip: the roof's own covering, which the picture draws a shade darker. */

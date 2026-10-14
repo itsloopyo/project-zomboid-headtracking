@@ -4150,14 +4150,19 @@ final class PipelineShaders {
      * A leaf falling or lying round the eye (LeafFall): a vertex is the leaf's middle and how
      * much of it shows, and its normal is the way out from the middle to its corner. Its first
      * texture coordinate is where the corner is on the leaf, the colour its tree turns and how
-     * far, and its second the way its face looks. A leaf smaller than a dot or two of the picture
-     * is drawn that wide and as much fainter, so a far one does not wink in and out as it turns.
+     * far, and its second the way its face looks and how many layers it lies over what is under
+     * it, each as thick as FACED makes a layer there. A leaf smaller than a dot or two of the
+     * picture is drawn that wide and as much fainter, so a far one does not wink in and out as
+     * it turns. The eye's place is taken off before the matrix turns it, as the world's is (see
+     * WORLD_VERTEX), or its depth would be centimetres out and fight the ground it lies on.
      */
     static final String LEAF_VERTEX = """
             #version 120
             uniform vec3 uEye;
             // The width of a dot of the picture one tile from the eye.
             uniform float uPerPixel;
+            uniform vec3 uLayer;
+            uniform vec3 uLayerFrom;
             varying vec3 vWorld;
             varying vec3 vFace;
             varying vec2 vIn;
@@ -4168,12 +4173,15 @@ final class PipelineShaders {
                 vec3 middle = gl_Vertex.xyz;
                 float size = length(gl_Normal);
                 float grow = max(1.0, 1.5 * uPerPixel * distance(uEye, middle) / max(size, 1e-5));
+                vec3 away = middle - uLayerFrom;
+                vec3 lies = vec3(0.0, 0.0, gl_MultiTexCoord1.w * (uLayer.x + uLayer.y * dot(away, away)));
                 vShown = gl_Vertex.w / (grow * grow);
-                vWorld = middle + gl_Normal * grow;
+                vec3 reach = gl_Normal * grow + lies;
+                vWorld = middle + reach;
                 vFace = gl_MultiTexCoord1.xyz;
                 vIn = gl_MultiTexCoord0.xy;
                 vLeaf = gl_MultiTexCoord0.zw;
-                gl_Position = gl_ModelViewProjectionMatrix * vec4(vWorld, 1.0);
+                gl_Position = gl_ModelViewProjectionMatrix * vec4(middle - uEye + reach, 1.0);
             }
             """;
 

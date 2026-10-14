@@ -22,10 +22,12 @@ final class LeafFall {
     /**
      * One leaf as a frame carries it to the picture, FLOATS long: its middle, the half of its
      * length and the half of its breadth as ways in the world, the colour its tree turns
-     * (Flora's hues), how far it has turned (0 green, 1 brown) and how much of it shows.
+     * (Flora's hues), how far it has turned (0 green, 1 brown), how much of it shows, and for a
+     * leaf lying on the ground how many layers (WorldScene.STAND_OFF) it lies over that, which
+     * the picture makes thick by how far off it is, as it does every layer of the world.
      */
-    static final int X = 0, Y = 1, UP = 2, ALONG_X = 3, ALONG_Y = 4, ALONG_UP = 5, ACROSS_X = 6, ACROSS_Y = 7, ACROSS_UP = 8, HUE = 9, TURNED = 10, SHOWN = 11;
-    static final int FLOATS = 12;
+    static final int X = 0, Y = 1, UP = 2, ALONG_X = 3, ALONG_Y = 4, ALONG_UP = 5, ACROSS_X = 6, ACROSS_Y = 7, ACROSS_UP = 8, HUE = 9, TURNED = 10, SHOWN = 11, LAYERS = 12;
+    static final int FLOATS = 13;
     /** Leaves a second a tree lets go of in still air as its crown thins fastest, and the share of that once its leaves have turned and before it thins. */
     static final float PEAK = 4f, TRICKLE = 0.3f;
     /** How long a landed leaf lies before it fades, the least and the most, and how long it fades over, in seconds. */
@@ -38,6 +40,8 @@ final class LeafFall {
     private static final float OUT_MOST = 0.85f;
     /** A leaf this near what it last found under it asks again each step, in tiles: more than the steepest roof climbs across a tile (Roofs.STEEPEST, 0.55 levels), so a slope rising under a drifting leaf is met. */
     private static final float GROUND_ASKED = 1.5f;
+    /** The steepest a surface a leaf lies on climbs, tiles a tile: the steepest roof (Roofs.STEEPEST levels a tile) and a quarter more, so a roof at its steepest is not taken for an edge. */
+    private static final float STEEPEST = 1.25f * Roofs.STEEPEST * ViewCamera.LEVEL_HEIGHT;
     /** The longest step taken at once, in seconds: past it the game has hitched, and the leaves wait. */
     static final float STEP_MOST = 0.25f;
     /** How many lying leaves room is never made by fading, and how long a leaf lies before it may be faded for room, in seconds. */
@@ -62,6 +66,9 @@ final class LeafFall {
 
         /** Whether a leaf at that height cannot be on the square: inside a storey of a building, behind its walls, the storey counted (see storey) from the land in the middle of the square. */
         boolean walled(int x, int y, float up);
+
+        /** How many layers the picture lays over what a leaf at height up over (x, y) comes down onto (see surface): a leaf lying there is drawn a layer over them. */
+        float layers(float x, float y, float up);
     }
 
     // The trees that shed, nearest first, set whole by endTrees: where each stands, its crown's lowest and highest leaves over the ground and how far out they reach.
@@ -87,6 +94,10 @@ final class LeafFall {
     private final float[] spin = new float[MOST], turn = new float[MOST], tumble = new float[MOST], half = new float[MOST], turned = new float[MOST];
     private final byte[] hue = new byte[MOST];
     private final int[] square = new int[MOST];
+    // Lying: how far its length and its breadth rise across what it lies on, how far its middle stands over that so no corner is under it, and the layers it lies over.
+    private final float[] alongUp = new float[MOST], acrossUp = new float[MOST], lift = new float[MOST], layers = new float[MOST];
+    /** A lying leaf's way along and way across, level: see lyingWays. */
+    private final float[] ways = new float[4];
     /** A leaf the wind has caught against a wall: it stays where it was stopped and fades. */
     private final boolean[] caught = new boolean[MOST];
     private int count;
@@ -367,10 +378,59 @@ final class LeafFall {
         if (into < dt || up[i] <= ground[i]) {
             // It lies where it is drawn, its swing held where it came down, on what is there.
             up[i] = on.surface(drawnX, drawnY, wasUp);
+            lie(i, drawnX, drawnY, wasUp, on);
             landed[i] = dt - into;
             landings++;
         }
         return true;
+    }
+
+    /**
+     * Lays leaf i, its middle at (x, y) on the surface, in the plane of what is under its length
+     * and its breadth, with its middle raised as far as it takes to keep every corner on top of
+     * what is under that corner: tipped on a slope or flat over a ridge, no part of it is in
+     * the roof or the ground, where the two would be drawn through each other. Over the edge of
+     * a roof it lies as the roof does, and hangs out over the drop.
+     */
+    private void lie(int i, float x, float y, float wasUp, Ground on) {
+        lyingWays(i);
+        float length = half[i], breadth = half[i] * BROAD;
+        float alongX = ways[0] * length, alongY = ways[1] * length, acrossX = ways[2] * breadth, acrossY = ways[3] * breadth;
+        alongUp[i] = rise(x, y, alongX, alongY, length, up[i], wasUp, on);
+        acrossUp[i] = rise(x, y, acrossX, acrossY, breadth, up[i], wasUp, on);
+        float under = 0f;
+        for (int corner = 0; corner < 4; corner++) {
+            float a = corner == 1 || corner == 2 ? 1f : -1f, b = corner >= 2 ? 1f : -1f;
+            float drawn = up[i] + acrossUp[i] * a + alongUp[i] * b;
+            under = Math.max(under, on.surface(x + acrossX * a + alongX * b, y + acrossY * a + alongY * b, wasUp) - drawn);
+        }
+        lift[i] = under;
+        layers[i] = on.layers(x, y, wasUp) + 1f;
+    }
+
+    /**
+     * How far the surface rises from the middle, at height middle, to (x + wayX, y + wayY), a
+     * way that long: by both sides where both are of one surface with the middle, by one where
+     * the other drops off an edge or meets a wall, and level where both do. A surface no
+     * steeper than the steepest roof is one surface.
+     */
+    private static float rise(float x, float y, float wayX, float wayY, float length, float middle, float wasUp, Ground on) {
+        float most = STEEPEST * length;
+        float ahead = on.surface(x + wayX, y + wayY, wasUp) - middle, behind = middle - on.surface(x - wayX, y - wayY, wasUp);
+        boolean aheadOn = Math.abs(ahead) <= most, behindOn = Math.abs(behind) <= most;
+        return aheadOn && behindOn ? (ahead + behind) / 2f : aheadOn ? ahead : behindOn ? behind : 0f;
+    }
+
+    /** Leaf i's way along and way across as it lies, level, into ways: as pose turns a leaf with no rock, at how long it fell. */
+    private void lyingWays(int i) {
+        float t = age[i];
+        float wayNow = way[i] + 0.25f * t, spun = turn[i] + spin[i] * t;
+        float ex = -(float) Math.sin(wayNow), ey = (float) Math.cos(wayNow);
+        float ss = (float) Math.sin(spun), cs = (float) Math.cos(spun);
+        ways[0] = ex * cs + ey * ss;
+        ways[1] = ey * cs - ex * ss;
+        ways[2] = -ex * ss + ey * cs;
+        ways[3] = -ey * ss - ex * cs;
     }
 
     private void drop(int i) {
@@ -400,6 +460,10 @@ final class LeafFall {
         hue[i] = hue[last];
         square[i] = square[last];
         caught[i] = caught[last];
+        alongUp[i] = alongUp[last];
+        acrossUp[i] = acrossUp[last];
+        lift[i] = lift[last];
+        layers[i] = layers[last];
     }
 
     /** Lets a leaf go from somewhere in tree t's crown. With every place taken none is, and a lying leaf starts to fade in the next step to make room. */
@@ -465,6 +529,7 @@ final class LeafFall {
             into[at + HUE] = hue[i];
             into[at + TURNED] = turned[i];
             into[at + SHOWN] = shown;
+            into[at + LAYERS] = landed[i] >= 0f && !caught[i] ? layers[i] : 0f;
         }
         return written;
     }
@@ -479,7 +544,21 @@ final class LeafFall {
 
     /** Where leaf i is and how it is turned, into its record at at. */
     private void pose(int i, float[] into, int at) {
-        // Its swing, its spin and how it rocks or tumbles are of how long it has been falling: on the ground, of when it landed.
+        if (landed[i] >= 0f && !caught[i]) {
+            lyingWays(i);
+            float length = half[i], breadth = half[i] * BROAD;
+            into[at + X] = x[i] + swungX(i);
+            into[at + Y] = y[i] + swungY(i);
+            into[at + UP] = up[i] + lift[i];
+            into[at + ALONG_X] = ways[0] * length;
+            into[at + ALONG_Y] = ways[1] * length;
+            into[at + ALONG_UP] = alongUp[i];
+            into[at + ACROSS_X] = ways[2] * breadth;
+            into[at + ACROSS_Y] = ways[3] * breadth;
+            into[at + ACROSS_UP] = acrossUp[i];
+            return;
+        }
+        // Its swing, its spin and how it rocks or tumbles are of how long it has been falling: caught on a wall, of when it was caught.
         float t = age[i];
         float swung = rate[i] * t + phase[i];
         float wayNow = way[i] + 0.25f * t;
@@ -489,10 +568,7 @@ final class LeafFall {
         // At either end of its swing a leaf glides up a little, as a pendulum's bob does.
         float cz = up[i] + 0.3f * swing[i] * s * s;
         float rock;
-        if (landed[i] >= 0f && !caught[i]) {
-            cz = up[i] + 0.004f;
-            rock = 0.12f * (float) Math.sin(turn[i] * 3f);
-        } else if (tumble[i] != 0f) {
+        if (tumble[i] != 0f) {
             rock = tumble[i] * t + turn[i];
         } else {
             // Tilted along the way it swings, the most as it passes the middle.

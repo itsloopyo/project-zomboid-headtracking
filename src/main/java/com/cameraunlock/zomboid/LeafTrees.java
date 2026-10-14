@@ -28,12 +28,17 @@ final class LeafTrees implements LeafFall.Ground {
     private static final ConcurrentHashMap<String, float[]> CROWNS = new ConcurrentHashMap<>();
 
     final LeafFall fall = new LeafFall();
+    private final WorldScene scene;
     private int row, fromX, fromY;
     private long lastNanos;
     private IsoCell cell;
     private Terrain terrain;
     private int round;
     private float scale;
+
+    LeafTrees(WorldScene scene) {
+        this.scene = scene;
+    }
 
     /** Whether the game hangs leaves on a tree: one its erosion has bare has none, and its crown is drawn bare. */
     static boolean inLeaf(IsoObject tree) {
@@ -126,16 +131,27 @@ final class LeafTrees implements LeafFall.Ground {
 
     @Override
     public float surface(float x, float y, float up) {
+        float land = terrain.lift(x, y, 0), roof = roofUnder(x, y, up);
+        return Float.isNaN(roof) ? land : roof * ViewCamera.LEVEL_HEIGHT + land;
+    }
+
+    @Override
+    public float layers(float x, float y, float up) {
+        // A roof tile lies at most a flat roof's layers over its floor, and nothing is laid on it.
+        return Float.isNaN(roofUnder(x, y, up)) ? scene.layersOnTheLand((int) Math.floor(x), (int) Math.floor(y)) : RoofBuilder.FLAT_ROOF_LAYERS;
+    }
+
+    /** The height in levels over the land of the roof a leaf at height up over (x, y) comes down onto, or NaN where it comes down onto the land. */
+    private float roofUnder(float x, float y, float up) {
         int sx = (int) Math.floor(x), sy = (int) Math.floor(y);
-        float land = terrain.lift(x, y, 0);
         for (int z = LeafFall.storey(up, terrain.lift(sx + 0.5f, sy + 0.5f, 0)); z >= 1; z--) {
             // A leaf in the storey of a roof's tiles, over its square, is over the roof or in it: either way the roof is what it comes down onto.
             float roof = roofAt(sx, sy, z, x - sx, y - sy);
             if (!Float.isNaN(roof)) {
-                return roof * ViewCamera.LEVEL_HEIGHT + land;
+                return roof;
             }
         }
-        return land;
+        return Float.NaN;
     }
 
     @Override

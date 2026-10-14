@@ -41,6 +41,8 @@ final class LeafFallTests {
     /** A test tree's crown: lowest and highest leaves over the ground and how far out, in tiles. */
     private static final float LOW = 1.8f, HIGH = 5f, OUT = 1.6f;
     private static final String MAPLE = "e_redmaple_1_3";
+    /** How many layers the test grounds say are laid over them. */
+    private static final float GROUND_LAYERS = 3f;
 
     /**
      * Level ground at height lift with a building on every square from x = wallFrom on, its
@@ -64,6 +66,11 @@ final class LeafFallTests {
         @Override
         public boolean walled(int x, int y, float up) {
             return x >= wallFrom && LeafFall.storey(up, lift) < storeys;
+        }
+
+        @Override
+        public float layers(float x, float y, float up) {
+            return GROUND_LAYERS;
         }
     }
 
@@ -96,6 +103,11 @@ final class LeafFallTests {
         public boolean walled(int x, int y, float up) {
             return x >= 0 && x < 5 && LeafFall.storey(up, 0f) == 0;
         }
+
+        @Override
+        public float layers(float x, float y, float up) {
+            return GROUND_LAYERS;
+        }
     }
 
     /** A slope: a building on every square from x = wallFrom on, on ground at houseLift, with the ground outside it at outsideLift. */
@@ -113,6 +125,11 @@ final class LeafFallTests {
         @Override
         public boolean walled(int x, int y, float up) {
             return x >= wallFrom && LeafFall.storey(up, ground(x + 0.5f, y + 0.5f)) < storeys;
+        }
+
+        @Override
+        public float layers(float x, float y, float up) {
+            return GROUND_LAYERS;
         }
     }
 
@@ -384,8 +401,9 @@ final class LeafFallTests {
         int count = fall.write(leaves, 0f, 0f);
         for (int i = 0; i < count; i++) {
             int at = i * LeafFall.FLOATS;
-            Checks.check(leaves[at + LeafFall.UP] < 0.01f, "a landed leaf lies on the ground: " + leaves[at + LeafFall.UP]);
-            Checks.check(Math.abs(leaves[at + LeafFall.ALONG_UP]) < 0.01f && Math.abs(leaves[at + LeafFall.ACROSS_UP]) < 0.01f, "and lies near flat");
+            Checks.check(leaves[at + LeafFall.UP] == 0f, "a landed leaf lies on level ground: " + leaves[at + LeafFall.UP]);
+            Checks.check(leaves[at + LeafFall.ALONG_UP] == 0f && leaves[at + LeafFall.ACROSS_UP] == 0f, "and lies flat on it");
+            Checks.check(leaves[at + LeafFall.LAYERS] == GROUND_LAYERS + 1f, "a layer over what is laid on the ground: " + leaves[at + LeafFall.LAYERS]);
         }
         run(fall, LeafFall.LIES_MOST + LeafFall.FADES + 0.1f, 1f / 60f, 0f, 0f, 0.5f, Seasons.SUMMER, 0.5f);
         Checks.check(fall.count() == 0 && fall.vanished == 0, "every landed leaf has faded, none vanished: " + fall.count() + " left, " + fall.vanished + " vanished");
@@ -614,7 +632,20 @@ final class LeafFallTests {
                     continue;
                 }
                 Checks.check(leaves[at + LeafFall.UP] >= roof - 0.01f, "no leaf is drawn under the roof: " + leaves[at + LeafFall.UP] + " under " + roof + " at " + leaves[at + LeafFall.X]);
-                onRoof += leaves[at + LeafFall.UP] < roof + 0.02f ? 1 : 0;
+                if (leaves[at + LeafFall.LAYERS] > 0f) {
+                    onRoof++;
+                    // A corner out past the eaves hangs over the drop.
+                    float inIt = Float.MAX_VALUE, rests = leaves[at + LeafFall.UP] - roof;
+                    for (int corner = 0; corner < 4; corner++) {
+                        float a = corner == 1 || corner == 2 ? 1f : -1f, b = corner >= 2 ? 1f : -1f;
+                        float under = Pitched.roof(leaves[at + LeafFall.X] + leaves[at + LeafFall.ACROSS_X] * a + leaves[at + LeafFall.ALONG_X] * b);
+                        if (!Float.isNaN(under)) {
+                            inIt = Math.min(inIt, leaves[at + LeafFall.UP] + leaves[at + LeafFall.ACROSS_UP] * a + leaves[at + LeafFall.ALONG_UP] * b - under);
+                        }
+                    }
+                    Checks.check(inIt >= -1e-4f, "no corner of a lying leaf is in the roof: " + inIt + " at " + leaves[at + LeafFall.X]);
+                    Checks.check(Math.min(inIt, rests) < 0.03f, "and it rests on the roof: " + Math.min(inIt, rests) + " at " + leaves[at + LeafFall.X]);
+                }
             }
         }
         Checks.check(fall.spawned > 100 && onRoof > 100, "leaves lie on the roof: " + onRoof + " of " + fall.spawned + " let go");
@@ -669,13 +700,14 @@ final class LeafFallTests {
         leaves[at + LeafFall.HUE] = 3f;
         leaves[at + LeafFall.TURNED] = 0.5f;
         leaves[at + LeafFall.SHOWN] = 0.8f;
+        leaves[at + LeafFall.LAYERS] = 4f;
         float[] into = new float[2 * 4 * LeafDraw.FLOATS_A_CORNER];
         Checks.check(LeafDraw.fill(leaves, 2, into) == into.length, "four corners a leaf, every float of each written");
         // The second leaf's third corner: u 1, v 1, out along and across from the middle, its face up.
         int corner = (4 + 2) * LeafDraw.FLOATS_A_CORNER;
-        float[] expected = {10f, 20f, 1f, 0.8f, 0.1f, 0.05f, 0f, 1f, 1f, 3f, 0.5f, 0f, 0f, 0.1f * 0.05f};
+        float[] expected = {10f, 20f, 1f, 0.8f, 0.1f, 0.05f, 0f, 1f, 1f, 3f, 0.5f, 0f, 0f, 0.1f * 0.05f, 4f};
         Checks.check(Arrays.equals(Arrays.copyOfRange(into, corner, corner + LeafDraw.FLOATS_A_CORNER), expected),
-                "a corner is the middle, the way out to it, where it is on the leaf, the colour and turn and the face: "
+                "a corner is the middle, the way out to it, where it is on the leaf, the colour and turn, the face and the layers: "
                         + Arrays.toString(Arrays.copyOfRange(into, corner, corner + LeafDraw.FLOATS_A_CORNER)));
     }
 }
