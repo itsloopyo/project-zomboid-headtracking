@@ -117,6 +117,11 @@ final class ImpactFinder {
             length = (endX - startX) * line.forwardX + (endY - startY) * line.forwardY + (endUp - startUp) * line.forwardUp;
         }
 
+        // A shot from a seat goes through the vehicle's glass on its way.
+        if (shooter instanceof IsoPlayer player && player.getVehicle() != null) {
+            Ride.shotFromSeat(player, line.forwardX, line.forwardY);
+        }
+
         IsoGameCharacter hit = characterAt(cell, shooter, endX, endY, endZ);
         if (hit != null) {
             if (Penetration.shareOf(hit.getID()) < Penetration.WHOLE) {

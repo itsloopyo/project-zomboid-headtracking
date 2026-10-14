@@ -8,6 +8,7 @@ import zombie.Lua.LuaManager;
 import zombie.characters.IsoPlayer;
 import zombie.inventory.InventoryItem;
 import zombie.inventory.types.HandWeapon;
+import zombie.network.GameClient;
 import zombie.scripting.objects.VehicleScript;
 import zombie.vehicles.BaseVehicle;
 import zombie.vehicles.VehiclePart;
@@ -244,9 +245,10 @@ final class Ride {
 
     /**
      * Whether the game lets someone seated attack from where they sit: the window in the door of
-     * their seat is open, broken or gone (IsoPlayer.updateWhileInVehicle). Then the aim input
-     * raises the weapon and the attack button uses it, out of the window or any other way. With
-     * the glass whole the aim input only turns the head (isLookingWhileInVehicle).
+     * their seat is open, broken or gone (IsoPlayer.updateWhileInVehicle), or whole and the
+     * player shoots through it (shootsThroughGlass). Then the aim input raises the weapon and
+     * the attack button uses it, out of the window or any other way. Otherwise the aim input
+     * only turns the head (isLookingWhileInVehicle).
      */
     static boolean armedFromSeat(IsoPlayer player) {
         BaseVehicle vehicle = player.getVehicle();
@@ -255,7 +257,70 @@ final class Ride {
         }
         VehiclePart door = vehicle.getPassengerDoor(vehicle.getSeat(player));
         VehicleWindow window = door == null ? null : door.findWindow();
-        return window != null && !window.isHittable();
+        return window != null && (!window.isHittable() || shootsThroughGlass(player));
+    }
+
+    /**
+     * Whether a player of this machine in first person, seated with a firearm in hand, may fire
+     * with the window of their seat whole: the shot breaks the glass it goes through
+     * (shotFromSeat). Where players can fight the game's own rule stands, and the window has to
+     * be opened or broken first.
+     */
+    static boolean shootsThroughGlass(IsoPlayer player) {
+        View view = View.of(player);
+        return player.isLocalPlayer() && view != null && view.firstPerson.active() && player.isAimingFirearmEquipped() && !Online.contested();
+    }
+
+    /**
+     * A player of this machine fired from their seat the way (wayX, wayY) on the map: breaks the
+     * vehicle's glass the shot leaves through, the windscreen, the rear screen or the window of
+     * the door of the seat nearest where it leaves the side, as the game breaks a window
+     * (VehicleWindow.damage, which a client asks the server for). Logic thread.
+     */
+    static void shotFromSeat(IsoPlayer player, float wayX, float wayY) {
+        BaseVehicle vehicle = player.getVehicle();
+        if (vehicle == null || !player.isLocalPlayer()) {
+            return;
+        }
+        Vector3f from = vehicle.getLocalPos(player.getX(), player.getY(), vehicle.getZ(), new Vector3f());
+        Vector3f to = vehicle.getLocalPos(player.getX() + wayX, player.getY() + wayY, vehicle.getZ(), new Vector3f());
+        Vector3f extents = vehicle.getScript().getExtents();
+        float[] along = new float[1];
+        int side = GlassExit.leaves(from.x, from.z, to.x - from.x, to.z - from.z, extents.x / 2f, extents.z / 2f, along);
+        if (side == GlassExit.NONE) {
+            return;
+        }
+        VehicleWindow window;
+        if (side == GlassExit.PLUS_Z || side == GlassExit.MINUS_Z) {
+            Vector3f forward = vehicle.getForwardVector(new Vector3f());
+            Vector3f ahead = vehicle.getLocalPos(vehicle.getX() + forward.x, vehicle.getY() + forward.z, vehicle.getZ(), new Vector3f());
+            VehiclePart screen = vehicle.getPartById((side == GlassExit.PLUS_Z) == (ahead.z > 0f) ? "Windshield" : "WindshieldRear");
+            window = screen == null ? null : screen.getWindow();
+        } else {
+            window = null;
+            float nearest = Float.MAX_VALUE;
+            Vector3f seat = new Vector3f();
+            for (int s = 0; s < vehicle.getMaxPassengers(); s++) {
+                VehiclePart door = vehicle.getPassengerDoor(s);
+                VehicleWindow glass = door == null ? null : door.findWindow();
+                if (glass == null) {
+                    continue;
+                }
+                vehicle.getPassengerWorldPos(s, seat);
+                Vector3f local = vehicle.getLocalPos(seat.x, seat.y, vehicle.getZ(), new Vector3f());
+                if ((local.x > 0f) == (side == GlassExit.PLUS_X) && Math.abs(local.z - along[0]) < nearest) {
+                    nearest = Math.abs(local.z - along[0]);
+                    window = glass;
+                }
+            }
+        }
+        if (window == null || !window.isHittable()) {
+            return;
+        }
+        window.damage(window.getHealth());
+        // A client asks the server, which breaks the glass and sends it back.
+        Log.info(String.format(Locale.ROOT, GameClient.client ? "a shot from the seat through the %s of %s: the server asked to break it"
+                : "a shot from the seat broke the %s of %s", window.getPart().getId(), vehicle.getScriptName()));
     }
 
     /**

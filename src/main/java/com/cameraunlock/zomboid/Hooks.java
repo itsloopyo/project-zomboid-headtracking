@@ -581,6 +581,15 @@ public final class Hooks {
         return view != null && view.firstPerson.active() && view.viewModel.held != null;
     }
 
+    /**
+     * Called with whether the window of a seated player's door is whole, as the game asks to
+     * decide whether they may attack from the seat. A player of this machine who shoots through
+     * the glass (Ride.shootsThroughGlass) is let fire, and the shot breaks it.
+     */
+    public static boolean seatGlassInTheWay(boolean stock, IsoPlayer player) {
+        return stock && !Ride.shootsThroughGlass(player);
+    }
+
     /** Called as the game has drawn a person or a vehicle into a player's part of the screen. */
     public static void drawn(ModelSlotRenderData slot) {
         View view = drawn();
