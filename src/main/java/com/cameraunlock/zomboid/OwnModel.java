@@ -81,6 +81,8 @@ final class OwnModel {
                 OwnLever.MOVES, OwnLever.SLIDES, OwnLever::poses, OwnLever::new),
         new OwnModel("the self-loading carbine's model", "trapper", "trapper", "Base.TrapperCarbine", false, false, false, OwnSelfLoader.PARTS,
                 OwnSelfLoader.MOVES, OwnSelfLoader.SLIDES, OwnSelfLoader::poses, OwnSelfLoader::new),
+        new OwnModel("the tactical shotgun's model", "js3t", "js3t", "Base.JS3T_Shotgun", true, true, false, OwnShotgun.PARTS, OwnShotgun.MOVES, OwnShotgun.SLIDES,
+                OwnShotgun::poses, OwnShotgun::new),
     };
 
     /**

@@ -2,17 +2,21 @@
 
 Run headless with Blender 4.4, from the repository root:
 
-    blender --background --factory-startup --threads 1 --python tools/models/shotgun.py -- PICTURES [--sawn-off] [--renders DIR] [--raw DIR [VIEW ...]] [--no-pack] [--cpu] [--mesh] [--stats]
+    blender --background --factory-startup --threads 1 --python tools/models/shotgun.py -- PICTURES [--sawn-off | --tactical] [--renders DIR] [--raw DIR [VIEW ...]] [--no-pack] [--cpu] [--mesh] [--stats]
 
 PICTURES is the folder tools/models/shotgun_textures.py wrote. The model is made here from
 nothing: a twelve bore field gun with a ventilated rib, a walnut stock and fore-end and a
 blued receiver, of no maker's pattern. With --sawn-off it is that gun cut down: its barrel,
 rib and magazine short, with the bead put back at the new muzzle, and its stock sawn off
-behind the wrist and shaped into a grip for the hand. It writes NAME.mesh.gz, the
-triangles, under src/main/resources/models, and NAME.colour.gz and NAME.surface.gz, 2048
-by 1024 texels for the shotgun and 2048 square for the sawn-off, under src/textures/models, for tools/textures/compress.py to pack for the
-jar, where NAME is shotgun or sawnoff. The files are laid out as gunsmith.py says, at
-version 4.
+behind the wrist and shaped into a grip for the hand. With --tactical it is a riot gun on
+the same action: a shorter barrel with the magazine near to its muzzle, a ghost ring and a
+post for sights, a matt black finish and a black synthetic stock and ribbed fore-end. It
+writes NAME.mesh.gz, the triangles, under src/main/resources/models, and NAME.colour.gz and
+NAME.surface.gz, 2048 by 1024 texels (the sawn-off's 2048 square), under
+src/textures/models, for tools/textures/compress.py to pack for the jar, where NAME is
+shotgun, sawnoff or js3t. The files are laid out as gunsmith.py says, at
+version 4, the tactical gun's at version 6, saying where the game's red dot sight goes on its
+receiver.
 
 --raw renders the parts as they are made, unbaked, for looking at the shape.
 
@@ -37,9 +41,14 @@ from mathutils import Matrix, Vector
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import gunsmith as G  # noqa: E402
 from gunsmith import along, along_x, along_y, cuboid, cutter, grip_ring, lathe, loft, smooth, stock_ring, sweep, take  # noqa: E402
+import longgun as L  # noqa: E402
 
 SAWN_OFF = "--sawn-off" in sys.argv
-NAME = "sawnoff" if SAWN_OFF else "shotgun"
+# The tactical gun (js3t, for the game's JS-3T Tactical Shotgun) is the same action on a shorter
+# barrel with a magazine nearly to its muzzle, rifle sights in place of the rib, a matt black
+# finish and a black synthetic stock and fore-end, the fore-end ribbed round for the hand.
+TACTICAL = "--tactical" in sys.argv
+NAME = "sawnoff" if SAWN_OFF else "js3t" if TACTICAL else "shotgun"
 # Laid out with the bore along y through x = 0, z = 0 and the trigger at y = 0. GRIP is
 # where the hand that holds the grip is, which the finished model has as its origin: so far
 # under the bore that the muzzle is as far above the line ahead of the hand as the muzzle
@@ -47,14 +56,18 @@ NAME = "sawnoff" if SAWN_OFF else "shotgun"
 # has its muzzle 0.3249 ahead of the origin and 0.0267 over it: cut where its muzzle is on
 # the same line from the hand, the gun is drawn at 0.5057 of the game's units to a metre,
 # where the whole one is drawn at 0.4957.
+# The tactical gun's muzzle is where the game's JS-3T mesh has its muzzle attachment, (0, 0.3822, 0.025), at the
+# whole gun's 0.4957 of the game's units to a metre.
 FULL_MUZZLE_Y = 0.780
-MUZZLE_Y = 0.5225 if SAWN_OFF else FULL_MUZZLE_Y
-GRIP = Vector((0.0, -0.120, -0.0528))
+GRIP = Vector((0.0, -0.120, -0.025 / 0.4957 if TACTICAL else -0.0528))
+MUZZLE_Y = 0.5225 if SAWN_OFF else GRIP.y + 0.3822 / 0.4957 if TACTICAL else FULL_MUZZLE_Y
 RECEIVER_FRONT, RECEIVER_REAR, RECEIVER_HALF = 0.105, -0.085, 0.0205
 RECEIVER_TOP, RECEIVER_BOTTOM = 0.023, -0.047
+# Where the tactical gun's ghost ring stands on the back of its receiver.
+GHOST_RING = RECEIVER_REAR + 0.016
 TUBE_Z, TUBE_R = -0.0305, 0.0125
 # Where the magazine tube ends and its cap begins. The sawn-off's cap comes to just short of its muzzle.
-TUBE_END = MUZZLE_Y - 0.0350 if SAWN_OFF else 0.6005
+TUBE_END = MUZZLE_Y - 0.0350 if SAWN_OFF or TACTICAL else 0.6005
 FORE_REAR, FORE_FRONT = 0.225, 0.420
 TRAVEL = 0.094
 BUTT = -0.352
@@ -62,8 +75,9 @@ FIXED, PUMP, BOLT, SHELL, BUTT_END = 0, 1, 2, 3, 4
 # The shell is made well clear of the gun, so that neither shades the other, and is packed about its own middle.
 SHELL_AT = Vector((0.0, 0.30, 0.40))
 PORT = Vector((0.0190, 0.047, -0.002))
-# Over the back of the rib, by enough to see the bead at its far end.
-SIGHT_LINE = 0.0275
+# Over the back of the rib, by enough to see the bead at its far end; on the tactical gun the middle of the ghost ring
+# on the receiver's back and the top of the post near the muzzle.
+SIGHT_LINE = 0.0335 if TACTICAL else 0.0275
 # A little behind where a cheek on the comb would have it: from there the back of the receiver is a hand's width in the
 # picture and the rib runs away from it, where from over the comb it is a wall across the foot of the picture.
 EYE_BEHIND_GRIP = 0.26
@@ -93,6 +107,9 @@ def barrel():
     lathe(collar, [(0.0, RECEIVER_FRONT - 0.001), (0.0158, RECEIVER_FRONT - 0.001), (0.0158, RECEIVER_FRONT + 0.0045), (0.0150, RECEIVER_FRONT + 0.0060),
                    (0.0, RECEIVER_FRONT + 0.0060)], along_y(), segments=56)
     take(collar, "barrel collar", "blued", sharp=25.0)
+    if TACTICAL:
+        rifle_sights()
+        return
 
     rib = bmesh.new()
     rear, front, half = 0.110, MUZZLE_Y - 0.002, 0.0038
@@ -117,6 +134,29 @@ def barrel():
     middle = bmesh.new()
     lathe(middle, [(0.0, 0.0), (0.0008, 0.0), (0.0011, 0.0008), (0.0008, 0.0018), (0.0, 0.0021)], Matrix.Translation((0.0, 0.44, rib_top(0.44) - 0.0002)), segments=14)
     take(middle, "middle bead", "bright", sharp=50.0)
+
+
+def rifle_sights():
+    """The tactical gun's sights: a ghost ring between two guards on the back of the receiver, and a post on a ramp near the muzzle."""
+    at = GHOST_RING
+    foot = RECEIVER_TOP - 0.001
+    hole = bmesh.new()
+    lathe(hole, [(0.0, -0.02), (0.0034, -0.02), (0.0034, 0.02), (0.0, 0.02)], Matrix.Translation((0.0, at, SIGHT_LINE)) @
+          Matrix.Rotation(math.radians(-90), 4, "X"), segments=32)
+    hole_cut = cutter(hole)
+    ring = bmesh.new()
+    G.prism(ring, [(-0.0058, foot), (0.0058, foot), (0.0058, SIGHT_LINE + 0.0036), (0.0042, SIGHT_LINE + 0.0056), (-0.0042, SIGHT_LINE + 0.0056),
+                    (-0.0058, SIGHT_LINE + 0.0036)], "y", at - 0.0022, at + 0.0022)
+    take(ring, "ghost ring", "sight", bevel=0.0006, segments=2, cut=(hole_cut,))
+    bpy.data.objects.remove(hole_cut)
+    base = bmesh.new()
+    cuboid(base, -0.0090, 0.0090, at - 0.014, at + 0.010, RECEIVER_TOP - 0.002, RECEIVER_TOP + 0.0030)
+    for side in (-1, 1):
+        G.prism(base, [(at - 0.012, RECEIVER_TOP), (at + 0.008, RECEIVER_TOP), (at + 0.006, SIGHT_LINE + 0.0050), (at - 0.004, SIGHT_LINE + 0.0072),
+                      (at - 0.012, SIGHT_LINE + 0.0040)][::-1], "x", side * 0.0080 - 0.0014, side * 0.0080 + 0.0014)
+    take(base, "ghost ring guards", "blued", bevel=0.0006, segments=2)
+    front = MUZZLE_Y - 0.020
+    L.ramp_and_blade(front, barrel_radius(front) + 0.0060, SIGHT_LINE)
 
 
 def magazine():
@@ -246,7 +286,19 @@ def stock():
     wood = bmesh.new()
     stations = along(STOCK, 64)
     loft(wood, [stock_ring(*station) for station in stations])
-    take(wood, "stock", "walnut", group=BUTT_END, bevel=0.0012, segments=2, sharp=50.0, texels=1.1)
+    take(wood, "stock", "polymer" if TACTICAL else "walnut", group=BUTT_END, bevel=0.0024 if TACTICAL else 0.0012, segments=3 if TACTICAL else 2, sharp=50.0,
+         texels=1.1)
+    if TACTICAL:
+        # A thick pad of black rubber straight on the synthetic stock.
+        last = STOCK[-1]
+        pad = bmesh.new()
+        loft(pad, [stock_ring(BUTT + back, *last[1:], grow=grow)
+                   for back, grow in ((0.0005, 0.0003), (-0.0240, 0.0003), (-0.0275, -0.0008), (-0.0298, -0.0030), (-0.0308, -0.0065))])
+        take(pad, "pad", "rubber", group=BUTT_END, sharp=40.0)
+        stud = bmesh.new()
+        L.stud(stud, -0.290, -0.1335, 27)
+        take(stud, "rear stud", "blued", group=BUTT_END, sharp=35.0)
+        return
 
     G.butt_pad(BUTT, STOCK[-1][1:], group=BUTT_END)
 
@@ -303,7 +355,7 @@ def fore_end():
     keys += [(FORE_REAR + 0.03 + (FORE_FRONT - FORE_REAR - 0.075) * n / 10, 1.0 + 0.012 * math.sin(math.pi * n / 10)) for n in range(1, 10)]
     keys += [(FORE_FRONT - 0.045, 1.0), (FORE_FRONT - 0.02, 0.96), (FORE_FRONT - 0.008, 0.91), (FORE_FRONT - 0.002, 0.85), (FORE_FRONT, 0.76)]
     loft(wood, [fore_ring(y, scale) for y, scale in keys])
-    take(wood, "fore-end", "walnut", group=PUMP, bevel=0.0009, segments=2, sharp=42.0, texels=1.1)
+    take(wood, "fore-end", "ribbed" if TACTICAL else "walnut", group=PUMP, bevel=0.0009, segments=2, sharp=42.0, texels=1.1)
 
     nut = bmesh.new()
     lathe(nut, [(0.0, FORE_FRONT - 0.004), (0.0162, FORE_FRONT - 0.004), (0.0162, FORE_FRONT + 0.0030), (0.0155, FORE_FRONT + 0.0040), (0.0, FORE_FRONT + 0.0040)],
@@ -333,7 +385,25 @@ def walnut(g):
     return G.walnut(g, (grip, ((FORE_REAR + FORE_FRONT) / 2, -0.0395, 0.070, 0.0108, 0.005, 0.0)), G.CHECKER_PITCH)
 
 
+def parkerized(g, rough=0.55):
+    """Steel in a matt black phosphate coat, which rubs to dark grey steel at the edges."""
+    colour, roughness, lines = G.steel(g, (0.030, 0.031, 0.033), rough, wear=0.6, bare=(0.30, 0.30, 0.31))
+    return g.finish(colour, roughness, 1.0, g.add(g.times(lines, 0.00001), g.times(g.noise(2400.0, 1.0), 0.00002)))
+
+
+def ribbed(g):
+    """The tactical fore-end: black polymer moulded with rings round it for the hand to grip."""
+    grooves = g.teeth(g.times(g.y, 1.0 / 0.0060))
+    within = g.times(g.step(g.y, FORE_REAR + 0.030, FORE_REAR + 0.034), g.math("SUBTRACT", 1.0, g.step(g.y, FORE_FRONT - 0.034, FORE_FRONT - 0.030)))
+    deep = g.times(within, g.step(grooves, 0.25, 0.45))
+    pebble = g.noise(1900.0, 2.0)
+    colour = g.scaled(g.colour(0.022, 0.022, 0.024), g.add(0.95, g.times(pebble, 0.25), g.times(deep, -0.35)))
+    return g.finish(colour, g.add(0.60, g.times(pebble, 0.10)), 0.0, g.add(g.times(deep, -0.0008), g.times(pebble, 0.00005)))
+
+
 G.MAKERS.update({"hull": G.hull_at(SHELL_AT.z), "knurled": knurled, "walnut": walnut})
+if TACTICAL:
+    G.MAKERS.update({"ribbed": ribbed, "blued": parkerized, "receiver": lambda g: parkerized(g, 0.50), "knurled": parkerized})
 
 
 def shell():
@@ -366,7 +436,7 @@ def build():
 
 # Long and thin: its pictures are twice as wide as high. The sawn-off's are square.
 G.WIDE = not SAWN_OFF
-G.TUBES = {"barrel": (0.0, 0.31 if SAWN_OFF else 0.46, 0.0122), "magazine tube": (TUBE_Z, 0.29 if SAWN_OFF else 0.35, TUBE_R)}
+G.TUBES = {"barrel": (0.0, 0.31 if SAWN_OFF else 0.40 if TACTICAL else 0.46, 0.0122), "magazine tube": (TUBE_Z, 0.29 if SAWN_OFF else 0.33 if TACTICAL else 0.35, TUBE_R)}
 
 
 def pack(gun, colour, surface):
@@ -375,8 +445,13 @@ def pack(gun, colour, surface):
     muzzle = Vector((0.0, MUZZLE_Y, 0.0)) - GRIP
     held = Vector((0.0, (FORE_REAR + FORE_FRONT) / 2, -0.034)) - GRIP
     port = (PORT - GRIP) * Vector((-1.0, 1.0, 1.0))
-    G.pack(gun, NAME, GRIP, colour, surface, (FIXED, PUMP, BOLT, SHELL, BUTT_END), G.head_v4(muzzle, held, port, TRAVEL, SIGHT_LINE, EYE_BEHIND_GRIP),
-           moved=((SHELL, SHELL_AT),))
+    if TACTICAL:
+        # The game's red dot sight on the receiver's top, its tube's back just ahead of the ghost ring's guards.
+        at = GHOST_RING + 0.012 - L.RED_DOT_BACK
+        head = G.head_v6(muzzle, held, port, TRAVEL, SIGHT_LINE, EYE_BEHIND_GRIP, [], Vector((0.0, at, RECEIVER_TOP)) - GRIP, None)
+    else:
+        head = G.head_v4(muzzle, held, port, TRAVEL, SIGHT_LINE, EYE_BEHIND_GRIP)
+    G.pack(gun, NAME, GRIP, colour, surface, (FIXED, PUMP, BOLT, SHELL, BUTT_END), head, moved=((SHELL, SHELL_AT),))
 
 
 # Half way from the butt to the muzzle, from the grip, and how far off the gun is seen whole.
@@ -428,7 +503,7 @@ def main():
         folder = os.path.abspath(args[args.index("--renders") + 1])
         os.makedirs(folder, exist_ok=True)
         G.dress(gun, colour, surface, folder)
-        G.render(folder, VIEWS, moved=to_grip)
+        G.render(folder, VIEWS, [name for name in args if name in VIEWS], moved=to_grip)
     if "--blend" in args:
         bpy.ops.wm.save_as_mainfile(filepath=os.path.abspath(args[args.index("--blend") + 1]))
 
