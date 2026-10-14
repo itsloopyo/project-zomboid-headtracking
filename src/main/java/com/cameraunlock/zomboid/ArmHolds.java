@@ -446,6 +446,29 @@ final class ArmHolds {
     /** Racking, the hand lets go of the slide this far through it. */
     static final float SLIDE_LET_GO = 0.5f;
 
+    /**
+     * How far a bolt's knob is turned up about the bore while it is worked, in radians, given how
+     * far through its turn the hand is: a bolt gun's is turned up before it is drawn back; a
+     * self-loader's handle, which the game reloads as a magazine fed bolt action, is not turned.
+     */
+    static float knobTurn(int action, float turnedThrough) {
+        return action == ArmActs.BOLT_SINGLE ? BOLT_LIFT * turnedThrough : 0f;
+    }
+
+    /** The right hand on a bolt's knob, turned up about the bore by `turned` and drawn back `drawnBack` of the bolt's travel. */
+    private static Hold onKnob(ArmModel model, Placed placed, Axes axes, float turned, float drawnBack) {
+        WeaponShape shape = placed.shape();
+        // The knob turns up about the bore from whichever side it is on, and is drawn back.
+        float knobA = ArmPose.dot(shape.knob, shape.along), knobU = ArmPose.dot(shape.knob, shape.up) - shape.bore, knobS = ArmPose.dot(shape.knob, shape.side);
+        float out = Math.abs(knobS), side = Math.signum(knobS);
+        float o = out * (float) Math.cos(turned) - knobU * (float) Math.sin(turned);
+        float u = out * (float) Math.sin(turned) + knobU * (float) Math.cos(turned);
+        float[] knob = placed.at(knobA - placed.travel() * shape.perMetre * drawnBack, shape.bore + u, side * o);
+        // The palm is against the knob's outside, a little under it, and the fingers run forward and up past it. Under it with the
+        // fingers run forward flat, the hand asked its forearm to turn 80 to 103 degrees.
+        return new Hold(model).set(knob, axes.way(0f, 0.3f, -1f), axes.way(0.7f, 0.6f, -0.3f), false, model.pose("knob"));
+    }
+
     /** 0 before `from`, 1 after `to`, and eased between. */
     private static float between(float time, float from, float to) {
         return ViewModelMath.smooth((time - from) / (to - from));
@@ -624,23 +647,21 @@ final class ArmHolds {
             if (doing.doing() == ArmActs.RACKING) {
                 onChargingHandle(model, placed, axes, doing, hold);
             }
-        } else if (cycled >= 0f && (doing.action() == ArmActs.BOLT || doing.action() == ArmActs.BOLT_SINGLE)) {
+        } else if (cycled >= 0f && doing.action() == ArmActs.BOLT_SINGLE) {
             // The hand goes to the knob as the bolt is about to be worked, turns it up, draws
             // it back, shoves it home, turns it down, and goes back to the grip.
             float[] worked = new float[2];
             OwnRifle.worked(Math.max(cycled - ArmActs.BOLT_AFTER, 0f), worked);
             float on = between(cycled, ArmActs.BOLT_REACHED_FROM, ArmActs.BOLT_AFTER)
                     - between(cycled, ArmActs.BOLT_AFTER + OwnRifle.WORKED_FOR, ArmActs.BOLT_AFTER + OwnRifle.WORKED_FOR + ArmActs.BOLT_LEFT_IN);
-            // The knob turns up about the bore from whichever side it is on, and is drawn back.
-            float knobA = ArmPose.dot(shape.knob, shape.along), knobU = ArmPose.dot(shape.knob, shape.up) - shape.bore, knobS = ArmPose.dot(shape.knob, shape.side);
-            float turned = BOLT_LIFT * worked[0], out = Math.abs(knobS), side = Math.signum(knobS);
-            float o = out * (float) Math.cos(turned) - knobU * (float) Math.sin(turned);
-            float u = out * (float) Math.sin(turned) + knobU * (float) Math.cos(turned);
-            float[] knob = placed.at(knobA - placed.travel() * shape.perMetre * worked[1], shape.bore + u, side * o);
-            // The palm is against the knob's outside, a little under it, and the fingers run forward and up past it. Under it with the
-            // fingers run forward flat, the hand asked its forearm to turn 80 to 103 degrees.
-            Hold onKnob = new Hold(model).set(knob, axes.way(0f, 0.3f, -1f), axes.way(0.7f, 0.6f, -0.3f), false, model.pose("knob"));
-            hold.towards(onKnob, on);
+            hold.towards(onKnob(model, placed, axes, knobTurn(ArmActs.BOLT_SINGLE, worked[0]), worked[1]), on);
+        } else if (doing.action() == ArmActs.BOLT && doing.doing() == ArmActs.RACKING) {
+            // A gun the game reloads as a magazine fed bolt action is a self-loader: its handle is drawn straight back
+            // and let go, as a pistol's slide is, and the hand leaves it.
+            float through = doing.done() / Math.max(doing.pace(), ArmActs.SHORTEST);
+            float on = between(through, 0f, 0.3f) - between(through, 0.6f, 0.95f);
+            // Once it lets go, the hand stays back where it was as it leaves, and the handle runs home on its own.
+            hold.towards(onKnob(model, placed, axes, knobTurn(ArmActs.BOLT, 1f), through < SLIDE_LET_GO ? slideRacked(through) : 1f), on);
         } else if (cycled >= 0f && doing.action() == ArmActs.LEVER) {
             // The hand in the lever's loop swings it down and forward about its pin and back, turning with it. Turned the other way
             // about the pin, the hand went up over the receiver and asked its forearm to turn 155 to 180 degrees.

@@ -73,6 +73,8 @@ final class OwnModel {
         new OwnModel("the battle rifle's model", "battle", "battle", "Base.AssaultRifle2", false, false, false, OwnSelfLoader.PARTS, OwnSelfLoader.MOVES,
                 OwnSelfLoader.SLIDES, OwnSelfLoader::poses, OwnSelfLoader::new),
         new OwnModel("the varmint rifle's model", "varmint", "varmint", "Base.VarmintRifle", false, false, false, OwnRifle.PARTS, OwnRifle.MOVES, OwnRifle.SLIDES, OwnRifle::poses, OwnRifle::new),
+        new OwnModel("the self-loading rifle's model", "js14", "js14", "Base.JS14_Rifle", false, false, false, OwnSelfLoader.PARTS, OwnSelfLoader.MOVES,
+                OwnSelfLoader.SLIDES, OwnSelfLoader::poses, OwnSelfLoader::new),
     };
 
     /**

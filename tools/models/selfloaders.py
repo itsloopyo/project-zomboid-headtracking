@@ -1,11 +1,11 @@
-"""Builds the mod's own models of the game's two self-loading rifles and packs them for the jar.
+"""Builds the mod's own models of the game's four self-loading rifles and carbines and packs them for the jar.
 
 Run headless with Blender 4.4, from the repository root:
 
-    blender --background --factory-startup --threads 1 --python tools/models/selfloaders.py -- PICTURES [--battle] [--renders DIR] [--raw DIR [VIEW ...]] [--no-pack] [--cpu] [--mesh] [--stats]
+    blender --background --factory-startup --threads 1 --python tools/models/selfloaders.py -- PICTURES [--battle | --ranch | --carbine] [--renders DIR] [--raw DIR [VIEW ...]] [--no-pack] [--cpu] [--mesh] [--stats]
 
-PICTURES is the folder tools/models/shotgun_textures.py wrote: the battle rifle's stock is
-the same walnut. Both are made here from nothing and are of no maker's pattern:
+PICTURES is the folder tools/models/shotgun_textures.py wrote: the stocks of walnut are its
+walnut. Each gun is made here from nothing and is of no maker's pattern:
 
 - the assault rifle (the game's Base.AssaultRifle): a select-fire rifle of light alloy and
   black plastic, its receiver in two halves, a carrying handle over it with the rear sight
@@ -16,18 +16,30 @@ the same walnut. Both are made here from nothing and are of no maker's pattern:
   a handle on it, a one piece walnut stock with a wooden handguard over the barrel, a gas
   cylinder under the barrel, an aperture rear sight, a slotted flash suppressor with the
   front sight on it, a straight twenty round magazine, and a low base over the receiver
-  that a scope stands on.
+  that a scope stands on;
+- with --ranch, the ranch rifle (js14, for the game's JS-14 Rifle): a light rifle for small
+  rifle rounds, a receiver open on top over its bolt, the operating rod along its right side
+  with the handle at its back end, a vented black handguard over the barrel, a one piece
+  walnut stock with a half pistol grip, a curved box magazine of twenty, an aperture rear
+  sight and a front blade between guards;
+- with --carbine, the carbine (trapper, for the game's Trapper Carbine), which shoots pistol
+  rounds from a straight magazine of seven: a round receiver with its port and bolt handle
+  on the right, a stock with a full pistol grip, a barrel band, and a leaf rear sight.
+
+The ranch rifle and the carbine have a short rail on the receiver's top for the game's
+scopes and sights, as high as the game fits them.
 
 It writes NAME.mesh.gz under src/main/resources/models and NAME.colour.gz and
-NAME.surface.gz under src/textures/models, where NAME is assault or battle, laid out as
-gunsmith.py says, at version 6, with six parts in this order: what is fixed; the part the
-hand works to charge it (the assault rifle's charging handle, the battle rifle's operating
-rod); the bolt carrier or bolt, which every shot sends back; a fired case, about its own
-middle, for the mod to throw out of the port; the magazine, in its well; and the scope's
-base, which the mod draws only with a scope fitted (none on the assault rifle, whose
-carrying handle is what a scope stands on). The numbers after the parts say where the
-hand takes hold of the charging part and whether it rides with the bolt; after them the
-head says where the game's red dot sight and laser are fixed: see pack.
+NAME.surface.gz under src/textures/models, where NAME is assault, battle, js14 or trapper,
+laid out as gunsmith.py says, at version 6, with six parts in this order: what is fixed; the
+part the hand works to charge it (the assault rifle's charging handle, the battle rifle's and
+the ranch rifle's operating rod, the carbine's bolt handle); the bolt carrier or bolt, which
+every shot sends back; a fired case, about its own middle, for the mod to throw out of the
+port; the magazine, in its well; and the scope's base, which the mod draws only with a scope
+fitted (only the battle rifle has one: the assault rifle's scope stands on its carrying
+handle, and the ranch rifle's and the carbine's on their rails). The numbers after the parts
+say where the hand takes hold of the charging part and whether it rides with the bolt; after
+them the head says where the game's red dot sight and laser are fixed: see pack.
 
 --raw renders the parts as they are made, unbaked, for looking at the shape.
 
@@ -45,10 +57,15 @@ from mathutils import Matrix, Vector
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import gunsmith as G  # noqa: E402
-from gunsmith import along, along_x, along_y, cuboid, cutter, grip_ring, lathe, loft, prism, rod, stock_ring, sweep, take  # noqa: E402
+from gunsmith import along, along_x, along_y, cuboid, cutter, grip_ring, lathe, loft, prism, rod, screw, stock_ring, sweep, take  # noqa: E402
+import longgun as L  # noqa: E402
 
 BATTLE = "--battle" in sys.argv
-NAME = "battle" if BATTLE else "assault"
+RANCH = "--ranch" in sys.argv
+CARBINE = "--carbine" in sys.argv
+# The ranch rifle and the carbine: light guns of walnut and blued steel, each with a rail on its receiver.
+LIGHT = RANCH or CARBINE
+NAME = "battle" if BATTLE else "js14" if RANCH else "trapper" if CARBINE else "assault"
 FIXED, HANDLE, BOLT, CASE, MAGAZINE, MOUNT = range(6)
 # The fired case is made well clear of the gun, so that neither shades the other, and is packed about its own middle.
 CASE_AT = Vector((0.0, 0.30, 0.40))
@@ -68,6 +85,22 @@ if BATTLE:
     TRAVEL = 0.090
     SIGHT_LINE = 0.0330
     PORT = Vector((0.0120, 0.040, 0.0090))
+elif CARBINE:
+    # The game's own mesh has its muzzle at (0, 0.353, 0.021) and fixes a scope or a red dot sight by (0, 0.0247, 0.0441).
+    GRIP = Vector((0.0, -0.066, -0.021 / UNITS))
+    MUZZLE_Y = GRIP.y + 0.353 / UNITS
+    SCOPE_POINTS = (0.0441 - 0.021,)
+    TRAVEL = 0.052
+    SIGHT_LINE = 0.0300
+    PORT = Vector((0.0140, 0.030, 0.006))
+elif RANCH:
+    # The game's own mesh has its muzzle at (0, 0.3822, 0.0321) and fixes a scope or a red dot sight by (0, 0.0413, 0.0549).
+    GRIP = Vector((0.0, -0.072, -0.0321 / UNITS))
+    MUZZLE_Y = GRIP.y + 0.3822 / UNITS
+    SCOPE_POINTS = (0.0549 - 0.0321,)
+    TRAVEL = 0.074
+    SIGHT_LINE = 0.0310
+    PORT = Vector((0.0080, 0.026, 0.012))
 else:
     GRIP = Vector((0.0, -0.045, -0.0237 / UNITS))
     MUZZLE_Y = GRIP.y + 0.3993 / UNITS
@@ -75,11 +108,16 @@ else:
     TRAVEL = 0.085
     SIGHT_LINE = 0.0600
     PORT = Vector((0.0128, 0.040, 0.0015))
-# A scope stands on the gun ScopeModel.SEAT under the game's scope point: its base or handle's top is there, under the higher of the two.
+# A scope stands on the gun ScopeModel.SEAT under the game's scope point: its base, handle or rail's top is there, under
+# the higher of the two.
 SEAT = max(SCOPE_POINTS) / UNITS - 0.022
-# The eye with the sights up is 10 and 11.5 cm behind the back of the rear sight, as a cheek on the stock puts it: far
-# enough that the most a burst at the hip throws the gun back (Kick.backMost) leaves it the near plane clear.
-EYE_BEHIND_GRIP = GRIP.y - ((-0.064 - 0.115) if BATTLE else (-0.074 - 0.100))
+if LIGHT:
+    # With the cheek on the comb.
+    EYE_BEHIND_GRIP = 0.13 if CARBINE else 0.12
+else:
+    # The eye with the sights up is 10 and 11.5 cm behind the back of the rear sight, as a cheek on the stock puts it:
+    # far enough that the most a burst at the hip throws the gun back (Kick.backMost) leaves it the near plane clear.
+    EYE_BEHIND_GRIP = GRIP.y - ((-0.064 - 0.115) if BATTLE else (-0.074 - 0.100))
 
 
 def ring(y, half, bottom, top, corner, count=8, lower=None):
@@ -735,6 +773,345 @@ def b_moving():
     take(arm, "base arm", "parkerised", group=MOUNT, bevel=0.0006, segments=1, sharp=40.0)
 
 
+# The ranch rifle's and the carbine's measures: the receiver's back and front, where the ranch rifle's front length of
+# rail begins (its rear length is over the bolt's back), the barrel's radius at the receiver and at the muzzle, the
+# butt, how far the fore-end reaches, and where the knob the hand charges it by stands out of the gun.
+S_RECEIVER_REAR, S_RECEIVER_FRONT = (-0.058, 0.104) if CARBINE else (-0.074, 0.108)
+S_FRONT_RAIL = 0.086
+S_BARREL_R = 0.0098 if CARBINE else 0.0104
+S_MUZZLE_R = 0.0088 if CARBINE else 0.0086
+S_BUTT = -0.345 if CARBINE else -0.352
+S_FORE_TO = 0.318 if CARBINE else 0.392
+S_KNOB = Vector((0.0100, -0.006, 0.0040)) if CARBINE else Vector((0.0185, 0.090, 0.0030))
+# Where the hand under the fore-end holds it.
+S_HELD = Vector((0.0, 0.230, -0.028)) if CARBINE else Vector((0.0, 0.270, -0.026))
+# The magazine's well, front and back, and how far under the bore the magazine's top is.
+S_WELL_BACK, S_WELL_FRONT = (0.022, 0.054) if CARBINE else (0.018, 0.070)
+S_MAGAZINE_TOP = -0.016 if CARBINE else -0.020
+
+
+def s_barrel_radius(y):
+    t = min(max((y - S_RECEIVER_FRONT) / (MUZZLE_Y - S_RECEIVER_FRONT), 0.0), 1.0)
+    return S_BARREL_R + (S_MUZZLE_R - S_BARREL_R) * t ** 0.7
+
+
+def s_barrel():
+    bm = bmesh.new()
+    profile = [(0.0, S_RECEIVER_FRONT - 0.012), (S_BARREL_R + 0.0014, S_RECEIVER_FRONT - 0.012), (S_BARREL_R + 0.0014, S_RECEIVER_FRONT + 0.010),
+               (S_BARREL_R, S_RECEIVER_FRONT + 0.013)]
+    profile += [(s_barrel_radius(y), y) for y in (0.20, 0.30, 0.40, 0.50, 0.60) if y < MUZZLE_Y - 0.02]
+    bore = 0.0029 if not CARBINE else 0.0058
+    profile += [(S_MUZZLE_R, MUZZLE_Y - 0.0010), (S_MUZZLE_R - 0.0007, MUZZLE_Y), (bore + 0.0016, MUZZLE_Y), (bore + 0.0008, MUZZLE_Y - 0.0016),
+                (bore, MUZZLE_Y - 0.0016), (bore, MUZZLE_Y - 0.09), (0.0, MUZZLE_Y - 0.09)]
+    lathe(bm, profile, along_y(), segments=56)
+    take(bm, "barrel", "blued", sharp=25.0)
+
+
+def s_rail(rear, front, top, foot, half=0.0080):
+    """A short rail for a scope's rings along the receiver's top, from rear to front, its top at z = top and its foot
+    down at z = foot in the receiver, with cross slots along it."""
+    bm = bmesh.new()
+    rings = []
+    for y in (rear, front):
+        rings.append([(-half * 0.70, y, foot), (half * 0.70, y, foot), (half * 0.70, y, top - 0.0040), (half, y, top - 0.0028),
+                      (half, y, top - 0.0012), (half * 0.86, y, top), (-half * 0.86, y, top), (-half, y, top - 0.0012), (-half, y, top - 0.0028),
+                      (-half * 0.70, y, top - 0.0040)])
+    loft(bm, rings)
+    slots = bmesh.new()
+    y = rear + 0.006
+    while y < front - 0.006:
+        cuboid(slots, -0.02, 0.02, y, y + 0.0050, top - 0.0030, top + 0.01)
+        y += 0.0100
+    slots_cut = cutter(slots)
+    take(bm, "rail", "black", bevel=0.0003, segments=1, cut=(slots_cut,))
+    bpy.data.objects.remove(slots_cut)
+    screws = bmesh.new()
+    for at in (rear + 0.003, front - 0.003):
+        screw(screws, 0.0, at, top - 0.0028, 0.0018, Matrix.Identity(4))
+    take(screws, "rail screws", "blued", sharp=40.0)
+
+
+def ranch_receiver():
+    """The rifle's receiver: a box below with a closed bridge behind and a ring in front, and over the bolt two rails
+    with the gap between them open, the right one cut low for the port."""
+    port = bmesh.new()
+    cuboid(port, 0.002, 0.03, -0.004, 0.068, 0.0050, 0.04)
+    port_cut = cutter(port, bevel=0.0030)
+    top = bmesh.new()
+    cuboid(top, -0.0060, 0.0060, -0.044, 0.084, 0.0030, 0.04)
+    top_cut = cutter(top)
+    well = bmesh.new()
+    cuboid(well, -0.0105, 0.0105, S_WELL_BACK - 0.001, S_WELL_FRONT + 0.001, -0.06, -0.008)
+    well_cut = cutter(well)
+    bore = bmesh.new()
+    lathe(bore, [(0.0, S_RECEIVER_FRONT - 0.03), (0.0075, S_RECEIVER_FRONT - 0.03), (0.0075, S_RECEIVER_FRONT + 0.01), (0.0, S_RECEIVER_FRONT + 0.01)], along_y(),
+          segments=36)
+    bore_cut = cutter(bore)
+    body = bmesh.new()
+    outline = [(S_RECEIVER_REAR, -0.016), (S_RECEIVER_REAR, 0.010), (S_RECEIVER_REAR + 0.010, 0.0185), (S_RECEIVER_FRONT - 0.004, 0.0185), (S_RECEIVER_FRONT, 0.0150),
+               (S_RECEIVER_FRONT, -0.016), (S_RECEIVER_FRONT - 0.020, -0.022), (S_RECEIVER_REAR + 0.016, -0.022)]
+    G.prism(body, outline[::-1], "x", -0.0122, 0.0122)
+    take(body, "receiver", "receiver", bevel=0.0014, segments=3, sharp=35.0, cut=(port_cut, top_cut, well_cut, bore_cut), texels=1.3)
+    for used in (port_cut, top_cut, well_cut, bore_cut):
+        bpy.data.objects.remove(used)
+    # The rail is in two lengths, over the bridge and over the ring, leaving the bolt's gap open.
+    s_rail(S_RECEIVER_REAR + 0.004, -0.046, SEAT, 0.0170)
+    s_rail(S_FRONT_RAIL, S_RECEIVER_FRONT - 0.003, SEAT, 0.0170)
+    pins = bmesh.new()
+    for y, z in ((-0.050, -0.012), (0.000, -0.016)):
+        lathe(pins, [(0.0, -0.0128), (0.0020, -0.0128), (0.0024, -0.0124), (0.0024, 0.0124), (0.0020, 0.0128), (0.0, 0.0128)], along_x(0.0, y, z), segments=16)
+    take(pins, "pins", "blued", sharp=40.0)
+
+
+def ranch_slide():
+    """What the shot drives back: the round topped bolt in the receiver's gap, the operating rod along the right of
+    the barrel to the gas block, and the handle at its back end."""
+    bolt = bmesh.new()
+    lathe(bolt, [(0.0, -0.040), (0.0068, -0.040), (0.0075, -0.037), (0.0075, 0.062), (0.0068, 0.066), (0.0, 0.066)], along_y(z=0.0040), segments=40)
+    take(bolt, "bolt", "bright", group=BOLT, sharp=30.0, texels=1.3)
+    lug = bmesh.new()
+    cuboid(lug, 0.0050, 0.0110, 0.040, 0.052, 0.0010, 0.0100)
+    take(lug, "bolt lug", "bright", group=BOLT, bevel=0.0008, segments=2)
+    rod_path = [(0.0152, y, 0.0020 + 0.0012 * (y - 0.09) / 0.30) for y in (0.090, 0.150, 0.250, 0.330, 0.384)]
+    op = bmesh.new()
+    rod(op, rod_path, [0.0028] * len(rod_path), segments=14)
+    take(op, "operating rod", "blued", group=HANDLE, sharp=30.0)
+    handle = bmesh.new()
+    G.prism(handle, [(0.068, -0.004), (0.098, -0.004), (0.098, 0.006), (0.092, 0.010), (0.074, 0.010), (0.068, 0.006)][::-1], "x", 0.0150 - 0.0040, 0.0150 + 0.0040)
+    lathe(handle, [(0.0, 0.0), (0.0042, 0.0), (0.0048, 0.0010), (0.0048, 0.0090), (0.0040, 0.0120), (0.0, 0.0124)],
+          Matrix.Translation(S_KNOB) @ Matrix.Rotation(math.radians(90), 4, "Y"), segments=24)
+    take(handle, "operating handle", "blued", group=HANDLE, bevel=0.0008, segments=2, sharp=40.0)
+
+
+def camp_receiver():
+    """The carbine's receiver: a tube, flat along its top for the rail, with its port on the right and the slot behind
+    it the bolt's handle runs in."""
+    port = bmesh.new()
+    cuboid(port, 0.002, 0.03, 0.002, 0.058, -0.0040, 0.0120)
+    port_cut = cutter(port, bevel=0.0030)
+    slot = bmesh.new()
+    cuboid(slot, 0.002, 0.03, -0.054, 0.002, 0.0010, 0.0070)
+    slot_cut = cutter(slot)
+    well = bmesh.new()
+    cuboid(well, -0.0070, 0.0070, S_WELL_BACK - 0.001, S_WELL_FRONT + 0.001, -0.06, -0.006)
+    well_cut = cutter(well)
+    inside = bmesh.new()
+    lathe(inside, [(0.0, S_RECEIVER_REAR + 0.004), (0.0118, S_RECEIVER_REAR + 0.004), (0.0118, S_RECEIVER_FRONT + 0.01), (0.0, S_RECEIVER_FRONT + 0.01)], along_y(),
+          segments=40)
+    inside_cut = cutter(inside)
+    body = bmesh.new()
+    lathe(body, [(0.0, S_RECEIVER_REAR), (0.0140, S_RECEIVER_REAR), (0.0152, S_RECEIVER_REAR + 0.0012), (0.0152, S_RECEIVER_FRONT - 0.002),
+                 (0.0144, S_RECEIVER_FRONT), (0.0, S_RECEIVER_FRONT)], along_y(), segments=64)
+    take(body, "receiver", "receiver", bevel=0.0004, segments=2, sharp=40.0, cut=(port_cut, slot_cut, well_cut, inside_cut), texels=1.3)
+    for used in (port_cut, slot_cut, well_cut, inside_cut):
+        bpy.data.objects.remove(used)
+    s_rail(S_RECEIVER_REAR + 0.006, S_RECEIVER_FRONT - 0.006, SEAT, 0.0136)
+    # Under the tube, the block the magazine's catch and the trigger group hang from.
+    block = bmesh.new()
+    cuboid(block, -0.0095, 0.0095, -0.040, S_WELL_FRONT + 0.012, -0.0190, -0.0100)
+    take(block, "trigger housing", "black", bevel=0.0010, segments=2)
+
+
+def camp_slide():
+    """The bolt, seen through the port, and its handle out of the slot behind the port."""
+    bolt = bmesh.new()
+    lathe(bolt, [(0.0, -0.052), (0.0112, -0.052), (0.0116, -0.049), (0.0116, 0.056), (0.0108, 0.059), (0.0, 0.059)], along_y(), segments=40)
+    take(bolt, "bolt", "bright", group=BOLT, sharp=30.0, texels=1.3)
+    handle = bmesh.new()
+    lathe(handle, [(0.0, 0.0), (0.0030, 0.0), (0.0030, 0.0110), (0.0046, 0.0125), (0.0050, 0.0160), (0.0046, 0.0200), (0.0, 0.0212)],
+          Matrix.Translation(S_KNOB) @ Matrix.Rotation(math.radians(90), 4, "Y"), segments=24)
+    take(handle, "bolt handle", "blued", group=HANDLE, sharp=40.0)
+
+
+# The stocks: y, top, bottom, half width, how square, how narrow the comb is against the belly.
+RANCH_STOCK = [
+    (S_FORE_TO, -0.0010, -0.0280, 0.0158, 3.0, 1.0),
+    (0.330, 0.0010, -0.0320, 0.0170, 3.0, 1.0),
+    (0.220, 0.0030, -0.0360, 0.0178, 3.2, 1.0),
+    (0.115, 0.0050, -0.0400, 0.0180, 3.4, 1.0),
+    (0.040, 0.0050, -0.0410, 0.0180, 3.4, 1.0),
+    (-0.030, 0.0050, -0.0400, 0.0176, 3.2, 1.0),
+    (S_RECEIVER_REAR + 0.002, 0.0060, -0.0410, 0.0170, 3.0, 0.98),
+    (-0.090, -0.0040, -0.0520, 0.0164, 2.6, 0.94),
+    (-0.110, -0.0120, -0.0760, 0.0168, 2.4, 0.90),
+    (-0.130, -0.0160, -0.0960, 0.0172, 2.4, 0.88),
+    (-0.148, -0.0160, -0.0990, 0.0176, 2.5, 0.86),
+    (-0.166, -0.0140, -0.0860, 0.0182, 2.4, 0.82),
+    (-0.200, -0.0140, -0.0860, 0.0192, 2.4, 0.76),
+    (-0.260, -0.0190, -0.1050, 0.0202, 2.5, 0.73),
+    (-0.310, -0.0230, -0.1220, 0.0208, 2.6, 0.74),
+    (S_BUTT, -0.0250, -0.1320, 0.0210, 2.7, 0.75),
+]
+CAMP_STOCK = [
+    (S_FORE_TO, -0.0030, -0.0270, 0.0150, 3.0, 1.0),
+    (0.250, -0.0020, -0.0300, 0.0162, 3.0, 1.0),
+    (0.150, 0.0000, -0.0330, 0.0172, 3.2, 1.0),
+    (S_RECEIVER_FRONT, 0.0010, -0.0350, 0.0176, 3.4, 1.0),
+    (0.040, 0.0020, -0.0360, 0.0176, 3.4, 1.0),
+    (-0.020, 0.0020, -0.0360, 0.0174, 3.2, 1.0),
+    (S_RECEIVER_REAR + 0.002, 0.0020, -0.0380, 0.0170, 3.0, 0.98),
+    (-0.075, -0.0060, -0.0520, 0.0162, 2.6, 0.94),
+    (-0.095, -0.0130, -0.0800, 0.0168, 2.4, 0.90),
+    (-0.115, -0.0170, -0.1030, 0.0174, 2.4, 0.88),
+    (-0.132, -0.0170, -0.1080, 0.0178, 2.5, 0.86),
+    (-0.150, -0.0150, -0.0880, 0.0184, 2.4, 0.82),
+    (-0.190, -0.0150, -0.0860, 0.0194, 2.4, 0.76),
+    (-0.250, -0.0200, -0.1050, 0.0204, 2.5, 0.73),
+    (-0.300, -0.0230, -0.1200, 0.0208, 2.6, 0.74),
+    (S_BUTT, -0.0250, -0.1300, 0.0210, 2.7, 0.75),
+]
+S_STOCK = CAMP_STOCK if CARBINE else RANCH_STOCK
+
+
+def s_stock_bottom(y):
+    stations = along(S_STOCK, 120)
+    for a, b in zip(stations, stations[1:]):
+        if b[0] <= y <= a[0]:
+            return b[2] + (a[2] - b[2]) * (y - b[0]) / (a[0] - b[0])
+    raise ValueError("the stock does not reach %s" % y)
+
+
+def s_stock():
+    # The barrel lies in the wood ahead of the receiver, the magazine passes down through it, and on the rifle the rod
+    # runs in a groove along the right of the barrel's channel: each cut is a solid of its own.
+    channel = bmesh.new()
+    lathe(channel, [(0.0, S_RECEIVER_FRONT - 0.002), (S_BARREL_R + 0.0004, S_RECEIVER_FRONT - 0.002), (S_BARREL_R + 0.0004, S_FORE_TO + 0.01), (0.0, S_FORE_TO + 0.01)],
+          along_y(), segments=40)
+    cuts = [cutter(channel)]
+    well = bmesh.new()
+    cuboid(well, -0.0072 if CARBINE else -0.0106, 0.0072 if CARBINE else 0.0106, S_WELL_BACK - 0.001, S_WELL_FRONT + 0.001, -0.09, -0.005)
+    cuts.append(cutter(well))
+    if not CARBINE:
+        groove = bmesh.new()
+        cuboid(groove, 0.0100, 0.0200, 0.085, 0.395, -0.0030, 0.02)
+        cuts.append(cutter(groove))
+    wood = bmesh.new()
+    loft(wood, [G.stock_ring(*station) for station in along(S_STOCK, 80)])
+    take(wood, "stock", "wood", bevel=0.0012, segments=2, sharp=50.0, cut=cuts, texels=1.1)
+    for used in cuts:
+        bpy.data.objects.remove(used)
+    last = S_STOCK[-1]
+    for name, material, layers in (("pad plate", "black", ((0.0, 0.0002), (-0.0030, 0.0002))),
+                                   ("pad", "rubber", ((-0.0030, 0.0003), (-0.0170, 0.0003), (-0.0205, -0.0008), (-0.0228, -0.0030), (-0.0238, -0.0065)))):
+        part = bmesh.new()
+        loft(part, [G.stock_ring(S_BUTT + back, *last[1:], grow=grow) for back, grow in layers])
+        take(part, name, material, sharp=40.0)
+    studs = bmesh.new()
+    L.stud(studs, S_BUTT + 0.065, s_stock_bottom(S_BUTT + 0.065), 20)
+    if CARBINE:
+        L.stud(studs, S_FORE_TO - 0.040, s_stock_bottom(S_FORE_TO - 0.040), 0)
+    take(studs, "sling studs", "blued", sharp=35.0)
+
+
+def ranch_handguard():
+    """The rifle's handguard: a half round of black polymer over the barrel from the receiver to the gas block, open
+    at its sides in a row of slots."""
+    vents = bmesh.new()
+    y = S_RECEIVER_FRONT + 0.030
+    while y < 0.350:
+        cuboid(vents, -0.03, 0.03, y, y + 0.022, 0.0040, 0.0105)
+        y += 0.034
+    vents_cut = cutter(vents, bevel=0.0)
+    outer, inner = S_BARREL_R + 0.0062, S_BARREL_R + 0.0028
+    rings = []
+    for y, grow in ((S_RECEIVER_FRONT + 0.002, 0.0), (S_RECEIVER_FRONT + 0.008, 0.0006), (0.360, 0.0006), (0.366, 0.0)):
+        out = [((outer + grow) * math.cos(a), y, 0.0020 + (outer + grow) * math.sin(a)) for a in [math.radians(-12 + 204 * n / 30) for n in range(31)]]
+        back = [(inner * math.cos(a), y, 0.0020 + inner * math.sin(a)) for a in [math.radians(192 - 204 * n / 30) for n in range(31)]]
+        rings.append(out + back)
+    bm = bmesh.new()
+    loft(bm, rings)
+    take(bm, "handguard", "polymer", bevel=0.0008, segments=2, sharp=40.0, cut=(vents_cut,))
+    bpy.data.objects.remove(vents_cut)
+    # Under the guard's front, the gas block round the barrel, the rod's front end in its guide, and the front sling swivel's stud under it.
+    block = bmesh.new()
+    cuboid(block, -0.0120, 0.0190, 0.384, 0.410, -0.0130, 0.0115)
+    take(block, "gas block", "blued", bevel=0.0015, segments=2, texels=1.2)
+
+
+def ranch_sights():
+    """The rifle's sights: an aperture in a housing between two guards on the bridge, and a blade between two guards near the muzzle."""
+    at = S_RECEIVER_REAR + 0.012
+    foot = SEAT - 0.004
+    hole = bmesh.new()
+    lathe(hole, [(0.0, -0.02), (0.0024, -0.02), (0.0024, 0.02), (0.0, 0.02)], Matrix.Translation((0.0, at, SIGHT_LINE)) @
+          Matrix.Rotation(math.radians(-90), 4, "X"), segments=24)
+    hole_cut = cutter(hole)
+    disc = bmesh.new()
+    G.prism(disc, [(-0.0042, foot), (0.0042, foot), (0.0042, SIGHT_LINE + 0.0026), (0.0030, SIGHT_LINE + 0.0040), (-0.0030, SIGHT_LINE + 0.0040),
+                    (-0.0042, SIGHT_LINE + 0.0026)], "y", at - 0.0030, at + 0.0030)
+    take(disc, "rear sight", "sight", bevel=0.0005, segments=2, cut=(hole_cut,))
+    bpy.data.objects.remove(hole_cut)
+    ears = bmesh.new()
+    for side in (-1, 1):
+        G.prism(ears, [(at - 0.010, foot), (at + 0.010, foot), (at + 0.008, SIGHT_LINE + 0.0040), (at - 0.002, SIGHT_LINE + 0.0070), (at - 0.010, SIGHT_LINE + 0.0040)][::-1],
+                "x", side * 0.0072 - 0.0014, side * 0.0072 + 0.0014)
+    take(ears, "rear sight guards", "blued", bevel=0.0005, segments=2)
+
+    front = MUZZLE_Y - 0.022
+    r = s_barrel_radius(front)
+    base = bmesh.new()
+    lathe(base, [(0.0, front - 0.012), (r + 0.0028, front - 0.012), (r + 0.0028, front + 0.012), (0.0, front + 0.012)], along_y(), segments=40)
+    take(base, "front sight base", "blued", sharp=40.0)
+    wings = bmesh.new()
+    for side in (-1, 1):
+        G.prism(wings, [(front - 0.009, r), (front + 0.009, r), (front + 0.007, SIGHT_LINE + 0.0030), (front - 0.007, SIGHT_LINE + 0.0030)][::-1], "x",
+                side * 0.0060 - 0.0012, side * 0.0060 + 0.0012)
+    take(wings, "front sight guards", "blued", bevel=0.0005, segments=2)
+    blade = bmesh.new()
+    G.prism(blade, [(front - 0.004, r), (front + 0.004, r), (front + 0.003, SIGHT_LINE), (front - 0.002, SIGHT_LINE)][::-1], "x", -0.0010, 0.0010)
+    take(blade, "front sight blade", "sight", bevel=0.0002, segments=1)
+
+
+def camp_sights():
+    """The carbine's sights: a leaf with a U notch on a base on the barrel, and a hooded blade near the muzzle."""
+    at = 0.205
+    r = s_barrel_radius(at)
+    base = bmesh.new()
+    loft(base, [[(-half, y, r - 0.0020), (half, y, r - 0.0020), (half * 0.85, y, top), (-half * 0.85, y, top)]
+                for y, half, top in ((at - 0.022, 0.0034, r + 0.0010), (at - 0.016, 0.0056, r + 0.0042), (at + 0.008, 0.0056, r + 0.0046), (at + 0.011, 0.0044, r + 0.0020))])
+    take(base, "rear sight base", "blued", bevel=0.0004, segments=1)
+    L.notch_leaf(at + 0.004, r + 0.0040, SIGHT_LINE)
+    front = MUZZLE_Y - 0.016
+    L.ramp_and_blade(front, s_barrel_radius(front) + 0.0025, SIGHT_LINE, hood=True)
+
+
+def camp_band():
+    """The carbine's barrel band round the fore-end and the barrel."""
+    y, wide = S_FORE_TO - 0.030, 0.012
+    top = s_barrel_radius(y) + 0.0016
+    rings = []
+    for at, grow in ((y - wide / 2, 0.0), (y - wide / 2 + 0.0008, 0.0008), (y + wide / 2 - 0.0008, 0.0008), (y + wide / 2, 0.0)):
+        bottom = s_stock_bottom(at) - 0.0012
+        ring = [((top + grow) * math.cos(a), at, (top + grow) * math.sin(a)) for a in [math.pi * n / 24 for n in range(25)]]
+        half = 0.0166 + grow
+        ring += [(-half, at, -0.004), (-half, at, bottom + 0.006), (-half + 0.004, at, bottom - grow), (half - 0.004, at, bottom - grow), (half, at, bottom + 0.006),
+                 (half, at, -0.004)]
+        rings.append(ring)
+    bm = bmesh.new()
+    loft(bm, rings)
+    take(bm, "barrel band", "blued", bevel=0.0003, segments=1, sharp=40.0)
+
+
+def s_furniture():
+    if CARBINE:
+        L.guard(0.012, -0.058, s_stock_bottom(-0.020) + 0.002, s_stock_bottom(-0.020) - 0.026)
+        L.trigger(-0.016, s_stock_bottom(0.0) - 0.019, ahead=-0.002)
+        L.magazine(S_MAGAZINE_TOP, S_WELL_FRONT - 0.001, S_WELL_BACK + 0.001, 0.0062, -0.128, lean=0.004, group=MAGAZINE, material="blued", floor="blued")
+    else:
+        L.guard(0.012, -0.060, s_stock_bottom(-0.020) + 0.002, s_stock_bottom(-0.020) - 0.028)
+        L.trigger(-0.018, s_stock_bottom(0.0) - 0.020, ahead=-0.002)
+        L.magazine(S_MAGAZINE_TOP, S_WELL_FRONT - 0.001, S_WELL_BACK + 0.001, 0.0100, -0.150, lean=0.020, curve=0.022, group=MAGAZINE, material="black", floor="black")
+    under = Matrix.Rotation(math.radians(180), 4, "X")
+    screws = bmesh.new()
+    for y in (-0.050, S_WELL_FRONT + 0.010):
+        screw(screws, 0.0, y, s_stock_bottom(y) - 0.0006, 0.0032, under)
+    take(screws, "guard screws", "blued", sharp=40.0)
+
+
+def s_case():
+    L.case(CASE_AT, L.RIMLESS_PISTOL if CARBINE else L.RIMLESS_SMALL, CASE)
+
+
 def build():
     G.clear()
     if BATTLE:
@@ -742,6 +1119,22 @@ def build():
         b_stock()
         b_barrel()
         b_moving()
+    elif LIGHT:
+        s_case()
+        s_barrel()
+        if CARBINE:
+            camp_receiver()
+            camp_slide()
+            camp_sights()
+        else:
+            ranch_receiver()
+            ranch_slide()
+            ranch_handguard()
+            ranch_sights()
+        s_stock()
+        if CARBINE:
+            camp_band()
+        s_furniture()
     else:
         a_upper()
         a_lower()
@@ -826,22 +1219,35 @@ def knurled(g):
     return g.finish(colour, roughness, 1.0, g.times(teeth, 0.00025))
 
 
-G.MAKERS.update({"anodised": anodised, "phosphate": phosphate, "plastic": plastic, "handguard": handguard, "magazine": magazine, "follower": follower,
-                 "sight": sight, "knurled": knurled, "parkerised": parkerised, "walnut": G.walnut, "buttplate": buttplate})
-G.TUBES = {"barrel": (0.0, 0.55, B_BARREL_R)} if BATTLE else {"barrel": (0.0, 0.45, A_BARREL_R)}
+if LIGHT:
+    G.MAKERS.update({"wood": L.wood((1.36, 1.02, 0.80) if CARBINE else (1.45, 1.16, 0.98)), "receiver": lambda g: G.blued(g, 0.27)})
+    G.TUBES = {"barrel": (0.0, 0.40, S_BARREL_R - 0.0006)}
+else:
+    G.MAKERS.update({"anodised": anodised, "phosphate": phosphate, "plastic": plastic, "handguard": handguard, "magazine": magazine, "follower": follower,
+                     "sight": sight, "knurled": knurled, "parkerised": parkerised, "walnut": G.walnut, "buttplate": buttplate})
+    G.TUBES = {"barrel": (0.0, 0.55, B_BARREL_R)} if BATTLE else {"barrel": (0.0, 0.45, A_BARREL_R)}
+# Long and thin: its pictures are twice as wide as high.
 G.WIDE = True
 
 
 def grab():
-    """Where the hand takes hold of what it works to charge the rifle."""
+    """Where the hand takes hold of what it works to charge the rifle: on the ranch rifle and the carbine, the middle of the
+    knob its handle ends in."""
+    if LIGHT:
+        return S_KNOB + Vector((0.0160 if CARBINE else 0.0060, 0.0, 0.0))
     return Vector((0.030, B_HANDLE_Y, 0.0)) if BATTLE else Vector((0.0, A_UPPER_REAR - 0.0123, 0.0155))
 
 
 def mounts():
     """Where the game's red dot sight and laser are fixed to the gun, by the point each is fixed by: the red dot on the
-    handle's top or the scope's base, so far back that its clamp, 0.0908 m ahead of that point, is on it; the laser
-    under the handguard or the fore-end, the 0.0282 m its top stands over that point below it, its 0.125 m body
-    clear ahead of the hand that holds the gun there."""
+    handle's top, the scope's base or the rail, so far back that its clamp, 0.0908 m ahead of that point, is on it (on
+    the ranch rifle the front length of its rail); the laser under the handguard or the fore-end, the 0.0282 m its top
+    stands over that point below it, its 0.125 m body clear ahead of the hand that holds the gun there, and on the
+    carbine clamped under its barrel ahead of the fore-end. The ranch rifle takes no laser."""
+    if LIGHT:
+        clamp = (S_RECEIVER_REAR + S_RECEIVER_FRONT) / 2 if CARBINE else (S_FRONT_RAIL + S_RECEIVER_FRONT - 0.003) / 2
+        red_dot = Vector((0.0, clamp - L.RED_DOT_CLAMP, SEAT))
+        return red_dot, L.under_barrel(S_FORE_TO + 0.012, s_barrel_radius) if CARBINE else None
     if BATTLE:
         return Vector((0.0, B_BASE_FROM + 0.0908 - 0.060, B_SEAT)), Vector((0.0, 0.400, stock_bottom(0.400) - 0.0282))
     return Vector((0.0, -0.002 - 0.0908, A_HANDLE_TOP)), Vector((0.0, 0.329, -A_HANDGUARD_R - 0.0282))
@@ -851,31 +1257,51 @@ def pack(gun, colour, surface):
     """Writes the gun's files, with its own measures in the head. The mod holds a long gun up as the mirror image of how
     it is laid out here: its right side, with the port, has x less than nought in the file. After the parts come four
     numbers: where the hand takes hold of the charging part, and 1 where the charging part goes back with the bolt on every
-    shot (the battle rifle's operating rod), 0 where it does not. Version 6: then the red dot's and laser's points."""
+    shot (the battle rifle's and the ranch rifle's operating rod, the carbine's bolt handle), 0 where it does not. Version
+    6: then the red dot's and laser's points."""
     flip = Vector((-1.0, 1.0, 1.0))
     muzzle = Vector((0.0, MUZZLE_Y, 0.0)) - GRIP
-    held = (Vector((0.0, 0.270, -0.040)) if BATTLE else Vector((0.0, (A_HANDGUARD_REAR + A_HANDGUARD_FRONT) / 2, -A_HANDGUARD_R))) - GRIP
-    moves = [*((grab() - GRIP) * flip), 1.0 if BATTLE else 0.0]
+    if LIGHT:
+        held = S_HELD - GRIP
+    else:
+        held = (Vector((0.0, 0.270, -0.040)) if BATTLE else Vector((0.0, (A_HANDGUARD_REAR + A_HANDGUARD_FRONT) / 2, -A_HANDGUARD_R))) - GRIP
+    moves = [*((grab() - GRIP) * flip), 1.0 if BATTLE or LIGHT else 0.0]
     red_dot, laser = mounts()
     G.pack(gun, NAME, GRIP, colour, surface, (FIXED, HANDLE, BOLT, CASE, MAGAZINE, MOUNT),
-           G.head_v6(muzzle, held, (PORT - GRIP) * flip, TRAVEL, SIGHT_LINE, EYE_BEHIND_GRIP, moves, (red_dot - GRIP) * flip, (laser - GRIP) * flip),
+           G.head_v6(muzzle, held, (PORT - GRIP) * flip, TRAVEL, SIGHT_LINE, EYE_BEHIND_GRIP, moves, (red_dot - GRIP) * flip,
+                     None if laser is None else (laser - GRIP) * flip),
            moved=((CASE, CASE_AT),))
 
 
-MIDDLE, OFF = (0.20, 2.0)
-VIEWS = {
-    # name: where the camera is, what it looks at, focal length
-    "right": ((OFF, MIDDLE, 0.0), (0.0, MIDDLE, -0.03), 60),
-    "left": ((-OFF, MIDDLE, 0.0), (0.0, MIDDLE, -0.03), 60),
-    "receiver": ((0.42, 0.02, 0.10), (0.0, 0.04, 0.0), 50),
-    "receiver-left": ((-0.40, 0.20, 0.14), (0.0, 0.03, 0.0), 50),
-    "under": ((0.30, 0.05, -0.20), (0.0, 0.10, -0.05), 45),
-    "fore": ((0.45, 0.62, 0.16), (0.0, 0.40, 0.02), 50),
-    "muzzle": ((0.22, MUZZLE_Y + 0.35, 0.16), (0.0, MUZZLE_Y - 0.16, 0.03), 55),
-    "sights": ((0.0, -EYE_BEHIND_GRIP, SIGHT_LINE - GRIP.z), (0.0, 0.90, SIGHT_LINE - GRIP.z), 30),
-    "hip": ((-0.13, -0.36, 0.20), (0.02, 0.50, 0.02), 22),
-    "stock": ((0.50, -0.42, 0.12), (0.0, -0.18, -0.03), 50),
-}
+if LIGHT:
+    VIEWS = {
+        # name: where the camera is, what it looks at, focal length, all from the grip
+        "right": ((2.0, 0.26, 0.10), (0.0, 0.26, -0.02), 60),
+        "left": ((-2.0, 0.26, 0.10), (0.0, 0.26, -0.02), 60),
+        "action": ((0.36, 0.04, 0.10), (0.0, 0.10, 0.04), 50),
+        "top": ((0.12, 0.10, 0.40), (0.0, 0.11, 0.05), 50),
+        "under": ((0.30, 0.02, -0.20), (0.0, 0.10, 0.0), 45),
+        "fore": ((0.40, 0.62, 0.14), (0.0, 0.40, 0.04), 50),
+        "muzzle": ((0.18, 1.06, 0.14), (0.0, 0.68, 0.06), 60),
+        "sights": ((0.0, -EYE_BEHIND_GRIP, SIGHT_LINE - GRIP.z + 0.002), (0.0, 0.90, SIGHT_LINE - GRIP.z), 40),
+        "hip": ((-0.13, -0.36, 0.20), (0.02, 0.50, 0.02), 22),
+        "stock": ((0.46, -0.40, 0.12), (0.0, -0.14, -0.02), 50),
+    }
+else:
+    MIDDLE, OFF = (0.20, 2.0)
+    VIEWS = {
+        # name: where the camera is, what it looks at, focal length
+        "right": ((OFF, MIDDLE, 0.0), (0.0, MIDDLE, -0.03), 60),
+        "left": ((-OFF, MIDDLE, 0.0), (0.0, MIDDLE, -0.03), 60),
+        "receiver": ((0.42, 0.02, 0.10), (0.0, 0.04, 0.0), 50),
+        "receiver-left": ((-0.40, 0.20, 0.14), (0.0, 0.03, 0.0), 50),
+        "under": ((0.30, 0.05, -0.20), (0.0, 0.10, -0.05), 45),
+        "fore": ((0.45, 0.62, 0.16), (0.0, 0.40, 0.02), 50),
+        "muzzle": ((0.22, MUZZLE_Y + 0.35, 0.16), (0.0, MUZZLE_Y - 0.16, 0.03), 55),
+        "sights": ((0.0, -EYE_BEHIND_GRIP, SIGHT_LINE - GRIP.z), (0.0, 0.90, SIGHT_LINE - GRIP.z), 30),
+        "hip": ((-0.13, -0.36, 0.20), (0.02, 0.50, 0.02), 22),
+        "stock": ((0.50, -0.42, 0.12), (0.0, -0.18, -0.03), 50),
+    }
 
 
 def to_grip():

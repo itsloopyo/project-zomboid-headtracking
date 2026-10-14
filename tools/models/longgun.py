@@ -2,7 +2,7 @@
 trigger and its guard, a box magazine, sling studs, and the finishes of plain oiled wood, case hardened steel, a
 sight's dull steel, a ramp cut across, and black polymer.
 
-It is imported by lever.py, rifle.py, selfloader.py, shotgun.py and toy.py, which run headless in Blender 4.4. Every length is in
+It is imported by lever.py, rifle.py, selfloaders.py, shotgun.py and toy.py, which run headless in Blender 4.4. Every length is in
 metres, in a gun laid out with its bore along +y through x = 0, z = 0 and its top +z, as gunsmith.py says.
 """
 

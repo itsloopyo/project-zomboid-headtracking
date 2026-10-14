@@ -6,14 +6,25 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.zip.GZIPInputStream;
 
-/** Tests of how far the eye leans in to the mod's own long guns with the sights up, and where what the game fits to them goes. */
+/**
+ * Tests of the mod's own long guns: how a self-loading gun works its action, how far the eye leans in to them with the
+ * sights up, and where what the game fits to them goes.
+ */
 final class LongGunTests {
     private LongGunTests() {}
 
     static void run() {
+        Checks.run("onlyABoltActionsKnobIsTurnedUp", LongGunTests::onlyABoltActionsKnobIsTurnedUp);
         Checks.run("theEyeIsStoppedShortOfWhatStandsInTheLineOfSight", LongGunTests::theEyeIsStoppedShortOfWhatStandsInTheLineOfSight);
         Checks.run("aRedDotOrLaserGoesWhereTheModelHasAPlaceForIt", LongGunTests::aRedDotOrLaserGoesWhereTheModelHasAPlaceForIt);
         Checks.run("aVersionSixFileSaysWhereItsRedDotAndLaserGo", LongGunTests::aVersionSixFileSaysWhereItsRedDotAndLaserGo);
+    }
+
+    private static void onlyABoltActionsKnobIsTurnedUp() {
+        check(ArmHolds.knobTurn(ArmActs.BOLT_SINGLE, 0f) == 0f, "a bolt action's knob is down before it is turned");
+        check(ArmHolds.knobTurn(ArmActs.BOLT_SINGLE, 1f) == ArmHolds.BOLT_LIFT, "and turned right up to unlock it");
+        check(ArmHolds.knobTurn(ArmActs.BOLT, 0.5f) == 0f && ArmHolds.knobTurn(ArmActs.BOLT, 1f) == 0f,
+                "a self-loader's handle is drawn straight back, never turned");
     }
 
     private static ByteBuffer file(String name) throws IOException {

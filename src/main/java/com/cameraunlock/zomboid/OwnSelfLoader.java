@@ -1,19 +1,20 @@
 package com.cameraunlock.zomboid;
 
 /**
- * The mod's own models of the game's two self-loading rifles, the assault rifle and the battle
- * rifle, drawn in the viewer's hands in place of the game's: made by
- * tools/models/selfloaders.py and kept in the jar (OwnGun says how each is held, lit and drawn).
+ * The mod's own models of the game's self-loading rifles and carbine (the assault rifle, the
+ * battle rifle, the self-loading rifle and the carbine), drawn in the viewer's hands in place of
+ * the game's: made by tools/models/selfloaders.py and kept in the jar (OwnGun says how each is
+ * held, lit and drawn).
  *
- * The bolt carrier (the battle rifle's bolt, and its operating rod with the handle on it) is
- * worked as a pistol's slide is (SelfLoading.Slide), on a rifle's timings: every shot the game
- * takes sends it back and home again, quickly enough for the next round of an automatic burst,
- * and throws the fired case out of the port; the shot that empties the magazine leaves it held
- * back until a round is chambered; and when the game racks the rifle the right hand draws the
- * charging handle straight back with it and lets it go. The box magazine is in its well while
- * the game has it in; the left hand draws it out and lets it fall, and brings the next up and
- * pushes it home. A scope's base is drawn on the battle rifle only with a scope on it; the
- * assault rifle's scope stands on its carrying handle.
+ * The bolt carrier or bolt, with the operating rod or bolt handle that rides on it on all but the
+ * assault rifle, is worked as a pistol's slide is (SelfLoading.Slide), on a rifle's timings:
+ * every shot the game takes sends it back and home again, quickly enough for the next round of an
+ * automatic burst, and throws the fired case out of the port; the shot that empties the magazine
+ * leaves it held back until a round is chambered; and when the game racks the rifle the right
+ * hand draws the charging handle straight back with it and lets it go. The box magazine is in its
+ * well while the game has it in; the left hand draws it out and lets it fall, and brings the next
+ * up and pushes it home. A scope's base is drawn on the battle rifle only with a scope on it; the
+ * assault rifle's scope stands on its carrying handle, and the others' on their rails.
  *
  * All of it is the render thread's.
  */
