@@ -5,6 +5,7 @@ import org.joml.Quaternionf;
 import org.joml.Vector3f;
 import zombie.characters.IsoGameCharacter;
 import zombie.core.physics.Bullet;
+import zombie.core.physics.Transform;
 import zombie.iso.IsoCell;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoWorld;
@@ -49,7 +50,7 @@ final class CarPhysics {
         /** The roll to give it each physics step until the next update, per kilogram, about rollAbout, its forward axis. */
         float roll;
         final Vector3f rollAbout = new Vector3f();
-        long rollSaidAt, pullSaidAt;
+        long rollSaidAt, pullSaidAt, fireSaidAt;
         /** Whether it has stood off its roof since it was met. */
         boolean stood;
     }
@@ -177,6 +178,11 @@ final class CarPhysics {
         // The game leaves some of its wrecks on their roofs where it spawns them: only a
         // vehicle that has stood on its wheels since it was met, and has an engine to catch, burns.
         kept.stood |= UP.y > Wreck.ON_ITS_ROOF;
+        if (DevBuild.ON && kept.wreck.stage == Wreck.Stage.ALIGHT && now - kept.fireSaidAt > 1_000_000_000L) {
+            kept.fireSaidAt = now;
+            zombie.iso.objects.IsoFire fire = vehicle.getSquare() == null ? null : vehicle.getSquare().getFire();
+            Log.info("the burning " + vehicle.getScriptName() + "'s fire " + (fire == null ? "is out" : "is at stage " + fire.lifeStage + ", " + fire.lifeStageTimer + " left of it"));
+        }
         switch (kept.stood && kept.hasEngine ? kept.wreck.step(UP.y, seconds) : Wreck.Change.NONE) {
             case CATCHES -> catchFire(vehicle);
             case GOES_UP -> goUp(vehicle);
@@ -215,10 +221,17 @@ final class CarPhysics {
     private static final int FIRE_LIFE = 3000;
     private static final int FIRE_ENERGY = 300;
 
-    /** Fire takes hold under a vehicle on its roof, and whoever is inside is thrown clear of it, as the game's own getting out puts them. */
+    /**
+     * Fire takes hold under a vehicle on its roof and at its engine end, at its height at once,
+     * and whoever is inside is thrown clear of it, as the game's own getting out puts them.
+     */
     private static void catchFire(BaseVehicle vehicle) {
         IsoGridSquare square = vehicle.getSquare();
-        IsoFireManager.StartFire(IsoWorld.instance.currentCell, square, true, FIRE_ENERGY, FIRE_LIFE);
+        light(square);
+        vehicle.getForwardVector(FORWARD);
+        float half = vehicle.getScript().getExtents().z * 0.4f;
+        light(IsoWorld.instance.currentCell.getGridSquare((int) Math.floor(vehicle.getX() + FORWARD.x * half), (int) Math.floor(vehicle.getY() + FORWARD.z * half),
+                (int) Math.floor(vehicle.getZ())));
         int thrown = 0;
         for (int seat = 0; seat < vehicle.getMaxPassengers(); seat++) {
             IsoGameCharacter inside = vehicle.getCharacter(seat);
@@ -236,6 +249,28 @@ final class CarPhysics {
     }
 
     /**
+     * Starts a fire on the square, where there is one, and brings it to its height at once: a fresh
+     * fire is a small flame for its first stages, and a burning vehicle is not. Its stage is set to
+     * the one before its height with a moment left in it, and the game's own next step of it
+     * (IsoFire.updateFromTimer) gives it its height's flames, smoke and light.
+     */
+    private static void light(IsoGridSquare square) {
+        if (square == null) {
+            return;
+        }
+        IsoFireManager.StartFire(IsoWorld.instance.currentCell, square, true, FIRE_ENERGY, FIRE_LIFE);
+        zombie.iso.objects.IsoFire fire = square.getFire();
+        if (fire != null && !fire.perm && fire.lifeStage < FIRE_HEIGHT - 1) {
+            fire.lifeStage = FIRE_HEIGHT - 1;
+            // A timer the game counts down from above nothing: at nothing it moves the fire on a stage.
+            fire.lifeStageTimer = 1;
+        }
+    }
+
+    /** The stage of a spreading fire at its height (Fires.size). */
+    private static final int FIRE_HEIGHT = 3;
+
+    /**
      * The vehicle goes up and is left as the game's burnt shell of its kind, lying as it lay, and
      * what was in it burns with it. A vehicle of another module than the game's own is left as
      * the shell nearest its size. Where the game would not have the shell stand (indoors with no
@@ -249,6 +284,7 @@ final class CarPhysics {
             shell = nearestShell(vehicle.getScript().getExtents());
         }
         Quaternionf lying = vehicle.jniTransform.getRotation(new Quaternionf());
+        Transform lay = vehicle.getWorldTransform(new Transform());
         // As the game makes a smashed vehicle of a whole one (BaseVehicle.setSmashed).
         BaseVehicle burnt = new BaseVehicle(cell);
         burnt.setScriptName(shell);
@@ -262,7 +298,7 @@ final class CarPhysics {
         burnt.savedPhysicsZ = vehicle.savedPhysicsZ;
         burnt.jniTransform.setRotation(lying);
         vehicle.playSound("PipeBombExplode");
-        IsoFireManager.StartFire(cell, square, true, FIRE_ENERGY, FIRE_LIFE);
+        light(square);
         if (!zombie.iso.IsoChunk.doSpawnedVehiclesInInvalidPosition(burnt)) {
             Log.info(String.format(Locale.ROOT, "the burning %s at %.1f, %.1f went up and is left as it is: the game would not stand a %s there",
                     vehicle.getScriptName(), vehicle.getX(), vehicle.getY(), shell));
@@ -275,6 +311,8 @@ final class CarPhysics {
         square.chunk.vehicles.add(burnt);
         burnt.chunk = square.chunk;
         burnt.addToWorld();
+        // Its physics made, it lies where the burning vehicle lay, as high as that lay on its roof.
+        burnt.setWorldTransform(lay);
         VehiclesDB2.instance.addVehicle(burnt);
         Log.info(String.format(Locale.ROOT, "the burning %s at %.1f, %.1f went up and is left as %s", vehicle.getScriptName(), burnt.getX(), burnt.getY(), shell));
     }
