@@ -161,19 +161,20 @@ final class WorldQuery {
      * The distance from the eye along its forward vector to the first thing a
      * shot stops on: a wall, a closed door, the floor, the ceiling or one of
      * the characters given. A character behind walls a round of the cartridge
-     * goes through is the first thing it stops on (see Penetration); with no
-     * cartridge, walls stop it. Positive infinity when there is nothing within
-     * reach, which is open sky or open ground.
+     * goes through is the first thing it stops on (see Penetration), the walls
+     * judged on the line from (shooterX, shooterY) as the game judges them, not
+     * from the eye; with no cartridge, walls stop it. Positive infinity when
+     * there is nothing within reach, which is open sky or open ground.
      */
     float shotDistance(ViewCamera.Pose aim, Terrain terrain, float footing, float reach,
-            float[] characterX, float[] characterY, float[] characterBase, int characters, Penetration.Cartridge through) {
+            float[] characterX, float[] characterY, float[] characterBase, int characters, Penetration.Cartridge through, float shooterX, float shooterY) {
         float surface = toSurface(aim, terrain::height, footing, reach);
         boolean wall = met == WALL;
         float nearest = surface;
         for (int i = 0; i < characters; i++) {
             float distance = cylinderDistance(aim, characterX[i], characterY[i], characterBase[i]);
             if (distance < nearest && (distance <= surface || wall && through != null
-                    && Penetration.share(cell, level, through, aim.eyeX, aim.eyeY, aim.eyeX + aim.forwardX * distance, aim.eyeY + aim.forwardY * distance) > 0f)) {
+                    && Penetration.share(cell, level, through, shooterX, shooterY, characterX[i], characterY[i]) > 0f)) {
                 nearest = distance;
             }
         }

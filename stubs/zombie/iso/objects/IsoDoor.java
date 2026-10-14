@@ -9,4 +9,5 @@ public class IsoDoor extends IsoObject {
     public boolean getNorth() { throw new UnsupportedOperationException("reference stub"); }
     public IsoDoor HasCurtains() { throw new UnsupportedOperationException("reference stub"); }
     public boolean isCurtainOpen() { throw new UnsupportedOperationException("reference stub"); }
+    public boolean isBarricaded() { throw new UnsupportedOperationException("reference stub"); }
 }

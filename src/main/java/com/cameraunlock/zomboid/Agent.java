@@ -293,6 +293,9 @@ public final class Agent {
         String testResults = "Lzombie/iso/LosUtil$TestResults;", moving = "Lzombie/iso/IsoMovingObject;";
         CallSite.Method hitListWeapon = new CallSite.Method("zombie/CombatManager", "calculateHitListWeapon",
                 "(" + character + "Lzombie/network/fields/hit/AttackVars;Lzombie/util/list/PZArrayList;)V");
+        CallSite.Method hitInfoList = new CallSite.Method("zombie/CombatManager", "calculateHitInfoList", "(" + character + ")V");
+        CallSite.Method validTarget = new CallSite.Method(ballistics.owner(), "isValidTarget", "(I)Z");
+        CallSite.Method keptThrough = new CallSite.Method(HOOKS, "validTarget", "(Z" + moving + ")Z");
         CallSite.Method applyImpulse = new CallSite.Method("zombie/core/physics/Bullet", "applyImpulse", "(II[F)V");
         CallSite.Method pushAlongTheShot = new CallSite.Method("com/cameraunlock/zomboid/HitImpulse", "apply", "(II[F)V");
         return List.of(
@@ -348,7 +351,7 @@ public final class Agent {
                 new Patch(processHit.owner(), "fireWeapon calling calculateMuzzlePosition", classBytes -> CallSite.replaceEach(classBytes,
                         new CallSite.Method(processHit.owner(), "fireWeapon", "(Lzombie/inventory/types/HandWeapon;" + character + ")V"), muzzleAt, muzzle, 1)),
                 // A round goes on through plasterboard, boards and doors: see Penetration.
-                new Patch(processHit.owner(), "calculateHitListWeapon at its start", classBytes -> CallSite.insertAtStartOfInstanceMethod(classBytes, hitListWeapon,
+                new Patch(processHit.owner(), "calculateHitInfoList at its start", classBytes -> CallSite.insertAtStartOfInstanceMethod(classBytes, hitInfoList,
                         code -> CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "hitListStarts", "()V")))),
                 new Patch(processHit.owner(), "calculateHitListWeapon after lineClear", classBytes -> CallSite.insertAfterEach(classBytes, hitListWeapon,
                         new CallSite.Method("zombie/iso/LosUtil", "lineClear", "(Lzombie/iso/IsoCell;IIIIIIZ)" + testResults), code -> {
@@ -357,10 +360,18 @@ public final class Agent {
                             code.aload(8);
                             CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "lineOfFire", "(" + testResults + character + "Lzombie/inventory/types/HandWeapon;" + moving + ")" + testResults));
                         }, 1)),
-                new Patch(processHit.owner(), "calculateHitInfoList calling isValidTarget", classBytes -> CallSite.replaceEach(classBytes,
-                        new CallSite.Method(processHit.owner(), "calculateHitInfoList", "(" + character + ")V"),
-                        new CallSite.Method(ballistics.owner(), "isValidTarget", "(I)Z"),
-                        new CallSite.Method(HOOKS, "validTarget", "(L" + ballistics.owner() + ";I)Z"), 2)),
+                // Both drop a ranged target the ballistics did not find: calculateHitInfoList has the target in local 14, processBallisticsTargets in 7.
+                new Patch(processHit.owner(), "calculateHitInfoList after isValidTarget", classBytes -> CallSite.insertAfterEach(classBytes, hitInfoList,
+                        validTarget, code -> {
+                            code.aload(14);
+                            CallSite.invokeStatic(code, keptThrough);
+                        }, 2)),
+                new Patch(processHit.owner(), "processBallisticsTargets after isValidTarget", classBytes -> CallSite.insertAfterEach(classBytes,
+                        new CallSite.Method(processHit.owner(), "processBallisticsTargets", "(" + character + "Lzombie/inventory/types/HandWeapon;Lzombie/util/list/PZArrayList;)V"),
+                        validTarget, code -> {
+                            code.aload(7);
+                            CallSite.invokeStatic(code, keptThrough);
+                        }, 1)),
                 new Patch(processHit.owner(), "attackCollisionCheck calling Hit", classBytes -> CallSite.replaceEach(classBytes,
                         new CallSite.Method(processHit.owner(), "attackCollisionCheck", "(" + character + "Lzombie/inventory/types/HandWeapon;Lzombie/ai/states/SwipeStatePlayer;Lzombie/AttackType;)V"),
                         new CallSite.Method("zombie/iso/IsoMovingObject", "Hit", "(Lzombie/inventory/types/HandWeapon;" + character + "FZF)F"),

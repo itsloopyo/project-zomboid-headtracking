@@ -282,7 +282,7 @@ public final class Hooks {
         aimedEnd = aimedPart != HitPart.NONE && view.controls.aimedEnd();
     }
 
-    /** Called as the game starts working out which targets a firearm's shot can reach (CombatManager.calculateHitListWeapon). */
+    /** Called as the game starts working out which targets an attack can reach (CombatManager.calculateHitInfoList). */
     public static void hitListStarts() {
         Penetration.listStarts();
     }
@@ -293,11 +293,12 @@ public final class Hooks {
     }
 
     /**
-     * Called where the game keeps a ranged target only if its ballistics found it. A target behind a
-     * wall a round goes through is out of the ballistics' sight and is kept all the same.
+     * Called with the game's answer to whether its ballistics found a ranged target, where it drops the
+     * target if not. A character behind a wall a round goes through is out of the ballistics' sight and
+     * is kept all the same.
      */
-    public static boolean validTarget(BallisticsController ballistics, int id) {
-        return Penetration.kept(id) || ballistics.isValidTarget(id);
+    public static boolean validTarget(boolean found, IsoMovingObject target) {
+        return found || Penetration.kept(target);
     }
 
     /** Called where the game deals a hit its damage: a target reached through a wall gets the share of it the round has left. */

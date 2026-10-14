@@ -1157,7 +1157,7 @@ public final class FirstPerson {
         HandWeapon weapon = player.getPrimaryHandItem() instanceof HandWeapon held ? held : null;
         shotDistance = world.shotDistance(aimView, view.worldScene.terrain, player.getZ() * ViewCamera.LEVEL_HEIGHT, reach,
                 scene.characterX, scene.characterY, scene.characterBase, scene.characters,
-                Penetration.applies(player, weapon) ? Penetration.cartridgeOf(weapon) : null);
+                Penetration.applies(player, weapon) ? Penetration.cartridgeOf(weapon) : null, player.getX(), player.getY());
         // The game looks for a shot's target along a line through this point. With nothing
         // in reach it is a point as far along the view as anything could have been. The
         // picture raises the land and the game's map is flat, so the point's height is

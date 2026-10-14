@@ -163,11 +163,15 @@ final class Penetration {
             IsoObject object = objects.get(i);
             if (object instanceof IsoDoor door && door.getNorth() == north && !door.IsOpen()
                     || object instanceof IsoThumpable thumpable && thumpable.isDoor() && thumpable.getNorth() == north && !thumpable.IsOpen()) {
+                if (object instanceof IsoDoor door ? door.isBarricaded() : ((IsoThumpable) object).isBarricaded()) {
+                    return STOPS;
+                }
                 String made = materialOf(object);
                 return cost(made != null ? made : doorMaterial(object));
             }
             if (object instanceof IsoWindow window && window.getNorth() == north) {
-                // Stopped by its curtain, or by a barricade, which stops a round as the game has it.
+                // The game stops a shot at a shut window only where a curtain or a barricade is drawn over it. A curtain
+                // costs the round nothing more than the glass; a barricade stops it, as the game has it.
                 return window.isBarricaded() ? STOPS : cost("Glass");
             }
         }
@@ -210,7 +214,8 @@ final class Penetration {
      * way and the round goes through it, the target is kept, with the share of damage that gets to it.
      */
     static LosUtil.TestResults lineOfFire(LosUtil.TestResults seen, IsoGameCharacter shooter, HandWeapon weapon, IsoMovingObject target) {
-        if (seen != LosUtil.TestResults.Blocked && seen != LosUtil.TestResults.ClearThroughClosedDoor || !applies(shooter, weapon)) {
+        if (seen != LosUtil.TestResults.Blocked && seen != LosUtil.TestResults.ClearThroughClosedDoor || !(target instanceof IsoGameCharacter)
+                || !applies(shooter, weapon)) {
             return seen;
         }
         Cartridge cartridge = cartridgeOf(weapon);
@@ -227,14 +232,14 @@ final class Penetration {
         return LosUtil.TestResults.Clear;
     }
 
-    /** The game starts working out who a firearm's shot can reach: what was worked out for the last one goes. */
+    /** The game starts working out who an attack can reach (CombatManager.calculateHitInfoList): what was worked out for the last one goes. */
     static void listStarts() {
         through.clear();
     }
 
-    /** Whether a target was kept because the round goes through what is in the way. */
-    static boolean kept(int id) {
-        return through.containsKey(id);
+    /** Whether a character was kept because the round goes through what is in the way. */
+    static boolean kept(IsoMovingObject target) {
+        return target instanceof IsoGameCharacter && through.containsKey(target.getID());
     }
 
     /** The share of the game's damage a target gets: less than whole for one a round reaches through a wall. */

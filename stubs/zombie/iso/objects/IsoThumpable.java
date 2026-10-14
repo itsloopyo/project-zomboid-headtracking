@@ -10,4 +10,5 @@ public class IsoThumpable extends IsoObject {
     public boolean getNorth() { throw new UnsupportedOperationException("reference stub"); }
     public boolean isWindowN() { throw new UnsupportedOperationException("reference stub"); }
     public boolean isWindowW() { throw new UnsupportedOperationException("reference stub"); }
+    public boolean isBarricaded() { throw new UnsupportedOperationException("reference stub"); }
 }
