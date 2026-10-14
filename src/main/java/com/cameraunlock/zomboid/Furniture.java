@@ -617,6 +617,10 @@ final class Furniture {
             if (called.equals("Radio")) {
                 return new Furniture(sprite, "radio", turns).stand(0f, 0f, false).raise(surfaceUp);
             }
+            // A small rack of wire whose length runs the way it faces.
+            if (called.equals("Display") && group.equals("Small Black") && holds.equals("shelves")) {
+                return new Furniture(sprite, "counter_rack", turns).stand(0f, 0f, false).raise(surfaceUp);
+            }
         }
         if (called.equals("Machine") && single && surface == 0) {
             if (holds.equals("vendingsnack") || holds.equals("vendingpop")) {

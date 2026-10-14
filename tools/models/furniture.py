@@ -6914,6 +6914,40 @@ def mall_table_quarter():
     return model
 
 
+# A small rack of black wire that stands on a shop's counter: its length runs front to back, its back end stands higher
+# than its front, and its two shelves are slats across it between rails along its sides.
+COUNTER_RACK_HALF, COUNTER_RACK_SIDE, COUNTER_RACK_SHELVES = 0.35, 0.16, (0.08, 0.4)
+COUNTER_RACK_ENDS = (0.68, 0.82)
+
+
+def counter_rack():
+    """The wire rack the game stands on a counter: a hoop of tube at each end, its upper corners rounded, the back one
+    the taller, rails along both sides at each shelf and slats across between them, on four rubber feet."""
+    model = Model("counter_rack")
+    wire, slats, feet = bmesh.new(), bmesh.new(), bmesh.new()
+    r, bend, side = 0.0065, 0.06, COUNTER_RACK_SIDE
+    for y, top in zip((-COUNTER_RACK_HALF, COUNTER_RACK_HALF), COUNTER_RACK_ENDS):
+        corner_low = top - r - bend
+        path = ([(-side, 0.012)]
+                + [(-side + bend + bend * math.cos(math.radians(a)), corner_low + bend * math.sin(math.radians(a))) for a in range(180, 85, -15)]
+                + [(side - bend + bend * math.cos(math.radians(a)), corner_low + bend * math.sin(math.radians(a))) for a in range(90, -5, -15)] + [(side, 0.012)])
+        for (x0, z0), (x1, z1) in zip(path, path[1:]):
+            rod(wire, (x0, y, z0), (x1, y, z1), r, segments=8)
+        for x in (-side, side):
+            lathe(feet, [(0.0, 0.0), (r * 1.6, 0.0), (r * 1.6, 0.014), (0.0, 0.014)], cx=x, cy=y, segments=8)
+    for z in COUNTER_RACK_SHELVES:
+        for x in (-side, side):
+            rod(wire, (x, -COUNTER_RACK_HALF, z), (x, COUNTER_RACK_HALF, z), r, segments=8)
+        count = 15
+        for n in range(count):
+            y = -COUNTER_RACK_HALF + 0.035 + (2 * COUNTER_RACK_HALF - 0.07) * n / (count - 1)
+            rod(slats, (-side, y, z + r * 0.6), (side, y, z + r * 0.6), r * 0.55, segments=6)
+    model.turned(wire, "plastic", sharp=40.0)
+    model.turned(slats, "plastic", sharp=40.0)
+    model.turned(feet, "rubber", sharp=60.0)
+    return model
+
+
 def shop_fittings():
     """What stands in shops, malls, bars and salons: the pieces ShopFittings.java places, and what they hold."""
     return [gondola("shop_gondola", 1, "wood"), gondola("shop_gondola_m", -1, "wood"), gondola("shop_gondola_red", 1, "vinyl"),
@@ -6930,7 +6964,7 @@ def shop_fittings():
             open_chiller(), chiller_goods("chiller_goods_many", 55, 0.95, 3), chiller_goods("chiller_goods_few", 56, 0.45, 1),
             mall_chair(), pedestal_stool(), salon_chair(), glass_counter(),
             magazine_stand("magazine_stand", 0.49, "wood"), magazine_stand("magazine_stand_red", 0.98, "vinyl"),
-            magazines("magazines_many", 57, 0.95), magazines("magazines_few", 58, 0.4), mall_table_quarter()]
+            magazines("magazines_many", 57, 0.95), magazines("magazines_few", 58, 0.4), mall_table_quarter(), counter_rack()]
 
 
 def outdoors():

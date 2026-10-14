@@ -40,6 +40,7 @@ final class FurnitureTests {
         Checks.run("aCountersTopIsABoardOverTheCountersOwnTop", FurnitureTests::aCountersTopIsABoardOverTheCountersOwnTop);
         Checks.run("aBarsPanellingStandsAlongTheEdgeItsSpritePaintsFacingTheRoom", FurnitureTests::aBarsPanellingStandsAlongTheEdgeItsSpritePaintsFacingTheRoom);
         Checks.run("aBarsPanellingStandsWithItsFootRailUndyedWhereTheBrassIsNotPainted", FurnitureTests::aBarsPanellingStandsWithItsFootRailUndyedWhereTheBrassIsNotPainted);
+        Checks.run("aWireRackOnACounterStandsOnTheCounterLongTheWayItFaces", FurnitureTests::aWireRackOnACounterStandsOnTheCounterLongTheWayItFaces);
         Checks.run("eachBookOnAShelfIsAPieceOfItsOwnInBothModels", FurnitureTests::eachBookOnAShelfIsAPieceOfItsOwnInBothModels);
     }
 
@@ -676,6 +677,27 @@ final class FurnitureTests {
         }
         for (int place : new int[] {75, 80, 83, 86}) {
             check(Furniture.known(sprite("location_restaurant_bar_01_" + place + row)) == null, "the bar sheet's " + place + " is no panelling");
+        }
+    }
+
+    private static void aWireRackOnACounterStandsOnTheCounterLongTheWayItFaces() {
+        String row = "|BlocksPlacement||CanScrap||ContainerCapacity|5|CustomName|Display|GroupName|Small Black|IsMoveAble||IsSurfaceOffset||IsTableTop||"
+                + "Material|MetalScrap|PickUpWeight|40|ScrapSize|Small|Surface|34|container|shelves|Facing|";
+        String[] facings = {"E", "S", "N", "W"};
+        for (int i = 0; i < 4; i++) {
+            Furniture rack = Furniture.known(sprite("location_shop_generic_01_" + (120 + i) + row + facings[i]));
+            check(model(rack).equals("counter_rack"), "the small black display facing " + facings[i] + " is the wire rack: " + model(rack));
+            if (rack == null || rack.model == null) {
+                continue;
+            }
+            check(Math.abs(rack.raised - 34 * SURFACE_TILES) < 1e-4f, "it stands on the counter's top, not on the floor: " + rack.raised);
+            check(rack.model.depth() > 2f * rack.model.width(), "it is long from its front to its back");
+            float[] front = new float[2];
+            Models.turn(rack.turns, 0f, -1f, front);
+            // The sprite facing east is long along the map's x, the one facing south along its y.
+            float[] way = facings[i].equals("E") ? new float[] {1f, 0f} : facings[i].equals("W") ? new float[] {-1f, 0f}
+                    : facings[i].equals("S") ? new float[] {0f, 1f} : new float[] {0f, -1f};
+            check(Math.abs(front[0] - way[0]) < 1e-4f && Math.abs(front[1] - way[1]) < 1e-4f, "and its length runs the way it faces, " + facings[i]);
         }
     }
 
