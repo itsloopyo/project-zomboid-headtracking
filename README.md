@@ -424,8 +424,9 @@ WholeFigureShadows=true
 FrameBlending=true
 
 [Content]
-; true: the mod's models of the pump shotgun, the sawn-off pump shotgun, the hunting rifle, the pistols, the revolvers,
-; the toy cap pistol and rifle scopes. false: the game's own, with no picture through the scope.
+; true: the mod's models of the pump shotgun and its sawn-off, the hunting rifle, the double barrelled shotgun and its
+; sawn-off, the pistols, the revolvers, the toy cap pistol and rifle scopes. false: the game's own, with no picture
+; through the scope.
 OwnWeapons=true
 ; true: the mod's models of furniture, appliances, street lamps, clocks, picture frames, banners and flags. false: the
 ; game's sprites.
@@ -456,6 +457,9 @@ OwnAnimals=true
 ; true: flames, smoke and firelight for burning buildings, Molotovs, campfires, fireplaces, wood stoves, burn barrels
 ; and cooking pits. false: the game's own flat flames and smoke, stood up where they burn.
 OwnFire=true
+; true: the mod's models of the inside of the vehicle you sit in, its dashboard, instruments, wheel, seats and doors.
+; false: the game's own, with its glass cut away.
+OwnCabins=true
 ```
 <!-- /cameraunlock:config -->
 
