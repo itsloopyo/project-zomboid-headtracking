@@ -7260,14 +7260,15 @@ def merry_go_round():
 
 
 def speaker_cabinet(name, wide, deep, high, made):
-    """A speaker cabinet on the floor, its two cones in its front at -Y."""
+    """A speaker cabinet on the floor, its two cones in its front at -Y: each a dish deepest at its middle, where the dust
+    cap rises, with the roll of its surround round its rim, all of it proud of the cabinet's face, which has no hole."""
     model = Model(name)
     box = bmesh.new()
     cuboid(box, -wide / 2, wide / 2, -deep / 2, deep / 2, 0.0, high)
     model.hard(box, made, bevel=0.008, segments=2)
     cones = bmesh.new()
-    for z, r in ((high * 0.32, wide * 0.36), (high * 0.72, wide * 0.18)):
-        lathe(cones, [(0.0, 0.006), (r * 0.3, 0.004), (r, -0.012), (r * 1.08, -0.014), (r * 1.08, 0.0)], segments=20,
+    for z, r in ((high * 0.3, wide * 0.34), (high * 0.74, wide * 0.17)):
+        lathe(cones, [(0.0, 0.007), (r * 0.2, 0.005), (r * 0.24, 0.003), (r, 0.014), (r * 1.06, 0.018), (r * 1.12, 0.014), (r * 1.14, 0.002)], segments=20,
               to=Matrix.Translation((0.0, -deep / 2 - 0.0005, z)) @ Matrix.Rotation(math.radians(90), 4, "X"))
     model.turned(cones, "rubber", sharp=45.0)
     return model
