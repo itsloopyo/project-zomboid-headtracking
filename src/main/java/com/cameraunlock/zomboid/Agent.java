@@ -290,6 +290,9 @@ public final class Agent {
         String vector3 = "Lzombie/iso/Vector3;";
         CallSite.Method muzzleAt = new CallSite.Method(ballistics.owner(), "calculateMuzzlePosition", "(" + vector3 + vector3 + ")F");
         CallSite.Method muzzle = new CallSite.Method(HOOKS, "muzzle", "(L" + ballistics.owner() + ";" + vector3 + vector3 + ")F");
+        String testResults = "Lzombie/iso/LosUtil$TestResults;", moving = "Lzombie/iso/IsoMovingObject;";
+        CallSite.Method hitListWeapon = new CallSite.Method("zombie/CombatManager", "calculateHitListWeapon",
+                "(" + character + "Lzombie/network/fields/hit/AttackVars;Lzombie/util/list/PZArrayList;)V");
         CallSite.Method applyImpulse = new CallSite.Method("zombie/core/physics/Bullet", "applyImpulse", "(II[F)V");
         CallSite.Method pushAlongTheShot = new CallSite.Method("com/cameraunlock/zomboid/HitImpulse", "apply", "(II[F)V");
         return List.of(
@@ -344,6 +347,24 @@ public final class Agent {
                         new CallSite.Method(processHit.owner(), "calculateBallistics", "(" + character + "F)V"), muzzleAt, muzzle, 1)),
                 new Patch(processHit.owner(), "fireWeapon calling calculateMuzzlePosition", classBytes -> CallSite.replaceEach(classBytes,
                         new CallSite.Method(processHit.owner(), "fireWeapon", "(Lzombie/inventory/types/HandWeapon;" + character + ")V"), muzzleAt, muzzle, 1)),
+                // A round goes on through plasterboard, boards and doors: see Penetration.
+                new Patch(processHit.owner(), "calculateHitListWeapon at its start", classBytes -> CallSite.insertAtStartOfInstanceMethod(classBytes, hitListWeapon,
+                        code -> CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "hitListStarts", "()V")))),
+                new Patch(processHit.owner(), "calculateHitListWeapon after lineClear", classBytes -> CallSite.insertAfterEach(classBytes, hitListWeapon,
+                        new CallSite.Method("zombie/iso/LosUtil", "lineClear", "(Lzombie/iso/IsoCell;IIIIIIZ)" + testResults), code -> {
+                            code.aload(1);
+                            code.aload(4);
+                            code.aload(8);
+                            CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "lineOfFire", "(" + testResults + character + "Lzombie/inventory/types/HandWeapon;" + moving + ")" + testResults));
+                        }, 1)),
+                new Patch(processHit.owner(), "calculateHitInfoList calling isValidTarget", classBytes -> CallSite.replaceEach(classBytes,
+                        new CallSite.Method(processHit.owner(), "calculateHitInfoList", "(" + character + ")V"),
+                        new CallSite.Method(ballistics.owner(), "isValidTarget", "(I)Z"),
+                        new CallSite.Method(HOOKS, "validTarget", "(L" + ballistics.owner() + ";I)Z"), 2)),
+                new Patch(processHit.owner(), "attackCollisionCheck calling Hit", classBytes -> CallSite.replaceEach(classBytes,
+                        new CallSite.Method(processHit.owner(), "attackCollisionCheck", "(" + character + "Lzombie/inventory/types/HandWeapon;Lzombie/ai/states/SwipeStatePlayer;Lzombie/AttackType;)V"),
+                        new CallSite.Method("zombie/iso/IsoMovingObject", "Hit", "(Lzombie/inventory/types/HandWeapon;" + character + "FZF)F"),
+                        new CallSite.Method(HOOKS, "hitThrough", "(" + moving + "Lzombie/inventory/types/HandWeapon;" + character + "FZF)F"), 1)),
                 new Patch(processHit.owner(), "processHit at its start", classBytes -> CallSite.insertAtStartOfInstanceMethod(classBytes, processHit, code -> {
                     code.aload(2);
                     code.aload(3);

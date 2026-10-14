@@ -7,4 +7,5 @@ public class IsoWindow extends IsoObject {
     public boolean isGlassRemoved() { throw new UnsupportedOperationException("reference stub"); }
     public boolean IsOpen() { throw new UnsupportedOperationException("reference stub"); }
     public boolean getNorth() { throw new UnsupportedOperationException("reference stub"); }
+    public boolean isBarricaded() { throw new UnsupportedOperationException("reference stub"); }
 }

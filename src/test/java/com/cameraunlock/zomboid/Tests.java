@@ -190,6 +190,7 @@ public final class Tests {
         Checks.run("ShelterTests", ShelterTests::run);
         Checks.run("SightlineTests", SightlineTests::run);
         Checks.run("LineOfFireTests", LineOfFireTests::run);
+        Checks.run("PenetrationTests", PenetrationTests::run);
         Checks.run("RoomSightTests", RoomSightTests::run);
         Checks.run("FigureRoomsTests", FigureRoomsTests::run);
         Checks.run("TerrainTests", TerrainTests::run);

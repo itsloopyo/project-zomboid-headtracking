@@ -1,5 +1,6 @@
 package com.cameraunlock.zomboid;
 
+import zombie.iso.LosUtil;
 import zombie.iso.IsoChunk;
 import zombie.core.textures.Texture;
 import zombie.iso.objects.IsoDeadBody;
@@ -279,6 +280,29 @@ public final class Hooks {
         View view = wielder instanceof IsoPlayer player ? View.of(player) : null;
         aimedPart = view == null ? HitPart.NONE : view.controls.aimedPart(target);
         aimedEnd = aimedPart != HitPart.NONE && view.controls.aimedEnd();
+    }
+
+    /** Called as the game starts working out which targets a firearm's shot can reach (CombatManager.calculateHitListWeapon). */
+    public static void hitListStarts() {
+        Penetration.listStarts();
+    }
+
+    /** Called with the game's line of sight test from a shooter to a target, as its firearm keeps or drops the target: see Penetration. */
+    public static LosUtil.TestResults lineOfFire(LosUtil.TestResults seen, IsoGameCharacter shooter, HandWeapon weapon, IsoMovingObject target) {
+        return Penetration.lineOfFire(seen, shooter, weapon, target);
+    }
+
+    /**
+     * Called where the game keeps a ranged target only if its ballistics found it. A target behind a
+     * wall a round goes through is out of the ballistics' sight and is kept all the same.
+     */
+    public static boolean validTarget(BallisticsController ballistics, int id) {
+        return Penetration.kept(id) || ballistics.isValidTarget(id);
+    }
+
+    /** Called where the game deals a hit its damage: a target reached through a wall gets the share of it the round has left. */
+    public static float hitThrough(IsoMovingObject target, HandWeapon weapon, IsoGameCharacter wielder, float damageSplit, boolean ignoreDamage, float modDelta) {
+        return target.Hit(weapon, wielder, damageSplit * Penetration.shareOf(target.getID()), ignoreDamage, modDelta);
     }
 
     /** Called where the game asks whether its overhead ray found the target, which decides whether it takes a part from that ray. */

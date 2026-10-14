@@ -10,4 +10,5 @@ public class IsoMovingObject extends IsoObject {
     public void removeFromWorld() { throw new UnsupportedOperationException("reference stub"); }
     public void removeFromSquare() { throw new UnsupportedOperationException("reference stub"); }
     public boolean isOnFloor() { throw new UnsupportedOperationException("reference stub"); }
+    public float Hit(zombie.inventory.types.HandWeapon weapon, zombie.characters.IsoGameCharacter wielder, float damageSplit, boolean ignoreDamage, float modDelta) { throw new UnsupportedOperationException("reference stub"); }
 }

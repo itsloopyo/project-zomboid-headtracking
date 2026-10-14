@@ -8,4 +8,5 @@ public final class BallisticsController {
     public int getCachedTargetedBodyPart(int id) { throw new UnsupportedOperationException("reference stub"); }
     public Vector3 getMuzzlePosition() { throw new UnsupportedOperationException("reference stub"); }
     public Vector3 getMuzzleDirection() { throw new UnsupportedOperationException("reference stub"); }
+    public boolean isValidTarget(int id) { throw new UnsupportedOperationException("reference stub"); }
 }

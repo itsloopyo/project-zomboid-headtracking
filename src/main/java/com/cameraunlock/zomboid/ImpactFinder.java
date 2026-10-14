@@ -119,6 +119,9 @@ final class ImpactFinder {
 
         IsoGameCharacter hit = characterAt(cell, shooter, endX, endY, endZ);
         if (hit != null) {
+            if (Penetration.shareOf(hit.getID()) < Penetration.WHOLE) {
+                throughWalls(cell, shooter, terrain, hit, size);
+            }
             flesh(hit, terrain, size);
             return;
         }
@@ -206,6 +209,40 @@ final class ImpactFinder {
         }
         near.clear();
         return nearest;
+    }
+
+    /** The most walls a round is followed through on its way to a character. A round's budget gets through fewer than this. */
+    private static final int MOST_WALLS = 6;
+    /** How far past a wall's face the line is taken on from, in tiles: through the wall's skin. */
+    private static final float PAST_WALL = 0.1f;
+
+    /**
+     * A shot went through walls to the character it hit (see Penetration): each wall on the way takes
+     * the mark of a round that went in, on the face the shooter sees.
+     */
+    private static void throughWalls(IsoCell cell, IsoGameCharacter shooter, Terrain terrain, IsoGameCharacter hit, float size) {
+        float base = hit.getZ() * ViewCamera.LEVEL_HEIGHT + terrain.lift(hit.getX(), hit.getY(), hit.getZ());
+        float toBody = WorldQuery.cylinderDistance(line, hit.getX(), hit.getY(), base);
+        if (toBody == Float.POSITIVE_INFINITY) {
+            return;
+        }
+        float startX = line.eyeX, startY = line.eyeY, startUp = line.eyeUp;
+        float gone = 0f;
+        world.look(cell, (int) Math.floor(shooter.getZ()));
+        for (int i = 0; i < MOST_WALLS; i++) {
+            float distance = world.toSurface(line, terrain::height, shooter.getZ() * ViewCamera.LEVEL_HEIGHT, toBody - gone);
+            if (world.met != WorldQuery.WALL || distance >= toBody - gone) {
+                break;
+            }
+            surface(cell, terrain, distance, size);
+            gone += distance + PAST_WALL;
+            line.eyeX = startX + line.forwardX * gone;
+            line.eyeY = startY + line.forwardY * gone;
+            line.eyeUp = startUp + line.forwardUp * gone;
+        }
+        line.eyeX = startX;
+        line.eyeY = startY;
+        line.eyeUp = startUp;
     }
 
     /** A shot went into a character, along the line: blood, unless the game's own blood is switched off. */
