@@ -1,6 +1,9 @@
 package com.cameraunlock.zomboid;
 
+import java.util.Collections;
 import java.util.Locale;
+import java.util.Set;
+import java.util.WeakHashMap;
 import org.joml.Vector3f;
 import zombie.SoundManager;
 import zombie.iso.IsoCell;
@@ -37,6 +40,8 @@ final class ShotLights {
     private static final float STEP = 0.2f;
     private static final String BREAK_SOUND = "BreakGlassItem";
     private static final float SOUND_REACH = 20f;
+    /** The vehicle lamps a shot has broken since the game started. A vehicle unloaded takes its own with it. Logic thread. */
+    private static final Set<VehiclePart> shotOut = Collections.newSetFromMap(new WeakHashMap<>());
 
     /**
      * Whether a shot that lands at (hitX, hitZ) in a vehicle's own frame, across and along it, is on
@@ -74,11 +79,21 @@ final class ShotLights {
                 part.damage(part.getCondition());
                 part.setInventoryItem(null);
                 vehicle.transmitPartItem(part);
+                shotOut.add(part);
                 vehicle.playSound(BREAK_SOUND);
                 Log.info(String.format(Locale.ROOT, "a shot broke the %s of vehicle %s, landing at (%.2f, %.2f) in its frame", id, vehicle.getScriptName(), local.x, local.z));
                 return;
             }
         }
+    }
+
+    /** Whether a vehicle lamp is out because a shot broke it, and has not had a bulb fitted since. Logic thread. */
+    static boolean isShotOut(VehiclePart lamp) {
+        if (lamp.getInventoryItem() != null) {
+            shotOut.remove(lamp);
+            return false;
+        }
+        return shotOut.contains(lamp);
     }
 
     /**

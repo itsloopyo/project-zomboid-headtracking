@@ -35,10 +35,9 @@ import zombie.vehicles.VehiclePart;
  * modifier is held with it, so F2 to F6, its pause and speed keys, cannot be shared with it.
  * A key that does something to the player does it to every player at the screen.
  *
- * F7 takes the nearest vehicle within a few paces: mends it but for any lamp that is out, fills
- * its tank, hot-wires it and sits the player in its first free seat, whatever state it was found
- * in. For looking at
- * vehicles and driving without first finding one that runs.
+ * F7 takes the nearest vehicle within a few paces: mends it, bulbs included, but for a lamp a
+ * shot broke, fills its tank, hot-wires it and sits the player in its first free seat, whatever
+ * state it was found in. For looking at vehicles and driving without first finding one that runs.
  *
  * The apostrophe makes the player invincible, and vulnerable again on the next press.
  *
@@ -599,11 +598,11 @@ public final class DevKeys {
             Log.info("no vehicle within " + TAKE_WITHIN + " tiles");
             return;
         }
-        // Mended whole but for a lamp that is out, which stays out: a lamp shot out is put back by a mechanic.
+        // Mended whole but for a lamp a shot broke, which stays out until a mechanic puts it back.
         ArrayList<VehiclePart> dark = new ArrayList<>();
         for (String id : ShotLights.VEHICLE_LAMPS) {
             VehiclePart lamp = nearest.getPartById(id);
-            if (lamp != null && lamp.getInventoryItem() == null) {
+            if (lamp != null && ShotLights.isShotOut(lamp)) {
                 dark.add(lamp);
             }
         }
