@@ -83,6 +83,8 @@ final class OwnModel {
                 OwnSelfLoader.MOVES, OwnSelfLoader.SLIDES, OwnSelfLoader::poses, OwnSelfLoader::new),
         new OwnModel("the tactical shotgun's model", "js3t", "js3t", "Base.JS3T_Shotgun", true, true, false, OwnShotgun.PARTS, OwnShotgun.MOVES, OwnShotgun.SLIDES,
                 OwnShotgun::poses, OwnShotgun::new),
+        new OwnModel("the tactical rifle's model", "tactical", "tactical", "Base.MSR7T_Rifle", false, false, false, OwnRifle.PARTS, OwnRifle.MOVES, OwnRifle.SLIDES,
+                OwnRifle::poses, OwnRifle::new),
     };
 
     /**
