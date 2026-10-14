@@ -28,13 +28,13 @@ final class PistolTests {
     }
 
     private static void slideGoesRightBackOnceAShotAndIsHomeAfter() {
-        check(OwnPistol.slideAt(0f) == 0f, "the slide is home at the shot");
-        check(Math.abs(OwnPistol.slideAt(OwnPistol.CYCLES_FOR)) < 1e-6f, "and home again once the shot is over");
+        check(SelfLoading.slideAt(0f) == 0f, "the slide is home at the shot");
+        check(Math.abs(SelfLoading.slideAt(SelfLoading.CYCLES_FOR)) < 1e-6f, "and home again once the shot is over");
         float most = 0f, before = 0f;
         int rises = 0;
         boolean rising = false;
         for (float seconds = 0f; seconds < 0.5f; seconds += 0.001f) {
-            float back = OwnPistol.slideAt(seconds);
+            float back = SelfLoading.slideAt(seconds);
             check(back >= -1e-6f && back <= 1f + 1e-6f, "the slide stays within its travel at " + seconds + ": " + back);
             most = Math.max(most, back);
             if (back > before + 1e-6f && !rising) {
@@ -50,7 +50,7 @@ final class PistolTests {
     }
 
     private static void aShotWithRoundsLeftThrowsOneCaseAndLetsTheSlideHome() {
-        OwnPistol.Slide slide = new OwnPistol.Slide();
+        SelfLoading.Slide slide = new SelfLoading.Slide();
         slide.step(GUN, true, 3, true, 14, true, ArmActs.HOLDING, 0f, FRAME);
         check(slide.back == 0f, "the slide is home with the pistol held ready");
         int thrown = 0;
@@ -67,7 +67,7 @@ final class PistolTests {
     }
 
     private static void theLastRoundLeavesTheSlideBackThroughAChangeOfMagazineUntilRacked() {
-        OwnPistol.Slide slide = new OwnPistol.Slide();
+        SelfLoading.Slide slide = new SelfLoading.Slide();
         // One round in the chamber and none in the magazine.
         slide.step(GUN, true, 7, true, 0, true, ArmActs.HOLDING, 0f, FRAME);
         for (int frame = 0; frame < 120; frame++) {
@@ -101,7 +101,7 @@ final class PistolTests {
     }
 
     private static void anEmptyPistolTakenInHandHasItsSlideBack() {
-        OwnPistol.Slide slide = new OwnPistol.Slide();
+        SelfLoading.Slide slide = new SelfLoading.Slide();
         slide.step(GUN, true, 2, false, 0, true, ArmActs.HOLDING, 0f, FRAME);
         check(slide.back == 1f, "an empty magazine in and nothing chambered: back, not " + slide.back);
         slide.step(102, true, 2, true, 7, true, ArmActs.HOLDING, 0f, FRAME);
@@ -111,7 +111,7 @@ final class PistolTests {
     }
 
     private static void rackingDrawsTheSlideBackAndLetsItGo() {
-        OwnPistol.Slide slide = new OwnPistol.Slide();
+        SelfLoading.Slide slide = new SelfLoading.Slide();
         float most = 0f;
         for (int frame = 0; frame <= 60; frame++) {
             slide.step(GUN, true, 0, true, 15, true, ArmActs.RACKING, frame / 60f, FRAME);
@@ -123,7 +123,7 @@ final class PistolTests {
     }
 
     private static void rackingOverAnEmptyMagazineLeavesTheSlideBack() {
-        OwnPistol.Slide slide = new OwnPistol.Slide();
+        SelfLoading.Slide slide = new SelfLoading.Slide();
         float most = 0f;
         for (int frame = 0; frame <= 60; frame++) {
             float through = frame / 60f;
@@ -140,7 +140,7 @@ final class PistolTests {
     }
 
     private static void theLastRoundWithNoMagazineInLetsTheSlideHome() {
-        OwnPistol.Slide slide = new OwnPistol.Slide();
+        SelfLoading.Slide slide = new SelfLoading.Slide();
         slide.step(GUN, true, 1, true, 0, false, ArmActs.HOLDING, 0f, FRAME);
         float most = 0f;
         for (int frame = 0; frame < 60; frame++) {
@@ -151,7 +151,7 @@ final class PistolTests {
     }
 
     private static void shotsTakenWhileThePistolWasNotWorkedAreNotWorkedAfter() {
-        OwnPistol.Slide slide = new OwnPistol.Slide();
+        SelfLoading.Slide slide = new SelfLoading.Slide();
         slide.step(GUN, true, 5, true, 10, true, ArmActs.HOLDING, 0f, FRAME);
         // Two shots with another weapon, or with this one not drawn: the count moved on while this slide was not.
         boolean thrown = false;
@@ -168,13 +168,15 @@ final class PistolTests {
     }
 
     private static void theMagazineIsInItsWellUnlessTheHandHasIt() {
-        check(OwnPistol.magazineIn(true, ArmActs.HOLDING, -1f), "held, with one in: in its well");
-        check(!OwnPistol.magazineIn(false, ArmActs.HOLDING, -1f), "with none in: not");
-        check(OwnPistol.magazineIn(true, ArmActs.UNLOADING, -1f), "being unloaded, until the game has it out: in");
-        check(!OwnPistol.magazineIn(false, ArmActs.LOADING, -1f), "being loaded, until the game has it in: in the hand");
-        check(!OwnPistol.magazineIn(true, ArmActs.HOLDING, ArmActs.HOME_IN / 2f), "pushed home: the hand's, as ArmHolds.carries has it");
-        check(OwnPistol.magazineIn(true, ArmActs.HOLDING, ArmActs.HOME_IN + 0.01f), "and the well's once home");
-        check(OwnPistol.magazineIn(true, ArmActs.LOADING, 0f), "a magazine the game has in while loading is the well's");
+        check(SelfLoading.magazineIn(true, ArmActs.HOLDING, -1f), "held, with one in: in its well");
+        check(!SelfLoading.magazineIn(false, ArmActs.HOLDING, -1f), "with none in: not");
+        check(SelfLoading.magazineIn(true, ArmActs.UNLOADING, -1f), "being unloaded, until the game has it out: in");
+        check(!SelfLoading.magazineIn(false, ArmActs.LOADING, -1f), "being loaded, until the game has it in: in the hand");
+        check(!SelfLoading.magazineIn(true, ArmActs.HOLDING, ArmActs.HOME_IN / 2f), "pushed home: the hand's, as ArmHolds.carries has it");
+        check(SelfLoading.magazineIn(true, ArmActs.HOLDING, ArmActs.HOME_IN + 0.01f), "and the well's once home");
+        check(!SelfLoading.magazineIn(true, ArmActs.HOLDING, ArmActs.HOME_IN / 2f), "pushed home: the hand's, as ArmHolds.carries has it");
+        check(SelfLoading.magazineIn(true, ArmActs.HOLDING, ArmActs.HOME_IN + 0.01f), "and the well's once home");
+        check(SelfLoading.magazineIn(true, ArmActs.LOADING, 0f), "a magazine the game has in while loading is the well's");
     }
 
     private static void anOwnHandgunIsDrawnAtTheLongGunsSize() {
