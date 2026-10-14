@@ -507,6 +507,53 @@ public final class Characters {
         return drawn;
     }
 
+    /**
+     * While set, the plane of a mirror in a room whose picture is drawn, as LookingGlass
+     * gives it: nothing behind the wall it hangs on is in it.
+     */
+    private float[] glassPlane;
+    /** While set, the viewer is drawn whole, head and all, as anyone else is: the picture is of them in a mirror. */
+    private boolean viewerWhole;
+    /** How far behind a mirror's plane the middle of a person may be and they still be drawn in it, in tiles: they lean on its wall. */
+    private static final float BEHIND_GLASS = 0.3f;
+
+    /**
+     * Draws the people, the viewer among them, or the vehicles, that a mirror in a room
+     * shows, into whatever target is bound, whose depth has to be that of the world the
+     * mirror shows. camera is the eye's image behind the glass (LookingGlass), and plane the
+     * glass's. Returns how many were drawn.
+     */
+    int drawInGlass(ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float near, float far, boolean vehicles, float[] plane) {
+        kind = BY_MIRROR;
+        ViewCamera.projection(tanHalfFieldOfView, aspect, near, far, projection);
+        aside(projection);
+        only = vehicles ? ONLY_VEHICLES : ONLY_CHARACTERS;
+        glassPlane = plane;
+        viewerWhole = true;
+        seenHigh = tanHalfFieldOfView;
+        seenWide = tanHalfFieldOfView * aspect;
+        ViewCamera.view(camera, eyeView);
+        seenFrom = eyeView;
+        CharacterDraw.looking(eyeView);
+        notingCars = vehicles;
+        if (notingCars) {
+            carsFound = 0;
+            carsFromX = camera.eyeX;
+            carsFromY = camera.eyeY;
+        }
+        CharacterDraw.mirrored = true;
+        try {
+            return draw(eyeView, true, false, null, camera.eyeX, camera.eyeY, Float.MAX_VALUE);
+        } finally {
+            CharacterDraw.mirrored = false;
+            notingCars = false;
+            glassPlane = null;
+            viewerWhole = false;
+            seenFrom = null;
+            only = ALL;
+        }
+    }
+
     /** A model this far to the side of what a mirror takes in may still reach into it: a vehicle is that long. */
     private static final float MIRROR_MARGIN = 4f;
 
@@ -1860,6 +1907,9 @@ public final class Characters {
             if (map != null && outside(map, data)) {
                 continue;
             }
+            if (glassPlane != null && behindGlass(data, i * 4, standsUp)) {
+                continue;
+            }
             if (within != null && data.character != null && !data.inVehicle && wholeWithin(within, data)) {
                 continue;
             }
@@ -1935,7 +1985,8 @@ public final class Characters {
                 CharacterDraw.release();
                 seated(data, i * 4, viewMatrix);
             } else {
-                character(data, standsUp, viewMatrix, data.character == viewer, casting, false, false, data.character == viewer ? 0f : fromViewer(toX, toY, data.z - viewer.getZ()));
+                character(data, standsUp, viewMatrix, data.character == viewer && !viewerWhole, casting, false, false,
+                        data.character == viewer ? 0f : fromViewer(toX, toY, data.z - viewer.getZ()));
             }
             data.ambientR = red;
             data.ambientG = green;
@@ -1954,6 +2005,18 @@ public final class Characters {
             talliedNanos[kind] += System.nanoTime() - began;
         }
         return drawn;
+    }
+
+    /**
+     * Whether a model stands behind the plane of the mirror being drawn: a person whose middle
+     * is further behind it than BEHIND_GLASS, a vehicle whose middle is behind it at all.
+     */
+    private boolean behindGlass(ModelSlotRenderData data, int at, float standsUp) {
+        boolean stands = data.character != null && !data.inVehicle;
+        float x = stands ? data.x : stood[at], y = stands ? data.y : stood[at + 1];
+        float up = stands ? standsUp + PERSON_MIDDLE : stood[at + 2] * ViewCamera.LEVEL_HEIGHT;
+        float before = glassPlane[0] * x + glassPlane[1] * y + glassPlane[2] * up - glassPlane[3];
+        return before < (stands ? -BEHIND_GLASS : 0f);
     }
 
     /**

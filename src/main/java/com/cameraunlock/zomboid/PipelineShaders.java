@@ -735,6 +735,9 @@ final class PipelineShaders {
             // For the picture drawn from under the water (WaterMirror): the plane nothing under
             // which is in it, as the way it faces and how far along that it is. All 0 in any other picture.
             uniform vec4 uUnder;
+            // For the picture drawn from behind a mirror's glass (LookingGlass): the plane
+            // nothing behind which is in it, as the way it faces and how far along that it is. All 0 in any other picture.
+            uniform vec4 uGlassPlane;
             // That picture, for the eye's own to show where it draws water, and the plane the
             // water lies in: the way it faces and how far over it the eye is. All 0 with no such picture.
             uniform sampler2D uWaterPicture;
@@ -2691,6 +2694,9 @@ final class PipelineShaders {
                     discard;
                 }
                 if (uUnder.z > 0.0 && (vKind > 3.5 && !grass || dot(uUnder.xyz, vWorld) < uUnder.w)) {
+                    discard;
+                }
+                if (dot(uGlassPlane.xyz, uGlassPlane.xyz) > 0.5 && dot(uGlassPlane.xyz, vWorld) < uGlassPlane.w) {
                     discard;
                 }
                 // Ground spreading over its neighbour thins out towards its edge, and the edge
@@ -4877,6 +4883,10 @@ final class PipelineShaders {
             uniform float uFigureAmbient;
             uniform sampler2D uFacing;
             uniform float uHaveFacing;
+            // 1 while the picture is one a mirror shows, drawn from an eye whose right is the
+            // real eye's left: a way a surface faces found from the depth beside it then comes
+            // out turned into it. 0 for any other picture, which a program is until told.
+            uniform float uMirrored;
             uniform float uRaining;
             uniform float uTime;
             """ + BEAMS + MuzzleFlash.GLSL + Fires.GLSL + """
@@ -5326,7 +5336,7 @@ final class PipelineShaders {
                 vec3 north = placeAt(uv + vec2(0.0, apart.y)) - at, south = at - placeAt(uv - vec2(0.0, apart.y));
                 vec3 across = dot(east, east) < dot(west, west) ? east : west;
                 vec3 up = dot(north, north) < dot(south, south) ? north : south;
-                vec3 square = cross(across, up);
+                vec3 square = cross(across, up) * (1.0 - 2.0 * uMirrored);
                 float size = length(square);
                 return size > 1e-12 ? square / size : vec3(0.0);
             }
@@ -5361,7 +5371,7 @@ final class PipelineShaders {
                 vec3 north = partAt(uv + vec2(0.0, apart.y)) - at, south = at - partAt(uv - vec2(0.0, apart.y));
                 vec3 across = dot(east, east) < dot(west, west) ? east : west;
                 vec3 up = dot(north, north) < dot(south, south) ? north : south;
-                vec3 square = cross(across, up);
+                vec3 square = cross(across, up) * (1.0 - 2.0 * uMirrored);
                 float size = length(square);
                 return size > 1e-12 ? square / size : vec3(0.0);
             }

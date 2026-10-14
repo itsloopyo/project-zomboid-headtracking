@@ -138,6 +138,9 @@ final class FurnishingBuilder {
                 z * ViewCamera.LEVEL_HEIGHT + (lift[0] + lift[1] + lift[2] + lift[3]) / 4f + foot, piece.turns, scale, scaleUp,
                 !piece.pictured ? WorldScene.PLAIN : picture != Decor.NONE ? Decor.held(picture) : texture.getID(),
                 piece.pictured ? 1 << Models.PANE : 0, 0f, 0f, 0, 0f, 0f);
+        if (piece.mirror) {
+            build.placed.glass(model);
+        }
         if (picture != Decor.NONE && piece.grid == null) {
             float[] pane = Decor.pane(model);
             Decor.lay(pane[0], pane[1], pane[2], pane[3], (pane[1] - pane[0]) * scale, (pane[3] - pane[2]) * scaleUp, 0f,
@@ -408,6 +411,9 @@ final class FurnishingBuilder {
         }
         build.placed.add(model, build.frame, x, y, x + centreX, y + centreY, foot, piece.turns, piece.scale, piece.scaleUp,
                 dyeTexture, piece.dyed, dyeU, dyeV, alsoDyed, alsoU, alsoV);
+        if (piece.mirror) {
+            build.placed.glass(model);
+        }
         float[] fire = burning ? Fires.hearth(model.name) : null;
         if (fire != null) {
             build.placed.fire(fire, x + centreX, y + centreY, foot, piece.turns, piece.scale, piece.scaleUp, Fires.seed(x, y, z), FireLooks.look(object, "Fire"),

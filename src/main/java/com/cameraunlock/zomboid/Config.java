@@ -187,8 +187,8 @@ final class Config {
                             + "glass and water.",
                     writable | live, high.shadingAndLight()),
             core.configLocalBool("Graphics", "Reflections",
-                    "true: your vehicle's mirrors show the road behind, and with ShadingAndLight, wet roads, floors, glass and water\n"
-                            + "mirror the world.",
+                    "true: mirrors in rooms show the room and you, your vehicle's mirrors show the road behind, and with\n"
+                            + "ShadingAndLight, wet roads, floors, glass and water mirror the world.",
                     writable | live, high.reflections()),
             core.configLocalBool("Graphics", "FullSizeTextures",
                     "true: the mod's surface, wall and skin pictures at full size. false: half size, a quarter of the memory.",

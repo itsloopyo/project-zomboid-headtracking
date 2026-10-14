@@ -70,6 +70,8 @@ final class Furniture {
     int wall = WallHung.NONE;
     /** Whether what its frame holds is the picture its sprite paints, and not a mirror's glass. */
     boolean pictured;
+    /** Whether its pane is a mirror's glass, which shows the room: see LookingGlass. */
+    boolean mirror;
     /** See ownSize. */
     boolean ownSize;
     /** The picture of the mod's own that its frame holds in place of the sprite's painting, or Decor.NONE. */
@@ -242,6 +244,12 @@ final class Furniture {
         return this;
     }
 
+    /** Has its pane be a mirror's glass. */
+    Furniture mirror() {
+        mirror = true;
+        return this;
+    }
+
     /** For what hangs on a wall and stands out from it, a lamp: it is as big as its model, whatever its sprite's outline comes to. */
     Furniture ownSize() {
         ownSize = true;
@@ -386,7 +394,7 @@ final class Furniture {
             // One square of a mirror or a picture that is longer than a square has no frame of
             // its own, and each square's length of it meets the next.
             if (called.equals("Mirror") && name.startsWith("walls_decoration")) {
-                return new Furniture(sprite, grid == null ? null : "canvas", faces).hang(WallHung.behind(facing), false);
+                return new Furniture(sprite, grid == null ? null : "canvas", faces).hang(WallHung.behind(facing), false).mirror();
             }
             // A picture's sprite shows its face only from the two sides the game's view sees.
             if (FRAMED.contains(called) && (facing == IsoDirections.S || facing == IsoDirections.E)) {

@@ -11,7 +11,7 @@
 - `Page Up` cycles rotation and position, rotation only, and position only.
 - `Page Down` switches head turns between the horizon and the view's own up. In a vehicle the view always turns about its own up.
 - Leaning stops at walls.
-- Your character's head turns with yours, up to 80 degrees each way, in both views. In `High`, windows and mirrors show it.
+- Your character's head turns with yours, up to 80 degrees each way, in both views. Mirrors show it, and in `High` windows do too.
 - Walking and running don't bob the view. Crouching and sitting lower it smoothly.
 - Knocked down, lying, getting up or dying, the view follows your character's head.
 - `FieldOfView` sets the field of view: 65 by default, 40 to 110.
@@ -106,6 +106,7 @@
 - Shadows from the sun, flashlights, headlights and fires. Lit lamps glow.
 - Sunbeams through windows, with dust floating in the air.
 - Water flows and reflects.
+- Mirrors on walls, dressers and bathroom cabinets show the room, the people in it and you, in every graphics mode with `Reflections` on.
 - `Medium` and `High`: burning houses, Molotovs and campfires have flames, smoke and flickering firelight. Fireplaces and stoves burn inside. `OwnFire` turns the mod's fire off.
 - The picture adjusts to the brightness of what you're looking at, like an eye.
 - `Medium` and `High`: every surface reflects the sky, the room or the ground by how rough it is, so metal looks like metal. Skin and clothes take the light the same way.

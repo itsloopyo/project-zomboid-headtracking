@@ -119,7 +119,7 @@ final class Indoors {
         }
         // A first aid box holds the same things and is no cupboard.
         if (called.equals("Cabinet") && holds.equals("medicine") && single && high && !group.equals("First Aid")) {
-            Furniture cabinet = new Furniture(sprite, "medicine_cabinet", turns).stand(0f, 0f, true);
+            Furniture cabinet = new Furniture(sprite, "medicine_cabinet", turns).stand(0f, 0f, true).mirror();
             return cabinet.raise(MIRROR_TOP - cabinet.model.height());
         }
         if (called.equals("Shelves") && holds.equals("metal_shelves") && single && high) {
@@ -143,7 +143,7 @@ final class Indoors {
             return new Furniture(sprite, "water_cooler", turns).dye(1 << Models.PAINT, BOTTLE_DYE).stand(0f, 0f, true);
         }
         if (called.equals("Drawers") && holds.equals("dresser") && group.contains("Mirror") && single && surface > 0) {
-            return new Furniture(sprite, "dresser_mirror", turns).dye(1 << Models.WOOD, surfaceHigh).stand(surfaceUp, CHEST_TOP, true);
+            return new Furniture(sprite, "dresser_mirror", turns).dye(1 << Models.WOOD, surfaceHigh).stand(surfaceUp, CHEST_TOP, true).mirror();
         }
         if (holds.equals("sidetable") && single && properties.isTable() && surface > 0 && surface <= 22 && (called.equals("Table") || called.equals("Low Table"))) {
             Furniture table = new Furniture(sprite, called.equals("Table") ? "side_table" : "media_stand", turns).dye(1 << Models.WOOD, surfaceHigh);

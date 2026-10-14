@@ -434,10 +434,15 @@ final class Models {
         /** The same of each fire's smoke. */
         Object[] smokeLooks = new Object[0];
         int fireCount;
+        /** The glass of each mirror among the pieces, LookingGlass.FLOATS each, and which piece each is. */
+        float[] glasses = new float[0];
+        int[] glassPieces = new int[0];
+        int glassCount;
 
         void clear() {
             count = 0;
             fireCount = 0;
+            glassCount = 0;
             room = RoomSight.OUTSIDE;
             key = Outlines.NONE;
         }
@@ -524,6 +529,16 @@ final class Models {
          */
         void built() {
             ints[(count - 1) * INTS + BUILT] = 1;
+        }
+
+        /** Has the pane of the piece last added, of this model, be a mirror's glass: see LookingGlass. */
+        void glass(Model model) {
+            if (glassCount == glassPieces.length) {
+                glasses = Arrays.copyOf(glasses, Math.max(2, glassCount * 2) * LookingGlass.FLOATS);
+                glassPieces = Arrays.copyOf(glassPieces, Math.max(2, glassCount * 2));
+            }
+            LookingGlass.place(this, count - 1, model, glasses, glassCount * LookingGlass.FLOATS);
+            glassPieces[glassCount++] = count - 1;
         }
 
         /**
