@@ -7,17 +7,174 @@ import java.nio.ByteOrder;
 import java.util.zip.GZIPInputStream;
 
 /**
- * Tests of the mod's own long guns: how a self-loading gun works its action, how far the eye leans in to them with the
- * sights up, and where what the game fits to them goes.
+ * Tests of the mod's own long guns: how the self-loading and lever guns work their actions, how far the eye leans in
+ * to them with the sights up, and where what the game fits to them goes.
  */
 final class LongGunTests {
     private LongGunTests() {}
 
+    private static final float FALLS = (float) Math.toRadians(34), OVER = (float) Math.toRadians(38);
+
     static void run() {
+        Checks.run("leverIsShutUntilTheShotIsWorkedAndAfter", LongGunTests::leverIsShutUntilTheShotIsWorkedAndAfter);
+        Checks.run("leverSwingsRightDownOnce", LongGunTests::leverSwingsRightDownOnce);
+        Checks.run("modelAndHandTurnTheLeverTheSameWay", LongGunTests::modelAndHandTurnTheLeverTheSameWay);
+        Checks.run("leverGunsHammerFallsAtTheShotAndIsLeftCocked", LongGunTests::leverGunsHammerFallsAtTheShotAndIsLeftCocked);
+        Checks.run("aShotWorkedThrowsOneCase", LongGunTests::aShotWorkedThrowsOneCase);
+        Checks.run("rackingALoadedLeverGunKeepsItsHammerCockedAndThrowsNothing", LongGunTests::rackingALoadedLeverGunKeepsItsHammerCockedAndThrowsNothing);
+        Checks.run("shotsTakenWhileTheLeverGunWasNotDrawnAreNotWorked", LongGunTests::shotsTakenWhileTheLeverGunWasNotDrawnAreNotWorked);
         Checks.run("onlyABoltActionsKnobIsTurnedUp", LongGunTests::onlyABoltActionsKnobIsTurnedUp);
         Checks.run("theEyeIsStoppedShortOfWhatStandsInTheLineOfSight", LongGunTests::theEyeIsStoppedShortOfWhatStandsInTheLineOfSight);
         Checks.run("aRedDotOrLaserGoesWhereTheModelHasAPlaceForIt", LongGunTests::aRedDotOrLaserGoesWhereTheModelHasAPlaceForIt);
         Checks.run("aVersionSixFileSaysWhereItsRedDotAndLaserGo", LongGunTests::aVersionSixFileSaysWhereItsRedDotAndLaserGo);
+    }
+
+    private static void leverIsShutUntilTheShotIsWorkedAndAfter() {
+        check(OwnLever.swung(-1f) == 0f, "with nothing being worked the lever is shut");
+        check(OwnLever.swung(0f) == 0f && OwnLever.swung(0.04f) == 0f, "it stays shut a moment after the shot");
+        check(Math.abs(OwnLever.swung(ArmActs.CYCLE_LASTS)) < 1e-6f, "and is shut again by the time working the action is over");
+    }
+
+    private static void leverSwingsRightDownOnce() {
+        float most = 0f, before = 0f;
+        int falls = 0;
+        boolean opening = false;
+        for (float seconds = 0f; seconds < ArmActs.CYCLE_LASTS; seconds += 0.002f) {
+            float swung = OwnLever.swung(seconds);
+            check(swung >= -1e-6f && swung <= 1f + 1e-6f, "the swing stays within its range at " + seconds);
+            most = Math.max(most, swung);
+            if (swung > before + 1e-6f && !opening) {
+                falls++;
+                opening = true;
+            } else if (swung < before - 1e-6f) {
+                opening = false;
+            }
+            before = swung;
+        }
+        check(most == 1f, "the lever goes right down, not " + most);
+        check(falls == 1, "and once, not " + falls + " times");
+    }
+
+    /**
+     * The model turns its lever about its own x by OwnGun.turnAbout, and the hand in the loop is turned about the
+     * gun's right in the view by ArmPose.about, which held up is the model's x mirrored. This checks only that the
+     * two turn a point of the loop about the same pin the same way, down: not where ArmHolds puts the hand.
+     */
+    private static void modelAndHandTurnTheLeverTheSameWay() {
+        float angle = ArmActs.LEVER_SWINGS;
+        // From the model to the view: mirrored in x as the mod holds a long gun, turned a little about every axis, and moved.
+        float[] turnAbout = new float[9], toView = new float[16];
+        ArmPose.about(new float[] {0.36f, 0.48f, 0.80f}, 0.7f, turnAbout);
+        for (int column = 0; column < 3; column++) {
+            float flip = column == 0 ? -1f : 1f;
+            for (int row = 0; row < 3; row++) {
+                toView[column * 4 + row] = turnAbout[column * 3 + row] * flip * 0.5f;
+            }
+        }
+        toView[12] = 0.1f;
+        toView[13] = -0.2f;
+        toView[14] = -0.5f;
+        toView[15] = 1f;
+        float[] pin = {0f, 0.17f, 0.03f}, loop = {0f, 0.04f, -0.02f}, up = {0f, 0f, 1f};
+        float[] part = new float[16];
+        OwnGun.turnAbout(part, pin[0], pin[1], pin[2], 1f, 0f, 0f, angle);
+        float[] turnedLoop = new float[3];
+        ViewModelMath.place(part, loop[0], loop[1], loop[2], turnedLoop);
+        float[] byModel = new float[3];
+        ViewModelMath.place(toView, turnedLoop[0], turnedLoop[1], turnedLoop[2], byModel);
+
+        float[] ahead = new float[3], over = new float[3], right = new float[3], pinView = new float[3], loopView = new float[3];
+        ViewModelMath.place(toView, 0f, 1f, 0f, ahead);
+        ViewModelMath.place(toView, 0f, 0f, 0f, over);
+        float[] upView = new float[3];
+        ViewModelMath.place(toView, 0f, 0f, 1f, upView);
+        for (int axis = 0; axis < 3; axis++) {
+            ahead[axis] -= over[axis];
+            upView[axis] -= over[axis];
+        }
+        ArmPose.cross(ahead, upView, right);
+        float length = (float) Math.sqrt(ArmPose.dot(right, right));
+        for (int axis = 0; axis < 3; axis++) {
+            right[axis] /= length;
+        }
+        ViewModelMath.place(toView, pin[0], pin[1], pin[2], pinView);
+        ViewModelMath.place(toView, loop[0], loop[1], loop[2], loopView);
+        float[] turn = new float[9], arm = new float[3], turnedArm = new float[3], byHand = new float[3];
+        ArmPose.about(right, angle, turn);
+        for (int axis = 0; axis < 3; axis++) {
+            arm[axis] = loopView[axis] - pinView[axis];
+        }
+        ArmPose.turned(turn, arm, turnedArm);
+        for (int axis = 0; axis < 3; axis++) {
+            byHand[axis] = pinView[axis] + turnedArm[axis];
+        }
+        float apart = 0f;
+        for (int axis = 0; axis < 3; axis++) {
+            apart = Math.max(apart, Math.abs(byHand[axis] - byModel[axis]));
+        }
+        check(apart < 1e-5f, "the loop the model turns is where the hand in it is turned to, " + apart + " apart");
+        check(turnedLoop[2] < loop[2] - 0.05f, "and it swings down, to " + turnedLoop[2] + " from " + loop[2]);
+    }
+
+    private static void leverGunsHammerFallsAtTheShotAndIsLeftCocked() {
+        check(OwnLever.hammer(-1f, true, FALLS, OVER) == 0f, "the hammer is cocked with no shot being worked");
+        check(OwnLever.hammer(0f, true, FALLS, OVER) == -FALLS, "it falls forward at the shot");
+        float back = 0f;
+        for (float seconds = 0f; seconds < ArmActs.CYCLE_LASTS; seconds += 0.002f) {
+            back = Math.max(back, OwnLever.hammer(seconds, true, FALLS, OVER));
+        }
+        check(Math.abs(back - OVER) < 1e-4f, "the bolt pushes it back past cocked as the lever opens, by " + back);
+        check(Math.abs(OwnLever.hammer(ArmActs.CYCLE_LASTS, true, FALLS, OVER)) < 1e-5f, "and it is left cocked when the lever is shut");
+        float last = OwnLever.hammer(0f, true, FALLS, OVER);
+        for (float seconds = 0.002f; seconds < 0.6f; seconds += 0.002f) {
+            float now = OwnLever.hammer(seconds, true, FALLS, OVER);
+            check(Math.abs(now - last) < 0.12f, "the hammer does not jump between " + (seconds - 0.002f) + " and " + seconds + ": " + last + " to " + now);
+            last = now;
+        }
+    }
+
+    private static final int GUN = 101;
+    private static final float FRAME = 1f / 60f;
+
+    private static void aShotWorkedThrowsOneCase() {
+        OwnLever.Cycle cycle = new OwnLever.Cycle();
+        cycle.step(GUN, true, -1f, 4);
+        cycle.step(GUN, true, 0f, 5);
+        check(cycle.fired, "the shot began the working");
+        int thrown = cycle.thrown ? 1 : 0;
+        for (float cycled = FRAME; cycled <= ArmActs.CYCLE_LASTS; cycled += FRAME) {
+            cycle.step(GUN, true, cycled, 5);
+            thrown += cycle.thrown ? 1 : 0;
+        }
+        check(thrown == 1, "and the bolt threw the fired case out once, not " + thrown + " times");
+    }
+
+    private static void rackingALoadedLeverGunKeepsItsHammerCockedAndThrowsNothing() {
+        OwnLever.Cycle cycle = new OwnLever.Cycle();
+        cycle.step(GUN, true, -1f, 5);
+        int thrown = 0;
+        for (float cycled = 0f; cycled <= ArmActs.CYCLE_LASTS; cycled += FRAME) {
+            cycle.step(GUN, true, cycled, 5);
+            thrown += cycle.thrown ? 1 : 0;
+            check(!cycle.fired, "racking with no shot taken is not taken for a shot, at " + cycled);
+        }
+        check(thrown == 0, "and throws no case, not " + thrown);
+        for (float seconds = 0f; seconds < ArmActs.CYCLE_LASTS; seconds += 0.002f) {
+            check(OwnLever.hammer(seconds, false, FALLS, OVER) >= 0f, "the hammer never falls as it is racked, at " + seconds);
+        }
+        cycle.step(GUN, true, -1f, 5);
+        cycle.step(GUN, true, 0f, 6);
+        check(cycle.fired, "and the next shot is worked as one");
+    }
+
+    private static void shotsTakenWhileTheLeverGunWasNotDrawnAreNotWorked() {
+        OwnLever.Cycle cycle = new OwnLever.Cycle();
+        cycle.step(GUN, true, -1f, 2);
+        cycle.step(GUN, false, 0f, 7);
+        check(!cycle.fired, "shots counted while it was out of sight did not begin this working");
+        cycle.step(GUN, true, -1f, 7);
+        cycle.step(102, true, 0f, 9);
+        check(!cycle.fired, "nor shots counted before another gun was taken in hand");
     }
 
     private static void onlyABoltActionsKnobIsTurnedUp() {

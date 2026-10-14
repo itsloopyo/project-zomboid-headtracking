@@ -375,6 +375,15 @@ abstract class OwnGun {
         return false;
     }
 
+    /**
+     * Where the pin is that the gun's lever turns about, along the bore and over it in the
+     * model's metres, for the hand in its loop to swing about with it: null for a gun with no
+     * lever. The array may be the gun's own, filled again on the next call.
+     */
+    float[] leverPin(OwnModel own) {
+        return null;
+    }
+
     /** What the gun makes of where it is held this frame, once its matrix is filled. */
     void placed(float aim) {
     }

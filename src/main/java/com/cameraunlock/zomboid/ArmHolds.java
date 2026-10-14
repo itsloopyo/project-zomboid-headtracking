@@ -134,7 +134,7 @@ final class ArmHolds {
     static final class Placed {
         private WeaponShape shape;
         private final float[] toView = new float[16], still = new float[16];
-        private float slid, foreRest, travel;
+        private float slid, foreRest, travel, pinAlong = Float.NaN, pinUp;
         /** Where rounds go in, in the mesh's axes, where the mesh's model says, or null for the shape to say. */
         private float[] port;
         /** Where the hand takes hold of a handle that is drawn straight back to charge the gun, in the mesh's axes, or null. */
@@ -163,6 +163,7 @@ final class ArmHolds {
             this.travel = travel;
             port = null;
             handle = null;
+            pinAlong = Float.NaN;
             return this;
         }
 
@@ -184,6 +185,21 @@ final class ArmHolds {
 
         float[] port() {
             return port;
+        }
+
+        /** Says where the pin a lever turns about is, along the barrel and over it in the mesh's units: else it turns about the front of the guard. */
+        Placed pinned(float along, float up) {
+            pinAlong = along;
+            pinUp = up;
+            return this;
+        }
+
+        float pinAlong() {
+            return pinAlong;
+        }
+
+        float pinUp() {
+            return pinUp;
         }
 
         WeaponShape shape() {
@@ -665,8 +681,10 @@ final class ArmHolds {
         } else if (cycled >= 0f && doing.action() == ArmActs.LEVER) {
             // The hand in the lever's loop swings it down and forward about its pin and back, turning with it. Turned the other way
             // about the pin, the hand went up over the receiver and asked its forearm to turn 155 to 180 degrees.
-            float swung = (between(cycled, 0.05f, 0.2f) - between(cycled, 0.22f, 0.4f)) * ArmActs.LEVER_SWINGS;
-            float[] pin = placed.at(shape.guardFront, shape.guardTop, 0f), turn = new float[9], arm = new float[3], turnedArm = new float[3];
+            float swung = OwnLever.swung(cycled) * ArmActs.LEVER_SWINGS;
+            // About the lever's own pin where the mesh says where it is, else about the front of the guard.
+            float[] pin = Float.isNaN(placed.pinAlong()) ? placed.at(shape.guardFront, shape.guardTop, 0f) : placed.at(placed.pinAlong(), placed.pinUp(), 0f);
+            float[] turn = new float[9], arm = new float[3], turnedArm = new float[3];
             ArmPose.about(axes.right, swung, turn);
             for (int axis = 0; axis < 3; axis++) {
                 arm[axis] = hold.at[axis] - pin[axis];
@@ -839,6 +857,8 @@ final class ArmHolds {
             case ArmActs.BOLT_SINGLE -> placed.at(ArmPose.dot(shape.knob, shape.along) + BOLT_PORT * metre, shape.bore, 0f);
             case ArmActs.REVOLVER -> placed.port() != null ? placed.at(placed.port())
                     : placed.at(shape.guardFront - (shape.guardFront - shape.guardBack) * CYLINDER_BACK, shape.bore - CYLINDER_UNDER * metre, 0f);
+            // A lever gun's rounds go in by the gate in the side of its receiver, where its model has one.
+            case ArmActs.LEVER -> placed.port() != null ? placed.at(placed.port()) : placed.at(shape.guardFront + BREECH * metre, shape.bore, 0f);
             default -> placed.at(shape.guardFront + BREECH * metre, shape.bore, 0f);
         };
     }
