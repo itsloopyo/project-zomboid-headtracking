@@ -807,8 +807,10 @@ final class WallBuilder {
             }
         }
         if ((north ? KEPT_NORTH : KEPT_WEST).add(texture.getName())) {
-            Log.info("wall tiles: " + texture.getName() + (north ? " north" : " west") + " at " + x + "," + y + "," + z
-                    + " has an opening, and no whole wall of its sheet along it in its room agrees with it: it keeps its sprite");
+            if (DevBuild.ON) {
+                Log.info("wall tiles: " + texture.getName() + (north ? " north" : " west") + " at " + x + "," + y + "," + z
+                        + " has an opening, and no whole wall of its sheet along it in its room agrees with it: it keeps its sprite");
+            }
         }
         return null;
     }

@@ -257,16 +257,20 @@ final class FurnishingBuilder {
                 if (!painted.at(Math.round(SpriteGeometry.frameU(frame, alsoA, alsoB)), Math.round(SpriteGeometry.frameV(frame, alsoA, alsoB, piece.alsoHigh)))) {
                     alsoDyed = 0;
                     if (UNDYED.add(sprite)) {
-                        Log.info("furniture " + sprite + ": nothing painted where its second colour is taken, at (" + alsoA + ", " + alsoB + ", "
-                                + piece.alsoHigh + "): those surfaces keep the model's own colour");
+                        if (DevBuild.ON) {
+                            Log.info("furniture " + sprite + ": nothing painted where its second colour is taken, at (" + alsoA + ", " + alsoB + ", "
+                                    + piece.alsoHigh + "): those surfaces keep the model's own colour");
+                        }
                     }
                 }
                 return true;
             }
         }
         if (UNPAINTED.add(sprite)) {
-            Log.info("furniture " + sprite + ": nothing painted where its colour is taken, at (" + piece.dyeA + ", " + piece.dyeB + ", "
-                    + piece.dyeHigh + "): drawn as the game's sprite");
+            if (DevBuild.ON) {
+                Log.info("furniture " + sprite + ": nothing painted where its colour is taken, at (" + piece.dyeA + ", " + piece.dyeB + ", "
+                        + piece.dyeHigh + "): drawn as the game's sprite");
+            }
         }
         return false;
     }

@@ -81,7 +81,9 @@ final class ShotLights {
                 vehicle.transmitPartItem(part);
                 shotOut.add(part);
                 vehicle.playSound(BREAK_SOUND);
-                Log.info(String.format(Locale.ROOT, "a shot broke the %s of vehicle %s, landing at (%.2f, %.2f) in its frame", id, vehicle.getScriptName(), local.x, local.z));
+                if (DevBuild.ON) {
+                    Log.info(String.format(Locale.ROOT, "a shot broke the %s of vehicle %s, landing at (%.2f, %.2f) in its frame", id, vehicle.getScriptName(), local.x, local.z));
+                }
                 return;
             }
         }
@@ -122,7 +124,9 @@ final class ShotLights {
                     lamp.setBulbItemRaw(null);
                     lamp.setActive(false, false, true);
                     SoundManager.instance.PlayWorldSound(BREAK_SOUND, square, 0f, SOUND_REACH, 1f, false);
-                    Log.info(String.format(Locale.ROOT, "a shot broke the lamp at (%d, %d, %d)", square.getX(), square.getY(), level));
+                    if (DevBuild.ON) {
+                        Log.info(String.format(Locale.ROOT, "a shot broke the lamp at (%d, %d, %d)", square.getX(), square.getY(), level));
+                    }
                 }
             }
         }

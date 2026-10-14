@@ -1003,9 +1003,10 @@ final class WorldScene {
      */
     private static final long ROUND_EVERY_NANOS = 250_000_000L;
     /**
-     * How often the walk is held to RoomRays while the eye's own picture goes by it, and how
-     * far and how finely the lines are followed: a room the lines reach and the walk leaves out
-     * stands empty in the picture, and the log says so with what the walk started from.
+     * How often a development build holds the walk to RoomRays while the eye's own picture goes
+     * by it, and how far and how finely the lines are followed: a room the lines reach and the
+     * walk leaves out stands empty in the picture, and the log says so with what the walk
+     * started from.
      */
     private static final long ROOMS_CHECKED_EVERY_NANOS = 500_000_000L;
     private static final int ROOM_LINES_ACROSS = 64, ROOM_LINES_UP = 36;
@@ -3427,7 +3428,7 @@ final class WorldScene {
             roomsSeen = roomsSeenKept;
             roomsAspect = aspect;
             lastHidden = roomWalk.hiddenByBlocks;
-            if (now - roomsCheckedNanos >= ROOMS_CHECKED_EVERY_NANOS) {
+            if (DevBuild.ON && now - roomsCheckedNanos >= ROOMS_CHECKED_EVERY_NANOS) {
                 roomsCheckedNanos = now;
                 checkRoomsAgainstLines(level, eyeX, eyeY, aspect);
             }
@@ -5065,8 +5066,10 @@ final class WorldScene {
                     // length is still drawn, swaying from the top of its picture there.
                     String name = length.getSprite().getName();
                     if (bannersUnpainted.add(name)) {
-                        Log.info("the banner's length " + name + " at " + x + "," + y + "," + hungOn
-                                + " paints nothing at the end of its square, so its cable is taken to be at the top of its picture there");
+                        if (DevBuild.ON) {
+                            Log.info("the banner's length " + name + " at " + x + "," + y + "," + hungOn
+                                    + " paints nothing at the end of its square, so its cable is taken to be at the top of its picture there");
+                        }
                     }
                     top = Banners.frameTop(hungFrame, alongX, atStart);
                 }

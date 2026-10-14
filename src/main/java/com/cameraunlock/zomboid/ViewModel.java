@@ -548,7 +548,9 @@ public final class ViewModel {
                     taskUp = Math.min(taskUp, TASK_BETWEEN);
                 }
                 if (animsSaid.add(anim)) {
-                    Log.info("hands at a timed action, first time this session: " + anim + " (way of working " + kind + (TimedActs.low(anim) ? ", on the floor" : "") + ")");
+                    if (DevBuild.ON) {
+                        Log.info("hands at a timed action, first time this session: " + anim + " (way of working " + kind + (TimedActs.low(anim) ? ", on the floor" : "") + ")");
+                    }
                 }
                 taskAnim = anim;
                 taskKind = kind;
@@ -948,8 +950,10 @@ public final class ViewModel {
             aimedY = -(view.scope.redDot() && !Float.isNaN(own.dotSightLine) ? own.dotSightLine : own.sightLine) * tilesPerMetre;
             aimedAhead = own.eyeBehind * tilesPerMetre;
             if (Float.isNaN(own.tilesPerMetre)) {
-                Log.info(own.what + " is held up at " + tilesPerMetre + " tiles a metre, where it is made to be drawn at " + OWN_TILES_PER_METRE
-                        + ": its eye is " + own.clearIrons * tilesPerMetre + " tiles behind its sights, " + own.clearDot * tilesPerMetre + " behind a red dot sight");
+                if (DevBuild.ON) {
+                    Log.info(own.what + " is held up at " + tilesPerMetre + " tiles a metre, where it is made to be drawn at " + OWN_TILES_PER_METRE
+                            + ": its eye is " + own.clearIrons * tilesPerMetre + " tiles behind its sights, " + own.clearDot * tilesPerMetre + " behind a red dot sight");
+                }
             }
             own.tilesPerMetre = tilesPerMetre;
         }

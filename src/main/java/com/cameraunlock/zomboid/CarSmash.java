@@ -105,7 +105,7 @@ final class CarSmash {
         float kmh = kmh(vehicle);
         if (Knockdown.flung(kmh) && vehicle.shouldCollideWithObjects()) {
             long now = System.nanoTime();
-            if (flungSaidAt == 0L || now - flungSaidAt >= FLUNG_SAID_EVERY_NANOS) {
+            if (DevBuild.ON && (flungSaidAt == 0L || now - flungSaidAt >= FLUNG_SAID_EVERY_NANOS)) {
                 flungSaidAt = now;
                 Log.info(String.format(Locale.ROOT, "a vehicle (%s) at %.4g, %.4g has a speed of %.4g km/h from the game's physics: it is left to the game's own rules",
                         vehicle.getScriptName(), vehicle.getX(), vehicle.getY(), kmh));
@@ -221,14 +221,18 @@ final class CarSmash {
                     lamps = takeLampAbove(square);
                 }
             }
-            Log.info(String.format(Locale.ROOT, "a vehicle at %.1f km/h knocked down %s at %d,%d,%d, %s%s", kmh, what, square.getX(), square.getY(), square.getZ(),
-                    how, lamps > 0 ? ", and the street lamp over it" : ""));
+            if (DevBuild.ON) {
+                Log.info(String.format(Locale.ROOT, "a vehicle at %.1f km/h knocked down %s at %d,%d,%d, %s%s", kmh, what, square.getX(), square.getY(), square.getZ(),
+                        how, lamps > 0 ? ", and the street lamp over it" : ""));
+            }
         }
         if (crash > 0f) {
             vehicle.crash(crash, Knockdown.front(goingAlong));
         }
-        Log.info(String.format(Locale.ROOT, "the vehicle keeps %.2f of its speed through %d thing(s), crash %.1f at the %s", kept, MET.size(), crash,
-                Knockdown.front(goingAlong) ? "front" : "back"));
+        if (DevBuild.ON) {
+            Log.info(String.format(Locale.ROOT, "the vehicle keeps %.2f of its speed through %d thing(s), crash %.1f at the %s", kept, MET.size(), crash,
+                    Knockdown.front(goingAlong) ? "front" : "back"));
+        }
         MET.clear();
         KINDS.clear();
         KEPT.clear();

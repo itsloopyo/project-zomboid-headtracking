@@ -520,7 +520,9 @@ final class SoundMix {
         if (on != ringOn) {
             ringOn = on;
             Fmod.bypass(reverb, !on);
-            Log.info(on ? "the space the view is in rings on what is heard" : "what is heard rings as the game mixes it");
+            if (DevBuild.ON) {
+                Log.info(on ? "the space the view is in rings on what is heard" : "what is heard rings as the game mixes it");
+            }
         }
         if (on) {
             Fmod.setFloat(reverb, decay, ringApplied.decayMs);

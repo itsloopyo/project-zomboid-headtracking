@@ -98,14 +98,18 @@ final class Panels {
         if (hidden && shown.isVisible()) {
             LuaManager.caller.pcallvoid(UIManager.getDefaultThread(), UIManager.tableget(panel, "setVisible"), panel, false);
             dashboardHidden[playerIndex] = true;
-            Log.info("the game's dashboard panel of player " + (playerIndex + 1) + " hidden: the vehicle's own dials show it in first person");
+            if (DevBuild.ON) {
+                Log.info("the game's dashboard panel of player " + (playerIndex + 1) + " hidden: the vehicle's own dials show it in first person");
+            }
         } else if (!hidden) {
             // Shown again only for a vehicle still sat in: out of one, the game has taken it off the screen itself.
             if (panel.rawget("vehicle") != null) {
                 LuaManager.caller.pcallvoid(UIManager.getDefaultThread(), UIManager.tableget(panel, "setVisible"), panel, true);
             }
             dashboardHidden[playerIndex] = false;
-            Log.info("the game's dashboard panel of player " + (playerIndex + 1) + " given back");
+            if (DevBuild.ON) {
+                Log.info("the game's dashboard panel of player " + (playerIndex + 1) + " given back");
+            }
         }
     }
 

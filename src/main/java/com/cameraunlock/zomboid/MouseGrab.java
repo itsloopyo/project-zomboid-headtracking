@@ -78,7 +78,9 @@ final class MouseGrab extends TextureDraw.GenericDrawer {
                 takenBack++;
                 long now = System.nanoTime();
                 if (now - saidAt > SAY_EVERY_NANOS) {
-                    Log.info("the window had let the mouse go: taken back " + takenBack + " times so far");
+                    if (DevBuild.ON) {
+                        Log.info("the window had let the mouse go: taken back " + takenBack + " times so far");
+                    }
                     saidAt = now;
                 }
             }

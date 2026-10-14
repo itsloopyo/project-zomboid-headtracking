@@ -159,7 +159,9 @@ final class VehicleMeshes {
             upright = Cabins.upright(stands, faces);
             if (upright != null) {
                 uprights.put(read, upright);
-                Log.info(String.format(Locale.ROOT, "the body of %s stands with its model's %s axis up and its %s axis along it", script, AXES[upright[0] / 4], AXES[upright[2] / 4]));
+                if (DevBuild.ON) {
+                    Log.info(String.format(Locale.ROOT, "the body of %s stands with its model's %s axis up and its %s axis along it", script, AXES[upright[0] / 4], AXES[upright[2] / 4]));
+                }
             }
         }
         if (upright == null || !Cabins.axes(stands, upright, faces, seatedAxes)) {
@@ -222,8 +224,10 @@ final class VehicleMeshes {
         float centre = ((shifted[12] - standsX) * placed[4] + (shifted[13] - standsY) * placed[5] + (shifted[14] - groundUp) * placed[6]) / tall;
         float[] known = ride.wheels.get(script);
         if (known == null) {
-            Log.info(String.format(Locale.ROOT, "wheel of %s (%s): %.3f along, %.3f across, %.3f up from the centre of mass %.3f above the ground, %.3f from the body's middle",
-                    script, body.modelInstance.model.name, along, across, above, centre, side));
+            if (DevBuild.ON) {
+                Log.info(String.format(Locale.ROOT, "wheel of %s (%s): %.3f along, %.3f across, %.3f up from the centre of mass %.3f above the ground, %.3f from the body's middle",
+                        script, body.modelInstance.model.name, along, across, above, centre, side));
+            }
             // Repeated world-to-local measurements feed motion and rounding into the next frame's seat position.
             ride.wheels.put(script, new float[] {along, across, above, side, centre});
         }
@@ -428,7 +432,9 @@ final class VehicleMeshes {
         }
         // The mask lies the same way up against every model: the first way.
         int way = 0;
-        Log.info("glass of " + name + ": " + found[0] + " triangles one way up, " + found[1] + " the other, of " + triangles + "; mask " + width + "x" + height);
+        if (DevBuild.ON) {
+            Log.info("glass of " + name + ": " + found[0] + " triangles one way up, " + found[1] + " the other, of " + triangles + "; mask " + width + "x" + height);
+        }
         return found[way] < 6 || found[way] > triangles / 3 ? new boolean[triangles] : glass[way];
     }
 
@@ -496,12 +502,14 @@ final class VehicleMeshes {
             made.count[kind] = made.triangles.position() / 3 - made.first[kind];
         }
         made.triangles.flip();
-        Log.info(String.format(Locale.ROOT,
-                "cabin of %s: %d seat pieces, and %d seat, %d dashboard, %d door and %d bonnet vertices; the driver sits %.3f behind the wheel and %.3f beside it;"
-                        + " windscreen foot %.3f ahead of the wheel and %.3f above, sill %.3f above, dashboard up to %.3f",
-                name, found.seatPieces, made.count[CabinParts.SEAT], made.count[CabinParts.DASH], made.count[CabinParts.DOOR], made.count[CabinParts.BONNET],
-                seats.length == 0 ? Float.NaN : middle[0] - seats[0], seats.length == 0 ? Float.NaN : seats[1] - middle[1],
-                made.measures[0], made.measures[1], made.measures[2], made.measures[5]));
+        if (DevBuild.ON) {
+            Log.info(String.format(Locale.ROOT,
+                    "cabin of %s: %d seat pieces, and %d seat, %d dashboard, %d door and %d bonnet vertices; the driver sits %.3f behind the wheel and %.3f beside it;"
+                            + " windscreen foot %.3f ahead of the wheel and %.3f above, sill %.3f above, dashboard up to %.3f",
+                    name, found.seatPieces, made.count[CabinParts.SEAT], made.count[CabinParts.DASH], made.count[CabinParts.DOOR], made.count[CabinParts.BONNET],
+                    seats.length == 0 ? Float.NaN : middle[0] - seats[0], seats.length == 0 ? Float.NaN : seats[1] - middle[1],
+                    made.measures[0], made.measures[1], made.measures[2], made.measures[5]));
+        }
         if (!made.seats) {
             Log.info("the vehicle model " + name + " has no seat that is a piece of its own: its seats are told by their colour");
         }

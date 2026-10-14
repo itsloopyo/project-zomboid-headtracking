@@ -193,7 +193,9 @@ final class CabinModel {
                 return;
             }
         }
-        Log.info("the interior " + name + " is read ahead for " + script + ", the player being near one");
+        if (DevBuild.ON) {
+            Log.info("the interior " + name + " is read ahead for " + script + ", the player being near one");
+        }
         Ahead.begin("cabin " + name, () -> {
             CabinModel model = load(name);
             boolean first;

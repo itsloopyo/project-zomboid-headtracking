@@ -442,7 +442,9 @@ final class CabinDraw {
             made.pictures = t;
         }
         fitted.put(script, made);
-        Log.info("the interior " + name + " is fitted to " + script + ": " + model.vertices + " vertices, " + model.indices / 3 + " triangles");
+        if (DevBuild.ON) {
+            Log.info("the interior " + name + " is fitted to " + script + ": " + model.vertices + " vertices, " + model.indices / 3 + " triangles");
+        }
         return made;
     }
 

@@ -897,7 +897,9 @@ public final class FineSkins {
             }
             read.used = System.nanoTime();
             if (read.tailored ? tailorSaid++ < 3 : ownSaid.merge(path.substring(0, path.lastIndexOf('/')), 1, Integer::sum) <= 3) {
-                Log.info((read.tailored ? "what is worn from " + name + " is made finer, " : "the mod's own skin " + path + " is worn, ") + read.texture.getWidth() + "x" + read.texture.getHeight());
+                if (DevBuild.ON) {
+                    Log.info((read.tailored ? "what is worn from " + name + " is made finer, " : "the mod's own skin " + path + " is worn, ") + read.texture.getWidth() + "x" + read.texture.getHeight());
+                }
             }
         }
         return read;
@@ -1159,7 +1161,9 @@ public final class FineSkins {
         }
         Texture made = TextureCombiner.instance.combine(commands);
         if (said++ < 3) {
-            Log.info("a skin composed at " + made.getWidth() + "x" + made.getHeight() + " from " + commands.size() + " layers");
+            if (DevBuild.ON) {
+                Log.info("a skin composed at " + made.getWidth() + "x" + made.getHeight() + " from " + commands.size() + " layers");
+            }
         }
         return made;
     }

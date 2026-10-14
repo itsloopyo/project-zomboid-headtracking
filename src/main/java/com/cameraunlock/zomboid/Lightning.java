@@ -268,8 +268,10 @@ final class Lightning {
             kept.add(strike);
             strikes = kept.toArray(new Strike[0]);
         }
-        Log.info(String.format(java.util.Locale.ROOT, "lightning: %s at (%d, %d), %d strokes", bolt ? "a bolt" : "a flicker in the cloud", x, y,
-                strike.strokes.length));
+        if (DevBuild.ON) {
+            Log.info(String.format(java.util.Locale.ROOT, "lightning: %s at (%d, %d), %d strokes", bolt ? "a bolt" : "a flicker in the cloud", x, y,
+                    strike.strokes.length));
+        }
     }
 
     /** The strikes still showing. */

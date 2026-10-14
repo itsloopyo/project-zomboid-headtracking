@@ -237,7 +237,9 @@ final class Screens {
     }
 
     private static void said(Object source, int show) {
-        Log.info("a television " + (source instanceof String ? "playing the tape " : "on channel ") + source + " shows " + shows.name(show));
+        if (DevBuild.ON) {
+            Log.info("a television " + (source instanceof String ? "playing the tape " : "on channel ") + source + " shows " + shows.name(show));
+        }
     }
 
     /** Whether what a piece carries is where a programme comes from, and not one picture. */

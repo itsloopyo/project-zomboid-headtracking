@@ -499,7 +499,9 @@ final class Scope {
             throw new IllegalStateException("the driver would not make the scope's picture (status 0x" + Integer.toHexString(status) + ", 0x"
                     + Integer.toHexString(figureStatus) + ", 0x" + Integer.toHexString(decalStatus) + ")");
         }
-        Log.info(String.format(Locale.ROOT, "first person picture: the scope's picture made in %.1f ms", (System.nanoTime() - start) / 1e6));
+        if (DevBuild.ON) {
+            Log.info(String.format(Locale.ROOT, "first person picture: the scope's picture made in %.1f ms", (System.nanoTime() - start) / 1e6));
+        }
     }
 
     /** What the picture's five textures take on the graphics card, the colour's smaller copies of itself among them. */
@@ -511,7 +513,9 @@ final class Scope {
     void takeBackPicture(long before) {
         if (pictureTarget != 0 && picturedNanos < before) {
             giveBackPicture();
-            Log.info("first person picture: the scope's picture given back, unused");
+            if (DevBuild.ON) {
+                Log.info("first person picture: the scope's picture given back, unused");
+            }
         }
     }
 
@@ -738,8 +742,10 @@ final class Scope {
         grown = ScopeOptics.grown(eyeBehind);
         if (!glass.part().equals(said)) {
             said = glass.part();
-            Log.info(String.format(Locale.ROOT, "scope %s: %.0f times, drawn at %.4f tiles to the metre, the eye %.1f mm behind its eyepiece and %.1f mm off its axis",
-                    said, glass.power(), metre, eyeBehind * 1000f, Math.hypot(eyeAcrossX, eyeAcrossY) * 1000f));
+            if (DevBuild.ON) {
+                Log.info(String.format(Locale.ROOT, "scope %s: %.0f times, drawn at %.4f tiles to the metre, the eye %.1f mm behind its eyepiece and %.1f mm off its axis",
+                        said, glass.power(), metre, eyeBehind * 1000f, Math.hypot(eyeAcrossX, eyeAcrossY) * 1000f));
+            }
         }
 
         program.set("uModel", model);

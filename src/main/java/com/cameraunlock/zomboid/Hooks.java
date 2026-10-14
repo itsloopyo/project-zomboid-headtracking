@@ -370,7 +370,9 @@ public final class Hooks {
         } else {
             said = cut + (stage >= Wounds.RUINED ? "ruined: it hangs dead" : "wounded: it hangs");
         }
-        Log.info(String.format(Locale.ROOT, "zombie %d's %s is %s (health %.2f)", zombie.getID(), LIMB_NAMES[limb], said, zombie.getHealth()));
+        if (DevBuild.ON) {
+            Log.info(String.format(Locale.ROOT, "zombie %d's %s is %s (health %.2f)", zombie.getID(), LIMB_NAMES[limb], said, zombie.getHealth()));
+        }
     }
 
     /** The key a body's mod data keeps where its limbs are cut under, as {@link Wounds#cuts} makes it: saved with the body. */
@@ -483,7 +485,9 @@ public final class Hooks {
         } else {
             said = "its head holds";
         }
-        Log.info(String.format(Locale.ROOT, "zombie %d killed by a head shot of %.2f: %s", zombie.getID(), damage, said));
+        if (DevBuild.ON) {
+            Log.info(String.format(Locale.ROOT, "zombie %d killed by a head shot of %.2f: %s", zombie.getID(), damage, said));
+        }
     }
 
     private static final String[] LIMB_NAMES = {"left arm", "right arm", "left leg", "right leg"};

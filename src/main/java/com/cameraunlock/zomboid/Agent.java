@@ -1090,7 +1090,9 @@ public final class Agent {
                 try {
                     patched = patch.rewrite().apply(patched == null ? classBytes : patched);
                     applied.add(patch);
-                    Log.info("patched " + className + "." + patch.what());
+                    if (DevBuild.ON) {
+                        Log.info("patched " + className + "." + patch.what());
+                    }
                 } catch (Throwable failure) {
                     Log.error("could not patch " + className + "." + patch.what() + ", the method runs unchanged", failure);
                 }

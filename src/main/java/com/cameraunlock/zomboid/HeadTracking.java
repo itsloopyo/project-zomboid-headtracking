@@ -251,7 +251,7 @@ final class HeadTracking {
         }
         boolean contact = (lean.flags & CameraUnlock.LEAN_CONTACT) != 0;
         long now = System.nanoTime();
-        if (contact != contactLogged && now - contactLoggedNanos >= CONTACT_LOG_INTERVAL_NANOS) {
+        if (DevBuild.ON && contact != contactLogged && now - contactLoggedNanos >= CONTACT_LOG_INTERVAL_NANOS) {
             contactLogged = contact;
             contactLoggedNanos = now;
             Log.info(String.format(Locale.ROOT, contact
@@ -300,7 +300,7 @@ final class HeadTracking {
             return;
         }
         seated = inVehicle;
-        if (Tracking.worldYaw()) {
+        if (DevBuild.ON && Tracking.worldYaw()) {
             Log.info(seated ? "in a vehicle's seat: head yaw turns about the view's own up" : "out of the vehicle: head yaw turns about straight up again");
         }
     }

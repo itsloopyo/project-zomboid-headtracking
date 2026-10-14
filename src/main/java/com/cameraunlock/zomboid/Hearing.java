@@ -182,7 +182,9 @@ public final class Hearing {
         if (share == 0f) {
             if (turned) {
                 turned = false;
-                Log.info("hearing faces the game's own way again");
+                if (DevBuild.ON) {
+                    Log.info("hearing faces the game's own way again");
+                }
             }
             javafmod.FMOD_Studio_Listener3D(index, x, y, z, goingX, goingY, goingZ,
                     gameForwardX, gameForwardY, gameForwardZ, gameUpX, gameUpY, gameUpZ);
@@ -191,7 +193,9 @@ public final class Hearing {
         javafmod.FMOD_Studio_Listener3D(index, x, y, z, goingX, goingY, goingZ, forwardX, forwardY, forwardUp, upX, upY, upUp);
         if (!turned) {
             turned = true;
-            Log.info("hearing faces the way the picture does");
+            if (DevBuild.ON) {
+                Log.info("hearing faces the way the picture does");
+            }
         }
         long now = System.nanoTime();
         if (FirstPerson.TRACE && now - lastTrace > TRACE_INTERVAL_NANOS) {

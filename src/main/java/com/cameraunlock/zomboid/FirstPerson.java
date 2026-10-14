@@ -650,7 +650,7 @@ public final class FirstPerson {
         wasCaptured = lookCaptured;
         if (!landed) {
             landingSaid = true;
-        } else if (!landingSaid && now - landedNanos > 1_000_000_000L) {
+        } else if (DevBuild.ON && !landingSaid && now - landedNanos > 1_000_000_000L) {
             landingSaid = true;
             Log.info(String.format(Locale.ROOT, "a second after landing: looking %.0f, %s, the mouse turned the view %.1f degrees in all and %d pixels at most in one read",
                     Math.toDegrees(yaw), facings(player), Math.toDegrees(mouseTurned), mouseMost));
@@ -934,7 +934,7 @@ public final class FirstPerson {
         } else {
             Quality.rest(view.index);
         }
-        if (frameNanos > LONG_FRAME_NANOS && paceScene != null) {
+        if (DevBuild.ON && frameNanos > LONG_FRAME_NANOS && paceScene != null) {
             if (now - longFrameLoggedNanos < LONG_FRAME_LOG_INTERVAL_NANOS) {
                 longFramesUnsaid++;
             } else {
@@ -946,9 +946,9 @@ public final class FirstPerson {
         }
         if (now - paceSince > paceWait) {
             Runtime memory = Runtime.getRuntime();
-            Log.info(String.format(Locale.ROOT, "first person pace: %.1f ms a frame, worst %.1f, heap %d of %d MB, %s",
+            Log.info(String.format(Locale.ROOT, "first person pace: %.1f ms a frame, worst %.1f, heap %d of %d MB%s",
                     (now - paceSince) / 1e6 / paceFrames, paceWorst / 1e6, (memory.totalMemory() - memory.freeMemory()) >> 20,
-                    memory.maxMemory() >> 20, paceScene == null ? "no scene yet" : paceScene.describe()));
+                    memory.maxMemory() >> 20, !DevBuild.ON ? "" : paceScene == null ? ", no scene yet" : ", " + paceScene.describe()));
             if (TRACE) {
                 Log.info(String.format(Locale.ROOT, "first person memory taken a frame: %.1f KB building, %.1f KB drawing",
                         paceBuiltBytes / 1024.0 / paceFrames, view.worldScene.takeDrawnBytes() / 1024.0 / paceFrames));
@@ -1089,7 +1089,7 @@ public final class FirstPerson {
         if (canopyAimed) {
             gatherFaded(canopyAimX, canopyAimY, CanopyWindow.POINTER_HALF);
         }
-        if ((canopyOver > 0) != canopyOverSaid) {
+        if (DevBuild.ON && (canopyOver > 0) != canopyOverSaid) {
             canopyOverSaid = canopyOver > 0;
             Log.info(canopyOverSaid ? "overhead: " + canopyOver + " more trees the game draws see-through than the " + CanopyWindow.TREES
                     + " the picture is told of: those further from the window are drawn whole" : "overhead: the picture is told of every tree the game draws see-through again");
@@ -1447,7 +1447,7 @@ public final class FirstPerson {
         }
         bodyLeads = view.bodyLed.leads();
         bodyWhole = view.bodyLed.whole();
-        if (bodyLeads != wasLed || bodyWhole != wasWhole) {
+        if (DevBuild.ON && (bodyLeads != wasLed || bodyWhole != wasWhole)) {
             State state = player.getCurrentState();
             Log.info(String.format(Locale.ROOT, "%sthe eye is %s (%s, hit reaction '%s'%s)", who(),
                     bodyWhole ? "the head's: the game's animation has the body"

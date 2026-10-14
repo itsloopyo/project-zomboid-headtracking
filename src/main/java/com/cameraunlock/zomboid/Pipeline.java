@@ -5475,7 +5475,9 @@ final class Pipeline {
         if (problem != null) {
             throw new IllegalStateException(problem);
         }
-        Log.info(String.format(Locale.ROOT, "first person picture: the %s made in %.1f ms", set.what, (System.nanoTime() - start) / 1e6));
+        if (DevBuild.ON) {
+            Log.info(String.format(Locale.ROOT, "first person picture: the %s made in %.1f ms", set.what, (System.nanoTime() - start) / 1e6));
+        }
     }
 
     private static void giveBack(Lent set) {
@@ -5495,13 +5497,17 @@ final class Pipeline {
         for (Lent set : SIZED) {
             if (set != whole && set.made() && frameNanos - set.usedNanos > LENT_FOR_NANOS) {
                 giveBack(set);
-                Log.info("first person picture: the " + set.what + " given back, unused");
+                if (DevBuild.ON) {
+                    Log.info("first person picture: the " + set.what + " given back, unused");
+                }
             }
         }
         for (Lent set : UNSIZED) {
             if (set.made() && frameNanos - set.usedNanos > LENT_FOR_NANOS) {
                 giveBack(set);
-                Log.info("first person picture: the " + set.what + " given back, unused");
+                if (DevBuild.ON) {
+                    Log.info("first person picture: the " + set.what + " given back, unused");
+                }
             }
         }
         view.scope.takeBackPicture(frameNanos - LENT_FOR_NANOS);

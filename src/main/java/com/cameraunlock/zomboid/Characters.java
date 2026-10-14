@@ -796,8 +796,10 @@ public final class Characters {
         if (Math.abs(facing) > PALM_PLAIN || palmSides[side] == 0f) {
             float sideFound = facing < 0f ? -1f : 1f;
             if (palmSides[side] == 0f) {
-                Log.info(String.format(Locale.ROOT, "the %s palm is first found facing %s the game's hand's own line, %.3f tiles from the middle of %s", side == 0 ? "right" : "left",
-                        sideFound > 0f ? "along" : "against", facing, model.name));
+                if (DevBuild.ON) {
+                    Log.info(String.format(Locale.ROOT, "the %s palm is first found facing %s the game's hand's own line, %.3f tiles from the middle of %s", side == 0 ? "right" : "left",
+                            sideFound > 0f ? "along" : "against", facing, model.name));
+                }
             }
             palmSides[side] = sideFound;
         }
@@ -1244,8 +1246,10 @@ public final class Characters {
             Log.info("the mod's own hands cannot be put on " + item + " by its mesh (" + model.name + ": "
                     + (why.isEmpty() ? "its mesh has no length along y" : why) + "): it is held where the game's hand has it, and swung as it comes");
         } else {
-            Log.info(String.format(Locale.ROOT, "%s (%s) is swung from %.3f to %.3f along its mesh, striking with its side (%.2f, %.2f) in x and z",
-                    item, model.name, shape.butt(), shape.tip(), shape.strikeX(), shape.strikeZ()));
+            if (DevBuild.ON) {
+                Log.info(String.format(Locale.ROOT, "%s (%s) is swung from %.3f to %.3f along its mesh, striking with its side (%.2f, %.2f) in x and z",
+                        item, model.name, shape.butt(), shape.tip(), shape.strikeX(), shape.strikeZ()));
+            }
         }
         SWUNG_SHAPES.put(script, new Swung(model, from, shape));
         return shape;
@@ -1287,10 +1291,12 @@ public final class Characters {
             Log.info("the mod's own hands cannot be put on " + item + " (" + model.name + ": " + why + "): the game's own arms hold it");
             return null;
         }
-        Log.info(String.format(Locale.ROOT, "the hands on %s (%s): grip %.4f along and %.4f up of its mesh, its line %.0f degrees from upright, %.3f thick; guard %.4f to %.4f; fore-end %.4f to %.4f, level %.4f to %.4f%s",
-                item, model.name, ArmPose.dot(shape.grip, shape.along), ArmPose.dot(shape.grip, shape.up), Math.toDegrees(Math.atan2(ArmPose.dot(shape.gripLine, shape.along), ArmPose.dot(shape.gripLine, shape.up))),
-                shape.gripThick / shape.perMetre, shape.guardBack, shape.guardFront, shape.foreFrom, shape.foreTo, shape.levelFrom, shape.levelTo,
-                shape.magazine ? String.format(Locale.ROOT, "; magazine %.4f to %.4f, its foot at %.4f", shape.magazineBack, shape.magazineFront, shape.magazineFoot) : ""));
+        if (DevBuild.ON) {
+            Log.info(String.format(Locale.ROOT, "the hands on %s (%s): grip %.4f along and %.4f up of its mesh, its line %.0f degrees from upright, %.3f thick; guard %.4f to %.4f; fore-end %.4f to %.4f, level %.4f to %.4f%s",
+                    item, model.name, ArmPose.dot(shape.grip, shape.along), ArmPose.dot(shape.grip, shape.up), Math.toDegrees(Math.atan2(ArmPose.dot(shape.gripLine, shape.along), ArmPose.dot(shape.gripLine, shape.up))),
+                    shape.gripThick / shape.perMetre, shape.guardBack, shape.guardFront, shape.foreFrom, shape.foreTo, shape.levelFrom, shape.levelTo,
+                    shape.magazine ? String.format(Locale.ROOT, "; magazine %.4f to %.4f, its foot at %.4f", shape.magazineBack, shape.magazineFront, shape.magazineFoot) : ""));
+        }
         return shape;
     }
 
