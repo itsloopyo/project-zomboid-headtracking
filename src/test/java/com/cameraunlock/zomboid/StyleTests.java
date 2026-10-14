@@ -10,6 +10,7 @@ final class StyleTests {
             f10GoesRoundTheThree();
             vividIsThePictureAsItWas();
             eachStyleAfterVividIsQuieter();
+            everyStyleSetsItsOwnRange();
         } finally {
             Style.set(before.ordinal());
         }
@@ -34,6 +35,15 @@ final class StyleTests {
                 "Vivid has the curve, colour, corners, glow and glare the picture had before there were styles");
         check(v.shade[0] == 0.96f && v.shade[1] == 0.99f && v.shade[2] == 1.05f
                 && v.sunlit[0] == 1.05f && v.sunlit[1] == 1.01f && v.sunlit[2] == 0.95f, "and its cool shade and warm sun");
+    }
+
+    private static void everyStyleSetsItsOwnRange() {
+        for (Style each : Style.values()) {
+            check(each.levels > 0f && each.levels <= 1f && each.compress > 0f && each.clarity > 0f && each.sharpen > 0f,
+                    each.label + " sets the frame's dark and bright, brings its parts together, sets each pixel apart and sharpens");
+        }
+        check(Style.BLEAK.vibrance < Style.NATURAL.vibrance && Style.NATURAL.vibrance < Style.VIVID.vibrance,
+                "the weak colours are filled least in Bleak and most in Vivid");
     }
 
     private static void eachStyleAfterVividIsQuieter() {

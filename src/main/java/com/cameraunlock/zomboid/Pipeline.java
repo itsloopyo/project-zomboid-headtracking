@@ -688,16 +688,27 @@ final class Pipeline {
     private final int[] asked = new int[16];
     private final float[] projection = new float[16], viewed = new float[16], flash = new float[7];
     /**
-     * The eye's light meter: the picture before its exposure, weighted to the middle of the view,
-     * at METER_WIDE by METER_HIGH as the log of its light and the weight, halved down to one texel
-     * on the card and read back METER_READS frames later through a buffer of its own, so the read
-     * never waits on the card.
+     * The eye's light meter: the picture before its exposure at METER_WIDE by METER_HIGH, as the
+     * log of its light and the weight the eye's reading takes it by (more to the middle of the
+     * view), read back METER_READS frames later through a buffer of its own, so the read never
+     * waits on the card. Develop works out the eye's reading and the frame's dark and bright from
+     * it. Its halvings, made on the card, are the light round each part of the picture for the
+     * develop pass's local tone.
      */
-    private static final int METER_WIDE = 64, METER_HIGH = 32, METER_LAST_LEVEL = 6, METER_READS = 3;
+    private static final int METER_WIDE = 64, METER_HIGH = 32, METER_READS = 3, METER_CELLS = METER_WIDE * METER_HIGH;
     private int meterColor, meterTarget, meterAt;
     private final int[] meterBuffers = new int[METER_READS];
     private final long[] meterFences = new long[METER_READS];
-    private final ByteBuffer meterRead = ByteBuffer.allocateDirect(2 * Float.BYTES).order(ByteOrder.nativeOrder());
+    private final ByteBuffer meterRead = ByteBuffer.allocateDirect(4 * METER_CELLS * Float.BYTES).order(ByteOrder.nativeOrder());
+    private final float[] meterLights = new float[METER_CELLS], meterWeights = new float[METER_CELLS];
+    private final float[] meterReds = new float[METER_CELLS], meterBlues = new float[METER_CELLS];
+    /** What the develop pass makes of the frame's own light: see Develop. Render thread. */
+    private final Develop developed = new Develop();
+    private final float[] lightShade = new float[3], lightLit = new float[3];
+    /** How much of the develop pass's film works on each colour alone, where the picture is the mod's own: see the shader's film. */
+    private static final float EACH_COLOUR = 0.33f;
+    /** The texture unit the develop pass reads the light meter's halvings from. */
+    private static final int DEVELOP_METER_UNIT = 7;
     /** What the meter last read: the log2 of the picture's light before its exposure, NaN before its first reading. Render thread writes it. */
     private volatile float meteredLight = Float.NaN;
 
@@ -3552,7 +3563,7 @@ final class Pipeline {
         GL11.glBindTexture(GL_TEXTURE_2D, meterColor);
         GL30.glGenerateMipmap(GL_TEXTURE_2D);
         GL15.glBindBuffer(GL_PIXEL_PACK_BUFFER, meterBuffers[meterAt]);
-        GL11.glGetTexImage(GL_TEXTURE_2D, METER_LAST_LEVEL, GL_RG, GL_FLOAT, 0L);
+        GL11.glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_FLOAT, 0L);
         if (meterFences[meterAt] != 0L) {
             GL32.glDeleteSync(meterFences[meterAt]);
         }
@@ -3565,7 +3576,14 @@ final class Pipeline {
                 GL15.glBindBuffer(GL_PIXEL_PACK_BUFFER, meterBuffers[meterAt]);
                 meterRead.clear();
                 GL15.glGetBufferSubData(GL_PIXEL_PACK_BUFFER, 0L, meterRead);
-                meteredLight = meterRead.getFloat(0) / meterRead.getFloat(Float.BYTES);
+                for (int i = 0; i < METER_CELLS; i++) {
+                    meterLights[i] = meterRead.getFloat(4 * i * Float.BYTES);
+                    meterWeights[i] = meterRead.getFloat((4 * i + 1) * Float.BYTES);
+                    meterReds[i] = meterRead.getFloat((4 * i + 2) * Float.BYTES);
+                    meterBlues[i] = meterRead.getFloat((4 * i + 3) * Float.BYTES);
+                }
+                meteredLight = developed.read(meterLights, meterWeights, METER_CELLS);
+                developed.readCast(meterLights, meterReds, meterBlues, METER_CELLS);
                 GL32.glDeleteSync(oldest);
                 meterFences[meterAt] = 0L;
             }
@@ -3705,10 +3723,31 @@ final class Pipeline {
         develop.set("uLow", (float) levelWidth[0], (float) levelHeight[0]);
         develop.set("uExposure", exposure);
         Style style = Style.current();
-        develop.set("uGrade", style.curve, style.saturation, style.vignette);
+        // The game's own view drawn from overhead, and Low, which is the game's look, are developed as they always were.
+        boolean ownTone = !overhead && shadedAndLit && !WITHOUT.contains("tone");
+        float cover = Math.max(state.cover, state.rain);
+        developed.settle(exposure, ownTone ? style.levels : 0f, state.night, state.fog, ownTone && !WITHOUT.contains("balance") ? 1f - state.outdoors : 0f, System.nanoTime());
+        develop.set("uBalance", ownTone ? developed.balanceRed() : 1f, ownTone ? developed.balanceBlue() : 1f);
+        float middle = developed.middle();
+        boolean local = ownTone && !Float.isNaN(middle);
+        develop.set("uLevels", ownTone ? developed.takenAt(exposure) : 0f, ownTone ? developed.gain() : 1f, local ? middle : 0f);
+        develop.set("uLocal", local && !WITHOUT.contains("localtone") ? style.compress : 0f, local && !WITHOUT.contains("localtone") ? style.clarity : 0f, ownTone ? style.sharpen : 0f);
+        develop.set("uEachColour", ownTone && !WITHOUT.contains("filmcolours") ? EACH_COLOUR : 0f);
+        develop.set("uVibrance", ownTone && !WITHOUT.contains("vibrance") ? style.vibrance : 0f);
+        develop.set("uMeter", DEVELOP_METER_UNIT);
+        GL13.glActiveTexture(GL_TEXTURE0 + DEVELOP_METER_UNIT);
+        GL11.glBindTexture(GL_TEXTURE_2D, meterColor);
+        GL13.glActiveTexture(GL_TEXTURE0);
+        if (ownTone && !WITHOUT.contains("tints")) {
+            Develop.tints(state.sunUp, cover, state.night, lightShade, lightLit);
+        } else {
+            java.util.Arrays.fill(lightShade, 1f);
+            java.util.Arrays.fill(lightLit, 1f);
+        }
+        develop.set("uGrade", style.curve + (ownTone ? Develop.overcastCurve(cover, state.night) : 0f), style.saturation, style.vignette);
         develop.set("uLens", style.bloom, style.flare);
-        develop.set("uShade", style.shade[0], style.shade[1], style.shade[2]);
-        develop.set("uSunlit", style.sunlit[0], style.sunlit[1], style.sunlit[2]);
+        develop.set("uShade", style.shade[0] * lightShade[0], style.shade[1] * lightShade[1], style.shade[2] * lightShade[2]);
+        develop.set("uSunlit", style.sunlit[0] * lightLit[0], style.sunlit[1] * lightLit[1], style.sunlit[2] * lightLit[2]);
         develop.set("uTan", tanHalfFieldOfView * aspect, tanHalfFieldOfView);
         develop.set("uNear", near);
         develop.set("uFar", far);
@@ -5649,6 +5688,7 @@ final class Pipeline {
             }
         }
         meteredLight = Float.NaN;
+        developed.forget();
         view.heldDepth.forgetTarget();
     }
 
@@ -5776,8 +5816,11 @@ final class Pipeline {
         if (problem != null) {
             return problem;
         }
-        meterColor = texture(GL_RG32F, METER_WIDE, METER_HIGH, GL_RG, GL_FLOAT, GL_NEAREST);
+        meterColor = texture(GL_RGBA32F, METER_WIDE, METER_HIGH, GL_RGBA, GL_FLOAT, GL_NEAREST);
         GL30.glGenerateMipmap(GL_TEXTURE_2D);
+        // The develop pass reads its halvings between texels: see the develop shader's local tone.
+        GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         meterTarget = target(meterColor);
         problem = complete("light meter");
         if (problem != null) {
@@ -5786,7 +5829,7 @@ final class Pipeline {
         for (int i = 0; i < METER_READS; i++) {
             meterBuffers[i] = GL15.glGenBuffers();
             GL15.glBindBuffer(GL_PIXEL_PACK_BUFFER, meterBuffers[i]);
-            GL15.glBufferData(GL_PIXEL_PACK_BUFFER, 2L * Float.BYTES, GL_STREAM_READ);
+            GL15.glBufferData(GL_PIXEL_PACK_BUFFER, 4L * METER_CELLS * Float.BYTES, GL_STREAM_READ);
         }
         GL15.glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
         keptDepth = texture(GL_DEPTH_COMPONENT24, width, height, GL_DEPTH_COMPONENT, GL_FLOAT, GL_NEAREST);
@@ -5858,7 +5901,7 @@ final class Pipeline {
         int texture = GL11.glGenTextures();
         if (making != null) {
             making.textures.add(texture);
-            making.bytes += (long) w * h * (internal == GL_RGBA16F || internal == GL_RG32F ? 8 : internal == GL_R16F ? 2 : internal == GL_R8 ? 1 : 4);
+            making.bytes += (long) w * h * (internal == GL_RGBA32F ? 16 : internal == GL_RGBA16F || internal == GL_RG32F ? 8 : internal == GL_R16F ? 2 : internal == GL_R8 ? 1 : 4);
         }
         GL11.glBindTexture(GL_TEXTURE_2D, texture);
         GL11.glTexImage2D(GL_TEXTURE_2D, 0, internal, w, h, 0, format, type, (ByteBuffer) null);

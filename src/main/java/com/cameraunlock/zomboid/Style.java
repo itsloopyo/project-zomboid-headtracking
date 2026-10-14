@@ -11,11 +11,11 @@ package com.cameraunlock.zomboid;
  */
 enum Style {
     /** Strong contrast and full colours, cool in the shade and warm in the sun. */
-    VIVID("Vivid", 0.34f, 1.08f, 0.32f, 0.1f, 1f, new float[] {0.96f, 0.99f, 1.05f}, new float[] {1.05f, 1.01f, 0.95f}),
+    VIVID("Vivid", 0.34f, 1.08f, 0.32f, 0.1f, 1f, new float[] {0.96f, 0.99f, 1.05f}, new float[] {1.05f, 1.01f, 0.95f}, 1f, 0.3f, 0.18f, 0.6f, 0.35f),
     /** The colours as they are lit, with no tint, and less of the lens. */
-    NATURAL("Natural", 0.18f, 1f, 0.16f, 0.07f, 0.5f, new float[] {1f, 1f, 1f}, new float[] {1f, 1f, 1f}),
+    NATURAL("Natural", 0.18f, 1f, 0.16f, 0.07f, 0.5f, new float[] {1f, 1f, 1f}, new float[] {1f, 1f, 1f}, 0.9f, 0.3f, 0.14f, 0.5f, 0.2f),
     /** Washed out and flat under a faint drab cast, nearer the colours of the game's own view. */
-    BLEAK("Bleak", 0.08f, 0.72f, 0.24f, 0.05f, 0f, new float[] {0.97f, 1f, 0.96f}, new float[] {1.03f, 1f, 0.94f});
+    BLEAK("Bleak", 0.08f, 0.72f, 0.24f, 0.05f, 0f, new float[] {0.97f, 1f, 0.96f}, new float[] {1.03f, 1f, 0.94f}, 0.85f, 0.3f, 0.14f, 0.5f, 0.1f);
 
     /** The row's word. Its number is its place here: Config describes the row with words(). */
     final String label;
@@ -31,10 +31,18 @@ enum Style {
     final float flare;
     /** What the dark of the picture and the bright of it are multiplied by, red, green and blue. */
     final float[] shade, sunlit;
+    /**
+     * How far the frame's own dark and bright set its range (see Develop), 0 to 1; how far a part
+     * of the picture is brought towards the frame's middle light; how far each pixel is set apart
+     * from the light round it; how far edges are sharpened again after the steadying; and how much
+     * more the weak colours are filled than the full. See the develop shader.
+     */
+    final float levels, compress, clarity, sharpen, vibrance;
 
     private static volatile Style row = BLEAK;
 
-    Style(String label, float curve, float saturation, float vignette, float bloom, float flare, float[] shade, float[] sunlit) {
+    Style(String label, float curve, float saturation, float vignette, float bloom, float flare, float[] shade, float[] sunlit,
+            float levels, float compress, float clarity, float sharpen, float vibrance) {
         this.label = label;
         this.curve = curve;
         this.saturation = saturation;
@@ -43,6 +51,11 @@ enum Style {
         this.flare = flare;
         this.shade = shade;
         this.sunlit = sunlit;
+        this.levels = levels;
+        this.compress = compress;
+        this.clarity = clarity;
+        this.sharpen = sharpen;
+        this.vibrance = vibrance;
     }
 
     static void set(int asked) {

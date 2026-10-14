@@ -4277,10 +4277,15 @@ final class PipelineShaders {
                 vec2 q = 0.25 / uSize;
                 vec3 c = texture2D(uScene, uv - q).rgb + texture2D(uScene, uv + vec2(q.x, -q.y)).rgb
                         + texture2D(uScene, uv + vec2(-q.x, q.y)).rgb + texture2D(uScene, uv + q).rgb;
-                float light = clamp(dot(c * 0.25, vec3(0.2126, 0.7152, 0.0722)), 1e-4, METER_MOST);
+                c = max(c * 0.25, vec3(1e-5));
+                float light = clamp(dot(c, vec3(0.2126, 0.7152, 0.0722)), 1e-4, METER_MOST);
                 vec2 off = (uv - 0.5) * 2.0;
                 float weight = 0.1 + exp(-5.0 * dot(off, off));
-                gl_FragColor = vec4(log2(light) * weight, weight, 0.0, 1.0);
+                // The log of the light alone, so that each halving of it is the mean light of a
+                // larger part of the picture (the develop shader's local tone), the weight the
+                // eye's reading takes it by, and the light's colour as red and blue against green
+                // in stops: see Develop.read.
+                gl_FragColor = vec4(log2(light), weight, log2(c.r / c.g), log2(c.b / c.g));
             }
             """;
 
@@ -6110,7 +6115,7 @@ final class PipelineShaders {
             }
             """;
 
-    static final String DEVELOP = "#version 120\n" + Sky.ATMOSPHERE + """
+    static final String DEVELOP = "#version 120\n#extension GL_ARB_shader_texture_lod : require\n" + Sky.ATMOSPHERE + """
             uniform sampler2D uScene;
             uniform sampler2D uBloom;
             uniform sampler2D uDepth;
@@ -6158,6 +6163,23 @@ final class PipelineShaders {
             uniform float uNarrowed;
             // As the world's: what the air hides is counted from this far off.
             uniform float uRangeFrom;
+            // The light meter (Pipeline.meter): r is the log2 of the light before exposure, and
+            // each of its halvings the mean of that over a larger part of the picture.
+            uniform sampler2D uMeter;
+            // The frame's own dark and bright, see Develop: x the light taken from every pixel's
+            // before the film, exposed; y the gain after it; z the log2 of the frame's middle light
+            // before exposure.
+            uniform vec3 uLevels;
+            // The local tone: x how far a part of the picture is brought towards the frame's
+            // middle light, y how far a pixel's own light is set apart from its part's (clarity),
+            // z how far the edges between pixels are sharpened. All 0 leaves the picture as it was.
+            uniform vec3 uLocal;
+            // How much more the colours that are still weak are filled than those already full.
+            uniform float uVibrance;
+            // What red and blue are multiplied by to take the cast of the light out: see Develop.balance.
+            uniform vec2 uBalance;
+            // How much of the film works on each colour alone: see film.
+            uniform float uEachColour;
             """ + SHELTERED + """
 
             const int RAY_SAMPLES = 48;
@@ -6325,18 +6347,39 @@ final class PipelineShaders {
             }
 
             // The way film answers light: what is dim comes out as it went in, and the
-            // brightest light rolls off towards white instead of being cut there. It works on
-            // the brightness alone, so a sprite keeps the colours it was painted in.
+            // brightest light rolls off towards white instead of being cut there. Mostly it works
+            // on the brightness alone, so a sprite keeps the colours it was painted in; a third of
+            // it works on each colour alone, as film does, so a bright red goes towards orange and
+            // a fire towards yellow, where on the brightness alone they only went pale.
             vec3 film(vec3 x) {
                 float light = dot(x, vec3(0.2126, 0.7152, 0.0722));
                 float shown = light * (1.0 + light / (WHITE * WHITE)) / (1.0 + light);
-                vec3 c = x * (shown / max(light, 1e-5));
+                vec3 each = x * (1.0 + x / (WHITE * WHITE)) / (1.0 + x);
+                vec3 c = mix(x * (shown / max(light, 1e-5)), each, uEachColour);
                 // Film and the eye both lose colour as light gets strong: a sunlit wall is paler
                 // than its paint, not a brighter version of it.
                 c = mix(c, vec3(shown), 0.4 * smoothstep(0.55, 1.0, shown));
                 // What is brighter than white in one colour alone spills into the others.
                 float over = max(max(c.r, max(c.g, c.b)) - 1.0, 0.0);
                 return clamp(c + over * 0.6, 0.0, 1.0);
+            }
+
+            // The scene's light at uv with its edges drawn a little sharper again, after the
+            // steadying has softened them: each pixel is set apart from the four round it by as
+            // much as there is room for between them, so an edge already hard is left as it is
+            // and nothing is sharpened past black or past the brightest of its neighbours.
+            vec3 sharpened(vec2 uv, vec3 here) {
+                vec2 px = 1.0 / uSize;
+                vec3 n = texture2D(uScene, uv + vec2(0.0, px.y)).rgb, s = texture2D(uScene, uv - vec2(0.0, px.y)).rgb;
+                vec3 e = texture2D(uScene, uv + vec2(px.x, 0.0)).rgb, w = texture2D(uScene, uv - vec2(px.x, 0.0)).rgb;
+                // Measured as the eye will see it, so a sunlit wall is not sharpened as if it were dark.
+                vec3 h = here * uExposure, hn = n * uExposure, hs = s * uExposure, he = e * uExposure, hw = w * uExposure;
+                h /= 1.0 + h; hn /= 1.0 + hn; hs /= 1.0 + hs; he /= 1.0 + he; hw /= 1.0 + hw;
+                vec3 least = min(h, min(min(hn, hs), min(he, hw)));
+                vec3 most = max(h, max(max(hn, hs), max(he, hw)));
+                vec3 room = sqrt(clamp(min(least, 1.0 - most) / max(most, 1e-4), 0.0, 1.0));
+                vec3 weight = -room * mix(0.125, 0.2, uLocal.z);
+                return max((here + weight * (n + s + e + w)) / (1.0 + 4.0 * weight), vec3(0.0));
             }
 
             // A half-size pass read at a full-size pixel: of the four of its dots round the
@@ -6412,6 +6455,9 @@ final class PipelineShaders {
                     around = ofItsOwnDepth(uOcclusion, whole, weights);
                 }
                 vec4 here = texture2D(uScene, uv);
+                if (uLocal.z > 0.0) {
+                    here.rgb = sharpened(uv, here.rgb);
+                }
                 // The world's shader has already hidden in the fog, rain or snow as much of the
                 // surface as the air between hides, and the shade, the lent light and what the
                 // surface mirrors are hidden by as much: laid whole over the veiled colour, the
@@ -6441,14 +6487,60 @@ final class PipelineShaders {
                     float aside = length((uv - 0.5) * vec2(uAspect, 1.0) * 2.0);
                     c *= 1.0 - 0.8 * uNarrowed * smoothstep(mix(1.3, 0.35, uNarrowed), mix(1.9, 1.0, uNarrowed), aside);
                 }
-                c = film(c * uExposure);
+                c *= uExposure;
+                float light = dot(c, vec3(0.2126, 0.7152, 0.0722));
+                vec3 balanced = c * vec3(uBalance.x, 1.0, uBalance.y);
+                c = balanced * (light / max(dot(balanced, vec3(0.2126, 0.7152, 0.0722)), 1e-6));
+                // How far this pixel stands above or below the light round it, in stops: the lit
+                // and the shaded side of the same street, more than the paint of what is there.
+                float lifted = 0.0;
+                if (uLocal.x + uLocal.y > 0.0) {
+                    float nearby = (texture2DLod(uMeter, uv, 1.0).r + 2.0 * texture2DLod(uMeter, uv, 2.0).r + texture2DLod(uMeter, uv, 3.0).r) * 0.25;
+                    float own = log2(max(light / uExposure, 1e-4));
+                    lifted = own - nearby;
+                    // A part of the picture far darker or brighter than the frame's middle, a
+                    // room seen past a window or a window seen from a room, is brought some way
+                    // towards it, as a painter shows both. And each pixel is set a little further
+                    // from the light round it, near by more than far off, where the air flattens.
+                    float near = 1.0 - smoothstep(25.0, 70.0, ahead);
+                    // Set apart less below the light round it than above: a shadow kept open, as
+                    // a painter keeps it, and the light that falls on things carried further.
+                    float apart = lifted > 0.0 ? lifted : 0.5 * lifted;
+                    float stops = clamp(-uLocal.x * (nearby - uLevels.z), -1.5, 1.5) + uLocal.y * near * clamp(apart, -2.0, 2.0);
+                    float shift = exp2(stops);
+                    c *= shift;
+                    light *= shift;
+                }
+                // The frame's own dark taken away, softly, so that what was darkest stays darker
+                // than what was nearly so and no shadow goes under a fifth of its light; then its
+                // range set between a near black and short of white.
+                if (uLevels.x > 0.0) {
+                    float a = light - uLevels.x, b = light * 0.22;
+                    float kept = 0.5 * (a + b + sqrt((a - b) * (a - b) + 0.0001 * uLevels.x * uLevels.x));
+                    c *= kept / max(light, 1e-6);
+                }
+                c = film(c * uLevels.y);
                 c = pow(c, vec3(1.0 / 2.2));
                 c = mix(c, c * c * (3.0 - 2.0 * c), uGrade.x);
                 // In the Vivid style a clear day photographs warm where the sun falls and cool
                 // in the shade, with its greens and blues full.
                 float grey = dot(c, vec3(0.2126, 0.7152, 0.0722));
                 c = mix(vec3(grey), c, uGrade.y);
-                c *= mix(uShade, uSunlit, smoothstep(0.25, 0.8, grey));
+                // Colours still weak are filled more than those full already: a dull noon gains
+                // colour, a sunset does not go to neon.
+                if (uVibrance > 0.0) {
+                    float most = max(c.r, max(c.g, c.b)), least = min(c.r, min(c.g, c.b));
+                    float full = (most - least) / max(most, 1e-4);
+                    c = max(mix(vec3(grey), c, 1.0 + uVibrance * (1.0 - full) * (1.0 - full)), vec3(0.0));
+                }
+                // The tint of the lit and of the shaded: by how far the pixel stands above the
+                // light round it as much as by how bright it is, so a dark paint in the sun is lit
+                // and a white wall in shade is shaded.
+                float sunlit = smoothstep(0.25, 0.8, grey);
+                if (uLocal.x + uLocal.y > 0.0) {
+                    sunlit = mix(sunlit, smoothstep(-1.2, 1.0, lifted), 0.6);
+                }
+                c *= mix(uShade, uSunlit, sunlit);
                 vec2 fromCentre = uv - 0.5;
                 c *= 1.0 - dot(fromCentre, fromCentre) * uGrade.z;
                 c += (hash(gl_FragCoord.xy + uTime * 61.0) - 0.5) / 160.0;
