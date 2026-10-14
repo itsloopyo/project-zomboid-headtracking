@@ -105,6 +105,12 @@ final class SkyState {
     float wet;
     /** How far out of doors the eye is, 0 in a room to 1 in the open. Set by the scene, and by the rigs that draw a scene of their own. */
     float outdoors;
+    /**
+     * How far the eye is out from under any roof, 0 under a roof, a porch's included, to 1 under
+     * open sky: from there a room's dusty air is seen only faintly. Set by the scene, and 0 in the
+     * rigs that draw a scene of their own.
+     */
+    float openOver;
     /** How much light a tile of air takes out of a line of sight: see Eyesight. 0 while the development switch takes it out. */
     float thick;
     /** How narrow the character's view has become, 0 to 1: see Eyesight.narrowed. */

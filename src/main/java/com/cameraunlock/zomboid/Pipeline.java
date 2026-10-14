@@ -3473,6 +3473,11 @@ final class Pipeline {
 
     /** How much more a room's air holds for light to catch than the open air on a clear day: see PipelineShaders.VOLUME. */
     private static final float ROOM_AIR = 0.5f;
+    /**
+     * How much of a room's dust shows to an eye out in the open sun: a shaft through a porch or
+     * a window is bright to someone standing in the shade beside it and faint against the day.
+     */
+    private static final float ROOM_AIR_FROM_OPEN = 0.15f;
     private static final int GL_RG32F = 0x8230;
 
     /** The frame's RoomAir on the graphics card, on a unit, for PipelineShaders.ROOM_AIR. The one small texture goes back with the shadow maps. */
@@ -3529,7 +3534,7 @@ final class Pipeline {
         volume.set("uThick", state.thick);
         setRoofedAir(volume, 3);
         setRoomAir(volume, 4);
-        volume.set("uRoomAir", ROOM_AIR);
+        volume.set("uRoomAir", ROOM_AIR * (1f - (1f - ROOM_AIR_FROM_OPEN) * state.openOver));
         quad();
         // Wide and then fine, back into volumeColor, so the edge of a shaft through a window fades
         // over a hand's width and does not follow the window's frame like a slab of glass.

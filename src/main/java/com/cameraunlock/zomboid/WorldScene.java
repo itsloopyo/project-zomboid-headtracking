@@ -160,6 +160,8 @@ final class WorldScene {
     private volatile float drawnAspect;
     private float loggedTanHalfSet, loggedAspect;
     private float eyeOpen = -1f;
+    /** How far the eye is out from under any roof: see SkyState.openOver. */
+    private float openOver = -1f;
     private float shaded;
     /** The exposure the eye has come to by what it sees: see adaptEye. */
     private float eyeSeen = -1f;
@@ -4362,6 +4364,9 @@ final class WorldScene {
             lastAdapt = now;
             eyeOpen = eyeOpen < 0f ? target : eyeOpen + (target - eyeOpen) * (1f - (float) Math.exp(-elapsed / EYE_ADAPT_SECONDS));
             sky.outdoors = eyeOpen;
+            float open = under == null || under.isOutside() ? 1f : 0f;
+            openOver = openOver < 0f ? open : openOver + (open - openOver) * (1f - (float) Math.exp(-elapsed / EYE_ADAPT_SECONDS));
+            sky.openOver = openOver;
             float strongest = Math.max(sky.lightRed, Math.max(sky.lightGreen, sky.lightBlue));
             // Out of doors by day, sunlit ground comes out about as bright as the sprite was painted.
             // As the game's own light for the open ground falls, towards night, the eye opens up to
