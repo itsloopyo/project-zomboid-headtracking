@@ -36,7 +36,7 @@ final class OwnPistol extends OwnGun {
         ViewModel.Held held = view.viewModel.held;
         if (held != null) {
             action.step(held, seconds);
-            if (action.thrown) {
+            for (int one = 0; one < action.thrown; one++) {
                 cases.out(camera, model, drawn.port[0], drawn.port[1] - action.back * drawn.travel * 0.5f, drawn.port[2]);
             }
             magazineIn = SelfLoading.magazineIn(held.clip(), held.doing(), held.seated());

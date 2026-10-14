@@ -59,7 +59,7 @@ final class PistolTests {
         // The shot: the game chambers the next round from the magazine.
         for (int frame = 0; frame < 60; frame++) {
             slide.step(GUN, true, 4, true, 13, true, ArmActs.HOLDING, 0f, FRAME);
-            thrown += slide.thrown ? 1 : 0;
+            thrown += slide.thrown;
             most = Math.max(most, slide.back);
         }
         check(most > 0.9f, "the shot drives the slide back, " + most + " of its travel");
@@ -120,7 +120,7 @@ final class PistolTests {
         }
         check(most > 0.99f, "racking draws the slide right back, " + most);
         check(slide.back < 1e-3f, "and lets it home, " + slide.back);
-        check(!slide.thrown, "with no case thrown");
+        check(slide.thrown == 0, "with no case thrown");
     }
 
     private static void rackingOverAnEmptyMagazineLeavesTheSlideBack() {
@@ -155,17 +155,17 @@ final class PistolTests {
         SelfLoading.Slide slide = new SelfLoading.Slide();
         slide.step(GUN, true, 5, true, 10, true, ArmActs.HOLDING, 0f, FRAME);
         // Two shots with another weapon, or with this one not drawn: the count moved on while this slide was not.
-        boolean thrown = false;
+        int thrown = 0;
         float most = 0f;
         slide.step(GUN, false, 7, true, 10, true, ArmActs.HOLDING, 0f, FRAME);
         for (int frame = 0; frame < 60; frame++) {
-            thrown |= slide.thrown;
+            thrown += slide.thrown;
             most = Math.max(most, slide.back);
             slide.step(GUN, true, 7, true, 10, true, ArmActs.HOLDING, 0f, FRAME);
         }
-        check(!thrown && most == 0f, "seen again after a gap, the slide does not work a shot it did not see: thrown " + thrown + ", most " + most);
+        check(thrown == 0 && most == 0f, "seen again after a gap, the slide does not work a shot it did not see: thrown " + thrown + ", most " + most);
         slide.step(GUN, false, 9, false, 0, true, ArmActs.HOLDING, 0f, FRAME);
-        check(slide.back == 1f && !slide.thrown, "seen again emptied, it is held back as the game has it, throwing nothing: " + slide.back);
+        check(slide.back == 1f && slide.thrown == 0, "seen again emptied, it is held back as the game has it, throwing nothing: " + slide.back);
     }
 
     private static void theMagazineIsInItsWellUnlessTheHandHasIt() {

@@ -78,7 +78,7 @@ final class OwnSelfLoader extends OwnGun {
             float through = held.done() / Math.max(held.pace(), ArmActs.SHORTEST);
             action.step(held.itemId(), workedIn == frame - 1, held.shots(), held.chambered(), held.rounds(), held.clip(), held.doing(), through, seconds);
             workedIn = frame;
-            if (action.thrown) {
+            for (int one = 0; one < action.thrown; one++) {
                 cases.out(camera, model, drawn.port[0], drawn.port[1], drawn.port[2]);
                 noteShot();
             }

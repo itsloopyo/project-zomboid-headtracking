@@ -66,8 +66,8 @@ final class SelfLoading {
         private boolean locked, caseThrown;
         /** How far back the slide is, 0 to 1. */
         float back;
-        /** Whether the step just taken threw a fired case out. */
-        boolean thrown;
+        /** How many fired cases the step just taken threw out: one for each shot, however many came in one frame. */
+        int thrown;
 
         /** A pistol's slide. */
         Slide() {
@@ -99,7 +99,7 @@ final class SelfLoading {
          * @param through   how far through that the holder is, as a share of how long it is taken to take
          */
         void step(int item, boolean carriedOn, int shots, boolean chambered, int rounds, boolean clip, int doing, float through, float seconds) {
-            thrown = false;
+            thrown = 0;
             boolean open = heldOpen(chambered, rounds, clip);
             if (item != this.item || !carriedOn) {
                 // Taken in hand or seen again: as the game has it now, its slide held back if it is empty.
@@ -109,6 +109,9 @@ final class SelfLoading {
                 locked = open;
             }
             if (shots != shotsSeen) {
+                // Shots taken between two frames each throw their case: all but the last at once, with the case of a
+                // shot before them that had not yet left. The last is worked as any shot is.
+                thrown += shots - shotsSeen - 1 + (sinceShot != NOT_CYCLING && !caseThrown ? 1 : 0);
                 shotsSeen = shots;
                 sinceShot = 0f;
                 caseThrown = false;
@@ -121,7 +124,7 @@ final class SelfLoading {
                 drawn = locked && sinceShot >= backIn ? 1f : cycledAt(sinceShot, backIn, heldFor, forwardIn);
                 if (!caseThrown && (drawn >= THROWN_AT || sinceShot >= backIn)) {
                     caseThrown = true;
-                    thrown = true;
+                    thrown++;
                 }
                 if (sinceShot > backIn + heldFor + forwardIn) {
                     sinceShot = NOT_CYCLING;
