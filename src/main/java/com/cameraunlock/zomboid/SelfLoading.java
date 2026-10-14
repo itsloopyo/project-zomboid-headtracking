@@ -24,7 +24,12 @@ final class SelfLoading {
 
     /** How far back the slide is at a time after a shot, 0 to 1. */
     static float slideAt(float seconds) {
-        return ViewModelMath.smooth(seconds / BACK) - ViewModelMath.smooth((seconds - BACK - HELD_BACK) / FORWARD);
+        return cycledAt(seconds, BACK, HELD_BACK, FORWARD);
+    }
+
+    /** How far back a slide or bolt is at a time after a shot, 0 to 1, that is driven back in `back`, held there `held` and runs home in `forward`, in seconds. */
+    static float cycledAt(float seconds, float back, float held, float forward) {
+        return ViewModelMath.smooth(seconds / back) - ViewModelMath.smooth((seconds - back - held) / forward);
     }
 
     /**
@@ -49,9 +54,12 @@ final class SelfLoading {
     /**
      * Where the slide is, from what the game says of the pistol frame by frame: driven back and
      * let run forward by each shot, held back by an empty magazine once back from the last round
-     * or from racking, and drawn back and let go by the hand that racks it.
+     * or from racking, and drawn back and let go by the hand that racks it. A self-loading
+     * rifle's bolt carrier is worked the same way, on its own timings.
      */
     static final class Slide {
+        /** How long it takes over each part of a shot, in seconds: driven back, a moment held there, run forward. */
+        private final float backIn, heldFor, forwardIn;
         private int item = NO_ITEM;
         private int shotsSeen;
         private float sinceShot = NOT_CYCLING;
@@ -60,6 +68,22 @@ final class SelfLoading {
         float back;
         /** Whether the step just taken threw a fired case out. */
         boolean thrown;
+
+        /** A pistol's slide. */
+        Slide() {
+            this(BACK, HELD_BACK, FORWARD);
+        }
+
+        Slide(float backIn, float heldFor, float forwardIn) {
+            this.backIn = backIn;
+            this.heldFor = heldFor;
+            this.forwardIn = forwardIn;
+        }
+
+        /** Whether it is held back by an empty magazine. */
+        boolean locked() {
+            return locked;
+        }
 
         /**
          * Moves it on by a frame.
@@ -93,13 +117,13 @@ final class SelfLoading {
             }
             float drawn = 0f;
             if (sinceShot != NOT_CYCLING) {
-                locked |= sinceShot >= BACK && open;
-                drawn = locked && sinceShot >= BACK ? 1f : slideAt(sinceShot);
-                if (!caseThrown && (drawn >= THROWN_AT || sinceShot >= BACK)) {
+                locked |= sinceShot >= backIn && open;
+                drawn = locked && sinceShot >= backIn ? 1f : cycledAt(sinceShot, backIn, heldFor, forwardIn);
+                if (!caseThrown && (drawn >= THROWN_AT || sinceShot >= backIn)) {
                     caseThrown = true;
                     thrown = true;
                 }
-                if (sinceShot > CYCLES_FOR) {
+                if (sinceShot > backIn + heldFor + forwardIn) {
                     sinceShot = NOT_CYCLING;
                 }
             }
