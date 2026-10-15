@@ -378,6 +378,7 @@ final class Rugs {
     private static void rank(float eyeX, float eyeY, float eyeUp) {
         boolean smaller = Quality.smallerPictures();
         int gave = 0;
+        dropSparesOtherThan(smaller ? DRAWN / 2 : DRAWN);
         ArrayList<Square> drawn = new ArrayList<>();
         for (Square square : numbered) {
             boolean stale = frameNanos - square.drawnAt > KEPT_NANOS;
@@ -439,7 +440,7 @@ final class Rugs {
 
     private static void giveBack(Square square) {
         if (Uploads.ringed() && Uploads.stored() && square.sharpSmaller == Quality.smallerPictures()) {
-            spare.computeIfAbsent(square.sharpSmaller ? DRAWN / 2 : DRAWN, side -> new ArrayDeque<>()).push(square.sharp);
+            spare.computeIfAbsent(square.sharpSmaller ? DRAWN / 2 : DRAWN, side -> new ArrayDeque<>()).addLast(new Spare(square.sharp, Pipeline.frame()));
         } else {
             GL11.glDeleteTextures(square.sharp);
             Pipeline.forgetTexel(square.sharp);
@@ -454,9 +455,9 @@ final class Rugs {
         for (int name : names) {
             GL11.glDeleteTextures(name);
         }
-        for (ArrayDeque<Integer> kept : spare.values()) {
-            for (int name : kept) {
-                GL11.glDeleteTextures(name);
+        for (ArrayDeque<Spare> kept : spare.values()) {
+            for (Spare each : kept) {
+                GL11.glDeleteTextures(each.name());
             }
         }
         spare.clear();
@@ -1035,8 +1036,9 @@ final class Rugs {
             ring.put(levels[level]);
         }
         int side = sideOf(levels[first]);
-        ArrayDeque<Integer> kept = spare.get(side);
-        int name = kept == null || kept.isEmpty() ? made(side, levels.length - first) : kept.pop();
+        ArrayDeque<Spare> kept = spare.get(side);
+        int name = kept == null || kept.isEmpty() || Pipeline.frame() - kept.peekFirst().frame() < SPARE_FRAMES ? made(side, levels.length - first)
+                : kept.pollFirst().name();
         fill(name, levels, first, Uploads.place(offset));
         return name;
     }
@@ -1050,7 +1052,26 @@ final class Rugs {
      * texture made anew cost 15 to 25 ms of the driver's in the middle of a frame however its
      * dots reached it; one kept is only written over.
      */
-    private static final HashMap<Integer, ArrayDeque<Integer>> spare = new HashMap<>();
+    private static final HashMap<Integer, ArrayDeque<Spare>> spare = new HashMap<>();
+
+    /** A sharp picture given back and the frame it was: written over only SPARE_FRAMES on, when the card has finished drawing with it. */
+    private record Spare(int name, int frame) {}
+
+    private static final int SPARE_FRAMES = 4;
+
+    /** Lets go of the sharp pictures kept at the size not in use: after a change of Quality.smallerPictures none of them is taken again. */
+    private static void dropSparesOtherThan(int side) {
+        for (var each = spare.entrySet().iterator(); each.hasNext();) {
+            var entry = each.next();
+            if (entry.getKey() != side) {
+                for (Spare kept : entry.getValue()) {
+                    GL11.glDeleteTextures(kept.name());
+                    Pipeline.forgetTexel(kept.name());
+                }
+                each.remove();
+            }
+        }
+    }
 
     /** A texture with room for a picture side dots square and its smaller copies, all made at once. */
     private static int made(int side, int levels) {
