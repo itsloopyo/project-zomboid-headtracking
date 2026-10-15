@@ -134,7 +134,7 @@
 #### Multiplayer and split screen
 
 - Works on servers. Only you need the mod.
-- Online, players who have the mod see each other's heads turn with their trackers. It goes through the game's own player updates, so the server needs no mod. Players without the mod see your character's head as the game poses it. Not shared on PvP servers.
+- Online, players who have the mod see each other's heads turn with their trackers. It goes through the game's own player updates, so the server needs no mod. Players without the mod see your character's head as the game poses it.
 - Names and speech appear over other players' heads in first person.
 - On PvP servers: leaning doesn't move your shot, moving sideways or backwards uses the game's aiming stance, hills are fixed at height 1, other players are shown only as the game shows them, a shot at a player hits the part the game rolls, and nothing is hidden by draw distance.
 - Wounds, limb loss, bullet penetration, shooting out lamps and vehicle physics are single player only.

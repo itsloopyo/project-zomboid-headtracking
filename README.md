@@ -236,7 +236,6 @@ The mouse turns the view. Movement keys follow the direction you face.
 - In first person, moving sideways or backwards puts your character in the game's aiming stance, at that stance's pace, so other players see it face where you look.
 - Hills stand at height 1 whatever you set, and zombies and props are drawn at full distance.
 - From a vehicle seat you shoot only with your window open or broken, and a driver who raises a rifle or shotgun lets go of the wheel, as in the game.
-- Your head turn and mouth are not shared with other players, so nobody with the mod sees where you are looking.
 
 Zombies, rooms and vehicles with no other player in them look as they do offline. On a server without PvP the mod plays as it does alone, apart from wounds and vehicles: on any server, your own co-op host included, a shot arm or leg leaves a zombie as the game does, and vehicles drive and roll as the game has them, on its level ground, and none burns out on its roof.
 

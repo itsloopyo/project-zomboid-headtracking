@@ -22,8 +22,8 @@ import zombie.network.packets.VariableSyncPacket;
  * A client without this mod keeps the variable on that character and nothing of the game's reads
  * it, since no animation names it.
  *
- * Where players can fight nothing is shared: which way a player looks is not given to an opponent
- * who has the mod over one who has not.
+ * Shared where players can fight too: the owner ruled on 2026-10-15 that seeing another player's
+ * head turn and mouth is no real advantage in a fight.
  */
 final class SharedHeads {
     private SharedHeads() {}
@@ -142,7 +142,7 @@ final class SharedHeads {
             return;
         }
         checkedAt[at] = now;
-        boolean shared = !Online.contested() && !player.isDead();
+        boolean shared = !player.isDead();
         String value = Wire.write(shared ? view.headTracking.headTurn() : null, shared && Mouths.on() && Microphones.listening(at) ? Microphones.mouth(at) : null);
         if (value.equals(sent[at])) {
             return;
@@ -153,7 +153,7 @@ final class SharedHeads {
         }
         player.setVariable(VARIABLE, value);
         if (sent[at] == null || sent[at].isEmpty() != value.isEmpty()) {
-            Log.info("player " + (at + 1) + (value.isEmpty() ? ": nothing of the head or mouth to share (tracking and microphone off, or players can fight here)"
+            Log.info("player " + (at + 1) + (value.isEmpty() ? ": nothing of the head or mouth to share (tracking and microphone off, or the player is dead)"
                     : ": head and mouth shared with other players here who have this mod"));
         }
         sent[at] = value;
