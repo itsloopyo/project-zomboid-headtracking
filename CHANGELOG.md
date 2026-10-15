@@ -129,7 +129,7 @@
 
 #### Talking mouths
 
-- Optional, off by default: your character's mouth moves when you talk into your microphone. Each player at the screen picks their own microphone. Online, other players' mouths move with the game's voice chat. Only the volume is read; nothing is recorded or sent.
+- Optional, off by default: your character's mouth moves with what you say into your microphone, opening, spreading and rounding with the sounds you make. Each player at the screen picks their own microphone. Online, other players' mouths move with the game's voice chat. Nothing is recorded or sent.
 
 #### Multiplayer and split screen
 

@@ -271,8 +271,9 @@ final class Config {
         };
 
         talkingMouths = core.configLocalBool("Voice", TALKING_MOUTHS,
-                "true: your character's mouth moves while you speak into your microphone, and online other players' mouths move\n"
-                        + "while the game's voice chat plays them. Only how loud your microphone is, is read: nothing is recorded or sent.\n"
+                "true: your character's mouth moves with what you say into your microphone: the jaw drops for \"ah\", the lips\n"
+                        + "spread for \"ee\" and round for \"oo\". Online, other players' mouths move while the game's voice chat plays them.\n"
+                        + "The sound is measured as it comes in, and nothing is recorded or sent.\n"
                         + "false: no microphone is opened.",
                 writable | live, false);
         for (int player = 0; player < microphones.length; player++) {
