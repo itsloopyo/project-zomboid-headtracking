@@ -6915,9 +6915,11 @@ def mall_table_quarter():
 
 
 # A small rack of black wire that stands on a shop's counter: its length runs front to back, its back end stands higher
-# than its front, and its two shelves are slats across it between rails along its sides.
-COUNTER_RACK_HALF, COUNTER_RACK_SIDE, COUNTER_RACK_SHELVES = 0.35, 0.16, (0.08, 0.4)
-COUNTER_RACK_ENDS = (0.68, 0.82)
+# than its front, and its two shelves are slats across it between rails along its sides. The game gives it no height of
+# its own: its Surface is IsSurfaceOffset, the counter's top it is painted on, and only an IsTable object lifts what is
+# set on its square. Its heights are read off its sprite, 78 pixels to a metre.
+COUNTER_RACK_HALF, COUNTER_RACK_SIDE, COUNTER_RACK_SHELVES = 0.35, 0.16, (0.07, 0.3)
+COUNTER_RACK_ENDS = (0.56, 0.68)
 
 
 def counter_rack():
