@@ -10,10 +10,9 @@ import java.util.WeakHashMap;
  * leg and keeps no record of where it was hit, so a zombie shot through both knees walks on as
  * before. Here each limb keeps the whole damage of the shots it has taken, upper and lower part
  * together. A limb that has taken half as much as the zombie has health left is wounded, and one
- * that has taken all of it is ruined. A ruined limb shot again comes off, and so does one a single
- * shot did several times the zombie's health to, at the joint above the part that shot was on: a
- * hand or a foot for less than a forearm or a calf, and an upper arm or a thigh for most. A limb
- * only gets worse.
+ * that has taken all of it is ruined. One that has taken a few times the health left comes off, at
+ * the joint above the part the last shot was on: a hand or a foot for less than a forearm or a
+ * calf, and an upper arm or a thigh for most. A limb only gets worse.
  *
  * Written on the logic thread, read by the threads that pose skeletons.
  */
@@ -30,8 +29,13 @@ final class Wounds {
     static final int WHOLE = 0, END = 1, LOWER = 2, UPPER = 3, CUTS = 4;
     /** How much of the health left a limb's shots wound it at. */
     static final float WOUNDED_SHARE = 0.5f;
-    /** How many times the health it had one shot does to a limb to cut it off at once, by where the shot is on it. */
-    static final float[] SEVERING_SHARE = {0f, 1.5f, 2f, 3f};
+    /**
+     * How many times the health left a limb's shots add up to for it to come off, by where the last
+     * shot is on it. A zombie has about 1.9 health and an M16 round does 1 to 1.6, four times that
+     * on one shot in five, so a leg is ruined by a round or two and takes some four at the calf to
+     * come off.
+     */
+    static final float[] SEVERING_SHARE = {0f, 3f, 4f, 6f};
 
     private static final class Limbs {
         final float[] taken = new float[LIMBS];
@@ -53,14 +57,13 @@ final class Wounds {
      *
      * @param damage the shot's whole damage, before the game's cut for a limb
      * @param health the zombie's health once the shot has been taken off it
-     * @param before the zombie's health before the shot
      * @param at     where on the limb the shot was: {@link #END}, {@link #LOWER} or {@link #UPPER}
      */
-    synchronized int shot(Object zombie, int limb, float damage, float health, float before, int at) {
+    synchronized int shot(Object zombie, int limb, float damage, float health, int at) {
         Limbs limbs = zombies.computeIfAbsent(zombie, z -> new Limbs());
         any = true;
-        boolean severs = limbs.stages[limb] >= RUINED || damage >= before * SEVERING_SHARE[at];
         limbs.taken[limb] += damage;
+        boolean severs = limbs.taken[limb] >= health * SEVERING_SHARE[at];
         int stage = severs ? SEVERED : limbs.taken[limb] >= health ? RUINED : limbs.taken[limb] >= health * WOUNDED_SHARE ? WOUNDED : SOUND;
         if (stage == SEVERED) {
             if (at > limbs.cuts[limb]) {

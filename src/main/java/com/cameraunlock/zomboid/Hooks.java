@@ -361,7 +361,7 @@ public final class Hooks {
         boolean upper = aimedPart == RagdollBodyPart.BODYPART_LEFT_UPPER_ARM.ordinal() || aimedPart == RagdollBodyPart.BODYPART_RIGHT_UPPER_ARM.ordinal()
                 || aimedPart == RagdollBodyPart.BODYPART_LEFT_UPPER_LEG.ordinal() || aimedPart == RagdollBodyPart.BODYPART_RIGHT_UPPER_LEG.ordinal();
         int at = upper ? Wounds.UPPER : aimedEnd ? Wounds.END : Wounds.LOWER;
-        int stage = wounds.shot(zombie, limb, whole, zombie.getHealth(), zombie.getHealth() + damage, at);
+        int stage = wounds.shot(zombie, limb, whole, zombie.getHealth(), at);
         if (stage == Wounds.SOUND) {
             return;
         }

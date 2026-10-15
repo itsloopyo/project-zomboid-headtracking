@@ -11,8 +11,8 @@ final class WoundsTests {
         Checks.run("eachLimbCountsItsOwnShots", WoundsTests::eachLimbCountsItsOwnShots);
         Checks.run("eachZombieCountsItsOwnShots", WoundsTests::eachZombieCountsItsOwnShots);
         Checks.run("aZombieIsForgottenWhenMadeAgain", WoundsTests::aZombieIsForgottenWhenMadeAgain);
-        Checks.run("aRuinedLimbShotAgainComesOff", WoundsTests::aRuinedLimbShotAgainComesOff);
-        Checks.run("aHeavyShotTakesALimbOff", WoundsTests::aHeavyShotTakesALimbOff);
+        Checks.run("aLimbComesOffOnceItsShotsAddUp", WoundsTests::aLimbComesOffOnceItsShotsAddUp);
+        Checks.run("aHeavyShotTakesALimbOffAtOnce", WoundsTests::aHeavyShotTakesALimbOffAtOnce);
         Checks.run("thinnerPartsComeOffMoreReadily", WoundsTests::thinnerPartsComeOffMoreReadily);
         Checks.run("aCutOnlyMovesUp", WoundsTests::aCutOnlyMovesUp);
         Checks.run("theCutsOfAZombieReadBackPartByPart", WoundsTests::theCutsOfAZombieReadBackPartByPart);
@@ -21,12 +21,12 @@ final class WoundsTests {
 
     /** A shot through a forearm or calf. */
     private static int shot(Wounds wounds, Object zombie, int limb, float damage, float health) {
-        return wounds.shot(zombie, limb, damage, health, health + damage, Wounds.LOWER);
+        return wounds.shot(zombie, limb, damage, health, Wounds.LOWER);
     }
 
     /** A shot on the given part of the limb. */
-    private static int shot(Wounds wounds, Object zombie, int limb, float damage, float health, float before, int at) {
-        return wounds.shot(zombie, limb, damage, health, before, at);
+    private static int shot(Wounds wounds, Object zombie, int limb, float damage, float health, int at) {
+        return wounds.shot(zombie, limb, damage, health, at);
     }
 
     private static void check(boolean condition, String what) {
@@ -87,29 +87,33 @@ final class WoundsTests {
         check(wounds.stage(zombie, Wounds.LEFT_LEG) == Wounds.SOUND, "the object made again starts sound");
     }
 
-    private static void aRuinedLimbShotAgainComesOff() {
+    private static void aLimbComesOffOnceItsShotsAddUp() {
         Wounds wounds = new Wounds();
         Object zombie = new Object();
         check(!wounds.anyoneCut(), "nobody is cut at first");
-        check(shot(wounds, zombie, Wounds.LEFT_ARM, 2f, 1.8f) == Wounds.RUINED, "one shot ruins the arm");
-        check(wounds.cut(zombie, Wounds.LEFT_ARM) == Wounds.WHOLE, "and leaves it on");
-        check(shot(wounds, zombie, Wounds.LEFT_ARM, 0.1f, 1.7f, 1.8f, Wounds.LOWER) == Wounds.SEVERED, "the next shot in it, however light, takes it off");
-        check(wounds.cut(zombie, Wounds.LEFT_ARM) == Wounds.LOWER && wounds.anyoneCut(), "at the elbow, for a shot on the forearm");
-        check(wounds.cut(zombie, Wounds.RIGHT_ARM) == Wounds.WHOLE, "and only that arm");
+        check(shot(wounds, zombie, Wounds.LEFT_LEG, 2f, 1.8f) == Wounds.RUINED, "one rifle round ruins the leg");
+        check(shot(wounds, zombie, Wounds.LEFT_LEG, 2f, 1.75f) == Wounds.SOUND && shot(wounds, zombie, Wounds.LEFT_LEG, 2f, 1.7f) == Wounds.SOUND,
+                "two more leave it on");
+        check(wounds.cut(zombie, Wounds.LEFT_LEG) == Wounds.WHOLE && !wounds.anyoneCut(), "still whole");
+        check(shot(wounds, zombie, Wounds.LEFT_LEG, 2f, 1.65f) == Wounds.SEVERED, "the fourth, past " + Wounds.SEVERING_SHARE[Wounds.LOWER] + " times the health left, takes it off");
+        check(wounds.cut(zombie, Wounds.LEFT_LEG) == Wounds.LOWER && wounds.anyoneCut(), "at the knee, for a shot on the calf");
+        check(wounds.cut(zombie, Wounds.RIGHT_LEG) == Wounds.WHOLE, "and only that leg");
     }
 
-    private static void aHeavyShotTakesALimbOff() {
+    private static void aHeavyShotTakesALimbOffAtOnce() {
         Wounds wounds = new Wounds();
         Object zombie = new Object();
         float share = Wounds.SEVERING_SHARE[Wounds.UPPER];
-        check(shot(wounds, zombie, Wounds.RIGHT_LEG, share * 1.8f - 0.1f, 1.7f, 1.8f, Wounds.UPPER) == Wounds.RUINED,
-                "a shot under " + share + " times the health it had only ruins");
+        check(shot(wounds, zombie, Wounds.RIGHT_LEG, share * 1.8f - 0.1f, 1.8f, Wounds.UPPER) == Wounds.RUINED,
+                "a shot under " + share + " times the health left only ruins");
         Object other = new Object();
-        check(shot(wounds, other, Wounds.RIGHT_LEG, share * 1.8f, 1.7f, 1.8f, Wounds.UPPER) == Wounds.SEVERED
+        check(shot(wounds, other, Wounds.RIGHT_LEG, share * 1.8f, 1.8f, Wounds.UPPER) == Wounds.SEVERED
                 && wounds.cut(other, Wounds.RIGHT_LEG) == Wounds.UPPER, "one of that much takes the leg off, at the hip for a shot on the thigh");
         Object third = new Object();
-        check(shot(wounds, third, Wounds.LEFT_ARM, 10f, 1f, 1.5f, Wounds.END) == Wounds.SEVERED && wounds.cut(third, Wounds.LEFT_ARM) == Wounds.END,
+        check(shot(wounds, third, Wounds.LEFT_ARM, 10f, 1f, Wounds.END) == Wounds.SEVERED && wounds.cut(third, Wounds.LEFT_ARM) == Wounds.END,
                 "a shot on the hand takes it off at the wrist");
+        check(shot(wounds, new Object(), Wounds.LEFT_LEG, 1.6f * 4f, 1.9f, Wounds.LOWER) == Wounds.RUINED,
+                "an M16's heaviest crit only ruins a calf of a zombie at its full 1.9");
     }
 
     private static void thinnerPartsComeOffMoreReadily() {
@@ -121,11 +125,11 @@ final class WoundsTests {
     private static void aCutOnlyMovesUp() {
         Wounds wounds = new Wounds();
         Object zombie = new Object();
-        shot(wounds, zombie, Wounds.LEFT_LEG, 4f, 1f, 1.5f, Wounds.LOWER);
+        shot(wounds, zombie, Wounds.LEFT_LEG, 4f, 1f, Wounds.LOWER);
         check(wounds.cut(zombie, Wounds.LEFT_LEG) == Wounds.LOWER, "cut at the knee");
-        check(shot(wounds, zombie, Wounds.LEFT_LEG, 4f, 1f, 1.5f, Wounds.END) == Wounds.SOUND, "a shot below that changes nothing");
+        check(shot(wounds, zombie, Wounds.LEFT_LEG, 4f, 1f, Wounds.END) == Wounds.SOUND, "a shot below that changes nothing");
         check(wounds.cut(zombie, Wounds.LEFT_LEG) == Wounds.LOWER, "still at the knee");
-        check(shot(wounds, zombie, Wounds.LEFT_LEG, 6f, 1f, 1.5f, Wounds.UPPER) == Wounds.SEVERED && wounds.cut(zombie, Wounds.LEFT_LEG) == Wounds.UPPER,
+        check(shot(wounds, zombie, Wounds.LEFT_LEG, 6f, 1f, Wounds.UPPER) == Wounds.SEVERED && wounds.cut(zombie, Wounds.LEFT_LEG) == Wounds.UPPER,
                 "a leg cut at the knee and shot in the thigh is cut again at the hip");
     }
 
@@ -133,9 +137,9 @@ final class WoundsTests {
         Wounds wounds = new Wounds();
         Object zombie = new Object();
         check(wounds.cuts(zombie) == 0, "nothing cut is nought");
-        shot(wounds, zombie, Wounds.RIGHT_ARM, 4f, 1f, 1.5f, Wounds.END);
-        shot(wounds, zombie, Wounds.LEFT_LEG, 6f, 1f, 1.5f, Wounds.UPPER);
-        shot(wounds, zombie, Wounds.RIGHT_LEG, 4f, 1f, 1.5f, Wounds.LOWER);
+        shot(wounds, zombie, Wounds.RIGHT_ARM, 4f, 1f, Wounds.END);
+        shot(wounds, zombie, Wounds.LEFT_LEG, 6f, 1f, Wounds.UPPER);
+        shot(wounds, zombie, Wounds.RIGHT_LEG, 4f, 1f, Wounds.LOWER);
         wounds.burst(zombie);
         int cuts = wounds.cuts(zombie);
         check(Wounds.cutIn(cuts, Wounds.LEFT_ARM) == Wounds.WHOLE && Wounds.cutIn(cuts, Wounds.RIGHT_ARM) == Wounds.END
