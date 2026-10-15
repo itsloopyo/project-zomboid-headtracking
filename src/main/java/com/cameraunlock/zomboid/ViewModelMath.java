@@ -40,6 +40,16 @@ final class ViewModelMath {
     static final float BOB_ACROSS = 0.012f, BOB_DOWN = 0.01f;
 
     /**
+     * How fast someone walks, in tiles a second, for the bob: how far they went over the
+     * frame, or nought where they did not walk it. Seated they ride, and a jump faster than
+     * {@code fastest} is a teleport.
+     */
+    static float walked(float dx, float dy, float seconds, float fastest, boolean seated) {
+        float speed = (float) Math.hypot(dx, dy) / seconds;
+        return seated || speed > fastest ? 0f : speed;
+    }
+
+    /**
      * The matrix that takes a model from the place the game posed it to a place held before
      * the eye. The weapon's own point `origin` goes `ahead` in front of the eye, its `forward`
      * goes straight ahead and its `up` straight up; everything else of the model keeps its

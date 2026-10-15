@@ -255,6 +255,7 @@ public final class Tests {
         Checks.run("easingCoversAllButOneOverEInItsConstantAtAnyFrameRate", Tests::easingCoversAllButOneOverEInItsConstantAtAnyFrameRate);
         Checks.run("recoilIsOverInAHundredAndFiftyMilliseconds", Tests::recoilIsOverInAHundredAndFiftyMilliseconds);
         Checks.run("stepBobsTheWeaponDownAndAcross", Tests::stepBobsTheWeaponDownAndAcross);
+        Checks.run("ridingInASeatIsNoWalk", Tests::ridingInASeatIsNoWalk);
         Checks.run("flashIsBrightestAtTheShotAndGoneAfterItsTime", Tests::flashIsBrightestAtTheShotAndGoneAfterItsTime);
         Checks.run("plantsStandWhereTheyStoodAndAreNeverTooMany", Tests::plantsStandWhereTheyStoodAndAreNeverTooMany);
         Checks.run("fallenLeavesAreAsDeepFromEitherChunkThatSharesACorner", Tests::fallenLeavesAreAsDeepFromEitherChunkThatSharesACorner);
@@ -840,6 +841,12 @@ public final class Tests {
         check(near(at[0], ViewModelMath.BOB_ACROSS) && near(at[1], -ViewModelMath.BOB_DOWN), "mid step it is across and down");
         ViewModelMath.bob((float) (3 * Math.PI / 2), 1f, at);
         check(near(at[0], -ViewModelMath.BOB_ACROSS) && near(at[1], -ViewModelMath.BOB_DOWN), "the next step it is across the other way, and down again");
+    }
+
+    private static void ridingInASeatIsNoWalk() {
+        check(near(ViewModelMath.walked(0.016f, 0f, 0.01f, 12f, false), 1.6f), "on foot the bob goes at the walk");
+        check(ViewModelMath.walked(0.058f, 0f, 0.01f, 12f, true) == 0f, "seated at 21 km/h the weapon has no step to bob with");
+        check(ViewModelMath.walked(0.5f, 0f, 0.01f, 12f, false) == 0f, "a teleport is no walk");
     }
 
     private static void flashIsBrightestAtTheShotAndGoneAfterItsTime() {

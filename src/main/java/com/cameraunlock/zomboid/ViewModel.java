@@ -371,10 +371,7 @@ public final class ViewModel {
             float behindPitch = Math.clamp(-(pitch - lastPitch) / seconds * SWAY_LAG, -SWAY_MOST, SWAY_MOST);
             swayYaw = ViewModelMath.ease(swayYaw, behindYaw, seconds, SWAY_SECONDS);
             swayPitch = ViewModelMath.ease(swayPitch, behindPitch, seconds, SWAY_SECONDS);
-            speed = (float) Math.hypot(x - lastX, y - lastY) / seconds;
-            if (speed > FASTEST) {
-                speed = 0f;
-            }
+            speed = ViewModelMath.walked(x - lastX, y - lastY, seconds, FASTEST, inSeat);
         }
         bobAmount = ViewModelMath.ease(bobAmount, Math.min(speed / WALK_SPEED, BOB_MOST), seconds, BOB_SECONDS);
         bobPhase = (float) ((bobPhase + speed * seconds / STRIDE * Math.PI) % (2 * Math.PI));
