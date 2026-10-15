@@ -47,6 +47,8 @@ public final class FarModels {
      * asked for. At 120 degrees a crowd all round was a third more zombies drawn.
      */
     private static final float ROUND = 0f;
+    /** How near the viewer on foot a zombie is shown whole whichever way the view faces, in tiles. */
+    private static final float MADE_ALL_ROUND = 24f;
     /** A view that faces along the map by less than this is straight up or down, and whatever stands round the viewer is before it. */
     private static final float LEVEL_LEAST = 0.2f;
 
@@ -224,6 +226,12 @@ public final class FarModels {
         if (ride != null) {
             ride.getForwardVector(ahead);
             return toX * ahead.x + toY * ahead.z > 0f;
+        }
+        // Near the viewer, behind as well: the game makes a zombie's model and composes its clothes the first time it
+        // is shown, and a turn to a crowd that had none did all of it in one frame of 130 to 270 ms. Within this reach
+        // that is done as each comes near instead, and a turn finds them made.
+        if (toX * toX + toY * toY < MADE_ALL_ROUND * MADE_ALL_ROUND) {
+            return true;
         }
         view.firstPerson.facing(faces);
         float level = (float) Math.hypot(faces[0], faces[1]);
