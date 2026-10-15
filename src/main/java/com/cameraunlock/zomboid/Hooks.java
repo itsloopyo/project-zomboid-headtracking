@@ -770,16 +770,17 @@ public final class Hooks {
      * Called with how hidden the game takes a sound to be from its players, 1 for any square
      * outside what the game's own view of a player could see, as it hands that to the sound.
      * From the eye that is not hidden at all: what is behind the head is not muffled, and the
-     * walls are put in by SoundMix.
+     * walls are put in by SoundMix. Where SoundMix puts nothing on the emitter's sounds, the game's
+     * own stands.
      */
-    public static float occluded(float games) {
-        if (SoundMix.withheld) {
+    public static float occluded(float games, FMODSoundEmitter emitter) {
+        if (!SoundMix.wallsIn(emitter)) {
             return games;
         }
         float in = 0f;
         for (int i = 0; i < View.COUNT; i++) {
             View view = View.of(i);
-            if (view != null) {
+            if (view != null && view.hearing.hearsRound()) {
                 in = Math.max(in, view.hearing.share());
             }
         }

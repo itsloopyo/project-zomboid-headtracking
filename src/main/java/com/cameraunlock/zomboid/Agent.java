@@ -822,9 +822,12 @@ public final class Agent {
                     code.lload(1);
                     CallSite.invokeStatic(code, started);
                 })),
-                new Patch(occlusion, "calculateCurrentValue before its returns", classBytes -> CallSite.filterReturn(classBytes,
-                        new CallSite.Method(occlusion, "calculateCurrentValue", "()F"),
-                        new CallSite.Method(hearing, "occluded", "(F)F"))),
+                new Patch(occlusion, "calculateCurrentValue before its returns", classBytes -> CallSite.insertBeforeReturns(classBytes,
+                        new CallSite.Method(occlusion, "calculateCurrentValue", "()F"), code -> {
+                            code.aload(0);
+                            code.getfield(ClassDesc.ofInternalName(occlusion), "emitter", ClassDesc.ofInternalName(emitter));
+                            CallSite.invokeStatic(code, new CallSite.Method(hearing, "occluded", "(FL" + emitter + ";)F"));
+                        })),
                 new Patch(listener, "tick setting the listener", classBytes -> CallSite.replaceEach(classBytes,
                         new CallSite.Method(listener, "tick", "()V"),
                         new CallSite.Method("fmod/javafmod", "FMOD_Studio_Listener3D", set),

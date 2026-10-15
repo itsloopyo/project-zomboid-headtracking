@@ -189,6 +189,31 @@ final class SoundMix {
         count++;
     }
 
+    /**
+     * Whether the walls are put into what an emitter plays, so that the game's own occlusion
+     * of it is to give way: every sound of it still playing has its effects on or going on,
+     * and an emitter with none noted yet would have them on what it starts.
+     */
+    static boolean wallsIn(FMODSoundEmitter from) {
+        if (failure != null || system == 0L || withheld) {
+            return false;
+        }
+        for (int i = 0; i < count; i++) {
+            if (emitter[i] != from) {
+                continue;
+            }
+            if (attachment[i] == null) {
+                return false;
+            }
+            int reached = attachment[i].state.get();
+            if (reached != Attachment.WAITING && reached != Attachment.ADDING && reached != Attachment.ON
+                    && reached != Attachment.GONE && reached != Attachment.NOT_STARTED) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     /** Called as the game has FMOD call it back on an instance's events, before it starts it. */
     static void gameCallsBack(long event) {
         gamesCallbacks.add(event);
