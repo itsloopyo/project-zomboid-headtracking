@@ -1815,7 +1815,7 @@ final class CharacterDraw {
             return false;
         }
         Model model = part.model;
-        if (model == null || model.isStatic || model.mesh == null || part.matrixPalette == null) {
+        if (model == null || model.mesh == null || (model.isStatic ? part.xfrm == null : part.matrixPalette == null)) {
             return false;
         }
         Shader effect = model.effect;
@@ -1898,9 +1898,12 @@ final class CharacterDraw {
             GL20.glUniform1fv(cutArm, cutBones);
             GL20.glUniform1f(cutKeep, cutKeepsThem ? 1f : 0f);
         }
-        // The game keeps each bone's matrix with its rows where OpenGL wants columns.
+        // The game keeps each bone's matrix with its rows where OpenGL wants columns. A part the
+        // game hangs on the body whole, a hat or a pair of glasses, has one: where the game
+        // places it among the body's bones (xfrm), which its copy's corners are all carried by.
         boolean eyed = fromTheEye && !shadow && model.tag instanceof SkinningData;
-        GL20.glUniformMatrix4fv(skin.palette, true, eyed ? headAtTheEye((SkinningData) model.tag, part.matrixPalette, modelView, person.finalScale) : part.matrixPalette);
+        FloatBuffer bones = model.isStatic ? hungAt(part) : eyed ? headAtTheEye((SkinningData) model.tag, part.matrixPalette, modelView, person.finalScale) : part.matrixPalette;
+        GL20.glUniformMatrix4fv(skin.palette, true, bones);
         if (skin.heldFor != peopleBegun) {
             GL20.glUniformMatrix4fv(skin.modelView, false, modelView);
             GL20.glUniformMatrix4fv(skin.projection, false, projection);
@@ -1933,7 +1936,7 @@ final class CharacterDraw {
             float parted = Math.max(mouthOpen, -mouthLips / 3f);
             GL20.glUniform1f(skin.mouthGap, parted > 0f && wearOf(copy, model, texture) == BODY ? parted : 0f);
         }
-        GL20.glUniform1f(skin.headBone, mouthOpen > 0f || mouthLips != 0f ? headBone(model) : -1f);
+        GL20.glUniform1f(skin.headBone, !model.isStatic && (mouthOpen > 0f || mouthLips != 0f) ? headBone(model) : -1f);
         if (!bare && !shadow) {
             if (part.ignoreLighting) {
                 GL20.glUniform3f(skin.ambient, 1f, 1f, 1f);
@@ -1976,6 +1979,17 @@ final class CharacterDraw {
             GL30.glBindVertexArray(0);
         }
         return true;
+    }
+
+    private static final float[] hung = new float[16];
+    private static final FloatBuffer HUNG = ByteBuffer.allocateDirect(16 * 4).order(ByteOrder.nativeOrder()).asFloatBuffer();
+
+    /** The one matrix of a part the game hangs on the body whole, by rows as the game keeps a bone's. */
+    private static FloatBuffer hungAt(ModelInstanceRenderData part) {
+        part.xfrm.get(hung);
+        HUNG.clear();
+        HUNG.put(hung).flip();
+        return HUNG;
     }
 
     /**
@@ -2249,13 +2263,13 @@ final class CharacterDraw {
             GL15.glDeleteBuffers(copy.vertices);
             GL15.glDeleteBuffers(copy.indices);
         }
-        copy = read(buffer, mesh.modificationCount, handle, elements, format, model.name, model.tag instanceof SkinningData skeleton ? skeleton : null);
+        copy = read(buffer, mesh.modificationCount, handle, elements, format, model.name, model.tag instanceof SkinningData skeleton ? skeleton : null, model.isStatic);
         copies.put(mesh, copy);
         return copy;
     }
 
     private static Copy read(VertexBufferObject buffer, int modification, VertexBufferObject.Vbo handle, int[] elements,
-            VertexBufferObject.VertexFormat format, String name, SkinningData skeleton) {
+            VertexBufferObject.VertexFormat format, String name, SkinningData skeleton, boolean whole) {
         int[] from = {-1, -1, -1, -1, -1};
         for (int element = 0; format != null && element < format.getNumElements(); element++) {
             VertexBufferObject.VertexElement at = format.getElement(element);
@@ -2274,8 +2288,8 @@ final class CharacterDraw {
         }
         int count = handle.numElements, stride = handle.vertexStride;
         String lacks = handle.faceDataOnly ? "its buffer holds no vertices"
-                : from[PLACE] < 0 ? "it has no places" : from[NORMAL] < 0 ? "it has no normals" : from[WEIGHTS] < 0 ? "it has no bone weights"
-                : from[BONE_NUMBERS] < 0 ? "it has no bone numbers" : from[UV] < 0 ? "it has no texture places"
+                : from[PLACE] < 0 ? "it has no places" : from[NORMAL] < 0 ? "it has no normals" : !whole && from[WEIGHTS] < 0 ? "it has no bone weights"
+                : !whole && from[BONE_NUMBERS] < 0 ? "it has no bone numbers" : from[UV] < 0 ? "it has no texture places"
                 : elements == null || elements.length < count || count % 3 != 0 ? "its triangles are not kept as a list of " + count + " corners"
                 : count == 0 ? "it has no triangles" : null;
         if (lacks != null) {
@@ -2341,7 +2355,9 @@ final class CharacterDraw {
         for (int vertex = 0; vertex < vertices; vertex++) {
             for (int attribute = 0; attribute < SMOOTH; attribute++) {
                 for (int part = 0; part < SIZE[attribute]; part++) {
-                    made.put(raw.getFloat(vertex * stride + from[attribute] + part * 4));
+                    // A model hung whole is carried by one matrix, given as bone 0.
+                    made.put(whole && attribute == WEIGHTS ? (part == 0 ? 1f : 0f) : whole && attribute == BONE_NUMBERS ? 0f
+                            : raw.getFloat(vertex * stride + from[attribute] + part * 4));
                 }
             }
             made.put(smooth, vertex * 3, 3);
