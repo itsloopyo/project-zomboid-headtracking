@@ -7,15 +7,6 @@ function Invoke-Tool {
     if ($LASTEXITCODE -ne 0) { throw "$Tool failed with exit code $LASTEXITCODE" }
 }
 
-# The sources go to javac in an argument file: listed on its command line they pass Windows'
-# 32767 character limit from a checkout as deep as a worktree.
-function Invoke-Javac {
-    param([string]$Name, [string[]]$Options, [string[]]$Sources)
-    $list = "build/$Name.sources"
-    $Sources | ForEach-Object { '"' + ($_ -replace '\\', '/') + '"' } | Set-Content -Encoding ascii $list
-    Invoke-Tool javac ($Options + @("@$list"))
-}
-
 function Get-JavaSources {
     param([string]$Directory)
     Get-ChildItem -Recurse -Filter *.java $Directory | ForEach-Object { Resolve-Path -LiteralPath $_.FullName -Relative }
