@@ -933,6 +933,7 @@ public final class ViewModel {
         // The mod's own model has its sights where it was made with them: the eye is brought to
         // their line, which is that far over the bore at the size the model is drawn.
         OwnModel own = hasMuzzle ? how.ownDrawn() : null;
+        float measured = Float.NaN;
         // The game's handguns are made for its own broad hands, nearly twice the size a handgun
         // is beside its long guns. In hands the size hands are they are drawn the size they would be:
         // the mod's own handgun, which is made the size it is, at the size the long guns are drawn.
@@ -946,13 +947,7 @@ public final class ViewModel {
             // A red dot sight on it is looked through along its tube's axis.
             aimedY = -(view.scope.redDot() && !Float.isNaN(own.dotSightLine) ? own.dotSightLine : own.sightLine) * tilesPerMetre;
             aimedAhead = own.eyeBehind * tilesPerMetre;
-            if (Float.isNaN(own.tilesPerMetre)) {
-                if (DevBuild.ON) {
-                    Log.info(own.what + " is held up at " + tilesPerMetre + " tiles a metre, where it is made to be drawn at " + OWN_TILES_PER_METRE
-                            + ": its eye is " + own.clearIrons * tilesPerMetre + " tiles behind its sights, " + own.clearDot * tilesPerMetre + " behind a red dot sight");
-                }
-            }
-            own.tilesPerMetre = tilesPerMetre;
+            measured = tilesPerMetre;
         }
         // Behind a scope the eye is on the scope's axis, the eye relief behind its eyepiece.
         if (hasMuzzle && view.scope.sighted(weapon, finalScale, origin, forward, top, end, scale, sighted)) {
@@ -1020,6 +1015,14 @@ public final class ViewModel {
         }
         if (!ViewModelMath.hold(origin, forward, top, hasMuzzle ? end : null, scale, atX, atY, ahead, out)) {
             return false;
+        }
+        // Only from a pose the game has given: before it has one the weapon's matrix is all nought, and so would the size be.
+        if (own != null) {
+            if (DevBuild.ON && Float.isNaN(own.tilesPerMetre)) {
+                Log.info(own.what + " is held up at " + measured + " tiles a metre, where it is made to be drawn at " + OWN_TILES_PER_METRE
+                        + ": its eye is " + own.clearIrons * measured + " tiles behind its sights, " + own.clearDot * measured + " behind a red dot sight");
+            }
+            own.tilesPerMetre = measured;
         }
         float steady = 1f - (1f - BOB_AIMED) * how.aim;
         // The grip is where the weapon turns about: it is the hand.
