@@ -31,6 +31,9 @@ final class MouthTests {
         aHissKeepsTheTeethNearlyTogether();
         theLipsKeepTheirShapeBetweenSyllables();
         aVoiceOverChatOpensAndClosesTheMouthAndShapesItsLips();
+        eeShowsBothRowsOfTeethWithADarkLineBetween();
+        aWideMouthShowsTheTongueInTheMiddleOnly();
+        aMouthNearlyShutShowsNoTongue();
     }
 
     private static void loudnessIsTheRootMeanSquareOfTheSamples() {
@@ -164,6 +167,46 @@ final class MouthTests {
             step(voice, sound.vowel(formants, -25f));
         }
         return voice;
+    }
+
+    /**
+     * The posed height between the lips in the middle of the mouth, in the model as made: the strip
+     * between the upper lip's front (0.8565) and the line where the lips meet (0.852) is 0.0045 shut,
+     * and the jaw adds the drop of a point 0.063 ahead of its hinge turned by 0.17 radians wide open.
+     * So "ah" (the jaw at 0.99) is about 0.0151, and "ee" (at 0.11, the lips spread, which drops the
+     * middle of the lower lip 0.0015 more) about 0.0072.
+     */
+    private static final float EE_HEIGHT = 0.0072f, AH_HEIGHT = 0.0151f;
+
+    private static void eeShowsBothRowsOfTeethWithADarkLineBetween() {
+        GlslFunctions shader = new GlslFunctions(CharacterDraw.TEETH);
+        check(shader.call("upperTeeth", 0.0005f) > 0.99f && shader.call("lowerTeeth", 0.0005f) > 0.99f,
+                "with the lips spread for \"ee\" both rows of teeth show next to the lips");
+        float darkest = 1f;
+        for (float below = 0f; below <= EE_HEIGHT; below += 0.0001f) {
+            float above = EE_HEIGHT - below;
+            darkest = Math.min(darkest, shader.call("upperTeeth", below) + shader.call("lowerTeeth", above) + shader.call("tongue", above, EE_HEIGHT, 0f));
+        }
+        check(darkest < 0.01f, "and a dark line between the rows, with no tongue in it: " + darkest);
+    }
+
+    private static void aWideMouthShowsTheTongueInTheMiddleOnly() {
+        GlslFunctions shader = new GlslFunctions(CharacterDraw.TEETH);
+        float overTheTeeth = CharacterDraw.LOWER_TEETH + 0.001f;
+        check(shader.call("tongue", overTheTeeth, AH_HEIGHT, 0f) > 0.99f, "\"ah\" shows the tongue over the lower teeth in the middle");
+        check(shader.call("tongue", overTheTeeth, AH_HEIGHT, 0.8f) < 0.01f, "and not towards the corners");
+        float below = CharacterDraw.UPPER_TEETH + 0.002f, above = AH_HEIGHT - below;
+        check(shader.call("upperTeeth", below) + shader.call("lowerTeeth", above) + shader.call("tongue", above, AH_HEIGHT, 0f) < 0.01f,
+                "and the dark of the mouth between the upper teeth and the tongue");
+    }
+
+    private static void aMouthNearlyShutShowsNoTongue() {
+        GlslFunctions shader = new GlslFunctions(CharacterDraw.TEETH);
+        float most = 0f;
+        for (float above = 0f; above <= 0.0075f; above += 0.0001f) {
+            most = Math.max(most, shader.call("tongue", above, 0.0075f, 0f));
+        }
+        check(most == 0f, "a mouth open a quarter of the way hides the tongue behind the teeth: " + most);
     }
 
     private static void quiet(Voice voice, Sound sound, int blocks) {
