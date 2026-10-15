@@ -309,13 +309,19 @@ public final class Controls {
      * The part of a character a first person shot is on, for the game to hit: see {@link HitPart}.
      * {@link HitPart#NONE} leaves the game to decide as it does, which it does for a player who
      * could be fought here ({@link Online#aimPicksThePartOf}) and for an animal, whose skeleton is
-     * not a person's.
+     * not a person's. Each of a blast's pellets is on the part its own line is on.
+     *
+     * @param pellet how many of the shot's pellets the game has already dealt this character
      */
-    int aimedPart(IsoGameCharacter target) {
+    int aimedPart(IsoGameCharacter target, int pellet) {
         if (!view.firstPerson.lookCaptured() || target instanceof IsoAnimal || !Online.aimPicksThePartOf(target instanceof IsoPlayer)) {
             return HitPart.NONE;
         }
         ViewCamera.Pose aim = view.firstPerson.aimView();
+        IsoPlayer shooter = view.player();
+        if (shooter.getPrimaryHandItem() instanceof HandWeapon held && held.getProjectileCount() > 1) {
+            aim = pelletLine(aim, shooter.getBallisticsController(), target.getID(), pellet);
+        }
         float standsUp = view.kerbSteps.up(view.worldScene.terrain, target, target.getX(), target.getY(), target.getZ());
         int part = hitPart.part(aim, standsUp, target);
         if (part != HitPart.NONE) {
@@ -330,6 +336,44 @@ public final class Controls {
         }
         return part;
     }
+
+    private final ViewCamera.Pose pelletAim = new ViewCamera.Pose();
+
+    /**
+     * The clean aim turned as far off the barrel's line as the {@code pellet}th pellet the game
+     * sent into the character {@code target} went: the game casts each pellet of a blast from the
+     * muzzle and keeps where it struck (id, x, height in levels times the square root of 6, y,
+     * as CombatManager.fireWeapon reads them, its tracers drawn to the same points). The aim
+     * itself where the game has no such pellet: a character let in through a wall (Penetration)
+     * was struck by none.
+     */
+    private ViewCamera.Pose pelletLine(ViewCamera.Pose aim, BallisticsController ballistics, int target, int pellet) {
+        float[] spread = ballistics.getCachedBallisticsTargetSpreadData();
+        int at = -1;
+        for (int i = 0, found = 0; i < ballistics.getNumberOfCachedSpreadData() && at < 0; i++) {
+            if ((int) spread[i * 4] == target && found++ == pellet) {
+                at = i * 4;
+            }
+        }
+        if (at < 0) {
+            return aim;
+        }
+        Vector3 muzzle = ballistics.getMuzzlePosition(), barrel = ballistics.getMuzzleDirection();
+        float wayX = spread[at + 1] - muzzle.x, wayY = spread[at + 3] - muzzle.y, wayUp = (spread[at + 2] / SPREAD_HEIGHT - muzzle.z) * ViewCamera.LEVEL_HEIGHT;
+        float barrelUp = barrel.z * ViewCamera.LEVEL_HEIGHT;
+        float way = (float) Math.sqrt(wayX * wayX + wayY * wayY + wayUp * wayUp);
+        float along = (float) Math.sqrt(barrel.x * barrel.x + barrel.y * barrel.y + barrelUp * barrelUp);
+        float x = aim.forwardX + wayX / way - barrel.x / along, y = aim.forwardY + wayY / way - barrel.y / along, up = aim.forwardUp + wayUp / way - barrelUp / along;
+        float length = (float) Math.sqrt(x * x + y * y + up * up);
+        pelletAim.set(aim);
+        pelletAim.forwardX = x / length;
+        pelletAim.forwardY = y / length;
+        pelletAim.forwardUp = up / length;
+        return pelletAim;
+    }
+
+    /** What the game's spread data multiplies a height in levels by. */
+    private static final float SPREAD_HEIGHT = 2.44949f;
 
     /** Whether the part {@link #aimedPart} last found is a hand or a foot, which the game counts with the forearm or the calf. */
     boolean aimedEnd() {

@@ -8,6 +8,7 @@ import zombie.core.skinnedmodel.advancedanimation.AnimatedModel;
 import zombie.core.skinnedmodel.DeadBodyAtlas;
 import fmod.fmod.FMODSoundEmitter;
 import fmod.javafmod;
+import java.util.HashMap;
 import java.util.Locale;
 import java.util.Stack;
 import zombie.CombatManager;
@@ -275,16 +276,24 @@ public final class Hooks {
     private static int aimedPart = HitPart.NONE;
     private static boolean aimedEnd;
 
+    /**
+     * How many of a blast's pellets each character the game let into its hit list has taken so
+     * far, by the character's id. The game puts a character in the list once for each of its
+     * pellets that found them, and works each out as a hit of its own: see Controls.aimedPart.
+     */
+    private static final HashMap<Integer, Integer> pelletsTaken = new HashMap<>();
+
     /** Called as the game starts working out where a shot one character dealt another lands. */
     public static void shotAt(IsoGameCharacter wielder, IsoGameCharacter target) {
         View view = wielder instanceof IsoPlayer player ? View.of(player) : null;
-        aimedPart = view == null ? HitPart.NONE : view.controls.aimedPart(target);
+        aimedPart = view == null ? HitPart.NONE : view.controls.aimedPart(target, pelletsTaken.getOrDefault(target.getID(), 0));
         aimedEnd = aimedPart != HitPart.NONE && view.controls.aimedEnd();
     }
 
     /** Called as the game starts working out which targets an attack can reach (CombatManager.calculateHitInfoList). */
     public static void hitListStarts() {
         Penetration.listStarts();
+        pelletsTaken.clear();
     }
 
     /** Called with the game's line of sight test from a shooter to a target, as its firearm keeps or drops the target: see Penetration. */
@@ -307,7 +316,10 @@ public final class Hooks {
         if (FirstPerson.TRACE && share < Penetration.WHOLE) {
             Log.info(String.format(Locale.ROOT, "penetration: %d hit through what is in the way, share %.3f of %.4f", target.getID(), share, damageSplit));
         }
-        return target.Hit(weapon, wielder, damageSplit * share, ignoreDamage, modDelta);
+        float dealt = target.Hit(weapon, wielder, damageSplit * share, ignoreDamage, modDelta);
+        // The game works the hit's part out once before the hit and again inside it: both are this pellet's.
+        pelletsTaken.merge(target.getID(), 1, Integer::sum);
+        return dealt;
     }
 
     /** Called where the game asks whether its overhead ray found the target, which decides whether it takes a part from that ray. */

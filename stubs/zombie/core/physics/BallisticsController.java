@@ -9,4 +9,6 @@ public final class BallisticsController {
     public Vector3 getMuzzlePosition() { throw new UnsupportedOperationException("reference stub"); }
     public Vector3 getMuzzleDirection() { throw new UnsupportedOperationException("reference stub"); }
     public boolean isValidTarget(int id) { throw new UnsupportedOperationException("reference stub"); }
+    public float[] getCachedBallisticsTargetSpreadData() { throw new UnsupportedOperationException("reference stub"); }
+    public int getNumberOfCachedSpreadData() { throw new UnsupportedOperationException("reference stub"); }
 }
