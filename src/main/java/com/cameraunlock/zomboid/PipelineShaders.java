@@ -3173,8 +3173,11 @@ final class PipelineShaders {
                 // raised where it is light. The sun then picks the surface out as it moves, and
                 // a wall or a lawn stops being a photograph of one. It fades with distance,
                 // where it would only shimmer.
-                // Less of it where relieve has tilted the surface by its real height.
-                float relief = water || grass || crown ? 0.0 : RELIEF * (1.0 - smoothstep(14.0, 38.0, range)) * (1.0 - 0.6 * timbered) * (1.0 - 0.75 * reliefNear) * (1.0 - walledNear) * (1.0 - snowed);
+                // Less of it where relieve has tilted the surface by its real height. None on a
+                // sheet hung on a wall (WorldScene.PRINT): it is flat, and its light and dark are
+                // what is printed on it.
+                bool printed = vMaterial > 89.5 && vMaterial < 90.5;
+                float relief = water || grass || crown || printed ? 0.0 : RELIEF * (1.0 - smoothstep(14.0, 38.0, range)) * (1.0 - 0.6 * timbered) * (1.0 - 0.75 * reliefNear) * (1.0 - walledNear) * (1.0 - snowed);
                 // A boulder's faces are flat only because it is built of few of them: the rock's
                 // own cracks and ledges stand out of each far more than paint does from a wall.
                 if (vMaterial > 58.5 && vMaterial < 59.5) {

@@ -801,7 +801,7 @@ final class WorldScene {
             String floorMaterial = properties.get("FloorMaterial"), footstep = properties.get("FootstepMaterial");
             float floor = Ground.of(floorMaterial, footstep, true), other = Ground.of(floorMaterial, footstep, false);
             asFloor = floor != 0f ? floor : materialOf(name, true);
-            asOther = other != 0f ? other : materialOf(sprite);
+            asOther = printed(properties, name) ? PRINT : other != 0f ? other : materialOf(sprite);
             laidWall = Masonry.suits(name);
             gableSheet = laidWall && name.startsWith("walls_exterior_roofs");
             lies = Flat.lies(properties.get("RenderLayer"), properties.get("MoveType"));
@@ -1812,6 +1812,27 @@ final class WorldScene {
     static final float BLOOD = 85f;
     /** The picture of a body lying on the ground: it fell on the snow, and settled snow does not cover it. */
     static final float BODY = 89f;
+    /**
+     * A sheet hung flat on a wall, a poster, a notice, a picture, a board: its light and dark
+     * are what is printed on it and say nothing of its shape. See printed.
+     */
+    static final float PRINT = 90f;
+    /** What the game calls the sheets and boards it hangs flat on a wall. */
+    private static final Set<String> PRINTS = Set.of("Poster", "Torn Poster", "Notices", "Picture", "Painting", "Paintings", "Certificate",
+            "Child's Drawing", "Childrens Drawing", "Board", "Whiteboard", "Noteboard", "Pegboard", "USA");
+
+    /**
+     * Whether a sprite is a sheet or a board the game hangs flat on a wall. The map's film
+     * posters carry no name, and are known by the sheet they are on. What gives light is a
+     * lamp, whose glow goes by its own stuff.
+     */
+    static boolean printed(PropertyContainer properties, String name) {
+        if (!"WallObject".equals(properties.get("MoveType")) || properties.has("HasLightOnSprite") || properties.get("LightRadius") != null) {
+            return false;
+        }
+        String called = properties.get("CustomName");
+        return called != null ? PRINTS.contains(called) : name != null && name.startsWith("walls_decoration");
+    }
 
     /** What a sprite that is no floor is made of: see materialOf. A wall the game says is of wood, on a sheet made for one place, is boarded. */
     static float materialOf(IsoSprite sprite) {
@@ -4814,7 +4835,18 @@ final class WorldScene {
             return Litter.kindOf(null, otherHue);
         }
 
+        /**
+         * Adds what the game draws over an object, as of the object's stuff: ivy and stains over a
+         * wall are the wall's. A sheet pinned over it is print of its own, and the next overlay
+         * of the object is of the object's stuff again.
+         */
         private void addOver(IsoObject object, IsoSprite under, IsoSprite over, boolean isFloor, int x, int y, int z) {
+            float material = frame.material;
+            addOverOf(object, under, over, isFloor, x, y, z);
+            frame.material = material;
+        }
+
+        private void addOverOf(IsoObject object, IsoSprite under, IsoSprite over, boolean isFloor, int x, int y, int z) {
             // The game's flames and smoke are drawn by the picture as fire, never as a card: see Fires.
             if (over == null || FireLooks.isLook(over)) {
                 return;
@@ -4825,7 +4857,7 @@ final class WorldScene {
             }
             frameOf(object, texture);
             standOn(object);
-            frame.material = under.getType() == IsoObjectType.tree && Own.plants() ? LEAVES : frame.material;
+            frame.material = under.getType() == IsoObjectType.tree && Own.plants() ? LEAVES : kindOf(over).asOther == PRINT ? PRINT : frame.material;
             sprites++;
             // Leaves stand on the same card as their trunk. Each layer is moved a little towards
             // the eye from the one under it, or the two would be drawn through each other.

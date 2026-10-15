@@ -24,6 +24,8 @@ final class WallObjectTests {
         Checks.run("aSeatWhoseHeightTheGameCannotReadIsLeftToTheGame", WallObjectTests::aSeatWhoseHeightTheGameCannotReadIsLeftToTheGame);
         Checks.run("aChalkboardSeenFromBehindIsABoardAndOneSeenFromInFrontLiesFlat", WallObjectTests::aChalkboardSeenFromBehindIsABoardAndOneSeenFromInFrontLiesFlat);
         Checks.run("aShowerOnTheWallsSeenFromBehindIsTheShowersModel", WallObjectTests::aShowerOnTheWallsSeenFromBehindIsTheShowersModel);
+        Checks.run("aSheetHungOnAWallIsPrintAndNotTheWallsStuff", WallObjectTests::aSheetHungOnAWallIsPrintAndNotTheWallsStuff);
+        Checks.run("whatGivesLightOrIsNoSheetIsNoPrint", WallObjectTests::whatGivesLightOrIsNoSheetIsNoPrint);
     }
 
     private static final String NOTICE = "trash_walls_01_2|CanScrap||CustomName|Notices|Facing|E|GroupName|Battered|IsMoveAble||Material|Paper|MoveType|WallObject|PickUpWeight|10|WallOverlay|";
@@ -186,5 +188,41 @@ final class WallObjectTests {
                 + "Material2|Pipes|MoveType|WallObject|PickUpLevel|2|PickUpTool|Hammer|PickUpWeight|50|PlaceTool|Hammer|ScrapSize|Small"));
         check(model(shower).equals("shower_head"), "a shower on a south wall is the shower's model, as one on a north wall is: " + model(shower));
         check(shower == null || shower.turns == 0, "facing north");
+    }
+
+    private static float drawnAs(String row) {
+        return new WorldScene.Kind(sprite(row)).asOther;
+    }
+
+    private static void aSheetHungOnAWallIsPrintAndNotTheWallsStuff() {
+        check(drawnAs(NOTICE) == WorldScene.PRINT && drawnAs(WANTED) == WorldScene.PRINT, "a notice pinned to a wall is print");
+        check(drawnAs("location_business_machinery_01_27|CanScrap||CustomName|Pegboard|Facing|E|ForceSingleItem||GroupName|Wood|IsMoveAble||Material|Wood|"
+                + "MaterialType|Wood|MoveType|WallObject|PickUpWeight|50|ScrapSize|Small|SpriteGridPos|0,0|WallOverlay||attachedW|") == WorldScene.PRINT,
+                "a pegboard over a wall of boards is a board of its own, and is not boarded as the wall is");
+        check(drawnAs("location_business_office_generic_01_15" + CHALK.replace("Board|", "Noteboard|").replace("Chalk", "Cork")) == WorldScene.PRINT, "a noteboard is print");
+        check(drawnAs("walls_decoration_04_32|IsMoveAble||MoveType|WallObject|PickUpWeight|10|attachedN|") == WorldScene.PRINT,
+                "a film poster the game gives no name is print, by its sheet");
+        check(drawnAs("walls_decoration_01_21|CustomName|Mirror|Facing|N|ForceSingleItem||GroupName|Small Wide|IsHigh||IsMirror||IsMoveAble||MaterialType|Glass|"
+                + "MoveType|WallObject|PickUpWeight|30|SpriteGridPos|1,0|WallOverlay||attachedS|") == WorldScene.PAINT, "a mirror is no print");
+        check(drawnAs("lighting_indoor_01_0|CanBreak||CustomName|Switch|GroupName|Light|HasLightOnSprite||MoveType|WallObject|PickUpLevel|5|attachedN||lightswitch|")
+                == WorldScene.LAMP, "a light switch is no print");
+        check(drawnAs(SEAT) != WorldScene.PRINT && drawnAs(TROPHY) != WorldScene.PRINT && drawnAs("x" + SHOP_SHELVES + "Shop") != WorldScene.PRINT,
+                "what stands out from its wall is no print");
+        check(drawnAs("trash_walls_01_0|CanScrap||CustomName|Notices|Facing|E|GroupName|Weathered|IsMoveAble||Material|Paper|PickUpWeight|10|WallOverlay|") != WorldScene.PRINT,
+                "nor what the game does not move as a thing hung on a wall");
+    }
+
+    private static void whatGivesLightOrIsNoSheetIsNoPrint() {
+        check(drawnAs("lighting_outdoor_01_42|CustomName|Sign|Facing|S|GroupName|Neon Open|HasLightOnSprite||IsHigh||IsMoveAble||LightRadius|4|MoveType|WallObject|"
+                + "PickUpLevel|1|PickUpTool|Electrician|PickUpWeight|50|PlaceTool|Electrician|attachedN||lightB|110|lightG|25|lightR|110|lightswitch|") == WorldScene.LAMP,
+                "a neon sign is a lamp, and glows at night as one");
+        check(drawnAs("lighting_indoor_01_24|CustomName|Sign|Facing|E|GroupName|Exit|HasLightOnSprite||IsHigh||IsMoveAble||LightRadius|2|MoveType|WallObject|"
+                + "PickUpLevel|1|PickUpTool|Hammer|PickUpWeight|20|PlaceTool|Hammer|WallObjectAllowDoorframe||lightB|5|lightG|15|lightR|55|lightswitch|") == WorldScene.LAMP,
+                "an exit sign is a lamp");
+        check(drawnAs("location_community_school_01_5" + CHALK) == WorldScene.PRINT, "a chalkboard is print");
+        check(drawnAs("location_shop_mall_signs_01_3|IsMoveAble||MoveType|WallObject|PickUpWeight|10|attachedN|") != WorldScene.PRINT,
+                "an unnamed sprite off the sheets of hung pictures is no print: a raised shop sign");
+        check(drawnAs("location_shop_mall_signs_01_3|CustomName|Sign|IsMoveAble||MoveType|WallObject|PickUpWeight|10|attachedN|") != WorldScene.PRINT,
+                "nor is a sign, which may stand out from its wall");
     }
 }
