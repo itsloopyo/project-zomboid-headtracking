@@ -49,6 +49,7 @@ final class TerrainTests {
             groundReadAheadGivesAChunkTheHeightsItHasOnceLoaded();
             groundLoadedOtherwiseThanReadAheadHasItsOwnHeights();
             theLevelLandHasNoKerbs();
+            aChunkStillFillingIsReadAgainOnceLoaded();
         } finally {
             System.arraycopy(around, 0, Terrain.around, 0, around.length);
             System.arraycopy(pads, 0, Terrain.padsAround, 0, pads.length);
@@ -229,6 +230,51 @@ final class TerrainTests {
             check(Math.abs(cut - Terrain.KERB) < 1e-4f, "on the hills a street lies a kerb below the land: " + cut);
             check(Terrain.LEVEL.kerb(0, 0) == null, "the level land has no kerbs");
             check(Terrain.LEVEL.height(4.5f, 3.5f) == 0f, "on the level land a street is at the game's height: " + Terrain.LEVEL.height(4.5f, 3.5f));
+        } finally {
+            ChunkMarks.live = live;
+            Terrain.forget();
+        }
+    }
+
+    /**
+     * A chunk the map is still filling has squares with no floor yet, which read as made
+     * ground. Kept as read, its street would lose its kerb for the rest of the session.
+     */
+    private static void aChunkStillFillingIsReadAgainOnceLoaded() {
+        boolean live = ChunkMarks.live;
+        Terrain.forget();
+        Terrain.HILLS.heighten(1f);
+        Country.set(List.of());
+        try {
+            ChunkMarks.live = true;
+            TestMap map = new TestMap();
+            var grass = map.sprite("blends_natural_01_0", zombie.iso.SpriteDetails.IsoObjectType.normal);
+            var road = map.sprite("blends_street_01_0", zombie.iso.SpriteDetails.IsoObjectType.normal);
+            for (int x = -24; x < 32; x++) {
+                for (int y = -24; y < 32; y++) {
+                    var square = map.cell.square(x, y, 0);
+                    if (x >= 0 && x < 8 && y >= 0 && y < 8) {
+                        square.filling(true);
+                    } else {
+                        square.floor(grass);
+                    }
+                }
+            }
+            Terrain.frame(3000);
+            Terrain.loaded(1);
+            Terrain.HILLS.corners(map.cell, 0, 0);
+            for (int x = 0; x < 8; x++) {
+                for (int y = 0; y < 8; y++) {
+                    var square = map.cell.square(x, y, 0);
+                    square.floor(y >= 2 && y < 6 ? road : grass);
+                    square.filling(false);
+                }
+            }
+            Terrain.frame(3001);
+            Terrain.loaded(2);
+            Terrain.HILLS.fromMap(map.cell, 0, 0);
+            float cut = Terrain.HILLS.land(4.5f, 3.5f) - Terrain.HILLS.height(4.5f, 3.5f);
+            check(Math.abs(cut - Terrain.KERB) < 1e-4f, "a street read while its chunk was still filling lies a kerb below the land once the chunk is loaded: " + cut);
         } finally {
             ChunkMarks.live = live;
             Terrain.forget();

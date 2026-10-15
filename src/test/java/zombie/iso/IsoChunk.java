@@ -4,6 +4,8 @@ package zombie.iso;
 public final class IsoChunk {
     public int wx;
     public int wy;
+    /** False while the map is still filling the chunk: see IsoGridSquare.filling. */
+    public boolean loaded;
 
     public int getMaxLevel() {
         return 0;

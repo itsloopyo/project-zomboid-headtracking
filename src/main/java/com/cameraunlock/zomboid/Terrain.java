@@ -228,7 +228,7 @@ final class Terrain {
     private static final Footings.Site site = new Footings.Site() {
         @Override
         public byte over(int x, int y) {
-            IsoGridSquare square = siteCell.getGridSquare(x, y, 0);
+            IsoGridSquare square = ground(siteCell, x, y);
             if (square == null) {
                 return guessedOver(x, y);
             }
@@ -249,7 +249,7 @@ final class Terrain {
         @Override
         public boolean loaded(int wx, int wy) {
             // As findWater and kerbs take it: the map has every square of a chunk or none of it.
-            return siteCell.getGridSquare(wx * CHUNK_TILES + CHUNK_TILES / 2, wy * CHUNK_TILES + CHUNK_TILES / 2, 0) != null;
+            return ground(siteCell, wx * CHUNK_TILES + CHUNK_TILES / 2, wy * CHUNK_TILES + CHUNK_TILES / 2) != null;
         }
 
         @Override
@@ -259,7 +259,7 @@ final class Terrain {
 
         @Override
         public long house(int x, int y) {
-            IsoGridSquare square = siteCell.getGridSquare(x, y, 0);
+            IsoGridSquare square = ground(siteCell, x, y);
             if (square == null) {
                 return MapAhead.guessed(Math.floorDiv(x, CHUNK_TILES), Math.floorDiv(y, CHUNK_TILES)).house[inChunk(x, y)];
             }
@@ -269,11 +269,21 @@ final class Terrain {
 
         @Override
         public boolean paved(int x, int y) {
-            IsoGridSquare square = siteCell.getGridSquare(x, y, 0);
+            IsoGridSquare square = ground(siteCell, x, y);
             byte kind = square == null ? MapAhead.guessed(Math.floorDiv(x, CHUNK_TILES), Math.floorDiv(y, CHUNK_TILES)).kind[inChunk(x, y)] : kind(square);
             return !Paving.without && (kind == STREET || kind == MADE);
         }
     };
+    /**
+     * A square of the ground, or null while the map is still filling its chunk: such a square
+     * may have no floor or room yet, and what it was read as would be kept as what it is. The
+     * chunk counts as loaded, and so is read again, once the game has finished it.
+     */
+    private static IsoGridSquare ground(IsoCell cell, int x, int y) {
+        IsoGridSquare square = cell.getGridSquare(x, y, 0);
+        return square != null && square.getChunk().loaded ? square : null;
+    }
+
     /** Where a square of the map is in its chunk, as Kinds and MapAhead.Guess keep squares. */
     private static int inChunk(int x, int y) {
         return Math.floorMod(x, CHUNK_TILES) * CHUNK_TILES + Math.floorMod(y, CHUNK_TILES);
@@ -1155,7 +1165,7 @@ final class Terrain {
      * would find nothing.
      */
     private static boolean onMap(IsoCell cell, int wx, int wy) {
-        return cell.getGridSquare(wx * CHUNK_TILES + CHUNK_TILES / 2, wy * CHUNK_TILES + CHUNK_TILES / 2, 0) != null || MapAhead.guessed(wx, wy) != null;
+        return ground(cell, wx * CHUNK_TILES + CHUNK_TILES / 2, wy * CHUNK_TILES + CHUNK_TILES / 2) != null || MapAhead.guessed(wx, wy) != null;
     }
 
     /** What the squares of a chunk not loaded are, as MapAhead read them. */
@@ -1189,7 +1199,7 @@ final class Terrain {
         if (kept != null) {
             return kept;
         }
-        MapAhead.Guess guess = cell.getGridSquare(wx * CHUNK_TILES + CHUNK_TILES / 2, wy * CHUNK_TILES + CHUNK_TILES / 2, 0) == null ? MapAhead.guessed(wx, wy) : null;
+        MapAhead.Guess guess = ground(cell, wx * CHUNK_TILES + CHUNK_TILES / 2, wy * CHUNK_TILES + CHUNK_TILES / 2) == null ? MapAhead.guessed(wx, wy) : null;
         if (guess != null) {
             kept = guessed(guess);
             unsure.put(chunk, kept);
@@ -1199,7 +1209,7 @@ final class Terrain {
         for (int i = 0; i < CHUNK_TILES; i++) {
             for (int j = 0; j < CHUNK_TILES; j++) {
                 int x = wx * CHUNK_TILES + i, y = wy * CHUNK_TILES + j;
-                IsoGridSquare square = cell.getGridSquare(x, y, 0);
+                IsoGridSquare square = ground(cell, x, y);
                 byte kind = kind(square);
                 whole &= kind != UNKNOWN;
                 passing.kinds[i * CHUNK_TILES + j] = kind;

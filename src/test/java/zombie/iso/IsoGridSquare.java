@@ -9,6 +9,7 @@ public final class IsoGridSquare {
     private final PZArrayList<IsoObject> objects = new PZArrayList<>();
     private long roomID = -1L;
     private IsoObject floor;
+    private boolean filling;
 
     IsoGridSquare(int x, int y, int z) {
         this.x = x;
@@ -26,6 +27,11 @@ public final class IsoGridSquare {
     /** Lays a floor of that sprite on the square, under what is on it. */
     public void floor(IsoSprite sprite) {
         floor = add(sprite);
+    }
+
+    /** Whether the map is still filling the square's chunk, which the game says on the chunk. */
+    public void filling(boolean filling) {
+        this.filling = filling;
     }
 
     public void setRoomID(long roomID) {
@@ -56,6 +62,7 @@ public final class IsoGridSquare {
         IsoChunk chunk = new IsoChunk();
         chunk.wx = Math.floorDiv(x, 8);
         chunk.wy = Math.floorDiv(y, 8);
+        chunk.loaded = !filling;
         return chunk;
     }
 
