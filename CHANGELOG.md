@@ -44,6 +44,7 @@
 - Bare-handed shoves and stomps use your own hands.
 - Eating, drinking, reading, bandaging, hammering, sawing, searching and other timed actions move your hands in view.
 - From a vehicle seat you can raise a firearm and shoot out of the vehicle, window shut or not. The shot breaks the window, windscreen or rear screen it goes through. Where players can fight, the window has to be open or broken first, as in the game.
+- The driver keeps steering, accelerating and braking with a rifle or shotgun raised, driving with keyboard and mouse. On a controller, and where players can fight, raising one takes the controls as in the game.
 - Shots hit the body part you aim at.
 - Single player: shot legs make zombies shamble, then crawl. Shot arms sag, then hang.
 - Single player: limbs come off at the hand, foot, elbow, knee, shoulder or hip. Most burst in blood and gore, some fly off and land on the ground. Shotgun headshots sometimes take the head off or burst it. Zombies missing limbs leave blood trails.
