@@ -171,6 +171,8 @@ def scattered(ix, iy, iz, seed):
 
 
 # What has been worked out for a body model already: the same for every tone and state of decay of it.
+# Each entry holds the layout it was worked out over, so that layout is never freed and no later
+# layout can be given its id.
 KEPT = {}
 
 
@@ -178,8 +180,8 @@ def cloudy(where, grain, seed, layers=4):
     """Patchy noise over the body, 0 to 1, the same at the same place on the body whatever the layout."""
     key = ('cloudy', id(where), grain, seed, layers)
     if key not in KEPT:
-        KEPT[key] = clouded(where, grain, seed, layers)
-    return KEPT[key]
+        KEPT[key] = where, clouded(where, grain, seed, layers)
+    return KEPT[key][1]
 
 
 def clouded(where, grain, seed, layers):
@@ -252,8 +254,8 @@ def joined(image):
 def wrapped(pictures, name, where, facing, span, density, grain=False):
     key = ('wrapped', name, id(where), span, density, grain)
     if key not in KEPT:
-        KEPT[key] = laid(pictures, name, where, facing, span, density, grain)
-    return KEPT[key]
+        KEPT[key] = where, laid(pictures, name, where, facing, span, density, grain)
+    return KEPT[key][1]
 
 
 def laid(pictures, name, where, facing, span, density, grain):
