@@ -55,6 +55,9 @@ final class CarSmash {
     private static final ArrayList<Float> KEPT = new ArrayList<>();
     private static final Vector3f LOCAL = new Vector3f(), ORIGIN = new Vector3f();
 
+    /** True while knockDown slows the vehicle through the game's plant push, which plants giving way would otherwise pass over. Logic thread. */
+    static boolean slowing;
+
     /** What a vehicle going this fast knocks down of a thing, or null where the game's own rules stand. */
     private static Knockdown.Kind knockable(IsoObject thing) {
         IsoSprite sprite = thing.getSprite();
@@ -195,7 +198,12 @@ final class CarSmash {
         float kmh = kmh(vehicle);
         float kept = Knockdown.speedKept(KEPT), crash = Knockdown.crash(vehicle.getSpeed2D() * (1f - kept));
         // Taken while the first thing still stands where it was hit: the game takes its place from its square.
-        vehicle.applyImpulseFromHitPlant(MET.getFirst(), IMPULSE_PER_SHARE_LOST * (1f - kept));
+        slowing = true;
+        try {
+            vehicle.applyImpulseFromHitPlant(MET.getFirst(), IMPULSE_PER_SHARE_LOST * (1f - kept));
+        } finally {
+            slowing = false;
+        }
         BrokenFences broken = BrokenFences.getInstance();
         BentFences bent = BentFences.getInstance();
         for (int i = 0; i < MET.size(); i++) {

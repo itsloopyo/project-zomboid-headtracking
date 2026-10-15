@@ -665,7 +665,7 @@ public final class Hooks {
 
     /** Asked as BaseVehicle.applyImpulseFromHitPlant begins: true where the plant gives way and the push is passed over. */
     public static boolean plantGivesWay() {
-        return Knockdown.plantsGiveWay(Online.joined());
+        return Knockdown.plantPushPassedOver(Online.joined(), CarSmash.slowing);
     }
 
     /** Called with what the game's off-road check reads where CarController.update sets the engine's force. */

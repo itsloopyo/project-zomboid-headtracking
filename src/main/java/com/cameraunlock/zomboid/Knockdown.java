@@ -50,6 +50,14 @@ final class Knockdown {
         return !online;
     }
 
+    /**
+     * Whether BaseVehicle.applyImpulseFromHitPlant is passed over: where plants give way, except
+     * for the push CarSmash gives through it to slow a car by what it knocks down.
+     */
+    static boolean plantPushPassedOver(boolean online, boolean smashing) {
+        return plantsGiveWay(online) && !smashing;
+    }
+
     /** What a thing a vehicle touches slows it by, as the game counts it (IsoObject.GetVehicleSlowFactor): see plantsGiveWay. */
     static float slowFactor(boolean online, float slows) {
         return plantsGiveWay(online) ? 0f : slows;
