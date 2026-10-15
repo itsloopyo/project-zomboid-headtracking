@@ -327,8 +327,8 @@ final class Decor {
             givenBack[picture]++;
             if (textures[picture] != 0) {
                 GL11.glDeleteTextures(textures[picture]);
+                Pipeline.forgetTexel(textures[picture]);
                 textures[picture] = 0;
-                Pipeline.forgetTexels();
             }
             if (waiting[picture] != null) {
                 waiting[picture].memory.free();
@@ -357,8 +357,8 @@ final class Decor {
                 }
                 if (textures[picture] != 0) {
                     GL11.glDeleteTextures(textures[picture]);
+                    Pipeline.forgetTexel(textures[picture]);
                     textures[picture] = 0;
-                    Pipeline.forgetTexels();
                 }
                 // What the frame raised before this is the frame's, and is not laid to the picture.
                 int before = GL11.glGetError();

@@ -5917,6 +5917,21 @@ final class Pipeline {
         contentReady = false;
     }
 
+    /**
+     * Forgets the size of a texture given back to the graphics card, whose name may be handed
+     * out again for a picture of another size. Forgetting every size for each one given back had
+     * every texture of the next frame asked its size again, a wait on the driver each.
+     */
+    static void forgetTexel(int texture) {
+        int mask = texelOf.length - 1;
+        for (int slot = texture * 0x9E3779B1 >>> 16 & mask; texelOf[slot] != 0; slot = slot + 1 & mask) {
+            if (texelOf[slot] == texture) {
+                texelRead[slot] = gameFrame - 2 * TEXEL_KEPT_FRAMES;
+                return;
+            }
+        }
+    }
+
     /** Forgets the size of every texture drawn with: names given back to the graphics card are handed out again for pictures of other sizes. */
     static void forgetTexels() {
         Arrays.fill(texelOf, 0);

@@ -400,7 +400,6 @@ final class Rugs {
             make(square, true);
         }
         if (gave > 0) {
-            Pipeline.forgetTexels();
             if (FirstPerson.TRACE) {
                 Log.info("rugs: " + gave + " sharp pictures given back");
             }
@@ -423,6 +422,7 @@ final class Rugs {
 
     private static void giveBack(Square square) {
         GL11.glDeleteTextures(square.sharp);
+        Pipeline.forgetTexel(square.sharp);
         square.sharp = 0;
         sharpOrDrawing--;
     }
