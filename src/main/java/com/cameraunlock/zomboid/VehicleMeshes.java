@@ -184,6 +184,14 @@ final class VehicleMeshes {
             if (!mesh.isReady() || mesh.vb == null || instance.textureMask != null && !instance.textureMask.isReady()) {
                 return;
             }
+            // So does a body the game has not placed yet, whose matrix is all noughts.
+            float turns = 0f;
+            for (int column = 0; column < 12; column += 4) {
+                turns += stands[column] * stands[column] + stands[column + 1] * stands[column + 1] + stands[column + 2] * stands[column + 2];
+            }
+            if (!(turns > 0f)) {
+                return;
+            }
             for (int column = 0; column < 4; column++) {
                 float shift = column == 3 ? 1f : 0f;
                 float x = stands[column * 4] - standsX * shift, y = stands[column * 4 + 1] - standsY * shift, up = stands[column * 4 + 2] - groundUp * shift;
