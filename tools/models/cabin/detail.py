@@ -208,6 +208,6 @@ def bake_layers(folder):
         surface = numpy.stack([nrm[..., 0], nrm[..., 1], r, w * 0.5], axis=2)
         for kind, array in (("surface", surface),):
             data = (numpy.clip(array, 0, 1) * 255 + 0.5).astype(numpy.uint8)
-            with gzip.open(os.path.join(folder, "detail.%s.%d.gz" % (kind, k)), "wb", compresslevel=9) as f:
-                f.write(data.tobytes())
+            with open(os.path.join(folder, "detail.%s.%d.gz" % (kind, k)), "wb") as f:
+                f.write(gzip.compress(data.tobytes(), compresslevel=9, mtime=0))
         print("baked detail layer", k, name, flush=True)

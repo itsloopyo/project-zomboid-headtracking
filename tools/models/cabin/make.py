@@ -467,16 +467,16 @@ def pack(name, cabin, tiled, drawn, info, texture_name, colour, surface):
     head += struct.pack("<I", len(floats)) + struct.pack("<%df" % len(floats), *floats)
     os.makedirs(OUTPUT, exist_ok=True)
     path = os.path.join(OUTPUT, name + ".mesh.gz")
-    with gzip.open(path, "wb", compresslevel=9) as f:
-        f.write(head + vertices.tobytes() + indices.tobytes())
+    with open(path, "wb") as f:
+        f.write(gzip.compress(head + vertices.tobytes() + indices.tobytes(), compresslevel=9, mtime=0))
     print("wrote %s: %d vertices, %d triangles (%s)" % (os.path.normpath(path), len(vertices), len(indices) // 3,
                                                       ", ".join("%d" % (c // 3) for c in counts)), flush=True)
     if colour is not None:
         os.makedirs(PICTURES, exist_ok=True)
         for kind, picture in (("colour", colour), ("surface", surface)):
             p = os.path.join(PICTURES, "%s.%s.gz" % (texture_name, kind))
-            with gzip.open(p, "wb", compresslevel=9) as f:
-                f.write(picture.tobytes())
+            with open(p, "wb") as f:
+                f.write(gzip.compress(picture.tobytes(), compresslevel=9, mtime=0))
             print("wrote %s" % os.path.normpath(p), flush=True)
 
 

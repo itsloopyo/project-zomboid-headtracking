@@ -649,8 +649,8 @@ def pack(things, skeleton, names, path):
     # The hand's own lines, which what it holds is laid along.
     for line in (hand.along, hand.across, hand.out):
         out += struct.pack("<3f", *line)
-    with gzip.open(path, "wb", compresslevel=9) as file:
-        file.write(bytes(out))
+    with open(path, "wb") as file:
+        file.write(gzip.compress(bytes(out), compresslevel=9, mtime=0))
     print("wrote %s: %d bones, %d corners, %d triangles, %d poses, %d bytes" % (path, len(names), len(vertices), len(indices) // 3, len(POSES), len(out)))
     print("parts:", ", ".join("%s %d triangles" % (name, count // 3) for name, first, count in parts))
     print("lengths: upper arm %.4f, forearm %.4f, wrist to the middle finger's tip %.4f" % ((elbow - shoulder).length, (wrist - elbow).length, reach.reach))
@@ -911,8 +911,8 @@ def pictures(baked, folder, preview):
     colour = bytes_of(numpy.concatenate([encoded(baked["colour"]), baked["follows"][..., :1]], axis=2))
     surface = bytes_of(numpy.concatenate([baked["normal"][..., :2], 1.0 - baked["rough"][..., :1], baked["light"][..., :1]], axis=2))
     for name, array in (("arms.colour.gz", colour), ("arms.surface.gz", surface)):
-        with gzip.open(os.path.join(folder, name), "wb", compresslevel=9) as packed:
-            packed.write(array.tobytes())
+        with open(os.path.join(folder, name), "wb") as packed:
+            packed.write(gzip.compress(array.tobytes(), compresslevel=9, mtime=0))
         print("wrote", name, array.shape)
     if preview:
         os.makedirs(preview, exist_ok=True)
