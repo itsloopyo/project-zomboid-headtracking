@@ -590,6 +590,18 @@ final class RoomSight {
     private float[] covers = new float[256 * 4];
     /** For each opening, whether its rectangle was worked out and whether it covers any of the picture. */
     private byte[] worked = new byte[256];
+    /**
+     * For each opening, the horizon build its hiddenByBlocks answer was worked out against with
+     * no growth (the picture's own walk, every frame), and the answer: it stands for as long as
+     * the horizon does. Looked for afresh every frame, a street of windows in a tall building
+     * was most of the logic thread's frame while it was faced. 0 is no answer.
+     */
+    private int[] hiddenFor = new int[256];
+    private boolean[] hiddenWas = new boolean[256];
+    /** For each opening, the walk its state was read in and the state: an opening reached through several regions is read once a walk. */
+    private int[] stateFor = new int[256];
+    private byte[] stateWas = new byte[256];
+    private int walks;
     private static final byte UNWORKED = 0, EMPTY = 1, COVERS = 2;
     /**
      * For each region the walk reaches, the rectangle of the picture it has been reached
@@ -699,6 +711,7 @@ final class RoomSight {
         this.tanAcross = tanAcross;
         this.tanUp = tanUp;
         Arrays.fill(worked, 0, openings.count, UNWORKED);
+        walks++;
         reached.clear();
         reachedThrough.clear();
         if (start != OUTSIDE) {
@@ -738,7 +751,14 @@ final class RoomSight {
                     continue;
                 }
                 // Whether it is open is asked last but one: it reads the map.
-                int state = state(ground, openings, opening);
+                int state;
+                if (stateFor[opening] == walks) {
+                    state = stateWas[opening];
+                } else {
+                    state = state(ground, openings, opening);
+                    stateFor[opening] = walks;
+                    stateWas[opening] = (byte) state;
+                }
                 if (state != SEE && !(state == SHUT && nearerThan(openings, opening, shutWithin))) {
                     continue;
                 }
@@ -768,6 +788,17 @@ final class RoomSight {
         if (!horizon.holds(eyeX, eyeY, eyeUp, blocks, eyeBuilding)) {
             horizon.build(eyeX, eyeY, eyeUp, blocks, eyeBuilding);
         }
+        if (grow != 0f) {
+            return hiddenByBlocksNow(openings, opening);
+        }
+        if (hiddenFor[opening] != horizon.builds) {
+            hiddenFor[opening] = horizon.builds;
+            hiddenWas[opening] = hiddenByBlocksNow(openings, opening);
+        }
+        return hiddenWas[opening];
+    }
+
+    private boolean hiddenByBlocksNow(Openings openings, int opening) {
         int x = openings.x[opening], y = openings.y[opening], kind = openings.kind[opening];
         if (kind == UP) {
             alongX[0] = x - grow;
@@ -934,9 +965,15 @@ final class RoomSight {
     /** Lists each opening under both its regions, and forgets every rectangle worked out before. */
     private void index(Openings openings) {
         int count = openings.count;
+        Arrays.fill(hiddenFor, 0);
+        Arrays.fill(stateFor, 0);
         if (worked.length < count) {
             int grown = Integer.highestOneBit(count) * 2;
             worked = new byte[grown];
+            hiddenFor = new int[grown];
+            hiddenWas = new boolean[grown];
+            stateFor = new int[grown];
+            stateWas = new byte[grown];
             covers = new float[grown * 4];
             next = new int[grown * 2];
         }
