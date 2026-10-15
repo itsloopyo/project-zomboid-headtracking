@@ -1562,6 +1562,8 @@ final class Pipeline {
         GL11.glBindTexture(GL_TEXTURE_2D, lookColor);
         glassShown.set("uPicture", 0);
         glassShown.set("uSize", (float) width, (float) height);
+        glassShown.set("uDrawn", (lookScissor[0] + 0.5f) / width, (lookScissor[1] + 0.5f) / height,
+                (lookScissor[0] + lookScissor[2] - 0.5f) / width, (lookScissor[1] + lookScissor[3] - 0.5f) / height);
         glassShown.set("uFacing", lookingGlass.plane[0], lookingGlass.plane[1], lookingGlass.plane[2]);
         glassCorners.clear();
         float[] glass = lookingGlass.glass;

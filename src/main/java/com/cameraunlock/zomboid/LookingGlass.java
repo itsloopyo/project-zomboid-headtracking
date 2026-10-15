@@ -66,6 +66,8 @@ final class LookingGlass {
     static final String SHOWN = "#version 120\n" + CabinGlass.NOISE + """
             uniform sampler2D uPicture;
             uniform vec2 uSize;
+            // The part of uPicture drawn this frame, its least and greatest texel centres from 0 to 1: the rest holds other frames' pictures.
+            uniform vec4 uDrawn;
             // The way the glass faces, on the map: the corners are the map's from the eye.
             uniform vec3 uFacing;
             varying vec3 vPlace;
@@ -81,7 +83,7 @@ final class LookingGlass {
             }
 
             vec3 pictureAt(vec2 uv) {
-                return texture2D(uPicture, clamp(uv, vec2(0.0), vec2(1.0))).rgb;
+                return texture2D(uPicture, clamp(uv, uDrawn.xy, uDrawn.zw)).rgb;
             }
 
             void main() {
