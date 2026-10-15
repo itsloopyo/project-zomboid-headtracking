@@ -138,6 +138,7 @@ public final class Hooks {
         Fires.forget();
         Pieces.forget();
         LimbDecals.forget();
+        SharedHeads.forget();
         for (int i = 0; i < View.COUNT; i++) {
             View view = View.of(i);
             if (view != null) {
@@ -847,6 +848,7 @@ public final class Hooks {
     public static void pose(AnimationPlayer animation) {
         HitFlinch.pose(animation);
         WoundPose.pose(animation, wounds);
+        SharedHeads.pose(animation);
         for (int i = 0; i < View.COUNT; i++) {
             View view = View.of(i);
             if (view != null) {
@@ -858,6 +860,7 @@ public final class Hooks {
     /** Called from AnimationPlayer.updateAnimation_StandardAnimation once the matrices the model is drawn with are made. */
     public static void posed(AnimationPlayer animation) {
         // Put back in the opposite order to turning: what HitFlinch keeps is the game's own pose.
+        SharedHeads.posed(animation);
         WoundPose.posed(animation);
         HitFlinch.posed(animation);
         for (int i = 0; i < View.COUNT; i++) {

@@ -59,6 +59,11 @@ final class Microphones {
         running = now;
     }
 
+    /** Whether a player's microphone is open and read. Any thread. */
+    static boolean listening(int player) {
+        return running[player] != null;
+    }
+
     /** The shape of a player's mouth. Any thread. */
     static Mouths.Shape mouth(int player) {
         Capture capture = running[player];

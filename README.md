@@ -11,7 +11,7 @@ It adds a first person view to the game, with a rebuilt world and new graphics.
 - **Decoupled look and aim** - head tracking moves the view, your mouse or controller keeps the aim
 - **6DOF tracking** - yaw, pitch and roll plus positional lean, peek and duck
 - **Works with any OpenTrack compatible tracker** - free options available for PC, iOS and Android
-- **Multiplayer and split screen** - join a server; only you need the mod. Up to four local players can each have their own first person view and head tracker.
+- **Multiplayer and split screen** - join a server; only you need the mod. Players who have it see each other's heads turn as their trackers do, through the game's own player updates, so the server needs no mod. Players without the mod see your head as the game poses it. Up to four local players can each have their own first person view and head tracker.
 
 ## First person
 
@@ -29,7 +29,7 @@ It adds a first person view to the game, with a rebuilt world and new graphics.
 - **Plough through zombies** - offline, a zombie hit or a body run over pushes back on a vehicle a quarter as hard as the game has it, so a crowd barely slows or turns the car.
 - **Hills that drive** - offline, a car you drive is pulled down the first person hills and leaves the ground over a crest at speed, with no drive or brakes until it lands.
 - **Burning wrecks** - offline, a vehicle left on its roof catches fire after four seconds, throws out whoever is inside and goes up six seconds later, leaving the game's burnt wreck. What was in it burns with it.
-- **Talking mouths** - off unless you turn it on: tick **Talking mouths** in the game's options and your character's mouth moves with what you say into your microphone, in first person as another player at your screen sees them and in the isometric view: the jaw drops for "ah", the lips spread for "ee" and "s" and round for "oo" and "oh", and the teeth and tongue show between them. Each player at the screen picks their own microphone there. Online, other players' mouths move while the game's voice chat plays them. The sound is measured as it comes in, and nothing is recorded or sent.
+- **Talking mouths** - off unless you turn it on: tick **Talking mouths** in the game's options and your character's mouth moves with what you say into your microphone, in first person as another player at your screen sees them and in the isometric view: the jaw drops for "ah", the lips spread for "ee" and "s" and round for "oo" and "oh", and the teeth and tongue show between them. Each player at the screen picks their own microphone there. Online, other players' mouths move while the game's voice chat plays them, and a player who has this mod with **Talking mouths** ticked shows how their own microphone shapes their mouth. The sound is measured as it comes in and is never recorded or sent: online, only how open your mouth is and the shape of your lips go to other players.
 - **Adjustable graphics** - automatic or manual quality, three picture styles, field of view, hill height and optional replacement models and textures.
 
 ## Requirements
@@ -236,6 +236,7 @@ The mouse turns the view. Movement keys follow the direction you face.
 - In first person, moving sideways or backwards puts your character in the game's aiming stance, at that stance's pace, so other players see it face where you look.
 - Hills stand at height 1 whatever you set, and zombies and props are drawn at full distance.
 - From a vehicle seat you shoot only with your window open or broken, and a driver who raises a rifle or shotgun lets go of the wheel, as in the game.
+- Your head turn and mouth are not shared with other players, so nobody with the mod sees where you are looking.
 
 Zombies, rooms and vehicles with no other player in them look as they do offline. On a server without PvP the mod plays as it does alone, apart from wounds and vehicles: on any server, your own co-op host included, a shot arm or leg leaves a zombie as the game does, and vehicles drive and roll as the game has them, on its level ground, and none burns out on its roof.
 

@@ -41,9 +41,9 @@ public final class ModelHead {
         this.view = view;
     }
 
-    private static final String NECK = "Bip01_Neck", HEAD = "Bip01_Head";
+    static final String NECK = "Bip01_Neck", HEAD = "Bip01_Head";
     /** How much of the turn the neck takes, seen from outside. The head's joint, which rides on it, takes what is left. */
-    private static final float NECK_SHARE = 0.4f;
+    static final float NECK_SHARE = 0.4f;
     private static final float MOST_YAW = (float) Math.toRadians(80), MOST_UP = (float) Math.toRadians(50),
             MOST_DOWN = (float) Math.toRadians(45), MOST_ROLL = (float) Math.toRadians(35);
 
@@ -196,9 +196,6 @@ public final class ModelHead {
         keepPosed(animation, top);
         float[] head = view.headTracking.headTurn();
         if (head != null && !player.isDead()) {
-            float yaw = Math.clamp(head[0], -MOST_YAW, MOST_YAW);
-            float pitch = Math.clamp(head[1], -MOST_DOWN, MOST_UP);
-            float roll = Math.clamp(head[2], -MOST_ROLL, MOST_ROLL);
             float neckShare = view.firstPerson.seenFromTheEye() ? 0f : NECK_SHARE;
             animation.getBoneTransformAt(neck.index).getPRS(neckPlace, neckTurn, neckScale);
             animation.getBoneTransformAt(top.index).getPRS(topPlace, topTurn, topScale);
@@ -212,10 +209,7 @@ public final class ModelHead {
                 topLeast = Math.min(topLeast, topAngle);
                 topMost = Math.max(topMost, topAngle);
             }
-            if (neckShare > 0f) {
-                turn(animation, neck, yaw * neckShare, pitch * neckShare, roll * neckShare);
-            }
-            turn(animation, top, yaw * (1f - neckShare), pitch * (1f - neckShare), roll * (1f - neckShare));
+            turnHead(boneTurn, animation, neck, top, head[0], head[1], head[2], neckShare);
         }
         animation.getBoneModelTransform(top.index, inModel);
         HelperFunctions.getPosition(inModel, joint);
@@ -257,8 +251,23 @@ public final class ModelHead {
         }
     }
 
+    /**
+     * Turns a posed head by the tracker's yaw, pitch and roll in radians, held to what a neck does,
+     * the neck taking neckShare of it and the head's joint the rest.
+     */
+    static void turnHead(BoneTurn boneTurn, AnimationPlayer animation, SkinningBone neck, SkinningBone top, float yaw, float pitch, float roll,
+            float neckShare) {
+        yaw = Math.clamp(yaw, -MOST_YAW, MOST_YAW);
+        pitch = Math.clamp(pitch, -MOST_DOWN, MOST_UP);
+        roll = Math.clamp(roll, -MOST_ROLL, MOST_ROLL);
+        if (neckShare > 0f) {
+            turn(boneTurn, animation, neck, yaw * neckShare, pitch * neckShare, roll * neckShare);
+        }
+        turn(boneTurn, animation, top, yaw * (1f - neckShare), pitch * (1f - neckShare), roll * (1f - neckShare));
+    }
+
     /** Turns one bone about its own joint, in the model's axes: yaw about straight up, then pitch about the turned side, then roll about the way the head then faces. */
-    private void turn(AnimationPlayer animation, SkinningBone bone, float yaw, float pitch, float roll) {
+    private static void turn(BoneTurn boneTurn, AnimationPlayer animation, SkinningBone bone, float yaw, float pitch, float roll) {
         float sy = (float) Math.sin(yaw / 2f), cy = (float) Math.cos(yaw / 2f);
         float sx = (float) Math.sin(pitch / 2f), cx = (float) Math.cos(pitch / 2f);
         // The tracker's roll is positive tilting to the left, which about the model's forward axis is a negative turn.

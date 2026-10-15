@@ -17,6 +17,31 @@ public final class OnlineTests {
         Checks.run("aViewIsOnAPersonFromFeetToHead", OnlineTests::aViewIsOnAPersonFromFeetToHead);
         Checks.run("aCallIsHandedToItsReplacement", OnlineTests::aCallIsHandedToItsReplacement);
         Checks.run("theAimPicksThePartOfAPlayerOnlyWhereTheyCannotBeFought", OnlineTests::theAimPicksThePartOfAPlayerOnlyWhereTheyCannotBeFought);
+        Checks.run("aSharedHeadAndMouthReadBackAsWritten", OnlineTests::aSharedHeadAndMouthReadBackAsWritten);
+        Checks.run("aSharedValueThisDoesNotWriteIsRefused", OnlineTests::aSharedValueThisDoesNotWriteIsRefused);
+    }
+
+    private static void aSharedHeadAndMouthReadBackAsWritten() {
+        float[] out = new float[5];
+        String both = SharedHeads.Wire.write(new float[] {0.5f, -0.123f, 1.2f}, new Mouths.Shape(0.4f, -0.7f));
+        check(both.equals("50,-12,120;40,-70"), "a head and a mouth in hundredths: " + both);
+        check(SharedHeads.Wire.read(both, out) == (SharedHeads.Wire.HEAD | SharedHeads.Wire.MOUTH)
+                && out[0] == 0.5f && out[1] == -0.12f && out[2] == 1.2f && out[3] == 0.4f && out[4] == -0.7f,
+                "read back to the hundredth: " + java.util.Arrays.toString(out));
+        String head = SharedHeads.Wire.write(new float[] {0f, 0f, -0.01f}, null);
+        check(head.equals("0,0,-1;") && SharedHeads.Wire.read(head, out) == SharedHeads.Wire.HEAD, "a head alone: " + head);
+        String mouth = SharedHeads.Wire.write(null, Mouths.Shape.SHUT);
+        check(mouth.equals(";0,0") && SharedHeads.Wire.read(mouth, out) == SharedHeads.Wire.MOUTH, "a mouth alone: " + mouth);
+        check(SharedHeads.Wire.write(null, null).isEmpty() && SharedHeads.Wire.read("", out) == 0, "nothing is the empty value, as a player who never set it reads");
+    }
+
+    private static void aSharedValueThisDoesNotWriteIsRefused() {
+        float[] out = new float[5];
+        for (String bad : new String[] {"1,2,3", "1,2;3,4", "1,2,3;4", "1,2,3;4,5;", "a,b,c;", "1,,3;", "1,2,3,4;", "400,0,0;", "0,0,0;101,0",
+                "0,0,0;-5,0", "0,0,0;5,0,", "99999999,0,0;", " 1,2,3;", "-;", ";"}) {
+            int has = SharedHeads.Wire.read(bad, out);
+            check(bad.equals(";") ? has == 0 : has == -1, "\"" + bad + "\" is refused: " + has);
+        }
     }
 
     private static void check(boolean condition, String what) {

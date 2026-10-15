@@ -518,6 +518,7 @@ public final class FirstPerson {
                 view.modeFade.take();
             }
             IsoPlayer player = view.player();
+            SharedHeads.send(view, player);
             if (player != null && GameTime.isGamePaused()) {
                 view.hearing.whilePaused(player);
             }

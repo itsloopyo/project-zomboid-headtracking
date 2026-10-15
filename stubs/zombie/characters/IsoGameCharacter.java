@@ -37,6 +37,8 @@ public abstract class IsoGameCharacter extends IsoMovingObject {
     public boolean isSprinting() { throw new UnsupportedOperationException("reference stub"); }
     public final boolean isFemale() { throw new UnsupportedOperationException("reference stub"); }
     public String GetVariable(String name) { throw new UnsupportedOperationException("reference stub"); }
+    public zombie.core.skinnedmodel.advancedanimation.IAnimationVariableSlot setVariable(String name, String value) { throw new UnsupportedOperationException("reference stub"); }
+    public String getVariableString(String name) { throw new UnsupportedOperationException("reference stub"); }
     public java.util.Stack<zombie.characters.CharacterTimedActions.BaseAction> getCharacterActions() { throw new UnsupportedOperationException("reference stub"); }
     public final boolean isFalling() { throw new UnsupportedOperationException("reference stub"); }
     public boolean isCurrentState(zombie.ai.State state) { throw new UnsupportedOperationException("reference stub"); }
