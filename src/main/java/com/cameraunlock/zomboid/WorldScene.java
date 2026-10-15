@@ -936,6 +936,8 @@ final class WorldScene {
     private long tollQuiet, tollPulls, tollPulled, tollAgedDiffered, tollAgedSame, tollAgedSamePlain, tollRestless;
     /** Dev only: the chunks built ahead of the view's turning to them since the last asking, and the time that took. */
     private long tollAhead, tollAheadNanos;
+    /** Dev only: how many times the room walk's horizon had been built when tolls last said. */
+    private int horizonsTold;
     /** Dev only: builds due for nothing but light that waited, the view not facing their chunk. */
     private long tollLitUnfaced;
     /** Dev only: see SightTrace. */
@@ -988,6 +990,16 @@ final class WorldScene {
     }
 
     private final RoomSight roomWalk = new RoomSight();
+    /**
+     * The openings and blocks in reach of the eye, and what they were last gathered from: see
+     * Frame.seeRooms. Logic thread. Kept here with the walk, not with each frame: four frames
+     * took turns handing the walk lists of the same things, and it built its horizon of every
+     * block in reach afresh for each, every frame, which by a tall building of 1,745 blocks
+     * was most of a millisecond and a half.
+     */
+    private final RoomSight.Openings openingsInReach = new RoomSight.Openings();
+    private final RoomSight.Blocks blocksInReach = new RoomSight.Blocks();
+    private long openingsReach;
     /**
      * The rooms whose contents builds hold, and whether builds go by them: they do while the
      * eye's own picture is drawn, and then a room no walk round the eye has found for a few
@@ -1153,6 +1165,8 @@ final class WorldScene {
         tollLitUnfaced = 0;
         told += String.format(Locale.ROOT, ", rooms walked %d times in %.2f ms each (chunks read for openings %d; last: openings %d, blocks %d, rooms seen %d, built %d, openings hidden by blocks %d)",
                 tollRoomsWalks, tollRoomsNanos / 1e6 / Math.max(1, tollRoomsWalks), roomMap.chunksRead, lastOpenings, lastBlocks, lastSeen, roomsBuilt.size(), lastHidden);
+        told += String.format(Locale.ROOT, ", horizons built %d", roomWalk.horizonBuilds() - horizonsTold);
+        horizonsTold = roomWalk.horizonBuilds();
         tollRoomsWalks = tollRoomsNanos = 0;
         roomMap.chunksRead = 0;
         tollAhead = tollAheadNanos = 0;
@@ -3415,10 +3429,6 @@ final class WorldScene {
         FigureRooms figureRooms;
         private final FigureRooms figureRoomsKept = new FigureRooms();
         private final RoomSight.Seen roomsSeenKept = new RoomSight.Seen();
-        private final RoomSight.Openings openingsInReach = new RoomSight.Openings();
-        private final RoomSight.Blocks blocksInReach = new RoomSight.Blocks();
-        /** What the openings in reach were last gathered from: see seeRooms. */
-        private long openingsReach;
 
         /** Logs each room a line through the picture reaches that the walk left out of roomsSeenKept: see ROOMS_CHECKED_EVERY_NANOS. */
         private void checkRoomsAgainstLines(int level, int eyeX, int eyeY, float aspect) {
