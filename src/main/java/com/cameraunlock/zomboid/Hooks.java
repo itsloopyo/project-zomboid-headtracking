@@ -602,6 +602,15 @@ public final class Hooks {
         return stock && !Ride.shootsThroughGlass(player);
     }
 
+    /**
+     * Called with whether a driver aims, as the game asks to decide whether to take the
+     * vehicle's controls from a driver raising a firearm. A player of this machine who drives
+     * while aiming (Ride.drivesWhileAiming) keeps them.
+     */
+    public static boolean aimingLetsGoOfTheWheel(boolean aiming, IsoPlayer player) {
+        return aiming && !Ride.drivesWhileAiming(player);
+    }
+
     /** Called as the game has drawn a person or a vehicle into a player's part of the screen. */
     public static void drawn(ModelSlotRenderData slot) {
         View view = drawn();
