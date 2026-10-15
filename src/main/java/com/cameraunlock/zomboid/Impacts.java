@@ -11,10 +11,12 @@ import zombie.iso.sprite.IsoSprite;
  * shot meets, by what the surface is made of, and the hole it leaves where the surface is one
  * the picture builds and that stays put.
  *
- * Whoever finds a shot's end (ImpactFinder, on the game's logic thread) adds it here, and the
- * render thread takes what has been added at the start of a frame, which is when each impact
- * starts: what flies is worked out on the graphics card from how long ago that was. Holes are
- * kept for as long as the save is played, the oldest given up past MOST_HOLES.
+ * Whoever finds a shot's end (ImpactFinder, on the game's logic thread) adds it here, which is
+ * when the impact starts, and the render thread takes what has been added at the start of a
+ * frame: what flies is worked out on the graphics card from how long ago the shot struck. A shot
+ * fired while no frame takes them, as in the game's own view, has thrown up what it will by its
+ * own clock and not the frame's, and first person shows what is left of it, its hole at least.
+ * Holes are kept for as long as the save is played, the oldest given up past MOST_HOLES.
  */
 final class Impacts {
     /** What a surface is made of, as far as what a shot knocks out of it goes. */
@@ -37,9 +39,12 @@ final class Impacts {
     record Struck(float x, float y, float up, float normalX, float normalY, float normalUp, float wayX, float wayY, float wayUp,
             float floor, int kind, float size, boolean hole, float grainX, float grainY, float grainUp) {}
 
-    private static final ArrayList<Struck> added = new ArrayList<>();
+    /** A shot that struck and when, by System.nanoTime. */
+    private record Added(Struck struck, long at) {}
 
-    /** The impacts taken, in a ring: each with the time it was taken and a number no other has had. Render thread. */
+    private static final ArrayList<Added> added = new ArrayList<>();
+
+    /** The impacts taken, in a ring: each with the time it struck and a number no other has had. Render thread. */
     static final Struck[] held = new Struck[MOST];
     static final long[] born = new long[MOST];
     static final int[] serial = new int[MOST];
@@ -56,16 +61,17 @@ final class Impacts {
 
     /** A shot has struck. Any thread. While no picture takes them, as in the game's own view, no more are held than there are places for holes. */
     static void add(Struck struck) {
+        long at = System.nanoTime();
         synchronized (added) {
             if (added.size() == MOST_HOLES) {
                 added.removeFirst();
             }
-            added.add(struck);
+            added.add(new Added(struck, at));
         }
     }
 
-    /** Takes what has struck since the last frame, which starts now. Render thread. */
-    static void take(long now) {
+    /** Takes what has struck since the last frame. Render thread. */
+    static void take() {
         synchronized (added) {
             if (forgotten) {
                 forgotten = false;
@@ -76,9 +82,10 @@ final class Impacts {
                 nextHole = 0;
                 holesChanged++;
             }
-            for (Struck struck : added) {
+            for (Added each : added) {
+                Struck struck = each.struck();
                 held[next] = struck;
-                born[next] = now;
+                born[next] = each.at();
                 serial[next] = ++numbered;
                 next = (next + 1) % MOST;
                 if (struck.hole()) {

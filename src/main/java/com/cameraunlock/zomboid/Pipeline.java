@@ -1042,7 +1042,7 @@ final class Pipeline {
             FineSkins.tend();
             drawn = chunks;
             ChunkBuffers.load(chunks, ahead);
-            Impacts.take(frameNanos);
+            Impacts.take();
             struck = !overhead && ImpactDraw.shown();
             // At rest overhead the picture is of the built world alone, as the game's is. On the
             // camera's way to the eye the far land is round the viewer and not the camera: it comes

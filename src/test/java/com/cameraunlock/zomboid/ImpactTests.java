@@ -28,7 +28,7 @@ final class ImpactTests {
         Checks.run("everyKindHasWhatFliesFromItWithinItsVertices", ImpactTests::everyKindHasWhatFliesFromItWithinItsVertices);
         Checks.run("piecesFallToTheFloorUnderAWallAndStayNearIt", ImpactTests::piecesFallToTheFloorUnderAWallAndStayNearIt);
         Checks.run("theShaderMovesWhatFliesAsTheseTestsDo", ImpactTests::theShaderMovesWhatFliesAsTheseTestsDo);
-        Checks.run("eachImpactStartsWhenAFrameTakesItAndHolesAreKept", ImpactTests::eachImpactStartsWhenAFrameTakesItAndHolesAreKept);
+        Checks.run("eachImpactStartsWhenItStrikesAndHolesAreKept", ImpactTests::eachImpactStartsWhenItStrikesAndHolesAreKept);
         Checks.run("leavingTheSaveForgetsItsHoles", ImpactTests::leavingTheSaveForgetsItsHoles);
         Checks.run("theGamesOwnLookShowsNoImpacts", ImpactTests::theGamesOwnLookShowsNoImpacts);
     }
@@ -181,47 +181,63 @@ final class ImpactTests {
         return new Impacts.Struck(x, 0f, 1f, -1f, 0f, 0f, 1f, 0f, 0f, 0f, Impacts.MASONRY, 1f, hole, 0f, 1f, 0f);
     }
 
-    private static void eachImpactStartsWhenAFrameTakesItAndHolesAreKept() {
+    private static void eachImpactStartsWhenItStrikesAndHolesAreKept() {
         Impacts.forget();
-        Impacts.take(0L);
+        Impacts.take();
+        long before = System.nanoTime();
         Impacts.add(struck(1f, true));
         Impacts.add(struck(2f, false));
         Impacts.add(struck(3f, true));
-        long now = 123_456_789L;
-        Impacts.take(now);
+        long after = System.nanoTime();
+        Impacts.take();
         int taken = 0;
         for (int slot = 0; slot < Impacts.MOST; slot++) {
             if (Impacts.held[slot] != null) {
                 taken++;
-                check(Impacts.born[slot] == now, "an impact starts in the frame that takes it");
+                check(Impacts.born[slot] >= before && Impacts.born[slot] <= after, "an impact starts when the shot strikes, not when a frame takes it");
             }
         }
         check(taken == 3, "all three are taken: " + taken);
         check(Impacts.holeCount == 2, "two left holes: " + Impacts.holeCount);
-        Impacts.take(now + 1);
+        Impacts.take();
         check(Impacts.holeCount == 2, "a frame with no new shot takes nothing more");
         // Shot while no picture takes them, in the game's own view: no more are held than there are places for holes.
         for (int i = 0; i < Impacts.MOST_HOLES + 50; i++) {
             Impacts.add(struck(i, true));
         }
-        Impacts.take(now + 2);
+        long shot = System.nanoTime();
+        // The first frame that takes them comes later: first person comes on.
+        try {
+            Thread.sleep(5);
+        } catch (InterruptedException interrupted) {
+            throw new IllegalStateException(interrupted);
+        }
+        Impacts.take();
         check(Impacts.holeCount == Impacts.MOST_HOLES, "the holes are kept up to their most: " + Impacts.holeCount);
         float least = Float.MAX_VALUE;
         for (int i = 0; i < Impacts.holeCount; i++) {
             least = Math.min(least, Impacts.holes[i].x());
         }
         check(least == 50f, "and the oldest are the ones given up: " + least);
+        // What flies from them, as ImpactDraw.debris ages it, is done LONGEST after the last shot, however late a frame took them.
+        long done = shot + (long) (Impacts.LONGEST * 1e9) + 1_000_000L;
+        for (int slot = 0; slot < Impacts.MOST; slot++) {
+            if (Impacts.held[slot] != null) {
+                float age = (done - Impacts.born[slot]) / 1e9f;
+                check(age > Impacts.LONGEST, "what a shot threw up is done LONGEST after it struck: " + age + " s old");
+            }
+        }
         Impacts.forget();
-        Impacts.take(0L);
+        Impacts.take();
     }
 
     private static void leavingTheSaveForgetsItsHoles() {
         Impacts.add(struck(1f, true));
-        Impacts.take(1L);
+        Impacts.take();
         check(Impacts.holeCount > 0, "a hole is kept");
         Impacts.forget();
         Impacts.add(struck(2f, true));
-        Impacts.take(2L);
+        Impacts.take();
         check(Impacts.holeCount == 0, "a save left takes its holes and what was shot as it was left: " + Impacts.holeCount);
         for (int slot = 0; slot < Impacts.MOST; slot++) {
             check(Impacts.held[slot] == null, "and nothing flies");
