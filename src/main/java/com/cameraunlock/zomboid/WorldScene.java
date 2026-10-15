@@ -6069,7 +6069,8 @@ final class WorldScene {
                 north = wallNorth != wallWest ? wallNorth : Banners.alongX(frame);
                 west = !north;
             }
-            // A light switch says nothing of where it is. It is on a wall of its square, and is
+            // A light switch marked for no wall (the game's own, lighting_indoor_01_0 to 7, are each
+            // marked attachedN, W, E or S and do not come here) is on a wall of its square, and is
             // laid on whichever the square has; stood up to face the eye it is a grey panel
             // floating in the room.
             if (!west && !north && type == IsoObjectType.lightswitch && frame.width < SWITCH_WIDEST * frame.scale) {

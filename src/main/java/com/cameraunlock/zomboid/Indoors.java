@@ -3,6 +3,7 @@ package com.cameraunlock.zomboid;
 import zombie.core.properties.PropertyContainer;
 import zombie.iso.IsoDirections;
 import zombie.iso.SpriteDetails.IsoFlagType;
+import zombie.iso.SpriteDetails.IsoObjectType;
 import zombie.iso.sprite.IsoSprite;
 
 /**
@@ -26,6 +27,8 @@ final class Indoors {
     private static final float BOX_DYE = 0.08f, CAN_DYE = 0.2f, FOOT_DYE = 0.01f, BOTTLE_DYE = 0.45f;
     /** How high the cloth of the pool table model is, in metres, and where on its sprite, in levels, the cloth gives its colour: under the height the game gives its rails. */
     private static final float POOL_CLOTH = 0.8f, POOL_DYE = 0.33f;
+    /** How high the middle of a light switch is, in metres. */
+    private static final float SWITCH_MIDDLE = 1.2f;
     private static final String VENTS = "rooftop_furniture_", FLOOR_LAMPS = "lighting_indoor_01_", BEDDING = "furniture_bedding";
 
     /** A piece told with no need of the way it faces, or one that hangs on the wall behind it. Null for anything else. */
@@ -59,6 +62,18 @@ final class Indoors {
         if (called.equals("Lights") && group.startsWith("Lamp") && single && facing == null && name.startsWith(FLOOR_LAMPS)) {
             // Three lamps under one name: two uplighters, then the one with a shade.
             return new Furniture(sprite, Sheets.place(name) == 58 ? "standard_lamp" : "torchiere", 0).dye(1 << Models.PAINT, FOOT_DYE).stand(0f, 0f, false);
+        }
+        // A light switch is marked for the wall it is on and not with a way it faces. The game paints it two or three times as
+        // big as a switch and higher up the wall, so that it can be told from over the house: it is the model of a switch plate,
+        // at the height a switch is.
+        if (called.equals("Switch") && single && sprite.getType() == IsoObjectType.lightswitch) {
+            IsoDirections away = properties.has(IsoFlagType.attachedN) ? IsoDirections.S : properties.has(IsoFlagType.attachedW) ? IsoDirections.E
+                    : properties.has(IsoFlagType.attachedE) ? IsoDirections.W : properties.has(IsoFlagType.attachedS) ? IsoDirections.N : null;
+            if (away == null) {
+                return null;
+            }
+            Furniture plate = new Furniture(sprite, "light_switch", Furniture.turnsOf(away)).hang(WallHung.behind(away), false).ownSize();
+            return plate.raise(SWITCH_MIDDLE - plate.model.height() / 2f);
         }
         if (facing == null || blocks || !holds.isEmpty() || onTable || surface != 0 || !properties.has("IsHigh") && !properties.has("IsLow")) {
             return null;

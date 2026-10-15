@@ -3120,6 +3120,32 @@ def hand_dryer():
     return model
 
 
+def light_switch():
+    """A light switch on a wall, the wall at +Y: a plate 7 cm wide and 11.5 high, the toggle tipped up out of a slot let into its middle, a screw over and under it."""
+    model = Model("light_switch", hung=True)
+    face, slot_back = -0.006, -0.003
+    plate = bmesh.new()
+    cells = grid_box(plate, [-0.035, -0.0065, 0.0065, 0.035], [face, 0.0], [0.0, 0.044, 0.071, 0.115])
+    middle = {cells[(i, 0, k)] for i in (1, 2) for k in (1, 2)}
+    opening = next(f for f in plate.faces if set(f.verts) == middle)
+    sunk = bmesh.ops.extrude_face_region(plate, geom=[opening])
+    bmesh.ops.delete(plate, geom=[opening], context="FACES")
+    walls = [v for v in sunk["geom"] if isinstance(v, bmesh.types.BMVert)]
+    bmesh.ops.translate(plate, vec=(0.0, slot_back - face, 0.0), verts=walls)
+    model.hard(plate, "enamel", bevel=0.0025, segments=2)
+    slot = bmesh.new()
+    cuboid(slot, -0.0065, 0.0065, slot_back - 0.0005, slot_back, 0.044, 0.071)
+    model.plain(slot, "plastic")
+    toggle = bmesh.new()
+    prism_y(toggle, (0.0, 0.066, 0.0075, 0.007, -0.019), (0.0, 0.0575, 0.009, 0.016, slot_back))
+    model.hard(toggle, "enamel", bevel=0.0015, segments=1)
+    screws = bmesh.new()
+    for z in (0.0175, 0.0975):
+        lathe(screws, [(0.0, 0.0), (0.0034, 0.0), (0.003, 0.0011), (0.0, 0.0016)], segments=10, to=along_y(0.0, face, z))
+    model.turned(screws, "metal", sharp=50.0)
+    return model
+
+
 def coat_rack():
     """A shelf on a wall with a row of hooks under it, the wall at +Y."""
     model = Model("coat_rack")
@@ -3833,7 +3859,7 @@ def display_cases():
 def indoors():
     """What stands in rooms and hangs on their walls: the pieces Indoors.java places."""
     return [range_hood(), garbage_can(), waste_basket(), louvre("wall_vent", 0.56, 0.42, "plastic", 5), louvre("wall_grille", 0.64, 0.34, "enamel", 7, deep=0.03),
-            round_vent(), exit_sign(), sconce(), pedestal_sink(), medicine_cabinet(), hand_dryer(), coat_rack(),
+            round_vent(), exit_sign(), sconce(), pedestal_sink(), medicine_cabinet(), hand_dryer(), light_switch(), coat_rack(),
             filing_cabinet(), carton("carton", 0.58, 0.58, 0.56), carton("carton_small", 0.44, 0.34, 0.3), computer(), water_cooler(),
             floor_lamp("torchiere", False), floor_lamp("standard_lamp", True), dresser_mirror(), side_table(), media_stand(), bar_stool(), clothes_dryer(),
             plank_bench(), pew(), bunk_bed("bunk_bed", "dark_wood"), bunk_bed("steel_bunk_bed", "metal"),

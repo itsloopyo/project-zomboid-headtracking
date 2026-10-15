@@ -70,6 +70,9 @@ final class FurnishingBuilder {
     private final float[] partAt = new float[4], wholeAt = new float[4];
     private final float[] screenAt = new float[2];
     private final float[] roofCorners = new float[4], onRoof = new float[3];
+    /** What placeHung leaves: where along its wall a hung piece's middle is, how high its foot is over the floor in tiles, and its scales. */
+    static final int ALONG = 0, FOOT = 1, SCALE = 2, SCALE_UP = 3;
+    private final float[] hungPlace = new float[4];
 
     FurnishingBuilder(WorldScene.Frame build) {
         this.build = build;
@@ -112,22 +115,8 @@ final class FurnishingBuilder {
             build.hungAt[WallHung.BOTTOM] = wholeAt[WallHung.BOTTOM];
             build.hungAt[WallHung.TOP] = wholeAt[WallHung.TOP];
         }
-        float wide = build.hungAt[WallHung.TO] - build.hungAt[WallHung.FROM];
-        float high = (build.hungAt[WallHung.TOP] - build.hungAt[WallHung.BOTTOM]) * ViewCamera.LEVEL_HEIGHT;
-        float along = (build.hungAt[WallHung.FROM] + build.hungAt[WallHung.TO]) / 2f;
-        Models.Model model = piece.model != null ? piece.model : Models.get(FRAMES[WallHung.frameFor(wide / high)]);
-        float scale = wide / model.width(), scaleUp = high / model.height(), foot = build.hungAt[WallHung.BOTTOM] * ViewCamera.LEVEL_HEIGHT;
-        if (piece.model != null && !piece.model.name.equals("canvas")) {
-            // A clock is round whatever its sprite's outline comes to, and hangs about the middle of it.
-            scale = scaleUp = piece.ownSize ? Furniture.TILES_PER_METRE : Math.clamp(Math.min(scale, scaleUp), CLOCK_SMALLEST, CLOCK_LARGEST);
-            foot += (high - model.height() * scale) / 2f;
-        }
-        if (piece.ownSize) {
-            // A lamp stands out into its square, and is painted to one side of its fixing for it.
-            float proud = model.depth() * scale / 2f;
-            along = Math.clamp(along + WallHung.alongProud(piece.wall, proud), 0f, 1f);
-            foot += WallHung.upProud(piece.wall, proud) * ViewCamera.LEVEL_HEIGHT;
-        }
+        Models.Model model = placeHung(piece, build.hungAt, build.geometry.raised, hungPlace);
+        float along = hungPlace[ALONG], foot = hungPlace[FOOT], scale = hungPlace[SCALE], scaleUp = hungPlace[SCALE_UP];
         // Its back clear of the wall's skin, which stands that far inside the square's edge.
         Models.turn(piece.turns, 0f, -1f, build.hungWay);
         float out = WorldScene.WALL_HALF + WorldScene.HUNG_CLEAR + model.depth() * scale / 2f;
@@ -165,6 +154,38 @@ final class FurnishingBuilder {
         }
         build.furnished++;
         return true;
+    }
+
+    /**
+     * Where on its wall a hung piece stands and how big, from where its sprite paints it (hungAt, as WallHung.painted
+     * leaves it) and how many levels the game raises the object by: into place, as ALONG to SCALE_UP. The model it is.
+     */
+    static Models.Model placeHung(Furniture piece, float[] hungAt, float raisedLevels, float[] place) {
+        float wide = hungAt[WallHung.TO] - hungAt[WallHung.FROM];
+        float high = (hungAt[WallHung.TOP] - hungAt[WallHung.BOTTOM]) * ViewCamera.LEVEL_HEIGHT;
+        float along = (hungAt[WallHung.FROM] + hungAt[WallHung.TO]) / 2f;
+        Models.Model model = piece.model != null ? piece.model : Models.get(FRAMES[WallHung.frameFor(wide / high)]);
+        float scale = wide / model.width(), scaleUp = high / model.height(), foot = hungAt[WallHung.BOTTOM] * ViewCamera.LEVEL_HEIGHT;
+        if (piece.model != null && !piece.model.name.equals("canvas")) {
+            // A clock is round whatever its sprite's outline comes to, and hangs about the middle of it.
+            scale = scaleUp = piece.ownSize ? Furniture.TILES_PER_METRE : Math.clamp(Math.min(scale, scaleUp), CLOCK_SMALLEST, CLOCK_LARGEST);
+            foot += (high - model.height() * scale) / 2f;
+        }
+        if (piece.ownSize) {
+            // A lamp stands out into its square, and is painted to one side of its fixing for it.
+            float proud = model.depth() * scale / 2f;
+            along = Math.clamp(along + WallHung.alongProud(piece.wall, proud), 0f, 1f);
+            foot += WallHung.upProud(piece.wall, proud) * ViewCamera.LEVEL_HEIGHT;
+        }
+        if (piece.raised > 0f) {
+            // What the game paints bigger and higher than it is hangs at its own height, over whatever the game raises it by.
+            foot = piece.raised + raisedLevels * ViewCamera.LEVEL_HEIGHT;
+        }
+        place[ALONG] = along;
+        place[FOOT] = foot;
+        place[SCALE] = scale;
+        place[SCALE_UP] = scaleUp;
+        return model;
     }
 
     /**

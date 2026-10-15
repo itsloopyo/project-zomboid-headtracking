@@ -2,6 +2,7 @@ package com.cameraunlock.zomboid;
 
 import static com.cameraunlock.zomboid.Checks.check;
 
+import zombie.iso.SpriteDetails.IsoObjectType;
 import zombie.iso.sprite.IsoSprite;
 
 /**
@@ -19,6 +20,7 @@ final class FurnitureTests {
         Checks.run("aBoxOnABoxStandsOnTheOneUnderIt", FurnitureTests::aBoxOnABoxStandsOnTheOneUnderIt);
         Checks.run("aFirstAidBoxIsNoMirrorCupboard", FurnitureTests::aFirstAidBoxIsNoMirrorCupboard);
         Checks.run("aStripLightIsLeftToItsSprite", FurnitureTests::aStripLightIsLeftToItsSprite);
+        Checks.run("aLightSwitchHangsOnTheWallItIsAttachedToAtASwitchsHeight", FurnitureTests::aLightSwitchHangsOnTheWallItIsAttachedToAtASwitchsHeight);
         Checks.run("aBenchIsAsHighAsItsSeatAndAsLongAsItsSquares", FurnitureTests::aBenchIsAsHighAsItsSeatAndAsLongAsItsSquares);
         Checks.run("ventsAreToldByTheirPlaceOnTheSheet", FurnitureTests::ventsAreToldByTheirPlaceOnTheSheet);
         Checks.run("binsGoByWhatTheyHoldWhereverTheyStand", FurnitureTests::binsGoByWhatTheyHoldWhereverTheyStand);
@@ -134,6 +136,54 @@ final class FurnitureTests {
         check(!model(bar).equals("sconce"), "nor is a bar of a lamp a sconce: " + model(bar));
         Furniture sconce = Furniture.known(sprite("lighting_indoor_01_16" + lamp + "Pink"));
         check(model(sconce).equals("sconce") && sconce.wall != WallHung.NONE, "where a lamp on a wall with a shade is a sconce hung on its wall: " + model(sconce));
+    }
+
+    private static void aLightSwitchHangsOnTheWallItIsAttachedToAtASwitchsHeight() {
+        String row = "|CanBreak||CustomName|Switch|GroupName|Light|HasLightOnSprite||MoveType|WallObject|PickUpLevel|5|PickUpTool|Electrician|"
+                + "PlaceTool|Electrician|lightswitch||attached";
+        String[] attached = {"N", "W", "E", "S", "N", "W", "S", "E"};
+        int[] walls = {WallHung.NORTH, WallHung.WEST, WallHung.EAST, WallHung.SOUTH, WallHung.NORTH, WallHung.WEST, WallHung.SOUTH, WallHung.EAST};
+        for (int i = 0; i < attached.length; i++) {
+            String name = "lighting_indoor_01_" + i;
+            IsoSprite on = new IsoSprite(name, TileRows.sprite(name + row + attached[i] + "|").getProperties(), IsoObjectType.lightswitch, null);
+            Furniture plate = Furniture.known(on);
+            check(model(plate).equals("light_switch"), "a light switch is the model of one: " + model(plate));
+            if (plate == null || plate.model == null) {
+                continue;
+            }
+            check(plate.wall == walls[i] && plate.ownSize, "hung at its own size on the wall it is attached to, " + attached[i] + ": wall " + plate.wall);
+            float[] front = new float[2];
+            Models.turn(plate.turns, 0f, -1f, front);
+            float[] intoRoom = {new float[] {0f, 1f, -1f, 0f, 0f, 1f, 0f, -1f}[i], new float[] {1f, 0f, 0f, -1f, 1f, 0f, -1f, 0f}[i]};
+            check(front[0] == intoRoom[0] && front[1] == intoRoom[1], "facing away from it into the room: " + front[0] + ", " + front[1]);
+            check(plate.model.width() < 0.1f && plate.model.height() < 0.15f,
+                    "as big as a switch plate: " + plate.model.width() + " by " + plate.model.height());
+            // Hung where the game's sprite paints it, as addHung hangs it: the painted rectangle of each sprite, in its 128 by 256 frame.
+            int[] painted = {106, 93, 119, 120, 7, 93, 20, 120, 111, 105, 124, 133, 2, 105, 15, 132, 66, 73, 79, 100, 47, 73, 60, 100, 42, 125, 55, 152, 71, 125, 84, 153};
+            int[] rect = new int[4];
+            System.arraycopy(painted, 4 * i, rect, 0, 4);
+            SpriteGeometry.Frame frame = new SpriteGeometry.Frame();
+            frame.scale = 2f;
+            frame.originU = 64f;
+            frame.originV = 192f;
+            frame.left = rect[0];
+            frame.top = rect[1];
+            frame.width = rect[2] - rect[0];
+            frame.height = rect[3] - rect[1];
+            float[] at = new float[4], place = new float[4];
+            boolean found = WallHung.painted(frame, plate.wall, at) || WallHung.paintedProud(at, plate.model.depth());
+            check(found, "its painting is found on the wall it is attached to, " + attached[i] + ", so it is not left to the sprite");
+            FurnishingBuilder.placeHung(plate, at, 0f, place);
+            float middle = place[FurnishingBuilder.FOOT] + plate.model.height() * place[FurnishingBuilder.SCALE_UP] / 2f;
+            check(Math.abs(middle - 1.2f) < 0.01f && place[FurnishingBuilder.SCALE_UP] == 1f, "its middle 1.2 m over the floor, at its own size: " + middle);
+            check(place[FurnishingBuilder.ALONG] > 0f && place[FurnishingBuilder.ALONG] < 1f, "along its wall where it is painted: " + place[FurnishingBuilder.ALONG]);
+            FurnishingBuilder.placeHung(plate, at, 0.25f, place);
+            check(Math.abs(place[FurnishingBuilder.FOOT] + plate.model.height() / 2f - 1.2f - 0.25f * ViewCamera.LEVEL_HEIGHT) < 0.01f,
+                    "and as much higher as the game raises it: " + place[FurnishingBuilder.FOOT]);
+        }
+        IsoSprite lamp = new IsoSprite("lighting_indoor_01_8", sprite("lighting_indoor_01_8|CustomName|Lamp|Facing|E|GroupName|Striped|IsTableTop||"
+                + "Surface|34|lightswitch|").getProperties(), IsoObjectType.lightswitch, null);
+        check(!model(Furniture.known(lamp)).equals("light_switch"), "a lamp the game also types a light switch is not one");
     }
 
     private static void aBenchIsAsHighAsItsSeatAndAsLongAsItsSquares() {

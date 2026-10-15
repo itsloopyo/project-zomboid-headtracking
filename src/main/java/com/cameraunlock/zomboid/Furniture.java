@@ -66,7 +66,7 @@ final class Furniture {
     float scale = TILES_PER_METRE, scaleUp = TILES_PER_METRE, raised;
     /** Where the model's origin is from the corner of the piece's first square. */
     float centreX, centreY;
-    /** For what hangs on a wall, which wall of its square: it is stood by addHung, where its sprite paints it. NONE for all else. */
+    /** For what hangs on a wall, which wall of its square: it is stood by addHung, where its sprite paints it, or with its foot at raised where that is set. NONE for all else. */
     int wall = WallHung.NONE;
     /** Whether what its frame holds is the picture its sprite paints, and not a mirror's glass. */
     boolean pictured;
