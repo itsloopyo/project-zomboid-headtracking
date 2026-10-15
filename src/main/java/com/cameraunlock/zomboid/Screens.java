@@ -153,8 +153,8 @@ final class Screens {
     /**
      * Logic thread: what the sheet on the glass of a set that is on carries where another piece
      * carries its texture, for the bars or for a programme, which the picture's program turns
-     * into a texture with now. The shot a set showing a programme shows first is read from
-     * the jar here, and tick reads the rest of its show's.
+     * into a texture with now. The shot a set showing a programme shows first is asked of
+     * Decor here, and tick asks for the rest of its show's.
      */
     static int held(IsoTelevision set, int showing, boolean inGrey) {
         if (showing == BARS) {
@@ -199,8 +199,8 @@ final class Screens {
 
     /**
      * Logic thread, once a frame: asks each channel a set in view is on what it is airing, and
-     * reads one more shot of a show in view, so that the render thread finds each one read
-     * when its time comes and has only to hand it to the graphics card.
+     * asks for one more shot of a show in view, so that each is most often read by the time
+     * its cut comes and the render thread has only to hand it to the graphics card.
      */
     static void tick() {
         if (shows == null) {

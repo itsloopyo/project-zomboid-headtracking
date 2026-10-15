@@ -1,6 +1,7 @@
 package com.cameraunlock.zomboid;
 
 import java.awt.image.BufferedImage;
+import java.awt.image.DataBufferByte;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -13,6 +14,8 @@ import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.imageio.ImageIO;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL30;
@@ -54,6 +57,37 @@ final class Decor {
     /** The pixels of each picture read and not yet given to the graphics card, and the texture of each that has been. Both under the class's lock. */
     private static Read[] waiting;
     private static int[] textures;
+    /**
+     * The read of each picture asked for on the pictures' own thread and not yet come, how many
+     * times each picture has been given back, and how many times every picture has: a read
+     * asked for before its picture was given back is let go when it comes, and asked for again
+     * where the picture was wanted meanwhile. All under the class's lock.
+     */
+    private static Runnable[] reading;
+    private static int[] givenBack, readAskedBack, readAskedAll;
+    private static boolean[] wantedAgain;
+    private static int allGivenBack;
+    /** Why a picture could not be read, thrown once on the render thread the next time a picture is drawn. */
+    private static final AtomicReference<IllegalStateException> readFailed = new AtomicReference<>();
+    /**
+     * Pictures to be read, those a frame is drawing first. A picture takes 4 to 50 ms to read,
+     * which no frame waits on: what is drawn before its read comes shows nothing.
+     */
+    private static final LinkedBlockingDeque<Runnable> toRead = new LinkedBlockingDeque<>();
+
+    static {
+        Thread reader = new Thread(() -> {
+            while (true) {
+                try {
+                    toRead.take().run();
+                } catch (InterruptedException stop) {
+                    return;
+                }
+            }
+        }, "CameraUnlock pictures");
+        reader.setDaemon(true);
+        reader.start();
+    }
     /** Whether each picture's texture was made at half size. */
     private static boolean[] madeSmall;
     /** Until when no picture is made after the graphics card had no room for one, or 0 if it always had. Render thread. */
@@ -62,7 +96,7 @@ final class Decor {
     private static final int GL_OUT_OF_MEMORY = 0x0505;
 
     /** A picture read out of the jar, at the size it was read at: half the file's in a graphics mode that shows smaller pictures. */
-    private record Read(OffHeap.Block memory, int wide, int high) {}
+    record Read(OffHeap.Block memory, int wide, int high) {}
 
     /** Where a model's pane is on it, in its own metres: the least and greatest x, then the least and greatest z. */
     private static final IdentityHashMap<Models.Model, float[]> panes = new IdentityHashMap<>();
@@ -81,6 +115,11 @@ final class Decor {
                 waiting = new Read[read.names.size()];
                 madeSmall = new boolean[read.names.size()];
                 textures = new int[read.names.size()];
+                reading = new Runnable[read.names.size()];
+                givenBack = new int[read.names.size()];
+                readAskedBack = new int[read.names.size()];
+                readAskedAll = new int[read.names.size()];
+                wantedAgain = new boolean[read.names.size()];
             }
             index = read;
         }
@@ -151,34 +190,69 @@ final class Decor {
     /**
      * What a piece that shows the picture carries where another carries its sprite's texture:
      * a number below zero, which texture turns into the picture's texture. The picture is read
-     * from the jar here, on the logic thread, the first time something shows it, so that the
+     * from the jar the first time something shows it, on the pictures' own thread, so that the
      * render thread has only to hand it to the graphics card.
      */
     static int held(int picture) {
-        boolean wanted;
         synchronized (Decor.class) {
-            // One made at the other size for another graphics mode is read again here, for the render thread to put in its place.
+            // One made at the other size for another graphics mode is read again, for the render thread to put in its place.
             boolean otherSize = textures[picture] != 0 && madeSmall[picture] != Quality.smallerPictures();
-            wanted = (textures[picture] == 0 || otherSize) && waiting[picture] == null;
-        }
-        if (wanted) {
-            // Read with the lock let go: the render thread takes it for every picture it draws, and
-            // would stand still for as long as a picture takes to read. Only this thread reads one.
-            String path = FOLDER + index.names.get(picture) + ".jpg";
-            Read read;
-            try {
-                read = pixels(path, index.sizes.get(picture));
-            } catch (IOException e) {
-                throw new UncheckedIOException(path + " could not be read", e);
-            }
-            synchronized (Decor.class) {
-                waiting[picture] = read;
+            if ((textures[picture] == 0 || otherSize) && waiting[picture] == null) {
+                read(picture, false);
             }
         }
         return -1 - picture;
     }
 
-    private static Read pixels(String path, float[] size) throws IOException {
+    /**
+     * Under the class's lock: has the picture read on the pictures' own thread, ahead of every
+     * read asked for before where a frame is drawing it now.
+     */
+    private static void read(int picture, boolean drawing) {
+        Runnable asked = reading[picture];
+        if (asked != null) {
+            if (readAskedBack[picture] != givenBack[picture] || readAskedAll[picture] != allGivenBack) {
+                wantedAgain[picture] = true;
+            } else if (drawing && toRead.remove(asked)) {
+                toRead.offerFirst(asked);
+            }
+            return;
+        }
+        readAskedBack[picture] = givenBack[picture];
+        readAskedAll[picture] = allGivenBack;
+        String path = FOLDER + index.names.get(picture) + ".jpg";
+        float[] size = index.sizes.get(picture);
+        Runnable read = () -> {
+            Read made = null;
+            try {
+                made = pixels(path, size);
+            } catch (Throwable thrown) {
+                readFailed.compareAndSet(null, new IllegalStateException(path + " could not be read", thrown));
+            } finally {
+                synchronized (Decor.class) {
+                    reading[picture] = null;
+                    boolean stale = readAskedBack[picture] != givenBack[picture] || readAskedAll[picture] != allGivenBack;
+                    if (made != null && stale) {
+                        made.memory.free();
+                    } else if (made != null) {
+                        waiting[picture] = made;
+                    }
+                    if (stale && wantedAgain[picture]) {
+                        read(picture, false);
+                    }
+                }
+            }
+        };
+        reading[picture] = read;
+        wantedAgain[picture] = false;
+        if (drawing) {
+            toRead.offerFirst(read);
+        } else {
+            toRead.offerLast(read);
+        }
+    }
+
+    static Read pixels(String path, float[] size) throws IOException {
         BufferedImage image;
         try (InputStream in = Decor.class.getResourceAsStream(path)) {
             if (in == null) {
@@ -193,23 +267,33 @@ final class Decor {
         if (wide != (int) size[0] || high != (int) size[1]) {
             throw new IOException(path + " is " + wide + " by " + high + ", and the index says " + (int) size[0] + " by " + (int) size[1]);
         }
-        int[] row = new int[wide];
+        if (image.getType() != BufferedImage.TYPE_3BYTE_BGR) {
+            throw new IOException(path + " is read as image type " + image.getType() + ", where every picture tools/pictures makes is read as TYPE_3BYTE_BGR");
+        }
+        // Read off the raster a row at a time: getRGB takes each dot through the colour model, and is as slow again as the decoding.
+        byte[] bgr = ((DataBufferByte) image.getRaster().getDataBuffer()).getData();
+        byte[] row = new byte[wide * 4];
         OffHeap.Block memory = OffHeap.take(wide * high * 4);
         ByteBuffer pixels = memory.bytes;
-        for (int y = 0; y < high; y++) {
-            image.getRGB(0, y, wide, 1, row, 0, wide);
-            for (int argb : row) {
-                pixels.put((byte) (argb >> 16)).put((byte) (argb >> 8)).put((byte) argb).put((byte) 0xff);
+        for (int y = 0, from = 0; y < high; y++) {
+            for (int to = 0; to < row.length; from += 3, to += 4) {
+                row[to] = bgr[from + 2];
+                row[to + 1] = bgr[from + 1];
+                row[to + 2] = bgr[from];
+                row[to + 3] = (byte) 0xff;
             }
+            pixels.put(row);
         }
         pixels.flip();
         if (!Quality.smallerPictures() || wide < 2 || high < 2) {
             return new Read(memory, wide, high);
         }
-        // An odd last column or row is left out of the half size picture: it is a dot of a frame's edge.
-        OffHeap.Block half = Pictures.halved(pixels, wide, high);
-        memory.free();
-        return new Read(half, wide / 2, high / 2);
+        try {
+            // An odd last column or row is left out of the half size picture: it is a dot of a frame's edge.
+            return new Read(Pictures.halved(pixels, wide, high), wide / 2, high / 2);
+        } finally {
+            memory.free();
+        }
     }
 
     /**
@@ -222,6 +306,7 @@ final class Decor {
             if (textures == null) {
                 return;
             }
+            allGivenBack++;
             for (int picture = 0; picture < textures.length; picture++) {
                 if (textures[picture] != 0) {
                     GL11.glDeleteTextures(textures[picture]);
@@ -239,6 +324,7 @@ final class Decor {
     /** Render thread: gives one picture back to the graphics card. What shows it next reads it again. */
     static void forget(int picture) {
         synchronized (Decor.class) {
+            givenBack[picture]++;
             if (textures[picture] != 0) {
                 GL11.glDeleteTextures(textures[picture]);
                 textures[picture] = 0;
@@ -251,29 +337,28 @@ final class Decor {
         }
     }
 
-    /** The texture of the picture a piece carries as held left it, made the first time it is drawn. On the render thread. */
+    /** The texture of the picture a piece carries as held left it, made the first time it is drawn after it is read. On the render thread. */
     static int texture(int held) {
         int picture = -1 - held;
+        IllegalStateException failed = readFailed.getAndSet(null);
+        if (failed != null) {
+            throw failed;
+        }
         synchronized (Decor.class) {
             if (textures[picture] == 0 && noRoomUntilNanos != 0L && System.nanoTime() < noRoomUntilNanos) {
                 return Pipeline.none();
             }
             if (textures[picture] == 0 || waiting[picture] != null) {
                 Read read = waiting[picture];
+                if (read == null) {
+                    // Not read yet, or given back between a build's asking for it and this, its first drawing: it shows nothing till it is read.
+                    read(picture, true);
+                    return Pipeline.none();
+                }
                 if (textures[picture] != 0) {
                     GL11.glDeleteTextures(textures[picture]);
                     textures[picture] = 0;
                     Pipeline.forgetTexels();
-                }
-                if (read == null) {
-                    // The picture was given back between a build's asking for it and this, its first drawing: it is read again here.
-                    String path = FOLDER + index.names.get(picture) + ".jpg";
-                    try {
-                        read = pixels(path, index.sizes.get(picture));
-                    } catch (IOException e) {
-                        throw new UncheckedIOException(path + " could not be read", e);
-                    }
-                    waiting[picture] = read;
                 }
                 // What the frame raised before this is the frame's, and is not laid to the picture.
                 int before = GL11.glGetError();

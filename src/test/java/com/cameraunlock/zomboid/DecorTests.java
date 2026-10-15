@@ -25,6 +25,52 @@ final class DecorTests {
         Checks.run("aShowCutsRoundItsShotsAndMovesAcrossEachOne", DecorTests::aShowCutsRoundItsShotsAndMovesAcrossEachOne);
         Checks.run("aBroadcastNobodyListedIsItsChannelsShow", DecorTests::aBroadcastNobodyListedIsItsChannelsShow);
         Checks.run("aShopsSignShowsAPictureTheShapeOfItsBoard", DecorTests::aShopsSignShowsAPictureTheShapeOfItsBoard);
+        Checks.run("everyPictureInTheJarReadsAsItsColoursDotForDot", DecorTests::everyPictureInTheJarReadsAsItsColoursDotForDot);
+    }
+
+    private static void everyPictureInTheJarReadsAsItsColoursDotForDot() {
+        List<String[]> pictures = new ArrayList<>();
+        try (InputStream in = Decor.class.getResourceAsStream("/pictures/index.txt")) {
+            BufferedReader lines = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8));
+            for (String line = lines.readLine(); line != null; line = lines.readLine()) {
+                if (!line.startsWith("=") && !line.startsWith("+")) {
+                    pictures.add(line.split("\t"));
+                }
+            }
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        check(pictures.size() > 600, "the jar lists its pictures: " + pictures.size());
+        check(!Quality.smallerPictures(), "the tests read pictures at full size");
+        for (String[] picture : pictures) {
+            String path = "/pictures/" + picture[0] + ".jpg";
+            Decor.Read read = null;
+            try {
+                read = Decor.pixels(path, new float[] {Integer.parseInt(picture[1]), Integer.parseInt(picture[2])});
+                java.awt.image.BufferedImage image;
+                try (InputStream in = Decor.class.getResourceAsStream(path)) {
+                    image = javax.imageio.ImageIO.read(in);
+                }
+                boolean same = read.wide() == image.getWidth() && read.high() == image.getHeight();
+                int[] colours = new int[read.wide()];
+                byte[] got = new byte[read.wide() * 4];
+                for (int y = 0; y < read.high() && same; y++) {
+                    image.getRGB(0, y, read.wide(), 1, colours, 0, read.wide());
+                    read.memory().bytes.get(y * got.length, got);
+                    for (int x = 0; x < read.wide() && same; x++) {
+                        int argb = colours[x];
+                        same = got[x * 4] == (byte) (argb >> 16) && got[x * 4 + 1] == (byte) (argb >> 8) && got[x * 4 + 2] == (byte) argb && got[x * 4 + 3] == (byte) 0xff;
+                    }
+                }
+                check(same, path + " reads dot for dot as the colours Java reads it as");
+            } catch (IOException e) {
+                check(false, path + " could not be read: " + e.getMessage());
+            } finally {
+                if (read != null) {
+                    read.memory().free();
+                }
+            }
+        }
     }
 
     private static void aShopsSignShowsAPictureTheShapeOfItsBoard() {
