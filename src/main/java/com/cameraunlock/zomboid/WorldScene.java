@@ -936,6 +936,8 @@ final class WorldScene {
     private long tollQuiet, tollPulls, tollPulled, tollAgedDiffered, tollAgedSame, tollAgedSamePlain, tollRestless;
     /** Dev only: the chunks built ahead of the view's turning to them since the last asking, and the time that took. */
     private long tollAhead, tollAheadNanos;
+    /** Dev only: builds due for nothing but light that waited, the view not facing their chunk. */
+    private long tollLitUnfaced;
     /** Dev only: see SightTrace. */
     private SightTrace sightTrace;
     /** The rooms and their openings round the eye, and the walk through them: see RoomSight. Logic thread. */
@@ -1147,7 +1149,8 @@ final class WorldScene {
         told += String.format(Locale.ROOT, ", trees read for sums %d in %.2f ms", tollWoods, tollWoodsNanos / 1e6);
         told += ", " + Terrain.tolls();
         tollWoods = tollWoodsNanos = 0;
-        told += String.format(Locale.ROOT, ", built ahead of a turn %d in %.1f ms", tollAhead, tollAheadNanos / 1e6);
+        told += String.format(Locale.ROOT, ", built ahead of a turn %d in %.1f ms, light left on chunks not faced %d", tollAhead, tollAheadNanos / 1e6, tollLitUnfaced);
+        tollLitUnfaced = 0;
         told += String.format(Locale.ROOT, ", rooms walked %d times in %.2f ms each (chunks read for openings %d; last: openings %d, blocks %d, rooms seen %d, built %d, openings hidden by blocks %d)",
                 tollRoomsWalks, tollRoomsNanos / 1e6 / Math.max(1, tollRoomsWalks), roomMap.chunksRead, lastOpenings, lastBlocks, lastSeen, roomsBuilt.size(), lastHidden);
         tollRoomsWalks = tollRoomsNanos = 0;
@@ -3026,6 +3029,17 @@ final class WorldScene {
                     if (due && !landChanged && telling && stands && current.signed && current.things == things && since < LIT_WAITS_NANOS
                             && System.nanoTime() - start > LIT_NANOS_A_FRAME / sharing) {
                         due = false;
+                    }
+                    // Nothing but light has been marked on it and the view does not face it: its light is in no picture,
+                    // and its shadows are of its shape. The game's sight goes round with the mouse and darkens what it
+                    // leaves, so a mouse turn marked a third of the chunks in reach and they were built again every
+                    // few frames; with the view back on one, the game's light is mostly what its build was made with,
+                    // and its sum finds it unchanged.
+                    boolean faced = cosCone <= -1f || toChunkX * forwardX + toChunkY * forwardY >= cosCone * distance - CHUNK_REACH
+                            || mirrored && toChunkX * behindX + toChunkY * behindY >= COS_MIRROR_CONE * distance - CHUNK_REACH;
+                    if (due && !faced && !landChanged && telling && stands && current.signed && current.things == things) {
+                        due = false;
+                        tollLitUnfaced++;
                     }
                     // What the build of a chunk that is due would read of the map is summed first,
                     // and a chunk whose sum is what its build's was, with the eye still in the
