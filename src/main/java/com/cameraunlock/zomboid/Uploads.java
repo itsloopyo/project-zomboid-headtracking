@@ -3,6 +3,7 @@ package com.cameraunlock.zomboid;
 import java.nio.ByteBuffer;
 import java.util.ArrayDeque;
 import org.lwjgl.opengl.GL;
+import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL15;
 import org.lwjgl.opengl.GL30;
 import org.lwjgl.opengl.GL32;
@@ -21,7 +22,7 @@ import org.lwjgl.opengl.GLCapabilities;
  * would have to wait for it is not taken that frame, and its caller asks again the next.
  */
 final class Uploads {
-    private static final int GL_PIXEL_UNPACK_BUFFER = 0x88EC, GL_SYNC_GPU_COMMANDS_COMPLETE = 0x9117;
+    private static final int GL_PIXEL_UNPACK_BUFFER = 0x88EC, GL_PIXEL_UNPACK_BUFFER_BINDING = 0x88EF, GL_SYNC_GPU_COMMANDS_COMPLETE = 0x9117;
     private static final int GL_ALREADY_SIGNALED = 0x911A, GL_CONDITION_SATISFIED = 0x911C;
     private static final int GL_MAP_WRITE_BIT = 0x0002, GL_MAP_PERSISTENT_BIT = 0x0040, GL_MAP_COHERENT_BIT = 0x0080;
     /** Bigger than the most any one frame puts on the card: two sharp rugs and eight as read. */
@@ -49,11 +50,12 @@ final class Uploads {
             ringed = card.OpenGL44 || card.GL_ARB_buffer_storage;
             if (ringed) {
                 buffer = GL15.glGenBuffers();
+                int unpackBuffer = GL11.glGetInteger(GL_PIXEL_UNPACK_BUFFER_BINDING);
                 GL15.glBindBuffer(GL_PIXEL_UNPACK_BUFFER, buffer);
                 int flags = GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT;
                 GL44.glBufferStorage(GL_PIXEL_UNPACK_BUFFER, SIZE, flags);
                 mapped = GL30.glMapBufferRange(GL_PIXEL_UNPACK_BUFFER, 0, SIZE, flags);
-                GL15.glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+                GL15.glBindBuffer(GL_PIXEL_UNPACK_BUFFER, unpackBuffer);
                 if (mapped == null) {
                     throw new IllegalStateException("the graphics card would not map the " + (SIZE >> 20) + " MB buffer pictures are put on it from");
                 }
@@ -120,12 +122,9 @@ final class Uploads {
         GL15.glBindBuffer(GL_PIXEL_UNPACK_BUFFER, buffer);
     }
 
-    static void unbind() {
-        GL15.glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
-    }
-
-    /** Fences what this frame wrote, once its uploads have been handed to the card. */
+    /** Fences what this frame wrote, once its uploads have been handed to the card, and lets go of the fences the card has passed. */
     static void endFrame() {
+        passed(head);
         if (frameStart < 0) {
             return;
         }
