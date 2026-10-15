@@ -9,6 +9,7 @@ public final class GL30 {
     public static void glBindVertexArray(int array) { throw new UnsupportedOperationException("reference stub"); }
     public static int glGenVertexArrays() { throw new UnsupportedOperationException("reference stub"); }
     public static void glDeleteVertexArrays(int array) { throw new UnsupportedOperationException("reference stub"); }
+    public static java.nio.ByteBuffer glMapBufferRange(int target, long offset, long length, int access) { throw new UnsupportedOperationException("reference stub"); }
     public static void glGenerateMipmap(int target) { throw new UnsupportedOperationException("reference stub"); }
     public static void glEnablei(int target, int index) { throw new UnsupportedOperationException("reference stub"); }
     public static void glDisablei(int target, int index) { throw new UnsupportedOperationException("reference stub"); }

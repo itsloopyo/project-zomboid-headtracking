@@ -9,6 +9,7 @@ public final class GLCapabilities {
     public final boolean GL_ARB_texture_compression_bptc;
     public final boolean GL_ARB_multi_bind;
     public final boolean GL_ARB_get_texture_sub_image;
+    public final boolean GL_ARB_buffer_storage;
 
     GLCapabilities() { throw new UnsupportedOperationException("reference stub"); }
 }

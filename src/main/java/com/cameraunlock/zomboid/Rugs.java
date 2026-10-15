@@ -5,8 +5,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -15,6 +17,7 @@ import java.util.concurrent.Executors;
 import javax.imageio.ImageIO;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL15;
+import org.lwjgl.opengl.GL42;
 import zombie.core.textures.Texture;
 
 /**
@@ -324,25 +327,39 @@ final class Rugs {
         frameNanos = System.nanoTime();
         int reads = 0, sharps = 0;
         for (Made one = made.peek(); one != null && reads < READ_A_FRAME && sharps < SHARP_A_FRAME; one = made.peek()) {
-            made.poll();
             if (one.round != round) {
+                made.poll();
                 continue;
             }
             Square square = one.square;
             if (!one.sharp) {
+                int name = one.levels == null ? -1 : picture(one.levels, 0);
+                if (name == NOT_TAKEN) {
+                    break;
+                }
+                made.poll();
                 reads++;
-                square.asRead = one.levels == null ? -1 : picture(one.levels, 0);
+                square.asRead = name;
                 continue;
             }
-            sharps++;
-            square.drawing = false;
             if (one.levels == null) {
+                made.poll();
+                sharps++;
+                square.drawing = false;
                 square.failed = true;
                 sharpOrDrawing--;
                 continue;
             }
-            square.sharpSmaller = Quality.smallerPictures();
-            square.sharp = picture(one.levels, square.sharpSmaller ? 1 : 0);
+            boolean smaller = Quality.smallerPictures();
+            int name = picture(one.levels, smaller ? 1 : 0);
+            if (name == NOT_TAKEN) {
+                break;
+            }
+            made.poll();
+            sharps++;
+            square.drawing = false;
+            square.sharpSmaller = smaller;
+            square.sharp = name;
             if (FirstPerson.TRACE) {
                 Log.info("rugs: square " + square.number + " drawn sharp, " + sharpOrDrawing + " sharp or being drawn");
             }
@@ -421,8 +438,12 @@ final class Rugs {
     }
 
     private static void giveBack(Square square) {
-        GL11.glDeleteTextures(square.sharp);
-        Pipeline.forgetTexel(square.sharp);
+        if (Uploads.ringed() && square.sharpSmaller == Quality.smallerPictures()) {
+            spare.computeIfAbsent(square.sharpSmaller ? DRAWN / 2 : DRAWN, side -> new ArrayDeque<>()).push(square.sharp);
+        } else {
+            GL11.glDeleteTextures(square.sharp);
+            Pipeline.forgetTexel(square.sharp);
+        }
         square.sharp = 0;
         sharpOrDrawing--;
     }
@@ -433,6 +454,12 @@ final class Rugs {
         for (int name : names) {
             GL11.glDeleteTextures(name);
         }
+        for (ArrayDeque<Integer> kept : spare.values()) {
+            for (int name : kept) {
+                GL11.glDeleteTextures(name);
+            }
+        }
+        spare.clear();
         Log.info(names.length + " pictures of rugs are given back to the graphics card");
     }
 
@@ -987,8 +1014,80 @@ final class Rugs {
         return levels;
     }
 
-    /** Puts a picture and its smaller copies on the graphics card from the level first on, and gives its name. */
+    /** What picture gives when the graphics card is still reading the ring there is room in: asked again the next frame. No texture is named 0. */
+    private static final int NOT_TAKEN = 0;
+
+    /** Puts a picture and its smaller copies on the graphics card from the level first on, and gives its name, or NOT_TAKEN. */
     private static int picture(byte[][] levels, int first) {
+        if (!Uploads.ringed()) {
+            return pictureFromMemory(levels, first);
+        }
+        int bytes = 0;
+        for (int level = first; level < levels.length; level++) {
+            bytes += levels[level].length;
+        }
+        long offset = Uploads.take(bytes);
+        if (offset < 0) {
+            return NOT_TAKEN;
+        }
+        ByteBuffer ring = Uploads.at(offset, bytes);
+        for (int level = first; level < levels.length; level++) {
+            ring.put(levels[level]);
+        }
+        int side = sideOf(levels[first]);
+        ArrayDeque<Integer> kept = spare.get(side);
+        int name = kept == null || kept.isEmpty() ? made(side, levels.length - first) : kept.pop();
+        fill(name, levels, first, Uploads.place(offset));
+        return name;
+    }
+
+    private static int sideOf(byte[] level) {
+        return (int) Math.round(Math.sqrt(level.length / 4.0));
+    }
+
+    /**
+     * Sharp pictures given back, kept by their size for the next square to be drawn sharp. A
+     * texture made anew cost 15 to 25 ms of the driver's in the middle of a frame however its
+     * dots reached it; one kept is only written over.
+     */
+    private static final HashMap<Integer, ArrayDeque<Integer>> spare = new HashMap<>();
+
+    /** A texture with room for a picture side dots square and its smaller copies, all made at once. */
+    private static int made(int side, int levels) {
+        int was = GL11.glGetInteger(GL_TEXTURE_BINDING_2D);
+        int name = GL11.glGenTextures();
+        GL11.glBindTexture(GL_TEXTURE_2D, name);
+        GL42.glTexStorage2D(GL_TEXTURE_2D, levels, GL_RGBA8, side, side);
+        GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        Pictures.sharpenAtSlant();
+        GL11.glBindTexture(GL_TEXTURE_2D, was);
+        return name;
+    }
+
+    /** Writes the levels from first on into the texture, out of the ring at its place there. */
+    private static void fill(int name, byte[][] levels, int first, long at) {
+        int was = GL11.glGetInteger(GL_TEXTURE_BINDING_2D);
+        int unpackBuffer = GL11.glGetInteger(GL_PIXEL_UNPACK_BUFFER_BINDING);
+        Uploads.bind();
+        GL11.glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+        GL11.glPixelStorei(GL_UNPACK_SKIP_ROWS, 0);
+        GL11.glPixelStorei(GL_UNPACK_SKIP_PIXELS, 0);
+        GL11.glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+        GL11.glBindTexture(GL_TEXTURE_2D, name);
+        for (int level = first; level < levels.length; level++) {
+            int side = sideOf(levels[level]);
+            GL11.glTexSubImage2D(GL_TEXTURE_2D, level - first, 0, 0, side, side, GL_RGBA, GL_UNSIGNED_BYTE, at);
+            at += levels[level].length;
+        }
+        GL11.glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+        GL11.glBindTexture(GL_TEXTURE_2D, was);
+        GL15.glBindBuffer(GL_PIXEL_UNPACK_BUFFER, unpackBuffer);
+    }
+
+    private static int pictureFromMemory(byte[][] levels, int first) {
         int was = GL11.glGetInteger(GL_TEXTURE_BINDING_2D);
         // With a buffer bound to unpack from, OpenGL would read the picture out of that buffer.
         int unpackBuffer = GL11.glGetInteger(GL_PIXEL_UNPACK_BUFFER_BINDING);
