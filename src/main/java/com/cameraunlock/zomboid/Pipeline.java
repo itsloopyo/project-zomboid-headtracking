@@ -672,6 +672,8 @@ final class Pipeline {
     private boolean inLookingGlass;
     /** Whether this frame draws it. */
     private boolean lookingGlassDrawn;
+    /** The same, for the logic thread: see lookingGlassShown. */
+    private volatile boolean lookingGlassShown;
     /** The scissor box of that picture's drawn part, in its pixels, and the same at the size the clouds are marched at. */
     private final int[] lookScissor = new int[4], lookCloudScissor = new int[4];
     /** How many pixels round the glass that picture is drawn: the glass's edge falls part way across a pixel. */
@@ -825,6 +827,11 @@ final class Pipeline {
 
     float lastMillis() {
         return lastMillis;
+    }
+
+    /** Whether the last frame drawn gave a mirror in a room a picture of its own. Read on the logic thread. */
+    boolean lookingGlassShown() {
+        return lookingGlassShown;
     }
 
     /** What the eye's light meter last read of the picture: see meter. Logic thread. */
@@ -1060,6 +1067,7 @@ final class Pipeline {
             // A mirror in a room looks where the eye does not, at people the sun's maps shade.
             boolean glassInView = reflections && !outside && !seated && lookingGlassSeen(camera, tanHalfFieldOfView, aspect, near);
             lookingGlassDrawn = glassSight.mayShow(glassInView, glassInView && lookingGlass.pastEdge, gameFrame) && glassInView;
+            lookingGlassShown = lookingGlassDrawn;
             if (lookingGlassDrawn) {
                 WaterMirror.mirror(camera, lookingGlass.plane, glassEye);
                 view.characters.alsoSeenBy(glassEye, tanHalfFieldOfView, aspect);

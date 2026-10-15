@@ -2859,6 +2859,7 @@ final class WorldScene {
             // A driver's mirror shows a narrow cone straight behind the vehicle, and what is in it is drawn as well.
             boolean mirrored = !fromOutside && seated && Quality.reflections() && Cabins.wheel(view.ride) != null;
             float behindX = -view.ride.aheadX, behindY = -view.ride.aheadY;
+            boolean glassShown = !fromOutside && !seated && view.pipeline.lookingGlassShown();
             // Looking straight up or down the view faces no way along the ground, and nothing is left out.
             float forwardX = cosCone > -1f ? pose.forwardX / flat : 0f, forwardY = cosCone > -1f ? pose.forwardY / flat : 0f;
 
@@ -3055,8 +3056,10 @@ final class WorldScene {
                     // leaves, so a mouse turn marked a third of the chunks in reach and they were built again every
                     // few frames; with the view back on one, the game's light is mostly what its build was made with,
                     // and its sum finds it unchanged.
+                    // A mirror in a room shows what is behind the eye: while one shows, every chunk built here counts as faced.
                     boolean faced = cosCone <= -1f || toChunkX * forwardX + toChunkY * forwardY >= cosCone * distance - CHUNK_REACH
-                            || mirrored && toChunkX * behindX + toChunkY * behindY >= COS_MIRROR_CONE * distance - CHUNK_REACH;
+                            || mirrored && toChunkX * behindX + toChunkY * behindY >= COS_MIRROR_CONE * distance - CHUNK_REACH
+                            || glassShown;
                     boolean onlyLit = telling && !missing && !landChanged && stands && current.signed && !current.restless && settled && ringAsItWas
                             && marks != current.marks && current.things == things && current.told == toldSoFar && current.epoch == epoch
                             && seasonHolds(current, slot) && current.gamesView == gamesView && current.land == land
