@@ -8,6 +8,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import org.lwjgl.opengl.GL;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL15;
+import org.lwjgl.opengl.GL32;
 import org.lwjgl.opengl.GL45;
 import org.lwjgl.opengl.GLCapabilities;
 import zombie.core.textures.Texture;
@@ -45,6 +46,20 @@ final class SpriteColours {
     private static boolean cardAsked, inParts, errorLeftLogged;
     /** OpenGL keeps at most one flag for each kind of error it has. */
     private static final int GL_ERROR_FLAGS = 8;
+    private static final int GL_STREAM_READ = 0x88E1, GL_SYNC_GPU_COMMANDS_COMPLETE = 0x9117, GL_ALREADY_SIGNALED = 0x911A, GL_CONDITION_SATISFIED = 0x911C;
+    /**
+     * A copy of part of a sheet the graphics card has been asked to make into a buffer of its
+     * own, fenced, and the sprites it is for. Copied straight into the PC's memory, the render
+     * thread waited for the card to finish everything handed it before it: 8 to 20 ms a sheet
+     * while driving past new houses. The copy is taken up once the card has passed the fence,
+     * a frame or two later.
+     */
+    private static boolean copying, copyDropped;
+    private static long copyFence;
+    private static int copyFromX, copyFromY, copyAcross, copyDown, copyWidth, copyHeight;
+    private static final ArrayList<Texture> copied = new ArrayList<>();
+    /** The buffer copies are made into, kept for the session once made, and its size. Render thread. */
+    private static int copyBuffer, copyBufferBytes;
 
     private SpriteColours() {}
 
@@ -76,8 +91,13 @@ final class SpriteColours {
         asked.add(texture);
     }
 
-    /** Frees the page. Called by the logic thread too, as first person is switched off and no more frames are read for. */
+    /**
+     * Frees the page. Called by the logic thread too, as first person is switched off and no
+     * more frames are read for: a copy still being made is dropped by the next frame drawn,
+     * which is the thread that can let go of its fence.
+     */
     static synchronized void letGoOfThePage() {
+        copyDropped = copying;
         OffHeap.Block held = pageBlock;
         pageBlock = null;
         page = null;
@@ -117,6 +137,10 @@ final class SpriteColours {
             }
         }
         pageUsedNanos = System.nanoTime();
+        if (copying) {
+            takeCopy();
+            return;
+        }
         // What OpenGL has flagged before anything here is asked of it is not this reading's: one flag a kind of error at most, and a lost context flags for ever.
         for (int flag = 0, error = GL11.glGetError(); flag < GL_ERROR_FLAGS && error != 0; flag++, error = GL11.glGetError()) {
             if (!errorLeftLogged) {
@@ -126,10 +150,7 @@ final class SpriteColours {
         }
         int sheet = waiting.get(0).getID();
         int was = GL11.glGetInteger(GL_TEXTURE_BINDING_2D);
-        // With a buffer bound to pack into, OpenGL would write the sheet into that buffer and
-        // take the address given here as a place in it.
         int packBuffer = GL11.glGetInteger(GL_PIXEL_PACK_BUFFER_BINDING);
-        GL15.glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
         GL11.glPixelStorei(GL_PACK_ROW_LENGTH, 0);
         GL11.glPixelStorei(GL_PACK_SKIP_ROWS, 0);
         GL11.glPixelStorei(GL_PACK_SKIP_PIXELS, 0);
@@ -164,25 +185,23 @@ final class SpriteColours {
                 across = right - fromX;
                 down = bottom - fromY;
             }
-            if (page == null || page.capacity() < Math.max(across * down * 4, 1)) {
-                letGoOfThePage();
-                pageBlock = OffHeap.take(Math.max(across * down * 4, 1));
-                page = pageBlock.bytes;
+            int bytes = Math.max(across * down * 4, 1);
+            if (copyBuffer == 0) {
+                copyBuffer = GL15.glGenBuffers();
             }
-            page.clear();
-            page.limit(across * down * 4);
+            GL15.glBindBuffer(GL_PIXEL_PACK_BUFFER, copyBuffer);
+            if (copyBufferBytes < bytes) {
+                GL15.glBufferData(GL_PIXEL_PACK_BUFFER, bytes, GL_STREAM_READ);
+                copyBufferBytes = bytes;
+            }
             if (inParts) {
                 if (across > 0 && down > 0) {
-                    GL45.glGetTextureSubImage(sheet, 0, fromX, fromY, 0, across, down, 1, GL_RGBA, GL_UNSIGNED_BYTE, page);
+                    GL45.glGetTextureSubImage(sheet, 0, fromX, fromY, 0, across, down, 1, GL_RGBA, GL_UNSIGNED_BYTE, bytes, 0L);
                 }
             } else {
-                GL11.glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, page);
+                GL11.glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0L);
             }
             copyError = GL11.glGetError();
-            if (FirstPerson.TRACE) {
-                Log.info(String.format(Locale.ROOT, "sprite colours: %d by %d of a sheet of %d by %d copied back in %.2f ms", across, down, width, height,
-                        (System.nanoTime() - pageUsedNanos) / 1e6));
-            }
         }
         GL11.glBindTexture(GL_TEXTURE_2D, was);
         GL15.glBindBuffer(GL_PIXEL_PACK_BUFFER, packBuffer);
@@ -201,14 +220,72 @@ final class SpriteColours {
             }
             return;
         }
-
+        // The sprites of this sheet waiting now are the ones the copy is for: any asked for later may lie outside it, and wait for a copy of their own.
         int kept = 0;
         for (int i = 0; i < waiting.size(); i++) {
             Texture texture = waiting.get(i);
-            if (texture.getID() != sheet) {
+            if (texture.getID() == sheet) {
+                copied.add(texture);
+            } else {
                 waiting.set(kept++, texture);
-                continue;
             }
+        }
+        while (waiting.size() > kept) {
+            waiting.remove(waiting.size() - 1);
+        }
+        copyFromX = fromX;
+        copyFromY = fromY;
+        copyAcross = across;
+        copyDown = down;
+        copyWidth = width;
+        copyHeight = height;
+        if (width > 0 && height > 0) {
+            copyFence = GL32.glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+            copying = true;
+        } else {
+            // A sheet that never had a size is kept as painting nothing, as it was: there is no copy to wait for.
+            readCopied();
+        }
+    }
+
+    /** Takes up the copy being made once the graphics card has made it, and reads its sprites. */
+    private static void takeCopy() {
+        if (copyDropped) {
+            GL32.glDeleteSync(copyFence);
+            copying = copyDropped = false;
+            waiting.addAll(copied);
+            copied.clear();
+            return;
+        }
+        int waited = GL32.glClientWaitSync(copyFence, 0, 0L);
+        if (waited != GL_ALREADY_SIGNALED && waited != GL_CONDITION_SATISFIED) {
+            return;
+        }
+        GL32.glDeleteSync(copyFence);
+        copying = false;
+        int bytes = Math.max(copyAcross * copyDown * 4, 1);
+        if (page == null || page.capacity() < bytes) {
+            OffHeap.Block held = pageBlock;
+            pageBlock = OffHeap.take(bytes);
+            page = pageBlock.bytes;
+            if (held != null) {
+                held.free();
+            }
+        }
+        page.clear();
+        page.limit(copyAcross * copyDown * 4);
+        int packBuffer = GL11.glGetInteger(GL_PIXEL_PACK_BUFFER_BINDING);
+        GL15.glBindBuffer(GL_PIXEL_PACK_BUFFER, copyBuffer);
+        GL15.glGetBufferSubData(GL_PIXEL_PACK_BUFFER, 0L, page);
+        GL15.glBindBuffer(GL_PIXEL_PACK_BUFFER, packBuffer);
+        readCopied();
+    }
+
+    /** Reads every sprite the copy was made for out of the page. */
+    private static void readCopied() {
+        int fromX = copyFromX, fromY = copyFromY, across = copyAcross, width = copyWidth, height = copyHeight;
+        for (int i = 0; i < copied.size(); i++) {
+            Texture texture = copied.get(i);
             float[] colour = new float[WallSides.MEAN + 3];
             place(texture, width, height);
             int left = placed[0] - fromX, top = placed[1] - fromY, right = placed[2] - fromX, bottom = placed[3] - fromY;
@@ -230,9 +307,7 @@ final class SpriteColours {
             RoadPaint.read(texture, page, across, left, top, right, bottom);
             Masonry.read(texture, page, across, left, top, right, bottom);
         }
-        while (waiting.size() > kept) {
-            waiting.remove(waiting.size() - 1);
-        }
+        copied.clear();
     }
 
     /** Where a sprite lies on its sheet, in texels: left, top, right and bottom, into placed. */
