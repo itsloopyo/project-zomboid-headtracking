@@ -214,11 +214,15 @@ final class CabinModel {
     static CabinModel named(String name) throws IOException {
         synchronized (read) {
             CabinModel model = read.get(name);
-            if (model == null) {
-                model = Ahead.take("cabin " + name, () -> load(name));
-                read.put(name, model);
+            if (model != null) {
+                return model;
             }
-            return model;
+        }
+        // Taken outside the lock: a read ahead still running takes the lock itself before it ends, and waiting on it with the lock held never ends.
+        CabinModel model = Ahead.take("cabin " + name, () -> load(name));
+        synchronized (read) {
+            CabinModel had = read.putIfAbsent(name, model);
+            return had == null ? model : had;
         }
     }
 
