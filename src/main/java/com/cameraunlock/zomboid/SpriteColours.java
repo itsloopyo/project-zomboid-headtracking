@@ -60,6 +60,8 @@ final class SpriteColours {
     private static final ArrayList<Texture> copied = new ArrayList<>();
     /** The buffer copies are made into, kept while sprites go on being asked for as the page is, and its size. Render thread. */
     private static int copyBuffer, copyBufferBytes;
+    /** Whether the page was let go and no frame has read since: what the graphics card holds for it is then given back by giveBackIdle. */
+    private static boolean letGo;
 
     private SpriteColours() {}
 
@@ -97,6 +99,7 @@ final class SpriteColours {
      * which is the thread that can let go of its fence.
      */
     static synchronized void letGoOfThePage() {
+        letGo = true;
         copyDropped = copying;
         OffHeap.Block held = pageBlock;
         pageBlock = null;
@@ -119,6 +122,7 @@ final class SpriteColours {
         if (!Rounds.DRAWS.begin(view)) {
             return;
         }
+        letGo = false;
         for (Texture texture = asked.poll(); texture != null; texture = asked.poll()) {
             waiting.add(texture);
         }
@@ -130,11 +134,7 @@ final class SpriteColours {
         if (waiting.isEmpty()) {
             if (System.nanoTime() - pageUsedNanos > PAGE_KEPT_NANOS) {
                 letGoOfThePage();
-                if (copyBuffer != 0) {
-                    GL15.glDeleteBuffers(copyBuffer);
-                    copyBuffer = 0;
-                    copyBufferBytes = 0;
-                }
+                deleteCopyBuffer();
             }
             return;
         }
@@ -251,6 +251,33 @@ final class SpriteColours {
         } else {
             // A sheet that never had a size is kept as painting nothing, as it was: there is no copy to wait for.
             readCopied();
+        }
+    }
+
+    /**
+     * Gives back the buffer copies are made into, and the fence of a copy still being made, once
+     * the page has been let go with first person and no frame has read since. Render thread.
+     */
+    static synchronized void giveBackIdle() {
+        if (!letGo) {
+            return;
+        }
+        if (copying) {
+            // letGoOfThePage marked it dropped: its fence goes, and its sprites wait to be read again.
+            takeCopy();
+        }
+        int bytes = copyBufferBytes;
+        if (copyBuffer != 0) {
+            deleteCopyBuffer();
+            Log.info(String.format(Locale.ROOT, "sprite colours: the %d byte copy buffer is given back to the graphics card", bytes));
+        }
+    }
+
+    private static void deleteCopyBuffer() {
+        if (copyBuffer != 0) {
+            GL15.glDeleteBuffers(copyBuffer);
+            copyBuffer = 0;
+            copyBufferBytes = 0;
         }
     }
 

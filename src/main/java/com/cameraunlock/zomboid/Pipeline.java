@@ -5934,6 +5934,7 @@ final class Pipeline {
         public void render() {
             view.characters.setDown();
             view.worldScene.letGoOfViewers();
+            SpriteColours.giveBackIdle();
             if (width == 0) {
                 return;
             }
@@ -5966,6 +5967,7 @@ final class Pipeline {
             view.characters.movers.forget();
             view.kerbSteps.forget();
             leaves.letGo();
+            SpriteColours.giveBackIdle();
             for (int other = 0; other < View.COUNT; other++) {
                 if (View.of(other) != null && View.of(other).pipeline.holds) {
                     // Another view is drawn with all of it still: this one gave its own back as it was set down.
