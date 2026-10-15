@@ -3859,7 +3859,10 @@ final class PipelineShaders {
                 // Where a drop's ring tilts the water the last pass, which mirrors a level surface, is let
                 // through for at most half: the ring shows through the traced picture, which stays.
                 float traced = water && uWater.z > 0.0 ? 0.0 : shine * (1.0 - 0.5 * smoothstep(0.1, 0.5, length(rings)));
-                gl_FragColor = vec4(color, sheet ? veil : uLaid > 0.5 ? texel.a * shown : 1.0 - uMirrors * max(max(traced, polish) * step(0.8, n.z), pane));
+                // Glass told from a sprite is no mirror for it either: only some of its pixels are
+                // drawn, a different set every frame, so the depth the last pass reads a mirror's
+                // facing from is not the glass's. It throws back what the glazed block gives it.
+                gl_FragColor = vec4(color, sheet ? veil : uLaid > 0.5 ? texel.a * shown : 1.0 - uMirrors * max(max(traced, polish) * step(0.8, n.z), glazed > 0.5 ? 0.0 : pane));
             }
             """;
 
