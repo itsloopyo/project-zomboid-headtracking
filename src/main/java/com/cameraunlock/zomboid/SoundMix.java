@@ -199,7 +199,8 @@ final class SoundMix {
             return false;
         }
         for (int i = 0; i < count; i++) {
-            if (emitter[i] != from) {
+            // A flat sound is never given walls of its own, so it says nothing about the placed ones.
+            if (emitter[i] != from || state[i] == FLAT) {
                 continue;
             }
             if (attachment[i] == null) {
