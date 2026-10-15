@@ -14,6 +14,7 @@ final class RugTests {
         Checks.run("aNumberFromAnEndedRoundNamesNoSquare", RugTests::aNumberFromAnEndedRoundNamesNoSquare);
         Checks.run("theNearestSquaresHaveTheSharpPictures", RugTests::theNearestSquaresHaveTheSharpPictures);
         Checks.run("aPlaceIsMeasuredFromTheEye", RugTests::aPlaceIsMeasuredFromTheEye);
+        Checks.run("aPlaceIsMeasuredFromTheNearestViewsEye", RugTests::aPlaceIsMeasuredFromTheNearestViewsEye);
         Checks.run("everyReaderOfARunsTextureGoesThroughBound", RugTests::everyReaderOfARunsTextureGoesThroughBound);
         Checks.run("aWovenRugIsItsFlatColoursWithoutTheSpeckle", RugTests::aWovenRugIsItsFlatColoursWithoutTheSpeckle);
         Checks.run("aBorderIsDrawnAsAStraightSharpLine", RugTests::aBorderIsDrawnAsAStraightSharpLine);
@@ -109,6 +110,20 @@ final class RugTests {
         java.util.Set<Long> under = java.util.Set.of(Rugs.place(3, 4, -1));
         float below = Rugs.distanceTo(under, 3.5f, 4.5f, 0f);
         Checks.check(Math.abs(below - ViewCamera.LEVEL_HEIGHT * ViewCamera.LEVEL_HEIGHT) < 1e-3f, "a place a level below is a level off: " + below);
+    }
+
+    private static void aPlaceIsMeasuredFromTheNearestViewsEye() {
+        java.util.Set<Long> places = java.util.Set.of(Rugs.place(500, 500, 0));
+        Rugs.eyesRanked();
+        Rugs.seeFrom(0, 100.5f, 100.5f, 0f);
+        Rugs.seeFrom(1, 500.5f, 503.5f, 0f);
+        float d = Rugs.distanceToEyes(places);
+        Checks.check(Math.abs(d - 9f) < 1e-3f, "a square by the second view's eye is three tiles off, whichever view ranks: " + d);
+        Rugs.eyesRanked();
+        Rugs.seeFrom(0, 100.5f, 100.5f, 0f);
+        float far = Rugs.distanceToEyes(places);
+        Checks.check(Math.abs(far - 2f * 400f * 400f) < 1f, "a view that has drawn no frame since the last ranking is not measured from: " + far);
+        Rugs.eyesRanked();
     }
 
     /**

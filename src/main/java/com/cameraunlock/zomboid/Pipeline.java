@@ -1037,7 +1037,7 @@ final class Pipeline {
             steadying = Quality.frameBlending();
             frameColor = sceneColor;
             SpriteColours.read(view.index);
-            Rugs.putOnCard(camera.eyeX, camera.eyeY, camera.eyeUp);
+            Rugs.putOnCard(view.index, camera.eyeX, camera.eyeY, camera.eyeUp);
             Uploads.endFrame();
             FineSkins.tend();
             drawn = chunks;

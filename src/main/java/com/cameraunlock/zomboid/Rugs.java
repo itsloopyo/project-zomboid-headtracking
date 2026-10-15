@@ -156,6 +156,13 @@ final class Rugs {
     /** Render thread: how many sharp pictures are on the card or being drawn, when this frame began, and when the squares were last ranked. */
     private static int sharpOrDrawing;
     private static long frameNanos, rankedAt;
+    /**
+     * Render thread: the eye of each view, three numbers a view, and which views have drawn a
+     * frame since the squares were last ranked, a bit a view. In split screen the same view comes
+     * to rank the squares every time, so each square is measured from the nearest of the eyes.
+     */
+    private static final float[] eyes = new float[View.COUNT * 3];
+    private static int eyesSinceRanked;
     private static final ExecutorService drawer = Executors.newSingleThreadExecutor(work -> {
         Thread thread = new Thread(work, "CameraUnlock rugs");
         thread.setDaemon(true);
@@ -223,6 +230,30 @@ final class Rugs {
     /** A square of the map as one number, for Square.places. */
     static long place(int x, int y, int z) {
         return (long) (x & 0xffffff) << 40 | (long) (y & 0xffffff) << 16 | z & 0xffff;
+    }
+
+    /** Notes the eye a view is about to draw a frame from, for the next ranking. */
+    static void seeFrom(int view, float eyeX, float eyeY, float eyeUp) {
+        eyes[view * 3] = eyeX;
+        eyes[view * 3 + 1] = eyeY;
+        eyes[view * 3 + 2] = eyeUp;
+        eyesSinceRanked |= 1 << view;
+    }
+
+    /** The squared distance, in tiles, from the nearest eye noted since the last ranking to the nearest place a square lies at. */
+    static float distanceToEyes(Set<Long> places) {
+        float least = Float.MAX_VALUE;
+        for (int view = 0; view < View.COUNT; view++) {
+            if ((eyesSinceRanked & 1 << view) != 0) {
+                least = Math.min(least, distanceTo(places, eyes[view * 3], eyes[view * 3 + 1], eyes[view * 3 + 2]));
+            }
+        }
+        return least;
+    }
+
+    /** Starts noting the eyes for the next ranking. */
+    static void eyesRanked() {
+        eyesSinceRanked = 0;
     }
 
     /** The squared distance, in tiles, from the eye to the nearest place a square lies at. The map's squares are at x and y from 0. */
@@ -318,13 +349,14 @@ final class Rugs {
     }
 
     /**
-     * Render thread, as each frame begins, with the eye of the picture about to be drawn: puts
-     * the pictures made since the last frame on the graphics card, a few a frame, and now and
-     * then ranks the squares frames draw by how near the eye they lie and hands out sharp pictures
-     * to the nearest.
+     * Render thread, as each frame begins, with the view about to be drawn and its eye: puts the
+     * pictures made since the last frame on the graphics card, a few a frame, and now and then
+     * ranks the squares frames draw by how near the nearest view's eye they lie and hands out
+     * sharp pictures to the nearest.
      */
-    static void putOnCard(float eyeX, float eyeY, float eyeUp) {
+    static void putOnCard(int view, float eyeX, float eyeY, float eyeUp) {
         frameNanos = System.nanoTime();
+        seeFrom(view, eyeX, eyeY, eyeUp);
         int reads = 0, sharps = 0;
         for (Made one = made.peek(); one != null && reads < READ_A_FRAME && sharps < SHARP_A_FRAME; one = made.peek()) {
             if (one.round != round) {
@@ -366,7 +398,8 @@ final class Rugs {
         }
         if (frameNanos - rankedAt >= RANKED_NANOS) {
             rankedAt = frameNanos;
-            rank(eyeX, eyeY, eyeUp);
+            rank();
+            eyesRanked();
         }
     }
 
@@ -375,7 +408,7 @@ final class Rugs {
      * on the card at the other size, then asks for sharp pictures for the nearest of the squares
      * frames draw, taking the slot of the furthest that has one when every slot is taken.
      */
-    private static void rank(float eyeX, float eyeY, float eyeUp) {
+    private static void rank() {
         boolean smaller = Quality.smallerPictures();
         int gave = 0;
         dropSparesOtherThan(smaller ? DRAWN / 2 : DRAWN);
@@ -392,7 +425,7 @@ final class Rugs {
         }
         float[] distance = new float[drawn.size()];
         for (int i = 0; i < distance.length; i++) {
-            distance[i] = distanceTo(drawn.get(i).places, eyeX, eyeY, eyeUp);
+            distance[i] = distanceToEyes(drawn.get(i).places);
         }
         boolean[] wanted = nearestOf(distance, MOST_SHARP);
         for (int i = 0; i < distance.length; i++) {
