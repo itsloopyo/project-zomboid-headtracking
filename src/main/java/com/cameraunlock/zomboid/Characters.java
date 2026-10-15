@@ -300,6 +300,7 @@ public final class Characters {
         notedFrames++;
         notedIn = null;
         holding = null;
+        viewer = null;
         CharacterDraw.setDown();
     }
 

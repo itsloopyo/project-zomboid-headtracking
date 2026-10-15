@@ -1236,7 +1236,6 @@ final class WorldScene {
      */
     void setDown() {
         for (Frame scene : scenes) {
-            scene.viewer = null;
             scene.cell = null;
             scene.here = null;
             Arrays.fill(scene.groundObject, null);
@@ -1255,6 +1254,17 @@ final class WorldScene {
             // Nothing is built or read while every view is off, so nothing would come to let these go.
             VertexLoans.letGoIdle();
             SpriteColours.letGoOfThePage();
+        }
+    }
+
+    /**
+     * Render thread, as the picture is set down, after the frames queued before it are drawn:
+     * a frame queued as its player died is drawn after the logic thread has gone on to set the
+     * picture down, and draws for the player it was built for.
+     */
+    void letGoOfViewers() {
+        for (Frame scene : scenes) {
+            scene.viewer = null;
         }
     }
 

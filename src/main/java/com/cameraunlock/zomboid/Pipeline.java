@@ -5802,6 +5802,7 @@ final class Pipeline {
         @Override
         public void render() {
             view.characters.setDown();
+            view.worldScene.letGoOfViewers();
             if (width == 0) {
                 return;
             }
