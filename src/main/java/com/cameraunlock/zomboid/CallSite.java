@@ -4,9 +4,11 @@ import java.lang.classfile.ClassFile;
 import java.lang.classfile.ClassModel;
 import java.lang.classfile.ClassTransform;
 import java.lang.classfile.CodeBuilder;
+import java.lang.classfile.CodeElement;
 import java.lang.classfile.CodeTransform;
 import java.lang.classfile.FieldModel;
 import java.lang.classfile.Instruction;
+import java.lang.classfile.Label;
 import java.lang.classfile.MethodModel;
 import java.lang.classfile.Opcode;
 import java.lang.classfile.TypeKind;
@@ -318,6 +320,43 @@ final class CallSite {
                 inserted.accept(code);
             }
             code.with(element);
+        };
+        byte[] transformed = transform(classBytes, within, insert);
+        if (matches[0] == 0) {
+            throw new IllegalStateException("found no return in " + within);
+        }
+        return transformed;
+    }
+
+    /**
+     * Inserts {@code code} before every return of {@code within} and on every throw out of it,
+     * which is then thrown on. On a throw the thrown object is on the stack under what the code
+     * pushes, so the code has to leave the stack as it found it.
+     */
+    static byte[] insertOnEveryWayOut(byte[] classBytes, Method within, Consumer<CodeBuilder> inserted) {
+        int[] matches = {0};
+        CodeTransform insert = new CodeTransform() {
+            private Label start;
+
+            @Override
+            public void accept(CodeBuilder code, CodeElement element) {
+                if (start == null) {
+                    start = code.newBoundLabel();
+                }
+                if (element instanceof ReturnInstruction) {
+                    matches[0]++;
+                    inserted.accept(code);
+                }
+                code.with(element);
+            }
+
+            @Override
+            public void atEnd(CodeBuilder code) {
+                Label handler = code.newBoundLabel();
+                code.exceptionCatchAll(start, handler, handler);
+                inserted.accept(code);
+                code.athrow();
+            }
         };
         byte[] transformed = transform(classBytes, within, insert);
         if (matches[0] == 0) {

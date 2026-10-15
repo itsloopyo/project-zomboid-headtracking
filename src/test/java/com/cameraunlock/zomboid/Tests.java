@@ -126,6 +126,7 @@ public final class Tests {
         Checks.run("fringeThinsOutWithDistance", Tests::fringeThinsOutWithDistance);
         Checks.run("fineSkinFileIsNamedAfterTheGamesTexture", Tests::fineSkinFileIsNamedAfterTheGamesTexture);
         Checks.run("hookBeforeAReturnGetsTheResultAndTheFirstArgument", Tests::hookBeforeAReturnGetsTheResultAndTheFirstArgument);
+        Checks.run("hookOnEveryWayOutRunsOnAThrowAndTheThrowGoesOn", Tests::hookOnEveryWayOutRunsOnAThrowAndTheThrowGoesOn);
         Checks.run("packedModelIsReadBack", Tests::packedModelIsReadBack);
         Checks.run("brokenModelFilesAreRefused", Tests::brokenModelFilesAreRefused);
         Checks.run("quarterTurnsCarryAModelsFrontRoundTheCompass", Tests::quarterTurnsCarryAModelsFrontRoundTheCompass);
@@ -1709,6 +1710,37 @@ public final class Tests {
         Class<?> defined = MethodHandles.lookup().defineClass(hooked);
         Object made = defined.getMethod("make", String.class).invoke(defined.getConstructor().newInstance(), "steps");
         check("made from steps".equals(made), "the hook is given what the method was about to return and the method's first argument, and its answer is returned");
+    }
+
+    private static int waysOut;
+
+    public static void wayOut() {
+        waysOut++;
+    }
+
+    private static void hookOnEveryWayOutRunsOnAThrowAndTheThrowGoesOn() throws Throwable {
+        ClassDesc thrown = ClassDesc.of("java.lang.IllegalStateException");
+        byte[] subject = ClassFile.of().build(ClassDesc.of("com.cameraunlock.zomboid.SubjectThatMayThrow"), type -> type
+                .withFlags(ClassFile.ACC_PUBLIC)
+                .withMethodBody("write", MethodTypeDesc.of(ConstantDescs.CD_void, ConstantDescs.CD_boolean), ClassFile.ACC_PUBLIC | ClassFile.ACC_STATIC, code -> code
+                        .iload(0)
+                        .ifThen(java.lang.classfile.Opcode.IFNE, fails -> fails.new_(thrown).dup().invokespecial(thrown, ConstantDescs.INIT_NAME, ConstantDescs.MTD_void).athrow())
+                        .return_()));
+        CallSite.Method within = new CallSite.Method("com/cameraunlock/zomboid/SubjectThatMayThrow", "write", "(Z)V");
+        CallSite.Method hook = new CallSite.Method("com/cameraunlock/zomboid/Tests", "wayOut", "()V");
+        Method write = MethodHandles.lookup().defineClass(CallSite.insertOnEveryWayOut(subject, within, code -> CallSite.invokeStatic(code, hook)))
+                .getMethod("write", boolean.class);
+        waysOut = 0;
+        write.invoke(null, false);
+        check(waysOut == 1, "the hook runs once before a return, ran " + waysOut);
+        Throwable out = null;
+        try {
+            write.invoke(null, true);
+        } catch (java.lang.reflect.InvocationTargetException invoked) {
+            out = invoked.getCause();
+        }
+        check(waysOut == 2, "the hook runs once as the method throws, ran " + (waysOut - 1));
+        check(out instanceof IllegalStateException, "what the method threw is thrown on, got " + out);
     }
 
     private static void partsAreToldByTheirNames() {

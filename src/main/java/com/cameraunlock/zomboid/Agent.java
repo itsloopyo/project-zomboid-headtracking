@@ -448,7 +448,7 @@ public final class Agent {
                             code.aload(0);
                             CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "chunkSaving", "(Lzombie/iso/IsoChunk;)V"));
                         })),
-                new Patch("zombie/iso/IsoChunk", "Save to a buffer before its returns", classBytes -> CallSite.insertBeforeReturns(classBytes,
+                new Patch("zombie/iso/IsoChunk", "Save to a buffer on its way out", classBytes -> CallSite.insertOnEveryWayOut(classBytes,
                         new CallSite.Method("zombie/iso/IsoChunk", "Save", "(Ljava/nio/ByteBuffer;Ljava/util/zip/CRC32;Z)Ljava/nio/ByteBuffer;"), code -> {
                             code.aload(0);
                             CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "chunkSaved", "(Lzombie/iso/IsoChunk;)V"));

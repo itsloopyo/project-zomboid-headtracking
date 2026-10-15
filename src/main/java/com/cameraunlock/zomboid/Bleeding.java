@@ -211,7 +211,7 @@ final class Bleeding {
         }
     }
 
-    /** Called once the game has written a chunk to its save: the drops lifted off it go back. */
+    /** Called once the game has written a chunk to its save, or thrown writing it: the drops lifted off it go back. */
     static void saved(IsoChunk chunk) {
         synchronized (trail) {
             List<IsoFloorBloodSplat> off = lifted.remove(chunk);
