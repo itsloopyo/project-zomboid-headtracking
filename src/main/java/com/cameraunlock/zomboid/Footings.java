@@ -212,7 +212,7 @@ final class Footings {
         }
 
         private static long chunkOf(int x, int y) {
-            return square(Math.floorDiv(x, Terrain.CHUNK_TILES), Math.floorDiv(y, Terrain.CHUNK_TILES));
+            return spread(square(Math.floorDiv(x, Terrain.CHUNK_TILES), Math.floorDiv(y, Terrain.CHUNK_TILES)));
         }
 
         private static int placeIn(int x, int y) {
@@ -238,6 +238,16 @@ final class Footings {
 
     private static long square(int x, int y) {
         return (long) x << 32 | y & 0xFFFFFFFFL;
+    }
+
+    /**
+     * What a HashMap is keyed by for a place packed by key or square: Long hashes x << 32 | y as
+     * x ^ y, which the squares and chunks round about share by the dozen, and a map of them is
+     * searched along trees. The multiplier takes each key to a different one, so no two places
+     * share a map key; a map key is never read back as a place.
+     */
+    static long spread(long key) {
+        return key * 0x9E3779B97F4A7C15L;
     }
 
     static long key(float x, float y) {

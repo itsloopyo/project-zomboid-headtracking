@@ -894,8 +894,8 @@ final class Terrain {
                 continue;
             }
             last = key;
-            boolean asked = pads.containsKey(key);
-            if (!asked && padsForNow.containsKey(key)) {
+            boolean asked = pads.containsKey(Footings.spread(key));
+            if (!asked && padsForNow.containsKey(Footings.spread(key))) {
                 asked = true;
                 all = false;
             }
@@ -918,7 +918,7 @@ final class Terrain {
             // The streets round that one corner, which is all that is read.
             int cornerI = x - midWx * CHUNK_TILES + AROUND, cornerJ = y - midWy * CHUNK_TILES + AROUND;
             streets(midWx * CHUNK_TILES - AROUND, midWy * CHUNK_TILES - AROUND, Math.min(cornerI, cornerJ), Math.max(cornerI, cornerJ), false);
-            (lasting ? pads : padsForNow).put(freeKeys[asked], corner(x, y, cornerI, cornerJ));
+            (lasting ? pads : padsForNow).put(Footings.spread(freeKeys[asked]), corner(x, y, cornerI, cornerJ));
             all &= lasting;
         }
         return all & lay(cell, wx, wy, false, AROUND / CHUNK_TILES, true);
@@ -1005,9 +1005,9 @@ final class Terrain {
                 }
                 if (x != lastX || y != lastY) {
                     long key = Footings.key(x, y);
-                    Float kept = pads.get(key);
+                    Float kept = pads.get(Footings.spread(key));
                     if (freeAround[at]) {
-                        kept = bare ? Float.valueOf(Float.NaN) : kept != null ? kept : padsForNow.get(key);
+                        kept = bare ? Float.valueOf(Float.NaN) : kept != null ? kept : padsForNow.get(Footings.spread(key));
                     } else if (kept == null && key == unkeptKey) {
                         kept = unkeptPad;
                     } else if (kept == null && key == otherUnkeptKey) {
@@ -1016,7 +1016,7 @@ final class Terrain {
                         boolean lasting = findWater(cell, Math.floorDiv((int) Math.floor(x), CHUNK_TILES), Math.floorDiv((int) Math.floor(y), CHUNK_TILES));
                         kept = base(x, y);
                         if (lasting) {
-                            pads.put(key, kept);
+                            pads.put(Footings.spread(key), kept);
                         } else {
                             otherUnkeptKey = unkeptKey;
                             otherUnkeptPad = unkeptPad;
@@ -1165,7 +1165,7 @@ final class Terrain {
             unsure.clear();
             unsureAsOf = mapAsOf();
         }
-        long chunk = (long) wx << 32 | wy & 0xFFFFFFFFL;
+        long chunk = Footings.spread((long) wx << 32 | wy & 0xFFFFFFFFL);
         kept = unsure.get(chunk);
         if (kept != null) {
             return kept;
