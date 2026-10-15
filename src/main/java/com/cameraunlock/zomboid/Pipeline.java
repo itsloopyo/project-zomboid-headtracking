@@ -526,9 +526,9 @@ final class Pipeline {
     private static final float SCALE = Float.parseFloat(System.getProperty("cameraunlock.zomboid.renderScale", "1"));
     /** Dev only: passes left out of the picture, to find which of them a fault is in. Any of steady, occlusion, air, glow, relief, and depth for the solid world and what grows drawn once with no pass for their depth first. */
     private static final String WITHOUT = System.getProperty("cameraunlock.zomboid.without", "");
-    private static final String[] STAGE_NAMES = {"load", "shadows", "world", "clouds", "sky", "occlusion", "air", "glow", "develop", "figures", "smooth", "depth", "solid", "laid", "mirror", "farland", "fartrees", "water", "glass"};
+    private static final String[] STAGE_NAMES = {"load", "shadows", "world", "clouds", "sky", "occlusion", "air", "glow", "develop", "figures", "smooth", "depth", "solid", "laid", "mirror", "farland", "fartrees", "water", "glass", "scope"};
     private static final int STAGE_LOAD = 0, STAGE_SHADOWS = 1, STAGE_WORLD = 2, STAGE_CLOUDS = 3, STAGE_SKY = 4, STAGE_OCCLUSION = 5,
-            STAGE_AIR = 6, STAGE_GLOW = 7, STAGE_DEVELOP = 8, STAGE_FIGURES = 9, STAGE_SMOOTH = 10, STAGE_DEPTH = 11, STAGE_SOLID = 12, STAGE_LAID = 13, STAGE_MIRROR = 14, STAGE_FAR_LAND = 15, STAGE_FAR_TREES = 16, STAGE_WATER = 17, STAGE_GLASS = 18;
+            STAGE_AIR = 6, STAGE_GLOW = 7, STAGE_DEVELOP = 8, STAGE_FIGURES = 9, STAGE_SMOOTH = 10, STAGE_DEPTH = 11, STAGE_SOLID = 12, STAGE_LAID = 13, STAGE_MIRROR = 14, STAGE_FAR_LAND = 15, STAGE_FAR_TREES = 16, STAGE_WATER = 17, STAGE_GLASS = 18, STAGE_SCOPE = 19;
     private final long[] stageNanos = new long[STAGE_NAMES.length];
     private int stageFrames;
     private final int[] downTarget = new int[BLOOM_LEVELS], downColor = new int[BLOOM_LEVELS];
@@ -1082,6 +1082,7 @@ final class Pipeline {
             }
             if (throughScope) {
                 drawThroughScope(state, far, fogStart, fogEnd, figures);
+                stage(STAGE_SCOPE);
             }
             boolean waterInView = water != null && surfacesMirror && !outside && waterInSight(camera, state, tanHalfFieldOfView, aspect, near, far);
             waterDrawn = waterSight.mayShow(waterInView, waterAtEdge, gameFrame) && waterInView;
@@ -3104,7 +3105,7 @@ final class Pipeline {
             GL11.glDepthMask(false);
         }
         world.use();
-        // The three parts of the view's own picture of the world are timed apart: what "world" then has left is the scope and what water shows.
+        // The three parts of the view's own picture of the world are timed apart, and what "world" then has left is what follows the far trees: the sight queries, bullet holes and what mirrors show laid over their glass.
         boolean own = eyesOwn();
         if (own) {
             stage(STAGE_DEPTH);
