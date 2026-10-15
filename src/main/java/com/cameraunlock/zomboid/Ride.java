@@ -342,13 +342,14 @@ final class Ride {
      * Whether a player of this machine in first person, driving by keyboard, keeps steering,
      * accelerating and braking with a firearm raised. The game takes the controls from a driver
      * aiming one (IsoPlayer.updateWhileInVehicle). On a pad the triggers that aim and fire also
-     * brake and accelerate, so a pad keeps the game's rule, and so does a session where players
-     * can fight.
+     * brake and accelerate (CarController.updateControls reads the pad wherever getJoypad is
+     * not -1, player 1 included), so a pad keeps the game's rule, and so does a session where
+     * players can fight. Reloading takes the controls whatever this says.
      */
     static boolean drivesWhileAiming(IsoPlayer player) {
         BaseVehicle vehicle = player.getVehicle();
         View view = View.of(player);
-        return vehicle != null && vehicle.isKeyboardControlled() && player.isLocalPlayer() && view != null && view.firstPerson.active()
+        return vehicle != null && vehicle.getJoypad() == -1 && player.isLocalPlayer() && view != null && view.firstPerson.active()
                 && !Online.contested();
     }
 

@@ -34,7 +34,7 @@ public final class BaseVehicle extends zombie.iso.IsoMovingObject {
     public org.joml.Vector3f getWorldPos(org.joml.Vector3f local, org.joml.Vector3f out) { throw new UnsupportedOperationException("reference stub"); }
     public org.joml.Vector3f getWorldPos(float x, float y, float z, org.joml.Vector3f out) { throw new UnsupportedOperationException("reference stub"); }
     public Vector3f getLinearVelocity(Vector3f out) { throw new UnsupportedOperationException("reference stub"); }
-    public boolean isKeyboardControlled() { throw new UnsupportedOperationException("reference stub"); }
+    public int getJoypad() { throw new UnsupportedOperationException("reference stub"); }
     public float getCurrentSteering() { throw new UnsupportedOperationException("reference stub"); }
     public int getMaxPassengers() { throw new UnsupportedOperationException("reference stub"); }
     public IsoGameCharacter getCharacter(int seat) { throw new UnsupportedOperationException("reference stub"); }
