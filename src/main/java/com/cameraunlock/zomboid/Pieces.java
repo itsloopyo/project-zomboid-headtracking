@@ -495,6 +495,22 @@ final class Pieces {
         }
     }
 
+    /** Called as the game leaves a save: every piece goes, and each texture the game asked to destroy meanwhile is destroyed. */
+    static void forget() {
+        List<Texture> destroying;
+        synchronized (pieces) {
+            destroying = new ArrayList<>(letGo);
+            pieces.clear();
+            orphans.clear();
+            held.clear();
+            letGo.clear();
+            any = false;
+        }
+        for (Texture texture : destroying) {
+            RenderThread.queueInvokeOnRenderContext(texture::destroy);
+        }
+    }
+
     /** Called once a game tick: blood where pieces land, and pieces long lain forgotten. Logic thread. */
     static void tick() {
         if (!any) {
