@@ -58,7 +58,7 @@ final class SpriteColours {
     private static long copyFence;
     private static int copyFromX, copyFromY, copyAcross, copyDown, copyWidth, copyHeight;
     private static final ArrayList<Texture> copied = new ArrayList<>();
-    /** The buffer copies are made into, kept for the session once made, and its size. Render thread. */
+    /** The buffer copies are made into, kept while sprites go on being asked for as the page is, and its size. Render thread. */
     private static int copyBuffer, copyBufferBytes;
 
     private SpriteColours() {}
@@ -122,9 +122,19 @@ final class SpriteColours {
         for (Texture texture = asked.poll(); texture != null; texture = asked.poll()) {
             waiting.add(texture);
         }
+        if (copying) {
+            pageUsedNanos = System.nanoTime();
+            takeCopy();
+            return;
+        }
         if (waiting.isEmpty()) {
             if (System.nanoTime() - pageUsedNanos > PAGE_KEPT_NANOS) {
                 letGoOfThePage();
+                if (copyBuffer != 0) {
+                    GL15.glDeleteBuffers(copyBuffer);
+                    copyBuffer = 0;
+                    copyBufferBytes = 0;
+                }
             }
             return;
         }
@@ -137,10 +147,6 @@ final class SpriteColours {
             }
         }
         pageUsedNanos = System.nanoTime();
-        if (copying) {
-            takeCopy();
-            return;
-        }
         // What OpenGL has flagged before anything here is asked of it is not this reading's: one flag a kind of error at most, and a lost context flags for ever.
         for (int flag = 0, error = GL11.glGetError(); flag < GL_ERROR_FLAGS && error != 0; flag++, error = GL11.glGetError()) {
             if (!errorLeftLogged) {
