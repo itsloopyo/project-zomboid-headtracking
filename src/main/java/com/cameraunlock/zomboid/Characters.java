@@ -723,7 +723,7 @@ public final class Characters {
             if (right != null && !inTheHand(data, 0, right, seenHands[0], scale, heldView) || left != null && !inTheHand(data, 1, left, seenHands[1], scale, leftView)) {
                 if (!bareCarryRefused) {
                     bareCarryRefused = true;
-                    Log.info("what is in the viewer's hand could not be put in the mod's own hand for a shove or a stamp (the game's hand or the item's mesh is not read yet): the game's own arms are drawn for it, as often as that happens");
+                    Log.info("what is in the viewer's hand could not be put in the mod's own hand for a shove or a stamp (the game's hand, or the item's mesh or place, is not read yet): the game's own arms are drawn for it, as often as that happens");
                 }
                 return;
             }
@@ -815,7 +815,7 @@ public final class Characters {
         if (right != null && !inTheHand(data, 0, right, seenHands[0], scale, heldView) || left != null && !inTheHand(data, 1, left, seenHands[1], scale, leftView)) {
             if (!taskCarryRefused) {
                 taskCarryRefused = true;
-                Log.info("what is in the viewer's hand could not be put in the mod's own hand at " + task.anim() + " (the game's hand or the item's mesh is not read yet): the game's own animation of it is drawn, as often as that happens");
+                Log.info("what is in the viewer's hand could not be put in the mod's own hand at " + task.anim() + " (the game's hand, or the item's mesh or place, is not read yet): the game's own animation of it is drawn, as often as that happens");
             }
             return;
         }
@@ -860,6 +860,11 @@ public final class Characters {
         // The line across the wrist is the wrist's widest, either way along it: the palm is on
         // the side of the hand what it holds is on, and kept when that is not plain.
         float[] xfrm = item.xfrm.get(itemPlace);
+        if (!(xfrm[1] * xfrm[1] + xfrm[5] * xfrm[5] + xfrm[9] * xfrm[9] > 0f)) {
+            // The frame something is put in the hand the game has not placed it yet, and its matrix is all noughts:
+            // the palm's side found from it would be kept.
+            return false;
+        }
         Vector3f low = model.mesh.minXyz, high = model.mesh.maxXyz;
         float cx = (low.x + high.x) / 2f, cy = (low.y + high.y) / 2f, cz = (low.z + high.z) / 2f;
         for (int axis = 0; axis < 3; axis++) {
