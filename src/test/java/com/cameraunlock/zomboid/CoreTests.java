@@ -757,7 +757,7 @@ public final class CoreTests {
         Tracking.applyOption(talking, options[talking], 1);
         check(Mouths.on() && saved("TalkingMouths=true", "Microphone=None", "SecondPlayerMicrophone=None"),
                 "turned on there they are on and saved, with every microphone on none");
-        check(Microphones.open(0) == 0f && Microphones.open(1) == 0f, "and no mouth opens with no microphone to read");
+        check(Microphones.mouth(0) == Mouths.Shape.SHUT && Microphones.mouth(1) == Mouths.Shape.SHUT, "and no mouth opens with no microphone to read");
         Tracking.applyOption(talking, options[talking], 0);
         Tracking.applyMicrophone(0, Microphones.DEFAULT);
         check(!Mouths.on() && saved("TalkingMouths=false", "Microphone=Default"), "and off again, with player 1 back on the default");
