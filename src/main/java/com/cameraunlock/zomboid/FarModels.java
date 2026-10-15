@@ -121,7 +121,8 @@ public final class FarModels {
      * Whether a zombie stands in a room the picture neither shows nor builds, nor beside an
      * opening into one it does: no line of sight reaches it, and none can before its room is
      * built, which is as the eye comes near enough to see into it. Then it is given its model
-     * again, before it can be seen. Under the picture only, and never where players fight.
+     * again, before it can be seen. Under the picture only: where players fight, zombies are
+     * drawn as offline, so the same rule holds there.
      */
     private boolean inARoomNotSeen(IsoZombie zombie) {
         FigureRooms rooms = view.worldScene.roomsLastBuilt;
