@@ -64,7 +64,7 @@
 - Taking the driver's seat switches off a light you're holding.
 - Vehicles tilt with the hills under them.
 - Single player: hills slow vehicles uphill and speed them up downhill, and vehicles take off over crests at speed.
-- Single player: vehicles roll over if turned too hard or hit from the side. One left on its roof catches fire after 4 seconds, throws out anyone inside, and burns out 6 seconds later, leaving the game's burnt wreck.
+- Single player: a vehicle left on its roof catches fire after 4 seconds, throws out anyone inside, and burns out 6 seconds later, leaving the game's burnt wreck.
 - Single player: vehicles smash through fences and street lamp posts, losing a little speed and taking some damage.
 - Single player: bushes and plants don't slow vehicles, and grass and dirt don't cut engine power.
 - Single player: zombies and bodies push back on a vehicle a quarter as hard as in the base game.

@@ -19,7 +19,8 @@ import zombie.vehicles.VehiclesDB2;
  * Vehicles played alone, as in an open-world driving game: the first person hills pull a
  * vehicle down them and throw it into the air over a crest at speed, where it has no drive or
  * brakes and its steering stays where it was until it lands (Airtime); a vehicle thrown hard
- * enough across rolls over (Rollover); and one left on its roof burns out (Wreck). On a server
+ * enough across rolls over (Rollover, shelved: only with -Dcameraunlock.zomboid.rollovers=true);
+ * and one left on its roof burns out (Wreck). On a server
  * the game's level ground moves every vehicle as everyone else in the game sees it move, and
  * none of this is done.
  *
@@ -72,6 +73,8 @@ final class CarPhysics {
 
     /** By physics id, which the game gives as a short. */
     private static final Kept[] KEPT = new Kept[1 << 16];
+    /** Rollovers are held back for a later release. */
+    private static final boolean ROLLOVERS = Boolean.getBoolean("cameraunlock.zomboid.rollovers");
     /** How long what the picture said of the land holds: longer, first person is off or the vehicle out of its view, and the land is level. */
     private static final long LAND_SAID_FOR_NANOS = 250_000_000L;
     /** A gap between updates of a vehicle longer than this starts it again: it was out of the loaded map, or the game paused. */
@@ -168,7 +171,7 @@ final class CarPhysics {
         vehicle.getForwardVector(FORWARD);
         vehicle.getUpVector(UP);
         vehicle.getLinearVelocity(GOING);
-        kept.roll = kept.rollover.step(FORWARD.x, FORWARD.z, UP.y, GOING.x, GOING.z, seconds, kept.tipsAt);
+        kept.roll = ROLLOVERS ? kept.rollover.step(FORWARD.x, FORWARD.z, UP.y, GOING.x, GOING.z, seconds, kept.tipsAt) : 0f;
         kept.rollAbout.set(FORWARD.x, FORWARD.y, FORWARD.z);
         if (DevBuild.ON && kept.roll != 0f && now - kept.rollSaidAt > 250_000_000L) {
             kept.rollSaidAt = now;
