@@ -505,8 +505,16 @@ final class CabinDraw {
         GL30.glDeleteVertexArrays(f.array);
     }
 
-    /** Gives back everything on the graphics card: the game is leaving the save, or the picture is being remade. */
+    /**
+     * Gives back everything on the graphics card but the programs: first person lets go of its
+     * pictures, or the mod's own interiors are switched off. Made again as it was the first time.
+     */
     void forget() {
+        if (fitted.isEmpty() && textures.isEmpty() && detailSurface == 0 && shadowTarget == 0) {
+            return;
+        }
+        int bodies = fitted.size(), styles = textures.size();
+        boolean detail = detailSurface != 0, shadow = shadowTarget != 0;
         for (Fitted f : fitted.values()) {
             letGo(f);
         }
@@ -524,6 +532,8 @@ final class CabinDraw {
             shadowTarget = 0;
             shadowDepth = 0;
         }
+        Log.info("the mod's interiors are given back to the graphics card: " + bodies + " fitted bodies, the pictures of " + styles + " styles"
+                + (detail ? ", the shared close-up surfaces" : "") + (shadow ? ", the cabin's shadow map" : ""));
     }
 
     /** What one frame draws the interior with. */

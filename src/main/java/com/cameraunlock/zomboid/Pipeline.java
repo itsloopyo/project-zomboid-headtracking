@@ -1118,6 +1118,9 @@ final class Pipeline {
                 GL11.glClearColor(0f, 0f, 0f, 0f);
                 GL11.glClear(GL_COLOR_BUFFER_BIT);
             }
+            if (!Own.cabins()) {
+                cabinDraw.forget();
+            }
             view.characters.movers.begin(steadying);
             if (figures) {
                 drawFigures(camera, state, tanHalfFieldOfView, aspect, near, far, fogStart, fogEnd);
@@ -5968,6 +5971,7 @@ final class Pipeline {
             view.kerbSteps.forget();
             leaves.letGo();
             SpriteColours.giveBackIdle();
+            cabinDraw.forget();
             for (int other = 0; other < View.COUNT; other++) {
                 if (View.of(other) != null && View.of(other).pipeline.holds) {
                     // Another view is drawn with all of it still: this one gave its own back as it was set down.
