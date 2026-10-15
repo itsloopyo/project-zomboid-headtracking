@@ -1058,7 +1058,8 @@ final class Pipeline {
             stepAside();
             view.characters.seenBy(camera, tanHalfFieldOfView, aspect);
             // A mirror in a room looks where the eye does not, at people the sun's maps shade.
-            lookingGlassDrawn = reflections && !outside && !seated && lookingGlassSeen(camera, tanHalfFieldOfView, aspect, near);
+            boolean glassInView = reflections && !outside && !seated && lookingGlassSeen(camera, tanHalfFieldOfView, aspect, near);
+            lookingGlassDrawn = glassSight.mayShow(glassInView, glassInView && atEdge(lookingGlass.rect, 1f), gameFrame) && glassInView;
             if (lookingGlassDrawn) {
                 WaterMirror.mirror(camera, lookingGlass.plane, glassEye);
                 view.characters.alsoSeenBy(glassEye, tanHalfFieldOfView, aspect);
@@ -1083,7 +1084,7 @@ final class Pipeline {
                 drawThroughScope(state, far, fogStart, fogEnd, figures);
             }
             boolean waterInView = water != null && surfacesMirror && !outside && waterInSight(camera, state, tanHalfFieldOfView, aspect, near, far);
-            waterDrawn = waterMayShow(waterInView) && waterInView;
+            waterDrawn = waterSight.mayShow(waterInView, waterAtEdge, gameFrame) && waterInView;
             if (waterDrawn) {
                 drawOverWater(camera, state, tanHalfFieldOfView, aspect, near, far, fogStart, fogEnd);
                 stage(STAGE_WATER);
@@ -1095,7 +1096,10 @@ final class Pipeline {
             stage(STAGE_WORLD);
             drawWorld(camera, state, tanHalfFieldOfView, aspect, near, far, fogStart, fogEnd);
             if (waterInView) {
-                askWhetherWaterShows();
+                askWhetherWaterShows(camera);
+            }
+            if (glassInView) {
+                askWhetherGlassShows(camera);
             }
             if (struck) {
                 impacts.read(sceneTarget, camera, tanHalfFieldOfView, aspect, width, height);
@@ -1314,94 +1318,104 @@ final class Pipeline {
             return false;
         }
         // The rectangle is of a picture wider than the eye's by MARGIN: past 1 / MARGIN the water is off the eye's picture, where a turn brings it in.
-        float edge = 1f / WaterMirror.MARGIN;
-        waterAtEdge = waterRect[0] < -edge || waterRect[1] < -edge || waterRect[2] > edge || waterRect[3] > edge;
+        waterAtEdge = atEdge(waterRect, 1f / WaterMirror.MARGIN);
         return WaterMirror.showsAny(waterRect);
     }
 
     /**
-     * Whether any water in the frame's view may show in the eye's picture: drawn, the picture of
-     * what water shows cost 2.5 ms of the card while walking by a pond that fences and houses hid
-     * entirely. Each frame the water's plane over every chunk of water in view, raised and a tile
-     * wider each way, is drawn against the depth of the eye's own world under a query (see
-     * askWhetherWaterShows), and its answer is taken up a frame or two later without waiting. So
-     * that water coming out from behind what hides it is never shown without its picture, water
-     * counts as showing while any query since it came into view has said so within WATER_KEPT_FRAMES,
-     * while no answer has come yet, and whenever it reaches past the eye's picture, where a turn
-     * of the head brings it in before any query could see it.
+     * Whether a rectangle of the picture, in its own coordinates from -1 to 1, reaches past the
+     * eye's picture, whose edge is at edge in them.
      */
-    private boolean waterMayShow(boolean inView) {
-        for (int i = 0; i < waterQueries.length; i++) {
-            if (waterAsked[i] && GL15.glGetQueryObjecti(waterQueries[i], GL_QUERY_RESULT_AVAILABLE) != 0) {
-                waterAsked[i] = false;
-                if (GL15.glGetQueryObjecti(waterQueries[i], GL_QUERY_RESULT) != 0) {
-                    waterSeenFrame = gameFrame;
-                }
-            }
-        }
-        if (!waterWasInView) {
-            waterSeenFrame = gameFrame;
-        }
-        waterWasInView = inView;
-        return waterAtEdge || gameFrame - waterSeenFrame <= WATER_KEPT_FRAMES;
+    private static boolean atEdge(float[] rect, float edge) {
+        return rect[0] < -edge || rect[1] < -edge || rect[2] > edge || rect[3] > edge;
     }
 
+    /**
+     * Whether water and a room's mirror may show past what stands before them (SightQuery). The
+     * picture of what water shows cost 2.5 ms of the card walking by a pond that fences and
+     * houses hid entirely.
+     */
+    private final SightQuery waterSight = new SightQuery(), glassSight = new SightQuery();
+
     /** Draws the water's plane over the chunks of water in view, raised and a tile wider, under a query of whether any of it passes the eye's depth. */
-    private void askWhetherWaterShows() {
+    private void askWhetherWaterShows(ViewCamera.Pose eye) {
         float[] plane = water;
         if (Math.abs(plane[2]) < 0.1f) {
-            waterSeenFrame = gameFrame;
+            waterSight.seen(gameFrame);
             return;
         }
-        int slot = waterQueryAt;
-        if (waterAsked[slot]) {
+        lookFromEye();
+        if (!waterSight.begin()) {
             return;
         }
-        waterQueryAt = (slot + 1) % waterQueries.length;
-        if (waterQueries[slot] == 0) {
-            waterQueries[slot] = GL15.glGenQueries();
+        GL11.glBegin(GL_QUADS);
+        for (int i = 0; i < waterBuilds.size(); i++) {
+            WorldScene.ChunkMeshes build = waterBuilds.get(i);
+            float x0 = build.minX - WATER_ASKED_WIDER, y0 = build.minY - WATER_ASKED_WIDER, x1 = build.maxX + WATER_ASKED_WIDER, y1 = build.maxY + WATER_ASKED_WIDER;
+            // The view matrix turns and does not move: what is drawn is placed from the eye.
+            GL11.glVertex3f(x0 - eye.eyeX, y0 - eye.eyeY, waterUp(plane, x0, y0) - eye.eyeUp);
+            GL11.glVertex3f(x1 - eye.eyeX, y0 - eye.eyeY, waterUp(plane, x1, y0) - eye.eyeUp);
+            GL11.glVertex3f(x1 - eye.eyeX, y1 - eye.eyeY, waterUp(plane, x1, y1) - eye.eyeUp);
+            GL11.glVertex3f(x0 - eye.eyeX, y1 - eye.eyeY, waterUp(plane, x0, y1) - eye.eyeUp);
         }
+        GL11.glEnd();
+        waterSight.end();
+    }
+
+    /**
+     * Draws the mirrors the frame chose (LookingGlass), each a little wider and taller and stood a
+     * little out from its face, under a query of whether any of it passes the eye's depth.
+     */
+    private void askWhetherGlassShows(ViewCamera.Pose eye) {
+        lookFromEye();
+        if (!glassSight.begin()) {
+            return;
+        }
+        float[] g = lookingGlass.glass;
+        GL11.glBegin(GL_QUADS);
+        for (int i = 0; i < lookingGlass.count; i++) {
+            int at = i * LookingGlass.FLOATS;
+            float acrossLength = length(g[at + LookingGlass.ACROSS], g[at + LookingGlass.ACROSS + 1], g[at + LookingGlass.ACROSS + 2]);
+            float upLength = length(g[at + LookingGlass.UP], g[at + LookingGlass.UP + 1], g[at + LookingGlass.UP + 2]);
+            float spareAcross = GLASS_ASKED_WIDER / acrossLength, spareUp = GLASS_ASKED_WIDER / upLength;
+            // Stood out on the eye's side of the glass, whichever way its face is noted as looking.
+            float toward = (eye.eyeX - g[at + LookingGlass.CORNER]) * g[at + LookingGlass.FACING] + (eye.eyeY - g[at + LookingGlass.CORNER + 1]) * g[at + LookingGlass.FACING + 1]
+                    + (eye.eyeUp - g[at + LookingGlass.CORNER + 2]) * g[at + LookingGlass.FACING + 2] >= 0f ? GLASS_ASKED_OUT : -GLASS_ASKED_OUT;
+            for (int corner = 0; corner < 4; corner++) {
+                float across = corner == 1 || corner == 2 ? 1f + spareAcross : -spareAcross, up = corner >= 2 ? 1f + spareUp : -spareUp;
+                float[] v = glassCorner;
+                for (int axis = 0; axis < 3; axis++) {
+                    v[axis] = g[at + LookingGlass.CORNER + axis] + across * g[at + LookingGlass.ACROSS + axis] + up * g[at + LookingGlass.UP + axis]
+                            + toward * g[at + LookingGlass.FACING + axis];
+                }
+                GL11.glVertex3f(v[0] - eye.eyeX, v[1] - eye.eyeY, v[2] - eye.eyeUp);
+            }
+        }
+        GL11.glEnd();
+        glassSight.end();
+    }
+
+    /** The eye's projection and view in the fixed-function matrices, and a program that writes no depth, for SightQuery's stand-ins. */
+    private void lookFromEye() {
         GL11.glMatrixMode(GL_PROJECTION);
         GL11.glLoadMatrixf(projection);
         GL11.glMatrixMode(GL_MODELVIEW);
         GL11.glLoadMatrixf(viewed);
         paneMask.use();
-        GL11.glEnable(GL_DEPTH_TEST);
-        GL11.glDepthFunc(GL_LEQUAL);
-        GL11.glDepthMask(false);
-        GL11.glDisable(GL_BLEND);
-        GL11.glColorMask(false, false, false, false);
-        GL15.glBeginQuery(GL_ANY_SAMPLES_PASSED, waterQueries[slot]);
-        GL11.glBegin(GL_QUADS);
-        for (int i = 0; i < waterBuilds.size(); i++) {
-            WorldScene.ChunkMeshes build = waterBuilds.get(i);
-            float x0 = build.minX - WATER_ASKED_WIDER, y0 = build.minY - WATER_ASKED_WIDER, x1 = build.maxX + WATER_ASKED_WIDER, y1 = build.maxY + WATER_ASKED_WIDER;
-            GL11.glVertex3f(x0, y0, waterUp(plane, x0, y0));
-            GL11.glVertex3f(x1, y0, waterUp(plane, x1, y0));
-            GL11.glVertex3f(x1, y1, waterUp(plane, x1, y1));
-            GL11.glVertex3f(x0, y1, waterUp(plane, x0, y1));
-        }
-        GL11.glEnd();
-        GL15.glEndQuery(GL_ANY_SAMPLES_PASSED);
-        GL11.glColorMask(true, true, true, true);
-        GL11.glDepthMask(true);
-        waterAsked[slot] = true;
     }
+
+    /** How much wider and taller than a mirror, and how far out from its face, it is asked about, in tiles. */
+    private static final float GLASS_ASKED_WIDER = 0.3f, GLASS_ASKED_OUT = 0.05f;
+    private final float[] glassCorner = new float[3];
 
     /** How high the water's plane stands at x, y, raised by WATER_ASKED_HIGHER. */
     private static float waterUp(float[] plane, float x, float y) {
         return (plane[3] - plane[0] * x - plane[1] * y) / plane[2] + WATER_ASKED_HIGHER;
     }
 
-    private static final int GL_ANY_SAMPLES_PASSED = 0x8C2F, GL_QUERY_RESULT_AVAILABLE = 0x8867;
     /** How much higher and wider than the water it is asked about: water about to come out from behind a fence or round a corner counts before it shows. */
     private static final float WATER_ASKED_HIGHER = 0.3f, WATER_ASKED_WIDER = 1f;
-    /** How many frames water counts as showing after a query last saw it. */
-    private static final int WATER_KEPT_FRAMES = 30;
-    private final int[] waterQueries = new int[4];
-    private final boolean[] waterAsked = new boolean[4];
-    private int waterQueryAt, waterSeenFrame;
-    private boolean waterAtEdge, waterWasInView;
+    private boolean waterAtEdge;
     private final ArrayList<WorldScene.ChunkMeshes> waterBuilds = new ArrayList<>();
 
     /**
