@@ -44,6 +44,7 @@ final class FurnitureTests {
         Checks.run("eachBookOnAShelfIsAPieceOfItsOwnInBothModels", FurnitureTests::eachBookOnAShelfIsAPieceOfItsOwnInBothModels);
         Checks.run("aShopCounterOpenOverShelvesOpensWhereItsSpritePaintsTheShelves", FurnitureTests::aShopCounterOpenOverShelvesOpensWhereItsSpritePaintsTheShelves);
         Checks.run("aShelvingRunStandsWithItsMiddleSquaresLaidInAnyOrder", FurnitureTests::aShelvingRunStandsWithItsMiddleSquaresLaidInAnyOrder);
+        Checks.run("aBanksStandingDepositBoxesFaceTheWayTheirSpritesDoAndMeetInARun", FurnitureTests::aBanksStandingDepositBoxesFaceTheWayTheirSpritesDoAndMeetInARun);
     }
 
     private static IsoSprite sprite(String row) {
@@ -748,6 +749,23 @@ final class FurnitureTests {
         // The sprite facing south paints its shelves on its east side, the one facing east on its south side.
         check(south.turns == 1 && east.turns == 2, "each opens where its sprite paints the shelves: " + south.turns + ", " + east.turns);
         check(Math.abs(south.model.height() * south.scaleUp - 34 * SURFACE_TILES) < 1e-4f, "as high as the counters of its run");
+    }
+
+    private static void aBanksStandingDepositBoxesFaceTheWayTheirSpritesDoAndMeetInARun() {
+        String row = "|BlocksPlacement||CanScrap||CustomName|Vault|GroupName|Standing|IsMoveAble||Material|MetalPlates|Material3|MetalScrap|"
+                + "MaterialType|Metal|PickUpLevel|2|PickUpTool|Crowbar|PickUpWeight|300|ScrapSize|Large|solid||Facing|";
+        String[] facings = {"S", "E", "N", "W"};
+        int[] turns = {2, 1, 0, 3};
+        for (int i = 0; i < 4; i++) {
+            Furniture boxes = Furniture.known(sprite("location_business_bank_01_" + (42 + i) + row + facings[i]));
+            check(model(boxes).equals("deposit_boxes"), "the standing vault facing " + facings[i] + " is the deposit boxes: " + model(boxes));
+            if (boxes == null || boxes.model == null) {
+                continue;
+            }
+            check(boxes.turns == turns[i], "its doors face the way its sprite does, " + facings[i] + ": " + boxes.turns);
+            check(Math.abs(boxes.model.width() * boxes.scale - 1f) < 1e-3f, "a square of them is a square wide, so a run of them has no gaps");
+            check(boxes.model.height() * boxes.scaleUp < ViewCamera.LEVEL_HEIGHT, "and stands under the ceiling");
+        }
     }
 
     /**

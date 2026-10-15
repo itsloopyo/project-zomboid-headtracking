@@ -552,6 +552,10 @@ final class Furniture {
             Furniture table = new Furniture(sprite, model, turns).dye(1 << Models.WOOD, surfaceHigh);
             return table.stand(surfaceUp, table.model.height(), false);
         }
+        // A bank's safe deposit boxes standing in a run along a wall, each square of them meeting the next.
+        if (called.equals("Vault") && group.equals("Standing") && single) {
+            return new Furniture(sprite, "deposit_boxes", turns).meet(0f, 0f, true);
+        }
         // A shop's counter open over two shelves, which the game calls shelves. Its sprite paints the shelves on the
         // other of the two sides the game's view sees from the one it says it faces: facing south it is open to the
         // east, facing east to the south.

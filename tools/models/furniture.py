@@ -6972,6 +6972,30 @@ def open_counter():
     return model
 
 
+def deposit_boxes():
+    """One square of a bank's standing safe deposit boxes, a metre wide so that each meets the next: a steel case on a
+    plinth, its front at -Y three columns of six small doors, each with a keyhole plate and a pull."""
+    model = Model("deposit_boxes")
+    half, front, back, top, plinth = 0.5, -0.22, 0.22, 2.2, 0.08
+    case, doors, fittings = bmesh.new(), bmesh.new(), bmesh.new()
+    cuboid(case, -half, half, front + 0.04, back, 0.0, plinth)
+    cuboid(case, -half, half, front, back, plinth, top)
+    columns, rows, gap, edge = 3, 6, 0.008, 0.03
+    wide = (2 * half - 2 * edge - (columns - 1) * gap) / columns
+    high = (top - plinth - 2 * edge - (rows - 1) * gap) / rows
+    for c in range(columns):
+        x0 = -half + edge + c * (wide + gap)
+        for r in range(rows):
+            z0 = plinth + edge + r * (high + gap)
+            cuboid(doors, x0, x0 + wide, front - 0.008, front, z0, z0 + high)
+            cuboid(fittings, x0 + wide * 0.5 - 0.022, x0 + wide * 0.5 + 0.022, front - 0.012, front - 0.008, z0 + high * 0.62, z0 + high * 0.82)
+            cuboid(fittings, x0 + wide * 0.5 - 0.03, x0 + wide * 0.5 + 0.03, front - 0.02, front - 0.008, z0 + high * 0.22, z0 + high * 0.3)
+    model.hard(case, "steel", bevel=0.004, segments=1)
+    model.hard(doors, "steel", bevel=0.002, segments=1)
+    model.hard(fittings, "metal", bevel=0.002, segments=1)
+    return model
+
+
 def shop_fittings():
     """What stands in shops, malls, bars and salons: the pieces ShopFittings.java places, and what they hold."""
     return [gondola("shop_gondola", 1, "wood"), gondola("shop_gondola_m", -1, "wood"), gondola("shop_gondola_red", 1, "vinyl"),
@@ -6988,7 +7012,7 @@ def shop_fittings():
             open_chiller(), chiller_goods("chiller_goods_many", 55, 0.95, 3), chiller_goods("chiller_goods_few", 56, 0.45, 1),
             mall_chair(), pedestal_stool(), salon_chair(), glass_counter(),
             magazine_stand("magazine_stand", 0.49, "wood"), magazine_stand("magazine_stand_red", 0.98, "vinyl"),
-            magazines("magazines_many", 57, 0.95), magazines("magazines_few", 58, 0.4), mall_table_quarter(), counter_rack(), open_counter()]
+            magazines("magazines_many", 57, 0.95), magazines("magazines_few", 58, 0.4), mall_table_quarter(), counter_rack(), open_counter(), deposit_boxes()]
 
 
 def outdoors():
