@@ -12,9 +12,11 @@ final class LookingGlassTests {
     static void run() {
         Checks.run("glassLooksOutOfTheFrontOfItsPieceAtEveryTurn", LookingGlassTests::glassLooksOutOfTheFrontOfItsPieceAtEveryTurn);
         Checks.run("glassIsTheFaceOfThePaneAsStood", LookingGlassTests::glassIsTheFaceOfThePaneAsStood);
+        Checks.run("nothingOfAMirrorStandsWithinTheClearanceBeforeItsGlass", LookingGlassTests::nothingOfAMirrorStandsWithinTheClearanceBeforeItsGlass);
         Checks.run("glassIsSeenOnlyFromBeforeItAndInThePicture", LookingGlassTests::glassIsSeenOnlyFromBeforeItAndInThePicture);
         Checks.run("glassPassingBehindTheEyeIsCutAtNear", LookingGlassTests::glassPassingBehindTheEyeIsCutAtNear);
         Checks.run("thePlaneTakingMostOfThePictureIsChosenWithAllItsGlass", LookingGlassTests::thePlaneTakingMostOfThePictureIsChosenWithAllItsGlass);
+        Checks.run("thePlaneIsTheForemostOfItsGlass", LookingGlassTests::thePlaneIsTheForemostOfItsGlass);
         Checks.run("eyeBehindTheGlassSeesWhatTheGlassShows", LookingGlassTests::eyeBehindTheGlassSeesWhatTheGlassShows);
     }
 
@@ -68,6 +70,42 @@ final class LookingGlassTests {
             }
             check(Math.abs(nearest) < 1e-4f, name + ": the pane's face lies in the glass's plane and nothing of it before it, " + nearest);
         }
+    }
+
+    private static void nothingOfAMirrorStandsWithinTheClearanceBeforeItsGlass() {
+        Models.Instances placed = new Models.Instances();
+        for (String name : MIRRORS) {
+            Models.Model model = Models.get(name);
+            float[] glass = stood(placed, name, 0, Furniture.TILES_PER_METRE, Furniture.TILES_PER_METRE);
+            float[] plane = new float[4], at = new float[3];
+            LookingGlass.plane(glass, 0, plane);
+            for (int vertex = 0; vertex < model.first[Models.SURFACES]; vertex++) {
+                if (vertex >= model.first[Models.PANE] && vertex < model.first[Models.PANE + 1]) {
+                    continue;
+                }
+                int v = vertex * Models.VERTEX_FLOATS;
+                placed.stand(0, model.vertices[v], model.vertices[v + 1], model.vertices[v + 2], at, 0);
+                float before = plane[0] * at[0] + plane[1] * at[1] + plane[2] * at[2] - plane[3];
+                check(before < 1e-4f || before >= LookingGlass.CLEAR, name + ": a vertex " + before + " before the glass is cut from what the glass shows");
+            }
+        }
+    }
+
+    private static void thePlaneIsTheForemostOfItsGlass() {
+        LookingGlass looking = new LookingGlass();
+        ViewCamera.Pose camera = eye(20.5f, 27f, toward(20.5f, 27f, 20.5f, 30f));
+        float[] glasses = new float[2 * LookingGlass.FLOATS];
+        System.arraycopy(wallGlass(19.6f), 0, glasses, 0, LookingGlass.FLOATS);
+        // A smaller mirror beside it whose glass stands 3 mm further out from the wall.
+        float[] proud = wallGlass(20.8f);
+        proud[LookingGlass.CORNER + 1] = 29.997f;
+        proud[LookingGlass.ACROSS] = 0.3f;
+        System.arraycopy(proud, 0, glasses, LookingGlass.FLOATS, LookingGlass.FLOATS);
+        looking.begin();
+        looking.consider(glasses, 0, camera, TAN, ASPECT, NEAR);
+        looking.consider(glasses, 1, camera, TAN, ASPECT, NEAR);
+        check(looking.end() && looking.count == 2, "both glasses are in one plane");
+        check(Math.abs(looking.plane[3] + 29.997f) < 1e-5f, "which is the proud glass's, so it is not left before the plane: " + looking.plane[3]);
     }
 
     /** An eye at (x, y), at a height of 1.6, looking along the map by the given angle. */

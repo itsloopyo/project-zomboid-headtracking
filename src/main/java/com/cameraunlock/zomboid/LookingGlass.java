@@ -30,8 +30,11 @@ final class LookingGlass {
     /**
      * How far before its plane what the second picture draws begins, in tiles: the glass
      * itself lies in the plane, and from behind it is a sheet that would hide all the rest.
+     * The world shader tests a place on the map against it, and a float holds such a place to
+     * a millimetre past 8192 tiles and two past 16384, so the glass is cleared by more than
+     * that. The nearest any frame comes before its glass is the medicine cabinet's bevel, 3 mm.
      */
-    static final float CLEAR = 0.002f;
+    static final float CLEAR = 0.003f;
     /** The most mirrors in the plane whose glass is shown. */
     static final int MOST = 16;
     /** Floats a corner of the glass is drawn with: its place from the eye, how far across and up the glass it is, 0 to 1, and the glass's width and height in tiles. */
@@ -103,7 +106,12 @@ final class LookingGlass {
             }
             """;
 
-    /** The plane the glass of this frame's mirrors lies in: the way it faces and how far along that it is from the map's corner. */
+    /**
+     * The plane the glass of this frame's mirrors lies in: the way it faces and how far along
+     * that it is from the map's corner. Glass that counts as in the plane may stand a little
+     * before or behind it, and the plane is the foremost of them, so that no glass is left
+     * standing before it in the picture drawn from behind.
+     */
     final float[] plane = new float[4];
     /** The part of the picture their glass takes up, its least and greatest x and y from -1 to 1. */
     final float[] rect = new float[4];
@@ -296,6 +304,7 @@ final class LookingGlass {
             return false;
         }
         plane(seenGlass[chosen], 0, plane);
+        float foremost = plane[3];
         rect[0] = rect[1] = Float.POSITIVE_INFINITY;
         rect[2] = rect[3] = Float.NEGATIVE_INFINITY;
         for (int j = 0; j < seen && count < MOST; j++) {
@@ -304,12 +313,14 @@ final class LookingGlass {
             }
             System.arraycopy(seenGlass[j], 0, glass, count * FLOATS, FLOATS);
             count++;
+            foremost = Math.max(foremost, plane[0] * seenGlass[j][CORNER] + plane[1] * seenGlass[j][CORNER + 1] + plane[2] * seenGlass[j][CORNER + 2]);
             float[] r = seenRect[j];
             rect[0] = Math.min(rect[0], r[0]);
             rect[1] = Math.min(rect[1], r[1]);
             rect[2] = Math.max(rect[2], r[2]);
             rect[3] = Math.max(rect[3], r[3]);
         }
+        plane[3] = foremost;
         return true;
     }
 
