@@ -1059,7 +1059,7 @@ final class Pipeline {
             view.characters.seenBy(camera, tanHalfFieldOfView, aspect);
             // A mirror in a room looks where the eye does not, at people the sun's maps shade.
             boolean glassInView = reflections && !outside && !seated && lookingGlassSeen(camera, tanHalfFieldOfView, aspect, near);
-            lookingGlassDrawn = glassSight.mayShow(glassInView, glassInView && atEdge(lookingGlass.rect, 1f), gameFrame) && glassInView;
+            lookingGlassDrawn = glassSight.mayShow(glassInView, glassInView && lookingGlass.pastEdge, gameFrame) && glassInView;
             if (lookingGlassDrawn) {
                 WaterMirror.mirror(camera, lookingGlass.plane, glassEye);
                 view.characters.alsoSeenBy(glassEye, tanHalfFieldOfView, aspect);

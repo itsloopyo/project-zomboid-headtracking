@@ -15,6 +15,7 @@ final class LookingGlassTests {
         Checks.run("nothingOfAMirrorStandsWithinTheClearanceBeforeItsGlass", LookingGlassTests::nothingOfAMirrorStandsWithinTheClearanceBeforeItsGlass);
         Checks.run("glassIsSeenOnlyFromBeforeItAndInThePicture", LookingGlassTests::glassIsSeenOnlyFromBeforeItAndInThePicture);
         Checks.run("glassPassingBehindTheEyeIsCutAtNear", LookingGlassTests::glassPassingBehindTheEyeIsCutAtNear);
+        Checks.run("glassReachingPastThePictureIsAtItsEdge", LookingGlassTests::glassReachingPastThePictureIsAtItsEdge);
         Checks.run("thePlaneTakingMostOfThePictureIsChosenWithAllItsGlass", LookingGlassTests::thePlaneTakingMostOfThePictureIsChosenWithAllItsGlass);
         Checks.run("thePlaneIsTheForemostOfItsGlass", LookingGlassTests::thePlaneIsTheForemostOfItsGlass);
         Checks.run("eyeBehindTheGlassSeesWhatTheGlassShows", LookingGlassTests::eyeBehindTheGlassSeesWhatTheGlassShows);
@@ -159,6 +160,21 @@ final class LookingGlassTests {
         glass[LookingGlass.ACROSS] = 20f;
         check(looking.seen(glass, 0, eye(15f, 29f, toward(15f, 29f, 25f, 30f)), TAN, ASPECT, NEAR, rect), "the part of the glass before the eye is seen");
         check(rect[0] >= -1f && rect[2] <= 1f && rect[1] >= -1f && rect[3] <= 1f, "and kept to the picture");
+    }
+
+    /** SightQuery counts glass at the picture's edge as showing, since a turn brings it in before any query sees it. */
+    private static void glassReachingPastThePictureIsAtItsEdge() {
+        LookingGlass looking = new LookingGlass();
+        float[] glasses = wallGlass(20f);
+        looking.begin();
+        looking.consider(glasses, 0, eye(20.5f, 27f, toward(20.5f, 27f, 20.5f, 30f)), TAN, ASPECT, NEAR);
+        check(looking.end() && !looking.pastEdge, "a glass in the middle of the picture is not at its edge");
+        glasses[LookingGlass.ACROSS] = 20f;
+        glasses[LookingGlass.CORNER] = 10f;
+        looking.begin();
+        looking.consider(glasses, 0, eye(15f, 29f, toward(15f, 29f, 25f, 30f)), TAN, ASPECT, NEAR);
+        check(looking.end() && looking.pastEdge, "a long glass running past the side of the picture is at its edge, though its part of the picture is kept to it: "
+                + looking.rect[0] + " to " + looking.rect[2]);
     }
 
     private static void thePlaneTakingMostOfThePictureIsChosenWithAllItsGlass() {

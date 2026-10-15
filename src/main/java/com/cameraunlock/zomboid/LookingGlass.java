@@ -120,12 +120,17 @@ final class LookingGlass {
     /** The glass of each of them, FLOATS each. */
     final float[] glass = new float[MOST * FLOATS];
     int count;
+    /** Whether their glass reaches past the edge of the picture, where a turn of the head brings more of it in. */
+    boolean pastEdge;
 
     /** The most mirrors a frame looks at: more than any room holds. */
     private static final int SEEN_MOST = 64;
     private final float[][] seenGlass = new float[SEEN_MOST][FLOATS], seenRect = new float[SEEN_MOST][4];
     private final float[] seenArea = new float[SEEN_MOST];
+    private final boolean[] seenPast = new boolean[SEEN_MOST];
     private int seen;
+    /** Whether the glass the last seen() was asked of reaches past the edge of the picture. */
+    private boolean reachesPast;
     private final float[] testPlane = new float[4];
     private final float[] corners = new float[5 * 3], ndc = new float[2];
 
@@ -184,6 +189,7 @@ final class LookingGlass {
      * Whether the eye sees a glass from before it, near enough, and in its picture: into rect,
      * the part of the picture the glass takes up, its least and greatest x and y from -1 to 1,
      * kept to the picture. The glass is cut off where it passes nearer the eye than near.
+     * Whether it reaches past the picture is noted before it is kept to it.
      */
     boolean seen(float[] glass, int at, ViewCamera.Pose eye, float tan, float aspect, float near, float[] out) {
         plane(glass, at, testPlane);
@@ -232,6 +238,7 @@ final class LookingGlass {
             out[2] = Math.max(out[2], ndc[0]);
             out[3] = Math.max(out[3], ndc[1]);
         }
+        reachesPast = out[0] < -1f || out[1] < -1f || out[2] > 1f || out[3] > 1f;
         out[0] = Math.max(out[0], -1f);
         out[1] = Math.max(out[1], -1f);
         out[2] = Math.min(out[2], 1f);
@@ -276,6 +283,7 @@ final class LookingGlass {
             return;
         }
         System.arraycopy(glasses, offset, seenGlass[seen], 0, FLOATS);
+        seenPast[seen] = reachesPast;
         float[] r = seenRect[seen];
         seenArea[seen] = (r[2] - r[0]) * (r[3] - r[1]);
         seen++;
@@ -287,6 +295,7 @@ final class LookingGlass {
      */
     boolean end() {
         count = 0;
+        pastEdge = false;
         float best = 0f;
         int chosen = -1;
         for (int i = 0; i < seen; i++) {
@@ -315,6 +324,7 @@ final class LookingGlass {
             }
             System.arraycopy(seenGlass[j], 0, glass, count * FLOATS, FLOATS);
             count++;
+            pastEdge |= seenPast[j];
             foremost = Math.max(foremost, plane[0] * seenGlass[j][CORNER] + plane[1] * seenGlass[j][CORNER + 1] + plane[2] * seenGlass[j][CORNER + 2]);
             float[] r = seenRect[j];
             rect[0] = Math.min(rect[0], r[0]);
