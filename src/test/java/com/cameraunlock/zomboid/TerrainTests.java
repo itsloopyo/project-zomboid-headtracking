@@ -3,6 +3,8 @@ package com.cameraunlock.zomboid;
 import java.util.Arrays;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 /** Tests of the height Terrain gives a street and the ground beside it, the hills of the country, and how high the player has them stand. */
 final class TerrainTests {
@@ -50,6 +52,7 @@ final class TerrainTests {
             groundLoadedOtherwiseThanReadAheadHasItsOwnHeights();
             theLevelLandHasNoKerbs();
             aChunkStillFillingIsReadAgainOnceLoaded();
+            aChunkWhoseGroundIsAsItWasKeepsItsHeightsUntilAnyOfItChanges();
         } finally {
             System.arraycopy(around, 0, Terrain.around, 0, around.length);
             System.arraycopy(pads, 0, Terrain.padsAround, 0, pads.length);
@@ -233,6 +236,170 @@ final class TerrainTests {
         } finally {
             ChunkMarks.live = live;
             Terrain.forget();
+        }
+    }
+
+    /** A change to the map the fold test makes once its chunk has heights. */
+    private interface Change {
+        void make(TestMap map);
+    }
+
+    /** The chunks the fold test's map is still filling: one with water near the shed, one the far shed reaches into, and one with water in a valley of the chunk at (0, 0). */
+    private static final int[][] FILLING = {{-7, 1}, {-7, 2}, {-4, -3}};
+
+    /**
+     * The map the fold test lays: grass from -64 to 39 each way, which leaves ground within
+     * Terrain.AROUND of the chunk at (0, 0) not loaded, a street across it from y = 2 to 5, a
+     * pond west of the chunk, a shed with no building in it west of that, another that stands
+     * across the edge of what the chunk's heights go by, and the chunks of FILLING laid but
+     * still filling, with water where the map will have it.
+     */
+    private static TestMap foldMap() {
+        TestMap map = new TestMap();
+        var grass = map.sprite("blends_natural_01_0", zombie.iso.SpriteDetails.IsoObjectType.normal);
+        var road = map.sprite("blends_street_01_0", zombie.iso.SpriteDetails.IsoObjectType.normal);
+        var water = map.sprite("blends_natural_02_0", zombie.iso.SpriteDetails.IsoObjectType.normal, "water");
+        for (int x = -64; x < 40; x++) {
+            for (int y = -64; y < 40; y++) {
+                boolean wet = x >= -32 && x < -28 && y >= 8 && y < 12 || x == -30 && y == -20 || x >= -56 && x < -48 && y >= 8 && y < 16;
+                map.cell.square(x, y, 0).floor(y >= 2 && y < 6 ? road : wet ? water : grass);
+            }
+        }
+        for (int x = -42; x < -38; x++) {
+            for (int y = 10; y < 13; y++) {
+                map.roofSprite(x, y, 0, "roofs_02_0");
+            }
+        }
+        for (int x = -51; x < -46; x++) {
+            for (int y = 20; y < 23; y++) {
+                map.roofSprite(x, y, 0, "roofs_02_0");
+            }
+        }
+        for (int[] chunk : FILLING) {
+            filling(map, chunk[0], chunk[1], true);
+        }
+        return map;
+    }
+
+    private static void filling(TestMap map, int wx, int wy, boolean filling) {
+        for (int i = 0; i < Terrain.CHUNK_TILES; i++) {
+            for (int j = 0; j < Terrain.CHUNK_TILES; j++) {
+                map.cell.square(wx * Terrain.CHUNK_TILES + i, wy * Terrain.CHUNK_TILES + j, 0).filling(filling);
+            }
+        }
+    }
+
+    private static long folded() {
+        return TestMap.<Long>read(null, Terrain.class, "tollFolded");
+    }
+
+    /** The heights, water and kerbs of the chunk at (0, 0), as one string. */
+    private static String chunkAtNought(TestMap map) {
+        float[] heights = Terrain.HILLS.corners(map.cell, 0, 0);
+        return Arrays.toString(heights) + Arrays.toString(Terrain.HILLS.water(0, 0)) + Arrays.toString(Terrain.HILLS.kerb(0, 0));
+    }
+
+    /** The same worked out with nothing kept from before, on the map as it is now. */
+    private static String chunkAtNoughtAfresh(TestMap map, int epoch) {
+        Terrain.forget();
+        Terrain.frame(4000 + epoch);
+        Terrain.loaded(epoch);
+        return chunkAtNought(map);
+    }
+
+    /**
+     * An unsettled chunk is looked at again whenever the map loads more or more of it is read
+     * ahead, which the eye only turning round does. Where nothing its heights go by has
+     * changed, the fold says so and they are kept, and they are what working them out afresh
+     * gives. Where any one thing has, a square, a footing, water or a pad worked out from
+     * ground beyond what the heights go by, the fold says so and they are worked out again.
+     */
+    private static void aChunkWhoseGroundIsAsItWasKeepsItsHeightsUntilAnyOfItChanges() {
+        boolean live = ChunkMarks.live;
+        Terrain.HILLS.heighten(1f);
+        Country.set(List.of());
+        try {
+            ChunkMarks.live = true;
+            TestMap map = foldMap();
+            var grass = map.sprite("blends_natural_01_0", zombie.iso.SpriteDetails.IsoObjectType.normal);
+            Terrain.forget();
+            MapAhead.forget();
+            Terrain.frame(4000);
+            Terrain.loaded(1);
+            String first = chunkAtNought(map);
+            int version = Terrain.HILLS.version(0, 0);
+            check(Terrain.HILLS.kerb(0, 0) != null, "the fold test's chunk has kerbs");
+            Map<String, Change> unchanged = new LinkedHashMap<>();
+            unchanged.put("ground loaded far off", far -> {
+                for (int x = -240; x < -232; x++) {
+                    for (int y = -240; y < -232; y++) {
+                        far.cell.square(x, y, 0).floor(grass);
+                    }
+                }
+            });
+            unchanged.put("ground read ahead far off", far -> {
+                MapAhead.Guess guess = new MapAhead.Guess(30, 30);
+                Arrays.fill(guess.kind, Terrain.NATURAL);
+                Arrays.fill(guess.house, Footings.NONE);
+                Arrays.fill(guess.above, Footings.OPEN);
+                MapAhead.put(guess);
+            });
+            int epoch = 2;
+            for (Map.Entry<String, Change> change : unchanged.entrySet()) {
+                change.getValue().make(map);
+                long before = folded();
+                Terrain.frame(4000 + epoch);
+                Terrain.loaded(epoch++);
+                Terrain.HILLS.fromMap(map.cell, 0, 0);
+                check(folded() == before + 1, "with " + change.getKey() + " and nothing the chunk's heights go by changed, the fold keeps them");
+                String kept = chunkAtNought(map);
+                check(kept.equals(first) && Terrain.HILLS.version(0, 0) == version, "with " + change.getKey() + ", the heights kept are the heights and the version they were");
+            }
+            check(chunkAtNought(map).equals(chunkAtNoughtAfresh(map, epoch++)), "heights kept by the fold are what working them out afresh gives");
+
+            var road = map.sprite("blends_street_01_0", zombie.iso.SpriteDetails.IsoObjectType.normal);
+            Map<String, Change> changes = new LinkedHashMap<>();
+            changes.put("ground loaded at the far edge of what the heights go by", changed -> {
+                for (int x = 40; x < 48; x++) {
+                    for (int y = 0; y < 8; y++) {
+                        changed.cell.square(x, y, 0).floor(y >= 2 && y < 6 ? road : grass);
+                    }
+                }
+            });
+            changes.put("the far shed loaded beyond what the heights go by, its footing moved", changed -> filling(changed, -7, 2, false));
+            changes.put("water loaded in a valley of the chunk", changed -> filling(changed, -4, -3, false));
+            changes.put("water loaded beyond what the heights go by near the shed, its pad moved", changed -> filling(changed, -7, 1, false));
+            for (Map.Entry<String, Change> change : changes.entrySet()) {
+                TestMap changed = foldMap();
+                Terrain.forget();
+                Terrain.frame(4000 + epoch);
+                Terrain.loaded(epoch++);
+                chunkAtNought(changed);
+                change.getValue().make(changed);
+                long was = folded();
+                Terrain.frame(4000 + epoch);
+                Terrain.loaded(epoch++);
+                Terrain.HILLS.fromMap(changed.cell, 0, 0);
+                check(folded() == was, "the fold sees " + change.getKey());
+                String worked = chunkAtNought(changed);
+                check(worked.equals(chunkAtNoughtAfresh(changed, epoch++)), "with " + change.getKey() + ", the heights are what working them out afresh gives");
+            }
+            // On the level land every pad is 0, so a footing that moves leaves every pad as it was.
+            TestMap moved = foldMap();
+            Terrain.forget();
+            Terrain.frame(4000 + epoch);
+            Terrain.loaded(epoch++);
+            Terrain.LEVEL.corners(moved.cell, 0, 0);
+            filling(moved, -7, 2, false);
+            long was = folded();
+            Terrain.frame(4000 + epoch);
+            Terrain.loaded(epoch++);
+            Terrain.LEVEL.fromMap(moved.cell, 0, 0);
+            check(folded() == was, "on the level land, the fold sees the far shed's footing move with no pad moved");
+        } finally {
+            ChunkMarks.live = live;
+            Terrain.forget();
+            MapAhead.forget();
         }
     }
 
