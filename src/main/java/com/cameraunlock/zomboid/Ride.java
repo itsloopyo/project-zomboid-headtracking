@@ -275,11 +275,12 @@ final class Ride {
      * A player of this machine fired from their seat the way (wayX, wayY) on the map: breaks the
      * vehicle's glass the shot leaves through, the windscreen, the rear screen or the window of
      * the door of the seat nearest where it leaves the side, as the game breaks a window
-     * (VehicleWindow.damage, which a client asks the server for). Logic thread.
+     * (VehicleWindow.damage, which a client asks the server for). Only on the terms a shot may go
+     * through whole glass at all (shootsThroughGlass). Logic thread.
      */
     static void shotFromSeat(IsoPlayer player, float wayX, float wayY) {
         BaseVehicle vehicle = player.getVehicle();
-        if (vehicle == null || !player.isLocalPlayer()) {
+        if (vehicle == null || !shootsThroughGlass(player)) {
             return;
         }
         Vector3f from = vehicle.getLocalPos(player.getX(), player.getY(), vehicle.getZ(), new Vector3f());
