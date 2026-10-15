@@ -386,9 +386,10 @@ public final class Agent {
                         new CallSite.Method("zombie/iso/IsoMovingObject", "Hit", "(Lzombie/inventory/types/HandWeapon;" + character + "FZF)F"),
                         new CallSite.Method(HOOKS, "hitThrough", "(" + moving + "Lzombie/inventory/types/HandWeapon;" + character + "FZF)F"), 1)),
                 new Patch(processHit.owner(), "processHit at its start", classBytes -> CallSite.insertAtStartOfInstanceMethod(classBytes, processHit, code -> {
+                    code.aload(1);
                     code.aload(2);
                     code.aload(3);
-                    CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "shotAt", "(" + character + character + ")V"));
+                    CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "shotAt", "(Lzombie/inventory/types/HandWeapon;" + character + character + ")V"));
                 })),
                 new Patch(processHit.owner(), "processHit calling isCameraTarget", classBytes -> CallSite.replaceEach(classBytes, processHit,
                         new CallSite.Method(ballistics.owner(), "isCameraTarget", "(I)Z"),

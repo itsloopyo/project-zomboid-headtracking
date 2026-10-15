@@ -283,10 +283,13 @@ public final class Hooks {
      */
     private static final HashMap<Integer, Integer> pelletsTaken = new HashMap<>();
 
-    /** Called as the game starts working out where a shot one character dealt another lands. */
-    public static void shotAt(IsoGameCharacter wielder, IsoGameCharacter target) {
+    /**
+     * Called as the game starts working out where a shot one character dealt another lands. The
+     * weapon is null for damage a server sent and for an animal's bite, which no aim placed.
+     */
+    public static void shotAt(HandWeapon weapon, IsoGameCharacter wielder, IsoGameCharacter target) {
         View view = wielder instanceof IsoPlayer player ? View.of(player) : null;
-        aimedPart = view == null ? HitPart.NONE : view.controls.aimedPart(target, pelletsTaken.getOrDefault(target.getID(), 0));
+        aimedPart = view == null || weapon == null ? HitPart.NONE : view.controls.aimedPart(target, weapon, pelletsTaken.getOrDefault(target.getID(), 0));
         aimedEnd = aimedPart != HitPart.NONE && view.controls.aimedEnd();
     }
 
