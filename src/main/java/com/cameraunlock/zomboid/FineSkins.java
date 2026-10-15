@@ -215,6 +215,55 @@ public final class FineSkins {
             steps = new Step[commands.size()];
             for (int step = 0; step < steps.length; step++) {
                 steps[step] = new Step(commands.get(step));
+                readFrom(steps[step]);
+            }
+        }
+    }
+
+    /**
+     * For each picture a step reads as it is (not one composed by a recipe noted here), the
+     * steps that read it. The game hands a picture back to its combiner a picture at a time,
+     * dozens in the frame a crowd comes into view, and each was looked for through every
+     * step of every recipe: half of a 240 ms frame. Steps of recipes no longer noted stay
+     * listed until the list is made again from those that are, once it has grown to twice
+     * what it held then (rereadFrom).
+     */
+    private static final IdentityHashMap<Texture, ArrayList<Step>> readers = new IdentityHashMap<>();
+    private static int readersHeld, readersAtLastReading;
+
+    private static void readFrom(Step step) {
+        if (step.texFrom == null && step.tex != null) {
+            readers.computeIfAbsent(step.tex, texture -> new ArrayList<>()).add(step);
+            readersHeld++;
+        }
+        if (step.maskFrom == null && step.mask != null) {
+            readers.computeIfAbsent(step.mask, texture -> new ArrayList<>()).add(step);
+            readersHeld++;
+        }
+    }
+
+    /** Lists again the steps of every recipe noted, and of the recipes they are composed from. */
+    private static void rereadFrom() {
+        readers.clear();
+        readersHeld = 0;
+        IdentityHashMap<Recipe, Boolean> listed = new IdentityHashMap<>();
+        for (Recipe recipe : recipes.values()) {
+            readFrom(recipe, listed);
+        }
+        readersAtLastReading = readersHeld;
+    }
+
+    private static void readFrom(Recipe recipe, IdentityHashMap<Recipe, Boolean> listed) {
+        if (listed.put(recipe, Boolean.TRUE) != null) {
+            return;
+        }
+        for (Step step : recipe.steps) {
+            readFrom(step);
+            if (step.texFrom != null) {
+                readFrom(step.texFrom, listed);
+            }
+            if (step.maskFrom != null) {
+                readFrom(step.maskFrom, listed);
             }
         }
     }
@@ -264,6 +313,7 @@ public final class FineSkins {
     private static Path folder;
     /** How the game composed each texture it has not yet handed back. */
     private static final IdentityHashMap<Texture, Recipe> recipes = new IdentityHashMap<>();
+    private static final int READERS_LEAST = 4096;
     /** The finer texture for each of the game's, the one drawn longest ago first. The game's textures are equal only to themselves. */
     private static final LinkedHashMap<Texture, Fine> fine = new LinkedHashMap<>(64, 0.75f, true);
     private static long fineBytes;
@@ -409,6 +459,8 @@ public final class FineSkins {
             each.texture.destroy();
         }
         recipes.clear();
+        readers.clear();
+        readersHeld = readersAtLastReading = 0;
         fine.clear();
         fineBytes = 0;
         packed.clear();
@@ -532,6 +584,9 @@ public final class FineSkins {
             return;
         }
         recipes.put(result, new Recipe(commands));
+        if (readersHeld > 2 * readersAtLastReading + READERS_LEAST) {
+            rereadFrom();
+        }
         // Should the game compose anew into a texture it never handed back, what was made
         // after the old composition is no longer this texture's.
         destroy(fine.remove(result));
@@ -554,27 +609,16 @@ public final class FineSkins {
         if (!on()) {
             return;
         }
-        for (Recipe recipe : recipes.values()) {
-            handedBack(recipe, texture);
+        ArrayList<Step> reading = readers.remove(texture);
+        if (reading != null) {
+            readersHeld -= reading.size();
+            for (Step step : reading) {
+                step.texBack |= step.tex == texture;
+                step.maskBack |= step.mask == texture;
+            }
         }
         recipes.remove(texture);
         destroy(fine.remove(texture));
-    }
-
-    /** Marks each step of a recipe, and of the recipes it is composed from, that reads a texture the combiner has been handed back. */
-    private static void handedBack(Recipe recipe, Texture texture) {
-        for (Step step : recipe.steps) {
-            if (step.texFrom != null) {
-                handedBack(step.texFrom, texture);
-            } else if (step.tex == texture) {
-                step.texBack = true;
-            }
-            if (step.maskFrom != null) {
-                handedBack(step.maskFrom, texture);
-            } else if (step.mask == texture) {
-                step.maskBack = true;
-            }
-        }
     }
 
     private static synchronized Texture finer(Texture bound) throws Exception {
