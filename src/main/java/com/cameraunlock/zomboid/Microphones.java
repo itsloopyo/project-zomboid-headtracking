@@ -22,8 +22,6 @@ import javax.sound.sampled.TargetDataLine;
 final class Microphones {
     /** The words a row of [Voice] holds for the microphone Windows uses by default, and for none. */
     static final String DEFAULT = "Default", NONE = "None";
-    /** Java Sound's name for the capture device Windows uses by default. */
-    private static final String DEFAULT_DEVICE = "Primary Sound Capture Driver";
     private static final AudioFormat FORMAT = new AudioFormat(Voice.RATE, 16, 1, true, false);
     private static final DataLine.Info CAPTURE = new DataLine.Info(TargetDataLine.class, FORMAT);
     /** Samples measured at once: 20 ms, as quick as a mouth opens on a syllable. */
@@ -67,12 +65,20 @@ final class Microphones {
         return capture == null ? Mouths.Shape.SHUT : capture.mouth;
     }
 
-    /** The names of the microphones connected now, as a row of [Voice] names them, the default one aside. */
+    /**
+     * The names of the microphones connected now, as a row of [Voice] names them, the default one
+     * aside. Java Sound lists DirectSound's capture devices in the order DirectSound gives them,
+     * and DirectSound gives the default first, under a name Windows words in its own language.
+     */
     static List<String> present() {
         List<String> names = new ArrayList<>();
+        boolean first = true;
         for (Mixer.Info info : AudioSystem.getMixerInfo()) {
-            if (!info.getName().equals(DEFAULT_DEVICE) && AudioSystem.getMixer(info).isLineSupported(CAPTURE)) {
-                names.add(info.getName());
+            if (AudioSystem.getMixer(info).isLineSupported(CAPTURE)) {
+                if (!first) {
+                    names.add(info.getName());
+                }
+                first = false;
             }
         }
         return names;
@@ -80,9 +86,11 @@ final class Microphones {
 
     /** The line of a microphone by the name a row gives it, or null when no microphone of that name is connected. */
     private static TargetDataLine line(String asked) throws LineUnavailableException {
-        String device = DEFAULT.equals(asked) ? DEFAULT_DEVICE : asked;
+        if (DEFAULT.equals(asked)) {
+            return AudioSystem.isLineSupported(CAPTURE) ? (TargetDataLine) AudioSystem.getLine(CAPTURE) : null;
+        }
         for (Mixer.Info info : AudioSystem.getMixerInfo()) {
-            if (info.getName().equals(device)) {
+            if (info.getName().equals(asked)) {
                 Mixer mixer = AudioSystem.getMixer(info);
                 if (mixer.isLineSupported(CAPTURE)) {
                     return (TargetDataLine) mixer.getLine(CAPTURE);
