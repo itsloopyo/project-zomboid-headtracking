@@ -173,6 +173,8 @@ def paper(picture):
 # shows it (a stain of alpha a as 1 - (1 - a)^3), and the colour it lays there, 0 to 1. The game multiplies the skin
 # by an overlay, and a body's skin puts the face at the top middle: an overlay that lies thicker there than the
 # game's darkens every face the game marks at all. The mod's own are made as thick as the game's, place by place.
+# For blood the game's shader puts a red of its own in place of the overlay's: of blood's colour only the green and
+# blue, which the game's has none of, are the overlay's.
 GAME_OVERLAY = {
     'bloodoverlay': ([[0.14, 0.22, 0.22, 0.26, 0.29, 0.21, 0.27, 0.32], [0.18, 0.2, 0.21, 0.46, 0.28, 0.2, 0.34, 0.3],
                       [0.26, 0.31, 0.31, 0.6, 0.52, 0.4, 0.46, 0.23], [0.24, 0.3, 0.46, 0.55, 0.67, 0.59, 0.31, 0.2],
