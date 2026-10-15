@@ -27,6 +27,29 @@ final class CabinTests {
         Checks.run("wheelIsTheRingBeforeTheDriverAndNotTheSpareOnTheBack", CabinTests::wheelIsTheRingBeforeTheDriverAndNotTheSpareOnTheBack);
         Checks.run("everyInteriorAVehicleIsGivenIsInTheJarWithItsPictures", CabinTests::everyInteriorAVehicleIsGivenIsInTheJarWithItsPictures);
         Checks.run("everyInteriorsMirrorIsInSightAndItsWipersClearTheScreen", CabinTests::everyInteriorsMirrorIsInSightAndItsWipersClearTheScreen);
+        Checks.run("anInteriorsPicturesAreReadAheadAgainAfterTheyAreLetGo", CabinTests::anInteriorsPicturesAreReadAheadAgainAfterTheyAreLetGo);
+    }
+
+    private static void anInteriorsPicturesAreReadAheadAgainAfterTheyAreLetGo() throws Exception {
+        String colour = "/cabins/" + CabinModel.named("carnormal").pictures + ".colour.bc";
+        Pictures.letGoOfReadAhead();
+        CabinModel.readAhead("Base.CarNormal");
+        check(readWithin(colour), "an interior already read has its pictures read ahead when a vehicle of it is near");
+        Pictures.letGoOfReadAhead();
+        check(!Pictures.isRead(colour), "letting go of what was read ahead lets go of the interior's pictures");
+        CabinModel.readAhead("Base.CarNormal");
+        check(readWithin(colour), "and the next time a vehicle of it is near they are read ahead again");
+        Pictures.letGoOfReadAhead();
+    }
+
+    private static boolean readWithin(String path) throws InterruptedException {
+        for (int tries = 0; tries < 10000; tries++) {
+            if (Pictures.isRead(path)) {
+                return true;
+            }
+            Thread.sleep(1);
+        }
+        return false;
     }
 
     private static void everyInteriorsMirrorIsInSightAndItsWipersClearTheScreen() throws java.io.IOException {

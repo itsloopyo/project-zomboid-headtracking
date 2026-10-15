@@ -176,22 +176,39 @@ final class CabinModel {
     }
 
     private static final HashMap<String, CabinModel> read = new HashMap<>();
-    /** The interiors and their pictures begun reading ahead, under read's lock. A style's pictures are shared by its interiors and read once. */
+    /**
+     * The interiors begun reading ahead, and the styles whose pictures are read ahead or have been taken since
+     * Pictures last let go of what it read ahead, under read's lock. A style's pictures are shared by its interiors.
+     */
     private static final HashSet<String> askedAhead = new HashSet<>(), picturesAhead = new HashSet<>();
 
     /**
      * Begins reading the interior of a vehicle of that script, and its pictures, on another thread: read when it is
-     * first sat in, it held that frame for over a second.
+     * first sat in, it held that frame for over a second. An interior already read has its pictures read again
+     * after they were let go of.
      */
     static void readAhead(String script) {
         String name = nameFor(script);
         if (name == null) {
             return;
         }
+        String pictures;
         synchronized (read) {
-            if (read.containsKey(name) || !askedAhead.add(name)) {
+            CabinModel model = read.get(name);
+            if (model == null) {
+                if (!askedAhead.add(name)) {
+                    return;
+                }
+                pictures = null;
+            } else if (picturesAhead.add(model.pictures)) {
+                pictures = model.pictures;
+            } else {
                 return;
             }
+        }
+        if (pictures != null) {
+            readPicturesAhead(pictures, script);
+            return;
         }
         if (DevBuild.ON) {
             Log.info("the interior " + name + " is read ahead for " + script + ", the player being near one");
@@ -200,14 +217,30 @@ final class CabinModel {
             CabinModel model = load(name);
             boolean first;
             synchronized (read) {
+                // Kept here and not only by Ahead, so that once its pictures are let go of they are read ahead again.
+                read.putIfAbsent(name, model);
                 first = picturesAhead.add(model.pictures);
             }
             if (first) {
-                Pictures.readAhead("/cabins/" + model.pictures + ".colour.bc");
-                Pictures.readAhead("/cabins/" + model.pictures + ".surface.bc");
+                readPicturesAhead(model.pictures, script);
             }
             return model;
         });
+    }
+
+    private static void readPicturesAhead(String pictures, String script) {
+        if (DevBuild.ON) {
+            Log.info("the pictures of the interiors " + pictures + " are read ahead for " + script + ", the player being near one");
+        }
+        Pictures.readAhead("/cabins/" + pictures + ".colour.bc");
+        Pictures.readAhead("/cabins/" + pictures + ".surface.bc");
+    }
+
+    /** Called as Pictures lets go of everything it read ahead: each style's pictures are read ahead again the next time a vehicle of it is near. */
+    static void picturesLetGo() {
+        synchronized (read) {
+            picturesAhead.clear();
+        }
     }
 
     /** The interior of that name: read ahead, or read here the first time it is asked for. Thrown where the jar has none or it cannot be read. */
@@ -215,6 +248,8 @@ final class CabinModel {
         synchronized (read) {
             CabinModel model = read.get(name);
             if (model != null) {
+                // A read ahead keeps what it read here as well: what Ahead holds of it is the same model, not to be taken.
+                Ahead.forget("cabin " + name);
                 return model;
             }
         }

@@ -524,6 +524,7 @@ final class CabinDraw {
             GL11.glDeleteTextures(t.surface);
         }
         textures.clear();
+        CabinModel.picturesLetGo();
         GL11.glDeleteTextures(detailSurface);
         detailSurface = 0;
         if (shadowTarget != 0) {

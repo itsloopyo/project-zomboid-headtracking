@@ -149,6 +149,7 @@ final class Pictures {
             }
             begunAhead.clear();
         }
+        CabinModel.picturesLetGo();
     }
 
     private static OffHeap.Block read(String path) throws IOException {
