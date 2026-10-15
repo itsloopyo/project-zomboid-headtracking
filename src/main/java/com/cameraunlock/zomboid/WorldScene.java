@@ -802,7 +802,9 @@ final class WorldScene {
             float floor = Ground.of(floorMaterial, footstep, true), other = Ground.of(floorMaterial, footstep, false);
             asFloor = floor != 0f ? floor : materialOf(name, true);
             asOther = printed(properties, name) ? PRINT : other != 0f ? other : materialOf(sprite);
-            laidWall = Masonry.suits(name);
+            garageDoor = properties.has("GarageDoor");
+            // A garage door is drawn on its sheet of outside walls, and its sections' grooves read as courses: laid, it was brick.
+            laidWall = Masonry.suits(name) && !garageDoor;
             gableSheet = laidWall && name.startsWith("walls_exterior_roofs");
             lies = Flat.lies(properties.get("RenderLayer"), properties.get("MoveType"));
             wire = name != null && name.startsWith("appliances_com");
@@ -811,7 +813,6 @@ final class WorldScene {
             stripLamp = sprite.getSpriteGrid() != null && properties.has("IsHigh") && "Lamp".equals(properties.get("CustomName"))
                     && !properties.has(IsoFlagType.attachedN) && !properties.has(IsoFlagType.attachedW) && !properties.has(IsoFlagType.attachedE)
                     && !properties.has(IsoFlagType.attachedS);
-            garageDoor = properties.has("GarageDoor");
             cornerTrim = (properties.has("attachedNW") || properties.has("attachedSE")) && !Roofs.isTile(type) && !roofSheet;
             papered = name != null && name.startsWith("walls_interior_house");
             tiledWall = WallTiles.tiledSheet(name);
@@ -5545,6 +5546,7 @@ final class WorldScene {
                 standOn(object);
                 frame.material = object == floor ? kind.asFloor : kind.asOther;
                 laidWall = kind.laidWall;
+                garageDoor = kind.garageDoor;
                 gableSheet = kind.gableSheet;
                 if (frame.material == PLANKS && isMesh(sprite, texture)) {
                     frame.material = MESH;
@@ -6075,7 +6077,6 @@ final class WorldScene {
             seeThrough = isSheet(properties);
             // A gate in a fence is rails or wire like the fence, and stays the sheet it is.
             doorLeaf = door && !kind.fenceGate;
-            doorHardware = !kind.garageDoor;
             casing = type == IsoObjectType.doorFrW || type == IsoObjectType.doorFrN;
             wallBuilder.sign = overLayer == 0 && !door && west != north && kind.sign;
             if (west) {
@@ -6590,8 +6591,10 @@ final class WorldScene {
         /** Whether the sprite being added is of a sheet of outside walls, and of one of the walls under a roof's end: see laid. */
         boolean laidWall, gableSheet;
 
-        /** Whether the door being added stands open across its doorway, whether it is a leaf with a thickness, and whether it hangs on hinges with a knob, as a garage door does not. */
-        boolean doorSwung, doorLeaf, doorHardware;
+        /** Whether the door being added stands open across its doorway, and whether it is a leaf with a thickness. */
+        boolean doorSwung, doorLeaf;
+        /** Whether the sprite being added is a garage door's, which has no hinges and no knob and is the same door seen from either side. */
+        boolean garageDoor;
         /** Whether the sprite being added is the frame round a doorway. */
         boolean casing;
 

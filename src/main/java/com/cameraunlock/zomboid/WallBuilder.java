@@ -341,6 +341,10 @@ final class WallBuilder {
         // stain over it is on the side it was painted on, and is no part of the wall's colour.
         float material = build.frame.material;
         int tint = build.overLayer == 0 ? farTint(texture, x, y, z, da != 0f) : 0;
+        // A garage door is the same door on its far side, lit as that side is, not the building's outside wall.
+        if (build.garageDoor) {
+            tint = 0;
+        }
         // Out of doors the far skin is the building's own outside wall, the sprite its other
         // faces show, where the pieces round this wall's opening can take it: a wall whose
         // opening is cut out of its sprite alone would be closed by a sprite with none, and

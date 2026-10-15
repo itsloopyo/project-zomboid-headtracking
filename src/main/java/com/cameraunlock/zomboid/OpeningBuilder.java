@@ -365,7 +365,7 @@ final class OpeningBuilder {
                 }
             }
             // A garage door is lifted by a handle at its foot and rides in tracks: no knob, no hinges.
-            if (!build.doorHardware) {
+            if (build.garageDoor) {
                 continue;
             }
             metal.open = sideOpen[side] + 32f * HARDWARE;
