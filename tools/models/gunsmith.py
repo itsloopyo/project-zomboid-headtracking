@@ -944,8 +944,10 @@ def pack(gun, name, grip, colour, surface, groups, head, moved=(), mirror=(-1.0,
         files += [(name + ".colour.gz", colour.tobytes()), (name + ".surface.gz", surface.tobytes())]
     for file, data in files:
         path = os.path.join(OUTPUT if file.endswith(".mesh.gz") else TEXTURES, file)
-        with gzip.open(path, "wb", compresslevel=9) as packed:
-            packed.write(data)
+        with open(path, "wb") as raw:
+            # No name and no time in the gzip header, so the same model packs to the same bytes.
+            with gzip.GzipFile(filename="", mode="wb", fileobj=raw, mtime=0, compresslevel=9) as packed:
+                packed.write(data)
         print("wrote %s, %d bytes" % (os.path.normpath(path), os.path.getsize(path)))
     print("%d vertices, %d triangles, in parts of %s" % (len(vertices), len(indices) // 3, ", ".join(str(count // 3) for count in counts)))
 
