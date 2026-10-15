@@ -3043,7 +3043,11 @@ final class WorldScene {
                     // and its sum finds it unchanged.
                     boolean faced = cosCone <= -1f || toChunkX * forwardX + toChunkY * forwardY >= cosCone * distance - CHUNK_REACH
                             || mirrored && toChunkX * behindX + toChunkY * behindY >= COS_MIRROR_CONE * distance - CHUNK_REACH;
-                    if (due && !faced && !landChanged && telling && stands && current.signed && current.things == things) {
+                    boolean onlyLit = telling && !missing && !landChanged && stands && current.signed && !current.restless && settled && ringAsItWas
+                            && marks != current.marks && current.things == things && current.told == toldSoFar && current.epoch == epoch
+                            && seasonHolds(current, slot) && current.gamesView == gamesView && current.land == land
+                            && current.litLoose == ChunkMarks.litLooseAround(chunk.wx, chunk.wy);
+                    if (due && !faced && onlyLit) {
                         due = false;
                         tollLitUnfaced++;
                     }
