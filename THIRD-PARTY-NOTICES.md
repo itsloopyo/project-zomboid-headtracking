@@ -21,7 +21,7 @@ never packed into the jar.
 - **Version:** the copy the player owns
 - **License:** proprietary, The Indie Stone. Mods are permitted under the [Project Zomboid Terms and Conditions](https://projectzomboid.com/blog/support/terms-conditions/) and the [Modding Policy](https://projectzomboid.com/blog/modding-policy/).
 - **Upstream:** https://projectzomboid.com
-- **Usage:** The agent is loaded by the game's own Java runtime and calls the game's classes as they run, including the `org.lwjglx` window and mouse classes inside the game's jar. The rewrites it makes to game classes happen in memory as they load.
+- **Usage:** The agent is loaded by the game's own Java runtime and calls the game's classes as they run, including the `org.lwjglx` window and mouse classes inside the game's jar. The rewrites it makes to game classes, and to the vehicle and character shaders the game reads, happen in memory as they load.
 - **Bundled:** no. The mod needs a purchased copy of the game and carries no part of it.
 
 Project Zomboid is developed and published by The Indie Stone, who own the game
