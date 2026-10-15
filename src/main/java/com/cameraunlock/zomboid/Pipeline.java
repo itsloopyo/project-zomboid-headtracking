@@ -2983,6 +2983,10 @@ final class Pipeline {
             GL11.glColorMask(false, false, false, false);
             drawRanges(listed, 0, listed.solidRanges(), worldDepth);
             drawModels(worldDepth, false, camera, far, pixel, Outlines.NONE);
+            // The grass's depth too, before the solid world is lit: the ground under a blade was lit in
+            // full and then drawn over. A blade is whole wherever it is drawn at all (its alpha is 1),
+            // so nothing of the ground under it shows.
+            drawGrassDepth(listed);
             GL11.glColorMask(true, true, true, true);
             GL11.glDepthFunc(GL_EQUAL);
             GL11.glDepthMask(false);
@@ -3023,13 +3027,11 @@ final class Pipeline {
         // is drawn once, in the order listed.
         if (grassFirst) {
             GL11.glDisable(GL_BLEND);
-            worldDepth.use();
-            worldDepth.set("uCut", 0.02f);
-            worldDepth.set("uLaid", LAID_GRASS);
-            worldDepth.set("uTexel", 0f, 0f);
-            GL11.glColorMask(false, false, false, false);
-            drawRanges(listed, listed.solidRanges(), listed.ranges());
-            GL11.glColorMask(true, true, true, true);
+            if (!depthFirst) {
+                GL11.glColorMask(false, false, false, false);
+                drawGrassDepth(listed);
+                GL11.glColorMask(true, true, true, true);
+            }
             world.use();
             world.set("uLaid", LAID_GRASS);
             GL11.glEnable(GL_BLEND);
@@ -3052,6 +3054,15 @@ final class Pipeline {
         if (beyond > 0f && !inMirror && !inLookingGlass) {
             drawFar(camera, state, fogStart, fogEnd);
         }
+    }
+
+    /** The depth of the grass alone of what is laid, with the colour masked off by the caller. */
+    private void drawGrassDepth(ChunkBuffers.Listing listed) {
+        worldDepth.use();
+        worldDepth.set("uCut", 0.02f);
+        worldDepth.set("uLaid", LAID_GRASS);
+        worldDepth.set("uTexel", 0f, 0f);
+        drawRanges(listed, listed.solidRanges(), listed.ranges());
     }
 
     /**
