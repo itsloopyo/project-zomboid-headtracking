@@ -295,7 +295,9 @@ final class WallFinish {
                 vote(room, square, true);
                 vote(room, square, false);
                 IsoGridSquare south = filled(cell.getGridSquare(x, y + 1, z)), east = filled(cell.getGridSquare(x + 1, y, z));
-                level.whole &= z != 0 || south != null && east != null;
+                // Above the ground a missing neighbour is air or map not loaded yet, which its ground square tells apart.
+                level.whole &= z == 0 ? south != null && east != null
+                        : filled(cell.getGridSquare(x, y + 1, 0)) != null && filled(cell.getGridSquare(x + 1, y, 0)) != null;
                 if (south != null && south.getRoomID() == -1L && !papered(south, true)) {
                     vote(outside, south, true);
                     vote(southFace, south, true);
