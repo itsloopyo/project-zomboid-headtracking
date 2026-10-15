@@ -1899,6 +1899,8 @@ final class WorldScene {
     private static final int[] BODY_CORNERS = {0, 1, 2, 0, 2, 3};
     /** How many cells a body's picture is laid in each way. */
     private static final int BODY_CELLS = 8;
+    /** How many layers the bodies and pieces of a chunk are laid in turn, one over the next, so that two lying across each other do not fight for depth. */
+    private static final int BODY_LAYERS = 8;
 
     /**
      * Whether everything built of an object that is no part of its building stays inside the
@@ -4003,6 +4005,7 @@ final class WorldScene {
          * all that stands on it, or, while growing is set, only what grows on its ground.
          */
         private void addSquares(IsoChunk chunk, int chunkX, int chunkY, int lowest) {
+            bodiesLaid = 0;
             // Once for the chunk and not once a level: until the ground round a chunk is all
             // loaded its corners are worked out afresh at every asking.
             float[] ground = terrain.corners(cell, chunk.wx, chunk.wy);
@@ -5704,6 +5707,7 @@ final class WorldScene {
                 }
             }
             float u0 = texture.getXStart(), u1 = texture.getXEnd(), v0 = texture.getYStart(), v1 = texture.getYEnd();
+            layers.lie(SpriteGeometry.LAYERS_UP, 1 + bodiesLaid++ % BODY_LAYERS);
             for (int i = 0; i < BODY_CELLS; i++) {
                 for (int j = 0; j < BODY_CELLS; j++) {
                     for (int corner : BODY_CORNERS) {
@@ -5714,8 +5718,11 @@ final class WorldScene {
                     }
                 }
             }
+            layers.none();
         }
 
+        /** How many bodies and pieces have been laid in the chunk being added: see BODY_LAYERS. */
+        private int bodiesLaid;
         private final float[] bodyGrid = new float[(BODY_CELLS + 1) * (BODY_CELLS + 1) * 3];
 
         /**
@@ -5737,6 +5744,7 @@ final class WorldScene {
                     bodyGrid[at + 2] = base + groundUnder(atX, atY, laid.z(), laid.half() / BODY_CELLS);
                 }
             }
+            layers.lie(SpriteGeometry.LAYERS_UP, 1 + bodiesLaid++ % BODY_LAYERS);
             for (int i = 0; i < BODY_CELLS; i++) {
                 for (int j = 0; j < BODY_CELLS; j++) {
                     for (int corner : BODY_CORNERS) {
@@ -5748,6 +5756,7 @@ final class WorldScene {
                     }
                 }
             }
+            layers.none();
         }
 
         /** The highest the ground is at (x, y) and reach along the map either way from it. */
