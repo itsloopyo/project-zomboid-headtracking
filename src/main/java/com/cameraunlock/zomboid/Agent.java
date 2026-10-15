@@ -236,6 +236,7 @@ public final class Agent {
         if (!Boolean.getBoolean("cameraunlock.zomboid.withoutGameFixes")) {
             instrumentation.addTransformer(new PatchTransformer(gameFixPatches()));
         }
+        instrumentation.addTransformer(new PatchTransformer(hangFixPatches()));
         instrumentation.addTransformer(new PatchTransformer(coveredPatches()));
         instrumentation.addTransformer(new PatchTransformer(farVehiclePatches()));
         instrumentation.addTransformer(new PatchTransformer(leftSavePatches()));
@@ -929,6 +930,15 @@ public final class Agent {
                 // with it. For all but a few characters the list is empty.
                 new Patch(player, "isBoneReparented answered at once while no bone is", classBytes -> CallSite.falseAtOnceWhileEmpty(classBytes,
                         new CallSite.Method(player, "isBoneReparented", "(I)Z"), "reparentedBoneBindings")));
+    }
+
+    /** Where the game's own code would go round a loop for ever: see BurntBuildings. Always, in its own view as in first person. */
+    private static List<Patch> hangFixPatches() {
+        String square = "zombie/iso/IsoGridSquare";
+        return List.of(new Patch(square, "BurnWalls takes away what the game would leave", classBytes -> CallSite.replaceEach(classBytes,
+                new CallSite.Method(square, "BurnWalls", "(ZZ)V"),
+                new CallSite.Method(square, "RemoveTileObject", "(Lzombie/iso/IsoObject;)I"),
+                new CallSite.Method("com/cameraunlock/zomboid/BurntBuildings", "takenAway", "(L" + square + ";Lzombie/iso/IsoObject;)I"), 6)));
     }
 
     /**
