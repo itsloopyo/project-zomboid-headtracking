@@ -8,6 +8,7 @@ import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -425,6 +426,10 @@ public final class FineSkins {
      */
     private static void letGoOfAll() {
         worn.clear();
+        for (Spent each : spent) {
+            each.texture().destroy();
+        }
+        spent.clear();
         // Destroyed, not handed back to the combiner: it keeps what it is handed for the next skin of that size,
         // and after a change of size or with the view off there is none.
         for (Fine each : fine.values()) {
@@ -493,10 +498,23 @@ public final class FineSkins {
 
     /** Called for each picture drawn, before it is, whether or not anyone in it wears a finer skin. Render thread. */
     static synchronized void tend() {
+        for (Spent first = spent.peek(); first != null && Pipeline.frame() - first.frame() >= SPENT_FRAMES; first = spent.peek()) {
+            spent.poll().texture().destroy();
+        }
         if (started && !off) {
             tendOwn();
         }
     }
+
+    /**
+     * A texture a composition drew from, and the frame it did. Destroyed at once, the driver
+     * waited for the card to finish the composition's draws before it let it go: 20 to 45 ms
+     * a skin. Some frames on, the card has long finished with it.
+     */
+    private record Spent(Texture texture, int frame) {}
+
+    private static final ArrayDeque<Spent> spent = new ArrayDeque<>();
+    private static final int SPENT_FRAMES = 4;
 
     /**
      * Render thread, once first person has been off a while for every view that drew: the skins
@@ -1137,7 +1155,7 @@ public final class FineSkins {
             // destroys what its pool has no room for: handed back, it keeps up to a hundred textures of each size for
             // good, and one clothed body's skins left sixty of them there, 240 MB at 1024 square.
             for (Texture each : onTheWay) {
-                each.destroy();
+                spent.add(new Spent(each, Pipeline.frame()));
             }
         }
     }
