@@ -444,6 +444,7 @@ final class ChunkBuffers {
          * @param rooms   the rooms whose contents are listed, the rest being left out, or null to list every room's: see RoomSight
          */
         void of(ArrayList<WorldScene.ChunkMeshes> chunks, boolean[] left, boolean laidToo, RoomSight.Seen rooms) {
+            askedOf = null;
             solidRuns.clear();
             grownRuns.clear();
             laidRuns.clear();
@@ -484,7 +485,7 @@ final class ChunkBuffers {
                 int at = build.heldAt;
                 for (int run = 0; run < build.runs; run++) {
                     Runs of = run < build.solidRuns ? solidRuns : build.grown ? grownRuns : laidRuns;
-                    if ((of == solidRuns || laidToo) && listed(build.runRoom[run], rooms)) {
+                    if ((of == solidRuns || laidToo) && listedOnce(build.runRoom[run], rooms)) {
                         int slot = of.slot(build.runTexture[run], build.runTint[run]);
                         firstList[of.cursor[slot]] = at / SpriteGeometry.VERTEX_FLOATS;
                         countList[of.cursor[slot]] = build.runFloats[run] / SpriteGeometry.VERTEX_FLOATS;
@@ -549,6 +550,29 @@ final class ChunkBuffers {
         return rooms == null || room == RoomSight.OUTSIDE || rooms.contains(room);
     }
 
+    /**
+     * The same, with the last room asked about remembered while one listing is made, which
+     * forgets it as it begins (askedOf): a build's runs come room by room, and every run of every
+     * chunk drawn was looked up in the rooms seen, twice a listing, a fifth of the render
+     * thread's own time while walking.
+     */
+    private static boolean listedOnce(long room, RoomSight.Seen rooms) {
+        if (rooms == null || room == RoomSight.OUTSIDE) {
+            return true;
+        }
+        if (rooms != askedOf || room != askedRoom) {
+            askedOf = rooms;
+            askedRoom = room;
+            askedListed = rooms.contains(room);
+        }
+        return askedListed;
+    }
+
+    /** Render thread: the rooms and the room listedOnce was last asked about, and its answer. */
+    private static RoomSight.Seen askedOf;
+    private static long askedRoom;
+    private static boolean askedListed;
+
     /** The runs of the buffer each texture and tint draws: how many, where its list of them starts, and where in the list the next goes. */
     private static final class Runs {
         private int[] texture = new int[512], tint = new int[512], runs = new int[512], cursor = new int[512];
@@ -571,7 +595,7 @@ final class ChunkBuffers {
 
         void count(WorldScene.ChunkMeshes build, int from, int to, RoomSight.Seen rooms) {
             for (int run = from; run < to; run++) {
-                if (!listed(build.runRoom[run], rooms)) {
+                if (!listedOnce(build.runRoom[run], rooms)) {
                     continue;
                 }
                 if (used * 2 >= texture.length) {
