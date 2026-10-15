@@ -128,6 +128,11 @@ final class Bleeding {
         }
     }
 
+    /** Called as the game makes a new zombie of one that left the world: its trail starts again. */
+    static void reused(IsoZombie zombie) {
+        lastDrop.remove(zombie);
+    }
+
     /** Ages the trail and takes up what has gone. Under the trail's lock. */
     private static void age(double now) {
         // Aged by the game hour: each step dries the trail by as much as the game's blood dries in hours, which is when both views draw it again.

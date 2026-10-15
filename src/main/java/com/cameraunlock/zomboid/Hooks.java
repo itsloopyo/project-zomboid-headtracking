@@ -539,6 +539,7 @@ public final class Hooks {
     /** Called as the game starts making a new zombie of an object it kept from one that left the world. */
     public static void zombieReused(IsoZombie zombie) {
         wounds.forget(zombie);
+        Bleeding.reused(zombie);
         Pieces.reused(zombie);
     }
 
