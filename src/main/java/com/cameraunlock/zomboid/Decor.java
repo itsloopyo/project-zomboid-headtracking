@@ -19,6 +19,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import javax.imageio.ImageIO;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL30;
+import org.lwjgl.opengl.GL42;
 
 /**
  * The mod's own pictures for what hangs on a wall: a photograph in its frame, a painting, a
@@ -368,7 +369,13 @@ final class Decor {
                 }
                 int texture = GL11.glGenTextures();
                 GL11.glBindTexture(GL_TEXTURE_2D, texture);
-                GL11.glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, read.wide, read.high, 0, GL_RGBA, GL_UNSIGNED_BYTE, read.memory.bytes);
+                if (Uploads.stored()) {
+                    int levels = 32 - Integer.numberOfLeadingZeros(Math.max(read.wide, read.high));
+                    GL42.glTexStorage2D(GL_TEXTURE_2D, levels, GL_RGBA8, read.wide, read.high);
+                    GL11.glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, read.wide, read.high, GL_RGBA, GL_UNSIGNED_BYTE, read.memory.bytes);
+                } else {
+                    GL11.glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, read.wide, read.high, 0, GL_RGBA, GL_UNSIGNED_BYTE, read.memory.bytes);
+                }
                 GL30.glGenerateMipmap(GL_TEXTURE_2D);
                 int error = GL11.glGetError();
                 Pipeline.noted(error);

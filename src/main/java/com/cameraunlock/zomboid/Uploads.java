@@ -30,7 +30,7 @@ final class Uploads {
 
     private record Fenced(long start, long end, long fence) {}
 
-    private static boolean asked, ringed;
+    private static boolean asked, ringed, storedAsked, stored;
     private static int buffer;
     private static ByteBuffer mapped;
     private static long head;
@@ -62,6 +62,22 @@ final class Uploads {
                     : "this graphics card has neither OpenGL 4.4 nor ARB_buffer_storage: pictures go on it straight from the PC's memory, which can hold a frame up");
         }
         return ringed;
+    }
+
+    /**
+     * Whether a texture's levels can be made all at once (OpenGL 4.2 or ARB_texture_storage).
+     * Made a level at a time with glTexImage2D, a picture and its smaller copies cost 15 to 25 ms
+     * of the driver's in the middle of a frame; made at once, under a millisecond.
+     */
+    static boolean stored() {
+        if (!storedAsked) {
+            storedAsked = true;
+            GLCapabilities card = GL.getCapabilities();
+            stored = card.OpenGL42 || card.GL_ARB_texture_storage;
+            Log.info(stored ? "textures are made with all their levels at once (OpenGL 4.2 or ARB_texture_storage)"
+                    : "this graphics card has neither OpenGL 4.2 nor ARB_texture_storage: textures are made a level at a time, which can hold a frame up");
+        }
+        return stored;
     }
 
     /**

@@ -438,7 +438,7 @@ final class Rugs {
     }
 
     private static void giveBack(Square square) {
-        if (Uploads.ringed() && square.sharpSmaller == Quality.smallerPictures()) {
+        if (Uploads.ringed() && Uploads.stored() && square.sharpSmaller == Quality.smallerPictures()) {
             spare.computeIfAbsent(square.sharpSmaller ? DRAWN / 2 : DRAWN, side -> new ArrayDeque<>()).push(square.sharp);
         } else {
             GL11.glDeleteTextures(square.sharp);
@@ -1019,7 +1019,7 @@ final class Rugs {
 
     /** Puts a picture and its smaller copies on the graphics card from the level first on, and gives its name, or NOT_TAKEN. */
     private static int picture(byte[][] levels, int first) {
-        if (!Uploads.ringed()) {
+        if (!Uploads.ringed() || !Uploads.stored()) {
             return pictureFromMemory(levels, first);
         }
         int bytes = 0;
