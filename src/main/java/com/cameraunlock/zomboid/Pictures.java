@@ -111,8 +111,11 @@ final class Pictures {
     static void readAhead(String path) {
         int begunAt;
         synchronized (readAhead) {
+            // Still being read, or read and not yet asked for: a second read would drop the first unfreed.
+            if (!begunAhead.add(path)) {
+                return;
+            }
             begunAt = letGoes;
-            begunAhead.add(path);
         }
         Ahead.begin(path, () -> {
             OffHeap.Block read = packed(path, small);
