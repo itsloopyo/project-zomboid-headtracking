@@ -350,6 +350,8 @@ final class Terrain {
      */
     private static final long AGAIN_NANOS_A_FRAME = 1_500_000L;
     private static long againNanos;
+    /** Dev only, for the rig: heights worked out for chunks that had none and again for chunks that had, how long each took, and how many came from what they had before. */
+    private static long tollFirst, tollFirstNanos, tollAgain, tollAgainNanos, tollAsBefore;
     /**
      * A chunk worked out this many frames ago is worked out whatever the frame has spent, one
      * such chunk a frame: the chunks are asked for in one order every frame, and the last of
@@ -624,7 +626,7 @@ final class Terrain {
             }
             overdueTaken = true;
         }
-        long began = known ? System.nanoTime() : 0L;
+        long began = System.nanoTime();
         Grid fresh = new Grid();
         fresh.wx = wx;
         fresh.wy = wy;
@@ -638,6 +640,9 @@ final class Terrain {
         // The gain with them: the same squares give other heights at another.
         fresh.from = gathered() * 31 + Float.floatToRawIntBits(gain);
         boolean asBefore = known && grid.from == fresh.from;
+        if (asBefore) {
+            tollAsBefore++;
+        }
         if (asBefore && !AUDITED) {
             // Every square and every footing the heights go by is as it was when they were last worked out, and so are they.
             System.arraycopy(grid.heights, 0, fresh.heights, 0, fresh.heights.length);
@@ -681,10 +686,24 @@ final class Terrain {
             Log.info("chunk marks: MISSED the heights at " + wx + ", " + wy + ", which came out otherwise with the map as it was");
         }
         keep(fresh);
+        long took = System.nanoTime() - began;
         if (known) {
-            againNanos += System.nanoTime() - began;
+            againNanos += took;
+            tollAgain++;
+            tollAgainNanos += took;
+        } else {
+            tollFirst++;
+            tollFirstNanos += took;
         }
         return fresh.heights;
+    }
+
+    /** Dev only: what tollFirst and the rest have come to since this was last asked. */
+    static String tolls() {
+        String told = String.format(java.util.Locale.ROOT, "heights first %d in %.1f ms, again %d in %.1f ms (from what they had %d)",
+                tollFirst, tollFirstNanos / 1e6, tollAgain, tollAgainNanos / 1e6, tollAsBefore);
+        tollFirst = tollFirstNanos = tollAgain = tollAgainNanos = tollAsBefore = 0;
+        return told;
     }
 
     private void joinEdges(Grid fresh) {

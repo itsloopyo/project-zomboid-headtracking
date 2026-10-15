@@ -1145,6 +1145,7 @@ final class WorldScene {
                 tollGrown, tollGrownNanos / 1e6, tollChecked, tollDiffered);
         told += String.format(Locale.ROOT, ", telling %b quiet %d, lights asked %d taken %d", ChunkMarks.live, tollQuiet, tollPulls, tollPulled);
         told += String.format(Locale.ROOT, ", trees read for sums %d in %.2f ms", tollWoods, tollWoodsNanos / 1e6);
+        told += ", " + Terrain.tolls();
         tollWoods = tollWoodsNanos = 0;
         told += String.format(Locale.ROOT, ", built ahead of a turn %d in %.1f ms", tollAhead, tollAheadNanos / 1e6);
         told += String.format(Locale.ROOT, ", rooms walked %d times in %.2f ms each (chunks read for openings %d; last: openings %d, blocks %d, rooms seen %d, built %d, openings hidden by blocks %d)",
