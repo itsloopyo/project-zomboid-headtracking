@@ -628,13 +628,13 @@ public final class Hooks {
         return view != null && view.characters.gamesOwnDrawIsCovered();
     }
 
-    /** In place of the game's draw of one part of a model, once it has taken the part's skin from the model. */
+    /** In place of the game's draw of one part of a model, once it has taken the part's skin from the model: GameMouths draws it, a talking person's mouth open. */
     public static void partDrawn(Model model, ModelSlotRenderData slot, ModelInstanceRenderData part) {
         View view = drawn();
         if (view != null) {
             view.characters.wear(part);
         }
-        model.DrawChar(slot, part);
+        GameMouths.draw(model, slot, part);
     }
 
     /** In place of the game's asking whether a thing that moves is on the screen of the player it is drawing. */
@@ -807,9 +807,9 @@ public final class Hooks {
         Lightning.leaveTheGamesFlash(storm);
     }
 
-    /** Before ShaderUnit.loadShaderFile returns: the source of one of the game's shaders as it was read from fileName. See VehicleLamps. */
+    /** Before ShaderUnit.loadShaderFile returns: the source of one of the game's shaders as it was read from fileName. See VehicleLamps and GameMouths. */
     public static String shaderSource(String code, String fileName) {
-        return VehicleLamps.source(code, fileName);
+        return GameMouths.source(VehicleLamps.source(code, fileName), fileName);
     }
 
     /** In place of the game's starting of a muzzle flash, which it does at the one place a firearm's shot is taken. */

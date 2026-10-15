@@ -956,7 +956,7 @@ public final class Agent {
                         code -> CallSite.passFirstArgument(code, new CallSite.Method(FINE_SKINS, "released", "(" + TEXTURE + ")V")))));
     }
 
-    /** Apart: without it a vehicle's lamps are drawn as paint, and nothing else is changed. See VehicleLamps. */
+    /** Apart: without it a vehicle's lamps are drawn as paint and the people the game draws itself keep their mouths shut, and nothing else is changed. See VehicleLamps and GameMouths. */
     private static List<Patch> lampPatches() {
         String unit = "zombie/core/opengl/ShaderUnit";
         return List.of(new Patch(unit, "loadShaderFile before its returns", classBytes -> CallSite.insertBeforeReturns(classBytes,

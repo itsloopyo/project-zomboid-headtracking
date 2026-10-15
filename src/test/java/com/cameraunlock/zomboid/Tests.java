@@ -170,6 +170,7 @@ public final class Tests {
         Checks.run("DecorTests", DecorTests::run);
         Checks.run("OwnTests", OwnTests::run);
         Checks.run("MouthTests", MouthTests::run);
+        Checks.run("GameMouthsTests", GameMouthsTests::run);
         Checks.run("LowTests", LowTests::run);
         Checks.run("ScopeTests", ScopeTests::run);
         Checks.run("RifleTests", RifleTests::run);

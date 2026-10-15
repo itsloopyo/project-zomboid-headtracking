@@ -118,68 +118,51 @@ final class CharacterDraw {
             """;
 
     /**
-     * A corner goes where its bones take it: each bone's matrix by how much of the corner is
-     * that bone's. A bone with none of it is not read, since its number then says nothing.
+     * The jaw and the lips, in the model as made (the face looks along -z), for a corner at a
+     * place in the model, the share of it the head's bone carries (headShare) and the turn of the
+     * jaw there (jawTurnAt). Read by the mod's own draws and by the game's (GameMouths), each of
+     * which declares uMouth, uLips and uHeadBone.
      */
-    private static final String POSED = LIP_ROWS + """
-            FROM_MESH vec3 aPlace;
-            FROM_MESH vec3 aNormal;
-            FROM_MESH vec4 aWeights;
-            FROM_MESH vec4 aBones;
-            FROM_MESH vec2 aUv;
-            FROM_MESH vec3 aSmooth;
-            FROM_MESH vec4 aAlong;
-            uniform mat4 uPalette[60];
-            uniform float uScale;
-            uniform vec2 uUvScale;
-            uniform vec2 uThread;
-            uniform float uLift;
-            uniform float uMouth;
-            uniform float uLips;
-            uniform float uHeadBone;
-            // The jaw, in the model as made (the face looks along -z): the hinge in front of the ear,
-            // and how far it turns the chin down with the mouth wide open, in radians.
+    static final String JAW = LIP_ROWS + """
+            // The hinge in front of the ear, and how far the jaw turns the chin down with the mouth
+            // wide open, in radians.
             const vec3 JAW_HINGE = vec3(0.0, 0.857, 0.028);
             const float JAW_WIDEST = 0.17;
+
+            float headShare(vec4 weights, vec4 bones) {
+                float head = 0.0;
+                if (weights.x > 0.0 && abs(bones.x - uHeadBone) < 0.5) head += weights.x;
+                if (weights.y > 0.0 && abs(bones.y - uHeadBone) < 0.5) head += weights.y;
+                if (weights.z > 0.0 && abs(bones.z - uHeadBone) < 0.5) head += weights.z;
+                if (weights.w > 0.0 && abs(bones.w - uHeadBone) < 0.5) head += weights.w;
+                return head;
+            }
 
             // How far the jaw turns a corner: by its share of the head's bone, if it is on the line
             // where the lips meet or below it and ahead of the ear. The upper lip's front row stays, so
             // the mouth opens under the upper lip. The male and female heads have their lips within half a
             // thousandth of each other, so one line between them serves both, and a beard is made
             // over the same head and goes with the chin.
-            float headShare() {
-                float head = 0.0;
-                if (aWeights.x > 0.0 && abs(aBones.x - uHeadBone) < 0.5) head += aWeights.x;
-                if (aWeights.y > 0.0 && abs(aBones.y - uHeadBone) < 0.5) head += aWeights.y;
-                if (aWeights.z > 0.0 && abs(aBones.z - uHeadBone) < 0.5) head += aWeights.z;
-                if (aWeights.w > 0.0 && abs(aBones.w - uHeadBone) < 0.5) head += aWeights.w;
-                return head;
-            }
-
-            float jawTurnAt(vec3 at) {
+            float jawTurnAt(vec3 at, float head) {
                 if (uMouth <= 0.0 || uHeadBone < 0.0) {
                     return 0.0;
                 }
                 float below = 1.0 - smoothstep(0.8525, 0.855, at.y);
                 float ahead = 1.0 - smoothstep(-0.002, 0.03, at.z);
-                return -JAW_WIDEST * uMouth * headShare() * below * ahead;
+                return -JAW_WIDEST * uMouth * head * below * ahead;
             }
 
-            float jawTurn() {
-                return jawTurnAt(aPlace);
-            }
-
-            // The lips spread (uLips towards 1) or rounded and pushed out (towards -1), in the model as
-            // made. The mouth is a dozen corners: its two corners at x +-0.02 go out and back a little
-            // for "ee", and in for "oo" while the middle of both lips comes forward and parts. The
-            // face round the lips follows them less the further it is from the mouth's middle.
+            // The lips spread (uLips towards 1) or rounded and pushed out (towards -1). The mouth is
+            // a dozen corners: its two corners at x +-0.02 go out and back a little for "ee", and in
+            // for "oo" while the middle of both lips comes forward and parts. The face round the lips
+            // follows them less the further it is from the mouth's middle.
             const vec3 MOUTH_MIDDLE = vec3(0.0, 0.851, -0.035);
-            vec3 lipped(vec3 at) {
+            vec3 lipped(vec3 at, float head) {
                 if (uLips == 0.0 || uHeadBone < 0.0) {
                     return at;
                 }
                 vec2 off = at.xy - MOUTH_MIDDLE.xy;
-                float near = (1.0 - smoothstep(0.022, 0.042, length(off))) * (1.0 - smoothstep(-0.018, -0.004, at.z)) * headShare();
+                float near = (1.0 - smoothstep(0.022, 0.042, length(off))) * (1.0 - smoothstep(-0.018, -0.004, at.z)) * head;
                 float spread = max(uLips, 0.0) * near, rounded = max(-uLips, 0.0) * near;
                 float side = min(abs(at.x) / 0.02, 1.0);
                 // Spread or rounded, the middle of the lower lip drops while the corners stay
@@ -198,22 +181,45 @@ final class CharacterDraw {
                 return vec3(way.x, way.y * c - way.z * s, way.y * s + way.z * c);
             }
 
-            vec3 jawedPlace(float turn) {
-                return JAW_HINGE + jawed(lipped(aPlace) - JAW_HINGE, turn);
+            vec3 jawedPlace(vec3 at, float turn, float head) {
+                return JAW_HINGE + jawed(lipped(at, head) - JAW_HINGE, turn);
             }
 
             // How high the corner is with the mouth as it is, and the two rows of the lips straight
             // above and below it (LIP_ROWS). The mouth's inside is drawn by how far a point is from
             // each (TEETH), so the teeth keep their size however far the jaw stretches the strip
             // between the rows.
-            vec3 mouthHeights(float turn) {
+            vec3 mouthHeights(vec3 at, float turn, float head) {
                 if (uHeadBone < 0.0) {
                     return vec3(0.0);
                 }
-                vec3 upper = vec3(aPlace.x, lipTop(aPlace.x), aPlace.z), lower = vec3(aPlace.x, lipLine(aPlace.x), aPlace.z);
-                return vec3(jawedPlace(turn).y, (JAW_HINGE + jawed(lipped(upper) - JAW_HINGE, jawTurnAt(upper))).y,
-                        (JAW_HINGE + jawed(lipped(lower) - JAW_HINGE, jawTurnAt(lower))).y);
+                vec3 upper = vec3(at.x, lipTop(at.x), at.z), lower = vec3(at.x, lipLine(at.x), at.z);
+                return vec3(jawedPlace(at, turn, head).y, jawedPlace(upper, jawTurnAt(upper, head), head).y,
+                        jawedPlace(lower, jawTurnAt(lower, head), head).y);
             }
+            """;
+
+    /**
+     * A corner goes where its bones take it: each bone's matrix by how much of the corner is
+     * that bone's. A bone with none of it is not read, since its number then says nothing.
+     */
+    private static final String POSED = """
+            FROM_MESH vec3 aPlace;
+            FROM_MESH vec3 aNormal;
+            FROM_MESH vec4 aWeights;
+            FROM_MESH vec4 aBones;
+            FROM_MESH vec2 aUv;
+            FROM_MESH vec3 aSmooth;
+            FROM_MESH vec4 aAlong;
+            uniform mat4 uPalette[60];
+            uniform float uScale;
+            uniform vec2 uUvScale;
+            uniform vec2 uThread;
+            uniform float uLift;
+            uniform float uMouth;
+            uniform float uLips;
+            uniform float uHeadBone;
+            """ + JAW + """
 
             // How much of a bone's matrix is pressed flat (Stumps): its volume against a whole one's
             // the size of its longest axis. A bone that turns and moves the corner keeps all of it.
@@ -262,9 +268,9 @@ final class CharacterDraw {
             void main() {
                 mat4 blend = posed();
                 vStump = stumped();
-                float turn = jawTurn();
-                vec4 place = blend * vec4(jawedPlace(turn), 1.0);
-                vMouth = mouthHeights(turn);
+                float head = headShare(aWeights, aBones), turn = jawTurnAt(aPlace, head);
+                vec4 place = blend * vec4(jawedPlace(aPlace, turn, head), 1.0);
+                vMouth = mouthHeights(aPlace, turn, head);
                 // The run-together normal: a seam in the texture is then no seam in the light.
                 vNormal = (blend * vec4(jawed(aSmooth, turn), 0.0)).xyz;
                 place.xyz = place.xyz * uScale + vNormal * (uLift / max(length(vNormal), 1e-6));
@@ -286,7 +292,8 @@ final class CharacterDraw {
             TO_NEXT vec2 vUv;
 
             void main() {
-                vec4 place = posed() * vec4(jawedPlace(jawTurn()), 1.0);
+                float head = headShare(aWeights, aBones);
+                vec4 place = posed() * vec4(jawedPlace(aPlace, jawTurnAt(aPlace, head), head), 1.0);
                 place.xyz *= uScale;
                 vUv = aUv * uUvScale;
                 gl_Position = uProjection * (uModelView * place);
@@ -321,9 +328,9 @@ final class CharacterDraw {
             void main() {
                 mat4 blend = posed();
                 cStump = stumped();
-                float turn = jawTurn();
-                vec4 place = blend * vec4(jawedPlace(turn), 1.0);
-                cMouth = mouthHeights(turn);
+                float head = headShare(aWeights, aBones), turn = jawTurnAt(aPlace, head);
+                vec4 place = blend * vec4(jawedPlace(aPlace, turn, head), 1.0);
+                cMouth = mouthHeights(aPlace, turn, head);
                 cPlace = place.xyz * uScale;
                 cSmooth = (blend * vec4(jawed(aSmooth, turn), 0.0)).xyz;
                 cUv = aUv * uUvScale;
@@ -451,9 +458,9 @@ final class CharacterDraw {
             void main() {
                 mat4 blend = posed();
                 vStump = stumped();
-                float turn = jawTurn();
-                vec4 place = blend * vec4(jawedPlace(turn), 1.0);
-                vMouth = mouthHeights(turn);
+                float head = headShare(aWeights, aBones), turn = jawTurnAt(aPlace, head);
+                vec4 place = blend * vec4(jawedPlace(aPlace, turn, head), 1.0);
+                vMouth = mouthHeights(aPlace, turn, head);
                 place.xyz *= uScale;
                 vNormal = (blend * vec4(jawed(aNormal, turn), 0.0)).xyz;
                 vUv = aUv * uUvScale;
@@ -750,6 +757,38 @@ final class CharacterDraw {
             """, UPPER_TEETH, LOWER_TEETH, TONGUE_RISE);
 
     /**
+     * What shows between the lips the jaw pulls open, at a point of the head as made (vRest) with
+     * the heights of the lips there as posed (vMouth, see mouthHeights): how much of the point is
+     * the inside of the mouth, and what colour that is. Read by the mod's own draws and by the
+     * game's (GameMouths), each of which declares vRest, vMouth, uMouthGap and uLips.
+     */
+    static final String MOUTH = LIP_ROWS + TEETH + """
+            const vec3 MOUTH_INSIDE = vec3(0.14, 0.05, 0.05), TOOTH = vec3(0.84, 0.8, 0.7), TONGUE = vec3(0.38, 0.13, 0.13);
+
+            float mouthGap(out vec3 inside) {
+                // Between the lips, which the jaw pulls open: the strip of the head as made from
+                // the line where the lips meet up to the upper lip's front (LIP_ROWS), inside the
+                // corners. It narrows towards both lips, so the mouth opens to an oval and not a box.
+                float top = lipTop(vRest.x), line = lipLine(vRest.x);
+                float across = clamp((2.0 * vRest.y - top - line) / (top - line), -1.0, 1.0);
+                float reach = 0.0195 * sqrt(1.0 - 0.75 * across * across);
+                float gap = smoothstep(line - 0.0004, line + 0.0002, vRest.y) * (1.0 - smoothstep(top - 0.0006, top, vRest.y))
+                        * (1.0 - smoothstep(reach - 0.006, reach, abs(vRest.x))) * (1.0 - smoothstep(-0.027, -0.022, vRest.z))
+                        * min(uMouthGap * 3.0, 1.0);
+                // Behind the lips: the upper teeth hang from the upper lip, the lower teeth and the
+                // tongue go down with the lower lip, and towards the corners all of it is in the
+                // cheeks' shadow. Rounded lips are pushed out, so less of the teeth shows past them.
+                float below = vMouth.y - vMouth.x, above = vMouth.x - vMouth.z;
+                float cheeks = smoothstep(0.45, 0.9, abs(vRest.x) / 0.0195);
+                float shown = (1.0 - 0.7 * max(-uLips, 0.0)) * (1.0 - cheeks);
+                inside = mix(MOUTH_INSIDE, TONGUE, tongue(above, vMouth.y - vMouth.z, vRest.x / 0.0195) * (1.0 - 0.6 * cheeks));
+                inside = mix(inside, 0.8 * TOOTH, lowerTeeth(above) * shown);
+                inside = mix(inside, TOOTH, upperTeeth(below) * shown);
+                return gap;
+            }
+            """;
+
+    /**
      * A texel the texture leaves clear is not drawn at all: that is how the game hides the
      * body under what is worn over it. The colour is the texture's, turned round the colour
      * wheel by the part's hue and tinted.
@@ -779,7 +818,6 @@ final class CharacterDraw {
             uniform vec2 uStands;
             uniform float uMouthGap;
             uniform float uLips;
-            const vec3 MOUTH_INSIDE = vec3(0.14, 0.05, 0.05), TOOTH = vec3(0.84, 0.8, 0.7), TONGUE = vec3(0.38, 0.13, 0.13);
             const float INSIDE_REACH = 0.6, INSIDE_SHADE = 0.15;
             FROM_LAST vec3 vNormal;
             FROM_LAST vec2 vUv;
@@ -791,7 +829,7 @@ final class CharacterDraw {
             FROM_LAST float vStump;
             FROM_LAST vec3 vMouth;
 
-            """ + HUE + KEPT + GRAIN + SnowShader.ON_PEOPLE + LIP_ROWS + TEETH + """
+            """ + HUE + KEPT + GRAIN + SnowShader.ON_PEOPLE + MOUTH + """
             float grey(vec3 color) {
                 return dot(color, vec3(0.299, 0.587, 0.114));
             }
@@ -917,24 +955,8 @@ final class CharacterDraw {
                 }
                 float gap = 0.0;
                 if (uMouthGap > 0.0) {
-                    // Between the lips, which the jaw pulls open: the strip of the head as made from
-                    // the line where the lips meet up to the upper lip's front (LIP_ROWS), inside the
-                    // corners. It narrows towards both lips, so the mouth opens to an oval and not a box.
-                    float top = lipTop(vRest.x), line = lipLine(vRest.x);
-                    float across = clamp((2.0 * vRest.y - top - line) / (top - line), -1.0, 1.0);
-                    float reach = 0.0195 * sqrt(1.0 - 0.75 * across * across);
-                    gap = smoothstep(line - 0.0004, line + 0.0002, vRest.y) * (1.0 - smoothstep(top - 0.0006, top, vRest.y))
-                            * (1.0 - smoothstep(reach - 0.006, reach, abs(vRest.x))) * (1.0 - smoothstep(-0.027, -0.022, vRest.z))
-                            * min(uMouthGap * 3.0, 1.0);
-                    // Behind the lips: the upper teeth hang from the upper lip, the lower teeth and the
-                    // tongue go down with the lower lip, and towards the corners all of it is in the
-                    // cheeks' shadow. Rounded lips are pushed out, so less of the teeth shows past them.
-                    float below = vMouth.y - vMouth.x, above = vMouth.x - vMouth.z;
-                    float cheeks = smoothstep(0.45, 0.9, abs(vRest.x) / 0.0195);
-                    float shown = (1.0 - 0.7 * max(-uLips, 0.0)) * (1.0 - cheeks);
-                    vec3 inside = mix(MOUTH_INSIDE, TONGUE, tongue(above, vMouth.y - vMouth.z, vRest.x / 0.0195) * (1.0 - 0.6 * cheeks));
-                    inside = mix(inside, 0.8 * TOOTH, lowerTeeth(above) * shown);
-                    inside = mix(inside, TOOTH, upperTeeth(below) * shown);
+                    vec3 inside;
+                    gap = mouthGap(inside);
                     color = mix(color, inside, gap);
                 }
                 vec3 n = normalize(vNormal);
@@ -1412,10 +1434,8 @@ final class CharacterDraw {
     private static boolean shadow;
     /** How far from the eye the person begun stands, in tiles. */
     private static float away;
-    /** How far the mouth of the person begun is open, 0 to 1: see Mouths. */
-    private static float mouthOpen;
-    /** How the lips of the person begun are shaped, spread towards 1 and rounded towards -1: see Mouths. */
-    private static float mouthLips;
+    /** The shape of the mouth of the person begun: see Mouths. */
+    private static Mouths.Shape mouth = Mouths.Shape.SHUT;
     /** How far from the viewer's eye the person begun stands, in tiles, in every pass alike: see Characters.fromViewer. */
     private static float fromEye;
     /** Whether the person begun wears finer skins: see FineSkinRange. */
@@ -1460,9 +1480,7 @@ final class CharacterDraw {
         finelySkinned = !casting && !plainly && FINE_SKINS.wears(data.object != null ? data.object : data, fromEye, Pipeline.frame());
         standsIn = -1f;
         snowOn = 0f;
-        Mouths.Shape mouth = Mouths.of(data.character);
-        mouthOpen = mouth.open();
-        mouthLips = mouth.lips();
+        mouth = Mouths.of(data.character);
         if (!off && !bare && !casting) {
             lights(data);
         }
@@ -1675,7 +1693,7 @@ final class CharacterDraw {
     }
 
     /** The number of a part's head bone, or -1 for a part that has none: a part with no skeleton of its own, or one whose head is not among the bones posed for it. */
-    private static float headBone(Model model) {
+    static float headBone(Model model) {
         if (!(model.tag instanceof SkinningData skeleton)) {
             return -1f;
         }
@@ -2007,8 +2025,8 @@ final class CharacterDraw {
             GL20.glUniform1f(skin.shadow, shadow ? 1f : 0f);
             GL20.glUniform1f(skin.nearCut, shadow ? 0f : nearCut);
             GL20.glUniform1f(skin.alpha, person.alpha);
-            GL20.glUniform1f(skin.mouth, mouthOpen);
-            GL20.glUniform1f(skin.lips, mouthLips);
+            GL20.glUniform1f(skin.mouth, mouth.open());
+            GL20.glUniform1f(skin.lips, mouth.lips());
             // The game's lights are read by a lit draw alone: a bare one is lit by the picture, and a shadow map keeps no colour.
             if (!bare && !shadow) {
                 for (int light = 0; light < LIGHTS; light++) {
@@ -2027,11 +2045,9 @@ final class CharacterDraw {
             GL20.glUniform1f(skin.hue, part.hue);
             GL20.glUniform3f(skin.tint, instance.tintR, instance.tintG, instance.tintB);
             // The lips part on the body alone: whatever else is worn over the mouth moves with the jaw and keeps its own colour.
-            // Spread or rounded lips part in the middle however little the jaw drops (lipped in POSED), and the gap is as dark as an open mouth's.
-            float parted = Math.max(mouthOpen, Math.abs(mouthLips) / 3f);
-            GL20.glUniform1f(skin.mouthGap, parted > 0f && wearOf(copy, model, texture) == BODY ? parted : 0f);
+            GL20.glUniform1f(skin.mouthGap, mouth.parted() > 0f && wearOf(copy, model, texture) == BODY ? mouth.parted() : 0f);
         }
-        GL20.glUniform1f(skin.headBone, !model.isStatic && (mouthOpen > 0f || mouthLips != 0f) ? headBone(model) : -1f);
+        GL20.glUniform1f(skin.headBone, !model.isStatic && mouth.moving() ? headBone(model) : -1f);
         if (!bare && !shadow) {
             if (part.ignoreLighting) {
                 GL20.glUniform3f(skin.ambient, 1f, 1f, 1f);

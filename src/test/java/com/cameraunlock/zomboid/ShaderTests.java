@@ -102,26 +102,36 @@ final class ShaderTests {
         Files.createDirectories(OUT);
         int passed = 0;
         for (Linked program : programs) {
-            List<String> command = new ArrayList<>(List.of(VALIDATOR, "-l", "--validate-io"));
-            for (Map.Entry<String, String> stage : program.stages.entrySet()) {
-                Path file = OUT.resolve(program.name.replace(' ', '-') + "." + stage.getKey());
-                Files.writeString(file, stage.getValue(), StandardCharsets.UTF_8);
-                command.add(file.toString());
-            }
-            Process validator;
-            try {
-                validator = new ProcessBuilder(command).redirectErrorStream(true).start();
-            } catch (IOException missing) {
-                throw new AssertionError(VALIDATOR + " did not start (" + missing.getMessage()
-                        + "): it comes with the pixi environment, so run the tests with pixi run test");
-            }
-            String said = new String(validator.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-            boolean taken = validator.waitFor() == 0 && !said.contains("WARNING") && !said.contains("ERROR");
-            Checks.check(taken, "glslangValidator refuses the " + program.name + " shader (" + program.from + "), which the mod compiles in the game."
-                    + " Its source is in " + OUT + ":\n" + said.strip());
-            passed += taken ? 1 : 0;
+            String refused = refusal(OUT, program.name, program.stages);
+            Checks.check(refused == null, "glslangValidator refuses the " + program.name + " shader (" + program.from + "), which the mod compiles in the game."
+                    + " Its source is in " + OUT + ":\n" + refused);
+            passed += refused == null ? 1 : 0;
         }
         System.out.println("shader tests: " + passed + " of " + programs.size() + " programs pass " + VALIDATOR);
+    }
+
+    /**
+     * What glslangValidator says against a program's stages, linked, each a file extension it
+     * tells the stage by and the text, written into a folder to be read; null if it takes them
+     * with no error and no warning.
+     */
+    static String refusal(Path out, String name, Map<String, String> stages) throws IOException, InterruptedException {
+        Files.createDirectories(out);
+        List<String> command = new ArrayList<>(List.of(VALIDATOR, "-l", "--validate-io"));
+        for (Map.Entry<String, String> stage : stages.entrySet()) {
+            Path file = out.resolve(name.replace(' ', '-') + "." + stage.getKey());
+            Files.writeString(file, stage.getValue(), StandardCharsets.UTF_8);
+            command.add(file.toString());
+        }
+        Process validator;
+        try {
+            validator = new ProcessBuilder(command).redirectErrorStream(true).start();
+        } catch (IOException missing) {
+            throw new AssertionError(VALIDATOR + " did not start (" + missing.getMessage()
+                    + "): it comes with the pixi environment, so run the tests with pixi run test");
+        }
+        String said = new String(validator.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        return validator.waitFor() == 0 && !said.contains("WARNING") && !said.contains("ERROR") ? null : said.strip();
     }
 
     /**

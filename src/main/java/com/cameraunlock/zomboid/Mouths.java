@@ -10,7 +10,8 @@ import zombie.characters.IsoPlayer;
  * game's voice chat is playing them, which says only that they are speaking, so their mouth moves
  * as a voice's does without following its words. Anyone else's stays shut.
  *
- * The render thread asks, once for each person in each pass.
+ * The render thread asks, once for each person in each pass of the picture and once for each
+ * part of a person the game draws itself (GameMouths).
  */
 final class Mouths {
     /**
@@ -19,6 +20,19 @@ final class Mouths {
      */
     record Shape(float open, float lips) {
         static final Shape SHUT = new Shape(0f, 0f);
+
+        boolean moving() {
+            return open > 0f || lips != 0f;
+        }
+
+        /**
+         * How far apart the lips are drawn, 0 to 1: the jaw's drop, or a third of how far the
+         * lips are spread or rounded, which part them in the middle however little the jaw
+         * drops (lipped in CharacterDraw.JAW). The gap is as dark as an open mouth's.
+         */
+        float parted() {
+            return Math.max(open, Math.abs(lips) / 3f);
+        }
     }
 
     /** The syllables of a voice heard over voice chat: how often the mouth opens and closes, and how often the lips change shape, in times a second. */
