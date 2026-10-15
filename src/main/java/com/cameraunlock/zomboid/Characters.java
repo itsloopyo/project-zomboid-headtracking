@@ -79,14 +79,30 @@ public final class Characters {
         }
     }
 
+    private static final int GL_CW = 0x0900, GL_CCW = 0x0901;
+
+    /**
+     * Turns the winding round for the game's draws in a mirror's picture. The game culls by
+     * glCullFace and leaves the winding counter-clockwise, and a mirror's view, of the other hand,
+     * turns every triangle round: a hat or a car the game drew there showed only its inside.
+     * The picture's own draws swap their cull instead (CharacterDraw.mirrored).
+     */
+    private static void turnGameWinding(boolean turned) {
+        if (CharacterDraw.mirrored) {
+            GL11.glFrontFace(turned ? GL_CW : GL_CCW);
+        }
+    }
+
     /** Has the game draw one part of a model for the picture. */
     private void drawPart(ModelInstanceRenderData model, ModelSlotRenderData data) {
         CharacterDraw.release();
         long began = TALLY ? System.nanoTime() : 0L;
         ours = true;
+        turnGameWinding(true);
         try {
             model.RenderCharacter(data);
         } finally {
+            turnGameWinding(false);
             ours = false;
         }
         if (TALLY) {
@@ -2308,30 +2324,35 @@ public final class Characters {
         if (lamps != null) {
             GL20.glDrawBuffers(lamps);
         }
-        for (int part = 0; part < parts(data).size(); part++) {
-            GL11.glDepthMask(true);
-            ModelInstanceRenderData model = parts(data).get(part);
-            // The game's bodies have no bulkhead and no arches inside: from the seat the road
-            // wheels would stand in the cabin.
-            if (fromSeat && model.modelInstance.model != null && model.modelInstance.model.name.contains("wheel")) {
-                continue;
-            }
-            if (repainted && model.modelInstance instanceof VehicleModelInstance body) {
-                float x = body.painColor.x, y = body.painColor.y, z = body.painColor.z;
-                body.painColor.x = (x + 0.5f) % 1f;
-                body.painColor.y = y < 0.5f ? 1f : 0f;
-                body.painColor.z = z < 0.5f ? 1f : 0.15f;
-                // The paint is the vehicle's own, kept from frame to frame: it is put back whatever the draw does.
-                try {
-                    model.RenderVehicle(data);
-                } finally {
-                    body.painColor.x = x;
-                    body.painColor.y = y;
-                    body.painColor.z = z;
+        turnGameWinding(true);
+        try {
+            for (int part = 0; part < parts(data).size(); part++) {
+                GL11.glDepthMask(true);
+                ModelInstanceRenderData model = parts(data).get(part);
+                // The game's bodies have no bulkhead and no arches inside: from the seat the road
+                // wheels would stand in the cabin.
+                if (fromSeat && model.modelInstance.model != null && model.modelInstance.model.name.contains("wheel")) {
+                    continue;
                 }
-            } else {
-                model.RenderVehicle(data);
+                if (repainted && model.modelInstance instanceof VehicleModelInstance body) {
+                    float x = body.painColor.x, y = body.painColor.y, z = body.painColor.z;
+                    body.painColor.x = (x + 0.5f) % 1f;
+                    body.painColor.y = y < 0.5f ? 1f : 0f;
+                    body.painColor.z = z < 0.5f ? 1f : 0.15f;
+                    // The paint is the vehicle's own, kept from frame to frame: it is put back whatever the draw does.
+                    try {
+                        model.RenderVehicle(data);
+                    } finally {
+                        body.painColor.x = x;
+                        body.painColor.y = y;
+                        body.painColor.z = z;
+                    }
+                } else {
+                    model.RenderVehicle(data);
+                }
             }
+        } finally {
+            turnGameWinding(false);
         }
         if (lamps != null) {
             GL20.glDrawBuffers(COLOUR_ONLY);
