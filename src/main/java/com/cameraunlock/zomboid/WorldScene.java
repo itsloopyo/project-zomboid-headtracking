@@ -1008,6 +1008,16 @@ final class WorldScene {
      */
     private final RoomSight.Kept roomsBuilt = new RoomSight.Kept();
     private final RoomSight.Seen roomsFound = new RoomSight.Seen(), roomsEntered = new RoomSight.Seen(), roomsLeft = new RoomSight.Seen();
+    /**
+     * The rooms a walk round the eye finds with every shut door and drawn curtain in reach
+     * counted open, and the picture's own, kept as roomsBuilt keeps its rooms. A door opened
+     * further off than SHUT_WITHIN shows its room before that room's contents are built, and
+     * the game gives a zombie its model a tick after it is asked for, so the zombies in it are
+     * given theirs while it could come into sight: see roomsForModels. Logic thread.
+     */
+    private final RoomSight.Kept roomsMayShow = new RoomSight.Kept();
+    private final RoomSight.Seen roomsMayShowFound = new RoomSight.Seen(), roomsMayShowChanged = new RoomSight.Seen();
+    private final FigureRooms modelRooms = new FigureRooms();
     private boolean buildingBySight;
     /** Where the eye was at the last walk round it and when, and how fast it has been moving, tiles a second. */
     private float roundEyeX, roundEyeY, eyeSpeed;
@@ -2149,10 +2159,11 @@ final class WorldScene {
     }
 
     /**
-     * Logic thread: who the last frame built would leave out by the room they stand in, or null
-     * for none. The game's choice of which zombies are given a model goes by it: see FarModels.
+     * Logic thread: who stands in a room the eye could not see into lately, nor through any shut
+     * door in reach once opened, or null for none. The game's choice of which zombies are given
+     * a model goes by it: see FarModels and roomsMayShow.
      */
-    FigureRooms roomsLastBuilt;
+    FigureRooms roomsForModels;
 
     /** One frame of the picture: what of the world this view shows in it, built on the logic thread and drawn on the picture's. */
     final class Frame extends TextureDraw.GenericDrawer implements Grass.Ground {
@@ -3461,12 +3472,13 @@ final class WorldScene {
         private void seeRooms(IsoChunkMap map, int level, boolean fromOutside, long now) {
             roomsSeen = null;
             figureRooms = null;
-            roomsLastBuilt = null;
+            roomsForModels = null;
             float aspect = drawnAspect;
             if (fromOutside || gamesView || aspect <= 0f || withoutCulling) {
                 if (buildingBySight) {
                     buildingBySight = false;
                     roomsBuilt.clear();
+                    roomsMayShow.clear();
                     tellEveryChunk(map);
                 }
                 return;
@@ -3532,12 +3544,21 @@ final class WorldScene {
                         roomMap.building(eyeX, eyeY, level), GROW_TILES + eyeSpeed * GROW_SECONDS, SHUT_WITHIN, roomsFound);
                 roomsBuilt.found(roomsFound, now, roomsEntered);
                 roomsBuilt.expire(now, roomsLeft);
+                roomsMayShowFound.clear();
+                roomWalk.walkAllRound(roomMap, openingsInReach, blocksInReach, camera.eyeX, camera.eyeY, camera.eyeUp, roomMap.region(eyeX, eyeY, level),
+                        roomMap.building(eyeX, eyeY, level), GROW_TILES + eyeSpeed * GROW_SECONDS, reach, roomsMayShowFound);
+                roomsMayShowChanged.clear();
+                roomsMayShow.found(roomsMayShowFound, now, roomsMayShowChanged);
+                roomsMayShow.expire(now, roomsMayShowChanged);
             }
             // What the picture draws is always built, whatever the walk round found.
             roomsBuilt.found(roomsSeenKept, now, roomsEntered);
+            roomsMayShowChanged.clear();
+            roomsMayShow.found(roomsSeenKept, now, roomsMayShowChanged);
             figureRoomsKept.fill(roomsBuilt, openingsInReach);
             figureRooms = figureRoomsKept;
-            roomsLastBuilt = figureRoomsKept;
+            modelRooms.fill(roomsMayShow, openingsInReach);
+            roomsForModels = modelRooms;
             tollRoomsNanos += System.nanoTime() - began;
             tollRoomsWalks++;
             lastOpenings = openingsInReach.count;

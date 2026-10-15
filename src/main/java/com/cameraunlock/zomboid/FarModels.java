@@ -120,14 +120,14 @@ public final class FarModels {
     private boolean culled;
 
     /**
-     * Whether a zombie stands in a room the picture neither shows nor builds, nor beside an
-     * opening into one it does: no line of sight reaches it, and none can before its room is
-     * built, which is as the eye comes near enough to see into it. Then it is given its model
-     * again, before it can be seen. Under the picture only: where players fight, zombies are
-     * drawn as offline, so the same rule holds there.
+     * Whether a zombie stands in a room no line of sight reaches, nor could if every shut door
+     * and drawn curtain in reach were opened, and not beside an opening into one that could be
+     * seen: see WorldScene.roomsMayShow. It is given its model again as the eye comes near
+     * enough to see into its room, before it can be seen. Under the picture only: where players
+     * fight, zombies are drawn as offline, so the same rule holds there.
      */
     private boolean inARoomNotSeen(IsoZombie zombie) {
-        FigureRooms rooms = view.worldScene.roomsLastBuilt;
+        FigureRooms rooms = view.worldScene.roomsForModels;
         if (rooms == null || !shownWhole(zombie)) {
             return false;
         }
