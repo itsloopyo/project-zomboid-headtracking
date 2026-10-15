@@ -23,8 +23,8 @@ final class LookingGlass {
     static final int CORNER = 0, ACROSS = 3, UP = 6, FACING = 9, FLOATS = 12;
     /** Nearer its plane than this, in tiles, the eye is as good as in the glass and sees nothing in it. */
     static final float NEAREST = 0.05f;
-    /** A mirror further from the eye than this, in tiles, is too small in the picture to be worth a picture of its own. */
-    static final float REACH = 16f;
+    /** A mirror further from the eye than this, in tiles (about 20 feet), is drawn as glass with no picture of its own. */
+    static final float REACH = 6f;
     /** Two mirrors are in one plane when they face the same way to this cosine and stand this far apart along it at most, in tiles. */
     static final float SAME_WAY = 0.9995f, SAME_PLANE = 0.01f;
     /**
