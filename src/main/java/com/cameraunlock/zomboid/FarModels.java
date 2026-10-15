@@ -89,6 +89,11 @@ public final class FarModels {
      * nothing else.
      */
     public int screenAcross(IsoZombie zombie, int playerIndex) {
+        culledZombie = zombie;
+        culled = inARoomNotSeen(zombie);
+        if (culled) {
+            return OFF_THE_SCREEN;
+        }
         if (!beforeTheEye(zombie)) {
             return zombie.getScreenProperX(playerIndex);
         }
@@ -97,7 +102,34 @@ public final class FarModels {
     }
 
     public int screenDown(IsoZombie zombie, int playerIndex) {
+        if (zombie == culledZombie ? culled : inARoomNotSeen(zombie)) {
+            return OFF_THE_SCREEN;
+        }
         return beforeTheEye(zombie) ? 0 : zombie.getScreenProperY(playerIndex);
+    }
+
+    /**
+     * Where a zombie the picture leaves out is said to stand on the game's screen: far enough
+     * off it that the game gives it no model, and so does not pose it every tick.
+     */
+    private static final int OFF_THE_SCREEN = -100_000;
+    /** The zombie screenAcross was last asked about and whether it was left out, for screenDown, which the game asks next. */
+    private IsoZombie culledZombie;
+    private boolean culled;
+
+    /**
+     * Whether a zombie stands in a room the picture neither shows nor builds, nor beside an
+     * opening into one it does: no line of sight reaches it, and none can before its room is
+     * built, which is as the eye comes near enough to see into it. Then it is given its model
+     * again, before it can be seen. Under the picture only, and never where players fight.
+     */
+    private boolean inARoomNotSeen(IsoZombie zombie) {
+        FigureRooms rooms = view.worldScene.roomsLastBuilt;
+        if (rooms == null || !shownWhole(zombie)) {
+            return false;
+        }
+        IsoGridSquare square = zombie.getCurrentSquare();
+        return square != null && rooms.leftOut(square.getRoomID(), square.getX(), square.getY(), square.getZ());
     }
 
     /**

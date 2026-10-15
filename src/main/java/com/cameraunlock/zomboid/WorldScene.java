@@ -2134,6 +2134,12 @@ final class WorldScene {
         return drawnBytes.getAndSet(0);
     }
 
+    /**
+     * Logic thread: who the last frame built would leave out by the room they stand in, or null
+     * for none. The game's choice of which zombies are given a model goes by it: see FarModels.
+     */
+    FigureRooms roomsLastBuilt;
+
     /** One frame of the picture: what of the world this view shows in it, built on the logic thread and drawn on the picture's. */
     final class Frame extends TextureDraw.GenericDrawer implements Grass.Ground {
         /** The share of its plants grass grows in this build: see Grass.density. */
@@ -3438,6 +3444,7 @@ final class WorldScene {
         private void seeRooms(IsoChunkMap map, int level, boolean fromOutside, long now) {
             roomsSeen = null;
             figureRooms = null;
+            roomsLastBuilt = null;
             float aspect = drawnAspect;
             if (fromOutside || gamesView || aspect <= 0f || withoutCulling) {
                 if (buildingBySight) {
@@ -3513,6 +3520,7 @@ final class WorldScene {
             roomsBuilt.found(roomsSeenKept, now, roomsEntered);
             figureRoomsKept.fill(roomsBuilt, openingsInReach);
             figureRooms = figureRoomsKept;
+            roomsLastBuilt = figureRoomsKept;
             tollRoomsNanos += System.nanoTime() - began;
             tollRoomsWalks++;
             lastOpenings = openingsInReach.count;
