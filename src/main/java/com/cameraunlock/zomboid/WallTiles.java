@@ -3,6 +3,7 @@ package com.cameraunlock.zomboid;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import zombie.core.textures.Texture;
 
@@ -268,19 +269,20 @@ final class WallTiles {
         Band[] bands;
     }
 
-    private record Asked(boolean overlay, float originU, float originV, float scale, float left, float top, float width, float height) {}
+    private record Asked(float originU, float originV, float scale, float left, float top, float width, float height) {}
 
     private static final Wall NONE = new Wall();
-    /** By sprite, for each of the two edges, north then west: a corner's sprite stands on both, and is read for each. */
-    private static final ConcurrentHashMap<Texture, Asked> askedNorth = new ConcurrentHashMap<>(), askedWest = new ConcurrentHashMap<>();
-    private static final ConcurrentHashMap<Texture, Wall> knownNorth = new ConcurrentHashMap<>(), knownWest = new ConcurrentHashMap<>();
+    /**
+     * By sprite, for each of the two edges, north then west, as a wall and as tiles laid over
+     * one: a corner's sprite stands on both edges, and a sprite of a sheet of tiles can be a
+     * wall on one square and laid over a wall on another. Each is read for each: only tiles over
+     * a wall have their cells, and a wall's reading has strips and an opening an overlay's has not.
+     */
+    private static final List<ConcurrentHashMap<Texture, Asked>> asked = List.of(new ConcurrentHashMap<>(), new ConcurrentHashMap<>(), new ConcurrentHashMap<>(), new ConcurrentHashMap<>());
+    private static final List<ConcurrentHashMap<Texture, Wall>> known = List.of(new ConcurrentHashMap<>(), new ConcurrentHashMap<>(), new ConcurrentHashMap<>(), new ConcurrentHashMap<>());
 
-    private static ConcurrentHashMap<Texture, Asked> asked(boolean north) {
-        return north ? askedNorth : askedWest;
-    }
-
-    private static ConcurrentHashMap<Texture, Wall> known(boolean north) {
-        return north ? knownNorth : knownWest;
+    private static int way(boolean north, boolean overlay) {
+        return (north ? 0 : 1) + (overlay ? 2 : 0);
     }
 
     private WallTiles() {}
@@ -304,19 +306,20 @@ final class WallTiles {
      * for a whole wall or an overlay that paints no tiles on that edge, or too little to tell.
      */
     static Wall of(Texture texture, SpriteGeometry.Frame frame, boolean north, boolean overlay) {
-        Wall wall = known(north).get(texture);
+        int way = way(north, overlay);
+        Wall wall = known.get(way).get(texture);
         if (wall != null) {
             return wall == NONE ? null : wall;
         }
-        if (asked(north).putIfAbsent(texture, new Asked(overlay, frame.originU, frame.originV, frame.scale, frame.left, frame.top, frame.width, frame.height)) == null) {
+        if (asked.get(way).putIfAbsent(texture, new Asked(frame.originU, frame.originV, frame.scale, frame.left, frame.top, frame.width, frame.height)) == null) {
             SpriteColours.readAgain(texture);
         }
         return null;
     }
 
-    /** Tests only: that the sprite reads as wall on that edge, as though it had been read. */
-    static void knownForTests(Texture texture, boolean north, Wall wall) {
-        known(north).put(texture, wall == null ? NONE : wall);
+    /** Tests only: that the sprite reads as wall on that edge, as a wall or laid over one, as though it had been read. */
+    static void knownForTests(Texture texture, boolean north, boolean overlay, Wall wall) {
+        known.get(way(north, overlay)).put(texture, wall == null ? NONE : wall);
     }
 
     /**
@@ -346,17 +349,17 @@ final class WallTiles {
         return true;
     }
 
-    /** Whether the sprite has still to be read for that edge. */
-    static boolean unread(Texture texture, boolean north) {
-        return !known(north).containsKey(texture);
+    /** Whether the sprite has still to be read for that edge, as a wall or laid over one. */
+    static boolean unread(Texture texture, boolean north, boolean overlay) {
+        return !known.get(way(north, overlay)).containsKey(texture);
     }
 
-    /** Reads the sprite for each edge it was asked for on: see Windows.read. */
+    /** Reads the sprite for each edge, and each way, it was asked for on: see Windows.read. */
     static void read(Texture texture, ByteBuffer sheet, int width, int left, int top, int right, int bottom) {
-        for (int side = 0; side < 2; side++) {
-            boolean north = side == 0;
-            Asked wanted = asked(north).get(texture);
-            if (wanted == null || known(north).containsKey(texture)) {
+        for (int way = 0; way < 4; way++) {
+            boolean north = way % 2 == 0, overlay = way >= 2;
+            Asked wanted = asked.get(way).get(texture);
+            if (wanted == null || known.get(way).containsKey(texture)) {
                 continue;
             }
             int across = Windows.across(wanted.scale), high = Windows.high(wanted.scale);
@@ -373,11 +376,11 @@ final class WallTiles {
                     rgb[i * 3 + 2] = (sheet.get(at[i] + 2) & 0xff) / 255f;
                 }
             }
-            Wall wall = read(rgb, solid, across, high, wanted.overlay);
+            Wall wall = read(rgb, solid, across, high, overlay);
             if (FirstPerson.TRACE) {
-                Log.info("wall tiles " + texture.getName() + (north ? " north" : " west") + (wall == null ? " none" : said(wall)));
+                Log.info("wall tiles " + texture.getName() + (north ? " north" : " west") + (overlay ? " over a wall" : "") + (wall == null ? " none" : said(wall)));
             }
-            known(north).put(texture, wall == null ? NONE : wall);
+            known.get(way).put(texture, wall == null ? NONE : wall);
         }
     }
 

@@ -768,7 +768,7 @@ final class WallBuilder {
         boolean north = da != 0f;
         WallTiles.Wall over = WallTiles.of(texture, build.frame, north, true);
         if (over == null) {
-            build.building.signed &= !WallTiles.unread(texture, north);
+            build.building.signed &= !WallTiles.unread(texture, north, true);
             return false;
         }
         // Its own dots are shown stood square: the sprite stops a few dots short of the wall's end, and there a tile of a figure would show a slit.
@@ -836,7 +836,7 @@ final class WallBuilder {
     WallTiles.Wall tilesOf(Texture texture, int x, int y, int z, float da, float db, boolean opens) {
         boolean north = da != 0f;
         WallTiles.Wall own = WallTiles.of(texture, build.frame, north, false);
-        if (own == null && WallTiles.unread(texture, north)) {
+        if (own == null && WallTiles.unread(texture, north, false)) {
             build.building.signed = false;
             return null;
         }
@@ -864,7 +864,7 @@ final class WallBuilder {
                 tileFrame.scale = build.frame.scale;
                 WorldScene.frameOf(tileFrame, wall, other);
                 WallTiles.Wall whole = WallTiles.of(other, tileFrame, north, false);
-                if (whole == null && WallTiles.unread(other, north)) {
+                if (whole == null && WallTiles.unread(other, north, false)) {
                     build.building.signed = false;
                     return null;
                 }

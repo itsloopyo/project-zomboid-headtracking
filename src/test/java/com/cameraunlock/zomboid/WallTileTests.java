@@ -54,6 +54,7 @@ final class WallTileTests {
         Checks.run("aDoorWallLooksNoFurtherThanItsRoomAndItsWall", WallTileTests::aDoorWallLooksNoFurtherThanItsRoomAndItsWall);
         Checks.run("aDoorWallPassesAWholeWallThatDisagreesWithIt", WallTileTests::aDoorWallPassesAWholeWallThatDisagreesWithIt);
         Checks.run("aWholeWallNotReadYetLeavesTheBuildToBeMadeAgain", WallTileTests::aWholeWallNotReadYetLeavesTheBuildToBeMadeAgain);
+        Checks.run("aSpriteReadAsAWallIsReadAgainLaidOverOne", WallTileTests::aSpriteReadAsAWallIsReadAgainLaidOverOne);
     }
 
     /**
@@ -494,7 +495,7 @@ final class WallTileTests {
                 Texture texture = new Texture(100 + x, 4, 4);
                 texture.paint(0, 0, 4, 4);
                 map.cell.square(x, 0, 0).add(map.spriteWith(SHEET + (x == 1 ? 15 : 13), IsoObjectType.wall, texture, "WallN", ""));
-                WallTiles.knownForTests(texture, true, null);
+                WallTiles.knownForTests(texture, true, false, null);
             }
         }
         return map;
@@ -528,28 +529,28 @@ final class WallTileTests {
     private static void aDoorWallTakesTheWholeWallBesideItInItsRoom() {
         TestMap map = bathroom();
         WallTiles.Wall whole = reading(true, CREAM);
-        WallTiles.knownForTests(textureAt(map, 2), true, whole);
+        WallTiles.knownForTests(textureAt(map, 2), true, false, whole);
         check(map.build.wallBuilder.tilesOf(textureAt(map, 1), 1, 0, 0, 1f, 0f, true) == whole, "a door through tiles under paint takes the whole wall beside it");
-        WallTiles.knownForTests(textureAt(map, 1), true, reading(false, CREAM));
+        WallTiles.knownForTests(textureAt(map, 1), true, false, reading(false, CREAM));
         check(map.build.wallBuilder.tilesOf(textureAt(map, 1), 1, 0, 0, 1f, 0f, true) == whole, "and does so where it read its paint over the door, which agrees");
     }
 
     private static void aDoorWallLooksNoFurtherThanItsRoomAndItsWall() {
         TestMap map = bathroom();
-        WallTiles.knownForTests(textureAt(map, 3), true, reading(true, CREAM));
+        WallTiles.knownForTests(textureAt(map, 3), true, false, reading(true, CREAM));
         map.cell.square(2, 0, 0).setRoomID(2L);
         check(map.build.wallBuilder.tilesOf(textureAt(map, 1), 1, 0, 0, 1f, 0f, true) == null, "not past a square of another room");
         map = bathroom(2);
-        WallTiles.knownForTests(textureAt(map, 3), true, reading(true, CREAM));
+        WallTiles.knownForTests(textureAt(map, 3), true, false, reading(true, CREAM));
         check(map.build.wallBuilder.tilesOf(textureAt(map, 1), 1, 0, 0, 1f, 0f, true) == null, "nor past a square with no wall of its sheet on that edge");
     }
 
     private static void aDoorWallPassesAWholeWallThatDisagreesWithIt() {
         TestMap map = bathroom();
-        WallTiles.knownForTests(textureAt(map, 1), true, reading(false, CREAM));
-        WallTiles.knownForTests(textureAt(map, 2), true, reading(true, BLUE));
+        WallTiles.knownForTests(textureAt(map, 1), true, false, reading(false, CREAM));
+        WallTiles.knownForTests(textureAt(map, 2), true, false, reading(true, BLUE));
         WallTiles.Wall agrees = reading(true, CREAM);
-        WallTiles.knownForTests(textureAt(map, 3), true, agrees);
+        WallTiles.knownForTests(textureAt(map, 3), true, false, agrees);
         check(map.build.wallBuilder.tilesOf(textureAt(map, 1), 1, 0, 0, 1f, 0f, true) == agrees, "a whole wall in another colour of the sheet is passed for the next that agrees");
     }
 
@@ -561,5 +562,23 @@ final class WallTileTests {
         map.build.building.signed = true;
         check(map.build.wallBuilder.tilesOf(textureAt(map, 1), 1, 0, 0, 1f, 0f, true) == null && !map.build.building.signed,
                 "a whole wall beside it not read yet leaves the build to be made again once it is");
+    }
+
+    private static void aSpriteReadAsAWallIsReadAgainLaidOverOne() {
+        // One sprite of a sheet of tiles is a wall on one square and laid over another wall on the next: each is read the way it is drawn.
+        float[] white = {0.92f, 0.92f, 0.92f};
+        Texture texture = new Texture(300, 4, 4);
+        texture.paint(0, 0, 4, 4);
+        WallTiles.Wall asWall = read((column, row) -> tiles(white, column, row, 11, 16, 120, 22));
+        check(asWall != null, "the sprite reads as a wall of tiles");
+        WallTiles.knownForTests(texture, true, false, asWall);
+        WallTiles.Wall over = WallTiles.of(texture, new SpriteGeometry.Frame(), true, true);
+        check(over != asWall, "laid over a wall it is not taken for the wall it was read as");
+        check(over == null && WallTiles.unread(texture, true, true), "and is still to be read that way");
+        WallTiles.Wall panel = read((column, row) -> row < 110 ? null : tiles(white, column, row, 11, 16, 120, 22), true);
+        WallTiles.knownForTests(texture, true, true, panel);
+        check(WallTiles.of(texture, new SpriteGeometry.Frame(), true, false) == asWall && WallTiles.of(texture, new SpriteGeometry.Frame(), true, true) == panel,
+                "once read so, each way has its own reading");
+        check(!WallTiles.overlayFaces(panel, 0.004f, 0.004f / ViewCamera.LEVEL_HEIGHT).isEmpty(), "and the tiles over a wall are laid as faces");
     }
 }
