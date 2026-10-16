@@ -8389,6 +8389,129 @@ def hydraulic_press(name, loaded):
     return model
 
 
+# How high the game says what is set on a drill press's table and a band saw's is: 32 and 30 pixels of their sprites.
+DRILL_PRESS_TABLE, BAND_SAW_TABLE = 32 / 96 * 2.44949, 30 / 96 * 2.44949
+
+
+def drill_press():
+    """A drill press standing on the floor, its front at -Y: a base plate, a column, a table on an arm, the head with its
+    belt guard, motor behind and switch in front, the quill, chuck and bit under it and three feed handles at its right."""
+    model = Model("drill_press")
+    paint, steel, dark, rubber, red = bmesh.new(), bmesh.new(), bmesh.new(), bmesh.new(), bmesh.new()
+    cy = 0.1
+    cuboid(dark, -0.26, 0.26, -0.34, 0.26, 0.0, 0.05)
+    lathe(dark, [(0.0, 0.05), (0.08, 0.05), (0.07, 0.09), (0.0, 0.09)], segments=16, cy=cy)
+    lathe(steel, [(0.0, 0.09), (0.045, 0.09), (0.045, 1.42), (0.0, 1.42)], segments=16, cy=cy)
+    top = DRILL_PRESS_TABLE
+    for z in (top - 0.15, top - 0.07):
+        lathe(dark, [(0.0, z), (0.065, z), (0.065, z + 0.05), (0.0, z + 0.05)], segments=16, cy=cy)
+    cuboid(dark, -0.05, 0.05, -0.12, cy, top - 0.13, top - 0.09)
+    cuboid(dark, -0.16, 0.16, -0.3, 0.02, top - 0.035, top)
+    cuboid(paint, -0.14, 0.14, -0.22, 0.2, 1.36, 1.56)
+    prism(paint, (0.0, -0.01, 0.26, 0.38, 1.56), (0.0, 0.0, 0.22, 0.32, 1.64))
+    lathe(dark, [(0.0, 1.36), (0.085, 1.36), (0.085, 1.6), (0.0, 1.6)], segments=16, cy=0.29)
+    cuboid(dark, -0.05, 0.05, -0.228, -0.22, 1.42, 1.5)
+    dial(red, 0.0, -0.228, 1.465, 0.012, 0.016)
+    lathe(steel, [(0.0, 1.2), (0.03, 1.2), (0.03, 1.36), (0.0, 1.36)], segments=14, cy=-0.12)
+    lathe(steel, [(0.0, 1.12), (0.02, 1.13), (0.026, 1.2), (0.0, 1.2)], segments=12, cy=-0.12)
+    lathe(steel, [(0.0, 1.03), (0.005, 1.04), (0.005, 1.12), (0.0, 1.12)], segments=6, cy=-0.12)
+    lathe(steel, [(0.0, 0.0), (0.035, 0.0), (0.035, 0.05), (0.0, 0.05)], segments=12, to=along_x(0.14, -0.05, 1.42))
+    for n in range(3):
+        angle = 2 * math.pi * n / 3 - 0.4
+        tip = (0.19, -0.05 + math.cos(angle) * 0.17, 1.42 + math.sin(angle) * 0.17)
+        rod(steel, (0.19, -0.05, 1.42), tip, 0.007, segments=6)
+        lathe(red, [(0.0, -0.02), (0.016, -0.012), (0.018, 0.0), (0.016, 0.012), (0.0, 0.02)], segments=10, to=Matrix.Translation(tip))
+    model.hard(paint, "paint", bevel=0.012, segments=2)
+    model.turned(steel, "steel")
+    model.hard(dark, "plastic", bevel=0.004, segments=1)
+    model.turned(rubber, "rubber")
+    model.turned(red, "vinyl")
+    return model
+
+
+def band_saw():
+    """A band saw standing on the floor, its front at -Y and its spine at the left: a base cabinet over the lower wheel, the
+    spine up to the upper wheel's housing, the table through which the blade runs, its guide post, a fence, a switch
+    panel on the spine and the tension wheel on top."""
+    model = Model("band_saw")
+    paint, steel, dark, rubber, red = bmesh.new(), bmesh.new(), bmesh.new(), bmesh.new(), bmesh.new()
+    top = BAND_SAW_TABLE
+    base = top - 0.16
+    cuboid(paint, -0.32, 0.32, -0.23, 0.23, 0.05, base)
+    cuboid(rubber, -0.3, 0.3, -0.21, 0.21, 0.0, 0.05)
+    cuboid(paint, -0.28, 0.28, -0.238, -0.23, 0.12, base - 0.06)
+    louvres(dark, -0.2, 0.0, -0.238, 0.2, 0.42, 6)
+    cuboid(paint, -0.32, -0.14, -0.14, 0.14, base, 1.36)
+    outline = [(-0.32, 1.36), (0.28, 1.36), (0.28, 1.68), (0.2, 1.78), (-0.24, 1.78), (-0.32, 1.7)]
+    housing = bmesh.new()
+    outline_along_y(housing, outline, -0.14, 0.14)
+    model.hard(housing, "paint", bevel=0.012, segments=2)
+    cuboid(paint, -0.26, 0.24, -0.148, -0.14, 1.42, 1.72)
+    cuboid(paint, -0.3, -0.16, -0.148, -0.14, 0.9, 1.3)
+    cuboid(dark, -0.29, -0.17, -0.158, -0.148, 1.0, 1.2)
+    dial(red, -0.23, -0.158, 1.15, 0.016, 0.018)
+    dial(rubber, -0.23, -0.158, 1.06, 0.016, 0.014)
+    lathe(steel, [(0.0, 0.0), (0.06, 0.0), (0.06, 0.015), (0.0, 0.015)], segments=16, to=Matrix.Translation((-0.05, 0.0, 1.78)))
+    lathe(steel, [(0.0, 0.0), (0.008, 0.0), (0.008, 0.05), (0.0, 0.05)], segments=6, to=Matrix.Translation((-0.05, 0.04, 1.795)))
+    cuboid(dark, 0.0, 0.2, -0.12, 0.12, base, top - 0.03)
+    cuboid(steel, -0.12, 0.5, -0.3, 0.3, top - 0.03, top)
+    for x in (0.12, 0.2):
+        cuboid(dark, x - 0.004, x + 0.004, -0.3, 0.3, top - 0.003, top + 0.0001)
+    cuboid(rubber, 0.42, 0.44, -0.29, 0.29, top, top + 0.04)
+    cuboid(steel, 0.155, 0.185, -0.03, 0.0, top + 0.09, 1.36)
+    cuboid(rubber, 0.14, 0.2, -0.06, 0.02, top + 0.05, top + 0.11)
+    cuboid(steel, 0.166, 0.174, -0.001, 0.001, base, 1.36)
+    model.hard(paint, "paint", bevel=0.012, segments=2)
+    model.hard(steel, "steel", bevel=0.002, segments=1)
+    model.plain(dark, "plastic")
+    model.turned(rubber, "rubber")
+    model.turned(red, "vinyl")
+    return model
+
+
+def line_press():
+    """A press on a production line, a square of it: a grey steel cabinet with vents in its sides, the belt across it along
+    the model's Y between painted rails, and over the belt four steel posts carrying a painted crosshead, the ribbed
+    housing of the cylinder on it with grey guards at its sides, the ram and its die, and black hoses down its sides."""
+    model = Model("line_press")
+    paint, steel, dark, rubber, metal = bmesh.new(), bmesh.new(), bmesh.new(), bmesh.new(), bmesh.new()
+    belt(model, 0.36, -0.5, 0.5, BELT_TOP)
+    cuboid(metal, -0.44, 0.44, -0.42, 0.42, 0.04, BELT_TOP - 0.11)
+    cuboid(rubber, -0.41, 0.41, -0.39, 0.39, 0.0, 0.04)
+    for side in (-1, 1):
+        x0, x1 = sorted((side * 0.44, side * 0.446))
+        for n in range(6):
+            z = 0.2 + n * 0.06
+            cuboid(dark, x0, x1, -0.22, 0.22, z, z + 0.025)
+    for x in (-0.36, 0.36):
+        for y in (-0.36, 0.36):
+            cuboid(steel, x - 0.025, x + 0.025, y - 0.025, y + 0.025, BELT_TOP - 0.07, 1.12)
+    for side in (-1, 1):
+        x0, x1 = sorted((side * 0.46, side * 0.33))
+        cuboid(paint, x0, x1, -0.46, 0.46, BELT_TOP - 0.13, BELT_TOP - 0.05)
+    cuboid(paint, -0.42, 0.42, -0.42, 0.42, 1.06, 1.14)
+    cuboid(paint, -0.22, 0.22, -0.2, 0.2, 1.14, 1.62)
+    for z in (1.24, 1.36, 1.48):
+        cuboid(paint, -0.235, 0.235, -0.215, 0.215, z, z + 0.04)
+    for side in (-1, 1):
+        x0, x1 = sorted((side * 0.22, side * 0.27))
+        cuboid(metal, x0, x1, -0.16, 0.16, 1.2, 1.56)
+    cuboid(metal, -0.2, 0.2, -0.18, 0.18, 1.62, 1.66)
+    lathe(steel, [(0.0, 1.66), (0.04, 1.66), (0.04, 1.76), (0.0, 1.76)], segments=12)
+    lathe(steel, [(0.0, 0.98), (0.2, 0.98), (0.2, 1.02), (0.06, 1.02), (0.06, 1.06), (0.0, 1.06)], segments=20)
+    for x in (-0.27, 0.27):
+        rod(steel, (x, 0.0, BELT_TOP + 0.02), (x, 0.0, 1.06), 0.016, segments=8)
+    for side in (-1, 1):
+        rod(rubber, (side * 0.27, 0.12, 1.5), (side * 0.44, 0.12, 1.4), 0.016, segments=8)
+        rod(rubber, (side * 0.44, 0.12, 1.4), (side * 0.44, 0.12, BELT_TOP + 0.02), 0.016, segments=8)
+    model.hard(paint, "paint", bevel=0.008, segments=2)
+    model.hard(metal, "metal", bevel=0.008, segments=2)
+    model.turned(steel, "steel")
+    model.plain(dark, "plastic")
+    model.turned(rubber, "rubber")
+    return model
+
+
 def industrial():
     """What a works, a warehouse, a garage and a distillery have: the pieces Industry.java places."""
     return [conveyor(), conveyor_boxed(), machine_case(), machine_shell(), machine_outlet(), machine_column(), machine_drum(),
@@ -8396,7 +8519,7 @@ def industrial():
             cask("cask", False), cask("cask_lying", True), barrel_rack("barrel_rack", 0), barrel_rack("barrel_rack_low", 1),
             barrel_rack("barrel_rack_full", 2), workbench(), tool_chest(), security_desk(),
             gas_bottle("extinguisher_bottle", 0.09, 0.62), propane_tank(),
-            engine_lathe(), lathe_headstock(), hydraulic_press("press", False), hydraulic_press("press_loaded", True)]
+            engine_lathe(), lathe_headstock(), hydraulic_press("press", False), hydraulic_press("press_loaded", True), drill_press(), band_saw(), line_press()]
 
 
 def jersey_barrier():

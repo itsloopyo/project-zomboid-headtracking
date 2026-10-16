@@ -68,6 +68,9 @@ final class IndustryTests {
         for (int place : new int[] {0, 1, 3, 4, 9, 10, 12, 13, 32, 33, 35, 36, 41, 42, 44, 45}) {
             holds(workshop(place), "industry_03_" + place + " has a model");
         }
+        for (int place : new int[] {46, 47, 264, 265, 266, 267, 268, 269, 270, 271}) {
+            holds(works(place), "industry_02_" + place + " has a model");
+        }
         for (int place : new int[] {22, 23, 30, 31}) {
             Outdoors.Piece bottle = Industry.of("industry_03_" + place, "Extinguisher", null, Outdoors.NONE, 1, 1, 0);
             holds(bottle, "industry_03_" + place + " has a model");
@@ -161,10 +164,14 @@ final class IndustryTests {
         float bench = 24f / WorldScene.SURFACE_PIXELS_PER_LEVEL * ViewCamera.LEVEL_HEIGHT;
         Checks.check(Math.abs(Models.get("workbench").height() - bench) < 0.005f, "and the workbench's");
         Checks.check(Math.abs(Models.get("downpipe").height() - ViewCamera.LEVEL_HEIGHT) < 0.005f, "a pipe from the ceiling reaches it");
+        // What is set on a band saw's or a drill press's table stands where the game says, 30 and 32 pixels up: on the table.
+        float pixel = ViewCamera.LEVEL_HEIGHT / WorldScene.SURFACE_PIXELS_PER_LEVEL;
+        Checks.check(topAcross(Models.get("band_saw"), 30f * pixel) > 0.5f, "a band saw's table is at the height the game gives what is on it");
+        Checks.check(topAcross(Models.get("drill_press"), 32f * pixel) > 0.25f, "and a drill press's");
     }
 
     private static void aSpriteOfAnotherPlaceOrShapeIsNoIndustrialPiece() {
-        Checks.check(works(46) == null && works(47) == null && works(88) == null && works(160) == null, "a press, a tank's roof and a cabinet are not these");
+        Checks.check(works(88) == null && works(160) == null, "a tank's roof and a cabinet are not these");
         Checks.check(workshop(6) == null && workshop(24) == null && workshop(46) == null, "a gas bottle, a trolley of them and a gap in the sheet are no machine");
         Checks.check(unnamed("carpentry_01_16", 32) == null && unnamed("carpentry_01_17", 32) == null, "a crate on the floor is Furniture's");
         Checks.check(unnamed("location_business_distillery_01_11", 0) == null, "a still is not a rack");
@@ -234,6 +241,11 @@ final class IndustryTests {
             Checks.check(press.turns == faces[(place - 48) % 4], "industry_03_" + place + " faces the way its sprite paints its table");
             Checks.check(press.model.equals(place < 56 ? "press" : "press_loaded"), "industry_03_" + place + (place < 56 ? " is empty" : " has a die"));
         }
+        int[] saws = {Outdoors.SOUTH, Outdoors.WEST, Outdoors.NORTH, Outdoors.EAST}, drills = {Outdoors.EAST, Outdoors.SOUTH, Outdoors.NORTH, Outdoors.WEST};
+        for (int i = 0; i < 4; i++) {
+            Checks.check(works(264 + i).turns == saws[i] && works(268 + i).turns == drills[i], "industry_02_" + (264 + i) + " and " + (268 + i) + " face the way their sprites do");
+        }
+        Checks.check(Math.abs(way(works(46), 0f, 1f)[1]) == 1f && Math.abs(way(works(47), 0f, 1f)[0]) == 1f, "a line press's belt runs along its line");
     }
 
     private static void aLathesThreeSquaresStandOrNotAlike() {
@@ -288,4 +300,16 @@ final class IndustryTests {
         }
     }
 
+    /** How wide, along the model's x, the faces turned up within 3 mm of high are: a table's top at that height, or 0. */
+    private static float topAcross(Models.Model model, float high) {
+        float least = Float.MAX_VALUE, most = -Float.MAX_VALUE;
+        float[] v = model.vertices;
+        for (int at = 0; at < v.length; at += Models.VERTEX_FLOATS) {
+            if (v[at + 5] > 0.99f && Math.abs(v[at + 2] - high) < 0.003f) {
+                least = Math.min(least, v[at]);
+                most = Math.max(most, v[at]);
+            }
+        }
+        return Math.max(most - least, 0f);
+    }
 }

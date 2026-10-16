@@ -6,9 +6,9 @@ import com.cameraunlock.zomboid.Outdoors.Piece;
  * What a works, a warehouse, a garage, a workshop and a distillery have that the mod has a model
  * of: belt conveyors and the machines a line of them runs through, fuel tanks lying on saddles,
  * pipes down from the ceiling, crates stacked on crates, racks of casks and the casks, workbenches,
- * tool chests, security desks, gas bottles, lathes and presses. Most sprites of a works and a
- * workshop have no name and no facing: which piece each is, which way it runs or faces and where on
- * its square it stands go by its place on its sheet.
+ * tool chests, security desks, gas bottles, lathes, presses, drill presses and band saws. Most
+ * sprites of a works and a workshop have no name and no facing: which piece each is, which way it
+ * runs or faces and where on its square it stands go by its place on its sheet.
  */
 final class Industry {
     private Industry() {}
@@ -147,6 +147,18 @@ final class Industry {
             case 53 -> new Piece("machine_drum", Outdoors.EAST).dye(PAINT, DRUM_DYE);
             case 62 -> new Piece("machine_column", Outdoors.EAST).dye(PAINT, COLUMN_DYE);
             case 63 -> new Piece("machine_column", Outdoors.SOUTH).dye(PAINT, COLUMN_DYE);
+            // A press over a line's belt, which runs along y on 46 and along x on 47.
+            case 46 -> new Piece("line_press", Outdoors.NORTH).dye(PAINT, 0.5f, 0.45f, 0.75f);
+            case 47 -> new Piece("line_press", Outdoors.EAST).dye(PAINT, 0.25f, 0.5f, 0.675f);
+            // Band saws, their throat to the operator's right, and drill presses.
+            case 264 -> new Piece("band_saw", Outdoors.SOUTH).dye(PAINT, 0.6f);
+            case 265 -> new Piece("band_saw", Outdoors.WEST).dye(PAINT, 0.55f);
+            case 266 -> new Piece("band_saw", Outdoors.NORTH).dye(PAINT, 0.25f);
+            case 267 -> new Piece("band_saw", Outdoors.EAST).dye(PAINT, 0.475f);
+            case 268 -> new Piece("drill_press", Outdoors.EAST).dye(PAINT, 0.525f, 0.5f, 0.625f);
+            case 269 -> new Piece("drill_press", Outdoors.SOUTH).dye(PAINT, 0.55f, 0.45f, 0.635f);
+            case 270 -> new Piece("drill_press", Outdoors.NORTH).dye(PAINT, 0.525f, 0.25f, 0.625f);
+            case 271 -> new Piece("drill_press", Outdoors.WEST).dye(PAINT, 0.45f, 0.525f, 0.6375f);
             case 76 -> new Piece("downpipe", Outdoors.EAST);
             case 77 -> new Piece("downpipe", Outdoors.SOUTH);
             case 78 -> new Piece("downpipe", Outdoors.NORTH);
