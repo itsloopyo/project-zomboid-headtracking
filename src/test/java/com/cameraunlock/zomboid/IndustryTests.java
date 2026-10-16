@@ -13,6 +13,9 @@ final class IndustryTests {
         Checks.run("aCrateOnACrateStandsWhereTheOneUnderItLeavesOff", IndustryTests::aCrateOnACrateStandsWhereTheOneUnderItLeavesOff);
         Checks.run("aModelIsAsHighAsTheGameSaysItsTopIs", IndustryTests::aModelIsAsHighAsTheGameSaysItsTopIs);
         Checks.run("aSpriteOfAnotherPlaceOrShapeIsNoIndustrialPiece", IndustryTests::aSpriteOfAnotherPlaceOrShapeIsNoIndustrialPiece);
+        Checks.run("aLathesThreeSquaresStandItWithItsHeadstockAtItsEnd", IndustryTests::aLathesThreeSquaresStandItWithItsHeadstockAtItsEnd);
+        Checks.run("aLathesThreeSquaresStandOrNotAlike", IndustryTests::aLathesThreeSquaresStandOrNotAlike);
+        Checks.run("aWorkshopsMachinesFaceTheWayTheirSpritesDo", IndustryTests::aWorkshopsMachinesFaceTheWayTheirSpritesDo);
     }
 
     private static Outdoors.Piece unnamed(String name, int surface) {
@@ -58,6 +61,12 @@ final class IndustryTests {
         holds(Industry.of("security_01_0", "Terminal", "Security", Outdoors.SOUTH, 1, 1, 0), "a security desk has a model");
         for (int place : new int[] {105, 107, 109, 110, 112, 113, 114, 115}) {
             holds(Industry.of("industry_03_" + place, "Propane Tank", null, Outdoors.NONE, 1, 1, 0), "industry_03_" + place + " has a model");
+        }
+        for (int place = 48; place < 64; place++) {
+            holds(workshop(place), "industry_03_" + place + " has a model");
+        }
+        for (int place : new int[] {0, 1, 3, 4, 9, 10, 12, 13, 32, 33, 35, 36, 41, 42, 44, 45}) {
+            holds(workshop(place), "industry_03_" + place + " has a model");
         }
         for (int place : new int[] {22, 23, 30, 31}) {
             Outdoors.Piece bottle = Industry.of("industry_03_" + place, "Extinguisher", null, Outdoors.NONE, 1, 1, 0);
@@ -156,6 +165,7 @@ final class IndustryTests {
 
     private static void aSpriteOfAnotherPlaceOrShapeIsNoIndustrialPiece() {
         Checks.check(works(46) == null && works(47) == null && works(88) == null && works(160) == null, "a press, a tank's roof and a cabinet are not these");
+        Checks.check(workshop(6) == null && workshop(24) == null && workshop(46) == null, "a gas bottle, a trolley of them and a gap in the sheet are no machine");
         Checks.check(unnamed("carpentry_01_16", 32) == null && unnamed("carpentry_01_17", 32) == null, "a crate on the floor is Furniture's");
         Checks.check(unnamed("location_business_distillery_01_11", 0) == null, "a still is not a rack");
         Checks.check(Industry.of("industry_02_40", null, null, Outdoors.NONE, 2, 1, 0) == null, "a piece on two squares is no conveyor");
@@ -164,4 +174,118 @@ final class IndustryTests {
         Checks.check(Industry.of("industry_03_24", "Extinguisher", null, Outdoors.NONE, 1, 1, 0) == null, "nor an extinguisher of another place");
         Checks.check(Outdoors.of("industry_02_40", null, null, Outdoors.NONE, 1, 1, 0) == null, "Outdoors leaves a conveyor to Industry");
     }
+
+    private static Outdoors.Piece workshop(int place) {
+        return unnamed("industry_03_" + place, 0);
+    }
+
+    private static void aLathesThreeSquaresStandItWithItsHeadstockAtItsEnd() {
+        // Head, bed and tail as the map lays them, and the step from the tail's square to the head's.
+        int[][] rows = {{0, 1, 2, 0, 1}, {3, 4, 5, -1, 0}, {10, 9, 8, 1, 0}, {13, 12, 11, 0, -1}};
+        for (int colour : new int[] {0, 32}) {
+            for (int[] row : rows) {
+                Outdoors.Piece head = workshop(colour + row[0]), bed = workshop(colour + row[1]), tail = workshop(colour + row[2]);
+                String bedName = "industry_03_" + (colour + row[1]), name = "the lathe of " + bedName;
+                Checks.check("lathe_head".equals(head.model) && "lathe".equals(bed.model) && tail.model == null && tail.follows,
+                        name + " is a head, a bed and a square that stands nothing");
+                String headName = "industry_03_" + (colour + row[0]), tailName = "industry_03_" + (colour + row[2]);
+                // Each square names the other two and where they are: the head at one end, a step from the bed, the tail at the other.
+                int[][] at = {{0, 0}, {-row[3], -row[4]}, {-2 * row[3], -2 * row[4]}};
+                String[] names = {headName, bedName, tailName};
+                Outdoors.Piece[] pieces = {head, bed, tail};
+                for (int i = 0; i < 3; i++) {
+                    Outdoors.Piece piece = pieces[i];
+                    boolean right = piece.row != null && piece.row.length == 2 && piece.partner == null;
+                    for (int k = 0; right && k < 2; k++) {
+                        int other = -1;
+                        for (int j = 0; j < 3; j++) {
+                            if (names[j].equals(piece.row[k])) {
+                                other = j;
+                            }
+                        }
+                        right = other >= 0 && other != i && piece.rowX[k] == at[other][0] - at[i][0] && piece.rowY[k] == at[other][1] - at[i][1];
+                    }
+                    Checks.check(right, name + ": " + names[i] + " names the other two squares of its row and where each is");
+                }
+                // The models' headstock is at their -X, towards the head's square; their front is across the row.
+                float[] headward = way(bed, -1f, 0f), front = way(bed, 0f, -1f);
+                Checks.check(Math.round(headward[0]) == row[3] && Math.round(headward[1]) == row[4], name + "'s headstock is at the head's square");
+                Checks.check(Math.round(front[0] * row[3] + front[1] * row[4]) == 0, name + " faces across its row");
+                // Looking at its front, the headstock is on the left: the head is the front turned a quarter clockwise on the map.
+                Checks.check(Math.round(-front[1]) == row[3] && Math.round(front[0]) == row[4], name + "'s headstock is at the operator's left");
+                Checks.check(head.turns == bed.turns && head.a == 0.5f && head.b == 0.5f && bed.a == 0.5f && bed.b == 0.5f,
+                        name + "'s two models turn together about their squares' middles");
+                for (Outdoors.Piece piece : pieces) {
+                    String dyer = piece.rowDyer < 0 ? headName : piece.row[piece.rowDyer];
+                    Checks.check(dyer.equals(headName) && piece.dyed == head.dyed && piece.dyeA == head.dyeA && piece.dyeB == head.dyeB && piece.dyeHigh == head.dyeHigh,
+                            name + ": every square takes the colour from the headstock's sprite, where the headstock does");
+                }
+            }
+        }
+        Models.Model lathe = Models.get("lathe");
+        Checks.check(lathe.maxX > 1.4f && lathe.minX < -1.4f, "a lathe is three squares long");
+    }
+
+    private static void aWorkshopsMachinesFaceTheWayTheirSpritesDo() {
+        // A press has its back to the wall the map stands it against: 50 and 54 a west wall, 51 and 55 a north one.
+        int[] faces = {Outdoors.WEST, Outdoors.NORTH, Outdoors.EAST, Outdoors.SOUTH};
+        for (int place = 48; place < 64; place++) {
+            Outdoors.Piece press = workshop(place);
+            Checks.check(press.turns == faces[(place - 48) % 4], "industry_03_" + place + " faces the way its sprite paints its table");
+            Checks.check(press.model.equals(place < 56 ? "press" : "press_loaded"), "industry_03_" + place + (place < 56 ? " is empty" : " has a die"));
+        }
+    }
+
+    private static void aLathesThreeSquaresStandOrNotAlike() {
+        String head = "industry_03_35", bed = "industry_03_36", tail = "industry_03_37";
+        int[][] at = {{7382, 8349}, {7383, 8349}, {7384, 8349}};
+        String[] names = {head, bed, tail};
+        Furniture[] pieces = new Furniture[3];
+        for (int i = 0; i < 3; i++) {
+            pieces[i] = Furniture.known(TileRows.sprite(names[i] + "|BlocksPlacement||MaterialType|Metal|solidtrans||"));
+            Checks.check(pieces[i] != null, names[i] + " is a square of a lathe");
+            if (pieces[i] == null) {
+                return;
+            }
+        }
+        Checks.check(pieces[2].follows && !pieces[0].follows && !pieces[1].follows, "the tail's square stands nothing of its own");
+        java.util.function.IntFunction<Towers.Squares> map = gone -> (x, y, z, sprite) -> {
+            for (int j = 0; j < 3; j++) {
+                if (x == at[j][0] && y == at[j][1]) {
+                    return gone == j ? Boolean.FALSE : gone == j + 3 ? null : sprite.equals(names[j]);
+                }
+            }
+            return false;
+        };
+        for (int i = 0; i < 3; i++) {
+            Checks.check(FurnishingBuilder.othersThere(pieces[i], map.apply(-1), at[i][0], at[i][1], 0) == Boolean.TRUE, names[i] + " stands with the whole lathe there");
+            for (int j = 0; j < 3; j++) {
+                if (j != i) {
+                    Checks.check(FurnishingBuilder.othersThere(pieces[i], map.apply(j), at[i][0], at[i][1], 0) == Boolean.FALSE, names[i] + " is its sprite with " + names[j] + " gone");
+                    Checks.check(FurnishingBuilder.othersThere(pieces[i], map.apply(j + 3), at[i][0], at[i][1], 0) == null, names[i] + " waits for " + names[j] + "'s square to load");
+                }
+            }
+        }
+        // The colour: every square reads it at the one place of the headstock's sprite the head reads it at, so where that is unpainted none stands.
+        SpriteGeometry.Frame frame = new SpriteGeometry.Frame();
+        frame.scale = 2f;
+        frame.originU = 64f;
+        frame.originV = 192f;
+        frame.width = 128f;
+        frame.height = 256f;
+        frame.uEnd = 1f;
+        frame.vEnd = 1f;
+        FurnishingBuilder builder = new FurnishingBuilder(null);
+        int paintU = Math.round(SpriteGeometry.frameU(frame, pieces[0].dyeA, pieces[0].dyeB)), paintV = Math.round(SpriteGeometry.frameV(frame, pieces[0].dyeA, pieces[0].dyeB, pieces[0].dyeHigh));
+        Checks.check(builder.dyes((u, v) -> u == paintU && v == paintV, frame, pieces[0], head), "the headstock takes its colour at its own place");
+        float headU = builder.dyeU, headV = builder.dyeV;
+        for (int i = 0; i < 3; i++) {
+            String dyer = pieces[i].rowDyer < 0 ? names[i] : pieces[i].row[pieces[i].rowDyer];
+            Checks.check(dyer.equals(head), names[i] + " takes its colour from the headstock's sprite");
+            Checks.check(builder.dyes((u, v) -> u == paintU && v == paintV, frame, pieces[i], head) && builder.dyeU == headU && builder.dyeV == headV,
+                    names[i] + " reads the colour at the headstock's place on its sprite");
+            Checks.check(!builder.dyes((u, v) -> false, frame, pieces[i], head), names[i] + " does not stand where the headstock's sprite paints nothing");
+        }
+    }
+
 }

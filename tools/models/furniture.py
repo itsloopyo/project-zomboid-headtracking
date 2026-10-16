@@ -8179,13 +8179,224 @@ def propane_tank():
     return model
 
 
+# The machines of a workshop: a lathe three squares long, a press, a drill press, a band saw, a press over a line's belt
+# and a bench grinder. Industry.java stands them. Each one's case is paint, which takes the colour of its sprite.
+
+
+def axis_to(centre, way):
+    """Moves something made round the upright to stand at centre with its axis along way."""
+    turn = Vector((0.0, 0.0, 1.0)).rotation_difference(Vector(way).normalized()).to_matrix().to_4x4()
+    return Matrix.Translation(centre) @ turn
+
+
+def handwheel(rim, hub, centre, way, radius, spokes=3, grip=None):
+    """A handwheel turned about way through centre: a round rim, its spokes and hub, and a grip standing out of the rim
+    towards whoever turns it, made in grip when given."""
+    to = axis_to(centre, way)
+    tube_r = radius * 0.11
+    ring = [(radius + tube_r * math.cos(2 * math.pi * i / 6), tube_r * math.sin(2 * math.pi * i / 6)) for i in range(6)]
+    lathe(rim, ring, segments=16, closed=True, to=to)
+    lathe(hub, [(0.0, -0.022), (radius * 0.24, -0.022), (radius * 0.24, 0.022), (0.0, 0.022)], segments=12, to=to)
+    for n in range(spokes):
+        angle = 2 * math.pi * n / spokes + 0.3
+        tip = Vector((math.cos(angle) * radius, math.sin(angle) * radius, 0.0))
+        rod(hub, to @ (tip * 0.2), to @ tip, tube_r * 0.7, segments=6)
+    if grip is not None:
+        angle = 0.3 + math.pi / spokes
+        at = Vector((math.cos(angle) * radius, math.sin(angle) * radius, 0.0))
+        lathe(grip, [(0.0, 0.0), (tube_r * 1.3, 0.0), (tube_r * 1.4, radius * 0.5), (tube_r * 1.1, radius * 0.6), (0.0, radius * 0.6)], segments=10,
+              to=to @ Matrix.Translation(at))
+
+
+def louvres(bm, x0, x1, y, z0, z1, count, out=-1):
+    """Slats across a face at y, their fronts out of it the way out says."""
+    pitch = (z1 - z0) / count
+    for n in range(count):
+        z = z0 + n * pitch
+        a, b = sorted((y, y + out * 0.006))
+        cuboid(bm, x0, x1, a, b, z + pitch * 0.25, z + pitch * 0.75)
+
+
+def dial(bm, x, y, z, radius, deep):
+    """A round knob on a face at y, standing out of it towards -Y."""
+    lathe(bm, [(0.0, 0.0), (radius, 0.0), (radius, deep * 0.7), (radius * 0.75, deep), (0.0, deep)], segments=10, to=axis_to((x, y, z), (0.0, -1.0, 0.0)))
+
+
+def lever(stick, ball, start, end, radius=0.007):
+    rod(stick, start, end, radius, segments=6)
+    lathe(ball, [(0.0, -radius * 3), (radius * 2.6, -radius * 2), (radius * 3, 0.0), (radius * 2.6, radius * 2), (0.0, radius * 3)], segments=8,
+          to=Matrix.Translation(end))
+
+
+# A lathe's bed, its centre height and the top of its two pedestals, in metres over the floor.
+LATHE_PEDESTAL, LATHE_BED, LATHE_CENTRE = 0.66, 0.92, 1.12
+
+
+def lathe_pedestal(paint, rubber, metal, dark, steel, x0, x1):
+    """A pedestal of the lathe from x0 to x1: a cabinet with a recessed plinth, a door, a louvre and a steel cap."""
+    front, back, top = -0.38, 0.38, LATHE_PEDESTAL
+    cuboid(paint, x0, x1, front + 0.02, back - 0.02, 0.06, top - 0.03)
+    cuboid(rubber, x0 + 0.03, x1 - 0.03, front + 0.05, back - 0.05, 0.0, 0.06)
+    cuboid(metal, x0 - 0.01, x1 + 0.01, front, back, top - 0.03, top)
+    cuboid(paint, x0 + 0.05, x1 - 0.05, front + 0.012, front + 0.02, 0.12, top - 0.09)
+    louvres(dark, x0 + 0.12, x0 + 0.42, front + 0.012, 0.18, 0.42, 6)
+    cuboid(steel, x1 - 0.14, x1 - 0.1, front - 0.002, front + 0.012, 0.34, 0.42)
+
+
+def engine_lathe():
+    """A lathe three squares long, its origin the middle of the middle square, the headstock at -X and its front at -Y:
+    the bed on two pedestals capped in steel with a chip pan between them, the carriage with its apron and handwheel,
+    cross slide and tool post, and the tailstock with its quill and wheel. The headstock is lathe_head, which the
+    square at the lathe's -X end stands; the square at its +X end stands nothing of its own."""
+    model = Model("lathe", centred=False)
+    paint, steel, dark, red, rubber, metal = bmesh.new(), bmesh.new(), bmesh.new(), bmesh.new(), bmesh.new(), bmesh.new()
+    top, bed, centre = LATHE_PEDESTAL, LATHE_BED, LATHE_CENTRE
+    front, back = -0.38, 0.38
+    lathe_pedestal(paint, rubber, metal, dark, steel, 0.66, 1.46)
+    # The chip pan between them, a tray with a rolled lip all round it.
+    cuboid(metal, -0.56, 0.66, front + 0.02, back - 0.02, 0.5, 0.52)
+    for y0, y1 in ((front + 0.02, front + 0.05), (back - 0.05, back - 0.02)):
+        cuboid(metal, -0.56, 0.66, y0, y1, 0.52, top - 0.02)
+    cuboid(paint, -0.56, 0.66, back - 0.06, back - 0.03, 0.06, 0.5)
+    # The bed and its two ways, with the lead screw and the feed rod along its front.
+    cuboid(paint, -1.42, 1.42, -0.19, 0.19, top, bed)
+    for y0, y1 in ((-0.17, -0.1), (0.1, 0.17)):
+        prism(steel, (0.22, (y0 + y1) / 2, 2.4, y1 - y0, bed), (0.22, (y0 + y1) / 2, 2.4, (y1 - y0) * 0.45, bed + 0.026))
+    for z, r in ((0.865, 0.011), (0.8, 0.009)):
+        rod(steel, (-0.78, -0.21, z), (1.4, -0.21, z), r, segments=6)
+    cuboid(paint, 1.36, 1.42, -0.23, -0.19, 0.77, 0.9)
+    stick, ball = bmesh.new(), bmesh.new()
+    # The carriage: saddle on the ways, apron hanging in front with its handwheel, cross slide, compound and tool post.
+    cuboid(paint, -0.2, 0.2, -0.23, 0.23, bed + 0.026, bed + 0.08)
+    cuboid(paint, -0.21, 0.21, -0.33, -0.22, 0.74, bed + 0.08)
+    cuboid(steel, -0.09, 0.09, -0.29, 0.19, bed + 0.08, bed + 0.12)
+    cuboid(steel, -0.07, 0.07, -0.13, 0.07, bed + 0.12, bed + 0.155)
+    cuboid(rubber, -0.04, 0.04, -0.1, -0.02, bed + 0.155, bed + 0.23)
+    cuboid(steel, -0.01, 0.01, -0.02, 0.05, centre - 0.012, centre + 0.004)
+    rim, hub = bmesh.new(), bmesh.new()
+    handwheel(red, hub, (-0.09, -0.355, 0.86), (0.0, -1.0, 0.0), 0.08, grip=rubber)
+    handwheel(rim, hub, (0.0, -0.32, bed + 0.1), (0.0, -1.0, 0.0), 0.04, grip=rubber)
+    lever(stick, ball, (0.12, -0.33, 0.82), (0.17, -0.39, 0.88))
+    # The tailstock: base, body, quill and centre, and its wheel at the far end.
+    cuboid(paint, 0.88, 1.26, -0.14, 0.14, bed + 0.026, bed + 0.07)
+    prism(paint, (1.07, 0.0, 0.36, 0.2, bed + 0.07), (1.08, 0.0, 0.3, 0.16, centre + 0.07))
+    lathe(steel, [(0.0, 0.0), (0.03, 0.0), (0.03, 0.12), (0.018, 0.13), (0.0, 0.17)], segments=16,
+          to=along_x(0.92, 0.0, centre) @ Matrix.Rotation(math.radians(180), 4, "Y"))
+    lathe(steel, [(0.0, 0.0), (0.012, 0.0), (0.012, 0.06), (0.0, 0.06)], segments=8, to=along_x(1.23, 0.0, centre))
+    handwheel(rim, hub, (1.3, 0.0, centre), (1.0, 0.0, 0.0), 0.07, grip=rubber)
+    model.hard(paint, "paint", bevel=0.01, segments=2)
+    model.hard(steel, "steel", bevel=0.003, segments=1)
+    model.hard(metal, "metal", bevel=0.004, segments=1)
+    model.plain(dark, "plastic")
+    model.turned(red, "vinyl")
+    model.turned(rubber, "rubber")
+    model.turned(rim, "steel")
+    model.turned(hub, "steel")
+    model.turned(stick, "steel")
+    model.turned(ball, "rubber")
+    return model
+
+
+def lathe_headstock():
+    """The square at the lathe's -X end: the pedestal there, and over it the headstock and its chuck. Its origin is the
+    middle of that square, the lathe's at +X, and its front is the lathe's. The pedestal is a cabinet with a recessed
+    plinth, a door, a louvre and a steel cap, as the other is, and the headstock's case has a dark panel on its front
+    with dials, a stop button and gear levers, and a lever on its top."""
+    model = Model("lathe_head", centred=False)
+    paint, steel, dark, red, rubber, metal = bmesh.new(), bmesh.new(), bmesh.new(), bmesh.new(), bmesh.new(), bmesh.new()
+    bed, centre = LATHE_BED, LATHE_CENTRE
+    lathe_pedestal(paint, rubber, metal, dark, steel, -0.46, 0.44)
+    cuboid(paint, -0.44, 0.22, -0.3, 0.3, bed, 1.42)
+    cuboid(dark, -0.36, 0.14, -0.308, -0.3, 0.98, 1.34)
+    for x, z in ((-0.2, 1.22), (-0.02, 1.22), (-0.2, 1.07)):
+        dial(rubber, x, -0.308, z, 0.035, 0.025)
+    dial(red, 0.0, -0.308, 1.07, 0.024, 0.02)
+    stick, ball = bmesh.new(), bmesh.new()
+    lever(stick, ball, (0.08, -0.31, 1.05), (0.08, -0.38, 1.13))
+    lever(stick, ball, (-0.1, -0.31, 1.3), (-0.1, -0.38, 1.36))
+    lever(stick, ball, (-0.2, 0.08, 1.42), (-0.05, 0.08, 1.5))
+    lathe(steel, [(0.0, 0.0), (0.06, 0.0), (0.06, 0.03), (0.135, 0.035), (0.135, 0.13), (0.12, 0.14), (0.03, 0.14), (0.0, 0.14)], segments=20,
+          to=along_x(0.22, 0.0, centre))
+    for n in range(3):
+        angle = 2 * math.pi * n / 3 + 0.5
+        jaw = bmesh.new()
+        cuboid(jaw, 0.36, 0.4, -0.02, 0.02, -0.04, 0.04)
+        bmesh.ops.rotate(jaw, cent=(0, 0, 0), matrix=Matrix.Rotation(angle, 3, "X"), verts=jaw.verts[:])
+        bmesh.ops.translate(jaw, vec=(0.0, math.cos(angle) * 0.075, centre + math.sin(angle) * 0.075), verts=jaw.verts[:])
+        model.hard(jaw, "steel", bevel=0.003, segments=1)
+    model.hard(paint, "paint", bevel=0.01, segments=2)
+    model.turned(steel, "steel")
+    model.hard(metal, "metal", bevel=0.004, segments=1)
+    model.plain(dark, "plastic")
+    model.turned(red, "vinyl")
+    model.turned(rubber, "rubber")
+    model.turned(stick, "steel")
+    model.turned(ball, "rubber")
+    return model
+
+
+def hydraulic_press(name, loaded):
+    """A press that stands on one square, its front at -Y: a cabinet with a recess under its table for the operator's knees
+    between a switch tower at its left and a cupboard at its right, vents in its back, a wooden table, four columns up
+    to the head with its ram and platen, glass guards round the table but for the front's right half, and a pendant on
+    its cable at the front right. A loaded one has a die on its table."""
+    model = Model(name)
+    paint, steel, dark, rubber, glass, red = bmesh.new(), bmesh.new(), bmesh.new(), bmesh.new(), bmesh.new(), bmesh.new()
+    table, head, front, back = 0.9, 1.3, -0.4, 0.38
+    cuboid(rubber, -0.39, 0.39, front + 0.03, back - 0.03, 0.0, 0.05)
+    cuboid(paint, -0.42, -0.12, front, back, 0.05, table)
+    cuboid(paint, 0.14, 0.42, front + 0.02, back, 0.05, table)
+    cuboid(paint, -0.12, 0.14, 0.02, back, 0.05, table)
+    cuboid(paint, -0.12, 0.14, front + 0.02, back, 0.05, 0.12)
+    cuboid(dark, -0.36, -0.18, front - 0.008, front, 0.5, 0.8)
+    for z, kind in ((0.74, red), (0.66, rubber), (0.58, rubber)):
+        dial(kind, -0.27, front - 0.008, z, 0.018, 0.016)
+    cuboid(paint, 0.18, 0.38, front + 0.012, front + 0.02, 0.12, table - 0.06)
+    cuboid(steel, 0.33, 0.35, front + 0.002, front + 0.012, 0.44, 0.56)
+    louvres(dark, -0.32, 0.32, back + 0.006, 0.14, 0.44, 7, out=1)
+    for x in (-0.06, 0.02, 0.08):
+        rod(rubber, (x, 0.02, 0.86), (x + 0.02, -0.02, 0.14), 0.01, segments=6)
+    cuboid(paint, -0.44, 0.44, front - 0.02, back + 0.02, table, table + 0.035)
+    wood = bmesh.new()
+    cuboid(wood, -0.42, 0.42, front, back, table + 0.035, table + 0.075)
+    model.hard(wood, "wood", bevel=0.004, segments=1)
+    for x in (-0.32, 0.32):
+        for y in (-0.28, 0.27):
+            lathe(steel, [(0.0, table + 0.075), (0.034, table + 0.075), (0.034, head), (0.0, head)], segments=14, cx=x, cy=y)
+    cuboid(paint, -0.38, 0.38, -0.36, 0.36, head, 1.48)
+    cuboid(paint, -0.44, 0.44, -0.42, 0.42, 1.48, 1.62)
+    cuboid(dark, -0.3, -0.06, -0.368, -0.36, 1.36, 1.44)
+    for x, kind in ((-0.25, red), (-0.18, rubber), (-0.11, rubber)):
+        dial(kind, x, -0.368, 1.4, 0.012, 0.01)
+    lathe(steel, [(0.0, 1.06), (0.2, 1.06), (0.2, 1.1), (0.08, 1.1), (0.08, head), (0.0, head)], segments=24)
+    for x0, x1, y0, y1 in ((-0.4, 0.0, -0.43, -0.424), (-0.444, -0.438, -0.4, 0.36), (0.438, 0.444, -0.4, 0.36), (-0.4, 0.4, 0.356, 0.362)):
+        cuboid(glass, x0, x1, y0, y1, table + 0.08, head - 0.02)
+    for x, y in ((-0.41, -0.43), (0.0, -0.43), (-0.44, 0.36), (0.44, 0.36)):
+        cuboid(steel, x - 0.01, x + 0.01, y - 0.01, y + 0.01, table + 0.075, head)
+    cuboid(dark, 0.3, 0.4, front - 0.1, front - 0.04, table + 0.12, table + 0.36)
+    for z, kind in ((table + 0.31, red), (table + 0.25, rubber), (table + 0.19, rubber)):
+        dial(kind, 0.35, front - 0.1, z, 0.016, 0.014)
+    rod(rubber, (0.35, front - 0.07, table + 0.36), (0.35, front - 0.07, head + 0.06), 0.011, segments=6)
+    rod(rubber, (0.35, front - 0.07, head + 0.06), (0.3, -0.36, head + 0.12), 0.011, segments=6)
+    if loaded:
+        lathe(steel, [(0.0, table + 0.075), (0.15, table + 0.075), (0.15, table + 0.17), (0.12, table + 0.19), (0.05, table + 0.19), (0.0, table + 0.19)], segments=24)
+    model.hard(paint, "paint", bevel=0.01, segments=2)
+    model.hard(steel, "steel", bevel=0.003, segments=1)
+    model.plain(dark, "plastic")
+    model.turned(rubber, "rubber")
+    model.turned(red, "vinyl")
+    model.plain(glass, "pane")
+    return model
+
+
 def industrial():
     """What a works, a warehouse, a garage and a distillery have: the pieces Industry.java places."""
     return [conveyor(), conveyor_boxed(), machine_case(), machine_shell(), machine_outlet(), machine_column(), machine_drum(),
             tank_length(), tank_end("tank_end", 1), tank_end("tank_end_mirrored", -1), downpipe(),
             cask("cask", False), cask("cask_lying", True), barrel_rack("barrel_rack", 0), barrel_rack("barrel_rack_low", 1),
             barrel_rack("barrel_rack_full", 2), workbench(), tool_chest(), security_desk(),
-            gas_bottle("extinguisher_bottle", 0.09, 0.62), propane_tank()]
+            gas_bottle("extinguisher_bottle", 0.09, 0.62), propane_tank(),
+            engine_lathe(), lathe_headstock(), hydraulic_press("press", False), hydraulic_press("press_loaded", True)]
 
 
 def jersey_barrier():

@@ -3,17 +3,17 @@ package com.cameraunlock.zomboid;
 import com.cameraunlock.zomboid.Outdoors.Piece;
 
 /**
- * What a works, a warehouse, a garage and a distillery have that the mod has a model of: belt
- * conveyors and the machines a line of them runs through, fuel tanks lying on saddles, pipes down
- * from the ceiling, crates stacked on crates, racks of casks and the casks, workbenches, tool chests,
- * security desks and gas bottles. Most of the sheet of a works has no names, and which piece a
- * sprite is, which way it runs and where on its square it stands were read off its picture and off
- * the squares the map puts it on beside the others of its line.
+ * What a works, a warehouse, a garage, a workshop and a distillery have that the mod has a model
+ * of: belt conveyors and the machines a line of them runs through, fuel tanks lying on saddles,
+ * pipes down from the ceiling, crates stacked on crates, racks of casks and the casks, workbenches,
+ * tool chests, security desks, gas bottles, lathes and presses. Most sprites of a works and a
+ * workshop have no name and no facing: which piece each is, which way it runs or faces and where on
+ * its square it stands go by its place on its sheet.
  */
 final class Industry {
     private Industry() {}
 
-    private static final String WORKS = "industry_02_", CRATES = "carpentry_01_", DISTILLERY = "location_business_distillery_01_", EXTINGUISHERS = "industry_03_";
+    private static final String WORKS = "industry_02_", CRATES = "carpentry_01_", DISTILLERY = "location_business_distillery_01_", WORKSHOP = "industry_03_";
     private static final int PAINT = 1 << Models.PAINT;
     /** How high the game says the crate at the foot of a stack is, in the pixels of its sprite: the crates on it stand from there. */
     private static final int CRATE_FOOT = 32;
@@ -34,6 +34,28 @@ final class Industry {
      * in the order 22, 23, 30, 31 of their sheet: the middle of the bottle's foot.
      */
     private static final float[] EXTINGUISHER_AT = {0.10f, 0.77f, 0.31f, 0.21f, 0.65f, 0.90f, 0.80f, 0.31f};
+    /**
+     * The lathes of a workshop's sheet, each three sprites in a row: the headstock's square, the
+     * bed's and the tailstock's, which way the lathe faces, and the step along the row from the
+     * tailstock's square to the headstock's. The headstock is at the operator's left. The same
+     * twelve sprites painted blue follow them on the sheet, BLUE_LATHES on.
+     */
+    private static final int[][] LATHES = {
+            {0, 1, 2, Outdoors.EAST, 0, 1},
+            {3, 4, 5, Outdoors.SOUTH, -1, 0},
+            {10, 9, 8, Outdoors.NORTH, 1, 0},
+            {13, 12, 11, Outdoors.WEST, 0, -1}};
+    private static final int BLUE_LATHES = 32;
+    /** Where on its sprite a lathe's headstock gives the whole lathe its colour, in levels: the bed's sprite shows little paint. */
+    private static final float LATHE_DYE = 0.6f;
+    /**
+     * The presses on the sheet: four sprites, one a way it faces, green and then blue, and the
+     * same eight again with a die on the table. Where on each of the four its case gives the
+     * colour, as (a, b, high in levels).
+     */
+    private static final int PRESSES = 48;
+    private static final int[] PRESS_FACES = {Outdoors.WEST, Outdoors.NORTH, Outdoors.EAST, Outdoors.SOUTH};
+    private static final float[] PRESS_DYE = {0.5f, 0.35f, 0.65f, 0.5f, 0.5f, 0.7f, 0.5f, 0.5f, 0.725f, 0.45f, 0.6f, 0.7f};
 
     /**
      * The model of a sprite and how it stands, or null for a sprite that is none of these. The
@@ -48,6 +70,10 @@ final class Industry {
             int works = Sheets.place(name, WORKS);
             if (works >= 0) {
                 return works(works);
+            }
+            int workshop = Sheets.place(name, WORKSHOP);
+            if (workshop >= 0) {
+                return workshop(workshop);
             }
             int distillery = Sheets.place(name, DISTILLERY);
             if (distillery >= 0) {
@@ -79,7 +105,7 @@ final class Industry {
             return new Piece("propane_tank", 0).fit();
         }
         if (called.equals("Extinguisher")) {
-            int which = switch (Sheets.place(name, EXTINGUISHERS)) {
+            int which = switch (Sheets.place(name, WORKSHOP)) {
                 case 22 -> 0;
                 case 23 -> 1;
                 case 30 -> 2;
@@ -141,6 +167,35 @@ final class Industry {
             case 303 -> new Piece("tank_end_mirrored", 3).at(0f, 0.5f);
             default -> null;
         };
+    }
+
+    /**
+     * The sheet of a workshop: its lathes and presses. The bed's square of a lathe stands the lathe
+     * but for the headstock and the pedestal under it, which the headstock's square stands, and
+     * the tailstock's square stands nothing of its own. The three are a row, which stands only
+     * whole and coloured from the headstock's sprite: the bed's paints too little of the paint.
+     */
+    private static Piece workshop(int place) {
+        if (place >= PRESSES && place < PRESSES + 16) {
+            int way = (place - PRESSES) % 4;
+            return new Piece(place - PRESSES >= 8 ? "press_loaded" : "press", PRESS_FACES[way])
+                    .dye(PAINT, PRESS_DYE[3 * way], PRESS_DYE[3 * way + 1], PRESS_DYE[3 * way + 2]);
+        }
+        int colour = place >= BLUE_LATHES ? BLUE_LATHES : 0;
+        for (int[] lathe : LATHES) {
+            String head = WORKSHOP + (colour + lathe[0]), bed = WORKSHOP + (colour + lathe[1]), tail = WORKSHOP + (colour + lathe[2]);
+            int turns = lathe[3], x = lathe[4], y = lathe[5];
+            if (place - colour == lathe[0]) {
+                return new Piece("lathe_head", turns).inRow(bed, -x, -y, tail, -2 * x, -2 * y, -1).dye(PAINT, LATHE_DYE);
+            }
+            if (place - colour == lathe[1]) {
+                return new Piece("lathe", turns).inRow(head, x, y, tail, -x, -y, 0).dye(PAINT, LATHE_DYE);
+            }
+            if (place - colour == lathe[2]) {
+                return Outdoors.following(new Piece(null, turns).inRow(head, 2 * x, 2 * y, bed, x, y, 0).dye(PAINT, LATHE_DYE));
+            }
+        }
+        return null;
     }
 
     /**
