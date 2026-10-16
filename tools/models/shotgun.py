@@ -10,7 +10,7 @@ blued receiver, of no maker's pattern. With --sawn-off it is that gun cut down: 
 rib and magazine short, with the bead put back at the new muzzle, and its stock sawn off
 behind the wrist and shaped into a grip for the hand. It writes NAME.mesh.gz, the
 triangles, under src/main/resources/models, and NAME.colour.gz and NAME.surface.gz, 2048
-texels square, under src/textures/models, for tools/textures/compress.py to pack for the
+by 1024 texels for the shotgun and 2048 square for the sawn-off, under src/textures/models, for tools/textures/compress.py to pack for the
 jar, where NAME is shotgun or sawnoff. The files are laid out as gunsmith.py says, at
 version 4.
 
@@ -364,6 +364,8 @@ def build():
     G.count_triangles()
 
 
+# Long and thin: its pictures are twice as wide as high. The sawn-off's are square.
+G.WIDE = not SAWN_OFF
 G.TUBES = {"barrel": (0.0, 0.31 if SAWN_OFF else 0.46, 0.0122), "magazine tube": (TUBE_Z, 0.29 if SAWN_OFF else 0.35, TUBE_R)}
 
 
