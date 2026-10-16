@@ -2417,7 +2417,17 @@ final class Pipeline {
     /** Casts the frame's solid chunks and furniture that a map drawn with the matrix can hold into the map bound. */
     private void castHeld(float[] matrix, SkyState state, ChunkBuffers.Listing own, int map) {
         ChunkBuffers.Listing held = heldBy(matrix, state, own, map);
-        drawRanges(held, 0, held.solidRanges());
+        // The shadow's program reads a texel's size where a torn length of chain link casts its posts alone: see SHADOW_FRAGMENT.
+        int texel = shadow.at("uTexel");
+        for (int i = 0; i < held.solidRanges(); i++) {
+            if (held.tint(i) == WallSides.PANES || held.tint(i) == WallSides.BLOOD) {
+                continue;
+            }
+            int texture = held.texture(i) == 0 ? whiteTexture : held.texture(i);
+            GL11.glBindTexture(GL_TEXTURE_2D, texture);
+            tellTexel(texel, texture);
+            held.draw(i);
+        }
         listModels(false, null, 0f, 0f, Outlines.NONE);
         castModels(matrix);
     }

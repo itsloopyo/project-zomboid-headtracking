@@ -3,6 +3,7 @@ package com.cameraunlock.zomboid;
 import java.util.Arrays;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import zombie.core.properties.PropertyContainer;
 import zombie.core.textures.Texture;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoObject;
@@ -32,7 +33,7 @@ final class WallBuilder {
     /** No door is lower than this, in levels. */
     private static final float LOWEST_DOOR = 0.5f;
     /** A window pane with a lamp burning in the room behind it. */
-    private static final float LIT_GLASS = 65f;
+    static final float LIT_GLASS = 65f;
     /** How far a wall's colour may be from that of its building's walls, summed over red, green and blue, for it to be built as they are. */
     private static final float SAME_FINISH = 0.3f;
     /** How high a wall has to stand short of its level for its top to be closed: a full wall's top is under the floor or the roof over it. */
@@ -40,7 +41,7 @@ final class WallBuilder {
     /** Where along a wall its colour is looked for, for the faces that close it. */
     private static final float[] CAP_COLOUR_AT = {0.5f, 0.12f, 0.88f};
     /** Wallpaper with a figure on it, which the picture prints sprig by sprig. */
-    private static final float FIGURED_PAPER = 70f;
+    static final float FIGURED_PAPER = 70f;
     /** Half the width of a joint between two tiles of a wall, in tiles: the world program lays them so (TILE_JOINT). */
     static final float TILE_JOINT_HALF = 0.004f;
     /** How many squares along its line a wall with an opening looks for a whole wall of its sheet to read its tiles from. */
@@ -217,12 +218,16 @@ final class WallBuilder {
     private void standEdge(SpriteGeometry.Mesh mesh, Texture texture, boolean wall, boolean door, int x, int y, int z,
             float way, float layer, float da, float db) {
         float inX = db * WorldScene.WALL_HALF, inY = da * WorldScene.WALL_HALF;
-        if (wall && build.seeThrough) {
+        if ((wall || build.linkSheet) && build.seeThrough) {
             // A fence of wire or of rails is one sheet on the line between its squares. As two
             // skins a wall's thickness apart, the eye saw one lattice through the other and
             // the two beat against each other as it moved.
             // On an edge that a kerb runs along it stands on the kerb's top (Frame.standOnKerbTop).
-            build.geometry.addFace(mesh, build.frame, x, y, z, 0f, 0f, 0f, da, db, 0f, 0f, 0f, 1f);
+            if (build.chainLink != null) {
+                addChainLink(x, y, z, da, db);
+            } else {
+                build.geometry.addFace(mesh, build.frame, x, y, z, 0f, 0f, 0f, da, db, 0f, 0f, 0f, 1f);
+            }
             return;
         }
         if (!wall) {
@@ -423,6 +428,125 @@ final class WallBuilder {
                     startPainted && endPainted, x, y, z, 0f, 0f, da, db, inX, inY);
         }
     }
+
+    /**
+     * Adds a square's length of chain link fencing on the edge from (0, 0) along (da, db): the
+     * fabric up to the rail, the rail along its top, the post at the north-west corner where
+     * the sprite has one and no lone post stands there, and a post at an end no other chain
+     * link meets. Each follows the land at the ends of the edge as the sheet did.
+     */
+    private void addChainLink(int x, int y, int z, float da, float db) {
+        ChainLink.Run run = build.chainLink;
+        boolean north = da != 0f;
+        SpriteGeometry.Mesh steel = WorldScene.solid.get(WorldScene.PLAIN, WallSides.key(ChainLink.RED, ChainLink.GREEN, ChainLink.BLUE, WallSides.FLAT));
+        float material = build.frame.material;
+        build.frame.material = ChainLink.FABRIC;
+        build.geometry.addFace(steel, build.frame, x, y, z, 0f, 0f, 0f, da, db, 0f, 0f, 0f, run.rail());
+        build.frame.material = material;
+        steel.open = build.frame.open;
+        steel.sway = 0f;
+        float level = ViewCamera.LEVEL_HEIGHT, base = (z + build.geometry.raised) * level;
+        float startUp = base + build.geometry.liftAt(0f, 0f), endUp = base + build.geometry.liftAt(da, db);
+        // A rail runs on a rail's thickness past an end where the fence turns a corner or ends,
+        // so two that meet at a corner leave no notch on its outside. Where the next length
+        // runs straight on, the two rails butt, as one tube would run on.
+        float slope = endUp - startUp;
+        float before = linkOn(x - (int) da, y - (int) db, z, north, x, y, north) ? 0f : ChainLink.RAIL_RADIUS;
+        float after = linkOn(x + (int) da, y + (int) db, z, north, x, y, north) ? 0f : ChainLink.RAIL_RADIUS;
+        WorldScene.set(linkFrom, 0, x - da * before, y - db * before, startUp + run.rail() * level - slope * before);
+        WorldScene.set(linkTo, 0, x + da * (1f + after), y + db * (1f + after), endUp + run.rail() * level + slope * after);
+        SpriteGeometry.addTube(steel, linkFrom, linkTo, ChainLink.RAIL_RADIUS, ChainLink.RAIL_SIDES, build.frame.red, build.frame.green, build.frame.blue);
+        if (build.linkPostDue ? !lonePostOn(x, y, z) : !run.hasPost() && !postMeets(x, y, z, x, y, north)) {
+            addLinkPost(steel, x, y, startUp, run.post() * level);
+        }
+        build.linkPostDue = false;
+        if (!postMeets(x + (int) da, y + (int) db, z, x, y, north)) {
+            addLinkPost(steel, x + da, y + db, endUp, run.post() * level);
+        }
+    }
+
+    private void addLinkPost(SpriteGeometry.Mesh steel, float x, float y, float foot, float high) {
+        SpriteGeometry.addRound(steel, x, y, foot, foot + high, ChainLink.POST_RADIUS, ChainLink.POST_RADIUS, ChainLink.POST_SIDES,
+                0f, 0f, build.frame.red, build.frame.green, build.frame.blue);
+    }
+
+    /**
+     * Whether the corner (px, py) of the map has a post of chain link other than the length on
+     * the edge of square (x, y) being added would stand there: a whole length on the north or
+     * the west edge of the square there or of the one before it along that edge, which stands
+     * its own post at an end no other meets, a gate of chain link, whose sprite paints its
+     * post, or a lone post. A torn length's sprite paints a post where it has one, and that
+     * is not always at the corner, so the whole length's post stands there.
+     */
+    private boolean postMeets(int px, int py, int z, int x, int y, boolean north) {
+        return lonePostOn(px, py, z) || wholeOn(px, py, z, true, x, y, north) || wholeOn(px - 1, py, z, true, x, y, north)
+                || wholeOn(px, py, z, false, x, y, north) || wholeOn(px, py - 1, z, false, x, y, north);
+    }
+
+    /** As linkOn, for a whole length or a gate alone. */
+    private boolean wholeOn(int sx, int sy, int z, boolean onNorth, int x, int y, boolean north) {
+        return linkOn(sx, sy, z, onNorth, x, y, north, false);
+    }
+
+    private boolean linkOn(int sx, int sy, int z, boolean onNorth, int x, int y, boolean north) {
+        return linkOn(sx, sy, z, onNorth, x, y, north, true);
+    }
+
+    /**
+     * Whether square (sx, sy) has chain link on its north or west edge other than the length
+     * being added: a whole length, a gate hung with wire, and where torn, a torn or burnt one.
+     */
+    private boolean linkOn(int sx, int sy, int z, boolean onNorth, int x, int y, boolean north, boolean torn) {
+        if (sx == x && sy == y && onNorth == north) {
+            return false;
+        }
+        PZArrayList<IsoObject> objects = objectsOn(sx, sy, z);
+        for (int i = 0; objects != null && i < objects.size(); i++) {
+            IsoSprite sprite = objects.get(i).getSprite();
+            if (sprite == null || sprite.getName() == null) {
+                continue;
+            }
+            String name = sprite.getName();
+            PropertyContainer properties = sprite.getProperties();
+            ChainLink.Run run = ChainLink.of(name);
+            boolean onEdge = onNorth ? Edges.north(properties, sprite.getType()) : Edges.west(properties, sprite.getType());
+            if (run != null && (onNorth ? run.north() : run.west()) || torn && ChainLink.broken(name, properties.get("Material"), onEdge)
+                    || onEdge && ChainLink.gate(name, properties.get("Material2"))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Whether square (sx, sy) holds a lone post of chain link, which stands on its north-west corner: see Outdoors. */
+    private boolean lonePostOn(int sx, int sy, int z) {
+        PZArrayList<IsoObject> objects = objectsOn(sx, sy, z);
+        for (int i = 0; objects != null && i < objects.size(); i++) {
+            IsoSprite sprite = objects.get(i).getSprite();
+            if (sprite != null && ChainLink.lonePost(sprite.getName())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * What stands on a square, or null where there is no square. Above the ground the map has
+     * no square where there is only air, so a missing one is one not loaded only where the
+     * ground under it is missing too: the build is then made again once the map has loaded it.
+     */
+    private PZArrayList<IsoObject> objectsOn(int sx, int sy, int z) {
+        IsoGridSquare square = build.cell.getGridSquare(sx, sy, z);
+        if (square == null) {
+            if (z == 0 || build.cell.getGridSquare(sx, sy, 0) == null) {
+                build.wantsMap = true;
+            }
+            return null;
+        }
+        return square.getObjects();
+    }
+
+    private final float[] linkFrom = new float[3], linkTo = new float[3];
 
     /**
      * Lights the frame as the square a wall's far side stands in is lit, shaded from one end of

@@ -16,7 +16,7 @@ final class OpeningBuilder {
     private static final float DOOR_READ_AT = 0.4f, DOOR_STILE = 2.5f;
     private static final int SPAN_FLOATS = 4;
     /** Cloth the picture has hung in folds of its own. */
-    private static final float DRAPE = 69f;
+    static final float DRAPE = 69f;
     /** How far a curtain hangs clear of the wall's skin, how thick its rod is and how far the rod runs past the cloth at each end, in tiles. */
     private static final float DRAPE_CLEAR = 0.04f, ROD_THICK = 0.022f, ROD_PAST = 0.04f;
     /** How wide a fold is in a curtain drawn across and the narrowest one in a curtain pulled back, and how deep each is, in tiles. */

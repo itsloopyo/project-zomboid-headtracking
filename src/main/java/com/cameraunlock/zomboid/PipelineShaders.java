@@ -2486,6 +2486,70 @@ final class PipelineShaders {
                     cover = 1.0;
                     texel.rgb = mix(texel.rgb, vec3(0.52, 0.54, 0.55), 0.75);
                 }
+                // The mod's chain link (ChainLink): a sheet woven here into diamonds 60 mm across
+                // and 75 mm high of wire 4 mm thick, wherever the eye is. Each of the two ways the
+                // wires run covers a pixel as much as the wire takes of what the pixel sees of the
+                // sheet, the two nearest wires of it and no more while a pixel is narrower than a
+                // diamond, and as much as wire covers the sheet once it is wider: far off the
+                // fence is a veil a sixth wire, as the eye sees one, and not a wall.
+                // A torn or burnt length (ChainLink.BROKEN, BURNT) is its sprite: wire is woven where
+                // the sprite paints wire within a few texels, its holes stay holes, and what it
+                // paints thick, a post or a bent rail, is kept as painted. Its wire is the steel of
+                // the whole fence's, darkened by a set amount where it is burnt.
+                // The weave's lines and how fast they change over the screen are asked here, before
+                // any pixel of chain link is left out, where every pixel of the two by two takes part.
+                bool linkWire = vMaterial > 90.5 && vMaterial < 93.5;
+                vec2 woven = vec2(0.0);
+                if (linkWire) {
+                    vec3 sheetFaces = normalize(vNormal);
+                    vec2 sheetRuns = vec2(sheetFaces.y, -sheetFaces.x) / max(length(sheetFaces.xy), 1e-4);
+                    woven = vec2(dot(vPlace.xy, sheetRuns) / 0.06, vPlace.z / 0.075);
+                }
+                vec2 wires = vec2(woven.x + woven.y, woven.x - woven.y);
+                vec2 seen = max(fwidth(wires), vec2(1e-5));
+                bool linkStroke = false;
+                if (vMaterial > 91.5 && vMaterial < 93.5 && uTexel.x > 0.0) {
+                    // How much of the sprite is painted round the place: sixteen filtered looks over
+                    // seven texels, or over as many as the pixel spans where it spans more, up to
+                    // three times that. The cut of that smooth measure leaves a hole's edge smooth
+                    // close by, and far off it takes in what the pixel sees, so the holes hold
+                    // still. The game packs its sprites two texels apart, and the face has no word
+                    // of where its sprite ends: so the reach stays short, and only the looks from a
+                    // band at a length's very edge can fall on the next sprite of the sheet.
+                    float across = 2.0 * clamp(sqrt(max(dot(stepX, stepX), dot(stepY, stepY))) / uTexel.x, 1.0, 3.0);
+                    float painted = 0.0;
+                    for (int i = 0; i < 16; i++) {
+                        vec2 at = vec2(mod(float(i), 4.0), floor(float(i) / 4.0)) - 1.5;
+                        painted += texture2D(uTexture, vUv + at * across * uTexel).a;
+                    }
+                    if (painted < 16.0 * 0.05) {
+                        discard;
+                    }
+                    float held = min(min(texture2D(uTexture, vUv + vec2(uTexel.x, 0.0)).a, texture2D(uTexture, vUv - vec2(uTexel.x, 0.0)).a),
+                            min(texture2D(uTexture, vUv + vec2(0.0, 1.5 * uTexel.y)).a, texture2D(uTexture, vUv - vec2(0.0, 1.5 * uTexel.y)).a));
+                    linkStroke = min(held, texel.a) > 0.5;
+                    if (!linkStroke) {
+                        // The steel ChainLink.RED, GREEN and BLUE as WallSides keeps a colour, toned as a painted skin is (arcTone).
+                        texel.rgb = arcTone(vec3(8.0, 9.0, 9.0) / 15.0, vWorld) * (vMaterial > 92.5 ? 0.3 : 1.0);
+                    }
+                    cover = linkStroke ? 1.0 : cover;
+                }
+                if (linkWire && !linkStroke) {
+                    float thick = 0.002 * length(vec2(1.0 / 0.06, 1.0 / 0.075));
+                    vec2 off = abs(fract(wires + 0.5) - 0.5);
+                    vec2 lo = off - 0.5 * seen, hi = off + 0.5 * seen;
+                    vec2 near = clamp(min(hi, vec2(thick)) - max(lo, vec2(-thick)), 0.0, 2.0 * thick)
+                            + clamp(min(hi, vec2(1.0 + thick)) - max(lo, vec2(1.0 - thick)), 0.0, 2.0 * thick);
+                    vec2 each = mix(min(near / seen, 1.0), vec2(2.0 * thick), smoothstep(0.4, 1.0, seen));
+                    float linked = 1.0 - (1.0 - each.x) * (1.0 - each.y);
+                    if (linked < max(sifted(), 0.04)) {
+                        discard;
+                    }
+                    // Round wire: darker towards its edges where it is seen as more than a hair.
+                    float edge = min(off.x, off.y) / thick;
+                    texel.rgb *= mix(1.0, 0.75 + 0.25 * sqrt(max(1.0 - edge * edge, 0.0)), 1.0 - smoothstep(0.25 * thick, 0.5 * thick, max(seen.x, seen.y)));
+                    cover = 1.0;
+                }
                 // Glass. The game paints a pane as a pale blue film half seen through, and cut
                 // out at one level a pane was either nothing at all or a flat blue card. A
                 // pane lets most of the light behind it through and throws back a little of
@@ -3852,6 +3916,7 @@ final class PipelineShaders {
             varying float vLeaves;
             varying float vSolid;
             varying vec3 vAt;
+            varying float vStroke;
             // 1 while the map drawn is the one read as what stands over the ground and keeps the sky off it.
             uniform float uFromAbove;
             uniform float uSnowLying;
@@ -3862,6 +3927,7 @@ final class PipelineShaders {
             attribute vec4 aTurn;
             """ + GRASS_WIND + MODEL_STANDS + FACED + SnowShader.COVER + SnowShader.RIDGE + """
             void main() {
+                vStroke = 0.0;
                 if (uModel > 0.5) {
                     // A model is solid all over and nothing of it blows about. It is drawn with
                     // the white texture, of which any place will do.
@@ -3882,7 +3948,11 @@ final class PipelineShaders {
                 vSolid = gl_MultiTexCoord1.z > 5.5 ? 1.0 : 0.0;
                 // A crown's sprigs take their colour from the sprite and are no part of its outline: the fan that stands with them throws the shadow.
                 // Nor does a twig, finer than a texel of any of the maps: see Flora.FINE_MARK.
-                if (material > 71.5 && material < 79.5 || material > 80.5 && material < 81.5 || material > 56.5 && material < 57.5 && gl_MultiTexCoord0.x >= 1024.0) {
+                // Nor the wire of chain link (ChainLink.FABRIC), which is woven only where it is seen. Of a torn or
+                // burnt length (BROKEN, BURNT) only what its sprite paints thick casts: see SHADOW_FRAGMENT.
+                vStroke = material > 91.5 && material < 93.5 ? 1.0 : 0.0;
+                if (material > 71.5 && material < 79.5 || material > 80.5 && material < 81.5 || material > 56.5 && material < 57.5 && gl_MultiTexCoord0.x >= 1024.0
+                        || material > 90.5 && material < 91.5) {
                     gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
                     return;
                 }
@@ -3941,9 +4011,21 @@ final class PipelineShaders {
             varying float vSolid;
             varying vec3 vAt;
             uniform vec3 uSunWay;
+            // The size of a texel of the texture drawn: see Pipeline.castHeld.
+            uniform vec2 uTexel;
+            varying float vStroke;
             void main() {
                 if (vSolid < 0.5 && texture2D(uTexture, vUv).a < 0.5) {
                     discard;
+                }
+                // A torn or burnt length of chain link casts its posts and bent rails, what its sprite
+                // paints thick, as the picture keeps them (linkStroke), and not its wire.
+                if (vStroke > 0.5) {
+                    float held = min(min(texture2D(uTexture, vUv + vec2(uTexel.x, 0.0)).a, texture2D(uTexture, vUv - vec2(uTexel.x, 0.0)).a),
+                            min(texture2D(uTexture, vUv + vec2(0.0, 1.5 * uTexel.y)).a, texture2D(uTexture, vUv - vec2(0.0, 1.5 * uTexel.y)).a));
+                    if (held < 0.5) {
+                        discard;
+                    }
                 }
                 // A crown is not a lid. The sun comes through the gaps between its boughs in
                 // patches the size of a hand to the size of a table, and the ground under a

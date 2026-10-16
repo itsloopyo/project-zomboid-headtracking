@@ -771,6 +771,12 @@ final class WorldScene {
         final int flatWall;
         /** Whether it is a broken length of fence the game marks for no wall: see BrokenFences. */
         final boolean brokenFence;
+        /** The length of chain link fencing it is, or null: see ChainLink. */
+        final ChainLink.Run chainLink;
+        /** As a torn or burnt length of chain link, the material its sprite is drawn with, or 0: see ChainLink.brokenMaterial. */
+        final float brokenLink;
+        /** Whether it is laid as one sheet of chain link, whole, torn or burnt: see ChainLink.sheet. */
+        final boolean linkSheet;
         /** As a tree, what it drops, for a tree that turns the first of its kind's colours and for one that turns the other: see Litter.kindOf. */
         private final byte falls, fallsOther;
         /** What it is a square of rug made of, Rugs.WOVEN, FUR or HIDE, or -1 for no rug, and how high its top lies over the floor, in levels: see Flat.pile. */
@@ -809,6 +815,8 @@ final class WorldScene {
             String floorMaterial = properties.get("FloorMaterial"), footstep = properties.get("FootstepMaterial");
             float floor = Ground.of(floorMaterial, footstep, true), other = Ground.of(floorMaterial, footstep, false);
             asFloor = floor != 0f ? floor : materialOf(name, true);
+            String madeOf = properties.get("Material");
+            boolean onEdge = Edges.west(properties, type) || Edges.north(properties, type);
             asOther = printed(properties, name) ? PRINT : other != 0f ? other : materialOf(sprite);
             garageDoor = properties.has("GarageDoor");
             laidWall = laidWall(name, properties);
@@ -823,7 +831,7 @@ final class WorldScene {
             cornerTrim = (properties.has("attachedNW") || properties.has("attachedSE")) && !Roofs.isTile(type) && !roofSheet;
             papered = name != null && name.startsWith("walls_interior_house");
             tiledWall = WallTiles.tiledSheet(name);
-            wallTrim = name != null && name.startsWith("walls_detailing_") && !standsOnWestEdge(properties, type) && !onNorthEdge(properties)
+            wallTrim = name != null && name.startsWith("walls_detailing_") && !Edges.west(properties, type) && !onNorthEdge(properties)
                     && !properties.has(IsoFlagType.attachedE) && !properties.has(IsoFlagType.attachedS);
             fenceGate = name != null && name.startsWith("fixtures_doors_fences");
             trim = Trims.is(name);
@@ -851,6 +859,9 @@ final class WorldScene {
             edge = name == null ? Overhead.ANY_EDGE : Overhead.edgeOf(name);
             flatWall = WallObjects.flatOn(properties, sprite.getFacing());
             brokenFence = BrokenFences.is(name);
+            chainLink = ChainLink.of(name);
+            brokenLink = ChainLink.brokenMaterial(name, madeOf, onEdge);
+            linkSheet = ChainLink.sheet(name, properties, type);
             lights = Lights.slice(sprite);
             parasol = Parasols.quarter(sprite);
             eave = Hoods.eave(sprite);
@@ -2114,7 +2125,7 @@ final class WorldScene {
             PropertyContainer properties = sprite.getProperties();
             IsoObjectType type = sprite.getType();
             if (!isWall(properties, type) || !(properties.has(IsoFlagType.WallNW)
-                    || (north ? standsOnNorthEdge(properties, type) : standsOnWestEdge(properties, type)))) {
+                    || (north ? Edges.north(properties, type) : Edges.west(properties, type)))) {
                 continue;
             }
             Texture texture = sprite.getTextureForCurrentFrame(object.getDir());
@@ -2149,16 +2160,6 @@ final class WorldScene {
                 && !properties.has(IsoFlagType.WindowW) && !properties.has(IsoFlagType.WindowN);
     }
 
-    private static boolean standsOnWestEdge(PropertyContainer properties, IsoObjectType type) {
-        return properties.has(IsoFlagType.collideW) || properties.has(IsoFlagType.WallW)
-                || properties.has(IsoFlagType.WallWTrans) || properties.has(IsoFlagType.DoorWallW)
-                || properties.has(IsoFlagType.WindowW) || properties.has(IsoFlagType.windowW)
-                || properties.has(IsoFlagType.doorW) || properties.has(IsoFlagType.cutW)
-                || properties.has(IsoFlagType.HoppableW) || properties.has(IsoFlagType.TallHoppableW)
-                || properties.has(IsoFlagType.attachedW)
-                || type == IsoObjectType.doorFrW || type == IsoObjectType.doorW
-                || type == IsoObjectType.windowFW || type == IsoObjectType.curtainW;
-    }
 
     /** Whether what has these flags is a wall, a fence, a door's frame or a window on the north edge of its square. */
     static boolean onNorthEdge(PropertyContainer flags) {
@@ -2171,16 +2172,6 @@ final class WorldScene {
                 || flags.has(IsoFlagType.DoorWallW) || flags.has(IsoFlagType.WindowW) || flags.has(IsoFlagType.HoppableW);
     }
 
-    private static boolean standsOnNorthEdge(PropertyContainer properties, IsoObjectType type) {
-        return properties.has(IsoFlagType.collideN) || properties.has(IsoFlagType.WallN)
-                || properties.has(IsoFlagType.WallNTrans) || properties.has(IsoFlagType.DoorWallN)
-                || properties.has(IsoFlagType.WindowN) || properties.has(IsoFlagType.windowN)
-                || properties.has(IsoFlagType.doorN) || properties.has(IsoFlagType.cutN)
-                || properties.has(IsoFlagType.HoppableN) || properties.has(IsoFlagType.TallHoppableN)
-                || properties.has(IsoFlagType.attachedN)
-                || type == IsoObjectType.doorFrN || type == IsoObjectType.doorN
-                || type == IsoObjectType.windowFN || type == IsoObjectType.curtainN;
-    }
 
     /** With tracing on, the memory the render thread took for the picture since it was last asked. */
     private final AtomicLong drawnBytes = new AtomicLong();
@@ -6143,8 +6134,8 @@ final class WorldScene {
                 // Bunting and a flag some squares long are marked for no wall. Which edge each is on is in its picture.
                 // With the mod's furniture off it is a card turned to the eye, as a strung banner is the game's sprite.
                 boolean cloth = kind.banner == Banners.ON_WALL && Own.furniture();
-                west = both || standsOnWestEdge(properties, type) || cloth && !Banners.alongX(frame);
-                north = both || standsOnNorthEdge(properties, type) || cloth && Banners.alongX(frame);
+                west = both || Edges.west(properties, type) || cloth && !Banners.alongX(frame);
+                north = both || Edges.north(properties, type) || cloth && Banners.alongX(frame);
                 if (kind.edge != Overhead.ANY_EDGE) {
                     west = kind.edge != Overhead.NORTH_EDGE;
                     north = kind.edge != Overhead.WEST_EDGE;
@@ -6182,7 +6173,13 @@ final class WorldScene {
             wallOpens = properties.has(IsoFlagType.DoorWallN) || properties.has(IsoFlagType.DoorWallW)
                     || properties.has(IsoFlagType.WindowN) || properties.has(IsoFlagType.WindowW);
             doorWall = properties.has(IsoFlagType.DoorWallN) || properties.has(IsoFlagType.DoorWallW);
-            seeThrough = isSheet(properties);
+            seeThrough = isSheet(properties) || kind.linkSheet;
+            linkSheet = kind.linkSheet;
+            chainLink = seeThrough && overLayer == 0 && Own.buildings() ? kind.chainLink : null;
+            linkPostDue = chainLink != null && chainLink.hasPost();
+            if (seeThrough && overLayer == 0 && Own.buildings() && kind.brokenLink != 0f) {
+                frame.material = kind.brokenLink;
+            }
             // A gate in a fence is rails or wire like the fence, and stays the sheet it is.
             doorLeaf = door && !kind.fenceGate;
             casing = type == IsoObjectType.doorFrW || type == IsoObjectType.doorFrN;
@@ -6739,6 +6736,12 @@ final class WorldScene {
         };
         /** Whether the wall being added is a sheet: see isSheet. */
         boolean seeThrough;
+        /** Whether the sprite being added is a sheet of chain link, which stands on its edge whether or not the game calls it a wall: see ChainLink.sheet. */
+        boolean linkSheet;
+        /** The chain link fencing the sheet being added is built as, or null for its sprite: see ChainLink. */
+        ChainLink.Run chainLink;
+        /** Whether the post of the chain link being added is still to be built: a corner piece is on two edges and has one post. */
+        boolean linkPostDue;
 
         /**
          * Whether the sprite is painted all over the box its outline describes: a fridge, a counter,

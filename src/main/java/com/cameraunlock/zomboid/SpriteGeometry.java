@@ -1715,6 +1715,45 @@ final class SpriteGeometry {
     }
 
     /**
+     * Adds a round bar from one point to another, each (x, y, up) in tiles, closed at both ends,
+     * every vertex with the one texel (u, v) = (0, 0).
+     */
+    static void addTube(Mesh mesh, float[] from, float[] to, float radius, int sides, float red, float green, float blue) {
+        float ax = to[0] - from[0], ay = to[1] - from[1], az = to[2] - from[2];
+        float length = (float) Math.sqrt(ax * ax + ay * ay + az * az);
+        ax /= length;
+        ay /= length;
+        az /= length;
+        // Across it, level, and then square to both.
+        float flat = (float) Math.sqrt(ax * ax + ay * ay);
+        float sx = -ay / flat, sy = ax / flat;
+        float tx = -az * sy, ty = az * sx, tz = ax * sy - ay * sx;
+        float[] cosAround = ROUND_COS[sides], sinAround = ROUND_SIN[sides];
+        for (int side = 0; side < sides; side++) {
+            for (int corner = 0; corner < 6; corner++) {
+                boolean next = corner == 1 || corner == 2 || corner == 4, far = corner == 2 || corner >= 4;
+                float cos = cosAround[next ? side + 1 : side], sin = sinAround[next ? side + 1 : side];
+                float nx = sx * cos + tx * sin, ny = sy * cos + ty * sin, nz = tz * sin;
+                float[] at = far ? to : from;
+                mesh.faceUnit(nx, ny, nz);
+                mesh.add(at[0] + nx * radius, at[1] + ny * radius, at[2] + nz * radius, 0f, 0f, red, green, blue);
+            }
+        }
+        for (int end = 0; end < 2; end++) {
+            float[] at = end == 0 ? from : to;
+            float way = end == 0 ? -1f : 1f;
+            mesh.faceUnit(ax * way, ay * way, az * way);
+            for (int side = 0; side < sides; side++) {
+                for (int corner = 0; corner < 3; corner++) {
+                    float cos = corner == 0 ? 0f : cosAround[side + corner - 1], sin = corner == 0 ? 0f : sinAround[side + corner - 1];
+                    float r = corner == 0 ? 0f : radius;
+                    mesh.add(at[0] + (sx * cos + tx * sin) * r, at[1] + (sy * cos + ty * sin) * r, at[2] + tz * sin * r, 0f, 0f, red, green, blue);
+                }
+            }
+        }
+    }
+
+    /**
      * Adds a square timber from one point to another, each (x, y, up) in tiles, half thick each
      * way from its middle line, closed at both ends, every vertex with the one texel (u, v): a
      * brace from a post up to the beam it carries.

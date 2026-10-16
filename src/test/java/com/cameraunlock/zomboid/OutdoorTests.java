@@ -493,7 +493,10 @@ final class OutdoorTests {
                 continue;
             }
             Checks.check(piece.model.equals(post[1]) && named != null && named.model.equals(post[1]), name + " is " + post[1] + " whether or not the game names it");
-            Checks.check(piece.a < 0.15f && piece.b < 0.15f && piece.dyeA == piece.a && piece.dyeB == piece.b, name + " stands by its square's north-west corner and is coloured from itself there");
+            // A pole of chain link stands on the corner itself, where the mod's lengths of the fence end.
+            boolean chainLink = ChainLink.lonePost(name);
+            Checks.check(piece.dyeA < 0.15f && piece.dyeB < 0.15f && (chainLink ? piece.a == 0f && piece.b == 0f : piece.dyeA == piece.a && piece.dyeB == piece.b),
+                    name + " stands by its square's north-west corner, or on it for chain link, and is coloured from its sprite's foot");
             Checks.check(Math.abs(Models.get(piece.model).height() - (float) post[2]) < 0.06f, name + " is as high as its sprite: " + Models.get(piece.model).height());
         }
         Checks.check(Outdoors.of("fencing_burnt_01_4", null, null, Outdoors.NONE, 1, 1, 0) == null, "another sprite of the sheet is none of them");
@@ -574,7 +577,7 @@ final class OutdoorTests {
     }
 
     private static void aFencePostStandsWhereItsSpritePaintsItsFoot() {
-        // Each post's place and height were read off its sprite: the middle of its foot, and from there to the middle of its top.
+        // Each post's foot and height were read off its sprite: the middle of its foot, and from there to the middle of its top.
         Object[][] posts = {{"fencing_01_7", null, "picket_post", 0.031f, 0.039f, 0.925f}, {"fencing_01_19", "Fence Post", "rail_post", 0.133f, 0.102f, 0.995f},
                 {"fencing_01_29", "Fence Post", "pipe_post", 0.062f, 0.094f, 1.26f}, {"fencing_01_61", null, "pipe_post_tall", 0.062f, 0.094f, 2.16f},
                 {"fencing_01_53", null, "block_post", 0.168f, 0.168f, 2.52f}};
@@ -586,8 +589,11 @@ final class OutdoorTests {
                 continue;
             }
             Checks.check(piece.model.equals(post[2]), name + " is " + post[2] + ", not " + piece.model);
-            Checks.check(piece.a == (float) post[3] && piece.b == (float) post[4] && piece.dyeA == piece.a && piece.dyeB == piece.b && piece.fits,
-                    name + " stands where its sprite paints its foot and takes its colour from itself there");
+            // A post of chain link stands on the corner itself, where the mod's lengths of the fence end.
+            boolean chainLink = ChainLink.lonePost(name);
+            Checks.check(piece.dyeA == (float) post[3] && piece.dyeB == (float) post[4] && piece.fits
+                    && (chainLink ? piece.a == 0f && piece.b == 0f : piece.a == piece.dyeA && piece.b == piece.dyeB),
+                    name + " stands where its sprite paints its foot, or on the corner for chain link, and takes its colour from its foot");
             float high = Models.get(piece.model).height();
             Checks.check(Math.abs(high - (float) post[5]) < 0.01f, name + " is as high as its sprite: " + high);
         }

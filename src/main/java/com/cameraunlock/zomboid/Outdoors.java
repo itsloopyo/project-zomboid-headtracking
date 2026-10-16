@@ -686,15 +686,16 @@ final class Outdoors {
     /**
      * A fence's post that stands alone on its square, by its place on the sheet of fences, or null for any other sprite of
      * it. Each stands where its sprite paints the middle of its foot, near the north-west corner where the fence's two edges
-     * meet, and takes its colour from its sprite there. Stood up as a card it turned to the eye, and its picture slid across
+     * meet, and takes its colour from its sprite there. A post of chain link stands on the corner itself, where the fence's
+     * lengths and their rails end (WallBuilder.addChainLink). Stood up as a card it turned to the eye, and its picture slid across
      * it as the eye went by.
      */
     private static Piece fencePost(String name) {
         return switch (Sheets.place(name, FENCES)) {
             case 7 -> new Piece("picket_post", 0).at(0.031f, 0.039f).dye(PAINT, 0.031f, 0.039f, 0.2f).fit();
             case 19 -> new Piece("rail_post", 0).at(0.133f, 0.102f).dye(1 << Models.WOOD, 0.133f, 0.102f, 0.2f).fit();
-            case 29 -> new Piece("pipe_post", 0).at(0.062f, 0.094f).dye(PAINT, 0.062f, 0.094f, 0.2f).fit();
-            case 61 -> new Piece("pipe_post_tall", 0).at(0.062f, 0.094f).dye(PAINT, 0.062f, 0.094f, 0.3f).fit();
+            case 29 -> new Piece("pipe_post", 0).at(0f, 0f).dye(PAINT, 0.062f, 0.094f, 0.2f).fit();
+            case 61 -> new Piece("pipe_post_tall", 0).at(0f, 0f).dye(PAINT, 0.062f, 0.094f, 0.3f).fit();
             case 53 -> new Piece("block_post", 0).at(0.168f, 0.168f).dye(PAINT, 0.168f, 0.168f, 0.5f).fit();
             default -> null;
         };
@@ -826,16 +827,16 @@ final class Outdoors {
     /**
      * A burnt fence's post that stands alone on its square, by its place on the sheet of burnt fences, or null. Each stands
      * where its sprite paints the middle of its foot, by the north-west corner where the fence's two edges meet, and takes
-     * its colour from its sprite there. Stood up as a card it turned to the eye.
+     * its colour from its sprite there. A pole of chain link stands on the corner itself, as the whole fence's do. Stood up as a card it turned to the eye.
      */
     private static Piece burntPost(String name) {
         return switch (Sheets.place(name, BURNT_FENCES)) {
             case 3 -> new Piece("burnt_picket_post", 0).at(0.06f, 0.06f).dye(1 << Models.DARK_WOOD, 0.06f, 0.06f, 0.2f);
             case 13 -> new Piece("burnt_tall_post", 0).at(0.1f, 0.1f).dye(1 << Models.DARK_WOOD, 0.1f, 0.1f, 0.4f);
             case 45 -> new Piece("burnt_rail_post", 0).at(0.07f, 0.07f).dye(1 << Models.DARK_WOOD, 0.07f, 0.07f, 0.25f);
-            case 53 -> new Piece("fence_pole", 0).at(0.03f, 0.06f).dye(PAINT, 0.03f, 0.06f, 0.4f);
+            case 53 -> new Piece("fence_pole", 0).at(0f, 0f).dye(PAINT, 0.03f, 0.06f, 0.4f);
             case 61 -> new Piece("fence_pole_wide", 0).at(0.08f, 0.06f).dye(PAINT, 0.08f, 0.06f, 0.4f);
-            case 69 -> new Piece("fence_pole_capped", 0).at(0.03f, 0.06f).dye(PAINT, 0.03f, 0.06f, 0.25f);
+            case 69 -> new Piece("fence_pole_capped", 0).at(0f, 0f).dye(PAINT, 0.03f, 0.06f, 0.25f);
             default -> null;
         };
     }

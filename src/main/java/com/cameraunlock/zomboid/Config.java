@@ -241,7 +241,8 @@ final class Config {
                             + "the colours of the game's sprites.",
                     writable | live, true),
             core.configLocalBool("Content", "OwnBuildings",
-                    "true: windows, doors, curtains, handrails, open stairs and wall finishes built by the mod. false: the game's sprites.",
+                    "true: windows, doors, curtains, handrails, chain link fences, open stairs and wall finishes built by the mod. false:\n"
+                            + "the game's sprites.",
                     writable | live, true),
             core.configLocalBool("Content", "OwnZombies",
                     "true: the mod's skins, with lifelike faces, for zombies near you. false: the game's own skins.",

@@ -39,7 +39,7 @@ final class KerbBuilder {
     /** Cast lengths of a kerb are this long, their joints where the shader draws them. */
     private static final float LENGTH = 1.5f;
     /** The mod's own kerb, of cast concrete. Its number is past those of what grows. */
-    private static final float KERB_STONE = 64f;
+    static final float KERB_STONE = 64f;
 
     private final WorldScene.Frame build;
 

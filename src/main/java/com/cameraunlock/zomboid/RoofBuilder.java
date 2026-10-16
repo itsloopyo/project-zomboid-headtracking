@@ -27,7 +27,7 @@ final class RoofBuilder {
     /** A flat roof read lower over its floor than this, in levels, lies on the floor. */
     private static final float FLAT_ROOF_ON_FLOOR = 0.06f;
     /** The cap along a ridge or a hip: the roof's own covering, which the picture draws a shade darker. */
-    private static final float RIDGE = 53f;
+    static final float RIDGE = 53f;
     /** A roof's edge lower than this over the floor of its level, in levels, has no wall made under it. */
     private static final float GABLE_LEAST = 0.05f;
     /** The west, east, north and south edge of a square, each as its two corners. */
