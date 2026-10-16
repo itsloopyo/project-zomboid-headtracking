@@ -92,22 +92,25 @@ final class Towers {
     }
 
     static Squares on(IsoCell cell) {
-        return (x, y, z, sprite) -> {
-            IsoGridSquare square = cell.getGridSquare(x, y, z);
-            if (square == null) {
-                // Above the ground the map has no square where there is only air, so a missing
-                // square is one not loaded only where the ground under it is missing too.
-                return z != 0 && cell.getGridSquare(x, y, 0) != null ? Boolean.FALSE : null;
+        return (x, y, z, sprite) -> holds(cell, x, y, z, sprite);
+    }
+
+    /** Whether the square at (x, y, z) of the map holds a sprite called sprite: null for a square not loaded. */
+    static Boolean holds(IsoCell cell, int x, int y, int z, String sprite) {
+        IsoGridSquare square = cell.getGridSquare(x, y, z);
+        if (square == null) {
+            // Above the ground the map has no square where there is only air, so a missing
+            // square is one not loaded only where the ground under it is missing too.
+            return z != 0 && cell.getGridSquare(x, y, 0) != null ? Boolean.FALSE : null;
+        }
+        PZArrayList<IsoObject> objects = square.getObjects();
+        for (int i = 0; i < objects.size(); i++) {
+            IsoSprite on = objects.get(i).getSprite();
+            if (on != null && sprite.equals(on.getName())) {
+                return true;
             }
-            PZArrayList<IsoObject> objects = square.getObjects();
-            for (int i = 0; i < objects.size(); i++) {
-                IsoSprite on = objects.get(i).getSprite();
-                if (on != null && sprite.equals(on.getName())) {
-                    return true;
-                }
-            }
-            return false;
-        };
+        }
+        return false;
     }
 
     /** Whether the section whose anchor is on (x, y, z) is whole there. */

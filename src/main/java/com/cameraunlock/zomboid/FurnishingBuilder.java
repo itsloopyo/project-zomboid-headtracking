@@ -38,22 +38,9 @@ final class FurnishingBuilder {
         return null;
     }
 
-    /** Whether a square has an object on it whose sprite is called name. */
-    private static boolean holdsNamed(IsoGridSquare square, String name) {
-        if (square == null) {
-            return false;
-        }
-        PZArrayList<IsoObject> objects = square.getObjects();
-        for (int i = 0; i < objects.size(); i++) {
-            IsoSprite sprite = objects.get(i).getSprite();
-            if (sprite != null && name.equals(sprite.getName())) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     private final WorldScene.Frame build;
+    /** The squares of the map the build is of, by the sprites they hold. */
+    private final Towers.Squares squares;
 
     /**
      * Where the piece last found ready takes its colours, the surfaces that take the second, and the texture of the
@@ -76,6 +63,7 @@ final class FurnishingBuilder {
 
     FurnishingBuilder(WorldScene.Frame build) {
         this.build = build;
+        squares = (x, y, z, sprite) -> Towers.holds(build.cell, x, y, z, sprite);
     }
 
     /**
@@ -448,8 +436,15 @@ final class FurnishingBuilder {
             IsoObject counter = onSquare(x, y, z, false);
             return counter != null && ready(counter, Furniture.known(counter.getSprite()), x, y, z);
         }
-        if (piece.partner != null && !holdsNamed(build.cell.getGridSquare(x + piece.partnerX, y + piece.partnerY, z), piece.partner)) {
-            return false;
+        if (piece.partner != null) {
+            Boolean there = squares.holds(x + piece.partnerX, y + piece.partnerY, z, piece.partner);
+            if (there == null) {
+                // Made again when the map has loaded the partner's square.
+                build.wantsMap = true;
+            }
+            if (there != Boolean.TRUE) {
+                return false;
+            }
         }
         if (piece.follows) {
             // Dealt with by the other sprite of the pair, which stands the whole piece.

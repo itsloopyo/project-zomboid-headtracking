@@ -5265,7 +5265,10 @@ final class WorldScene {
         /** The chunks further off it has taken one from, each as its two numbers in one: the span of a wire ends at a pole some chunks away. */
         private long[] heightsFar = new long[8];
         private int heightsFarCount;
-        /** Whether the build has left the span of a wire unknown at an end because the map is not loaded that far. */
+        /**
+         * Whether the build has left something unknown because the map is not loaded that far: the span of a wire at an
+         * end, a square of a piece of furniture painted on several.
+         */
         boolean wantsMap;
 
         /**
