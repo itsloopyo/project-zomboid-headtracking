@@ -109,7 +109,8 @@ final class FlameVolume {
             float cell, OffHeap.Block cells) {
         ByteBuffer flame = cells.bytes;
         // The march's box is what any frame fills, out to where its edge begins (FireDraw.EDGE_FROM) and as far again as
-        // the noise stirs it, and a cell for the blend between cells; and up, as far as a frame's flame rises into the next.
+        // the noise stirs it, each way at once, and the blend between cells, which reaches a cell each way; and up, as far as
+        // a frame's flame rises into the next.
         int least = (int) Math.ceil(FireDraw.EDGE_FROM * 255f);
         int rowWide = wide * across, layer = rowWide * deep * down;
         float furthest = 0f;
@@ -126,9 +127,9 @@ final class FlameVolume {
                 }
             }
         }
-        float margin = FireDraw.STIR * 0.5f + 1f;
-        return new Loop(wide, deep, high, frames, across, down, rise, reach, root, framesASecond, cell, (float) Math.sqrt(furthest) + margin,
-                Math.min(top + margin + rise, high), cells);
+        float aside = (FireDraw.STIR * 0.5f + 1f) * (float) Math.sqrt(2.0), up = FireDraw.STIR * 0.5f + 1f;
+        return new Loop(wide, deep, high, frames, across, down, rise, reach, root, framesASecond, cell, (float) Math.sqrt(furthest) + aside,
+                Math.min(top + up + rise, high), cells);
     }
 
     private static final String AHEAD = "flame volume";
