@@ -1160,11 +1160,13 @@ final class Pipeline {
             // After the rain, which falls beyond and before a fire alike, and before any glass, which is before it.
             fires.draw(steadying ? movesUndepthed : decalTarget, sceneDepth, state, camera, tanHalfFieldOfView, aspect, near, far, width, height, asideX, asideY, frameNanos,
                     exposure);
+            stage(STAGE_FIRE);
             // After the sky and the rain, which are both beyond any glass: the sky is painted
             // wherever nothing else is, over whatever was there.
             if (inTheGlass) {
                 showReflection(camera, tanHalfFieldOfView, aspect, near, far);
             }
+            stage(STAGE_SKY);
             // A pane behind a fire is hidden by its flames: they are put in the depth for the panes alone.
             boolean flamesBeforeGlass = !overhead && fires.flamesShown();
             if (flamesBeforeGlass) {
