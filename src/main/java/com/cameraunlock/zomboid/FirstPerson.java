@@ -71,6 +71,8 @@ public final class FirstPerson {
     private static final long SAID_FOR_NANOS = 2_500_000_000L;
     private long saidAt;
     private String said;
+    /** What this frame's world pass left for the text pass to write, or null. */
+    private String shown;
     /** How far off the overhead camera stands, in tiles: far enough that the picture has next to no perspective. */
     private static final float OVERHEAD_AWAY = 6000f;
     private static final float OVERHEAD_YAW = (float) (-0.75 * Math.PI), OVERHEAD_PITCH = (float) Math.toRadians(-30);
@@ -511,6 +513,19 @@ public final class FirstPerson {
     }
 
     /**
+     * Called from IngameState.renderFrameTextInternal straight after the game has written what people said
+     * over this player's finished picture. The world pass is no place for it: its screen is the zoomed one, the screen's
+     * width times the game's zoom, so a middle worked out there is off to one side at any zoom but 1.
+     */
+    void afterWorldText(int index) {
+        if (shown != null) {
+            TextManager.instance.DrawStringCentre(UIFont.Medium, IsoCamera.getScreenWidth(index) / 2.0, IsoCamera.getScreenHeight(index) * 0.12,
+                    shown, 1.0, 1.0, 1.0, 1.0);
+            shown = null;
+        }
+    }
+
+    /**
      * Called from IngameState.renderFrameInternal straight after the game has drawn this player's world.
      *
      * @param pressed the actions of Config's bits pressed this frame that are this view's to act on or to say
@@ -534,13 +549,7 @@ public final class FirstPerson {
             if (player != null) {
                 view.hearing.listen(player, view.worldScene, System.nanoTime());
             }
-            // After the picture, which would cover it.
-            String shown = gettingReady ? "First person: getting ready" : said != null && System.nanoTime() - saidAt < SAID_FOR_NANOS ? said : null;
-            if (shown != null && player != null) {
-                int index = player.getIndex();
-                TextManager.instance.DrawStringCentre(UIFont.Medium, IsoCamera.getScreenWidth(index) / 2.0, IsoCamera.getScreenHeight(index) * 0.12,
-                        shown, 1.0, 1.0, 1.0, 1.0);
-            }
+            shown = gettingReady ? "First person: getting ready" : said != null && System.nanoTime() - saidAt < SAID_FOR_NANOS ? said : null;
         } catch (RuntimeException | LinkageError thrown) {
             // Thrown on into the game's frame it comes again every frame, and the game's own
             // picture and panels pay for it. The view goes off for the session instead, the

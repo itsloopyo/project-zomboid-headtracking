@@ -105,6 +105,18 @@ public final class Hooks {
         }
     }
 
+    /** Called from IngameState.renderFrameTextInternal straight after the game has written what people said over a player's picture. */
+    public static void afterWorldText() {
+        IsoPlayer player = IsoPlayer.getInstance();
+        if (player == null) {
+            return;
+        }
+        View view = View.of(player.getIndex());
+        if (view != null) {
+            view.firstPerson.afterWorldText(player.getIndex());
+        }
+    }
+
     /** Whether every player at the screen is asleep: one awake still has their frames, and their keys. */
     private static boolean everyoneSleeps() {
         for (int i = 0; i < IsoPlayer.numPlayers; i++) {
