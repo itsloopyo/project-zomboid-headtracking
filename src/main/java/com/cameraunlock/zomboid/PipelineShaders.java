@@ -140,6 +140,17 @@ final class PipelineShaders {
             // How bright the torch makes what the middle of its beam is on at arm's length.
             const float TORCH_GIVES = 1.6;
 
+            // How much of the beam goes a way whose cosine off the torch's axis is within:
+            // most on the axis and less all the way out, a third of that 16 degrees off, then an
+            // even spill that fades out between 41 and 57 degrees, and nothing at all past 60, so
+            // a point outside the beam asks nothing of the torch's map. A beam with a flat top has
+            // an edge, which a wall at arm's length shows as a hard rim round a blown-out disc,
+            // and one still strong 30 degrees off its axis lights a ceiling near by more than what
+            // it is aimed at further off.
+            float torchBeam(float within) {
+                return (exp((within - 1.0) * 25.0) + 0.3 * smoothstep(0.55, 0.75, within)) * smoothstep(0.5, 0.55, within);
+            }
+
             // What the torch gives p: a hot middle and a dim spill round it, less with the
             // square of the distance, and nothing past what stands in the beam. The game
             // lights whole squares with a torch, by where they lie on the ground of the
@@ -153,7 +164,7 @@ final class PipelineShaders {
                 // The torch is in the viewer's hand, and what the same arms hold beside it,
                 // a weapon, the other hand, is not in the beam, whichever way it points, but
                 // in a little that comes back off the room: the beam itself begins past them.
-                float cone = mix(0.12, 0.14 * smoothstep(0.55, 0.8, within) + 0.86 * smoothstep(0.8, 0.965, within), smoothstep(0.3, 0.7, far));
+                float cone = mix(0.12, torchBeam(within), smoothstep(0.3, 0.7, far));
                 float given = cone / (1.0 + 0.035 * far2) * (1.0 - smoothstep(uTorchAt.w, uTorchAt.w + 3.0, far));
                 if (given <= 0.0) {
                     return 0.0;

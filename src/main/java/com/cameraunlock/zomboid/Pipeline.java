@@ -692,8 +692,8 @@ final class Pipeline {
     /** Half the angle the headlights' shadow map takes in, as a tangent, and how near and far it sees. */
     private static final float BEAM_TAN = 0.84f, BEAM_NEAR = 0.35f, BEAM_FAR = 32f;
     /**
-     * The same for the torch's. Its beam lights nothing further off its middle than 57 degrees
-     * (torchAt's cone ends at a cosine of 0.55), and the map takes in a little more than that.
+     * The same for the torch's. Its beam lights nothing further off its middle than 60 degrees
+     * (torchBeam ends at a cosine of 0.5), and the map takes in 58 degrees each way, 64 to a corner.
      * It sees from nearer than the hand is to what the hand holds up, and past the torch's
      * reach by as far as the beam takes to die away.
      */

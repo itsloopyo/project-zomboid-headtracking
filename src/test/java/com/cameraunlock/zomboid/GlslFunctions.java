@@ -9,7 +9,7 @@ import java.util.regex.Pattern;
 /**
  * Evaluates GLSL functions of floats written as a run of "if (A < B) { return E; }" and a last
  * "return E;", where each expression is numbers, the function's parameters, + - * /, brackets
- * and calls to abs, clamp, step, min, max and the other functions of the same text: so a test
+ * and calls to abs, clamp, step, min, max, exp, smoothstep and the other functions of the same text: so a test
  * can set what a shader works out against the Java it was written from.
  */
 final class GlslFunctions {
@@ -167,6 +167,11 @@ final class GlslFunctions {
                 case "step" -> a[1] < a[0] ? 0f : 1f;
                 case "min" -> Math.min(a[0], a[1]);
                 case "max" -> Math.max(a[0], a[1]);
+                case "exp" -> (float) Math.exp(a[0]);
+                case "smoothstep" -> {
+                    float t = Math.min(Math.max((a[2] - a[0]) / (a[1] - a[0]), 0f), 1f);
+                    yield t * t * (3f - 2f * t);
+                }
                 default -> call(name, a);
             };
         }
