@@ -16,4 +16,9 @@ final class Fences {
                 && (name.startsWith("fencing_01_") || name.startsWith("fencing_damaged_01_") || name.startsWith("fencing_damaged_03_")
                         || name.startsWith("fencing_burnt_01_"));
     }
+
+    /** Whether a sprite is a fence of iron bars: the iron the game paints, which its many bars would otherwise have taken for wire. */
+    static boolean ironBars(String name, String material) {
+        return name != null && name.startsWith("fencing_") && "MetalBars".equals(material);
+    }
 }

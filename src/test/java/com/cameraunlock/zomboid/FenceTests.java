@@ -12,6 +12,7 @@ final class FenceTests {
         Checks.run("tornAndBurntChainLinkIsWireOnAnEdgeOfTheirSheets", FenceTests::tornAndBurntChainLinkIsWireOnAnEdgeOfTheirSheets);
         Checks.run("chainLinkIsLaidAsASheetWhereverItStandsOnAnEdge", FenceTests::chainLinkIsLaidAsASheetWhereverItStandsOnAnEdge);
         Checks.run("boardFencesAreWoodOnAnEdgeAndNoPickets", FenceTests::boardFencesAreWoodOnAnEdgeAndNoPickets);
+        Checks.run("ironBarFencesAreTheirOwnIron", FenceTests::ironBarFencesAreTheirOwnIron);
         Checks.run("noTwoWorldMaterialsShareANumber", FenceTests::noTwoWorldMaterialsShareANumber);
     }
 
@@ -89,6 +90,12 @@ final class FenceTests {
                 "the burnt tall board fence is boards by its MaterialType");
         Checks.check(!Fences.boards("fencing_burnt_01_0", null, null, null, true, false), "a burnt picket, of no material the game names, is not");
         Checks.check(!Fences.boards("fencing_01_56", null, "Metal", null, true, false), "a MaterialType of another stuff is not");
+    }
+
+    private static void ironBarFencesAreTheirOwnIron() {
+        Checks.check(Fences.ironBars("fencing_01_2", "MetalBars") && Fences.ironBars("fencing_01_64", "MetalBars"), "iron railings");
+        Checks.check(Fences.ironBars("fencing_damaged_05_0", "MetalBars"), "the welded panels the game makes of bars");
+        Checks.check(!Fences.ironBars("fencing_01_56", "MetalWire") && !Fences.ironBars("walls_exterior_house_01_16", "MetalBars"), "wire, and no fence");
     }
 
     /** Every named material of the world's faces. Each is a constant the compiler writes in here, so no class is loaded to read it. */

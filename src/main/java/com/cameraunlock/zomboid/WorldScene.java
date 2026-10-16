@@ -818,7 +818,7 @@ final class WorldScene {
             String madeOf = properties.get("Material");
             boolean onEdge = Edges.west(properties, type) || Edges.north(properties, type);
             boolean picket = properties.has("StopCar") || properties.has("TieSheetRope");
-            asOther = printed(properties, name) ? PRINT : other != 0f ? other
+            asOther = printed(properties, name) ? PRINT : other != 0f ? other : Fences.ironBars(name, madeOf) ? 0f
                     : Fences.boards(name, madeOf, properties.get("MaterialType"), properties.get("Material2"), onEdge, picket) ? BOARDS : materialOf(sprite);
             garageDoor = properties.has("GarageDoor");
             laidWall = laidWall(name, properties);
