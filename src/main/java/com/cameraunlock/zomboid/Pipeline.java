@@ -1559,8 +1559,9 @@ final class Pipeline {
      * Lays what the frame's mirrors show over their glass in the eye's picture, each pixel of
      * the glass the same pixel of that picture. Tested against the depth of the glass itself,
      * so whatever stands before it, its own frame among them, hides it as it hides the glass.
-     * The picture's mark of how much of a mirror the glass is is taken off: the last pass has
-     * nothing to trace there.
+     * Each glass lays it over by as much of it as it shows (LookingGlass.FADE), and takes the
+     * picture's mark of how much of a mirror the glass is off by as much: where it shows all
+     * of it the last pass has nothing to trace.
      */
     private void showLookingGlass(ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float near, float far) {
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, sceneTarget);
@@ -1606,8 +1607,14 @@ final class Pipeline {
         GL11.glDepthFunc(GL_LEQUAL);
         GL11.glDepthMask(false);
         GL11.glDisable(GL_CULL_FACE);
+        GL11.glEnable(GL_BLEND);
+        GL14.glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+        for (int i = 0; i < lookingGlass.count; i++) {
+            glassShown.set("uShown", lookingGlass.shown[i]);
+            GL11.glDrawArrays(GL_TRIANGLES, i * 6, 6);
+        }
         GL11.glDisable(GL_BLEND);
-        GL11.glDrawArrays(GL_TRIANGLES, 0, lookingGlass.count * 6);
+        GL11.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         GL11.glDisable(GL_DEPTH_TEST);
         GL11.glDepthMask(true);
         GL11.glDisableClientState(GL_VERTEX_ARRAY);

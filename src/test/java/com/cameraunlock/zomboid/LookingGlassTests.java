@@ -16,6 +16,7 @@ final class LookingGlassTests {
         Checks.run("glassIsSeenOnlyFromBeforeItAndInThePicture", LookingGlassTests::glassIsSeenOnlyFromBeforeItAndInThePicture);
         Checks.run("glassPassingBehindTheEyeIsCutAtNear", LookingGlassTests::glassPassingBehindTheEyeIsCutAtNear);
         Checks.run("glassReachingPastThePictureIsAtItsEdge", LookingGlassTests::glassReachingPastThePictureIsAtItsEdge);
+        Checks.run("aMirrorsPictureFadesInOverTheLastTileOfItsReach", LookingGlassTests::aMirrorsPictureFadesInOverTheLastTileOfItsReach);
         Checks.run("thePlaneTakingMostOfThePictureIsChosenWithAllItsGlass", LookingGlassTests::thePlaneTakingMostOfThePictureIsChosenWithAllItsGlass);
         Checks.run("thePlaneIsTheForemostOfItsGlass", LookingGlassTests::thePlaneIsTheForemostOfItsGlass);
         Checks.run("eyeBehindTheGlassSeesWhatTheGlassShows", LookingGlassTests::eyeBehindTheGlassSeesWhatTheGlassShows);
@@ -175,6 +176,39 @@ final class LookingGlassTests {
         looking.consider(glasses, 0, eye(15f, 29f, toward(15f, 29f, 25f, 30f)), TAN, ASPECT, NEAR);
         check(looking.end() && looking.pastEdge, "a long glass running past the side of the picture is at its edge, though its part of the picture is kept to it: "
                 + looking.rect[0] + " to " + looking.rect[2]);
+    }
+
+    /** Walking up to a mirror, its own picture comes in over the trace a little at a time, with nothing to jump at the reach. */
+    private static void aMirrorsPictureFadesInOverTheLastTileOfItsReach() {
+        LookingGlass looking = new LookingGlass();
+        float[] glasses = wallGlass(20f);
+        float last = -1f;
+        // From 3 tiles off to the last hundredth of a tile before the reach, and one past it.
+        for (int step = 0; step <= 300; step++) {
+            float off = step == 300 ? LookingGlass.REACH + 0.01f : 3f + step * 0.01f;
+            looking.begin();
+            looking.consider(glasses, 0, eye(20.5f, 30f - off, toward(20.5f, 30f - off, 20.5f, 30f)), TAN, ASPECT, NEAR);
+            boolean kept = looking.end();
+            float shown = kept ? looking.shown[0] : 0f;
+            float expected = off <= LookingGlass.REACH - LookingGlass.FADE ? 1f : off >= LookingGlass.REACH ? 0f : (LookingGlass.REACH - off) / LookingGlass.FADE;
+            check(Math.abs(shown - expected) < 1e-3f, "a glass " + off + " tiles off shows " + shown + " of its own picture, not " + expected);
+            check(kept == off < LookingGlass.REACH, "and its picture is drawn only within the reach, " + off + " tiles off: " + kept);
+            check(last < 0f || Math.abs(shown - last) <= 0.01f / LookingGlass.FADE + 1e-3f, "a step of a hundredth of a tile changes it by a hundredth at most: " + last + " to " + shown);
+            last = shown;
+        }
+        // Two glasses in one plane, one further off than the other: each fades by its own distance.
+        float[] two = new float[2 * LookingGlass.FLOATS];
+        System.arraycopy(wallGlass(20f), 0, two, 0, LookingGlass.FLOATS);
+        System.arraycopy(wallGlass(24f), 0, two, LookingGlass.FLOATS, LookingGlass.FLOATS);
+        ViewCamera.Pose slant = eye(20.5f, 25.3f, toward(20.5f, 25.3f, 22.5f, 30f));
+        looking.begin();
+        looking.consider(two, 0, slant, TAN, ASPECT, NEAR);
+        looking.consider(two, 1, slant, TAN, ASPECT, NEAR);
+        check(looking.end() && looking.count == 2, "both glasses are kept");
+        float near = LookingGlass.nearest(two, 0, slant), far = LookingGlass.nearest(two, LookingGlass.FLOATS, slant);
+        check(Math.abs(looking.shown[0] - LookingGlass.shown(near)) < 1e-6f && Math.abs(looking.shown[1] - LookingGlass.shown(far)) < 1e-6f
+                && looking.shown[0] == 1f && looking.shown[1] < 1f && looking.shown[1] > 0f,
+                "the nearer, " + near + " off, shows " + looking.shown[0] + " and the further, " + far + " off, " + looking.shown[1]);
     }
 
     private static void thePlaneTakingMostOfThePictureIsChosenWithAllItsGlass() {

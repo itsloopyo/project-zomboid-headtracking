@@ -25,6 +25,11 @@ final class LookingGlass {
     static final float NEAREST = 0.05f;
     /** A mirror further from the eye than this, in tiles (about 20 feet), is drawn as glass with no picture of its own. */
     static final float REACH = 6f;
+    /**
+     * Over this many tiles at the end of its reach a mirror's own picture fades in over the
+     * trace: all of it this far within the reach, none of it at the reach.
+     */
+    static final float FADE = 1f;
     /** Two mirrors are in one plane when they face the same way to this cosine and stand this far apart along it at most, in tiles. */
     static final float SAME_WAY = 0.9995f, SAME_PLANE = 0.01f;
     /**
@@ -70,6 +75,8 @@ final class LookingGlass {
             uniform vec4 uDrawn;
             // The way the glass faces, on the map: the corners are the map's from the eye.
             uniform vec3 uFacing;
+            // How much of what the glass shows is this picture, the rest left to the trace: see LookingGlass.FADE.
+            uniform float uShown;
             varying vec3 vPlace;
             varying vec4 vOn;
             const float SILVER = 0.9;
@@ -104,7 +111,7 @@ final class LookingGlass {
                 color = mix(color, round, smudge * 0.3) + round * (smudge * 0.06);
                 vec2 edge = min(vOn.xy, 1.0 - vOn.xy) * vOn.zw;
                 color *= mix(0.75, 1.0, smoothstep(0.0, 0.02, min(edge.x, edge.y)));
-                gl_FragColor = vec4(color, 1.0);
+                gl_FragColor = vec4(color, uShown);
             }
             """;
 
@@ -119,6 +126,8 @@ final class LookingGlass {
     final float[] rect = new float[4];
     /** The glass of each of them, FLOATS each. */
     final float[] glass = new float[MOST * FLOATS];
+    /** How much of what each of them shows is its own picture: see FADE. */
+    final float[] shown = new float[MOST];
     int count;
     /** Whether their glass reaches past the edge of the picture, where a turn of the head brings more of it in. */
     boolean pastEdge;
@@ -126,11 +135,13 @@ final class LookingGlass {
     /** The most mirrors a frame looks at: more than any room holds. */
     private static final int SEEN_MOST = 64;
     private final float[][] seenGlass = new float[SEEN_MOST][FLOATS], seenRect = new float[SEEN_MOST][4];
-    private final float[] seenArea = new float[SEEN_MOST];
+    private final float[] seenArea = new float[SEEN_MOST], seenShown = new float[SEEN_MOST];
     private final boolean[] seenPast = new boolean[SEEN_MOST];
     private int seen;
     /** Whether the glass the last seen() was asked of reaches past the edge of the picture. */
     private boolean reachesPast;
+    /** How much of what the glass the last seen() was asked of shows is its own picture. */
+    private float shownSeen;
     private final float[] testPlane = new float[4];
     private final float[] corners = new float[5 * 3], ndc = new float[2];
 
@@ -194,9 +205,14 @@ final class LookingGlass {
     boolean seen(float[] glass, int at, ViewCamera.Pose eye, float tan, float aspect, float near, float[] out) {
         plane(glass, at, testPlane);
         float before = testPlane[0] * eye.eyeX + testPlane[1] * eye.eyeY + testPlane[2] * eye.eyeUp - testPlane[3];
-        if (before < NEAREST || nearest(glass, at, eye) > REACH) {
+        if (before < NEAREST) {
             return false;
         }
+        float nearest = nearest(glass, at, eye);
+        if (nearest > REACH) {
+            return false;
+        }
+        shownSeen = shown(nearest);
         // The four corners round, as distances along the eye's axes, then the cut where they pass behind near.
         int count = 0;
         float lastAhead = 0f, lastX = 0f, lastY = 0f;
@@ -246,6 +262,11 @@ final class LookingGlass {
         return out[0] < out[2] && out[1] < out[3];
     }
 
+    /** How much of what a glass the eye is this far from shows is its own picture, 0 to 1. */
+    static float shown(float nearest) {
+        return Math.clamp((REACH - nearest) / FADE, 0f, 1f);
+    }
+
     /** How far the eye is from the nearest point of a glass, in tiles. */
     static float nearest(float[] glass, int at, ViewCamera.Pose eye) {
         float dx = eye.eyeX - glass[at + CORNER], dy = eye.eyeY - glass[at + CORNER + 1], du = eye.eyeUp - glass[at + CORNER + 2];
@@ -284,6 +305,7 @@ final class LookingGlass {
         }
         System.arraycopy(glasses, offset, seenGlass[seen], 0, FLOATS);
         seenPast[seen] = reachesPast;
+        seenShown[seen] = shownSeen;
         float[] r = seenRect[seen];
         seenArea[seen] = (r[2] - r[0]) * (r[3] - r[1]);
         seen++;
@@ -323,6 +345,7 @@ final class LookingGlass {
                 continue;
             }
             System.arraycopy(seenGlass[j], 0, glass, count * FLOATS, FLOATS);
+            shown[count] = seenShown[j];
             count++;
             pastEdge |= seenPast[j];
             foremost = Math.max(foremost, plane[0] * seenGlass[j][CORNER] + plane[1] * seenGlass[j][CORNER + 1] + plane[2] * seenGlass[j][CORNER + 2]);
