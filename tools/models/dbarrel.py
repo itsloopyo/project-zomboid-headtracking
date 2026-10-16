@@ -2,7 +2,7 @@
 
 Run headless with Blender 4.4, from the repository root:
 
-    blender --background --factory-startup --python tools/models/dbarrel.py -- PICTURES [--renders DIR] [--raw DIR [VIEW ...]] [--no-pack] [--cpu] [--mesh] [--stats]
+    blender --background --factory-startup --threads 1 --python tools/models/dbarrel.py -- PICTURES [--renders DIR] [--raw DIR [VIEW ...]] [--no-pack] [--cpu] [--mesh] [--stats]
 
 PICTURES is the folder tools/models/shotgun_textures.py wrote. The model is made here from
 nothing: a twelve bore over and under field gun of no maker's pattern, its action in bright

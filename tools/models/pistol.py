@@ -2,7 +2,7 @@
 
 Run headless with Blender 4.4, from the repository root:
 
-    blender --background --factory-startup --python tools/models/pistol.py -- PICTURES KIND [--renders DIR] [--raw DIR [VIEW ...]] [--no-pack] [--cpu] [--mesh] [--stats]
+    blender --background --factory-startup --threads 1 --python tools/models/pistol.py -- PICTURES KIND [--renders DIR] [--raw DIR [VIEW ...]] [--no-pack] [--cpu] [--mesh] [--stats]
 
 PICTURES is the folder tools/models/shotgun_textures.py wrote: the forty-five's grips are its
 walnut and the magnum's its rubber. KIND is the file's name and which pistol it is, each made

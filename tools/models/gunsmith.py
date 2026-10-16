@@ -2,11 +2,12 @@
 cut a part, the materials of steel, alloy, brass and rubber, and the unwrapping, baking,
 packing and rendering of the finished gun.
 
-It is imported by shotgun.py, rifle.py, revolver.py and dbarrel.py, which run headless in Blender 4.4 and
-say how each is made and run. A model is in metres, its barrel along +y and its top +z, as
-the game's own weapons are made; what a script makes is packed about the hand that holds its
-grip. A part is an object made by `take`, which every script's parts go through, in the
-order they are made; `PARTS` lists them for the unwrapping and the bake.
+It is imported by shotgun.py, rifle.py, pistol.py, revolver.py and dbarrel.py, which run headless
+in Blender 4.4, on one thread where they pack, and say how each is made and run. A model is in
+metres, its barrel along +y and its top +z, as the game's own weapons are made; what a script
+makes is packed about the hand that holds its grip. A part is an object made by `take`, which
+every script's parts go through, in the order they are made; `PARTS` lists them for the
+unwrapping and the bake.
 
 The mesh file each script writes is gzip over this, all little-endian:
 
@@ -728,6 +729,11 @@ def pack_wide(gun):
 def unwrap(name):
     """Gives every part a place in the texture, at one size to the metre but for what a part is given over the rest,
     and joins them into one object called name."""
+    # On more than one thread Blender's tangents, and the normals of corners of triangles of no size, come out a little
+    # different from one run to the next, and a revolver's cuts, and so its whole layout, are not the same on one thread
+    # as on three.
+    if bpy.context.scene.render.threads != 1 and "--no-pack" not in sys.argv:
+        raise SystemExit("a gun is laid out and packed on one thread: run Blender with --threads 1, or pass --no-pack to only render")
     depsgraph = bpy.context.evaluated_depsgraph_get()
     for obj in PARTS:
         cut_up = obj.modifiers.new("triangles", "TRIANGULATE")

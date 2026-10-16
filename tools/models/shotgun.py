@@ -2,7 +2,7 @@
 
 Run headless with Blender 4.4, from the repository root:
 
-    blender --background --factory-startup --python tools/models/shotgun.py -- PICTURES [--sawn-off] [--renders DIR] [--raw DIR [VIEW ...]] [--no-pack] [--cpu] [--mesh] [--stats]
+    blender --background --factory-startup --threads 1 --python tools/models/shotgun.py -- PICTURES [--sawn-off] [--renders DIR] [--raw DIR [VIEW ...]] [--no-pack] [--cpu] [--mesh] [--stats]
 
 PICTURES is the folder tools/models/shotgun_textures.py wrote. The model is made here from
 nothing: a twelve bore field gun with a ventilated rib, a walnut stock and fore-end and a

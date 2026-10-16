@@ -2,7 +2,7 @@
 
 Run headless with Blender 4.4, from the repository root:
 
-    blender --background --factory-startup --python tools/models/revolver.py -- PICTURES KIND [--renders DIR] [--raw DIR [VIEW ...]] [--open] [--cocked] [--no-pack] [--cpu] [--mesh] [--stats]
+    blender --background --factory-startup --threads 1 --python tools/models/revolver.py -- PICTURES KIND [--renders DIR] [--raw DIR [VIEW ...]] [--open] [--cocked] [--no-pack] [--cpu] [--mesh] [--stats]
 
 PICTURES is the folder tools/models/shotgun_textures.py wrote: the grips are its walnut and
 rubber. KIND is one of the four below. Each is made here from nothing, of no maker's pattern

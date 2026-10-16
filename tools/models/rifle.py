@@ -2,7 +2,7 @@
 
 Run headless with Blender 4.4, from the repository root:
 
-    blender --background --factory-startup --python tools/models/rifle.py -- PICTURES [--renders DIR] [--no-pack] [--cpu] [--mesh]
+    blender --background --factory-startup --threads 1 --python tools/models/rifle.py -- PICTURES [--renders DIR] [--no-pack] [--cpu] [--mesh]
 
 PICTURES is the folder tools/models/shotgun_textures.py wrote: the rifle's stock is the same
 walnut. The model is made here from nothing: a sporting rifle with a round receiver, a
