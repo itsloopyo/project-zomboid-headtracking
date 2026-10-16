@@ -390,8 +390,12 @@ final class Pipeline {
     private final CabinDraw.Frame cabinFrame = new CabinDraw.Frame();
     private final CabinArms cabinArms = new CabinArms();
     private boolean armsUnplacedSaid, armsDrawnSaid;
-    /** The unit the driver's arms read the interior's shadow map on while they are lit. */
-    private static final int CABIN_SUN_UNIT = 27;
+    /**
+     * A unit no program keeps a picture on from one pass to the next: each pass that reads it binds its
+     * own there first. The driver's arms read the interior's shadow map there, and the mod's interior
+     * the viewer's torch's.
+     */
+    static final int PASS_UNIT = 27;
     /** Whether this frame drew the mod's own interior of the vehicle sat in. */
     private boolean ownCabinDrawn;
     /** The interiors the mod could not make, by script, said once each. */
@@ -4246,7 +4250,7 @@ final class Pipeline {
             figureLight.use();
             figureLight.set("uMoves", pass == 0 ? 1f : 0.5f);
             // A shadow sampler may not share a unit with a plain one, used or not.
-            figureLight.set("uCabinSun", CABIN_SUN_UNIT);
+            figureLight.set("uCabinSun", PASS_UNIT);
             figureLight.set("uCabinArms", 0f);
             figureLight.set("uFigure", 0);
             figureLight.set("uDepth", 3);
@@ -4537,11 +4541,11 @@ final class Pipeline {
         figureLight.set("uHaveFacing", 1f);
         figureLight.set("uCabinArms", 1f);
         figureLight.set("uCabinAround", 0.45f);
-        figureLight.set("uCabinSun", CABIN_SUN_UNIT);
+        figureLight.set("uCabinSun", PASS_UNIT);
         figureLight.set("uCabinSunMatrix", cabinFrame.relShadow);
         figureLight.set("uNear", HELD_NEAR);
         figureLight.set("uWriteNear", near);
-        GL13.glActiveTexture(GL_TEXTURE0 + CABIN_SUN_UNIT);
+        GL13.glActiveTexture(GL_TEXTURE0 + PASS_UNIT);
         GL11.glBindTexture(GL_TEXTURE_2D, cabinDraw.shadowMap());
         GL13.glActiveTexture(GL_TEXTURE0 + NORMAL_UNIT);
         GL11.glBindTexture(GL_TEXTURE_2D, ownNormal);
@@ -4567,7 +4571,7 @@ final class Pipeline {
     private void drawOwnGlass(ViewCamera.Pose camera, SkyState state) {
         Program glass = cabinDraw.beginGlass();
         atmosphere(glass, state);
-        setBeams(glass, CabinDraw.TORCH_UNIT);
+        setBeams(glass, PASS_UNIT);
         glass.set("uEye", camera.eyeX, camera.eyeY, camera.eyeUp);
         glass.set("uLight", state.lightX, state.lightY, state.lightUp);
         glass.set("uLightColor", state.lightRed, state.lightGreen, state.lightBlue);
@@ -4586,7 +4590,7 @@ final class Pipeline {
         GL11.glViewport(0, 0, width, height);
         Program program = cabinDraw.begin();
         lightHeld(program, camera, state);
-        setBeams(program, CabinDraw.TORCH_UNIT);
+        setBeams(program, PASS_UNIT);
         program.set("uShadowNear", OwnGun.SHADOW_NEAR_UNIT);
         program.set("uShadowFar", OwnGun.SHADOW_FAR_UNIT);
         GL13.glActiveTexture(GL_TEXTURE0 + MIRROR_UNIT);

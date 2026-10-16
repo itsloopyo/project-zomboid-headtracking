@@ -31,7 +31,7 @@ final class CabinDraw {
     private static final int GL_DEPTH_BUFFER_BIT = 0x100;
 
     /** Units the picture binds afresh for each pass that reads them. */
-    static final int COLOUR_UNIT = 30, SURFACE_UNIT = 31, CABIN_SHADOW_UNIT = 29, TORCH_UNIT = 27, DETAIL_SURFACE_UNIT = 28;
+    static final int COLOUR_UNIT = 30, SURFACE_UNIT = 31, CABIN_SHADOW_UNIT = 29, DETAIL_SURFACE_UNIT = 28;
     private static final int GL_TEXTURE_2D_ARRAY = 0x8C1A;
     /** The repeating close-up surfaces every interior shares, read once. */
     private int detailSurface;
