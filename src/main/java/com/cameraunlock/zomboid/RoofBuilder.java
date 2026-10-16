@@ -321,8 +321,8 @@ final class RoofBuilder {
         float lift = meanLift();
         float edge = tile.fitLow * ViewCamera.LEVEL_HEIGHT + lift, top = (tile.fitLow + tile.peak) * ViewCamera.LEVEL_HEIGHT + lift;
         // Into the middle of a ridge across this one's end, or out over a gable as a rake.
-        boolean rakeFrom = tile.peakBefore == 0f && !tile.carried && !hasRoof(alongX ? tile.x : tile.x - 1, alongX ? tile.y - 1 : tile.y, tile.z);
-        boolean rakeTo = tile.peakAfter == 0f && !tile.carried && !hasRoof(alongX ? tile.x : tile.x + 1, alongX ? tile.y + 1 : tile.y, tile.z);
+        boolean rakeFrom = tile.peakBefore == 0f && !tile.carried && !roofGoesOn(alongX ? tile.x : tile.x - 1, alongX ? tile.y - 1 : tile.y, tile.z);
+        boolean rakeTo = tile.peakAfter == 0f && !tile.carried && !roofGoesOn(alongX ? tile.x : tile.x + 1, alongX ? tile.y + 1 : tile.y, tile.z);
         float from = rakeFrom ? -RAKE : -tile.peakBefore, to = rakeTo ? 1f + RAKE : 1f + tile.peakAfter;
         float[] c = build.eave;
         for (int side = 0; side < 2; side++) {
@@ -690,7 +690,7 @@ final class RoofBuilder {
         float[] c = build.eave;
         for (int side = 0; side < 2; side++) {
             int besideX = x + (alongX != 0f ? 0 : side == 0 ? -1 : 1), besideY = y + (alongX != 0f ? side == 0 ? -1 : 1 : 0);
-            if (hasRoof(besideX, besideY, z)) {
+            if (roofGoesOn(besideX, besideY, z)) {
                 continue;
             }
             float edge = side, out = side == 0 ? -RAKE : RAKE;
@@ -789,7 +789,7 @@ final class RoofBuilder {
         boolean lowAtFar = along < 0f;
         int beyondX = x + (alongX != 0f ? (lowAtFar ? 1 : -1) : 0), beyondY = y + (alongY != 0f ? (lowAtFar ? 1 : -1) : 0);
         float low = lowAtFar ? atOrigin + along : atOrigin;
-        return !hasRoof(beyondX, beyondY, z) && !(low < Roofs.FLAT && reachesUpTo(beyondX, beyondY, z) && !eaveRow(beyondX, beyondY, z - 1));
+        return !roofGoesOn(beyondX, beyondY, z) && !(low < Roofs.FLAT && reachesUpTo(beyondX, beyondY, z) && !eaveRow(beyondX, beyondY, z - 1));
     }
 
     /**
@@ -865,7 +865,7 @@ final class RoofBuilder {
     private int cornerEaves(RoofFit.Tile tile) {
         int x = tile.x, y = tile.y, z = tile.z, eaves = 0;
         for (int edge = 0; edge < 4; edge++) {
-            if (hasRoof(x + OUT_X[edge], y + OUT_Y[edge], z)) {
+            if (roofGoesOn(x + OUT_X[edge], y + OUT_Y[edge], z)) {
                 continue;
             }
             RoofFit.Tile across = tileAt(x - OUT_X[edge], y - OUT_Y[edge], z);
@@ -875,7 +875,7 @@ final class RoofBuilder {
             int runX = OUT_Y[edge] != 0 ? 1 : 0, runY = 1 - runX;
             for (int step = -1; step <= 1; step += 2) {
                 RoofFit.Tile beside = tileAt(x + step * runX, y + step * runY, z);
-                if (beside != null && fallsOver(beside, edge) && !hasRoof(x - step * runX, y - step * runY, z)) {
+                if (beside != null && fallsOver(beside, edge) && !roofGoesOn(x - step * runX, y - step * runY, z)) {
                     eaves |= 1 << edge;
                     cornerRise[edge] = Math.abs(beside.fitHigh - beside.fitLow);
                     cornerFoot[edge] = Math.min(beside.fitLow, beside.fitHigh) - beside.z;
@@ -986,8 +986,8 @@ final class RoofBuilder {
             return;
         }
         boolean runsY = alongX != 0f;
-        int startEnd = Eaves.end(meetsAtStart, hasRoof(runsY ? x : x - 1, runsY ? y - 1 : y, z));
-        int endEnd = Eaves.end(meetsAtEnd, hasRoof(runsY ? x : x + 1, runsY ? y + 1 : y, z));
+        int startEnd = Eaves.end(meetsAtStart, roofGoesOn(runsY ? x : x - 1, runsY ? y - 1 : y, z));
+        int endEnd = Eaves.end(meetsAtEnd, roofGoesOn(runsY ? x : x + 1, runsY ? y + 1 : y, z));
         hangEave(sheet, x, y, z, atOrigin, alongX, alongY, piped, startEnd, endEnd);
     }
 
@@ -1116,11 +1116,21 @@ final class RoofBuilder {
         return square.getFloor() != null ? Eaves.FLOOR : Eaves.AIR;
     }
 
-    private boolean hasRoof(int x, int y, int z) {
+    /**
+     * Whether the roof goes on over the square beside the end of a slope, an eave or a hip's
+     * corner: a tile of roof lies there, made or the map's. A trim the map paints on the
+     * square past a gable or an eave's end, a board or a corner piece narrower than a tile,
+     * is no roof going on, so the rake, the eave's end board and the corner's eave are made.
+     */
+    private boolean roofGoesOn(int x, int y, int z) {
         if (build.madeAt(x, y, z)) {
             return true;
         }
         IsoGridSquare square = build.cell.getGridSquare(x, y, z);
-        return square != null && Roofs.roofing(square);
+        if (square == null || !Roofs.roofing(square)) {
+            return false;
+        }
+        Roofs.Laid map = Roofs.at(build.cell, x, y, z, world.roundNow, build.frame.scale);
+        return map != null && !map.tile.fitting;
     }
 }

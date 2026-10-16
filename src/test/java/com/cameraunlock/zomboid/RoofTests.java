@@ -6,6 +6,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import zombie.core.textures.Texture;
+import zombie.iso.SpriteDetails.IsoObjectType;
 
 /** Tests of a roof's shape where its slopes meet: hips, valleys, ridges and their caps. */
 final class RoofTests {
@@ -44,6 +45,8 @@ final class RoofTests {
         Checks.run("sheetsBehindARidgeAreNoPartOfTheRoof", RoofTests::sheetsBehindARidgeAreNoPartOfTheRoof);
         Checks.run("canopyIsNotCarriedToTheFarWall", RoofTests::canopyIsNotCarriedToTheFarWall);
         Checks.run("eaveOverALeanToThatStopsShortOfItIsMade", RoofTests::eaveOverALeanToThatStopsShortOfItIsMade);
+        Checks.run("trimPastAGableIsNoRoofGoingOn", RoofTests::trimPastAGableIsNoRoofGoingOn);
+        Checks.run("trimPastAHipsCornerLeavesTheCornersEave", RoofTests::trimPastAHipsCornerLeavesTheCornersEave);
     }
 
     private static void hippedCornerAtTheEaveCarriesTheEaveRowOn() {
@@ -975,6 +978,17 @@ final class RoofTests {
         return map;
     }
 
+    /** A trim from a roof's accents on the square, as Roofs reads one: a tile of a roof narrower than a tile, so fitting. */
+    private static void trim(TestMap map, int x, int y, int z, String name, String... flags) {
+        map.cell.square(x, y, z).add(map.sprite(name, IsoObjectType.WestRoofB, flags));
+        RoofFit.Tile tile = new RoofFit.Tile(x, y, z, RoofFit.LEVEL, true, z + 0.9f, z + 0.9f);
+        tile.fitting = true;
+        Roofs.Roof roof = new Roofs.Roof();
+        TestMap.write(roof, "kept", Integer.MAX_VALUE / 2);
+        HashMap<Long, Roofs.Laid> laid = TestMap.read(null, Roofs.class, "laid");
+        laid.put(RoofFit.key(x, y, z), new Roofs.Laid(tile, map.painted, roof));
+    }
+
     private static void eaveOverALeanToThatStopsShortOfItIsMade() {
         // The upper storey's slope falls north to its eave at the floor of level 2; a level down past the eave
         // lies a lean-to whose top is at 1.2, well short of 2.
@@ -994,6 +1008,25 @@ final class RoofTests {
     private static RoofFit.Tile fitted(RoofFit.Tile tile) {
         RoofFit.fit(new ArrayList<>(List.of(tile)));
         return tile;
+    }
+
+    private static void trimPastAGableIsNoRoofGoingOn() {
+        TestMap map = slopeAlongY(1, 1f, 1.32f);
+        trim(map, 1, 0, 1, "roofs_accents_01_11", "attachedW");
+        map.build.roofBuilder.addRoof(new SpriteGeometry.Mesh(), map.painted, 0, 0, 1);
+        check(boundsOf(TestMap.plain())[1] > 1.1f, "a slope with only a trim past its east end has its rake out over the gable: x to " + boundsOf(TestMap.plain())[1]);
+        map = slopeAlongY(1, 1f, 1.32f);
+        map.roofTile(fitted(new RoofFit.Tile(1, 0, 1, RoofFit.ALONG_Y, true, 1f, 1.32f)), map.painted);
+        map.build.roofBuilder.addRoof(new SpriteGeometry.Mesh(), map.painted, 0, 0, 1);
+        check(boundsOf(TestMap.plain())[1] < 1.05f, "a slope the roof goes on past has no rake there: x to " + boundsOf(TestMap.plain())[1]);
+    }
+
+    private static void trimPastAHipsCornerLeavesTheCornersEave() {
+        TestMap map = hippedCorner(1f + THIRD / 2f, false);
+        trim(map, -1, 0, 1, "roofs_accents_01_16");
+        map.build.roofBuilder.addRoof(new SpriteGeometry.Mesh(), map.painted, 0, 0, 1);
+        float[] box = boundsOf(TestMap.plain());
+        check(TestMap.plain().triangles() > 0 && box[0] < 0f, "a hip's corner with a trim on the square past its west end still has its eave, run on past that end: x from " + box[0]);
     }
 
     private static void check(boolean condition, String what) {
