@@ -11,6 +11,7 @@ final class FenceTests {
         Checks.run("chainLinkLengthsAreKnownByTheirPlaceOnTheSheet", FenceTests::chainLinkLengthsAreKnownByTheirPlaceOnTheSheet);
         Checks.run("tornAndBurntChainLinkIsWireOnAnEdgeOfTheirSheets", FenceTests::tornAndBurntChainLinkIsWireOnAnEdgeOfTheirSheets);
         Checks.run("chainLinkIsLaidAsASheetWhereverItStandsOnAnEdge", FenceTests::chainLinkIsLaidAsASheetWhereverItStandsOnAnEdge);
+        Checks.run("boardFencesAreWoodOnAnEdgeAndNoPickets", FenceTests::boardFencesAreWoodOnAnEdgeAndNoPickets);
         Checks.run("noTwoWorldMaterialsShareANumber", FenceTests::noTwoWorldMaterialsShareANumber);
     }
 
@@ -66,6 +67,28 @@ final class FenceTests {
         Checks.check(!ChainLink.sheet(lying.getName(), lying.getProperties(), zombie.iso.SpriteDetails.IsoObjectType.normal), "wire lying on the ground is no sheet");
         zombie.iso.sprite.IsoSprite panel = TileRows.sprite("fencing_01_80|HoppableN||Material|MetalWire|WallNTrans|");
         Checks.check(!ChainLink.sheet(panel.getName(), panel.getProperties(), zombie.iso.SpriteDetails.IsoObjectType.wall), "a welded panel is no sheet of chain link");
+    }
+
+    private static void boardFencesAreWoodOnAnEdgeAndNoPickets() {
+        // name, Material, Material2, on an edge, a picket by its StopCar or TieSheetRope, and whether it is boards.
+        Object[][] rows = {{"fencing_01_8", "Wood", "Nails", true, false, true}, {"fencing_01_12", "Wood", "Nails", true, false, true},
+                {"fencing_01_32", "Wood", "Nails", true, false, true}, {"fencing_01_72", "Wood", "Nails", true, false, true},
+                {"fencing_01_4", "Wood", "Nails", true, true, false}, {"fencing_01_13", "Wood", "Nails", false, false, false},
+                {"fencing_01_16", "Wood", "MetalWire", true, false, false}, {"fencing_01_19", "Wood", null, false, false, false},
+                {"fencing_damaged_01_16", "Wood", null, true, false, true}, {"fencing_damaged_01_48", "Wood", null, true, false, true},
+                {"fencing_damaged_01_8", "Wood", null, true, true, false}, {"fencing_damaged_01_17", "Wood", null, false, false, false},
+                {"fencing_damaged_03_8", "Wood", null, true, false, true}, {"fencing_damaged_03_0", "Wood", null, true, true, false},
+                {"fencing_burnt_01_40", "Wood", null, true, false, true}, {"fencing_burnt_01_45", "Wood", null, false, false, false},
+                {"fencing_01_56", "MetalWire", "MetalWire", true, false, false}, {"carpentry_02_0", "Wood", null, true, false, false}};
+        for (Object[] row : rows) {
+            Checks.check(Fences.boards((String) row[0], (String) row[1], null, (String) row[2], (boolean) row[3], (boolean) row[4]) == (boolean) row[5],
+                    row[0] + (((boolean) row[5]) ? " is" : " is not") + " a board fence");
+        }
+        // The burnt tall fence has a MaterialType and no Material. The burnt pickets, what fencing_01_4..6 burn to, have neither.
+        Checks.check(Fences.boards("fencing_burnt_01_8", null, "Wood", null, true, false) && Fences.boards("fencing_burnt_01_12", null, "Wood", null, true, false),
+                "the burnt tall board fence is boards by its MaterialType");
+        Checks.check(!Fences.boards("fencing_burnt_01_0", null, null, null, true, false), "a burnt picket, of no material the game names, is not");
+        Checks.check(!Fences.boards("fencing_01_56", null, "Metal", null, true, false), "a MaterialType of another stuff is not");
     }
 
     /** Every named material of the world's faces. Each is a constant the compiler writes in here, so no class is loaded to read it. */
