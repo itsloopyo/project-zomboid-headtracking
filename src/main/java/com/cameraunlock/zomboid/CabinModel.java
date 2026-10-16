@@ -181,6 +181,11 @@ final class CabinModel {
      * Pictures last let go of what it read ahead, under read's lock. A style's pictures are shared by its interiors.
      */
     private static final HashSet<String> askedAhead = new HashSet<>(), picturesAhead = new HashSet<>();
+    /** Whether the close-up surfaces every style shares are read ahead or have been taken since that let go, under read's lock. */
+    private static boolean detailAhead;
+
+    /** The close-up surfaces every interior is drawn with, whatever its style. */
+    static final String DETAIL = "/cabins/cabins-detail.surface.bc";
 
     /**
      * Begins reading the interior of a vehicle of that script, and its pictures, on another thread: read when it is
@@ -234,12 +239,24 @@ final class CabinModel {
         }
         Pictures.readAhead("/cabins/" + pictures + ".colour.bc");
         Pictures.readAhead("/cabins/" + pictures + ".surface.bc");
+        boolean detail;
+        synchronized (read) {
+            detail = !detailAhead;
+            detailAhead = true;
+        }
+        if (detail) {
+            Pictures.readAhead(DETAIL);
+            if (DevBuild.ON) {
+                Log.info("the close-up surfaces every interior shares are read ahead with them");
+            }
+        }
     }
 
     /** Called as Pictures lets go of everything it read ahead: each style's pictures are read ahead again the next time a vehicle of it is near. */
     static void picturesLetGo() {
         synchronized (read) {
             picturesAhead.clear();
+            detailAhead = false;
         }
     }
 

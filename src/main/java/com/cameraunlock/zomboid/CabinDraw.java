@@ -431,7 +431,7 @@ final class CabinDraw {
         ByteBuffer vertices = model.fitted(measures, made.wheel, made.needles, made.mirrors, made.lamps);
         upload(made, vertices);
         if (detailSurface == 0) {
-            detailSurface = Pictures.loadLayers("/cabins/cabins-detail.surface.bc");
+            detailSurface = Pictures.loadLayers(CabinModel.DETAIL);
         }
         made.pictures = textures.get(model.pictures);
         if (made.pictures == null) {

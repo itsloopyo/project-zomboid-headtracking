@@ -35,10 +35,13 @@ final class CabinTests {
         Pictures.letGoOfReadAhead();
         CabinModel.readAhead("Base.CarNormal");
         check(readWithin(colour), "an interior already read has its pictures read ahead when a vehicle of it is near");
+        check(readWithin(CabinModel.DETAIL), "and the close-up surfaces every interior shares with them");
         Pictures.letGoOfReadAhead();
         check(!Pictures.isRead(colour), "letting go of what was read ahead lets go of the interior's pictures");
+        check(!Pictures.isRead(CabinModel.DETAIL), "and of the shared close-up surfaces");
         CabinModel.readAhead("Base.CarNormal");
         check(readWithin(colour), "and the next time a vehicle of it is near they are read ahead again");
+        check(readWithin(CabinModel.DETAIL), "the shared close-up surfaces with them");
         Pictures.letGoOfReadAhead();
     }
 
