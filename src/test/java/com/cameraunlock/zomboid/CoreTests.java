@@ -889,7 +889,7 @@ public final class CoreTests {
         check(saved("Quality=Custom", "ViewDistance=72") && said(), "saved, and said");
         edit(text().replace("Quality=Custom", "Quality=Medium"));
         Tracking.watchSettings();
-        check(Quality.name().equals("Medium") && Quality.sight() == 80 && Quality.custom().viewDistance() == 72 && !said(),
+        check(Quality.name().equals("Medium") && Quality.sight() == 60 && Quality.custom().viewDistance() == 72 && !said(),
                 "the mode edited alone goes to that mode, and leaves Custom's rows");
         String style = Style.current() == Style.NATURAL ? "Bleak" : "Natural";
         edit(text().replace("Style=" + Style.current().label, "Style=" + style));
@@ -920,7 +920,7 @@ public final class CoreTests {
                 "grass grows that share of its plants, and all of them where players can fight");
 
         inMode("Low");
-        check(Quality.grassDensity() == 100, "Low grows all of the grass too");
+        check(Quality.grassDensity() == Quality.SOME_GRASS, "Low grows Medium's share of the grass, for Automatic's level at Low's cost");
         said();
         edit(text().replace("GrassDensity=40", "GrassDensity=70"));
         Tracking.watchSettings();
@@ -962,8 +962,8 @@ public final class CoreTests {
                 "reflections ticked off there are off, apart from the shading and light, and saved");
 
         inMode("Medium");
-        check(Quality.reflections() && Quality.drawn().drawDistance() == 80 && Quality.farTreeDistance() == 300,
-                "Medium draws its own: its vehicle mirrors, people and props to its view's end, and far trees to 300 tiles");
+        check(Quality.reflections() && Quality.drawn().drawDistance() == 60 && Quality.farTreeDistance() == 150,
+                "Medium draws its own: its vehicle mirrors, people and props to its view's end, and far trees to 150 tiles");
         said();
         edit(text().replace("FarTreeDistance=768", "FarTreeDistance=200"));
         Tracking.watchSettings();
@@ -1003,10 +1003,10 @@ public final class CoreTests {
         screen.set("SharpShadows", 1);
         screen.apply();
         savesMade();
-        check(Quality.name().equals("Custom") && !Quality.plain() && !Quality.gamesPlants() && Quality.scale() == 0.8f && Quality.sight() == 80
+        check(Quality.name().equals("Custom") && !Quality.plain() && !Quality.gamesPlants() && Quality.scale() == 0.7f && Quality.sight() == 60
                         && Quality.shadowSize() == 4096,
                 "a row changed at Medium starts Custom from Automatic's Medium, with the mod's plants, and the change: " + Quality.described(Quality.drawn()));
-        check(saved("Quality=Custom", "TreeQuality=Medium", "ViewDistance=80", "SharpShadows=true"), "and that is what Custom's rows hold");
+        check(saved("Quality=Custom", "TreeQuality=Medium", "ViewDistance=60", "SharpShadows=true"), "and that is what Custom's rows hold");
     }
 
     /**

@@ -60,9 +60,9 @@ final class QualityTests {
         frames(SECOND, 10f, 20f);
         check(Quality.scale() == 1f, "and stays the whole picture however slowly it is drawn");
         Quality.set(Quality.MEDIUM);
-        check(Quality.scale() == 0.8f && Quality.sight() == 80 && !Quality.crownsToSight() && !Quality.gamesPlants() && !Quality.shadedAndLit()
+        check(Quality.scale() == 0.7f && Quality.sight() == 60 && Quality.grassDensity() == Quality.SOME_GRASS && !Quality.crownsToSight() && !Quality.gamesPlants() && !Quality.shadedAndLit()
                         && !Quality.relief(),
-                "medium is fewer pixels, the mod's trees nearer only, and no shading of corners, lit air, mirrors or depth in surfaces");
+                "medium is fewer pixels, shorter sight, less grass, the mod's trees nearer only, and no shading of corners, lit air, mirrors or depth in surfaces");
         Quality.set(Quality.LOW);
         check(Quality.scale() < 0.7f && Quality.sight() == 48 && Quality.shadowSize() == 2048 && !Quality.shadedAndLit() && !Quality.relief(),
                 "low is fewer pixels, shorter sight, smaller maps and no shading of corners");
@@ -75,9 +75,9 @@ final class QualityTests {
         long now = frames(SECOND, 30f, 2.5f);
         check(Quality.scale() == 1f, "and judges nothing in under three seconds");
         now = frames(now, 30f, 1f);
-        check(Quality.scale() == 0.8f, "three seconds at thirty frames a second take it down a level");
+        check(Quality.scale() == 0.7f, "three seconds at thirty frames a second take it down a level");
         now = frames(now, 30f, 4f);
-        check(Quality.scale() == 0.8f, "the next count begins once the new level has settled");
+        check(Quality.scale() == 0.7f, "the next count begins once the new level has settled");
         now = frames(now, 30f, 1.5f);
         check(Quality.sight() == 48 && !Quality.plain() && Quality.name().equals("Automatic (Low)"),
                 "and still slow, it goes down again, to Low's cost with what the mod made: " + Quality.name());
@@ -97,7 +97,7 @@ final class QualityTests {
             Quality.frame(0, now, 0f);
             Quality.frame(1, now + 1000, 0f);
         }
-        check(Quality.scale() == 0.8f, "two views drawn thirty times a second are thirty frames a second, and take it down a level");
+        check(Quality.scale() == 0.7f, "two views drawn thirty times a second are thirty frames a second, and take it down a level");
         Quality.set(Quality.HIGH);
         Quality.set(Quality.AUTOMATIC);
         for (int frame = 0; frame < 30 * 4; frame++) {
@@ -105,7 +105,7 @@ final class QualityTests {
             Quality.rest(0);
             Quality.frame(1, now, 0f);
         }
-        check(Quality.scale() == 0.8f, "with the first view off the second's frames are the ones counted, and the first's being off does not begin the count again");
+        check(Quality.scale() == 0.7f, "with the first view off the second's frames are the ones counted, and the first's being off does not begin the count again");
         Quality.set(Quality.HIGH);
         Quality.set(Quality.AUTOMATIC);
         Quality.rest(1);
@@ -123,7 +123,7 @@ final class QualityTests {
         now = frames(now + 60 * SECOND, 60f, 10f);
         check(Quality.scale() == 1f, "and a minute with the view off is not a minute of slow frames");
         now = frames(now, 30f, 3.2f);
-        check(Quality.scale() == 0.8f, "slow frames later on are still acted on");
+        check(Quality.scale() == 0.7f, "slow frames later on are still acted on");
         Quality.set(Quality.HIGH);
         Quality.set(Quality.AUTOMATIC);
         now = frames(now + 60 * SECOND, 100f, 2f);
@@ -564,8 +564,8 @@ final class QualityTests {
 
     private static void customDrawsWhatEachPresetDrewFromItsRows() {
         String[] expected = {
-            "true true 0.62 2048 48 all/all 0 false true false true false false false 48 300 false 100",
-            "false false 0.8 2048 80 all/all 1 false true false true false false false 48 300 true 100",
+            "true true 0.62 2048 48 all/all 0 false true false true false false false 48 300 false 40",
+            "false false 0.7 2048 60 all/all 1 false true false true false false false 48 150 true 40",
             "false false 1.0 4096 80 all/all 2 true true true false true true true 48 768 true 100",
         };
         for (int mode = Quality.LOW; mode <= Quality.HIGH; mode++) {

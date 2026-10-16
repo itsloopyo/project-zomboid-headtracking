@@ -159,8 +159,8 @@ final class Config {
             core.configLocalInt("Graphics", "GrassDensity",
                     "How much of the grass the mod grows blade by blade is grown, as a percentage: " + Quality.LEAST_GRASS + " to " + Quality.ALL_GRASS + ".\n"
                             + "Lower, fewer and broader plants cover the same lawns and long grass, which costs less to\n"
-                            + "build and draw. Every mode grows all of it. On a server where players can hurt each\n"
-                            + "other it grows all of it.",
+                            + "build and draw. High grows all of it, Medium and Low " + Quality.SOME_GRASS + ". On a server where\n"
+                            + "players can hurt each other it grows all of it.",
                     writable | live, high.grassDensity(), Quality.LEAST_GRASS, Quality.ALL_GRASS),
             core.configLocalFloat("Graphics", "RenderScale",
                     "Share of the window's resolution the first person picture is drawn at, each way: 0.5 to 1.",

@@ -12,9 +12,10 @@ import java.util.Locale;
  * draws nothing: the picture then stays first person's, so what was made for first person is not
  * given back and made again on every switch. High
  * is the whole picture. Medium and Low draw it with fewer pixels, cheaper trees, smaller
- * shadow maps and without the passes that shade corners, light the air, mirror and give
- * surfaces depth, for a graphics card that cannot keep up with the whole of it, and Low with
- * shorter sight. A vehicle's mirror shows Low's picture in every mode where it shows one.
+ * shadow maps, fewer and broader grass plants, shorter sight and without the passes that shade
+ * corners, light the air, mirror and give surfaces depth, for a graphics card that cannot keep up
+ * with the whole of it, and Low with shorter sight still. A vehicle's mirror shows Low's
+ * picture in every mode where it shows one.
  * A first start is in Automatic in first person and in Low in the isometric view, which has no
  * Automatic: its frames are not counted. Automatic begins at High, steps down while the picture is drawn too slowly and back up while it
  * is drawn with room to spare: see frame. It judges the picture by the frames the player sees
@@ -62,13 +63,13 @@ final class Quality {
     /** The TreeQuality row's words by number: the game's sprites, the mod's crowns within Crowns.REACH, the mod's crowns as far as the view goes. */
     static final int TREES_SPRITES = 0, TREES_NEAR = 1, TREES_TO_SIGHT = 2;
     static final String TREE_QUALITIES = "Low,Medium,High";
-    /** The GrassDensity row's range, a percentage of the plants grass grows: every mode grows them all. */
-    static final int LEAST_GRASS = 10, ALL_GRASS = 100;
+    /** The GrassDensity row's range, a percentage of the plants grass grows, and the share Medium and Low grow. */
+    static final int LEAST_GRASS = 10, ALL_GRASS = 100, SOME_GRASS = 40;
     /** How far the trees beyond the loaded map can be drawn, in tiles: the far land reaches no further. */
     static final int MOST_FAR_TREES = (int) FarLand.REACH;
 
-    static final Picture LOW_PICTURE = new Picture(true, TREES_SPRITES, ALL_GRASS, 0.62f, false, 48, 48, 300, 0, false, true, false, false, false, false);
-    static final Picture MEDIUM_PICTURE = new Picture(false, TREES_NEAR, ALL_GRASS, 0.8f, false, 80, 80, 300, 1, false, true, false, false, false, true);
+    static final Picture LOW_PICTURE = new Picture(true, TREES_SPRITES, SOME_GRASS, 0.62f, false, 48, 48, 300, 0, false, true, false, false, false, false);
+    static final Picture MEDIUM_PICTURE = new Picture(false, TREES_NEAR, SOME_GRASS, 0.7f, false, 60, 60, 150, 1, false, true, false, false, false, true);
     static final Picture HIGH_PICTURE = new Picture(false, TREES_TO_SIGHT, ALL_GRASS, 1f, true, 80, 80, MOST_FAR_TREES, 2, true, true, true, true, true, true);
     /**
      * Automatic's levels, cheapest first. STOCK is the Low mode's picture, the game's own look;
