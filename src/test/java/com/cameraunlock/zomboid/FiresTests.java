@@ -26,7 +26,8 @@ final class FiresTests {
             Checks.run("aFireIsDrawnOverThePartOfThePictureItIsIn", FiresTests::aFireIsDrawnOverThePartOfThePictureItIsIn);
             Checks.run("theRowAndTheGamesOwnLookLeaveFireToTheGame", FiresTests::theRowAndTheGamesOwnLookLeaveFireToTheGame);
             Checks.run("theClockStartsAgainEachHour", FiresTests::theClockStartsAgainEachHour);
-            Checks.run("eachSheetPlaysTheLoopAtATimeOfItsOwn", FiresTests::eachSheetPlaysTheLoopAtATimeOfItsOwn);
+            Checks.run("aFiresFlamesAreTheLoopScaledToIt", FiresTests::aFiresFlamesAreTheLoopScaledToIt);
+            Checks.run("theGasGlowsAsABlackBody", FiresTests::theGasGlowsAsABlackBody);
             Checks.run("embersRiseOffTheFlamesAndCool", FiresTests::embersRiseOffTheFlamesAndCool);
             Checks.run("theJarHoldsTheFlamesLoop", FiresTests::theJarHoldsTheFlamesLoop);
             Checks.run("theGamesFlamesAndSmokeAreToldByName", FiresTests::theGamesFlamesAndSmokeAreToldByName);
@@ -192,16 +193,22 @@ final class FiresTests {
         fire[Fires.X] = 10f;
         fire[Fires.Y] = 0f;
         float[] box = new float[4];
-        check(FireDraw.box(fire, 0, 0f, 0f, eye, tanX, tan, 0f, 0f, 0.05f, box), "a fire ten tiles ahead is drawn");
+        check(FireDraw.box(fire, 0, 0f, 0f, 0f, 0f, eye, tanX, tan, 0f, 0f, 0.05f, box), "a fire ten tiles ahead is drawn");
         check(box[0] < 0f && box[2] > 0f && box[0] > -1f && box[2] < 1f, "over the middle of the picture, and not all of it across: " + box[0] + " to " + box[2]);
         check(box[1] > -1f && box[1] < 0f, "from the ground below the eye: " + box[1]);
         float[] drifted = new float[4];
-        FireDraw.box(fire, 0, 0f, 1f, eye, tanX, tan, 0f, 0f, 0.05f, drifted);
+        FireDraw.box(fire, 0, 0f, 1f, 0f, 0f, eye, tanX, tan, 0f, 0f, 0.05f, drifted);
         check(drifted[2] > box[2] && drifted[0] == box[0], "smoke carried to the right widens the part on the right alone");
+        float[] small = square(Fires.SMALL, false, false), bare = new float[4], flamed = new float[4];
+        small[Fires.X] = 10f;
+        small[Fires.Y] = 0f;
+        FireDraw.box(small, 0, 0f, 0f, 0f, 0f, eye, tanX, tan, 0f, 0f, 0.05f, bare);
+        FireDraw.box(small, 0, 0f, 0f, 1f, 2f, eye, tanX, tan, 0f, 0f, 0.05f, flamed);
+        check(flamed[3] > bare[3] && flamed[0] < bare[0], "flames reaching higher and wider than a fire's own box widen the part they are in: " + flamed[3] + " over " + bare[3]);
         fire[Fires.X] = -10f;
-        check(!FireDraw.box(fire, 0, 0f, 0f, eye, tanX, tan, 0f, 0f, 0.05f, box), "one behind the eye is not drawn");
+        check(!FireDraw.box(fire, 0, 0f, 0f, 0f, 0f, eye, tanX, tan, 0f, 0f, 0.05f, box), "one behind the eye is not drawn");
         fire[Fires.X] = 0f;
-        check(FireDraw.box(fire, 0, 0f, 0f, eye, tanX, tan, 0f, 0f, 0.05f, box) && box[0] == -1f && box[3] == 1f, "the eye in the fire is drawn over the whole picture");
+        check(FireDraw.box(fire, 0, 0f, 0f, 0f, 0f, eye, tanX, tan, 0f, 0f, 0.05f, box) && box[0] == -1f && box[3] == 1f, "the eye in the fire is drawn over the whole picture");
     }
 
     private static void theRowAndTheGamesOwnLookLeaveFireToTheGame() {
@@ -222,33 +229,60 @@ final class FiresTests {
         check(FireDraw.seconds(hour + 2_000_000_000L) == 2f && FireDraw.seconds(hour - 1_000_000_000L) == 3599f, "the flames' clock counts the seconds within the hour");
     }
 
-    private static void eachSheetPlaysTheLoopAtATimeOfItsOwn() {
-        for (float seconds = 0f; seconds < 120f; seconds += 0.37f) {
-            for (int sheet = 0; sheet < FlameSheets.SHEETS; sheet++) {
-                float frame = FlameSheets.frame(seconds, 5.5f, sheet);
-                check(frame >= 0f && frame < FlameSheets.FRAMES, "a frame of the loop at " + seconds + " s: " + frame);
-            }
+    private static void aFiresFlamesAreTheLoopScaledToIt() {
+        FlameVolume.Loop loop = new FlameVolume.Loop(64, 64, 160, 32, 8, 4, 3f, 0.6f, 0.4f, 24f, 0.0125f, 30f, 140f, null, null);
+        float[] fire = square(Fires.HEIGHT, false, false), cell = new float[2];
+        FireDraw.cellSize(fire, 0, loop, cell);
+        check(Math.abs(cell[0] * loop.reach() * loop.high() - fire[Fires.TALL]) < 1e-4f, "the loop's flames reach as high as the fire's: " + cell[0]);
+        check(cell[1] >= cell[0] * FireDraw.NARROWEST && cell[1] <= cell[0] * FireDraw.WIDEST, "and are stretched across no more than allowed: " + cell[1] / cell[0]);
+        fire[Fires.RADIUS] = 0.001f;
+        FireDraw.cellSize(fire, 0, loop, cell);
+        check(cell[1] == cell[0] * FireDraw.NARROWEST, "a fire with next to no width is squeezed only so far");
+        fire = square(Fires.HEIGHT, false, false);
+        float[] small = square(Fires.SMALL, false, false), smallCell = new float[2];
+        FireDraw.cellSize(fire, 0, loop, cell);
+        FireDraw.cellSize(small, 0, loop, smallCell);
+        float bigGoes = FireDraw.played(loop, cell[0], 1f, 0f) - FireDraw.played(loop, cell[0], 0f, 0f);
+        float smallGoes = FireDraw.played(loop, smallCell[0], 1f, 0f) - FireDraw.played(loop, smallCell[0], 0f, 0f);
+        check(bigGoes > 0f && smallGoes > bigGoes, "a big fire's flames go round slower than a small one's: " + bigGoes + " and " + smallGoes + " frames a second");
+        for (float seconds = 0f; seconds < 600f; seconds += 0.37f) {
+            float at = (FireDraw.played(loop, cell[0], seconds, 4.4f) % loop.frames());
+            check(at >= 0f && at < loop.frames(), "a fire is always somewhere in the loop: " + at);
         }
-        check(FlameSheets.frame(3f, 5.5f, 0) != FlameSheets.frame(3f, 5.5f, 1) && FlameSheets.frame(3f, 5.5f, 0) != FlameSheets.frame(3f, 9.5f, 0),
-                "two sheets of a fire, and two fires, are at different frames");
-        float step = FlameSheets.frame(3.5f, 5.5f, 0) - FlameSheets.frame(3f, 5.5f, 0);
-        check(Math.abs(step - FlameSheets.FRAMES_A_SECOND * 0.5f) < 1e-3f || step < 0f, "it plays at its speed: " + step);
+        check((FireDraw.played(loop, cell[0], 5f, 1f) % loop.frames()) != (FireDraw.played(loop, cell[0], 5f, 2f) % loop.frames()), "two fires are at places in the loop of their own");
+    }
+
+    private static void theGasGlowsAsABlackBody() {
+        float[] colour = new float[3];
+        FireDraw.blackbody(1000f, colour, 0);
+        check(colour[0] == 1f && colour[1] < 0.2f && colour[2] < 0.01f, "at 1000 K deep red: " + colour[0] + " " + colour[1] + " " + colour[2]);
+        FireDraw.blackbody(2800f, colour, 0);
+        check(colour[0] == 1f && colour[1] > 0.4f && colour[2] > 0.1f && colour[2] < colour[1], "at 2800 K a warm yellow white: " + colour[1] + " " + colour[2]);
+        float[] ramp = FireDraw.glowRamp();
+        check(ramp[0] == 0f && ramp[1] == 0f && ramp[2] == 0f, "cold gas gives no light");
+        for (int i = 1; i < 16; i++) {
+            float before = ramp[i * 3 - 3] + ramp[i * 3 - 2] + ramp[i * 3 - 1], now = ramp[i * 3] + ramp[i * 3 + 1] + ramp[i * 3 + 2];
+            check(now > before, "hotter gas is brighter, step " + i);
+            // The coldest step gives no light, so has no colour to be yellower than.
+            check(i < 2 || ramp[i * 3 + 1] / ramp[i * 3] >= ramp[i * 3 - 2] / ramp[i * 3 - 3] - 1e-6f, "and yellower, step " + i);
+        }
+        check(Math.abs(ramp[45] - FireDraw.GLOW) < 1e-3f, "the hottest at the flames' whole glow in its brightest channel");
     }
 
     private static void embersRiseOffTheFlamesAndCool() {
         float[] at = new float[4], later = new float[4];
         float radius = 0.5f, tall = 2.2f;
         // An ember wanders by up to 0.18 t squared each way, across both axes at once, in a flight of at most 1.4 lives.
-        float flight = FlameSheets.EMBER_LIFE * 1.4f, farthest = radius * 0.8f + 0.18f * flight * flight * (float) Math.sqrt(2.0);
+        float flight = FireCards.EMBER_LIFE * 1.4f, farthest = radius * 0.8f + 0.18f * flight * flight * (float) Math.sqrt(2.0);
         int flying = 0, rose = 0, pairs = 0;
-        for (int i = 0; i < FlameSheets.EMBERS; i++) {
+        for (int i = 0; i < FireCards.EMBERS; i++) {
             for (float seconds = 0f; seconds < 10f; seconds += 0.05f) {
-                FlameSheets.ember(i, 3.3f, seconds, radius, tall, at);
+                FireCards.ember(i, 3.3f, seconds, radius, tall, at);
                 check(at[3] >= 0f && at[3] <= 1f, "an ember's heat is 0 to 1: " + at[3]);
                 check(at[0] >= tall * 0.25f - 1e-5f, "it is thrown up from among the flames: " + at[0]);
                 check((float) Math.hypot(at[1], at[2]) <= farthest, "it wanders no further than the hot air takes it: " + Math.hypot(at[1], at[2]));
                 flying += at[3] > 0.05f ? 1 : 0;
-                FlameSheets.ember(i, 3.3f, seconds + 0.02f, radius, tall, later);
+                FireCards.ember(i, 3.3f, seconds + 0.02f, radius, tall, later);
                 // A moment later in the same flight it is higher and cooler.
                 if (at[3] > 0.1f && later[3] > 0.1f && later[3] < at[3]) {
                     pairs++;
@@ -256,13 +290,19 @@ final class FiresTests {
                 }
             }
         }
-        check(flying > FlameSheets.EMBERS * 100, "most of the time most embers are flying: " + flying);
+        check(flying > FireCards.EMBERS * 100, "most of the time most embers are flying: " + flying);
         check(pairs > 1000 && rose == pairs, "an ember cooling in flight always rises: " + rose + " of " + pairs);
     }
 
     private static void theJarHoldsTheFlamesLoop() {
-        // FlameSheets.read throws for a picture that is missing or not FRAMES frames laid ACROSS a row, each twice as high as wide.
-        check(FlameSheets.read() != null, "the flames' loop is in the jar and laid out as the sheets read it");
+        // FlameVolume.read throws for a loop that is missing, of another version, laid out of its frames, or short of its cells.
+        FlameVolume.Loop loop = FlameVolume.read();
+        check(loop.flame().capacity() == loop.wide() * loop.deep() * loop.high() * loop.frames() && loop.heat().capacity() * 8 == loop.flame().capacity(),
+                "the flames' loop is in the jar, its heat at half its cells each way");
+        check(loop.filled() > loop.wide() * 0.25f && loop.filled() < loop.wide() * 0.75f && loop.filledHigh() > loop.high() * loop.reach()
+                && loop.filledHigh() <= loop.high(), "the flames fill part of the loop's box, which the march keeps to: " + loop.filled() + " " + loop.filledHigh());
+        check(loop.reach() > 0.2f && loop.reach() < 1f && loop.root() > 0.1f && loop.root() < 1f && loop.rise() > 0f && loop.framesASecond() > 0f,
+                "with its flames' reach and root, rise and pace: " + loop.reach() + " " + loop.root() + " " + loop.rise() + " " + loop.framesASecond());
     }
 
     private static void theGamesFlamesAndSmokeAreToldByName() {
@@ -428,9 +468,9 @@ final class FiresTests {
     }
 
     private static void theEyeStopsDownForFlamesAtNight() {
-        check(FlameSheets.stoppedDown(0.3f) == 1f && FlameSheets.stoppedDown(FlameSheets.DAY_EXPOSURE) == 1f, "by day the flames are drawn with all their light");
-        float night = 1.5f, shown = night * FlameSheets.stoppedDown(night), day = FlameSheets.DAY_EXPOSURE;
+        check(FireCards.stoppedDown(0.3f) == 1f && FireCards.stoppedDown(FireCards.DAY_EXPOSURE) == 1f, "by day the flames are drawn with all their light");
+        float night = 1.5f, shown = night * FireCards.stoppedDown(night), day = FireCards.DAY_EXPOSURE;
         check(shown > day && shown < 2f * day, "at night they show a little brighter than by day, not three times as bright: " + shown / day);
-        check(FlameSheets.stoppedDown(1f) > FlameSheets.stoppedDown(1.5f), "the more the eye has opened, the more it stops down");
+        check(FireCards.stoppedDown(1f) > FireCards.stoppedDown(1.5f), "the more the eye has opened, the more it stops down");
     }
 }

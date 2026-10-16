@@ -530,9 +530,9 @@ final class Pipeline {
     private static final float SCALE = Float.parseFloat(System.getProperty("cameraunlock.zomboid.renderScale", "1"));
     /** Dev only: passes left out of the picture, to find which of them a fault is in. Any of steady, occlusion, air, glow, relief, and depth for the solid world and what grows drawn once with no pass for their depth first. */
     private static final String WITHOUT = System.getProperty("cameraunlock.zomboid.without", "");
-    private static final String[] STAGE_NAMES = {"load", "shadows", "world", "clouds", "sky", "occlusion", "air", "glow", "develop", "figures", "smooth", "depth", "solid", "laid", "mirror", "farland", "fartrees", "water", "glass", "scope"};
+    private static final String[] STAGE_NAMES = {"load", "shadows", "world", "clouds", "sky", "occlusion", "air", "glow", "develop", "figures", "smooth", "depth", "solid", "laid", "mirror", "farland", "fartrees", "water", "glass", "scope", "fire"};
     private static final int STAGE_LOAD = 0, STAGE_SHADOWS = 1, STAGE_WORLD = 2, STAGE_CLOUDS = 3, STAGE_SKY = 4, STAGE_OCCLUSION = 5,
-            STAGE_AIR = 6, STAGE_GLOW = 7, STAGE_DEVELOP = 8, STAGE_FIGURES = 9, STAGE_SMOOTH = 10, STAGE_DEPTH = 11, STAGE_SOLID = 12, STAGE_LAID = 13, STAGE_MIRROR = 14, STAGE_FAR_LAND = 15, STAGE_FAR_TREES = 16, STAGE_WATER = 17, STAGE_GLASS = 18, STAGE_SCOPE = 19;
+            STAGE_AIR = 6, STAGE_GLOW = 7, STAGE_DEVELOP = 8, STAGE_FIGURES = 9, STAGE_SMOOTH = 10, STAGE_DEPTH = 11, STAGE_SOLID = 12, STAGE_LAID = 13, STAGE_MIRROR = 14, STAGE_FAR_LAND = 15, STAGE_FAR_TREES = 16, STAGE_WATER = 17, STAGE_GLASS = 18, STAGE_SCOPE = 19, STAGE_FIRE = 20;
     private final long[] stageNanos = new long[STAGE_NAMES.length];
     private int stageFrames;
     private final int[] downTarget = new int[BLOOM_LEVELS], downColor = new int[BLOOM_LEVELS];
@@ -1156,6 +1156,7 @@ final class Pipeline {
             if (state.leafCount > 0 && !overhead) {
                 drawLeaves(steadying ? movesTarget : sceneTarget, camera, state, tanHalfFieldOfView, aspect, near, far, fogStart, fogEnd);
             }
+            stage(STAGE_SKY);
             // After the rain, which falls beyond and before a fire alike, and before any glass, which is before it.
             fires.draw(steadying ? movesUndepthed : decalTarget, sceneDepth, state, camera, tanHalfFieldOfView, aspect, near, far, width, height, asideX, asideY, frameNanos,
                     exposure);
@@ -1170,6 +1171,7 @@ final class Pipeline {
                 copyDepth(sceneTarget, keptDepthTarget);
                 fires.depth(sceneTarget, camera, tanHalfFieldOfView, aspect, near, far, width, height, asideX, asideY, frameNanos);
             }
+            stage(STAGE_FIRE);
             if (!overhead) {
                 drawPanes(camera, state, tanHalfFieldOfView, aspect, fogStart, fogEnd);
             }
@@ -5481,6 +5483,11 @@ final class Pipeline {
         return noneTexture;
     }
 
+    /** The clouds' noise, a three-dimensional texture that repeats every NOISE_SIZE cells each way (CloudNoise), made before anything is drawn. */
+    static int noise() {
+        return noiseTexture;
+    }
+
     /** Queued on frames that draw no picture while first person is being got ready: hands the graphics card the far land made since the last. */
     final TextureDraw.GenericDrawer HAND_FAR = new TextureDraw.GenericDrawer() {
         @Override
@@ -5998,6 +6005,7 @@ final class Pipeline {
             Flats.letGo();
             Rugs.letGo();
             Trims.letGo();
+            FlameVolume.letGo();
             forgetTexels();
             GL15.glDeleteBuffers(modelBuffer);
             GL15.glDeleteBuffers(modelCorners);
