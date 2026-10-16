@@ -182,6 +182,25 @@ final class Hoods {
         return flags.has(IsoFlagType.WallW) || flags.has(IsoFlagType.WallWTrans) || flags.has(IsoFlagType.WindowW) || flags.has(IsoFlagType.DoorWallW);
     }
 
+    /** Whether a wall stands on the north edge of a square, or the west one: false for no square. */
+    static boolean walled(IsoGridSquare square, boolean north) {
+        if (square == null) {
+            return false;
+        }
+        PZArrayList<IsoObject> objects = square.getObjects();
+        for (int i = 0; i < objects.size(); i++) {
+            IsoSprite sprite = objects.get(i).getSprite();
+            if (sprite == null) {
+                continue;
+            }
+            PropertyContainer flags = sprite.getProperties();
+            if (flags.has(IsoFlagType.WallNW) || (north ? walledNorth(flags) : walledWest(flags))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     static Squares on(IsoCell cell, int z) {
         return new Squares() {
             @Override
@@ -203,22 +222,7 @@ final class Hoods {
 
             @Override
             public boolean walled(int x, int y, int wall) {
-                IsoGridSquare square = cell.getGridSquare(x, y, z);
-                if (square == null) {
-                    return false;
-                }
-                PZArrayList<IsoObject> objects = square.getObjects();
-                for (int i = 0; i < objects.size(); i++) {
-                    IsoSprite sprite = objects.get(i).getSprite();
-                    if (sprite == null) {
-                        continue;
-                    }
-                    PropertyContainer flags = sprite.getProperties();
-                    if (flags.has(IsoFlagType.WallNW) || (wall == Outdoors.WEST ? walledWest(flags) : walledNorth(flags))) {
-                        return true;
-                    }
-                }
-                return false;
+                return Hoods.walled(cell.getGridSquare(x, y, z), wall != Outdoors.WEST);
             }
 
             @Override

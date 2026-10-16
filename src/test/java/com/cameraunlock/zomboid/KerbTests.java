@@ -27,6 +27,7 @@ final class KerbTests {
         Checks.run("chunkWithNoStreetHasNoField", KerbTests::chunkWithNoStreetHasNoField);
         Checks.run("floorAKerbCrossesIsLaidAtTwoHeightsAndIsAllThere", KerbTests::floorAKerbCrossesIsLaidAtTwoHeightsAndIsAllThere);
         Checks.run("kerbAlongTheEdgeOfAStreetsSquareIsFoundForWhatStandsOnIt", KerbTests::kerbAlongTheEdgeOfAStreetsSquareIsFoundForWhatStandsOnIt);
+        Checks.run("kerbsTopStopsAtAHousesWallAndNowhereElse", KerbTests::kerbsTopStopsAtAHousesWallAndNowhereElse);
     }
 
     private static void check(boolean condition, String what) {
@@ -284,5 +285,38 @@ final class KerbTests {
                 }
             }
         }
+    }
+
+    /** Ground with rooms west of column 5 or north of row 5 (as asked), and walls where asked. */
+    private static KerbBuilder.Behind ground(boolean roomsWest, boolean walls) {
+        return new KerbBuilder.Behind() {
+            @Override
+            public boolean room(int x, int y) {
+                return roomsWest ? x < 5 : y < 5;
+            }
+
+            @Override
+            public boolean walled(int x, int y, boolean north) {
+                return walls && (roomsWest ? !north && x == 5 : north && y == 5);
+            }
+        };
+    }
+
+    /** The top of a length of kerb from (x0, y0) to (x1, y1), both ends facing (fx, fy). */
+    private static float back(KerbBuilder.Behind behind, float x0, float y0, float x1, float y1, float fx, float fy) {
+        return KerbBuilder.topBack(behind, new float[] {x0, y0, 0f, x1, y1, 0f}, new float[] {fx, fy, fx, fy});
+    }
+
+    private static void kerbsTopStopsAtAHousesWallAndNowhereElse() {
+        // Rooms west of column 5 (or north of row 5), the street beyond, the kerb on the line between them facing the street.
+        float full = back(ground(true, false), 7f, 2.25f, 7f, 2.75f, 1f, 0f);
+        check(full > 0.1f, "a kerb out in the street lays its whole top");
+        check(back(ground(true, true), 5f, 2.25f, 5f, 2.75f, 1f, 0f) == 0f, "on a house's west wall with a room behind, the top stops at the line");
+        check(back(ground(false, true), 2.25f, 5f, 2.75f, 5f, 0f, 1f) == 0f, "on a house's north wall with a room behind, the top stops at the line");
+        check(back(ground(true, true), 5f, 2.9f, 5.3f, 3.2f, 0.7071f, 0.7071f) == 0f,
+                "a length leaving the wall round a corner is decided as a whole, by the end still on the wall, so it does not taper");
+        check(back(ground(true, false), 5f, 2.25f, 5f, 2.75f, 1f, 0f) == full, "a room open to the street, with no wall on the line, keeps the kerb's top");
+        check(back(ground(true, true), 5.3f, 2.25f, 5.3f, 2.75f, 1f, 0f) == full, "a line clear of the wall by more than the top is wide keeps its top");
+        check(back(ground(true, true), 5f, 2.25f, 5f, 2.75f, -1f, 0f) == full, "with the street behind and land in front, nothing is cut");
     }
 }

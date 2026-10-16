@@ -2,6 +2,7 @@ package com.cameraunlock.zomboid;
 
 import zombie.core.properties.PropertyContainer;
 import zombie.core.textures.Texture;
+import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoObject;
 
 /**
@@ -182,6 +183,7 @@ final class KerbBuilder {
             kerbAt[3 * end + 2] = top + settled(x + a, y + b, Math.abs(kerbFacing[2 * end]) > Math.abs(kerbFacing[2 * end + 1]));
             kerbTop[end] = top;
         }
+        float back = topBack(behind, kerbAt, kerbFacing);
         for (int strip = 0; strip + 1 < PROFILE.length; strip++) {
             for (int corner : KERB_CORNERS) {
                 int end = corner >> 1;
@@ -191,11 +193,58 @@ final class KerbBuilder {
                 float[] facing = strip == BACK ? PROFILE[BACK + 1] : edge;
                 mesh.face(outX * facing[3], outY * facing[3], facing[4]);
                 float up = (edge[5] > 0f ? kerbTop[end] : kerbAt[3 * end + 2]) - edge[1];
+                float out = edge[0] == -TOP_WIDTH ? -back : edge[0];
                 // The texel's first number says which of the map's two ways the kerb runs more along there, for its joints.
-                mesh.add(kerbAt[3 * end] + outX * edge[0], kerbAt[3 * end + 1] + outY * edge[0], up,
+                mesh.add(kerbAt[3 * end] + outX * out, kerbAt[3 * end + 1] + outY * out, up,
                         Math.abs(outX) > Math.abs(outY) ? 0f : 1f, edge[2], build.frame.red, build.frame.green, build.frame.blue);
             }
         }
+    }
+
+    /** What stands behind a kerb, on the ground floor. */
+    interface Behind {
+        boolean room(int x, int y);
+
+        /** Whether a wall stands on the north edge of square (x, y), or the west edge. */
+        boolean walled(int x, int y, boolean north);
+    }
+
+    private final Behind behind = new Behind() {
+        @Override
+        public boolean room(int x, int y) {
+            IsoGridSquare square = build.cell.getGridSquare(x, y, 0);
+            return square != null && square.getRoomID() != -1L;
+        }
+
+        @Override
+        public boolean walled(int x, int y, boolean north) {
+            return Hoods.walled(build.cell.getGridSquare(x, y, 0), north);
+        }
+    };
+
+    /**
+     * How far back from its line a length of kerb lays its top, for the whole length: its ends at at (x, y, height for
+     * each) and facing ((x, y) for each). Where either end is against a house's wall with a room behind it, the top
+     * stops at the line, inside the wall: laid back from it, it would lie on the room's floor, lit as the street is.
+     * A room open to the street with no wall keeps its kerb.
+     */
+    static float topBack(Behind behind, float[] at, float[] facing) {
+        for (int end = 0; end < 2; end++) {
+            if (againstWall(behind, at[3 * end], at[3 * end + 1], facing[2 * end], facing[2 * end + 1])) {
+                return 0f;
+            }
+        }
+        return TOP_WIDTH;
+    }
+
+    /** Whether the top laid back from (x, y) facing (facingX, facingY) would be in a room, past a wall the top's width or less away. */
+    private static boolean againstWall(Behind behind, float x, float y, float facingX, float facingY) {
+        if (!behind.room((int) Math.floor(x - facingX * TOP_WIDTH), (int) Math.floor(y - facingY * TOP_WIDTH))) {
+            return false;
+        }
+        int column = Math.round(x), row = Math.round(y);
+        return Math.abs(x - column) <= TOP_WIDTH && behind.walled(column, (int) Math.floor(y), false)
+                || Math.abs(y - row) <= TOP_WIDTH && behind.walled((int) Math.floor(x), row, true);
     }
 
     /**
