@@ -38,6 +38,43 @@ final class FurnishingBuilder {
         return null;
     }
 
+    /** The object on a square whose sprite is called name, or null. */
+    private static IsoObject named(IsoGridSquare square, String name) {
+        if (square == null) {
+            return null;
+        }
+        PZArrayList<IsoObject> objects = square.getObjects();
+        for (int i = 0; i < objects.size(); i++) {
+            IsoSprite sprite = objects.get(i).getSprite();
+            if (sprite != null && name.equals(sprite.getName())) {
+                return objects.get(i);
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Whether the other squares a piece on (x, y, z) is painted on hold their sprites: its
+     * partner's, and the other two of its row. Null where none is missing but one is on a square
+     * the map has not loaded.
+     */
+    static Boolean othersThere(Furniture piece, Towers.Squares squares, int x, int y, int z) {
+        Boolean all = Boolean.TRUE;
+        if (piece.partner != null) {
+            all = both(all, squares.holds(x + piece.partnerX, y + piece.partnerY, z, piece.partner));
+        }
+        if (piece.row != null) {
+            for (int i = 0; i < piece.row.length; i++) {
+                all = both(all, squares.holds(x + piece.rowX[i], y + piece.rowY[i], z, piece.row[i]));
+            }
+        }
+        return all;
+    }
+
+    private static Boolean both(Boolean one, Boolean other) {
+        return one == Boolean.FALSE || other == Boolean.FALSE ? Boolean.FALSE : one == null || other == null ? null : Boolean.TRUE;
+    }
+
     private final WorldScene.Frame build;
     /** The squares of the map the build is of, by the sprites they hold. */
     private final Towers.Squares squares;
@@ -288,7 +325,9 @@ final class FurnishingBuilder {
      * taken. Leaves where the colours are taken in dyeU to alsoV, alsoDyed and dyeTexture.
      */
     private boolean ready(IsoObject object, Furniture piece, int x, int y, int z) {
-        IsoObject dyer = whole(piece, object, (dx, dy, sprite) -> holding(build.cell.getGridSquare(x + dx, y + dy, z), sprite), readyOrigin);
+        // A square of a row takes its colour from the one of the row that gives it, as the others do.
+        IsoObject self = piece.rowDyer < 0 ? object : named(build.cell.getGridSquare(x + piece.rowX[piece.rowDyer], y + piece.rowY[piece.rowDyer], z), piece.row[piece.rowDyer]);
+        IsoObject dyer = whole(piece, self, (dx, dy, sprite) -> holding(build.cell.getGridSquare(x + dx, y + dy, z), sprite), readyOrigin);
         if (dyer == null) {
             return false;
         }
@@ -436,19 +475,20 @@ final class FurnishingBuilder {
             IsoObject counter = onSquare(x, y, z, false);
             return counter != null && ready(counter, Furniture.known(counter.getSprite()), x, y, z);
         }
-        if (piece.partner != null) {
-            Boolean there = squares.holds(x + piece.partnerX, y + piece.partnerY, z, piece.partner);
-            if (there == null) {
-                // Made again when the map has loaded the partner's square.
+        if (piece.partner != null || piece.row != null) {
+            Boolean others = othersThere(piece, squares, x, y, z);
+            if (others == null) {
+                // Made again when the map has loaded the square that decides it.
                 build.wantsMap = true;
             }
-            if (there != Boolean.TRUE) {
+            if (others != Boolean.TRUE) {
                 return false;
             }
         }
         if (piece.follows) {
-            // Dealt with by the other sprite of the pair, which stands the whole piece.
-            return true;
+            // Dealt with by another sprite of the piece, which stands it: a square of a row only where that one's colour
+            // is painted, as that one asks.
+            return piece.row == null || ready(object, piece, x, y, z);
         }
         if (!ready(object, piece, x, y, z)) {
             return false;

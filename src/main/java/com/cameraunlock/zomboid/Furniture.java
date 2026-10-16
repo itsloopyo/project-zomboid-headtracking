@@ -91,6 +91,10 @@ final class Furniture {
     int partnerX, partnerY;
     /** Whether this sprite is the one of such a pair that stands nothing. */
     boolean follows;
+    /** For a piece painted in sprites on three squares in a row: the others' names, where they are, and which gives the colour, or -1 for this one. See Outdoors.Piece. */
+    String[] row;
+    int[] rowX, rowY;
+    int rowDyer = -1;
     /** For a piece that stands on the floor and whose pane shows its sprite's painting, how far along the model's y the pane's face is. */
     float paneY;
     /** Whether this is a shop's fitting that ShopFittings stands goods or clothes on while the game paints what it holds. */
@@ -720,6 +724,10 @@ final class Furniture {
         piece.partnerX = outside.partnerX;
         piece.partnerY = outside.partnerY;
         piece.follows = outside.follows;
+        piece.row = outside.row;
+        piece.rowX = outside.rowX;
+        piece.rowY = outside.rowY;
+        piece.rowDyer = outside.rowDyer;
         piece.pictured = outside.pictured;
         piece.paneY = outside.paneY;
         piece.onRoof = outside.onRoof;

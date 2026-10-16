@@ -40,6 +40,15 @@ final class Outdoors {
         /** Whether this is the one of such a pair that stands nothing: the other stands the whole piece. */
         boolean follows;
         /**
+         * For a piece the game paints in sprites on three squares in a row, with no grid to tie them: the other two's
+         * names and how far each one's square is from this one's, and which of them gives the piece its colour, or -1
+         * for this one. Every square of the row reaches the same answer: each stands its share of the piece, or stands
+         * nothing and hides its sprite, only where all three are there and the one that gives the colour paints it.
+         */
+        String[] row;
+        int[] rowX, rowY;
+        int rowDyer = -1;
+        /**
          * Whether the model's pane shows the sprite's own painting, each point of it looking at where the sprite paints that
          * point, and how far along the model's y the pane's face is: a road sign's plate.
          */
@@ -108,6 +117,14 @@ final class Outdoors {
             partner = name;
             partnerX = x;
             partnerY = y;
+            return this;
+        }
+
+        Piece inRow(String first, int firstX, int firstY, String second, int secondX, int secondY, int dyer) {
+            row = new String[] {first, second};
+            rowX = new int[] {firstX, secondX};
+            rowY = new int[] {firstY, secondY};
+            rowDyer = dyer;
             return this;
         }
 
@@ -771,7 +788,7 @@ final class Outdoors {
         };
     }
 
-    private static Piece following(Piece piece) {
+    static Piece following(Piece piece) {
         piece.follows = true;
         return piece.each();
     }
