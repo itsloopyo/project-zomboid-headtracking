@@ -3924,6 +3924,11 @@ final class PipelineShaders {
 
             const float BOX = 14.0;
             const float HIGH = 12.0;
+            // A drop a hand's breadth from the eye is far out of its focus, a blur too faint to
+            // see, and a streak quad that near would cross the whole picture. A drop shows from
+            // NEAR tiles off and wholly from CLEAR.
+            const float NEAR = 0.8;
+            const float CLEAR = 2.5;
 
             void main() {
                 vec3 seed = gl_Vertex.xyz;
@@ -3938,10 +3943,11 @@ final class PipelineShaders {
                 vec3 side = normalize(cross(way, uEye - p));
                 // A streak thinner than a dot of the picture flickers: it is drawn a dot wide and as much fainter.
                 float thin = max(uThin, uPerPixel * distance(uEye, p));
-                vShare = uThin / thin;
+                vec3 tail = p - way * (uLong * length(past));
+                vShare = uThin / thin * smoothstep(NEAR, CLEAR, min(distance(uEye, p), distance(uEye, tail)));
                 float along = corner > 1.5 ? 1.0 : 0.0;
                 float across = corner > 0.5 && corner < 2.5 ? 1.0 : -1.0;
-                vec3 at = p - way * (uLong * length(past) * along) + side * (across * thin);
+                vec3 at = mix(p, tail, along) + side * (across * thin);
                 vWorld = at;
                 vIn = vec2(across, along);
                 // The harder it rains the more of the drops there are.
