@@ -164,6 +164,7 @@ public final class Tests {
         Checks.run("WindowTests", WindowTests::run);
         Checks.run("WallTileTests", WallTileTests::run);
         Checks.run("DoorTests", DoorTests::run);
+        Checks.run("GarageDoorTests", GarageDoorTests::run);
         Checks.run("ReflectionTests", ReflectionTests::run);
         Checks.run("GlassExitTests", GlassExitTests::run);
         Checks.run("LookingGlassTests", LookingGlassTests::run);

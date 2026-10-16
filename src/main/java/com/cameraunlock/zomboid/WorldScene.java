@@ -794,6 +794,14 @@ final class WorldScene {
             return otherHue ? fallsOther : falls;
         }
 
+        /**
+         * Whether a sprite is a wall the picture may lay as masonry: one of a sheet of outside walls. A garage
+         * door is on such a sheet and is no masonry: its sections' grooves read as courses of brick.
+         */
+        static boolean laidWall(String name, PropertyContainer properties) {
+            return Masonry.suits(name) && !properties.has("GarageDoor");
+        }
+
         Kind(IsoSprite sprite) {
             PropertyContainer properties = sprite.getProperties();
             String name = sprite.getName();
@@ -803,8 +811,7 @@ final class WorldScene {
             asFloor = floor != 0f ? floor : materialOf(name, true);
             asOther = printed(properties, name) ? PRINT : other != 0f ? other : materialOf(sprite);
             garageDoor = properties.has("GarageDoor");
-            // A garage door is drawn on its sheet of outside walls, and its sections' grooves read as courses: laid, it was brick.
-            laidWall = Masonry.suits(name) && !garageDoor;
+            laidWall = laidWall(name, properties);
             gableSheet = laidWall && name.startsWith("walls_exterior_roofs");
             lies = Flat.lies(properties.get("RenderLayer"), properties.get("MoveType"));
             wire = name != null && name.startsWith("appliances_com");

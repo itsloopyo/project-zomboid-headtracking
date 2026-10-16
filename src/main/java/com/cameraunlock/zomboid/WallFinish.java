@@ -380,8 +380,9 @@ final class WallFinish {
         return square == null || square.getRoomID() == -1L;
     }
 
-    private static boolean opens(PropertyContainer properties) {
-        return properties.has(IsoFlagType.DoorWallN) || properties.has(IsoFlagType.DoorWallW)
+    /** A wall with a door or a window in it, or a garage door, which the game marks as a plain wall. */
+    static boolean opens(PropertyContainer properties) {
+        return properties.has("GarageDoor") || properties.has(IsoFlagType.DoorWallN) || properties.has(IsoFlagType.DoorWallW)
                 || properties.has(IsoFlagType.WindowN) || properties.has(IsoFlagType.WindowW);
     }
 
@@ -446,9 +447,14 @@ final class WallFinish {
         return WorldScene.usable(texture) ? new Facing(sprite, texture) : null;
     }
 
+    /** Whether a wall has a say in what finish its room or face has: not a garage door, which is no finish, and a garage's face can be mostly door. */
+    static boolean votes(PropertyContainer properties) {
+        return !properties.has("GarageDoor");
+    }
+
     private static void vote(Tally tally, IsoGridSquare square, boolean north) {
         IsoObject wall = WorldScene.wallOn(square, north);
-        if (wall == null) {
+        if (wall == null || !votes(wall.getSprite().getProperties())) {
             return;
         }
         Texture texture = wall.getSprite().getTextureForCurrentFrame(wall.getDir());
