@@ -271,7 +271,7 @@ final class Furniture {
         Glass(WorldScene.Frame build, Furniture piece, int x, int y, float foot) {
             mesh = WorldScene.laid.get(WorldScene.PLAIN, WallSides.PANES);
             mesh.sway = 0f;
-            mesh.open = build.frame.open + 32f * WorldScene.PANE;
+            mesh.open = build.frame.open + 32f * WorldScene.INNER_PANE;
             this.piece = piece;
             this.x = x;
             this.y = y;

@@ -125,6 +125,8 @@ final class OpeningBuilder {
     private int windowLit;
     /** The light on each side of the window or the door being built, as windowLit numbers them: see lightSides. */
     private final float[] sideRed = new float[2], sideGreen = new float[2], sideBlue = new float[2], sideOpen = new float[2];
+    /** The side the panes being laid face into: see facePane. */
+    private int paneSide;
 
     OpeningBuilder(WorldScene.Frame build) {
         this.build = build;
@@ -460,8 +462,10 @@ final class OpeningBuilder {
         }
         SpriteGeometry.Mesh glass = WorldScene.laid.get(WorldScene.PLAIN, WallSides.PANES);
         glass.sway = 0f;
-        glass.open = build.frame.open + 32f * WorldScene.PANE;
-        glass.face(db, da, 0f);
+        // Swung open, the leaf stands in its own square, which is on both its faces.
+        IsoGridSquare beyond = build.doorSwung ? build.here : beyondEdge(north, x, y, z);
+        boolean ownIsRoom = indoors(build.here) || !indoors(beyond);
+        facePane(glass, ownIsRoom, indoors(beyond), false, da, db);
         for (int pane = 0; pane < leaf.panes.length; pane += 5) {
             float t0 = leaf.panes[pane], t1 = leaf.panes[pane + 1], h0 = leaf.panes[pane + 2], h1 = leaf.panes[pane + 3];
             if (leaf.panes[pane + 4] >= 1f) {
@@ -497,9 +501,9 @@ final class OpeningBuilder {
         if (glazedOnly && shape.panes.length == 0) {
             return false;
         }
-        IsoGridSquare beyond = build.cell.getGridSquare(north ? x : x - 1, north ? y - 1 : y, z);
-        boolean ownIsRoom = build.here.getRoomID() != -1L || beyond == null || beyond.getRoomID() == -1L;
-        boolean beyondIsRoom = beyond != null && beyond.getRoomID() != -1L;
+        IsoGridSquare beyond = beyondEdge(north, x, y, z);
+        boolean ownIsRoom = indoors(build.here) || !indoors(beyond);
+        boolean beyondIsRoom = indoors(beyond);
         boolean lit = WorldScene.lamplit(build.cell, ownIsRoom ? build.here : beyond, build.playerIndex, build.asTheGameShows || build.gamesView, build.lampsNear);
 
         windowX = x;
@@ -547,10 +551,7 @@ final class OpeningBuilder {
 
         SpriteGeometry.Mesh glass = WorldScene.laid.get(WorldScene.PLAIN, WallSides.PANES);
         glass.sway = 0f;
-        glass.open = build.frame.open + 32f * (lit ? WorldScene.LIT_PANE : WorldScene.PANE);
-        // A pane faces into its room, which is how the picture tells its street side.
-        float faces = ownIsRoom ? 1f : -1f;
-        glass.face(db * faces, da * faces, 0f);
+        facePane(glass, ownIsRoom, beyondIsRoom, lit, da, db);
         for (int pane = 0; pane < shape.panes.length; pane += 5) {
             float t0 = shape.panes[pane], t1 = shape.panes[pane + 1], h0 = shape.panes[pane + 2], h1 = shape.panes[pane + 3];
             if (shape.panes[pane + 4] >= 1f) {
@@ -669,6 +670,45 @@ final class OpeningBuilder {
         sideOpen[1] = same ? build.frame.open : unseen ? 1f : build.lightOpen[beyondLight];
     }
 
+    /** The square across the north or west edge of square x, y on level z, null where the map has none. */
+    private IsoGridSquare beyondEdge(boolean north, int x, int y, int z) {
+        return build.cell.getGridSquare(north ? x : x - 1, north ? y - 1 : y, z);
+    }
+
+    /** In a room and under its roof: a square of a room that is out of doors, under a shop's canopy, is the street's. */
+    static boolean indoors(IsoGridSquare square) {
+        return square != null && square.getRoomID() != -1L && !square.isOutside();
+    }
+
+    /**
+     * Makes the panes laid next on the edge face into the room, lit as the room is (see
+     * lightSides), and of the material paneMaterial gives: the room side's light is what a
+     * pane mirrors to an eye in the room, and on a south or east wall the square the edge is
+     * read from is the street.
+     */
+    private void facePane(SpriteGeometry.Mesh glass, boolean ownIsRoom, boolean beyondIsRoom, boolean lit, float da, float db) {
+        paneSide = paneSide(ownIsRoom);
+        glass.open = sideOpen[paneSide] + 32f * paneMaterial(ownIsRoom, beyondIsRoom, lit);
+        float faces = paneSide == 0 ? 1f : -1f;
+        glass.face(db * faces, da * faces, 0f);
+    }
+
+    /** Which of lightSides' two sides a pane faces into: 0 the square the edge is read from, 1 the one beyond. */
+    static int paneSide(boolean ownIsRoom) {
+        return ownIsRoom ? 0 : 1;
+    }
+
+    /**
+     * What a pane in an edge is made of. It faces into a room where it has one (or into the
+     * square, with the street both sides), and mirrors the street only to an eye on its other
+     * face: with a room on both sides, a window between two rooms or a door, it has no street
+     * side and mirrors only the room the eye is in. A lamp behind a pane lights it for the
+     * street, so a pane with no street side is never lit.
+     */
+    static float paneMaterial(boolean ownIsRoom, boolean beyondIsRoom, boolean lit) {
+        return ownIsRoom && beyondIsRoom ? WorldScene.INNER_PANE : lit ? WorldScene.LIT_PANE : WorldScene.PANE;
+    }
+
     /** Where the point a share along the window's edge, up levels high and across tiles into its square is, into c at i. */
     private void windowPoint(float[] c, int i, float along, float up, float across) {
         WorldScene.set(c, i, windowX + windowAlongX * along + windowAlongY * across, windowY + windowAlongY * along + windowAlongX * across,
@@ -778,9 +818,10 @@ final class OpeningBuilder {
         windowPoint(c, 0, t0, h0, 0f);
         windowPoint(c, 1, t1, h1, 0f);
         windowPoint(c, 2, t2, h2, 0f);
-        mesh.add(c[0], c[1], c[2], u0, v0, build.frame.red, build.frame.green, build.frame.blue);
-        mesh.add(c[3], c[4], c[5], u1, v1, build.frame.red, build.frame.green, build.frame.blue);
-        mesh.add(c[6], c[7], c[8], u2, v2, build.frame.red, build.frame.green, build.frame.blue);
+        float r = sideRed[paneSide], g = sideGreen[paneSide], b = sideBlue[paneSide];
+        mesh.add(c[0], c[1], c[2], u0, v0, r, g, b);
+        mesh.add(c[3], c[4], c[5], u1, v1, r, g, b);
+        mesh.add(c[6], c[7], c[8], u2, v2, r, g, b);
     }
 
     /**

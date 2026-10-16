@@ -34,6 +34,8 @@ final class WallBuilder {
     private static final float LOWEST_DOOR = 0.5f;
     /** A window pane with a lamp burning in the room behind it. */
     static final float LIT_GLASS = 65f;
+    /** The glass of a window's sprite with a room on both sides, which has no street side: see OpeningBuilder.paneMaterial. */
+    static final float INNER_GLASS = 94f;
     /** How far a wall's colour may be from that of its building's walls, summed over red, green and blue, for it to be built as they are. */
     private static final float SAME_FINISH = 0.3f;
     /** How high a wall has to stand short of its level for its top to be closed: a full wall's top is under the floor or the roof over it. */
@@ -674,14 +676,17 @@ final class WallBuilder {
      * Turns the window on the north or west edge of the square being added to face into its
      * room, which is how the picture tells the street side of a pane from the room side, and
      * marks it as lit from inside when a lamp burns in the room. A window between two
-     * rooms, or between two places out of doors, faces into its own square.
+     * places out of doors faces into its own square, and one between two rooms is glass with
+     * no street side.
      */
     private void faceIntoRoom(int x, int y, int z, boolean north) {
         IsoGridSquare beyond = build.cell.getGridSquare(north ? x : x - 1, north ? y - 1 : y, z);
-        boolean ownIsRoom = build.here.getRoomID() != -1L || beyond == null || beyond.getRoomID() == -1L;
+        boolean ownIsRoom = OpeningBuilder.indoors(build.here) || !OpeningBuilder.indoors(beyond);
         // A face on a north edge looks north, out of its square, and one on a west edge east, into it.
         build.geometry.turned = north == ownIsRoom;
-        if (WorldScene.lamplit(build.cell, ownIsRoom ? build.here : beyond, build.playerIndex, build.asTheGameShows || build.gamesView, build.lampsNear)) {
+        if (ownIsRoom && OpeningBuilder.indoors(beyond)) {
+            build.frame.material = INNER_GLASS;
+        } else if (WorldScene.lamplit(build.cell, ownIsRoom ? build.here : beyond, build.playerIndex, build.asTheGameShows || build.gamesView, build.lampsNear)) {
             build.frame.material = LIT_GLASS;
         }
     }

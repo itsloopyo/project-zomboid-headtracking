@@ -961,6 +961,9 @@ final class PipelineShaders {
             // Over how many tiles what every surface mirrors of what is round it fades out, before
             // the built world itself begins to: see gone.
             const float MIRROR_FADE = 25.0;
+            // How much of the light on a pane the room it faces gives back: walls, floor and
+            // furniture are mid-toned on the whole.
+            const float ROOM_THROWN = 0.35;
             uniform float uDark;
             uniform vec4 uLantern;
             uniform vec3 uOpenLinear;
@@ -2561,10 +2564,14 @@ final class PipelineShaders {
                 // street. A window's sheet faces into its room.
                 // A window the picture has built has a sheet of glass of its own in each light: all
                 // of it is pane, with no sprite to tell the glass from.
-                bool sheet = vMaterial > 66.5 && vMaterial < 68.5;
+                // Glass with a room on both sides, built or a window's sprite, has no street side
+                // (OpeningBuilder.paneMaterial, WallBuilder.INNER_GLASS).
+                bool innerPane = vMaterial > 70.5 && vMaterial < 71.5;
+                bool inner = innerPane || vMaterial > 93.5 && vMaterial < 94.5;
+                bool sheet = vMaterial > 66.5 && vMaterial < 68.5 || innerPane;
                 bool lamplit = vMaterial > 64.5 && vMaterial < 65.5 || vMaterial > 67.5 && vMaterial < 68.5;
-                bool window = lamplit || sheet || vMaterial > 12.5 && vMaterial < 13.5;
-                float glazed = 0.0, thrown = 0.0, veil = 1.0, glow = 0.0, street = 1.0;
+                bool window = lamplit || sheet || inner || vMaterial > 12.5 && vMaterial < 13.5;
+                float glazed = 0.0, thrown = 0.0, veil = 1.0, glow = 0.0, street = 0.0, roomLaid = 0.0;
                 bool film = uLaid < 0.5 && vKind < 1.5 && uTexel.x > 0.0 && cover > 0.22 && cover < 0.8 && texel.b > texel.r + 0.05 && texel.g > texel.r
                         && abs(vNormal.z) < 0.5 * length(vNormal);
                 if (film && small) {
@@ -2583,13 +2590,20 @@ final class PipelineShaders {
                 float soiled = 0.0;
                 if (film) {
                     vec3 face = normalize(vNormal), sight = normalize(uEye - vWorld);
-                    float outside = window ? step(dot(face, sight), 0.0) : 0.5;
+                    float outside = inner ? 0.0 : window ? step(dot(face, sight), 0.0) : 0.5;
+                    // What a pane throws back is what is on the eye's side of it: the street on its
+                    // street side and the room on its room side. Glass in a wall's sprite is on
+                    // one of the wall's two skins, each lit as its own side is, and is seen from
+                    // its own side: that side is the street where it has the open air, or where
+                    // the eye is out of doors, as under a shop's canopy, whose light is a room's.
+                    street = window ? outside : step(0.0, dot(face, sight)) * max(clamp(vKind, 0.0, 1.0), uEyeOutdoors);
                     thrown = min(1.0, 1.6 * (0.13 + 0.87 * pow(max(1.0 - abs(dot(face, sight)), 0.0), 5.0)));
                     float through = mix(mix(0.9, 0.5, outside), 0.92, uDark);
                     glow = lamplit ? outside * uDark : 0.0;
-                    // From the room, a pane of the glass the room is laid over throws back the room and not the street.
+                    // From the room, a pane of the glass the room's picture is laid over (drawPanes)
+                    // throws back that picture in place of anything worked out here.
                     if (sheet && outside < 0.5 && dot(uRoomGlass.xyz, uRoomGlass.xyz) > 0.5 && abs(dot(uRoomGlass.xyz, vWorld) - uRoomGlass.w) < 0.02) {
-                        street = 1.0 - uRoomShown;
+                        roomLaid = uRoomShown;
                     }
                     veil = thrown + (1.0 - thrown) * (1.0 - through);
                     if (sheet) {
@@ -3824,10 +3838,14 @@ final class PipelineShaders {
                     // as the eye moves.
                     vec2 bowed = vec2(patches(vPlace.xy * 1.3 + vPlace.z * 2.1), patches(vPlace.xy * 1.7 + vPlace.z * 1.3 + 11.0)) - 0.5;
                     vec3 pane = normalize(n + vec3(vNormal.y, -vNormal.x, 0.0) / max(length(vNormal.xy), 0.001) * (0.07 * bowed.x) + vec3(0.0, 0.0, 0.07 * bowed.y));
+                    // The room is mirrored as lit by the room's own light, without the sun that
+                    // may fall on the glass from the street.
+                    vec3 room = (given * fromSky + held) * ROOM_THROWN;
+                    vec3 thrownBack = street > 0.0 ? mix(room, surroundings(reflect(-view, pane), vPlace), street) : room;
                     // Only the pixels that are glass carry what the whole pane throws back, so
                     // each carries the more for being one of few.
                     // Dust is grey whatever lights it: under an open sky its share of the pane came out blue.
-                    color = vec3(dot(color, vec3(0.299, 0.587, 0.114))) * step(0.0001, soiled) + (surroundings(reflect(-view, pane), vPlace) * (thrown * street)
+                    color = vec3(dot(color, vec3(0.299, 0.587, 0.114))) * step(0.0001, soiled) + (thrownBack * (thrown * (1.0 - roomLaid))
                             + uLightLinear * (2.1 * reached * glossed(pane, view, uLight, 0.07, 0.08))) / veil;
                     // A lamp burning behind a window lights the dust on the glass, warm and
                     // faint. The room is what shows lit, through the pane: laid over all of

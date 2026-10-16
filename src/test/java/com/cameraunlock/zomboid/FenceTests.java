@@ -135,7 +135,8 @@ final class FenceTests {
                 "RoadPaint.STRIP", RoadPaint.STRIP, "WorldScene.BLOOD", WorldScene.BLOOD, "OpeningBuilder.JOINERY", OpeningBuilder.JOINERY,
                 "OpeningBuilder.HARDWARE", OpeningBuilder.HARDWARE, "OpeningBuilder.JOINERY_LEVEL", OpeningBuilder.JOINERY_LEVEL,
                 "WorldScene.BODY", WorldScene.BODY, "WorldScene.PRINT", WorldScene.PRINT, "ChainLink.FABRIC", ChainLink.FABRIC,
-                "ChainLink.BROKEN", ChainLink.BROKEN, "ChainLink.BURNT", ChainLink.BURNT};
+                "ChainLink.BROKEN", ChainLink.BROKEN, "ChainLink.BURNT", ChainLink.BURNT, "WorldScene.INNER_PANE", WorldScene.INNER_PANE,
+                "WallBuilder.INNER_GLASS", WallBuilder.INNER_GLASS};
         Map<Float, String> taken = new HashMap<>();
         // The floors of boards take a run of numbers, and a crown one for each of its kinds. A model's surfaces take
         // a run from 16 that the floors of boards share: the picture tells a model's faces by uModel, not by number.
