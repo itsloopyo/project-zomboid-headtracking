@@ -234,8 +234,8 @@ final class CentreUse {
         PZArrayList<IsoObject> objects = owner.getObjects();
         for (int i = 0; i < objects.size(); i++) {
             IsoObject object = objects.get(i);
-            if (object instanceof IsoDoor door && door.north == north
-                    || object instanceof IsoThumpable thumpable && thumpable.isDoor() && thumpable.north == north) {
+            if (object instanceof IsoDoor door && drawnNorth(door, door.north, door.IsOpen()) == north
+                    || object instanceof IsoThumpable thumpable && thumpable.isDoor() && drawnNorth(thumpable, thumpable.north, thumpable.IsOpen()) == north) {
                 return object;
             }
             if (object instanceof IsoWindow pane && pane.getNorth() == north) {
@@ -255,6 +255,15 @@ final class CentreUse {
             return curtain;
         }
         return window != null ? window : curtain;
+    }
+
+    /**
+     * Whether a door is drawn on its square's north edge. Open on hinges it stands against the
+     * square's other edge, where WorldScene draws it and the game's own view shows it; a garage
+     * door rolls up in its doorway.
+     */
+    private static boolean drawnNorth(IsoObject door, boolean north, boolean open) {
+        return north != (open && !door.getSprite().getProperties().has("GarageDoor"));
     }
 
     /**
