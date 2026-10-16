@@ -219,6 +219,13 @@ public final class FirstPerson {
     private final float[] ndc = new float[2];
     private int reticleX, reticleY;
     private float shotDistance;
+    /**
+     * The line from the eye the picture is drawn from through the reticle, set with it: the
+     * Interact key acts on, and the picture outlines, what is drawn under the reticle. Only its
+     * eye and its forward are set, and only while reticleOnScreen.
+     */
+    private final ViewCamera.Pose reticleLine = new ViewCamera.Pose();
+    private boolean reticleOnScreen;
 
     private final Vector2 forward = new Vector2();
     private final Stride stride = new Stride();
@@ -435,6 +442,7 @@ public final class FirstPerson {
             view.headTracking.rest();
             view.viewModel.rest();
             view.crosshair.hide();
+            reticleOnScreen = false;
             view.nameTags.lookAway();
             view.hearing.rest();
             view.flight.cut(false);
@@ -678,6 +686,7 @@ public final class FirstPerson {
             view.headTracking.follow(player != null && !GameTime.isGamePaused() && !player.isDead());
             view.viewModel.rest();
             view.crosshair.hide();
+            reticleOnScreen = false;
             view.nameTags.lookAway();
             view.hearing.rest();
             if (view.hasMouse() && (MouseGrab.applied || MouseGrab.keeping)) {
@@ -754,11 +763,6 @@ public final class FirstPerson {
             ViewCamera.tilt(cleanView, view.ride.tilt);
         }
         float[] tilt = led(player, standsUp);
-        if (lookCaptured && vehicle == null && !bodyLeads) {
-            view.centreUse.mark(cleanView, floorUp, player, IsoWorld.instance.currentCell);
-        } else {
-            view.centreUse.marked = Outlines.NONE;
-        }
         // The head is in the view the camera flies to and from, so it lands on what is drawn next.
         if (view.bodyLed.holding()) {
             view.headTracking.rest();
@@ -804,6 +808,12 @@ public final class FirstPerson {
         SpriteRenderer.instance.drawGeneric(scene);
         pictureUp = true;
         placeReticle(scene);
+        // Outlined in the next picture: this one was gathered before the reticle was placed.
+        if (lookCaptured && vehicle == null && !bodyLeads && reticleOnScreen) {
+            view.centreUse.mark(reticleLine, floorUp, player, IsoWorld.instance.currentCell);
+        } else {
+            view.centreUse.marked = Outlines.NONE;
+        }
         if (Online.joined()) {
             view.nameTags.look(cleanView, IsoWorld.instance.currentCell, player);
         } else {
@@ -1224,13 +1234,22 @@ public final class FirstPerson {
             along = 1f;
             from = trackedView;
         }
-        boolean inFront = ViewCamera.project(trackedView, scene.tanHalfFieldOfView(), aspect,
-                from.eyeX + aimView.forwardX * along, from.eyeY + aimView.forwardY * along,
-                from.eyeUp + aimView.forwardUp * along, ndc);
+        float shownX = from.eyeX + aimView.forwardX * along, shownY = from.eyeY + aimView.forwardY * along;
+        float shownUp = from.eyeUp + aimView.forwardUp * along;
+        boolean inFront = ViewCamera.project(trackedView, scene.tanHalfFieldOfView(), aspect, shownX, shownY, shownUp, ndc);
         if (!inFront) {
             hideReticle();
             return;
         }
+        float lineX = shownX - trackedView.eyeX, lineY = shownY - trackedView.eyeY, lineUp = shownUp - trackedView.eyeUp;
+        float lineLength = (float) Math.sqrt(lineX * lineX + lineY * lineY + lineUp * lineUp);
+        reticleLine.eyeX = trackedView.eyeX;
+        reticleLine.eyeY = trackedView.eyeY;
+        reticleLine.eyeUp = trackedView.eyeUp;
+        reticleLine.forwardX = lineX / lineLength;
+        reticleLine.forwardY = lineY / lineLength;
+        reticleLine.forwardUp = lineUp / lineLength;
+        reticleOnScreen = true;
         int index = view.player().getIndex();
         reticleX = Math.round((ndc[0] * 0.5f + 0.5f) * IsoCamera.getScreenWidth(index));
         reticleY = Math.round((0.5f - ndc[1] * 0.5f) * IsoCamera.getScreenHeight(index));
@@ -1292,6 +1311,7 @@ public final class FirstPerson {
     private void hideReticle() {
         reticleX = RETICLE_HIDDEN;
         reticleY = RETICLE_HIDDEN;
+        reticleOnScreen = false;
     }
 
     /**
@@ -1330,20 +1350,20 @@ public final class FirstPerson {
 
     /**
      * Called as the Interact key goes down with the mouse turning the view: acts on what the
-     * middle of the clean view is on, and says whether anything was there for it. In a
+     * last picture drew under the reticle, and says whether anything was there for it. In a
      * vehicle the key is the game's, which gets out with it.
      */
     boolean useAtCentre() {
         IsoPlayer player = view.player();
-        if (player.getVehicle() != null) {
+        if (player.getVehicle() != null || !reticleOnScreen) {
             return false;
         }
-        CentreUse.Outcome outcome = view.centreUse.press(cleanView, floorUp(player), player, IsoWorld.instance.currentCell, view.onMouse());
+        CentreUse.Outcome outcome = view.centreUse.press(reticleLine, floorUp(player), player, IsoWorld.instance.currentCell, view.onMouse());
         if (outcome == CentreUse.Outcome.CONTAINER) {
             pointer.open();
         }
         if (TRACE) {
-            Log.info("interact at the middle of the view: " + outcome + " on " + Thread.currentThread().getName());
+            Log.info("interact at the reticle: " + outcome + " on " + Thread.currentThread().getName());
         }
         return outcome != CentreUse.Outcome.NOTHING;
     }

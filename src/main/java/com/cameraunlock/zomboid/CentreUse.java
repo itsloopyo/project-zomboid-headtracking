@@ -20,11 +20,11 @@ import zombie.ui.UIManager;
 import zombie.util.list.PZArrayList;
 
 /**
- * What the Interact key acts on in first person: the thing the middle of the
- * view is on. The game's own view has the player click on a door, a window, a
- * curtain, a light switch, a container or something lying on the ground. Here
- * there is no cursor to click with, so the clean view is traced across the
- * map to the first of those it meets, and that object is handed to the same
+ * What the Interact key acts on in first person: the thing under the reticle.
+ * The game's own view has the player click on a door, a window, a curtain, a
+ * light switch, a container or something lying on the ground. Here there is no
+ * cursor to click with, so the line from the eye through the reticle is traced
+ * across the map to the first of those it meets, and that object is handed to the same
  * Lua the game runs for a click on it. Whether the character is near enough,
  * and everything the action then does, is the game's.
  *
@@ -39,7 +39,7 @@ final class CentreUse {
 
     /** What a press of the key came to. */
     enum Outcome {
-        /** Nothing the game would take a click on is at the middle of the view: the key is the game's. */
+        /** Nothing the game would take a click on is under the reticle: the key is the game's. */
         NOTHING,
         /** The game's click handler took the object. */
         USED,
@@ -86,9 +86,9 @@ final class CentreUse {
     }
 
     /**
-     * Acts on what the middle of the view is on.
+     * Acts on what is under the reticle.
      *
-     * @param view    the clean view
+     * @param view    the line from the eye through the reticle
      * @param floorUp the height of the floor the player stands on, in tiles above level 0
      * @param pointer whether the player has a pointer to work a container's panels with
      */

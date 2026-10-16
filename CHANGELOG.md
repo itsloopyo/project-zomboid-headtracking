@@ -22,7 +22,7 @@
 
 - Left mouse attacks, right mouse aims, `Left Shift` sprints, `Left Alt` jogs, `Left Ctrl` crouches. Your own key bindings are not changed.
 - The pointer comes out with the inventory open, with any game window or menu open, or with a click of the middle mouse button until you click it again or press `Esc`. Head tracking carries on.
-- `E` uses the door, window, curtain, light switch, container or item in the middle of the view. What it will use is outlined.
+- `E` uses the door, window, curtain, light switch, container or item under the reticle, leaning and head turns included. What it will use is outlined.
 - Right click with the pointer out opens the game's own menu for what the pointer is on, the same as in the isometric view.
 - A single quick click is enough for a melee attack.
 - Controller: the aim stick turns the view, right trigger attacks, left trigger raises the sights, double-tap Back switches view.
