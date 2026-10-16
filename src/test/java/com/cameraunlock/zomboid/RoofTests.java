@@ -43,6 +43,7 @@ final class RoofTests {
         Checks.run("levelSheetPaintedOverItsFloorIsAFlatTop", RoofTests::levelSheetPaintedOverItsFloorIsAFlatTop);
         Checks.run("sheetsBehindARidgeAreNoPartOfTheRoof", RoofTests::sheetsBehindARidgeAreNoPartOfTheRoof);
         Checks.run("canopyIsNotCarriedToTheFarWall", RoofTests::canopyIsNotCarriedToTheFarWall);
+        Checks.run("eaveOverALeanToThatStopsShortOfItIsMade", RoofTests::eaveOverALeanToThatStopsShortOfItIsMade);
     }
 
     private static void hippedCornerAtTheEaveCarriesTheEaveRowOn() {
@@ -955,6 +956,44 @@ final class RoofTests {
         }
         RoofFit.fit(roof);
         check(RoofFit.backs(roof, BLOCK).isEmpty(), "nothing is made over the house from a canopy");
+    }
+
+    /**
+     * A map of one slope along y on (0, 0, z), from low at its north edge to high at its south,
+     * fitted, with a frame for RoofBuilder.addRoof whose sprite covers all of the tile's face. A
+     * climb of exactly a third is laid as a picture the stand-in sprite cannot give, so tests
+     * climb a little less, as the map's tiles read.
+     */
+    private static TestMap slopeAlongY(int z, float low, float high) {
+        TestMap map = new TestMap();
+        RoofFit.Tile slope = new RoofFit.Tile(0, 0, z, RoofFit.ALONG_Y, true, low, high);
+        RoofFit.fit(new ArrayList<>(List.of(slope)));
+        map.roofTile(slope, map.painted);
+        map.build.frame.takeTexels(map.painted);
+        map.build.frame.left = map.build.frame.top = -4096f;
+        map.build.frame.width = map.build.frame.height = 8192f;
+        return map;
+    }
+
+    private static void eaveOverALeanToThatStopsShortOfItIsMade() {
+        // The upper storey's slope falls north to its eave at the floor of level 2; a level down past the eave
+        // lies a lean-to whose top is at 1.2, well short of 2.
+        TestMap map = slopeAlongY(2, 2f, 2.32f);
+        map.roofTile(fitted(new RoofFit.Tile(0, -1, 1, RoofFit.ALONG_Y, true, 1.1f, 1.2f)), map.painted);
+        map.build.roofBuilder.addRoof(new SpriteGeometry.Mesh(), map.painted, 0, 0, 2);
+        check(boundsOf(TestMap.plain())[2] < -0.15f, "the slope over a lean-to that stops short of its eave has its eave out past the wall: y from "
+                + boundsOf(TestMap.plain())[2]);
+        // The same slope with the roof below coming up to its foot: the slope goes on, and has no eave there.
+        map = slopeAlongY(2, 2f, 2.32f);
+        map.roofTile(fitted(new RoofFit.Tile(0, -1, 1, RoofFit.ALONG_Y, true, 2f - THIRD, 2f)), map.painted);
+        map.build.roofBuilder.addRoof(new SpriteGeometry.Mesh(), map.painted, 0, 0, 2);
+        check(boundsOf(TestMap.plain())[2] > -0.05f, "a slope that goes on down into the level below has no eave at its foot: y from "
+                + boundsOf(TestMap.plain())[2]);
+    }
+
+    private static RoofFit.Tile fitted(RoofFit.Tile tile) {
+        RoofFit.fit(new ArrayList<>(List.of(tile)));
+        return tile;
     }
 
     private static void check(boolean condition, String what) {

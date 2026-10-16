@@ -789,7 +789,25 @@ final class RoofBuilder {
         boolean lowAtFar = along < 0f;
         int beyondX = x + (alongX != 0f ? (lowAtFar ? 1 : -1) : 0), beyondY = y + (alongY != 0f ? (lowAtFar ? 1 : -1) : 0);
         float low = lowAtFar ? atOrigin + along : atOrigin;
-        return !hasRoof(beyondX, beyondY, z) && !(low < Roofs.FLAT && hasRoof(beyondX, beyondY, z - 1) && !eaveRow(beyondX, beyondY, z - 1));
+        return !hasRoof(beyondX, beyondY, z) && !(low < Roofs.FLAT && reachesUpTo(beyondX, beyondY, z) && !eaveRow(beyondX, beyondY, z - 1));
+    }
+
+    /**
+     * Whether a roof on the square, a level under z, comes up to the floor of level z, within
+     * RoofFit.JOIN: the slope of an eave at that floor going on down. A lower roof that stops
+     * short of it, a lean-to against the wall of the storey above, leaves the eave an eave.
+     */
+    private boolean reachesUpTo(int x, int y, int z) {
+        Roofs.Laid map = Roofs.at(build.cell, x, y, z - 1, world.roundNow, build.frame.scale), made = Roofs.madeAt(x, y, z - 1, world.roundNow);
+        return map != null && !map.tile.fitting && topOf(map.tile) >= z - RoofFit.JOIN || made != null && topOf(made.tile) >= z - RoofFit.JOIN;
+    }
+
+    /** The height of a tile's highest point, in levels from the ground. */
+    private static float topOf(RoofFit.Tile tile) {
+        if (tile.shaped) {
+            return Math.max(Math.max(tile.corners[0], tile.corners[1]), Math.max(tile.corners[2], tile.corners[3]));
+        }
+        return Math.max(tile.fitLow, tile.fitHigh) + tile.peak;
     }
 
     /**
