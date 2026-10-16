@@ -104,8 +104,8 @@ final class LookingGlassTests {
         proud[LookingGlass.ACROSS] = 0.3f;
         System.arraycopy(proud, 0, glasses, LookingGlass.FLOATS, LookingGlass.FLOATS);
         looking.begin();
-        looking.consider(glasses, 0, camera, TAN, ASPECT, NEAR);
-        looking.consider(glasses, 1, camera, TAN, ASPECT, NEAR);
+        looking.consider(glasses, 0, false, camera, TAN, ASPECT, NEAR);
+        looking.consider(glasses, 1, false, camera, TAN, ASPECT, NEAR);
         check(looking.end() && looking.count == 2, "both glasses are in one plane");
         check(Math.abs(looking.plane[3] + 29.997f) < 1e-5f, "which is the proud glass's, so it is not left before the plane: " + looking.plane[3]);
     }
@@ -168,12 +168,12 @@ final class LookingGlassTests {
         LookingGlass looking = new LookingGlass();
         float[] glasses = wallGlass(20f);
         looking.begin();
-        looking.consider(glasses, 0, eye(20.5f, 27f, toward(20.5f, 27f, 20.5f, 30f)), TAN, ASPECT, NEAR);
+        looking.consider(glasses, 0, false, eye(20.5f, 27f, toward(20.5f, 27f, 20.5f, 30f)), TAN, ASPECT, NEAR);
         check(looking.end() && !looking.pastEdge, "a glass in the middle of the picture is not at its edge");
         glasses[LookingGlass.ACROSS] = 20f;
         glasses[LookingGlass.CORNER] = 10f;
         looking.begin();
-        looking.consider(glasses, 0, eye(15f, 29f, toward(15f, 29f, 25f, 30f)), TAN, ASPECT, NEAR);
+        looking.consider(glasses, 0, false, eye(15f, 29f, toward(15f, 29f, 25f, 30f)), TAN, ASPECT, NEAR);
         check(looking.end() && looking.pastEdge, "a long glass running past the side of the picture is at its edge, though its part of the picture is kept to it: "
                 + looking.rect[0] + " to " + looking.rect[2]);
     }
@@ -187,7 +187,7 @@ final class LookingGlassTests {
         for (int step = 0; step <= 300; step++) {
             float off = step == 300 ? LookingGlass.REACH + 0.01f : 3f + step * 0.01f;
             looking.begin();
-            looking.consider(glasses, 0, eye(20.5f, 30f - off, toward(20.5f, 30f - off, 20.5f, 30f)), TAN, ASPECT, NEAR);
+            looking.consider(glasses, 0, false, eye(20.5f, 30f - off, toward(20.5f, 30f - off, 20.5f, 30f)), TAN, ASPECT, NEAR);
             boolean kept = looking.end();
             float shown = kept ? looking.shown[0] : 0f;
             float expected = off <= LookingGlass.REACH - LookingGlass.FADE ? 1f : off >= LookingGlass.REACH ? 0f : (LookingGlass.REACH - off) / LookingGlass.FADE;
@@ -202,8 +202,8 @@ final class LookingGlassTests {
         System.arraycopy(wallGlass(24f), 0, two, LookingGlass.FLOATS, LookingGlass.FLOATS);
         ViewCamera.Pose slant = eye(20.5f, 25.3f, toward(20.5f, 25.3f, 22.5f, 30f));
         looking.begin();
-        looking.consider(two, 0, slant, TAN, ASPECT, NEAR);
-        looking.consider(two, 1, slant, TAN, ASPECT, NEAR);
+        looking.consider(two, 0, false, slant, TAN, ASPECT, NEAR);
+        looking.consider(two, 1, false, slant, TAN, ASPECT, NEAR);
         check(looking.end() && looking.count == 2, "both glasses are kept");
         float near = LookingGlass.nearest(two, 0, slant), far = LookingGlass.nearest(two, LookingGlass.FLOATS, slant);
         check(Math.abs(looking.shown[0] - LookingGlass.shown(near)) < 1e-6f && Math.abs(looking.shown[1] - LookingGlass.shown(far)) < 1e-6f
@@ -228,7 +228,7 @@ final class LookingGlassTests {
         System.arraycopy(side, 0, glasses, 2 * LookingGlass.FLOATS, LookingGlass.FLOATS);
         looking.begin();
         for (int i = 0; i < 3; i++) {
-            looking.consider(glasses, i, camera, TAN, ASPECT, NEAR);
+            looking.consider(glasses, i, false, camera, TAN, ASPECT, NEAR);
         }
         check(looking.end(), "the eye sees a mirror");
         check(looking.count == 2, "both glasses on the wall before the eye are kept, and the one on the side wall is not: " + looking.count);

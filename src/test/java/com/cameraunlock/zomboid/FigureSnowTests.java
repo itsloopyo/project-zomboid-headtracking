@@ -156,7 +156,7 @@ final class FigureSnowTests {
         String drawing = source("Characters.java").replaceAll("\\s+", "");
         check(drawing.contains("if(!casting){CharacterDraw.snowed(SnowCarried.on(data.character));}"), "everyone drawn into a picture is told what they carry, and no shadow");
         check(count(drawing, "OwnArms.snowed(SnowCarried.on(data.character));") == 2, "so are the viewer's own arms, with a weapon and at a task");
-        check(count(drawing, "CharacterDraw.looking(eyeView);") == 6, "every view people are drawn through says which way is up");
+        check(count(drawing, "CharacterDraw.looking(eyeView);") == 5, "every view people are drawn through says which way is up");
     }
 
     /**

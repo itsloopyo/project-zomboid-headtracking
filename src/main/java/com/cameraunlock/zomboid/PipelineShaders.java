@@ -760,6 +760,9 @@ final class PipelineShaders {
             // For the picture drawn from behind a mirror's glass (LookingGlass): the plane
             // nothing behind which is in it, as the way it faces and how far along that it is. All 0 in any other picture.
             uniform vec4 uGlassPlane;
+            // The plane of the window glass whose room LookingGlass lays over it, facing the room, and how much of it: see drawPanes.
+            uniform vec4 uRoomGlass;
+            uniform float uRoomShown;
             // That picture, for the eye's own to show where it draws water, and the plane the
             // water lies in: the way it faces and how far over it the eye is. All 0 with no such picture.
             uniform sampler2D uWaterPicture;
@@ -2476,7 +2479,7 @@ final class PipelineShaders {
                 bool sheet = vMaterial > 66.5 && vMaterial < 68.5;
                 bool lamplit = vMaterial > 64.5 && vMaterial < 65.5 || vMaterial > 67.5 && vMaterial < 68.5;
                 bool window = lamplit || sheet || vMaterial > 12.5 && vMaterial < 13.5;
-                float glazed = 0.0, thrown = 0.0, veil = 1.0, glow = 0.0;
+                float glazed = 0.0, thrown = 0.0, veil = 1.0, glow = 0.0, street = 1.0;
                 bool film = uLaid < 0.5 && vKind < 1.5 && uTexel.x > 0.0 && cover > 0.22 && cover < 0.8 && texel.b > texel.r + 0.05 && texel.g > texel.r
                         && abs(vNormal.z) < 0.5 * length(vNormal);
                 if (film && small) {
@@ -2499,6 +2502,10 @@ final class PipelineShaders {
                     thrown = min(1.0, 1.6 * (0.13 + 0.87 * pow(max(1.0 - abs(dot(face, sight)), 0.0), 5.0)));
                     float through = mix(mix(0.9, 0.5, outside), 0.92, uDark);
                     glow = lamplit ? outside * uDark : 0.0;
+                    // From the room, a pane of the glass the room is laid over throws back the room and not the street.
+                    if (sheet && outside < 0.5 && dot(uRoomGlass.xyz, uRoomGlass.xyz) > 0.5 && abs(dot(uRoomGlass.xyz, vWorld) - uRoomGlass.w) < 0.02) {
+                        street = 1.0 - uRoomShown;
+                    }
                     veil = thrown + (1.0 - thrown) * (1.0 - through);
                     if (sheet) {
                         // No pane is clean. Dust lies on it evenly, rain has dried on the street side
@@ -3717,7 +3724,7 @@ final class PipelineShaders {
                     // Only the pixels that are glass carry what the whole pane throws back, so
                     // each carries the more for being one of few.
                     // Dust is grey whatever lights it: under an open sky its share of the pane came out blue.
-                    color = vec3(dot(color, vec3(0.299, 0.587, 0.114))) * step(0.0001, soiled) + (surroundings(reflect(-view, pane), vPlace) * thrown
+                    color = vec3(dot(color, vec3(0.299, 0.587, 0.114))) * step(0.0001, soiled) + (surroundings(reflect(-view, pane), vPlace) * (thrown * street)
                             + uLightLinear * (2.1 * reached * glossed(pane, view, uLight, 0.07, 0.08))) / veil;
                     // A lamp burning behind a window lights the dust on the glass, warm and
                     // faint. The room is what shows lit, through the pane: laid over all of

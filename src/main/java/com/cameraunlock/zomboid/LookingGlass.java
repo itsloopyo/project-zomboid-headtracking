@@ -11,8 +11,11 @@ package com.cameraunlock.zomboid;
  * throws back is what stands behind the viewer, which is never in the picture, and the trace
  * found grey.
  *
- * One plane a frame: the plane of whichever mirrors take up the most of the picture, and every
- * mirror's glass in it. A mirror in another plane is left to the trace.
+ * A window's panes, seen from the room, throw it back too, thinly: see WindowGlass.
+ *
+ * One plane a frame: the plane of whichever glass, mirrors or windows, takes up the most of
+ * the picture, a window's share counted by WINDOW_WEIGHT, and every glass of that kind in it. A mirror in another plane is left to the
+ * trace, a window to what its pane throws back by itself.
  */
 final class LookingGlass {
     /**
@@ -40,6 +43,11 @@ final class LookingGlass {
      * that. The nearest any frame comes before its glass is the medicine cabinet's bevel, 3 mm.
      */
     static final float CLEAR = 0.003f;
+    /**
+     * A window's glass throws back about a fifth of what a mirror's silver does, seen squarely,
+     * so in choosing the frame's plane its share of the picture counts for that much.
+     */
+    static final float WINDOW_WEIGHT = 0.2f;
     /** The most mirrors in the plane whose glass is shown. */
     static final int MOST = 16;
     /** Floats a corner of the glass is drawn with: its place from the eye, how far across and up the glass it is, 0 to 1, and the glass's width and height in tiles. */
@@ -116,6 +124,27 @@ final class LookingGlass {
             """;
 
     /**
+     * What a window's glass shows of the room, added to what is seen through it: as much as
+     * the pane throws back, the share the world's own drawing of the pane took from what is
+     * behind it and gave to the street it throws back instead (PipelineShaders, "thrown").
+     */
+    static final String THROWN = """
+            #version 120
+            uniform sampler2D uPicture;
+            uniform vec2 uSize;
+            uniform vec4 uDrawn;
+            uniform vec3 uFacing;
+            uniform float uShown;
+            varying vec3 vPlace;
+            void main() {
+                vec2 uv = clamp(gl_FragCoord.xy / uSize, uDrawn.xy, uDrawn.zw);
+                float square = abs(dot(normalize(-vPlace), uFacing));
+                float thrown = min(1.0, 1.6 * (0.13 + 0.87 * pow(1.0 - square, 5.0)));
+                gl_FragColor = vec4(texture2D(uPicture, uv).rgb * (thrown * uShown), 0.0);
+            }
+            """;
+
+    /**
      * The plane the glass of this frame's mirrors lies in: the way it faces and how far along
      * that it is from the map's corner. Glass that counts as in the plane may stand a little
      * before or behind it, and the plane is the foremost of them, so that no glass is left
@@ -129,6 +158,10 @@ final class LookingGlass {
     /** How much of what each of them shows is its own picture: see FADE. */
     final float[] shown = new float[MOST];
     int count;
+    /** Whether the glass is a window's and not a mirror's: see WindowGlass. */
+    boolean window;
+    /** How far before the plane what the glass shows begins, and how far before it its picture is laid over the eye's, in tiles. */
+    float clear, laid;
     /** Whether their glass reaches past the edge of the picture, where a turn of the head brings more of it in. */
     boolean pastEdge;
 
@@ -136,7 +169,7 @@ final class LookingGlass {
     private static final int SEEN_MOST = 64;
     private final float[][] seenGlass = new float[SEEN_MOST][FLOATS], seenRect = new float[SEEN_MOST][4];
     private final float[] seenArea = new float[SEEN_MOST], seenShown = new float[SEEN_MOST];
-    private final boolean[] seenPast = new boolean[SEEN_MOST];
+    private final boolean[] seenPast = new boolean[SEEN_MOST], seenWindow = new boolean[SEEN_MOST];
     private int seen;
     /** Whether the glass the last seen() was asked of reaches past the edge of the picture. */
     private boolean reachesPast;
@@ -290,12 +323,12 @@ final class LookingGlass {
     }
 
     /**
-     * Looks at the mirrors of one piece of the frame and notes each the eye sees.
+     * Looks at a glass and notes it if the eye sees it.
      *
-     * @param glasses as Models.Instances.glasses holds them
+     * @param glasses as Models.Instances.glasses holds a mirror's, or WindowGlass.Panes a window's
      * @param which  which of them
      */
-    void consider(float[] glasses, int which, ViewCamera.Pose eye, float tan, float aspect, float near) {
+    void consider(float[] glasses, int which, boolean window, ViewCamera.Pose eye, float tan, float aspect, float near) {
         if (seen == SEEN_MOST) {
             return;
         }
@@ -305,6 +338,7 @@ final class LookingGlass {
         }
         System.arraycopy(glasses, offset, seenGlass[seen], 0, FLOATS);
         seenPast[seen] = reachesPast;
+        seenWindow[seen] = window;
         seenShown[seen] = shownSeen;
         float[] r = seenRect[seen];
         seenArea[seen] = (r[2] - r[0]) * (r[3] - r[1]);
@@ -324,8 +358,8 @@ final class LookingGlass {
             plane(seenGlass[i], 0, testPlane);
             float area = 0f;
             for (int j = 0; j < seen; j++) {
-                if (samePlane(testPlane, seenGlass[j])) {
-                    area += seenArea[j];
+                if (seenWindow[j] == seenWindow[i] && samePlane(testPlane, seenGlass[j])) {
+                    area += seenWindow[j] ? seenArea[j] * WINDOW_WEIGHT : seenArea[j];
                 }
             }
             if (area > best) {
@@ -337,11 +371,14 @@ final class LookingGlass {
             return false;
         }
         plane(seenGlass[chosen], 0, plane);
+        window = seenWindow[chosen];
+        clear = window ? WindowGlass.CLEAR : CLEAR;
+        laid = window ? WindowGlass.LAID : CLEAR;
         float foremost = plane[3];
         rect[0] = rect[1] = Float.POSITIVE_INFINITY;
         rect[2] = rect[3] = Float.NEGATIVE_INFINITY;
         for (int j = 0; j < seen && count < MOST; j++) {
-            if (!samePlane(plane, seenGlass[j])) {
+            if (seenWindow[j] != window || !samePlane(plane, seenGlass[j])) {
                 continue;
             }
             System.arraycopy(seenGlass[j], 0, glass, count * FLOATS, FLOATS);

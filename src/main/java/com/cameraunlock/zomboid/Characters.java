@@ -951,46 +951,6 @@ public final class Characters {
         data.ambientB = blue;
     }
 
-    /** The game's light where the viewer stands, as their reflection was last drawn. */
-    float reflectedLight = 1f;
-
-    /**
-     * Draws the viewer as the glass of a window shows them, whole, into whatever target is
-     * bound: the same model through a view that first puts every point where it is seen in
-     * the glass. False if the viewer is not among the models.
-     */
-    boolean drawReflected(ViewCamera.Pose camera, OwnReflection.Glass glass, float tanHalfFieldOfView, float aspect, float near, float far) {
-        for (int i = 0; i < noted.size(); i++) {
-            ModelSlotRenderData data = noted.get(i);
-            if (data.character == null || data.character != viewer || data.inVehicle) {
-                continue;
-            }
-            ViewCamera.projection(tanHalfFieldOfView, aspect, near, far, projection);
-            aside(projection);
-            ViewCamera.view(camera, eyeView);
-            CharacterDraw.looking(eyeView);
-            OwnReflection.mirror(eyeView, glass);
-            float red = data.ambientR, green = data.ambientG, blue = data.ambientB;
-            reflectedLight = (red + green + blue) / 3f;
-            data.ambientR = 1f;
-            data.ambientG = 1f;
-            data.ambientB = 1f;
-            CharacterDraw.mirrored = true;
-            try {
-                character(data, standsUp(data, System.nanoTime()), eyeView, false, false, false, false, 0f);
-            } finally {
-                CharacterDraw.mirrored = false;
-                CharacterDraw.release();
-            }
-            data.ambientR = red;
-            data.ambientG = green;
-            data.ambientB = blue;
-            return true;
-        }
-        return false;
-    }
-
-
     /** The bone the game hangs what is in the right hand from. */
     private static final String HAND_BONE = "Bip01_Prop1";
     /** The attachment of a weapon that the game hangs its own flash from. */

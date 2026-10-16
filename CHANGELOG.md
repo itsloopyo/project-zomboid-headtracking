@@ -108,6 +108,7 @@
 - Sunbeams through windows, with dust floating in the air.
 - Water flows and reflects.
 - Mirrors on walls, dressers and bathroom cabinets show the room, the people in it and you, in every graphics mode with `Reflections` on. The glass has a faint tint, smudges and a worn silver edge.
+- In `High`, a shut window seen from inside reflects the room, you and its lights faintly, plainest at night.
 - `Medium` and `High`: burning houses, Molotovs and campfires have flames from a fire simulation, solid from every side and from above, with smoke and flickering firelight. Fireplaces and stoves burn inside. `OwnFire` turns the mod's fire off.
 - The picture adjusts to the brightness of what you're looking at, like an eye.
 - `Medium` and `High`: every surface reflects the sky, the room or the ground by how rough it is, so metal looks like metal. Skin and clothes take the light the same way.

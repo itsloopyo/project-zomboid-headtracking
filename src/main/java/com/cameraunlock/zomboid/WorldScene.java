@@ -2244,8 +2244,8 @@ final class WorldScene {
         private final float[] seatedTurn = new float[9];
         private final float[] seatedAxes = new float[9];
         private float outsideTan, outsideAway;
-        /** The glass the viewer is shown in, seen from their own eye. */
-        private final OwnReflection.Glass glass = new OwnReflection.Glass();
+        /** The windows near the viewer whose glass may throw the room back. */
+        private final WindowGlass.Panes panes = new WindowGlass.Panes();
         /** How much of the way from overhead to the eye the outside camera has come. */
         private float landing;
         /** How much of the game's own picture this one covers: less than all of it while one is mixed into the other. */
@@ -2750,9 +2750,9 @@ final class WorldScene {
             }
             // No build reads the rooms' light where a room is shown only as the game shows it.
             goesBy = sum(sum(sum(goesBy, asTheGameShows ? 1 : 0), asTheGameShows ? 0 : Float.floatToRawIntBits(roomShare)), asTheGameShows ? 0 : Float.floatToRawIntBits(lampLevel));
-            glass.found = false;
-            if (!fromOutside && !seated && drawnAspect > 0f && Quality.surfacesMirror()) {
-                OwnReflection.find(cell, player, terrain, pose, tanHalfFieldOfView * drawnAspect, glass);
+            panes.count = 0;
+            if (!fromOutside && !seated && Quality.surfacesMirror()) {
+                WindowGlass.find(cell, player, terrain, pose, panes);
             }
             IsoChunkMap map = cell.getChunkMap(playerIndex);
             int level = (int) Math.floor(player.getZ());
@@ -6909,7 +6909,7 @@ final class WorldScene {
             view.pipeline.seatedGroundUp = seatedGroundUp;
             System.arraycopy(seatedTurn, 0, view.pipeline.seatedTurn, 0, seatedTurn.length);
             System.arraycopy(seatedAxes, 0, view.pipeline.seatedAxes, 0, seatedAxes.length);
-            view.pipeline.reflection = glass.found ? glass : null;
+            view.pipeline.panes = panes.count > 0 ? panes : null;
             view.pipeline.opacity = opacity;
             view.pipeline.cutAbove = outside ? cutFrom : Float.MAX_VALUE;
             view.pipeline.cutBehind = 1f - landing;

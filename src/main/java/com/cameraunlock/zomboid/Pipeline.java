@@ -354,9 +354,9 @@ final class Pipeline {
 
     /** What every frame draws into, at the picture's size. */
     private final Lent whole = new Lent("picture", null);
-    /** The steadied pair (FrameBlending), the cabin's three (seated), the viewer in a window's glass, and the shade and lit air (High). */
+    /** The steadied pair (FrameBlending), the cabin's three (seated), and the shade and lit air (High). */
     private final Lent steadied = new Lent("steadied pictures", this::makeSteadied), cabin = new Lent("cabin's pictures", this::makeCabin),
-            glassed = new Lent("picture of the viewer in the glass", this::makeGlassed), shaded = new Lent("pictures of shade and lit air", this::makeShaded);
+            shaded = new Lent("pictures of shade and lit air", this::makeShaded);
     /** The headlights' shadow map, at the shadow maps' size. */
     private final Lent beamed = new Lent("headlights' shadow map", this::makeBeamed);
     /** The carried torch's shadow map, at TORCH_MAP_MOST across or the shadow maps' size if that is smaller. */
@@ -367,9 +367,9 @@ final class Pipeline {
     private final Lent mirrored = new Lent("mirror's pictures", this::makeMirror);
     /** What water shows, at a third of the picture's size: only in High, in first person, with water in sight. */
     private final Lent watered = new Lent("picture of what water shows", this::makeWatered);
-    /** What the mirrors in a room show, at the picture's size: only with a mirror in sight. */
+    /** What the mirrors in a room or the windows of one show, at the picture's size: only with such glass in sight. */
     private final Lent looked = new Lent("picture of what a mirror shows", this::makeLooked);
-    private final Lent[] SIZED = {whole, steadied, cabin, glassed, shaded, watered, looked};
+    private final Lent[] SIZED = {whole, steadied, cabin, shaded, watered, looked};
     private final Lent[] UNSIZED = {beamed, torched, fired, mirrored};
     private static final long LENT_FOR_NANOS = 10_000_000_000L;
     /** The set whose pictures are being made, which texture and target note them in, or null. */
@@ -429,15 +429,11 @@ final class Pipeline {
     float landing;
     /** How much of the game's own picture, which is under this one, this one covers. */
     float opacity = 1f;
-    /** The glass the viewer is shown in this frame, or null: see OwnReflection. */
-    OwnReflection.Glass reflection;
-    private int selfTarget, selfColor;
-    private static Program selfShown;
-    /** What a mirror's glass shows: see LookingGlass.SHOWN. */
-    private static Program glassShown;
-    private final ViewCamera.Pose inGlass = new ViewCamera.Pose();
+    /** The windows whose glass may show the room this frame, or null: see WindowGlass. */
+    WindowGlass.Panes panes;
+    /** What a mirror's glass shows, and what a window's adds: see LookingGlass.SHOWN and THROWN. */
+    private static Program glassShown, windowShown;
     private final float[] selfView = new float[16], selfProjection = new float[16];
-    private final FloatBuffer selfCorners = buffer(OwnReflection.MOST * 18);
     /**
      * Whether the viewer sat in a vehicle when the frame was built. Every pass of the frame
      * goes by this one answer: the logic thread seats the viewer and stands them up between
@@ -1084,8 +1080,6 @@ final class Pipeline {
                 view.characters.alsoSeenBy(view.scope.sees, view.scope.pictureTan(), 1f);
             }
             drawShadows(state, figures);
-            boolean inTheGlass = figures && !outside && !seated && reflection != null && surfacesMirror
-                    && drawReflection(camera, state, tanHalfFieldOfView, aspect, near, far, fogStart, fogEnd);
             stage(STAGE_SHADOWS);
             if (behindDrawn) {
                 mirrorDrawnAt = System.nanoTime();
@@ -1119,7 +1113,7 @@ final class Pipeline {
                 lookFrom(camera, tanHalfFieldOfView, aspect, near, far, asideX, asideY);
                 impacts.holes(decalTarget, sceneDepth, camera, tanHalfFieldOfView, aspect, near, far, width, height, asideX, asideY);
             }
-            if (lookingGlassDrawn) {
+            if (lookingGlassDrawn && !lookingGlass.window) {
                 showLookingGlass(camera, tanHalfFieldOfView, aspect, near, far);
             }
             stage(STAGE_WORLD);
@@ -1161,12 +1155,6 @@ final class Pipeline {
             fires.draw(steadying ? movesUndepthed : decalTarget, sceneDepth, state, camera, tanHalfFieldOfView, aspect, near, far, width, height, asideX, asideY, frameNanos,
                     exposure);
             stage(STAGE_FIRE);
-            // After the sky and the rain, which are both beyond any glass: the sky is painted
-            // wherever nothing else is, over whatever was there.
-            if (inTheGlass) {
-                showReflection(camera, tanHalfFieldOfView, aspect, near, far);
-            }
-            stage(STAGE_SKY);
             // A pane behind a fire is hidden by its flames: they are put in the depth for the panes alone.
             boolean flamesBeforeGlass = !overhead && fires.flamesShown();
             if (flamesBeforeGlass) {
@@ -1176,6 +1164,10 @@ final class Pipeline {
             stage(STAGE_FIRE);
             if (!overhead) {
                 drawPanes(camera, state, tanHalfFieldOfView, aspect, fogStart, fogEnd);
+            }
+            // Over the panes, which take from what is behind them what they throw back.
+            if (lookingGlassDrawn && lookingGlass.window) {
+                showLookingGlass(camera, tanHalfFieldOfView, aspect, near, far);
             }
             if (flamesBeforeGlass) {
                 copyDepth(keptDepthTarget, sceneTarget);
@@ -1499,9 +1491,10 @@ final class Pipeline {
     }
 
     /**
-     * Whether the eye sees a mirror in a room, near enough to be worth its own picture: the
-     * frame's mirrors in the rooms it sees into are looked at, and LookingGlass keeps the plane
-     * of those that take up the most of the picture.
+     * Whether the eye sees a mirror in a room or a window from inside, near enough to be worth
+     * its own picture: the frame's mirrors in the rooms it sees into and the windows near it
+     * are looked at, and LookingGlass keeps the plane of those that take up the most of the
+     * picture.
      */
     private boolean lookingGlassSeen(ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float near) {
         lookingGlass.begin();
@@ -1509,8 +1502,13 @@ final class Pipeline {
             Models.Instances placed = drawn.get(chunk).placed;
             for (int i = 0; i < placed.glassCount; i++) {
                 if (ChunkBuffers.listed(placed.rooms[placed.glassPieces[i]], roomsSeen)) {
-                    lookingGlass.consider(placed.glasses, i, camera, tanHalfFieldOfView, aspect, near);
+                    lookingGlass.consider(placed.glasses, i, false, camera, tanHalfFieldOfView, aspect, near);
                 }
+            }
+        }
+        if (panes != null && surfacesMirror) {
+            for (int i = 0; i < panes.count; i++) {
+                lookingGlass.consider(panes.glass, i, true, camera, tanHalfFieldOfView, aspect, near);
             }
         }
         return lookingGlass.end();
@@ -1561,7 +1559,8 @@ final class Pipeline {
      * so whatever stands before it, its own frame among them, hides it as it hides the glass.
      * Each glass lays it over by as much of it as it shows (LookingGlass.FADE), and takes the
      * picture's mark of how much of a mirror the glass is off by as much: where it shows all
-     * of it the last pass has nothing to trace.
+     * of it the last pass has nothing to trace. A window's glass adds what it throws back to
+     * what is seen through it and leaves the mark alone: the pane is no part of the trace.
      */
     private void showLookingGlass(ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float near, float far) {
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, sceneTarget);
@@ -1578,14 +1577,15 @@ final class Pipeline {
         GL11.glLoadMatrixf(selfProjection);
         GL11.glMatrixMode(GL_MODELVIEW);
         GL11.glLoadMatrixf(selfView);
-        glassShown.use();
+        Program shown = lookingGlass.window ? windowShown : glassShown;
+        shown.use();
         GL13.glActiveTexture(GL_TEXTURE0);
         GL11.glBindTexture(GL_TEXTURE_2D, lookColor);
-        glassShown.set("uPicture", 0);
-        glassShown.set("uSize", (float) width, (float) height);
-        glassShown.set("uDrawn", (lookScissor[0] + 0.5f) / width, (lookScissor[1] + 0.5f) / height,
+        shown.set("uPicture", 0);
+        shown.set("uSize", (float) width, (float) height);
+        shown.set("uDrawn", (lookScissor[0] + 0.5f) / width, (lookScissor[1] + 0.5f) / height,
                 (lookScissor[0] + lookScissor[2] - 0.5f) / width, (lookScissor[1] + lookScissor[3] - 0.5f) / height);
-        glassShown.set("uFacing", lookingGlass.plane[0], lookingGlass.plane[1], lookingGlass.plane[2]);
+        shown.set("uFacing", lookingGlass.plane[0], lookingGlass.plane[1], lookingGlass.plane[2]);
         glassCorners.clear();
         float[] glass = lookingGlass.glass;
         for (int i = 0; i < lookingGlass.count; i++) {
@@ -1608,11 +1608,17 @@ final class Pipeline {
         GL11.glDepthMask(false);
         GL11.glDisable(GL_CULL_FACE);
         GL11.glEnable(GL_BLEND);
-        GL14.glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+        if (lookingGlass.window) {
+            GL11.glBlendFunc(GL_ONE, GL_ONE);
+            GL11.glColorMask(true, true, true, false);
+        } else {
+            GL14.glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+        }
         for (int i = 0; i < lookingGlass.count; i++) {
-            glassShown.set("uShown", lookingGlass.shown[i]);
+            shown.set("uShown", lookingGlass.shown[i]);
             GL11.glDrawArrays(GL_TRIANGLES, i * 6, 6);
         }
+        GL11.glColorMask(true, true, true, true);
         GL11.glDisable(GL_BLEND);
         GL11.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         GL11.glDisable(GL_DEPTH_TEST);
@@ -1626,15 +1632,15 @@ final class Pipeline {
     }
 
     /**
-     * A corner of a mirror's glass, s along its edge across and t up it, into glassCorners:
-     * from the eye, LookingGlass.CLEAR before the glass, which the world drew in its plane by
-     * other sums, and well behind its frame; then s, t and the glass's width and height.
+     * A corner of a mirror's or a window's glass, s along its edge across and t up it, into
+     * glassCorners: from the eye, LookingGlass.laid before the glass, which the world drew in
+     * its plane by other sums, and behind its frame; then s, t and the glass's width and height.
      */
     private void glassCorner(float[] glass, int at, ViewCamera.Pose camera, float s, float t) {
         for (int axis = 0; axis < 3; axis++) {
             float eye = axis == 0 ? camera.eyeX : axis == 1 ? camera.eyeY : camera.eyeUp;
             glassCorners.put(glass[at + LookingGlass.CORNER + axis] + s * glass[at + LookingGlass.ACROSS + axis] + t * glass[at + LookingGlass.UP + axis]
-                    + LookingGlass.CLEAR * glass[at + LookingGlass.FACING + axis] - eye);
+                    + lookingGlass.laid * glass[at + LookingGlass.FACING + axis] - eye);
         }
         glassCorners.put(s).put(t).put(length(glass[at + LookingGlass.ACROSS], glass[at + LookingGlass.ACROSS + 1], glass[at + LookingGlass.ACROSS + 2]))
                 .put(length(glass[at + LookingGlass.UP], glass[at + LookingGlass.UP + 1], glass[at + LookingGlass.UP + 2]));
@@ -3368,12 +3374,24 @@ final class Pipeline {
         tellWorld(world, camera, state, tanHalfFieldOfView, aspect, fogStart, fogEnd);
         world.set("uLaid", 0f);
         world.set("uTexel", 0f, 0f);
+        // The room the frame's window glass shows is laid over its panes after them, in the
+        // place of the street they would throw back from the room's side.
+        if (lookingGlassDrawn && lookingGlass.window) {
+            float[] plane = lookingGlass.plane;
+            float most = 0f;
+            for (int i = 0; i < lookingGlass.count; i++) {
+                most = Math.max(most, lookingGlass.shown[i]);
+            }
+            world.set("uRoomGlass", plane[0], plane[1], plane[2], plane[3]);
+            world.set("uRoomShown", most);
+        }
         GL11.glBindTexture(GL_TEXTURE_2D, whiteTexture);
         for (int i = first; i < all.ranges(); i++) {
             if (all.tint(i) == WallSides.PANES) {
                 all.draw(i);
             }
         }
+        world.set("uRoomGlass", 0f, 0f, 0f, 0f);
         GL11.glDisable(GL_BLEND);
         GL11.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         GL11.glDepthMask(true);
@@ -3509,10 +3527,11 @@ final class Pipeline {
         } else {
             to.set("uUnder", 0f, 0f, 0f, 0f);
         }
-        // Nor has the picture drawn from behind a mirror's glass anything in it behind the glass, nor the glass.
+        // Nor has the picture drawn from behind a mirror's or a window's glass anything in it
+        // behind the glass, nor the glass, nor the face of the wall a window is set in.
         if (inLookingGlass) {
             float[] plane = lookingGlass.plane;
-            to.set("uGlassPlane", plane[0], plane[1], plane[2], plane[3] + LookingGlass.CLEAR);
+            to.set("uGlassPlane", plane[0], plane[1], plane[2], plane[3] + lookingGlass.clear);
         } else {
             to.set("uGlassPlane", 0f, 0f, 0f, 0f);
         }
@@ -4870,162 +4889,6 @@ final class Pipeline {
         GL11.glDepthMask(true);
     }
 
-    /**
-     * The viewer as the glass of the frame's window shows them, into a picture of their own:
-     * drawn as anyone is, from an eye on the far side of the glass, and lit by the light
-     * where they really stand. False if there was nothing of them to draw.
-     */
-    private boolean drawReflection(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect,
-            float near, float far, float fogStart, float fogEnd) {
-        clearOwnTarget();
-        GL11.glViewport(0, 0, width, height);
-        GL11.glDepthMask(true);
-        smoothSkins(true);
-        CharacterDraw.bare = true;
-        boolean drawn = view.characters.drawReflected(camera, reflection, tanHalfFieldOfView, aspect, near, far);
-        CharacterDraw.bare = false;
-        smoothSkins(false);
-        resumeFlat();
-        if (!drawn) {
-            return false;
-        }
-        lend(glassed);
-        // The eye that sees the real viewer where this one sees them in the glass: with it
-        // the light finds where they stand, in the room and not out in the street.
-        OwnReflection.mirror(camera, reflection, inGlass);
-        GL30.glBindFramebuffer(GL_FRAMEBUFFER, selfTarget);
-        GL11.glClearColor(0f, 0f, 0f, 0f);
-        GL11.glClear(GL_COLOR_BUFFER_BIT);
-        figureLight.use();
-        figureLight.set("uFigure", 0);
-        figureLight.set("uDepth", 3);
-        figureLight.set("uShadowNear", 1);
-        figureLight.set("uShadowFar", 2);
-        GL13.glActiveTexture(GL_TEXTURE0 + 3);
-        GL11.glBindTexture(GL_TEXTURE_2D, ownDepth);
-        GL13.glActiveTexture(GL_TEXTURE0 + 2);
-        GL11.glBindTexture(GL_TEXTURE_2D, farMap);
-        GL13.glActiveTexture(GL_TEXTURE0 + 1);
-        GL11.glBindTexture(GL_TEXTURE_2D, nearMap);
-        GL13.glActiveTexture(GL_TEXTURE0 + NORMAL_UNIT);
-        GL11.glBindTexture(GL_TEXTURE_2D, ownNormal);
-        GL13.glActiveTexture(GL_TEXTURE0);
-        GL11.glBindTexture(GL_TEXTURE_2D, ownColor);
-        figureLight.set("uNearMatrix", nearMatrix);
-        figureLight.set("uFarMatrix", farMatrix);
-        figureLight.set("uSize", (float) width, (float) height);
-        figureLight.set("uTan", tanHalfFieldOfView * aspect, tanHalfFieldOfView);
-        figureLight.set("uNear", near);
-        figureLight.set("uFar", far);
-        figureLight.set("uEye", inGlass.eyeX, inGlass.eyeY, inGlass.eyeUp);
-        figureLight.set("uRangeFrom", 0f);
-        figureLight.set("uEyeOutdoors", 1f);
-        setBasis(figureLight, inGlass);
-        figureLight.set("uLight", state.lightX, state.lightY, state.lightUp);
-        setBeams(figureLight, TORCH_UNIT);
-        figureLight.set("uShines", shadedAndLit ? 1f : 0f);
-        setFlash(figureLight);
-        figureLight.set("uLightColor", state.lightRed, state.lightGreen, state.lightBlue);
-        figureLight.set("uFogStart", fogStart);
-        figureLight.set("uFogEnd", fogEnd);
-        figureLight.set("uLoaded", loadedX - inGlass.eyeX, loadedY - inGlass.eyeY, loadedWithin);
-        figureLight.set("uBeyond", 0f);
-        figureLight.set("uWriteNear", 0f);
-        figureLight.set("uInside", 0f);
-        figureLight.set("uGlassPass", 0f);
-        figureLight.set("uHavePanes", 0f);
-        figureLight.set("uParted", 0f, 0f);
-        figureLight.set("uOwnAmbient", 1f, 1f, 1f);
-        figureLight.set("uFigureAmbient", view.characters.reflectedLight);
-        noLamps();
-        figureLight.set("uFacing", NORMAL_UNIT);
-        figureLight.set("uHaveFacing", 1f);
-        figureLight.set("uJersey", FIRST_MATERIAL_UNIT + 13);
-        figureLight.set("uVinyl", FIRST_MATERIAL_UNIT + 11);
-        figureLight.set("uWearGain", materialGain[13], materialGain[11]);
-        figureLight.set("uWornGrain", Own.textures() ? 1f : 0f);
-        figureLight.set("uRoots", 0f);
-        atmosphere(figureLight, state);
-        figureLight.set("uPainted", 0f);
-        setCars(false, 0f);
-        figureLight.set("uMirrored", 1f);
-        quad();
-        figureLight.set("uMirrored", 0f);
-        return true;
-    }
-
-    /**
-     * The picture of the viewer in the glass, added to the scene over the panes of the
-     * glass's wall. It is laid before them, so whatever stands before a pane hides it as it
-     * hides the pane: a curtain, a chair, the viewer's own hands.
-     */
-    private void showReflection(ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float near, float far) {
-        GL30.glBindFramebuffer(GL_FRAMEBUFFER, sceneTarget);
-        GL11.glViewport(0, 0, width, height);
-        arrays();
-        cardArrayOff();
-        GL11.glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-        GL11.glDisableClientState(GL_COLOR_ARRAY);
-        GL11.glDisableClientState(GL_NORMAL_ARRAY);
-        ViewCamera.projection(tanHalfFieldOfView, aspect, near, far, selfProjection);
-        view.characters.aside(selfProjection);
-        ViewCamera.turned(camera, selfView);
-        GL11.glMatrixMode(GL_PROJECTION);
-        GL11.glLoadMatrixf(selfProjection);
-        GL11.glMatrixMode(GL_MODELVIEW);
-        GL11.glLoadMatrixf(selfView);
-        selfShown.use();
-        GL13.glActiveTexture(GL_TEXTURE0);
-        GL11.glBindTexture(GL_TEXTURE_2D, selfColor);
-        selfShown.set("uSelf", 0);
-        selfShown.set("uSize", (float) width, (float) height);
-        GL11.glEnable(GL_DEPTH_TEST);
-        GL11.glDepthFunc(GL_LEQUAL);
-        GL11.glDepthMask(false);
-        GL11.glDisable(GL_CULL_FACE);
-        GL11.glEnable(GL_BLEND);
-        // Glass set in the wall: added to what is seen through it, and the picture's mark of
-        // what is a mirror left as it is.
-        int corners = OwnReflection.corners(reflection, camera, false, selfCorners);
-        GL11.glVertexPointer(3, GL_FLOAT, 0, selfCorners);
-        selfShown.set("uThrown", OwnReflection.THROWN);
-        selfShown.set("uOnly", 0f);
-        GL11.glBlendFunc(GL_ONE, GL_ONE);
-        GL11.glColorMask(true, true, true, false);
-        GL11.glDrawArrays(GL_TRIANGLES, 0, corners);
-        // What hangs on the wall, where the viewer covers it, in three steps, since the
-        // picture's alpha is the only place to keep a number for each pixel between them.
-        // First the alpha is made how much of the pixel the viewer is to be: how much of a
-        // mirror the surface was marked as, times what a mirror shows for that.
-        corners = OwnReflection.corners(reflection, camera, true, selfCorners);
-        GL11.glVertexPointer(3, GL_FLOAT, 0, selfCorners);
-        selfShown.set("uOnly", 1f);
-        selfShown.set("uMark", OwnReflection.HUNG_THROWN);
-        GL11.glColorMask(false, false, false, true);
-        GL14.glBlendFuncSeparate(GL_ZERO, GL_ONE, GL_ONE_MINUS_DST_ALPHA, GL_ZERO);
-        GL11.glDrawArrays(GL_TRIANGLES, 0, corners);
-        // Then the viewer is mixed into the colour by it,
-        selfShown.set("uThrown", 1f);
-        GL11.glColorMask(true, true, true, false);
-        GL11.glBlendFunc(GL_DST_ALPHA, GL_ONE_MINUS_DST_ALPHA);
-        GL11.glDrawArrays(GL_TRIANGLES, 0, corners);
-        // and last the alpha is set to no mirror at all, so the room traced in the mirror
-        // afterwards is not laid over them.
-        selfShown.set("uMark", 1f);
-        GL11.glColorMask(false, false, false, true);
-        GL11.glDisable(GL_BLEND);
-        GL11.glDrawArrays(GL_TRIANGLES, 0, corners);
-        GL11.glColorMask(true, true, true, true);
-        GL11.glDisable(GL_BLEND);
-        GL11.glDisable(GL_DEPTH_TEST);
-        GL11.glDepthMask(true);
-        GL11.glDisableClientState(GL_VERTEX_ARRAY);
-        GL11.glLoadIdentity();
-        GL11.glMatrixMode(GL_PROJECTION);
-        GL11.glLoadIdentity();
-        GL11.glMatrixMode(GL_MODELVIEW);
-    }
-
     /** The frame's arrays and depth test again, after the game's own draw of a character into a shadow map. */
     private void resumeCasting() {
         Program.forgetInUse();
@@ -5691,8 +5554,8 @@ final class Pipeline {
         world = Program.link("world", WORLD_VERTEX, WORLD_FRAGMENT, problem);
         worldDepth = Program.link("world depth", WORLD_VERTEX, WORLD_FRAGMENT_DEPTH, problem);
         paneMask = Program.link("pane mask", PipelineShaders.PANE_VERTEX, PipelineShaders.PANE_FRAGMENT, problem);
-        selfShown = Program.link("viewer in the glass", PipelineShaders.PANE_VERTEX, OwnReflection.SHOWN, problem);
         glassShown = Program.link("mirror's glass", LookingGlass.VERTEX, LookingGlass.SHOWN, problem);
+        windowShown = Program.link("window's glass", LookingGlass.VERTEX, LookingGlass.THROWN, problem);
         partKind = Program.link("cabin parts", PipelineShaders.PANE_VERTEX, PipelineShaders.PART_FRAGMENT, problem);
         shadow = Program.link("shadow", SHADOW_VERTEX, SHADOW_FRAGMENT, problem, SHADOW_PLACES_FROM, "aPlace", "aFoot", "aTurn");
         solidShadow = Program.link("solid shadow", SHADOW_VERTEX, PipelineShaders.SOLID_SHADOW_FRAGMENT, problem, SHADOW_PLACES_FROM, "aPlace", "aFoot", "aTurn");
@@ -6197,13 +6060,6 @@ final class Pipeline {
             problem = complete("interior's depth");
         }
         return problem;
-    }
-
-    /** The viewer as a window's glass shows them: only in High, with a window near. */
-    private String makeGlassed() {
-        selfColor = texture(GL_RGBA16F, width, height, GL_RGBA, GL_FLOAT, GL_NEAREST);
-        selfTarget = target(selfColor);
-        return complete("viewer in the glass");
     }
 
     private String makeWatered() {
