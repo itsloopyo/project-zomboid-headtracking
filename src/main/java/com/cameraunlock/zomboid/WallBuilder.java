@@ -169,20 +169,27 @@ final class WallBuilder {
     void addEdge(SpriteGeometry.Mesh mesh, Texture texture, boolean wall, boolean door, int x, int y, int z,
             float layer, float da, float db) {
         build.building.plain = false;
-        // A wall is as thick as a wall: two skins, one each side of the square's edge, both
-        // with the sprite's outline. Through a window or a doorway the far skin is seen
-        // behind the near one, which is the depth of the opening. What hangs on the wall
-        // hangs on the skin inside the square.
-        // A window that is a whole length of wall, a shop's front or the side of a sun room, is glass in a frame too.
-        if (build.overLayer == 0 && Own.buildings()
-                && (build.frame.material == WorldScene.GLASS && build.openingBuilder.addWindow(null, texture, x, y, z, da, db) || build.glazedWall && build.frame.material != WorldScene.GLASS && build.openingBuilder.addWindow(mesh, texture, x, y, z, da, db))) {
-            return;
+        boolean onKerbTop = build.standOnKerbTop(z, da != 0f);
+        try {
+            // A wall is as thick as a wall: two skins, one each side of the square's edge, both
+            // with the sprite's outline. Through a window or a doorway the far skin is seen
+            // behind the near one, which is the depth of the opening. What hangs on the wall
+            // hangs on the skin inside the square.
+            // A window that is a whole length of wall, a shop's front or the side of a sun room, is glass in a frame too.
+            if (build.overLayer == 0 && Own.buildings()
+                    && (build.frame.material == WorldScene.GLASS && build.openingBuilder.addWindow(null, texture, x, y, z, da, db) || build.glazedWall && build.frame.material != WorldScene.GLASS && build.openingBuilder.addWindow(mesh, texture, x, y, z, da, db))) {
+                return;
+            }
+            // What shares the edge's plane with the wall lies its layers into the square.
+            float way = db != 0f ? SpriteGeometry.LAYERS_X : SpriteGeometry.LAYERS_Y;
+            WorldScene.layers.lie(way, layer);
+            standEdge(mesh, texture, wall, door, x, y, z, way, layer, da, db);
+            WorldScene.layers.none();
+        } finally {
+            if (onKerbTop) {
+                build.leaveKerbTop();
+            }
         }
-        // What shares the edge's plane with the wall lies its layers into the square.
-        float way = db != 0f ? SpriteGeometry.LAYERS_X : SpriteGeometry.LAYERS_Y;
-        WorldScene.layers.lie(way, layer);
-        standEdge(mesh, texture, wall, door, x, y, z, way, layer, da, db);
-        WorldScene.layers.none();
     }
 
     /**
@@ -191,13 +198,20 @@ final class WallBuilder {
      * game's view shows it on, the given number of layers clear of the skin.
      */
     void addStain(SpriteGeometry.Mesh mesh, int x, int y, int z, float layer, float da, float db) {
-        float way = db != 0f ? SpriteGeometry.LAYERS_X : SpriteGeometry.LAYERS_Y;
-        WorldScene.layers.lie(way, layer);
-        build.geometry.shownA = db * WorldScene.WALL_HALF;
-        build.geometry.shownB = da * WorldScene.WALL_HALF;
-        build.geometry.addFace(mesh, build.frame, x, y, z, 0f, 0f, 0f, da, db, 0f, 0f, 0f, 1f);
-        build.geometry.shownA = build.geometry.shownB = 0f;
-        WorldScene.layers.none();
+        boolean onKerbTop = build.standOnKerbTop(z, da != 0f);
+        try {
+            float way = db != 0f ? SpriteGeometry.LAYERS_X : SpriteGeometry.LAYERS_Y;
+            WorldScene.layers.lie(way, layer);
+            build.geometry.shownA = db * WorldScene.WALL_HALF;
+            build.geometry.shownB = da * WorldScene.WALL_HALF;
+            build.geometry.addFace(mesh, build.frame, x, y, z, 0f, 0f, 0f, da, db, 0f, 0f, 0f, 1f);
+            build.geometry.shownA = build.geometry.shownB = 0f;
+            WorldScene.layers.none();
+        } finally {
+            if (onKerbTop) {
+                build.leaveKerbTop();
+            }
+        }
     }
 
     private void standEdge(SpriteGeometry.Mesh mesh, Texture texture, boolean wall, boolean door, int x, int y, int z,
@@ -207,20 +221,8 @@ final class WallBuilder {
             // A fence of wire or of rails is one sheet on the line between its squares. As two
             // skins a wall's thickness apart, the eye saw one lattice through the other and
             // the two beat against each other as it moved.
-            // On an edge that a kerb runs along, the sheet is in the kerb's face's own plane,
-            // and stood on the street the two were drawn through each other the kerb's height
-            // up: the whole sheet stands on the kerb's top, as a fence at its edge does on the land.
-            float raised = build.geometry.raised;
-            float[] kerb = build.geometry.kerb;
-            if (z == 0 && (da != 0f ? build.kerbNorth : build.kerbWest)) {
-                if (kerb == null || build.geometry.kerbStreet) {
-                    build.geometry.raised += Terrain.KERB / ViewCamera.LEVEL_HEIGHT;
-                }
-                build.geometry.kerb = null;
-            }
+            // On an edge that a kerb runs along it stands on the kerb's top (Frame.standOnKerbTop).
             build.geometry.addFace(mesh, build.frame, x, y, z, 0f, 0f, 0f, da, db, 0f, 0f, 0f, 1f);
-            build.geometry.raised = raised;
-            build.geometry.kerb = kerb;
             return;
         }
         if (!wall) {

@@ -50,6 +50,11 @@ public final class IsoGridSquare {
         return null;
     }
 
+    /** No square of a test is in a room the game has made. */
+    public zombie.iso.areas.IsoRoom getRoom() {
+        return null;
+    }
+
     public IsoObject getFloor() {
         return floor;
     }

@@ -5,6 +5,9 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import zombie.core.textures.Texture;
+import zombie.iso.IsoObject;
+import zombie.iso.SpriteDetails.IsoObjectType;
 
 /** Tests of what makes a building one thing: its walls' finish, its roof's planes, and what hangs along its walls. */
 final class BuildingTests {
@@ -37,6 +40,7 @@ final class BuildingTests {
         Checks.run("eavesMeetAtAHipAndRunOutOverAGable", BuildingTests::eavesMeetAtAHipAndRunOutOverAGable);
         Checks.run("aDownpipeRunsDownAWallAndNeverStandsAlone", BuildingTests::aDownpipeRunsDownAWallAndNeverStandsAlone);
         Checks.run("openGroundHasTheLightMostOfItHas", BuildingTests::openGroundHasTheLightMostOfItHas);
+        Checks.run("whatIsOnAKerbedEdgeStandsOnTheKerbsTop", () -> TestMap.withEverything(BuildingTests::whatIsOnAKerbedEdgeStandsOnTheKerbsTop));
     }
 
     private static void plainWallHasAPlinthAndACourseAndThePlinthStopsAtADoor() {
@@ -407,6 +411,117 @@ final class BuildingTests {
             }
         }
         check(RoofFit.backs(roof, site(0, 5, -1, 0, 0, -1, 0)).isEmpty(), "a roof the map has both sides of is left as it is");
+    }
+
+    /**
+     * A street's square at (0, 1) with a kerb along its north edge, where the pavement comes up
+     * to a shop's front, so its ground is a kerb below the shop's floor: the shop's wall on that
+     * edge stands at the floor's height, as do a window built in it, a door's leaf in it and a
+     * curtain at the window, and the street's own ground is put back after each.
+     */
+    private static void whatIsOnAKerbedEdgeStandsOnTheKerbsTop() {
+        TestMap map = new TestMap();
+        WorldScene.Frame build = map.build;
+        Texture whole = new Texture(31, 128, 256);
+        whole.paint(0, 0, 128, 256);
+        IsoObject wall = map.cell.square(0, 1, 0).add(map.spriteWith("walls_exterior_house_01_1", IsoObjectType.wall, whole, "WallN", "", "wall", ""));
+        wall.offsetX = 64f;
+        wall.offsetY = 192f;
+        build.here = map.cell.getGridSquare(0, 1, 0);
+        Arrays.fill(build.geometry.lift, 0f);
+        build.geometry.kerb = null;
+        WorldScene.frameOf(build.frame, wall, whole);
+
+        // A window of the map's whole length of wall, a frame round two panes, as the sprite of a shop's front measures.
+        Windows.Shape window = new Windows.Shape();
+        window.originU = build.frame.originU;
+        window.originV = build.frame.originV;
+        window.scale = build.frame.scale;
+        window.north = true;
+        window.start = 0.1f;
+        window.end = 0.9f;
+        window.foot = 0.3f;
+        window.head = 0.8f;
+        window.startWide = window.endWide = 0.05f;
+        window.footHigh = window.headHigh = 0.05f;
+        window.panes = new float[] {0.15f, 0.85f, 0.35f, 0.75f, 1f};
+        Texture glazed = new Texture(32, 128, 256);
+        glazed.paint(0, 0, 128, 256);
+        TestMap.<java.util.Map<Texture, Windows.Shape>>read(null, Windows.class, "known").put(glazed, window);
+        Doors.Shape door = new Doors.Shape();
+        door.leaf = window;
+        door.kind = Doors.PANELLED;
+        Texture leaf = new Texture(33, 128, 256);
+        leaf.paint(0, 0, 128, 256);
+        TestMap.<java.util.Map<Texture, Doors.Shape>>read(null, Doors.class, "known").put(leaf, door);
+        Drapes.Shape curtain = new Drapes.Shape();
+        curtain.north = true;
+        curtain.start = 0.1f;
+        curtain.end = 0.9f;
+        curtain.foot = 0.3f;
+        curtain.head = 0.8f;
+        curtain.hangs = new float[] {0.1f, 0.9f};
+        Texture cloth = new Texture(34, 128, 256);
+        cloth.paint(0, 0, 128, 256);
+        TestMap.<java.util.Map<Texture, Drapes.Shape>>read(null, Drapes.class, "known").put(cloth, curtain);
+
+        SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
+        mesh.texture = whole.getID();
+        Runnable[] pieces = {
+            () -> build.wallBuilder.addEdge(mesh, whole, true, false, 0, 1, 0, 0f, 1f, 0f),
+            () -> {
+                build.frame.material = WorldScene.GLASS;
+                build.wallBuilder.addEdge(mesh, glazed, true, false, 0, 1, 0, 0f, 1f, 0f);
+                build.frame.material = 0f;
+            },
+            () -> {
+                build.doorLeaf = true;
+                build.wallBuilder.addEdge(mesh, leaf, false, true, 0, 1, 0, 0f, 1f, 0f);
+                build.doorLeaf = false;
+            },
+            () -> build.openingBuilder.addCurtain(cloth, IsoObjectType.curtainN, 0, 1, 0),
+        };
+        String[] names = {"the wall", "a window built in it", "a door's leaf in it", "a curtain at the window"};
+        for (int piece = 0; piece < pieces.length; piece++) {
+            float[] feet = new float[2];
+            for (int kerbed = 0; kerbed < 2; kerbed++) {
+                build.kerbNorth = kerbed == 1;
+                mesh.clear();
+                emptied();
+                pieces[piece].run();
+                feet[kerbed] = Math.min(lowest(mesh), lowestBuilt());
+            }
+            check(feet[0] < Float.MAX_VALUE && near(feet[1] - feet[0], Terrain.KERB),
+                    names[piece] + " stands a kerb higher with the kerb along its edge, on the kerb's top: " + feet[0] + " and " + feet[1]);
+            check(build.geometry.lift[0] == 0f && build.geometry.lift[3] == 0f && build.geometry.kerb == null, "and the street's square is at its own height again after it");
+        }
+        emptied();
+    }
+
+    /** Empties what the frame's builders write into. */
+    private static void emptied() {
+        WorldScene.solid.clear();
+        WorldScene.laid.clear();
+    }
+
+    /** The lowest vertex of everything the builders wrote since emptied. */
+    private static float lowestBuilt() {
+        float lowest = Float.MAX_VALUE;
+        for (SpriteGeometry.Mesh mesh : WorldScene.solid.used) {
+            lowest = Math.min(lowest, lowest(mesh));
+        }
+        for (SpriteGeometry.Mesh mesh : WorldScene.laid.used) {
+            lowest = Math.min(lowest, lowest(mesh));
+        }
+        return lowest;
+    }
+
+    private static float lowest(SpriteGeometry.Mesh mesh) {
+        float lowest = Float.MAX_VALUE;
+        for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+            lowest = Math.min(lowest, mesh.vertices[at + 2]);
+        }
+        return lowest;
     }
 
     private static void check(boolean condition, String what) {

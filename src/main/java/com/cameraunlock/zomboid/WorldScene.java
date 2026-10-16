@@ -4954,9 +4954,9 @@ final class WorldScene {
                 if (bands == null) {
                     continue;
                 }
-                float da = edge == 0 ? 1f : 0f, db = 1f - da;
+                float da = edge == 0 ? 1f : 0f, db = 1f - da, rise = kerbTopRise(z, edge == 0);
                 for (Trims.Band band : bands) {
-                    Trims.add(plain, band, x, y, da, db, db, da, base + geometry.liftAt(0f, 0f), base + geometry.liftAt(da, db), light);
+                    Trims.add(plain, band, x, y, da, db, db, da, base + geometry.liftAt(0f, 0f) + rise, base + geometry.liftAt(da, db) + rise, light);
                 }
             }
             return true;
@@ -5035,6 +5035,56 @@ final class WorldScene {
         boolean kerbed;
         /** Whether the square being added has street on it and a kerb along some stretch of its north edge, or of its west edge. */
         boolean kerbNorth, kerbWest;
+        /** The square's ground and kerb as they were before standOnKerbTop lifted them, while it has. */
+        private final float[] groundUnderKerb = new float[4];
+        private float[] kerbUnderKerb;
+        private boolean onKerbTop;
+
+        /**
+         * A kerb along the north or west edge of a level-0 square is the street's edge, and the
+         * square's ground lies a kerb below the land on the far side of it. Whatever stands or
+         * hangs on that edge (a wall and what is laid on it, its door, its window and the
+         * window's curtain, an awning, a hood, a picture) stands on the kerb's top, at the land's
+         * height, so that a run of wall is one height from end to end whether or not the kerb
+         * comes up to it. How far that is above the square's own ground: a kerb where the
+         * square is the street's, and 0 for any other edge and where a kerb crosses land.
+         */
+        float kerbTopRise(int z, boolean north) {
+            return z == 0 && (north ? kerbNorth : kerbWest) && (geometry.kerb == null || geometry.kerbStreet) ? Terrain.KERB : 0f;
+        }
+
+        /**
+         * Lifts the square's ground by kerbTopRise and clears its kerb field, for the one thing
+         * on that edge being added, and says whether it did; leaveKerbTop, in a finally, puts
+         * them back.
+         */
+        boolean standOnKerbTop(int z, boolean north) {
+            if (z != 0 || !(north ? kerbNorth : kerbWest)) {
+                return false;
+            }
+            if (onKerbTop) {
+                throw new IllegalStateException("the square's ground is already on the kerb's top");
+            }
+            float rise = kerbTopRise(z, north);
+            float[] lift = geometry.lift;
+            System.arraycopy(lift, 0, groundUnderKerb, 0, lift.length);
+            kerbUnderKerb = geometry.kerb;
+            for (int corner = 0; corner < lift.length; corner++) {
+                lift[corner] += rise;
+            }
+            geometry.kerb = null;
+            onKerbTop = true;
+            return true;
+        }
+
+        /** Puts back the square's ground as it was before standOnKerbTop. */
+        void leaveKerbTop() {
+            System.arraycopy(groundUnderKerb, 0, geometry.lift, 0, groundUnderKerb.length);
+            geometry.kerb = kerbUnderKerb;
+            kerbUnderKerb = null;
+            onKerbTop = false;
+        }
+
         /** The square beside the one being added whose ground lies beyond the kerb that crosses it, as a place in groundKind, or -1. */
         int beyondKerb;
 
@@ -6396,8 +6446,12 @@ final class WorldScene {
             }
             building.plain = false;
             Models.Model model = Models.get(hung.model);
+            // The wall it is fixed to is behind its back, the way its front faces turned about.
+            Models.turn(hung.turns, 0f, -1f, awningAt);
+            float rise = awningAt[1] > 0.5f ? kerbTopRise(z, true) : awningAt[0] > 0.5f ? kerbTopRise(z, false) : 0f;
             hung.centre(model.depth(), awningAt);
-            float foot = z * ViewCamera.LEVEL_HEIGHT + (geometry.lift[0] + geometry.lift[1] + geometry.lift[2] + geometry.lift[3]) / 4f + hung.foot * ViewCamera.LEVEL_HEIGHT;
+            float foot = z * ViewCamera.LEVEL_HEIGHT + (geometry.lift[0] + geometry.lift[1] + geometry.lift[2] + geometry.lift[3]) / 4f + rise
+                    + hung.foot * ViewCamera.LEVEL_HEIGHT;
             placed.add(model, frame, x, y, x + awningAt[0], y + awningAt[1], foot, hung.turns, Furniture.TILES_PER_METRE, Furniture.TILES_PER_METRE,
                     texture.getID(), 1 << Models.CLOTH, SpriteGeometry.textureU(frame, hung.firstA, hung.firstB), SpriteGeometry.textureV(frame, hung.firstA, hung.firstB, hung.dyeHigh),
                     1 << Models.LINEN, SpriteGeometry.textureU(frame, hung.secondA, hung.secondB), SpriteGeometry.textureV(frame, hung.secondA, hung.secondB, hung.dyeHigh));
@@ -6513,7 +6567,8 @@ final class WorldScene {
             }
             building.plain = false;
             Hoods.origin(wall, awningAt);
-            float foot = z * ViewCamera.LEVEL_HEIGHT + (geometry.lift[0] + geometry.lift[1] + geometry.lift[2] + geometry.lift[3]) / 4f + Hoods.FOOT * ViewCamera.LEVEL_HEIGHT;
+            float foot = z * ViewCamera.LEVEL_HEIGHT + (geometry.lift[0] + geometry.lift[1] + geometry.lift[2] + geometry.lift[3]) / 4f
+                    + kerbTopRise(z, wall == Outdoors.NORTH) + Hoods.FOOT * ViewCamera.LEVEL_HEIGHT;
             placed.add(Models.get(Hoods.modelOf(squares, x, y)), frame, x, y, x + awningAt[0], y + awningAt[1], foot, Hoods.turns(wall),
                     Furniture.TILES_PER_METRE, Furniture.TILES_PER_METRE, texture.getID(), 1 << Models.PAINT,
                     SpriteGeometry.textureU(frame, dye[0], dye[1]), SpriteGeometry.textureV(frame, dye[0], dye[1], Hoods.DYE_HIGH), 0, 0f, 0f);

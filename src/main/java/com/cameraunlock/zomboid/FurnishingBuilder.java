@@ -147,9 +147,11 @@ final class FurnishingBuilder {
         float out = WorldScene.WALL_HALF + WorldScene.HUNG_CLEAR + model.depth() * scale / 2f;
         float a = WallHung.a(piece.wall, along), b = WallHung.b(piece.wall, along);
         float[] lift = build.geometry.lift;
+        // On a wall on the square's north or west edge it hangs as high as the wall stands (Frame.standOnKerbTop).
+        float rise = piece.wall == WallHung.NORTH || piece.wall == WallHung.WEST ? build.kerbTopRise(z, piece.wall == WallHung.NORTH) : 0f;
         build.building.plain = false;
         build.placed.add(model, build.frame, x, y, x + a + build.hungWay[0] * out, y + b + build.hungWay[1] * out,
-                z * ViewCamera.LEVEL_HEIGHT + (lift[0] + lift[1] + lift[2] + lift[3]) / 4f + foot, piece.turns, scale, scaleUp,
+                z * ViewCamera.LEVEL_HEIGHT + (lift[0] + lift[1] + lift[2] + lift[3]) / 4f + rise + foot, piece.turns, scale, scaleUp,
                 !piece.pictured ? WorldScene.PLAIN : picture != Decor.NONE ? Decor.held(picture) : texture.getID(),
                 piece.pictured ? 1 << Models.PANE : 0, 0f, 0f, 0, 0f, 0f);
         if (piece.mirror) {

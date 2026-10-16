@@ -219,7 +219,8 @@ final class OpeningBuilder {
         windowY = y + (far && north ? 1 : 0);
         windowAlongX = north ? 1f : 0f;
         windowAlongY = north ? 0f : 1f;
-        windowFoot = footOf(z);
+        // Its window is on the kerb's top where it is the north or west edge's (Frame.standOnKerbTop).
+        windowFoot = footOf(z) + (far ? 0f : build.kerbTopRise(z, north));
         float level = ViewCamera.LEVEL_HEIGHT, into = far ? -1f : 1f, out = into * (WorldScene.WALL_HALF + DRAPE_CLEAR);
         float red = build.frame.red, green = build.frame.green, blue = build.frame.blue;
         SpriteGeometry.Mesh cloth = WorldScene.solid.get(WorldScene.PLAIN, WallSides.key(shape.red, shape.green, shape.blue, WallSides.FLAT));
