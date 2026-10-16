@@ -304,6 +304,8 @@ def ramp(g):
 
 
 G.MAKERS.update({"walnut": walnut, "ebony": ebony, "sight": sight, "ramp": ramp})
+# Long and thin: its pictures are twice as wide as high.
+G.WIDE = True
 G.TUBES = {"barrel": (0.0, 0.53, 0.0110)}
 
 

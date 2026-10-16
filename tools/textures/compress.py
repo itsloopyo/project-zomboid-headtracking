@@ -62,7 +62,7 @@ PLAIN = ['grass', 'paint', 'carpet', 'vinyl', 'cloth', 'jersey', 'litter', 'rock
 CUT_OUT = ['leaves', 'frond', 'ivy', 'sprigs']
 MODELS = ['shotgun', 'sawnoff', 'rifle', 'revolver', 'magnum', 'snubnose', 'capgun', 'pistol', 'pistol2', 'pistol3', 'dbarrel', 'arms']
 # The models whose pictures are twice as wide as high (tools/models/gunsmith.py, WIDE): every other is square.
-WIDE = set()
+WIDE = {'rifle'}
 # The vehicle interiors (tools/models/cabins.py), each a colour and a surface of its own.
 CABINS = ['carnormal', 'carstationwagon', 'smallcar02', 'smallcar', 'suv', 'pickuptruck', 'vanseats', 'van', 'carluxury', 'moderncar',
           'moderncar02', 'sportscar', 'racecar', 'offroad', 'stepvan']
