@@ -47,7 +47,7 @@ final class WallObjectTests {
     }
 
     private static int flatOn(IsoSprite sprite) {
-        return WallObjects.flatOn(sprite.getProperties(), sprite.getFacing());
+        return WallObjects.flatOn(sprite.getName(), sprite.getProperties(), sprite.getFacing());
     }
 
     private static String model(Furniture piece) {

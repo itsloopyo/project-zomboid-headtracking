@@ -39,14 +39,15 @@ final class WallObjects {
 
     /**
      * The wall of its square a sprite lies flat on: the one behind the way it faces, for a
-     * thing the game hangs on a wall and marks for no wall and as filling none of its square.
+     * thing the game hangs on a wall and marks for no wall and as filling none of its square, nor
+     * as fixed to the floor (FloorMarks).
      * WallHung.NONE for anything else: what has a wall flag is laid on that wall already, and
      * what is solid, or to rest on, stands out into its square.
      */
-    static int flatOn(PropertyContainer properties, IsoDirections facing) {
+    static int flatOn(String name, PropertyContainer properties, IsoDirections facing) {
         if (!HUNG.equals(properties.get("MoveType")) || properties.has(IsoFlagType.solid) || properties.has(IsoFlagType.solidtrans)
                 || properties.has(IsoFlagType.bed) || properties.has(IsoFlagType.attachedN) || properties.has(IsoFlagType.attachedW)
-                || properties.has(IsoFlagType.attachedE) || properties.has(IsoFlagType.attachedS) || properties.has(IsoFlagType.attachedFloor)) {
+                || properties.has(IsoFlagType.attachedE) || properties.has(IsoFlagType.attachedS) || FloorMarks.onFloor(name, properties)) {
             return WallHung.NONE;
         }
         return WallHung.behind(facing);

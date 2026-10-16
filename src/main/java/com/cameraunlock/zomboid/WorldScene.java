@@ -859,7 +859,7 @@ final class WorldScene {
                     || properties.has(IsoFlagType.attachedW) || properties.has(IsoFlagType.attachedE) || properties.has(IsoFlagType.attachedS));
             line = name == null ? Outdoors.NO_LINE : Outdoors.washingLine(name);
             edge = name == null ? Overhead.ANY_EDGE : Overhead.edgeOf(name);
-            flatWall = WallObjects.flatOn(properties, sprite.getFacing());
+            flatWall = WallObjects.flatOn(name, properties, sprite.getFacing());
             brokenFence = BrokenFences.is(name);
             chainLink = ChainLink.of(name);
             brokenLink = ChainLink.brokenMaterial(name, madeOf, onEdge);
@@ -1990,7 +1990,7 @@ final class WorldScene {
         return flags.has(IsoFlagType.WallN) || flags.has(IsoFlagType.WallW) || flags.has(IsoFlagType.WallNW) || flags.has(IsoFlagType.WallSE)
                 || flags.has(IsoFlagType.WallNTrans) || flags.has(IsoFlagType.WallWTrans) || flags.has(IsoFlagType.DoorWallN)
                 || flags.has(IsoFlagType.DoorWallW) || flags.has(IsoFlagType.WindowN) || flags.has(IsoFlagType.WindowW)
-                || flags.has(IsoFlagType.solidfloor) || flags.has(IsoFlagType.FloorOverlay) || flags.has(IsoFlagType.attachedFloor);
+                || flags.has(IsoFlagType.solidfloor) || flags.has(IsoFlagType.FloorOverlay) || FloorMarks.onFloor(sprite.getName(), flags);
     }
 
     /** Where each plant's leaves are painted on its texture: see Flora.leafPlaces. */
@@ -5945,8 +5945,10 @@ final class WorldScene {
             IsoObjectType type = sprite.getType();
             Kind kind = kindOf(sprite);
 
+            // The game marks whatever is named damaged or trash_ as fixed to the floor, a torn fence and a notice on a wall
+            // among them: see FloorMarks.
             if (isFloor || properties.has(IsoFlagType.solidfloor) || properties.has(IsoFlagType.FloorOverlay)
-                    || properties.has(IsoFlagType.attachedFloor)) {
+                    || FloorMarks.onFloor(sprite.getName(), properties)) {
                 // The map closes a tent at the level its canopy is on with a ceiling laid as a
                 // floor. Inside the tent the canvas is the ceiling: the flat one is left out.
                 if (canvas && z > 0) {

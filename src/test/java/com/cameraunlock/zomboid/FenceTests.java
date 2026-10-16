@@ -13,6 +13,7 @@ final class FenceTests {
         Checks.run("chainLinkIsLaidAsASheetWhereverItStandsOnAnEdge", FenceTests::chainLinkIsLaidAsASheetWhereverItStandsOnAnEdge);
         Checks.run("boardFencesAreWoodOnAnEdgeAndNoPickets", FenceTests::boardFencesAreWoodOnAnEdgeAndNoPickets);
         Checks.run("ironBarFencesAreTheirOwnIron", FenceTests::ironBarFencesAreTheirOwnIron);
+        Checks.run("theGamesFloorMarkByNameStaysOffEdgesAndWalls", FenceTests::theGamesFloorMarkByNameStaysOffEdgesAndWalls);
         Checks.run("noTwoWorldMaterialsShareANumber", FenceTests::noTwoWorldMaterialsShareANumber);
     }
 
@@ -96,6 +97,25 @@ final class FenceTests {
         Checks.check(Fences.ironBars("fencing_01_2", "MetalBars") && Fences.ironBars("fencing_01_64", "MetalBars"), "iron railings");
         Checks.check(Fences.ironBars("fencing_damaged_05_0", "MetalBars"), "the welded panels the game makes of bars");
         Checks.check(!Fences.ironBars("fencing_01_56", "MetalWire") && !Fences.ironBars("walls_exterior_house_01_16", "MetalBars"), "wire, and no fence");
+    }
+
+    /** Rows of the game's tile definitions, with the attachedFloor the game's tile loading sets on every name holding "damaged" or "trash_". */
+    private static void theGamesFloorMarkByNameStaysOffEdgesAndWalls() {
+        String marked = "|attachedFloor|true";
+        String[] standing = {"fencing_damaged_01_16|CanScrap||Material|Wood|Material2|Nails|MaterialType|Wood_Solid|TallHoppableN||WallN||wall|" + marked,
+                "fencing_damaged_02_0|CanScrap||Material|MetalWire|TallHoppableN||WallNTrans||wall|" + marked,
+                "fencing_damaged_02_43|HitByCar||HoppableW||Material|MetalWire|FenceTypeHigh|Metal" + marked,
+                "trash_walls_01_0|CanScrap||CustomName|Notices|Facing|E|GroupName|Weathered|IsMoveAble||Material|Paper|MoveType|WallObject|WallOverlay|" + marked};
+        for (String row : standing) {
+            zombie.iso.sprite.IsoSprite sprite = TileRows.sprite(row);
+            Checks.check(!FloorMarks.onFloor(sprite.getName(), sprite.getProperties()), sprite.getName() + " stands on its edge or hangs on its wall, not on the floor");
+        }
+        zombie.iso.sprite.IsoSprite litter = TileRows.sprite("trash_01_0|Material|Paper" + marked);
+        Checks.check(FloorMarks.onFloor(litter.getName(), litter.getProperties()), "litter the game marks so lies on the floor");
+        zombie.iso.sprite.IsoSprite rug = TileRows.sprite("floors_rugs_01_0|attachedFloor|");
+        Checks.check(FloorMarks.onFloor(rug.getName(), rug.getProperties()), "a tile the definitions mark so lies on the floor");
+        Checks.check(WallObjects.flatOn("trash_walls_01_0", TileRows.sprite(standing[3]).getProperties(), zombie.iso.IsoDirections.E) == WallHung.WEST,
+                "a notice the game marks so still hangs on the wall behind the way it faces");
     }
 
     /** Every named material of the world's faces. Each is a constant the compiler writes in here, so no class is loaded to read it. */
