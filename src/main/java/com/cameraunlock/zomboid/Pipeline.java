@@ -392,8 +392,8 @@ final class Pipeline {
     private boolean armsUnplacedSaid, armsDrawnSaid;
     /**
      * A unit no program keeps a picture on from one pass to the next: each pass that reads it binds its
-     * own there first. The driver's arms read the interior's shadow map there, and the mod's interior
-     * the viewer's torch's.
+     * own there first. The driver's arms read the interior's shadow map there, and the mod's interior, a
+     * gun and a scope the viewer's torch's.
      */
     static final int PASS_UNIT = 27;
     /** Whether this frame drew the mod's own interior of the vehicle sat in. */
@@ -4325,7 +4325,7 @@ final class Pipeline {
             GL11.glDisable(GL_BLEND);
             view.characters.repainted = true;
             smoothSkins(true);
-            view.characters.drawViewer(camera, tanHalfFieldOfView, aspect, OWN_NEAR, far);
+            view.characters.drawViewer(camera, state.held, tanHalfFieldOfView, aspect, OWN_NEAR, far);
             smoothSkins(false);
             view.characters.repainted = false;
         }
@@ -4334,7 +4334,7 @@ final class Pipeline {
         smoothSkins(seated);
         // What of the body the picture draws itself is drawn unlit, as everyone else is.
         CharacterDraw.bare = !seated;
-        boolean own = !outside && view.characters.drawViewer(camera, tanHalfFieldOfView, aspect, OWN_NEAR, far);
+        boolean own = !outside && view.characters.drawViewer(camera, state.held, tanHalfFieldOfView, aspect, OWN_NEAR, far);
         CharacterDraw.bare = false;
         smoothSkins(false);
         FloatBuffer glass = own && seated ? view.characters.cabin.panes : null;
@@ -4590,7 +4590,6 @@ final class Pipeline {
         GL11.glViewport(0, 0, width, height);
         Program program = cabinDraw.begin();
         lightHeld(program, camera, state);
-        setBeams(program, PASS_UNIT);
         program.set("uShadowNear", OwnGun.SHADOW_NEAR_UNIT);
         program.set("uShadowFar", OwnGun.SHADOW_FAR_UNIT);
         GL13.glActiveTexture(GL_TEXTURE0 + MIRROR_UNIT);
@@ -5238,12 +5237,14 @@ final class Pipeline {
     /**
      * Gives the program of something the mod draws in the viewer's hands, a gun or a scope,
      * the light of the frame: the sky, the sun and its two shadow maps, the eye and its axes,
-     * the flash of a shot.
+     * the flash of a shot, and the lamps and the viewer's torch, which the light where the
+     * viewer stands leaves out as the world's does.
      */
     private void lightHeld(Program program, ViewCamera.Pose camera, SkyState state) {
         atmosphere(program, state);
         setBasis(program, camera);
         setFlash(program);
+        setBeams(program, PASS_UNIT);
         program.set("uEye", camera.eyeX, camera.eyeY, camera.eyeUp);
         program.set("uLight", state.lightX, state.lightY, state.lightUp);
         program.set("uLightColor", state.lightRed, state.lightGreen, state.lightBlue);

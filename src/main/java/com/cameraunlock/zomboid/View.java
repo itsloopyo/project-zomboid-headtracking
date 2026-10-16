@@ -45,6 +45,7 @@ final class View {
     final FirstPerson firstPerson = new FirstPerson(this);
     final Controls controls = new Controls(this);
     final CarriedLight carriedLight = new CarriedLight(this);
+    final HeldLight heldLight = new HeldLight(this);
     final CentreUse centreUse = new CentreUse(this);
     final WorldMenu worldMenu = new WorldMenu(this);
     final NameTags nameTags = new NameTags(this);

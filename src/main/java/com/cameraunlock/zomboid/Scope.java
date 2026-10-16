@@ -99,7 +99,7 @@ final class Scope {
             }
             """;
 
-    private static final String FRAGMENT = "#version 120\n" + Sky.ATMOSPHERE + MuzzleFlash.GLSL + Fires.GLSL + String.format(Locale.ROOT, """
+    private static final String FRAGMENT = "#version 120\n" + Sky.ATMOSPHERE + MuzzleFlash.GLSL + Fires.GLSL + PipelineShaders.BEAMS + String.format(Locale.ROOT, """
             const float RELIEF = %f;
             const float EYE_LENS = %f;
             const float FIELD = %f;
@@ -117,7 +117,7 @@ final class Scope {
             uniform vec3 uForward;
             uniform vec3 uLight;
             uniform vec3 uLightColor;
-            // The game's light where the viewer stands, and whether that is out of doors.
+            // The light what the viewer holds is in (HeldLight), and whether that is out of doors.
             uniform float uStood;
             uniform float uOutdoors;
             // The depth is written in the measure of the target drawn into, whose near plane this is.
@@ -262,7 +262,7 @@ final class Scope {
                 float edge = min(fit.x * fit.x, exp2(-9.28 * nv)) * fit.x + fit.y;
                 vec2 share = vec2(-1.04, 1.04) * edge + fit.zw;
                 color += dull * soft + (mirror * share.x + share.y) * shown;
-                color += (dull + mirror * 0.6) * (flashLight(at, n) + fireLight(at, n));
+                color += (dull + mirror * 0.6) * (flashLight(at, n) + fireLight(at, n) + beams(at, n, 0.0));
                 return color;
             }
 
@@ -288,7 +288,7 @@ final class Scope {
                 vec3 innerBack = reflect(-view, inner);
                 color += around(innerBack, skyGives) * coat.gbr * (0.5 * base * (1.0 - 0.94 * headHides(innerBack, view)));
                 color += pow(uLightColor, vec3(2.2)) * (1.5 * sunReaches(at) * shine * thrown);
-                return color + coat * 0.02 * (flashLight(at, n) + fireLight(at, n));
+                return color + coat * 0.02 * (flashLight(at, n) + fireLight(at, n) + beams(at, n, 0.0));
             }
 
             // The eyepiece. A line of sight at an angle to the axis shows the world at that
@@ -587,7 +587,7 @@ final class Scope {
      * @param part       where the game has its own scope in its character's axes, read by rows
      * @param weapon     the same for the rifle the scope is on
      * @param finalScale the scale the game draws the character's parts at
-     * @param light      the game's light where the viewer stands
+     * @param light      the light what the viewer holds is in (HeldLight)
      * @param outside    whether the viewer stands out of doors
      */
     void place(float[] heldView, float[] part, float[] weapon, float finalScale, float light, boolean outside) {

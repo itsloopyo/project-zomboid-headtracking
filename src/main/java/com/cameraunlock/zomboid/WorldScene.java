@@ -2637,6 +2637,7 @@ final class WorldScene {
             roomKeptNow = sky.roomKept;
             // The beam of this picture's own view: the one being gathered now may be a turn of the head later.
             sky.carried = view.carriedLight.light;
+            HeldLight.light(view.heldLight.now, floorRed, floorGreen, floorBlue, sky.daylightKept, sky.roomKept, sky.held);
             sky.outlined = Outlines.gather(player.getIndex(), view.centreUse.marked);
             sky.facedX = facedX;
             sky.facedY = facedY;

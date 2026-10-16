@@ -592,19 +592,22 @@ public final class Characters {
     }
 
     /**
-     * Draws the viewer's body without their head into the bound target.
+     * Draws the viewer's body without their head into the bound target, in the light the frame's
+     * scene has for what the viewer holds (SkyState.held).
      * False if the viewer is not among the models.
      */
-    boolean drawViewer(ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float nearFrom, float far) {
+    boolean drawViewer(ViewCamera.Pose camera, float[] held, float tanHalfFieldOfView, float aspect, float nearFrom, float far) {
         holding = null;
         carrying = false;
+        ownLight = held[HeldLight.LIGHT];
+        ownOutside = held[HeldLight.OUTSIDE] > 0.5f;
+        System.arraycopy(held, HeldLight.CABIN, ownAmbient, 0, 3);
         if (view.pipeline.seated) {
             // The body is not drawn from a seat, so a weapon raised out of a window is held by
             // the hands drawHeld draws on it and by nothing else.
             for (int i = 0; i < noted.size(); i++) {
                 ModelSlotRenderData data = noted.get(i);
                 if (!repainted && data.character != null && data.character == viewer) {
-                    ownLight = (data.ambientR + data.ambientG + data.ambientB) / 3f;
                     settleTheWeapon(data, camera);
                     break;
                 }
@@ -637,14 +640,15 @@ public final class Characters {
     void drawWheelArms(float[] projection, float[][] skins) {
         OwnArms.Worn worn = wornOnArms();
         float[] stains = view.ride.dress.stains;
-        // Under the vehicle's roof no snow falls on them.
+        // Under the vehicle's roof no snow falls on them, and no square's light is said of them: the pass
+        // that lights them gives them the sky's through the cabin's windows (uCabinAround).
         OwnArms.snowed(0f);
         // A hand that holds a weapon up is on the weapon, and not on the wheel as well.
         if (rightOnWheel()) {
-            OwnArms.draw(projection, skins[0], false, viewer.isFemale(), view.ride.skin, false, worn, stains);
+            OwnArms.draw(projection, skins[0], false, viewer.isFemale(), view.ride.skin, -1f, false, worn, stains);
         }
         if (leftOnWheel()) {
-            OwnArms.draw(projection, skins[1], true, viewer.isFemale(), view.ride.skin, false, worn, stains);
+            OwnArms.draw(projection, skins[1], true, viewer.isFemale(), view.ride.skin, -1f, false, worn, stains);
         }
     }
 
@@ -672,9 +676,7 @@ public final class Characters {
                     VehicleMeshes.note(cabin, view.ride, script, parts(data).get(0), placed, view.pipeline.seatedAxes, WHEEL_SETTLES, view.pipeline.seatedX, view.pipeline.seatedY, groundUp,
                             data.centerOfMassY, combined);
                 }
-                ownAmbient[0] = data.ambientR;
-                ownAmbient[1] = data.ambientG;
-                ownAmbient[2] = data.ambientB;
+                float red = data.ambientR, green = data.ambientG, blue = data.ambientB;
                 data.ambientR = 1f;
                 data.ambientG = 1f;
                 data.ambientB = 1f;
@@ -682,9 +684,9 @@ public final class Characters {
                 CharacterDraw.release();
                 vehicle(data, i * 4, eyeView);
                 fromSeat = false;
-                data.ambientR = ownAmbient[0];
-                data.ambientG = ownAmbient[1];
-                data.ambientB = ownAmbient[2];
+                data.ambientR = red;
+                data.ambientG = green;
+                data.ambientB = blue;
                 return true;
             }
         }
@@ -929,9 +931,8 @@ public final class Characters {
     private void drawOwnBody(ModelSlotRenderData data, ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float nearFrom, float far) {
         ViewCamera.projection(tanHalfFieldOfView, aspect, nearFrom, far, projection);
         // In full light, as everyone else is: the picture does the lighting, once,
-        // by the light the game gives where the viewer stands.
+        // by the light what the viewer holds is in (HeldLight).
         float red = data.ambientR, green = data.ambientG, blue = data.ambientB;
-        ownLight = (red + green + blue) / 3f;
         data.ambientR = 1f;
         data.ambientG = 1f;
         data.ambientB = 1f;
@@ -1056,8 +1057,9 @@ public final class Characters {
     /** A left wrist further than this from the right, in tiles, is not on what the right hand holds. */
     private static final float ON_WEAPON = 0.5f;
 
-    /** The light the game gives where the viewer stands, as it gave the viewer's model last drawn. */
+    /** The light what the viewer holds is in (HeldLight), and whether that is out of doors. */
     float ownLight = 1f;
+    private boolean ownOutside = true;
 
     /**
      * Works out one of the picture's arms for the weapon held up, and the turn of the hand it
@@ -1504,9 +1506,9 @@ public final class Characters {
         out[2] = z / length;
     }
 
-    /** For the trace: how the wrists of the hands on the weapon are bent. */
+    /** For the trace: the light the hands and what they hold are in, and how the wrists of the hands on the weapon are bent. */
     String describeArms() {
-        StringBuilder said = new StringBuilder();
+        StringBuilder said = new StringBuilder(String.format(Locale.ROOT, "held in light %.2f %s, ", ownLight, ownOutside ? "out of doors" : "indoors"));
         if (ownArms) {
             for (int side = 0; side < (heldBoth ? 2 : 1); side++) {
                 float[] of = armSaid[side];
@@ -1640,8 +1642,7 @@ public final class Characters {
         // and the game's model of it and of what is fixed to it is left out.
         ViewModel.Held hands = armHands;
         ModelInstanceRenderData held = weaponOf(data);
-        IsoGridSquare square = data.character.getCurrentSquare();
-        boolean outside = square != null && square.isOutside();
+        boolean outside = ownOutside;
         // Whatever is fixed to it but a scope, a red dot sight, a laser or a light is left out with the game's model of it.
         OwnModel own = held != null && view.viewModel.hasMuzzle ? hands.ownDrawn() : null;
         if (own != null) {
@@ -1679,10 +1680,10 @@ public final class Characters {
             OwnArms.snowed(SnowCarried.on(data.character));
             OwnArms.Worn worn = wornOnArms();
             float[] stains = view.ride.dress.stains;
-            OwnArms.draw(projection, armSkins[0], false, armFemale, armSkin, outside, worn, stains);
+            OwnArms.draw(projection, armSkins[0], false, armFemale, armSkin, ownLight, outside, worn, stains);
             if (heldBoth) {
-                OwnArms.draw(projection, armSkins[1], true, armFemale, armSkin, outside, worn, stains);
-                OwnArms.carried(projection, armCarries.what, armCarries.at, outside);
+                OwnArms.draw(projection, armSkins[1], true, armFemale, armSkin, ownLight, outside, worn, stains);
+                OwnArms.carried(projection, armCarries.what, armCarries.at, ownLight, outside);
             }
             EYE.End();
             data.ambientR = red;
@@ -1692,6 +1693,7 @@ public final class Characters {
         }
         CharacterDraw.release();
         CharacterDraw.begin(data, handViews[0], projection, false, 0f);
+        CharacterDraw.stands(ownLight, ownOutside);
         CharacterDraw.snowed(SnowCarried.on(data.character));
         for (int part = 0; part < parts(data).size(); part++) {
             ModelInstanceRenderData model = parts(data).get(part);
@@ -1701,6 +1703,7 @@ public final class Characters {
         }
         if (heldBoth) {
             CharacterDraw.begin(data, handViews[1], projection, false, 0f);
+            CharacterDraw.stands(ownLight, ownOutside);
             CharacterDraw.snowed(SnowCarried.on(data.character));
             for (int part = 0; part < parts(data).size(); part++) {
                 ModelInstanceRenderData model = parts(data).get(part);
@@ -1730,8 +1733,7 @@ public final class Characters {
         data.ambientR = 1f;
         data.ambientG = 1f;
         data.ambientB = 1f;
-        IsoGridSquare square = data.character.getCurrentSquare();
-        boolean outside = square != null && square.isOutside();
+        boolean outside = ownOutside;
         for (int part = 0; part < parts(data).size(); part++) {
             ModelInstanceRenderData model = parts(data).get(part);
             if (model.model == null || !model.model.isStatic) {
@@ -1752,8 +1754,8 @@ public final class Characters {
         OwnArms.snowed(SnowCarried.on(data.character));
         OwnArms.Worn worn = wornOnArms();
         float[] stains = view.ride.dress.stains;
-        OwnArms.draw(projection, armSkins[0], false, armFemale, armSkin, outside, worn, stains);
-        OwnArms.draw(projection, armSkins[1], true, armFemale, armSkin, outside, worn, stains);
+        OwnArms.draw(projection, armSkins[0], false, armFemale, armSkin, ownLight, outside, worn, stains);
+        OwnArms.draw(projection, armSkins[1], true, armFemale, armSkin, ownLight, outside, worn, stains);
         data.ambientR = red;
         data.ambientG = green;
         data.ambientB = blue;
@@ -1883,8 +1885,8 @@ public final class Characters {
     /** The light the game gave the models last drawn, averaged over them. */
     float ambient = 1f;
 
-    /** The light the game gives the vehicle the viewer sits in. */
-    final float[] ownAmbient = {1f, 1f, 1f};
+    /** The light the vehicle the viewer sits in stands in, the viewer's torch left out (HeldLight). */
+    final float[] ownAmbient = new float[3];
 
     /** How far from where it stands a model or its shadow's caster reaches, in tiles: a vehicle's half length and some over. */
     private static final float MODEL_REACH = 4f;
@@ -2079,7 +2081,10 @@ public final class Characters {
         multiply(viewMatrix, placed, combined);
         EYE.Begin();
         CharacterDraw.begin(data, combined, projection, casting, fromEye);
-        if (!own && !casting) {
+        // The body seen from the eye is lit as the hands are, which at a doorway may be the next square's light.
+        if (own && !casting) {
+            CharacterDraw.stands(ownLight, ownOutside);
+        } else if (!casting) {
             lightWhere(data);
         }
         if (!casting) {

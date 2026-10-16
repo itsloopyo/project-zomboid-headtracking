@@ -90,7 +90,7 @@ abstract class OwnGun {
             }
             """;
 
-    private static final String FRAGMENT = "#version 120\n" + Sky.ATMOSPHERE + MuzzleFlash.GLSL + Fires.GLSL + """
+    private static final String FRAGMENT = "#version 120\n" + Sky.ATMOSPHERE + MuzzleFlash.GLSL + Fires.GLSL + PipelineShaders.BEAMS + """
             uniform sampler2D uColour;
             uniform sampler2D uSurface;
             uniform sampler2DShadow uShadowNear;
@@ -103,7 +103,7 @@ abstract class OwnGun {
             uniform vec3 uForward;
             uniform vec3 uLight;
             uniform vec3 uLightColor;
-            // The game's light where the viewer stands, and whether that is out of doors.
+            // The light what the viewer holds is in (HeldLight), and whether that is out of doors.
             uniform float uStood;
             uniform float uOutdoors;
             // The depth is written in the measure of the target drawn into, whose near plane this is.
@@ -233,7 +233,7 @@ abstract class OwnGun {
                 // by the way it throws the eye's line, the mirror blurred as the surface is rough.
                 float skyGives = clamp(dot(atmosphere(vec3(0.0, 0.0, 1.0)), vec3(1.4)) + 0.05, 0.0, 1.0);
                 // What a dull surface scatters is the light the picture gives the hands that hold it:
-                // the game's light where the viewer stands, from the sky and the sunlit ground out
+                // the light what the viewer holds is in, from the sky and the sunlit ground out
                 // of doors and mostly from above within.
                 vec3 soft = pow(uStood, 2.2) * mix(vec3(0.66 + 0.34 * n.z + 0.1 * dot(n.xy, vec2(0.6, -0.8))), vec3(0.72, 0.80, 0.95) * (0.72 + 0.28 * n.z), uOutdoors);
                 soft += pow(uLightColor, vec3(2.2)) * vec3(0.9, 0.86, 0.74) * (0.3 * max(uLight.z, 0.0) * (1.0 - max(n.z, 0.0)) * uOutdoors);
@@ -252,7 +252,7 @@ abstract class OwnGun {
                 // What stands close round a point keeps the light off it, and out of its mirror more as it is rough.
                 float mirrored = mix(1.0, reached, 0.4 + 0.6 * rough);
                 color += dull * soft * reached + (mirror * share.x + share.y) * shown * (mirrored * mix(uVarnish, 1.0, metal));
-                color += (dull + mirror * 0.6) * (flashLight(at, n) + fireLight(at, n));
+                color += (dull + mirror * 0.6) * (flashLight(at, n) + fireLight(at, n) + beams(at, n, 0.0));
 
                 gl_FragColor = vec4(color, 1.0);
                 gl_FragDepth = depthWritten(ahead);
@@ -325,7 +325,7 @@ abstract class OwnGun {
      * @param weapon      where the game has the weapon in its character's axes, read by rows
      * @param finalScale  the scale the game draws the character's parts at
      * @param gameMuzzle  how far the muzzle of the game's model is from its grip, in that model's units
-     * @param light       the game's light where the viewer stands
+     * @param light       the light what the viewer holds is in (HeldLight)
      * @param outside     whether the viewer stands out of doors
      * @param aim         0 at the hip, 1 with the sights up
      * @param paused      whether the game is paused in that frame

@@ -378,6 +378,7 @@ public final class FirstPerson {
      */
     void leftSave() {
         SnowPrints.forget();
+        view.heldLight.forget();
         view.modeFade.giveBack("the save was left");
         giveBack("the save was left");
     }
@@ -773,6 +774,7 @@ public final class FirstPerson {
         float beamUp = view.headFollowLight.up(cleanView);
         float beamFlat = (float) Math.sqrt(Math.max(1f - beamUp * beamUp, 0f));
         view.carriedLight.gather(player, eye[0], eye[1], eye[2], (float) Math.cos(beamHeading) * beamFlat, (float) Math.sin(beamHeading) * beamFlat, beamUp);
+        view.heldLight.gather(player, world, eye[0], eye[1], cleanView.forwardX, cleanView.forwardY, vehicle != null);
         float[] carried = view.headTracking.carried();
         aimView.set(mouseView);
         aimView.eyeX += carried[0];

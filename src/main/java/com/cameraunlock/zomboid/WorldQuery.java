@@ -52,7 +52,12 @@ final class WorldQuery {
         return toY < fromY && from.has(IsoFlagType.collideN) || toX < fromX && from.has(IsoFlagType.collideW);
     }
 
-    private boolean solidToTheEye(int fromX, int fromY, int toX, int toY) {
+    /**
+     * Whether the eye could not pass the edge between two squares side by side on the level looked at:
+     * what the game's isBlockedTo says is in the way (a wall, a shut door), any window the game's
+     * isWindowTo finds between the two, or a square that is solid.
+     */
+    boolean solidToTheEye(int fromX, int fromY, int toX, int toY) {
         IsoGridSquare from = cell.getGridSquare(fromX, fromY, level);
         IsoGridSquare to = cell.getGridSquare(toX, toY, level);
         if (from == null || to == null) {

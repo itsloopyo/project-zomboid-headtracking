@@ -64,6 +64,8 @@ final class SkyState {
     float roomKept = 1f;
     /** The light the character carries, as CarriedLight gathered it for this picture. The scene sets it. */
     float[] carried = new float[8];
+    /** The light what the viewer holds is in, as HeldLight.light has it for this picture. The scene sets it. */
+    final float[] held = new float[5];
     /** What this picture draws a line round, or null for nothing: see Outlines. */
     Outlines.Frame outlined;
     /** Where on the map the camera the picture is drawn from stands, which a card turns to face, and the way a card on that very square lies. */

@@ -100,8 +100,10 @@ final class OwnArms {
             uniform vec3 uBlood;
             uniform vec3 uDirt;
             uniform vec3 uTone;
-            // Whether the viewer stands out of doors.
+            // Whether the viewer stands out of doors, and the light where they stand, less than nought
+            // where none is said: written beside the colour, as CharacterDraw writes it of a person.
             uniform float uOutside;
+            uniform float uStood;
             // -1 for the left arm, whose matrices mirror the model and turn a surface's own axes inside out.
             uniform float uHanded;
             varying vec3 vNormal;
@@ -177,6 +179,7 @@ final class OwnArms {
                 if (vAlong < uSpan.x || vAlong > uSpan.y) {
                     discard;
                 }
+                float stood = (uStood < 0.0 ? 255.0 : 128.0 + floor(clamp(uStood, 0.0, 1.0) * 126.0 + 0.5)) / 255.0;
                 vec2 stain = stained();
                 vec3 gore = vec3(0.34, 0.025, 0.02), grime = vec3(0.23, 0.18, 0.12);
                 vec3 n = normalize(vNormal);
@@ -207,7 +210,7 @@ final class OwnArms {
                     finish = mix(finish, vec2(0.0, 0.9), step(0.5, snowLies));
                     vec2 kept = floor(folded(facing) * 255.0 + 0.5) / 255.0;
                     float what = 128.0 + 64.0 + (uOutside > 0.5 ? 16.0 : 0.0) + floor(finish.y * 15.0 + 0.5);
-                    gl_FragData[0] = vec4(clamp(paint, 0.0, 1.0), 1.0);
+                    gl_FragData[0] = vec4(clamp(paint, 0.0, 1.0), stood);
                     gl_FragData[1] = vec4(kept, max(finish.x, 0.5 * stain.x), what / 255.0);
                     return;
                 }
@@ -232,7 +235,7 @@ final class OwnArms {
                 gloss *= 1.0 - snowy;
                 vec2 kept = floor(folded(facing) * 255.0 + 0.5) / 255.0;
                 float what = 128.0 + 32.0 + 32.0 * snowy + (uOutside > 0.5 ? 16.0 : 0.0) + floor(mix(thin, 0.9, snowy) * 15.0 + 0.5);
-                gl_FragData[0] = vec4(clamp(paint, 0.0, 1.0), 1.0);
+                gl_FragData[0] = vec4(clamp(paint, 0.0, 1.0), stood);
                 gl_FragData[1] = vec4(kept, gloss, what / 255.0);
             }
             """;
@@ -240,7 +243,7 @@ final class OwnArms {
     private static boolean tried;
     private static ArmModel model;
     private static int program, vertices, indices, colour, surface;
-    private static int projectionAt, femaleAt, toneAt, outsideAt, handedAt, wearAt, clothAt, spanAt, bloodAt, dirtAt, snowAt, upAt;
+    private static int projectionAt, femaleAt, toneAt, outsideAt, stoodAt, handedAt, wearAt, clothAt, spanAt, bloodAt, dirtAt, snowAt, upAt;
     /** How much snow has settled on the viewer, 0 to 1: see SnowCarried. */
     private static float snowOn;
     /** The first of uBones: the rest follow it, so one call sets them all. */
@@ -332,6 +335,7 @@ final class OwnArms {
         femaleAt = GL20.glGetUniformLocation(id, "uFemale");
         toneAt = GL20.glGetUniformLocation(id, "uTone");
         outsideAt = GL20.glGetUniformLocation(id, "uOutside");
+        stoodAt = GL20.glGetUniformLocation(id, "uStood");
         handedAt = GL20.glGetUniformLocation(id, "uHanded");
         wearAt = GL20.glGetUniformLocation(id, "uWear");
         clothAt = GL20.glGetUniformLocation(id, "uCloth");
@@ -477,8 +481,9 @@ final class OwnArms {
      *
      * @param what one of ArmHolds' things carried
      * @param at   the matrix from its own measure, metres with its length along y, to the view
+     * @param light the light what the viewer holds is in, as draw takes it
      */
-    static void carried(float[] projection, int what, float[] at, boolean outside) {
+    static void carried(float[] projection, int what, float[] at, float light, boolean outside) {
         if (what == ArmHolds.NOTHING) {
             return;
         }
@@ -494,6 +499,7 @@ final class OwnArms {
         GL20.glUniformMatrix4fv(bonesAt, false, loaded);
         GL20.glUniform1f(femaleAt, 0f);
         GL20.glUniform1f(outsideAt, outside ? 1f : 0f);
+        GL20.glUniform1f(stoodAt, light);
         GL20.glUniform1f(handedAt, 1f);
         GL20.glUniform1f(wearAt, CharacterDraw.SLEEK);
         GL20.glUniform2f(spanAt, -1f, 4f);
@@ -587,10 +593,11 @@ final class OwnArms {
      * @param left    whether it is the left arm, whose matrices mirror the model
      * @param female  whether it is a woman's
      * @param skin    which of the game's five skins the body wears, 0 the palest
+     * @param light   the light what the viewer holds is in (HeldLight), or less than nought where the pass that lights them gives the light
      * @param outside whether the viewer stands out of doors
      * @param stains  how bloody and how dirty what shows of each arm is, as Cabins.stains has it
      */
-    static void draw(float[] projection, float[] skins, boolean left, boolean female, int skin, boolean outside, Worn worn, float[] stains) {
+    static void draw(float[] projection, float[] skins, boolean left, boolean female, int skin, float light, boolean outside, Worn worn, float[] stains) {
         GL11.glEnable(GL_CULL_FACE);
         GL11.glCullFace(left ? GL_FRONT : GL_BACK);
         GL11.glEnable(GL_DEPTH_TEST);
@@ -606,6 +613,7 @@ final class OwnArms {
         float[] tone = TONES[Math.clamp(skin, 0, TONES.length - 1)];
         GL20.glUniform3f(toneAt, tone[0], tone[1], tone[2]);
         GL20.glUniform1f(outsideAt, outside ? 1f : 0f);
+        GL20.glUniform1f(stoodAt, light);
         GL20.glUniform1f(handedAt, left ? -1f : 1f);
         int at = left ? 6 : 0;
         GL20.glUniform3f(bloodAt, stains[at], stains[at + 2], stains[at + 4]);
