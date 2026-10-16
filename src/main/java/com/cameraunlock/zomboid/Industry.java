@@ -6,9 +6,9 @@ import com.cameraunlock.zomboid.Outdoors.Piece;
  * What a works, a warehouse, a garage, a workshop and a distillery have that the mod has a model
  * of: belt conveyors and the machines a line of them runs through, fuel tanks lying on saddles,
  * pipes down from the ceiling, crates stacked on crates, racks of casks and the casks, workbenches,
- * tool chests, security desks, gas bottles, lathes, presses, drill presses and band saws. Most
- * sprites of a works and a workshop have no name and no facing: which piece each is, which way it
- * runs or faces and where on its square it stands go by its place on its sheet.
+ * tool chests, security desks, gas bottles, lathes, presses, drill presses, band saws and bench
+ * grinders. Most sprites of a works and a workshop have no name and no facing: which piece each
+ * is, which way it runs or faces and where on its square it stands go by its place on its sheet.
  */
 final class Industry {
     private Industry() {}
@@ -56,6 +56,14 @@ final class Industry {
     private static final int PRESSES = 48;
     private static final int[] PRESS_FACES = {Outdoors.WEST, Outdoors.NORTH, Outdoors.EAST, Outdoors.SOUTH};
     private static final float[] PRESS_DYE = {0.5f, 0.35f, 0.65f, 0.5f, 0.5f, 0.7f, 0.5f, 0.5f, 0.725f, 0.45f, 0.6f, 0.7f};
+    /**
+     * Where on the bench the game paints each of the four bench grinders, 20 to 23 of their sheet,
+     * as (a, b) of the middle of its foot, and where on each its case gives the colour, as (a, b,
+     * high in levels from the floor).
+     */
+    private static final String GRINDERS = "industry_04_";
+    private static final float[] GRINDER_AT = {0.25f, 0.75f, 0.6f, 0.28f, 0.35f, 0.25f, 0.3f, 0.35f};
+    private static final float[] GRINDER_DYE = {0.55f, 0.95f, 0.4f, 0.6f, 0.3f, 0.325f, 0.5f, 0.5f, 0.35f, 0.5f, 0.5f, 0.35f};
 
     /**
      * The model of a sprite and how it stands, or null for a sprite that is none of these. The
@@ -100,6 +108,14 @@ final class Industry {
         }
         if (called.equals("Terminal") && kind.equals("Security") && faces != Outdoors.NONE) {
             return new Piece("security_desk", faces).fit();
+        }
+        if (called.equals("Grinder") && kind.equals("Bench") && surface > 0) {
+            int which = Sheets.place(name, GRINDERS) - 20;
+            if (which < 0 || which > 3) {
+                return null;
+            }
+            return new Piece("bench_grinder", faces).at(GRINDER_AT[2 * which], GRINDER_AT[2 * which + 1])
+                    .raise(surface / WorldScene.SURFACE_PIXELS_PER_LEVEL).dye(PAINT, GRINDER_DYE[3 * which], GRINDER_DYE[3 * which + 1], GRINDER_DYE[3 * which + 2]);
         }
         if (called.equals("Propane Tank")) {
             return new Piece("propane_tank", 0).fit();

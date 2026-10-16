@@ -8512,6 +8512,43 @@ def line_press():
     return model
 
 
+def bench_grinder():
+    """A bench grinder, its front at -Y and its wheels on either end of the motor along X: the motor's round case on a
+    foot, a grey wheel in a guard at each end, a tool rest in front of each wheel and a switch on the foot."""
+    model = Model("bench_grinder")
+    paint, steel, dark, metal, glass = bmesh.new(), bmesh.new(), bmesh.new(), bmesh.new(), bmesh.new()
+    axis = 0.11
+    prism(paint, (0.0, 0.0, 0.2, 0.15, 0.0), (0.0, 0.0, 0.11, 0.09, 0.07))
+    lathe(paint, [(0.0, -0.1), (0.06, -0.1), (0.072, -0.08), (0.075, 0.0), (0.072, 0.08), (0.06, 0.1), (0.0, 0.1)], segments=24, to=along_x(0.0, 0.0, axis))
+    for side in (-1, 1):
+        lathe(steel, [(0.0, 0.0), (0.012, 0.0), (0.012, 0.03), (0.0, 0.03)], segments=8,
+              to=along_x(side * 0.1, 0.0, axis) @ Matrix.Rotation(math.radians(0 if side > 0 else 180), 4, "Y"))
+        x0 = side * 0.13
+        lathe(metal, [(0.0, -0.012), (0.068, -0.012), (0.068, 0.012), (0.0, 0.012)], segments=24, to=along_x(x0 + side * 0.012, 0.0, axis))
+        guard = [(0.082 * math.cos(math.radians(a)), 0.082 * math.sin(math.radians(a))) for a in range(-40, 225, 15)]
+        guard += [(0.074 * math.cos(math.radians(a)), 0.074 * math.sin(math.radians(a))) for a in range(210, -55, -15)]
+        shell = bmesh.new()
+        front = [shell.verts.new((x0 - side * 0.006, -yz[0], axis + yz[1])) for yz in guard]
+        back = [shell.verts.new((x0 + side * 0.042, -yz[0], axis + yz[1])) for yz in guard]
+        for i in range(len(guard)):
+            j = (i + 1) % len(guard)
+            shell.faces.new((front[i], front[j], back[j], back[i]))
+        shell.faces.new(front[::-1])
+        shell.faces.new(back)
+        model.hard(shell, "plastic", bevel=0.003, segments=1)
+        rest = (x0 + side * 0.012, -0.095, axis - 0.02)
+        cuboid(steel, rest[0] - 0.025, rest[0] + 0.025, rest[1] - 0.02, rest[1] + 0.02, rest[2] - 0.006, rest[2])
+        cuboid(steel, rest[0] - 0.006, rest[0] + 0.006, rest[1] + 0.02, -0.05, rest[2] - 0.03, rest[2] - 0.006)
+        cuboid(glass, rest[0] - 0.04, rest[0] + 0.04, -0.085, -0.082, axis + 0.06, axis + 0.11)
+    cuboid(dark, -0.03, 0.03, -0.076, -0.07, 0.02, 0.05)
+    model.hard(paint, "paint", bevel=0.006, segments=2)
+    model.hard(steel, "steel", bevel=0.002, segments=1)
+    model.turned(metal, "metal")
+    model.plain(dark, "rubber")
+    model.plain(glass, "pane")
+    return model
+
+
 def industrial():
     """What a works, a warehouse, a garage and a distillery have: the pieces Industry.java places."""
     return [conveyor(), conveyor_boxed(), machine_case(), machine_shell(), machine_outlet(), machine_column(), machine_drum(),
@@ -8519,7 +8556,8 @@ def industrial():
             cask("cask", False), cask("cask_lying", True), barrel_rack("barrel_rack", 0), barrel_rack("barrel_rack_low", 1),
             barrel_rack("barrel_rack_full", 2), workbench(), tool_chest(), security_desk(),
             gas_bottle("extinguisher_bottle", 0.09, 0.62), propane_tank(),
-            engine_lathe(), lathe_headstock(), hydraulic_press("press", False), hydraulic_press("press_loaded", True), drill_press(), band_saw(), line_press()]
+            engine_lathe(), lathe_headstock(), hydraulic_press("press", False), hydraulic_press("press_loaded", True), drill_press(), band_saw(), line_press(),
+            bench_grinder()]
 
 
 def jersey_barrier():

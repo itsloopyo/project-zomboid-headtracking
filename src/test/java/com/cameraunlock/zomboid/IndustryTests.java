@@ -16,6 +16,7 @@ final class IndustryTests {
         Checks.run("aLathesThreeSquaresStandItWithItsHeadstockAtItsEnd", IndustryTests::aLathesThreeSquaresStandItWithItsHeadstockAtItsEnd);
         Checks.run("aLathesThreeSquaresStandOrNotAlike", IndustryTests::aLathesThreeSquaresStandOrNotAlike);
         Checks.run("aWorkshopsMachinesFaceTheWayTheirSpritesDo", IndustryTests::aWorkshopsMachinesFaceTheWayTheirSpritesDo);
+        Checks.run("aBenchGrinderStandsOnItsBench", IndustryTests::aBenchGrinderStandsOnItsBench);
     }
 
     private static Outdoors.Piece unnamed(String name, int surface) {
@@ -70,6 +71,9 @@ final class IndustryTests {
         }
         for (int place : new int[] {46, 47, 264, 265, 266, 267, 268, 269, 270, 271}) {
             holds(works(place), "industry_02_" + place + " has a model");
+        }
+        for (int place = 20; place < 24; place++) {
+            holds(Industry.of("industry_04_" + place, "Grinder", "Bench", Outdoors.SOUTH, 1, 1, 31), "industry_04_" + place + " has a model");
         }
         for (int place : new int[] {22, 23, 30, 31}) {
             Outdoors.Piece bottle = Industry.of("industry_03_" + place, "Extinguisher", null, Outdoors.NONE, 1, 1, 0);
@@ -173,6 +177,7 @@ final class IndustryTests {
     private static void aSpriteOfAnotherPlaceOrShapeIsNoIndustrialPiece() {
         Checks.check(works(88) == null && works(160) == null, "a tank's roof and a cabinet are not these");
         Checks.check(workshop(6) == null && workshop(24) == null && workshop(46) == null, "a gas bottle, a trolley of them and a gap in the sheet are no machine");
+        Checks.check(Industry.of("industry_04_16", "Duplicator", "Key", Outdoors.SOUTH, 1, 1, 31) == null, "a key cutter is no grinder");
         Checks.check(unnamed("carpentry_01_16", 32) == null && unnamed("carpentry_01_17", 32) == null, "a crate on the floor is Furniture's");
         Checks.check(unnamed("location_business_distillery_01_11", 0) == null, "a still is not a rack");
         Checks.check(Industry.of("industry_02_40", null, null, Outdoors.NONE, 2, 1, 0) == null, "a piece on two squares is no conveyor");
@@ -248,6 +253,22 @@ final class IndustryTests {
         Checks.check(Math.abs(way(works(46), 0f, 1f)[1]) == 1f && Math.abs(way(works(47), 0f, 1f)[0]) == 1f, "a line press's belt runs along its line");
     }
 
+    private static void aBenchGrinderStandsOnItsBench() {
+        int[] faces = {Outdoors.SOUTH, Outdoors.EAST, Outdoors.NORTH, Outdoors.WEST};
+        float bench = 31f / WorldScene.SURFACE_PIXELS_PER_LEVEL;
+        for (int i = 0; i < 4; i++) {
+            Outdoors.Piece grinder = Industry.of("industry_04_" + (20 + i), "Grinder", "Bench", faces[i], 1, 1, 31);
+            Checks.check(grinder.turns == faces[i], "industry_04_" + (20 + i) + " faces the way the game says");
+            Checks.check(Math.abs(grinder.raised - bench * ViewCamera.LEVEL_HEIGHT) < 1e-5f, "industry_04_" + (20 + i) + " stands on its bench's top");
+            Checks.check(grinder.dyeHigh > bench, "industry_04_" + (20 + i) + " takes its colour above the bench, from its case");
+        }
+    }
+
+    /**
+     * Every square of a lathe reaches one answer. With all three sprites there each stands its share, the tail nothing; with
+     * the head gone none does, so the bed and tail are the game's sprites again; with the head's square not loaded yet the
+     * bed and tail wait for it; and where the headstock's sprite paints nothing where the colour is taken none stands.
+     */
     private static void aLathesThreeSquaresStandOrNotAlike() {
         String head = "industry_03_35", bed = "industry_03_36", tail = "industry_03_37";
         int[][] at = {{7382, 8349}, {7383, 8349}, {7384, 8349}};
