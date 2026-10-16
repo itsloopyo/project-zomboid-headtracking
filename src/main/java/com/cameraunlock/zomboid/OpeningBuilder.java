@@ -55,6 +55,15 @@ final class OpeningBuilder {
     /** How far a door swung open stands into its square from the wall it is back against, to the leaf's middle, in tiles. */
     static final float SWUNG_OUT = WorldScene.WALL_HALF + WorldScene.HUNG_CLEAR + DOOR_HALF;
     /**
+     * How far inside the wall's skins the wood filling a doorway's jamb to a shut leaf stands, in tiles. The leaf is
+     * measured off its own sprite and the doorway off the wall's, and the two need not meet: what is between them is
+     * open through the wall but for the pictures on its two faces. A wall cut for half of a doorway two squares wide has
+     * no reveal at its cut, and a leaf ending right at the cut leaves a hairline of the street beside it, so the fill
+     * goes JAMB_OVER on into the wall, between its skins.
+     */
+    private static final float JAMB_IN = 0.004f;
+    static final float JAMB_OVER = 0.03f;
+    /**
      * Wood the picture gives a grain with no joints across: a door's leaf, a window's frame.
      * JOINERY's runs up; JOINERY_LEVEL's runs along, for a member longer than it is high (a
      * rail, a head, a sill). addJoinery picks between them by the member's shape.
@@ -280,6 +289,49 @@ final class OpeningBuilder {
         return true;
     }
 
+    /** The doorway the wall on the square's north or west edge was last measured with: see doorwayIn. */
+    private int doorwayX, doorwayY, doorwayZ = Integer.MIN_VALUE;
+    private boolean doorwayNorth;
+    private float doorwayStart = -1f, doorwayEnd;
+    private final float[] jambs = new float[4];
+
+    /**
+     * The clear run across the sprite of the wall a doorway is in on a square's edge, as shares of its length, or a
+     * start below 0 for none measured. The wall is added before the door that hangs in it.
+     */
+    void doorwayIn(int x, int y, int z, boolean north, float start, float end) {
+        doorwayX = x;
+        doorwayY = y;
+        doorwayZ = z;
+        doorwayNorth = north;
+        doorwayStart = start;
+        doorwayEnd = end;
+    }
+
+    /**
+     * The jambs to fill between a doorway cut from cutStart to cutEnd and a shut leaf from leafStart to leafEnd, as
+     * pairs of shares along the wall in out; how many pairs. None with no cut measured, none where the leaf already
+     * reaches JAMB_OVER into the wall, and none at an end where the cut reaches the square's edge: there the doorway
+     * goes on into the next square, to the other leaf of a pair, and the gap between the two leaves is a real one.
+     */
+    static int jambs(float leafStart, float leafEnd, float cutStart, float cutEnd, float[] out) {
+        if (cutStart < 0f) {
+            return 0;
+        }
+        int pairs = 0;
+        if (cutStart > 0f && leafStart > cutStart - JAMB_OVER) {
+            out[0] = Math.max(0f, cutStart - JAMB_OVER);
+            out[1] = leafStart;
+            pairs++;
+        }
+        if (cutEnd < 1f && leafEnd < cutEnd + JAMB_OVER) {
+            out[2 * pairs] = leafEnd;
+            out[2 * pairs + 1] = Math.min(1f, cutEnd + JAMB_OVER);
+            pairs++;
+        }
+        return pairs;
+    }
+
     /**
      * A door, built: a leaf as thick as a door in the colour of the game's sprite, with glass
      * in its lights, raised panels or boards on ledges where the sprite draws them, a knob on
@@ -320,6 +372,9 @@ final class OpeningBuilder {
             panelled = Math.min(panelled, leaf.panes[pane + 2]);
         }
         float[] up = panelled < leaf.head ? PANELS_UP_BELOW : PANELS_UP;
+        // A garage door rolls up in its own plane and has no jamb to fill, and a door swung open stands clear of its doorway.
+        boolean measured = doorwayX == x && doorwayY == y && doorwayZ == z && doorwayNorth == north;
+        int filled = build.doorSwung || build.garageDoor || !measured ? 0 : jambs(leaf.start, leaf.end, doorwayStart, doorwayEnd, jambs);
         float knob = door.handleAtEnd ? leaf.end - KNOB_IN * wide : leaf.start + KNOB_IN * wide;
         for (int side = 0; side < 2; side++) {
             float face = (side == 0 ? 1f : -1f) * DOOR_HALF;
@@ -354,6 +409,9 @@ final class OpeningBuilder {
                 for (int bar = 0; bar < leaf.bars.length; bar += 4) {
                     addJoinery(wood, leaf.bars[bar], leaf.bars[bar + 1], leaf.bars[bar + 2], leaf.bars[bar + 3], face, r, g, b);
                 }
+            }
+            for (int jamb = 0; jamb < 2 * filled; jamb += 2) {
+                addJoinery(wood, jambs[jamb], jambs[jamb + 1], leaf.foot, leaf.head, Math.signum(face) * (WorldScene.WALL_HALF - JAMB_IN), r, g, b);
             }
             if (door.kind == Doors.PANELLED && panelled - leaf.foot > 0.15f) {
                 float high = panelled - leaf.foot;

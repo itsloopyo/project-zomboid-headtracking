@@ -6089,6 +6089,7 @@ final class WorldScene {
             tiledSheet = kind.tiledSheet;
             wallOpens = properties.has(IsoFlagType.DoorWallN) || properties.has(IsoFlagType.DoorWallW)
                     || properties.has(IsoFlagType.WindowN) || properties.has(IsoFlagType.WindowW);
+            doorWall = properties.has(IsoFlagType.DoorWallN) || properties.has(IsoFlagType.DoorWallW);
             seeThrough = isSheet(properties);
             // A gate in a fence is rails or wire like the fence, and stays the sheet it is.
             doorLeaf = door && !kind.fenceGate;
@@ -6612,6 +6613,8 @@ final class WorldScene {
         boolean garageDoor;
         /** Whether the sprite being added is the frame round a doorway. */
         boolean casing;
+        /** Whether the sprite being added is a wall a doorway is in. */
+        boolean doorWall;
 
         /** Whether the sprite being added is a window's that is also a wall. */
         boolean glazedWall;

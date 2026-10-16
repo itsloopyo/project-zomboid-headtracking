@@ -18,6 +18,7 @@ final class DoorTests {
         Checks.run("doorsWoodAndMetalAreDrawnUnderNumbersOfTheirOwn", DoorTests::doorsWoodAndMetalAreDrawnUnderNumbersOfTheirOwn);
         Checks.run("hingesAreOnTheEdgeAwayFromTheKnobAndTheFaceAwayFromTheWall", DoorTests::hingesAreOnTheEdgeAwayFromTheKnobAndTheFaceAwayFromTheWall);
         Checks.run("roseKeepsClearOfThePanelBesideTheKnob", DoorTests::roseKeepsClearOfThePanelBesideTheKnob);
+        Checks.run("jambIsFilledFromTheDoorwaysCutToTheLeafOnly", DoorTests::jambIsFilledFromTheDoorwaysCutToTheLeafOnly);
     }
 
     private static final float LEVEL = ViewCamera.LEVEL_HEIGHT, FACE = 0.022f;
@@ -159,5 +160,23 @@ final class DoorTests {
             check(rose > 0f && OpeningBuilder.KNOB_IN * wide + rose < OpeningBuilder.PANELS_ACROSS[0] * wide,
                     "on a panelled leaf " + wide + " wide the rose (" + rose + ") ends short of the panel");
         }
+    }
+
+    private static boolean pair(float[] out, int at, float from, float to) {
+        return Math.abs(out[2 * at] - from) < 1e-6f && Math.abs(out[2 * at + 1] - to) < 1e-6f;
+    }
+
+    private static void jambIsFilledFromTheDoorwaysCutToTheLeafOnly() {
+        float[] out = new float[4];
+        float over = OpeningBuilder.JAMB_OVER;
+        // The church's double door, as measured: each leaf's square has half the doorway, which runs on into the other square.
+        check(OpeningBuilder.jambs(0.1875f, 1f, 0.234375f, 1f, out) == 0, "a leaf reaching well into the wall past the cut is not filled beside, where the wall is");
+        check(OpeningBuilder.jambs(0f, 0.75f, 0f, 0.75f, out) == 1 && pair(out, 0, 0.75f, 0.75f + over),
+                "a leaf ending at the cut is closed a little way on into the wall, and where the leaves meet the gap stays open");
+        check(OpeningBuilder.jambs(0.25f, 1f, 0.0625f, 1f, out) == 1 && pair(out, 0, 0.0625f - over, 0.25f), "a gap between the cut and a leaf is filled across");
+        check(OpeningBuilder.jambs(0.25f, 1f, 0f, 1f, out) == 0, "a leaf in a doorway that runs on at both ends is not filled");
+        check(OpeningBuilder.jambs(0.5f, 0.6f, 0.1f, 0.9f, out) == 2 && pair(out, 0, 0.1f - over, 0.5f) && pair(out, 1, 0.6f, 0.9f + over),
+                "a leaf set far in is filled all the way to the cut on both sides");
+        check(OpeningBuilder.jambs(0.2f, 0.8f, -1f, 0f, out) == 0, "with no doorway measured in a wall, as in a fence, nothing is filled");
     }
 }

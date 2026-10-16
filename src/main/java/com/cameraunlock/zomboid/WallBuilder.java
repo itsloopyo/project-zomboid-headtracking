@@ -48,7 +48,8 @@ final class WallBuilder {
     /** The walls with an opening the log has said keep their sprite, by texture name, on the north edge and on the west. */
     private static final Set<String> KEPT_NORTH = ConcurrentHashMap.newKeySet(), KEPT_WEST = ConcurrentHashMap.newKeySet();
     /** For each of the two edges a wall can stand on: the frame origin the sprite was read with, then the opening. */
-    private static final int OPENING_FLOATS = 7, OPENING_ORIGIN = 0, OPENING_START = 2, OPENING_END = 3, OPENING_FOOT = 4, OPENING_HEAD = 5, OPENING_TOP = 6;
+    private static final int OPENING_FLOATS = 9, OPENING_ORIGIN = 0, OPENING_START = 2, OPENING_END = 3, OPENING_FOOT = 4, OPENING_HEAD = 5, OPENING_TOP = 6,
+            DOORWAY_START = 7, DOORWAY_END = 8;
     /** Where along a wall its height is read, and the lowest a wall's top is looked for, in levels. */
     private static final float[] TOP_READ_AT = {0.15f, 0.5f, 0.85f};
     private static final float LOWEST_TOP = 0.05f;
@@ -286,6 +287,9 @@ final class WallBuilder {
         boolean startIsLow = SpriteGeometry.frameU(build.frame, 0f, 0f) < SpriteGeometry.frameU(build.frame, da, db);
         float[] opening = openingOf(texture, 0f, 0f, da, db);
         int at = da != 0f ? 0 : OPENING_FLOATS;
+        if (build.overLayer == 0 && build.doorWall) {
+            build.openingBuilder.doorwayIn(x, y, z, da != 0f, opening[at + DOORWAY_START], opening[at + DOORWAY_END]);
+        }
         // Where the wall's own sprite is painted to its end, the end is the wall's: a corner
         // post's sprite is a sliver at one end of its square and nothing at the other.
         float pixels = Math.abs(SpriteGeometry.frameU(build.frame, da, db) - SpriteGeometry.frameU(build.frame, 0f, 0f));
@@ -933,7 +937,9 @@ final class WallBuilder {
      * and OPENING_END the shares of the wall's length it starts and ends at, and at OPENING_FOOT
      * and OPENING_HEAD the heights of its sill and its lintel, in levels. A start below 0 is a
      * wall with no opening, or with one that is not a rectangle, an arched window, or with more
-     * than one. Read once for each sprite on each edge.
+     * than one. At DOORWAY_START and DOORWAY_END, the one clear run across the sprite even where
+     * it reaches the wall's end, as half of a doorway two squares wide does, or a start below 0.
+     * Read once for each sprite on each edge.
      */
     private float[] openingOf(Texture texture, float a, float b, float da, float db) {
         int at = da != 0f ? 0 : OPENING_FLOATS;
@@ -949,14 +955,20 @@ final class WallBuilder {
         known[at + OPENING_ORIGIN] = build.frame.originU;
         known[at + OPENING_ORIGIN + 1] = build.frame.originV;
         known[at + OPENING_START] = -1f;
+        known[at + DOORWAY_START] = -1f;
         known[at + OPENING_TOP] = wallTop(texture, a, b, da, db);
         int pixels = Math.round(Math.abs(SpriteGeometry.frameU(build.frame, a + da, b + db) - SpriteGeometry.frameU(build.frame, a, b)));
-        int first = -1, last = -1, gaps = 0, run = -1;
+        int first = -1, last = -1, gaps = 0, run = -1, runs = 0, runFirst = -1, runLast = -1;
         for (int pixel = 0; pixel <= pixels; pixel++) {
             boolean clear = pixel < pixels && !paintedOnWall(texture, a, b, da, db, (pixel + 0.5f) / pixels, OPENING_ROW, 0f);
             if (clear && run < 0) {
                 run = pixel;
             } else if (!clear && run >= 0) {
+                if (pixel - run >= NARROWEST_OPENING * pixels) {
+                    runs++;
+                    runFirst = run;
+                    runLast = pixel;
+                }
                 // A gap that reaches the wall's end is the sprite stopping short there, not an opening.
                 if (run > 0 && pixel < pixels && pixel - run >= NARROWEST_OPENING * pixels) {
                     gaps++;
@@ -965,6 +977,10 @@ final class WallBuilder {
                 }
                 run = -1;
             }
+        }
+        if (runs == 1) {
+            known[at + DOORWAY_START] = (float) runFirst / pixels;
+            known[at + DOORWAY_END] = (float) runLast / pixels;
         }
         if (gaps != 1) {
             return known;
