@@ -177,6 +177,23 @@ final class SkyState {
                 sunUp, night, cover, mist, windX, windY, rain, wet, fog, snow, thick, narrowed, flashBlue, burst, seenCount);
     }
 
+    /** How much brighter a drop of rain is than the air it falls through: over the sky in rain it is a faint pale line. */
+    static final float RAIN_OVER_AIR = 1.1f;
+    /** How much of lightning's light over the sky a drop of rain shows: a lit drop is a bead of the flash. */
+    static final float RAIN_FLASHED = 1.2f;
+
+    /**
+     * The light of a drop of rain, linear, into a red, green and blue. A drop is a lens that shows the air
+     * round it, which is lit as the open ground is (the veil the rain makes of the air, Sky.veilColor), so
+     * it is never brighter than that light, however the horizon glows at dusk, and has the moon's at night.
+     * A flash of lightning lights every drop in the air.
+     */
+    void dropLight(float[] into) {
+        into[0] = RAIN_OVER_AIR * (float) Math.pow(openRed * daylightKept, 2.2) + RAIN_FLASHED * flashRed;
+        into[1] = RAIN_OVER_AIR * (float) Math.pow(openGreen * daylightKept, 2.2) + RAIN_FLASHED * flashGreen;
+        into[2] = RAIN_OVER_AIR * (float) Math.pow(openBlue * daylightKept, 2.2) + RAIN_FLASHED * flashBlue;
+    }
+
     void capture() {
         GameTime time = GameTime.getInstance();
         ClimateManager climate = ClimateManager.getInstance();

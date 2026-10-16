@@ -4100,7 +4100,6 @@ final class PipelineShaders {
             uniform vec3 uTint;
             uniform vec3 uEye;
             uniform float uSeated;
-            uniform float uShown;
             uniform vec4 uSeenOn;
             // 1 where a drop or a flake is kept out of rooms and from under roofs; 0 seen from the camera outside the viewer,
             // where it falls on everything as the game's own view has it.
@@ -4135,7 +4134,8 @@ final class PipelineShaders {
                 if (uTorchAt.w > 0.0) {
                     lit += TORCH_GIVES * torchAt(vWorld, dir);
                 }
-                gl_FragColor = vec4(uTint + vec3(1.0, 0.92, 0.76) * (lit * 1.4), body * open * uShown * vShare);
+                // Kept where it is lighter than what is behind it (Pipeline.drawRain): the picture's alpha is left alone.
+                gl_FragColor = vec4((uTint + vec3(1.0, 0.92, 0.76) * (lit * 1.4)) * (body * open * vShare), 0.0);
             }
             """;
 

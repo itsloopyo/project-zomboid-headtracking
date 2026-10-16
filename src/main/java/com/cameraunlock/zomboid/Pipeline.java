@@ -2610,10 +2610,8 @@ final class Pipeline {
     private static final float RAIN_BOX = Wind.CARRIED_WRAP, RAIN_HIGH = 12f, RAIN_UNDER_EYE = 0.35f * RAIN_HIGH;
     /** Half the width of a streak of rain, in tiles, and how long the eye takes a drop in for, in seconds: a streak is as long as the drop goes in that. */
     private static final float RAIN_HALF_WIDE = 0.003f, RAIN_SEEN_FOR = 0.02f;
-    /** How much of a drop and of a flake shows, at its middle. */
-    private static final float RAIN_SHOWN = 0.55f, SNOW_SHOWN = 0.9f;
-    /** How much of lightning's light over the sky a drop of rain shows: a lit drop is a bead of the flash. */
-    private static final float RAIN_FLASHED = 1.2f;
+    /** How much of a flake shows, at its middle. */
+    private static final float SNOW_SHOWN = 0.9f;
     /**
      * From far overhead: how far under the place looked at the box reaches at least, the most
      * boxes drawn along each side of the ground in the picture, and the least a streak or a
@@ -2705,6 +2703,9 @@ final class Pipeline {
         GL11.glDisableClientState(GL_VERTEX_ARRAY);
     }
 
+    /** The light of a drop of rain this frame: see SkyState.dropLight. */
+    private final float[] dropLight = new float[3];
+
     /** The rain or the snow, into the picture after the world and the sky and before anything is made of the picture. */
     private void drawRain(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float near, float far) {
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, sceneTarget);
@@ -2769,8 +2770,11 @@ final class Pipeline {
         boolean lidded = overhead && lid < Float.MAX_VALUE / 2f;
         boolean seenOnFloor = overhead && camera.forwardUp < -SEEN_ON_FLOOR_FROM;
         if (state.rain > 0f) {
-            // Added to what is there. The picture's alpha is left alone: it says what mirrors.
-            GL14.glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE, GL_ZERO, GL_ONE);
+            // A drop is the lighter of itself and what is behind it. It shows the air's light
+            // (SkyState.dropLight), so it shows against a wall in shade and over a lit window
+            // leaves the window as it was, at every hour. The picture's alpha is left alone (the
+            // shader gives 0): it says what mirrors.
+            GL14.glBlendEquation(GL_MAX);
             rain.use();
             rain.set("uRoof", 0);
             rain.set("uRoofMatrix", roofMatrix);
@@ -2784,16 +2788,14 @@ final class Pipeline {
             rain.set("uPerPixel", overhead ? 0f : RAIN_DOTS_LEAST * tanHalfFieldOfView / height);
             rain.set("uLong", overhead ? RAIN_SEEN_FOR_OVERHEAD : RAIN_SEEN_FOR);
             rain.set("uMoves", movesX, movesY, movesUp);
-            rain.set("uShown", RAIN_SHOWN);
             setShelter(rain, SHELTER_UNIT, lidded);
             rain.set("uSheltering", outside ? 0f : 1f);
             rain.set("uSeenOn", seenOnFloor ? camera.forwardX : 0f, seenOnFloor ? camera.forwardY : 0f, seenOnFloor ? camera.forwardUp : 0f, floorUp);
             setBeams(rain, TORCH_UNIT);
-            // A drop shows the sky it falls through, and a flash of lightning lights every drop in the air.
-            rain.set("uTint", 1.6f * (float) Math.pow(state.horizonRed, 2.2) + RAIN_FLASHED * state.flashRed,
-                    1.6f * (float) Math.pow(state.horizonGreen, 2.2) + RAIN_FLASHED * state.flashGreen,
-                    1.6f * (float) Math.pow(state.horizonBlue, 2.2) + RAIN_FLASHED * state.flashBlue);
+            state.dropLight(dropLight);
+            rain.set("uTint", dropLight[0], dropLight[1], dropLight[2]);
             drawBoxes(rain, boxesX, boxesY, aheadX, aheadY, reachAlong, reachAcross);
+            GL14.glBlendEquation(GL_FUNC_ADD);
         }
         if (state.snow > 0f) {
             // A flake is white and hides what is behind it: laid over the picture, not added to it.
