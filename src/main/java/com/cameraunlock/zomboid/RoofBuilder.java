@@ -760,6 +760,42 @@ final class RoofBuilder {
         return true;
     }
 
+    /**
+     * Whether a trim from the sheet of a roof's accents is the gutter and fascia on an edge
+     * where this picture makes an eave of its own: one hung on the square's west edge (west)
+     * or north edge (north) where the map's slope beyond that edge, on the trim's level or the
+     * level above, falls to the edge and has its eave made there (isEave). A corner piece, hung
+     * on no edge, goes with the eave that ends at its north-west corner. The trim is a strip
+     * painted for the game's view, and stood on the wall under the made eave it is a second,
+     * jagged eave.
+     */
+    boolean trimUnderAMadeEave(int x, int y, int z, boolean west, boolean north, boolean corner) {
+        for (int up = 0; up <= 1; up++) {
+            if (west && eaveMadeBy(x - 1, y, z, up, RoofFit.ALONG_X) || north && eaveMadeBy(x, y - 1, z, up, RoofFit.ALONG_Y)
+                    || corner && (eaveMadeBy(x - 1, y - 1, z, up, RoofFit.ALONG_X) || eaveMadeBy(x - 1, y - 1, z, up, RoofFit.ALONG_Y))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Whether the map's slope on the square, up levels over z, falls along the axis to its far
+     * edge and has its eave made there: on z its foot may stand over the floor, as a lean-to's
+     * does; on the level above it comes down to that level's floor, the top of z's wall.
+     */
+    private boolean eaveMadeBy(int x, int y, int z, int up, int axis) {
+        build.building.plain = false;
+        Roofs.Laid map = Roofs.at(build.cell, x, y, z + up, world.roundNow, build.frame.scale);
+        if (map == null || map.tile.shaped || map.tile.fitting || map.tile.half != 0) {
+            return false;
+        }
+        RoofFit.Tile tile = map.tile;
+        boolean falls = up == 0 ? tile.fitAxis == axis && (tile.fitted || tile.sure) && tile.fitHigh < tile.fitLow - Roofs.FLAT : RoofFit.fallsToItsFloor(tile, axis);
+        float along = tile.fitHigh - tile.fitLow;
+        return falls && isEave(x, y, z + up, tile.fitLow - (z + up), axis == RoofFit.ALONG_X ? along : 0f, axis == RoofFit.ALONG_X ? 0f : along);
+    }
+
     private boolean slopesAlong(int x, int y, int z, int axis) {
         build.building.plain = false;
         Roofs.Laid map = Roofs.at(build.cell, x, y, z, world.roundNow, build.frame.scale), made = Roofs.madeAt(x, y, z, world.roundNow);

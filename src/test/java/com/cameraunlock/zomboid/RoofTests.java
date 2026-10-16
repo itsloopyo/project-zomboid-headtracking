@@ -47,6 +47,7 @@ final class RoofTests {
         Checks.run("eaveOverALeanToThatStopsShortOfItIsMade", RoofTests::eaveOverALeanToThatStopsShortOfItIsMade);
         Checks.run("trimPastAGableIsNoRoofGoingOn", RoofTests::trimPastAGableIsNoRoofGoingOn);
         Checks.run("trimPastAHipsCornerLeavesTheCornersEave", RoofTests::trimPastAHipsCornerLeavesTheCornersEave);
+        Checks.run("gutterTrimGoesOnlyUnderAnEaveMadeOnItsOwnEdge", RoofTests::gutterTrimGoesOnlyUnderAnEaveMadeOnItsOwnEdge);
     }
 
     private static void hippedCornerAtTheEaveCarriesTheEaveRowOn() {
@@ -1027,6 +1028,24 @@ final class RoofTests {
         map.build.roofBuilder.addRoof(new SpriteGeometry.Mesh(), map.painted, 0, 0, 1);
         float[] box = boundsOf(TestMap.plain());
         check(TestMap.plain().triangles() > 0 && box[0] < 0f, "a hip's corner with a trim on the square past its west end still has its eave, run on past that end: x from " + box[0]);
+    }
+
+    private static void gutterTrimGoesOnlyUnderAnEaveMadeOnItsOwnEdge() {
+        // A slope on (0, 0, 1) falling east to its eave at the floor of level 1.
+        TestMap map = new TestMap();
+        map.roofTile(fitted(new RoofFit.Tile(0, 0, 1, RoofFit.ALONG_X, true, 1f + THIRD, 1f)), map.painted);
+        RoofBuilder roofs = map.build.roofBuilder;
+        check(roofs.trimUnderAMadeEave(1, 0, 1, true, false, false), "a trim hung on the west edge past the slope's eave, on its level, is the eave's gutter");
+        check(roofs.trimUnderAMadeEave(1, 0, 0, true, false, false), "so is one on that edge a level down, at the top of the wall under the eave");
+        check(!roofs.trimUnderAMadeEave(1, 0, 1, false, true, false), "a trim on the square's north edge is on no edge the eave is made on");
+        check(roofs.trimUnderAMadeEave(1, 1, 1, false, false, true), "a corner piece past the south end of the eave goes with it");
+        check(!roofs.trimUnderAMadeEave(1, 1, 1, false, false, false), "a trim hung on no edge that is no corner piece stays");
+        // A flat roof past the slope's foot: the slope goes on into it, no eave is made, and its trims stay.
+        TestMap flat = new TestMap();
+        flat.roofTile(fitted(new RoofFit.Tile(0, 0, 1, RoofFit.ALONG_X, true, 1f + THIRD, 1f)), flat.painted);
+        flat.roofTile(fitted(new RoofFit.Tile(1, 0, 1, RoofFit.LEVEL, true, 1f, 1f)), flat.painted);
+        check(!flat.build.roofBuilder.trimUnderAMadeEave(1, 0, 1, true, false, false), "with a flat roof past the slope's foot there is no eave, and the trim stays");
+        check(!flat.build.roofBuilder.trimUnderAMadeEave(2, 0, 1, true, false, false), "nor is a trim past the flat roof the slope's");
     }
 
     private static void check(boolean condition, String what) {
