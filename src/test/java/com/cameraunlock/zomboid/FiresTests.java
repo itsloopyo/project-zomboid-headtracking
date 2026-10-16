@@ -230,7 +230,7 @@ final class FiresTests {
     }
 
     private static void aFiresFlamesAreTheLoopScaledToIt() {
-        FlameVolume.Loop loop = new FlameVolume.Loop(64, 64, 160, 32, 8, 4, 3f, 0.6f, 0.4f, 24f, 0.0125f, 30f, 140f, null, null);
+        FlameVolume.Loop loop = new FlameVolume.Loop(64, 64, 160, 32, 8, 4, 3f, 0.6f, 0.4f, 24f, 0.0125f, 30f, 140f, null);
         float[] fire = square(Fires.HEIGHT, false, false), cell = new float[2];
         FireDraw.cellSize(fire, 0, loop, cell);
         check(Math.abs(cell[0] * loop.reach() * loop.high() - fire[Fires.TALL]) < 1e-4f, "the loop's flames reach as high as the fire's: " + cell[0]);
@@ -303,6 +303,7 @@ final class FiresTests {
                 && loop.filledHigh() <= loop.high(), "the flames fill part of the loop's box, which the march keeps to: " + loop.filled() + " " + loop.filledHigh());
         check(loop.reach() > 0.2f && loop.reach() < 1f && loop.root() > 0.1f && loop.root() < 1f && loop.rise() > 0f && loop.framesASecond() > 0f,
                 "with its flames' reach and root, rise and pace: " + loop.reach() + " " + loop.root() + " " + loop.rise() + " " + loop.framesASecond());
+        loop.cells().free();
     }
 
     private static void theGamesFlamesAndSmokeAreToldByName() {

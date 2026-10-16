@@ -1,6 +1,6 @@
 package com.cameraunlock.zomboid;
 
-import java.io.ByteArrayOutputStream;
+import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
@@ -36,10 +36,20 @@ final class FlameVolume {
      * its flames reach on the mean and how wide their root is, as shares of the box's height and
      * width; how many frames it plays a second at its own size; how big a cell is, in metres; how
      * far from the box's middle line and how high any frame has flame that shows, in cells; and its
-     * flame and heat, a byte a cell each.
+     * flame and then its heat, a byte a cell each, which whoever holds the loop frees (null once
+     * they are the graphics card's).
      */
     record Loop(int wide, int deep, int high, int frames, int across, int down, float rise, float reach, float root, float framesASecond, float cell,
-            float filled, float filledHigh, ByteBuffer flame, ByteBuffer heat) {}
+            float filled, float filledHigh, OffHeap.Block cells) {
+        ByteBuffer flame() {
+            return cells.bytes.slice(0, wide * deep * high * frames);
+        }
+
+        ByteBuffer heat() {
+            int flameBytes = wide * deep * high * frames;
+            return cells.bytes.slice(flameBytes, flameBytes / 8);
+        }
+    }
 
     private FlameVolume() {}
 
@@ -56,12 +66,16 @@ final class FlameVolume {
     }
 
     static Loop read(InputStream packed) throws IOException {
-        ByteArrayOutputStream whole = new ByteArrayOutputStream();
-        try (GZIPInputStream in = new GZIPInputStream(packed)) {
-            in.transferTo(whole);
+        try (GZIPInputStream in = new GZIPInputStream(packed, 1 << 16)) {
+            return unpacked(in);
         }
-        ByteBuffer file = ByteBuffer.wrap(whole.toByteArray()).order(ByteOrder.LITTLE_ENDIAN);
-        if (file.remaining() < 13 * 4 || file.getInt() != MAGIC || file.getInt() != VERSION) {
+    }
+
+    /** The cells go straight from the stream into memory freed by hand: the Java heap and the collector hold none of the 40 MB. */
+    private static Loop unpacked(GZIPInputStream in) throws IOException {
+        byte[] head = in.readNBytes(13 * 4);
+        ByteBuffer file = ByteBuffer.wrap(head).order(ByteOrder.LITTLE_ENDIAN);
+        if (head.length < 13 * 4 || file.getInt() != MAGIC || file.getInt() != VERSION) {
             throw new IOException(PICTURE + " is not version " + VERSION + " of what tools/fire/volume.py writes");
         }
         int wide = file.getInt(), deep = file.getInt(), high = file.getInt(), frames = file.getInt(), across = file.getInt(), down = file.getInt();
@@ -70,13 +84,30 @@ final class FlameVolume {
             throw new IOException(PICTURE + " has a box of " + wide + " by " + deep + " by " + high + " and " + frames + " frames laid " + across + " by " + down);
         }
         int flameBytes = wide * deep * high * frames, heatBytes = flameBytes / 8;
-        if (file.remaining() != flameBytes + heatBytes) {
-            throw new IOException(PICTURE + " holds " + file.remaining() + " bytes of cells, not " + (flameBytes + heatBytes));
+        OffHeap.Block cells = OffHeap.take(flameBytes + heatBytes);
+        try {
+            byte[] chunk = new byte[1 << 16];
+            for (int at = 0; at < flameBytes + heatBytes; ) {
+                int got = in.read(chunk, 0, Math.min(chunk.length, flameBytes + heatBytes - at));
+                if (got < 0) {
+                    throw new EOFException(PICTURE + " holds " + at + " bytes of cells, not " + (flameBytes + heatBytes));
+                }
+                cells.bytes.put(at, chunk, 0, got);
+                at += got;
+            }
+            if (in.read() >= 0) {
+                throw new IOException(PICTURE + " holds more than its " + (flameBytes + heatBytes) + " bytes of cells");
+            }
+            return scanned(wide, deep, high, frames, across, down, rise, reach, root, framesASecond, cell, cells);
+        } catch (IOException | RuntimeException e) {
+            cells.free();
+            throw e;
         }
-        ByteBuffer flame = ByteBuffer.allocateDirect(flameBytes);
-        ByteBuffer heat = ByteBuffer.allocateDirect(heatBytes);
-        flame.put(file.slice(file.position(), flameBytes)).flip();
-        heat.put(file.slice(file.position() + flameBytes, heatBytes)).flip();
+    }
+
+    private static Loop scanned(int wide, int deep, int high, int frames, int across, int down, float rise, float reach, float root, float framesASecond,
+            float cell, OffHeap.Block cells) {
+        ByteBuffer flame = cells.bytes;
         // The march's box is what any frame fills, out to where its edge begins (FireDraw.EDGE_FROM) and as far again as
         // the noise stirs it, and a cell for the blend between cells; and up, as far as a frame's flame rises into the next.
         int least = (int) Math.ceil(FireDraw.EDGE_FROM * 255f);
@@ -97,7 +128,7 @@ final class FlameVolume {
         }
         float margin = FireDraw.STIR * 0.5f + 1f;
         return new Loop(wide, deep, high, frames, across, down, rise, reach, root, framesASecond, cell, (float) Math.sqrt(furthest) + margin,
-                Math.min(top + margin + rise, high), flame, heat);
+                Math.min(top + margin + rise, high), cells);
     }
 
     private static final String AHEAD = "flame volume";
@@ -123,11 +154,12 @@ final class FlameVolume {
         } catch (IOException e) {
             throw new UncheckedIOException(PICTURE + " could not be read", e);
         }
-        flameTexture = texture(read.wide * read.across, read.deep * read.down, read.high, read.flame);
-        heatTexture = texture(read.wide / 2 * read.across, read.deep / 2 * read.down, read.high / 2, read.heat);
+        flameTexture = texture(read.wide * read.across, read.deep * read.down, read.high, read.flame());
+        heatTexture = texture(read.wide / 2 * read.across, read.deep / 2 * read.down, read.high / 2, read.heat());
         // The cells are the graphics card's now: what is kept is the loop's shape.
+        read.cells.free();
         loop = new Loop(read.wide, read.deep, read.high, read.frames, read.across, read.down, read.rise, read.reach, read.root, read.framesASecond, read.cell,
-                read.filled, read.filledHigh, null, null);
+                read.filled, read.filledHigh, null);
         reading = false;
         Log.info("first person fire: the flames' loop is on the graphics card, " + read.frames + " frames of " + read.wide + " by " + read.deep + " by "
                 + read.high + " cells");
