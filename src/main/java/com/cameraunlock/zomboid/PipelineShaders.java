@@ -3444,6 +3444,25 @@ final class PipelineShaders {
                 // pools, which is in a hollow here and there and not over a third of a street.
                 // Snow that lies has no water standing on it: it is wet only where the ground
                 // shows through.
+                // A puddle's rim is where the ground comes up out of the water: sharp, and as ragged
+                // as the ground. The pattern it is cut from is the one that places the pools with a
+                // finer octave on it, and on High a finer one still, each set off so they do not line
+                // up; that one fades out where a pixel takes in a third of one of its cells or more,
+                // where it would crawl. POOL_LEVEL leaves about a sixth of open ground under water
+                // (measured on value noise of the same make). The pattern and its slope across the
+                // screen are taken outside the branches below, whose test changes from pixel to pixel,
+                // where a slope is undefined, and only on what is out of doors and can hold water.
+                const float POOL_LEVEL = 0.73;
+                float pool = 0.0;
+                if (uWet > 0.0 && !card && !water && open > 0.5) {
+                    float lie = patches(vWorld.xy * 0.45) + 0.16 * (patches(vWorld.xy * 1.7 + 5.3) - 0.5);
+                    if (uRelief > 0.5) {
+                        lie += 0.07 * (1.0 - smoothstep(0.3, 0.6, length(fwidth(vWorld.xy)) * 5.3)) * (patches(vWorld.xy * 5.3 + 11.0) - 0.5);
+                    }
+                    // smoothstep is undefined with its edges the same, which a level stretch of the pattern would give.
+                    float rim = max(fwidth(lie), 0.006);
+                    pool = smoothstep(POOL_LEVEL - rim, POOL_LEVEL + rim, lie);
+                }
                 float shine = 0.0;
                 float ripple = 0.0;
                 if (water) {
@@ -3452,7 +3471,6 @@ final class PipelineShaders {
                     color *= 0.55;
                 } else if (!card && uWet > 0.0 && open > 0.5 && n.z > 0.85) {
                     float bare = uWet * (1.0 - snowed);
-                    float pool = smoothstep(0.66, 0.8, patches(vWorld.xy * 0.45));
                     shine = bare * (0.1 + 0.7 * pool);
                     ripple = 0.012 * pool;
                     color *= 1.0 - 0.3 * bare;
