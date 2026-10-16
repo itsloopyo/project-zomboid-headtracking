@@ -135,54 +135,54 @@ def revs():
     return face
 
 
+# A fuel and heat dial's needles turn about pivots this share of its radius either side of the middle and sweep 80
+# degrees each, pointing outwards (tools/models/cabin/sedan.py, COMBI_PIVOT and FUEL_SWEEP, HEAT_SWEEP).
+COMBI_PIVOT = 0.30
+COMBI_ENDS = (130, 50)
+
+
+def pair_scales(face, left_marks, right_marks):
+    """The two scales of a fuel and heat dial, each about its own pivot: five ticks at the needle's tip, the ends
+    named just beyond them. marks: (bottom word, top word, which ticks are red)."""
+    for side, (low, high, red) in ((-1, left_marks), (1, right_marks)):
+        pivot = (C + side * C * COMBI_PIVOT, C)
+        bottom, top = side * COMBI_ENDS[0], side * COMBI_ENDS[1]
+        for k in range(5):
+            a = bottom + (top - bottom) * k / 4
+            tick(face, a, C * (0.47 if k % 2 == 0 else 0.51), C * 0.58, 30 if k % 2 == 0 else 18, RED if k in red else WHITE, pivot)
+        for k, words in ((0, low), (4, high)):
+            a = bottom + (top - bottom) * k / 4 + side * (13 if k == 0 else -13)
+            face.text(at(a, C * 0.50, pivot), words, 190, RED if k in red else WHITE)
+
+
 def fuel_and_heat():
-    """Fuel on the left, empty below and full above, heat on the right, cold above and hot below, about two pivots
-    set either side of the middle as the needles have them."""
+    """Fuel on the left, empty below and full above, heat on the right, cold below and hot above, each over its
+    own needle's sweep, with a pump and a thermometer under the pivots."""
     face = Face()
-    off = int(C * 0.013 / 0.040)
-    left, right = (C - off, C), (C + off, C)
-    for k in range(5):
-        a = -120 + 15 * k
-        tick(face, a, 1240, 1500 if k % 2 == 0 else 1400, 24 if k % 2 == 0 else 14, RED if k == 0 else WHITE, left)
-    face.text(at(-128, 1180, left), "E", 210, RED)
-    face.text(at(-90, 1100, left), "1/2", 130)
-    face.text(at(-52, 1180, left), "F", 210)
-    for k in range(5):
-        a = 60 + 15 * k
-        tick(face, a, 1240, 1500 if k % 2 == 0 else 1400, 24 if k % 2 == 0 else 14, RED if k == 4 else WHITE, right)
-    face.text(at(52, 1180, right), "C", 210)
-    face.text(at(128, 1180, right), "H", 210, RED)
-    # A pump and a thermometer, drawn simply, below the pivots.
-    px, py = C - 300, C + 520
-    face.box([px - 60, py - 90, px + 40, py + 90], WHITE, outline_width=18, glows=True)
-    face.line([(px + 40, py - 40), (px + 90, py - 10), (px + 90, py + 60)], WHITE, 16)
-    tx, ty = C + 300, C + 520
-    face.line([(tx, ty - 110), (tx, ty + 50)], WHITE, 22)
-    face.ellipse([tx - 45, ty + 30, tx + 45, ty + 120], WHITE)
+    pair_scales(face, ("E", "F", (0,)), ("C", "H", (4,)))
+    # A pump: its body with a window, the hose out of its side and down to the nozzle hung on it.
+    px, py = C - 330, C + 760
+    face.box([px - 70, py - 120, px + 70, py + 130], WHITE, glows=True)
+    face.box([px - 42, py - 92, px + 42, py - 20], FACE)
+    face.line([(px + 70, py - 60), (px + 120, py - 60), (px + 135, py - 40), (px + 135, py + 70)], WHITE, 20)
+    face.box([px - 95, py + 130, px + 95, py + 150], WHITE, glows=True)
+    # A thermometer standing in waves.
+    tx, ty = C + 330, C + 730
+    face.line([(tx, ty - 140), (tx, ty + 60)], WHITE, 30)
+    face.ellipse([tx - 52, ty + 30, tx + 52, ty + 134], WHITE)
     for k in range(3):
-        face.line([(tx + 20, ty - 80 + k * 40), (tx + 60, ty - 80 + k * 40)], WHITE, 12)
+        face.line([(tx + 30, ty - 110 + k * 50), (tx + 75, ty - 110 + k * 50)], WHITE, 14)
+    face.line([(tx - 150 + i * 10, ty + 170 + 18 * math.sin(i * math.pi / 5)) for i in range(31)], WHITE, 14)
     return face
 
 
 def oil_and_volts():
-    """Oil pressure on the left, nothing below and full above, the battery's volts on the right, high above and low
-    below, about the same two pivots as the fuel and heat dial."""
+    """Oil pressure on the left, nothing below and full above, the battery's volts on the right, low below and high
+    above, laid out as the fuel and heat dial is."""
     face = Face()
-    off = int(C * 0.013 / 0.040)
-    left, right = (C - off, C), (C + off, C)
-    for k in range(5):
-        a = -120 + 15 * k
-        tick(face, a, 1240, 1500 if k % 2 == 0 else 1400, 24 if k % 2 == 0 else 14, RED if k == 0 else WHITE, left)
-    face.text(at(-128, 1180, left), "0", 190, RED)
-    face.text(at(-90, 1100, left), "40", 130)
-    face.text(at(-52, 1180, left), "80", 190)
-    for k in range(5):
-        a = 60 + 15 * k
-        tick(face, a, 1240, 1500 if k % 2 == 0 else 1400, 24 if k % 2 == 0 else 14, RED if k in (0, 4) else WHITE, right)
-    face.text(at(52, 1180, right), "16", 190)
-    face.text(at(128, 1180, right), "10", 190)
-    face.text((C - 300, C + 540), "OIL", 120)
-    face.text((C + 300, C + 540), "VOLTS", 110)
+    pair_scales(face, ("0", "80", (0,)), ("10", "16", (0, 4)))
+    face.text((C - 330, C + 760), "OIL", 130)
+    face.text((C + 330, C + 760), "VOLTS", 120)
     return face
 
 

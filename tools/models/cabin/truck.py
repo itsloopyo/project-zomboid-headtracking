@@ -10,7 +10,7 @@ import math
 from mathutils import Matrix, Vector
 
 from . import kit, materials, sedan, shell, upholstery
-from .kit import NEEDLE_FUEL, NEEDLE_HEAT, NEEDLE_SPEED, SHELL, WHEEL, Builder, circle, lerp, rounded_rect, smooth, spline, v
+from .kit import NEEDLE_SPEED, SHELL, WHEEL, Builder, circle, lerp, rounded_rect, smooth, spline, v
 from .sedan import FLOOR_Z, RIM, SEAT_Z, WHEEL_AT, wheel_frame
 
 # The instruments behind the bezel: a large speedometer, the fuel and heat dial, the warning lamps.
@@ -27,8 +27,7 @@ BOXED = {"speedo": SPEEDO, "combi": COMBI, "lamps": LAMPS}
 def needles(dials=BOXED):
     speedo, combi = dials["speedo"], dials["combi"]
     return [(NEEDLE_SPEED, speedo[0], speedo[1], 0.92, sedan.SPEED_SWEEP),
-            (NEEDLE_FUEL, combi[0] + v(0, 0.013, 0), combi[1], 0.62, sedan.FUEL_SWEEP),
-            (NEEDLE_HEAT, combi[0] + v(0, -0.013, 0), combi[1], 0.62, sedan.HEAT_SWEEP)]
+            *sedan.combi_needles(*combi)]
 
 
 def dash(house, material="padded", face_x=FACE_X, flat=False):

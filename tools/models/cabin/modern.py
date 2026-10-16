@@ -7,7 +7,7 @@ windows' switches in the armrest, and a rear bench.
 import math
 
 from . import compact, luxury, materials, sedan, shell, upholstery
-from .kit import NEEDLE_FUEL, NEEDLE_HEAT, NEEDLE_REVS, NEEDLE_SPEED, SHELL, Builder, lerp, rounded_rect, smooth, spline, v
+from .kit import NEEDLE_REVS, NEEDLE_SPEED, SHELL, Builder, lerp, rounded_rect, smooth, spline, v
 from .sedan import FLOOR_Z, SEAT_Z
 
 # One black face under the hood: the speedometer in the middle, the revs to its left, fuel and heat to its right.
@@ -18,7 +18,7 @@ COMBI = (v(0.562, 0.150, -0.245), 0.040)
 
 def needles():
     return [(NEEDLE_SPEED, SPEEDO[0], SPEEDO[1], 0.92, sedan.SPEED_SWEEP), (NEEDLE_REVS, REVS[0], REVS[1], 0.92, (math.radians(-130), math.radians(130), 1.0)),
-            (NEEDLE_FUEL, COMBI[0] + v(0, 0.012, 0), COMBI[1], 0.62, sedan.FUEL_SWEEP), (NEEDLE_HEAT, COMBI[0] + v(0, -0.012, 0), COMBI[1], 0.62, sedan.HEAT_SWEEP)]
+            *sedan.combi_needles(*COMBI)]
 
 
 def dash(house):

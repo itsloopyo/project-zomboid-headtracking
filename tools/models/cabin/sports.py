@@ -11,7 +11,7 @@ import bpy
 from mathutils import Matrix
 
 from . import compact, kit, luxury, materials, sedan, shell, upholstery
-from .kit import NEEDLE_FUEL, NEEDLE_HEAT, NEEDLE_REVS, NEEDLE_SPEED, SHELL, Builder, circle, lerp, rounded_rect, smooth, spline, v
+from .kit import NEEDLE_REVS, NEEDLE_SPEED, SHELL, Builder, circle, lerp, rounded_rect, smooth, spline, v
 from .sedan import FLOOR_Z, SEAT_Z
 
 # The road car's binnacle: the speedometer and the revs side by side, fuel and heat to the left, oil and volts to the right.
@@ -30,7 +30,7 @@ def needles(race=False):
     d = dials(race)
     (speedo, rs), (revs, rr), (combi, rc) = d["speedo"], d["revs"], d["combi"]
     return [(NEEDLE_SPEED, speedo, rs, 0.92, sedan.SPEED_SWEEP), (NEEDLE_REVS, revs, rr, 0.92, (math.radians(-130), math.radians(130), 1.0)),
-            (NEEDLE_FUEL, combi + v(0, rc * 0.34, 0), rc, 0.62, sedan.FUEL_SWEEP), (NEEDLE_HEAT, combi + v(0, -rc * 0.34, 0), rc, 0.62, sedan.HEAT_SWEEP)]
+            *sedan.combi_needles(combi, rc)]
 
 
 def dash(house, end_gap=0.030):
@@ -68,11 +68,11 @@ def instruments(house, vents=True):
     for group, pivot, radius, length, _ in needles(not vents):
         parts += sedan.needle(group, pivot, radius, length)
     # The oil pressure's and the volts' needles are not the mod's to turn: they stand at a running engine's reading.
-    for dy, angle in ((0.011, -90.0), (-0.011, 80.0)):
-        oil, r_oil = d["oil"]
-        pivot = oil + v(0, dy * r_oil / 0.032, 0)
+    oil, r_oil = d["oil"]
+    for side, angle in ((1, -90.0), (-1, 77.0)):
+        pivot = oil + v(0, side * r_oil * sedan.COMBI_PIVOT, 0)
         turn = Matrix.Translation(pivot) @ Matrix.Rotation(math.radians(angle), 4, "X") @ Matrix.Translation(-pivot)
-        for p in sedan.needle(SHELL, pivot, r_oil, 0.62):
+        for p in sedan.needle(SHELL, pivot, r_oil, sedan.COMBI_LENGTH):
             p.data.transform(turn)
             parts.append(p)
     s = house.side

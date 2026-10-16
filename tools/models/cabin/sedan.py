@@ -263,16 +263,22 @@ def instrument(name, centre, radius, picture, ring=True):
     return parts
 
 
+# A needle this long or longer has the full width, tail and cap; a shorter one is all of those scaled down with it.
+FULL_NEEDLE = 0.044
+
+
 def needle(group, pivot, radius, length):
     """A needle pointing straight up at rest, a part of its own the mod turns about its pivot, with its cap."""
     parts = []
     b = Builder()
     tip = radius * length
-    outline = [(-0.0016, 0.0), (-0.0009, tip * 0.96), (0.0, tip), (0.0009, tip * 0.96), (0.0016, 0.0), (0.0024, -0.012), (-0.0024, -0.012)]
+    k = min(1.0, tip / FULL_NEEDLE)
+    w, tail, cap = 0.0016 * k, 0.012 * k, 0.0055 * k
+    outline = [(-w, 0.0), (-w * 0.56, tip * 0.96), (0.0, tip), (w * 0.56, tip * 0.96), (w, 0.0), (w * 1.5, -tail), (-w * 1.5, -tail)]
     b.slab(outline, pivot + v(-0.003, 0, 0), (0, -1, 0), (0, 0, 1), 0.0012)
     parts.append(b.finish("needle %d" % group, "needle", group, texels=4.0, smooth_shade=False))
     b = Builder()
-    b.lathe([(0.0, 0.0), (0.0055, 0.0), (0.0055, 0.003), (0.0, 0.004)], pivot + v(-0.0045, 0, 0), v(-1, 0, 0), count=16)
+    b.lathe([(0.0, 0.0), (cap, 0.0), (cap, 0.003), (0.0, 0.004)], pivot + v(-0.0045, 0, 0), v(-1, 0, 0), count=16)
     parts.append(b.finish("needle cap %d" % group, "black", group, texels=3.0))
     return parts
 
@@ -1417,8 +1423,18 @@ def build(spec):
 # How far each needle turns from straight up, as the driver sees it, clockwise, at nought and at full scale,
 # and what full scale is: km/h for the speed, the share of a tank for the fuel, of hot for the heat.
 SPEED_SWEEP = (math.radians(-130), math.radians(130), 136.8)
-FUEL_SWEEP = (math.radians(-120), math.radians(-60), 1.0)
-HEAT_SWEEP = (math.radians(60), math.radians(120), 1.0)
+FUEL_SWEEP = (math.radians(-130), math.radians(-50), 1.0)
+HEAT_SWEEP = (math.radians(130), math.radians(50), 1.0)
+# A round fuel and heat dial: each needle turns about a pivot this share of the dial's radius from its middle, fuel
+# to the driver's left and heat to the right, and points outwards over its own scale. cabin_pictures.py draws the
+# faces (fuel-heat, oil-volts) to the same shares.
+COMBI_PIVOT = 0.30
+COMBI_LENGTH = 0.56
+
+
+def combi_needles(centre, radius):
+    return [(NEEDLE_FUEL, centre + v(0, radius * COMBI_PIVOT, 0), radius, COMBI_LENGTH, FUEL_SWEEP),
+            (NEEDLE_HEAT, centre - v(0, radius * COMBI_PIVOT, 0), radius, COMBI_LENGTH, HEAT_SWEEP)]
 
 
 def info(house, mirrors, needles=None, glow_at=(0.553, -0.03, -0.26)):

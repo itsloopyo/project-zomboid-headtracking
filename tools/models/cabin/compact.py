@@ -9,7 +9,7 @@ import math
 from mathutils import Vector
 
 from . import materials, sedan, shell, upholstery
-from .kit import NEEDLE_FUEL, NEEDLE_HEAT, NEEDLE_REVS, NEEDLE_SPEED, SHELL, WHEEL, Builder, circle, lerp, rounded_rect, smooth, spline, superellipse, v
+from .kit import NEEDLE_REVS, NEEDLE_SPEED, SHELL, WHEEL, Builder, circle, lerp, rounded_rect, smooth, spline, superellipse, v
 from .sedan import COLUMN, FLOOR_Z, RIM, SEAT_Z, WHEEL_AT, wheel_frame
 
 # The pod's instruments: the speedometer before the driver, the revs to its left, the fuel and heat dial to its right.
@@ -21,8 +21,7 @@ COMBI = (v(0.500, -0.108, -0.226), 0.034)
 def needles():
     return [(NEEDLE_SPEED, SPEEDO[0], SPEEDO[1], 0.92, sedan.SPEED_SWEEP),
             (NEEDLE_REVS, REVS[0], REVS[1], 0.92, (math.radians(-130), math.radians(130), 1.0)),
-            (NEEDLE_FUEL, COMBI[0] + v(0, 0.012, 0), COMBI[1], 0.62, sedan.FUEL_SWEEP),
-            (NEEDLE_HEAT, COMBI[0] + v(0, -0.012, 0), COMBI[1], 0.62, sedan.HEAT_SWEEP)]
+            *sedan.combi_needles(*COMBI)]
 
 
 def dash(house):
