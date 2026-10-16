@@ -937,12 +937,17 @@ def pack(gun, name, grip, colour, surface, groups, head, moved=(), mirror=(-1.0,
     flipped = numpy.prod(mirror) < 0
     rows["way"] = numpy.where(way < 0, 1 if flipped else -1, -1 if flipped else 1)
     rows["uv"] = numpy.round(numpy.clip(uv.reshape(-1, 2), 0.0, 1.0) * 65535)
+    # A triangle of under 1e-10 square metres, under a thousandth of a texel, draws nothing, and Blender gives the corners of
+    # one that is all but a line normals that are not the same from one run to the next.
+    corners_of = starts[:, None] + numpy.arange(3)
+    at = rows["place"][corners_of].astype(numpy.float64)
+    kept = numpy.flatnonzero(0.5 * numpy.linalg.norm(numpy.cross(at[:, 1] - at[:, 0], at[:, 2] - at[:, 0]), axis=1) >= 1e-10)
     # A corner that is the same in every respect as another is one vertex.
-    vertices, which = numpy.unique(rows.view([("all", "V%d" % rows.dtype.itemsize)]), return_inverse=True)
-    which = which.reshape(-1)
-    order = numpy.argsort(group, kind="stable")
-    indices = numpy.concatenate([which[start:start + 3] for start in starts[order]]).astype("<u4")
-    counts = [int((group == part).sum()) * 3 for part in groups]
+    vertices, which = numpy.unique(rows[corners_of[kept].reshape(-1)].view([("all", "V%d" % rows.dtype.itemsize)]), return_inverse=True)
+    which = which.reshape(-1, 3)
+    order = numpy.argsort(group[kept], kind="stable")
+    indices = which[order].reshape(-1).astype("<u4")
+    counts = [int((group[kept] == part).sum()) * 3 for part in groups]
     os.makedirs(OUTPUT, exist_ok=True)
     os.makedirs(TEXTURES, exist_ok=True)
     files = [(name + ".mesh.gz", head(len(vertices), counts) + vertices.tobytes() + indices.tobytes())]
@@ -955,7 +960,7 @@ def pack(gun, name, grip, colour, surface, groups, head, moved=(), mirror=(-1.0,
             with gzip.GzipFile(filename="", mode="wb", fileobj=raw, mtime=0, compresslevel=9) as packed:
                 packed.write(data)
         print("wrote %s, %d bytes" % (os.path.normpath(path), os.path.getsize(path)))
-    print("%d vertices, %d triangles, in parts of %s" % (len(vertices), len(indices) // 3, ", ".join(str(count // 3) for count in counts)))
+    print("%d vertices, %d triangles, in parts of %s, %d of no size left out" % (len(vertices), len(indices) // 3, ", ".join(str(count // 3) for count in counts), len(starts) - len(kept)))
 
 
 def head_v4(muzzle, held, port, travel, sight_line, eye_behind):
