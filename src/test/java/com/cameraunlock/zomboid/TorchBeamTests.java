@@ -9,7 +9,7 @@ final class TorchBeamTests {
     static void run() {
         Checks.run("theBeamIsBrightestOnItsAxisAndLessAllTheWayOut", TorchBeamTests::theBeamIsBrightestOnItsAxisAndLessAllTheWayOut);
         Checks.run("theBeamIsNothingPastItsEdge", TorchBeamTests::theBeamIsNothingPastItsEdge);
-        Checks.run("theBeamGivesAsMuchLightAsTheFlatTopDid", TorchBeamTests::theBeamGivesAsMuchLightAsTheFlatTopDid);
+        Checks.run("theBeamGivesUnderHalfTheLightTheFlatTopDid", TorchBeamTests::theBeamGivesUnderHalfTheLightTheFlatTopDid);
         Checks.run("aWayThirtyDegreesOffTheAxisHasLessThanTheFlatTopGaveIt", TorchBeamTests::aWayThirtyDegreesOffTheAxisHasLessThanTheFlatTopGaveIt);
     }
 
@@ -24,7 +24,7 @@ final class TorchBeamTests {
         return shader.call("torchBeam", (float) Math.cos(Math.toRadians(degrees)));
     }
 
-    /** The beam the torch had before, flat to 15 degrees: what the light it gives in all is held to. */
+    /** The beam the torch had before, flat to 15 degrees, which lit nearly all of the view. */
     private static float flatTop(double degrees) {
         float within = (float) Math.cos(Math.toRadians(degrees));
         return 0.14f * smoothstep(0.55f, 0.8f, within) + 0.86f * smoothstep(0.8f, 0.965f, within);
@@ -57,7 +57,7 @@ final class TorchBeamTests {
     }
 
     /** Over the sphere, each way weighed by the solid angle it stands for. */
-    private static void theBeamGivesAsMuchLightAsTheFlatTopDid() {
+    private static void theBeamGivesUnderHalfTheLightTheFlatTopDid() {
         GlslFunctions shader = shader();
         double now = 0, was = 0, step = Math.toRadians(STEP_DEGREES);
         for (float degrees = STEP_DEGREES / 2; degrees < 90f; degrees += STEP_DEGREES) {
@@ -65,7 +65,7 @@ final class TorchBeamTests {
             now += beam(shader, degrees) * band;
             was += flatTop(degrees) * band;
         }
-        Checks.check(Math.abs(now / was - 1) < 0.03, "the beam gives " + now + " in all, the flat top " + was);
+        Checks.check(now < 0.45 * was, "the beam gives " + now + " in all, the flat top " + was);
     }
 
     /** The flat top was still 0.44 there, and a ceiling near by took more than the far wall it was aimed at. */
@@ -73,5 +73,6 @@ final class TorchBeamTests {
         GlslFunctions shader = shader();
         Checks.check(beam(shader, 30) < 0.8f * flatTop(30), "30 degrees off the axis: " + beam(shader, 30) + " against the flat top's " + flatTop(30));
         Checks.check(beam(shader, 25) < 0.6f * flatTop(25), "25 degrees off the axis: " + beam(shader, 25) + " against the flat top's " + flatTop(25));
+        Checks.check(beam(shader, 30) < 0.1f * beam(shader, 0), "30 degrees off the axis has under a tenth of the middle: " + beam(shader, 30));
     }
 }

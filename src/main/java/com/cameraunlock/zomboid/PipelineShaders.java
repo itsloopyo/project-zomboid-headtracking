@@ -137,18 +137,21 @@ final class PipelineShaders {
             uniform mat4 uTorchMatrix;
             uniform float uTorchTexel;
 
-            // How bright the torch makes what the middle of its beam is on at arm's length.
-            const float TORCH_GIVES = 1.6;
+            // How bright the torch makes what the middle of its beam is on at arm's length. A
+            // hand torch lights a patch of the night, not the whole view.
+            const float TORCH_GIVES = 1.0;
+            // A lantern lights all round it, and what it gives does not change with the torch's.
+            const float LANTERN_GIVES = 1.6;
 
             // How much of the beam goes a way whose cosine off the torch's axis is within:
-            // most on the axis and less all the way out, a third of that 16 degrees off, then an
-            // even spill that fades out between 41 and 57 degrees, and nothing at all past 60, so
+            // most on the axis and less all the way out, a fifth of that 20 degrees off, then a
+            // faint spill that fades out between 41 and 57 degrees, and nothing at all past 60, so
             // a point outside the beam asks nothing of the torch's map. A beam with a flat top has
             // an edge, which a wall at arm's length shows as a hard rim round a blown-out disc,
             // and one still strong 30 degrees off its axis lights a ceiling near by more than what
-            // it is aimed at further off.
+            // it is aimed at further off, and the floor and walls round the view as much as it.
             float torchBeam(float within) {
-                return (exp((within - 1.0) * 25.0) + 0.3 * smoothstep(0.55, 0.75, within)) * smoothstep(0.5, 0.55, within);
+                return (exp((within - 1.0) * 30.0) + 0.06 * smoothstep(0.55, 0.75, within)) * smoothstep(0.5, 0.55, within);
             }
 
             // What the torch gives p: a hot middle and a dim spill round it, less with the
@@ -3376,7 +3379,7 @@ final class PipelineShaders {
                     float far2 = dot(to, to);
                     vec3 dir = to * inversesqrt(max(far2, 0.0001));
                     float turned = card ? 0.75 : 0.2 + 0.8 * max(dot(n, -dir), 0.0);
-                    held = lit * vec3(1.0, 0.93, 0.8) * (TORCH_GIVES * turned / (1.0 + 0.035 * far2));
+                    held = lit * vec3(1.0, 0.93, 0.8) * (LANTERN_GIVES * turned / (1.0 + 0.035 * far2));
                     given -= over;
                 }
                 // The game holds its daylight at full until dusk, when the picture's sun is
