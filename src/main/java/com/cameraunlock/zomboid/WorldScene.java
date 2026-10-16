@@ -122,7 +122,7 @@ final class WorldScene {
     /** How much further the eye closes at night over ground all under snow: 2.5 times as far at full snow and full night. */
     private static final float SNOW_STOPS_DOWN = 1.5f;
     private static final float EXPOSURE_MOST = 3.5f;
-    private static final float EXPOSURE_MOST_AT_NIGHT = 1.5f;
+    private static final float EXPOSURE_MOST_AT_NIGHT = 1.0f;
     /**
      * How far a sprite hung on a wall or laid on a floor stands off the one under it, so the two
      * do not fight for depth: a layer. The depth buffer tells two surfaces apart less well the
@@ -630,7 +630,7 @@ final class WorldScene {
     /** The distance the place looked at is taken to be at, for what the picture does by distance. */
     static final float OVERHEAD_RANGE = 12f;
     /** How much of its opening-up the eye is refused at full night. */
-    private static final float NIGHT_HELD_BACK = 0.5f;
+    private static final float NIGHT_HELD_BACK = 0.7f;
     /**
      * The highest floor built where the game leaves out what is over it: every floor is built,
      * but for a view drawn as the game's own while the game opens a building or the viewer is
