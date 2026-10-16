@@ -3473,7 +3473,8 @@ final class PipelineShaders {
                     float bare = uWet * (1.0 - snowed);
                     shine = bare * (0.1 + 0.7 * pool);
                     ripple = 0.012 * pool;
-                    color *= 1.0 - 0.3 * bare;
+                    // What standing water lies on is soaked through, a fifth darker again than the wet ground round it.
+                    color *= 1.0 - 0.3 * bare - 0.2 * bare * pool;
                 }
                 vec2 rings = vec2(0.0);
                 if (uRaining > 0.0 && shine > 0.0 && range < 30.0) {
