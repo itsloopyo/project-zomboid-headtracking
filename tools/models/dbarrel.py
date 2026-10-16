@@ -525,10 +525,11 @@ def main():
         G.dress(gun, colour, surface, folder)
         gun.hide_render = True
         full = variant(gun, FULL)
+        full.hide_render = False
         G.render(os.path.join(folder, FULL), VIEWS)
         # The same studio, camera and views again, for the sawn-off.
         full.hide_render = True
-        variant(gun, SAWN)
+        variant(gun, SAWN).hide_render = False
         scene, camera = bpy.context.scene, bpy.context.scene.camera
         for name, (place, target, lens) in VIEWS.items():
             camera.location = place
