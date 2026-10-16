@@ -16,7 +16,7 @@ them has (the full gun's stock, muzzles and beads, the sawn-off's grip, muzzles 
 baked beside the rest, and the barrels and ribs, laid out so that the sawn-off's are the rear
 part of the full gun's, are cut where the sawn-off ends. It writes dbarrel.mesh.gz and
 dbarrelsawn.mesh.gz under src/main/resources/models, and dbarrel.colour.gz and
-dbarrel.surface.gz, 2048 texels square, under src/textures/models, for
+dbarrel.surface.gz, 2048 by 1024 texels, under src/textures/models, for
 tools/textures/compress.py to pack for the jar. The files are laid out as gunsmith.py says, at
 version 5.
 
@@ -422,6 +422,8 @@ def build():
     G.count_triangles()
 
 
+# Long and thin: its pictures are twice as wide as high.
+G.WIDE = True
 G.TUBES = {"upper barrel": (UPPER_Z, SAWN_Y, 0.0110), "lower barrel": (LOWER_Z, SAWN_Y, 0.0110)}
 
 
