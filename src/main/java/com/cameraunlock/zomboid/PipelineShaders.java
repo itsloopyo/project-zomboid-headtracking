@@ -3475,6 +3475,12 @@ final class PipelineShaders {
                     ripple = 0.012 * pool;
                     // What standing water lies on is soaked through, a fifth darker again than the wet ground round it.
                     color *= 1.0 - 0.3 * bare - 0.2 * bare * pool;
+                } else if (!card && !grown && !model && glazed < 0.5 && uWet > 0.0 && open > 0.5) {
+                    // Rain darkens the walls and roofs it falls on as it does the ground, if less, as
+                    // water runs off them: up to a quarter facing up, about half that on a wall only
+                    // the slant of the rain reaches. The mod's own models are paint, metal and glass,
+                    // which rain does not darken.
+                    color *= 1.0 - 0.25 * uWet * (1.0 - snowed) * skyOver * mix(0.55, 1.0, clamp(n.z * 2.0, 0.0, 1.0));
                 }
                 vec2 rings = vec2(0.0);
                 if (uRaining > 0.0 && shine > 0.0 && range < 30.0) {
