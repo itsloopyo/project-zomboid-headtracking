@@ -27,6 +27,7 @@ final class RoomSightTests {
         Checks.run("anUpperRoomIsSeenThroughItsWindowFromTheStreet", RoomSightTests::anUpperRoomIsSeenThroughItsWindowFromTheStreet);
         Checks.run("aHouseBetweenTheEyeAndAWindowHidesItUnlessTheLineGoesThroughTheHouse", RoomSightTests::aHouseBetweenTheEyeAndAWindowHidesItUnlessTheLineGoesThroughTheHouse);
         Checks.run("aTallerHouseBehindALowOneShowsItsUpperRooms", RoomSightTests::aTallerHouseBehindALowOneShowsItsUpperRooms);
+        Checks.run("anEyeClimbingAStairOverTheFloorAboveSeesThatFloor", RoomSightTests::anEyeClimbingAStairOverTheFloorAboveSeesThatFloor);
         Checks.run("aHeadThatMovesALittleKeepsWhatTheBlocksHideAndMissesNothing", RoomSightTests::aHeadThatMovesALittleKeepsWhatTheBlocksHideAndMissesNothing);
         Checks.run("whatIsBuiltIsWhatAnyTurnOfTheHeadOrANearDoorOpenedWouldShow", RoomSightTests::whatIsBuiltIsWhatAnyTurnOfTheHeadOrANearDoorOpenedWouldShow);
         Checks.run("roomsKeptForBuildingGoAfterAWhileUnfound", RoomSightTests::roomsKeptForBuildingGoAfterAWhileUnfound);
@@ -247,6 +248,33 @@ final class RoomSightTests {
         row.opening(4, 15, 0, true, RoomSight.SEE).opening(4, 10, 0, true, RoomSight.SEE);
         RoomSight.Seen through = seen(row, 4.5f, 20.5f, 0, -90f, 0f);
         check(through.contains(BETWEEN) && through.contains(BEYOND), "and seen through the near house's front and back windows, it is not");
+    }
+
+    /**
+     * A hall with a stair up its east side, under a landing that runs on along the floor above:
+     * a character on the stair still stands on the hall's level while its eye is over the floor
+     * above, looking along the landing. The walk starts on the level the eye is in.
+     */
+    private static void anEyeClimbingAStairOverTheFloorAboveSeesThatFloor() {
+        Plan plan = new Plan().room(HALL, 0, 0, 0, 2, 6).room(OVER, 1, 0, 0, 2, 6).hole(2, 3, 1).hole(2, 4, 1).hole(2, 5, 1);
+        RoomSight.Openings openings = plan.openings();
+        RoomSight.Blocks blocks = plan.blocks();
+        int views = 0;
+        for (float y = 3.1f; y < 6f; y += 0.3f) {
+            for (float up = 1.6f; up < 3.4f; up += 0.2f) {
+                ViewCamera.Pose eye = new ViewCamera.Pose();
+                ViewCamera.clean(eye, 2.5f, y, up, (float) Math.toRadians(-90), 0f);
+                RoomSight.Seen walked = new RoomSight.Seen(), lines = new RoomSight.Seen();
+                int level = RoomSight.levelOf(plan, 2, (int) Math.floor(y), 0, up);
+                new RoomSight().walk(plan, openings, blocks, eye, FOV * ASPECT, FOV, plan.region(2, (int) Math.floor(y), level), plan.building(2, (int) Math.floor(y), level), walked);
+                RoomRays.trace(plan, eye, FOV * ASPECT, FOV, 160, 90, 40f, 0, lines);
+                check(!lines.contains(OVER) || walked.contains(OVER), "an eye on the stair at (2.5, " + y + ") " + up + " up sees the floor above the lines reach, from level " + level);
+                views++;
+            }
+        }
+        check(RoomSight.levelOf(plan, 2, 4, 0, 1.6f) == 0 && RoomSight.levelOf(plan, 2, 4, 0, ViewCamera.LEVEL_HEIGHT + 0.4f) == 1, "the eye is on the level above once it is over that floor");
+        check(RoomSight.levelOf(plan, 1, 4, 0, ViewCamera.LEVEL_HEIGHT + 0.4f) == 0, "but not where the floor above is whole");
+        check(views > 50, "views were looked from: " + views);
     }
 
     private static void aTallerHouseBehindALowOneShowsItsUpperRooms() {

@@ -823,6 +823,21 @@ final class RoomSight {
         return horizon.hides(alongX, alongY, 2, top);
     }
 
+    /**
+     * The level whose region an eye at height eyeUp over the square (x, y) is in, from the level
+     * the character stands on: the one above where the eye is over that level's floor and the
+     * square has no floor there (the well of a stair), the one below where it is under its own.
+     */
+    static int levelOf(Ground ground, int x, int y, int level, float eyeUp) {
+        while (eyeUp > ground.floorUp(x + 0.5f, y + 0.5f, level + 1) && !ground.floored(x, y, level + 1)) {
+            level++;
+        }
+        while (level > 0 && eyeUp < ground.floorUp(x + 0.5f, y + 0.5f, level) && !ground.floored(x, y, level)) {
+            level--;
+        }
+        return level;
+    }
+
     /** What an opening does to sight now. */
     static int state(Ground ground, Openings openings, int opening) {
         int kind = openings.kind[opening];

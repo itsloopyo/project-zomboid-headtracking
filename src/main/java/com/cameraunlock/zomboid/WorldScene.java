@@ -3617,9 +3617,11 @@ final class WorldScene {
                 }
             }
             int eyeX = (int) Math.floor(camera.eyeX), eyeY = (int) Math.floor(camera.eyeY);
+            // On a stair the character's level is the one it set out from while its eye is already over the next floor.
+            int eyeLevel = RoomSight.levelOf(roomMap, eyeX, eyeY, level, camera.eyeUp);
             roomsSeenKept.clear();
-            roomWalk.walk(roomMap, openingsInReach, blocksInReach, camera, tanHalfFieldOfView * aspect, tanHalfFieldOfView, roomMap.region(eyeX, eyeY, level),
-                    roomMap.building(eyeX, eyeY, level), roomsSeenKept);
+            roomWalk.walk(roomMap, openingsInReach, blocksInReach, camera, tanHalfFieldOfView * aspect, tanHalfFieldOfView, roomMap.region(eyeX, eyeY, eyeLevel),
+                    roomMap.building(eyeX, eyeY, eyeLevel), roomsSeenKept);
             roomsSeen = roomsSeenKept;
             roomsAspect = aspect;
             lastHidden = roomWalk.hiddenByBlocks;
@@ -3642,11 +3644,11 @@ final class WorldScene {
                 roundEyeY = camera.eyeY;
                 roundNanos = now;
                 roomsFound.clear();
-                roomWalk.walkAllRound(roomMap, openingsInReach, blocksInReach, camera.eyeX, camera.eyeY, camera.eyeUp, roomMap.region(eyeX, eyeY, level),
-                        roomMap.building(eyeX, eyeY, level), GROW_TILES + eyeSpeed * GROW_SECONDS, SHUT_WITHIN, roomsFound);
+                roomWalk.walkAllRound(roomMap, openingsInReach, blocksInReach, camera.eyeX, camera.eyeY, camera.eyeUp, roomMap.region(eyeX, eyeY, eyeLevel),
+                        roomMap.building(eyeX, eyeY, eyeLevel), GROW_TILES + eyeSpeed * GROW_SECONDS, SHUT_WITHIN, roomsFound);
                 roomsBuilt.found(roomsFound, now, roomsEntered);
                 roomsBuilt.expire(now, roomsLeft);
-                long region = roomMap.region(eyeX, eyeY, level), building = roomMap.building(eyeX, eyeY, level);
+                long region = roomMap.region(eyeX, eyeY, eyeLevel), building = roomMap.building(eyeX, eyeY, eyeLevel);
                 float movedSince = (float) Math.sqrt((camera.eyeX - mayShowEyeX) * (camera.eyeX - mayShowEyeX) + (camera.eyeY - mayShowEyeY) * (camera.eyeY - mayShowEyeY)
                         + (camera.eyeUp - mayShowEyeUp) * (camera.eyeUp - mayShowEyeUp));
                 if (movedSince > grow / 2f || reach != mayShowReach || region != mayShowRegion || building != mayShowBuilding
