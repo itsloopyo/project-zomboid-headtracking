@@ -570,19 +570,19 @@ final class PipelineShaders {
                     }
                     vColor = vec4(gl_MultiTexCoord0.y * (uLit + share.x * uLitAlong + share.y * uLitDown + share.x * share.y * uLitAcross),
                             uSurfaces.x + 32.0 * ((dyed || also ? 34.0 : 16.0) + surface));
-                    unlit = uUnlitKind < 0.5 ? -1.0 : (uUnlitKind - 1.0) * 16.0
-                            + min(gl_MultiTexCoord0.y * (uUnlit.x + share.x * uUnlit.y + share.y * uUnlit.z + share.x * share.y * uUnlit.w), 15.99);
+                    unlit = uUnlitKind < 0.5 ? -1.0 : (uUnlitKind - 1.0) * 16.0 + uUnlit.x + share.x * uUnlit.y + share.y * uUnlit.z + share.x * share.y * uUnlit.w;
                 }
                 // What the game has given no light carries the shade it is lit in, and above the
                 // materials which of this frame's lights it takes: see WorldScene.LIT_STEP. A
                 // vertex where squares it has lit meet ones it has not counts each of those as 1,
                 // and carries how much of its light they are: see SpriteGeometry.Frame.cornerUnlit.
+                // Below 0 it has none of that, and the kind its openness names is its whole light.
                 float lit = floor((vColor.a + 0.5) / 4096.0);
                 vColor.a -= 4096.0 * lit;
                 if (unlit >= 0.0) {
                     float kind = floor(unlit / 16.0);
                     vec3 given = kind > 2.5 ? uOpenLight : kind > 1.5 ? uLampLight : kind > 0.5 ? uRoomLight : vec3(1.0);
-                    vColor.rgb += (unlit - 16.0 * kind) * (given - 1.0);
+                    vColor.rgb *= 1.0 + (unlit - 16.0 * kind) * (given - 1.0);
                 } else {
                     vColor.rgb *= lit > 2.5 ? uOpenLight : lit > 1.5 ? uLampLight : lit > 0.5 ? uRoomLight : vec3(1.0);
                 }

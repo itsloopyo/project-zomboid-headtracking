@@ -318,7 +318,7 @@ final class Trims {
 
     private static void corner(SpriteGeometry.Mesh mesh, Band band, Light light, float[] lit, float x, float y, float up) {
         light.at(x, y, lit);
-        mesh.unlit = SpriteGeometry.unlitTimes(lit[3], (band.red + band.green + band.blue) / 3f);
+        mesh.unlit = lit[3];
         mesh.add(x, y, up, 0f, 0f, band.red * lit[0], band.green * lit[1], band.blue * lit[2]);
         mesh.unlit = SpriteGeometry.AS_FACE;
     }

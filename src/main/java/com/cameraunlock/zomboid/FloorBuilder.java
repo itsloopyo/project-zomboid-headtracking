@@ -292,12 +292,10 @@ final class FloorBuilder {
         build.frame.red = red * r;
         build.frame.green = green * g;
         build.frame.blue = blue * b;
-        float mean = (r + g + b) / 3f;
         for (int corner = 0; corner < 4; corner++) {
             build.frame.cornerRed[corner] = build.paperRed[corner] * r;
             build.frame.cornerGreen[corner] = build.paperGreen[corner] * g;
             build.frame.cornerBlue[corner] = build.paperBlue[corner] * b;
-            build.frame.cornerUnlit[corner] = build.paperUnlit[corner] < 0f ? SpriteGeometry.AS_FACE : build.paperUnlit[corner] * mean;
         }
     }
 

@@ -1147,12 +1147,12 @@ public final class Tests {
         float coded = frame.unlitAt(0f, 0.5f, 0.5f, 0f);
         check(near(coded, WorldScene.ROOM_LIT * SpriteGeometry.UNLIT_KIND_STEP + 0.75f), "a vertex between corners has their shares in its own share, over the kind of light");
         check(near(frame.unlitAt(1f, 0f, 0f, 0f), WorldScene.ROOM_LIT * SpriteGeometry.UNLIT_KIND_STEP), "a corner of squares the game has lit has none of it");
-        check(near(SpriteGeometry.unlitTimes(coded, 0.5f), WorldScene.ROOM_LIT * SpriteGeometry.UNLIT_KIND_STEP + 0.375f), "a shade on the light is a shade on its share");
-        check(SpriteGeometry.unlitTimes(SpriteGeometry.AS_FACE, 0.5f) == SpriteGeometry.AS_FACE, "and leaves a vertex lit as its face says as it is");
-        // What the picture makes of it: the light counted as 1, then the share of it put in as this frame's.
-        float lit = 0.6f, room = 0.3f;
-        float corner = (lit + 1f) / 2f, share = 0.5f;
-        check(near(corner + share * (room - 1f), (lit + room) / 2f), "a corner where a lit square meets an unlit one is the mean of the two lights");
+        // What the picture makes of it: the unlit square counted as 1, then that share of the mean made this frame's light.
+        float lit = 0.6f, room = 0.3f, shade = 0.7f;
+        float corner = (lit + 1f) / 2f, share = WorldScene.Frame.unlitShare(lit, 1);
+        check(near(corner * (1f + share * (room - 1f)), (lit + room) / 2f), "a corner where a lit square meets an unlit one is the mean of the two lights");
+        check(near(shade * corner * (1f + share * (room - 1f)), shade * (lit + room) / 2f), "and a shade laid on the corner's light is laid on that mean");
+        check(WorldScene.Frame.unlitShare(0.8f, 0) == 0f && WorldScene.Frame.unlitShare(0f, 2) == 1f, "a corner of lit squares has none of it, one of unlit squares is all of it");
         SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
         mesh.unlit = coded;
         mesh.add(0f, 0f, 0f, 0f, 0f, 1f, 1f, 1f);

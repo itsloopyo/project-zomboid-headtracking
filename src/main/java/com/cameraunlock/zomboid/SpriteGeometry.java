@@ -51,15 +51,6 @@ final class SpriteGeometry {
      * is counted in above how much of it a vertex has: see Frame.cornerUnlit.
      */
     static final float AS_FACE = -1f, UNLIT_KIND_STEP = 16f;
-
-    /** What a vertex carries of a light the game has not given (Mesh.unlit), with how much of it times by, as a shade on its light is. */
-    static float unlitTimes(float unlit, float by) {
-        if (unlit < 0f) {
-            return unlit;
-        }
-        float kind = (float) Math.floor(unlit / UNLIT_KIND_STEP);
-        return kind * UNLIT_KIND_STEP + Math.min((unlit - kind * UNLIT_KIND_STEP) * by, UNLIT_KIND_STEP - 0.01f);
-    }
     static final float FACES = 1f, CLEARS = 2f, LAYERS_X = 3f, LAYERS_Y = 4f, LAYERS_UP = 5f, SHEET = 6f, WOOD = -1f;
 
     /**
@@ -241,6 +232,7 @@ final class SpriteGeometry {
         void clear() {
             most = Math.max(most, floats);
             floats = 0;
+            unlit = AS_FACE;
             spans = 0;
             ownedFrom = 0;
         }
@@ -455,7 +447,7 @@ final class SpriteGeometry {
         /** The same rectangle in texture coordinates. */
         float uStart, vStart, uEnd, vEnd;
         float red, green, blue;
-        /** 1 for a square out of doors, 0 for one under a roof. */
+        /** 1 for a square out of doors, 0 for one under a roof, and above that the kind of light it takes: see WorldScene.LIT_STEP. */
         float open;
         /** What the next face is, added to its openness: 0 for an ordinary surface, WATER for water. */
         float kind;
@@ -476,9 +468,10 @@ final class SpriteGeometry {
         /**
          * Where a corner's light is the mean of squares the game has lit and squares it has not
          * (WorldScene.OPEN_LIT and the rest), which count in cornerRed and its fellows as 1:
-         * how much of the corner's light is the light of the kind unlitKind names, which the
-         * picture puts in for this frame. AS_FACE at every corner of a frame lit as one light,
-         * whose openness says what it is lit by.
+         * how much of that mean the squares it has not lit are, which the picture makes the
+         * light of the kind unlitKind names for this frame. A shade a builder lays on the
+         * corner's light leaves it as it is. AS_FACE at every corner of a frame lit as one
+         * light, whose openness says what it is lit by.
          */
         final float[] cornerUnlit = {AS_FACE, AS_FACE, AS_FACE, AS_FACE};
         float unlitKind;
@@ -509,12 +502,13 @@ final class SpriteGeometry {
             vEnd = other.vEnd;
         }
 
-        /** Copies the light at the corners out, to be put back by {@link #cornersFrom}. */
+        /** Copies the light at the corners out, to be put back by {@link #cornersFrom}: into unlit, five long, cornerUnlit and then unlitKind. */
         void cornersInto(float[] red, float[] green, float[] blue, float[] unlit) {
             System.arraycopy(cornerRed, 0, red, 0, 4);
             System.arraycopy(cornerGreen, 0, green, 0, 4);
             System.arraycopy(cornerBlue, 0, blue, 0, 4);
             System.arraycopy(cornerUnlit, 0, unlit, 0, 4);
+            unlit[4] = unlitKind;
         }
 
         /** The light at the corners as {@link #cornersInto} copied it out. */
@@ -523,6 +517,7 @@ final class SpriteGeometry {
             System.arraycopy(green, 0, cornerGreen, 0, 4);
             System.arraycopy(blue, 0, cornerBlue, 0, 4);
             System.arraycopy(unlit, 0, cornerUnlit, 0, 4);
+            unlitKind = unlit[4];
         }
 
         /** One light for the whole square. */
@@ -541,8 +536,7 @@ final class SpriteGeometry {
             if (cornerUnlit[0] < 0f) {
                 return AS_FACE;
             }
-            float share = cornerUnlit[0] * w0 + cornerUnlit[1] * w1 + cornerUnlit[2] * w2 + cornerUnlit[3] * w3;
-            return unlitKind * UNLIT_KIND_STEP + Math.min(share, UNLIT_KIND_STEP - 0.01f);
+            return unlitKind * UNLIT_KIND_STEP + cornerUnlit[0] * w0 + cornerUnlit[1] * w1 + cornerUnlit[2] * w2 + cornerUnlit[3] * w3;
         }
     }
 

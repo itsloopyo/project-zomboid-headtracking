@@ -1715,6 +1715,7 @@ final class Pipeline {
         GL11.glDisableClientState(GL_TEXTURE_COORD_ARRAY);
         GL13.glClientActiveTexture(GL_TEXTURE0 + 3);
         GL11.glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+        GL13.glMultiTexCoord1f(GL_TEXTURE0 + 3, SpriteGeometry.AS_FACE);
         GL13.glClientActiveTexture(GL_TEXTURE0);
     }
 
@@ -2982,6 +2983,7 @@ final class Pipeline {
         GL11.glDisableClientState(GL_TEXTURE_COORD_ARRAY);
         GL13.glClientActiveTexture(GL_TEXTURE0 + 3);
         GL11.glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+        GL13.glMultiTexCoord1f(GL_TEXTURE0 + 3, SpriteGeometry.AS_FACE);
         GL11.glEnable(GL_DEPTH_TEST);
         GL11.glDepthFunc(GL_LEQUAL);
         GL11.glDepthMask(false);

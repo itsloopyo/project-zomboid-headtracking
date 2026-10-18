@@ -734,6 +734,8 @@ final class WorldScene {
      */
     private final OpenLight seenRooms = new OpenLight(), seenLamplit = new OpenLight();
     private float roomShare = -1f, lampLevel = -1f;
+    /** When the lights of what the game has given no light were last eased towards their readings: see UNLIT_EASE_SECONDS. */
+    private long unlitEasedAt;
     private long roomLightTakenAt;
     /** How near the eye a chunk is, in tiles, for what stands in its rooms the game has not shown to be built: within the last band but one. See Sightline.emptied. */
     private static final float UNSHOWN_FILLED_WITHIN = 40f;
@@ -1340,6 +1342,12 @@ final class WorldScene {
      * were a frame of 40 to 50 ms at every step, on the tenth floor of a building of 27.
      */
     private static final long LIT_NANOS_A_FRAME = 2_000_000L, LIT_WAITS_NANOS = 150_000_000L;
+    /**
+     * How long the lights of what the game has given no light take to come most of the way
+     * to a new reading, in seconds: the readings are taken twice a second, and a room taken
+     * from one to the next at once stepped brighter or darker.
+     */
+    private static final float UNLIT_EASE_SECONDS = 0.5f;
     /** How long a chunk found changed waits at most for a frame with time to build it: see where one is put off. */
     private static final long CHANGED_WAITS_NANOS = 500_000_000L;
     /** Within this many tiles of the eye a chunk with no build is built on the frame it is wanted. */
@@ -2508,9 +2516,9 @@ final class WorldScene {
         final float[] lightRed = new float[LIGHT_SPAN * LIGHT_SPAN], lightGreen = new float[LIGHT_SPAN * LIGHT_SPAN],
                 lightBlue = new float[LIGHT_SPAN * LIGHT_SPAN];
         final byte[] lightOpen = new byte[LIGHT_SPAN * LIGHT_SPAN];
-        /** Each square's kind of light: OWN_LIGHT, ROOM_LIT or LAMP_LIT. */
+        /** Each square's kind of light: OWN_LIGHT, ROOM_LIT, LAMP_LIT or OPEN_LIT. */
         final byte[] lightUnseen = new byte[LIGHT_SPAN * LIGHT_SPAN];
-        final float[] heldRed = new float[4], heldGreen = new float[4], heldBlue = new float[4], heldUnlit = new float[4];
+        final float[] heldRed = new float[4], heldGreen = new float[4], heldBlue = new float[4], heldUnlit = new float[5];
         /**
          * The lights of every level of the chunk last summed, as readLights left each: a chunk
          * found changed is built in the same frame, and its build takes them from here in place
@@ -2519,7 +2527,7 @@ final class WorldScene {
          * from the build has nothing kept, and keptLevels has a bit for each level that has.
          */
         private float[] keptRed = new float[0], keptGreen = new float[0], keptBlue = new float[0];
-        private byte[] keptOpen = new byte[0];
+        private byte[] keptOpen = new byte[0], keptUnseen = new byte[0];
         private int keptWx, keptWy, keptFrom, keptTo, keptFrame = -1;
         private long keptLevels;
         /** Whether any square of the chunk last read through, on any level, has a canopy's floor over it. */
@@ -2952,9 +2960,6 @@ final class WorldScene {
             boxMaxX = maxX;
             boxMaxY = maxY;
             frame.scale = Core.tileScale;
-            sky.openUnlit[0] = unseenRed;
-            sky.openUnlit[1] = unseenGreen;
-            sky.openUnlit[2] = unseenBlue;
             roomsDaylit = !gamesView && !Quality.plain(view.index);
             day = Math.round(Evening.day(sky.sunUp) * DAY_STEPS) / (float) DAY_STEPS;
             roomsDaylitNow = roomsDaylit;
@@ -2966,12 +2971,14 @@ final class WorldScene {
             daylitAt = start;
             // Until a room has been in sight, a room is lit as the open ground is, and one with a lamp burning at least as a lamp lights.
             float share = roomShare < 0f ? 1f : roomShare;
-            sky.roomLight[0] = Math.min(unseenRed * share, 1f);
-            sky.roomLight[1] = Math.min(unseenGreen * share, 1f);
-            sky.roomLight[2] = Math.min(unseenBlue * share, 1f);
             float lamp = lampLevel < 0f ? LAMP_AT_LEAST : lampLevel;
+            float eased = unlitEasedAt == 0L ? 1f : 1f - (float) Math.exp(-(start - unlitEasedAt) / 1e9 / UNLIT_EASE_SECONDS);
+            unlitEasedAt = start;
             for (int i = 0; i < 3; i++) {
-                sky.lampLight[i] = Math.max(sky.roomLight[i], lamp);
+                float open = i == 0 ? unseenRed : i == 1 ? unseenGreen : unseenBlue, room = Math.min(open * share, 1f);
+                sky.openUnlit[i] += (open - sky.openUnlit[i]) * eased;
+                sky.roomLight[i] += (room - sky.roomLight[i]) * eased;
+                sky.lampLight[i] += (Math.max(room, lamp) - sky.lampLight[i]) * eased;
             }
 
             // The loaded map is a square of chunks, and it ends in nothing. The picture fades into the
@@ -4216,6 +4223,7 @@ final class WorldScene {
                     System.arraycopy(keptGreen, at, lightGreen, 0, lightRed.length);
                     System.arraycopy(keptBlue, at, lightBlue, 0, lightRed.length);
                     System.arraycopy(keptOpen, at, lightOpen, 0, lightRed.length);
+                    System.arraycopy(keptUnseen, at, lightUnseen, 0, lightRed.length);
                 } else {
                     tallying = !growing && !afresh;
                     readLights(chunkX, chunkY, z);
@@ -4228,6 +4236,7 @@ final class WorldScene {
                         System.arraycopy(lightGreen, 0, keptGreen, at, lightRed.length);
                         System.arraycopy(lightBlue, 0, keptBlue, at, lightRed.length);
                         System.arraycopy(lightOpen, 0, keptOpen, at, lightRed.length);
+                        System.arraycopy(lightUnseen, 0, keptUnseen, at, lightRed.length);
                         keptLevels |= 1L << (z - keptFrom);
                     }
                 }
@@ -4402,6 +4411,7 @@ final class WorldScene {
                 keptGreen = new float[keptRed.length];
                 keptBlue = new float[keptRed.length];
                 keptOpen = new byte[keptRed.length];
+                keptUnseen = new byte[keptRed.length];
             }
             keptWx = chunk.wx;
             keptWy = chunk.wy;
@@ -4429,6 +4439,7 @@ final class WorldScene {
                 System.arraycopy(lightGreen, 0, keptGreen, (z - from) * span, span);
                 System.arraycopy(lightBlue, 0, keptBlue, (z - from) * span, span);
                 System.arraycopy(lightOpen, 0, keptOpen, (z - from) * span, span);
+                System.arraycopy(lightUnseen, 0, keptUnseen, (z - from) * span, span);
                 keptLevels |= 1L << (z - from);
                 if (z == 0) {
                     long woodsBegan = System.nanoTime();
@@ -4889,9 +4900,9 @@ final class WorldScene {
                 return light;
             }
             float share = day * roomDaylight.share(roomMap, square, mapWx * CHUNK_TILES, mapWy * CHUNK_TILES, mapSide * CHUNK_TILES, daylitAt);
-            daylit.r = Math.max(light.r, share * sky.openUnlit[0]);
-            daylit.g = Math.max(light.g, share * sky.openUnlit[1]);
-            daylit.b = Math.max(light.b, share * sky.openUnlit[2]);
+            daylit.r = Math.max(light.r, share * openRedNow);
+            daylit.g = Math.max(light.g, share * openGreenNow);
+            daylit.b = Math.max(light.b, share * openBlueNow);
             daylit.a = light.a;
             return daylit;
         }
@@ -5025,7 +5036,7 @@ final class WorldScene {
             frame.unlitKind = kind;
             for (int corner = 0; corner < 4; corner++) {
                 int i = localX + (corner == 1 || corner == 2 ? 1 : 0), j = localY + (corner >= 2 ? 1 : 0);
-                float red = 0f, green = 0f, blue = 0f;
+                float red = 0f, green = 0f, blue = 0f, given = 0f;
                 int count = 0, unlit = 0;
                 for (int di = 0; di <= 1; di++) {
                     for (int dj = 0; dj <= 1; dj++) {
@@ -5035,15 +5046,24 @@ final class WorldScene {
                             green += lightGreen[at];
                             blue += lightBlue[at];
                             count++;
-                            unlit += lightUnseen[at] == OWN_LIGHT ? 0 : 1;
+                            if (lightUnseen[at] == OWN_LIGHT) {
+                                given += (lightRed[at] + lightGreen[at] + lightBlue[at]) / 3f;
+                            } else {
+                                unlit++;
+                            }
                         }
                     }
                 }
                 frame.cornerRed[corner] = red / count;
                 frame.cornerGreen[corner] = green / count;
                 frame.cornerBlue[corner] = blue / count;
-                frame.cornerUnlit[corner] = (float) unlit / count;
+                frame.cornerUnlit[corner] = unlitShare(given, unlit);
             }
+        }
+
+        /** How much of a mean of squares the ones the game has not lit are, each counted as 1, beside the light of the ones it has lit, summed as their grey. */
+        static float unlitShare(float given, int unlit) {
+            return unlit == 0 ? 0f : unlit / (given + unlit);
         }
 
         /** The kind of light the game has not given that the square at the given place of the light grid is lit by, or for one it has lit the first such kind of a square round it with the same openness, or OWN_LIGHT. */
@@ -5051,10 +5071,11 @@ final class WorldScene {
             if (lightUnseen[own] != OWN_LIGHT) {
                 return lightUnseen[own];
             }
-            for (int di = -1; di <= 1; di++) {
-                for (int dj = -1; dj <= 1; dj++) {
-                    int at = own + di * LIGHT_SPAN + dj;
-                    if (at >= 0 && at < lightUnseen.length && lightOpen[at] == lightOpen[own] && lightUnseen[at] != OWN_LIGHT) {
+            int ownI = own / LIGHT_SPAN, ownJ = own % LIGHT_SPAN;
+            for (int i = Math.max(ownI - 1, 0); i <= Math.min(ownI + 1, LIGHT_SPAN - 1); i++) {
+                for (int j = Math.max(ownJ - 1, 0); j <= Math.min(ownJ + 1, LIGHT_SPAN - 1); j++) {
+                    int at = i * LIGHT_SPAN + j;
+                    if (lightOpen[at] == lightOpen[own] && lightUnseen[at] != OWN_LIGHT) {
                         return lightUnseen[at];
                     }
                 }
@@ -6953,7 +6974,7 @@ final class WorldScene {
         /** The same of the sprite hung over the one being added, while it is: tiles laid over a wall. */
         String overSheet;
         /** The colour the papered wall's mesh is painted over in, as the picture is told it, and the light of the piece being added while its stripes are. */
-        final float[] paperTint = new float[4], paperRed = new float[4], paperGreen = new float[4], paperBlue = new float[4], paperUnlit = new float[4];
+        final float[] paperTint = new float[4], paperRed = new float[4], paperGreen = new float[4], paperBlue = new float[4], paperUnlit = new float[5];
 
         /** The level the walls that meet the wall being added are looked for on. */
         int joinLevel;

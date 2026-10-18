@@ -565,7 +565,8 @@ final class WallBuilder {
         // As WorldScene.Frame.cornerLights: a square the game has given no light counts as 1, and the corner keeps how much of its light such squares are.
         byte kind = build.unlitKindRound(at);
         build.frame.unlitKind = kind;
-        float ownUnlit = build.lightUnseen[at] == WorldScene.OWN_LIGHT ? 0f : 1f;
+        boolean ownGiven = build.lightUnseen[at] == WorldScene.OWN_LIGHT;
+        float ownGrey = (build.lightRed[at] + build.lightGreen[at] + build.lightBlue[at]) / 3f;
         for (int end = 0; end < 2; end++) {
             int beside = at + (end == 0 ? -step : step);
             // The lights are read a square past the chunk and no further: a far side that is in that last row has nothing beyond one end.
@@ -574,7 +575,10 @@ final class WallBuilder {
             float red = alike ? (build.lightRed[at] + build.lightRed[beside]) / 2f : build.lightRed[at];
             float green = alike ? (build.lightGreen[at] + build.lightGreen[beside]) / 2f : build.lightGreen[at];
             float blue = alike ? (build.lightBlue[at] + build.lightBlue[beside]) / 2f : build.lightBlue[at];
-            float unlit = alike ? (ownUnlit + (build.lightUnseen[beside] == WorldScene.OWN_LIGHT ? 0f : 1f)) / 2f : ownUnlit;
+            boolean besideGiven = !alike || build.lightUnseen[beside] == WorldScene.OWN_LIGHT;
+            float given = (ownGiven ? ownGrey : 0f)
+                    + (alike && besideGiven ? (build.lightRed[beside] + build.lightGreen[beside] + build.lightBlue[beside]) / 3f : 0f);
+            float unlit = WorldScene.Frame.unlitShare(given, (ownGiven ? 0 : 1) + (alike && !besideGiven ? 1 : 0));
             // The square's corners go north-west, north-east, south-east, south-west: a wall on its
             // north edge ends at the first two, one on its west edge at the first and the last.
             int near = end == 0 ? 0 : north ? 1 : 3, far = end == 0 ? (north ? 3 : 1) : 2;
