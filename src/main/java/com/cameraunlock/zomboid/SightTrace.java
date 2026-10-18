@@ -152,7 +152,7 @@ final class SightTrace {
                         boolean onEdge = kind.equals("door") || kind.equals("window");
                         boolean open;
                         if (!near) {
-                            open = inPicture(eye, tanAcross, tanUp, x + 0.5f, y + 0.5f, z) && reached(square.getRoomID(), eye, tanAcross, tanUp);
+                            open = inPicture(eye, tanAcross, tanUp, x + 0.5f, y + 0.5f, scene.roomMap.floorUp(x + 0.5f, y + 0.5f, z)) && reached(square.getRoomID(), eye, tanAcross, tanUp);
                         } else if (onEdge) {
                             open = openTo(eye, forwardX, forwardY, cosCone, edgeX(object, x, eye), edgeY(object, y, eye));
                         } else {
@@ -250,10 +250,10 @@ final class SightTrace {
     private static final int FAR = 40;
     private static final ArrayList<IsoMovingObject> NO_BODIES = new ArrayList<>();
 
-    /** Whether a point a little over the floor of a square on level z, or one a level's height higher, is inside the picture. */
-    private static boolean inPicture(ViewCamera.Pose eye, float tanAcross, float tanUp, float x, float y, int z) {
+    /** Whether a point a little over a floor at that height, or one higher up the level, is inside the picture. */
+    private static boolean inPicture(ViewCamera.Pose eye, float tanAcross, float tanUp, float x, float y, float floor) {
         for (float over = 0.3f; over < ViewCamera.LEVEL_HEIGHT; over += 0.9f) {
-            float dx = x - eye.eyeX, dy = y - eye.eyeY, du = z * ViewCamera.LEVEL_HEIGHT + over - eye.eyeUp;
+            float dx = x - eye.eyeX, dy = y - eye.eyeY, du = floor + over - eye.eyeUp;
             float along = dx * eye.forwardX + dy * eye.forwardY + du * eye.forwardUp;
             if (along < 0.05f) {
                 continue;

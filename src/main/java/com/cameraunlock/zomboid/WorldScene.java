@@ -3541,10 +3541,26 @@ final class WorldScene {
                                     + " on level %d in region %d of building %d, %d openings, %d blocks, %d hidden by blocks, %d rooms walked",
                             room, camera.eyeX, camera.eyeY, camera.eyeUp, camera.forwardX, camera.forwardY, camera.forwardUp, level, roomMap.region(eyeX, eyeY, level),
                             roomMap.building(eyeX, eyeY, level), openingsInReach.count, blocksInReach.count, roomWalk.hiddenByBlocks, roomsSeenKept.size()));
+                    Log.info("rooms: the line to room " + room + " goes " + RoomRays.pathTo(roomMap, camera, tanHalfFieldOfView * aspect, tanHalfFieldOfView, ROOM_LINES_ACROSS, ROOM_LINES_UP,
+                            ROOM_LINES_REACH, level, room) + "; openings up within 2 squares:" + openingsUpNear());
                 }
             }
             roomChecks++;
             roomChecksNanos += System.nanoTime() - began;
+        }
+
+        /** Dev only: the openings up to the level above within two squares of the eye, each with its regions, its heights and its state. */
+        private String openingsUpNear() {
+            StringBuilder list = new StringBuilder();
+            for (int i = 0; i < openingsInReach.count; i++) {
+                if (openingsInReach.kind[i] != RoomSight.UP || Math.abs(openingsInReach.x[i] + 0.5f - camera.eyeX) > 2.5f || Math.abs(openingsInReach.y[i] + 0.5f - camera.eyeY) > 2.5f) {
+                    continue;
+                }
+                float[] h = openingsInReach.heights;
+                list.append(String.format(Locale.ROOT, " [%d,%d,%d %d->%d at %.2f %.2f %.2f %.2f state %d]", openingsInReach.x[i], openingsInReach.y[i], openingsInReach.z[i],
+                        openingsInReach.here[i], openingsInReach.there[i], h[i * 4], h[i * 4 + 1], h[i * 4 + 2], h[i * 4 + 3], RoomSight.state(roomMap, openingsInReach, i)));
+            }
+            return list.length() == 0 ? " none" : list.toString();
         }
 
         /**
