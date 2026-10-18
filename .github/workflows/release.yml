@@ -19,7 +19,9 @@ jobs:
       # the jar's manifest.
       version-source: pixi
       version-path: 'pixi.toml'
-      artifact-paths: 'src/ scripts/ pixi.toml launcher-manifest.json cameraunlock-core'
+      artifact-paths: 'src/ scripts/ workshop/ pixi.toml launcher-manifest.json cameraunlock-core'
+      # The package builds cameraunlock-core's jar, whose WebAssembly toolchain is cached.
+      wasm-toolchain: true
       # No .NET or MSBuild: the JDK comes from the pixi environment.
     permissions:
       contents: write

@@ -11,6 +11,7 @@ Import-Module (Join-Path $ProjectRoot 'cameraunlock-core\powershell\NightlyRelea
 $version = Get-ProjectVersion -Source pixi -Path (Join-Path $ProjectRoot 'pixi.toml')
 
 # -NoNexusZip: package-release.ps1 builds no Nexus ZIP, and says why.
+# -WorkshopZip: package also builds the Steam Workshop item.
 Publish-NightlyBuild `
     -ModId 'project-zomboid' `
     -ModName 'ProjectZomboidHeadTracking' `
@@ -18,4 +19,5 @@ Publish-NightlyBuild `
     -ProjectRoot $ProjectRoot `
     -BuildCommand 'pixi run build' `
     -NoNexusZip `
+    -WorkshopZip `
     -AllowDirty:$AllowDirty
