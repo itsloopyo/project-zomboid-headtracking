@@ -19,14 +19,15 @@ final class Eyesight {
 
     /**
      * How much light a tile of air takes out of a line of sight, in full fog, in the heaviest
-     * rain and in the heaviest snow. In the game's own view (captures at 1920 by 1080) full
-     * fog leaves a zombie 3.7 tiles off plain, one at 5.6 half hidden and one at 10 gone; here
-     * they are 7, 27 and 78 parts in a hundred hidden: the game's figure is for its view from
-     * above, and from the eye, driving most of all, thinner air reads better. At fog 0.3 the game's view is a light
-     * haze over the street, and its fog thickens far faster than the game's figure for it
-     * rises: here the air is that figure to the power 3, and fog 0.3 hides 9 parts in a
-     * hundred at 16 tiles, fog 0.5 61 at 30 tiles. The game's rain and snow hide nothing of the map. Rain here takes
-     * three fifths of what stands 80 tiles off, where the built world of High ends.
+     * rain and in the heaviest snow, alone or where nobody can be fought. In the game's own view
+     * (captures at 1920 by 1080) full fog leaves a zombie 3.7 tiles off plain, one at 5.6 half
+     * hidden and one at 10 gone; here they are 7, 27 and 78 parts in a hundred hidden: the
+     * game's figure is for its view from above, and from the eye, driving most of all, thinner
+     * air reads better. At fog 0.3 the game's view is a light haze over the street, and its fog
+     * thickens far faster than the game's figure for it rises: here the air is that figure to
+     * the power 3, and fog 0.3 hides 9 parts in a hundred at 16 tiles, fog 0.5 61 at 30 tiles.
+     * The game's rain and snow hide nothing of the map. Rain here takes three fifths of what
+     * stands 80 tiles off, where the built world of High ends.
      *
      * Falling snow is not fog, and the game lays none over it: its climate holds its fog at
      * nought through every spell of weather, and has it only at dawn on some days. So snow
@@ -40,6 +41,14 @@ final class Eyesight {
     static final float SNOW_BLOWN = 0.75f;
     /** The power of the game's fog figure the air goes by. */
     static final double FOG_POWER = 3.0;
+    /**
+     * The same where players can fight (Online.contested), set by the game's own view so that
+     * nobody sees further through fog than the stock game lets everyone: full fog hides 14, 46
+     * and 95 parts in a hundred of zombies at 3.7, 5.6 and 10 tiles, and fog 0.3 a quarter or so
+     * of what stands at 16.
+     */
+    static final float FOG_THICK_CONTESTED = 0.60f;
+    static final double FOG_POWER_CONTESTED = 2.5;
     /** How far round the eye the air thins away, as the game keeps its fog off the ground nearest the character. */
     static final float FOG_CLEAR_NEAR = 5f;
     /** How deep the air is over the eye for looking up through: the sky shows through thin fog and not through thick. */
@@ -71,9 +80,14 @@ final class Eyesight {
         return !(sightOn && distanceSquared > gameSees * gameSees);
     }
 
-    /** How much light one tile of air takes out of a line of sight, with the game's fog, rain, snow and wind each from 0 to 1. */
-    static float thickness(float fog, float rain, float snow, float wind) {
-        return FOG_THICK * (float) Math.pow(fog, FOG_POWER) + RAIN_THICK * rain + SNOW_THICK * snow * snow * (1f + SNOW_BLOWN * wind);
+    /**
+     * How much light one tile of air takes out of a line of sight, with the game's fog, rain, snow
+     * and wind each from 0 to 1, and whether players can fight here: see Online.contested.
+     */
+    static float thickness(float fog, float rain, float snow, float wind, boolean contested) {
+        float thick = contested ? FOG_THICK_CONTESTED : FOG_THICK;
+        double power = contested ? FOG_POWER_CONTESTED : FOG_POWER;
+        return thick * (float) Math.pow(fog, power) + RAIN_THICK * rain + SNOW_THICK * snow * snow * (1f + SNOW_BLOWN * wind);
     }
 
     /**

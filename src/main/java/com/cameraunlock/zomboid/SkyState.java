@@ -358,7 +358,7 @@ final class SkyState {
             thick = narrowed = 0f;
             return;
         }
-        thick = Eyesight.thickness(fog, rain, snow, blowing);
+        thick = Eyesight.thickness(fog, rain, snow, blowing, Online.contested());
         Stats stats = viewer.getStats();
         float intoxication = stats.get(CharacterStat.INTOXICATION);
         narrowed = seen(Eyesight.narrowed(viewer.getVehicle() != null, stats.get(CharacterStat.FATIGUE), stats.isAtMaximum(CharacterStat.FATIGUE),
