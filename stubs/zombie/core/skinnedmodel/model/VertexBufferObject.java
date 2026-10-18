@@ -1,6 +1,9 @@
 package zombie.core.skinnedmodel.model;
 
 public final class VertexBufferObject {
+    int[] elements;
+    Vbo handle;
+
     public static final class Vbo {
         public int vboId;
         public int numElements;

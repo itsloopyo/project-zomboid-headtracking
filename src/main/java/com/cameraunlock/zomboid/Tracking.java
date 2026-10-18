@@ -119,7 +119,8 @@ final class Tracking {
      * listening for the first player's tracker and for the hotkeys.
      */
     static void start(Path gameDirectory) {
-        int port = open(gameDirectory, null);
+        String defaults = System.getProperty(Agent.DEFAULTS_PROPERTY);
+        int port = open(gameDirectory, defaults == null ? null : Path.of(defaults));
         ports[0] = port;
         listen(port);
         try {

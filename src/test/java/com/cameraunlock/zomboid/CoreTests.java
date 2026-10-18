@@ -10,6 +10,7 @@ import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.FileTime;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -50,6 +51,15 @@ public final class CoreTests {
     private static Path scratch, game, defaults, file;
 
     private CoreTests() {}
+
+    /** The game's own main class in theShippedJarStartsThroughBoot: it loads one class the mod patches. */
+    public static final class Game {
+        private Game() {}
+
+        public static void main(String[] arguments) {
+            System.out.println("the game ran");
+        }
+    }
 
     public static void main(String[] arguments) throws Exception {
         if (arguments.length > 0 && arguments[0].equals("start")) {
@@ -97,6 +107,7 @@ public final class CoreTests {
         Checks.run("theDrawDistanceFarTreesAndReflectionsGoToCustomAsTheOtherRowsDo", CoreTests::theDrawDistanceFarTreesAndReflectionsGoToCustomAsTheOtherRowsDo);
         Checks.run("theGrassDensityGoesToCustomAsTheOtherRowsDo", CoreTests::theGrassDensityGoesToCustomAsTheOtherRowsDo);
         Checks.run("aRowChangedInAutomaticStartsCustomFromItsLevelAndNeverFromStock", CoreTests::aRowChangedInAutomaticStartsCustomFromItsLevelAndNeverFromStock);
+        Checks.run("theShippedJarStartsThroughBoot", CoreTests::theShippedJarStartsThroughBoot);
         Checks.tally();
     }
 
@@ -996,5 +1007,55 @@ public final class CoreTests {
                         && Quality.shadowSize() == 4096,
                 "a row changed at Medium starts Custom from Automatic's Medium, with the mod's plants, and the change: " + Quality.described(Quality.drawn()));
         check(saved("Quality=Custom", "TreeQuality=Medium", "ViewDistance=60", "SharpShadows=true"), "and that is what Custom's rows hold");
+    }
+
+    /**
+     * The shipped jar started as an installed copy starts it, by cameraunlock-core's boot class, in
+     * a folder of its own, with the stubs of the game's classes for the game. It starts and the game
+     * runs; and from a jar that lacks cameraunlock-core's module, the game runs without it and the
+     * log says why.
+     */
+    private static void theShippedJarStartsThroughBoot() throws IOException, InterruptedException {
+        Path jar = Path.of("build", "ProjectZomboidHeadTracking.jar").toAbsolutePath();
+        // The stubs first: the tests have game classes of their own, which are not the game's shapes.
+        String game = Path.of("build", "stubs").toAbsolutePath() + ";" + Path.of("build", "test-classes").toAbsolutePath();
+        for (boolean starts : new boolean[] {true, false}) {
+            Path folder = Files.createDirectories(scratch.resolve(starts ? "Boot" : "Boot Refused"));
+            if (starts) {
+                Files.copy(jar, folder.resolve(jar.getFileName()), StandardCopyOption.REPLACE_EXISTING);
+            } else {
+                withoutTheModule(jar, folder.resolve(jar.getFileName()));
+            }
+            List<String> command = List.of(java(), "--enable-native-access=ALL-UNNAMED", "-XX:+EnableDynamicAgentLoading",
+                    "-D" + Agent.DEFAULTS_PROPERTY + "=" + defaults, "-Dcameraunlock.mainClass=" + Game.class.getName().replace('.', '/'),
+                    "-cp", jar.getFileName() + ";" + game, "com.cameraunlock.core.agent.Boot");
+            Ran ran = run(folder, command);
+            String written = Files.readString(folder.resolve(Log.FILE_NAME));
+            check(ran.exit() == 0 && ran.output().contains("the game ran"),
+                    (starts ? "started by Boot" : "from a jar without core's module") + " the game runs: exit " + ran.exit() + ", " + ran.output());
+            if (starts) {
+                check(written.matches("(?s).*Project Zomboid Head Tracking [0-9]+[.][0-9]+[.][0-9]+ loaded.*")
+                                && written.contains("things of the game's the mod uses are in this build") && written.contains("head tracking on")
+                                && written.contains("sets of patches are registered") && !written.contains("ERROR"),
+                        "and the mod starts from the jar alone, its core, its settings and its patches: " + written);
+            } else {
+                check(written.contains("ERROR Project Zomboid Head Tracking could not start, and the game runs without it")
+                                && written.contains("com/cameraunlock/core/wasm/CoreModule") && !written.contains("sets of patches are registered"),
+                        "and the mod stays out, and its log says why: " + written);
+            }
+        }
+    }
+
+    /** The mod's jar with every entry of cameraunlock-core's module left out, as a jar put together wrongly would be. */
+    private static void withoutTheModule(Path jar, Path to) throws IOException {
+        try (java.util.zip.ZipInputStream in = new java.util.zip.ZipInputStream(Files.newInputStream(jar));
+                java.util.zip.ZipOutputStream out = new java.util.zip.ZipOutputStream(Files.newOutputStream(to))) {
+            for (java.util.zip.ZipEntry entry = in.getNextEntry(); entry != null; entry = in.getNextEntry()) {
+                if (entry.getName().startsWith("com/cameraunlock/core/wasm/")) continue;
+                out.putNextEntry(new java.util.zip.ZipEntry(entry.getName()));
+                in.transferTo(out);
+                out.closeEntry();
+            }
+        }
     }
 }

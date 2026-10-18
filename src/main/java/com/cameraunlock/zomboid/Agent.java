@@ -43,6 +43,8 @@ public final class Agent {
     private static final String BOOLEAN_FILTER = "(Z)Z";
     private static final String VECTOR2_FILTER = "(Lzombie/iso/Vector2;)Lzombie/iso/Vector2;";
     static final String GAME_DIRECTORY_PROPERTY = "cameraunlock.zomboid.gameDirectory";
+    /** A Defaults.ini of a test's own in place of the player's, which the game never sets. */
+    static final String DEFAULTS_PROPERTY = "cameraunlock.zomboid.defaults";
 
     /**
      * A rewrite of one method of one game class. One that adds fields or methods to the class
@@ -350,6 +352,7 @@ public final class Agent {
         add(instrumentation, hearing);
         splitScreen = new PatchTransformer(splitScreenPatches());
         add(instrumentation, splitScreen);
+        Log.info("the mod's " + transformers.size() + " sets of patches are registered, each to go in as the game loads its class");
         return true;
     }
 
