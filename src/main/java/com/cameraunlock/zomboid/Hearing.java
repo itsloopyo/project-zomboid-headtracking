@@ -55,7 +55,7 @@ public final class Hearing {
     private float earsX, earsY;
     /** How far round the ears the openings of the map are gathered, in tiles: as far as the game lets most sounds carry. */
     private static final float OPENINGS_REACH = 40f;
-    /** How often what is round the ears is worked out again while they stay on one square: a door opened or shut. */
+    /** How often the openings round the ears are gathered again while they stay on one square: a door opened or shut. */
     private static final long AROUND_EVERY_NANOS = 250_000_000L;
     /** Square metres of opening a doorway or an open window lets sound out of a room by. */
     private static final float OPENING_SQUARE_METRES = 2f;
@@ -88,7 +88,14 @@ public final class Hearing {
             return;
         }
         IsoCell cell = IsoWorld.instance.currentCell;
+        long gatheredBefore = openingsGathered;
         openingsGathered = scene.openingsAround(cell, player.getIndex(), earsX, earsY, OPENINGS_REACH, openings, openingsGathered);
+        // The ways sound takes from the ears are the same for the same square and the same openings: in a
+        // tower's floor of windows finding them again was 8 ms, four times a second, with nothing changed.
+        if (heardAround && x == aroundX && y == aroundY && z == aroundZ && openingsGathered == gatheredBefore) {
+            aroundAt = now;
+            return;
+        }
         aroundX = x;
         aroundY = y;
         aroundZ = z;
