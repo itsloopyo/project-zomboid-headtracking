@@ -32,14 +32,22 @@ final class Own {
     /**
      * Whether the pictures the mod's own surfaces, plants and weapons are drawn from are on the
      * graphics card. They are made only once a mode shows them (Pipeline.CONTENT), and until
-     * they are, nothing of the mod's own is shown: what was built without it is built again
-     * when they arrive. Set by the render thread.
+     * they are, only the rows WITHOUT_PICTURES are shown: what was built without the rest is
+     * built again when they arrive. Set by the render thread.
      */
     private static volatile boolean picturesMade;
 
-    /** The rows that are on. In the Low graphics mode none is, and in Medium the plants are the game's, whatever the file says. The arms go by their row alone: see arms. */
+    /**
+     * The rows drawn from nothing but the core of the picture: the furniture's models and the
+     * windows and doors the mod builds are coloured from the game's own sprites and grained with
+     * the surfaces the core makes. So they are shown in Low, where the game's flat sprites of
+     * them are the worst of its look from the eye, and before the rest of the mod's own is made.
+     */
+    static final int WITHOUT_PICTURES = FURNITURE | BUILDINGS;
+
+    /** The rows that are on. In the Low graphics mode only those WITHOUT_PICTURES are, and in Medium the plants are the game's, whatever the file says. The arms go by their row alone: see arms. */
     static int on() {
-        return Quality.plain() || !picturesMade ? 0 : Quality.gamesPlants() ? on & ~PLANTS : on;
+        return Quality.plain() || !picturesMade ? on & WITHOUT_PICTURES : Quality.gamesPlants() ? on & ~PLANTS : on;
     }
 
     /** The rows as the file has them, whatever the graphics mode shows of them. */

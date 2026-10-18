@@ -11,9 +11,9 @@ import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 /**
- * Low draws first person from the game's own sprites, with nothing the mod adds of its own
- * whatever the rows of [Content] say: see Own.on, and OwnTests for the rows and the road's
- * lines. What is decided where the world is built and drawn needs the game's map or a graphics
+ * Low draws first person from the game's own sprites, with nothing the mod adds of its own but
+ * its furniture, drawn as the plain models, and its windows and doors, whatever the other rows
+ * of [Content] say: see Own.on, and OwnTests for the rows and the road's lines. What is decided where the world is built and drawn needs the game's map or a graphics
  * card to run, so it is read where it is decided: each thing below goes by a row of [Content]
  * or by Quality.plain, and so is the game's own in Low.
  */
@@ -29,6 +29,14 @@ final class LowTests {
         aRoomIsShownAsTheGameShowsItAndNothingIsBuiltAheadInLow();
         anOpenFlightIsItsSpritesStepsWithoutTheModsBuildings();
         theArmsAreMadeWithTheCoreAndAskedOfTheirRowAlone();
+        everyPieceOfFurnitureIsItsPlainModelInLow();
+    }
+
+    /** Which of a piece's two models is drawn is chosen on the render thread with a graphics card: read. */
+    private static void everyPieceOfFurnitureIsItsPlainModelInLow() {
+        String pipeline = source("Pipeline.java");
+        check(count(pipeline, "plain = Quality.plain() || placed.plain(piece, ahead, pixel);") == 1 && count(pipeline, "placed.plain(") == 1,
+                "a picture draws every piece of furniture as its plain model in Low, and only by its size on screen outside it");
     }
 
     /**

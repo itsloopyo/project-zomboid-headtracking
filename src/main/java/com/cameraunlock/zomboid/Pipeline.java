@@ -1898,7 +1898,7 @@ final class Pipeline {
     /**
      * Lists the pieces drawModels draws, as it is given them, or with lit false and no eye the
      * pieces a shadow map holds, the map heldBy last took the bounds of: a map is always cast by
-     * the plain models.
+     * the plain models, and Low draws every piece as its plain model.
      */
     private void listModels(boolean lit, ViewCamera.Pose within, float far, float pixel, long only) {
         modelsListed = 0;
@@ -1944,7 +1944,7 @@ final class Pipeline {
                     if (inLookingGlass && behindGlass(f[ball], f[ball + 1], f[ball + 2], f[ball + 3])) {
                         continue;
                     }
-                    plain = placed.plain(piece, ahead, pixel);
+                    plain = Quality.plain() || placed.plain(piece, ahead, pixel);
                 } else if (!lit && mapBounds.outside(f[ball], f[ball + 1], f[ball + 2], f[ball + 3], f[ball + 3], f[ball + 3])) {
                     // A piece wholly outside the map being drawn puts nothing in it.
                     continue;

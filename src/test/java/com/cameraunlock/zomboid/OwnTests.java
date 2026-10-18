@@ -11,11 +11,11 @@ final class OwnTests {
             everythingIsOnUntilARowSaysOtherwise();
             aSwitchedRowHasTheWorldBuiltAgainOnce();
             aSwitchedRowHasEachViewsWorldBuiltAgain();
-            theLowGraphicsModeShowsNothingOfTheModsOwn();
+            theLowGraphicsModeShowsOnlyTheFurnitureAndBuildingsOfTheModsOwn();
             theArmsOnAHeldWeaponGoByTheirRowInEveryMode();
             customsLowTreeQualityHasTheGamesPlants();
             paintedLinesGoByTheFilesRowOutsideLow();
-            nothingOfTheModsOwnIsShownBeforeItsPicturesAreMade();
+            onlyTheFurnitureAndBuildingsAreShownBeforeThePicturesAreMade();
         } finally {
             Own.picturesMade(true);
             Quality.set(Quality.HIGH);
@@ -39,14 +39,15 @@ final class OwnTests {
                 "one row on shows that and nothing else");
     }
 
-    private static void nothingOfTheModsOwnIsShownBeforeItsPicturesAreMade() {
+    private static void onlyTheFurnitureAndBuildingsAreShownBeforeThePicturesAreMade() {
         Quality.set(Quality.HIGH);
         Own.set(Own.ALL);
         Own.taken(0);
         Own.picturesMade(false);
-        check(!Own.weapons() && !Own.plants() && !Own.textures() && !Own.buildings() && !Own.people() && Own.rows() == Own.ALL,
-                "in High with its pictures still to be made every row reads off, and the file's rows are as they were");
-        check(Own.taken(0) && !Own.taken(0), "and the world is built without them, once");
+        check(!Own.weapons() && !Own.plants() && !Own.textures() && !Own.pictures() && !Own.people() && Own.rows() == Own.ALL,
+                "in High with its pictures still to be made every row that needs them reads off, and the file's rows are as they were");
+        check(Own.furniture() && Own.buildings(), "and the furniture and buildings, which need none of them, are shown");
+        check(Own.taken(0) && !Own.taken(0), "and the world is built without the rest, once");
         Own.picturesMade(true);
         check(Own.weapons() && Own.plants() && Own.textures() && Own.taken(0) && !Own.taken(0), "made, they are shown and the world is built again, once");
     }
@@ -79,13 +80,23 @@ final class OwnTests {
         Own.taken(0);
     }
 
-    private static void theLowGraphicsModeShowsNothingOfTheModsOwn() {
+    private static void theLowGraphicsModeShowsOnlyTheFurnitureAndBuildingsOfTheModsOwn() {
         Own.set(Own.ALL);
         Own.taken(0);
         Quality.set(Quality.LOW);
-        check(!Own.weapons() && !Own.furniture() && !Own.pictures() && !Own.plants() && !Own.textures() && !Own.buildings() && !Own.zombies()
-                && !Own.people(), "in Low every row reads off, whatever the file says");
+        check(!Own.weapons() && !Own.pictures() && !Own.plants() && !Own.textures() && !Own.zombies() && !Own.people(),
+                "in Low every row that needs the mod's pictures reads off, whatever the file says");
+        check(Own.furniture() && Own.buildings(), "and the furniture and the windows and doors are the mod's");
         check(Own.taken(0) && !Own.taken(0), "and going to it has the world built again, once");
+        Own.set(Own.ALL & ~Own.FURNITURE & ~Own.BUILDINGS);
+        check(!Own.furniture() && !Own.buildings() && Own.taken(0) && !Own.taken(0),
+                "in Low the furniture and buildings rows off are the game's sprites, and the world is built again once");
+        Own.set(Own.ALL);
+        check(Own.taken(0) && Own.furniture(), "and back on they are the mod's again");
+        Own.set(Own.ALL & ~Own.TEXTURES);
+        check(!Own.taken(0), "a row Low does not show switched in Low changes nothing that is built");
+        Own.set(Own.ALL);
+        Own.taken(0);
         Quality.set(Quality.AUTOMATIC);
         check(Own.plants() && Own.people() && Own.taken(0), "Automatic shows all of it again");
         Quality.set(Quality.MEDIUM);

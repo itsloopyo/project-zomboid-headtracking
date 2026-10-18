@@ -347,7 +347,8 @@ final class Quality {
     /**
      * Whether the picture is Low's, the nearest there is to the game's own look, or Automatic's
      * at STOCK: the first person view, which the game has no picture of, is then drawn with
-     * nothing the mod made where the game has its own. Automatic at Low's level draws less and is
+     * nothing the mod made where the game has its own but the furniture and the windows and
+     * doors (Own.WITHOUT_PICTURES), each piece of furniture as its plain model. Automatic at Low's level draws less and is
      * not this.
      */
     static boolean plain() {
