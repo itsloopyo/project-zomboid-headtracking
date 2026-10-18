@@ -143,6 +143,27 @@ final class Quality {
 
     private Quality() {}
 
+    private static boolean splitScreen;
+
+    static synchronized boolean players(int count) {
+        boolean wasSplit = splitScreen;
+        splitScreen = count > 1;
+        if (!splitScreen || wasSplit) {
+            return false;
+        }
+        boolean changed = row == HIGH || overheadRow == HIGH;
+        if (row == HIGH) {
+            set(MEDIUM);
+        }
+        if (overheadRow == HIGH) {
+            setOverhead(MEDIUM);
+        }
+        if (changed) {
+            Log.info("High graphics lowered to Medium for split screen");
+        }
+        return changed;
+    }
+
     static synchronized void set(int asked) {
         if (asked == row) {
             return;

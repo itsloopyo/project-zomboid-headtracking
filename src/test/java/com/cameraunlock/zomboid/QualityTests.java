@@ -14,6 +14,7 @@ final class QualityTests {
     private static final long SECOND = 1_000_000_000L;
 
     static void run() {
+        Checks.run("splitScreenLowersHighOnce", QualityTests::splitScreenLowersHighOnce);
         Checks.run("aLevelAskedForIsKept", QualityTests::aLevelAskedForIsKept);
         Checks.run("automaticStepsDownWhileThePictureIsSlow", QualityTests::automaticStepsDownWhileThePictureIsSlow);
         Checks.run("automaticStaysWhereThePictureKeepsUp", QualityTests::automaticStaysWhereThePictureKeepsUp);
@@ -37,6 +38,33 @@ final class QualityTests {
 
     private static void check(boolean condition, String what) {
         Checks.check(condition, what);
+    }
+
+    private static void splitScreenLowersHighOnce() {
+        for (int players = 2; players <= 4; players++) {
+            for (int first = Quality.AUTOMATIC; first <= Quality.CUSTOM; first++) {
+                for (int overhead = Quality.LOW; overhead <= Quality.CUSTOM; overhead++) {
+                    Quality.players(0);
+                    Quality.set(first);
+                    Quality.setOverhead(overhead);
+                    check(!Quality.players(1), "single player keeps the chosen quality");
+                    check(Quality.row() == first && Quality.overheadRow() == overhead, "single player keeps both modes");
+                    check(Quality.players(players) == (first == Quality.HIGH || overhead == Quality.HIGH),
+                            "only High changes when split screen begins");
+                    check(Quality.row() == (first == Quality.HIGH ? Quality.MEDIUM : first), "first person High becomes Medium");
+                    check(Quality.overheadRow() == (overhead == Quality.HIGH ? Quality.MEDIUM : overhead), "isometric High becomes Medium");
+                    Quality.set(Quality.HIGH);
+                    Quality.setOverhead(Quality.HIGH);
+                    check(!Quality.players(players) && !Quality.players(4), "staying in split screen does not change quality again");
+                    check(Quality.row() == Quality.HIGH && Quality.overheadRow() == Quality.HIGH, "High can be selected again in split screen");
+                    Quality.players(1);
+                    check(Quality.players(players), "joining split screen again lowers High again");
+                }
+            }
+        }
+        Quality.players(0);
+        Quality.set(Quality.HIGH);
+        Quality.setOverhead(Quality.LOW);
     }
 
     /** The frame rate the game is held to in the frames counted, 0 for none. */

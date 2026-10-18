@@ -482,6 +482,14 @@ final class Tracking {
                     }
                 }
             }
+            if (Quality.players(IsoPlayer.numPlayers)) {
+                int firstQuality = Quality.row(), overhead = Quality.overheadRow();
+                save(() -> {
+                    config.saveQuality(firstQuality);
+                    config.saveIsometricQuality(overhead);
+                });
+                graphicsToSay.set(true);
+            }
             if (enteringSave) {
                 graphicsToSay.set(false);
                 Quality.stepSaid();
@@ -535,6 +543,7 @@ final class Tracking {
     /** A save was left: what is pressed until a frame of the next is not acted on. */
     static void leftSave() {
         outOfSave = true;
+        Quality.players(0);
         if (graphicsModeOwed) {
             graphicsModeOwed = false;
             cycleGraphicsMode();
