@@ -531,6 +531,8 @@ final class RoomSight {
     static final class Kept {
         static final long KEEP_NANOS = 4_000_000_000L;
         private Seen rooms = new Seen(), spare = new Seen();
+        /** Raised each time a room is kept that was not, or let go: what is worked out from the rooms kept holds while it stays the same. */
+        int changes;
 
         boolean contains(long room) {
             return rooms.contains(room);
@@ -546,6 +548,7 @@ final class RoomSight {
                 long room = now.at(slot);
                 if (room != OUTSIDE && rooms.put(room, nanos)) {
                     entered.add(room);
+                    changes++;
                 }
             }
         }
@@ -560,6 +563,7 @@ final class RoomSight {
                 }
                 if (nanos - rooms.valueAt(slot) >= KEEP_NANOS) {
                     left.add(room);
+                    changes++;
                 } else {
                     spare.put(room, rooms.valueAt(slot));
                 }
@@ -571,6 +575,7 @@ final class RoomSight {
 
         void clear() {
             rooms.clear();
+            changes++;
         }
 
         /** Adds every room kept to a set. */

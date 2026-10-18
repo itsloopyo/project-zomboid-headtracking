@@ -17,8 +17,24 @@ final class FigureRooms {
     /** The squares on the far side of an opening from a region whose contents are built: see fill. */
     private final RoomSight.Seen beside = new RoomSight.Seen();
 
-    /** Takes the rooms whose contents are built and the squares beside the openings into them. */
+    /** What the last fill was from: the rooms' changes and the openings' filling, the same of which make the same sets. */
+    private RoomSight.Kept filledFrom;
+    private RoomSight.Openings filledThrough;
+    private int filledChanges, filledFilling;
+
+    /**
+     * Takes the rooms whose contents are built and the squares beside the openings into them.
+     * Reading every opening in reach was most of the walk's time on every frame, a tower's
+     * eleven thousand of them: from the same rooms and openings it is not read again.
+     */
     void fill(RoomSight.Kept built, RoomSight.Openings openings) {
+        if (built == filledFrom && openings == filledThrough && built.changes == filledChanges && openings.filling == filledFilling) {
+            return;
+        }
+        filledFrom = built;
+        filledThrough = openings;
+        filledChanges = built.changes;
+        filledFilling = openings.filling;
         rooms.clear();
         beside.clear();
         built.copyTo(rooms);
