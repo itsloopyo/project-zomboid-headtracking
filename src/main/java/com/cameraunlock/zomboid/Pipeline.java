@@ -1204,7 +1204,7 @@ final class Pipeline {
             if (outlinesDrawn) {
                 drawOutlined(camera, state, tanHalfFieldOfView, aspect, near, far, fogStart, fogEnd);
             }
-            drawDeveloped(camera, state, tanHalfFieldOfView, aspect, exposure, near, far);
+            drawDeveloped(camera, state, tanHalfFieldOfView, aspect, exposure, near, far, fogStart, fogEnd);
             stage(STAGE_DEVELOP);
             showSmoothed(drawTarget, viewport);
             view.crosshair.draw(viewport[2], viewport[3]);
@@ -4127,7 +4127,7 @@ final class Pipeline {
     }
 
     private void drawDeveloped(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float exposure,
-            float near, float far) {
+            float near, float far, float fogStart, float fogEnd) {
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, shownTarget);
         GL11.glViewport(0, 0, width, height);
         develop.use();
@@ -4186,6 +4186,10 @@ final class Pipeline {
         develop.set("uTime", state.seconds);
         atmosphere(develop, state);
         develop.set("uRangeFrom", rangeFrom);
+        develop.set("uFogStart", fogStart);
+        develop.set("uFogEnd", fogEnd);
+        develop.set("uLoaded", loadedX - camera.eyeX, loadedY - camera.eyeY, loadedWithin);
+        develop.set("uBeyond", beyond);
         develop.set("uAcross", camera.rightX, camera.rightY, camera.rightUp);
         develop.set("uUpward", camera.upX, camera.upY, camera.upUp);
         develop.set("uAhead", camera.forwardX, camera.forwardY, camera.forwardUp);

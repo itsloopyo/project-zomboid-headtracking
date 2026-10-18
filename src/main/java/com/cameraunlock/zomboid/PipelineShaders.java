@@ -6491,7 +6491,7 @@ final class PipelineShaders {
             }
             """;
 
-    static final String DEVELOP = "#version 120\n#extension GL_ARB_shader_texture_lod : require\n" + Sky.ATMOSPHERE + """
+    static final String DEVELOP = "#version 120\n#extension GL_ARB_shader_texture_lod : require\n" + Sky.ATMOSPHERE + ENDS + """
             uniform sampler2D uScene;
             uniform sampler2D uBloom;
             uniform sampler2D uDepth;
@@ -6845,7 +6845,12 @@ final class PipelineShaders {
                 // surface mirrors are hidden by as much: laid whole over the veiled colour, the
                 // shade drew every window frame, roof edge and tree of a building lost in thick
                 // fog as dark lines through it.
-                float seen = 1.0 - veiling(max(length(p) - uRangeFrom, 0.0));
+                // As the world's: where the world has ended in the hills, the air hides what it hides of the sky that way.
+                float away = length(p);
+                vec3 fromEye = uAcross * p.x + uUpward * p.y + uAhead * p.z;
+                float range = max(away - uRangeFrom, 0.0);
+                float ends = uBeyond > 0.5 ? 0.0 : max(smoothstep(uFogStart, uFogEnd, range), smoothstep(uLoaded.z - (uFogEnd - uFogStart), uLoaded.z, length(fromEye.xy - uLoaded.xy)));
+                float seen = 1.0 - max(veiling(range), ends * skyVeiling(fromEye / away));
                 vec3 c = mix(here.rgb, mirrored(uv, here, p, square), seen) * mix(1.0, around.a, 0.62 * seen);
                 // The light lent by what stands near, taken on by the surface in its own colour.
                 vec3 lent = around.rgb / max(1.0 - around.rgb, vec3(0.02));
