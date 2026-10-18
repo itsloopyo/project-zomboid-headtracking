@@ -70,7 +70,7 @@ final class SkyState {
      * in, linear, three to a lamp. The scene sets them.
      */
     final float[] lampAt = new float[LAMPS_SEEN * 4], lampHue = new float[LAMPS_SEEN * 3];
-    /** What a room the game has not shown is lit by, without a lamp and with one: see WorldScene.ROOM_MARK. The scene sets them. */
+    /** What a room the game has not shown is lit by, without a lamp and with one: see WorldScene.LIT_STEP. The scene sets them. */
     final float[] roomLight = new float[3], lampLight = new float[3];
     /** The light the character carries, as CarriedLight gathered it for this picture. The scene sets it. */
     float[] carried = new float[8];

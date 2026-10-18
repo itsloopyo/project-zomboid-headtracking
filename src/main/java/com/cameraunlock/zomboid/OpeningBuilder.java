@@ -667,7 +667,7 @@ final class OpeningBuilder {
         sideRed[1] = same ? build.frame.red : unseen ? build.unseenLight.r : build.lightRed[beyondLight];
         sideGreen[1] = same ? build.frame.green : unseen ? build.unseenLight.g : build.lightGreen[beyondLight];
         sideBlue[1] = same ? build.frame.blue : unseen ? build.unseenLight.b : build.lightBlue[beyondLight];
-        sideOpen[1] = same ? build.frame.open : unseen ? 1f : build.lightOpen[beyondLight];
+        sideOpen[1] = same ? build.frame.open : unseen ? 1f : build.openOf(beyondLight);
     }
 
     /** The square across the north or west edge of square x, y on level z, null where the map has none. */
@@ -722,7 +722,7 @@ final class OpeningBuilder {
      */
     private void addJoinery(SpriteGeometry.Mesh mesh, float from, float to, float foot, float head, float across, float red, float green, float blue) {
         float open = mesh.open;
-        if (Math.floor((open + 0.5f) / 32f) == JOINERY && to - from > (head - foot) * ViewCamera.LEVEL_HEIGHT) {
+        if (Math.floor((open % WorldScene.LIT_STEP + 0.5f) / 32f) == JOINERY && to - from > (head - foot) * ViewCamera.LEVEL_HEIGHT) {
             mesh.open = open + 32f * (JOINERY_LEVEL - JOINERY);
         }
         float[] c = build.reveal;

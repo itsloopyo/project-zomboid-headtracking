@@ -405,7 +405,7 @@ final class WallBuilder {
         tiles = null;
         tileStood = null;
         // Out of doors, on a whole wall in one colour.
-        if (tint != 0 && farColour != null && build.frame.open > 0.5f && opening[at + OPENING_TOP] >= WHOLE_WALL) {
+        if (tint != 0 && farColour != null && WorldScene.outdoors(build.frame.open) && opening[at + OPENING_TOP] >= WHOLE_WALL) {
             addCourses(opening, at, x, y, z, 0f, 0f, da, db, -Math.signum(inX), -Math.signum(inY));
         }
         if (faced != null) {
@@ -561,7 +561,7 @@ final class WallBuilder {
     private void lightAlong(int at, boolean north) {
         int step = north ? WorldScene.LIGHT_SPAN : 1;
         build.frame.light(build.lightRed[at], build.lightGreen[at], build.lightBlue[at]);
-        build.frame.open = build.lightOpen[at];
+        build.frame.open = build.openOf(at);
         for (int end = 0; end < 2; end++) {
             int beside = at + (end == 0 ? -step : step);
             // The lights are read a square past the chunk and no further: a far side that is in that last row has nothing beyond one end.

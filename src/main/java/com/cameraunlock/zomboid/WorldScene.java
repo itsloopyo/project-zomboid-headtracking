@@ -727,7 +727,7 @@ final class WorldScene {
      * room squares in sight are beside the open ground: it follows the hour as the open
      * ground's does. With a lamp burning it is lampLevel, how bright most lamplit squares in
      * sight are, which the hour does not change. Each is the readings followed a share at a
-     * time (Sightline.followed), and no build holds either: see ROOM_MARK. Less than 0 until
+     * time (Sightline.followed), and no build holds either: see LIT_STEP. Less than 0 until
      * rooms have been in sight.
      */
     private final OpenLight seenRooms = new OpenLight(), seenLamplit = new OpenLight();
@@ -931,27 +931,32 @@ final class WorldScene {
     /** A chunk's squares and the ring of squares round them. */
     static final int LIGHT_SPAN = CHUNK_TILES + 2;
     /**
-     * A room the game has not shown is lit as the rooms in sight are, and that light moves
-     * as the eye looks about: baked into the builds, each move had every chunk in view built
-     * again, a tower's thirty storeys at a time. So the build gives such a square no light of
-     * its own but a mark the world shader reads against the light of this frame (uRoomLight,
-     * uLampLight): the shade it is to be lit in times ROOM_MARK, or LAMP_MARK where a lamp
-     * burns. Below 0 it is no light the game gives, and the shader takes 16 and more after
-     * the sign off for a lamp's. The mark rides through every shade a builder multiplies
-     * the light by and through the mean of corners of one face, which are of one kind of
-     * square (see lightUnseen); nothing adds to a light or takes from it.
+     * Kinds of square by their light: lit by the game, an unshown room, an unshown room with a
+     * lamp burning. A room the game has not shown is lit as the rooms in sight are, and that
+     * light moves as the eye looks about: baked into the builds, each move had every chunk in
+     * view built again, a tower's thirty storeys at a time. So a build gives such a square
+     * the light SHADE_ONLY, which the shades a builder lays on make the shade alone, and
+     * says which light it takes in its openness, LIT_STEP times its kind: the world shader
+     * multiplies the shade by this frame's uRoomLight or uLampLight. A corner's mean does
+     * not mix kinds.
      */
-    static final float ROOM_MARK = -1f, LAMP_MARK = -(1 << 24);
-    /** Kinds of square by their light, which a corner's mean does not mix: lit by the game, an unshown room, an unshown room with a lamp burning. */
     static final byte OWN_LIGHT = 0, ROOM_LIT = 1, LAMP_LIT = 2;
-    /** The light a build gives a square of an unshown room, and of one with a lamp burning: read only. */
-    static final ColorInfo ROOM_MARKED = marked(ROOM_MARK), LAMP_MARKED = marked(LAMP_MARK);
+    /** What a square's kind of light is counted in, in a face's openness: above the 32 of every material there is. */
+    static final float LIT_STEP = 4096f;
+    /** The light a build gives a square of an unshown room: read only. */
+    static final ColorInfo SHADE_ONLY = shadeOnly();
 
-    private static ColorInfo marked(float mark) {
+    private static ColorInfo shadeOnly() {
         ColorInfo light = new ColorInfo();
-        light.r = light.g = light.b = mark;
+        light.r = light.g = light.b = 1f;
         return light;
     }
+
+    /** Whether an openness, which may carry a kind of light, is a square's out of doors. */
+    static boolean outdoors(float open) {
+        return open % LIT_STEP > 0.5f;
+    }
+
     /**
      * Dev only: every sum that finds a chunk changed is set against what ChunkMarks counted,
      * and one the game marked nothing for is logged with what of it changed. See audit.
@@ -4423,14 +4428,14 @@ final class WorldScene {
                             }
                             continue;
                         }
-                        long lit = sum(sum(sum(sum(SUM_FROM, lightOpen[at]), Float.floatToRawIntBits(lightRed[at])), Float.floatToRawIntBits(lightGreen[at])),
+                        long lit = sum(sum(sum(sum(sum(SUM_FROM, lightOpen[at]), lightUnseen[at]), Float.floatToRawIntBits(lightRed[at])), Float.floatToRawIntBits(lightGreen[at])),
                                 Float.floatToRawIntBits(lightBlue[at]));
                         long thing = SUM_FROM;
                         if (z == 0) {
                             thing = sum(sum(sum(thing, groundKind[at]), groundRank[at]), groundTexture[at] == null ? 0 : groundTexture[at].getID());
                         }
                         IsoGridSquare square = lightSquare[at];
-                        thing = sum(sum(sum(thing, square.getRoomID()), unexplored(square) ? 1 : 0), Math.max(lightRed[at], Math.max(lightGreen[at], lightBlue[at])) > LAMPLIT && lampBurnsAt(at, square) ? 1 : 0);
+                        thing = sum(sum(sum(thing, square.getRoomID()), unexplored(square) ? 1 : 0), lightUnseen[at] == OWN_LIGHT && Math.max(lightRed[at], Math.max(lightGreen[at], lightBlue[at])) > LAMPLIT && lampBurnsAt(at, square) ? 1 : 0);
                         PZArrayList<IsoObject> objects = square.getObjects();
                         thing = sum(thing, objects.size());
                         for (int k = 0; k < objects.size(); k++) {
@@ -4932,10 +4937,12 @@ final class WorldScene {
                     // they have seen and cannot see now, which is how the game shows them.
                     boolean seen = square.isSeen(playerIndex);
                     boolean inRoom = square.getRoomID() != -1L;
+                    byte lit = OWN_LIGHT;
                     if (!seen && !(gamesView && inRoom)) {
                         // From the eye a room the game has not shown is a room like the ones in sight: see seenRooms.
                         // Shown only as the game shows it, it stands empty and lit as the open ground is.
-                        light = !inRoom || asTheGameShows ? unseenLight : lampBurnsAt(at, square) ? LAMP_MARKED : ROOM_MARKED;
+                        lit = !inRoom || asTheGameShows ? OWN_LIGHT : lampBurnsAt(at, square) ? LAMP_LIT : ROOM_LIT;
+                        light = lit == OWN_LIGHT ? unseenLight : SHADE_ONLY;
                     } else if (seen && inChunk) {
                         squaresSeen++;
                         if (outside && tallying) {
@@ -4949,14 +4956,14 @@ final class WorldScene {
                             }
                         }
                     }
-                    if (light != ROOM_MARKED && light != LAMP_MARKED) {
+                    if (lit == OWN_LIGHT) {
                         light = daylit(square, light);
                     }
                     lightRed[at] = light.r;
                     lightGreen[at] = light.g;
                     lightBlue[at] = light.b;
                     lightOpen[at] = (byte) (outside ? 1 : 0);
-                    lightUnseen[at] = light == ROOM_MARKED ? ROOM_LIT : light == LAMP_MARKED ? LAMP_LIT : OWN_LIGHT;
+                    lightUnseen[at] = lit;
                     // The game has no lamp in a canopy. A lit one lights what is under it.
                     if (outside && z >= 0 && ceilingBuilder.underLitCanopy(chunkX, chunkY, chunkX + i - 1, chunkY + j - 1, z)) {
                         lightRed[at] = Soffits.under(light.r, Soffits.GLOW_RED);
@@ -4965,6 +4972,11 @@ final class WorldScene {
                     }
                 }
             }
+        }
+
+        /** The openness a face lit as the square at the given place of the light grid is takes: see LIT_STEP. */
+        float openOf(int at) {
+            return lightOpen[at] + LIT_STEP * lightUnseen[at];
         }
 
         /**
@@ -4979,7 +4991,7 @@ final class WorldScene {
             frame.red = lightRed[own];
             frame.green = lightGreen[own];
             frame.blue = lightBlue[own];
-            frame.open = lightOpen[own];
+            frame.open = openOf(own);
             for (int corner = 0; corner < 4; corner++) {
                 int i = localX + (corner == 1 || corner == 2 ? 1 : 0), j = localY + (corner >= 2 ? 1 : 0);
                 float red = 0f, green = 0f, blue = 0f;

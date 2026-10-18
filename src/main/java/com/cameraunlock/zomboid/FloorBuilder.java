@@ -401,13 +401,14 @@ final class FloorBuilder {
         }
         float red = build.frame.red, green = build.frame.green, blue = build.frame.blue, open = build.frame.open, kind = build.frame.kind;
         build.frame.cornersInto(build.heldRed, build.heldGreen, build.heldBlue);
-        ColorInfo light = below != null && below.isSeen(build.playerIndex) ? build.lightOf(below)
-                : below == null || below.getRoomID() == -1L || build.asTheGameShows || build.gamesView ? build.unseenLight : WorldScene.lampBurns(build.cell, below, build.lampsNear) ? WorldScene.LAMP_MARKED : WorldScene.ROOM_MARKED;
+        byte lit = below == null || below.isSeen(build.playerIndex) || below.getRoomID() == -1L || build.asTheGameShows || build.gamesView ? WorldScene.OWN_LIGHT
+                : WorldScene.lampBurns(build.cell, below, build.lampsNear) ? WorldScene.LAMP_LIT : WorldScene.ROOM_LIT;
+        ColorInfo light = below != null && below.isSeen(build.playerIndex) ? build.lightOf(below) : lit == WorldScene.OWN_LIGHT ? build.unseenLight : WorldScene.SHADE_ONLY;
         if (below != null && below.isSeen(build.playerIndex)) {
             light = build.daylit(below, light);
         }
         build.frame.light(light.r, light.g, light.b);
-        build.frame.open = 0f;
+        build.frame.open = WorldScene.LIT_STEP * lit;
         // The ceiling under a floor of water is a ceiling, not more water.
         build.frame.kind = 0f;
         WorldScene.layers.sheet(-1f);

@@ -565,11 +565,11 @@ final class PipelineShaders {
                     vColor = vec4(gl_MultiTexCoord0.y * (uLit + share.x * uLitAlong + share.y * uLitDown + share.x * share.y * uLitAcross),
                             uSurfaces.x + 32.0 * ((dyed || also ? 34.0 : 16.0) + surface));
                 }
-                // A room the game has not shown carries a mark for its light, not the light: see WorldScene.ROOM_MARK.
-                vec3 marked = -vColor.rgb;
-                // Below 16 it is the shade of a room lit as the rooms in sight are, above it that times 2^24 for one a lamp burns in.
-                vec3 lamp = step(16.0, marked);
-                vColor.rgb = mix(vColor.rgb, mix(marked * uRoomLight, marked / 16777216.0 * uLampLight, lamp), step(1e-30, marked));
+                // A room the game has not shown carries the shade it is lit in, and above the
+                // materials which of this frame's lights it takes: see WorldScene.LIT_STEP.
+                float lit = floor((vColor.a + 0.5) / 4096.0);
+                vColor.a -= 4096.0 * lit;
+                vColor.rgb *= lit > 1.5 ? uLampLight : lit > 0.5 ? uRoomLight : vec3(1.0);
                 // A strip of grass has no facing. What its vertex carries in a facing's place is
                 // taken apart here: see SpriteGeometry.addStrip.
                 vBlade = vec4(0.0);
@@ -3995,7 +3995,8 @@ final class PipelineShaders {
                     return;
                 }
                 vUv = gl_MultiTexCoord0.xy;
-                float material = floor((gl_Color.a + 0.5) / 32.0);
+                // Above the materials, the light a square takes: see WorldScene.LIT_STEP.
+                float material = floor((mod(gl_Color.a, 4096.0) + 0.5) / 32.0);
                 // How much of a mass of leaves is there to throw a shadow: a crown's shadow fan says, in its colour, how much of its crown is on the tree.
                 vLeaves = material > 79.5 && material < 80.5 ? clamp(gl_Color.r, 0.0, 1.0) : material > 4.5 && material < 5.5 || material > 62.5 && material < 63.5 ? 1.0 : 0.0;
                 // A floor or a ceiling is whole however many clear pixels its sprite has: see SpriteGeometry.SHEET.
