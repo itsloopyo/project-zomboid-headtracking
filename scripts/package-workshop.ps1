@@ -8,8 +8,10 @@
 # does not find a Build 42 mod with no common/ beside 42/, and common/ is
 # where the notices go.
 #
-# Not part of `pixi run package`, so CI's push builds do not write it: the
-# item is uploaded from the game, never from a GitHub release.
+# `pixi run package` builds it beside the installer ZIP, and a release carries
+# both. The item reaches Steam through the game's own uploader, from the
+# Workshop folder that `pixi run stage-workshop` unpacks it into (or that a
+# release's copy of the ZIP is extracted into by hand).
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -45,6 +47,8 @@ if (-not $modInfo.Contains('modversion=@VERSION@')) {
 }
 [System.IO.File]::WriteAllText((Join-Path $mod '42/mod.info'), $modInfo.Replace('@VERSION@', $version), (New-Object System.Text.UTF8Encoding $false))
 Copy-Item $jarPath -Destination $java -Force
+# The notices name the core commit compiled in, as the installer's must.
+Assert-CoreCommitInNotices -RepoRoot $projectDir
 Copy-LicenceNotices -StagingDir $common -ProjectRoot $projectDir -Additional @('CHANGELOG.md')
 
 # Compress-Archive on Windows PowerShell writes its entry names with backslashes.

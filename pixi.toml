@@ -39,11 +39,12 @@ clean = "powershell -NoProfile -Command \"Get-Item build, release -ErrorAction I
 # where there is one.
 render-config = { cmd = "java --enable-native-access=ALL-UNNAMED -cp \"build/classes;build/test-classes\" com.cameraunlock.zomboid.RenderConfig config/CameraUnlock.ini && node cameraunlock-core/scripts/encode-seed.mjs", depends-on = ["build"] }
 
-# The installer ZIP and a development ZIP (the same, with the development jar
-# in it) in release/. package-release.ps1 says why there is no Nexus ZIP.
-package = { cmd = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package-release.ps1", depends-on = ["build", "test"] }
+# The installer ZIP, a development ZIP (the same, with the development jar in
+# it) and the Workshop ZIP in release/. package-release.ps1 says why there is
+# no Nexus ZIP.
+package = { cmd = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package-release.ps1", depends-on = ["build", "test", "package-workshop"] }
 
-# The Steam Workshop item in release/, for ZombieBuddy. package does not reach it: CI never needs it.
+# The Steam Workshop item in release/, for ZombieBuddy. package builds it too, so a release carries both ZIPs.
 package-workshop = { cmd = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package-workshop.ps1", depends-on = ["build", "test"] }
 # Puts that item in %USERPROFILE%\Zomboid\Workshop, where the game uploads it from and loads it as a local mod.
 stage-workshop = { cmd = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/stage-workshop.ps1", depends-on = ["package-workshop"] }
