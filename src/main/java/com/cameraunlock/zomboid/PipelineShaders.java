@@ -139,7 +139,7 @@ final class PipelineShaders {
 
             // How bright the torch makes what the middle of its beam is on at arm's length. A
             // hand torch lights a patch of the night, not the whole view.
-            const float TORCH_GIVES = 1.3;
+            const float TORCH_GIVES = 1.5;
             // A lantern lights all round it, and what it gives does not change with the torch's.
             const float LANTERN_GIVES = 1.6;
 
