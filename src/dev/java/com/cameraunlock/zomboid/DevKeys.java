@@ -385,8 +385,7 @@ public final class DevKeys {
                 held.setCondition(held.getConditionMax());
             }
         }
-        // With two at the screen the key is the split screen's.
-        if (IsoPlayer.numPlayers != 2 && GameKeyboard.isKeyPressed(TAKE_VEHICLE_KEY)) {
+        if (GameKeyboard.isKeyPressed(TAKE_VEHICLE_KEY)) {
             for (IsoPlayer each : players) {
                 takeNearestVehicle(each);
             }

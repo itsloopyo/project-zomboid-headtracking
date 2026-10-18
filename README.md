@@ -188,7 +188,7 @@ Centring belongs to your tracker, recenter there.
 | `Insert` | Change aiming mode |
 | `F9` | Change graphics quality |
 | `F8` | Change picture style |
-| `F7` | Arrange two-player split screen side by side or top and bottom |
+| `ScrollLock` | Arrange two-player split screen side by side or top and bottom |
 
 - `Page Up` goes through three modes in turn: rotation and position, rotation only, position only.
 - `Page Down` switches head turns between turning about straight up and turning about the view's own up. It does nothing from a vehicle's seat, where head turns always go about the view's own up.
@@ -385,7 +385,7 @@ CycleQualityKey=F9
 ; Goes to the next picture style: Vivid, Natural, Bleak (Style).
 CycleStyleKey=F8
 ; With two players at the screen, switches between side by side and one above the other.
-SplitScreenKey=F7
+SplitScreenKey=ScrollLock
 
 [Light]
 ; How far the light turns for each degree your head turns.
