@@ -382,8 +382,8 @@ final class WallBuilder {
         if (build.overLayer == 0 && farLight >= 0) {
             build.frame.cornersInto(build.heldRed, build.heldGreen, build.heldBlue);
             if (build.lightOpen[farLight] < 0) {
-                build.frame.light(build.unseenLight.r, build.unseenLight.g, build.unseenLight.b);
-                build.frame.open = 1f;
+                build.frame.light(1f, 1f, 1f);
+                build.frame.open = WorldScene.OPEN_UNLIT;
             } else {
                 lightAlong(farLight, da != 0f);
             }

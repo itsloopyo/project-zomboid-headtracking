@@ -3476,6 +3476,7 @@ final class Pipeline {
         to.set("uRangeFrom", rangeFrom);
         to.set("uRoomLight", state.roomLight[0], state.roomLight[1], state.roomLight[2]);
         to.set("uLampLight", state.lampLight[0], state.lampLight[1], state.lampLight[2]);
+        to.set("uOpenLight", state.openUnlit[0], state.openUnlit[1], state.openUnlit[2]);
         to.set("uCutAbove", cutAbove);
         to.set("uCutBox", cutBox[0], cutBox[1], cutBox[2], cutBox[3]);
         if (overhead && ViewCamera.project(camera, tanHalfFieldOfView, aspect, focusX, focusY, focusUp - HOLE_BELOW_EYE, holeAt)) {

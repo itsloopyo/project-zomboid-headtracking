@@ -713,9 +713,9 @@ final class WorldScene {
      * The tally is kept over half a second, each chunk counted in it once, and the open
      * ground's light is taken from it when the half second is up. Taken afresh every frame
      * from whichever chunks that frame happened to read, it was never quite the same twice,
-     * and it is part of what every chunk with an unseen square beside it is built from: such
-     * chunks, which at night are most of them, were built again on every frame for it. A step
-     * of under a five-hundredth in the light is left untaken, for the same reason.
+     * and what the game has given no light is lit by it (OPEN_LIT): at night, most of what
+     * is in view flickered with it. A step of under a five-hundredth in the light is left
+     * untaken, for the same reason.
      */
     private static final long OPEN_LIGHT_TAKEN_EVERY_NANOS = 500_000_000L;
     private static final float OPEN_LIGHT_STEP = 1f / 512f;
@@ -934,18 +934,20 @@ final class WorldScene {
     static final int LIGHT_SPAN = CHUNK_TILES + 2;
     /**
      * Kinds of square by their light: lit by the game, an unshown room, an unshown room with a
-     * lamp burning. A room the game has not shown is lit as the rooms in sight are, and that
-     * light moves as the eye looks about: baked into the builds, each move had every chunk in
-     * view built again, a tower's thirty storeys at a time. So a build gives such a square
-     * the light SHADE_ONLY, which the shades a builder lays on make the shade alone, and
-     * says which light it takes in its openness, LIT_STEP times its kind: the world shader
-     * multiplies the shade by this frame's uRoomLight or uLampLight. A corner's mean does
-     * not mix kinds.
+     * lamp burning, and anything else the game has given no light, which is lit as the open
+     * ground in sight is. Those lights move as the eye looks about and the clouds go over:
+     * baked into the builds, each step had every chunk in view built again, a tower's thirty
+     * storeys at a time. So a build gives such a square the light SHADE_ONLY, which the
+     * shades a builder lays on make the shade alone, and says which light it takes in its
+     * openness, LIT_STEP times its kind: the world shader multiplies the shade by this
+     * frame's uRoomLight, uLampLight or uOpenLight. A corner's mean does not mix kinds.
      */
-    static final byte OWN_LIGHT = 0, ROOM_LIT = 1, LAMP_LIT = 2;
+    static final byte OWN_LIGHT = 0, ROOM_LIT = 1, LAMP_LIT = 2, OPEN_LIT = 3;
     /** What a square's kind of light is counted in, in a face's openness: above the 32 of every material there is. */
     static final float LIT_STEP = 4096f;
-    /** The light a build gives a square of an unshown room: read only. */
+    /** The openness of a face out of doors that the game has given no light: see OPEN_LIT. */
+    static final float OPEN_UNLIT = 1f + LIT_STEP * OPEN_LIT;
+    /** The light a build gives a square the game has given none: read only. */
     static final ColorInfo SHADE_ONLY = shadeOnly();
 
     private static ColorInfo shadeOnly() {
@@ -2448,7 +2450,6 @@ final class WorldScene {
         int gablesFaced, gablesPainted, gablesBare;
         int floorLayer, westLayer, northLayer, eastLayer, southLayer;
         private final float[] openLight = new float[3];
-        final ColorInfo unseenLight = new ColorInfo();
         /** Whether a room square is lit at least by the daylight its room lets in (RoomDaylight): not in Low, which keeps the game's light, nor as the game's own view. */
         private boolean roomsDaylit;
         /** When this frame was begun: RoomDaylight works a room out again by it. */
@@ -2815,8 +2816,7 @@ final class WorldScene {
                 farLand.forget();
             }
             mainsOn = IsoWorld.instance.isHydroPowerOn();
-            long goesBy = sum(sum(sum(SUM_FROM, Float.floatToRawIntBits(unseenRed)), Float.floatToRawIntBits(unseenGreen)), Float.floatToRawIntBits(unseenBlue));
-            goesBy = sum(sum(goesBy, mainsOn ? 1 : 0), Float.floatToRawIntBits(Core.tileScale));
+            long goesBy = sum(sum(SUM_FROM, mainsOn ? 1 : 0), Float.floatToRawIntBits(Core.tileScale));
             int seasonNow = Seasons.stage();
             if (seasonNow != stage) {
                 stageBefore = stage == Integer.MIN_VALUE ? seasonNow : stage;
@@ -2952,9 +2952,9 @@ final class WorldScene {
             boxMaxX = maxX;
             boxMaxY = maxY;
             frame.scale = Core.tileScale;
-            unseenLight.r = unseenRed;
-            unseenLight.g = unseenGreen;
-            unseenLight.b = unseenBlue;
+            sky.openUnlit[0] = unseenRed;
+            sky.openUnlit[1] = unseenGreen;
+            sky.openUnlit[2] = unseenBlue;
             roomsDaylit = !gamesView && !Quality.plain(view.index);
             day = Math.round(Evening.day(sky.sunUp) * DAY_STEPS) / (float) DAY_STEPS;
             roomsDaylitNow = roomsDaylit;
@@ -4357,7 +4357,7 @@ final class WorldScene {
          */
         private long signature(IsoChunk chunk, int chunkX, int chunkY, int lowest, ChunkMeshes readFor) {
             int from = Math.max(lowest, chunk.getMinLevel()), to = chunk.getMaxLevel();
-            readUnseen = sum(sum(sum(sum(SUM_FROM, Float.floatToRawIntBits(unseenLight.r)), Float.floatToRawIntBits(unseenLight.g)), Float.floatToRawIntBits(unseenLight.b)), gamesView ? 1 : 0);
+            readUnseen = sum(SUM_FROM, gamesView ? 1 : 0);
             readUnseen = sum(readUnseen, asTheGameShows ? 1 : 0);
             // A room's daylight goes by the hour as well (daylit): read again at each step of DAY_STEPS through dusk and dawn.
             readUnseen = sum(readUnseen, roomsDaylit ? Math.round(day * DAY_STEPS) : -1);
@@ -4885,9 +4885,9 @@ final class WorldScene {
                 return light;
             }
             float share = day * roomDaylight.share(roomMap, square, mapWx * CHUNK_TILES, mapWy * CHUNK_TILES, mapSide * CHUNK_TILES, daylitAt);
-            daylit.r = Math.max(light.r, share * unseenLight.r);
-            daylit.g = Math.max(light.g, share * unseenLight.g);
-            daylit.b = Math.max(light.b, share * unseenLight.b);
+            daylit.r = Math.max(light.r, share * sky.openUnlit[0]);
+            daylit.g = Math.max(light.g, share * sky.openUnlit[1]);
+            daylit.b = Math.max(light.b, share * sky.openUnlit[2]);
             daylit.a = light.a;
             return daylit;
         }
@@ -4961,8 +4961,8 @@ final class WorldScene {
                     if (!seen && !(gamesView && inRoom)) {
                         // From the eye a room the game has not shown is a room like the ones in sight: see seenRooms.
                         // Shown only as the game shows it, it stands empty and lit as the open ground is.
-                        lit = !inRoom || asTheGameShows ? OWN_LIGHT : lampBurnsAt(at, square) ? LAMP_LIT : ROOM_LIT;
-                        light = lit == OWN_LIGHT ? unseenLight : SHADE_ONLY;
+                        lit = !inRoom || asTheGameShows ? OPEN_LIT : lampBurnsAt(at, square) ? LAMP_LIT : ROOM_LIT;
+                        light = SHADE_ONLY;
                     } else if (seen && inChunk) {
                         squaresSeen++;
                         if (outside && tallying) {
@@ -4984,11 +4984,13 @@ final class WorldScene {
                     lightBlue[at] = light.b;
                     lightOpen[at] = (byte) (outside ? 1 : 0);
                     lightUnseen[at] = lit;
-                    // The game has no lamp in a canopy. A lit one lights what is under it.
+                    // The game has no lamp in a canopy. A lit one lights what is under it, and what the game has given no light by itself.
                     if (outside && z >= 0 && ceilingBuilder.underLitCanopy(chunkX, chunkY, chunkX + i - 1, chunkY + j - 1, z)) {
-                        lightRed[at] = Soffits.under(light.r, Soffits.GLOW_RED);
-                        lightGreen[at] = Soffits.under(light.g, Soffits.GLOW_GREEN);
-                        lightBlue[at] = Soffits.under(light.b, Soffits.GLOW_BLUE);
+                        boolean unlit = lit != OWN_LIGHT;
+                        lightRed[at] = unlit ? Soffits.GLOW_RED : Soffits.under(light.r, Soffits.GLOW_RED);
+                        lightGreen[at] = unlit ? Soffits.GLOW_GREEN : Soffits.under(light.g, Soffits.GLOW_GREEN);
+                        lightBlue[at] = unlit ? Soffits.GLOW_BLUE : Soffits.under(light.b, Soffits.GLOW_BLUE);
+                        lightUnseen[at] = OWN_LIGHT;
                     }
                 }
             }

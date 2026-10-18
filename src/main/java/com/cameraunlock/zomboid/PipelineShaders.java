@@ -491,6 +491,7 @@ final class PipelineShaders {
             uniform float uLaid;
             uniform vec3 uRoomLight;
             uniform vec3 uLampLight;
+            uniform vec3 uOpenLight;
             uniform float uSnowLying;
             uniform vec3 uEye;
             uniform float uPixel;
@@ -569,7 +570,7 @@ final class PipelineShaders {
                 // materials which of this frame's lights it takes: see WorldScene.LIT_STEP.
                 float lit = floor((vColor.a + 0.5) / 4096.0);
                 vColor.a -= 4096.0 * lit;
-                vColor.rgb *= lit > 1.5 ? uLampLight : lit > 0.5 ? uRoomLight : vec3(1.0);
+                vColor.rgb *= lit > 2.5 ? uOpenLight : lit > 1.5 ? uLampLight : lit > 0.5 ? uRoomLight : vec3(1.0);
                 // A strip of grass has no facing. What its vertex carries in a facing's place is
                 // taken apart here: see SpriteGeometry.addStrip.
                 vBlade = vec4(0.0);

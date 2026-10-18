@@ -99,8 +99,8 @@ final class RoofBuilder {
         }
         build.building.plain = false;
         float[] ground = world.terrain.corners(build.cell, chunk.wx, chunk.wy);
-        build.frame.light(build.unseenLight.r, build.unseenLight.g, build.unseenLight.b);
-        build.frame.open = 1f;
+        build.frame.light(1f, 1f, 1f);
+        build.frame.open = WorldScene.OPEN_UNLIT;
         build.frame.kind = 0f;
         // A gable under one of these is a plain wall with nothing over it: see laid.
         build.overLayer = 0;
@@ -193,8 +193,8 @@ final class RoofBuilder {
         // is the loft under it, which is dark.
         float red = build.frame.red, green = build.frame.green, blue = build.frame.blue, open = build.frame.open;
         build.frame.cornersInto(build.heldRed, build.heldGreen, build.heldBlue);
-        build.frame.light(build.unseenLight.r, build.unseenLight.g, build.unseenLight.b);
-        build.frame.open = 1f;
+        build.frame.light(1f, 1f, 1f);
+        build.frame.open = WorldScene.OPEN_UNLIT;
         addGableWalls(square, standing, ground, room, x, y, z, northWest, northEast, southWest, peak, peakAxis);
         build.frame.red = red;
         build.frame.green = green;

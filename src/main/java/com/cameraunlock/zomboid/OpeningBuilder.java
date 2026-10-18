@@ -654,7 +654,7 @@ final class OpeningBuilder {
 
     /**
      * Sets the light on the two sides of the window or the door on the north or west edge of the square being added:
-     * its own square's on side 0, and on side 1 the square's beyond the edge, or unseenLight where that square is not
+     * its own square's on side 0, and on side 1 the square's beyond the edge, or the open ground's (OPEN_UNLIT) where that square is not
      * seen. With same, both sides are lit as the square's own.
      */
     private void lightSides(boolean north, boolean same) {
@@ -664,10 +664,10 @@ final class OpeningBuilder {
         sideGreen[0] = build.frame.green;
         sideBlue[0] = build.frame.blue;
         sideOpen[0] = build.frame.open;
-        sideRed[1] = same ? build.frame.red : unseen ? build.unseenLight.r : build.lightRed[beyondLight];
-        sideGreen[1] = same ? build.frame.green : unseen ? build.unseenLight.g : build.lightGreen[beyondLight];
-        sideBlue[1] = same ? build.frame.blue : unseen ? build.unseenLight.b : build.lightBlue[beyondLight];
-        sideOpen[1] = same ? build.frame.open : unseen ? 1f : build.openOf(beyondLight);
+        sideRed[1] = same ? build.frame.red : unseen ? 1f : build.lightRed[beyondLight];
+        sideGreen[1] = same ? build.frame.green : unseen ? 1f : build.lightGreen[beyondLight];
+        sideBlue[1] = same ? build.frame.blue : unseen ? 1f : build.lightBlue[beyondLight];
+        sideOpen[1] = same ? build.frame.open : unseen ? WorldScene.OPEN_UNLIT : build.openOf(beyondLight);
     }
 
     /** The square across the north or west edge of square x, y on level z, null where the map has none. */

@@ -311,17 +311,20 @@ final class FloorBuilder {
         for (int under = z - 1; under >= 0 && ground == null; under--) {
             ground = build.cell.getGridSquare(x, y, under);
         }
-        ColorInfo light = ground != null && ground.isSeen(build.playerIndex) ? build.lightOf(ground) : build.unseenLight;
+        boolean shown = ground != null && ground.isSeen(build.playerIndex);
+        ColorInfo light = shown ? build.lightOf(ground) : WorldScene.SHADE_ONLY;
         boolean lit = build.mainsOn || build.here.haveElectricity();
-        float red = lit ? Soffits.under(light.r, Soffits.GLOW_RED) : light.r, green = lit ? Soffits.under(light.g, Soffits.GLOW_GREEN) : light.g;
-        float blue = lit ? Soffits.under(light.b, Soffits.GLOW_BLUE) : light.b;
+        // Under a lit canopy what the game has given no light is lit by the canopy alone.
+        float red = lit ? Soffits.under(shown ? light.r : 0f, Soffits.GLOW_RED) : light.r, green = lit ? Soffits.under(shown ? light.g : 0f, Soffits.GLOW_GREEN) : light.g;
+        float blue = lit ? Soffits.under(shown ? light.b : 0f, Soffits.GLOW_BLUE) : light.b;
+        float unlit = shown || lit ? 0f : WorldScene.LIT_STEP * WorldScene.OPEN_LIT;
         Arrays.fill(canopyRed, red);
         Arrays.fill(canopyGreen, green);
         Arrays.fill(canopyBlue, blue);
         float up = z * ViewCamera.LEVEL_HEIGHT - drop;
         SpriteGeometry.Mesh plain = WorldScene.solid.get(WorldScene.PLAIN);
-        Soffits.add(plain, x, y, up, canopyRed, canopyGreen, canopyBlue, 32f * WorldScene.CONCRETE, 32f * WorldScene.LAMP, Soffits.fitted(x, y), lit);
-        plain.open = 32f * WorldScene.CONCRETE;
+        Soffits.add(plain, x, y, up, canopyRed, canopyGreen, canopyBlue, unlit + 32f * WorldScene.CONCRETE, unlit + 32f * WorldScene.LAMP, Soffits.fitted(x, y), lit);
+        plain.open = unlit + 32f * WorldScene.CONCRETE;
         float[] c = build.eave;
         for (int side = 0; side < 4; side++) {
             int stepX = side == 0 ? -1 : side == 1 ? 1 : 0, stepY = side == 2 ? -1 : side == 3 ? 1 : 0;
@@ -355,8 +358,8 @@ final class FloorBuilder {
             }
             build.bandFrame.scale = build.frame.scale;
             WorldScene.frameOf(build.bandFrame, band, texture);
-            build.bandFrame.light(build.unseenLight.r, build.unseenLight.g, build.unseenLight.b);
-            build.bandFrame.open = 1f;
+            build.bandFrame.light(1f, 1f, 1f);
+            build.bandFrame.open = WorldScene.OPEN_UNLIT;
             build.bandFrame.material = WorldScene.materialOf(band.getSprite());
             float raised = build.geometry.raised;
             build.geometry.raised = 0f;
@@ -401,12 +404,10 @@ final class FloorBuilder {
         }
         float red = build.frame.red, green = build.frame.green, blue = build.frame.blue, open = build.frame.open, kind = build.frame.kind;
         build.frame.cornersInto(build.heldRed, build.heldGreen, build.heldBlue);
-        byte lit = below == null || below.isSeen(build.playerIndex) || below.getRoomID() == -1L || build.asTheGameShows || build.gamesView ? WorldScene.OWN_LIGHT
+        byte lit = below != null && below.isSeen(build.playerIndex) ? WorldScene.OWN_LIGHT
+                : below == null || below.getRoomID() == -1L || build.asTheGameShows || build.gamesView ? WorldScene.OPEN_LIT
                 : WorldScene.lampBurns(build.cell, below, build.lampsNear) ? WorldScene.LAMP_LIT : WorldScene.ROOM_LIT;
-        ColorInfo light = below != null && below.isSeen(build.playerIndex) ? build.lightOf(below) : lit == WorldScene.OWN_LIGHT ? build.unseenLight : WorldScene.SHADE_ONLY;
-        if (below != null && below.isSeen(build.playerIndex)) {
-            light = build.daylit(below, light);
-        }
+        ColorInfo light = lit == WorldScene.OWN_LIGHT ? build.daylit(below, build.lightOf(below)) : WorldScene.SHADE_ONLY;
         build.frame.light(light.r, light.g, light.b);
         build.frame.open = WorldScene.LIT_STEP * lit;
         // The ceiling under a floor of water is a ceiling, not more water.
