@@ -553,7 +553,7 @@ public final class CoreTests {
                 "and on through Low to Medium");
         Tracking.cycleStyle();
         check(Style.current() == Style.VIVID && saved("Style=Vivid"), "the picture style's action goes round to Vivid and saves it");
-        check(SplitScreen.row() == SplitScreen.VERTICAL && holds("SplitScreen=Vertical") && holds("SplitScreenKey=ScrollLock"), "two players start side by side, with ScrollLock to turn them");
+        check(SplitScreen.row() == SplitScreen.VERTICAL && holds("SplitScreen=Vertical") && holds("SplitScreenKey=F7"), "two players start side by side, with F7 to turn them");
         Tracking.turnSplitScreen();
         check(SplitScreen.row() == SplitScreen.HORIZONTAL && saved("SplitScreen=Horizontal"), "the split screen's action goes to one above the other and saves it");
         check(holds("UdpPort=default") && holds("CycleTrackingModeKey=PageUp") && holds("YawModeKey=PageDown") && holds("TrueFreeLookKey=Insert") && !text().contains("ToggleKey") && holds("FirstPersonKey=Delete"), "and rows no action saves are as they were");

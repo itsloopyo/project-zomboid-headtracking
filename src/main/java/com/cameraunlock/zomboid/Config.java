@@ -216,7 +216,7 @@ final class Config {
         core.configLocalHotkey("CycleStyleKey", "Goes to the next picture style: Vivid, Natural, Bleak (Style).", 0, "F8",
                 CYCLE_STYLE);
         core.configLocalHotkey("SplitScreenKey",
-                "With two players at the screen, switches between side by side and one above the other.", 0, "ScrollLock",
+                "With two players at the screen, switches between side by side and one above the other.", 0, "F7",
                 SPLIT_SCREEN);
         own = new int[] {
             core.configLocalBool("Content", "OwnWeapons",
