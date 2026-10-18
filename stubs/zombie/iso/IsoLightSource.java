@@ -6,6 +6,9 @@ public class IsoLightSource {
     public int y;
     public int z;
     public int radius;
+    public float r;
+    public float g;
+    public float b;
     public boolean active;
     public int life;
 }

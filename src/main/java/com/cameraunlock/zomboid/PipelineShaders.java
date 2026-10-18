@@ -699,6 +699,7 @@ final class PipelineShaders {
      */
     static final String WORLD_FRAGMENT_PARTS = "#version 120\n#extension GL_EXT_texture_array : require\n#extension GL_ARB_shader_texture_lod : require\n"
             + "#define CUT_FLOATS " + Cutaways.FLOATS + "\n#define CUT_FLOATS_A_ROW " + Cutaways.FLOATS_A_ROW + "\n#define CUT_SIDE " + Cutaways.SIDE + ".0\n"
+            + "#define LAMPS_SEEN " + SkyState.LAMPS_SEEN + "\n#define LEVEL_HEIGHT " + ViewCamera.LEVEL_HEIGHT + "\n"
             + CanopyWindow.GLSL
             + Sky.ATMOSPHERE + ENDS + AUTUMN + """
             uniform sampler2D uTexture;
@@ -965,6 +966,26 @@ final class PipelineShaders {
             uniform vec3 uOpenLinear;
             uniform float uDaylightKept;
             uniform float uRoomKept;
+            // The burning lamps nearest the eye, where each burns and how far it reaches, and the
+            // colour it lights a square in, linear: see WorldScene.lampsSeen.
+            uniform vec4 uLampAt[LAMPS_SEEN];
+            uniform vec3 uLampHue[LAMPS_SEEN];
+
+            // The colour the lamp that lights a place most lights it in, or nothing where none reaches.
+            vec3 lampHue(vec3 at) {
+                vec3 hue = vec3(0.0);
+                float most = 0.0;
+                for (int i = 0; i < LAMPS_SEEN; i++) {
+                    vec4 lamp = uLampAt[i];
+                    vec3 to = vec3(at.xy - lamp.xy, (at.z - lamp.z) / LEVEL_HEIGHT);
+                    float share = 1.0 - length(to) / max(lamp.w, 0.001);
+                    if (lamp.w > 0.0 && share > most) {
+                        most = share;
+                        hue = uLampHue[i];
+                    }
+                }
+                return hue;
+            }
             // How far the eye is out of doors, 0 to 1. The sky's haze is the open air's: none of it
             // lies between an eye in a room and that room's walls. Sun through a window into the
             // room's own air is the volume pass's.
@@ -3393,7 +3414,25 @@ final class PipelineShaders {
                 // already down: see Evening. A square's light up to the open ground's is that
                 // daylight, and what it has over it came from a lamp.
                 // A room has less of it: see Evening.ROOM_DAYLIGHT.
-                given -= min(given, uOpenLinear) * (1.0 - mix(uRoomKept, uDaylightKept, clamp(open, 0.0, 1.0)));
+                float heldBack = 1.0 - mix(uRoomKept, uDaylightKept, clamp(open, 0.0, 1.0));
+                vec3 lampColour = heldBack > 0.0 ? lampHue(vWorld) : vec3(0.0);
+                vec3 daylight = min(given, uOpenLinear);
+                if (lampColour.r + lampColour.g + lampColour.b > 0.0) {
+                    // The game keeps the greater of a lamp and the daylight in each of red, green
+                    // and blue (WorldScene.lampsSeen), so where the daylight beats a lamp the lamp
+                    // is not in the square's light at all, and the daylight taken off it left a
+                    // street lamp's pool red. The lamp's strength is read from the part it shows
+                    // in first, the one where it most outdoes the daylight, and it lights in its
+                    // own colour; by full night it is the game's light again, and at the pool's
+                    // edge the dimmed daylight. A part the daylight hides only bounds the lamp,
+                    // and reading the strength from it left the pools dark at dusk.
+                    vec3 shows = lampColour / max(uOpenLinear, vec3(0.001));
+                    vec3 first = step(max(shows.r, max(shows.g, shows.b)), shows);
+                    float strength = dot(first, given - daylight * heldBack) / dot(first, lampColour);
+                    given = max(daylight * (1.0 - heldBack), lampColour * strength);
+                } else {
+                    given -= daylight * heldBack;
+                }
                 vec3 lightHere = given * fromSky + held + uLightLinear * (2.1 * sun);
                 // Lightning lights all the sky, and what is under the open sky by it.
                 lightHere += uFlashSky * (open * skyOver * (0.6 + 0.4 * max(n.z, 0.0)));
