@@ -2824,11 +2824,22 @@ final class PipelineShaders {
                         discard;
                     }
                 }
+                // What is laid lies a layer over its ground, and a layer is thicker the further off
+                // (see faced): far off, a line of sight crosses it a good way before it meets the
+                // ground under it. It is left out by what leaves that ground out: kept where its
+                // ground had thinned out into the far land, or was cut off under the water, a pixel
+                // of it was mixed over nothing, and the depth it writes kept the sky and the far
+                // land out of the pixel, a black speck.
+                vec3 under = vWorld;
+                if (uLaid > 0.5 && vLift > 0.0) {
+                    vec3 sight = normalize(vWorld - uEye), up = normalize(vNormal);
+                    under += sight * (vLift * up.z / max(-dot(up, sight), 1e-3));
+                }
                 // Where the far land lies behind it, the built world thins out into it.
-                if (thinnedOut(-toEye.xy)) {
+                if (thinnedOut(under.xy - uEye.xy)) {
                     discard;
                 }
-                if (uUnder.z > 0.0 && (vKind > 3.5 && !grass || dot(uUnder.xyz, vWorld) < uUnder.w)) {
+                if (uUnder.z > 0.0 && (vKind > 3.5 && !grass || dot(uUnder.xyz, under) < uUnder.w)) {
                     discard;
                 }
                 if (dot(uGlassPlane.xyz, uGlassPlane.xyz) > 0.5 && dot(uGlassPlane.xyz, vWorld) < uGlassPlane.w) {
@@ -2840,19 +2851,11 @@ final class PipelineShaders {
                 if (uLaid > 0.5 && !grass && vMaterial < 56.5 && laidCover < 0.999) {
                     float ragged = patches(vWorld.xy * 1.9) * 0.6 + patches(vWorld.xy * 6.1 + 17.0) * 0.4 - 0.5;
                     shown = smoothstep(0.38, 0.62, laidCover + ragged * 3.0 * laidCover * (1.0 - laidCover));
-                    // It lies a layer over its square's own ground, and a layer is thicker the
-                    // further off (see faced): far off, a line of sight crosses it a good way
-                    // before it meets that ground, if it meets it at all. Where it does not, the
-                    // ground under the pixel is the next square's, or it was thinned out into the
-                    // far land, or cut off under the water, or there is none past the loaded map,
-                    // and the spread ground is left out there too. What is laid writes depth and is
-                    // mixed in: left in, a pixel of it would be mixed over nothing and keep the sky
-                    // and the far land out, a black speck. And where it does not show, it would
-                    // still hide whatever is laid on the same ground after it.
-                    vec3 sight = normalize(vWorld - uEye), up = normalize(vNormal);
-                    vec3 under = vWorld + sight * (vLift * up.z / max(-dot(up, sight), 1e-3));
-                    if (shown < 0.03 || any(notEqual(floor(under.xy), floor(vWorld.xy))) || thinnedOut(under.xy - uEye.xy)
-                            || uUnder.z > 0.0 && dot(uUnder.xyz, under) < uUnder.w) {
+                    // Where it does not show it is left out: what is laid writes depth, so left in it
+                    // would still hide whatever is laid on the same ground after it. And where the
+                    // ground under the pixel is not its own square's (see under), which past the
+                    // loaded map is none: the ground there is the next square's own.
+                    if (shown < 0.03 || any(notEqual(floor(under.xy), floor(vWorld.xy)))) {
                         discard;
                     }
                 }
