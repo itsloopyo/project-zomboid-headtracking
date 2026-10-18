@@ -76,6 +76,9 @@ final class Links {
     private final Set<String> seen = new HashSet<>();
     private final List<String> unresolved = new ArrayList<>();
 
+    /** The classes the mod ships, its own and the libraries in its jar, by internal name: nothing of the game's. */
+    private final Set<String> shipped = new HashSet<>();
+
     private Links(Function<String, byte[]> classBytes) {
         this.classBytes = classBytes;
     }
@@ -88,6 +91,11 @@ final class Links {
         } catch (URISyntaxException failure) {
             throw new IllegalStateException(failure);
         }
+        return check(classesIn(source), REFLECTED, Links::running);
+    }
+
+    /** The class files of a jar, or of a folder and the folders in it. */
+    static List<byte[]> classesIn(Path source) throws IOException {
         List<byte[]> ours = new ArrayList<>();
         if (Files.isDirectory(source)) {
             try (Stream<Path> files = Files.walk(source)) {
@@ -104,7 +112,7 @@ final class Links {
                 }
             }
         }
-        return check(ours, REFLECTED, Links::running);
+        return ours;
     }
 
     /** The class file of a class the game runs from, by internal name, or null where there is none. */
@@ -154,17 +162,17 @@ final class Links {
      */
     static Result check(Collection<byte[]> ours, List<Field> reflected, Function<String, byte[]> classBytes) {
         Links links = new Links(classBytes);
-        for (byte[] bytes : ours) {
-            links.classOfOurs(ClassFile.of().parse(bytes));
-        }
+        List<ClassModel> models = ours.stream().map(ClassFile.of()::parse).toList();
+        models.forEach(model -> links.shipped.add(model.thisClass().asInternalName()));
+        models.forEach(links::classOfOurs);
         for (Field field : reflected) {
             links.declared(field);
         }
         return new Result(links.seen.size(), List.copyOf(links.unresolved));
     }
 
-    private static boolean isTheGames(String owner) {
-        return !owner.startsWith("java/") && !owner.startsWith("com/cameraunlock/") && !owner.startsWith("[");
+    private boolean isTheGames(String owner) {
+        return !owner.startsWith("java/") && !owner.startsWith("[") && !shipped.contains(owner);
     }
 
     private Optional<ClassModel> model(String name) {
@@ -172,7 +180,7 @@ final class Links {
     }
 
     private void classOfOurs(ClassModel ours) {
-        ours.superclass().map(ClassEntry::asInternalName).filter(Links::isTheGames).ifPresent(parent -> overrides(ours, parent));
+        ours.superclass().map(ClassEntry::asInternalName).filter(this::isTheGames).ifPresent(parent -> overrides(ours, parent));
         ours.interfaces().forEach(implemented -> type(implemented.asInternalName()));
         for (MethodModel method : ours.methods()) {
             if (method.code().isEmpty()) {

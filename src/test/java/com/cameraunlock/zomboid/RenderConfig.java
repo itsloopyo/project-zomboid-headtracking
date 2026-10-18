@@ -12,6 +12,6 @@ public final class RenderConfig {
     private RenderConfig() {}
 
     public static void main(String[] arguments) {
-        new Config(CameraUnlock.load()).render(Path.of(arguments[0]));
+        new Config(CameraUnlock.loadBundled()).render(Path.of(arguments[0]));
     }
 }

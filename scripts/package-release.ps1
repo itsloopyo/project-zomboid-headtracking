@@ -1,6 +1,6 @@
 #!/usr/bin/env pwsh
 #Requires -Version 5.1
-# Packages Project Zomboid Head Tracking (a Java agent jar and cameraunlock-core's DLL, which it loads, no loader).
+# Packages Project Zomboid Head Tracking (a Java agent jar with cameraunlock-core compiled into it, no loader).
 # Produces two ZIPs:
 #   ProjectZomboidHeadTracking-v{version}-installer.zip (GitHub Release)
 #   ProjectZomboidHeadTracking-v{version}-dev.zip       (never published: the
@@ -47,12 +47,6 @@ if (-not (Test-Path $devJarPath)) {
     throw "the development $modName.jar not found at: $devJarPath. Run 'pixi run build' first."
 }
 
-$coreDll = 'CameraUnlockCore.dll'
-$dllPath = Join-Path $projectDir "build/$coreDll"
-if (-not (Test-Path $dllPath)) {
-    throw "$coreDll not found at: $dllPath. Run 'pixi run build' first."
-}
-
 # The launcher reads this file from the root of the ZIP to learn how to install
 # the mod, and an absent one reads to it as a package of an older kind.
 # Copy-SharedBundle checks its delivery mode and validate-manifest the built ZIP.
@@ -79,8 +73,6 @@ $pluginsDir = Join-Path $staging 'plugins'
 New-Item -ItemType Directory -Path $pluginsDir -Force | Out-Null
 Copy-Item $jarPath -Destination $pluginsDir -Force
 Write-Host "  plugins/$modName.jar" -ForegroundColor Green
-Copy-Item $dllPath -Destination $pluginsDir -Force
-Write-Host "  plugins/$coreDll" -ForegroundColor Green
 
 Copy-LicenceNotices -StagingDir $staging -ProjectRoot $projectDir -Additional @('CHANGELOG.md')
 

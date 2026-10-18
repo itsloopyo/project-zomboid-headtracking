@@ -19,7 +19,7 @@
 :: --- CONFIG BLOCK ---
 set "GAME_ID=project-zomboid"
 set "MOD_DISPLAY_NAME=Project Zomboid Head Tracking"
-set "MOD_DLLS=ProjectZomboidHeadTracking.jar CameraUnlockCore.dll"
+set "MOD_DLLS=ProjectZomboidHeadTracking.jar"
 set "MOD_INTERNAL_NAME=ProjectZomboidHeadTracking"
 set "STATE_FILE=.headtracking-state.json"
 :: BepInEx | MelonLoader | MonoCecil | ASILoader | REFramework | UE4SS | xNVSE
@@ -27,7 +27,7 @@ set "STATE_FILE=.headtracking-state.json"
 set "FRAMEWORK_TYPE=JavaAgent"
 :: DLL names shipped by older versions of this mod, removed too so an upgrade
 :: does not leave a second copy for the loader to bind.
-set "LEGACY_DLLS=ProjectZomboidHeadTracking.dll"
+set "LEGACY_DLLS=ProjectZomboidHeadTracking.dll CameraUnlockCore.dll"
 :: BepInEx: subfolder under BepInEx\plugins\ the DLLs were deployed into.
 set "PLUGIN_SUBFOLDER="
 :: Files install.cmd seeded write-if-absent. MUST list the same names as

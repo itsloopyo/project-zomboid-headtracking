@@ -24,8 +24,6 @@ $version = Get-ProjectVersion -Source pixi -Path (Join-Path $projectDir 'pixi.to
 
 $jarPath = Join-Path $projectDir "build/$modName.jar"
 if (-not (Test-Path $jarPath)) { throw "$modName.jar not found at: $jarPath. Run 'pixi run build' first." }
-$dllPath = Join-Path $projectDir 'build/CameraUnlockCore.dll'
-if (-not (Test-Path $dllPath)) { throw "CameraUnlockCore.dll not found at: $dllPath. Run 'pixi run build' first." }
 
 $releaseDir = Join-Path $projectDir 'release'
 New-Item -ItemType Directory -Path $releaseDir -Force | Out-Null
@@ -46,7 +44,7 @@ if (-not $modInfo.Contains('modversion=@VERSION@')) {
     throw 'workshop/mod.info must hold modversion=@VERSION@, which the packager fills in.'
 }
 [System.IO.File]::WriteAllText((Join-Path $mod '42/mod.info'), $modInfo.Replace('@VERSION@', $version), (New-Object System.Text.UTF8Encoding $false))
-Copy-Item $jarPath, $dllPath -Destination $java -Force
+Copy-Item $jarPath -Destination $java -Force
 Copy-LicenceNotices -StagingDir $common -ProjectRoot $projectDir -Additional @('CHANGELOG.md')
 
 # Compress-Archive on Windows PowerShell writes its entry names with backslashes.

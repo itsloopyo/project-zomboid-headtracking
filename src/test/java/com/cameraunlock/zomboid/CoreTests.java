@@ -10,7 +10,6 @@ import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.FileTime;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -22,9 +21,9 @@ import java.util.function.BooleanSupplier;
 import java.util.stream.Stream;
 
 /**
- * What the mod does with cameraunlock-core, through the CameraUnlockCore.dll the build puts beside
- * the classes: the rows of CameraUnlock.ini, what each hotkey's action does and saves, and the
- * tracker's pose taken to this game's view. Real OpenTrack datagrams go to a loopback port, and
+ * What the mod does with cameraunlock-core, through the module the build puts in the classes:
+ * the rows of CameraUnlock.ini, what each hotkey's action does and saves, and the tracker's pose
+ * taken to this game's view. Real OpenTrack datagrams go to a loopback port, and
  * the settings file and Defaults.ini are in a scratch folder under build, so the developer's own
  * are neither read nor written.
  *
@@ -51,15 +50,6 @@ public final class CoreTests {
     private static Path scratch, game, defaults, file;
 
     private CoreTests() {}
-
-    /** The game's own main class in gameRunsUnmoddedBesideALibraryOfAnotherBuild. */
-    public static final class Game {
-        private Game() {}
-
-        public static void main(String[] arguments) {
-            System.out.println("the game ran");
-        }
-    }
 
     public static void main(String[] arguments) throws Exception {
         if (arguments.length > 0 && arguments[0].equals("start")) {
@@ -107,7 +97,6 @@ public final class CoreTests {
         Checks.run("theDrawDistanceFarTreesAndReflectionsGoToCustomAsTheOtherRowsDo", CoreTests::theDrawDistanceFarTreesAndReflectionsGoToCustomAsTheOtherRowsDo);
         Checks.run("theGrassDensityGoesToCustomAsTheOtherRowsDo", CoreTests::theGrassDensityGoesToCustomAsTheOtherRowsDo);
         Checks.run("aRowChangedInAutomaticStartsCustomFromItsLevelAndNeverFromStock", CoreTests::aRowChangedInAutomaticStartsCustomFromItsLevelAndNeverFromStock);
-        Checks.run("gameRunsUnmoddedBesideALibraryOfAnotherBuild", CoreTests::gameRunsUnmoddedBesideALibraryOfAnotherBuild);
         Checks.tally();
     }
 
@@ -1007,39 +996,5 @@ public final class CoreTests {
                         && Quality.shadowSize() == 4096,
                 "a row changed at Medium starts Custom from Automatic's Medium, with the mod's plants, and the change: " + Quality.described(Quality.drawn()));
         check(saved("Quality=Custom", "TreeQuality=Medium", "ViewDistance=60", "SharpShadows=true"), "and that is what Custom's rows hold");
-    }
-
-    /**
-     * The mod's jar started as an installed copy starts it, by cameraunlock-core's boot class, in a
-     * folder whose CameraUnlockCore.dll is from a release before the jar's, and in one with none.
-     */
-    private static void gameRunsUnmoddedBesideALibraryOfAnotherBuild() throws IOException, InterruptedException {
-        Path jar = Path.of("build", "ProjectZomboidHeadTracking.jar").toAbsolutePath();
-        Path older = Path.of("build-core", "Release", "CameraUnlockCoreOtherAbi.dll").toAbsolutePath();
-        String testClasses = Path.of("build", "test-classes").toAbsolutePath().toString();
-        for (boolean withLibrary : new boolean[] {true, false}) {
-            Path folder = Files.createDirectories(scratch.resolve(withLibrary ? "Older Library" : "No Library"));
-            Files.copy(jar, folder.resolve(jar.getFileName()), StandardCopyOption.REPLACE_EXISTING);
-            if (withLibrary) {
-                Files.copy(older, folder.resolve(CameraUnlock.LIBRARY), StandardCopyOption.REPLACE_EXISTING);
-            }
-            List<String> command = new ArrayList<>(List.of(java(), "--enable-native-access=ALL-UNNAMED", "-XX:+EnableDynamicAgentLoading",
-                    "-Dcameraunlock.mainClass=" + Game.class.getName().replace('.', '/'), "-cp",
-                    jar.getFileName() + ";" + testClasses, "com.cameraunlock.core.agent.Boot"));
-            Ran ran = run(folder, command);
-            check(ran.exit() == 0 && ran.output().contains("the game ran"),
-                    (withLibrary ? "beside a library of another build" : "with no library beside the jar") + " the game still runs: exit " + ran.exit() + ", " + ran.output());
-            Path log = folder.resolve(Log.FILE_NAME);
-            String written = Files.exists(log) ? Files.readString(log) : "";
-            check(written.contains("ERROR Project Zomboid Head Tracking could not start, and the game runs without it"),
-                    "and the mod's log says the mod could not start: " + written);
-            if (withLibrary) {
-                check(written.contains("is version " + (CameraUnlock.ABI - 1) + " of cameraunlock-core's C interface")
-                                && written.contains("written for version " + CameraUnlock.ABI) && written.contains("the DLL is the older of the two"),
-                        "in words: which version each side is, and that the DLL is the older");
-            } else {
-                check(written.contains(CameraUnlock.LIBRARY), "naming the file that is not there");
-            }
-        }
     }
 }

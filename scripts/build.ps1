@@ -31,14 +31,21 @@ New-Item -ItemType Directory -Force build | Out-Null
 
 $javac = @('--release', '25', '-Xlint:all', '-Werror')
 Invoke-Javac stubs ($javac + @('-d', 'build/stubs')) (Get-JavaSources stubs)
-# cameraunlock-core's Java is compiled into the mod's jars from the submodule's source: the binding
-# to CameraUnlockCore.dll and the boot class the installed site JVM config names.
-$core = Get-JavaSources cameraunlock-core/java/src
+# cameraunlock-core as one jar, built from the submodule: its Java binding, the boot class the
+# installed site JVM config names, and core's C++ compiled to WebAssembly and from there to JVM
+# classes, with the Endive runtime they run on (cameraunlock-core/docs/core-jar.md). There is no
+# native file: each of the mod's jars carries all of it, which the Workshop item needs, as the
+# game's uploader refuses a DLL.
+Invoke-Tool node @('cameraunlock-core/scripts/build-core-jar.mjs', 'build/cameraunlock-core.jar')
 # Two jars from one source tree. The one that ships is compiled with src/shipped, whose DevKeys
 # is empty. The development one is compiled with src/dev, whose DevKeys is the development
 # keys, so none of that code is in a jar a player installs.
-Invoke-Javac classes ($javac + @('-cp', 'build/stubs', '-d', 'build/classes')) ($core + (Get-JavaSources src/main/java) + (Get-JavaSources src/shipped/java))
-Invoke-Javac dev-classes ($javac + @('-cp', 'build/stubs', '-d', 'build/dev-classes')) ($core + (Get-JavaSources src/main/java) + (Get-JavaSources src/dev/java))
+Invoke-Javac classes ($javac + @('-cp', 'build/stubs;build/cameraunlock-core.jar', '-d', 'build/classes')) ((Get-JavaSources src/main/java) + (Get-JavaSources src/shipped/java))
+Invoke-Javac dev-classes ($javac + @('-cp', 'build/stubs;build/cameraunlock-core.jar', '-d', 'build/dev-classes')) ((Get-JavaSources src/main/java) + (Get-JavaSources src/dev/java))
+foreach ($classes in @('build/classes', 'build/dev-classes')) {
+    Push-Location $classes
+    try { Invoke-Tool jar @('--extract', '--file', '../cameraunlock-core.jar') } finally { Pop-Location }
+}
 Invoke-Javac test-classes ($javac + @('-cp', 'build/classes', '-d', 'build/test-classes')) (Get-JavaSources src/test/java)
 
 Copy-Item -Recurse -Force src/main/resources/* build/classes/
@@ -55,14 +62,3 @@ Write-Host "Built build/ProjectZomboidHeadTracking.jar $version"
 New-Item -ItemType Directory -Force build/dev | Out-Null
 Invoke-Tool jar @('--create', '--file', 'build/dev/ProjectZomboidHeadTracking.jar', '--manifest', 'build/MANIFEST.MF', '-C', 'build/dev-classes', '.')
 Write-Host "Built build/dev/ProjectZomboidHeadTracking.jar $version (development keys in)"
-
-# cameraunlock-core itself is C++: the tracker's receiver, the pose pipeline, the config owner,
-# the hotkey poller and the log, built from the submodule as CameraUnlockCore.dll, which the jar
-# loads from beside itself. The mod has no C++ of its own.
-Invoke-Tool cmake @('-S', 'cameraunlock-core/cpp', '-B', 'build-core', '-A', 'x64', '-DCAMERAUNLOCK_BUILD_C=ON', '-DCAMERAUNLOCK_BUILD_TESTS=OFF')
-Invoke-Tool cmake @('--build', 'build-core', '--config', 'Release', '--target', 'cameraunlock_c')
-# For CoreTests alone, and left in build-core: a library that says it is from the release before.
-Invoke-Tool cmake @('--build', 'build-core', '--config', 'Release', '--target', 'cameraunlock_c_other_abi')
-Copy-Item -Force build-core/Release/CameraUnlockCore.dll build/
-Copy-Item -Force build-core/Release/CameraUnlockCore.dll build/dev/
-Write-Host 'Built build/CameraUnlockCore.dll'

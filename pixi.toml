@@ -7,7 +7,9 @@ channels = ["conda-forge"]
 platforms = ["win-64"]
 
 [dependencies]
-# CMake and Visual Studio, which build CameraUnlockCore.dll from the submodule, come from the system.
+# Node runs cameraunlock-core's jar build, which fetches its WebAssembly toolchain once into
+# %LOCALAPPDATA%\cameraunlock-core\toolchain. The version core's own lock holds.
+nodejs = "==26.5.0"
 # The game runs on a bundled Java 25 runtime, and the agent uses the
 # java.lang.classfile API that became final in Java 24, so the build needs the
 # same major version and no bytecode library.
@@ -29,7 +31,7 @@ build = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build.ps1"
 test = { cmd = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test.ps1", depends-on = ["build"] }
 # No PowerShell variable in the command: pixi's task shell expands $name itself, before
 # PowerShell reads the line.
-clean = "powershell -NoProfile -Command \"Get-Item build, build-core, build-native, release -ErrorAction Ignore | Remove-Item -Recurse -Force\""
+clean = "powershell -NoProfile -Command \"Get-Item build, release -ErrorAction Ignore | Remove-Item -Recurse -Force\""
 
 # Rewrites config/CameraUnlock.ini, the committed copy of the CameraUnlock.ini the mod creates at
 # first launch, from the rows Config.java describes to cameraunlock-core, after a change to a row,
@@ -50,7 +52,7 @@ stage-workshop = { cmd = "powershell -NoProfile -ExecutionPolicy Bypass -File sc
 validate-manifest = "node cameraunlock-core/scripts/validate-manifest.mjs"
 validate-notices = "node cameraunlock-core/scripts/validate-notices.mjs"
 
-# Deploys the development jar (the development keys in), cameraunlock-core's DLL and the site JVM config to every installed copy
+# Deploys the development jar (the development keys in) and the site JVM config to every installed copy
 # of the game. A path after the task name deploys to that one folder instead.
 install = { cmd = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/deploy.ps1", depends-on = ["build"] }
 # Runs uninstall.cmd /y against every copy install deploys to. /y keeps it prompt-free: pixi gives a

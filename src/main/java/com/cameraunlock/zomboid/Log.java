@@ -28,9 +28,10 @@ final class Log {
     private Log() {}
 
     /**
-     * Loads cameraunlock-core and opens its log. This is the first thing the mod does, so a DLL
-     * that is missing or is from another build of the mod is found here, where core's log cannot
-     * be written: the reason is then written to the file from here, and it is all the file holds.
+     * Loads cameraunlock-core and opens its log. This is the first thing the mod does, so a core
+     * that cannot load (its module missing from the jar, or of another build) is found here, where
+     * core's log cannot be written: the reason is then written to the file from here, and it is all
+     * the file holds.
      */
     static synchronized void open(Path directory) throws IOException {
         Path file = directory.resolve(FILE_NAME);
@@ -38,7 +39,7 @@ final class Log {
             core = Core.library();
             core.logOpen(file);
         } catch (RuntimeException | Error failure) {
-            // An Error too: a DLL whose layouts this build cannot link throws one, and the game would start with nothing in the file to say why.
+            // An Error too: a jar without core's module throws NoClassDefFoundError, and the game would start with nothing in the file to say why.
             StringWriter trace = new StringWriter();
             failure.printStackTrace(new PrintWriter(trace, true));
             Files.writeString(file, LocalTime.now().truncatedTo(ChronoUnit.MILLIS) + " ERROR Project Zomboid Head Tracking could not start,"

@@ -147,6 +147,7 @@
 
 - `install.cmd` installs the mod with no mod loader. Lopari can install it too.
 - A Steam Workshop package, loaded by ZombieBuddy 2.x (tested with 2.3.4).
+- The mod is one jar, cameraunlock-core included, with no native file.
 - Settings are in `CameraUnlock.ini` in the game folder. Most changes apply without a restart.
 - The main settings are also in the game's options under `Mods` > `Head Tracking`.
 - The game window opens centred on its monitor.

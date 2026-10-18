@@ -19,7 +19,6 @@
   },
 
   "files": [
-    { "source": "plugins/CameraUnlockCore.dll", "target": "CameraUnlockCore.dll" },
     { "source": "plugins/ProjectZomboidHeadTracking.jar", "target": "ProjectZomboidHeadTracking.jar" }
   ],
 

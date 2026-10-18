@@ -12,9 +12,13 @@ import java.lang.constant.DirectMethodHandleDesc;
 import java.lang.constant.DynamicCallSiteDesc;
 import java.lang.constant.MethodHandleDesc;
 import java.lang.constant.MethodTypeDesc;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Consumer;
 
 /**
@@ -42,6 +46,7 @@ final class LinkTests {
         Checks.run("aClassMadeOfOneOfTheGamesFitsIt", LinkTests::aClassMadeOfOneOfTheGamesFitsIt);
         Checks.run("aGameThatIsNotThereResolvesNothing", LinkTests::aGameThatIsNotThereResolvesNothing);
         Checks.run("aMethodIsHandedOnOnlyWhereItIsInheritedWithABody", LinkTests::aMethodIsHandedOnOnlyWhereItIsInheritedWithABody);
+        Checks.run("whatTheJarCarriesIsNotLookedForInTheGame", LinkTests::whatTheJarCarriesIsNotLookedForInTheGame);
     }
 
     /**
@@ -71,6 +76,36 @@ final class LinkTests {
         Checks.check(Links.notInherited(thing, "sides", "()I", game::get) == null, "a default method of an interface the class has is handed on to");
         game.put(shape, type(ClassDesc.of("game.Shape"), PUBLIC | INTERFACE | ABSTRACT, OBJECT, method("sides", TO_INT, PUBLIC | ABSTRACT)));
         Checks.check(Links.notInherited(thing, "sides", "()I", game::get) != null, "and an interface's method with no body is refused");
+    }
+
+    /**
+     * The jar carries cameraunlock-core and the WebAssembly runtime beside the mod's own classes, and
+     * what they name of each other is not the game's: the built classes, linked against the stubs of
+     * the game, name nothing missing that the jar has.
+     */
+    private static void whatTheJarCarriesIsNotLookedForInTheGame() {
+        try {
+            List<byte[]> built = Links.classesIn(Path.of("build/classes"));
+            Set<String> shipped = new HashSet<>();
+            built.forEach(bytes -> shipped.add(ClassFile.of().parse(bytes).thisClass().asInternalName()));
+            Checks.check(shipped.contains("run/endive/runtime/Instance") && shipped.contains("com/cameraunlock/core/wasm/CoreModule"),
+                    "the built classes carry the runtime and core's module");
+            Links.Result result = Links.check(built, Links.REFLECTED, name -> {
+                Path stub = Path.of("build/stubs", name + ".class");
+                try (InputStream in = Files.exists(stub) ? Files.newInputStream(stub) : ClassLoader.getSystemResourceAsStream(name + ".class")) {
+                    return in == null ? null : in.readAllBytes();
+                } catch (IOException failure) {
+                    throw new UncheckedIOException(failure);
+                }
+            });
+            List<String> ours = result.unresolved().stream()
+                    .filter(missing -> shipped.stream().anyMatch(name -> missing.startsWith(name + ".") || missing.startsWith("class " + name + ":")
+                            || missing.startsWith(name + " extends")))
+                    .toList();
+            Checks.check(ours.isEmpty(), "nothing the jar carries is looked for in the game, got: " + ours);
+        } catch (IOException failure) {
+            throw new UncheckedIOException(failure);
+        }
     }
 
     private static byte[] type(ClassDesc name, int flags, ClassDesc parent, Consumer<ClassBuilder> members) {

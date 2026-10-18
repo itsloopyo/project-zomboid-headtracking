@@ -1,9 +1,9 @@
 #!/usr/bin/env pwsh
 #Requires -Version 5.1
 # Dev deploy: puts the freshly built development jar next to the exe of every
-# installed copy of Project Zomboid, with cameraunlock-core's DLL, which it loads,
-# writes the site JVM config that loads it and removes the DLL an older build left,
-# the same writes install.cmd makes. An explicit game path wins over detection and
+# installed copy of Project Zomboid, writes the site JVM config that loads it and
+# removes the files an older build left, cameraunlock-core's DLL among them: the
+# same writes install.cmd makes. An explicit game path wins over detection and
 # stays a single target. No prompts.
 #
 # Usage: deploy.ps1 [GamePath]
@@ -26,6 +26,5 @@ $null = Invoke-DevDeployJavaAgent `
     -GameDisplayName 'Project Zomboid' `
     -BuildOutputPath (Join-Path $projectRoot 'build\dev') `
     -AgentJars @('ProjectZomboidHeadTracking.jar') `
-    -NativeFiles @('CameraUnlockCore.dll') `
-    -LegacyFiles @('ProjectZomboidHeadTracking.dll') `
+    -LegacyFiles @('ProjectZomboidHeadTracking.dll', 'CameraUnlockCore.dll') `
     -GivenPath $GamePath
