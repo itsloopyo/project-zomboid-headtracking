@@ -297,7 +297,7 @@ final class KerbBuilder {
         build.frame.flat = flat != 0 ? SpriteGeometry.FLAT_FLOOR : 0;
         // The picture's own wood is laid on a boarded floor only as the sprite's boards (see addBoards), which a floor a kerb cuts is not built as: it shows its sprite.
         // Where the picture lays none of its own textures a wooden floor stays wood, which is how its board joints and its gloss are drawn.
-        if (build.frame.material == WorldScene.WOOD && Own.textures()) {
+        if (build.frame.material == WorldScene.WOOD && Own.textures(build.playerIndex)) {
             build.frame.material = WorldScene.TILE;
         }
         build.geometry.addFace(WorldScene.solid.get(flat != 0 ? flat : texture.getID()), build.frame, x, y, 0, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f, 0f);

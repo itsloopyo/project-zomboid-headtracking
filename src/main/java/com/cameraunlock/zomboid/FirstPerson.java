@@ -408,7 +408,7 @@ public final class FirstPerson {
         view.modeFade.giveBack("player " + (view.index + 1) + " is gone");
         // After giveBack, whose rest of the head tracking marks the view as one played in.
         Tracking.gone(view.index);
-        Quality.rest(view.index);
+        Quality.gone(view.index);
     }
 
     /** What a line in the log begins with to say whose view it is of, for any player but the first. */
@@ -474,7 +474,7 @@ public final class FirstPerson {
             stride.begin(traceMoveX, traceMoveY, yaw);
         }
         if (on) {
-            said = Quality.said();
+            said = Quality.said(view.index);
             saidAt = System.nanoTime();
         }
         Log.info(who() + "first person " + (on ? "on, " + facings(player) : "off"));
@@ -538,7 +538,7 @@ public final class FirstPerson {
             frame(pressed);
             // Over the world and under what the game draws over it, as the picture before was taken.
             view.modeFade.frame(gettingReady || overheadWaited || on && view.pipeline.contentWaited());
-            if (Tracking.graphicsModeOwed()) {
+            if (Tracking.graphicsModeOwed(view.index)) {
                 view.modeFade.take();
             }
             IsoPlayer player = view.player();
@@ -600,11 +600,11 @@ public final class FirstPerson {
             }
         }
         if ((pressed & Config.CYCLE_QUALITY) != 0) {
-            said = Quality.saidOfBoth();
+            said = Quality.saidOfBoth(view.index);
             saidAt = System.nanoTime();
         }
         if ((pressed & Config.CYCLE_STYLE) != 0) {
-            said = "Style: " + Style.current().label;
+            said = "Style: " + Style.of(view.index).label;
             saidAt = System.nanoTime();
         }
         if ((pressed & Config.SPLIT_SCREEN) != 0) {
@@ -615,7 +615,7 @@ public final class FirstPerson {
         IsoPlayer player = view.player();
         // Asked once: the answer is several looks into the game's Lua, and the frame goes by one answer throughout.
         boolean allowed = allowed(player);
-        boolean overheadAsked = !Quality.overheadPlain() && allowed;
+        boolean overheadAsked = !Quality.overheadPlain(view.index) && allowed;
         overhead = overheadAsked && !view.pipeline.unprepared() && !view.pipeline.contentWaited();
         overheadWaited = overheadAsked && !overhead;
         view.worldScene.level(overhead());
@@ -635,11 +635,11 @@ public final class FirstPerson {
         notePace(now, frameNanos);
         lastFrameNanos = now;
         view.flight.advance(on, sinceLastFrame, !overhead);
-        boolean wasFirstPerson = Quality.firstPersonInEffect();
+        boolean wasFirstPerson = Quality.firstPersonInEffect(view.index);
         Quality.inFirstPerson(view.index, on || gettingReady || !view.flight.home());
-        if (wasFirstPerson && !Quality.firstPersonInEffect()) {
+        if (wasFirstPerson && !Quality.firstPersonInEffect(view.index)) {
             // Back in the isometric view, with its own graphics mode: said, so a mode not wanted there is not played on unawares.
-            said = Quality.said();
+            said = Quality.said(view.index);
             saidAt = now;
         }
         boolean wasLanded = landed;

@@ -497,7 +497,7 @@ public final class ViewModel {
                 attack, reached, past, struck, aim, nearness, lowered, swayYaw, swayPitch, bob[0], bob[1], recoil,
                 kick.weaponPitch.at, kick.weaponYaw.at, kick.weaponRoll.at, kick.weaponUp.at, kick.weaponBack.at, dip,
                 player.getHumanVisual().getSkinTextureIndex(), player.isFemale(), action, cycled, doing, done, rounds, firearm ? weapon.getSpentRoundCount() : 0, round, handled, took[action][doing], seated, drawn, worked, clip, out, fetching, fetchTakes[action], !steering && player.getSecondaryHandItem() == null, firearm ? MeleeHold.ONE_HANDED : swungAs(weapon, item == player.getSecondaryHandItem()),
-                firearm ? OwnModel.of(item.getFullType()) : null, paused, shots, firearm && weapon.isRoundChambered(),
+                firearm ? OwnModel.of(view.index, item.getFullType()) : null, paused, shots, firearm && weapon.isRoundChambered(),
                 firearm ? weapon.getWeaponSprite() : null,
                 firearm ? Kick.backMost(weapon.getRecoilDelay(), weapon.getMaxDamage(), Kick.braced(weapon.getFullType(), 1f)) + (pump ? PUMP_PULLS_AIMED : 0f) : 0f);
     }

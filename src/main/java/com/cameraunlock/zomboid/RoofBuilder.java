@@ -261,8 +261,8 @@ final class RoofBuilder {
                     continue;
                 }
                 build.gablesPainted++;
-                int built = Own.textures() ? Masonry.of(finish) : 0;
-                build.building.signed &= !Own.textures() || !Masonry.unread(finish);
+                int built = Own.textures(build.playerIndex) ? Masonry.of(finish) : 0;
+                build.building.signed &= !Own.textures(build.playerIndex) || !Masonry.unread(finish);
                 SpriteGeometry.Mesh painted = WorldScene.solid.get(WorldScene.PLAIN, built != 0 ? WallSides.over(built) : WallSides.key(colour[0], colour[1], colour[2], WallSides.SIDING));
                 painted.open = build.frame.open + 32f * WorldScene.PAINT;
                 float foot = z * ViewCamera.LEVEL_HEIGHT + meanLift();

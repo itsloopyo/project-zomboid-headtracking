@@ -84,9 +84,9 @@ final class Fires {
 
     private Fires() {}
 
-    /** Whether the picture draws its own fire, and not the game's flames and smoke. */
-    static boolean own() {
-        return Own.fire();
+    /** Whether a view's picture draws its own fire, and not the game's flames and smoke. */
+    static boolean own(int view) {
+        return Own.fire(view);
     }
 
     /** A ceiling stops smoke this far under it, in tiles: it spreads there. */

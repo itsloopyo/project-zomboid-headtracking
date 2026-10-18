@@ -117,14 +117,14 @@ final class SnowOnPlantsTests {
         SkyState state = new SkyState();
         state.snowLying = 0.7f;
         try {
-            Quality.set(Quality.LOW);
-            check(state.snowOnPlants() == 0f, "in Low, the plain mode, no snow lies on what grows with snow lying on the ground");
-            Quality.set(Quality.MEDIUM);
-            check(state.snowOnPlants() == 0.7f, "in Medium as much as on the ground");
-            Quality.set(Quality.HIGH);
-            check(state.snowOnPlants() == 0.7f, "and in High");
+            Quality.set(0, Quality.LOW);
+            check(state.snowOnPlants(0) == 0f, "in Low, the plain mode, no snow lies on what grows with snow lying on the ground");
+            Quality.set(0, Quality.MEDIUM);
+            check(state.snowOnPlants(0) == 0.7f, "in Medium as much as on the ground");
+            Quality.set(0, Quality.HIGH);
+            check(state.snowOnPlants(0) == 0.7f, "and in High");
         } finally {
-            Quality.set(Quality.HIGH);
+            Quality.set(0, Quality.HIGH);
         }
         // Pipeline hands the world's program and the shadows' their uniforms and runs only with a graphics card: what it hands them is read.
         String pipeline;
@@ -133,7 +133,7 @@ final class SnowOnPlantsTests {
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
-        check(count(pipeline, "\"uPlantSnow\", state.snowOnPlants())") == 2 && count(pipeline, "\"uPlantSnow\"") == 2,
+        check(count(pipeline, "\"uPlantSnow\", state.snowOnPlants(view.index))") == 2 && count(pipeline, "\"uPlantSnow\"") == 2,
                 "and both programs are told that, and nothing else, as the snow on what grows");
     }
 

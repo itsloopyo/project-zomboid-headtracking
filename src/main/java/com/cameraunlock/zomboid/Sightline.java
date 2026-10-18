@@ -30,8 +30,8 @@ final class Sightline {
     }
 
     /** Whether the chunk the view does not face is built ahead of a turn: with the development switch left alone, and out of Low. */
-    static boolean buildsAhead(boolean switchedOff) {
-        return !switchedOff && !Quality.plain();
+    static boolean buildsAhead(int view, boolean switchedOff) {
+        return !switchedOff && !Quality.plain(view);
     }
 
     /**

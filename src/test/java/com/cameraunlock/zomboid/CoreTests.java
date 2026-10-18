@@ -126,7 +126,7 @@ public final class CoreTests {
     /** What a start left the session and the mod's own settings on, as one line. */
     private static String started() {
         return headTracking.describe() + " | field of view " + FieldOfView.degrees() + " | own " + Own.described(Own.rows()) + " | graphics "
-                + Quality.name() + " | style " + Style.current().label + " | frame blending " + Quality.frameBlending();
+                + Quality.name(0) + " | style " + Style.of(0).label + " | frame blending " + Quality.frameBlending(0);
     }
 
     private static String java() {
@@ -236,7 +236,7 @@ public final class CoreTests {
         check(start.endsWith("field of view 65.0 | own " + Own.described(Own.ALL) + " | graphics Automatic (High) | style Bleak | frame blending true"),
                 "65 degrees, everything of the mod's own on, the Automatic graphics mode in first person beginning at High, the Bleak style, frame blending: "
                         + start);
-        check(Quality.overheadRow() == Quality.LOW && Quality.overheadPlain() && holds("IsometricQuality=Low"),
+        check(Quality.overheadRow(0) == Quality.LOW && Quality.overheadPlain(0) && holds("IsometricQuality=Low"),
                 "and the isometric view in Low, the game's own picture");
         check(Tracking.lightMultiplier() == 1.5f, "and the light turned one and a half times the head");
         check(!Mouths.on() && holds("TalkingMouths=false") && Tracking.microphones().equals(List.of("Default", "None", "None", "None"))
@@ -532,32 +532,46 @@ public final class CoreTests {
         check(Tracking.aimModeLabel().equals("Aim mode: stock sights") && !Tracking.freeLook(), "then to stock sights, with no free look without a marker between");
         check(saved("TrueFreeLook=false", "FreeLookMarker=false", "StockSights=true"), "saved");
 
-        Tracking.cycleGraphicsMode();
-        check(Quality.overheadRow() == Quality.MEDIUM && Quality.name().equals("Medium") && saved("IsometricQuality=Medium", "Quality=Medium")
-                        && Quality.saidOfBoth().equals("Graphics: Medium"),
+        Tracking.cycleGraphicsMode(0);
+        check(Quality.overheadRow(0) == Quality.MEDIUM && Quality.name(0).equals("Medium") && saved("IsometricQuality=Medium", "Quality=Medium")
+                        && Quality.saidOfBoth(0).equals("Graphics: Medium"),
                 "in the isometric view the graphics mode's action goes from Low to Medium, sets first person's to it too, and saves both: "
-                        + Quality.saidOfBoth());
-        Tracking.cycleGraphicsMode();
-        Tracking.cycleGraphicsMode();
-        Tracking.cycleGraphicsMode();
-        check(Quality.overheadRow() == Quality.LOW && Quality.name().equals("Low") && saved("IsometricQuality=Low", "Quality=Low"),
+                        + Quality.saidOfBoth(0));
+        Tracking.cycleGraphicsMode(0);
+        Tracking.cycleGraphicsMode(0);
+        Tracking.cycleGraphicsMode(0);
+        check(Quality.overheadRow(0) == Quality.LOW && Quality.name(0).equals("Low") && saved("IsometricQuality=Low", "Quality=Low"),
                 "on through High and Custom, with no Automatic, round to Low");
         Quality.inFirstPerson(0, true);
-        Tracking.cycleGraphicsMode();
-        check(Quality.name().equals("Medium") && Quality.overheadRow() == Quality.MEDIUM && saved("Quality=Medium", "IsometricQuality=Medium"),
+        Tracking.cycleGraphicsMode(0);
+        check(Quality.name(0).equals("Medium") && Quality.overheadRow(0) == Quality.MEDIUM && saved("Quality=Medium", "IsometricQuality=Medium"),
                 "in first person it goes from Low to Medium, for the isometric view too");
-        Tracking.cycleGraphicsMode();
-        Tracking.cycleGraphicsMode();
-        Tracking.cycleGraphicsMode();
-        check(Quality.name().equals("Automatic (High)") && Quality.overheadRow() == Quality.LOW && saved("Quality=Automatic", "IsometricQuality=Low")
-                        && Quality.saidOfBoth().equals("Graphics: Automatic (High), isometric Low"),
-                "on through High and Custom to Automatic, where the isometric view, which has none, takes Low: " + Quality.saidOfBoth());
-        Tracking.cycleGraphicsMode();
-        Tracking.cycleGraphicsMode();
-        check(Quality.name().equals("Medium") && Quality.overheadRow() == Quality.MEDIUM && saved("Quality=Medium", "IsometricQuality=Medium"),
+        Tracking.cycleGraphicsMode(0);
+        Tracking.cycleGraphicsMode(0);
+        Tracking.cycleGraphicsMode(0);
+        check(Quality.name(0).equals("Automatic (High)") && Quality.overheadRow(0) == Quality.LOW && saved("Quality=Automatic", "IsometricQuality=Low")
+                        && Quality.saidOfBoth(0).equals("Graphics: Automatic (High), isometric Low"),
+                "on through High and Custom to Automatic, where the isometric view, which has none, takes Low: " + Quality.saidOfBoth(0));
+        Tracking.cycleGraphicsMode(0);
+        Tracking.cycleGraphicsMode(0);
+        check(Quality.name(0).equals("Medium") && Quality.overheadRow(0) == Quality.MEDIUM && saved("Quality=Medium", "IsometricQuality=Medium"),
                 "and on through Low to Medium");
-        Tracking.cycleStyle();
-        check(Style.current() == Style.VIVID && saved("Style=Vivid"), "the picture style's action goes round to Vivid and saves it");
+        Tracking.cycleStyle(0);
+        check(Style.of(0) == Style.VIVID && saved("Style=Vivid"), "the picture style's action goes round to Vivid and saves it");
+        Tracking.cycleGraphicsMode(2);
+        check(Quality.row(2) == Quality.MEDIUM && Quality.overheadRow(2) == Quality.MEDIUM && Quality.row(0) == Quality.MEDIUM
+                        && saved("ThirdPlayerQuality=Medium", "ThirdPlayerIsometricQuality=Medium", "Quality=Medium", "SecondPlayerQuality=Automatic"),
+                "player 3's graphics action steps their own modes and saves them to their own rows");
+        Tracking.cycleStyle(1);
+        check(Style.of(1) == Style.VIVID && Style.of(0) == Style.VIVID && saved("SecondPlayerStyle=Vivid", "ThirdPlayerStyle=Bleak"),
+                "and player 2's style action steps theirs alone");
+        Tracking.cycleStyle(1);
+        Tracking.cycleStyle(1);
+        Tracking.cycleGraphicsMode(2);
+        Tracking.cycleGraphicsMode(2);
+        Tracking.cycleGraphicsMode(2);
+        check(Style.of(1) == Style.BLEAK && Quality.row(2) == Quality.LOW && saved("SecondPlayerStyle=Bleak", "ThirdPlayerQuality=Low"),
+                "and each goes round as player 1's does");
         check(SplitScreen.row() == SplitScreen.VERTICAL && holds("SplitScreen=Vertical") && holds("SplitScreenKey=F7"), "two players start side by side, with F7 to turn them");
         Tracking.turnSplitScreen();
         check(SplitScreen.row() == SplitScreen.HORIZONTAL && saved("SplitScreen=Horizontal"), "the split screen's action goes to one above the other and saves it");
@@ -620,23 +634,23 @@ public final class CoreTests {
         check(FieldOfView.degrees() == 90f, "an edited field of view is read while the game runs");
         check(HillHeight.asked() == 0.25f, "and the height of the hills: " + HillHeight.asked());
         check(Own.rows() == (Own.ALL & ~Own.WEAPONS & ~Own.PLANTS), "rows of [Content] switched off are, and the rest stay on: " + Own.described(Own.rows()));
-        check(Quality.name().equals("High") && Style.current() == Style.NATURAL, "and the graphics mode and the picture style");
+        check(Quality.name(0).equals("High") && Style.of(0) == Style.NATURAL, "and the graphics mode and the picture style");
         check(SplitScreen.row() == SplitScreen.VERTICAL, "and how two players share the screen");
         check(!MuzzleFlash.on(), "and the muzzle flash switched off");
         edit(saved.replace("OwnArms=true", "OwnArms=false"));
         Tracking.watchSettings();
-        check(FieldOfView.degrees() == 65f && Own.rows() == (Own.ALL & ~Own.ARMS) && Quality.name().equals("Medium") && Style.current() == Style.VIVID
+        check(FieldOfView.degrees() == 65f && Own.rows() == (Own.ALL & ~Own.ARMS) && Quality.name(0).equals("Medium") && Style.of(0) == Style.VIVID
                         && MuzzleFlash.on() && SplitScreen.row() == SplitScreen.HORIZONTAL && HillHeight.asked() == 1.5f,
                 "set back, they are as they were, and the arms row switched off is that row and no other: " + Own.described(Own.rows()));
-        Tracking.cycleStyle();
-        check(Style.current() == Style.NATURAL, "a save after an edit still saves");
+        Tracking.cycleStyle(0);
+        check(Style.of(0) == Style.NATURAL, "a save after an edit still saves");
         check(saved("Style=Natural", "OwnArms=false"), "and leaves the edited row in the file");
 
         edit(text().replace("FieldOfView=65.0", "FieldOfView=80"));
-        Tracking.cycleStyle();
+        Tracking.cycleStyle(0);
         check(saved("Style=Bleak", "FieldOfView=80", "OwnArms=false"), "a save made before the watch has looked at an edit leaves the edited row in the file too");
         Tracking.watchSettings();
-        check(FieldOfView.degrees() == 80f && Style.current() == Style.BLEAK, "and the watch still reads the edit: " + FieldOfView.degrees());
+        check(FieldOfView.degrees() == 80f && Style.of(0) == Style.BLEAK, "and the watch still reads the edit: " + FieldOfView.degrees());
     }
 
     private static int optionNamed(CameraUnlock.Option[] options, String id) {
@@ -654,7 +668,9 @@ public final class CoreTests {
         for (CameraUnlock.Option option : options) {
             ids.append(option.id).append(' ');
         }
-        check(ids.toString().equals("WorldSpaceYaw TrackingMode AimMode FieldOfView Quality IsometricQuality Style HillHeight MuzzleFlash SplitScreen TreeQuality "
+        check(ids.toString().equals("WorldSpaceYaw TrackingMode AimMode FieldOfView Quality IsometricQuality Style HillHeight MuzzleFlash SplitScreen "
+                        + "SecondPlayerQuality SecondPlayerIsometricQuality SecondPlayerStyle ThirdPlayerQuality ThirdPlayerIsometricQuality ThirdPlayerStyle "
+                        + "FourthPlayerQuality FourthPlayerIsometricQuality FourthPlayerStyle TreeQuality "
                         + "GrassDensity RenderScale SharpShadows ViewDistance ZombiesAndPropsDrawDistance FarTreeDistance RainOnGlass ShadingAndLight Reflections "
                         + "FullSizeTextures SurfaceDepth WholeFigureShadows FrameBlending OwnWeapons OwnFurniture "
                         + "OwnPictures OwnPlants OwnTextures OwnBuildings OwnZombies OwnPeople OwnArms OwnClothes OwnAnimals OwnFire OwnCabins TalkingMouths "),
@@ -678,13 +694,13 @@ public final class CoreTests {
                 "the arms are a tick box whose tooltip says what they are and what they are off for: " + options[arms].label);
 
         int overhead = optionNamed(options, "IsometricQuality");
-        check(Tracking.optionValue(overhead) == Quality.overheadRow() - Quality.LOW && options[overhead].label.equals("Isometric quality"),
+        check(Tracking.optionValue(overhead) == Quality.overheadRow(0) - Quality.LOW && options[overhead].label.equals("Isometric quality"),
                 "the isometric view's graphics mode reads as the session has it, Low as 0: " + options[overhead].label);
         Tracking.applyOption(overhead, options[overhead], 2);
-        check(Quality.overheadRow() == Quality.HIGH && Tracking.optionValue(overhead) == 2 && saved("IsometricQuality=High"),
+        check(Quality.overheadRow(0) == Quality.HIGH && Tracking.optionValue(overhead) == 2 && saved("IsometricQuality=High"),
                 "set to High there it is taken, saved and read back");
         Tracking.applyOption(overhead, options[overhead], 0);
-        check(Quality.overheadRow() == Quality.LOW && saved("IsometricQuality=Low"), "and set back to Low");
+        check(Quality.overheadRow(0) == Quality.LOW && saved("IsometricQuality=Low"), "and set back to Low");
 
         boolean world = !Tracking.worldYaw(), flashed = !MuzzleFlash.on(), ownArms = (Own.rows() & Own.ARMS) == 0;
         int[] applied = {fov, yaw, tracking, aim, arms, flash};
@@ -697,7 +713,7 @@ public final class CoreTests {
                         && MuzzleFlash.on() == flashed,
                 "what is applied there the session takes at once, before any of it is saved: " + started());
         Tracking.toggleWorldYaw();
-        Tracking.cycleGraphicsMode();
+        Tracking.cycleGraphicsMode(0);
         check(Tracking.worldYaw() == !world, "a key pressed straight after is not undone by the saves that follow");
         Tracking.toggleWorldYaw();
         check(saved("FieldOfView=72.0", "WorldSpaceYaw=" + world, "RotationEnabled=false", "PositionEnabled=true", "StockSights=true",
@@ -778,7 +794,7 @@ public final class CoreTests {
     }
 
     private static void theHeightOfTheHillsIsASliderThatLeavesTheGraphicsModeAsItIs() throws IOException, InterruptedException {
-        String mode = Quality.name();
+        String mode = Quality.name(0);
         said();
         Screen screen = Screen.opened();
         CameraUnlock.Option hills = screen.described()[optionNamed(screen.described(), "HillHeight")];
@@ -797,7 +813,7 @@ public final class CoreTests {
         screen.set("HillHeight", 0.4);
         screen.apply();
         savesMade();
-        check(HillHeight.asked() == 0.4f && HillHeight.drawn(false) == 0.4f && Quality.name().equals(mode) && !said() && saved("HillHeight=0.4", "Quality=" + mode),
+        check(HillHeight.asked() == 0.4f && HillHeight.drawn(false) == 0.4f && Quality.name(0).equals(mode) && !said() && saved("HillHeight=0.4", "Quality=" + mode),
                 "applied there it is taken and saved, and the graphics mode stays as it was: it is not one of the rows of [Graphics]");
         screen = Screen.opened();
         screen.set("HillHeight", 1);
@@ -808,12 +824,12 @@ public final class CoreTests {
 
     /** Whether the next frame says the graphics mode, with the game's menu shut. */
     private static boolean said() {
-        return Tracking.takeGraphicsToSay(false);
+        return Tracking.graphicsToTell(false) == 1;
     }
 
     private static void inMode(String mode) {
-        while (!Quality.name().equals(mode)) {
-            Tracking.cycleGraphicsMode();
+        while (!Quality.name(0).equals(mode)) {
+            Tracking.cycleGraphicsMode(0);
         }
     }
 
@@ -828,7 +844,7 @@ public final class CoreTests {
                 "the screen shows High's picture in the rows of [Graphics]");
         screen.set("FieldOfView", 70);
         screen.apply();
-        check(FieldOfView.degrees() == 70f && Quality.name().equals("High") && saved("FieldOfView=70.0", "Quality=High") && !said(),
+        check(FieldOfView.degrees() == 70f && Quality.name(0).equals("High") && saved("FieldOfView=70.0", "Quality=High") && !said(),
                 "a setting that is not a graphics setting applied there leaves the graphics mode as it was");
 
         screen.set("ViewDistance", 56);
@@ -846,10 +862,10 @@ public final class CoreTests {
         boolean readsCustom = Tracking.optionValue(optionNamed(screen.described(), "Quality")) == Quality.CUSTOM;
         held.countDown();
         check(readsCustom, "the screen's mode list reads Custom as soon as it is applied, before the save is made");
-        check(Quality.name().equals("Custom") && Quality.sight() == 56 && Quality.scale() == 1f && Quality.shadowSize() == 4096 && Quality.crownsToSight(),
+        check(Quality.name(0).equals("Custom") && Quality.sight(0) == 56 && Quality.scale(0) == 1f && Quality.shadowSize(0) == 4096 && Quality.crownsToSight(0),
                 "a graphics row changed there goes straight to Custom, drawn as High was but for that row, whatever the mode list was set to: "
-                        + Quality.name());
-        check(!Tracking.takeGraphicsToSay(true) && said() && !said(), "the first frame the game's menu is not up says so, once, as the key does");
+                        + Quality.name(0));
+        check(Tracking.graphicsToTell(true) == 0 && said() && !said(), "the first frame the game's menu is not up says so, once, as the key does");
         check(saved("Quality=Custom", "ViewDistance=56", "RenderScale=1.0", "SharpShadows=true"), "Custom is saved, with the rows as applied");
         check(Tracking.optionValue(optionNamed(screen.described(), "Quality")) == Quality.CUSTOM && screen.shows("ViewDistance") == 56,
                 "and the screen's mode list now reads Custom");
@@ -860,49 +876,49 @@ public final class CoreTests {
                 "in Low the screen shows Low's picture, and the file still holds Custom's rows");
         fromLow.set("RenderScale", 0.7);
         fromLow.apply();
-        check(Quality.name().equals("Custom") && !Quality.plain() && Quality.sight() == 48 && Quality.scale() == 0.7f,
-                "a row changed in Low is Low's picture with that row, drawn with what the mod made: " + Quality.described(Quality.drawn()));
+        check(Quality.name(0).equals("Custom") && !Quality.plain(0) && Quality.sight(0) == 48 && Quality.scale(0) == 0.7f,
+                "a row changed in Low is Low's picture with that row, drawn with what the mod made: " + Quality.described(Quality.drawn(0)));
         check(saved("Quality=Custom", "RenderScale=0.7", "ViewDistance=48", "SharpShadows=false", "RainOnGlass=Low"),
                 "and that is what Custom's rows then hold");
     }
 
     private static void customKeepsItsRowsThroughTheOtherModes() throws IOException, InterruptedException {
         Quality.Picture mine = Quality.custom();
-        Tracking.cycleGraphicsMode();
-        check(Quality.name().equals("Automatic (High)") && Quality.sight() == 80 && saved("Quality=Automatic", "RenderScale=0.7"),
+        Tracking.cycleGraphicsMode(0);
+        check(Quality.name(0).equals("Automatic (High)") && Quality.sight(0) == 80 && saved("Quality=Automatic", "RenderScale=0.7"),
                 "the key goes from Custom to Automatic and saves it, and Custom's rows stay");
-        Tracking.cycleGraphicsMode();
-        check(Quality.name().equals("Low") && Quality.sight() == 48 && saved("Quality=Low", "RenderScale=0.7"), "then to Low");
-        Tracking.cycleGraphicsMode();
-        Tracking.cycleGraphicsMode();
-        check(Quality.name().equals("High") && Quality.scale() == 1f && saved("Quality=High", "RenderScale=0.7"),
+        Tracking.cycleGraphicsMode(0);
+        check(Quality.name(0).equals("Low") && Quality.sight(0) == 48 && saved("Quality=Low", "RenderScale=0.7"), "then to Low");
+        Tracking.cycleGraphicsMode(0);
+        Tracking.cycleGraphicsMode(0);
+        check(Quality.name(0).equals("High") && Quality.scale(0) == 1f && saved("Quality=High", "RenderScale=0.7"),
                 "Medium and High draw their own and leave Custom's rows in the file");
-        Tracking.cycleGraphicsMode();
-        check(Quality.name().equals("Custom") && Quality.drawn().equals(mine) && saved("Quality=Custom"), "and the key comes round to Custom as the player left it");
+        Tracking.cycleGraphicsMode(0);
+        check(Quality.name(0).equals("Custom") && Quality.drawn(0).equals(mine) && saved("Quality=Custom"), "and the key comes round to Custom as the player left it");
         check(nextStart("custom-start").contains("graphics Custom"), "which the next start begins in");
     }
 
     private static void aGraphicsRowEditedInTheFileGoesToCustom() throws IOException, InterruptedException {
-        Tracking.cycleGraphicsMode();
-        check(Quality.name().equals("Automatic (High)"), "the key goes round to Automatic");
-        Tracking.cycleGraphicsMode();
-        check(Quality.name().equals("Low"), "and to Low");
+        Tracking.cycleGraphicsMode(0);
+        check(Quality.name(0).equals("Automatic (High)"), "the key goes round to Automatic");
+        Tracking.cycleGraphicsMode(0);
+        check(Quality.name(0).equals("Low"), "and to Low");
         said();
         edit(text().replace("ViewDistance=48", "ViewDistance=72"));
         Tracking.watchSettings();
-        check(Quality.name().equals("Custom") && Quality.sight() == 72 && Quality.scale() == 0.7f, "a row of [Graphics] edited in the file goes to Custom with it");
+        check(Quality.name(0).equals("Custom") && Quality.sight(0) == 72 && Quality.scale(0) == 0.7f, "a row of [Graphics] edited in the file goes to Custom with it");
         check(saved("Quality=Custom", "ViewDistance=72") && said(), "saved, and said");
         edit(text().replace("Quality=Custom", "Quality=Medium"));
         Tracking.watchSettings();
-        check(Quality.name().equals("Medium") && Quality.sight() == 60 && Quality.custom().viewDistance() == 72 && !said(),
+        check(Quality.name(0).equals("Medium") && Quality.sight(0) == 60 && Quality.custom().viewDistance() == 72 && !said(),
                 "the mode edited alone goes to that mode, and leaves Custom's rows");
-        String style = Style.current() == Style.NATURAL ? "Bleak" : "Natural";
-        edit(text().replace("Style=" + Style.current().label, "Style=" + style));
+        String style = Style.of(0) == Style.NATURAL ? "Bleak" : "Natural";
+        edit(text().replace("Style=" + Style.of(0).label, "Style=" + style));
         Tracking.watchSettings();
-        check(Quality.name().equals("Medium") && Style.current().label.equals(style), "and another row edited leaves the mode");
+        check(Quality.name(0).equals("Medium") && Style.of(0).label.equals(style), "and another row edited leaves the mode");
         edit(text().replace("Quality=Medium", "Quality=Custom").replace("ViewDistance=72", "ViewDistance=60"));
         Tracking.watchSettings();
-        check(Quality.name().equals("Custom") && Quality.sight() == 60 && saved("Quality=Custom", "ViewDistance=60"),
+        check(Quality.name(0).equals("Custom") && Quality.sight(0) == 60 && saved("Quality=Custom", "ViewDistance=60"),
                 "and the mode and a row edited together is Custom with the edit");
     }
 
@@ -918,18 +934,18 @@ public final class CoreTests {
 
         screen.set("GrassDensity", 40);
         screen.apply();
-        check(Quality.name().equals("Custom") && Quality.grassDensity() == 40 && Quality.sight() == 80,
-                "a grass density applied there goes straight to Custom: " + Quality.described(Quality.drawn()));
+        check(Quality.name(0).equals("Custom") && Quality.grassDensity(0) == 40 && Quality.sight(0) == 80,
+                "a grass density applied there goes straight to Custom: " + Quality.described(Quality.drawn(0)));
         check(said() && saved("Quality=Custom", "GrassDensity=40", "ViewDistance=80"), "said, and saved with the rest of Custom's rows");
-        check(Grass.density(Quality.grassDensity(), false) == 0.4f && Grass.density(Quality.grassDensity(), true) == 1f,
+        check(Grass.density(Quality.grassDensity(0), false) == 0.4f && Grass.density(Quality.grassDensity(0), true) == 1f,
                 "grass grows that share of its plants, and all of them where players can fight");
 
         inMode("Low");
-        check(Quality.grassDensity() == Quality.SOME_GRASS, "Low grows Medium's share of the grass, for Automatic's level at Low's cost");
+        check(Quality.grassDensity(0) == Quality.SOME_GRASS, "Low grows Medium's share of the grass, for Automatic's level at Low's cost");
         said();
         edit(text().replace("GrassDensity=40", "GrassDensity=70"));
         Tracking.watchSettings();
-        check(Quality.name().equals("Custom") && Quality.grassDensity() == 70, "the grass density edited in the file goes to Custom with it");
+        check(Quality.name(0).equals("Custom") && Quality.grassDensity(0) == 70, "the grass density edited in the file goes to Custom with it");
         check(saved("Quality=Custom", "GrassDensity=70") && said(), "saved, and said");
     }
 
@@ -953,26 +969,26 @@ public final class CoreTests {
         screen.set("ZombiesAndPropsDrawDistance", 30);
         screen.apply();
         DrawDistance reach = new DrawDistance();
-        reach.take(0f, 0f, 0f, 0f, false);
-        check(Quality.name().equals("Custom") && Quality.drawn().drawDistance() == 30 && Quality.sight() == 80 && !reach.draws(31f, 0f) && reach.draws(30f, 0f),
-                "a draw distance applied there goes straight to Custom and draws people and props no further: " + Quality.described(Quality.drawn()));
+        reach.take(0, 0f, 0f, 0f, 0f, false);
+        check(Quality.name(0).equals("Custom") && Quality.drawn(0).drawDistance() == 30 && Quality.sight(0) == 80 && !reach.draws(31f, 0f) && reach.draws(30f, 0f),
+                "a draw distance applied there goes straight to Custom and draws people and props no further: " + Quality.described(Quality.drawn(0)));
         check(said() && saved("Quality=Custom", "ZombiesAndPropsDrawDistance=30", "FarTreeDistance=768", "ViewDistance=80"),
                 "said, and saved with the rest of Custom's rows");
 
         Screen again = Screen.opened();
         again.set("Reflections", 0);
         again.apply();
-        check(Quality.name().equals("Custom") && !Quality.reflections() && !Quality.surfacesMirror() && Quality.shadedAndLit()
-                        && Quality.drawn().drawDistance() == 30 && saved("Reflections=false", "ShadingAndLight=true", "ZombiesAndPropsDrawDistance=30"),
+        check(Quality.name(0).equals("Custom") && !Quality.reflections(0) && !Quality.surfacesMirror(0) && Quality.shadedAndLit(0)
+                        && Quality.drawn(0).drawDistance() == 30 && saved("Reflections=false", "ShadingAndLight=true", "ZombiesAndPropsDrawDistance=30"),
                 "reflections ticked off there are off, apart from the shading and light, and saved");
 
         inMode("Medium");
-        check(Quality.reflections() && Quality.drawn().drawDistance() == 60 && Quality.farTreeDistance() == 150,
+        check(Quality.reflections(0) && Quality.drawn(0).drawDistance() == 60 && Quality.farTreeDistance(0) == 150,
                 "Medium draws its own: its vehicle mirrors, people and props to its view's end, and far trees to 150 tiles");
         said();
         edit(text().replace("FarTreeDistance=768", "FarTreeDistance=200"));
         Tracking.watchSettings();
-        check(Quality.name().equals("Custom") && Quality.farTreeDistance() == 200 && !Quality.reflections(),
+        check(Quality.name(0).equals("Custom") && Quality.farTreeDistance(0) == 200 && !Quality.reflections(0),
                 "the far tree distance edited in the file goes to Custom with it, the rest as Custom left them");
         check(saved("Quality=Custom", "FarTreeDistance=200") && said(), "saved, and said");
     }
@@ -980,7 +996,7 @@ public final class CoreTests {
     /** Frames of first person at ten a second until Automatic is at a level. */
     private static void slowUntil(String level) {
         long now = 1_000_000_000L;
-        for (int frame = 0; frame < 600 && !Quality.name().equals(level); frame++) {
+        for (int frame = 0; frame < 600 && !Quality.name(0).equals(level); frame++) {
             now += 100_000_000L;
             Quality.frame(0, now, 0f);
         }
@@ -992,13 +1008,13 @@ public final class CoreTests {
         slowUntil("Automatic (Stock)");
         said();
         Screen screen = Screen.opened();
-        check(Quality.name().equals("Automatic (Stock)"), "Automatic stepped down to Stock: " + Quality.name());
+        check(Quality.name(0).equals("Automatic (Stock)"), "Automatic stepped down to Stock: " + Quality.name(0));
         screen.set("ViewDistance", 40);
         screen.apply();
         savesMade();
-        check(Quality.name().equals("Custom") && !Quality.plain() && !Quality.gamesPlants() && Quality.scale() == Quality.LOW_PICTURE.renderScale()
-                        && Quality.sight() == 40 && Quality.shadowSize() == 2048 && !Quality.shadedAndLit(),
-                "a row changed at Stock starts Custom from the level above it, Low's cost with what the mod made, and the change: " + Quality.described(Quality.drawn()));
+        check(Quality.name(0).equals("Custom") && !Quality.plain(0) && !Quality.gamesPlants(0) && Quality.scale(0) == Quality.LOW_PICTURE.renderScale()
+                        && Quality.sight(0) == 40 && Quality.shadowSize(0) == 2048 && !Quality.shadedAndLit(0),
+                "a row changed at Stock starts Custom from the level above it, Low's cost with what the mod made, and the change: " + Quality.described(Quality.drawn(0)));
         check(saved("Quality=Custom", "TreeQuality=Medium", "ViewDistance=40"), "and that is what Custom's rows hold");
 
         inMode("Automatic (High)");
@@ -1008,9 +1024,9 @@ public final class CoreTests {
         screen.set("SharpShadows", 1);
         screen.apply();
         savesMade();
-        check(Quality.name().equals("Custom") && !Quality.plain() && !Quality.gamesPlants() && Quality.scale() == 0.7f && Quality.sight() == 60
-                        && Quality.shadowSize() == 4096,
-                "a row changed at Medium starts Custom from Automatic's Medium, with the mod's plants, and the change: " + Quality.described(Quality.drawn()));
+        check(Quality.name(0).equals("Custom") && !Quality.plain(0) && !Quality.gamesPlants(0) && Quality.scale(0) == 0.7f && Quality.sight(0) == 60
+                        && Quality.shadowSize(0) == 4096,
+                "a row changed at Medium starts Custom from Automatic's Medium, with the mod's plants, and the change: " + Quality.described(Quality.drawn(0)));
         check(saved("Quality=Custom", "TreeQuality=Medium", "ViewDistance=60", "SharpShadows=true"), "and that is what Custom's rows hold");
     }
 

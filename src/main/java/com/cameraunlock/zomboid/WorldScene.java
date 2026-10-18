@@ -1549,7 +1549,7 @@ final class WorldScene {
      * build kept is a block of the graphics card's memory kept.
      */
     private boolean near(ChunkMeshes meshes) {
-        return ChunkBuffers.kept(meshes.wx, meshes.wy, mapWx, mapWy, mapSide, keptRoundX, keptRoundY, Quality.sight());
+        return ChunkBuffers.kept(meshes.wx, meshes.wy, mapWx, mapWy, mapSide, keptRoundX, keptRoundY, Quality.sight(view.index));
     }
 
     /** How far the eye may be, in tiles, from where what grows on a chunk was made from before it is made again. */
@@ -2673,7 +2673,7 @@ final class WorldScene {
             sky.daylightKept = Evening.kept(sky.sunUp, gameOpen, nightOpen);
             // By day: at night a room is seen by its lamps, and the eye is held back from opening up to it.
             // Low lights a room as the game does.
-            sky.roomKept = Quality.plain() ? 1f : Evening.ROOM_DAYLIGHT + (1f - Evening.ROOM_DAYLIGHT) * sky.night;
+            sky.roomKept = Quality.plain(view.index) ? 1f : Evening.ROOM_DAYLIGHT + (1f - Evening.ROOM_DAYLIGHT) * sky.night;
             if (fromOutside) {
                 sky.daylightKept = Evening.seenFrom(sky.daylightKept, view.flight.share());
                 sky.roomKept = Evening.seenFrom(sky.roomKept, view.flight.share());
@@ -2693,7 +2693,7 @@ final class WorldScene {
             sky.acrossX = rightX;
             sky.acrossY = rightY;
             exposure = adaptEye(player, fromOutside);
-            Lightning.see(sky, pose.eyeX, pose.eyeY, pose.eyeUp, System.nanoTime());
+            Lightning.see(view.index, sky, pose.eyeX, pose.eyeY, pose.eyeUp, System.nanoTime());
             Fires.gather(sky, terrain, player.getIndex(), pose.eyeX, pose.eyeY);
             playerIndex = player.getIndex();
             cell = IsoWorld.instance.currentCell;
@@ -2706,15 +2706,15 @@ final class WorldScene {
                 Roofs.forget();
                 Terrain.reread();
             }
-            float grass = Grass.density(Quality.grassDensity(), Online.contested());
+            float grass = Grass.density(Quality.grassDensity(view.index), Online.contested());
             if (grass != grassGrown) {
                 // Every build holds the grass it grew.
                 grassGrown = grass;
                 forgetAll();
             }
-            if (crownedToSight != Quality.crownsToSight()) {
+            if (crownedToSight != Quality.crownsToSight(view.index)) {
                 // Every build in the last band holds whether its trees were given crowns and boles.
-                crownedToSight = Quality.crownsToSight();
+                crownedToSight = Quality.crownsToSight(view.index);
                 forgetAll();
             }
             float twigged = Flora.twiggedFrom(zombie.iso.IsoCamera.getScreenHeight(view.index), tanHalfSet);
@@ -2799,7 +2799,7 @@ final class WorldScene {
             // No build reads the rooms' light where a room is shown only as the game shows it.
             goesBy = sum(sum(sum(goesBy, asTheGameShows ? 1 : 0), asTheGameShows ? 0 : Float.floatToRawIntBits(roomShare)), asTheGameShows ? 0 : Float.floatToRawIntBits(lampLevel));
             panes.count = 0;
-            if (!fromOutside && !seated && Quality.surfacesMirror()) {
+            if (!fromOutside && !seated && Quality.surfacesMirror(view.index)) {
                 WindowGlass.find(cell, player, terrain, pose, panes);
             }
             IsoChunkMap map = cell.getChunkMap(playerIndex);
@@ -2923,7 +2923,7 @@ final class WorldScene {
             unseenLight.r = unseenRed;
             unseenLight.g = unseenGreen;
             unseenLight.b = unseenBlue;
-            roomsDaylit = !gamesView && !Quality.plain();
+            roomsDaylit = !gamesView && !Quality.plain(view.index);
             day = Math.round(Evening.day(sky.sunUp) * DAY_STEPS) / (float) DAY_STEPS;
             roomsDaylitNow = roomsDaylit;
             dayNow = day;
@@ -2949,15 +2949,15 @@ final class WorldScene {
             loadedWithin = IsoChunkMap.chunkGridWidth * CHUNK_TILES / 2f;
             loadedX = map.getWorldXMinTiles() + loadedWithin;
             loadedY = map.getWorldYMinTiles() + loadedWithin;
-            fogEnd = Quality.sight();
-            drawDistance.take(pose.eyeX, pose.eyeY, seated ? view.ride.aheadX : 0f, seated ? view.ride.aheadY : 0f, Online.contested());
+            fogEnd = Quality.sight(view.index);
+            drawDistance.take(view.index, pose.eyeX, pose.eyeY, seated ? view.ride.aheadX : 0f, seated ? view.ride.aheadY : 0f, Online.contested());
             // On the camera's way between the views as well, so the far land is there when it comes into sight.
             if (!fromOutside || !view.flight.home()) {
                 farLand.tend(pose.eyeX, pose.eyeY);
             }
             float cosCone = fromOutside ? -1f : cosDrawnCone(pose, flat);
             // A driver's mirror shows a narrow cone straight behind the vehicle, and what is in it is drawn as well.
-            boolean mirrored = !fromOutside && seated && Quality.reflections() && Cabins.wheel(view.ride) != null;
+            boolean mirrored = !fromOutside && seated && Quality.reflections(view.index) && Cabins.wheel(view.ride) != null;
             float behindX = -view.ride.aheadX, behindY = -view.ride.aheadY;
             boolean glassShown = !fromOutside && !seated && view.pipeline.lookingGlassShown();
             // Looking straight up or down the view faces no way along the ground, and nothing is left out.
@@ -2990,7 +2990,7 @@ final class WorldScene {
             int aheadStep = -1;
             for (int step = 0; step <= walk.length; step += 2) {
                 boolean ahead = step == walk.length;
-                if (ahead && (aheadStep < 0 || !Sightline.buildsAhead(withoutSightline) || rehearsing || chunksWaiting > 0 || waitedLast > 0
+                if (ahead && (aheadStep < 0 || !Sightline.buildsAhead(view.index, withoutSightline) || rehearsing || chunksWaiting > 0 || waitedLast > 0
                         || System.nanoTime() - start > BUILD_NANOS_A_FRAME / sharing)) {
                     break;
                 }
@@ -3460,7 +3460,7 @@ final class WorldScene {
                         grown = null;
                     }
                     // What grows is made with its chunk. Made again only because the eye has moved, it waits for a frame with the time.
-                    if (Own.plants() && current.grows && (ungrown || regrown && !late)) {
+                    if (Own.plants(view.index) && current.grows && (ungrown || regrown && !late)) {
                         if (!missing && !due) {
                             surround(map, chunk, gridX, gridY, side);
                         }
@@ -5032,7 +5032,7 @@ final class WorldScene {
             }
             frameOf(object, texture);
             standOn(object);
-            frame.material = under.getType() == IsoObjectType.tree && Own.plants() ? LEAVES : kindOf(over).asOther == PRINT ? PRINT : frame.material;
+            frame.material = under.getType() == IsoObjectType.tree && Own.plants(view.index) ? LEAVES : kindOf(over).asOther == PRINT ? PRINT : frame.material;
             sprites++;
             // Leaves stand on the same card as their trunk. Each layer is moved a little towards
             // the eye from the one under it, or the two would be drawn through each other.
@@ -6108,7 +6108,7 @@ final class WorldScene {
                 layers.lie(SpriteGeometry.LAYERS_UP, layer);
                 floorLayer = layer + 1;
                 float pile = kind.pile;
-                int rug = Own.textures() ? rugOf(texture, kind.rug, pile, x, y, z) : 0;
+                int rug = Own.textures(view.index) ? rugOf(texture, kind.rug, pile, x, y, z) : 0;
                 float most = rug != 0 ? Rugs.REACH : Flat.REACH;
                 float west = Math.min(most, reachInto(x, y, x - 1, y, z)), north = Math.min(most, reachInto(x, y, x, y - 1, z));
                 float east = Math.min(most, reachInto(x, y, x + 1, y, z)), south = Math.min(most, reachInto(x, y, x, y + 1, z));
@@ -6381,11 +6381,11 @@ final class WorldScene {
             }
             // A boulder. The game's picture of one stood up as a card is a cut-out of a boulder,
             // and wrapped on a box it is a crate painted as one.
-            if (kind.boulder && Own.plants() && plantBuilder.addRock(x, y, z)) {
+            if (kind.boulder && Own.plants(view.index) && plantBuilder.addRock(x, y, z)) {
                 return;
             }
             // Sticks the game paints lying on the ground. Stood up as a card they float upright.
-            if (Flora.fallenWood(sprite.getName()) && Own.plants()) {
+            if (Flora.fallenWood(sprite.getName()) && Own.plants(view.index)) {
                 Flora.addFallenWood(solid.get(PLAIN), x, y, (z + geometry.raised) * ViewCamera.LEVEL_HEIGHT, geometry.lift, Flora.mix(x, y, 86), frame);
                 return;
             }
@@ -6490,7 +6490,7 @@ final class WorldScene {
             // Long grass. The game has it as a small picture of a clump, which up close is a
             // handful of coarse painted strokes. Here it is grown instead: tall blades, the
             // colour of the ground they stand in, thick on the square.
-            if (z == 0 && kind.longGrass && Own.plants() && plantBuilder.growLongGrass(x, y)) {
+            if (z == 0 && kind.longGrass && Own.plants(view.index) && plantBuilder.growLongGrass(x, y)) {
                 return;
             }
             if (grows) {

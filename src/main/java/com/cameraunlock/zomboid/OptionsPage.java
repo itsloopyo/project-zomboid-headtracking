@@ -153,7 +153,7 @@ final class OptionsPage {
             case CameraUnlock.OPTION_ENUM -> {
                 KahluaTable table = (KahluaTable) call(section, "addComboBox", described.id, described.label, described.comment);
                 int[] values = described.source == CameraUnlock.OPTION_AIM_MODE ? Tracking.AIM_MODES : everyChoice(described);
-                boolean graphics = described.id.equals(Tracking.QUALITY_OPTION);
+                boolean graphics = Tracking.qualityPlayer(described.id) >= 0;
                 for (int choice : values) {
                     call(table, "addItem", graphics ? Quality.choice(choice) : described.choices[choice], choice == (int) value);
                 }
@@ -301,7 +301,7 @@ final class OptionsPage {
      * page's own list, which a screen made after this is made from, and in the list on the screen.
      */
     private static void nameLevel(Control control) {
-        if (!control.described.id.equals(Tracking.QUALITY_OPTION)) {
+        if (Tracking.qualityPlayer(control.described.id) < 0) {
             return;
         }
         Double line = (double) (lineOf(control, Quality.AUTOMATIC) + 1);
@@ -365,7 +365,7 @@ final class OptionsPage {
         // The screen stays open after Apply. The graphics mode and the rows of [Graphics] may now read otherwise than the
         // screen holds: Custom after a row was changed, or another mode's picture after the mode was.
         for (Control control : controls) {
-            if (!control.described.id.equals(Tracking.QUALITY_OPTION) && Config.graphicsPart(control.described.id) < 0) {
+            if (Tracking.qualityPlayer(control.described.id) < 0 && Config.graphicsPart(control.described.id) < 0) {
                 continue;
             }
             try {

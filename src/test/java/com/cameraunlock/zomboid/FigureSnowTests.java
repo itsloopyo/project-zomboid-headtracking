@@ -154,8 +154,8 @@ final class FigureSnowTests {
         String arms = source("OwnArms.java").replaceAll("\\s+", "");
         check(count(arms, "floatsnowLies=snowOnPerson(dot(n,uUpSeen),vRest.xz);") == 2, "the mod's own arms take it on sleeve and on skin");
         String drawing = source("Characters.java").replaceAll("\\s+", "");
-        check(drawing.contains("if(!casting){CharacterDraw.snowed(SnowCarried.on(data.character));}"), "everyone drawn into a picture is told what they carry, and no shadow");
-        check(count(drawing, "OwnArms.snowed(SnowCarried.on(data.character));") == 2, "so are the viewer's own arms, with a weapon and at a task");
+        check(drawing.contains("if(!casting){CharacterDraw.snowed(SnowCarried.on(view.index,data.character));}"), "everyone drawn into a picture is told what they carry, and no shadow");
+        check(count(drawing, "OwnArms.snowed(SnowCarried.on(view.index,data.character));") == 2, "so are the viewer's own arms, with a weapon and at a task");
         check(count(drawing, "CharacterDraw.looking(eyeView);") == 5, "every view people are drawn through says which way is up");
     }
 
@@ -182,9 +182,9 @@ final class FigureSnowTests {
     /** In Low vehicles and people are the game's, with no snow on them: SnowCarried gives nothing there, which the shaders take as none. */
     private static void lowDrawsVehiclesAndPeopleWithoutSnow() {
         String carried = source("SnowCarried.java").replaceAll("\\s+", "");
-        check(carried.contains("returnQuality.plain()?NONE:kept.car;") && carried.contains("returnQuality.plain()?0f:kept.dust;"), "nothing in Low");
+        check(carried.contains("returnQuality.plain(view)?NONE:kept.car;") && carried.contains("returnQuality.plain(view)?0f:kept.dust;"), "nothing in Low");
         String pipeline = source("Pipeline.java").replaceAll("\\s+", "");
-        check(pipeline.contains("setCars(false,seated&&view.ride.sat!=null?SnowCarried.on(view.ride.sat)[FigureSnow.BONNET]:0f);"),
+        check(pipeline.contains("setCars(false,seated&&view.ride.sat!=null?SnowCarried.on(view.index,view.ride.sat)[FigureSnow.BONNET]:0f);"),
                 "the bonnet seen from the seat carries what SnowCarried says, and nothing in Low");
     }
 

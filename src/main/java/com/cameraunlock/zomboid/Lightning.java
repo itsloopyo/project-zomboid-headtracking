@@ -459,9 +459,9 @@ final class Lightning {
      * bolts to draw, the light added to the sky, the cloud's glow, and, while a strike is
      * brighter than the sun or moon, the light that shadows are cast from. Called once the
      * eye has adapted to the light as it was: the flash comes and goes faster than an eye can.
-     * Nothing in the game's own look, which draws no bolt.
+     * Nothing in a view in the game's own look, which draws no bolt.
      */
-    static void see(SkyState sky, float x, float y, float up, long now) {
+    static void see(int view, SkyState sky, float x, float y, float up, long now) {
         sky.flashRed = sky.flashGreen = sky.flashBlue = 0f;
         sky.flashX = 0f;
         sky.flashY = 0f;
@@ -471,7 +471,7 @@ final class Lightning {
         sky.burstY = 0f;
         sky.burstUp = 1f;
         sky.seenCount = 0;
-        if (Quality.plain()) {
+        if (Quality.plain(view)) {
             return;
         }
         float strongest = 0f, strongestCloud = 0f;

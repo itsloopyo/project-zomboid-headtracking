@@ -629,10 +629,10 @@ public final class FineSkins {
         gone = false;
         wanted.clear();
         asked.clear();
-        if ((Own.on() & WORN) != ownWorn || ownSmall != Quality.smallerPictures()) {
+        if ((Own.anywhere() & WORN) != ownWorn || ownSmall != Quality.smallerPictures()) {
             // The player has switched some of the mod's own skins on or off, or gone to a graphics mode that reads them at
             // another size: what was composed with things as they were is composed again.
-            ownWorn = Own.on() & WORN;
+            ownWorn = Own.anywhere() & WORN;
             letGoOfAll();
         }
         if (!(bound instanceof SmartTexture smart)) {

@@ -315,12 +315,12 @@ final class OwnModel {
     }
 
     /**
-     * The model drawn for an item held, or null where it is the game's own: for a model of ours
+     * The model a view draws for an item held, or null where it is the game's own: for a model of ours
      * that is not on the graphics card yet, the game's is drawn until it is, and it is asked for.
      * The logic thread's, as it makes ViewModel.Held, which the render thread reads it from.
      */
-    static OwnModel of(String held) {
-        if (!Own.weapons() || !OwnGun.linked()) {
+    static OwnModel of(int view, String held) {
+        if (!Own.weapons(view) || !OwnGun.linked()) {
             return null;
         }
         for (OwnModel model : ALL) {
@@ -340,7 +340,7 @@ final class OwnModel {
      * jar begun on other threads, or null. Render thread.
      */
     static OwnModel asked() {
-        if (!Own.weapons()) {
+        if (!Own.weaponsAnywhere()) {
             // Asked for while the row was on: nobody will draw it now, so it is not made. What was made of
             // it is given back to the graphics card, and what was begun of its reading is let go.
             for (OwnModel model : ALL) {

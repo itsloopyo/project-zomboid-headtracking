@@ -33,13 +33,13 @@ final class View {
     final Hearing hearing = new Hearing();
     final HeadFollowLight headFollowLight = new HeadFollowLight();
     final Headlights headlights = new Headlights();
-    final TorchLess torchLess = new TorchLess();
+    final TorchLess torchLess;
     final Crosshair crosshair = new Crosshair();
     final Ride ride = new Ride();
     final KerbSteps kerbSteps = new KerbSteps();
     final BodyLed bodyLed = new BodyLed();
     final GlassPull glassPull = new GlassPull();
-    final MuzzleFlash muzzleFlash = new MuzzleFlash();
+    final MuzzleFlash muzzleFlash;
     final HeldDepth heldDepth = new HeldDepth();
     final HeadTracking headTracking;
     final FirstPerson firstPerson = new FirstPerson(this);
@@ -72,6 +72,8 @@ final class View {
     private View(int index) {
         this.index = index;
         modeFade = new ModeFade(index);
+        torchLess = new TorchLess(index);
+        muzzleFlash = new MuzzleFlash(index);
         headTracking = new HeadTracking(index, fieldOfView, headFollowLight);
     }
 

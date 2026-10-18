@@ -26,7 +26,7 @@ import java.util.zip.GZIPOutputStream;
 public final class Tests {
     private static final FieldOfView fieldOfView = new FieldOfView();
     private static final Flight flight = new Flight();
-    private static final MuzzleFlash muzzleFlash = new MuzzleFlash();
+    private static final MuzzleFlash muzzleFlash = new MuzzleFlash(0);
     private static final HeadFollowLight headFollowLight = new HeadFollowLight();
 
     public static int hookCalls;
@@ -45,7 +45,7 @@ public final class Tests {
         logs = Files.createDirectories(Path.of("build", "test-run").toAbsolutePath());
         Log.open(logs);
         // Until the file is read the session is in the Low graphics mode, which shows nothing the mod made. The tests of what it made are of High.
-        Quality.set(Quality.HIGH);
+        Quality.set(0, Quality.HIGH);
         // And of a game in which the pictures the mod's own is drawn from have been made, which a test has no graphics card to make.
         Own.picturesMade(true);
         Checks.run("cameraLooksAlongItsYaw", Tests::cameraLooksAlongItsYaw);
@@ -2503,7 +2503,7 @@ public final class Tests {
                 "a build seen from the game's camera or on the flight keeps the game's evening light by how far the flight has come");
         check(scene.contains("sky.roomKept = Evening.seenFrom(sky.roomKept, view.flight.share()); }"),
                 "and a room's daylight by as much: the game's own view lights a room as the game does");
-        check(scene.contains("sky.roomKept = Quality.plain() ? 1f :"), "Low lights a room as the game does");
+        check(scene.contains("sky.roomKept = Quality.plain(view.index) ? 1f :"), "Low lights a room as the game does");
         check(Evening.seenFrom(Evening.ROOM_DAYLIGHT, 0f) == 1f, "from the game's own camera a room keeps all its daylight");
         float room = Evening.dimmed(0.8f, 0.9f, Evening.ROOM_DAYLIGHT);
         check(near(room, 0.8f * Evening.ROOM_DAYLIGHT), "a room lit by the day alone has the room's share of it");

@@ -132,9 +132,9 @@ final class WaterMirror {
         rect[3] = Math.min(1f, rect[3] + SPARE);
     }
 
-    /** How rough the picture draws water: in Low as a light breeze leaves it in any wind, elsewhere as ruffle has it. */
-    static float ruffleDrawn(float push) {
-        return Quality.plain() ? 1f : ruffle(push);
+    /** How rough a view's picture draws water: in Low as a light breeze leaves it in any wind, elsewhere as ruffle has it. */
+    static float ruffleDrawn(int view, float push) {
+        return Quality.plain(view) ? 1f : ruffle(push);
     }
 
     /**

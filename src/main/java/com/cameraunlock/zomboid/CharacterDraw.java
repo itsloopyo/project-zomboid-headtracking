@@ -1438,6 +1438,8 @@ final class CharacterDraw {
     private static Mouths.Shape mouth = Mouths.Shape.SHUT;
     /** How far from the viewer's eye the person begun stands, in tiles, in every pass alike: see Characters.fromViewer. */
     private static float fromEye;
+    /** How far from the viewer's eye, in tiles, the person begun throws the shadow of all they wear and carry. */
+    private static float wholeWithin;
     /** Whether the person begun wears finer skins: see FineSkinRange. */
     private static boolean finelySkinned;
     private static final FineSkinRange FINE_SKINS = new FineSkinRange();
@@ -1466,12 +1468,16 @@ final class CharacterDraw {
     /**
      * Before the parts of one person: the matrix that stands them before the eye, the eye's
      * projection, whether this is a shadow map, which is drawn undivided since nothing of
-     * a shadow's edge shows the difference, and how far from the viewer's eye the person
-     * stands, in tiles (Characters.fromViewer), which a shadow map's own matrix does not say.
+     * a shadow's edge shows the difference, how far from the viewer's eye the person
+     * stands, in tiles (Characters.fromViewer), which a shadow map's own matrix does not say,
+     * and how far off they throw the shadow of all they wear and carry and not of their body
+     * alone: SHADOW_WHOLE_WITHIN, or every distance where the viewer's graphics mode has whole
+     * figure shadows.
      */
-    static void begin(ModelSlotRenderData data, float[] standing, float[] seen, boolean casting, float fromTheViewer) {
+    static void begin(ModelSlotRenderData data, float[] standing, float[] seen, boolean casting, float fromTheViewer, float wholeShadowWithin) {
         person = data;
         fromEye = fromTheViewer;
+        wholeWithin = wholeShadowWithin;
         peopleBegun++;
         modelView = standing;
         projection = seen;
@@ -1955,7 +1961,7 @@ final class CharacterDraw {
         if (texture == null) {
             return true;
         }
-        if (shadow && fromEye > SHADOW_WHOLE_WITHIN && !Quality.wholeFigureShadows() && wearOf(copy, model, texture) != BODY) {
+        if (shadow && fromEye > wholeWithin && wearOf(copy, model, texture) != BODY) {
             return true;
         }
         // Making a finer skin runs the game's combiner, so it is asked for before any of

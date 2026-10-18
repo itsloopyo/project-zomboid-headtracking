@@ -28,8 +28,8 @@ final class SnowCarried {
     private static final WeakHashMap<IsoGameCharacter, Kept> people = new WeakHashMap<>();
     private static final float[] NONE = new float[FigureSnow.FLOATS];
 
-    /** What the vehicle carries, by FigureSnow's ROOF, BONNET and SCREEN: not to be changed by the caller. */
-    static float[] on(BaseVehicle vehicle) {
+    /** What the vehicle carries as a view draws it, by FigureSnow's ROOF, BONNET and SCREEN: not to be changed by the caller. */
+    static float[] on(int view, BaseVehicle vehicle) {
         double now = GameTime.getInstance().getWorldAgeHours();
         IsoGridSquare square = vehicle.getCurrentSquare();
         boolean open = square != null && square.isOutside();
@@ -45,11 +45,11 @@ final class SnowCarried {
             FigureSnow.carOn(kept.car, lying, SkyState.snowFallingNow(), open, running, vehicle.getCurrentSpeedKmHour(), (float) (now - kept.at));
             kept.at = now;
         }
-        return Quality.plain() ? NONE : kept.car;
+        return Quality.plain(view) ? NONE : kept.car;
     }
 
-    /** How much snow has settled on the person, 0 to 1. */
-    static float on(IsoGameCharacter person) {
+    /** How much snow has settled on the person as a view draws them, 0 to 1. */
+    static float on(int view, IsoGameCharacter person) {
         double now = GameTime.getInstance().getWorldAgeHours();
         IsoGridSquare square = person.getCurrentSquare();
         boolean outside = square != null && square.isOutside();
@@ -64,6 +64,6 @@ final class SnowCarried {
             kept.dust = FigureSnow.personOn(kept.dust, snowing, SkyState.snowLyingNow(), outside, (float) (now - kept.at));
             kept.at = now;
         }
-        return Quality.plain() ? 0f : kept.dust;
+        return Quality.plain(view) ? 0f : kept.dust;
     }
 }

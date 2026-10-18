@@ -12,10 +12,10 @@ final class FiresTests {
     private FiresTests() {}
 
     static void run() {
-        int mode = Quality.row();
+        int mode = Quality.row(0);
         Quality.Picture custom = Quality.custom();
         int rows = Own.rows();
-        Quality.set(Quality.HIGH);
+        Quality.set(0, Quality.HIGH);
         try {
             Checks.run("aFireGrowsToItsHeightAndDiesAsSmoke", FiresTests::aFireGrowsToItsHeightAndDiesAsSmoke);
             Checks.run("theSmokeOfABlockRisesAsOneColumn", FiresTests::theSmokeOfABlockRisesAsOneColumn);
@@ -39,7 +39,7 @@ final class FiresTests {
         } finally {
             Own.set(rows);
             Quality.custom(custom);
-            Quality.set(mode);
+            Quality.set(0, mode);
             // The world as the rows now are is what view 0 was last built with, as it was before.
             Own.taken(0);
         }
@@ -213,15 +213,15 @@ final class FiresTests {
 
     private static void theRowAndTheGamesOwnLookLeaveFireToTheGame() {
         Own.set(Own.ALL);
-        check(Fires.own(), "on, the picture draws its own fire");
+        check(Fires.own(0), "on, the picture draws its own fire");
         Own.taken(0);
         Own.set(Own.ALL & ~Own.FIRE);
-        check(!Fires.own(), "the row off leaves fire to the game's sprites");
+        check(!Fires.own(0), "the row off leaves fire to the game's sprites");
         check(Own.taken(0) && !Own.taken(0), "and switching it has the world built again, once");
         Own.set(Own.ALL);
-        Quality.set(Quality.LOW);
-        check(!Fires.own(), "Low is the game's own look, with the game's flames");
-        Quality.set(Quality.HIGH);
+        Quality.set(0, Quality.LOW);
+        check(!Fires.own(0), "Low is the game's own look, with the game's flames");
+        Quality.set(0, Quality.HIGH);
     }
 
     private static void theClockStartsAgainEachHour() {

@@ -45,9 +45,21 @@ final class Own {
      */
     static final int WITHOUT_PICTURES = FURNITURE | BUILDINGS;
 
-    /** The rows that are on. In the Low graphics mode only those WITHOUT_PICTURES are, and in Medium the plants are the game's, whatever the file says. The arms go by their row alone: see arms. */
-    static int on() {
-        return Quality.plain() || !picturesMade ? on & WITHOUT_PICTURES : Quality.gamesPlants() ? on & ~PLANTS : on;
+    /**
+     * The rows that are on in a view. In its player's Low graphics mode only those WITHOUT_PICTURES are, and where its
+     * mode draws the game's plants (Quality.gamesPlants) the plants are the game's, whatever the file says. The arms go by
+     * their row alone: see arms.
+     */
+    static int on(int view) {
+        return Quality.plain(view) || !picturesMade ? on & WITHOUT_PICTURES : Quality.gamesPlants(view) ? on & ~PLANTS : on;
+    }
+
+    /**
+     * The rows that are on in any view at the screen, for what is made once for every view: the
+     * skins and the weapon models are made while any player is shown them.
+     */
+    static int anywhere() {
+        return Quality.plainEverywhere() || !picturesMade ? on & WITHOUT_PICTURES : Quality.gamesPlantsEverywhere() ? on & ~PLANTS : on;
     }
 
     /** The rows as the file has them, whatever the graphics mode shows of them. */
@@ -63,32 +75,39 @@ final class Own {
         on = bits;
     }
 
-    static boolean weapons() {
-        return (on() & WEAPONS) != 0;
+    static boolean weapons(int view) {
+        return (on(view) & WEAPONS) != 0;
     }
 
+    /** Whether the mod's weapon models are shown in any view: see anywhere. */
+    static boolean weaponsAnywhere() {
+        return (anywhere() & WEAPONS) != 0;
+    }
+
+    /** The row as the file has it: furniture is WITHOUT_PICTURES, and shown in every view alike. */
     static boolean furniture() {
-        return (on() & FURNITURE) != 0;
+        return (on & FURNITURE) != 0;
     }
 
-    static boolean pictures() {
-        return (on() & PICTURES) != 0;
+    static boolean pictures(int view) {
+        return (on(view) & PICTURES) != 0;
     }
 
-    static boolean plants() {
-        return (on() & PLANTS) != 0;
+    static boolean plants(int view) {
+        return (on(view) & PLANTS) != 0;
     }
 
-    static boolean textures() {
-        return (on() & TEXTURES) != 0;
+    static boolean textures(int view) {
+        return (on(view) & TEXTURES) != 0;
     }
 
+    /** The row as the file has it: the built windows and doors are WITHOUT_PICTURES, and shown in every view alike. */
     static boolean buildings() {
-        return (on() & BUILDINGS) != 0;
+        return (on & BUILDINGS) != 0;
     }
 
-    static boolean zombies() {
-        return (on() & ZOMBIES) != 0;
+    static boolean zombies(int view) {
+        return (on(view) & ZOMBIES) != 0;
     }
 
     /**
@@ -101,8 +120,8 @@ final class Own {
         return (on & ARMS) != 0;
     }
 
-    static boolean people() {
-        return (on() & PEOPLE) != 0;
+    static boolean people(int view) {
+        return (on(view) & PEOPLE) != 0;
     }
 
     /**
@@ -114,22 +133,22 @@ final class Own {
     }
 
     /**
-     * Whether the lines painted on roads are laid as paint: see RoadPaint. They are the game's
+     * Whether the lines painted on roads are laid as paint in a view: see RoadPaint. They are the game's
      * own markings in the game's own colours and need no picture of the mod's, so outside Low
      * it is the row as the file has it that says, whether or not the pictures are made yet.
      * Low draws the game's sprites of them.
      */
-    static boolean paint() {
-        return !Quality.plain() && (on & TEXTURES) != 0;
+    static boolean paint(int view) {
+        return !Quality.plain(view) && (on & TEXTURES) != 0;
     }
 
     /**
-     * Whether the picture draws fire of its own, flames, smoke and their light (Fires), in place
+     * Whether a view's picture draws fire of its own, flames, smoke and their light (Fires), in place
      * of the game's sprites of flames. Fire needs no picture of the mod's, so outside Low it is the
      * row as the file has it that says. Low draws the game's flames on hearths and none on a burning square.
      */
-    static boolean fire() {
-        return !Quality.plain() && (on & FIRE) != 0;
+    static boolean fire(int view) {
+        return !Quality.plain(view) && (on & FIRE) != 0;
     }
 
     /**
@@ -139,7 +158,7 @@ final class Own {
      */
     static boolean taken(int view) {
         // The rows the mode shows, and over them the two rows that are asked as the file has them: see paint and fire.
-        int now = on() | (paint() ? TEXTURES << 16 : 0) | (fire() ? FIRE << 16 : 0);
+        int now = on(view) | (paint(view) ? TEXTURES << 16 : 0) | (fire(view) ? FIRE << 16 : 0);
         if (now == built[view]) {
             return false;
         }

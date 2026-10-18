@@ -25,18 +25,26 @@ final class Config {
     static final float MIN_FIELD_OF_VIEW = 40f, MAX_FIELD_OF_VIEW = 110f;
 
     /**
-     * The bits of pressed keys: core's three, then the mod's own. The first person key is the
-     * first player's tapped once, the second player's tapped twice and so on to the fourth, and
-     * every player's held, and a view is handed FIRST_PERSON for whichever of those is its own.
+     * The bits of pressed keys: core's three, then the mod's own. The first person, graphics and
+     * style keys are the first player's tapped once, the second player's tapped twice and so on
+     * to the fourth, and every player's held. A view is handed FIRST_PERSON, CYCLE_QUALITY or
+     * CYCLE_STYLE for whichever of those is its own.
      */
     static final int CYCLE_TRACKING_MODE = CameraUnlock.HOTKEY_CYCLE_TRACKING_MODE,
             YAW_MODE = CameraUnlock.HOTKEY_YAW_MODE, AIM_MODE = CameraUnlock.HOTKEY_AIM_MODE,
             FIRST_PERSON = CameraUnlock.HOTKEY_LOCAL, CYCLE_QUALITY = CameraUnlock.HOTKEY_LOCAL << 1,
             CYCLE_STYLE = CameraUnlock.HOTKEY_LOCAL << 2, SPLIT_SCREEN = CameraUnlock.HOTKEY_LOCAL << 4,
-            FIRST_PERSON_ALL = CameraUnlock.HOTKEY_LOCAL << 5;
-    /** The first person key's bits by how many times it was tapped: one tap is FIRST_PERSON, and each is a player's, by number. */
+            FIRST_PERSON_ALL = CameraUnlock.HOTKEY_LOCAL << 5, CYCLE_QUALITY_ALL = CameraUnlock.HOTKEY_LOCAL << 11,
+            CYCLE_STYLE_ALL = CameraUnlock.HOTKEY_LOCAL << 15;
+    /** Each of those keys' bits by how many times it was tapped: one tap is the first player's, and each is a player's, by number. */
     static final int[] FIRST_PERSON_TAPS = {FIRST_PERSON, CameraUnlock.HOTKEY_LOCAL << 3, CameraUnlock.HOTKEY_LOCAL << 6,
         CameraUnlock.HOTKEY_LOCAL << 7};
+    static final int[] CYCLE_QUALITY_TAPS = {CYCLE_QUALITY, CameraUnlock.HOTKEY_LOCAL << 8, CameraUnlock.HOTKEY_LOCAL << 9,
+        CameraUnlock.HOTKEY_LOCAL << 10};
+    static final int[] CYCLE_STYLE_TAPS = {CYCLE_STYLE, CameraUnlock.HOTKEY_LOCAL << 12, CameraUnlock.HOTKEY_LOCAL << 13,
+        CameraUnlock.HOTKEY_LOCAL << 14};
+    /** What the keys of a player's own rows begin with, by player: the first player's rows are Quality, IsometricQuality and Style. */
+    private static final String[] PLAYER_ROW = {"", "SecondPlayer", "ThirdPlayer", "FourthPlayer"};
 
     /** Player 2's port; each player after them has the next. */
     private static final int SECOND_PLAYER_PORT = 4243;
@@ -50,10 +58,11 @@ final class Config {
 
     /**
      * What the rows read again while the game runs hold: the field of view in degrees, Own's bits,
-     * the Quality row, the IsometricQuality row as a Quality mode, the Style row, the HillHeight row, the MuzzleFlash row, the SplitScreen row, the rows of [Graphics], the TalkingMouths row
+     * by player the Quality rows, the IsometricQuality rows as Quality modes and the Style rows,
+     * the HillHeight row, the MuzzleFlash row, the SplitScreen row, the rows of [Graphics], the TalkingMouths row
      * and each player's microphone.
      */
-    record Live(float fieldOfView, int own, int quality, int overheadQuality, int style, float hillHeight, boolean muzzleFlash, int splitScreen,
+    record Live(float fieldOfView, int own, int[] quality, int[] overheadQuality, int[] style, float hillHeight, boolean muzzleFlash, int splitScreen,
             Quality.Picture custom, boolean talkingMouths, List<String> microphones) {}
 
     /** The keys of [Graphics], the Custom graphics mode, in the order of Quality.Picture's parts. */
@@ -65,7 +74,9 @@ final class Config {
     static final int MIN_VIEW_DISTANCE = 32, MIN_DRAW_DISTANCE = 16;
 
     private final CameraUnlock core;
-    private final int fieldOfView, quality, overheadQuality, style, hillHeight, muzzleFlash, splitScreen, talkingMouths;
+    private final int fieldOfView, hillHeight, muzzleFlash, splitScreen, talkingMouths;
+    /** By player, the rows of their first person graphics mode, their isometric view's and their picture style. */
+    private final int[] quality = new int[View.COUNT], overheadQuality = new int[View.COUNT], style = new int[View.COUNT];
     /** The rows of each player's microphone, in the order of MICROPHONE_ROWS. */
     private final int[] microphones = new int[MICROPHONE_ROWS.length];
     /** The rows of the ports of players 2, 3 and 4. */
@@ -82,7 +93,7 @@ final class Config {
      * writable: their hotkeys save. There is no key that switches head tracking off: the
      * owner ruled the action out for this game, and the three keys there are are the game's own
      * rows on the nav keys alone (see cameraunlock-core's per_game). FieldOfView, Quality, IsometricQuality, Style,
-     * HillHeight, MuzzleFlash, SplitScreen and the rows of [Content] are the mod's own, and the ones read
+     * the rows of [Players], HillHeight, MuzzleFlash, SplitScreen and the rows of [Content] are the mod's own, and the ones read
      * again while the game runs, and so are the rows of [Graphics], which are what the Custom
      * graphics mode draws, and the rows of [Voice]. They are writable too, and a writable row that is not a key
      * list or a microphone's name is a setting on the game's options screen (OptionsPage), which shows the
@@ -131,14 +142,14 @@ final class Config {
         fieldOfView = core.configLocalFloat("General", "FieldOfView",
                 "Vertical field of view of the first person view, in degrees: 40 to 110.",
                 writable | live, FieldOfView.DEFAULT_DEGREES, MIN_FIELD_OF_VIEW, MAX_FIELD_OF_VIEW);
-        quality = core.configLocalEnum("General", "Quality",
+        quality[0] = core.configLocalEnum("General", "Quality",
                 "First person graphics mode: Automatic, Low, Medium, High or Custom. Automatic draws less when the frame rate drops\n"
                         + "and more again when it recovers. Custom uses the rows of [Graphics].",
                 writable | live, Quality.words(), Quality.AUTOMATIC);
-        overheadQuality = core.configLocalEnum("General", "IsometricQuality",
+        overheadQuality[0] = core.configLocalEnum("General", "IsometricQuality",
                 "Graphics mode of the game's isometric view: Low (the game's own picture), Medium, High or Custom.",
                 writable | live, Quality.overheadWords(), 0);
-        style = core.configLocalEnum("General", "Style",
+        style[0] = core.configLocalEnum("General", "Style",
                 "Picture style: Vivid (strong contrast and colour), Natural (colours as lit, less contrast) or Bleak (washed out, near\n"
                         + "the game's own look).",
                 writable | live, Style.words(), Style.BLEAK.ordinal());
@@ -153,6 +164,15 @@ final class Config {
         splitScreen = core.configLocalEnum("General", "SplitScreen",
                 "How two players at one screen share it: Vertical (side by side) or Horizontal (one above the other).",
                 writable | live, SplitScreen.words(), SplitScreen.VERTICAL);
+        for (int player = 1; player < View.COUNT; player++) {
+            String whose = "Player " + (player + 1) + "'s ";
+            quality[player] = core.configLocalEnum("Players", qualityKey(player), whose + "first person graphics mode, as Quality.",
+                    writable | live, Quality.words(), Quality.AUTOMATIC);
+            overheadQuality[player] = core.configLocalEnum("Players", overheadQualityKey(player),
+                    whose + "isometric graphics mode, as IsometricQuality.", writable | live, Quality.overheadWords(), 0);
+            style[player] = core.configLocalEnum("Players", PLAYER_ROW[player] + "Style", whose + "picture style, as Style.", writable | live,
+                    Style.words(), Style.BLEAK.ordinal());
+        }
         Quality.Picture high = Quality.HIGH_PICTURE;
         graphics = new int[] {
             core.configLocalEnum("Graphics", "TreeQuality",
@@ -212,13 +232,17 @@ final class Config {
                 "Switches between first person and the game's own view. Tap once for player 1, twice for player 2, three times for\n"
                         + "player 3, four times for player 4, hold for every player.",
                 0, "Delete", FIRST_PERSON_TAPS, FIRST_PERSON_ALL);
-        core.configLocalHotkey("CycleQualityKey",
-                "Goes to the next graphics mode and sets both views to it: Automatic, Low, Medium, High, Custom (Quality and\n"
-                        + "IsometricQuality). The isometric view has no Automatic: it takes Low for it, and the key skips Automatic\n"
-                        + "there. The game's options set the two views apart.", 0, "F9",
-                CYCLE_QUALITY);
-        core.configLocalHotkey("CycleStyleKey", "Goes to the next picture style: Vivid, Natural, Bleak (Style).", 0, "F8",
-                CYCLE_STYLE);
+        core.configLocalHotkeyTaps("CycleQualityKey",
+                "Goes to a player's next graphics mode and sets both their views to it: Automatic, Low, Medium, High, Custom (Quality\n"
+                        + "and IsometricQuality, and for players 2, 3 and 4 their rows of [Players]). The isometric view has no Automatic:\n"
+                        + "it takes Low for it, and the key skips Automatic there. The game's options set the two views apart. Tap once for\n"
+                        + "player 1, twice for player 2, three times for player 3, four times for player 4, hold for every player.",
+                0, "F9", CYCLE_QUALITY_TAPS, CYCLE_QUALITY_ALL);
+        core.configLocalHotkeyTaps("CycleStyleKey",
+                "Goes to a player's next picture style: Vivid, Natural, Bleak (Style, and for players 2, 3 and 4 their rows of\n"
+                        + "[Players]). Tap once for player 1, twice for player 2, three times for player 3, four times for player 4, hold\n"
+                        + "for every player.",
+                0, "F8", CYCLE_STYLE_TAPS, CYCLE_STYLE_ALL);
         core.configLocalHotkey("SplitScreenKey",
                 "With two players at the screen, switches between side by side and one above the other.", 0, "F7",
                 SPLIT_SCREEN);
@@ -292,9 +316,12 @@ final class Config {
             FieldOfView.set((float) value);
             Log.info("first person field of view set to " + (float) value + " degrees vertical");
         });
-        puts.put("Quality", value -> Quality.set((int) value));
-        puts.put("IsometricQuality", value -> Quality.setOverhead((int) value + Quality.LOW));
-        puts.put("Style", value -> Style.set((int) value));
+        for (int player = 0; player < View.COUNT; player++) {
+            int whose = player;
+            puts.put(qualityKey(player), value -> Quality.set(whose, (int) value));
+            puts.put(overheadQualityKey(player), value -> Quality.setOverhead(whose, (int) value + Quality.LOW));
+            puts.put(PLAYER_ROW[player] + "Style", value -> Style.set(whose, (int) value));
+        }
         puts.put("HillHeight", value -> {
             HillHeight.set((float) value);
             Log.info("hill height set to " + (float) value);
@@ -315,6 +342,16 @@ final class Config {
                 Log.info("the mod's own in first person: " + Own.described(Own.rows()));
             });
         }
+    }
+
+    /** The key of a player's first person graphics mode: Quality, SecondPlayerQuality and so on. */
+    static String qualityKey(int player) {
+        return PLAYER_ROW[player] + "Quality";
+    }
+
+    /** The key of a player's isometric graphics mode: IsometricQuality, SecondPlayerIsometricQuality and so on. */
+    static String overheadQualityKey(int player) {
+        return PLAYER_ROW[player] + "IsometricQuality";
     }
 
     /** Whether put has somewhere to put a row's value. The rows of [Graphics] are put by Tracking.applyScreen. */
@@ -381,9 +418,13 @@ final class Config {
         for (int part = 0; part < graphics.length; part++) {
             custom[part] = part == RENDER_SCALE ? core.configGetFloat(graphics[part]) : core.configGetInt(graphics[part]);
         }
-        return new Live(core.configGetFloat(fieldOfView), rows, core.configGetInt(quality), core.configGetInt(overheadQuality) + Quality.LOW,
-                core.configGetInt(style),
-                core.configGetFloat(hillHeight), core.configGetInt(muzzleFlash) != 0, core.configGetInt(splitScreen), picture(custom),
+        int[] qualities = new int[View.COUNT], overheadQualities = new int[View.COUNT], styles = new int[View.COUNT];
+        for (int player = 0; player < View.COUNT; player++) {
+            qualities[player] = core.configGetInt(quality[player]);
+            overheadQualities[player] = core.configGetInt(overheadQuality[player]) + Quality.LOW;
+            styles[player] = core.configGetInt(style[player]);
+        }
+        return new Live(core.configGetFloat(fieldOfView), rows, qualities, overheadQualities, styles, core.configGetFloat(hillHeight), core.configGetInt(muzzleFlash) != 0, core.configGetInt(splitScreen), picture(custom),
                 core.configGetInt(talkingMouths) != 0, List.of(microphones()));
     }
 
@@ -455,17 +496,17 @@ final class Config {
         return saved("yaw mode", core.configSaveWorldSpaceYaw(world));
     }
 
-    boolean saveQuality(int row) {
-        return saved("first person graphics mode", core.configSaveInt(quality, row));
+    boolean saveQuality(int player, int row) {
+        return saved("player " + (player + 1) + "'s first person graphics mode", core.configSaveInt(quality[player], row));
     }
 
     /** @param row a Quality mode, LOW or after */
-    boolean saveIsometricQuality(int row) {
-        return saved("isometric graphics mode", core.configSaveInt(overheadQuality, row - Quality.LOW));
+    boolean saveIsometricQuality(int player, int row) {
+        return saved("player " + (player + 1) + "'s isometric graphics mode", core.configSaveInt(overheadQuality[player], row - Quality.LOW));
     }
 
-    boolean saveStyle(Style row) {
-        return saved("picture style", core.configSaveInt(style, row.ordinal()));
+    boolean saveStyle(int player, Style row) {
+        return saved("player " + (player + 1) + "'s picture style", core.configSaveInt(style[player], row.ordinal()));
     }
 
     boolean saveSplitScreen(int row) {

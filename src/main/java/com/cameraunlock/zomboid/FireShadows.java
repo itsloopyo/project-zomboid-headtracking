@@ -37,12 +37,12 @@ final class FireShadows {
     private static final float BUILD_MARGIN = 1f;
 
     /** How many slots there are, and how many texels a face is across, for the picture's mode: sharper shadows, more and finer. */
-    static int slots() {
-        return Quality.sharpShadows() ? MOST : 2;
+    static int slots(int view) {
+        return Quality.sharpShadows(view) ? MOST : 2;
     }
 
-    static int faceSize() {
-        return Quality.sharpShadows() ? 512 : 256;
+    static int faceSize(int view) {
+        return Quality.sharpShadows(view) ? 512 : 256;
     }
 
     /** Where each slot's maps were drawn from (x, y, up), how far they see, and the frame they were drawn in; drawnIn 0 is never. */

@@ -120,7 +120,7 @@ final class FloorBuilder {
         }
         // A floor shows one pattern of boards, the sprite's: the picture's own wood is laid on it only as boards of the sprite's size and lie.
         // Where the picture lays none of its own textures a wooden floor stays wood, which is how its board joints and its gloss are drawn.
-        boolean ownWood = build.frame.material == WorldScene.WOOD && Own.textures();
+        boolean ownWood = build.frame.material == WorldScene.WOOD && Own.textures(build.playerIndex);
         Flats.Boards boards = ownWood && flat != 0 ? Flats.boards(flat) : null;
         if (ownWood && isFloor && boards == null) {
             build.frame.material = WorldScene.TILE;
@@ -133,14 +133,14 @@ final class FloorBuilder {
             build.frame.material = made;
         }
         // A line painted on the road is laid as paint, not as its sprite: see RoadPaint.
-        boolean painted = (build.overLayer > 0 ? build.paintOver : sprite.paint && !isFloor) && build.frame.kind == 0f && Own.paint();
+        boolean painted = (build.overLayer > 0 ? build.paintOver : sprite.paint && !isFloor) && build.frame.kind == 0f && Own.paint(build.playerIndex);
         RoadPaint.Shape paint = painted ? RoadPaint.of(texture, build.frame) : null;
         if (painted && paint == null && RoadPaint.unread(texture)) {
             build.building.signed = false;
         }
         SpriteGeometry.Mesh on = paint != null ? WorldScene.laid.get(paint.picture) : build.floorLayer == 0 ? mesh : WorldScene.laid.get(texture.getID());
         // A rug the game lays over the floor is its square drawn again: see Rugs.
-        int rug = !isFloor && build.floorLayer > 0 && Own.textures() ? build.rugOf(texture, sprite.rug, sprite.pile, x, y, z) : 0;
+        int rug = !isFloor && build.floorLayer > 0 && Own.textures(build.playerIndex) ? build.rugOf(texture, sprite.rug, sprite.pile, x, y, z) : 0;
         float laidAs = build.frame.material;
         if (rug != 0) {
             on = WorldScene.laid.get(rug);
@@ -170,7 +170,7 @@ final class FloorBuilder {
         if (z == 0 && build.geometry.kerb != null && (!isFloor || build.beyondKerb >= 0)) {
             build.geometry.kerbKeep = build.geometry.kerbStreet && !build.vergeOver ? SpriteGeometry.STREET : SpriteGeometry.LAND;
         }
-        if (boards != null && build.geometry.kerb == null && Own.textures()) {
+        if (boards != null && build.geometry.kerb == null && Own.textures(build.playerIndex)) {
             addBoards(WorldScene.solid.get(flat, WallSides.key(boards.red(), boards.green(), boards.blue(), WallSides.FLAT)), boards, x, y, z);
             build.frame.flat = 0;
             build.geometry.cover = null;
@@ -179,7 +179,7 @@ final class FloorBuilder {
         if (boards != null) {
             build.frame.material = WorldScene.TILE;
         }
-        if (build.floorLayer == 0 && isFloor && build.frame.kind == 0f && build.geometry.kerb == null && (sprite.carpet || sprite.tiled) && Own.textures()) {
+        if (build.floorLayer == 0 && isFloor && build.frame.kind == 0f && build.geometry.kerb == null && (sprite.carpet || sprite.tiled) && Own.textures(build.playerIndex)) {
             // Tiles are faces of their own on the sprite's own mesh, painted over.
             build.frame.flat = 0;
             if (addTiles(texture, sprite.carpet, x, y, z)) {

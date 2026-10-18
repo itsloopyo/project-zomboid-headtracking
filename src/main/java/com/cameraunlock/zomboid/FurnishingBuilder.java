@@ -117,7 +117,7 @@ final class FurnishingBuilder {
         // The mod's picture for the sprite, where its pictures are on. A poster hangs as the
         // mod's sheet only to show one, and a frame, a clock or a lamp only where the mod's
         // furniture is on or it has a picture to show.
-        int picture = piece != null && Own.pictures() ? piece.picture : Decor.NONE;
+        int picture = piece != null && Own.pictures(build.playerIndex) ? piece.picture : Decor.NONE;
         if (picture != Decor.NONE && !Decor.ready(picture)) {
             // A picture not read yet would be drawn as nothing: the sprite paints the frame until
             // a build made again once it is read.
@@ -570,7 +570,7 @@ final class FurnishingBuilder {
             // that is on shows the bars, which is what the game's sprite is a picture of.
             int showing = Screens.showing(set);
             if (showing != Screens.DARK) {
-                addLitScreen(piece, model, Screens.held(set, Own.pictures() ? showing : Screens.BARS, piece.blackAndWhite), piece.blackAndWhite, x, y, foot);
+                addLitScreen(piece, model, Screens.held(set, Own.pictures(build.playerIndex) ? showing : Screens.BARS, piece.blackAndWhite), piece.blackAndWhite, x, y, foot);
             }
         }
         return true;

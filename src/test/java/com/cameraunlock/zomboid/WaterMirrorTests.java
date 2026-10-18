@@ -56,13 +56,13 @@ final class WaterMirrorTests {
 
     private static void lowsWaterIsAsRoughInAnyWind() {
         try {
-            Quality.set(Quality.LOW);
-            check(WaterMirror.ruffleDrawn(0f) == 1f && WaterMirror.ruffleDrawn(2f) == 1f, "in Low the picture draws water as a light breeze leaves it, calm or gale");
-            Quality.set(Quality.HIGH);
-            check(WaterMirror.ruffleDrawn(2f) == WaterMirror.ruffle(2f) && WaterMirror.ruffleDrawn(2f) > WaterMirror.ruffleDrawn(0.1f),
+            Quality.set(0, Quality.LOW);
+            check(WaterMirror.ruffleDrawn(0, 0f) == 1f && WaterMirror.ruffleDrawn(0, 2f) == 1f, "in Low the picture draws water as a light breeze leaves it, calm or gale");
+            Quality.set(0, Quality.HIGH);
+            check(WaterMirror.ruffleDrawn(0, 2f) == WaterMirror.ruffle(2f) && WaterMirror.ruffleDrawn(0, 2f) > WaterMirror.ruffleDrawn(0, 0.1f),
                     "in High a gale roughens it as the wind says");
         } finally {
-            Quality.set(Quality.HIGH);
+            Quality.set(0, Quality.HIGH);
         }
     }
 

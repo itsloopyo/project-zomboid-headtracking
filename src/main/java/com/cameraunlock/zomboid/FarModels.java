@@ -224,7 +224,7 @@ public final class FarModels {
         }
         IsoPlayer viewer = view.player();
         float toX = moving.getX() - viewer.getX(), toY = moving.getY() - viewer.getY();
-        float reach = ChunkBuffers.drawnWithin(Quality.sight());
+        float reach = ChunkBuffers.drawnWithin(Quality.sight(view.index));
         if (toX * toX + toY * toY > reach * reach) {
             return false;
         }
@@ -232,7 +232,7 @@ public final class FarModels {
         if (ride != null) {
             ride.getForwardVector(ahead);
         }
-        drawDistance.take(viewer.getX(), viewer.getY(), ride != null ? ahead.x : 0f, ride != null ? ahead.z : 0f, Online.contested());
+        drawDistance.take(view.index, viewer.getX(), viewer.getY(), ride != null ? ahead.x : 0f, ride != null ? ahead.z : 0f, Online.contested());
         return drawDistance.draws(moving.getX(), moving.getY());
     }
 

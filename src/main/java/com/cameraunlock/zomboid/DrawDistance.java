@@ -25,11 +25,11 @@ final class DrawDistance {
     }
 
     /**
-     * Takes what the graphics mode draws now, for an eye at (eyeX, eyeY) in a vehicle that faces
-     * (aheadX, aheadY) on the map, or on foot with both 0.
+     * Takes what a view's graphics mode draws now, for an eye at (eyeX, eyeY) in a vehicle that
+     * faces (aheadX, aheadY) on the map, or on foot with both 0.
      */
-    void take(float eyeX, float eyeY, float aheadX, float aheadY, boolean contested) {
-        Quality.Picture picture = Quality.drawn();
+    void take(int view, float eyeX, float eyeY, float aheadX, float aheadY, boolean contested) {
+        Quality.Picture picture = Quality.drawn(view);
         this.eyeX = eyeX;
         this.eyeY = eyeY;
         this.aheadX = aheadX;

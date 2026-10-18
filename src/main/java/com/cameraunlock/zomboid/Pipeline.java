@@ -56,6 +56,7 @@ final class Pipeline {
 
     Pipeline(View view) {
         this.view = view;
+        fires = new FireDraw(view.index);
     }
 
     /** How many texels across the shadow maps are: see Quality.shadowSize. */
@@ -743,7 +744,7 @@ final class Pipeline {
     /** The exposure the picture being drawn is developed at. */
     private float pictureExposure = 1f;
     /** This picture's fires and their light. */
-    private final FireDraw fires = new FireDraw();
+    private final FireDraw fires;
     private static final String[] BEAM_AT = new String[Headlights.BEAMS], BEAM_WAY = new String[Headlights.BEAMS];
     private static final String[] ROOT_AT = new String[Characters.ROOTS];
     /** uCarAt, uCarAhead, uCarUp and uCarSnow by the vehicle's number: see SnowShader.ON_VEHICLES. */
@@ -1010,16 +1011,16 @@ final class Pipeline {
             Log.info("first person cannot be drawn on this machine: " + broken);
             return;
         }
-        if (failure == null && nearMap != 0 && shadowSize != Quality.shadowSize()) {
+        if (failure == null && nearMap != 0 && shadowSize != Quality.shadowSize(view.index)) {
             giveBackShadowMaps();
         }
         if (failure == null && nearMap == 0) {
-            shadowSize = Quality.shadowSize();
+            shadowSize = Quality.shadowSize(view.index);
             failure = makeShadowMaps();
             farDrawn = false;
             roofDrawn = false;
         }
-        float scale = SCALE * Quality.scale();
+        float scale = SCALE * Quality.scale(view.index);
         int wide = Math.round(viewport[2] * scale), high = Math.round(viewport[3] * scale);
         if (failure == null && (wide != width || high != height)) {
             failure = resize(wide, high);
@@ -1031,10 +1032,10 @@ final class Pipeline {
             }
             frameNanos = System.nanoTime();
             pictureExposure = exposure;
-            shadedAndLit = Quality.shadedAndLit();
-            surfacesMirror = Quality.surfacesMirror();
-            reflections = Quality.reflections();
-            steadying = Quality.frameBlending();
+            shadedAndLit = Quality.shadedAndLit(view.index);
+            surfacesMirror = Quality.surfacesMirror(view.index);
+            reflections = Quality.reflections(view.index);
+            steadying = Quality.frameBlending(view.index);
             frameColor = sceneColor;
             SpriteColours.read(view.index);
             Rugs.putOnCard(view.index, camera.eyeX, camera.eyeY, camera.eyeUp);
@@ -1043,7 +1044,7 @@ final class Pipeline {
             drawn = chunks;
             ChunkBuffers.load(chunks, ahead);
             Impacts.take();
-            struck = !overhead && ImpactDraw.shown();
+            struck = !overhead && ImpactDraw.shown(view.index);
             // At rest overhead the picture is of the built world alone, as the game's is. On the
             // camera's way to the eye the far land is round the viewer and not the camera: it comes
             // in as the built world's own ends do, which come in from far off as the camera comes down.
@@ -1944,7 +1945,7 @@ final class Pipeline {
                     if (inLookingGlass && behindGlass(f[ball], f[ball + 1], f[ball + 2], f[ball + 3])) {
                         continue;
                     }
-                    plain = Quality.plain() || placed.plain(piece, ahead, pixel);
+                    plain = Quality.plain(view.index) || placed.plain(piece, ahead, pixel);
                 } else if (!lit && mapBounds.outside(f[ball], f[ball + 1], f[ball + 2], f[ball + 3], f[ball + 3], f[ball + 3])) {
                     // A piece wholly outside the map being drawn puts nothing in it.
                     continue;
@@ -2196,7 +2197,7 @@ final class Pipeline {
         shadow.set("uTexture", 0);
         shadow.set("uWind", state.windX, state.windY, state.seconds);
         shadow.set("uGust", state.gustX, state.gustY, state.flutter);
-        shadow.set("uPlantSnow", state.snowOnPlants());
+        shadow.set("uPlantSnow", state.snowOnPlants(view.index));
         shadow.set("uSnowLying", state.snowLying);
         shadow.set("uFaced", state.facedX, state.facedY);
         shadow.set("uLayerFrom", state.layersFromX, state.layersFromY, state.layersFromUp);
@@ -2360,7 +2361,7 @@ final class Pipeline {
         GL11.glViewport(0, 0, shadowSize, shadowSize);
     }
 
-    /** The fires' shadow maps: FireShadows.slots() slots of six faces, each FireShadows.faceSize() across, in one depth texture. */
+    /** The fires' shadow maps: FireShadows.slots slots of six faces, each FireShadows.faceSize across, in one depth texture. */
     private String makeFired() {
         int map = GL11.glGenTextures();
         GL11.glBindTexture(GL_TEXTURE_2D, map);
@@ -3302,7 +3303,7 @@ final class Pipeline {
     /** The trees beyond the loaded map, after the far land, to Quality.farTreeDistance: see FarTrees. */
     private void drawFarTrees(ViewCamera.Pose camera, SkyState state, float fogStart, float fogEnd) {
         FarTreeKinds kinds = FarLand.treeKinds;
-        int reach = Quality.farTreeDistance();
+        int reach = Quality.farTreeDistance(view.index);
         if (kinds == null || reach <= 0) {
             return;
         }
@@ -3350,7 +3351,7 @@ final class Pipeline {
         // Where the near trees are the game's sprites the far ones follow the game's schedule, and otherwise the mod's, in the steps its builds take.
         long now = Seasons.now();
         int season = Seasons.seasonOf(now);
-        boolean games = !Own.plants();
+        boolean games = !Own.plants(view.index);
         farTree.set("uSeason", (float) season, games ? Seasons.progressionOf(now) : Seasons.stepped(season, Seasons.progressionOf(now)));
         farTree.set("uGameSchedule", games ? 1f : 0f);
         view.worldScene.farLand.drawTrees(focusX, focusY, reach, farTree.attribute("aTree"), treeMeshes, treeVertices, camera);
@@ -3413,7 +3414,7 @@ final class Pipeline {
     private void placeSnowPrints(ViewCamera.Pose camera) {
         SnowPrints.placed(view.worldScene.terrain, camera.eyeX, camera.eyeY, snowPrints, snowRuts, snowRutsUp, snowTrod);
         // The marks are the mod's own: the game's snow, which Low draws, keeps none.
-        if (!Own.textures()) {
+        if (!Own.textures(view.index)) {
             snowTrod[0] = 0f;
             snowTrod[1] = 0f;
         }
@@ -3458,7 +3459,7 @@ final class Pipeline {
         to.set("uRoofMatrix", roofMatrix);
         to.set("uCover", state.cover);
         to.set("uDrift", state.driftX, state.driftY);
-        boolean fewerTaps = !Quality.sharpShadows();
+        boolean fewerTaps = !Quality.sharpShadows(view.index);
         to.set("uSunTaps", fewerTaps ? 1f : 0f, fewerTaps && steadying && eyesOwn() ? frameNumber % 64 : 0f);
         // Texels of soft edge for each unit of the map's depth between caster and ground.
         to.set("uSoftPerDepth", 2f * NEAR_RANGE * SUN_WIDTH * shadowSize / (2f * NEAR_EXTENT));
@@ -3563,8 +3564,8 @@ final class Pipeline {
         to.set("uWaterRect", waterRect[0], waterRect[1], waterRect[2], waterRect[3]);
         to.set("uWaterDensity", (float) waterHeight / height);
         to.set("uWaterThrow", WaterMirror.THROW);
-        to.set("uRuffle", WaterMirror.ruffleDrawn((float) Math.hypot(state.windX, state.windY)));
-        to.set("uPlainWater", Quality.plain() ? 1f : 0f);
+        to.set("uRuffle", WaterMirror.ruffleDrawn(view.index, (float) Math.hypot(state.windX, state.windY)));
+        to.set("uPlainWater", Quality.plain(view.index) ? 1f : 0f);
         to.set("uWind", state.windX, state.windY, state.seconds);
         to.set("uGust", state.gustX, state.gustY, state.flutter);
         to.set("uFaced", state.facedX, state.facedY);
@@ -3575,10 +3576,10 @@ final class Pipeline {
         to.set("uSeconds", state.seconds);
         to.set("uRaining", state.rain);
         // Low is the game's look: its surfaces mirror only what they always did, and so do its people (uFigureMirror).
-        to.set("uSkyMirror", Quality.plain() || WITHOUT.contains("skymirror") ? 0f : 1f);
+        to.set("uSkyMirror", Quality.plain(view.index) || WITHOUT.contains("skymirror") ? 0f : 1f);
         to.set("uSnowLying", state.snowLying);
         to.set("uSnowPlaster", state.plasterX, state.plasterY);
-        to.set("uPlantSnow", state.snowOnPlants());
+        to.set("uPlantSnow", state.snowOnPlants(view.index));
         long year = Seasons.now();
         int season = Seasons.seasonOf(year);
         float progression = Seasons.progressionOf(year);
@@ -3644,10 +3645,10 @@ final class Pipeline {
         to.set("uNatureGain", natureGain[0], natureGain[1]);
         to.set("uSprigs", SPRIG_UNIT);
         to.set("uSprigForm", SPRIG_FORM_UNIT);
-        to.set("uRelief", WITHOUT.contains("relief") || !Own.textures() || !Quality.relief() || inMirror || inWater ? 0f : 1f);
+        to.set("uRelief", WITHOUT.contains("relief") || !Own.textures(view.index) || !Quality.relief(view.index) || inMirror || inWater ? 0f : 1f);
         to.set("uMirrors", surfacesMirror && !inWater ? 1f : 0f);
         to.set("uCornersShaded", shadedAndLit && !WITHOUT.contains("occlusion") ? 1f : 0f);
-        to.set("uOwnTextures", Own.textures() ? 1f : 0f);
+        to.set("uOwnTextures", Own.textures(view.index) ? 1f : 0f);
     }
 
     private static void setBasis(Program program, ViewCamera.Pose pose) {
@@ -3658,7 +3659,7 @@ final class Pipeline {
 
     private void atmosphere(Program program, SkyState state) {
         // People mirror what is round them as the world's surfaces do, but in Low, which keeps the look it has always had (CharacterDraw.dressed).
-        program.set("uFigureMirror", Quality.plain() || WITHOUT.contains("skymirror") ? 0f : 1f);
+        program.set("uFigureMirror", Quality.plain(view.index) || WITHOUT.contains("skymirror") ? 0f : 1f);
         // From far overhead the fog is the develop pass's sheet, as the game has it over its own view. On the
         // flight between the two the air thins away as the sheet comes in, so neither leaves the picture clear.
         float sheet = overhead ? Math.clamp((away - WorldScene.OVERHEAD_RANGE) / (2f * WorldScene.OVERHEAD_RANGE), 0f, 1f) : 0f;
@@ -4151,9 +4152,9 @@ final class Pipeline {
         develop.set("uSize", (float) width, (float) height);
         develop.set("uLow", (float) levelWidth[0], (float) levelHeight[0]);
         develop.set("uExposure", exposure);
-        Style style = Style.current();
+        Style style = Style.of(view.index);
         // The game's own view drawn from overhead, and Low, which is the game's look, are developed as they always were.
-        boolean ownTone = !overhead && !Quality.plain() && !WITHOUT.contains("tone");
+        boolean ownTone = !overhead && !Quality.plain(view.index) && !WITHOUT.contains("tone");
         float cover = Math.max(state.cover, state.rain);
         developed.settle(exposure, ownTone ? style.levels : 0f, state.night, state.fog, ownTone && !WITHOUT.contains("balance") ? 1f - state.outdoors : 0f, System.nanoTime());
         develop.set("uBalance", ownTone ? developed.balanceRed() : 1f, ownTone ? developed.balanceBlue() : 1f);
@@ -4348,7 +4349,7 @@ final class Pipeline {
             figureLight.set("uJersey", FIRST_MATERIAL_UNIT + 13);
             figureLight.set("uVinyl", FIRST_MATERIAL_UNIT + 11);
             figureLight.set("uWearGain", materialGain[13], materialGain[11]);
-            figureLight.set("uWornGrain", Own.textures() ? 1f : 0f);
+            figureLight.set("uWornGrain", Own.textures(view.index) ? 1f : 0f);
             figureLight.set("uRoots", pass == 0 ? (float) view.characters.rootsFound : 0f);
             for (int root = 0; root < view.characters.rootsFound && pass == 0; root++) {
                 figureLight.set(ROOT_AT[root], view.characters.roots[root * 4], view.characters.roots[root * 4 + 1], view.characters.roots[root * 4 + 2], view.characters.roots[root * 4 + 3]);
@@ -4472,7 +4473,7 @@ final class Pipeline {
             }
             figureLight.set("uRaining", state.rain);
             figureLight.set("uSnowing", state.snow);
-            figureLight.set("uGlassRain", (float) Quality.glassRain());
+            figureLight.set("uGlassRain", (float) Quality.glassRain(view.index));
             view.glassPull.frame(seated, state.seconds, view.ride.goingX, view.ride.goingY, view.ride.aheadX, view.ride.aheadY);
             if (FirstPerson.TRACE && seated) {
                 view.glassPull.say();
@@ -4480,7 +4481,7 @@ final class Pipeline {
             figureLight.set("uGlassPull", view.glassPull.leanAhead, view.glassPull.leanAside, view.glassPull.front, view.glassPull.back);
             figureLight.set("uGauges", view.ride.roadSpeed, view.ride.engineSpeed, view.ride.fuel);
             figureLight.set("uTime", state.seconds);
-            setCars(false, seated && view.ride.sat != null ? SnowCarried.on(view.ride.sat)[FigureSnow.BONNET] : 0f);
+            setCars(false, seated && view.ride.sat != null ? SnowCarried.on(view.index, view.ride.sat)[FigureSnow.BONNET] : 0f);
             float[] axes = view.characters.cabin.axes;
             figureLight.set("uBodyAhead", axes[0], axes[1], axes[2]);
             figureLight.set("uBodyAside", axes[3], axes[4], axes[5]);
@@ -4627,7 +4628,7 @@ final class Pipeline {
         glass.set("uTime", state.seconds);
         glass.set("uRaining", state.rain);
         glass.set("uSnowing", state.snow);
-        glass.set("uGlassRain", (float) Quality.glassRain());
+        glass.set("uGlassRain", (float) Quality.glassRain(view.index));
         glass.set("uGlassPull", view.glassPull.leanAhead, view.glassPull.leanAside, view.glassPull.front, view.glassPull.back);
         cabinDraw.drawGlass(cabinFrame);
         Program.useOther(0);
@@ -5343,7 +5344,7 @@ final class Pipeline {
 
     /** Whether the graphics mode shows the mod's own and its pictures have still to be made. */
     boolean contentWaited() {
-        return !Quality.plain() && !contentReady && !contentRefused && failure() == null;
+        return !Quality.plain(view.index) && !contentReady && !contentRefused && failure() == null;
     }
 
     /**
@@ -5424,10 +5425,10 @@ final class Pipeline {
             makes = CORE;
             return CORE.get(preparing).begun.getAsBoolean();
         }
-        if (contentBegun && Quality.plain()) {
-            // The mode now shows none of the mod's own: its pictures are given back, made or half made.
+        if (contentBegun && Quality.plainEverywhere()) {
+            // No player's mode now shows the mod's own: its pictures are given back, made or half made.
             giveBackContent();
-            Log.info("the graphics mode shows none of the mod's own: its surfaces, plants and weapons are given back to the graphics card");
+            Log.info("no player's graphics mode shows any of the mod's own: its surfaces, plants and weapons are given back to the graphics card");
         }
         if (contentBegun && !contentReady) {
             makes = CONTENT;
@@ -5464,7 +5465,7 @@ final class Pipeline {
             makes = null;
             return heldModel != null && heldModel.isRead();
         }
-        if (contentRefused || Quality.plain()) {
+        if (contentRefused || Quality.plainEverywhere()) {
             return false;
         }
         contentBegun = true;

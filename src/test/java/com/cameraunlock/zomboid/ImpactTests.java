@@ -245,18 +245,18 @@ final class ImpactTests {
     }
 
     private static void theGamesOwnLookShowsNoImpacts() {
-        int mode = Quality.row();
+        int mode = Quality.row(0);
         Quality.Picture custom = Quality.custom();
         try {
-            Quality.set(Quality.LOW);
-            check(!ImpactDraw.shown(), "Low, the game's own look, shows no impacts");
-            Quality.set(Quality.MEDIUM);
-            check(ImpactDraw.shown(), "Medium shows them");
-            Quality.set(Quality.HIGH);
-            check(ImpactDraw.shown(), "and High");
+            Quality.set(0, Quality.LOW);
+            check(!ImpactDraw.shown(0), "Low, the game's own look, shows no impacts");
+            Quality.set(0, Quality.MEDIUM);
+            check(ImpactDraw.shown(0), "Medium shows them");
+            Quality.set(0, Quality.HIGH);
+            check(ImpactDraw.shown(0), "and High");
         } finally {
             Quality.custom(custom);
-            Quality.set(mode);
+            Quality.set(0, mode);
         }
     }
 }

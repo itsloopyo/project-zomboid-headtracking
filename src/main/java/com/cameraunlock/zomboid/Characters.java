@@ -1637,7 +1637,7 @@ public final class Characters {
             }
         }
         if (ownArms) {
-            OwnArms.snowed(SnowCarried.on(data.character));
+            OwnArms.snowed(SnowCarried.on(view.index, data.character));
             OwnArms.Worn worn = wornOnArms();
             float[] stains = view.ride.dress.stains;
             OwnArms.draw(projection, armSkins[0], false, armFemale, armSkin, ownLight, outside, worn, stains);
@@ -1652,9 +1652,9 @@ public final class Characters {
             return;
         }
         CharacterDraw.release();
-        CharacterDraw.begin(data, handViews[0], projection, false, 0f);
+        CharacterDraw.begin(data, handViews[0], projection, false, 0f, Float.POSITIVE_INFINITY);
         CharacterDraw.stands(ownLight, ownOutside);
-        CharacterDraw.snowed(SnowCarried.on(data.character));
+        CharacterDraw.snowed(SnowCarried.on(view.index, data.character));
         for (int part = 0; part < parts(data).size(); part++) {
             ModelInstanceRenderData model = parts(data).get(part);
             if (model.model == null || !model.model.isStatic) {
@@ -1662,9 +1662,9 @@ public final class Characters {
             }
         }
         if (heldBoth) {
-            CharacterDraw.begin(data, handViews[1], projection, false, 0f);
+            CharacterDraw.begin(data, handViews[1], projection, false, 0f, Float.POSITIVE_INFINITY);
             CharacterDraw.stands(ownLight, ownOutside);
-            CharacterDraw.snowed(SnowCarried.on(data.character));
+            CharacterDraw.snowed(SnowCarried.on(view.index, data.character));
             for (int part = 0; part < parts(data).size(); part++) {
                 ModelInstanceRenderData model = parts(data).get(part);
                 if (model.model == null || !model.model.isStatic) {
@@ -1711,7 +1711,7 @@ public final class Characters {
             drawPart(model, data);
             EYE.End();
         }
-        OwnArms.snowed(SnowCarried.on(data.character));
+        OwnArms.snowed(SnowCarried.on(view.index, data.character));
         OwnArms.Worn worn = wornOnArms();
         float[] stains = view.ride.dress.stains;
         OwnArms.draw(projection, armSkins[0], false, armFemale, armSkin, ownLight, outside, worn, stains);
@@ -2040,7 +2040,8 @@ public final class Characters {
         place(data.x, data.y, up, data.animPlayerAngle, CHARACTER_SCALE);
         multiply(viewMatrix, placed, combined);
         EYE.Begin();
-        CharacterDraw.begin(data, combined, projection, casting, fromEye);
+        CharacterDraw.begin(data, combined, projection, casting, fromEye,
+                Quality.wholeFigureShadows(view.index) ? Float.POSITIVE_INFINITY : CharacterDraw.SHADOW_WHOLE_WITHIN);
         // The body seen from the eye is lit as the hands are, which at a doorway may be the next square's light.
         if (own && !casting) {
             CharacterDraw.stands(ownLight, ownOutside);
@@ -2048,7 +2049,7 @@ public final class Characters {
             lightWhere(data);
         }
         if (!casting) {
-            CharacterDraw.snowed(SnowCarried.on(data.character));
+            CharacterDraw.snowed(SnowCarried.on(view.index, data.character));
         }
         for (int part = 0; part < parts(data).size(); part++) {
             ModelInstanceRenderData model = parts(data).get(part);
@@ -2130,7 +2131,7 @@ public final class Characters {
             person.ambientR = 1f;
             person.ambientG = 1f;
             person.ambientB = 1f;
-            CharacterDraw.begin(person, combined, projection, false, fromViewer(toX, toY, piece.z - viewer.getZ()));
+            CharacterDraw.begin(person, combined, projection, false, fromViewer(toX, toY, piece.z - viewer.getZ()), Float.POSITIVE_INFINITY);
             IsoGridSquare square = IsoWorld.instance.currentCell.getGridSquare((int) Math.floor(piece.x), (int) Math.floor(piece.y), (int) Math.floor(piece.z));
             if (square != null) {
                 lightAt(square);
@@ -2180,7 +2181,7 @@ public final class Characters {
             try {
                 place(piece.x, piece.y, piece.standsUp, piece.angle, CHARACTER_SCALE);
                 multiply(layView, placed, layCombined);
-                CharacterDraw.begin(piece.person, layCombined, layProjection, false, 0f);
+                CharacterDraw.begin(piece.person, layCombined, layProjection, false, 0f, Float.POSITIVE_INFINITY);
                 for (int part = 0; part < piece.parts.size(); part++) {
                     ModelInstanceRenderData model = piece.parts.get(part);
                     model.matrixPalette = Pieces.bones(piece, part);
@@ -2369,7 +2370,7 @@ public final class Characters {
         float alongUp = -up * lift;
         float alongLength = (float) Math.sqrt(alongX * alongX + alongY * alongY + alongUp * alongUp);
         Vector3f extents = vehicle.getScript().getExtents();
-        float[] snow = SnowCarried.on(vehicle);
+        float[] snow = SnowCarried.on(view.index, vehicle);
         int at = slot * CAR_FLOATS;
         cars[at] = placed[12] - upX * VEHICLE_RAISE;
         cars[at + 1] = placed[13] - upY * VEHICLE_RAISE;

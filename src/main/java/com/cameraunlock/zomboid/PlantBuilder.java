@@ -494,11 +494,11 @@ final class PlantBuilder {
         Plant plant = plantOf(sprite);
         String grown = plant.name();
         boolean dead = plant.dead();
-        if ((type == IsoObjectType.tree || dead) && build.overLayer == 0 && Own.plants() && addBole(sprite, texture, x, y, z) && build.geometry.keep < 1f) {
+        if ((type == IsoObjectType.tree || dead) && build.overLayer == 0 && Own.plants(build.playerIndex) && addBole(sprite, texture, x, y, z) && build.geometry.keep < 1f) {
             return;
         }
         // A fern the game paints is a fern of the mod's own, as big as the painted one.
-        if (plant.fern() && Own.plants() && addFern(x, y, z)) {
+        if (plant.fern() && Own.plants(build.playerIndex) && addFern(x, y, z)) {
             return;
         }
         roomFor(x, y, z);
@@ -514,12 +514,12 @@ final class PlantBuilder {
         boolean bush = type != IsoObjectType.tree && plant.bushy();
         // So is every other plant the game paints with a dark line round each leaf: the
         // line is what makes it a drawing. A tree's trunk is left as it is, and a dead tree is bark.
-        if (grown != null && type != IsoObjectType.tree && Own.plants()) {
+        if (grown != null && type != IsoObjectType.tree && Own.plants(build.playerIndex)) {
             build.frame.material = dead ? WorldScene.BARK : bush ? Flora.BUSH : WorldScene.LEAVES;
         }
         // A deciduous tree's leaves go through autumn and come back through spring, each tree
         // on days of its own (Seasons). One the season has bare never gets here: see bareBySeason.
-        boolean leafy = grown != null && type == IsoObjectType.tree && build.overLayer > 0 && Own.plants();
+        boolean leafy = grown != null && type == IsoObjectType.tree && build.overLayer > 0 && Own.plants(build.playerIndex);
         int treeHash = Seasons.treeHash(x, y);
         boolean seasonal = leafy && !plant.evergreen();
         float leaf = seasonal ? Seasons.leafOn(treeHash) : 1f;
@@ -527,7 +527,7 @@ final class PlantBuilder {
         // sprigs. The fan then stands only in the sun's own pictures, to throw the shadow.
         float fanned = build.frame.material, red = build.frame.red;
         // A crop near the eye is grown stalk by stalk, and its cards then only throw its shadow.
-        if (Own.plants() && growCrop(texture, plant.crop(), x, y)) {
+        if (Own.plants(build.playerIndex) && growCrop(texture, plant.crop(), x, y)) {
             Flora.shadeOnly(build.frame, 1f);
         }
         // An evergreen has no leaves of its own to lay over its trunk: its sprite paints the needles with the trunk, and is its crown.
@@ -535,7 +535,7 @@ final class PlantBuilder {
         // A tree with no leaves, dead or bare for the winter, has a crown of wood alone, grown from its bole.
         boolean bare = build.overLayer == 0 && build.geometry.keep == 1f && (type == IsoObjectType.tree && !plant.evergreen() || dead) && boleX == x && boleY == y;
         int sprig = bare ? Flora.BARE : bush ? Flora.SHRUB : plant.treeSprig();
-        boolean crowned = grown != null && (bush || type == IsoObjectType.tree && build.overLayer > 0 || evergreen || bare) && Own.plants()
+        boolean crowned = grown != null && (bush || type == IsoObjectType.tree && build.overLayer > 0 || evergreen || bare) && Own.plants(build.playerIndex)
                 && addCrown(texture, plant, sprig, x, y, z, leaf, seasonal ? Flora.autumnHue(plant.turnsAs(), Flora.otherHue(treeHash)) : Flora.YELLOW_LEAF, seasonal ? Seasons.turned(treeHash) : 0f);
         if (crowned) {
             Flora.shadeOnly(build.frame, leaf);
@@ -555,7 +555,7 @@ final class PlantBuilder {
         }
         build.frame.material = fanned;
         build.frame.red = red;
-        if (bush && !crowned && Own.plants() && build.within(WorldScene.BUSH_REACH, false)) {
+        if (bush && !crowned && Own.plants(build.playerIndex) && build.within(WorldScene.BUSH_REACH, false)) {
             // A fan of cards through one line is thin seen along that line, and from
             // above it is a star. A bush is a clump: three more cards stand round its
             // middle, each across the way out to it, so there are leaves on every side.
@@ -626,7 +626,7 @@ final class PlantBuilder {
      * It is drawn as a tree the game has bare is, with a crown of wood alone (Flora.BARE).
      */
     boolean bareBySeason(String name, int x, int y) {
-        if (name == null || !Own.plants() || Flora.evergreen(name)) {
+        if (name == null || !Own.plants(build.playerIndex) || Flora.evergreen(name)) {
             return false;
         }
         // What the build makes of this tree goes by the season: it is made again as the season moves on.

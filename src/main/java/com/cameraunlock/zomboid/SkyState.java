@@ -105,9 +105,9 @@ final class SkyState {
      */
     float plasterX, plasterY;
 
-    /** How much snow lies on what grows: none in Low, which draws what grows as the game does. */
-    float snowOnPlants() {
-        return Quality.plain() ? 0f : snowLying;
+    /** How much snow lies on what grows in a view: none in Low, which draws what grows as the game does. */
+    float snowOnPlants(int view) {
+        return Quality.plain(view) ? 0f : snowLying;
     }
     /** How fast the air moves, in tiles a second, how far it has carried the rain and the snow, in tiles, and the clocks each falls by: see Wind. */
     float airX, airY, carriedX, carriedY, rainClock, snowClock;

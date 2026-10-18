@@ -211,6 +211,7 @@ Centring belongs to your tracker, recenter there.
   - **Stock sights** eases head turns and leaning out while the sights are up, so you see the game's own sight picture, and keeps only head tilt.
 - `F9` goes through Automatic, Low, Medium, High and Custom, and sets first person and the isometric view to the same mode. The isometric view has no Automatic: it stays in Low while first person is in Automatic, and `F9` pressed in the isometric view skips Automatic. To give the two views different modes, set them in the game's options.
 - `F8` goes through the picture styles Vivid, Natural and Bleak.
+- In split screen each player has their own graphics mode and picture style. Tap `F9` or `F8` once for player 1, twice for player 2, three times for player 3 and four times for player 4, or hold it for every player. Players 2, 3 and 4 keep theirs in `[Players]` in `CameraUnlock.ini` and in the game's options.
 
 Every key except `Delete` saves its new setting to `CameraUnlock.ini` as you press it. No key turns head tracking on or off: `EnableOnStartup` in `CameraUnlock.ini` decides that. There is no recenter key: centre the view in your tracker app.
 
@@ -393,11 +394,14 @@ TrueFreeLookKey=Insert
 ; Switches between first person and the game's own view. Tap once for player 1, twice for player 2, three times for
 ; player 3, four times for player 4, hold for every player.
 FirstPersonKey=Delete
-; Goes to the next graphics mode and sets both views to it: Automatic, Low, Medium, High, Custom (Quality and
-; IsometricQuality). The isometric view has no Automatic: it takes Low for it, and the key skips Automatic
-; there. The game's options set the two views apart.
+; Goes to a player's next graphics mode and sets both their views to it: Automatic, Low, Medium, High, Custom (Quality
+; and IsometricQuality, and for players 2, 3 and 4 their rows of [Players]). The isometric view has no Automatic:
+; it takes Low for it, and the key skips Automatic there. The game's options set the two views apart. Tap once for
+; player 1, twice for player 2, three times for player 3, four times for player 4, hold for every player.
 CycleQualityKey=F9
-; Goes to the next picture style: Vivid, Natural, Bleak (Style).
+; Goes to a player's next picture style: Vivid, Natural, Bleak (Style, and for players 2, 3 and 4 their rows of
+; [Players]). Tap once for player 1, twice for player 2, three times for player 3, four times for player 4, hold
+; for every player.
 CycleStyleKey=F8
 ; With two players at the screen, switches between side by side and one above the other.
 SplitScreenKey=F7
@@ -406,6 +410,26 @@ SplitScreenKey=F7
 ; How far the light turns for each degree your head turns.
 ; 1 matches the view, 0 keeps the light on your aim.
 LightMultiplier=default
+
+[Players]
+; Player 2's first person graphics mode, as Quality.
+SecondPlayerQuality=Automatic
+; Player 2's isometric graphics mode, as IsometricQuality.
+SecondPlayerIsometricQuality=Low
+; Player 2's picture style, as Style.
+SecondPlayerStyle=Bleak
+; Player 3's first person graphics mode, as Quality.
+ThirdPlayerQuality=Automatic
+; Player 3's isometric graphics mode, as IsometricQuality.
+ThirdPlayerIsometricQuality=Low
+; Player 3's picture style, as Style.
+ThirdPlayerStyle=Bleak
+; Player 4's first person graphics mode, as Quality.
+FourthPlayerQuality=Automatic
+; Player 4's isometric graphics mode, as IsometricQuality.
+FourthPlayerIsometricQuality=Low
+; Player 4's picture style, as Style.
+FourthPlayerStyle=Bleak
 
 [Graphics]
 ; Low: the game's plant sprites. Medium: the mod's trees, the game's sprites past 40 tiles.

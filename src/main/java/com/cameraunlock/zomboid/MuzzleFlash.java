@@ -153,6 +153,12 @@ final class MuzzleFlash {
     /** Where the light is in the world (x, y, up), once a weapon with a muzzle has been placed. Render thread. */
     private final float[] at = new float[3];
     private boolean placed;
+    /** The number of the view whose flash this is. */
+    private final int view;
+
+    MuzzleFlash(int view) {
+        this.view = view;
+    }
     private final float[] plume = new float[PLUME], box = new float[4];
 
     static void set(boolean asked) {
@@ -184,7 +190,7 @@ final class MuzzleFlash {
      */
     float strength(long now) {
         int fired = shots;
-        if (!on || Quality.plain()) {
+        if (!on || Quality.plain(view)) {
             // A shot taken while there is no flash is one shown, or turning the flash on would show it late.
             shown = fired;
             return 0f;

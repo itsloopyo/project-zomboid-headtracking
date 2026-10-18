@@ -141,6 +141,7 @@
 - On PvP servers: leaning doesn't move your shot, moving sideways or backwards uses the game's aiming stance, hills are fixed at height 1, fog is as thick as in the game's own view, other players are shown only as the game shows them, a shot at a player hits the part the game rolls, and nothing is hidden by draw distance.
 - Wounds, limb loss, bullet penetration, shooting out lamps and vehicle physics are single player only.
 - Up to four players at one screen, each with first person and their own head tracker on ports `4243`, `4244` and `4245`. Tap `Delete` twice for player 2, three times for player 3 and four times for player 4, or hold it for everyone.
+- Each player at the screen has their own graphics mode and picture style. Tap `F9` or `F8` once to four times for players 1 to 4, or hold it for everyone. Players 2, 3 and 4 keep theirs in `[Players]`.
 - `F7` switches two-player split screen between side by side and top and bottom.
 
 #### Setup

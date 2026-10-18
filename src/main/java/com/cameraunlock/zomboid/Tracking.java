@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import zombie.characters.IsoPlayer;
 import zombie.input.JoypadButton;
 
@@ -76,8 +76,11 @@ final class Tracking {
      * watch tells an edit of them by. Only the config thread has it once the file is read.
      */
     private static Quality.Picture customInFile;
-    /** The graphics mode went to Custom other than by its key, and the next frame drawn says so as the key does. */
-    private static final AtomicBoolean graphicsToSay = new AtomicBoolean();
+    /**
+     * The players whose graphics mode changed other than by its key, a bit each by number: to
+     * Custom, or lowered for split screen. The next frame drawn says so on their screens as the key does.
+     */
+    private static final AtomicInteger graphicsToSay = new AtomicInteger();
 
     private Tracking() {}
 
@@ -158,9 +161,11 @@ final class Tracking {
         Own.set(live.own());
         customInFile = live.custom();
         Quality.custom(live.custom());
-        Quality.set(live.quality());
-        Quality.setOverhead(live.overheadQuality());
-        Style.set(live.style());
+        for (int player = 0; player < View.COUNT; player++) {
+            Quality.set(player, live.quality()[player]);
+            Quality.setOverhead(player, live.overheadQuality()[player]);
+            Style.set(player, live.style()[player]);
+        }
         HillHeight.set(live.hillHeight());
         MuzzleFlash.set(live.muzzleFlash());
         SplitScreen.set(live.splitScreen());
@@ -240,16 +245,22 @@ final class Tracking {
             customInFile = live.custom();
             Quality.custom(live.custom());
         }
-        if (edited && live.quality() != Quality.CUSTOM) {
-            Log.info(Config.FILE_NAME + " changed: a row of [Graphics] was edited, which goes to the Custom graphics mode");
-            Quality.set(Quality.CUSTOM);
-            graphicsToSay.set(true);
-            config.saveQuality(Quality.CUSTOM);
+        // The rows of [Graphics] are the first player's, as the game's options screen, where they are set, is.
+        if (edited && live.quality()[0] != Quality.CUSTOM) {
+            Log.info(Config.FILE_NAME + " changed: a row of [Graphics] was edited, which goes to the first player's Custom graphics mode");
+            Quality.set(0, Quality.CUSTOM);
+            sayGraphics(1);
+            config.saveQuality(0, Quality.CUSTOM);
         } else {
-            Quality.set(live.quality());
+            Quality.set(0, live.quality()[0]);
         }
-        Quality.setOverhead(live.overheadQuality());
-        Style.set(live.style());
+        for (int player = 0; player < View.COUNT; player++) {
+            if (player > 0) {
+                Quality.set(player, live.quality()[player]);
+            }
+            Quality.setOverhead(player, live.overheadQuality()[player]);
+            Style.set(player, live.style()[player]);
+        }
         if (live.hillHeight() != HillHeight.asked()) {
             HillHeight.set(live.hillHeight());
             Log.info(Config.FILE_NAME + " changed: hill height set to " + live.hillHeight());
@@ -282,18 +293,38 @@ final class Tracking {
     }
 
     /**
-     * What an option reads as now. A row of [Graphics] reads as the picture first person's mode
-     * draws, so in Low, Medium, High and Automatic the screen shows that mode's, and in Custom the
-     * row itself. The graphics modes read as the session's: core has the mode an apply went to only
-     * once its save, which follows on the config thread, is made.
+     * What an option reads as now. A row of [Graphics] reads as the picture the first player's
+     * first person mode draws, so in Low, Medium, High and Automatic the screen shows that mode's,
+     * and in Custom the row itself. The graphics modes read as the session's: core has the mode an
+     * apply went to only once its save, which follows on the config thread, is made.
      */
     static double optionValue(int option) {
         String id = config.optionId(option);
-        int part = Config.graphicsPart(id);
-        return part >= 0 ? Config.values(Quality.firstPersonPicture())[part]
-                : id.equals(QUALITY_OPTION) ? Quality.row()
-                : id.equals(OVERHEAD_QUALITY_OPTION) ? Quality.overheadRow() - Quality.LOW
+        int part = Config.graphicsPart(id), player = qualityPlayer(id), overheadPlayer = overheadQualityPlayer(id);
+        return part >= 0 ? Config.values(Quality.firstPersonPicture(0))[part]
+                : player >= 0 ? Quality.row(player)
+                : overheadPlayer >= 0 ? Quality.overheadRow(overheadPlayer) - Quality.LOW
                 : config.optionValue(option);
+    }
+
+    /** The player whose first person graphics mode an option is, or -1 for an option that is none's. */
+    static int qualityPlayer(String id) {
+        for (int player = 0; player < View.COUNT; player++) {
+            if (id.equals(Config.qualityKey(player))) {
+                return player;
+            }
+        }
+        return -1;
+    }
+
+    /** The player whose isometric graphics mode an option is, or -1 for an option that is none's. */
+    static int overheadQualityPlayer(String id) {
+        for (int player = 0; player < View.COUNT; player++) {
+            if (id.equals(Config.overheadQualityKey(player))) {
+                return player;
+            }
+        }
+        return -1;
     }
 
     /** A slider's notch nearest a value, worked out as the game's ISSliderPanel.setCurrentValue works it out, so the two are the same number. */
@@ -303,7 +334,6 @@ final class Tracking {
     }
 
     private static final String YAW_MODE_OPTION = "WorldSpaceYaw";
-    static final String QUALITY_OPTION = "Quality", OVERHEAD_QUALITY_OPTION = "IsometricQuality";
 
     /** Whether applyOption has somewhere to put an option's value. */
     static boolean takes(CameraUnlock.Option described) {
@@ -345,7 +375,7 @@ final class Tracking {
      * What the player applied on the game's options screen: for each of its settings by its place
      * in options(), what the screen showed as it opened or was last applied and what it holds now.
      * Each setting that changed is taken as applyOption takes it. If any of the rows of [Graphics]
-     * changed, first person's graphics mode goes to Custom, whatever the Quality setting holds: each row the
+     * changed, the first player's first person graphics mode goes to Custom, whatever the Quality setting holds: each row the
      * player changed takes what the screen holds, and the rest take the picture Custom starts
      * from (Quality.customFrom). Each setting taken has its shown value set to what it holds.
      * Logic thread.
@@ -359,7 +389,7 @@ final class Tracking {
             custom |= Config.graphicsPart(described[i].id) >= 0 && held[i] != shown[i];
         }
         for (int i = 0; i < options.length; i++) {
-            if (held[i] == shown[i] || custom && (Config.graphicsPart(described[i].id) >= 0 || described[i].id.equals(QUALITY_OPTION))) {
+            if (held[i] == shown[i] || custom && (Config.graphicsPart(described[i].id) >= 0 || qualityPlayer(described[i].id) == 0)) {
                 continue;
             }
             try {
@@ -391,8 +421,8 @@ final class Tracking {
             }
             Quality.Picture picture = Config.picture(values);
             Quality.custom(picture);
-            Quality.set(Quality.CUSTOM);
-            graphicsToSay.set(true);
+            Quality.set(0, Quality.CUSTOM);
+            sayGraphics(1);
             for (int part = 0; part < rows.length; part++) {
                 int option = rows[part];
                 double value = values[part];
@@ -402,7 +432,7 @@ final class Tracking {
             }
             save(() -> {
                 customInFile = picture;
-                config.saveQuality(Quality.CUSTOM);
+                config.saveQuality(0, Quality.CUSTOM);
             });
             for (int i = 0; i < options.length; i++) {
                 if (Config.graphicsPart(described[i].id) >= 0) {
@@ -414,29 +444,46 @@ final class Tracking {
         }
     }
 
-    /**
-     * Whether the screen says the graphics mode in this frame, with the game's menu up
-     * (OptionsPage.menuShown) or not: once after it went to Custom other than by its key or
-     * Automatic stepped, on the first frame the menu is not up. The options screen is opened
-     * from that menu in a save, and said under it, it was gone before the menu was shut. Logic
-     * thread.
-     */
-    static boolean takeGraphicsToSay(boolean menuShown) {
-        if (!graphicsToSay.get() && !Quality.stepToSay() || menuShown) {
-            return false;
-        }
-        graphicsToSay.set(false);
-        Quality.stepSaid();
-        Log.info("said on the screen: " + Quality.said());
-        return true;
+    /** Has the next frame drawn say the graphics mode on the screens of the players of the bits. */
+    private static void sayGraphics(int players) {
+        graphicsToSay.getAndUpdate(views -> views | players);
     }
 
-    /** The graphics mode key was pressed in this frame, and the mode changes at the start of the next. Logic thread. */
-    private static boolean graphicsModeOwed;
+    /**
+     * The views whose screen says their graphics mode in this frame, a bit each by number, with
+     * the game's menu up (OptionsPage.menuShown) or not: once after it changed other than by its
+     * key, and for each player in first person in Automatic once after it stepped, on the first
+     * frame the menu is not up. The options screen is opened from that menu in a save, and said
+     * under it, it was gone before the menu was shut. Only a player at the screen is told. Logic
+     * thread.
+     */
+    static int graphicsToTell(boolean menuShown) {
+        boolean stepped = Quality.stepToSay();
+        if (menuShown || graphicsToSay.get() == 0 && !stepped) {
+            return 0;
+        }
+        int views = graphicsToSay.getAndSet(0);
+        Quality.stepSaid();
+        for (int player = 0; player < View.COUNT; player++) {
+            int bit = 1 << player;
+            if (stepped && Quality.firstPersonInEffect(player) && Quality.row(player) == Quality.AUTOMATIC) {
+                views |= bit;
+            }
+            if (!Quality.present(player)) {
+                views &= ~bit;
+            } else if ((views & bit) != 0) {
+                Log.info("said on player " + (player + 1) + "'s screen: " + Quality.said(player));
+            }
+        }
+        return views;
+    }
 
-    /** Whether the graphics mode changes at the start of the next frame: this frame's picture is the one before. Logic thread. */
-    static boolean graphicsModeOwed() {
-        return graphicsModeOwed;
+    /** The players whose graphics mode key was pressed in this frame, a bit each by number: their modes change at the start of the next. Logic thread. */
+    private static int graphicsModeOwed;
+
+    /** Whether a view's graphics mode changes at the start of the next frame: this frame's picture is the one before. Logic thread. */
+    static boolean graphicsModeOwed(int view) {
+        return (graphicsModeOwed & 1 << view) != 0;
     }
 
     /** The keys pressed between now and the next frame drawn are dropped, not acted on. Logic thread. */
@@ -453,12 +500,13 @@ final class Tracking {
      */
     static int pressedFor(int playerIndex, boolean first) {
         if (first) {
-            int pressed = 0, told = 0;
+            int pressed = 0, told = graphicsModeOwed;
             boolean enteringSave = outOfSave;
-            if (graphicsModeOwed) {
-                graphicsModeOwed = false;
-                cycleGraphicsMode();
-                told = Config.CYCLE_QUALITY;
+            graphicsModeOwed = 0;
+            for (int i = 0; i < View.COUNT; i++) {
+                if ((told & 1 << i) != 0) {
+                    cycleGraphicsMode(i);
+                }
             }
             // The hotkeys are heard whatever the game is doing with the keyboard, so a key that goes into one of its text boxes is not an action as well.
             if (outOfSave || zombie.core.Core.getInstance().isDoingTextEntry()) {
@@ -466,14 +514,6 @@ final class Tracking {
                 core.hotkeysDrop();
             } else {
                 pressed = act(core.hotkeysTake());
-                if ((pressed & Config.CYCLE_QUALITY) != 0) {
-                    // Changed on the next frame: this one's picture is each view's picture before (ModeFade).
-                    graphicsModeOwed = true;
-                    pressed &= ~Config.CYCLE_QUALITY;
-                }
-                if ((pressed & Config.CYCLE_STYLE) != 0) {
-                    cycleStyle();
-                }
                 if ((pressed & Config.SPLIT_SCREEN) != 0) {
                     if (IsoPlayer.numPlayers == 2) {
                         turnSplitScreen();
@@ -483,29 +523,37 @@ final class Tracking {
                     }
                 }
             }
-            if (Quality.players(IsoPlayer.numPlayers)) {
-                int firstQuality = Quality.row(), overhead = Quality.overheadRow();
-                save(() -> {
-                    config.saveQuality(firstQuality);
-                    config.saveIsometricQuality(overhead);
-                });
-                graphicsToSay.set(true);
+            int lowered = Quality.players(IsoPlayer.numPlayers);
+            for (int i = 0; i < View.COUNT; i++) {
+                if ((lowered & 1 << i) != 0) {
+                    int player = i, firstQuality = Quality.row(i), overhead = Quality.overheadRow(i);
+                    save(() -> {
+                        config.saveQuality(player, firstQuality);
+                        config.saveIsometricQuality(player, overhead);
+                    });
+                }
             }
+            sayGraphics(lowered);
             if (enteringSave) {
-                graphicsToSay.set(false);
+                graphicsToSay.set(0);
                 Quality.stepSaid();
-            } else if (told == 0 && takeGraphicsToSay(OptionsPage.menuShown())) {
-                told = Config.CYCLE_QUALITY;
+            } else {
+                told |= graphicsToTell(OptionsPage.menuShown());
             }
             SplitScreen.frame();
-            int said = pressed & (Config.AIM_MODE | Config.CYCLE_QUALITY | Config.CYCLE_STYLE | Config.SPLIT_SCREEN) | told;
-            // Tapped once the first person key is the first player's, tapped twice the second's and so on, and held it is every player's.
-            boolean all = (pressed & Config.FIRST_PERSON_ALL) != 0;
+            int said = pressed & (Config.AIM_MODE | Config.SPLIT_SCREEN);
             for (int i = 0; i < View.COUNT; i++) {
-                boolean tapped = (pressed & Config.FIRST_PERSON_TAPS[i]) != 0;
-                owed[i] = said | (all || tapped ? Config.FIRST_PERSON : 0);
-                if (tapped && i > 0 && (IsoPlayer.numPlayers <= i || IsoPlayer.players[i] == null)) {
-                    Log.info("the first person key was tapped " + (i + 1) + " times, which is player " + (i + 1) + "'s, and there is none at the screen");
+                owed[i] = said | ((told & 1 << i) != 0 ? Config.CYCLE_QUALITY : 0);
+                if (theirs(pressed, i, Config.FIRST_PERSON_TAPS, Config.FIRST_PERSON_ALL, "first person")) {
+                    owed[i] |= Config.FIRST_PERSON;
+                }
+                if (theirs(pressed, i, Config.CYCLE_QUALITY_TAPS, Config.CYCLE_QUALITY_ALL, "graphics")) {
+                    // Changed on the next frame: this one's picture is the view's picture before (ModeFade).
+                    graphicsModeOwed |= 1 << i;
+                }
+                if (theirs(pressed, i, Config.CYCLE_STYLE_TAPS, Config.CYCLE_STYLE_ALL, "style")) {
+                    cycleStyle(i);
+                    owed[i] |= Config.CYCLE_STYLE;
                 }
             }
             backButtons();
@@ -516,6 +564,19 @@ final class Tracking {
         int mine = owed[playerIndex];
         owed[playerIndex] = 0;
         return mine;
+    }
+
+    /**
+     * Whether a key of the player keys was pressed for a player: tapped once for the first player,
+     * twice for the second and so on, or held for every player at the screen. A key tapped for a
+     * player who is not at the screen does nothing.
+     */
+    private static boolean theirs(int pressed, int player, int[] taps, int held, String key) {
+        boolean tapped = (pressed & taps[player]) != 0, here = player == 0 || IsoPlayer.numPlayers > player && IsoPlayer.players[player] != null;
+        if (tapped && !here) {
+            Log.info("the " + key + " key was tapped " + (player + 1) + " times, which is player " + (player + 1) + "'s, and there is none at the screen");
+        }
+        return here && (tapped || (pressed & held) != 0);
     }
 
     /**
@@ -544,9 +605,12 @@ final class Tracking {
     static void leftSave() {
         outOfSave = true;
         Quality.players(0);
-        if (graphicsModeOwed) {
-            graphicsModeOwed = false;
-            cycleGraphicsMode();
+        int owedNow = graphicsModeOwed;
+        graphicsModeOwed = 0;
+        for (int i = 0; i < View.COUNT; i++) {
+            if ((owedNow & 1 << i) != 0) {
+                cycleGraphicsMode(i);
+            }
         }
     }
 
@@ -629,26 +693,26 @@ final class Tracking {
     }
 
     /**
-     * The graphics mode after the one in effect, first person's or the isometric view's, set for
-     * both views and kept for the next start. The isometric view has no Automatic and takes Low
-     * for it. The options screen sets the two apart.
+     * A player's graphics mode after the one in effect, their first person's or their isometric
+     * view's, set for both their views and kept for the next start. The isometric view has no
+     * Automatic and takes Low for it. The options screen sets the two apart.
      */
-    static void cycleGraphicsMode() {
-        int next = Quality.firstPersonInEffect() ? Quality.next() : Quality.nextOverhead();
+    static void cycleGraphicsMode(int player) {
+        int next = Quality.firstPersonInEffect(player) ? Quality.next(player) : Quality.nextOverhead(player);
         int overhead = next == Quality.AUTOMATIC ? Quality.LOW : next;
-        Quality.set(next);
-        Quality.setOverhead(overhead);
+        Quality.set(player, next);
+        Quality.setOverhead(player, overhead);
         save(() -> {
-            config.saveQuality(next);
-            config.saveIsometricQuality(overhead);
+            config.saveQuality(player, next);
+            config.saveIsometricQuality(player, overhead);
         });
     }
 
-    /** The picture style after the one the session is in, kept for the next start. */
-    static void cycleStyle() {
-        Style next = Style.current().next();
-        Style.set(next.ordinal());
-        save(() -> config.saveStyle(next));
+    /** A player's picture style after the one they are in, kept for the next start. */
+    static void cycleStyle(int player) {
+        Style next = Style.of(player).next();
+        Style.set(player, next.ordinal());
+        save(() -> config.saveStyle(player, next));
     }
 
     /** The other way for two players to share the screen, kept for the next start. */

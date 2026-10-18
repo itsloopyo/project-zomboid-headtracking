@@ -92,6 +92,12 @@ final class TorchLess {
     private volatile Taken taken;
     /** The lamp the game lit for the viewer's last shot, while the game may still have it. Logic thread. */
     private IsoLightSource lamp;
+    /** The number of the view whose picture this is for. */
+    private final int view;
+
+    TorchLess(int view) {
+        this.view = view;
+    }
     /** What one reading works with, kept between readings and grown to the widest reach met: a reading writes every part of them that it reads. */
     private boolean[] known = new boolean[0];
     private float[] least = new float[0];
@@ -112,7 +118,7 @@ final class TorchLess {
         if (lamp != null && (lamp.id == 0 && lamp.life <= 0 || !reaches(lamp.x, lamp.y, lamp.radius, playerX, playerY))) {
             lamp = null;
         }
-        return lamp == null || !MuzzleFlash.on() || Quality.plain() ? null : lamp;
+        return lamp == null || !MuzzleFlash.on() || Quality.plain(view) ? null : lamp;
     }
 
     /**

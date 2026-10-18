@@ -13,9 +13,9 @@ final class LightningTests {
     private static final long SECOND = 1_000_000_000L;
 
     static void run() {
-        int mode = Quality.row();
+        int mode = Quality.row(0);
         Quality.Picture custom = Quality.custom();
-        Quality.set(Quality.HIGH);
+        Quality.set(0, Quality.HIGH);
         try {
             Checks.run("aStrikeIsFaintUntilItsLeaderReachesTheGroundThenPeaks", LightningTests::aStrikeIsFaintUntilItsLeaderReachesTheGroundThenPeaks);
             Checks.run("onlyTheFirstStrokeGoesDownTheBranches", LightningTests::onlyTheFirstStrokeGoesDownTheBranches);
@@ -33,7 +33,7 @@ final class LightningTests {
         } finally {
             Lightning.clear();
             Quality.custom(custom);
-            Quality.set(mode);
+            Quality.set(0, mode);
         }
     }
 
@@ -193,7 +193,7 @@ final class LightningTests {
         Lightning.Strike strike = Lightning.showing()[0];
         long peak = now + (long) (strike.strokes[0] * SECOND);
         SkyState sky = night();
-        Lightning.see(sky, 0f, 0f, 1.6f, peak);
+        Lightning.see(0, sky, 0f, 0f, 1.6f, peak);
         check(sky.seenCount == 1 && sky.seen[0].bolt() == strike.bolt, "the bolt is drawn");
         check(sky.seen[0].reached() == 1f && sky.seen[0].channel() > 0.9f, "at its peak, whole and bright");
         check(sky.lightUp >= 0.22f - 1e-5f && sky.lightUp < 0.95f, "the light comes from the bolt's side, not from overhead: " + sky.lightUp);
@@ -206,12 +206,12 @@ final class LightningTests {
         check(sky.burst > 0f && sky.burstUp > 0f, "the cloud glows above the eye's horizon");
 
         SkyState before = night();
-        Lightning.see(before, 0f, 0f, 1.6f, now + (long) (strike.strokes[0] * 0.5f * SECOND));
+        Lightning.see(0, before, 0f, 0f, 1.6f, now + (long) (strike.strokes[0] * 0.5f * SECOND));
         check(before.lightRed == 0.1f && before.lightUp == 0.95f, "while the leader comes down, the moon still lights the world");
         check(before.seenCount == 1 && before.seen[0].reached() < 1f, "and the leader is drawn part way");
 
         SkyState after = night();
-        Lightning.see(after, 0f, 0f, 1.6f, now + (long) (Lightning.LASTS * SECOND) + SECOND / 100);
+        Lightning.see(0, after, 0f, 0f, 1.6f, now + (long) (Lightning.LASTS * SECOND) + SECOND / 100);
         check(after.lightRed == 0.1f && after.seenCount == 0 && after.flashBlue == 0f && after.burst == 0f, "once it is over, the night is as it was");
     }
 
@@ -225,7 +225,7 @@ final class LightningTests {
         sky.lightY = 0.2f;
         sky.lightUp = 0.93f;
         sky.lightRed = sky.lightGreen = sky.lightBlue = 1f;
-        Lightning.see(sky, 0f, 0f, 1.6f, now + (long) (strike.strokes[0] * SECOND));
+        Lightning.see(0, sky, 0f, 0f, 1.6f, now + (long) (strike.strokes[0] * SECOND));
         check(sky.lightUp == 0.93f && sky.lightRed == 1f, "the sun stays the light");
         check(sky.seenCount == 1, "the bolt is still seen");
         check(sky.flashBlue > 0f && sky.flashBlue < 0.2f, "and lights the sky a little: " + sky.flashBlue);
@@ -238,7 +238,7 @@ final class LightningTests {
         Lightning.Strike strike = Lightning.showing()[0];
         check(strike.bolt == null, "no bolt");
         SkyState sky = night();
-        Lightning.see(sky, 0f, 0f, 1.6f, now + (long) (strike.strokes[0] * SECOND));
+        Lightning.see(0, sky, 0f, 0f, 1.6f, now + (long) (strike.strokes[0] * SECOND));
         check(sky.seenCount == 0, "nothing drawn");
         check(sky.burst > 0f && sky.flashBlue > 0f, "the cloud glows and the sky lightens");
         check(sky.lightRed == 0.1f, "no shadows from it");
@@ -268,14 +268,14 @@ final class LightningTests {
         long now = 300 * SECOND;
         Lightning.struck(200, 0, true, false, now);
         Lightning.Strike strike = Lightning.showing()[0];
-        Quality.set(Quality.LOW);
+        Quality.set(0, Quality.LOW);
         try {
-            check(Quality.plain(), "Low is the game's own look");
+            check(Quality.plain(0), "Low is the game's own look");
             SkyState sky = night();
-            Lightning.see(sky, 0f, 0f, 1.6f, now + (long) (strike.strokes[0] * SECOND));
+            Lightning.see(0, sky, 0f, 0f, 1.6f, now + (long) (strike.strokes[0] * SECOND));
             check(sky.seenCount == 0 && sky.flashBlue == 0f && sky.burst == 0f && sky.lightRed == 0.1f, "no bolt, no flash, no glow, no light");
         } finally {
-            Quality.set(Quality.HIGH);
+            Quality.set(0, Quality.HIGH);
         }
     }
 }

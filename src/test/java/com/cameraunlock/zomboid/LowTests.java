@@ -35,7 +35,7 @@ final class LowTests {
     /** Which of a piece's two models is drawn is chosen on the render thread with a graphics card: read. */
     private static void everyPieceOfFurnitureIsItsPlainModelInLow() {
         String pipeline = source("Pipeline.java");
-        check(count(pipeline, "plain = Quality.plain() || placed.plain(piece, ahead, pixel);") == 1 && count(pipeline, "placed.plain(") == 1,
+        check(count(pipeline, "plain = Quality.plain(view.index) || placed.plain(piece, ahead, pixel);") == 1 && count(pipeline, "placed.plain(") == 1,
                 "a picture draws every piece of furniture as its plain model in Low, and only by its size on screen outside it");
     }
 
@@ -47,7 +47,7 @@ final class LowTests {
         String scene = scene();
         check(count(scene, "boolean showing = Sightline.asTheGameShows(withoutSightline);") == 1,
                 "the frame fills a room by Sightline's rule, which in Low is the line of sight's");
-        check(count(scene, "if (ahead && (aheadStep < 0 || !Sightline.buildsAhead(withoutSightline) ||") == 1,
+        check(count(scene, "if (ahead && (aheadStep < 0 || !Sightline.buildsAhead(view.index, withoutSightline) ||") == 1,
                 "and builds a chunk ahead of a turn by it, which in Low is never");
     }
 
@@ -71,7 +71,7 @@ final class LowTests {
 
     private static void aWoodenFloorIsWoodWhereNoPictureOfTheModsIsLaid() {
         String scene = scene();
-        Matcher asked = Pattern.compile("== WorldScene\\.WOOD( && Own\\.textures\\(\\))?").matcher(scene);
+        Matcher asked = Pattern.compile("== WorldScene\\.WOOD( && Own\\.textures\\(build\\.playerIndex\\))?").matcher(scene);
         int asks = 0, gated = 0;
         while (asked.find()) {
             asks++;
@@ -91,7 +91,7 @@ final class LowTests {
     private static void lowsWaterIsAsRoughInAnyWindAndItsRipplesFadeWithDistance() {
         String pipeline = source("Pipeline.java");
         check(count(pipeline, "to.set(\"uRuffle\", WaterMirror.ruffleDrawn(") == 1 && count(pipeline, "\"uRuffle\"") == 1
-                && count(pipeline, "to.set(\"uPlainWater\", Quality.plain() ? 1f : 0f);") == 1,
+                && count(pipeline, "to.set(\"uPlainWater\", Quality.plain(view.index) ? 1f : 0f);") == 1,
                 "the world's program is told the water is plain, and as rough as WaterMirror draws it, in Low");
         String shaders = source("PipelineShaders.java");
         check(count(shaders, "bool sized = water && uPlainWater < 0.5;") == 1

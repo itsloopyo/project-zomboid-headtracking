@@ -316,12 +316,12 @@ final class WallBuilder {
         skinStart = (startJoin & WallJoins.NEAR) != 0 ? WorldScene.WALL_HALF : 0f;
         skinEnd = (endJoin & WallJoins.NEAR) != 0 ? WorldScene.WALL_HALF : 0f;
         // An inside wall is its paper's stripes, each a face of its own: see Papers.
-        paper = build.overLayer == 0 && build.paperedWall && Own.textures() ? Papers.of(texture, build.frame, da != 0f) : null;
+        paper = build.overLayer == 0 && build.paperedWall && Own.textures(build.playerIndex) ? Papers.of(texture, build.frame, da != 0f) : null;
         if (paper == null && build.overLayer == 0 && build.paperedWall && Papers.unread(texture)) {
             build.building.signed = false;
         }
         // A tiled wall is its tiles, its joints and the strips between its bands, each a face of its own: see WallTiles.
-        tiles = paper == null && build.overLayer == 0 && build.tiledSheet != null && Own.textures()
+        tiles = paper == null && build.overLayer == 0 && build.tiledSheet != null && Own.textures(build.playerIndex)
                 ? tilesOf(texture, x, y, z, da, db, opening[at + OPENING_START] >= 0f || build.wallOpens) : null;
         SpriteGeometry.Mesh near = laid(mesh, texture, build.laidWall, x, y, z);
         if (paper != null) {
@@ -604,7 +604,7 @@ final class WallBuilder {
      * sheet of outside walls, and x, y, z the square the wall is on.
      */
     SpriteGeometry.Mesh laid(SpriteGeometry.Mesh mesh, Texture texture, boolean suits, int x, int y, int z) {
-        if (build.overLayer != 0 || !Own.textures()) {
+        if (build.overLayer != 0 || !Own.textures(build.playerIndex)) {
             return mesh;
         }
         // Upright boards are made board by board in the sprite's own colour: see timber.
@@ -897,7 +897,7 @@ final class WallBuilder {
      * tiles (sheet null), one not read yet or one that reads as no tiles, which is then drawn as painted.
      */
     private boolean addTiledOverlay(SpriteGeometry.Mesh mesh, Texture texture, String sheet, int x, int y, int z, float da, float db) {
-        if (sheet == null || !Own.textures()) {
+        if (sheet == null || !Own.textures(build.playerIndex)) {
             return false;
         }
         boolean north = da != 0f;

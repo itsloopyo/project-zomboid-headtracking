@@ -4,20 +4,25 @@ import java.util.Arrays;
 import java.util.Locale;
 
 /**
- * How much the picture costs to draw: the Quality row of CameraUnlock.ini for first person, and
- * the IsometricQuality row for the game's isometric view. The graphics key steps the mode of the
- * view it is pressed in and sets the other view's to match; the options screen sets them apart. While any view is in first person, flying to or
- * from it or getting ready for it, every view is drawn with first person's mode. Otherwise the
- * isometric view's mode is drawn, but for Low, where the game draws that view itself and the mod
- * draws nothing: the picture then stays first person's, so what was made for first person is not
- * given back and made again on every switch. High
+ * How much the picture costs to draw, for each player at the screen: the Quality row of
+ * CameraUnlock.ini for the first player's first person, and the IsometricQuality row for their
+ * isometric view, and SecondPlayerQuality, SecondPlayerIsometricQuality and so on for the other
+ * players (Config). The graphics key steps a player's mode of the view they are in and sets
+ * their other view's to match; the options screen sets them apart. While a player's view is in
+ * first person, flying to or from it or getting ready for it, it is drawn with their first person
+ * mode. Otherwise their isometric mode is drawn, but for Low, where the game draws that view
+ * itself and the mod draws nothing: the picture then stays first person's, so what was made for
+ * first person is not given back and made again on every switch. What the views share on the
+ * graphics card, the mod's own pictures and the size they are made at, is made for every view
+ * that wants it: see plainEverywhere and smallerPictures. High
  * is the whole picture. Medium and Low draw it with fewer pixels, cheaper trees, smaller
  * shadow maps, fewer and broader grass plants, shorter sight and without the passes that shade
  * corners, light the air, mirror and give surfaces depth, for a graphics card that cannot keep up
  * with the whole of it, and Low with shorter sight still. A vehicle's mirror shows Low's
  * picture in every mode where it shows one.
  * A first start is in Automatic in first person and in Low in the isometric view, which has no
- * Automatic: its frames are not counted. Automatic begins at High, steps down while the picture is drawn too slowly and back up while it
+ * Automatic: its frames are not counted. Automatic is one level for every player in it, since it
+ * judges the frames of the whole screen. It begins at High, steps down while the picture is drawn too slowly and back up while it
  * is drawn with room to spare: see frame. It judges the picture by the frames the player sees
  * in a stretch of time, frames over wall time, with one thing cut out: a single unbroken run
  * of stalled frames in the stretch that is a save or a load and not the picture: a frame or
@@ -95,18 +100,31 @@ final class Quality {
     private static final long BARRED_NANOS = 120_000_000_000L, TRIAL_NANOS = 60_000_000_000L;
     private static final int MOST_DOUBLINGS = 4;
 
-    /** First person's mode, and the isometric view's, which is never AUTOMATIC. */
-    private static volatile int row = AUTOMATIC, overheadRow = LOW;
+    /**
+     * By player: their first person mode, and their isometric view's, which is never AUTOMATIC.
+     * Each array is replaced whole when a player's changes, so a thread reading it sees one or the other.
+     */
+    private static volatile int[] rows = filled(AUTOMATIC), overheadRows = filled(LOW);
     /** By view: whether it is in first person, flying to or from it, or getting ready for it. */
     private static final boolean[] inFirstPerson = new boolean[View.COUNT];
-    /** Whether any view is: first person's mode is then the one in effect. */
-    private static volatile boolean firstPersonInEffect;
+    /**
+     * By view: whether its player is at the screen, which it says once it is drawn. The first
+     * player's view is there from the start.
+     */
+    private static final boolean[] present = new boolean[View.COUNT];
+
+    static {
+        present[0] = true;
+    }
+
     /** The level Automatic is at. */
     private static volatile int level = HIGH;
     /** What Custom draws: the rows of [Graphics] as the session last took them. */
     private static volatile Picture custom = HIGH_PICTURE;
-    /** What the mode in effect draws now. */
-    private static volatile Picture drawn = HIGH_PICTURE;
+    /** By view: what its mode in effect draws now. Replaced whole, as rows is. */
+    private static volatile Picture[] drawn = pictures(HIGH_PICTURE);
+    /** See smallerPictures, plainEverywhere and gamesPlantsEverywhere: worked out by refresh from every view's picture. */
+    private static volatile boolean smaller, plainEverywhere, gamesPlantsEverywhere;
     /**
      * A frame longer than STALL_NANOS is stalled, and one longer than HITCH_NANOS is a hitch. A run
      * of stalled frames one after another is cut out of a count when it is the count's only run,
@@ -143,32 +161,87 @@ final class Quality {
 
     private Quality() {}
 
+    private static int[] filled(int mode) {
+        int[] all = new int[View.COUNT];
+        Arrays.fill(all, mode);
+        return all;
+    }
+
+    private static Picture[] pictures(Picture picture) {
+        Picture[] all = new Picture[View.COUNT];
+        Arrays.fill(all, picture);
+        return all;
+    }
+
     private static boolean splitScreen;
 
-    static synchronized boolean players(int count) {
+    /**
+     * Told how many players are at the screen. As the screen comes to be split, each player at
+     * the screen in High in either view goes to Medium there: one picture of the screen is then
+     * drawn more than once. The rows of a player not at the screen are left as they are.
+     *
+     * @return the players whose modes were lowered, a bit each by number
+     */
+    static synchronized int players(int count) {
         boolean wasSplit = splitScreen;
         splitScreen = count > 1;
         if (!splitScreen || wasSplit) {
-            return false;
+            return 0;
         }
-        boolean changed = row == HIGH || overheadRow == HIGH;
-        if (row == HIGH) {
-            set(MEDIUM);
+        int lowered = 0;
+        for (int player = 0; player < Math.min(count, View.COUNT); player++) {
+            boolean high = rows[player] == HIGH || overheadRows[player] == HIGH;
+            if (rows[player] == HIGH) {
+                set(player, MEDIUM);
+            }
+            if (overheadRows[player] == HIGH) {
+                setOverhead(player, MEDIUM);
+            }
+            lowered |= high ? 1 << player : 0;
         }
-        if (overheadRow == HIGH) {
-            setOverhead(MEDIUM);
-        }
-        if (changed) {
+        if (lowered != 0) {
             Log.info("High graphics lowered to Medium for split screen");
         }
-        return changed;
+        return lowered;
     }
 
-    static synchronized void set(int asked) {
-        if (asked == row) {
+    /**
+     * Sets a player's first person mode. Automatic's level and what it has counted begin again
+     * when a player at the screen goes to it and no other player at the screen is in it.
+     */
+    static synchronized void set(int player, int asked) {
+        if (asked == rows[player]) {
             return;
         }
-        row = asked;
+        boolean automaticBegins = present[player] && asked == AUTOMATIC && !anyIn(AUTOMATIC);
+        int[] next = rows.clone();
+        next[player] = asked;
+        rows = next;
+        if (automaticBegins) {
+            beginAutomatic();
+        }
+        // A step of Automatic is said to the players in it, and with none left in it there is nobody to say it to.
+        stepUnsaid &= anyIn(AUTOMATIC);
+        refresh();
+        Log.info("player " + (player + 1) + "'s first person graphics mode: " + NAMES[asked] + (asked == CUSTOM ? ", " + described(custom) : ""));
+    }
+
+    /** Sets a player's isometric view's mode: Low, Medium, High or Custom. */
+    static synchronized void setOverhead(int player, int asked) {
+        if (asked == AUTOMATIC) {
+            throw new IllegalArgumentException("the isometric view has no Automatic graphics mode");
+        }
+        if (asked == overheadRows[player]) {
+            return;
+        }
+        int[] next = overheadRows.clone();
+        next[player] = asked;
+        overheadRows = next;
+        refresh();
+        Log.info("player " + (player + 1) + "'s isometric graphics mode: " + NAMES[asked] + (asked == CUSTOM ? ", " + described(custom) : ""));
+    }
+
+    private static void beginAutomatic() {
         level = HIGH;
         countedSince = 0L;
         settlesAt = 0L;
@@ -177,66 +250,107 @@ final class Quality {
         Arrays.fill(barredUntil, 0L);
         Arrays.fill(cameUpAt, 0L);
         Arrays.fill(failures, 0);
-        stepUnsaid = false;
-        refresh();
-        Log.info("first person graphics mode: " + NAMES[asked] + (asked == CUSTOM ? ", " + described(custom) : ""));
     }
 
-    /** Sets the isometric view's mode: Low, Medium, High or Custom. */
-    static synchronized void setOverhead(int asked) {
-        if (asked == AUTOMATIC) {
-            throw new IllegalArgumentException("the isometric view has no Automatic graphics mode");
+    /** Whether a player at the screen has their first person mode at mode. */
+    private static boolean anyIn(int mode) {
+        int[] now = rows;
+        for (int view = 0; view < now.length; view++) {
+            if (present[view] && now[view] == mode) {
+                return true;
+            }
         }
-        if (asked == overheadRow) {
-            return;
-        }
-        overheadRow = asked;
-        refresh();
-        Log.info("isometric graphics mode: " + NAMES[asked] + (asked == CUSTOM ? ", " + described(custom) : ""));
+        return false;
     }
 
     /**
      * A view says, each frame, whether it is in first person, flying to or from it, or getting
-     * ready for it. Logic thread.
+     * ready for it. A player who comes to the screen in Automatic, with no other player at the
+     * screen in it, begins it again as set does. Logic thread.
      */
     static synchronized void inFirstPerson(int view, boolean in) {
-        if (inFirstPerson[view] == in) {
+        if (present[view] && inFirstPerson[view] == in) {
             return;
         }
+        if (!present[view] && rows[view] == AUTOMATIC && !anyIn(AUTOMATIC)) {
+            beginAutomatic();
+        }
+        present[view] = true;
         inFirstPerson[view] = in;
-        boolean any = false;
-        for (boolean other : inFirstPerson) {
-            any |= other;
-        }
-        if (any != firstPersonInEffect) {
-            firstPersonInEffect = any;
-            refresh();
-            Log.info("graphics mode in effect: " + said());
-        }
+        refresh();
+        Log.info("player " + (view + 1) + "'s graphics mode in effect: " + said(view));
     }
 
-    /** Whether first person's mode is the one in effect, which the graphics key steps. */
-    static boolean firstPersonInEffect() {
-        return firstPersonInEffect;
+    /**
+     * A view has no player: its frames are no longer counted, and what the views share is no
+     * longer made for it. It is at the screen again once a player there says where they are.
+     * Logic thread.
+     */
+    static synchronized void gone(int view) {
+        rest(view);
+        if (!present[view]) {
+            return;
+        }
+        present[view] = false;
+        inFirstPerson[view] = false;
+        stepUnsaid &= anyIn(AUTOMATIC);
+        refresh();
+        Log.info("player " + (view + 1) + "'s view is gone, and draws nothing");
+    }
+
+    /** Whether a view's player is at the screen. */
+    static synchronized boolean present(int view) {
+        return present[view];
+    }
+
+    /** Whether a view's first person mode is the one in effect, which the graphics key steps. */
+    static synchronized boolean firstPersonInEffect(int view) {
+        return inFirstPerson[view];
     }
 
     private static void refresh() {
-        drawn = firstPersonInEffect || overheadPlain() ? firstPersonPicture() : overheadRow == CUSTOM ? custom : preset(overheadRow);
+        int[] overheads = overheadRows;
+        Picture[] next = new Picture[View.COUNT];
+        boolean anyDraws = false, anyFullSize = false, allPlain = true, allGamesPlants = true;
+        for (int view = 0; view < next.length; view++) {
+            int overhead = overheads[view];
+            next[view] = inFirstPerson[view] || overhead == LOW ? firstPersonPicture(view) : overhead == CUSTOM ? custom : preset(overhead);
+            // A view in its isometric Low is the game's to draw, and draws none of the mod's pictures.
+            boolean draws = present[view] && (inFirstPerson[view] || overhead != LOW);
+            anyDraws |= draws;
+            anyFullSize |= draws && next[view].fullSizeTextures;
+            if (present[view]) {
+                allPlain &= next[view].stockLook;
+                allGamesPlants &= next[view].treeQuality == TREES_SPRITES;
+            }
+        }
+        drawn = next;
+        // With no view drawing them the pictures are left as they were made, not made again for nobody.
+        if (anyDraws) {
+            smaller = !anyFullSize;
+        }
+        plainEverywhere = allPlain;
+        gamesPlantsEverywhere = allGamesPlants;
     }
 
-    /** What first person's mode draws, in effect or not: Custom's rows, the mode's picture, or that of the level Automatic is at. */
-    static Picture firstPersonPicture() {
+    /** What a player's first person mode draws, in effect or not: Custom's rows, the mode's picture, or that of the level Automatic is at. */
+    static Picture firstPersonPicture(int player) {
+        int row = rows[player];
         return row == CUSTOM ? custom : row == AUTOMATIC ? AUTOMATIC_AT[level] : preset(row);
     }
 
-    /** Takes what Custom draws. Low, Medium and High leave it as it is, for the next time the mode is Custom. */
+    /** Takes what Custom draws. Low, Medium and High leave it as it is, for the next time a mode is Custom. */
     static synchronized void custom(Picture picture) {
         if (picture.equals(custom)) {
             return;
         }
         custom = picture;
         refresh();
-        if (row == CUSTOM || overheadRow == CUSTOM) {
+        boolean shown = anyIn(CUSTOM);
+        for (int view = 0; view < View.COUNT; view++) {
+            shown |= present[view] && overheadRows[view] == CUSTOM;
+        }
+        if (shown) {
             Log.info("graphics mode Custom: " + described(picture));
         }
     }
@@ -245,19 +359,20 @@ final class Quality {
         return custom;
     }
 
-    /** What the mode in effect draws now: Custom's rows in Custom, and in the other modes the mode's picture, or that of the level Automatic is at. */
-    static Picture drawn() {
-        return drawn;
+    /** What a view's mode in effect draws now: Custom's rows in Custom, and in the other modes the mode's picture, or that of the level Automatic is at. */
+    static Picture drawn(int view) {
+        return drawn[view];
     }
 
     /**
      * The picture a row of [Graphics] changed on the options screen starts Custom from, the change
-     * then made to it: what first person's mode draws, and in Automatic what the level it is at draws, but
+     * then made to it: what the first player's first person mode draws, and in Automatic what the level it is at draws, but
      * for STOCK, which starts it from the level above, Low's cost with what the mod made. Stock is
-     * how Automatic saves the graphics card, not a look the player chose.
+     * how Automatic saves the graphics card, not a look the player chose. The rows of [Graphics]
+     * are the first player's, as the options screen, where they are set, is.
      */
     static synchronized Picture customFrom() {
-        return row == AUTOMATIC && level == STOCK ? AUTOMATIC_AT[STOCK + 1] : firstPersonPicture();
+        return rows[0] == AUTOMATIC && level == STOCK ? AUTOMATIC_AT[STOCK + 1] : firstPersonPicture(0);
     }
 
     static Picture preset(int mode) {
@@ -284,22 +399,23 @@ final class Quality {
                 picture.surfaceDepth, picture.wholeFigureShadows, picture.frameBlending);
     }
 
-    /** The mode the hotkey goes to from first person's: Automatic, Low, Medium, High, Custom and round again. */
-    static int next() {
-        return (row + 1) % NAMES.length;
+    /** The mode the hotkey goes to from a player's first person mode: Automatic, Low, Medium, High, Custom and round again. */
+    static int next(int player) {
+        return (rows[player] + 1) % NAMES.length;
     }
 
-    /** The mode the hotkey goes to from the isometric view's: Low, Medium, High, Custom and round again. */
-    static int nextOverhead() {
-        return overheadRow == CUSTOM ? LOW : overheadRow + 1;
+    /** The mode the hotkey goes to from a player's isometric mode: Low, Medium, High, Custom and round again. */
+    static int nextOverhead(int player) {
+        int row = overheadRows[player];
+        return row == CUSTOM ? LOW : row + 1;
     }
 
-    static int row() {
-        return row;
+    static int row(int player) {
+        return rows[player];
     }
 
-    static int overheadRow() {
-        return overheadRow;
+    static int overheadRow(int player) {
+        return overheadRows[player];
     }
 
     /** The words CameraUnlock.ini holds for the isometric view's row, which numbers them from 0 for LOW. */
@@ -307,27 +423,28 @@ final class Quality {
         return String.join(",", Arrays.copyOfRange(NAMES, LOW, NAMES.length));
     }
 
-    /** What the screen says of the mode in effect: "First person graphics: Automatic (Medium)" or "Isometric graphics: Low". */
-    static String said() {
-        return firstPersonInEffect ? "First person graphics: " + name() : "Isometric graphics: " + NAMES[overheadRow];
+    /** What a view's screen says of its mode in effect: "First person graphics: Automatic (Medium)" or "Isometric graphics: Low". */
+    static synchronized String said(int view) {
+        return inFirstPerson[view] ? "First person graphics: " + name(view) : "Isometric graphics: " + NAMES[overheadRows[view]];
     }
 
     /**
-     * What the screen says when the graphics key sets both views: "Graphics: Medium", or where
-     * they differ, as in Automatic, "Graphics: Automatic (High), isometric Low".
+     * What a player's screen says when the graphics key sets both their views: "Graphics: Medium",
+     * or where they differ, as in Automatic, "Graphics: Automatic (High), isometric Low".
      */
-    static String saidOfBoth() {
-        return row == overheadRow ? "Graphics: " + NAMES[row] : "Graphics: " + name() + ", isometric " + NAMES[overheadRow];
+    static String saidOfBoth(int player) {
+        int row = rows[player], overheadRow = overheadRows[player];
+        return row == overheadRow ? "Graphics: " + NAMES[row] : "Graphics: " + name(player) + ", isometric " + NAMES[overheadRow];
     }
 
-    /** First person's mode, and in Automatic the level it is at: "Automatic (Medium)". */
-    static String name() {
-        return choice(row);
+    /** A player's first person mode, and in Automatic the level it is at: "Automatic (Medium)". */
+    static String name(int player) {
+        return choice(rows[player]);
     }
 
-    /** How the options screen's list names a mode: Automatic, while the session is in it, with the level it is at. */
-    static String choice(int mode) {
-        return mode == AUTOMATIC && row == AUTOMATIC ? NAMES[AUTOMATIC] + " (" + LEVELS[level] + ")" : NAMES[mode];
+    /** How the options screen's list names a mode: Automatic, while a player at the screen is in it, with the level it is at. */
+    static synchronized String choice(int mode) {
+        return mode == AUTOMATIC && anyIn(AUTOMATIC) ? NAMES[AUTOMATIC] + " (" + LEVELS[level] + ")" : NAMES[mode];
     }
 
     /** Whether Automatic has stepped since the screen last said the mode, which it then says. Logic thread. */
@@ -345,32 +462,45 @@ final class Quality {
     }
 
     /**
-     * Whether the picture is Low's, the nearest there is to the game's own look, or Automatic's
+     * Whether a view's picture is Low's, the nearest there is to the game's own look, or Automatic's
      * at STOCK: the first person view, which the game has no picture of, is then drawn with
      * nothing the mod made where the game has its own but the furniture and the windows and
      * doors (Own.WITHOUT_PICTURES), each piece of furniture as its plain model. Automatic at Low's level draws less and is
      * not this.
      */
-    static boolean plain() {
-        return drawn.stockLook;
-    }
-
-    /** Whether the isometric view is the game's own picture: in its Low. */
-    static boolean overheadPlain() {
-        return overheadRow == LOW;
+    static boolean plain(int view) {
+        return drawn[view].stockLook;
     }
 
     /**
-     * Whether grass, trees, bushes and rocks are the game's own sprites, TreeQuality at Low: the
+     * Whether every player at the screen has a plain picture: what the mod made once for every
+     * view, its pictures, skins and models, is then shown to nobody.
+     */
+    static boolean plainEverywhere() {
+        return plainEverywhere;
+    }
+
+    /** Whether a player's isometric view is the game's own picture: in its Low. */
+    static boolean overheadPlain(int player) {
+        return overheadRows[player] == LOW;
+    }
+
+    /**
+     * Whether a view's grass, trees, bushes and rocks are the game's own sprites, TreeQuality at Low: the
      * mod's are the dearest thing in the picture to draw. Automatic keeps the mod's at every level.
      */
-    static boolean gamesPlants() {
-        return drawn.treeQuality == TREES_SPRITES;
+    static boolean gamesPlants(int view) {
+        return drawn[view].treeQuality == TREES_SPRITES;
+    }
+
+    /** Whether every player at the screen has the game's own plants: see gamesPlants. */
+    static boolean gamesPlantsEverywhere() {
+        return gamesPlantsEverywhere;
     }
 
     /**
-     * Counts a frame of a view's first person drawn while the game runs. With the row at
-     * Automatic, frames are counted until JUDGED_OVER_NANOS have passed, less a run of stalled
+     * Counts a frame of a view's first person drawn while the game runs. With a counted view's
+     * player in Automatic, frames are counted until JUDGED_OVER_NANOS have passed, less a run of stalled
      * frames cut out (see CUT_MOST_NANOS), and the count is judged by its rate: its frames over
      * its time, both without the run cut out, against the frame limit it was counted under. A count under SLOWEST frames a second takes the
      * picture down a level, to STOCK at the bottom. Counts at RISES_AT or over, one after another
@@ -391,7 +521,11 @@ final class Quality {
                 return;
             }
         }
-        if (row != AUTOMATIC) {
+        boolean automatic = false;
+        for (int other = 0; other < counting.length; other++) {
+            automatic |= counting[other] && rows[other] == AUTOMATIC;
+        }
+        if (!automatic) {
             return;
         }
         long since = lastFrame;
@@ -503,23 +637,23 @@ final class Quality {
     }
 
     /** How many of the picture's pixels there are to each of the window's, each way. */
-    static float scale() {
-        return drawn.renderScale;
+    static float scale(int view) {
+        return drawn[view].renderScale;
     }
 
     /** How many texels a shadow map is across. */
-    static int shadowSize() {
-        return drawn.sharpShadows ? 4096 : 2048;
+    static int shadowSize(int view) {
+        return drawn[view].sharpShadows ? 4096 : 2048;
     }
 
     /** Whether shadows are drawn finer: more of the fires throw them too (FireShadows). */
-    static boolean sharpShadows() {
-        return drawn.sharpShadows;
+    static boolean sharpShadows(int view) {
+        return drawn[view].sharpShadows;
     }
 
     /** How far the view is built and drawn, in tiles, where the loaded map reaches that far. */
-    static int sight() {
-        return drawn.viewDistance;
+    static int sight(int view) {
+        return drawn[view].viewDistance;
     }
 
     /**
@@ -535,21 +669,21 @@ final class Quality {
      * drops of one grid, 1 specks among them and trickles down the panes no wiper reaches, 2
      * three sizes of drop and drops that run down and leave a line of wet behind them.
      */
-    static int glassRain() {
-        return drawn.rainOnGlass;
+    static int glassRain(int view) {
+        return drawn[view].rainOnGlass;
     }
 
     /** Whether corners are shaded and lent the light of what stands near, and the air is lit. */
-    static boolean shadedAndLit() {
-        return drawn.shadingAndLight;
+    static boolean shadedAndLit(int view) {
+        return drawn[view].shadingAndLight;
     }
 
     /**
      * Whether the world is mirrored at all. Without, a vehicle's mirrors are plain glass and
      * their picture of the road behind is not drawn, and surfacesMirror is false.
      */
-    static boolean reflections() {
-        return drawn.reflections;
+    static boolean reflections(int view) {
+        return drawn[view].reflections;
     }
 
     /**
@@ -557,17 +691,19 @@ final class Quality {
      * the viewer in it. Only with the shading and light: Low and Medium draw neither and keep a
      * vehicle's mirrors, and the one row covers both kinds of mirror.
      */
-    static boolean surfacesMirror() {
-        return drawn.reflections && drawn.shadingAndLight;
+    static boolean surfacesMirror(int view) {
+        Picture picture = drawn[view];
+        return picture.reflections && picture.shadingAndLight;
     }
 
     /**
      * Whether the mod's pictures of surfaces, on walls and of skin are made at half their width
      * and height, which is a quarter of what they take on the graphics card and in the PC's memory.
      * Only High draws a dot of picture to a dot of the window and near enough to tell them apart.
+     * One set is made for every view, full size while any view the mod draws asks for it.
      */
     static boolean smallerPictures() {
-        return !drawn.fullSizeTextures;
+        return smaller;
     }
 
     /**
@@ -575,34 +711,34 @@ final class Quality {
      * view is built: TreeQuality at High. Otherwise one further off than Crowns.REACH is the game's
      * sprite on a fan of cards, which costs less to build and draw and changes to a crown as the eye nears it.
      */
-    static boolean crownsToSight() {
-        return drawn.treeQuality == TREES_TO_SIGHT;
+    static boolean crownsToSight(int view) {
+        return drawn[view].treeQuality == TREES_TO_SIGHT;
     }
 
     /** The share of its plants grass grows, as a percentage: see Grass.density. */
-    static int grassDensity() {
-        return drawn.grassDensity;
+    static int grassDensity(int view) {
+        return drawn[view].grassDensity;
     }
 
     /**
      * How far from the eye the trees beyond the loaded map stand, in tiles, 0 for none. They stand
      * only where the game has no map loaded, where nobody is drawn, so they hide no one from anyone.
      */
-    static int farTreeDistance() {
-        return drawn.farTreeDistance;
+    static int farTreeDistance(int view) {
+        return drawn[view].farTreeDistance;
     }
 
     /**
      * Whether each frame of the first person picture is mixed with the one before it: what changes
      * from frame to frame is steadied and the whole picture is a little softer.
      */
-    static boolean frameBlending() {
-        return drawn.frameBlending;
+    static boolean frameBlending(int view) {
+        return drawn[view].frameBlending;
     }
 
     /** Whether near surfaces are given the depth of what they show. */
-    static boolean relief() {
-        return drawn.surfaceDepth;
+    static boolean relief(int view) {
+        return drawn[view].surfaceDepth;
     }
 
     /**
@@ -611,8 +747,8 @@ final class Quality {
      * their body alone, and a crowd costs the sun's maps one part a person and not every part
      * they have.
      */
-    static boolean wholeFigureShadows() {
-        return drawn.wholeFigureShadows;
+    static boolean wholeFigureShadows(int view) {
+        return drawn[view].wholeFigureShadows;
     }
 
 }

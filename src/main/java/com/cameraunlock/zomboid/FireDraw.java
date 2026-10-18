@@ -386,6 +386,12 @@ final class FireDraw {
     private int frame;
     private final float[] box = new float[4];
     private final FireCards cards = new FireCards();
+    /** The number of the view whose picture this draws the fires of. */
+    private final int view;
+
+    FireDraw(int view) {
+        this.view = view;
+    }
     /** Whether the log last said there were fires in sight. */
     private boolean inSight;
     private static final String[] FIRE_AT = new String[Fires.LIGHTS], FIRE_FROM = new String[FireShadows.MOST];
@@ -429,8 +435,8 @@ final class FireDraw {
             }
         }
         // The game lights round its own flames itself: the picture's light is for its own fire.
-        Fires.lights(fires, Fires.own() ? count : 0, camera.eyeX, camera.eyeY, camera.eyeUp, seconds(nanos), lights, reach, flaming, weights);
-        shadows.assign(lights, reach, weights, flaming, drawn, ++frame, nanos, Fires.own() ? FireShadows.slots() : 0, FireShadows.faceSize());
+        Fires.lights(fires, Fires.own(view) ? count : 0, camera.eyeX, camera.eyeY, camera.eyeUp, seconds(nanos), lights, reach, flaming, weights);
+        shadows.assign(lights, reach, weights, flaming, drawn, ++frame, nanos, Fires.own(view) ? FireShadows.slots(view) : 0, FireShadows.faceSize(view));
         if (DevBuild.ON && (count > 0) != inSight) {
             inSight = count > 0;
             Log.info(inSight ? "first person fires in sight: " + state.fireCount + " squares that burn or smoke, " + (count - state.fireCount) + " hearths"
@@ -593,7 +599,7 @@ final class FireDraw {
         lightColour[1] = state.lightGreen * kept;
         lightColour[2] = state.lightBlue * kept;
         float seconds = seconds(nanos);
-        boolean own = Fires.own();
+        boolean own = Fires.own(view);
         boolean drawn = cards.begin(depth, camera, tanHalfFieldOfView, aspect, near, far, width, height, asideX, asideY,
                 (float) Math.pow(state.openRed, 2.2) * kept, (float) Math.pow(state.openGreen, 2.2) * kept, (float) Math.pow(state.openBlue, 2.2) * kept,
                 exposure);
@@ -652,7 +658,7 @@ final class FireDraw {
         GL11.glDepthFunc(GL_LEQUAL);
         GL11.glDepthMask(true);
         float seconds = seconds(nanos);
-        if (Fires.own()) {
+        if (Fires.own(view)) {
             // The march's view is the one the draw left in the program, this same frame.
             FlameVolume.Loop loop = program.use() ? flames() : null;
             if (loop != null) {

@@ -63,7 +63,7 @@ final class LeafTrees implements LeafFall.Ground {
     void gather(SkyState sky, IsoCell cell, Terrain terrain, int round, float scale, float eyeX, float eyeY, long now) {
         float elapsed = lastNanos == 0L || GameTime.isGamePaused() ? 0f : (now - lastNanos) / 1e9f;
         lastNanos = now;
-        if (!Own.plants() || cell == null) {
+        if (!Own.plants(scene.view.index) || cell == null) {
             fall.clear();
             row = 0;
             sky.leafCount = 0;

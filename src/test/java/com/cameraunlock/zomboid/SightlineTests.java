@@ -187,24 +187,24 @@ final class SightlineTests {
     /** The rule the frame builds by, asked of the server the game is joined to and the graphics mode. */
     private static void roomsAreFilledBySightAloneOnServersAndInLow() {
         try {
-            Quality.set(Quality.HIGH);
+            Quality.set(0, Quality.HIGH);
             Servers.in(Servers.Where.ALONE, () -> {
                 check(!Sightline.asTheGameShows(false) && built(Sightline.asTheGameShows(false), false).contains(prop("toilet")),
                         "alone in High the room the game has not shown is filled");
-                check(Sightline.buildsAhead(false), "and a chunk the view does not face is built ahead of a turn");
-                check(Sightline.asTheGameShows(true) && !Sightline.buildsAhead(true), "the development switch puts both back as the game has them");
+                check(Sightline.buildsAhead(0, false), "and a chunk the view does not face is built ahead of a turn");
+                check(Sightline.asTheGameShows(true) && !Sightline.buildsAhead(0, true), "the development switch puts both back as the game has them");
             });
             Servers.in(Servers.Where.FRIENDLY, () -> check(!Sightline.asTheGameShows(false), "on a server where players cannot hurt each other the room is filled too"));
             Servers.in(Servers.Where.CONTESTED, () -> check(!Sightline.asTheGameShows(false) && built(Sightline.asTheGameShows(false), false).contains(prop("toilet")),
                     "and where they can, as alone"));
-            Quality.set(Quality.LOW);
+            Quality.set(0, Quality.LOW);
             Servers.in(Servers.Where.ALONE, () -> {
                 check(!Sightline.asTheGameShows(false) && built(Sightline.asTheGameShows(false), false).contains(prop("sink")),
                         "in Low, alone, the room the game has not shown is filled as in every other mode");
-                check(!Sightline.buildsAhead(false), "and nothing is built ahead of a turn");
+                check(!Sightline.buildsAhead(0, false), "and nothing is built ahead of a turn");
             });
         } finally {
-            Quality.set(Quality.HIGH);
+            Quality.set(0, Quality.HIGH);
         }
     }
 

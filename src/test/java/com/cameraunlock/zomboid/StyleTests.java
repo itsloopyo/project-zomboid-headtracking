@@ -5,14 +5,14 @@ final class StyleTests {
     private StyleTests() {}
 
     static void run() {
-        Style before = Style.current();
+        Style before = Style.of(0);
         try {
             f10GoesRoundTheThree();
             vividKeepsTheGradeItHadBeforeThereWereStyles();
             eachStyleAfterVividIsQuieter();
             everyStyleSetsItsOwnRange();
         } finally {
-            Style.set(before.ordinal());
+            Style.set(0, before.ordinal());
         }
     }
 
@@ -21,8 +21,8 @@ final class StyleTests {
     }
 
     private static void f10GoesRoundTheThree() {
-        Style.set(Style.VIVID.ordinal());
-        check(Style.current() == Style.VIVID, "the row asked for is the style in use");
+        Style.set(0, Style.VIVID.ordinal());
+        check(Style.of(0) == Style.VIVID, "the row asked for is the style in use");
         check(Style.VIVID.next() == Style.NATURAL, "the hotkey goes from Vivid to Natural");
         check(Style.NATURAL.next() == Style.BLEAK, "from Natural to Bleak");
         check(Style.BLEAK.next() == Style.VIVID, "and from Bleak round to Vivid");

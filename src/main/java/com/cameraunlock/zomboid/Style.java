@@ -1,13 +1,16 @@
 package com.cameraunlock.zomboid;
 
+import java.util.Arrays;
+
 /**
- * How the mod's picture is developed: the Style row of CameraUnlock.ini. The light that reaches
+ * How the mod's picture is developed, for each player at the screen: the Style row of
+ * CameraUnlock.ini for the first player, SecondPlayerStyle and so on for the others. The light that reaches
  * the eye is the same in all of them, and so is what the world is built of. A style is what
  * the last pass makes of that light: how hard the contrast, how full the colours, what tint
  * the shade and the sunlit take, how dark the corners, and how much the lens adds of its own.
  *
- * The row is read again while the game runs. The thread that watches the file sets it, the
- * logic thread goes to the next on its hotkey, and the render thread reads it as it draws a frame.
+ * The rows are read again while the game runs. The thread that watches the file sets them, the
+ * logic thread goes to a player's next on the hotkey, and the render thread reads a view's as it draws its frame.
  */
 enum Style {
     /** Strong contrast and full colours, cool in the shade and warm in the sun. */
@@ -39,7 +42,12 @@ enum Style {
      */
     final float levels, compress, clarity, sharpen, vibrance;
 
-    private static volatile Style row = BLEAK;
+    /** By player. Replaced whole when one changes, so a thread reading it sees one or the other. */
+    private static volatile Style[] rows = new Style[View.COUNT];
+
+    static {
+        Arrays.fill(rows, BLEAK);
+    }
 
     Style(String label, float curve, float saturation, float vignette, float bloom, float flare, float[] shade, float[] sunlit,
             float levels, float compress, float clarity, float sharpen, float vibrance) {
@@ -58,17 +66,19 @@ enum Style {
         this.vibrance = vibrance;
     }
 
-    static void set(int asked) {
+    static synchronized void set(int player, int asked) {
         Style next = values()[asked];
-        if (next == row) {
+        if (next == rows[player]) {
             return;
         }
-        row = next;
-        Log.info("picture style: " + next.label);
+        Style[] changed = rows.clone();
+        changed[player] = next;
+        rows = changed;
+        Log.info("player " + (player + 1) + "'s picture style: " + next.label);
     }
 
-    static Style current() {
-        return row;
+    static Style of(int player) {
+        return rows[player];
     }
 
     /** The words CameraUnlock.ini holds for the row, in the order of the styles, with commas between. */
@@ -80,7 +90,7 @@ enum Style {
         return words.toString();
     }
 
-    /** The style the hotkey goes to from the one the session is in. */
+    /** The style the hotkey goes to from this one. */
     Style next() {
         return values()[(ordinal() + 1) % values().length];
     }

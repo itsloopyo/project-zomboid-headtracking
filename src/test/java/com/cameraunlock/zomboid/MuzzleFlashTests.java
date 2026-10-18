@@ -31,9 +31,9 @@ final class MuzzleFlashTests {
     };
 
     static void run() {
-        int mode = Quality.row();
+        int mode = Quality.row(0);
         Quality.Picture custom = Quality.custom();
-        Quality.set(Quality.HIGH);
+        Quality.set(0, Quality.HIGH);
         try {
             Checks.run("flashOpensFromTheMuzzleAlongTheBarrelAwayFromTheShooter", MuzzleFlashTests::flashOpensFromTheMuzzleAlongTheBarrelAwayFromTheShooter);
             Checks.run("theBloomIsAheadOfTheMuzzleAndNoneOfItBackOverTheBarrel", MuzzleFlashTests::theBloomIsAheadOfTheMuzzleAndNoneOfItBackOverTheBarrel);
@@ -46,7 +46,7 @@ final class MuzzleFlashTests {
             Checks.run("theRowIsTheSameWherePlayersCanFight", MuzzleFlashTests::theRowIsTheSameWherePlayersCanFight);
         } finally {
             Quality.custom(custom);
-            Quality.set(mode);
+            Quality.set(0, mode);
         }
     }
 
@@ -54,7 +54,7 @@ final class MuzzleFlashTests {
         boolean was = MuzzleFlash.on();
         try {
             MuzzleFlash.set(false);
-            MuzzleFlash flash = new MuzzleFlash();
+            MuzzleFlash flash = new MuzzleFlash(0);
             long now = System.nanoTime(), frame = 16_666_667L;
             flash.fire();
             check(flash.strength(now) == 0f, "switched off, a shot has no flash");
@@ -74,16 +74,16 @@ final class MuzzleFlashTests {
         float[] light = new float[7];
         long frame = 16_666_667L;
         for (String mode : new String[] {"Low"}) {
-            Quality.set(Quality.LOW);
-            check(Quality.plain(), mode + " is the game's own look");
-            MuzzleFlash flash = new MuzzleFlash();
+            Quality.set(0, Quality.LOW);
+            check(Quality.plain(0), mode + " is the game's own look");
+            MuzzleFlash flash = new MuzzleFlash(0);
             flash.place(camera, HELD[0].muzzle, HELD[0].pointing);
             long now = System.nanoTime();
             flash.fire();
             check(flash.strength(now) == 0f, mode + ": a shot has no flash");
             flash.light(light, now);
             check(light[3] == 0f, mode + ": and lights nothing");
-            Quality.set(Quality.HIGH);
+            Quality.set(0, Quality.HIGH);
             check(flash.strength(now + frame) == 0f, mode + " left for High with no new shot: the shot taken in " + mode + " is not flashed");
             flash.fire();
             check(flash.strength(now + 2 * frame) == 1f, mode + " left for High: the next shot flashes whole");
@@ -242,7 +242,7 @@ final class MuzzleFlashTests {
     }
 
     private static void aShotFlashesOnTheFirstFrameDrawnAfterItAndIsGoneByTheThird() {
-        MuzzleFlash flash = new MuzzleFlash();
+        MuzzleFlash flash = new MuzzleFlash(0);
         check(flash.strength(System.nanoTime()) == 0f, "no shot, no flash");
         flash.fire();
         // A frame that comes a long while after the shot, as at a low frame rate, still shows it once, whole.
@@ -257,7 +257,7 @@ final class MuzzleFlashTests {
     }
 
     private static void flashLightsTheWorldNoMoreThanTheSunDoes() {
-        MuzzleFlash flash = new MuzzleFlash();
+        MuzzleFlash flash = new MuzzleFlash(0);
         ViewCamera.Pose camera = new ViewCamera.Pose();
         ViewCamera.clean(camera, 10f, 20f, 1.6f, 0f, 0f);
         flash.place(camera, HELD[0].muzzle, HELD[0].pointing);
@@ -274,7 +274,7 @@ final class MuzzleFlashTests {
         boolean was = MuzzleFlash.on();
         try {
             MuzzleFlash.set(false);
-            MuzzleFlash flash = new MuzzleFlash();
+            MuzzleFlash flash = new MuzzleFlash(0);
             ViewCamera.Pose camera = new ViewCamera.Pose();
             ViewCamera.clean(camera, 10f, 20f, 1.6f, 0f, 0f);
             flash.place(camera, HELD[0].muzzle, HELD[0].pointing);
