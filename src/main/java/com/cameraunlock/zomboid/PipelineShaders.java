@@ -503,6 +503,9 @@ final class PipelineShaders {
             uniform vec3 uLitAlong;
             uniform vec3 uLitDown;
             uniform vec3 uLitAcross;
+            // What a model has of a light the game has not given, as uLit and its fellows hold its light, and that light's kind plus 1, or 0: see Models.Instances.UNLIT.
+            uniform vec4 uUnlit;
+            uniform float uUnlitKind;
             uniform vec3 uSurfaces;
             uniform vec4 uDye;
             uniform vec4 uPicture;
@@ -540,6 +543,8 @@ final class PipelineShaders {
                 float piece = 0.0;
                 vUv = gl_MultiTexCoord0.xy;
                 vColor = gl_Color;
+                // What the vertex has of a light the game has not given: see SpriteGeometry.Mesh.unlit.
+                float unlit = gl_MultiTexCoord3.x;
                 if (uModel > 0.5) {
                     // A model's vertex is in the model's own metres, and carries its surface and
                     // how much light gets to it past the rest of the model where a sprite's
@@ -565,12 +570,22 @@ final class PipelineShaders {
                     }
                     vColor = vec4(gl_MultiTexCoord0.y * (uLit + share.x * uLitAlong + share.y * uLitDown + share.x * share.y * uLitAcross),
                             uSurfaces.x + 32.0 * ((dyed || also ? 34.0 : 16.0) + surface));
+                    unlit = uUnlitKind < 0.5 ? -1.0 : (uUnlitKind - 1.0) * 16.0
+                            + min(gl_MultiTexCoord0.y * (uUnlit.x + share.x * uUnlit.y + share.y * uUnlit.z + share.x * share.y * uUnlit.w), 15.99);
                 }
-                // A room the game has not shown carries the shade it is lit in, and above the
-                // materials which of this frame's lights it takes: see WorldScene.LIT_STEP.
+                // What the game has given no light carries the shade it is lit in, and above the
+                // materials which of this frame's lights it takes: see WorldScene.LIT_STEP. A
+                // vertex where squares it has lit meet ones it has not counts each of those as 1,
+                // and carries how much of its light they are: see SpriteGeometry.Frame.cornerUnlit.
                 float lit = floor((vColor.a + 0.5) / 4096.0);
                 vColor.a -= 4096.0 * lit;
-                vColor.rgb *= lit > 2.5 ? uOpenLight : lit > 1.5 ? uLampLight : lit > 0.5 ? uRoomLight : vec3(1.0);
+                if (unlit >= 0.0) {
+                    float kind = floor(unlit / 16.0);
+                    vec3 given = kind > 2.5 ? uOpenLight : kind > 1.5 ? uLampLight : kind > 0.5 ? uRoomLight : vec3(1.0);
+                    vColor.rgb += (unlit - 16.0 * kind) * (given - 1.0);
+                } else {
+                    vColor.rgb *= lit > 2.5 ? uOpenLight : lit > 1.5 ? uLampLight : lit > 0.5 ? uRoomLight : vec3(1.0);
+                }
                 // A strip of grass has no facing. What its vertex carries in a facing's place is
                 // taken apart here: see SpriteGeometry.addStrip.
                 vBlade = vec4(0.0);

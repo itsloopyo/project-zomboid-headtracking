@@ -629,7 +629,7 @@ final class OpeningBuilder {
         addJoinery(joinery, from, to, foot, head, out * (WorldScene.WALL_HALF - 0.003f), red, green, blue);
         float start = Math.max(from, 0f), end = Math.min(to, 1f), low = Math.max(foot, 0f), high = Math.min(head, 1f);
         float wasRed = build.frame.red, wasGreen = build.frame.green, wasBlue = build.frame.blue, wasOpen = build.frame.open;
-        build.frame.cornersInto(build.heldRed, build.heldGreen, build.heldBlue);
+        build.frame.cornersInto(build.heldRed, build.heldGreen, build.heldBlue, build.heldUnlit);
         if (windowLit == 1) {
             build.frame.light(red, green, blue);
             build.frame.open = open;
@@ -643,7 +643,7 @@ final class OpeningBuilder {
         build.frame.green = wasGreen;
         build.frame.blue = wasBlue;
         build.frame.open = wasOpen;
-        build.frame.cornersFrom(build.heldRed, build.heldGreen, build.heldBlue);
+        build.frame.cornersFrom(build.heldRed, build.heldGreen, build.heldBlue, build.heldUnlit);
     }
 
     /** The height of the foot of a window or a door on level z of the square being added: the floor there, raised by the mean of the ground's lift at its corners. */

@@ -1501,7 +1501,7 @@ final class WorldScene {
         TreeSet<Integer> made = new TreeSet<>();
         float minX = Float.MAX_VALUE, minY = Float.MAX_VALUE, minUp = Float.MAX_VALUE, maxX = -Float.MAX_VALUE, maxY = -Float.MAX_VALUE, maxUp = -Float.MAX_VALUE;
         for (int k = 0; k < mesh.floats; k += SpriteGeometry.VERTEX_FLOATS) {
-            made.add((int) Math.floor((mesh.vertices[k + 8] + 0.5f) / 32f));
+            made.add((int) Math.floor((mesh.vertices[k + 8] % LIT_STEP + 0.5f) / 32f));
             minX = Math.min(minX, mesh.vertices[k]);
             maxX = Math.max(maxX, mesh.vertices[k]);
             minY = Math.min(minY, mesh.vertices[k + 1]);
@@ -2510,7 +2510,7 @@ final class WorldScene {
         final byte[] lightOpen = new byte[LIGHT_SPAN * LIGHT_SPAN];
         /** Each square's kind of light: OWN_LIGHT, ROOM_LIT or LAMP_LIT. */
         final byte[] lightUnseen = new byte[LIGHT_SPAN * LIGHT_SPAN];
-        final float[] heldRed = new float[4], heldGreen = new float[4], heldBlue = new float[4];
+        final float[] heldRed = new float[4], heldGreen = new float[4], heldBlue = new float[4], heldUnlit = new float[4];
         /**
          * The lights of every level of the chunk last summed, as readLights left each: a chunk
          * found changed is built in the same frame, and its build takes them from here in place
@@ -5006,7 +5006,10 @@ final class WorldScene {
          * read. Each corner takes the mean of the squares that meet at it, so two squares agree
          * about the corner they share and the light has no step between them. Squares on the other
          * side of a roof's edge are left out of the mean: a room is not lit by the garden through
-         * its wall.
+         * its wall. A square the game has given no light counts as 1, and the corner keeps how
+         * much of its light such squares are (cornerUnlit), of one kind of them: the square's
+         * own, or for one the game has lit the first kind round it (unlitKind). A square of
+         * another kind is left out.
          */
         void cornerLights(int localX, int localY) {
             int own = (localX + 1) * LIGHT_SPAN + localY + 1;
@@ -5014,25 +5017,45 @@ final class WorldScene {
             frame.green = lightGreen[own];
             frame.blue = lightBlue[own];
             frame.open = openOf(own);
+            byte kind = unlitKindRound(own);
+            frame.unlitKind = kind;
             for (int corner = 0; corner < 4; corner++) {
                 int i = localX + (corner == 1 || corner == 2 ? 1 : 0), j = localY + (corner >= 2 ? 1 : 0);
                 float red = 0f, green = 0f, blue = 0f;
-                int count = 0;
+                int count = 0, unlit = 0;
                 for (int di = 0; di <= 1; di++) {
                     for (int dj = 0; dj <= 1; dj++) {
                         int at = (i + di) * LIGHT_SPAN + j + dj;
-                        if (lightOpen[at] == lightOpen[own] && lightUnseen[at] == lightUnseen[own]) {
+                        if (lightOpen[at] == lightOpen[own] && (lightUnseen[at] == OWN_LIGHT || lightUnseen[at] == kind)) {
                             red += lightRed[at];
                             green += lightGreen[at];
                             blue += lightBlue[at];
                             count++;
+                            unlit += lightUnseen[at] == OWN_LIGHT ? 0 : 1;
                         }
                     }
                 }
                 frame.cornerRed[corner] = red / count;
                 frame.cornerGreen[corner] = green / count;
                 frame.cornerBlue[corner] = blue / count;
+                frame.cornerUnlit[corner] = (float) unlit / count;
             }
+        }
+
+        /** The kind of light the game has not given that the square at the given place of the light grid is lit by, or for one it has lit the first such kind of a square round it with the same openness, or OWN_LIGHT. */
+        byte unlitKindRound(int own) {
+            if (lightUnseen[own] != OWN_LIGHT) {
+                return lightUnseen[own];
+            }
+            for (int di = -1; di <= 1; di++) {
+                for (int dj = -1; dj <= 1; dj++) {
+                    int at = own + di * LIGHT_SPAN + dj;
+                    if (at >= 0 && at < lightUnseen.length && lightOpen[at] == lightOpen[own] && lightUnseen[at] != OWN_LIGHT) {
+                        return lightUnseen[at];
+                    }
+                }
+            }
+            return OWN_LIGHT;
         }
 
         /** Finds the trees on and round a chunk, and what each drops. */
@@ -5172,6 +5195,7 @@ final class WorldScene {
                 into[0] = (frame.cornerRed[0] * (1f - a) + frame.cornerRed[1] * a) * (1f - b) + (frame.cornerRed[3] * (1f - a) + frame.cornerRed[2] * a) * b;
                 into[1] = (frame.cornerGreen[0] * (1f - a) + frame.cornerGreen[1] * a) * (1f - b) + (frame.cornerGreen[3] * (1f - a) + frame.cornerGreen[2] * a) * b;
                 into[2] = (frame.cornerBlue[0] * (1f - a) + frame.cornerBlue[1] * a) * (1f - b) + (frame.cornerBlue[3] * (1f - a) + frame.cornerBlue[2] * a) * b;
+                into[3] = frame.unlitAt((1f - a) * (1f - b), a * (1f - b), a * b, (1f - a) * b);
             };
             for (int edge = 0; edge < 2; edge++) {
                 Trims.Band[] bands = edge == 0 ? onNorth : onWest;
@@ -5371,7 +5395,7 @@ final class WorldScene {
         }
 
         /** How many strips a square's length of a banner is cut into along the banner, and up it: enough for it to belly in the wind. */
-        private static final int BANNER_ALONG = 4, BANNER_UP = 3, BANNER_FLOATS = 9;
+        private static final int BANNER_ALONG = 4, BANNER_UP = 3, BANNER_FLOATS = 10;
         /** How far inside its sprite's rectangle a banner's sheet takes its outermost texels, in frame dots: the middle of the outermost dot. */
         private static final float BANNER_INSET = 0.5f;
         /** The corners of one piece of a banner's sheet in the order of its two triangles: a bit for the further one along, a bit for the lower one. */
@@ -5444,6 +5468,7 @@ final class WorldScene {
                     bannerCorners[at + 6] = frame.cornerGreen[0] * w0 + frame.cornerGreen[1] * w1 + frame.cornerGreen[2] * w2 + frame.cornerGreen[3] * w3;
                     bannerCorners[at + 7] = frame.cornerBlue[0] * w0 + frame.cornerBlue[1] * w1 + frame.cornerBlue[2] * w2 + frame.cornerBlue[3] * w3;
                     bannerCorners[at + 8] = sway;
+                    bannerCorners[at + 9] = frame.unlitAt(w0, w1, w2, w3);
                 }
             }
             mesh.open = frame.open + 32f * frame.material;
@@ -5453,12 +5478,14 @@ final class WorldScene {
                     for (int corner : BANNER_CORNERS) {
                         int at = (j + (corner >> 1)) * row + (i + (corner & 1)) * BANNER_FLOATS;
                         mesh.sway = bannerCorners[at + 8];
+                        mesh.unlit = bannerCorners[at + 9];
                         mesh.add(bannerCorners[at], bannerCorners[at + 1], bannerCorners[at + 2], bannerCorners[at + 3], bannerCorners[at + 4],
                                 bannerCorners[at + 5], bannerCorners[at + 6], bannerCorners[at + 7]);
                     }
                 }
             }
             mesh.sway = 0f;
+            mesh.unlit = SpriteGeometry.AS_FACE;
         }
 
         /** The map the run of a strung banner is found on, on the level hungOn. */
@@ -6728,12 +6755,14 @@ final class WorldScene {
                 float v = liningV[corner] + Math.clamp(middleV - liningV[corner], -inset, inset);
                 float wa = Math.clamp(a, 0f, 1f), wb = Math.clamp(b, 0f, 1f);
                 float w0 = (1f - wa) * (1f - wb), w1 = wa * (1f - wb), w2 = wa * wb, w3 = (1f - wa) * wb;
+                mesh.unlit = frame.unlitAt(w0, w1, w2, w3);
                 mesh.add(x + a, y + b, (z + liningAt[corner * 3 + 2]) * ViewCamera.LEVEL_HEIGHT + geometry.liftAt(a, b),
                         SpriteGeometry.textureAtU(frame, u), SpriteGeometry.textureAtV(frame, v),
                         frame.cornerRed[0] * w0 + frame.cornerRed[1] * w1 + frame.cornerRed[2] * w2 + frame.cornerRed[3] * w3,
                         frame.cornerGreen[0] * w0 + frame.cornerGreen[1] * w1 + frame.cornerGreen[2] * w2 + frame.cornerGreen[3] * w3,
                         frame.cornerBlue[0] * w0 + frame.cornerBlue[1] * w1 + frame.cornerBlue[2] * w2 + frame.cornerBlue[3] * w3);
             }
+            mesh.unlit = SpriteGeometry.AS_FACE;
         }
 
         private boolean addTent(SpriteGeometry.Mesh mesh, Tents.Piece piece, Tents.Piece rope, int x, int y, int z) {
@@ -6847,7 +6876,10 @@ final class WorldScene {
                     towerLight.cornerRed[corner] = (frame.cornerRed[0] + frame.cornerRed[1] + frame.cornerRed[2] + frame.cornerRed[3]) / 4f;
                     towerLight.cornerGreen[corner] = (frame.cornerGreen[0] + frame.cornerGreen[1] + frame.cornerGreen[2] + frame.cornerGreen[3]) / 4f;
                     towerLight.cornerBlue[corner] = (frame.cornerBlue[0] + frame.cornerBlue[1] + frame.cornerBlue[2] + frame.cornerBlue[3]) / 4f;
+                    towerLight.cornerUnlit[corner] = frame.cornerUnlit[0] < 0f ? SpriteGeometry.AS_FACE
+                            : (frame.cornerUnlit[0] + frame.cornerUnlit[1] + frame.cornerUnlit[2] + frame.cornerUnlit[3]) / 4f;
                 }
+                towerLight.unlitKind = frame.unlitKind;
                 towerLight.open = frame.open;
                 placed.add(Models.get(section.model()), towerLight, x, y, centreX, centreY, foot, section.turns(), Furniture.TILES_PER_METRE,
                         Furniture.TILES_PER_METRE, 0, 0, 0f, 0f, 0, 0f, 0f);
@@ -6917,7 +6949,7 @@ final class WorldScene {
         /** The same of the sprite hung over the one being added, while it is: tiles laid over a wall. */
         String overSheet;
         /** The colour the papered wall's mesh is painted over in, as the picture is told it, and the light of the piece being added while its stripes are. */
-        final float[] paperTint = new float[4], paperRed = new float[4], paperGreen = new float[4], paperBlue = new float[4];
+        final float[] paperTint = new float[4], paperRed = new float[4], paperGreen = new float[4], paperBlue = new float[4], paperUnlit = new float[4];
 
         /** The level the walls that meet the wall being added are looked for on. */
         int joinLevel;

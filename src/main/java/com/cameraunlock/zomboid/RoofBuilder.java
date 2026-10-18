@@ -192,7 +192,7 @@ final class RoofBuilder {
         // The wall is out of doors and is lit as the open air is. The roof tile's own square
         // is the loft under it, which is dark.
         float red = build.frame.red, green = build.frame.green, blue = build.frame.blue, open = build.frame.open;
-        build.frame.cornersInto(build.heldRed, build.heldGreen, build.heldBlue);
+        build.frame.cornersInto(build.heldRed, build.heldGreen, build.heldBlue, build.heldUnlit);
         build.frame.light(1f, 1f, 1f);
         build.frame.open = WorldScene.OPEN_UNLIT;
         addGableWalls(square, standing, ground, room, x, y, z, northWest, northEast, southWest, peak, peakAxis);
@@ -200,7 +200,7 @@ final class RoofBuilder {
         build.frame.green = green;
         build.frame.blue = blue;
         build.frame.open = open;
-        build.frame.cornersFrom(build.heldRed, build.heldGreen, build.heldBlue);
+        build.frame.cornersFrom(build.heldRed, build.heldGreen, build.heldBlue, build.heldUnlit);
     }
 
     /**

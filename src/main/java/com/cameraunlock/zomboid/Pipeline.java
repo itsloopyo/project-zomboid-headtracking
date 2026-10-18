@@ -1707,11 +1707,13 @@ final class Pipeline {
         return asked[0];
     }
 
-    /** Switches off the arrays of what a vertex carries for a card and its tree's square: only the frame's own vertices have them. */
+    /** Switches off the arrays of what a vertex carries for a card, its tree's square and a light the game has not given: only the frame's own vertices have them. */
     private static void cardArrayOff() {
         GL13.glClientActiveTexture(GL_TEXTURE0 + 1);
         GL11.glDisableClientState(GL_TEXTURE_COORD_ARRAY);
         GL13.glClientActiveTexture(GL_TEXTURE0 + 2);
+        GL11.glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+        GL13.glClientActiveTexture(GL_TEXTURE0 + 3);
         GL11.glDisableClientState(GL_TEXTURE_COORD_ARRAY);
         GL13.glClientActiveTexture(GL_TEXTURE0);
     }
@@ -1739,6 +1741,8 @@ final class Pipeline {
         GL13.glClientActiveTexture(GL_TEXTURE0 + 1);
         GL11.glEnableClientState(GL_TEXTURE_COORD_ARRAY);
         GL13.glClientActiveTexture(GL_TEXTURE0 + 2);
+        GL11.glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+        GL13.glClientActiveTexture(GL_TEXTURE0 + 3);
         GL11.glEnableClientState(GL_TEXTURE_COORD_ARRAY);
         GL13.glClientActiveTexture(GL_TEXTURE0);
         ChunkBuffers.point();
@@ -1972,7 +1976,7 @@ final class Pipeline {
         modelArrays();
         program.set("uModel", 1f);
         int placeAt = program.at("uPlace"), footAt = program.at("uFoot"), turnAt = program.at("uTurn");
-        int litAt = 0, alongAt = 0, downAt = 0, acrossAt = 0, surfacesAt = 0, dyeAt = 0, pictureAt = 0, texelAt = 0, tubeAt = 0;
+        int litAt = 0, alongAt = 0, downAt = 0, acrossAt = 0, unlitAt = 0, unlitKindAt = 0, surfacesAt = 0, dyeAt = 0, pictureAt = 0, texelAt = 0, tubeAt = 0;
         // Whether the program was last told of a tube showing part of its picture, which the next piece is not.
         boolean tubed = false;
         if (shaded) {
@@ -1980,6 +1984,8 @@ final class Pipeline {
             alongAt = program.at("uLitAlong");
             downAt = program.at("uLitDown");
             acrossAt = program.at("uLitAcross");
+            unlitAt = program.at("uUnlit");
+            unlitKindAt = program.at("uUnlitKind");
             surfacesAt = program.at("uSurfaces");
             dyeAt = program.at("uDye");
             pictureAt = program.at("uPicture");
@@ -2014,6 +2020,9 @@ final class Pipeline {
                 GL20.glUniform3f(alongAt, f[light + 3], f[light + 4], f[light + 5]);
                 GL20.glUniform3f(downAt, f[light + 6], f[light + 7], f[light + 8]);
                 GL20.glUniform3f(acrossAt, f[light + 9], f[light + 10], f[light + 11]);
+                int unlit = at + Models.Instances.UNLIT;
+                GL20.glUniform4f(unlitAt, f[unlit], f[unlit + 1], f[unlit + 2], f[unlit + 3]);
+                GL20.glUniform1f(unlitKindAt, f[unlit + 4]);
                 if (toldOf == null || differ(f, surfaces, toldOf, told + Models.Instances.SURFACES, 3)) {
                     GL20.glUniform3f(surfacesAt, f[surfaces], f[surfaces + 1], f[surfaces + 2]);
                 }
@@ -2970,6 +2979,8 @@ final class Pipeline {
         GL11.glDisableClientState(GL_COLOR_ARRAY);
         GL11.glDisableClientState(GL_NORMAL_ARRAY);
         GL13.glClientActiveTexture(GL_TEXTURE0 + 2);
+        GL11.glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+        GL13.glClientActiveTexture(GL_TEXTURE0 + 3);
         GL11.glDisableClientState(GL_TEXTURE_COORD_ARRAY);
         GL11.glEnable(GL_DEPTH_TEST);
         GL11.glDepthFunc(GL_LEQUAL);

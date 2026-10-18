@@ -73,7 +73,7 @@ final class PlantBuilder {
     private final float[] pieceA = new float[4], pieceB = new float[4], pieceKerb = new float[4];
     private final float[] cutA = new float[8], cutB = new float[8], cutKerb = new float[8];
     private final float[] pieceX = new float[8], pieceY = new float[8], pieceLift = new float[8], pieceLeaf = new float[8], pieceNeedle = new float[8];
-    private final float[] pieceRed = new float[8], pieceGreen = new float[8], pieceBlue = new float[8];
+    private final float[] pieceRed = new float[8], pieceGreen = new float[8], pieceBlue = new float[8], pieceUnlit = new float[8];
     /** The rectangle and texels of the frame as long grass found it, put back once the grass is grown. */
     private final SpriteGeometry.Frame heldTexels = new SpriteGeometry.Frame();
     /** The tree whose bole was stood last: its square, how thick and tall the bole is, and its bark. Its crown, which comes after it, grows limbs from it. */
@@ -292,10 +292,11 @@ final class PlantBuilder {
             pieceRed[corner] = across(build.frame.cornerRed, at, bt);
             pieceGreen[corner] = across(build.frame.cornerGreen, at, bt);
             pieceBlue[corner] = across(build.frame.cornerBlue, at, bt);
+            pieceUnlit[corner] = build.frame.unlitAt((1f - at) * (1f - bt), at * (1f - bt), at * bt, (1f - at) * bt);
             shows = Math.max(shows, Math.max(pieceLeaf[corner] * Litter.SPREAD_MOST, pieceNeedle[corner]));
         }
         if (shows > 0.02f) {
-            Flora.addLitter(cards, count, pieceX, pieceY, pieceLift, pieceLeaf, pieceNeedle, kind, pieceRed, pieceGreen, pieceBlue, build.frame.open);
+            Flora.addLitter(cards, count, pieceX, pieceY, pieceLift, pieceLeaf, pieceNeedle, kind, pieceRed, pieceGreen, pieceBlue, pieceUnlit, build.frame.open);
         }
     }
 

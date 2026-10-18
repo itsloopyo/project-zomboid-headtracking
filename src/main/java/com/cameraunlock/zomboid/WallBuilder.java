@@ -380,7 +380,7 @@ final class WallBuilder {
         // outside of a house by the day, whatever the room behind it is lit by.
         float red = build.frame.red, green = build.frame.green, blue = build.frame.blue, open = build.frame.open;
         if (build.overLayer == 0 && farLight >= 0) {
-            build.frame.cornersInto(build.heldRed, build.heldGreen, build.heldBlue);
+            build.frame.cornersInto(build.heldRed, build.heldGreen, build.heldBlue, build.heldUnlit);
             if (build.lightOpen[farLight] < 0) {
                 build.frame.light(1f, 1f, 1f);
                 build.frame.open = WorldScene.OPEN_UNLIT;
@@ -416,7 +416,7 @@ final class WallBuilder {
             build.frame.green = green;
             build.frame.blue = blue;
             build.frame.open = open;
-            build.frame.cornersFrom(build.heldRed, build.heldGreen, build.heldBlue);
+            build.frame.cornersFrom(build.heldRed, build.heldGreen, build.heldBlue, build.heldUnlit);
         }
         build.frame.material = material;
         skinStart = skinEnd = 0f;
@@ -562,20 +562,26 @@ final class WallBuilder {
         int step = north ? WorldScene.LIGHT_SPAN : 1;
         build.frame.light(build.lightRed[at], build.lightGreen[at], build.lightBlue[at]);
         build.frame.open = build.openOf(at);
+        // As WorldScene.Frame.cornerLights: a square the game has given no light counts as 1, and the corner keeps how much of its light such squares are.
+        byte kind = build.unlitKindRound(at);
+        build.frame.unlitKind = kind;
+        float ownUnlit = build.lightUnseen[at] == WorldScene.OWN_LIGHT ? 0f : 1f;
         for (int end = 0; end < 2; end++) {
             int beside = at + (end == 0 ? -step : step);
             // The lights are read a square past the chunk and no further: a far side that is in that last row has nothing beyond one end.
             boolean alike = beside >= 0 && beside < build.lightOpen.length && build.lightOpen[beside] == build.lightOpen[at]
-                    && build.lightUnseen[beside] == build.lightUnseen[at];
+                    && (build.lightUnseen[beside] == WorldScene.OWN_LIGHT || build.lightUnseen[beside] == kind);
             float red = alike ? (build.lightRed[at] + build.lightRed[beside]) / 2f : build.lightRed[at];
             float green = alike ? (build.lightGreen[at] + build.lightGreen[beside]) / 2f : build.lightGreen[at];
             float blue = alike ? (build.lightBlue[at] + build.lightBlue[beside]) / 2f : build.lightBlue[at];
+            float unlit = alike ? (ownUnlit + (build.lightUnseen[beside] == WorldScene.OWN_LIGHT ? 0f : 1f)) / 2f : ownUnlit;
             // The square's corners go north-west, north-east, south-east, south-west: a wall on its
             // north edge ends at the first two, one on its west edge at the first and the last.
             int near = end == 0 ? 0 : north ? 1 : 3, far = end == 0 ? (north ? 3 : 1) : 2;
             build.frame.cornerRed[near] = build.frame.cornerRed[far] = red;
             build.frame.cornerGreen[near] = build.frame.cornerGreen[far] = green;
             build.frame.cornerBlue[near] = build.frame.cornerBlue[far] = blue;
+            build.frame.cornerUnlit[near] = build.frame.cornerUnlit[far] = unlit;
         }
     }
 
@@ -796,7 +802,7 @@ final class WallBuilder {
         float made = build.frame.material;
         build.frame.material = paper.figured ? FIGURED_PAPER : made;
         float red = build.frame.red, green = build.frame.green, blue = build.frame.blue;
-        build.frame.cornersInto(build.paperRed, build.paperGreen, build.paperBlue);
+        build.frame.cornersInto(build.paperRed, build.paperGreen, build.paperBlue, build.paperUnlit);
         float begin = 0f;
         for (int stripe = 0; stripe < paper.ends.length; stripe++) {
             float end = paper.ends[stripe];
@@ -817,7 +823,7 @@ final class WallBuilder {
         build.frame.red = red;
         build.frame.green = green;
         build.frame.blue = blue;
-        build.frame.cornersFrom(build.paperRed, build.paperGreen, build.paperBlue);
+        build.frame.cornersFrom(build.paperRed, build.paperGreen, build.paperBlue, build.paperUnlit);
     }
 
     /**

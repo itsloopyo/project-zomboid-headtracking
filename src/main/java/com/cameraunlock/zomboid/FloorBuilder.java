@@ -239,7 +239,7 @@ final class FloorBuilder {
         WallSides.tint(key, tileTint);
         SpriteGeometry.Mesh on = WorldScene.solid.get(texture.getID(), key);
         float made = build.frame.material, red = build.frame.red, green = build.frame.green, blue = build.frame.blue;
-        build.frame.cornersInto(build.paperRed, build.paperGreen, build.paperBlue);
+        build.frame.cornersInto(build.paperRed, build.paperGreen, build.paperBlue, build.paperUnlit);
         build.frame.material = carpet ? WorldScene.CARPET : WorldScene.TILE;
         float joint = count > 1 ? JOINT_HALF : 0f, each = 1f / count;
         if (count > 1) {
@@ -262,7 +262,7 @@ final class FloorBuilder {
         build.frame.red = red;
         build.frame.green = green;
         build.frame.blue = blue;
-        build.frame.cornersFrom(build.paperRed, build.paperGreen, build.paperBlue);
+        build.frame.cornersFrom(build.paperRed, build.paperGreen, build.paperBlue, build.paperUnlit);
         return true;
     }
 
@@ -274,7 +274,7 @@ final class FloorBuilder {
     private void addBoards(SpriteGeometry.Mesh on, Flats.Boards boards, int x, int y, int z) {
         WallSides.tint(on.tint, tileTint);
         float made = build.frame.material, red = build.frame.red, green = build.frame.green, blue = build.frame.blue;
-        build.frame.cornersInto(build.paperRed, build.paperGreen, build.paperBlue);
+        build.frame.cornersInto(build.paperRed, build.paperGreen, build.paperBlue, build.paperUnlit);
         build.frame.material = WorldScene.boardsOf(boards.count(), boards.alongY());
         shade(red, green, blue, boards.red() / Math.max(tileTint[0], 0.02f), boards.green() / Math.max(tileTint[1], 0.02f), boards.blue() / Math.max(tileTint[2], 0.02f));
         layFloor(true);
@@ -284,7 +284,7 @@ final class FloorBuilder {
         build.frame.red = red;
         build.frame.green = green;
         build.frame.blue = blue;
-        build.frame.cornersFrom(build.paperRed, build.paperGreen, build.paperBlue);
+        build.frame.cornersFrom(build.paperRed, build.paperGreen, build.paperBlue, build.paperUnlit);
     }
 
     /** Lights the frame as it was lit, held in paperRed and its fellows, times a shade for each of red, green and blue. */
@@ -292,10 +292,12 @@ final class FloorBuilder {
         build.frame.red = red * r;
         build.frame.green = green * g;
         build.frame.blue = blue * b;
+        float mean = (r + g + b) / 3f;
         for (int corner = 0; corner < 4; corner++) {
             build.frame.cornerRed[corner] = build.paperRed[corner] * r;
             build.frame.cornerGreen[corner] = build.paperGreen[corner] * g;
             build.frame.cornerBlue[corner] = build.paperBlue[corner] * b;
+            build.frame.cornerUnlit[corner] = build.paperUnlit[corner] < 0f ? SpriteGeometry.AS_FACE : build.paperUnlit[corner] * mean;
         }
     }
 
@@ -403,7 +405,7 @@ final class FloorBuilder {
             }
         }
         float red = build.frame.red, green = build.frame.green, blue = build.frame.blue, open = build.frame.open, kind = build.frame.kind;
-        build.frame.cornersInto(build.heldRed, build.heldGreen, build.heldBlue);
+        build.frame.cornersInto(build.heldRed, build.heldGreen, build.heldBlue, build.heldUnlit);
         byte lit = below != null && below.isSeen(build.playerIndex) ? WorldScene.OWN_LIGHT
                 : below == null || below.getRoomID() == -1L || build.asTheGameShows || build.gamesView ? WorldScene.OPEN_LIT
                 : WorldScene.lampBurns(build.cell, below, build.lampsNear) ? WorldScene.LAMP_LIT : WorldScene.ROOM_LIT;
@@ -420,6 +422,6 @@ final class FloorBuilder {
         build.frame.green = green;
         build.frame.blue = blue;
         build.frame.open = open;
-        build.frame.cornersFrom(build.heldRed, build.heldGreen, build.heldBlue);
+        build.frame.cornersFrom(build.heldRed, build.heldGreen, build.heldBlue, build.heldUnlit);
     }
 }

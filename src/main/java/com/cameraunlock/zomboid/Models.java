@@ -477,7 +477,13 @@ final class Models {
         static final int PICTURE = 34;
         /** The furthest the piece's plain model is from its whole one, in tiles. The picture's programs are not told it. */
         static final int APART = 38;
-        static final int FLOATS = 39;
+        /**
+         * What the piece has of a light the game has not given, as the light is held at LIGHT:
+         * at the first corner and added along each edge and across. Then the kind of that light
+         * plus 1, or 0 where the piece is lit as its openness says: see Frame.cornerUnlit.
+         */
+        static final int UNLIT = 39;
+        static final int FLOATS = 44;
         /**
          * The model's first corner in the list of every model's and how many it has, the same of
          * its plain one, the texture that dyes the piece or 0, and 1 for a piece that is part of
@@ -587,6 +593,13 @@ final class Models {
             corners(light.cornerRed, to, at + LIGHT);
             corners(light.cornerGreen, to, at + LIGHT + 1);
             corners(light.cornerBlue, to, at + LIGHT + 2);
+            boolean blended = light.cornerUnlit[0] >= 0f;
+            float[] unlit = light.cornerUnlit;
+            to[at + UNLIT] = blended ? unlit[0] : 0f;
+            to[at + UNLIT + 1] = blended ? unlit[1] - unlit[0] : 0f;
+            to[at + UNLIT + 2] = blended ? unlit[3] - unlit[0] : 0f;
+            to[at + UNLIT + 3] = blended ? unlit[2] - unlit[1] - (unlit[3] - unlit[0]) : 0f;
+            to[at + UNLIT + 4] = blended ? light.unlitKind + 1f : 0f;
             to[at + SURFACES] = light.open;
             to[at + SURFACES + 1] = dyedSurfaces;
             to[at + SURFACES + 2] = alsoDyed & ~dyedSurfaces;

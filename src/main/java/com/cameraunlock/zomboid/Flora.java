@@ -1302,7 +1302,7 @@ final class Flora {
      * the same at every corner.
      */
     static void addLitter(Mesh mesh, int count, float[] x, float[] y, float[] lift, float[] leaf, float[] needle, byte kind,
-            float[] red, float[] green, float[] blue, float open) {
+            float[] red, float[] green, float[] blue, float[] unlit, float open) {
         mark(mesh, open, 0f, LITTER);
         // Newell's way to the facing of a polygon, which is any of its triangles' for one that is flat.
         float nx = 0f, ny = 0f, nz = 0f;
@@ -1314,14 +1314,16 @@ final class Flora {
         }
         mesh.face(nz < 0f ? -nx : nx, nz < 0f ? -ny : ny, Math.abs(nz));
         for (int i = 1; i < count - 1; i++) {
-            litterCorner(mesh, 0, x, y, lift, leaf, needle, kind, red, green, blue);
-            litterCorner(mesh, i, x, y, lift, leaf, needle, kind, red, green, blue);
-            litterCorner(mesh, i + 1, x, y, lift, leaf, needle, kind, red, green, blue);
+            litterCorner(mesh, 0, x, y, lift, leaf, needle, kind, red, green, blue, unlit);
+            litterCorner(mesh, i, x, y, lift, leaf, needle, kind, red, green, blue, unlit);
+            litterCorner(mesh, i + 1, x, y, lift, leaf, needle, kind, red, green, blue, unlit);
         }
+        mesh.unlit = SpriteGeometry.AS_FACE;
     }
 
     private static void litterCorner(Mesh mesh, int corner, float[] x, float[] y, float[] lift, float[] leaf, float[] needle, byte kind,
-            float[] red, float[] green, float[] blue) {
+            float[] red, float[] green, float[] blue, float[] unlit) {
+        mesh.unlit = unlit[corner];
         mesh.add(x[corner], y[corner], lift[corner], LITTER_KIND_STEP * kind + leaf[corner], needle[corner], red[corner], green[corner], blue[corner]);
     }
 

@@ -275,6 +275,7 @@ public final class Tests {
         Checks.run("boulderIsClosed", Tests::boulderIsClosed);
         Checks.run("fernGrowsFromItsRoot", Tests::fernGrowsFromItsRoot);
         Checks.run("litterShowsAsMuchAsItsCornersSay", Tests::litterShowsAsMuchAsItsCornersSay);
+        Checks.run("aCornerKeepsWhatItHasOfALightTheGameHasNotGiven", Tests::aCornerKeepsWhatItHasOfALightTheGameHasNotGiven);
         Checks.run("elbowKeepsBothBonesTheirLengthsAndDropsTheWayThePolePoints", Tests::elbowKeepsBothBonesTheirLengthsAndDropsTheWayThePolePoints);
         Checks.run("pumpGoesBackAndComesForwardAgain", Tests::pumpGoesBackAndComesForwardAgain);
         Checks.run("pumpWaitsOutTheKickAndFillsTheGamesRack", Tests::pumpWaitsOutTheKickAndFillsTheGamesRack);
@@ -1134,13 +1135,40 @@ public final class Tests {
         check(rooted, "every frond starts on the ground");
     }
 
+    private static void aCornerKeepsWhatItHasOfALightTheGameHasNotGiven() {
+        SpriteGeometry.Frame frame = new SpriteGeometry.Frame();
+        frame.light(0.4f, 0.4f, 0.4f);
+        check(frame.unlitAt(0.25f, 0.25f, 0.25f, 0.25f) == SpriteGeometry.AS_FACE, "a frame lit as one light is lit as its faces say");
+        frame.unlitKind = WorldScene.ROOM_LIT;
+        frame.cornerUnlit[0] = 0f;
+        frame.cornerUnlit[1] = 0.5f;
+        frame.cornerUnlit[2] = 1f;
+        frame.cornerUnlit[3] = 0.5f;
+        float coded = frame.unlitAt(0f, 0.5f, 0.5f, 0f);
+        check(near(coded, WorldScene.ROOM_LIT * SpriteGeometry.UNLIT_KIND_STEP + 0.75f), "a vertex between corners has their shares in its own share, over the kind of light");
+        check(near(frame.unlitAt(1f, 0f, 0f, 0f), WorldScene.ROOM_LIT * SpriteGeometry.UNLIT_KIND_STEP), "a corner of squares the game has lit has none of it");
+        check(near(SpriteGeometry.unlitTimes(coded, 0.5f), WorldScene.ROOM_LIT * SpriteGeometry.UNLIT_KIND_STEP + 0.375f), "a shade on the light is a shade on its share");
+        check(SpriteGeometry.unlitTimes(SpriteGeometry.AS_FACE, 0.5f) == SpriteGeometry.AS_FACE, "and leaves a vertex lit as its face says as it is");
+        // What the picture makes of it: the light counted as 1, then the share of it put in as this frame's.
+        float lit = 0.6f, room = 0.3f;
+        float corner = (lit + 1f) / 2f, share = 0.5f;
+        check(near(corner + share * (room - 1f), (lit + room) / 2f), "a corner where a lit square meets an unlit one is the mean of the two lights");
+        SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
+        mesh.unlit = coded;
+        mesh.add(0f, 0f, 0f, 0f, 0f, 1f, 1f, 1f);
+        mesh.unlit = SpriteGeometry.AS_FACE;
+        mesh.add(0f, 0f, 0f, 0f, 0f, 1f, 1f, 1f);
+        check(mesh.vertices[SpriteGeometry.UNLIT_AT] == coded && mesh.vertices[SpriteGeometry.VERTEX_FLOATS + SpriteGeometry.UNLIT_AT] == SpriteGeometry.AS_FACE,
+                "each vertex carries what it was added with");
+    }
+
     private static void litterShowsAsMuchAsItsCornersSay() {
         SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
         mesh.layers.lie(SpriteGeometry.LAYERS_UP, 3f);
         float[] light = {0.5f, 0.5f, 0.5f, 0.5f, 0.5f};
         byte red = (byte) (Litter.LEAF + Flora.SCARLET_LEAF);
         Flora.addLitter(mesh, 4, new float[] {5f, 5.5f, 5.5f, 5f}, new float[] {6f, 6f, 6.5f, 6.5f}, new float[] {0f, 0.1f, 0.2f, 0.1f}, new float[] {1f, 0.25f, 0f, 0.5f},
-                new float[] {0f, 0.5f, 1f, 0f}, red, light, light, light, 0f);
+                new float[] {0f, 0.5f, 1f, 0f}, red, light, light, light, new float[] {35f, 35.5f, 36f, 35f}, 0f);
         check(mesh.triangles() == 2, "a piece of litter of four corners is two triangles");
         for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
             float[] f = mesh.vertices;
@@ -1153,10 +1181,12 @@ public final class Tests {
             check(near(f[at + 2], east ? south ? 0.2f : 0.1f : south ? 0.1f : 0f), "and lies on the ground there");
             check(f[at + 12] == 3f && f[at + 14] == SpriteGeometry.LAYERS_UP, "as many layers over it as it was laid by, which the picture makes room for");
             check(near(f[at + 8], Flora.LITTER * 32f), "and is marked as litter");
+            check(near(f[at + SpriteGeometry.UNLIT_AT], east ? south ? 36f : 35.5f : 35f), "and carries what it has of a light the game has not given, corner by corner");
         }
+        check(mesh.unlit == SpriteGeometry.AS_FACE, "litter leaves its mesh lit as its faces say for what is added next");
         SpriteGeometry.Mesh cut = new SpriteGeometry.Mesh();
         // Clockwise this time, as a cut along a kerb may give it: it still faces up.
-        Flora.addLitter(cut, 5, new float[] {0f, 0f, 0.5f, 1f, 1f}, new float[] {0f, 1f, 1f, 0.4f, 0f}, new float[5], new float[5], new float[5], red, light, light, light, 0f);
+        Flora.addLitter(cut, 5, new float[] {0f, 0f, 0.5f, 1f, 1f}, new float[] {0f, 1f, 1f, 0.4f, 0f}, new float[5], new float[5], new float[5], red, light, light, light, new float[5], 0f);
         check(cut.triangles() == 3, "a piece of five corners is three triangles");
         for (int at = 0; at < cut.floats; at += SpriteGeometry.VERTEX_FLOATS) {
             check(near(cut.vertices[at + 11], 1f), "a flat piece faces straight up whichever way round its corners go");

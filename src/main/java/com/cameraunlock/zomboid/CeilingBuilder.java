@@ -49,9 +49,11 @@ final class CeilingBuilder {
         float up = (z + 1) * ViewCamera.LEVEL_HEIGHT;
         WorldScene.layers.sheet(-1f);
         for (int corner : CEILING_CORNERS) {
+            plain.unlit = build.frame.unlitAt(corner == 0 ? 1f : 0f, corner == 1 ? 1f : 0f, corner == 2 ? 1f : 0f, corner == 3 ? 1f : 0f);
             plain.add(x + (corner == 1 || corner == 2 ? 1f : 0f), y + (corner >= 2 ? 1f : 0f), up + build.geometry.lift[corner], 0f, 0f,
                     build.frame.cornerRed[corner], build.frame.cornerGreen[corner], build.frame.cornerBlue[corner]);
         }
+        plain.unlit = SpriteGeometry.AS_FACE;
         WorldScene.layers.none();
     }
 
