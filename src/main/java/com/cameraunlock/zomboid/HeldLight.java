@@ -112,7 +112,8 @@ final class HeldLight {
         float[] found = new float[5];
         if (choose(squares, player.getX(), player.getY(), eyeX, eyeY, wayX, wayY, seated, chosen)) {
             IsoGridSquare square = cell.getGridSquare(chosen[0], chosen[1], level);
-            ColorInfo light = view.torchLess.light(square, view.index, answer);
+            // As the room round it is lit: with the day it lets in.
+            ColorInfo light = view.worldScene.daylitNow(square, view.torchLess.light(square, view.index, answer), answer);
             found[FOUND] = 1f;
             found[RED] = light.r;
             found[RED + 1] = light.g;
