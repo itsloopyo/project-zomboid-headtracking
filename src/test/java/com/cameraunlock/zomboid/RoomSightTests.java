@@ -31,6 +31,8 @@ final class RoomSightTests {
         Checks.run("aHouseAcrossTheStreetSeenOnlyThroughAMiddleWindowIsSeen", RoomSightTests::aHouseAcrossTheStreetSeenOnlyThroughAMiddleWindowIsSeen);
         Checks.run("aHeadThatMovesALittleKeepsWhatTheBlocksHideAndMissesNothing", RoomSightTests::aHeadThatMovesALittleKeepsWhatTheBlocksHideAndMissesNothing);
         Checks.run("whatIsBuiltIsWhatAnyTurnOfTheHeadOrANearDoorOpenedWouldShow", RoomSightTests::whatIsBuiltIsWhatAnyTurnOfTheHeadOrANearDoorOpenedWouldShow);
+        Checks.run("aRoomAStepAwayThroughTwoOpeningsIsBuiltBeforeItShows", RoomSightTests::aRoomAStepAwayThroughTwoOpeningsIsBuiltBeforeItShows);
+        Checks.run("whatAnEyeAStepFromThePlaceSeesInAHouseIsBuilt", RoomSightTests::whatAnEyeAStepFromThePlaceSeesInAHouseIsBuilt);
         Checks.run("roomsKeptForBuildingGoAfterAWhileUnfound", RoomSightTests::roomsKeptForBuildingGoAfterAWhileUnfound);
         Checks.run("openingsAreFoundInWallsAndNotWhereThereIsNone", RoomSightTests::openingsAreFoundInWallsAndNotWhereThereIsNone);
         Checks.run("noRoomALineReachesIsLeftOutInARandomTown", RoomSightTests::noRoomALineReachesIsLeftOutInARandomTown);
@@ -346,6 +348,104 @@ final class RoomSightTests {
         Plan row = house(RoomSight.SEE).room(KITCHEN, 0, 7, 1, 9, 2).opening(7, 1, 0, false, RoomSight.SEE);
         check(!allRound(row, 1.5f, 1.5f, 0, 0f, 0f).contains(KITCHEN), "a room out of every line from the eye is not built");
         check(allRound(row, 1.5f, 1.5f, 0, 1.5f, 0f).contains(KITCHEN), "and is once the eye could be a step from where it is");
+    }
+
+    /**
+     * A hall with a doorway east into a long room, whose door at the far side of the doorway
+     * goes back west into a kitchen south of the hall: from the hall a step before the doorway
+     * no line reaches the kitchen, and a step through it the kitchen's door is in sight.
+     */
+    private static void aRoomAStepAwayThroughTwoOpeningsIsBuiltBeforeItShows() {
+        Plan plan = new Plan().room(HALL, 0, 1, 1, 4, 4).room(BATH, 0, 5, 1, 8, 7).room(KITCHEN, 0, 1, 5, 4, 7)
+                .opening(5, 2, 0, false, RoomSight.SEE).opening(5, 6, 0, false, RoomSight.SEE);
+        check(seen(plan, 5.3f, 2.5f, 0, 90f, 0f).contains(KITCHEN), "a step through the doorway, the kitchen is seen through its own door");
+        check(!allRound(plan, 4f, 2.5f, 0, 0f, 0f).contains(KITCHEN), "from the hall a step before the doorway it is not");
+        check(allRound(plan, 4f, 2.5f, 0, 1.5f, 0f).contains(KITCHEN), "and is built there, a step and a bit before it shows");
+    }
+
+    /**
+     * Houses of rooms with doors open, shut and none at random, and places inside them: every
+     * room a line reaches from an eye a step from the place, in any way it looks, is among what
+     * the walk round the place builds. A house alone, so no other building stands in the air.
+     */
+    private static void whatAnEyeAStepFromThePlaceSeesInAHouseIsBuilt() {
+        Random random = new Random(11);
+        float grow = 1.5f;
+        int[] states = {RoomSight.SOLID, RoomSight.SHUT, RoomSight.SEE, RoomSight.SEE};
+        int eyes = 0, misses = 0;
+        for (int house = 0; house < 30; house++) {
+            Plan plan = new Plan();
+            long id = 0;
+            for (int z = 0; z < 2; z++) {
+                // Nine rooms a floor, three by three, of random sizes.
+                int a = 2 + random.nextInt(3), b = a + 2 + random.nextInt(3), c = 2 + random.nextInt(3), d = c + 2 + random.nextInt(3);
+                int[] xs = {0, a, b, 12}, ys = {0, c, d, 12};
+                for (int i = 0; i < 3; i++) {
+                    for (int j = 0; j < 3; j++) {
+                        plan.room(id++, z, xs[i], ys[j], xs[i + 1] - 1, ys[j + 1] - 1);
+                    }
+                }
+                for (int k = 0; k < 24; k++) {
+                    plan.opening(random.nextInt(13), random.nextInt(13), z, random.nextBoolean(), states[random.nextInt(states.length)]);
+                }
+            }
+            if (random.nextBoolean()) {
+                plan.hole(1 + random.nextInt(10), 1 + random.nextInt(10), 1);
+            }
+            RoomSight.Openings openings = plan.openings();
+            RoomSight.Blocks blocks = plan.blocks();
+            for (int place = 0; place < 20; place++) {
+                int z = random.nextInt(2);
+                float x = 0.2f + random.nextFloat() * 11.6f, y = 0.2f + random.nextFloat() * 11.6f, up = z * ViewCamera.LEVEL_HEIGHT + 1.6f;
+                int squareX = (int) Math.floor(x), squareY = (int) Math.floor(y);
+                RoomSight.Seen round = new RoomSight.Seen();
+                new RoomSight().walkAllRound(plan, openings, blocks, x, y, up, plan.region(squareX, squareY, z), plan.building(squareX, squareY, z), grow, 0f, round);
+                for (int e = 0; e < 24; e++) {
+                    double way = random.nextDouble() * Math.PI * 2, far = grow * Math.sqrt(random.nextDouble());
+                    float eyeX = x + (float) (far * Math.cos(way)), eyeY = y + (float) (far * Math.sin(way));
+                    if (!walkable(plan, x, y, eyeX, eyeY, z)) {
+                        continue;
+                    }
+                    ViewCamera.Pose eye = new ViewCamera.Pose();
+                    ViewCamera.clean(eye, eyeX, eyeY, up, (float) (random.nextDouble() * Math.PI * 2), (float) Math.toRadians(-30 + random.nextDouble() * 60));
+                    RoomSight.Seen lines = new RoomSight.Seen();
+                    RoomRays.trace(plan, eye, FOV * ASPECT, FOV, 96, 54, 40f, z, lines);
+                    eyes++;
+                    for (long room = 0; room < id; room++) {
+                        if (lines.contains(room) && !round.contains(room)) {
+                            misses++;
+                        }
+                    }
+                }
+            }
+        }
+        check(eyes > 8000, "eyes were looked from: " + eyes);
+        check(misses == 0, "no room an eye a step from the place sees is left unbuilt: " + misses + " left out");
+    }
+
+    /** Whether the eye can go straight from (x, y) to (toX, toY) on a level and stay inside the house, crossing only edges that let sight through. */
+    private static boolean walkable(Plan plan, float x, float y, float toX, float toY, int z) {
+        int atX = (int) Math.floor(x), atY = (int) Math.floor(y);
+        if (plan.region((int) Math.floor(toX), (int) Math.floor(toY), z) == RoomSight.OUTSIDE) {
+            return false;
+        }
+        for (int i = 1; i <= 64; i++) {
+            float t = i / 64f;
+            int nextX = (int) Math.floor(x + (toX - x) * t), nextY = (int) Math.floor(y + (toY - y) * t);
+            if (nextX != atX) {
+                if (plan.edge(Math.max(nextX, atX), atY, z, false) != RoomSight.SEE) {
+                    return false;
+                }
+                atX = nextX;
+            }
+            if (nextY != atY) {
+                if (plan.edge(atX, Math.max(nextY, atY), z, true) != RoomSight.SEE) {
+                    return false;
+                }
+                atY = nextY;
+            }
+        }
+        return true;
     }
 
     private static void roomsKeptForBuildingGoAfterAWhileUnfound() {

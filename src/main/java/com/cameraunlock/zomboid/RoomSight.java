@@ -615,7 +615,7 @@ final class RoomSight {
     private float[] stackRect = new float[64 * 4];
     private long[] stackRegion = new long[64];
     private boolean[] stackThrough = new boolean[64];
-    private final float[] corners = new float[3 * 4], clipped = new float[3 * 10];
+    private final float[] corners = new float[3 * 8], clipped = new float[3 * 20];
     private final float[] alongX = new float[4], alongY = new float[4];
     private final Horizon horizon = new Horizon();
     private int indexedFilling;
@@ -877,12 +877,24 @@ final class RoomSight {
             return horizon.hides(alongX, alongY, 4, top + rise);
         }
         float toX = kind == NORTH ? x + 1 : x, toY = kind == NORTH ? y : y + 1;
-        alongX[0] = kind == NORTH ? x - grow : x;
-        alongY[0] = kind == NORTH ? y : y - grow;
-        alongX[1] = kind == NORTH ? toX + grow : toX;
-        alongY[1] = kind == NORTH ? toY : toY + grow;
         float top = Math.max(openings.heights[opening * 4 + 2], openings.heights[opening * 4 + 3]) + SLACK + rise;
-        return horizon.hides(alongX, alongY, 2, top);
+        if (grow == 0f) {
+            alongX[0] = x;
+            alongY[0] = y;
+            alongX[1] = toX;
+            alongY[1] = toY;
+            return horizon.hides(alongX, alongY, 2, top);
+        }
+        // The ground the opening's box covers, as coverGrown has it.
+        alongX[0] = x - grow;
+        alongY[0] = y - grow;
+        alongX[1] = toX + grow;
+        alongY[1] = y - grow;
+        alongX[2] = toX + grow;
+        alongY[2] = toY + grow;
+        alongX[3] = x - grow;
+        alongY[3] = toY + grow;
+        return horizon.hides(alongX, alongY, 4, top);
     }
 
     /**
@@ -935,7 +947,9 @@ final class RoomSight {
         // How far the eye is on the side of the opening the square it is kept with is on.
         float onHereSide = kind == NORTH ? eyeY - openings.y[opening] : kind == WEST ? eyeX - openings.x[opening]
                 : (h[at] + h[at + 1] + h[at + 2] + h[at + 3]) / 4f - eyeUp;
-        return fromHere ? onHereSide >= -THROUGH : onHereSide <= THROUGH;
+        // An eye that may stand anywhere within grow of the place may stand that much further over the plane.
+        float slack = THROUGH + (kind == UP ? rise : grow);
+        return fromHere ? onHereSide >= -slack : onHereSide <= slack;
     }
 
     /** Works out the rectangle of the picture an opening covers, and says whether it covers any. */
@@ -955,6 +969,9 @@ final class RoomSight {
         float wide = tanAcross * (1f + MARGIN), tall = tanUp * (1f + MARGIN);
         if (across - wide * along > ball * (float) Math.sqrt(1f + wide * wide) || up - tall * along > ball * (float) Math.sqrt(1f + tall * tall)) {
             return false;
+        }
+        if (grow > 0f) {
+            return coverGrown(openings, opening);
         }
         if (kind == UP) {
             float h00 = h[at], h10 = h[at + 1], h11 = h[at + 2], h01 = h[at + 3];
@@ -982,6 +999,60 @@ final class RoomSight {
         corner(2, endX, endY, high);
         corner(3, fromX, fromY, high);
         return project(opening, 4);
+    }
+
+    /**
+     * The rectangle of the picture an opening covers from any eye within grow of the place
+     * along the ground and rise up: a line from such an eye through openings, moved back by
+     * however far that eye stands from the place, goes from the place through the openings each
+     * moved as far, so through the box each fills moved every way by as much. Grown only along
+     * its own edge, an opening a step beyond a near one fell out of the near one's rectangle as
+     * the eye walked up to it, and the room beyond came into the picture before it was built.
+     */
+    private boolean coverGrown(Openings openings, int opening) {
+        int x = openings.x[opening], y = openings.y[opening], kind = openings.kind[opening];
+        float[] h = openings.heights;
+        int at = opening * 4;
+        float lowX = x - grow, lowY = y - grow, highX, highY, low, high;
+        if (kind == UP) {
+            highX = x + 1 + grow;
+            highY = y + 1 + grow;
+            low = Math.min(Math.min(h[at], h[at + 1]), Math.min(h[at + 2], h[at + 3])) - rise;
+            high = Math.max(Math.max(h[at], h[at + 1]), Math.max(h[at + 2], h[at + 3])) + rise;
+        } else {
+            highX = kind == NORTH ? x + 1 + grow : x + grow;
+            highY = kind == NORTH ? y + grow : y + 1 + grow;
+            low = Math.min(h[at], h[at + 1]) - SLACK - rise;
+            high = Math.max(h[at + 2], h[at + 3]) + SLACK + rise;
+        }
+        if (eyeX > lowX - THROUGH && eyeX < highX + THROUGH && eyeY > lowY - THROUGH && eyeY < highY + THROUGH && eyeUp > low - THROUGH && eyeUp < high + THROUGH) {
+            return whole(opening);
+        }
+        for (int i = 0; i < 8; i++) {
+            corner(i, (i & 1) == 0 ? lowX : highX, (i & 2) == 0 ? lowY : highY, (i & 4) == 0 ? low : high);
+        }
+        int kept = 0;
+        for (int i = 0; i < 8; i++) {
+            if (corners[i * 3 + 2] >= NEAR) {
+                System.arraycopy(corners, i * 3, clipped, kept++ * 3, 3);
+            }
+            // Each edge of the box once: from a corner to the one that differs from it in one bit set.
+            for (int bit = 1; bit < 8; bit <<= 1) {
+                int j = i | bit;
+                if (j == i) {
+                    continue;
+                }
+                float ai = corners[i * 3 + 2], aj = corners[j * 3 + 2];
+                if (ai >= NEAR != aj >= NEAR) {
+                    float t = (NEAR - ai) / (aj - ai);
+                    clipped[kept * 3] = corners[i * 3] + t * (corners[j * 3] - corners[i * 3]);
+                    clipped[kept * 3 + 1] = corners[i * 3 + 1] + t * (corners[j * 3 + 1] - corners[i * 3 + 1]);
+                    clipped[kept * 3 + 2] = NEAR;
+                    kept++;
+                }
+            }
+        }
+        return rectangle(opening, kept);
     }
 
     private boolean whole(int opening) {
@@ -1019,6 +1090,11 @@ final class RoomSight {
                 kept++;
             }
         }
+        return rectangle(opening, kept);
+    }
+
+    /** Keeps the rectangle of the picture the first kept points of clipped cover, and says whether it covers any of it. */
+    private boolean rectangle(int opening, int kept) {
         if (kept == 0) {
             return false;
         }
