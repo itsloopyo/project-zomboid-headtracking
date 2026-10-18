@@ -3300,8 +3300,12 @@ final class WorldScene {
                             // One found changed that is not right by the eye is shown as it was built while the
                             // frame has spent its time: a turn has the game show a tower's rooms and finds a dozen
                             // of its chunks changed at once, each of thirty storeys, and built together they held
-                            // the frame for a tenth of a second. One a frame is made however late the frame is.
-                            if (cause == CHANGED && distance >= CHUNK_TILES * 1.5f && (current.putOffNanos == 0L || start - current.putOffNanos < CHANGED_WAITS_NANOS)
+                            // the frame for a tenth of a second. So is one right by the eye that nothing but its
+                            // light was marked on: the game lights again the chunks round where the character
+                            // stands as it turns, and eight of a tower's built together held a frame for 70 ms.
+                            // One a frame is made however late the frame is.
+                            if (cause == CHANGED && (distance >= CHUNK_TILES * 1.5f || current.things == things)
+                                    && (current.putOffNanos == 0L || start - current.putOffNanos < CHANGED_WAITS_NANOS)
                                     && System.nanoTime() - start > BUILD_NANOS_A_FRAME / sharing && changedLate++ > 0) {
                                 due = false;
                                 if (current.putOffNanos == 0L) {
