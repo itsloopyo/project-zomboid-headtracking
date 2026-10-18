@@ -125,68 +125,75 @@ final class SightTrace {
         chunks(frame, waiting, nearest);
         int eyeX = (int) Math.floor(eye.eyeX), eyeY = (int) Math.floor(eye.eyeY);
         linesFollowed = false;
-        for (int x = eyeX - REACH; x <= eyeX + REACH; x++) {
-            for (int y = eyeY - REACH; y <= eyeY + REACH; y++) {
-                IsoGridSquare square = cell.getGridSquare(x, y, level);
-                if (square == null) {
-                    continue;
-                }
-                WorldScene.ChunkMeshes build = scene.latestOf(Math.floorDiv(x, WorldScene.CHUNK_TILES), Math.floorDiv(y, WorldScene.CHUNK_TILES));
-                boolean shown = build != null && build.shownFrame == frame;
-                IsoObject floor = square.getFloor();
-                PZArrayList<IsoObject> objects = square.getObjects();
-                boolean centreAsked = false, centreOpen = false;
-                for (int i = 0; i < objects.size(); i++) {
-                    IsoObject object = objects.get(i);
-                    IsoSprite sprite = object.getSprite();
-                    if (sprite == null || object == floor) {
+        for (int z = Math.max(0, level - 1); z <= level + 1; z++) {
+            for (int x = eyeX - FAR; x <= eyeX + FAR; x++) {
+                for (int y = eyeY - FAR; y <= eyeY + FAR; y++) {
+                    // Near and on the eye's level, this class's own line along the map; else what stands in a room, held to lines through the picture.
+                    boolean near = z == level && Math.abs(x - eyeX) <= REACH && Math.abs(y - eyeY) <= REACH;
+                    IsoGridSquare square = cell.getGridSquare(x, y, z);
+                    if (square == null || !near && square.getRoomID() == -1L) {
                         continue;
                     }
-                    String kind = kindOf(object, sprite);
-                    if (kind == null) {
-                        continue;
-                    }
-                    boolean onEdge = kind.equals("door") || kind.equals("window");
-                    boolean open;
-                    if (onEdge) {
-                        open = openTo(eye, forwardX, forwardY, cosCone, edgeX(object, x, eye), edgeY(object, y, eye));
-                    } else {
-                        if (!centreAsked) {
-                            centreAsked = true;
-                            centreOpen = openTo(eye, forwardX, forwardY, cosCone, x + 0.5f, y + 0.5f);
+                    WorldScene.ChunkMeshes build = scene.latestOf(Math.floorDiv(x, WorldScene.CHUNK_TILES), Math.floorDiv(y, WorldScene.CHUNK_TILES));
+                    boolean shown = build != null && build.shownFrame == frame;
+                    IsoObject floor = square.getFloor();
+                    PZArrayList<IsoObject> objects = square.getObjects();
+                    boolean centreAsked = false, centreOpen = false;
+                    for (int i = 0; i < objects.size(); i++) {
+                        IsoObject object = objects.get(i);
+                        IsoSprite sprite = object.getSprite();
+                        if (sprite == null || object == floor) {
+                            continue;
                         }
-                        open = centreOpen;
-                    }
-                    boolean built = shown && build.traced != null && build.traced.contains(object);
-                    boolean culled = built && !ChunkBuffers.listed(WorldScene.withinItsRoom(object, sprite) ? square.getRoomID() : RoomSight.OUTSIDE, rooms);
-                    if (culled && open && !reached(square.getRoomID(), eye, tanAcross, tanUp)) {
-                        open = false;
-                    }
-                    boolean drawn = built && !culled;
-                    String held = null;
-                    if (!drawn) {
-                        Texture texture = sprite.getTextureForCurrentFrame(object.getDir());
-                        held = culled ? "the eye's picture does not see into its room" : build == null ? "its chunk has no build yet" : !shown ? "its chunk's build is not in the frame"
-                                : Sightline.leftOut(asTheGameShows, false, square.getRoomID() != -1L, square.isSeen(playerIndex)) ? "the game has not shown its room"
-                                        : !WorldScene.usable(texture) ? "its sprite has no texture yet" : "its chunk's build is older than it";
-                    }
-                    met(object, kind, sprite.getName(), x, y, level, open, drawn, held, square.getRoomID() == -1L || square.isSeen(playerIndex), frame, now, eye);
-                }
-                ArrayList<IsoMovingObject> bodies = square.getStaticMovingObjects();
-                for (int i = 0; i < bodies.size(); i++) {
-                    if (bodies.get(i) instanceof IsoDeadBody body) {
-                        if (!centreAsked) {
-                            centreAsked = true;
-                            centreOpen = openTo(eye, forwardX, forwardY, cosCone, x + 0.5f, y + 0.5f);
+                        String kind = kindOf(object, sprite);
+                        if (kind == null) {
+                            continue;
                         }
-                        boolean built = shown && build.traced != null && build.traced.contains(body);
-                        boolean culled = built && !ChunkBuffers.listed(square.getRoomID(), rooms);
-                        boolean bodyOpen = centreOpen && !(culled && !reached(square.getRoomID(), eye, tanAcross, tanUp));
-                        boolean drawn = built && !culled;
-                        String held = drawn ? null : culled ? "the eye's picture does not see into its room" : build == null ? "its chunk has no build yet" : !shown ? "its chunk's build is not in the frame"
-                                : Sightline.leftOut(asTheGameShows, false, square.getRoomID() != -1L, square.isSeen(playerIndex)) ? "the game has not shown its room"
-                                        : body.getAtlasTexture() == null ? "the game has made no picture of the body" : "its chunk's build is older than it";
-                        met(body, "body", "body", x, y, level, bodyOpen, drawn, held, square.getRoomID() == -1L || square.isSeen(playerIndex), frame, now, eye);
+                        boolean onEdge = kind.equals("door") || kind.equals("window");
+                        boolean open;
+                        if (!near) {
+                            open = inPicture(eye, tanAcross, tanUp, x + 0.5f, y + 0.5f, z) && reached(square.getRoomID(), eye, tanAcross, tanUp);
+                        } else if (onEdge) {
+                            open = openTo(eye, forwardX, forwardY, cosCone, edgeX(object, x, eye), edgeY(object, y, eye));
+                        } else {
+                            if (!centreAsked) {
+                                centreAsked = true;
+                                centreOpen = openTo(eye, forwardX, forwardY, cosCone, x + 0.5f, y + 0.5f);
+                            }
+                            open = centreOpen;
+                        }
+                        boolean built = shown && build.traced != null && build.traced.contains(object);
+                        boolean culled = built && !ChunkBuffers.listed(WorldScene.withinItsRoom(object, sprite) ? square.getRoomID() : RoomSight.OUTSIDE, rooms);
+                        if (culled && open && !reached(square.getRoomID(), eye, tanAcross, tanUp)) {
+                            open = false;
+                        }
+                        String blank = built && !culled ? blank(object, sprite, build) : null;
+                        boolean drawn = built && !culled && blank == null;
+                        String held = blank;
+                        if (!drawn && blank == null) {
+                            Texture texture = sprite.getTextureForCurrentFrame(object.getDir());
+                            held = culled ? "the eye's picture does not see into its room" : build == null ? "its chunk has no build yet" : !shown ? "its chunk's build is not in the frame"
+                                    : Sightline.leftOut(asTheGameShows, false, square.getRoomID() != -1L, square.isSeen(playerIndex)) ? "the game has not shown its room"
+                                            : !WorldScene.usable(texture) ? "its sprite has no texture yet" : "its chunk's build is older than it";
+                        }
+                        met(object, kind, sprite.getName(), x, y, z, open, drawn, held, square.getRoomID() == -1L || square.isSeen(playerIndex), frame, now, eye);
+                    }
+                    ArrayList<IsoMovingObject> bodies = near ? square.getStaticMovingObjects() : NO_BODIES;
+                    for (int i = 0; i < bodies.size(); i++) {
+                        if (bodies.get(i) instanceof IsoDeadBody body) {
+                            if (!centreAsked) {
+                                centreAsked = true;
+                                centreOpen = openTo(eye, forwardX, forwardY, cosCone, x + 0.5f, y + 0.5f);
+                            }
+                            boolean built = shown && build.traced != null && build.traced.contains(body);
+                            boolean culled = built && !ChunkBuffers.listed(square.getRoomID(), rooms);
+                            boolean bodyOpen = centreOpen && !(culled && !reached(square.getRoomID(), eye, tanAcross, tanUp));
+                            boolean drawn = built && !culled;
+                            String held = drawn ? null : culled ? "the eye's picture does not see into its room" : build == null ? "its chunk has no build yet" : !shown ? "its chunk's build is not in the frame"
+                                    : Sightline.leftOut(asTheGameShows, false, square.getRoomID() != -1L, square.isSeen(playerIndex)) ? "the game has not shown its room"
+                                            : body.getAtlasTexture() == null ? "the game has made no picture of the body" : "its chunk's build is older than it";
+                            met(body, "body", "body", x, y, level, bodyOpen, drawn, held, square.getRoomID() == -1L || square.isSeen(playerIndex), frame, now, eye);
+                        }
                     }
                 }
             }
@@ -233,12 +240,51 @@ final class SightTrace {
         if (!linesFollowed) {
             linesFollowed = true;
             byLines.clear();
-            RoomRays.trace(scene.roomMap, eye, tanAcross, tanUp, LINES_ACROSS, LINES_UP, REACH + 4, level, byLines);
+            RoomRays.trace(scene.roomMap, eye, tanAcross, tanUp, LINES_ACROSS, LINES_UP, FAR + 4, level, byLines);
         }
         return byLines.contains(room);
     }
 
     private static final int LINES_ACROSS = 192, LINES_UP = 108;
+    /** How far from the eye what stands in a room is followed, on the eye's level and the levels over and under it, in tiles. */
+    private static final int FAR = 40;
+    private static final ArrayList<IsoMovingObject> NO_BODIES = new ArrayList<>();
+
+    /** Whether a point a little over the floor of a square on level z, or one a level's height higher, is inside the picture. */
+    private static boolean inPicture(ViewCamera.Pose eye, float tanAcross, float tanUp, float x, float y, int z) {
+        for (float over = 0.3f; over < ViewCamera.LEVEL_HEIGHT; over += 0.9f) {
+            float dx = x - eye.eyeX, dy = y - eye.eyeY, du = z * ViewCamera.LEVEL_HEIGHT + over - eye.eyeUp;
+            float along = dx * eye.forwardX + dy * eye.forwardY + du * eye.forwardUp;
+            if (along < 0.05f) {
+                continue;
+            }
+            float across = (dx * eye.rightX + dy * eye.rightY + du * eye.rightUp) / along, up = (dx * eye.upX + dy * eye.upY + du * eye.upUp) / along;
+            if (Math.abs(across) <= tanAcross && Math.abs(up) <= tanUp) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * What leaves a thing a build holds and a picture lists drawn blank or as a stand-in, or
+     * null: the mod's picture in a frame not on the graphics card yet, or a piece the mod has a
+     * model of drawn as the game's sprite because its model could not be stood when built.
+     */
+    private static String blank(IsoObject object, IsoSprite sprite, WorldScene.ChunkMeshes build) {
+        Furniture piece = Furniture.known(sprite);
+        if (piece == null) {
+            return null;
+        }
+        if (piece.wall != WallHung.NONE && piece.picture != Decor.NONE && Own.pictures() && build.modelled != null && build.modelled.contains(object) && !Decor.onCard(piece.picture)) {
+            return "its picture is not on the graphics card yet";
+        }
+        if (Own.furniture() && piece.model != null && piece.wall == WallHung.NONE && !piece.follows && !piece.basin && !piece.countertop && build.modelled != null
+                && !build.modelled.contains(object)) {
+            return "drawn as the game's sprite, its model not stood";
+        }
+        return null;
+    }
     private final RoomSight.Seen byLines = new RoomSight.Seen();
     private boolean linesFollowed;
 

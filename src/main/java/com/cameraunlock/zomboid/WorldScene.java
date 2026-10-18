@@ -361,8 +361,8 @@ final class WorldScene {
         private OpenLight seen;
         /** The light of its room squares in the character's sight, those with no lamp burning in their room and those with one. Null until it has been read. */
         private OpenLight seenRooms, seenLamplit;
-        /** Dev only: what the build holds, for SightTrace. Null unless the trace is on. */
-        Set<Object> traced;
+        /** Dev only: what the build holds, and what of it was stood as the mod's model, for SightTrace. Null unless the trace is on. */
+        Set<Object> traced, modelled;
         /** Dev only: the last frame that showed the build. */
         int shownFrame = -1;
         /** Dev only: every float of the build as one number. */
@@ -3299,8 +3299,10 @@ final class WorldScene {
                         if (SightTrace.ON) {
                             if (fresh.traced == null) {
                                 fresh.traced = Collections.newSetFromMap(new IdentityHashMap<>());
+                                fresh.modelled = Collections.newSetFromMap(new IdentityHashMap<>());
                             }
                             fresh.traced.clear();
+                            fresh.modelled.clear();
                         }
                         fresh.wx = chunk.wx;
                         fresh.wy = chunk.wy;
@@ -5003,6 +5005,9 @@ final class WorldScene {
             overLayer++;
             geometry.nearer = overLayer;
             if (!isFloor && furnishingBuilder.addHung(object, over, texture, x, y, z)) {
+                if (SightTrace.ON && building.modelled != null) {
+                    building.modelled.add(object);
+                }
                 return;
             }
             if (!isFloor && furnishingBuilder.addCountertop(object, under, over, texture, x, y, z)) {
@@ -6185,10 +6190,10 @@ final class WorldScene {
                 return;
             }
 
-            if (overLayer == 0 && furnishingBuilder.addHung(object, sprite, texture, x, y, z)) {
-                return;
-            }
-            if (furnishingBuilder.addFurniture(object, sprite, x, y, z)) {
+            if (overLayer == 0 && furnishingBuilder.addHung(object, sprite, texture, x, y, z) || furnishingBuilder.addFurniture(object, sprite, x, y, z)) {
+                if (SightTrace.ON && building.modelled != null) {
+                    building.modelled.add(object);
+                }
                 return;
             }
             // A strip light on a ceiling, a square of it at a time. The game paints it lying

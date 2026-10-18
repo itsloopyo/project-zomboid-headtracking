@@ -322,6 +322,13 @@ final class Decor {
         Screens.letGo();
     }
 
+    /** Dev only, for SightTrace: whether a picture is on the graphics card as it is to be drawn, read and made at the size the mode shows. */
+    static boolean onCard(int picture) {
+        synchronized (Decor.class) {
+            return textures != null && textures[picture] != 0 && waiting[picture] == null && madeSmall[picture] == Quality.smallerPictures();
+        }
+    }
+
     /** Render thread: gives one picture back to the graphics card. What shows it next reads it again. */
     static void forget(int picture) {
         synchronized (Decor.class) {
