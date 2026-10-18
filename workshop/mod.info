@@ -1,0 +1,12 @@
+name=Project Zomboid Head Tracking
+id=ProjectZomboidHeadTracking
+author=itsloopyo
+description=Head tracking and a first person view. Needs ZombieBuddy 2.x and an OpenTrack compatible tracker.
+poster=poster.png
+url=https://github.com/itsloopyo/project-zomboid-headtracking
+modversion=@VERSION@
+require=\ZombieBuddy
+javaJarFile=media/java/client/ProjectZomboidHeadTracking.jar
+javaPkgName=com.cameraunlock.zomboid.workshop
+ZBVersionMin=2.3.4
+ZBVersionMax=2.999.999
