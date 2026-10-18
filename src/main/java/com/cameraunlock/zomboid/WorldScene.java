@@ -1062,6 +1062,13 @@ final class WorldScene {
     private final RoomSight.Kept roomsMayShow = new RoomSight.Kept();
     private final RoomSight.Seen roomsMayShowFound = new RoomSight.Seen(), roomsMayShowChanged = new RoomSight.Seen();
     private final FigureRooms modelRooms = new FigureRooms();
+    /**
+     * What the last walk for roomsMayShow was walked from: with every shut door in reach counted
+     * open it reads no door, so from the same eye, reach, region and openings it finds the same rooms.
+     */
+    private float mayShowEyeX, mayShowEyeY, mayShowEyeUp, mayShowReach;
+    private long mayShowRegion, mayShowBuilding;
+    private int mayShowOpenings = -1, mayShowBlocks = -1;
     private boolean buildingBySight;
     /** Where the eye was at the last walk round it and when, and how fast it has been moving, tiles a second. */
     private float roundEyeX, roundEyeY, eyeSpeed;
@@ -3554,6 +3561,8 @@ final class WorldScene {
                     buildingBySight = false;
                     roomsBuilt.clear();
                     roomsMayShow.clear();
+                    roomsMayShowFound.clear();
+                    mayShowOpenings = -1;
                     tellEveryChunk(map);
                 }
                 return;
@@ -3619,9 +3628,23 @@ final class WorldScene {
                         roomMap.building(eyeX, eyeY, level), GROW_TILES + eyeSpeed * GROW_SECONDS, SHUT_WITHIN, roomsFound);
                 roomsBuilt.found(roomsFound, now, roomsEntered);
                 roomsBuilt.expire(now, roomsLeft);
-                roomsMayShowFound.clear();
-                roomWalk.walkAllRound(roomMap, openingsInReach, blocksInReach, camera.eyeX, camera.eyeY, camera.eyeUp, roomMap.region(eyeX, eyeY, level),
-                        roomMap.building(eyeX, eyeY, level), GROW_TILES + eyeSpeed * GROW_SECONDS, reach, roomsMayShowFound);
+                long region = roomMap.region(eyeX, eyeY, level), building = roomMap.building(eyeX, eyeY, level);
+                float movedSince = (float) Math.sqrt((camera.eyeX - mayShowEyeX) * (camera.eyeX - mayShowEyeX) + (camera.eyeY - mayShowEyeY) * (camera.eyeY - mayShowEyeY)
+                        + (camera.eyeUp - mayShowEyeUp) * (camera.eyeUp - mayShowEyeUp));
+                if (movedSince > grow / 2f || reach != mayShowReach || region != mayShowRegion || building != mayShowBuilding
+                        || openingsInReach.filling != mayShowOpenings || blocksInReach.filling != mayShowBlocks) {
+                    mayShowEyeX = camera.eyeX;
+                    mayShowEyeY = camera.eyeY;
+                    mayShowEyeUp = camera.eyeUp;
+                    mayShowReach = reach;
+                    mayShowRegion = region;
+                    mayShowBuilding = building;
+                    mayShowOpenings = openingsInReach.filling;
+                    mayShowBlocks = blocksInReach.filling;
+                    roomsMayShowFound.clear();
+                    roomWalk.walkAllRound(roomMap, openingsInReach, blocksInReach, camera.eyeX, camera.eyeY, camera.eyeUp, region, building, GROW_TILES + eyeSpeed * GROW_SECONDS, reach, roomsMayShowFound);
+                }
+                // The rooms the last walk found stand for it until it is walked again.
                 roomsMayShowChanged.clear();
                 roomsMayShow.found(roomsMayShowFound, now, roomsMayShowChanged);
                 roomsMayShow.expire(now, roomsMayShowChanged);
