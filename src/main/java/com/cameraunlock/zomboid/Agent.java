@@ -44,8 +44,15 @@ public final class Agent {
     private static final String VECTOR2_FILTER = "(Lzombie/iso/Vector2;)Lzombie/iso/Vector2;";
     static final String GAME_DIRECTORY_PROPERTY = "cameraunlock.zomboid.gameDirectory";
 
-    /** A rewrite of one method of one game class. */
-    record Patch(String owner, String what, UnaryOperator<byte[]> rewrite) {}
+    /**
+     * A rewrite of one method of one game class. One that adds fields or methods to the class
+     * cannot be applied to a class the game has already loaded: see retransformLoaded.
+     */
+    record Patch(String owner, String what, UnaryOperator<byte[]> rewrite, boolean addsMembers) {
+        Patch(String owner, String what, UnaryOperator<byte[]> rewrite) {
+            this(owner, what, rewrite, false);
+        }
+    }
 
     /** The patches the first person view is made of. */
     private static PatchTransformer firstPerson;
@@ -159,6 +166,47 @@ public final class Agent {
 
     private static volatile boolean loaded;
 
+    /** True when the mod starts after the game has loaded classes it patches: see startLate. */
+    private static boolean late;
+
+    /** The classes the game had loaded when startLate began, which cannot be given new members. */
+    private static final Set<String> loadedBeforeStart = ConcurrentHashMap.newKeySet();
+
+    private static final List<PatchTransformer> transformers = new ArrayList<>();
+
+    private static void add(Instrumentation instrumentation, PatchTransformer transformer) {
+        // Only a transformer added as able to retransform sees the classes retransformLoaded asks for again.
+        instrumentation.addTransformer(transformer, late);
+        transformers.add(transformer);
+    }
+
+    /**
+     * Has the JVM run every loaded class a patch is for through the transformers again, one class
+     * at a time so one the JVM refuses leaves the others patched. A retransformation may change
+     * method bodies only, so PatchTransformer leaves out each patch that adds members.
+     */
+    private static void retransformLoaded(Instrumentation instrumentation, Class<?>[] before) {
+        Set<String> owners = new java.util.HashSet<>();
+        transformers.forEach(transformer -> owners.addAll(transformer.owners()));
+        int done = 0, refused = 0;
+        for (Class<?> loadedClass : before) {
+            String name = loadedClass.getName().replace('.', '/');
+            if (!owners.contains(name)) {
+                continue;
+            }
+            try {
+                instrumentation.retransformClasses(loadedClass);
+                done++;
+            } catch (java.lang.instrument.UnmodifiableClassException | UnsupportedOperationException | LinkageError refusal) {
+                transformers.forEach(transformer -> transformer.forget(name));
+                Log.error("the JVM would not patch " + name + " again, its methods run unchanged", refusal);
+                refused++;
+            }
+        }
+        Log.info("patched again " + done + " classes the game had loaded before the mod started"
+                + (refused == 0 ? "" : ", " + refused + " refused"));
+    }
+
     /** Called where the game has just logged an exception of any kind. */
     public static void caughtByTheGame(Throwable thrown) {
         Log.caughtByTheGame(thrown);
@@ -172,10 +220,61 @@ public final class Agent {
     /** Called by the JVM for -javaagent, which is how the development run starts. */
     public static void premain(String arguments, Instrumentation instrumentation) throws IOException {
         Boot.agentStarted();
+        begin(instrumentation);
+    }
+
+    /**
+     * Called by the Workshop package's entry class, which ZombieBuddy runs while the game loads its
+     * mods. The game's window and many of its classes exist by then, so the classes the patches are
+     * for that have already loaded are patched again, and the new window is centred here.
+     */
+    public static void startLate(Instrumentation instrumentation) throws IOException {
+        if (loaded) {
+            // Another copy of the mod started with the JVM: this class is that copy's, which
+            // has said in its log whether it is running.
+            Log.info("ZombieBuddy started the Workshop copy, and a copy of the mod started with the game is already in it: the Workshop copy stays out");
+            return;
+        }
+        late = true;
+        // Listed before any transformer is added: a class that loads after this is patched as it
+        // loads, so only these need patching again, and only these may not be given new members.
+        Class<?>[] before = instrumentation.getAllLoadedClasses();
+        for (Class<?> loadedClass : before) {
+            loadedBeforeStart.add(loadedClass.getName().replace('.', '/'));
+        }
+        if (begin(instrumentation)) {
+            retransformLoaded(instrumentation, before);
+            WindowPlacement.centreNewWindow();
+            if (org.lwjglx.input.Controllers.isCreated()) {
+                Gamepads.found();
+            }
+        }
+    }
+
+    /**
+     * The jar's Implementation-Version, read from the jar: ZombieBuddy's class loader defines the
+     * package with no manifest, so the package has no version there. Classes run from a folder
+     * have no jar to say it.
+     */
+    private static String version() throws IOException {
+        Path source;
+        try {
+            source = Path.of(Agent.class.getProtectionDomain().getCodeSource().getLocation().toURI());
+        } catch (java.net.URISyntaxException failure) {
+            throw new IllegalStateException(failure);
+        }
+        if (java.nio.file.Files.isDirectory(source)) return "(classes in " + source + ")";
+        try (java.util.jar.JarFile jar = new java.util.jar.JarFile(source.toFile())) {
+            return jar.getManifest().getMainAttributes().getValue(java.util.jar.Attributes.Name.IMPLEMENTATION_VERSION);
+        }
+    }
+
+    /** Starts the mod, and says whether its patches are now registered. */
+    private static boolean begin(Instrumentation instrumentation) throws IOException {
         if (loaded) {
             // The development run starts an installed copy with -javaagent, and Boot then loads the agent again.
             Log.info("the agent was started a second time: the first start stands");
-            return;
+            return false;
         }
         // The offline harness runs the game's classes in the game's folder and keeps the mod's log
         // and CameraUnlock.ini in a folder of its own, named by this property. The game never sets it.
@@ -183,10 +282,9 @@ public final class Agent {
         Log.open(gameDirectory);
         // Only once there is a log: a second start after a first that could not open one has nowhere to say so.
         loaded = true;
-        Log.info("Project Zomboid Head Tracking " + Agent.class.getPackage().getImplementationVersion()
-                + " loaded, Java " + Runtime.version() + ", game directory " + gameDirectory);
+        Log.info("Project Zomboid Head Tracking " + version() + " loaded, Java " + Runtime.version() + ", game directory " + gameDirectory);
         try {
-            start(gameDirectory, instrumentation);
+            return start(gameDirectory, instrumentation);
         } catch (IOException | RuntimeException | Error failure) {
             // Boot asks only whether the agent started and runs the game either way, and
             // nothing else puts the reason in this log: it would end here without one.
@@ -195,63 +293,64 @@ public final class Agent {
         }
     }
 
-    private static void start(Path gameDirectory, Instrumentation instrumentation) throws IOException {
+    private static boolean start(Path gameDirectory, Instrumentation instrumentation) throws IOException {
         Links.Result links = Links.check();
         if (!links.unresolved().isEmpty()) {
             links.unresolved().forEach(missing -> Log.info("not in this build of the game as the mod uses it: " + missing));
             Log.info("the mod stays out of the game: this build lacks " + links.unresolved().size() + " of the "
                     + links.references() + " things of the game's the mod uses");
-            return;
+            return false;
         }
         Log.info("all " + links.references() + " things of the game's the mod uses are in this build");
 
         Tracking.start(gameDirectory);
 
-        instrumentation.addTransformer(new PatchTransformer(basePatches()));
+        add(instrumentation, new PatchTransformer(basePatches()));
         firstPerson = new PatchTransformer(firstPersonPatches());
-        instrumentation.addTransformer(firstPerson);
-        instrumentation.addTransformer(new PatchTransformer(DevPatches.list()));
+        add(instrumentation, firstPerson);
+        add(instrumentation, new PatchTransformer(DevPatches.list()));
 
         fineSkins = new PatchTransformer(fineSkinPatches());
-        instrumentation.addTransformer(fineSkins);
+        add(instrumentation, fineSkins);
 
         shot = new PatchTransformer(shotPatches());
-        instrumentation.addTransformer(shot);
+        add(instrumentation, shot);
 
         thunder = new PatchTransformer(thunderPatches());
-        instrumentation.addTransformer(thunder);
+        add(instrumentation, thunder);
 
         lamps = new PatchTransformer(lampPatches());
-        instrumentation.addTransformer(lamps);
+        add(instrumentation, lamps);
 
         impacts = new PatchTransformer(impactPatches());
-        instrumentation.addTransformer(impacts);
+        add(instrumentation, impacts);
 
         modelHead = new PatchTransformer(modelHeadPatches());
-        instrumentation.addTransformer(modelHead);
+        add(instrumentation, modelHead);
 
         nameTags = new PatchTransformer(nameTagPatches());
-        instrumentation.addTransformer(nameTags);
+        add(instrumentation, nameTags);
 
         if (!Boolean.getBoolean("cameraunlock.zomboid.withoutGameFixes")) {
-            instrumentation.addTransformer(new PatchTransformer(gameFixPatches()));
+            add(instrumentation, new PatchTransformer(gameFixPatches()));
         }
-        instrumentation.addTransformer(new PatchTransformer(hangFixPatches()));
-        instrumentation.addTransformer(new PatchTransformer(coveredPatches()));
-        instrumentation.addTransformer(new PatchTransformer(farVehiclePatches()));
-        instrumentation.addTransformer(new PatchTransformer(leftSavePatches()));
-        instrumentation.addTransformer(new PatchTransformer(luaLoadedPatches()));
-        instrumentation.addTransformer(new PatchTransformer(knockdownPatches()));
-        instrumentation.addTransformer(new PatchTransformer(carPhysicsPatches()));
-        instrumentation.addTransformer(new PatchTransformer(controllerPatches()));
+        add(instrumentation, new PatchTransformer(hangFixPatches()));
+        add(instrumentation, new PatchTransformer(coveredPatches()));
+        add(instrumentation, new PatchTransformer(farVehiclePatches()));
+        add(instrumentation, new PatchTransformer(leftSavePatches()));
+        add(instrumentation, new PatchTransformer(luaLoadedPatches()));
+        add(instrumentation, new PatchTransformer(knockdownPatches()));
+        add(instrumentation, new PatchTransformer(carPhysicsPatches()));
+        add(instrumentation, new PatchTransformer(controllerPatches()));
         chunkMarks = new PatchTransformer(chunkMarkPatches());
-        instrumentation.addTransformer(chunkMarks);
+        add(instrumentation, chunkMarks);
         windowMarks = new PatchTransformer(windowMarkPatches());
-        instrumentation.addTransformer(windowMarks);
+        add(instrumentation, windowMarks);
         hearing = new PatchTransformer(hearingPatches());
-        instrumentation.addTransformer(hearing);
+        add(instrumentation, hearing);
         splitScreen = new PatchTransformer(splitScreenPatches());
-        instrumentation.addTransformer(splitScreen);
+        add(instrumentation, splitScreen);
+        return true;
     }
 
     /** The patches for the window's place, the carried light and the log. */
@@ -938,7 +1037,7 @@ public final class Agent {
                     }
                     return CallSite.keepInField(classBytes, new CallSite.Method(character, "getStateMachineComponent", "()Lzombie/characters/component/StateMachineComponent;"),
                             "cameraUnlockStateMachine", "zombie/iso/IsoMovingObject", changers);
-                }),
+                }, true),
                 // The game asks of every bone of every character on every frame whether the bone is
                 // among those hung on another skeleton, by boxing the bone's number, taking a
                 // predicate out of a pool that keeps its own in a hash set, and walking the list
@@ -1140,6 +1239,17 @@ public final class Agent {
             this.patches = patches;
         }
 
+        Set<String> owners() {
+            Set<String> owners = new java.util.HashSet<>();
+            patches.forEach(patch -> owners.add(patch.owner()));
+            return owners;
+        }
+
+        /** Marks the patches of a class the JVM refused to take back as not in the game's code. */
+        void forget(String owner) {
+            patches.stream().filter(patch -> patch.owner().equals(owner)).forEach(applied::remove);
+        }
+
         /**
          * What is missing from the game's code: the first patch that is not in
          * it, or null when all of them are. A class that has not loaded yet is
@@ -1169,6 +1279,11 @@ public final class Agent {
             byte[] patched = null;
             for (Patch patch : patches) {
                 if (!patch.owner().equals(className)) {
+                    continue;
+                }
+                if (redefined != null && patch.addsMembers() && loadedBeforeStart.contains(className)) {
+                    Log.info("left out " + className + "." + patch.what() + ": the game loaded the class before the mod started,"
+                            + " and a loaded class cannot be given new fields or methods");
                     continue;
                 }
                 // The JVM discards whatever a transformer throws and loads the class
