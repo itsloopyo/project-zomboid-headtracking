@@ -240,7 +240,7 @@ The mouse turns the view. Movement keys follow the direction you face.
 
 **Controller** - the controllers ticked in the game's Controller options play. While none of the gamepads plugged in is ticked, every one the game recognises is ticked and plays, and pressing **A** on the main menu gives that controller the menu. Player 1 plays on whatever last worked the main menu: the controller that pressed **A**, or the keyboard and mouse once you click or press a key there. Any other controller joins once the game is under way: press **A** on it and choose **Add new player**. A 3Dconnexion SpaceMouse is never taken as a controller. Double-tap **Back** to switch views. The aiming stick turns the view, right trigger attacks and left trigger raises firearm sights.
 
-**More players** - double-tap `Delete` to switch player 2's view, or hold it to switch every player's. Players on a controller can double-tap **Back**. Send player 2's tracker to port **4243**, player 3's to **4244** and player 4's to **4245**.
+**More players** - tap `Delete` twice to switch player 2's view, three times for player 3's and four times for player 4's, or hold it to switch every player's. Players on a controller can double-tap **Back**. Send player 2's tracker to port **4243**, player 3's to **4244** and player 4's to **4245**.
 
 **PvP** - on a server with PvP turned on, the mod holds back anything that could decide a fight between players:
 
@@ -390,7 +390,8 @@ CycleTrackingModeKey=PageUp
 YawModeKey=PageDown
 ; Cycles the aim mode: sights locked, free look with a marker, stock sights.
 TrueFreeLookKey=Insert
-; Switches between first person and the game's own view. Tap for player 1, tap twice for player 2, hold for every player.
+; Switches between first person and the game's own view. Tap once for player 1, twice for player 2, three times for
+; player 3, four times for player 4, hold for every player.
 FirstPersonKey=Delete
 ; Goes to the next graphics mode and sets both views to it: Automatic, Low, Medium, High, Custom (Quality and
 ; IsometricQuality). The isometric view has no Automatic: it takes Low for it, and the key skips Automatic

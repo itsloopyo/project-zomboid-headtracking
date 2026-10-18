@@ -243,9 +243,14 @@ public final class CoreTests {
                         && holds("Microphone=Default") && holds("SecondPlayerMicrophone=None") && holds("FourthPlayerMicrophone=None"),
                 "and talking mouths off, so no microphone is opened, with player 1 on Windows' default microphone and the others on none: "
                         + Tracking.microphones());
-        check(Integer.bitCount(Config.CYCLE_TRACKING_MODE | Config.YAW_MODE | Config.AIM_MODE | Config.FIRST_PERSON
-                        | Config.CYCLE_QUALITY | Config.CYCLE_STYLE | Config.SPLIT_SCREEN | Config.FIRST_PERSON_SECOND | Config.FIRST_PERSON_ALL) == 9,
-                "the seven actions have a bit each, and the first person key three");
+        int firstPersonTaps = 0;
+        for (int bit : Config.FIRST_PERSON_TAPS) {
+            firstPersonTaps |= bit;
+        }
+        check(Config.FIRST_PERSON_TAPS.length == View.COUNT && Config.FIRST_PERSON_TAPS[0] == Config.FIRST_PERSON
+                        && Integer.bitCount(Config.CYCLE_TRACKING_MODE | Config.YAW_MODE | Config.AIM_MODE | Config.CYCLE_QUALITY
+                                | Config.CYCLE_STYLE | Config.SPLIT_SCREEN | firstPersonTaps | Config.FIRST_PERSON_ALL) == 11,
+                "the six actions have a bit each, and the first person key one for each player tapped and one held");
     }
 
     private static float[] lean(float cleanYaw, float x, float y, float z) {

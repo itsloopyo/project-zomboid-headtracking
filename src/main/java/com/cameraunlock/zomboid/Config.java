@@ -26,14 +26,17 @@ final class Config {
 
     /**
      * The bits of pressed keys: core's three, then the mod's own. The first person key is the
-     * first player's tapped, a second player's tapped twice and every player's held, and a view
-     * is handed FIRST_PERSON for whichever of those is its own.
+     * first player's tapped once, the second player's tapped twice and so on to the fourth, and
+     * every player's held, and a view is handed FIRST_PERSON for whichever of those is its own.
      */
     static final int CYCLE_TRACKING_MODE = CameraUnlock.HOTKEY_CYCLE_TRACKING_MODE,
             YAW_MODE = CameraUnlock.HOTKEY_YAW_MODE, AIM_MODE = CameraUnlock.HOTKEY_AIM_MODE,
             FIRST_PERSON = CameraUnlock.HOTKEY_LOCAL, CYCLE_QUALITY = CameraUnlock.HOTKEY_LOCAL << 1,
-            CYCLE_STYLE = CameraUnlock.HOTKEY_LOCAL << 2, FIRST_PERSON_SECOND = CameraUnlock.HOTKEY_LOCAL << 3,
-            SPLIT_SCREEN = CameraUnlock.HOTKEY_LOCAL << 4, FIRST_PERSON_ALL = CameraUnlock.HOTKEY_LOCAL << 5;
+            CYCLE_STYLE = CameraUnlock.HOTKEY_LOCAL << 2, SPLIT_SCREEN = CameraUnlock.HOTKEY_LOCAL << 4,
+            FIRST_PERSON_ALL = CameraUnlock.HOTKEY_LOCAL << 5;
+    /** The first person key's bits by how many times it was tapped: one tap is FIRST_PERSON, and each is a player's, by number. */
+    static final int[] FIRST_PERSON_TAPS = {FIRST_PERSON, CameraUnlock.HOTKEY_LOCAL << 3, CameraUnlock.HOTKEY_LOCAL << 6,
+        CameraUnlock.HOTKEY_LOCAL << 7};
 
     /** Player 2's port; each player after them has the next. */
     private static final int SECOND_PLAYER_PORT = 4243;
@@ -206,8 +209,9 @@ final class Config {
         };
 
         core.configLocalHotkeyTaps("FirstPersonKey",
-                "Switches between first person and the game's own view. Tap for player 1, tap twice for player 2, hold for every player.",
-                0, "Delete", new int[] {FIRST_PERSON, FIRST_PERSON_SECOND}, FIRST_PERSON_ALL);
+                "Switches between first person and the game's own view. Tap once for player 1, twice for player 2, three times for\n"
+                        + "player 3, four times for player 4, hold for every player.",
+                0, "Delete", FIRST_PERSON_TAPS, FIRST_PERSON_ALL);
         core.configLocalHotkey("CycleQualityKey",
                 "Goes to the next graphics mode and sets both views to it: Automatic, Low, Medium, High, Custom (Quality and\n"
                         + "IsometricQuality). The isometric view has no Automatic: it takes Low for it, and the key skips Automatic\n"

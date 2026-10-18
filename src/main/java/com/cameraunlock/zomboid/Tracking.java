@@ -499,15 +499,14 @@ final class Tracking {
             }
             SplitScreen.frame();
             int said = pressed & (Config.AIM_MODE | Config.CYCLE_QUALITY | Config.CYCLE_STYLE | Config.SPLIT_SCREEN) | told;
-            // Tapped, the first person key is the first player's. Tapped twice it is the second player's, and held it is every player's.
+            // Tapped once the first person key is the first player's, tapped twice the second's and so on, and held it is every player's.
             boolean all = (pressed & Config.FIRST_PERSON_ALL) != 0;
-            owed[0] = said | (all || (pressed & Config.FIRST_PERSON) != 0 ? Config.FIRST_PERSON : 0);
-            owed[1] = said | (all || (pressed & Config.FIRST_PERSON_SECOND) != 0 ? Config.FIRST_PERSON : 0);
-            for (int i = 2; i < View.COUNT; i++) {
-                owed[i] = said | (all ? Config.FIRST_PERSON : 0);
-            }
-            if ((pressed & Config.FIRST_PERSON_SECOND) != 0 && (IsoPlayer.numPlayers < 2 || IsoPlayer.players[1] == null)) {
-                Log.info("the first person key was tapped twice, which is a second player's, and there is none at the screen");
+            for (int i = 0; i < View.COUNT; i++) {
+                boolean tapped = (pressed & Config.FIRST_PERSON_TAPS[i]) != 0;
+                owed[i] = said | (all || tapped ? Config.FIRST_PERSON : 0);
+                if (tapped && i > 0 && (IsoPlayer.numPlayers <= i || IsoPlayer.players[i] == null)) {
+                    Log.info("the first person key was tapped " + (i + 1) + " times, which is player " + (i + 1) + "'s, and there is none at the screen");
+                }
             }
             backButtons();
         }
