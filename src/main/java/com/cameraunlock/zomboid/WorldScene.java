@@ -1246,7 +1246,7 @@ final class WorldScene {
     private long tollCrownsKept, tollCrownsHere, tollCrownsHereNanos, tollCrownsThere, tollCrownsUnwanted;
     private long tollFrames, tollSums, tollSumNanos, tollBuildNanos, tollGrown, tollGrownNanos, tollChecked, tollDiffered;
     private long tollWoods, tollWoodsNanos;
-    private long tollSumsByLevel, tollLevelsRead, tollLevelsKept, tollSumsChecked, tollSumsDiffered, tollSumsLate;
+    private long tollSumsByLevel, tollLevelsRead, tollLevelsKept, tollLevelsHeld, tollSumsChecked, tollSumsDiffered, tollSumsLate;
 
     /** Dev only: the builds, the sums and the time they took since the last asking, for a rig run's window. */
     String tolls() {
@@ -1270,9 +1270,9 @@ final class WorldScene {
         tollRoomsWalks = tollRoomsNanos = 0;
         roomMap.chunksRead = 0;
         tollAhead = tollAheadNanos = 0;
-        told += String.format(Locale.ROOT, ", sums by level %d (levels read %d, kept %d, checked against whole sums %d, levels marked by that reading %d, levels otherwise with nothing marked %d)",
-                tollSumsByLevel, tollLevelsRead, tollLevelsKept, tollSumsChecked, tollSumsLate, tollSumsDiffered);
-        tollSumsByLevel = tollLevelsRead = tollLevelsKept = tollSumsChecked = tollSumsDiffered = tollSumsLate = 0;
+        told += String.format(Locale.ROOT, ", sums by level %d (levels read %d, kept %d, held over the viewer %d, checked against whole sums %d, levels marked by that reading %d, levels otherwise with nothing marked %d)",
+                tollSumsByLevel, tollLevelsRead, tollLevelsKept, tollLevelsHeld, tollSumsChecked, tollSumsLate, tollSumsDiffered);
+        tollSumsByLevel = tollLevelsRead = tollLevelsKept = tollLevelsHeld = tollSumsChecked = tollSumsDiffered = tollSumsLate = 0;
         if (AUDIT_STALE) {
             told += String.format(Locale.ROOT, ", chunks left alone built beside %d and what grows on them %d, found otherwise and due to be read %d, found stale %d", tollStaleAsked, tollStaleGrownAsked,
                     tollStaleDue, tollStale);
@@ -2529,6 +2529,12 @@ final class WorldScene {
         private float[] keptRed = new float[0], keptGreen = new float[0], keptBlue = new float[0];
         private byte[] keptOpen = new byte[0], keptUnseen = new byte[0];
         private int keptWx, keptWy, keptFrom, keptTo, keptFrame = -1;
+        /**
+         * The lowest level of the viewer's own building whose light is held as its build was made,
+         * and the box of the building a square wider all round: see where it is set. MAX_VALUE
+         * while the viewer is in no building.
+         */
+        private int heldFrom = Integer.MAX_VALUE, heldMinX, heldMinY, heldMaxX, heldMaxY;
         private long keptLevels;
         /** Whether any square of the chunk last read through, on any level, has a canopy's floor over it. */
         boolean canopied;
@@ -2880,6 +2886,17 @@ final class WorldScene {
             }
             BuildingDef def = roofed == null || roofed.getBuilding() == null ? null : roofed.getBuilding().getDef();
             boolean indoors = def != null;
+            // From the eye in a building, its floors from two over the viewer's up are seen only
+            // up a stairwell, and from no window: they stand for their shape and their shadow,
+            // and what the game's light does on them is not read while the viewer is under them.
+            BuildingDef within = !fromOutside && stoodOn != null && !stoodOn.isOutside() && stoodOn.getBuilding() != null ? stoodOn.getBuilding().getDef() : null;
+            heldFrom = within == null ? Integer.MAX_VALUE : level + 2;
+            if (within != null) {
+                heldMinX = within.getX() - 1;
+                heldMinY = within.getY() - 1;
+                heldMaxX = within.getX() + within.getW() + 1;
+                heldMaxY = within.getY() + within.getH() + 1;
+            }
             int minX = 0, minY = 0, maxX = 0, maxY = 0;
             if (indoors) {
                 minX = def.getX() - 1;
@@ -3240,10 +3257,10 @@ final class WorldScene {
                         boolean lightAlone = telling && !missing && !AUDIT_MARKS && stands && current.signed && !current.restless && settled && ringAsItWas
                                 && marks != current.marks && current.things == things && current.told == toldSoFar && current.epoch == epoch && seasonHolds(current, slot) && current.land == land
                                 && current.litLoose == ChunkMarks.litLooseAround(chunk.wx, chunk.wy) && start - current.wholeNanos < sweptEvery(distance, slot);
-                        read = signature(chunk, chunkX, chunkY, lowest, lightAlone ? current : null);
+                        read = signature(chunk, chunkX, chunkY, lowest, lightAlone ? current : null, current);
                         if (CHECK_BUILDS && readByLevel) {
                             long[] byLevel = Arrays.copyOf(readSums, readTo - readFrom + 1);
-                            read = signature(chunk, chunkX, chunkY, lowest, null);
+                            read = signature(chunk, chunkX, chunkY, lowest, null, null);
                             tollSumsChecked++;
                             for (int z = readFrom; z <= readTo; z++) {
                                 if (byLevel[z - readFrom] == readSums[z - readFrom]) {
@@ -4029,7 +4046,7 @@ final class WorldScene {
             boolean signed = standing.signed, plain = standing.plain, grows = standing.grows;
             int seen = squaresSeen, loaded = squaresLoaded, counted = sprites;
             System.arraycopy(standing.groundLayers, 0, auditLayers, 0, auditLayers.length);
-            long sum = signature(chunk, chunkX, chunkY, lowest, null);
+            long sum = signature(chunk, chunkX, chunkY, lowest, null, null);
             solid.clear();
             laid.clear();
             checkPlaced.clear();
@@ -4375,8 +4392,11 @@ final class WorldScene {
          *
          * @param readFor a build of the chunk to take the sums of its unmarked levels from, or null to read every level
          */
-        private long signature(IsoChunk chunk, int chunkX, int chunkY, int lowest, ChunkMeshes readFor) {
+        private long signature(IsoChunk chunk, int chunkX, int chunkY, int lowest, ChunkMeshes readFor, ChunkMeshes held) {
             int from = Math.max(lowest, chunk.getMinLevel()), to = chunk.getMaxLevel();
+            // The levels of the viewer's building that are held (heldFrom) are summed as the build there is was.
+            boolean holds = held != null && heldFrom <= to && held.signed && held.sumFrom == from && held.sumTo == to
+                    && chunkX < heldMaxX && chunkX + CHUNK_TILES > heldMinX && chunkY < heldMaxY && chunkY + CHUNK_TILES > heldMinY;
             readUnseen = sum(SUM_FROM, gamesView ? 1 : 0);
             readUnseen = sum(readUnseen, asTheGameShows ? 1 : 0);
             // A room's daylight goes by the hour as well (daylit): read again at each step of DAY_STEPS through dusk and dawn.
@@ -4434,6 +4454,12 @@ final class WorldScene {
             readingLamplit.clear();
             lampsRound(chunkX, chunkY);
             for (int z = from; z <= to; z++) {
+                if (holds && z >= heldFrom) {
+                    readSums[z - from] = held.levelSums[z - from];
+                    readLit[z - from] = held.litSeen[z - from];
+                    tollLevelsHeld++;
+                    continue;
+                }
                 if (readByLevel && readLit[z - from] == readFor.litSeen[z - from]) {
                     readSums[z - from] = readFor.levelSums[z - from];
                     tollLevelsKept++;
