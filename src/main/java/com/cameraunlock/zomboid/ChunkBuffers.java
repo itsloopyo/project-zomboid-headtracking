@@ -444,8 +444,9 @@ final class ChunkBuffers {
          *
          * @param laidToo whether what is laid over the floors is listed, or only what is solid
          * @param rooms   the rooms whose contents are listed, the rest being left out, or null to list every room's: see RoomSight
+         * @param storeys the lowest level of the building given whose storeys are left out, or Integer.MAX_VALUE for none: see Pipeline.storeysFrom
          */
-        void of(ArrayList<WorldScene.ChunkMeshes> chunks, boolean[] left, boolean laidToo, RoomSight.Seen rooms) {
+        void of(ArrayList<WorldScene.ChunkMeshes> chunks, boolean[] left, boolean laidToo, RoomSight.Seen rooms, int storeys, long building) {
             askedOf = null;
             solidRuns.clear();
             grownRuns.clear();
@@ -455,9 +456,9 @@ final class ChunkBuffers {
                     continue;
                 }
                 WorldScene.ChunkMeshes build = chunks.get(i);
-                solidRuns.count(build, 0, build.solidRuns, rooms);
+                solidRuns.count(build, 0, build.solidRuns, rooms, storeys, building);
                 if (laidToo) {
-                    (build.grown ? grownRuns : laidRuns).count(build, build.solidRuns, build.runs, rooms);
+                    (build.grown ? grownRuns : laidRuns).count(build, build.solidRuns, build.runs, rooms, storeys, building);
                 }
             }
             int most = solidRuns.used + grownRuns.used + laidRuns.used;
@@ -487,7 +488,7 @@ final class ChunkBuffers {
                 int at = build.heldAt;
                 for (int run = 0; run < build.runs; run++) {
                     Runs of = run < build.solidRuns ? solidRuns : build.grown ? grownRuns : laidRuns;
-                    if ((of == solidRuns || laidToo) && listedOnce(build.runRoom[run], rooms)) {
+                    if ((of == solidRuns || laidToo) && listed(build, run, rooms, storeys, building)) {
                         int slot = of.slot(build.runTexture[run], build.runTint[run]);
                         firstList[of.cursor[slot]] = at / SpriteGeometry.VERTEX_FLOATS;
                         countList[of.cursor[slot]] = build.runFloats[run] / SpriteGeometry.VERTEX_FLOATS;
@@ -552,6 +553,11 @@ final class ChunkBuffers {
         return rooms == null || room == RoomSight.OUTSIDE || rooms.contains(room);
     }
 
+    /** Whether a run of a build is listed: its room's contents are, and it is no storey left out. */
+    private static boolean listed(WorldScene.ChunkMeshes build, int run, RoomSight.Seen rooms, int storeys, long building) {
+        return listedOnce(build.runRoom[run], rooms) && (build.runLevel[run] < storeys || build.runBuilding[run] != building);
+    }
+
     /**
      * The same, with the last room asked about remembered while one listing is made, which
      * forgets it as it begins (askedOf): a build's runs come room by room, and every run of every
@@ -595,9 +601,9 @@ final class ChunkBuffers {
             return slot;
         }
 
-        void count(WorldScene.ChunkMeshes build, int from, int to, RoomSight.Seen rooms) {
+        void count(WorldScene.ChunkMeshes build, int from, int to, RoomSight.Seen rooms, int storeys, long building) {
             for (int run = from; run < to; run++) {
-                if (!listedOnce(build.runRoom[run], rooms)) {
+                if (!listed(build, run, rooms, storeys, building)) {
                     continue;
                 }
                 if (used * 2 >= texture.length) {

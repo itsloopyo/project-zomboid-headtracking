@@ -276,6 +276,7 @@ public final class Tests {
         Checks.run("fernGrowsFromItsRoot", Tests::fernGrowsFromItsRoot);
         Checks.run("litterShowsAsMuchAsItsCornersSay", Tests::litterShowsAsMuchAsItsCornersSay);
         Checks.run("aCornerKeepsWhatItHasOfALightTheGameHasNotGiven", Tests::aCornerKeepsWhatItHasOfALightTheGameHasNotGiven);
+        Checks.run("eachStoreyOfABuildingHasMeshesOfItsOwn", Tests::eachStoreyOfABuildingHasMeshesOfItsOwn);
         Checks.run("elbowKeepsBothBonesTheirLengthsAndDropsTheWayThePolePoints", Tests::elbowKeepsBothBonesTheirLengthsAndDropsTheWayThePolePoints);
         Checks.run("pumpGoesBackAndComesForwardAgain", Tests::pumpGoesBackAndComesForwardAgain);
         Checks.run("pumpWaitsOutTheKickAndFillsTheGamesRack", Tests::pumpWaitsOutTheKickAndFillsTheGamesRack);
@@ -1133,6 +1134,23 @@ public final class Tests {
             rooted |= near(f[at + 4], 0f) && near(f[at + 2], 0.1f);
         }
         check(rooted, "every frond starts on the ground");
+    }
+
+    private static void eachStoreyOfABuildingHasMeshesOfItsOwn() {
+        SpriteGeometry.MeshSet set = new SpriteGeometry.MeshSet();
+        set.storey(7L, 3);
+        SpriteGeometry.Mesh third = set.get(11);
+        set.storey(7L, 4);
+        SpriteGeometry.Mesh fourth = set.get(11);
+        set.storey(8L, 3);
+        SpriteGeometry.Mesh another = set.get(11);
+        set.storey(SpriteGeometry.NO_BUILDING, 5);
+        SpriteGeometry.Mesh none = set.get(11);
+        set.storey(SpriteGeometry.NO_BUILDING, 9);
+        check(third != fourth && third != another && fourth != another, "a storey of a building, and the same storey of another, each have a mesh of their own");
+        check(none == set.get(11) && none.level == 0 && none.building == SpriteGeometry.NO_BUILDING, "what is of no building's storey shares one mesh whatever the level");
+        set.storey(7L, 3);
+        check(set.get(11) == third && third.level == 3 && third.building == 7L, "and asking again for a storey gives its mesh back");
     }
 
     private static void aCornerKeepsWhatItHasOfALightTheGameHasNotGiven() {

@@ -45,6 +45,8 @@ final class SpriteGeometry {
     /** Where in a vertex what the picture places it by is: how far along or how many layers, and what that is; its tree's square; and what it has of a light the game has not given. */
     static final int ALONG_AT = 12, WAY_AT = 14, ROOT_AT = 15, UNLIT_AT = 17;
     static final float NO_ROOT = -1f;
+    /** What a mesh is of when it is of no building's storey: see MeshSet.storey. */
+    static final long NO_BUILDING = Long.MIN_VALUE;
     /**
      * What a vertex carries in Mesh.unlit where its light is all of the kind its openness
      * names (see WorldScene.LIT_STEP), and the step a kind of light the game has not given
@@ -138,6 +140,9 @@ final class SpriteGeometry {
         int tint;
         /** The room whose contents its triangles are, drawn only while the eye sees into it, or RoomSight.OUTSIDE for what is drawn whenever its chunk is: see MeshSet.room. */
         long room = RoomSight.OUTSIDE;
+        /** The building and the level of the squares its triangles are of, or NO_BUILDING: see MeshSet.storey. */
+        long building = NO_BUILDING;
+        int level;
         /**
          * Starts small and doubles. A set keeps a mesh for every texture a chunk has lately
          * worn, and most of them only ever hold a few sprites.
@@ -297,6 +302,13 @@ final class SpriteGeometry {
          * see into and draw the rest of the chunk.
          */
         long room = RoomSight.OUTSIDE;
+        /**
+         * The building and the level of the square what is asked for next is of, or NO_BUILDING
+         * and 0. Each storey of a building has meshes of its own, so that a picture from inside
+         * it can leave out the floors over the viewer's that it cannot see.
+         */
+        long building = NO_BUILDING;
+        int level;
         /** The key of the thing being drawn into the set, or Outlines.NONE: see own. */
         private long owner = Outlines.NONE;
 
@@ -314,7 +326,7 @@ final class SpriteGeometry {
         }
 
         Mesh get(int texture, int tint) {
-            int slot = slotFor(byTexture, texture, tint, room);
+            int slot = slotFor(byTexture, texture, tint, room, building, level);
             Mesh mesh = byTexture[slot];
             if (mesh == null) {
                 mesh = new Mesh();
@@ -322,12 +334,14 @@ final class SpriteGeometry {
                 mesh.texture = texture;
                 mesh.tint = tint;
                 mesh.room = room;
+                mesh.building = building;
+                mesh.level = level;
                 all.add(mesh);
                 if (all.size() * 2 > byTexture.length) {
                     byTexture = new Mesh[byTexture.length * 2];
                     for (int i = 0; i < all.size(); i++) {
                         Mesh moved = all.get(i);
-                        byTexture[slotFor(byTexture, moved.texture, moved.tint, moved.room)] = moved;
+                        byTexture[slotFor(byTexture, moved.texture, moved.tint, moved.room, moved.building, moved.level)] = moved;
                     }
                 } else {
                     byTexture[slot] = mesh;
@@ -339,6 +353,12 @@ final class SpriteGeometry {
                 used.add(mesh);
             }
             return mesh;
+        }
+
+        /** What is asked for from now on is of the building's storey on that level, or of none with NO_BUILDING: see building. */
+        void storey(long ofBuilding, int onLevel) {
+            building = ofBuilding;
+            level = ofBuilding == NO_BUILDING ? 0 : onLevel;
         }
 
         /**
@@ -421,15 +441,17 @@ final class SpriteGeometry {
             byTexture = new Mesh[length];
             for (int i = 0; i < kept; i++) {
                 Mesh moved = all.get(i);
-                byTexture[slotFor(byTexture, moved.texture, moved.tint, moved.room)] = moved;
+                byTexture[slotFor(byTexture, moved.texture, moved.tint, moved.room, moved.building, moved.level)] = moved;
             }
         }
 
-        /** The slot holding the mesh of the texture in that tint for that room's contents, or the empty one it belongs in. */
-        private static int slotFor(Mesh[] table, int texture, int tint, long room) {
+        /** The slot holding the mesh of the texture in that tint for that room's contents and that storey, or the empty one it belongs in. */
+        private static int slotFor(Mesh[] table, int texture, int tint, long room, long building, int level) {
             int mask = table.length - 1;
-            int slot = (texture ^ tint * 0x9E3779B1 >>> 16 ^ (int) (room ^ room >>> 32) * 0x85EBCA6B) & mask;
-            while (table[slot] != null && (table[slot].texture != texture || table[slot].tint != tint || table[slot].room != room)) {
+            int slot = (texture ^ tint * 0x9E3779B1 >>> 16 ^ (int) (room ^ room >>> 32) * 0x85EBCA6B ^ (int) (building ^ building >>> 32) * 0xC2B2AE35
+                    ^ level * 0x27D4EB2F) & mask;
+            while (table[slot] != null && (table[slot].texture != texture || table[slot].tint != tint || table[slot].room != room
+                    || table[slot].building != building || table[slot].level != level)) {
                 slot = (slot + 1) & mask;
             }
             return slot;

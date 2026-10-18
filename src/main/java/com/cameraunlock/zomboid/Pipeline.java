@@ -557,6 +557,15 @@ final class Pipeline {
      * shadows, are drawn with every room.
      */
     RoomSight.Seen roomsSeen;
+    /**
+     * The lowest storey of the viewer's own building the eye's own picture leaves out, and the
+     * building (SpriteGeometry.MeshSet.storey); MAX_VALUE to leave out none. From inside, the
+     * floors two over the viewer's are seen from no window, and stood for most of what the eye's
+     * picture drew in a tower. Like roomsSeen, only the eye's own picture goes by it: the
+     * shadows keep them. Set by the frame before each draw.
+     */
+    int storeysFrom = Integer.MAX_VALUE;
+    long storeysOf = SpriteGeometry.NO_BUILDING;
     /** Who the eye's own picture and a scope's leave out by the room they stand in, or null to leave out no one by room. Set by the frame before each draw: see FigureRooms. */
     FigureRooms figureRooms;
     /** What the world's program is told in uLaid past 1, for all that is laid: only its grass is drawn, or all of it but its grass. */
@@ -1050,7 +1059,7 @@ final class Pipeline {
             // in as the built world's own ends do, which come in from far off as the camera comes down.
             boolean farThere = view.worldScene.farLand.load(focusX, focusY);
             beyond = (!outside || landing > 0f) && farThere ? 1f + (steadying ? frameNumber % SIEVES : 0) : 0f;
-            all.of(chunks, null, true, null);
+            all.of(chunks, null, true, null, Integer.MAX_VALUE, SpriteGeometry.NO_BUILDING);
             arrays();
             fires.take(state, chunks, eyesOwn() ? roomsSeen : null, camera, frameNanos);
             stage(STAGE_LOAD);
@@ -1293,7 +1302,7 @@ final class Pipeline {
         if (left == 0) {
             return all;
         }
-        behindListed.of(drawn, leftOut, true, null);
+        behindListed.of(drawn, leftOut, true, null, Integer.MAX_VALUE, SpriteGeometry.NO_BUILDING);
         return behindListed;
     }
 
@@ -2468,7 +2477,7 @@ final class Pipeline {
         if (left == 0) {
             return all;
         }
-        own.of(drawn, leftOut, false, null);
+        own.of(drawn, leftOut, false, null, Integer.MAX_VALUE, SpriteGeometry.NO_BUILDING);
         return own;
     }
 
@@ -2523,10 +2532,11 @@ final class Pipeline {
             }
         }
         RoomSight.Seen rooms = eyesOwn() ? roomsSeen : null;
-        if (left == 0 && rooms == null) {
+        int storeys = eyesOwn() ? storeysFrom : Integer.MAX_VALUE;
+        if (left == 0 && rooms == null && storeys == Integer.MAX_VALUE) {
             return all;
         }
-        seenListed.of(drawn, leftOut, true, rooms);
+        seenListed.of(drawn, leftOut, true, rooms, storeys, storeysOf);
         return seenListed;
     }
 

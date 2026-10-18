@@ -44,6 +44,7 @@ import zombie.iso.LightingJNI;
 import zombie.iso.RoomDef;
 import zombie.iso.SpriteDetails.IsoFlagType;
 import zombie.iso.SpriteDetails.IsoObjectType;
+import zombie.iso.areas.IsoBuilding;
 import zombie.iso.areas.IsoRoom;
 import zombie.iso.fboRenderChunk.FBORenderChunk;
 import zombie.iso.fboRenderChunk.FBORenderCutaways;
@@ -214,6 +215,9 @@ final class WorldScene {
         int[] runTexture = new int[32], runTint = new int[32], runFloats = new int[32];
         /** For each run, the room it is the contents of, drawn only while the eye sees into it, or RoomSight.OUTSIDE: see SpriteGeometry.MeshSet.room. */
         long[] runRoom = new long[32];
+        /** The building and the level each run is of, or SpriteGeometry.NO_BUILDING: see SpriteGeometry.MeshSet.storey. */
+        long[] runBuilding = new long[32];
+        int[] runLevel = new int[32];
         int runs, solidRuns;
         /** How many floats the runs come to. */
         int floats;
@@ -439,10 +443,14 @@ final class WorldScene {
                     runTint = Arrays.copyOf(runTint, runs * 2);
                     runFloats = Arrays.copyOf(runFloats, runs * 2);
                     runRoom = Arrays.copyOf(runRoom, runs * 2);
+                    runBuilding = Arrays.copyOf(runBuilding, runs * 2);
+                    runLevel = Arrays.copyOf(runLevel, runs * 2);
                 }
                 runTexture[runs] = mesh.texture;
                 runTint[runs] = mesh.tint;
                 runRoom[runs] = mesh.room;
+                runBuilding[runs] = mesh.building;
+                runLevel[runs] = mesh.level;
                 runFloats[runs] = mesh.floats;
                 for (int span = 0; span < mesh.spans; span++) {
                     if (owned == ownedKey.length) {
@@ -2535,6 +2543,8 @@ final class WorldScene {
          * while the viewer is in no building.
          */
         private int heldFrom = Integer.MAX_VALUE, heldMinX, heldMinY, heldMaxX, heldMaxY;
+        /** The viewer's own building while heldFrom is set: its storeys from there up are left out of the eye's picture too. */
+        private long heldBuilding = SpriteGeometry.NO_BUILDING;
         private long keptLevels;
         /** Whether any square of the chunk last read through, on any level, has a canopy's floor over it. */
         boolean canopied;
@@ -2891,6 +2901,7 @@ final class WorldScene {
             // and what the game's light does on them is not read while the viewer is under them.
             BuildingDef within = !fromOutside && stoodOn != null && !stoodOn.isOutside() && stoodOn.getBuilding() != null ? stoodOn.getBuilding().getDef() : null;
             heldFrom = within == null ? Integer.MAX_VALUE : level + 2;
+            heldBuilding = within == null ? SpriteGeometry.NO_BUILDING : within.id;
             if (within != null) {
                 heldMinX = within.getX() - 1;
                 heldMinY = within.getY() - 1;
@@ -4302,11 +4313,17 @@ final class WorldScene {
                         if (growing) {
                             grow(chunkX + localX, chunkY + localY, localX, localY);
                         } else {
+                            IsoBuilding of = square.getBuilding();
+                            long storeyOf = of == null || of.getDef() == null ? SpriteGeometry.NO_BUILDING : of.getDef().id;
+                            solid.storey(storeyOf, z);
+                            laid.storey(storeyOf, z);
                             addSquare(square, chunkX + localX, chunkY + localY, z, localX, localY);
                         }
                     }
                 }
             }
+            solid.storey(SpriteGeometry.NO_BUILDING, 0);
+            laid.storey(SpriteGeometry.NO_BUILDING, 0);
         }
         /** The bands the chunk being built would come out the same for, a bit each. */
         int alike;
@@ -7277,6 +7294,7 @@ final class WorldScene {
                 float fogAt = landing == 0f ? Float.MAX_VALUE / 2f : fogEnd / landing;
                 view.pipeline.loadedWithin = landing == 0f ? Float.MAX_VALUE / 2f : loadedWithin / landing;
                 view.pipeline.roomsSeen = null;
+                view.pipeline.storeysFrom = Integer.MAX_VALUE;
                 view.pipeline.figureRooms = null;
                 float nearest = Math.max(outsideAway - OVERHEAD_DEPTH, ViewCamera.nearPlane(NEAR_CORNER_DISTANCE, outsideTan, aspect));
                 view.pipeline.draw(shown, outsideCamera, sky, outsideTan, nearest, outsideAway + FAR, fogAt * FOG_START, fogAt, exposure, viewport);
@@ -7286,6 +7304,8 @@ final class WorldScene {
             view.pipeline.rangeFrom = 0f;
             view.pipeline.loadedWithin = loadedWithin;
             view.pipeline.roomsSeen = aspect == roomsAspect ? roomsSeen : null;
+            view.pipeline.storeysFrom = heldFrom;
+            view.pipeline.storeysOf = heldBuilding;
             view.pipeline.figureRooms = figureRooms;
             view.pipeline.draw(shown, camera, sky, tanHalfFieldOfView, near, FAR, fogEnd * FOG_START, fogEnd, exposure, viewport);
             lastDrawMillis = view.pipeline.lastMillis();
