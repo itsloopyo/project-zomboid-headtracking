@@ -475,6 +475,8 @@ final class PipelineShaders {
             varying float vBoards;
             varying float vLie;
             varying float vHung;
+            // How far a vertex lies over the surface it is laid on: see faced.
+            varying float vLift;
             // The square of the tree the vertex is part of, below 0 for none: see SpriteGeometry.VERTEX_FLOATS. A model has
             // none, and carries in y the piece of its surface the vertex is on.
             varying vec2 vRoot;
@@ -671,6 +673,7 @@ final class PipelineShaders {
                     vCover = 1.0;
                 }
                 vWorld = at.xyz + lies;
+                vLift = lies.z;
                 // A cloud's shadow changes over tens of tiles, so it is worked out at the vertices.
                 vec2 under = (vWorld.xy + uLight.xy / max(uLight.z, 0.25) * 30.0) / 22.0 + uDrift * 6.0;
                 vClouds = patches(under) * 0.6 + patches(under * 2.7 + 7.0) * 0.4;
@@ -794,6 +797,8 @@ final class PipelineShaders {
             varying float vBoards;
             varying float vLie;
             varying float vHung;
+            // How far a vertex lies over the surface it is laid on: see faced.
+            varying float vLift;
             varying vec2 vRoot;
             uniform vec4 uCutBox;
             uniform vec3 uCutNear;
@@ -2835,11 +2840,19 @@ final class PipelineShaders {
                 if (uLaid > 0.5 && !grass && vMaterial < 56.5 && laidCover < 0.999) {
                     float ragged = patches(vWorld.xy * 1.9) * 0.6 + patches(vWorld.xy * 6.1 + 17.0) * 0.4 - 0.5;
                     shown = smoothstep(0.38, 0.62, laidCover + ragged * 3.0 * laidCover * (1.0 - laidCover));
-                    // Where the spread ground does not show, nothing is drawn: what is laid writes
-                    // depth, so a pixel of it left in would still hide whatever is laid on the
-                    // same ground after it, and where nothing of the built world was drawn beneath
-                    // it, far off, it kept the sky and the far land out and showed as a black dot.
-                    if (shown < 0.03) {
+                    // It lies a layer over its square's own ground, and a layer is thicker the
+                    // further off (see faced): far off, a line of sight crosses it a good way
+                    // before it meets that ground, if it meets it at all. Where it does not, the
+                    // ground under the pixel is the next square's, or it was thinned out into the
+                    // far land, or cut off under the water, or there is none past the loaded map,
+                    // and the spread ground is left out there too. What is laid writes depth and is
+                    // mixed in: left in, a pixel of it would be mixed over nothing and keep the sky
+                    // and the far land out, a black speck. And where it does not show, it would
+                    // still hide whatever is laid on the same ground after it.
+                    vec3 sight = normalize(vWorld - uEye), up = normalize(vNormal);
+                    vec3 under = vWorld + sight * (vLift * up.z / max(-dot(up, sight), 1e-3));
+                    if (shown < 0.03 || any(notEqual(floor(under.xy), floor(vWorld.xy))) || thinnedOut(under.xy - uEye.xy)
+                            || uUnder.z > 0.0 && dot(uUnder.xyz, under) < uUnder.w) {
                         discard;
                     }
                 }
