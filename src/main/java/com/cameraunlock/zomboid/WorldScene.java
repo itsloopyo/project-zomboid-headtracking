@@ -3224,6 +3224,12 @@ final class WorldScene {
                     // Every build is summed, whether or not the eye moves, but for one of a chunk
                     // found changed a moment ago: see summedFrom.
                     float middleX = chunkX + CHUNK_TILES / 2f, middleY = chunkY + CHUNK_TILES / 2f;
+                    // One put off for want of time is not read again while the frame still has none: see where one is put off.
+                    if (due && !missing && current.putOffNanos != 0L && start - current.putOffNanos < CHANGED_WAITS_NANOS && changedLate > 0
+                            && (distance >= CHUNK_TILES * 1.5f || current.things == things) && System.nanoTime() - start > BUILD_NANOS_A_FRAME / sharing) {
+                        due = false;
+                        tollChangedWaited++;
+                    }
                     boolean summed = (missing || due) && frames >= summedFrom && start >= summedFromNanos;
                     if (missing || due) {
                         surround(map, chunk, gridX, gridY, side);
@@ -3324,6 +3330,7 @@ final class WorldScene {
                             }
                         }
                         if (sameEye && same && young) {
+                            current.putOffNanos = 0L;
                             current.checkedFrame = frames;
                             current.checkedNanos = start;
                             current.marks = marks;
