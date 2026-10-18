@@ -26,7 +26,7 @@ final class SightlineTests {
         Checks.run("aRoomNotShownIsFilledNearTheEyeAndEmptyFarOff", SightlineTests::aRoomNotShownIsFilledNearTheEyeAndEmptyFarOff);
         Checks.run("aLineThatEndsWhereItStartsIsClear", SightlineTests::aLineThatEndsWhereItStartsIsClear);
         Checks.run("roomsAreFilledBySightAloneOnServersAndInLow", SightlineTests::roomsAreFilledBySightAloneOnServersAndInLow);
-        Checks.run("theLightOfRoomsNotShownMovesInStepsAndHoldsBetweenThem", SightlineTests::theLightOfRoomsNotShownMovesInStepsAndHoldsBetweenThem);
+        Checks.run("theLightOfRoomsNotShownFollowsTheLightAndNotTheHousesGoingBy", SightlineTests::theLightOfRoomsNotShownFollowsTheLightAndNotTheHousesGoingBy);
     }
 
     private static void check(boolean condition, String what) {
@@ -213,31 +213,31 @@ final class SightlineTests {
                 "as the game's own view a room not shown is hidden by the engine's light and nothing is left out of it");
     }
 
-    private static void theLightOfRoomsNotShownMovesInStepsAndHoldsBetweenThem() {
-        check(Sightline.held(Sightline.followed(0.887f, -1f), -1f) == 0.875f, "the first light found is kept on the nearest step");
+    private static void theLightOfRoomsNotShownFollowsTheLightAndNotTheHousesGoingBy() {
+        check(Sightline.followed(0.887f, -1f) == 0.887f, "the first light found is taken as it is");
         // The rooms' share of the open ground's light as it was read every half second from a car going
         // down Muldraugh's main street at 80 km/h (run rebuilds/trace2): the houses in sight, not the light.
         float[] driven = {0.5f, 0.125f, 0.0625f, 0.75f, 0.4375f, 0.75f, 0.875f, 0.75f, 0.875f, 0.625f, 0.9375f, 0.875f, 0.8125f, 0.75f, 0.4375f, 0.75f,
             0.625f, 0.5625f, 0.5f, 0.8125f};
-        float followed = -1f, kept = -1f;
-        int moves = -1;
+        float followed = -1f, low = Float.MAX_VALUE, high = -Float.MAX_VALUE, most = 0f;
         for (float found : driven) {
-            followed = Sightline.followed(found, followed);
-            float next = Sightline.held(followed, kept);
-            moves += next == kept ? 0 : 1;
-            kept = next;
+            float next = Sightline.followed(found, followed);
+            if (followed >= 0f) {
+                most = Math.max(most, Math.abs(next - followed));
+            }
+            followed = next;
+            low = Math.min(low, followed);
+            high = Math.max(high, followed);
         }
-        check(moves <= 1, "the houses going by move the light kept once at most, where each reading moved it: " + moves);
+        check(most < 0.07f, "no reading of the houses going by moves the light by more than a few hundredths: " + most);
+        check(high - low < 0.4f, "the light followed spans under half of what the readings did: " + (high - low));
         // A light that does change, held for a few seconds of readings, is taken.
-        kept = Sightline.held(followed = Sightline.followed(0.875f, -1f), -1f);
+        followed = Sightline.followed(0.875f, -1f);
         for (int take = 0; take < 16; take++) {
             followed = Sightline.followed(0.5f, followed);
-            kept = Sightline.held(followed, kept);
         }
-        check(Math.abs(kept - 0.5f) <= Sightline.LIGHT_HELD_STEPS * Sightline.LIGHT_STEP, "a room's worth darker for eight seconds is taken, to within the light held: " + kept);
-        check(Sightline.held(0f, -1f) == 0f && Sightline.held(0f, 0.25f) == 0f, "no light at all is a light like any other");
-        check(Sightline.held(0.875f + Sightline.LIGHT_STEP, 0.875f) == 0.875f && Sightline.held(0.875f + 2f * Sightline.LIGHT_STEP, 0.875f) == 1f,
-                "within two steps the light kept holds, and past them moves");
+        check(Math.abs(followed - 0.5f) < 0.04f, "a room's worth darker for eight seconds is taken: " + followed);
+        check(Sightline.followed(0f, 0.25f) < 0.25f && Sightline.followed(0f, -1f) == 0f, "no light at all is a light like any other");
     }
 
     private static void aLineThatEndsWhereItStartsIsClear() {

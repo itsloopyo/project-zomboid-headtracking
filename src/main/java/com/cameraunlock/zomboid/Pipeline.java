@@ -3474,6 +3474,8 @@ final class Pipeline {
         // How much of its distance from the eye a pixel of this picture takes in, up and down.
         to.set("uPixel", 2f * tanHalfFieldOfView / drawnHigh());
         to.set("uRangeFrom", rangeFrom);
+        to.set("uRoomLight", state.roomLight[0], state.roomLight[1], state.roomLight[2]);
+        to.set("uLampLight", state.lampLight[0], state.lampLight[1], state.lampLight[2]);
         to.set("uCutAbove", cutAbove);
         to.set("uCutBox", cutBox[0], cutBox[1], cutBox[2], cutBox[3]);
         if (overhead && ViewCamera.project(camera, tanHalfFieldOfView, aspect, focusX, focusY, focusUp - HOLE_BELOW_EYE, holeAt)) {

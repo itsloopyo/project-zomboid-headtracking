@@ -489,6 +489,8 @@ final class PipelineShaders {
             uniform vec3 uLight;
             uniform vec2 uDrift;
             uniform float uLaid;
+            uniform vec3 uRoomLight;
+            uniform vec3 uLampLight;
             uniform float uSnowLying;
             uniform vec3 uEye;
             uniform float uPixel;
@@ -563,6 +565,11 @@ final class PipelineShaders {
                     vColor = vec4(gl_MultiTexCoord0.y * (uLit + share.x * uLitAlong + share.y * uLitDown + share.x * share.y * uLitAcross),
                             uSurfaces.x + 32.0 * ((dyed || also ? 34.0 : 16.0) + surface));
                 }
+                // A room the game has not shown carries a mark for its light, not the light: see WorldScene.ROOM_MARK.
+                vec3 marked = -vColor.rgb;
+                // Below 16 it is the shade of a room lit as the rooms in sight are, above it that times 2^24 for one a lamp burns in.
+                vec3 lamp = step(16.0, marked);
+                vColor.rgb = mix(vColor.rgb, mix(marked * uRoomLight, marked / 16777216.0 * uLampLight, lamp), step(1e-30, marked));
                 // A strip of grass has no facing. What its vertex carries in a facing's place is
                 // taken apart here: see SpriteGeometry.addStrip.
                 vBlade = vec4(0.0);

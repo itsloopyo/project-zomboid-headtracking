@@ -402,8 +402,8 @@ final class FloorBuilder {
         float red = build.frame.red, green = build.frame.green, blue = build.frame.blue, open = build.frame.open, kind = build.frame.kind;
         build.frame.cornersInto(build.heldRed, build.heldGreen, build.heldBlue);
         ColorInfo light = below != null && below.isSeen(build.playerIndex) ? build.lightOf(below)
-                : below == null || below.getRoomID() == -1L || build.asTheGameShows || build.gamesView ? build.unseenLight : WorldScene.lampBurns(build.cell, below, build.lampsNear) ? build.lampLight : build.roomLight;
-        if (below != null) {
+                : below == null || below.getRoomID() == -1L || build.asTheGameShows || build.gamesView ? build.unseenLight : WorldScene.lampBurns(build.cell, below, build.lampsNear) ? WorldScene.LAMP_MARKED : WorldScene.ROOM_MARKED;
+        if (below != null && below.isSeen(build.playerIndex)) {
             light = build.daylit(below, light);
         }
         build.frame.light(light.r, light.g, light.b);

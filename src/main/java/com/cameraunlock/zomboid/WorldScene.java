@@ -726,13 +726,12 @@ final class WorldScene {
      * no lamp burning in it that is the open ground's light times roomShare, how bright most
      * room squares in sight are beside the open ground: it follows the hour as the open
      * ground's does. With a lamp burning it is lampLevel, how bright most lamplit squares in
-     * sight are, which the hour does not change. Both are every build's, so they move in
-     * steps of Sightline.LIGHT_STEP and no finer. Less than 0 until rooms have been in sight.
+     * sight are, which the hour does not change. Each is the readings followed a share at a
+     * time (Sightline.followed), and no build holds either: see ROOM_MARK. Less than 0 until
+     * rooms have been in sight.
      */
     private final OpenLight seenRooms = new OpenLight(), seenLamplit = new OpenLight();
     private float roomShare = -1f, lampLevel = -1f;
-    /** What the readings of roomShare and lampLevel come to, followed a share at a time: see Sightline.followed. */
-    private float roomShareFollowed = -1f, lampLevelFollowed = -1f;
     private long roomLightTakenAt;
     /** How near the eye a chunk is, in tiles, for what stands in its rooms the game has not shown to be built: within the last band but one. See Sightline.emptied. */
     private static final float UNSHOWN_FILLED_WITHIN = 40f;
@@ -931,6 +930,28 @@ final class WorldScene {
     private static final IdentityHashMap<IsoSprite, int[]> ranks = new IdentityHashMap<>();
     /** A chunk's squares and the ring of squares round them. */
     static final int LIGHT_SPAN = CHUNK_TILES + 2;
+    /**
+     * A room the game has not shown is lit as the rooms in sight are, and that light moves
+     * as the eye looks about: baked into the builds, each move had every chunk in view built
+     * again, a tower's thirty storeys at a time. So the build gives such a square no light of
+     * its own but a mark the world shader reads against the light of this frame (uRoomLight,
+     * uLampLight): the shade it is to be lit in times ROOM_MARK, or LAMP_MARK where a lamp
+     * burns. Below 0 it is no light the game gives, and the shader takes 16 and more after
+     * the sign off for a lamp's. The mark rides through every shade a builder multiplies
+     * the light by and through the mean of corners of one face, which are of one kind of
+     * square (see lightUnseen); nothing adds to a light or takes from it.
+     */
+    static final float ROOM_MARK = -1f, LAMP_MARK = -(1 << 24);
+    /** Kinds of square by their light, which a corner's mean does not mix: lit by the game, an unshown room, an unshown room with a lamp burning. */
+    static final byte OWN_LIGHT = 0, ROOM_LIT = 1, LAMP_LIT = 2;
+    /** The light a build gives a square of an unshown room, and of one with a lamp burning: read only. */
+    static final ColorInfo ROOM_MARKED = marked(ROOM_MARK), LAMP_MARKED = marked(LAMP_MARK);
+
+    private static ColorInfo marked(float mark) {
+        ColorInfo light = new ColorInfo();
+        light.r = light.g = light.b = mark;
+        return light;
+    }
     /**
      * Dev only: every sum that finds a chunk changed is set against what ChunkMarks counted,
      * and one the game marked nothing for is logged with what of it changed. See audit.
@@ -2475,6 +2496,8 @@ final class WorldScene {
         final float[] lightRed = new float[LIGHT_SPAN * LIGHT_SPAN], lightGreen = new float[LIGHT_SPAN * LIGHT_SPAN],
                 lightBlue = new float[LIGHT_SPAN * LIGHT_SPAN];
         final byte[] lightOpen = new byte[LIGHT_SPAN * LIGHT_SPAN];
+        /** Each square's kind of light: OWN_LIGHT, ROOM_LIT or LAMP_LIT. */
+        final byte[] lightUnseen = new byte[LIGHT_SPAN * LIGHT_SPAN];
         final float[] heldRed = new float[4], heldGreen = new float[4], heldBlue = new float[4];
         /**
          * The lights of every level of the chunk last summed, as readLights left each: a chunk
@@ -2513,7 +2536,6 @@ final class WorldScene {
         private final OpenLight reading = new OpenLight();
         /** And of its room squares in the character's sight: see seenRooms. */
         private final OpenLight readingRooms = new OpenLight(), readingLamplit = new OpenLight();
-        final ColorInfo roomLight = new ColorInfo(), lampLight = new ColorInfo();
         /** Whether what stands in a room the game has not shown is left out of this frame's builds: see Sightline. */
         boolean asTheGameShows;
         private boolean tallying;
@@ -2736,7 +2758,7 @@ final class WorldScene {
                     Arrays.fill(scene.groundObject, null);
                     Arrays.fill(scene.around, null);
                 }
-                roomShare = lampLevel = roomShareFollowed = lampLevelFollowed = -1f;
+                roomShare = lampLevel = -1f;
                 strung.clear();
                 bannerRuns.clear();
                 forgetAll();
@@ -2796,8 +2818,7 @@ final class WorldScene {
                 asTheGameShows = showing;
                 forgetAll();
             }
-            // No build reads the rooms' light where a room is shown only as the game shows it.
-            goesBy = sum(sum(sum(goesBy, asTheGameShows ? 1 : 0), asTheGameShows ? 0 : Float.floatToRawIntBits(roomShare)), asTheGameShows ? 0 : Float.floatToRawIntBits(lampLevel));
+            goesBy = sum(goesBy, asTheGameShows ? 1 : 0);
             panes.count = 0;
             if (!fromOutside && !seated && Quality.surfacesMirror(view.index)) {
                 WindowGlass.find(cell, player, terrain, pose, panes);
@@ -2934,13 +2955,13 @@ final class WorldScene {
             daylitAt = start;
             // Until a room has been in sight, a room is lit as the open ground is, and one with a lamp burning at least as a lamp lights.
             float share = roomShare < 0f ? 1f : roomShare;
-            roomLight.r = Math.min(unseenRed * share, 1f);
-            roomLight.g = Math.min(unseenGreen * share, 1f);
-            roomLight.b = Math.min(unseenBlue * share, 1f);
+            sky.roomLight[0] = Math.min(unseenRed * share, 1f);
+            sky.roomLight[1] = Math.min(unseenGreen * share, 1f);
+            sky.roomLight[2] = Math.min(unseenBlue * share, 1f);
             float lamp = lampLevel < 0f ? LAMP_AT_LEAST : lampLevel;
-            lampLight.r = Math.max(roomLight.r, lamp);
-            lampLight.g = Math.max(roomLight.g, lamp);
-            lampLight.b = Math.max(roomLight.b, lamp);
+            for (int i = 0; i < 3; i++) {
+                sky.lampLight[i] = Math.max(sky.roomLight[i], lamp);
+            }
 
             // The loaded map is a square of chunks, and it ends in nothing. The picture fades into the
             // sky by the round that just fits inside it, so the edge is never seen. The square is not
@@ -3818,13 +3839,11 @@ final class WorldScene {
                 float open = (unseenRed + unseenGreen + unseenBlue) / 3f;
                 if (seenRooms.counted() >= ROOM_LIGHT_FROM && open >= ROOM_SHARE_TAKEN_FROM) {
                     seenRooms.commonest(openLight);
-                    roomShareFollowed = Sightline.followed(Math.min((openLight[0] + openLight[1] + openLight[2]) / 3f / open, 1f), roomShareFollowed);
-                    roomShare = Sightline.held(roomShareFollowed, roomShare);
+                    roomShare = Sightline.followed(Math.min((openLight[0] + openLight[1] + openLight[2]) / 3f / open, 1f), roomShare);
                 }
                 if (seenLamplit.counted() >= ROOM_LIGHT_FROM) {
                     seenLamplit.commonest(openLight);
-                    lampLevelFollowed = Sightline.followed(Math.max(openLight[0], Math.max(openLight[1], openLight[2])), lampLevelFollowed);
-                    lampLevel = Sightline.held(lampLevelFollowed, lampLevel);
+                    lampLevel = Sightline.followed(Math.max(openLight[0], Math.max(openLight[1], openLight[2])), lampLevel);
                 }
                 seenRooms.clear();
                 seenLamplit.clear();
@@ -4314,8 +4333,7 @@ final class WorldScene {
         private long signature(IsoChunk chunk, int chunkX, int chunkY, int lowest, ChunkMeshes readFor) {
             int from = Math.max(lowest, chunk.getMinLevel()), to = chunk.getMaxLevel();
             readUnseen = sum(sum(sum(sum(SUM_FROM, Float.floatToRawIntBits(unseenLight.r)), Float.floatToRawIntBits(unseenLight.g)), Float.floatToRawIntBits(unseenLight.b)), gamesView ? 1 : 0);
-            readUnseen = sum(sum(sum(sum(readUnseen, asTheGameShows ? 1 : 0), Float.floatToRawIntBits(roomLight.r)), Float.floatToRawIntBits(roomLight.g)), Float.floatToRawIntBits(roomLight.b));
-            readUnseen = sum(sum(sum(readUnseen, Float.floatToRawIntBits(lampLight.r)), Float.floatToRawIntBits(lampLight.g)), Float.floatToRawIntBits(lampLight.b));
+            readUnseen = sum(readUnseen, asTheGameShows ? 1 : 0);
             // A room's daylight goes by the hour as well (daylit): read again at each step of DAY_STEPS through dusk and dawn.
             readUnseen = sum(readUnseen, roomsDaylit ? Math.round(day * DAY_STEPS) : -1);
             readByLevel = readFor != null && readFor.sumFrom == from && readFor.sumTo == to && readFor.unseenRead == readUnseen;
@@ -4917,7 +4935,7 @@ final class WorldScene {
                     if (!seen && !(gamesView && inRoom)) {
                         // From the eye a room the game has not shown is a room like the ones in sight: see seenRooms.
                         // Shown only as the game shows it, it stands empty and lit as the open ground is.
-                        light = !inRoom || asTheGameShows ? unseenLight : lampBurnsAt(at, square) ? lampLight : roomLight;
+                        light = !inRoom || asTheGameShows ? unseenLight : lampBurnsAt(at, square) ? LAMP_MARKED : ROOM_MARKED;
                     } else if (seen && inChunk) {
                         squaresSeen++;
                         if (outside && tallying) {
@@ -4931,11 +4949,14 @@ final class WorldScene {
                             }
                         }
                     }
-                    light = daylit(square, light);
+                    if (light != ROOM_MARKED && light != LAMP_MARKED) {
+                        light = daylit(square, light);
+                    }
                     lightRed[at] = light.r;
                     lightGreen[at] = light.g;
                     lightBlue[at] = light.b;
                     lightOpen[at] = (byte) (outside ? 1 : 0);
+                    lightUnseen[at] = light == ROOM_MARKED ? ROOM_LIT : light == LAMP_MARKED ? LAMP_LIT : OWN_LIGHT;
                     // The game has no lamp in a canopy. A lit one lights what is under it.
                     if (outside && z >= 0 && ceilingBuilder.underLitCanopy(chunkX, chunkY, chunkX + i - 1, chunkY + j - 1, z)) {
                         lightRed[at] = Soffits.under(light.r, Soffits.GLOW_RED);
@@ -4966,7 +4987,7 @@ final class WorldScene {
                 for (int di = 0; di <= 1; di++) {
                     for (int dj = 0; dj <= 1; dj++) {
                         int at = (i + di) * LIGHT_SPAN + j + dj;
-                        if (lightOpen[at] == lightOpen[own]) {
+                        if (lightOpen[at] == lightOpen[own] && lightUnseen[at] == lightUnseen[own]) {
                             red += lightRed[at];
                             green += lightGreen[at];
                             blue += lightBlue[at];

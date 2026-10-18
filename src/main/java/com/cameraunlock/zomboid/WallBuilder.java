@@ -565,7 +565,8 @@ final class WallBuilder {
         for (int end = 0; end < 2; end++) {
             int beside = at + (end == 0 ? -step : step);
             // The lights are read a square past the chunk and no further: a far side that is in that last row has nothing beyond one end.
-            boolean alike = beside >= 0 && beside < build.lightOpen.length && build.lightOpen[beside] == build.lightOpen[at];
+            boolean alike = beside >= 0 && beside < build.lightOpen.length && build.lightOpen[beside] == build.lightOpen[at]
+                    && build.lightUnseen[beside] == build.lightUnseen[at];
             float red = alike ? (build.lightRed[at] + build.lightRed[beside]) / 2f : build.lightRed[at];
             float green = alike ? (build.lightGreen[at] + build.lightGreen[beside]) / 2f : build.lightGreen[at];
             float blue = alike ? (build.lightBlue[at] + build.lightBlue[beside]) / 2f : build.lightBlue[at];
