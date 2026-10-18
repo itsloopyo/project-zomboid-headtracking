@@ -119,8 +119,8 @@ final class DoorTests {
     private static void doorsWoodAndMetalAreDrawnUnderNumbersOfTheirOwn() {
         Pattern range = Pattern.compile("vMaterial > ([0-9.]+) && vMaterial < ([0-9.]+)");
         float[] numbers = {OpeningBuilder.JOINERY, OpeningBuilder.JOINERY_LEVEL, OpeningBuilder.HARDWARE};
-        // The grain and the gloss for each wood; the colour and the gloss for the metal.
-        int[] blocks = {2, 2, 2};
+        // The grain, the gloss and the shade of a room drawn without its corners shaded for each wood; the colour and the gloss for the metal.
+        int[] blocks = {3, 3, 2};
         for (int i = 0; i < numbers.length; i++) {
             check(ranges(range, PipelineShaders.WORLD_FRAGMENT_MAIN, numbers[i]) == blocks[i],
                     "the world's fragment program has " + blocks[i] + " blocks for " + numbers[i] + ", and no other range over it");

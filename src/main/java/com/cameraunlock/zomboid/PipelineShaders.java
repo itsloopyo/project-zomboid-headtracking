@@ -1415,6 +1415,7 @@ final class PipelineShaders {
             // changes. Only near the eye: further off than a few paces a board's joint is
             // under a pixel deep.
             uniform float uRelief;
+            uniform float uCornersShaded;
             // 1 where the mod's own textures are laid over the game's surfaces, 0 where a surface shows its sprite alone.
             uniform float uOwnTextures;
             // What the surface is: 1 boards side by side, 2 shingles, 3 a wooden floor, 4 planks, 5 open ground,
@@ -3461,6 +3462,15 @@ final class PipelineShaders {
                     // the ceiling and down through the windows, and a little more from one side
                     // than the other, so a model takes most of it on what faces up.
                     fromSky *= mix(0.66 + 0.34 * n.z + 0.1 * dot(n.xy, vec2(0.6, -0.8)), 1.0, open);
+                }
+                // A curtain's folds and the mouldings of a frame the mod builds are shown in a room
+                // by the pass that shades corners. Where that pass is not drawn the room's light is
+                // the same on every face of them and they are flat cloth and flat board: a face
+                // turned from the eye is shaded as a fold turned from the light, and the room's
+                // light is a little more from one side than the other, as on a model.
+                if (uCornersShaded < 0.5 && open < 0.5 && (vMaterial > 68.5 && vMaterial < 69.5 || vMaterial > 85.5 && vMaterial < 86.5
+                        || vMaterial > 87.5 && vMaterial < 88.5)) {
+                    fromSky *= mix(0.7, 1.0, abs(dot(face, view))) * (1.0 + 0.1 * dot(face.xy, vec2(0.6, -0.8)));
                 }
                 // Interpolated corner-light differences can round below zero at a dark corner.
                 vec3 given = pow(max(vColor.rgb, vec3(0.0)), vec3(2.2));

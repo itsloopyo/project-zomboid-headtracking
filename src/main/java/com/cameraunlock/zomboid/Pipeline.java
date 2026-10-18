@@ -3646,6 +3646,7 @@ final class Pipeline {
         to.set("uSprigForm", SPRIG_FORM_UNIT);
         to.set("uRelief", WITHOUT.contains("relief") || !Own.textures() || !Quality.relief() || inMirror || inWater ? 0f : 1f);
         to.set("uMirrors", surfacesMirror && !inWater ? 1f : 0f);
+        to.set("uCornersShaded", shadedAndLit && !WITHOUT.contains("occlusion") ? 1f : 0f);
         to.set("uOwnTextures", Own.textures() ? 1f : 0f);
     }
 
