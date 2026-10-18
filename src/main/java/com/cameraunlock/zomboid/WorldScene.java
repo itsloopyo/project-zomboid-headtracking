@@ -257,6 +257,8 @@ final class WorldScene {
         private int checkedFrame;
         /** When it was last built or found unchanged, when it was built, and when its chunk was first built, on System.nanoTime's clock. */
         private long checkedNanos, builtNanos, bornNanos;
+        /** When the chunk was first found changed and its build put off for a frame with time for it, or 0: see CHANGED_WAITS_NANOS. */
+        private long putOffNanos;
         /** Where the eye was when the build was made, for a build of what grows on a chunk's ground. */
         private float eyeX, eyeY, eyeUp;
         /**
@@ -989,7 +991,7 @@ final class WorldScene {
     /** Dev only: how many times the room walk's horizon had been built when tolls last said. */
     private int horizonsTold;
     /** Dev only: builds due for nothing but light that waited, the view not facing their chunk. */
-    private long tollLitUnfaced;
+    private long tollLitUnfaced, tollChangedWaited;
     /** Dev only: see SightTrace. */
     private SightTrace sightTrace;
     /** The rooms and their openings round the eye, and the walk through them: see RoomSight. Logic thread. */
@@ -1252,8 +1254,10 @@ final class WorldScene {
         told += String.format(Locale.ROOT, ", trees read for sums %d in %.2f ms", tollWoods, tollWoodsNanos / 1e6);
         told += ", " + Terrain.tolls();
         tollWoods = tollWoodsNanos = 0;
-        told += String.format(Locale.ROOT, ", built ahead of a turn %d in %.1f ms, light left on chunks not faced %d", tollAhead, tollAheadNanos / 1e6, tollLitUnfaced);
+        told += String.format(Locale.ROOT, ", built ahead of a turn %d in %.1f ms, light left on chunks not faced %d, changed put off %d", tollAhead, tollAheadNanos / 1e6, tollLitUnfaced,
+                tollChangedWaited);
         tollLitUnfaced = 0;
+        tollChangedWaited = 0;
         told += String.format(Locale.ROOT, ", rooms walked %d times in %.2f ms each (chunks read for openings %d; last: openings %d, blocks %d, rooms seen %d, built %d, openings hidden by blocks %d)",
                 tollRoomsWalks, tollRoomsNanos / 1e6 / Math.max(1, tollRoomsWalks), roomMap.chunksRead, lastOpenings, lastBlocks, lastSeen, roomsBuilt.size(), lastHidden);
         told += String.format(Locale.ROOT, ", horizons built %d", roomWalk.horizonBuilds() - horizonsTold);
@@ -1334,6 +1338,8 @@ final class WorldScene {
      * were a frame of 40 to 50 ms at every step, on the tenth floor of a building of 27.
      */
     private static final long LIT_NANOS_A_FRAME = 2_000_000L, LIT_WAITS_NANOS = 150_000_000L;
+    /** How long a chunk found changed waits at most for a frame with time to build it: see where one is put off. */
+    private static final long CHANGED_WAITS_NANOS = 500_000_000L;
     /** Within this many tiles of the eye a chunk with no build is built on the frame it is wanted. */
     private static final float BUILT_WHATEVER_IT_TAKES = CHUNK_TILES * 2.5f;
     /** Where the opening in each wall sprite seen so far is: see openingOf. */
@@ -3005,7 +3011,7 @@ final class WorldScene {
             int[] walk = ChunkBuffers.nearestFirst(side);
             int eyeGridX = Math.floorDiv((int) Math.floor(pose.eyeX) - map.getWorldXMinTiles(), CHUNK_TILES);
             int eyeGridY = Math.floorDiv((int) Math.floor(pose.eyeY) - map.getWorldYMinTiles(), CHUNK_TILES);
-            int builtLate = 0;
+            int builtLate = 0, changedLate = 0;
             float nearestWaiting = Float.MAX_VALUE;
             long aheadBegan = 0L;
             int swept = 0;
@@ -3291,7 +3297,20 @@ final class WorldScene {
                         }
                         if (due) {
                             cause = !still ? MOVED : !current.signed ? UNSIGNED : !same ? CHANGED : young ? KEPT_ON : AGED;
-                            builtBecause[cause]++;
+                            // One found changed that is not right by the eye is shown as it was built while the
+                            // frame has spent its time: a turn has the game show a tower's rooms and finds a dozen
+                            // of its chunks changed at once, each of thirty storeys, and built together they held
+                            // the frame for a tenth of a second. One a frame is made however late the frame is.
+                            if (cause == CHANGED && distance >= CHUNK_TILES * 1.5f && (current.putOffNanos == 0L || start - current.putOffNanos < CHANGED_WAITS_NANOS)
+                                    && System.nanoTime() - start > BUILD_NANOS_A_FRAME / sharing && changedLate++ > 0) {
+                                due = false;
+                                if (current.putOffNanos == 0L) {
+                                    current.putOffNanos = start;
+                                }
+                                tollChangedWaited++;
+                            } else {
+                                builtBecause[cause]++;
+                            }
                         }
                         if (sameEye && same && young) {
                             current.checkedFrame = frames;
@@ -3351,6 +3370,7 @@ final class WorldScene {
                         fresh.checkedNanos = start;
                         fresh.builtNanos = start;
                         fresh.bornNanos = missing ? start : current.bornNanos;
+                        fresh.putOffNanos = 0L;
                         fresh.signed = summed;
                         fresh.signature = read;
                         fresh.landSum = readLand;
