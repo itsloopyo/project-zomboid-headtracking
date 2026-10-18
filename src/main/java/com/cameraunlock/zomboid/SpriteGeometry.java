@@ -195,6 +195,17 @@ final class SpriteGeometry {
         int spans;
         /** Where the floats of the thing being drawn begin in this mesh. */
         private int ownedFrom;
+        /** The set the mesh is of, or null for one of its own, and whether it has grown since the set's last own: see MeshSet.grown. */
+        private MeshSet set;
+        private boolean grown;
+
+        /** Notes in the mesh's set that the mesh has grown since the set's last own. */
+        private void growing() {
+            if (!grown && set != null) {
+                grown = true;
+                set.grown.add(this);
+            }
+        }
 
         private void span(long key, int from, int to) {
             if (spans == spanKey.length) {
@@ -240,6 +251,7 @@ final class SpriteGeometry {
             unlit = AS_FACE;
             spans = 0;
             ownedFrom = 0;
+            grown = false;
         }
 
         int triangles() {
@@ -247,6 +259,7 @@ final class SpriteGeometry {
         }
 
         void add(float x, float y, float up, float u, float v, float red, float green, float blue) {
+            growing();
             if (floats + VERTEX_FLOATS > vertices.length) {
                 vertices = Arrays.copyOf(vertices, vertices.length * 2);
             }
@@ -272,6 +285,7 @@ final class SpriteGeometry {
 
         /** Adds the vertex that starts at the given float once more, as it is. */
         void again(int from) {
+            growing();
             if (floats + VERTEX_FLOATS > vertices.length) {
                 vertices = Arrays.copyOf(vertices, vertices.length * 2);
             }
@@ -291,6 +305,12 @@ final class SpriteGeometry {
     static final class MeshSet {
         private Mesh[] byTexture = new Mesh[64];
         private final ArrayList<Mesh> all = new ArrayList<>();
+        /**
+         * The meshes that have grown since the last own. Only they can hold what the thing
+         * drawn since has drawn: with a mesh for each storey of a tower, going through every mesh
+         * used for every thing drawn was most of a build.
+         */
+        private final ArrayList<Mesh> grown = new ArrayList<>();
         /** The meshes asked for since the set was last emptied, in the order they were first asked for. */
         final ArrayList<Mesh> used = new ArrayList<>();
         private int round = 1;
@@ -334,6 +354,7 @@ final class SpriteGeometry {
                 mesh.texture = texture;
                 mesh.tint = tint;
                 mesh.room = room;
+                mesh.set = this;
                 mesh.building = building;
                 mesh.level = level;
                 all.add(mesh);
@@ -367,19 +388,16 @@ final class SpriteGeometry {
          * thing drew in it.
          */
         void own(long key) {
-            if (owner != Outlines.NONE) {
-                for (int i = 0; i < used.size(); i++) {
-                    Mesh mesh = used.get(i);
-                    if (mesh.floats > mesh.ownedFrom) {
-                        mesh.span(owner, mesh.ownedFrom, mesh.floats);
-                    }
+            for (int i = 0; i < grown.size(); i++) {
+                Mesh mesh = grown.get(i);
+                if (owner != Outlines.NONE && mesh.floats > mesh.ownedFrom) {
+                    mesh.span(owner, mesh.ownedFrom, mesh.floats);
                 }
-            }
-            owner = key;
-            for (int i = 0; i < used.size(); i++) {
-                Mesh mesh = used.get(i);
                 mesh.ownedFrom = mesh.floats;
+                mesh.grown = false;
             }
+            grown.clear();
+            owner = key;
         }
 
         /** Empties every mesh and keeps them: one chunk wears much the same textures as the next. */
@@ -391,6 +409,7 @@ final class SpriteGeometry {
                 used.get(i).clear();
             }
             used.clear();
+            grown.clear();
             round++;
         }
 
@@ -1518,6 +1537,9 @@ final class SpriteGeometry {
             lastUp = up;
             lastCode = code;
             lastHigh = high;
+        }
+        if (at > mesh.floats) {
+            mesh.growing();
         }
         mesh.floats = at;
     }

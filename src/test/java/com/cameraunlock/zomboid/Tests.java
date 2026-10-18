@@ -277,6 +277,7 @@ public final class Tests {
         Checks.run("litterShowsAsMuchAsItsCornersSay", Tests::litterShowsAsMuchAsItsCornersSay);
         Checks.run("aCornerKeepsWhatItHasOfALightTheGameHasNotGiven", Tests::aCornerKeepsWhatItHasOfALightTheGameHasNotGiven);
         Checks.run("eachStoreyOfABuildingHasMeshesOfItsOwn", Tests::eachStoreyOfABuildingHasMeshesOfItsOwn);
+        Checks.run("aThingOwnsWhatItDrewInEveryMesh", Tests::aThingOwnsWhatItDrewInEveryMesh);
         Checks.run("elbowKeepsBothBonesTheirLengthsAndDropsTheWayThePolePoints", Tests::elbowKeepsBothBonesTheirLengthsAndDropsTheWayThePolePoints);
         Checks.run("pumpGoesBackAndComesForwardAgain", Tests::pumpGoesBackAndComesForwardAgain);
         Checks.run("pumpWaitsOutTheKickAndFillsTheGamesRack", Tests::pumpWaitsOutTheKickAndFillsTheGamesRack);
@@ -1134,6 +1135,24 @@ public final class Tests {
             rooted |= near(f[at + 4], 0f) && near(f[at + 2], 0.1f);
         }
         check(rooted, "every frond starts on the ground");
+    }
+
+    private static void aThingOwnsWhatItDrewInEveryMesh() {
+        SpriteGeometry.MeshSet set = new SpriteGeometry.MeshSet();
+        SpriteGeometry.Mesh first = set.get(1), second = set.get(2), idle = set.get(3);
+        first.add(0f, 0f, 0f, 0f, 0f, 1f, 1f, 1f);
+        set.own(5L);
+        first.add(0f, 0f, 0f, 0f, 0f, 1f, 1f, 1f);
+        second.add(0f, 0f, 0f, 0f, 0f, 1f, 1f, 1f);
+        second.add(0f, 0f, 0f, 0f, 0f, 1f, 1f, 1f);
+        set.own(6L);
+        second.add(0f, 0f, 0f, 0f, 0f, 1f, 1f, 1f);
+        set.own(Outlines.NONE);
+        int v = SpriteGeometry.VERTEX_FLOATS;
+        check(first.spans == 1 && first.spanKey[0] == 5L && first.spanFrom[0] == v && first.spanTo[0] == 2 * v, "a thing owns what it drew in one mesh, and not what was drawn before it was owned");
+        check(second.spans == 2 && second.spanKey[0] == 5L && second.spanFrom[0] == 0 && second.spanTo[0] == 2 * v
+                && second.spanKey[1] == 6L && second.spanFrom[1] == 2 * v && second.spanTo[1] == 3 * v, "and in another, each thing its own run");
+        check(idle.spans == 0, "and a mesh nothing drew in owns nothing");
     }
 
     private static void eachStoreyOfABuildingHasMeshesOfItsOwn() {
