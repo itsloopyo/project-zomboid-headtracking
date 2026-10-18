@@ -1087,7 +1087,7 @@ final class WorldScene {
      */
     private static final long ROOMS_CHECKED_EVERY_NANOS = 500_000_000L;
     private static final int ROOM_LINES_ACROSS = 64, ROOM_LINES_UP = 36;
-    private static final float ROOM_LINES_REACH = 16f;
+    private static final float ROOM_LINES_REACH = 40f;
     private final RoomSight.Seen roomsByLines = new RoomSight.Seen();
     private long roomsCheckedNanos, roomChecksNanos;
     private int roomChecks, roomsMissed;
