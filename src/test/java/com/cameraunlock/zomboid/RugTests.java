@@ -141,7 +141,7 @@ final class RugTests {
                 "ChunkBuffers.java:texture[slot] = build.runTexture[run];");
         int unresolved = 0;
         StringBuilder found = new StringBuilder();
-        try (java.util.stream.Stream<java.nio.file.Path> files = java.nio.file.Files.list(java.nio.file.Path.of("src/main/java/com/cameraunlock/zomboid"))) {
+        try (java.util.stream.Stream<java.nio.file.Path> files = java.nio.file.Files.walk(java.nio.file.Path.of("src/main/java/com/cameraunlock/zomboid")).filter(java.nio.file.Files::isRegularFile)) {
             for (java.nio.file.Path file : (Iterable<java.nio.file.Path>) files::iterator) {
                 for (String line : java.nio.file.Files.readAllLines(file)) {
                     String code = line.strip();

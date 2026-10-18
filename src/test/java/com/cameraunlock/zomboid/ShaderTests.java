@@ -348,7 +348,7 @@ final class ShaderTests {
 
     private static List<Linked> programs() {
         List<Linked> found = new ArrayList<>();
-        try (Stream<Path> files = Files.list(SOURCE)) {
+        try (Stream<Path> files = Files.walk(SOURCE).filter(Files::isRegularFile)) {
             for (Path file : files.sorted().toList()) {
                 String name = file.getFileName().toString(), text = Files.readString(file);
                 String owner = name.substring(0, name.length() - ".java".length());

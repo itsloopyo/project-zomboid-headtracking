@@ -139,7 +139,7 @@ final class CrownTests {
         check(frame.material == Flora.SHADE && frame.red == 1f, "a full mass of leaves throws its whole shadow in the dark");
         Flora.shadeOnly(frame, 0.3f);
         check(frame.red == 0.3f, "a crown with 0.3 of its leaves says so");
-        try (java.util.stream.Stream<java.nio.file.Path> sources = java.nio.file.Files.list(java.nio.file.Path.of("src/main/java/com/cameraunlock/zomboid"))) {
+        try (java.util.stream.Stream<java.nio.file.Path> sources = java.nio.file.Files.walk(java.nio.file.Path.of("src/main/java/com/cameraunlock/zomboid")).filter(java.nio.file.Files::isRegularFile)) {
             for (java.nio.file.Path source : sources.toList()) {
                 String text = java.nio.file.Files.readString(source);
                 check(source.getFileName().toString().equals("Flora.java") || !text.contains("Flora.SHADE"),
