@@ -3109,12 +3109,15 @@ final class WorldScene {
                     int why = !AUDIT_MARKS || !telling || missing ? 0 : (marks != current.marks ? 1 : 0) | (toldSoFar != current.told ? 2 : 0) | (current.epoch != epoch ? 4 : 0)
                             | (land != current.land ? 8 : 0) | (!ringAsItWas ? 16 : 0) | (current.restless ? 32 : 0)
                             | (!settled ? 64 : 0) | (!quiet && since >= sweptEvery(distance, slot) ? 128 : 0) | (!current.signed ? 256 : 0) | (!stands ? 512 : 0);
+                    // One told of a room come into the rooms built or gone (ChunkMarks.tell) is due at once: the room may be
+                    // coming into the picture, and waiting out its turn left the room empty there for up to 54 frames.
+                    boolean toldOfRoom = !missing && toldSoFar != current.told;
                     // One that has waited twice its time waits no longer: the chunks are walked nearest first,
                     // and the last of them would wait as long as those before it kept falling due.
                     boolean due = landChanged && distance < BUILT_WHATEVER_IT_TAKES
-                            || !missing && !quiet && !rehearsing && waited && frames - current.checkedFrame >= every
+                            || !missing && !quiet && !rehearsing && (toldOfRoom || waited && frames - current.checkedFrame >= every
                             && (distance < CHUNK_TILES * 1.5f || frames - current.checkedFrame >= 2 * every && !hurried
-                                    || frames - current.checkedFrame >= 4 * every && !late || !hurried && remakes++ < REMAKES_A_FRAME);
+                                    || frames - current.checkedFrame >= 4 * every && !late || !hurried && remakes++ < REMAKES_A_FRAME));
                     // On arriving somewhere the map round the eye is still loading, and each chunk is found changed again
                     // and again. One found changed is made again as it falls due without being read through, and right by
                     // the eye that is every frame: the nine chunks round it were all made again on every frame for the
@@ -3128,7 +3131,8 @@ final class WorldScene {
                     }
                     // Nothing but light has been marked on it since it was last read, and the frame has
                     // spent its time: the build it has is right but for that light, and is shown a frame or a few longer.
-                    if (due && !landChanged && telling && stands && current.signed && current.things == things && since < LIT_WAITS_NANOS
+                    // Not one told of a room come into the rooms built or gone (ChunkMarks.tell): its contents would wait.
+                    if (due && !landChanged && telling && stands && current.signed && current.things == things && current.told == toldSoFar && since < LIT_WAITS_NANOS
                             && System.nanoTime() - start > LIT_NANOS_A_FRAME / sharing) {
                         due = false;
                     }
