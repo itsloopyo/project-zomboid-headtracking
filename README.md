@@ -37,6 +37,7 @@ It adds a first person view to the game, with a rebuilt world and new graphics.
 - [Project Zomboid on Steam](https://store.steampowered.com/app/108600/Project_Zomboid/), tested on build **42.21.0**. The first line of `version.txt` in your `Zomboid` user folder (`C:\Users\<you>\Zomboid`) shows your build. Other stores have not been tested.
 - [OpenTrack](https://github.com/opentrack/opentrack) with a tracking source, or an app that sends the OpenTrack UDP protocol
 - Windows 10 or 11, 64-bit
+- For the Steam Workshop copy: [ZombieBuddy](https://github.com/zed-0xff/ZombieBuddy) 2.x, set up once
 
 ## Installation
 
@@ -77,6 +78,18 @@ Original game files and saves stay untouched. Both scripts also remove the old `
 **Reinstalling replaces custom edits to the mod's `.site.json`.** An existing file without this mod's JAR filename is left alone: installation stops. Removing `ProjectZomboid64.site.json` restores normal game startup.
 
 Lopari writes `ProjectZomboid64.site.json` the same way when it installs the mod, and writes it again before a launch when the game's `ProjectZomboid64.json` has changed.
+
+### Steam Workshop
+
+The Workshop copy is loaded by [ZombieBuddy](https://github.com/zed-0xff/ZombieBuddy) 2.x, tested with 2.3.4. ZombieBuddy 3.0 is not supported yet.
+
+1. Set up ZombieBuddy once, following the instructions on its Workshop page. If you already play another mod that needs it, this is done.
+2. Subscribe to ZombieBuddy and to Project Zomboid Head Tracking on the Steam Workshop.
+3. In the game's `Mods` menu, enable both, then restart the game.
+4. With ZombieBuddy's default settings, it asks you to approve the mod's Java code the first time and after each update.
+5. Follow [Setting Up OpenTrack](#setting-up-opentrack) below.
+
+The Workshop copy keeps its settings in `CameraUnlock.ini` and its log in `ProjectZomboidHeadTracking.log`, both in the game folder, the same as an installed copy.
 
 ### Manual installation
 
@@ -496,11 +509,11 @@ For help, use [Discord](https://discord.com/invite/dxyZdyFNT9) or [report an iss
 
 ## Updating
 
-With the standalone installer, run the new release's `install.cmd`, and rerun it after a game update too. For a manual install, copy the new release's two files over the old ones, delete `ProjectZomboidHeadTracking.dll` if it is there, and redo steps 4 and 5. Your `CameraUnlock.ini` settings stay either way.
+Steam updates the Workshop copy itself. With the standalone installer, run the new release's `install.cmd`, and rerun it after a game update too. For a manual install, copy the new release's two files over the old ones, delete `ProjectZomboidHeadTracking.dll` if it is there, and redo steps 4 and 5. Your `CameraUnlock.ini` settings stay either way.
 
 ## Uninstalling
 
-Run `uninstall.cmd`, or delete the files listed under [Manual installation](#manual-installation). Your `CameraUnlock.ini` settings stay unless you delete that file too.
+For the Workshop copy, disable or unsubscribe from the mod, then restart the game: ZombieBuddy cannot take Java code out of a running game. Otherwise run `uninstall.cmd`, or delete the files listed under [Manual installation](#manual-installation). Your `CameraUnlock.ini` settings stay unless you delete that file too.
 
 ## Building from source
 
