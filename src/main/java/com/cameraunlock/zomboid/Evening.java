@@ -30,8 +30,13 @@ final class Evening {
 
     /** The light open ground has with the sun that high. */
     static float open(float sunUp, float nightOpen) {
+        return nightOpen + (1f - nightOpen) * day(sunUp);
+    }
+
+    /** How much of the day the sun that high gives, the night's light left out: 0 at full night, 1 from SUN_LOW up. */
+    static float day(float sunUp) {
         float t = Math.clamp((sunUp - SkyState.FULL_NIGHT) / (SUN_LOW - SkyState.FULL_NIGHT), 0f, 1f);
-        return nightOpen + (1f - nightOpen) * t * t * (3f - 2f * t);
+        return t * t * (3f - 2f * t);
     }
 
     /** How much of the daylight the game gives the open ground the picture keeps, 1 for all of it. */

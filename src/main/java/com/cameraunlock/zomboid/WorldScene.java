@@ -746,6 +746,9 @@ final class WorldScene {
     private float nightOpen = Evening.NIGHT_OPEN;
     /** The open ground's light as the game has it and how much of its daylight the picture keeps, for whoever lights a thing by its square. */
     volatile float openNow, daylightKeptNow = 1f, roomKeptNow = 1f;
+    /** Whether the frame last built lit rooms by the day they let in, how much of the day there was, and the open ground's light: see Frame.daylit. */
+    volatile boolean roomsDaylitNow;
+    volatile float dayNow, openRedNow, openGreenNow, openBlueNow;
     private static final int REMAKES_A_FRAME = 12;
     private static final IdentityHashMap<IsoSprite, Boolean> meshes = new IdentityHashMap<>();
 
@@ -965,6 +968,26 @@ final class WorldScene {
     private SightTrace sightTrace;
     /** The rooms and their openings round the eye, and the walk through them: see RoomSight. Logic thread. */
     final RoomMap roomMap = new RoomMap();
+    /** The daylight that comes into each room through its openings: see RoomDaylight. Worked out on the logic thread, read on any. */
+    final RoomDaylight roomDaylight = new RoomDaylight();
+
+    /**
+     * Any thread: a square's light with the day its room lets in, as the frame last built lit
+     * rooms (Frame.daylit), for what is drawn in a room without being built with it: people,
+     * what the viewer holds. Into into, or the light given back as it is.
+     */
+    ColorInfo daylitNow(IsoGridSquare square, ColorInfo light, ColorInfo into) {
+        float day = dayNow;
+        if (!roomsDaylitNow || day <= 0f || square.getRoomID() == RoomSight.OUTSIDE) {
+            return light;
+        }
+        float share = day * roomDaylight.sharedAt(square);
+        into.r = Math.max(light.r, share * openRedNow);
+        into.g = Math.max(light.g, share * openGreenNow);
+        into.b = Math.max(light.b, share * openBlueNow);
+        into.a = light.a;
+        return into;
+    }
 
     /**
      * Logic thread: the room map, ready to be read, and the openings of every loaded chunk of a
@@ -1198,6 +1221,7 @@ final class WorldScene {
                 tollRoomsWalks, tollRoomsNanos / 1e6 / Math.max(1, tollRoomsWalks), roomMap.chunksRead, lastOpenings, lastBlocks, lastSeen, roomsBuilt.size(), lastHidden);
         told += String.format(Locale.ROOT, ", horizons built %d", roomWalk.horizonBuilds() - horizonsTold);
         horizonsTold = roomWalk.horizonBuilds();
+        told += ", " + roomDaylight.tolls();
         tollRoomsWalks = tollRoomsNanos = 0;
         roomMap.chunksRead = 0;
         tollAhead = tollAheadNanos = 0;
@@ -1297,6 +1321,7 @@ final class WorldScene {
             scene.keptFrame = -1;
         }
         squareLights.forget();
+        roomDaylight.forget();
         chunkMap = null;
         builtAt[view.index] = 0L;
         if (building(System.nanoTime()) == 0) {
@@ -1687,6 +1712,7 @@ final class WorldScene {
             }
         }
         squareLights.forgetOutside(mapWx, mapWy, mapSide);
+        roomDaylight.forgetOutside(mapWx, mapWy, mapSide);
         solid.clear();
         laid.clear();
         solid.trim();
@@ -2084,6 +2110,8 @@ final class WorldScene {
     private static final float LAMPLIT = 0.55f;
     /** What a room with a lamp burning is lit by before any lamplit room has been in sight: just what counts as lamplit. */
     private static final float LAMP_AT_LEAST = LAMPLIT + 0.05f;
+    /** How finely a room's daylight follows the hour: each step builds every room's chunks again. */
+    private static final int DAY_STEPS = 32;
 
     /**
      * Whether a lamp burns in the room a square is in and lights the square. How bright the
@@ -2370,6 +2398,12 @@ final class WorldScene {
         int floorLayer, westLayer, northLayer, eastLayer, southLayer;
         private final float[] openLight = new float[3];
         final ColorInfo unseenLight = new ColorInfo();
+        /** Whether a room square is lit at least by the daylight its room lets in (RoomDaylight): not in Low, which keeps the game's light, nor as the game's own view. */
+        private boolean roomsDaylit;
+        /** When this frame was begun: RoomDaylight works a room out again by it. */
+        private long daylitAt;
+        /** How much of the day there is (Evening.day), in steps of 1 / DAY_STEPS. A room has the day it lets in by as much. */
+        private float day;
         /** Where TorchLess writes a square's light when the viewer's torch is on the square. */
         final ColorInfo torchless = new ColorInfo();
         final float[] box = new float[4];
@@ -2674,6 +2708,7 @@ final class WorldScene {
                 // Another save, loaded without leaving the game: every build is of the world before.
                 builtIn = new WeakReference<>(cell);
                 squareLights.forget();
+                roomDaylight.forget();
                 for (Frame scene : scenes) {
                     scene.lampsBurning.clear();
                     scene.lampsSortedFrame = -1;
@@ -2869,6 +2904,15 @@ final class WorldScene {
             unseenLight.r = unseenRed;
             unseenLight.g = unseenGreen;
             unseenLight.b = unseenBlue;
+            roomsDaylit = !gamesView && !Quality.plain();
+            day = Math.round(Evening.day(sky.sunUp) * DAY_STEPS) / (float) DAY_STEPS;
+            roomsDaylitNow = roomsDaylit;
+            dayNow = day;
+            openRedNow = unseenRed;
+            openGreenNow = unseenGreen;
+            openBlueNow = unseenBlue;
+            roomMap.begin(cell, terrain);
+            daylitAt = start;
             // Until a room has been in sight, a room is lit as the open ground is, and one with a lamp burning at least as a lamp lights.
             float share = roomShare < 0f ? 1f : roomShare;
             roomLight.r = Math.min(unseenRed * share, 1f);
@@ -4208,6 +4252,8 @@ final class WorldScene {
             readUnseen = sum(sum(sum(sum(SUM_FROM, Float.floatToRawIntBits(unseenLight.r)), Float.floatToRawIntBits(unseenLight.g)), Float.floatToRawIntBits(unseenLight.b)), gamesView ? 1 : 0);
             readUnseen = sum(sum(sum(sum(readUnseen, asTheGameShows ? 1 : 0), Float.floatToRawIntBits(roomLight.r)), Float.floatToRawIntBits(roomLight.g)), Float.floatToRawIntBits(roomLight.b));
             readUnseen = sum(sum(sum(readUnseen, Float.floatToRawIntBits(lampLight.r)), Float.floatToRawIntBits(lampLight.g)), Float.floatToRawIntBits(lampLight.b));
+            // A room's daylight goes by the hour as well (daylit): read again at each step of DAY_STEPS through dusk and dawn.
+            readUnseen = sum(readUnseen, roomsDaylit ? Math.round(day * DAY_STEPS) : -1);
             readByLevel = readFor != null && readFor.sumFrom == from && readFor.sumTo == to && readFor.unseenRead == readUnseen;
             readFrom = from;
             readTo = to;
@@ -4551,7 +4597,8 @@ final class WorldScene {
                 // Without the viewer's own torch. The game has the torch on the square the character
                 // has just stepped onto and takes it off again half a second later, so an eye that
                 // went by the square's whole light shut and opened once for every tile walked.
-                ColorInfo light = view.torchLess.light(under, player.getIndex(), torchless);
+                // As the frame lights the square, with the day its room lets in (set up as the frame before was built).
+                ColorInfo light = daylit(under, view.torchLess.light(under, player.getIndex(), torchless));
                 here = (float) Math.pow(Evening.dimmed((light.r + light.g + light.b) / 3f, gameOpen, sky.daylightKept), 2.2);
                 roomHere = (float) Math.pow(Evening.dimmed((light.r + light.g + light.b) / 3f, gameOpen, sky.daylightKept * sky.roomKept), 2.2);
             }
@@ -4719,6 +4766,25 @@ final class WorldScene {
             return view.torchLess.light(square, squareLights.of(square, playerIndex, lightPass), torchless);
         }
 
+        private final ColorInfo daylit = new ColorInfo();
+
+        /**
+         * A square's light as the frame lights it: in a room, where the frame lights rooms by
+         * the day, at least the share of the open ground's light its room lets in (RoomDaylight).
+         * Written into daylit and good until the next asking, or the light given back as it is.
+         */
+        ColorInfo daylit(IsoGridSquare square, ColorInfo light) {
+            if (!roomsDaylit || day <= 0f || square.getRoomID() == -1L) {
+                return light;
+            }
+            float share = day * roomDaylight.share(roomMap, square, mapWx * CHUNK_TILES, mapWy * CHUNK_TILES, mapSide * CHUNK_TILES, daylitAt);
+            daylit.r = Math.max(light.r, share * unseenLight.r);
+            daylit.g = Math.max(light.g, share * unseenLight.g);
+            daylit.b = Math.max(light.b, share * unseenLight.b);
+            daylit.a = light.a;
+            return daylit;
+        }
+
         /** lampBurns for the square readLights last read at a place in its grid, worked out once a reading. */
         private boolean lampBurnsAt(int at, IsoGridSquare square) {
             if (lampAt[at] == LAMP_UNASKED) {
@@ -4801,6 +4867,7 @@ final class WorldScene {
                             }
                         }
                     }
+                    light = daylit(square, light);
                     lightRed[at] = light.r;
                     lightGreen[at] = light.g;
                     lightBlue[at] = light.b;

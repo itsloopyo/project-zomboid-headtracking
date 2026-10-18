@@ -8,4 +8,6 @@ public class IsoWindow extends IsoObject {
     public boolean IsOpen() { throw new UnsupportedOperationException("reference stub"); }
     public boolean getNorth() { throw new UnsupportedOperationException("reference stub"); }
     public boolean isBarricaded() { throw new UnsupportedOperationException("reference stub"); }
+    public IsoBarricade getBarricadeOnSameSquare() { throw new UnsupportedOperationException("reference stub"); }
+    public IsoBarricade getBarricadeOnOppositeSquare() { throw new UnsupportedOperationException("reference stub"); }
 }

@@ -403,6 +403,9 @@ final class FloorBuilder {
         build.frame.cornersInto(build.heldRed, build.heldGreen, build.heldBlue);
         ColorInfo light = below != null && below.isSeen(build.playerIndex) ? build.lightOf(below)
                 : below == null || below.getRoomID() == -1L || build.asTheGameShows || build.gamesView ? build.unseenLight : WorldScene.lampBurns(build.cell, below, build.lampsNear) ? build.lampLight : build.roomLight;
+        if (below != null) {
+            light = build.daylit(below, light);
+        }
         build.frame.light(light.r, light.g, light.b);
         build.frame.open = 0f;
         // The ceiling under a floor of water is a ceiling, not more water.

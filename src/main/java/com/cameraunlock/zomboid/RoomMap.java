@@ -6,6 +6,7 @@ import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoObject;
 import zombie.iso.SpriteDetails.IsoFlagType;
 import zombie.iso.SpriteDetails.IsoObjectType;
+import zombie.iso.objects.IsoBarricade;
 import zombie.iso.objects.IsoCurtain;
 import zombie.iso.objects.IsoDoor;
 import zombie.iso.objects.IsoThumpable;
@@ -27,7 +28,7 @@ import zombie.util.list.PZArrayList;
  * be part of a building on the chunk or round it, when the chunk or the chunks beside it are
  * loaded again, and while the game marks nothing, every second.
  */
-final class RoomMap implements Acoustics.Walls {
+final class RoomMap implements Acoustics.Walls, RoomDaylight.Edges {
     private static final int SIDE = ChunkMarks.SIDE;
     private static final long REREAD_UNTOLD_NANOS = 1_000_000_000L;
     private IsoCell cell;
@@ -158,6 +159,62 @@ final class RoomMap implements Acoustics.Walls {
             return glassShut ? Acoustics.GLASS : Acoustics.OPEN;
         }
         return wall ? Acoustics.WALL : Acoustics.OPEN;
+    }
+
+    /** How much of the day a drawn curtain lets through, round its edges and through the cloth. */
+    static final float CURTAIN_PASSES = 0.12f;
+    /** How much of the day a shut door with glass in it lets through: the glass is part of the door. */
+    static final float GLAZED_DOOR_PASSES = 0.5f;
+
+    @Override
+    public float through(int x, int y, int z, boolean north) {
+        IsoGridSquare square = cell.getGridSquare(x, y, z);
+        if (square == null) {
+            return 1f;
+        }
+        IsoGridSquare beyond = north ? cell.getGridSquare(x, y - 1, z) : cell.getGridSquare(x - 1, y, z);
+        read(square, north);
+        float passed;
+        if (door) {
+            passed = !doorShut ? 1f : doorGlazed ? GLAZED_DOOR_PASSES : 0f;
+        } else {
+            passed = window || !wall ? 1f : 0f;
+        }
+        if (passed > 0f && (door || window) && curtained(square, beyond, north)) {
+            passed = CURTAIN_PASSES;
+        }
+        return passed * boarded(square, north);
+    }
+
+    /** How much of the day the barricades on a square's door or window on that edge let through, on either side of it. */
+    private static float boarded(IsoGridSquare square, boolean north) {
+        PZArrayList<IsoObject> objects = square.getObjects();
+        float passed = 1f;
+        for (int i = 0; i < objects.size(); i++) {
+            IsoObject object = objects.get(i);
+            if (object instanceof IsoWindow each && each.getNorth() == north) {
+                passed *= passes(each.getBarricadeOnSameSquare()) * passes(each.getBarricadeOnOppositeSquare());
+            } else if (object instanceof IsoDoor each && each.getNorth() == north) {
+                passed *= passes(each.getBarricadeOnSameSquare()) * passes(each.getBarricadeOnOppositeSquare());
+            } else if (object instanceof IsoThumpable each && (each.isDoor() ? each.getNorth() == north : north ? each.isWindowN() : each.isWindowW())) {
+                passed *= passes(each.getBarricadeOnSameSquare()) * passes(each.getBarricadeOnOppositeSquare());
+            }
+        }
+        return passed;
+    }
+
+    /** A sheet of metal lets nothing through; bars let most of it; each plank shuts off a slat, and four leave slits. */
+    private static float passes(IsoBarricade barricade) {
+        if (barricade == null) {
+            return 1f;
+        }
+        if (barricade.isMetal()) {
+            return 0f;
+        }
+        if (barricade.isMetalBar()) {
+            return 0.75f;
+        }
+        return 1f - 0.9f * Math.min(barricade.getNumPlanks(), IsoBarricade.MAX_PLANKS) / IsoBarricade.MAX_PLANKS;
     }
 
     /** What read last found on an edge. A curtain does not stop sound, and is asked after only for sight. */

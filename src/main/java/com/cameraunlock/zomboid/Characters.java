@@ -2229,7 +2229,8 @@ public final class Characters {
         if (square == null || !square.isSeen(view.index)) {
             return;
         }
-        ColorInfo light = view.torchLess.light(square, view.index, stoodIn);
+        // As the room round them is lit: with the day it lets in.
+        ColorInfo light = view.worldScene.daylitNow(square, view.torchLess.light(square, view.index, stoodIn), stoodIn);
         float kept = view.worldScene.daylightKeptNow * (square.isOutside() ? 1f : view.worldScene.roomKeptNow);
         CharacterDraw.stands(Evening.dimmed((light.r + light.g + light.b) / 3f, view.worldScene.openNow, kept), square.isOutside());
     }
