@@ -112,8 +112,8 @@ final class SightTrace {
      * @param waiting  the chunks in view the frame left without a build, and how far off the nearest was
      * @param rooms    the rooms the eye's picture draws the contents of, or null for every room: see RoomSight
      */
-    void frame(IsoCell cell, IsoPlayer player, ViewCamera.Pose eye, float forwardX, float forwardY, float cosCone, int frame, int waiting, float nearest,
-            boolean asTheGameShows, RoomSight.Seen rooms) {
+    void frame(IsoCell cell, IsoPlayer player, ViewCamera.Pose eye, float forwardX, float forwardY, float cosCone, float tanAcross, float tanUp, int frame, int waiting,
+            float nearest, boolean asTheGameShows, RoomSight.Seen rooms) {
         if (Online.contested()) {
             // Where players can fight, nothing is written of what the game is not showing.
             return;
@@ -124,6 +124,7 @@ final class SightTrace {
         int playerIndex = player.getIndex();
         chunks(frame, waiting, nearest);
         int eyeX = (int) Math.floor(eye.eyeX), eyeY = (int) Math.floor(eye.eyeY);
+        linesFollowed = false;
         for (int x = eyeX - REACH; x <= eyeX + REACH; x++) {
             for (int y = eyeY - REACH; y <= eyeY + REACH; y++) {
                 IsoGridSquare square = cell.getGridSquare(x, y, level);
@@ -158,6 +159,9 @@ final class SightTrace {
                     }
                     boolean built = shown && build.traced != null && build.traced.contains(object);
                     boolean culled = built && !ChunkBuffers.listed(WorldScene.withinItsRoom(object, sprite) ? square.getRoomID() : RoomSight.OUTSIDE, rooms);
+                    if (culled && open && !reached(square.getRoomID(), eye, tanAcross, tanUp)) {
+                        open = false;
+                    }
                     boolean drawn = built && !culled;
                     String held = null;
                     if (!drawn) {
@@ -177,11 +181,12 @@ final class SightTrace {
                         }
                         boolean built = shown && build.traced != null && build.traced.contains(body);
                         boolean culled = built && !ChunkBuffers.listed(square.getRoomID(), rooms);
+                        boolean bodyOpen = centreOpen && !(culled && !reached(square.getRoomID(), eye, tanAcross, tanUp));
                         boolean drawn = built && !culled;
                         String held = drawn ? null : culled ? "the eye's picture does not see into its room" : build == null ? "its chunk has no build yet" : !shown ? "its chunk's build is not in the frame"
                                 : Sightline.leftOut(asTheGameShows, false, square.getRoomID() != -1L, square.isSeen(playerIndex)) ? "the game has not shown its room"
                                         : body.getAtlasTexture() == null ? "the game has made no picture of the body" : "its chunk's build is older than it";
-                        met(body, "body", "body", x, y, level, centreOpen, drawn, held, square.getRoomID() == -1L || square.isSeen(playerIndex), frame, now, eye);
+                        met(body, "body", "body", x, y, level, bodyOpen, drawn, held, square.getRoomID() == -1L || square.isSeen(playerIndex), frame, now, eye);
                     }
                 }
             }
@@ -217,6 +222,25 @@ final class SightTrace {
             }
         }
     }
+
+    /**
+     * Whether a line through the picture reaches a room, followed the slow way (RoomRays) once
+     * a frame when first asked. The line of this class is held to the drawn cone, which is wider
+     * than the picture: a room the walk leaves out that no line through the picture reaches is
+     * not in the picture at all, and what stands in it is not counted as held back.
+     */
+    private boolean reached(long room, ViewCamera.Pose eye, float tanAcross, float tanUp) {
+        if (!linesFollowed) {
+            linesFollowed = true;
+            byLines.clear();
+            RoomRays.trace(scene.roomMap, eye, tanAcross, tanUp, LINES_ACROSS, LINES_UP, REACH + 4, level, byLines);
+        }
+        return byLines.contains(room);
+    }
+
+    private static final int LINES_ACROSS = 192, LINES_UP = 108;
+    private final RoomSight.Seen byLines = new RoomSight.Seen();
+    private boolean linesFollowed;
 
     private boolean openTo(ViewCamera.Pose eye, float forwardX, float forwardY, float cosCone, float x, float y) {
         float toX = x - eye.eyeX, toY = y - eye.eyeY;

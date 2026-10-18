@@ -3491,7 +3491,8 @@ final class WorldScene {
                 if (sightTrace == null) {
                     sightTrace = new SightTrace(WorldScene.this);
                 }
-                sightTrace.frame(cell, player, pose, forwardX, forwardY, cosCone, frames, chunksWaiting, nearestWaiting, asTheGameShows, roomsSeen);
+                sightTrace.frame(cell, player, pose, forwardX, forwardY, cosCone, tanHalfFieldOfView * drawnAspect, tanHalfFieldOfView, frames, chunksWaiting, nearestWaiting,
+                        asTheGameShows, roomsSeen);
             }
             buildMillis = (System.nanoTime() - start) / 1e6f;
             tollFrames++;
