@@ -118,7 +118,7 @@
 
 - `F9` cycles `Low`, `Medium`, `High`, `Custom` and `Automatic`, fading between them. First person and the isometric view can be set separately in the game's options.
 - `Automatic` lowers the quality when the frame rate drops below 45 and raises it when it holds above 57.
-- `Low` is the game's own look. `Medium` and `High` also redraw the isometric view.
+- `Low` is the game's own look, apart from first person's furniture, windows and doors, which are the mod's models in every mode (`OwnFurniture`, `OwnBuildings`). `Medium` and `High` also redraw the isometric view.
 - `F8` cycles the picture styles `Vivid`, `Natural` and `Bleak` (default).
 - `ZombiesAndPropsDrawDistance` (16 to 80 tiles) and `Reflections` settings.
 - `GrassDensity` setting (10 to 100 percent): fewer grass plants for a faster picture. Every mode grows all of it.
