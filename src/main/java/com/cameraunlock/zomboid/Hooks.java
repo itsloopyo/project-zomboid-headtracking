@@ -658,6 +658,18 @@ public final class Hooks {
         return view == null ? moving.isOnScreen() : view.farModels.onScreen(moving);
     }
 
+    /** The same for a player, whom the game draws apart from everything else that moves. */
+    public static boolean playerOnScreen(IsoPlayer player) {
+        View view = drawing();
+        return view == null ? player.isOnScreen() : view.farModels.playerOnScreen(player);
+    }
+
+    /** In place of the game's asking, as it draws another player on a server, whether the viewer sees them: see FarModels.playerDrawnWhole. */
+    public static boolean seesPlayer(IsoPlayer viewer, IsoPlayer other) {
+        View view = drawing();
+        return view != null && view.farModels.playerDrawnWhole(other) || viewer.checkCanSeeClient(other);
+    }
+
     /** Whether a vehicle knocked down the thing it met, so the game's own handling of the meeting is passed over. */
     public static boolean knockedDown(IsoObject thing, IsoObject by) {
         return by instanceof BaseVehicle vehicle && (CarSmash.struck(thing, vehicle) || CarSmash.brushedThrough(thing));

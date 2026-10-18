@@ -17,6 +17,7 @@ public final class OnlineTests {
         Checks.run("aViewIsOnAPersonFromFeetToHead", OnlineTests::aViewIsOnAPersonFromFeetToHead);
         Checks.run("aCallIsHandedToItsReplacement", OnlineTests::aCallIsHandedToItsReplacement);
         Checks.run("theAimPicksThePartOfAPlayerOnlyWhereTheyCannotBeFought", OnlineTests::theAimPicksThePartOfAPlayerOnlyWhereTheyCannotBeFought);
+        Checks.run("otherPlayersAreDrawnAsFarAsZombiesWherePlayersCannotFight", OnlineTests::otherPlayersAreDrawnAsFarAsZombiesWherePlayersCannotFight);
         Checks.run("aSharedHeadAndMouthReadBackAsWritten", OnlineTests::aSharedHeadAndMouthReadBackAsWritten);
         Checks.run("aSharedValueThisDoesNotWriteIsRefused", OnlineTests::aSharedValueThisDoesNotWriteIsRefused);
     }
@@ -67,6 +68,15 @@ public final class OnlineTests {
                 "on a server where players cannot hurt each other, of a player too"));
         Servers.in(Servers.Where.CONTESTED, () -> check(Online.aimPicksThePartOf(false), "where they can, still of a zombie"));
         Servers.in(Servers.Where.CONTESTED, () -> check(!Online.aimPicksThePartOf(true), "but of a player the game picks as it does for everyone"));
+    }
+
+    private static void otherPlayersAreDrawnAsFarAsZombiesWherePlayersCannotFight() {
+        Servers.in(Servers.Where.ALONE, () -> check(Online.drawnAsFarAsZombies(false), "alone, the other players at the screen are drawn as far as zombies"));
+        Servers.in(Servers.Where.FRIENDLY, () -> check(Online.drawnAsFarAsZombies(false), "and on a server where players cannot hurt each other"));
+        Servers.in(Servers.Where.CONTESTED, () -> check(!Online.drawnAsFarAsZombies(false), "where they can, a player is drawn as the game shows them to everyone"));
+        for (Servers.Where where : Servers.Where.values()) {
+            Servers.in(where, () -> check(!Online.drawnAsFarAsZombies(true), "an invisible player stays the game's " + where));
+        }
     }
 
     private static void keysAheadAreToldFromKeysAside() {

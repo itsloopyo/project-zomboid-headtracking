@@ -38,6 +38,16 @@ final class Online {
     }
 
     /**
+     * Whether another player is drawn as a zombie is: wherever they stand before the eye within the
+     * draw distance, whatever the game's own screen and its sight for players say (the cone, the
+     * server's HidePlayersBehindYou, a sneak unseen). Anywhere players cannot fight. A player the
+     * game makes invisible to everyone, an admin's invisibility or ghost mode, stays the game's.
+     */
+    static boolean drawnAsFarAsZombies(boolean invisible) {
+        return !invisible && !contested();
+    }
+
+    /**
      * Whether a lean may carry the weapon, and the start of the shot with it, while a firearm's
      * sights are up. Alone it does: the round leaves from the eye the player looks through.
      * Where players fight, the shot would start from somewhere no other player sees a weapon,

@@ -587,16 +587,25 @@ public final class Agent {
      * thing that moves only while it is on the game's own screen and on ground the viewer has
      * seen: the picture sees further, and a vehicle within its sight is drawn. A zombie has a
      * model at all only near the game's screen, and from a vehicle the zombies ahead keep
-     * theirs and are drawn as well. So does an animal. See FarModels.
+     * theirs and are drawn as well. So does an animal, and where players cannot fight, another
+     * player. See FarModels.
      */
     private static List<Patch> farVehiclePatches() {
         String cell = "zombie/iso/fboRenderChunk/FBORenderCell", vehicle = "zombie/vehicles/BaseVehicle";
-        String world = "zombie/iso/IsoWorld", zombie = "zombie/characters/IsoZombie";
+        String world = "zombie/iso/IsoWorld", zombie = "zombie/characters/IsoZombie", player = "L" + PLAYER + ";";
         return List.of(
                 new Patch(cell, "renderMovingObject asks the picture whether a vehicle is in view", classBytes -> CallSite.replaceEach(classBytes,
                         new CallSite.Method(cell, "renderMovingObject", "(Lzombie/iso/IsoMovingObject;)V"),
                         new CallSite.Method("zombie/iso/IsoMovingObject", "isOnScreen", "()Z"),
                         new CallSite.Method(HOOKS, "onScreen", "(Lzombie/iso/IsoMovingObject;)Z"), 1)),
+                new Patch(cell, "renderPlayer asks the picture whether a player is in view", classBytes -> CallSite.replaceEach(classBytes,
+                        new CallSite.Method(cell, "renderPlayer", "(I" + player + ")V"),
+                        new CallSite.Method(PLAYER, "isOnScreen", "()Z"),
+                        new CallSite.Method(HOOKS, "playerOnScreen", "(" + player + ")Z"), 1)),
+                new Patch(PLAYER, "a remote player's render asks the picture whether the viewer sees them", classBytes -> CallSite.replaceEach(classBytes,
+                        new CallSite.Method(PLAYER, "render", "(FFFLzombie/core/textures/ColorInfo;ZZLzombie/core/opengl/Shader;)V"),
+                        new CallSite.Method(PLAYER, "checkCanSeeClient", "(" + player + ")Z"),
+                        new CallSite.Method(HOOKS, "seesPlayer", "(" + player + player + ")Z"), 1)),
                 new Patch(vehicle, "a vehicle's render asks the picture whether it is seen", classBytes -> {
                     CallSite.Method render = new CallSite.Method(vehicle, "render", "(FFFLzombie/core/textures/ColorInfo;ZZLzombie/core/opengl/Shader;)V");
                     CallSite.Method seen = new CallSite.Method(HOOKS, "seen", "(ZL" + vehicle + ";)Z");

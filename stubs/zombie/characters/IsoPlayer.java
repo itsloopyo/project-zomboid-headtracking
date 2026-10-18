@@ -13,6 +13,7 @@ public class IsoPlayer extends IsoLivingCharacter {
     public static IsoPlayer getInstance() { throw new UnsupportedOperationException("reference stub"); }
     public final int getIndex() { throw new UnsupportedOperationException("reference stub"); }
     public final int getPlayerNum() { throw new UnsupportedOperationException("reference stub"); }
+    public boolean checkCanSeeClient(IsoPlayer other) { throw new UnsupportedOperationException("reference stub"); }
     public boolean isLocalPlayer() { throw new UnsupportedOperationException("reference stub"); }
     public short getOnlineID() { throw new UnsupportedOperationException("reference stub"); }
     public Vector2 getAimVector(Vector2 out) { throw new UnsupportedOperationException("reference stub"); }

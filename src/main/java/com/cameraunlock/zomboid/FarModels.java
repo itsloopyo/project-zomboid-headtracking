@@ -26,8 +26,11 @@ import zombie.vehicles.BaseVehicle;
  * Neither is shown further off than the draw distance (DrawDistance), past which the game's own
  * rules stand, and the picture draws none of them anyway.
  *
- * Where players can fight, a vehicle with another player in it is shown as the game shows it to
- * everyone, since drawing it would show them: see shownWhole.
+ * Other players are drawn the same way where players cannot fight, alone in split screen and on a
+ * server without PvP: the game draws one only on its screen, which in split screen is half as wide
+ * again, and fades one its own sight from above does not reach. Where players can fight, other
+ * players, and a vehicle with another player in it, are shown as the game shows them to everyone:
+ * see shownWhole.
  */
 public final class FarModels {
     final View view;
@@ -169,9 +172,40 @@ public final class FarModels {
         return byTheGame || shownWhole(vehicle);
     }
 
+    /**
+     * In place of the game's asking whether another player is on its screen as it draws them, on
+     * its logic thread. Where players cannot fight, a player before the eye is drawn as a zombie
+     * there is (Online.drawnAsFarAsZombies), in full, and in the light of the square they stand
+     * on, which the game keeps to hand only for the squares on its screen. The game has asked
+     * already that they stand on a square.
+     */
+    public boolean playerOnScreen(IsoPlayer player) {
+        if (!playerDrawnWhole(player)) {
+            return player.isOnScreen();
+        }
+        player.setAlphaAndTarget(1f);
+        player.getCurrentSquare().cacheLightInfo();
+        return true;
+    }
+
+    /**
+     * Whether another player is drawn whole however the game's own sight for players goes: the
+     * fade it gives one out of its cone or behind something, and on a server the one it gives
+     * one behind the viewer or sneaking, are its view from above.
+     */
+    public boolean playerDrawnWhole(IsoPlayer player) {
+        return player != view.player() && beforeTheEye(player);
+    }
+
     /** Whether this is drawn by where it is and not by what the game's own view shows of it. */
     private boolean shownWhole(IsoMovingObject moving) {
-        return view.firstPerson.coversTheGamesView() && !(moving instanceof BaseVehicle vehicle && carriesAnotherPlayer(vehicle) && Online.contested());
+        if (!view.firstPerson.coversTheGamesView()) {
+            return false;
+        }
+        if (moving instanceof BaseVehicle vehicle) {
+            return !(carriesAnotherPlayer(vehicle) && Online.contested());
+        }
+        return !(moving instanceof IsoPlayer player) || moving instanceof IsoAnimal || Online.drawnAsFarAsZombies(player.isInvisible());
     }
 
     private boolean carriesAnotherPlayer(BaseVehicle vehicle) {
