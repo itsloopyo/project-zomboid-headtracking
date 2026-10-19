@@ -46,7 +46,7 @@ final class LowTests {
     private static void aRoomIsShownAsTheGameShowsItAndNothingIsBuiltAheadInLow() {
         String scene = scene();
         check(count(scene, "boolean showing = Sightline.asTheGameShows(withoutSightline);") == 1,
-                "the frame fills a room by Sightline's rule, which in Low is the game's");
+                "the frame fills a room by Sightline's rule, which in Low is the line of sight's");
         check(count(scene, "if (ahead && (aheadStep < 0 || !Sightline.buildsAhead(withoutSightline) ||") == 1,
                 "and builds a chunk ahead of a turn by it, which in Low is never");
     }

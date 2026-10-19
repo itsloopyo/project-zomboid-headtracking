@@ -25,7 +25,7 @@ final class SightlineTests {
         Checks.run("theGamesOwnViewLeavesNothingOut", SightlineTests::theGamesOwnViewLeavesNothingOut);
         Checks.run("aRoomNotShownIsFilledNearTheEyeAndEmptyFarOff", SightlineTests::aRoomNotShownIsFilledNearTheEyeAndEmptyFarOff);
         Checks.run("aLineThatEndsWhereItStartsIsClear", SightlineTests::aLineThatEndsWhereItStartsIsClear);
-        Checks.run("roomsAreFilledAsTheGameShowsThemWherePlayersFightAndInLow", SightlineTests::roomsAreFilledAsTheGameShowsThemWherePlayersFightAndInLow);
+        Checks.run("roomsAreFilledBySightAloneOnServersAndInLow", SightlineTests::roomsAreFilledBySightAloneOnServersAndInLow);
         Checks.run("theLightOfRoomsNotShownMovesInStepsAndHoldsBetweenThem", SightlineTests::theLightOfRoomsNotShownMovesInStepsAndHoldsBetweenThem);
     }
 
@@ -185,7 +185,7 @@ final class SightlineTests {
     }
 
     /** The rule the frame builds by, asked of the server the game is joined to and the graphics mode. */
-    private static void roomsAreFilledAsTheGameShowsThemWherePlayersFightAndInLow() {
+    private static void roomsAreFilledBySightAloneOnServersAndInLow() {
         try {
             Quality.set(Quality.HIGH);
             Servers.in(Servers.Where.ALONE, () -> {
@@ -199,8 +199,8 @@ final class SightlineTests {
                     "and where they can, as alone"));
             Quality.set(Quality.LOW);
             Servers.in(Servers.Where.ALONE, () -> {
-                check(Sightline.asTheGameShows(false) && !built(Sightline.asTheGameShows(false), false).contains(prop("sink")),
-                        "in Low, alone, a room is filled only as the game shows it");
+                check(!Sightline.asTheGameShows(false) && built(Sightline.asTheGameShows(false), false).contains(prop("sink")),
+                        "in Low, alone, the room the game has not shown is filled as in every other mode");
                 check(!Sightline.buildsAhead(false), "and nothing is built ahead of a turn");
             });
         } finally {

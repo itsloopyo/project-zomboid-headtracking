@@ -20,11 +20,13 @@ final class Sightline {
     private Sightline() {}
 
     /**
-     * Whether a room is filled only as the game shows it: in Low, which shows everything the
-     * game's way, and with the development switch that turns the line of sight off.
+     * Whether a room is filled only as the game shows it: with the development switch that turns
+     * the line of sight off. Low fills rooms by sight as every other mode does: filled as the
+     * game shows them, what a room holds came into the picture up to a second and a half after
+     * the line to it opened.
      */
     static boolean asTheGameShows(boolean switchedOff) {
-        return switchedOff || Quality.plain();
+        return switchedOff;
     }
 
     /** Whether the chunk the view does not face is built ahead of a turn: with the development switch left alone, and out of Low. */
