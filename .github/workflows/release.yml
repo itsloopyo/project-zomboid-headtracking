@@ -12,7 +12,7 @@ on:
 
 jobs:
   release:
-    uses: itsloopyo/cameraunlock-core/.github/workflows/release-mod.yml@1ddc16dd8b8bd34e6d07ed84688599db4c0ebc38
+    uses: itsloopyo/cameraunlock-core/.github/workflows/release-mod.yml@5a403e385696e5d2f4891e7946ff67046c56502f
     with:
       project-name: 'Head Tracking for Project Zomboid'
       # pixi.toml's [workspace] version is the one scripts/build.ps1 stamps into
