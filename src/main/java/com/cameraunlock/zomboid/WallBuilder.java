@@ -316,8 +316,10 @@ final class WallBuilder {
         skinStart = (startJoin & WallJoins.NEAR) != 0 ? WorldScene.WALL_HALF : 0f;
         skinEnd = (endJoin & WallJoins.NEAR) != 0 ? WorldScene.WALL_HALF : 0f;
         // An inside wall is its paper's stripes, each a face of its own: see Papers.
-        paper = build.overLayer == 0 && build.paperedWall && Own.textures(build.playerIndex) ? Papers.of(texture, build.frame, da != 0f) : null;
-        if (paper == null && build.overLayer == 0 && build.paperedWall && Papers.unread(texture)) {
+        boolean papered = build.overLayer == 0 && build.paperedWall && Own.textures(build.playerIndex);
+        paper = papered ? Papers.of(texture, build.frame, da != 0f) : null;
+        // Only a paper that was asked for is ever read, so only then is the build made again once it is.
+        if (paper == null && papered && Papers.unread(texture)) {
             build.building.signed = false;
         }
         // A tiled wall is its tiles, its joints and the strips between its bands, each a face of its own: see WallTiles.
