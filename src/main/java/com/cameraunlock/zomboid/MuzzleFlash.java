@@ -23,6 +23,13 @@ final class MuzzleFlash {
     static final float SECONDS = 0.03f;
     /** How bright the light is at its start, beside the sun at 2.1. */
     static final float LIGHT = 2f;
+    /**
+     * The light of a shot is given no more often than this, in nanoseconds: three times a second at
+     * most. Lit by a shot, a dark scene seen in first person goes from black to lit over most of the
+     * picture, and that more than three times a second can bring on a seizure in a viewer with
+     * photosensitive epilepsy. The bloom is a small part of the picture and shows with every shot.
+     */
+    static final long LIT_EVERY = 333_333_334L;
     /** Burning powder: a yellow white. */
     private static final float RED = 1f, GREEN = 0.78f, BLUE = 0.45f;
     /**
@@ -150,6 +157,9 @@ final class MuzzleFlash {
     /** The shots the picture has shown, and when the last was first shown. Render thread. */
     private int shown;
     private long shownAt;
+    /** Whether the shot shown lights the world, and when the last one that did was first shown. Render thread. */
+    private boolean lit, litOnce;
+    private long litAt;
     /** Where the light is in the world (x, y, up), once a weapon with a muzzle has been placed. Render thread. */
     private final float[] at = new float[3];
     private boolean placed;
@@ -201,6 +211,11 @@ final class MuzzleFlash {
         if (fired != shown) {
             shown = fired;
             shownAt = now;
+            lit = !litOnce || now - litAt >= LIT_EVERY;
+            if (lit) {
+                litOnce = true;
+                litAt = now;
+            }
         }
         return left((now - shownAt) / 1e9f);
     }
@@ -246,14 +261,15 @@ final class MuzzleFlash {
 
     /**
      * The light of the flash as the picture's shaders take it, into out: x, y, up and strength
-     * for uFlashAt, then red, green and blue for uFlashColor. The strength is 0 with no flash.
+     * for uFlashAt, then red, green and blue for uFlashColor. The strength is 0 with no flash,
+     * and for a shot that came sooner than LIT_EVERY after the last one that lit.
      */
     void light(float[] out, long now) {
         float strength = placed ? strength(now) : 0f;
         out[0] = placed ? at[0] : 0f;
         out[1] = placed ? at[1] : 0f;
         out[2] = placed ? at[2] : 0f;
-        out[3] = strength * LIGHT;
+        out[3] = lit ? strength * LIGHT : 0f;
         out[4] = RED;
         out[5] = GREEN;
         out[6] = BLUE;

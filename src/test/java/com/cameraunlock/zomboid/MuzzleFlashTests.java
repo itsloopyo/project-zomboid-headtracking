@@ -40,6 +40,7 @@ final class MuzzleFlashTests {
             Checks.run("flashIsASmallBloomThatLeavesTheTargetInSight", MuzzleFlashTests::flashIsASmallBloomThatLeavesTheTargetInSight);
             Checks.run("aShotFlashesOnTheFirstFrameDrawnAfterItAndIsGoneByTheThird", MuzzleFlashTests::aShotFlashesOnTheFirstFrameDrawnAfterItAndIsGoneByTheThird);
             Checks.run("flashLightsTheWorldNoMoreThanTheSunDoes", MuzzleFlashTests::flashLightsTheWorldNoMoreThanTheSunDoes);
+            Checks.run("rapidFireLightsTheWorldNoMoreThanThreeTimesASecond", MuzzleFlashTests::rapidFireLightsTheWorldNoMoreThanThreeTimesASecond);
             Checks.run("switchedOffAShotHasNoFlashAndNoLight", MuzzleFlashTests::switchedOffAShotHasNoFlashAndNoLight);
             Checks.run("aShotTakenWhileSwitchedOffIsNotFlashedWhenSwitchedOn", MuzzleFlashTests::aShotTakenWhileSwitchedOffIsNotFlashedWhenSwitchedOn);
             Checks.run("theGamesOwnLookHasNoFlashAndNoLight", MuzzleFlashTests::theGamesOwnLookHasNoFlashAndNoLight);
@@ -268,6 +269,41 @@ final class MuzzleFlashTests {
         // The light is just ahead of the muzzle, so the weapon's own end is lit from in front.
         float ahead = (light[0] - camera.eyeX) * camera.forwardX + (light[1] - camera.eyeY) * camera.forwardY + (light[2] - camera.eyeUp) * camera.forwardUp;
         check(ahead > -HELD[0].muzzle[2], "the light is ahead of the muzzle: " + ahead + " tiles before the eye");
+    }
+
+    /**
+     * A flash over a large part of the picture more than three times a second can bring on a seizure. The light of a
+     * shot can be that in the dark, so however fast the shots come it lights the world three times a second at most;
+     * the bloom is small and shows with every shot.
+     */
+    private static void rapidFireLightsTheWorldNoMoreThanThreeTimesASecond() {
+        MuzzleFlash flash = new MuzzleFlash(0);
+        ViewCamera.Pose camera = new ViewCamera.Pose();
+        ViewCamera.clean(camera, 10f, 20f, 1.6f, 0f, 0f);
+        flash.place(camera, HELD[0].muzzle, HELD[0].pointing);
+        float[] light = new float[7];
+        long start = System.nanoTime(), frame = 16_666_667L;
+        int lit = 0, bloomed = 0;
+        // Twenty shots a second for two seconds, a shot every third frame at 60 a second.
+        for (int i = 0; i < 120; i++) {
+            long now = start + i * frame;
+            if (i % 3 == 0) {
+                flash.fire();
+            }
+            flash.light(light, now);
+            if (flash.strength(now) == 1f) {
+                bloomed++;
+                if (light[3] > 0f) {
+                    lit++;
+                }
+            }
+        }
+        check(bloomed == 40, "every shot shows its bloom: " + bloomed + " of 40");
+        check(lit == 6, "two seconds of shots light the world six times, three a second: " + lit);
+        flash.light(light, start + 120 * frame + MuzzleFlash.LIT_EVERY);
+        flash.fire();
+        flash.light(light, start + 121 * frame + MuzzleFlash.LIT_EVERY);
+        check(light[3] > 0f, "a shot after a pause lights the world at once");
     }
 
     private static void switchedOffAShotHasNoFlashAndNoLight() {
