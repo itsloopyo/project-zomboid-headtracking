@@ -664,7 +664,7 @@ final class QualityTests {
 
     private static void customDrawsWhatEachPresetDrewFromItsRows() {
         String[] expected = {
-            "true true 0.62 2048 48 all/all 0 false true false true false false false 48 300 false 40",
+            "true true 0.62 2048 48 all/all 0 false false false true false false false 48 300 false 40",
             "false false 0.7 2048 60 all/all 1 false true false true false false false 48 150 true 40",
             "false false 1.0 4096 80 all/all 2 true true true false true true true 48 768 true 100",
         };

@@ -18,8 +18,9 @@ import java.util.Locale;
  * is the whole picture. Medium and Low draw it with fewer pixels, cheaper trees, smaller
  * shadow maps, fewer and broader grass plants, shorter sight and without the passes that shade
  * corners, light the air, mirror and give surfaces depth, for a graphics card that cannot keep up
- * with the whole of it, and Low with shorter sight still. A vehicle's mirror shows Low's
- * picture in every mode where it shows one.
+ * with the whole of it, and Low with shorter sight still and nothing mirrored at all: no mirror
+ * in a room or on a vehicle shows anything. A vehicle's mirror shows Low's picture in every mode
+ * where it shows one.
  * A first start is in Automatic in first person and in Low in the isometric view, which has no
  * Automatic: its frames are not counted. Automatic is one level for every player in it, since it
  * judges the frames of the whole screen. It begins at High, steps down while the picture is drawn too slowly and back up while it
@@ -73,7 +74,7 @@ final class Quality {
     /** How far the trees beyond the loaded map can be drawn, in tiles: the far land reaches no further. */
     static final int MOST_FAR_TREES = (int) FarLand.REACH;
 
-    static final Picture LOW_PICTURE = new Picture(true, TREES_SPRITES, SOME_GRASS, 0.62f, false, 48, 48, 300, 0, false, true, false, false, false, false);
+    static final Picture LOW_PICTURE = new Picture(true, TREES_SPRITES, SOME_GRASS, 0.62f, false, 48, 48, 300, 0, false, false, false, false, false, false);
     static final Picture MEDIUM_PICTURE = new Picture(false, TREES_NEAR, SOME_GRASS, 0.7f, false, 60, 60, 150, 1, false, true, false, false, false, true);
     static final Picture HIGH_PICTURE = new Picture(false, TREES_TO_SIGHT, ALL_GRASS, 1f, true, 80, 80, MOST_FAR_TREES, 2, true, true, true, true, true, true);
     /**
@@ -688,8 +689,8 @@ final class Quality {
 
     /**
      * Whether wet roads, polished floors, glass and water mirror the world, and a window shows
-     * the viewer in it. Only with the shading and light: Low and Medium draw neither and keep a
-     * vehicle's mirrors, and the one row covers both kinds of mirror.
+     * the viewer in it. Only with the shading and light: Medium draws neither and keeps the
+     * mirrors in rooms and on vehicles, and the one row covers both kinds of mirror.
      */
     static boolean surfacesMirror(int view) {
         Picture picture = drawn[view];
