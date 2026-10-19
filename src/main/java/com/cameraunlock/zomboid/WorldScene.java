@@ -2570,6 +2570,8 @@ final class WorldScene {
          * while the viewer is in no building.
          */
         private int heldFrom = Integer.MAX_VALUE, heldMinX, heldMinY, heldMaxX, heldMaxY;
+        /** The highest level of the viewer's own building under it that is held as heldFrom's are, MIN_VALUE while the viewer is in no building. */
+        private int heldUnder = Integer.MIN_VALUE;
         /** The viewer's own building while heldFrom is set: its storeys from there up are left out of the eye's picture too. */
         private long heldBuilding = SpriteGeometry.NO_BUILDING;
         private long keptLevels;
@@ -2939,8 +2941,10 @@ final class WorldScene {
             // From the eye in a building, its floors from two over the viewer's up are seen only
             // up a stairwell, and from no window: they stand for their shape and their shadow,
             // and what the game's light does on them is not read while the viewer is under them.
+            // So with its floors from three under the viewer's down, seen only down a stairwell.
             BuildingDef within = !fromOutside && stoodOn != null && !stoodOn.isOutside() && stoodOn.getBuilding() != null ? stoodOn.getBuilding().getDef() : null;
             heldFrom = within == null ? Integer.MAX_VALUE : level + 2;
+            heldUnder = within == null ? Integer.MIN_VALUE : level - 3;
             heldBuilding = within == null ? SpriteGeometry.NO_BUILDING : within.id;
             if (within != null) {
                 heldMinX = within.getX() - 1;
@@ -4463,7 +4467,7 @@ final class WorldScene {
          */
         private long signature(IsoChunk chunk, int chunkX, int chunkY, int lowest, ChunkMeshes readFor, ChunkMeshes held) {
             int from = Math.max(lowest, chunk.getMinLevel()), to = chunk.getMaxLevel();
-            // The levels of the viewer's building that are held (heldFrom) are summed as the build there is was.
+            // The levels of the viewer's building that are held (heldFrom, heldUnder) are summed as the build there is was.
             boolean holds = held != null && heldFrom <= to && held.signed && held.sumFrom == from && held.sumTo == to
                     && chunkX < heldMaxX && chunkX + CHUNK_TILES > heldMinX && chunkY < heldMaxY && chunkY + CHUNK_TILES > heldMinY;
             readUnseen = sum(SUM_FROM, gamesView ? 1 : 0);
@@ -4524,7 +4528,7 @@ final class WorldScene {
             readingLamplit.clear();
             lampsRound(chunkX, chunkY);
             for (int z = from; z <= to; z++) {
-                if (holds && z >= heldFrom) {
+                if (holds && (z >= heldFrom || z <= heldUnder)) {
                     readSums[z - from] = held.levelSums[z - from];
                     readLit[z - from] = held.litSeen[z - from];
                     tollLevelsHeld++;
