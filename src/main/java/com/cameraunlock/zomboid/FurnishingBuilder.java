@@ -118,6 +118,13 @@ final class FurnishingBuilder {
         // mod's sheet only to show one, and a frame, a clock or a lamp only where the mod's
         // furniture is on or it has a picture to show.
         int picture = piece != null && Own.pictures() ? piece.picture : Decor.NONE;
+        if (picture != Decor.NONE && !Decor.ready(picture)) {
+            // A picture not read yet would be drawn as nothing: the sprite paints the frame until
+            // a build made again once it is read.
+            Decor.held(picture);
+            build.building.signed = false;
+            picture = Decor.NONE;
+        }
         if (piece == null || piece.wall == WallHung.NONE || picture == Decor.NONE && (piece.pinned || !Own.furniture())
                 || !WallHung.painted(build.frame, piece.wall, build.hungAt) && !(piece.ownSize && WallHung.paintedProud(build.hungAt, piece.model.depth()))) {
             return false;
@@ -178,6 +185,9 @@ final class FurnishingBuilder {
             Models.turn(piece.turns, 1f, 0f, build.hungWay);
             WallHung.shows(build.frame, a, b, build.hungAt[WallHung.BOTTOM], build.hungWay[0] * scale, build.hungWay[1] * scale, scaleUp / ViewCamera.LEVEL_HEIGHT, build.hungShows);
             build.placed.picture(build.hungShows);
+        }
+        if (SightTrace.ON && picture != Decor.NONE && build.building.pictured != null) {
+            build.building.pictured.add(object);
         }
         build.furnished++;
         return true;

@@ -269,7 +269,7 @@ final class SightTrace {
 
     /**
      * What leaves a thing a build holds and a picture lists drawn blank or as a stand-in, or
-     * null: the mod's picture in a frame not on the graphics card yet, or a piece the mod has a
+     * null: the mod's picture in a frame not read yet, or a piece the mod has a
      * model of drawn as the game's sprite because its model could not be stood when built.
      */
     private static String blank(IsoObject object, IsoSprite sprite, WorldScene.ChunkMeshes build) {
@@ -277,8 +277,8 @@ final class SightTrace {
         if (piece == null) {
             return null;
         }
-        if (piece.wall != WallHung.NONE && piece.picture != Decor.NONE && Own.pictures() && build.modelled != null && build.modelled.contains(object) && !Decor.onCard(piece.picture)) {
-            return "its picture is not on the graphics card yet";
+        if (build.pictured != null && build.pictured.contains(object) && !Decor.ready(piece.picture)) {
+            return "its picture is not read yet";
         }
         if (Own.furniture() && piece.model != null && piece.wall == WallHung.NONE && !piece.follows && !piece.basin && !piece.countertop && build.modelled != null
                 && !build.modelled.contains(object)) {

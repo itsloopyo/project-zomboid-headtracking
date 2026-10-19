@@ -322,10 +322,13 @@ final class Decor {
         Screens.letGo();
     }
 
-    /** Dev only, for SightTrace: whether a picture is on the graphics card as it is to be drawn, read and made at the size the mode shows. */
-    static boolean onCard(int picture) {
+    /**
+     * Whether a frame drawing the picture now draws it, and not nothing: it is on the graphics
+     * card at the size the mode shows, or read and waiting to be put there as it is drawn.
+     */
+    static boolean ready(int picture) {
         synchronized (Decor.class) {
-            return textures != null && textures[picture] != 0 && waiting[picture] == null && madeSmall[picture] == Quality.smallerPictures();
+            return textures != null && (waiting[picture] != null || textures[picture] != 0 && madeSmall[picture] == Quality.smallerPictures());
         }
     }
 
