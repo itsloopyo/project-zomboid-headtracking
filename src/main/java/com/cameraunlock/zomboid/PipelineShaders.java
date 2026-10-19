@@ -1005,8 +1005,9 @@ final class PipelineShaders {
             uniform vec4 uLampAt[LAMPS_SEEN];
             uniform vec3 uLampHue[LAMPS_SEEN];
 
-            // The colour the lamp that lights a place most lights it in, or nothing where none reaches.
-            vec3 lampHue(vec3 at) {
+            // The colour the lamp that lights a place most lights it in, or nothing where none reaches,
+            // and in a how near the place is to it: 1 at the lamp and 0 where its reach ends.
+            vec4 lampHue(vec3 at) {
                 vec3 hue = vec3(0.0);
                 float most = 0.0;
                 for (int i = 0; i < LAMPS_SEEN; i++) {
@@ -1018,7 +1019,7 @@ final class PipelineShaders {
                         hue = uLampHue[i];
                     }
                 }
-                return hue;
+                return vec4(hue, most);
             }
             // How far the eye is out of doors, 0 to 1. The sky's haze is the open air's: none of it
             // lies between an eye in a room and that room's walls. Sun through a window into the
@@ -3548,7 +3549,8 @@ final class PipelineShaders {
                 // daylight, and what it has over it came from a lamp.
                 // A room has less of it: see Evening.ROOM_DAYLIGHT.
                 float heldBack = 1.0 - mix(uRoomKept, uDaylightKept, clamp(open, 0.0, 1.0));
-                vec3 lampColour = heldBack > 0.0 ? lampHue(vWorld) : vec3(0.0);
+                vec4 lampNear = heldBack > 0.0 ? lampHue(vWorld) : vec4(0.0);
+                vec3 lampColour = lampNear.rgb;
                 vec3 daylight = min(given, uOpenLinear);
                 if (lampColour.r + lampColour.g + lampColour.b > 0.0) {
                     // The game keeps the greater of a lamp and the daylight in each of red, green
@@ -3562,7 +3564,9 @@ final class PipelineShaders {
                     vec3 shows = lampColour / max(uOpenLinear, vec3(0.001));
                     vec3 first = step(max(shows.r, max(shows.g, shows.b)), shows);
                     float strength = dot(first, given - daylight * heldBack) / dot(first, lampColour);
-                    given = max(daylight * (1.0 - heldBack), lampColour * strength);
+                    // Over the outer part of its reach the lamp's colour comes in by degrees: switched
+                    // on at the edge of its reach, it drew a hard egg round the lamp across the room.
+                    given = mix(given - daylight * heldBack, max(daylight * (1.0 - heldBack), lampColour * strength), smoothstep(0.0, 0.5, lampNear.a));
                 } else {
                     given -= daylight * heldBack;
                 }
