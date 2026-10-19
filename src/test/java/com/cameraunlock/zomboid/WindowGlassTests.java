@@ -11,6 +11,7 @@ final class WindowGlassTests {
         Checks.run("aWindowIsSeenFromItsRoomAndNotFromBehind", WindowGlassTests::aWindowIsSeenFromItsRoomAndNotFromBehind);
         Checks.run("theRoomBeginsPastTheWallAndIsLaidInTheOpening", WindowGlassTests::theRoomBeginsPastTheWallAndIsLaidInTheOpening);
         Checks.run("windowsAndMirrorsAreNeverOneGlass", WindowGlassTests::windowsAndMirrorsAreNeverOneGlass);
+        Checks.run("aGlazedDoorsGlassIsItsLightsAndNoMore", WindowGlassTests::aGlazedDoorsGlassIsItsLightsAndNoMore);
     }
 
     private static float[] window(boolean north, int edge, int along, float side) {
@@ -96,6 +97,28 @@ final class WindowGlassTests {
         looking.consider(mirror, 0, false, camera, TAN, ASPECT, NEAR);
         check(looking.end() && !looking.window, "a mirror is chosen over a window of the same size, which shows far less");
         check(looking.clear == LookingGlass.CLEAR && looking.laid == LookingGlass.CLEAR, "with a mirror's clearances");
+    }
+
+    private static void aGlazedDoorsGlassIsItsLightsAndNoMore() {
+        Windows.Shape leaf = new Windows.Shape();
+        // Two lights side by side over panels, the left one broken.
+        leaf.panes = new float[] {0.3f, 0.45f, 0.5f, 0.85f, 0.4f, 0.5f, 0.65f, 0.55f, 0.9f, 1f};
+        float[] north = window(true, 30, 20, -1f);
+        WindowGlass.lights(leaf, true, north, 0);
+        check(close(north[LookingGlass.CORNER], 20.3f) && north[LookingGlass.CORNER + 1] == 30f && close(north[LookingGlass.CORNER + 2], 0.5f * ViewCamera.LEVEL_HEIGHT),
+                "a north door's glass starts where its first light does, at the foot of the lowest");
+        check(close(north[LookingGlass.ACROSS], 0.35f) && north[LookingGlass.ACROSS + 1] == 0f && close(north[LookingGlass.UP + 2], 0.4f * ViewCamera.LEVEL_HEIGHT),
+                "and runs along x to the end of the last light, up to the head of the highest");
+        float[] west = window(false, 12, 7, 1f);
+        WindowGlass.lights(leaf, false, west, 0);
+        check(west[LookingGlass.CORNER] == 12f && close(west[LookingGlass.CORNER + 1], 7.3f) && close(west[LookingGlass.ACROSS + 1], 0.35f) && west[LookingGlass.ACROSS] == 0f,
+                "a west door's glass runs along y over its lights");
+        check(west[LookingGlass.FACING] == 1f, "facing the eye's side as a window's does");
+        check(WindowGlass.LAID < OpeningBuilder.DOOR_HALF, "the picture is laid behind the leaf's faces, which hide it between the lights");
+    }
+
+    private static boolean close(float a, float b) {
+        return Math.abs(a - b) < 1e-5f;
     }
 
     private static void check(boolean condition, String what) {

@@ -58,6 +58,12 @@ final class Doors {
         return null;
     }
 
+    /** The door the sprite was read as, whichever edge it was read for: null for one not read yet or that is no leaf with four straight sides. */
+    static Shape known(Texture texture) {
+        Shape shape = known.get(texture);
+        return shape == NONE ? null : shape;
+    }
+
     /** Whether the sprite has still to be read. */
     static boolean unread(Texture texture) {
         return !known.containsKey(texture);

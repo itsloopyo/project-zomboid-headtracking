@@ -4,18 +4,22 @@ import zombie.characters.IsoPlayer;
 import zombie.iso.IsoCell;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoObject;
+import zombie.iso.objects.IsoDoor;
+import zombie.iso.objects.IsoThumpable;
 import zombie.iso.objects.IsoWindow;
 import zombie.util.list.PZArrayList;
 
 /**
- * The shut windows near the viewer, seen from inside. Glass throws back some of the room it
+ * The shut windows and glazed doors near the viewer, seen from inside. Glass throws back some of the room it
  * is in, and with the street dark behind it the room is plain in it, the viewer among the
  * rest. LookingGlass draws the room as a pane shows it, as it draws a mirror's picture, and
  * lays it over the panes by as much as glass throws back.
  *
  * Each window is noted as a glass a tile wide and a level high, in the plane of its panes.
  * The opening is smaller: the picture is laid a hair before the panes and behind the face
- * of the wall, which hides it everywhere but in the opening.
+ * of the wall, which hides it everywhere but in the opening. A door's glass is noted as the
+ * lights in its leaf take up and no more: the leaf's faces stand before the picture between
+ * them, and nothing hides the doorway round a leaf that does not fill it.
  */
 final class WindowGlass {
     /** The most windows noted. */
@@ -44,8 +48,8 @@ final class WindowGlass {
     }
 
     /**
-     * Logic thread: the shut, whole windows on the player's floor within REACH whose room side
-     * the eye is on, each facing the eye.
+     * Logic thread: the shut, whole windows and the shut doors the mod built with glass in them
+     * (Doors) on the player's floor within REACH whose room side the eye is on, each facing the eye.
      */
     static void find(IsoCell cell, IsoPlayer player, Terrain terrain, ViewCamera.Pose view, Panes into) {
         into.count = 0;
@@ -60,10 +64,23 @@ final class WindowGlass {
                 }
                 PZArrayList<IsoObject> objects = square.getObjects();
                 for (int i = 0; i < objects.size() && into.count < MOST; i++) {
-                    if (!(objects.get(i) instanceof IsoWindow window) || window.isSmashed() || window.isGlassRemoved() || window.IsOpen()) {
+                    IsoObject object = objects.get(i);
+                    Windows.Shape leaf = null;
+                    boolean north;
+                    if (object instanceof IsoWindow window && !window.isSmashed() && !window.isGlassRemoved() && !window.IsOpen()) {
+                        north = window.getNorth();
+                    } else if (object instanceof IsoDoor door && !door.IsOpen()) {
+                        north = door.north;
+                        leaf = glazedLeaf(object, north);
+                    } else if (object instanceof IsoThumpable thumpable && thumpable.isDoor() && !thumpable.IsOpen()) {
+                        north = thumpable.north;
+                        leaf = glazedLeaf(object, north);
+                    } else {
                         continue;
                     }
-                    boolean north = window.getNorth();
+                    if (!(object instanceof IsoWindow) && leaf == null) {
+                        continue;
+                    }
                     int edge = north ? y : x;
                     float off = (north ? view.eyeY : view.eyeX) - edge;
                     // The square on the eye's side of the window's edge: a window looked at from the street throws back the street, which the pane does itself.
@@ -71,10 +88,38 @@ final class WindowGlass {
                     if (eyesSide == null || eyesSide.isOutside()) {
                         continue;
                     }
-                    note(north, edge, north ? x : y, foot, Math.signum(off), into.glass, into.count++ * LookingGlass.FLOATS);
+                    int at = into.count++ * LookingGlass.FLOATS;
+                    note(north, edge, north ? x : y, foot, Math.signum(off), into.glass, at);
+                    if (leaf != null) {
+                        lights(leaf, north, into.glass, at);
+                    }
                 }
             }
         }
+    }
+
+    /** The leaf of a door the mod builds from its sprite, where it has glass in it: see OpeningBuilder.addBuiltDoor. */
+    private static Windows.Shape glazedLeaf(IsoObject door, boolean north) {
+        if (!Own.buildings()) {
+            return null;
+        }
+        Doors.Shape shape = Doors.known(door.getSprite().getTextureForCurrentFrame(door.getDir()));
+        return shape == null || shape.leaf.north != north || shape.leaf.panes.length == 0 ? null : shape.leaf;
+    }
+
+    /** Narrows a glass noted a tile wide and a level high at at to the lights of a door's leaf. */
+    static void lights(Windows.Shape leaf, boolean north, float[] out, int at) {
+        float start = 1f, end = 0f, foot = 1f, head = 0f;
+        for (int pane = 0; pane < leaf.panes.length; pane += 5) {
+            start = Math.min(start, leaf.panes[pane]);
+            end = Math.max(end, leaf.panes[pane + 1]);
+            foot = Math.min(foot, leaf.panes[pane + 2]);
+            head = Math.max(head, leaf.panes[pane + 3]);
+        }
+        out[at + LookingGlass.CORNER + (north ? 0 : 1)] += start;
+        out[at + LookingGlass.CORNER + 2] += foot * ViewCamera.LEVEL_HEIGHT;
+        out[at + LookingGlass.ACROSS + (north ? 0 : 1)] = end - start;
+        out[at + LookingGlass.UP + 2] = (head - foot) * ViewCamera.LEVEL_HEIGHT;
     }
 
     /** A window's glass, on the edge of constant y (north) or x, a tile from along, facing the side given, into out from at. */
