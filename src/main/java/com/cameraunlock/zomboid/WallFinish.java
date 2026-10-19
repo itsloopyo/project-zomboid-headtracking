@@ -126,7 +126,7 @@ final class WallFinish {
             BuildingDef def = building.getDef();
             // One read while part of the building was not loaded waits out its frames from when it was read, however often it comes round here.
             boolean waits = !level.whole && level.loaded != loaded;
-            boolean due = level.whole ? structuresOn(def) != level.structures : waits && frame - level.stamp >= RETRIED;
+            boolean due = level.whole ? structuresOn(def, one.z) != level.structures : waits && frame - level.stamp >= RETRIED;
             if (!due) {
                 if (!waits) {
                     level.stamp = frame;
@@ -144,10 +144,10 @@ final class WallFinish {
         }
     }
 
-    /** The marks on the chunks a building's walls stand on: its own squares and the row of squares outside each face. */
-    private static int structuresOn(BuildingDef def) {
+    /** The marks on a level of the chunks a building's walls stand on: its own squares and the row of squares outside each face. */
+    private static int structuresOn(BuildingDef def, int z) {
         return ChunkMarks.structuresIn(Math.floorDiv(def.getX() - 1, WorldScene.CHUNK_TILES), Math.floorDiv(def.getY() - 1, WorldScene.CHUNK_TILES),
-                Math.floorDiv(def.getX() + def.getW(), WorldScene.CHUNK_TILES), Math.floorDiv(def.getY() + def.getH(), WorldScene.CHUNK_TILES));
+                Math.floorDiv(def.getX() + def.getW(), WorldScene.CHUNK_TILES), Math.floorDiv(def.getY() + def.getH(), WorldScene.CHUNK_TILES), z, z);
     }
 
     /** A plain wall of a building's outside: its sprite, for what it is made of, and the picture of it. */
@@ -259,7 +259,7 @@ final class WallFinish {
     private static Level read(IsoCell cell, IsoBuilding building, int z) {
         Level level = new Level();
         BuildingDef def = building.getDef();
-        level.structures = structuresOn(def);
+        level.structures = structuresOn(def, z);
         level.loaded = loadedNow;
         if (def.getW() > WIDEST || def.getH() > WIDEST) {
             return level;

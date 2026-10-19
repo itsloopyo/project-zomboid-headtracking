@@ -357,6 +357,7 @@ public final class Agent {
         add(instrumentation, chunkMarks);
         windowMarks = new PatchTransformer(windowMarkPatches());
         add(instrumentation, windowMarks);
+        add(instrumentation, new PatchTransformer(hushedMarkPatches()));
         hearing = new PatchTransformer(hearingPatches());
         add(instrumentation, hearing);
         splitScreen = new PatchTransformer(splitScreenPatches());
@@ -972,13 +973,13 @@ public final class Agent {
      */
     private static List<Patch> chunkMarkPatches() {
         String chunk = "zombie/iso/IsoChunk", levels = "zombie/iso/fboRenderChunk/FBORenderLevels";
-        MethodTypeDesc marked = MethodTypeDesc.ofDescriptor("(L" + chunk + ";J)V"), lit = MethodTypeDesc.ofDescriptor("(L" + levels + ";IJ)V");
+        MethodTypeDesc marked = MethodTypeDesc.ofDescriptor("(L" + chunk + ";J)V"), markedOn = MethodTypeDesc.ofDescriptor("(L" + chunk + ";IJ)V"), lit = MethodTypeDesc.ofDescriptor("(L" + levels + ";IJ)V");
         ClassDesc marks = ClassDesc.ofInternalName("com/cameraunlock/zomboid/ChunkMarks");
         return List.of(
                 new Patch(chunk, "invalidateRenderChunkLevel telling which chunk it marks", classBytes -> {
                     refuseChunkMarksIfAsked();
                     return CallSite.insertAtStartOfInstanceMethod(classBytes, new CallSite.Method(chunk, "invalidateRenderChunkLevel", "(IJ)V"),
-                            code -> code.aload(0).lload(2).invokestatic(marks, "marked", marked));
+                            code -> code.aload(0).iload(1).lload(2).invokestatic(marks, "marked", markedOn));
                 }),
                 new Patch(chunk, "invalidateRenderChunkLevels telling which chunk it marks", classBytes -> {
                     refuseChunkMarksIfAsked();
@@ -990,6 +991,25 @@ public final class Agent {
                     return CallSite.insertAtStartOfInstanceMethod(classBytes, new CallSite.Method(levels, "invalidateLevel", "(IJ)V"),
                             code -> code.aload(0).iload(1).lload(2).invokestatic(marks, "lit", lit));
                 }));
+    }
+
+    /**
+     * Apart again: without them a set left on, or a door a crowd strikes, marks its chunk many
+     * times a second for what only the game's own view draws, and the building it stands in is
+     * read again for each. See ChunkMarks.hush and ScreenMarks.marked.
+     */
+    private static List<Patch> hushedMarkPatches() {
+        String object = "zombie/iso/IsoObject", television = "zombie/iso/objects/IsoTelevision";
+        CallSite.Method invalidate = new CallSite.Method(object, "invalidateRenderChunkLevel", "(J)V");
+        CallSite.Method hush = new CallSite.Method("com/cameraunlock/zomboid/ChunkMarks", "hush", "(L" + object + ";J)V");
+        return List.of(
+                new Patch(object, "setRenderEffect marking for the game's view alone", classBytes -> CallSite.replaceEach(classBytes,
+                        new CallSite.Method(object, "setRenderEffect", "(Lzombie/iso/objects/RenderEffectType;Z)V"), invalidate, hush, 1)),
+                new Patch(object, "removeRenderEffect marking for the game's view alone", classBytes -> CallSite.replaceEach(classBytes,
+                        new CallSite.Method(object, "removeRenderEffect", "(Lzombie/iso/objects/ObjectRenderEffects;)V"), invalidate, hush, 1)),
+                new Patch(television, "updateTvScreen marking only what a build shows", classBytes -> CallSite.replaceEach(classBytes,
+                        new CallSite.Method(television, "updateTvScreen", "()V"), new CallSite.Method(television, "invalidateRenderChunkLevel", "(J)V"),
+                        new CallSite.Method("com/cameraunlock/zomboid/ScreenMarks", "marked", "(L" + television + ";J)V"), 1)));
     }
 
     /**

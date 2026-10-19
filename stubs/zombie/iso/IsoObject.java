@@ -21,6 +21,7 @@ public class IsoObject {
     public void HitByVehicle(zombie.vehicles.BaseVehicle vehicle, float amount) { throw new UnsupportedOperationException("reference stub"); }
     public zombie.iso.SpriteDetails.IsoObjectType getType() { throw new UnsupportedOperationException("reference stub"); }
     public void setAlphaAndTarget(float alpha) { throw new UnsupportedOperationException("reference stub"); }
+    public void invalidateRenderChunkLevel(long flags) { throw new UnsupportedOperationException("reference stub"); }
     public float getAlpha(int playerIndex) { throw new UnsupportedOperationException("reference stub"); }
     public final boolean isOutlineHighlight(int playerIndex) { throw new UnsupportedOperationException("reference stub"); }
     public final int getOutlineHighlightCol(int playerIndex) { throw new UnsupportedOperationException("reference stub"); }

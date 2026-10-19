@@ -69,7 +69,7 @@ final class Roofs {
         private final ArrayList<Laid> tiles = new ArrayList<>(), backs = new ArrayList<>();
         private final ArrayList<Capped> caps = new ArrayList<>();
         private final ArrayList<Part> parts = new ArrayList<>();
-        private int minWx, minWy, maxWx, maxWy;
+        private int minWx, minWy, maxWx, maxWy, fromZ, toZ;
         private int structures, loaded;
         /** Whether tend has it in its list. */
         private boolean listed;
@@ -183,7 +183,7 @@ final class Roofs {
             }
             // One read short of loaded ground waits out its frames from when it was read, however often it comes round here.
             boolean waits = !roof.whole && roof.loaded != loaded;
-            boolean due = roof.whole ? ChunkMarks.structuresIn(roof.minWx, roof.minWy, roof.maxWx, roof.maxWy) != roof.structures : waits && now - roof.stamp >= RETRIED;
+            boolean due = roof.whole ? ChunkMarks.structuresIn(roof.minWx, roof.minWy, roof.maxWx, roof.maxWy, roof.fromZ, roof.toZ) != roof.structures : waits && now - roof.stamp >= RETRIED;
             if (!due) {
                 if (!waits) {
                     roof.stamp = now;
@@ -264,6 +264,13 @@ final class Roofs {
             int middleX = (int) Math.floor((line.x0 + line.x1) / 2f), middleY = (int) Math.floor((line.y0 + line.y1) / 2f);
             part(roof.parts, Math.floorDiv(middleX, WorldScene.CHUNK_TILES), Math.floorDiv(middleY, WorldScene.CHUNK_TILES)).print += print;
         }
+        // A reading takes a tile on the level above or below one it has: a mark on those levels may change it.
+        roof.fromZ = roof.z - 1;
+        roof.toZ = roof.z + 1;
+        for (Laid one : roof.tiles) {
+            roof.fromZ = Math.min(roof.fromZ, one.tile.z - 1);
+            roof.toZ = Math.max(roof.toZ, one.tile.z + 1);
+        }
         roof.minWx = roof.minWy = Integer.MAX_VALUE;
         roof.maxWx = roof.maxWy = Integer.MIN_VALUE;
         for (Part part : roof.parts) {
@@ -272,7 +279,7 @@ final class Roofs {
             roof.maxWx = Math.max(roof.maxWx, part.wx);
             roof.maxWy = Math.max(roof.maxWy, part.wy);
         }
-        roof.structures = ChunkMarks.structuresIn(roof.minWx, roof.minWy, roof.maxWx, roof.maxWy);
+        roof.structures = ChunkMarks.structuresIn(roof.minWx, roof.minWy, roof.maxWx, roof.maxWy, roof.fromZ, roof.toZ);
         roof.loaded = loadedNow;
         before.clear();
         for (Roof old : replaced) {

@@ -53,6 +53,12 @@ public final class ChunkMarks {
     /** The marks for light by the level they were on, and those that came with no level or one outside the levels counted. */
     private static final AtomicIntegerArray litLevels = new AtomicIntegerArray(SIDE * SIDE * LEVELS), litLoose = new AtomicIntegerArray(SIDE * SIDE);
     /**
+     * The marks for an object by the level they were on, and those that came with no level or
+     * one outside the levels counted. A vine growing on the ground had every level of a tower
+     * the chunk is part of read again for the finish of its walls.
+     */
+    private static final AtomicIntegerArray builtLevels = new AtomicIntegerArray(SIDE * SIDE * LEVELS), builtLoose = new AtomicIntegerArray(SIDE * SIDE);
+    /**
      * Raised by the mod itself, on the logic thread alone, for a chunk whose builds were told
      * something that is now otherwise and that no reading of the chunk would show: how a roof
      * was fitted, what a building's walls are finished in.
@@ -75,17 +81,22 @@ public final class ChunkMarks {
     /** Called by the game where it marks a level of a chunk's texture as to be drawn again: see Agent.chunkMarkPatches. */
     public static void lit(FBORenderLevels levels, int level, long flags) {
         if ((flags & LIGHTING) != 0L) {
-            marked(levels.getChunk(), LIGHTING, level);
+            marked(levels.getChunk(), LIGHTING, level, LOWEST_LEVEL - 1);
         }
     }
 
-    /** Called by the game where something on a chunk has changed, on one level or on all of them. */
+    /** Called by the game where something on a chunk has changed on all of its levels. */
     public static void marked(IsoChunk chunk, long flags) {
-        marked(chunk, flags, LOWEST_LEVEL - 1);
+        marked(chunk, flags, LOWEST_LEVEL - 1, LOWEST_LEVEL - 1);
     }
 
-    private static void marked(IsoChunk chunk, long flags, int level) {
-        if ((flags & ~NOT_BUILT_FROM) == 0L) {
+    /** Called by the game where something on a level of a chunk has changed. Its light is counted as marked with no level: the game marks that by level apart (lit). */
+    public static void marked(IsoChunk chunk, int level, long flags) {
+        marked(chunk, flags, LOWEST_LEVEL - 1, level);
+    }
+
+    private static void marked(IsoChunk chunk, long flags, int level, int builtLevel) {
+        if ((flags & ~NOT_BUILT_FROM) == 0L || hushed == Thread.currentThread()) {
             return;
         }
         // A chunk being filled as it loads is marked for every object put on it. It has no build yet, and the chunks beside it learn of it from the map.
@@ -100,7 +111,7 @@ public final class ChunkMarks {
             things.getAndIncrement(slot);
         }
         if ((flags & OBJECT) != 0L && (flags & LOOSE) == 0L) {
-            structures.getAndIncrement(slot);
+            built(slot, builtLevel);
         }
         if ((flags & LIGHTING) != 0L) {
             lit(slot, level);
@@ -125,6 +136,32 @@ public final class ChunkMarks {
         }
     }
 
+    /** The thread a mark the game makes for nothing a build is made from is being made on, while it is made: see hush. */
+    private static volatile Thread hushed;
+
+    /**
+     * In place of the game's marking an object's chunk for a change only its own view draws: a
+     * thing shaken as it is struck (IsoObject.setRenderEffect, removeRenderEffect). The game
+     * still marks its own texture of the chunk. A door struck by a crowd shakes for as long
+     * as it is struck, and every mark had the building it stands in read again.
+     */
+    public static void hush(IsoObject object, long flags) {
+        hushed = Thread.currentThread();
+        try {
+            object.invalidateRenderChunkLevel(flags);
+        } finally {
+            hushed = null;
+        }
+    }
+
+    /** Counts a mark for a thing on the chunk of a square that is no part of a building. */
+    static void thing(IsoGridSquare square) {
+        IsoChunk chunk = square == null ? null : square.getChunk();
+        if (chunk != null) {
+            things.getAndIncrement(slot(chunk.wx, chunk.wy));
+        }
+    }
+
     /**
      * Called by the game where it gives an object another sprite without marking the chunk:
      * a window smashed, opened or shut. The game draws such an object afresh on every frame
@@ -135,7 +172,7 @@ public final class ChunkMarks {
         IsoChunk chunk = square == null ? null : square.getChunk();
         if (chunk != null) {
             things.getAndIncrement(slot(chunk.wx, chunk.wy));
-            structures.getAndIncrement(slot(chunk.wx, chunk.wy));
+            built(slot(chunk.wx, chunk.wy), square.getZ());
         }
     }
 
@@ -147,6 +184,15 @@ public final class ChunkMarks {
             litLoose.getAndIncrement(slot);
         }
         lights.getAndIncrement(slot);
+    }
+
+    private static void built(int slot, int level) {
+        if (level >= LOWEST_LEVEL && level < LOWEST_LEVEL + LEVELS) {
+            builtLevels.getAndIncrement(slot * LEVELS + level - LOWEST_LEVEL);
+        } else {
+            builtLoose.getAndIncrement(slot);
+        }
+        structures.getAndIncrement(slot);
     }
 
     static int slot(int wx, int wy) {
@@ -176,6 +222,22 @@ public final class ChunkMarks {
         for (int wx = minWx; wx <= maxWx; wx++) {
             for (int wy = minWy; wy <= maxWy; wy++) {
                 sum += structures.get(slot(wx, wy));
+            }
+        }
+        return sum;
+    }
+
+    /** The same for the levels from fromZ to toZ alone, with those marked with no level. */
+    static int structuresIn(int minWx, int minWy, int maxWx, int maxWy, int fromZ, int toZ) {
+        int from = Math.max(fromZ, LOWEST_LEVEL) - LOWEST_LEVEL, to = Math.min(toZ, LOWEST_LEVEL + LEVELS - 1) - LOWEST_LEVEL;
+        int sum = 0;
+        for (int wx = minWx; wx <= maxWx; wx++) {
+            for (int wy = minWy; wy <= maxWy; wy++) {
+                int slot = slot(wx, wy);
+                sum += builtLoose.get(slot);
+                for (int level = from; level <= to; level++) {
+                    sum += builtLevels.get(slot * LEVELS + level);
+                }
             }
         }
         return sum;
