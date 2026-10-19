@@ -54,6 +54,7 @@ Copy-Item -Recurse -Force src/main/resources/* build/dev-classes/
 @(
     'Premain-Class: com.cameraunlock.zomboid.Agent'
     'Agent-Class: com.cameraunlock.zomboid.Agent'
+    'Can-Retransform-Classes: true'
     'Implementation-Title: Project Zomboid Head Tracking'
     "Implementation-Version: $version"
 ) | Set-Content -Encoding ascii build/MANIFEST.MF

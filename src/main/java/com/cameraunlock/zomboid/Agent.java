@@ -168,17 +168,14 @@ public final class Agent {
 
     private static volatile boolean loaded;
 
-    /** True when the mod starts after the game has loaded classes it patches: see startLate. */
-    private static boolean late;
-
-    /** The classes the game had loaded when startLate began, which cannot be given new members. */
+    /** The classes loaded when the mod began, which cannot be given new members: see catchUp. */
     private static final Set<String> loadedBeforeStart = ConcurrentHashMap.newKeySet();
 
     private static final List<PatchTransformer> transformers = new ArrayList<>();
 
     private static void add(Instrumentation instrumentation, PatchTransformer transformer) {
         // Only a transformer added as able to retransform sees the classes retransformLoaded asks for again.
-        instrumentation.addTransformer(transformer, late);
+        instrumentation.addTransformer(transformer, true);
         transformers.add(transformer);
     }
 
@@ -222,7 +219,27 @@ public final class Agent {
     /** Called by the JVM for -javaagent, which is how the development run starts. */
     public static void premain(String arguments, Instrumentation instrumentation) throws IOException {
         Boot.agentStarted();
-        begin(instrumentation);
+        catchUp(instrumentation);
+    }
+
+    /**
+     * Starts the mod and patches again the classes its patches are for that are already loaded.
+     * Started with the game there are usually none, but another agent in the JVM can load game
+     * classes first: ZombieBuddy's loads LuaManager, whose patch puts the mod's settings on the
+     * options screen. Says whether the patches are registered.
+     */
+    private static boolean catchUp(Instrumentation instrumentation) throws IOException {
+        // Listed before any transformer is added: a class that loads after this is patched as it
+        // loads, so only these need patching again, and only these may not be given new members.
+        Class<?>[] before = instrumentation.getAllLoadedClasses();
+        for (Class<?> loadedClass : before) {
+            loadedBeforeStart.add(loadedClass.getName().replace('.', '/'));
+        }
+        if (!begin(instrumentation)) {
+            return false;
+        }
+        retransformLoaded(instrumentation, before);
+        return true;
     }
 
     /**
@@ -237,15 +254,7 @@ public final class Agent {
             Log.info("ZombieBuddy started the Workshop copy, and a copy of the mod started with the game is already in it: the Workshop copy stays out");
             return;
         }
-        late = true;
-        // Listed before any transformer is added: a class that loads after this is patched as it
-        // loads, so only these need patching again, and only these may not be given new members.
-        Class<?>[] before = instrumentation.getAllLoadedClasses();
-        for (Class<?> loadedClass : before) {
-            loadedBeforeStart.add(loadedClass.getName().replace('.', '/'));
-        }
-        if (begin(instrumentation)) {
-            retransformLoaded(instrumentation, before);
+        if (catchUp(instrumentation)) {
             WindowPlacement.centreNewWindow();
             if (org.lwjglx.input.Controllers.isCreated()) {
                 Gamepads.found();
