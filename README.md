@@ -286,7 +286,7 @@ The mouse turns the view. Movement keys follow the direction you face. Moving si
 - Fog is as thick as in the game's own view.
 - From a vehicle seat you shoot only with your window open or broken, and a driver who raises a rifle or shotgun lets go of the wheel, as in the game.
 
-Zombies, rooms and vehicles with no other player in them look as they do offline. In split screen and on a server without PvP, other players are drawn as far off as zombies, where the game's own view from above would leave them out or fade them; an admin the game makes invisible stays invisible. On a server without PvP the mod plays as it does alone, apart from wounds and vehicles: on any server, your own co-op host included, a shot arm or leg leaves a zombie as the game does, and vehicles drive and roll as the game has them, on its level ground, and none burns out on its roof.
+Zombies, rooms and vehicles with no other player in them look as they do offline. In split screen and on a server without PvP, other players are drawn as far off as zombies, where the game's own view from above would leave them out or fade them; an admin the game makes invisible stays invisible. On a server without PvP the mod plays as it does alone, apart from wounds and vehicles: on any server, your own co-op host included, a shot arm or leg leaves a zombie as the game does, and vehicles drive and roll as the game has them, on level ground.
 
 ## Configuration
 
