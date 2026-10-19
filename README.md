@@ -4,7 +4,14 @@
 
 An unofficial head tracking mod for Project Zomboid that moves the view with your head while your mouse or controller keeps aiming, driven by a webcam, phone, or any OpenTrack compatible tracker, with no VR headset required.
 
-It adds a first person view to the game, with a rebuilt world and new graphics.
+It adds a first person view to the game, with a rebuilt world and new graphics. You do not need a head tracker or a microphone, and you choose how much of the mod you see:
+
+- **Isometric with new graphics** - the game starts in its own isometric view, with the game's own picture. Set the isometric view to Medium or High in **Options > Mods > Head Tracking** for the mod's lighting, shadows, models and textures there too.
+- **First person with the game's own look** - press `Delete` for first person. Low keeps the game's own look, apart from furniture, windows and doors, which are 3D in every mode. Each of the mod's own weapons, furniture, pictures, plants, textures, buildings, skins, arms, clothes, fire and vehicle interiors can be put back to the game's own on the same options page.
+- **No head tracker needed** - first person plays with a mouse and keyboard or a controller. Without a tracker, nothing follows your head.
+- **No microphone needed** - Talking mouths is off until you tick it, and no microphone is opened until then.
+
+Offline the mod also changes some of the game's rules, and these have no switch: shots go through thin walls and doors, break lamps, cripple zombies' limbs and can take them off; vehicles knock down fences and street lamp posts, drive through bushes, are barely slowed by zombies, and catch fire when left on their roof. On a server these stay as the game has them.
 
 ## Features
 
@@ -35,7 +42,7 @@ It adds a first person view to the game, with a rebuilt world and new graphics.
 ## Requirements
 
 - [Project Zomboid on Steam](https://store.steampowered.com/app/108600/Project_Zomboid/), tested on build **42.21.0**. The first line of `version.txt` in your `Zomboid` user folder (`C:\Users\<you>\Zomboid`) shows your build. Other stores have not been tested.
-- [OpenTrack](https://github.com/opentrack/opentrack) with a tracking source, or an app that sends the OpenTrack UDP protocol
+- For head tracking only: [OpenTrack](https://github.com/opentrack/opentrack) with a tracking source, or an app that sends the OpenTrack UDP protocol
 - Windows 10 or 11, 64-bit
 - For the Steam Workshop copy: [ZombieBuddy](https://github.com/zed-0xff/ZombieBuddy) 2.x, set up once
 

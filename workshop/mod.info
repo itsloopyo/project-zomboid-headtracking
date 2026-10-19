@@ -1,7 +1,7 @@
 name=Project Zomboid Head Tracking
 id=ProjectZomboidHeadTracking
 author=itsloopyo
-description=Head tracking and a first person view. Needs ZombieBuddy 2.x and an OpenTrack compatible tracker.
+description=A graphics overhaul, first person, head tracking and lip syncing, each optional: no tracker or microphone needed. Needs ZombieBuddy 2.x.
 poster=poster.png
 url=https://github.com/itsloopyo/project-zomboid-headtracking
 modversion=@VERSION@
