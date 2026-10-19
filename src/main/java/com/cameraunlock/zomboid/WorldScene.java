@@ -997,6 +997,8 @@ final class WorldScene {
     private static final Set<String> bannersUnpainted = ConcurrentHashMap.newKeySet();
     /** The lighting engine's count of its passes when each chunk's lights were last asked after, and the game's own note on the chunk of when it last took them. */
     private final int[] litAt = new int[TABLE_SIDE * TABLE_SIDE], litByGame = new int[TABLE_SIDE * TABLE_SIDE];
+    /** The storey of the viewer's building each slot's light was last asked for from, or Integer.MAX_VALUE for every level: see pullLights. */
+    private final int[] litFor = new int[TABLE_SIDE * TABLE_SIDE];
     private long tollQuiet, tollPulls, tollPulled, tollAgedDiffered, tollAgedSame, tollAgedSamePlain, tollRestless;
     /** Dev only: the chunks built ahead of the view's turning to them since the last asking, and the time that took. */
     private long tollAhead, tollAheadNanos;
@@ -2601,6 +2603,9 @@ final class WorldScene {
         private boolean tallying;
         private int chunksQuiet;
 
+        /** How many storeys under the one the viewer's building is held from have their light asked for: the eye's, the one over it and two under it. */
+        private static final int STOREYS_LIT = 4;
+
         /**
          * Asks the lighting engine, once for each of its passes, whether a chunk's lights have
          * changed, and has the game take them where they have. The game holds a copy of each
@@ -2615,15 +2620,25 @@ final class WorldScene {
          */
         private void pullLights(IsoChunk chunk, int slot, int lowest) {
             int pass = LightingJNI.getUpdateCounter(playerIndex);
-            boolean taken = chunk.lightingUpdateCounter != litByGame[slot];
+            // In the viewer's building only the storeys round the eye's are asked for: those over
+            // it are held (heldFrom), and those further under are seen, if at all, down a
+            // stairwell. Each asking for a storey marks it for its light, and every mark built
+            // the whole tower's column again. Moved to another storey, every level now asked for
+            // is taken once, as what was left unasked may have changed.
+            int chunkX = chunk.wx * CHUNK_TILES, chunkY = chunk.wy * CHUNK_TILES;
+            int storey = heldFrom != Integer.MAX_VALUE && chunkX < heldMaxX && chunkX + CHUNK_TILES > heldMinX && chunkY < heldMaxY && chunkY + CHUNK_TILES > heldMinY
+                    ? heldFrom : Integer.MAX_VALUE;
+            boolean taken = chunk.lightingUpdateCounter != litByGame[slot] || storey != litFor[slot];
             if (pass == litAt[slot] && !taken) {
                 return;
             }
             litAt[slot] = pass;
             litByGame[slot] = chunk.lightingUpdateCounter;
+            litFor[slot] = storey;
             FBORenderLevels levels = chunk.getRenderLevels(playerIndex);
             boolean gameAsks = !view.firstPerson.coversTheGamesView();
-            for (int z = Math.max(lowest, chunk.getMinLevel()); z <= chunk.getMaxLevel(); z++) {
+            int top = storey == Integer.MAX_VALUE ? chunk.getMaxLevel() : Math.min(chunk.getMaxLevel(), storey - 1);
+            for (int z = Math.max(storey == Integer.MAX_VALUE ? lowest : Math.max(lowest, storey - STOREYS_LIT), chunk.getMinLevel()); z <= top; z++) {
                 tollPulls++;
                 if (!taken && (gameAsks && levels.isOnScreen(z) || !LightingJNI.getChunkDirty(playerIndex, chunk.wx, chunk.wy, z + 32))) {
                     continue;
