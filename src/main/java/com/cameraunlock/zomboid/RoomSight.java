@@ -122,7 +122,15 @@ final class RoomSight {
         }
 
         void addAll(Openings other) {
+            addAll(other, Integer.MIN_VALUE, Integer.MAX_VALUE);
+        }
+
+        /** Adds the openings of another on the levels from fromZ to toZ, both included. */
+        void addAll(Openings other, int fromZ, int toZ) {
             for (int i = 0; i < other.count; i++) {
+                if (other.z[i] < fromZ || other.z[i] > toZ) {
+                    continue;
+                }
                 add(other.x[i], other.y[i], other.z[i], other.kind[i], other.here[i], other.there[i], other.hereBuilding[i], other.thereBuilding[i],
                         other.heights[i * 4], other.heights[i * 4 + 1], other.heights[i * 4 + 2], other.heights[i * 4 + 3]);
             }

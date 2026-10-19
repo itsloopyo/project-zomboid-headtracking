@@ -121,8 +121,8 @@ final class RoomMap implements Acoustics.Walls, RoomDaylight.Edges {
     }
 
     /** Adds the openings of a chunk read lately to what is heard round a listener. */
-    void addOpeningsTo(IsoChunk chunk, RoomSight.Openings into) {
-        into.addAll(kept[ChunkMarks.slot(chunk.wx, chunk.wy)]);
+    void addOpeningsTo(IsoChunk chunk, RoomSight.Openings into, int fromZ, int toZ) {
+        into.addAll(kept[ChunkMarks.slot(chunk.wx, chunk.wy)], fromZ, toZ);
     }
 
     /** Adds the openings and blocks of a chunk read lately to a frame's. */

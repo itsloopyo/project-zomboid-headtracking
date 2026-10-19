@@ -1032,17 +1032,18 @@ final class WorldScene {
     }
 
     /**
-     * Logic thread: the room map, ready to be read, and the openings of every loaded chunk of a
-     * player's map whose middle is within reach of a point, each chunk read again if it may
+     * Logic thread: the room map, ready to be read, and the openings on the levels from fromZ
+     * to toZ of every loaded chunk of a player's map whose middle is within reach of a point,
+     * each chunk read again if it may
      * have changed. The openings are gathered into {@code into} only when the chunks or what
      * was read of them differ from the last gathering, whose number is {@code last}: the
      * number of this one is returned.
      */
-    long openingsAround(IsoCell cell, int playerIndex, float x, float y, float reach, RoomSight.Openings into, long last) {
+    long openingsAround(IsoCell cell, int playerIndex, float x, float y, float reach, int fromZ, int toZ, RoomSight.Openings into, long last) {
         roomMap.begin(cell, terrain);
         IsoChunkMap map = cell.getChunkMap(playerIndex);
         int side = IsoChunkMap.chunkGridWidth;
-        long now = System.nanoTime(), gathering = 17L;
+        long now = System.nanoTime(), gathering = (17L * 31 + fromZ) * 31 + toZ;
         for (int pass = 0; pass < 2; pass++) {
             if (pass == 1) {
                 if (gathering == last) {
@@ -1061,7 +1062,7 @@ final class WorldScene {
                         int readings = roomMap.read(chunk, north != null && north.loaded ? north : null, west != null && west.loaded ? west : null, ChunkMarks.live, now);
                         gathering = ((gathering * 31 + chunk.wx) * 31 + chunk.wy) * 31 + readings;
                     } else {
-                        roomMap.addOpeningsTo(chunk, into);
+                        roomMap.addOpeningsTo(chunk, into, fromZ, toZ);
                     }
                 }
             }
