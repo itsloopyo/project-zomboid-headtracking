@@ -1,4 +1,5 @@
 version=1
+id=3823224669
 title=Project Zomboid Head Tracking
 description=A graphics overhaul for Project Zomboid that adds a first person mode and OpenTrack compatible head tracking with microphone lip syncing for maximum immersion. Every part is optional.
 description=
