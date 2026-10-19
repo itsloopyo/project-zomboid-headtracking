@@ -25,6 +25,7 @@
 - `E` uses the door, window, curtain, light switch, container or item under the reticle, leaning and head turns included. What it will use is outlined.
 - Right click with the pointer out opens the game's own menu for what the pointer is on, the same as in the isometric view.
 - A single quick click is enough for a melee attack.
+- Moving sideways or backwards in first person, your character keeps facing where you look, in the game's aiming stance.
 - Controller: the aim stick turns the view, right trigger attacks, left trigger raises the sights, double-tap Back switches view.
 - If no plugged-in gamepad is ticked in the game's Controller options, every gamepad the game recognises plays. A 3Dconnexion SpaceMouse is never taken as a controller.
 - Every mod key can be rebound in `[Hotkeys]`. Mod keys do nothing in the main menu or while typing.
@@ -139,7 +140,7 @@
 - Online, players who have the mod see each other's heads turn with their trackers. It goes through the game's own player updates, so the server needs no mod. Players without the mod see your character's head as the game poses it.
 - Names and speech appear over other players' heads in first person.
 - In split screen and on servers without PvP, other players are drawn as far off as zombies.
-- On PvP servers: leaning doesn't move your shot, moving sideways or backwards uses the game's aiming stance, hills are fixed at height 1, fog is as thick as in the game's own view, other players are shown only as the game shows them, a shot at a player hits the part the game rolls, and nothing is hidden by draw distance.
+- On PvP servers: leaning doesn't move your shot, hills are fixed at height 1, fog is as thick as in the game's own view, other players are shown only as the game shows them, a shot at a player hits the part the game rolls, and nothing is hidden by draw distance.
 - Wounds, limb loss, bullet penetration, shooting out lamps and vehicle physics are single player only.
 - Up to four players at one screen, each with first person and their own head tracker on ports `4243`, `4244` and `4245`. Tap `Delete` twice for player 2, three times for player 3 and four times for player 4, or hold it for everyone.
 - Each player at the screen has their own graphics mode and picture style. Tap `F9` or `F8` once to four times for players 1 to 4, or hold it for everyone. Players 2, 3 and 4 keep theirs in `[Players]`.

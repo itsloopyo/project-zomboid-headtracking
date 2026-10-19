@@ -49,6 +49,7 @@ public final class Tests {
         // And of a game in which the pictures the mod's own is drawn from have been made, which a test has no graphics card to make.
         Own.picturesMade(true);
         Checks.run("cameraLooksAlongItsYaw", Tests::cameraLooksAlongItsYaw);
+        Checks.run("keysAheadAreToldFromKeysAside", Tests::keysAheadAreToldFromKeysAside);
         Checks.run("cameraFollowsTheAnimatedHead", Tests::cameraFollowsTheAnimatedHead);
         Checks.run("cameraPutsPlusYOnTheRightWhenFacingPlusX", Tests::cameraPutsPlusYOnTheRightWhenFacingPlusX);
         Checks.run("cameraPutsHigherPointsHigher", Tests::cameraPutsHigherPointsHigher);
@@ -2291,6 +2292,18 @@ public final class Tests {
         ViewCamera.eyeOffset(0f, 0.41f, -0.186f, (float) (Math.PI / 2), (float) (Math.PI / 2), turned);
         check(near(turned[0], -crouching[1]) && near(turned[1], crouching[0]) && near(turned[2], crouching[2]),
                 "turning the body and look together rotates the eye offset without changing its height");
+    }
+
+    private static void keysAheadAreToldFromKeysAside() {
+        // As the game hands them over: forward is up the screen, and one key is 1.95 long.
+        check(!Stride.aside(0f, -1.95f), "forward is ahead");
+        check(!Stride.aside(1.38f, -1.38f), "forward with the right key is ahead");
+        check(!Stride.aside(-1.38f, -1.38f), "forward with the left key is ahead");
+        check(Stride.aside(1.95f, 0f), "the right key alone is aside");
+        check(Stride.aside(-1.95f, 0f), "the left key alone is aside");
+        check(Stride.aside(0f, 1.95f), "back is aside");
+        check(Stride.aside(1.38f, 1.38f), "back with a sideways key is aside");
+        check(!Stride.aside(0f, 0f), "no key is no walk at all");
     }
 
     private static void cameraLooksAlongItsYaw() {

@@ -235,7 +235,7 @@ Every key except `Delete` saves its new setting to `CameraUnlock.ini` as you pre
 
 ### Mouse and keyboard
 
-The mouse turns the view. Movement keys follow the direction you face.
+The mouse turns the view. Movement keys follow the direction you face. Moving sideways or backwards, your character keeps facing where you look and walks in the game's aiming stance, at that stance's pace.
 
 | Input | Action |
 | --- | --- |
@@ -265,7 +265,6 @@ The mouse turns the view. Movement keys follow the direction you face.
 
 - Other players are shown only as the game shows them, and a shot at a player hits the body part the game rolls.
 - With firearm sights up, a sideways lean eases out, so leaning never moves where a shot starts.
-- In first person, moving sideways or backwards puts your character in the game's aiming stance, at that stance's pace, so other players see it face where you look.
 - Hills stand at height 1 whatever you set, and zombies and props are drawn at full distance.
 - Fog is as thick as in the game's own view.
 - From a vehicle seat you shoot only with your window open or broken, and a driver who raises a rifle or shotgun lets go of the wheel, as in the game.

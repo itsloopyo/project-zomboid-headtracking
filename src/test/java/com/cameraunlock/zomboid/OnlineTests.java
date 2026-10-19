@@ -12,7 +12,6 @@ public final class OnlineTests {
     private OnlineTests() {}
 
     static void run() {
-        Checks.run("keysAheadAreToldFromKeysAside", OnlineTests::keysAheadAreToldFromKeysAside);
         Checks.run("onlyAServerThatLetsPlayersFightHoldsAnythingBack", OnlineTests::onlyAServerThatLetsPlayersFightHoldsAnythingBack);
         Checks.run("aViewIsOnAPersonFromFeetToHead", OnlineTests::aViewIsOnAPersonFromFeetToHead);
         Checks.run("aCallIsHandedToItsReplacement", OnlineTests::aCallIsHandedToItsReplacement);
@@ -50,12 +49,12 @@ public final class OnlineTests {
     }
 
     private static void onlyAServerThatLetsPlayersFightHoldsAnythingBack() {
-        Servers.in(Servers.Where.ALONE, () -> check(!Online.joined() && !Online.contested() && Online.leanCarriesTheShot() && !Online.bodyFacesTheView(),
-                "alone the lean carries the shot and the body walks as it likes"));
-        Servers.in(Servers.Where.FRIENDLY, () -> check(Online.joined() && !Online.contested() && Online.leanCarriesTheShot() && !Online.bodyFacesTheView(),
+        Servers.in(Servers.Where.ALONE, () -> check(!Online.joined() && !Online.contested() && Online.leanCarriesTheShot(),
+                "alone the lean carries the shot"));
+        Servers.in(Servers.Where.FRIENDLY, () -> check(Online.joined() && !Online.contested() && Online.leanCarriesTheShot(),
                 "on a server where players cannot hurt each other nothing is held back either"));
-        Servers.in(Servers.Where.CONTESTED, () -> check(Online.joined() && Online.contested() && !Online.leanCarriesTheShot() && Online.bodyFacesTheView(),
-                "on one where they can, the lean does not carry the shot and the body faces the view"));
+        Servers.in(Servers.Where.CONTESTED, () -> check(Online.joined() && Online.contested() && !Online.leanCarriesTheShot(),
+                "on one where they can, the lean does not carry the shot"));
         Servers.in(Servers.Where.ALONE, () -> {
             zombie.network.ServerOptions.getInstance().pvp.setValue(true);
             check(!Online.contested(), "a game played alone is no fight whatever its own server options say");
@@ -77,18 +76,6 @@ public final class OnlineTests {
         for (Servers.Where where : Servers.Where.values()) {
             Servers.in(where, () -> check(!Online.drawnAsFarAsZombies(true), "an invisible player stays the game's " + where));
         }
-    }
-
-    private static void keysAheadAreToldFromKeysAside() {
-        // As the game hands them over: forward is up the screen, and one key is 1.95 long.
-        check(!Online.aside(0f, -1.95f), "forward is ahead");
-        check(!Online.aside(1.38f, -1.38f), "forward with the right key is ahead");
-        check(!Online.aside(-1.38f, -1.38f), "forward with the left key is ahead");
-        check(Online.aside(1.95f, 0f), "the right key alone is aside");
-        check(Online.aside(-1.95f, 0f), "the left key alone is aside");
-        check(Online.aside(0f, 1.95f), "back is aside");
-        check(Online.aside(1.38f, 1.38f), "back with a sideways key is aside");
-        check(!Online.aside(0f, 0f), "no key is no walk at all");
     }
 
     private static void aViewIsOnAPersonFromFeetToHead() {

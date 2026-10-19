@@ -78,29 +78,4 @@ final class Online {
     static boolean woundsTell() {
         return !joined();
     }
-
-    /**
-     * Whether the body has to face the way the view does. The game shows a player only what
-     * is in front of their character, and other players read which way a character faces to
-     * tell what its player can see. In first person what is seen is what the view faces,
-     * while a character that is not aiming turns to the way it walks: walking backwards it
-     * shows its back to what its player is looking at. Where players fight, a character
-     * that moves any way but ahead is put in the game's own aiming stance, which is the one
-     * way the game has of facing one way and moving another, at the pace it gives that.
-     */
-    static boolean bodyFacesTheView() {
-        return contested();
-    }
-
-    /** The cosine of how far from straight ahead the movement keys may ask and still count as ahead: forward with a sideways key is. */
-    private static final float AHEAD_AT_LEAST = 0.6f;
-
-    /**
-     * Whether the movement keys ask for a way that is not ahead of the view: sideways or back.
-     * As the game hands the keys over they are a direction on the screen, where forward is up.
-     */
-    static boolean aside(float keysX, float keysY) {
-        float length = (float) Math.hypot(keysX, keysY);
-        return length > 0f && -keysY / length < AHEAD_AT_LEAST;
-    }
 }

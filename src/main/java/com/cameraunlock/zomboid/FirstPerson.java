@@ -1733,7 +1733,7 @@ public final class FirstPerson {
             }
             return move;
         }
-        movingAside = Online.aside(move.x, move.y);
+        movingAside = Stride.aside(move.x, move.y);
         float turn = stride.turn(move.x, move.y, yaw, STOCK_FORWARD_YAW, System.nanoTime());
         float cos = (float) Math.cos(turn);
         float sin = (float) Math.sin(turn);

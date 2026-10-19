@@ -21,6 +21,18 @@ final class Stride {
     /** How long after the landing a change of keys still means the walk the switch found. */
     static final long ADJUST_NANOS = 500_000_000L;
 
+    /** The cosine of how far from straight ahead the movement keys may ask and still count as ahead: forward with a sideways key is. */
+    private static final float AHEAD_AT_LEAST = 0.6f;
+
+    /**
+     * Whether the movement keys ask for a way that is not ahead of the view: sideways or back.
+     * As the game hands the keys over they are a direction on the screen, where forward is up.
+     */
+    static boolean aside(float keysX, float keysY) {
+        float length = (float) Math.hypot(keysX, keysY);
+        return length > 0f && -keysY / length < AHEAD_AT_LEAST;
+    }
+
     private boolean kept;
     private boolean flying;
     private float keptX, keptY;
