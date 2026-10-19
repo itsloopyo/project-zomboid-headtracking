@@ -227,6 +227,17 @@ public final class ChunkMarks {
         return sum;
     }
 
+    /** The marks on a box of chunks that may be part of a building and were marked with no level. */
+    static int structuresLoose(int minWx, int minWy, int maxWx, int maxWy) {
+        int sum = 0;
+        for (int wx = minWx; wx <= maxWx; wx++) {
+            for (int wy = minWy; wy <= maxWy; wy++) {
+                sum += builtLoose.get(slot(wx, wy));
+            }
+        }
+        return sum;
+    }
+
     /** The same for the levels from fromZ to toZ alone, with those marked with no level. */
     static int structuresIn(int minWx, int minWy, int maxWx, int maxWy, int fromZ, int toZ) {
         int from = Math.max(fromZ, LOWEST_LEVEL) - LOWEST_LEVEL, to = Math.min(toZ, LOWEST_LEVEL + LEVELS - 1) - LOWEST_LEVEL;

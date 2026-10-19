@@ -40,6 +40,10 @@ final class RoomMap implements Acoustics.Walls, RoomDaylight.Edges {
     private final RoomSight.Seen[] keptRooms = new RoomSight.Seen[SIDE * SIDE];
     private final IsoChunk[] keptChunk = new IsoChunk[SIDE * SIDE], keptNorth = new IsoChunk[SIDE * SIDE], keptWest = new IsoChunk[SIDE * SIDE];
     private final int[] keptMarks = new int[SIDE * SIDE], keptLevels = new int[SIDE * SIDE];
+    /** Each kept chunk's openings level by level, from its lowest, and the marks each level was read at, and those marked with no level. */
+    private final RoomSight.Openings[][] keptByLevel = new RoomSight.Openings[SIDE * SIDE][];
+    private final int[][] keptLevelMarks = new int[SIDE * SIDE][];
+    private final int[] keptLoose = new int[SIDE * SIDE];
     private final long[] keptNanos = new long[SIDE * SIDE];
     /** How many times each chunk has been read: a frame whose chunks were all read before, and are the same chunks, has the same openings. */
     private final int[] keptReadings = new int[SIDE * SIDE];
@@ -65,6 +69,8 @@ final class RoomMap implements Acoustics.Walls, RoomDaylight.Edges {
         Arrays.fill(keptChunk, null);
         Arrays.fill(keptNorth, null);
         Arrays.fill(keptWest, null);
+        Arrays.fill(keptByLevel, null);
+        Arrays.fill(keptLevelMarks, null);
     }
 
     /**
@@ -81,8 +87,15 @@ final class RoomMap implements Acoustics.Walls, RoomDaylight.Edges {
         int levels = chunk.getMinLevel() * 1000 + chunk.getMaxLevel();
         RoomSight.Openings openings = kept[slot];
         RoomSight.Blocks blocks = keptBlocks[slot];
-        if (openings == null || keptChunk[slot] != chunk || keptNorth[slot] != north || keptWest[slot] != west || keptMarks[slot] != marks
-                || keptLevels[slot] != levels || !told && now - keptNanos[slot] >= REREAD_UNTOLD_NANOS) {
+        boolean same = openings != null && keptChunk[slot] == chunk && keptNorth[slot] == north && keptWest[slot] == west && keptLevels[slot] == levels
+                && (told || now - keptNanos[slot] < REREAD_UNTOLD_NANOS);
+        if (same && keptMarks[slot] != marks && readLevels(chunk, slot)) {
+            keptMarks[slot] = marks;
+            keptNanos[slot] = now;
+            keptReadings[slot]++;
+            return keptReadings[slot];
+        }
+        if (!same || keptMarks[slot] != marks) {
             if (openings == null) {
                 openings = kept[slot] = new RoomSight.Openings();
                 blocks = keptBlocks[slot] = new RoomSight.Blocks();
@@ -97,17 +110,18 @@ final class RoomMap implements Acoustics.Walls, RoomDaylight.Edges {
                 blocks.scanRow(this, fromX, fromX + WorldScene.CHUNK_TILES, y);
             }
             // The gap over the highest level is to whatever is above it, which is open air.
-            for (int z = chunk.getMinLevel(); z <= chunk.getMaxLevel(); z++) {
-                for (int x = fromX; x < fromX + WorldScene.CHUNK_TILES; x++) {
-                    for (int y = fromY; y < fromY + WorldScene.CHUNK_TILES; y++) {
-                        openings.scan(this, x, y, z);
-                        long room = region(x, y, z);
-                        if (room != RoomSight.OUTSIDE) {
-                            rooms.add(room);
-                        }
-                    }
-                }
+            int count = chunk.getMaxLevel() - chunk.getMinLevel() + 1;
+            if (keptByLevel[slot] == null || keptByLevel[slot].length < count) {
+                keptByLevel[slot] = new RoomSight.Openings[count];
+                keptLevelMarks[slot] = new int[count];
             }
+            for (int z = chunk.getMinLevel(); z <= chunk.getMaxLevel(); z++) {
+                int at = z - chunk.getMinLevel();
+                keptLevelMarks[slot][at] = levelMarks(chunk, z);
+                scanLevel(chunk, slot, z, rooms);
+                openings.addAll(keptByLevel[slot][at]);
+            }
+            keptLoose[slot] = ChunkMarks.structuresLoose(chunk.wx - 1, chunk.wy - 1, chunk.wx + 1, chunk.wy + 1);
             keptChunk[slot] = chunk;
             keptNorth[slot] = north;
             keptWest[slot] = west;
@@ -123,6 +137,71 @@ final class RoomMap implements Acoustics.Walls, RoomDaylight.Edges {
     /** Adds the openings of a chunk read lately to what is heard round a listener. */
     void addOpeningsTo(IsoChunk chunk, RoomSight.Openings into, int fromZ, int toZ) {
         into.addAll(kept[ChunkMarks.slot(chunk.wx, chunk.wy)], fromZ, toZ);
+    }
+
+    /**
+     * Reads again only the levels of a kept chunk marked since it was read, and those either
+     * side of them, whose openings up or down go by them: a tower's chunk is thirty levels, and
+     * a door opened on one had every level of the chunk and the eight round it read again.
+     * False where it cannot: the chunk's levels have changed in number, or something marked
+     * with no level.
+     */
+    private boolean readLevels(IsoChunk chunk, int slot) {
+        int count = chunk.getMaxLevel() - chunk.getMinLevel() + 1;
+        int[] marked = keptLevelMarks[slot];
+        if (marked == null || keptByLevel[slot].length < count
+                || ChunkMarks.structuresLoose(chunk.wx - 1, chunk.wy - 1, chunk.wx + 1, chunk.wy + 1) != keptLoose[slot]) {
+            return false;
+        }
+        long changed = 0L;
+        for (int z = chunk.getMinLevel(); z <= chunk.getMaxLevel(); z++) {
+            int at = z - chunk.getMinLevel(), now = levelMarks(chunk, z);
+            if (now != marked[at]) {
+                marked[at] = now;
+                changed |= 7L << at >> 1;
+            }
+        }
+        RoomSight.Openings openings = kept[slot];
+        openings.clear();
+        RoomSight.Blocks blocks = keptBlocks[slot];
+        blocks.clear();
+        int fromX = chunk.wx * WorldScene.CHUNK_TILES, fromY = chunk.wy * WorldScene.CHUNK_TILES;
+        for (int y = fromY; y < fromY + WorldScene.CHUNK_TILES; y++) {
+            blocks.scanRow(this, fromX, fromX + WorldScene.CHUNK_TILES, y);
+        }
+        for (int z = chunk.getMinLevel(); z <= chunk.getMaxLevel(); z++) {
+            int at = z - chunk.getMinLevel();
+            if ((changed >> at & 1L) != 0L) {
+                scanLevel(chunk, slot, z, keptRooms[slot]);
+            }
+            openings.addAll(keptByLevel[slot][at]);
+        }
+        return true;
+    }
+
+    /** The marks of a level of the chunk and the eight round it, without those marked with no level. */
+    private static int levelMarks(IsoChunk chunk, int z) {
+        return ChunkMarks.structuresIn(chunk.wx - 1, chunk.wy - 1, chunk.wx + 1, chunk.wy + 1, z, z)
+                - ChunkMarks.structuresLoose(chunk.wx - 1, chunk.wy - 1, chunk.wx + 1, chunk.wy + 1);
+    }
+
+    /** Reads one level of a chunk's openings into what is kept of that level, and its rooms into a set. */
+    private void scanLevel(IsoChunk chunk, int slot, int z, RoomSight.Seen rooms) {
+        RoomSight.Openings level = keptByLevel[slot][z - chunk.getMinLevel()];
+        if (level == null) {
+            level = keptByLevel[slot][z - chunk.getMinLevel()] = new RoomSight.Openings();
+        }
+        level.clear();
+        int fromX = chunk.wx * WorldScene.CHUNK_TILES, fromY = chunk.wy * WorldScene.CHUNK_TILES;
+        for (int x = fromX; x < fromX + WorldScene.CHUNK_TILES; x++) {
+            for (int y = fromY; y < fromY + WorldScene.CHUNK_TILES; y++) {
+                level.scan(this, x, y, z);
+                long room = region(x, y, z);
+                if (room != RoomSight.OUTSIDE) {
+                    rooms.add(room);
+                }
+            }
+        }
     }
 
     /** Adds the openings and blocks of a chunk read lately to a frame's. */
