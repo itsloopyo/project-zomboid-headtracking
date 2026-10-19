@@ -276,7 +276,7 @@ final class Trims {
         float[] section = section(band);
         float skinX = inX * WorldScene.WALL_HALF, skinY = inY * WorldScene.WALL_HALF;
         float from = band.from, to = band.to;
-        float[] lit = new float[4];
+        float[] lit = new float[5];
         for (int i = 0; i + 3 < section.length; i += 2) {
             float out0 = section[i], up0 = section[i + 1], out1 = section[i + 2], up1 = section[i + 3];
             float dOut = out1 - out0, dUp = up1 - up0;
@@ -319,11 +319,12 @@ final class Trims {
     private static void corner(SpriteGeometry.Mesh mesh, Band band, Light light, float[] lit, float x, float y, float up) {
         light.at(x, y, lit);
         mesh.unlit = lit[3];
+        mesh.day = lit[4];
         mesh.add(x, y, up, 0f, 0f, band.red * lit[0], band.green * lit[1], band.blue * lit[2]);
-        mesh.unlit = SpriteGeometry.AS_FACE;
+        mesh.litAsFace();
     }
 
-    /** The light at a place on the square, as red, green and blue into, then what it has of a light the game has not given (SpriteGeometry.Mesh.unlit). */
+    /** The light at a place on the square, as red, green and blue into, then what it has of a light the game has not given and of the day (SpriteGeometry.Mesh.unlit and day). */
     interface Light {
         void at(float x, float y, float[] into);
     }

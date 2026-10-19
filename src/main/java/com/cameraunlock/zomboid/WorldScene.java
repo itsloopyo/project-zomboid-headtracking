@@ -757,9 +757,9 @@ final class WorldScene {
     private float nightOpen = Evening.NIGHT_OPEN;
     /** The open ground's light as the game has it and how much of its daylight the picture keeps, for whoever lights a thing by its square. */
     volatile float openNow, daylightKeptNow = 1f, roomKeptNow = 1f;
-    /** Whether the frame last built lit rooms by the day they let in, how much of the day there was, and the open ground's light: see Frame.daylit. */
+    /** Whether the frame last built lit rooms by the day they let in, how much of the day there was, and the open ground's light by as much of it, in its steps: see Frame.daylit. */
     volatile boolean roomsDaylitNow;
-    volatile float dayNow, openRedNow, openGreenNow, openBlueNow;
+    volatile float dayNow, dayRedNow, dayGreenNow, dayBlueNow;
     private static final int REMAKES_A_FRAME = 12;
     private static final IdentityHashMap<IsoSprite, Boolean> meshes = new IdentityHashMap<>();
 
@@ -1021,10 +1021,10 @@ final class WorldScene {
         if (!roomsDaylitNow || day <= 0f || square.getRoomID() == RoomSight.OUTSIDE) {
             return light;
         }
-        float share = day * roomDaylight.sharedAt(square);
-        into.r = Math.max(light.r, share * openRedNow);
-        into.g = Math.max(light.g, share * openGreenNow);
-        into.b = Math.max(light.b, share * openBlueNow);
+        float share = roomDaylight.sharedAt(square);
+        into.r = Math.max(light.r, share * dayRedNow);
+        into.g = Math.max(light.g, share * dayGreenNow);
+        into.b = Math.max(light.b, share * dayBlueNow);
         into.a = light.a;
         return into;
     }
@@ -2472,6 +2472,13 @@ final class WorldScene {
         private long daylitAt;
         /** How much of the day there is (Evening.day), in steps of 1 / DAY_STEPS. A room has the day it lets in by as much. */
         private float day;
+        /**
+         * The open ground's light by as much of the day as there is, in steps of 1 / DAY_STEPS: a
+         * room the game has lit is built lit at least by its share of it (daylit). In steps, so
+         * the builds go by it only as it moves a step; the rooms it has not lit take it in the
+         * picture (SkyState.daylight).
+         */
+        private final float[] dayLight = new float[3];
         /** Where TorchLess writes a square's light when the viewer's torch is on the square. */
         final ColorInfo torchless = new ColorInfo();
         final float[] box = new float[4];
@@ -2526,7 +2533,9 @@ final class WorldScene {
         final byte[] lightOpen = new byte[LIGHT_SPAN * LIGHT_SPAN];
         /** Each square's kind of light: OWN_LIGHT, ROOM_LIT, LAMP_LIT or OPEN_LIT. */
         final byte[] lightUnseen = new byte[LIGHT_SPAN * LIGHT_SPAN];
-        final float[] heldRed = new float[4], heldGreen = new float[4], heldBlue = new float[4], heldUnlit = new float[5];
+        /** For a square lit by ROOM_LIT or LAMP_LIT, the share of the open ground's light its room lets in by day (dayShare), or 0. */
+        final float[] lightDay = new float[LIGHT_SPAN * LIGHT_SPAN];
+        final float[] heldRed = new float[4], heldGreen = new float[4], heldBlue = new float[4], heldUnlit = new float[SpriteGeometry.Frame.UNLIT_FLOATS];
         /**
          * The lights of every level of the chunk last summed, as readLights left each: a chunk
          * found changed is built in the same frame, and its build takes them from here in place
@@ -2535,6 +2544,7 @@ final class WorldScene {
          * from the build has nothing kept, and keptLevels has a bit for each level that has.
          */
         private float[] keptRed = new float[0], keptGreen = new float[0], keptBlue = new float[0];
+        private float[] keptDay = new float[0];
         private byte[] keptOpen = new byte[0], keptUnseen = new byte[0];
         private int keptWx, keptWy, keptFrom, keptTo, keptFrame = -1;
         /**
@@ -2992,9 +3002,13 @@ final class WorldScene {
             day = Math.round(Evening.day(sky.sunUp) * DAY_STEPS) / (float) DAY_STEPS;
             roomsDaylitNow = roomsDaylit;
             dayNow = day;
-            openRedNow = unseenRed;
-            openGreenNow = unseenGreen;
-            openBlueNow = unseenBlue;
+            for (int i = 0; i < 3; i++) {
+                float open = i == 0 ? unseenRed : i == 1 ? unseenGreen : unseenBlue;
+                dayLight[i] = roomsDaylit ? Math.round(day * open * DAY_STEPS) / (float) DAY_STEPS : 0f;
+            }
+            dayRedNow = dayLight[0];
+            dayGreenNow = dayLight[1];
+            dayBlueNow = dayLight[2];
             roomMap.begin(cell, terrain);
             daylitAt = start;
             // Until a room has been in sight, a room is lit as the open ground is, and one with a lamp burning at least as a lamp lights.
@@ -3002,9 +3016,11 @@ final class WorldScene {
             float lamp = lampLevel < 0f ? LAMP_AT_LEAST : lampLevel;
             float eased = unlitEasedAt == 0L ? 1f : 1f - (float) Math.exp(-(start - unlitEasedAt) / 1e9 / UNLIT_EASE_SECONDS);
             unlitEasedAt = start;
+            float dayNowFull = roomsDaylit ? Evening.day(sky.sunUp) : 0f;
             for (int i = 0; i < 3; i++) {
                 float open = i == 0 ? unseenRed : i == 1 ? unseenGreen : unseenBlue, room = Math.min(open * share, 1f);
                 sky.openUnlit[i] += (open - sky.openUnlit[i]) * eased;
+                sky.daylight[i] += (dayNowFull * open - sky.daylight[i]) * eased;
                 sky.roomLight[i] += (room - sky.roomLight[i]) * eased;
                 sky.lampLight[i] += (Math.max(room, lamp) - sky.lampLight[i]) * eased;
             }
@@ -4259,6 +4275,7 @@ final class WorldScene {
                     System.arraycopy(keptBlue, at, lightBlue, 0, lightRed.length);
                     System.arraycopy(keptOpen, at, lightOpen, 0, lightRed.length);
                     System.arraycopy(keptUnseen, at, lightUnseen, 0, lightRed.length);
+                    System.arraycopy(keptDay, at, lightDay, 0, lightRed.length);
                 } else {
                     tallying = !growing && !afresh;
                     readLights(chunkX, chunkY, z);
@@ -4272,6 +4289,7 @@ final class WorldScene {
                         System.arraycopy(lightBlue, 0, keptBlue, at, lightRed.length);
                         System.arraycopy(lightOpen, 0, keptOpen, at, lightRed.length);
                         System.arraycopy(lightUnseen, 0, keptUnseen, at, lightRed.length);
+                        System.arraycopy(lightDay, 0, keptDay, at, lightRed.length);
                         keptLevels |= 1L << (z - keptFrom);
                     }
                 }
@@ -4416,8 +4434,8 @@ final class WorldScene {
                     && chunkX < heldMaxX && chunkX + CHUNK_TILES > heldMinX && chunkY < heldMaxY && chunkY + CHUNK_TILES > heldMinY;
             readUnseen = sum(SUM_FROM, gamesView ? 1 : 0);
             readUnseen = sum(readUnseen, asTheGameShows ? 1 : 0);
-            // A room's daylight goes by the hour as well (daylit): read again at each step of DAY_STEPS through dusk and dawn.
-            readUnseen = sum(readUnseen, roomsDaylit ? Math.round(day * DAY_STEPS) : -1);
+            // A lit room's daylight goes by the hour and the open ground's light as well (daylit): read again at each step of it.
+            readUnseen = sum(sum(sum(sum(readUnseen, roomsDaylit ? 1 : 0), Math.round(dayLight[0] * DAY_STEPS)), Math.round(dayLight[1] * DAY_STEPS)), Math.round(dayLight[2] * DAY_STEPS));
             readByLevel = readFor != null && readFor.sumFrom == from && readFor.sumTo == to && readFor.unseenRead == readUnseen;
             readFrom = from;
             readTo = to;
@@ -4456,6 +4474,7 @@ final class WorldScene {
                 keptBlue = new float[keptRed.length];
                 keptOpen = new byte[keptRed.length];
                 keptUnseen = new byte[keptRed.length];
+                keptDay = new float[keptRed.length];
             }
             keptWx = chunk.wx;
             keptWy = chunk.wy;
@@ -4490,6 +4509,7 @@ final class WorldScene {
                 System.arraycopy(lightBlue, 0, keptBlue, (z - from) * span, span);
                 System.arraycopy(lightOpen, 0, keptOpen, (z - from) * span, span);
                 System.arraycopy(lightUnseen, 0, keptUnseen, (z - from) * span, span);
+                System.arraycopy(lightDay, 0, keptDay, (z - from) * span, span);
                 keptLevels |= 1L << (z - from);
                 if (z == 0) {
                     long woodsBegan = System.nanoTime();
@@ -4513,8 +4533,8 @@ final class WorldScene {
                             }
                             continue;
                         }
-                        long lit = sum(sum(sum(sum(sum(SUM_FROM, lightOpen[at]), lightUnseen[at]), Float.floatToRawIntBits(lightRed[at])), Float.floatToRawIntBits(lightGreen[at])),
-                                Float.floatToRawIntBits(lightBlue[at]));
+                        long lit = sum(sum(sum(sum(sum(sum(SUM_FROM, lightOpen[at]), lightUnseen[at]), Float.floatToRawIntBits(lightRed[at])), Float.floatToRawIntBits(lightGreen[at])),
+                                Float.floatToRawIntBits(lightBlue[at])), Float.floatToRawIntBits(lightDay[at]));
                         long thing = SUM_FROM;
                         if (z == 0) {
                             thing = sum(sum(sum(thing, groundKind[at]), groundRank[at]), groundTexture[at] == null ? 0 : groundTexture[at].getID());
@@ -4949,12 +4969,18 @@ final class WorldScene {
             if (!roomsDaylit || day <= 0f || square.getRoomID() == -1L) {
                 return light;
             }
-            float share = day * roomDaylight.share(roomMap, square, mapWx * CHUNK_TILES, mapWy * CHUNK_TILES, mapSide * CHUNK_TILES, daylitAt);
-            daylit.r = Math.max(light.r, share * openRedNow);
-            daylit.g = Math.max(light.g, share * openGreenNow);
-            daylit.b = Math.max(light.b, share * openBlueNow);
+            float share = dayShare(square);
+            daylit.r = Math.max(light.r, share * dayLight[0]);
+            daylit.g = Math.max(light.g, share * dayLight[1]);
+            daylit.b = Math.max(light.b, share * dayLight[2]);
             daylit.a = light.a;
             return daylit;
+        }
+
+        /** The share of the open ground's light a square's room lets in by day (RoomDaylight), whatever the hour: 0 out of a room, or where rooms are not lit by the day. */
+        float dayShare(IsoGridSquare square) {
+            return !roomsDaylit || square.getRoomID() == -1L ? 0f
+                    : roomDaylight.share(roomMap, square, mapWx * CHUNK_TILES, mapWy * CHUNK_TILES, mapSide * CHUNK_TILES, daylitAt);
         }
 
         /** lampBurns for the square readLights last read at a place in its grid, worked out once a reading. */
@@ -5010,6 +5036,7 @@ final class WorldScene {
                     }
                     if (square == null) {
                         lightOpen[at] = -1;
+                        lightDay[at] = 0f;
                         continue;
                     }
                     // Read from the lighting engine, which holds every loaded square. getLightInfo is
@@ -5049,6 +5076,8 @@ final class WorldScene {
                     lightBlue[at] = light.b;
                     lightOpen[at] = (byte) (outside ? 1 : 0);
                     lightUnseen[at] = lit;
+                    // A room the game has not lit takes its day in the picture, which goes by the hour without a build.
+                    lightDay[at] = lit == ROOM_LIT || lit == LAMP_LIT ? dayShare(square) : 0f;
                     // The game has no lamp in a canopy. A lit one lights what is under it, and what the game has given no light by itself.
                     if (outside && z >= 0 && ceilingBuilder.underLitCanopy(chunkX, chunkY, chunkX + i - 1, chunkY + j - 1, z)) {
                         boolean unlit = lit != OWN_LIGHT;
@@ -5056,6 +5085,7 @@ final class WorldScene {
                         lightGreen[at] = unlit ? Soffits.GLOW_GREEN : Soffits.under(light.g, Soffits.GLOW_GREEN);
                         lightBlue[at] = unlit ? Soffits.GLOW_BLUE : Soffits.under(light.b, Soffits.GLOW_BLUE);
                         lightUnseen[at] = OWN_LIGHT;
+                        lightDay[at] = 0f;
                     }
                 }
             }
@@ -5073,8 +5103,8 @@ final class WorldScene {
          * side of a roof's edge are left out of the mean: a room is not lit by the garden through
          * its wall. A square the game has given no light counts as 1, and the corner keeps how
          * much of its light such squares are (cornerUnlit), of one kind of them: the square's
-         * own, or for one the game has lit the first kind round it (unlitKind). A square of
-         * another kind is left out.
+         * own, or for one the game has lit the first kind round it (unlitKind), and the mean of
+         * what their rooms let in of the day (cornerDay). A square of another kind is left out.
          */
         void cornerLights(int localX, int localY) {
             int own = (localX + 1) * LIGHT_SPAN + localY + 1;
@@ -5086,7 +5116,7 @@ final class WorldScene {
             frame.unlitKind = kind;
             for (int corner = 0; corner < 4; corner++) {
                 int i = localX + (corner == 1 || corner == 2 ? 1 : 0), j = localY + (corner >= 2 ? 1 : 0);
-                float red = 0f, green = 0f, blue = 0f, given = 0f;
+                float red = 0f, green = 0f, blue = 0f, given = 0f, day = 0f;
                 int count = 0, unlit = 0;
                 for (int di = 0; di <= 1; di++) {
                     for (int dj = 0; dj <= 1; dj++) {
@@ -5100,6 +5130,7 @@ final class WorldScene {
                                 given += (lightRed[at] + lightGreen[at] + lightBlue[at]) / 3f;
                             } else {
                                 unlit++;
+                                day += lightDay[at];
                             }
                         }
                     }
@@ -5108,6 +5139,7 @@ final class WorldScene {
                 frame.cornerGreen[corner] = green / count;
                 frame.cornerBlue[corner] = blue / count;
                 frame.cornerUnlit[corner] = unlitShare(given, unlit);
+                frame.cornerDay[corner] = unlit == 0 ? 0f : day / unlit;
             }
         }
 
@@ -5271,6 +5303,7 @@ final class WorldScene {
                 into[1] = (frame.cornerGreen[0] * (1f - a) + frame.cornerGreen[1] * a) * (1f - b) + (frame.cornerGreen[3] * (1f - a) + frame.cornerGreen[2] * a) * b;
                 into[2] = (frame.cornerBlue[0] * (1f - a) + frame.cornerBlue[1] * a) * (1f - b) + (frame.cornerBlue[3] * (1f - a) + frame.cornerBlue[2] * a) * b;
                 into[3] = frame.unlitAt((1f - a) * (1f - b), a * (1f - b), a * b, (1f - a) * b);
+                into[4] = frame.dayAt((1f - a) * (1f - b), a * (1f - b), a * b, (1f - a) * b);
             };
             for (int edge = 0; edge < 2; edge++) {
                 Trims.Band[] bands = edge == 0 ? onNorth : onWest;
@@ -5470,7 +5503,7 @@ final class WorldScene {
         }
 
         /** How many strips a square's length of a banner is cut into along the banner, and up it: enough for it to belly in the wind. */
-        private static final int BANNER_ALONG = 4, BANNER_UP = 3, BANNER_FLOATS = 10;
+        private static final int BANNER_ALONG = 4, BANNER_UP = 3, BANNER_FLOATS = 11;
         /** How far inside its sprite's rectangle a banner's sheet takes its outermost texels, in frame dots: the middle of the outermost dot. */
         private static final float BANNER_INSET = 0.5f;
         /** The corners of one piece of a banner's sheet in the order of its two triangles: a bit for the further one along, a bit for the lower one. */
@@ -5544,6 +5577,7 @@ final class WorldScene {
                     bannerCorners[at + 7] = frame.cornerBlue[0] * w0 + frame.cornerBlue[1] * w1 + frame.cornerBlue[2] * w2 + frame.cornerBlue[3] * w3;
                     bannerCorners[at + 8] = sway;
                     bannerCorners[at + 9] = frame.unlitAt(w0, w1, w2, w3);
+                    bannerCorners[at + 10] = frame.dayAt(w0, w1, w2, w3);
                 }
             }
             mesh.open = frame.open + 32f * frame.material;
@@ -5554,13 +5588,14 @@ final class WorldScene {
                         int at = (j + (corner >> 1)) * row + (i + (corner & 1)) * BANNER_FLOATS;
                         mesh.sway = bannerCorners[at + 8];
                         mesh.unlit = bannerCorners[at + 9];
+                        mesh.day = bannerCorners[at + 10];
                         mesh.add(bannerCorners[at], bannerCorners[at + 1], bannerCorners[at + 2], bannerCorners[at + 3], bannerCorners[at + 4],
                                 bannerCorners[at + 5], bannerCorners[at + 6], bannerCorners[at + 7]);
                     }
                 }
             }
             mesh.sway = 0f;
-            mesh.unlit = SpriteGeometry.AS_FACE;
+            mesh.litAsFace();
         }
 
         /** The map the run of a strung banner is found on, on the level hungOn. */
@@ -6830,14 +6865,14 @@ final class WorldScene {
                 float v = liningV[corner] + Math.clamp(middleV - liningV[corner], -inset, inset);
                 float wa = Math.clamp(a, 0f, 1f), wb = Math.clamp(b, 0f, 1f);
                 float w0 = (1f - wa) * (1f - wb), w1 = wa * (1f - wb), w2 = wa * wb, w3 = (1f - wa) * wb;
-                mesh.unlit = frame.unlitAt(w0, w1, w2, w3);
+                mesh.litAt(frame, w0, w1, w2, w3);
                 mesh.add(x + a, y + b, (z + liningAt[corner * 3 + 2]) * ViewCamera.LEVEL_HEIGHT + geometry.liftAt(a, b),
                         SpriteGeometry.textureAtU(frame, u), SpriteGeometry.textureAtV(frame, v),
                         frame.cornerRed[0] * w0 + frame.cornerRed[1] * w1 + frame.cornerRed[2] * w2 + frame.cornerRed[3] * w3,
                         frame.cornerGreen[0] * w0 + frame.cornerGreen[1] * w1 + frame.cornerGreen[2] * w2 + frame.cornerGreen[3] * w3,
                         frame.cornerBlue[0] * w0 + frame.cornerBlue[1] * w1 + frame.cornerBlue[2] * w2 + frame.cornerBlue[3] * w3);
             }
-            mesh.unlit = SpriteGeometry.AS_FACE;
+            mesh.litAsFace();
         }
 
         private boolean addTent(SpriteGeometry.Mesh mesh, Tents.Piece piece, Tents.Piece rope, int x, int y, int z) {
@@ -6953,6 +6988,7 @@ final class WorldScene {
                     towerLight.cornerBlue[corner] = (frame.cornerBlue[0] + frame.cornerBlue[1] + frame.cornerBlue[2] + frame.cornerBlue[3]) / 4f;
                     towerLight.cornerUnlit[corner] = frame.cornerUnlit[0] < 0f ? SpriteGeometry.AS_FACE
                             : (frame.cornerUnlit[0] + frame.cornerUnlit[1] + frame.cornerUnlit[2] + frame.cornerUnlit[3]) / 4f;
+                    towerLight.cornerDay[corner] = (frame.cornerDay[0] + frame.cornerDay[1] + frame.cornerDay[2] + frame.cornerDay[3]) / 4f;
                 }
                 towerLight.unlitKind = frame.unlitKind;
                 towerLight.open = frame.open;
@@ -7024,7 +7060,7 @@ final class WorldScene {
         /** The same of the sprite hung over the one being added, while it is: tiles laid over a wall. */
         String overSheet;
         /** The colour the papered wall's mesh is painted over in, as the picture is told it, and the light of the piece being added while its stripes are. */
-        final float[] paperTint = new float[4], paperRed = new float[4], paperGreen = new float[4], paperBlue = new float[4], paperUnlit = new float[5];
+        final float[] paperTint = new float[4], paperRed = new float[4], paperGreen = new float[4], paperBlue = new float[4], paperUnlit = new float[SpriteGeometry.Frame.UNLIT_FLOATS];
 
         /** The level the walls that meet the wall being added are looked for on. */
         int joinLevel;

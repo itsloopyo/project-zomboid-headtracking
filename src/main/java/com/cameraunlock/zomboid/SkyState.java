@@ -74,6 +74,8 @@ final class SkyState {
     final float[] roomLight = new float[3], lampLight = new float[3];
     /** What anything else the game has given no light is lit by, the open ground in sight: see WorldScene.OPEN_LIT. The scene sets it. */
     final float[] openUnlit = new float[3];
+    /** The open ground's light by as much of the day as there is, where rooms are lit by the day they let in, or 0: see SpriteGeometry.Mesh.day. The scene sets it. */
+    final float[] daylight = new float[3];
     /** The light the character carries, as CarriedLight gathered it for this picture. The scene sets it. */
     float[] carried = new float[8];
     /** The light what the viewer holds is in, as HeldLight.light has it for this picture. The scene sets it. */

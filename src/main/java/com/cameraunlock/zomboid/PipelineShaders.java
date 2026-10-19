@@ -492,6 +492,8 @@ final class PipelineShaders {
             uniform vec3 uRoomLight;
             uniform vec3 uLampLight;
             uniform vec3 uOpenLight;
+            // The open ground's light by as much of the day as there is: a room the game has not lit is lit at least by its share of it (SpriteGeometry.Mesh.day).
+            uniform vec3 uDaylight;
             uniform float uSnowLying;
             uniform vec3 uEye;
             uniform float uPixel;
@@ -506,6 +508,8 @@ final class PipelineShaders {
             // What a model has of a light the game has not given, as uLit and its fellows hold its light, and that light's kind plus 1, or 0: see Models.Instances.UNLIT.
             uniform vec4 uUnlit;
             uniform float uUnlitKind;
+            // What a model has of the day its room lets in, as uUnlit holds what it has of a light the game has not given: see Models.Instances.DAY.
+            uniform vec4 uDay;
             uniform vec3 uSurfaces;
             uniform vec4 uDye;
             uniform vec4 uPicture;
@@ -543,8 +547,9 @@ final class PipelineShaders {
                 float piece = 0.0;
                 vUv = gl_MultiTexCoord0.xy;
                 vColor = gl_Color;
-                // What the vertex has of a light the game has not given: see SpriteGeometry.Mesh.unlit.
+                // What the vertex has of a light the game has not given, and of the day its room lets in: see SpriteGeometry.Mesh.unlit and Mesh.day.
                 float unlit = gl_MultiTexCoord3.x;
+                float day = gl_MultiTexCoord3.y;
                 if (uModel > 0.5) {
                     // A model's vertex is in the model's own metres, and carries its surface and
                     // how much light gets to it past the rest of the model where a sprite's
@@ -571,6 +576,7 @@ final class PipelineShaders {
                     vColor = vec4(gl_MultiTexCoord0.y * (uLit + share.x * uLitAlong + share.y * uLitDown + share.x * share.y * uLitAcross),
                             uSurfaces.x + 32.0 * ((dyed || also ? 34.0 : 16.0) + surface));
                     unlit = uUnlitKind < 0.5 ? -1.0 : (uUnlitKind - 1.0) * 16.0 + uUnlit.x + share.x * uUnlit.y + share.y * uUnlit.z + share.x * share.y * uUnlit.w;
+                    day = uDay.x + share.x * uDay.y + share.y * uDay.z + share.x * share.y * uDay.w;
                 }
                 // What the game has given no light carries the shade it is lit in, and above the
                 // materials which of this frame's lights it takes: see WorldScene.LIT_STEP. A
@@ -579,13 +585,10 @@ final class PipelineShaders {
                 // Below 0 it has none of that, and the kind its openness names is its whole light.
                 float lit = floor((vColor.a + 0.5) / 4096.0);
                 vColor.a -= 4096.0 * lit;
-                if (unlit >= 0.0) {
-                    float kind = floor(unlit / 16.0);
-                    vec3 given = kind > 2.5 ? uOpenLight : kind > 1.5 ? uLampLight : kind > 0.5 ? uRoomLight : vec3(1.0);
-                    vColor.rgb *= 1.0 + (unlit - 16.0 * kind) * (given - 1.0);
-                } else {
-                    vColor.rgb *= lit > 2.5 ? uOpenLight : lit > 1.5 ? uLampLight : lit > 0.5 ? uRoomLight : vec3(1.0);
-                }
+                // A room's light is at least the day it lets in.
+                float kind = unlit >= 0.0 ? floor(unlit / 16.0) : lit;
+                vec3 given = kind > 2.5 ? uOpenLight : kind > 1.5 ? max(uLampLight, day * uDaylight) : kind > 0.5 ? max(uRoomLight, day * uDaylight) : vec3(1.0);
+                vColor.rgb *= unlit >= 0.0 ? 1.0 + (unlit - 16.0 * kind) * (given - 1.0) : given;
                 // A strip of grass has no facing. What its vertex carries in a facing's place is
                 // taken apart here: see SpriteGeometry.addStrip.
                 vBlade = vec4(0.0);

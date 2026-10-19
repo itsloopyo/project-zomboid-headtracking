@@ -39,11 +39,12 @@ final class SpriteGeometry {
      * vertex is part of, NO_ROOT for anything that is no tree's: the game opens or leaves a
      * tree whole in its own view (see CanopyWindow). Blood is no tree, and carries there the
      * colour its texels are drawn in, red and then green and blue (see BloodBuilder). Last of
-     * all, what the vertex has of a light the game has not given: see Mesh.unlit.
+     * all, what the vertex has of a light the game has not given, and of the day its room
+     * lets in: see Mesh.unlit and Mesh.day.
      */
-    static final int VERTEX_FLOATS = 18;
-    /** Where in a vertex what the picture places it by is: how far along or how many layers, and what that is; its tree's square; and what it has of a light the game has not given. */
-    static final int ALONG_AT = 12, WAY_AT = 14, ROOT_AT = 15, UNLIT_AT = 17;
+    static final int VERTEX_FLOATS = 19;
+    /** Where in a vertex what the picture places it by is: how far along or how many layers, and what that is; its tree's square; and what it has of a light the game has not given, then of the day. */
+    static final int ALONG_AT = 12, WAY_AT = 14, ROOT_AT = 15, UNLIT_AT = 17, DAY_AT = 18;
     static final float NO_ROOT = -1f;
     /** What a mesh is of when it is of no building's storey: see MeshSet.storey. */
     static final long NO_BUILDING = Long.MIN_VALUE;
@@ -187,6 +188,13 @@ final class SpriteGeometry {
          */
         float unlit = AS_FACE;
         /**
+         * How much of the open ground's light the room of the vertices added next lets in by
+         * day (RoomDaylight), where their light is a kind the game has not given: the picture
+         * lights them at least by that much of the day's light. 0 for none. Set and put back
+         * with unlit.
+         */
+        float day;
+        /**
          * The runs of the mesh's floats that a thing that may be outlined drew, each its key
          * (Outlines.key), its first float and the float after its last: see MeshSet.own.
          */
@@ -249,6 +257,7 @@ final class SpriteGeometry {
             most = Math.max(most, floats);
             floats = 0;
             unlit = AS_FACE;
+            day = 0f;
             spans = 0;
             ownedFrom = 0;
             grown = false;
@@ -281,6 +290,19 @@ final class SpriteGeometry {
             vertices[floats++] = rootX;
             vertices[floats++] = rootY;
             vertices[floats++] = unlit;
+            vertices[floats++] = day;
+        }
+
+        /** unlit and day for vertices with the frame's corners' light in the given shares. */
+        void litAt(Frame frame, float w0, float w1, float w2, float w3) {
+            unlit = frame.unlitAt(w0, w1, w2, w3);
+            day = frame.dayAt(w0, w1, w2, w3);
+        }
+
+        /** Puts unlit and day back for vertices whose light is all of the kind their openness names. */
+        void litAsFace() {
+            unlit = AS_FACE;
+            day = 0f;
         }
 
         /** Adds the vertex that starts at the given float once more, as it is. */
@@ -516,6 +538,10 @@ final class SpriteGeometry {
          */
         final float[] cornerUnlit = {AS_FACE, AS_FACE, AS_FACE, AS_FACE};
         float unlitKind;
+        /** At each corner, how much of the open ground's light the rooms of the squares counted in cornerUnlit let in by day: see Mesh.day. */
+        final float[] cornerDay = new float[4];
+        /** How many floats cornersInto copies out of cornerUnlit, unlitKind and cornerDay. */
+        static final int UNLIT_FLOATS = 9;
         /** What a crown made with the frame is worked out in: see Flora.Workings. Null until one is. */
         Flora.Workings crownWorkings;
 
@@ -543,13 +569,14 @@ final class SpriteGeometry {
             vEnd = other.vEnd;
         }
 
-        /** Copies the light at the corners out, to be put back by {@link #cornersFrom}: into unlit, five long, cornerUnlit and then unlitKind. */
+        /** Copies the light at the corners out, to be put back by {@link #cornersFrom}: into unlit, UNLIT_FLOATS long, cornerUnlit, unlitKind and then cornerDay. */
         void cornersInto(float[] red, float[] green, float[] blue, float[] unlit) {
             System.arraycopy(cornerRed, 0, red, 0, 4);
             System.arraycopy(cornerGreen, 0, green, 0, 4);
             System.arraycopy(cornerBlue, 0, blue, 0, 4);
             System.arraycopy(cornerUnlit, 0, unlit, 0, 4);
             unlit[4] = unlitKind;
+            System.arraycopy(cornerDay, 0, unlit, 5, 4);
         }
 
         /** The light at the corners as {@link #cornersInto} copied it out. */
@@ -559,6 +586,7 @@ final class SpriteGeometry {
             System.arraycopy(blue, 0, cornerBlue, 0, 4);
             System.arraycopy(unlit, 0, cornerUnlit, 0, 4);
             unlitKind = unlit[4];
+            System.arraycopy(unlit, 5, cornerDay, 0, 4);
         }
 
         /** One light for the whole square. */
@@ -570,6 +598,7 @@ final class SpriteGeometry {
             Arrays.fill(cornerGreen, g);
             Arrays.fill(cornerBlue, b);
             Arrays.fill(cornerUnlit, AS_FACE);
+            Arrays.fill(cornerDay, 0f);
         }
 
         /** What a vertex with the corners' light in the given shares has of a light the game has not given, for Mesh.unlit. */
@@ -578,6 +607,11 @@ final class SpriteGeometry {
                 return AS_FACE;
             }
             return unlitKind * UNLIT_KIND_STEP + cornerUnlit[0] * w0 + cornerUnlit[1] * w1 + cornerUnlit[2] * w2 + cornerUnlit[3] * w3;
+        }
+
+        /** What a vertex with the corners' light in the given shares has of the day its room lets in, for Mesh.day. */
+        float dayAt(float w0, float w1, float w2, float w3) {
+            return cornerDay[0] * w0 + cornerDay[1] * w1 + cornerDay[2] * w2 + cornerDay[3] * w3;
         }
     }
 
@@ -1564,6 +1598,7 @@ final class SpriteGeometry {
         to[at + ROOT_AT] = NO_ROOT;
         to[at + ROOT_AT + 1] = NO_ROOT;
         to[at + UNLIT_AT] = AS_FACE;
+        to[at + DAY_AT] = 0f;
         return at + VERTEX_FLOATS;
     }
 
@@ -1669,7 +1704,7 @@ final class SpriteGeometry {
         float x = tileX + a, y = tileY + b;
         mesh.open = frame.open + frame.kind + 32f * frame.material;
         mesh.sway = 0f;
-        mesh.unlit = frame.unlitAt(w0, w1, w2, w3);
+        mesh.litAt(frame, w0, w1, w2, w3);
         int stations = post.heights.length;
         float highest = Math.max(top, post.heights[stations - 1]);
         // Each corner round a station is in the faces of two sides, and of the stations either side of it: where it is and its texel are worked out once.
@@ -1732,7 +1767,7 @@ final class SpriteGeometry {
             }
         }
         if (!capped) {
-            mesh.unlit = AS_FACE;
+            mesh.litAsFace();
             return;
         }
         float middleU = texelU, middleV = texelV;
@@ -1747,7 +1782,7 @@ final class SpriteGeometry {
             mesh.add(cornerX[from], cornerY[from], cornerUp[from], cornerU[from], cornerV[from], red, green, blue);
             mesh.add(cornerX[from + 1], cornerY[from + 1], cornerUp[from + 1], cornerU[from + 1], cornerV[from + 1], red, green, blue);
         }
-        mesh.unlit = AS_FACE;
+        mesh.litAsFace();
     }
 
     /** Each corner of the post being added, station by station and round each: where it is, and its texel. */
@@ -1922,7 +1957,7 @@ final class SpriteGeometry {
         float red = frame.cornerRed[0] * w0 + frame.cornerRed[1] * w1 + frame.cornerRed[2] * w2 + frame.cornerRed[3] * w3;
         float green = frame.cornerGreen[0] * w0 + frame.cornerGreen[1] * w1 + frame.cornerGreen[2] * w2 + frame.cornerGreen[3] * w3;
         float blue = frame.cornerBlue[0] * w0 + frame.cornerBlue[1] * w1 + frame.cornerBlue[2] * w2 + frame.cornerBlue[3] * w3;
-        mesh.unlit = frame.unlitAt(w0, w1, w2, w3);
+        mesh.litAt(frame, w0, w1, w2, w3);
         float foot = (tileZ + raised) * ViewCamera.LEVEL_HEIGHT + liftAt(a, b);
         for (int brace = 0; brace < braces; brace++) {
             post.armTo(brace, bracesAlongX, armTo);
@@ -1960,7 +1995,7 @@ final class SpriteGeometry {
             strutTo[2] = over;
             addStrut(mesh, strutFrom, strutTo, r * CAPITAL_SLAB, u, v, red, green, blue);
         }
-        mesh.unlit = AS_FACE;
+        mesh.litAsFace();
         frame.material = material;
         if (headed) {
             skipped = post.shaftShare;
@@ -2127,13 +2162,13 @@ final class SpriteGeometry {
         float a = Math.clamp(polygon[at], 0f, 1f), b = Math.clamp(polygon[at + 1], 0f, 1f);
         float w0 = (1f - a) * (1f - b), w1 = a * (1f - b), w2 = a * b, w3 = (1f - a) * b;
         mesh.sway = cover == null ? 0f : 1f - (cover[0] * w0 + cover[1] * w1 + cover[2] * w2 + cover[3] * w3);
-        mesh.unlit = frame.unlitAt(w0, w1, w2, w3);
+        mesh.litAt(frame, w0, w1, w2, w3);
         mesh.add(tileX + polygon[at] + shownA, tileY + polygon[at + 1] + shownB,
                 (tileZ + polygon[at + 2] + shownUp + raised) * ViewCamera.LEVEL_HEIGHT + liftAt(polygon[at], polygon[at + 1]), u, v,
                 frame.cornerRed[0] * w0 + frame.cornerRed[1] * w1 + frame.cornerRed[2] * w2 + frame.cornerRed[3] * w3,
                 frame.cornerGreen[0] * w0 + frame.cornerGreen[1] * w1 + frame.cornerGreen[2] * w2 + frame.cornerGreen[3] * w3,
                 frame.cornerBlue[0] * w0 + frame.cornerBlue[1] * w1 + frame.cornerBlue[2] * w2 + frame.cornerBlue[3] * w3);
-        mesh.unlit = AS_FACE;
+        mesh.litAsFace();
     }
 
     /** Adds an untextured four-cornered face, its corners given in order round it as x, y and height in tiles. */

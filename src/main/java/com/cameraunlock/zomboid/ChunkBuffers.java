@@ -417,7 +417,7 @@ final class ChunkBuffers {
         GL13.glClientActiveTexture(GL_TEXTURE0 + 2);
         GL11.glTexCoordPointer(2, GL_FLOAT, STRIDE, (long) SpriteGeometry.ROOT_AT * Float.BYTES);
         GL13.glClientActiveTexture(GL_TEXTURE0 + 3);
-        GL11.glTexCoordPointer(1, GL_FLOAT, STRIDE, (long) SpriteGeometry.UNLIT_AT * Float.BYTES);
+        GL11.glTexCoordPointer(2, GL_FLOAT, STRIDE, (long) SpriteGeometry.UNLIT_AT * Float.BYTES);
         GL13.glClientActiveTexture(GL_TEXTURE0);
         GL15.glBindBuffer(GL_ARRAY_BUFFER, 0);
     }

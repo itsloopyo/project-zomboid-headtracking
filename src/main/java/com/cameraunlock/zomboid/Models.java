@@ -483,7 +483,9 @@ final class Models {
          * plus 1, or 0 where the piece is lit as its openness says: see Frame.cornerUnlit.
          */
         static final int UNLIT = 39;
-        static final int FLOATS = 44;
+        /** What the piece has of the day its room lets in, held as UNLIT holds the rest: see Frame.cornerDay. */
+        static final int DAY = 44;
+        static final int FLOATS = 48;
         /**
          * The model's first corner in the list of every model's and how many it has, the same of
          * its plain one, the texture that dyes the piece or 0, and 1 for a piece that is part of
@@ -600,6 +602,11 @@ final class Models {
             to[at + UNLIT + 2] = blended ? unlit[3] - unlit[0] : 0f;
             to[at + UNLIT + 3] = blended ? unlit[2] - unlit[1] - (unlit[3] - unlit[0]) : 0f;
             to[at + UNLIT + 4] = blended ? light.unlitKind + 1f : 0f;
+            float[] day = light.cornerDay;
+            to[at + DAY] = day[0];
+            to[at + DAY + 1] = day[1] - day[0];
+            to[at + DAY + 2] = day[3] - day[0];
+            to[at + DAY + 3] = day[2] - day[1] - (day[3] - day[0]);
             to[at + SURFACES] = light.open;
             to[at + SURFACES + 1] = dyedSurfaces;
             to[at + SURFACES + 2] = alsoDyed & ~dyedSurfaces;

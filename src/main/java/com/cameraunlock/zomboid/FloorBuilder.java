@@ -410,6 +410,9 @@ final class FloorBuilder {
         ColorInfo light = lit == WorldScene.OWN_LIGHT ? build.daylit(below, build.lightOf(below)) : WorldScene.SHADE_ONLY;
         build.frame.light(light.r, light.g, light.b);
         build.frame.open = WorldScene.LIT_STEP * lit;
+        if (lit == WorldScene.ROOM_LIT || lit == WorldScene.LAMP_LIT) {
+            Arrays.fill(build.frame.cornerDay, build.dayShare(below));
+        }
         // The ceiling under a floor of water is a ceiling, not more water.
         build.frame.kind = 0f;
         WorldScene.layers.sheet(-1f);

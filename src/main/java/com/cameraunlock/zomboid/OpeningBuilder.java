@@ -124,7 +124,7 @@ final class OpeningBuilder {
     /** Which side of the window is being added: 0 its own square's, 1 the far one. */
     private int windowLit;
     /** The light on each side of the window or the door being built, as windowLit numbers them: see lightSides. */
-    private final float[] sideRed = new float[2], sideGreen = new float[2], sideBlue = new float[2], sideOpen = new float[2];
+    private final float[] sideRed = new float[2], sideGreen = new float[2], sideBlue = new float[2], sideOpen = new float[2], sideDay = new float[2];
     /** The side the panes being laid face into: see facePane. */
     private int paneSide;
 
@@ -383,6 +383,7 @@ final class OpeningBuilder {
             float face = (side == 0 ? 1f : -1f) * DOOR_HALF;
             float r = sideRed[side], g = sideGreen[side], b = sideBlue[side];
             wood.open = joint.open = sideOpen[side] + 32f * (wooden ? JOINERY : WorldScene.PAINT);
+            wood.day = joint.day = sideDay[side];
             if (door.kind == Doors.PLANKED) {
                 // Boards side by side with an open joint between each two, on a back a little behind them.
                 float board = door.board > 0.08f ? door.board : BOARD_USUAL;
@@ -430,6 +431,7 @@ final class OpeningBuilder {
                 continue;
             }
             metal.open = sideOpen[side] + 32f * HARDWARE;
+            metal.day = sideDay[side];
             float[] c = build.reveal;
             if (side == HINGED_SIDE) {
                 float[] hinges = hinges(leaf.start, leaf.end, leaf.foot, leaf.head, door.handleAtEnd);
@@ -475,6 +477,8 @@ final class OpeningBuilder {
                 addShards(glass, t0, t1, h0, h1, leaf.panes[pane + 4], x * 73856093 ^ y * 19349663 ^ z * 83492791 ^ pane * 2654435);
             }
         }
+        // Shared with other builders, which leave day as they find it.
+        wood.day = joint.day = metal.day = glass.day = 0f;
         return true;
     }
 
@@ -522,6 +526,7 @@ final class OpeningBuilder {
         for (int side = 0; side < 2; side++) {
             float out = side == 0 ? 1f : -1f;
             joinery.open = sideOpen[side] + 32f * made;
+            joinery.day = sideDay[side];
             float r = sideRed[side], g = sideGreen[side], b = sideBlue[side];
             // A frame with no stile at one end runs on into the window on the next square.
             windowLit = side;
@@ -577,6 +582,7 @@ final class OpeningBuilder {
                 addGlass(glass, t0, shape.head, u0, 0f, t1, in1, u1, (in1 - shape.head) / rise, t0, in0, u0, (in0 - shape.head) / rise);
             }
         }
+        joinery.day = glass.day = 0f;
         return true;
     }
 
@@ -633,6 +639,7 @@ final class OpeningBuilder {
         if (windowLit == 1) {
             build.frame.light(red, green, blue);
             build.frame.open = open;
+            Arrays.fill(build.frame.cornerDay, sideDay[1]);
         }
         build.geometry.shownA = windowAlongY * out * WorldScene.WALL_HALF;
         build.geometry.shownB = windowAlongX * out * WorldScene.WALL_HALF;
@@ -668,6 +675,8 @@ final class OpeningBuilder {
         sideGreen[1] = same ? build.frame.green : unseen ? 1f : build.lightGreen[beyondLight];
         sideBlue[1] = same ? build.frame.blue : unseen ? 1f : build.lightBlue[beyondLight];
         sideOpen[1] = same ? build.frame.open : unseen ? WorldScene.OPEN_UNLIT : build.openOf(beyondLight);
+        sideDay[0] = build.lightDay[ownLight];
+        sideDay[1] = same ? sideDay[0] : unseen ? 0f : build.lightDay[beyondLight];
     }
 
     /** The square across the north or west edge of square x, y on level z, null where the map has none. */
@@ -689,6 +698,7 @@ final class OpeningBuilder {
     private void facePane(SpriteGeometry.Mesh glass, boolean ownIsRoom, boolean beyondIsRoom, boolean lit, float da, float db) {
         paneSide = paneSide(ownIsRoom);
         glass.open = sideOpen[paneSide] + 32f * paneMaterial(ownIsRoom, beyondIsRoom, lit);
+        glass.day = sideDay[paneSide];
         float faces = paneSide == 0 ? 1f : -1f;
         glass.face(db * faces, da * faces, 0f);
     }

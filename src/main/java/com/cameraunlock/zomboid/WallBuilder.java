@@ -578,7 +578,9 @@ final class WallBuilder {
             boolean besideGiven = !alike || build.lightUnseen[beside] == WorldScene.OWN_LIGHT;
             float given = (ownGiven ? ownGrey : 0f)
                     + (alike && besideGiven ? (build.lightRed[beside] + build.lightGreen[beside] + build.lightBlue[beside]) / 3f : 0f);
-            float unlit = WorldScene.Frame.unlitShare(given, (ownGiven ? 0 : 1) + (alike && !besideGiven ? 1 : 0));
+            int unlitCount = (ownGiven ? 0 : 1) + (alike && !besideGiven ? 1 : 0);
+            float unlit = WorldScene.Frame.unlitShare(given, unlitCount);
+            float day = unlitCount == 0 ? 0f : ((ownGiven ? 0f : build.lightDay[at]) + (alike && !besideGiven ? build.lightDay[beside] : 0f)) / unlitCount;
             // The square's corners go north-west, north-east, south-east, south-west: a wall on its
             // north edge ends at the first two, one on its west edge at the first and the last.
             int near = end == 0 ? 0 : north ? 1 : 3, far = end == 0 ? (north ? 3 : 1) : 2;
@@ -586,6 +588,7 @@ final class WallBuilder {
             build.frame.cornerGreen[near] = build.frame.cornerGreen[far] = green;
             build.frame.cornerBlue[near] = build.frame.cornerBlue[far] = blue;
             build.frame.cornerUnlit[near] = build.frame.cornerUnlit[far] = unlit;
+            build.frame.cornerDay[near] = build.frame.cornerDay[far] = day;
         }
     }
 

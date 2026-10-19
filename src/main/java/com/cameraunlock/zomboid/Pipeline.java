@@ -1724,7 +1724,7 @@ final class Pipeline {
         GL11.glDisableClientState(GL_TEXTURE_COORD_ARRAY);
         GL13.glClientActiveTexture(GL_TEXTURE0 + 3);
         GL11.glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-        GL13.glMultiTexCoord1f(GL_TEXTURE0 + 3, SpriteGeometry.AS_FACE);
+        GL13.glMultiTexCoord2f(GL_TEXTURE0 + 3, SpriteGeometry.AS_FACE, 0f);
         GL13.glClientActiveTexture(GL_TEXTURE0);
     }
 
@@ -1986,7 +1986,7 @@ final class Pipeline {
         modelArrays();
         program.set("uModel", 1f);
         int placeAt = program.at("uPlace"), footAt = program.at("uFoot"), turnAt = program.at("uTurn");
-        int litAt = 0, alongAt = 0, downAt = 0, acrossAt = 0, unlitAt = 0, unlitKindAt = 0, surfacesAt = 0, dyeAt = 0, pictureAt = 0, texelAt = 0, tubeAt = 0;
+        int litAt = 0, alongAt = 0, downAt = 0, acrossAt = 0, unlitAt = 0, unlitKindAt = 0, dayAt = 0, surfacesAt = 0, dyeAt = 0, pictureAt = 0, texelAt = 0, tubeAt = 0;
         // Whether the program was last told of a tube showing part of its picture, which the next piece is not.
         boolean tubed = false;
         if (shaded) {
@@ -1996,6 +1996,7 @@ final class Pipeline {
             acrossAt = program.at("uLitAcross");
             unlitAt = program.at("uUnlit");
             unlitKindAt = program.at("uUnlitKind");
+            dayAt = program.at("uDay");
             surfacesAt = program.at("uSurfaces");
             dyeAt = program.at("uDye");
             pictureAt = program.at("uPicture");
@@ -2033,6 +2034,8 @@ final class Pipeline {
                 int unlit = at + Models.Instances.UNLIT;
                 GL20.glUniform4f(unlitAt, f[unlit], f[unlit + 1], f[unlit + 2], f[unlit + 3]);
                 GL20.glUniform1f(unlitKindAt, f[unlit + 4]);
+                int day = at + Models.Instances.DAY;
+                GL20.glUniform4f(dayAt, f[day], f[day + 1], f[day + 2], f[day + 3]);
                 if (toldOf == null || differ(f, surfaces, toldOf, told + Models.Instances.SURFACES, 3)) {
                     GL20.glUniform3f(surfacesAt, f[surfaces], f[surfaces + 1], f[surfaces + 2]);
                 }
@@ -2993,7 +2996,7 @@ final class Pipeline {
         GL11.glDisableClientState(GL_TEXTURE_COORD_ARRAY);
         GL13.glClientActiveTexture(GL_TEXTURE0 + 3);
         GL11.glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-        GL13.glMultiTexCoord1f(GL_TEXTURE0 + 3, SpriteGeometry.AS_FACE);
+        GL13.glMultiTexCoord2f(GL_TEXTURE0 + 3, SpriteGeometry.AS_FACE, 0f);
         GL11.glEnable(GL_DEPTH_TEST);
         GL11.glDepthFunc(GL_LEQUAL);
         GL11.glDepthMask(false);
@@ -3500,6 +3503,7 @@ final class Pipeline {
         to.set("uRoomLight", state.roomLight[0], state.roomLight[1], state.roomLight[2]);
         to.set("uLampLight", state.lampLight[0], state.lampLight[1], state.lampLight[2]);
         to.set("uOpenLight", state.openUnlit[0], state.openUnlit[1], state.openUnlit[2]);
+        to.set("uDaylight", state.daylight[0], state.daylight[1], state.daylight[2]);
         to.set("uCutAbove", cutAbove);
         to.set("uCutBox", cutBox[0], cutBox[1], cutBox[2], cutBox[3]);
         if (overhead && ViewCamera.project(camera, tanHalfFieldOfView, aspect, focusX, focusY, focusUp - HOLE_BELOW_EYE, holeAt)) {

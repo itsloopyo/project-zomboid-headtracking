@@ -1197,6 +1197,25 @@ public final class Tests {
         mesh.add(0f, 0f, 0f, 0f, 0f, 1f, 1f, 1f);
         check(mesh.vertices[SpriteGeometry.UNLIT_AT] == coded && mesh.vertices[SpriteGeometry.VERTEX_FLOATS + SpriteGeometry.UNLIT_AT] == SpriteGeometry.AS_FACE,
                 "each vertex carries what it was added with");
+        // The day a room lets in runs across the square as the rest of its light does, and goes back with the corners.
+        frame.cornerDay[0] = 0.8f;
+        frame.cornerDay[1] = 0.4f;
+        frame.cornerDay[2] = 0f;
+        frame.cornerDay[3] = 0.4f;
+        check(near(frame.dayAt(0.5f, 0.5f, 0f, 0f), 0.6f), "a vertex between corners has the mean of their day");
+        float[] red = new float[4], green = new float[4], blue = new float[4], unlit = new float[SpriteGeometry.Frame.UNLIT_FLOATS];
+        frame.cornersInto(red, green, blue, unlit);
+        frame.light(0.4f, 0.4f, 0.4f);
+        check(frame.dayAt(1f, 0f, 0f, 0f) == 0f, "a frame lit as one light has none of the day");
+        frame.cornersFrom(red, green, blue, unlit);
+        check(near(frame.dayAt(1f, 0f, 0f, 0f), 0.8f) && frame.unlitKind == WorldScene.ROOM_LIT, "corners put back have their day and their kind");
+        SpriteGeometry.Mesh daylit = new SpriteGeometry.Mesh();
+        daylit.litAt(frame, 0f, 1f, 0f, 0f);
+        daylit.add(0f, 0f, 0f, 0f, 0f, 1f, 1f, 1f);
+        daylit.litAsFace();
+        daylit.add(0f, 0f, 0f, 0f, 0f, 1f, 1f, 1f);
+        check(near(daylit.vertices[SpriteGeometry.DAY_AT], 0.4f) && daylit.vertices[SpriteGeometry.VERTEX_FLOATS + SpriteGeometry.DAY_AT] == 0f,
+                "each vertex carries the day it was added with, and none once put back");
     }
 
     private static void litterShowsAsMuchAsItsCornersSay() {
@@ -1205,7 +1224,7 @@ public final class Tests {
         float[] light = {0.5f, 0.5f, 0.5f, 0.5f, 0.5f};
         byte red = (byte) (Litter.LEAF + Flora.SCARLET_LEAF);
         Flora.addLitter(mesh, 4, new float[] {5f, 5.5f, 5.5f, 5f}, new float[] {6f, 6f, 6.5f, 6.5f}, new float[] {0f, 0.1f, 0.2f, 0.1f}, new float[] {1f, 0.25f, 0f, 0.5f},
-                new float[] {0f, 0.5f, 1f, 0f}, red, light, light, light, new float[] {35f, 35.5f, 36f, 35f}, 0f);
+                new float[] {0f, 0.5f, 1f, 0f}, red, light, light, light, new float[] {35f, 35.5f, 36f, 35f}, new float[4], 0f);
         check(mesh.triangles() == 2, "a piece of litter of four corners is two triangles");
         for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
             float[] f = mesh.vertices;
@@ -1223,7 +1242,7 @@ public final class Tests {
         check(mesh.unlit == SpriteGeometry.AS_FACE, "litter leaves its mesh lit as its faces say for what is added next");
         SpriteGeometry.Mesh cut = new SpriteGeometry.Mesh();
         // Clockwise this time, as a cut along a kerb may give it: it still faces up.
-        Flora.addLitter(cut, 5, new float[] {0f, 0f, 0.5f, 1f, 1f}, new float[] {0f, 1f, 1f, 0.4f, 0f}, new float[5], new float[5], new float[5], red, light, light, light, new float[5], 0f);
+        Flora.addLitter(cut, 5, new float[] {0f, 0f, 0.5f, 1f, 1f}, new float[] {0f, 1f, 1f, 0.4f, 0f}, new float[5], new float[5], new float[5], red, light, light, light, new float[5], new float[5], 0f);
         check(cut.triangles() == 3, "a piece of five corners is three triangles");
         for (int at = 0; at < cut.floats; at += SpriteGeometry.VERTEX_FLOATS) {
             check(near(cut.vertices[at + 11], 1f), "a flat piece faces straight up whichever way round its corners go");
