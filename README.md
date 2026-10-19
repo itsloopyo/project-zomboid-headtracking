@@ -174,6 +174,18 @@ check yours for an OpenTrack or UDP output option first. [Headcam](https://headc
 sends it, and I wrote it so decent tracking is free for anyone who already owns
 a phone.
 
+Data from another device comes in over your network, so Windows Firewall has to
+let it through. If Windows asks whether to let the game through the firewall,
+allow it on the kind of network your PC is on (Private for most home networks).
+If you said no, or the phone's tracking never arrives, add the rule from a
+command prompt run as administrator:
+
+```
+netsh advfirewall firewall add rule name="Project Zomboid Head Tracking" dir=in action=allow protocol=UDP localport=4242-4245
+```
+
+Ports 4243 to 4245 are for players 2 to 4 at the same screen.
+
 Sending direct works when the app filters its own signal on the device. The
 mod's smoothing is sized to take the edge off a clean signal rather than to
 rescue a noisy one, so a raw feed sent direct will jitter. If it does, point the
@@ -537,6 +549,7 @@ FourthPlayerMicrophone=None
 ## Troubleshooting
 
 - **No tracking** - start the tracker, check its address and port, then press `Delete` in a loaded game.
+- **Phone tracking never arrives** - let it through Windows Firewall, as [Phone](#phone) describes.
 - **The game no longer starts** - delete `ProjectZomboid64.site.json` from the game folder to start the game without the mod. After a manual install, check that file for a missing or extra comma, then make it again.
 - **Sights or scope problems** - press `Insert` to select **sights locked**.
 For help, use [Discord](https://discord.com/invite/dxyZdyFNT9) or [report an issue](https://github.com/itsloopyo/project-zomboid-headtracking/issues). Include `ProjectZomboidHeadTracking.log` from the game folder.
