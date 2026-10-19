@@ -778,6 +778,32 @@ final class RoomSight {
         }
     }
 
+    /**
+     * Dev only, after a picture's walk: what the walk made of the opening on (x, y, z) of the
+     * kind given, gone through from the region given: whether it faces it, the rectangle it
+     * covers, its state, whether the blocks hide it, and the rectangles the regions on its
+     * two sides were reached through.
+     */
+    String explain(Ground ground, Openings openings, int x, int y, int z, int kind, long from) {
+        for (int i = 0; i < openings.count; i++) {
+            if (openings.x[i] != x || openings.y[i] != y || openings.z[i] != z || openings.kind[i] != kind) {
+                continue;
+            }
+            boolean fromHere = openings.here[i] == from;
+            long to = fromHere ? openings.there[i] : openings.here[i];
+            String covers = worked[i] == COVERS ? String.format(java.util.Locale.ROOT, "%.2f %.2f %.2f %.2f", covers(i, 0), covers(i, 1), covers(i, 2), covers(i, 3))
+                    : worked[i] == EMPTY ? "none" : "not worked";
+            return String.format(java.util.Locale.ROOT, "[opening %d: %d to %d, buildings %d / %d, faces %b, covers %s, state %d, hidden by blocks %b; %d reached through %s, through a building %s; %d reached through %s]",
+                    i, from, to, openings.hereBuilding[i], openings.thereBuilding[i], faces(openings, i, fromHere), covers, state(ground, openings, i),
+                    from == OUTSIDE && hiddenByBlocks(openings, i), from, reached.describe(from), reachedThrough.describe(from), to, reached.describe(to));
+        }
+        return "[no opening " + x + "," + y + "," + z + " of kind " + kind + "]";
+    }
+
+    private float covers(int opening, int k) {
+        return covers[opening * 4 + k];
+    }
+
     private boolean nearerThan(Openings openings, int opening, float reach) {
         float dx = openings.x[opening] + 0.5f - eyeX, dy = openings.y[opening] + 0.5f - eyeY;
         return dx * dx + dy * dy < reach * reach;
@@ -1041,6 +1067,18 @@ final class RoomSight {
         void clear() {
             stamp++;
             size = 0;
+        }
+
+        /** Dev only: the rectangle a region has been reached through, or "nothing". */
+        String describe(long region) {
+            int mask = keys.length - 1;
+            for (int slot = Seen.hash(region) & mask; stamps[slot] == stamp; slot = (slot + 1) & mask) {
+                if (keys[slot] == region) {
+                    int at = slot * 4;
+                    return String.format(java.util.Locale.ROOT, "%.2f %.2f %.2f %.2f", rects[at], rects[at + 1], rects[at + 2], rects[at + 3]);
+                }
+            }
+            return "nothing";
         }
 
         /** Widens a region's rectangle to hold another, and says whether that widened it. */

@@ -29,11 +29,17 @@ final class RoomRays {
         return across * up;
     }
 
+    /** Dev only: told each opening a line passes from one region into another, as RoomSight.Openings keeps it, with the region it comes from. */
+    interface Crossed {
+        void crossed(int x, int y, int z, int kind, long from, long to, float along);
+    }
+
     /**
      * Dev only: the first line of the grid trace follows that reaches a room, as the point of the
-     * picture it goes through and each square and level it passes, or null where none does.
+     * picture it goes through and each opening it passes from one region into another, each
+     * also told to crossed, or null where none does.
      */
-    static String pathTo(RoomSight.Ground ground, ViewCamera.Pose eye, float tanAcross, float tanUp, int across, int up, float reach, int startLevel, long room) {
+    static String pathTo(RoomSight.Ground ground, ViewCamera.Pose eye, float tanAcross, float tanUp, int across, int up, float reach, int startLevel, long room, Crossed crossed) {
         RoomSight.Seen seen = new RoomSight.Seen();
         StringBuilder path = new StringBuilder();
         for (int i = 0; i < across; i++) {
@@ -42,10 +48,13 @@ final class RoomRays {
                 float dx = eye.forwardX + a * eye.rightX + b * eye.upX, dy = eye.forwardY + a * eye.rightY + b * eye.upY, du = eye.forwardUp + a * eye.rightUp + b * eye.upUp;
                 float length = (float) Math.sqrt(dx * dx + dy * dy + du * du);
                 seen.clear();
-                path.setLength(0);
-                path.append(String.format(java.util.Locale.ROOT, "through (%.2f, %.2f) of the picture:", a / tanAcross, b / tanUp));
-                follow(ground, eye.eyeX, eye.eyeY, eye.eyeUp, dx / length, dy / length, du / length, reach, startLevel, seen, path);
+                follow(ground, eye.eyeX, eye.eyeY, eye.eyeUp, dx / length, dy / length, du / length, reach, startLevel, seen, null);
                 if (seen.contains(room)) {
+                    path.append(String.format(java.util.Locale.ROOT, "through (%.2f, %.2f) of the picture:", a / tanAcross, b / tanUp));
+                    follow(ground, eye.eyeX, eye.eyeY, eye.eyeUp, dx / length, dy / length, du / length, reach, startLevel, seen, (x, y, z, kind, from, to, along) -> {
+                        path.append(String.format(java.util.Locale.ROOT, " | %.1f tiles on, %d,%d,%d %s, %d to %d", along, x, y, z, kind == RoomSight.NORTH ? "north" : kind == RoomSight.WEST ? "west" : "up", from, to));
+                        crossed.crossed(x, y, z, kind, from, to, along);
+                    });
                     return path.toString();
                 }
             }
@@ -58,7 +67,7 @@ final class RoomRays {
         follow(ground, x, y, up, dx, dy, du, reach, level, seen, null);
     }
 
-    private static void follow(RoomSight.Ground ground, float x, float y, float up, float dx, float dy, float du, float reach, int level, RoomSight.Seen seen, StringBuilder path) {
+    private static void follow(RoomSight.Ground ground, float x, float y, float up, float dx, float dy, float du, float reach, int level, RoomSight.Seen seen, Crossed path) {
         int cellX = (int) Math.floor(x), cellY = (int) Math.floor(y), z = level;
         int stepX = dx > 0f ? 1 : -1, stepY = dy > 0f ? 1 : -1;
         float nextX = dx == 0f ? Float.POSITIVE_INFINITY : ((dx > 0f ? cellX + 1 : cellX) - x) / dx;
@@ -66,9 +75,6 @@ final class RoomRays {
         float perX = dx == 0f ? Float.POSITIVE_INFINITY : Math.abs(1f / dx), perY = dy == 0f ? Float.POSITIVE_INFINITY : Math.abs(1f / dy);
         float at = 0f;
         note(ground.region(cellX, cellY, z), seen);
-        if (path != null) {
-            path.append(' ').append(cellX).append(',').append(cellY).append(',').append(z);
-        }
         while (at < reach) {
             float leave = Math.min(Math.min(nextX, nextY), reach);
             // Within this square the line may pass through its ceiling or its floor before it leaves.
@@ -81,8 +87,8 @@ final class RoomRays {
                 }
                 z++;
                 note(ground.region(cellX, cellY, z), seen);
-                if (path != null) {
-                    path.append(String.format(java.util.Locale.ROOT, " up at %.2f to %d,%d,%d", at, cellX, cellY, z));
+                if (path != null && ground.region(cellX, cellY, z) != ground.region(cellX, cellY, z - 1)) {
+                    path.crossed(cellX, cellY, z - 1, RoomSight.UP, ground.region(cellX, cellY, z - 1), ground.region(cellX, cellY, z), at);
                 }
                 continue;
             }
@@ -93,8 +99,8 @@ final class RoomRays {
                 }
                 z--;
                 note(ground.region(cellX, cellY, z), seen);
-                if (path != null) {
-                    path.append(String.format(java.util.Locale.ROOT, " down at %.2f to %d,%d,%d", at, cellX, cellY, z));
+                if (path != null && ground.region(cellX, cellY, z) != ground.region(cellX, cellY, z + 1)) {
+                    path.crossed(cellX, cellY, z, RoomSight.UP, ground.region(cellX, cellY, z + 1), ground.region(cellX, cellY, z), at);
                 }
                 continue;
             }
@@ -109,6 +115,9 @@ final class RoomRays {
                 return;
             }
             at = leave;
+            if (path != null && ground.region(toX, toY, z) != ground.region(cellX, cellY, z)) {
+                path.crossed(edgeX, edgeY, z, crossX ? RoomSight.WEST : RoomSight.NORTH, ground.region(cellX, cellY, z), ground.region(toX, toY, z), at);
+            }
             cellX = toX;
             cellY = toY;
             if (crossX) {
@@ -117,9 +126,6 @@ final class RoomRays {
                 nextY += perY;
             }
             note(ground.region(cellX, cellY, z), seen);
-            if (path != null) {
-                path.append(' ').append(cellX).append(',').append(cellY).append(',').append(z);
-            }
         }
     }
 

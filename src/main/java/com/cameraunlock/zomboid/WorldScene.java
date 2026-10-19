@@ -361,8 +361,8 @@ final class WorldScene {
         private OpenLight seen;
         /** The light of its room squares in the character's sight, those with no lamp burning in their room and those with one. Null until it has been read. */
         private OpenLight seenRooms, seenLamplit;
-        /** Dev only: what the build holds, and what of it was stood as the mod's model, for SightTrace. Null unless the trace is on. */
-        Set<Object> traced, modelled;
+        /** Dev only: what the build holds, what of it was stood as the mod's model, and what hangs showing the mod's picture, for SightTrace. Null unless the trace is on. */
+        Set<Object> traced, modelled, pictured;
         /** Dev only: the last frame that showed the build. */
         int shownFrame = -1;
         /** Dev only: every float of the build as one number. */
@@ -3300,9 +3300,11 @@ final class WorldScene {
                             if (fresh.traced == null) {
                                 fresh.traced = Collections.newSetFromMap(new IdentityHashMap<>());
                                 fresh.modelled = Collections.newSetFromMap(new IdentityHashMap<>());
+                                fresh.pictured = Collections.newSetFromMap(new IdentityHashMap<>());
                             }
                             fresh.traced.clear();
                             fresh.modelled.clear();
+                            fresh.pictured.clear();
                         }
                         fresh.wx = chunk.wx;
                         fresh.wy = chunk.wy;
@@ -3541,8 +3543,10 @@ final class WorldScene {
                                     + " on level %d in region %d of building %d, %d openings, %d blocks, %d hidden by blocks, %d rooms walked",
                             room, camera.eyeX, camera.eyeY, camera.eyeUp, camera.forwardX, camera.forwardY, camera.forwardUp, level, roomMap.region(eyeX, eyeY, level),
                             roomMap.building(eyeX, eyeY, level), openingsInReach.count, blocksInReach.count, roomWalk.hiddenByBlocks, roomsSeenKept.size()));
+                    StringBuilder walked = new StringBuilder();
                     Log.info("rooms: the line to room " + room + " goes " + RoomRays.pathTo(roomMap, camera, tanHalfFieldOfView * aspect, tanHalfFieldOfView, ROOM_LINES_ACROSS, ROOM_LINES_UP,
-                            ROOM_LINES_REACH, level, room) + "; openings up within 2 squares:" + openingsUpNear());
+                            ROOM_LINES_REACH, level, room, (x, y, z, kind, from, to, along) -> walked.append(' ').append(roomWalk.explain(roomMap, openingsInReach, x, y, z, kind, from)))
+                            + "; the walk made of its openings:" + walked + "; openings up within 2 squares:" + openingsUpNear());
                 }
             }
             roomChecks++;
