@@ -2356,6 +2356,8 @@ public final class Characters {
         if (lamps != null) {
             GL20.glDrawBuffers(lamps);
         }
+        float ambientR = data.ambientR, ambientG = data.ambientG, ambientB = data.ambientB;
+        torchLeftOut(data);
         turnGameWinding(true);
         try {
             for (int part = 0; part < parts(data).size(); part++) {
@@ -2385,12 +2387,41 @@ public final class Characters {
             }
         } finally {
             turnGameWinding(false);
+            data.ambientR = ambientR;
+            data.ambientG = ambientG;
+            data.ambientB = ambientB;
         }
         if (lamps != null) {
             GL20.glDrawBuffers(COLOUR_ONLY);
         }
         ModelCamera.instance = gameCamera;
         data.squareDepth = squareDepth;
+    }
+
+    private final ColorInfo carStandsIn = new ColorInfo();
+
+    /**
+     * The game lights a vehicle all over by the light of the square it stands on, and in the
+     * beam of the viewer's torch that is the game's torch light, which lights whole squares
+     * near full: the car shone white in the night. The light it is given is the square's with
+     * the torch left out (TorchLess), in the same share, so the game's blend between squares stays.
+     */
+    private void torchLeftOut(ModelSlotRenderData data) {
+        if (!(data.object instanceof BaseVehicle vehicle)) {
+            return;
+        }
+        IsoGridSquare square = vehicle.getCurrentSquare();
+        if (square == null || !square.isSeen(view.index)) {
+            return;
+        }
+        ColorInfo with = square.lighting[view.index].lightInfo();
+        ColorInfo without = view.torchLess.light(square, with, carStandsIn);
+        if (without == with) {
+            return;
+        }
+        data.ambientR = Math.clamp(data.ambientR * without.r / Math.max(with.r, 1e-3f), 0f, 1f);
+        data.ambientG = Math.clamp(data.ambientG * without.g / Math.max(with.g, 1e-3f), 0f, 1f);
+        data.ambientB = Math.clamp(data.ambientB * without.b / Math.max(with.b, 1e-3f), 0f, 1f);
     }
 
     /**
