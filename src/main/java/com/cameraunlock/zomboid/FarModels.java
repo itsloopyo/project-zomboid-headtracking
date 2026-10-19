@@ -79,6 +79,19 @@ public final class FarModels {
     }
 
     /**
+     * Whether a thing that moves on a square the game's cutaway hides is drawn all the same: the
+     * game cuts away every level above the player's for its own view from overhead, and a zombie
+     * on the floor at the head of the stairs was not drawn until the player stood on that floor.
+     * Under the picture a zombie or an animal shown whole is drawn on the level above the
+     * player's too, and the rooms no line of sight reaches leave it out (inARoomNotSeen,
+     * Characters). Every level above, in a tower, was a crowd posed and drawn for no picture.
+     */
+    boolean aboveTheCut(IsoMovingObject moving) {
+        return (moving instanceof IsoZombie || moving instanceof IsoAnimal) && (int) Math.floor(moving.getZ()) <= (int) Math.floor(view.player().getZ()) + 1
+                && view.firstPerson.coversTheGamesView() && shownWhole(moving);
+    }
+
+    /**
      * In place of the game's asking where on its screen a zombie is, across and down, as it
      * chooses which zombies have a model: one more than a hundred pixels off the screen has
      * none, and nothing to draw. A zombie before the eye is answered for as if it stood at the
@@ -111,6 +124,19 @@ public final class FarModels {
             return OFF_THE_SCREEN;
         }
         return beforeTheEye(zombie) ? 0 : zombie.getScreenProperY(playerIndex);
+    }
+
+    /**
+     * In place of the game's asking how far a character shows to a player, as it chooses whether
+     * to pose it this tick: one that shows to nobody it poses one tick in five, for the time of
+     * all five. A zombie before the eye is shown whole (see onScreen) and so was posed on every
+     * tick, the crowd round a tower's every floor with it. One that no pass of the last two
+     * pictures drew, nor its shadow, is posed as the game poses one it cannot see: as it is in
+     * the game's own view behind the player.
+     */
+    float animationAlpha(IsoGameCharacter character, int playerIndex) {
+        float alpha = character.getAlpha(playerIndex);
+        return character instanceof IsoZombie zombie && view.firstPerson.coversTheGamesView() && !view.characters.seenLately(zombie) ? 0f : alpha;
     }
 
     /**

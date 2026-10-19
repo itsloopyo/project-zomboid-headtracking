@@ -3,8 +3,11 @@ package com.cameraunlock.zomboid;
 import zombie.iso.IsoWorld;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.lwjgl.opengl.GL11;
@@ -580,10 +583,48 @@ public final class Characters {
     /** A model this far to the side of what a mirror takes in may still reach into it: a vehicle is that long. */
     private static final float MIRROR_MARGIN = 4f;
 
+    /**
+     * The zombies some pass of this frame's picture drew, its shadows' and a mirror's included,
+     * render thread; and those of the last frame done, handed to the logic thread under this.
+     */
+    private IsoZombie[] seeing = new IsoZombie[256], seen = new IsoZombie[256];
+    private int seeingCount, seenCount;
+    private volatile int seenFrames;
+    /** Logic thread: the zombies of the last two frames handed over, and the last frame taken. */
+    private Set<IsoZombie> seenLast = Collections.newSetFromMap(new IdentityHashMap<>()), seenBefore = Collections.newSetFromMap(new IdentityHashMap<>());
+    private int seenTaken = -1;
+
+    /** Logic thread: whether some pass of either of the last two frames drawn drew a zombie. */
+    boolean seenLately(IsoZombie zombie) {
+        if (seenFrames != seenTaken) {
+            Set<IsoZombie> older = seenBefore;
+            seenBefore = seenLast;
+            seenLast = older;
+            seenLast.clear();
+            synchronized (this) {
+                seenTaken = seenFrames;
+                for (int i = 0; i < seenCount; i++) {
+                    seenLast.add(seen[i]);
+                }
+            }
+        }
+        return seenLast.contains(zombie) || seenBefore.contains(zombie);
+    }
+
     /** The frame has drawn the models it was given. */
     void done() {
         if (TALLY) {
             tally();
+        }
+        synchronized (this) {
+            IsoZombie[] handed = seen;
+            int handedCount = seenCount;
+            seen = seeing;
+            seenCount = seeingCount;
+            seeing = handed;
+            Arrays.fill(seeing, 0, handedCount, null);
+            seeingCount = 0;
+            seenFrames++;
         }
         noted.clear();
         notedFrames++;
@@ -1956,6 +1997,12 @@ public final class Characters {
                     leftOutByRoom++;
                     continue;
                 }
+            }
+            if (data.character instanceof IsoZombie zombie) {
+                if (seeingCount == seeing.length) {
+                    seeing = Arrays.copyOf(seeing, seeingCount * 2);
+                }
+                seeing[seeingCount++] = zombie;
             }
             // Drawn in full light. The game dims a model by the light where it stands, and the
             // picture lights it too: the game's light is kept as a figure and the picture does

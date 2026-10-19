@@ -652,6 +652,12 @@ public final class Hooks {
         GameMouths.draw(model, slot, part);
     }
 
+    /** Called with the game's answer to whether the square a thing that moves stands on is drawn, which its cutaway says no to above the player's level. */
+    public static boolean aboveTheCut(boolean byTheGame, IsoMovingObject moving) {
+        View view = drawing();
+        return byTheGame || view != null && view.farModels.aboveTheCut(moving);
+    }
+
     /** In place of the game's asking whether a thing that moves is on the screen of the player it is drawing. */
     public static boolean onScreen(IsoMovingObject moving) {
         View view = drawing();
@@ -714,6 +720,12 @@ public final class Hooks {
     public static boolean seen(boolean byTheGame, BaseVehicle vehicle) {
         View view = drawing();
         return view == null ? byTheGame : view.farModels.seen(byTheGame, vehicle);
+    }
+
+    /** In place of the game's asking how far a character shows to a player, as it chooses whether to pose it this tick. */
+    public static float animationAlpha(IsoGameCharacter character, int playerIndex) {
+        View view = View.of(playerIndex);
+        return view == null ? character.getAlpha(playerIndex) : view.farModels.animationAlpha(character, playerIndex);
     }
 
     /** In place of the game's asking where on a player's screen a zombie is, across. */

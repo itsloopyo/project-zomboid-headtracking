@@ -709,6 +709,13 @@ public final class Agent {
                         new CallSite.Method(cell, "renderMovingObject", "(Lzombie/iso/IsoMovingObject;)V"),
                         new CallSite.Method("zombie/iso/IsoMovingObject", "isOnScreen", "()Z"),
                         new CallSite.Method(HOOKS, "onScreen", "(Lzombie/iso/IsoMovingObject;)Z"), 1)),
+                new Patch(cell, "renderMovingObject draws a thing that moves above the game's cutaway under the picture", classBytes -> CallSite.insertAfterEach(classBytes,
+                        new CallSite.Method(cell, "renderMovingObject", "(Lzombie/iso/IsoMovingObject;)V"),
+                        new CallSite.Method(cell, "shouldRenderSquare", "(Lzombie/iso/IsoGridSquare;)Z"),
+                        code -> {
+                            code.aload(1);
+                            CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "aboveTheCut", "(ZLzombie/iso/IsoMovingObject;)Z"));
+                        }, 1)),
                 new Patch(cell, "renderPlayer asks the picture whether a player is in view", classBytes -> CallSite.replaceEach(classBytes,
                         new CallSite.Method(cell, "renderPlayer", "(I" + player + ")V"),
                         new CallSite.Method(PLAYER, "isOnScreen", "()Z"),
@@ -734,6 +741,10 @@ public final class Agent {
                     return CallSite.replaceEach(classBytes, cull, new CallSite.Method(zombie, "getScreenProperY", "(I)I"),
                             new CallSite.Method(HOOKS, "screenDown", "(L" + zombie + ";I)I"), 1);
                 }),
+                new Patch("zombie/characters/IsoGameCharacter", "updateAnimationTimeDelta asks the picture whether a character shows", classBytes -> CallSite.replaceEach(classBytes,
+                        new CallSite.Method("zombie/characters/IsoGameCharacter", "updateAnimationTimeDelta", "()V"),
+                        new CallSite.Method("zombie/characters/IsoGameCharacter", "getAlpha", "(I)F"),
+                        new CallSite.Method(HOOKS, "animationAlpha", "(Lzombie/characters/IsoGameCharacter;I)F"), 1)),
                 new Patch(world, "sceneCullAnimals hands its choice to the picture", classBytes -> CallSite.insertBeforeReturns(classBytes,
                         new CallSite.Method(world, "sceneCullAnimals", "()V"),
                         code -> CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "animalsCulled", "()V")))));
