@@ -2267,7 +2267,10 @@ final class PipelineShaders {
                         // turned against each other, as the ground's own pictures are.
                         litter = true;
                         vec2 p = vWorld.xy;
-                        float kind = floor(vUv.x / LITTER_KIND_STEP);
+                        // The depth under the kind is 0 to 1, half a step: under needles alone it is 0, where
+                        // the coordinate read between corners comes out a hair under the kind's step and the
+                        // pixel took the kind below and its full depth of leaf.
+                        float kind = floor(vUv.x / LITTER_KIND_STEP + 0.25);
                         float leafCover = min((vUv.x - LITTER_KIND_STEP * kind) * uLitterSeason.x, 1.0);
                         laidCover = max(leafCover, vUv.y);
                         // Most of what a build lays shows only at the end of autumn. Under 0.15 even the ragged

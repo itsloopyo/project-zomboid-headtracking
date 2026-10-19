@@ -254,7 +254,7 @@ final class LitterTests {
         Checks.check(constant(glsl, "LEAF_BROWN") == Flora.FALLEN_BROWN && constant(glsl, "LEAF_TWIG") == Flora.TWIG && constant(glsl, "LEAF_CONE") == Flora.CONE
                 && constant(glsl, "LEAF_HUE") == Flora.FALLEN_HUE, "and knows a card's leaf by Flora's numbers");
         String main = PipelineShaders.WORLD_FRAGMENT_MAIN;
-        Checks.check(main.contains("floor(vUv.x / LITTER_KIND_STEP)") && main.contains("abs(pick - LEAF_TWIG)") && main.contains("abs(pick - LEAF_CONE)")
+        Checks.check(main.contains("floor(vUv.x / LITTER_KIND_STEP + 0.25)") && main.contains("abs(pick - LEAF_TWIG)") && main.contains("abs(pick - LEAF_CONE)")
                 && main.contains("autumnHue(pick - LEAF_HUE)"), "the world's main takes those numbers by name");
     }
 
