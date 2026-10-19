@@ -263,13 +263,16 @@ final class RoomSightTests {
         for (float y = 3.1f; y < 6f; y += 0.3f) {
             for (float up = 1.6f; up < 3.4f; up += 0.2f) {
                 ViewCamera.Pose eye = new ViewCamera.Pose();
-                ViewCamera.clean(eye, 2.5f, y, up, (float) Math.toRadians(-90), 0f);
-                RoomSight.Seen walked = new RoomSight.Seen(), lines = new RoomSight.Seen();
-                int level = RoomSight.levelOf(plan, 2, (int) Math.floor(y), 0, up);
-                new RoomSight().walk(plan, openings, blocks, eye, FOV * ASPECT, FOV, plan.region(2, (int) Math.floor(y), level), plan.building(2, (int) Math.floor(y), level), walked);
-                RoomRays.trace(plan, eye, FOV * ASPECT, FOV, 160, 90, 40f, 0, lines);
-                check(!lines.contains(OVER) || walked.contains(OVER), "an eye on the stair at (2.5, " + y + ") " + up + " up sees the floor above the lines reach, from level " + level);
-                views++;
+                for (float pitch = -40f; pitch <= 20f; pitch += 30f) {
+                    ViewCamera.clean(eye, 2.5f, y, up, (float) Math.toRadians(-90), (float) Math.toRadians(pitch));
+                    RoomSight.Seen walked = new RoomSight.Seen(), lines = new RoomSight.Seen();
+                    int level = RoomSight.levelOf(plan, 2, (int) Math.floor(y), 0, up);
+                    new RoomSight().walk(plan, openings, blocks, eye, FOV * ASPECT, FOV, plan.region(2, (int) Math.floor(y), level), plan.building(2, (int) Math.floor(y), level), walked);
+                    RoomRays.trace(plan, eye, FOV * ASPECT, FOV, 160, 90, 40f, level, lines);
+                    check(!lines.contains(OVER) || walked.contains(OVER), "an eye on the stair at (2.5, " + y + ") " + up + " up, pitched " + pitch + ", sees the floor above the lines reach, from level " + level);
+                    check(!lines.contains(HALL) || walked.contains(HALL), "and the hall below them, from level " + level);
+                    views++;
+                }
             }
         }
         check(RoomSight.levelOf(plan, 2, 4, 0, 1.6f) == 0 && RoomSight.levelOf(plan, 2, 4, 0, ViewCamera.LEVEL_HEIGHT + 0.4f) == 1, "the eye is on the level above once it is over that floor");
