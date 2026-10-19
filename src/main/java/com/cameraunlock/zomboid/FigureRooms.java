@@ -2,9 +2,9 @@ package com.cameraunlock.zomboid;
 
 /**
  * Which people the eye's picture, and a scope's, can leave out because no line of sight can
- * reach them: one standing in a room whose contents are not built (RoomSight: no walk round
- * the eye, from a step or two off and through any shut door near it as if open, has found it
- * for a few seconds), and not beside an opening into a region that is. Out of doors, and
+ * reach them: one standing in a room the picture has not seen into for half a second
+ * (WorldScene.roomsShown), and not beside an opening into a region it has. Who stands in a room
+ * the picture will soon see into is still given a model: see WorldScene.roomsMayShow. Out of doors, and
  * beside a doorway or a window, a person is always drawn: a body leans out through an opening
  * further than the square it stands on, and the walls between the eye and someone in the
  * street are not known exactly enough to hide them by.

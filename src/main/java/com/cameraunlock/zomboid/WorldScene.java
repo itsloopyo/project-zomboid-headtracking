@@ -1103,6 +1103,14 @@ final class WorldScene {
     private final RoomSight.Seen roomsMayShowFound = new RoomSight.Seen(), roomsMayShowChanged = new RoomSight.Seen();
     private final FigureRooms modelRooms = new FigureRooms();
     /**
+     * The rooms the eye's picture saw into in the last half second, and who stands where the
+     * picture leaves them out by them: see figuresLeftOut. Logic thread.
+     */
+    private final RoomSight.Kept roomsShown = new RoomSight.Kept(SHOWN_KEEP_NANOS);
+    private final RoomSight.Seen roomsShownChanged = new RoomSight.Seen();
+    private final FigureRooms figuresShown = new FigureRooms();
+    private static final long SHOWN_KEEP_NANOS = 500_000_000L;
+    /**
      * What the last walk for roomsMayShow was walked from: with every shut door in reach counted
      * open it reads no door, so from the same eye, reach, region and openings it finds the same rooms.
      */
@@ -2285,6 +2293,12 @@ final class WorldScene {
      * a model goes by it: see FarModels and roomsMayShow.
      */
     FigureRooms roomsForModels;
+    /**
+     * Logic thread: who the eye's picture leaves out by the room they stand in, as the last
+     * frame worked it out, or null for none: see FigureRooms. The game does not draw them
+     * either: see FarModels.onScreen.
+     */
+    FigureRooms figuresLeftOut;
 
     /** One frame of the picture: what of the world this view shows in it, built on the logic thread and drawn on the picture's. */
     final class Frame extends TextureDraw.GenericDrawer implements Grass.Ground {
@@ -3647,7 +3661,6 @@ final class WorldScene {
         float roomsAspect;
         /** Who the eye's picture and a scope's may leave out by the room they stand in, or null for none: see FigureRooms. */
         FigureRooms figureRooms;
-        private final FigureRooms figureRoomsKept = new FigureRooms();
         private final RoomSight.Seen roomsSeenKept = new RoomSight.Seen();
 
         /** Logs each room a line through the picture reaches that the walk left out of roomsSeenKept: see ROOMS_CHECKED_EVERY_NANOS. */
@@ -3697,6 +3710,7 @@ final class WorldScene {
             roomsSeen = null;
             figureRooms = null;
             roomsForModels = null;
+            figuresLeftOut = null;
             float aspect = drawnAspect;
             if (fromOutside || gamesView || aspect <= 0f || withoutCulling) {
                 if (buildingBySight) {
@@ -3797,8 +3811,12 @@ final class WorldScene {
             roomsBuilt.found(roomsSeenKept, now, roomsEntered);
             roomsMayShowChanged.clear();
             roomsMayShow.found(roomsSeenKept, now, roomsMayShowChanged);
-            figureRoomsKept.fill(roomsBuilt, openingsInReach);
-            figureRooms = figureRoomsKept;
+            roomsShownChanged.clear();
+            roomsShown.found(roomsSeenKept, now, roomsShownChanged);
+            roomsShown.expire(now, roomsShownChanged);
+            figuresShown.fill(roomsShown, openingsInReach);
+            figureRooms = figuresShown;
+            figuresLeftOut = figuresShown;
             modelRooms.fill(roomsMayShow, openingsInReach);
             roomsForModels = modelRooms;
             tollRoomsNanos += System.nanoTime() - began;

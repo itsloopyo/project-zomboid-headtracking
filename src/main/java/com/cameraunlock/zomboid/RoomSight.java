@@ -530,7 +530,16 @@ final class RoomSight {
      */
     static final class Kept {
         static final long KEEP_NANOS = 4_000_000_000L;
+        private final long keepNanos;
         private Seen rooms = new Seen(), spare = new Seen();
+
+        Kept() {
+            this(KEEP_NANOS);
+        }
+
+        Kept(long keepNanos) {
+            this.keepNanos = keepNanos;
+        }
         /** Raised each time a room is kept that was not, or let go: what is worked out from the rooms kept holds while it stays the same. */
         int changes;
 
@@ -553,7 +562,7 @@ final class RoomSight {
             }
         }
 
-        /** Lets go of every room not found for KEEP_NANOS, and adds them to left. */
+        /** Lets go of every room not found for the time it keeps them, and adds them to left. */
         void expire(long nanos, Seen left) {
             spare.clear();
             for (int slot = 0; slot < rooms.slots(); slot++) {
@@ -561,7 +570,7 @@ final class RoomSight {
                 if (room == OUTSIDE) {
                     continue;
                 }
-                if (nanos - rooms.valueAt(slot) >= KEEP_NANOS) {
+                if (nanos - rooms.valueAt(slot) >= keepNanos) {
                     left.add(room);
                     changes++;
                 } else {

@@ -63,6 +63,10 @@ public final class FarModels {
      * on, which it keeps to hand only for the squares on its screen, so that is fetched here.
      */
     public boolean onScreen(IsoMovingObject moving) {
+        if ((moving instanceof IsoZombie || moving instanceof IsoAnimal) && leftOutOfThePicture(moving)) {
+            // Posed for the picture and handed to it, a whole tower's crowd was, floor under floor, for the picture to leave out.
+            return false;
+        }
         if ((moving instanceof IsoZombie || moving instanceof IsoAnimal) && beforeTheEye(moving)) {
             ((IsoGameCharacter) moving).setAlphaAndTarget(1f);
         } else if (moving.isOnScreen()) {
@@ -147,6 +151,16 @@ public final class FarModels {
     /** The zombie screenAcross was last asked about and whether it was left out, for screenDown, which the game asks next. */
     private IsoZombie culledZombie;
     private boolean culled;
+
+    /** Whether the eye's picture leaves out one standing where it is by the room: see WorldScene.figuresLeftOut and Characters. */
+    private boolean leftOutOfThePicture(IsoMovingObject moving) {
+        FigureRooms rooms = view.worldScene.figuresLeftOut;
+        if (rooms == null || !shownWhole(moving)) {
+            return false;
+        }
+        IsoGridSquare square = moving.getCurrentSquare();
+        return square != null && rooms.leftOut(square.getRoomID(), square.getX(), square.getY(), square.getZ());
+    }
 
     /**
      * Whether a zombie stands in a room no line of sight reaches, nor could if every shut door
