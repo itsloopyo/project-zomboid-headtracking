@@ -1335,6 +1335,14 @@ final class WorldScene {
         roomDaylight.forget();
         chunkMap = null;
         builtAt[view.index] = 0L;
+        roomMap.forget();
+        buildingBySight = false;
+        roomsBuilt.clear();
+        roomsMayShow.clear();
+        roomsMayShowFound.clear();
+        mayShowOpenings = -1;
+        roundNanos = 0L;
+        eyeSpeed = 0f;
         if (building(System.nanoTime()) == 0) {
             // Nothing is built or read while every view is off, so nothing would come to let these go.
             VertexLoans.letGoIdle();

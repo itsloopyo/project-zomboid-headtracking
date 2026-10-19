@@ -1,5 +1,6 @@
 package com.cameraunlock.zomboid;
 
+import java.util.Arrays;
 import zombie.iso.IsoCell;
 import zombie.iso.IsoChunk;
 import zombie.iso.IsoGridSquare;
@@ -48,6 +49,22 @@ final class RoomMap implements Acoustics.Walls, RoomDaylight.Edges {
     void begin(IsoCell cell, Terrain terrain) {
         this.cell = cell;
         this.terrain = terrain;
+    }
+
+    /**
+     * Lets go of the map and every chunk read from it, as the picture stops being built: kept,
+     * they would hold the whole of a world the game had let go of through another save's
+     * loading. The count of readings goes on, so a chunk read again is never taken for the same.
+     */
+    void forget() {
+        cell = null;
+        terrain = null;
+        Arrays.fill(kept, null);
+        Arrays.fill(keptBlocks, null);
+        Arrays.fill(keptRooms, null);
+        Arrays.fill(keptChunk, null);
+        Arrays.fill(keptNorth, null);
+        Arrays.fill(keptWest, null);
     }
 
     /**

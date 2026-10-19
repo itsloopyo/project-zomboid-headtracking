@@ -38,6 +38,7 @@ final class RoomSightTests {
         Checks.run("noRoomALineReachesIsLeftOutInARandomTown", RoomSightTests::noRoomALineReachesIsLeftOutInARandomTown);
         Checks.run("aSetOfRoomsHoldsWhatIsAddedUntilItIsCleared", RoomSightTests::aSetOfRoomsHoldsWhatIsAddedUntilItIsCleared);
         Checks.run("aPictureListsOnlyTheRoomsItSeesInto", RoomSightTests::aPictureListsOnlyTheRoomsItSeesInto);
+        Checks.run("aMapLetGoOfHoldsNothingOfTheWorldItWasReadFrom", RoomSightTests::aMapLetGoOfHoldsNothingOfTheWorldItWasReadFrom);
     }
 
     private static void check(boolean condition, String what) {
@@ -553,6 +554,32 @@ final class RoomSightTests {
         check(all, "it holds what was added and nothing else");
         seen.clear();
         check(seen.size() == 0 && !seen.contains(0L) && !seen.contains(3L * 7919L), "and nothing once cleared");
+    }
+
+    /** RoomMap keeps each chunk it read; a map let go of, as the picture stops, keeps no chunk and no map of the save it was read from. */
+    private static void aMapLetGoOfHoldsNothingOfTheWorldItWasReadFrom() {
+        RoomMap map = new RoomMap();
+        zombie.iso.IsoCell cell = new zombie.iso.IsoCell();
+        zombie.iso.IsoChunk chunk = new zombie.iso.IsoChunk();
+        chunk.wx = 3;
+        chunk.wy = 4;
+        chunk.loaded = true;
+        map.begin(cell, null);
+        int read = map.read(chunk, null, null, true, 0L);
+        check(map.read(chunk, null, null, true, 1L) == read, "a chunk read is kept while it is the same chunk");
+        java.lang.ref.WeakReference<Object> chunkKept = new java.lang.ref.WeakReference<>(chunk), cellKept = new java.lang.ref.WeakReference<>(cell);
+        map.forget();
+        chunk = null;
+        cell = null;
+        for (int tries = 0; tries < 20 && (chunkKept.get() != null || cellKept.get() != null); tries++) {
+            System.gc();
+        }
+        check(chunkKept.get() == null && cellKept.get() == null, "once the map is let go of, nothing keeps the chunk or the map it was read from");
+        zombie.iso.IsoChunk again = new zombie.iso.IsoChunk();
+        again.wx = 3;
+        again.wy = 4;
+        map.begin(new zombie.iso.IsoCell(), null);
+        check(map.read(again, null, null, true, 2L) > read, "and a chunk of the next world in the same place is read afresh");
     }
 
     private static void aPictureListsOnlyTheRoomsItSeesInto() {
