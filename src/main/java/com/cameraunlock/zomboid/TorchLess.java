@@ -74,6 +74,8 @@ final class TorchLess {
         final boolean[] read;
         /** Whether a square's light here is one it was known to have, now or when it was last known, and not one taken from the squares round it. */
         final boolean[] met;
+        /** Whether the engine still had any of the viewer's torches on a square. */
+        boolean torched;
 
         Taken(int fromX, int fromY, int level, int span, int counter, int lampId) {
             this.lampId = lampId;
@@ -90,6 +92,8 @@ final class TorchLess {
     }
 
     private volatile Taken taken;
+    /** How far the torch reached when it was last on, read on after it goes off while the engine still has it on squares. */
+    private float torchReach;
     /** The lamp the game lit for the viewer's last shot, while the game may still have it. Logic thread. */
     private IsoLightSource lamp;
     /** The number of the view whose picture this is for. */
@@ -135,8 +139,16 @@ final class TorchLess {
      * Reads the squares round the character, on the logic thread, before the scene is built.
      *
      * @param reach how far the torch that throws the beam reaches, in tiles, or 0 when the viewer carries none that does
+     * @param untilGone whether, with no torch, its light is still taken out for as long as the engine has it on squares:
+     *     the engine takes a torch switched off out of its light a pass or more later, and the squares in its cone are
+     *     meanwhile lit whole by it, wide and bright
      */
-    void gather(IsoCell cell, IsoPlayer player, float reach) {
+    void gather(IsoCell cell, IsoPlayer player, float reach, boolean untilGone) {
+        if (reach > 0f) {
+            torchReach = reach;
+        } else if (untilGone && taken != null && taken.torched) {
+            reach = torchReach;
+        }
         int playerX = (int) Math.floor(player.getX()), playerY = (int) Math.floor(player.getY());
         IsoLightSource lamp = lampToTakeOut(playerX, playerY);
         int lampId = lamp == null ? 0 : lamp.id;
@@ -145,7 +157,10 @@ final class TorchLess {
         }
         if (reach <= 0f) {
             if (taken != null) {
-                retell(taken, null);
+                // Taken with no torch and no lamp on any square, the light was the game's own to the bit.
+                if (taken.torched || taken.lampId != 0) {
+                    retell(taken, null);
+                }
                 taken = null;
             }
             return;
@@ -191,6 +206,7 @@ final class TorchLess {
                     }
                 }
                 next.lit[at] = lamplit || red > 0f || green > 0f || blue > 0f;
+                next.torched |= red > 0f || green > 0f || blue > 0f;
                 without(with.r, red, next.light, known, least, at * 3);
                 without(with.g, green, next.light, known, least, at * 3 + 1);
                 without(with.b, blue, next.light, known, least, at * 3 + 2);
