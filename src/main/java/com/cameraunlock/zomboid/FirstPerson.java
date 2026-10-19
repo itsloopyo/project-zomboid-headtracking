@@ -178,6 +178,8 @@ public final class FirstPerson {
      */
     private static final long CAPTURE_LASTS_NANOS = 500_000_000L;
     private long lastFrameNanos;
+    /** How long a frame takes, smoothed over a few dozen. */
+    private float frameSeconds = 1f / 60f;
     private float yaw;
     private float pitch;
 
@@ -634,6 +636,7 @@ public final class FirstPerson {
         float sinceLastFrame = Math.min(frameNanos / 1e9f, MAX_FRAME_SECONDS);
         notePace(now, frameNanos);
         lastFrameNanos = now;
+        frameSeconds += (Math.min(sinceLastFrame, 0.1f) - frameSeconds) * 0.05f;
         view.flight.advance(on, sinceLastFrame, !overhead);
         boolean wasFirstPerson = Quality.firstPersonInEffect(view.index);
         Quality.inFirstPerson(view.index, on || gettingReady || !view.flight.home());
@@ -1620,6 +1623,10 @@ public final class FirstPerson {
      * the logic thread built a moment before: on the one frame where the two differ the picture
      * is as good as whole.
      */
+    float frameSeconds() {
+        return frameSeconds;
+    }
+
     public boolean coversTheGamesView() {
         return landed && !WITHOUT_COVER;
     }

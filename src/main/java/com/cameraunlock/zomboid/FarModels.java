@@ -1,5 +1,7 @@
 package com.cameraunlock.zomboid;
 
+import java.lang.reflect.Field;
+
 import org.joml.Vector3f;
 import zombie.GameTime;
 import zombie.characters.IsoPlayer;
@@ -10,6 +12,7 @@ import zombie.characters.animals.IsoAnimal;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoMovingObject;
 import zombie.iso.IsoWorld;
+import zombie.util.FrameDelay;
 import zombie.vehicles.BaseVehicle;
 
 /**
@@ -136,11 +139,57 @@ public final class FarModels {
      * all five. A zombie before the eye is shown whole (see onScreen) and so was posed on every
      * tick, the crowd round a tower's every floor with it. One that no pass of the last two
      * pictures drew, nor its shadow, is posed as the game poses one it cannot see: as it is in
-     * the game's own view behind the player.
+     * the game's own view behind the player. One that was drawn but stands well off is posed on
+     * the same terms one tick in two, or further off one in three: a crowd seen across a tower's
+     * floor is too small to show the steps.
      */
     float animationAlpha(IsoGameCharacter character, int playerIndex) {
         float alpha = character.getAlpha(playerIndex);
-        return character instanceof IsoZombie zombie && view.firstPerson.coversTheGamesView() && !view.characters.seenLately(zombie) ? 0f : alpha;
+        if (!(character instanceof IsoZombie zombie) || !view.firstPerson.coversTheGamesView()) {
+            return alpha;
+        }
+        IsoPlayer viewer = view.player();
+        float toX = zombie.getX() - viewer.getX(), toY = zombie.getY() - viewer.getY(), up = (zombie.getZ() - viewer.getZ()) * TILES_A_LEVEL;
+        float apart = toX * toX + toY * toY + up * up;
+        if (!view.characters.seenLately(zombie)) {
+            poseEvery(zombie, apart < UNSEEN_NEAR * UNSEEN_NEAR ? UNSEEN_POSE_DELAY
+                    : Math.clamp(Math.round(UNSEEN_POSE_SECONDS / view.firstPerson.frameSeconds()) - 1, UNSEEN_POSE_DELAY, UNSEEN_POSE_DELAY_MOST));
+            return 0f;
+        }
+        if (apart < POSED_HALF * POSED_HALF) {
+            return alpha;
+        }
+        poseEvery(zombie, apart < POSED_THIRD * POSED_THIRD ? 1 : 2);
+        return 0f;
+    }
+
+    /** How far off, in tiles, a zombie that is drawn is posed one tick in two, and one in three. */
+    private static final float POSED_HALF = 8f, POSED_THIRD = 16f;
+    /** A level's height in tiles, for how far off a zombie on another floor is. */
+    private static final float TILES_A_LEVEL = 2.5f;
+    /** The ticks the game lets pass between poses of a character it cannot see: its own FrameDelay(4). */
+    private static final int UNSEEN_POSE_DELAY = 4;
+    /**
+     * Further off than UNSEEN_NEAR tiles, one nobody sees is posed about every UNSEEN_POSE_SECONDS
+     * however fast the frames come: a tower holds hundreds, and one in five frames of them was
+     * still most of the posing.
+     */
+    private static final float UNSEEN_NEAR = 6f, UNSEEN_POSE_SECONDS = 0.1f;
+    private static final int UNSEEN_POSE_DELAY_MOST = 30;
+    private static Field invisibleFrameDelay;
+
+    /** Sets how many ticks pass between the game's poses of a zombie it is told shows to nobody. */
+    private static void poseEvery(IsoZombie zombie, int delay) {
+        try {
+            if (invisibleFrameDelay == null) {
+                Field field = IsoGameCharacter.class.getDeclaredField("animationInvisibleFrameDelay");
+                field.setAccessible(true);
+                invisibleFrameDelay = field;
+            }
+            ((FrameDelay) invisibleFrameDelay.get(zombie)).delay = delay;
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException("the game's character has no animationInvisibleFrameDelay to pose far zombies less often by", e);
+        }
     }
 
     /**
