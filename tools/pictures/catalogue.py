@@ -25,7 +25,7 @@ HUNG = []
 LONG = set()
 SHAPED = {}
 LETTERED = {}
-SEEDS = {'basketball-3': 7, 'boxing-3': 7, 'hockey-1': 7, 'hockey-2': 11, 'hockey-5': 7, 'football-4': 21, 'certificate': 7,
+SEEDS = {'basketball-0': 21, 'basketball-3': 7, 'boxing-3': 7, 'hockey-1': 7, 'hockey-2': 11, 'hockey-5': 7, 'football-4': 21, 'certificate': 7,
          'music-05': 21, 'music-07': 7, 'music-08': 7, 'screen-05': 7, 'screen-07': 11, 'film-cyberkiller': 21, 'film-cyberkiller-2': 21,
          'screen-film-future-0': 21}
 
