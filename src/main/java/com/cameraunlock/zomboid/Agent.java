@@ -624,6 +624,13 @@ public final class Agent {
                         new CallSite.Method(cell, "renderRainSplashes", "(II)V"), covered)),
                 new Patch(cell, "renderFog left out under the first person picture", classBytes -> CallSite.returnAtOnceIf(classBytes,
                         new CallSite.Method(cell, "renderFog", "(I)V"), covered)),
+                // The shadow the game lays under a character in its own view, and which squares
+                // hide others from its camera overhead, where it keeps a texture of each level:
+                // the picture draws its own shadows and keeps no such textures.
+                new Patch("zombie/characters/IsoGameCharacter", "renderShadow left out under the first person picture", classBytes -> CallSite.returnAtOnceIf(classBytes,
+                        new CallSite.Method("zombie/characters/IsoGameCharacter", "renderShadow", "(FFF)V"), covered)),
+                new Patch(cell, "calculateOccludingSquares left out under the first person picture", classBytes -> CallSite.returnAtOnceIf(classBytes,
+                        new CallSite.Method(cell, "calculateOccludingSquares", "(I)V"), covered)),
                 // The outline round a highlighted object (the container the loot panel shows, in
                 // the player's object highlight colour) is laid over the frame where the object
                 // stands in the game's own view, and not under the picture: it was left floating
@@ -1047,6 +1054,7 @@ public final class Agent {
     private static List<Patch> gameFixPatches() {
         String component = "zombie/characters/ecs/ECSComponent", player = "zombie/core/skinnedmodel/animation/AnimationPlayer";
         String character = "zombie/characters/IsoGameCharacter";
+        String palette = "zombie/core/skinnedmodel/advancedanimation/AnimatedModel$AnimatedModelInstanceRenderData", matrix = "org/lwjgl/util/vector/Matrix4f";
         return List.of(
                 new Patch(component, "getECSClass answered from what it answered for a class before", classBytes -> CallSite.answerOnce(classBytes,
                         new CallSite.Method(component, "getECSClass", "(Ljava/lang/Class;)Ljava/lang/Class;"),
@@ -1078,7 +1086,11 @@ public final class Agent {
                 // predicate out of a pool that keeps its own in a hash set, and walking the list
                 // with it. For all but a few characters the list is empty.
                 new Patch(player, "isBoneReparented answered at once while no bone is", classBytes -> CallSite.falseAtOnceWhileEmpty(classBytes,
-                        new CallSite.Method(player, "isBoneReparented", "(I)Z"), "reparentedBoneBindings")));
+                        new CallSite.Method(player, "isBoneReparented", "(I)Z"), "reparentedBoneBindings")),
+                new Patch(palette, "initMatrixPalette puts each bone in at once", classBytes -> CallSite.replaceEach(classBytes,
+                        new CallSite.Method(palette, "initMatrixPalette", "()V"),
+                        new CallSite.Method(matrix, "store", "(Ljava/nio/FloatBuffer;)Lorg/lwjgl/util/vector/Matrix;"),
+                        new CallSite.Method("com/cameraunlock/zomboid/BoneMatrices", "store", "(L" + matrix + ";Ljava/nio/FloatBuffer;)Lorg/lwjgl/util/vector/Matrix;"), 1)));
     }
 
     /** Where the game's own code would go round a loop for ever: see BurntBuildings. Always, in its own view as in first person. */
