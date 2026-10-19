@@ -3627,7 +3627,7 @@ final class WorldScene {
             lastHidden = roomWalk.hiddenByBlocks;
             if (DevBuild.ON && now - roomsCheckedNanos >= ROOMS_CHECKED_EVERY_NANOS) {
                 roomsCheckedNanos = now;
-                checkRoomsAgainstLines(level, eyeX, eyeY, aspect);
+                checkRoomsAgainstLines(eyeLevel, eyeX, eyeY, aspect);
             }
             float seconds = (now - roundNanos) / 1e9f;
             float moved = (float) Math.hypot(camera.eyeX - roundEyeX, camera.eyeY - roundEyeY);

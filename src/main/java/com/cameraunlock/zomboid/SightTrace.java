@@ -240,7 +240,8 @@ final class SightTrace {
         if (!linesFollowed) {
             linesFollowed = true;
             byLines.clear();
-            RoomRays.trace(scene.roomMap, eye, tanAcross, tanUp, LINES_ACROSS, LINES_UP, FAR + 4, level, byLines);
+            RoomRays.trace(scene.roomMap, eye, tanAcross, tanUp, LINES_ACROSS, LINES_UP, FAR + 4,
+                    RoomSight.levelOf(scene.roomMap, (int) Math.floor(eye.eyeX), (int) Math.floor(eye.eyeY), level, eye.eyeUp), byLines);
         }
         return byLines.contains(room);
     }
