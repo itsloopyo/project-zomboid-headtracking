@@ -1090,11 +1090,14 @@ final class WorldScene {
     /**
      * The rooms whose contents builds hold, and whether builds go by them: they do while the
      * eye's own picture is drawn, and then a room no walk round the eye has found for a few
-     * seconds stands empty. Otherwise, from elsewhere and as the game's own view, they go by
+     * seconds is left out of the next build of its chunk. Otherwise, from elsewhere and as the game's own view, they go by
      * Sightline as before. Logic thread.
      */
     private final RoomSight.Kept roomsBuilt = new RoomSight.Kept();
     private final RoomSight.Seen roomsFound = new RoomSight.Seen(), roomsEntered = new RoomSight.Seen(), roomsLeft = new RoomSight.Seen();
+    /** The rooms come in whose chunks are built again this frame, and those come in on a held storey that wait: see where they are filled. Logic thread. */
+    private final RoomSight.Seen roomsTold = new RoomSight.Seen();
+    private RoomSight.Seen roomsWaiting = new RoomSight.Seen(), roomsWaitingSpare = new RoomSight.Seen();
     /**
      * The rooms a walk round the eye finds with every shut door and drawn curtain in reach
      * counted open, and the picture's own, kept as roomsBuilt keeps its rooms. A door opened
@@ -3844,19 +3847,55 @@ final class WorldScene {
             lastOpenings = openingsInReach.count;
             lastBlocks = blocksInReach.count;
             lastSeen = roomsSeenKept.size();
+            // Only a room come in has its chunks built again. A build holds the contents of a room
+            // gone out until its chunk is built again for something else, and the picture draws
+            // nothing of a room it does not see into: building a tower's column of thirty storeys
+            // again to leave a room out was most of what was built on a climb, a floor's rooms
+            // coming in up the stairwell and going out four seconds later. So with the builds made
+            // before the eye's picture went by sight, which hold every room.
+            // A room come in on a storey of the viewer's building that is held waits until the
+            // picture sees into it or the viewer comes within reach of its storey: the walk round
+            // finds the rooms up and down a stairwell long before any of them shows.
+            roomsTold.clear();
+            for (int slot = 0; slot < roomsEntered.slots(); slot++) {
+                long room = roomsEntered.at(slot);
+                if (room != RoomSight.OUTSIDE) {
+                    (soonShown(room) ? roomsTold : roomsWaiting).add(room);
+                }
+            }
+            roomsWaitingSpare.clear();
+            for (int slot = 0; slot < roomsWaiting.slots(); slot++) {
+                long room = roomsWaiting.at(slot);
+                if (room == RoomSight.OUTSIDE || !roomsBuilt.contains(room) || roomsTold.contains(room)) {
+                    continue;
+                }
+                (soonShown(room) ? roomsTold : roomsWaitingSpare).add(room);
+            }
+            RoomSight.Seen waiting = roomsWaiting;
+            roomsWaiting = roomsWaitingSpare;
+            roomsWaitingSpare = waiting;
             if (!buildingBySight) {
                 buildingBySight = true;
-                tellEveryChunk(map);
-            } else if (roomsEntered.size() > 0 || roomsLeft.size() > 0) {
+            } else if (roomsTold.size() > 0) {
                 for (int gridX = 0; gridX < side; gridX++) {
                     for (int gridY = 0; gridY < side; gridY++) {
                         IsoChunk chunk = map.getChunk(gridX, gridY);
-                        if (chunk != null && (roomMap.holdsAny(chunk, roomsEntered) || roomMap.holdsAny(chunk, roomsLeft))) {
+                        if (chunk != null && roomMap.holdsAny(chunk, roomsTold)) {
                             ChunkMarks.tell(chunk.wx, chunk.wy);
                         }
                     }
                 }
             }
+        }
+
+        /** Whether a room the builds hold may show soon: the picture sees into it, or it is on a storey of the viewer's building that is not held. */
+        private boolean soonShown(long room) {
+            if (roomsSeenKept.contains(room)) {
+                return true;
+            }
+            RoomDef def = IsoWorld.instance.getMetaGrid().getRoomDefByID(room);
+            BuildingDef building = def == null ? null : def.getBuilding();
+            return building == null || building.id != heldBuilding || def.level < heldFrom && def.level > heldUnder;
         }
 
         /** A loaded chunk of the map whose middle is within reach of the eye, or null. */
