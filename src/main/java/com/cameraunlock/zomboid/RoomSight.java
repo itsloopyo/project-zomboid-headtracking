@@ -712,6 +712,12 @@ final class RoomSight {
         this.tanUp = tanUp;
         Arrays.fill(worked, 0, openings.count, UNWORKED);
         walks++;
+        liveUsed = 0;
+        if (liveFor.length < tableLength * 2) {
+            liveFor = new int[tableLength * 2];
+            liveFrom = new int[tableLength * 2];
+            liveCount = new int[tableLength * 2];
+        }
         reached.clear();
         reachedThrough.clear();
         if (start != OUTSIDE) {
@@ -728,42 +734,58 @@ final class RoomSight {
             boolean through = stackThrough[depth];
             float minX = stackRect[depth * 4], minY = stackRect[depth * 4 + 1], maxX = stackRect[depth * 4 + 2], maxY = stackRect[depth * 4 + 3];
             int slot = slotOf(region == THROUGH_A_BUILDING ? OUTSIDE : region);
-            for (int entry = slot < 0 ? -1 : first[slot]; entry >= 0; entry = next[entry]) {
+            // A region is walked again for each rectangle it is reached through that no earlier one
+            // holds. The first time, every opening it has is asked whether it faces the eye, covers
+            // any of the picture, is open and stands clear of the blocks, which no rectangle changes,
+            // and those that pass are kept: a later walk of it asks only them where they meet the
+            // rectangle. A street walked again through each window of a house would otherwise read
+            // its thousand openings each time.
+            int kept = region == THROUGH_A_BUILDING ? 1 : 0;
+            boolean listed = slot >= 0 && liveFor[slot * 2 + kept] == walks;
+            int liveAt = listed ? liveFrom[slot * 2 + kept] : liveUsed, liveEnd = listed ? liveAt + liveCount[slot * 2 + kept] : Integer.MAX_VALUE;
+            for (int entry = slot < 0 ? -1 : listed ? (liveAt < liveEnd ? live[liveAt] : -1) : first[slot]; entry >= 0;
+                    entry = listed ? (++liveAt < liveEnd ? live[liveAt] : -1) : next[entry]) {
                 int opening = entry >> 1;
                 boolean fromHere = (entry & 1) == 0;
                 long beyond = fromHere ? openings.there[opening] : openings.here[opening];
                 if (beyond == OUTSIDE && (through || region != OUTSIDE && (fromHere ? openings.hereBuilding[opening] : openings.thereBuilding[opening]) != eyeBuilding)) {
                     beyond = THROUGH_A_BUILDING;
                 }
-                if (!faces(openings, opening, fromHere)) {
-                    continue;
-                }
-                openingsTested++;
-                if (worked[opening] == UNWORKED) {
-                    worked[opening] = cover(openings, opening) ? COVERS : EMPTY;
-                }
-                if (worked[opening] == EMPTY) {
-                    continue;
+                if (!listed) {
+                    if (!faces(openings, opening, fromHere)) {
+                        continue;
+                    }
+                    openingsTested++;
+                    if (worked[opening] == UNWORKED) {
+                        worked[opening] = cover(openings, opening) ? COVERS : EMPTY;
+                    }
+                    if (worked[opening] == EMPTY) {
+                        continue;
+                    }
+                    // Whether it is open is asked last but one: it reads the map.
+                    int state;
+                    if (stateFor[opening] == walks) {
+                        state = stateWas[opening];
+                    } else {
+                        state = state(ground, openings, opening);
+                        stateFor[opening] = walks;
+                        stateWas[opening] = (byte) state;
+                    }
+                    if (state != SEE && !(state == SHUT && nearerThan(openings, opening, shutWithin))) {
+                        continue;
+                    }
+                    if (region == OUTSIDE && hiddenByBlocks(openings, opening)) {
+                        hiddenByBlocks++;
+                        continue;
+                    }
+                    if (liveUsed == live.length) {
+                        live = Arrays.copyOf(live, liveUsed * 2);
+                    }
+                    live[liveUsed++] = entry;
                 }
                 float lowX = Math.max(minX, covers[opening * 4]), lowY = Math.max(minY, covers[opening * 4 + 1]);
                 float highX = Math.min(maxX, covers[opening * 4 + 2]), highY = Math.min(maxY, covers[opening * 4 + 3]);
                 if (lowX >= highX || lowY >= highY) {
-                    continue;
-                }
-                // Whether it is open is asked last but one: it reads the map.
-                int state;
-                if (stateFor[opening] == walks) {
-                    state = stateWas[opening];
-                } else {
-                    state = state(ground, openings, opening);
-                    stateFor[opening] = walks;
-                    stateWas[opening] = (byte) state;
-                }
-                if (state != SEE && !(state == SHUT && nearerThan(openings, opening, shutWithin))) {
-                    continue;
-                }
-                if (region == OUTSIDE && hiddenByBlocks(openings, opening)) {
-                    hiddenByBlocks++;
                     continue;
                 }
                 openingsCovering++;
@@ -775,8 +797,22 @@ final class RoomSight {
                     depth = push(depth, beyond, throughBeyond, lowX, lowY, highX, highY);
                 }
             }
+            if (slot >= 0 && !listed) {
+                liveFor[slot * 2 + kept] = walks;
+                liveFrom[slot * 2 + kept] = liveAt;
+                liveCount[slot * 2 + kept] = liveUsed - liveAt;
+            }
         }
     }
+
+    /**
+     * For each region's slot, twice (as itself, and as the open air reached through a building),
+     * the walk its openings that pass every test but the rectangle were listed in, where in live
+     * the list starts and how long it is. And the lists, one after another, liveUsed long.
+     */
+    private int[] liveFor = new int[512], liveFrom = new int[512], liveCount = new int[512];
+    private int[] live = new int[1024];
+    private int liveUsed;
 
     /**
      * Dev only, after a picture's walk: what the walk made of the opening on (x, y, z) of the
@@ -1057,10 +1093,22 @@ final class RoomSight {
         return -1;
     }
 
-    /** For each region reached, the rectangle of the picture it has been reached through: one that adds nothing to it is not walked again. */
+    /**
+     * For each region reached, up to KEPT rectangles of the picture it has been walked through:
+     * one that lies inside one of them adds nothing and is not walked again. Held as rectangles
+     * and not as one box round them all: a region reached through two windows either side of a
+     * third has the third's rectangle inside that box, and what only the third shows (a house
+     * across the street through it) was left out. A new one is walked as it is; past KEPT it is
+     * also joined to the kept one it widens least, so a region reached through more than KEPT
+     * openings can again pass over what lies between them inside that joined one. Walking a
+     * region again asks only the openings its first walk kept (see face).
+     */
     private static final class RegionTable {
+        private static final int KEPT = 8;
         private long[] keys = new long[64];
-        private float[] rects = new float[64 * 4];
+        /** For each slot, how many rectangles its region keeps, and the rectangles, KEPT to a slot. */
+        private int[] counts = new int[64];
+        private float[] rects = new float[64 * KEPT * 4];
         private int[] stamps = new int[64];
         private int stamp = 1, size;
 
@@ -1069,77 +1117,113 @@ final class RoomSight {
             size = 0;
         }
 
-        /** Dev only: the rectangle a region has been reached through, or "nothing". */
-        String describe(long region) {
+        private int slotOf(long region) {
             int mask = keys.length - 1;
             for (int slot = Seen.hash(region) & mask; stamps[slot] == stamp; slot = (slot + 1) & mask) {
                 if (keys[slot] == region) {
-                    int at = slot * 4;
-                    return String.format(java.util.Locale.ROOT, "%.2f %.2f %.2f %.2f", rects[at], rects[at + 1], rects[at + 2], rects[at + 3]);
+                    return slot;
                 }
             }
-            return "nothing";
+            return -1;
         }
 
-        /** Widens a region's rectangle to hold another, and says whether that widened it. */
-        boolean unite(long region, float minX, float minY, float maxX, float maxY) {
-            if ((size + 1) * 2 > keys.length) {
-                grow();
+        /** Dev only: the box round the rectangles a region has been walked through and how many there are, or "nothing". */
+        String describe(long region) {
+            int slot = slotOf(region);
+            if (slot < 0) {
+                return "nothing";
             }
-            int mask = keys.length - 1;
-            int slot = Seen.hash(region) & mask;
-            for (; stamps[slot] == stamp; slot = (slot + 1) & mask) {
-                if (keys[slot] == region) {
-                    float[] r = rects;
-                    int at = slot * 4;
-                    if (minX >= r[at] && minY >= r[at + 1] && maxX <= r[at + 2] && maxY <= r[at + 3]) {
-                        return false;
-                    }
-                    r[at] = Math.min(r[at], minX);
-                    r[at + 1] = Math.min(r[at + 1], minY);
-                    r[at + 2] = Math.max(r[at + 2], maxX);
-                    r[at + 3] = Math.max(r[at + 3], maxY);
-                    return true;
+            float minX = Float.MAX_VALUE, minY = Float.MAX_VALUE, maxX = -Float.MAX_VALUE, maxY = -Float.MAX_VALUE;
+            for (int k = 0; k < counts[slot]; k++) {
+                int at = (slot * KEPT + k) * 4;
+                minX = Math.min(minX, rects[at]);
+                minY = Math.min(minY, rects[at + 1]);
+                maxX = Math.max(maxX, rects[at + 2]);
+                maxY = Math.max(maxY, rects[at + 3]);
+            }
+            return String.format(java.util.Locale.ROOT, "%.2f %.2f %.2f %.2f in %d", minX, minY, maxX, maxY, counts[slot]);
+        }
+
+        /**
+         * Takes a rectangle a region is reached through and says whether the region is to be
+         * walked again through it: false where it lies inside one walked already.
+         */
+        boolean unite(long region, float minX, float minY, float maxX, float maxY) {
+            int slot = slotOf(region);
+            if (slot < 0) {
+                if ((size + 1) * 2 > keys.length) {
+                    grow();
+                }
+                int mask = keys.length - 1;
+                slot = Seen.hash(region) & mask;
+                while (stamps[slot] == stamp) {
+                    slot = (slot + 1) & mask;
+                }
+                stamps[slot] = stamp;
+                keys[slot] = region;
+                counts[slot] = 0;
+                size++;
+            }
+            int base = slot * KEPT * 4, count = counts[slot];
+            float[] r = rects;
+            for (int k = 0; k < count; k++) {
+                int at = base + k * 4;
+                if (minX >= r[at] && minY >= r[at + 1] && maxX <= r[at + 2] && maxY <= r[at + 3]) {
+                    return false;
                 }
             }
-            stamps[slot] = stamp;
-            keys[slot] = region;
-            rects[slot * 4] = minX;
-            rects[slot * 4 + 1] = minY;
-            rects[slot * 4 + 2] = maxX;
-            rects[slot * 4 + 3] = maxY;
-            size++;
+            int at;
+            if (count < KEPT) {
+                at = base + count * 4;
+                counts[slot] = count + 1;
+            } else {
+                at = base;
+                float least = Float.MAX_VALUE;
+                for (int k = 0; k < KEPT; k++) {
+                    int each = base + k * 4;
+                    float widened = (Math.max(maxX, r[each + 2]) - Math.min(minX, r[each])) * (Math.max(maxY, r[each + 3]) - Math.min(minY, r[each + 1]))
+                            - (r[each + 2] - r[each]) * (r[each + 3] - r[each + 1]);
+                    if (widened < least) {
+                        least = widened;
+                        at = each;
+                    }
+                }
+                r[at] = Math.min(minX, r[at]);
+                r[at + 1] = Math.min(minY, r[at + 1]);
+                r[at + 2] = Math.max(maxX, r[at + 2]);
+                r[at + 3] = Math.max(maxY, r[at + 3]);
+                return true;
+            }
+            r[at] = minX;
+            r[at + 1] = minY;
+            r[at + 2] = maxX;
+            r[at + 3] = maxY;
             return true;
         }
 
         private void grow() {
             long[] oldKeys = keys;
+            int[] oldCounts = counts, oldStamps = stamps;
             float[] oldRects = rects;
-            int[] oldStamps = stamps;
             int oldStamp = stamp;
             keys = new long[oldKeys.length * 2];
-            rects = new float[oldKeys.length * 8];
+            counts = new int[oldKeys.length * 2];
+            rects = new float[oldKeys.length * 2 * KEPT * 4];
             stamps = new int[oldKeys.length * 2];
             stamp = 1;
-            size = 0;
+            int mask = keys.length - 1;
             for (int i = 0; i < oldKeys.length; i++) {
                 if (oldStamps[i] == oldStamp) {
-                    int slot = insertSlot(oldKeys[i]);
+                    int slot = Seen.hash(oldKeys[i]) & mask;
+                    while (stamps[slot] == stamp) {
+                        slot = (slot + 1) & mask;
+                    }
                     stamps[slot] = stamp;
                     keys[slot] = oldKeys[i];
-                    System.arraycopy(oldRects, i * 4, rects, slot * 4, 4);
-                    size++;
+                    counts[slot] = oldCounts[i];
+                    System.arraycopy(oldRects, i * KEPT * 4, rects, slot * KEPT * 4, KEPT * 4);
                 }
             }
-        }
-
-        private int insertSlot(long region) {
-            int mask = keys.length - 1;
-            int slot = Seen.hash(region) & mask;
-            while (stamps[slot] == stamp) {
-                slot = (slot + 1) & mask;
-            }
-            return slot;
         }
     }
 }

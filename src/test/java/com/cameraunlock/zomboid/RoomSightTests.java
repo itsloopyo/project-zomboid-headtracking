@@ -28,6 +28,7 @@ final class RoomSightTests {
         Checks.run("aHouseBetweenTheEyeAndAWindowHidesItUnlessTheLineGoesThroughTheHouse", RoomSightTests::aHouseBetweenTheEyeAndAWindowHidesItUnlessTheLineGoesThroughTheHouse);
         Checks.run("aTallerHouseBehindALowOneShowsItsUpperRooms", RoomSightTests::aTallerHouseBehindALowOneShowsItsUpperRooms);
         Checks.run("anEyeClimbingAStairOverTheFloorAboveSeesThatFloor", RoomSightTests::anEyeClimbingAStairOverTheFloorAboveSeesThatFloor);
+        Checks.run("aHouseAcrossTheStreetSeenOnlyThroughAMiddleWindowIsSeen", RoomSightTests::aHouseAcrossTheStreetSeenOnlyThroughAMiddleWindowIsSeen);
         Checks.run("aHeadThatMovesALittleKeepsWhatTheBlocksHideAndMissesNothing", RoomSightTests::aHeadThatMovesALittleKeepsWhatTheBlocksHideAndMissesNothing);
         Checks.run("whatIsBuiltIsWhatAnyTurnOfTheHeadOrANearDoorOpenedWouldShow", RoomSightTests::whatIsBuiltIsWhatAnyTurnOfTheHeadOrANearDoorOpenedWouldShow);
         Checks.run("roomsKeptForBuildingGoAfterAWhileUnfound", RoomSightTests::roomsKeptForBuildingGoAfterAWhileUnfound);
@@ -278,6 +279,20 @@ final class RoomSightTests {
         check(RoomSight.levelOf(plan, 2, 4, 0, 1.6f) == 0 && RoomSight.levelOf(plan, 2, 4, 0, ViewCamera.LEVEL_HEIGHT + 0.4f) == 1, "the eye is on the level above once it is over that floor");
         check(RoomSight.levelOf(plan, 1, 4, 0, ViewCamera.LEVEL_HEIGHT + 0.4f) == 0, "but not where the floor above is whole");
         check(views > 50, "views were looked from: " + views);
+    }
+
+    /**
+     * A living room with a window either side of a door into a box room, whose own window looks
+     * across the street at a house's window: the street is reached through the two windows on
+     * the left and right of the picture first, and through the box room's, between them, last.
+     */
+    private static void aHouseAcrossTheStreetSeenOnlyThroughAMiddleWindowIsSeen() {
+        Plan plan = new Plan().building(1).room(HALL, 0, 0, 5, 9, 9).room(BATH, 0, 3, 1, 6, 4)
+                .opening(4, 5, 0, true, RoomSight.SEE).opening(4, 1, 0, true, RoomSight.SEE).opening(1, 5, 0, true, RoomSight.SEE).opening(8, 5, 0, true, RoomSight.SEE)
+                .building(2).room(ACROSS, 0, 3, -12, 6, -9).opening(4, -8, 0, true, RoomSight.SEE);
+        for (float x = 4.2f; x < 4.9f; x += 0.3f) {
+            check(seen(plan, x, 9.5f, 0, -90f, 0f).contains(ACROSS), "the house across the street is seen through the box room's window from (" + x + ", 9.5)");
+        }
     }
 
     private static void aTallerHouseBehindALowOneShowsItsUpperRooms() {
