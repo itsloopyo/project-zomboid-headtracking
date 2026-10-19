@@ -266,12 +266,30 @@ final class Screens {
             return -1 - bars[0];
         }
         shows.cut(show, now, cut);
+        int picture = shots[show][(int) cut[Shows.SHOT]];
+        if (shownLast.length <= number * SHOWN) {
+            int was = shownLast.length;
+            shownLast = java.util.Arrays.copyOf(shownLast, Math.max(16, number * 2 + 2) * SHOWN);
+            java.util.Arrays.fill(shownLast, was, shownLast.length, -1f);
+        }
+        int at = number * SHOWN;
+        if (!Decor.ready(picture) && shownLast[at] >= 0f && Decor.ready((int) shownLast[at])) {
+            // The cut's shot is not read yet, and drawn now it would be nothing: the set holds the shot it showed last.
+            System.arraycopy(shownLast, at + 1, tube, 0, 4);
+            return -1 - (int) shownLast[at];
+        }
         tube[0] = cut[Shows.ACROSS];
         tube[1] = cut[Shows.DOWN];
         tube[2] = cut[Shows.OF];
         tube[3] = IN_COLOUR;
-        return -1 - shots[show][(int) cut[Shows.SHOT]];
+        shownLast[at] = picture;
+        System.arraycopy(tube, 0, shownLast, at + 1, 4);
+        return -1 - picture;
     }
+
+    /** Render thread: for each source, the shot it was last shown at and the part of it, -1 for none yet. */
+    private static final int SHOWN = 5;
+    private static float[] shownLast = new float[0];
 
     /**
      * Render thread, once a frame before any set is drawn: gives back to the graphics card the
