@@ -22,21 +22,33 @@ Offline the mod also changes some of the game's rules, and these have no switch:
 
 ## First person
 
-- **On foot and in vehicles** - press `Delete` to switch views. Play with a mouse and keyboard or controller, with sound that follows where you look, muffled by the walls between you and it and ringing in the room you stand in.
-- **A rebuilt world** - in Medium and High: 3D buildings and furniture, new textures, detailed plants, rolling hills and distant scenery. Low keeps the game's own look in first person, apart from the furniture, windows and doors, which are 3D in every mode.
-- **New renderer graphics in both views** - lighting, shadows, models and textures in Medium and High. High adds reflections on roads, floors, glass and water, and light beams through fog. Mirrors show the room and you in Medium and High with Reflections on. Low has no reflections at all.
-- **Combat** - custom arms and hands, melee swings, recoil and reload animations. Every shot kicks the weapon and lets it spring back, a shotgun hardest, without moving where the shot goes. Shots hit the body part you aim at. In single player a shot arm hangs limp, a shot leg slows a zombie to a lurching shamble, and a leg shot through drops it to crawl. Keep shooting a ruined limb and it comes off at the wrist, elbow or shoulder, or the ankle, knee or hip, flies, and lies flat on the ground where it lands, and a shotgun blast to the head now and then knocks the head off or bursts it. Medium and High add pump shotgun, sawn-off, tactical shotgun, hunting, varmint and tactical rifle, lever action rifle and carbine, self-loading rifle and carbine, over and under double barrel, pistol, revolver, assault rifle and battle rifle models, a toy cap pistol and a toy cap rifle among them, and magnified scopes. The assault rifle, the battle rifle and the self-loading rifle and carbine cycle their bolts and throw out a case with every shot, the assault rifle fast enough for automatic fire, hold the bolt back on the last round, and let an empty magazine fall from the hand when you reload. A lever gun's lever swings down and back and throws the fired case out of the top. A revolver's hammer falls and its cylinder turns with each shot, and on a reload the cylinder swings out, the empties fall and the rounds go in one at a time. To reload a double barrel, full length or sawn off, the top lever goes over and the barrels drop open, the fired shells fly out over your shoulder, the new ones go in and the gun snaps shut. A sawn-off has no stock to brace, so with the sights up it kicks in your hands as hard as at the hip. A shot knocks a zombie along the line it flew: one that stays up is jolted where the round went in, and one that drops goes limp at once, folds at the knees and is thrown back, harder by a shotgun than a pistol. The fall needs the game's **Use Physics Hit Reactions** option, which the game turns off on a server. In Medium and High, shots strike what they hit: dust and chips from brick and concrete, splinters from wood, sparks from metal, blood from flesh, and a hole left in the walls, floors and ceilings.
-- **Fire** - in Medium and High, burning buildings, Molotovs and campfires have flames from a fire simulation, solid from every side and from above, rising smoke and flickering firelight, and lit fireplaces and cooking pits burn inside their models, a wood stove glowing through its door.
-- **Vehicle interiors** - dashboards, seats, instrumentation and mirrors that show the road behind in Medium and High. In first person the game's own dashboard panel is hidden and the vehicle's dials show speed in mph, revs and fuel; the engine, lights and the rest are on the game's vehicle menu (`V`).
-- **Drive-by shooting** - in first person, raise a firearm from any seat and shoot out of the vehicle with the window shut: the shot breaks the window, windscreen or rear screen it goes through. Driving with keyboard and mouse, the driver keeps the wheel with a rifle or shotgun raised, apart from while reloading.
-- **Shoot out lights** - offline, a shot breaks the vehicle head or tail lamp it lands on, one at a time, and any lamp it passes through: table and wall lamps, street lamps. A broken lamp stays dark until it is repaired or a new bulb is fitted.
-- **Shots through walls** - offline, a firearm's round goes on through plasterboard, wooden walls, shut doors, gates and window glass and hits what is behind it, with less damage for each one it passes. Shotgun pellets get through one plasterboard wall at most, a pistol round through a few walls or a wooden door, a rifle round through more. Brick, block, concrete, stone, tile, metal plate and barricades stop every round. In first person the reticle sits on a zombie behind a wall the round can pass. On a server a shot stops where the game stops it.
-- **Smash through fences** - offline and in either view, a vehicle faster than a walk knocks down fences and street lamp posts and drives on, a little slower and a little dented.
-- **Drive through bushes** - offline, bushes, plants, saplings and other growth no longer slow or cap a vehicle, and the engine keeps its full pull on grass and dirt. Grip off the road and the bumps are the game's own.
-- **Hills that drive** - offline, a car you drive is pulled down the first person hills and leaves the ground over a crest at speed, with no drive or brakes until it lands.
-- **Burning wrecks** - offline, a vehicle left on its roof catches fire after four seconds, throws out whoever is inside and goes up six seconds later, leaving the game's burnt wreck. What was in it burns with it.
-- **Talking mouths** - off unless you turn it on: tick **Talking mouths** in the game's options and your character's mouth moves with what you say into your microphone, in first person as another player at your screen sees them and in the isometric view: the jaw drops for "ah", the lips spread for "ee" and "s" and round for "oo" and "oh", and the teeth and tongue show between them. Each player at the screen picks their own microphone there. Online, other players' mouths move while the game's voice chat plays them, and a player who has this mod with **Talking mouths** ticked shows how their own microphone shapes their mouth. The sound is measured as it comes in and is never recorded or sent: online, only how open your mouth is and the shape of your lips go to other players.
-- **Adjustable graphics** - automatic or manual quality, three picture styles, field of view, hill height and optional replacement models and textures.
+Press `Delete` to switch between the isometric and first person views, on foot or in a vehicle.
+
+### World and graphics
+
+- **A rebuilt world** - 3D buildings, new textures, detailed plants, rolling hills and distant scenery in Medium and High. Furniture, windows and doors are 3D in every mode.
+- **New graphics in both views** - lighting, shadows, models and textures in Medium and High. High adds reflections and light beams through fog.
+- **Fire** - simulated flames, smoke and firelight from burning buildings, Molotovs and campfires in Medium and High.
+- **Sound** - follows where you look, muffled by the walls in between.
+- **Adjustable** - automatic or manual quality, three picture styles, field of view, hill height, and each replacement model or texture can be put back to the game's own.
+
+### Combat
+
+- **Weapons** - custom arms and hands, melee swings, recoil, and reloads with working bolts, levers, cylinders and break actions. Medium and High add new shotgun, rifle, pistol and revolver models and magnified scopes.
+- **Hits where you aim** - shots hit the body part under the reticle and jolt zombies along the line of fire. Offline, shot limbs go limp or come off, and a shotgun can take the head off.
+- **Impacts** - dust, splinters, sparks, blood and bullet holes in Medium and High.
+- **Shots through walls** - offline, rounds pass through plasterboard, wood, doors and glass, losing damage on each. Brick, concrete, metal and barricades stop them.
+- **Shoot out lights** - offline, a shot breaks vehicle lamps and table, wall and street lamps.
+
+### Vehicles
+
+- **Interiors** - dashboards, seats, working dials and mirrors in Medium and High.
+- **Drive-by shooting** - raise a firearm from any seat and shoot through the glass.
+- **Offline driving** - smash through fences and lamp posts, drive through bushes, take off over hill crests. A car left on its roof catches fire.
+
+### Talking mouths
+
+Off by default. Tick **Talking mouths** in the game's options and your character's mouth follows what you say into your microphone. Nothing is recorded or sent: online, only the shape of your mouth goes to other players.
 
 ## Requirements
 
