@@ -70,7 +70,6 @@
 - Single player: a vehicle left on its roof catches fire after 4 seconds, throws out anyone inside, and burns out 6 seconds later, leaving the game's burnt wreck.
 - Single player: vehicles smash through fences and street lamp posts, losing a little speed and taking some damage.
 - Single player: bushes and plants don't slow vehicles, and grass and dirt don't cut engine power.
-- Single player: zombies and bodies push back on a vehicle a quarter as hard as in the base game.
 
 #### World
 

@@ -799,15 +799,7 @@ public final class Agent {
                         new CallSite.Method(HOOKS, "slowFactor", "(F)F"), 2)),
                 new Patch(vehicle, "applyImpulseFromHitPlant passed over where plants give way", classBytes -> CallSite.returnAtOnceIf(classBytes,
                         new CallSite.Method(vehicle, "applyImpulseFromHitPlant", "(L" + object + ";F)V"),
-                        new CallSite.Method(HOOKS, "plantGivesWay", "()Z"))),
-                new Patch(vehicle, "the push of a person and of a body it meets", classBytes -> CallSite.insertAfterEach(
-                        CallSite.insertAfterEach(classBytes,
-                                new CallSite.Method(vehicle, "applyImpulseFromHitPedestrian", "(Lzombie/characters/IsoGameCharacter;)V"),
-                                new CallSite.Method("zombie/characters/IsoGameCharacter", "getMass", "()F"),
-                                new CallSite.Method(HOOKS, "pedestrianMass", "(F)F"), 1),
-                        new CallSite.Method(vehicle, "applyImpulseFromHitCorpse", "(Lzombie/iso/objects/IsoDeadBody;)V"),
-                        new CallSite.Method(vehicle, "getFudgedMass", "()F"),
-                        new CallSite.Method(HOOKS, "corpseMass", "(F)F"), 1)));
+                        new CallSite.Method(HOOKS, "plantGivesWay", "()Z"))));
     }
 
     /**
