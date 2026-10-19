@@ -1094,7 +1094,11 @@ final class WorldScene {
     /** Dev only, for the rig: the time the walks took and how many there were, and what the last one had. */
     private long tollRoomsNanos, tollRoomsWalks;
     private int lastOpenings, lastBlocks, lastSeen, lastHidden;
-    /** How far past its edges an opening is taken to reach when what is built is worked out, in tiles: a step's worth at a walk, and what the eye covers in GROW_SECONDS. */
+    /**
+     * A step's worth at a walk and what the eye covers in GROW_SECONDS, in tiles: once the eye has
+     * gone half of it the walk round it is made again, so each walk finds what any eye within that
+     * half could see (RoomSight.walkAllRound).
+     */
     private static final float GROW_TILES = 1.5f, GROW_SECONDS = 0.4f;
     /** A shut door or a drawn curtain this near the eye, in tiles, counts as open when what is built is worked out: it may be opened before its room could be built. */
     private static final float SHUT_WITHIN = 10f;
@@ -3649,7 +3653,7 @@ final class WorldScene {
                 roundNanos = now;
                 roomsFound.clear();
                 roomWalk.walkAllRound(roomMap, openingsInReach, blocksInReach, camera.eyeX, camera.eyeY, camera.eyeUp, roomMap.region(eyeX, eyeY, eyeLevel),
-                        roomMap.building(eyeX, eyeY, eyeLevel), GROW_TILES + eyeSpeed * GROW_SECONDS, SHUT_WITHIN, roomsFound);
+                        roomMap.building(eyeX, eyeY, eyeLevel), (GROW_TILES + eyeSpeed * GROW_SECONDS) / 2f, SHUT_WITHIN, roomsFound);
                 roomsBuilt.found(roomsFound, now, roomsEntered);
                 roomsBuilt.expire(now, roomsLeft);
                 long region = roomMap.region(eyeX, eyeY, eyeLevel), building = roomMap.building(eyeX, eyeY, eyeLevel);
@@ -3666,7 +3670,7 @@ final class WorldScene {
                     mayShowOpenings = openingsInReach.filling;
                     mayShowBlocks = blocksInReach.filling;
                     roomsMayShowFound.clear();
-                    roomWalk.walkAllRound(roomMap, openingsInReach, blocksInReach, camera.eyeX, camera.eyeY, camera.eyeUp, region, building, GROW_TILES + eyeSpeed * GROW_SECONDS, reach, roomsMayShowFound);
+                    roomWalk.walkAllRound(roomMap, openingsInReach, blocksInReach, camera.eyeX, camera.eyeY, camera.eyeUp, region, building, (GROW_TILES + eyeSpeed * GROW_SECONDS) / 2f, reach, roomsMayShowFound);
                 }
                 // The rooms the last walk found stand for it until it is walked again.
                 roomsMayShowChanged.clear();
