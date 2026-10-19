@@ -89,13 +89,18 @@ Lopari writes `ProjectZomboid64.site.json` the same way when it installs the mod
 
 The Workshop copy is loaded by [ZombieBuddy](https://github.com/zed-0xff/ZombieBuddy) 2.x, tested with 2.3.4. ZombieBuddy 3.0 is not supported yet.
 
-1. Set up ZombieBuddy once, following the instructions on its Workshop page. If you already play another mod that needs it, this is done.
-2. Subscribe to ZombieBuddy and to Project Zomboid Head Tracking on the Steam Workshop.
-3. In the game's `Mods` menu, enable both, then restart the game.
-4. With ZombieBuddy's default settings, it asks you to approve the mod's Java code the first time and after each update.
-5. Follow [Setting Up OpenTrack](#setting-up-opentrack) below.
+1. Subscribe to [ZombieBuddy](https://steamcommunity.com/sharedfiles/filedetails/?id=3619862853) on the Steam Workshop.
+2. Set ZombieBuddy up once. If you already play another mod that needs it, this is done. Otherwise use one of the two routes on ZombieBuddy's Workshop page:
+   - **Installer:** download `ZombieBuddyInstaller.exe` from [ZombieBuddy's GitHub releases](https://github.com/zed-0xff/ZombieBuddy/releases/tag/windows_installer), run it and choose **Install or update ZombieBuddy**. Pick the launch mode to patch; ZombieBuddy recommends **Both**. It lists every change before making it, and asks you to close Steam if it has to change the launch options.
+   - **By hand:** copy `ZombieBuddy.jar` and `zbNative.dll` from `steamapps\workshop\content\108600\3619862853\mods\ZombieBuddy\libs\` into the game folder, then in Steam open Project Zomboid's **Properties** and set **Launch Options** to `-agentlib:zbNative --`. The `--` at the end is needed.
+3. Subscribe to Project Zomboid Head Tracking on the Steam Workshop.
+4. Start the game, open **Mods** on the main menu, enable ZombieBuddy and Project Zomboid Head Tracking, then quit and start the game again. ZombieBuddy starts Java mods while the game starts, so they only load after that restart.
+5. ZombieBuddy shows a dialog asking whether to load the mod's Java code. Click **Yes**. With ZombieBuddy's default settings it asks again after every update to the mod.
+6. Follow [Setting Up OpenTrack](#setting-up-opentrack) below, load a save and press `Delete` for first person.
 
-The Workshop copy keeps its settings in `CameraUnlock.ini` and its log in `ProjectZomboidHeadTracking.log`, both in the game folder, the same as an installed copy.
+Use the Workshop copy or an installed copy, not both. If `install.cmd` or Lopari has installed the mod in the game folder, that copy runs and the Workshop copy stays out. Run `uninstall.cmd` first to play the Workshop copy.
+
+The Workshop copy keeps its settings in `CameraUnlock.ini` and its log in `ProjectZomboidHeadTracking.log`, both in the game folder, the same as an installed copy. ZombieBuddy's own messages are in `console.txt` in your `Zomboid` user folder.
 
 ### Manual installation
 
