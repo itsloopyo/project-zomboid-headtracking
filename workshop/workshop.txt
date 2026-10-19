@@ -44,6 +44,33 @@ description=[*] No head tracker needed: first person plays with a mouse and keyb
 description=[*] No microphone needed: Talking mouths, which moves your character's mouth as you speak, is off until you tick it, and no microphone is opened until then. The sound is measured as it comes in and is never recorded or sent: online, only how open your mouth is and the shape of your lips go to other players.
 description=[/list]
 description=
+description=[h1]Always on, offline[/h1]
+description=Offline the mod also changes some of the game's rules, and these have no switch: shots go through thin walls and doors, break lamps, cripple zombies' limbs and can take them off; vehicles knock down fences and street lamp posts and drive through bushes. On a server these stay at the game defaults.
+description=
+description=[h1]Requirements[/h1]
+description=[list]
+description=[*] ZombieBuddy 2.x (tested with 2.3.4), set up once as its Workshop page describes. ZombieBuddy 3.0 is not supported yet.
+description=[*] For head tracking only: a tracker, see Free head tracking below.
+description=[*] Windows 10 or 11, 64-bit.
+description=[/list]
+description=
+description=[h1]Free head tracking[/h1]
+description=Both of these are free:
+description=[list]
+description=[*] Webcam: install [url=https://github.com/opentrack/opentrack/releases]OpenTrack[/url]. Set Input to neuralnet tracker and pick your camera in its settings, set Output to UDP over network, host 127.0.0.1, port 4242, and press Start.
+description=[*] iPhone or Android: install [url=https://headcam.app]Headcam[/url] and point it at this PC's IP address (run ipconfig to find it) on port 4242. If Windows asks whether to let the game through its firewall, allow it, or the phone's data is blocked. The GitHub page has the command for adding the rule by hand.
+description=[/list]
+description=Any other OpenTrack compatible tracker works too.
+description=
+description=[h1]Installation[/h1]
+description=[list]
+description=[*] Subscribe to ZombieBuddy and to this mod.
+description=[*] Enable both in the game's Mods menu and restart the game.
+description=[*] With ZombieBuddy's default settings, it asks you to approve this mod's Java code the first time and after each update.
+description=[/list]
+description=
+description=Tracker setup, controls and settings: [url=https://github.com/itsloopyo/project-zomboid-headtracking]github.com/itsloopyo/project-zomboid-headtracking[/url]
+description=
 description=[h1]Screenshots[/h1]
 description=[img]https://raw.githubusercontent.com/itsloopyo/project-zomboid-headtracking/main/workshop/gallery/up-close.jpg[/img]
 description=High res retexture.
@@ -83,33 +110,6 @@ description=Rooms furnished in 3D.
 description=
 description=[img]https://raw.githubusercontent.com/itsloopyo/project-zomboid-headtracking/main/workshop/gallery/shop.jpg[/img]
 description=Buildings rebuilt inside and out.
-description=
-description=[h1]Always on, offline[/h1]
-description=Offline the mod also changes some of the game's rules, and these have no switch: shots go through thin walls and doors, break lamps, cripple zombies' limbs and can take them off; vehicles knock down fences and street lamp posts and drive through bushes. On a server these stay at the game defaults.
-description=
-description=[h1]Requirements[/h1]
-description=[list]
-description=[*] ZombieBuddy 2.x (tested with 2.3.4), set up once as its Workshop page describes. ZombieBuddy 3.0 is not supported yet.
-description=[*] For head tracking only: a tracker, see Free head tracking below.
-description=[*] Windows 10 or 11, 64-bit.
-description=[/list]
-description=
-description=[h1]Free head tracking[/h1]
-description=Both of these are free:
-description=[list]
-description=[*] Webcam: install [url=https://github.com/opentrack/opentrack/releases]OpenTrack[/url]. Set Input to neuralnet tracker and pick your camera in its settings, set Output to UDP over network, host 127.0.0.1, port 4242, and press Start.
-description=[*] iPhone or Android: install [url=https://headcam.app]Headcam[/url] and point it at this PC's IP address (run ipconfig to find it) on port 4242. If Windows asks whether to let the game through its firewall, allow it, or the phone's data is blocked. The GitHub page has the command for adding the rule by hand.
-description=[/list]
-description=Any other OpenTrack compatible tracker works too.
-description=
-description=[h1]Installation[/h1]
-description=[list]
-description=[*] Subscribe to ZombieBuddy and to this mod.
-description=[*] Enable both in the game's Mods menu and restart the game.
-description=[*] With ZombieBuddy's default settings, it asks you to approve this mod's Java code the first time and after each update.
-description=[/list]
-description=
-description=Tracker setup, controls and settings: [url=https://github.com/itsloopyo/project-zomboid-headtracking]github.com/itsloopyo/project-zomboid-headtracking[/url]
 description=
 description=Project Zomboid is made by The Indie Stone. This mod is unofficial and not affiliated with them.
 tags=Build 42
