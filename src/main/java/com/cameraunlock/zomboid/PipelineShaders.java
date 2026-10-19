@@ -6494,9 +6494,10 @@ final class PipelineShaders {
                         around += uFlashSky * ((0.6 + 0.4 * max(n.z, 0.0)) * outdoors);
                     }
                     around *= mix(1.0, uCabinAround, uCabinArms);
-                    // As the world's surfaces mirror: out of doors the sky without the sun's
-                    // disc, whose glint is the sun's own, and under a roof the light round them.
-                    vec3 mirrored = uFigureMirror > 0.5 ? mix(around, skyAround(back * vec3(1.0, 1.0, sign(back.z)), 0.0), outdoors * (1.0 - roofed)) : skyBack;
+                    // As the world's surfaces mirror: out of doors the sky, without the sun's
+                    // disc in High, whose glint is the sun's own, and under a roof the light
+                    // round them. The sky mirrored indoors lit every figure's outline in a dark room.
+                    vec3 mirrored = mix(around, uFigureMirror > 0.5 ? skyAround(back * vec3(1.0, 1.0, sign(back.z)), 0.0) : skyBack, outdoors * (1.0 - roofed));
                     color = dressed(pow(figure.rgb, vec3(2.2)), n, view, strand, worn, gloss, low, uLight, sunLight * sun, around, lamps, mirrored);
                 }
 
