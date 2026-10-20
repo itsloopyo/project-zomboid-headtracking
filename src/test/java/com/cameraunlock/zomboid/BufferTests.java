@@ -35,6 +35,89 @@ final class BufferTests {
         Checks.run("onlyChunksUnderOrBesideABoxTouchIt", BufferTests::onlyChunksUnderOrBesideABoxTouchIt);
         Checks.run("noChunkOnTheScreenIsLeftOut", BufferTests::noChunkOnTheScreenIsLeftOut);
         Checks.run("aLowLightReachesFurtherForItsShadows", BufferTests::aLowLightReachesFurtherForItsShadows);
+        Checks.run("aListingDrawsEachRunListedOnceUnderItsOwnTexture", BufferTests::aListingDrawsEachRunListedOnceUnderItsOwnTexture);
+    }
+
+    /**
+     * Builds of runs in more textures and tints than a listing's tables start with, some in rooms
+     * not seen and some on storeys left out: each range draws exactly the runs listed in its
+     * texture and tint, in the order the chunks and their runs come.
+     */
+    private static void aListingDrawsEachRunListedOnceUnderItsOwnTexture() {
+        Random random = new Random(11);
+        RoomSight.Seen rooms = new RoomSight.Seen();
+        rooms.add(1L);
+        rooms.add(3L);
+        long building = 77L;
+        int storeys = 4;
+        ChunkBuffers.Listing listing = new ChunkBuffers.Listing();
+        for (int trial = 0; trial < 6; trial++) {
+            ArrayList<WorldScene.ChunkMeshes> chunks = new ArrayList<>();
+            int at = 0;
+            for (int c = 0; c < 160; c++) {
+                WorldScene.ChunkMeshes build = new WorldScene.ChunkMeshes(0);
+                int runs = 1 + random.nextInt(31);
+                build.runs = runs;
+                build.solidRuns = random.nextInt(runs + 1);
+                build.grown = random.nextInt(4) == 0;
+                build.heldAt = at;
+                for (int run = 0; run < runs; run++) {
+                    build.runTexture[run] = 1 + random.nextInt(2000);
+                    build.runTint[run] = random.nextInt(3);
+                    build.runFloats[run] = SpriteGeometry.VERTEX_FLOATS * 3 * (1 + random.nextInt(4));
+                    build.runRoom[run] = random.nextInt(3) == 0 ? RoomSight.OUTSIDE : random.nextInt(4);
+                    build.runBuilding[run] = random.nextBoolean() ? building : SpriteGeometry.NO_BUILDING;
+                    build.runLevel[run] = random.nextInt(8);
+                    at += build.runFloats[run];
+                }
+                chunks.add(build);
+            }
+            boolean[] left = new boolean[chunks.size()];
+            for (int i = 0; i < left.length; i++) {
+                left[i] = random.nextInt(5) == 0;
+            }
+            boolean laidToo = trial % 2 == 0;
+            listing.of(chunks, left, laidToo, rooms, storeys, building);
+            // Each range's runs as the chunks give them, worked out again run by run.
+            java.util.HashMap<Long, ArrayList<Integer>> wanted = new java.util.HashMap<>();
+            for (int i = 0; i < chunks.size(); i++) {
+                if (left[i]) {
+                    continue;
+                }
+                WorldScene.ChunkMeshes build = chunks.get(i);
+                int from = build.heldAt;
+                for (int run = 0; run < build.runs; run++) {
+                    boolean solid = run < build.solidRuns;
+                    boolean seen = build.runRoom[run] == RoomSight.OUTSIDE || rooms.contains(build.runRoom[run]);
+                    boolean kept = build.runLevel[run] < storeys || build.runBuilding[run] != building;
+                    if ((solid || laidToo) && seen && kept) {
+                        long key = (solid ? 0L : build.grown ? 1L : 2L) << 40 | (long) build.runTexture[run] << 8 | build.runTint[run];
+                        wanted.computeIfAbsent(key, k -> new ArrayList<>()).add(from / SpriteGeometry.VERTEX_FLOATS);
+                    }
+                    from += build.runFloats[run];
+                }
+            }
+            int listed = 0;
+            java.util.HashSet<Long> ranged = new java.util.HashSet<>();
+            for (int range = 0; range < listing.ranges(); range++) {
+                long kind = range < listing.solidRanges() ? 0L : -1L;
+                ArrayList<Integer> firsts = new ArrayList<>();
+                for (int run = 0; run < listing.runsOf(range); run++) {
+                    firsts.add(listing.first(range, run));
+                }
+                listed += firsts.size();
+                boolean found = false;
+                for (long of = kind < 0 ? 1L : 0L; of <= (kind < 0 ? 2L : 0L) && !found; of++) {
+                    long key = of << 40 | (long) listing.texture(range) << 8 | listing.tint(range);
+                    if (firsts.equals(wanted.get(key)) && ranged.add(key)) {
+                        found = true;
+                    }
+                }
+                check(found, "trial " + trial + ": range " + range + " draws the runs listed in its texture and tint, in order");
+            }
+            int all = wanted.values().stream().mapToInt(ArrayList::size).sum();
+            check(listed == all && ranged.size() == wanted.size(), "trial " + trial + ": every run listed is drawn once, " + listed + " of " + all);
+        }
     }
 
     /** The game's own view: looking north-west along the ground, a floor up drawn 4.24 tiles further along. */

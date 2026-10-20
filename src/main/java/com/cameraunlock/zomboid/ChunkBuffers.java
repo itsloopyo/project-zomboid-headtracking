@@ -488,14 +488,17 @@ final class ChunkBuffers {
                 int at = build.heldAt;
                 for (int run = 0; run < build.runs; run++) {
                     Runs of = run < build.solidRuns ? solidRuns : build.grown ? grownRuns : laidRuns;
-                    if ((of == solidRuns || laidToo) && listed(build, run, rooms, storeys, building)) {
-                        int slot = of.slot(build.runTexture[run], build.runTint[run]);
+                    int slot = of == solidRuns || laidToo ? of.next() : -1;
+                    if (slot >= 0) {
                         firstList[of.cursor[slot]] = at / SpriteGeometry.VERTEX_FLOATS;
                         countList[of.cursor[slot]] = build.runFloats[run] / SpriteGeometry.VERTEX_FLOATS;
                         of.cursor[slot]++;
                     }
                     at += build.runFloats[run];
                 }
+            }
+            if (!solidRuns.allRead() || !grownRuns.allRead() || !laidRuns.allRead()) {
+                throw new IllegalStateException("a listing placed other runs than it counted");
             }
             // A draw leaves the two lists' limits at the end of its range.
             firsts.clear();
@@ -539,6 +542,15 @@ final class ChunkBuffers {
             return rangeTint[range];
         }
 
+        /** How many runs a range draws, and the first vertex of each, in the order drawn. */
+        int runsOf(int range) {
+            return rangeRuns[range];
+        }
+
+        int first(int range, int run) {
+            return firsts.get(rangeFrom[range] + run);
+        }
+
         /** Draws every triangle of a range, in the order the chunks and each chunk's runs are listed. */
         void draw(int range) {
             int from = rangeFrom[range], to = from + rangeRuns[range];
@@ -561,8 +573,8 @@ final class ChunkBuffers {
     /**
      * The same, with the last room asked about remembered while one listing is made, which
      * forgets it as it begins (askedOf): a build's runs come room by room, and every run of every
-     * chunk drawn was looked up in the rooms seen, twice a listing, a fifth of the render
-     * thread's own time while walking.
+     * chunk drawn was looked up in the rooms seen, a fifth of the render thread's own time while
+     * walking.
      */
     private static boolean listedOnce(long room, RoomSight.Seen rooms) {
         if (rooms == null || room == RoomSight.OUTSIDE) {
@@ -586,10 +598,28 @@ final class ChunkBuffers {
         private int[] texture = new int[512], tint = new int[512], runs = new int[512], cursor = new int[512];
         private boolean[] taken = new boolean[512];
         int used;
+        /**
+         * The slot of each run count was given, in the order given, or -1 for one not listed:
+         * the listing goes over the same runs again in the same order to place them (next), and
+         * asked again, whether a run is listed and where its texture is were a third of the
+         * render thread's own time.
+         */
+        private int[] counted = new int[1 << 12];
+        private int countedCount, readAt;
 
         void clear() {
             Arrays.fill(taken, false);
             used = 0;
+            countedCount = readAt = 0;
+        }
+
+        boolean allRead() {
+            return readAt == countedCount;
+        }
+
+        /** The slot count found for the next run, as it found them. */
+        int next() {
+            return counted[readAt++];
         }
 
         int slot(int name, int tinted) {
@@ -602,8 +632,12 @@ final class ChunkBuffers {
         }
 
         void count(WorldScene.ChunkMeshes build, int from, int to, RoomSight.Seen rooms, int storeys, long building) {
+            if (counted.length < countedCount + to - from) {
+                counted = Arrays.copyOf(counted, Math.max(counted.length * 2, countedCount + to - from));
+            }
             for (int run = from; run < to; run++) {
                 if (!listed(build, run, rooms, storeys, building)) {
+                    counted[countedCount++] = -1;
                     continue;
                 }
                 if (used * 2 >= texture.length) {
@@ -618,6 +652,7 @@ final class ChunkBuffers {
                     used++;
                 }
                 runs[slot]++;
+                counted[countedCount++] = slot;
             }
         }
 
@@ -629,6 +664,7 @@ final class ChunkBuffers {
             runs = new int[oldTexture.length * 2];
             cursor = new int[oldTexture.length * 2];
             taken = new boolean[oldTexture.length * 2];
+            int[] moved = new int[oldTexture.length];
             for (int i = 0; i < oldTexture.length; i++) {
                 if (oldTaken[i]) {
                     int slot = slot(oldTexture[i], oldTint[i]);
@@ -636,6 +672,12 @@ final class ChunkBuffers {
                     texture[slot] = oldTexture[i];
                     tint[slot] = oldTint[i];
                     runs[slot] = oldRuns[i];
+                    moved[i] = slot;
+                }
+            }
+            for (int i = 0; i < countedCount; i++) {
+                if (counted[i] >= 0) {
+                    counted[i] = moved[counted[i]];
                 }
             }
         }
