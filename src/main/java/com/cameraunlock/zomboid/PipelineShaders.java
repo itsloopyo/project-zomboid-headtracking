@@ -3537,7 +3537,9 @@ final class PipelineShaders {
                 // in, a torch's light under a street lamp came out in squares of red and yellow, and a
                 // room's pink bulb painted the room pink. Out of doors only the daylight the lamp does not
                 // cover is held back, so with nothing held back the light is the game's.
-                const vec3 LAMP_WARM = vec3(1.0, 0.58, 0.36);
+                // Between the orange a street lamp is listed in, (1, 0.358, 0.017) linear, and white: at (1, 0.58, 0.36),
+                // a peach on the screen, what the night left of the sky's blue under a pool made it pink.
+                const vec3 LAMP_WARM = vec3(1.0, 0.42, 0.12);
                 vec3 share = given / max(uOpenLinear, vec3(0.0001));
                 vec3 daylight = uOpenLinear * min(min(share.r, min(share.g, share.b)), 2.0);
                 vec3 over = given - daylight;
@@ -3546,7 +3548,12 @@ final class PipelineShaders {
                 // as the excess alone, a pool at dusk was red where the game has it warm.
                 float most = max(over.r, max(over.g, over.b)), dayMost = max(daylight.r, max(daylight.g, daylight.b));
                 float strength = most + dayMost * smoothstep(0.0, 0.5 * dayMost, most);
-                vec3 lamp = over + min(strength * LAMP_WARM, daylight);
+                // Nor is it more, in a part it is hidden in, than its colour gives it beside the parts it shows in:
+                // taken as up to its strongest part, a street lamp's blue was all the night sky's under it, kept
+                // whole as the daylight was held back, and the snow round every street lamp was pink.
+                vec3 shows = smoothstep(vec3(0.0), 0.1 * daylight + 0.002, over);
+                vec3 byShown = mix(vec3(1000.0), given / LAMP_WARM, shows);
+                vec3 lamp = over + min(min(strength, min(byShown.r, min(byShown.g, byShown.b))) * LAMP_WARM, daylight);
                 // In a room its light by a switch is dimmed whole, as much as its daylight is held back,
                 // and keeps the game's colour: taken as covering the daylight, a room lit by day was
                 // warm with a pink edge where the window's light met it.
