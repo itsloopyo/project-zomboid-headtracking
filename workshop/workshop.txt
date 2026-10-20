@@ -1,7 +1,7 @@
 version=1
 id=3823224669
-title=PZHT - First Person + Graphics Overhaul + Head Tracking
-description=A graphics overhaul for Project Zomboid that adds a first person mode and OpenTrack compatible head tracking with microphone lip syncing for maximum immersion. Every part is optional.
+title=PZHT - First Person + Graphics Overhaul + Gameplay Tweaks + Head Tracking
+description=A graphics overhaul for Project Zomboid that adds a first person mode, gameplay tweaks and OpenTrack compatible head tracking with microphone lip syncing for maximum immersion. Every part is optional.
 description=
 description=Free and open source under the MIT licence, the source is on [url=https://github.com/itsloopyo/project-zomboid-headtracking]GitHub[/url].
 description=
@@ -44,8 +44,8 @@ description=[*] No head tracker needed: first person plays with a mouse and keyb
 description=[*] No microphone needed: Talking mouths, which moves your character's mouth as you speak, is off until you tick it, and no microphone is opened until then. The sound is measured as it comes in and is never recorded or sent: online, only how open your mouth is and the shape of your lips go to other players.
 description=[/list]
 description=
-description=[h1]Always on, offline[/h1]
-description=Offline the mod also changes some of the game's rules, and these have no switch: shots go through thin walls and doors, break lamps, cripple zombies' limbs and can take them off; vehicles knock down fences and street lamp posts and drive through bushes. On a server these stay at the game defaults.
+description=[h1]Gameplay tweaks, offline[/h1]
+description=Offline the mod also changes some of the game's rules: shots go through thin walls and doors, break lamps, cripple zombies' limbs and can take them off; vehicles knock down fences and street lamp posts, drive through bushes and catch fire when left on their roof. Each is on by default and can be unticked in Options > Mods > Head Tracking. On a server these stay at the game defaults.
 description=
 description=[h1]Requirements[/h1]
 description=[list]
