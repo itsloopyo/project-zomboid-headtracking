@@ -133,6 +133,13 @@ public final class FirstPerson {
         return movingAside && lookCaptured();
     }
 
+    /** The cosine of the angle between the way the movement keys ask for and the view: 1 ahead, -1 straight back. */
+    private float keysAhead = 1f;
+
+    float keysAhead() {
+        return keysAhead;
+    }
+
     private static final float EYE_HEIGHT_STANDING = 1.6f;
     private static final float EYE_HEIGHT_SNEAKING = 1.1f;
     private static final float EYE_HEIGHT_SITTING = 0.9f;
@@ -1746,6 +1753,7 @@ public final class FirstPerson {
             return move;
         }
         movingAside = Stride.aside(move.x, move.y);
+        keysAhead = -move.y / (float) Math.hypot(move.x, move.y);
         float turn = stride.turn(move.x, move.y, yaw, STOCK_FORWARD_YAW, System.nanoTime());
         float cos = (float) Math.cos(turn);
         float sin = (float) Math.sin(turn);

@@ -629,6 +629,24 @@ public final class Hooks {
         return aiming && !Ride.drivesWhileAiming(player);
     }
 
+    /**
+     * Called with the ground a character's animation has moved it this frame, before the game
+     * moves it. A player of this machine held in the aiming stance while walked sideways or
+     * backwards (Controls.turnedOnly) is moved the ground of the walk that way: see Sidestep.
+     */
+    public static Vector2 moved(Vector2 ground, IsoGameCharacter character) {
+        if (!(character instanceof IsoPlayer player)) {
+            return ground;
+        }
+        View view = View.of(player);
+        if (view == null || !view.controls.turnedOnly() || !player.isAiming()) {
+            return ground;
+        }
+        Sidestep.Gait gait = Sidestep.gait(player.isRunButtonDown(), player.isSprintButtonDown(), View.onController(player), player.isSneaking());
+        float raised = Sidestep.raised(view.firstPerson.keysAhead(), gait);
+        return ground.set(ground.x * raised, ground.y * raised);
+    }
+
     /** Called as the game has drawn a person or a vehicle into a player's part of the screen. */
     public static void drawn(ModelSlotRenderData slot) {
         View view = drawn();

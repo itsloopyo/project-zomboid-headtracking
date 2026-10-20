@@ -20,5 +20,7 @@ public class IsoPlayer extends IsoLivingCharacter {
     public zombie.vehicles.BaseVehicle getNearVehicle() { throw new UnsupportedOperationException("reference stub"); }
     public boolean isAiming() { throw new UnsupportedOperationException("reference stub"); }
     public boolean isAnyAimKeyDown() { throw new UnsupportedOperationException("reference stub"); }
+    public boolean isRunButtonDown() { throw new UnsupportedOperationException("reference stub"); }
+    public boolean isSprintButtonDown() { throw new UnsupportedOperationException("reference stub"); }
     public zombie.core.skinnedmodel.visual.HumanVisual getHumanVisual() { throw new UnsupportedOperationException("reference stub"); }
 }

@@ -107,11 +107,13 @@ public final class Controls {
      * A character that is not aiming turns to the way it walks, so walked backwards it would
      * show its back to what the view looks at: in a mirror, to other players, and to the game's
      * own vision cone. Walked sideways or backwards it is held in the game's aiming stance, the
-     * one way the game has of facing one way and moving another, at the pace it gives that.
+     * one way the game has of facing one way and moving another, raised to the pace the game
+     * gives the walk that way (Sidestep). With the FacesTheView row off, or on a server, the game
+     * turns the character to the way it walks.
      * The sights stay down. They follow the player's own aim input alone.
      */
     private boolean turnedToTheView(IsoPlayer player) {
-        return player != null && player.getVehicle() == null && view.firstPerson.movingAside();
+        return Rules.facesTheView() && player != null && player.getVehicle() == null && view.firstPerson.movingAside();
     }
 
     private boolean turnedOnly;

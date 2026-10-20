@@ -26,7 +26,7 @@
 - `E` uses the door, window, curtain, light switch, container or item under the reticle, leaning and head turns included. What it will use is outlined.
 - Right click with the pointer out opens the game's own menu for what the pointer is on, the same as in the isometric view.
 - A single quick click is enough for a melee attack.
-- Moving sideways or backwards in first person, your character keeps facing where you look, in the game's aiming stance.
+- Moving sideways or backwards in first person, your character keeps facing where you look, in the game's aiming stance, at the pace the game gives walking, jogging, sprinting or sneaking that way. Offline only; `FacesTheView` switches it off.
 - Controller: the aim stick turns the view, right trigger attacks, left trigger raises the sights, double-tap Back switches view.
 - If no plugged-in gamepad is ticked in the game's Controller options, every gamepad the game recognises plays. A 3Dconnexion SpaceMouse is never taken as a controller.
 - Every mod key can be rebound in `[Hotkeys]`. Mod keys do nothing in the main menu or while typing.

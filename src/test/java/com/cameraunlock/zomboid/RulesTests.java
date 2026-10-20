@@ -17,34 +17,39 @@ final class RulesTests {
 
     private static void aloneEveryRuleIsTheModsUntilARowSaysOtherwise() {
         Rules.set(Rules.ALL);
-        Servers.in(Servers.Where.ALONE, () -> check(Rules.throughWalls() && Rules.breaksLamps() && Rules.wounds() && !Rules.vehiclesStock(),
+        Servers.in(Servers.Where.ALONE, () -> check(Rules.throughWalls() && Rules.breaksLamps() && Rules.wounds() && !Rules.vehiclesStock()
+                        && Rules.facesTheView(),
                 "alone with every row on, every rule is the mod's"));
     }
 
     private static void eachRowOffGivesBackThatRuleAndNoOther() {
         Servers.in(Servers.Where.ALONE, () -> {
             Rules.set(Rules.ALL & ~Rules.THROUGH_WALLS);
-            check(!Rules.throughWalls() && Rules.breaksLamps() && Rules.wounds() && !Rules.vehiclesStock(),
+            check(!Rules.throughWalls() && Rules.breaksLamps() && Rules.wounds() && !Rules.vehiclesStock() && Rules.facesTheView(),
                     "ShotsThroughWalls off has walls stop shots and changes nothing else");
             Rules.set(Rules.ALL & ~Rules.BREAKS_LAMPS);
-            check(Rules.throughWalls() && !Rules.breaksLamps() && Rules.wounds() && !Rules.vehiclesStock(),
+            check(Rules.throughWalls() && !Rules.breaksLamps() && Rules.wounds() && !Rules.vehiclesStock() && Rules.facesTheView(),
                     "ShotsBreakLamps off leaves lamps lit and changes nothing else");
             Rules.set(Rules.ALL & ~Rules.WOUNDS);
-            check(Rules.throughWalls() && Rules.breaksLamps() && !Rules.wounds() && !Rules.vehiclesStock(),
+            check(Rules.throughWalls() && Rules.breaksLamps() && !Rules.wounds() && !Rules.vehiclesStock() && Rules.facesTheView(),
                     "ShotsWoundLimbs off leaves limbs to the game and changes nothing else");
             Rules.set(Rules.ALL & ~Rules.SMASHES_THROUGH);
-            check(Rules.throughWalls() && Rules.breaksLamps() && Rules.wounds() && Rules.vehiclesStock(),
+            check(Rules.throughWalls() && Rules.breaksLamps() && Rules.wounds() && Rules.vehiclesStock() && Rules.facesTheView(),
                     "VehiclesSmashThrough off gives vehicles the game's rules and changes nothing else");
             check(!Knockdown.smashing(Rules.vehiclesStock(), true, 50f) && !Knockdown.brushedThrough(Rules.vehiclesStock(), true, false)
                     && Knockdown.slowFactor(Rules.vehiclesStock(), 28f) == 28f && Knockdown.engineHeldOffRoad(Rules.vehiclesStock(), true),
                     "and with it off nothing is knocked down, bushes slow a car and the engine gives less off the road");
+            Rules.set(Rules.ALL & ~Rules.FACES_THE_VIEW);
+            check(Rules.throughWalls() && Rules.breaksLamps() && Rules.wounds() && !Rules.vehiclesStock() && !Rules.facesTheView(),
+                    "FacesTheView off has the character turn to the way it walks and changes nothing else");
         });
     }
 
     private static void onAServerEveryRuleIsTheGamesWhateverTheRows() {
         Rules.set(Rules.ALL);
         for (Servers.Where where : new Servers.Where[] {Servers.Where.FRIENDLY, Servers.Where.CONTESTED}) {
-            Servers.in(where, () -> check(!Rules.throughWalls() && !Rules.breaksLamps() && !Rules.wounds() && Rules.vehiclesStock(),
+            Servers.in(where, () -> check(!Rules.throughWalls() && !Rules.breaksLamps() && !Rules.wounds() && Rules.vehiclesStock()
+                    && !Rules.facesTheView(),
                     "on a server (" + where + ") every rule is the game's with every row on"));
         }
     }
