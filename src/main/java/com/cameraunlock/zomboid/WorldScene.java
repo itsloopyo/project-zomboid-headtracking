@@ -2138,7 +2138,7 @@ final class WorldScene {
         return type == IsoObjectType.stairsBW || type == IsoObjectType.stairsMW || type == IsoObjectType.stairsTW;
     }
 
-    private static boolean isStair(IsoObjectType type) {
+    static boolean isStair(IsoObjectType type) {
         return type == IsoObjectType.stairsBW || type == IsoObjectType.stairsMW || type == IsoObjectType.stairsTW
                 || type == IsoObjectType.stairsBN || type == IsoObjectType.stairsMN || type == IsoObjectType.stairsTN;
     }
@@ -2620,8 +2620,24 @@ final class WorldScene {
         private boolean tallying;
         private int chunksQuiet;
 
-        /** How many storeys under the one the viewer's building is held from have their light asked for: the eye's, the one over it and two under it. */
-        private static final int STOREYS_LIT = 4;
+        /** The building and the viewer's level heldFrom and heldUnder were last found for, whether every column of it was loaded then, and the frame. */
+        private long lidsOf = SpriteGeometry.NO_BUILDING;
+        private int lidsAt;
+        private boolean lidsWhole;
+        private int lidsFrame;
+        /** How many frames go by before a building some of whose columns were not loaded is looked through again. */
+        private static final int LIDS_AGAIN = 30;
+
+        /** Sets heldFrom and heldUnder for the viewer on that level of the building: see Lids. */
+        private void lids(BuildingDef def, int level) {
+            Lids.Held held = Lids.of(cell, def, level);
+            heldFrom = held.from();
+            heldUnder = held.under();
+            lidsOf = def.id;
+            lidsAt = level;
+            lidsWhole = held.whole();
+            lidsFrame = frames;
+        }
 
         /**
          * Asks the lighting engine, once for each of its passes, whether a chunk's lights have
@@ -2655,7 +2671,7 @@ final class WorldScene {
             FBORenderLevels levels = chunk.getRenderLevels(playerIndex);
             boolean gameAsks = !view.firstPerson.coversTheGamesView();
             int top = storey == Integer.MAX_VALUE ? chunk.getMaxLevel() : Math.min(chunk.getMaxLevel(), storey - 1);
-            for (int z = Math.max(storey == Integer.MAX_VALUE ? lowest : Math.max(lowest, storey - STOREYS_LIT), chunk.getMinLevel()); z <= top; z++) {
+            for (int z = Math.max(storey == Integer.MAX_VALUE ? lowest : Math.max(lowest, heldUnder + 1), chunk.getMinLevel()); z <= top; z++) {
                 tollPulls++;
                 if (!taken && (gameAsks && levels.isOnScreen(z) || !LightingJNI.getChunkDirty(playerIndex, chunk.wx, chunk.wy, z + 32))) {
                     continue;
@@ -2951,13 +2967,20 @@ final class WorldScene {
             }
             BuildingDef def = roofed == null || roofed.getBuilding() == null ? null : roofed.getBuilding().getDef();
             boolean indoors = def != null;
-            // From the eye in a building, its floors from two over the viewer's up are seen only
-            // up a stairwell, and from no window: they stand for their shape and their shadow,
-            // and what the game's light does on them is not read while the viewer is under them.
-            // So with its floors from three under the viewer's down, seen only down a stairwell.
+            // From the eye in a building, its floors from two over the first that closes over the
+            // viewer's storey are seen only up a stairwell, and from no window: they stand for
+            // their shape and their shadow, and what the game's light does on them is not read
+            // while the viewer is under them. So with its floors from three under the first under
+            // the viewer, seen only down a stairwell. A hall several floors high puts that first
+            // floor further off: see Lids.
             BuildingDef within = !fromOutside && stoodOn != null && !stoodOn.isOutside() && stoodOn.getBuilding() != null ? stoodOn.getBuilding().getDef() : null;
-            heldFrom = within == null ? Integer.MAX_VALUE : level + 2;
-            heldUnder = within == null ? Integer.MIN_VALUE : level - 3;
+            if (within == null) {
+                heldFrom = Integer.MAX_VALUE;
+                heldUnder = Integer.MIN_VALUE;
+                lidsOf = SpriteGeometry.NO_BUILDING;
+            } else if (within.id != lidsOf || level != lidsAt || !lidsWhole && frames - lidsFrame >= LIDS_AGAIN) {
+                lids(within, level);
+            }
             heldBuilding = within == null ? SpriteGeometry.NO_BUILDING : within.id;
             if (within != null) {
                 heldMinX = within.getX() - 1;

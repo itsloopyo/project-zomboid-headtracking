@@ -10,8 +10,11 @@ public final class IsoGridSquare {
     private long roomID = -1L;
     private IsoObject floor;
     private boolean filling;
+    private zombie.iso.areas.IsoBuilding building;
+    private final IsoCell cell;
 
-    IsoGridSquare(int x, int y, int z) {
+    IsoGridSquare(IsoCell cell, int x, int y, int z) {
+        this.cell = cell;
         this.x = x;
         this.y = y;
         this.z = z;
@@ -27,6 +30,12 @@ public final class IsoGridSquare {
     /** Lays a floor of that sprite on the square, under what is on it. */
     public void floor(IsoSprite sprite) {
         floor = add(sprite);
+    }
+
+    /** Takes up the square's floor, as over a stairwell or a hall's well. */
+    public void unfloor() {
+        objects.remove(floor);
+        floor = null;
     }
 
     /** Whether the map is still filling the square's chunk, which the game says on the chunk. */
@@ -46,8 +55,13 @@ public final class IsoGridSquare {
         return roomID;
     }
 
+    /** Puts the square in that building. */
+    public void building(zombie.iso.areas.IsoBuilding of) {
+        building = of;
+    }
+
     public zombie.iso.areas.IsoBuilding getBuilding() {
-        return null;
+        return building;
     }
 
     /** No square of a test is in a room the game has made. */
@@ -68,6 +82,8 @@ public final class IsoGridSquare {
         chunk.wx = Math.floorDiv(x, 8);
         chunk.wy = Math.floorDiv(y, 8);
         chunk.loaded = !filling;
+        chunk.minLevel = cell.lowest();
+        chunk.maxLevel = cell.highest();
         return chunk;
     }
 

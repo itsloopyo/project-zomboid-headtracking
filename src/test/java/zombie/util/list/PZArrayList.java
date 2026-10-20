@@ -21,4 +21,9 @@ public final class PZArrayList<E> extends AbstractList<E> {
     public boolean add(E item) {
         return items.add(item);
     }
+
+    @Override
+    public E remove(int index) {
+        return items.remove(index);
+    }
 }
