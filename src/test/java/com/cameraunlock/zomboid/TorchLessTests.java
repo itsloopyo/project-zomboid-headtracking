@@ -17,6 +17,7 @@ final class TorchLessTests {
         Checks.run("aSquareCutOffKeepsItsLeast", TorchLessTests::aSquareCutOffKeepsItsLeast);
         Checks.run("nothingIsGivenLessThanItsLeast", TorchLessTests::nothingIsGivenLessThanItsLeast);
         Checks.run("aSquareKnownInPartKeepsTheColourRoundIt", TorchLessTests::aSquareKnownInPartKeepsTheColourRoundIt);
+        Checks.run("aStreetLampsPoolUnderTheTorchIsNoPatchwork", TorchLessTests::aStreetLampsPoolUnderTheTorchIsNoPatchwork);
         Checks.run("aSquareTheTorchComesOntoKeepsTheLightItHad", TorchLessTests::aSquareTheTorchComesOntoKeepsTheLightItHad);
         Checks.run("aShotsLampLeftBehindIsLetGo", TorchLessTests::aShotsLampLeftBehindIsLetGo);
     }
@@ -185,18 +186,41 @@ final class TorchLessTests {
         float[] light = level(span, 0f, known, least, room);
         // A lamp's warm light all round, and in the middle a square half as bright whose blue alone is exact.
         for (int at = 0; at < span * span; at++) {
-            light[at * 3] = 0.4f;
-            light[at * 3 + 1] = 0.3f;
-            light[at * 3 + 2] = 0.2f;
+            light[at * 3] = 0.8f;
+            light[at * 3 + 1] = 0.6f;
+            light[at * 3 + 2] = 0.4f;
         }
         known[12] = false;
         known[13] = false;
         light[12] = 0f;
         light[13] = 0f;
-        light[14] = 0.1f;
+        light[14] = 0.2f;
         TorchLess.settle(span, light, known, least, room);
-        check(near(light[12], 0.2f) && near(light[13], 0.15f) && near(light[14], 0.1f),
-                "a square whose blue alone is known takes the colour round it at the brightness its blue has: " + light[12] + " " + light[13] + " " + light[14]);
+        check(light[12] > 0.4f && light[12] < 0.5f && near(light[13] / light[12], 0.75f) && near(light[14], 0.2f),
+                "a square whose blue alone is known takes the colour round it at about the brightness its blue has: " + light[12] + " " + light[13] + " " + light[14]);
+    }
+
+    private static void aStreetLampsPoolUnderTheTorchIsNoPatchwork() {
+        int span = 3;
+        boolean[] known = new boolean[span * span * 3];
+        float[] least = new float[span * span * 3];
+        long[] room = new long[span * span];
+        float[] light = level(span, 0f, known, least, room);
+        // A street lamp's pool at night: red at the top, green under it, blue a few steps above nothing.
+        for (int at = 0; at < span * span; at++) {
+            light[at * 3] = 1f;
+            light[at * 3 + 1] = 0.6f;
+            light[at * 3 + 2] = 5f / 255f;
+        }
+        // In the middle the torch has stopped red and green at 1, and the blue is a step less.
+        known[12] = false;
+        known[13] = false;
+        least[12] = 0.2f;
+        least[13] = 0.2f;
+        light[14] = 4f / 255f;
+        TorchLess.settle(span, light, known, least, room);
+        check(near(light[12], 1f) && light[13] > 0.54f && light[13] < 0.6f,
+                "a square of a lamp's pool whose blue is a step off the squares round it has their red and green: " + light[12] + " " + light[13]);
     }
 
     private static void check(boolean condition, String what) {

@@ -3,6 +3,12 @@ id=3823224669
 title=PZHT - First Person + Graphics Overhaul + Gameplay Tweaks + Head Tracking
 description=A graphics overhaul for Project Zomboid that adds a first person mode, gameplay tweaks and OpenTrack compatible head tracking with microphone lip syncing for maximum immersion. Every part is optional.
 description=
+description=[b]This Workshop copy needs ZombieBuddy[/b], a separate mod by zed-0xff that loads Java mods into the game. ZombieBuddy is not mine: I don't control it or its updates, and I can't take responsibility for what it does. Read its Workshop page before you install it.
+description=
+description=To play without ZombieBuddy, download the installer from this mod's [url=https://github.com/itsloopyo/project-zomboid-headtracking/releases]GitHub releases[/url] instead. It puts the mod in the game folder and loads it whenever you start the game, so you don't need to subscribe here.
+description=
+description=Got a question or found a bug? Come and say hi on [url=https://discord.com/invite/dxyZdyFNT9]Discord[/url].
+description=
 description=Free and open source under the MIT licence, the source is on [url=https://github.com/itsloopyo/project-zomboid-headtracking]GitHub[/url].
 description=
 description=[img]https://raw.githubusercontent.com/itsloopyo/project-zomboid-headtracking/main/workshop/gallery/snow-sunset.jpg[/img]
@@ -76,26 +82,17 @@ description=
 description=Tracker setup, controls and settings: [url=https://github.com/itsloopyo/project-zomboid-headtracking]github.com/itsloopyo/project-zomboid-headtracking[/url]
 description=
 description=[h1]Screenshots[/h1]
-description=[img]https://raw.githubusercontent.com/itsloopyo/project-zomboid-headtracking/main/workshop/gallery/up-close.jpg[/img]
-description=High res retexture.
-description=
 description=[img]https://raw.githubusercontent.com/itsloopyo/project-zomboid-headtracking/main/workshop/gallery/car-interior.jpg[/img]
 description=Modelled vehicle interiors, with functional instrumentation.
 description=
 description=[img]https://raw.githubusercontent.com/itsloopyo/project-zomboid-headtracking/main/workshop/gallery/isometric-woods.jpg[/img]
-description=The isometric view with the mod's graphics.
+description=Enhanced graphics in isometric view.
 description=
 description=[img]https://raw.githubusercontent.com/itsloopyo/project-zomboid-headtracking/main/workshop/gallery/isometric-snow.jpg[/img]
 description=Footprints and tyre tracks in the snow.
 description=
 description=[img]https://raw.githubusercontent.com/itsloopyo/project-zomboid-headtracking/main/workshop/gallery/autumn.jpg[/img]
 description=Autumn woods, with leaves falling from the trees.
-description=
-description=[img]https://raw.githubusercontent.com/itsloopyo/project-zomboid-headtracking/main/workshop/gallery/woods.jpg[/img]
-description=Long grass and wildflowers under the trees.
-description=
-description=[img]https://raw.githubusercontent.com/itsloopyo/project-zomboid-headtracking/main/workshop/gallery/winter-street.jpg[/img]
-description=Winter.
 description=
 description=[img]https://raw.githubusercontent.com/itsloopyo/project-zomboid-headtracking/main/workshop/gallery/winter-trees.jpg[/img]
 description=Bare trees and snow-covered foliage.

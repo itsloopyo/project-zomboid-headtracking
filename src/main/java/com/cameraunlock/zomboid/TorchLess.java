@@ -313,6 +313,13 @@ final class TorchLess {
         light[at] = share <= 0f ? with : Math.round(least[at] * 255f) / 255f;
     }
 
+    /**
+     * Added to each known part before the brightness is read from it. At night under a street lamp
+     * the torch stops red and green at 1 and leaves only a blue a few of the engine's steps above
+     * nothing: read as it is, one step more or less made the square's red and green half or twice
+     * those round it, and the ground under the torch a pattern of red, yellow and grey squares.
+     */
+    private static final float KNOWN_STEADIED = 0.05f;
     /** A square is not made more than this many times as bright as the squares round it to fit the part of its light that is known. */
     private static final float MOST_SCALED = 4f;
 
@@ -373,14 +380,17 @@ final class TorchLess {
                     for (int part = 0; part < 3; part++) {
                         round[part] /= count;
                         if (known[at * 3 + part]) {
-                            has += light[at * 3 + part];
-                            would += round[part];
+                            has += light[at * 3 + part] + KNOWN_STEADIED;
+                            would += round[part] + KNOWN_STEADIED;
                         }
                     }
                     float scale = would > 1e-4f ? Math.min(has / would, MOST_SCALED) : 1f;
                     for (int part = 0; part < 3; part++) {
                         if (!known[at * 3 + part]) {
-                            light[at * 3 + part] = Math.clamp(round[part] * scale, least[at * 3 + part], 1f);
+                            // A part the squares round it all have at the top had a light there more than the top can show:
+                            // scaled down, a street lamp's red under the torch came out a square at a time.
+                            float taken = round[part] >= STOPPED ? 1f : round[part] * scale;
+                            light[at * 3 + part] = Math.clamp(taken, least[at * 3 + part], 1f);
                         }
                     }
                     settledNow[at] = true;
