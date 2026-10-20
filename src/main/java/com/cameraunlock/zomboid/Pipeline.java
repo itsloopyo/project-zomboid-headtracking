@@ -3556,6 +3556,7 @@ final class Pipeline {
         to.set("uRoomKept", (float) Math.pow(state.daylightKept * state.roomKept, 2.2));
         to.setEach4("uLampAt", state.lampAt);
         to.setEach3("uLampHue", state.lampHue);
+        to.setEach4("uLampRoom", state.lampRoom);
         to.set("uEyeOutdoors", state.outdoors);
         setFlash(to);
         to.set("uLightLinear", (float) Math.pow(state.lightRed, 2.2), (float) Math.pow(state.lightGreen, 2.2), (float) Math.pow(state.lightBlue, 2.2));

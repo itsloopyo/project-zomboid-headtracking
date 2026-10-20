@@ -1004,17 +1004,23 @@ final class PipelineShaders {
             // colour it lights a square in, linear: see WorldScene.lampsSeen.
             uniform vec4 uLampAt[LAMPS_SEEN];
             uniform vec3 uLampHue[LAMPS_SEEN];
+            // The bounds of the room each burns in, from (x, y) to (z, w), or z under x for one in no room.
+            uniform vec4 uLampRoom[LAMPS_SEEN];
 
             // The colour the lamp that lights a place most lights it in, or nothing where none reaches,
-            // and in a how near the place is to it: 1 at the lamp and 0 where its reach ends.
-            vec4 lampHue(vec3 at) {
+            // and in a how near the place is to it: 1 at the lamp and 0 where its reach ends. A lamp
+            // in a room reaches only that room, and one in none only places out of doors.
+            vec4 lampHue(vec3 at, float open) {
                 vec3 hue = vec3(0.0);
                 float most = 0.0;
                 for (int i = 0; i < LAMPS_SEEN; i++) {
                     vec4 lamp = uLampAt[i];
                     vec3 to = vec3(at.xy - lamp.xy, (at.z - lamp.z) / LEVEL_HEIGHT);
                     float share = 1.0 - length(to) / max(lamp.w, 0.001);
-                    if (lamp.w > 0.0 && share > most) {
+                    vec4 room = uLampRoom[i];
+                    bool reaches = room.z < room.x ? open > 0.0
+                            : at.x > room.x - 0.02 && at.y > room.y - 0.02 && at.x < room.z + 0.02 && at.y < room.w + 0.02;
+                    if (lamp.w > 0.0 && reaches && share > most) {
                         most = share;
                         hue = uLampHue[i];
                     }
@@ -3549,9 +3555,7 @@ final class PipelineShaders {
                 // daylight, and what it has over it came from a lamp.
                 // A room has less of it: see Evening.ROOM_DAYLIGHT.
                 float heldBack = 1.0 - mix(uRoomKept, uDaylightKept, clamp(open, 0.0, 1.0));
-                // Out of doors only: the lamp's reach is a ball round it that walls do not stop, and
-                // indoors it lit the next room through the wall. A room has the game's light.
-                vec4 lampNear = heldBack > 0.0 && open > 0.0 ? lampHue(vWorld) : vec4(0.0);
+                vec4 lampNear = heldBack > 0.0 ? lampHue(vWorld, open) : vec4(0.0);
                 vec3 lampColour = lampNear.rgb;
                 vec3 daylight = min(given, uOpenLinear);
                 if (lampColour.r + lampColour.g + lampColour.b > 0.0) {
@@ -3568,7 +3572,7 @@ final class PipelineShaders {
                     float strength = dot(first, given - daylight * heldBack) / dot(first, lampColour);
                     // Over the outer part of its reach the lamp's colour comes in by degrees: switched
                     // on at the edge of its reach, it drew a hard egg round the lamp across the room.
-                    given = mix(given - daylight * heldBack, max(daylight * (1.0 - heldBack), lampColour * strength), smoothstep(0.0, 0.5, lampNear.a) * clamp(open, 0.0, 1.0));
+                    given = mix(given - daylight * heldBack, max(daylight * (1.0 - heldBack), lampColour * strength), smoothstep(0.0, 0.5, lampNear.a));
                 } else {
                     given -= daylight * heldBack;
                 }

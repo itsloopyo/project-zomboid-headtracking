@@ -4978,7 +4978,7 @@ final class WorldScene {
          * in, and the picture has its colour from here.
          */
         private void lampsSeen(float eyeX, float eyeY) {
-            float[] at = sky.lampAt, hue = sky.lampHue;
+            float[] at = sky.lampAt, hue = sky.lampHue, room = sky.lampRoom;
             Arrays.fill(at, 0f);
             Arrays.fill(lampGap, Float.MAX_VALUE);
             Stack<IsoLightSource> lamps = cell.getLamppostPositions();
@@ -4996,6 +4996,7 @@ final class WorldScene {
                     lampGap[slot] = lampGap[slot - 1];
                     System.arraycopy(at, (slot - 1) * 4, at, slot * 4, 4);
                     System.arraycopy(hue, (slot - 1) * 3, hue, slot * 3, 3);
+                    System.arraycopy(room, (slot - 1) * 4, room, slot * 4, 4);
                     slot--;
                 }
                 lampGap[slot] = gap;
@@ -5006,7 +5007,37 @@ final class WorldScene {
                 hue[slot * 3] = (float) Math.pow(Math.min(2f * lamp.r, 1f), 2.2);
                 hue[slot * 3 + 1] = (float) Math.pow(Math.min(2f * lamp.g, 1f), 2.2);
                 hue[slot * 3 + 2] = (float) Math.pow(Math.min(2f * lamp.b, 1f), 2.2);
+                lampRoom(lamp, room, slot * 4);
             }
+        }
+
+        /**
+         * The bounds of the room a lamp burns in, as across from (x, y) to (x2, y2), for the
+         * shader to keep its colour to them: the lamp's reach is a ball that walls do not stop.
+         * A lamp in no room, a street lamp, is given bounds that hold nothing.
+         */
+        private void lampRoom(IsoLightSource lamp, float[] room, int at) {
+            IsoGridSquare square = cell.getGridSquare(lamp.x, lamp.y, lamp.z);
+            IsoRoom in = square == null ? null : square.getRoom();
+            RoomDef def = in == null ? null : in.getRoomDef();
+            room[at] = 0f;
+            room[at + 1] = 0f;
+            room[at + 2] = -1f;
+            room[at + 3] = -1f;
+            if (def == null || def.rects == null || def.rects.isEmpty()) {
+                return;
+            }
+            int fromX = Integer.MAX_VALUE, fromY = Integer.MAX_VALUE, toX = Integer.MIN_VALUE, toY = Integer.MIN_VALUE;
+            for (RoomDef.RoomRect rect : def.rects) {
+                fromX = Math.min(fromX, rect.x);
+                fromY = Math.min(fromY, rect.y);
+                toX = Math.max(toX, rect.x + rect.w);
+                toY = Math.max(toY, rect.y + rect.h);
+            }
+            room[at] = fromX;
+            room[at + 1] = fromY;
+            room[at + 2] = toX;
+            room[at + 3] = toY;
         }
         private final float[] lampGap = new float[SkyState.LAMPS_SEEN];
         private final ArrayList<IsoLightSource> lampsBurning = new ArrayList<>();
