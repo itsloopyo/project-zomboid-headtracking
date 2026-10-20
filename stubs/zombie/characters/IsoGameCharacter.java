@@ -35,6 +35,8 @@ public abstract class IsoGameCharacter extends IsoMovingObject {
     public void setSecondaryHandItem(zombie.inventory.InventoryItem item) { throw new UnsupportedOperationException("reference stub"); }
     public zombie.inventory.InventoryItem getSecondaryHandItem() { throw new UnsupportedOperationException("reference stub"); }
     public boolean isSprinting() { throw new UnsupportedOperationException("reference stub"); }
+    public boolean isRunning() { throw new UnsupportedOperationException("reference stub"); }
+    public boolean isDraggingCorpse() { throw new UnsupportedOperationException("reference stub"); }
     public final boolean isFemale() { throw new UnsupportedOperationException("reference stub"); }
     public String GetVariable(String name) { throw new UnsupportedOperationException("reference stub"); }
     public zombie.core.skinnedmodel.advancedanimation.IAnimationVariableSlot setVariable(String name, String value) { throw new UnsupportedOperationException("reference stub"); }

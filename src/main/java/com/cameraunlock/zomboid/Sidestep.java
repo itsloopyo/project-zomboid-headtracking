@@ -3,38 +3,80 @@ package com.cameraunlock.zomboid;
 /**
  * The pace of a character walked sideways or backwards in first person, held facing the view
  * in the game's aiming stance (Controls). The stance's animations move it about a third of the
- * ground the game's walk ahead does backwards and a fifth sideways, and the game plays them at
- * the one pace whether the jog, sprint or sneak key is down. The ground they move it is raised
- * by the share that brings it to the pace it would have turned and walked, jogged, sprinted or
- * crept that way at. The legs keep the stance's step.
+ * ground the game's walk ahead does backwards and a fifth sideways, and the game does not slow
+ * them for what slows its walk: a load, wounds, tiredness, bare feet or trees. So the pace is
+ * taken from the game's own walk ahead, measured as the character walks or creeps ahead, and the
+ * ground the stance moves it is raised to that pace. The legs keep the stance's step.
+ *
+ * Until the character has walked ahead long enough to measure, the pace is the stance's raised by
+ * the shares below. The raise is never more than OVERREACH times those, so the stance's own start
+ * from a standstill still eases in, and a walk ahead blending out as the stance begins is not
+ * carried past the pace.
+ *
+ * One per view. Logic thread only.
  */
 final class Sidestep {
     /**
      * The stance's pace as a share of the walk ahead, backwards, half back and half sideways, and
-     * sideways: the shares that, divided into the walk's, brought each to it over three seconds
-     * from a standstill in the game.
+     * sideways, with a weapon held in one hand: the shares that, divided into the walk's, brought
+     * each to it over three seconds from a standstill in the game.
      */
     static final float BACK = 0.339f, BACK_ASIDE = 0.317f, ASIDE = 0.238f;
-    /** The game's own pace ahead as a share of its walk: jogging, sprinting, sneaking, and jogging crouched. */
-    static final float JOG = 1.56f, SPRINT = 1.56f, SNEAK = 0.93f, SNEAK_JOG = 1.77f;
+    /** The game's creep ahead as a share of its walk ahead. */
+    static final float SNEAK = 0.93f;
+    /** How far past the shares above the raise may go, for weapons whose stance steps shorter than a one handed one's. */
+    static final float OVERREACH = 1.5f;
+    /** How long a walk ahead is under way before its pace is the walk's and not its start. */
+    static final long UNDER_WAY_NANOS = 500_000_000L;
+    /** A gap between two frames of walking ahead longer than this is a new walk. */
+    static final long GAP_NANOS = 200_000_000L;
+    /** The time constant the measured pace follows the walk's with. */
+    static final float FOLLOW_SECONDS = 0.5f;
 
-    enum Gait { WALK, JOG, SPRINT, SNEAK, SNEAK_JOG }
+    private final float[] measured = {Float.NaN, Float.NaN};
+    private long walkingSince = -1L, lastWalked = -1L;
+    private boolean walkedSneaking;
 
-    private Sidestep() {}
-
-    /** The gait the game would give the walk, as it reads the keys in IsoPlayer.updateInputState: on a controller a sprint is the run button with the sprint one. */
-    static Gait gait(boolean run, boolean sprint, boolean controller, boolean sneaking) {
-        if (sprint && (run || !controller)) {
-            return Gait.SPRINT;
+    /**
+     * A frame of the game's own walk ahead, its pace the ground moved over the game's time
+     * multiplier, so that the game's speed does not count.
+     */
+    void walkedAhead(float pace, boolean sneaking, long now) {
+        if (lastWalked < 0L || now - lastWalked > GAP_NANOS || sneaking != walkedSneaking) {
+            walkingSince = now;
+        } else if (now - walkingSince >= UNDER_WAY_NANOS) {
+            int slot = sneaking ? 1 : 0;
+            float seconds = (now - lastWalked) / 1e9f;
+            measured[slot] = Float.isNaN(measured[slot]) ? pace
+                    : measured[slot] + (pace - measured[slot]) * (float) (1.0 - Math.exp(-seconds / FOLLOW_SECONDS));
         }
-        if (run) {
-            return sneaking ? Gait.SNEAK_JOG : Gait.JOG;
-        }
-        return sneaking ? Gait.SNEAK : Gait.WALK;
+        lastWalked = now;
+        walkedSneaking = sneaking;
+    }
+
+    /** The game's pace ahead measured for walking or creeping, NaN until one has been. */
+    float measured(boolean sneaking) {
+        return measured[sneaking ? 1 : 0];
     }
 
     /**
-     * The ground the stance moves the character, as a share of the walk ahead.
+     * What the ground the stance moves the character this frame is multiplied by.
+     *
+     * @param pace  the stance's pace this frame, the ground over the game's time multiplier
+     * @param ahead the cosine of the angle between the way walked and the view, -1 straight back
+     */
+    float raised(float pace, float ahead, boolean sneaking) {
+        if (pace <= 0f) {
+            return 1f;
+        }
+        float shares = (sneaking ? SNEAK : 1f) / stance(ahead);
+        float wanted = measured(sneaking);
+        float most = pace * shares * OVERREACH;
+        return Math.min(Float.isNaN(wanted) ? pace * shares : wanted, most) / pace;
+    }
+
+    /**
+     * The stance's pace as a share of the walk ahead, from the shares measured.
      *
      * @param ahead the cosine of the angle between the way walked and the view, -1 straight back
      */
@@ -45,17 +87,5 @@ final class Sidestep {
             return BACK + (BACK_ASIDE - BACK) * fromBack / quarter;
         }
         return fromBack <= 2f * quarter ? BACK_ASIDE + (ASIDE - BACK_ASIDE) * (fromBack - quarter) / quarter : ASIDE;
-    }
-
-    /** What the ground the stance moves the character is multiplied by to make the game's pace for the gait. */
-    static float raised(float ahead, Gait gait) {
-        float pace = switch (gait) {
-            case WALK -> 1f;
-            case JOG -> JOG;
-            case SPRINT -> SPRINT;
-            case SNEAK -> SNEAK;
-            case SNEAK_JOG -> SNEAK_JOG;
-        };
-        return pace / stance(ahead);
     }
 }

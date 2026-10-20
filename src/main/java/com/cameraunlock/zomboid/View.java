@@ -44,6 +44,7 @@ final class View {
     final HeadTracking headTracking;
     final FirstPerson firstPerson = new FirstPerson(this);
     final Controls controls = new Controls(this);
+    final Sidestep sidestep = new Sidestep();
     final CarriedLight carriedLight = new CarriedLight(this);
     final HeldLight heldLight = new HeldLight(this);
     final CentreUse centreUse = new CentreUse(this);

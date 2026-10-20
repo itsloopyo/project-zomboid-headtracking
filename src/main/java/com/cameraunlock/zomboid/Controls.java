@@ -108,12 +108,40 @@ public final class Controls {
      * show its back to what the view looks at: in a mirror, to other players, and to the game's
      * own vision cone. Walked sideways or backwards it is held in the game's aiming stance, the
      * one way the game has of facing one way and moving another, raised to the pace the game
-     * gives the walk that way (Sidestep). With the FacesTheView row off, or on a server, the game
-     * turns the character to the way it walks.
+     * gives its walk (Sidestep). Jogging or sprinting, dragging a body, with the FacesTheView row
+     * off or on a server, the game turns the character to the way it goes, as it would anyway.
      * The sights stay down. They follow the player's own aim input alone.
      */
     private boolean turnedToTheView(IsoPlayer player) {
-        return Rules.facesTheView() && player != null && player.getVehicle() == null && view.firstPerson.movingAside();
+        return Rules.facesTheView() && player != null && player.getVehicle() == null && view.firstPerson.movingAside()
+                && !asksToRun(player) && !player.isDraggingCorpse();
+    }
+
+    private static final Field INPUT_STATE = inputState();
+
+    private static Field inputState() {
+        try {
+            Field field = IsoPlayer.class.getDeclaredField("inputState");
+            field.setAccessible(true);
+            return field;
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException("the game's player input has changed: " + e, e);
+        }
+    }
+
+    /**
+     * Whether the game read a jog or a sprint from the player's input on its last reading of it,
+     * the keys or its toggles to run and sprint. In the aiming stance the game keeps the character
+     * at a walk, so it is the input that says so and not the character. The aim is asked for
+     * before the game reads the run again, so a jog begun this frame holds the stance one more.
+     */
+    private static boolean asksToRun(IsoPlayer player) {
+        try {
+            IsoPlayer.InputState input = (IsoPlayer.InputState) INPUT_STATE.get(player);
+            return input.isRunning() || input.sprinting;
+        } catch (IllegalAccessException e) {
+            throw new IllegalStateException("the game's player input has changed: " + e, e);
+        }
     }
 
     private boolean turnedOnly;

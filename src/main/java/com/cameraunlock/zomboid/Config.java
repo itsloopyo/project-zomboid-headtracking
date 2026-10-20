@@ -321,9 +321,9 @@ final class Config {
                             + "game's rules hold.",
                     writable | live, true),
             core.configLocalBool("Rules", "FacesTheView",
-                    "true: offline, walked sideways or backwards in first person your character keeps facing where you look, at the\n"
-                            + "pace the game gives that walk. false: it turns to the way it walks, as the game has it. On a server the game's\n"
-                            + "rule holds.",
+                    "true: offline, walking or sneaking sideways or backwards in first person, your character keeps facing where you\n"
+                            + "look, at the pace of its walk ahead. Jogging or sprinting it turns to the way it goes. false: it always turns,\n"
+                            + "as the game has it. On a server the game's rule holds.",
                     writable | live, true),
         };
 

@@ -14,6 +14,7 @@ import java.util.Stack;
 import zombie.CombatManager;
 import zombie.Lua.LuaEventManager;
 import zombie.EffectsManager;
+import zombie.GameTime;
 import zombie.characters.IsoGameCharacter;
 import zombie.characters.IsoPlayer;
 import zombie.characters.IsoZombie;
@@ -631,20 +632,29 @@ public final class Hooks {
 
     /**
      * Called with the ground a character's animation has moved it this frame, before the game
-     * moves it. A player of this machine held in the aiming stance while walked sideways or
-     * backwards (Controls.turnedOnly) is moved the ground of the walk that way: see Sidestep.
+     * moves it. For a player of this machine walking ahead in first person it is the game's pace,
+     * and held in the aiming stance while walked sideways or backwards (Controls.turnedOnly) it is
+     * raised to that pace: see Sidestep.
      */
     public static Vector2 moved(Vector2 ground, IsoGameCharacter character) {
         if (!(character instanceof IsoPlayer player)) {
             return ground;
         }
         View view = View.of(player);
-        if (view == null || !view.controls.turnedOnly() || !player.isAiming()) {
+        float multiplier = GameTime.getInstance().getMultiplier();
+        if (view == null || multiplier <= 0f) {
             return ground;
         }
-        Sidestep.Gait gait = Sidestep.gait(player.isRunButtonDown(), player.isSprintButtonDown(), View.onController(player), player.isSneaking());
-        float raised = Sidestep.raised(view.firstPerson.keysAhead(), gait);
-        return ground.set(ground.x * raised, ground.y * raised);
+        float pace = (float) Math.hypot(ground.x, ground.y) / multiplier;
+        if (view.controls.turnedOnly() && player.isAiming()) {
+            float raised = view.sidestep.raised(pace, view.firstPerson.keysAhead(), player.isSneaking());
+            return ground.set(ground.x * raised, ground.y * raised);
+        }
+        if (pace > 0f && view.firstPerson.walkingAhead() && !player.isAiming() && !player.isRunning() && !player.isSprinting()
+                && player.getVehicle() == null && !player.isDraggingCorpse()) {
+            view.sidestep.walkedAhead(pace, player.isSneaking(), System.nanoTime());
+        }
+        return ground;
     }
 
     /** Called as the game has drawn a person or a vehicle into a player's part of the screen. */

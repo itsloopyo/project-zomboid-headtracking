@@ -135,9 +135,16 @@ public final class FirstPerson {
 
     /** The cosine of the angle between the way the movement keys ask for and the view: 1 ahead, -1 straight back. */
     private float keysAhead = 1f;
+    /** Whether the movement keys ask for a way the view faces: ahead, or ahead and to one side. */
+    private boolean walkingAhead;
 
     float keysAhead() {
         return keysAhead;
+    }
+
+    /** Whether the character is being walked the way the view faces, or ahead and to one side of it. */
+    boolean walkingAhead() {
+        return walkingAhead && lookCaptured();
     }
 
     private static final float EYE_HEIGHT_STANDING = 1.6f;
@@ -1746,6 +1753,7 @@ public final class FirstPerson {
         if (move.x == 0f && move.y == 0f) {
             stride.reset();
             movingAside = false;
+            walkingAhead = false;
             // While the game's animation has the body it faces where that left it: turned, the struggle would be played to one side.
             if (!player.isAiming() && !bodyLeads) {
                 player.setForwardDirection(forward.set((float) Math.cos(yaw), (float) Math.sin(yaw)));
@@ -1754,6 +1762,7 @@ public final class FirstPerson {
         }
         movingAside = Stride.aside(move.x, move.y);
         keysAhead = -move.y / (float) Math.hypot(move.x, move.y);
+        walkingAhead = !movingAside;
         float turn = stride.turn(move.x, move.y, yaw, STOCK_FORWARD_YAW, System.nanoTime());
         float cos = (float) Math.cos(turn);
         float sin = (float) Math.sin(turn);
