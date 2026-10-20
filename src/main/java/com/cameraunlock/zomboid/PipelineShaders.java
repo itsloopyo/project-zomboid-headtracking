@@ -4959,6 +4959,16 @@ final class PipelineShaders {
             // over the block's side, or 0 when there is no block.
             uniform sampler2D uRoomAirMap;
             uniform vec3 uRoomAirAt;
+            // The last frame's air before it was softened, with how far each of its pixels saw in
+            // alpha, the eye it was seen from, and how much of it is kept where it is seen at the
+            // same distance. uStepsFrom moves where along a line of sight the steps fall, frame by frame.
+            uniform sampler2D uAirBefore;
+            uniform float uAirKept;
+            uniform vec3 uEyeBefore;
+            uniform vec3 uRightBefore;
+            uniform vec3 uUpBefore;
+            uniform vec3 uForwardBefore;
+            uniform float uStepsFrom;
             """ + BEAMS + """
 
             const int STEPS = 24;
@@ -4986,7 +4996,7 @@ final class PipelineShaders {
                 vec2 ndc = uv * 2.0 - 1.0;
                 vec3 ray = uForward + uRight * (ndc.x * uTan.x) + uUp * (ndc.y * uTan.y);
                 float stride = ahead / float(STEPS);
-                float start = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
+                float start = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))) + uStepsFrom);
                 float lit = 0.0;
                 float beamed = 0.0;
                 float along = length(ray);
@@ -5021,7 +5031,17 @@ final class PipelineShaders {
                 vec3 caught = glow * (lit / float(STEPS) * ahead * along * towards);
                 // A beam barely shows in clear night air, on the dust in it, and more in mist.
                 caught += vec3(1.0, 0.92, 0.76) * (beamed / float(STEPS) * ahead * along * (0.0004 + 0.2 * uMist));
-                gl_FragColor = vec4(caught, 1.0);
+                // Where this pixel's line of sight ends, as the last frame saw it: kept only where
+                // that frame saw as far there, so what has come out from behind something is not
+                // given the air in front of what hid it.
+                vec3 seen = uEye + ray * ahead - uEyeBefore;
+                float aheadBefore = dot(seen, uForwardBefore);
+                vec2 before = vec2(dot(seen, uRightBefore) / uTan.x, dot(seen, uUpBefore) / uTan.y) / max(aheadBefore, 0.001) * 0.5 + 0.5;
+                if (uAirKept > 0.0 && aheadBefore > 0.0 && before.x > 0.0 && before.x < 1.0 && before.y > 0.0 && before.y < 1.0) {
+                    vec4 then = texture2D(uAirBefore, before);
+                    caught = mix(caught, then.rgb, abs(then.a - aheadBefore) < 0.05 * aheadBefore + 0.05 ? uAirKept : 0.0);
+                }
+                gl_FragColor = vec4(caught, ahead);
             }
             """;
 

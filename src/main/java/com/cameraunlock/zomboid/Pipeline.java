@@ -404,6 +404,19 @@ final class Pipeline {
     private static final float OWN_NEAR = 0.05f;
     private int occlusionTarget, occlusionColor, softTarget, softColor;
     private int volumeTarget, volumeColor, softVolumeTarget, softVolumeColor;
+    /**
+     * The lit air as the volume pass worked it out, before it is softened, this frame's and the
+     * last's in turn: each frame's steps along a line of sight start at another place, and the
+     * last frame's air, carried to where it now is, is mixed in, so the shafts settle on the
+     * light that is there and do not swim with the steps as the head moves.
+     */
+    private final int[] airKept = new int[2], airKeptTarget = new int[2];
+    private int airNow;
+    /** The frame the kept air was last worked out in, and the eye it was worked out from. */
+    private int airKeptFrame = Integer.MIN_VALUE;
+    private final ViewCamera.Pose airBefore = new ViewCamera.Pose();
+    /** How much of the last frame's air goes into this one where it is seen at the same distance. */
+    private static final float AIR_KEPT = 0.9f;
     private static int spriteSampler;
     private static int skinSampler;
     private boolean glazed;
@@ -3998,9 +4011,19 @@ final class Pipeline {
 
     private void drawVolume(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float near, float far) {
         lend(shaded);
-        GL30.glBindFramebuffer(GL_FRAMEBUFFER, volumeTarget);
+        int next = 1 - airNow;
+        GL30.glBindFramebuffer(GL_FRAMEBUFFER, airKeptTarget[next]);
         GL11.glViewport(0, 0, levelWidth[0], levelHeight[0]);
         volume.use();
+        volume.set("uAirBefore", 5);
+        GL13.glActiveTexture(GL_TEXTURE0 + 5);
+        GL11.glBindTexture(GL_TEXTURE_2D, airKept[airNow]);
+        volume.set("uAirKept", airKeptFrame == frameNumber - 1 ? AIR_KEPT : 0f);
+        volume.set("uEyeBefore", airBefore.eyeX, airBefore.eyeY, airBefore.eyeUp);
+        volume.set("uRightBefore", airBefore.rightX, airBefore.rightY, airBefore.rightUp);
+        volume.set("uUpBefore", airBefore.upX, airBefore.upY, airBefore.upUp);
+        volume.set("uForwardBefore", airBefore.forwardX, airBefore.forwardY, airBefore.forwardUp);
+        volume.set("uStepsFrom", (frameNumber & 63) * 0.618034f);
         volume.set("uDepth", 0);
         volume.set("uShadowNear", 1);
         volume.set("uShadowFar", 2);
@@ -4027,9 +4050,12 @@ final class Pipeline {
         setRoomAir(volume, 4);
         volume.set("uRoomAir", ROOM_AIR * (1f - (1f - ROOM_AIR_FROM_OPEN) * state.openOver));
         quad();
-        // Wide and then fine, back into volumeColor, so the edge of a shaft through a window fades
+        airNow = next;
+        airKeptFrame = frameNumber;
+        airBefore.set(camera);
+        // Wide and then fine, into volumeColor, so the edge of a shaft through a window fades
         // over a hand's width and does not follow the window's frame like a slab of glass.
-        softenInto(softVolumeTarget, volumeColor, near, far, AIR_SOFTEN_STRIDE);
+        softenInto(softVolumeTarget, airKept[next], near, far, AIR_SOFTEN_STRIDE);
         softenInto(volumeTarget, softVolumeColor, near, far, 1f);
     }
 
@@ -6215,6 +6241,11 @@ final class Pipeline {
         volumeTarget = target(volumeColor);
         softVolumeColor = texture(GL_RGBA16F, levelWidth[0], levelHeight[0], GL_RGBA, GL_FLOAT, GL_LINEAR);
         softVolumeTarget = target(softVolumeColor);
+        for (int i = 0; i < 2; i++) {
+            airKept[i] = texture(GL_RGBA16F, levelWidth[0], levelHeight[0], GL_RGBA, GL_FLOAT, GL_LINEAR);
+            airKeptTarget[i] = target(airKept[i]);
+        }
+        airKeptFrame = Integer.MIN_VALUE;
         if (problem == null) {
             problem = complete("lit air");
         }
