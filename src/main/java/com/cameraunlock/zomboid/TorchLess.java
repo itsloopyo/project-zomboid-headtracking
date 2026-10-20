@@ -55,12 +55,16 @@ final class TorchLess {
     private static final int MARGIN = 2;
     /** The engine hands light over in 255 steps: at the last of them a sum may have been stopped. */
     private static final float STOPPED = 1f - 0.5f / 255f;
-    /** A player's torches are numbered from four times the player's index plus 1, four at most: LightingJNI.checkPlayerTorches. */
+    /**
+     * A player's torches are numbered from four times a number of the player's plus 1, four at
+     * most (LightingJNI.checkPlayerTorches): the player's index alone, and on a server their
+     * online number plus 1, the one way the game numbers every player's there.
+     */
     private static final int TORCHES_A_PLAYER = 4;
     /** A square of no room and one that is not there or has not been seen. Rooms are numbered from 0, and -1 is out of doors. */
     static final long NOT_THERE = Long.MIN_VALUE;
-    /** The engine lists at most 5 lights a square. */
-    private static final int MOST_LIGHTS = 5;
+    /** The engine lists at most 6 lights a square, the size of the list it keeps each square's in (LightingJNI). */
+    private static final int MOST_LIGHTS = 6;
     private static final float CORNER = (float) Math.sqrt(2.0);
     /** What a level up or down adds to the way a light goes. */
     private static final float LEVEL_STEP = 3f;
@@ -135,6 +139,11 @@ final class TorchLess {
         return lamp == null || !MuzzleFlash.on() || Quality.plain(view) ? null : lamp;
     }
 
+    /** The number of a player's first torch, as the engine numbers torches alone or on a server. */
+    static int firstTorch(int index, short onlineId, boolean joined) {
+        return (joined ? onlineId + 1 : index) * TORCHES_A_PLAYER + 1;
+    }
+
     /**
      * Whether a lamp's light reaches the viewer's square. The squares read are widened to take in
      * every square the lamp is on, so a lamp left behind must be let go: one still held after the
@@ -199,7 +208,7 @@ final class TorchLess {
             lampColours = new float[squares * MOST_LIGHTS * 3];
             lampAllowed = new float[squares * MOST_LIGHTS];
         }
-        int firstTorch = index * TORCHES_A_PLAYER + 1;
+        int firstTorch = firstTorch(index, player.getOnlineID(), Online.joined());
         for (int j = 0; j < span; j++) {
             for (int i = 0; i < span; i++) {
                 int at = j * span + i;

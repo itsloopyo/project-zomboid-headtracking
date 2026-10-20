@@ -20,6 +20,14 @@ final class TorchLessTests {
         Checks.run("otherTorchesStayInTheLight", TorchLessTests::otherTorchesStayInTheLight);
         Checks.run("aStepEitherWayKeepsTheLightItHad", TorchLessTests::aStepEitherWayKeepsTheLightItHad);
         Checks.run("aShotsLampLeftBehindIsLetGo", TorchLessTests::aShotsLampLeftBehindIsLetGo);
+        Checks.run("theViewersTorchesAreNumberedAsTheEngineDoes", TorchLessTests::theViewersTorchesAreNumberedAsTheEngineDoes);
+    }
+
+    private static void theViewersTorchesAreNumberedAsTheEngineDoes() {
+        check(TorchLess.firstTorch(0, (short) 7, false) == 1 && TorchLess.firstTorch(2, (short) 7, false) == 9,
+                "alone, a player's torches are numbered from four times their index plus 1");
+        check(TorchLess.firstTorch(0, (short) 0, true) == 5 && TorchLess.firstTorch(0, (short) 7, true) == 33,
+                "on a server, from four times their online number plus 1, plus 1");
     }
 
     private static void aShotsLampLeftBehindIsLetGo() {
