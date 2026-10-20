@@ -62,7 +62,7 @@ description=[h1]Free head tracking[/h1]
 description=Both of these are free:
 description=[list]
 description=[*] Webcam: install [url=https://github.com/opentrack/opentrack/releases]OpenTrack[/url]. Set Input to neuralnet tracker and pick your camera in its settings, set Output to UDP over network, host 127.0.0.1, port 4242, and press Start.
-description=[*] iPhone or Android: install [url=https://headcam.app]Headcam[/url] and point it at this PC's IP address (run ipconfig to find it) on port 4242, tap Tracking, and stand or mount the phone in front of you where its front camera can see your face.
+description=[*] iPhone or Android: install [url=https://headcam.app]Headcam[/url] and point it at this PC's IP address (run ipconfig to find it) on port 4242, tap Tracking, and stand or mount the phone in front of you where its front camera can see your face. If Windows asks whether to let the game through its firewall, allow it, or the phone's data is blocked. The GitHub page has the command for adding the rule by hand.
 description=[/list]
 description=Any other OpenTrack compatible tracker works too.
 description=
