@@ -3567,7 +3567,10 @@ final class PipelineShaders {
                     // own colour; by full night it is the game's light again, and at the pool's
                     // edge the dimmed daylight. A part the daylight hides only bounds the lamp,
                     // and reading the strength from it left the pools dark at dusk.
-                    vec3 shows = lampColour / max(uOpenLinear, vec3(0.001));
+                    // Only a part the lamp has a fair share of: at night a part the open ground has next
+                    // to none of could be picked for a lamp with next to none of it, and the strength
+                    // read from it lit the place white.
+                    vec3 shows = lampColour / max(uOpenLinear, vec3(0.001)) * step(0.25 * max(lampColour.r, max(lampColour.g, lampColour.b)), lampColour);
                     vec3 first = step(max(shows.r, max(shows.g, shows.b)), shows);
                     float strength = dot(first, given - daylight * heldBack) / dot(first, lampColour);
                     // Over the outer part of its reach the lamp's colour comes in by degrees: switched
