@@ -89,6 +89,7 @@ public final class Tests {
         Checks.run("TimedActsTests", TimedActsTests::run);
         Checks.run("MeleeTests", MeleeTests::run);
         Checks.run("BufferTests", BufferTests::run);
+        Checks.run("DepthFightTests", DepthFightTests::run);
         Checks.run("PictureTests", PictureTests::run);
         Checks.run("LinkTests", LinkTests::run);
         Checks.run("RoadPaintTests", RoadPaintTests::run);

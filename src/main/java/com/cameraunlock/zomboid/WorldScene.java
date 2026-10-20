@@ -255,6 +255,8 @@ final class WorldScene {
         volatile FloatBuffer vertices;
         /** The furniture the mod has models of, each drawn from its model where it stands. */
         final Models.Instances placed = new Models.Instances();
+        /** Dev only: the triangles as they were filled, for DepthFights. Null unless it audits. */
+        DepthFights.Copy depthCopy;
         private int wx, wy;
         private int builtFrame;
         /** The frame the build was last made in or found still to be what a new one would be. */
@@ -422,6 +424,9 @@ final class WorldScene {
             note(solid);
             solidRuns = runs;
             note(laid);
+            if (DepthFights.ON) {
+                depthCopy = crowns != null ? null : DepthFights.copy(wx, wy, grown, solid, laid);
+            }
             if (floats > 0) {
                 FloatBuffer loan = VertexLoans.take(floats);
                 copy(solid, loan);
@@ -3661,6 +3666,9 @@ final class WorldScene {
             }
             addCharacters(pose);
             takeLight(start);
+            if (DepthFights.ON && !fromOutside) {
+                DepthFights.audit(shown, pose.eyeX, pose.eyeY, pose.eyeUp, cell);
+            }
             for (int i = 0; i < shown.size(); i++) {
                 triangles += shown.get(i).triangles() + shown.get(i).placed.triangles();
             }

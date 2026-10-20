@@ -406,6 +406,15 @@ final class Models {
         return out;
     }
 
+    /** Every model read so far. */
+    static Collection<Model> loadedModels() {
+        Map<String, Model> models = loaded;
+        if (models == null) {
+            throw new IllegalStateException("the models are asked for before any was stood");
+        }
+        return models.values();
+    }
+
     /** Every model's triangles as the graphics card keeps them: see corners. */
     static int[] corners() {
         Map<String, Model> models = loaded;
