@@ -60,5 +60,10 @@ install = { cmd = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/d
 # task no console to read from.
 uninstall = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/undeploy.ps1"
 
+# Stops ZombieBuddy replacing its own jar from its Workshop item in every installed copy, and lets it
+# again. A path after the task name acts on that one folder instead.
+lock-zb = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/zb-lock.ps1"
+unlock-zb = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/zb-lock.ps1 -Unlock"
+
 release = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release.ps1"
 release-nightly = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release-nightly.ps1"
