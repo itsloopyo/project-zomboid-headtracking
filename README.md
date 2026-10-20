@@ -276,7 +276,7 @@ The mouse turns the view. Movement keys follow the direction you face. Moving si
 
 **Controller** - the controllers ticked in the game's Controller options play. While none of the gamepads plugged in is ticked, every one the game recognises is ticked and plays, and pressing **A** on the main menu gives that controller the menu. Player 1 plays on whatever last worked the main menu: the controller that pressed **A**, or the keyboard and mouse once you click or press a key there. Any other controller joins once the game is under way: press **A** on it and choose **Add new player**. A 3Dconnexion SpaceMouse is never taken as a controller. Double-tap **Back** to switch views. The aiming stick turns the view, right trigger attacks and left trigger raises firearm sights.
 
-**More players** - tap `Delete` twice to switch player 2's view, three times for player 3's and four times for player 4's, or hold it to switch every player's. Players on a controller can double-tap **Back**. Send player 2's tracker to port **4243**, player 3's to **4244** and player 4's to **4245**.
+**More players** - tap `Delete` twice to switch player 2's view, three times for player 3's and four times for player 4's, or hold it to change everyone at once: if anyone is in the isometric view every player goes to first person, and holding it again puts every player in the isometric view. Players on a controller can double-tap **Back**. Send player 2's tracker to port **4243**, player 3's to **4244** and player 4's to **4245**.
 
 **PvP** - on a server with PvP turned on, the mod holds back anything that could decide a fight between players:
 
