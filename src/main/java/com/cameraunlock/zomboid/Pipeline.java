@@ -1984,7 +1984,10 @@ final class Pipeline {
         }
         // Each piece by its model, then its picture, then its place in the list: a run of pieces of
         // one model with one picture, surfaces and dye is one draw, each piece told where it stands
-        // and how it is lit by its own row of placedRows. The list holds fewer than 2^20 pieces.
+        // and how it is lit by its own row of placedRows.
+        if (modelsListed > LISTED_BITS) {
+            throw new IllegalStateException(modelsListed + " pieces listed, more than the order of drawListed holds");
+        }
         if (placedOrder.length < modelsListed) {
             placedOrder = new long[modelsListed * 2];
         }
