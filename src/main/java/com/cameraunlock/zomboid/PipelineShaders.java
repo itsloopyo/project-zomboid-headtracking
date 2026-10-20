@@ -954,7 +954,6 @@ final class PipelineShaders {
                 return vec3(from.xy, min(from.z, top - (uSlopeOffset + 1.0 + texels) * texelUp - under));
             }
 
-            const float RELIEF = 0.05;
             // How much more of a clear sky's light an upright face turned to the sun's side of it
             // has, and how much less one turned away, with the sun on the horizon.
             const float SKY_SIDE = 0.35;
@@ -3320,34 +3319,6 @@ final class PipelineShaders {
                             n = normalize(mix(n, level, snowed));
                         }
                         grit *= 1.0 - snowed;
-                    }
-                }
-                // A sprite is paint on a flat sheet. Its light and dark say where the thing it
-                // shows stands proud and where it is sunk, the mortar between bricks, the gaps
-                // between boards, the blades of grass, so the sheet is lit as if it were
-                // raised where it is light. The sun then picks the surface out as it moves, and
-                // a wall or a lawn stops being a photograph of one. It fades with distance,
-                // where it would only shimmer.
-                // Less of it where relieve has tilted the surface by its real height. None on a
-                // sheet hung on a wall (WorldScene.PRINT): it is flat, and its light and dark are
-                // what is printed on it.
-                bool printed = vMaterial > 89.5 && vMaterial < 90.5;
-                float relief = water || grass || crown || printed ? 0.0 : RELIEF * (1.0 - smoothstep(14.0, 38.0, range)) * (1.0 - 0.6 * timbered) * (1.0 - 0.75 * reliefNear) * (1.0 - walledNear) * (1.0 - snowed);
-                // A boulder's faces are flat only because it is built of few of them: the rock's
-                // own cracks and ledges stand out of each far more than paint does from a wall.
-                if (vMaterial > 58.5 && vMaterial < 59.5) {
-                    relief *= 3.0;
-                }
-                if (relief > 0.0) {
-                    float height = dot(texel.rgb, vec3(0.299, 0.587, 0.114));
-                    vec3 acrossX = dFdx(vWorld), acrossY = dFdy(vWorld);
-                    vec3 r1 = cross(acrossY, n), r2 = cross(n, acrossX);
-                    float det = dot(acrossX, r1);
-                    // Seen edge on, a sheet has no width on the screen to measure a slope across.
-                    if (abs(det) > 1e-9) {
-                        vec3 slope = (dFdx(height) * r1 + dFdy(height) * r2) / det;
-                        float steep = length(slope) * relief;
-                        n = normalize(n - slope * (relief * min(1.0, 0.7 / max(steep, 1e-4))));
                     }
                 }
                 float facing = clamp(dot(n, uLight), 0.0, 1.0);
