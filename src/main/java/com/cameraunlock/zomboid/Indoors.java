@@ -19,8 +19,8 @@ final class Indoors {
     private static final float HOOD_FOOT = 1.58f;
     /** How high the shelf of a coat rack is, in tiles, and where on its sprite, in levels, the shelf gives its colour. */
     private static final float COAT_SHELF = 1.45f, COAT_DYE = 0.58f;
-    /** How high the top of a cupboard with a mirror for a door is hung, in tiles: the game gives every one a height over a head. */
-    private static final float MIRROR_TOP = 1.95f;
+    /** How high the top of a cupboard with a mirror for a door is hung, in tiles. */
+    private static final float MIRROR_TOP = 1.65f;
     /** How high, in metres, the part of a model is that the game gives the height of. */
     private static final float BASIN_RIM = 0.87f, CHEST_TOP = 0.88f, BAR_SEAT = 0.75f, DRYER_TOP = 0.92f, BENCH_SEAT = 0.45f, PEW_SEAT = 0.44f, DESK_TOP = 0.74f;
     /** Where on its sprite, in levels, a thing gives its colour: the side of a box, a can or a cabinet, the foot of a lamp, a bottle of water. */
