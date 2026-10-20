@@ -136,7 +136,6 @@ final class ClinicTests {
         IsoSprite drawers = TileRows.sprite(office + "104" + DESK + "0,2|container|desk|"), middle = TileRows.sprite(office + "105" + DESK + "0,1"),
                 corner = TileRows.sprite(office + "106" + DESK + "0,0"), next = TileRows.sprite(office + "107" + DESK + "1,0"),
                 end = TileRows.sprite(office + "108" + DESK + "2,0");
-        TileRows.piece(3, 3, drawers, middle, corner, next, end);
         String[] models = {"desk_pedestal_left", "desk_run", "desk_corner", "desk_run", "desk_end_right"};
         IsoSprite[] squares = {drawers, middle, corner, next, end};
         for (int i = 0; i < squares.length; i++) {
@@ -154,6 +153,13 @@ final class ClinicTests {
         check(back[0] == 0f && back[1] == -1f, "and the arm along x its back to the north: " + back[0] + ", " + back[1]);
         Models.turn(Furniture.known(drawers).turns, 0f, -1f, back);
         check(back[0] == 1f && back[1] == 0f, "the drawers open to the east, inside the L: " + back[0] + ", " + back[1]);
+        // Facing north the tile definitions lay the squares on one another; where each lies is the map's.
+        String north = DESK.replace("Facing|E", "Facing|N");
+        String[] northModels = {"desk_end_right", "desk_run", "desk_corner", "desk_run", "desk_end_left"};
+        for (int i = 0; i < northModels.length; i++) {
+            Furniture square = Furniture.known(TileRows.sprite(office + (112 + i) + north + (i % 2) + ",0"));
+            check(model(square).equals(northModels[i]), "square " + i + " of the L facing north is " + northModels[i] + ": " + model(square));
+        }
     }
 
     private static void theSheetsStraightDesksAreLaidSquareBySquare() {

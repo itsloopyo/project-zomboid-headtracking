@@ -47,8 +47,11 @@ final class Clinic {
                     .stand(0f, 0f, false).raise(surfaceUp);
         }
         if (name.startsWith(OFFICE) && called.equals("Desk") && properties.isTable() && surfaceUp > 0f) {
-            return group.equals("Office") ? straightDesk(sprite, name, holds, properties, turns, surfaceHigh, surfaceUp)
-                    : desk(sprite, holds, turns, surfaceHigh, surfaceUp);
+            return switch (group) {
+                case "Office" -> straightDesk(sprite, name, holds, properties, turns, surfaceHigh, surfaceUp);
+                case "Office L", "Office L2" -> lDesk(sprite, name, group, holds, turns, surfaceHigh, surfaceUp);
+                default -> desk(sprite, holds, turns, surfaceHigh, surfaceUp);
+            };
         }
         if (!name.startsWith(MEDICAL)) {
             return null;
@@ -150,6 +153,36 @@ final class Clinic {
         }
         String[] at = properties.get("SpriteGridPos").split(",");
         DeskRuns.Square square = DeskRuns.of(filled, Integer.parseInt(at[0].trim()), Integer.parseInt(at[1].trim()), holds.equals("desk"), turns);
+        return deskSquare(sprite, square.model(), square.turns(), surfaceHigh, surfaceUp);
+    }
+
+    /** Where on the sheet the squares of "Office L" and of "Office L2" begin. */
+    private static final int L_FIRST = 104, L2_FIRST = 136;
+    /**
+     * Where each square of those L desks lies in its three squares by three, as x then y, by its
+     * place after the first: those facing east from 0, north from 8, south from 16, west from 24.
+     * Read off the map's L desks: the tile definitions' SpriteGridPos agrees for east and south,
+     * and for north and west puts squares on one another.
+     */
+    private static final int[][] L_SQUARES = {
+        {0, 2}, {0, 1}, {0, 0}, {1, 0}, {2, 0}, null, null, null,
+        {0, 2}, {1, 2}, {2, 2}, {2, 1}, {2, 0}, null, null, null,
+        {0, 0}, {1, 0}, {2, 0}, {2, 1}, {2, 2}, null, null, null,
+        {2, 2}, {1, 2}, {0, 2}, {0, 1}, {0, 0},
+    };
+
+    /**
+     * A square of one of the sheet's desks laid in an L, "Office L" or "Office L2". The game
+     * gives them no grid, as it gives the straight desks none, so each square is laid by where
+     * it lies in its L.
+     */
+    private static Furniture lDesk(IsoSprite sprite, String name, String group, String holds, int turns, float surfaceHigh, float surfaceUp) {
+        int which = Sheets.place(name) - (group.equals("Office L") ? L_FIRST : L2_FIRST), first = which / 8 * 8;
+        boolean[][] filled = new boolean[3][3];
+        for (int i = first; i < first + 5; i++) {
+            filled[L_SQUARES[i][0]][L_SQUARES[i][1]] = true;
+        }
+        DeskRuns.Square square = DeskRuns.of(filled, L_SQUARES[which][0], L_SQUARES[which][1], holds.equals("desk"), turns);
         return deskSquare(sprite, square.model(), square.turns(), surfaceHigh, surfaceUp);
     }
 
