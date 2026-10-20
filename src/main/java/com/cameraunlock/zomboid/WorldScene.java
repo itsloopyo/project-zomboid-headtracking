@@ -1127,7 +1127,7 @@ final class WorldScene {
     /** Where the eye was at the last walk round it and when, and how fast it has been moving, tiles a second. */
     private float roundEyeX, roundEyeY, eyeSpeed;
     private long roundNanos;
-    /** The walks round the eye being walked, a picture a frame, and whether roomsMayShow is to take what they find once they are done. */
+    /** The walks round the eye being walked, a picture of each a frame, and whether roomsMayShow is to take what its walk finds once that is done. */
     private final RoomSight.Round builtRound = new RoomSight.Round(), mayShowRound = new RoomSight.Round();
     private boolean roomsMayShowDue;
     /**
@@ -3810,7 +3810,7 @@ final class WorldScene {
                 builtRound.drop();
                 mayShowRound.drop();
             }
-            if (!builtRound.walking() && !mayShowRound.walking() && (whole || now - roundNanos >= ROUND_EVERY_NANOS || moved > grow / 2f)) {
+            if (!builtRound.walking() && (whole || now - roundNanos >= ROUND_EVERY_NANOS || moved > grow / 2f)) {
                 if (roundNanos != 0L && seconds > 0f) {
                     // A jump across the map is no speed: the walk round the new place starts it again.
                     float speed = moved / seconds;
@@ -3824,8 +3824,8 @@ final class WorldScene {
                 roomWalk.begin(builtRound, camera.eyeX, camera.eyeY, camera.eyeUp, region, building, (GROW_TILES + eyeSpeed * GROW_SECONDS) / 2f, SHUT_WITHIN, roomsFound);
                 float movedSince = (float) Math.sqrt((camera.eyeX - mayShowEyeX) * (camera.eyeX - mayShowEyeX) + (camera.eyeY - mayShowEyeY) * (camera.eyeY - mayShowEyeY)
                         + (camera.eyeUp - mayShowEyeUp) * (camera.eyeUp - mayShowEyeUp));
-                if (movedSince > grow / 2f || reach != mayShowReach || region != mayShowRegion || building != mayShowBuilding
-                        || openingsInReach.filling != mayShowOpenings || blocksInReach.filling != mayShowBlocks) {
+                if (!mayShowRound.walking() && (movedSince > grow / 2f || reach != mayShowReach || region != mayShowRegion || building != mayShowBuilding
+                        || openingsInReach.filling != mayShowOpenings || blocksInReach.filling != mayShowBlocks)) {
                     mayShowEyeX = camera.eyeX;
                     mayShowEyeY = camera.eyeY;
                     mayShowEyeUp = camera.eyeUp;
@@ -3839,19 +3839,18 @@ final class WorldScene {
                 }
                 roomsMayShowDue = true;
             }
-            // A round's pictures are walked one a frame, the rooms for building first: six of them
-            // walked in one frame were a hitch of a frame's worth every quarter second on a street.
+            // Each round's pictures are walked one a frame: six of them walked in one frame were a
+            // hitch of a frame's worth every quarter second on a street.
             do {
-                if (builtRound.walking()) {
-                    if (roomWalk.walkFace(roomMap, openingsInReach, blocksInReach, builtRound)) {
-                        roomsBuilt.found(roomsFound, now, roomsEntered);
-                        roomsBuilt.expire(now, roomsLeft);
-                    }
-                } else if (mayShowRound.walking()) {
+                if (builtRound.walking() && roomWalk.walkFace(roomMap, openingsInReach, blocksInReach, builtRound)) {
+                    roomsBuilt.found(roomsFound, now, roomsEntered);
+                    roomsBuilt.expire(now, roomsLeft);
+                }
+                if (mayShowRound.walking()) {
                     roomWalk.walkFace(roomMap, openingsInReach, blocksInReach, mayShowRound);
                 }
             } while (whole && (builtRound.walking() || mayShowRound.walking()));
-            if (roomsMayShowDue && !builtRound.walking() && !mayShowRound.walking()) {
+            if (roomsMayShowDue && !mayShowRound.walking()) {
                 roomsMayShowDue = false;
                 // The rooms the last walk found stand for it until it is walked again.
                 roomsMayShowChanged.clear();
