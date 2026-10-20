@@ -620,10 +620,14 @@ final class RoomSight {
      */
     private int[] hiddenFor = new int[256];
     private boolean[] hiddenWas = new boolean[256];
-    /** For each opening, the walk its state was read in and the state: an opening reached through several regions is read once a walk. */
+    /**
+     * For each opening, the eye its state was read for and the state: an opening reached through
+     * several regions, or in several of the pictures round one eye, is read once. Nothing opens
+     * or shuts between the pictures walked from one eye, which are walked in one call.
+     */
     private int[] stateFor = new int[256];
     private byte[] stateWas = new byte[256];
-    private int walks;
+    private int walks, eyes;
     private static final byte UNWORKED = 0, EMPTY = 1, COVERS = 2;
     /**
      * For each region the walk reaches, the rectangle of the picture it has been reached
@@ -708,6 +712,7 @@ final class RoomSight {
             indexed = openings;
             indexedFilling = openings.filling;
         }
+        eyes++;
         this.blocks = blocks;
         this.eyeBuilding = eyeBuilding;
         this.grow = grow;
@@ -786,11 +791,11 @@ final class RoomSight {
                     }
                     // Whether it is open is asked last but one: it reads the map.
                     int state;
-                    if (stateFor[opening] == walks) {
+                    if (stateFor[opening] == eyes) {
                         state = stateWas[opening];
                     } else {
                         state = state(ground, openings, opening);
-                        stateFor[opening] = walks;
+                        stateFor[opening] = eyes;
                         stateWas[opening] = (byte) state;
                     }
                     if (state != SEE && !(state == SHUT && nearerThan(openings, opening, shutWithin))) {
