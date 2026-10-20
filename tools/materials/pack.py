@@ -24,7 +24,7 @@ TILE = 1024
 MEAN = numpy.array([0.26, 0.42, 0.12], dtype=numpy.float32)
 # How much a surface's light may vary over its mean, as a standard deviation: the strengths the
 # world shader lays it at were set for that. A picture with more is drawn in to it round its mean.
-SPREAD = {'carpet': 0.092}
+SPREAD = {'carpet': 0.092, 'paint': 0.1}
 
 
 def cut(image):

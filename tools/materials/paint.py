@@ -1,20 +1,26 @@
-"""Makes the picture of a painted surface that the first person view lays over walls and doors.
+"""Makes the start of the picture of a painted surface that the first person view lays over walls and doors.
 
-Paint put on with a roller dries to a fine even stipple with no direction to it. The picture is
-made from filtered noise, so it repeats without a seam and has no ribs or brush strokes for a
-wall to be ruled with when it is seen close.
+Paint put on with a roller dries to a fine even stipple with no direction to it. This makes that
+stipple as filtered noise, which repeats without a seam and has no ribs or brush strokes for a
+wall to be ruled with when it is seen close. Noise of one size of bump read as soft blobs with a
+face to the wall, so the picture the mod packs is this one worked over by the model
+(tools/materials/generate.py --only paint --over), which keeps its layout and gives it the
+grain of real paint at every size down to a texel; tools/materials/pack.py then draws its light
+in to the spread the world shader was set for.
 
-Run: python tools/materials/paint.py
+Run: python tools/materials/paint.py OUT.png
 """
 import pathlib
+import sys
 
 import numpy
 from PIL import Image
 
-SIZE = 1024
-# The stipple's bumps are a few texels across: at the scale the view lays the picture, a few millimetres.
-BUMP_TEXELS = 5.0
-CONTRAST = 0.05
+SIZE = 2048
+# The stipple's bumps are a few texels across: at the scale the view lays the picture, two or three millimetres.
+BUMP_TEXELS = 4.0
+# Paler and with more in it than the packed picture: the model is given a white wall it can see the stipple on.
+LIGHT, CONTRAST = 0.78, 0.09
 
 
 def main():
@@ -29,10 +35,10 @@ def main():
     band += 0.35 * numpy.exp(-(f / (peak * 0.08)) ** 2)
     stipple = numpy.real(numpy.fft.ifft2(noise * band))
     stipple = (stipple - stipple.mean()) / stipple.std()
-    grey = numpy.clip(0.5 + CONTRAST * stipple, 0.0, 1.0)
+    grey = numpy.clip(LIGHT + CONTRAST * stipple, 0.0, 1.0)
     rgb = numpy.repeat((grey * 255.0 + 0.5).astype(numpy.uint8)[:, :, None], 3, axis=2)
-    out = pathlib.Path(__file__).resolve().parents[2] / 'src' / 'textures' / 'materials' / 'paint.jpg'
-    Image.fromarray(rgb, 'RGB').save(out, quality=94, subsampling=0)
+    out = pathlib.Path(sys.argv[1])
+    Image.fromarray(rgb, 'RGB').save(out)
     print('wrote', out, out.stat().st_size, 'bytes')
 
 

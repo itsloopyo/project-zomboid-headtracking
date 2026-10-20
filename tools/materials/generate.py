@@ -48,6 +48,7 @@ SURFACES = {
     'cloth': 'flat scan of grey sofa upholstery fabric stretched taut, tight basket weave of fine threads, lying perfectly flat, uniform, ' + EVEN,
     'fur': 'top down macro photograph of a thick white sheepskin rug, dense soft curly wool locks, deep shaggy pile, uniform, ' + EVEN,
     'hide': 'top down macro photograph of a cowhide rug, short smooth glossy hair lying flat in one direction, fine strands, uniform pale cream, ' + EVEN,
+    'paint': 'macro photograph of a painted interior plaster wall seen straight on, matte white emulsion paint with a fine even orange peel roller stipple, uniform, ' + EVEN,
     'jersey': 'macro photograph of plain grey cotton fabric, fine even weave of threads, soft worn cloth, uniform, ' + EVEN,
     'litter': 'top down photograph of a forest floor seen from directly above, covered edge to edge in a dense layer of dry brown and orange fallen oak and beech leaves with a few small twigs, ' + EVEN,
     'rock': 'close-up photograph of a rough grey limestone rock face filling the whole frame, natural fractured stone with cracks, ledges and patches of pale lichen, ' + EVEN,
@@ -63,6 +64,7 @@ OWN_NEGATIVE = {
     'cloth': 'folds, wrinkles, creases, drapery, waves, ripples, stripes, shadows, perspective, text, watermark, blurry, painting, illustration, vignette, border, tiles, lines',
     'fur': 'edge of the rug, floor, folds, shadows, perspective, objects, text, watermark, blurry, painting, illustration, vignette, border, tiles, lines',
     'hide': 'spots, patches, edge of the rug, floor, folds, shadows, perspective, objects, text, watermark, blurry, painting, illustration, vignette, border, tiles, lines',
+    'paint': 'cracks, stains, dirt, holes, stripes, ribs, brush strokes, wood grain, bricks, tiles, lines, shadows, perspective, text, watermark, blurry, painting, illustration, vignette, border',
     'grass': 'shadows, perspective, horizon, objects, fallen leaves, text, watermark, blurry, painting, illustration, vignette, border, tiles, lines, flowers, soil, path',
 }
 FOLIAGE_NEGATIVE = 'sky, trunk, branches, flowers, fruit, text, watermark, blurry, bokeh, depth of field, painting, illustration, vignette, border, brown, yellow, autumn, wall, bricks, ground'
@@ -190,6 +192,21 @@ class Maker:
             latents = self.again(**self.given(words), image=latents, strength=0.42, num_inference_steps=30, guidance_scale=guidance, generator=generator,
                                  output_type='latent').images
             picture = self.shown(latents, wrap)
+        return self.pixels(picture)
+
+    @torch.no_grad()
+    def over(self, words, seed, source, strength, wrap, guidance):
+        """The source picture given to the model part noised and finished at its own size: its layout kept, its detail the model's."""
+        wrapping(self.pipe.unet, wrap)
+        generator = torch.Generator('cuda').manual_seed(seed)
+        picture = torch.from_numpy(numpy.asarray(source.convert('RGB'), dtype=numpy.float32) / 127.5 - 1.0).permute(2, 0, 1)[None].to('cuda')
+        latents = self.taken(picture, wrap).to(torch.float16)
+        latents = self.again(**self.given(words), image=latents, strength=strength, num_inference_steps=40, guidance_scale=guidance, generator=generator,
+                             output_type='latent').images
+        return self.pixels(self.shown(latents, wrap))
+
+    @staticmethod
+    def pixels(picture):
         pixels = ((picture[0].permute(1, 2, 0).cpu().numpy() + 1.0) * 127.5).round().clip(0, 255).astype(numpy.uint8)
         return Image.fromarray(pixels, 'RGB')
 
@@ -201,6 +218,9 @@ def main():
     parser.add_argument('--seeds', nargs='*', type=int, default=[1993])
     parser.add_argument('--size', type=int, default=2048)
     parser.add_argument('--sprig-size', type=int, default=1024)
+    # A surface made over a picture of its own (tools/materials/paint.py) rather than from noise: that picture, and how much of it is noised away.
+    parser.add_argument('--over')
+    parser.add_argument('--strengths', nargs='*', type=float, default=[0.5])
     args = parser.parse_args()
     out = pathlib.Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
@@ -214,6 +234,16 @@ def main():
             wanted[name] = (prompt, SPRIG_NEGATIVE)
     maker = Maker()
     words = maker.words(wanted)
+    if args.over:
+        source = Image.open(args.over)
+        for name in wanted:
+            for seed in args.seeds:
+                for strength in args.strengths:
+                    path = out / f'{name}-{seed}-{round(strength * 100)}.png'
+                    if not path.exists():
+                        maker.over(words[name], seed, source, strength, True, 6.0).save(path)
+                        print('made', path.name, flush=True)
+        return
     for name in wanted:
         surface = name in SURFACES
         for seed in args.seeds:
