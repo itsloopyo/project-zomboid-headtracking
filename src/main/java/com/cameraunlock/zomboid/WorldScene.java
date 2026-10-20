@@ -950,7 +950,7 @@ final class WorldScene {
     /**
      * Kinds of square by their light: lit by the game, an unshown room, an unshown room with a
      * lamp burning, and anything else the game has given no light, which is lit as the open
-     * ground in sight is. Those lights move as the eye looks about and the clouds go over:
+     * ground with no lamp on it is. Those lights move as the eye looks about and the clouds go over:
      * baked into the builds, each step had every chunk in view built again, a tower's thirty
      * storeys at a time. So a build gives such a square the light SHADE_ONLY, which the
      * shades a builder lays on make the shade alone, and says which light it takes in its
@@ -3091,7 +3091,11 @@ final class WorldScene {
             float dayNowFull = roomsDaylit ? Evening.day(sky.sunUp) : 0f;
             for (int i = 0; i < 3; i++) {
                 float open = i == 0 ? unseenRed : i == 1 ? unseenGreen : unseenBlue, room = Math.min(open * share, 1f);
-                sky.openUnlit[i] += (open - sky.openUnlit[i]) * eased;
+                // The open ground's light with no lamp on it, which the world shader reads the daylight against: lit as
+                // the commonest, brighter where lamps light much of the street, an eave or a roof the game gives no light
+                // had that much over the daylight, which the shader took for a lamp's, warm and never held back at night.
+                float bare = i == 0 ? floorRed : i == 1 ? floorGreen : floorBlue;
+                sky.openUnlit[i] += (bare - sky.openUnlit[i]) * eased;
                 sky.daylight[i] += (dayNowFull * open - sky.daylight[i]) * eased;
                 sky.roomLight[i] += (room - sky.roomLight[i]) * eased;
                 sky.lampLight[i] += (Math.max(room, lamp) - sky.lampLight[i]) * eased;

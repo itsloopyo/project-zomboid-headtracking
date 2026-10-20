@@ -64,7 +64,7 @@ final class SkyState {
     float roomKept = 1f;
     /** What a room the game has not shown is lit by, without a lamp and with one: see WorldScene.LIT_STEP. The scene sets them. */
     final float[] roomLight = new float[3], lampLight = new float[3];
-    /** What anything else the game has given no light is lit by, the open ground in sight: see WorldScene.OPEN_LIT. The scene sets it. */
+    /** What anything else the game has given no light is lit by, the open ground's with no lamp on it: see WorldScene.OPEN_LIT. The scene sets it. */
     final float[] openUnlit = new float[3];
     /** The open ground's light by as much of the day as there is, where rooms are lit by the day they let in, or 0: see SpriteGeometry.Mesh.day. The scene sets it. */
     final float[] daylight = new float[3];
