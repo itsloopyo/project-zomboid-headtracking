@@ -77,7 +77,7 @@ final class ShotLights {
 
     /** A shot landed on vehicle at (x, y) on the map. Logic thread. */
     static void vehicleHit(BaseVehicle vehicle, float x, float y) {
-        if (Online.joined()) {
+        if (!Rules.breaksLamps()) {
             return;
         }
         Vector3f local = vehicle.getLocalPos(x, y, vehicle.getZ(), new Vector3f());
@@ -174,7 +174,7 @@ final class ShotLights {
      * the middle, at the lamp's own level. Logic thread.
      */
     static void along(IsoCell cell, Terrain terrain, ViewCamera.Pose line, float distance) {
-        if (Online.joined()) {
+        if (!Rules.breaksLamps()) {
             return;
         }
         IsoGridSquare last = null;

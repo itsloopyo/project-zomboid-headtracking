@@ -11,7 +11,7 @@ It adds a first person view to the game, with a rebuilt world and new graphics. 
 - **No head tracker needed** - first person plays with a mouse and keyboard or a controller. Without a tracker, nothing follows your head.
 - **No microphone needed** - Talking mouths is off until you tick it, and no microphone is opened until then.
 
-Offline the mod also changes some of the game's rules, and these have no switch: shots go through thin walls and doors, break lamps, cripple zombies' limbs and can take them off; vehicles knock down fences and street lamp posts, drive through bushes and catch fire when left on their roof. On a server these stay as the game has them.
+Offline the mod also changes some of the game's rules: shots go through thin walls and doors, break lamps, cripple zombies' limbs and can take them off; vehicles knock down fences and street lamp posts, drive through bushes and catch fire when left on their roof. Each is on until you untick it in **Options > Mods > Head Tracking**. On a server these stay as the game has them.
 
 ## Features
 
@@ -290,7 +290,7 @@ Zombies, rooms and vehicles with no other player in them look as they do offline
 
 ## Configuration
 
-Use **Options > Mods > Head Tracking** for tracking and graphics. First person and the isometric view each keep their own graphics quality: first person starts on Automatic and the isometric view on Low, the game's own picture. Switching views shows the quality the new view uses. For keys, ports and smoothing, edit `CameraUnlock.ini` beside the game executable.
+Use **Options > Mods > Head Tracking** for tracking, graphics and the offline rules. First person and the isometric view each keep their own graphics quality: first person starts on Automatic and the isometric view on Low, the game's own picture. Switching views shows the quality the new view uses. For keys, ports and smoothing, edit `CameraUnlock.ini` beside the game executable.
 
 <!-- cameraunlock:config -->
 The mod reads its settings from `CameraUnlock.ini` in the game folder, and creates the file when it starts and finds none. Edit it with any text editor.
@@ -543,6 +543,25 @@ OwnFire=true
 ; true: the mod's models of the inside of the vehicle you sit in, its dashboard, instruments, wheel, seats and doors.
 ; false: the game's own, with its glass cut away.
 OwnCabins=true
+
+[Rules]
+; true: offline, your shots go on through stud walls, walls of boards, shut doors and windows, losing damage to
+; each by what it is made of. false: they stop it, as the game has it. On a server the game's rule holds.
+ShotsThroughWalls=true
+; true: offline, a shot breaks the lamp it passes through and the vehicle lamp it lands on. false: lamps
+; are left lit, as the game has it. On a server the game's rule holds.
+ShotsBreakLamps=true
+; true: offline, first person shots to a zombie's legs slow it and drop it to crawl, shots to its arms leave them
+; hanging, enough take the limb off, and a head shot that kills can take the head off or burst it. false: hits
+; are the game's. On a server the game's rule holds.
+ShotsWoundLimbs=true
+; true: offline, a vehicle faster than a walk knocks down fences and street lamp posts, drives through bushes
+; unslowed and keeps its engine's full power off the road. false: the game's rules for all of it. On a server the
+; game's rules hold.
+VehiclesSmashThrough=true
+; true: offline, a vehicle left on its roof catches fire after a few seconds and burns out. false: it stays as it
+; lies, as the game has it. On a server the game's rule holds.
+RolledVehiclesBurn=true
 
 [Voice]
 ; true: your character's mouth moves with what you say into your microphone: the jaw drops for "ah", the lips

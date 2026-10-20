@@ -8,6 +8,9 @@ import zombie.iso.IsoDirections;
  * open-world driving game. The game has the knocking down already, for anything its tiles mark
  * as hit by cars, and asks for 150 km/h before it happens to a fence or a post: no car gets
  * there, so a fence stops a car dead. See CarSmash for where this meets the game.
+ *
+ * Each rule here is handed `stock`, true where the game's own rules hold: on a server, and alone
+ * with the VehiclesSmashThrough row off (Rules.vehiclesStock).
  */
 final class Knockdown {
     private Knockdown() {}
@@ -26,8 +29,8 @@ final class Knockdown {
     static final float MOST_KMH = 400f;
 
     /** Whether a vehicle knocks things down at all: alone, with its engine running, faster than a walk and no faster than any vehicle goes. */
-    static boolean smashing(boolean online, boolean engineRunning, float kmh) {
-        return !online && engineRunning && Math.abs(kmh) > WALKING_KMH && Math.abs(kmh) <= MOST_KMH;
+    static boolean smashing(boolean stock, boolean engineRunning, float kmh) {
+        return !stock && engineRunning && Math.abs(kmh) > WALKING_KMH && Math.abs(kmh) <= MOST_KMH;
     }
 
     /**
@@ -36,8 +39,8 @@ final class Knockdown {
      * in an open-world driving game. The game pushes back on a car by its speed and that factor at
      * every one it meets.
      */
-    static boolean brushedThrough(boolean online, boolean slows, boolean hitByCar) {
-        return !online && slows && !hitByCar;
+    static boolean brushedThrough(boolean stock, boolean slows, boolean hitByCar) {
+        return !stock && slows && !hitByCar;
     }
 
     /**
@@ -46,21 +49,21 @@ final class Knockdown {
      * less 23 plus the CarSlowFactor of whatever it touches, about 10 to 40 km/h, until it is
      * clear, and pushes back on it by its speed at every plant it brushes.
      */
-    static boolean plantsGiveWay(boolean online) {
-        return !online;
+    static boolean plantsGiveWay(boolean stock) {
+        return !stock;
     }
 
     /**
      * Whether BaseVehicle.applyImpulseFromHitPlant is passed over: where plants give way, except
      * for the push CarSmash gives through it to slow a car by what it knocks down.
      */
-    static boolean plantPushPassedOver(boolean online, boolean smashing) {
-        return plantsGiveWay(online) && !smashing;
+    static boolean plantPushPassedOver(boolean stock, boolean smashing) {
+        return plantsGiveWay(stock) && !smashing;
     }
 
     /** What a thing a vehicle touches slows it by, as the game counts it (IsoObject.GetVehicleSlowFactor): see plantsGiveWay. */
-    static float slowFactor(boolean online, float slows) {
-        return plantsGiveWay(online) ? 0f : slows;
+    static float slowFactor(boolean stock, float slows) {
+        return plantsGiveWay(stock) ? 0f : slows;
     }
 
     /**
@@ -69,8 +72,8 @@ final class Knockdown {
      * vehicle's off-road efficiency. Alone it does not; the softer grip and the bumps off the road
      * are left as the game has them.
      */
-    static boolean engineHeldOffRoad(boolean online, boolean offRoad) {
-        return online && offRoad;
+    static boolean engineHeldOffRoad(boolean stock, boolean offRoad) {
+        return stock && offRoad;
     }
 
     /** Whether a vehicle is going faster than any vehicle goes, or at a speed that is no number. */

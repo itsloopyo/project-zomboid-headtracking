@@ -78,12 +78,12 @@ final class CarSmash {
     /** Whether a vehicle meeting a thing goes through it unslowed: see Knockdown.brushedThrough. */
     static boolean brushedThrough(IsoObject thing) {
         PropertyContainer properties = thing.getProperties();
-        return Knockdown.brushedThrough(Online.joined(), properties.has("CarSlowFactor"), properties.has("HitByCar"));
+        return Knockdown.brushedThrough(Rules.vehiclesStock(), properties.has("CarSlowFactor"), properties.has("HitByCar"));
     }
 
     /** The game hands it each thing marked as hit by cars that a vehicle has met. True where the thing was knocked down and the game's own rule is passed over. */
     static boolean struck(IsoObject thing, BaseVehicle vehicle) {
-        if (!Knockdown.smashing(Online.joined(), vehicle.shouldCollideWithObjects(), kmh(vehicle))) {
+        if (!Knockdown.smashing(Rules.vehiclesStock(), vehicle.shouldCollideWithObjects(), kmh(vehicle))) {
             return false;
         }
         Knockdown.Kind kind = knockable(thing);
@@ -114,7 +114,7 @@ final class CarSmash {
                         vehicle.getScriptName(), vehicle.getX(), vehicle.getY(), kmh));
             }
         }
-        if (!Knockdown.smashing(Online.joined(), vehicle.shouldCollideWithObjects(), kmh)) {
+        if (!Knockdown.smashing(Rules.vehiclesStock(), vehicle.shouldCollideWithObjects(), kmh)) {
             return;
         }
         VehicleScript script = vehicle.getScript();

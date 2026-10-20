@@ -95,9 +95,9 @@ final class Penetration {
         return spent < budget ? (budget - spent) / budget : 0f;
     }
 
-    /** Whether a shot by this character goes on through walls: a player of this machine, with a firearm, alone. */
+    /** Whether a shot by this character goes on through walls: a player of this machine, with a firearm, alone, with the rule's row on. */
     static boolean applies(IsoGameCharacter shooter, HandWeapon weapon) {
-        return !Online.joined() && shooter instanceof IsoPlayer player && View.of(player) != null && weapon != null && weapon.isAimedFirearm();
+        return Rules.throughWalls() && shooter instanceof IsoPlayer player && View.of(player) != null && weapon != null && weapon.isAimedFirearm();
     }
 
     /** The bars of a metal gate, which the game names no material for: a round mostly passes between them. */

@@ -57,12 +57,12 @@ final class Config {
     private static final String[] SAVE_STATUS = {"saved", "not saved", "may not be saved"};
 
     /**
-     * What the rows read again while the game runs hold: the field of view in degrees, Own's bits,
+     * What the rows read again while the game runs hold: the field of view in degrees, Own's bits, Rules' bits,
      * by player the Quality rows, the IsometricQuality rows as Quality modes and the Style rows,
      * the HillHeight row, the MuzzleFlash row, the SplitScreen row, the rows of [Graphics], the TalkingMouths row
      * and each player's microphone.
      */
-    record Live(float fieldOfView, int own, int[] quality, int[] overheadQuality, int[] style, float hillHeight, boolean muzzleFlash, int splitScreen,
+    record Live(float fieldOfView, int own, int rules, int[] quality, int[] overheadQuality, int[] style, float hillHeight, boolean muzzleFlash, int splitScreen,
             Quality.Picture custom, boolean talkingMouths, List<String> microphones) {}
 
     /** The keys of [Graphics], the Custom graphics mode, in the order of Quality.Picture's parts. */
@@ -83,6 +83,8 @@ final class Config {
     private final int[] playerPorts = new int[PLAYER_PORT_ROWS.length];
     /** The rows of [Content], in the order of Own's bits. */
     private final int[] own;
+    /** The rows of [Rules], in the order of Rules' bits. */
+    private final int[] rules;
     /** The rows of [Graphics], in the order of GRAPHICS. */
     private final int[] graphics;
     /** For each of the mod's own rows the game's options screen shows, by its key: what puts a value applied there on the running game. */
@@ -93,7 +95,7 @@ final class Config {
      * writable: their hotkeys save. There is no key that switches head tracking off: the
      * owner ruled the action out for this game, and the three keys there are are the game's own
      * rows on the nav keys alone (see cameraunlock-core's per_game). FieldOfView, Quality, IsometricQuality, Style,
-     * the rows of [Players], HillHeight, MuzzleFlash, SplitScreen and the rows of [Content] are the mod's own, and the ones read
+     * the rows of [Players], HillHeight, MuzzleFlash, SplitScreen and the rows of [Content] and [Rules] are the mod's own, and the ones read
      * again while the game runs, and so are the rows of [Graphics], which are what the Custom
      * graphics mode draws, and the rows of [Voice]. They are writable too, and a writable row that is not a key
      * list or a microphone's name is a setting on the game's options screen (OptionsPage), which shows the
@@ -299,6 +301,30 @@ final class Config {
                             + "false: the game's own, with its glass cut away.",
                     writable | live, true),
         };
+        rules = new int[] {
+            core.configLocalBool("Rules", "ShotsThroughWalls",
+                    "true: offline, your shots go on through stud walls, walls of boards, shut doors and windows, losing damage to\n"
+                            + "each by what it is made of. false: they stop it, as the game has it. On a server the game's rule holds.",
+                    writable | live, true),
+            core.configLocalBool("Rules", "ShotsBreakLamps",
+                    "true: offline, a shot breaks the lamp it passes through and the vehicle lamp it lands on. false: lamps\n"
+                            + "are left lit, as the game has it. On a server the game's rule holds.",
+                    writable | live, true),
+            core.configLocalBool("Rules", "ShotsWoundLimbs",
+                    "true: offline, first person shots to a zombie's legs slow it and drop it to crawl, shots to its arms leave them\n"
+                            + "hanging, enough take the limb off, and a head shot that kills can take the head off or burst it. false: hits\n"
+                            + "are the game's. On a server the game's rule holds.",
+                    writable | live, true),
+            core.configLocalBool("Rules", "VehiclesSmashThrough",
+                    "true: offline, a vehicle faster than a walk knocks down fences and street lamp posts, drives through bushes\n"
+                            + "unslowed and keeps its engine's full power off the road. false: the game's rules for all of it. On a server the\n"
+                            + "game's rules hold.",
+                    writable | live, true),
+            core.configLocalBool("Rules", "RolledVehiclesBurn",
+                    "true: offline, a vehicle left on its roof catches fire after a few seconds and burns out. false: it stays as it\n"
+                            + "lies, as the game has it. On a server the game's rule holds.",
+                    writable | live, true),
+        };
 
         talkingMouths = core.configLocalBool("Voice", TALKING_MOUTHS,
                 "true: your character's mouth moves with what you say into your microphone: the jaw drops for \"ah\", the lips\n"
@@ -341,6 +367,14 @@ final class Config {
             puts.put(ownKeys[i], value -> {
                 Own.set(value != 0 ? Own.rows() | bit : Own.rows() & ~bit);
                 Log.info("the mod's own in first person: " + Own.described(Own.rows()));
+            });
+        }
+        String[] ruleKeys = {"ShotsThroughWalls", "ShotsBreakLamps", "ShotsWoundLimbs", "VehiclesSmashThrough", "RolledVehiclesBurn"};
+        for (int i = 0; i < ruleKeys.length; i++) {
+            int bit = 1 << i;
+            puts.put(ruleKeys[i], value -> {
+                Rules.set(value != 0 ? Rules.rows() | bit : Rules.rows() & ~bit);
+                Log.info("the mod's rules offline: " + Rules.described(Rules.rows()));
             });
         }
     }
@@ -415,6 +449,10 @@ final class Config {
         for (int i = 0; i < own.length; i++) {
             rows |= core.configGetInt(own[i]) << i;
         }
+        int changed = 0;
+        for (int i = 0; i < rules.length; i++) {
+            changed |= core.configGetInt(rules[i]) << i;
+        }
         double[] custom = new double[graphics.length];
         for (int part = 0; part < graphics.length; part++) {
             custom[part] = part == RENDER_SCALE ? core.configGetFloat(graphics[part]) : core.configGetInt(graphics[part]);
@@ -425,7 +463,7 @@ final class Config {
             overheadQualities[player] = core.configGetInt(overheadQuality[player]) + Quality.LOW;
             styles[player] = core.configGetInt(style[player]);
         }
-        return new Live(core.configGetFloat(fieldOfView), rows, qualities, overheadQualities, styles, core.configGetFloat(hillHeight), core.configGetInt(muzzleFlash) != 0, core.configGetInt(splitScreen), picture(custom),
+        return new Live(core.configGetFloat(fieldOfView), rows, changed, qualities, overheadQualities, styles, core.configGetFloat(hillHeight), core.configGetInt(muzzleFlash) != 0, core.configGetInt(splitScreen), picture(custom),
                 core.configGetInt(talkingMouths) != 0, List.of(microphones()));
     }
 

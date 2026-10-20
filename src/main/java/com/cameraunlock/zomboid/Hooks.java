@@ -359,7 +359,7 @@ public final class Hooks {
      * the network.
      */
     public static void zombieHit(IsoZombie zombie, HandWeapon weapon, float damage, boolean fromNetwork) {
-        if (fromNetwork || !Online.woundsTell() || aimedPart == HitPart.NONE || !weapon.isRanged()) {
+        if (fromNetwork || !Rules.wounds() || aimedPart == HitPart.NONE || !weapon.isRanged()) {
             return;
         }
         if (aimedPart == RagdollBodyPart.BODYPART_HEAD.ordinal()) {
@@ -683,17 +683,17 @@ public final class Hooks {
 
     /** Called with what a thing a vehicle touches slows it by, where BaseVehicle.breakingObjects takes the most of them. */
     public static float slowFactor(float slows) {
-        return Knockdown.slowFactor(Online.joined(), slows);
+        return Knockdown.slowFactor(Rules.vehiclesStock(), slows);
     }
 
     /** Asked as BaseVehicle.applyImpulseFromHitPlant begins: true where the plant gives way and the push is passed over. */
     public static boolean plantGivesWay() {
-        return Knockdown.plantPushPassedOver(Online.joined(), CarSmash.slowing);
+        return Knockdown.plantPushPassedOver(Rules.vehiclesStock(), CarSmash.slowing);
     }
 
     /** Called with what the game's off-road check reads where CarController.update sets the engine's force. */
     public static boolean offRoadEngine(boolean offRoad) {
-        return Knockdown.engineHeldOffRoad(Online.joined(), offRoad);
+        return Knockdown.engineHeldOffRoad(Rules.vehiclesStock(), offRoad);
     }
 
     /** Called as the game begins each update of a vehicle: see CarPhysics. */

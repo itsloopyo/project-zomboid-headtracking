@@ -159,6 +159,7 @@ final class Tracking {
 
         Config.Live live = config.live();
         Own.set(live.own());
+        Rules.set(live.rules());
         customInFile = live.custom();
         Quality.custom(live.custom());
         for (int player = 0; player < View.COUNT; player++) {
@@ -172,6 +173,7 @@ final class Tracking {
         FieldOfView.set(live.fieldOfView());
         talk(live);
         Log.info("the mod's own in first person: " + Own.described(Own.rows()));
+        Log.info("the mod's rules offline: " + Rules.described(Rules.rows()));
         Log.info("hill height " + HillHeight.asked());
         Log.info("first person field of view set to " + FieldOfView.degrees() + " degrees vertical");
         Log.info("head tracking " + (enabled ? "on" : "off") + ", " + TRACKING_MODE_LABEL[trackingMode] + ", yaw about "
@@ -270,6 +272,10 @@ final class Tracking {
         if (live.own() != Own.rows()) {
             Own.set(live.own());
             Log.info(Config.FILE_NAME + " changed: the mod's own in first person: " + Own.described(live.own()));
+        }
+        if (live.rules() != Rules.rows()) {
+            Rules.set(live.rules());
+            Log.info(Config.FILE_NAME + " changed: the mod's rules offline: " + Rules.described(live.rules()));
         }
         if (live.talkingMouths() != Mouths.on() || !live.microphones().equals(microphones)) {
             talk(live);

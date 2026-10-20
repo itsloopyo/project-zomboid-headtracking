@@ -186,7 +186,9 @@ final class CarPhysics {
             zombie.iso.objects.IsoFire fire = vehicle.getSquare() == null ? null : vehicle.getSquare().getFire();
             Log.info("the burning " + vehicle.getScriptName() + "'s fire " + (fire == null ? "is out" : "is at stage " + fire.lifeStage + ", " + fire.lifeStageTimer + " left of it"));
         }
-        switch (kept.stood && kept.hasEngine ? kept.wreck.step(UP.y, seconds) : Wreck.Change.NONE) {
+        // With its row off no vehicle catches; one already alight burns out.
+        boolean burns = kept.stood && kept.hasEngine && (kept.wreck.stage != Wreck.Stage.WHOLE || Rules.rolledBurn());
+        switch (burns ? kept.wreck.step(UP.y, seconds) : Wreck.Change.NONE) {
             case CATCHES -> catchFire(vehicle);
             case GOES_UP -> goUp(vehicle);
             case NONE -> { }
