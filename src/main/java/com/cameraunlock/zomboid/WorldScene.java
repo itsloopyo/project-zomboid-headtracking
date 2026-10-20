@@ -2556,6 +2556,8 @@ final class WorldScene {
         final IsoObject[] groundObject = new IsoObject[LIGHT_SPAN * LIGHT_SPAN];
         final Texture[] groundTexture = new Texture[LIGHT_SPAN * LIGHT_SPAN];
         final int[] groundRank = new int[LIGHT_SPAN * LIGHT_SPAN];
+        /** Whether a square of open ground has none beside it: a tree's pit in a pavement, which keeps to its square. */
+        final boolean[] groundLone = new boolean[LIGHT_SPAN * LIGHT_SPAN];
         final float[] cover = new float[4];
         /** The place in its chunk of the square being added. */
         int waterLocalX, waterLocalY;
@@ -4196,6 +4198,17 @@ final class WorldScene {
          * it: taken from the chunk it is on, which the cell would have to find among the map's
          * chunks at every asking.
          */
+        private boolean naturalBeside(int chunkX, int chunkY, int x, int y) {
+            for (int dx = -1; dx <= 1; dx++) {
+                for (int dy = -1; dy <= 1; dy++) {
+                    if ((dx != 0 || dy != 0) && Terrain.kind(squareAt(chunkX, chunkY, x + dx, y + dy, 0)) == Terrain.NATURAL) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
         IsoGridSquare squareAt(int chunkX, int chunkY, int x, int y, int z) {
             int offX = x - chunkX, offY = y - chunkY;
             IsoChunk on = around[(offX < 0 ? 0 : offX < CHUNK_TILES ? 1 : 2) * 3 + (offY < 0 ? 0 : offY < CHUNK_TILES ? 1 : 2)];
@@ -5126,6 +5139,7 @@ final class WorldScene {
                         groundKind[at] = square == null ? Terrain.UNKNOWN : Terrain.kind(square, groundObject[at]);
                         groundTexture[at] = textureOf(groundObject[at]);
                         groundRank[at] = groundKind[at] == Terrain.NATURAL ? rank(groundObject[at].getSprite()) : 0;
+                        groundLone[at] = groundKind[at] == Terrain.NATURAL && !naturalBeside(chunkX, chunkY, chunkX + i - 1, chunkY + j - 1);
                     }
                     if (square == null) {
                         lightOpen[at] = -1;

@@ -40,7 +40,8 @@ final class FloorBuilder {
      * Of two kinds of open ground the one whose texture has the higher name spreads over the
      * other, which is as good a rule as any and is the same from both sides. Ground spreads
      * over a road or a path and out over the edge of water, never the other way, and nothing
-     * spreads indoors.
+     * spreads indoors. A lone square of ground, a tree's pit in a pavement, spreads over nothing
+     * but other open ground.
      */
     void spreadGround(int x, int y, int localX, int localY) {
         int own = (localX + 1) * WorldScene.LIGHT_SPAN + localY + 1;
@@ -97,7 +98,7 @@ final class FloorBuilder {
             return false;
         }
         int name = build.groundRank[at];
-        return name != mine && (build.groundKind[own] != Terrain.NATURAL || name > mine);
+        return name != mine && (build.groundKind[own] != Terrain.NATURAL ? !build.groundLone[at] : name > mine);
     }
 
     /** A floor, or what the game lays on one, flat on the ground of its square. */
