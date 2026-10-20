@@ -2806,10 +2806,6 @@ final class WorldScene {
             // By day: at night a room is seen by its lamps, and the eye is held back from opening up to it.
             // Low lights a room as the game does.
             sky.roomKept = Quality.plain(view.index) ? 1f : Evening.ROOM_DAYLIGHT + (1f - Evening.ROOM_DAYLIGHT) * sky.night;
-            if (fromOutside) {
-                sky.daylightKept = Evening.seenFrom(sky.daylightKept, view.flight.share());
-                sky.roomKept = Evening.seenFrom(sky.roomKept, view.flight.share());
-            }
             openNow = gameOpen;
             daylightKeptNow = sky.daylightKept;
             roomKeptNow = sky.roomKept;

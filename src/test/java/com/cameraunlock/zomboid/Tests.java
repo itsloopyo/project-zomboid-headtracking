@@ -107,7 +107,7 @@ public final class Tests {
         Checks.run("aFirearmsShotWaitsForThePhysicsWorld", Tests::aFirearmsShotWaitsForThePhysicsWorld);
         Checks.run("keysHeldThroughTheLandingKeepTheirWalk", Tests::keysHeldThroughTheLandingKeepTheirWalk);
         Checks.run("theGroundLosesItsLightWithTheSun", Tests::theGroundLosesItsLightWithTheSun);
-        Checks.run("theGamesOwnViewKeepsTheGamesEveningLight", Tests::theGamesOwnViewKeepsTheGamesEveningLight);
+        Checks.run("theOverheadViewIsLitAsTheEyeIs", Tests::theOverheadViewIsLitAsTheEyeIs);
         Checks.run("fieldOfViewEasesToTheAimedZoomAndBack", Tests::fieldOfViewEasesToTheAimedZoomAndBack);
         Checks.run("firstPersonKeysReplaceTheStockOnes", Tests::firstPersonKeysReplaceTheStockOnes);
         Checks.run("pointerComesOutForTheInventoryKeyAPanelAndAClickedButton", Tests::pointerComesOutForTheInventoryKeyAPanelAndAClickedButton);
@@ -2588,27 +2588,12 @@ public final class Tests {
         check(near(Evening.dimmed(1f, 0.6f, 0.5f), 0.7f), "what a square has over the open ground's light came from a lamp and stays");
     }
 
-    private static void theGamesOwnViewKeepsTheGamesEveningLight() {
-        // As measured in the rig's save: the open ground 0.12 at 01:00, and 0.51 at 23:00 under the picture's night sky.
-        float night = 0.12f;
-        float eye = Evening.kept(-0.5f, 0.51f, night);
-        check(eye < 0.3f, "the eye takes the game's evening daylight down to the night's");
-        check(Evening.seenFrom(eye, 0f) == 1f, "from the game's own camera the game's evening light is kept whole, as Low shows it");
-        check(near(Evening.seenFrom(eye, 1f), eye), "at the eye the eye's share is kept");
-        float last = 1f;
-        for (float landed = 0f; landed <= 1f; landed += 0.05f) {
-            float kept = Evening.seenFrom(eye, landed);
-            check(kept <= last && last - kept < 0.05f, "on the way down to the eye the light goes from the game's to the eye's evenly");
-            last = kept;
-        }
-        check(Evening.seenFrom(Evening.kept(0.9f, 1f, Evening.NIGHT_OPEN), 0.5f) == 1f, "by day the flight changes nothing");
+    private static void theOverheadViewIsLitAsTheEyeIs() {
+        // Medium and High over the map are the first person picture seen from above, night and all.
         String scene = LowTests.scene().replaceAll("\\s+", " ");
-        check(scene.contains("if (fromOutside) { sky.daylightKept = Evening.seenFrom(sky.daylightKept, view.flight.share());"),
-                "a build seen from the game's camera or on the flight keeps the game's evening light by how far the flight has come");
-        check(scene.contains("sky.roomKept = Evening.seenFrom(sky.roomKept, view.flight.share()); }"),
-                "and a room's daylight by as much: the game's own view lights a room as the game does");
+        check(!scene.contains("Evening.seenFrom"), "the camera over the map keeps no more of the daylight than the eye does");
+        check(scene.contains("sky.daylightKept = Evening.kept(sky.sunUp, gameOpen, nightOpen);"), "the daylight kept is the eye's wherever the camera is");
         check(scene.contains("sky.roomKept = Quality.plain(view.index) ? 1f :"), "Low lights a room as the game does");
-        check(Evening.seenFrom(Evening.ROOM_DAYLIGHT, 0f) == 1f, "from the game's own camera a room keeps all its daylight");
         float room = Evening.dimmed(0.8f, 0.9f, Evening.ROOM_DAYLIGHT);
         check(near(room, 0.8f * Evening.ROOM_DAYLIGHT), "a room lit by the day alone has the room's share of it");
         check(near(Evening.dimmed(1f, 0.6f, Evening.ROOM_DAYLIGHT), 0.4f + 0.6f * Evening.ROOM_DAYLIGHT), "and a lamp's light in it stays whole");

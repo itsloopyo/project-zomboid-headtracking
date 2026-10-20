@@ -45,18 +45,6 @@ final class Evening {
     }
 
     /**
-     * How much of the daylight a picture keeps whose camera is the game's own, over the map, or on
-     * its way from there down to the eye: all of it from the game's camera, whose view the game
-     * draws by its own light at every hour, and the eye's share once the camera is at the eye.
-     *
-     * @param eyeKept what the eye keeps: see kept
-     * @param landed  how much of the way from the game's camera to the eye the camera has come, 0 to 1
-     */
-    static float seenFrom(float eyeKept, float landed) {
-        return eyeKept + (1f - eyeKept) * (1f - landed);
-    }
-
-    /**
      * A square's light with that much of the daylight kept. What a square has over the open
      * ground's light came from a lamp, and stays.
      */
