@@ -70,8 +70,7 @@ final class Overhead {
      * zigzag brace on the rest, the standard at the south (17, 19) or north (18, 20) end of a
      * frame on the west edge, at the west (25, 27) or east (26, 28) end of one on the north.
      * The model's standard is at its back. 19, 20, 25 and 26 also paint a tube lying across the
-     * floor from the frame, which the model leaves out; 22 and 23, which paint only that, stay
-     * as they are.
+     * floor from the frame, which the model leaves out. 22 and 23 are plank floors.
      */
     private static Outdoors.Piece buildingSite(int place) {
         float near = GIRDER_IN, far = 1f - GIRDER_IN;
