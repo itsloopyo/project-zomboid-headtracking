@@ -320,10 +320,6 @@ final class Config {
                             + "unslowed and keeps its engine's full power off the road. false: the game's rules for all of it. On a server the\n"
                             + "game's rules hold.",
                     writable | live, true),
-            core.configLocalBool("Rules", "RolledVehiclesBurn",
-                    "true: offline, a vehicle left on its roof catches fire after a few seconds and burns out. false: it stays as it\n"
-                            + "lies, as the game has it. On a server the game's rule holds.",
-                    writable | live, true),
         };
 
         talkingMouths = core.configLocalBool("Voice", TALKING_MOUTHS,
@@ -369,7 +365,7 @@ final class Config {
                 Log.info("the mod's own in first person: " + Own.described(Own.rows()));
             });
         }
-        String[] ruleKeys = {"ShotsThroughWalls", "ShotsBreakLamps", "ShotsWoundLimbs", "VehiclesSmashThrough", "RolledVehiclesBurn"};
+        String[] ruleKeys = {"ShotsThroughWalls", "ShotsBreakLamps", "ShotsWoundLimbs", "VehiclesSmashThrough"};
         for (int i = 0; i < ruleKeys.length; i++) {
             int bit = 1 << i;
             puts.put(ruleKeys[i], value -> {

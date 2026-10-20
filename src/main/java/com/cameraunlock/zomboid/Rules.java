@@ -10,8 +10,8 @@ package com.cameraunlock.zomboid;
  */
 final class Rules {
     /** The bits of the rows that are on, in the order Config describes the rows of [Rules]. */
-    static final int THROUGH_WALLS = 1, BREAKS_LAMPS = 2, WOUNDS = 4, SMASHES_THROUGH = 8, ROLLED_BURN = 16;
-    static final int ALL = THROUGH_WALLS | BREAKS_LAMPS | WOUNDS | SMASHES_THROUGH | ROLLED_BURN;
+    static final int THROUGH_WALLS = 1, BREAKS_LAMPS = 2, WOUNDS = 4, SMASHES_THROUGH = 8;
+    static final int ALL = THROUGH_WALLS | BREAKS_LAMPS | WOUNDS | SMASHES_THROUGH;
 
     private static volatile int on = ALL;
 
@@ -48,15 +48,9 @@ final class Rules {
         return Online.joined() || (on & SMASHES_THROUGH) == 0;
     }
 
-    /** Whether a vehicle left on its roof catches fire and burns out: see Wreck. */
-    static boolean rolledBurn() {
-        return !Online.joined() && (on & ROLLED_BURN) != 0;
-    }
-
     /** The rows in words, for the log. */
     static String described(int bits) {
         return "shots through walls " + ((bits & THROUGH_WALLS) != 0) + ", shots break lamps " + ((bits & BREAKS_LAMPS) != 0)
-                + ", shots wound limbs " + ((bits & WOUNDS) != 0) + ", vehicles smash through " + ((bits & SMASHES_THROUGH) != 0)
-                + ", rolled vehicles burn " + ((bits & ROLLED_BURN) != 0);
+                + ", shots wound limbs " + ((bits & WOUNDS) != 0) + ", vehicles smash through " + ((bits & SMASHES_THROUGH) != 0);
     }
 }

@@ -19,8 +19,8 @@ import zombie.vehicles.VehiclesDB2;
  * Vehicles played alone, as in an open-world driving game: the first person hills pull a
  * vehicle down them and throw it into the air over a crest at speed, where it has no drive or
  * brakes and its steering stays where it was until it lands (Airtime); a vehicle thrown hard
- * enough across rolls over (Rollover, shelved: only with -Dcameraunlock.zomboid.rollovers=true);
- * and one left on its roof burns out (Wreck). On a server
+ * enough across rolls over (Rollover) and one left on its roof burns out (Wreck), both shelved:
+ * only with -Dcameraunlock.zomboid.rollovers=true. On a server
  * the game's level ground moves every vehicle as everyone else in the game sees it move, and
  * none of this is done.
  *
@@ -73,7 +73,7 @@ final class CarPhysics {
 
     /** By physics id, which the game gives as a short. */
     private static final Kept[] KEPT = new Kept[1 << 16];
-    /** Rollovers are held back for a later release. */
+    /** Rollovers and burning wrecks are held back for a later release. */
     private static final boolean ROLLOVERS = Boolean.getBoolean("cameraunlock.zomboid.rollovers");
     /** How long what the picture said of the land holds: longer, first person is off or the vehicle out of its view, and the land is level. */
     private static final long LAND_SAID_FOR_NANOS = 250_000_000L;
@@ -186,9 +186,7 @@ final class CarPhysics {
             zombie.iso.objects.IsoFire fire = vehicle.getSquare() == null ? null : vehicle.getSquare().getFire();
             Log.info("the burning " + vehicle.getScriptName() + "'s fire " + (fire == null ? "is out" : "is at stage " + fire.lifeStage + ", " + fire.lifeStageTimer + " left of it"));
         }
-        // With its row off no vehicle catches; one already alight burns out.
-        boolean burns = kept.stood && kept.hasEngine && (kept.wreck.stage != Wreck.Stage.WHOLE || Rules.rolledBurn());
-        switch (burns ? kept.wreck.step(UP.y, seconds) : Wreck.Change.NONE) {
+        switch (ROLLOVERS && kept.stood && kept.hasEngine ? kept.wreck.step(UP.y, seconds) : Wreck.Change.NONE) {
             case CATCHES -> catchFire(vehicle);
             case GOES_UP -> goUp(vehicle);
             case NONE -> { }
