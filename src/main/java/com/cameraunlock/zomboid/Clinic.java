@@ -1,5 +1,6 @@
 package com.cameraunlock.zomboid;
 
+import java.util.Arrays;
 import java.util.Set;
 import zombie.core.properties.PropertyContainer;
 import zombie.iso.sprite.IsoSprite;
@@ -46,7 +47,8 @@ final class Clinic {
                     .stand(0f, 0f, false).raise(surfaceUp);
         }
         if (name.startsWith(OFFICE) && called.equals("Desk") && properties.isTable() && surfaceUp > 0f) {
-            return desk(sprite, holds, turns, surfaceHigh, surfaceUp);
+            return group.equals("Office") ? straightDesk(sprite, name, holds, properties, turns, surfaceHigh, surfaceUp)
+                    : desk(sprite, holds, turns, surfaceHigh, surfaceUp);
         }
         if (!name.startsWith(MEDICAL)) {
             return null;
@@ -126,6 +128,28 @@ final class Clinic {
             }
         }
         DeskRuns.Square square = DeskRuns.of(filled, grid.getSpriteGridPosX(sprite), grid.getSpriteGridPosY(sprite), holds.equals("desk"), turns);
+        return deskSquare(sprite, square.model(), square.turns(), surfaceHigh, surfaceUp);
+    }
+
+    /** Where on the sheet its straight desks three squares long begin: those before are two squares long. */
+    private static final int THREE_LONG = 72;
+
+    /**
+     * A square of one of the sheet's straight desks, two squares long or three. The game gives
+     * them no grid: the tile definitions put two of them on one SpriteGridPos of a facing, and
+     * the game drops every grid of a group that has a square twice. So each square is laid by
+     * its own SpriteGridPos in a run across the way the desk faces.
+     */
+    private static Furniture straightDesk(IsoSprite sprite, String name, String holds, PropertyContainer properties, int turns, float surfaceHigh,
+            float surfaceUp) {
+        int along = Sheets.place(name) >= THREE_LONG ? 3 : 2;
+        boolean alongY = (turns & 1) == 1;
+        boolean[][] filled = new boolean[alongY ? 1 : along][alongY ? along : 1];
+        for (boolean[] column : filled) {
+            Arrays.fill(column, true);
+        }
+        String[] at = properties.get("SpriteGridPos").split(",");
+        DeskRuns.Square square = DeskRuns.of(filled, Integer.parseInt(at[0].trim()), Integer.parseInt(at[1].trim()), holds.equals("desk"), turns);
         return deskSquare(sprite, square.model(), square.turns(), surfaceHigh, surfaceUp);
     }
 

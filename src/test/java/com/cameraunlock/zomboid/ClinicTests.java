@@ -20,6 +20,7 @@ final class ClinicTests {
         Checks.run("theWideCabinetIsTwoHalvesThatMeet", ClinicTests::theWideCabinetIsTwoHalvesThatMeet);
         Checks.run("aFirstAidCaseHangsOnItsWallShowingItsSprite", ClinicTests::aFirstAidCaseHangsOnItsWallShowingItsSprite);
         Checks.run("eachSquareOfAnLDeskIsItsOwnPieceTurnedAwayFromTheOtherArm", ClinicTests::eachSquareOfAnLDeskIsItsOwnPieceTurnedAwayFromTheOtherArm);
+        Checks.run("theSheetsStraightDesksAreLaidSquareBySquare", ClinicTests::theSheetsStraightDesksAreLaidSquareBySquare);
         Checks.run("deskRunsTurnEveryArmOfAnL", ClinicTests::deskRunsTurnEveryArmOfAnL);
         Checks.run("theOfficeSheetsDeskSquaresWithNoNameAreDesks", ClinicTests::theOfficeSheetsDeskSquaresWithNoNameAreDesks);
         Checks.run("aDentistsChairAndItsLampAreTheirModels", ClinicTests::aDentistsChairAndItsLampAreTheirModels);
@@ -153,12 +154,20 @@ final class ClinicTests {
         check(back[0] == 0f && back[1] == -1f, "and the arm along x its back to the north: " + back[0] + ", " + back[1]);
         Models.turn(Furniture.known(drawers).turns, 0f, -1f, back);
         check(back[0] == 1f && back[1] == 0f, "the drawers open to the east, inside the L: " + back[0] + ", " + back[1]);
-        IsoSprite pair = TileRows.sprite("location_business_office_generic_01_0|BlocksPlacement||CanScrap||ContainerCapacity|20|ContainerPosition|Low|"
-                + "CustomName|Desk|Facing|E|ForceSingleItem||GroupName|Office|IsLow||IsMoveAble||IsTable||Material|Nails|Material2|Wood|PickUpLevel|2|"
-                + "PickUpTool|Hammer|PickUpWeight|100|PlaceTool|Hammer|SpriteGridPos|0,1|Surface|33|container|desk|solidtrans||");
-        IsoSprite other = TileRows.sprite("location_business_office_generic_01_1" + DESK.replace("Office L", "Office") + "0,0");
-        TileRows.piece(1, 2, pair, other);
-        check(model(Furniture.known(pair)).equals("desk"), "a desk two squares long is the desk it was: " + model(Furniture.known(pair)));
+    }
+
+    private static void theSheetsStraightDesksAreLaidSquareBySquare() {
+        String office = "location_business_office_generic_01_";
+        // They reach the build with no grid: the game drops the grids of their group.
+        String straight = DESK.replace("Office L", "Office").replace("Facing|E", "Facing|S");
+        Furniture withDrawers = Furniture.known(TileRows.sprite(office + "42" + straight + "0,0|container|desk|")),
+                open = Furniture.known(TileRows.sprite(office + "43" + straight + "1,0"));
+        check(model(withDrawers).equals("desk_pedestal_left") && model(open).equals("desk_end_right"),
+                "a desk two squares long with no grid is its drawers at one end and a panel leg at the other: " + model(withDrawers) + ", " + model(open));
+        check(withDrawers.turns == 2 && open.turns == 2, "both facing south, as the game says");
+        check(Math.abs(open.raised + open.model.height() * open.scaleUp - 33 * SURFACE_TILES) < 1e-4f, "its top as high as the game says");
+        Furniture middle3 = Furniture.known(TileRows.sprite(office + "73" + DESK.replace("Office L", "Office") + "0,1"));
+        check(model(middle3).equals("desk_run"), "the middle of one three squares long is a length of desk: " + model(middle3));
     }
 
     private static void deskRunsTurnEveryArmOfAnL() {
