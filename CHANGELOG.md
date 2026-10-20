@@ -17,6 +17,7 @@
 - `FieldOfView` sets the field of view: 65 by default, 40 to 110.
 - A carried flashlight points where your head points (`LightMultiplier`). Its beam lights everything in front of it and casts shadows.
 - Head tracking runs while the game is unpaused and your character is alive. It follows one tracker at a time.
+- When the tracker stops sending, the view eases back to the game's own, and your character's head with it. A save loaded with the tracker closed starts with the head straight.
 
 #### Controls
 

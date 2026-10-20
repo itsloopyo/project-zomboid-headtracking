@@ -94,6 +94,7 @@ public final class CoreTests {
         Checks.run("zoomLeavesTheHeadsTurnTheSameSizeOnScreen", CoreTests::zoomLeavesTheHeadsTurnTheSameSizeOnScreen);
         Checks.run("hotkeyActionsActAndSave", CoreTests::hotkeyActionsActAndSave);
         Checks.run("stockSightsLeavesTheViewTheHeadsRollAlone", CoreTests::stockSightsLeavesTheViewTheHeadsRollAlone);
+        Checks.run("aTrackerThatGoesQuietLeavesTheViewAndTheHead", CoreTests::aTrackerThatGoesQuietLeavesTheViewAndTheHead);
         Checks.run("nextStartRunsOnWhatWasSaved", CoreTests::nextStartRunsOnWhatWasSaved);
         Checks.run("freeLookWithNoMarkerIsReadAsFreeLookWithOne", CoreTests::freeLookWithNoMarkerIsReadAsFreeLookWithOne);
         Checks.run("aFileFromBeforeTheKeysMovedStartsOnTheNavKeys", CoreTests::aFileFromBeforeTheKeysMovedStartsOnTheNavKeys);
@@ -384,6 +385,9 @@ public final class CoreTests {
             port = free.getLocalPort();
         }
         Tracking.listen(port);
+        // The checks from here hold a pose the tracker sent once for seconds, where a tracker gone quiet would ease out of the view.
+        freshnessInTheFile = Tracking.settings().dataFreshnessMs;
+        freshFor(600_000);
         cleanYaw = 0f;
         ViewCamera.clean(clean, 3f, 4f, 1.6f, cleanYaw, 0f);
         frame();
@@ -594,6 +598,40 @@ public final class CoreTests {
         Tracking.act(Config.AIM_MODE);
         Tracking.act(Config.AIM_MODE);
         check(saved("StockSights=true"), "stock sights again, for the next start");
+    }
+
+    /** The tracker closed: what it sent last leaves the picture, and a save loaded then has the head straight. */
+    private static void aTrackerThatGoesQuietLeavesTheViewAndTheHead() throws IOException, InterruptedException {
+        freshFor(200);
+        send(20, 10, 12, 0.10, 0.05, -0.20);
+        check(within(1000, () -> looks(20f, 10f, 12f) && eyeMoved(0.20f, -0.10f, 0.05f)), "while the tracker sends the view has its pose: " + eye());
+        frames(1500);
+        float[] head = headTracking.headTurn();
+        check(looks(0f, 0f, 0f) && eyeMoved(0f, 0f, 0f) && head != null && near(head[0], 0f) && near(head[1], 0f) && near(head[2], 0f),
+                "once it stops sending its pose leaves the view and the character's head: " + eye());
+        headTracking.rest();
+        frame();
+        check(looks(0f, 0f, 0f) && eyeMoved(0f, 0f, 0f), "a save loaded with the tracker still closed starts from the clean view: " + eye());
+        send(20, 10, 12, 0.10, 0.05, -0.20);
+        frame();
+        check(!looks(20f, 10f, 12f), "the tracker sending again does not snap the view to its pose: " + eye());
+        for (long until = System.nanoTime() + 1_000_000_000L; System.nanoTime() < until; ) {
+            send(20, 10, 12, 0.10, 0.05, -0.20);
+            frame();
+        }
+        check(looks(20f, 10f, 12f) && eyeMoved(0.20f, -0.10f, 0.05f), "and as it goes on sending its pose eases back in: " + eye());
+        freshFor(freshnessInTheFile);
+    }
+
+    private static int freshnessInTheFile;
+
+    /** How long core takes a packet as current, put on the session as the file would, in the modes the session runs in now. */
+    private static void freshFor(int milliseconds) {
+        CameraUnlock.Settings settings = Tracking.settings();
+        settings.dataFreshnessMs = milliseconds;
+        settings.trackingMode = CameraUnlock.TRACKING_ROTATION_AND_POSITION;
+        settings.aimMode = Tracking.aimMode();
+        Core.library().configure(settings);
     }
 
     private static void nextStartRunsOnWhatWasSaved() throws IOException, InterruptedException {

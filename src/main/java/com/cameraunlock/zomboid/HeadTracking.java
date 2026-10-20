@@ -154,7 +154,7 @@ final class HeadTracking {
         if (active && nowFresh != fresh && (frame.flags & CameraUnlock.STATE_POSE) != 0) {
             fresh = nowFresh;
             Log.info(fresh ? "the tracker's poses are arriving"
-                    : "no pose taken from the tracker for " + Tracking.settings().dataFreshnessMs + " ms, the view keeps the last one");
+                    : "no pose taken from the tracker for " + Tracking.settings().dataFreshnessMs + " ms, its last one eases out of the view");
         }
     }
 
@@ -313,11 +313,11 @@ final class HeadTracking {
     /** One line with every term of the frame's pose, for the trace. */
     String describe() {
         return String.format(Locale.ROOT,
-                "tracking %s mode %s yaw about %s fresh %b remote %b head (yaw %.2f pitch %.2f roll %.2f)"
+                "tracking %s mode %s yaw about %s fresh %b share %.3f remote %b head (yaw %.2f pitch %.2f roll %.2f)"
                         + " tracker position (%.3f, %.3f, %.3f) lean asked %.3f given %.3f wall %b"
                         + " %s stock share %.3f zoom %.4f view has (%.3f, %.3f, %.3f) weapon has (%.3f, %.3f, %.3f) %s",
                 applied ? "applied" : Tracking.enabled() ? "idle" : "off", Tracking.trackingModeLabel(), yawAboutWorldUp() ? "world up" : "view up",
-                (frame.flags & CameraUnlock.STATE_FRESH) != 0, (frame.flags & CameraUnlock.STATE_REMOTE) != 0,
+                (frame.flags & CameraUnlock.STATE_FRESH) != 0, frame.trackerShare, (frame.flags & CameraUnlock.STATE_REMOTE) != 0,
                 frame.headYaw, frame.headPitch, frame.headRoll, frame.headX, frame.headY, frame.headZ, lean.asked, lean.given,
                 (lean.flags & CameraUnlock.LEAN_CONTACT) != 0, Tracking.aimModeLabel(), frame.poseShare, frame.zoomFactor,
                 lean.camera[0], lean.camera[1], lean.camera[2], lean.rig[0], lean.rig[1], lean.rig[2], light.describe());
