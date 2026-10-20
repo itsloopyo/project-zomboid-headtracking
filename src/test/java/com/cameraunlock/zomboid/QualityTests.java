@@ -542,7 +542,7 @@ final class QualityTests {
             Quality.set(1, Quality.HIGH);
             Quality.setOverhead(1, Quality.LOW);
             Quality.inFirstPerson(1, false);
-            check(Quality.smallerPictures(), "a player in their isometric Low, which the game draws, does not have the shared pictures made full size for their High");
+            check(!Quality.smallerPictures(), "a player in their isometric Low, which the game draws, has the shared pictures made full size for the first person High they are held ready for");
             Quality.gone(1);
             Quality.set(1, Quality.AUTOMATIC);
             Quality.set(0, Quality.AUTOMATIC);

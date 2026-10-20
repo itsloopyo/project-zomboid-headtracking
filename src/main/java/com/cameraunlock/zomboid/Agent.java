@@ -349,6 +349,7 @@ public final class Agent {
         add(instrumentation, new PatchTransformer(coveredPatches()));
         add(instrumentation, new PatchTransformer(farVehiclePatches()));
         add(instrumentation, new PatchTransformer(leftSavePatches()));
+        add(instrumentation, new PatchTransformer(loadingPatches()));
         add(instrumentation, new PatchTransformer(luaLoadedPatches()));
         add(instrumentation, new PatchTransformer(knockdownPatches()));
         add(instrumentation, new PatchTransformer(carPhysicsPatches()));
@@ -862,6 +863,18 @@ public final class Agent {
                 new Patch(state, "exit before its returns", classBytes -> CallSite.insertBeforeReturns(classBytes,
                         new CallSite.Method(state, "exit", "()V"),
                         code -> CallSite.passThis(code, new CallSite.Method(HOOKS, "leftSave", "(Ljava/lang/Object;)V")))));
+    }
+
+    /**
+     * Apart again: without it first person works as it does, and what it is drawn with is made
+     * in the first frames of play instead. GameLoadingState.update asks WorldStreamer.isBusy once,
+     * and only once the world is loaded: from then until the click that begins the save.
+     */
+    private static List<Patch> loadingPatches() {
+        return List.of(new Patch("zombie/gameStates/GameLoadingState", "update after isBusy", classBytes -> CallSite.insertAfter(classBytes,
+                new CallSite.Method("zombie/gameStates/GameLoadingState", "update", "()Lzombie/gameStates/GameStateMachine$StateAction;"),
+                new CallSite.Method("zombie/iso/WorldStreamer", "isBusy", "()Z"),
+                new CallSite.Method(HOOKS, "worldLoaded", BOOLEAN_FILTER))));
     }
 
     /**

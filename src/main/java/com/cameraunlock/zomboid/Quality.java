@@ -312,22 +312,21 @@ final class Quality {
     private static void refresh() {
         int[] overheads = overheadRows;
         Picture[] next = new Picture[View.COUNT];
-        boolean anyDraws = false, anyFullSize = false, allPlain = true, allGamesPlants = true;
+        boolean anyPresent = false, anyFullSize = false, allPlain = true, allGamesPlants = true;
         for (int view = 0; view < next.length; view++) {
             int overhead = overheads[view];
             next[view] = inFirstPerson[view] || overhead == LOW ? firstPersonPicture(view) : overhead == CUSTOM ? custom : preset(overhead);
-            // A view in its isometric Low is the game's to draw, and draws none of the mod's pictures.
-            boolean draws = present[view] && (inFirstPerson[view] || overhead != LOW);
-            anyDraws |= draws;
-            anyFullSize |= draws && next[view].fullSizeTextures;
+            // A view in its isometric Low draws none of the mod's pictures, and holds first person's made for the switch.
             if (present[view]) {
+                anyPresent = true;
+                anyFullSize |= next[view].fullSizeTextures;
                 allPlain &= next[view].stockLook;
                 allGamesPlants &= next[view].treeQuality == TREES_SPRITES;
             }
         }
         drawn = next;
-        // With no view drawing them the pictures are left as they were made, not made again for nobody.
-        if (anyDraws) {
+        // With no player at the screen the pictures are left as they were made, not made again for nobody.
+        if (anyPresent) {
             smaller = !anyFullSize;
         }
         plainEverywhere = allPlain;
@@ -701,7 +700,7 @@ final class Quality {
      * Whether the mod's pictures of surfaces, on walls and of skin are made at half their width
      * and height, which is a quarter of what they take on the graphics card and in the PC's memory.
      * Only High draws a dot of picture to a dot of the window and near enough to tell them apart.
-     * One set is made for every view, full size while any view the mod draws asks for it.
+     * One set is made for every view, full size while any view asks for it.
      */
     static boolean smallerPictures() {
         return smaller;

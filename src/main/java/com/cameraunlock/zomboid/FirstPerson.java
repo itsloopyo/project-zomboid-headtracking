@@ -313,18 +313,16 @@ public final class FirstPerson {
     }
 
     /**
-     * First person has been asked for and what it is drawn with is being made. Nothing of the
-     * picture is made before the first time it is asked for: a player who never asks carries
-     * none of it, and it is some hundreds of megabytes on the graphics card and in this process.
-     * Made a piece a frame it takes a second or so, where made on the frame of the switch it
-     * held that frame for seconds.
+     * First person has been asked for and what it is drawn with is being made. It is made while
+     * the save loads (whileLoading) and in the first frames of play, a piece a frame, and kept
+     * until the save is left, so the key finds it made: this is for a key pressed before that
+     * is done, or after the graphics mode has asked for more. Made on the frame of the switch
+     * it held that frame for seconds.
      */
     private boolean gettingReady;
     private long readySince;
-    /** Whether the view holds anything on the graphics card that letting go would give back, and when it was last in use. */
+    /** Whether the view holds anything on the graphics card that letting go would give back. */
     private boolean held;
-    private long offSince;
-    private static final long LET_GO_AFTER_NANOS = 60_000_000_000L;
     /** A PC on which the making and the rehearsal take longer than this goes on to first person without the rest of them. */
     private static final long READY_WITHIN_NANOS = 4_000_000_000L;
 
@@ -351,6 +349,22 @@ public final class FirstPerson {
             return;
         }
         switchView(player);
+    }
+
+    /**
+     * Called once a frame while the save's world is loaded and the game has still to begin it:
+     * makes the next piece of what first person is drawn with and the land beyond the loaded
+     * map round the player, so that neither waits for the first switch to first person. The
+     * game's loading screen is no frame of the sprite renderer's: both go by the render
+     * thread's own queue.
+     */
+    void whileLoading(IsoPlayer player) {
+        held = true;
+        view.worldScene.tendFar(player.getX(), player.getY());
+        RenderThread.queueInvokeOnRenderContext(view.pipeline.HAND_FAR::render);
+        if (view.pipeline.unprepared() || view.pipeline.contentWaited()) {
+            RenderThread.queueInvokeOnRenderContext(view.pipeline.PREPARE::render);
+        }
     }
 
     /**
@@ -736,22 +750,22 @@ public final class FirstPerson {
                 world.look(null, 0);
                 SpriteRenderer.instance.drawGeneric(view.pipeline.RELEASE);
             }
-            // Switched off and on again within the minute, the view is there at once. Left off, it gives back
-            // what it holds: the world on the graphics card and the mod's own pictures, which are most of it.
-            // While the picture is drawing the game's own view it makes its own pieces, one a frame.
-            boolean making = !gettingReady && !view.characters.wanted && (overheadAsked && !overhead || view.pipeline.contentHalfMade());
+            // Whatever loading left unmade is made in play, one piece a frame, then the world is rehearsed, the far land handed over,
+            // and all of it is kept until the save is left. Off, the view is there at once when asked for.
+            boolean making = !gettingReady && !view.characters.wanted
+                    && (view.pipeline.unprepared() || view.pipeline.contentWaited() || view.pipeline.contentHalfMade());
             if (making) {
                 SpriteRenderer.instance.drawGeneric(view.pipeline.PREPARE);
+            } else if (!gettingReady && !rehearsed && !view.characters.wanted && allowed && !GameTime.isGamePaused() && !player.isDead()) {
+                rehearse(player);
             }
-            // A mode in which the picture draws the game's own view keeps what it is drawn with while that view is not
-            // being drawn, a dead player's among them: let go, it would all be made again at once, and let go again a minute later.
-            if (view.characters.wanted || gettingReady || making || overheadAsked) {
-                held = true;
-                offSince = now;
-            } else if (held && now - offSince > LET_GO_AFTER_NANOS) {
-                letGo();
-                SpriteRenderer.instance.drawGeneric(view.pipeline.LET_GO);
+            if (!gettingReady && allowed && !view.worldScene.farLand.ready()) {
+                view.worldScene.tendFar(player.getX(), player.getY());
+                if (!view.characters.wanted) {
+                    SpriteRenderer.instance.drawGeneric(view.pipeline.HAND_FAR);
+                }
             }
+            held = true;
             return;
         }
 
@@ -826,7 +840,6 @@ public final class FirstPerson {
             eyeFromAim[2] = cleanView.eyeUp - mouseView.eyeUp + alone[2];
         }
         held = true;
-        offSince = now;
         rehearsed = true;
         WorldScene.Frame scene = view.worldScene.next();
         if (landed) {

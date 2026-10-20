@@ -139,6 +139,21 @@ public final class Hooks {
         }
     }
 
+    /**
+     * Called on each of the loading screen's frames from the one the save's world is loaded on to
+     * the click that begins it, with whether the game is still reading the map round the player,
+     * which it returns unchanged.
+     */
+    public static boolean worldLoaded(boolean streaming) {
+        for (int i = 0; i < View.COUNT; i++) {
+            IsoPlayer player = IsoPlayer.players[i];
+            if (player != null) {
+                View.join(i).firstPerson.whileLoading(player);
+            }
+        }
+        return streaming;
+    }
+
     /** Called as the game begins to leave a save for its menu, or to quit, before it saves. */
     public static void leavingSave() {
         Stall.leaving();
