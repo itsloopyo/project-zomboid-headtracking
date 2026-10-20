@@ -16,6 +16,7 @@ final class RoomDaylightTests {
         Checks.run("theEdgeOfTheLoadedMapIsNoOpening", RoomDaylightTests::theEdgeOfTheLoadedMapIsNoOpening);
         Checks.run("aBoardedWindowLetsInLessThanABareOne", RoomDaylightTests::aBoardedWindowLetsInLessThanABareOne);
         Checks.run("thereIsNoDaylightAtNight", RoomDaylightTests::thereIsNoDaylightAtNight);
+        Checks.run("sharesWorkedOutAgainFromTheSameOpeningsAreKept", RoomDaylightTests::sharesWorkedOutAgainFromTheSameOpeningsAreKept);
     }
 
     private static void check(boolean condition, String what) {
@@ -80,6 +81,21 @@ final class RoomDaylightTests {
 
     private static RoomDaylight.Shares shares(RoomDaylight.Edges map, int x, int y, RoomDaylight.Loaded loaded) {
         return RoomDaylight.of(map, (room, box) -> System.arraycopy(BOXES.get(room), 0, box, 0, 4), map.region(x, y, 0), 0, loaded, new RoomDaylight.Scratch());
+    }
+
+    private static RoomDaylight.Shares again(RoomDaylight.Edges map, RoomDaylight.Shares was) {
+        return RoomDaylight.of(map, (room, box) -> System.arraycopy(BOXES.get(room), 0, box, 0, 4), ROOM, 0, ALL, new RoomDaylight.Scratch(), was);
+    }
+
+    private static void sharesWorkedOutAgainFromTheSameOpeningsAreKept() {
+        RoomSightTests.Plan plan = house().opening(4, 1, 0, true, RoomSight.SEE).opening(10, 1, 0, true, RoomSight.SEE).opening(9, 2, 0, false, RoomSight.SEE);
+        RoomDaylight.Shares was = shares(plan);
+        check(again(new Lit(plan), was) == was, "the same openings keep the shares worked out from them");
+        Lit boarded = new Lit(plan).passing(4, 1, 0, true, 0.3f);
+        RoomDaylight.Shares changed = again(boarded, was), fresh = shares(boarded, 4, 3, ALL);
+        check(changed != was && changed.sameAs(fresh), "a window letting in less makes them again, as they are made from nothing");
+        RoomSightTests.Plan farther = house().opening(4, 1, 0, true, RoomSight.SEE).opening(10, 1, 0, true, RoomSight.SEE).opening(9, 2, 0, false, RoomSight.SHUT);
+        check(again(new Lit(farther), was) != was, "and so does the door to the next room shut");
     }
 
     private static RoomDaylight.Shares shares(RoomSightTests.Plan plan, int x, int y, RoomDaylight.Loaded loaded) {

@@ -67,6 +67,9 @@ final class RoomDaylight {
         /** The marks on the room's chunks when it was worked out (ChunkMarks.structuresIn), when it is next due, and the frame they were last looked at in. */
         int marks;
         long due, looked;
+        /** The openings the shares were worked out from, as Openings holds them, and the squares of the room in the box, as Openings.members has them. */
+        private float[] from = new float[0];
+        private long members;
 
         Shares(int fromX, int fromY, int width, int height) {
             this.fromX = fromX;
@@ -98,6 +101,8 @@ final class RoomDaylight {
     private static final class Openings {
         float[] at = new float[32];
         int count;
+        /** The squares of the room the openings were looked for round, each folded in as it was found. */
+        long members;
 
         void add(float x, float y, float up, float weight) {
             if (count * 4 == at.length) {
@@ -131,11 +136,13 @@ final class RoomDaylight {
         private Openings fresh() {
             Openings openings = spare.isEmpty() ? new Openings() : spare.remove(spare.size() - 1);
             openings.count = 0;
+            openings.members = 0L;
             return openings;
         }
 
         private void reset() {
             own.count = 0;
+            own.members = 0L;
             spare.addAll(beside.values());
             beside.clear();
         }
@@ -143,11 +150,28 @@ final class RoomDaylight {
 
     /** The shares for the squares of the room with that id on level z. */
     static Shares of(Edges map, Rooms rooms, long room, int z, Loaded loaded, Scratch scratch) {
+        return of(map, rooms, room, z, loaded, scratch, null);
+    }
+
+    /**
+     * The same, or was itself when the room's squares and openings are what was was worked out
+     * from: the shares are then the same, and a tower floor of three thousand squares and a
+     * hundred windows is not summed again square by square.
+     */
+    static Shares of(Edges map, Rooms rooms, long room, int z, Loaded loaded, Scratch scratch, Shares was) {
         scratch.reset();
         rooms.box(room, scratch.box);
         int[] box = clip(scratch.box, loaded);
-        Shares shares = new Shares(box[0], box[1], Math.max(box[2] - box[0] + 1, 0), Math.max(box[3] - box[1] + 1, 0));
         Openings openings = openings(map, rooms, room, z, box, loaded, scratch, scratch.own, true);
+        int width = Math.max(box[2] - box[0] + 1, 0), height = Math.max(box[3] - box[1] + 1, 0);
+        int floats = openings.count * 4;
+        if (was != null && was.fromX == box[0] && was.fromY == box[1] && was.width == width && was.height == height && was.members == openings.members
+                && Arrays.equals(was.from, 0, was.from.length, openings.at, 0, floats)) {
+            return was;
+        }
+        Shares shares = new Shares(box[0], box[1], width, height);
+        shares.from = Arrays.copyOf(openings.at, floats);
+        shares.members = openings.members;
         if (openings.count == 0) {
             return shares;
         }
@@ -180,6 +204,7 @@ final class RoomDaylight {
                 if (map.region(x, y, z) != room) {
                     continue;
                 }
+                found.members = found.members * 31L + ((long) y << 32 ^ x);
                 // Walls stand on a square's north and west edges: the south edge is the north edge of the square below, the east edge the west edge of the one beside.
                 for (int side = 0; side < 4; side++) {
                     int edgeX = side == 3 ? x + 1 : x, edgeY = side == 2 ? y + 1 : y;
@@ -258,7 +283,7 @@ final class RoomDaylight {
         }
         if (shares == null || shares.marks != marksOn(shares) || now >= shares.due) {
             long began = System.nanoTime();
-            Shares made = of(map, MAP_ROOMS, id, square.getZ(), new Loaded(loadedFromX, loadedFromY, loadedFromX + side - 1, loadedFromY + side - 1), scratch);
+            Shares made = of(map, MAP_ROOMS, id, square.getZ(), new Loaded(loadedFromX, loadedFromY, loadedFromX + side - 1, loadedFromY + side - 1), scratch, shares);
             made.marks = marksOn(made);
             // Each room at its own moment of the period, so that the rooms in sight are not all worked out on one frame.
             made.due = now + REFRESH_NANOS + (shares == null ? Math.floorMod(id * 0x9E3779B97F4A7C15L, REFRESH_NANOS) : 0L);
