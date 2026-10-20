@@ -1982,21 +1982,47 @@ final class Pipeline {
         if (shaded) {
             Screens.giveBack();
         }
-        int bound = 0;
+        // Each piece by its model, then its picture, then its place in the list: a run of pieces of
+        // one model with one picture, surfaces and dye is one draw, each piece told where it stands
+        // and how it is lit by its own row of placedRows. The list holds fewer than 2^20 pieces.
+        if (placedOrder.length < modelsListed) {
+            placedOrder = new long[modelsListed * 2];
+        }
+        for (int listed = 0; listed < modelsListed; listed++) {
+            int[] whole = drawn.get(modelChunk[listed]).placed.ints;
+            int ints = (modelPiece[listed] >> 1) * Models.Instances.INTS;
+            boolean plain = (modelPiece[listed] & 1) != 0;
+            int first = whole[ints + (plain ? Models.Instances.PLAIN_FIRST : Models.Instances.FIRST)];
+            placedOrder[listed] = (long) first << 32 | (long) (whole[ints + Models.Instances.TEXTURE] & 0xFFF) << 20 | listed;
+        }
+        Arrays.sort(placedOrder, 0, modelsListed);
+        if (placedRows == null || placedRows.capacity() < modelsListed * PLACED_FLOATS) {
+            placedRows = ByteBuffer.allocateDirect(modelsListed * 2 * PLACED_STRIDE).order(ByteOrder.nativeOrder()).asFloatBuffer();
+        }
+        placedRows.clear();
+        for (int i = 0; i < modelsListed; i++) {
+            int listed = (int) (placedOrder[i] & LISTED_BITS);
+            float[] f = drawn.get(modelChunk[listed]).placed.floats;
+            int at = (modelPiece[listed] >> 1) * Models.Instances.FLOATS;
+            int light = at + Models.Instances.LIGHT, day = at + Models.Instances.DAY, unlit = at + Models.Instances.UNLIT;
+            placedRows.put(f, at + Models.Instances.PLACE, 4).put(f, at + Models.Instances.FOOT, 3).put(f[unlit + 4]).put(f, at + Models.Instances.TURN, 4)
+                    .put(f, light, 3).put(f[day]).put(f, light + 3, 3).put(f[day + 1]).put(f, light + 6, 3).put(f[day + 2]).put(f, light + 9, 3).put(f[day + 3])
+                    .put(f, unlit, 4);
+        }
+        placedRows.flip();
+        if (placedBuffer == 0) {
+            placedBuffer = GL15.glGenBuffers();
+        }
         modelArrays();
         program.set("uModel", 1f);
-        int placeAt = program.at("uPlace"), footAt = program.at("uFoot"), turnAt = program.at("uTurn");
-        int litAt = 0, alongAt = 0, downAt = 0, acrossAt = 0, unlitAt = 0, unlitKindAt = 0, dayAt = 0, surfacesAt = 0, dyeAt = 0, pictureAt = 0, texelAt = 0, tubeAt = 0;
-        // Whether the program was last told of a tube showing part of its picture, which the next piece is not.
-        boolean tubed = false;
+        GL15.glBindBuffer(GL_ARRAY_BUFFER, placedBuffer);
+        GL15.glBufferData(GL_ARRAY_BUFFER, placedRows, GL_STREAM_DRAW);
+        for (int attribute : PLACED_ATTRIBUTES) {
+            GL20.glEnableVertexAttribArray(attribute);
+            GL33.glVertexAttribDivisor(attribute, 1);
+        }
+        int surfacesAt = 0, dyeAt = 0, pictureAt = 0, texelAt = 0, tubeAt = 0;
         if (shaded) {
-            litAt = program.at("uLit");
-            alongAt = program.at("uLitAlong");
-            downAt = program.at("uLitDown");
-            acrossAt = program.at("uLitAcross");
-            unlitAt = program.at("uUnlit");
-            unlitKindAt = program.at("uUnlitKind");
-            dayAt = program.at("uDay");
             surfacesAt = program.at("uSurfaces");
             dyeAt = program.at("uDye");
             pictureAt = program.at("uPicture");
@@ -2007,48 +2033,30 @@ final class Pipeline {
             // A model is solid all over: a pass that keeps only where it is reads none of its colour.
             GL11.glBindTexture(GL_TEXTURE_2D, whiteTexture);
         }
-        // The piece whose turn, surfaces, dye and picture the program was last told, none yet: a
-        // row of one kind of shelf shares all four, and telling the program what it already
-        // holds is a call into the driver for nothing.
-        int told = -1;
-        float[] toldOf = null;
-        for (int listed = 0; listed < modelsListed; listed++) {
+        int bound = 0;
+        // Whether the program was last told of a tube showing part of its picture, which the next run is not.
+        boolean tubed = false;
+        for (int from = 0, to; from < modelsListed; from = to) {
+            int listed = (int) (placedOrder[from] & LISTED_BITS);
             Models.Instances placed = drawn.get(modelChunk[listed]).placed;
             float[] f = placed.floats;
             int[] whole = placed.ints;
-            int piece = modelPiece[listed] >> 1;
+            int at = (modelPiece[listed] >> 1) * Models.Instances.FLOATS, ints = (modelPiece[listed] >> 1) * Models.Instances.INTS;
             boolean plain = (modelPiece[listed] & 1) != 0;
-            int at = piece * Models.Instances.FLOATS, ints = piece * Models.Instances.INTS;
-            int place = at + Models.Instances.PLACE, foot = at + Models.Instances.FOOT, turn = at + Models.Instances.TURN;
-            GL20.glUniform4f(placeAt, f[place], f[place + 1], f[place + 2], f[place + 3]);
-            GL20.glUniform3f(footAt, f[foot], f[foot + 1], f[foot + 2]);
-            if (toldOf == null || differ(f, turn, toldOf, told + Models.Instances.TURN, 4)) {
-                GL20.glUniform4f(turnAt, f[turn], f[turn + 1], f[turn + 2], f[turn + 3]);
+            int named = whole[ints + Models.Instances.TEXTURE];
+            // A number below zero is one of the mod's own pictures: see Decor.held. A set showing a
+            // programme is told its own shot, so it is a run of one.
+            boolean live = shaded && named < 0 && Screens.live(named);
+            to = from + 1;
+            if (!live) {
+                while (to < modelsListed && placedOrder[to] >>> 20 == placedOrder[from] >>> 20
+                        && sameRun(f, at, named, (int) (placedOrder[to] & LISTED_BITS), shaded)) {
+                    to++;
+                }
             }
             if (shaded) {
-                int light = at + Models.Instances.LIGHT, surfaces = at + Models.Instances.SURFACES, dye = at + Models.Instances.DYE;
-                GL20.glUniform3f(litAt, f[light], f[light + 1], f[light + 2]);
-                GL20.glUniform3f(alongAt, f[light + 3], f[light + 4], f[light + 5]);
-                GL20.glUniform3f(downAt, f[light + 6], f[light + 7], f[light + 8]);
-                GL20.glUniform3f(acrossAt, f[light + 9], f[light + 10], f[light + 11]);
-                int unlit = at + Models.Instances.UNLIT;
-                GL20.glUniform4f(unlitAt, f[unlit], f[unlit + 1], f[unlit + 2], f[unlit + 3]);
-                GL20.glUniform1f(unlitKindAt, f[unlit + 4]);
-                int day = at + Models.Instances.DAY;
-                GL20.glUniform4f(dayAt, f[day], f[day + 1], f[day + 2], f[day + 3]);
-                if (toldOf == null || differ(f, surfaces, toldOf, told + Models.Instances.SURFACES, 3)) {
-                    GL20.glUniform3f(surfacesAt, f[surfaces], f[surfaces + 1], f[surfaces + 2]);
-                }
-                if (toldOf == null || differ(f, dye, toldOf, told + Models.Instances.DYE, 4)) {
-                    GL20.glUniform4f(dyeAt, f[dye], f[dye + 1], f[dye + 2], f[dye + 3]);
-                }
-                int picture = at + Models.Instances.PICTURE;
-                if (toldOf == null || differ(f, picture, toldOf, told + Models.Instances.PICTURE, 4)) {
-                    GL20.glUniform4f(pictureAt, f[picture], f[picture + 1], f[picture + 2], f[picture + 3]);
-                }
-                // A number below zero is one of the mod's own pictures: see Decor.held.
-                int named = whole[ints + Models.Instances.TEXTURE];
-                boolean live = named < 0 && Screens.live(named);
+                int surfaces = at + Models.Instances.SURFACES, dye = at + Models.Instances.DYE, picture = at + Models.Instances.PICTURE;
+                GL20.glUniform3f(surfacesAt, f[surfaces], f[surfaces + 1], f[surfaces + 2]);
                 if (live) {
                     // The glass of a set showing a programme: which shot it shows and what part of the shot is
                     // worked out now, and the picture is laid so that the part fills the glass.
@@ -2058,9 +2066,13 @@ final class Pipeline {
                     GL20.glUniform4f(pictureAt, f[picture] * of, f[picture + 1] * of, f[picture + 2] * of, f[picture + 3] * of);
                     GL20.glUniform4f(tubeAt, tube[0], tube[1], of, tube[3] == Screens.SNOW ? Screens.SNOW : f[dye + 2]);
                     tubed = true;
-                } else if (tubed) {
-                    GL20.glUniform4f(tubeAt, 0.5f, 0.5f, 1f, Screens.IN_COLOUR);
-                    tubed = false;
+                } else {
+                    GL20.glUniform4f(dyeAt, f[dye], f[dye + 1], f[dye + 2], f[dye + 3]);
+                    GL20.glUniform4f(pictureAt, f[picture], f[picture + 1], f[picture + 2], f[picture + 3]);
+                    if (tubed) {
+                        GL20.glUniform4f(tubeAt, 0.5f, 0.5f, 1f, Screens.IN_COLOUR);
+                        tubed = false;
+                    }
                 }
                 int texture = named == 0 ? whiteTexture : named < 0 ? Decor.texture(named) : named;
                 if (texture != bound) {
@@ -2069,16 +2081,58 @@ final class Pipeline {
                     tellTexel(texelAt, texture);
                 }
             }
-            // What a tube was told of its dye and its picture is not what the piece holds: the next piece is told its own.
-            toldOf = tubed ? null : f;
-            told = at;
-            GL11.glDrawElements(GL_TRIANGLES, whole[ints + (plain ? Models.Instances.PLAIN_COUNT : Models.Instances.COUNT)], GL_UNSIGNED_INT,
-                    (long) whole[ints + (plain ? Models.Instances.PLAIN_FIRST : Models.Instances.FIRST)] * Integer.BYTES);
+            long row = (long) from * PLACED_STRIDE;
+            for (int r = 0; r < PLACED_ATTRIBUTES.length; r++) {
+                GL20.glVertexAttribPointer(PLACED_ATTRIBUTES[r], 4, GL_FLOAT, false, PLACED_STRIDE, row + r * 4L * Float.BYTES);
+            }
+            GL31.glDrawElementsInstanced(GL_TRIANGLES, whole[ints + (plain ? Models.Instances.PLAIN_COUNT : Models.Instances.COUNT)], GL_UNSIGNED_INT,
+                    (long) whole[ints + (plain ? Models.Instances.PLAIN_FIRST : Models.Instances.FIRST)] * Integer.BYTES, to - from);
+        }
+        for (int attribute : PLACED_ATTRIBUTES) {
+            GL33.glVertexAttribDivisor(attribute, 0);
+            GL20.glDisableVertexAttribArray(attribute);
         }
         GL15.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
         program.set("uModel", 0f);
         arrays();
     }
+
+    /**
+     * Whether the piece listed at other is drawn in the run of the piece whose floats start at at
+     * in f: the same picture, and with shaded the same surfaces, dye and picture laid on it.
+     * Their model is the same, which the order the run is in has said.
+     */
+    private boolean sameRun(float[] f, int at, int named, int other, boolean shaded) {
+        Models.Instances placed = drawn.get(modelChunk[other]).placed;
+        int piece = modelPiece[other] >> 1;
+        if (placed.ints[piece * Models.Instances.INTS + Models.Instances.TEXTURE] != named) {
+            return false;
+        }
+        if (!shaded) {
+            return true;
+        }
+        float[] g = placed.floats;
+        int to = piece * Models.Instances.FLOATS;
+        return !differ(g, to + Models.Instances.SURFACES, f, at + Models.Instances.SURFACES, 3)
+                && !differ(g, to + Models.Instances.DYE, f, at + Models.Instances.DYE, 4)
+                && !differ(g, to + Models.Instances.PICTURE, f, at + Models.Instances.PICTURE, 4);
+    }
+
+    /** The order drawListed draws the pieces listed in, by model, picture and place in the list, and where each stands and how it is lit, as the world programs' instance attributes take it. */
+    private long[] placedOrder = new long[256];
+    private static final long LISTED_BITS = (1L << 20) - 1;
+    private FloatBuffer placedRows;
+    private int placedBuffer;
+    private static final int PLACED_FLOATS = 32, PLACED_STRIDE = PLACED_FLOATS * Float.BYTES;
+    /**
+     * Where the world programs' aPlace, aFoot, aTurn, aLit, aLitAlong, aLitDown, aLitAcross and
+     * aUnlit are bound, in the order of a row of placedRows: the first three where the shadow
+     * programs have theirs, and the rest at places no built-in attribute the programs read
+     * shares on NVIDIA (see SHADOW_PLACES_FROM): 4 is the secondary colour's, 12 to 15 the
+     * texture coordinates of units 4 to 7.
+     */
+    private static final int[] PLACED_ATTRIBUTES = {5, 6, 7, 4, 12, 13, 14, 15};
+    private static final String[] PLACED_NAMES = {"aPlace", "aFoot", "aTurn", "aLit", "aLitAlong", "aLitDown", "aLitAcross", "aUnlit"};
 
     /** The order castModels casts the pieces listed in, model by model: each as its model's first corner, then its place in the list. */
     private long[] castOrder = new long[256];
@@ -5600,8 +5654,8 @@ final class Pipeline {
     /** Null, or what the driver refused. */
     private static String linkPrograms() {
         StringBuilder problem = new StringBuilder();
-        world = Program.link("world", WORLD_VERTEX, WORLD_FRAGMENT, problem);
-        worldDepth = Program.link("world depth", WORLD_VERTEX, WORLD_FRAGMENT_DEPTH, problem);
+        world = Program.link("world", WORLD_VERTEX, WORLD_FRAGMENT, problem, PLACED_ATTRIBUTES, PLACED_NAMES);
+        worldDepth = Program.link("world depth", WORLD_VERTEX, WORLD_FRAGMENT_DEPTH, problem, PLACED_ATTRIBUTES, PLACED_NAMES);
         paneMask = Program.link("pane mask", PipelineShaders.PANE_VERTEX, PipelineShaders.PANE_FRAGMENT, problem);
         glassShown = Program.link("mirror's glass", LookingGlass.VERTEX, LookingGlass.SHOWN, problem);
         windowShown = Program.link("window's glass", LookingGlass.VERTEX, LookingGlass.THROWN, problem);

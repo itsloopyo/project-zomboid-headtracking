@@ -247,22 +247,23 @@ final class PipelineShaders {
 
     /**
      * Where a vertex of one of the mod's models stands: see Models.Instances, whose floats
-     * these uniforms are. The picture and every shadow map share it, so a piece's shadow is
-     * cast from where the piece is drawn.
+     * these attributes are, one row of them a piece, so that every piece of a model is drawn
+     * in one draw. The picture and every shadow map share it, so a piece's shadow is cast
+     * from where the piece is drawn. aFoot's w is the picture's alone: see WORLD_VERTEX.
      */
     private static final String MODEL_STANDS = """
             uniform float uModel;
-            uniform vec4 uPlace;
-            uniform vec3 uFoot;
-            uniform vec4 uTurn;
+            attribute vec4 aPlace;
+            attribute vec4 aFoot;
+            attribute vec4 aTurn;
 
             vec2 turned(vec2 way) {
-                return vec2(dot(uTurn.xy, way), dot(uTurn.zw, way));
+                return vec2(dot(aTurn.xy, way), dot(aTurn.zw, way));
             }
 
             // Where over the square that lights the piece the vertex is, and how high.
             vec3 over(vec3 at) {
-                return vec3(uFoot.xy + turned(at.xy) * uPlace.z, uFoot.z + at.z * uPlace.w);
+                return vec3(aFoot.xy + turned(at.xy) * aPlace.z, aFoot.z + at.z * aPlace.w);
             }
             """;
 
@@ -501,15 +502,15 @@ final class PipelineShaders {
             uniform sampler2D uHeights;
             uniform mat4 uRoofMatrix;
             """ + GROUND_NOISE + GRASS_WIND + MODEL_STANDS + FACED + SKY_SEEN + SnowShader.COVER + SnowShader.STOOD + SnowShader.RIDGE + """
-            uniform vec3 uLit;
-            uniform vec3 uLitAlong;
-            uniform vec3 uLitDown;
-            uniform vec3 uLitAcross;
-            // What a model has of a light the game has not given, as uLit and its fellows hold its light, and that light's kind plus 1, or 0: see Models.Instances.UNLIT.
-            uniform vec4 uUnlit;
-            uniform float uUnlitKind;
-            // What a model has of the day its room lets in, as uUnlit holds what it has of a light the game has not given: see Models.Instances.DAY.
-            uniform vec4 uDay;
+            // A model's light at the corners of its square, a row of them a piece as MODEL_STANDS's are. Their w
+            // are what it has of the day its room lets in, at the same corners: see Models.Instances.DAY.
+            attribute vec4 aLit;
+            attribute vec4 aLitAlong;
+            attribute vec4 aLitDown;
+            attribute vec4 aLitAcross;
+            // What a model has of a light the game has not given, as aLit and its fellows hold its light; that light's
+            // kind plus 1, or 0, is aFoot's w: see Models.Instances.UNLIT.
+            attribute vec4 aUnlit;
             uniform vec3 uSurfaces;
             uniform vec4 uDye;
             uniform vec4 uPicture;
@@ -557,14 +558,14 @@ final class PipelineShaders {
                     // arrays is: stood on the map, lit by where over its square it is, and
                     // marked with its surface, which a dyed one adds 18 more to.
                     vec3 on = over(gl_Vertex.xyz);
-                    stands = vec4(uPlace.xy + on.xy, on.z, 1.0);
-                    fromEye = vec3((uPlace.xy - uEye.xy) + on.xy, on.z - uEye.z);
+                    stands = vec4(aPlace.xy + on.xy, on.z, 1.0);
+                    fromEye = vec3((aPlace.xy - uEye.xy) + on.xy, on.z - uEye.z);
                     looks = vec3(turned(gl_Normal.xy), gl_Normal.z);
                     vec2 share = clamp(on.xy, 0.0, 1.0);
                     // The surface comes with the piece of it the vertex is on, 32 to a piece: see Models.PIECE_STEP.
                     float coded = floor(gl_MultiTexCoord0.x + 0.5);
                     float surface = mod(coded, 32.0);
-                    piece = floor(coded / 32.0) + mod(uPlace.x * 7.0 + uPlace.y * 13.0, 997.0);
+                    piece = floor(coded / 32.0) + mod(aPlace.x * 7.0 + aPlace.y * 13.0, 997.0);
                     bool dyed = has(uSurfaces.y, surface), also = has(uSurfaces.z, surface);
                     vUv = dyed ? uDye.xy : also ? uDye.zw : vec2(0.0);
                     // What a frame holds shows the sprite itself, laid over the model's face: each
@@ -573,10 +574,10 @@ final class PipelineShaders {
                     if (dyed && (surface > 15.5 && surface < 16.5 || surface > 9.5 && surface < 10.5)) {
                         vUv += gl_Vertex.x * uPicture.xy + gl_Vertex.z * uPicture.zw;
                     }
-                    vColor = vec4(gl_MultiTexCoord0.y * (uLit + share.x * uLitAlong + share.y * uLitDown + share.x * share.y * uLitAcross),
+                    vColor = vec4(gl_MultiTexCoord0.y * (aLit.rgb + share.x * aLitAlong.rgb + share.y * aLitDown.rgb + share.x * share.y * aLitAcross.rgb),
                             uSurfaces.x + 32.0 * ((dyed || also ? 34.0 : 16.0) + surface));
-                    unlit = uUnlitKind < 0.5 ? -1.0 : (uUnlitKind - 1.0) * 16.0 + uUnlit.x + share.x * uUnlit.y + share.y * uUnlit.z + share.x * share.y * uUnlit.w;
-                    day = uDay.x + share.x * uDay.y + share.y * uDay.z + share.x * share.y * uDay.w;
+                    unlit = aFoot.w < 0.5 ? -1.0 : (aFoot.w - 1.0) * 16.0 + aUnlit.x + share.x * aUnlit.y + share.y * aUnlit.z + share.x * share.y * aUnlit.w;
+                    day = aLit.w + share.x * aLitAlong.w + share.y * aLitDown.w + share.x * share.y * aLitAcross.w;
                 }
                 // What the game has given no light carries the shade it is lit in, and above the
                 // materials which of this frame's lights it takes: see WorldScene.LIT_STEP. A
@@ -612,7 +613,7 @@ final class PipelineShaders {
                     looks = vec3(0.0, 0.0, 1.0);
                 }
                 vNormal = looks;
-                vHung = uModel > 0.5 && uFoot.z > uCutAbove - 0.45 ? 1.0 : 0.0;
+                vHung = uModel > 0.5 && aFoot.z > uCutAbove - 0.45 ? 1.0 : 0.0;
                 // A model has no tree, and carries the piece of its surface in the place of the square of one.
                 vRoot = uModel > 0.5 ? vec2(-1.0, piece) : gl_MultiTexCoord2.xy;
                 // What is laid on the ground does not blow about: there the normal's length says
@@ -4009,11 +4010,6 @@ final class PipelineShaders {
             // 1 while the map drawn is the one read as what stands over the ground and keeps the sky off it.
             uniform float uFromAbove;
             uniform float uSnowLying;
-            // Where a piece of the mod's furniture stands, each piece cast in one draw with the rest
-            // of its model's: MODEL_STANDS's uPlace, uFoot and uTurn, which the picture is told.
-            attribute vec4 aPlace;
-            attribute vec3 aFoot;
-            attribute vec4 aTurn;
             """ + GRASS_WIND + MODEL_STANDS + FACED + SnowShader.COVER + SnowShader.RIDGE + """
             void main() {
                 vStroke = 0.0;
