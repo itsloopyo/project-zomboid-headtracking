@@ -1,4 +1,4 @@
-name=PZHT - First Person + Graphics Overhaul + Head Tracking
+name=PZHT - First Person + Graphics & Gameplay Overhaul + Head Tracking
 id=ProjectZomboidHeadTracking
 author=itsloopyo
 description=A graphics overhaul, first person, head tracking and lip syncing, each optional: no tracker or microphone needed. Needs ZombieBuddy 2.x.

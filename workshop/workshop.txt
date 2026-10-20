@@ -1,6 +1,6 @@
 version=1
 id=3823224669
-title=PZHT - First Person + Graphics Overhaul + Gameplay Tweaks + Head Tracking
+title=PZHT - First Person + Graphics & Gameplay Overhaul + Head Tracking
 description=A graphics overhaul for Project Zomboid that adds a first person mode, gameplay tweaks and OpenTrack compatible head tracking with microphone lip syncing for maximum immersion. Every part is optional.
 description=
 description=[b]This Workshop copy needs ZombieBuddy[/b], a separate mod by zed-0xff that loads Java mods into the game. ZombieBuddy is not mine: I don't control it or its updates, and I can't take responsibility for what it does. Read its Workshop page before you install it.
