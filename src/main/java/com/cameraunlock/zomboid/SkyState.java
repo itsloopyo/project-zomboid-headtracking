@@ -62,14 +62,6 @@ final class SkyState {
     float daylightKept = 1f;
     /** How much of what daylightKept keeps a room keeps: see Evening.ROOM_DAYLIGHT. The scene sets it. */
     float roomKept = 1f;
-    /** How many of the burning lamps nearest the eye the picture is told of: see WorldScene.lampsSeen. */
-    static final int LAMPS_SEEN = 16;
-    /**
-     * The lamps the picture is told of: where each burns in the world's axes and how far it
-     * reaches, four to a lamp, a reach of 0 where there is none, and the colour it lights a square
-     * in, linear, three to a lamp. The scene sets them.
-     */
-    final float[] lampAt = new float[LAMPS_SEEN * 4], lampHue = new float[LAMPS_SEEN * 3], lampRoom = new float[LAMPS_SEEN * 4];
     /** What a room the game has not shown is lit by, without a lamp and with one: see WorldScene.LIT_STEP. The scene sets them. */
     final float[] roomLight = new float[3], lampLight = new float[3];
     /** What anything else the game has given no light is lit by, the open ground in sight: see WorldScene.OPEN_LIT. The scene sets it. */

@@ -2811,7 +2811,6 @@ final class WorldScene {
             Fires.gather(sky, terrain, player.getIndex(), pose.eyeX, pose.eyeY);
             playerIndex = player.getIndex();
             cell = IsoWorld.instance.currentCell;
-            lampsSeen(pose.eyeX, pose.eyeY);
             leafTrees.gather(sky, cell, terrain, roundNow, Core.tileScale, pose.eyeX, pose.eyeY, start);
             roofBuilder.newBuild();
             if (Own.taken(view.index)) {
@@ -5003,78 +5002,6 @@ final class WorldScene {
                 lampRooms[i] = stands == null ? TorchLess.NOT_THERE : stands.getRoomID();
             }
         }
-        /**
-         * The burning lamps whose light comes nearest the eye, into the sky's lampAt and lampHue,
-         * so the picture knows what colour a lamp lights a square in. The lighting engine lights a
-         * square in twice the lamp's own colour, each part stopped at 1 (a street lamp of 1, 0.314,
-         * 0.078 in 1, 0.627, 0.157: read off the lights it lists for a square), all of it scaled
-         * by one share for the distance. It joins that to the daylight part by part, keeping
-         * the greater, so before full dark a lamp is hidden in every part the daylight beats it
-         * in, and the picture has its colour from here.
-         */
-        private void lampsSeen(float eyeX, float eyeY) {
-            float[] at = sky.lampAt, hue = sky.lampHue, room = sky.lampRoom;
-            Arrays.fill(at, 0f);
-            Arrays.fill(lampGap, Float.MAX_VALUE);
-            Stack<IsoLightSource> lamps = cell.getLamppostPositions();
-            for (int i = 0; i < lamps.size(); i++) {
-                IsoLightSource lamp = lamps.get(i);
-                if (!lamp.active) {
-                    continue;
-                }
-                float gap = (float) Math.hypot(lamp.x + 0.5f - eyeX, lamp.y + 0.5f - eyeY) - lamp.radius;
-                int slot = SkyState.LAMPS_SEEN - 1;
-                if (gap >= lampGap[slot]) {
-                    continue;
-                }
-                while (slot > 0 && lampGap[slot - 1] > gap) {
-                    lampGap[slot] = lampGap[slot - 1];
-                    System.arraycopy(at, (slot - 1) * 4, at, slot * 4, 4);
-                    System.arraycopy(hue, (slot - 1) * 3, hue, slot * 3, 3);
-                    System.arraycopy(room, (slot - 1) * 4, room, slot * 4, 4);
-                    slot--;
-                }
-                lampGap[slot] = gap;
-                at[slot * 4] = lamp.x + 0.5f;
-                at[slot * 4 + 1] = lamp.y + 0.5f;
-                at[slot * 4 + 2] = lamp.z * ViewCamera.LEVEL_HEIGHT;
-                at[slot * 4 + 3] = lamp.radius;
-                hue[slot * 3] = (float) Math.pow(Math.min(2f * lamp.r, 1f), 2.2);
-                hue[slot * 3 + 1] = (float) Math.pow(Math.min(2f * lamp.g, 1f), 2.2);
-                hue[slot * 3 + 2] = (float) Math.pow(Math.min(2f * lamp.b, 1f), 2.2);
-                lampRoom(lamp, room, slot * 4);
-            }
-        }
-
-        /**
-         * The bounds of the room a lamp burns in, as across from (x, y) to (x2, y2), for the
-         * shader to keep its colour to them: the lamp's reach is a ball that walls do not stop.
-         * A lamp in no room, a street lamp, is given bounds that hold nothing.
-         */
-        private void lampRoom(IsoLightSource lamp, float[] room, int at) {
-            IsoGridSquare square = cell.getGridSquare(lamp.x, lamp.y, lamp.z);
-            IsoRoom in = square == null ? null : square.getRoom();
-            RoomDef def = in == null ? null : in.getRoomDef();
-            room[at] = 0f;
-            room[at + 1] = 0f;
-            room[at + 2] = -1f;
-            room[at + 3] = -1f;
-            if (def == null || def.rects == null || def.rects.isEmpty()) {
-                return;
-            }
-            int fromX = Integer.MAX_VALUE, fromY = Integer.MAX_VALUE, toX = Integer.MIN_VALUE, toY = Integer.MIN_VALUE;
-            for (RoomDef.RoomRect rect : def.rects) {
-                fromX = Math.min(fromX, rect.x);
-                fromY = Math.min(fromY, rect.y);
-                toX = Math.max(toX, rect.x + rect.w);
-                toY = Math.max(toY, rect.y + rect.h);
-            }
-            room[at] = fromX;
-            room[at + 1] = fromY;
-            room[at + 2] = toX;
-            room[at + 3] = toY;
-        }
-        private final float[] lampGap = new float[SkyState.LAMPS_SEEN];
         private final ArrayList<IsoLightSource> lampsBurning = new ArrayList<>();
         private int lampsSortedFrame = -1, farthestLamp;
         private long[] lampRooms = new long[16];

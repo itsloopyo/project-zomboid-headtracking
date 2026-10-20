@@ -729,7 +729,6 @@ final class PipelineShaders {
      */
     static final String WORLD_FRAGMENT_PARTS = "#version 120\n#extension GL_EXT_texture_array : require\n#extension GL_ARB_shader_texture_lod : require\n"
             + "#define CUT_FLOATS " + Cutaways.FLOATS + "\n#define CUT_FLOATS_A_ROW " + Cutaways.FLOATS_A_ROW + "\n#define CUT_SIDE " + Cutaways.SIDE + ".0\n"
-            + "#define LAMPS_SEEN " + SkyState.LAMPS_SEEN + "\n#define LEVEL_HEIGHT " + ViewCamera.LEVEL_HEIGHT + "\n"
             + CanopyWindow.GLSL
             + Sky.ATMOSPHERE + ENDS + AUTUMN + """
             uniform sampler2D uTexture;
@@ -1001,33 +1000,6 @@ final class PipelineShaders {
             uniform vec3 uOpenLinear;
             uniform float uDaylightKept;
             uniform float uRoomKept;
-            // The burning lamps nearest the eye, where each burns and how far it reaches, and the
-            // colour it lights a square in, linear: see WorldScene.lampsSeen.
-            uniform vec4 uLampAt[LAMPS_SEEN];
-            uniform vec3 uLampHue[LAMPS_SEEN];
-            // The bounds of the room each burns in, from (x, y) to (z, w), or z under x for one in no room.
-            uniform vec4 uLampRoom[LAMPS_SEEN];
-
-            // The colour the lamp that lights a place most lights it in, or nothing where none reaches,
-            // and in a how near the place is to it: 1 at the lamp and 0 where its reach ends. A lamp
-            // in a room reaches only that room, and one in none only places out of doors.
-            vec4 lampHue(vec3 at, float open) {
-                vec3 hue = vec3(0.0);
-                float most = 0.0;
-                for (int i = 0; i < LAMPS_SEEN; i++) {
-                    vec4 lamp = uLampAt[i];
-                    vec3 to = vec3(at.xy - lamp.xy, (at.z - lamp.z) / LEVEL_HEIGHT);
-                    float share = 1.0 - length(to) / max(lamp.w, 0.001);
-                    vec4 room = uLampRoom[i];
-                    bool reaches = room.z < room.x ? open > 0.0
-                            : at.x > room.x - 0.02 && at.y > room.y - 0.02 && at.x < room.z + 0.02 && at.y < room.w + 0.02;
-                    if (lamp.w > 0.0 && reaches && share > most) {
-                        most = share;
-                        hue = uLampHue[i];
-                    }
-                }
-                return vec4(hue, most);
-            }
             // How far the eye is out of doors, 0 to 1. The sky's haze is the open air's: none of it
             // lies between an eye in a room and that room's walls. Sun through a window into the
             // room's own air is the volume pass's.
@@ -3556,48 +3528,37 @@ final class PipelineShaders {
                 // daylight, and what it has over it came from a lamp.
                 // A room has less of it: see Evening.ROOM_DAYLIGHT.
                 float heldBack = 1.0 - mix(uRoomKept, uDaylightKept, clamp(open, 0.0, 1.0));
-                vec4 lampNear = heldBack > 0.0 ? lampHue(vWorld, open) : vec4(0.0);
-                vec3 lampColour = lampNear.rgb;
-                vec3 daylight = min(given, uOpenLinear);
-                if (lampColour.r + lampColour.g + lampColour.b > 0.0) {
-                    // The game keeps the greater of a lamp and the daylight in each of red, green
-                    // and blue (WorldScene.lampsSeen), so where the daylight beats a lamp the lamp
-                    // is not in the square's light at all, and the daylight taken off it left a
-                    // street lamp's pool red. The lamp's strength is read from the part it shows
-                    // in first, the one where it most outdoes the daylight, and it lights in its
-                    // own colour; by full night it is the game's light again, and at the pool's
-                    // edge the dimmed daylight. A part the daylight hides only bounds the lamp,
-                    // and reading the strength from it left the pools dark at dusk.
-                    // Only a part the lamp has a fair share of: at night a part the open ground has next
-                    // to none of could be picked for a lamp with next to none of it, and the strength
-                    // read from it lit the place white.
-                    // Where the lamp shows over the daylight, the game's light is the lamp's true colour
-                    // and is kept, dimmed as its first part is: a room's light by a switch is warm white
-                    // whatever colour its bulb is listed in, and painted in the listed colour a room with
-                    // a pink bulb was pink from the evening on, and one with a pink and a blue one a disco.
-                    // Only the parts the daylight hides take the listed colour, no more than that daylight.
-                    vec3 shows = lampColour / max(uOpenLinear, vec3(0.001)) * step(0.25 * max(lampColour.r, max(lampColour.g, lampColour.b)), lampColour);
-                    vec3 showing = step(uOpenLinear + 0.002, given);
-                    vec3 kept = given - daylight * heldBack;
-                    vec3 lamped;
-                    if (showing.r + showing.g + showing.b > 0.0) {
-                        vec3 over = shows * showing;
-                        vec3 first = step(max(over.r, max(over.g, over.b)), over) * showing;
-                        float lit = dot(first, given) / dot(first, vec3(1.0));
-                        float dimmed = dot(first, kept) / dot(first, given);
-                        lamped = mix(min(lampColour * (lit / max(dot(first, lampColour) / dot(first, vec3(1.0)), 0.001)), daylight), given, showing) * dimmed;
-                    } else {
-                        vec3 first = step(max(shows.r, max(shows.g, shows.b)), shows);
-                        lamped = lampColour * (dot(first, kept) / dot(first, lampColour));
-                    }
-                    lamped = max(daylight * (1.0 - heldBack), lamped);
-                    // Over the outer part of its reach the lamp's colour comes in by degrees: switched
-                    // on at the edge of its reach, it drew a hard egg round the lamp across the room.
-                    given = mix(kept, lamped, smoothstep(0.0, 0.5, lampNear.a));
-                } else {
-                    given -= daylight * heldBack;
-                }
-                vec3 lightHere = given * fromSky + held + uLightLinear * (2.1 * sun);
+                // The game joins a lamp to the daylight part by part, keeping the greater, so a square's
+                // daylight is the open ground's colour scaled by no more than its smallest part's share
+                // of it (a square's daylight is not the open ground's to the hundredth: read as that,
+                // the dusk under a street lamp's reach kept all its daylight). What it has over that came
+                // from a lamp. A part the daylight hides is taken to be the lamp's strongest part in a
+                // street lamp's colour, no more than the daylight: read in the colour a lamp is listed
+                // in, a torch's light under a street lamp came out in squares of red and yellow, and a
+                // room's pink bulb painted the room pink. Out of doors only the daylight the lamp does not
+                // cover is held back, so with nothing held back the light is the game's.
+                const vec3 LAMP_WARM = vec3(1.0, 0.58, 0.36);
+                vec3 share = given / max(uOpenLinear, vec3(0.0001));
+                vec3 daylight = uOpenLinear * min(min(share.r, min(share.g, share.b)), 2.0);
+                vec3 over = given - daylight;
+                // A part the lamp shows in is the lamp's whole, so its strength is what it has over the
+                // daylight and the daylight under it, the latter coming in over the pool's edge: taken
+                // as the excess alone, a pool at dusk was red where the game has it warm.
+                float most = max(over.r, max(over.g, over.b)), dayMost = max(daylight.r, max(daylight.g, daylight.b));
+                float strength = most + dayMost * smoothstep(0.0, 0.5 * dayMost, most);
+                vec3 lamp = over + min(strength * LAMP_WARM, daylight);
+                // In a room its light by a switch is dimmed whole, as much as its daylight is held back,
+                // and keeps the game's colour: taken as covering the daylight, a room lit by day was
+                // warm with a pink edge where the window's light met it.
+                float openHere = clamp(open, 0.0, 1.0);
+                float givenMost = max(given.r, max(given.g, given.b));
+                vec3 inRoom = given * (1.0 - heldBack * min(dayMost / max(givenMost, 0.0001), 1.0));
+                given = mix(inRoom, given - (max(lamp, daylight) - max(lamp, daylight * (1.0 - heldBack))), openHere);
+                // A lamp lights the ground as the game has it, warm and at its full strength: only
+                // the rest is the sky's, bluer and less where little sky is open over the square.
+                vec3 fromLamp = min(lamp, given) * openHere;
+                vec3 ambient = (given - fromLamp) * fromSky + fromLamp;
+                vec3 lightHere = ambient + held + uLightLinear * (2.1 * sun);
                 // Lightning lights all the sky, and what is under the open sky by it.
                 lightHere += uFlashSky * (open * skyOver * (0.6 + 0.4 * max(n.z, 0.0)));
                 // The ground in the sun throws its light back up at whatever stands on it. A
@@ -3806,7 +3767,7 @@ final class PipelineShaders {
                         vec3 way = mirroredWay(n, reflect(-view, n), rough);
                         // The ground is lit by the sun only out of doors; a room has its own light on its floor.
                         vec3 ground = (uLightLinear * (2.1 * max(uLight.z, 0.0) * outside) + given) * GROUND_GIVES;
-                        vec3 above = given * fromSky;
+                        vec3 above = ambient;
                         if (outside > 0.0) {
                             above = mix(above, skyAround(way, 0.0) * skyOver, outside);
                         }
@@ -3926,7 +3887,7 @@ final class PipelineShaders {
                     vec3 pane = normalize(n + vec3(vNormal.y, -vNormal.x, 0.0) / max(length(vNormal.xy), 0.001) * (0.07 * bowed.x) + vec3(0.0, 0.0, 0.07 * bowed.y));
                     // The room is mirrored as lit by the room's own light, without the sun that
                     // may fall on the glass from the street.
-                    vec3 room = (given * fromSky + held) * ROOM_THROWN;
+                    vec3 room = (ambient + held) * ROOM_THROWN;
                     vec3 thrownBack = street > 0.0 ? mix(room, surroundings(reflect(-view, pane), vPlace), street) : room;
                     // Only the pixels that are glass carry what the whole pane throws back, so
                     // each carries the more for being one of few.
