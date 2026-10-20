@@ -3571,12 +3571,29 @@ final class PipelineShaders {
                     // Only a part the lamp has a fair share of: at night a part the open ground has next
                     // to none of could be picked for a lamp with next to none of it, and the strength
                     // read from it lit the place white.
+                    // Where the lamp shows over the daylight, the game's light is the lamp's true colour
+                    // and is kept, dimmed as its first part is: a room's light by a switch is warm white
+                    // whatever colour its bulb is listed in, and painted in the listed colour a room with
+                    // a pink bulb was pink from the evening on, and one with a pink and a blue one a disco.
+                    // Only the parts the daylight hides take the listed colour, no more than that daylight.
                     vec3 shows = lampColour / max(uOpenLinear, vec3(0.001)) * step(0.25 * max(lampColour.r, max(lampColour.g, lampColour.b)), lampColour);
-                    vec3 first = step(max(shows.r, max(shows.g, shows.b)), shows);
-                    float strength = dot(first, given - daylight * heldBack) / dot(first, lampColour);
+                    vec3 showing = step(uOpenLinear + 0.002, given);
+                    vec3 kept = given - daylight * heldBack;
+                    vec3 lamped;
+                    if (showing.r + showing.g + showing.b > 0.0) {
+                        vec3 over = shows * showing;
+                        vec3 first = step(max(over.r, max(over.g, over.b)), over) * showing;
+                        float lit = dot(first, given) / dot(first, vec3(1.0));
+                        float dimmed = dot(first, kept) / dot(first, given);
+                        lamped = mix(min(lampColour * (lit / max(dot(first, lampColour) / dot(first, vec3(1.0)), 0.001)), daylight), given, showing) * dimmed;
+                    } else {
+                        vec3 first = step(max(shows.r, max(shows.g, shows.b)), shows);
+                        lamped = lampColour * (dot(first, kept) / dot(first, lampColour));
+                    }
+                    lamped = max(daylight * (1.0 - heldBack), lamped);
                     // Over the outer part of its reach the lamp's colour comes in by degrees: switched
                     // on at the edge of its reach, it drew a hard egg round the lamp across the room.
-                    given = mix(given - daylight * heldBack, max(daylight * (1.0 - heldBack), lampColour * strength), smoothstep(0.0, 0.5, lampNear.a));
+                    given = mix(kept, lamped, smoothstep(0.0, 0.5, lampNear.a));
                 } else {
                     given -= daylight * heldBack;
                 }
