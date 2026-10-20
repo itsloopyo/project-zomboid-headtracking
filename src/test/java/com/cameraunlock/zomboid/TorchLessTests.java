@@ -1,24 +1,24 @@
 package com.cameraunlock.zomboid;
 
-import java.util.Arrays;
-
 /** Tests of how a square's light is found without the viewer's torch in it. */
 final class TorchLessTests {
-    private static final long ROOM = 7L, NEXT_ROOM = 8L;
+    /** A street lamp as the engine lists it: colour and radius. */
+    private static final float[] STREET_LAMP = {1f, 160f / 255f, 40f / 255f};
+    private static final float[] ROOM_LIGHT = {229f / 255f, 216f / 255f, 209f / 255f};
+    private static final float[] NIGHT = {60f / 255f, 38f / 255f, 30f / 255f};
+    private static final float[] NO_TORCH = {0f, 0f, 0f};
 
     private TorchLessTests() {}
 
     static void run() {
         Checks.run("aSumUnderOneGivesTheLightBack", TorchLessTests::aSumUnderOneGivesTheLightBack);
         Checks.run("aSumStoppedAtOneIsOnlyALeast", TorchLessTests::aSumStoppedAtOneIsOnlyALeast);
-        Checks.run("aDarkRoomStaysAsDarkAsItsCorners", TorchLessTests::aDarkRoomStaysAsDarkAsItsCorners);
-        Checks.run("aLampsLightRunsOnUnderTheFan", TorchLessTests::aLampsLightRunsOnUnderTheFan);
-        Checks.run("nothingIsCarriedThroughAWall", TorchLessTests::nothingIsCarriedThroughAWall);
-        Checks.run("aSquareCutOffKeepsItsLeast", TorchLessTests::aSquareCutOffKeepsItsLeast);
-        Checks.run("nothingIsGivenLessThanItsLeast", TorchLessTests::nothingIsGivenLessThanItsLeast);
-        Checks.run("aSquareKnownInPartKeepsTheColourRoundIt", TorchLessTests::aSquareKnownInPartKeepsTheColourRoundIt);
-        Checks.run("aStreetLampsPoolUnderTheTorchIsNoPatchwork", TorchLessTests::aStreetLampsPoolUnderTheTorchIsNoPatchwork);
-        Checks.run("aSquareTheTorchComesOntoKeepsTheLightItHad", TorchLessTests::aSquareTheTorchComesOntoKeepsTheLightItHad);
+        Checks.run("aLightIsNeverLessThanItsDaylight", TorchLessTests::aLightIsNeverLessThanItsDaylight);
+        Checks.run("aStreetLampsLightIsWorkedOutAsTheEngineMakesIt", TorchLessTests::aStreetLampsLightIsWorkedOutAsTheEngineMakesIt);
+        Checks.run("theBrightestLightWinsEachPart", TorchLessTests::theBrightestLightWinsEachPart);
+        Checks.run("aLightIsNoBrighterThanTheKnownPartsAllow", TorchLessTests::aLightIsNoBrighterThanTheKnownPartsAllow);
+        Checks.run("otherTorchesStayInTheLight", TorchLessTests::otherTorchesStayInTheLight);
+        Checks.run("aStepEitherWayKeepsTheLightItHad", TorchLessTests::aStepEitherWayKeepsTheLightItHad);
         Checks.run("aShotsLampLeftBehindIsLetGo", TorchLessTests::aShotsLampLeftBehindIsLetGo);
     }
 
@@ -29,198 +29,95 @@ final class TorchLessTests {
         check(!TorchLess.reaches(10943, 9860, 18, 12772, 1565), "a lamp the viewer was moved across the map from is let go");
     }
 
-    private static void aSquareTheTorchComesOntoKeepsTheLightItHad() {
-        float[] before = {0.2f, 0.3f, 0.4f};
-        float[] light = new float[3], least = new float[3];
-        boolean[] known = new boolean[3];
-        // The torch stops red at 1, and leaves green a step off what it was and blue as it was.
-        TorchLess.without(1f, 0.9f, light, known, least, 0);
-        TorchLess.without(0.8f + 1f / 255f, 0.5f, light, known, least, 1);
-        TorchLess.without(0.9f, 0.5f, light, known, least, 2);
-        check(TorchLess.keep(light, known, least, 0, before, 0), "a square with a light known before is known still");
-        check(light[0] == 0.2f && known[0], "a part the torch has blotted out keeps what it was last known to be: " + light[0]);
-        check(light[1] == 0.3f, "a part a step off what it was is what it was, to the bit: " + light[1]);
-        check(light[2] == 0.4f, "and so is one that has not moved: " + light[2]);
-
-        // The room's own lamp goes on under the torch: the least the light can be is now more than it was.
-        TorchLess.without(1f, 0.3f, light, known, least, 0);
-        TorchLess.without(0.95f, 0.3f, light, known, least, 1);
-        TorchLess.without(0.4f, 0f, light, known, least, 2);
-        TorchLess.keep(light, known, least, 0, before, 0);
-        check(near(light[0], 0.7f), "a blotted part is never less than the least it can be: " + light[0]);
-        check(near(light[1], 0.65f), "a known part that has really changed is what it is now: " + light[1]);
-
-        TorchLess.without(1f, 0.9f, light, known, least, 0);
-        TorchLess.without(0.5f, 0f, light, known, least, 1);
-        TorchLess.without(0.5f, 0f, light, known, least, 2);
-        check(!TorchLess.keep(light, known, least, 0, null, 0) && !known[0] && near(light[0], 0.1f), "with nothing known before, a blotted square is left for the squares round it");
-    }
-
     private static void aSumUnderOneGivesTheLightBack() {
         float[] light = new float[3], least = new float[3];
         boolean[] known = new boolean[3];
         // Read in the game: a square at 0.361 with the torch adding 0.235 came out at 0.596.
-        TorchLess.without(0.596f, 0.235f, light, known, least, 0);
+        TorchLess.without(0.596f, 0.235f, 0f, light, known, least, 0);
         check(known[0] && near(light[0], 0.361f), "a sum under 1 gives the light without the torch exactly: " + light[0]);
-        TorchLess.without(1f, 0f, light, known, least, 1);
+        TorchLess.without(1f, 0f, 0f, light, known, least, 1);
         check(known[1] && light[1] == 1f, "a square the torch is not on keeps its light, at 1 as anywhere");
     }
 
     private static void aSumStoppedAtOneIsOnlyALeast() {
         float[] light = new float[3], least = new float[3];
         boolean[] known = new boolean[3];
-        TorchLess.without(1f, 0.6f, light, known, least, 0);
+        TorchLess.without(1f, 0.6f, 0f, light, known, least, 0);
         check(!known[0] && near(least[0], 0.4f), "a sum stopped at 1 says only that the light was at least 1 less the torch's share: " + least[0]);
-        TorchLess.without(1f, 1f, light, known, least, 1);
+        TorchLess.without(1f, 1f, 0f, light, known, least, 1);
         check(!known[1] && least[1] == 0f, "and nothing at all where the torch alone gives 1");
     }
 
-    /** A level of span by span squares of one room, all at one light and all known. */
-    private static float[] level(int span, float all, boolean[] known, float[] least, long[] room) {
-        float[] light = new float[span * span * 3];
-        Arrays.fill(light, all);
-        Arrays.fill(known, true);
-        Arrays.fill(least, 0f);
-        Arrays.fill(room, ROOM);
+    private static void aLightIsNeverLessThanItsDaylight() {
+        float[] light = new float[3], least = new float[3];
+        boolean[] known = new boolean[3];
+        TorchLess.without(1f, 1f, 0.3f, light, known, least, 0);
+        check(near(least[0], 0.3f), "the engine joins the lamps to the daylight by the greater, so the light is at least the daylight: " + least[0]);
+    }
+
+    /** Works out a square of light without the torch, red, green and blue all stopped at 1. */
+    private static float[] stopped(int x, int y, float[] day, float[] others, int[] places, float[]... colours) {
+        float[] light = new float[3], least = {day[0], day[1], day[2]};
+        float[] colour = new float[colours.length * 3];
+        for (int lamp = 0; lamp < colours.length; lamp++) {
+            System.arraycopy(colours[lamp], 0, colour, lamp * 3, 3);
+        }
+        float[] all = new float[colours.length];
+        java.util.Arrays.fill(all, 1f);
+        TorchLess.fromLights(light, new boolean[3], least, day, others, 0, 1f, x, y, 0, colours.length, places, colour, 0, all);
         return light;
     }
 
-    private static void blot(int span, int i, int j, float[] light, boolean[] known) {
-        for (int part = 0; part < 3; part++) {
-            known[(j * span + i) * 3 + part] = false;
-            light[(j * span + i) * 3 + part] = 0f;
-        }
+    private static void aStreetLampsLightIsWorkedOutAsTheEngineMakesIt() {
+        // Read in the game at 00:30: a street lamp of radius 20 a level up at (10718, 9789), and the squares
+        // round it with no torch, red 204 a square off, 173 three across and one down, 149 three and four.
+        int[] lamp = {10718, 9789, 1, 20};
+        check(near(stopped(10717, 9789, NIGHT, NO_TORCH, lamp, STREET_LAMP)[0], 204f / 255f), "a square beside the lamp's foot is lit as the engine lit it");
+        check(near(stopped(10721, 9790, NIGHT, NO_TORCH, lamp, STREET_LAMP)[0], 173f / 255f), "a way across a corner is the square root of 2 a step");
+        float[] far = stopped(10721, 9793, NIGHT, NO_TORCH, lamp, STREET_LAMP);
+        check(near(far[0], 149f / 255f) && near(far[1], 94f / 255f) && near(far[2], 30f / 255f),
+                "each part is the lamp's colour cut to the byte, and the night's blue where the lamp's is less: " + far[0] + " " + far[1] + " " + far[2]);
+        float[] out = stopped(10690, 9789, NIGHT, NO_TORCH, lamp, STREET_LAMP);
+        check(near(out[0], NIGHT[0]) && near(out[1], NIGHT[1]), "past the lamp's radius the square has its daylight");
     }
 
-    private static void aDarkRoomStaysAsDarkAsItsCorners() {
-        int span = 7;
-        boolean[] known = new boolean[span * span * 3];
-        float[] least = new float[span * span * 3];
-        long[] room = new long[span * span];
-        float[] light = level(span, 0.161f, known, least, room);
-        for (int j = 1; j < span - 1; j++) {
-            for (int i = 1; i < span - 1; i++) {
-                blot(span, i, j, light, known);
-            }
-        }
-        TorchLess.settle(span, light, known, least, room);
-        for (int at = 0; at < light.length; at++) {
-            check(near(light[at], 0.161f), "a dark room the torch has blotted out is as dark all through as its edge: " + light[at]);
-        }
+    private static void theBrightestLightWinsEachPart() {
+        // Read in the game at 00:30 at (10724, 9785), between a street lamp and a building's lit rooms, with the
+        // five lights it lists: 0.467 0.310 0.302, the street lamp's red and the nearest room light's green and blue.
+        int[] places = {10726, 9781, 0, 7, 10728, 9784, 0, 7, 10727, 9787, 0, 5, 10728, 9786, 0, 7, 10718, 9789, 1, 20};
+        float[] mixed = stopped(10724, 9785, NIGHT, NO_TORCH, places, ROOM_LIGHT, ROOM_LIGHT, new float[] {1f, 200f / 255f, 160f / 255f}, ROOM_LIGHT, STREET_LAMP);
+        check(near(mixed[0], 119f / 255f) && near(mixed[1], 79f / 255f) && near(mixed[2], 77f / 255f),
+                "each part is the brightest of the lights, not their sum, and not one light's colour: " + mixed[0] + " " + mixed[1] + " " + mixed[2]);
     }
 
-    private static void aLampsLightRunsOnUnderTheFan() {
-        int span = 6;
-        boolean[] known = new boolean[span * span * 3];
-        float[] least = new float[span * span * 3];
-        long[] room = new long[span * span];
-        float[] light = level(span, 0f, known, least, room);
-        for (int j = 0; j < span; j++) {
-            for (int i = 0; i < span; i++) {
-                Arrays.fill(light, (j * span + i) * 3, (j * span + i) * 3 + 3, i == 0 ? 0.2f : 0.6f);
-                if (i > 0 && i < span - 1) {
-                    blot(span, i, j, light, known);
-                }
-            }
-        }
-        TorchLess.settle(span, light, known, least, room);
-        for (int i = 1; i < span; i++) {
-            float before = light[(2 * span + i - 1) * 3], here = light[(2 * span + i) * 3];
-            check(here >= before - 1e-5f && here >= 0.2f - 1e-5f && here <= 0.6f + 1e-5f,
-                    "between a dim side and a lamplit side the light rises from one to the other: " + before + " then " + here);
-        }
+    private static void aLightIsNoBrighterThanTheKnownPartsAllow() {
+        // A room light whose way runs round a wall: its blue is known and is half of what the straight way gives.
+        float[] light = {0f, 0f, 60f / 255f}, least = {0f, 0f, 0f};
+        boolean[] known = {false, false, true};
+        int[] place = {11, 10, 0, 7};
+        float allowed = TorchLess.allows(light, known, 0, 10, 10, 0, place, ROOM_LIGHT, 0);
+        check(Float.isNaN(TorchLess.allows(light, new boolean[3], 0, 10, 10, 0, place, ROOM_LIGHT, 0)), "a square with no part known says nothing of how much of a light reaches it");
+        TorchLess.fromLights(light, known, least, new float[3], NO_TORCH, 0, 1f, 10, 10, 0, 1, place, ROOM_LIGHT, 0, new float[] {allowed});
+        float straight = (int) (209f * (1f - 1f / 7f));
+        check(near(light[2], 60f / 255f), "a known part is left as it is");
+        check(near(light[0] / light[2], 229f / 209f) && light[0] * 255f < straight,
+                "the parts it is not known in are dimmed with it, in the light's own colour: " + light[0] + " " + light[1]);
     }
 
-    private static void nothingIsCarriedThroughAWall() {
-        int span = 4;
-        boolean[] known = new boolean[span * span * 3];
-        float[] least = new float[span * span * 3];
-        long[] room = new long[span * span];
-        float[] light = level(span, 0.161f, known, least, room);
-        // The right half is another room, lamplit, and known. The left's column beside it is blotted out.
-        for (int j = 0; j < span; j++) {
-            for (int i = 2; i < span; i++) {
-                room[j * span + i] = NEXT_ROOM;
-                Arrays.fill(light, (j * span + i) * 3, (j * span + i) * 3 + 3, 0.7f);
-            }
-            blot(span, 1, j, light, known);
-        }
-        TorchLess.settle(span, light, known, least, room);
-        for (int j = 0; j < span; j++) {
-            check(near(light[(j * span + 1) * 3], 0.161f), "a square takes its light from its own room, not from the lamplit one through the wall: " + light[(j * span + 1) * 3]);
-        }
+    private static void otherTorchesStayInTheLight() {
+        float[] light = new float[3], least = new float[3];
+        boolean[] known = new boolean[3];
+        float[] beside = {0.2f, 0.2f, 0.2f};
+        TorchLess.fromLights(light, known, least, NIGHT, beside, 0, 1f, 0, 0, 0, 0, new int[0], new float[0], 0, new float[0]);
+        check(near(light[0], NIGHT[0] + 0.2f), "a car's lamps or another player's torch on the square are part of its light without the viewer's: " + light[0]);
     }
 
-    private static void aSquareCutOffKeepsItsLeast() {
-        int span = 3;
-        boolean[] known = new boolean[span * span * 3];
-        float[] least = new float[span * span * 3];
-        long[] room = new long[span * span];
-        float[] light = level(span, 0.5f, known, least, room);
-        Arrays.fill(room, TorchLess.NOT_THERE);
-        room[4] = ROOM;
-        blot(span, 1, 1, light, known);
-        Arrays.fill(least, 12, 15, 0.3f);
-        Arrays.fill(light, 12, 15, 0.3f);
-        TorchLess.settle(span, light, known, least, room);
-        check(near(light[12], 0.3f), "a square with no known square of its room to reach keeps the least it can be: " + light[12]);
-    }
-
-    private static void nothingIsGivenLessThanItsLeast() {
-        int span = 3;
-        boolean[] known = new boolean[span * span * 3];
-        float[] least = new float[span * span * 3];
-        long[] room = new long[span * span];
-        float[] light = level(span, 0.1f, known, least, room);
-        blot(span, 1, 1, light, known);
-        Arrays.fill(least, 12, 15, 0.45f);
-        TorchLess.settle(span, light, known, least, room);
-        check(near(light[12], 0.45f), "a square whose light is known to be at least 0.45 is not given the 0.1 round it: " + light[12]);
-    }
-
-    private static void aSquareKnownInPartKeepsTheColourRoundIt() {
-        int span = 3;
-        boolean[] known = new boolean[span * span * 3];
-        float[] least = new float[span * span * 3];
-        long[] room = new long[span * span];
-        float[] light = level(span, 0f, known, least, room);
-        // A lamp's warm light all round, and in the middle a square half as bright whose blue alone is exact.
-        for (int at = 0; at < span * span; at++) {
-            light[at * 3] = 0.8f;
-            light[at * 3 + 1] = 0.6f;
-            light[at * 3 + 2] = 0.4f;
-        }
-        known[12] = false;
-        known[13] = false;
-        light[12] = 0f;
-        light[13] = 0f;
-        light[14] = 0.2f;
-        TorchLess.settle(span, light, known, least, room);
-        check(light[12] > 0.4f && light[12] < 0.5f && near(light[13] / light[12], 0.75f) && near(light[14], 0.2f),
-                "a square whose blue alone is known takes the colour round it at about the brightness its blue has: " + light[12] + " " + light[13] + " " + light[14]);
-    }
-
-    private static void aStreetLampsPoolUnderTheTorchIsNoPatchwork() {
-        int span = 3;
-        boolean[] known = new boolean[span * span * 3];
-        float[] least = new float[span * span * 3];
-        long[] room = new long[span * span];
-        float[] light = level(span, 0f, known, least, room);
-        // A street lamp's pool at night: red at the top, green under it, blue a few steps above nothing.
-        for (int at = 0; at < span * span; at++) {
-            light[at * 3] = 1f;
-            light[at * 3 + 1] = 0.6f;
-            light[at * 3 + 2] = 5f / 255f;
-        }
-        // In the middle the torch has stopped red and green at 1, and the blue is a step less.
-        known[12] = false;
-        known[13] = false;
-        least[12] = 0.2f;
-        least[13] = 0.2f;
-        light[14] = 4f / 255f;
-        TorchLess.settle(span, light, known, least, room);
-        check(near(light[12], 1f) && light[13] > 0.54f && light[13] < 0.6f,
-                "a square of a lamp's pool whose blue is a step off the squares round it has their red and green: " + light[12] + " " + light[13]);
+    private static void aStepEitherWayKeepsTheLightItHad() {
+        float[] before = {0.2f, 0.3f, 0.4f};
+        float[] light = {0.2f + 1f / 255f, 0.3f - 2f / 255f, 0.45f};
+        TorchLess.steady(light, 0, before, 0);
+        check(light[0] == 0.2f && light[1] == 0.3f, "a part a step or two off what it was is what it was, to the bit");
+        check(light[2] == 0.45f, "a part that has really changed is what it is now");
     }
 
     private static void check(boolean condition, String what) {
@@ -228,6 +125,6 @@ final class TorchLessTests {
     }
 
     private static boolean near(float a, float b) {
-        return Math.abs(a - b) < 2e-3f;
+        return Math.abs(a - b) < 1.5f / 255f;
     }
 }

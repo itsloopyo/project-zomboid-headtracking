@@ -1,6 +1,5 @@
 package com.cameraunlock.zomboid;
 
-import java.util.Arrays;
 import zombie.characters.IsoPlayer;
 import zombie.core.textures.ColorInfo;
 import zombie.iso.IsoCell;
@@ -20,31 +19,31 @@ import zombie.iso.LightingJNI;
  * square's light first, or a room is lit twice and the first of the two is a pattern of
  * squares.
  *
- * The lighting engine says what that share is. With a square's light it lists the lights that
- * reach the square, and for a torch the colour it lists is what the torch adds there. On a
- * square the character can see at this moment the light is the light without the torch plus
- * that share, each of red, green and blue stopped at 1. On one they cannot see the torch is
- * listed and not added. Both were read off every square round a character in five places,
- * 1374 squares, with a torch lit and with none, and held on all of them.
+ * The lighting engine (Lighting64) builds a square's light from what it lists for the square.
+ * Each of red, green and blue is the greatest of the square's daylight (IsoGridSquare.lightLevel)
+ * and what each lamp or room light listed for it gives: the light's colour, as a byte, times
+ * 1 less the length of the way from the light to the square over its radius, cut to a whole
+ * byte. The way is walked square to square, 1 a step, the square root of 2 across a corner and
+ * 3 a level, round walls, and coloured by a window it passes. The torches the square can be seen
+ * by are added to that, the greatest of them part by part, the sum is stopped at 255, and it is
+ * dimmed by the square's darkMulti. For a torch the colour listed is what it adds there. Read
+ * off every square round street lamps and a building's lit rooms, at several hours of the
+ * night, with the torch on and off, the lights listed gave the light without the torch to the
+ * byte wherever the way runs straight.
  *
  * So where the sum is under 1 the light without the torch is known exactly. Where it was
- * stopped at 1, which is most of the fan near the character, what is left is only that the
- * light was at least 1 less the share. Such a square keeps the light it last had when it
- * was known, which is the light it had before the torch came onto it: a room's own light does
- * not change because a torch is turned on it. Only a square never known since it came within
- * the torch's reach takes its light from the squares round it that are known, room by room,
- * the nearest first: a dark room stays as dark as its corners, and a lamp's light runs on
- * under the fan as it lies beside it. Taken from the squares round it every time, a square's
- * light was another at every step the torch's fan moved, and every chunk under the fan was
- * built again for it.
+ * stopped at 1, which is most of the fan near the character, the light is worked out the
+ * engine's way from the lights the square lists, each made no brighter than the parts of the
+ * square that are known allow, or with none known, than the squares beside it allow: that is
+ * what a wall or a window in its way does. Taken from the
+ * squares round it instead, red from those the torch leaves red on and green from nearer ones,
+ * the ground between a street lamp and a white shop light was squares of red, pink and grey.
  *
  * The game lights a shot too (EffectsManager.startMuzzleFlash), with a lamp of reach 18 at the
  * shooter's square. Its light reaches the squares a tenth of a second after the shot and stays a
  * quarter of a second, so a shot was the picture's flash (MuzzleFlash) and then a second, longer
- * light. While that flash shows, the lamp is taken out too. The engine lists it by its number on
- * every square it reaches, seen or not, but with its own colour and not what it adds there (0.55
- * listed on the shooter's square, lit from 0.22 to 0.55, and on one 4 squares off, lit to 0.42).
- * So a square it is on keeps the light it had before the shot, read from the shot on.
+ * light. While that flash shows, the lamp is taken out too: a square it is on is worked out from
+ * its other lights, as one the torch has stopped at 1.
  *
  * The engine keeps its torch. What the character can see by it, how well zombies see the
  * character and whether a page can be read are worked out from the same squares, and none of
@@ -52,7 +51,7 @@ import zombie.iso.LightingJNI;
  */
 final class TorchLess {
 
-    /** The squares are read this far past the torch's reach, so that the fan has known squares round it. */
+    /** The squares are read this far past the torch's reach. */
     private static final int MARGIN = 2;
     /** The engine hands light over in 255 steps: at the last of them a sum may have been stopped. */
     private static final float STOPPED = 1f - 0.5f / 255f;
@@ -60,6 +59,11 @@ final class TorchLess {
     private static final int TORCHES_A_PLAYER = 4;
     /** A square of no room and one that is not there or has not been seen. Rooms are numbered from 0, and -1 is out of doors. */
     static final long NOT_THERE = Long.MIN_VALUE;
+    /** The engine lists at most 5 lights a square. */
+    private static final int MOST_LIGHTS = 5;
+    private static final float CORNER = (float) Math.sqrt(2.0);
+    /** What a level up or down adds to the way a light goes. */
+    private static final float LEVEL_STEP = 3f;
 
     /**
      * What one gathering found, never written again once it is handed over: a block of squares
@@ -72,8 +76,6 @@ final class TorchLess {
         final boolean[] lit;
         /** Whether the square was there to be read and had been seen. */
         final boolean[] read;
-        /** Whether a square's light here is one it was known to have, now or when it was last known, and not one taken from the squares round it. */
-        final boolean[] met;
         /** Whether the engine still had any of the viewer's torches on a square. */
         boolean torched;
 
@@ -86,7 +88,6 @@ final class TorchLess {
             this.counter = counter;
             light = new float[span * span * 3];
             lit = new boolean[span * span];
-            met = new boolean[span * span];
             read = new boolean[span * span];
         }
     }
@@ -102,10 +103,19 @@ final class TorchLess {
     TorchLess(int view) {
         this.view = view;
     }
-    /** What one reading works with, kept between readings and grown to the widest reach met: a reading writes every part of them that it reads. */
+
+    /**
+     * What one reading works with for each square of its block, kept between readings and grown to
+     * the widest block met. Logic thread. A reading writes every part of them that it reads.
+     */
     private boolean[] known = new boolean[0];
-    private float[] least = new float[0];
+    private float[] least = new float[0], day = new float[0], others = new float[0], dark = new float[0];
     private long[] room = new long[0];
+    /** The lamps and room lights of each square: how many, their numbers, x, y, level and radius, colours, and how much of each the square's known parts allow. */
+    private int[] lampCount = new int[0], lampIds = new int[0], lampPlaces = new int[0];
+    private float[] lampColours = new float[0], lampAllowed = new float[0];
+    /** How much of each of one square's lights is let through, as the square works it out. */
+    private final float[] allowed = new float[MOST_LIGHTS];
 
     /** The game has lit a lamp for a shot of the viewer's. Logic thread. */
     void shot(IsoLightSource lit) {
@@ -175,10 +185,19 @@ final class TorchLess {
             return;
         }
         Taken next = new Taken(fromX, fromY, level, span, counter, lampId);
-        if (room.length < span * span) {
-            known = new boolean[span * span * 3];
-            least = new float[span * span * 3];
-            room = new long[span * span];
+        int squares = span * span;
+        if (room.length < squares) {
+            known = new boolean[squares * 3];
+            least = new float[squares * 3];
+            day = new float[squares * 3];
+            others = new float[squares * 3];
+            dark = new float[squares];
+            room = new long[squares];
+            lampCount = new int[squares];
+            lampIds = new int[squares * MOST_LIGHTS];
+            lampPlaces = new int[squares * MOST_LIGHTS * 4];
+            lampColours = new float[squares * MOST_LIGHTS * 3];
+            lampAllowed = new float[squares * MOST_LIGHTS];
         }
         int firstTorch = index * TORCHES_A_PLAYER + 1;
         for (int j = 0; j < span; j++) {
@@ -193,38 +212,84 @@ final class TorchLess {
                 next.read[at] = true;
                 IsoGridSquare.ILighting lighting = square.lighting[index];
                 ColorInfo with = lighting.lightInfo();
-                float red = 0f, green = 0f, blue = 0f;
+                float ownRed = 0f, ownGreen = 0f, ownBlue = 0f;
+                others[at * 3] = others[at * 3 + 1] = others[at * 3 + 2] = 0f;
                 boolean canSee = lighting.bCanSee(), lamplit = false;
+                int lamps = 0;
                 for (int light = 0; light < lighting.resultLightCount(); light++) {
                     IsoGridSquare.ResultLight result = lighting.getResultLight(light);
-                    if ((result.flags & IsoGridSquare.ResultLight.RLF_TORCH) == 0) {
-                        lamplit |= lampId != 0 && result.id == lampId;
-                    } else if (canSee && result.id >= firstTorch && result.id < firstTorch + TORCHES_A_PLAYER) {
-                        red += result.r;
-                        green += result.g;
-                        blue += result.b;
+                    if ((result.flags & IsoGridSquare.ResultLight.RLF_TORCH) != 0) {
+                        // A torch is listed on a square the character cannot see, and not added.
+                        if (!canSee) {
+                            continue;
+                        }
+                        if (result.id >= firstTorch && result.id < firstTorch + TORCHES_A_PLAYER) {
+                            ownRed = Math.max(ownRed, result.r);
+                            ownGreen = Math.max(ownGreen, result.g);
+                            ownBlue = Math.max(ownBlue, result.b);
+                        } else {
+                            others[at * 3] = Math.max(others[at * 3], result.r);
+                            others[at * 3 + 1] = Math.max(others[at * 3 + 1], result.g);
+                            others[at * 3 + 2] = Math.max(others[at * 3 + 2], result.b);
+                        }
+                    } else if (lampId != 0 && result.id == lampId) {
+                        lamplit = true;
+                    } else {
+                        int listed = at * MOST_LIGHTS + lamps;
+                        lampIds[listed] = result.id;
+                        lampPlaces[listed * 4] = result.x;
+                        lampPlaces[listed * 4 + 1] = result.y;
+                        lampPlaces[listed * 4 + 2] = result.z;
+                        lampPlaces[listed * 4 + 3] = result.radius;
+                        lampColours[listed * 3] = result.r;
+                        lampColours[listed * 3 + 1] = result.g;
+                        lampColours[listed * 3 + 2] = result.b;
+                        lamps++;
                     }
                 }
+                lampCount[at] = lamps;
+                // The torches on a square are joined part by part by the greatest: the viewer's adds only what it has over the others.
+                float red = Math.max(ownRed - others[at * 3], 0f), green = Math.max(ownGreen - others[at * 3 + 1], 0f), blue = Math.max(ownBlue - others[at * 3 + 2], 0f);
                 next.lit[at] = lamplit || red > 0f || green > 0f || blue > 0f;
-                next.torched |= red > 0f || green > 0f || blue > 0f;
-                without(with.r, red, next.light, known, least, at * 3);
-                without(with.g, green, next.light, known, least, at * 3 + 1);
-                without(with.b, blue, next.light, known, least, at * 3 + 2);
+                next.torched |= ownRed > 0f || ownGreen > 0f || ownBlue > 0f;
+                daylight(square, day, at * 3);
+                dark[at] = lighting.darkMulti();
+                without(with.r, next.lit[at] ? red : 0f, day[at * 3], next.light, known, least, at * 3);
+                without(with.g, next.lit[at] ? green : 0f, day[at * 3 + 1], next.light, known, least, at * 3 + 1);
+                without(with.b, next.lit[at] ? blue : 0f, day[at * 3 + 2], next.light, known, least, at * 3 + 2);
                 if (lamplit) {
-                    // Nothing of the light is known under the lamp: the square keeps what it had before the shot.
-                    Arrays.fill(known, at * 3, at * 3 + 3, false);
-                    Arrays.fill(least, at * 3, at * 3 + 3, 0f);
+                    // Nothing of the light is known under the shot's lamp but that it has the daylight.
+                    for (int part = 0; part < 3; part++) {
+                        known[at * 3 + part] = false;
+                        least[at * 3 + part] = day[at * 3 + part];
+                    }
                 }
-                if (!next.lit[at]) {
-                    // The game's own light, to the bit: it is what the picture is given for this square.
-                    next.met[at] = true;
-                    continue;
+                for (int listed = at * MOST_LIGHTS; listed < at * MOST_LIGHTS + lamps; listed++) {
+                    lampAllowed[listed] = allows(next.light, known, at * 3, fromX + i, fromY + j, level, lampPlaces, lampColours, listed);
                 }
-                int before = now == null || now.level != level ? -1 : at(now, fromX + i, fromY + j);
-                next.met[at] = keep(next.light, known, least, at * 3, before >= 0 && now.met[before] ? now.light : null, before * 3);
             }
         }
-        settle(span, next.light, known, least, room);
+        for (int j = 0; j < span; j++) {
+            for (int i = 0; i < span; i++) {
+                int at = j * span + i;
+                if (!next.lit[at]) {
+                    // The game's own light, to the bit: it is what the picture is given for this square.
+                    continue;
+                }
+                if (!known[at * 3] || !known[at * 3 + 1] || !known[at * 3 + 2]) {
+                    for (int listed = 0; listed < lampCount[at]; listed++) {
+                        float own = lampAllowed[at * MOST_LIGHTS + listed];
+                        allowed[listed] = Float.isNaN(own) ? allowedRound(span, i, j, lampIds[at * MOST_LIGHTS + listed]) : own;
+                    }
+                    fromLights(next.light, known, least, day, others, at * 3, dark[at], fromX + i, fromY + j, level,
+                            lampCount[at], lampPlaces, lampColours, at * MOST_LIGHTS, allowed);
+                }
+                int before = now == null || now.level != level ? -1 : at(now, fromX + i, fromY + j);
+                if (before >= 0 && now.lit[before]) {
+                    steady(next.light, at * 3, now.light, before * 3);
+                }
+            }
+        }
         if (now != null) {
             retell(now, next);
         }
@@ -233,10 +298,87 @@ final class TorchLess {
     }
 
     /**
+     * The square's daylight, red, green and blue, as the engine hands it over with its light
+     * (getSquareLighting, kept as IsoGridSquare.lightLevel): what its light is with no lamp on it.
+     */
+    private static void daylight(IsoGridSquare square, float[] into, int at) {
+        // Red is the lowest byte, as in the square's light. IsoGridSquare.GetRLightLevel reads it from the
+        // third: taken through that, the evening's blue sky was red under the torch (read at 22:15, 1080 of
+        // 1168 squares to the byte this way round, against 55 the other).
+        int level = square.lightLevel;
+        into[at] = (level & 0xff) / 255f;
+        into[at + 1] = (level >> 8 & 0xff) / 255f;
+        into[at + 2] = (level >> 16 & 0xff) / 255f;
+    }
+
+    /**
+     * How much of a light whose own way to a square is not known the square has: as much as the
+     * squares beside it of its own room that know it have, the most of them. A light that runs
+     * round a wall into a room is dimmed by that wall for every square behind it alike, and taken
+     * at its straight way, a lamp outside lit the squares of a filling station's shop the torch
+     * stopped at 1 orange where they are grey. The most, not the least, of them, so that a square
+     * beside a fence keeps the light on its own side.
+     */
+    private float allowedRound(int span, int i, int j, int id) {
+        long own = room[j * span + i];
+        float most = Float.NaN;
+        for (int side = 0; side < 4; side++) {
+            int ni = i + (side == 0 ? -1 : side == 1 ? 1 : 0), nj = j + (side == 2 ? -1 : side == 3 ? 1 : 0);
+            if (ni < 0 || nj < 0 || ni >= span || nj >= span) {
+                continue;
+            }
+            int beside = nj * span + ni;
+            if (room[beside] != own) {
+                continue;
+            }
+            for (int lamp = beside * MOST_LIGHTS; lamp < beside * MOST_LIGHTS + lampCount[beside]; lamp++) {
+                if (lampIds[lamp] == id && !Float.isNaN(lampAllowed[lamp])) {
+                    most = Float.isNaN(most) ? lampAllowed[lamp] : Math.max(most, lampAllowed[lamp]);
+                }
+            }
+        }
+        return Float.isNaN(most) ? 1f : most;
+    }
+
+    /** How far a light listed for a square at (x, y, z) has fallen there by its straight way: 1 at the light, 0 at its radius and past it. */
+    static float falls(int x, int y, int z, int[] places, int lamp) {
+        int radius = places[lamp * 4 + 3];
+        if (radius <= 0) {
+            return 0f;
+        }
+        int dx = Math.abs(x - places[lamp * 4]), dy = Math.abs(y - places[lamp * 4 + 1]);
+        float way = Math.max(dx, dy) - Math.min(dx, dy) + CORNER * Math.min(dx, dy) + LEVEL_STEP * Math.abs(z - places[lamp * 4 + 2]);
+        return Math.max(1f - way / radius, 0f);
+    }
+
+    /** What a light gives one part of a square as a byte, by its straight way. */
+    static float gives(float falls, float[] colours, int lamp, int part) {
+        return (int) (Math.round(colours[lamp * 3 + part] * 255f) * falls);
+    }
+
+    /**
+     * How much of what a light gives a square by its straight way the square's known parts let it
+     * have, at most 1, or NaN when no known part says. The engine joins the lights by the greatest,
+     * so no light gives a known part more than that part has: one that would by its straight way
+     * comes round a wall or through a window, which take as much off it.
+     */
+    static float allows(float[] light, boolean[] known, int at, int x, int y, int z, int[] places, float[] colours, int lamp) {
+        float falls = falls(x, y, z, places, lamp), allowed = Float.NaN;
+        for (int part = 0; part < 3; part++) {
+            float gives = gives(falls, colours, lamp, part);
+            if (known[at + part] && gives > 0f) {
+                float most = Math.min((light[at + part] * 255f + 0.5f) / gives, 1f);
+                allowed = Float.isNaN(allowed) ? most : Math.min(allowed, most);
+            }
+        }
+        return allowed;
+    }
+
+    /**
      * Has the chunks built again whose squares the picture was given one light for and would
      * now be given another. The game marks a chunk when a square's own light changes, and a
      * square whose sum is stopped at 1 before and after has not changed for the game, while
-     * what it takes from the squares round it has. A square the torch has come onto or gone
+     * what is worked out for it may have. A square the torch has come onto or gone
      * off with its light what it was is the same square to the picture, and nothing is told
      * for it: told for every such square, every chunk under the torch was built again at
      * every step and every turn of the head.
@@ -273,133 +415,62 @@ final class TorchLess {
     /**
      * The engine's light is in steps of 1/255, and a sum less the torch's share comes back a
      * step or so off what the square has with no torch on it. Within this of what the square
-     * was last known to have, it has what it had.
+     * had at the last reading, it has what it had.
      */
     private static final float SAME_WITHIN = 2f / 255f;
 
     /**
-     * Gives a square the light it was last known to have, where it has one. A part that is
-     * known now and within a step or two of that stays to the bit what it was, so that the
-     * square is the same light for as long as nothing but the torch changes on it. A part the
-     * torch has blotted out takes what was known, or the least it can now be if that is more,
-     * and counts as known from here on. With no light known before, the square is left as it
-     * was read.
-     *
-     * @param before the lights of the last taking, or null when the square had none known in it
-     * @return whether the square's light is now all known
+     * Keeps each part of a square's light to the bit what it was at the last reading where it
+     * is within a step or two of that, so that the square is the same light for as long as
+     * nothing but the torch changes on it: 75 of 300 changes of light in a walk were a step
+     * either way, and each built a chunk again.
      */
-    static boolean keep(float[] light, boolean[] known, float[] least, int at, float[] before, int beforeAt) {
-        if (before == null) {
-            return known[at] && known[at + 1] && known[at + 2];
-        }
+    static void steady(float[] light, int at, float[] before, int beforeAt) {
         for (int part = 0; part < 3; part++) {
-            float was = before[beforeAt + part];
-            if (!known[at + part]) {
-                light[at + part] = Math.max(was, least[at + part]);
-                known[at + part] = true;
-            } else if (Math.abs(light[at + part] - was) <= SAME_WITHIN) {
-                light[at + part] = was;
+            if (Math.abs(light[at + part] - before[beforeAt + part]) <= SAME_WITHIN) {
+                light[at + part] = before[beforeAt + part];
             }
         }
-        return true;
     }
 
-    /** One of a square's red, green or blue: exactly what it is without the torch where the sum was not stopped at 1, and otherwise the least it can be. */
-    static void without(float with, float share, float[] light, boolean[] known, float[] least, int at) {
+    /**
+     * One of a square's red, green or blue: exactly what it is without the torch where the sum was not stopped at 1, and otherwise the least it can be.
+     * That is never less than the daylight, which the engine joins to the lamps by the greater.
+     *
+     * @param day the square's daylight in this part
+     */
+    static void without(float with, float share, float day, float[] light, boolean[] known, float[] least, int at) {
         known[at] = share <= 0f || with < STOPPED;
-        least[at] = share <= 0f ? with : Math.max(with - share, 0f);
+        least[at] = share <= 0f ? with : Math.max(with - share, Math.min(day, with));
         // On the engine's own steps, as the square's light is with no torch on it: left as the
         // subtraction gives it, the same square was one light under the torch and another, in its last bits, beside it.
         light[at] = share <= 0f ? with : Math.round(least[at] * 255f) / 255f;
     }
 
     /**
-     * Added to each known part before the brightness is read from it. At night under a street lamp
-     * the torch stops red and green at 1 and leaves only a blue a few of the engine's steps above
-     * nothing: read as it is, one step more or less made the square's red and green half or twice
-     * those round it, and the ground under the torch a pattern of red, yellow and grey squares.
-     */
-    private static final float KNOWN_STEADIED = 0.05f;
-    /** A square is not made more than this many times as bright as the squares round it to fit the part of its light that is known. */
-    private static final float MOST_SCALED = 4f;
-
-    /**
-     * Gives each square whose light is not all known the light of the squares round it. Each
-     * pass, a square with a settled one beside it in its own room takes the mean of those and
-     * is settled for the next pass, so the light is carried inwards from the edge of what the
-     * torch has blotted out, never through a wall into the next room.
+     * Works out the parts of a square's light that are not known as the engine makes them:
+     * the greatest of the daylight and of what each listed light gives, with the other torches
+     * added, stopped at 1 and dimmed by darkMulti. A light gives what its straight way gives it,
+     * times as much of that as is let through to the square (allows). A part is never less than
+     * the least it can be.
      *
-     * A torch's light is red before it is blue, so its sum is often stopped at 1 in red while
-     * the blue is still exact. The parts that are known stay as they are, and the others take
-     * the colour of the squares round the square at the brightness its known parts have: each
-     * part taken from its own neighbours would leave a lamplit ceiling in squares of pink and
-     * green. A square no settled one can be reached from keeps the least it can be. Nothing
-     * is given less than that least, nor more than 1.
-     *
-     * @param light the squares, three numbers each
-     * @param known for each number, whether it is exact
-     * @param least for each number, the least it can be
-     * @param room  for each square its room, or NOT_THERE for one that is to be left out
+     * @param at where the square's red is in light, known, least, day and others
+     * @param first where the square's first light is in places (x, y, level, radius each) and colours (red, green, blue each)
+     * @param allowed for each light, how much of its straight way's light reaches the square
      */
-    static void settle(int span, float[] light, boolean[] known, float[] least, long[] room) {
-        boolean[] settled = new boolean[span * span], settledNow = new boolean[span * span];
-        for (int at = 0; at < span * span; at++) {
-            settled[at] = room[at] != NOT_THERE && known[at * 3] && known[at * 3 + 1] && known[at * 3 + 2];
-        }
-        float[] round = new float[3];
-        boolean any = true;
-        while (any) {
-            any = false;
-            Arrays.fill(settledNow, false);
-            for (int j = 0; j < span; j++) {
-                for (int i = 0; i < span; i++) {
-                    int at = j * span + i;
-                    if (room[at] == NOT_THERE || settled[at]) {
-                        continue;
-                    }
-                    Arrays.fill(round, 0f);
-                    int count = 0;
-                    for (int side = 0; side < 4; side++) {
-                        int ni = i + (side == 0 ? -1 : side == 1 ? 1 : 0), nj = j + (side == 2 ? -1 : side == 3 ? 1 : 0);
-                        if (ni < 0 || nj < 0 || ni >= span || nj >= span) {
-                            continue;
-                        }
-                        int beside = nj * span + ni;
-                        // Settled before this pass began: one settled in this pass would hand its light on a square further in one direction than the others.
-                        if (room[beside] == room[at] && settled[beside]) {
-                            for (int part = 0; part < 3; part++) {
-                                round[part] += light[beside * 3 + part];
-                            }
-                            count++;
-                        }
-                    }
-                    if (count == 0) {
-                        continue;
-                    }
-                    float has = 0f, would = 0f;
-                    for (int part = 0; part < 3; part++) {
-                        round[part] /= count;
-                        if (known[at * 3 + part]) {
-                            has += light[at * 3 + part] + KNOWN_STEADIED;
-                            would += round[part] + KNOWN_STEADIED;
-                        }
-                    }
-                    float scale = would > 1e-4f ? Math.min(has / would, MOST_SCALED) : 1f;
-                    for (int part = 0; part < 3; part++) {
-                        if (!known[at * 3 + part]) {
-                            // A part the squares round it all have at the top had a light there more than the top can show:
-                            // scaled down, a street lamp's red under the torch came out a square at a time.
-                            float taken = round[part] >= STOPPED ? 1f : round[part] * scale;
-                            light[at * 3 + part] = Math.clamp(taken, least[at * 3 + part], 1f);
-                        }
-                    }
-                    settledNow[at] = true;
-                    any = true;
-                }
+    static void fromLights(float[] light, boolean[] known, float[] least, float[] day, float[] others, int at, float dark,
+            int x, int y, int z, int lamps, int[] places, float[] colours, int first, float[] allowed) {
+        for (int part = 0; part < 3; part++) {
+            if (known[at + part]) {
+                continue;
             }
-            for (int at = 0; at < settledNow.length; at++) {
-                settled[at] |= settledNow[at];
+            float most = Math.round(day[at + part] * 255f);
+            for (int lamp = 0; lamp < lamps; lamp++) {
+                most = Math.max(most, (int) (gives(falls(x, y, z, places, first + lamp), colours, first + lamp, part) * allowed[lamp]));
             }
+            float total = Math.min(255f, most + Math.round(others[at + part] * 255f));
+            float made = (int) (Math.min(1f, total / 255f * dark) * 255f) / 255f;
+            light[at + part] = Math.clamp(made, least[at + part], 1f);
         }
     }
 

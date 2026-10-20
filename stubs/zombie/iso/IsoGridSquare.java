@@ -8,6 +8,7 @@ public final class IsoGridSquare {
     public interface ILighting {
         ColorInfo lightInfo();
         boolean bCanSee();
+        float darkMulti();
         int resultLightCount();
         ResultLight getResultLight(int index);
     }
@@ -15,6 +16,10 @@ public final class IsoGridSquare {
     public static final class ResultLight {
         public static final int RLF_TORCH = stub();
         public int id;
+        public int x;
+        public int y;
+        public int z;
+        public int radius;
         public float r;
         public float g;
         public float b;
@@ -24,6 +29,7 @@ public final class IsoGridSquare {
     }
 
     public final ILighting[] lighting = null;
+    public int lightLevel;
 
     public PZArrayList<IsoObject> getObjects() { throw new UnsupportedOperationException("reference stub"); }
     public int RemoveTileObject(IsoObject object) { throw new UnsupportedOperationException("reference stub"); }
