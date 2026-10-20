@@ -1,6 +1,6 @@
 version=1
 id=3823224669
-title=Project Zomboid Head Tracking
+title=PZHT - First Person + Graphics Overhaul + Head Tracking
 description=A graphics overhaul for Project Zomboid that adds a first person mode and OpenTrack compatible head tracking with microphone lip syncing for maximum immersion. Every part is optional.
 description=
 description=Free and open source under the MIT licence, the source is on [url=https://github.com/itsloopyo/project-zomboid-headtracking]GitHub[/url].

@@ -105,8 +105,8 @@ The Workshop copy is loaded by [ZombieBuddy](https://github.com/zed-0xff/ZombieB
 2. Set ZombieBuddy up once. If you already play another mod that needs it, this is done. Otherwise use one of the two routes on ZombieBuddy's Workshop page:
    - **Installer:** download `ZombieBuddyInstaller.exe` from [ZombieBuddy's GitHub releases](https://github.com/zed-0xff/ZombieBuddy/releases/tag/windows_installer), run it and choose **Install or update ZombieBuddy**. Pick the launch mode to patch; ZombieBuddy recommends **Both**. It lists every change before making it, and asks you to close Steam if it has to change the launch options.
    - **By hand:** copy `ZombieBuddy.jar` and `zbNative.dll` from `steamapps\workshop\content\108600\3619862853\mods\ZombieBuddy\libs\` into the game folder, then in Steam open Project Zomboid's **Properties** and set **Launch Options** to `-agentlib:zbNative --`. The `--` at the end is needed.
-3. Subscribe to Project Zomboid Head Tracking on the Steam Workshop.
-4. Start the game, open **Mods** on the main menu, enable ZombieBuddy and Project Zomboid Head Tracking, then quit and start the game again. ZombieBuddy starts Java mods while the game starts, so they only load after that restart.
+3. Subscribe to PZHT - First Person + Graphics Overhaul + Head Tracking on the Steam Workshop.
+4. Start the game, open **Mods** on the main menu, enable ZombieBuddy and PZHT - First Person + Graphics Overhaul + Head Tracking, then quit and start the game again. ZombieBuddy starts Java mods while the game starts, so they only load after that restart.
 5. ZombieBuddy shows a dialog asking whether to load the mod's Java code. Click **Yes**. With ZombieBuddy's default settings it asks again after every update to the mod.
 6. Follow [Setting Up OpenTrack](#setting-up-opentrack) below, load a save and press `Delete` for first person.
 
