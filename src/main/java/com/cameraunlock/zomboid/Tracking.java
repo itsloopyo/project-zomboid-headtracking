@@ -548,9 +548,23 @@ final class Tracking {
             }
             SplitScreen.frame();
             int said = pressed & (Config.AIM_MODE | Config.SPLIT_SCREEN);
+            // Held, the key puts every player at the screen into one view: first person if any of them is out of it, else the game's own.
+            boolean allFirst = false;
+            if ((pressed & Config.FIRST_PERSON_ALL) != 0) {
+                for (int i = 0; i < View.COUNT; i++) {
+                    View view = View.of(i);
+                    allFirst |= atScreen(i) && (view == null || !view.firstPerson.wanted());
+                }
+                Log.info("the first person key was held: every player to " + (allFirst ? "first person" : "the isometric view"));
+            }
             for (int i = 0; i < View.COUNT; i++) {
                 owed[i] = said | ((told & 1 << i) != 0 ? Config.CYCLE_QUALITY : 0);
-                if (theirs(pressed, i, Config.FIRST_PERSON_TAPS, Config.FIRST_PERSON_ALL, "first person")) {
+                if ((pressed & Config.FIRST_PERSON_ALL) != 0) {
+                    View view = View.of(i);
+                    if (atScreen(i) && (view == null ? allFirst : view.firstPerson.wanted() != allFirst)) {
+                        owed[i] |= Config.FIRST_PERSON;
+                    }
+                } else if (theirs(pressed, i, Config.FIRST_PERSON_TAPS, 0, "first person")) {
                     owed[i] |= Config.FIRST_PERSON;
                 }
                 if (theirs(pressed, i, Config.CYCLE_QUALITY_TAPS, Config.CYCLE_QUALITY_ALL, "graphics")) {
@@ -578,11 +592,15 @@ final class Tracking {
      * player who is not at the screen does nothing.
      */
     private static boolean theirs(int pressed, int player, int[] taps, int held, String key) {
-        boolean tapped = (pressed & taps[player]) != 0, here = player == 0 || IsoPlayer.numPlayers > player && IsoPlayer.players[player] != null;
+        boolean tapped = (pressed & taps[player]) != 0, here = atScreen(player);
         if (tapped && !here) {
             Log.info("the " + key + " key was tapped " + (player + 1) + " times, which is player " + (player + 1) + "'s, and there is none at the screen");
         }
         return here && (tapped || (pressed & held) != 0);
+    }
+
+    private static boolean atScreen(int player) {
+        return player == 0 || IsoPlayer.numPlayers > player && IsoPlayer.players[player] != null;
     }
 
     /**

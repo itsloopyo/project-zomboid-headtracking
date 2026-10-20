@@ -252,6 +252,11 @@ public final class FirstPerson {
         return on;
     }
 
+    /** Whether first person is on or asked for and being made ready. */
+    boolean wanted() {
+        return on || gettingReady;
+    }
+
     /** Whether the viewer's own body is being drawn as it is seen from their own eye. */
     boolean seenFromTheEye() {
         return fromTheEye;
