@@ -622,12 +622,13 @@ final class RoomSight {
     private boolean[] hiddenWas = new boolean[256];
     /**
      * For each opening, the eye its state was read for and the state: an opening reached through
-     * several regions, or in several of the pictures round one eye, is read once. Nothing opens
-     * or shuts between the pictures walked from one eye, which are walked in one call.
+     * several regions, or in several of the pictures of one walk round an eye, is read once. A
+     * door opened in the frames a round is walked over is read by the next round, which comes
+     * a quarter of a second later at most, and by the picture straight away.
      */
     private int[] stateFor = new int[256];
     private byte[] stateWas = new byte[256];
-    private int walks, eyes;
+    private int walks, eyes, eyeNow;
     private static final byte UNWORKED = 0, EMPTY = 1, COVERS = 2;
     /**
      * For each region the walk reaches, the rectangle of the picture it has been reached
@@ -668,7 +669,7 @@ final class RoomSight {
      * @param eyeBuilding the building the eye is in, or OUTSIDE: its rooms stand in the way of nothing, since every line starts in them
      */
     void walk(Ground ground, Openings openings, Blocks blocks, ViewCamera.Pose eye, float tanAcross, float tanUp, long start, long eyeBuilding, Seen seen) {
-        prepare(openings, blocks, eye.eyeX, eye.eyeY, eye.eyeUp, eyeBuilding, 0f, 0f);
+        prepare(openings, blocks, eye.eyeX, eye.eyeY, eye.eyeUp, eyeBuilding, 0f, 0f, ++eyes);
         face(ground, openings, eye, tanAcross, tanUp, start, seen);
     }
 
@@ -684,35 +685,86 @@ final class RoomSight {
      * finds them built. The other arguments are walk's.
      */
     void walkAllRound(Ground ground, Openings openings, Blocks blocks, float atX, float atY, float atUp, long start, long eyeBuilding, float grow, float shutWithin, Seen seen) {
-        prepare(openings, blocks, atX, atY, atUp, eyeBuilding, grow, shutWithin);
-        for (float[] way : CUBE) {
-            cubeFace.eyeX = atX;
-            cubeFace.eyeY = atY;
-            cubeFace.eyeUp = atUp;
-            cubeFace.forwardX = way[0];
-            cubeFace.forwardY = way[1];
-            cubeFace.forwardUp = way[2];
-            // Any up that is square to the way looked: a cube's face is square, and its picture is the same turned.
-            float upX = way[2] != 0f ? 1f : 0f, upY = 0f, upUp = way[2] != 0f ? 0f : 1f;
-            cubeFace.upX = upX;
-            cubeFace.upY = upY;
-            cubeFace.upUp = upUp;
-            cubeFace.rightX = upY * way[2] - upUp * way[1];
-            cubeFace.rightY = upUp * way[0] - upX * way[2];
-            cubeFace.rightUp = upX * way[1] - upY * way[0];
-            face(ground, openings, cubeFace, 1f, 1f, start, seen);
+        Round round = new Round();
+        begin(round, atX, atY, atUp, start, eyeBuilding, grow, shutWithin, seen);
+        boolean last;
+        do {
+            last = walkFace(ground, openings, blocks, round);
+        } while (!last);
+    }
+
+    /**
+     * A walk round an eye walked a picture at a time, so that the six pictures, which together
+     * take a frame's worth on a street, are spread over six frames: see walkAllRound.
+     */
+    static final class Round {
+        private float atX, atY, atUp, grow, shutWithin;
+        private long start, eyeBuilding;
+        private int eye, faces = CUBE.length;
+        private Seen seen;
+
+        boolean walking() {
+            return faces < CUBE.length;
+        }
+
+        void drop() {
+            faces = CUBE.length;
+            seen = null;
         }
     }
 
+    /** Sets out a walk round an eye, as walkAllRound's, that walkFace walks. */
+    void begin(Round round, float atX, float atY, float atUp, long start, long eyeBuilding, float grow, float shutWithin, Seen seen) {
+        round.atX = atX;
+        round.atY = atY;
+        round.atUp = atUp;
+        round.start = start;
+        round.eyeBuilding = eyeBuilding;
+        round.grow = grow;
+        round.shutWithin = shutWithin;
+        round.seen = seen;
+        round.eye = ++eyes;
+        round.faces = 0;
+    }
+
+    /** Walks the next of a round's pictures, and says whether that was its last. */
+    boolean walkFace(Ground ground, Openings openings, Blocks blocks, Round round) {
+        if (!round.walking()) {
+            throw new IllegalStateException("a walk round the eye was walked past its last picture");
+        }
+        prepare(openings, blocks, round.atX, round.atY, round.atUp, round.eyeBuilding, round.grow, round.shutWithin, round.eye);
+        float[] way = CUBE[round.faces++];
+        cubeFace.eyeX = round.atX;
+        cubeFace.eyeY = round.atY;
+        cubeFace.eyeUp = round.atUp;
+        cubeFace.forwardX = way[0];
+        cubeFace.forwardY = way[1];
+        cubeFace.forwardUp = way[2];
+        // Any up that is square to the way looked: a cube's face is square, and its picture is the same turned.
+        float upX = way[2] != 0f ? 1f : 0f, upY = 0f, upUp = way[2] != 0f ? 0f : 1f;
+        cubeFace.upX = upX;
+        cubeFace.upY = upY;
+        cubeFace.upUp = upUp;
+        cubeFace.rightX = upY * way[2] - upUp * way[1];
+        cubeFace.rightY = upUp * way[0] - upX * way[2];
+        cubeFace.rightUp = upX * way[1] - upY * way[0];
+        Seen seen = round.seen;
+        if (!round.walking()) {
+            round.seen = null;
+        }
+        face(ground, openings, cubeFace, 1f, 1f, round.start, seen);
+        return !round.walking();
+    }
+
     /** Lists the openings by region and takes what every picture walked from this eye shares. */
-    private void prepare(Openings openings, Blocks blocks, float atX, float atY, float atUp, long eyeBuilding, float grow, float shutWithin) {
+    private void prepare(Openings openings, Blocks blocks, float atX, float atY, float atUp, long eyeBuilding, float grow, float shutWithin, int eye) {
         // The blocks seen from the same eye hide the same, and the openings listed once are listed: a walk round the eye after the picture's reuses both.
         if (openings != indexed || openings.filling != indexedFilling) {
             index(openings);
             indexed = openings;
             indexedFilling = openings.filling;
         }
-        eyes++;
+        eyeNow = eye;
         this.blocks = blocks;
         this.eyeBuilding = eyeBuilding;
         this.grow = grow;
@@ -791,11 +843,11 @@ final class RoomSight {
                     }
                     // Whether it is open is asked last but one: it reads the map.
                     int state;
-                    if (stateFor[opening] == eyes) {
+                    if (stateFor[opening] == eyeNow) {
                         state = stateWas[opening];
                     } else {
                         state = state(ground, openings, opening);
-                        stateFor[opening] = eyes;
+                        stateFor[opening] = eyeNow;
                         stateWas[opening] = (byte) state;
                     }
                     if (state != SEE && !(state == SHUT && nearerThan(openings, opening, shutWithin))) {

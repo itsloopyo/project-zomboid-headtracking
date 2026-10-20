@@ -1127,6 +1127,9 @@ final class WorldScene {
     /** Where the eye was at the last walk round it and when, and how fast it has been moving, tiles a second. */
     private float roundEyeX, roundEyeY, eyeSpeed;
     private long roundNanos;
+    /** The walks round the eye being walked, a picture a frame, and whether roomsMayShow is to take what they find once they are done. */
+    private final RoomSight.Round builtRound = new RoomSight.Round(), mayShowRound = new RoomSight.Round();
+    private boolean roomsMayShowDue;
     /**
      * How long the rooms a walk round the eye found stand for it, unless the eye has gone half
      * the way an opening is taken to reach past its edges: a door opened far off by someone
@@ -1406,6 +1409,9 @@ final class WorldScene {
         roomsMayShowFound.clear();
         mayShowOpenings = -1;
         roundNanos = 0L;
+        builtRound.drop();
+        mayShowRound.drop();
+        roomsMayShowDue = false;
         eyeSpeed = 0f;
         if (building(System.nanoTime()) == 0) {
             // Nothing is built or read while every view is off, so nothing would come to let these go.
@@ -3795,7 +3801,16 @@ final class WorldScene {
             float grow = GROW_TILES + eyeSpeed * GROW_SECONDS;
             roomsEntered.clear();
             roomsLeft.clear();
-            if (roundNanos == 0L || now - roundNanos >= ROUND_EVERY_NANOS || moved > grow / 2f) {
+            boolean whole = roundNanos == 0L || !buildingBySight;
+            if (whole) {
+                if (mayShowRound.walking()) {
+                    // What it found so far is not what it was set out from.
+                    mayShowOpenings = -1;
+                }
+                builtRound.drop();
+                mayShowRound.drop();
+            }
+            if (!builtRound.walking() && !mayShowRound.walking() && (whole || now - roundNanos >= ROUND_EVERY_NANOS || moved > grow / 2f)) {
                 if (roundNanos != 0L && seconds > 0f) {
                     // A jump across the map is no speed: the walk round the new place starts it again.
                     float speed = moved / seconds;
@@ -3805,11 +3820,8 @@ final class WorldScene {
                 roundEyeY = camera.eyeY;
                 roundNanos = now;
                 roomsFound.clear();
-                roomWalk.walkAllRound(roomMap, openingsInReach, blocksInReach, camera.eyeX, camera.eyeY, camera.eyeUp, roomMap.region(eyeX, eyeY, eyeLevel),
-                        roomMap.building(eyeX, eyeY, eyeLevel), (GROW_TILES + eyeSpeed * GROW_SECONDS) / 2f, SHUT_WITHIN, roomsFound);
-                roomsBuilt.found(roomsFound, now, roomsEntered);
-                roomsBuilt.expire(now, roomsLeft);
                 long region = roomMap.region(eyeX, eyeY, eyeLevel), building = roomMap.building(eyeX, eyeY, eyeLevel);
+                roomWalk.begin(builtRound, camera.eyeX, camera.eyeY, camera.eyeUp, region, building, (GROW_TILES + eyeSpeed * GROW_SECONDS) / 2f, SHUT_WITHIN, roomsFound);
                 float movedSince = (float) Math.sqrt((camera.eyeX - mayShowEyeX) * (camera.eyeX - mayShowEyeX) + (camera.eyeY - mayShowEyeY) * (camera.eyeY - mayShowEyeY)
                         + (camera.eyeUp - mayShowEyeUp) * (camera.eyeUp - mayShowEyeUp));
                 if (movedSince > grow / 2f || reach != mayShowReach || region != mayShowRegion || building != mayShowBuilding
@@ -3823,8 +3835,24 @@ final class WorldScene {
                     mayShowOpenings = openingsInReach.filling;
                     mayShowBlocks = blocksInReach.filling;
                     roomsMayShowFound.clear();
-                    roomWalk.walkAllRound(roomMap, openingsInReach, blocksInReach, camera.eyeX, camera.eyeY, camera.eyeUp, region, building, (GROW_TILES + eyeSpeed * GROW_SECONDS) / 2f, reach, roomsMayShowFound);
+                    roomWalk.begin(mayShowRound, camera.eyeX, camera.eyeY, camera.eyeUp, region, building, (GROW_TILES + eyeSpeed * GROW_SECONDS) / 2f, reach, roomsMayShowFound);
                 }
+                roomsMayShowDue = true;
+            }
+            // A round's pictures are walked one a frame, the rooms for building first: six of them
+            // walked in one frame were a hitch of a frame's worth every quarter second on a street.
+            do {
+                if (builtRound.walking()) {
+                    if (roomWalk.walkFace(roomMap, openingsInReach, blocksInReach, builtRound)) {
+                        roomsBuilt.found(roomsFound, now, roomsEntered);
+                        roomsBuilt.expire(now, roomsLeft);
+                    }
+                } else if (mayShowRound.walking()) {
+                    roomWalk.walkFace(roomMap, openingsInReach, blocksInReach, mayShowRound);
+                }
+            } while (whole && (builtRound.walking() || mayShowRound.walking()));
+            if (roomsMayShowDue && !builtRound.walking() && !mayShowRound.walking()) {
+                roomsMayShowDue = false;
                 // The rooms the last walk found stand for it until it is walked again.
                 roomsMayShowChanged.clear();
                 roomsMayShow.found(roomsMayShowFound, now, roomsMayShowChanged);
