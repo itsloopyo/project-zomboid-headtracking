@@ -174,6 +174,11 @@ final class ClinicTests {
         check(Math.abs(open.raised + open.model.height() * open.scaleUp - 33 * SURFACE_TILES) < 1e-4f, "its top as high as the game says");
         Furniture middle3 = Furniture.known(TileRows.sprite(office + "73" + DESK.replace("Office L", "Office") + "0,1"));
         check(model(middle3).equals("desk_run"), "the middle of one three squares long is a length of desk: " + model(middle3));
+        check(open.alsoDyed == 1 << Models.METAL && Math.abs(open.alsoA - 0.94f) < 1e-4f && Math.abs(open.alsoB - 0.8f) < 1e-4f,
+                "its body takes the colour the sprite paints its free end's panel, seen from inside: " + open.alsoA + ", " + open.alsoB);
+        check(withDrawers.alsoDyed == 1 << Models.METAL && withDrawers.alsoB > 0.9f, "and with its back board away, its drawers' front: " + withDrawers.alsoB);
+        Furniture facingAway = Furniture.known(TileRows.sprite(office + "76" + straight + "1,0"));
+        check(model(facingAway).equals("desk_run") && facingAway.alsoDyed == 0, "a length whose sprite paints nothing under its top keeps the model's colour");
     }
 
     private static void deskRunsTurnEveryArmOfAnL() {

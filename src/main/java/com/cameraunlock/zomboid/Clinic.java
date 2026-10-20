@@ -186,10 +186,49 @@ final class Clinic {
         return deskSquare(sprite, square.model(), square.turns(), surfaceHigh, surfaceUp);
     }
 
-    /** A square of a desk as a piece of its own: a tile a metre along the ground, its top as high as the game gives. */
+    /**
+     * A square of a desk as a piece of its own: a tile a metre along the ground, its top as high as the game gives. Its
+     * top takes the colour the sprite paints the top, and what holds it up the colour the sprite paints that, where the
+     * sprite paints it.
+     */
     private static Furniture deskSquare(IsoSprite sprite, String model, int turns, float surfaceHigh, float surfaceUp) {
         Furniture desk = Furniture.single(sprite, model, turns).dye(1 << Models.WOOD, surfaceHigh).meet(surfaceUp, DESK_TOP, false);
+        float[] body = bodyPlace(model, turns);
+        if (body != null) {
+            float[] at = new float[2];
+            Models.turn(turns, body[0], body[1], at);
+            desk.alsoAt(1 << Models.METAL, 0.5f + at[0], 0.5f + at[1], body[2] * desk.scaleUp / ViewCamera.LEVEL_HEIGHT);
+        }
         return desk.raise(surfaceUp - desk.model.height() * desk.scaleUp);
+    }
+
+    /** Where on a desk square's model, in metres, the back board's outside, a free end's panel, the drawers' front and the corner's column are. */
+    private static final float BOARD_Y = 0.42f, END_X = 0.44f, END_Y = -0.3f, DRAWERS_Y = -0.44f;
+    /** How high on those, in metres, the body's colour is taken: clear of the top's edge, of the drawers' handles and of the shadow under them. */
+    private static final float BOARD_HIGH = 0.4f, END_HIGH = 0.15f, COLUMN_HIGH = 0.3f;
+
+    /**
+     * Where a desk square's sprite paints what holds its top up, as x, y and height on the model in metres. The sprite
+     * is drawn from the south east: the back board where its outside faces that way, else a free end's panel from
+     * inside, under the top, else the drawers' front. Null for a length with its back board facing away, under whose
+     * top the sprite paints nothing.
+     */
+    private static float[] bodyPlace(String model, int turns) {
+        if (model.equals("desk_corner")) {
+            return new float[] {0f, 0f, COLUMN_HIGH};
+        }
+        float[] back = new float[2];
+        Models.turn(turns, 0f, 1f, back);
+        if (back[0] > 0.5f || back[1] > 0.5f) {
+            return new float[] {0f, BOARD_Y, BOARD_HIGH};
+        }
+        if (model.startsWith("desk_end")) {
+            return new float[] {model.endsWith("_left") ? -END_X : END_X, END_Y, END_HIGH};
+        }
+        if (model.startsWith("desk_pedestal")) {
+            return new float[] {0f, DRAWERS_Y, BOARD_HIGH};
+        }
+        return null;
     }
 
     /** How high the game gives the top of every desk of the office sheet, in its surface's pixels. */
