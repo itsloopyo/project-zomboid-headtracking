@@ -174,6 +174,13 @@ final class ClinicTests {
         check(Math.abs(open.raised + open.model.height() * open.scaleUp - 33 * SURFACE_TILES) < 1e-4f, "its top as high as the game says");
         Furniture middle3 = Furniture.known(TileRows.sprite(office + "73" + DESK.replace("Office L", "Office") + "0,1"));
         check(model(middle3).equals("desk_run"), "the middle of one three squares long is a length of desk: " + model(middle3));
+        String two = DESK.replace("Office L", "Office 2").replace("Facing|E", "Facing|W");
+        IsoSprite north = TileRows.sprite(office + "101" + two + "0,0|container|desk|"), mid = TileRows.sprite(office + "100" + two + "0,1"),
+                south = TileRows.sprite(office + "99" + two + "0,2");
+        TileRows.piece(1, 3, north, mid, south);
+        check(model(Furniture.known(north)).startsWith("desk_pedestal") && model(Furniture.known(mid)).equals("desk_run")
+                && model(Furniture.known(south)).startsWith("desk_end"), "\"Office 2\", with its grid one square across, is laid square by square too: "
+                + model(Furniture.known(north)) + ", " + model(Furniture.known(mid)) + ", " + model(Furniture.known(south)));
         check(open.alsoDyed == 1 << Models.METAL && Math.abs(open.alsoA - 0.94f) < 1e-4f && Math.abs(open.alsoB - 0.8f) < 1e-4f,
                 "its body takes the colour the sprite paints its free end's panel, seen from inside: " + open.alsoA + ", " + open.alsoB);
         check(withDrawers.alsoDyed == 1 << Models.METAL && withDrawers.alsoB > 0.9f, "and with its back board away, its drawers' front: " + withDrawers.alsoB);

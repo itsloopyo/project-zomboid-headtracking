@@ -48,7 +48,7 @@ final class Clinic {
         }
         if (name.startsWith(OFFICE) && called.equals("Desk") && properties.isTable() && surfaceUp > 0f) {
             return switch (group) {
-                case "Office" -> straightDesk(sprite, name, holds, properties, turns, surfaceHigh, surfaceUp);
+                case "Office", "Office 2" -> straightDesk(sprite, name, holds, properties, turns, surfaceHigh, surfaceUp);
                 case "Office L", "Office L2" -> lDesk(sprite, name, group, holds, turns, surfaceHigh, surfaceUp);
                 default -> desk(sprite, holds, turns, surfaceHigh, surfaceUp);
             };
@@ -134,13 +134,14 @@ final class Clinic {
         return deskSquare(sprite, square.model(), square.turns(), surfaceHigh, surfaceUp);
     }
 
-    /** Where on the sheet its straight desks three squares long begin: those before are two squares long. */
+    /** Where on the sheet its straight desks three squares long begin, "Office" and "Office 2": those before are two squares long. */
     private static final int THREE_LONG = 72;
 
     /**
      * A square of one of the sheet's straight desks, two squares long or three. The game gives
-     * them no grid: the tile definitions put two of them on one SpriteGridPos of a facing, and
-     * the game drops every grid of a group that has a square twice. So each square is laid by
+     * "Office" no grid: the tile definitions put two of them on one SpriteGridPos of a facing, and
+     * the game drops every grid of a group that has a square twice. "Office 2" keeps its grid,
+     * one square across, which the L desks' route does not take. So each square is laid by
      * its own SpriteGridPos in a run across the way the desk faces.
      */
     private static Furniture straightDesk(IsoSprite sprite, String name, String holds, PropertyContainer properties, int turns, float surfaceHigh,
