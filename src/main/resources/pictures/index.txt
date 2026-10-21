@@ -1,27 +1,27 @@
-family-00	525	768
-family-01	525	768
-family-02	525	768
-family-03	525	768
-family-04	525	768
-family-05	525	768
-family-06	525	768
-family-07	525	768
-family-08	525	768
-family-09	768	525
-family-10	525	768
-family-11	525	768
-family-12	525	768
-family-13	525	768
-family-14	525	768
-family-15	768	525
-family-16	525	768
-family-17	525	768
-family-18	525	768
-family-19	525	768
-family-20	525	768
-family-21	768	525
-family-22	525	768
-family-23	768	525
+family-00	525	768	family
+family-01	525	768	family
+family-02	525	768	family
+family-03	525	768	family
+family-04	525	768	family
+family-05	525	768	family
+family-06	525	768	family
+family-07	525	768	family
+family-08	525	768	family
+family-09	768	525	family
+family-10	525	768	family
+family-11	525	768	family
+family-12	525	768	family
+family-13	525	768	family
+family-14	525	768	family
+family-15	768	525	family
+family-16	525	768	family
+family-17	525	768	family
+family-18	525	768	family
+family-19	525	768	family
+family-20	525	768	family
+family-21	768	525	family
+family-22	525	768	family
+family-23	768	525	family
 basketball-0	525	768
 basketball-5	525	768
 basketball-4	525	768
@@ -154,8 +154,8 @@ painting-sitter	701	1024
 board-cork	1024	701
 board-white	1024	585
 board-darts	1024	585
-certificate-doctor	1024	701
-certificate-surgeon	1024	701
+certificate-doctor	1024	701	certificate
+certificate-surgeon	1024	701	certificate
 music-00-tall	512	768
 music-00-wide	768	512
 music-01-tall	512	768
@@ -672,6 +672,16 @@ screen-stage-0	640	480
 screen-stage-1	640	480
 screen-stage-2	640	480
 screen-stage-3	640	480
+certificate-food-permit	1024	701	certificate
+certificate-grade-a	1024	701	certificate
+certificate-business-license	1024	701	certificate
+certificate-chamber	1024	701	certificate
+certificate-cpa	1024	701	certificate
+certificate-employee	1024	701	certificate
+certificate-teaching	1024	701	certificate
+certificate-principal	1024	701	certificate
+certificate-peace-officer	1024	701	certificate
+certificate-high-school	1024	701	certificate
 =walls_decoration_02_0	family-00
 =walls_decoration_02_8	family-00
 =walls_decoration_02_1	family-01
@@ -1267,3 +1277,13 @@ screen-stage-3	640	480
 =Sign|Property	sign-property
 =Flag|Stars n Stripes	sign-stars-n-stripes
 =Sign|Coffee High	sign-coffee-low
+@certificate	restaurant	certificate-food-permit certificate-grade-a
+@certificate	shop	certificate-business-license certificate-chamber
+@certificate	office	certificate-cpa certificate-employee
+@certificate	school	certificate-teaching certificate-principal
+@certificate	police	certificate-peace-officer
+@certificate	home	certificate-doctor certificate-surgeon certificate-high-school
+@family	medical	painting-waterbeach-hills painting-waterfall painting-riverside painting-two-frame painting-lighthouse painting-helianthus painting-flowers-on-table
+@family	motel	painting-waterbeach-hills painting-waterfall painting-riverside painting-two-frame painting-lighthouse painting-helianthus painting-flowers-on-table
+@family	industrial	racing-0 racing-1 racing-2 racing-3 racing-4 racing-5
+@family	gym	weights-0 weights-1 weights-2 weights-3 weights-4 weights-5 boxing-0 boxing-1 boxing-2 boxing-3 boxing-4 boxing-5

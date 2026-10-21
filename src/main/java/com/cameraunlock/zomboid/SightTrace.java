@@ -167,7 +167,7 @@ final class SightTrace {
                         if (culled && open && !reached(square.getRoomID(), eye, tanAcross, tanUp)) {
                             open = false;
                         }
-                        String blank = built && !culled ? blank(object, sprite, build) : null;
+                        String blank = built && !culled ? blank(object, sprite, build, x, y, z) : null;
                         boolean drawn = built && !culled && blank == null;
                         String held = blank;
                         if (!drawn && blank == null) {
@@ -272,12 +272,12 @@ final class SightTrace {
      * null: the mod's picture in a frame not read yet, or a piece the mod has a
      * model of drawn as the game's sprite because its model could not be stood when built.
      */
-    private static String blank(IsoObject object, IsoSprite sprite, WorldScene.ChunkMeshes build) {
+    private static String blank(IsoObject object, IsoSprite sprite, WorldScene.ChunkMeshes build, int x, int y, int z) {
         Furniture piece = Furniture.known(sprite);
         if (piece == null) {
             return null;
         }
-        if (build.pictured != null && build.pictured.contains(object) && !Decor.ready(piece.picture)) {
+        if (build.pictured != null && build.pictured.contains(object) && !Decor.ready(Decor.inRoom(piece.picture, x, y, z))) {
             return "its picture is not read yet";
         }
         if (Own.furniture() && piece.model != null && piece.wall == WallHung.NONE && !piece.follows && !piece.basin && !piece.countertop && build.modelled != null

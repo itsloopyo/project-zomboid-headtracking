@@ -4,12 +4,16 @@ A picture is made from a text prompt alone (generate.py), then cut to the shapes
 (pack.py). Nothing of the game's own art goes into one.
 
 ART is name -> (prompt, negative, width, height). HUNG is the list of (key, picture) that pack.py writes as the mod's
-index: a key is a sprite's name, or the name and group the game gives a piece, "Painting|Lighthouse". LONG is the keys
+index: a key is a sprite's name, or the name and group the game gives a piece, "Painting|Lighthouse". POOLS is
+(subject, room kind) -> pictures: a picture of that subject (subject()) hung in a room of that kind (rooms.py) shows one of
+these instead, chosen by Decor.inRoom. LONG is the keys
 that hold only for a piece lying along several squares: the game gives some single sprites, each a part of a hoarding,
 the same name. SHAPED is how many times as wide as it is high a painting that hangs along several squares is on its
 wall, inside its frame: it is cut to that. LETTERED says what is written on a poster. SEEDS is the seed of each picture not made with 1993.
 """
 
+import pools
+import rooms
 import shows
 import signs
 
@@ -22,6 +26,7 @@ TALL, WIDE, SQUARE, BROAD, LONGER, STOUT = (832, 1216), (1216, 832), (1024, 1024
 
 ART = {}
 HUNG = []
+POOLS = {}
 LONG = set()
 SHAPED = {}
 LETTERED = {}
@@ -352,6 +357,29 @@ HUNG.append(('Certificate|Doctor Degree', 'certificate-doctor'))
 HUNG.append(('Certificate|Surgeon Degree', 'certificate-surgeon'))
 LETTERED['certificate-doctor'] = ('certificate', 'diploma', 'Doctor of Medicine', 'Kentucky State School of Medicine')
 LETTERED['certificate-surgeon'] = ('certificate', 'diploma', 'Fellow in Surgery', 'Kentucky College of Surgeons')
+# What the same sprites show in a room of a business, lettered on the same blank sheet: name, title, who gives it, the
+# line over the title and the line under it.
+_HOLDS = 'certifies that this establishment holds a'
+_VALID = 'valid through December 31, 1993'
+_RIGHTS = 'with all the rights and privileges thereto pertaining'
+CERTIFICATES = {
+    'restaurant': [('food-permit', 'Food Service Permit', 'Kentucky Department for Public Health', _HOLDS, _VALID),
+                   ('grade-a', 'Grade A', 'Knox County Health Department', 'on inspection this establishment has been awarded', 'inspected June 1993')],
+    'shop': [('business-license', 'Business License', 'Commonwealth of Kentucky', 'certifies that this business holds a', _VALID),
+             ('chamber', 'Member in Good Standing', 'Knox County Chamber of Commerce', 'proudly recognizes this business as a', 'for the year 1993')],
+    'office': [('cpa', 'Certified Public Accountant', 'Kentucky State Board of Accountancy', 'has conferred upon the bearer the title of', _RIGHTS),
+               ('employee', 'Employee of the Month', 'In Recognition of Outstanding Service', 'is proudly presented to the bearer as', 'with the thanks of all the staff')],
+    'school': [('teaching', 'Teaching Certificate', 'Kentucky Department of Education', 'certifies that the bearer holds a', _RIGHTS),
+               ('principal', 'Principal', 'Kentucky Department of Education', 'certifies that the bearer is qualified to serve as', _RIGHTS)],
+    'police': [('peace-officer', 'Peace Officer Certification', 'Kentucky Law Enforcement Council', 'certifies that the bearer has earned', _RIGHTS)],
+    'home': [('high-school', 'High School Diploma', 'Muldraugh High School', 'has conferred upon the bearer this',
+              'with all the rights, honours and privileges thereto pertaining')],
+}
+for _kind, _sheets in CERTIFICATES.items():
+    POOLS['certificate', _kind] = ['certificate-doctor', 'certificate-surgeon'] if _kind == 'home' else []
+    for _name, _title, _issuer, _phrase, _foot in _sheets:
+        LETTERED['certificate-' + _name] = ('certificate', 'diploma', _title, _issuer, _phrase, _foot)
+        POOLS['certificate', _kind].append('certificate-' + _name)
 
 # Posters of the bands and singers of the record shop and of bedroom walls: eighteen acts, each as a large sheet, a wide
 # one and a small one. The art is square, and pack.py cuts each shape out of it.
@@ -495,3 +523,31 @@ for _show, _shots in shows.SHOWS.items():
 for _name, (_prompt, _negative, _wide, _high) in signs.ART.items():
     art(_name, _prompt, _negative, (_wide, _high))
 HUNG += signs.HUNG
+
+# Where a family album does not belong: a business shows pictures of its own kind (pools.py) in place of the family
+# photographs, a clinic or a motel shows landscapes and a garage or a gym sports posters. Homes, prison cells and a photo
+# studio keep the family photographs.
+for _kind, _prompts in pools.POOLS.items():
+    POOLS['family', _kind] = []
+    for _i, _prompt in enumerate(_prompts):
+        art('pool-%s-%02d' % (_kind, _i), _prompt, '', TALL)
+        POOLS['family', _kind].append('pool-%s-%02d' % (_kind, _i))
+_LANDSCAPES = ['painting-' + _name for _name in ('waterbeach-hills', 'waterfall', 'riverside', 'two-frame', 'lighthouse', 'helianthus', 'flowers-on-table')]
+POOLS['family', 'medical'] = POOLS['family', 'motel'] = _LANDSCAPES
+POOLS['family', 'industrial'] = ['racing-%d' % _i for _i in range(len(SPORTS['racing']))]
+POOLS['family', 'gym'] = ['%s-%d' % (_sport, _i) for _sport in ('weights', 'boxing') for _i in range(len(SPORTS[_sport]))]
+for (_subject, _kind), _pool in POOLS.items():
+    if _kind not in rooms.KINDS:
+        raise ValueError('pictures are pooled for a kind of room rooms.py has no rule for: ' + _kind)
+    _unknown = [_name for _name in _pool if _name not in ART and _name not in LETTERED]
+    if _unknown:
+        raise ValueError('the pool of %s in a %s names pictures the catalogue has not: %s' % (_subject, _kind, ' '.join(_unknown)))
+
+
+def subject(name):
+    """What a picture is of where the room it hangs in may change it for another (POOLS), or None."""
+    if name.startswith('family-'):
+        return 'family'
+    if name.startswith('certificate-'):
+        return 'certificate'
+    return None

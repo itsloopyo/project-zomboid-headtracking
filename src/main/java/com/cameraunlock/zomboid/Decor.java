@@ -11,15 +11,23 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.WeakHashMap;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.imageio.ImageIO;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL30;
 import org.lwjgl.opengl.GL42;
+import zombie.iso.BuildingDef;
+import zombie.iso.IsoWorld;
+import zombie.iso.RoomDef;
 
 /**
  * The mod's own pictures for what hangs on a wall: a photograph in its frame, a painting, a
@@ -29,10 +37,18 @@ import org.lwjgl.opengl.GL42;
  * tools/pictures and listed in the jar's index of them.
  *
  * The index is lines of text. A picture is its name, a tab, how wide it is in pixels, a tab
- * and how high: it is /pictures/name.jpg. What shows a picture is a line that starts with =,
+ * and how high, and where the room it hangs in may change it for another a tab and its
+ * subject: it is /pictures/name.jpg. What shows a picture is a line that starts with =,
  * or with + where only a piece that lies on several squares shows it, then the key, a tab and
  * the picture's name. A key is a sprite's name, or what the game calls the piece and its
- * group with a bar between: "Painting|Lighthouse".
+ * group with a bar between: "Painting|Lighthouse". A pool is a line that starts with @, then
+ * a subject, a tab, a kind of room, a tab and pictures with a space between: a picture of that
+ * subject hung in a room of that kind shows one of these instead (inRoom).
+ *
+ * What kind a room is comes from its name by /pictures/rooms.txt, lines of the name, a tab and
+ * its kind, or UNSAID or OFFICE_LIKE for a name that does not say what its building is, which
+ * then takes its kind from its building's other rooms (kind). tools/pictures/rooms.py writes
+ * it from the game's map.
  */
 final class Decor {
     static final int NONE = -1;
@@ -56,13 +72,29 @@ final class Decor {
             LINEAR[i] = (float) Math.pow(i / 255.0, 2.2);
         }
     }
+    static final String UNSAID = "-", OFFICE_LIKE = "-office", HOME = "home", OFFICE = "office";
+    /** A tie between two kinds of a building's rooms goes to the one first here, as in tools/pictures/rooms.py. */
+    static final List<String> KINDS = List.of(HOME, "police", "prison", "medical", "school", "church", "motel", "gym", "stage", "photostudio", "industrial", OFFICE,
+            "shop", "bar", "restaurant");
 
     /** The index, read by the logic thread the first time a sprite is asked about. */
-    private static final class Index {
+    static final class Index {
         final List<String> names = new ArrayList<>();
         final List<float[]> sizes = new ArrayList<>();
         final Map<String, Integer> shows = new HashMap<>(), showsLong = new HashMap<>();
+        /** Each picture's subject, or null, and its number among the pictures of its subject in the order listed. */
+        final List<String> subjects = new ArrayList<>();
+        final List<Integer> ordinals = new ArrayList<>();
+        /** The pools, by subject, a tab and the kind of room. */
+        final Map<String, int[]> pools = new HashMap<>();
     }
+
+    /** What each room name on the map says it is, read the first time a room is asked about. */
+    private static volatile Map<String, String> roomNames;
+    /** The kind of each room asked about, kept for as long as the game keeps the room. Logic thread. */
+    private static final WeakHashMap<RoomDef, String> roomKinds = new WeakHashMap<>();
+    /** The room names rooms.txt has not, each written to the log once. Logic thread. */
+    private static final Set<String> unknownRooms = new HashSet<>();
 
     private static volatile Index index;
     /** The pixels of each picture read and not yet given to the graphics card, and the texture of each that has been. Both under the class's lock. */
@@ -145,32 +177,192 @@ final class Decor {
     }
 
     private static Index read(String path) throws IOException {
-        Index read = new Index();
-        Map<String, Integer> numbers = new HashMap<>();
         try (InputStream in = Decor.class.getResourceAsStream(path)) {
             if (in == null) {
                 throw new IOException("the jar has no " + path);
             }
-            BufferedReader lines = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8));
-            for (String line = lines.readLine(); line != null; line = lines.readLine()) {
-                String[] parts = line.split("\t");
-                if (line.startsWith("=") || line.startsWith("+")) {
-                    Integer picture = parts.length == 2 ? numbers.get(parts[1]) : null;
-                    if (picture == null) {
-                        throw new IOException(path + " has a line that shows no picture listed before it: " + line);
-                    }
-                    (line.startsWith("+") ? read.showsLong : read.shows).put(parts[0].substring(1), picture);
-                } else {
-                    if (parts.length != 3) {
-                        throw new IOException(path + " has a line that is no picture and shows none: " + line);
-                    }
-                    numbers.put(parts[0], read.names.size());
-                    read.names.add(parts[0]);
-                    read.sizes.add(new float[] {Integer.parseInt(parts[1]), Integer.parseInt(parts[2])});
+            return read(new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8)), path);
+        }
+    }
+
+    static Index read(BufferedReader lines, String path) throws IOException {
+        Index read = new Index();
+        Map<String, Integer> numbers = new HashMap<>(), ofSubject = new HashMap<>();
+        for (String line = lines.readLine(); line != null; line = lines.readLine()) {
+            String[] parts = line.split("\t");
+            if (line.startsWith("=") || line.startsWith("+")) {
+                Integer picture = parts.length == 2 ? numbers.get(parts[1]) : null;
+                if (picture == null) {
+                    throw new IOException(path + " has a line that shows no picture listed before it: " + line);
                 }
+                (line.startsWith("+") ? read.showsLong : read.shows).put(parts[0].substring(1), picture);
+            } else if (line.startsWith("@")) {
+                if (parts.length != 3) {
+                    throw new IOException(path + " has a pool that is not a subject, a kind of room and pictures: " + line);
+                }
+                String[] names = parts[2].split(" ");
+                int[] pool = new int[names.length];
+                for (int i = 0; i < names.length; i++) {
+                    Integer picture = numbers.get(names[i]);
+                    if (picture == null) {
+                        throw new IOException(path + " has a pool of a picture not listed before it, " + names[i] + ": " + line);
+                    }
+                    pool[i] = picture;
+                }
+                if (read.pools.put(parts[0].substring(1) + "\t" + parts[1], pool) != null) {
+                    throw new IOException(path + " has a second pool of one subject in one kind of room: " + line);
+                }
+            } else {
+                if (parts.length != 3 && parts.length != 4) {
+                    throw new IOException(path + " has a line that is no picture and shows none: " + line);
+                }
+                String subject = parts.length == 4 ? parts[3] : null;
+                numbers.put(parts[0], read.names.size());
+                read.names.add(parts[0]);
+                read.sizes.add(new float[] {Integer.parseInt(parts[1]), Integer.parseInt(parts[2])});
+                read.subjects.add(subject);
+                read.ordinals.add(subject == null ? 0 : ofSubject.merge(subject, 1, Integer::sum) - 1);
             }
         }
         return read;
+    }
+
+    private static Map<String, String> roomNames() {
+        Map<String, String> read = roomNames;
+        if (read == null) {
+            read = new HashMap<>();
+            String path = FOLDER + "rooms.txt";
+            try (InputStream in = Decor.class.getResourceAsStream(path)) {
+                if (in == null) {
+                    throw new IOException("the jar has no " + path);
+                }
+                BufferedReader lines = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8));
+                for (String line = lines.readLine(); line != null; line = lines.readLine()) {
+                    String[] parts = line.split("\t", -1);
+                    if (parts.length != 2 || !parts[1].equals(UNSAID) && !parts[1].equals(OFFICE_LIKE) && !KINDS.contains(parts[1])) {
+                        throw new IOException(path + " has a line that is no room name and kind: " + line);
+                    }
+                    read.put(parts[0], parts[1]);
+                }
+            } catch (IOException e) {
+                throw new UncheckedIOException("the jar's kinds of room could not be read", e);
+            }
+            roomNames = read;
+        }
+        return read;
+    }
+
+    /**
+     * What a room's name says it is: a kind, or UNSAID or OFFICE_LIKE. A name the shipped map
+     * has not, another map's, says nothing, and is written to the log the first time.
+     */
+    static String said(String name) {
+        String lower = name.toLowerCase(Locale.ROOT);
+        String said = roomNames().get(lower);
+        if (said == null) {
+            if (unknownRooms.add(lower)) {
+                Log.info("pictures: the room name " + lower + " is not on the shipped map, and takes its kind from its building's other rooms");
+            }
+            return UNSAID;
+        }
+        return said;
+    }
+
+    /**
+     * The kind of a room, given what its name says and what each of its building's room names
+     * says, one entry a name: tools/pictures/rooms.py kind(), line for line. A room whose name
+     * says its kind is that. Otherwise, in a building with no business it is a home; in one
+     * that is a home over a business, a room an office has is the business and any other is
+     * the home; in a business, a room an office has is an office where the building has as
+     * many of those as of its most common business, and any other is that business.
+     */
+    static String kind(String said, List<String> building) {
+        if (!said.equals(UNSAID) && !said.equals(OFFICE_LIKE)) {
+            return said;
+        }
+        Map<String, Integer> business = new HashMap<>();
+        boolean home = false;
+        int offices = 0;
+        for (String each : building) {
+            if (each.equals(HOME)) {
+                home = true;
+            } else if (each.equals(OFFICE_LIKE)) {
+                offices++;
+            } else if (!each.equals(UNSAID)) {
+                business.merge(each, 1, Integer::sum);
+            }
+        }
+        String top = null;
+        for (String each : KINDS) {
+            if (business.containsKey(each) && (top == null || business.get(each) > business.get(top))) {
+                top = each;
+            }
+        }
+        if (top == null) {
+            return HOME;
+        }
+        if (home) {
+            return said.equals(OFFICE_LIKE) ? top : HOME;
+        }
+        return said.equals(OFFICE_LIKE) && offices >= business.get(top) ? OFFICE : top;
+    }
+
+    /** The kind of a room of the game's map. Logic thread. */
+    private static String kindOf(RoomDef room) {
+        String kind = roomKinds.get(room);
+        if (kind == null) {
+            Set<String> names = new TreeSet<>();
+            for (RoomDef each : room.getBuilding().rooms) {
+                names.add(each.getName().toLowerCase(Locale.ROOT));
+            }
+            List<String> building = new ArrayList<>(names.size());
+            for (String name : names) {
+                building.add(said(name));
+            }
+            kind = kind(said(room.getName()), building);
+            roomKinds.put(room, kind);
+        }
+        return kind;
+    }
+
+    /**
+     * What a sprite that shows the picture shows hung on that square: the picture itself, but
+     * for one whose subject has a pool for the kind of room the square is in, where it is one of
+     * the pool's, the same every time for that building and picture. A square in no room keeps
+     * the picture. Logic thread.
+     */
+    static int inRoom(int picture, int x, int y, int z) {
+        if (picture == NONE) {
+            return NONE;
+        }
+        Index read = index();
+        String subject = read.subjects.get(picture);
+        if (subject == null) {
+            return picture;
+        }
+        RoomDef room = IsoWorld.instance.getMetaGrid().getRoomAt(x, y, z);
+        if (room == null) {
+            return picture;
+        }
+        int[] pool = read.pools.get(subject + "\t" + kindOf(room));
+        if (pool == null) {
+            return picture;
+        }
+        BuildingDef building = room.getBuilding();
+        return pick(pool, read.ordinals.get(picture), building.getX(), building.getY());
+    }
+
+    /**
+     * One of a pool's pictures for the picture of that number among its subject's, in the
+     * building whose corner is there. Pictures of different numbers in one building show
+     * different pictures of the pool while it has enough, and two buildings mostly differ.
+     */
+    static int pick(int[] pool, int ordinal, int buildingX, int buildingY) {
+        int mixed = buildingX * 0x27d4eb2d ^ buildingY * 0x165667b1;
+        mixed ^= mixed >>> 15;
+        mixed *= 0x85ebca6b;
+        mixed ^= mixed >>> 13;
+        return pool[Math.floorMod(ordinal + mixed, pool.length)];
     }
 
     /**

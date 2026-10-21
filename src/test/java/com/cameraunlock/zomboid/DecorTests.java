@@ -4,10 +4,15 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.StringReader;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /** Tests of how the mod's own picture is laid in a frame or over a sheet on a wall. */
 final class DecorTests {
@@ -26,6 +31,10 @@ final class DecorTests {
         Checks.run("aBroadcastNobodyListedIsItsChannelsShow", DecorTests::aBroadcastNobodyListedIsItsChannelsShow);
         Checks.run("aShopsSignShowsAPictureTheShapeOfItsBoard", DecorTests::aShopsSignShowsAPictureTheShapeOfItsBoard);
         Checks.run("everyPictureInTheJarReadsAsItsColoursDotForDot", DecorTests::everyPictureInTheJarReadsAsItsColoursDotForDot);
+        Checks.run("everyRoomOnTheMapIsTheKindToolsPicturesGivesIt", DecorTests::everyRoomOnTheMapIsTheKindToolsPicturesGivesIt);
+        Checks.run("aRoomThatSaysNothingTakesItsKindFromItsBuilding", DecorTests::aRoomThatSaysNothingTakesItsKindFromItsBuilding);
+        Checks.run("aPoolGivesEachPictureOfABuildingItsOwn", DecorTests::aPoolGivesEachPictureOfABuildingItsOwn);
+        Checks.run("theIndexListsSubjectsAndPools", DecorTests::theIndexListsSubjectsAndPools);
     }
 
     private static void everyPictureInTheJarReadsAsItsColoursDotForDot() {
@@ -33,7 +42,7 @@ final class DecorTests {
         try (InputStream in = Decor.class.getResourceAsStream("/pictures/index.txt")) {
             BufferedReader lines = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8));
             for (String line = lines.readLine(); line != null; line = lines.readLine()) {
-                if (!line.startsWith("=") && !line.startsWith("+")) {
+                if (!line.startsWith("=") && !line.startsWith("+") && !line.startsWith("@")) {
                     pictures.add(line.split("\t"));
                 }
             }
@@ -242,6 +251,103 @@ final class DecorTests {
         check(shows.aired(200, "no such broadcast") == shows.aired(200, null), "and so it does for a broadcast the table does not list");
         check(shows.aired(98765, null) == Shows.ANY && shows.taped("no such tape") == Shows.ANY, "a channel or a tape the table does not list is the show of no one programme");
         check(shows.shots(Shows.SNOW) == 0 && shows.shots(Shows.ANY) > 0, "interference has no shots and the show of no one programme has");
+    }
+
+    private static void everyRoomOnTheMapIsTheKindToolsPicturesGivesIt() throws IOException {
+        // A room of each name on the shipped map in each sort of building it is in, with the kind tools/pictures/rooms.py gives it.
+        List<String> rooms = Files.readAllLines(Path.of("src", "test", "data", "rooms.txt"), StandardCharsets.UTF_8);
+        check(rooms.size() > 1000, "the test has the map's rooms: " + rooms.size());
+        int wrong = 0;
+        for (String line : rooms) {
+            String[] parts = line.split("\t");
+            List<String> building = new ArrayList<>();
+            for (String name : parts[2].split(" ")) {
+                building.add(Decor.said(name));
+            }
+            String kind = Decor.kind(Decor.said(parts[1]), building);
+            if (!kind.equals(parts[0]) && wrong++ < 20) {
+                check(false, parts[1] + " in a building of " + parts[2] + " is " + parts[0] + ", and Decor makes it " + kind);
+            }
+        }
+        check(wrong == 0, "every room is the kind tools/pictures gives it: " + wrong + " are not");
+    }
+
+    private static void aRoomThatSaysNothingTakesItsKindFromItsBuilding() {
+        check(Decor.kind(Decor.said("pizzawhirled"), List.of()).equals("restaurant"), "a pizza shop is a restaurant");
+        check(Decor.kind(Decor.said("Gallery"), List.of()).equals("stage"), "a name is read without its capitals");
+        check(Decor.kind(Decor.said("prisoncells"), List.of()).equals("prison") && Decor.kind(Decor.said("photoroom"), List.of()).equals("photostudio"),
+                "prison cells and a photo studio are kinds of their own, which keep the family photographs");
+        List<String> restaurant = says("office", "hall", "restaurantdining", "restaurantkitchen");
+        check(Decor.kind(Decor.said("office"), restaurant).equals("restaurant") && Decor.kind(Decor.said("hall"), restaurant).equals("restaurant"),
+                "the office and the hall of a restaurant are the restaurant's");
+        List<String> house = says("bedroom", "kitchen", "livingroom", "office");
+        check(Decor.kind(Decor.said("office"), house).equals("home") && Decor.kind(Decor.said("kitchen"), house).equals("home"), "a home's office and kitchen are the home's");
+        List<String> flatOverShop = says("bedroom", "kitchen", "livingroom", "office", "grocery");
+        check(Decor.kind(Decor.said("office"), flatOverShop).equals("shop") && Decor.kind(Decor.said("kitchen"), flatOverShop).equals("home"),
+                "over a shop, the office is the shop's and the kitchen the flat's");
+        List<String> officeBlock = says("office", "meetingroom", "breakroom", "cafeteria", "hall");
+        check(Decor.kind(Decor.said("office"), officeBlock).equals("office") && Decor.kind(Decor.said("hall"), officeBlock).equals("restaurant"),
+                "an office block with a cafeteria keeps its offices");
+        check(Decor.kind(Decor.said("hall"), says("gym", "cafeteria", "hall")).equals("gym"), "a tie goes to the kind the building is, not its canteen");
+        check(Decor.said("no such room name").equals(Decor.UNSAID), "a room name another map has says nothing of its building");
+    }
+
+    private static List<String> says(String... names) {
+        List<String> said = new ArrayList<>();
+        for (String name : names) {
+            said.add(Decor.said(name));
+        }
+        return said;
+    }
+
+    private static void aPoolGivesEachPictureOfABuildingItsOwn() {
+        int[] pool = {10, 11, 12, 13, 14, 15, 16, 17};
+        for (int building = 0; building < 50; building++) {
+            int x = 6000 + building * 37, y = 5000 + building * 53;
+            Set<Integer> shown = new HashSet<>();
+            for (int ordinal = 0; ordinal < pool.length; ordinal++) {
+                shown.add(Decor.pick(pool, ordinal, x, y));
+                check(Decor.pick(pool, ordinal, x, y) == Decor.pick(pool, ordinal, x, y), "a pick is the same every time");
+            }
+            check(shown.size() == pool.length, "eight pictures of one building show the pool's eight: " + shown);
+        }
+        Set<Integer> firsts = new HashSet<>();
+        for (int building = 0; building < 50; building++) {
+            firsts.add(Decor.pick(pool, 0, 6456 + building * 11, 5252 - building * 7));
+        }
+        check(firsts.size() == pool.length, "the same picture in fifty buildings shows every picture of the pool: " + firsts);
+    }
+
+    private static void theIndexListsSubjectsAndPools() throws IOException {
+        String good = "family-00\t525\t768\tfamily\nfamily-01\t525\t768\tfamily\npainting-lakeside\t1024\t427\npool-restaurant-00\t525\t768\n"
+                + "=walls_decoration_02_0\tfamily-00\n@family\trestaurant\tpool-restaurant-00 painting-lakeside\n";
+        Decor.Index read = Decor.read(new BufferedReader(new StringReader(good)), "test");
+        check("family".equals(read.subjects.get(1)) && read.subjects.get(2) == null, "a picture line carries its subject where it has one");
+        check(read.ordinals.get(0) == 0 && read.ordinals.get(1) == 1, "each picture of a subject is numbered among them in order");
+        int[] pool = read.pools.get("family\trestaurant");
+        check(pool != null && pool.length == 2 && pool[0] == 3 && pool[1] == 2, "a pool lists its pictures by number");
+        for (String bad : new String[] {good + "@family\tbar\tno-such-picture\n", "@family\tbar\tfamily-00\nfamily-00\t525\t768\tfamily\n", good + "@family\trestaurant\tfamily-01\n"}) {
+            boolean threw = false;
+            try {
+                Decor.read(new BufferedReader(new StringReader(bad)), "test");
+            } catch (IOException expected) {
+                threw = true;
+            }
+            check(threw, "an index whose pool names a picture not listed before it, or pools one subject twice in a kind, is refused");
+        }
+        Decor.Index jar;
+        try (InputStream in = Decor.class.getResourceAsStream("/pictures/index.txt")) {
+            jar = Decor.read(new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8)), "/pictures/index.txt");
+        }
+        for (int picture = 0; picture < jar.names.size(); picture++) {
+            String name = jar.names.get(picture), subject = jar.subjects.get(picture);
+            check(name.startsWith("family-") == "family".equals(subject) && name.startsWith("certificate-") == "certificate".equals(subject),
+                    name + " has the subject of its name: " + subject);
+        }
+        check(jar.pools.containsKey("certificate\trestaurant") && jar.pools.containsKey("family\tmedical"), "the jar pools certificates for a restaurant and family photographs for a clinic");
+        for (String pooled : jar.pools.keySet()) {
+            check(Decor.KINDS.contains(pooled.split("\t")[1]), "the jar pools pictures for a kind of room there is: " + pooled);
+        }
     }
 
     private static boolean near(float a, float b) {

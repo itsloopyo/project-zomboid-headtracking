@@ -6,6 +6,9 @@ Each picture catalogue.py hangs somewhere is cut to its shape, lettered where it
 larger than it is worth at the size it hangs, and saved as src/main/resources/pictures/<name>.jpg. With --partial the
 pictures not made yet are left out, and the sprites that would show them keep the game's own painting.
 
+The index lists each picture with its size, and its subject where catalogue.subject gives one; then what shows each;
+then catalogue.POOLS, a line a pool: @subject, a tab, the kind of room, a tab and its pictures with a space between.
+
 What a television shows (catalogue.SHOTS) is cut four wide for three high. The bars a set shows with nothing coming
 in, screen-bars and for a set with no colour screen-grey-bars, are drawn here.
 
@@ -114,15 +117,15 @@ def hoarding(art, title, line):
     return image
 
 
-def diploma(art, title, school):
+def diploma(art, title, school, phrase='has conferred upon the bearer the degree of', foot='with all the rights, honours and privileges thereto pertaining'):
     image = art.copy()
     wide, high = image.size
     ink = (38, 30, 24)
     draw = ImageDraw.Draw(image)
     lettered(image, school, 'georgiab.ttf', fitted(draw, school, 'georgiab.ttf', wide * 0.6, high // 9), wide // 2, round(high * 0.3), ink, shadow=False)
-    lettered(image, 'has conferred upon the bearer the degree of', 'georgiai.ttf', high // 28, wide // 2, round(high * 0.41), ink, shadow=False)
+    lettered(image, phrase, 'georgiai.ttf', high // 28, wide // 2, round(high * 0.41), ink, shadow=False)
     lettered(image, title, 'georgiab.ttf', fitted(draw, title, 'georgiab.ttf', wide * 0.56, high // 6), wide // 2, round(high * 0.56), ink, shadow=False)
-    lettered(image, 'with all the rights, honours and privileges thereto pertaining', 'georgiai.ttf', high // 34, wide // 2, round(high * 0.65), ink, shadow=False)
+    lettered(image, foot, 'georgiai.ttf', high // 34, wide // 2, round(high * 0.65), ink, shadow=False)
     return image
 
 
@@ -180,9 +183,9 @@ def picture(folder, name):
     if name in signs.PICTURES:
         return signs.picture(signs.PICTURES[name], lambda art: made(folder, art))
     if name in catalogue.LETTERED:
-        base, layout, title, line = catalogue.LETTERED[name]
+        base, layout, *words = catalogue.LETTERED[name]
         art = made(folder, base)
-        return None if art is None else LAYOUTS[layout](art, title, line)
+        return None if art is None else LAYOUTS[layout](art, *words)
     if name in catalogue.ART:
         art = made(folder, name)
         return art if art is None or name not in catalogue.SHAPED else cut(art, catalogue.SHAPED[name])
@@ -201,7 +204,8 @@ def main():
     sizes = {}
     missing = []
     total = 0
-    for name in dict.fromkeys(shown for _, shown in catalogue.HUNG):
+    pooled = [name for pool in catalogue.POOLS.values() for name in pool]
+    for name in dict.fromkeys([shown for _, shown in catalogue.HUNG] + pooled):
         image = picture(folder, name)
         if image is None:
             missing.append(name)
@@ -230,10 +234,15 @@ def main():
     made_into.rmdir()
     with open(OUT / 'index.txt', 'w', encoding='utf-8', newline='\n') as index:
         for name, (wide, high) in sizes.items():
-            index.write(f'{name}\t{wide}\t{high}\n')
+            subject = catalogue.subject(name)
+            index.write(f'{name}\t{wide}\t{high}' + (f'\t{subject}\n' if subject else '\n'))
         for key, name in catalogue.HUNG:
             if name in sizes:
                 index.write(f"{'+' if key in catalogue.LONG else '='}{key}\t{name}\n")
+        for (subject, kind), pool in catalogue.POOLS.items():
+            made_of = [name for name in pool if name in sizes]
+            if made_of:
+                index.write(f"@{subject}\t{kind}\t{' '.join(made_of)}\n")
     print(f'{len(sizes)} pictures, {total / 1e6:.1f} MB, {len(missing)} not made yet')
 
 
