@@ -151,11 +151,11 @@ SPORTS = {
         'A worn brown leather baseball glove with a baseball in its pocket lying on a wooden dugout bench.' + STILL,
     ],
     'football': [
-        'An American football quarterback in a blank blue and orange uniform with no numbers anywhere on the jersey or helmet, plain white shoes with no logos drawing back to throw, seen from'
+        'An American football quarterback in a blank blue and orange uniform with no numbers anywhere on the jersey or helmet, plain white shoes with no logos, drawing back to throw, seen from'
         ' the side, the stadium blurred behind.' + ACTION,
         'An American football running back in a plain white uniform with no numbers running with the ball tucked under one arm,'
         ' alone in open field.' + ACTION,
-        'An American football receiver in a blank red uniform with no numbers anywhere on the jersey or helmet, plain white shoes with no logos leaping alone for a pass, the ball just above his'
+        'An American football receiver in a blank red uniform with no numbers anywhere on the jersey or helmet, plain white shoes with no logos, leaping alone for a pass, the ball just above his'
         ' hands.' + ACTION,
         'A brown leather American football lying on the white yard line of a grass field.' + STILL,
         'A plain blue American football helmet with no decal lying on the grass of a field at dusk, stadium lights behind.' + STILL,
@@ -192,9 +192,9 @@ SPORTS = {
         'A loaded barbell with iron plates resting on a wooden lifting platform against a plain red background.' + STILL,
     ],
     'hockey': [
-        'An ice hockey player in a blank blue jersey with no crest or number, plain black gloves and an unmarked wooden stick skating hard with the puck, ice spraying from his skates.' + ACTION,
+        'An ice hockey player in a blank blue jersey with no crest or number, plain black gloves and an unmarked wooden stick, skating hard with the puck, ice spraying from his skates.' + ACTION,
         'An ice hockey goalie in white pads, a mask and a plain white jersey with no crest crouching in front of the net.' + ACTION,
-        'An ice hockey player in a blank green jersey with no crest or number, plain black gloves and an unmarked wooden stick, plain white boards behind winding up for a slap shot, seen from the side.' + ACTION,
+        'An ice hockey player in a blank green jersey with no crest or number, plain black gloves and an unmarked wooden stick, plain white boards behind, winding up for a slap shot, seen from the side.' + ACTION,
         'A wooden ice hockey stick and a black puck lying on scratched white ice.' + STILL,
         'An empty ice rink seen from the stands, the white ice and red and blue lines under arena lights.' + STILL,
         'An ice hockey player in a plain yellow and black jersey with no crest skating with his stick raised in one hand after'
@@ -231,7 +231,7 @@ SPORTS = {
         'A woman field hockey player in a blank red kit with no logos, plain white shoes and an unmarked wooden stick, running with the ball at the end of her stick on a grass pitch, seen'
         ' from the side.' + ACTION,
         'A woman field hockey player in a blank blue kit with no logos, plain white shoes and an unmarked wooden stick, striking the ball on a grass pitch, seen from the side.' + ACTION,
-        'A woman field hockey goalkeeper in padded kit crouching in front of her goal on a grass pitch.' + ACTION,
+        'A woman field hockey goalkeeper in plain white pads and a blank green jersey with no logos or lettering, an unmarked stick, crouching in front of her goal on a grass pitch.' + ACTION,
         'A wooden field hockey stick and a white ball lying on green grass.' + STILL,
     ],
     'hunting': [
