@@ -61,7 +61,7 @@ POOLS = {
         'A tobacco barn in autumn, an old black wooden barn beside a field of cut tobacco, seen from the road.' + PRINT,
     ],
     'shop': [
-        'The front of a small town hardware store with a painted wooden sign, its windows full of tools and paint cans, seen'
+        'The front of a small town hardware store with a plain green awning and no sign, its windows full of tools and paint cans, seen'
         ' from across the street on a sunny day.' + PRINT,
         'A small town main street in the 1950s, shop fronts with awnings and a few old cars parked along the kerb.' + OLD_PRINT,
         'A white delivery truck parked in front of a shop loading bay on a sunny day, seen from the side.' + PRINT,

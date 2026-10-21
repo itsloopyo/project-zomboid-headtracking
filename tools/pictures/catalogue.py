@@ -210,13 +210,13 @@ SPORTS = {
         'Ten white bowling pins standing in their triangle at the end of a lane, seen from lane level.' + STILL,
     ],
     'racing': [
-        'A single red stock car with no lettering racing round a banked oval track, motion blur in the background.' + ACTION,
-        'Two stock cars with no lettering, one blue and one yellow, racing side by side on a speedway, the grandstand blurred'
+        'A single red 1990s American stock car, a heavy full bodied two door race car shaped like a sedan, with no lettering, racing round a banked oval track, motion blur in the background.' + ACTION,
+        'Two 1990s American stock cars, heavy full bodied two door race cars shaped like sedans with no lettering, one blue and one yellow, racing side by side on a speedway, the grandstand blurred'
         ' behind.' + ACTION,
-        'A racing driver in a plain red fire suit standing beside his stock car in the pits, his helmet under one arm.' + ACTION,
-        'A green and white stock car with no lettering crossing the finish line, a chequered flag waving above.' + ACTION,
-        'A line of colourful stock cars with no lettering going through a turn at a speedway, seen from high in the stands.' + ACTION,
-        'A stock car with no lettering parked alone in a pit lane at dusk, the empty track behind.' + STILL,
+        'A racing driver in a plain red fire suit standing beside his full bodied American stock car in the pits, his helmet under one arm.' + ACTION,
+        'A green and white full bodied 1990s American stock car with no lettering crossing the finish line, a chequered flag waving above.' + ACTION,
+        'A line of colourful full bodied 1990s American stock cars with no lettering going through a turn at a speedway, seen from high in the stands.' + ACTION,
+        'A full bodied 1990s American stock car with no lettering parked alone in a pit lane at dusk, the empty track behind.' + STILL,
     ],
     'pool': [
         'A man in a waistcoat leaning over a green pool table lining up a shot with his cue, a hanging lamp above, a dim bar'
@@ -235,12 +235,12 @@ SPORTS = {
         'A wooden field hockey stick and a white ball lying on green grass.' + STILL,
     ],
     'hunting': [
-        'A white tailed buck with large antlers standing in an autumn meadow at dawn.' + WILD,
+        'A brown whitetail buck with a reddish brown coat and large antlers standing in an autumn meadow at dawn.' + WILD,
         'A wild turkey displaying its fanned tail in a woodland clearing.' + WILD,
         'A hunter in a plaid jacket and an orange cap walking away through autumn woods, a rifle slung on his shoulder, seen from'
         ' behind and a distance.' + WILD,
         'A mallard duck taking off from a misty marsh at sunrise.' + WILD,
-        'A white tailed doe and her fawn standing a little apart in tall green grass at the edge of a forest.' + WILD,
+        'A brown whitetail doe and her spotted fawn standing a little apart in tall green grass at the edge of a forest.' + WILD,
         'The black silhouette of a stag with antlers on a ridge against an orange sunset sky.' + WILD,
         'A pointer hunting dog standing rigid in a field of dry grass, nose forward.' + WILD,
         'A bull elk calling in a mountain valley in autumn.' + WILD,
@@ -494,8 +494,8 @@ PROGRAMMES = [
     'A woman with big blonde hair in a blue evening dress and a man in a tuxedo facing each other across an opulent living room,'
     ' a daytime soap opera.' + ON_AIR,
     'A small blue robot and a green frog building a cardboard rocket in a garage, a 1980s Saturday morning cartoon in hand'
-    ' painted cel animation with flat colours, seen on a television recorded onto VHS.',
-    'A white tailed deer standing in a misty forest clearing at dawn, a nature documentary.' + ON_AIR,
+    ' painted cel animation with flat colours, recorded off air onto VHS.',
+    'A brown whitetail deer with a reddish brown summer coat standing in a misty forest clearing at dawn, a nature documentary.' + ON_AIR,
     'A game show host in a sparkly blue jacket standing on a brightly lit stage with coloured lights and three empty contestant'
     ' podiums, a game show.' + ON_AIR,
     'A cowboy on horseback riding through a desert canyon, a classic western film shown on television.' + ON_AIR,

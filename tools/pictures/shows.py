@@ -9,8 +9,8 @@ Which of the game's broadcasts and tapes is which show is told by schedule.py, f
 
 VIDEO = (' A still frame from a 1993 American television broadcast recorded off air onto VHS, soft analog video with slight'
          ' colour bleed and muted colours.')
-FIELD = (' A still frame from 1993 American television news footage shot on a shoulder mounted video camera and recorded off'
-         ' air onto VHS, soft analog video with muted colours and slight colour bleed.')
+FIELD = (' A still frame from 1993 American television news footage recorded off air onto VHS, handheld and slightly'
+         ' unsteady, soft analog video with muted colours and slight colour bleed.')
 LOCAL = (' A still frame from a low budget 1993 local public access television show on a cheap studio set with flat lighting,'
          ' soft analog video recorded onto VHS with muted colours.')
 SITCOM = (' A still frame from an early 1990s American sitcom taped on a multi camera studio set with bright even lighting,'
@@ -295,7 +295,7 @@ show('county', FIELD,
      'A covered wooden bridge with a roof and red painted board sides crosses a creek among green summer trees.',
      'A tobacco barn in a field at sunset.',
      'Two horses graze well apart behind a white fence.')
-show('survivors', ' A still frame from a home video camera on a tripod, VHS lit by one harsh light, dim and grainy with muted'
+show('survivors', ' A still frame of amateur home video on VHS, lit by one harsh light, dim and grainy with muted'
                   ' colours.',
      'An exhausted man in a dirty flannel shirt sits at a desk in a dim television studio, a door barricaded with furniture'
      ' behind him.',
@@ -651,7 +651,7 @@ show('lesson', TAUGHT,
      'Two people in suits shake hands across an office desk, nobody else in the room, in a staff training video.',
      'A clergyman in a grey suit talks gently to the camera in front of a stained glass window.')
 show('nature', NATURE,
-     'A white tailed deer stands in a misty forest clearing at dawn.',
+     'A brown whitetail deer with a reddish brown summer coat stands in a misty forest clearing at dawn.',
      'Penguins crowd on an ice shelf.',
      'A red fox pounces in the snow.',
      'An American alligator with a broad rounded snout lies half submerged in a green swamp among lily pads.',
