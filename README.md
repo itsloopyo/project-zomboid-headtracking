@@ -503,6 +503,9 @@ SurfaceDepth=true
 WholeFigureShadows=true
 ; true: each frame is blended with the one before, for smoother edges and leaves and a slightly softer picture.
 FrameBlending=true
+; How far off lamps light what is round them with light of their own, a pool under a street lamp, in tiles:
+; 0 (the game's light only) to 80. Past it, lamps light the ground as the game does.
+LightDistance=60
 
 [Content]
 ; true: the mod's models of the pump shotgun and its sawn-off, the tactical pump shotgun, the hunting, varmint and

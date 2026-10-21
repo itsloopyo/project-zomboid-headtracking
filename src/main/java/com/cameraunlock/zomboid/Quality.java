@@ -61,10 +61,11 @@ final class Quality {
      * @param surfaceDepth     see relief
      * @param wholeFigureShadows see wholeFigureShadows
      * @param frameBlending    see frameBlending
+     * @param lightDistance    see lightDistance
      */
     record Picture(boolean stockLook, int treeQuality, int grassDensity, float renderScale, boolean sharpShadows, int viewDistance, int drawDistance,
             int farTreeDistance, int rainOnGlass, boolean shadingAndLight, boolean reflections, boolean fullSizeTextures, boolean surfaceDepth,
-            boolean wholeFigureShadows, boolean frameBlending) {}
+            boolean wholeFigureShadows, boolean frameBlending, int lightDistance) {}
 
     /** The TreeQuality row's words by number: the game's sprites, the mod's crowns within Crowns.REACH, the mod's crowns as far as the view goes. */
     static final int TREES_SPRITES = 0, TREES_NEAR = 1, TREES_TO_SIGHT = 2;
@@ -73,10 +74,12 @@ final class Quality {
     static final int LEAST_GRASS = 10, ALL_GRASS = 100, SOME_GRASS = 40;
     /** How far the trees beyond the loaded map can be drawn, in tiles: the far land reaches no further. */
     static final int MOST_FAR_TREES = (int) FarLand.REACH;
+    /** How far from the eye lamps can light the picture themselves, in tiles. */
+    static final int MOST_LIGHT_DISTANCE = 80;
 
-    static final Picture LOW_PICTURE = new Picture(true, TREES_SPRITES, SOME_GRASS, 0.62f, false, 48, 48, 300, 0, false, false, false, false, false, false);
-    static final Picture MEDIUM_PICTURE = new Picture(false, TREES_NEAR, SOME_GRASS, 0.7f, false, 60, 60, 150, 1, false, true, false, false, false, true);
-    static final Picture HIGH_PICTURE = new Picture(false, TREES_TO_SIGHT, ALL_GRASS, 1f, true, 80, 80, MOST_FAR_TREES, 2, true, true, true, true, true, true);
+    static final Picture LOW_PICTURE = new Picture(true, TREES_SPRITES, SOME_GRASS, 0.62f, false, 48, 48, 300, 0, false, false, false, false, false, false, 20);
+    static final Picture MEDIUM_PICTURE = new Picture(false, TREES_NEAR, SOME_GRASS, 0.7f, false, 60, 60, 150, 1, false, true, false, false, false, true, 30);
+    static final Picture HIGH_PICTURE = new Picture(false, TREES_TO_SIGHT, ALL_GRASS, 1f, true, 80, 80, MOST_FAR_TREES, 2, true, true, true, true, true, true, 60);
     /**
      * Automatic's levels, cheapest first. STOCK is the Low mode's picture, the game's own look;
      * the three above it are Low's, Medium's and High's cost, still with everything the mod made.
@@ -387,16 +390,16 @@ final class Quality {
     private static Picture automatic(Picture at) {
         return new Picture(false, Math.max(at.treeQuality, TREES_NEAR), at.grassDensity, at.renderScale, at.sharpShadows, at.viewDistance, at.drawDistance,
                 at.farTreeDistance, at.rainOnGlass, at.shadingAndLight, at.reflections, at.fullSizeTextures, at.surfaceDepth, at.wholeFigureShadows,
-                at.frameBlending);
+                at.frameBlending, at.lightDistance);
     }
 
     static String described(Picture picture) {
         return String.format(Locale.ROOT, "stock look %b, tree quality %d, grass density %d, render scale %.2f, sharp shadows %b, view distance %d, "
                         + "zombies and props draw distance %d, far tree distance %d, rain on glass %d, shading and light %b, reflections %b, "
-                        + "full size textures %b, surface depth %b, whole figure shadows %b, frame blending %b",
+                        + "full size textures %b, surface depth %b, whole figure shadows %b, frame blending %b, light distance %d",
                 picture.stockLook, picture.treeQuality, picture.grassDensity, picture.renderScale, picture.sharpShadows, picture.viewDistance, picture.drawDistance,
                 picture.farTreeDistance, picture.rainOnGlass, picture.shadingAndLight, picture.reflections, picture.fullSizeTextures,
-                picture.surfaceDepth, picture.wholeFigureShadows, picture.frameBlending);
+                picture.surfaceDepth, picture.wholeFigureShadows, picture.frameBlending, picture.lightDistance);
     }
 
     /** The mode the hotkey goes to from a player's first person mode: Automatic, Low, Medium, High, Custom and round again. */
@@ -734,6 +737,14 @@ final class Quality {
      */
     static boolean frameBlending(int view) {
         return drawn[view].frameBlending;
+    }
+
+    /**
+     * How far from the eye a lamp lights the picture with a light of its own (Lamps), in tiles, 0
+     * for none: past it, and with none, lamps light the squares round them as the game lights them.
+     */
+    static int lightDistance(int view) {
+        return drawn[view].lightDistance;
     }
 
     /** Whether near surfaces are given the depth of what they show. */

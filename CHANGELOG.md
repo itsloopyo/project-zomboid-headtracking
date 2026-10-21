@@ -109,6 +109,7 @@
 - Snow settles on trees, bushes, grass and ivy, and dusts people and zombies out in it.
 - Clouds, cloud shadows, the moon, low evening sun and dark nights.
 - Shadows from the sun, flashlights, headlights and fires. Lit lamps glow.
+- Street lamps and lamps on buildings throw pools of light round them out to `LightDistance`: 30 tiles in `Medium`, 60 in `High`.
 - Sunbeams through windows, with dust floating in the air.
 - Water flows and reflects.
 - Mirrors on walls, dressers and bathroom cabinets show the room, the people in it and you, in Medium and High with `Reflections` on. Low has no reflections. The glass has a faint tint, smudges and a worn silver edge.

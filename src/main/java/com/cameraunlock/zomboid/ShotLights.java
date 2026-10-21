@@ -237,7 +237,7 @@ final class ShotLights {
         }
     }
 
-    private static int streetLampOf(IsoLightSwitch lamp) {
+    static int streetLampOf(IsoLightSwitch lamp) {
         return lamp.getSprite() == null ? -1 : streetLampOf(lamp.getSprite().getName(), lamp.getProperties().get(IsoPropertyType.CUSTOM_NAME));
     }
 

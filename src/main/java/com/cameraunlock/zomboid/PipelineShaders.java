@@ -3566,7 +3566,7 @@ final class PipelineShaders {
                 // A lamp lights the ground as the game has it, warm and at its full strength: only
                 // the rest is the sky's, bluer and less where little sky is open over the square.
                 vec3 fromLamp = min(lamp, given) * openHere;
-                vec3 ambient = (given - fromLamp) * fromSky + fromLamp;
+                vec3 ambient = (given - fromLamp) * fromSky + fromLamp * (1.0 - streetLampsCover(vWorld));
                 vec3 lightHere = ambient + held + uLightLinear * (2.1 * sun);
                 // Lightning lights all the sky, and what is under the open sky by it.
                 lightHere += uFlashSky * (open * skyOver * (0.6 + 0.4 * max(n.z, 0.0)));
@@ -3793,7 +3793,7 @@ final class PipelineShaders {
                 // it has round a fire: the game's light stops at walls, and an unshadowed light does not.
                 vec3 lampLit = max(pow(max(vColor.rgb, vec3(0.0)), vec3(2.2)) - uOpenLinear, 0.0);
                 color += pow(texel.rgb, vec3(2.2)) * (fireWorldLight(vWorld, n, clamp(dot(lampLit, vec3(0.3, 0.5, 0.2)) * 12.0, 0.0, 1.0)) * scatterKept);
-                // A lamp on a wall lights what is out of doors round it (Lamps) where the game has it lit by
+                // A lamp on a wall or a post lights what is out of doors round it (Lamps) where the game has it lit by
                 // a lamp, and while the game holds its daylight, by as much as the picture holds it back.
                 float lampsLight = clamp(open, 0.0, 1.0) * max(clamp(dot(lampLit, vec3(0.3, 0.5, 0.2)) * 12.0, 0.0, 1.0), 1.0 - uDaylightKept);
                 color += pow(texel.rgb, vec3(2.2)) * (lampWorldLight(vWorld, n, lampsLight) * scatterKept);

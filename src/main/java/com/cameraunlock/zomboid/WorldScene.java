@@ -2849,7 +2849,7 @@ final class WorldScene {
             Fires.gather(sky, terrain, player.getIndex(), pose.eyeX, pose.eyeY);
             playerIndex = player.getIndex();
             cell = IsoWorld.instance.currentCell;
-            Lamps.gather(sky, cell, terrain, pose.eyeX, pose.eyeY);
+            Lamps.gather(sky, cell, terrain, pose.eyeX, pose.eyeY, Quality.lightDistance(view.index));
             leafTrees.gather(sky, cell, terrain, roundNow, Core.tileScale, pose.eyeX, pose.eyeY, start);
             roofBuilder.newBuild();
             if (Own.taken(view.index)) {
