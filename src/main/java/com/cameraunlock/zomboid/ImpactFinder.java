@@ -71,6 +71,7 @@ final class ImpactFinder {
         BallisticsController ballistics = shooter.getBallisticsController();
         View view = shooter instanceof IsoPlayer player && View.of(player) != null ? View.of(player) : View.first();
         IsoCell cell = IsoWorld.instance.currentCell;
+        world.boles = Penetration.pastTrees(shooter, shooter.getPrimaryHandItem() instanceof HandWeapon held ? held : null);
         if (ballistics == null || view == null || cell == null) {
             return;
         }

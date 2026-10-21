@@ -18,7 +18,7 @@ final class RulesTests {
     private static void aloneEveryRuleIsTheModsUntilARowSaysOtherwise() {
         Rules.set(Rules.ALL);
         Servers.in(Servers.Where.ALONE, () -> check(Rules.throughWalls() && Rules.breaksLamps() && Rules.wounds() && !Rules.vehiclesStock()
-                        && Rules.facesTheView(),
+                        && Rules.facesTheView() && Rules.pastTrees(),
                 "alone with every row on, every rule is the mod's"));
     }
 
@@ -40,8 +40,11 @@ final class RulesTests {
                     && Knockdown.slowFactor(Rules.vehiclesStock(), 28f) == 28f && Knockdown.engineHeldOffRoad(Rules.vehiclesStock(), true),
                     "and with it off nothing is knocked down, bushes slow a car and the engine gives less off the road");
             Rules.set(Rules.ALL & ~Rules.FACES_THE_VIEW);
-            check(Rules.throughWalls() && Rules.breaksLamps() && Rules.wounds() && !Rules.vehiclesStock() && !Rules.facesTheView(),
+            check(Rules.throughWalls() && Rules.breaksLamps() && Rules.wounds() && !Rules.vehiclesStock() && !Rules.facesTheView() && Rules.pastTrees(),
                     "FacesTheView off has the character turn to the way it walks and changes nothing else");
+            Rules.set(Rules.ALL & ~Rules.PAST_TREES);
+            check(Rules.throughWalls() && Rules.breaksLamps() && Rules.wounds() && !Rules.vehiclesStock() && Rules.facesTheView() && !Rules.pastTrees(),
+                    "ShotsPastTrees off has a tree stop shots across its square and changes nothing else");
         });
     }
 
@@ -49,7 +52,7 @@ final class RulesTests {
         Rules.set(Rules.ALL);
         for (Servers.Where where : new Servers.Where[] {Servers.Where.FRIENDLY, Servers.Where.CONTESTED}) {
             Servers.in(where, () -> check(!Rules.throughWalls() && !Rules.breaksLamps() && !Rules.wounds() && Rules.vehiclesStock()
-                    && !Rules.facesTheView(),
+                    && !Rules.facesTheView() && !Rules.pastTrees(),
                     "on a server (" + where + ") every rule is the game's with every row on"));
         }
     }

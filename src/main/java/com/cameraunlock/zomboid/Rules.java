@@ -10,8 +10,8 @@ package com.cameraunlock.zomboid;
  */
 final class Rules {
     /** The bits of the rows that are on, in the order Config describes the rows of [Rules]. */
-    static final int THROUGH_WALLS = 1, BREAKS_LAMPS = 2, WOUNDS = 4, SMASHES_THROUGH = 8, FACES_THE_VIEW = 16;
-    static final int ALL = THROUGH_WALLS | BREAKS_LAMPS | WOUNDS | SMASHES_THROUGH | FACES_THE_VIEW;
+    static final int THROUGH_WALLS = 1, BREAKS_LAMPS = 2, WOUNDS = 4, SMASHES_THROUGH = 8, FACES_THE_VIEW = 16, PAST_TREES = 32;
+    static final int ALL = THROUGH_WALLS | BREAKS_LAMPS | WOUNDS | SMASHES_THROUGH | FACES_THE_VIEW | PAST_TREES;
 
     private static volatile int on = ALL;
 
@@ -53,10 +53,15 @@ final class Rules {
         return !Online.joined() && (on & FACES_THE_VIEW) != 0;
     }
 
+    /** Whether a first person shot goes on past a tree it does not meet the bole of: see Trunks. */
+    static boolean pastTrees() {
+        return !Online.joined() && (on & PAST_TREES) != 0;
+    }
+
     /** The rows in words, for the log. */
     static String described(int bits) {
         return "shots through walls " + ((bits & THROUGH_WALLS) != 0) + ", shots break lamps " + ((bits & BREAKS_LAMPS) != 0)
                 + ", shots wound limbs " + ((bits & WOUNDS) != 0) + ", vehicles smash through " + ((bits & SMASHES_THROUGH) != 0)
-                + ", faces the view walking aside " + ((bits & FACES_THE_VIEW) != 0);
+                + ", faces the view walking aside " + ((bits & FACES_THE_VIEW) != 0) + ", shots past trees " + ((bits & PAST_TREES) != 0);
     }
 }

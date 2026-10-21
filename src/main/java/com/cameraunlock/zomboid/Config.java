@@ -325,6 +325,10 @@ final class Config {
                             + "look, at the pace of its walk ahead. Jogging or sprinting it turns to the way it goes. false: it always turns,\n"
                             + "as the game has it. On a server the game's rule holds.",
                     writable | live, true),
+            core.configLocalBool("Rules", "ShotsPastTrees",
+                    "true: offline, a tree stops your shots only where its trunk is drawn, and a shot past the trunk goes on.\n"
+                            + "false: a tree stops every shot across its square, as the game has it. On a server the game's rule holds.",
+                    writable | live, true),
         };
 
         talkingMouths = core.configLocalBool("Voice", TALKING_MOUTHS,
@@ -370,7 +374,7 @@ final class Config {
                 Log.info("the mod's own in first person: " + Own.described(Own.rows()));
             });
         }
-        String[] ruleKeys = {"ShotsThroughWalls", "ShotsBreakLamps", "ShotsWoundLimbs", "VehiclesSmashThrough", "FacesTheView"};
+        String[] ruleKeys = {"ShotsThroughWalls", "ShotsBreakLamps", "ShotsWoundLimbs", "VehiclesSmashThrough", "FacesTheView", "ShotsPastTrees"};
         for (int i = 0; i < ruleKeys.length; i++) {
             int bit = 1 << i;
             puts.put(ruleKeys[i], value -> {

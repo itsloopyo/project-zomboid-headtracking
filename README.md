@@ -37,7 +37,7 @@ Press `Delete` to switch between the isometric and first person views, on foot o
 - **Weapons** - custom arms and hands, melee swings, recoil, and reloads with working bolts, levers, cylinders and break actions. Medium and High add new shotgun, rifle, pistol and revolver models and magnified scopes.
 - **Hits where you aim** - shots hit the body part under the reticle and jolt zombies along the line of fire. Offline, shot limbs go limp or come off, and a shotgun can take the head off.
 - **Impacts** - dust, splinters, sparks, blood and bullet holes in Medium and High.
-- **Shots through walls** - offline, rounds pass through plasterboard, wood, doors and glass, losing damage on each. Brick, concrete, metal and barricades stop them.
+- **Shots through walls** - offline, rounds pass through plasterboard, wood, doors and glass, losing damage on each. Brick, concrete, metal and barricades stop them. A broad-leaved tree stops them at its trunk, not across its whole tile.
 - **Shoot out lights** - offline, a shot breaks vehicle lamps and table, wall and street lamps.
 
 ### Vehicles
@@ -563,6 +563,9 @@ VehiclesSmashThrough=true
 ; look, at the pace of its walk ahead. Jogging or sprinting it turns to the way it goes. false: it always turns,
 ; as the game has it. On a server the game's rule holds.
 FacesTheView=true
+; true: offline, a tree stops your shots only where its trunk is drawn, and a shot past the trunk goes on.
+; false: a tree stops every shot across its square, as the game has it. On a server the game's rule holds.
+ShotsPastTrees=true
 
 [Voice]
 ; true: your character's mouth moves with what you say into your microphone: the jaw drops for "ah", the lips

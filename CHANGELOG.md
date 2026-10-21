@@ -55,6 +55,7 @@
 - Shot zombies ragdoll as they're hit and fall along the line of the shot. Ones that stay standing flinch where they were hit. Needs the game's Use Physics Hit Reactions option, which servers turn off.
 - `Medium` and `High`: bullet impacts throw dust, chips, splinters, sparks or blood depending on the surface, and leave holes. The last 400 holes stay.
 - Single player: rounds go through plasterboard, wooden walls, doors, gates and glass, losing damage on each. Rifles go furthest, shotgun pellets least. Brick, concrete, stone, metal and barricades stop them.
+- Single player: in first person a tree stops a shot at its trunk, and a shot past the trunk goes on. Pines, hemlocks and hollies, whose needles come down to the ground, still stop it anywhere on their square (`ShotsPastTrees`).
 - Single player: shooting a vehicle's head or tail lamp, a lamp or a street lamp breaks it.
 - `Medium` and `High`: blood on floors and walls has smooth edges, looks wet when fresh and dries brown.
 

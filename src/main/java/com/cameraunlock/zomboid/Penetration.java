@@ -92,12 +92,18 @@ final class Penetration {
 
     /** The share of a round's damage left after spending `spent` of `budget`: nothing once it is all spent. */
     static float left(float budget, float spent) {
-        return spent < budget ? (budget - spent) / budget : 0f;
+        return spent == 0f ? WHOLE : spent < budget ? (budget - spent) / budget : 0f;
     }
 
     /** Whether a shot by this character goes on through walls: a player of this machine, with a firearm, alone, with the rule's row on. */
     static boolean applies(IsoGameCharacter shooter, HandWeapon weapon) {
         return Rules.throughWalls() && shooter instanceof IsoPlayer player && View.of(player) != null && weapon != null && weapon.isAimedFirearm();
+    }
+
+    /** Whether a tree stops a shot by this character only at its bole: the same, with that rule's row on and the picture drawing the boles (see Trunks). */
+    static boolean pastTrees(IsoGameCharacter shooter, HandWeapon weapon) {
+        return Rules.pastTrees() && shooter instanceof IsoPlayer player && View.of(player) != null && Own.plants(View.of(player).index)
+                && weapon != null && weapon.isAimedFirearm();
     }
 
     /** The bars of a metal gate, which the game names no material for: a round mostly passes between them. */
@@ -110,15 +116,19 @@ final class Penetration {
     private static IsoCell cell;
     private static int level;
     private static float spent, budget;
+    /** Whether the line being spent along meets trees at their boles, and the line: from where, its way, and how long. */
+    private static boolean boles;
+    private static float lineX, lineY, lineWayX, lineWayY, lineLength;
     private static final GridTrace.Edges spend = Penetration::spendAt;
 
     /**
      * The share of a round's damage left where it reaches (toX, toY) from (fromX, fromY) on one floor
      * level: WHOLE where nothing on the way stops a shot, less for each wall or door it goes through,
      * and 0 where one stops it or the budget runs out. Each edge between squares is the game's own test
-     * of what stops a shot (IsoGridSquare.testVisionAdjacent, as LosUtil.lineClear asks it).
+     * of what stops a shot (IsoGridSquare.testVisionAdjacent, as LosUtil.lineClear asks it). With no
+     * cartridge nothing is gone through; with pastTrees a tree stops it only at its bole (see Trunks).
      */
-    static float share(IsoCell on, int floor, Cartridge cartridge, float fromX, float fromY, float toX, float toY) {
+    static float share(IsoCell on, int floor, Cartridge cartridge, boolean pastTrees, float fromX, float fromY, float toX, float toY) {
         float wayX = toX - fromX, wayY = toY - fromY;
         float length = (float) Math.hypot(wayX, wayY);
         if (length < 1e-4f) {
@@ -127,26 +137,42 @@ final class Penetration {
         cell = on;
         level = floor;
         spent = 0f;
-        budget = cartridge.budget;
-        float stopped = trace.firstBlockedEdge(spend, fromX, fromY, wayX / length, wayY / length, length);
+        budget = cartridge == null ? 0f : cartridge.budget;
+        boles = pastTrees;
+        lineX = fromX;
+        lineY = fromY;
+        lineWayX = wayX / length;
+        lineWayY = wayY / length;
+        lineLength = length;
+        float stopped = trace.firstBlockedEdge(spend, fromX, fromY, lineWayX, lineWayY, length);
         cell = null;
         return stopped == Float.POSITIVE_INFINITY ? left(budget, spent) : 0f;
     }
 
     /** Takes what the edge costs out of the round's budget, and answers whether that stops it. */
     private static boolean spendAt(int fromX, int fromY, int toX, int toY) {
-        spent += edgeCost(cell, level, fromX, fromY, toX, toY);
-        return spent >= budget;
+        spent += edgeCost(cell, level, boles, fromX, fromY, toX, toY);
+        if (boles) {
+            IsoGridSquare to = cell.getGridSquare(toX, toY, level);
+            float bole = to == null ? Float.NaN : Trunks.on(to);
+            if (!Float.isNaN(bole) && Trunks.meets(lineX, lineY, lineWayX, lineWayY, toX, toY, bole, 0f) <= lineLength) {
+                spent = STOPS;
+            }
+        }
+        return spent > 0f && spent >= budget;
     }
 
     /** What going through the edge between two neighbouring squares costs a round: 0 where the game lets a shot through. */
-    static float edgeCost(IsoCell cell, int level, int fromX, int fromY, int toX, int toY) {
+    static float edgeCost(IsoCell cell, int level, boolean pastTrees, int fromX, int fromY, int toX, int toY) {
         IsoGridSquare from = cell.getGridSquare(fromX, fromY, level);
         IsoGridSquare to = cell.getGridSquare(toX, toY, level);
         if (from == null || to == null) {
             return WorldQuery.stopsAShotBesideAir(from == null ? null : from::has, to == null ? null : to::has, fromX, fromY, toX, toY) ? STOPS : 0f;
         }
         LosUtil.TestResults seen = to.testVisionAdjacent(fromX - toX, fromY - toY, 0, true, false);
+        if (pastTrees && seen == LosUtil.TestResults.Blocked) {
+            seen = Trunks.past(seen, from.testVisionAdjacent(toX - fromX, toY - fromY, 0, true, false), Trunks.on(from));
+        }
         if (seen != LosUtil.TestResults.Blocked && seen != LosUtil.TestResults.ClearThroughClosedDoor) {
             return 0f;
         }
@@ -211,20 +237,21 @@ final class Penetration {
     /**
      * Called with the game's line of sight test from a shooter to a target as its firearm keeps or drops
      * the target (CombatManager.calculateHitListWeapon). Where the test says a wall or a shut door is in the
-     * way and the round goes through it, the target is kept, with the share of damage that gets to it.
+     * way and the round goes through it, or a tree whose bole the line passes by (see Trunks), the target
+     * is kept, with the share of damage that gets to it.
      */
     static LosUtil.TestResults lineOfFire(LosUtil.TestResults seen, IsoGameCharacter shooter, HandWeapon weapon, IsoMovingObject target) {
-        if (seen != LosUtil.TestResults.Blocked && seen != LosUtil.TestResults.ClearThroughClosedDoor || !(target instanceof IsoGameCharacter)
-                || !applies(shooter, weapon)) {
+        if (seen != LosUtil.TestResults.Blocked && seen != LosUtil.TestResults.ClearThroughClosedDoor || !(target instanceof IsoGameCharacter)) {
             return seen;
         }
-        Cartridge cartridge = cartridgeOf(weapon);
+        Cartridge cartridge = applies(shooter, weapon) ? cartridgeOf(weapon) : null;
+        boolean pastTrees = pastTrees(shooter, weapon);
         int floor = (int) Math.floor(shooter.getZ());
         IsoCell on = IsoWorld.instance.currentCell;
-        if (cartridge == null || floor != (int) Math.floor(target.getZ()) || on == null) {
+        if (cartridge == null && !pastTrees || floor != (int) Math.floor(target.getZ()) || on == null) {
             return seen;
         }
-        float share = share(on, floor, cartridge, shooter.getX(), shooter.getY(), target.getX(), target.getY());
+        float share = share(on, floor, cartridge, pastTrees, shooter.getX(), shooter.getY(), target.getX(), target.getY());
         if (share <= 0f) {
             return seen;
         }

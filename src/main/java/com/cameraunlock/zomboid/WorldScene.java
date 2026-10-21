@@ -2900,6 +2900,7 @@ final class WorldScene {
                 meshes.clear();
                 kinds.clear();
                 boles.clear();
+                Trunks.forget();
                 woodShapes.clear();
                 ranks.clear();
                 leafPlaces.clear();

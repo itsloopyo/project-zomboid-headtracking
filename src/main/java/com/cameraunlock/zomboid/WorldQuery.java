@@ -69,6 +69,11 @@ final class WorldQuery {
     /** What the game's line of fire has met so far along the shot being traced: see LineOfFire. */
     private final LineOfFire lineOfFire = new LineOfFire();
 
+    /** Whether a tree stops the shots traced only at its bole: see Trunks. Set for each shot by its shooter. */
+    boolean boles;
+    /** The line being traced, from where its trace began, and the nearest it has met a bole along it. */
+    private float lineX, lineY, lineWayX, lineWayY, lineFrom, boleMet;
+
     /**
      * Whether a shot stops at the edge between two squares, as near as the game's own rule can be
      * followed edge by edge. A firearm keeps a target only when the game's line of sight test, made of
@@ -85,7 +90,22 @@ final class WorldQuery {
         if (from == null || to == null) {
             return stopsAShotBesideAir(from == null ? null : from::has, to == null ? null : to::has, fromX, fromY, toX, toY);
         }
-        return lineOfFire.stopsAt(to.testVisionAdjacent(fromX - toX, fromY - toY, 0, true, false));
+        LosUtil.TestResults seen = to.testVisionAdjacent(fromX - toX, fromY - toY, 0, true, false);
+        if (boles) {
+            if (seen == LosUtil.TestResults.Blocked) {
+                seen = Trunks.past(seen, from.testVisionAdjacent(toX - fromX, toY - fromY, 0, true, false), Trunks.on(from));
+            }
+            boleMetIn(to, toX, toY);
+        }
+        return lineOfFire.stopsAt(seen);
+    }
+
+    /** Keeps the nearest the line being traced meets the bole drawn on a square, if it meets one. */
+    private void boleMetIn(IsoGridSquare square, int x, int y) {
+        float bole = Trunks.on(square);
+        if (!Float.isNaN(bole)) {
+            boleMet = Math.min(boleMet, Trunks.meets(lineX, lineY, lineWayX, lineWayY, x, y, bole, lineFrom));
+        }
     }
 
     /**
@@ -179,7 +199,7 @@ final class WorldQuery {
         for (int i = 0; i < characters; i++) {
             float distance = cylinderDistance(aim, characterX[i], characterY[i], characterBase[i]);
             if (distance < nearest && (distance <= surface || wall && through != null
-                    && Penetration.share(cell, level, through, shooterX, shooterY, characterX[i], characterY[i]) > 0f)) {
+                    && Penetration.share(cell, level, through, boles, shooterX, shooterY, characterX[i], characterY[i]) > 0f)) {
                 nearest = distance;
             }
         }
@@ -233,11 +253,30 @@ final class WorldQuery {
             float from = 0f;
             while (true) {
                 float toFloor = toFloor(aim, ground, footing - (aimedFrom - level) * ViewCamera.LEVEL_HEIGHT, from, reach);
-                float wall = from + trace.firstBlockedEdge(solidToAShot, aim.eyeX + aim.forwardX * from, aim.eyeY + aim.forwardY * from, aim.forwardX, aim.forwardY,
-                        Math.min(toFloor, reach) - from);
+                lineX = aim.eyeX;
+                lineY = aim.eyeY;
+                lineWayX = aim.forwardX;
+                lineWayY = aim.forwardY;
+                lineFrom = from;
+                boleMet = Float.POSITIVE_INFINITY;
+                float startX = aim.eyeX + aim.forwardX * from, startY = aim.eyeY + aim.forwardY * from;
+                if (boles) {
+                    int x = (int) Math.floor(startX), y = (int) Math.floor(startY);
+                    IsoGridSquare start = cell.getGridSquare(x, y, level);
+                    if (start != null) {
+                        boleMetIn(start, x, y);
+                    }
+                }
+                float wall = from + trace.firstBlockedEdge(solidToAShot, startX, startY, aim.forwardX, aim.forwardY, Math.min(toFloor, reach) - from);
+                boolean facesX = trace.hitFacesX;
+                if (boleMet < wall) {
+                    wall = boleMet;
+                    facesX = Math.abs(aim.eyeX + aim.forwardX * wall - (Math.floor(aim.eyeX + aim.forwardX * wall) + 0.5))
+                            >= Math.abs(aim.eyeY + aim.forwardY * wall - (Math.floor(aim.eyeY + aim.forwardY * wall) + 0.5));
+                }
                 if (wall <= toFloor) {
                     met = WALL;
-                    metFacesX = trace.hitFacesX;
+                    metFacesX = facesX;
                     metLevel = level;
                     return wall;
                 }

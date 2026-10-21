@@ -712,7 +712,7 @@ public final class CoreTests {
                         + "GrassDensity RenderScale SharpShadows ViewDistance ZombiesAndPropsDrawDistance FarTreeDistance RainOnGlass ShadingAndLight Reflections "
                         + "FullSizeTextures SurfaceDepth WholeFigureShadows FrameBlending OwnWeapons OwnFurniture "
                         + "OwnPictures OwnPlants OwnTextures OwnBuildings OwnZombies OwnPeople OwnArms OwnClothes OwnAnimals OwnFire OwnCabins "
-                        + "ShotsThroughWalls ShotsBreakLamps ShotsWoundLimbs VehiclesSmashThrough FacesTheView TalkingMouths "),
+                        + "ShotsThroughWalls ShotsBreakLamps ShotsWoundLimbs VehiclesSmashThrough FacesTheView ShotsPastTrees TalkingMouths "),
                 "the game's options screen is given the modes, the yaw mode and the mod's own rows, and no key list, port or microphone: " + ids);
         int fov = optionNamed(options, "FieldOfView"), yaw = optionNamed(options, "WorldSpaceYaw"), tracking = optionNamed(options, "TrackingMode"),
                 aim = optionNamed(options, "AimMode"), arms = optionNamed(options, "OwnArms"), flash = optionNamed(options, "MuzzleFlash");

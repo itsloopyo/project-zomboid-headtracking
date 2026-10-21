@@ -747,6 +747,9 @@ final class PlantBuilder {
         if (bole == null) {
             bole = measureBole(texture, plantOf(sprite).evergreen());
             WorldScene.boles.put(sprite, bole);
+            if (bole.length > 0 && !plantOf(sprite).evergreen()) {
+                Trunks.stood(sprite, bole[0]);
+            }
         }
         if (bole.length == 0) {
             return false;

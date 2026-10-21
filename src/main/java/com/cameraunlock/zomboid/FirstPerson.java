@@ -1236,6 +1236,7 @@ public final class FirstPerson {
         float reach = Controls.aimReach(player);
         HandWeapon weapon = player.getPrimaryHandItem() instanceof HandWeapon held ? held : null;
         Penetration.Cartridge through = Penetration.applies(player, weapon) ? Penetration.cartridgeOf(weapon) : null;
+        world.boles = Penetration.pastTrees(player, weapon);
         shotDistance = world.shotDistance(aimView, view.worldScene.terrain, player.getZ() * ViewCamera.LEVEL_HEIGHT, reach,
                 scene.characterX, scene.characterY, scene.characterBase, scene.characters, through, player.getX(), player.getY());
         IsoGameCharacter aimedAt = characterAimedAt(scene);
@@ -1337,7 +1338,7 @@ public final class FirstPerson {
             float x = zombie.getX(), y = zombie.getY();
             float distance = WorldQuery.cylinderDistance(aimView, x, y, view.kerbSteps.up(view.worldScene.terrain, zombie, x, y, zombie.getZ()));
             if (distance <= shotDistance || distance >= best
-                    || Penetration.share(cell, floor, cartridge, player.getX(), player.getY(), x, y) <= 0f) {
+                    || Penetration.share(cell, floor, cartridge, world.boles, player.getX(), player.getY(), x, y) <= 0f) {
                 continue;
             }
             best = distance;
