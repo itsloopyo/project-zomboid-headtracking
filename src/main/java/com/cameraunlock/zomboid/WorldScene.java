@@ -6213,7 +6213,7 @@ final class WorldScene {
                 ColorInfo tint = sprite.getTintMod();
                 float itemX = item.getWorldPosX(), itemY = item.getWorldPosY(), up = item.getWorldPosZ() * ViewCamera.LEVEL_HEIGHT;
                 owning(Outlines.key(item));
-                SpriteGeometry.Mesh mesh = solid.get(texture.getID());
+                SpriteGeometry.Mesh mesh = solid.get(texture.getID(), WallSides.multiplied(tint.r, tint.g, tint.b));
                 mesh.open = frame.open;
                 mesh.face(0f, 0f, 1f);
                 layers.lie(SpriteGeometry.LAYERS_UP, under + 1 + laid % GroundItems.LAYERS);
@@ -6222,7 +6222,7 @@ final class WorldScene {
                     float atX = itemX + itemCorners[at], atY = itemY + itemCorners[at + 1];
                     heightsAt(atX, atY);
                     mesh.add(atX, atY, up + terrain.lift(atX, atY, z), itemCorners[at + 2], itemCorners[at + 3],
-                            frame.red * tint.r, frame.green * tint.g, frame.blue * tint.b);
+                            frame.red, frame.green, frame.blue);
                 }
                 layers.none();
                 owning(Outlines.NONE);

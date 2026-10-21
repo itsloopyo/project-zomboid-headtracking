@@ -1830,6 +1830,12 @@ final class PipelineShaders {
                         texel.rgb = mix(texel.rgb, round / found * 0.78, 0.85);
                     }
                 }
+                // -1 is the game's tint of a sprite, the colour of the thing (WallSides.multiplied),
+                // laid over what the sprite became above: the lines and the boards there are
+                // made from the sprite's own texels, which have none of it.
+                if (uTint.a < -0.5) {
+                    texel.rgb *= uTint.rgb;
+                }
                 // Where leaves and blades are thinned out, it is by a pattern fixed to the plant
                 // and not to the screen: the picture is shifted a little each frame to smooth it,
                 // and a pattern on the screen would leave out different leaves every frame.

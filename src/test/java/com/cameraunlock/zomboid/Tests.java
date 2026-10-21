@@ -1696,6 +1696,13 @@ public final class Tests {
             }
         }
         check(WallSides.key(0f, 0f, 0f, WallSides.FLAT) != 0, "black paint is still a tint");
+        check(WallSides.multiplied(1f, 1f, 1f) == 0, "a white tint leaves the sprite as it is, under no key");
+        int tinted = WallSides.multiplied(0.69f, 0.82f, 0.13f);
+        WallSides.tint(tinted, tint);
+        check(Math.abs(tint[0] - 0.69f) <= 0.5f / 255f && Math.abs(tint[1] - 0.82f) <= 0.5f / 255f && Math.abs(tint[2] - 0.13f) <= 0.5f / 255f && tint[3] == -1f,
+                "a sprite's tint comes back to a 255th, told as multiplying it");
+        WallSides.joint(tinted, tint);
+        check(tint[0] == 0f && tint[1] == 0f && tint[2] == 0f, "and it has no joints");
         check(WallSides.key(0.4f, 0.4f, 0.4f, WallSides.FLAT) == WallSides.key(0.41f, 0.39f, 0.4f, WallSides.FLAT), "colours a hair apart share a key, and so a draw");
         check(WallSides.key(0.4f, 0.4f, 0.4f, WallSides.FLAT) != WallSides.key(0.4f, 0.4f, 0.4f, WallSides.SIDING), "paint and boards of one colour are two draws");
     }

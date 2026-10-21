@@ -49,6 +49,14 @@ final class WallSides {
      */
     static final int TILED = 11;
 
+    /**
+     * The top bit of a key that multiplies its sprite by a colour, kept to a 255th of each
+     * channel (see multiplied): the game's tint of a sprite, which is the colour of the thing
+     * and not of the light on it. The picture is told -1 for how it is painted, below every
+     * other way, so that nothing else a key can mean is done to it.
+     */
+    private static final int MULTIPLIED = 1 << 31;
+
     private static final int LEVELS = 15;
     private static final int BANDS = 32;
     private static final int PAINTED = 128;
@@ -173,6 +181,12 @@ final class WallSides {
                 | part(red, BODY_LEVELS) << 14 | part(green, BODY_LEVELS) << 9 | part(blue, BODY_LEVELS) << 4 | how;
     }
 
+    /** The key of a sprite drawn multiplied by a colour, each channel from 0 to 1: 0, no key, for white, which leaves the sprite as it is. */
+    static int multiplied(float red, float green, float blue) {
+        int packed = part(red, 255) << 20 | part(green, 255) << 12 | part(blue, 255) << 4;
+        return packed == (255 << 20 | 255 << 12 | 255 << 4) ? 0 : MULTIPLIED | packed;
+    }
+
     /**
      * As a number laid gives, for a skin on the far side of a wall from the one its sprite was
      * painted for: the sprite is the room's wallpaper, and gives the skin its outline alone.
@@ -226,11 +240,19 @@ final class WallSides {
 
     /**
      * What the picture is told for a range of triangles: into out the colour, then FLAT or
-     * SIDING. All 0 for a key of 0, which is no colour.
+     * SIDING. All 0 for a key of 0, which is no colour, and -1 after the colour for one that
+     * multiplies its sprite.
      */
     static void tint(int key, float[] out) {
         if (key == 0) {
             out[0] = out[1] = out[2] = out[3] = 0f;
+            return;
+        }
+        if ((key & MULTIPLIED) != 0) {
+            out[0] = (key >> 20 & 255) / 255f;
+            out[1] = (key >> 12 & 255) / 255f;
+            out[2] = (key >> 4 & 255) / 255f;
+            out[3] = -1f;
             return;
         }
         if (isLaid(key)) {
