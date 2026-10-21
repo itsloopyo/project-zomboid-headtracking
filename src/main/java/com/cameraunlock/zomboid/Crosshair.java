@@ -4,11 +4,10 @@ import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL20;
 
 /**
- * A crosshair for a weapon held at the hip. The game draws its own aiming reticle only while
- * the aim is held, and the first person view moves that one to where the shot lands. With a
- * weapon in hand and the aim not held the game draws nothing, and the middle of the picture
- * is not marked: this is the mark for that time, drawn at the same point, where the shot
- * would land.
+ * The mark of where the body faces while the game draws none. The game draws its own aiming
+ * reticle only while the aim is held, and the first person view moves that one to where the
+ * shot lands. Otherwise this marks the same point, which is also what the interact key acts
+ * on: a crosshair with a weapon in hand, and a dot without one.
  *
  * The logic thread says where it is and the render thread draws it over the finished picture.
  */
@@ -34,11 +33,19 @@ final class Crosshair {
 
     private static final SmallProgram flat = new SmallProgram("crosshair", SmallProgram.FLAT_VERTEX, FRAGMENT);
 
-    /** Where it is, -1 to 1 across the picture and up it, and how spread, or null when it is not shown. */
-    private volatile float[] shown;
+    /** Where it is, -1 to 1 across the picture and up it, how spread, and whether it is the dot alone. */
+    private record Mark(float x, float y, float spread, boolean dot) {
+    }
+
+    /** Null when it is not shown. */
+    private volatile Mark shown;
 
     void show(float x, float y, float spread) {
-        shown = new float[] {x, y, spread};
+        shown = new Mark(x, y, spread, false);
+    }
+
+    void showDot(float x, float y) {
+        shown = new Mark(x, y, 0f, true);
     }
 
     void hide() {
@@ -47,13 +54,13 @@ final class Crosshair {
 
     /** Draws it into the picture bound, whose viewport is the whole of a picture this many pixels each way. */
     void draw(int width, int height) {
-        float[] where = shown;
+        Mark where = shown;
         if (where == null || !flat.use()) {
             return;
         }
         int unit = Math.max(1, Math.round((float) height / DESIGN_HEIGHT));
-        int middleX = Math.round((where[0] * 0.5f + 0.5f) * width), middleY = Math.round((where[1] * 0.5f + 0.5f) * height);
-        int from = Math.round((GAP + SPREAD * where[2]) * unit), to = from + LENGTH * unit, half = WIDTH * unit / 2;
+        int middleX = Math.round((where.x * 0.5f + 0.5f) * width), middleY = Math.round((where.y * 0.5f + 0.5f) * height);
+        int from = Math.round((GAP + SPREAD * where.spread) * unit), to = from + LENGTH * unit, half = WIDTH * unit / 2;
         GL11.glDisable(GL_DEPTH_TEST);
         GL11.glDisable(GL_CULL_FACE);
         GL11.glEnable(GL_BLEND);
@@ -67,10 +74,12 @@ final class Crosshair {
             } else {
                 GL20.glUniform4f(color, 1f, 1f, 1f, 0.9f);
             }
-            box(middleX + from - edge, middleY - half - edge, middleX + to + edge, middleY - half + WIDTH * unit + edge, width, height);
-            box(middleX - to - edge, middleY - half - edge, middleX - from + edge, middleY - half + WIDTH * unit + edge, width, height);
-            box(middleX - half - edge, middleY + from - edge, middleX - half + WIDTH * unit + edge, middleY + to + edge, width, height);
-            box(middleX - half - edge, middleY - to - edge, middleX - half + WIDTH * unit + edge, middleY - from + edge, width, height);
+            if (!where.dot) {
+                box(middleX + from - edge, middleY - half - edge, middleX + to + edge, middleY - half + WIDTH * unit + edge, width, height);
+                box(middleX - to - edge, middleY - half - edge, middleX - from + edge, middleY - half + WIDTH * unit + edge, width, height);
+                box(middleX - half - edge, middleY + from - edge, middleX - half + WIDTH * unit + edge, middleY + to + edge, width, height);
+                box(middleX - half - edge, middleY - to - edge, middleX - half + WIDTH * unit + edge, middleY - from + edge, width, height);
+            }
             box(middleX - half - edge, middleY - half - edge, middleX - half + WIDTH * unit + edge, middleY - half + WIDTH * unit + edge, width, height);
         }
         GL11.glDisable(GL_BLEND);

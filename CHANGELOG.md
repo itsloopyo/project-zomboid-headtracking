@@ -33,7 +33,7 @@
 
 #### Weapons and combat
 
-- The reticle sits where the shot will land. With a weapon held and not aiming, the mod draws a small crosshair there.
+- The reticle sits where the shot will land. Whenever the game draws none, the mod marks the same point: a small crosshair with a weapon held, a dot without one.
 - Three aim modes on `Insert`: sights locked (default, the weapon follows your lean), free look (your head moves around the weapon) and stock sights (head turn and lean ease out while aiming, tilt stays).
 - Aiming a firearm zooms the view. Head movement is scaled so the zoom doesn't magnify it.
 - Held weapons are drawn like a modern shooter: low right at the hip, raised to the sights, swaying, with recoil based on each weapon's recoil stat and a muzzle flash (`MuzzleFlash`).

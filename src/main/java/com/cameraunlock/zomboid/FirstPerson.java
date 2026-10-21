@@ -865,11 +865,13 @@ public final class FirstPerson {
         } else {
             view.nameTags.lookAway();
         }
-        // The game draws its own reticle while the aim is held, and nothing while it is not.
-        // Seated, a weapon is in view only with its sights up, so there is no hip to mark.
-        if (reticleX != RETICLE_HIDDEN && lookCaptured && view.viewModel.held != null && player.getVehicle() == null
-                && (!player.isAiming() || view.controls.turnedOnly())) {
+        // The game draws its own reticle and aim cursor while the aim is held, and nothing while
+        // it is not. Seated, a weapon is in view only with its sights up, so there is no hip to mark.
+        boolean gameMarks = player.isAiming() && !view.controls.turnedOnly();
+        if (reticleX != RETICLE_HIDDEN && lookCaptured && view.viewModel.held != null && player.getVehicle() == null && !gameMarks) {
             view.crosshair.show(ndc[0], ndc[1], view.viewModel.spread());
+        } else if (reticleOnScreen && lookCaptured && !gameMarks) {
+            view.crosshair.showDot(ndc[0], ndc[1]);
         } else {
             view.crosshair.hide();
         }
