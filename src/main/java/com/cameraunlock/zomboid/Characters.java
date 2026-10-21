@@ -382,6 +382,7 @@ public final class Characters {
     int draw(ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float near, float far, boolean vehicles, boolean scope) {
         kind = scope ? BY_SCOPE : BY_EYE;
         byRoom = view.pipeline.figureRooms;
+        airSeen = scope || byRoom == null ? null : view.pipeline.roomsSeen;
         playersByRoom = Online.shownAsAlone(true);
         leftOutByRoom = 0;
         long now = FIGURE_ROOMS && !vehicles && !scope ? System.nanoTime() : 0L;
@@ -419,6 +420,7 @@ public final class Characters {
             figureRoomsLine = null;
         }
         byRoom = null;
+        airSeen = null;
         only = ALL;
         notingRoots = false;
         notingCars = false;
@@ -428,6 +430,13 @@ public final class Characters {
 
     /** While the eye's picture or a scope's is drawn, who it leaves out by the room they stand in, or null: see FigureRooms. */
     private FigureRooms byRoom;
+    private static boolean outdoors(zombie.iso.IsoMovingObject character) {
+        IsoGridSquare square = character.getCurrentSquare();
+        return square != null && square.getRoomID() == RoomSight.OUTSIDE;
+    }
+
+    /** While the eye's picture is drawn, where in it the open air is seen, which someone out of doors is left out of where it is not: see RoomSight.Seen.airSees. */
+    private RoomSight.Seen airSeen;
     /** Whether other players are left out by room too: not where players can fight, where the game shows them. See Online.shownAsAlone. */
     private boolean playersByRoom;
     private int leftOutByRoom;
@@ -1979,6 +1988,11 @@ public final class Characters {
                     PictureEdges.outsideOf(seenFrom, seenWide, seenHigh, x, y, up, past);
                     if (past[0] > round || past[1] > round || past[2] > round || past[3] > round || past[4] > round
                             || seenWithin > 0f && -past[0] > seenWithin + round) {
+                        continue;
+                    }
+                    if (airSeen != null && stands && (playersByRoom || !(data.character instanceof IsoPlayer)) && outdoors(data.character)
+                            && !airSeen.airSees(x - round, y - round, up - round, x + round, y + round, up + round)) {
+                        leftOutByRoom++;
                         continue;
                     }
                 } else if (shadesNothingSeen(map, x, y, up, round)) {
