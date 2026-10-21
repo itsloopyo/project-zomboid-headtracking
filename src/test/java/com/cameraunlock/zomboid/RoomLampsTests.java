@@ -15,6 +15,7 @@ final class RoomLampsTests {
         Checks.run("aWhiteLampGivesAWarmWhite", RoomLampsTests::aWhiteLampGivesAWarmWhite);
         Checks.run("aColouredShadeColoursPartOfTheLight", RoomLampsTests::aColouredShadeColoursPartOfTheLight);
         Checks.run("aSetIsAsBrightAsItsPicture", RoomLampsTests::aSetIsAsBrightAsItsPicture);
+        Checks.run("aPicturesGlowIsTheMeanOfWhatTheGlassShows", RoomLampsTests::aPicturesGlowIsTheMeanOfWhatTheGlassShows);
         Checks.run("aSetsGlassFacesTheWayItsSpriteSays", RoomLampsTests::aSetsGlassFacesTheWayItsSpriteSays);
         Checks.run("theShaderReadsBackTheSquaresALightReaches", RoomLampsTests::theShaderReadsBackTheSquaresALightReaches);
         Checks.run("theShaderIsWrittenWithPoints", RoomLampsTests::theShaderIsWrittenWithPoints);
@@ -50,11 +51,35 @@ final class RoomLampsTests {
     }
 
     private static void aSetIsAsBrightAsItsPicture() {
-        // IsoTelevision.updateLightSource lists red 0.58 + 0.25 i for a brightness i from 0 to 1.
-        check(RoomLamps.setBrightness(0.58f) == 0.4f, "a dark picture gives the least");
-        check(Math.abs(RoomLamps.setBrightness(0.83f) - 1f) < 1e-6f, "a bright one the most");
-        check(RoomLamps.setBrightness(0.705f) > 0.69f && RoomLamps.setBrightness(0.705f) < 0.71f, "and one between, between");
-        check(RoomLamps.setBrightness(2f) == 1f && RoomLamps.setBrightness(0f) == 0.4f, "and nothing past them");
+        float[] hue = new float[3];
+        float bright = RoomLamps.screenHue(new float[] {0.1f, 0.2f, 0.4f}, hue, 0);
+        check(bright == 0.4f, "a set gives as much as the brightest part of its picture's mean: " + bright);
+        check(hue[2] == 1f && Math.abs(hue[0] - 0.25f) < 1e-6f && Math.abs(hue[1] - 0.5f) < 1e-6f, "in its picture's colour: " + hue[0] + " " + hue[1]);
+        check(RoomLamps.screenHue(new float[3], hue, 0) == 0f, "and a black picture gives none");
+    }
+
+    private static void aPicturesGlowIsTheMeanOfWhatTheGlassShows() {
+        // A picture of 16 by 16 pixels, red on its left half and blue on its right.
+        java.nio.ByteBuffer pixels = java.nio.ByteBuffer.allocate(16 * 16 * 4);
+        for (int y = 0; y < 16; y++) {
+            for (int x = 0; x < 16; x++) {
+                pixels.put((y * 16 + x) * 4 + (x < 8 ? 0 : 2), (byte) 0xff);
+            }
+        }
+        float[] glow = Decor.glowOf(pixels, 16, 16);
+        float[] mean = new float[3];
+        Decor.meanOver(glow, 0f, 0f, 1f, 1f, mean);
+        check(Math.abs(mean[0] - 0.5f) < 1e-6f && mean[1] == 0f && Math.abs(mean[2] - 0.5f) < 1e-6f, "the whole picture is half red and half blue: " + mean[0] + " " + mean[2]);
+        Decor.meanOver(glow, 0.1f, 0.2f, 0.4f, 0.7f, mean);
+        check(mean[0] == 1f && mean[2] == 0f, "a part on the left is red");
+        Decor.meanOver(glow, 0.25f, 0f, 1f, 1f, mean);
+        check(Math.abs(mean[2] - 2f / 3f) < 1e-6f, "and one two thirds on the right two thirds blue: " + mean[2]);
+        java.nio.ByteBuffer grey = java.nio.ByteBuffer.allocate(16 * 16 * 4);
+        for (int i = 0; i < 16 * 16 * 4; i++) {
+            grey.put(i, (byte) 128);
+        }
+        Decor.meanOver(Decor.glowOf(grey, 16, 16), 0f, 0f, 1f, 1f, mean);
+        check(Math.abs(mean[1] - Math.pow(128 / 255.0, 2.2)) < 1e-6, "the mean is of linear light: " + mean[1]);
     }
 
     private static void aSetsGlassFacesTheWayItsSpriteSays() {

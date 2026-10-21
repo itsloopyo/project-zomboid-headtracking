@@ -30,8 +30,8 @@ import zombie.util.list.PZArrayList;
  * Where that takes out more than the picture's light gives back, as on a face beside a set and
  * turned from its glass, the light given there is raised to what was taken, so a lamp or a set
  * that is on never leaves anything darker than it was.
- * A set's light comes off the front of its glass, cool, and changes as a picture does, every
- * second or so and a little within that.
+ * A set's light comes off the front of its glass, of the colour and as bright as what the glass
+ * shows in the picture (Screens.glow), and changes as that does.
  *
  * Only the squares of the lamp's own room are lit, so the light stops at the room's walls. The
  * game's line of sight (LosUtil.lineClear) is not asked as well: it left one square of the room
@@ -62,8 +62,11 @@ final class RoomLamps {
     private static final float BULB_UP = 0.42f, GLASS_UP = 0.28f;
     /** How far in front of the middle of its square a set's glass is, in tiles. */
     private static final float GLASS_OUT = 0.25f;
-    /** How strong a lamp's light is at its bulb, for one the game lists at full brightness, and a set's. */
-    private static final float LAMP_GIVES = 4f, SET_GIVES = 5f;
+    /**
+     * How strong a lamp's light is at its bulb, for one the game lists at full brightness, and a
+     * set's at its glass for each part of the mean linear light of what the glass shows.
+     */
+    private static final float LAMP_GIVES = 4f, SET_GIVES = 8f;
     /** How far a set's light reaches, in tiles. */
     private static final float SET_REACH = 6f;
     /**
@@ -84,6 +87,9 @@ final class RoomLamps {
         final float[] dark = new float[3];
         int gathered = Integer.MIN_VALUE;
         boolean wanted;
+        /** For a set, the mean linear colour its glass last showed, once glowing. */
+        final float[] glow = new float[3];
+        boolean glowing;
     }
 
     private final Map<IsoLightSource, Reached> known = new IdentityHashMap<>();
@@ -92,6 +98,7 @@ final class RoomLamps {
     private IsoTelevision[] sets;
     private final float[] far = new float[LIGHTS];
     private final ColorInfo scratch = new ColorInfo();
+    private final float[] glowing = new float[3];
     private int gathering;
     /** Which lights the log last said light the picture, as a hash of where they are: dev only. */
     private int said;
@@ -141,6 +148,15 @@ final class RoomLamps {
                 if (set == null) {
                     continue;
                 }
+                Reached reached = known.computeIfAbsent(light, unknown -> new Reached());
+                // Until what its glass shows has been read the set holds the colour it showed last, and lights nothing before it has shown one.
+                if (Screens.glow(set, playerIndex, glowing)) {
+                    System.arraycopy(glowing, 0, reached.glow, 0, 3);
+                    reached.glowing = true;
+                }
+                if (!reached.glowing) {
+                    continue;
+                }
             } else if (!lamp(light.switches.get(0))) {
                 continue;
             }
@@ -160,11 +176,7 @@ final class RoomLamps {
         int hash = count;
         for (int slot = 0; slot < count; slot++) {
             IsoLightSource light = chosen[slot];
-            Reached reached = known.get(light);
-            if (reached == null) {
-                reached = new Reached();
-                known.put(light, reached);
-            }
+            Reached reached = known.computeIfAbsent(light, unknown -> new Reached());
             reached.wanted = true;
             if (reached.gathered == Integer.MIN_VALUE || !refreshed && gathering - reached.gathered >= STALE) {
                 reach(cell, light, torchLess, playerIndex, reached);
@@ -181,6 +193,10 @@ final class RoomLamps {
                 rows[slot * ROW_VECTORS * 4 + row] = row < SIDE ? reached.rows[row] : 0f;
             }
             hash = 31 * (31 * (31 * hash + light.x) + light.y) + light.z;
+            if (sets[slot] != null) {
+                // A set's colour, to a twentieth, so the log says when what its glass shows changes.
+                hash = 31 * hash + Math.round(to[slot * FLOATS + HUE] * 20f) * 441 + Math.round(to[slot * FLOATS + HUE + 1] * 20f) * 21 + Math.round(to[slot * FLOATS + HUE + 2] * 20f);
+            }
         }
         for (Iterator<Reached> it = known.values().iterator(); it.hasNext(); ) {
             if (!it.next().wanted) {
@@ -196,8 +212,8 @@ final class RoomLamps {
             StringBuilder line = new StringBuilder("lamps and sets in rooms lighting the picture: ").append(count);
             for (int i = 0; i < count; i++) {
                 int at = i * FLOATS;
-                line.append(String.format(Locale.ROOT, " (%s %.2f, %.2f, %.2f strength %.2f dark %.3f %.3f %.3f)", to[at + WAY + 3] > 0f ? "set" : "lamp",
-                        to[at], to[at + 1], to[at + 2], to[at + 3], to[at + BASE], to[at + BASE + 1], to[at + BASE + 2]));
+                line.append(String.format(Locale.ROOT, " (%s %.2f, %.2f, %.2f strength %.2f hue %.2f %.2f %.2f dark %.3f %.3f %.3f)", to[at + WAY + 3] > 0f ? "set" : "lamp",
+                        to[at], to[at + 1], to[at + 2], to[at + 3], to[at + HUE], to[at + HUE + 1], to[at + HUE + 2], to[at + BASE], to[at + BASE + 1], to[at + BASE + 2]));
             }
             Log.info(line.toString());
         }
@@ -280,12 +296,19 @@ final class RoomLamps {
         to[at] = x + (faces ? (float) Math.cos(facing) * GLASS_OUT : 0f);
         to[at + 1] = y + (faces ? (float) Math.sin(facing) * GLASS_OUT : 0f);
         to[at + 2] = floor + GLASS_UP * ViewCamera.LEVEL_HEIGHT;
-        to[at + 3] = SET_GIVES * setBrightness(light.r);
-        to[at + HUE] = to[at + HUE + 1] = to[at + HUE + 2] = 1f;
+        to[at + 3] = SET_GIVES * screenHue(reached.glow, to, at + HUE);
         to[at + HUE + 3] = SET_REACH;
         to[at + WAY + 2] = facing;
-        // Each set changes its picture at its own moments.
-        to[at + WAY + 3] = 1f + (((light.x * 73856093) ^ (light.y * 19349663)) & 1023) / 1024f;
+        to[at + WAY + 3] = 1f;
+    }
+
+    /** The colour of the light of a glass showing a picture of the mean linear colour glow, into to[at], its greatest part 1, and how bright it is. */
+    static float screenHue(float[] glow, float[] to, int at) {
+        float most = Math.max(glow[0], Math.max(glow[1], glow[2]));
+        for (int k = 0; k < 3; k++) {
+            to[at + k] = most > 0f ? glow[k] / most : 1f;
+        }
+        return most;
     }
 
     /**
@@ -303,14 +326,6 @@ final class RoomLamps {
             to[at + k] /= mixed;
         }
         return most;
-    }
-
-    /**
-     * How bright a set's picture is now, 0.4 to 1, from the red of the light the game lists for
-     * it: the game rolls a brightness i from 0 to 1 every few seconds and lists red 0.58 + 0.25 i.
-     */
-    static float setBrightness(float red) {
-        return 0.4f + 0.6f * Math.clamp((red - 0.58f) / 0.25f, 0f, 1f);
     }
 
     /** Which way a set's glass faces, as an angle on the map (x east, y south), or ALL_ROUND where its sprite does not say. */
@@ -337,7 +352,7 @@ final class RoomLamps {
      * bulb or the glass and how strong it is there, 0 past the last; uRoomLampHue its colour and
      * reach; uRoomLampBase the least light of its room's squares it reaches, linear, and the
      * height of its level's floor; uRoomLampWay its square, the way its light leaves (ALL_ROUND
-     * for a lamp) and, for a set, 1 and a fraction to set its picture's changes apart; uRoomLampGame
+     * for a lamp) and 1 for a set; uRoomLampGame
      * how bright the game lights squares with it, its colour's greatest part doubled and stopped
      * at 1, its radius, and how far it has come in (COMES_IN).
      * uRoomLampRows has ROW_VECTORS vec4 a light, one row of the squares round its own in each
@@ -403,21 +418,12 @@ final class RoomLamps {
                     // Some of it comes back off the room's other walls, onto what is turned away too.
                     float turned = 0.12 + 0.88 * max(dot(n, dir), 0.0);
                     float strength = at.w * turned * (1.0 - smoothstep(hue.w * 0.6, hue.w, far)) / (1.0 + %7$f * far2);
-                    vec3 colour = hue.rgb;
                     if (way.z < 50.0) {
                         // A set's light leaves the front of its glass.
                         vec2 front = vec2(cos(way.z), sin(way.z));
                         strength *= 0.12 + 0.88 * smoothstep(-0.3, 0.5, dot(front, -dir.xy) / max(length(dir.xy), 0.001));
                     }
-                    if (way.w > 0.5) {
-                        // A picture changes all at once every second or so, and flickers a little within that.
-                        float cut = floor(uSeconds * 1.3 + way.w * 7.0);
-                        float bright = fract(sin(cut * 12.9898 + way.w * 78.233) * 43758.5453);
-                        float tint = fract(sin(cut * 39.3467 + way.w * 11.135) * 24634.6345);
-                        strength *= (0.45 + 0.55 * bright) * (0.92 + 0.08 * sin(uSeconds * 23.0 + way.w * 40.0));
-                        colour = mix(vec3(0.32, 0.5, 1.0), vec3(0.62, 0.74, 1.0), tint);
-                    }
-                    sum += colour * strength;
+                    sum += hue.rgb * strength;
                 }
                 vec3 takenOut = given - mix(given, least, taken * uDark);
                 given -= takenOut;

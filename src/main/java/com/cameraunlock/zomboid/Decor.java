@@ -46,6 +46,16 @@ final class Decor {
      * top and 1 the foot: a portrait keeps its sitter's head.
      */
     private static final float SHOWN_DOWN = 0.4f;
+    /** How many cells across and down a picture's glow is kept in: see glow. */
+    static final int GLOW_CELLS = 8;
+    /** Each byte of a picture's colour, linear. */
+    private static final float[] LINEAR = new float[256];
+
+    static {
+        for (int i = 0; i < 256; i++) {
+            LINEAR[i] = (float) Math.pow(i / 255.0, 2.2);
+        }
+    }
 
     /** The index, read by the logic thread the first time a sprite is asked about. */
     private static final class Index {
@@ -68,6 +78,12 @@ final class Decor {
     private static int[] givenBack, readAskedBack, readAskedAll;
     private static boolean[] wantedAgain;
     private static int allGivenBack;
+    /**
+     * The mean linear colour of each picture read, in GLOW_CELLS by GLOW_CELLS cells row by row
+     * from its top, null for one not read yet. Kept when the picture is given back: it is the
+     * same when the picture is read again. Under the class's lock.
+     */
+    private static float[][] glows;
     /** Why a picture could not be read, thrown once on the render thread the next time a picture is drawn. */
     private static final AtomicReference<IllegalStateException> readFailed = new AtomicReference<>();
     /**
@@ -121,6 +137,7 @@ final class Decor {
                 readAskedBack = new int[read.names.size()];
                 readAskedAll = new int[read.names.size()];
                 wantedAgain = new boolean[read.names.size()];
+                glows = new float[read.names.size()][];
             }
             index = read;
         }
@@ -225,13 +242,18 @@ final class Decor {
         float[] size = index.sizes.get(picture);
         Runnable read = () -> {
             Read made = null;
+            float[] glow = null;
             try {
                 made = pixels(path, size);
+                glow = glowOf(made.memory.bytes, made.wide, made.high);
             } catch (Throwable thrown) {
                 readFailed.compareAndSet(null, new IllegalStateException(path + " could not be read", thrown));
             } finally {
                 synchronized (Decor.class) {
                     reading[picture] = null;
+                    if (glow != null) {
+                        glows[picture] = glow;
+                    }
                     boolean stale = readAskedBack[picture] != givenBack[picture] || readAskedAll[picture] != allGivenBack;
                     if (made != null && stale) {
                         made.memory.free();
@@ -295,6 +317,68 @@ final class Decor {
         } finally {
             memory.free();
         }
+    }
+
+    /** The mean linear colour of RGBA pixels, every other one each way, in GLOW_CELLS by GLOW_CELLS cells: see glows. */
+    static float[] glowOf(ByteBuffer pixels, int wide, int high) {
+        float[] sums = new float[GLOW_CELLS * GLOW_CELLS * 4];
+        for (int y = 0; y < high; y += 2) {
+            int row = y * GLOW_CELLS / high;
+            for (int x = 0; x < wide; x += 2) {
+                int cell = (row * GLOW_CELLS + x * GLOW_CELLS / wide) * 4, at = (y * wide + x) * 4;
+                sums[cell] += LINEAR[pixels.get(at) & 0xff];
+                sums[cell + 1] += LINEAR[pixels.get(at + 1) & 0xff];
+                sums[cell + 2] += LINEAR[pixels.get(at + 2) & 0xff];
+                sums[cell + 3]++;
+            }
+        }
+        float[] glow = new float[GLOW_CELLS * GLOW_CELLS * 3];
+        for (int cell = 0; cell < GLOW_CELLS * GLOW_CELLS; cell++) {
+            float count = Math.max(sums[cell * 4 + 3], 1f);
+            for (int k = 0; k < 3; k++) {
+                glow[cell * 3 + k] = sums[cell * 4 + k] / count;
+            }
+        }
+        return glow;
+    }
+
+    /**
+     * Logic thread: into out the mean linear colour of the part of a picture centred across and
+     * down it, of its width and height, as Screens.now says a set's glass shows. False where the
+     * picture has not been read yet.
+     */
+    static boolean glow(int picture, float across, float down, float of, float[] out) {
+        float[] glow;
+        synchronized (Decor.class) {
+            glow = glows == null ? null : glows[picture];
+        }
+        if (glow == null) {
+            return false;
+        }
+        meanOver(glow, across - of / 2f, down - of / 2f, across + of / 2f, down + of / 2f, out);
+        return true;
+    }
+
+    /** The mean of a glow over the part from (x0, y0) to (x1, y1) of its picture, each share of its width and height, into out. */
+    static void meanOver(float[] glow, float x0, float y0, float x1, float y1, float[] out) {
+        float red = 0f, green = 0f, blue = 0f, weight = 0f;
+        for (int row = 0; row < GLOW_CELLS; row++) {
+            float high = Math.min(y1, (row + 1f) / GLOW_CELLS) - Math.max(y0, row / (float) GLOW_CELLS);
+            for (int column = 0; high > 0f && column < GLOW_CELLS; column++) {
+                float part = high * (Math.min(x1, (column + 1f) / GLOW_CELLS) - Math.max(x0, column / (float) GLOW_CELLS));
+                if (part <= 0f) {
+                    continue;
+                }
+                int cell = (row * GLOW_CELLS + column) * 3;
+                red += glow[cell] * part;
+                green += glow[cell + 1] * part;
+                blue += glow[cell + 2] * part;
+                weight += part;
+            }
+        }
+        out[0] = red / weight;
+        out[1] = green / weight;
+        out[2] = blue / weight;
     }
 
     /**

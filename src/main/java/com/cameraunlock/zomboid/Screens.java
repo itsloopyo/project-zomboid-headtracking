@@ -77,6 +77,13 @@ final class Screens {
     private static final IdentityHashMap<Models.Model, float[]> glasses = new IdentityHashMap<>();
     /** What Shows.cut fills, one for each thread. */
     private static final float[] built = new float[Shows.CUT_FLOATS], cut = new float[Shows.CUT_FLOATS];
+    /** What Shows.cut fills for glow, on the logic thread. */
+    private static final float[] glowCut = new float[Shows.CUT_FLOATS];
+    /**
+     * The mean linear light of snow as the picture's program draws it, 0.08 + 0.8 u^2 for an
+     * even u, taken to the power 2.2.
+     */
+    static final float SNOW_GLOW = 0.159f;
 
     private Screens() {}
 
@@ -240,6 +247,38 @@ final class Screens {
         if (DevBuild.ON) {
             Log.info("a television " + (source instanceof String ? "playing the tape " : "on channel ") + source + " shows " + shows.name(show));
         }
+    }
+
+    /**
+     * Logic thread: into out the mean linear colour of what the glass of a set that is on shows
+     * now in the picture, as FurnishingBuilder has it drawn: the bars, a programme's shot and the
+     * part of it the glass shows, or snow, with no colour on a set that has none. False where
+     * that picture has not been read yet, or the set's programme has not been drawn yet.
+     */
+    static boolean glow(IsoTelevision set, int playerIndex, float[] out) {
+        Furniture piece = set.getSprite() == null ? null : Furniture.known(set.getSprite());
+        boolean inGrey = piece != null && piece.blackAndWhite;
+        boolean shown;
+        if (piece == null || showing(set) != PROGRAMME || !Own.pictures(playerIndex)) {
+            shown = Decor.glow(bars()[inGrey ? 1 : 0], 0.5f, 0.5f, 1f, out);
+        } else {
+            shows();
+            Integer number = numbers.get(source(set.getDeviceData()));
+            if (number == null) {
+                return false;
+            }
+            int show = sources.show.get(number);
+            if (shows.shots(show) == 0) {
+                out[0] = out[1] = out[2] = SNOW_GLOW;
+                return true;
+            }
+            shows.cut(show, System.nanoTime(), glowCut);
+            shown = Decor.glow(shots[show][(int) glowCut[Shows.SHOT]], glowCut[Shows.ACROSS], glowCut[Shows.DOWN], glowCut[Shows.OF], out);
+        }
+        if (shown && inGrey) {
+            out[0] = out[1] = out[2] = 0.2126f * out[0] + 0.7152f * out[1] + 0.0722f * out[2];
+        }
+        return shown;
     }
 
     /** Whether what a piece carries is where a programme comes from, and not one picture. */
