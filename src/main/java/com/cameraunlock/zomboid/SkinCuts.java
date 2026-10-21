@@ -21,7 +21,7 @@ final class SkinCuts {
 
     static final int MALE = 0, FEMALE = 1, NO_BODY = -1;
     /** The size every skin of a body in the jar is. */
-    static final int SIZE = 2048;
+    static final int SIZE = 1024;
 
     /** Both bodies' cuts, MALE then FEMALE: null until the game's models have been read. */
     private static volatile CompletableFuture<byte[][]> cuts;
