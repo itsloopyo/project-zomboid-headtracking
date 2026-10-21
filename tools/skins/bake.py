@@ -12,12 +12,12 @@ and nothing of the game's own picture.
   is in the same place on the body in every state.
 - The face is a picture of one from straight ahead, laid on the front of the head by the head's
   crown, nose and chin, and the body's skin takes its colour from the face's.
-- Briefs, and a band across the chest of a woman, are cotton.
+- Briefs, and a bra for a woman, are matte cotton, painted on the dead and the living alike, as the game's own skins have them.
 - The two sheets of the body model that a skirt is painted on are left see-through, as the game's own skin leaves them.
-- The living have clean skin, no cloth on it, the game's five tones, and for a man the hair on chest, arms and legs that the
+- The living have clean skin and clean underwear, the game's five tones, and for a man the hair on chest, arms and legs that the
   game's second skin of each tone has.
 
-    python tools/skins/bake.py --game "<game folder>" --pictures DIR [--only M_ZedBody01 MaleBody03a ...] [--preview DIR] [--size 2048]
+    python tools/skins/bake.py --game "<game folder>" --pictures DIR [--only M_ZedBody01 MaleBody03a ...] [--preview DIR] [--size 1024]
 Writes src/main/resources/skins/body/<the game's name in small letters>.jpg, and with --preview a view of each body wearing its skin.
 What of a skin is see-through, the skirt's sheets, the mod works out from the game's own model as a save loads (SkinCuts).
 """
@@ -40,34 +40,28 @@ SPAN = {'skin': 0.07, 'rot': 0.24, 'gore': 0.16, 'cotton': 0.3}
 YELLOWED = numpy.array([0.97, 0.94, 0.74], dtype=numpy.float32)
 PURPLED = numpy.array([0.7, 0.56, 0.74], dtype=numpy.float32)
 VEIN = numpy.array([0.62, 0.66, 0.82], dtype=numpy.float32)
-# The surfaces that were made as plain photographs (tools/skins/generate.py, PLAIN) and are joined at their edges here.
-PLAIN = ('gore', 'cotton')
-# The part of a picture that is used, where the rest of it is not the surface: its left, its top and its size, as parts of the
-# picture's. The skin came out with a fold down it, right of the middle.
-PART = {'skin': (0.02, 0.02, 0.42)}
+# The seed of each picture tools/skins/generate.py made that is baked, of those made: a face's states of decay are made from
+# the first face picked and carry its seed. Every tone of a sex is one seed, so that no tone is a different sort of face.
+PICKED = {'skin': 1, 'rot': 3, 'gore': 1, 'cotton': 1}
+PICKED.update({f'face-{sex}{tone}': 3 for sex in 'mf' for tone in range(1, 5)})
+PICKED.update({f'live-{sex}{tone}': 2 for sex in 'mf' for tone in range(1, 6)})
 # The head of each body model, looked at from in front (the face looks along -z): half the breadth of
 # the skull at the eyes, and the heights of the crown, the tip of the nose and the chin.
 HEAD = {'M': (0.053, 0.98, 0.879, 0.818), 'F': (0.051, 0.968, 0.871, 0.815)}
 # The same of each first face in its picture, as parts of the picture's size, with the middle of the
 # face before them: middle, half the breadth of the head at the eyes, crown, tip of the nose, chin.
-# Measured by eye on the pictures made. The states of decay made from a first face keep its measures.
-SEEN = {
-    'face-m1': (0.495, 0.240, 0.065, 0.605, 0.820),
-    'face-m2': (0.497, 0.243, 0.085, 0.600, 0.830),
-    'face-m3': (0.490, 0.235, 0.080, 0.600, 0.830),
-    'face-m4': (0.500, 0.225, 0.095, 0.600, 0.820),
-    'face-f1': (0.500, 0.200, 0.130, 0.540, 0.755),
-    'face-f2': (0.502, 0.198, 0.130, 0.535, 0.750),
-    'face-f3': (0.502, 0.198, 0.130, 0.535, 0.755),
-    'face-f4': (0.497, 0.243, 0.075, 0.590, 0.810),
-}
-# The model made the darkest tone's faces paler than the game's fourth tone is: their pictures are multiplied by this.
-DEEPER = {'face-m4': (0.8, 0.72, 0.66), 'face-f4': (0.6, 0.5, 0.43)}
-# The faces of the living, measured the same way. One seed framed the five men alike, and the women nearly.
-SEEN.update({f'live-m{tone}': (0.495, 0.244, 0.058, 0.595, 0.825) for tone in range(1, 6)})
-SEEN.update({'live-f1': (0.503, 0.210, 0.095, 0.575, 0.765), 'live-f2': (0.500, 0.207, 0.095, 0.560, 0.745),
-             'live-f3': (0.500, 0.207, 0.095, 0.560, 0.745), 'live-f4': (0.500, 0.207, 0.095, 0.560, 0.745),
-             'live-f5': (0.500, 0.205, 0.095, 0.535, 0.727)})
+# Measured by eye on the pictures made. Every tone of a sex is one seed, framed alike, and the states of
+# decay made from a first face keep its measures.
+SEEN = {f'face-m{tone}': (0.500, 0.300, 0.030, 0.610, 0.920) for tone in range(1, 5)}
+SEEN.update({f'face-f{tone}': (0.500, 0.290, 0.035, 0.600, 0.900) for tone in range(1, 5)})
+# The faces of the living, measured the same way.
+SEEN.update({f'live-m{tone}': (0.500, 0.272, 0.052, 0.598, 0.866) for tone in range(1, 6)})
+SEEN.update({'live-f1': (0.500, 0.265, 0.060, 0.585, 0.840), 'live-f2': (0.500, 0.266, 0.058, 0.588, 0.845),
+             'live-f3': (0.502, 0.268, 0.055, 0.590, 0.850), 'live-f4': (0.502, 0.271, 0.055, 0.592, 0.855),
+             'live-f5': (0.502, 0.275, 0.055, 0.595, 0.860)})
+# The colour of the skin of each of the game's four tones of zombie, 0 to 1, read off the game's own skins as one colour
+# each. A zombie's face is brought towards it just as a face of the living is towards its tone, every tone alike.
+ZOMBIE_TONE = {1: (0.87, 0.84, 0.79), 2: (0.84, 0.80, 0.72), 3: (0.72, 0.72, 0.57), 4: (0.45, 0.455, 0.42)}
 # The colour of the skin of each of the game's five tones of the living, 0 to 1: read off the game's own skins as one
 # colour each, so that a character is as dark here, and as warm, as where the player chose the tone. A face's picture is
 # made that light, and its colour brought part of the way to that one.
@@ -211,22 +205,27 @@ def ramp(low, high, value):
 
 
 def portrait(pictures, name, state):
-    """A zombie's face in a state of decay, or with no state the face of the living, 0 to 1."""
+    """A zombie's face in a state of decay, or with no state the face of the living, 0 to 1, in the colour of its tone."""
+    def opened(path):
+        return numpy.asarray(Image.open(pictures / path).convert('RGB')).astype(numpy.float32) / 255.0
     if state is None:
-        seen = numpy.asarray(Image.open(pictures / f'{name}.png').convert('RGB')).astype(numpy.float32) / 255.0
-        middle, half, crown, nose, chin = SEEN[name]
-        high, wide = seen.shape[:2]
-        box = seen[int(high * (crown + 0.2 * (nose - crown))):int(high * (chin - 0.25 * (chin - nose))),
-                   int(wide * (middle - 0.7 * half)):int(wide * (middle + 0.7 * half))]
-        weigh = numpy.array([0.299, 0.587, 0.114], dtype=numpy.float32)
-        own = numpy.percentile(box.reshape(-1, 3), 62, axis=0).astype(numpy.float32)
-        tone = numpy.array(TONE[int(name[-1])], dtype=numpy.float32)
-        lighter = min(float(tone @ weigh) / float(own @ weigh), LIGHTENED_MOST)
-        # What turns the face's colour into the tone's at the same lightness, taken part of the way.
-        warmer = 1.0 + TONED * ((tone / float(tone @ weigh)) / (own / float(own @ weigh)) - 1.0)
-        return numpy.clip(seen * lighter * warmer, 0.0, 1.0)
-    seen = numpy.asarray(Image.open(pictures / f'{name}-{state}.png').convert('RGB')).astype(numpy.float32) / 255.0
-    return seen * numpy.array(DEEPER.get(name, (1.0, 1.0, 1.0)), dtype=numpy.float32)
+        seen = first = opened(f'{name}-{PICKED[name]}.png')
+        tone = TONE[int(name[-1])]
+    else:
+        seen, first = opened(f'{name}-{state}-{PICKED[name]}.png'), opened(f'{name}-0-{PICKED[name]}.png')
+        tone = ZOMBIE_TONE[int(name[-1])]
+    # Measured on the first face, so that every state of decay of it is brought to its tone alike.
+    middle, half, crown, nose, chin = SEEN[name]
+    high, wide = first.shape[:2]
+    box = first[int(high * (crown + 0.2 * (nose - crown))):int(high * (chin - 0.25 * (chin - nose))),
+                int(wide * (middle - 0.7 * half)):int(wide * (middle + 0.7 * half))]
+    weigh = numpy.array([0.299, 0.587, 0.114], dtype=numpy.float32)
+    own = numpy.percentile(box.reshape(-1, 3), 62, axis=0).astype(numpy.float32)
+    tone = numpy.array(tone, dtype=numpy.float32)
+    lighter = min(float(tone @ weigh) / float(own @ weigh), LIGHTENED_MOST)
+    # What turns the face's colour into the tone's at the same lightness, taken part of the way.
+    warmer = 1.0 + TONED * ((tone / float(tone @ weigh)) / (own / float(own @ weigh)) - 1.0)
+    return numpy.clip(seen * lighter * warmer, 0.0, 1.0)
 
 
 def sampled(image, x, y):
@@ -237,19 +236,6 @@ def sampled(image, x, y):
     x1, y1 = (x0 + 1) % wide, (y0 + 1) % high
     x0, y0 = x0 % wide, y0 % high
     return (image[y0, x0] * (1 - fx) * (1 - fy) + image[y0, x1] * fx * (1 - fy) + image[y1, x0] * (1 - fx) * fy + image[y1, x1] * fx * fy)
-
-
-def joined(image):
-    """
-    A plain photograph made to join up with itself: towards its edges it gives way to itself moved
-    half its size both ways, whose own edges, now in the middle, are covered by the photograph.
-    """
-    own = numpy.asarray(image).astype(numpy.float32)
-    dots = own.shape[0]
-    moved = numpy.roll(own, (dots // 2, dots // 2), axis=(0, 1))
-    edge = numpy.minimum(numpy.arange(dots) + 0.5, dots - numpy.arange(dots) - 0.5) / dots
-    share = ramp(0.03, 0.3, numpy.minimum(edge[:, None], edge[None, :]))[..., None]
-    return Image.fromarray((own * share + moved * (1 - share)).round().astype(numpy.uint8), 'RGB')
 
 
 def wrapped(pictures, name, where, facing, span, density, grain=False):
@@ -266,13 +252,9 @@ def laid(pictures, name, where, facing, span, density, grain):
     would be counted across a back as the picture comes round again, is divided out.
     """
     dots = max(64, int(round(span * density)))
-    image = Image.open(pictures / f'{name}.png').convert('RGB')
-    if name in PART:
-        left, top, side = (int(round(part * image.width)) for part in PART[name])
-        image = image.crop((left, top, left + side, top + side))
-    image = image.resize((dots, dots), Image.LANCZOS)
-    if name in PLAIN or name in PART:
-        image = joined(image)
+    image = Image.open(pictures / f'{name}-{PICKED[name]}.png').convert('RGB')
+    # Made smaller three by three and the middle kept: made smaller alone, its edges are filtered as ends and show as seams.
+    image = Image.fromarray(numpy.tile(numpy.asarray(image), (3, 3, 1))).resize((dots * 3, dots * 3), Image.LANCZOS).crop((dots, dots, dots * 2, dots * 2))
     tile = numpy.asarray(image).astype(numpy.float32) / 255.0
     if grain:
         thrice = Image.fromarray(numpy.tile(numpy.asarray(image), (3, 3, 1)))
@@ -355,7 +337,7 @@ def baked(sex, tone, state, maps, pictures, density):
 
 
 def alive(sex, tone, hairy, maps, pictures, density):
-    """The skin of the living: clean, with the face of its sex and tone, and for a hairy man the hair of his body."""
+    """The skin of the living: clean, in clean underwear, with the face of its sex and tone, and for a hairy man the hair of his body."""
     where, facing, on, _ = maps
     x, y = where[..., 0], where[..., 1]
     name = f'live-{sex.lower()}{tone}'
@@ -379,11 +361,13 @@ def alive(sex, tone, hairy, maps, pictures, density):
         strands = ramp(0.38, 0.62, cloudy(where, 420.0, 83, layers=2)) * (0.55 + 0.45 * ramp(0.3, 0.6, cloudy(where, 30.0, 87, layers=2)))
         haired = (grown * strands * 0.5)[..., None]
         colour = colour * (1 - haired * (1 - HAIRED))
+    colour = dressed(sex, None, colour, where, facing, pictures, density)
     colour = faced(sex, name, None, colour, where, facing, on, pictures)
     return spread(numpy.clip(colour, 0.0, 1.0), on)
 
 
 def dressed(sex, state, colour, where, facing, pictures, density):
+    """Underwear: worn and stained the further gone a zombie is, and clean on the living, whose state is None."""
     x, y, z = where[..., 0], where[..., 1], where[..., 2]
     cotton = wrapped(pictures, 'cotton', where, facing, SPAN['cotton'], density)
     cotton = 0.55 + 0.4 * cotton / cotton.mean()
@@ -398,8 +382,8 @@ def dressed(sex, state, colour, where, facing, pictures, density):
         band = ramp(chest - 0.03, chest - 0.024, y) * ramp(chest + 0.012, chest + 0.006, y)
         cups = ramp(chest - 0.03, chest - 0.024, y) * ramp(chest + 0.05 - 0.2 * numpy.abs(side - 0.045), chest + 0.044 - 0.2 * numpy.abs(side - 0.045), y) * front
         worn = numpy.maximum(worn, numpy.maximum(band, cups) * (side < TORSO))
-    grubby = 1.0 - (0.08 + 0.1 * state) * cloudy(where, 9.0, 41)
-    stained = ramp(0.6, 0.75, cloudy(where, 7.0, 57)) * (0.0, 0.25, 0.5, 0.7)[state]
+    grubby = 1.0 - (0.03 if state is None else 0.08 + 0.1 * state) * cloudy(where, 9.0, 41)
+    stained = ramp(0.6, 0.75, cloudy(where, 7.0, 57)) * (0.0 if state is None else (0.0, 0.25, 0.5, 0.7)[state])
     cloth = cotton * numpy.array([0.8, 0.8, 0.78], dtype=numpy.float32) * grubby[..., None]
     cloth = cloth * (1 - stained[..., None]) + cloth * numpy.array([0.45, 0.22, 0.16], dtype=numpy.float32) * stained[..., None]
     return colour * (1 - worn[..., None]) + cloth * worn[..., None]
@@ -485,7 +469,7 @@ def main():
     parser.add_argument('--pictures', required=True)
     parser.add_argument('--only', nargs='*', default=[])
     parser.add_argument('--preview')
-    parser.add_argument('--size', type=int, default=2048)
+    parser.add_argument('--size', type=int, default=1024)
     args = parser.parse_args()
     pictures = pathlib.Path(args.pictures)
     OUT.mkdir(parents=True, exist_ok=True)

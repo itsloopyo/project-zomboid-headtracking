@@ -5,68 +5,63 @@ up with itself at its edges. A FACE is one bald head seen from straight ahead. T
 zombie of a sex and a skin tone is made from its prompt alone; the three states of decay after it
 are that same picture given back to the model part noised with a prompt that says how far gone it
 is, so the eyes and the mouth stay where they were and one measuring of them serves all four. The
-face of the living of a sex and a tone, live-m1 to live-f5, is made from its prompt alone.
+face of the living of a sex and a tone, live-m1 to live-f5, is made from its prompt alone. Every
+tone of a sex is asked for in the same words but for the skin, so that no tone is drawn as a
+different sort of face from the others.
 
-Stable Diffusion XL base 1.0, through the maker tools/materials/generate.py has. Run with the venv
-that has torch and diffusers (see .lab/NOTES.md, "Generated materials"):
-    python tools/skins/generate.py --out DIR [--only skin-1 face-m1-0 ...] [--starting face-m] [--most 12]
-Writes DIR/<name>.png and skips what is there already. tools/skins/bake.py lays them on the bodies.
+Z-Image Turbo, through the maker tools/materials/generate.py has. Run with the venv that has torch and
+diffusers (see .lab/NOTES.md, "Generated materials"):
+    python tools/skins/generate.py --out DIR [--only skin face-m1-0 ...] [--starting face-m] [--seeds 1 2 3 4]
+Writes DIR/<name>-<seed>.png and skips what is there already. A state of decay is made only from the
+first face bake.PICKED names, and is written with that face's seed. tools/skins/bake.py lays them on the bodies.
 """
 import argparse
 import pathlib
 import sys
 
-import numpy
-import torch
 from PIL import Image
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / 'materials'))
 import generate as materials  # noqa: E402
+import bake  # noqa: E402
 
-EVEN = 'flat even lighting, seamless texture, photorealistic, sharp focus'
-# What a skin tone is called on a stretch of skin, and on a face.
-TONES = {
-    1: ('very pale grey white bloodless', 'very pale grey white bloodless skin'),
-    2: ('pale waxy cream', 'pale waxy cream skin'),
-    3: ('sallow yellowish olive', 'sallow yellowish olive skin'),
-    4: ('very dark brown', 'African, very dark brown black skin gone ashen'),
-}
+FLAT = (' It fills the whole frame from edge to edge and is the same all over, with nothing else in sight. A plain reference photograph in'
+        ' flat even light with no shadows, with natural colours and fine film grain.')
 SURFACES = {
-    'skin': 'macro photograph of human skin texture filling the entire frame edge to edge, pale skin, soft pores, fine vellus hairs, a few tiny freckles, even tone, ' + EVEN,
-    'rot': 'macro photograph of necrotic gangrenous skin filling the entire frame edge to edge, black and dark brown dry cracked scabs, peeling, ' + EVEN,
-}
-# Asked to join up with themselves these came out as patterns (a net, a giraffe's hide), so they are
-# made as plain photographs and tools/skins/bake.py joins their edges.
-PLAIN = {
-    'gore': 'forensic close-up photograph of a raw flesh wound filling the frame, torn dark red muscle tissue, clotted dark blood, wet, flat even lighting, photorealistic, sharp focus',
-    'cotton': 'close-up photograph of plain white cotton underwear fabric laid flat filling the frame, fine jersey knit texture, flat even lighting, photorealistic, sharp focus',
-}
-SURFACES.update(PLAIN)
-SURFACE_NEGATIVE = ('face, eye, mouth, hand, fingers, nipple, navel, body, back, arm, outline, background, flowers, petals, blisters, cells, honeycomb, '
-                    'reptile, elephant, pattern, shadows, text, watermark, blurry, painting, illustration, drawing, vignette, border, 3d render, plastic')
-OWN_NEGATIVE = {
-    'gore': 'face, eye, mouth, hand, fingers, knife, plate, bone, text, watermark, blurry, painting, illustration, drawing, vignette, border, 3d render',
-    'cotton': 'face, skin, body, seam, label, lace, folds, creases, spots, holes, net, print, shadows, text, watermark, blurry, painting, illustration, vignette, border',
+    'skin': ('A close macro photograph of a small flat patch of pale human skin on a forearm, lit evenly from straight in front: soft pores, fine '
+             'vellus hairs and a few tiny freckles, an even tone, with no folds, creases or shading across it.' + FLAT),
+    'rot': 'A close photograph of necrotic gangrenous skin: black and dark brown dry cracked scabs, peeling at their edges.' + FLAT,
+    'gore': 'A close forensic photograph of a raw open flesh wound: torn dark red muscle tissue and clotted dark blood, wet.' + FLAT,
+    'cotton': 'A close photograph of plain white cotton underwear fabric laid flat: a fine matte jersey knit with a soft brushed surface and no '
+              'sheen, with no lace, no print and no seams.' + FLAT,
 }
 
 SEXES = {'m': 'man', 'f': 'woman'}
+# What a zombie's skin tone is called, palest first: the game has four.
+TONES = {
+    1: 'very pale grey white bloodless skin',
+    2: 'pale waxy cream skin',
+    3: 'sallow yellowish olive skin',
+    4: 'very dark brown skin gone dull and ashen',
+}
 # How far gone, as the game counts it: just turned, then three states of decay.
 STATES = {
-    0: 'recently dead, slack face, dark hollows round the eyes, a little dried blood at the mouth',
-    1: 'days dead, sunken cheeks, dark veins under the skin, bruised hollows round the eyes, dried blood at the mouth',
-    2: 'rotting, sunken face, torn skin hanging loose, open sores, dark veins, dried blood down the chin',
-    3: 'badly rotted corpse, blackened peeling skin, cheek torn open to dark flesh and teeth, deep wounds, caked blood',
+    0: 'Recently dead: the face is slack, with dark hollows round the eyes and a little dried blood at the corner of the mouth.',
+    1: 'Several days dead: sunken cheeks, dark veins showing under the skin, bruised hollows round the eyes and dried blood at the mouth.',
+    2: 'Rotting: a sunken face with patches of skin torn and hanging loose, open sores, dark veins and dried blood down the chin.',
+    3: 'Badly rotted: blackened peeling skin, one cheek torn open to the dark flesh and the ordinary teeth behind it, deep wounds and caked blood.',
 }
-FACE_NEGATIVE = ('hair, beard, hat, hood, glasses, earrings, jewellery, makeup, smile, profile, three quarter view, tilted head, looking away, hands, '
-                 'shadows, dramatic lighting, mask, picture frame, border, vignette, black and white, monochrome, sepia, antique photograph, painting, illustration, drawing, cartoon, 3d render, text, watermark, blurry')
 # How much of a first face is noise again when each state of decay is made from it: enough to rot it, not enough to move its eyes.
 AGAIN = {1: 0.64, 2: 0.7, 3: 0.76}
+PASSPORT = (' Plain grey background. A real photograph taken in flat even studio light, showing natural human skin with its pores, fine lines'
+            ' and small blemishes.')
 
 
 def face(sex, tone, state):
-    return (f'passport photograph of a zombie, front view of the face of a bald dead {SEXES[sex]}, walking corpse, {TONES[tone][1]}, {STATES[state]}, '
-            'cloudy white dead eyes, mouth slightly open, head centred and facing the camera, symmetrical, '
-            'flat even lighting, plain grey background, photorealistic, sharp focus, skin pores')
+    return (f'A passport photograph of the face of an ordinary middle aged {SEXES[sex]} who has died and become a walking corpse, seen from '
+            'straight in front: a bald head with no hair at all, centred and facing the camera, the face symmetrical and of ordinary '
+            f'proportions, with {TONES[tone]}. {STATES[state]} Both eyes are milky white and clouded over with no pupils to be seen, the lips '
+            'are pale grey and dry, and the mouth hangs slightly open.' + PASSPORT)
 
 
 FACES = {f'face-{sex}{tone}-{state}': (sex, tone, state) for sex in SEXES for tone in TONES for state in STATES}
@@ -77,40 +72,18 @@ LIVING_TONES = {
     2: 'fair light beige skin',
     3: 'light olive tan skin',
     4: 'medium brown skin',
-    5: 'African, dark brown skin',
+    5: 'dark brown skin',
 }
-LIVING_NEGATIVE = ('hair, beard, moustache, stubble, hat, hood, glasses, earrings, jewellery, makeup, lipstick, smile, teeth, profile, three quarter view, '
-                   'tilted head, looking away, hands, shadows, dramatic lighting, picture frame, border, vignette, black and white, monochrome, sepia, '
-                   'antique photograph, painting, illustration, drawing, cartoon, 3d render, text, watermark, blurry, wounds, blood, scars, tattoo')
 
 
 def living(sex, tone):
-    return (f'passport photograph, front view of the face of a bald {SEXES[sex]} thirty five years old, shaved head, {LIVING_TONES[tone]}, healthy, '
-            'neutral expression, mouth closed, eyes open looking into the camera, head centred and facing the camera, symmetrical, '
-            'flat even lighting, plain grey background, photorealistic, sharp focus, skin pores')
+    return (f'A passport photograph of an ordinary {SEXES[sex]} thirty five years old with a cleanly shaved bald head, seen from straight in '
+            'front: the head centred and facing the camera, the face symmetrical and of ordinary proportions, with '
+            f'{LIVING_TONES[tone]} and natural eyebrows. A calm neutral expression, the mouth closed and the eyes open looking into the '
+            'camera, with no make-up and no jewellery.' + PASSPORT)
 
 
 LIVING = {f'live-{sex}{tone}': (sex, tone) for sex in SEXES for tone in LIVING_TONES}
-# One seed for each sex, so the four tones of it are framed alike. The fourth woman came out of hers as an old brown photograph.
-SEEDS = {'m': 1993, 'f': 7}
-OWN_SEEDS = {'face-f4': 1993}
-# The seed of each face of the living that did not come out of its sex's seed as a face to use.
-LIVING_SEEDS = {}
-
-
-def pixels(picture):
-    return Image.fromarray(((picture[0].permute(1, 2, 0).cpu().numpy() + 1.0) * 127.5).round().clip(0, 255).astype(numpy.uint8), 'RGB')
-
-
-@torch.no_grad()
-def decayed(maker, words, first, seed, again):
-    """A first face given back to the model part noised, to come out as the words say."""
-    materials.wrapping(maker.pipe.unet, False)
-    picture = torch.from_numpy(numpy.asarray(first.convert('RGB')).astype(numpy.float32) / 127.5 - 1.0).permute(2, 0, 1)[None].to('cuda')
-    latents = maker.taken(picture, False).to(torch.float16)
-    latents = maker.again(**maker.given(words), image=latents, strength=again, num_inference_steps=40, guidance_scale=7.0,
-                          generator=torch.Generator('cuda').manual_seed(seed), output_type='latent').images
-    return pixels(maker.shown(latents, False))
 
 
 def main():
@@ -118,50 +91,49 @@ def main():
     parser.add_argument('--out', required=True)
     parser.add_argument('--only', nargs='*', default=[])
     parser.add_argument('--starting', nargs='*', default=[])
-    parser.add_argument('--most', type=int, default=0)
-    parser.add_argument('--seed', type=int, default=1993, help='for the surfaces; any but 1993 is written as <name>-<seed>.png, to choose between')
+    parser.add_argument('--seeds', nargs='*', type=int, default=[1, 2, 3, 4], help='for the surfaces, first faces and faces of the living')
     args = parser.parse_args()
     out = pathlib.Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
 
     names = list(SURFACES) + list(FACES) + list(LIVING)
-    tail = '' if args.seed == 1993 else f'-{args.seed}'
     unknown = [name for name in args.only if name not in names]
     if unknown:
         raise SystemExit('no such picture: ' + ' '.join(unknown))
     chosen = bool(args.only or args.starting)
-    wanted = [name for name in names
-              if (not chosen or name in args.only or any(name.startswith(start) for start in args.starting))
-              and not (out / f'{name}{tail if name in SURFACES else ""}.png').exists()]
-    # A state of decay is made from its first face, which has to be there.
-    wanted = [name for name in wanted
-              if name in SURFACES or name in LIVING or FACES[name][2] == 0 or (out / f'{name[:-1]}0.png').exists() or f'{name[:-1]}0' in wanted]
-    wanted.sort(key=lambda name: name in FACES and FACES[name][2] > 0)
-    if args.most:
-        wanted = wanted[:args.most]
+    wanted = []
+    for name in names:
+        if chosen and name not in args.only and not any(name.startswith(start) for start in args.starting):
+            continue
+        if name in FACES and FACES[name][2] > 0:
+            first = name[:-2]
+            if first not in bake.PICKED:
+                print(f'{name}: no first face of {first} is picked in bake.PICKED, so it is not made', flush=True)
+                continue
+            seeds = [bake.PICKED[first]]
+        else:
+            seeds = args.seeds
+        wanted += [(name, seed) for seed in seeds if not (out / f'{name}-{seed}.png').exists()]
+    # A state of decay is made from its first face, which has to be there first.
+    wanted.sort(key=lambda job: job[0] in FACES and FACES[job[0]][2] > 0)
     if not wanted:
         print('nothing to make', flush=True)
         return
 
     prompts = {}
-    for name in wanted:
-        prompts[name] = ((SURFACES[name], OWN_NEGATIVE.get(name, SURFACE_NEGATIVE)) if name in SURFACES
-                         else (living(*LIVING[name]), LIVING_NEGATIVE) if name in LIVING else (face(*FACES[name]), FACE_NEGATIVE))
+    for name, _ in wanted:
+        prompts[name] = SURFACES[name] if name in SURFACES else living(*LIVING[name]) if name in LIVING else face(*FACES[name])
     maker = materials.Maker()
     words = maker.words(prompts)
-    for name in wanted:
-        if name in SURFACES:
-            image = maker.make(words[name], args.seed, 1024, name not in PLAIN, 6.0)
-        elif name in LIVING:
-            image = maker.make(words[name], LIVING_SEEDS.get(name, SEEDS[LIVING[name][0]]), 1024, False, 7.0)
+    for name, seed in wanted:
+        if name in FACES and FACES[name][2] > 0:
+            state = FACES[name][2]
+            first = Image.open(out / f'{name[:-2]}-0-{seed}.png')
+            image = maker.over(words[name], seed + state, first, AGAIN[state], False)
         else:
-            sex, _, state = FACES[name]
-            if state == 0:
-                image = maker.make(words[name], OWN_SEEDS.get(name[:-2], SEEDS[sex]), 1024, False, 7.0)
-            else:
-                image = decayed(maker, words[name], Image.open(out / f'{name[:-1]}0.png'), OWN_SEEDS.get(name[:-2], SEEDS[sex]) + state, AGAIN[state])
-        image.save(out / f'{name}{tail if name in SURFACES else ""}.png')
-        print('made', name, flush=True)
+            image = maker.make(words[name], seed, 1024, 1024, name in SURFACES)
+        image.save(out / f'{name}-{seed}.png')
+        print('made', f'{name}-{seed}', flush=True)
 
 
 if __name__ == '__main__':
