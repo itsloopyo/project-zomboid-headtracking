@@ -1995,6 +1995,11 @@ final class WorldScene {
     /** What a sprite that is no floor is made of: see materialOf. A wall the game says is of wood, on a sheet made for one place, is boarded. */
     static float materialOf(IsoSprite sprite) {
         float material = materialOf(sprite.getName(), false);
+        // A street lamp's bare post is on the sheet of lamps and lit as strongly as the lamp over
+        // it: its pale paint glowed from foot to head.
+        if (material == LAMP && sprite.getType() != IsoObjectType.lightswitch && Knockdown.streetLamp(sprite.getName(), sprite.getProperties().get("CustomName"))) {
+            return 0f;
+        }
         if (material != 0f || sprite.getName() == null || !sprite.getName().startsWith("location_")) {
             return material;
         }
