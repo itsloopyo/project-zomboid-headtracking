@@ -151,12 +151,12 @@ SPORTS = {
         'A worn brown leather baseball glove with a baseball in its pocket lying on a wooden dugout bench.' + STILL,
     ],
     'football': [
-        'An American football quarterback in a blank blue and orange uniform with no numbers anywhere on the jersey or helmet, plain white shoes with no logos, drawing back to throw, seen from'
-        ' the side, the stadium blurred behind.' + ACTION,
+        'A high school American football game under Friday night floodlights seen from high in the bleachers, the '
+        'players small figures in red and in white lined up at the line of scrimmage.' + ACTION,
         'An American football running back in a plain white uniform with no numbers running with the ball tucked under one arm,'
         ' alone in open field.' + ACTION,
-        'An American football receiver in a blank red uniform with no numbers anywhere on the jersey or helmet, plain white shoes with no logos, leaping alone for a pass, the ball just above his'
-        ' hands.' + ACTION,
+        'An American football player leaping for a pass seen as a black silhouette against a deep orange sunset sky, '
+        'the ball above his reaching hands.' + ACTION,
         'A brown leather American football lying on the white yard line of a grass field.' + STILL,
         'A plain blue American football helmet with no decal lying on the grass of a field at dusk, stadium lights behind.' + STILL,
         'An American football flying end over end between yellow goal posts in a stadium at dusk, seen from behind the posts.' + ACTION,
@@ -166,11 +166,10 @@ SPORTS = {
         ' on an empty training pitch, trees behind, seen from the side.' + ACTION,
         'A soccer goalkeeper in a plain green jersey diving at full stretch, the ball just past his gloves, seen from behind'
         ' the goal net.' + ACTION,
-        'A soccer player in a blue and white striped shirt with no badge, logo or number and plain black boots running with the ball at his feet on a grass pitch, nobody near'
-        ' him.' + ACTION,
+        'A small town soccer game seen from far up a grassy bank, the players small figures in blue and white stripes '
+        'and in red spread across the pitch, trees behind.' + ACTION,
         'A black and white leather soccer ball on the penalty spot of a grass pitch, the goal behind.' + STILL,
-        'A soccer player in a solid yellow shirt with no badge, logo or number running with his arms wide after a goal on a small town pitch, the crowd behind far away and out of'
-        ' focus.' + ACTION,
+        'A black and white soccer ball resting in the back of a goal net on a muddy pitch at dusk, nobody there.' + ACTION,
         'An empty grass soccer pitch in a small stadium at evening, floodlights on, the goal in the foreground.' + STILL,
     ],
     'athletics': [
@@ -182,19 +181,22 @@ SPORTS = {
         'An empty red running track curving round a stadium at sunrise, white lane lines.' + STILL,
     ],
     'weights': [
-        'A weightlifter in a plain dark singlet holding a heavy barbell with plain black iron plates with no markings overhead on a wooden platform, seen from the'
-        ' front.' + ACTION,
+        'A weightlifter holding a barbell overhead seen as a black silhouette against a tall bright window in a dim old'
+        ' gym.' + ACTION,
         'A bodybuilder in plain black trunks flexing both arms on a stage against a dark curtain, seen from the front.' + ACTION,
-        'An aerobics class of about a dozen people in loose t-shirts and track pants exercising with small dumbbells in a 1980s'
-        ' gym with bare painted walls and a long mirror, seen from the back of the room.' + ACTION,
+        'An aerobics class of about a dozen people in plain grey sweatshirts and plain grey sweatpants exercising with '
+        'small dumbbells in a 1980s gym with bare painted brick walls with nothing on them and a long mirror, seen from'
+        ' the back of the room.' + ACTION,
         'A heavy iron dumbbell resting on a rubber gym floor, chalk dust in a shaft of light.' + STILL,
         'A man in a grey t-shirt lying on a bench pressing a barbell in an old gym, seen from the side.' + ACTION,
         'A loaded barbell with iron plates resting on a wooden lifting platform against a plain red background.' + STILL,
     ],
     'hockey': [
-        'An ice hockey player in a blank blue jersey with no crest or number, plain black gloves and an unmarked wooden stick, skating hard with the puck, ice spraying from his skates.' + ACTION,
+        'A small town ice rink seen from high in the wooden stands, the players small figures in blue and in white '
+        'chasing the puck across the ice.' + ACTION,
         'An ice hockey goalie in white pads, a mask and a plain white jersey with no crest crouching in front of the net.' + ACTION,
-        'An ice hockey player in a blank green jersey with no crest or number, plain black gloves and an unmarked wooden stick, plain white boards behind, winding up for a slap shot, seen from the side.' + ACTION,
+        'A pair of worn black leather ice hockey skates hanging by their laces from a nail on a wooden wall, a wooden '
+        'stick leaning below them.' + ACTION,
         'A wooden ice hockey stick and a black puck lying on scratched white ice.' + STILL,
         'An empty ice rink seen from the stands, the white ice and red and blue lines under arena lights.' + STILL,
         'An ice hockey player in a plain yellow and black jersey with no crest skating with his stick raised in one hand after'
@@ -210,12 +212,14 @@ SPORTS = {
         'Ten white bowling pins standing in their triangle at the end of a lane, seen from lane level.' + STILL,
     ],
     'racing': [
-        'A single red 1990s American stock car, a heavy full bodied two door race car shaped like a sedan, with no lettering, racing round a banked oval track, motion blur in the background.' + ACTION,
+        'A dirt track oval at a county fair at dusk seen from far up the grandstand, heavy old American sedans in '
+        'bright solid colours sliding sideways through the turn, dust rising.' + ACTION,
         'Two 1990s American stock cars, heavy full bodied two door race cars shaped like sedans with no lettering, one blue and one yellow, racing side by side on a speedway, the grandstand blurred'
         ' behind.' + ACTION,
         'A racing driver in a plain red fire suit standing beside his full bodied American stock car in the pits, his helmet under one arm.' + ACTION,
         'A green and white full bodied 1990s American stock car with no lettering crossing the finish line, a chequered flag waving above.' + ACTION,
-        'A line of colourful full bodied 1990s American stock cars with no lettering going through a turn at a speedway, seen from high in the stands.' + ACTION,
+        'A Saturday night race on a small paved oval seen from the top of the grandstand under floodlights, a pack of '
+        'heavy old American sedans in bright solid colours small in the distance.' + ACTION,
         'A full bodied 1990s American stock car with no lettering parked alone in a pit lane at dusk, the empty track behind.' + STILL,
     ],
     'pool': [
@@ -228,10 +232,10 @@ SPORTS = {
         'An old pool hall with rows of green tables under hanging lamps, empty, seen from the doorway.' + STILL,
     ],
     'fieldhockey': [
-        'A woman field hockey player in a blank red kit with no logos, plain white shoes and an unmarked wooden stick, running with the ball at the end of her stick on a grass pitch, seen'
-        ' from the side.' + ACTION,
+        'A girls field hockey match on a grass pitch seen from far up a grassy bank, the players small figures in red '
+        'and in blue spread across the field, a line of trees behind.' + ACTION,
         'A woman field hockey player in a blank blue kit with no logos, plain white shoes and an unmarked wooden stick, striking the ball on a grass pitch, seen from the side.' + ACTION,
-        'A woman field hockey goalkeeper in plain white pads and a blank green jersey with no logos or lettering, an unmarked stick, crouching in front of her goal on a grass pitch.' + ACTION,
+        'A field hockey goal with a white ball resting in its net on a wet grass pitch at dusk, nobody there.' + ACTION,
         'A wooden field hockey stick and a white ball lying on green grass.' + STILL,
     ],
     'hunting': [
@@ -389,8 +393,8 @@ OLD_GIG = (' The performers fill the lower two thirds of the frame and the top t
 MUSIC = [
     'A four piece glam rock band, two women and two men with big teased hair and black leather jackets, standing in a row a'
     ' little apart in front of a dark red curtain.' + GIG,
-    'One rock and roll singer alone, a man with slick dark hair in a red waistcoat and white shirt, against a plain dark grey backdrop, his arms'
-    ' folded.' + OLD_GIG,
+    'One rock and roll singer alone, a man with slick dark hair in a dark waistcoat and white shirt, sitting on a stool'
+    ' against a plain dark grey backdrop, his arms folded.' + OLD_GIG,
     'Four young men in matching slim grey suits and narrow ties standing in a row a little apart, a 1960s beat group.' + OLD_GIG,
     'A cheerful 1960s pop group of five in bright paisley shirts standing in a row a little apart against a pink background.' + GIG,
     'A 1970s hard rock band of four long haired men in denim standing in a row on a stage in front of a wall of amplifiers.' + GIG,

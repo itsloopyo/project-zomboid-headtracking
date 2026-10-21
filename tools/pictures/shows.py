@@ -134,8 +134,8 @@ show('local-field', FIELD,
      'A dark country road at night seen through a car windshield, the headlights picking out abandoned cars left at angles'
      ' along the verge.',
      'Small figures run across a field at dusk, seen from far off through a shaky camera.',
-     'A frightened male reporter in a suit crouches alone behind a parked car at night, looking back over his shoulder, lit by'
-     ' the camera light.')
+     'A frightened male reporter in a suit, his hands empty, crouches alone behind a parked car at night, looking back '
+     'over his shoulder, lit by a harsh white light.')
 show('statement', VIDEO,
      'A man in a dark suit speaks at a podium in front of a blue curtain with two flags on poles beside it.',
      'Rows of seated reporters in suits seen from the podium, several of them raising one hand to ask a question, a plain bare'
@@ -208,11 +208,12 @@ show('hollywood', VIDEO,
      'The front of an old cinema at night, its marquee lit by rows of bulbs round a plain blank white panel with no letters,'
      ' a few people outside.')
 show('detectives', DRAMA,
-     'Three men in plain grey and brown business suits and ties, two detectives and their grey haired captain, argue across'
-     ' a desk in a cluttered precinct office, nobody in uniform.',
+     'Three men in plain grey and brown business suits and ties, two detectives and their grey haired captain, argue '
+     'across a wooden desk covered in paper files and a desk lamp in a precinct office, no computers, nobody in '
+     'uniform.',
      'A plain dark sedan with a red light on its dashboard is parked in a city alley at night.',
-     'A detective in a tan raincoat stands in a dim hallway with his back and shoulders flat against the wall beside a closed'
-     ' door, facing the camera with his head turned towards the door, listening, seen from the front.',
+     'A detective in a tan raincoat waits in a dim hallway beside a closed door, seen from the side, his head bowed and'
+     ' his ear turned to the door, listening.',
      'A suspect sits at a table in a bare interrogation room under a single lamp, a detective leaning on the table across from'
      ' him.',
      'Two detectives run across a rooftop a few paces apart, the city behind them.')
@@ -304,7 +305,7 @@ show('survivors', ' A still frame of amateur home video on VHS, lit by one harsh
      'An exhausted man in a dirty flannel shirt sits at a desk in a dim television studio, a door barricaded with furniture'
      ' behind him.',
      'A tired woman with a bandaged arm talks to the camera in a dim television studio.',
-     'A young man in a cap crouches beside a plain unlabelled red portable generator and red fuel cans in a dim room.',
+     'A bareheaded young man crouches by a small fire burning in an old metal barrel in a dim empty garage.',
      'Stacks of food cans and plastic water jugs stand on the floor of a dim television studio, their labels plain and'
      ' unlettered.',
      'An empty news desk in a dim television studio with an office chair knocked over on its side on the floor beside it.')
