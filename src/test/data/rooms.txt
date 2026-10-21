@@ -1,0 +1,1282 @@
+home		 bathroom bedroom closet diningroom emptyoutside garage hall kidsbedroom kitchen livingroom office
+shop	aesthetic	aesthetic bathroom
+shop	aestheticstorage	aesthetic aestheticstorage bar bathroom bedroom breakroom closet emptyoutside gunstorestorage hall hunting kitchen livingroom office officestorage storage
+home	agriworkerdorm	agriworkerdorm
+industrial	aircraftgarage	aircraftgarage empty office storage
+home	all	all
+shop	antique	antique bathroom office
+stage	arcade	arcade bathroom breakroom camerastore candystore electronicsstorage electronicstore empty emptyoutside gym hall janitor liquorstore movierental office restaurantdining restaurantkitchen
+home	archive	archive
+shop	archive	archive armysurplus bathroom breakroom campingstorage empty emptyoutside firearmtraining fishingstorage gunstorage gunstore hunting kitchen lasertag lobby lockerroom office security storage technical workshop
+home	archive	archive bathroom emptyoutside kitchen lobby office
+restaurant	arenakitchen	arenakitchen arenakitchenstorage bathroom empty emptyoutside hall janitor office
+restaurant	arenakitchenstorage	arenakitchen arenakitchenstorage bathroom empty emptyoutside hall janitor office
+police	armory	armory bathroom breakroom captainoffice detectiveoffice elevator empty emptyoutside hall janitor lobby meetingroom office officestorage policearchive policegarage policehall policelocker policeoffice showers
+police	armystorage	armystorage
+shop	armysurplus	armysurplus bathroom emptyoutside gunstore gunstorestorage office
+shop	armysurplusguns	armysurplus armysurplusguns bathroom empty emptyoutside gunstorestorage hall kitchen office
+police	armytent	armytent
+shop	artstore	artstore bathroom glassmakingworkshop hall office
+home	attic	attic bathroom bedroom clothesstore diningroom kitchen laundry library livingroom lobby workshop
+home	attic	attic bathroom bedroom clothesstore emptyoutside kitchen laundry livingroom lobby office smokingroom storage
+home	attic	attic bathroom bedroom diningroom emptyoutside kidsbedroom kitchen livingroom lobby storage
+home	attic	attic bathroom bedroom diningroom emptyoutside kitchen laundry livingroom lobby recreational sportroom
+shop	auctionstorage	auctionstorage bathroom breakroom cattleauction emptyoutside hall office
+stage	backstage	backstage bathroom breakroom dressingrooms empty hall
+restaurant	baggageroom	baggageroom baggagesearch bar bathroom breakroom cafe cafekitchen camerastore changeroom chilikitchen chinesekitchen contraband elevator empty emptyoutside foodcourt garage garbage giftstorage giftstore hall janitor jayschicken_kitchen lostandfound mechanic office officestorage pharmacy pharmacystorage pizzakitchen prisoncells restaurantdining restaurantkitchen security spiffoskitchen storage sushikitchen zippeestore
+restaurant	baggagesearch	baggageroom baggagesearch bar bathroom breakroom cafe cafekitchen camerastore changeroom chilikitchen chinesekitchen contraband elevator empty emptyoutside foodcourt garage garbage giftstorage giftstore hall janitor jayschicken_kitchen lostandfound mechanic office officestorage pharmacy pharmacystorage pizzakitchen prisoncells restaurantdining restaurantkitchen security spiffoskitchen storage sushikitchen zippeestore
+restaurant	bakery	bakery bakerykitchen bathroom butcher grocery
+industrial	bakeryfactorykitchen	bakeryfactorykitchen bakeryfactoryshipping bakeryfactorystorage bathroom breakroom changeroom empty emptyoutside hall office officestorage
+industrial	bakeryfactoryshipping	bakeryfactorykitchen bakeryfactoryshipping bakeryfactorystorage bathroom breakroom changeroom empty emptyoutside hall office officestorage
+industrial	bakeryfactorystorage	bakeryfactorykitchen bakeryfactoryshipping bakeryfactorystorage bathroom breakroom changeroom empty emptyoutside hall office officestorage
+restaurant	bakerykitchen	bakery bakerykitchen bathroom butcher grocery
+home	balcony	balcony bathroom bedroom bedroom4 closet emptyoutside garage hall kitchen laundry livingroom office
+home	balcony	balcony bathroom bedroom closet elevator empty garbage gunstorestorage hall janitor kidsbedroom kitchen laundry livingroom office stairwell storageunit
+home	balcony	balcony bathroom cafe cafekitchen closet elevator empty garage garbage grocery grocerystorage gym hall janitor kidsbedroom kitchen laundry library livingroom office pool recreation stairwell storageunit
+stage	ballroom	ballroom bar bathroom breakroom cafe elevator empty emptyoutside gym hall janitor laundry livingroom lockerroom motelroom office restaurantdining_fancy restaurantkitchen_fancy security
+stage	bandkitchen	bandkitchen bandlivingroom bathroom
+home	bandlivingroom	bandlivingroom bathroom bedroom closet emptyoutside garage hall kidsbedroom kitchen laundry livingroom
+stage	bandmerch	bandmerch
+office	bank	bank emptyoutside hall ww_bar ww_bedroom ww_blacksmith ww_generalstore
+office	bankstorage	bank bankstorage bathroom breakroom elevator empty emptyoutside janitor office security
+bar	bar	bar bathroom bedroom
+shop	barbequestore	armysurplus auctionstorage bar barbequestore baseballstorage bathroom candystore clothingstorage comicstore electronicsstorage empty emptyoutside farmstorage golfstore guitarfactory janitor mechanic medical pawnshop storagehall storageunit
+bar	barcountertwiggy	bar barcountertwiggy barstorage bathroom empty emptyoutside
+bar	barg_bathroom	barg_bathroom clothesstore clothingstorage empty janitor
+bar	barkitchen	bar barkitchen bathroom empty emptyoutside janitor office westerndining westernkitchen
+home	barn	barn
+bar	barstorage	bar barstorage emptyoutside janitor
+gym	baseballchangeroom	arenakitchen baseballchangeroom baseballgiftstorage baseballgiftstore baseballstorage bathroom brewery broadcasting cafekitchen cafeteria empty emptyoutside garbage hall janitor restaurant spiffo_dining spiffoskitchen viplounge
+shop	baseballgiftstorage	arenakitchen baseballchangeroom baseballgiftstorage baseballgiftstore baseballstorage bathroom brewery broadcasting cafekitchen cafeteria empty emptyoutside garbage hall janitor restaurant spiffo_dining spiffoskitchen viplounge
+shop	baseballgiftstore	arenakitchen baseballchangeroom baseballgiftstorage baseballgiftstore baseballstorage bathroom brewery broadcasting cafekitchen cafeteria empty emptyoutside garbage hall janitor restaurant spiffo_dining spiffoskitchen viplounge
+gym	baseballstorage	armysurplus auctionstorage bar barbequestore baseballstorage bathroom candystore clothingstorage comicstore electronicsstorage empty emptyoutside farmstorage golfstore guitarfactory janitor mechanic medical pawnshop storagehall storageunit
+shop	baseballstore	baseballstore batfactory bathroom batstorage breakroom empty emptyoutside hall janitor office
+home	basement	basement bathroom bedroom emptyoutside kitchen livingroom office
+home	basementaccess	basementaccess bathroom bedroom emptyoutside kitchen livingroom
+industrial	batfactory	baseballstore batfactory bathroom batstorage breakroom empty emptyoutside hall janitor office
+shop	bathroom	aesthetic aestheticstorage bakery bathroom bookstorage bookstore breakroom cafe cafekitchen candystorage candystore chinesekitchen clothesstorage clothesstore cornerstore departmentstorage departmentstore dining dressingrooms electronicsstorage electronicsstore empty fishchipskitchen foodcourt furniturestorage furniturestore generalstore generalstorestorage giftstorage giftstore hall housewarestorage housewarestore icecreamkitchen janitor jewelrystorage jewelrystore medical medicaloffice medicalstorage musicstorage musicstore office officestorage optometrist optometriststorage pharmacy pharmacystorage pizzakitchen restaurantkitchen security sewingstorage sewingstore shoestorage shoestore spiffo_dining spiffoskitchen spiffosstorage sportstorage sportstore tacokitchen toolstorage toolstore toystorage toystore
+home	bathroom	aesthetic aestheticstorage bar bathroom bedroom breakroom cafe cafekitchen closet diningr empty emptyoutside hall janitor kitchen livingroom medical medicaloffice medicalstorage office zippeestorage zippeestore
+home	bathroom	aesthetic aestheticstorage bar bathroom bedroom breakroom closet emptyoutside gunstorestorage hall hunting kitchen livingroom office officestorage storage
+home	bathroom	aesthetic aestheticstorage bathroom bedroom bookstore breakroom carsupply derelict emptyoutside grocery grocerystorage hall janitor kitchen liviingroom livingroom lobby office officestorage potteryworkshop
+shop	bathroom	aesthetic aestheticstorage bathroom bookstore bookstorestorage breakroom empty emptyoutside hall restaurantkitchen schoolstorage toystore
+shop	bathroom	aesthetic armysurplus artstore bakery bakerykitchen barbequestore bathroom bookstorage bookstore breakroom cafe cafekitchen chinesekitchen clothesstorage clothesstore departmentstorage departmentstore dressingrooms electronicsstorage electronicsstore empty emptyoutside fishchipskitchen foodcourt furniturestore gardenstore giftstorage giftstore gigamart gigamartkitchen glassesstore grocerystorage gunstore hall hotdogstand housewarestore janitor jayschicken_kitchen jewelrystorage jewelrystore knoxbutcher liquorstore musicstore office optometrist pharmacy pharmacystorage pizzakitchen security sewingstorage sewingstore shoestore spiffo_dining spiffoskitchen spiffosstorage sportstorage sportstore storage sushidining sushikitchen tacokitchen toolstorage toolstore toystorage toystore
+home	bathroom	aesthetic bakery bakerykitchen bar bathroom bedroom bookstore breakroom camerastore changeroom closet comicstorage comicstore construction dining druglab elevator empty giftstore gunstorestorage gym hall hallway icecream icecreamkitchen janitor jewelrystorage jewelrystore kitchen knifestore laundry leatherclothesstore library liquorstore livingroom medclinic movierental musicstore office officestorage pharmacystorage photoroom restaurantdining restaurantkitchen security sewingstore vault zippeestorage zippeestore
+shop	bathroom	aesthetic bar bathroom breakroom candystore clothesstore dressingrooms empty emptyoutside hall office
+shop	bathroom	aesthetic bar bathroom empty hall
+shop	bathroom	aesthetic barbequestore bathroom bookstore breakroom chinesekitchen chineserestaurant clothesstore empty emptyoutside furniturestore hall icecream icecreamkitchen janitor office sewingstore sportstorage sportstore storage toolstore toystore
+home	bathroom	aesthetic bathroom bedroom breakroom clinic clothesstore dressingrooms empty emptyoutside hall janitor kidsbedroom kitchen laundry livingroom medclinic office
+shop	bathroom	aesthetic bathroom bookstore empty emptyoutside hall pharmacy pharmacystorage
+shop	bathroom	aesthetic bathroom breakroom butcher empty emptyoutside giftstore grocery janitor office
+gym	bathroom	aesthetic bathroom breakroom cafe cafekitchen changeroom clinic dressingrooms empty gym hairdresser hallway janitor laundry office pool
+shop	bathroom	aesthetic bathroom breakroom empty grocery grocerystorage office
+shop	bathroom	aesthetic bathroom breakroom janitor office
+shop	bathroom	aesthetic bathroom cafe cafekitchen conveniencestore emptyoutside janitor laundry office petstore
+restaurant	bathroom	aesthetic bathroom cafe cafekitchen emptyoutside janitor laundry office
+shop	bathroom	aesthetic bathroom clothesstore clothesstorestorage dressingrooms empty janitor medical
+shop	bathroom	aesthetic bathroom diner dinerkitchen empty emptyoutside grocery grocerystorage hall pharmacy pharmacystorage
+shop	bathroom	aesthetic bathroom empty grocery grocerystorage italiankitchen italianrestaurant janitor laundry liquorstore mexicandining mexicankitchen
+shop	bathroom	aesthetic bathroom emptyoutside kitchen restaurantdining restaurantkitchen toolstore toolstorestorage
+restaurant	bathroom	aesthetic bathroom grocery grocerystorage italiankitchen italianrestaurant janitor laundry mexicandining mexicankitchen
+industrial	bathroom	aestheticstorage bathroom bookstorage bottlestorage emptyoutside gymstorage musicstorage storageunit
+shop	bathroom	arcade bathroom breakroom camerastore candystore electronicsstorage electronicstore empty emptyoutside gym hall janitor liquorstore movierental office restaurantdining restaurantkitchen
+stage	bathroom	arenakitchen bar bathroom boxing broadcasting changeroom empty emptyoutside garbage hall janitor office storage ticketoffice
+restaurant	bathroom	arenakitchen baseballchangeroom baseballgiftstorage baseballgiftstore baseballstorage bathroom brewery broadcasting cafekitchen cafeteria empty emptyoutside garbage hall janitor restaurant spiffo_dining spiffoskitchen viplounge
+police	bathroom	armory bathroom breakroom captainoffice detectiveoffice elevator empty emptyoutside hall janitor lobby meetingroom office officestorage policearchive policegarage policehall policelocker policeoffice showers
+home	bathroom	armystorage bathroom bedroom cafeteria cafeteriakitchen cave communications decontamination electronicsstorage elevator empty hall janitor laboratory laundry livingroom medical medicalstorage office showers toolstorestorage
+home	bathroom	armystorage bathroom bedroom closet kitchen
+home	bathroom	armysurplus auctionstorage bar barbequestore baseballstorage bathroom candystore clothingstorage comicstore electronicsstorage empty emptyoutside farmstorage golfstore guitarfactory janitor mechanic medical pawnshop storagehall storageunit
+shop	bathroom	armysurplus bathroom breakroom comicstore empty emptyoutside gunstore gunstorestorage mexicandining mexicankitchen office
+shop	bathroom	armysurplus bathroom emptyoutside gunstore gunstorestorage office
+shop	bathroom	artstore bakery bakerykitchen bathroom burgerkitchen dentiststorage dining empty giftstore hall jewelrystorage jewelrystore security
+shop	bathroom	artstore bathroom cafeteriakitchen empty grocerystorage hall janitor metalshop schoolgymstorage schoolstorage
+shop	bathroom	auctionstorage bathroom breakroom cattleauction emptyoutside hall office
+stage	bathroom	backstage bar bathroom empty emptyoutside janitor office theatre
+stage	bathroom	backstage bathroom breakroom dressingrooms empty hall
+home	bathroom	bakery bakerykitchen bar bathroom bedroom empty emptyoutside hall janitor kitchen laundry livingroom restaurantkitchen
+home	bathroom	bakery bakerykitchen bathroom bedroom breakroom butcher empty emptyoutside gunstore hall janitor kitchen livingroom motelroom movierental office producestorage
+home	bathroom	bakery bakerykitchen bathroom bedroom clothesstore empty kitchen livingroom
+home	bathroom	bakery bakerykitchen bathroom bedroom glassesstore hall hallway janitor kitchen livingroom optometrist
+shop	bathroom	bakery bakerykitchen bathroom breakroom butcher empty emptyoutside grocery grocerystorage janitor office
+restaurant	bathroom	bakery bakerykitchen bathroom breakroom clothesstore empty emptyoutside janitor medclinic office pharmacy pharmacystorage restaurantdining restaurantkitchen
+shop	bathroom	bakery bakerykitchen bathroom butcher grocery
+restaurant	bathroom	bakery bar bathroom emptyoutside janitor restaurantdining restaurantkitchen
+shop	bathroom	bakery bathroom breakroom butcher changeroom empty emptyoutside grocery grocerystorage hall janitor loggingfactory medical metalshipping office toolstore toolstorestorage
+shop	bathroom	bakery bathroom breakroom butcher empty gigamart grocerystorage hallway janitor lockerroom office
+medical	bathroom	bakery bathroom breakroom clinic clothesstore dressingrooms empty emptyoutside hallway janitor kennels lab office pharmacystorage vet
+shop	bathroom	bakery bathroom butcher empty grocery janitor office
+shop	bathroom	bakery bathroom empty emptyoutside liquorstore
+shop	bathroom	bakery bathroom empty grocery grocerystorage janitor
+restaurant	bathroom	bakery bathroom pharmacy pharmacystorage restaurant restaurantkitchen
+industrial	bathroom	bakeryfactorykitchen bakeryfactoryshipping bakeryfactorystorage bathroom breakroom changeroom empty emptyoutside hall office officestorage
+home	bathroom	ballroom bar bathroom breakroom cafe elevator empty emptyoutside gym hall janitor laundry livingroom lockerroom motelroom office restaurantdining_fancy restaurantkitchen_fancy security
+home	bathroom	ballroom bar bathroom breakroom changeroom elevator empty hall janitor laundry livingroom office pharmacy restaurantdining_fancy restaurantkitchen_fancy
+home	bathroom	bandkitchen bandlivingroom bathroom
+office	bathroom	bank bankstorage bathroom breakroom elevator empty emptyoutside janitor office security
+office	bathroom	bank bankstorage bathroom breakroom empty office officestorage security
+home	bathroom	bank bathroom bedroom empty emptyoutside grocery gunstore gunstorestorage hall kidsbedroom kitchen laundry livingroom pharmacy pharmacystorage room2
+police	bathroom	bank bathroom breakroom empty hall janitor office security
+police	bathroom	bank bathroom breakroom empty janitor office officestorage security
+office	bathroom	bank bathroom breakroom empty office officestorage
+restaurant	bathroom	bar barbequestore bathroom brewery cafe cafekitchen empty emptyoutside hall office
+bar	bathroom	bar barcountertwiggy barstorage bathroom empty emptyoutside
+home	bathroom	bar barkitchen barstorage bathroom bedroom emptyoutside garage kitchen livingroom lobby
+bar	bathroom	bar barkitchen bathroom clothesstore emptyoutside hall janitor office
+bar	bathroom	bar barkitchen bathroom empty emptyoutside janitor office westerndining westernkitchen
+bar	bathroom	bar barkitchen bathroom empty hall janitor lockerroom office security theatre
+bar	bathroom	bar barstorage bathroom corridor empty emptyoutside hall hallway janitor kitchen office security storage stripclub stripcluboffice stripclubvip
+bar	bathroom	bar barstorage bathroom druglab emptyoutside office officestorage
+bar	bathroom	bar barstorage bathroom empty emptyoutside hall janitor officestorage
+bar	bathroom	bar barstorage bathroom empty hallway janitor lockerroom office security
+bar	bathroom	bar barstorage bathroom empty hallway janitor office security
+home	bathroom	bar bathroom bedroom
+home	bathroom	bar bathroom bedroom breakroom cafe cafekitchen changeroom clinic closet clothesstore construction conveniencestore diningroom donut_dining donut_kitchen elevator empty hallway janitor kidsbedroom kitchen laundry livingroom office officestorage pharmacystorage stairwell sushidining sushikitchen toolstore
+home	bathroom	bar bathroom bedroom breakroom cafe cafekitchen construction dentiststorage elevator empty hallway janitor kitchen laundry livingroom medical medicaloffice motelroom office officestorage restaurantdining restaurantdining_fancy restaurantkitchen restaurantkitchen_fancy
+home	bathroom	bar bathroom bedroom breakroom cafe construction conveniencestore dining elevator empty hall hallway janitor kidsbedroom kitchen livingroom office officestorage restaurantdining restaurantdining_fancy restaurantkitchen restaurantkitchen_fancy security stairwell storage theatre theatrekitchen theatrestorage
+home	bathroom	bar bathroom bedroom closet hall kitchen livingroom restaurantkitchen
+home	bathroom	bar bathroom bedroom diningroom empty emptyoutside greenhouse hall kitchen library livingroom
+home	bathroom	bar bathroom bedroom diningroom emptyoutside hall kitchen motelroom post storage
+home	bathroom	bar bathroom bedroom empty emptyoutside hall kitchen livingroom restaurantdining restaurantkitchen
+home	bathroom	bar bathroom bedroom emptyoutside hall janitor kitchen livingroom motelroom motelroomoccupied office
+home	bathroom	bar bathroom bedroom emptyoutside kitchen livingroom office
+home	bathroom	bar bathroom bedroom hall janitor kitchen knoxbutcher livingroom
+restaurant	bathroom	bar bathroom breakroom cafeteria conveniencestore dentist donut_dining donut_kitchen elevator empty hallway janitor office officestorage restaurantdining restaurantkitchen stairwell
+motel	bathroom	bar bathroom breakroom elevator empty emptyoutside gunstorestorage hall janitor laundry lobby motelroom motelstorage office restaurantdining_fancy restaurantkitchen_fancy
+restaurant	bathroom	bar bathroom breakroom elevator empty emptyoutside hall janitor laundry motelroom office restaurantdining restaurantkitchen
+restaurant	bathroom	bar bathroom breakroom elevator empty emptyoutside hallway italiankitchen janitor office officestorage restaurant stairwell
+bar	bathroom	bar bathroom breakroom empty emptyoutside hall janitor meetingroom office officestorage
+home	bathroom	bar bathroom broadcasting burgerkitchen carsupplysport empty hall janitor kitchen livingroom medical office security spiffo_dining spiffoskitchen storage
+home	bathroom	bar bathroom cafe cafeteriakitchen elevator empty emptyoutside hall janitor livingroom office
+home	bathroom	bar bathroom construction diningroom dressingrooms elevator emptyoutside garagestorage hall janitor library livingroom motelroom motelroomoccupied office pool survivorcache2
+industrial	bathroom	bar bathroom empty emptyoutside foyer hall kitchen laundry post storage whiskeybottling
+restaurant	bathroom	bar bathroom empty emptyoutside gym hall icecream icecreamkitchen janitor laundry lockerroom office restaurantdining_fancy restaurantkitchen_fancy
+gym	bathroom	bar bathroom empty emptyoutside gymstorage hall janitor lockerroom office restaurantdining_fancy restaurantkitchen_fancy
+stage	bathroom	bar bathroom empty emptyoutside hall janitor lobby office roofaccess theatre
+bar	bathroom	bar bathroom empty emptyoutside hall office restaurantkitchen
+shop	bathroom	bar bathroom empty garage giftstorage giftstore hall janitor laundry library motelroom restaurantdining restaurantkitchen security storage
+restaurant	bathroom	bar bathroom empty hall janitor office restaurantdining_fancy restaurantkitchen_fancy whiskeybottling
+restaurant	bathroom	bar bathroom empty janitor restaurantdining_fancy restaurantkitchen_fancy
+bar	bathroom	bar bathroom empty kitchen office
+shop	bathroom	bar bathroom gunstorestorage kitchen office
+industrial	bathroom	barbequestore bathroom batstorage breakroom changeroom clothesstore dogfoodstorage electronicsstorage elevator empty emptyoutside factorystorage furniturestorage gasstorage grocerystorage hall hospitalstorage liquorstore mechanic musicstore office officestorage shoestore sodatruck sportstorage storage storageunit theatrestorage tobaccostorage toolstore
+shop	bathroom	barbequestore bathroom clothesstore empty emptyoutside gardenstore gasstorage grocery grocerystorage hall liquorstore mechanic musicstore office security sewingstore shoestore sodatruck sportstorage storage storageunit toolstore
+motel	bathroom	barkitchen bathroom emptyoutside garage laundry motelreception motelroom
+shop	bathroom	barstorage bathroom breakroom electronicsstore elevator empty grocerystorage janitor kitchen laundry mainhall motelroom office
+industrial	bathroom	barstorage bathroom electronicsstorage hall
+medical	bathroom	barstorage bathroom medicaloffice medicalstorage
+gym	bathroom	baseballstore batfactory bathroom batstorage breakroom empty emptyoutside hall janitor office
+industrial	bathroom	bathroom batteryfactory batterystorage empty emptyoutside hall janitor kitchen laundry office security
+home	bathroom	bathroom bedroom bookstorage bookstore candystorage candystore emptyoutside kitchen livingroom
+home	bathroom	bathroom bedroom bookstore bookstorestorage breakroom changeroom clothesstore clothesstorestorage empty hall janitor kitchen livingroom office restaurantdining restaurantkitchen
+home	bathroom	bathroom bedroom bookstore breakroom emptyoutside hall janitor kitchen livingroom office
+home	bathroom	bathroom bedroom bookstore empty emptyoutside hall janitor kidsbedroom kitchen laundry livingroom office restaurantdining restaurantkitchen
+home	bathroom	bathroom bedroom breakroom cafe hall kitchen livingroom storageunit
+home	bathroom	bathroom bedroom breakroom cafeteria cafeteriakitchen darkroom depositboxes elevator empty emptyoutside evidenceroom gym hall janitor laboratory laundry medclinic medicalstorage office officestorage policegunstorage policelibrary policelocker policeoffice policeoutfitstorage prisoncells security
+home	bathroom	bathroom bedroom breakroom cafeteria cafeteriakitchen elementaryclassroom elementaryhall empty hall janitor library medical office schoolgymstorage schoollab secondaryclassroom secondaryhall
+home	bathroom	bathroom bedroom breakroom carpenter chinesekitchen chineserestaurant emptyoutside janitor kitchen livingroom office toolstorage
+home	bathroom	bathroom bedroom breakroom changeroom empty emptyoutside gym hall janitor office sportstorage
+home	bathroom	bathroom bedroom breakroom church classroom coldstorage elevator empty emptyoutside garagestorage hall janitor kitchen library medical meetingroom office policeoffice prisoncells prisonerbelongings prisonlaundry prisonlocker prisonstorage security sportstorage
+home	bathroom	bathroom bedroom breakroom church emptyoutside kitchen lobby medical office school storage
+home	bathroom	bathroom bedroom breakroom clockrepair clothingstorage clothingstore derelict empty emptyoutside hall janitor kitchen livingroom movierental
+home	bathroom	bathroom bedroom breakroom closet clothingstorage clothingstore empty emptyoutside furniturestorage furniturestore gunstorestorage kitchen livingroom office
+home	bathroom	bathroom bedroom breakroom closet derelict electronicsstorage electronicstore empty emptyoutside florist gardenstore hall kitchen livingroom office
+home	bathroom	bathroom bedroom breakroom diningroom empty emptyoutside greenhouse hall janitor kitchen laundry livingroom office restaurant restaurantstorage storage
+home	bathroom	bathroom bedroom breakroom empty emptyoutside firegarage firestorage gym hallway janitor kennels kitchen lockerroom medicalstorage office officestorage
+home	bathroom	bathroom bedroom breakroom empty emptyoutside firegarage firestorage gym hallway janitor kitchen lockerroom medicalstorage office
+home	bathroom	bathroom bedroom breakroom empty emptyoutside furniturestorage furniturestore hall kitchen livingroom office restaurantkitchen
+home	bathroom	bathroom bedroom breakroom empty emptyoutside hallway janitor jewelrystore kitchen livingroom pharmacy pharmacystorage
+home	bathroom	bathroom bedroom breakroom empty hall janitor prisoncells prisonlocker security sportstorage
+home	bathroom	bathroom bedroom burgerdining burgerkitchen empty hall janitor livingroom office storageunit
+home	bathroom	bathroom bedroom butchery dentist electronicsstore emptyoutside kidsbedroom kitchen laundry library livingroom lobby medical restaurantdining restaurantkitchen storage
+home	bathroom	bathroom bedroom cafe cafekitchen diningroom empty emptyoutside garage hall kidsbedroom kitchen laundry livingroom post storageunit
+home	bathroom	bathroom bedroom cafe cafekitchen empty hall janitor kitchen livingroom restaurantdining restaurantkitchen storageunit
+home	bathroom	bathroom bedroom cafe cafekitchen emptyoutside hall kitchen livingroom
+home	bathroom	bathroom bedroom cafe cafekitchen hall janitor kitchen livingroom office
+home	bathroom	bathroom bedroom cafe diningroom empty emptyoutside hall kitchen livingroom sewingstore storageunit
+home	bathroom	bathroom bedroom cafeteria cafeteriakitchen emptyoutside gym hall hospitalstorage janitor laundry medicalstorage office recreation
+home	bathroom	bathroom bedroom changeroom dogfoodstorage empty emptyoutside firegarage firestorage gym hall janitor kitchen livingroom medical office
+home	bathroom	bathroom bedroom changeroom hall italiankitchen italianrestaurant kitchen leatherclothesstore livingroom storageunit
+home	bathroom	bathroom bedroom chinesekitchen chineserestaurant cornerstore cornerstorestorage empty hall janitor livingroom
+home	bathroom	bathroom bedroom church empty hall janitor kitchen office
+home	bathroom	bathroom bedroom church empty kitchen library livingroom office officechurch
+home	bathroom	bathroom bedroom closet clothesstore clothesstorestorage empty hall kitchen livingroom sportstorage sportstore
+home	bathroom	bathroom bedroom closet construction emptyoutside hall kidsbedroom kitchen laundry livingroom
+home	bathroom	bathroom bedroom closet diner dinerkitchen emptyoutside gasstorage gasstore hall kidsbedroom kitchen livingroom mechanic
+home	bathroom	bathroom bedroom closet diningroom empty emptyoutside garage gym hall kitchen livingroom office
+home	bathroom	bathroom bedroom closet diningroom emptyoutside garagestorage hall kidsbedroom kitchen laundry livingroom medicaloffice
+home	bathroom	bathroom bedroom closet diningroom emptyoutside hall kitchen livingroom
+home	bathroom	bathroom bedroom closet diningroom hall kitchen livingroom medical medicalstorage office
+home	bathroom	bathroom bedroom closet emptyoutside garagestorage gym hall kidsbedroom kitchen laundry livingroom
+home	bathroom	bathroom bedroom closet emptyoutside garagestorage hall kidsbedroom kitchen livingroom musicroom
+home	bathroom	bathroom bedroom clothesstorage clothesstore dressingrooms empty emptyoutside hall janitor kitchen livingroom medclinic medical medicalstorage office
+home	bathroom	bathroom bedroom clothesstore diningroom emptyoutside kitchen laundry library livingroom lobby
+home	bathroom	bathroom bedroom clothesstore empty emptyoutside generalstore generalstorestorage janitor kitchen livingroom office
+home	bathroom	bathroom bedroom clothesstore garage kidsbedroom kitchen livingroom lobby toolstore
+home	bathroom	bathroom bedroom clothesstore generalstore generalstorestorage janitor livingroom
+home	bathroom	bathroom bedroom construction stripclub
+home	bathroom	bathroom bedroom controlroom office storage
+home	bathroom	bathroom bedroom cornerstore diningroom empty emptyoutside hall kitchen library livingroom storageunit
+home	bathroom	bathroom bedroom derelict kitchen laundry laundryshirts laundrysuits livingroom office
+home	bathroom	bathroom bedroom diningroom empty emptyoutside kitchen livingroom lobby medical medicaloffice
+home	bathroom	bathroom bedroom diningroom emptyoutside garage kidsbedroom kitchen livingroom medicaloffice office
+home	bathroom	bathroom bedroom diningroom emptyoutside grocerystorage hall janitor kitchen laundry library livingroom office sewingroom
+home	bathroom	bathroom bedroom diningroom emptyoutside kidsbedroom kitchen laundry livingroom lobby office
+home	bathroom	bathroom bedroom elevator empty emptyoutside hall kitchen laundry livingroom motelroom office restaurantdining restaurantkitchen
+home	bathroom	bathroom bedroom elevator empty garbage hall janitor kitchen livingroom office post
+home	bathroom	bathroom bedroom empty emptyoutside firestorage gym hall kitchen livingroom medical office
+home	bathroom	bathroom bedroom empty emptyoutside fishchipskitchen hall janitor kitchen livingroom office restaurant theatre theatrestorage toolstore zippeestore
+home	bathroom	bathroom bedroom empty emptyoutside grocery grocerystorage gym hall kidsbedroom kitchen livingroom office post poststorage potteryworkshop toolstore
+home	bathroom	bathroom bedroom empty emptyoutside hall kidsbedroom kitchen livingroom sportstorage sportstore
+home	bathroom	bathroom bedroom empty emptyoutside janitor kitchen laundry livingroom motelreception motelroom motelroomoccupied office officestorage
+home	bathroom	bathroom bedroom empty emptyoutside kitchen laundry library livingroom lobby sport storage
+home	bathroom	bathroom bedroom empty firegarage firestorage gym hall janitor livingroom lobby medical meetingroom office showers
+home	bathroom	bathroom bedroom emptyoutside gardenstore hall kitchen laundry livingroom potatostorage
+home	bathroom	bathroom bedroom emptyoutside hall janitor kitchen livingroom office restaurant restaurantdining restaurantkitchen
+home	bathroom	bathroom bedroom emptyoutside janitor kitchen laundry livingroom motelroom motelroomoccupied office
+home	bathroom	bathroom bedroom firestorage kitchen office
+home	bathroom	bathroom bedroom generalstore kitchen livingroom office
+home	bathroom	bathroom bedroom hall janitor office prisoncells prisonstorage technical
+home	bathroom	bathroom bedroom hall kidsbedroom kitchen livingroom pharmacy pharmacystorage
+home	bathroom	bathroom bedroom hall tobaccostore
+shop	bathroom	bathroom bookstore bookstorestorage clothesstore clothesstorestorage dressingrooms empty giftstore giftstorestorage
+shop	bathroom	bathroom bookstore bookstorestorage clothesstore cornerstore cornerstorestorage electricroom emptycommercial emptyoutside office
+shop	bathroom	bathroom bookstore breakroom cafe clothesstore conveniencestore dentist dressingrooms elevator empty giftstore hallway janitor office pharmacy pharmacystorage restaurantdining restaurantkitchen
+shop	bathroom	bathroom bookstore breakroom changeroom clothesstorage clothesstore cornerstore cornerstorestorage empty grocery grocerystorage office toolstorage toolstore
+shop	bathroom	bathroom bookstore clothesstore empty grocery grocerystorage hallway janitor laundry office restaurantdining restaurantkitchen
+gym	bathroom	bathroom bowlingalley burgerdining burgerkitchen empty hall janitor lockerroom office
+home	bathroom	bathroom bowlingalley burgerkitchen empty gameroom golf gymstorage hallway janitor lasertag lockerroom machinery office
+gym	bathroom	bathroom bowlingalley burgerkitchen janitor office
+gym	bathroom	bathroom boxing empty emptyoutside fitness office sportstorage
+restaurant	bathroom	bathroom breakroom broadcasting elevator empty hall janitor office officestorage spiffo_dining spiffosaesthetic spiffoskitchen studio
+home	bathroom	bathroom breakroom broadcasting empty emptyoutside garage hall janitor joanstudio office photoroom security serverroom storage studio studiostorage woodcraftset
+stage	bathroom	bathroom breakroom broadcasting empty emptyoutside garage hall janitor office photoroom security serverroom storage studio studiostorage
+stage	bathroom	bathroom breakroom broadcasting empty garage hall janitor judgematthassset judgematthasssetdressing office security serverroom storage studio
+home	bathroom	bathroom breakroom cafe cafeteria cafeteriakitchen changeroom daycare empty emptyoutside hall hospitalhallway hospitalroom hospitalstorage janitor laboratory laundry medclinic medical medicaloffice medicalstorage morgue nursery office pharmacy pharmacystorage power security
+home	bathroom	bathroom breakroom cafe cafeteria changeroom empty giftstorage giftstore hall hospitalroom hospitalstorage janitor kitchen laundry medclinic medical medicalstorage morgue nursery office officestorage pharmacy pharmacystorage power security
+home	bathroom	bathroom breakroom cafe changeroom emptyoutside fossoil grocerystorage janitor livingroom office
+restaurant	bathroom	bathroom breakroom cafe empty emptyoutside hall janitor office railroad restaurant zippeestore
+home	bathroom	bathroom breakroom cafeteria cafeteriakitchen changeroom classroom elevator empty gym hall janitor livingroom medical office prisonarmory prisoncells prisonlaundry prisonlibrary security
+school	bathroom	bathroom breakroom cafeteria cafeteriakitchen classroom empty emptyoutside gym hall janitor library medical office schoolgymstorage schoollab secondaryclassroom secondaryhall storage
+school	bathroom	bathroom breakroom cafeteria cafeteriakitchen clinic daycare elementaryclassroom elementaryhall empty emptyoutside gym janitor laboratory library lockerroom musicschool office schoolgymstorage schoolstorage secondaryclassroom secondaryhall
+school	bathroom	bathroom breakroom cafeteria cafeteriakitchen clinic daycare elementaryclassroom elementaryhall empty emptyoutside gym janitor library lockerroom office schoolgymstorage schoolstorage
+school	bathroom	bathroom breakroom cafeteria cafeteriakitchen clinic empty gym hall janitor library lockerroom office schoolgymstorage schoolstorage secondaryclassroom secondaryhall
+school	bathroom	bathroom breakroom cafeteria cafeteriakitchen clinic empty janitor laboratory library office secondaryclassroom secondaryhall
+school	bathroom	bathroom breakroom cafeteria cafeteriakitchen elementaryclassroom elementaryhall empty gym hall janitor library medical office schoolgymstorage schoollab storage
+school	bathroom	bathroom breakroom cafeteria cafeteriakitchen elementaryclassroom elementaryhall emptyoutside janitor office schoolstorage
+school	bathroom	bathroom breakroom cafeteria cafeteriakitchen empty janitor medical office schoollab schoolstorage secondaryclassroom secondaryhall
+medical	bathroom	bathroom breakroom cafeteria dentist dentiststorage elevator empty emptyoutside grocerystorage hallway medical medicaloffice medicalstorage office officestorage pharmacy pharmacystorage restaurantkitchen security stairwell
+stage	bathroom	bathroom breakroom cafeteria empty gallery giftstore hall janitor lab museumstorage office officestorage security
+shop	bathroom	bathroom breakroom camerastore candystore cdstore empty emptyoutside janitor office petstore photoroom restaurant restaurantkitchen
+home	bathroom	bathroom breakroom camping diningroom empty emptyoutside hall janitor kitchen livingroom medical medicalstorage office storage
+shop	bathroom	bathroom breakroom campingstorage empty emptyoutside gardenstore gunstore janitor producestorage storage
+industrial	bathroom	bathroom breakroom cardfactory changeroom empty emptyoutside furniturestore hall handlefactory office officestorage storage tablefactory tableshipping
+industrial	bathroom	bathroom breakroom carpentryworkshop changeroom emptyoutside factorystorage hallway
+shop	bathroom	bathroom breakroom carsupply changeroom chinesekitchen clothesstore clothingstorage empty emptyoutside fishchipskitchen foodcourt gardenstore gigamart grocerystorage hall janitor mechanic office pizzakitchen sewingstorage sewingstore spiffoskitchen toolstore
+industrial	bathroom	bathroom breakroom carsupply empty factorystorage mechanic office
+medical	bathroom	bathroom breakroom cdstore dentist dentiststorage janitor medical musicschool office tailorstorage tailorworkshop
+shop	bathroom	bathroom breakroom changeroom clothesstorage clothesstore construction empty liquorstore movierental office windowsstore
+industrial	bathroom	bathroom breakroom changeroom communications empty emptyoutside guitarfactory guitarshipping hall hingefactory hingeshipping hingestorage janitor laboratory metalclassroom musicstore office officestorage tofufactory tofushipping tofustorage weldingbooth
+industrial	bathroom	bathroom breakroom changeroom dogfoodfactory emptyoutside hall janitor mechanic medical medicaloffice meetingroom office storageunit toolstorage
+industrial	bathroom	bathroom breakroom changeroom elevator empty emptyoutside hall janitor office radiofactory radioshipping radiostorage
+industrial	bathroom	bathroom breakroom changeroom empty emptyoutside hall janitor mannequinfactory mannequinpainting office officestorage
+industrial	bathroom	bathroom breakroom changeroom empty factory hallway janitor office officestorage
+industrial	bathroom	bathroom breakroom changeroom empty hall janitor jerkycoldroom jerkyfactory jerkyshipping jerkysmoker office
+gym	bathroom	bathroom breakroom changeroom empty lockerroom mechanic office
+industrial	bathroom	bathroom breakroom changeroom factory factorystorage hallway office
+restaurant	bathroom	bathroom breakroom chinesekitchen chineserestaurant empty emptyoutside gigamart gigamartkitchen grocerystorage hall icecream icecreamkitchen janitor office
+medical	bathroom	bathroom breakroom church empty emptyoutside lobby medical office school
+school	bathroom	bathroom breakroom classroom daycare janitor medicalstorage office
+school	bathroom	bathroom breakroom classroom elevator empty emptyoutside hall office officestorage
+home	bathroom	bathroom breakroom closet elevator empty garage hall janitor kitchen laundry livingroom post recreation stairwell storageunit
+office	bathroom	bathroom breakroom closet empty emptyoutside janitor meetingroom office officestorage post poststorage
+shop	bathroom	bathroom breakroom clothesestorage clothesstore dressingrooms empty emptyoutside hall office officestorage restaurantdining restaurantkitchen
+restaurant	bathroom	bathroom breakroom clothesestorage emptyoutside office officestorage restaurantdining restaurantkitchen
+stage	bathroom	bathroom breakroom communications elevator empty hall office
+medical	bathroom	bathroom breakroom communications empty garage hall janitor laboratory medical medicalstorage office officestorage security
+stage	bathroom	bathroom breakroom communications empty garage hall janitor newsroom office storage
+stage	bathroom	bathroom breakroom communications empty hall janitor newsroom office officestorage
+medical	bathroom	bathroom breakroom daycare emptyoutside janitor kitchen medical office
+school	bathroom	bathroom breakroom daycare hall janitor office storage
+gym	bathroom	bathroom breakroom elevator empty emptyoutside hall lockerroom office officestorage post
+stage	bathroom	bathroom breakroom elevator empty emptyoutside hall_herald newspaperprint_herald newspapershipping_herald newspaperstorage_herald office_herald
+medical	bathroom	bathroom breakroom elevator empty emptyoutside hallway hospitalroom janitor kennels laboratory lockerroom medicalstorage office officestorage pharmacy pharmacystorage security spiffoskitchen stairwell
+police	bathroom	bathroom breakroom elevator empty hall janitor office security serverroom
+medical	bathroom	bathroom breakroom elevator hall janitor laboratory medclinic office
+medical	bathroom	bathroom breakroom elevator hospitalhallway janitor medical medicaloffice medicalstorage office security
+restaurant	bathroom	bathroom breakroom empty emptyoutside garage hall janitor kitchen library office restaurantdining_fancy restaurantkitchen_fancy toystore
+gym	bathroom	bathroom breakroom empty emptyoutside gym hall janitor lockerroom office restaurantkitchen
+medical	bathroom	bathroom breakroom empty emptyoutside hall janitor medclinic medical medicalstorage officestorage universityclassroom universitylibrary universityoffice
+police	bathroom	bathroom breakroom empty emptyoutside hall janitor office schoolstorage security
+industrial	bathroom	bathroom breakroom empty emptyoutside hall office warehouse
+police	bathroom	bathroom breakroom empty emptyoutside hall policegunstorage policeoffice prisoncells
+office	bathroom	bathroom breakroom empty emptyoutside janitor office officestorage post poststorage
+shop	bathroom	bathroom breakroom empty furniturestorage furniturestore spa
+police	bathroom	bathroom breakroom empty hall janitor laboratory office porkshipping security
+police	bathroom	bathroom breakroom empty hall janitor lobby office security
+police	bathroom	bathroom breakroom empty hall officestorage policearchive policelocker policeoffice policeswat prisoncells swatlocker
+stage	bathroom	bathroom breakroom empty janitor office theatre theatrekitchen theatrestorage
+restaurant	bathroom	bathroom breakroom empty office seafooddining seafoodkitchen
+home	bathroom	bathroom breakroom emptyoutside garagestorage hall janitor office
+shop	bathroom	bathroom breakroom emptyoutside gardenstore greenhouse
+police	bathroom	bathroom breakroom emptyoutside janitor mechanic policegunstorage policeoffice prisoncells
+medical	bathroom	bathroom breakroom emptyoutside janitor medclinic medical office pharmacy pharmacystorage restaurantdining restaurantkitchen
+home	bathroom	bathroom breakroom emptyoutside office
+home	bathroom	bathroom breakroom garage office officestorage
+industrial	bathroom	bathroom breakroom janitor leatherworkshop office warehouse
+police	bathroom	bathroom breakroom laundry prisonlaundry tailoringworkshop
+restaurant	bathroom	bathroom breakroom meetingroom office restaurant storage
+office	bathroom	bathroom breakroom post poststorage
+home	bathroom	bathroom burgerdining burgerkitchen chinesekitchen chineserestaurant empty emptyoutside hall kitchen laundry livingroom
+restaurant	bathroom	bathroom burgerdining burgerkitchen emptyoutside janitor
+shop	bathroom	bathroom butcher cafe cafekitchen clothesstore clothesstorestorage dressingrooms empty emptyoutside grocery grocerystorage hallway janitor office toystore toystorestorage
+shop	bathroom	bathroom butcher cafeteria hall office
+shop	bathroom	bathroom cafe cafekitchen classroom clothesstorage clothesstore emptyoutside janitor office plazastore1
+shop	bathroom	bathroom cafe cafekitchen empty emptyoutside grocery grocerystorage janitor pharmacy pharmacystorage
+shop	bathroom	bathroom cafe cafekitchen empty janitor jewelrystorage jewelrystore office
+restaurant	bathroom	bathroom cafe emptyoutside hall lostandfound office
+restaurant	bathroom	bathroom cafeteria cafeteriakitchen empty emptyoutside garage hall janitor laundry motelroom office
+police	bathroom	bathroom cafeteria empty hall janitor office officestorage schoolstorage security
+church	bathroom	bathroom cafeteriakitchen church empty emptyoutside hallway janitor office recreation
+shop	bathroom	bathroom camerastore empty emptyoutside hall liquorstore movierental office photoroom restaurantdining restaurantkitchen
+photostudio	bathroom	bathroom camerastore hall photoroom
+shop	bathroom	bathroom camping campingstorage emptyoutside fishingstorage
+shop	bathroom	bathroom camping emptyoutside gasstorage gasstore
+home	bathroom	bathroom camping garage janitor kitchen livingroom medical medicalstorage office
+police	bathroom	bathroom captainoffice corridor detectiveoffice empty evidenceroom interrogationroom policegarage policegunstorage policehall policelocker policeoffice prisoncells security
+home	bathroom	bathroom changeroom church empty emptyoutside hall janitor livingroom morgue office officestorage
+shop	bathroom	bathroom changeroom clothesstore departmentstorage departmentstore electronicsstore empty emptyoutside furniturestore giftstore housewarestore janitor office shoestore toystore
+shop	bathroom	bathroom changeroom clothesstore empty furniturestore gigamart grocerystorage janitor office officestorage toolstore
+police	bathroom	bathroom changeroom empty emptyoutside factory hall janitor office security storage
+industrial	bathroom	bathroom changeroom empty emptyoutside hall mechanic office
+home	bathroom	bathroom changeroom empty emptyoutside kitchen livingroom lobby restaurantdining storage
+industrial	bathroom	bathroom changeroom empty hall killbox office porkshipping slaughterhousepork
+restaurant	bathroom	bathroom chili_dining chilikitchen empty emptyoutside firedisplay hall office storage
+home	bathroom	bathroom church diningroom empty emptyoutside kitchen lobbychurch officechurch
+church	bathroom	bathroom church empty emptyoutside hallway janitor partyhallstorage
+church	bathroom	bathroom church empty hallway janitor kitchen office recreation
+church	bathroom	bathroom church empty officechurch
+medical	bathroom	bathroom church emptyoutside garage hall laundry morgue office
+church	bathroom	bathroom church kitchen
+church	bathroom	bathroom church office
+school	bathroom	bathroom classroom classroom_maths classroom_physics empty emptyoutside hall janitor laboratory office officestorage universityclassroom
+shop	bathroom	bathroom classroom clothesstore conveniencestore emptyoutside kitchen liquorstore office
+school	bathroom	bathroom classroom daycare empty gym hall janitor kitchen library lockerroom office officestorage sportstorage
+school	bathroom	bathroom classroom elevator empty hall janitor universitylibrary universityoffice
+school	bathroom	bathroom classroom empty furnitureworkshop
+shop	bathroom	bathroom classroom empty grocerystorage hall janitor metalshop office storage
+school	bathroom	bathroom classroom empty hall janitor library office officestorage
+school	bathroom	bathroom classroom hall officestorage
+school	bathroom	bathroom classroom_anthro classroom_medieval classroom_pioneer classroom_pottery empty emptyoutside hall janitor office universityclassroom universitystorage
+shop	bathroom	bathroom clothesstorage janitor office toolstorage
+shop	bathroom	bathroom clothesstore conveniencestore dentist empty emptyoutside giftstore hallway janitor laundry office restaurantdining restaurantkitchen spa
+shop	bathroom	bathroom clothesstore departmentstorage departmentstore dressingrooms electronicsstore empty emptyoutside furniturestore giftstore housewarestore janitor office shoestore toystore
+shop	bathroom	bathroom clothesstore diner dressingrooms empty giftstore icecream
+shop	bathroom	bathroom clothesstore dressingrooms empty janitor jewelrystorage jewelrystore shoestorage shoestore
+gym	bathroom	bathroom clothesstore empty gym hallway janitor laundry lockerroom office restaurant restaurantkitchen
+restaurant	bathroom	bathroom clothesstore restaurantdining restaurantkitchen
+home	bathroom	bathroom coldroom empty emptyoutside janitor kitchen lapdancecabin livingroom lobby lockerroomstripper security stripclub stripclubvip
+gym	bathroom	bathroom cornerstore empty emptyoutside hall janitor lockerroom office
+shop	bathroom	bathroom cornerstore empty grocery grocerystorage janitor office zippeestorage
+medical	bathroom	bathroom dentist hallway janitor office pharmacystorage
+medical	bathroom	bathroom dentist lobby medical optometrist waitingroom
+restaurant	bathroom	bathroom diner dinerbackroom dinercounter dinerkitchen lobby
+restaurant	bathroom	bathroom dining_crepe emptyoutside janitor kitchen_crepe lockerroom office
+restaurant	bathroom	bathroom dining_crepe janitor kitchen_crepe office
+home	bathroom	bathroom diningroom elevator empty garbage grocerystorage hall janitor kennels office prisonstorage
+industrial	bathroom	bathroom dogfoodfactory dogfoodshipping dogfoodstorage empty emptyoutside hall janitor office
+restaurant	bathroom	bathroom donut_dining donut_kitchen donut_kitchenstorage janitor
+stage	bathroom	bathroom dressingrooms empty emptyoutside kitchen office room1 room3 room4 weldingstorage
+shop	bathroom	bathroom electronicsstorage electronicsstore emptyoutside janitor zippeestorage zippeestore
+medical	bathroom	bathroom electronicsstore empty hallway hospitalstorage janitor meetingroom officestorage stairwell
+police	bathroom	bathroom elevator empty emptyoutside evidenceroom gym hall janitor kitchen meeting policegunstorage policelocker policeoffice policestorage prisoncells
+home	bathroom	bathroom elevator empty emptyoutside garage hall janitor kennels kitchen laundry livingroom lockerroom mechanic medical medicalstorage office policestorage prisoncells
+motel	bathroom	bathroom elevator empty emptyoutside hall janitor kitchen laundry motelroom motelstorage office restaurant
+police	bathroom	bathroom elevator empty evidenceroom hall interrogationroom policehall policeoffice prisoncells security
+police	bathroom	bathroom elevator empty hall janitor kennels laboratory policegunstorage
+medical	bathroom	bathroom elevator empty janitor morgue
+home	bathroom	bathroom elevator emptyoutside garbage hall janitor kitchen livingroom office post recreation stairwell
+home	bathroom	bathroom elevator garage gym hall janitor kitchen laundry livingroom office recreation stairwell storageunit
+home	bathroom	bathroom elevator garagestorage hall janitor medical prisoncells prisonlaundry technical
+industrial	bathroom	bathroom empty emptyoutside factorystorage mechanic
+stage	bathroom	bathroom empty emptyoutside gallery hall office
+home	bathroom	bathroom empty emptyoutside garagestorage prisonstorage security
+office	bathroom	bathroom empty emptyoutside hall janitor kitchen mayorwestpointoffice meetingroom office
+office	bathroom	bathroom empty emptyoutside hall janitor kitchen office post
+industrial	bathroom	bathroom empty emptyoutside hall janitor knifefactory knifeshipping knifestore laundry office storage
+police	bathroom	bathroom empty emptyoutside hall janitor meetingroom policegunstorage policelocker policeoffice prisoncells
+medical	bathroom	bathroom empty emptyoutside hall kennels medclinic medicaloffice medicalstorage morgue
+medical	bathroom	bathroom empty emptyoutside hall kennels medclinic office officestorage pharmacystorage
+gym	bathroom	bathroom empty emptyoutside hall lockerroom office restaurantkitchen rollerrink storage
+police	bathroom	bathroom empty emptyoutside horsebox office policegunstorage policelocker storage
+motel	bathroom	bathroom empty emptyoutside janitor laundry motelroom motelroomoccupied office restaurantdining restaurantkitchen
+home	bathroom	bathroom empty firestorage hall kitchen livingroom medical medicalstorage office
+home	bathroom	bathroom empty gameroom hall office restaurantkitchen
+gym	bathroom	bathroom empty gym hall janitor laundry lockerroom medical office schoolgymstorage
+gym	bathroom	bathroom empty hallway janitor kitchen office recreation
+home	bathroom	bathroom empty livingroom office racetrackmechanic
+gym	bathroom	bathroom empty lockerroom mechanic
+gym	bathroom	bathroom empty sportstorage sportstore
+police	bathroom	bathroom emptyoutside firegarage firestorage gym kitchen office
+stage	bathroom	bathroom emptyoutside gallery hall janitor
+police	bathroom	bathroom emptyoutside garage hall janitor policegunstorage policelocker policeoffice prisoncells
+motel	bathroom	bathroom emptyoutside garage laundry motelroom motelroomoccupied office
+motel	bathroom	bathroom emptyoutside garage motelroom office
+home	bathroom	bathroom emptyoutside garage_ranger janitor kitchen livingroom medical office_ranger rangerhall rangerlocker rangerstorage showers
+industrial	bathroom	bathroom emptyoutside gasstorage gasstore mechanic
+police	bathroom	bathroom emptyoutside hall policegunstorage policeoffice prisoncells
+restaurant	bathroom	bathroom emptyoutside janitor office spiffo_dining spiffoskitchen spiffoslocker spiffosstorage
+motel	bathroom	bathroom emptyoutside motelroom
+restaurant	bathroom	bathroom emptyoutside office spiffo_dining spiffosaesthetic spiffoskitchen
+shop	bathroom	bathroom emptyoutside tobaccostorage tobaccostore
+industrial	bathroom	bathroom gasstorage gasstore laundry
+shop	bathroom	bathroom grocery grocerystorage shoestorage shoestore
+home	bathroom	bathroom gunstore gunstorestorage hallway janitor livingroom office restaurantdining restaurantkitchen
+gym	bathroom	bathroom gym gymstorage janitor laundry lockerroom showers
+police	bathroom	bathroom gym hall janitor officestorage policelocker showers
+medical	bathroom	bathroom hall janitor medicaloffice motelroom office
+stage	bathroom	bathroom jackiejayeoffice jackiejayestudio
+medical	bathroom	bathroom janitor kennels medical office
+medical	bathroom	bathroom janitor medclinic office pharmacy pharmacystorage
+medical	bathroom	bathroom janitor morgue office
+stage	bathroom	bathroom janitor office theatre theatrekitchen theatrestorage
+medical	bathroom	bathroom janitor pharmacy pharmacystorage
+gym	batstorage	baseballstore batfactory bathroom batstorage breakroom empty emptyoutside hall janitor office
+industrial	batteryfactory	bathroom batteryfactory batterystorage empty emptyoutside hall janitor kitchen laundry office security
+industrial	batterystorage	bathroom batteryfactory batterystorage empty emptyoutside hall janitor kitchen laundry office security
+home	bedroom	bathroom bedroom diningroom emptyoutside kidsbedroom kitchen laundry livingroom lobby office
+home	bedroom1	bathroom bedroom bedroom1 closet empty emptyoutside hall kitchen laundry livingroom
+home	bedroom4	balcony bathroom bedroom bedroom4 closet emptyoutside garage hall kitchen laundry livingroom office
+bar	beergarden	beergarden
+industrial	blacksmith	blacksmith
+home	boathouse	boathouse
+shop	bookclassic	bathroom bookclassic empty emptyoutside hall kitchen office
+shop	bookstorage	aestheticstorage bathroom bookstorage bottlestorage emptyoutside gymstorage musicstorage storageunit
+shop	bookstore	bathroom bedroom bookstore closet empty emptyoutside hall janitor kitchen livingroom restaurant restaurantkitchen
+shop	bookstorestorage	bathroom bedroom bookstore bookstorestorage breakroom changeroom clothesstore clothesstorestorage empty hall janitor kitchen livingroom office restaurantdining restaurantkitchen
+industrial	bottlestorage	aestheticstorage bathroom bookstorage bottlestorage emptyoutside gymstorage musicstorage storageunit
+gym	bowlingalley	bathroom bowlingalley burgerkitchen janitor office
+gym	boxing	bathroom boxing empty emptyoutside fitness office sportstorage
+office	breakoom	bathroom breakoom changeroom empty hall lobby office restaurantdining restaurantkitchen
+shop	breakroom	aesthetic aestheticstorage bakery bathroom bookstorage bookstore breakroom cafe cafekitchen candystorage candystore chinesekitchen clothesstorage clothesstore cornerstore departmentstorage departmentstore dining dressingrooms electronicsstorage electronicsstore empty fishchipskitchen foodcourt furniturestorage furniturestore generalstore generalstorestorage giftstorage giftstore hall housewarestorage housewarestore icecreamkitchen janitor jewelrystorage jewelrystore medical medicaloffice medicalstorage musicstorage musicstore office officestorage optometrist optometriststorage pharmacy pharmacystorage pizzakitchen restaurantkitchen security sewingstorage sewingstore shoestorage shoestore spiffo_dining spiffoskitchen spiffosstorage sportstorage sportstore tacokitchen toolstorage toolstore toystorage toystore
+shop	breakroom	aesthetic aestheticstorage bar bathroom bedroom breakroom cafe cafekitchen closet diningr empty emptyoutside hall janitor kitchen livingroom medical medicaloffice medicalstorage office zippeestorage zippeestore
+shop	breakroom	aesthetic aestheticstorage bar bathroom bedroom breakroom closet emptyoutside gunstorestorage hall hunting kitchen livingroom office officestorage storage
+shop	breakroom	aesthetic aestheticstorage bathroom bedroom bookstore breakroom carsupply derelict emptyoutside grocery grocerystorage hall janitor kitchen liviingroom livingroom lobby office officestorage potteryworkshop
+shop	breakroom	aesthetic aestheticstorage bathroom bookstore bookstorestorage breakroom empty emptyoutside hall restaurantkitchen schoolstorage toystore
+shop	breakroom	aesthetic armysurplus artstore bakery bakerykitchen barbequestore bathroom bookstorage bookstore breakroom cafe cafekitchen chinesekitchen clothesstorage clothesstore departmentstorage departmentstore dressingrooms electronicsstorage electronicsstore empty emptyoutside fishchipskitchen foodcourt furniturestore gardenstore giftstorage giftstore gigamart gigamartkitchen glassesstore grocerystorage gunstore hall hotdogstand housewarestore janitor jayschicken_kitchen jewelrystorage jewelrystore knoxbutcher liquorstore musicstore office optometrist pharmacy pharmacystorage pizzakitchen security sewingstorage sewingstore shoestore spiffo_dining spiffoskitchen spiffosstorage sportstorage sportstore storage sushidining sushikitchen tacokitchen toolstorage toolstore toystorage toystore
+shop	breakroom	aesthetic bakery bakerykitchen bar bathroom bedroom bookstore breakroom camerastore changeroom closet comicstorage comicstore construction dining druglab elevator empty giftstore gunstorestorage gym hall hallway icecream icecreamkitchen janitor jewelrystorage jewelrystore kitchen knifestore laundry leatherclothesstore library liquorstore livingroom medclinic movierental musicstore office officestorage pharmacystorage photoroom restaurantdining restaurantkitchen security sewingstore vault zippeestorage zippeestore
+shop	breakroom	aesthetic bar bathroom breakroom candystore clothesstore dressingrooms empty emptyoutside hall office
+shop	breakroom	aesthetic barbequestore bathroom bookstore breakroom chinesekitchen chineserestaurant clothesstore empty emptyoutside furniturestore hall icecream icecreamkitchen janitor office sewingstore sportstorage sportstore storage toolstore toystore
+medical	breakroom	aesthetic bathroom bedroom breakroom clinic clothesstore dressingrooms empty emptyoutside hall janitor kidsbedroom kitchen laundry livingroom medclinic office
+shop	breakroom	aesthetic bathroom breakroom butcher empty emptyoutside giftstore grocery janitor office
+office	breakroom	aesthetic bathroom breakroom cafe cafekitchen changeroom clinic dressingrooms empty gym hairdresser hallway janitor laundry office pool
+shop	breakroom	aesthetic bathroom breakroom empty grocery grocerystorage office
+office	breakroom	aesthetic bathroom breakroom janitor office
+shop	breakroom	arcade bathroom breakroom camerastore candystore electronicsstorage electronicstore empty emptyoutside gym hall janitor liquorstore movierental office restaurantdining restaurantkitchen
+shop	breakroom	archive armysurplus bathroom breakroom campingstorage empty emptyoutside firearmtraining fishingstorage gunstorage gunstore hunting kitchen lasertag lobby lockerroom office security storage technical workshop
+police	breakroom	armory bathroom breakroom captainoffice detectiveoffice elevator empty emptyoutside hall janitor lobby meetingroom office officestorage policearchive policegarage policehall policelocker policeoffice showers
+shop	breakroom	armysurplus bathroom breakroom comicstore empty emptyoutside gunstore gunstorestorage mexicandining mexicankitchen office
+office	breakroom	auctionstorage bathroom breakroom cattleauction emptyoutside hall office
+stage	breakroom	backstage bathroom breakroom dressingrooms empty hall
+restaurant	breakroom	baggageroom baggagesearch bar bathroom breakroom cafe cafekitchen camerastore changeroom chilikitchen chinesekitchen contraband elevator empty emptyoutside foodcourt garage garbage giftstorage giftstore hall janitor jayschicken_kitchen lostandfound mechanic office officestorage pharmacy pharmacystorage pizzakitchen prisoncells restaurantdining restaurantkitchen security spiffoskitchen storage sushikitchen zippeestore
+shop	breakroom	bakery bakerykitchen bathroom bedroom breakroom butcher empty emptyoutside gunstore hall janitor kitchen livingroom motelroom movierental office producestorage
+shop	breakroom	bakery bakerykitchen bathroom breakroom butcher empty emptyoutside grocery grocerystorage janitor office
+restaurant	breakroom	bakery bakerykitchen bathroom breakroom clothesstore empty emptyoutside janitor medclinic office pharmacy pharmacystorage restaurantdining restaurantkitchen
+shop	breakroom	bakery bathroom breakroom butcher changeroom empty emptyoutside grocery grocerystorage hall janitor loggingfactory medical metalshipping office toolstore toolstorestorage
+shop	breakroom	bakery bathroom breakroom butcher empty gigamart grocerystorage hallway janitor lockerroom office
+medical	breakroom	bakery bathroom breakroom clinic clothesstore dressingrooms empty emptyoutside hallway janitor kennels lab office pharmacystorage vet
+office	breakroom	bakeryfactorykitchen bakeryfactoryshipping bakeryfactorystorage bathroom breakroom changeroom empty emptyoutside hall office officestorage
+restaurant	breakroom	ballroom bar bathroom breakroom cafe elevator empty emptyoutside gym hall janitor laundry livingroom lockerroom motelroom office restaurantdining_fancy restaurantkitchen_fancy security
+restaurant	breakroom	ballroom bar bathroom breakroom changeroom elevator empty hall janitor laundry livingroom office pharmacy restaurantdining_fancy restaurantkitchen_fancy
+office	breakroom	bank bankstorage bathroom breakroom elevator empty emptyoutside janitor office security
+office	breakroom	bank bankstorage bathroom breakroom empty office officestorage security
+office	breakroom	bank bathroom breakroom empty hall janitor office security
+office	breakroom	bank bathroom breakroom empty janitor office officestorage security
+office	breakroom	bank bathroom breakroom empty office officestorage
+restaurant	breakroom	bar bathroom bedroom breakroom cafe cafekitchen changeroom clinic closet clothesstore construction conveniencestore diningroom donut_dining donut_kitchen elevator empty hallway janitor kidsbedroom kitchen laundry livingroom office officestorage pharmacystorage stairwell sushidining sushikitchen toolstore
+restaurant	breakroom	bar bathroom bedroom breakroom cafe cafekitchen construction dentiststorage elevator empty hallway janitor kitchen laundry livingroom medical medicaloffice motelroom office officestorage restaurantdining restaurantdining_fancy restaurantkitchen restaurantkitchen_fancy
+restaurant	breakroom	bar bathroom bedroom breakroom cafe construction conveniencestore dining elevator empty hall hallway janitor kidsbedroom kitchen livingroom office officestorage restaurantdining restaurantdining_fancy restaurantkitchen restaurantkitchen_fancy security stairwell storage theatre theatrekitchen theatrestorage
+restaurant	breakroom	bar bathroom breakroom cafeteria conveniencestore dentist donut_dining donut_kitchen elevator empty hallway janitor office officestorage restaurantdining restaurantkitchen stairwell
+office	breakroom	bar bathroom breakroom elevator empty emptyoutside gunstorestorage hall janitor laundry lobby motelroom motelstorage office restaurantdining_fancy restaurantkitchen_fancy
+office	breakroom	bar bathroom breakroom elevator empty emptyoutside hall janitor laundry motelroom office restaurantdining restaurantkitchen
+office	breakroom	bar bathroom breakroom elevator empty emptyoutside hallway italiankitchen janitor office officestorage restaurant stairwell
+office	breakroom	bar bathroom breakroom empty emptyoutside hall janitor meetingroom office officestorage
+industrial	breakroom	barbequestore bathroom batstorage breakroom changeroom clothesstore dogfoodstorage electronicsstorage elevator empty emptyoutside factorystorage furniturestorage gasstorage grocerystorage hall hospitalstorage liquorstore mechanic musicstore office officestorage shoestore sodatruck sportstorage storage storageunit theatrestorage tobaccostorage toolstore
+office	breakroom	barstorage bathroom breakroom electronicsstore elevator empty grocerystorage janitor kitchen laundry mainhall motelroom office
+office	breakroom	baseballstore batfactory bathroom batstorage breakroom empty emptyoutside hall janitor office
+shop	breakroom	bathroom bedroom bookstore bookstorestorage breakroom changeroom clothesstore clothesstorestorage empty hall janitor kitchen livingroom office restaurantdining restaurantkitchen
+shop	breakroom	bathroom bedroom bookstore breakroom emptyoutside hall janitor kitchen livingroom office
+industrial	breakroom	bathroom bedroom breakroom cafe hall kitchen livingroom storageunit
+police	breakroom	bathroom bedroom breakroom cafeteria cafeteriakitchen darkroom depositboxes elevator empty emptyoutside evidenceroom gym hall janitor laboratory laundry medclinic medicalstorage office officestorage policegunstorage policelibrary policelocker policeoffice policeoutfitstorage prisoncells security
+school	breakroom	bathroom bedroom breakroom cafeteria cafeteriakitchen elementaryclassroom elementaryhall empty hall janitor library medical office schoolgymstorage schoollab secondaryclassroom secondaryhall
+restaurant	breakroom	bathroom bedroom breakroom carpenter chinesekitchen chineserestaurant emptyoutside janitor kitchen livingroom office toolstorage
+gym	breakroom	bathroom bedroom breakroom changeroom empty emptyoutside gym hall janitor office sportstorage
+police	breakroom	bathroom bedroom breakroom church classroom coldstorage elevator empty emptyoutside garagestorage hall janitor kitchen library medical meetingroom office policeoffice prisoncells prisonerbelongings prisonlaundry prisonlocker prisonstorage security sportstorage
+medical	breakroom	bathroom bedroom breakroom church emptyoutside kitchen lobby medical office school storage
+shop	breakroom	bathroom bedroom breakroom clockrepair clothingstorage clothingstore derelict empty emptyoutside hall janitor kitchen livingroom movierental
+shop	breakroom	bathroom bedroom breakroom closet clothingstorage clothingstore empty emptyoutside furniturestorage furniturestore gunstorestorage kitchen livingroom office
+shop	breakroom	bathroom bedroom breakroom closet derelict electronicsstorage electronicstore empty emptyoutside florist gardenstore hall kitchen livingroom office
+restaurant	breakroom	bathroom bedroom breakroom diningroom empty emptyoutside greenhouse hall janitor kitchen laundry livingroom office restaurant restaurantstorage storage
+police	breakroom	bathroom bedroom breakroom empty emptyoutside firegarage firestorage gym hallway janitor kennels kitchen lockerroom medicalstorage office officestorage
+police	breakroom	bathroom bedroom breakroom empty emptyoutside firegarage firestorage gym hallway janitor kitchen lockerroom medicalstorage office
+industrial	breakroom	bathroom bedroom breakroom empty emptyoutside furniturestorage furniturestore hall kitchen livingroom office restaurantkitchen
+shop	breakroom	bathroom bedroom breakroom empty emptyoutside hallway janitor jewelrystore kitchen livingroom pharmacy pharmacystorage
+police	breakroom	bathroom bedroom breakroom empty hall janitor prisoncells prisonlocker security sportstorage
+shop	breakroom	bathroom bookstore breakroom cafe clothesstore conveniencestore dentist dressingrooms elevator empty giftstore hallway janitor office pharmacy pharmacystorage restaurantdining restaurantkitchen
+shop	breakroom	bathroom bookstore breakroom changeroom clothesstorage clothesstore cornerstore cornerstorestorage empty grocery grocerystorage office toolstorage toolstore
+office	breakroom	bathroom breakroom broadcasting elevator empty hall janitor office officestorage spiffo_dining spiffosaesthetic spiffoskitchen studio
+stage	breakroom	bathroom breakroom broadcasting empty emptyoutside garage hall janitor joanstudio office photoroom security serverroom storage studio studiostorage woodcraftset
+stage	breakroom	bathroom breakroom broadcasting empty emptyoutside garage hall janitor office photoroom security serverroom storage studio studiostorage
+stage	breakroom	bathroom breakroom broadcasting empty garage hall janitor judgematthassset judgematthasssetdressing office security serverroom storage studio
+medical	breakroom	bathroom breakroom cafe cafeteria cafeteriakitchen changeroom daycare empty emptyoutside hall hospitalhallway hospitalroom hospitalstorage janitor laboratory laundry medclinic medical medicaloffice medicalstorage morgue nursery office pharmacy pharmacystorage power security
+medical	breakroom	bathroom breakroom cafe cafeteria changeroom empty giftstorage giftstore hall hospitalroom hospitalstorage janitor kitchen laundry medclinic medical medicalstorage morgue nursery office officestorage pharmacy pharmacystorage power security
+shop	breakroom	bathroom breakroom cafe changeroom emptyoutside fossoil grocerystorage janitor livingroom office
+office	breakroom	bathroom breakroom cafe empty emptyoutside hall janitor office railroad restaurant zippeestore
+police	breakroom	bathroom breakroom cafeteria cafeteriakitchen changeroom classroom elevator empty gym hall janitor livingroom medical office prisonarmory prisoncells prisonlaundry prisonlibrary security
+school	breakroom	bathroom breakroom cafeteria cafeteriakitchen classroom empty emptyoutside gym hall janitor library medical office schoolgymstorage schoollab secondaryclassroom secondaryhall storage
+school	breakroom	bathroom breakroom cafeteria cafeteriakitchen clinic daycare elementaryclassroom elementaryhall empty emptyoutside gym janitor laboratory library lockerroom musicschool office schoolgymstorage schoolstorage secondaryclassroom secondaryhall
+school	breakroom	bathroom breakroom cafeteria cafeteriakitchen clinic daycare elementaryclassroom elementaryhall empty emptyoutside gym janitor library lockerroom office schoolgymstorage schoolstorage
+school	breakroom	bathroom breakroom cafeteria cafeteriakitchen clinic empty gym hall janitor library lockerroom office schoolgymstorage schoolstorage secondaryclassroom secondaryhall
+school	breakroom	bathroom breakroom cafeteria cafeteriakitchen clinic empty janitor laboratory library office secondaryclassroom secondaryhall
+school	breakroom	bathroom breakroom cafeteria cafeteriakitchen elementaryclassroom elementaryhall empty gym hall janitor library medical office schoolgymstorage schoollab storage
+school	breakroom	bathroom breakroom cafeteria cafeteriakitchen elementaryclassroom elementaryhall emptyoutside janitor office schoolstorage
+school	breakroom	bathroom breakroom cafeteria cafeteriakitchen empty janitor medical office schoollab schoolstorage secondaryclassroom secondaryhall
+medical	breakroom	bathroom breakroom cafeteria dentist dentiststorage elevator empty emptyoutside grocerystorage hallway medical medicaloffice medicalstorage office officestorage pharmacy pharmacystorage restaurantkitchen security stairwell
+office	breakroom	bathroom breakroom cafeteria empty gallery giftstore hall janitor lab museumstorage office officestorage security
+shop	breakroom	bathroom breakroom camerastore candystore cdstore empty emptyoutside janitor office petstore photoroom restaurant restaurantkitchen
+medical	breakroom	bathroom breakroom camping diningroom empty emptyoutside hall janitor kitchen livingroom medical medicalstorage office storage
+shop	breakroom	bathroom breakroom campingstorage empty emptyoutside gardenstore gunstore janitor producestorage storage
+industrial	breakroom	bathroom breakroom cardfactory changeroom empty emptyoutside furniturestore hall handlefactory office officestorage storage tablefactory tableshipping
+office	breakroom	bathroom breakroom carpentryworkshop changeroom emptyoutside factorystorage hallway
+shop	breakroom	bathroom breakroom carsupply changeroom chinesekitchen clothesstore clothingstorage empty emptyoutside fishchipskitchen foodcourt gardenstore gigamart grocerystorage hall janitor mechanic office pizzakitchen sewingstorage sewingstore spiffoskitchen toolstore
+office	breakroom	bathroom breakroom carsupply empty factorystorage mechanic office
+medical	breakroom	bathroom breakroom cdstore dentist dentiststorage janitor medical musicschool office tailorstorage tailorworkshop
+shop	breakroom	bathroom breakroom changeroom clothesstorage clothesstore construction empty liquorstore movierental office windowsstore
+industrial	breakroom	bathroom breakroom changeroom communications empty emptyoutside guitarfactory guitarshipping hall hingefactory hingeshipping hingestorage janitor laboratory metalclassroom musicstore office officestorage tofufactory tofushipping tofustorage weldingbooth
+office	breakroom	bathroom breakroom changeroom dogfoodfactory emptyoutside hall janitor mechanic medical medicaloffice meetingroom office storageunit toolstorage
+industrial	breakroom	bathroom breakroom changeroom elevator empty emptyoutside hall janitor office radiofactory radioshipping radiostorage
+office	breakroom	bathroom breakroom changeroom empty emptyoutside hall janitor mannequinfactory mannequinpainting office officestorage
+office	breakroom	bathroom breakroom changeroom empty factory hallway janitor office officestorage
+industrial	breakroom	bathroom breakroom changeroom empty hall janitor jerkycoldroom jerkyfactory jerkyshipping jerkysmoker office
+office	breakroom	bathroom breakroom changeroom empty lockerroom mechanic office
+office	breakroom	bathroom breakroom changeroom factory factorystorage hallway office
+restaurant	breakroom	bathroom breakroom chinesekitchen chineserestaurant empty emptyoutside gigamart gigamartkitchen grocerystorage hall icecream icecreamkitchen janitor office
+office	breakroom	bathroom breakroom church empty emptyoutside lobby medical office school
+office	breakroom	bathroom breakroom classroom daycare janitor medicalstorage office
+office	breakroom	bathroom breakroom classroom elevator empty emptyoutside hall office officestorage
+gym	breakroom	bathroom breakroom closet elevator empty garage hall janitor kitchen laundry livingroom post recreation stairwell storageunit
+office	breakroom	bathroom breakroom closet empty emptyoutside janitor meetingroom office officestorage post poststorage
+office	breakroom	bathroom breakroom clothesestorage clothesstore dressingrooms empty emptyoutside hall office officestorage restaurantdining restaurantkitchen
+office	breakroom	bathroom breakroom clothesestorage emptyoutside office officestorage restaurantdining restaurantkitchen
+office	breakroom	bathroom breakroom communications elevator empty hall office
+office	breakroom	bathroom breakroom communications empty garage hall janitor laboratory medical medicalstorage office officestorage security
+office	breakroom	bathroom breakroom communications empty garage hall janitor newsroom office storage
+office	breakroom	bathroom breakroom communications empty hall janitor newsroom office officestorage
+office	breakroom	bathroom breakroom daycare emptyoutside janitor kitchen medical office
+office	breakroom	bathroom breakroom daycare hall janitor office storage
+office	breakroom	bathroom breakroom elevator empty emptyoutside hall lockerroom office officestorage post
+stage	breakroom	bathroom breakroom elevator empty emptyoutside hall_herald newspaperprint_herald newspapershipping_herald newspaperstorage_herald office_herald
+medical	breakroom	bathroom breakroom elevator empty emptyoutside hallway hospitalroom janitor kennels laboratory lockerroom medicalstorage office officestorage pharmacy pharmacystorage security spiffoskitchen stairwell
+office	breakroom	bathroom breakroom elevator empty hall janitor office security serverroom
+office	breakroom	bathroom breakroom elevator hall janitor laboratory medclinic office
+medical	breakroom	bathroom breakroom elevator hospitalhallway janitor medical medicaloffice medicalstorage office security
+office	breakroom	bathroom breakroom empty emptyoutside garage hall janitor kitchen library office restaurantdining_fancy restaurantkitchen_fancy toystore
+office	breakroom	bathroom breakroom empty emptyoutside gym hall janitor lockerroom office restaurantkitchen
+medical	breakroom	bathroom breakroom empty emptyoutside hall janitor medclinic medical medicalstorage officestorage universityclassroom universitylibrary universityoffice
+office	breakroom	bathroom breakroom empty emptyoutside hall janitor office schoolstorage security
+office	breakroom	bathroom breakroom empty emptyoutside hall office warehouse
+police	breakroom	bathroom breakroom empty emptyoutside hall policegunstorage policeoffice prisoncells
+office	breakroom	bathroom breakroom empty emptyoutside janitor office officestorage post poststorage
+shop	breakroom	bathroom breakroom empty furniturestorage furniturestore spa
+office	breakroom	bathroom breakroom empty hall janitor laboratory office porkshipping security
+office	breakroom	bathroom breakroom empty hall janitor lobby office security
+police	breakroom	bathroom breakroom empty hall officestorage policearchive policelocker policeoffice policeswat prisoncells swatlocker
+office	breakroom	bathroom breakroom empty janitor office theatre theatrekitchen theatrestorage
+office	breakroom	bathroom breakroom empty office seafooddining seafoodkitchen
+home	breakroom	bathroom breakroom emptyoutside garagestorage hall janitor office
+office	breakroom	bathroom breakroom emptyoutside gardenstore greenhouse
+police	breakroom	bathroom breakroom emptyoutside janitor mechanic policegunstorage policeoffice prisoncells
+medical	breakroom	bathroom breakroom emptyoutside janitor medclinic medical office pharmacy pharmacystorage restaurantdining restaurantkitchen
+home	breakroom	bathroom breakroom emptyoutside office
+home	breakroom	bathroom breakroom garage office officestorage
+office	breakroom	bathroom breakroom janitor leatherworkshop office warehouse
+office	breakroom	bathroom breakroom laundry prisonlaundry tailoringworkshop
+office	breakroom	bathroom breakroom meetingroom office restaurant storage
+office	breakroom	bathroom breakroom post poststorage
+industrial	brewery	bar barbequestore bathroom brewery cafe cafekitchen empty emptyoutside hall office
+industrial	brewerystorage	bathroom brewery brewerystorage empty hall office
+stage	broadcasting	bar bathroom broadcasting burgerkitchen carsupplysport empty hall janitor kitchen livingroom medical office security spiffo_dining spiffoskitchen storage
+home	bunker	bunker
+restaurant	burgerdining	bathroom burgerdining burgerkitchen emptyoutside janitor
+restaurant	burgerkitchen	burgerkitchen
+restaurant	burgerstorage	burgerdining burgerkitchen burgerstorage emptyoutside
+shop	butcher	bakery bakerykitchen bathroom butcher grocery
+shop	butchery	bathroom bedroom butchery dentist electronicsstore emptyoutside kidsbedroom kitchen laundry library livingroom lobby medical restaurantdining restaurantkitchen storage
+industrial	cabinetfactory	bathroom cabinetfactory cabinetshipping empty emptyoutside hall janitor office
+industrial	cabinetshipping	bathroom cabinetfactory cabinetshipping empty emptyoutside hall janitor office
+restaurant	cafe	ballroom bar bathroom breakroom cafe elevator empty emptyoutside gym hall janitor laundry livingroom lockerroom motelroom office restaurantdining_fancy restaurantkitchen_fancy security
+restaurant	cafekitchen	bathroom cafe cafekitchen emptyoutside
+restaurant	cafeteria	armystorage bathroom bedroom cafeteria cafeteriakitchen cave communications decontamination electronicsstorage elevator empty hall janitor laboratory laundry livingroom medical medicalstorage office showers toolstorestorage
+restaurant	cafeteriakitchen	cafeteriakitchen
+shop	camerastore	arcade bathroom breakroom camerastore candystore electronicsstorage electronicstore empty emptyoutside gym hall janitor liquorstore movierental office restaurantdining restaurantkitchen
+shop	camping	bathroom camping emptyoutside gasstorage gasstore
+shop	campingstorage	bathroom camping campingstorage emptyoutside
+shop	candystorage	bathroom bedroom bookstorage bookstore candystorage candystore emptyoutside kitchen livingroom
+shop	candystore	arcade bathroom breakroom camerastore candystore electronicsstorage electronicstore empty emptyoutside gym hall janitor liquorstore movierental office restaurantdining restaurantkitchen
+industrial	cannedstorage	cannedstorage empty storage
+police	captainoffice	armory bathroom breakroom captainoffice detectiveoffice elevator empty emptyoutside hall janitor lobby meetingroom office officestorage policearchive policegarage policehall policelocker policeoffice showers
+office	cardealershipoffice	bathroom cardealershipoffice hallway
+industrial	cardfactory	bathroom breakroom cardfactory changeroom empty emptyoutside furniturestore hall handlefactory office officestorage storage tablefactory tableshipping
+industrial	carpenter	bathroom bedroom breakroom carpenter chinesekitchen chineserestaurant emptyoutside janitor kitchen livingroom office toolstorage
+shop	carpentryworkshop	carpentryworkshop mechanic
+shop	carsupply	bathroom breakroom carsupply empty factorystorage mechanic office
+shop	carsupplysport	bar bathroom broadcasting burgerkitchen carsupplysport empty hall janitor kitchen livingroom medical office security spiffo_dining spiffoskitchen storage
+shop	carupholsteryworkshop	bathroom carupholsteryworkshop mechanic
+restaurant	catfish_dining	bar bathroom catfish_dining catfish_kitchen emptyoutside
+restaurant	catfish_kitchen	bar bathroom catfish_dining catfish_kitchen emptyoutside
+shop	cattleauction	auctionstorage bathroom breakroom cattleauction emptyoutside hall office
+stage	catwalk	catwalk controlroom railroadrepair
+industrial	catwalk	catwalk emptyoutside railroadrepair
+home	cave	armystorage bathroom bedroom cafeteria cafeteriakitchen cave communications decontamination electronicsstorage elevator empty hall janitor laboratory laundry livingroom medical medicalstorage office showers toolstorestorage
+shop	cdstore	bathroom breakroom camerastore candystore cdstore empty emptyoutside janitor office petstore photoroom restaurant restaurantkitchen
+industrial	changeroom	bathroom breakroom changeroom empty hall janitor jerkycoldroom jerkyfactory jerkyshipping jerkysmoker office
+gym	changeroomjockey	bathroom changeroomjockey hall
+home	chickencoop	barn chickencoop emptyoutside
+restaurant	chili_dining	bathroom chili_dining chilikitchen empty emptyoutside firedisplay hall office storage
+restaurant	chilikitchen	baggageroom baggagesearch bar bathroom breakroom cafe cafekitchen camerastore changeroom chilikitchen chinesekitchen contraband elevator empty emptyoutside foodcourt garage garbage giftstorage giftstore hall janitor jayschicken_kitchen lostandfound mechanic office officestorage pharmacy pharmacystorage pizzakitchen prisoncells restaurantdining restaurantkitchen security spiffoskitchen storage sushikitchen zippeestore
+restaurant	chinesekitchen	chinesekitchen janitor
+restaurant	chineserestaurant	bathroom bedroom breakroom carpenter chinesekitchen chineserestaurant emptyoutside janitor kitchen livingroom office toolstorage
+church	church	bathroom church office
+school	classroom	classroom
+school	classroom_anthro	bathroom classroom_anthro classroom_medieval classroom_pioneer classroom_pottery empty emptyoutside hall janitor office universityclassroom universitystorage
+school	classroom_maths	bathroom classroom classroom_maths classroom_physics empty emptyoutside hall janitor laboratory office officestorage universityclassroom
+school	classroom_medieval	bathroom classroom_anthro classroom_medieval classroom_pioneer classroom_pottery empty emptyoutside hall janitor office universityclassroom universitystorage
+school	classroom_physics	bathroom classroom classroom_maths classroom_physics empty emptyoutside hall janitor laboratory office officestorage universityclassroom
+school	classroom_pioneer	bathroom classroom_anthro classroom_medieval classroom_pioneer classroom_pottery empty emptyoutside hall janitor office universityclassroom universitystorage
+school	classroom_pottery	bathroom classroom_anthro classroom_medieval classroom_pioneer classroom_pottery empty emptyoutside hall janitor office universityclassroom universitystorage
+medical	clinic	bathroom breakroom cafeteria cafeteriakitchen clinic daycare elementaryclassroom elementaryhall empty emptyoutside gym janitor laboratory library lockerroom musicschool office schoolgymstorage schoolstorage secondaryclassroom secondaryhall
+shop	clockrepair	bathroom bedroom breakroom clockrepair clothingstorage clothingstore derelict empty emptyoutside hall janitor kitchen livingroom movierental
+home	closet	bathroom bedroom closet diningroom emptyoutside hall kitchen livingroom
+shop	clothesestorage	bathroom breakroom clothesestorage emptyoutside office officestorage restaurantdining restaurantkitchen
+shop	clothesstorage	bathroom clothesstorage janitor office toolstorage
+shop	clothesstore	bathroom bedroom clothesstore generalstore generalstorestorage janitor livingroom
+shop	clothesstorestorage	bathroom bedroom closet clothesstore clothesstorestorage empty hall kitchen livingroom sportstorage sportstore
+shop	clothingstorage	bathroom bedroom breakroom closet clothingstorage clothingstore empty emptyoutside furniturestorage furniturestore gunstorestorage kitchen livingroom office
+shop	clothingstore	bathroom bedroom breakroom closet clothingstorage clothingstore empty emptyoutside furniturestorage furniturestore gunstorestorage kitchen livingroom office
+home	coldroom	bathroom coldroom empty emptyoutside janitor kitchen lapdancecabin livingroom lobby lockerroomstripper security stripclub stripclubvip
+home	coldstorage	bathroom bedroom breakroom church classroom coldstorage elevator empty emptyoutside garagestorage hall janitor kitchen library medical meetingroom office policeoffice prisoncells prisonerbelongings prisonlaundry prisonlocker prisonstorage security sportstorage
+shop	comicstorage	comicstorage comicstore
+shop	comicstore	armysurplus auctionstorage bar barbequestore baseballstorage bathroom candystore clothingstorage comicstore electronicsstorage empty emptyoutside farmstorage golfstore guitarfactory janitor mechanic medical pawnshop storagehall storageunit
+stage	communications	armystorage bathroom bedroom cafeteria cafeteriakitchen cave communications decontamination electronicsstorage elevator empty hall janitor laboratory laundry livingroom medical medicalstorage office showers toolstorestorage
+industrial	construction	construction empty
+restaurant	contraband	baggageroom baggagesearch bar bathroom breakroom cafe cafekitchen camerastore changeroom chilikitchen chinesekitchen contraband elevator empty emptyoutside foodcourt garage garbage giftstorage giftstore hall janitor jayschicken_kitchen lostandfound mechanic office officestorage pharmacy pharmacystorage pizzakitchen prisoncells restaurantdining restaurantkitchen security spiffoskitchen storage sushikitchen zippeestore
+stage	controlroom	bathroom bedroom controlroom office storage
+shop	conveniencestore	bathroom classroom clothesstore conveniencestore emptyoutside kitchen liquorstore office
+shop	cornerstore	bathroom bedroom breakroom closet cornerstore derelict hall kitchen livingroom
+shop	cornerstorecounter	cornerstore cornerstorecounter vacated
+shop	cornerstorestorage	bathroom bookstore bookstorestorage clothesstore cornerstore cornerstorestorage electricroom emptycommercial emptyoutside office
+police	coroneroffice	coroneroffice corridor evidenceroom morgue policearchive technical
+home	corridor	bathroom bedroom closet corridor emptyoutside hall kitchen livingroom
+police	corridor	coroneroffice corridor evidenceroom morgue policearchive technical
+home	cultistbedroom	cultistbedroom emptyoutside livingroom
+restaurant	cybercafe	cybercafe room1 vacated
+home	darkroom	bathroom bedroom breakroom cafeteria cafeteriakitchen darkroom depositboxes elevator empty emptyoutside evidenceroom gym hall janitor laboratory laundry medclinic medicalstorage office officestorage policegunstorage policelibrary policelocker policeoffice policeoutfitstorage prisoncells security
+stage	dartgame	dartgame
+school	daycare	bathroom breakroom cafeteria cafeteriakitchen clinic daycare elementaryclassroom elementaryhall empty emptyoutside gym janitor laboratory library lockerroom musicschool office schoolgymstorage schoolstorage secondaryclassroom secondaryhall
+medical	decontamination	armystorage bathroom bedroom cafeteria cafeteriakitchen cave communications decontamination electronicsstorage elevator empty hall janitor laboratory laundry livingroom medical medicalstorage office showers toolstorestorage
+restaurant	deepfry_dining	bar bathroom deepfry_dining deepfry_kitchen empty emptyoutside
+restaurant	deepfry_kitchen	bar bathroom deepfry_dining deepfry_kitchen empty emptyoutside
+medical	dentist	bathroom bedroom butchery dentist electronicsstore emptyoutside kidsbedroom kitchen laundry library livingroom lobby medical restaurantdining restaurantkitchen storage
+medical	dentiststorage	bathroom breakroom cafeteria dentist dentiststorage elevator empty emptyoutside grocerystorage hallway medical medicaloffice medicalstorage office officestorage pharmacy pharmacystorage restaurantkitchen security stairwell
+shop	departmentstorage	aesthetic armysurplus artstore bakery bakerykitchen barbequestore bathroom bookstorage bookstore breakroom cafe cafekitchen chinesekitchen clothesstorage clothesstore departmentstorage departmentstore dressingrooms electronicsstorage electronicsstore empty emptyoutside fishchipskitchen foodcourt furniturestore gardenstore giftstorage giftstore gigamart gigamartkitchen glassesstore grocerystorage gunstore hall hotdogstand housewarestore janitor jayschicken_kitchen jewelrystorage jewelrystore knoxbutcher liquorstore musicstore office optometrist pharmacy pharmacystorage pizzakitchen security sewingstorage sewingstore shoestore spiffo_dining spiffoskitchen spiffosstorage sportstorage sportstore storage sushidining sushikitchen tacokitchen toolstorage toolstore toystorage toystore
+shop	departmentstore	aesthetic armysurplus artstore bakery bakerykitchen barbequestore bathroom bookstorage bookstore breakroom cafe cafekitchen chinesekitchen clothesstorage clothesstore departmentstorage departmentstore dressingrooms electronicsstorage electronicsstore empty emptyoutside fishchipskitchen foodcourt furniturestore gardenstore giftstorage giftstore gigamart gigamartkitchen glassesstore grocerystorage gunstore hall hotdogstand housewarestore janitor jayschicken_kitchen jewelrystorage jewelrystore knoxbutcher liquorstore musicstore office optometrist pharmacy pharmacystorage pizzakitchen security sewingstorage sewingstore shoestore spiffo_dining spiffoskitchen spiffosstorage sportstorage sportstore storage sushidining sushikitchen tacokitchen toolstorage toolstore toystorage toystore
+office	depositboxes	depositboxes elevator hall vault
+home	derelict	derelict emptyoutside
+stage	derelict_controlroom	derelict_controlroom derelict_steelfactory derelict_steelfactorystorage emptyoutside
+industrial	derelict_steelfactory	derelict_controlroom derelict_steelfactory derelict_steelfactorystorage emptyoutside
+industrial	derelict_steelfactorystorage	derelict_controlroom derelict_steelfactory derelict_steelfactorystorage emptyoutside
+police	detectiveoffice	armory bathroom breakroom captainoffice detectiveoffice elevator empty emptyoutside hall janitor lobby meetingroom office officestorage policearchive policegarage policehall policelocker policeoffice showers
+restaurant	diner	bathroom bedroom closet diner dinerkitchen emptyoutside gasstorage gasstore hall kidsbedroom kitchen livingroom mechanic
+restaurant	dinerbackroom	bathroom diner dinerbackroom dinerkitchen janitor
+restaurant	dinercounter	bathroom diner dinerbackroom dinercounter dinerkitchen lobby
+restaurant	dinerkitchen	bathroom bedroom closet diner dinerkitchen emptyoutside gasstorage gasstore hall kidsbedroom kitchen livingroom mechanic
+home	dining	bathroom dining janitor
+restaurant	dining_crepe	bathroom dining_crepe janitor kitchen_crepe office
+home	diningr	aesthetic aestheticstorage bar bathroom bedroom breakroom cafe cafekitchen closet diningr empty emptyoutside hall janitor kitchen livingroom medical medicaloffice medicalstorage office zippeestorage zippeestore
+home	diningroom	bathroom bedroom diningroom emptyoutside kidsbedroom kitchen laundry livingroom lobby office
+industrial	distillerystorage	distillerystorage
+shop	distilleryworkshop	bedroom distillerystorage distilleryworkshop lobby
+industrial	dogfoodfactory	dogfoodfactory storage
+industrial	dogfoodshipping	bathroom dogfoodfactory dogfoodshipping dogfoodstorage empty emptyoutside hall janitor office
+industrial	dogfoodstorage	bathroom dogfoodfactory dogfoodshipping dogfoodstorage empty emptyoutside hall janitor office
+restaurant	donut_dining	bathroom donut_dining donut_kitchen donut_kitchenstorage janitor
+restaurant	donut_kitchen	bathroom donut_dining donut_kitchen donut_kitchenstorage janitor
+restaurant	donut_kitchenstorage	bathroom donut_dining donut_kitchen donut_kitchenstorage janitor
+stage	dressingrooms	clothesstore dressingrooms
+industrial	druglab	druglab
+industrial	drugshack	drugshack emptyoutside
+stage	duckshootgame	duckshootgame
+industrial	eggstorage	eggstorage
+shop	electricroom	bathroom bookstore bookstorestorage clothesstore cornerstore cornerstorestorage electricroom emptycommercial emptyoutside office
+industrial	electronicsstorage	armystorage bathroom bedroom cafeteria cafeteriakitchen cave communications decontamination electronicsstorage elevator empty hall janitor laboratory laundry livingroom medical medicalstorage office showers toolstorestorage
+shop	electronicsstore	electronicsstore
+shop	electronicstore	arcade bathroom breakroom camerastore candystore electronicsstorage electronicstore empty emptyoutside gym hall janitor liquorstore movierental office restaurantdining restaurantkitchen
+school	elementaryclassroom	bathroom breakroom cafeteria cafeteriakitchen clinic daycare elementaryclassroom elementaryhall empty emptyoutside gym janitor laboratory library lockerroom musicschool office schoolgymstorage schoolstorage secondaryclassroom secondaryhall
+school	elementaryhall	bathroom breakroom cafeteria cafeteriakitchen clinic daycare elementaryclassroom elementaryhall empty emptyoutside gym janitor laboratory library lockerroom musicschool office schoolgymstorage schoolstorage secondaryclassroom secondaryhall
+home	elevator	armystorage bathroom bedroom cafeteria cafeteriakitchen cave communications decontamination electronicsstorage elevator empty hall janitor laboratory laundry livingroom medical medicalstorage office showers toolstorestorage
+office	elevator	depositboxes elevator hall vault
+police	empty	armystorage empty mechanic restaurantkitchen
+police	empty	armystorage empty medical office
+bar	empty	bar empty emptyoutside
+shop	empty	barg_bathroom clothesstore clothingstorage empty janitor
+home	empty	bathroom bedroom closet diningroom empty emptyoutside hall kidsbedroom kitchen laundry livingroom storage
+church	empty	church empty emptyoutside hall lobbychurch officechurch
+gym	empty	daycare empty gym hall janitor lockerroom office pool sportstorage
+gym	empty	empty emptyoutside gymstorage hall
+home	empty	empty emptyoutside hall ww_aesthetic ww_bar ww_bedroom ww_kitchen ww_livingroom ww_sherrif
+police	empty	empty oldarmy oldmedical
+shop	emptycommercial	bathroom bookstore bookstorestorage clothesstore cornerstore cornerstorestorage electricroom emptycommercial emptyoutside office
+home	emptykitchen	bathroom bedroom emptykitchen livingroom
+home	emptyoutside	bank emptyoutside hall ww_bar ww_bedroom ww_blacksmith ww_generalstore
+bar	emptyoutside	bar barstorage emptyoutside janitor
+home	emptyoutside	bathroom bedroom diningroom emptyoutside kidsbedroom kitchen laundry livingroom lobby office
+church	emptyoutside	church emptyoutside lobbychurch officechurch storagechurch
+industrial	emptyoutside	derelict_controlroom derelict_steelfactory derelict_steelfactorystorage emptyoutside
+industrial	emptyoutside	drugshack emptyoutside
+restaurant	emptyoutside	emptyoutside hotdogstand
+home	emptyoutside	emptyoutside lobby
+shop	emptyoutside	emptyoutside paintershop
+police	emptyoutside	emptyoutside security
+police	evidenceroom	bathroom elevator empty evidenceroom hall interrogationroom policehall policeoffice prisoncells security
+industrial	factory	bathroom breakroom changeroom empty factory hallway janitor office officestorage
+industrial	factorystorage	factorystorage
+home	farmstorage	farmstorage
+police	firearmtraining	archive armysurplus bathroom breakroom campingstorage empty emptyoutside firearmtraining fishingstorage gunstorage gunstore hunting kitchen lasertag lobby lockerroom office security storage technical workshop
+police	firedisplay	bathroom chili_dining chilikitchen empty emptyoutside firedisplay hall office storage
+police	firegarage	bathroom bedroom empty firegarage firestorage gym hall janitor livingroom lobby medical meetingroom office showers
+police	firestorage	bathroom bedroom empty firegarage firestorage gym hall janitor livingroom lobby medical meetingroom office showers
+restaurant	fishchipskitchen	emptyoutside fishchipskitchen
+shop	fishing	bathroom emptyoutside fishing
+shop	fishingstorage	bathroom bedroom fishingstorage hall kitchen
+gym	fitness	bar fitness hall janitor
+shop	florist	bathroom bedroom breakroom closet derelict electronicsstorage electronicstore empty emptyoutside florist gardenstore hall kitchen livingroom office
+restaurant	foodcourt	aesthetic armysurplus artstore bakery bakerykitchen barbequestore bathroom bookstorage bookstore breakroom cafe cafekitchen chinesekitchen clothesstorage clothesstore departmentstorage departmentstore dressingrooms electronicsstorage electronicsstore empty emptyoutside fishchipskitchen foodcourt furniturestore gardenstore giftstorage giftstore gigamart gigamartkitchen glassesstore grocerystorage gunstore hall hotdogstand housewarestore janitor jayschicken_kitchen jewelrystorage jewelrystore knoxbutcher liquorstore musicstore office optometrist pharmacy pharmacystorage pizzakitchen security sewingstorage sewingstore shoestore spiffo_dining spiffoskitchen spiffosstorage sportstorage sportstore storage sushidining sushikitchen tacokitchen toolstorage toolstore toystorage toystore
+shop	fossoil	bathroom fossoil gasstorage gasstore janitor
+home	foyer	emptyoutside foyer
+industrial	fryshipping	bathroom empty emptyoutside fryshipping hall janitor laundry office potatostorage
+shop	furnitureshowroom	bathroom empty emptyoutside furnitureshowroom furniturestorage office
+industrial	furniturestorage	bathroom breakroom empty furniturestorage furniturestore spa
+shop	furniturestore	furniturestore
+shop	furniturestorestorage	bathroom furniturestore furniturestorestorage office
+shop	furnitureworkshop	bathroom classroom empty furnitureworkshop
+stage	gallery	bathroom emptyoutside gallery hall janitor
+home	gameroom	bathroom bowlingalley burgerkitchen empty gameroom golf gymstorage hallway janitor lasertag lockerroom machinery office
+home	garage	bathroom bedroom garage hall kitchen livingroom
+police	garage_ranger	bathroom emptyoutside garage_ranger janitor kitchen livingroom medical office_ranger rangerhall rangerlocker rangerstorage showers
+home	garage_storage	emptyoutside garage_storage
+home	garagestorage	garagestorage
+home	garbage	balcony bathroom bedroom closet elevator empty garbage gunstorestorage hall janitor kidsbedroom kitchen laundry livingroom office stairwell storageunit
+shop	gardeningstorage	bathroom empty gardeningstorage lobby storage
+shop	gardenstore	bathroom breakroom emptyoutside gardenstore greenhouse
+shop	gas2go	bathroom gas2go gasstorage
+industrial	gasstorage	bathroom bedroom closet diner dinerkitchen emptyoutside gasstorage gasstore hall kidsbedroom kitchen livingroom mechanic
+shop	gasstore	bathroom bedroom closet diner dinerkitchen emptyoutside gasstorage gasstore hall kidsbedroom kitchen livingroom mechanic
+shop	generalstore	bathroom bedroom clothesstore generalstore generalstorestorage janitor livingroom
+shop	generalstorestorage	bathroom bedroom clothesstore generalstore generalstorestorage janitor livingroom
+shop	giftstorage	bathroom breakroom cafe cafeteria changeroom empty giftstorage giftstore hall hospitalroom hospitalstorage janitor kitchen laundry medclinic medical medicalstorage morgue nursery office officestorage pharmacy pharmacystorage power security
+shop	giftstore	bathroom breakroom emptyoutside garage giftstore hallway janitor office toystore
+shop	giftstorestorage	bathroom bookstore bookstorestorage clothesstore clothesstorestorage dressingrooms empty giftstore giftstorestorage
+shop	gigamart	bakery bathroom breakroom butcher empty gigamart grocerystorage hallway janitor lockerroom office
+shop	gigamartkitchen	bathroom empty emptyoutside gigamart gigamartkitchen groceryfreezer grocerystorage kitchen office
+shop	glassesstore	bakery bakerykitchen bathroom bedroom glassesstore hall hallway janitor kitchen livingroom optometrist
+shop	glassmakingworkshop	artstore bathroom glassmakingworkshop hall office
+gym	golf	bathroom bowlingalley burgerkitchen empty gameroom golf gymstorage hallway janitor lasertag lockerroom machinery office
+industrial	golffactory	bathroom breakroom empty golffactory golfshipping golfstore hall janitor office
+industrial	golfshipping	golfshipping
+shop	golfstore	armysurplus auctionstorage bar barbequestore baseballstorage bathroom candystore clothingstorage comicstore electronicsstorage empty emptyoutside farmstorage golfstore guitarfactory janitor mechanic medical pawnshop storagehall storageunit
+shop	greenhouse	bathroom breakroom emptyoutside gardenstore greenhouse
+shop	grocery	grocery
+shop	groceryfreezer	bathroom empty emptyoutside gigamart gigamartkitchen groceryfreezer grocerystorage kitchen office
+shop	grocerystorage	bathroom emptyoutside grocery grocerystorage
+home	guestbedroom	bathroom bedroom closet emptyoutside garagestorage guestbedroom hall kidsbedroom kitchen laundry livingroom
+industrial	guitarfactory	armysurplus auctionstorage bar barbequestore baseballstorage bathroom candystore clothingstorage comicstore electronicsstorage empty emptyoutside farmstorage golfstore guitarfactory janitor mechanic medical pawnshop storagehall storageunit
+industrial	guitarshipping	bathroom breakroom changeroom communications empty emptyoutside guitarfactory guitarshipping hall hingefactory hingeshipping hingestorage janitor laboratory metalclassroom musicstore office officestorage tofufactory tofushipping tofustorage weldingbooth
+shop	gunstorage	gunstorage
+shop	gunstore	bathroom gunstore gunstorestorage
+shop	gunstorestorage	bathroom gunstore gunstorestorage
+gym	gym	ballroom bar bathroom breakroom cafe elevator empty emptyoutside gym hall janitor laundry livingroom lockerroom motelroom office restaurantdining_fancy restaurantkitchen_fancy security
+gym	gymstorage	empty emptyoutside gymstorage hall
+shop	hairdresser	bathroom bedroom gunstore hairdresser hallway janitor kitchen livingroom pawnshop
+gym	hall	bar fitness hall janitor
+home	hall	bathroom bedroom closet diningroom emptyoutside hall kitchen livingroom
+stage	hall_herald	bathroom breakroom elevator empty emptyoutside hall_herald newspaperprint_herald newspapershipping_herald newspaperstorage_herald office_herald
+gym	hallstorage	bathroom empty hall hallstorage janitor lockerroom office restaurantkitchen
+restaurant	hallway	bathroom empty hallway janitor kitchen restaurantdining
+home	hallway2	bathroom breakroom hallway hallway2 janitor office
+industrial	handlefactory	bathroom breakroom cardfactory changeroom empty emptyoutside furniturestore hall handlefactory office officestorage storage tablefactory tableshipping
+home	haystorage	empty haystorage
+industrial	hingefactory	bathroom breakroom changeroom communications empty emptyoutside guitarfactory guitarshipping hall hingefactory hingeshipping hingestorage janitor laboratory metalclassroom musicstore office officestorage tofufactory tofushipping tofustorage weldingbooth
+industrial	hingeshipping	bathroom breakroom changeroom communications empty emptyoutside guitarfactory guitarshipping hall hingefactory hingeshipping hingestorage janitor laboratory metalclassroom musicstore office officestorage tofufactory tofushipping tofustorage weldingbooth
+industrial	hingestorage	bathroom breakroom changeroom communications empty emptyoutside guitarfactory guitarshipping hall hingefactory hingeshipping hingestorage janitor laboratory metalclassroom musicstore office officestorage tofufactory tofushipping tofustorage weldingbooth
+home	homecinema	attic bathroom bedroom diningroom emptyoutside homecinema kitchen livingroom lobby office sports storage
+stage	hoopgame	hoopgame
+home	horsebox	empty horsebox horsewashingstation main storage
+home	horsewashingstation	empty horsebox horsewashingstation main storage
+medical	hospitalhallway	bathroom breakroom elevator hospitalhallway janitor medical medicaloffice medicalstorage office security
+medical	hospitalroom	bathroom breakroom cafe cafeteria cafeteriakitchen changeroom daycare empty emptyoutside hall hospitalhallway hospitalroom hospitalstorage janitor laboratory laundry medclinic medical medicaloffice medicalstorage morgue nursery office pharmacy pharmacystorage power security
+medical	hospitalstorage	bathroom electronicsstore empty hallway hospitalstorage janitor meetingroom officestorage stairwell
+restaurant	hotdogstand	emptyoutside hotdogstand
+shop	housewarestorage	aesthetic aestheticstorage bakery bathroom bookstorage bookstore breakroom cafe cafekitchen candystorage candystore chinesekitchen clothesstorage clothesstore cornerstore departmentstorage departmentstore dining dressingrooms electronicsstorage electronicsstore empty fishchipskitchen foodcourt furniturestorage furniturestore generalstore generalstorestorage giftstorage giftstore hall housewarestorage housewarestore icecreamkitchen janitor jewelrystorage jewelrystore medical medicaloffice medicalstorage musicstorage musicstore office officestorage optometrist optometriststorage pharmacy pharmacystorage pizzakitchen restaurantkitchen security sewingstorage sewingstore shoestorage shoestore spiffo_dining spiffoskitchen spiffosstorage sportstorage sportstore tacokitchen toolstorage toolstore toystorage toystore
+shop	housewarestore	bathroom emptyoutside housewarestore pizzakitchen pizzawhirled
+shop	hunting	hunting medical
+restaurant	icecream	emptyoutside icecream
+restaurant	icecreamkitchen	icecreamkitchen
+restaurant	icecreamstand	icecreamstand
+home	industry	industry
+police	interrogationroom	bathroom elevator empty evidenceroom hall interrogationroom policehall policeoffice prisoncells security
+restaurant	italiankitchen	bathroom breakroom elevator empty emptyoutside garage hallway italiankitchen italianrestaurant janitor kitchen office
+restaurant	italianrestaurant	bathroom breakroom elevator empty emptyoutside garage hallway italiankitchen italianrestaurant janitor kitchen office
+stage	jackiejayeoffice	bathroom jackiejayeoffice jackiejayestudio
+stage	jackiejayestudio	bathroom jackiejayeoffice jackiejayestudio
+industrial	janitor	bathroom breakroom changeroom empty hall janitor jerkycoldroom jerkyfactory jerkyshipping jerkysmoker office
+shop	janitor	clothesstore dressingrooms janitor office toolstore
+restaurant	jayschicken_dining	bathroom emptyoutside jayschicken_dining jayschicken_kitchen
+restaurant	jayschicken_kitchen	bathroom emptyoutside jayschicken_dining jayschicken_kitchen
+industrial	jerkycoldroom	bathroom breakroom changeroom empty hall janitor jerkycoldroom jerkyfactory jerkyshipping jerkysmoker office
+industrial	jerkyfactory	bathroom breakroom changeroom empty hall janitor jerkycoldroom jerkyfactory jerkyshipping jerkysmoker office
+industrial	jerkyshipping	bathroom breakroom changeroom empty hall janitor jerkycoldroom jerkyfactory jerkyshipping jerkysmoker office
+industrial	jerkysmoker	bathroom breakroom changeroom empty hall janitor jerkycoldroom jerkyfactory jerkyshipping jerkysmoker office
+shop	jewelrystorage	bathroom clothesstore dressingrooms empty janitor jewelrystorage jewelrystore shoestorage shoestore
+shop	jewelrystore	bathroom bedroom breakroom empty emptyoutside hallway janitor jewelrystore kitchen livingroom pharmacy pharmacystorage
+stage	joanstudio	bathroom breakroom broadcasting empty emptyoutside garage hall janitor joanstudio office photoroom security serverroom storage studio studiostorage woodcraftset
+stage	judgematthassset	bathroom breakroom broadcasting empty garage hall janitor judgematthassset judgematthasssetdressing office security serverroom storage studio
+stage	judgematthasssetdressing	bathroom breakroom broadcasting empty garage hall janitor judgematthassset judgematthasssetdressing office security serverroom storage studio
+restaurant	juicestand	emptyoutside juicestand
+shop	kennels	bathroom empty emptyoutside hall kennels medclinic medicaloffice medicalstorage morgue
+home	kidsbedroom	bathroom bedroom diningroom emptyoutside kidsbedroom kitchen laundry livingroom lobby office
+home	kidsbedroom4	bathroom bedroom closet diningroom emptyoutside hall kidsbedroom4 kitchen laundry livingroom office
+industrial	killbox	bathroom changeroom empty hall killbox office porkshipping slaughterhousepork
+home	kitchen	bathroom bedroom diningroom emptyoutside kidsbedroom kitchen laundry livingroom lobby office
+restaurant	kitchen_crepe	bathroom dining_crepe janitor kitchen_crepe office
+shop	kitchenwares	bathroom empty furniturestore kitchen kitchenwares
+shop	knappingworkshop	knappingworkshop
+industrial	knifefactory	bathroom empty emptyoutside hall janitor knifefactory knifeshipping knifestore laundry office storage
+industrial	knifeshipping	bathroom empty emptyoutside hall janitor knifefactory knifeshipping knifestore laundry office storage
+shop	knifestore	bathroom empty emptyoutside hall janitor knifefactory knifeshipping knifestore laundry office storage
+shop	knoxbutcher	knoxbutcher
+medical	lab	bathroom breakroom cafeteria empty gallery giftstore hall janitor lab museumstorage office officestorage security
+medical	laboratory	bathroom breakroom empty hall janitor laboratory office porkshipping security
+bar	lapdancecabin	bathroom coldroom empty emptyoutside janitor kitchen lapdancecabin livingroom lobby lockerroomstripper security stripclub stripclubvip
+stage	lasertag	bathroom bowlingalley burgerkitchen empty gameroom golf gymstorage hallway janitor lasertag lockerroom machinery office
+home	laundry	bathroom bedroom diningroom emptyoutside kidsbedroom kitchen laundry livingroom lobby office
+home	laundry	bedroom laundry livingroom musicroom office storage
+shop	laundryshirts	bathroom bedroom derelict kitchen laundry laundryshirts laundrysuits livingroom office
+shop	laundrysuits	bathroom bedroom derelict kitchen laundry laundryshirts laundrysuits livingroom office
+shop	leatherclothesstore	emptyoutside leatherclothesstore
+shop	leatherworkshop	bathroom breakroom janitor leatherworkshop office warehouse
+school	library	bathroom bedroom butchery dentist electronicsstore emptyoutside kidsbedroom kitchen laundry library livingroom lobby medical restaurantdining restaurantkitchen storage
+shop	lightingstorage	bathroom burgerdining burgerkitchen empty emptyoutside lightingstorage lightingstore liquorstore office
+shop	lightingstore	bathroom burgerdining burgerkitchen empty emptyoutside lightingstorage lightingstore liquorstore office
+shop	liquorstore	bathroom empty emptyoutside liquorstore lobby
+home	liviingroom	aesthetic aestheticstorage bathroom bedroom bookstore breakroom carsupply derelict emptyoutside grocery grocerystorage hall janitor kitchen liviingroom livingroom lobby office officestorage potteryworkshop
+home	livingroom	bathroom bedroom diningroom emptyoutside kidsbedroom kitchen laundry livingroom lobby office
+home	lobby	bathroom bedroom diningroom emptyoutside kidsbedroom kitchen laundry livingroom lobby office
+church	lobbychurch	bathroom church diningroom empty emptyoutside kitchen lobbychurch officechurch
+home	location_sewer_01_11	emptyoutside location_sewer_01_11
+gym	locker	bathroom gym gymstorage hall janitor laundry locker
+gym	lockerroom	ballroom bar bathroom breakroom cafe elevator empty emptyoutside gym hall janitor laundry livingroom lockerroom motelroom office restaurantdining_fancy restaurantkitchen_fancy security
+gym	lockerroomstripper	bathroom coldroom empty emptyoutside janitor kitchen lapdancecabin livingroom lobby lockerroomstripper security stripclub stripclubvip
+industrial	loggingfactory	bakery bathroom breakroom butcher changeroom empty emptyoutside grocery grocerystorage hall janitor loggingfactory medical metalshipping office toolstore toolstorestorage
+industrial	loggingtruck	loggingtruck
+industrial	loggingwarehouse	loggingwarehouse
+restaurant	lostandfound	bathroom cafe emptyoutside hall lostandfound office
+home	machinery	bathroom bowlingalley burgerkitchen empty gameroom golf gymstorage hallway janitor lasertag lockerroom machinery office
+home	main	empty horsebox horsewashingstation main storage
+shop	mainhall	barstorage bathroom breakroom electronicsstore elevator empty grocerystorage janitor kitchen laundry mainhall motelroom office
+home	maintenance	bathroom bedroom kitchen lobby maintenance room2
+industrial	mannequinfactory	bathroom breakroom changeroom empty emptyoutside hall janitor mannequinfactory mannequinpainting office officestorage
+industrial	mannequinpainting	bathroom breakroom changeroom empty emptyoutside hall janitor mannequinfactory mannequinpainting office officestorage
+industrial	mapfactory	bathroom emptyoutside hall janitor mapfactory office
+shop	masonrystore	bathroom breakroom masonrystore
+office	mayorwestpointoffice	bathroom empty emptyoutside hall janitor kitchen mayorwestpointoffice meetingroom office
+industrial	mechanic	bathroom bedroom closet diner dinerkitchen emptyoutside gasstorage gasstore hall kidsbedroom kitchen livingroom mechanic
+medical	medclinic	bathroom empty emptyoutside hall kennels medclinic medicaloffice medicalstorage morgue
+medical	medical	hunting medical
+medical	medicaloffice	bathroom empty emptyoutside hall kennels medclinic medicaloffice medicalstorage morgue
+medical	medicalstorage	bathroom empty emptyoutside hall kennels medclinic medicaloffice medicalstorage morgue
+police	meeting	bathroom elevator empty emptyoutside evidenceroom gym hall janitor kitchen meeting policegunstorage policelocker policeoffice policestorage prisoncells
+police	meetingroom	armory bathroom breakroom captainoffice detectiveoffice elevator empty emptyoutside hall janitor lobby meetingroom office officestorage policearchive policegarage policehall policelocker policeoffice showers
+police	meetingroom	bathroom bedroom empty firegarage firestorage gym hall janitor livingroom lobby medical meetingroom office showers
+office	meetingroom	bathroom electronicsstore empty hallway hospitalstorage janitor meetingroom officestorage stairwell
+office	meetingroom	bathroom empty emptyoutside hall janitor kitchen mayorwestpointoffice meetingroom office
+police	meetingroom	bathroom empty emptyoutside hall janitor meetingroom policegunstorage policelocker policeoffice prisoncells
+school	metalclassroom	bathroom breakroom changeroom communications empty emptyoutside guitarfactory guitarshipping hall hingefactory hingeshipping hingestorage janitor laboratory metalclassroom musicstore office officestorage tofufactory tofushipping tofustorage weldingbooth
+industrial	metalfabrication	metalfabrication
+industrial	metalshipping	bathroom empty emptyoutside metalshipping
+shop	metalshop	artstore bathroom cafeteriakitchen empty grocerystorage hall janitor metalshop schoolgymstorage schoolstorage
+restaurant	mexicandining	aesthetic bathroom grocery grocerystorage italiankitchen italianrestaurant janitor laundry mexicandining mexicankitchen
+restaurant	mexicankitchen	aesthetic bathroom grocery grocerystorage italiankitchen italianrestaurant janitor laundry mexicandining mexicankitchen
+home	miscstorage	bathroom bedroom closet diningroom emptyoutside hall kidsbedroom kitchen laundry livingroom miscstorage
+medical	morgue	bathroom empty emptyoutside hall kennels medclinic medicaloffice medicalstorage morgue
+motel	motelreception	bathroom bedroom empty emptyoutside janitor kitchen laundry livingroom motelreception motelroom motelroomoccupied office officestorage
+motel	motelroom	ballroom bar bathroom breakroom cafe elevator empty emptyoutside gym hall janitor laundry livingroom lockerroom motelroom office restaurantdining_fancy restaurantkitchen_fancy security
+motel	motelroomoccupied	bar bathroom construction diningroom dressingrooms elevator emptyoutside garagestorage hall janitor library livingroom motelroom motelroomoccupied office pool survivorcache2
+motel	motelstorage	bar bathroom breakroom elevator empty emptyoutside gunstorestorage hall janitor laundry lobby motelroom motelstorage office restaurantdining_fancy restaurantkitchen_fancy
+shop	movierental	arcade bathroom breakroom camerastore candystore electronicsstorage electronicstore empty emptyoutside gym hall janitor liquorstore movierental office restaurantdining restaurantkitchen
+stage	museumstorage	bathroom breakroom cafeteria empty gallery giftstore hall janitor lab museumstorage office officestorage security
+stage	music	bathroom communications empty emptyoutside music office
+school	musicroom	bedroom laundry livingroom musicroom office storage
+school	musicschool	bathroom breakroom cafeteria cafeteriakitchen clinic daycare elementaryclassroom elementaryhall empty emptyoutside gym janitor laboratory library lockerroom musicschool office schoolgymstorage schoolstorage secondaryclassroom secondaryhall
+stage	musicstage	empty emptyoutside musicstage
+stage	musicstorage	musicstorage
+shop	musicstore	barbequestore bathroom clothesstore empty emptyoutside gardenstore gasstorage grocery grocerystorage hall liquorstore mechanic musicstore office security sewingstore shoestore sodatruck sportstorage storage storageunit toolstore
+stage	newspaperprint_herald	bathroom breakroom elevator empty emptyoutside hall_herald newspaperprint_herald newspapershipping_herald newspaperstorage_herald office_herald
+stage	newspapershipping_herald	bathroom breakroom elevator empty emptyoutside hall_herald newspaperprint_herald newspapershipping_herald newspaperstorage_herald office_herald
+stage	newspaperstorage_herald	bathroom breakroom elevator empty emptyoutside hall_herald newspaperprint_herald newspapershipping_herald newspaperstorage_herald office_herald
+stage	newsroom	bathroom breakroom communications empty hall janitor newsroom office officestorage
+home	nogo	bathroom bedroom hall kitchen laundry livingroom nogo
+home	nolansoffice	bathroom emptyoutside garage kitchen nolansoffice
+home	nursery	bathroom breakroom cafe cafeteria cafeteriakitchen changeroom daycare empty emptyoutside hall hospitalhallway hospitalroom hospitalstorage janitor laboratory laundry medclinic medical medicaloffice medicalstorage morgue nursery office pharmacy pharmacystorage power security
+shop	office	aesthetic bathroom cafe cafekitchen conveniencestore emptyoutside janitor laundry office petstore
+restaurant	office	aesthetic bathroom cafe cafekitchen emptyoutside janitor laundry office
+home	office	archive bathroom emptyoutside kitchen lobby office
+stage	office	arenakitchen bar bathroom boxing broadcasting changeroom empty emptyoutside garbage hall janitor office storage ticketoffice
+medical	office	armystorage bathroom bedroom cafeteria cafeteriakitchen cave communications decontamination electronicsstorage elevator empty hall janitor laboratory laundry livingroom medical medicalstorage office showers toolstorestorage
+office	office	armystorage empty medical office
+shop	office	armysurplus bathroom emptyoutside gunstore gunstorestorage office
+shop	office	attic bathroom bedroom clothesstore emptyoutside kitchen laundry livingroom lobby office smokingroom storage
+stage	office	backstage bar bathroom empty emptyoutside janitor office theatre
+shop	office	bakery bathroom butcher empty grocery janitor office
+industrial	office	balcony bathroom bedroom closet elevator empty garbage gunstorestorage hall janitor kidsbedroom kitchen laundry livingroom office stairwell storageunit
+gym	office	balcony bathroom cafe cafekitchen closet elevator empty garage garbage grocery grocerystorage gym hall janitor kidsbedroom kitchen laundry library livingroom office pool recreation stairwell storageunit
+restaurant	office	bar barbequestore bathroom brewery cafe cafekitchen empty emptyoutside hall office
+bar	office	bar barkitchen bathroom clothesstore emptyoutside hall janitor office
+bar	office	bar barkitchen bathroom empty emptyoutside janitor office westerndining westernkitchen
+bar	office	bar barkitchen bathroom empty hall janitor lockerroom office security theatre
+bar	office	bar barstorage bathroom corridor empty emptyoutside hall hallway janitor kitchen office security storage stripclub stripcluboffice stripclubvip
+office	office	bar barstorage bathroom druglab emptyoutside office officestorage
+bar	office	bar barstorage bathroom empty hallway janitor lockerroom office security
+bar	office	bar barstorage bathroom empty hallway janitor office security
+motel	office	bar bathroom bedroom emptyoutside hall janitor kitchen livingroom motelroom motelroomoccupied office
+bar	office	bar bathroom bedroom emptyoutside kitchen livingroom office
+restaurant	office	bar bathroom broadcasting burgerkitchen carsupplysport empty hall janitor kitchen livingroom medical office security spiffo_dining spiffoskitchen storage
+restaurant	office	bar bathroom cafe cafeteriakitchen elevator empty emptyoutside hall janitor livingroom office
+motel	office	bar bathroom construction diningroom dressingrooms elevator emptyoutside garagestorage hall janitor library livingroom motelroom motelroomoccupied office pool survivorcache2
+restaurant	office	bar bathroom empty emptyoutside gym hall icecream icecreamkitchen janitor laundry lockerroom office restaurantdining_fancy restaurantkitchen_fancy
+gym	office	bar bathroom empty emptyoutside gymstorage hall janitor lockerroom office restaurantdining_fancy restaurantkitchen_fancy
+office	office	bar bathroom empty emptyoutside hall janitor lobby office roofaccess theatre
+office	office	bar bathroom empty emptyoutside hall office restaurantkitchen
+restaurant	office	bar bathroom empty hall janitor office restaurantdining_fancy restaurantkitchen_fancy whiskeybottling
+office	office	bar bathroom empty kitchen office
+office	office	bar bathroom gunstorestorage kitchen office
+shop	office	barbequestore bathroom clothesstore empty emptyoutside gardenstore gasstorage grocery grocerystorage hall liquorstore mechanic musicstore office security sewingstore shoestore sodatruck sportstorage storage storageunit toolstore
+industrial	office	bathroom batteryfactory batterystorage empty emptyoutside hall janitor kitchen laundry office security
+restaurant	office	bathroom bedroom bookstore empty emptyoutside hall janitor kidsbedroom kitchen laundry livingroom office restaurantdining restaurantkitchen
+restaurant	office	bathroom bedroom burgerdining burgerkitchen empty hall janitor livingroom office storageunit
+restaurant	office	bathroom bedroom cafe cafekitchen hall janitor kitchen livingroom office
+medical	office	bathroom bedroom cafeteria cafeteriakitchen emptyoutside gym hall hospitalstorage janitor laundry medicalstorage office recreation
+police	office	bathroom bedroom changeroom dogfoodstorage empty emptyoutside firegarage firestorage gym hall janitor kitchen livingroom medical office
+church	office	bathroom bedroom church empty hall janitor kitchen office
+church	office	bathroom bedroom church empty kitchen library livingroom office officechurch
+gym	office	bathroom bedroom closet diningroom empty emptyoutside garage gym hall kitchen livingroom office
+medical	office	bathroom bedroom closet diningroom hall kitchen livingroom medical medicalstorage office
+medical	office	bathroom bedroom clothesstorage clothesstore dressingrooms empty emptyoutside hall janitor kitchen livingroom medclinic medical medicalstorage office
+shop	office	bathroom bedroom clothesstore empty emptyoutside generalstore generalstorestorage janitor kitchen livingroom office
+stage	office	bathroom bedroom controlroom office storage
+shop	office	bathroom bedroom derelict kitchen laundry laundryshirts laundrysuits livingroom office
+medical	office	bathroom bedroom diningroom emptyoutside garage kidsbedroom kitchen livingroom medicaloffice office
+school	office	bathroom bedroom diningroom emptyoutside grocerystorage hall janitor kitchen laundry library livingroom office sewingroom
+home	office	bathroom bedroom diningroom emptyoutside kidsbedroom kitchen laundry livingroom lobby office
+restaurant	office	bathroom bedroom elevator empty emptyoutside hall kitchen laundry livingroom motelroom office restaurantdining restaurantkitchen
+office	office	bathroom bedroom elevator empty garbage hall janitor kitchen livingroom office post
+police	office	bathroom bedroom empty emptyoutside firestorage gym hall kitchen livingroom medical office
+stage	office	bathroom bedroom empty emptyoutside fishchipskitchen hall janitor kitchen livingroom office restaurant theatre theatrestorage toolstore zippeestore
+shop	office	bathroom bedroom empty emptyoutside grocery grocerystorage gym hall kidsbedroom kitchen livingroom office post poststorage potteryworkshop toolstore
+motel	office	bathroom bedroom empty emptyoutside janitor kitchen laundry livingroom motelreception motelroom motelroomoccupied office officestorage
+restaurant	office	bathroom bedroom emptyoutside hall janitor kitchen livingroom office restaurant restaurantdining restaurantkitchen
+motel	office	bathroom bedroom emptyoutside janitor kitchen laundry livingroom motelroom motelroomoccupied office
+police	office	bathroom bedroom firestorage kitchen office
+shop	office	bathroom bedroom generalstore kitchen livingroom office
+police	office	bathroom bedroom hall janitor office prisoncells prisonstorage technical
+shop	office	bathroom bookstore bookstorestorage clothesstore cornerstore cornerstorestorage electricroom emptycommercial emptyoutside office
+shop	office	bathroom bookstore clothesstore empty grocery grocerystorage hallway janitor laundry office restaurantdining restaurantkitchen
+gym	office	bathroom bowlingalley burgerdining burgerkitchen empty hall janitor lockerroom office
+gym	office	bathroom bowlingalley burgerkitchen empty gameroom golf gymstorage hallway janitor lasertag lockerroom machinery office
+office	office	bathroom bowlingalley burgerkitchen janitor office
+gym	office	bathroom boxing empty emptyoutside fitness office sportstorage
+shop	office	bathroom butcher cafe cafekitchen clothesstore clothesstorestorage dressingrooms empty emptyoutside grocery grocerystorage hallway janitor office toystore toystorestorage
+office	office	bathroom butcher cafeteria hall office
+shop	office	bathroom cafe cafekitchen classroom clothesstorage clothesstore emptyoutside janitor office plazastore1
+shop	office	bathroom cafe cafekitchen empty janitor jewelrystorage jewelrystore office
+office	office	bathroom cafe emptyoutside hall lostandfound office
+restaurant	office	bathroom cafeteria cafeteriakitchen empty emptyoutside garage hall janitor laundry motelroom office
+office	office	bathroom cafeteria empty hall janitor office officestorage schoolstorage security
+office	office	bathroom cafeteriakitchen church empty emptyoutside hallway janitor office recreation
+shop	office	bathroom camerastore empty emptyoutside hall liquorstore movierental office photoroom restaurantdining restaurantkitchen
+medical	office	bathroom camping garage janitor kitchen livingroom medical medicalstorage office
+medical	office	bathroom changeroom church empty emptyoutside hall janitor livingroom morgue office officestorage
+shop	office	bathroom changeroom clothesstore departmentstorage departmentstore electronicsstore empty emptyoutside furniturestore giftstore housewarestore janitor office shoestore toystore
+shop	office	bathroom changeroom clothesstore empty furniturestore gigamart grocerystorage janitor office officestorage toolstore
+office	office	bathroom changeroom empty emptyoutside factory hall janitor office security storage
+office	office	bathroom changeroom empty emptyoutside hall mechanic office
+industrial	office	bathroom changeroom empty hall killbox office porkshipping slaughterhousepork
+restaurant	office	bathroom chili_dining chilikitchen empty emptyoutside firedisplay hall office storage
+office	office	bathroom church empty hallway janitor kitchen office recreation
+office	office	bathroom church emptyoutside garage hall laundry morgue office
+office	office	bathroom church office
+school	office	bathroom classroom classroom_maths classroom_physics empty emptyoutside hall janitor laboratory office officestorage universityclassroom
+shop	office	bathroom classroom clothesstore conveniencestore emptyoutside kitchen liquorstore office
+school	office	bathroom classroom daycare empty gym hall janitor kitchen library lockerroom office officestorage sportstorage
+shop	office	bathroom classroom empty grocerystorage hall janitor metalshop office storage
+office	office	bathroom classroom empty hall janitor library office officestorage
+school	office	bathroom classroom_anthro classroom_medieval classroom_pioneer classroom_pottery empty emptyoutside hall janitor office universityclassroom universitystorage
+shop	office	bathroom clothesstorage janitor office toolstorage
+shop	office	bathroom clothesstore conveniencestore dentist empty emptyoutside giftstore hallway janitor laundry office restaurantdining restaurantkitchen spa
+shop	office	bathroom clothesstore departmentstorage departmentstore dressingrooms electronicsstore empty emptyoutside furniturestore giftstore housewarestore janitor office shoestore toystore
+gym	office	bathroom clothesstore empty gym hallway janitor laundry lockerroom office restaurant restaurantkitchen
+office	office	bathroom cornerstore empty emptyoutside hall janitor lockerroom office
+shop	office	bathroom cornerstore empty grocery grocerystorage janitor office zippeestorage
+medical	office	bathroom dentist hallway janitor office pharmacystorage
+restaurant	office	bathroom dining_crepe emptyoutside janitor kitchen_crepe lockerroom office
+restaurant	office	bathroom dining_crepe janitor kitchen_crepe office
+shop	office	bathroom diningroom elevator empty garbage grocerystorage hall janitor kennels office prisonstorage
+industrial	office	bathroom dogfoodfactory dogfoodshipping dogfoodstorage empty emptyoutside hall janitor office
+office	office	bathroom dressingrooms empty emptyoutside kitchen office room1 room3 room4 weldingstorage
+medical	office	bathroom elevator empty emptyoutside garage hall janitor kennels kitchen laundry livingroom lockerroom mechanic medical medicalstorage office policestorage prisoncells
+motel	office	bathroom elevator empty emptyoutside hall janitor kitchen laundry motelroom motelstorage office restaurant
+gym	office	bathroom elevator emptyoutside garbage hall janitor kitchen livingroom office post recreation stairwell
+gym	office	bathroom elevator garage gym hall janitor kitchen laundry livingroom office recreation stairwell storageunit
+office	office	bathroom empty emptyoutside gallery hall office
+office	office	bathroom empty emptyoutside hall janitor kitchen office post
+industrial	office	bathroom empty emptyoutside hall janitor knifefactory knifeshipping knifestore laundry office storage
+office	office	bathroom empty emptyoutside hall kennels medclinic office officestorage pharmacystorage
+gym	office	bathroom empty emptyoutside hall lockerroom office restaurantkitchen rollerrink storage
+police	office	bathroom empty emptyoutside horsebox office policegunstorage policelocker storage
+motel	office	bathroom empty emptyoutside janitor laundry motelroom motelroomoccupied office restaurantdining restaurantkitchen
+medical	office	bathroom empty firestorage hall kitchen livingroom medical medicalstorage office
+restaurant	office	bathroom empty gameroom hall office restaurantkitchen
+gym	office	bathroom empty gym hall janitor laundry lockerroom medical office schoolgymstorage
+office	office	bathroom empty hallway janitor kitchen office recreation
+industrial	office	bathroom empty livingroom office racetrackmechanic
+police	office	bathroom emptyoutside firegarage firestorage gym kitchen office
+motel	office	bathroom emptyoutside garage laundry motelroom motelroomoccupied office
+office	office	bathroom emptyoutside garage motelroom office
+restaurant	office	bathroom emptyoutside janitor office spiffo_dining spiffoskitchen spiffoslocker spiffosstorage
+restaurant	office	bathroom emptyoutside office spiffo_dining spiffosaesthetic spiffoskitchen
+shop	office	bathroom gunstore gunstorestorage hallway janitor livingroom office restaurantdining restaurantkitchen
+office	office	bathroom hall janitor medicaloffice motelroom office
+office	office	bathroom janitor kennels medical office
+medical	office	bathroom janitor medclinic office pharmacy pharmacystorage
+office	office	bathroom janitor morgue office
+stage	office	bathroom janitor office theatre theatrekitchen theatrestorage
+school	office	bedroom laundry livingroom musicroom office storage
+shop	office	clothesstore dressingrooms janitor office toolstore
+gym	office	daycare empty gym hall janitor lockerroom office pool sportstorage
+stage	office_herald	bathroom breakroom elevator empty emptyoutside hall_herald newspaperprint_herald newspapershipping_herald newspaperstorage_herald office_herald
+police	office_ranger	bathroom emptyoutside garage_ranger janitor kitchen livingroom medical office_ranger rangerhall rangerlocker rangerstorage showers
+church	officechurch	bathroom church empty officechurch
+bar	officestorage	bar barstorage bathroom empty emptyoutside hall janitor officestorage
+office	officestorage	bathroom classroom hall officestorage
+office	officestorage	bathroom gym hall janitor officestorage policelocker showers
+police	oldarmy	empty oldarmy oldmedical
+medical	oldmedical	empty oldarmy oldmedical
+medical	optometrist	bakery bakerykitchen bathroom bedroom glassesstore hall hallway janitor kitchen livingroom optometrist
+medical	optometriststorage	bathroom breakroom empty emptyoutside office optometrist optometriststorage
+shop	outdoorsupply	bathroom bedroom emptyoutside outdoorsupply outdoorsupply_storage
+shop	outdoorsupply_storage	bathroom bedroom emptyoutside outdoorsupply outdoorsupply_storage
+home	outside	empty outside
+shop	paintershop	emptyoutside paintershop
+home	pantry	attic bathroom bedroom diningroom emptyoutside kitchen laundry livingroom lobby pantry storage
+stage	partyhallstorage	bathroom church empty emptyoutside hallway janitor partyhallstorage
+restaurant	patio	bathroom breakroom elevator empty giftstore hallway janitor office officestorage patio restaurantdining restaurantkitchen
+shop	pawnshop	pawnshop
+shop	pawnshopcooking	empty emptyoutside pawnshop pawnshopcooking pawnshopoffice pawnshopstorage
+shop	pawnshopoffice	empty emptyoutside pawnshop pawnshopcooking pawnshopoffice pawnshopstorage
+shop	pawnshopstorage	empty emptyoutside pawnshop pawnshopcooking pawnshopoffice pawnshopstorage
+shop	petstore	bathroom breakroom camerastore candystore cdstore empty emptyoutside janitor office petstore photoroom restaurant restaurantkitchen
+shop	pharmacy	bank bathroom bedroom empty emptyoutside grocery gunstore gunstorestorage hall kidsbedroom kitchen laundry livingroom pharmacy pharmacystorage room2
+medical	pharmacystorage	bank bathroom bedroom empty emptyoutside grocery gunstore gunstorestorage hall kidsbedroom kitchen laundry livingroom pharmacy pharmacystorage room2
+photostudio	photoroom	bathroom breakroom camerastore candystore cdstore empty emptyoutside janitor office petstore photoroom restaurant restaurantkitchen
+home	picnic	picnic
+home	pigsty	emptyoutside pigsty
+restaurant	pizzakitchen	bathroom breakroom janitor pizzakitchen pizzawhirled
+restaurant	pizzawhirled	bathroom breakroom janitor pizzakitchen pizzawhirled
+restaurant	pizzawhirledcounter	bathroom janitor pizzakitchen pizzawhirled pizzawhirledcounter
+shop	plazastore1	bathroom cafe cafekitchen classroom clothesstorage clothesstore emptyoutside janitor office plazastore1
+industrial	plumber	bathroom empty hall janitor office plumber
+police	policearchive	armory bathroom breakroom captainoffice detectiveoffice elevator empty emptyoutside hall janitor lobby meetingroom office officestorage policearchive policegarage policehall policelocker policeoffice showers
+police	policegarage	armory bathroom breakroom captainoffice detectiveoffice elevator empty emptyoutside hall janitor lobby meetingroom office officestorage policearchive policegarage policehall policelocker policeoffice showers
+police	policegunstorage	bathroom breakroom emptyoutside janitor mechanic policegunstorage policeoffice prisoncells
+police	policehall	bathroom elevator empty evidenceroom hall interrogationroom policehall policeoffice prisoncells security
+police	policelibrary	bathroom bedroom breakroom cafeteria cafeteriakitchen darkroom depositboxes elevator empty emptyoutside evidenceroom gym hall janitor laboratory laundry medclinic medicalstorage office officestorage policegunstorage policelibrary policelocker policeoffice policeoutfitstorage prisoncells security
+police	policelocker	bathroom gym hall janitor officestorage policelocker showers
+police	policeoffice	bathroom elevator empty evidenceroom hall interrogationroom policehall policeoffice prisoncells security
+police	policeoutfitstorage	bathroom bedroom breakroom cafeteria cafeteriakitchen darkroom depositboxes elevator empty emptyoutside evidenceroom gym hall janitor laboratory laundry medclinic medicalstorage office officestorage policegunstorage policelibrary policelocker policeoffice policeoutfitstorage prisoncells security
+police	policestorage	bathroom elevator empty emptyoutside evidenceroom gym hall janitor kitchen meeting policegunstorage policelocker policeoffice policestorage prisoncells
+police	policeswat	bathroom breakroom empty hall officestorage policearchive policelocker policeoffice policeswat prisoncells swatlocker
+gym	pool	bar bathroom construction diningroom dressingrooms elevator emptyoutside garagestorage hall janitor library livingroom motelroom motelroomoccupied office pool survivorcache2
+home	porch	bathroom bedroom closet emptyoutside kitchen livingroom porch
+industrial	porkshipping	bathroom changeroom empty hall killbox office porkshipping slaughterhousepork
+office	post	bathroom breakroom closet empty emptyoutside janitor meetingroom office officestorage post poststorage
+office	poststorage	bathroom breakroom closet empty emptyoutside janitor meetingroom office officestorage post poststorage
+industrial	potatostorage	bathroom bedroom emptyoutside gardenstore hall kitchen laundry livingroom potatostorage
+shop	potteryworkshop	emptyoutside potteryworkshop
+home	power	bathroom breakroom cafe cafeteria cafeteriakitchen changeroom daycare empty emptyoutside hall hospitalhallway hospitalroom hospitalstorage janitor laboratory laundry medclinic medical medicaloffice medicalstorage morgue nursery office pharmacy pharmacystorage power security
+police	prisonarmory	bathroom breakroom cafeteria cafeteriakitchen changeroom classroom elevator empty gym hall janitor livingroom medical office prisonarmory prisoncells prisonlaundry prisonlibrary security
+prison	prisoncells	bathroom elevator empty evidenceroom hall interrogationroom policehall policeoffice prisoncells security
+police	prisonerbelongings	bathroom bedroom breakroom church classroom coldstorage elevator empty emptyoutside garagestorage hall janitor kitchen library medical meetingroom office policeoffice prisoncells prisonerbelongings prisonlaundry prisonlocker prisonstorage security sportstorage
+police	prisonlaundry	bathroom bedroom breakroom church classroom coldstorage elevator empty emptyoutside garagestorage hall janitor kitchen library medical meetingroom office policeoffice prisoncells prisonerbelongings prisonlaundry prisonlocker prisonstorage security sportstorage
+police	prisonlibrary	bathroom breakroom cafeteria cafeteriakitchen changeroom classroom elevator empty gym hall janitor livingroom medical office prisonarmory prisoncells prisonlaundry prisonlibrary security
+police	prisonlocker	bathroom bedroom breakroom empty hall janitor prisoncells prisonlocker security sportstorage
+police	prisonstorage	bathroom empty emptyoutside garagestorage prisonstorage security
+industrial	producestorage	empty producestorage
+industrial	racetrackgarage	racetrackgarage
+industrial	racetrackmechanic	bathroom empty livingroom office racetrackmechanic
+industrial	radiofactory	bathroom breakroom changeroom elevator empty emptyoutside hall janitor office radiofactory radioshipping radiostorage
+industrial	radioshipping	radioshipping
+industrial	radiostorage	bathroom breakroom changeroom elevator empty emptyoutside hall janitor office radiofactory radioshipping radiostorage
+industrial	railroad	bathroom breakroom cafe empty emptyoutside hall janitor office railroad restaurant zippeestore
+industrial	railroadrepair	catwalk emptyoutside railroadrepair
+industrial	railroadstorage	railroadstorage
+police	rangerhall	bathroom emptyoutside garage_ranger janitor kitchen livingroom medical office_ranger rangerhall rangerlocker rangerstorage showers
+police	rangerlocker	bathroom emptyoutside garage_ranger janitor kitchen livingroom medical office_ranger rangerhall rangerlocker rangerstorage showers
+police	rangerstorage	bathroom emptyoutside garage_ranger janitor kitchen livingroom medical office_ranger rangerhall rangerlocker rangerstorage showers
+gym	recreation	bathroom cafeteriakitchen church empty emptyoutside hallway janitor office recreation
+gym	recreational	attic bathroom bedroom diningroom emptyoutside kitchen laundry livingroom lobby recreational
+restaurant	restaurant	bathroom breakroom camerastore candystore cdstore empty emptyoutside janitor office petstore photoroom restaurant restaurantkitchen
+restaurant	restaurantdining	bathroom empty hallway janitor kitchen restaurantdining
+restaurant	restaurantdining_fancy	ballroom bar bathroom breakroom cafe elevator empty emptyoutside gym hall janitor laundry livingroom lockerroom motelroom office restaurantdining_fancy restaurantkitchen_fancy security
+restaurant	restaurantkitchen	bathroom bedroom butchery dentist electronicsstore emptyoutside kidsbedroom kitchen laundry library livingroom lobby medical restaurantdining restaurantkitchen storage
+restaurant	restaurantkitchen_fancy	ballroom bar bathroom breakroom cafe elevator empty emptyoutside gym hall janitor laundry livingroom lockerroom motelroom office restaurantdining_fancy restaurantkitchen_fancy security
+restaurant	restaurantstorage	bathroom bedroom breakroom diningroom empty emptyoutside greenhouse hall janitor kitchen laundry livingroom office restaurant restaurantstorage storage
+home	reverendpeterwattsbathroom	bedroom church empty emptyoutside hallway janitor kitchen office reverendpeterwattsbathroom
+restaurant	revpeterwattsbathroom	bathroom emptyoutside jayschicken_dining jayschicken_kitchen revpeterwattsbathroom
+stage	ringtossgame	ringtossgame
+gym	rollerrink	bathroom empty emptyoutside hall lockerroom office restaurantkitchen rollerrink storage
+stage	roofaccess	bar bathroom empty emptyoutside hall janitor lobby office roofaccess theatre
+home	roofstairs	bathroom hallway janitor office roofstairs
+home	room1	bathroom bedroom emptyoutside hall kitchen laundry livingroom room1
+home	room2	bank bathroom bedroom empty emptyoutside grocery gunstore gunstorestorage hall kidsbedroom kitchen laundry livingroom pharmacy pharmacystorage room2
+stage	room3	bathroom dressingrooms empty emptyoutside kitchen office room1 room3 room4 weldingstorage
+stage	room4	bathroom dressingrooms empty emptyoutside kitchen office room1 room3 room4 weldingstorage
+shop	sas	basement bathroom empty emptyoutside gunstore gunstorestorage hall sas
+school	school	bathroom breakroom church empty emptyoutside lobby medical office school
+school	schoolgymstorage	artstore bathroom cafeteriakitchen empty grocerystorage hall janitor metalshop schoolgymstorage schoolstorage
+school	schoollab	bathroom breakroom cafeteria cafeteriakitchen classroom empty emptyoutside gym hall janitor library medical office schoolgymstorage schoollab secondaryclassroom secondaryhall storage
+school	schoolstorage	artstore bathroom cafeteriakitchen empty grocerystorage hall janitor metalshop schoolgymstorage schoolstorage
+home	scou	bathroom emptyoutside kitchen lobby scou
+restaurant	seafooddining	bathroom breakroom empty office seafooddining seafoodkitchen
+restaurant	seafoodkitchen	bathroom breakroom empty office seafooddining seafoodkitchen
+school	secondaryclassroom	bathroom breakroom cafeteria cafeteriakitchen clinic daycare elementaryclassroom elementaryhall empty emptyoutside gym janitor laboratory library lockerroom musicschool office schoolgymstorage schoolstorage secondaryclassroom secondaryhall
+school	secondaryhall	bathroom breakroom cafeteria cafeteriakitchen clinic daycare elementaryclassroom elementaryhall empty emptyoutside gym janitor laboratory library lockerroom musicschool office schoolgymstorage schoolstorage secondaryclassroom secondaryhall
+police	security	bathroom breakroom empty hall janitor laboratory office porkshipping security
+stage	serverroom	bathroom breakroom broadcasting empty emptyoutside garage hall janitor office photoroom security serverroom storage studio studiostorage
+home	sewingroom	bathroom bedroom closet diningroom emptyoutside garage hall kidsbedroom kitchen laundry livingroom sewingroom
+shop	sewingstorage	aesthetic armysurplus artstore bakery bakerykitchen barbequestore bathroom bookstorage bookstore breakroom cafe cafekitchen chinesekitchen clothesstorage clothesstore departmentstorage departmentstore dressingrooms electronicsstorage electronicsstore empty emptyoutside fishchipskitchen foodcourt furniturestore gardenstore giftstorage giftstore gigamart gigamartkitchen glassesstore grocerystorage gunstore hall hotdogstand housewarestore janitor jayschicken_kitchen jewelrystorage jewelrystore knoxbutcher liquorstore musicstore office optometrist pharmacy pharmacystorage pizzakitchen security sewingstorage sewingstore shoestore spiffo_dining spiffoskitchen spiffosstorage sportstorage sportstore storage sushidining sushikitchen tacokitchen toolstorage toolstore toystorage toystore
+shop	sewingstore	barbequestore bathroom clothesstore empty emptyoutside gardenstore gasstorage grocery grocerystorage hall liquorstore mechanic musicstore office security sewingstore shoestore sodatruck sportstorage storage storageunit toolstore
+home	shed	shed
+shop	shoestorage	bathroom grocery grocerystorage shoestorage shoestore
+shop	shoestore	bathroom grocery grocerystorage shoestorage shoestore
+home	showers	bathroom emptyoutside garage_ranger janitor kitchen livingroom medical office_ranger rangerhall rangerlocker rangerstorage showers
+industrial	slaughterhousepork	bathroom changeroom empty hall killbox office porkshipping slaughterhousepork
+bar	smokingroom	attic bathroom bedroom clothesstore emptyoutside kitchen laundry livingroom lobby office smokingroom storage
+industrial	sodabottling	bathroom bottlestorage breakroom changeroom empty emptyoutside hall office sodabottling sodashipping sodastorage
+industrial	sodashipping	bathroom bottlestorage breakroom changeroom empty emptyoutside hall office sodabottling sodashipping sodastorage
+industrial	sodastorage	bathroom bottlestorage breakroom changeroom empty emptyoutside hall office sodabottling sodashipping sodastorage
+industrial	sodatruck	sodatruck
+shop	spa	bathroom breakroom empty furniturestorage furniturestore spa
+restaurant	spiffo_dining	bathroom emptyoutside janitor spiffo_dining spiffoskitchen
+restaurant	spiffosaesthetic	bathroom emptyoutside office spiffo_dining spiffosaesthetic spiffoskitchen
+restaurant	spiffoskitchen	bathroom emptyoutside janitor spiffo_dining spiffoskitchen
+restaurant	spiffoslocker	bathroom emptyoutside janitor office spiffo_dining spiffoskitchen spiffoslocker spiffosstorage
+restaurant	spiffosstorage	bathroom emptyoutside spiffo_dining spiffosaesthetic spiffoskitchen spiffosstorage
+gym	sport	bathroom bedroom empty emptyoutside kitchen laundry library livingroom lobby sport storage
+gym	sportroom	attic bathroom bedroom diningroom emptyoutside kitchen laundry livingroom lobby recreational sportroom
+shop	sports	bathroom bedroom construction diningroom emptyoutside kitchen laundry livingroom lobby office sports
+gym	sportstorage	sportstorage
+shop	sportstore	bathroom bedroom closet clothesstore clothesstorestorage empty hall kitchen livingroom sportstorage sportstore
+home	stable	stable
+stage	stage	emptyoutside stage
+medical	stairwell	bathroom electronicsstore empty hallway hospitalstorage janitor meetingroom officestorage stairwell
+home	storage	bathroom bedroom closet diningroom empty emptyoutside hall kidsbedroom kitchen laundry livingroom storage
+school	storage	musicroom storage
+church	storagechurch	church emptyoutside lobbychurch officechurch storagechurch
+home	storagehall	armysurplus auctionstorage bar barbequestore baseballstorage bathroom candystore clothingstorage comicstore electronicsstorage empty emptyoutside farmstorage golfstore guitarfactory janitor mechanic medical pawnshop storagehall storageunit
+industrial	storageunit	emptyoutside storageunit
+bar	stripclub	bathroom bedroom construction stripclub
+bar	stripcluboffice	bar barstorage bathroom corridor empty emptyoutside hall hallway janitor kitchen office security storage stripclub stripcluboffice stripclubvip
+bar	stripclubvip	bar barstorage bathroom corridor empty emptyoutside hall hallway janitor kitchen office security storage stripclub stripcluboffice stripclubvip
+police	sttorage	bathroom breakroom changeroom empty hall janitor office security sttorage
+stage	studio	bathroom emptyoutside kitchen studio
+stage	studiostorage	bathroom breakroom broadcasting empty emptyoutside garage hall janitor office photoroom security serverroom storage studio studiostorage
+home	sunroom	attic bathroom bedroom diningroom emptyoutside kidsbedroom kitchen laundry livingroom lobby sunroom
+home	survivorcache2	bar bathroom construction diningroom dressingrooms elevator emptyoutside garagestorage hall janitor library livingroom motelroom motelroomoccupied office pool survivorcache2
+restaurant	sushidining	bar bathroom bedroom breakroom cafe cafekitchen changeroom clinic closet clothesstore construction conveniencestore diningroom donut_dining donut_kitchen elevator empty hallway janitor kidsbedroom kitchen laundry livingroom office officestorage pharmacystorage stairwell sushidining sushikitchen toolstore
+restaurant	sushikitchen	bar bathroom bedroom breakroom cafe cafekitchen changeroom clinic closet clothesstore construction conveniencestore diningroom donut_dining donut_kitchen elevator empty hallway janitor kidsbedroom kitchen laundry livingroom office officestorage pharmacystorage stairwell sushidining sushikitchen toolstore
+police	swatlocker	bathroom breakroom empty hall officestorage policearchive policelocker policeoffice policeswat prisoncells swatlocker
+industrial	tablefactory	bathroom breakroom cardfactory changeroom empty emptyoutside furniturestore hall handlefactory office officestorage storage tablefactory tableshipping
+industrial	tableshipping	bathroom breakroom cardfactory changeroom empty emptyoutside furniturestore hall handlefactory office officestorage storage tablefactory tableshipping
+restaurant	tacokitchen	aesthetic armysurplus artstore bakery bakerykitchen barbequestore bathroom bookstorage bookstore breakroom cafe cafekitchen chinesekitchen clothesstorage clothesstore departmentstorage departmentstore dressingrooms electronicsstorage electronicsstore empty emptyoutside fishchipskitchen foodcourt furniturestore gardenstore giftstorage giftstore gigamart gigamartkitchen glassesstore grocerystorage gunstore hall hotdogstand housewarestore janitor jayschicken_kitchen jewelrystorage jewelrystore knoxbutcher liquorstore musicstore office optometrist pharmacy pharmacystorage pizzakitchen security sewingstorage sewingstore shoestore spiffo_dining spiffoskitchen spiffosstorage sportstorage sportstore storage sushidining sushikitchen tacokitchen toolstorage toolstore toystorage toystore
+shop	tailoringworkshop	bathroom breakroom emptyoutside janitor office tailoringworkshop
+shop	tailorstorage	bathroom breakroom cdstore dentist dentiststorage janitor medical musicschool office tailorstorage tailorworkshop
+shop	tailorworkshop	bathroom breakroom cdstore dentist dentiststorage janitor medical musicschool office tailorstorage tailorworkshop
+home	technical	bathroom bedroom hall janitor office prisoncells prisonstorage technical
+stage	theatre	bar bathroom empty emptyoutside hall janitor lobby office roofaccess theatre
+restaurant	theatrekitchen	emptyoutside theatrekitchen
+stage	theatrestorage	bathroom janitor office theatre theatrekitchen theatrestorage
+stage	throwgame	throwgame
+stage	ticketoffice	arenakitchen bar bathroom boxing broadcasting changeroom empty emptyoutside garbage hall janitor office storage ticketoffice
+shop	tobaccostorage	bathroom emptyoutside tobaccostorage tobaccostore
+shop	tobaccostore	bathroom bedroom hall tobaccostore
+industrial	tofufactory	bathroom breakroom changeroom communications empty emptyoutside guitarfactory guitarshipping hall hingefactory hingeshipping hingestorage janitor laboratory metalclassroom musicstore office officestorage tofufactory tofushipping tofustorage weldingbooth
+industrial	tofushipping	bathroom breakroom changeroom communications empty emptyoutside guitarfactory guitarshipping hall hingefactory hingeshipping hingestorage janitor laboratory metalclassroom musicstore office officestorage tofufactory tofushipping tofustorage weldingbooth
+industrial	tofustorage	bathroom breakroom changeroom communications empty emptyoutside guitarfactory guitarshipping hall hingefactory hingeshipping hingestorage janitor laboratory metalclassroom musicstore office officestorage tofufactory tofushipping tofustorage weldingbooth
+shop	toolstorage	bathroom clothesstorage janitor office toolstorage
+shop	toolstore	toolstore
+shop	toolstorestorage	armystorage bathroom bedroom cafeteria cafeteriakitchen cave communications decontamination electronicsstorage elevator empty hall janitor laboratory laundry livingroom medical medicalstorage office showers toolstorestorage
+shop	toystorage	aesthetic armysurplus artstore bakery bakerykitchen barbequestore bathroom bookstorage bookstore breakroom cafe cafekitchen chinesekitchen clothesstorage clothesstore departmentstorage departmentstore dressingrooms electronicsstorage electronicsstore empty emptyoutside fishchipskitchen foodcourt furniturestore gardenstore giftstorage giftstore gigamart gigamartkitchen glassesstore grocerystorage gunstore hall hotdogstand housewarestore janitor jayschicken_kitchen jewelrystorage jewelrystore knoxbutcher liquorstore musicstore office optometrist pharmacy pharmacystorage pizzakitchen security sewingstorage sewingstore shoestore spiffo_dining spiffoskitchen spiffosstorage sportstorage sportstore storage sushidining sushikitchen tacokitchen toolstorage toolstore toystorage toystore
+shop	toystore	bathroom breakroom empty emptyoutside garage hall janitor kitchen library office restaurantdining_fancy restaurantkitchen_fancy toystore
+shop	toystorestorage	bathroom butcher cafe cafekitchen clothesstore clothesstorestorage dressingrooms empty emptyoutside grocery grocerystorage hallway janitor office toystore toystorestorage
+home	traincar	traincar
+home	trash	lobby trash
+home	tunnel	derelict tunnel
+school	universityclassroom	bathroom classroom_anthro classroom_medieval classroom_pioneer classroom_pottery empty emptyoutside hall janitor office universityclassroom universitystorage
+school	universitylibrary	bathroom classroom elevator empty hall janitor universitylibrary universityoffice
+school	universityoffice	bathroom classroom elevator empty hall janitor universitylibrary universityoffice
+school	universitystorage	bathroom classroom_anthro classroom_medieval classroom_pioneer classroom_pottery empty emptyoutside hall janitor office universityclassroom universitystorage
+home	vacated	vacated
+office	vault	depositboxes elevator hall vault
+medical	vet	bakery bathroom breakroom clinic clothesstore dressingrooms empty emptyoutside hallway janitor kennels lab office pharmacystorage vet
+bar	viplounge	arenakitchen baseballchangeroom baseballgiftstorage baseballgiftstore baseballstorage bathroom brewery broadcasting cafekitchen cafeteria empty emptyoutside garbage hall janitor restaurant spiffo_dining spiffoskitchen viplounge
+medical	waitingroom	bathroom dentist lobby medical optometrist waitingroom
+shop	walletshop	bathroom breakroom empty emptyoutside hall janitor office walletshop
+industrial	warehouse	bathroom breakroom empty emptyoutside hall office warehouse
+home	waterstorage	bathroom bedroom bunker kitchen medical waterstorage
+shop	weddingstoredress	bathroom changeroom empty emptyoutside weddingstoredress weddingstorestorage weddingstoresuit
+shop	weddingstorestorage	bathroom changeroom empty emptyoutside weddingstoredress weddingstorestorage weddingstoresuit
+shop	weddingstoresuit	bathroom changeroom empty emptyoutside weddingstoredress weddingstorestorage weddingstoresuit
+industrial	weldingbooth	bathroom breakroom changeroom communications empty emptyoutside guitarfactory guitarshipping hall hingefactory hingeshipping hingestorage janitor laboratory metalclassroom musicstore office officestorage tofufactory tofushipping tofustorage weldingbooth
+industrial	weldingstorage	bathroom dressingrooms empty emptyoutside kitchen office room1 room3 room4 weldingstorage
+shop	weldingworkshop	empty toolstorestorage weldingworkshop
+restaurant	westerndining	bar barkitchen bathroom empty emptyoutside janitor office westerndining westernkitchen
+restaurant	westernkitchen	bar barkitchen bathroom empty emptyoutside janitor office westerndining westernkitchen
+industrial	whiskeybottling	empty emptyoutside whiskeybottling
+industrial	whiskeyshipping	bathroom elevator empty janitor office officestorage whiskeybottling whiskeyshipping whiskystorage
+industrial	whiskystorage	bathroom elevator empty janitor office officestorage whiskeybottling whiskeyshipping whiskystorage
+shop	whittlerworkshop	whittlerworkshop
+shop	windowsstore	bathroom breakroom changeroom clothesstorage clothesstore construction empty liquorstore movierental office windowsstore
+industrial	wirefactory	bathroom empty emptyoutside hall kitchen office wirefactory
+home	woodcraftset	bathroom breakroom broadcasting empty emptyoutside garage hall janitor joanstudio office photoroom security serverroom storage studio studiostorage woodcraftset
+home	woodshed	emptyoutside woodshed
+shop	workshop	bathroom bedroom kitchen livingroom lobby workshop
+shop	ww_aesthetic	empty emptyoutside hall ww_aesthetic ww_bar ww_bedroom ww_kitchen ww_livingroom ww_sherrif
+bar	ww_bar	empty emptyoutside hall ww_bar ww_bedroom
+home	ww_bedroom	bathroom emptyoutside ww_bedroom ww_kitchen ww_toolstore
+industrial	ww_blacksmith	bank emptyoutside hall ww_bar ww_bedroom ww_blacksmith ww_generalstore
+shop	ww_generalstore	emptyoutside ww_bedroom ww_generalstore ww_kitchen
+home	ww_hall	emptyoutside ww_bedroom ww_hall ww_kitchen ww_livingroom
+home	ww_kitchen	bathroom emptyoutside ww_bedroom ww_kitchen ww_toolstore
+home	ww_livingroom	ww_bedroom ww_kitchen ww_livingroom
+home	ww_shed	ww_bedroom ww_kitchen ww_livingroom ww_shed
+police	ww_sherrif	empty emptyoutside hall ww_aesthetic ww_bar ww_bedroom ww_kitchen ww_livingroom ww_sherrif
+shop	ww_toolstore	bathroom emptyoutside ww_bedroom ww_kitchen ww_toolstore
+shop	zippeestorage	bathroom emptyoutside zippeestorage zippeestore
+shop	zippeestore	bathroom emptyoutside zippeestorage zippeestore
