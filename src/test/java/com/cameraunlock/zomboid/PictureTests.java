@@ -122,7 +122,7 @@ final class PictureTests {
         whole.free();
         half.free();
         OffHeap.Block barks = Pictures.packed("/materials/bark.bc", true);
-        check(barks.bytes.getInt(16) == Flora.BARKS.length && barks.bytes.getInt(8) == 1024, "the barks are one behind another in one file");
+        check(barks.bytes.getInt(16) == Flora.BARKS.length && barks.bytes.getInt(8) == 512, "the barks are one behind another in one file");
         barks.free();
     }
 
@@ -229,9 +229,9 @@ final class PictureTests {
     private static void aBarkIsItsOwnSourceAtEveryLevel() throws IOException {
         OffHeap.Block packed = Pictures.packed("/materials/bark.bc", true), plain = Pictures.unpacked(packed);
         packed.free();
-        int side = 1024, layer = HEAD + Flora.BARK_BIRCH * side * side * 4;
+        int side = 512, layer = HEAD + Flora.BARK_BIRCH * side * side * 4;
         OffHeap.Block birch = source("materials/bark-birch.jpg"), oak = source("materials/bark-oak.jpg");
-        OffHeap.Block halfBirch = Pictures.halved(birch.bytes, 2048, 2048), halfOak = Pictures.halved(oak.bytes, 2048, 2048);
+        OffHeap.Block halfBirch = Pictures.halved(birch.bytes, 1024, 1024), halfOak = Pictures.halved(oak.bytes, 1024, 1024);
         double own = apart(plain.bytes, layer, halfBirch.bytes, 0, side * side), others = apart(plain.bytes, layer, halfOak.bytes, 0, side * side);
         check(own < 2.0, "the birch's layer at half size is the birch's source halved, to within two levels of 255: " + own);
         check(others > 8.0, "and is not the oak's: " + others);
