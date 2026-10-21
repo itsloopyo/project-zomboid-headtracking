@@ -711,12 +711,18 @@ final class RoofBuilder {
     }
 
     /**
+     * The paint of the boards along an eave and under a gable's edge, a part of its own: its colour made
+     * part of their light was read out of doors as a lamp's, and they were warm lines along every roof at dusk.
+     */
+    private static final int BOARD = WallSides.laid(0.55f, 0.55f, 0.53f, 0f, 0f, 0f, WallSides.FINE);
+
+    /**
      * The board under the edge of a roof where it runs out over a gable, from one end of a
      * length of that edge to the other: it hangs from the roof and follows its slope, as the
      * board along an eave follows the eave.
      */
     private void addBarge(SpriteGeometry.Mesh sheet, float x0, float y0, float up0, float x1, float y1, float up1) {
-        SpriteGeometry.Mesh plain = WorldScene.solid.get(WorldScene.PLAIN);
+        SpriteGeometry.Mesh plain = WorldScene.solid.get(WorldScene.PLAIN, BOARD);
         // The roofing itself goes in this mesh when the roof has no colour of its own yet.
         float roofing = sheet.open;
         plain.open = build.frame.open;
@@ -725,7 +731,7 @@ final class RoofBuilder {
         WorldScene.set(c, 1, x1, y1, up1);
         WorldScene.set(c, 2, x1, y1, up1 - BARGE);
         WorldScene.set(c, 3, x0, y0, up0 - BARGE);
-        SpriteGeometry.addPlainQuad(plain, c, 0.55f * build.frame.red, 0.55f * build.frame.green, 0.53f * build.frame.blue);
+        SpriteGeometry.addPlainQuad(plain, c, build.frame.red, build.frame.green, build.frame.blue);
         sheet.open = roofing;
     }
 
@@ -1069,13 +1075,14 @@ final class RoofBuilder {
         WorldScene.set(c, 3, wx2, wy2, under);
         SpriteGeometry.addPlainQuad(plain, c, build.frame.red, build.frame.green, build.frame.blue);
         // The board along the eave's end.
-        plain.open = build.frame.open;
+        SpriteGeometry.Mesh board = WorldScene.solid.get(WorldScene.PLAIN, BOARD);
+        board.open = build.frame.open;
         float x1 = ex1, y1 = ey1, x2 = ex2, y2 = ey2;
         WorldScene.set(c, 0, x1, y1, far);
         WorldScene.set(c, 1, x2, y2, far);
         WorldScene.set(c, 2, x2, y2, far - FASCIA);
         WorldScene.set(c, 3, x1, y1, far - FASCIA);
-        SpriteGeometry.addPlainQuad(plain, c, 0.55f * build.frame.red, 0.55f * build.frame.green, 0.53f * build.frame.blue);
+        SpriteGeometry.addPlainQuad(board, c, build.frame.red, build.frame.green, build.frame.blue);
         // Where the roof stops at a gable the eave is a hollow wedge seen end on, and is
         // closed with a board of its own.
         for (int end = 0; end < 2; end++) {
@@ -1087,7 +1094,7 @@ final class RoofBuilder {
             WorldScene.set(c, 1, ex, ey, far);
             WorldScene.set(c, 2, ex, ey, under);
             WorldScene.set(c, 3, wx, wy, under);
-            SpriteGeometry.addPlainQuad(plain, c, 0.55f * build.frame.red, 0.55f * build.frame.green, 0.53f * build.frame.blue);
+            SpriteGeometry.addPlainQuad(board, c, build.frame.red, build.frame.green, build.frame.blue);
         }
         // The gutter along the eave: a trough standing out from the board, its outer face and
         // its underside.
