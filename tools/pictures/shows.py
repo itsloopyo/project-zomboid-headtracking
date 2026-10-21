@@ -17,8 +17,8 @@ SITCOM = (' A still frame from an early 1990s American sitcom taped on a multi c
           ' recorded off air onto VHS, soft analog video with muted colours.')
 DRAMA = (' A still frame from a 1980s American television drama shot on 16mm film and transferred to video, recorded off air'
          ' onto VHS, soft with film grain and muted colours.')
-FILM = (' A still frame from a 1980s movie shot on 35mm film and shown on television, recorded off air onto VHS, soft with'
-        ' film grain and muted colours.')
+FILM = (' A full frame still from a 1980s movie shot on 35mm film, the picture filling the whole frame edge to edge, soft'
+        ' with film grain and muted colours as if taped off air onto VHS.')
 CEL = (' A frame from a 1980s Saturday morning cartoon, cel animation painted by hand with flat colours, thick black outlines'
        ' and visible paint texture, recorded off air onto VHS.')
 HOME = (' A still frame from home camcorder footage taped around 1990, VHS with washed out colours, soft focus, slight blur'
