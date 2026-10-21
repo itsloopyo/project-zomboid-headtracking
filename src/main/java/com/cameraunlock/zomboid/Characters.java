@@ -2047,7 +2047,9 @@ public final class Characters {
                 CharacterDraw.release();
                 seated(data, i * 4, viewMatrix);
             } else {
-                character(data, standsUp, viewMatrix, data.character == viewer && !viewerWhole, casting, false, false,
+                // Seen from outside, the viewer is one of the people in the picture, lit by the square
+                // they stand on: ownLight is the eye's, and is only worked out while first person is drawn.
+                character(data, standsUp, viewMatrix, data.character == viewer && !viewerWhole && !view.pipeline.outside, casting, false, false,
                         data.character == viewer ? 0f : fromViewer(toX, toY, data.z - viewer.getZ()));
             }
             data.ambientR = red;
