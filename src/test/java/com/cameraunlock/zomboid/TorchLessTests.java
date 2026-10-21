@@ -21,6 +21,15 @@ final class TorchLessTests {
         Checks.run("aStepEitherWayKeepsTheLightItHad", TorchLessTests::aStepEitherWayKeepsTheLightItHad);
         Checks.run("aShotsLampLeftBehindIsLetGo", TorchLessTests::aShotsLampLeftBehindIsLetGo);
         Checks.run("theViewersTorchesAreNumberedAsTheEngineDoes", TorchLessTests::theViewersTorchesAreNumberedAsTheEngineDoes);
+        Checks.run("theViewersTorchesAndEveryVehiclesLampsAreTakenOut", TorchLessTests::theViewersTorchesAndEveryVehiclesLampsAreTakenOut);
+    }
+
+    private static void theViewersTorchesAndEveryVehiclesLampsAreTakenOut() {
+        int first = TorchLess.firstTorch(0, (short) 7, true);
+        check(TorchLess.pictured(first, first) && TorchLess.pictured(first + 3, first), "the viewer's four torches are taken out");
+        check(!TorchLess.pictured(first - 1, first) && !TorchLess.pictured(first + 4, first), "another player's are not");
+        check(TorchLess.pictured(4096, first) && TorchLess.pictured(4096 + 10 * 312 + 3, first), "every vehicle's lamps are, numbered from 4096");
+        check(!TorchLess.pictured(4095, first), "and nothing under that is a vehicle's");
     }
 
     private static void theViewersTorchesAreNumberedAsTheEngineDoes() {

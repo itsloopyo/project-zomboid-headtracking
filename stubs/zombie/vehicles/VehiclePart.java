@@ -9,6 +9,7 @@ public final class VehiclePart {
     public float getContainerContentAmount() { throw new UnsupportedOperationException("reference stub"); }
     public String getId() { throw new UnsupportedOperationException("reference stub"); }
     public VehicleLight getLight() { throw new UnsupportedOperationException("reference stub"); }
+    public float getLightDistance() { throw new UnsupportedOperationException("reference stub"); }
     public int getCondition() { throw new UnsupportedOperationException("reference stub"); }
     public void damage(int amount) { throw new UnsupportedOperationException("reference stub"); }
     public <T extends zombie.inventory.InventoryItem> T getInventoryItem() { throw new UnsupportedOperationException("reference stub"); }

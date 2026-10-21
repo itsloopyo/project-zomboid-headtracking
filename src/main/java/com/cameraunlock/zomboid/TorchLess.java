@@ -3,13 +3,16 @@ package com.cameraunlock.zomboid;
 import zombie.characters.IsoPlayer;
 import zombie.core.textures.ColorInfo;
 import zombie.iso.IsoCell;
+import zombie.iso.IsoChunkMap;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoLightSource;
 import zombie.iso.LightingJNI;
+import zombie.vehicles.BaseVehicle;
+import zombie.vehicles.VehiclePart;
 
 /**
- * A square's light without the viewer's own torch in it, nor the lamp the game lights for a shot
- * of theirs.
+ * A square's light without the viewer's own torch in it, nor any vehicle's lamps, nor the lamp
+ * the game lights for a shot of the viewer's.
  *
  * The game lights whole squares with a torch: every square of the level the character stands
  * on that lies in a wide fan before them, the same from the floor to the ceiling and from no
@@ -18,6 +21,12 @@ import zombie.iso.LightingJNI;
  * torch's beam itself (PipelineShaders.torchAt), so the game's share has to come out of each
  * square's light first, or a room is lit twice and the first of the two is a pattern of
  * squares.
+ *
+ * A vehicle's lamps are torches to the engine too (LightingJNI.checkTorch), head lamps and rear
+ * lamps alike, each reaching 36 tiles, and they light squares the same way: a fan of squares
+ * that steps as the vehicle turns and as the viewer's sight moves over it, since a torch is only
+ * added to a square the viewer can see. The picture throws the head lamps' beams itself
+ * (Headlights), so their share comes out the same way.
  *
  * The lighting engine (Lighting64) builds a square's light from what it lists for the square.
  * Each of red, green and blue is the greatest of the square's daylight (IsoGridSquare.lightLevel)
@@ -61,6 +70,11 @@ final class TorchLess {
      * online number plus 1, the one way the game numbers every player's there.
      */
     private static final int TORCHES_A_PLAYER = 4;
+    /**
+     * A vehicle's lamps are numbered 4096 plus ten times the vehicle's number plus the lamp's
+     * place among its lights (LightingJNI.update). Players' torches are all numbered under it.
+     */
+    static final int FIRST_VEHICLE_TORCH = 4096;
     /** A square of no room and one that is not there or has not been seen. Rooms are numbered from 0, and -1 is out of doors. */
     static final long NOT_THERE = Long.MIN_VALUE;
     /** The engine lists at most 6 lights a square, the size of the list it keeps each square's in (LightingJNI). */
@@ -75,30 +89,31 @@ final class TorchLess {
      * light for a square the torch is not on, and which of them the torch or the lamp of a shot is on.
      */
     private static final class Taken {
-        final int fromX, fromY, level, span, counter, lampId;
+        final int fromX, fromY, level, spanX, spanY, counter, lampId;
         final float[] light;
         final boolean[] lit;
         /** Whether the square was there to be read and had been seen. */
         final boolean[] read;
-        /** Whether the engine still had any of the viewer's torches on a square. */
+        /** Whether the engine still had any torch that is taken out on a square. */
         boolean torched;
 
-        Taken(int fromX, int fromY, int level, int span, int counter, int lampId) {
+        Taken(int fromX, int fromY, int level, int spanX, int spanY, int counter, int lampId) {
             this.lampId = lampId;
             this.fromX = fromX;
             this.fromY = fromY;
             this.level = level;
-            this.span = span;
+            this.spanX = spanX;
+            this.spanY = spanY;
             this.counter = counter;
-            light = new float[span * span * 3];
-            lit = new boolean[span * span];
-            read = new boolean[span * span];
+            light = new float[spanX * spanY * 3];
+            lit = new boolean[spanX * spanY];
+            read = new boolean[spanX * spanY];
         }
     }
 
     private volatile Taken taken;
-    /** How far the torch reached when it was last on, read on after it goes off while the engine still has it on squares. */
-    private float torchReach;
+    /** The block of squares to read, west, north, east and south, inclusive. Logic thread, only while one reading is made. */
+    private int west, north, east, south;
     /** The lamp the game lit for the viewer's last shot, while the game may still have it. Logic thread. */
     private IsoLightSource lamp;
     /** The number of the view whose picture this is for. */
@@ -139,6 +154,11 @@ final class TorchLess {
         return lamp == null || !MuzzleFlash.on() || Quality.plain(view) ? null : lamp;
     }
 
+    /** Whether a torch the engine lists is one the picture throws itself: the viewer's own or a vehicle's lamp. */
+    static boolean pictured(int id, int firstTorch) {
+        return id >= firstTorch && id < firstTorch + TORCHES_A_PLAYER || id >= FIRST_VEHICLE_TORCH;
+    }
+
     /** The number of a player's first torch, as the engine numbers torches alone or on a server. */
     static int firstTorch(int index, short onlineId, boolean joined) {
         return (joined ? onlineId + 1 : index) * TORCHES_A_PLAYER + 1;
@@ -155,45 +175,59 @@ final class TorchLess {
     }
 
     /**
-     * Reads the squares round the character, on the logic thread, before the scene is built. With no torch its light
-     * is still taken out for as long as the engine has it on squares: the engine takes a torch switched off out of its
-     * light a pass or more later, and the squares in its cone are meanwhile lit whole by it, wide and bright.
+     * Reads the squares round the character and round every lit vehicle lamp, on the logic thread, before the scene is
+     * built. With no torch on, the squares of the last reading are still read for as long as the engine has a torch on
+     * them: the engine takes a torch switched off out of its light a pass or more later, and the squares in its cone are
+     * meanwhile lit whole by it, wide and bright.
      *
      * @param reach how far the torch that throws the beam reaches, in tiles, or 0 when the viewer carries none that does
      */
     void gather(IsoCell cell, IsoPlayer player, float reach) {
-        if (reach > 0f) {
-            torchReach = reach;
-        } else if (taken != null && taken.torched) {
-            reach = torchReach;
-        }
         int playerX = (int) Math.floor(player.getX()), playerY = (int) Math.floor(player.getY());
         IsoLightSource lamp = lampToTakeOut(playerX, playerY);
         int lampId = lamp == null ? 0 : lamp.id;
-        if (lamp != null) {
-            reach = Math.max(reach, lamp.radius + Math.max(Math.abs(lamp.x - playerX), Math.abs(lamp.y - playerY)));
+        west = north = Integer.MAX_VALUE;
+        east = south = Integer.MIN_VALUE;
+        if (reach > 0f) {
+            cover(playerX, playerY, reach);
         }
-        if (reach <= 0f) {
-            if (taken != null) {
+        boolean torchOn = coverVehicleLamps(cell) || reach > 0f;
+        if (lamp != null) {
+            cover(lamp.x, lamp.y, lamp.radius);
+        }
+        Taken now = taken;
+        if (!torchOn && now != null && now.torched) {
+            west = Math.min(west, now.fromX);
+            north = Math.min(north, now.fromY);
+            east = Math.max(east, now.fromX + now.spanX - 1);
+            south = Math.max(south, now.fromY + now.spanY - 1);
+        }
+        int index = player.getIndex();
+        IsoChunkMap map = cell.getChunkMap(index);
+        int mapSide = IsoChunkMap.chunkGridWidth * WorldScene.CHUNK_TILES;
+        west = Math.max(west, map.getWorldXMinTiles());
+        north = Math.max(north, map.getWorldYMinTiles());
+        east = Math.min(east, map.getWorldXMinTiles() + mapSide - 1);
+        south = Math.min(south, map.getWorldYMinTiles() + mapSide - 1);
+        if (west > east || north > south) {
+            if (now != null) {
                 // Taken with no torch and no lamp on any square, the light was the game's own to the bit.
-                if (taken.torched || taken.lampId != 0) {
-                    retell(taken, null);
+                if (now.torched || now.lampId != 0) {
+                    retell(now, null);
                 }
                 taken = null;
             }
             return;
         }
-        int index = player.getIndex();
-        int half = (int) Math.ceil(reach) + MARGIN, span = 2 * half + 1;
-        int fromX = playerX - half, fromY = playerY - half, level = (int) Math.floor(player.getZ());
+        int fromX = west, fromY = north, spanX = east - west + 1, spanY = south - north + 1, level = (int) Math.floor(player.getZ());
         int counter = LightingJNI.getUpdateCounter(index);
-        Taken now = taken;
-        if (now != null && now.counter == counter && now.fromX == fromX && now.fromY == fromY && now.level == level && now.span == span && now.lampId == lampId) {
+        if (now != null && now.counter == counter && now.fromX == fromX && now.fromY == fromY && now.level == level && now.spanX == spanX
+                && now.spanY == spanY && now.lampId == lampId) {
             // The engine has lit nothing anew since these were read.
             return;
         }
-        Taken next = new Taken(fromX, fromY, level, span, counter, lampId);
-        int squares = span * span;
+        Taken next = new Taken(fromX, fromY, level, spanX, spanY, counter, lampId);
+        int squares = spanX * spanY;
         if (room.length < squares) {
             known = new boolean[squares * 3];
             least = new float[squares * 3];
@@ -208,9 +242,9 @@ final class TorchLess {
             lampAllowed = new float[squares * MOST_LIGHTS];
         }
         int firstTorch = firstTorch(index, player.getOnlineID(), Online.joined());
-        for (int j = 0; j < span; j++) {
-            for (int i = 0; i < span; i++) {
-                int at = j * span + i;
+        for (int j = 0; j < spanY; j++) {
+            for (int i = 0; i < spanX; i++) {
+                int at = j * spanX + i;
                 IsoGridSquare square = cell.getGridSquare(fromX + i, fromY + j, level);
                 if (square == null || !square.isSeen(index)) {
                     room[at] = NOT_THERE;
@@ -231,7 +265,7 @@ final class TorchLess {
                         if (!canSee) {
                             continue;
                         }
-                        if (result.id >= firstTorch && result.id < firstTorch + TORCHES_A_PLAYER) {
+                        if (pictured(result.id, firstTorch)) {
                             ownRed = Math.max(ownRed, result.r);
                             ownGreen = Math.max(ownGreen, result.g);
                             ownBlue = Math.max(ownBlue, result.b);
@@ -256,7 +290,7 @@ final class TorchLess {
                     }
                 }
                 lampCount[at] = lamps;
-                // The torches on a square are joined part by part by the greatest: the viewer's adds only what it has over the others.
+                // The torches on a square are joined part by part by the greatest: those taken out add only what they have over the others.
                 float red = Math.max(ownRed - others[at * 3], 0f), green = Math.max(ownGreen - others[at * 3 + 1], 0f), blue = Math.max(ownBlue - others[at * 3 + 2], 0f);
                 next.lit[at] = lamplit || red > 0f || green > 0f || blue > 0f;
                 next.torched |= ownRed > 0f || ownGreen > 0f || ownBlue > 0f;
@@ -277,9 +311,9 @@ final class TorchLess {
                 }
             }
         }
-        for (int j = 0; j < span; j++) {
-            for (int i = 0; i < span; i++) {
-                int at = j * span + i;
+        for (int j = 0; j < spanY; j++) {
+            for (int i = 0; i < spanX; i++) {
+                int at = j * spanX + i;
                 if (!next.lit[at]) {
                     // The game's own light, to the bit: it is what the picture is given for this square.
                     continue;
@@ -287,7 +321,7 @@ final class TorchLess {
                 if (!known[at * 3] || !known[at * 3 + 1] || !known[at * 3 + 2]) {
                     for (int listed = 0; listed < lampCount[at]; listed++) {
                         float own = lampAllowed[at * MOST_LIGHTS + listed];
-                        allowed[listed] = Float.isNaN(own) ? allowedRound(span, i, j, lampIds[at * MOST_LIGHTS + listed]) : own;
+                        allowed[listed] = Float.isNaN(own) ? allowedRound(spanX, spanY, i, j, lampIds[at * MOST_LIGHTS + listed]) : own;
                     }
                     fromLights(next.light, known, least, day, others, at * 3, dark[at], fromX + i, fromY + j, level,
                             lampCount[at], lampPlaces, lampColours, at * MOST_LIGHTS, allowed);
@@ -303,6 +337,39 @@ final class TorchLess {
         }
         retell(next, now);
         taken = next;
+    }
+
+    /** Widens the block to read to take in every square a light at (x, y) reaches. */
+    private void cover(int x, int y, float reach) {
+        int half = (int) Math.ceil(reach) + MARGIN;
+        west = Math.min(west, x - half);
+        north = Math.min(north, y - half);
+        east = Math.max(east, x + half);
+        south = Math.max(south, y + half);
+    }
+
+    /**
+     * Widens the block to read to take in what every lit lamp of a vehicle reaches. The engine lights none for a vehicle
+     * of no number (LightingJNI.update). Returns whether any was lit.
+     */
+    private boolean coverVehicleLamps(IsoCell cell) {
+        boolean any = false;
+        for (BaseVehicle vehicle : cell.getVehicles()) {
+            if (vehicle.vehicleId == -1) {
+                continue;
+            }
+            for (int i = 0; i < vehicle.getLightCount(); i++) {
+                VehiclePart part = vehicle.getLightByIndex(i);
+                if (part.getLight() == null || !part.getLight().getActive()) {
+                    continue;
+                }
+                // The lamp is on the vehicle's body, at most half its length from its middle.
+                float body = Math.max(vehicle.getScript().getExtents().x, vehicle.getScript().getExtents().z) / 2f;
+                cover((int) Math.floor(vehicle.getX()), (int) Math.floor(vehicle.getY()), part.getLightDistance() + body);
+                any = true;
+            }
+        }
+        return any;
     }
 
     /**
@@ -327,15 +394,15 @@ final class TorchLess {
      * stopped at 1 orange where they are grey. The most, not the least, of them, so that a square
      * beside a fence keeps the light on its own side.
      */
-    private float allowedRound(int span, int i, int j, int id) {
-        long own = room[j * span + i];
+    private float allowedRound(int spanX, int spanY, int i, int j, int id) {
+        long own = room[j * spanX + i];
         float most = Float.NaN;
         for (int side = 0; side < 4; side++) {
             int ni = i + (side == 0 ? -1 : side == 1 ? 1 : 0), nj = j + (side == 2 ? -1 : side == 3 ? 1 : 0);
-            if (ni < 0 || nj < 0 || ni >= span || nj >= span) {
+            if (ni < 0 || nj < 0 || ni >= spanX || nj >= spanY) {
                 continue;
             }
-            int beside = nj * span + ni;
+            int beside = nj * spanX + ni;
             if (room[beside] != own) {
                 continue;
             }
@@ -392,9 +459,9 @@ final class TorchLess {
      * every step and every turn of the head.
      */
     private void retell(Taken of, Taken against) {
-        for (int j = 0; j < of.span; j++) {
-            for (int i = 0; i < of.span; i++) {
-                int at = j * of.span + i;
+        for (int j = 0; j < of.spanY; j++) {
+            for (int i = 0; i < of.spanX; i++) {
+                int at = j * of.spanX + i;
                 if (!of.lit[at]) {
                     continue;
                 }
@@ -402,8 +469,8 @@ final class TorchLess {
                 boolean same = false;
                 if (against != null && against.level == of.level) {
                     int oi = x - against.fromX, oj = y - against.fromY;
-                    if (oi >= 0 && oj >= 0 && oi < against.span && oj < against.span && against.read[oj * against.span + oi]) {
-                        int other = (oj * against.span + oi) * 3;
+                    if (oi >= 0 && oj >= 0 && oi < against.spanX && oj < against.spanY && against.read[oj * against.spanX + oi]) {
+                        int other = (oj * against.spanX + oi) * 3;
                         same = of.light[at * 3] == against.light[other] && of.light[at * 3 + 1] == against.light[other + 1] && of.light[at * 3 + 2] == against.light[other + 2];
                     }
                 }
@@ -417,7 +484,7 @@ final class TorchLess {
     /** Where the square at (x, y) is in what was taken, or -1 when it is outside it. */
     private int at(Taken of, int x, int y) {
         int i = x - of.fromX, j = y - of.fromY;
-        return i < 0 || j < 0 || i >= of.span || j >= of.span ? -1 : j * of.span + i;
+        return i < 0 || j < 0 || i >= of.spanX || j >= of.spanY ? -1 : j * of.spanX + i;
     }
 
     /**
@@ -498,10 +565,10 @@ final class TorchLess {
             return with;
         }
         int i = square.getX() - now.fromX, j = square.getY() - now.fromY;
-        if (square.getZ() != now.level || i < 0 || j < 0 || i >= now.span || j >= now.span) {
+        if (square.getZ() != now.level || i < 0 || j < 0 || i >= now.spanX || j >= now.spanY) {
             return with;
         }
-        int at = j * now.span + i;
+        int at = j * now.spanX + i;
         if (!now.lit[at]) {
             return with;
         }

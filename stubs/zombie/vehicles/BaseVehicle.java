@@ -40,6 +40,9 @@ public final class BaseVehicle extends zombie.iso.IsoMovingObject {
     public IsoGameCharacter getCharacter(int seat) { throw new UnsupportedOperationException("reference stub"); }
     public org.joml.Vector3f getIntersectPoint(org.joml.Vector3f start, org.joml.Vector3f end, org.joml.Vector3f result) { throw new UnsupportedOperationException("reference stub"); }
     public zombie.iso.IsoChunk chunk;
+    public short vehicleId;
+    public int getLightCount() { throw new UnsupportedOperationException("reference stub"); }
+    public VehiclePart getLightByIndex(int index) { throw new UnsupportedOperationException("reference stub"); }
     public float savedPhysicsZ;
     public final org.joml.Quaternionf savedRot = null;
     public final zombie.core.physics.Transform jniTransform = null;
