@@ -617,7 +617,7 @@ final class Pipeline {
     private static int modelCorners;
     private static final int MODEL_STRIDE = Models.BUFFER_FLOATS * Float.BYTES;
     private final float[] nearMatrix = new float[16], farMatrix = new float[16];
-    private final float[] beamMatrix = new float[16];
+    private final float[] beamMatrix = new float[16], beamFrom = new float[3], beamOrigin = new float[4];
     private int beamMap, beamTarget;
     private int paneColor, paneTarget;
     private static Program paneMask;
@@ -724,7 +724,7 @@ final class Pipeline {
      * either way: at 2048 a texel of it is two hundredths of a tile.
      */
     private static final int BEAM_MAP_MOST = 2048, ROOF_MAP_MOST = 2048;
-    private final float[] torchMatrix = new float[16], torchAt = new float[4], torchWay = new float[3];
+    private final float[] torchMatrix = new float[16], torchAt = new float[4], torchWay = new float[3], torchOrigin = new float[4];
     private int torchMap, torchTarget, torchSize;
     /** The fires' shadow maps, all in one texture (FireShadows), and the face size and slots it was made for. */
     private int fireMap, fireTarget, fireFace, fireSlots;
@@ -2371,6 +2371,8 @@ final class Pipeline {
             ViewCamera.view(lamp, seen);
             ViewCamera.projection(BEAM_TAN, 1f, BEAM_NEAR, BEAM_FAR, cast);
             multiply(cast, seen, beamMatrix);
+            System.arraycopy(beams, 0, beamFrom, 0, 3);
+            originOf(beamMatrix, beamFrom, beamOrigin);
             lend(beamed);
             GL11.glViewport(0, 0, beamSize(), beamSize());
             beginCast(beamTarget, beamMatrix);
@@ -2407,6 +2409,7 @@ final class Pipeline {
         ViewCamera.view(lamp, seen);
         ViewCamera.projection(TORCH_TAN, 1f, TORCH_NEAR, torchAt[3] + TORCH_PAST_REACH, cast);
         multiply(cast, seen, torchMatrix);
+        originOf(torchMatrix, torchAt, torchOrigin);
         lend(torched);
         GL11.glViewport(0, 0, torchSize, torchSize);
         beginCast(torchTarget, torchMatrix);
@@ -5141,6 +5144,8 @@ final class Pipeline {
         }
         program.set("uBeamShadow", BEAM_UNIT);
         program.set("uBeamMatrix", beamMatrix);
+        program.set("uBeamFrom", beamFrom[0], beamFrom[1], beamFrom[2]);
+        program.set("uBeamOrigin", beamOrigin[0], beamOrigin[1], beamOrigin[2], beamOrigin[3]);
         program.set("uTorchAt", torchAt[0], torchAt[1], torchAt[2], torchAt[3]);
         program.set("uTorchWay", torchWay[0], torchWay[1], torchWay[2]);
         // Bound here and not once a frame: no unit is free in every program the torch lights.
@@ -5150,6 +5155,7 @@ final class Pipeline {
         GL13.glActiveTexture(GL_TEXTURE0);
         program.set("uTorchShadow", torchUnit);
         program.set("uTorchMatrix", torchMatrix);
+        program.set("uTorchOrigin", torchOrigin[0], torchOrigin[1], torchOrigin[2], torchOrigin[3]);
         program.set("uTorchTexel", torchSize == 0 ? 0f : 1f / torchSize);
     }
 
@@ -5240,6 +5246,13 @@ final class Pipeline {
         if (gun.waiting()) {
             lightHeld(gun.begin(), camera, state);
             gun.draw(camera, sceneTarget, width, height, ownDepth, tanHalfFieldOfView, aspect, HELD_NEAR, far, near, asideX, asideY);
+        }
+    }
+
+    /** Where the place at is in the clip space of the matrix, worked out in doubles: see uTorchOrigin. */
+    private static void originOf(float[] matrix, float[] at, float[] out) {
+        for (int row = 0; row < 4; row++) {
+            out[row] = (float) ((double) matrix[row] * at[0] + (double) matrix[4 + row] * at[1] + (double) matrix[8 + row] * at[2] + matrix[12 + row]);
         }
     }
 

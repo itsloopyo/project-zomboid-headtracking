@@ -129,12 +129,20 @@ final class PipelineShaders {
             uniform vec3 uBeamWay[2];
             uniform sampler2DShadow uBeamShadow;
             uniform mat4 uBeamMatrix;
+            // Where the lamps' map is drawn from, and that place in the map's clip space: see uTorchOrigin.
+            uniform vec3 uBeamFrom;
+            uniform vec4 uBeamOrigin;
             // Where the viewer's torch is held and how far it reaches, 0 when none throws a
             // beam, the way it points, and the scene as the torch sees it.
             uniform vec4 uTorchAt;
             uniform vec3 uTorchWay;
             uniform sampler2DShadow uTorchShadow;
             uniform mat4 uTorchMatrix;
+            // Where the torch itself is in the map's clip space. A place is asked of the map by how
+            // far it is from the torch: multiplied whole, a place thousands of tiles out on the map
+            // came out of the matrix a depth some centimetres wrong, as much as the shadow's bias,
+            // in a grain that changed from pixel to pixel, and every surface the beam lit was streaked.
+            uniform vec4 uTorchOrigin;
             uniform float uTorchTexel;
 
             // How bright the torch makes what the middle of its beam is on at arm's length. A
@@ -175,7 +183,7 @@ final class PipelineShaders {
                 // Asked a little way back towards the torch: a surface is not in its own shadow.
                 // The map takes in more than the cone, so what the cone lights is in front of
                 // it, and what is beside the hand is not asked of it at all.
-                vec4 c = uTorchMatrix * vec4(p - dir * 0.06, 1.0);
+                vec4 c = uTorchMatrix * vec4(to - dir * 0.06, 0.0) + uTorchOrigin;
                 if (far < 0.7 || c.w <= 0.0) {
                     return given;
                 }
@@ -188,7 +196,7 @@ final class PipelineShaders {
             // How much of the nearest vehicle's headlights reaches p past what stands in the
             // beam, from a picture of the scene drawn from the lamps.
             float beamReaches(vec3 p) {
-                vec4 c = uBeamMatrix * vec4(p, 1.0);
+                vec4 c = uBeamMatrix * vec4(p - uBeamFrom, 0.0) + uBeamOrigin;
                 if (c.w <= 0.0) {
                     return 1.0;
                 }
