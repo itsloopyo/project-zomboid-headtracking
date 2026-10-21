@@ -48,7 +48,7 @@ Press `Delete` to switch between the isometric and first person views, on foot o
 
 ### Talking mouths
 
-Off by default. Tick **Talking mouths** in the game's options and your character's mouth follows what you say into your microphone. Nothing is recorded or sent: online, only the shape of your mouth goes to other players.
+Off by default. Tick **Talking mouths** in the game's options and your character's mouth follows what you say into your microphone. Nothing is recorded or sent: online, other players who have this mod see only how your head is turned and the shape of your mouth.
 
 ## Requirements
 
