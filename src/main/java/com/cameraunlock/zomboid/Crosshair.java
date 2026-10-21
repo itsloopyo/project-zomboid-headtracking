@@ -18,6 +18,9 @@ final class Crosshair {
     /** How much further out the ticks stand at the most spread, moving and just after a shot. */
     private static final float SPREAD = 12f;
     private static final int DESIGN_HEIGHT = 1080;
+    /** The dot's radius in pixels on a screen 1080 high, and how much of what is behind it shows through. */
+    private static final float DOT_RADIUS = 4f, DOT_WHITE = 0.45f, DOT_RIM = 0.3f;
+    private static final int DOT_SIDES = 24;
 
     private static final String FRAGMENT = """
             #version 120
@@ -29,7 +32,7 @@ final class Crosshair {
             """;
 
     private static final int GL_BLEND = 0x0BE2, GL_SRC_ALPHA = 0x0302, GL_ONE_MINUS_SRC_ALPHA = 0x0303;
-    private static final int GL_DEPTH_TEST = 0x0B71, GL_CULL_FACE = 0x0B44, GL_TRIANGLE_STRIP = 0x0005;
+    private static final int GL_DEPTH_TEST = 0x0B71, GL_CULL_FACE = 0x0B44, GL_TRIANGLE_STRIP = 0x0005, GL_TRIANGLE_FAN = 0x0006;
 
     private static final SmallProgram flat = new SmallProgram("crosshair", SmallProgram.FLAT_VERTEX, FRAGMENT);
 
@@ -66,6 +69,15 @@ final class Crosshair {
         GL11.glEnable(GL_BLEND);
         GL11.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         int color = flat.at("uColor");
+        if (where.dot) {
+            float radius = DOT_RADIUS * height / DESIGN_HEIGHT;
+            GL20.glUniform4f(color, 0f, 0f, 0f, DOT_RIM);
+            disc(middleX, middleY, radius + Math.max(1f, radius / 4f), width, height);
+            GL20.glUniform4f(color, 1f, 1f, 1f, DOT_WHITE);
+            disc(middleX, middleY, radius, width, height);
+            GL11.glDisable(GL_BLEND);
+            return;
+        }
         // Dark under light, a pixel wider all round: it reads against a pale wall and a dark one.
         for (int layer = 0; layer < 2; layer++) {
             int edge = layer == 0 ? unit : 0;
@@ -74,15 +86,24 @@ final class Crosshair {
             } else {
                 GL20.glUniform4f(color, 1f, 1f, 1f, 0.9f);
             }
-            if (!where.dot) {
-                box(middleX + from - edge, middleY - half - edge, middleX + to + edge, middleY - half + WIDTH * unit + edge, width, height);
-                box(middleX - to - edge, middleY - half - edge, middleX - from + edge, middleY - half + WIDTH * unit + edge, width, height);
-                box(middleX - half - edge, middleY + from - edge, middleX - half + WIDTH * unit + edge, middleY + to + edge, width, height);
-                box(middleX - half - edge, middleY - to - edge, middleX - half + WIDTH * unit + edge, middleY - from + edge, width, height);
-            }
+            box(middleX + from - edge, middleY - half - edge, middleX + to + edge, middleY - half + WIDTH * unit + edge, width, height);
+            box(middleX - to - edge, middleY - half - edge, middleX - from + edge, middleY - half + WIDTH * unit + edge, width, height);
+            box(middleX - half - edge, middleY + from - edge, middleX - half + WIDTH * unit + edge, middleY + to + edge, width, height);
+            box(middleX - half - edge, middleY - to - edge, middleX - half + WIDTH * unit + edge, middleY - from + edge, width, height);
             box(middleX - half - edge, middleY - half - edge, middleX - half + WIDTH * unit + edge, middleY - half + WIDTH * unit + edge, width, height);
         }
         GL11.glDisable(GL_BLEND);
+    }
+
+    /** A disc round a pixel's corner, its radius in pixels. */
+    private static void disc(int middleX, int middleY, float radius, int width, int height) {
+        GL11.glBegin(GL_TRIANGLE_FAN);
+        GL11.glVertex2f(middleX * 2f / width - 1f, middleY * 2f / height - 1f);
+        for (int i = 0; i <= DOT_SIDES; i++) {
+            double way = 2 * Math.PI * i / DOT_SIDES;
+            GL11.glVertex2f((middleX + radius * (float) Math.cos(way)) * 2f / width - 1f, (middleY + radius * (float) Math.sin(way)) * 2f / height - 1f);
+        }
+        GL11.glEnd();
     }
 
     /** A box between whole pixels, so its edges are sharp. */
