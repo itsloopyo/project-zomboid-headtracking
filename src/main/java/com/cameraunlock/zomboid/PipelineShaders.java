@@ -6620,13 +6620,21 @@ final class PipelineShaders {
 
             const int RAY_SAMPLES = 48;
             const float WHITE = 3.2;
-            const int MIRROR_STEPS = 40;
+            const int MIRROR_STEPS = 64;
 
             // Where the pixel at uv is, seen from the eye: x to the right, y up, z ahead, in tiles.
             vec3 placeAt(vec2 uv) {
                 float z = texture2D(uDepth, uv).r * 2.0 - 1.0;
                 float ahead = 2.0 * uNear * uFar / (uFar + uNear - z * (uFar - uNear));
                 return vec3((uv * 2.0 - 1.0) * uTan * ahead, ahead);
+            }
+
+            // How far the point q of a ray thrown from the mirror at p, which faces facing, is behind
+            // what the picture shows at seen there. The mirror's own surface stops nothing: walked
+            // in steps a pixel or two long, the ray was behind the floor it left from the first
+            // step, and the floor mirrored itself in place of what stood over it.
+            float stops(vec3 q, vec3 seen, vec3 p, vec3 facing) {
+                return dot(seen - p, facing) < 0.01 + 0.002 * seen.z ? 0.0 : q.z - seen.z;
             }
 
             // What a wet or watery surface shows of the world. The world's own shader has put
@@ -6640,15 +6648,17 @@ final class PipelineShaders {
                 if (mirror < 0.02) {
                     return scene.rgb;
                 }
+                vec2 pixel = 1.0 / uSize;
+                vec3 toRight = placeAt(uv + vec2(pixel.x, 0.0)), toLeft = placeAt(uv - vec2(pixel.x, 0.0));
+                vec3 above = placeAt(uv + vec2(0.0, pixel.y)), below = placeAt(uv - vec2(0.0, pixel.y));
                 vec3 line = normalize(p);
                 // Which way the mirror faces is read off the picture's depth: a floor faces up,
                 // a window pane faces out of its wall. Each way across the screen it is taken
                 // towards the neighbour nearer in depth, the one on the same surface. The slope
                 // the driver gives for a block of four pixels tipped every block that a joint
                 // between two tiles ran through, and the joints were lines of dots.
-                vec2 pixel = 1.0 / uSize;
-                vec3 right = placeAt(uv + vec2(pixel.x, 0.0)) - p, left = p - placeAt(uv - vec2(pixel.x, 0.0));
-                vec3 up = placeAt(uv + vec2(0.0, pixel.y)) - p, down = p - placeAt(uv - vec2(0.0, pixel.y));
+                vec3 right = toRight - p, left = p - toLeft;
+                vec3 up = above - p, down = p - below;
                 vec3 facing = normalize(cross(abs(right.z) < abs(left.z) ? right : left, abs(up.z) < abs(down.z) ? up : down));
                 if (dot(facing, line) > 0.0) {
                     facing = -facing;
@@ -6656,18 +6666,37 @@ final class PipelineShaders {
                 // Read off depth, the way a level surface faces is only roughly up, and with
                 // the head rolled each column of the picture reads it a little differently:
                 // the mirror is ruled with lines. Whatever faces more up than sideways is level.
+                // A speck laid a hair over the floor, a pixel across, tipped the floor it lay on
+                // and sent its ray off sideways: the far floor was dotted. Read again from two
+                // pixels off either way, past the speck, the floor is level again.
+                if (dot(facing, uUp) <= 0.6) {
+                    vec3 wide = normalize(cross(placeAt(uv + vec2(2.0 * pixel.x, 0.0)) - placeAt(uv - vec2(2.0 * pixel.x, 0.0)),
+                            placeAt(uv + vec2(0.0, 2.0 * pixel.y)) - placeAt(uv - vec2(0.0, 2.0 * pixel.y))));
+                    facing = abs(dot(wide, uUp)) > 0.6 ? uUp : facing;
+                }
                 if (dot(facing, uUp) > 0.6) {
                     facing = uUp;
                 }
                 vec3 thrown = reflect(line, facing);
                 float glance = 0.04 + 0.96 * pow(1.0 - clamp(dot(-line, facing), 0.0, 1.0), 5.0);
-                float reach = 0.12 + 0.02 * p.z;
+                // Each step goes as far along the ray as moves it a pixel and a half across the
+                // picture where it starts, and a little further each step after. Stepped in tiles,
+                // the first step near the eye was dozens of pixels: a baluster a few pixels wide
+                // was stepped over in one frame and met in the next, and its reflection shimmered.
+                vec3 ahead = p + thrown * 0.01;
+                vec2 moved = (ahead.xy / (max(ahead.z, uNear) * uTan) - p.xy / (p.z * uTan)) * 0.5 * uSize;
+                float perPixel = 0.01 / max(length(moved), 1e-3);
+                float reach = 1.5 * perPixel;
                 float along = reach * 0.5;
+                // How far along the ray last was in front of everything the picture shows.
+                float inFront = along;
                 vec2 last = uv;
+                // Whether the ray has gone far behind something and not come out in front of
+                // anything since, and whether it ever did.
+                bool passing = false, hidden = false;
                 for (int i = 0; i < MIRROR_STEPS; i++) {
-                    float before = along;
                     along += reach;
-                    reach *= 1.14;
+                    reach = max(reach, 0.1 * along);
                     vec3 q = p + thrown * along;
                     if (q.z <= uNear) {
                         break;
@@ -6677,30 +6706,35 @@ final class PipelineShaders {
                         break;
                     }
                     last = at;
-                    float behind = q.z - placeAt(at).z;
-                    if (behind > 0.0) {
-                        // A ray that goes far behind what the picture shows has not been
-                        // stopped by it, as far as the picture can tell: over far water the
-                        // depth is in coarse steps, and a ray counted as stopped at each step
-                        // left the far shore's reflection full of holes.
-                        if (behind < 0.6 + reach * 1.5) {
-                            // Every pixel walks in the same steps, and the step that first goes behind
-                            // something is halved down to where the ray meets it. Started a different
-                            // way along in each pixel instead, to hide the steps, neighbours came down
-                            // on a thin rail and stepped past it in turn, and the mirror was a checkerboard.
-                            float front = before, back = along;
-                            vec2 hit = at;
-                            for (int k = 0; k < 5; k++) {
-                                float middle = 0.5 * (front + back);
-                                vec3 m = p + thrown * middle;
-                                vec2 there = m.xy / (m.z * uTan) * 0.5 + 0.5;
-                                if (m.z - placeAt(there).z > 0.0) {
-                                    back = middle;
-                                    hit = there;
-                                } else {
-                                    front = middle;
-                                }
+                    float behind = stops(q, placeAt(at), p, facing);
+                    if (behind <= 0.0) {
+                        inFront = along;
+                        passing = false;
+                    } else if (!passing) {
+                        // Every pixel walks in the same steps, and the step that first goes behind
+                        // something is halved down to where the ray meets it. Started a different
+                        // way along in each pixel instead, to hide the steps, neighbours came down
+                        // on a thin rail and stepped past it in turn, and the mirror was a checkerboard.
+                        float front = inFront, back = along;
+                        vec2 hit = at;
+                        float gap = behind;
+                        for (int k = 0; k < 5; k++) {
+                            float middle = 0.5 * (front + back);
+                            vec3 m = p + thrown * middle;
+                            vec2 there = m.xy / (m.z * uTan) * 0.5 + 0.5;
+                            float under = stops(m, placeAt(there), p, facing);
+                            if (under > 0.0) {
+                                back = middle;
+                                hit = there;
+                                gap = under;
+                            } else {
+                                front = middle;
                             }
+                        }
+                        // Halved down to the edge of something near, the ray is still well behind it:
+                        // it went behind the edge and met nothing there. Taken as met, a baluster or a
+                        // stair's side was smeared down the floor in blocks.
+                        if (gap < 0.03 + 0.01 * q.z + 2.0 * (back - front)) {
                             float edge = min(min(hit.x, 1.0 - hit.x), min(hit.y, 1.0 - hit.y));
                             vec4 found = texture2D(uScene, hit);
                             // A ray that comes down on the water again has met nothing: it is
@@ -6709,17 +6743,25 @@ final class PipelineShaders {
                                 float sure = smoothstep(0.0, 0.08, edge);
                                 return mix(scene.rgb, found.rgb, min(1.0, glance * 1.6) * mirror * sure);
                             }
-                        } else {
-                            // Near by, a ray that goes deep behind something has been stopped
-                            // by it, and what it would have shown is not in the picture: the
-                            // mirror keeps what the world gave it. Sent on to the sky, a puddle
-                            // showed a house with squares of sky cut out of it.
-                            if (p.z < 40.0) {
-                                last = uv;
-                            }
-                            break;
+                        } else if (behind >= 0.6 + reach * 1.5) {
+                            // A ray that goes far behind what the picture shows passes behind it
+                            // and goes on, to whatever it comes out in front of: a baluster is a
+                            // few pixels wide, and a ray stopped there left the wall it would have
+                            // met between two balusters out of the floor's reflection. Told from
+                            // the step alone, a ray just into a wall seen aslant was as far behind
+                            // it, and the floor at the wall's foot was left unmirrored in dashes.
+                            passing = hidden = true;
                         }
                     }
+                }
+                // A ray that met nothing after it went behind something near by was stopped
+                // there, as far as the picture can tell, and what it would have shown is not in
+                // the picture: the mirror keeps what the world gave it. Sent on to the sky, a
+                // puddle showed a house with squares of sky cut out of it. Far off it has not been
+                // stopped: over far water the depth is in coarse steps, and a ray counted as
+                // stopped at each step left the far shore's reflection full of holes.
+                if (hidden && p.z < 40.0) {
+                    last = uv;
                 }
                 // A ray that met nothing went on into the sky. The sky it went into is in the
                 // picture, clouds and all, and that is what
