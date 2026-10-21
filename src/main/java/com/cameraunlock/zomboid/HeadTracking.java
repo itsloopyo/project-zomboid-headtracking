@@ -29,6 +29,8 @@ final class HeadTracking {
 
     /** A frame longer than this is a hitch, and core takes it as this long: whole, it would snap the smoothing to its target. */
     private static final float MAX_FRAME_SECONDS = 0.25f;
+    /** A tracker that keeps losing the face comes and goes many times a minute: the log says so at most this often. */
+    private static final long FRESH_SAID_EVERY_NANOS = 10_000_000_000L;
     /**
      * A lean held right at a wall's distance crosses in and out of contact on the tracker's
      * noise, as often as every frame, and each log line is a write to disk.
@@ -47,6 +49,10 @@ final class HeadTracking {
 
     private boolean applied;
     private boolean fresh;
+    /** Whether the tracker's poses arriving or not was last said as it is now, when, and how many times it changed unsaid since. */
+    private boolean saidFresh;
+    private long freshSaidAt = Long.MIN_VALUE / 2;
+    private int freshChangesUnsaid;
     private boolean contactLogged;
     private long contactLoggedNanos = System.nanoTime() - CONTACT_LOG_INTERVAL_NANOS;
     private boolean unmeasuredLogged;
@@ -153,8 +159,19 @@ final class HeadTracking {
         boolean nowFresh = (frame.flags & CameraUnlock.STATE_FRESH) != 0;
         if (active && nowFresh != fresh && (frame.flags & CameraUnlock.STATE_POSE) != 0) {
             fresh = nowFresh;
-            Log.info(fresh ? "the tracker's poses are arriving"
-                    : "no pose taken from the tracker for " + Tracking.settings().dataFreshnessMs + " ms, its last one eases out of the view");
+            freshChangesUnsaid++;
+        }
+        long now = System.nanoTime();
+        if (freshChangesUnsaid > 0 && now - freshSaidAt >= FRESH_SAID_EVERY_NANOS) {
+            int besides = fresh != saidFresh ? freshChangesUnsaid - 1 : freshChangesUnsaid;
+            if (fresh != saidFresh || besides > 0) {
+                String changes = besides > 0 ? " (it changed " + besides + " more times since the last of these lines)" : "";
+                Log.info((fresh ? "the tracker's poses are arriving"
+                        : "no pose taken from the tracker for " + Tracking.settings().dataFreshnessMs + " ms, its last one eases out of the view") + changes);
+                saidFresh = fresh;
+                freshSaidAt = now;
+            }
+            freshChangesUnsaid = 0;
         }
     }
 
