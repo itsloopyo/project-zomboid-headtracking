@@ -3,8 +3,10 @@
 Z-Image Turbo (Tongyi-MAI, Apache 2.0) at about a million pixels in the picture's shape, 9 steps, no guidance, as its model
 card gives. Run with the venv that has torch and diffusers (see .lab/NOTES.md, "Generated materials"):
     python tools/pictures/generate.py --out DIR [--only family-00 ...] [--starting family- boxing-] [--most 20] [--candidates 4]
+        [--shard 2/5]
 Writes DIR/<name>/<seed>.png for seeds 1 to --candidates, and skips what is there already, so a long list is made a few at
-a time. The seed picked for each picture goes into catalogue.SEEDS, and tools/pictures/pack.py puts them into the mod.
+a time. --shard k/n makes every n-th job from the k-th, so n machines can share a list. The seed picked for each picture
+goes into catalogue.SEEDS, and tools/pictures/pack.py puts them into the mod.
 """
 import argparse
 import pathlib
@@ -33,6 +35,7 @@ def main():
     parser.add_argument('--starting', nargs='*', default=[])
     parser.add_argument('--most', type=int, default=0)
     parser.add_argument('--candidates', type=int, default=4)
+    parser.add_argument('--shard', default='1/1')
     args = parser.parse_args()
     out = pathlib.Path(args.out)
 
@@ -44,6 +47,8 @@ def main():
             if not chosen or name in args.only or any(name.startswith(start) for start in args.starting)
             for seed in range(1, args.candidates + 1)
             if not (out / name / f'{seed}.png').exists()]
+    shard, shards = (int(part) for part in args.shard.split('/'))
+    jobs = jobs[shard - 1::shards]
     if args.most:
         jobs = jobs[:args.most]
     if not jobs:
@@ -60,6 +65,10 @@ def main():
             words[name] = pipe.encode_prompt(prompt=catalogue.ART[name][0], device='cuda', do_classifier_free_guidance=False)[0]
     pipe.text_encoder.to('cpu')
     torch.cuda.empty_cache()
+    # In bfloat16 the denoiser is 12 GB, which with the desktop's share overfills a 16 GB card and spills into system
+    # memory: 49 s a picture. Kept in 8 bit and widened a layer at a time, it is half the size.
+    if torch.cuda.get_device_properties(0).total_memory < 24 * 2 ** 30:
+        pipe.transformer.enable_layerwise_casting(storage_dtype=torch.float8_e4m3fn, compute_dtype=torch.bfloat16)
     pipe.transformer.to('cuda')
     pipe.vae.to('cuda')
 
