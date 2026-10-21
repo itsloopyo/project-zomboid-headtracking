@@ -80,7 +80,7 @@ final class Kick {
     /** Shots faster than the kick settles do not stack the weapon past this many of a hardest shot's throw. */
     private static final float MOST = 1.6f * 1.25f;
     /** What backMost has worked out, by recoil delay, harm and how far up the sights are. */
-    private static final java.util.Map<String, Float> BACK_MOST = new java.util.HashMap<>();
+    private static final java.util.Map<Long, Float> BACK_MOST = new java.util.HashMap<>();
 
     /**
      * The furthest a gun is thrown back toward the eye by shots fired with it as fast as they
@@ -91,7 +91,8 @@ final class Kick {
      * @param aim how far up the sights are, as braced gives it: nought for a gun with no stock
      */
     static float backMost(int recoilDelay, float maxDamage, float aim) {
-        return BACK_MOST.computeIfAbsent(recoilDelay + " " + (maxDamage > 0f) + " " + aim, key -> {
+        long key = (long) recoilDelay << 33 | (maxDamage > 0f ? 1L << 32 : 0L) | Float.floatToIntBits(aim) & 0xFFFFFFFFL;
+        return BACK_MOST.computeIfAbsent(key, unused -> {
             Kick kick = new Kick();
             float every = Math.max(recoilDelay, 1) / 60f, since = every, strength = fired(recoilDelay, maxDamage), most = 0f;
             for (int step = 0; step < 2400; step++) {
