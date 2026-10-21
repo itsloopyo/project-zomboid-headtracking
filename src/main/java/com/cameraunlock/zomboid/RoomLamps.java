@@ -206,12 +206,7 @@ final class RoomLamps {
 
     /** A switch's light is a lamp in a room's: not the room's own light, nor a street lamp's, nor one hung on the outside of a house (see Lamps). */
     static boolean lamp(IsoLightSwitch light) {
-        return !light.lightRoom && !light.streetLight && !hungOutside(light.getSprite() == null ? null : light.getSprite().getName());
-    }
-
-    /** Whether a lamp's sprite is one of the game's lamps for the outside of a building, which stand on a room's square when hung on its east or south face. */
-    static boolean hungOutside(String sprite) {
-        return sprite != null && sprite.startsWith("lighting_outdoor");
+        return !light.lightRoom && !light.streetLight && !Lamps.outdoorSprite(light.getSprite() == null ? null : light.getSprite().getName());
     }
 
     /** The set on a square that shows a picture, or null. A set that is on lists a light of no switch on its own square (IsoTelevision.updateLightSource). */

@@ -22,10 +22,10 @@ final class RoomLampsTests {
 
     private static void aLampHungOnAHouseIsNoRoomsLamp() {
         // Read in the game at 10821, 9758: a porch lamp of the outdoor sheet, and table lamps of the indoor ones.
-        check(RoomLamps.hungOutside("lighting_outdoor_01_25"), "a porch lamp is hung outside");
-        check(!RoomLamps.hungOutside("lighting_indoor_01_41"), "a table lamp is not");
-        check(!RoomLamps.hungOutside("lighting_indoor_02_8"), "nor one of the second indoor sheet");
-        check(!RoomLamps.hungOutside(null), "nor a lamp with no sprite");
+        check(Lamps.outdoorSprite("lighting_outdoor_01_25"), "a porch lamp is hung outside");
+        check(!Lamps.outdoorSprite("lighting_indoor_01_41"), "a table lamp is not");
+        check(!Lamps.outdoorSprite("lighting_indoor_02_8"), "nor one of the second indoor sheet");
+        check(!Lamps.outdoorSprite(null), "nor a lamp with no sprite");
     }
 
     private static void aWhiteLampGivesAWarmWhite() {

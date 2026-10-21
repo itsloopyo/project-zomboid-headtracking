@@ -147,7 +147,7 @@ final class Lamps {
             float up;
             float strength = STRENGTH;
             float reach = lamp.radius;
-            if (hung(cell, lamp, place)) {
+            if (hungOutside(lamp) && hung(cell, lamp, place)) {
                 up = lamp.z * ViewCamera.LEVEL_HEIGHT + terrain.lift(place[0], place[1], lamp.z) + UP * ViewCamera.LEVEL_HEIGHT;
             } else if (onPost(cell, lamp, place)) {
                 up = lamp.z * ViewCamera.LEVEL_HEIGHT + terrain.height(lamp.x + 0.5f, lamp.y + 0.5f) + place[2];
@@ -229,6 +229,24 @@ final class Lamps {
             return true;
         }
         return false;
+    }
+
+    /**
+     * Whether a light is one of the game's lamps for the outside of a building, by its switch's
+     * sprite. A lamp of an indoor sheet on a square beside an outside wall, and a set, are lights
+     * of a room's (RoomLamps).
+     */
+    private static boolean hungOutside(IsoLightSource lamp) {
+        if (lamp.switches.isEmpty()) {
+            return false;
+        }
+        IsoLightSwitch light = lamp.switches.get(0);
+        return outdoorSprite(light.getSprite() == null ? null : light.getSprite().getName());
+    }
+
+    /** Whether a lamp's sprite is of the game's sheets of lamps for the outside of a building. */
+    static boolean outdoorSprite(String sprite) {
+        return sprite != null && sprite.startsWith("lighting_outdoor");
     }
 
     /**
