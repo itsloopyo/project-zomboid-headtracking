@@ -3930,7 +3930,10 @@ final class PipelineShaders {
                 // Glass told from a sprite is no mirror for it either: only some of its pixels are
                 // drawn, a different set every frame, so the depth the last pass reads a mirror's
                 // facing from is not the glass's. It throws back what the glazed block gives it.
-                gl_FragColor = vec4(color, sheet ? veil : uLaid > 0.5 ? texel.a * shown : 1.0 - uMirrors * max(max(traced, polish) * step(0.8, n.z), glazed > 0.5 ? 0.0 : pane));
+                // A mirror is a level face, told by the face and not by its relief: tipped at the
+                // joints of its tiles, the relief let the mirror through in some pixels of a joint
+                // and not the next, and every joint was a line of dots.
+                gl_FragColor = vec4(color, sheet ? veil : uLaid > 0.5 ? texel.a * shown : 1.0 - uMirrors * max(max(traced, polish) * step(0.8 * length(vNormal), vNormal.z), glazed > 0.5 ? 0.0 : pane));
             }
             """;
 
@@ -6619,19 +6622,22 @@ final class PipelineShaders {
             // throw the eye's line, and walked through the picture's own depth: where it goes
             // behind something the picture shows, that thing is what the mirror shows there.
             // A ray that leaves the picture, or passes behind something too far to be sure of,
-            // finds nothing and the sky stays. p is where the pixel is and square stands square to
-            // the surface there: main works both out for every pixel, since a slope across the
-            // screen taken only where a pixel is a mirror has no neighbour to be taken from at the
-            // mirror's rim.
-            vec3 walked(vec2 uv, vec4 scene, vec3 p, vec3 square) {
+            // finds nothing and the sky stays. p is where the pixel is.
+            vec3 walked(vec2 uv, vec4 scene, vec3 p) {
                 float mirror = 1.0 - scene.a;
                 if (mirror < 0.02) {
                     return scene.rgb;
                 }
                 vec3 line = normalize(p);
                 // Which way the mirror faces is read off the picture's depth: a floor faces up,
-                // a window pane faces out of its wall.
-                vec3 facing = normalize(square);
+                // a window pane faces out of its wall. Each way across the screen it is taken
+                // towards the neighbour nearer in depth, the one on the same surface. The slope
+                // the driver gives for a block of four pixels tipped every block that a joint
+                // between two tiles ran through, and the joints were lines of dots.
+                vec2 pixel = 1.0 / uSize;
+                vec3 right = placeAt(uv + vec2(pixel.x, 0.0)) - p, left = p - placeAt(uv - vec2(pixel.x, 0.0));
+                vec3 up = placeAt(uv + vec2(0.0, pixel.y)) - p, down = p - placeAt(uv - vec2(0.0, pixel.y));
+                vec3 facing = normalize(cross(abs(right.z) < abs(left.z) ? right : left, abs(up.z) < abs(down.z) ? up : down));
                 if (dot(facing, line) > 0.0) {
                     facing = -facing;
                 }
@@ -6644,10 +6650,10 @@ final class PipelineShaders {
                 vec3 thrown = reflect(line, facing);
                 float glance = 0.04 + 0.96 * pow(1.0 - clamp(dot(-line, facing), 0.0, 1.0), 5.0);
                 float reach = 0.12 + 0.02 * p.z;
-                float start = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
-                float along = reach * start;
+                float along = reach * 0.5;
                 vec2 last = uv;
                 for (int i = 0; i < MIRROR_STEPS; i++) {
+                    float before = along;
                     along += reach;
                     reach *= 1.14;
                     vec3 q = p + thrown * along;
@@ -6666,8 +6672,25 @@ final class PipelineShaders {
                         // depth is in coarse steps, and a ray counted as stopped at each step
                         // left the far shore's reflection full of holes.
                         if (behind < 0.6 + reach * 1.5) {
-                            float edge = min(min(at.x, 1.0 - at.x), min(at.y, 1.0 - at.y));
-                            vec4 found = texture2D(uScene, at);
+                            // Every pixel walks in the same steps, and the step that first goes behind
+                            // something is halved down to where the ray meets it. Started a different
+                            // way along in each pixel instead, to hide the steps, neighbours came down
+                            // on a thin rail and stepped past it in turn, and the mirror was a checkerboard.
+                            float front = before, back = along;
+                            vec2 hit = at;
+                            for (int k = 0; k < 5; k++) {
+                                float middle = 0.5 * (front + back);
+                                vec3 m = p + thrown * middle;
+                                vec2 there = m.xy / (m.z * uTan) * 0.5 + 0.5;
+                                if (m.z - placeAt(there).z > 0.0) {
+                                    back = middle;
+                                    hit = there;
+                                } else {
+                                    front = middle;
+                                }
+                            }
+                            float edge = min(min(hit.x, 1.0 - hit.x), min(hit.y, 1.0 - hit.y));
+                            vec4 found = texture2D(uScene, hit);
                             // A ray that comes down on the water again has met nothing: it is
                             // the water's own coarse depth it has gone behind, and it goes on.
                             if (found.a >= 0.5) {
@@ -6710,9 +6733,9 @@ final class PipelineShaders {
             // Far water is a pixel or two a tile, and a ray walked from it lands behind
             // something in one pixel and misses in the next: the far shore is a band of
             // dashes. Out there the water shows the sky the world's shader gave it.
-            vec3 mirrored(vec2 uv, vec4 scene, vec3 p, vec3 square) {
+            vec3 mirrored(vec2 uv, vec4 scene, vec3 p) {
                 float near = 1.0 - smoothstep(45.0, 80.0, p.z);
-                return near > 0.0 ? mix(scene.rgb, walked(uv, scene, p, square), near) : scene.rgb;
+                return near > 0.0 ? mix(scene.rgb, walked(uv, scene, p), near) : scene.rgb;
             }
 
             float hash(vec2 p) {
@@ -6869,7 +6892,6 @@ final class PipelineShaders {
             void main() {
                 vec2 uv = gl_FragCoord.xy / uSize;
                 vec3 p = placeAt(uv);
-                vec3 square = cross(dFdx(p), dFdy(p));
                 float ahead = p.z;
                 // A pass that is switched off has drawn nothing into its picture, and what a
                 // picture nothing was drawn into holds is the driver's to choose: it is not read.
@@ -6896,7 +6918,7 @@ final class PipelineShaders {
                 float range = max(away - uRangeFrom, 0.0);
                 float ends = uBeyond > 0.5 ? 0.0 : max(smoothstep(uFogStart, uFogEnd, range), smoothstep(uLoaded.z - (uFogEnd - uFogStart), uLoaded.z, length(fromEye.xy - uLoaded.xy)));
                 float seen = 1.0 - max(veiling(range), ends * skyVeiling(fromEye / away));
-                vec3 c = mix(here.rgb, mirrored(uv, here, p, square), seen) * mix(1.0, around.a, 0.62 * seen);
+                vec3 c = mix(here.rgb, mirrored(uv, here, p), seen) * mix(1.0, around.a, 0.62 * seen);
                 // The light lent by what stands near, taken on by the surface in its own colour.
                 vec3 lent = around.rgb / max(1.0 - around.rgb, vec3(0.02));
                 float own = max(here.r, max(here.g, here.b));

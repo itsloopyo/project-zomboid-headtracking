@@ -313,7 +313,7 @@ final class ShaderTests {
                 && develop.contains("float ends = uBeyond > 0.5 ? 0.0 : max(smoothstep(uFogStart, uFogEnd, range), smoothstep(uLoaded.z - (uFogEnd - uFogStart), uLoaded.z, length(fromEye.xy - uLoaded.xy)));")
                 && develop.contains("float seen = 1.0 - max(veiling(range), ends * skyVeiling(fromEye / away));"),
                 "the develop pass does not leave a pixel seen by as much as the world's veil does, the sky's share where the world ends included");
-        Checks.check(develop.contains("vec3 c = mix(here.rgb, mirrored(uv, here, p, square), seen) * mix(1.0, around.a, 0.62 * seen);"),
+        Checks.check(develop.contains("vec3 c = mix(here.rgb, mirrored(uv, here, p), seen) * mix(1.0, around.a, 0.62 * seen);"),
                 "the shade, or what a surface mirrors, is laid over a surface whole however much of it the air hides");
         Checks.check(develop.contains("c += lent * (here.rgb / max(own, 0.02)) * (0.22 * seen);"), "the light lent by what stands near is laid over a surface whole however much of it the air hides");
         Checks.check(count(develop, "around.a") == 1 && count(develop, "lent *") == 1 && count(develop, "mirrored(uv") == 1, "the develop pass lays the shade, the lent light or the mirror over the picture somewhere else too");
