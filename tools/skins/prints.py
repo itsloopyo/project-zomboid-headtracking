@@ -2,15 +2,16 @@
 
 The game has one picture each of blood and of dirt that it lays over a whole body where a mask says
 to. This makes the mod's own of both, which FineSkins reads out of the jar in place of the game's.
-An OVERLAY is a photograph of dried blood, or of dirt, on white paper. How much of it shows is how
+An OVERLAY is a photograph of dried blood, or of dirt, on white paper, made to join up with itself at its
+edges so that no edge of the paper or of a stain runs straight across it. How much of it shows is how
 far it darkens the paper there, let down to cover as much of the body as the game's own.
 
-Stable Diffusion XL base 1.0, through the maker tools/materials/generate.py has. Run with the venv
-that has torch and diffusers (see .lab/NOTES.md, "Generated materials"):
-    python tools/skins/prints.py --out DIR [--only bloodoverlay ...]
-Writes DIR/<name>.png and skips what is there already. With --pack it writes them as the mod reads
-them, a JPEG with a .cut.png beside it that says what shows, into src/main/resources/skins, and
-with --sheet FILE a sheet of both to look over.
+Z-Image Turbo, through the maker tools/materials/generate.py has. Run with the venv that has torch
+and diffusers (see .lab/NOTES.md, "Generated materials"):
+    python tools/skins/prints.py --out DIR [--only bloodoverlay ...] [--seeds 1 2 3 4]
+Writes DIR/<name>-<seed>.png and skips what is there already. With --pack it writes the seed CHOSEN of
+each as the mod reads them, a JPEG with a .cut.png beside it that says what shows, into
+src/main/resources/skins, and with --sheet FILE a sheet of every picture made to look over.
 """
 import argparse
 import pathlib
@@ -21,14 +22,17 @@ from PIL import Image, ImageFilter
 
 OUT = pathlib.Path(__file__).resolve().parents[2] / 'src' / 'main' / 'resources' / 'skins'
 OVERLAYS = {
-    'bloodoverlay': ('forensic photograph of dried dark red blood on white paper, spatter, drips, smears and heavy pooled stains scattered over the whole sheet, '
-                     'seen from straight above, flat even lighting, photorealistic, sharp focus',
-                     'hands, objects, knife, text, ruler, label, watermark, shadows, perspective, painting, illustration, blurry, pink, bright red'),
-    'grimeoverlay': ('photograph of thin smears of dry brown mud, dusty finger smudges and soot marks wiped across white paper, scattered thinly over the whole sheet, seen from straight above, '
-                     'flat even lighting, photorealistic, sharp focus',
-                     'pile, heap, clumps, hands, objects, plants, footprints, text, label, watermark, shadows, perspective, painting, illustration, blurry'),
+    'bloodoverlay': 'Looking straight down at plain white paper seen close, so that it fills the whole frame and runs out of it on every side. '
+                    'Dried dark red blood is spread unevenly over it: broad wiped smears, streaks, runs and drips, soaked patches and a few small '
+                    'spatters, with ragged natural edges and of every strength from thin pale pink to nearly black, and clean white paper between '
+                    'them. The stains run off the edges of the frame. A forensic photograph taken in flat even light with no shadows.',
+    'grimeoverlay': 'Looking straight down at plain white paper seen close, so that it fills the whole frame and runs out of it on every side. '
+                    'Dirt is spread unevenly over it: broad wiped smears of dry brown mud and grey soot, dusty patches and streaks of grime of '
+                    'every strength from a faint film of dust to thick dark dirt, with soft feathered edges and clean white paper between them. '
+                    'The dirt runs off the edges of the frame. A plain photograph taken in flat even light with no shadows.',
 }
-SEED = 1993
+# The seed of each overlay that the mod packs, of those made.
+CHOSEN = {'bloodoverlay': 3, 'grimeoverlay': 2}
 
 
 def paper(picture):
@@ -72,8 +76,14 @@ GAME_OVERLAY = {
                       [0.0, 0.0, 0.42, 0.35, 0.37, 0.46, 0.38, 0.0], [0.0, 0.03, 0.69, 0.66, 0.33, 0.81, 0.15, 0.0]],
                      (0.363, 0.246, 0.138)),
 }
-# The squares the overlay's thickness is matched over, each way, and how many times it is matched again.
-MATCHED_OVER, MATCHINGS = 64, 16
+# The squares the overlay's thickness is matched over, each way, and how many times it is matched again. The whole
+# sheet is let down as far as it takes and steepened by MOST_SHEET at most, past which the paper's grain shows as
+# specks, and a square only by between LEAST_STEEP and MOST_STEEP of that,
+# laid softly: matched square by square over 64 squares with no such bound, a square with little stain in it had the
+# paper's grain steepened into a solid block and one under a big stain had its middle let down, so the stains came
+# out cut into steps along the squares.
+MATCHED_OVER, MATCHINGS = 8, 24
+LEAST_STEEP, MOST_STEEP, MOST_SHEET = 0.6, 1.7, 3.0
 
 
 def shown(alpha):
@@ -82,8 +92,8 @@ def shown(alpha):
 
 
 def laid(cells, high, wide):
-    """A grid of numbers laid smoothly over a picture of this size."""
-    return numpy.asarray(Image.fromarray(numpy.asarray(cells, dtype=numpy.float32), 'F').resize((wide, high), Image.BILINEAR), dtype=numpy.float32)
+    """A grid of numbers laid smoothly over a picture of this size, with no edge of a square of it to be seen."""
+    return numpy.asarray(Image.fromarray(numpy.asarray(cells, dtype=numpy.float32), 'F').resize((wide, high), Image.BICUBIC), dtype=numpy.float32)
 
 
 # How far a dot may be darker than its paper and still be paper: the grain of the paper and the photograph's noise.
@@ -111,7 +121,9 @@ def soaked(image, name):
     for _ in range(MATCHINGS):
         shows = numpy.clip(thick * laid(steep, high, wide), 0.0, 1.0)
         lies = shown(shows).reshape(MATCHED_OVER, high // MATCHED_OVER, MATCHED_OVER, wide // MATCHED_OVER).mean(axis=(1, 3))
-        steep = numpy.clip(steep * numpy.clip((wanted + 0.01) / (lies + 0.01), 0.5, 2.0), 0.02, 20.0)
+        steep = steep * numpy.clip((wanted + 0.01) / (lies + 0.01), 0.5, 2.0)
+        sheet = numpy.exp(numpy.log(steep).mean())
+        steep = min(sheet, MOST_SHEET) * numpy.clip(steep / sheet, LEAST_STEEP, MOST_STEEP)
     shows = numpy.clip(thick * laid(steep, high, wide), 0.0, 1.0)
     mean = (colour * shows[..., None]).sum(axis=(0, 1)) / shows.sum()
     colour = numpy.clip(colour * numpy.clip(numpy.array(tint) / numpy.maximum(mean, 1e-4), LEAST_GAIN, MOST_GAIN), 0.0, 1.0)
@@ -128,9 +140,16 @@ def soaked(image, name):
         bare &= ~fill
     return (Image.fromarray((colour * 255).round().astype(numpy.uint8), 'RGB'), Image.fromarray((shows * 255).round().astype(numpy.uint8), 'L'))
 
+
+def chosen(pictures, name):
+    if name not in CHOSEN:
+        raise SystemExit(f'{name}: no seed of it is CHOSEN')
+    return pictures / f'{name}-{CHOSEN[name]}.png'
+
+
 def pack(pictures):
     for name in OVERLAYS:
-        colour, shows = soaked(Image.open(pictures / f'{name}.png'), name)
+        colour, shows = soaked(Image.open(chosen(pictures, name)), name)
         folder = OUT / 'bloodtextures'
         folder.mkdir(parents=True, exist_ok=True)
         colour.save(folder / f'{name}.jpg', quality=90)
@@ -139,20 +158,27 @@ def pack(pictures):
 
 
 def sheet(pictures, path):
-    """Every overlay made so far on one sheet as it would be packed."""
-    names = [name for name in OVERLAYS if (pictures / f'{name}.png').exists()]
-    out = Image.new('RGB', (len(names) * 256, 256), (110, 110, 118))
-    for at, name in enumerate(names):
-        image, shows = soaked(Image.open(pictures / f'{name}.png').convert('RGB').resize((512, 512), Image.LANCZOS), name)
-        out.paste(image.resize((256, 256), Image.LANCZOS), (at * 256, 0), shows.resize((256, 256), Image.LANCZOS))
+    """Every overlay made so far as it would be packed, a row to a name and a column to a seed."""
+    made = {}
+    for file in sorted(pictures.glob('*-*.png')):
+        name, seed = file.stem.rsplit('-', 1)
+        if name in OVERLAYS:
+            made.setdefault(name, []).append(file)
+    across = max(len(files) for files in made.values())
+    out = Image.new('RGB', (across * 256, len(made) * 256), (110, 110, 118))
+    for row, (name, files) in enumerate(made.items()):
+        for column, file in enumerate(files):
+            image, shows = soaked(Image.open(file).convert('RGB').resize((512, 512), Image.LANCZOS), name)
+            out.paste(image.resize((256, 256), Image.LANCZOS), (column * 256, row * 256), shows.resize((256, 256), Image.LANCZOS))
     out.save(path, quality=88)
-    print('sheet of', len(names), flush=True)
+    print('sheet of', sum(len(files) for files in made.values()), flush=True)
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--out', required=True)
     parser.add_argument('--only', nargs='*', default=[])
+    parser.add_argument('--seeds', nargs='*', type=int, default=[1, 2, 3, 4])
     parser.add_argument('--pack', action='store_true')
     parser.add_argument('--sheet')
     args = parser.parse_args()
@@ -167,17 +193,18 @@ def main():
     unknown = [name for name in args.only if name not in OVERLAYS]
     if unknown:
         raise SystemExit('no such picture: ' + ' '.join(unknown))
-    wanted = [name for name in OVERLAYS if (not args.only or name in args.only) and not (out / f'{name}.png').exists()]
+    wanted = [(name, seed) for name in OVERLAYS if not args.only or name in args.only for seed in args.seeds
+              if not (out / f'{name}-{seed}.png').exists()]
     if not wanted:
         print('nothing to make', flush=True)
         return
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / 'materials'))
     import generate as materials
     maker = materials.Maker()
-    words = maker.words({name: OVERLAYS[name] for name in wanted})
-    for name in wanted:
-        maker.make(words[name], SEED, 1024, False, 7.0).save(out / f'{name}.png')
-        print('made', name, flush=True)
+    words = maker.words({name: OVERLAYS[name] for name in dict.fromkeys(name for name, _ in wanted)})
+    for name, seed in wanted:
+        maker.make(words[name], seed, 1024, 1024, True).save(out / f'{name}-{seed}.png')
+        print('made', f'{name}-{seed}', flush=True)
 
 
 if __name__ == '__main__':
