@@ -172,7 +172,7 @@ final class FloorBuilder {
             build.geometry.kerbKeep = build.geometry.kerbStreet && !build.vergeOver ? SpriteGeometry.STREET : SpriteGeometry.LAND;
         }
         if (boards != null && build.geometry.kerb == null && Own.textures(build.playerIndex)) {
-            addBoards(WorldScene.solid.get(flat, WallSides.key(boards.red(), boards.green(), boards.blue(), WallSides.FLAT)), boards, x, y, z);
+            addBoards(flat, boards, x, y, z);
             build.frame.flat = 0;
             build.geometry.cover = null;
             return;
@@ -236,25 +236,21 @@ final class FloorBuilder {
             return false;
         }
         int count = carpet ? 1 : tiles.count;
-        int key = WallSides.key(tiles.red, tiles.green, tiles.blue, WallSides.FLAT);
-        WallSides.tint(key, tileTint);
-        SpriteGeometry.Mesh on = WorldScene.solid.get(texture.getID(), key);
         float made = build.frame.material, red = build.frame.red, green = build.frame.green, blue = build.frame.blue;
         build.frame.cornersInto(build.paperRed, build.paperGreen, build.paperBlue, build.paperUnlit);
         build.frame.material = carpet ? WorldScene.CARPET : WorldScene.TILE;
         float joint = count > 1 ? JOINT_HALF : 0f, each = 1f / count;
         if (count > 1) {
-            shade(red, green, blue, JOINT_DARK * tiles.jointRed / Math.max(tileTint[0], 0.02f), JOINT_DARK * tiles.jointGreen / Math.max(tileTint[1], 0.02f),
-                    JOINT_DARK * tiles.jointBlue / Math.max(tileTint[2], 0.02f));
+            SpriteGeometry.Mesh joints = painted(texture.getID(), red, green, blue, JOINT_DARK * tiles.jointRed, JOINT_DARK * tiles.jointGreen, JOINT_DARK * tiles.jointBlue);
             layFloor(true);
-            build.geometry.addFace(on, build.frame, x, y, z, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f, 0f);
+            build.geometry.addFace(joints, build.frame, x, y, z, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f, 0f);
         }
         layFloor(true);
         for (int i = 0; i < count; i++) {
             for (int j = 0; j < count; j++) {
                 int at = (i * count + j) * 3;
                 float r = carpet ? tiles.red : tiles.colours[at], g = carpet ? tiles.green : tiles.colours[at + 1], b = carpet ? tiles.blue : tiles.colours[at + 2];
-                shade(red, green, blue, r / Math.max(tileTint[0], 0.02f), g / Math.max(tileTint[1], 0.02f), b / Math.max(tileTint[2], 0.02f));
+                SpriteGeometry.Mesh on = painted(texture.getID(), red, green, blue, r, g, b);
                 build.geometry.addFace(on, build.frame, x, y, z, i * each + joint, j * each + joint, 0f, each - 2f * joint, 0f, 0f, 0f, each - 2f * joint, 0f);
             }
         }
@@ -272,12 +268,11 @@ final class FloorBuilder {
      * sprite, which the picture lays with boards as many to a tile as the sprite has and
      * running the way they run. The sprite's own joints are not drawn under them.
      */
-    private void addBoards(SpriteGeometry.Mesh on, Flats.Boards boards, int x, int y, int z) {
-        WallSides.tint(on.tint, tileTint);
+    private void addBoards(int flat, Flats.Boards boards, int x, int y, int z) {
         float made = build.frame.material, red = build.frame.red, green = build.frame.green, blue = build.frame.blue;
         build.frame.cornersInto(build.paperRed, build.paperGreen, build.paperBlue, build.paperUnlit);
         build.frame.material = WorldScene.boardsOf(boards.count(), boards.alongY());
-        shade(red, green, blue, boards.red() / Math.max(tileTint[0], 0.02f), boards.green() / Math.max(tileTint[1], 0.02f), boards.blue() / Math.max(tileTint[2], 0.02f));
+        SpriteGeometry.Mesh on = painted(flat, red, green, blue, boards.red(), boards.green(), boards.blue());
         layFloor(true);
         build.geometry.addFace(on, build.frame, x, y, z, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f, 0f);
         WorldScene.layers.none();
@@ -286,6 +281,21 @@ final class FloorBuilder {
         build.frame.green = green;
         build.frame.blue = blue;
         build.frame.cornersFrom(build.paperRed, build.paperGreen, build.paperBlue, build.paperUnlit);
+    }
+
+    /**
+     * The mesh of the texture with the given id painted in a colour, the frame lit as it was (red, green
+     * and blue, and the corners held in paperRed and its fellows) times as much lighter or darker as the
+     * colour is than the paint. The paint is the colour rounded to a few steps a part, and only a grey
+     * is left in the light: out of doors a light with more of one part than the open ground's has is
+     * read as a lamp's, and kept lit at night when the daylight is held back.
+     */
+    private SpriteGeometry.Mesh painted(int texture, float red, float green, float blue, float r, float g, float b) {
+        int key = WallSides.key(r, g, b, WallSides.FLAT);
+        WallSides.tint(key, tileTint);
+        float lighter = (r + g + b) / Math.max(tileTint[0] + tileTint[1] + tileTint[2], 0.06f);
+        shade(red, green, blue, lighter, lighter, lighter);
+        return WorldScene.solid.get(texture, key);
     }
 
     /** Lights the frame as it was lit, held in paperRed and its fellows, times a shade for each of red, green and blue. */
