@@ -2127,7 +2127,9 @@ public final class Characters {
         }
         for (int part = 0; part < parts(data).size(); part++) {
             ModelInstanceRenderData model = parts(data).get(part);
-            if (own && onHead(model.modelInstance)) {
+            // What hangs on the head, glasses, earrings, a hat, is left out only of the picture
+            // from inside that head. Seen from outside, or in a shadow, the viewer wears it.
+            if (CharacterDraw.fromTheEye && onHead(model.modelInstance)) {
                 continue;
             }
             if (held) {
