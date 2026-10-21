@@ -1,11 +1,11 @@
 version=1
 id=3823224669
 title=PZHT - First Person + Graphics & Gameplay Overhaul + Head Tracking
-description=A graphics and gameplay overhaul for Project Zomboid that adds a first person mode and OpenTrack compatible head tracking with microphone lip syncing for maximum immersion. Every piece optional.
+description=A graphics and gameplay overhaul for Project Zomboid that adds a first person mode and OpenTrack compatible head tracking with microphone lip syncing. Every component is optional.
 description=
-description=[b]This Workshop copy needs ZombieBuddy[/b], a separate mod by zed-0xff that loads Java mods into the game. It is not mine and I can't take responsibility for it: read its Workshop page before you install it. To play without it, use the installer from [url=https://github.com/itsloopyo/project-zomboid-headtracking/releases]GitHub releases[/url].
+description=[b]This Workshop copy needs ZombieBuddy[/b], a separate mod by zed-0xff that loads Java mods into the game. It is not mine and I can't take responsibility for it: read its Workshop page before you install it. To play PZHT without ZombieBuddy, follow the installation instructions in the [url=https://github.com/itsloopyo/project-zomboid-headtracking]source repository[/url].
 description=
-description=Questions and bugs: [url=https://discord.com/invite/dxyZdyFNT9]Discord[/url]. Free and open source (MIT) on [url=https://github.com/itsloopyo/project-zomboid-headtracking]GitHub[/url].
+description=Say hi on [url=https://discord.com/invite/dxyZdyFNT9]Discord[/url]. Free and open source (MIT) on [url=https://github.com/itsloopyo/project-zomboid-headtracking]GitHub[/url].
 description=
 description=[img]https://raw.githubusercontent.com/itsloopyo/project-zomboid-headtracking/main/workshop/gallery/snow-sunset.jpg[/img]
 description=
@@ -47,7 +47,7 @@ description=
 description=[h1]Play it your way[/h1]
 description=Head tracker, microphone, first person and new graphics are all optional.
 description=[list]
-description=[*] The game starts in its own isometric view, in Low by default. Set it to Medium or High in Options > Mods > Head Tracking for the mod's lighting, models and textures there too.
+description=[*] The game starts in its own isometric view, in Low graphics (vanilla) by default. Use F9 or set it to Medium or High in Options > Mods > Head Tracking to use the mod's lighting, models and textures in isometric view too.
 description=[*] Low keeps the game's own look in first person, apart from 3D furniture, windows and doors. Any of the mod's models, pictures and skins can be put back to the game's own on the same page.
 description=[*] First person plays with mouse and keyboard or a controller, no tracker needed.
 description=[*] Talking mouths is off until you tick it, and no microphone is opened until then. Sound is never recorded or sent: other players with this mod see only your head's turn and your mouth's shape.
