@@ -41,16 +41,17 @@ def art(name, prompt, negative, size):
 
 
 # Family photographs, as they hang in the houses of a small Kentucky town in 1993.
-SNAP = (' Shot on 35mm colour negative film in the 1980s, a slightly faded drugstore print with soft contrast, fine grain and'
-        ' natural colours, ordinary amateur framing.')
-STUDIO = (' A 1980s department store studio portrait, mottled blue grey backdrop, soft flash, a slightly faded colour print with'
-          ' fine grain.')
-OLD = ' A 1940s black and white studio portrait, a silver gelatin print with soft grey tones and slight fading at the edges.'
+SNAP = (' A snapshot on 35mm colour negative film from the 1980s, faded colours with soft contrast, fine grain and'
+        ' ordinary amateur composition. The picture fills the whole image edge to edge.')
+STUDIO = (' A 1980s department store studio portrait on colour film, mottled blue grey backdrop, soft flash, slightly'
+          ' faded colours, fine grain and natural skin with fine pores and small blemishes. The picture fills the'
+          ' whole image edge to edge.')
+OLD = (' A 1940s black and white studio portrait, soft grey tones, fine grain and slight fading. The picture fills the'
+       ' whole image edge to edge.')
 FAMILY = [
     ('Head and shoulders portrait of a smiling grandmother of about seventy with curly grey hair and large glasses, in a floral'
      ' blouse.' + STUDIO, TALL),
-    ('Three quarter length portrait of a young bride in a white lace wedding dress and veil, a small bouquet of white roses held'
-     ' in front of her waist in both hands.' + STUDIO, TALL),
+    ('Head and shoulders portrait of a young bride in a white lace wedding dress and veil.' + STUDIO, TALL),
     ('Head and shoulders portrait of a young woman of about twenty with big permed brown hair, in a denim jacket over a white'
      ' blouse.' + STUDIO, TALL),
     ('Portrait of an old farmer in a plaid shirt and a plain cap, his forearms resting on the top rail of a wooden fence, an'
@@ -58,23 +59,26 @@ FAMILY = [
     ('An elderly couple in their Sunday best standing side by side in front of a white clapboard church, seen from a few'
      ' metres away, her hand on his arm.' + SNAP, TALL),
     ('Head and shoulders portrait of a stern grandfather of about sixty in a dark suit and tie.' + OLD, TALL),
-    ('Head and shoulders portrait of a young soldier in a 1940s United States army dress uniform and cap.' + OLD, TALL),
+    ('Head and shoulders portrait of a young American soldier of the Second World War in an olive drab United States'
+     ' army service coat with brass buttons and a peaked service cap with a round brass eagle badge.' + OLD, TALL),
     ('A baby of about six months in a white christening gown sitting on a white blanket, smiling straight out of the'
      ' frame towards the viewer.' + STUDIO, TALL),
     ('School portrait of a ten year old boy with a bowl haircut and a striped shirt, a gap toothed smile.' + STUDIO, TALL),
     ('A family of four sitting a little apart on the wooden porch steps of a white farmhouse in summer, a father, a mother and'
      ' two children of about eight and ten, everyone smiling, hands resting on their knees, seen from a few metres away.' + SNAP, WIDE),
-    ('Head and shoulders portrait of a teenage girl in a plain blue and white high school cheerleader uniform with no'
-     ' lettering.' + STUDIO, TALL),
+    ('Head and shoulders portrait of an American teenage girl with feathered 1980s hair in a plain blue high school'
+     ' cheerleader sweater with a white stripe round its V neck over a white turtleneck.' + STUDIO, TALL),
     ('Head and shoulders portrait of a middle aged man with a moustache in a brown suit and a wide tie.' + STUDIO, TALL),
     ('A young mother sitting on a chair with a toddler of about two sitting on her lap, both smiling, her arms around the'
      ' child.' + STUDIO, TALL),
     ('A little girl of about six in a yellow dress sitting on the grass in a garden beside a sleeping tabby cat.' + SNAP, TALL),
     ('A wedding couple standing side by side under an oak tree, the groom in a grey tuxedo and the bride in white, seen from'
      ' a few metres away.' + SNAP, TALL),
-    ('Three generations of a family, grandparents, parents and two children, sitting together on a sofa in a wood panelled'
-     ' living room at Christmas, a decorated tree beside them, seen from across the room.' + SNAP, WIDE),
-    ('Head and shoulders portrait of a young woman in a green graduation cap and gown.' + STUDIO, TALL),
+    ('A family at Christmas sitting together on a sofa in a wood panelled living room, a grandmother with grey hair, a'
+     ' father with a moustache, a mother with permed hair and a small boy, a decorated tree beside them, seen from'
+     ' across the room.' + SNAP, WIDE),
+    ('Head and shoulders portrait of a young woman with permed hair and an everyday freckled face in a matte green'
+     ' graduation gown and mortarboard cap.' + STUDIO, TALL),
     ('Head and shoulders portrait of a grey haired man in a navy blazer and tie with a kindly smile.' + STUDIO, TALL),
     ('A golden retriever sitting on a lawn in front of a brick house on a summer afternoon.' + SNAP, TALL),
     ('A teenage boy in a plain grey hooded sweatshirt sits on the bottom row of empty wooden bleachers beside a high'
@@ -96,11 +100,12 @@ for _block in range(3):
         HUNG.append(('walls_decoration_02_%d' % (_block * 16 + 8 + _i), 'family-%02d' % (_block * 8 + _i)))
 
 # Sports posters of a teenager's bedroom, a bar and a gym. No lettering: a poster's kit is plain and unbranded.
-ACTION = (' An early 1990s press photograph taken with a long lens, the picture filling the whole frame edge to edge,'
+ACTION = (' An early 1990s press photograph taken with a long lens, the picture filling the whole image edge to edge,'
           ' a fine halftone texture and slightly muted colours.')
-STILL = (' An early 1990s plain still life photograph, the picture filling the whole frame edge to edge, a fine'
+STILL = (' An early 1990s plain still life photograph, the picture filling the whole image edge to edge, a fine'
          ' halftone texture and slightly muted colours.')
-WILD = ' A 1990s outdoor magazine wildlife photograph on slide film, natural colours, fine grain.'
+WILD = (' A 1990s outdoor magazine wildlife photograph on colour film, natural colours, fine grain. The picture fills'
+        ' the whole image edge to edge.')
 SPORTS = {
     'basketball': [
         'Seen from high up at the far end of a dim gym, one basketball player in a plain blue jersey and long shorts'
@@ -262,10 +267,13 @@ SPORTS = {
         'A hunter in a plaid jacket and a plain blaze orange cap sits on a fallen log at the edge of autumn woods at'
         ' dawn, seen from far off, his rifle leaning against the log beside him.' + WILD,
         'A mallard duck taking off from a misty marsh at sunrise.' + WILD,
-        'A brown whitetail doe and her spotted fawn standing a little apart in tall green grass at the edge of a forest.' + WILD,
+        'A grown doe with a smooth plain tan brown coat and, a little apart from her, a small spotted fawn, standing'
+        ' in tall green grass at the edge of a forest.' + WILD,
         'The black silhouette of a stag with antlers on a ridge against an orange sunset sky.' + WILD,
-        'A pointer hunting dog standing rigid in a field of dry grass, nose forward.' + WILD,
-        'A bull elk calling in a mountain valley in autumn.' + WILD,
+        'A pointer hunting dog seen side on, frozen rigid on point in a field of dry grass, its nose stretched'
+        ' forward, one front paw lifted and its tail held out straight behind it.' + WILD,
+        'A bull elk with one large pair of branching antlers standing side on in a mountain meadow in autumn, its head'
+        ' held high.' + WILD,
     ],
 }
 for _sport, _prompts in SPORTS.items():
@@ -298,8 +306,8 @@ pooled('walls_decoration_05', 176, 199, 'hunting')
 
 # Paintings, by the name the game gives each. Where the name points at a famous canvas the prompt describes that subject
 # in words, and the model paints it afresh: no picture of any canvas is given to it.
-OIL = ('. An oil painting on canvas with visible brushstrokes and slightly yellowed varnish, unsigned, the whole canvas'
-       ' photographed straight on and filling the frame.')
+OIL = ('. An oil painting with visible brushstrokes and slightly yellowed varnish, unsigned, the painted surface'
+       ' filling the whole image edge to edge.')
 PAINTINGS = {
     "Lilly's Waterpond": ('impressionist painting of water lilies floating on a pond, reflections of willows, soft blues, greens and violets' + OIL, WIDE),
     "She's Got It": ('classical painting of a woman in a white gown reclining on a red velvet chaise longue, dark drapery behind' + OIL, BROAD),
@@ -309,24 +317,24 @@ PAINTINGS = {
     'Benjamin Franklin': ('formal 18th century portrait of Benjamin Franklin in a brown coat, long grey hair, dark background' + OIL, TALL),
     'Betty': ('1950s painted portrait of a smiling blonde woman with curled hair in a high necked blue cardigan, head and shoulders, warm brown background' + OIL, TALL),
     'Calvinist': ('17th century Dutch portrait of a stern old man in a black hat and a wide white ruff collar, dark background, chiaroscuro' + OIL, TALL),
-    'Chromatic Accident': ('an abstract expressionist drip painting, dense tangled splatters and drips of black, rust orange, white and grey on a cream canvas' + '. The whole canvas photographed straight on and filling the frame, unsigned.', LONGER),
-    'Configuration II': ('a geometric abstract painting in the De Stijl manner: a few straight thick black lines dividing a white canvas into a handful of large clean flat areas, rectangles of pure red, blue and yellow, crisp hard edges, flat even paint' + '. The whole canvas photographed straight on and filling the frame, unsigned.', SQUARE),
-    'Configuration No. 10': ('a geometric abstract painting in the De Stijl manner: a few straight thick black lines dividing a white canvas into a handful of large clean flat areas, a large blue rectangle and small red and yellow rectangles, crisp hard edges, flat even paint' + '. The whole canvas photographed straight on and filling the frame, unsigned.', SQUARE),
-    'Layout I': ('a geometric abstract painting in the De Stijl manner: a few straight thick black lines dividing a white canvas into a handful of large clean flat areas, a large red square and small blue and yellow rectangles, crisp hard edges, flat even paint' + '. The whole canvas photographed straight on and filling the frame, unsigned.', SQUARE),
+    'Chromatic Accident': ('an abstract expressionist drip painting, dense tangled splatters and drips of black, rust orange, white and grey on a cream canvas' + '. Unsigned, the painted surface filling the whole image edge to edge.', LONGER),
+    'Configuration II': ('a geometric abstract painting in the De Stijl manner: a few straight thick black lines dividing a white canvas into a handful of large clean flat areas, rectangles of pure red, blue and yellow, crisp hard edges, flat even paint' + '. Unsigned, the painted surface filling the whole image edge to edge.', SQUARE),
+    'Configuration No. 10': ('a geometric abstract painting in the De Stijl manner: a few straight thick black lines running right across a white ground, dividing it into a grid of rectangles; one large rectangle between the lines painted solid blue and two small ones solid red and yellow, each colour filling its rectangle exactly up to the black lines, the rest white, flat even paint' + '. Unsigned, the painted surface filling the whole image edge to edge.', SQUARE),
+    'Layout I': ('a geometric abstract painting in the De Stijl manner: a few straight thick black lines dividing a white canvas into a handful of large clean flat areas, a large red square and small blue and yellow rectangles, crisp hard edges, flat even paint' + '. Unsigned, the painted surface filling the whole image edge to edge.', SQUARE),
     'Desert Landscape': ('painting of a desert landscape, red sandstone mesas and sagebrush under a huge pale sky at dusk' + OIL, BROAD),
     'Flowers On Table': ('still life painting of a vase of mixed flowers on a table with a white cloth, dark background, Dutch golden age' + OIL, TALL),
-    'George Washington': ('formal 18th century portrait of George Washington in a black velvet suit, white powdered hair, red curtain behind' + OIL, TALL),
+    'George Washington': ('formal portrait of George Washington as an older man in his sixties, his long face, heavy jaw and firm closed mouth, grey powdered hair tied back, in a black velvet suit, a red curtain behind, in the manner of Gilbert Stuart' + OIL, TALL),
     'Helianthus': ('post-impressionist still life painting of sunflowers in a clay vase against a yellow wall, thick impasto' + OIL, TALL),
     'Incognito Library': ('painting of the interior of an old library, tall shelves of leather books, a fireplace, an armchair and a brass lamp, warm brown tones' + OIL, WIDE),
     'Island Beach': ('seascape painting of waves breaking on dark rocks off an island shore, turquoise sea, cloudy sky' + OIL, LONGER),
     'John Adams': ('formal 18th century portrait of John Adams in a dark coat and white cravat, grey hair, dark background' + OIL, TALL),
     'Lakeside': ('painting of a still woodland lake, green trees and their reflections, purple wildflowers on the bank, dappled light' + OIL, LONGER),
     'Lighthouse': ('painting of a white lighthouse with a red roof on a rocky headland, blue sea and sky, a wooden walkway leading to it' + OIL, TALL),
-    'Man With One Ear': ('post-impressionist self portrait of a red bearded man in a fur cap and green coat with a white bandage over his ear, swirling brushstrokes' + OIL, TALL),
-    'Margarite': ('17th century Dutch portrait of a girl in a blue and yellow turban glancing over her shoulder, a pearl earring, black background' + OIL, TALL),
+    'Man With One Ear': ('post-impressionist self portrait of a red bearded man in a fur cap and green coat, a thick white cloth bandage wrapped round his head over one ear and tied under his chin, swirling brushstrokes' + OIL, TALL),
+    'Margarite': ('17th century Dutch portrait of a girl in a blue and yellow turban glancing over her shoulder, a pearl earring, her plain ochre jacket smooth and unmarked, black background' + OIL, TALL),
     'Monica Elisa': ('an ink and watercolour portrait of a woman with long black hair in a red and orange patterned robe, head and shoulders, white paper background, unsigned', TALL),
     'Mount Never Rest': ('romantic landscape painting of a towering snow capped mountain above a lake and pine forest, golden light breaking through clouds' + OIL, LONGER),
-    'Night With Stars': ('post-impressionist painting of a swirling starry night sky over a sleeping village with a church spire and a dark cypress, thick impasto' + OIL, BROAD),
+    'Night With Stars': ('post-impressionist painting of a swirling starry night sky with a crescent moon over a small sleeping village of many little houses with lit windows clustered below hills, a church spire rising among them, a tall dark cypress in the foreground, thick impasto' + OIL, BROAD),
     'Nomad Above The Gloom': ('romantic painting of a lone man in a dark frock coat seen from behind, standing on a rocky peak above a sea of fog and distant mountains' + OIL, SQUARE),
     'Omega Department': ('a 1970s children\'s storybook illustration in gouache of a friendly brown bear and a badger standing side by side a little apart, pale yellow background, printed on paper, unsigned', TALL),
     'Riverside': ('impressionist painting of a river bank in spring, poplars and their reflections, pink and lilac sky' + OIL, WIDE),
@@ -335,7 +343,7 @@ PAINTINGS = {
     'Violetta': ('impressionist painting of a woman with a parasol in a garden of pink roses, green lawn, sunlight' + OIL, WIDE),
     'Waterbeach Hills': ('landscape painting of rolling green hills and meadows under a blue sky with white clouds' + OIL, WIDE),
     'Waterfall': ('landscape painting of a waterfall dropping through autumn woods into a rocky pool' + OIL, WIDE),
-    'Wide': ('classical landscape painting of a river valley with ancient trees, cattle at a ford and distant blue hills, golden evening light' + OIL, STOUT),
+    'Wide': ('classical landscape painting of a river valley with ancient trees, a shallow ford with a small wooden boat drawn up on the bank, and distant blue hills, golden evening light' + OIL, STOUT),
     'Dr. Oids': ('a framed 1980s arcade video game screen, chunky pixel art of a round yellow creature with an open mouth being chased along a corridor of a green neon maze by a pink pixel ghost, rows of small white dots in the corridors, black background, no lettering', TALL),
 }
 for _name, (_prompt, _size) in PAINTINGS.items():
@@ -348,9 +356,9 @@ for _name, _shape in (("Lilly's Waterpond", 1.5), ("She's Got It", 2.05), ('Chro
                       ('Lakeside', 2.4), ('Mount Never Rest', 2.9), ('Night With Stars', 1.8), ('Nomad Above The Gloom', 1.0), ('Wide', 1.2)):
     SHAPED['painting-' + ''.join(c for c in _name.lower().replace(' ', '-') if c.isalnum() or c == '-').strip('-')] = _shape
 
-art('painting-field-pink', 'a colour field abstract painting, two large soft edged hazy rectangles, magenta above warm yellow, on an orange ground, matte paint on canvas' + '. The whole canvas photographed straight on and filling the frame, unsigned.',
+art('painting-field-pink', 'a colour field abstract painting, two large soft edged hazy rectangles, magenta above warm yellow, on an orange ground, matte paint on canvas' + '. Unsigned, the painted surface filling the whole image edge to edge.',
     NO_TEXT + ', wall, room, objects', TALL)
-art('painting-field-purple', 'a colour field abstract painting, two large soft edged hazy rectangles, deep violet above midnight blue, on a dark plum ground, matte paint on canvas' + '. The whole canvas photographed straight on and filling the frame, unsigned.',
+art('painting-field-purple', 'a colour field abstract painting, two large soft edged hazy rectangles, deep violet above midnight blue, on a dark plum ground, matte paint on canvas' + '. Unsigned, the painted surface filling the whole image edge to edge.',
     NO_TEXT + ', wall, room, objects', TALL)
 HUNG.append(('Paintings|Pink and Yelllow', 'painting-field-pink'))
 HUNG.append(('Paintings|Purple and Blue', 'painting-field-purple'))
@@ -366,8 +374,8 @@ art('board-cork', 'A cork notice board seen straight on and filling the whole fr
                   'that the writing is only faint grey marks. A plain photograph in even office light.', '', WIDE)
 art('board-white', 'A white dry erase board seen straight on and filling the whole frame, faint grey smudges of old marker, a hand'
     ' drawn bar chart and a few arrows in blue and red marker and no words. A plain photograph in even office light.', '', BROAD)
-art('board-darts', 'An open dark wooden dartboard cabinet seen straight on, a round bristle dartboard in the middle with three darts in'
-    ' it, two small blank black chalkboards inside the open doors. A plain photograph in even light.', '', BROAD)
+art('board-darts', 'A closed dark wooden dartboard cabinet seen straight on, its two plain panelled doors shut, small'
+                   ' brass hinges and a little brass catch. A plain photograph in even light.', '', BROAD)
 for _group in ('Big Cork', 'Cork'):
     HUNG.append(('Noteboard|' + _group, 'board-cork'))
 for _group in ('Office', 'Wide Office'):
@@ -474,9 +482,9 @@ for _side in (0, 8):
 
 # The posters of the films showing in 1993, as the game names them. Square art again, cut tall for a one sheet and broad
 # for a hoarding, with the film's name lettered on.
-FILM = (' The subject stands high in the picture with every face in the upper half of the frame, and the dark backdrop'
+FILM = (' The subject stands high in the picture with every face in the upper half of the image, and the dark backdrop'
         ' carries on below it to the bottom edge. A 1993 studio photograph for a movie, the picture filling the whole'
-        ' frame edge to edge, a fine halftone texture and slightly muted colours.')
+        ' image edge to edge, a fine halftone texture and slightly muted colours.')
 FILMS = {
     'Cyberkiller': ('Cyberkiller', 'Head and shoulders of a grim square jawed soldier in black body armour, a riveted'
                                    ' steel plate over the left half of his face with a round glowing blue glass eye'
@@ -487,15 +495,17 @@ FILMS = {
                       'CYBERKILLER 2', 'IN THEATERS NOW'),
     'Operation Fort Knox': ('Operation Fort Knox', 'A blond secret agent in a black tuxedo, head and shoulders, stacks of gold bars'
                             ' glowing behind him, golden light.' + FILM, 'OPERATION FORT KNOX', 'IN THEATERS NOW'),
-    'PAWS': ('PAWS', 'A raccoon, a brown bear cub and a badger walking a little apart along a path in a sunny green forest, a 1993'
-             ' hand painted animated film poster in gouache with soft colours, printed on paper with a fine halftone texture.',
+    'PAWS': ('PAWS', 'A raccoon, a brown bear cub and a badger walking a little apart along a path in a sunny green'
+                     ' forest, the animals in the upper half, a hand painted gouache illustration for a 1993 animated'
+                     ' film with soft colours, the forest running off all four edges of the image.',
              'PAWS', 'IN THEATERS NOW'),
     'Dog Goblin 4': ('Dog Goblin 4', 'A huge cracked stone skull half buried in a misty moonlit wood, bare trees, black and steel'
                      ' blue.' + FILM, 'DOG GOBLIN 4', 'IN THEATERS NOW'),
     'Pleistocene Land': ('Pleistocene Land', 'A woolly mammoth with great curved tusks walking through a snowy pine forest in a'
                          ' blizzard, pale winter light.' + FILM, 'PLEISTOCENE LAND', 'IN THEATERS NOW'),
-    'Dr Oids': ('Dr Oids', 'Chunky 1980s arcade pixel art of a round yellow creature with an open mouth and a pink pixel ghost in a'
-                ' green neon maze on black, printed on a poster.', 'DR. OIDS', 'NOW SHOWING'),
+    'Dr Oids': ('Dr Oids', 'Chunky 1980s arcade pixel art of a round yellow creature with an open mouth and a pink'
+                           ' pixel ghost in a green neon maze on black, the creature and the ghost in the upper half,'
+                           ' the black maze running off all four edges of the image.', 'DR. OIDS', 'NOW SHOWING'),
     'The Forgotten Element': ('The Forgotten Element', 'A rugged man in a fedora and leather jacket standing beside a dark haired'
                               ' woman in a khaki shirt, a little apart, a propeller plane in a golden sunset sky behind them.' + FILM,
                               'THE FORGOTTEN ELEMENT', 'COMING SOON'),
@@ -518,8 +528,8 @@ LONG.add('Banner|Movie')
 # What a television that is on shows: stills of the programmes of 1993, four wide for three high as a tube is. They hang
 # nowhere, so no sprite is their key: SCREENS is their names in the order the mod numbers them, and pack.py makes each
 # again in black and white for a set with no colour, and draws the bars a set shows with nothing coming in.
-ON_AIR = (' A still frame from a 1993 American television broadcast recorded off air onto VHS, soft analog video with slight'
-          ' colour bleed and muted colours.')
+ON_AIR = (' A still image from a 1993 American television broadcast recorded off air onto VHS, soft analog video with'
+          ' slight colour bleed and muted colours. The picture fills the whole image edge to edge.')
 PROGRAMMES = [
     'A male news anchor in a grey suit and red tie sitting at a news desk in front of a plain blue studio backdrop,'
     ' looking straight out of the frame towards the viewer.' + ON_AIR,
@@ -533,14 +543,14 @@ PROGRAMMES = [
     ' show.' + ON_AIR,
     'A baseball pitcher in a plain white uniform throwing from the mound, green outfield grass behind, a televised baseball'
     ' game seen from behind the plate.' + ON_AIR,
-    'A woman with big blonde hair in a blue evening dress and a man in a tuxedo facing each other across an opulent living room,'
-    ' a daytime soap opera.' + ON_AIR,
+    'A woman with big blonde hair in a long sleeved, high necked blue evening gown and a man in a tuxedo facing each'
+    ' other a little apart across an opulent living room, a daytime soap opera.' + ON_AIR,
     'A small blue robot and a green frog building a cardboard rocket in a garage, a 1980s Saturday morning cartoon in hand'
     ' painted cel animation with flat colours, recorded off air onto VHS.',
     'A brown whitetail deer with a reddish brown summer coat standing in a misty forest clearing at dawn, a nature documentary.' + ON_AIR,
     'A dated 1980s game show stage with three wooden contestant podiums painted orange and brown, rows of round light'
     ' bulbs framing the set, a host in a sparkly blue jacket standing at one side.' + ON_AIR,
-    'A cowboy on horseback riding through a desert canyon, a classic western film shown on television.' + ON_AIR,
+    'A cowboy on horseback riding through a desert canyon in a classic western film.' + ON_AIR,
     'An aerobics class of about a dozen people in loose t-shirts and track pants seen from the back of a bright studio, a 1980s'
     ' exercise show.' + ON_AIR,
 ]
