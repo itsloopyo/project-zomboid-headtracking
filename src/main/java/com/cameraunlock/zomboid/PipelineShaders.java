@@ -3513,6 +3513,11 @@ final class PipelineShaders {
                 const vec3 LAMP_WARM = vec3(1.0, 0.42, 0.12);
                 vec3 share = given / max(uOpenLinear, vec3(0.0001));
                 vec3 daylight = uOpenLinear * min(min(share.r, min(share.g, share.b)), 2.0);
+                // The open ground's light is read from the squares in bands of 1/64 on the screen (OpenLight.BANDS),
+                // and squares no lamp is near differ by a step or two of the game's 1/255 inside that. Up to a band
+                // over it is still the daylight: taken for a lamp, it was kept whole as the daylight was held back,
+                // and every wall and street had a warm sheen at dusk.
+                daylight = min(given, pow(pow(daylight, vec3(1.0 / 2.2)) + 1.0 / 64.0, vec3(2.2)));
                 vec3 over = given - daylight;
                 // A part the lamp shows in is the lamp's whole, so its strength is what it has over the
                 // daylight and the daylight under it, the latter coming in over the pool's edge: taken
