@@ -3878,8 +3878,10 @@ final class PipelineShaders {
                     color += vec3(1.0, 0.72, 0.4) * (0.6 * glow * soiled / veil);
                 }
                 // Towards a low sun the air itself is lit: what stands far off in that quarter
-                // is veiled in gold, and the nearer for the lower the sun is.
-                vec3 air = atmosphere(-view);
+                // is veiled in gold, and the nearer for the lower the sun is. The air is lit by the
+                // sun and does not show its disc: with it, a wall in its own shadow between the eye
+                // and a setting sun had the sun painted on it.
+                vec3 air = skyAround(-view, 0.0);
                 color = mix(color, air, distanceHaze(-view, range) * mix(uEyeOutdoors, 1.0, clamp(open, 0.0, 1.0)));
                 // The world ends by fading into what stands behind it, which is the hills and
                 // not bare air: faded to air, its last tiles show as dashes against them.
@@ -4975,11 +4977,12 @@ final class PipelineShaders {
                     }
                 }
                 float mu = max(dot(ray / along, uLight), 0.0);
-                // Mist sends most of what it catches on the way the light was going.
-                // A low sun shines through far more air than a high one, and the air towards
-                // it glows broadly, with a hot heart.
+                // Mist sends most of what it catches on the way the light was going, with a hot heart.
+                // How the air towards a low sun glows over the miles of it is the sky's (skyAround):
+                // made more of here as well, the few tiles of air in front of a tree or a fence with
+                // the sun behind it were lit nearly as bright as that sky, and veiled them white.
                 float low = 1.0 - smoothstep(0.1, 0.75, uLight.z);
-                float towards = 0.3 * (1.0 - 0.6 * low) + (1.2 + 1.4 * low) * pow(mu, 2.5) + (2.4 + 3.0 * low) * pow(mu, 9.0);
+                float towards = 0.3 * (1.0 - 0.6 * low) + 1.2 * pow(mu, 2.5) + 2.4 * pow(mu, 9.0);
                 // Lit air is paler than the light that lights it: it is seen against the sky's
                 // own blue, and a sunset's air is gold and rose, not the red of the sun's disc.
                 vec3 glow = pow(uLightColor, vec3(2.2));
@@ -6495,7 +6498,7 @@ final class PipelineShaders {
                 }
                 float ends = uBeyond > 0.5 ? 0.0 : max(smoothstep(uFogStart, uFogEnd, range), smoothstep(uLoaded.z - (uFogEnd - uFogStart), uLoaded.z, length(ray.xy * ahead - uLoaded.xy)));
                 float haze = max(ends, distanceHaze(normalize(ray), range) * mix(uEyeOutdoors, 1.0, outdoors));
-                color = mix(color, atmosphere(normalize(ray)), haze);
+                color = mix(color, skyAround(normalize(ray), 0.0), haze);
                 if (uVeil.x > 0.0) {
                     color = mix(color, veilColor(normalize(ray)), max(veiling(range), ends * skyVeiling(normalize(ray))));
                 }
@@ -7319,12 +7322,12 @@ final class PipelineShaders {
                     color = mix(color, ridges(mirrored, atmosphere(mirrored)), glance * water);
                 }
 
-                vec3 air = atmosphere(-view);
+                vec3 air = skyAround(-view, 0.0);
                 color = mix(color, air, distanceHaze(-view, away));
                 // The far land ends too, in what the sky's own shader draws where nothing is: the hills, and under the skyline the air.
                 float ends = smoothstep(uReach * 0.85, uReach, length(toEye.xy));
                 if (ends > 0.0) {
-                    vec3 behind = mix(ridges(-view, air), atmosphere(vec3(-view.xy, 0.0)), 1.0 - smoothstep(-0.04, 0.0, -view.z));
+                    vec3 behind = mix(ridges(-view, atmosphere(-view)), atmosphere(vec3(-view.xy, 0.0)), 1.0 - smoothstep(-0.04, 0.0, -view.z));
                     color = mix(color, behind, ends);
                 }
                 if (uVeil.x > 0.0) {
