@@ -123,8 +123,9 @@ SPORTS = {
     'boxing': [
         'A heavyweight boxer in plain red gloves and black trunks throwing a straight punch alone in the ring under bright'
         ' lights, the dark arena behind.' + ACTION,
-        'Two boxers in a ring under bright lights, one in red trunks and one in blue, squared up a metre apart, seen from'
-        ' outside the ropes.' + ACTION,
+        'Two boxers squared up a metre apart in a ring, one in red trunks and one in blue, seen from far back in the '
+        'dark arena so they are small figures under the bright ring lights, the empty white canvas around them and the '
+        'dark empty seats beyond, the photograph filling the whole poster edge to edge.' + ACTION,
         'A boxer in white trunks standing in his corner with his plain gloves raised, a single spotlight from above, the arena'
         ' dark.' + ACTION,
         'A pair of worn plain red leather boxing gloves with no markings hanging by their laces from a nail on a wooden wall.' + STILL,
@@ -164,8 +165,9 @@ SPORTS = {
     'soccer': [
         'A soccer player in a solid red shirt and shorts with no badge, logo or number and plain black boots striking the ball'
         ' on an empty training pitch, trees behind, seen from the side.' + ACTION,
-        'A soccer goalkeeper in a plain green jersey diving at full stretch, the ball just past his gloves, seen from behind'
-        ' the goal net.' + ACTION,
+        'Looking out from the back of a goal through its white netting, a goalkeeper in a plain green jersey and plain '
+        'black shorts dives at full stretch toward the corner as the ball flies past his outstretched arms into the net'
+        ' beside him, the green pitch and a dark blurred stand beyond.' + ACTION,
         'A small town soccer game seen from far up a grassy bank, the players small figures in blue and white stripes '
         'and in red spread across the pitch, trees behind.' + ACTION,
         'A black and white leather soccer ball on the penalty spot of a grass pitch, the goal behind.' + STILL,
@@ -225,7 +227,8 @@ SPORTS = {
     'pool': [
         'A man in a waistcoat leaning over a green pool table lining up a shot with his cue, a hanging lamp above, a dim bar'
         ' behind.' + ACTION,
-        'A triangle of fifteen coloured pool balls racked on green felt, a cue lying beside them.' + STILL,
+        'A green pool table under a low hanging lamp seen from a few paces back, a loose scatter of solid coloured '
+        'balls small and far apart on the felt, and one long wooden cue lying along the near cushion.' + STILL,
         'A black eight ball on the green felt of a pool table beside a corner pocket.' + STILL,
         'A cue ball breaking a rack of coloured pool balls on green felt, balls scattering, seen from table level.' + ACTION,
         'A pool table under a hanging lamp in an empty dim bar, balls scattered on the felt, a cue leaning on the table.' + STILL,
@@ -341,9 +344,11 @@ HUNG.append(('location_entertainment_gallery_01_72', 'painting-sitter'))
 HUNG.append(('location_entertainment_gallery_01_73', 'painting-sitter'))
 
 # Boards.
-art('board-cork', 'A cork notice board seen straight on and filling the whole frame, covered in pinned paper notes, index cards, a'
-    ' calendar page and two photographs, coloured push pins, the writing on the papers too small and faint to read. A plain'
-    ' photograph in even office light.', '', WIDE)
+art('board-cork', 'A cork notice board seen straight on and filling the whole frame, untidily covered in pinned papers '
+                  'of many sizes and colours overlapping at odd angles: torn sheets of lined paper with faint pencil '
+                  'scribble, a yellowed typed letter, a folded pink flyer, a curled faded snapshot of a lake and '
+                  'another of an old pickup truck, coloured push pins here and there, all seen from far enough back '
+                  'that the writing is only faint grey marks. A plain photograph in even office light.', '', WIDE)
 art('board-white', 'A white dry erase board seen straight on and filling the whole frame, faint grey smudges of old marker, a hand'
     ' drawn bar chart and a few arrows in blue and red marker and no words. A plain photograph in even office light.', '', BROAD)
 art('board-darts', 'An open dark wooden dartboard cabinet seen straight on, a round bristle dartboard in the middle with three darts in'
@@ -404,8 +409,10 @@ MUSIC = [
     ' shoulder against an orange desert sunset.' + GIG,
     'A pop singer with wavy shoulder length blond hair in a black leather jacket and white t-shirt, head and shoulders, against a'
     ' deep blue background.' + GIG,
-    'Three young men in white suits and blue caps standing side by side a little apart, a 1990s rhythm and blues vocal group,'
-    ' cream background.' + GIG,
+    'Three young men in white suits and blue caps, a 1990s rhythm and blues vocal group, seen full length from a few'
+    ' paces back, each man standing on his own with an arm\'s length of space between him and the next, small enough'
+    ' in the frame that their caps stay below the top third, a plain dark navy studio backdrop behind and above'
+    ' them.' + GIG,
     'One red haired woman singer alone, in a long white dress with long sleeves and a high neck, head and shoulders, cream and rose'
     ' background, a 1970s folk album cover.' + GIG,
     'An elderly crooner in a black tuxedo and bow tie standing beside a vintage silver microphone on a stand, black background,'
@@ -487,8 +494,9 @@ ON_AIR = (' A still frame from a 1993 American television broadcast recorded off
 PROGRAMMES = [
     'A male news anchor in a grey suit and red tie sitting at a news desk in front of a plain blue studio backdrop, looking into'
     ' the camera.' + ON_AIR,
-    'A weather forecaster in a brown suit standing beside a weather map of the United States with simple sun and cloud symbols'
-    ' and no words.' + ON_AIR,
+    'A weather forecaster in a brown suit standing beside a large weather map of the United States, plain green land'
+    ' and blue sea with a few big yellow suns and grey clouds drawn on it, the map clean and simple from edge to'
+    ' edge.' + ON_AIR,
     'A cheerful woman in an apron standing at a stove in a television studio kitchen set, a pot on the stove, a cooking show.' + ON_AIR,
     'A bearded man in a plaid shirt and safety glasses standing at a workbench in a woodwork shop beside a half finished wooden'
     ' chair, a woodworking show.' + ON_AIR,

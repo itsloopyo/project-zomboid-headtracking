@@ -97,8 +97,8 @@ show('unrest', FIELD,
      ' placards, plain unlettered card with nothing on it.',
      'A column of olive green canvas backed army cargo trucks of the 1980s drives down a city avenue between tall buildings, a'
      ' few people watching from the sidewalk.',
-     'A looted store front with its window smashed and broken glass across the sidewalk at dawn, the sign above it plain and'
-     ' unlettered.',
+     'A smashed shop window seen close from the sidewalk at dawn, jagged broken glass in its frame and shards across '
+     'the pavement, an emptied display behind it, the street around it empty of people.',
      'A city seen from high above at night, looking down, several fires burning between the dark buildings and smoke rising.',
      'A short line of shoppers with empty shopping carts waits outside a small town supermarket, the shelves seen through its'
      ' windows bare.')
@@ -129,8 +129,9 @@ show('talk', VIDEO,
 show('local-field', FIELD,
      'A male reporter in a windbreaker stands with a hand microphone at a line of plain yellow police tape with no printing'
      ' across a rural road, plain white patrol cars with no markings parked side on behind him.',
-     'A white television news van with its tall mast raised is parked on a grass verge beside a highway, its side plain and'
-     ' unlettered.',
+     'A white television news van is parked on a grass verge beside a highway, a tall thin straight pole rising from '
+     'its roof straight up into the sky like a flagpole with a small round dish at the very top, its side plain and '
+     'unlettered.',
      'A dark country road at night seen through a car windshield, the headlights picking out abandoned cars left at angles'
      ' along the verge.',
      'Small figures run across a field at dusk, seen from far off through a shaky camera.',
@@ -157,7 +158,8 @@ show('woodwork', VIDEO,
      'A bearded man in a plaid shirt and safety glasses saws a pine plank laid across two sawhorses in a home workshop, a hand'
      ' saw in his right hand.',
      'A claw hammer and a few nails lie on pine boards on a workbench, one nail half driven into the wood, seen close up.',
-     'A bearded man in a plaid shirt stands proudly beside a finished wooden bookcase in a home workshop.',
+     'In a home workshop with a wooden workbench, hand tools hanging on a pegboard wall and sawdust on the floor, a '
+     'bearded man in a plaid shirt stands proudly beside a finished wooden bookcase.',
      'A pegboard over a workbench with a few ordinary hand tools hung well apart on it: a claw hammer, a hand saw, a pair of'
      ' pliers and a screwdriver.',
      'A wooden hand plane sits on a pine board on a workbench, a long curl of pale wood shaving lying beside it.',
@@ -223,7 +225,9 @@ show('barrister', DRAMA,
      ' courtroom, seen from the front looking down.',
      'An elderly man in a waistcoat sits at a desk by lamplight, writing in a diary.',
      'A nervous man in a grey suit stands in the dock of an English courtroom.',
-     'A London street in the rain with a black taxi passing and a man under an umbrella on the pavement.')
+     'A wet London street at night in the rain seen from across the road, one man in a dark overcoat under a black'
+     ' umbrella walking past red brick terraced houses with black iron railings, puddles shining under the street'
+     ' lamps.')
 show('soap', VIDEO,
      'A woman with big blonde hair in a high necked evening dress and a man in a tuxedo argue in an opulent living room in a'
      ' daytime soap opera.',
@@ -234,7 +238,8 @@ show('soap', VIDEO,
      'A woman in a red dress slaps a man across the face at the foot of a mansion staircase, his head turned by the blow, in a'
      ' daytime soap opera.')
 show('quiz', VIDEO,
-     'A game show host in a sparkly blue jacket holds a microphone on a brightly lit stage with coloured lights.',
+     'A middle aged American game show host with a moustache and a grey side parting, in a sparkly blue jacket, holds a'
+     ' long thin microphone on a dated 1980s set of orange and brown panels ringed with rows of round light bulbs.',
      'Three game show contestants stand a little apart behind podiums with buzzers, the podium fronts plain and unlettered.',
      'A game show contestant jumps for joy under falling confetti.',
      'A new car on a turning stage under coloured lights as a game show prize.',
@@ -263,12 +268,15 @@ show('puppets', VIDEO,
 show('bunnies', ' A frame from a 1980s cartoon for very small children, cel animation painted by hand in soft pastel colours with'
                 ' round simple shapes, thick outlines and visible paint texture.',
      'Three round pastel cartoon bunnies sit side by side in a meadow of flowers under a rainbow.',
-     'Two round pastel cartoon bunnies build a tower of toy blocks.',
+     'Two round pastel cartoon bunnies build a tower of wooden toy blocks on a soft watercolour background, the paint '
+     'uneven and slightly faded like a frame from an old worn film print.',
      'Three round pastel cartoon bunnies sit apart round a checked picnic blanket on flat green grass.',
      'A round pastel cartoon bunny stands on a green hill with a red balloon on a string.',
      'Three round pastel cartoon bunnies sleep in a row, each in its own little bed, under a smiling moon.')
 show('kids-advert', VIDEO,
-     'Two excited children sit at a beige home computer with a boxy monitor on a desk in a commercial.',
+     'In a cosy family den with wood panelled walls, a brother and sister, the only two people in the room, sit at a '
+     'small desk in front of a beige home computer whose monitor is a deep boxy tube screen with a bulging glass face, '
+     'in a commercial.',
      'A loud salesman in a checked jacket spreads his arms wide in a store aisle stacked with plain unlettered boxes in a'
      ' commercial.',
      'A plastic toy robot stands on a kitchen table beside a few loose batteries in a toy commercial.',
@@ -289,7 +297,9 @@ show('interview', LOCAL,
      'A woman interviewer in a blazer looks down at the notes in her lap.')
 show('clown', LOCAL,
      'A clown with an orange wig and a red nose waves in front of a paper backdrop with balloons in a children\'s show.',
-     'A clown with an orange wig juggles three coloured balls in a children\'s show.',
+     'One clown with an orange wig and a red nose stands alone on a small bare studio stage, juggling three balls, one '
+     'red, one yellow and one blue, all three up in the air above his hands, a painted backdrop of balloons and stars '
+     'behind him.',
      'A clown with an orange wig talks to a sock puppet on one hand in a children\'s show.',
      'Small children sit cross legged on a carpet and laugh in a children\'s show.')
 show('county', FIELD,
@@ -317,18 +327,21 @@ show('ballad', CLIP,
      ' store fronts dark and unlettered.',
      'A couple stand in silhouette on a beach at sunset.',
      'A singer with a microphone in soft blue light, seen from the shoulders up.',
-     'A single red rose lies on the keys of an old upright piano in a dim room hazy with smoke.')
+     'A single red rose lies on the closed wooden lid of an old upright piano beside a burning candle in a dim room '
+     'hazy with smoke and blue light.')
 show('pop', CLIP,
      'Three young women in bright colour blocked baggy jackets and loose trousers dance a little apart on a white studio set.',
      'Four young men in denim jackets pose against a painted brick wall.',
      'A singer in a loose jacket with a headset microphone dances in front of four dancers in baggy clothes under coloured'
      ' lights.',
-     'A young woman pop singer with big hoop earrings and a loose shirt sings into a microphone, seen from the shoulders up.',
+     'A young woman pop singer with big curly hair falling over her ears, in a loose white blouse buttoned to the '
+     'collar, sings into a handheld microphone on a stage, seen from the waist up.',
      'Teenagers in t-shirts and baggy jeans dance with their arms in the air, seen from a distance under coloured lights.')
 show('rock', CLIP,
      'A long haired rock band plays on a stage with jets of flame and a wall of amplifiers.',
      'A long haired guitarist plays a solo in a single spotlight.',
-     'A drummer in a t-shirt sits behind a huge drum kit under red lights.',
+     'A drummer with long hair in a plain black sleeveless shirt sits behind a huge drum kit with two bass drums with '
+     'plain black heads and a wide ring of toms and cymbals around him, under red stage lights.',
      'A male rock singer in scarves and a leather jacket screams into a microphone stand.',
      'A concert crowd with raised fists seen from the stage, out of focus in the haze.')
 show('soul', CLIP,
@@ -339,7 +352,9 @@ show('soul', CLIP,
 show('rap', CLIP,
      'Three rappers in baggy tracksuits and plain caps with no logos stand on a city basketball court beside a big portable'
      ' stereo.',
-     'A long low car stands under street lights at night with two young men leaning on it.',
+     'Two young men, one in a baseball jacket leaning on the front fender and one in a white t-shirt leaning on the '
+     'door, with a long low 1960s convertible lowrider, deep red with chrome wire wheels, under orange street lights at'
+     ' night, the street otherwise empty.',
      'A disc jockey in headphones stands at two turntables.',
      'Three young men pose on the stone steps of a city row house.')
 show('club', CLIP,
@@ -349,7 +364,8 @@ show('club', CLIP,
      'Glowing coloured shapes spin on a black background in early 1990s computer video art.')
 show('eighties', CLIP,
      'A singer with big hair in a buttoned jacket with shoulder pads stands against a glowing neon grid.',
-     'A man in a pastel suit plays a keyboard slung on a strap.',
+     'A man in a pastel suit stands alone at the front of a stage playing a keytar, a small white keyboard shaped like '
+     'a guitar that hangs across his body from a strap over his shoulder.',
      'A red sports car drives along a highway at night under neon lights.',
      'Three men in pastel suits stand a little apart on a beach, one with an electric guitar, one with a bass guitar and one'
      ' with a keyboard on a strap.',
@@ -357,8 +373,8 @@ show('eighties', CLIP,
 
 # Sport.
 show('sports-desk', VIDEO,
-     'Two sports presenters in blazers sit at a desk with a trophy standing on it between them, a wall of monitors behind'
-     ' them.',
+     'Two sports presenters in blazers sit at a desk with a trophy standing on it between them, a plain blue backdrop '
+     'behind them with a soft blurred photograph of a stadium at night.',
      'A sports presenter in a blazer stands beside a wall of television screens.',
      'A grinning sports presenter with a moustache sits at a desk with papers in front of him.',
      'A sweating athlete in a plain unlettered jersey sits in front of lockers in a locker room while a reporter beside him'
@@ -369,22 +385,27 @@ show('baseball', SPORT,
      ' the catcher, seen from the pitcher\'s side.',
      'A baseball field seen from high behind home plate on a sunny afternoon, the stands full and far away.',
      'A baseball outfielder in a plain uniform leaps with his glove up at the low padded outfield fence of a ballpark.',
-     'Baseball players in plain unlettered uniforms lean on the rail of a dugout.',
+     'A baseball dugout seen from across the field, a row of small players in plain grey uniforms and dark caps leaning'
+     ' on its rail in the deep shade of its roof, the green grass of the field in front.',
      'A baseball runner in a plain uniform with no number slides into a base in a cloud of dust.')
 show('golf', SPORT,
      'A golfer in a polo shirt drives from the tee, a line of spectators behind him.',
      'A golfer crouches to line up a putt on a green.',
      'A golf ball rolls toward the hole and the flag on a green.',
      'A golf fairway runs between tall pines with a lake beside it.',
-     'A golfer and his caddie walk down a fairway.')
+     'Seen from far away across a long empty fairway lined with tall trees, two small figures walk side by side, a '
+     'golfer and his caddie, the caddie carrying a big golf bag on his shoulder, only the two of them on the green '
+     'grass.')
 show('poker', VIDEO,
      'Four players sit well apart round a green poker table under a low lamp in a casino, stacks of chips in front of them.',
-     'Two playing cards lie face down on green felt beside a short stack of red poker chips, seen close up.',
+     'Two men face each other across a green felt card table under a hanging lamp in a dim card room, short stacks of '
+     'red and white poker chips in front of each, seen from across the room.',
      'A poker player in sunglasses and a cowboy hat stares across the table.',
      'A casino dealer in a waistcoat stands behind a green felt table with cards laid out in front of her.',
      'A pile of red, white and blue poker chips sits in the middle of a green felt poker table under a low lamp.')
 show('racing', SPORT,
-     'Open wheel racing cars in plain colours go through a banked corner of a race track.',
+     'Seen from high up in a distant grandstand, a line of small open wheel racing cars in plain solid colours sweeps '
+     'round a steeply banked oval corner, the grey concrete track tilted high up toward the outer wall.',
      'A pit crew in plain overalls changes the tires of a racing car.',
      'The view from the cockpit of a racing car down a straight, another car ahead.',
      'Racing cars sit two by two in a starting grid on a paved oval track, seen from above with the stands beside it.',
@@ -401,7 +422,9 @@ show('boxing', ' A still frame from a 1970s televised boxing match shot on 16mm 
      'A boxer in black trunks staggers back against the ropes after a punch, his opponent in white trunks stepping away.',
      'A referee in a bow tie counts over a boxer lying on the canvas.',
      'A boxing crowd on its feet round a ring, seen through the smoke beyond the ropes.',
-     'A tired boxer sits on a stool in the corner of the ring, a trainer standing beside him with a towel over his shoulder.')
+     'A tired boxer in plain black trunks sits slumped on a stool in the corner of the ring, and beside him stands one '
+     'older man, his trainer, in a white short sleeved shirt and grey slacks, pressing a white towel to the boxer\'s '
+     'forehead, seen from high in the dark seats.')
 show('old-game', ARCHIVE,
      'A baseball batter swings in a 1950s stadium.',
      'Men in hats cheer in the stands of a 1950s ballpark, seen from a distance.',
@@ -414,7 +437,8 @@ show('soccer', SPORT,
      'A small crowd in coats watches a soccer match from a low stand.')
 show('horse-race', SPORT,
      'Three race horses with jockeys in bright silks gallop round a turn, spaced out a length apart.',
-     'Race horses burst out of the starting gate on a flat dirt track.',
+     'A row of race horses lunge out of a long green metal starting gate as its front doors spring open on a flat dirt '
+     'track, seen side on from across the track so the horses and jockeys are small.',
      'A jockey stands in the stirrups as his horse crosses the line ahead of two others.',
      'A race course grandstand full of people in hats, seen from far across the track.')
 
@@ -429,7 +453,8 @@ show('film-comedy', FILM,
      'A man in a crumpled suit sits on a curb in the rain beside a cardboard box of his things in a comedy.')
 show('film-action', FILM,
      'A spy in a tuxedo stands beside a silver sports car on a mountain road in a spy thriller.',
-     'A man dives away from an exploding warehouse in an action movie.',
+     'A man in a leather jacket dives forward onto the ground toward the viewer, away from a warehouse that bursts into'
+     ' a ball of fire far behind him, in an action movie.',
      'A helicopter chases a speeding car along a canyon road in an action movie.',
      'A man in a leather jacket lies flat on the roof of a moving train gripping its edge, the countryside rushing past, in an'
      ' action movie.',
@@ -441,7 +466,8 @@ show('film-horror', FILM,
      'A lone woman with a flashlight walks down the aisle of a dark empty church at night, the pews in shadow, in a horror'
      ' movie.',
      'The shadow of a figure with a raised knife falls on a motel wall in a horror movie.',
-     'Three thin pale figures stand silhouetted in a bedroom doorway that blazes with white light in a horror movie.',
+     'Three tall figures in long dark hooded coats stand as solid black silhouettes in a bedroom doorway that blazes '
+     'with white light behind them, their shapes flat black with no faces showing, in a horror movie.',
      'A pale man in a black cloak stands in a candle lit crypt in a horror movie.',
      'A terrified woman\'s face lit from below in the dark in a horror movie.',
      'An old motel under a bare tree at night with one lit window and a plain unlettered sign in a horror movie.')
@@ -458,7 +484,9 @@ show('film-romance', FILM,
      'A man in a white dinner jacket and a woman in a hat sit at a table in a Moroccan cafe under ceiling fans in a romantic'
      ' classic.',
      'A governess and a gentleman in Victorian dress stand in the library of a country house in a period drama.',
-     'A couple dance with umbrellas on a rainy Paris street in a classic musical.',
+     'A couple in 1950s clothes, a man in a grey suit and a woman in a long full skirted dress, dance side by side '
+     'under black umbrellas on a rain soaked cobbled square at night, lamplight shining on the wet stones, dark stone '
+     'buildings with shuttered windows around the square, in a classic musical.',
      'A couple kiss in the rain under a street lamp in a romantic movie.',
      'A woman in a long silk robe sits at a window writing a letter in a romantic drama.',
      'A man and a woman laugh over coffee in a diner on a snowy day in a romantic comedy.')
@@ -467,13 +495,15 @@ show('film-western', FILM,
      'Three riders on horseback cross a desert canyon in single file in a western.',
      'Cowboys play cards at a saloon table in a western.',
      'A sheriff with a star on his waistcoat watches the sun set from a porch in a western.',
-     'A stagecoach races across a plain in a cloud of dust in a western.')
+     'A stagecoach pulled by a team of four galloping horses races across a dusty plain in a western, seen side on from'
+     ' a distance, a cloud of dust trailing behind it.')
 show('film-war', FILM,
      'The cramped control room of a Second World War submarine in red light, two sailors at brass dials and pipes and an'
      ' officer at the periscope, in a war movie.',
      'A submarine surfaces in a grey sea in a war movie.',
      'Soldiers wade through a jungle river with their rifles held over their heads in a war movie.',
-     'A naval officer with a headset looks up as the hull creaks in a war movie.',
+     'Inside the cramped grey steel control room of a submarine lit dim red, a naval officer wearing headphones looks '
+     'up at the pipes and rivets of the low ceiling as the hull creaks, in a war movie.',
      'Tall plumes of water from depth charges rise behind a warship in a war movie.')
 show('film-future', FILM,
      'A soldier with a riveted steel plate over half his face and a round blue camera lens for an eye stands in a rainy alley'
@@ -484,7 +514,8 @@ show('film-future', FILM,
      'A metal robot hand reaches up out of rubble in a science fiction action movie.')
 show('film-epic', FILM,
      'A herd of woolly mammoths crosses a snowy valley in an adventure movie.',
-     'A sabre toothed cat with two long curved fangs snarls on a rock in an adventure movie.',
+     'A prehistoric sabre toothed tiger, a heavy stocky cat with thick forelegs, a short bobbed tail and two very long '
+     'curved fangs reaching down below its chin, snarls on a rock in an adventure movie.',
      'Two people in fur coats stand looking up at a woolly mammoth in an adventure movie.',
      'Three Stone Age people in animal furs sit round a fire in a cave with painted walls, their hands resting on their knees,'
      ' in an adventure movie.',
@@ -539,7 +570,9 @@ show('network-news', VIDEO,
      'A distinguished grey haired news anchor looks grave, seen from the chest up.')
 show('cop-show', DRAMA,
      'A policeman in mirrored sunglasses and a leather jacket walks away from an explosion in a 1980s action series.',
-     'An angry police captain shouts across a desk in a 1980s action series.',
+     'A plain clothes police captain, a heavy set man in his fifties in a rumpled white shirt and loosened brown tie, '
+     'shouts and points across a wooden desk piled with paper files, a typewriter and an old black telephone, in a '
+     'dingy precinct office with venetian blinds, in a 1980s action series.',
      'A muscle car flies in mid air over the crest of a hill in a 1980s action series.',
      'Two men crouch behind wooden crates on a dock at night in a gun fight in a 1980s action series.',
      'Two policemen eat burgers sitting on the hood of a car in a 1980s action series.')
@@ -562,8 +595,8 @@ show('strange', DRAMA,
      ' about the unexplained.',
      'A blurred dark hairy upright figure is half hidden between distant trees, out of focus and hard to make out, in a'
      ' documentary series about the unexplained.',
-     'Three glowing white lights hang in a triangle in the night sky over a farmhouse in a documentary series about the'
-     ' unexplained.',
+     'Three points of white light float high in the open black night sky in a triangle far above a dark farmhouse and '
+     'its field, small and blurred like distant stars only brighter, in a documentary series about the unexplained.',
      'An old farmer is interviewed on his porch at night in a documentary series about the unexplained.',
      'An old house at night with one lit window in a documentary series about the unexplained.')
 show('chat', VIDEO,
@@ -579,7 +612,8 @@ show('family', SITCOM,
      ' stove.',
      'A family laughs round a dinner table.',
      'Two children whisper on a staircase.',
-     'A neighbour in a loud shirt leans in at a front door.')
+     'A neighbour in a loud Hawaiian shirt covered in big orange and green flowers leans his head and shoulders in '
+     'through a wide open front door, grinning, seen from inside the living room.')
 show('britcom', SITCOM,
      'A woman in a floral dress and pearls pours tea in a chintzy English sitting room in a British sitcom.',
      'Two neighbours gossip over a garden fence in a British sitcom.',
@@ -594,8 +628,9 @@ show('fitness', VIDEO,
      'A row of men and women in baggy t-shirts and sweatpants do squats, seen from the front across a gym in a 1980s exercise'
      ' show.',
      'A fit man in a headband and a grey t-shirt lifts a pair of dumbbells at his sides in a 1980s exercise show.',
-     'A small class of six people in t-shirts step up and down on low plastic steps in a gym, each on their own step, seen'
-     ' from across the room in a 1980s exercise show.')
+     'Four grown women in their thirties in plain solid coloured t-shirts and long loose track pants step up and down '
+     'on low plastic steps in a row across a gym, each on her own step, seen from across the room in a 1980s exercise '
+     'show.')
 show('garage', TAUGHT,
      'A mechanic in overalls points under the raised hood of a car in a clean garage.',
      'A mechanic kneels beside a car changing a wheel, a jack under the car.',
@@ -643,7 +678,8 @@ show('sewing', TAUGHT,
      'A piece of denim on a table with a needle and thread pushed through it, seen close up.',
      'A dressmaker\'s dummy dressed in a half finished cotton blouse stands in a sewing room, a tape measure hanging round its'
      ' neck.',
-     'A pair of large dressmaking scissors lies on blue cloth beside a chalk line drawn along it, half the line already cut.')
+     'Long heavy steel dressmaking shears with black handles, as long as a forearm, lie on a cutting table beside a '
+     'length of blue cloth already cut in two along a straight white chalk line, the two pieces pulled a little apart.')
 show('pottery', TAUGHT,
      'A wet clay pot rises on a turning potter\'s wheel, the potter\'s hands resting round it.',
      'A potter in an apron sits at a wheel in a studio lined with shelves of pots.',
@@ -651,12 +687,14 @@ show('pottery', TAUGHT,
 show('lesson', TAUGHT,
      'A woman in a business suit talks to the camera in a beige office with a pot plant in a staff training video.',
      'A professor in a jacket stands at a blackboard beside a chalk diagram of circles and arrows with no writing.',
-     'A dentist in a white coat holds a big model of teeth.',
+     'A dentist in a plain white coat sits at a desk with a big plastic model of teeth on it in front of him, a plain '
+     'beige wall and a potted plant behind him, the picture dull and slightly smeared.',
      'A flight instructor points at the dials of a light aircraft cockpit.',
      'Two people in suits shake hands across an office desk, nobody else in the room, in a staff training video.',
      'A clergyman in a grey suit talks gently to the camera in front of a stained glass window.')
 show('nature', NATURE,
-     'A brown whitetail deer with a reddish brown summer coat stands in a misty forest clearing at dawn.',
+     'A red brown doe of the Kentucky woods, her short summer coat a warm rusty cinnamon colour all over, with large '
+     'ears and slender legs, stands in a misty forest clearing at dawn.',
      'Penguins crowd on an ice shelf.',
      'A red fox pounces in the snow.',
      'An American alligator with a broad rounded snout lies half submerged in a green swamp among lily pads.',
@@ -684,7 +722,9 @@ show('wedding', HOME,
      'Wedding guests dance in a hall hung with streamers.',
      'A bride in a white dress laughs on a lawn with two bridesmaids standing a little apart beside her.')
 show('baby', HOME,
-     'A toddler takes wobbly steps across a living room carpet toward a kneeling mother.',
+     'A toddler in a striped t-shirt and denim dungarees takes wobbly steps across a brown shag carpet toward his '
+     'mother, who kneels with her arms out in a long sleeved blouse and jeans, in a wood panelled 1980s living room '
+     'with a tube television in the corner, the colours faded and the picture smeared like an old worn tape.',
      'A baby in a high chair with food on its face.',
      'A father sits on a garden lawn with a smiling baby in a romper sitting on his lap.',
      'A baby crawls across a carpet toward the camera.')
@@ -693,7 +733,9 @@ show('vacation', HOME,
      'A father and two children stand in front of a fairground wheel.',
      'A donkey looks over a stone wall in a green field.',
      'An empty motel swimming pool under palm trees with sun loungers and a striped towel.',
-     'A family poses in front of a big rocket in a museum garden.')
+     'A mother and father in shorts, t-shirts and sun visors stand side by side squinting in the sun in front of a tall'
+     ' plain white space rocket with black bands on display on a green lawn outside a museum in Florida, palm trees and'
+     ' blue sky.')
 show('christmas', HOME,
      'Children in pajamas open presents under a Christmas tree.',
      'A family in paper crowns sits round a table with a roast turkey.',
@@ -709,7 +751,8 @@ show('stage', HOME,
      'A boy in a white shirt plays a saxophone on a school stage.',
      'A row of children sing on risers in a school hall, seen from the back of the hall.',
      'Teenagers in cloaks act on a school stage with painted scenery.',
-     'Parents on folding chairs clap in a school hall, seen from behind at a distance.')
+     'Grown mothers and fathers in their thirties and forties, in work clothes and summer dresses, some grey haired or '
+     'balding, sit on folding chairs clapping in a school hall, seen from behind at a distance.')
 
 # 'any' is the dozen stills of before the mod knew what was on, of no one show (catalogue.PROGRAMMES): what a set
 # shows when nothing says what is on. 'snow' has no shots: a broadcast that is all interference, which a set draws
