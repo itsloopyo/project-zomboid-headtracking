@@ -59,7 +59,8 @@ FAMILY = [
      ' metres away, her hand on his arm.' + SNAP, TALL),
     ('Head and shoulders portrait of a stern grandfather of about sixty in a dark suit and tie.' + OLD, TALL),
     ('Head and shoulders portrait of a young soldier in a 1940s United States army dress uniform and cap.' + OLD, TALL),
-    ('A baby of about six months in a white christening gown sitting on a white blanket, smiling at the camera.' + STUDIO, TALL),
+    ('A baby of about six months in a white christening gown sitting on a white blanket, smiling straight out of the'
+     ' frame towards the viewer.' + STUDIO, TALL),
     ('School portrait of a ten year old boy with a bowl haircut and a striped shirt, a gap toothed smile.' + STUDIO, TALL),
     ('A family of four sitting a little apart on the wooden porch steps of a white farmhouse in summer, a father, a mother and'
      ' two children of about eight and ten, everyone smiling, hands resting on their knees, seen from a few metres away.' + SNAP, WIDE),
@@ -76,8 +77,9 @@ FAMILY = [
     ('Head and shoulders portrait of a young woman in a green graduation cap and gown.' + STUDIO, TALL),
     ('Head and shoulders portrait of a grey haired man in a navy blazer and tie with a kindly smile.' + STUDIO, TALL),
     ('A golden retriever sitting on a lawn in front of a brick house on a summer afternoon.' + SNAP, TALL),
-    ('A high school football player in a plain red jersey with no numbers kneeling on a grass field, his helmet on the grass'
-     ' beside him.' + SNAP, TALL),
+    ('A teenage boy in a plain grey hooded sweatshirt and jeans sits on the grass of a high school football field, his'
+     ' sneakers tucked under him, a red football helmet on the grass beside him, seen from a few metres away, the'
+     ' empty bleachers far behind.' + SNAP, TALL),
     ('Head and shoulders portrait of a young man in a dark blue graduation cap and gown with a proud smile.' + STUDIO, TALL),
     ('Two brothers of about ten and twelve in t-shirts and fishing vests standing side by side on a lake shore, a fishing rod'
      ' leaning on a tackle box on the grass in front of them, seen from a few metres away.' + SNAP, WIDE),
@@ -135,7 +137,9 @@ SPORTS = {
     ],
     'golf': [
         'A golfer in a white cap and plain polo shirt at the top of his swing on a green fairway, seen from the side, blue sky.' + ACTION,
-        'A woman golfer in a plain pink visor crouched reading a putt on a green beside a flag, seen from a few metres away.' + ACTION,
+        'A woman golfer in a plain white long sleeved sweater and a plain pink visor crouched reading a putt beside a'
+        ' flag, seen from far across the green so she is small against the smooth grass and the trees'
+        ' behind.' + ACTION,
         'A golfer in plaid trousers swinging out of a sand bunker, sand spraying, seen from the side.' + ACTION,
         'A white golf ball sitting on a wooden tee in trimmed grass, close up, a green fairway blurred behind.' + STILL,
         'A golf green with a single flag at sunrise, mist over rolling fairways and trees.' + STILL,
@@ -230,7 +234,8 @@ SPORTS = {
         'A green pool table under a low hanging lamp seen from a few paces back, a loose scatter of solid coloured '
         'balls small and far apart on the felt, and one long wooden cue lying along the near cushion.' + STILL,
         'A black eight ball on the green felt of a pool table beside a corner pocket.' + STILL,
-        'A cue ball breaking a rack of coloured pool balls on green felt, balls scattering, seen from table level.' + ACTION,
+        'A white cue ball strikes a rack of coloured pool balls on green felt, the balls blurred with motion as they'
+        ' scatter across the table, seen from table level.' + ACTION,
         'A pool table under a hanging lamp in an empty dim bar, balls scattered on the felt, a cue leaning on the table.' + STILL,
         'An old pool hall with rows of green tables under hanging lamps, empty, seen from the doorway.' + STILL,
     ],
@@ -492,8 +497,8 @@ LONG.add('Banner|Movie')
 ON_AIR = (' A still frame from a 1993 American television broadcast recorded off air onto VHS, soft analog video with slight'
           ' colour bleed and muted colours.')
 PROGRAMMES = [
-    'A male news anchor in a grey suit and red tie sitting at a news desk in front of a plain blue studio backdrop, looking into'
-    ' the camera.' + ON_AIR,
+    'A male news anchor in a grey suit and red tie sitting at a news desk in front of a plain blue studio backdrop,'
+    ' looking straight out of the frame towards the viewer.' + ON_AIR,
     'A weather forecaster in a brown suit standing beside a large weather map of the United States, plain green land'
     ' and blue sea with a few big yellow suns and grey clouds drawn on it, the map clean and simple from edge to'
     ' edge.' + ON_AIR,
