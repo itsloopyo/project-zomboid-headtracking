@@ -85,6 +85,7 @@
 - Land and buildings are drawn up to 768 tiles away, past the area the game has loaded.
 - Distant trees are drawn where the game's map places them (`FarTreeDistance`, up to 768 tiles).
 - Zombies are visible as far as your character can see in the current weather and light, and hidden only by what's between them and you.
+- Single player: in the isometric view a zombie shows as soon as your character has a clear line to it and could see it by the game's rules, instead of late or only once it is close (`ZombiesSeenAtOnce`).
 - Rooms are built before you see into them, so doors open onto furnished rooms. Rooms you can't see into aren't drawn.
 - Each `[Content]` row switches one kind of mod content back to the game's own.
 

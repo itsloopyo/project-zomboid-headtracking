@@ -2,6 +2,7 @@ package zombie.iso;
 
 public class IsoMovingObject extends IsoObject {
     public IsoGridSquare getCurrentSquare() { throw new UnsupportedOperationException("reference stub"); }
+    public float DistToProper(IsoObject other) { throw new UnsupportedOperationException("reference stub"); }
     public boolean isOnScreen() { throw new UnsupportedOperationException("reference stub"); }
     public int getID() { throw new UnsupportedOperationException("reference stub"); }
     public float getX() { throw new UnsupportedOperationException("reference stub"); }

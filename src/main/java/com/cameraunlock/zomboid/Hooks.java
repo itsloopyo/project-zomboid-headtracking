@@ -713,6 +713,21 @@ public final class Hooks {
         return view == null ? player.isOnScreen() : view.farModels.playerOnScreen(player);
     }
 
+    /** After the game's IsoPlayer.updateLOS for a player of this machine: see LiveSight. */
+    public static void lineOfSightDone(IsoPlayer player) {
+        LiveSight.afterLineOfSight(player);
+    }
+
+    /** After the game's IsoGameCharacter.TestIfSeen, whether a player of this machine sees a character: see LiveSight. */
+    public static boolean testedIfSeen(boolean seen, IsoGameCharacter character, int index, IsoPlayer player) {
+        return seen || LiveSight.seenNow(character, index, player);
+    }
+
+    /** The cone of sight the game has worked out for a character, as LightingJNI.calculateVisionCone returns it: see LiveSight. */
+    public static float visionCone(float cone, IsoGameCharacter character) {
+        return LiveSight.coneWorkedOut(cone, character);
+    }
+
     /** In place of the game's asking, as it draws another player on a server, whether the viewer sees them: see FarModels.playerDrawnWhole. */
     public static boolean seesPlayer(IsoPlayer viewer, IsoPlayer other) {
         View view = drawing();

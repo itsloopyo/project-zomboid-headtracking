@@ -348,6 +348,7 @@ public final class Agent {
         add(instrumentation, new PatchTransformer(hangFixPatches()));
         add(instrumentation, new PatchTransformer(coveredPatches()));
         add(instrumentation, new PatchTransformer(farVehiclePatches()));
+        add(instrumentation, new PatchTransformer(liveSightPatches()));
         add(instrumentation, new PatchTransformer(leftSavePatches()));
         add(instrumentation, new PatchTransformer(loadingPatches()));
         add(instrumentation, new PatchTransformer(luaLoadedPatches()));
@@ -762,6 +763,29 @@ public final class Agent {
                 new Patch(world, "sceneCullAnimals hands its choice to the picture", classBytes -> CallSite.insertBeforeReturns(classBytes,
                         new CallSite.Method(world, "sceneCullAnimals", "()V"),
                         code -> CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "animalsCulled", "()V")))));
+    }
+
+    /** The game's sight of zombies in its own view, with the line to each read as the map is: see LiveSight. Without them it is the game's grid alone. */
+    private static List<Patch> liveSightPatches() {
+        String lighting = "zombie/iso/LightingJNI", character = "Lzombie/characters/IsoGameCharacter;";
+        return List.of(
+                new Patch(lighting, "calculateVisionCone before its returns", classBytes -> CallSite.insertBeforeReturns(classBytes,
+                        new CallSite.Method(lighting, "calculateVisionCone", "(" + character + ")F"), code -> {
+                            code.aload(0);
+                            CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "visionCone", "(F" + character + ")F"));
+                        })),
+                new Patch("zombie/characters/IsoGameCharacter", "TestIfSeen before its returns", classBytes -> CallSite.insertBeforeReturns(classBytes,
+                        new CallSite.Method("zombie/characters/IsoGameCharacter", "TestIfSeen", "(IL" + PLAYER + ";)Z"), code -> {
+                            code.aload(0);
+                            code.iload(1);
+                            code.aload(2);
+                            CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "testedIfSeen", "(Z" + character + "IL" + PLAYER + ";)Z"));
+                        })),
+                new Patch(PLAYER, "updateLOS before its returns", classBytes -> CallSite.insertBeforeReturns(classBytes,
+                        new CallSite.Method(PLAYER, "updateLOS", "()V"), code -> {
+                            code.aload(0);
+                            CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "lineOfSightDone", "(L" + PLAYER + ";)V"));
+                        })));
     }
 
     /** Apart from everything else: without them the game takes its controllers as it does. See Gamepads. */

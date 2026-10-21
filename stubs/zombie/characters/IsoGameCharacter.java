@@ -5,12 +5,15 @@ import zombie.iso.Vector2;
 import zombie.vehicles.BaseVehicle;
 
 public abstract class IsoGameCharacter extends IsoMovingObject {
+    public final boolean[] isVisibleToPlayer = new boolean[4];
     public CharacterInputMode getInputMode() { throw new UnsupportedOperationException("reference stub"); }
     public int getJoypadBind() { throw new UnsupportedOperationException("reference stub"); }
     public zombie.characters.component.CharacterInputComponent getCharacterInputComponent() { throw new UnsupportedOperationException("reference stub"); }
     public void setAttackTargetSquare(zombie.iso.IsoGridSquare square) { throw new UnsupportedOperationException("reference stub"); }
     public void addBlood(zombie.characterTextures.BloodBodyPartType part, boolean scratched, boolean bitten, boolean allLayers) { throw new UnsupportedOperationException("reference stub"); }
     public Vector2 getForwardDirection() { throw new UnsupportedOperationException("reference stub"); }
+    public float getDotWithForwardDirection(float x, float y) { throw new UnsupportedOperationException("reference stub"); }
+    public float getDetectionRange() { throw new UnsupportedOperationException("reference stub"); }
     public zombie.iso.Vector2 getAnimForwardDirection(zombie.iso.Vector2 out) { throw new UnsupportedOperationException("reference stub"); }
     public void setForwardDirection(Vector2 direction) { throw new UnsupportedOperationException("reference stub"); }
     public boolean isAiming() { throw new UnsupportedOperationException("reference stub"); }

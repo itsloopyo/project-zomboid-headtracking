@@ -11,7 +11,7 @@ It adds a first person view to the game, with a rebuilt world and new graphics. 
 - **No head tracker needed** - first person plays with a mouse and keyboard or a controller. Without a tracker, nothing follows your head.
 - **No microphone needed** - Talking mouths is off until you tick it, and no microphone is opened until then.
 
-Offline the mod also changes some of the game's rules: shots go through thin walls and doors, break lamps, cripple zombies' limbs and can take them off; vehicles knock down fences and street lamp posts and drive through bushes. Each is on until you untick it in **Options > Mods > Head Tracking**. On a server these stay as the game has them.
+Offline the mod also changes some of the game's rules: shots go through thin walls and doors, break lamps, cripple zombies' limbs and can take them off; vehicles knock down fences and street lamp posts and drive through bushes; in the isometric view zombies show as soon as your character has a clear line to them. Each is on until you untick it in **Options > Mods > Head Tracking**. On a server these stay as the game has them.
 
 ## Features
 

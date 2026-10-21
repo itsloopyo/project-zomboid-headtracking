@@ -10,8 +10,8 @@ package com.cameraunlock.zomboid;
  */
 final class Rules {
     /** The bits of the rows that are on, in the order Config describes the rows of [Rules]. */
-    static final int THROUGH_WALLS = 1, BREAKS_LAMPS = 2, WOUNDS = 4, SMASHES_THROUGH = 8, FACES_THE_VIEW = 16, PAST_TREES = 32;
-    static final int ALL = THROUGH_WALLS | BREAKS_LAMPS | WOUNDS | SMASHES_THROUGH | FACES_THE_VIEW | PAST_TREES;
+    static final int THROUGH_WALLS = 1, BREAKS_LAMPS = 2, WOUNDS = 4, SMASHES_THROUGH = 8, FACES_THE_VIEW = 16, PAST_TREES = 32, SEEN_AT_ONCE = 64;
+    static final int ALL = THROUGH_WALLS | BREAKS_LAMPS | WOUNDS | SMASHES_THROUGH | FACES_THE_VIEW | PAST_TREES | SEEN_AT_ONCE;
 
     private static volatile int on = ALL;
 
@@ -58,10 +58,16 @@ final class Rules {
         return !Online.joined() && (on & PAST_TREES) != 0;
     }
 
+    /** Whether in the isometric view a zombie shows once the game's test for seeing it passes on the map as it is now: see LiveSight. */
+    static boolean seenAtOnce() {
+        return !Online.joined() && (on & SEEN_AT_ONCE) != 0;
+    }
+
     /** The rows in words, for the log. */
     static String described(int bits) {
         return "shots through walls " + ((bits & THROUGH_WALLS) != 0) + ", shots break lamps " + ((bits & BREAKS_LAMPS) != 0)
                 + ", shots wound limbs " + ((bits & WOUNDS) != 0) + ", vehicles smash through " + ((bits & SMASHES_THROUGH) != 0)
-                + ", faces the view walking aside " + ((bits & FACES_THE_VIEW) != 0) + ", shots past trees " + ((bits & PAST_TREES) != 0);
+                + ", faces the view walking aside " + ((bits & FACES_THE_VIEW) != 0) + ", shots past trees " + ((bits & PAST_TREES) != 0)
+                + ", zombies seen at once " + ((bits & SEEN_AT_ONCE) != 0);
     }
 }

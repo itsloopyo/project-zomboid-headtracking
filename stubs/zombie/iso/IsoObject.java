@@ -23,6 +23,8 @@ public class IsoObject {
     public void setAlphaAndTarget(float alpha) { throw new UnsupportedOperationException("reference stub"); }
     public void invalidateRenderChunkLevel(long flags) { throw new UnsupportedOperationException("reference stub"); }
     public float getAlpha(int playerIndex) { throw new UnsupportedOperationException("reference stub"); }
+    public float getTargetAlpha(int playerIndex) { throw new UnsupportedOperationException("reference stub"); }
+    public void setTargetAlpha(int playerIndex, float alpha) { throw new UnsupportedOperationException("reference stub"); }
     public final boolean isOutlineHighlight(int playerIndex) { throw new UnsupportedOperationException("reference stub"); }
     public final int getOutlineHighlightCol(int playerIndex) { throw new UnsupportedOperationException("reference stub"); }
 }

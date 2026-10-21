@@ -329,6 +329,11 @@ final class Config {
                     "true: offline, a tree stops your shots only where its trunk is drawn, and a shot past the trunk goes on.\n"
                             + "false: a tree stops every shot across its square, as the game has it. On a server the game's rule holds.",
                     writable | live, true),
+            core.configLocalBool("Rules", "ZombiesSeenAtOnce",
+                    "true: offline, in the isometric view a zombie shows as soon as nothing stands between your character and it,\n"
+                            + "where your character's sight reaches by the game's rules. false: the game's own sight, which can show a\n"
+                            + "zombie late or only once it is close. On a server the game's rule holds.",
+                    writable | live, true),
         };
 
         talkingMouths = core.configLocalBool("Voice", TALKING_MOUTHS,
@@ -374,7 +379,7 @@ final class Config {
                 Log.info("the mod's own in first person: " + Own.described(Own.rows()));
             });
         }
-        String[] ruleKeys = {"ShotsThroughWalls", "ShotsBreakLamps", "ShotsWoundLimbs", "VehiclesSmashThrough", "FacesTheView", "ShotsPastTrees"};
+        String[] ruleKeys = {"ShotsThroughWalls", "ShotsBreakLamps", "ShotsWoundLimbs", "VehiclesSmashThrough", "FacesTheView", "ShotsPastTrees", "ZombiesSeenAtOnce"};
         for (int i = 0; i < ruleKeys.length; i++) {
             int bit = 1 << i;
             puts.put(ruleKeys[i], value -> {

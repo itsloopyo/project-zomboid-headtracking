@@ -18,7 +18,7 @@ final class RulesTests {
     private static void aloneEveryRuleIsTheModsUntilARowSaysOtherwise() {
         Rules.set(Rules.ALL);
         Servers.in(Servers.Where.ALONE, () -> check(Rules.throughWalls() && Rules.breaksLamps() && Rules.wounds() && !Rules.vehiclesStock()
-                        && Rules.facesTheView() && Rules.pastTrees(),
+                        && Rules.facesTheView() && Rules.pastTrees() && Rules.seenAtOnce(),
                 "alone with every row on, every rule is the mod's"));
     }
 
@@ -45,6 +45,9 @@ final class RulesTests {
             Rules.set(Rules.ALL & ~Rules.PAST_TREES);
             check(Rules.throughWalls() && Rules.breaksLamps() && Rules.wounds() && !Rules.vehiclesStock() && Rules.facesTheView() && !Rules.pastTrees(),
                     "ShotsPastTrees off has a tree stop shots across its square and changes nothing else");
+            Rules.set(Rules.ALL & ~Rules.SEEN_AT_ONCE);
+            check(Rules.throughWalls() && Rules.breaksLamps() && Rules.wounds() && !Rules.vehiclesStock() && Rules.facesTheView() && Rules.pastTrees()
+                    && !Rules.seenAtOnce(), "ZombiesSeenAtOnce off leaves zombies to the game's sight and changes nothing else");
         });
     }
 
@@ -52,7 +55,7 @@ final class RulesTests {
         Rules.set(Rules.ALL);
         for (Servers.Where where : new Servers.Where[] {Servers.Where.FRIENDLY, Servers.Where.CONTESTED}) {
             Servers.in(where, () -> check(!Rules.throughWalls() && !Rules.breaksLamps() && !Rules.wounds() && Rules.vehiclesStock()
-                    && !Rules.facesTheView() && !Rules.pastTrees(),
+                    && !Rules.facesTheView() && !Rules.pastTrees() && !Rules.seenAtOnce(),
                     "on a server (" + where + ") every rule is the game's with every row on"));
         }
     }
