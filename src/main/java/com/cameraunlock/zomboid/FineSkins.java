@@ -10,6 +10,7 @@ import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
@@ -818,6 +819,11 @@ public final class FineSkins {
                 jarless.add(path);
                 return tailored(relative, name);
             }
+            // Made while a save loads (Pipeline's core), and here should a body be worn before that is done.
+            if (SkinCuts.bodyOf(path) != SkinCuts.NO_BODY && !SkinCuts.begin()) {
+                waiting = true;
+                return null;
+            }
             if (!wanted.contains(path)) {
                 wanted.add(path);
             }
@@ -1041,11 +1047,15 @@ public final class FineSkins {
     /**
      * Reads one of the jar's pictures into four bytes a dot. A body model has sheets for a skirt
      * to be painted on, which a skin leaves see-through, a print has a shape, and a stain fades
-     * out, and a JPEG is solid all over: how much of it shows is the blue of the picture beside
-     * it, of the same size, black for none. On the reader's thread.
+     * out, and a JPEG is solid all over: how much of a body's skin shows is SkinCuts', an
+     * animal's shows all over, and of the rest it is the blue of the picture beside it, of the
+     * same size, black for none. On the reader's thread.
      */
+    private static final String BODIES = "/skins/body/";
+
     private static void read(String path, Read into) {
-        String cutPath = Jar.cut(path);
+        int body = SkinCuts.bodyOf(path);
+        String cutPath = body == SkinCuts.NO_BODY && !path.startsWith(BODIES) ? Jar.cut(path) : null;
         // What has been taken and not yet handed to the Read or given back: given back if the reading ends early.
         OffHeap.Block[] taken = new OffHeap.Block[1];
         synchronized (into) {
@@ -1054,22 +1064,26 @@ public final class FineSkins {
                 return;
             }
         }
-        try (InputStream in = FineSkins.class.getResourceAsStream(path); InputStream cutIn = FineSkins.class.getResourceAsStream(cutPath)) {
-            if (cutIn == null) {
+        try (InputStream in = FineSkins.class.getResourceAsStream(path); InputStream cutIn = cutPath == null ? null : FineSkins.class.getResourceAsStream(cutPath)) {
+            if (cutPath != null && cutIn == null) {
                 throw new IOException("the jar has no " + cutPath);
             }
-            BufferedImage image = ImageIO.read(in), cut = ImageIO.read(cutIn);
-            if (image == null || cut == null) {
-                throw new IOException(path + " or " + cutPath + " is not a picture this Java can read");
+            BufferedImage image = ImageIO.read(in), cut = cutIn == null ? null : ImageIO.read(cutIn);
+            if (image == null || cutIn != null && cut == null) {
+                throw new IOException(path + (cutPath == null ? "" : " or " + cutPath) + " is not a picture this Java can read");
             }
             int wide = image.getWidth(), high = image.getHeight();
-            if (cut.getWidth() != wide || cut.getHeight() != high) {
+            if (cut != null && (cut.getWidth() != wide || cut.getHeight() != high)) {
                 throw new IOException(cutPath + " is not the size of " + path);
             }
             int[] row = new int[wide], cutRow = new int[wide];
-            boolean greyCut = cut.getType() == BufferedImage.TYPE_BYTE_GRAY;
-            if (!greyCut && cut.getColorModel().getColorSpace().getType() == ColorSpace.TYPE_GRAY) {
+            boolean greyCut = cut != null && cut.getType() == BufferedImage.TYPE_BYTE_GRAY;
+            if (cut != null && !greyCut && cut.getColorModel().getColorSpace().getType() == ColorSpace.TYPE_GRAY) {
                 throw new IOException(cutPath + " is stored as greys that are not a byte each: what fades in it would be read lightened");
+            }
+            byte[] bodyCut = body == SkinCuts.NO_BODY ? null : SkinCuts.of(body, wide, high);
+            if (cut == null && bodyCut == null) {
+                Arrays.fill(cutRow, 255);
             }
             OffHeap.Block memory = OffHeap.take(wide * high * 4);
             taken[0] = memory;
@@ -1079,12 +1093,12 @@ public final class FineSkins {
                 // Asked for as colours, a picture stored as greys is handed over lightened: its numbers are read as they are.
                 if (greyCut) {
                     cut.getRaster().getSamples(0, y, wide, 1, 0, cutRow);
-                } else {
+                } else if (cut != null) {
                     cut.getRGB(0, y, wide, 1, cutRow, 0, wide);
                 }
                 for (int x = 0; x < wide; x++) {
                     int argb = row[x];
-                    pixels.put((byte) (argb >> 16)).put((byte) (argb >> 8)).put((byte) argb).put((byte) cutRow[x]);
+                    pixels.put((byte) (argb >> 16)).put((byte) (argb >> 8)).put((byte) argb).put(bodyCut == null ? (byte) cutRow[x] : bodyCut[y * wide + x]);
                 }
             }
             pixels.flip();

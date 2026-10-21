@@ -14,7 +14,8 @@ the game's own picture.
   kept in KINDS.
 
     python tools/skins/animal_bake.py --game "<game folder>" --pictures DIR [--only Cow_BW_01 ...] [--preview DIR] [--size 2048]
-Writes src/main/resources/skins/body/<the game's name in small letters>.jpg with a .cut.png beside it, and with --preview views of
+Writes src/main/resources/skins/body/<the game's name in small letters>.jpg (the mod shows an
+animal's skin all over), and with --preview views of
 each animal wearing its skin, lit from above.
 """
 import argparse
@@ -829,8 +830,6 @@ def main():
             _, breed, seed = SKINS[name]
             skin = bake.spread(numpy.clip(PAINT[family](kind, breed, seed, (where, facing, on, part), pictures, density, eye), 0.0, 1.0), on)
             Image.fromarray((skin * 255.0).round().astype(numpy.uint8), 'RGB').save(OUT / f'{name.lower()}.jpg', quality=90, subsampling=0)
-            # An animal's skin is opaque all over: the cut says so.
-            Image.fromarray(numpy.full(on.shape, 255, dtype=numpy.uint8), 'L').save(OUT / f'{name.lower()}.cut.png', optimize=True)
             print('baked', name, flush=True)
             if args.preview:
                 preview = pathlib.Path(args.preview)

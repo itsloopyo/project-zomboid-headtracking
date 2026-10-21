@@ -2163,11 +2163,18 @@ final class CharacterDraw {
         Log.info("characters are drawn by the game's own draw, as flat-sided as it makes them: " + why);
     }
 
-    private static void prepare() {
-        try {
+    /** Finds the fields of the game's vertex buffer the copies are read through, once: the picture's preparing and shapeOf can each come first. */
+    private static void findFields() throws NoSuchFieldException {
+        if (formatField == null) {
             handleField = field("handle");
             elementsField = field("elements");
             formatField = field("vertexFormat");
+        }
+    }
+
+    private static void prepare() {
+        try {
+            findFields();
         } catch (NoSuchFieldException e) {
             refuse("the game's vertex buffer has no field " + e.getMessage());
             return;
@@ -2283,8 +2290,8 @@ final class CharacterDraw {
         return had;
     }
 
-    /** A mesh's vertices, three floats each, its triangles, three vertices each, and the buffer they were read from. */
-    record Shape(float[] places, int[] corners, VertexBufferObject from) {}
+    /** A mesh's vertices, three floats each, their texture places, two each or null for a mesh with none, its triangles, three vertices each, and the buffer they were read from. */
+    record Shape(float[] places, float[] uvs, int[] corners, VertexBufferObject from) {}
 
     /**
      * The places and triangles of a model's mesh as the graphics card has them, read back once
@@ -2303,17 +2310,21 @@ final class CharacterDraw {
         int[] elements;
         VertexBufferObject.VertexFormat format;
         try {
+            findFields();
             handle = (VertexBufferObject.Vbo) handleField.get(buffer);
             elements = (int[]) elementsField.get(buffer);
             format = (VertexBufferObject.VertexFormat) formatField.get(buffer);
         } catch (ReflectiveOperationException e) {
             throw new IllegalStateException("the game's vertex buffer cannot be read: " + e, e);
         }
-        int place = -1;
+        int place = -1, uv = -1;
         for (int element = 0; format != null && element < format.getNumElements(); element++) {
             VertexBufferObject.VertexElement at = format.getElement(element);
             if (at.type == VertexBufferObject.VertexType.VertexArray && place < 0) {
                 place = at.byteOffset;
+            }
+            if (at.type == VertexBufferObject.VertexType.TextureCoordArray && uv < 0) {
+                uv = at.byteOffset;
             }
         }
         if (handle == null) {
@@ -2331,7 +2342,7 @@ final class CharacterDraw {
         GL15.glGetBufferSubData(GL_ARRAY_BUFFER, 0L, raw);
         GL15.glBindBuffer(GL_ARRAY_BUFFER, bound);
         int vertices = bytes / stride;
-        float[] places = new float[vertices * 3];
+        float[] places = new float[vertices * 3], uvs = uv < 0 ? null : new float[vertices * 2];
         for (int vertex = 0; vertex < vertices; vertex++) {
             for (int axis = 0; axis < 3; axis++) {
                 places[vertex * 3 + axis] = raw.getFloat(vertex * stride + place + axis * 4);
@@ -2339,6 +2350,10 @@ final class CharacterDraw {
                     why.append("vertex ").append(vertex).append(" has a place that is not a number");
                     return null;
                 }
+            }
+            if (uvs != null) {
+                uvs[vertex * 2] = raw.getFloat(vertex * stride + uv);
+                uvs[vertex * 2 + 1] = raw.getFloat(vertex * stride + uv + 4);
             }
         }
         int[] corners = Arrays.copyOf(elements, count);
@@ -2348,7 +2363,7 @@ final class CharacterDraw {
                 return null;
             }
         }
-        return new Shape(places, corners, buffer);
+        return new Shape(places, uvs, corners, buffer);
     }
 
     /** The picture's copy of a model's mesh, made the first time it is drawn and again when the game loads the mesh anew. Null while the game has not loaded it. */

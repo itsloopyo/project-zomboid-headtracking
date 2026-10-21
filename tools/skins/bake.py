@@ -18,7 +18,8 @@ and nothing of the game's own picture.
   game's second skin of each tone has.
 
     python tools/skins/bake.py --game "<game folder>" --pictures DIR [--only M_ZedBody01 MaleBody03a ...] [--preview DIR] [--size 2048]
-Writes src/main/resources/skins/body/<the game's name in small letters>.jpg with a .cut.png beside it, and with --preview a view of each body wearing its skin.
+Writes src/main/resources/skins/body/<the game's name in small letters>.jpg, and with --preview a view of each body wearing its skin.
+What of a skin is see-through, the skirt's sheets, the mod works out from the game's own model as a save loads (SkinCuts).
 """
 import argparse
 import pathlib
@@ -501,8 +502,6 @@ def main():
             density = DENSITY * args.size / 2048.0
             skin = baked(sex, tone, state, maps, pictures, density) if isinstance(state, int) else alive(sex, tone, state == 'hairy', maps, pictures, density)
             Image.fromarray((skin * 255.0).round().astype(numpy.uint8), 'RGB').save(OUT / f'{name.lower()}.jpg', quality=90, subsampling=0)
-            # What of the picture is body, white, and what is left see-through, black: a JPEG has no such thing of its own.
-            Image.fromarray(~maps[3]).save(OUT / f'{name.lower()}.cut.png', optimize=True)
             print('baked', name, flush=True)
             if args.preview:
                 preview = pathlib.Path(args.preview)

@@ -5362,6 +5362,7 @@ final class Pipeline {
             return makeNoise();
         }));
         pieces.add(new Piece(Scope::prepare));
+        pieces.add(new Piece(() -> { }, SkinCuts::bodiesLoaded, () -> SkinCuts.begin() ? null : "the game's body models have no vertex buffer on the graphics card"));
         // Linked on a frame that draws no picture, as the rest of the core is. It never fails the core: see OwnGun.link.
         pieces.add(new Piece(OwnGun::link));
         pieces.add(new Piece(() -> {
