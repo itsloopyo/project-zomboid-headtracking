@@ -142,6 +142,10 @@ final class SkyState {
     final float[] lamps = new float[Lamps.LIGHTS * Lamps.RECORD];
     final float[] lampFar = new float[Lamps.LIGHTS];
     int lampCount;
+    /** The lamps in rooms and the sets that are on that light the picture, the first roomLampCount records of roomLamps, and the squares each reaches: see RoomLamps. */
+    final float[] roomLamps = new float[RoomLamps.LIGHTS * RoomLamps.FLOATS];
+    final float[] roomLampRows = new float[RoomLamps.LIGHTS * RoomLamps.ROW_VECTORS * 4];
+    int roomLampCount;
     /** The leaves falling and lying round the eye, the first leafCount records of leaves: see LeafFall. */
     final float[] leaves = new float[LeafFall.MOST * LeafFall.FLOATS];
     int leafCount;

@@ -2465,6 +2465,7 @@ final class WorldScene {
         IsoGameCharacter[] characterOf = new IsoGameCharacter[16];
         int characters;
         private final SkyState sky = new SkyState();
+        private final RoomLamps roomLamps = new RoomLamps();
         private float fogEnd;
         /** The middle of the map the game has loaded, and how far from it the map reaches every way, in tiles. */
         private float loadedX, loadedY, loadedWithin;
@@ -2850,6 +2851,7 @@ final class WorldScene {
             playerIndex = player.getIndex();
             cell = IsoWorld.instance.currentCell;
             Lamps.gather(sky, cell, terrain, pose.eyeX, pose.eyeY, Quality.lightDistance(view.index));
+            roomLamps.gather(sky, cell, terrain, view.torchLess, playerIndex, pose.eyeX, pose.eyeY, (int) Math.floor(player.getZ()), Quality.lightDistance(view.index));
             leafTrees.gather(sky, cell, terrain, roundNow, Core.tileScale, pose.eyeX, pose.eyeY, start);
             roofBuilder.newBuild();
             if (Own.taken(view.index)) {

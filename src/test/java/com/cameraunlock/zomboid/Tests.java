@@ -186,6 +186,7 @@ public final class Tests {
         Checks.run("MuzzleFlashTests", MuzzleFlashTests::run);
         Checks.run("TorchBeamTests", TorchBeamTests::run);
         Checks.run("FiresTests", FiresTests::run);
+        Checks.run("RoomLampsTests", RoomLampsTests::run);
         Checks.run("LightningTests", LightningTests::run);
         Checks.run("RainTests", RainTests::run);
         Checks.run("ImpactTests", ImpactTests::run);

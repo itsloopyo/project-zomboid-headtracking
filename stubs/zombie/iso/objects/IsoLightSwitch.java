@@ -4,6 +4,7 @@ import zombie.iso.IsoObject;
 
 public class IsoLightSwitch extends IsoObject {
     public boolean lightRoom;
+    public boolean streetLight;
 
     public boolean isActivated() {
         return false;

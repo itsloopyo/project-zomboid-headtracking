@@ -769,6 +769,8 @@ final class Pipeline {
     private final FireDraw fires;
     private static final String[] BEAM_AT = new String[Headlights.BEAMS], BEAM_WAY = new String[Headlights.BEAMS];
     private static final String[] LAMP_AT = new String[Lamps.LIGHTS], LAMP_HUE = new String[Lamps.LIGHTS], LAMP_COVER = new String[Lamps.LIGHTS];
+    private static final String[] ROOM_LAMP_AT = new String[RoomLamps.LIGHTS], ROOM_LAMP_HUE = new String[RoomLamps.LIGHTS],
+            ROOM_LAMP_BASE = new String[RoomLamps.LIGHTS], ROOM_LAMP_WAY = new String[RoomLamps.LIGHTS], ROOM_LAMP_GAME = new String[RoomLamps.LIGHTS];
     private static final String[] ROOT_AT = new String[Characters.ROOTS];
     /** uCarAt, uCarAhead, uCarUp and uCarSnow by the vehicle's number: see SnowShader.ON_VEHICLES. */
     private static final String[][] CAR_AT = new String[4][SnowShader.MOST_CARS];
@@ -780,6 +782,13 @@ final class Pipeline {
             LAMP_AT[i] = "uLampAt[" + i + "]";
             LAMP_HUE[i] = "uLampHue[" + i + "]";
             LAMP_COVER[i] = "uLampCover[" + i + "]";
+        }
+        for (int i = 0; i < RoomLamps.LIGHTS; i++) {
+            ROOM_LAMP_AT[i] = "uRoomLampAt[" + i + "]";
+            ROOM_LAMP_HUE[i] = "uRoomLampHue[" + i + "]";
+            ROOM_LAMP_BASE[i] = "uRoomLampBase[" + i + "]";
+            ROOM_LAMP_WAY[i] = "uRoomLampWay[" + i + "]";
+            ROOM_LAMP_GAME[i] = "uRoomLampGame[" + i + "]";
         }
         for (int i = 0; i < Headlights.BEAMS; i++) {
             BEAM_AT[i] = "uBeamAt[" + i + "]";
@@ -3638,6 +3647,20 @@ final class Pipeline {
             to.set(LAMP_AT[i], lamps[at], lamps[at + 1], lamps[at + 2], burns ? lamps[at + 3] : 0f);
             to.set(LAMP_HUE[i], lamps[at + 4], lamps[at + 5], lamps[at + 6], lamps[at + 7]);
             to.set(LAMP_COVER[i], burns ? lamps[at + 8] : 0f);
+        }
+        // So do lamps in rooms and sets that are on.
+        float[] roomLamps = state.roomLamps;
+        int roomLampsLighting = Quality.plain(view.index) ? 0 : state.roomLampCount;
+        for (int i = 0; i < RoomLamps.LIGHTS; i++) {
+            int at = i * RoomLamps.FLOATS;
+            to.set(ROOM_LAMP_AT[i], roomLamps[at], roomLamps[at + 1], roomLamps[at + 2], i < roomLampsLighting ? roomLamps[at + 3] : 0f);
+            to.set(ROOM_LAMP_HUE[i], roomLamps[at + RoomLamps.HUE], roomLamps[at + RoomLamps.HUE + 1], roomLamps[at + RoomLamps.HUE + 2], roomLamps[at + RoomLamps.HUE + 3]);
+            to.set(ROOM_LAMP_BASE[i], roomLamps[at + RoomLamps.BASE], roomLamps[at + RoomLamps.BASE + 1], roomLamps[at + RoomLamps.BASE + 2], roomLamps[at + RoomLamps.BASE + 3]);
+            to.set(ROOM_LAMP_WAY[i], roomLamps[at + RoomLamps.WAY], roomLamps[at + RoomLamps.WAY + 1], roomLamps[at + RoomLamps.WAY + 2], roomLamps[at + RoomLamps.WAY + 3]);
+            to.set(ROOM_LAMP_GAME[i], roomLamps[at + RoomLamps.GAME], roomLamps[at + RoomLamps.GAME + 1], roomLamps[at + RoomLamps.GAME + 2], roomLamps[at + RoomLamps.GAME + 3]);
+        }
+        if (roomLampsLighting > 0) {
+            to.setEach4("uRoomLampRows", state.roomLampRows);
         }
         float[] carried = state.carried;
         // A carried light that throws a beam is the torch of setBeams: what is said here is one that throws none.

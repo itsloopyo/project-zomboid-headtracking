@@ -1011,7 +1011,7 @@ final class PipelineShaders {
             // lies between an eye in a room and that room's walls. Sun through a window into the
             // room's own air is the volume pass's.
             uniform float uEyeOutdoors;
-            """ + BEAMS + MuzzleFlash.GLSL + Fires.GLSL + FireShadows.GLSL + Lamps.GLSL + """
+            """ + BEAMS + MuzzleFlash.GLSL + Fires.GLSL + FireShadows.GLSL + Lamps.GLSL + RoomLamps.GLSL + """
             uniform sampler2D uAsphalt;
             uniform sampler2D uGravel;
             uniform sampler2D uSoil;
@@ -3496,6 +3496,9 @@ final class PipelineShaders {
                 }
                 // Interpolated corner-light differences can round below zero at a dark corner.
                 vec3 given = pow(max(vColor.rgb, vec3(0.0)), vec3(2.2));
+                // A lamp in a room and a set that is on light what is round them (RoomLamps), and the game's
+                // flat light from them comes out of the room at night.
+                vec3 roomLit = roomLampsLight(vWorld, n, face, given);
                 vec3 held = vec3(0.0);
                 if (uLantern.w > 0.0 && (open > 0.5 || uDaylightKept < 1.0)) {
                     // A light the character carries that throws no beam: a lantern, a candle.
@@ -3807,6 +3810,7 @@ final class PipelineShaders {
                     float pale = smoothstep(0.45, 0.85, max(texel.r, max(texel.g, texel.b)));
                     color += pow(texel.rgb, vec3(2.2)) * vec3(1.0, 0.86, 0.62) * (9.0 * lit * pale * uDark);
                 }
+                color += pow(texel.rgb, vec3(2.2)) * (roomLit * scatterKept);
                 // A set that is on is seen by the light of its own tube, by day and in the dark
                 // alike, and the room's light on its glass is next to nothing beside it.
                 // What a set shows is a tube's picture: lines across it, a band of hum rolling up it, no colour

@@ -1,5 +1,8 @@
 package zombie.iso;
 
+import java.util.ArrayList;
+import zombie.iso.objects.IsoLightSwitch;
+
 public class IsoLightSource {
     public int id;
     public int x;
@@ -11,4 +14,5 @@ public class IsoLightSource {
     public float b;
     public boolean active;
     public int life;
+    public ArrayList<IsoLightSwitch> switches;
 }
