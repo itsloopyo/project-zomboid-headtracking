@@ -1276,9 +1276,10 @@ final class WallBuilder {
      * one floor ends and the next begins. The plinth stops either side of a doorway.
      */
     void addCourses(float[] opening, int at, int x, int y, int z, float a, float b, float da, float db, float outX, float outY) {
-        SpriteGeometry.Mesh plain = WorldScene.solid.get(WorldScene.PLAIN);
-        plain.open = build.frame.open;
-        plain.sway = 0f;
+        SpriteGeometry.Mesh plinth = WorldScene.solid.get(WorldScene.PLAIN, Courses.paint(farColour, Courses.PLINTH_SHADE));
+        SpriteGeometry.Mesh course = WorldScene.solid.get(WorldScene.PLAIN, Courses.paint(farColour, Courses.COURSE_SHADE));
+        plinth.open = course.open = build.frame.open;
+        plinth.sway = course.sway = 0f;
         float doorFrom = -1f, doorTo = -1f;
         if (opening[at + OPENING_START] >= 0f && opening[at + OPENING_FOOT] < Courses.DOORWAY_FOOT) {
             doorFrom = opening[at + OPENING_START];
@@ -1286,8 +1287,8 @@ final class WallBuilder {
         }
         float base = z * ViewCamera.LEVEL_HEIGHT;
         float lift0 = build.geometry.liftAt(a, b), lift1 = build.geometry.liftAt(a + da, b + db);
-        Courses.onEdge(plain, x, y, a, b, da, db, base + lift0, base + lift1, outX, outY, doorFrom, doorTo,
-                farColour[0] * build.frame.red, farColour[1] * build.frame.green, farColour[2] * build.frame.blue);
+        Courses.onEdge(plinth, course, x, y, a, b, da, db, base + lift0, base + lift1, outX, outY, doorFrom, doorTo,
+                build.frame.red, build.frame.green, build.frame.blue);
     }
 
     /**

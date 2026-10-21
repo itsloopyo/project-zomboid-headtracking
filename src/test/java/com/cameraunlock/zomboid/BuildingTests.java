@@ -44,44 +44,57 @@ final class BuildingTests {
     }
 
     private static void plainWallHasAPlinthAndACourseAndThePlinthStopsAtADoor() {
-        SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
-        Courses.add(mesh, 4f, 9f, 0.5f, 5f, 9f, 0.5f, 0f, -1f, -1f, -1f, 1f, 0.5f, 0.25f);
-        check(mesh.triangles() == 8, "a plain wall has a plinth and a course, each a face and a ledge: " + mesh.triangles());
+        SpriteGeometry.Mesh plinth = new SpriteGeometry.Mesh(), course = new SpriteGeometry.Mesh();
+        Courses.add(plinth, course, 4f, 9f, 0.5f, 5f, 9f, 0.5f, 0f, -1f, -1f, -1f, 0.9f, 0.6f, 0.3f);
+        check(plinth.triangles() == 4 && course.triangles() == 4, "a plain wall has a plinth and a course, each a face and a ledge: " + plinth.triangles() + " and " + course.triangles());
         float lowest = Float.MAX_VALUE, highest = 0f;
-        for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
-            float y = mesh.vertices[at + 1], up = mesh.vertices[at + 2];
-            check(y <= 9f && y >= 9f - Courses.PROUD - 1e-5f && mesh.vertices[at] >= 4f && mesh.vertices[at] <= 5f, "on the side asked for, as long as the wall");
-            check(up <= 0.5f + Courses.PLINTH + 1e-5f || up >= 0.5f + ViewCamera.LEVEL_HEIGHT - Courses.COURSE - 1e-5f, "one at the wall's foot and one under its top");
-            check(mesh.vertices[at + 5] < 1f && mesh.vertices[at + 5] > 0.7f && near(mesh.vertices[at + 6] * 2f, mesh.vertices[at + 5]), "a shade darker than the wall, in its colour");
-            lowest = Math.min(lowest, up);
-            highest = Math.max(highest, up);
+        for (SpriteGeometry.Mesh mesh : new SpriteGeometry.Mesh[] {plinth, course}) {
+            for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+                float y = mesh.vertices[at + 1], up = mesh.vertices[at + 2];
+                check(y <= 9f && y >= 9f - Courses.PROUD - 1e-5f && mesh.vertices[at] >= 4f && mesh.vertices[at] <= 5f, "on the side asked for, as long as the wall");
+                check(mesh == plinth ? up <= 0.5f + Courses.PLINTH + 1e-5f : up >= 0.5f + ViewCamera.LEVEL_HEIGHT - Courses.COURSE - 1e-5f, "the plinth at the wall's foot and the course under its top");
+                check(near(mesh.vertices[at + 5], 0.9f) && near(mesh.vertices[at + 6], 0.6f) && near(mesh.vertices[at + 7], 0.3f), "in the wall's light alone: the paint is the mesh's");
+                lowest = Math.min(lowest, up);
+                highest = Math.max(highest, up);
+            }
         }
         check(near(lowest, 0.5f) && near(highest, 0.5f + ViewCamera.LEVEL_HEIGHT), "from the ground the wall stands on to its top");
-        mesh.clear();
-        Courses.add(mesh, 4f, 9f, 0f, 5f, 9f, 0f, 0f, -1f, 0.3f, 0.7f, 1f, 1f, 1f);
-        check(mesh.triangles() == 12, "at a doorway the plinth is two lengths");
-        for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
-            float x = mesh.vertices[at], up = mesh.vertices[at + 2];
-            check(up > 1f || x <= 4.3f + 1e-5f || x >= 4.7f - 1e-5f, "and none of it crosses the doorway");
+        plinth.clear();
+        course.clear();
+        Courses.add(plinth, course, 4f, 9f, 0f, 5f, 9f, 0f, 0f, -1f, 0.3f, 0.7f, 1f, 1f, 1f);
+        check(plinth.triangles() == 8 && course.triangles() == 4, "at a doorway the plinth is two lengths");
+        for (int at = 0; at < plinth.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+            float x = plinth.vertices[at];
+            check(x <= 4.3f + 1e-5f || x >= 4.7f - 1e-5f, "and none of it crosses the doorway");
         }
+        float[] wall = {1f, 0.5f, 0.25f};
+        check(Courses.paint(wall, Courses.PLINTH_SHADE) != Courses.paint(wall, Courses.COURSE_SHADE), "the plinth and the course are two shades of the wall");
     }
 
     private static void coursesStandOnTheirWallNotASquareOut() {
         // The north wall of square (4, 9), out of doors to the north, then its west wall, out of
         // doors to the west, as WallBuilder.standEdge hands them to addCourses.
         TestMap map = new TestMap();
-        TestMap.write(map.build.wallBuilder, "farColour", new float[] {1f, 1f, 1f});
+        float[] white = {1f, 1f, 1f};
+        TestMap.write(map.build.wallBuilder, "farColour", white);
+        SpriteGeometry.Mesh plinth = WorldScene.solid.get(WorldScene.PLAIN, Courses.paint(white, Courses.PLINTH_SHADE));
+        SpriteGeometry.Mesh course = WorldScene.solid.get(WorldScene.PLAIN, Courses.paint(white, Courses.COURSE_SHADE));
         float[] noOpening = new float[14];
         Arrays.fill(noOpening, -1f);
         map.build.wallBuilder.addCourses(noOpening, 0, 4, 9, 0, 0f, 0f, 1f, 0f, 0f, -1f);
-        float[] box = bounds(TestMap.plain());
-        check(TestMap.plain().triangles() > 0 && box[0] >= 4f - 1e-5f && box[1] <= 5f + 1e-5f && box[2] >= 9f - Courses.PROUD - 1e-5f && box[3] <= 9f + 1e-5f,
-                "a north wall's plinth and course stand on its edge, proud of it to the north: x " + box[0] + " to " + box[1] + ", y " + box[2] + " to " + box[3]);
-        TestMap.plain().clear();
+        for (SpriteGeometry.Mesh mesh : new SpriteGeometry.Mesh[] {plinth, course}) {
+            float[] box = bounds(mesh);
+            check(mesh.triangles() > 0 && box[0] >= 4f - 1e-5f && box[1] <= 5f + 1e-5f && box[2] >= 9f - Courses.PROUD - 1e-5f && box[3] <= 9f + 1e-5f,
+                    "a north wall's plinth and course stand on its edge, proud of it to the north: x " + box[0] + " to " + box[1] + ", y " + box[2] + " to " + box[3]);
+            mesh.clear();
+        }
         map.build.wallBuilder.addCourses(noOpening, 0, 4, 9, 0, 0f, 0f, 0f, 1f, -1f, 0f);
-        box = bounds(TestMap.plain());
-        check(TestMap.plain().triangles() > 0 && box[0] >= 4f - Courses.PROUD - 1e-5f && box[1] <= 4f + 1e-5f && box[2] >= 9f - 1e-5f && box[3] <= 10f + 1e-5f,
-                "a west wall's plinth and course stand on its edge, proud of it to the west: x " + box[0] + " to " + box[1] + ", y " + box[2] + " to " + box[3]);
+        for (SpriteGeometry.Mesh mesh : new SpriteGeometry.Mesh[] {plinth, course}) {
+            float[] box = bounds(mesh);
+            check(mesh.triangles() > 0 && box[0] >= 4f - Courses.PROUD - 1e-5f && box[1] <= 4f + 1e-5f && box[2] >= 9f - 1e-5f && box[3] <= 10f + 1e-5f,
+                    "a west wall's plinth and course stand on its edge, proud of it to the west: x " + box[0] + " to " + box[1] + ", y " + box[2] + " to " + box[3]);
+        }
+        check(TestMap.plain().triangles() == 0, "and none of it in the unpainted plain mesh");
     }
 
     /** The least and most x, then the least and most y, of a mesh's vertices. */
