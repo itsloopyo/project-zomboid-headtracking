@@ -6,12 +6,11 @@ over it for the second (Tailor.java). Each is a photograph of one material from 
 flat, that joins up with itself at its edges. Only its light and dark is used, so its colour does
 not matter, and it is asked for in a pale grey so that neither end of it is lost.
 
-Stable Diffusion XL base 1.0, through the maker tools/materials/generate.py has. Run with the venv
-that has torch and diffusers (see .lab/NOTES.md, "Generated materials"):
-    python tools/skins/fabrics.py --out DIR [--only weave hair ...] [--seed 7]
-Writes DIR/<name>.png at 1024, or DIR/<name>-<seed>.png for a seed other than the first, to choose
-between, and skips what is there already. With --pack it writes the chosen ones, as one channel at
-1024, into src/main/resources/fabric instead of making any.
+Z-Image Turbo, through the maker tools/materials/generate.py has, joined up at its edges as a surface is.
+Run with the venv that has torch and diffusers (see .lab/NOTES.md, "Generated materials"):
+    python tools/skins/fabrics.py --out DIR [--only weave hair ...] [--seeds 1 2 3 4]
+Writes DIR/<name>-<seed>.png at 1024, to choose between, and skips what is there already. With --pack it
+writes the seed CHOSEN of each, as one channel at 1024, into src/main/resources/fabric instead of making any.
 """
 import argparse
 import pathlib
@@ -21,28 +20,25 @@ import numpy
 from PIL import Image
 
 OUT = pathlib.Path(__file__).resolve().parents[2] / 'src' / 'main' / 'resources' / 'fabric'
-EVEN = 'filling the whole frame edge to edge, laid perfectly flat, flat even shadowless lighting, seamless texture, photorealistic, sharp focus, highly detailed'
+FLAT = (' It fills the whole frame from edge to edge and lies perfectly flat, with no folds, seams or edges in sight. A flatbed scanner'
+        ' image in flat even light with no shadows.')
 FABRICS = {
-    'weave': 'extreme macro photograph of plain pale grey cotton shirt fabric, tight plain weave, every warp and weft thread visible, ' + EVEN,
-    'twill': 'flatbed scanner image of pale grey denim jeans fabric pressed flat against the glass, fine diagonal twill lines, cotton threads visible, ' + EVEN,
-    'knit': 'extreme macro photograph of pale grey cotton jersey t-shirt fabric, fine machine knit, tiny v shaped stitches in vertical columns, ' + EVEN,
-    'wool': 'flatbed scanner image of a pale grey machine knitted wool sweater pressed flat against the glass, small even stocking stitch, rows of tiny v shaped stitches, ' + EVEN,
-    'leather': 'flatbed scanner image of smooth pale grey cowhide jacket leather pressed flat against the glass, very fine natural grain, tiny pores and hairline creases, matte, ' + EVEN,
-    'sleek': 'flatbed scanner image of pale grey nylon windbreaker fabric pressed flat against the glass, very fine smooth tight weave, ' + EVEN,
-    # Asked for as ripstop nylon, and it came out as this.
-    'canvas': 'extreme macro photograph of pale grey ripstop nylon fabric, very fine tight weave with a faint square grid of thicker threads, ' + EVEN,
-    'hair': 'macro photograph of long straight pale blonde human hair combed straight down, thousands of fine parallel strands running vertically from top to bottom, ' + EVEN,
+    'weave': 'A close view of plain pale grey cotton shirt fabric: a tight plain weave with every warp and weft thread visible.' + FLAT,
+    'twill': 'A close view of pale grey denim cloth: fine diagonal twill lines running across it, with the cotton threads visible.' + FLAT,
+    'knit': 'A close view of pale grey cotton jersey T-shirt fabric: a fine machine knit of tiny V shaped stitches in straight vertical columns.' + FLAT,
+    # Named as a sweater, a jacket or jeans, the garment itself was drawn, laid out whole.
+    'wool': 'A close view of pale grey knitted wool cloth: a small even stocking stitch, rows of tiny V shaped stitches in straight columns, plain '
+            'all over with no cables, ridges or pattern.' + FLAT,
+    'leather': 'A close view of smooth pale grey cowhide leather: a very fine natural grain with tiny pores and hairline creases, matte.' + FLAT,
+    'sleek': 'Pale grey nylon windbreaker fabric pressed flat against the glass of a scanner: a very fine smooth tight weave, clean and even all '
+             'over with no stains or marks.' + FLAT,
+    'canvas': 'A close view of pale grey ripstop nylon fabric: a very fine tight weave with a faint square grid of thicker threads.' + FLAT,
+    'hair': 'A close view of long straight pale blonde human hair combed straight down: thousands of fine parallel strands running vertically '
+            'from the top of the frame to the bottom. The hair fills the whole frame from edge to edge, with no scalp, no parting and no ends in '
+            'sight. A plain close photograph in flat even light with no shadows.',
 }
-NEGATIVE = ('folds, creases, wrinkles, drapery, seam, stitching line, button, label, hem, edge of the cloth, shadows, perspective, objects, pattern, print, stripes, '
-            'text, watermark, blurry, painting, illustration, drawing, vignette, border, 3d render')
-OWN_NEGATIVE = {
-    'hair': 'face, scalp, skin, ear, parting, curls, waves, braid, hair tie, comb, shadows, perspective, text, watermark, blurry, painting, illustration, drawing, vignette, border, 3d render',
-    'leather': 'folds, seam, stitching, button, shadows, perspective, objects, scales, petals, crocodile, snake, cracked, pebbles, text, watermark, blurry, painting, illustration, vignette, border, 3d render',
-    'wool': 'chunky, thick rope, cables, braids, chain, holes, folds, seam, button, shadows, perspective, objects, text, watermark, blurry, painting, illustration, vignette, border, 3d render',
-}
-FIRST_SEED = 1993
-# The seed each fabric in the mod came out of, where the first gave folds, a pattern or nothing at all.
-CHOSEN = {'wool': 7, 'leather': 21, 'sleek': 7}
+# The seed each fabric in the mod came out of.
+CHOSEN = {'weave': 1, 'twill': 2, 'knit': 1, 'wool': 2, 'leather': 1, 'sleek': 2, 'canvas': 1, 'hair': 2}
 # How far a fabric's light and dark stand from its middle, as a part of the middle, taken all together.
 CONTRAST = 0.3
 
@@ -51,7 +47,9 @@ def pack(pictures):
     """The chosen pictures as the mod reads them: light and dark only, evened out so that no part of one is lighter than another."""
     OUT.mkdir(parents=True, exist_ok=True)
     for name in FABRICS:
-        chosen = f'{name}-{CHOSEN[name]}.png' if name in CHOSEN else f'{name}.png'
+        if name not in CHOSEN:
+            raise SystemExit(f'{name}: no seed of it is CHOSEN')
+        chosen = f'{name}-{CHOSEN[name]}.png'
         light = numpy.asarray(Image.open(pictures / chosen).convert('L'), dtype=numpy.float32) / 255.0
         # What is broader than the threads is the photograph's lighting, not the cloth: it is taken out, wrapping as the picture does.
         size = light.shape[0]
@@ -72,7 +70,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--out', required=True)
     parser.add_argument('--only', nargs='*', default=[])
-    parser.add_argument('--seed', type=int, default=FIRST_SEED)
+    parser.add_argument('--seeds', nargs='*', type=int, default=[1, 2, 3, 4])
     parser.add_argument('--pack', action='store_true')
     args = parser.parse_args()
     out = pathlib.Path(args.out)
@@ -83,18 +81,17 @@ def main():
     unknown = [name for name in args.only if name not in FABRICS]
     if unknown:
         raise SystemExit('no such fabric: ' + ' '.join(unknown))
-    tail = '' if args.seed == FIRST_SEED else f'-{args.seed}'
-    wanted = [name for name in FABRICS if (not args.only or name in args.only) and not (out / f'{name}{tail}.png').exists()]
+    wanted = [(name, seed) for name in FABRICS if not args.only or name in args.only for seed in args.seeds if not (out / f'{name}-{seed}.png').exists()]
     if not wanted:
         print('nothing to make', flush=True)
         return
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / 'materials'))
     import generate as materials
     maker = materials.Maker()
-    words = maker.words({name: (FABRICS[name], OWN_NEGATIVE.get(name, NEGATIVE)) for name in wanted})
-    for name in wanted:
-        maker.make(words[name], args.seed, 1024, True, 6.0).save(out / f'{name}{tail}.png')
-        print('made', name, flush=True)
+    words = maker.words({name: FABRICS[name] for name in dict.fromkeys(name for name, _ in wanted)})
+    for name, seed in wanted:
+        maker.make(words[name], seed, 1024, 1024, True).save(out / f'{name}-{seed}.png')
+        print('made', f'{name}-{seed}', flush=True)
 
 
 if __name__ == '__main__':
