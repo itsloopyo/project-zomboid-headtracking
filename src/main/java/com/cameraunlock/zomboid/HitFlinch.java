@@ -114,8 +114,10 @@ public final class HitFlinch {
      * @param push the push the game gives a body that round drops, hit in the chest
      */
     static void hit(IsoGameCharacter target, int part, ViewCamera.Pose aim, HitPart where, float standsUp, float push) {
-        Flinching f = flinching.computeIfAbsent(target.getID(), id -> new Flinching());
         long now = System.nanoTime();
+        // A body is let go of as it is next posed with its hits over: one unloaded first is never posed again.
+        flinching.values().removeIf(each -> over(each, now));
+        Flinching f = flinching.computeIfAbsent(target.getID(), id -> new Flinching());
         synchronized (f) {
             Hit latest = f.hits[(f.next + HELD - 1) % HELD];
             if (latest != null && sameShot(latest.at, now)) {
@@ -124,6 +126,18 @@ public final class HitFlinch {
             f.hits[f.next] = new Hit(part, aim.forwardX, aim.forwardY, aim.forwardUp, where.hitX - target.getX(), where.hitY - target.getY(),
                     where.hitUp - standsUp, Math.min(MOST, push * TURN_PER_PUSH), now);
             f.next = (f.next + 1) % HELD;
+        }
+    }
+
+    /** Whether every hit a body holds has run its course. */
+    private static boolean over(Flinching f, long now) {
+        synchronized (f) {
+            for (Hit hit : f.hits) {
+                if (hit != null && (now - hit.at) / 1e9f < LASTS) {
+                    return false;
+                }
+            }
+            return true;
         }
     }
 
@@ -162,13 +176,7 @@ public final class HitFlinch {
         long now = System.nanoTime();
         synchronized (f) {
             f.turnedCount = 0;
-            boolean any = false;
-            for (Hit hit : f.hits) {
-                if (hit != null && (now - hit.at) / 1e9f < LASTS) {
-                    any = true;
-                }
-            }
-            if (!any || animation.isRagdolling() || character.isDead()) {
+            if (over(f, now) || animation.isRagdolling() || character.isDead()) {
                 flinching.remove(character.getID());
                 return;
             }
