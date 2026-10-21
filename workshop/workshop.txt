@@ -85,7 +85,9 @@ description=[*] Enable both in the game's Mods menu and restart the game.
 description=[*] With ZombieBuddy's default settings, it asks you to approve this mod's Java code the first time and after each update.
 description=[/list]
 description=
-description=Tracker setup, controls and settings: [url=https://github.com/itsloopyo/project-zomboid-headtracking]github.com/itsloopyo/project-zomboid-headtracking[/url]
+description=Tracker setup, controls and settings are on [url=https://github.com/itsloopyo/project-zomboid-headtracking]GitHub[/url].
+description=
+description=[b]Credits:[/b] the MakeHuman mesh of MPFB (CC0), Stable Diffusion XL, Endive, wasi-libc, LLVM libc++, shaders by David Hoskins, Matt DesLauriers, Armin Ronacher and MJP. [url=https://github.com/itsloopyo/project-zomboid-headtracking/blob/main/THIRD-PARTY-NOTICES.md]Licences[/url]
 description=
 description=Project Zomboid is made by The Indie Stone. This mod is unofficial and not affiliated with them.
 tags=Build 42
