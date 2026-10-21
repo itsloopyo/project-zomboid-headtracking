@@ -99,7 +99,7 @@ show('unrest', FIELD,
      ' few people watching from the sidewalk.',
      'A looted store front with its window smashed and broken glass across the sidewalk at dawn, the sign above it plain and'
      ' unlettered.',
-     'A city seen from a helicopter at night, several fires burning between the dark buildings and smoke rising.',
+     'A city seen from high above at night, looking down, several fires burning between the dark buildings and smoke rising.',
      'A short line of shoppers with empty shopping carts waits outside a small town supermarket, the shelves seen through its'
      ' windows bare.')
 show('emergency', VIDEO,
@@ -127,8 +127,8 @@ show('talk', VIDEO,
      'A late night talk show set seen from the back of the studio, two people small in armchairs beside a low table under the'
      ' lights.')
 show('local-field', FIELD,
-     'A male reporter in a windbreaker stands with a hand microphone at a line of yellow police tape across a rural road,'
-     ' patrol cars parked side on behind him.',
+     'A male reporter in a windbreaker stands with a hand microphone at a line of plain yellow police tape with no printing'
+     ' across a rural road, plain white patrol cars with no markings parked side on behind him.',
      'A white television news van with its tall mast raised is parked on a grass verge beside a highway, its side plain and'
      ' unlettered.',
      'A dark country road at night seen through a car windshield, the headlights picking out abandoned cars left at angles'
@@ -194,7 +194,8 @@ show('phone-in', LOCAL,
      'A middle aged man in a cardigan sits at a desk holding a telephone receiver to his ear and nodding.',
      'A beige push button desk telephone with plain unmarked buttons and one small red light lit sits on a wooden desk, seen'
      ' close up.',
-     'A middle aged man in a cardigan laughs with his head thrown back at a desk.')
+     'A middle aged man in a cardigan laughs with his head thrown back at a desk with an old beige telephone on'
+     ' it, a plain painted backdrop behind him.')
 
 # Entertainment.
 show('hollywood', VIDEO,
@@ -276,7 +277,7 @@ show('kids-advert', VIDEO,
 show('tech', LOCAL,
      'A young man with glasses and a headset sits at a desk crowded with beige computers and circuit boards, a curtain behind'
      ' him.',
-     'An open beige computer case lies on a desk with its circuit boards and cables showing, a screwdriver resting beside it,'
+     'An open beige early 1990s desktop computer, a wide flat box with its lid off, lies on a desk with its circuit boards and cables showing, a screwdriver resting beside it,'
      ' seen close up.',
      'A boxy computer monitor glows with green lines and no readable words on a cluttered desk.',
      'A young man with glasses grins and holds up a green circuit board.')
@@ -303,7 +304,7 @@ show('survivors', ' A still frame of amateur home video on VHS, lit by one harsh
      'An exhausted man in a dirty flannel shirt sits at a desk in a dim television studio, a door barricaded with furniture'
      ' behind him.',
      'A tired woman with a bandaged arm talks to the camera in a dim television studio.',
-     'A young man in a cap crouches beside a portable generator and red fuel cans in a dim room.',
+     'A young man in a cap crouches beside a plain unlabelled red portable generator and red fuel cans in a dim room.',
      'Stacks of food cans and plastic water jugs stand on the floor of a dim television studio, their labels plain and'
      ' unlettered.',
      'An empty news desk in a dim television studio with an office chair knocked over on its side on the floor beside it.')

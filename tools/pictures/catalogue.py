@@ -111,11 +111,11 @@ SPORTS = {
         'An empty indoor basketball court with a polished hardwood floor and one hoop, afternoon light from high windows.' + STILL,
     ],
     'tennis': [
-        'A woman tennis player in a plain white dress hitting a forehand on a grass court, seen from the side, the ball on her'
+        'A woman tennis player in a plain white dress and plain white shoes hitting a forehand with a plain wooden racket on a grass court, seen from the side, the ball on her'
         ' racket strings.' + ACTION,
         'A man tennis player in plain white clothes and a white headband tossing the ball up to serve on a blue hard court,'
         ' seen from the side.' + ACTION,
-        'A woman tennis player in a plain pink dress stretching for a backhand on a red clay court, dust rising at her feet.' + ACTION,
+        'A woman tennis player in a plain pink dress and plain white shoes stretching for a backhand with a plain wooden racket on a red clay court, dust rising at her feet.' + ACTION,
         'A wooden tennis racket lying on a green grass court beside two yellow tennis balls.' + STILL,
         'A tennis player in plain white sliding on red clay to reach a low ball, seen from the far end of the court.' + ACTION,
         'A grass tennis court seen from high in the stands on a sunny day, two small players in white at either baseline.' + ACTION,
@@ -162,14 +162,14 @@ SPORTS = {
         'An American football flying end over end between yellow goal posts in a stadium at dusk, seen from behind the posts.' + ACTION,
     ],
     'soccer': [
-        'A soccer player in a plain red kit with no numbers striking the ball in a stadium, seen from the side, the crowd far'
-        ' away and out of focus.' + ACTION,
+        'A soccer player in a solid red shirt and shorts with no badge, logo or number and plain black boots striking the ball'
+        ' on an empty training pitch, trees behind, seen from the side.' + ACTION,
         'A soccer goalkeeper in a plain green jersey diving at full stretch, the ball just past his gloves, seen from behind'
         ' the goal net.' + ACTION,
-        'A soccer player in a plain blue and white striped kit running with the ball at his feet on a grass pitch, nobody near'
+        'A soccer player in a blue and white striped shirt with no badge, logo or number and plain black boots running with the ball at his feet on a grass pitch, nobody near'
         ' him.' + ACTION,
         'A black and white leather soccer ball on the penalty spot of a grass pitch, the goal behind.' + STILL,
-        'A soccer player in a plain yellow kit running with his arms wide after a goal, the crowd behind far away and out of'
+        'A soccer player in a solid yellow shirt with no badge, logo or number running with his arms wide after a goal on a small town pitch, the crowd behind far away and out of'
         ' focus.' + ACTION,
         'An empty grass soccer pitch in a small stadium at evening, floodlights on, the goal in the foreground.' + STILL,
     ],
@@ -182,11 +182,11 @@ SPORTS = {
         'An empty red running track curving round a stadium at sunrise, white lane lines.' + STILL,
     ],
     'weights': [
-        'A weightlifter in a plain dark singlet holding a heavy barbell overhead on a competition platform, seen from the'
+        'A weightlifter in a plain dark singlet holding a heavy barbell with plain black iron plates with no markings overhead on a wooden platform, seen from the'
         ' front.' + ACTION,
         'A bodybuilder in plain black trunks flexing both arms on a stage against a dark curtain, seen from the front.' + ACTION,
         'An aerobics class of about a dozen people in loose t-shirts and track pants exercising with small dumbbells in a 1980s'
-        ' gym, seen from the back of the room.' + ACTION,
+        ' gym with bare painted walls and a long mirror, seen from the back of the room.' + ACTION,
         'A heavy iron dumbbell resting on a rubber gym floor, chalk dust in a shaft of light.' + STILL,
         'A man in a grey t-shirt lying on a bench pressing a barbell in an old gym, seen from the side.' + ACTION,
         'A loaded barbell with iron plates resting on a wooden lifting platform against a plain red background.' + STILL,
