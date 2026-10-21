@@ -538,8 +538,8 @@ PROGRAMMES = [
     'A small blue robot and a green frog building a cardboard rocket in a garage, a 1980s Saturday morning cartoon in hand'
     ' painted cel animation with flat colours, recorded off air onto VHS.',
     'A brown whitetail deer with a reddish brown summer coat standing in a misty forest clearing at dawn, a nature documentary.' + ON_AIR,
-    'A game show host in a sparkly blue jacket standing on a brightly lit stage with coloured lights and three empty contestant'
-    ' podiums, a game show.' + ON_AIR,
+    'A dated 1980s game show stage with three wooden contestant podiums painted orange and brown, rows of round light'
+    ' bulbs framing the set, a host in a sparkly blue jacket standing at one side.' + ON_AIR,
     'A cowboy on horseback riding through a desert canyon, a classic western film shown on television.' + ON_AIR,
     'An aerobics class of about a dozen people in loose t-shirts and track pants seen from the back of a bright studio, a 1980s'
     ' exercise show.' + ON_AIR,

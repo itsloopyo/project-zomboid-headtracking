@@ -67,14 +67,16 @@ POOLS = {
         'A white delivery truck parked in front of a shop loading bay on a sunny day, seen from the side.' + PRINT,
         'A small town Fourth of July parade, a marching band in red uniforms coming down main street, flags on the shop fronts,'
         ' seen from the pavement.' + PRINT,
-        'A general store in the 1950s with a wooden porch, a bench and a soda cooler out front.' + OLD_PRINT,
+        'A small 1950s country general store, a plain white clapboard building with a wooden porch and an empty bench'
+        ' out front, seen from across a gravel road, its front windows dark.' + OLD_PRINT,
         'A man standing proudly in the doorway of his small shop on opening day, arms folded, seen from across the pavement.' + PRINT,
         'A country road in summer lined with fences and trees, rolling green hills beyond, a blue sky with white clouds.' + PRINT,
         'The shop\'s storefront at night, its lit windows glowing onto an empty wet street.' + PRINT,
     ],
     'school': [
-        'A class photograph of about twenty children of nine or ten years old sitting and standing in three rows in a school'
-        ' gymnasium, their teacher standing at one end, seen from a few metres away.' + PRINT,
+        'A class photograph of about twenty children of nine or ten years old in three rows in a school gymnasium,'
+        ' seen from a few metres away, their teacher, a grown woman in a cardigan, standing apart at the far right end'
+        ' of the back row, the children a little blurred, some squinting, fidgeting or looking away.' + PRINT,
         'A high school basketball team of twelve boys in white and maroon uniforms posed in two rows on a gym floor, their coach'
         ' beside them.' + PRINT,
         'A formal portrait of a school principal, a middle aged woman with short grey hair in a navy jacket, plain blue grey'
@@ -88,7 +90,9 @@ POOLS = {
         'A school library with wooden shelves of books and long tables, empty, afternoon light from tall windows.' + PRINT,
     ],
     'police': [
-        'A formal portrait of a police officer in a dark blue uniform and peaked cap, plain grey backdrop.' + PRINT,
+        'A police officer in a plain dark blue uniform and peaked cap standing beside his white patrol car on a small'
+        ' town street, seen from across the street so he is small and his badge and cap are only dark shapes. The'
+        ' photograph fills the whole frame edge to edge.' + PRINT,
         'A police academy graduating class of about twenty officers in dark uniforms standing in rows outside a brick building,'
         ' seen from a distance.' + PRINT,
         'A row of four white and blue 1980s police cruisers parked in front of a small town brick police station.' + PRINT,
@@ -99,8 +103,9 @@ POOLS = {
         ' seen from the back of the audience.' + PRINT,
         'The cast of a community theatre play, about fifteen people in costume standing in a row on stage taking a bow.' + PRINT,
         'An old cinema front at night, its marquee lit with rows of bulbs, seen from across the street.' + PRINT,
-        'A singer in a sequinned dress standing at a microphone on a small stage under a single spotlight, seen from'
-        ' across the room.' + PRINT,
+        'A woman singer in a long sequinned gown with long sleeves that reaches to the floor, standing alone at a'
+        ' microphone on a small stage under a single spotlight, seen from across the dark room. The photograph fills'
+        ' the whole frame edge to edge.' + PRINT,
         'An empty theatre auditorium with red velvet seats and a closed red curtain, warm house lights.' + PRINT,
         'A small brass band of six musicians in white jackets playing in a bandstand in a park.' + OLD_PRINT,
         'Dancers in matching costumes in a line on stage in mid kick, seen from the audience.' + PRINT,

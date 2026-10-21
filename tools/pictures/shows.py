@@ -106,15 +106,17 @@ show('unrest', FIELD,
      ' front windows the white metal shelves inside stand bare and empty.')
 show('emergency', VIDEO,
      'An empty television news desk with the chair pushed back and loose papers left on it, the studio lights still on.',
-     'A tired official in shirt sleeves and a loosened tie sits at a plain desk reading from a sheet of paper laid flat in'
-     ' front of him, an American flag beside him.',
+     'A tired middle aged official with thinning grey hair, a round face and glasses, in shirt sleeves and a loosened'
+     ' tie, sits at a plain desk with his forearms resting on it, a single sheet of paper lying flat on the desk, an'
+     ' American flag on a pole beside him.',
      'A plain blue television backdrop with a simple flat gold eagle emblem printed in the middle and no words, lit unevenly by'
      ' studio lights.',
      'An empty television studio with one studio camera left pointing at an empty chair in a pool of light.')
 show('local-desk', VIDEO,
      'A male local news anchor in a brown suit sits at a wood panelled news desk, a photograph of a small city skyline behind'
      ' him.',
-     'A woman local news anchor with big permed hair and a green blazer sits at a wood panelled news desk.',
+     'A woman local news anchor with big permed hair and a green blazer sits at a wood panelled news desk in front of'
+     ' a plain blue backdrop, the studio light flat and a little harsh, the picture soft with smeared colour.',
      'Two local news anchors, a man and a woman, sit a little apart at a wood panelled desk and turn to each other smiling,'
      ' plain blue panels behind them.',
      'A local weatherman in a tan suit stands beside a weather map of Kentucky with simple sun and cloud symbols and no words,'
@@ -176,11 +178,13 @@ show('survival', FIELD,
      'A rugged man in a khaki shirt walks through tall ferns and looks back over his shoulder towards the viewer.',
      'A pot of water boils over a campfire at dusk, a small tent behind it.')
 show('advert', VIDEO,
-     'A man and a woman in bright sweaters stand a little apart behind a table of kitchen gadgets with pleasant closed mouth'
-     ' smiles, a studio audience out of focus behind them, on a shopping show.',
+     'A home shopping show: a middle aged man in a red knitted sweater and a woman with permed hair in a blue sweater'
+     ' stand an arm\'s length apart behind a table of kitchen gadgets with mild polite expressions, a plain painted'
+     ' kitchen backdrop behind them, the flat studio light a little harsh and the colours smeared.',
      'A ripe tomato cut into neat slices lies on a white cutting board beside a kitchen knife on a studio counter, seen close'
      ' up.',
-     'A shiny electric slow cooker with steam rising from its lid sits on a kitchen counter in a product shot.',
+     'A brown ceramic pot of beef stew steaming on a kitchen counter, a wooden spoon resting beside it, in a food'
+     ' commercial.',
      'A studio audience in rows claps and smiles, seen from the stage with the back rows out of focus.',
      'A smiling presenter in a bright sweater stands behind a counter pointing at a white kitchen blender standing on it.',
      'A cosy living room lit by a bright ceiling lamp, a mother and a father sitting a little apart on a sofa.')
@@ -188,8 +192,8 @@ show('doctor', VIDEO,
      'An elderly doctor in a white coat sits on the edge of a desk in a consulting room, looking straight out of the'
      ' frame towards the viewer as he speaks.',
      'A smiling elderly couple walk arm in arm along a path through a sunny park.',
-     'An elderly doctor in a white coat stands beside his desk, a small brown bottle of pills with a plain unlettered label'
-     ' on the desk in front of him.')
+     'An elderly doctor in a white coat stands beside a wooden desk in an old fashioned consulting room with'
+     ' bookshelves behind him, the desk bare but for a green lamp and a small brown pill bottle.')
 show('bear', VIDEO,
      'A plush teddy bear in a red bow tie sits on a child\'s bed in a sunny bedroom in a toy commercial.',
      'Two small children in t-shirts sit on a playroom carpet with a big plush teddy bear between them in a toy commercial.',
@@ -198,8 +202,8 @@ show('bear', VIDEO,
 show('phone-in', LOCAL,
      'A middle aged man in a cardigan sits at a desk with a telephone and a mug, a wood panelled wall behind him.',
      'A middle aged man in a cardigan sits at a desk holding a telephone receiver to his ear and nodding.',
-     'A beige push button desk telephone with plain unmarked buttons and one small red light lit sits on a wooden desk, seen'
-     ' close up.',
+     'A host\'s desk on a cheap studio set seen from a few paces back, a beige desk telephone on it with one small red'
+     ' light lit, a coffee mug beside it and an empty chair behind.',
      'A middle aged man in a cardigan laughs with his head thrown back at a desk with an old beige telephone on'
      ' it, a plain painted backdrop behind him.')
 
@@ -208,7 +212,8 @@ show('hollywood', VIDEO,
      'A woman entertainment news presenter in a pink blazer with ordinary hair and make up stands in front of a backdrop of'
      ' spotlights and painted palm trees.',
      'Film stars in evening dress walk a red carpet at a night premiere, a row of photographers out of focus behind a rope.',
-     'A film set with a big film camera on a crane, lamps on stands and an empty folding chair.',
+     'An empty film set on a sound stage: a painted backdrop of a city street, tall lamps on stands, black cables'
+     ' across the floor and a plain canvas folding chair standing empty in front.',
      'A handsome actor in a tuxedo and an actress in a long high necked sequin gown stand a little apart on a red carpet,'
      ' waving.',
      'The front of an old cinema at night, its marquee lit by rows of bulbs round a plain blank white panel with no letters,'
@@ -247,7 +252,8 @@ show('quiz', VIDEO,
      'Three game show contestants stand a little apart behind podiums with buzzers, the podium fronts plain and unlettered.',
      'A game show contestant jumps for joy under falling confetti.',
      'A new car on a turning stage under coloured lights as a game show prize.',
-     'A game show audience claps and cheers in rows beyond the stage lights, out of focus.')
+     'Looking out past the bright stage lights into a dark studio, the rows of a game show audience a dim soft blur'
+     ' beyond the glare.')
 
 # For children.
 # The heroes are the mod's own: helmets with visors, green and orange, no capes, no masks with ears, no chest emblems.
@@ -268,7 +274,8 @@ show('puppets', VIDEO,
      'A felt hand puppet of a hedgehog with stitched eyes and soft fabric spines sits at a tiny table with a toy tea set in a'
      ' children\'s puppet show.',
      'A felt owl puppet looks out of a hole in a cardboard tree in a children\'s puppet show.',
-     'Felt puppets of woodland animals sing in a row in front of painted trees in a children\'s puppet show.')
+     'Hand puppets made of felt, a fox, an owl and a rabbit, poke up from behind a painted wooden fence with their'
+     ' mouths open in song, painted forest trees behind, on a cheap 1980s children\'s television set.')
 show('bunnies', ' A frame from a 1980s cartoon for very small children, cel animation painted by hand in soft pastel colours with'
                 ' round simple shapes, thick outlines and visible paint texture.',
      'Three round pastel cartoon bunnies sit side by side in a meadow of flowers under a rainbow.',
@@ -295,8 +302,8 @@ show('tech', LOCAL,
      'A boxy computer monitor glows with green lines and no readable words on a cluttered desk.',
      'A young man with glasses grins and holds up a green circuit board.')
 show('interview', LOCAL,
-     'A woman interviewer in a navy trouser suit and a silver haired senator in a suit sit in two armchairs facing one another,'
-     ' a fern and a flag behind them.',
+     'A woman interviewer in a navy trouser suit and an old man, a silver haired male senator with a lined face in a'
+     ' grey suit and tie, sit in two armchairs facing one another a little apart, a fern behind them.',
      'A silver haired senator in a suit answers a question, seen from the chest up.',
      'A woman interviewer in a blazer looks down at the notes in her lap.')
 show('clown', LOCAL,
@@ -338,13 +345,15 @@ show('ballad', CLIP,
 show('pop', CLIP,
      'Three young women in bright colour blocked baggy jackets and loose trousers dance a little apart on a white studio set.',
      'Four young men in denim jackets pose against a painted brick wall.',
-     'A singer in a loose jacket with a headset microphone dances in front of four dancers in baggy clothes under coloured'
-     ' lights.',
+     'A singer in a loose jacket with a thin headset microphone curving to his mouth dances with both arms swinging,'
+     ' four dancers in baggy clothes jumping mid move behind him, under coloured lights, seen from across the stage.',
      'A young woman pop singer with big curly hair falling over her ears, in a loose white blouse buttoned to the '
      'collar, sings into a handheld microphone on a stage, seen from the waist up.',
      'Teenagers in t-shirts and baggy jeans dance with their arms in the air, seen from a distance under coloured lights.')
 show('rock', CLIP,
-     'A long haired rock band plays on a stage with jets of flame and a wall of amplifiers.',
+     'A long haired rock band plays on a huge arena stage, a towering wall of stacked black amplifier cabinets behind'
+     ' them, jets of flame shooting up at the sides, lit by hot white and amber spotlights hung from metal trusses,'
+     ' seen from far back in the arena.',
      'A long haired guitarist plays a solo in a single spotlight.',
      'A drummer with long hair in a plain black sleeveless shirt sits behind a huge drum kit with two bass drums with '
      'plain black heads and a wide ring of toms and cymbals around him, under red stage lights.',
@@ -356,8 +365,9 @@ show('soul', CLIP,
      'A man plays an electric piano in a dim studio in warm light, seen from the side.',
      'A couple slow dance in a dim room in front of a window onto the city lights.')
 show('rap', CLIP,
-     'Three rappers in baggy tracksuits and plain caps with no logos stand on a city basketball court beside a big portable'
-     ' stereo.',
+     'Three rappers stand bareheaded on a city basketball court beside a big portable stereo on a bench, seen from the'
+     ' waist up: a tall thin one with a high top fade in a baggy red hooded sweatshirt, a stocky one with a shaved'
+     ' head in an oversized denim jacket and one with short twists in a big plain yellow t-shirt.',
      'Two young men, one in a baseball jacket leaning on the front fender and one in a white t-shirt leaning on the '
      'door, with a long low 1960s convertible lowrider, deep red with chrome wire wheels, under orange street lights at'
      ' night, the street otherwise empty.',
@@ -365,7 +375,8 @@ show('rap', CLIP,
      'Three young men pose on the stone steps of a city row house.')
 show('club', CLIP,
      'Dancers seen far off in a dark night club under green lasers and smoke.',
-     'A disc jockey stands in a booth among smoke and flashing lights.',
+     'A disc jockey in a baggy shirt stands behind two black vinyl record turntables on a table in a dark club booth,'
+     ' smoke and coloured spotlights behind him, seen from a little way back.',
      'Silhouettes of dancers against a wall of flashing coloured lights.',
      'Glowing coloured shapes spin on a black background in early 1990s computer video art.')
 show('eighties', CLIP,
@@ -387,9 +398,10 @@ show('sports-desk', VIDEO,
      ' holds a microphone up to him.')
 show('baseball', SPORT,
      'A baseball pitcher in a plain white unlettered uniform throws from the mound, green outfield grass behind him.',
-     'A baseball batter in a plain grey uniform swings at home plate, the catcher crouched behind him and the umpire behind'
-     ' the catcher, seen from the pitcher\'s side.',
-     'A baseball field seen from high behind home plate on a sunny afternoon, the stands full and far away.',
+     'Seen from far behind the pitcher\'s mound, a baseball batter in a plain grey uniform swings at home plate, the'
+     ' catcher crouched behind him and the umpire behind the catcher, all three small figures on the brown dirt.',
+     'A baseball diamond seen from high above home plate on a sunny afternoon, the green outfield grass and brown'
+     ' infield filling the picture, the far stands a distant blur of colour.',
      'A baseball outfielder in a plain uniform leaps with his glove up at the low padded outfield fence of a ballpark.',
      'A baseball dugout seen from across the field, a row of small players in plain grey uniforms and dark caps leaning'
      ' on its rail in the deep shade of its roof, the green grass of the field in front.',
@@ -404,7 +416,9 @@ show('golf', SPORT,
      'golfer and his caddie, the caddie carrying a big golf bag on his shoulder, only the two of them on the green '
      'grass.')
 show('poker', VIDEO,
-     'Four players sit well apart round a green poker table under a low lamp in a casino, stacks of chips in front of them.',
+     'Four men sit well apart round a green poker table under a low lamp: a heavy bald man in a white shirt, a thin'
+     ' young man with slicked black hair in a grey jacket, an old man with a white beard in a cowboy hat and a red'
+     ' haired man with glasses in a brown sweater, stacks of chips in front of each, seen from a little way back.',
      'Two men face each other across a green felt card table under a hanging lamp in a dim card room, short stacks of '
      'red and white poker chips in front of each, seen from across the room.',
      'A poker player in sunglasses and a cowboy hat stares across the table.',
@@ -417,13 +431,17 @@ show('racing', SPORT,
      'The view from the cockpit of a racing car down a straight, another car ahead.',
      'Seen from high above and far away, a starting grid of small racing cars in plain solid colours sits two by two'
      ' on a grey paved oval track, the stands along one side.',
-     'A racing driver in plain white overalls with no patches stands on a podium spraying champagne from a bottle.',
+     'Seen from far off, a racing driver in plain white overalls, a small figure, stands alone on top of a podium'
+     ' against a plain blue sky with champagne spraying up in an arc above him.',
      'Stock cars in plain colours race side by side round a dirt oval.')
 show('skating', SPORT,
      'A skateboarder in a helmet flies in mid air above a wooden half pipe, a few spectators watching.',
      'A skateboarder slides along a metal rail.',
-     'A boy on a small bicycle flies in mid air over a dirt jump.',
-     'Teenagers in plain t-shirts and baggy shorts cheer beside a skate ramp.')
+     'Seen from far off against a pale sky, a teenager in a plain blue t-shirt and jeans on a small BMX bicycle flies'
+     ' through the air over a dirt jump, a small dark figure in an old round open face helmet, the dirt track around'
+     ' him empty.',
+     'Teenagers in plain t-shirts cheer at the top of a wooden skate ramp, seen from below at the foot of the ramp,'
+     ' from the waist up, against a blue sky.')
 show('boxing', ' A still frame from a 1970s televised boxing match shot on 16mm colour film, bright ring lights and a'
                ' faint haze, soft and grainy with faded colours.',
      'Two heavyweight boxers, one in white trunks and one in black, square off a step apart in a ring.',
@@ -435,20 +453,26 @@ show('boxing', ' A still frame from a 1970s televised boxing match shot on 16mm 
      'older man, his trainer, in a white short sleeved shirt and grey slacks, pressing a white towel to the boxer\'s '
      'forehead, seen from high in the dark seats.')
 show('old-game', ARCHIVE,
-     'A baseball batter swings in a 1950s stadium.',
+     'Seen from far up in the stands, a baseball batter swings at home plate in a 1950s stadium, a small figure in a'
+     ' plain light uniform.',
      'Men in hats cheer in the stands of a 1950s ballpark, seen from a distance.',
-     'An old baseball stadium seen from the upper deck.',
-     'Two baseball players in baggy plain flannel uniforms shake hands on the field.')
+     'A 1950s baseball stadium seen from high up at the back of the top tier of the stands, looking down over rows of'
+     ' seats to the small diamond far below.',
+     'Two baseball players in baggy plain flannel uniforms walk side by side off the field toward the dugout, seen'
+     ' from far off, the picture worn, flickering and scratched.')
 show('soccer', SPORT,
-     'A soccer player in a plain red shirt dribbles past a defender in a plain white shirt on a small town field.',
-     'A goalkeeper in a green jersey dives across the goal mouth with his arms out toward a ball flying past him.',
+     'Seen from far off across a small town field, a soccer player in plain red dribbles past a defender in plain'
+     ' white, two small figures a few paces apart on the green grass, trees behind.',
+     'Seen from far off at the side of the pitch, a goalkeeper in plain green, a small figure, dives across the goal'
+     ' mouth as the ball flies past him into the net, nobody else in view.',
      'Two soccer players in plain red shirts with no numbers run with their arms raised after a goal.',
      'A small crowd in coats watches a soccer match from a low stand.')
 show('horse-race', SPORT,
      'Three race horses with jockeys in bright silks gallop round a turn, spaced out a length apart.',
      'A row of race horses lunge out of a long green metal starting gate as its front doors spring open on a flat dirt '
      'track, seen side on from across the track so the horses and jockeys are small.',
-     'A jockey stands in the stirrups as his horse crosses the line ahead of two others.',
+     'Seen from far off across the track, a race horse passes the white finish post ahead of two others, its jockey'
+     ' standing up high in the stirrups, all of them small figures on the dirt.',
      'A race course grandstand full of people in hats, seen from far across the track.')
 
 # Films, by the kind of film.
@@ -551,8 +575,10 @@ show('critics', VIDEO,
      'A woman film critic in a blazer laughs, seen from the chest up.',
      'The beam of a projector shines over rows of empty red cinema seats in a dark old cinema.')
 show('bad-movie', LOCAL,
-     'A goofy man in a bow tie sits in the front row of an empty old cinema with a tub of popcorn.',
-     'A black and white 1950s science fiction film plays, a man in a rubber monster suit trampling a cardboard model city.',
+     'A goofy man in a bow tie sits in the front row of an empty old cinema with a big glass bowl of popcorn on his'
+     ' lap.',
+     'A grainy black and white 1950s science fiction film: a giant lizard monster with a scaly head, a long tail and a'
+     ' gaping mouth towers over a small model city of cardboard buildings.',
      'A black and white 1950s science fiction film plays, a toy flying saucer hanging on a string over a desert.',
      'A goofy man in a bow tie laughs and points at a cinema screen.')
 
@@ -586,11 +612,14 @@ show('cop-show', DRAMA,
      'dingy precinct office with venetian blinds, in a 1980s action series.',
      'A muscle car flies in mid air over the crest of a hill in a 1980s action series.',
      'Two men crouch behind wooden crates on a dock at night in a gun fight in a 1980s action series.',
-     'Two policemen eat burgers sitting on the hood of a car in a 1980s action series.')
+     'Two policemen in plain blue shirts, one heavy set and balding, one young and thin with dark hair, sit on the'
+     ' hood of a parked car outside a roadside diner at night, paper bags of takeout on the hood between them, seen'
+     ' from across the parking lot, in a 1980s action series.')
 show('space', DRAMA,
      'The bridge of a starship, a crew in coloured uniforms at consoles and a captain in the middle chair facing a screen full'
      ' of stars.',
-     'An alien ambassador with a ridged forehead in long robes in a 1980s science fiction series.',
+     'An alien ambassador in long robes, a tall man in heavy rubber makeup with thick bony ridges running across his'
+     ' forehead and over his bald head, in a 1980s science fiction series.',
      'A model starship flies past a ringed planet in a 1980s science fiction series.',
      'Three crew members in coloured uniforms stand well apart on a rocky planet under a purple sky, each with a small ray gun'
      ' in a holster at the hip, in a 1980s science fiction series.',
@@ -635,10 +664,12 @@ show('britcom', SITCOM,
 
 # What comes on a tape and is not on the air.
 show('fitness', VIDEO,
-     'An aerobics class of men and women in loose t-shirts, track pants and leg warmers follows an instructor at the front,'
-     ' seen from across the room in a 1980s exercise show.',
-     'A row of men and women in baggy t-shirts and sweatpants do squats, seen from the front across a gym in a 1980s exercise'
-     ' show.',
+     'An aerobics instructor, a woman with a high ponytail in a plain purple t-shirt, stands on a low platform facing'
+     ' the viewer with her arms raised, a class of men and women in plain baggy t-shirts behind her copying her, all'
+     ' seen from the waist up across the room, in a 1980s exercise show.',
+     'Seen from the waist up across a gym, a row of four people a little apart doing squats: a heavy set bald man in a'
+     ' grey sweatshirt, a young woman with a curly perm in a pink t-shirt, a grey haired older man in a navy t-shirt'
+     ' and a tall woman with a brown bob in a yellow t-shirt, in a 1980s exercise show.',
      'A fit man in a headband and a grey t-shirt lifts a pair of dumbbells at his sides in a 1980s exercise show.',
      'Four grown women in their thirties in plain solid coloured t-shirts and long loose track pants step up and down '
      'on low plastic steps in a row across a gym, each on her own step, seen from across the room in a 1980s exercise '
@@ -647,11 +678,13 @@ show('garage', TAUGHT,
      'A mechanic in overalls points under the raised hood of a car in a clean garage.',
      'A mechanic kneels beside a car changing a wheel, a jack under the car.',
      'A car engine seen close up under a raised hood, a wrench resting on the engine.',
-     'A mechanic leans over the open hood of a car pulling out the oil dipstick.')
+     'A mechanic in plain blue overalls leans over the open hood of an old car with his arms down inside the engine'
+     ' bay, seen from the side a few paces back.')
 show('first-aid', TAUGHT,
      'A paramedic in uniform bandages the forearm of a fully dressed volunteer who sits upright on a table.',
      'A paramedic kneels on the floor pressing on the chest of a training dummy.',
-     'An open first aid kit with rolled bandages and scissors lies on a table, its box plain and unlettered.',
+     'Rolled white bandages, a roll of white tape, a pair of round ended scissors and a few folded gauze pads laid out'
+     ' in a row on a white table, seen from above.',
      'A woman doctor in a white coat sits in a doctor\'s office, looking straight out of the frame towards the viewer'
      ' as she speaks.',
      'A bandage is wrapped round a lower leg resting on a stool.')
@@ -684,14 +717,15 @@ show('farm', OUTDOOR,
      ' closed, seen from above.')
 show('trade', TAUGHT,
      'An electrician in a tool belt works at an open fuse box.',
-     'A yellow electrical meter with a plain unmarked face lies on a workbench, its two probe wires running to a bundle of'
-     ' loose wires.',
+     'A tangle of loose coloured electrical wires and a few wire nuts lie on a workbench beside a roll of black tape'
+     ' and a pair of wire strippers, seen close up.',
      'A man solders inside the open back of a television set.',
      'A welder in a mask works in a shower of sparks.',
      'A man in a hard hat stretches wire along a line of fence posts.')
 show('sewing', TAUGHT,
      'An old woman smiles at a full size white electric sewing machine on a wooden table in a cosy room.',
-     'A piece of denim on a table with a needle and thread pushed through it, seen close up.',
+     'A spool of red thread and a round red pincushion stuck with pins lie beside a folded piece of denim on a table,'
+     ' seen close up.',
      'A dressmaker\'s dummy dressed in a half finished cotton blouse stands in a sewing room, a tape measure hanging round its'
      ' neck.',
      'Long heavy steel dressmaking shears with black handles, as long as a forearm, lie on a cutting table beside a '
@@ -713,7 +747,8 @@ show('lesson', TAUGHT,
 show('nature', NATURE,
      'A red brown doe of the Kentucky woods, her short summer coat a warm rusty cinnamon colour all over, with large '
      'ears and slender legs, stands in a misty forest clearing at dawn.',
-     'Penguins crowd on an ice shelf.',
+     'Penguins crowd on an ice shelf, seen far off, the picture soft and grainy, the colours dull blue grey and'
+     ' slightly faded.',
      'A red fox pounces in the snow.',
      'An American alligator with a broad rounded snout lies half submerged in a green swamp among lily pads.',
      'A wide river winds between wooded hills, seen from the air.',
