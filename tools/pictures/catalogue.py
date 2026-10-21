@@ -151,11 +151,11 @@ SPORTS = {
         'A worn brown leather baseball glove with a baseball in its pocket lying on a wooden dugout bench.' + STILL,
     ],
     'football': [
-        'An American football quarterback in a plain blue and orange uniform with no numbers drawing back to throw, seen from'
+        'An American football quarterback in a blank blue and orange uniform with no numbers anywhere on the jersey or helmet, plain white shoes with no logos drawing back to throw, seen from'
         ' the side, the stadium blurred behind.' + ACTION,
         'An American football running back in a plain white uniform with no numbers running with the ball tucked under one arm,'
         ' alone in open field.' + ACTION,
-        'An American football receiver in a plain red uniform with no numbers leaping alone for a pass, the ball just above his'
+        'An American football receiver in a blank red uniform with no numbers anywhere on the jersey or helmet, plain white shoes with no logos leaping alone for a pass, the ball just above his'
         ' hands.' + ACTION,
         'A brown leather American football lying on the white yard line of a grass field.' + STILL,
         'A plain blue American football helmet with no decal lying on the grass of a field at dusk, stadium lights behind.' + STILL,
@@ -192,9 +192,9 @@ SPORTS = {
         'A loaded barbell with iron plates resting on a wooden lifting platform against a plain red background.' + STILL,
     ],
     'hockey': [
-        'An ice hockey player in a plain blue jersey with no crest skating hard with the puck, ice spraying from his skates.' + ACTION,
+        'An ice hockey player in a blank blue jersey with no crest or number, plain black gloves and an unmarked wooden stick skating hard with the puck, ice spraying from his skates.' + ACTION,
         'An ice hockey goalie in white pads, a mask and a plain white jersey with no crest crouching in front of the net.' + ACTION,
-        'An ice hockey player in a plain green jersey with no crest winding up for a slap shot, seen from the side.' + ACTION,
+        'An ice hockey player in a blank green jersey with no crest or number, plain black gloves and an unmarked wooden stick, plain white boards behind winding up for a slap shot, seen from the side.' + ACTION,
         'A wooden ice hockey stick and a black puck lying on scratched white ice.' + STILL,
         'An empty ice rink seen from the stands, the white ice and red and blue lines under arena lights.' + STILL,
         'An ice hockey player in a plain yellow and black jersey with no crest skating with his stick raised in one hand after'
@@ -228,9 +228,9 @@ SPORTS = {
         'An old pool hall with rows of green tables under hanging lamps, empty, seen from the doorway.' + STILL,
     ],
     'fieldhockey': [
-        'A woman field hockey player in a plain red kit running with the ball at the end of her stick on a grass pitch, seen'
+        'A woman field hockey player in a blank red kit with no logos, plain white shoes and an unmarked wooden stick, running with the ball at the end of her stick on a grass pitch, seen'
         ' from the side.' + ACTION,
-        'A woman field hockey player in a plain blue kit striking the ball on a grass pitch, seen from the side.' + ACTION,
+        'A woman field hockey player in a blank blue kit with no logos, plain white shoes and an unmarked wooden stick, striking the ball on a grass pitch, seen from the side.' + ACTION,
         'A woman field hockey goalkeeper in padded kit crouching in front of her goal on a grass pitch.' + ACTION,
         'A wooden field hockey stick and a white ball lying on green grass.' + STILL,
     ],
@@ -281,7 +281,7 @@ OIL = ('. An oil painting on canvas with visible brushstrokes and slightly yello
 PAINTINGS = {
     "Lilly's Waterpond": ('impressionist painting of water lilies floating on a pond, reflections of willows, soft blues, greens and violets' + OIL, WIDE),
     "She's Got It": ('classical painting of a woman in a white gown reclining on a red velvet chaise longue, dark drapery behind' + OIL, BROAD),
-    'Aaaaah!': ('expressionist painting of a pale lone figure on a long bridge facing the viewer with both hands pressed to its cheeks and its mouth open in a scream, a swirling orange and red sky above a dark blue fjord' + OIL, TALL),
+    'Aaaaah!': ('expressionist painting of a pale lone figure in a long dark coat on a long bridge facing the viewer with both hands pressed to its cheeks and its mouth open in a scream, a swirling orange and red sky above a dark blue fjord' + OIL, TALL),
     'Abe Lincoln': ('formal 19th century portrait of Abraham Lincoln seated in a dark suit, sombre background' + OIL, TALL),
     'Apple Faced Man': ('surreal painting of a gentleman in a dark overcoat and bowler hat standing in front of a low wall, his face hidden behind a green apple floating in the air in front of it, his arms at his sides, a cloudy sky behind' + OIL, TALL),
     'Benjamin Franklin': ('formal 18th century portrait of Benjamin Franklin in a brown coat, long grey hair, dark background' + OIL, TALL),
@@ -389,7 +389,7 @@ OLD_GIG = (' The performers fill the lower two thirds of the frame and the top t
 MUSIC = [
     'A four piece glam rock band, two women and two men with big teased hair and black leather jackets, standing in a row a'
     ' little apart in front of a dark red curtain.' + GIG,
-    'A rock and roll singer with slick dark hair in a red waistcoat and white shirt leaning against a brick wall, his arms'
+    'One rock and roll singer alone, a man with slick dark hair in a red waistcoat and white shirt, against a plain dark grey backdrop, his arms'
     ' folded.' + OLD_GIG,
     'Four young men in matching slim grey suits and narrow ties standing in a row a little apart, a 1960s beat group.' + OLD_GIG,
     'A cheerful 1960s pop group of five in bright paisley shirts standing in a row a little apart against a pink background.' + GIG,
@@ -402,7 +402,7 @@ MUSIC = [
     ' deep blue background.' + GIG,
     'Three young men in white suits and blue caps standing side by side a little apart, a 1990s rhythm and blues vocal group,'
     ' cream background.' + GIG,
-    'A red haired woman singer in a long white dress with long sleeves and a high neck, head and shoulders, cream and rose'
+    'One red haired woman singer alone, in a long white dress with long sleeves and a high neck, head and shoulders, cream and rose'
     ' background, a 1970s folk album cover.' + GIG,
     'An elderly crooner in a black tuxedo and bow tie standing beside a vintage silver microphone on a stand, black background,'
     ' warm spotlight.' + GIG,
@@ -416,7 +416,8 @@ MUSIC = [
     'A smiling country singer in a white cowboy hat and an embroidered western shirt with an acoustic guitar slung on his'
     ' shoulder, golden sepia background.' + GIG,
     'A folk singer in a flat cap, white shirt and red tie with an acoustic guitar slung on his shoulder, cream background.' + GIG,
-    'An iron bridge over a river in a city with one single purple balloon floating above it, an indie album cover.' + OLD_GIG,
+    'An iron bridge over a river in a city with one single purple balloon floating above it, nobody in sight, the top third'
+    ' plain empty sky. A 1990s indie album cover photograph on colour film, a slightly faded print with fine grain.',
 ]
 # The names the game's own posters carry, where they can be read off them. The rest hang with no lettering.
 ACTS = {1: 'FRIDAY NIGHT', 2: 'THE 594s', 3: 'THE BOJANGLES', 4: 'STEAMSHIP HURRICANE', 6: 'WILL BILL GROOVY', 7: 'SOUNDS LIKE AUSTIN PARKER!',
