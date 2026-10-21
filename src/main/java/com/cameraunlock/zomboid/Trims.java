@@ -269,7 +269,7 @@ final class Trims {
     /**
      * Adds a band's moulding along a wall from (x0, y0) by (da, db), a tile long, on the side
      * (inX, inY) of it, its skin WorldScene.WALL_HALF out from the line, at heights over base0
-     * at its start and base1 at its end. Each vertex is the band's colour in the light
+     * at its start and base1 at its end, into a mesh keyed by paint(band). Each vertex is the light
      * light(x, y) gives where it is. Closed at both ends.
      */
     static void add(SpriteGeometry.Mesh mesh, Band band, float x0, float y0, float da, float db, float inX, float inY, float base0, float base1, Light light) {
@@ -287,12 +287,12 @@ final class Trims {
             mesh.face(inX * -dUp, inY * -dUp, dOut);
             float ax = x0 + da * from + skinX, ay = y0 + db * from + skinY, bx = x0 + da * to + skinX, by = y0 + db * to + skinY;
             float baseA = base0 + (base1 - base0) * from, baseB = base0 + (base1 - base0) * to;
-            corner(mesh, band, light, lit, ax + inX * out0, ay + inY * out0, baseA + up0);
-            corner(mesh, band, light, lit, bx + inX * out0, by + inY * out0, baseB + up0);
-            corner(mesh, band, light, lit, bx + inX * out1, by + inY * out1, baseB + up1);
-            corner(mesh, band, light, lit, ax + inX * out0, ay + inY * out0, baseA + up0);
-            corner(mesh, band, light, lit, bx + inX * out1, by + inY * out1, baseB + up1);
-            corner(mesh, band, light, lit, ax + inX * out1, ay + inY * out1, baseA + up1);
+            corner(mesh, light, lit, ax + inX * out0, ay + inY * out0, baseA + up0);
+            corner(mesh, light, lit, bx + inX * out0, by + inY * out0, baseB + up0);
+            corner(mesh, light, lit, bx + inX * out1, by + inY * out1, baseB + up1);
+            corner(mesh, light, lit, ax + inX * out0, ay + inY * out0, baseA + up0);
+            corner(mesh, light, lit, bx + inX * out1, by + inY * out1, baseB + up1);
+            corner(mesh, light, lit, ax + inX * out1, ay + inY * out1, baseA + up1);
         }
         for (int end = 0; end < 2; end++) {
             float along = end == 0 ? from : to, way = end == 0 ? -1f : 1f;
@@ -306,21 +306,26 @@ final class Trims {
                 if (up0 == up1) {
                     continue;
                 }
-                corner(mesh, band, light, lit, ex, ey, base + up0);
-                corner(mesh, band, light, lit, ex + inX * out0, ey + inY * out0, base + up0);
-                corner(mesh, band, light, lit, ex + inX * out1, ey + inY * out1, base + up1);
-                corner(mesh, band, light, lit, ex, ey, base + up0);
-                corner(mesh, band, light, lit, ex + inX * out1, ey + inY * out1, base + up1);
-                corner(mesh, band, light, lit, ex, ey, base + up1);
+                corner(mesh, light, lit, ex, ey, base + up0);
+                corner(mesh, light, lit, ex + inX * out0, ey + inY * out0, base + up0);
+                corner(mesh, light, lit, ex + inX * out1, ey + inY * out1, base + up1);
+                corner(mesh, light, lit, ex, ey, base + up0);
+                corner(mesh, light, lit, ex + inX * out1, ey + inY * out1, base + up1);
+                corner(mesh, light, lit, ex, ey, base + up1);
             }
         }
     }
 
-    private static void corner(SpriteGeometry.Mesh mesh, Band band, Light light, float[] lit, float x, float y, float up) {
+    /** The mesh key of a band's paint. */
+    static int paint(Band band) {
+        return WallSides.laid(band.red, band.green, band.blue, 0f, 0f, 0f, WallSides.FINE);
+    }
+
+    private static void corner(SpriteGeometry.Mesh mesh, Light light, float[] lit, float x, float y, float up) {
         light.at(x, y, lit);
         mesh.unlit = lit[3];
         mesh.day = lit[4];
-        mesh.add(x, y, up, 0f, 0f, band.red * lit[0], band.green * lit[1], band.blue * lit[2]);
+        mesh.add(x, y, up, 0f, 0f, lit[0], lit[1], lit[2]);
         mesh.litAsFace();
     }
 

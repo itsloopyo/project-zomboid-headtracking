@@ -23,6 +23,7 @@ final class TrimTests {
         Checks.run("aSkirtingStandsOnTheRoomsSideOfItsWallWithNoUndersideOnTheFloor", TrimTests::aSkirtingStandsOnTheRoomsSideOfItsWallWithNoUndersideOnTheFloor);
         Checks.run("everyFaceOfAMouldingIsCutWithItsWallInTheOverheadView", TrimTests::everyFaceOfAMouldingIsCutWithItsWallInTheOverheadView);
         Checks.run("everyFaceOfAMouldingLooksAwayFromItsWall", TrimTests::everyFaceOfAMouldingLooksAwayFromItsWall);
+        Checks.run("aMouldingIsLitByTheRoomAndPaintedByItsMesh", TrimTests::aMouldingIsLitByTheRoomAndPaintedByItsMesh);
     }
 
     /** A wall stood square with rows first to last painted from column from to column to, in grey. */
@@ -118,6 +119,20 @@ final class TrimTests {
                 check(!(up < 1e-5f && mesh.vertices[at + 11] < -0.5f), "no face of it lies face down on the floor");
             }
         }
+    }
+
+    private static void aMouldingIsLitByTheRoomAndPaintedByItsMesh() {
+        Trims.Band wood = new Trims.Band(0f, 0.06f, 0f, 1f, 0.5f, 0.3f, 0.15f);
+        SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
+        Trims.add(mesh, wood, 4f, 9f, 1f, 0f, 0f, 1f, 0f, 0f, (x, y, into) -> {
+            into[0] = 0.8f;
+            into[1] = 0.6f;
+            into[2] = 0.4f;
+        });
+        for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+            check(mesh.vertices[at + 5] == 0.8f && mesh.vertices[at + 6] == 0.6f && mesh.vertices[at + 7] == 0.4f, "each vertex is the light alone");
+        }
+        check(Trims.paint(wood) != Trims.paint(SKIRTING), "a wooden and a white moulding are two meshes");
     }
 
     private static void everyFaceOfAMouldingIsCutWithItsWallInTheOverheadView() {

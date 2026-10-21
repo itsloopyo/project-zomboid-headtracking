@@ -5401,9 +5401,6 @@ final class WorldScene {
             if (north && onNorth.length == 0 || west && onWest.length == 0 || !north && !west) {
                 return false;
             }
-            SpriteGeometry.Mesh plain = solid.get(PLAIN);
-            plain.open = frame.open;
-            plain.sway = 0f;
             float base = z * ViewCamera.LEVEL_HEIGHT;
             Trims.Light light = (atX, atY, into) -> {
                 float a = Math.clamp(atX - x, 0f, 1f), b = Math.clamp(atY - y, 0f, 1f);
@@ -5420,6 +5417,9 @@ final class WorldScene {
                 }
                 float da = edge == 0 ? 1f : 0f, db = 1f - da, rise = kerbTopRise(z, edge == 0);
                 for (Trims.Band band : bands) {
+                    SpriteGeometry.Mesh plain = solid.get(PLAIN, Trims.paint(band));
+                    plain.open = frame.open;
+                    plain.sway = 0f;
                     Trims.add(plain, band, x, y, da, db, db, da, base + geometry.liftAt(0f, 0f) + rise, base + geometry.liftAt(da, db) + rise, light);
                 }
             }
