@@ -278,6 +278,19 @@ public final class FarModels {
     }
 
     /**
+     * Whether a mirror of the vehicle the viewer sits in shows what stands this far behind them
+     * and this far aside, in tiles: the cabin has a mirror the picture draws into (Pipeline), and
+     * it stands in the mirror's wedge within the reach people are drawn into it at
+     * (Characters.MIRROR_PEOPLE), with a person's reach round it. Left to the game, a zombie
+     * behind the car was faded out by the game's sight from above as it is for any square
+     * behind the character, and the mirror showed an empty road.
+     */
+    private boolean inTheMirror(float behind, float across) {
+        return Cabins.wheel(view.ride) != null && Quality.reflections(view.index)
+                && !Cabins.outOfMirror(behind, across, Characters.PERSON_ROUND, Pipeline.MIRROR_TAN * Pipeline.MIRROR_WIDTH / Pipeline.MIRROR_HEIGHT, 0f, Characters.MIRROR_PEOPLE);
+    }
+
+    /**
      * Whether another player is drawn whole however the game's own sight for players goes: the
      * fade it gives one out of its cone or behind something, and on a server the one it gives
      * one behind the viewer or sneaking, are its view from above.
@@ -327,9 +340,8 @@ public final class FarModels {
 
     /**
      * Whether this stands within the picture's sight and its draw distance where the picture can come to show it.
-     * From a vehicle that is the side the vehicle faces: what is behind shows only in a mirror,
-     * which takes in less than the game's own screen does. On foot it is all but what is
-     * behind the view: see ROUND.
+     * From a vehicle that is the side the vehicle faces, and behind it what the mirror takes in
+     * (inTheMirror). On foot it is all but what is behind the view: see ROUND.
      *
      * Not past the game's own sight for the weather and the hour (GameTime.getViewDist), past
      * which the game's IsoGameCharacter.TestIfSeen counts nobody seen and the game fades a zombie
@@ -348,7 +360,8 @@ public final class FarModels {
         BaseVehicle ride = viewer.getVehicle();
         if (ride != null) {
             ride.getForwardVector(ahead);
-            return toX * ahead.x + toY * ahead.z > 0f;
+            float along = toX * ahead.x + toY * ahead.z;
+            return along > 0f || inTheMirror(-along, toX * ahead.z - toY * ahead.x);
         }
         // Near the viewer, behind as well: the game makes a zombie's model and composes its clothes the first time it
         // is shown, and a turn to a crowd that had none did all of it in one frame of 130 to 270 ms. Within this reach

@@ -498,11 +498,11 @@ public final class Characters {
      * animation carries a model off the spot the game gives for it. PERSON_MIDDLE is how far
      * above the feet that middle is.
      */
-    private static final float PERSON_ROUND = 3f;
+    static final float PERSON_ROUND = 3f;
     private static final float PERSON_MIDDLE = 0.9f;
 
     /** How far behind a mirror a person is still drawn into it, and a vehicle, in tiles. */
-    private static final float MIRROR_PEOPLE = 30f, MIRROR_VEHICLES = 60f;
+    static final float MIRROR_PEOPLE = 30f, MIRROR_VEHICLES = 60f;
     /** While set, only what stands before this eye, looking this way and no wider than this, is drawn: a mirror's picture. */
     private boolean mirrored;
     private float mirrorWayX, mirrorWayY, mirrorWide;

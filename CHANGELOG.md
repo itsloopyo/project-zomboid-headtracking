@@ -63,7 +63,7 @@
 
 - First person from any seat. The view tilts and rolls with the vehicle on its springs and in crashes.
 - Full interiors for every vehicle in the game, with working speedometer (mph), rev counter and fuel gauge, and hands on the wheel (`OwnCabins`). The game's dashboard panel is hidden in first person.
-- Working rear-view and side mirrors.
+- Working rear-view and side mirrors. Zombies behind the vehicle show in them up to 30 tiles back.
 - Rain and snow on the windows: drops land, run down and are cleared by the wipers. Snow melts on the windscreen and piles up where the wipers park.
 - Snow settles on vehicle roofs, bonnets and windscreens. Engine heat and wipers clear the windscreen.
 - Headlights light the road and cast shadows. Wet roads reflect them.
