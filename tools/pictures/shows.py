@@ -151,7 +151,8 @@ show('cook', VIDEO,
      'A cheerful woman in an apron stands behind a kitchen counter smiling at the camera, a mixing bowl and a whisk on the'
      ' counter in front of her.',
      'A pan of vegetables steams on a gas stove with a wooden spoon resting in it, seen close up.',
-     'A frosted layer cake on a cake stand sits on the counter of a television studio kitchen.')
+     'A tall round layer cake covered all over in thick smooth white buttercream icing with piped rosettes round its top'
+     ' edge sits on a cake stand on the counter of a television studio kitchen.')
 show('woodwork', VIDEO,
      'A bearded man in a plaid shirt and safety glasses saws a pine plank laid across two sawhorses in a home workshop, a hand'
      ' saw in his right hand.',
@@ -206,10 +207,11 @@ show('hollywood', VIDEO,
      'The front of an old cinema at night, its marquee lit by rows of bulbs round a plain blank white panel with no letters,'
      ' a few people outside.')
 show('detectives', DRAMA,
-     'Two detectives in suits argue with a police captain across a desk in a cluttered precinct office.',
+     'Three men in plain grey and brown business suits and ties, two detectives and their grey haired captain, argue across'
+     ' a desk in a cluttered precinct office, nobody in uniform.',
      'A plain dark sedan with a red light on its dashboard is parked in a city alley at night.',
-     'A detective in a raincoat stands with his back to the wall of a dim hallway beside a closed door, listening, one hand on'
-     ' the holster at his hip.',
+     'A detective in a tan raincoat stands in a dim hallway with his back and shoulders flat against the wall beside a closed'
+     ' door, facing the camera with his head turned towards the door, listening, seen from the front.',
      'A suspect sits at a table in a bare interrogation room under a single lamp, a detective leaning on the table across from'
      ' him.',
      'Two detectives run across a rooftop a few paces apart, the city behind them.')
@@ -293,7 +295,8 @@ show('county', FIELD,
      'A county fair on a summer evening, one ferris wheel lit up against the sky behind a row of striped stalls.',
      'An old man in overalls sits whittling a stick on the porch of a wooden house, seen from the yard.',
      'A covered wooden bridge with a roof and red painted board sides crosses a creek among green summer trees.',
-     'A tobacco barn in a field at sunset.',
+     'A tall old black painted wooden tobacco barn with vertical plank siding and open vent boards standing alone at the edge'
+     ' of a cut field at sunset, seen from the road.',
      'Two horses graze well apart behind a white fence.')
 show('survivors', ' A still frame of amateur home video on VHS, lit by one harsh light, dim and grainy with muted'
                   ' colours.',
