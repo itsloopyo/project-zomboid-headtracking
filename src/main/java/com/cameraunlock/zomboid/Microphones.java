@@ -141,6 +141,9 @@ final class Microphones {
             Voice voice = new Voice();
             byte[] block = new byte[BLOCK * 2];
             boolean saidMissing = false;
+            // Each way of failing is said once, until the microphone has given sound again: one that will
+            // not open, or closes as soon as it opens, is tried every RETRY_MILLISECONDS for as long as the game runs.
+            boolean saidUnopened = false, saidSilent = false;
             while (!stopped) {
                 TargetDataLine line;
                 try {
@@ -155,24 +158,36 @@ final class Microphones {
                     }
                     line.open(FORMAT, block.length * 4);
                 } catch (LineUnavailableException | IllegalArgumentException | SecurityException failure) {
-                    Log.error("player " + (player + 1) + "'s microphone \"" + asked + "\" did not open, and is tried again in " + RETRY_MILLISECONDS / 1000
-                            + " s", failure);
+                    if (!saidUnopened) {
+                        Log.error("player " + (player + 1) + "'s microphone \"" + asked + "\" did not open, and is tried again every " + RETRY_MILLISECONDS / 1000
+                                + " s without saying so again", failure);
+                        saidUnopened = true;
+                    }
                     rest();
                     continue;
                 }
                 saidMissing = false;
+                boolean said = !saidSilent, heard = false;
                 try {
                     line.start();
-                    Log.info("player " + (player + 1) + "'s microphone \"" + asked + "\" opened for their mouth: only the shape it gives their mouth is kept");
+                    if (said) {
+                        Log.info("player " + (player + 1) + "'s microphone \"" + asked + "\" opened for their mouth: only the shape it gives their mouth is kept");
+                    }
                     long last = System.nanoTime();
                     while (!stopped) {
                         int read = line.read(block, 0, block.length);
                         if (read < block.length) {
                             // A line closed under the thread, as Windows closes one whose device is unplugged.
-                            if (!stopped) {
-                                Log.info("player " + (player + 1) + "'s microphone \"" + asked + "\" stopped giving sound, and is looked for again");
+                            if (!stopped && said) {
+                                Log.info("player " + (player + 1) + "'s microphone \"" + asked + "\" stopped giving sound, and is looked for again"
+                                        + (heard ? "" : ". It gave none since it opened, and while that goes on it is opened again without saying so"));
                             }
                             break;
+                        }
+                        if (!heard) {
+                            heard = true;
+                            saidUnopened = false;
+                            saidSilent = false;
                         }
                         long now = System.nanoTime();
                         voice.step(block, read, (now - last) / 1e9f);
@@ -182,7 +197,12 @@ final class Microphones {
                 } finally {
                     mouth = Mouths.Shape.SHUT;
                     line.close();
-                    Log.info("player " + (player + 1) + "'s microphone \"" + asked + "\" closed");
+                    if (said) {
+                        Log.info("player " + (player + 1) + "'s microphone \"" + asked + "\" closed");
+                    }
+                    if (!heard && !stopped) {
+                        saidSilent = true;
+                    }
                 }
                 if (!stopped) {
                     rest();
