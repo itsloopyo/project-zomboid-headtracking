@@ -26,6 +26,7 @@ final class TestMap {
         build = world.next();
         build.cell = cell;
         build.building = new WorldScene.ChunkMeshes(0);
+        build.placed = build.building.placed;
         build.frame.scale = 2f;
         build.roofBuilder.newBuild();
         Roofs.forget();

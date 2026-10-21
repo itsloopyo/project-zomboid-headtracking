@@ -448,6 +448,7 @@ final class ChunkBuffers {
          */
         void of(ArrayList<WorldScene.ChunkMeshes> chunks, boolean[] left, boolean laidToo, RoomSight.Seen rooms, int storeys, long building) {
             askedOf = null;
+            airOf = null;
             solidRuns.clear();
             grownRuns.clear();
             laidRuns.clear();
@@ -560,15 +561,88 @@ final class ChunkBuffers {
         }
     }
 
-    /** Whether a run of the contents of a room, or of what is in no room's contents, is listed for a picture that sees into the rooms given, or into every room. */
+    /**
+     * Whether a run of the contents of a room, of what is seen from either of two regions
+     * (RoomSight.pair), or of the open air is listed for a picture that sees into the rooms
+     * given, or into every room. The open air is taken to be seen.
+     */
     static boolean listed(long room, RoomSight.Seen rooms) {
-        return rooms == null || room == RoomSight.OUTSIDE || rooms.contains(room);
+        if (rooms == null || room == RoomSight.OUTSIDE || room == RoomSight.ANYWHERE) {
+            return true;
+        }
+        long[] two = RoomSight.pairOf(room);
+        return two == null ? rooms.contains(room) : listed(two[0], rooms) || listed(two[1], rooms);
     }
 
-    /** Whether a run of a build is listed: its room's contents are, and it is no storey left out. */
-    private static boolean listed(WorldScene.ChunkMeshes build, int run, RoomSight.Seen rooms, int storeys, long building) {
-        return listedOnce(build.runRoom[run], rooms) && (build.runLevel[run] < storeys || build.runBuilding[run] != building);
+    /** Whether a piece standing in a ball and seen from a region, not a pair, is listed: the open air round it is seen where the ball is in the picture's part of it. */
+    static boolean listed(long room, RoomSight.Seen rooms, float x, float y, float up, float reach) {
+        if (rooms == null || room == RoomSight.ANYWHERE) {
+            return true;
+        }
+        if (room == RoomSight.OUTSIDE) {
+            return rooms.airSees(x - reach, y - reach, up - reach, x + reach, y + reach, up + reach);
+        }
+        return rooms.contains(room);
     }
+
+    /** Whether a run of a build is listed: it is no storey left out, and the place it is seen from is in the picture. */
+    private static boolean listed(WorldScene.ChunkMeshes build, int run, RoomSight.Seen rooms, int storeys, long building) {
+        if (build.runUnless[run] != RoomSight.OUTSIDE) {
+            // A window's blind stands in for its room in the eye's own picture alone: a mirror, a shadow or the overhead view has the room itself.
+            return rooms != null && (build.runLevel[run] < storeys || build.runBuilding[run] != building) && !listedOnce(build.runUnless[run], rooms)
+                    && airShows(build, run, rooms);
+        }
+        return (build.runLevel[run] < storeys || build.runBuilding[run] != building) && (rooms == null || seenFrom(build.runRoom[run], build, run, rooms)
+                || build.runRoomToo[run] != build.runRoom[run] && seenFrom(build.runRoomToo[run], build, run, rooms));
+    }
+
+    /** Whether a region a run is seen from is in the picture: a room the eye sees into, or the open air where the picture shows it. */
+    private static boolean seenFrom(long region, WorldScene.ChunkMeshes build, int run, RoomSight.Seen rooms) {
+        if (region == RoomSight.OUTSIDE) {
+            return airShows(build, run, rooms);
+        }
+        if (region == RoomSight.ANYWHERE) {
+            return true;
+        }
+        return listedOnce(region, rooms);
+    }
+
+    /**
+     * Whether the open air round a run may be in the picture: the box of its chunk, cut down to
+     * its storey for a building's, covers some of the picture the open air is seen in. Asked
+     * once a storey and once for the rest in each chunk.
+     */
+    private static boolean airShows(WorldScene.ChunkMeshes build, int run, RoomSight.Seen rooms) {
+        if (build != airOf) {
+            airOf = build;
+            airAsked = airAnswers = 0L;
+        }
+        long building = build.runBuilding[run];
+        int level = build.runLevel[run];
+        int bit = building == SpriteGeometry.NO_BUILDING || level < 0 || level > 62 ? 63 : level;
+        long mask = 1L << bit;
+        if ((airAsked & mask) == 0L) {
+            float low = build.minUp, high = build.maxUp;
+            if (bit != 63) {
+                // A storey's pieces stand on the land under it, which lies within a level or two of its own height.
+                low = Math.max(low, (level - 2) * ViewCamera.LEVEL_HEIGHT);
+                high = Math.min(high, (level + 3) * ViewCamera.LEVEL_HEIGHT);
+            }
+            float s = AIR_SLACK + build.turned;
+            boolean shows = rooms.airSees(build.minX - s, build.minY - s, low - s, build.maxX + s, build.maxY + s, high + s);
+            airAsked |= mask;
+            if (shows) {
+                airAnswers |= mask;
+            }
+        }
+        return (airAnswers & mask) != 0L;
+    }
+
+    /** How far past a chunk's box what is built in it may be drawn, in tiles: a sway, a card turned to the eye. */
+    private static final float AIR_SLACK = 1f;
+    /** Render thread: the chunk airShows was last asked about, which of its storeys it has answered for, and how. */
+    private static WorldScene.ChunkMeshes airOf;
+    private static long airAsked, airAnswers;
 
     /**
      * The same, with the last room asked about remembered while one listing is made, which

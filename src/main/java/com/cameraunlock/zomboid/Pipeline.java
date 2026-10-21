@@ -1529,7 +1529,8 @@ final class Pipeline {
         for (int chunk = 0; chunk < drawn.size(); chunk++) {
             Models.Instances placed = drawn.get(chunk).placed;
             for (int i = 0; i < placed.glassCount; i++) {
-                if (ChunkBuffers.listed(placed.rooms[placed.glassPieces[i]], roomsSeen)) {
+                int piece = placed.glassPieces[i];
+                if (ChunkBuffers.listed(placed.rooms[piece], roomsSeen) || ChunkBuffers.listed(placed.roomsToo[piece], roomsSeen)) {
                     lookingGlass.consider(placed.glasses, i, false, camera, tanHalfFieldOfView, aspect, near);
                 }
             }
@@ -1962,7 +1963,9 @@ final class Pipeline {
                     if (ahead < -f[ball + 3] || ahead > far + f[ball + 3]) {
                         continue;
                     }
-                    if (!ChunkBuffers.listed(placed.rooms[piece], rooms)) {
+                    float seenReach = f[ball + 3] + SEEN_MARGIN;
+                    if (!ChunkBuffers.listed(placed.rooms[piece], rooms, f[ball], f[ball + 1], f[ball + 2], seenReach)
+                            && (placed.roomsToo[piece] == placed.rooms[piece] || !ChunkBuffers.listed(placed.roomsToo[piece], rooms, f[ball], f[ball + 1], f[ball + 2], seenReach))) {
                         continue;
                     }
                     float reach = f[ball + 3] + SEEN_MARGIN;
@@ -4215,7 +4218,8 @@ final class Pipeline {
                 WorldScene.ChunkMeshes build = drawn.get(chunk);
                 for (int i = 0; i < build.owned; i++) {
                     int run = build.ownedRun[i];
-                    if (build.ownedKey[i] != keys[k] || !ChunkBuffers.listed(build.runRoom[run], roomsSeen)) {
+                    if (build.ownedKey[i] != keys[k] || build.runUnless[run] != RoomSight.OUTSIDE
+                            || !ChunkBuffers.listed(build.runRoom[run], roomsSeen) && !ChunkBuffers.listed(build.runRoomToo[run], roomsSeen)) {
                         continue;
                     }
                     boolean laid = run >= build.solidRuns;

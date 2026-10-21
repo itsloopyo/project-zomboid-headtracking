@@ -38,6 +38,7 @@ final class RoomSightTests {
         Checks.run("noRoomALineReachesIsLeftOutInARandomTown", RoomSightTests::noRoomALineReachesIsLeftOutInARandomTown);
         Checks.run("aSetOfRoomsHoldsWhatIsAddedUntilItIsCleared", RoomSightTests::aSetOfRoomsHoldsWhatIsAddedUntilItIsCleared);
         Checks.run("aPictureListsOnlyTheRoomsItSeesInto", RoomSightTests::aPictureListsOnlyTheRoomsItSeesInto);
+        Checks.run("aWallsEdgeAndAWindowsBlindAreListedByTheRoomsEitherSide", RoomSightTests::aWallsEdgeAndAWindowsBlindAreListedByTheRoomsEitherSide);
         Checks.run("aMapLetGoOfHoldsNothingOfTheWorldItWasReadFrom", RoomSightTests::aMapLetGoOfHoldsNothingOfTheWorldItWasReadFrom);
     }
 
@@ -599,6 +600,35 @@ final class RoomSightTests {
         check(ChunkBuffers.listed(build.runRoom[0], seen) && !ChunkBuffers.listed(build.runRoom[1], seen) && ChunkBuffers.listed(build.runRoom[2], seen),
                 "a picture lists what is in no room and the rooms it sees into, and leaves out the rest");
         check(ChunkBuffers.listed(build.runRoom[1], null), "and one drawn with every room lists them all");
+        build.scrap();
+    }
+
+    private static void aWallsEdgeAndAWindowsBlindAreListedByTheRoomsEitherSide() {
+        SpriteGeometry.MeshSet solid = new SpriteGeometry.MeshSet(), laid = new SpriteGeometry.MeshSet();
+        solid.room = RoomSight.pair(BATH, HALL);
+        solid.get(4).add(0f, 0f, 0f, 0f, 0f, 1f, 1f, 1f);
+        solid.room = RoomSight.blind(BATH);
+        solid.get(4).add(1f, 0f, 0f, 0f, 0f, 1f, 1f, 1f);
+        solid.room = RoomSight.OUTSIDE;
+        WorldScene.ChunkMeshes build = new WorldScene.ChunkMeshes(0);
+        build.fill(solid, laid);
+        check(build.runs == 2 && Math.min(build.runRoom[0], build.runRoomToo[0]) == Math.min(BATH, HALL)
+                && Math.max(build.runRoom[0], build.runRoomToo[0]) == Math.max(BATH, HALL) && build.runUnless[0] == RoomSight.OUTSIDE,
+                "what is seen from either of two rooms is a run of both");
+        check(build.runRoom[1] == RoomSight.OUTSIDE && build.runRoomToo[1] == RoomSight.OUTSIDE && build.runUnless[1] == BATH,
+                "and a window's blind is the open air's, unless its room is seen into");
+        check(RoomSight.pair(HALL, BATH) == RoomSight.pair(BATH, HALL) && RoomSight.pair(HALL, HALL) == HALL, "a pair is the same either way round, and a room paired with itself is the room");
+        ChunkBuffers.Listing listing = new ChunkBuffers.Listing();
+        java.util.ArrayList<WorldScene.ChunkMeshes> chunks = new java.util.ArrayList<>(java.util.List.of(build));
+        RoomSight.Seen seen = new RoomSight.Seen();
+        seen.add(HALL);
+        listing.of(chunks, null, false, seen, Integer.MAX_VALUE, SpriteGeometry.NO_BUILDING);
+        check(listing.ranges() == 1 && listing.runsOf(0) == 2, "seen into the hall, the edge and the bath's blind are listed");
+        seen.add(BATH);
+        listing.of(chunks, null, false, seen, Integer.MAX_VALUE, SpriteGeometry.NO_BUILDING);
+        check(listing.ranges() == 1 && listing.runsOf(0) == 1, "seen into the bath too, its blind is not");
+        listing.of(chunks, null, false, null, Integer.MAX_VALUE, SpriteGeometry.NO_BUILDING);
+        check(listing.ranges() == 1 && listing.runsOf(0) == 1, "and a picture of every room, a mirror's or a shadow's, has the room and never the blind");
         build.scrap();
     }
 }

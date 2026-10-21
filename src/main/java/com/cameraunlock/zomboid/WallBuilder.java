@@ -78,6 +78,8 @@ final class WallBuilder {
     private final SpriteGeometry.Frame tileFrame = new SpriteGeometry.Frame();
     /** The colour farTint last gave a far skin, or null where it gave none. */
     private float[] farColour;
+    /** The regions either side of the edge being added, the one inside its square first: see addEdge. */
+    private long edgeNear, edgeFar;
     /** How far the skin being added runs on past its wall's two ends, in tiles: see WallJoins. */
     private float skinStart, skinEnd;
 
@@ -173,6 +175,15 @@ final class WallBuilder {
             float layer, float da, float db) {
         build.building.plain = false;
         boolean onKerbTop = build.standOnKerbTop(z, da != 0f);
+        // What stands on an edge is seen from the place either side of it, and is drawn while the
+        // eye sees into either: a room's, or the open air's. What is built as a room's contents stays its room's.
+        long given = WorldScene.solid.room;
+        boolean own = given != RoomSight.OUTSIDE && given != RoomSight.ANYWHERE;
+        edgeNear = own ? given : roomAt(x, y, z);
+        edgeFar = own ? given : da != 0f ? roomAt(x, y - 1, z) : roomAt(x - 1, y, z);
+        long either = RoomSight.pair(edgeNear, edgeFar);
+        build.contentsOf(either);
+        mesh = inRoom(mesh, either);
         try {
             // A wall is as thick as a wall: two skins, one each side of the square's edge, both
             // with the sprite's outline. Through a window or a doorway the far skin is seen
@@ -189,6 +200,7 @@ final class WallBuilder {
             standEdge(mesh, texture, wall, door, x, y, z, way, layer, da, db);
             WorldScene.layers.none();
         } finally {
+            build.contentsOf(given);
             if (onKerbTop) {
                 build.leaveKerbTop();
             }
@@ -201,6 +213,7 @@ final class WallBuilder {
      * game's view shows it on, the given number of layers clear of the skin.
      */
     void addStain(SpriteGeometry.Mesh mesh, int x, int y, int z, float layer, float da, float db) {
+        mesh = inRoom(mesh, mesh.room != RoomSight.OUTSIDE && mesh.room != RoomSight.ANYWHERE ? mesh.room : roomAt(x, y, z));
         boolean onKerbTop = build.standOnKerbTop(z, da != 0f);
         try {
             float way = db != 0f ? SpriteGeometry.LAYERS_X : SpriteGeometry.LAYERS_Y;
@@ -313,6 +326,9 @@ final class WallBuilder {
         }
         build.geometry.shownA = inX;
         build.geometry.shownB = inY;
+        // Each skin is seen from the place it faces, and is drawn only while the eye sees into that place.
+        long nearRoom = edgeNear, farRoom = edgeFar;
+        build.contentsOf(nearRoom);
         skinStart = (startJoin & WallJoins.NEAR) != 0 ? WorldScene.WALL_HALF : 0f;
         skinEnd = (endJoin & WallJoins.NEAR) != 0 ? WorldScene.WALL_HALF : 0f;
         // An inside wall is its paper's stripes, each a face of its own: see Papers.
@@ -340,13 +356,14 @@ final class WallBuilder {
             near = tileStood;
         }
         // A wall that shows its own sprite shows it stood square, so its courses run on into the next length: see Flats.
-        near = stoodSquare(near, texture, da != 0f);
+        near = inRoom(stoodSquare(near, texture, da != 0f), nearRoom);
         int nearFlat = build.frame.flat;
         // Tiles the map lays over the wall, hung on it, are tiles on its skin inside the square, and the rest of what is laid over a wall is as painted.
         if (build.overLayer == 0 || !addTiledOverlay(mesh, texture, build.overSheet, x, y, z, da, db)) {
             addSkin(near, opening, at, x, y, z, 0f, 0f, da, db, fromStart, fromEnd, fromTop, startIsLow);
         }
         build.frame.flat = 0;
+        build.contentsOf(farRoom);
         skinStart = (startJoin & WallJoins.FAR) != 0 ? WorldScene.WALL_HALF : 0f;
         skinEnd = (endJoin & WallJoins.FAR) != 0 ? WorldScene.WALL_HALF : 0f;
         build.geometry.shownA = -inX;
@@ -401,7 +418,7 @@ final class WallBuilder {
         } else {
             build.frame.flat = nearFlat;
         }
-        addSkin(far, opening, at, x, y, z, 0f, 0f, da, db, fromStart, fromEnd, fromTop, startIsLow);
+        addSkin(inRoom(far, farRoom), opening, at, x, y, z, 0f, 0f, da, db, fromStart, fromEnd, fromTop, startIsLow);
         build.frame.flat = 0;
         paper = null;
         tiles = null;
@@ -420,6 +437,7 @@ final class WallBuilder {
             build.frame.open = open;
             build.frame.cornersFrom(build.heldRed, build.heldGreen, build.heldBlue, build.heldUnlit);
         }
+        build.contentsOf(RoomSight.pair(nearRoom, farRoom));
         build.frame.material = material;
         skinStart = skinEnd = 0f;
         build.geometry.shownA = build.geometry.shownB = 0f;
@@ -705,6 +723,25 @@ final class WallBuilder {
         } else if (WorldScene.lamplit(build.cell, ownIsRoom ? build.here : beyond, build.playerIndex, build.asTheGameShows || build.gamesView, build.lampsNear)) {
             build.frame.material = LIT_GLASS;
         }
+    }
+
+    /** The room a square is in, or RoomSight.OUTSIDE for the open air or no square. */
+    private long roomAt(int x, int y, int z) {
+        IsoGridSquare square = build.cell.getGridSquare(x, y, z);
+        return square == null ? RoomSight.OUTSIDE : square.getRoomID();
+    }
+
+    /** The mesh of the same set, texture and tint as the one given, for the contents of a room. */
+    private static SpriteGeometry.Mesh inRoom(SpriteGeometry.Mesh mesh, long room) {
+        if (mesh.room == room || mesh.set == null) {
+            return mesh;
+        }
+        long was = mesh.set.room;
+        mesh.set.room = room;
+        SpriteGeometry.Mesh in = mesh.set.get(mesh.texture, mesh.tint);
+        mesh.set.room = was;
+        in.carryAs(mesh);
+        return in;
     }
 
     /**

@@ -512,8 +512,11 @@ final class Models {
 
         float[] floats = new float[FLOATS * 8];
         int[] ints = new int[INTS * 8];
-        /** For each piece, the room it is the contents of, drawn only while the eye sees into it, or RoomSight.OUTSIDE. */
-        long[] rooms = new long[8];
+        /**
+         * For each piece, the region it is seen from, as ChunkMeshes.runRoom holds a run's, and
+         * in roomsToo the other of a pair.
+         */
+        long[] rooms = new long[8], roomsToo = new long[8];
         int count;
         /** The room the pieces added next are the contents of: see SpriteGeometry.MeshSet.room. */
         long room = RoomSight.OUTSIDE;
@@ -587,10 +590,13 @@ final class Models {
                 floats = Arrays.copyOf(floats, floats.length * 2);
                 ints = Arrays.copyOf(ints, ints.length * 2);
                 rooms = Arrays.copyOf(rooms, rooms.length * 2);
+                roomsToo = Arrays.copyOf(roomsToo, roomsToo.length * 2);
                 keys = Arrays.copyOf(keys, keys.length * 2);
             }
             int at = count * FLOATS, whole = count * INTS;
-            rooms[count] = room;
+            long[] two = RoomSight.pairOf(room);
+            rooms[count] = two == null ? room : two[0];
+            roomsToo[count] = two == null ? room : two[1];
             keys[count] = key;
             float[] to = floats;
             to[at + PLACE] = tileX;

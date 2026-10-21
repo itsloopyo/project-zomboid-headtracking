@@ -204,8 +204,26 @@ final class SpriteGeometry {
         /** Where the floats of the thing being drawn begin in this mesh. */
         private int ownedFrom;
         /** The set the mesh is of, or null for one of its own, and whether it has grown since the set's last own: see MeshSet.grown. */
-        private MeshSet set;
+        MeshSet set;
         private boolean grown;
+
+        /** Has what the vertices added next carry be what another mesh's would. */
+        void carryAs(Mesh other) {
+            open = other.open;
+            normalX = other.normalX;
+            normalY = other.normalY;
+            normalUp = other.normalUp;
+            sway = other.sway;
+            along = other.along;
+            nearer = other.nearer;
+            faces = other.faces;
+            clears = other.clears;
+            wood = other.wood;
+            rootX = other.rootX;
+            rootY = other.rootY;
+            unlit = other.unlit;
+            day = other.day;
+        }
 
         /** Notes in the mesh's set that the mesh has grown since the set's last own. */
         private void growing() {

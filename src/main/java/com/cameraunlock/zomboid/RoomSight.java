@@ -34,6 +34,42 @@ final class RoomSight {
     static final long OUTSIDE = -1L;
     /** The open air as the walk reaches it after a line has been through some other building's rooms: no block stops such a line. */
     private static final long THROUGH_A_BUILDING = -2L;
+    /** What is built on a room's square and is no room's contents, nor seen from a place known: drawn whenever its chunk is. */
+    static final long ANYWHERE = -3L;
+    /** Paired with a room (blind), what is seen in place of the room while the eye does not see into it. */
+    static final long BLIND = -4L;
+    /** The two regions of each key pair gives, the lesser first. */
+    private static final java.util.concurrent.ConcurrentHashMap<Long, long[]> PAIRS = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /**
+     * The key of what is seen from either of two regions: a wall's caps and the reveals and
+     * frame of an opening in it, seen from the rooms or the open air either side. A region
+     * itself where the two are one. Under ANYWHERE, so no room and not OUTSIDE.
+     */
+    static long pair(long a, long b) {
+        if (a == b) {
+            return a;
+        }
+        long low = Math.min(a, b), high = Math.max(a, b);
+        long mixed = (low * 0x9E3779B97F4A7C15L ^ high) * 0xC2B2AE3D27D4EB4FL;
+        long key = ANYWHERE - 1L - (mixed & 0x3FFFFFFFFFFFFFFFL);
+        long[] was = PAIRS.computeIfAbsent(key, k -> new long[] {low, high});
+        if (was[0] != low || was[1] != high) {
+            throw new IllegalStateException("regions " + low + " and " + high + " share a pair key with " + was[0] + " and " + was[1]);
+        }
+        return key;
+    }
+
+    /** The key of what the open air sees through a window of a room in place of the room, while the eye does not see into it. */
+    static long blind(long room) {
+        return pair(BLIND, room);
+    }
+
+    /** The two regions of a key pair gave, or null for a region's own key. */
+    static long[] pairOf(long key) {
+        return key < ANYWHERE ? PAIRS.get(key) : null;
+    }
+
     /** What an edge between two squares does to a line of sight: stops it and always will, stops it until it is opened, lets it through. */
     static final int SOLID = 0, SHUT = 1, SEE = 2;
     /** How far past an opening's own rectangle in the picture it is counted as covering, in the picture's half widths. */
@@ -46,6 +82,8 @@ final class RoomSight {
     static final float SLACK = 0.05f;
     /** How far an eye that moves about its place may go up or down, in tiles: a lean or a crouch, where it goes much further along the ground. */
     private static final float RISE = 0.5f;
+    /** How many storeys over the eye's the open air sees into a room through. */
+    private static final int ABOVE_FROM_OUTSIDE = 1;
 
     /** The map as the walk reads it. */
     interface Ground {
@@ -429,6 +467,8 @@ final class RoomSight {
         void clear() {
             stamp++;
             size = 0;
+            airWhole = true;
+            airCount = 0;
             if (stamp == Integer.MAX_VALUE) {
                 Arrays.fill(stamps, 0);
                 stamp = 1;
@@ -523,6 +563,70 @@ final class RoomSight {
                     put(oldIds[i], oldValues[i], true);
                 }
             }
+        }
+
+        /**
+         * Where the open air is in the picture the set was walked for: the rectangles it was
+         * reached through, and the eye they were worked out from. Whole where the eye is out
+         * of doors, and where the set was not walked for a picture.
+         */
+        private boolean airWhole = true;
+        private float[] air = new float[2 * RegionTable.KEPT * 4];
+        private int airCount;
+        private float eyeX, eyeY, eyeUp, rightX, rightY, rightUp, upX, upY, upUp, forwardX, forwardY, forwardUp, tanAcross, tanUp;
+
+        /** Takes the open air's rectangles and the eye from the walk that has just filled the set. */
+        void airFrom(RoomSight walk, boolean outdoors) {
+            airWhole = outdoors;
+            airCount = walk.reached.copy(OUTSIDE, air, 0);
+            airCount += walk.reachedThrough.copy(THROUGH_A_BUILDING, air, airCount);
+            eyeX = walk.eyeX;
+            eyeY = walk.eyeY;
+            eyeUp = walk.eyeUp;
+            rightX = walk.rightX;
+            rightY = walk.rightY;
+            rightUp = walk.rightUp;
+            upX = walk.upX;
+            upY = walk.upY;
+            upUp = walk.upUp;
+            forwardX = walk.forwardX;
+            forwardY = walk.forwardY;
+            forwardUp = walk.forwardUp;
+            tanAcross = walk.tanAcross;
+            tanUp = walk.tanUp;
+        }
+
+        /**
+         * Whether any of a box in the open air may be in the picture: it covers some of a
+         * rectangle the open air was reached through. A box the eye is in, or that reaches
+         * behind it, is taken to.
+         */
+        boolean airSees(float minX, float minY, float minUp, float maxX, float maxY, float maxUp) {
+            if (airWhole) {
+                return true;
+            }
+            if (airCount == 0) {
+                return false;
+            }
+            float lowX = Float.POSITIVE_INFINITY, lowY = Float.POSITIVE_INFINITY, highX = Float.NEGATIVE_INFINITY, highY = Float.NEGATIVE_INFINITY;
+            for (int i = 0; i < 8; i++) {
+                float dx = ((i & 1) == 0 ? minX : maxX) - eyeX, dy = ((i & 2) == 0 ? minY : maxY) - eyeY, du = ((i & 4) == 0 ? minUp : maxUp) - eyeUp;
+                float along = dx * forwardX + dy * forwardY + du * forwardUp;
+                if (along < NEAR) {
+                    return true;
+                }
+                float across = (dx * rightX + dy * rightY + du * rightUp) / (along * tanAcross), up = (dx * upX + dy * upY + du * upUp) / (along * tanUp);
+                lowX = Math.min(lowX, across);
+                highX = Math.max(highX, across);
+                lowY = Math.min(lowY, up);
+                highY = Math.max(highY, up);
+            }
+            for (int k = 0; k < airCount; k++) {
+                if (highX > air[k * 4] && lowX < air[k * 4 + 2] && highY > air[k * 4 + 1] && lowY < air[k * 4 + 3]) {
+                    return true;
+                }
+            }
+            return false;
         }
 
         static int hash(long id) {
@@ -671,6 +775,7 @@ final class RoomSight {
     void walk(Ground ground, Openings openings, Blocks blocks, ViewCamera.Pose eye, float tanAcross, float tanUp, long start, long eyeBuilding, Seen seen) {
         prepare(openings, blocks, eye.eyeX, eye.eyeY, eye.eyeUp, eyeBuilding, 0f, 0f, ++eyes);
         face(ground, openings, eye, tanAcross, tanUp, start, seen);
+        seen.airFrom(this, start == OUTSIDE);
     }
 
     /** The six pictures of a cube round the eye, which between them see every way. */
@@ -832,6 +937,11 @@ final class RoomSight {
                 }
                 if (!listed) {
                     if (!faces(openings, opening, fromHere)) {
+                        continue;
+                    }
+                    // From the open air, a room is seen into through a window no higher than the storey over the eye's.
+                    if ((region == OUTSIDE || region == THROUGH_A_BUILDING) && beyond != OUTSIDE && beyond != THROUGH_A_BUILDING
+                            && openings.z[opening] > Math.floor(eyeUp / ViewCamera.LEVEL_HEIGHT) + ABOVE_FROM_OUTSIDE) {
                         continue;
                     }
                     openingsTested++;
@@ -1259,7 +1369,7 @@ final class RoomSight {
      * region again asks only the openings its first walk kept (see face).
      */
     private static final class RegionTable {
-        private static final int KEPT = 8;
+        static final int KEPT = 8;
         private long[] keys = new long[64];
         /** For each slot, how many rectangles its region keeps, and the rectangles, KEPT to a slot. */
         private int[] counts = new int[64];
@@ -1280,6 +1390,16 @@ final class RoomSight {
                 }
             }
             return -1;
+        }
+
+        /** Copies the rectangles a region has been walked through into into from rectangle at on, and says how many. */
+        int copy(long region, float[] into, int at) {
+            int slot = slotOf(region);
+            if (slot < 0) {
+                return 0;
+            }
+            System.arraycopy(rects, slot * KEPT * 4, into, at * 4, counts[slot] * 4);
+            return counts[slot];
         }
 
         /** Dev only: the box round the rectangles a region has been walked through and how many there are, or "nothing". */

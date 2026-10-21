@@ -213,8 +213,15 @@ final class WorldScene {
          * tint and how many floats long it is.
          */
         int[] runTexture = new int[32], runTint = new int[32], runFloats = new int[32];
-        /** For each run, the room it is the contents of, drawn only while the eye sees into it, or RoomSight.OUTSIDE: see SpriteGeometry.MeshSet.room. */
-        long[] runRoom = new long[32];
+        /**
+         * For each run, the region it is seen from, the contents of a room drawn only while the
+         * eye sees into it, RoomSight.OUTSIDE or RoomSight.ANYWHERE: see SpriteGeometry.MeshSet.room.
+         * Of what is seen from either of two (RoomSight.pair), the one and the other in runRoomToo,
+         * which is runRoom again for the rest.
+         */
+        long[] runRoom = new long[32], runRoomToo = new long[32];
+        /** For each run, the room whose being seen into leaves it out (RoomSight.blind), or RoomSight.OUTSIDE. */
+        long[] runUnless = new long[32];
         /** The building and the level each run is of, or SpriteGeometry.NO_BUILDING: see SpriteGeometry.MeshSet.storey. */
         long[] runBuilding = new long[32];
         int[] runLevel = new int[32];
@@ -448,12 +455,18 @@ final class WorldScene {
                     runTint = Arrays.copyOf(runTint, runs * 2);
                     runFloats = Arrays.copyOf(runFloats, runs * 2);
                     runRoom = Arrays.copyOf(runRoom, runs * 2);
+                    runRoomToo = Arrays.copyOf(runRoomToo, runs * 2);
+                    runUnless = Arrays.copyOf(runUnless, runs * 2);
                     runBuilding = Arrays.copyOf(runBuilding, runs * 2);
                     runLevel = Arrays.copyOf(runLevel, runs * 2);
                 }
                 runTexture[runs] = mesh.texture;
                 runTint[runs] = mesh.tint;
-                runRoom[runs] = mesh.room;
+                long[] two = RoomSight.pairOf(mesh.room);
+                boolean blind = two != null && two[0] == RoomSight.BLIND;
+                runRoom[runs] = two == null ? mesh.room : blind ? RoomSight.OUTSIDE : two[0];
+                runRoomToo[runs] = two == null ? mesh.room : blind ? RoomSight.OUTSIDE : two[1];
+                runUnless[runs] = blind ? two[1] : RoomSight.OUTSIDE;
                 runBuilding[runs] = mesh.building;
                 runLevel[runs] = mesh.level;
                 runFloats[runs] = mesh.floats;
@@ -813,6 +826,8 @@ final class WorldScene {
         final String tiledSheet;
         /** What of partOfTheBuilding and withinItsRoom goes by the sprite alone. */
         final boolean ofTheBuilding, keptInItsRoom;
+        /** Whether it is seen only from within the room of its square, or from where the eye sees into it: a floor, what is laid as one, a stair. */
+        final boolean seenInItsRoom;
 
         /** What a tree of the sprite drops, given which of its kind's two colours it turns: see Flora.otherHue. */
         byte drops(boolean otherHue) {
@@ -895,6 +910,8 @@ final class WorldScene {
             tiledSheet = tiledWall ? name.substring(0, name.lastIndexOf('_') + 1) : null;
             ofTheBuilding = ofTheBuilding(sprite);
             keptInItsRoom = keptInItsRoom(sprite);
+            seenInItsRoom = !Roofs.isTile(type) && (isStair(type) || properties.has(IsoFlagType.solidfloor) || properties.has(IsoFlagType.FloorOverlay)
+                    || FloorMarks.onFloor(name, properties));
         }
     }
 
@@ -2547,6 +2564,8 @@ final class WorldScene {
         int spreadLayers;
         /** Whether the square being added has no floor. */
         boolean hangsInAir;
+        /** The room of the square being added, or RoomSight.OUTSIDE between squares: see contentsOf. */
+        private long squareRoom = RoomSight.OUTSIDE;
         /** The square whose grass is being grown: where in the chunk it is, which of its sides run on into more lawn, and how much standing under trees takes from its grass. */
         int grownLocalX, grownLocalY;
         boolean lawnWest = true, lawnEast = true, lawnNorth = true, lawnSouth = true;
@@ -6042,11 +6061,17 @@ final class WorldScene {
             // finds it can be seen soon, and stands empty otherwise, near or far: see RoomSight.
             // What hangs on its walls may be seen from outside it, and is built whatever the walk found.
             long room = square.getRoomID();
+            squareRoom = room;
             int emptied = Sightline.emptied(asTheGameShows, gamesView, room != RoomSight.OUTSIDE, square.isSeen(playerIndex));
             boolean unexplored = emptied == Sightline.LEFT_OUT;
             // The band is asked only where its answer changes the build: asked of every square, a chunk would be another build in every band.
             boolean empty = unexplored || !buildingBySight && emptied == Sightline.LEFT_OUT_FAR && !within(UNSHOWN_FILLED_WITHIN, false);
             boolean unsought = buildingBySight && room != RoomSight.OUTSIDE && !builtBySight(room);
+            // A room's floor, its stairs and its ceiling are drawn only while the eye sees into
+            // it, as what stands in it is. Not a floor over open air: its underside is seen from
+            // out of doors (FloorBuilder.addCeiling).
+            IsoGridSquare under = z > lowestLevel ? cell.getGridSquare(x, y, z - 1) : null;
+            boolean shellSeenInside = room != RoomSight.OUTSIDE && (z == lowestLevel || under != null && under.getRoomID() != -1L);
             for (int i = 0; i < objects.size(); i++) {
                 IsoObject object = objects.get(i);
                 IsoSprite sprite = object.getSprite();
@@ -6058,7 +6083,7 @@ final class WorldScene {
                 if (empty && object != floor && !partOfTheBuilding(object, kind.ofTheBuilding) || unsought && inItsRoom) {
                     continue;
                 }
-                contentsOf(inItsRoom ? room : RoomSight.OUTSIDE);
+                contentsOf(inItsRoom || shellSeenInside && (object == floor || kind.seenInItsRoom) ? room : hungFrom(object, sprite, kind, room, x, y, z));
                 Texture texture = sprite.getTextureForCurrentFrame(object.getDir());
                 if (!usable(texture)) {
                     continue;
@@ -6129,8 +6154,10 @@ final class WorldScene {
             contentsOf(RoomSight.OUTSIDE);
             geometry.raised = 0f;
             frame.material = 0f;
-            if (square.getRoomID() != -1L) {
+            if (room != RoomSight.OUTSIDE) {
+                contentsOf(room);
                 ceilingBuilder.addRoomCeiling(x, y, z, localX, localY, openAbove);
+                contentsOf(RoomSight.OUTSIDE);
             }
             if (z == 0) {
                 if (geometry.kerb != null && beyondKerb >= 0) {
@@ -6172,6 +6199,7 @@ final class WorldScene {
                     addLimb(laid);
                 }
             }
+            squareRoom = RoomSight.OUTSIDE;
             contentsOf(RoomSight.OUTSIDE);
         }
 
@@ -6182,8 +6210,34 @@ final class WorldScene {
             placed.key = key;
         }
 
-        /** Has what is built next be the contents of a room, or with RoomSight.OUTSIDE drawn whenever its chunk is. */
-        private void contentsOf(long room) {
+        /**
+         * Where what hangs on one edge of its square is seen from: the room or the open air on
+         * either side of that edge (RoomSight.pair). RoomSight.OUTSIDE, drawn whenever its chunk
+         * is, for anything else that is no room's contents.
+         */
+        private long hungFrom(IsoObject object, IsoSprite sprite, Kind kind, long room, int x, int y, int z) {
+            if (kind.keptInItsRoom || partOfTheBuilding(object, kind.ofTheBuilding) || object instanceof IsoCurtain || object instanceof IsoBarricade) {
+                return RoomSight.OUTSIDE;
+            }
+            PropertyContainer flags = sprite.getProperties();
+            int acrossX = flags.has(IsoFlagType.attachedE) ? 1 : flags.has(IsoFlagType.attachedW) ? -1 : 0;
+            int acrossY = flags.has(IsoFlagType.attachedS) ? 1 : flags.has(IsoFlagType.attachedN) ? -1 : 0;
+            if ((acrossX != 0) == (acrossY != 0)) {
+                return RoomSight.OUTSIDE;
+            }
+            IsoGridSquare beyond = cell.getGridSquare(x + acrossX, y + acrossY, z);
+            return RoomSight.pair(room, beyond == null ? RoomSight.OUTSIDE : beyond.getRoomID());
+        }
+
+        /**
+         * Has what is built next be the contents of a room, seen from the places RoomSight.pair
+         * gives, or with RoomSight.OUTSIDE in the open air. What is no room's on a room's square
+         * is drawn whenever its chunk is: its place is not known well enough to leave it out.
+         */
+        void contentsOf(long room) {
+            if (room == RoomSight.OUTSIDE && squareRoom != RoomSight.OUTSIDE) {
+                room = RoomSight.ANYWHERE;
+            }
             solid.room = room;
             laid.room = room;
             placed.room = room;

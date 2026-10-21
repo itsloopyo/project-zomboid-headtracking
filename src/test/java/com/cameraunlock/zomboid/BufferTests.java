@@ -40,8 +40,9 @@ final class BufferTests {
 
     /**
      * Builds of runs in more textures and tints than a listing's tables start with, some in rooms
-     * not seen and some on storeys left out: each range draws exactly the runs listed in its
-     * texture and tint, in the order the chunks and their runs come.
+     * not seen, some seen from either of two, some a window's blind for a room, and some on
+     * storeys left out: each range draws exactly the runs listed in its texture and tint, in the
+     * order the chunks and their runs come.
      */
     private static void aListingDrawsEachRunListedOnceUnderItsOwnTexture() {
         Random random = new Random(11);
@@ -66,6 +67,8 @@ final class BufferTests {
                     build.runTint[run] = random.nextInt(3);
                     build.runFloats[run] = SpriteGeometry.VERTEX_FLOATS * 3 * (1 + random.nextInt(4));
                     build.runRoom[run] = random.nextInt(3) == 0 ? RoomSight.OUTSIDE : random.nextInt(4);
+                    build.runRoomToo[run] = random.nextInt(3) == 0 ? random.nextInt(4) : build.runRoom[run];
+                    build.runUnless[run] = random.nextInt(5) == 0 ? random.nextInt(4) : RoomSight.OUTSIDE;
                     build.runBuilding[run] = random.nextBoolean() ? building : SpriteGeometry.NO_BUILDING;
                     build.runLevel[run] = random.nextInt(8);
                     at += build.runFloats[run];
@@ -88,7 +91,8 @@ final class BufferTests {
                 int from = build.heldAt;
                 for (int run = 0; run < build.runs; run++) {
                     boolean solid = run < build.solidRuns;
-                    boolean seen = build.runRoom[run] == RoomSight.OUTSIDE || rooms.contains(build.runRoom[run]);
+                    boolean seen = build.runUnless[run] != RoomSight.OUTSIDE ? !rooms.contains(build.runUnless[run])
+                            : build.runRoom[run] == RoomSight.OUTSIDE || rooms.contains(build.runRoom[run]) || rooms.contains(build.runRoomToo[run]);
                     boolean kept = build.runLevel[run] < storeys || build.runBuilding[run] != building;
                     if ((solid || laidToo) && seen && kept) {
                         long key = (solid ? 0L : build.grown ? 1L : 2L) << 40 | (long) build.runTexture[run] << 8 | build.runTint[run];

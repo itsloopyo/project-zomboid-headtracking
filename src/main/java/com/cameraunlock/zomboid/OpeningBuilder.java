@@ -582,9 +582,45 @@ final class OpeningBuilder {
                 addGlass(glass, t0, shape.head, u0, 0f, t1, in1, u1, (in1 - shape.head) / rise, t0, in0, u0, (in0 - shape.head) / rise);
             }
         }
+        if (indoors(build.here) != beyondIsRoom) {
+            addBlind(shape, beyondIsRoom ? beyond.getRoomID() : build.here.getRoomID(), beyondIsRoom ? 1 : 0);
+        }
         joinery.day = glass.day = 0f;
         return true;
     }
+
+    /**
+     * What the street sees through a window into a room the eye does not see into (RoomSight.blind):
+     * a dark sheet across the opening at the room's face of the wall, lit as the room is, where
+     * the room left out would leave the glass showing through the building.
+     */
+    private void addBlind(Windows.Shape shape, long room, int side) {
+        long given = WorldScene.solid.room;
+        build.contentsOf(RoomSight.blind(room));
+        SpriteGeometry.Mesh sheet = WorldScene.solid.get(WorldScene.PLAIN, WallSides.key(BLIND_RED, BLIND_GREEN, BLIND_BLUE, WallSides.FLAT));
+        sheet.sway = 0f;
+        sheet.open = sideOpen[side] + 32f * WorldScene.PAINT;
+        sheet.day = sideDay[side];
+        float head = shape.head;
+        if (shape.arch != null) {
+            for (int at = 0; at < shape.arch.length; at += 3) {
+                head = Math.max(head, shape.arch[at]);
+            }
+        }
+        float[] c = build.reveal;
+        float across = (side == 0 ? 1f : -1f) * BLIND_IN;
+        windowPoint(c, 0, shape.start - BLIND_PAST, shape.foot - BLIND_PAST, across);
+        windowPoint(c, 1, shape.end + BLIND_PAST, shape.foot - BLIND_PAST, across);
+        windowPoint(c, 2, shape.end + BLIND_PAST, head + BLIND_PAST, across);
+        windowPoint(c, 3, shape.start - BLIND_PAST, head + BLIND_PAST, across);
+        SpriteGeometry.addPlainQuad(sheet, c, sideRed[side], sideGreen[side], sideBlue[side]);
+        sheet.day = 0f;
+        build.contentsOf(given);
+    }
+
+    /** A blind's colour, a room's dim inside, and how far into the wall from the glass it stands and past the opening it reaches, in tiles. */
+    private static final float BLIND_RED = 0.2f, BLIND_GREEN = 0.18f, BLIND_BLUE = 0.16f;
+    private static final float BLIND_IN = WorldScene.WALL_HALF * 0.9f, BLIND_PAST = 0.03f;
 
     /**
      * One side of the arched head of a window's frame, from the glass's plane out to across
