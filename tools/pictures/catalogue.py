@@ -77,9 +77,9 @@ FAMILY = [
     ('Head and shoulders portrait of a young woman in a green graduation cap and gown.' + STUDIO, TALL),
     ('Head and shoulders portrait of a grey haired man in a navy blazer and tie with a kindly smile.' + STUDIO, TALL),
     ('A golden retriever sitting on a lawn in front of a brick house on a summer afternoon.' + SNAP, TALL),
-    ('A teenage boy in a plain grey hooded sweatshirt and jeans sits on the grass of a high school football field, his'
-     ' sneakers tucked under him, a red football helmet on the grass beside him, seen from a few metres away, the'
-     ' empty bleachers far behind.' + SNAP, TALL),
+    ('A teenage boy in a plain grey hooded sweatshirt sits on the bottom row of empty wooden bleachers beside a high'
+     ' school football field at dusk, seen from the waist up, a red football helmet on the bench beside'
+     ' him.' + SNAP, TALL),
     ('Head and shoulders portrait of a young man in a dark blue graduation cap and gown with a proud smile.' + STUDIO, TALL),
     ('Two brothers of about ten and twelve in t-shirts and fishing vests standing side by side on a lake shore, a fishing rod'
      ' leaning on a tackle box on the grass in front of them, seen from a few metres away.' + SNAP, WIDE),
@@ -96,14 +96,15 @@ for _block in range(3):
         HUNG.append(('walls_decoration_02_%d' % (_block * 16 + 8 + _i), 'family-%02d' % (_block * 8 + _i)))
 
 # Sports posters of a teenager's bedroom, a bar and a gym. No lettering: a poster's kit is plain and unbranded.
-ACTION = (' A 1990s sports poster made from a press photograph taken with a long lens, printed on glossy paper with a fine'
-          ' halftone texture, slightly muted colours.')
-STILL = ' A 1990s sports poster made from a plain studio photograph, printed on glossy paper with a fine halftone texture.'
+ACTION = (' An early 1990s press photograph taken with a long lens, the picture filling the whole frame edge to edge,'
+          ' a fine halftone texture and slightly muted colours.')
+STILL = (' An early 1990s plain still life photograph, the picture filling the whole frame edge to edge, a fine'
+         ' halftone texture and slightly muted colours.')
 WILD = ' A 1990s outdoor magazine wildlife photograph on slide film, natural colours, fine grain.'
 SPORTS = {
     'basketball': [
-        'A basketball player in a plain blue jersey and shorts with no numbers rising alone for a slam dunk, the ball above the rim,'
-        ' the crowd behind far away and out of focus.' + ACTION,
+        'Seen from high up at the far end of a dim gym, one basketball player in a plain blue jersey and long shorts'
+        ' rises alone for a slam dunk, a small figure under the bright lights, the ball above the rim.' + ACTION,
         'A basketball player in a plain red jersey with no numbers dribbling low on a hardwood court, seen from the side, nobody'
         ' near him.' + ACTION,
         'A basketball player in a plain yellow jersey with no numbers in the air shooting a jump shot, the ball just leaving'
@@ -123,13 +124,13 @@ SPORTS = {
         'A grass tennis court seen from high in the stands on a sunny day, two small players in white at either baseline.' + ACTION,
     ],
     'boxing': [
-        'A heavyweight boxer in plain red gloves and black trunks throwing a straight punch alone in the ring under bright'
-        ' lights, the dark arena behind.' + ACTION,
+        'A heavyweight boxer in plain black trunks throwing a straight punch alone in the ring, seen from far back in'
+        ' the dark arena so he is a small figure under the bright lights.' + ACTION,
         'Two boxers squared up a metre apart in a ring, one in red trunks and one in blue, seen from far back in the '
         'dark arena so they are small figures under the bright ring lights, the empty white canvas around them and the '
         'dark empty seats beyond, the photograph filling the whole poster edge to edge.' + ACTION,
-        'A boxer in white trunks standing in his corner with his plain gloves raised, a single spotlight from above, the arena'
-        ' dark.' + ACTION,
+        'A boxer in white trunks standing alone in his corner of an empty ring with his arms down at his sides, seen'
+        ' from the far side of the ring so he is small, a single spotlight from above, the arena dark.' + ACTION,
         'A pair of worn plain red leather boxing gloves with no markings hanging by their laces from a nail on a wooden wall.' + STILL,
         'A boxer in a grey sweatshirt hitting a heavy punch bag in an old brick gym, shafts of window light, seen from the'
         ' side.' + ACTION,
@@ -153,7 +154,8 @@ SPORTS = {
         'A baseball catcher in a mask and a plain green uniform crouching behind home plate, seen from the front.' + ACTION,
         'A wooden baseball bat and a scuffed white baseball lying on red infield dirt.' + STILL,
         'A baseball player in a plain white uniform sliding feet first into base in a cloud of dust, seen from the side.' + ACTION,
-        'A worn brown leather baseball glove with a baseball in its pocket lying on a wooden dugout bench.' + STILL,
+        'A white baseball with red stitching resting in the dust of a base path beside a white canvas base, seen low'
+        ' and close, the green outfield soft and blurred behind.' + STILL,
     ],
     'football': [
         'A high school American football game under Friday night floodlights seen from high in the bleachers, the '
@@ -162,9 +164,11 @@ SPORTS = {
         ' alone in open field.' + ACTION,
         'An American football player leaping for a pass seen as a black silhouette against a deep orange sunset sky, '
         'the ball above his reaching hands.' + ACTION,
-        'A brown leather American football lying on the white yard line of a grass field.' + STILL,
+        'A brown leather American football with white laces lying on short green grass, seen low and close, the field'
+        ' soft and blurred behind.' + STILL,
         'A plain blue American football helmet with no decal lying on the grass of a field at dusk, stadium lights behind.' + STILL,
-        'An American football flying end over end between yellow goal posts in a stadium at dusk, seen from behind the posts.' + ACTION,
+        'Seen from below and far behind the posts, an American football tumbling end over end high between tall yellow'
+        ' goal posts against a deep blue dusk sky.' + ACTION,
     ],
     'soccer': [
         'A soccer player in a solid red shirt and shorts with no badge, logo or number and plain black boots striking the ball'
@@ -183,7 +187,8 @@ SPORTS = {
         'A high jumper in plain blue arching backwards over the bar in a stadium, seen from the side.' + ACTION,
         'A hurdler in plain blue clearing a hurdle on a red track, seen from the side.' + ACTION,
         'A woman long jumper in plain green in mid air over the sand pit, seen from the side.' + ACTION,
-        'A javelin thrower in plain white at the moment of release, the javelin leaving his hand, seen from the side.' + ACTION,
+        'A javelin thrower in plain white seen from far off at the side of an empty field, a small figure leaning back'
+        ' with the long javelin just launched and flying high above him against a pale sky.' + ACTION,
         'An empty red running track curving round a stadium at sunrise, white lane lines.' + STILL,
     ],
     'weights': [
@@ -210,12 +215,16 @@ SPORTS = {
     ],
     'bowling': [
         'A bowler in a plain retro bowling shirt releasing a ball down a polished wooden lane, seen from behind.' + ACTION,
-        'A bowling ball striking ten white pins at the end of a lane, pins flying.' + ACTION,
-        'A glossy blue marbled bowling ball resting on a polished wooden lane beside one white bowling pin.' + STILL,
-        'A woman in a plain pink bowling shirt standing on the approach of a lane in a 1980s bowling alley, about to bowl,'
-        ' seen from behind.' + ACTION,
+        'Ten white bowling pins flying apart at the end of a polished lane, a dark ball among them seen side on, the'
+        ' pins a tumbling blur of white, seen from lane level a few metres back.' + ACTION,
+        'One white bowling pin with two red stripes round its neck standing alone on a polished wooden lane, warm'
+        ' light glowing on the varnish, the dark alley behind.' + STILL,
+        'A 1980s bowling alley seen from behind and above at a distance, a woman in a plain pink bowling shirt'
+        ' standing small on the approach of one lane, about to bowl, the long row of polished lanes stretching away'
+        ' under the lights.' + ACTION,
         'A row of empty bowling lanes in a retro bowling alley with neon lights over the pins.' + STILL,
-        'Ten white bowling pins standing in their triangle at the end of a lane, seen from lane level.' + STILL,
+        'Ten white bowling pins with red neck stripes standing in their neat triangle of four rows at the end of a'
+        ' polished lane, seen from lane level.' + STILL,
     ],
     'racing': [
         'A dirt track oval at a county fair at dusk seen from far up the grandstand, heavy old American sedans in '
@@ -240,17 +249,18 @@ SPORTS = {
         'An old pool hall with rows of green tables under hanging lamps, empty, seen from the doorway.' + STILL,
     ],
     'fieldhockey': [
-        'A girls field hockey match on a grass pitch seen from far up a grassy bank, the players small figures in red '
-        'and in blue spread across the field, a line of trees behind.' + ACTION,
+        'A women\'s field hockey match on a grass pitch seen from far up a grassy bank, the players tiny figures in'
+        ' red and in blue spread across the wide field, a line of trees behind.' + ACTION,
         'A woman field hockey player in a blank blue kit with no logos, plain white shoes and an unmarked wooden stick, striking the ball on a grass pitch, seen from the side.' + ACTION,
-        'A field hockey goal with a white ball resting in its net on a wet grass pitch at dusk, nobody there.' + ACTION,
+        'A low wide field hockey goal with a dark board along the bottom of its net, a white ball lying just inside it'
+        ' on wet green grass at dusk, nobody there.' + ACTION,
         'A wooden field hockey stick and a white ball lying on green grass.' + STILL,
     ],
     'hunting': [
         'A brown whitetail buck with a reddish brown coat and large antlers standing in an autumn meadow at dawn.' + WILD,
         'A wild turkey displaying its fanned tail in a woodland clearing.' + WILD,
-        'A hunter in a plaid jacket and an orange cap walking away through autumn woods, a rifle slung on his shoulder, seen from'
-        ' behind and a distance.' + WILD,
+        'A hunter in a plaid jacket and a plain blaze orange cap sits on a fallen log at the edge of autumn woods at'
+        ' dawn, seen from far off, his rifle leaning against the log beside him.' + WILD,
         'A mallard duck taking off from a misty marsh at sunrise.' + WILD,
         'A brown whitetail doe and her spotted fawn standing a little apart in tall green grass at the edge of a forest.' + WILD,
         'The black silhouette of a stag with antlers on a ridge against an orange sunset sky.' + WILD,
@@ -396,18 +406,28 @@ for _kind, _sheets in CERTIFICATES.items():
 
 # Posters of the bands and singers of the record shop and of bedroom walls: eighteen acts, each as a large sheet, a wide
 # one and a small one. The art is square, and pack.py cuts each shape out of it.
-GIG = (' The performers fill the lower two thirds of the frame and the top third is plain dark empty background. A 1980s'
-       ' record company promotional photograph on colour film, a slightly faded print with fine grain.')
-OLD_GIG = (' The performers fill the lower two thirds of the frame and the top third is plain empty background. A 1960s black'
-           ' and white promotional photograph, a slightly faded silver print.')
+GIG = (' They are placed low in the picture with their heads below the middle of the frame, and the backdrop behind'
+       ' them darkens gently upward and carries on above their heads to the top edge. A 1980s record company'
+       ' promotional photograph on colour film filling the whole frame edge to edge, a slightly faded print with fine'
+       ' grain.')
+OLD_GIG = (' They are placed low in the picture with their heads below the middle of the frame, and the plain backdrop'
+           ' behind them carries on above their heads to the top edge. A 1960s black and white promotional photograph'
+           ' filling the whole frame edge to edge, a slightly faded silver print.')
 MUSIC = [
-    'A four piece glam rock band, two women and two men with big teased hair and black leather jackets, standing in a row a'
-    ' little apart in front of a dark red curtain.' + GIG,
+    'A four piece glam rock band in black leather jackets standing in a row a little apart in front of a dark red'
+    ' curtain, four different looking people: a tall woman with a big teased blond mane, a short dark haired woman'
+    ' with a fringe, a lanky man with a black shag cut and a stocky bearded man with a red mullet.' + GIG,
     'One rock and roll singer alone, a man with slick dark hair in a dark waistcoat and white shirt, sitting on a stool'
     ' against a plain dark grey backdrop, his arms folded.' + OLD_GIG,
-    'Four young men in matching slim grey suits and narrow ties standing in a row a little apart, a 1960s beat group.' + OLD_GIG,
-    'A cheerful 1960s pop group of five in bright paisley shirts standing in a row a little apart against a pink background.' + GIG,
-    'A 1970s hard rock band of four long haired men in denim standing in a row on a stage in front of a wall of amplifiers.' + GIG,
+    'Four young men in matching slim grey suits and narrow ties standing in a row a little apart, a 1960s beat group,'
+    ' each plainly a different person: one tall and thin with a blond mop, one short and stocky with dark curls, one'
+    ' with glasses and slicked back hair, one with a long face and a dark fringe.' + OLD_GIG,
+    'A cheerful 1960s pop group of four in bright paisley shirts standing in a row a little apart against a pink'
+    ' backdrop, four different looking young men: a tall one with a ginger mop, a short round faced one with dark'
+    ' curls, one with round glasses and long sideburns, and a thin one with a blond fringe.' + GIG,
+    'A 1970s hard rock band in denim standing in a row on a stage in front of a wall of amplifiers, four different'
+    ' looking men: one with long straight black hair, one with a curly brown perm and a moustache, one bald and'
+    ' bearded, and one with long blond hair and a headband.' + GIG,
     'A rock singer with shoulder length brown hair and a headband standing at a microphone stand on a dark stage, a black shirt,'
     ' a single spotlight.' + GIG,
     'A country rock guitarist with long hair, sunglasses and a fringed suede jacket standing with an electric guitar slung on his'
@@ -418,20 +438,21 @@ MUSIC = [
     ' paces back, each man standing on his own with an arm\'s length of space between him and the next, small enough'
     ' in the frame that their caps stay below the top third, a plain dark navy studio backdrop behind and above'
     ' them.' + GIG,
-    'One red haired woman singer alone, in a long white dress with long sleeves and a high neck, head and shoulders, cream and rose'
-    ' background, a 1970s folk album cover.' + GIG,
+    'One red haired woman singer alone, in a long white dress with long sleeves and a high neck, seen from the waist'
+    ' up, a cream and rose backdrop, a 1970s folk album cover.' + GIG,
     'An elderly crooner in a black tuxedo and bow tie standing beside a vintage silver microphone on a stand, black background,'
     ' warm spotlight.' + GIG,
-    'A pop singer with long curly red hair laughing, in a denim jacket over a white t-shirt, head and shoulders, pale teal'
-    ' background.' + GIG,
+    'A pop singer with long curly red hair laughing, in a denim jacket over a white t-shirt, seen from the waist up, a'
+    ' pale teal backdrop.' + GIG,
     'A country singer in a black hat and black shirt sitting on a stool with an acoustic guitar resting on his knee, an old barn'
     ' wall behind.' + OLD_GIG,
-    'A young woman singer with short brown hair in a white t-shirt and jeans sitting cross legged on the floor, pastel pink'
-    ' background.' + GIG,
+    'A young woman singer with short brown hair in a white t-shirt and jeans sitting on a wooden stool, seen from the'
+    ' waist up, a pastel pink backdrop.' + GIG,
     'A disco singer with a big afro in a long sleeved high necked purple sequin gown under a mirror ball, purple light.' + GIG,
     'A smiling country singer in a white cowboy hat and an embroidered western shirt with an acoustic guitar slung on his'
     ' shoulder, golden sepia background.' + GIG,
-    'A folk singer in a flat cap, white shirt and red tie with an acoustic guitar slung on his shoulder, cream background.' + GIG,
+    'A folk singer in a flat cap, white shirt and red tie with an acoustic guitar slung across his back, seen from the'
+    ' waist up, a cream backdrop.' + GIG,
     'An iron bridge over a river in a city with one single purple balloon floating above it, nobody in sight, the top third'
     ' plain empty sky. A 1990s indie album cover photograph on colour film, a slightly faded print with fine grain.',
 ]
@@ -453,11 +474,13 @@ for _side in (0, 8):
 
 # The posters of the films showing in 1993, as the game names them. Square art again, cut tall for a one sheet and broad
 # for a hoarding, with the film's name lettered on.
-FILM = (' The subject fills the upper half of the frame and the lower third is plain dark empty background. A 1993 movie'
-        ' poster made from a studio photograph, printed on paper with a fine halftone texture and slightly muted colours.')
+FILM = (' The subject stands high in the picture with every face in the upper half of the frame, and the dark backdrop'
+        ' carries on below it to the bottom edge. A 1993 studio photograph for a movie, the picture filling the whole'
+        ' frame edge to edge, a fine halftone texture and slightly muted colours.')
 FILMS = {
-    'Cyberkiller': ('Cyberkiller', 'Head and shoulders of a grim square jawed soldier in black body armour, a riveted steel plate over'
-                    ' the left half of his face with a round blue camera lens where the eye was, dark teal background.' + FILM,
+    'Cyberkiller': ('Cyberkiller', 'Head and shoulders of a grim square jawed soldier in black body armour, a riveted'
+                                   ' steel plate over the left half of his face with a round glowing blue glass eye'
+                                   ' where the eye was, dark teal background.' + FILM,
                     'CYBERKILLER', 'IN THEATERS NOW'),
     'Cyberkiller 2': ('Cyberkiller 2', 'A muscular bearded man in a leather jacket and a soldier with a riveted steel plate over half'
                       ' his face standing side by side a little apart, dark teal background.' + FILM,
@@ -476,8 +499,9 @@ FILMS = {
     'The Forgotten Element': ('The Forgotten Element', 'A rugged man in a fedora and leather jacket standing beside a dark haired'
                               ' woman in a khaki shirt, a little apart, a propeller plane in a golden sunset sky behind them.' + FILM,
                               'THE FORGOTTEN ELEMENT', 'COMING SOON'),
-    'Movie': ('Movie', 'A man and a woman in raincoats standing close together under a street lamp on a rainy city street at'
-              ' night.' + FILM, 'ONE NIGHT IN LOUISVILLE', 'IN THEATERS NOW'),
+    'Movie': ('Movie', 'A man and a woman in raincoats standing side by side a little apart under a street lamp on a'
+                       ' rainy city street at night, seen full length from a little way'
+                       ' back.' + FILM, 'ONE NIGHT IN LOUISVILLE', 'IN THEATERS NOW'),
 }
 for _group, (_name, _prompt, _title, _line) in FILMS.items():
     _key = 'film-' + _name.lower().replace(' ', '-')
