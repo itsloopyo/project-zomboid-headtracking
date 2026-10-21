@@ -85,13 +85,17 @@ final class OwnSelfLoader extends OwnGun {
             }
             gapSince += seconds;
             if (burst > 1 && gapSince >= BURST_GAP) {
-                Log.info(String.format(java.util.Locale.ROOT, "%s cycled its bolt for a burst of %d shots, %.0f to %.0f ms apart", drawn.what, burst,
-                        shortestGap * 1000f, longestGap * 1000f));
+                if (DevBuild.ON) {
+                    Log.info(String.format(java.util.Locale.ROOT, "%s cycled its bolt for a burst of %d shots, %.0f to %.0f ms apart", drawn.what, burst,
+                            shortestGap * 1000f, longestGap * 1000f));
+                }
                 burst = 0;
             }
             if (action.locked() != lockedBefore) {
                 lockedBefore = action.locked();
-                Log.info(drawn.what + (lockedBefore ? " held its bolt back on an empty magazine" : " let its bolt go home"));
+                if (DevBuild.ON) {
+                    Log.info(drawn.what + (lockedBefore ? " held its bolt back on an empty magazine" : " let its bolt go home"));
+                }
             }
             bolt = action.back;
             // The assault rifle's handle goes back only with the hand that racks it; the battle rifle's rides on its bolt.
@@ -136,7 +140,9 @@ final class OwnSelfLoader extends OwnGun {
             magazineDropped = true;
             dropped.out(camera, hand, 0f, 0f, 0f);
             droppedHanded = handedness(hand);
-            Log.info(drawn.what + " let its magazine fall from the hand");
+            if (DevBuild.ON) {
+                Log.info(drawn.what + " let its magazine fall from the hand");
+            }
         }
     }
 
