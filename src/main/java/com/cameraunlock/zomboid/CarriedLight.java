@@ -30,24 +30,23 @@ final class CarriedLight {
     /** Where it is held (x, y, up), the way it shines (x, y, up), how far it reaches in tiles, 0 when none is lit, and 1 if it shines as a cone. */
     static final int HELD = 0, WAY = 3, REACH = 6, CONE = 7;
     /** A torch is held at the chest, this far under the eye. */
-    private static final float BELOW_EYE = 0.25f;
+    static final float BELOW_EYE = 0.25f;
 
     volatile float[] light = new float[8];
     private final ArrayList<InventoryItem> items = new ArrayList<>();
 
     /**
      * The eye is the character's own, and the way is a unit vector: the way the game's beam is turned on the ground, and
-     * as far up or down as the view with the head's share for a light (HeadFollowLight.up).
-     *
-     * @param beam whether a torch throws its beam from here: in first person. In the game's own view a torch lights the
-     *     squares as the game lights them, as it does in Low.
+     * as far up or down as the view with the head's share for a light (HeadFollowLight.up). A torch throws its beam from
+     * here in the overhead view the picture draws too: its builds are not made again as the game's torch moves over the
+     * squares, so lit as the game lights them the torch was not seen there.
      */
-    void gather(IsoPlayer player, float eyeX, float eyeY, float eyeUp, float wayX, float wayY, float wayUp, boolean beam) {
+    void gather(IsoPlayer player, float eyeX, float eyeY, float eyeUp, float wayX, float wayY, float wayUp) {
         player.getActiveLightItems(items);
         float[] found = new float[8];
         for (int i = 0; i < items.size(); i++) {
             InventoryItem item = items.get(i);
-            if ((beam || !item.isTorchCone()) && item.getLightDistance() > found[REACH]) {
+            if (item.getLightDistance() > found[REACH]) {
                 found[REACH] = item.getLightDistance();
                 found[CONE] = item.isTorchCone() ? 1f : 0f;
             }
@@ -61,7 +60,7 @@ final class CarriedLight {
         found[WAY + 1] = wayY;
         found[WAY + 2] = wayUp;
         light = found;
-        view.torchLess.gather(IsoWorld.instance.currentCell, player, found[CONE] > 0f ? found[REACH] : 0f, beam);
+        view.torchLess.gather(IsoWorld.instance.currentCell, player, found[CONE] > 0f ? found[REACH] : 0f);
     }
 
     String describe() {

@@ -76,6 +76,8 @@ public final class FirstPerson {
     /** How far off the overhead camera stands, in tiles: far enough that the picture has next to no perspective. */
     private static final float OVERHEAD_AWAY = 6000f;
     private static final float OVERHEAD_YAW = (float) (-0.75 * Math.PI), OVERHEAD_PITCH = (float) Math.toRadians(-30);
+    /** How far ahead on the ground the torch's beam meets it in the overhead view, in tiles: held level, as the eye looks, it lit walls at chest height and next to none of the ground. */
+    private static final float OVERHEAD_BEAM_LANDS = 4f;
     private boolean overhead;
     /** The overhead view is asked to be the mod's and is the game's until what it is drawn with is made. */
     private boolean overheadWaited;
@@ -822,7 +824,7 @@ public final class FirstPerson {
         double beamHeading = Math.atan2(cleanView.forwardY, cleanView.forwardX) + view.headFollowLight.turn();
         float beamUp = view.headFollowLight.up(cleanView);
         float beamFlat = (float) Math.sqrt(Math.max(1f - beamUp * beamUp, 0f));
-        view.carriedLight.gather(player, eye[0], eye[1], eye[2], (float) Math.cos(beamHeading) * beamFlat, (float) Math.sin(beamHeading) * beamFlat, beamUp, true);
+        view.carriedLight.gather(player, eye[0], eye[1], eye[2], (float) Math.cos(beamHeading) * beamFlat, (float) Math.sin(beamHeading) * beamFlat, beamUp);
         view.heldLight.gather(player, world, eye[0], eye[1], cleanView.forwardX, cleanView.forwardY, vehicle != null);
         float[] carried = view.headTracking.carried();
         aimView.set(mouseView);
@@ -1065,7 +1067,7 @@ public final class FirstPerson {
                 (float) Math.atan2(facing.y, facing.x), 0f);
         view.headlights.gather(view.worldScene.terrain, x, y, view.ride);
         float facingLength = Math.max((float) Math.hypot(facing.x, facing.y), 1e-3f);
-        view.carriedLight.gather(player, standingView.eyeX, standingView.eyeY, standingView.eyeUp, facing.x / facingLength, facing.y / facingLength, 0f, false);
+        view.carriedLight.gather(player, standingView.eyeX, standingView.eyeY, standingView.eyeUp, facing.x / facingLength, facing.y / facingLength, 0f);
         WorldScene.Frame scene = view.worldScene.next();
         view.worldScene.rehearsing = true;
         try {
@@ -1103,7 +1105,10 @@ public final class FirstPerson {
         view.headlights.gather(view.worldScene.terrain, x, y, view.ride);
         Vector2 facing = player.getForwardDirection();
         float facingLength = Math.max((float) Math.hypot(facing.x, facing.y), 1e-3f);
-        view.carriedLight.gather(player, standingView.eyeX, standingView.eyeY, standingView.eyeUp, facing.x / facingLength, facing.y / facingLength, 0f, false);
+        float beamDown = (float) Math.atan2(CarriedLight.BELOW_EYE - eyeHeight(player, 0f), OVERHEAD_BEAM_LANDS);
+        float beamFlat = (float) Math.cos(beamDown);
+        view.carriedLight.gather(player, standingView.eyeX, standingView.eyeY, standingView.eyeUp, facing.x / facingLength * beamFlat,
+                facing.y / facingLength * beamFlat, (float) Math.sin(beamDown));
         view.ride.seated = false;
         world.look(IsoWorld.instance.currentCell, (int) Math.floor(level));
         WorldScene.Frame scene = view.worldScene.next();

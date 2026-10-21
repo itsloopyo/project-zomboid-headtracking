@@ -155,17 +155,16 @@ final class TorchLess {
     }
 
     /**
-     * Reads the squares round the character, on the logic thread, before the scene is built.
+     * Reads the squares round the character, on the logic thread, before the scene is built. With no torch its light
+     * is still taken out for as long as the engine has it on squares: the engine takes a torch switched off out of its
+     * light a pass or more later, and the squares in its cone are meanwhile lit whole by it, wide and bright.
      *
      * @param reach how far the torch that throws the beam reaches, in tiles, or 0 when the viewer carries none that does
-     * @param untilGone whether, with no torch, its light is still taken out for as long as the engine has it on squares:
-     *     the engine takes a torch switched off out of its light a pass or more later, and the squares in its cone are
-     *     meanwhile lit whole by it, wide and bright
      */
-    void gather(IsoCell cell, IsoPlayer player, float reach, boolean untilGone) {
+    void gather(IsoCell cell, IsoPlayer player, float reach) {
         if (reach > 0f) {
             torchReach = reach;
-        } else if (untilGone && taken != null && taken.torched) {
+        } else if (taken != null && taken.torched) {
             reach = torchReach;
         }
         int playerX = (int) Math.floor(player.getX()), playerY = (int) Math.floor(player.getY());
