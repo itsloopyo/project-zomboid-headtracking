@@ -1050,7 +1050,7 @@ final class PipelineShaders {
                         + dot(texture2D(picture, at.xy * size).rgb, tone) * share.z;
             }
 
-            """ + GROUND_NOISE + "const float TILE_JOINT = " + WallBuilder.TILE_JOINT_HALF + ";\n" + """
+            """ + GROUND_NOISE + "const float TILE_JOINT = " + WallBuilder.TILE_JOINT_HALF + ", FLOOR_JOINT = " + FloorBuilder.JOINT_HALF + ";\n" + """
 
             // Whether a pixel is in a window of that middle and those half widths, whose dither
             // runs from edgeFrom to edgeTo of them.
@@ -1688,21 +1688,33 @@ final class PipelineShaders {
                 // coordinates are whole numbers at the middle of each joint along the wall and of
                 // each course line up it, and a joint is TILE_JOINT either side of one in the world,
                 // whatever size the tiles are. Where a joint is narrower than a pixel the wall is
-                // the mean of tiles and joints, and nothing crawls as the eye moves.
+                // the mean of tiles and joints, and nothing crawls as the eye moves. A tile of a
+                // floor is laid the same way, its coordinates running along x and y of the map,
+                // with joints FLOOR_JOINT either side.
                 bool tiledTint = abs(uTint.a - 11.0) < 0.5;
+                // How much of the pixel is the joints between tiles: a joint is not glazed.
+                float grout = 0.0;
                 if (tiledTint) {
                     vec3 along = normalize(vNormal);
+                    bool floored = along.z > 0.7;
+                    float jointHalf = floored ? FLOOR_JOINT : TILE_JOINT;
                     // Measured from the eye: the map position is a float step of 0.001 tile away from the
                     // origin, coarser than a pixel close to a wall, and its width would jump block to block.
-                    vec2 world = vec2(dot(vPlace.xy, vec2(along.y, -along.x)), vPlace.z);
+                    vec2 world = floored ? vPlace.xy : vec2(dot(vPlace.xy, vec2(along.y, -along.x)), vPlace.z);
                     // On a flat face the coordinates go as the world does, so the two widths of a pixel give a tile's size.
                     vec2 worldPixel = max(fwidth(world), vec2(1e-5));
                     vec2 tileSize = worldPixel / max(fwidth(vUv), vec2(1e-6));
-                    vec2 toJoint = abs(vUv - floor(vUv + 0.5)) * tileSize;
-                    vec2 inJoint = 1.0 - smoothstep(TILE_JOINT - 0.5 * worldPixel, TILE_JOINT + 0.5 * worldPixel, toJoint);
-                    vec2 share = clamp(2.0 * TILE_JOINT / max(tileSize, vec2(1e-4)), 0.0, 1.0);
-                    inJoint = mix(inJoint, share, smoothstep(0.5 * TILE_JOINT, 2.0 * TILE_JOINT, worldPixel));
-                    texel.rgb = mix(uTint.rgb, uJoint, max(inJoint.x, inJoint.y));
+                    vec2 toJoint = abs(vUv - floor(vUv + 0.5)) * tileSize, toNext = tileSize - toJoint;
+                    // How much of the pixel, across each way, is in the nearer joint and in the one past it. A
+                    // joint narrower than a pixel is a fainter line a pixel wide: taken as the mean of the whole
+                    // tile from there on, a floor's joints were gone a few paces off.
+                    vec2 reach = 0.5 * worldPixel;
+                    vec2 inJoint = (max(min(toJoint + reach, vec2(jointHalf)) - max(toJoint - reach, vec2(-jointHalf)), 0.0)
+                            + max(min(toNext + reach, vec2(jointHalf)) - max(toNext - reach, vec2(-jointHalf)), 0.0)) / worldPixel;
+                    vec2 share = clamp(2.0 * jointHalf / max(tileSize, vec2(1e-4)), 0.0, 1.0);
+                    inJoint = mix(min(inJoint, 1.0), share, smoothstep(0.25 * tileSize, tileSize, worldPixel));
+                    grout = max(inJoint.x, inJoint.y);
+                    texel.rgb = mix(uTint.rgb, uJoint, grout);
                 }
                 if (uTint.a > 0.5 && uTint.a < 3.5 || fineTint) {
                     texel.rgb = fineTint ? uTint.rgb : arcTone(uTint.rgb, vWorld);
@@ -3678,7 +3690,7 @@ final class PipelineShaders {
                 // a chair. Under the sky boards and tiles are a deck and paving slabs
                 // (floors_exterior_tilesandstone), weathered dull: glazed, they were sheets of ice under snow.
                 bool indoors = open <= 0.5;
-                float polish = !indoors ? 0.0 : vMaterial > 2.5 && vMaterial < 3.5 ? 0.22 : vMaterial > 10.5 && vMaterial < 11.5 ? 0.3 : 0.0;
+                float polish = !indoors ? 0.0 : vMaterial > 2.5 && vMaterial < 3.5 ? 0.22 : vMaterial > 10.5 && vMaterial < 11.5 ? 0.3 * (1.0 - grout) : 0.0;
                 // A window pane mirrors whichever way it faces, and so does the glass of a screen.
                 // So does a mirror in its frame, and more than either.
                 float pane = glazed > 0.5 ? 0.6 : showing ? 0.0 : surface > 9.5 && surface < 10.5 ? 0.4

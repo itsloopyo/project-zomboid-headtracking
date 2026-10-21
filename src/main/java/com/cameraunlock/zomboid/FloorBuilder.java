@@ -13,8 +13,10 @@ import zombie.iso.SpriteDetails.IsoFlagType;
  * neighbours spread over its edges. One to a frame of the world's picture, and it writes into that frame's meshes.
  */
 final class FloorBuilder {
-    /** Half the width of the joint between two tiles, in tiles of the map, and how much darker than the sprite paints it the joint is drawn. */
-    private static final float JOINT_HALF = 0.006f, JOINT_DARK = 0.8f;
+    /** Half the width of the joint between two tiles of a floor, in tiles of the map: the world program lays them so (FLOOR_JOINT). */
+    static final float JOINT_HALF = 0.006f;
+    /** How much darker than the sprite paints it the joint is drawn. */
+    private static final float JOINT_DARK = 0.8f;
     /** A carpet no more uneven than this is one colour all over. A carpet with a figure woven in it is more, and keeps its sprite. */
     private static final float CARPET_UNEVEN = 0.006f;
     /** How far past the canopy's edge its lining runs, to meet the band hung just outside the edge. */
@@ -217,10 +219,12 @@ final class FloorBuilder {
     }
 
     /**
-     * A square of tiled floor, laid: a bed the colour of the joints, and on it each tile as a
-     * face of its own in its own colour, with a straight edge. How many tiles and which colours
-     * is measured off the sprite: see Tiles. False, adding nothing, for a sprite not measured
-     * yet or a floor that is no grid of plain tiles.
+     * A square of tiled floor, laid: each tile a face of its own in its own colour, edge to edge
+     * with the next, with the joints laid on it by the picture (WallSides.TILED). Laid as a bed
+     * the colour of the joints with the tiles a joint apart on it, a joint was narrower than a
+     * pixel a few paces off, and joints flickered in and out as the eye moved. How many tiles
+     * and which colours is measured off the sprite: see Tiles. False, adding nothing, for a
+     * sprite not measured yet or a floor that is no grid of plain tiles.
      */
     private boolean addTiles(Texture texture, boolean carpet, int x, int y, int z) {
         Tiles.Shape tiles = Tiles.of(texture, build.frame);
@@ -239,20 +243,31 @@ final class FloorBuilder {
         float made = build.frame.material, red = build.frame.red, green = build.frame.green, blue = build.frame.blue;
         build.frame.cornersInto(build.paperRed, build.paperGreen, build.paperBlue, build.paperUnlit);
         build.frame.material = carpet ? WorldScene.CARPET : WorldScene.TILE;
-        float joint = count > 1 ? JOINT_HALF : 0f, each = 1f / count;
-        if (count > 1) {
-            SpriteGeometry.Mesh joints = painted(texture.getID(), red, green, blue, JOINT_DARK * tiles.jointRed, JOINT_DARK * tiles.jointGreen, JOINT_DARK * tiles.jointBlue);
-            layFloor(true);
-            build.geometry.addFace(joints, build.frame, x, y, z, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f, 0f);
-        }
+        float each = 1f / count;
         layFloor(true);
-        for (int i = 0; i < count; i++) {
-            for (int j = 0; j < count; j++) {
-                int at = (i * count + j) * 3;
-                float r = carpet ? tiles.red : tiles.colours[at], g = carpet ? tiles.green : tiles.colours[at + 1], b = carpet ? tiles.blue : tiles.colours[at + 2];
-                SpriteGeometry.Mesh on = painted(texture.getID(), red, green, blue, r, g, b);
-                build.geometry.addFace(on, build.frame, x, y, z, i * each + joint, j * each + joint, 0f, each - 2f * joint, 0f, 0f, 0f, each - 2f * joint, 0f);
+        if (count == 1) {
+            float r = carpet ? tiles.red : tiles.colours[0], g = carpet ? tiles.green : tiles.colours[1], b = carpet ? tiles.blue : tiles.colours[2];
+            build.geometry.addFace(painted(texture.getID(), red, green, blue, r, g, b), build.frame, x, y, z, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f, 0f);
+        } else {
+            SpriteGeometry geometry = build.geometry;
+            geometry.alongA = 1f;
+            geometry.alongB = 0f;
+            geometry.acrossA = 0f;
+            geometry.acrossB = 1f;
+            geometry.jointPhase = 0f;
+            geometry.jointStep = each;
+            geometry.footH = geometry.footV = geometry.perLevel = 0f;
+            shade(red, green, blue, 1f, 1f, 1f);
+            for (int i = 0; i < count; i++) {
+                for (int j = 0; j < count; j++) {
+                    int at = (i * count + j) * 3;
+                    SpriteGeometry.Mesh on = WorldScene.solid.get(WorldScene.PLAIN, WallSides.laid(tiles.colours[at], tiles.colours[at + 1], tiles.colours[at + 2],
+                            JOINT_DARK * tiles.jointRed, JOINT_DARK * tiles.jointGreen, JOINT_DARK * tiles.jointBlue, WallSides.TILED));
+                    geometry.addFace(on, build.frame, x, y, z, i * each, j * each, 0f, each, 0f, 0f, 0f, each, 0f);
+                }
             }
+            geometry.jointStep = Float.NaN;
+            geometry.acrossB = 0f;
         }
         WorldScene.layers.none();
         build.frame.material = made;

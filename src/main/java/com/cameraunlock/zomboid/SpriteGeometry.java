@@ -663,9 +663,10 @@ final class SpriteGeometry {
      * For a face of a band of tiles (WallSides.TILED), what its texture coordinates are in place
      * of texels: across, how many joints along the wall from the first a point is, the wall
      * running along (alongA, alongB) on the square; up, footV at height footH in levels and
-     * perLevel more each level higher. NaN step for an ordinary face.
+     * perLevel more each level higher, and for a floor's tiles how many joints across from the
+     * first the point is, the rows running along (acrossA, acrossB). NaN step for an ordinary face.
      */
-    float alongA, alongB, jointPhase, jointStep = Float.NaN, footH, footV, perLevel;
+    float alongA, alongB, acrossA, acrossB, jointPhase, jointStep = Float.NaN, footH, footV, perLevel;
     /**
      * How many frame pixels in from the face's low and high edge across the sprite its texels
      * are taken, beyond the usual inset: see WorldScene.addPiece.
@@ -2175,7 +2176,7 @@ final class SpriteGeometry {
     private void emitAt(Mesh mesh, Frame frame, int tileX, int tileY, int tileZ, float[] polygon, int at, float u, float v) {
         if (!Float.isNaN(jointStep)) {
             u = (polygon[at] * alongA + polygon[at + 1] * alongB - jointPhase) / jointStep;
-            v = footV + (polygon[at + 2] - footH) * perLevel;
+            v = footV + (polygon[at + 2] - footH) * perLevel + (polygon[at] * acrossA + polygon[at + 1] * acrossB) / jointStep;
         }
         float a = Math.clamp(polygon[at], 0f, 1f), b = Math.clamp(polygon[at + 1], 0f, 1f);
         float w0 = (1f - a) * (1f - b), w1 = a * (1f - b), w2 = a * b, w3 = (1f - a) * b;
