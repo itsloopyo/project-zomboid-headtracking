@@ -4,7 +4,7 @@
 
 Each picture catalogue.py hangs somewhere is cut to its shape, lettered where it is a poster with a name on it, made no
 larger than it is worth at the size it hangs, and saved as src/main/resources/pictures/<name>.jpg. With --partial the
-pictures not made yet are left out, and the sprites that would show them keep the game's own painting.
+pictures not picked yet are left out, and the sprites that would show them keep the game's own painting.
 
 The index lists each picture with its size, and its subject where catalogue.subject gives one; then what shows each;
 then catalogue.POOLS, a line a pool: @subject, a tab, the kind of room, a tab and its pictures with a space between.
@@ -173,9 +173,10 @@ def screens(folder):
 
 
 def made(folder, name):
-    """The generated art of that name, or None where it is not made yet."""
-    path = folder / f'{name}-{catalogue.SEEDS.get(name, 1993)}.png'
-    return Image.open(path).convert('RGB') if path.exists() else None
+    """The generated art of that name as picked from its candidates, or None where none is picked yet."""
+    if name not in catalogue.SEEDS:
+        return None
+    return Image.open(folder / name / f'{catalogue.SEEDS[name]}.png').convert('RGB')
 
 
 def picture(folder, name):

@@ -3,9 +3,10 @@
 Z-Image Turbo (Tongyi-MAI, Apache 2.0) at about a million pixels in the picture's shape, 9 steps, no guidance, as its model
 card gives. Run with the venv that has torch and diffusers (see .lab/NOTES.md, "Generated materials"):
     python tools/pictures/generate.py --out DIR [--only family-00 ...] [--starting family- boxing-] [--most 20] [--candidates 4]
-        [--shard 2/5]
+        [--shard 2/5] [--seeds 1 3]
 Writes DIR/<name>/<seed>.png for seeds 1 to --candidates, and skips what is there already, so a long list is made a few at
-a time. --shard k/n makes every n-th job from the k-th, so n machines can share a list. The seed picked for each picture
+a time. --shard k/n makes every n-th job from the k-th, so n machines can share a list; --seeds makes only those
+candidates. The seed picked for each picture
 goes into catalogue.SEEDS, and tools/pictures/pack.py puts them into the mod.
 """
 import argparse
@@ -36,6 +37,7 @@ def main():
     parser.add_argument('--most', type=int, default=0)
     parser.add_argument('--candidates', type=int, default=4)
     parser.add_argument('--shard', default='1/1')
+    parser.add_argument('--seeds', nargs='*', type=int, default=[])
     args = parser.parse_args()
     out = pathlib.Path(args.out)
 
@@ -45,10 +47,10 @@ def main():
     chosen = bool(args.only or args.starting)
     jobs = [(name, seed) for name in catalogue.ART
             if not chosen or name in args.only or any(name.startswith(start) for start in args.starting)
-            for seed in range(1, args.candidates + 1)
-            if not (out / name / f'{seed}.png').exists()]
+            for seed in (args.seeds or range(1, args.candidates + 1))]
+    # Shared out before what is made is left out: each machine knows only its own, and the shares must not move.
     shard, shards = (int(part) for part in args.shard.split('/'))
-    jobs = jobs[shard - 1::shards]
+    jobs = [(name, seed) for name, seed in jobs[shard - 1::shards] if not (out / name / f'{seed}.png').exists()]
     if args.most:
         jobs = jobs[:args.most]
     if not jobs:
