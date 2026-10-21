@@ -1003,7 +1003,7 @@ final class PipelineShaders {
             // lies between an eye in a room and that room's walls. Sun through a window into the
             // room's own air is the volume pass's.
             uniform float uEyeOutdoors;
-            """ + BEAMS + MuzzleFlash.GLSL + Fires.GLSL + FireShadows.GLSL + """
+            """ + BEAMS + MuzzleFlash.GLSL + Fires.GLSL + FireShadows.GLSL + Lamps.GLSL + """
             uniform sampler2D uAsphalt;
             uniform sampler2D uGravel;
             uniform sampler2D uSoil;
@@ -3767,6 +3767,10 @@ final class PipelineShaders {
                 // it has round a fire: the game's light stops at walls, and an unshadowed light does not.
                 vec3 lampLit = max(pow(max(vColor.rgb, vec3(0.0)), vec3(2.2)) - uOpenLinear, 0.0);
                 color += pow(texel.rgb, vec3(2.2)) * (fireWorldLight(vWorld, n, clamp(dot(lampLit, vec3(0.3, 0.5, 0.2)) * 12.0, 0.0, 1.0)) * scatterKept);
+                // A lamp on a wall lights what is out of doors round it (Lamps) where the game has it lit by
+                // a lamp, and while the game holds its daylight, by as much as the picture holds it back.
+                float lampsLight = clamp(open, 0.0, 1.0) * max(clamp(dot(lampLit, vec3(0.3, 0.5, 0.2)) * 12.0, 0.0, 1.0), 1.0 - uDaylightKept);
+                color += pow(texel.rgb, vec3(2.2)) * (lampWorldLight(vWorld, n, lampsLight) * scatterKept);
                 // A lamp that is lit is brighter than anything it lights. The game lights the
                 // square a burning lamp stands on strongly, and in the dark that is how a lamp
                 // that is on is told: its pale parts, the shade and the glass, then give light

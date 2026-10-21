@@ -768,6 +768,7 @@ final class Pipeline {
     /** This picture's fires and their light. */
     private final FireDraw fires;
     private static final String[] BEAM_AT = new String[Headlights.BEAMS], BEAM_WAY = new String[Headlights.BEAMS];
+    private static final String[] LAMP_AT = new String[Lamps.LIGHTS], LAMP_HUE = new String[Lamps.LIGHTS];
     private static final String[] ROOT_AT = new String[Characters.ROOTS];
     /** uCarAt, uCarAhead, uCarUp and uCarSnow by the vehicle's number: see SnowShader.ON_VEHICLES. */
     private static final String[][] CAR_AT = new String[4][SnowShader.MOST_CARS];
@@ -775,6 +776,10 @@ final class Pipeline {
     private final float[] snowTrod = new float[6];
 
     static {
+        for (int i = 0; i < Lamps.LIGHTS; i++) {
+            LAMP_AT[i] = "uLampAt[" + i + "]";
+            LAMP_HUE[i] = "uLampHue[" + i + "]";
+        }
         for (int i = 0; i < Headlights.BEAMS; i++) {
             BEAM_AT[i] = "uBeamAt[" + i + "]";
             BEAM_WAY[i] = "uBeamWay[" + i + "]";
@@ -3617,6 +3622,14 @@ final class Pipeline {
         GL11.glBindTexture(GL_TEXTURE_2D, fired.made() ? fireMap : farDepth);
         GL13.glActiveTexture(GL_TEXTURE0);
         fires.lightWorld(to, FIRE_SHADOW_UNIT);
+        // The game's own look (Quality.plain) has the game's light alone round its lamps.
+        float[] lamps = state.lamps;
+        int lampsLighting = Quality.plain(view.index) ? 0 : state.lampCount;
+        for (int i = 0; i < Lamps.LIGHTS; i++) {
+            boolean burns = i < lampsLighting;
+            to.set(LAMP_AT[i], lamps[i * 8], lamps[i * 8 + 1], lamps[i * 8 + 2], burns ? lamps[i * 8 + 3] : 0f);
+            to.set(LAMP_HUE[i], lamps[i * 8 + 4], lamps[i * 8 + 5], lamps[i * 8 + 6], lamps[i * 8 + 7]);
+        }
         float[] carried = state.carried;
         // A carried light that throws a beam is the torch of setBeams: what is said here is one that throws none.
         to.set("uLantern", carried[CarriedLight.HELD], carried[CarriedLight.HELD + 1], carried[CarriedLight.HELD + 2],

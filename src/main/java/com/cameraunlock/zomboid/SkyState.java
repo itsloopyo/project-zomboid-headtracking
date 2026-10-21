@@ -138,6 +138,10 @@ final class SkyState {
     /** The game's own animations (IsoAnim) of each square's flames and of its smoke, or null: see Fires.look. Objects, for the tests. */
     final Object[] flameLook = new Object[Fires.MOST], smokeLook = new Object[Fires.MOST];
     int fireCount;
+    /** The lamps hung on walls that light the picture, the first lampCount records of lamps (see Lamps), and how far each is from the eye, squared. */
+    final float[] lamps = new float[Lamps.LIGHTS * 8];
+    final float[] lampFar = new float[Lamps.LIGHTS];
+    int lampCount;
     /** The leaves falling and lying round the eye, the first leafCount records of leaves: see LeafFall. */
     final float[] leaves = new float[LeafFall.MOST * LeafFall.FLOATS];
     int leafCount;
