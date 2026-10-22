@@ -134,15 +134,21 @@ def diploma(art, title, school, phrase='has conferred upon the bearer the degree
 
 
 def gig(shape):
-    """A band's or a singer's poster: the name across the head of the sheet and a line at its foot."""
+    """A band's or a singer's poster: the whole picture on a black sheet, the name in the black above it and a line below.
+
+    Lettered over the picture, the name kept landing on a face: Qwen-Image puts heads high in the frame whatever it is told.
+    """
     def laid(art, title, line):
-        image = cut(art, SHAPES[shape])
-        wide, high = image.size
-        image = shaded(image, round(high * 0.3), 0, 190)
-        image = shaded(image, round(high * 0.8), round(high * 0.97), 170)
+        across = max(art.size)
+        wide, high = (across, round(across / SHAPES[shape])) if SHAPES[shape] < 1 else (round(across * SHAPES[shape]), across)
+        image = Image.new('RGB', (wide, high), (18, 16, 14))
+        head, foot = round(high * 0.2), round(high * 0.08)
+        scale = min(wide / art.width, (high - head - foot) / art.height)
+        shown = art.resize((round(art.width * scale), round(art.height * scale)), Image.LANCZOS)
+        image.paste(shown, ((wide - shown.width) // 2, head + (high - head - foot - shown.height) // 2))
         draw = ImageDraw.Draw(image)
-        lettered(image, title, 'impact.ttf', fitted(draw, title, 'impact.ttf', wide * 0.88, high // 6), wide // 2, round(high * 0.19), (250, 236, 190))
-        lettered(image, line, 'georgiab.ttf', fitted(draw, line, 'georgiab.ttf', wide * 0.62, high // 26), wide // 2, round(high * 0.95), (240, 232, 214))
+        lettered(image, title, 'impact.ttf', fitted(draw, title, 'impact.ttf', wide * 0.88, round(head * 0.7)), wide // 2, round(head * 0.8), (250, 236, 190), shadow=False)
+        lettered(image, line, 'georgiab.ttf', fitted(draw, line, 'georgiab.ttf', wide * 0.62, round(foot * 0.5)), wide // 2, high - round(foot * 0.3), (240, 232, 214), shadow=False)
         return image
     return laid
 
