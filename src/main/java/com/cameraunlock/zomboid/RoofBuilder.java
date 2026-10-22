@@ -183,15 +183,45 @@ final class RoofBuilder {
         // A roof that runs out past its building's wall has no wall under its own edge: the
         // gable is under the last tile that has the building beneath it.
         IsoBuilding standing = buildingUnder(x, y, z);
-        if (standing == null) {
-            return;
+        boolean porch = standing == null;
+        if (porch) {
+            // Or a roof carried on past its building over a porch: from the porch the end was
+            // open up under both slopes, and is closed above the porch's beam, the floor of z.
+            standing = z > 0 ? buildingAlongTheRoof(x, y, z) : null;
+            if (standing == null) {
+                return;
+            }
         }
         int ground = foundOn;
         long room = foundIn;
         IsoGridSquare square = build.cell.getGridSquare(x, y, z);
         outdoors();
-        addGableWalls(square, standing, ground, room, x, y, z, northWest, northEast, southWest, peak, peakAxis);
+        addGableWalls(square, standing, ground, room, x, y, z, northWest, northEast, southWest, peak, peakAxis, porch);
         indoors();
+    }
+
+    /** How far a roof is followed south or east from a square with no building under it to the building it comes off, in squares. */
+    private static final int PORCH_DEEP = 3;
+
+    /**
+     * The building a roof over open ground on (x, y, z) comes off: the first one under it to the
+     * south or the east, the roof going on over every square between. Gables are made at the
+     * west and north ends, so the house is that way from them. Null for a roof standing on its own.
+     */
+    private IsoBuilding buildingAlongTheRoof(int x, int y, int z) {
+        for (int way = 0; way < 2; way++) {
+            for (int step = 1; step <= PORCH_DEEP; step++) {
+                int alongX = way == 0 ? x : x + step, alongY = way == 0 ? y + step : y;
+                if (!roofGoesOn(alongX, alongY, z)) {
+                    break;
+                }
+                IsoBuilding standing = buildingUnder(alongX, alongY, z);
+                if (standing != null) {
+                    return standing;
+                }
+            }
+        }
+        return null;
     }
 
     /** The light a gable is made in, and the light it is set back to after. */
@@ -313,11 +343,13 @@ final class RoofBuilder {
     }
 
     private void addGableWalls(IsoGridSquare square, IsoBuilding standing, int ground, long room, int x, int y, int z, float northWest, float northEast, float southWest,
-            float peak, int peakAxis) {
+            float peak, int peakAxis, boolean porch) {
         for (int edge = 0; edge < 2; edge++) {
             boolean north = edge == 1;
             float second = north ? northEast : southWest;
-            if (Math.max(northWest, second) < GABLE_LEAST || buildingGoesOn(x, y, north ? x : x - 1, north ? y - 1 : y, z)
+            int beyondX = north ? x : x - 1, beyondY = north ? y - 1 : y;
+            // Over a porch no building goes on to say where the roof's end is, so its own end does.
+            if (Math.max(northWest, second) < GABLE_LEAST || buildingGoesOn(x, y, beyondX, beyondY, z) || porch && roofGoesOn(beyondX, beyondY, z)
                     || square != null && WorldScene.wallOn(square, north) != null) {
                 continue;
             }
