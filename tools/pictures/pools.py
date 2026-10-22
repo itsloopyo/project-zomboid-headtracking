@@ -72,10 +72,9 @@ POOLS = {
         'Two old men in overalls sitting at either end of one long wooden bench that runs the whole width of the porch '
         'of a plain clapboard country store in the 1950s, the bench resting on the porch boards under both of them, '
         'seen from the far side of the dirt road in front, the porch roof shading them.' + OLD_PRINT,
-        'A largemouth bass lying on its side on the weathered grey planks of a wooden lake dock, seen side '
-        'on from a little way back so the whole fish lies across the middle of the picture with its small '
-        'head at one end and its jaw closed in a neat line, its green and bronze scales and dark side '
-        'stripe, a coil of old rope beside it, the lake water behind.' + PRINT,
+        'A black and tan coonhound lying asleep on the weathered grey boards of a farmhouse porch on a summer '
+        'afternoon, its long soft ears spread on the boards and its head resting on its front paws, seen side '
+        'on from a little way off, a coil of old rope beside it and a green yard soft behind.' + PRINT,
         'An empty red clay dirt track at a county fairground at night, seen from the wooden stands, the banked oval lit '
         'by floodlights on tall wooden poles, a haze of dust still hanging in the light over the turns, dark trees '
         'beyond.' + PRINT,

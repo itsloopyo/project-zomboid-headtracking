@@ -29,12 +29,11 @@ GROUNDS = {
                   'seamless smooth flat sheet, the plain light grey surface filling the whole frame and '
                   'running off every edge, even enamel paint, faint scratches, specks of dust and slight '
                   'weathering stains, flat even daylight, sharp focus',
-    'sign-slate': 'extreme close-up photograph of the middle of a large black slate chalkboard, the flat '
-                  'smooth surface filling the whole frame and running off every edge, wiped clean with '
-                  'long straight level horizontal strokes of a felt eraser running from the left edge of '
-                  'the picture to the right edge, a faint even haze of chalk dust spread evenly over the '
-                  'whole surface, flat even shadowless light with the same brightness in every corner, '
-                  'sharp focus',
+    'sign-slate': 'extreme close-up photograph of a patch of smooth flat black slate, the dark grey black '
+                  'stone filling the whole image out to every edge and corner, covered all over with a '
+                  'faint even film of wiped chalk dust laid in long level horizontal streaks that run '
+                  'right across the image from the left edge to the right edge, flat even shadowless '
+                  'light with the same brightness in every corner, sharp focus',
     'sign-cloth': 'close-up photograph of plain white cotton flag cloth hanging down in soft vertical folds, fine woven texture, '
                   'even daylight, sharp focus',
 }
