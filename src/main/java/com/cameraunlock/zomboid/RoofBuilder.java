@@ -471,9 +471,12 @@ final class RoofBuilder {
             return;
         }
         roof = laid == null ? null : laid.roof;
-        if (tile.shaped) {
+        // A trim from the sheets of a roof's accents is a board on the roof's edge, no tile of it
+        // (Roofs.take): it is laid as its sprite, with no wall under it and no sheet closing a roof.
+        boolean trim = Roofs.accent(build.roofName);
+        if (!trim && tile.shaped) {
             addGable(x, y, z, tile.corners[0] - z, tile.corners[1] - z, tile.corners[3] - z, 0f, 0);
-        } else if (tile.cutCorner < 0) {
+        } else if (!trim && tile.cutCorner < 0) {
             RoofFit.cornersOf(tile.fitAxis, tile.fitLow - z, tile.fitHigh - z, gable);
             addGable(x, y, z, gable[0], gable[1], gable[3], 0f, 0);
         }
@@ -540,6 +543,9 @@ final class RoofBuilder {
         }
         if (tile.cutCorner >= 0) {
             underCut(tile, x, y, z);
+            return;
+        }
+        if (trim) {
             return;
         }
         if (placed) {
@@ -1155,7 +1161,7 @@ final class RoofBuilder {
         if (square == null) {
             return Eaves.AIR;
         }
-        if (square.getRoomID() != -1L || Roofs.roofing(build.cell, square) && !eaveRow(x, y, level) || build.madeAt(x, y, level)) {
+        if (square.getRoomID() != -1L || Roofs.covered(build.cell, square) && !eaveRow(x, y, level) || build.madeAt(x, y, level)) {
             return Eaves.ROOM;
         }
         return square.getFloor() != null ? Eaves.FLOOR : Eaves.AIR;

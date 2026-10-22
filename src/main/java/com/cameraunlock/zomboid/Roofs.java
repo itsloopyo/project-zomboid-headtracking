@@ -639,7 +639,7 @@ final class Roofs {
     private static RoofFit.Site site(IsoCell cell, int highest, HashSet<Long> behind) {
         return new RoofFit.Site() {
             private boolean roofed(IsoGridSquare square, int x, int y, int z) {
-                return roofing(cell, square) && !behind.contains(RoofFit.key(x, y, z));
+                return covered(cell, square) && !behind.contains(RoofFit.key(x, y, z));
             }
 
             @Override
@@ -688,6 +688,10 @@ final class Roofs {
         };
     }
 
+    static boolean accent(String spriteName) {
+        return spriteName != null && spriteName.startsWith("roofs_accents");
+    }
+
     /** Whether a floor's sprite is one of the map's ceilings, which it lays over rooms on the level above them. */
     static boolean ceiling(String spriteName) {
         return spriteName != null && spriteName.startsWith("ceilings_");
@@ -695,7 +699,12 @@ final class Roofs {
 
     /** Whether a square that is floored is only floored: no room, and none of the game's roofing on it. */
     private static boolean loftCeiling(IsoCell cell, IsoGridSquare square) {
-        return square.getRoomID() == -1L && !roofing(cell, square);
+        return square.getRoomID() == -1L && !covered(cell, square);
+    }
+
+    /** As roofing, leaving out the trims from the sheets of a roof's accents: they edge a roof and cover nothing. */
+    static boolean covered(IsoCell cell, IsoGridSquare square) {
+        return roofing(cell, square, false);
     }
 
     /**
@@ -704,10 +713,14 @@ final class Roofs {
      * known by the game marking them roof.
      */
     static boolean roofing(IsoCell cell, IsoGridSquare square) {
+        return roofing(cell, square, true);
+    }
+
+    private static boolean roofing(IsoCell cell, IsoGridSquare square, boolean trims) {
         PZArrayList<IsoObject> objects = square.getObjects();
         for (int i = 0; i < objects.size(); i++) {
             IsoSprite sprite = objects.get(i).getSprite();
-            if (sprite != null && (sprite.getName() != null && sprite.getName().startsWith("roofs_")
+            if (sprite != null && (trims || !accent(sprite.getName())) && (sprite.getName() != null && sprite.getName().startsWith("roofs_")
                     || isTile(sprite.getType()) && !noRoof(cell, sprite, square.getX(), square.getY(), square.getZ()))) {
                 return true;
             }
@@ -739,6 +752,12 @@ final class Roofs {
             if (sprite == null || !isTile(sprite.getType()) || noRoof(cell, sprite, x, y, z)) {
                 continue;
             }
+            // Nor a trim from the sheets of a roof's accents, a rake board or a gutter: the game marks
+            // them as tiles of the roof they edge, and read as roofing they stood in the place of the
+            // far slope the map leaves out (the garage's back slope at 10761, 9612..9614).
+            if (accent(sprite.getName())) {
+                continue;
+            }
             Texture texture = sprite.getTextureForCurrentFrame(object.getDir());
             if (!WorldScene.usable(texture)) {
                 continue;
@@ -751,7 +770,7 @@ final class Roofs {
             IsoObject object = objects.get(i);
             IsoSprite sprite = object.getSprite();
             // A tile of a roof passed over above (a parasol's, an awning's) is no flat top either.
-            if (sprite == null || sprite.getName() == null || !sprite.getName().startsWith("roofs_") || isTile(sprite.getType())) {
+            if (sprite == null || sprite.getName() == null || !sprite.getName().startsWith("roofs_") || isTile(sprite.getType()) || accent(sprite.getName())) {
                 continue;
             }
             Texture texture = sprite.getTextureForCurrentFrame(object.getDir());
