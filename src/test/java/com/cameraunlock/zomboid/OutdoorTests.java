@@ -39,6 +39,42 @@ final class OutdoorTests {
         Checks.run("aCoopIsStoodOnceByItsSouthEastQuarter", OutdoorTests::aCoopIsStoodOnceByItsSouthEastQuarter);
         Checks.run("aStreetNameBladeReachesFromItsSignalsPostTheWayItsSpriteDoes", OutdoorTests::aStreetNameBladeReachesFromItsSignalsPostTheWayItsSpriteDoes);
         Checks.run("aForkedPorchPostIsBracedAlongTheEdgeItStandsOn", OutdoorTests::aForkedPorchPostIsBracedAlongTheEdgeItStandsOn);
+        Checks.run("aGlassBalustradesPanesRunAlongTheEdgesItsSpritesPaint", OutdoorTests::aGlassBalustradesPanesRunAlongTheEdgesItsSpritesPaint);
+    }
+
+    private static void aGlassBalustradesPanesRunAlongTheEdgesItsSpritesPaint() {
+        Outdoors.Piece west = unnamed("location_shop_mall_01_24"), north = unnamed("location_shop_mall_01_25");
+        Outdoors.Piece corner = unnamed("location_shop_mall_01_26"), post = unnamed("location_shop_mall_01_27");
+        holds(west, "a length on a west edge has a model");
+        holds(north, "and one on a north edge");
+        holds(corner, "and the corner");
+        holds(post, "and the stanchion alone");
+        float[] w = onSquare(west), n = onSquare(north), c = onSquare(corner), p = onSquare(post);
+        Checks.check(near(w[0], w[2]) && w[0] < 0.1f && near(Math.min(w[1], w[3]), 0f) && near(Math.max(w[1], w[3]), 1f),
+                "24's pane runs the whole west edge, just inside it: " + java.util.Arrays.toString(w));
+        Checks.check(near(n[1], n[3]) && n[1] < 0.1f && near(Math.min(n[0], n[2]), 0f) && near(Math.max(n[0], n[2]), 1f),
+                "25's pane runs the whole north edge, just inside it: " + java.util.Arrays.toString(n));
+        Checks.check(near(c[0], c[1]) && near(c[2], 1f) && near(c[3], c[1]) && near(c[4], c[0]) && near(c[6], c[0]) && near(c[7], 1f),
+                "26's panes run from the north-west corner to the east edge and to the south edge: " + java.util.Arrays.toString(c));
+        Checks.check(near(p[2], 0f) && near(p[3], p[1]) && near(p[6], p[0]) && near(p[7], 0f),
+                "27's stubs reach the west and north edges, to the lengths on the squares beside it: " + java.util.Arrays.toString(p));
+        Checks.check(near(w[0], n[1]) && near(c[0], w[0]) && near(p[0], w[0]) && near(p[1], n[1]), "every pane stands as far in from its edge");
+        Checks.check(unnamed("location_shop_mall_01_23") == null && unnamed("location_shop_mall_01_28") == null, "the sheet's other places are not the balustrade");
+    }
+
+    /** A balustrade's lengths as they lie on its square, turned and placed as the piece is: x0, y0, x1, y1 for each. */
+    private static float[] onSquare(Outdoors.Piece piece) {
+        float[] legs = piece.glassLegs, out = new float[legs.length], turned = new float[2];
+        for (int at = 0; at < legs.length; at += 2) {
+            Models.turn(piece.turns, legs[at], legs[at + 1], turned);
+            out[at] = piece.a + turned[0];
+            out[at + 1] = piece.b + turned[1];
+        }
+        return out;
+    }
+
+    private static boolean near(float a, float b) {
+        return Math.abs(a - b) < 0.001f;
     }
 
     private static void aForkedPorchPostIsBracedAlongTheEdgeItStandsOn() {

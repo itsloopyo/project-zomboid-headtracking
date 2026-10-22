@@ -568,6 +568,9 @@ final class FurnishingBuilder {
         if (piece.glazed) {
             ShopFittings.addGlass(build, piece, x, y, foot);
         }
+        if (piece.glassLegs != null) {
+            Outdoors.addGlass(build, piece, x, y, foot);
+        }
         if (piece.television && object instanceof IsoTelevision set) {
             // The game's sprite of a lit screen is painted for its own view and has no place on
             // the model: it is never drawn over one. With the mod's pictures switched off a set

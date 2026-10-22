@@ -105,6 +105,8 @@ final class Furniture {
     boolean glazed;
     /** Whether it stands on the roof of its square where there is one: see Outdoors.Piece. */
     boolean onRoof;
+    /** For a glass balustrade, the lengths Outdoors.addGlass lays its panes along, or null. */
+    float[] glassLegs;
     /**
      * For what hangs on a wall and is put on a roof as often, the model it is there: the same thing on a post from the
      * roof, its foot on the roof and not raised. Null for a piece that is the same model on a roof.
@@ -754,6 +756,7 @@ final class Furniture {
         piece.pictured = outside.pictured;
         piece.paneY = outside.paneY;
         piece.onRoof = outside.onRoof;
+        piece.glassLegs = outside.glassLegs;
         if (outside.fits) {
             piece.stand(outside.top, piece.model.height(), false);
         }

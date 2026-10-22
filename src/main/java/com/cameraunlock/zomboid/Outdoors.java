@@ -59,6 +59,8 @@ final class Outdoors {
          * roof's level, and the mod's roof is over that floor. See RoofFit.standOn.
          */
         boolean onRoof;
+        /** For a glass balustrade, the lengths of glass its model's frame holds, as GLASS_RUN, GLASS_CORNER and GLASS_POST give them: see addGlass. */
+        float[] glassLegs;
 
         Piece(String model, int turns) {
             this.model = model;
@@ -105,6 +107,11 @@ final class Outdoors {
         Piece pictured(float y) {
             pictured = true;
             paneY = y;
+            return this;
+        }
+
+        Piece glass(float[] legs) {
+            glassLegs = legs;
             return this;
         }
 
@@ -161,10 +168,20 @@ final class Outdoors {
             ROAD_SIGNS = "street_roadsigns_01_", BURNT_FENCES = "fencing_burnt_01_", PYLONS = "electricity_pylon_", MASTS = "radio_tower_",
             STREET = "street_decoration_01_", FIREPLACES = "fixtures_fireplaces_01_", MACHINERY = "location_business_machinery_01_",
             SEWER = "location_sewer_01_", BANK = "location_business_bank_01_", FARM = "location_farm_accesories_01_",
-            GREENES = "location_shop_greenes_01_";
+            GREENES = "location_shop_greenes_01_", MALL = "location_shop_mall_01_";
     private static final int PAINT = 1 << Models.PAINT, DARK_WOOD = 1 << Models.DARK_WOOD;
     /** Where a forked porch post stands on its square: how far in from the edge it stands on, and along it; and how high its wood gives its colour, in levels. */
     private static final float FORKED_POST_IN = 0.14f, FORKED_POST_ALONG = 0.53f, FORKED_POST_DYE = 0.4f;
+    /** How far in from its square's edge a glass balustrade's pane stands, and how high its plinth gives its colour, in levels. */
+    private static final float GLASS_RAIL_IN = 0.04f, GLASS_RAIL_DYE = 0.06f;
+    /**
+     * The lengths of a glass balustrade's models, from (x0, y0) to (x1, y1) on the floor in the model's metres, as
+     * furniture.py's glass_rail builds them: a straight metre, a corner, and the stubs that join a stanchion to the
+     * lengths beside it. Their panes stand between these heights in metres.
+     */
+    static final float[] GLASS_RUN = {-0.5f, 0f, 0.5f, 0f}, GLASS_CORNER = {0f, 0f, 0.96f, 0f, 0f, 0f, 0f, -0.96f},
+            GLASS_POST = {0f, 0f, -0.04f, 0f, 0f, 0f, 0f, 0.04f};
+    static final float GLASS_FOOT = 0.32f, GLASS_TOP = 0.93f;
     /** How far from the edge of its square the middle of a pipe along the foot of a wall is. */
     private static final float PIPE_EDGE = 0.12f;
     /** How high on its sprite a duct gives its colour, a pipe, a wide pipe on the ground, the case of a fan and a girder, in levels. */
@@ -320,6 +337,10 @@ final class Outdoors {
         Piece forked = single ? forkedPost(name) : null;
         if (forked != null) {
             return forked;
+        }
+        Piece glass = single ? glassRail(name) : null;
+        if (glass != null) {
+            return glass;
         }
         if (called == null) {
             if (!single) {
@@ -844,6 +865,41 @@ final class Outdoors {
             case 7 -> new Piece("forked_post_scale", SOUTH).at(FORKED_POST_ALONG, FORKED_POST_IN).dye(DARK_WOOD, FORKED_POST_ALONG, FORKED_POST_IN, FORKED_POST_DYE);
             default -> null;
         };
+    }
+
+    /**
+     * A mall's glass balustrade, which the game names nothing: 24 along the square's west edge, 25 along its north, 26 round
+     * its north-west corner and 27 the stanchion alone at that corner, where a length along a west edge meets one along a
+     * north edge from the squares beside it. Each takes its plinth's colour from its sprite.
+     */
+    private static Piece glassRail(String name) {
+        float in = GLASS_RAIL_IN;
+        return switch (Sheets.place(name, MALL)) {
+            case 24 -> new Piece("glass_rail", EAST).at(in, 0.5f).dye(PAINT, in, 0.5f, GLASS_RAIL_DYE).glass(GLASS_RUN);
+            case 25 -> new Piece("glass_rail", SOUTH).at(0.5f, in).dye(PAINT, 0.5f, in, GLASS_RAIL_DYE).glass(GLASS_RUN);
+            case 26 -> new Piece("glass_rail_corner", SOUTH).at(in, in).dye(PAINT, in, 0.5f, GLASS_RAIL_DYE).glass(GLASS_CORNER);
+            case 27 -> new Piece("glass_rail_post", SOUTH).at(in, in).dye(PAINT, in, in, GLASS_RAIL_DYE).glass(GLASS_POST);
+            default -> null;
+        };
+    }
+
+    /**
+     * Lays the panes of a glass balustrade as glass, a sheet up the middle of each of its lengths. x and y are its square,
+     * foot the floor under it.
+     */
+    static void addGlass(WorldScene.Frame build, Furniture piece, int x, int y, float foot) {
+        Furniture.Glass glass = new Furniture.Glass(build, piece, x, y, foot);
+        float[] legs = piece.glassLegs;
+        for (int at = 0; at < legs.length; at += 4) {
+            float x0 = legs[at], y0 = legs[at + 1], x1 = legs[at + 2], y1 = legs[at + 3];
+            glass.face(y0 - y1, x1 - x0, 0f);
+            glass.corner(x0, y0, GLASS_FOOT, 0f, 0f);
+            glass.corner(x1, y1, GLASS_FOOT, 1f, 0f);
+            glass.corner(x1, y1, GLASS_TOP, 1f, 1f);
+            glass.corner(x0, y0, GLASS_FOOT, 0f, 0f);
+            glass.corner(x1, y1, GLASS_TOP, 1f, 1f);
+            glass.corner(x0, y0, GLASS_TOP, 0f, 1f);
+        }
     }
 
     /**

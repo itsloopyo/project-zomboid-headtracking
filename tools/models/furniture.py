@@ -5285,6 +5285,37 @@ def garage_hanger():
     return model
 
 
+GLASS_PLINTH, GLASS_TOP, GLASS_RAIL = 0.32, 0.93, 0.99
+
+
+def glass_rail_length(bm_plinth, bm_steel, x0, y0, x1, y1):
+    """One straight length of a mall's glass balustrade from (x0, y0) to (x1, y1) on the floor: a painted plinth, the
+    channel its pane stands in and a round handrail along its top. The pane is laid as glass by the mod (Outdoors.addGlass)."""
+    beam(bm_plinth, (x0, y0, GLASS_PLINTH / 2), (x1, y1, GLASS_PLINTH / 2), 0.08, GLASS_PLINTH)
+    beam(bm_steel, (x0, y0, GLASS_PLINTH + 0.015), (x1, y1, GLASS_PLINTH + 0.015), 0.03, 0.03)
+    rod(bm_steel, (x0, y0, GLASS_RAIL), (x1, y1, GLASS_RAIL), 0.025, segments=12)
+    beam(bm_steel, (x0, y0, GLASS_TOP + 0.005), (x1, y1, GLASS_TOP + 0.005), 0.025, 0.012)
+    for x, y in ((x0, y0), (x1, y1)):
+        rod(bm_steel, (x, y, GLASS_RAIL - 0.04), (x, y, GLASS_RAIL), 0.006, segments=8)
+
+
+def glass_rail(name, legs):
+    """The frame of a mall's glass balustrade along its square's edge, a metre to a length, or round a corner. Each leg runs
+    from (x0, y0) to (x1, y1) on the floor; a stanchion of steel stands at the origin, the middle of a length or where the
+    lengths meet, on a block of plinth that fills the corner the lengths leave. The legs
+    are Outdoors.GLASS_RUN, GLASS_CORNER and GLASS_POST, which lay the glass between GLASS_PLINTH and GLASS_TOP."""
+    model = Model(name, centred=False)
+    plinth, steel = bmesh.new(), bmesh.new()
+    for x0, y0, x1, y1 in legs:
+        glass_rail_length(plinth, steel, x0, y0, x1, y1)
+    rod(steel, (0.0, 0.0, GLASS_PLINTH), (0.0, 0.0, GLASS_RAIL + 0.02), 0.022, segments=12)
+    if len(legs) > 1:
+        cuboid(plinth, -0.04, 0.04, -0.04, 0.04, 0.0, GLASS_PLINTH)
+    model.hard(plinth, "paint", bevel=0.006, segments=1)
+    model.turned(steel, "steel", sharp=50.0)
+    return model
+
+
 def forked_post(name, scale):
     """A squared timber post a storey high with a brace out to each side along the porch's edge, under the beam it holds up,
     and with scale, a market's hanging scale on a steel bracket out over the front: a dial faced both ways, a spring and a
@@ -5372,7 +5403,10 @@ def farm_and_garden():
                            0.07, 0.08),
             cactus(), bonsai(), rose_bouquet(), hay_feeder(), straw_post(), fallen_log(), forked_post("forked_post", False),
             forked_post("forked_post_scale", True), garage_leaf("garage_leaf", 0), garage_leaf("garage_leaf_track", 1),
-            garage_leaf("garage_leaf_track_left", -1), garage_hanger()]
+            garage_leaf("garage_leaf_track_left", -1), garage_hanger(),
+            glass_rail("glass_rail", [(-0.5, 0.0, 0.5, 0.0)]),
+            glass_rail("glass_rail_corner", [(0.0, 0.0, 0.96, 0.0), (0.0, 0.0, 0.0, -0.96)]),
+            glass_rail("glass_rail_post", [(0.0, 0.0, -0.04, 0.0), (0.0, 0.0, 0.0, 0.04)])]
 
 
 def twin_head():
