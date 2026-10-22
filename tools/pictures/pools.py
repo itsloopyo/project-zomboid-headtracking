@@ -106,20 +106,25 @@ POOLS = {
         'Rakes, shovels, a wheelbarrow and a stack of galvanised buckets set out on the pavement in front of a small town '
         'shop with a plain green awning, its big plate glass windows dark and reflecting the street, seen from across '
         'the street on a sunny day.' + PRINT,
-        'A small town main street in the 1950s, two storey shop fronts of plain painted brick with plain canvas awnings,'
-        ' a few rounded old cars parked along the kerb.' + OLD_PRINT,
+        'A small town main street in the 1950s seen at a slant down the length of the street, two storey shop fronts '
+        'of plain painted brick running away along one side, their plain striped canvas awnings pulled down low over '
+        'the windows, the brick above them bare, a few rounded old cars parked along the kerb, tall shade '
+        'trees.' + OLD_PRINT,
         'A white delivery truck parked in front of a shop loading bay on a sunny day, seen from the side.' + PRINT,
-        'A small town summer parade seen from an upstairs window far up main street, the street running away from the '
+        'A small town summer parade seen from high above the street, looking far up main street, the street running '
+        'away from the '
         'viewer, a marching band in red uniforms a long way off down the middle of it, people lining both pavements, red'
         ' brick shop fronts with striped awnings and American stars and stripes flags hanging from the porches.' + PRINT,
         'A small 1950s country shop, a plain white clapboard building with a wooden porch and an empty bench out front, '
         'its two front windows dark and bare, seen from across a gravel road.' + OLD_PRINT,
-        'A man of about fifty with short grey hair, bareheaded, in a white shirt and a plain dark apron, standing proudly '
-        'in the doorway of his small brick shop on opening day with his arms folded, the windows either side of the door'
-        ' dark and bare, seen from across the pavement.' + PRINT,
+        'An American man of about fifty with a full head of short dark hair just greying at the temples and a firm '
+        'face, bareheaded, in a white shirt and a plain dark apron, standing proudly in the doorway of his small town '
+        'American red brick storefront on opening day with his arms folded, the big plate glass windows either side of '
+        'the door dark and bare, a wide concrete sidewalk in front, seen from across the sidewalk.' + PRINT,
         'A country road in summer lined with fences and trees, rolling green hills beyond, a blue sky with white clouds.' + PRINT,
-        'A small brick shop front at night, its big plate glass windows glowing warm yellow with plain shelves of goods '
-        'inside, the light spilling across an empty wet street, the brick wall above the windows bare.' + PRINT,
+        'A small town American red brick storefront at night, a single storey building with a flat roof and big plate '
+        'glass windows glowing warm yellow with plain shelves of goods inside, the light spilling across a wide '
+        'concrete sidewalk and an empty wet street, the brick wall above the windows bare.' + PRINT,
     ],
     'school': [
         'A class picture of about twenty fourth graders, girls and boys in equal numbers, all nine and ten years old, in '
@@ -127,19 +132,22 @@ POOLS = {
         'different, some with glasses, some with freckles, ponytails, bowl cuts and curls, all looking at the camera '
         'with their eyes open and smiling, their teacher, a grown woman of about forty in a cardigan, standing at the '
         'right end of the back row.' + PRINT,
-        'A high school basketball team of ten young men of seventeen and eighteen, tall, with grown men\'s faces and '
-        'shoulders, in plain maroon t-shirts, posed in two rows on a gym floor in front of folded wooden bleachers that '
-        'fill the whole background, their coach, a heavy set man of about fifty, standing beside them, seen from a few '
-        'metres away.' + PRINT,
+        'Three high school basketball seniors, grown young men of eighteen with men\'s faces, square jaws and a shadow '
+        'of stubble, one tall and thin with short dark hair, one broad with a blond crew cut, one with a short curly '
+        'afro, in plain maroon t-shirts and grey sweatpants, standing side by side on a polished gym floor, the one in '
+        'the middle holding a worn orange basketball, folded wooden bleachers filling the whole background, seen from '
+        'a few metres away from the knees up.' + PRINT,
         'Head and shoulders of a school principal, a woman of about forty eight with short brown hair just going grey at '
         'the temples, a smooth face and a kind smile, in a navy jacket.' + STUDIO,
-        'A high school graduating class in maroon caps and gowns seated on rows of white folding chairs set out on a '
-        'lawn, all facing the camera, seen from a little way off in front of them, tall trees behind.' + PRINT,
+        'A high school graduating class of young men and women of eighteen in maroon caps and gowns seated in rows on a'
+        ' lawn, every one of them seated, the rows packed close so only the gowned graduates show, the knees of the '
+        'front row along the bottom of the picture, all facing the camera, seen from a little way off, tall trees '
+        'behind.' + PRINT,
         'A single storey red brick elementary school with a flagpole and a yellow school bus out front, seen from across the'
         ' road.' + PRINT,
-        'A high school marching band in blue and white uniforms marching in neat rows across the green grass of a '
-        'football field, seen from high above, only the grass, the white yard lines running across the picture and the '
-        'band in view.' + PRINT,
+        'A high school marching band in blue and white uniforms marching in neat rows across plain green grass, seen '
+        'from high above, each player small with a shining brass horn raised to the lips and pointing forward, only the'
+        ' green grass, a few thin straight white chalk lines running across it and the band in view.' + PRINT,
         'A new single storey brick school building in the 1950s, about thirty children standing in three rows on the '
         'front lawn facing the camera, a teacher at each end of the rows, seen from across the lawn.' + OLD_PRINT,
         'A school library with wooden shelves of books and long tables, empty, afternoon light from tall windows.' + PRINT,
@@ -170,9 +178,9 @@ POOLS = {
         'An empty theatre auditorium with red velvet seats and a closed red curtain, warm house lights.' + PRINT,
         'A small brass band of eight men in white jackets sitting on chairs inside an old round wooden bandstand in a '
         'park, playing under its roof, seen from across the lawn.' + OLD_PRINT,
-        'Six grown women dancers in matching long sleeved red costumes with long trousers, standing in a line across a '
-        'stage with wide spaces between them, each kicking one leg high in front of her, seen straight on from the '
-        'audience.' + PRINT,
+        'Three grown women dancers of about thirty, each face different, one blonde, one dark haired and one red '
+        'haired, in matching long sleeved red costumes with long red trousers, standing a little apart across a stage '
+        'with their arms raised high in a bow at the end of a number, seen straight on from the audience.' + PRINT,
         'A row of costumes hanging on a rail backstage under bare bulbs, a mirror and a dressing table beside it.' + PRINT,
     ],
     'church': [

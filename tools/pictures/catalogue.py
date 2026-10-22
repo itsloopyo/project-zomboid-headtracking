@@ -198,8 +198,9 @@ SPORTS = {
         'Two men playing tennis on a green asphalt court in a small town park on a hot summer afternoon, seen from just '
         'behind the near baseline at head height: the near player big in the foreground, seen from behind from the waist '
         'up as he swings his racket, a man of about thirty with short brown hair in a white t-shirt, and across the net '
-        'the far player small, an older man of about fifty with grey hair in a pale blue shirt, a tall chain link fence '
-        'round the court, leafy maple trees and a wooden telephone pole beyond it.' + ACTION,
+        'the far player small, an older man of about fifty with grey hair in a pale blue shirt holding his racket '
+        'ready, a tall chain link fence round the court, leafy green summer trees and a wooden telephone pole beyond '
+        'it.' + ACTION,
     ],
     'boxing': [
         'The corner of an empty boxing ring under one hanging lamp, a red padded corner post with three red ropes '
@@ -284,18 +285,19 @@ SPORTS = {
         'A yellow penalty flag, a plain square of yellow cloth knotted round a small weight, lying on short green grass'
         ' across a white chalk yard line at dusk, seen low and close, the floodlights of a small high school field '
         'blurred to soft glowing discs behind.' + STILL,
-        'Looking straight down at the ground of a football field after a game in the rain, dark churned mud filling '
-        'the whole picture, deep stud marks and torn clods of green grass pressed into it, one smeared white chalk '
-        'stripe running across the middle, small puddles shining grey with the overcast sky.' + STILL,
+        'A close view looking straight down from standing height at wet churned dark mud after a game in the rain, '
+        'the flat mud filling the whole picture out to all four edges, deep stud prints and torn '
+        'clods of green grass pressed into it, small puddles shining grey.' + STILL,
     ],
     'soccer': [
         'A lone soccer player seen from far off on a misty muddy training field at dusk, small in the picture, swinging'
         ' his leg to kick a ball, a dark figure against the pale grey mist, bare trees behind.' + ACTION,
         'A close view of the white cord net of a soccer goal on a misty morning, the square mesh filling the whole '
         'picture, every knot beaded with dew, the grey mist and dark green grass beyond it soft and blurred.' + STILL,
-        'The top of a thin white pole with a small plain red cloth flag fluttering from it against a golden summer '
-        'evening sky, seen from below and close, the pole rising from the bottom of the picture, a line of green hills'
-        ' and woods low along the bottom edge.' + STILL,
+        'A short thin white soccer corner flag pole planted in the grass at the '
+        'corner of a soccer field, a small plain red cloth flag on its top, the white chalk lines of the field meeting '
+        'at its foot with a small curved chalk arc round it, seen low and close on a golden summer evening, the empty '
+        'field soft behind.' + STILL,
         'A black and white leather soccer ball on the penalty spot of a grass pitch, the goal behind.' + STILL,
         'A black and white soccer ball resting in the back of a goal net on a muddy pitch at dusk, nobody there.' + ACTION,
         'A small white soccer goal standing alone on a grass field at a small high school at dusk, seen from in front a'
@@ -322,9 +324,9 @@ SPORTS = {
     'weights': [
         'A weightlifter holding a barbell overhead seen as a black silhouette against a tall bright window in a dim old'
         ' gym.' + ACTION,
-        'A row of short iron hand weights resting in pairs on a long wooden rack against a bare painted brick wall in '
-        'an old gym, each one a short knurled steel handle with one round flat black iron disc fixed on each end of it,'
-        ' like a tiny barbell, the discs smooth and blank, the pairs getting bigger along the rack, soft window light '
+        'Three pairs of old fashioned iron dumbbells resting on a long wooden rack against a bare painted brick wall in'
+        ' an old gym, the two of each pair side by side, each dumbbell a short steel handle with a solid round black '
+        'iron ball at each end, the balls smooth and dull, the pairs getting bigger along the rack, soft window light '
         'across them and the scuffed wooden floor below.' + STILL,
         'An aerobics class of eight men and women in plain grey sweatshirts and grey sweatpants exercising with small '
         'dumbbells in two rows in an old gym with bare painted brick walls and tall windows, seen from the front of the '
@@ -336,8 +338,9 @@ SPORTS = {
         'A thick old brown leather lifting belt lying loosely coiled on a scarred wooden bench in an old American town'
         ' gym, its plain steel buckle catching the light, soft window light from one side, a bare painted cinder '
         'block wall behind and the rest of the gym dim.' + STILL,
-        'A long steel bar lying on a worn plank floor in an old gym, with three round flat black iron discs slid onto '
-        'each end of it, the discs smooth and dull, seen low from the side so the bar runs across the picture, an old '
+        'A long steel bar lying on a worn plank floor in an old gym, with one big round flat black iron disc on each '
+        'end of it, seen low from the side so the bar runs across the picture and each disc is seen edge on as a '
+        'thick dull black upright band, an old '
         'wooden bench padded with cracked brown leather just behind it, a bare painted brick wall and soft window '
         'light.' + STILL,
         'A barbell resting on a wooden lifting platform in front of a red painted wall, seen from in front with the bar'
@@ -383,10 +386,9 @@ SPORTS = {
         'A row of empty bowling lanes in an old bowling alley at closing time, seen low from the approach, the long '
         'polished boards gleaming as they run away to the small white pins far off, the room dark and the area above '
         'the pins in deep shadow.' + STILL,
-        'Ten white bowling pins with red neck stripes set up on the pin deck at the end of a polished lane, seen from '
-        'above and in front, looking down on them at a steep angle so the whole triangle of pins shows plainly: one head '
-        'pin at the point nearest the viewer, two pins in the row behind it, three in the next row and four in the back '
-        'row, the triangle pointing at the viewer, the dark pit behind them in deep shadow.' + STILL,
+        'Only three white bowling pins with red stripes round their necks left standing on the pin deck at the end of '
+        'a polished lane after a throw, one in front and two side by side behind it, seen low and close from the lane,'
+        ' warm light on the polished boards, the dark pit behind them in deep shadow.' + STILL,
     ],
     'racing': [
         'An empty red clay dirt track oval at a county fairground at dusk, seen from the top of the bank on the outside '
@@ -407,9 +409,9 @@ SPORTS = {
         'A small paved oval race track at night under floodlights, empty, seen from the top of the grandstand, the grey '
         'asphalt banked turns shining under the lights, a low concrete wall painted plain white round the outside, the '
         'green infield grass in the middle, the dark sky above.' + STILL,
-        'Looking down from standing height at rough grey asphalt filling the whole picture, small stones set in it, '
-        'and two wide black rubber skid marks sweeping across it in long parallel curves, warm low evening light '
-        'raking across the surface.' + STILL,
+        'Looking down from standing height at smooth fine grey asphalt filling the whole picture, and two wide smooth '
+        'black rubber skid streaks sweeping across it in long parallel curves, each one a soft solid dark smear '
+        'fading at its edges, warm low evening light raking across the surface.' + STILL,
     ],
     'pool': [
         'A long slim wooden pool cue lying diagonally across the empty green felt of a pool table, seen low and close '
@@ -431,15 +433,17 @@ SPORTS = {
         'still.' + STILL,
     ],
     'fieldhockey': [
-        'Several hard smooth white balls, each perfectly round and glossy like a cue ball and the size of an orange, '
-        'lying scattered on short mown green grass beside a white chalk line on a school playing field, late afternoon'
-        ' sun and long shadows, the empty green field soft behind.' + STILL,
+        'Three hard smooth plain white balls, perfectly round and pure white all over, lying scattered on short mown '
+        'green grass beside a white chalk line on a school playing field, late afternoon sun and long shadows, the '
+        'empty green field soft behind.' + STILL,
         'Two varnished wooden field hockey sticks lying crossed on mown green grass, each with a short flat curved '
-        'hook at its foot, a hard smooth white ball resting beside the hooks, seen from standing height looking down '
-        'at a slant, long evening shadows across the grass.' + STILL,
-        'A low wide field hockey goal standing on wet green grass at dusk, seen from in front a little way off: two '
-        'short white posts and a white crossbar, a white net hanging behind them, a long low dark wooden board along '
-        'the foot of the net, and a white chalk line curving round in front of the goal across the grass.' + STILL,
+        'hook at its foot, a small hard ball of smooth seamless glossy white plastic, plain white all over, resting '
+        'beside the hooks, seen from standing height looking down at a slant, long evening shadows across the '
+        'grass.' + STILL,
+        'A low wide field hockey goal standing on wet green grass at dusk, seen squarely from straight in front a '
+        'little way off with its open mouth facing the viewer: two short white posts and a white crossbar making one '
+        'plain rectangle, a white net hanging straight down behind it, and a white chalk line curving round in front '
+        'of the goal across the grass.' + STILL,
         'The curved hooked foot of a varnished wooden field hockey stick lying on green grass, only the hook and a '
         'short length above it in the picture, beside a hard smooth white ball, perfectly round and glossy like a cue '
         'ball, the size of an orange.' + STILL,
@@ -656,9 +660,10 @@ art('board-cork', 'A flat scan of brown granular cork, the cork surface filling 
                   'sheets of blank lined paper, a yellowed sheet, a folded pink sheet and one curled faded snapshot of'
                   ' a lake, each paper held by a single round red push pin. A flat scan seen straight on in even '
                   'light.', WIDE)
-art('board-white', 'A flat scan of a glossy white enamel surface filling the whole image to all four edges and corners,'
-    ' faint grey smears of old ink, a large hand drawn circle, a few curved arrows and some wavy lines in blue and red'
-    ' ink, half wiped away. A flat scan seen straight on in even light.', BROAD)
+art('board-white', 'A close cropped flat view of the middle of a large glossy white office dry wipe board, the smooth white'
+    ' surface running off all four edges and corners of the picture, faint grey smears of old marker, a large hand'
+    ' drawn circle, a few curved arrows and some wavy lines in blue and red marker, half wiped away. Seen straight on'
+    ' in even light.', BROAD)
 art('board-darts', 'A close view of the two shut doors of a dark stained wooden wall cabinet seen straight on, the two plain'
                    ' panelled doors filling the whole picture edge to edge, a thin seam down the middle where they meet,'
                    ' small brass hinges at the outer sides and a little brass catch at the seam. A plain photograph in'
@@ -832,7 +837,9 @@ FILMS = {
                               'short fair hair under a brown felt fedora with a pinched crown and a short brim, in a worn '
                               'brown leather flight jacket, and a few steps to his right a dark haired woman of about '
                               'thirty in a khaki shirt with her hair pinned up, the two standing well apart with open sky '
-                              'between them, a propeller plane in a golden sunset sky behind them.' + FILM,
+                              'between them, framed from the chest up with both their heads near the top of the '
+                              'picture, a small bare silver propeller plane of smooth unpainted metal flying in the '
+                              'golden sunset sky between them.' + FILM,
                               'THE FORGOTTEN ELEMENT', 'COMING SOON'),
     'Movie': ('Movie', 'A man of about forty with short dark hair in a grey trench coat and a woman of about thirty with '
                        'shoulder length auburn hair and natural matte skin in a tan belted raincoat, standing side by side'

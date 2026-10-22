@@ -82,11 +82,13 @@ show('general', FIELD,
      ' crowded with plain black microphones on short stalks, a few soldiers standing at ease in a line behind him.',
      'A calm stern army general of about sixty with a broad weathered face and short grey hair, in a green uniform and'
      ' peaked cap, seen from the chest up outdoors under a grey sky, his mouth set in a straight line.',
-     'A row of plain grey television cameras on tripods faces an empty outdoor podium with a bank of microphones, a'
-     ' soft blur of reporters standing behind them.',
-     'A field command post of green army tents in a summer field, a thin grey steel lattice radio mast with a few long'
-     ' whip aerials standing beside them, green 1990s army trucks with canvas backs parked nearby and two soldiers'
-     ' walking between the tents.')
+     'Seen from just behind a row of plain grey television cameras on tripods, every camera pointing straight ahead at'
+     ' an outdoor wooden podium standing alone and unattended in the middle distance, a bank of microphones on its top,'
+     ' a soft blur of reporters standing off to either side.',
+     'A field command post of plain olive green canvas army tents in a summer field, a thin grey steel lattice radio'
+     ' mast with a few long aerials as thin as wire standing beside them, American M35 army cargo trucks of the 1980s'
+     ' parked nearby, olive drab with flat square front fenders, a flat square hood and canvas covered backs, and two'
+     ' soldiers walking between the tents.')
 show('expert', VIDEO,
      'A professor with a grey beard and a tweed jacket sits in an armchair being interviewed in an office lined with books, his'
      ' hands resting in his lap.',
@@ -117,21 +119,22 @@ show('emergency', VIDEO,
      'A tired middle aged official with thinning grey hair, a round face and glasses, in shirt sleeves and a loosened'
      ' tie, sits at a plain desk with his forearms resting on it, a single sheet of paper lying flat on the desk, an'
      ' American flag on a pole beside him.',
-     'A plain flat blue panel filling the whole picture edge to edge, with a simple flat gold eagle emblem in the'
-     ' middle.',
-     'A dark empty room with one large grey 1990s television camera on a heavy wheeled pedestal pointing at an empty'
-     ' wooden chair, the chair alone in a round patch of warm light on the floor.')
+     'One single flat panel of muted navy blue filling the whole picture edge to edge in one even colour, and in the'
+     ' middle a simple flat dull gold silhouette of an eagle with its wings spread.',
+     'A dark empty room with one large television camera with smooth bare grey sides on a heavy wheeled pedestal'
+     ' pointing at an empty wooden chair, the chair alone in a round patch of warm light on the floor.')
 show('local-desk', VIDEO,
      'A male local news anchor in a brown suit sits at a wood panelled news desk, a photograph of a small city skyline behind'
      ' him.',
-     'A woman local news anchor of about forty with big permed hair and a green blazer sits at a wood panelled desk,'
+     'A woman local news anchor of about forty with big permed hair, in a green blazer over a white blouse with a high'
+     ' collar buttoned right up to her neck, sits at a wood panelled desk,'
      ' seen close from the chest up with a plain flat blue wall filling the whole picture behind her, the light flat'
      ' and a little harsh, the picture soft with smeared colour.',
      'Two local news anchors, a man and a woman, sit a little apart at a wood panelled desk and turn to each other smiling,'
      ' plain blue panels behind them.',
-     'A local weatherman of about fifty in a tan suit stands beside a big flat map of Kentucky, the state in pale green'
-     ' surrounded on every side by plain beige land, a few simple yellow suns and white clouds drawn on it, one arm'
-     ' raised toward it.')
+     'A local weatherman of about fifty in a tan suit stands beside a big flat weather map, one pale green shape of a'
+     ' state in the middle and plain beige land filling all the rest of the map out to its edges, a few simple yellow'
+     ' suns and white clouds drawn on it, one arm raised toward it.')
 show('talk', VIDEO,
      'A woman host of about forty in a trouser suit and a male guest of about fifty sit in two armchairs facing one'
      ' another a little apart, a potted plant and a window onto a city at night behind them.',
@@ -143,24 +146,25 @@ show('talk', VIDEO,
      'A cosy room seen wide, two people small in armchairs beside a low table, a city skyline at night in the window'
      ' behind them.')
 show('local-field', FIELD,
-     'A male reporter of about thirty five in a windbreaker stands with a hand microphone in front of a strip of plain'
-     ' yellow tape stretched across a rural road between green summer fields, plain white sedans parked side on behind'
-     ' him.',
+     'A male reporter of about thirty five in a windbreaker stands on a rural road holding a bare plain black hand'
+     ' microphone, a strip of plain yellow tape stretched across the road behind his back between green summer fields,'
+     ' plain white sedans parked side on further behind.',
      'A plain white van seen side on, parked on a grass verge beside a highway, a tall thin grey metal mast fixed to'
      ' the middle of its roof rising straight up into the sky with a small round dish at the very top, its smooth white'
      ' side bare.',
      'A dark country road at night seen through a car windshield, the headlights picking out ordinary 1980s family cars'
      ' left askew across the verge with their doors hanging open, as if their drivers ran.',
-     'Small figures of grown men and women run across a field at dusk, seen from far off, the picture shaky and'
-     ' blurred.',
-     'A frightened male reporter of about forty with thinning sandy hair, a round soft face and wire glasses, in a'
-     ' crumpled suit, crouches alone behind the back of a parked car at night, his hands empty, his head turned to look'
-     ' back over his shoulder away from us, lit by a harsh white light.')
+     'Real grown men and women run across a field at dusk, seen at eye level from the edge of the field a long way off'
+     ' through a long lens, the picture shaky and blurred.',
+     'A frightened male reporter of about forty with thinning sandy hair, in a crumpled suit, crouches low behind the'
+     ' front wheel of a dark car parked side on at night, the car\'s plain dark side filling the picture, his back and'
+     ' the back of his head towards us as he peers over the bonnet away from us towards a harsh white light.')
 show('statement', VIDEO,
      'A man of about fifty five in a dark suit speaks at a plain wooden podium in front of a blue curtain, two American'
      ' flags on poles beside it.',
-     'Rows of seated reporters in suits seen from the front across a wide room, their faces towards us, the reporters'
-     ' small, a few with one hand raised to ask a question, a plain bare wall behind them.',
+     'Seen from the speaker\'s podium at the front of a wide press room, rows of seated reporters in suits all face'
+     ' towards us, the reporters small, a few with one hand raised to ask a question, the plain bare back wall of the'
+     ' room behind the last row.',
      'A white government building with columns lit up at night.',
      'A grave heavy man of about sixty five with a broad fleshy face, a double chin, thinning white hair combed straight'
      ' back and bushy dark eyebrows, in a dark suit and red tie, speaks into a cluster of plain black microphones, seen'
@@ -169,10 +173,11 @@ show('statement', VIDEO,
 # Home and hobbies.
 show('cook', VIDEO,
      'A cheerful woman in an apron stands at the stove of a studio kitchen, stirring a pot with a wooden spoon.',
-     'A flat overhead view like a map: a square wooden chopping board fills the whole picture edge to edge, small '
-     'heaps of orange carrot rounds and diced white onion on it, flat even light.',
-     'A big glossy brown pot roast of beef sitting in dark gravy in a black cast iron pan, surrounded by soft browned'
-     ' roast potatoes and carrots glistening with gravy, seen from the side on a home kitchen counter.',
+     'Seen from straight above, a square wooden chopping board filling the whole picture out to every edge, small'
+     ' heaps of orange carrot rounds and diced white onion on it, flat even light.',
+     'A big glossy brown pot roast of beef sitting in dark gravy in a round black cast iron pan, surrounded by soft'
+     ' browned roast potatoes and carrots glistening with gravy, the pan standing on a wooden board on a tiled kitchen'
+     ' counter, seen close from the side so the black rim of the pan runs off both sides of the picture.',
      'A cheerful woman in an apron stands behind a kitchen counter smiling straight out of the frame towards the'
      ' viewer, a mixing bowl and a whisk on the counter in front of her.',
      'A pan of vegetables steams on a gas stove with a wooden spoon resting in it, seen close up.',
@@ -200,14 +205,17 @@ show('survival', FIELD,
      'A rugged man of about forty in a plain khaki shirt kneels beside a river with a trout laid on a flat rock in'
      ' front of him.',
      'A lean to shelter of branches and leaves stands in a forest clearing.',
-     'A small loop of thin cord hanging low over a narrow forest path, tied to a bent green sapling and held down by a'
-     ' small wooden peg, seen close up.',
+     'A simple snare beside a narrow forest path, seen close at ground level: a green sapling bent right over in an'
+     ' arc, a thin cord tied to its tip running down to a small notched wooden peg driven into the ground, and from'
+     ' the peg a small open loop of cord standing just above the path.',
      'A rugged man in a khaki shirt walks through tall ferns and looks back over his shoulder towards the viewer.',
-     'A blackened open pot of water boiling over a campfire at dusk, steam rising, a small low canvas tent behind it,'
-     ' the picture soft and grainy.')
+     'A blackened open pot of water hanging by its wire handle from three crossed sticks tied together over a small'
+     ' campfire at dusk, steam rising, a small low two man canvas pup tent behind it, the picture dim, soft and'
+     ' grainy.')
 show('advert', VIDEO,
-     'A man of about fifty in a red knitted sweater and a woman of about forty five with permed hair in a blue sweater'
-     ' stand an arm\'s length apart behind a kitchen counter with a big white mixing bowl and a chrome toaster on it,'
+     'A man of about fifty with thick dark brown hair just greying at the temples and a firm face, in a red knitted'
+     ' sweater, and a woman of about forty five with permed hair in a blue sweater stand an arm\'s length apart behind'
+     ' a kitchen counter with a big white mixing bowl and a plate of buttered toast on it,'
      ' with mild polite expressions, a plain painted kitchen wall behind them, the light flat and a little harsh and'
      ' the colours smeared.',
      'A ripe tomato cut into neat slices lies on a white cutting board beside a kitchen knife on a studio counter, seen close'
@@ -259,9 +267,9 @@ show('detectives', DRAMA,
      'Three men in plain grey and brown suits and ties, two detectives of about forty and their heavy grey haired'
      ' captain of about sixty, argue across a wooden desk piled with brown paper folders and a green shaded desk lamp,'
      ' the plain cream painted wall and a tall wooden filing cabinet behind them.',
-     'A plain dark boxy sedan seen side on, parked in a wet city alley at night, a small round red lamp glowing inside'
-     ' on top of its dashboard behind the windscreen, its smooth bare bonnet catching the light from one bulb over a'
-     ' door.',
+     'A plain dark boxy 1980s sedan parked in a wet city alley at night, seen exactly side on from across the alley,'
+     ' the whole car level across the picture from its front bumper to its rear bumper, its smooth bare dark doors and'
+     ' bonnet catching the light from one bulb over a door.',
      'A detective of about fifty in a tan raincoat stands in a dry dim hallway with brown wallpaper, seen side on, a'
      ' step back from a closed wooden door with one brass knob, his head tilted and one ear turned towards the door,'
      ' listening.',
@@ -282,8 +290,8 @@ show('barrister', DRAMA,
      ' umbrella walking past red brick terraced houses with black iron railings, puddles shining under the street'
      ' lamps.')
 show('soap', VIDEO,
-     'A woman of about forty with big teased blonde 1980s hair, in a loose long sleeved evening gown with a closed'
-     ' collar up to her chin, points angrily at a man of about forty five in a tuxedo who stands a step away with his'
+     'A woman of about forty with big teased blonde 1980s hair, in a loose long sleeved evening gown with a high stiff'
+     ' mandarin collar fastened close round her neck, points angrily at a man of about forty five in a tuxedo who stands a step away with his'
      ' arms spread, in an opulent living room in a daytime soap opera.',
      'A tearful woman with heavy eye make up and big hair, in a long sleeved high necked blouse buttoned up to her chin,'
      ' seen from the shoulders up in a daytime soap opera.',
@@ -315,8 +323,9 @@ OWN_HEROES = (' They are original characters in green and orange jumpsuits that 
 show('heroes', CEL,
      'A team of five space rangers stand in a row a little apart on a rooftop at night, each with a different human'
      ' face and natural skin, two men and three women.' + OWN_HEROES,
-     'A single space ranger flies alone over a city skyline, two short jet nozzles fixed to the bottom of the backpack'
-     ' on his back blowing orange flame, his arms stretched forward and both hands open and empty.' + OWN_HEROES,
+     'Only one space ranger, a man with black hair, flies alone high over the low rooftops of a small city of plain'
+     ' square buildings at night, a thin trail of orange flame coming from the bottom of the small backpack on his'
+     ' back, his arms stretched forward and both hands open and empty, the open night sky all round him.' + OWN_HEROES,
      'Three space rangers stand far apart in a row across a city street, all three seen exactly side on facing right'
      ' towards a giant grey robot, a tall man with black hair, a short woman with red hair and a stocky man with a'
      ' blond beard.' + OWN_HEROES,
@@ -337,8 +346,8 @@ show('puppets', VIDEO,
      'Hand puppets made of felt, a fox, an owl and a rabbit, poke up from behind a painted wooden fence with their'
      ' mouths open in song, painted forest trees behind, on a cheap 1980s children\'s show set.')
 # Asked for over a watercolour background, Qwen-Image paints a patch on a sheet of bare paper.
-show('bunnies', ' A still image from a 1980s cartoon for very small children, painted by hand on celluloid over a'
-                ' soft painted background, soft faded pastel colours, wobbly hand inked outlines and uneven paint. The'
+show('bunnies', ' A still image from a 1980s television cartoon for very small children, cel animation painted by'
+                ' hand: smooth flat pastel paint inside clean even dark outlines, over a soft painted background. The'
                 ' picture fills the whole image edge to edge.',
      'Three round pastel cartoon bunnies of different sizes, a big pink one, a middle sized pale yellow one and a small'
      ' pale blue one, sit side by side in a meadow of flowers under a rainbow, the painted green meadow and blue sky'
@@ -350,8 +359,10 @@ show('bunnies', ' A still image from a 1980s cartoon for very small children, pa
      'A fat round pale yellow cartoon bunny with long floppy ears hanging down and a round tummy holds a red balloon '
      'on a string on top of a green hill, a deep blue evening sky with a big round orange setting sun behind it, the '
      'deep blue colour reaching every edge of the picture.',
-     'Three round pastel cartoon bunnies sleep in a row, each in its own little bed, under a smiling moon, a painted'
-     ' deep blue night sky full of stars running right out to every edge and corner.')
+     'Three round pastel cartoon bunnies of different sizes, a big pink one, a middle sized pale yellow one and a'
+     ' small pale blue one, sleep side by side under one patchwork quilt in a single wide bed seen straight from the'
+     ' front, under a smiling moon, a painted deep blue night sky full of stars running right out to every edge and'
+     ' corner.')
 show('kids-advert', VIDEO,
      'In a cosy family den with wood panelled walls, a brother of about twelve and a sister of about ten sit side by'
      ' side on two separate chairs at a small desk in front of a beige home computer whose boxy tube monitor shows a'
@@ -360,16 +371,19 @@ show('kids-advert', VIDEO,
      ' tall shelves of plain cardboard boxes, seen from a little way back, in a commercial.',
      'A shiny silver plastic toy robot with a smooth plain silver chest, square head and round red eyes stands on a'
      ' kitchen table beside three loose plain silver batteries, in a toy commercial.',
-     'A mother of about thirty five, a father of about forty and a girl of about eight in plain sweaters sit on a'
-     ' living room carpet round a red and black checkerboard, flat round red and black draughts pieces on its squares,'
+     'A mother of about thirty eight with short permed hair, fine lines round her eyes and a wedding ring, a father of'
+     ' about forty and a girl of about eight in plain sweaters sit on a living room carpet round an ordinary small'
+     ' square folding checkerboard of red and black squares lying flat, a few flat round red and black pieces on it,'
      ' in a commercial.')
 
 # Public access.
 show('tech', LOCAL,
-     'A man of about twenty eight with glasses and a headset sits at a desk crowded with beige computers and circuit'
-     ' boards, a plain brown curtain behind him.',
-     'A beige early 1990s desktop computer case standing on a desk, the U shaped metal cover lifted off and lying'
-     ' beside it, circuit boards and grey ribbon cables showing inside, seen close up.',
+     'A man of about twenty eight with glasses and a headset, in a plain short sleeved shirt open at the neck, sits at'
+     ' a desk in front of one beige computer with one boxy monitor and one keyboard, a few loose green circuit boards'
+     ' lying beside it, a plain brown curtain behind him.',
+     'Looking down into an opened beige desktop computer case lying flat on a desk with its metal cover off, a big'
+     ' green circuit board filling the floor of the case with rows of small black chips, a grey metal disk drive box'
+     ' at the front and one flat grey ribbon cable running across, seen close up.',
      'A boxy beige computer monitor on a cluttered desk, its screen glowing with a simple green wireframe grid of'
      ' lines.',
      'A man of about twenty eight with glasses and a short beard grins and holds up a green circuit board, a plain'
@@ -380,16 +394,17 @@ show('interview', LOCAL,
      ' office, a fern behind them.',
      'A silver haired senator of about seventy with a lined face in a grey suit and tie answers a question, seen close'
      ' from the chest up against a plain beige wall.',
-     'A woman interviewer of about forty in a blazer sits in a cheap armchair in a small bare room with a wrinkled'
-     ' curtain behind her, looking down at the notes in her lap, seen close from the front.')
+     'A woman of about forty in a blazer, seen close from the chest up, sits in a cheap armchair looking down at the'
+     ' notes in her lap, a wrinkled brown curtain filling the whole picture behind her.')
 show('clown', LOCAL,
      'A clown with an orange wig and a red nose waves in front of a paper backdrop with balloons in a children\'s show.',
      'One clown with an orange wig and a red nose stands alone on the bare floor of a small room, holding up a bunch '
      'of three balloons on strings above his head, one red, one yellow and one blue, the wall behind him painted with '
      'yellow stars on a deep blue sky.',
      'A clown with an orange wig and a red nose sits on a stool in a children\'s show and holds up his right hand '
-     'inside a sock puppet, a plain smooth grey sock pulled over his hand and wrist with two black button eyes sewn '
-     'near the toe, the puppet turned to face him, a plain sunny yellow painted wall behind them filling the picture '
+     'with a plain smooth grey sock pulled on over it like a glove, his whole hand inside the sock and the open end '
+     'of the sock round his wrist where his sleeve begins, the sock puppet one smooth grey tube from his wrist to its '
+     'toe, two black button eyes sewn near the toe, the puppet turned to face him, a plain sunny yellow painted wall behind them filling the picture '
      'to every edge and corner.',
      'Small children sit cross legged on a carpet and laugh in a children\'s show, each child different: a girl of'
      ' about five with red pigtails, a chubby boy of about four with a crew cut, a thin girl of about six with dark'
@@ -399,23 +414,24 @@ show('county', FIELD,
      'A county fair on a summer evening, one ferris wheel lit up against the sky behind a row of striped stalls.',
      'An old man in a faded blue cotton shirt sits in a rocking chair on the porch of a wooden house, snapping green '
      'beans from a wicker basket on his lap into a tin pail at his feet, seen from the yard.',
-     'A shallow creek running clear over flat grey rocks between steep wooded banks on a summer afternoon, sunlight '
-     'coming through the leaves onto the water, seen from the water\'s edge.',
+     'A shallow country creek in low rolling wooded hills, clear water running over wide flat slabs of grey limestone'
+     ' between gentle low grassy banks under leafy trees on a summer afternoon, sunlight coming through the leaves'
+     ' onto the water, seen from the water\'s edge.',
      'A tall old black painted wooden tobacco barn with vertical plank siding and open vent boards standing alone at the edge'
      ' of a cut field at sunset, seen from the road.',
      'Two horses, a chestnut and a grey, graze well apart in a green pasture, short green grass in the foreground and a'
      ' white wooden fence running along the field behind them.')
 show('survivors', ' A still from old footage lit by one harsh light, dim and grainy with muted colours. The'
                   ' picture fills the whole image edge to edge.',
-     'An exhausted man of about forty in a dirty flannel shirt sits at a desk in a dim room, a door behind him'
-     ' barricaded with a heavy wooden wardrobe and a stacked table and chairs.',
+     'An exhausted man of about forty in a dirty flannel shirt sits at a desk in a dim room, and behind him a tall'
+     ' heavy wooden wardrobe stands pushed flat across the doorway, covering the door completely.',
      'A tired woman of about thirty five with a bandaged arm sits in a dim room, looking straight into the lens as she'
      ' speaks.',
-     'A young man of about twenty five with short dark hair crouches beside an old metal barrel in a dim empty garage,'
-     ' small flames rising out of the open top of the barrel.',
+     'A grown man of about thirty with short dark hair, dark stubble and a lined tired face crouches beside an old'
+     ' open topped metal burn barrel in a dim empty garage, small flames rising out of the open top of the barrel.',
      'Stacks of plain silver food cans and plastic water jugs stand on the floor of a dim room against a bare wall.',
-     'An empty desk in a dim room, and on the floor beside it a black office chair lies tipped over on its side with'
-     ' its wheels in the air.')
+     'An empty desk in a dim room lit by one bare bulb hanging on a cord, and on the floor beside it a plain wooden'
+     ' chair lies tipped over on its side.')
 
 # Music videos.
 show('ballad', HAZE,
@@ -443,9 +459,10 @@ show('pop', CLIP,
      'Seen from far off, a crowd of young people about nineteen, nearly adult, dance with their arms in the air as dark'
      ' shapes against coloured haze.')
 show('rock', CLIP,
-     'A long haired rock band plays on a huge arena stage, a towering wall of plain stacked black amplifier cabinets'
-     ' behind them, jets of flame shooting up at the sides, white and amber light and haze, a packed crowd of raised'
-     ' arms filling the foreground, seen from far back in the arena.',
+     'A long haired rock band plays on a huge arena stage, a towering wall of stacked black speaker cabinets behind'
+     ' them, each cabinet covered from edge to edge in plain black cloth, jets of flame shooting up at the sides, white'
+     ' and amber light from old round spotlights and haze, the tiers of the arena dark all round, a packed crowd of'
+     ' raised arms filling the foreground, seen from far back in the arena.',
      'Seen from far back in the dark, a long haired guitarist stands alone in a single round beam of white light on a'
      ' dark stage, a small figure, his guitar a dark shape in his hands, the beam coming down from far above out of'
      ' frame.',
@@ -461,47 +478,55 @@ show('soul', CLIP,
      ' on his face, the dark brick walls behind him.',
      'A woman of about thirty in a long satin dress sings beside a saxophone player of about forty, the two of them in'
      ' warm amber light and soft haze against dark.',
-     'A man of about thirty five plays an electric piano in a dim room in warm amber light, seen from the front across'
-     ' the top of the instrument, his hands on the keys and his face lit from above out of frame.',
+     'A man of about thirty five plays a long flat black keyboard on a stand in a dim room, seen from the front just'
+     ' above the keys, the keyboard\'s smooth bare black case running across the bottom of the picture, its white keys'
+     ' and its black keys in clear groups of two and three, his hands on the keys, his face lit warm amber by one old'
+     ' round spotlight above out of frame.',
      'A couple of about thirty slow dance holding each other close, her head on his shoulder, in a dim room in front of'
      ' a tall window onto the city lights at night.')
 show('rap', CLIP,
      'Three rappers in their mid twenties stand bareheaded on a city basketball court beside a big portable stereo on a'
-     ' bench, seen from the waist up: a tall thin one with a tall flat topped box of short black hair in a baggy red'
+     ' bench, seen from the waist up: a tall thin Black man with dark brown skin and a high flat top fade haircut, his'
+     ' black hair cut close at the sides and standing up tall and flat across the top like a box, in a baggy red'
      ' hooded sweatshirt, a stocky one with a shaved head in an oversized denim jacket and one with short neat twists'
      ' of hair in a big plain yellow t-shirt.',
      'Two men in their mid twenties, one in a plain black satin jacket leaning on the side of the car and one in a'
      ' plain white t-shirt leaning on the door, with a long low 1960s convertible lowrider, deep red with chrome wire'
      ' wheels, seen side on under orange street lights at night, the street otherwise empty.',
      'A disc jockey of about twenty five in big headphones stands at two black record turntables with a small plain'
-     ' grey mixer between them, in a dim club full of red haze, warm light falling on him from above out of frame.',
+     ' grey mixer between them, in a dim club full of red haze, a plain dark brick wall behind him, the only light a'
+     ' warm glow from one old round spotlight with a big round glass lens above him out of frame.',
      'Three men in their mid twenties in plain solid coloured shirts and baggy jeans pose on the stone steps of a city'
      ' row house in daylight, one tall and thin, one heavy with a beard and one short with a shaved head.')
 show('club', HAZE,
-     'Seen from high up on a balcony at the back of a large dark dance hall, the crowd on the dance floor far below '
-     'and small, a sea of heads and shoulders, green laser beams fanning through thick smoke over them.',
-     'A disc jockey seen from the side at two black record turntables, one hand resting on a spinning black vinyl '
-     'record and the other holding one side of his big headphones to his ear, his face lit red, smoke behind him '
-     'glowing red and blue.',
+     'Looking steeply down from high up under the dark roof of a large dance hall, the crowd on the dance floor far '
+     'below and small, a sea of heads and shoulders filling the picture from side to side, green laser beams fanning '
+     'through thick smoke over them.',
+     'A disc jockey seen from the side at one black record turntable, one hand resting on a spinning black vinyl '
+     'record, big headphones over both ears, his face lit dim red, smoke behind him glowing dull red, the picture '
+     'dark, soft and grainy.',
      'Black silhouettes of the heads and shoulders of a crowd of dancers seen from behind, framed from the shoulders '
      'up, against thick smoke glowing red, yellow and blue.',
      'Glowing coloured shapes spin on a black background in early 1990s computer video art.')
-show('eighties', CLIP,
-     'A singer of about thirty with big teased hair in a plain black jacket with wide padded shoulders, hanging open,'
-     ' stands in front of a wall of glowing pink and blue neon lines forming a grid, purple haze around him, the light'
-     ' coming from somewhere above out of frame.',
+show('eighties', HAZE,
+     'A singer of about thirty with big teased hair in a plain black jacket with wide padded shoulders, hanging open'
+     ' over a plain white t-shirt, stands in front of a wall of softly glowing pink and blue neon lines forming a grid,'
+     ' dim purple haze around him, the light coming from somewhere above out of frame.',
      'A man of about thirty in a pale pink suit stands alone in purple haze playing a keytar, a small white plastic'
-     ' keyboard with a short smooth plastic handle, slung across his body on a strap, his fingers on its black and'
-     ' white keys, lit by warm coloured light from above out of frame.',
-     'A low wedge shaped red sports car seen exactly side on and small in the distance drives along an empty highway at'
-     ' night, its wheels a blur, long lines of pink and blue neon tubing glowing along the roof edges of the low'
-     ' buildings beside the road.',
+     ' keyboard slung across his body on a strap, at its end a short plain smooth white plastic neck that is bare all'
+     ' over, his fingers on its keys, its black keys in clear groups of two and three, lit by warm coloured light from'
+     ' above out of frame.',
+     'An ordinary low red 1980s two door coupe with a smooth bare body, seen exactly side on and very small far away,'
+     ' drives along an empty highway at night, its wheels a blur, a long row of low dark buildings beside the road'
+     ' with a thin line of pink neon along their roof edges, most of the picture dark night sky and empty road.',
      'Three men of about thirty in pastel suits, pink, mint and pale blue, stand a little apart on a sandy beach at'
-     ' sunset, one holding a plain white electric guitar with a small plain headstock, one a plain black bass, and one'
-     ' a small white keyboard hanging from a strap over his shoulder.',
+     ' sunset, one holding a small white headless electric guitar whose neck ends in a plain square end, one a plain'
+     ' black headless bass, and one a small white keyboard hanging from a strap over his shoulder, its black keys in'
+     ' clear groups of two and three.',
      'A 1980s dance class of grown women of about thirty with big permed hair and headbands, each face different, in'
-     ' long baggy sweatshirts over black shorts and full length tights with leg warmers, dance in a wooden floored hall'
-     ' with a ballet barre along a plain painted wall, seen from across the room.')
+     ' long baggy sweatshirts over full length black tights that cover their legs from waist to ankle, with leg'
+     ' warmers, dance in a wooden floored hall with a ballet barre along a plain painted wall, under the plain bright'
+     ' ceiling lights of the hall, seen from across the room.')
 
 # Sport.
 show('sports-desk', VIDEO,
@@ -512,28 +537,34 @@ show('sports-desk', VIDEO,
      ' a plain dark blue wall behind him.',
      'A grinning sports presenter of about fifty with a moustache, in a plain navy blazer and a plain red tie, sits at'
      ' a desk with papers in front of him, a plain blue wall behind him.',
-     'A tired athlete of about twenty five in a plain loose grey t-shirt with a white towel round his neck sits in'
-     ' front of lockers in a locker room while a reporter beside him holds a microphone up to him.')
+     'A tired athlete of about twenty five with a calm worn out face, his eyes half closed and a faint smile, in a'
+     ' plain loose grey t-shirt with a white towel round his neck, sits in front of lockers in a locker room, seen from'
+     ' the chest up, while a reporter beside him holds a microphone up to him.')
 show('baseball', SPORT,
-     'A close head and shoulders shot of a baseball pitcher in a plain white uniform and a plain white cap, only his '
-     'face, cap and shoulders in the picture, his eyes narrowed as he stares in at the catcher, green outfield grass '
-     'blurred behind him.',
-     'Seen from far off through a long lens, a lone baseball catcher crouches in the brown dirt, a small figure in '
-     'grey with dark padding and a dark mask, holding up his brown glove as a target, a plain dark green wall behind'
+     'A close head and shoulders shot of a baseball pitcher facing straight towards the camera, his chest and both '
+     'shoulders square to us, in a plain white uniform shirt and a plain white cap, only his face, cap and shoulders '
+     'in the picture, his eyes narrowed as he stares straight ahead past the camera, green outfield grass blurred '
+     'behind him.',
+     'Seen from far off through a long lens, a lone baseball catcher crouches in the brown dirt seen exactly side on, '
+     'a small dark figure in plain grey trousers and a plain dark navy long sleeved shirt, a dark mask on his face, '
+     'holding up his brown glove in front of him as a target, only him in the picture, a plain dark green wall behind'
      ' him.',
      'Looking steeply down from high above onto the outfield grass of a baseball park on a sunny afternoon, the grass '
      'mown in broad light and dark green diagonal stripes that fill the whole picture, one outfielder in plain grey '
      'standing small near the middle with his long shadow beside him.',
      'Seen from far off across the outfield, a baseball outfielder in plain grey leaps at the low padded outfield'
      ' fence, a small lone figure, the empty green grass in front.',
-     'A baseball dugout seen from across the field, four players in plain grey uniforms and plain dark caps leaning on'
+     'A baseball dugout seen from across the field, four players in plain grey uniforms, all bareheaded with their hair'
+     ' showing, leaning on'
      ' its rail in the deep shade of its roof, one old and heavy, one tall and thin, one with a dark beard and one'
      ' young and fair, the green grass of the field in front.',
      'Seen from very high up in the top of the stands far away, a whole baseball infield, one runner a tiny figure in a'
      ' plain grey uniform sliding into a base in a cloud of dust on the brown dirt.')
 show('golf', SPORT,
-     'A golfer of about forty in a plain pale blue polo shirt and a plain white glove follows through after a drive'
-     ' from the tee, a single ball rising away into the sky, a line of spectators behind a rope behind him.',
+     'A golfer of about forty in a plain pale blue polo shirt and grey trousers, seen from behind a little way off,'
+     ' holds a classic high finish after a drive from the tee, his body turned to face down the fairway, both hands'
+     ' together on the grip up beside his left ear and the club shaft hanging down behind his back, a single ball'
+     ' rising away into the sky, a line of spectators behind a rope far off.',
      'A golfer crouches to line up a putt on a green.',
      'A golf ball rolls toward the hole and the flag on a green.',
      'A golf fairway runs between tall pines with a lake beside it.',
@@ -559,8 +590,9 @@ show('racing', SPORT,
      ' concrete track tilted up at a steep angle like the side of a bowl toward the high outer wall.',
      'Seen from very high up and far away, a pit crew in plain white overalls swarms round a racing car painted plain'
      ' solid blue in the pit lane of a big oval track, all of them small figures.',
-     'The view from low in the open cockpit of an open wheel racing car down a long straight, a small plain black'
-     ' steering wheel in the bottom of the picture, the two front tyres either side and another open wheel car ahead.',
+     'The view from the driver\'s eye in the open cockpit of an open wheel racing car down a long straight, open sky'
+     ' running all the way up to the top edge of the picture, a small plain black steering wheel at the bottom edge,'
+     ' the two front tyres either side and another open wheel car ahead.',
      'Seen from high above and far away, a starting grid of small low open wheel racing cars in plain solid colours'
      ' sits two by two on a grey paved oval track, the long grandstand along one side packed with people.',
      'Seen from far off, a racing driver in plain white overalls and plain white boots, a small figure, stands alone on'
@@ -568,11 +600,13 @@ show('racing', SPORT,
      ' him and the podium.',
      'Stock cars in plain colours race side by side round a dirt oval.')
 show('skating', SPORT,
-     'A skateboarder of about eighteen in a plain white t-shirt and a plain black helmet flies in mid air above a'
-     ' wooden half pipe, a few spectators in plain solid coloured shirts watching.',
-     'Seen from far off, a small figure of a skateboarder about seventeen, nearly adult, tall and lanky, in a baggy'
-     ' long sleeved plain t-shirt and long shorts slides along a metal rail beside a concrete plaza, the picture soft,'
-     ' smeared and faded.',
+     'A skateboarder of about eighteen in a plain white t-shirt and a plain black helmet flies in mid air above the lip'
+     ' of a long wooden half pipe, a U shaped ramp seen from the side with two curved walls facing each other, both'
+     ' feet on his board in a matching pair of plain black canvas shoes, a few spectators in t-shirts of one plain'
+     ' solid colour watching.',
+     'Seen from far off, a small figure of a grown young man of about twenty with a man\'s build, in a baggy long'
+     ' sleeved plain t-shirt and long shorts, grinds along the top of a long metal handrail beside the concrete steps'
+     ' of a plaza, his skateboard turned sideways and sliding on the rail, the picture soft, smeared and faded.',
      'Seen from very far off against a pale sky, a small figure of a rider about seventeen, nearly adult, tall and'
      ' lanky, in a plain blue t-shirt and jeans on a small BMX bicycle flies through the air over a dirt jump, an old'
      ' round open face helmet on his head, the dirt track around him empty.',
@@ -581,21 +615,23 @@ show('skating', SPORT,
      ' skate ramp, seen from below at the foot of the ramp against a blue sky.')
 show('boxing', ' A still image from 1970s boxing coverage shot on 16mm colour film, bright ring lights and a'
                ' faint haze, soft and grainy with faded colours. The picture fills the whole image edge to edge.',
-     'Seen from high in the dark seats far away, two small figures in a small bright square of ring far below, two '
-     'heavyweight boxers squaring off a step apart, one in white trunks and one in black trunks, their gloves dark '
-     'red, the ring lit from above out of the picture.',
+     'Seen from high in the dark seats across a crowded hall, a bright square boxing ring below with rows of dim '
+     'spectators all round it, two heavyweight boxers squaring off a step apart in the middle of the ring, one in '
+     'white trunks and one in black trunks, their gloves dark red, the ring lit from above out of the picture.',
      'Seen from far back in the dark seats, a small bright ring: a dazed bare chested boxer in black trunks sits '
      'slumped on the pale canvas in the middle of the ring, while the other boxer, bare chested in white trunks, '
      'walks away to the far corner, both small figures with dark red gloves.',
-     'Looking straight down from high above the middle of a boxing ring: a bare chested boxer lying flat on his back'
-     ' on the pale canvas with his arms spread, and a referee in a white shirt and black trousers kneeling beside '
-     'him with one bare hand raised, the boxer\'s gloves smooth dark red leather with plain dark red wrist cuffs.',
+     'Seen from the edge of the ring at canvas level, a bare chested boxer in black trunks lies flat on his back on '
+     'the pale canvas with his arms spread, his whole body from head to boots side on across the picture, and a '
+     'referee in a white shirt and black trousers kneels beyond him with one bare hand raised, the boxer\'s gloves '
+     'smooth dark red leather all over, the dark hall behind.',
      'A boxing crowd seen from high up in a dark hall, many rows of men on their feet rising away up the tiers, every'
      ' man different: bald heads, grey hair, flat caps, moustaches, shirts and jackets of many colours, arms waving, '
      'cigar smoke hanging in a bright light above them, the far end of the hall lost in darkness.',
-     'Looking steeply down from high in the dark seats onto a lit boxing ring, a tired boxer in plain black trunks and'
-     ' red gloves sits slumped on a stool in the corner, and an older man in a white short sleeved shirt and grey'
-     ' slacks stands beside him pressing a white towel to his forehead.')
+     'Looking down from high in the dark seats into the corner of a lit boxing ring, a tired boxer in plain black'
+     ' trunks sits slumped on a wooden stool inside the ropes, a white towel draped over his head and shoulders, his'
+     ' gloves smooth dark red leather all over resting on his knees, and an older trainer in a white short sleeved'
+     ' shirt and grey slacks stands beside him inside the ring with one hand on the boxer\'s shoulder.')
 show('old-game', ARCHIVE,
      'A whole 1950s baseball diamond seen from very high up in the top of the grandstand behind home plate, the batter'
      ' a tiny figure in a light uniform swinging at the plate, the pitcher and fielders small dots on the grass.',
@@ -608,21 +644,23 @@ show('old-game', ARCHIVE,
 show('soccer', SPORT,
      'Seen from far off across a small town field, a soccer player in an all plain red shirt and shorts dribbles past a'
      ' defender in all plain white, two small figures a few paces apart on the green grass, trees behind.',
-     'Seen from far off at the side of the pitch, a grown goalkeeper of about thirty in plain green, a small figure,'
-     ' dives sideways between his two goalposts as the ball flies past his hands into the net behind him.',
-     'Two grown soccer players of about twenty five in plain red shirts run towards us with their arms raised after a'
-     ' goal, seen from the front, their faces shouting with joy.',
+     'Seen from far off in front of a single white goal, a grown goalkeeper of about thirty in plain green, a small'
+     ' figure, flies sideways full stretch through the air across the open mouth of the goal, his body level above the'
+     ' grass, and a black and white ball just beyond his outstretched arms flies into the net behind him.',
+     'Two grown soccer players of about twenty five run towards us with their arms raised after a goal, seen from the'
+     ' front and framed from the waist up, their faces shouting with joy, each in a plain cotton shirt of one solid'
+     ' red all over, its sleeves and collar the same red.',
      'A small crowd of grown men and women in coats stands along a low wooden fence, their faces towards us, seen from'
      ' across a grass field, trees behind them.')
 show('horse-race', SPORT,
      'Three race horses with jockeys in plain solid coloured silks gallop round a turn strung out in single file, each'
      ' a full length behind the one in front, seen side on.',
-     'A row of race horses lunge out of a long plain green metal starting gate as its front doors spring open on a flat'
-     ' dirt track, seen side on from across the track so the horses and jockeys are small, each horse in its own open'
-     ' stall.',
-     'Seen from far off across a dirt track, three small race horses gallop past a white finish post, the leader a'
-     ' length ahead of the other two, its jockey standing up high in the stirrups, open dirt between them and the'
-     ' viewer.',
+     'Three race horses, each with a jockey in plain solid coloured silks crouched on its back, burst out onto a flat'
+     ' dirt track a length clear in front of a plain green metal starting gate, its stall doors hanging open behind'
+     ' them as plain blank green panels, seen side on from across the track so the horses and jockeys are small.',
+     'Seen from far off across a dirt track, three small race horses, each carrying a jockey in plain solid coloured'
+     ' silks, gallop past a plain white post, the leader a length ahead of the other two, its jockey standing up high'
+     ' in the stirrups, open dirt between them and the viewer.',
      'A long race course grandstand full of people in hats seen from far across an empty raked brown dirt track, the'
      ' white outer rail running along the foreground.')
 
@@ -633,15 +671,16 @@ show('film-comedy', FILM,
      'Two clumsy burglars in woolly hats sprawl on their backs at the foot of a staircase in a family comedy.',
      'A panicking mother and father throw suitcases into the back of a wood panelled station wagon in the driveway of'
      ' their suburban house at dawn, seen from the side, in a family comedy.',
-     'Two teenage boys, about seventeen and nearly adult, one tall and lanky with long dark hair and one stocky and'
-     ' blond, in denim jackets stand in a cluttered garage playing plain red and plain black electric guitars with'
-     ' small plain headstocks, in a teen comedy.',
+     'Two grown young men of about nineteen with men\'s faces and a shadow of stubble, one tall and lanky with long'
+     ' dark hair and one stocky and blond, in denim jackets stand in a cluttered garage playing a plain red and a plain'
+     ' black headless electric guitar whose necks end in a plain square end, in a teen comedy.',
      'A bride and groom run hand in hand down the steps of a church, a few guests behind them tossing small pinches of'
      ' rice from little paper bags, in a comedy.',
      'A man in a crumpled suit sits on a curb in the rain beside a cardboard box of his things in a comedy.')
 show('film-action', FILM,
-     'A spy of about forty in a tuxedo stands beside a long low silver sports car on a mountain road, the car seen side'
-     ' on from the front door back, snowy peaks behind, in a spy thriller.',
+     'A spy of about forty in a tuxedo stands beside a long low silver two door coupe with soft rounded lines on a'
+     ' mountain road, the car seen exactly side on, its smooth bare flank catching the light, snowy peaks behind, in a'
+     ' spy thriller.',
      'A man in a leather jacket flies flat out through the air towards the viewer, his whole body and legs stretched'
      ' out behind him a little above the ground, a warehouse bursting into a ball of fire far behind him, in an action'
      ' movie.',
@@ -671,10 +710,12 @@ show('film-crime', FILM,
      'A plain clothes detective of about forty in a brown leather jacket and jeans stands in a city alley at night, his'
      ' right arm hanging straight down by his side with a big revolver in his hand, its barrel pointing at the wet'
      ' ground by his foot, in a police thriller.',
-     'A few small loose diamonds glint in the bottom of an open black briefcase that rests on a plain bare wooden box'
-     ' in a dim warehouse, in a crime movie.',
-     'Two plain dark 1970s sedans with bare doors race down a steep San Francisco style city hill, the first one'
-     ' airborne over the crest, seen side on, in a police thriller.',
+     'A scatter of tiny loose diamonds, each as small as a grain of rice, lie flat and glinting on black velvet in the'
+     ' bottom of an open black briefcase lined with plain black velvet inside its lid too, the briefcase resting on a'
+     ' rough box of bare unpainted planks in a dim warehouse, in a crime movie.',
+     'Two plain dark 1970s family sedans, ordinary civilian cars with smooth bare doors and roofs, race down a steep'
+     ' San Francisco style city hill, the first one airborne over the crest, seen exactly side on from far across the'
+     ' street, in a crime thriller.',
      'A private detective in a hat sits in an office striped with light through blinds in a film noir.',
      'Men in their mid twenties in bandanas and white vests over plain t-shirts stand on a street corner at dusk, one'
      ' leaning on the side of a parked car, plain brick walls behind them, in a crime drama.')
@@ -689,41 +730,46 @@ show('film-romance', FILM,
      'buildings with shuttered windows around the square, in a classic musical.',
      'A couple kiss in the rain under a street lamp in a romantic movie.',
      'A woman of about thirty in a long high necked dressing gown that covers her to her ankles, with long sleeves,'
-     ' sits at a window writing a letter in a romantic drama.',
+     ' sits at a small wooden writing desk against a papered wall, writing a letter by lamplight, heavy velvet curtains'
+     ' drawn shut beside her, in a romantic drama.',
      'A man and a woman of about thirty laugh over two white cups of coffee at a bare table by a diner window, snow'
      ' falling outside on a quiet street, in a romantic comedy.')
 show('film-western', FILM,
      'A gunslinger with a big moustache stands with his empty hands loose at his sides in the dusty main street of a'
-     ' wooden town, only the wooden grip of his revolver showing above the holster on his hip, plain bare wooden'
-     ' storefronts behind him, in a western.',
+     ' wooden town, his revolver sitting deep in a closed brown leather holster on his hip with only its curved wooden'
+     ' butt showing, storefronts of bare grey weathered boards with plain dark windows far behind him, soft and out of'
+     ' focus, in a western.',
      'Three riders on horseback cross a desert canyon in single file in a western.',
      'Cowboys play cards at a round wooden table in a dim wooden saloon with bare plank walls, oil lamps and a long bar'
      ' behind them, in a western.',
      'A sheriff of about fifty with a grey moustache, in a plain collarless cotton shirt and a dark waistcoat with a'
      ' small tin star pinned to it, sits on the porch of a wooden house watching the sun set over the prairie, in a'
      ' western.',
-     'A plain dark red stagecoach with bare painted sides races across a dusty plain, pulled by four galloping brown'
-     ' horses in two pairs one behind the other, seen side on from a distance, a cloud of dust trailing behind it, in a'
+     'A plain dark red stagecoach with bare painted sides races across a dusty plain, pulled by a team of two galloping'
+     ' brown horses side by side, seen side on from a distance, a cloud of dust trailing behind it, in a'
      ' western.')
 show('film-war', FILM,
-     'The cramped control room of a Second World War submarine in red light, two sailors in plain dark caps seated at'
-     ' round brass dials and pipes, and an officer standing with both hands on the two side handles of a plain vertical'
-     ' steel periscope tube, his eye pressed to it, in a war movie.',
+     'The cramped control room of a Second World War submarine in red light, seen from the side: an officer standing'
+     ' side on with his face pressed against the eyepiece at the bottom of a plain vertical steel periscope tube, both'
+     ' hands on its two side handles, and two sailors in plain dark caps seated with their backs to us, turning valve'
+     ' wheels on the pipes in front of them, in a war movie.',
      'A plain dark grey submarine with a smooth bare tower breaks the surface of a grey sea, white water pouring off'
      ' its deck, in a war movie.',
-     'American soldiers in round steel helmets and green fatigues wade through a jungle river with their black M16'
-     ' rifles held over their heads, in a Vietnam war movie.',
+     'American GIs, young white and black American soldiers in round steel helmets covered in plain green cloth and'
+     ' green fatigues, wade chest deep through a jungle river, each holding his black rifle raised high above his head'
+     ' in both hands to keep it dry, in a Vietnam war movie.',
      'Inside the cramped grey steel control room of a submarine lit dim red, a naval officer of about forty in a plain'
-     ' dark sweater wearing plain black headphones looks up at the pipes and rivets of the low ceiling as the hull'
-     ' creaks, in a war movie.',
-     'Tall white columns of sea water from depth charges burst up out of the grey sea behind the stern of a grey'
-     ' warship, in a war movie.')
+     ' dark sweater wearing an old pair of headphones with plain smooth round black earcups looks up at the low'
+     ' ceiling as the hull creaks, only bare pipes, valve wheels and rivets around him, in a war movie.',
+     'Tall plain white columns of foaming sea water burst up out of the grey sea behind the stern of a grey warship,'
+     ' great fountains of white spray rising from the water and falling back, in a war movie.')
 show('film-future', FILM,
-     'A soldier with a riveted steel plate over half his face and a round glowing blue glass eye stands in a rainy'
-     ' alley lit by plain pink and green neon tubes bent into simple lines and circles, in a science fiction action'
-     ' movie.',
-     'A motorcycle rider in black leather is chased down an empty desert highway by a huge rusty black truck, the truck'
-     ' seen from the side so its front is hidden in dust, in a science fiction action movie.',
+     'A bareheaded soldier, the right half of his face his own bare human face with skin, stubble and a normal eye,'
+     ' and over the left half a riveted steel plate with a round glowing blue glass eye, stands in a rainy alley lit'
+     ' dimly by a few plain pink and green neon tubes bent into simple lines, in a science fiction action movie.',
+     'Seen from behind and a little above, a huge rusty black truck chases a motorcycle rider in black leather down an'
+     ' empty desert highway, the plain rusty back of the truck and its rear wheels nearest us, the rider small on the'
+     ' road ahead of it, in a science fiction action movie.',
      'A figure walks through sparks and molten steel in a dark factory in a science fiction action movie.',
      'A woman of about thirty in a leather coat holding a shotgun stands in the doorway of a wrecked bar, the bare'
      ' cracked plaster walls behind her scorched and empty, broken stools on the floor, in a science fiction action'
@@ -732,12 +778,14 @@ show('film-future', FILM,
      ' science fiction action movie.')
 show('film-epic', FILM,
      'A herd of woolly mammoths crosses a snowy valley in an adventure movie.',
-     'A prehistoric sabre toothed cat, heavy and stocky with a plain even sandy tawny coat like a lion, thick forelegs,'
-     ' a short stubby bobbed tail and two very long curved fangs reaching down below its chin, snarls on a rock, in an'
-     ' adventure movie.',
+     'A close view of the head and shoulders of a prehistoric sabre toothed cat snarling on a rock, a plain even sandy'
+     ' tawny coat like a lioness, a broad heavy head, and two very long curved fangs from its upper jaw reaching down'
+     ' below its chin, in an adventure movie.',
      'Two people in fur coats stand looking up at a woolly mammoth in an adventure movie.',
-     'Three Stone Age people in animal furs sit round a fire in a cave, their hands resting on their knees, faint'
-     ' simple reddish ochre stick figure deer and bison on the rough rock wall behind them, in an adventure movie.',
+     'Three Stone Age men sit round a fire in a cave, each plainly different, one old with a grey beard, one young and'
+     ' lean, one heavy with a black beard, wrapped in long shaggy fur cloaks that cover them from neck to ankle, a few'
+     ' small faded reddish stick figure marks barely visible on the rough rock wall behind them, in an adventure'
+     ' movie.',
      'A wide frozen plain under a low sun with a line of tiny figures walking in an adventure movie.')
 show('film-art', ' A still image from a 1970s European art film shot on 35mm film, muted colour, fog and soft film'
                  ' grain. The picture fills the whole image edge to edge.',
@@ -788,14 +836,15 @@ show('high-school', SITCOM,
      ' view.',
      'Four teenagers about seventeen, nearly adult, in plain solid coloured shirts sit in a diner booth with'
      ' milkshakes, the chrome trim, red seats and low white ceiling of the diner around them.',
-     'Seen through the windshield of a car, a teenage girl about seventeen, nearly adult, grips the steering wheel on'
-     ' the left, and a terrified driving instructor of about fifty with a grey moustache sits in the passenger seat on'
-     ' the right.',
+     'Seen through the windshield of a car, a high school senior of eighteen, a young woman with a grown up face,'
+     ' feathered hair and small earrings, grips the only steering wheel on the left, and a terrified driving instructor'
+     ' of about fifty with a grey moustache sits in the passenger seat on the right with both hands braced flat on the'
+     ' bare dashboard in front of him.',
      'Teenagers about seventeen, nearly adult, in plain solid coloured clothes dance under paper streamers in a school'
      ' gym, its high ceiling of steel beams and its brick walls in view.')
 show('irish', SITCOM,
      'A priest of about sixty in a black suit and white collar talks to a farmer of about fifty in a flat cap outside a'
-     ' whitewashed stone pub with a plain green door in a small Irish village, green hills behind under a soft grey'
+     ' whitewashed stone cottage with bare white walls and a plain green door in a small Irish village, green hills behind under a soft grey'
      ' sky.',
      'A housekeeper of about sixty in an apron pours tea from a brown teapot into a cup held by a priest of about fifty'
      ' sitting at the table, in an old fashioned kitchen with whitewashed walls and dark wooden ceiling beams.',
@@ -825,9 +874,11 @@ show('cop-show', DRAMA,
      ' with venetian blinds and bare walls, in a 1980s action series.',
      'A dark blue 1970s muscle car flies in mid air over the crest of a hill, seen side on from far off, one wheel at'
      ' the front and one at the back of its near side, all four wheels clear of the road, in a 1980s action series.',
-     'Two men crouch low behind a tall stack of plain unpainted wooden crates on a dock at night, only their heads,'
-     ' shoulders and pistols showing past the side of the stack, a heavy bearded man in a leather jacket and a thin'
-     ' clean shaven young man in a denim jacket, in a gun fight in a 1980s action series.',
+     'A tall stack of plain unpainted wooden crates on a dock at night fills most of the picture, and two grown men'
+     ' crouch hidden behind it, only their two heads and the pistols in their hands poking out past the right side of'
+     ' the stack, both pistols pointing the same way out of the picture to the right: a heavy bearded man of about'
+     ' forty five in a leather jacket and a lean man of about twenty five with a narrow grown man\'s face and dark'
+     ' stubble in a denim jacket, in a gun fight in a 1980s action series.',
      'Seen from far across a dark parking lot, two policemen in plain light blue short sleeved shirts, one heavy set'
      ' and balding, one young and thin with dark hair, sit on the front fender of a plain brown sedan parked side on,'
      ' paper bags of takeout between them, a low roadside diner of lit windows behind them, in a 1980s action'
@@ -835,13 +886,15 @@ show('cop-show', DRAMA,
 show('space', DRAMA,
      'The bridge of a starship, a crew in plain coloured uniforms, smooth and bare from shoulder to waist, seated at'
      ' grey consoles, and a captain of about fifty in the middle chair facing a screen full of stars.',
-     'A tall bald man of about fifty playing an alien ambassador, his own human face with deep set eyes and a heavy'
-     ' jaw, thick bony ridges of makeup running across his forehead and over the top of his head, in a high collared'
-     ' coat of dark red and silver quilted fabric, seen from the chest up, in a 1980s science fiction series.',
+     'A heavy jowled man of about fifty five with a round fleshy face, small dark eyes and a thick dark beard, playing'
+     ' an alien ambassador, a row of thick raised bony ridges of skin coloured rubber makeup, smooth like bone under'
+     ' the skin, running up from between his eyebrows over his forehead, in a high collared coat of dark red and'
+     ' silver quilted fabric, seen from the chest up alone against a plain dark grey wall, in a 1980s science fiction'
+     ' series.',
      'A model starship flies past a ringed planet in a 1980s science fiction series.',
-     'Three crew members in coloured uniforms that are plain from collar to boots stand well apart on a rocky planet'
-     ' under a purple sky, seen from a little way off, their empty hands down at their sides and a small ray gun'
-     ' resting in a holster at each hip, in a 1980s science fiction series.',
+     'Three crew members in plain one colour jumpsuits, one red, one gold and one blue, each smooth and bare from'
+     ' collar to boots, stand well apart on a rocky planet under a purple sky, seen from a little way off, their empty'
+     ' hands hanging down at their sides, in a 1980s science fiction series.',
      'An engine room with a glowing column and an engineer at the controls in a 1980s science fiction series.')
 show('action-team', DRAMA,
      'Four tough men stand in front of a black van in a desert scrapyard in a 1980s action series.',
@@ -849,20 +902,22 @@ show('action-team', DRAMA,
      ' green glass over his eyes holds a thick grey steel plate flat against the side door of a black van in a barn and'
      ' welds along its edge, a bright white arc and a shower of orange sparks where the plate meets the door, in a'
      ' 1980s action series.',
-     'A big orange fireball and black smoke burst up beside a dirt road, an empty open green army jeep overturned in'
-     ' the dust in front of it, tipped over onto its side with its dark underside and all four wheels turned towards'
-     ' the viewer and the top of its windshield frame resting on the ground, seen whole from a distance, in a 1980s'
-     ' action series.',
+     'A big orange fireball and black smoke burst up from the ground beside a dirt road in the desert, an empty open'
+     ' green army jeep standing on its four wheels on the road in front of it, dust flying round it, seen whole and'
+     ' side on from a distance, in a 1980s action series.',
      'A grinning heavy built man in his late fifties with a bald head, a fringe of grey hair and a full bushy grey'
      ' beard, a fat cigar clamped in his teeth, seen from the waist up a few paces off, in a 1980s action series.',
-     'Seen from far off and side on, a van speeds along a desert road leaving a trail of dust, and a small dark'
-     ' helicopter follows low behind it in the same direction, in a 1980s action series.')
+     'Seen exactly side on from far away across the desert, a small plain black van with smooth bare sides speeds from'
+     ' left to right along a dirt road trailing a long cloud of dust, and a small dark helicopter flies low a little'
+     ' way behind it the same way, both small in the wide picture, flat scrub and distant mountains behind, in a 1980s'
+     ' action series.')
 show('strange', DRAMA,
-     'A man of about fifty in a trench coat stands in a foggy graveyard at night, looking straight into the lens as he'
-     ' speaks, a few plain worn grey headstones far behind him in the fog, in a documentary series about the'
-     ' unexplained.',
-     'A dim misty forest seen from far off, a dark smudge of an upright shape half hidden between distant tree trunks,'
-     ' out of focus and hard to make out, in a documentary series about the unexplained.',
+     'A man of about fifty in a trench coat stands in an open foggy field at the edge of a graveyard at night, looking'
+     ' straight into the lens as he speaks, only grey fog behind him and a few dim grey shapes of old blank headstones'
+     ' far off in it, in a documentary series about the unexplained.',
+     'A dim misty forest of dense tall tree trunks seen from far off, and far back among them a small dark blur,'
+     ' half hidden behind one distant trunk and almost lost in the grey mist, easy to miss, in a documentary series'
+     ' about the unexplained.',
      'Three points of white light float high in the open black night sky in a triangle far above a dark farmhouse and '
      'its field, small and blurred like distant stars only brighter, in a documentary series about the unexplained.',
      'An old farmer of about seventy in overalls sits on his porch at night talking, a plain black microphone held up'
@@ -883,15 +938,17 @@ show('chat', VIDEO,
 show('family', SITCOM,
      'A suburban family sits close together on a flowered sofa in a cosy living room with patterned wallpaper and'
      ' framed pictures, a mother of about forty with a brown bob, a father of about forty five whose hair is scorched'
-     ' and sticking straight up, and two children of about ten and twelve.',
+     ' and sticking straight up, and between them their two children both sitting on the sofa, a girl of about twelve'
+     ' with long brown hair and a boy of about ten with short hair.',
      'A mother of about forty in an apron stands in a homely kitchen full of white smoke holding a plain red fire'
      ' extinguisher by its handle, its smooth back towards us, white foam covering a burnt pan on the stove beside her,'
      ' wooden cupboards around her.',
      'A family of four laughs round a dinner table in a cosy dining room with flowered wallpaper, a hanging lamp over'
      ' the table, a father of about forty five with a moustache, a mother of about forty with curly hair, a girl of'
      ' about twelve and a boy of about nine.',
-     'Two children sit side by side on a carpeted staircase between papered walls, a girl of about twelve cupping one'
-     ' hand to the ear of a younger boy of about nine, who listens with wide eyes, a little space between their faces.',
+     'Two children sit side by side on a carpeted staircase between papered walls, a girl of about twelve leaning over'
+     ' with her mouth right at the ear of a younger boy of about nine, whispering a secret to him, and the boy'
+     ' listening with wide eyes.',
      'A cosy living room seen from beside the sofa, looking across the room to the open front door on the far wall,'
      ' where a grinning neighbour of about fifty in a loud Hawaiian shirt covered in big orange and green flowers leans'
      ' his head and shoulders in.')
@@ -905,16 +962,18 @@ show('britcom', SITCOM,
      'A vicar in a black shirt and white dog collar sits squeezed on a sofa between two old ladies, a teacup on a saucer'
      ' balanced on his knee, in a chintzy English sitting room with flowered wallpaper and a white ceiling, in a'
      ' British comedy series.',
-     'A balding man in his fifties in a brown cardigan sits in an armchair holding a big opened newspaper up in front of'
-     ' his face so that only the top of his head shows over it, its pages a soft grey blur, while his wife in her'
+     'A man in his fifties in a brown cardigan sits in an armchair holding a big opened newspaper up high in front of'
+     ' him so that it hides his face and head completely, only his hands at its edges and his cardigan sleeves and'
+     ' legs showing, the back of the paper towards us a broad pale grey sheet out of focus, while his wife in her'
      ' fifties in a floral blouse talks at him from the sofa beside, in a British comedy series, seen close in a cosy'
      ' English sitting room with flowered wallpaper behind them and the white ceiling in view.')
 
 # What comes on a tape and is not on the air.
 show('fitness', VIDEO,
-     'An aerobics instructor of about thirty, a woman with a high ponytail in a plain purple t-shirt, stands on a low'
-     ' platform facing the viewer with her arms raised, a class of grown men and women in plain solid coloured baggy'
-     ' t-shirts behind her copying her, seen close from the waist up, in a 1980s exercise class in a gym.',
+     'An aerobics instructor of about thirty, a woman with a high ponytail in a t-shirt of one smooth even purple all'
+     ' over, stands on a low platform facing the viewer with her arms raised, a class of grown men and women behind'
+     ' her copying her, each in a baggy t-shirt of one single solid colour, smooth and bare all over, everyone seen'
+     ' close from the waist up, in a 1980s exercise class in a gym.',
      'Seen from the waist up across a gym, a row of four grown people a little apart doing squats, all in plain solid'
      ' coloured shirts: a heavy set bald man of about fifty in grey, a woman of about thirty five with a curly perm in'
      ' pink, a grey haired man of about sixty five in navy and a tall woman of about forty with a brown bob in yellow,'
@@ -928,16 +987,19 @@ show('garage', TAUGHT,
      'A mechanic of about forty five in plain blue overalls stands beside a big old American sedan with its hood raised'
      ' in a garage, pointing down into the large engine, the car seen from the side so its front is hidden by the'
      ' raised hood.',
-     'A mechanic of about forty in plain blue overalls kneels beside a big old American sedan seen side on in a garage,'
-     ' the car raised on a plain red jack so its front wheel hangs clear of the concrete floor, his hands on the wheel.',
+     'A mechanic of about forty five with grey at his temples and a moustache, in plain blue overalls, kneels beside'
+     ' the front wheel of a big old American sedan in a garage with bare concrete walls, framed close on him and the'
+     ' wheel so only the smooth bare wheel arch and the bottom of the door show, the car raised on a plain red trolley'
+     ' jack standing on the floor so its front wheel hangs clear of the concrete, his hands on the wheel.',
      'A plain red metal toolbox with its drawers pulled open, full of spanners and screwdrivers, stands on a concrete'
      ' garage floor beside an old car tyre, seen close up.',
      'A mechanic in plain blue overalls leans over the open hood of an old car with his arms down inside the engine'
      ' bay, seen from the side a few paces back.')
 show('first-aid', TAUGHT,
-     'A paramedic of about forty in a plain white short sleeved shirt and dark trousers wraps a white bandage round the'
-     ' forearm of a fully dressed volunteer of about thirty who sits upright on the edge of a table, in a plain beige'
-     ' room.',
+     'A paramedic of about forty with a moustache, in a plain white short sleeved shirt tucked into plain dark trousers'
+     ' with a thin plain belt, wraps a white bandage round the bare forearm of a grown woman volunteer of about thirty'
+     ' five with short permed hair and a wedding ring, in a plain red sweater with its sleeve pushed up, who sits'
+     ' upright on the edge of a table holding her arm out to him, in a plain beige room.',
      'A paramedic of about thirty five in a plain white shirt and dark trousers kneels on a grey carpet with both hands'
      ' pressed on the chest of a plain pale plastic training dummy lying on its back, in a plain beige room.',
      'Rolled white bandages, a roll of white tape, a pair of round ended scissors and a few folded gauze pads laid out'
@@ -947,10 +1009,11 @@ show('first-aid', TAUGHT,
      'A bandage is wrapped round a lower leg resting on a stool.')
 show('guns', TAUGHT,
      'A man of about fifty in a hunting vest stands at the wooden bench of an outdoor shooting range, a plain wooden'
-     ' bolt action hunting rifle lying flat on the bench in front of him, seen side on.',
-     'A plain dark blued revolver with smooth unmarked metal lies on a grey cloth on a table, seen from above, its'
-     ' cylinder swung out to the side on its hinge and still attached, six brass cartridges standing upright in a neat'
-     ' row beside it.',
+     ' bolt action hunting rifle lying flat on the bench in front of him, seen side on, the rifle\'s short bolt handle'
+     ' sticking out from the side of its steel action just in front of the stock and ending in a small round knob.',
+     'A plain revolver of smooth unmarked dark gunmetal grey, nearly black, with plain smooth dark walnut grips, lies'
+     ' on its side on a grey cloth on a table, seen from straight above, six brass cartridges standing upright in a'
+     ' neat row beside it.',
      'Round paper targets on wooden stands at the far end of an outdoor shooting range, a grass bank behind them.',
      'A grey haired Kentucky sheriff\'s firearms instructor in a tan uniform shirt stands at the front of a plain'
      ' American classroom with wood panelled walls and a green chalkboard, a few adult deputies in tan shirts at'
@@ -968,27 +1031,30 @@ show('fishing', OUTDOOR,
      'A man casts a fishing rod from a lake shore at dawn.',
      'An open green plastic tackle box on a sun warmed wooden dock, its little trays holding bright fishing lures, red'
      ' and white spoons, yellow feathered jigs and soft purple worms with hooks, the lake water beyond.',
-     'A man of about fifty in a cap with a plain front sits in a small plain green aluminium boat on a calm lake and'
-     ' lifts a landing net out of the water, a big largemouth bass curled up wholly inside the deep mesh of the net.')
+     'A bareheaded man of about fifty with short grey hair and a sunburnt face sits in a small plain green aluminium'
+     ' boat on a calm lake and lifts a landing net out of the water, a big largemouth bass lying curled deep down in'
+     ' the bag of the net, the whole fish held within the mesh.')
 show('farm', OUTDOOR,
      'A girl of about ten holds out a handful of feed through a wide gap between the wooden rails of a fence, and a'
      ' white goat on the other side reaches its head through the gap to eat, at a small farm petting zoo in summer.',
      'A rooster stands on a fence post at sunrise.',
      'Black and brown cows graze in a wide open rolling green pasture in Kentucky, a long white painted wooden board'
      ' fence running across the grass, a few big lone oak trees and low wooded hills behind, under a hazy summer sky.',
-     'A farmer of about sixty in a straw hat drives an old plain red tractor with a smooth bare hood across a wide flat'
-     ' field of young corn in Kentucky, a wooden tobacco barn and a line of trees far behind, under a hazy summer sky.',
+     'A farmer of about sixty in a straw hat drives an old plain red tractor across a wide flat field of young corn in'
+     ' Kentucky, seen side on from a little behind so its front is turned away, its smooth rounded red hood bare, a wooden tobacco barn and a line of trees far behind, under a hazy summer sky.',
      'Two muddy piglets lie asleep on their sides a little apart in deep golden straw in a dim barn, their eyes'
      ' closed, seen from above.')
 show('trade', TAUGHT,
      'An old grey metal house fuse box on a basement wall with its door open, a row of round glass fuses screwed into'
      ' round sockets inside like small light bulbs, an electrician of about fifty in a tool belt standing beside it'
      ' seen from behind.',
-     'A tangle of loose coloured electrical wires with bare copper ends, a few small orange twist on caps on the joined'
-     ' ends, lying on a workbench beside a roll of black tape and a pair of red handled wire strippers, seen close up.',
-     'An old wooden cabinet television turned round on a workbench with its back panel off, and a repairman of about'
-     ' fifty sitting on a stool behind it reaches one hand in with a soldering iron, his head and body outside the'
-     ' cabinet, a thin wisp of smoke rising.',
+     'A few loose coloured electrical wires with short neat bare copper ends lying on a workbench beside a roll of'
+     ' black electrical tape, a yellow handled screwdriver and a few small orange wire nuts lying loose, seen close'
+     ' up.',
+     'An old wooden cabinet television on a workbench seen from behind, its back towards us with the back panel off,'
+     ' the glass neck of the picture tube and a green circuit board showing inside, and a repairman of about fifty'
+     ' sitting on a stool beside it reaches in with a soldering iron to the circuit board, a thin wisp of smoke'
+     ' rising.',
      'A welder of about forty in a plain dark welding helmet and leather gloves bends over a steel beam in a dim'
      ' workshop, a bright white point of light at his torch with a short fan of orange sparks spraying out from it.',
      'A man in a hard hat stretches wire along a line of fence posts.')
@@ -997,8 +1063,8 @@ show('sewing', TAUGHT,
      ' a wooden table in a cosy room.',
      'A spool of red thread and a round red pincushion stuck with pins lie beside a folded piece of denim on a table,'
      ' seen close up.',
-     'A plain smooth cream fabric dressmaker\'s dummy dressed in a half finished cotton blouse stands in a sewing room,'
-     ' a tape measure hanging round its neck.',
+     'A dressmaker\'s dummy covered in plain cream linen, one smooth even colour all over, dressed in a half finished'
+     ' cotton blouse with a few pins stuck in it, stands in a sewing room.',
      'Long heavy steel dressmaking shears lie closed on a bare wooden table beside a length of blue cloth cut into two'
      ' halves along a straight white chalk line, the two halves pulled a little apart.')
 show('pottery', TAUGHT,
@@ -1038,7 +1104,8 @@ show('travel', ' A still image from a 1980s travel documentary shot on 16mm film
      'A river barge passes under a steel bridge.')
 show('birthday', HOME,
      'A child blows out the candles on a birthday cake with the family round the table.',
-     'Three children in paper party hats sit at a table at a birthday party in a living room.',
+     'Three children in plain cone shaped paper party hats covered in coloured polka dots sit at a table with plain'
+     ' white paper plates at a birthday party in a living room.',
      'A grandmother laughs in front of a birthday cake.',
      'A teenage boy opens a present on a sofa.',
      'A colourful paper donkey pinata on a string from a tree branch in a sunny back yard, children in party hats standing on'
@@ -1068,7 +1135,8 @@ show('christmas', HOME,
      'Children in pajamas open presents under a Christmas tree.',
      'A family in paper crowns sits round a table with a roast turkey.',
      'A school nativity play on a small stage, two children dressed as shepherds in striped robes and two as angels in white'
-     ' with tinsel, each child different, seen from the audience.',
+     ' with tinsel, each child different, a plain dark blue curtain filling the back of the stage and the bare plain'
+     ' painted walls of the hall either side, seen from the audience.',
      'A man in a Christmas sweater holds up a pair of socks and pulls a face.')
 show('pets', HOME,
      'Two kittens, one ginger and one grey, sit apart in a cardboard box on a kitchen floor.',
@@ -1076,9 +1144,11 @@ show('pets', HOME,
      'A child hugs a big shaggy dog on a porch.',
      'A kitten bats at a ball of wool on a carpet.')
 show('stage', HOME,
-     'A boy in a white shirt plays a saxophone on a school stage.',
+     'A boy of about twelve in a white shirt stands up on the raised wooden stage of an American school gym playing a'
+     ' saxophone, a plain dark red curtain behind him, seen from the audience below the stage.',
      'A row of children sing on risers in a school hall, seen from the back of the hall.',
-     'Teenagers in cloaks act on a school stage with painted scenery.',
+     'Three high school seniors of about eighteen, a young man and two young women with grown up faces, in long cloaks'
+     ' act on a school stage in front of painted scenery of plain green trees and a grey stone wall.',
      'Grown mothers and fathers in their thirties and forties, in work clothes and summer dresses, some grey haired or '
      'balding, sit on folding chairs clapping in a school hall, seen from behind at a distance.')
 
