@@ -1959,6 +1959,12 @@ final class PipelineShaders {
                     }
                     vec2 cell = floor(vUv);
                     float which = floor(fract(vUv.x) * 8.0);
+                    // A bush seen along the game's view is painted as the game paints it (see the
+                    // crown's sprigs below), ground showing between its leaves where the sprite
+                    // has none: its inside, all shade, would show there instead.
+                    if (which > 5.5 && which < 6.5 && dot(normalize(uEye - vWorld), GAME_VIEW) > 0.95) {
+                        discard;
+                    }
                     vec2 autumn = autumnOf(vRoot);
                     vec2 at = (cell + 0.5) / 2048.0;
                     vec2 wide = uTexel * 4.0;
