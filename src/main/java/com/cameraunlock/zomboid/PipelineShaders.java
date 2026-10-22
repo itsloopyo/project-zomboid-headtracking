@@ -2639,9 +2639,11 @@ final class PipelineShaders {
                     texel = vec4(0.03, 0.03, 0.035, 1.0);
                     cover = 1.0;
                 }
-                // A fence of mesh panels is thin wire. The game paints it as heavy strokes, which
-                // up close are a lattice of bars: here the wire is half as thick, in the colour the
-                // sprite paints it, a security fence's dark green or a site fence's zinc.
+                // A fence sprite fine enough to be a mesh (WorldScene.isMesh): welded panels, slats,
+                // and chain link wherever the mod does not weave its own. The game paints its wire
+                // as heavy strokes, which up close are a lattice of bars: here the wire is half as
+                // thick, in the colour the sprite paints it, a security fence's dark green or a site
+                // fence's zinc.
                 if (vMaterial > 14.5 && vMaterial < 15.5) {
                     // Far off, where a pixel takes in several wires, the fence is a veil: each
                     // pixel is wire as often as that much of it is wire, a different set of
