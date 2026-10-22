@@ -816,9 +816,9 @@ ACTS = {1: 'FRIDAY NIGHT', 2: 'THE 594s', 3: 'THE BOJANGLES', 4: 'STEAMSHIP HURR
         8: 'SOFT ONEZ', 9: 'MARIA', 10: 'TIME FOR LOVE', 11: 'TONI', 14: 'YVETTE', 15: 'HANK GILMAN'}
 for _i, _prompt in enumerate(MUSIC):
     art('music-%02d' % _i, _prompt, SQUARE)
-    if _i in ACTS:
-        LETTERED['music-%02d-tall' % _i] = ('music-%02d' % _i, 'gig-tall', ACTS[_i], 'THE NEW ALBUM  .  OUT NOW')
-        LETTERED['music-%02d-wide' % _i] = ('music-%02d' % _i, 'gig-wide', ACTS[_i], 'THE NEW ALBUM  .  OUT NOW')
+    _words = (ACTS[_i], 'THE NEW ALBUM  .  OUT NOW') if _i in ACTS else ()
+    LETTERED['music-%02d-tall' % _i] = ('music-%02d' % _i, 'gig-tall', *_words)
+    LETTERED['music-%02d-wide' % _i] = ('music-%02d' % _i, 'gig-wide', *_words)
 # The sheet has them eight to a row, a row seen from the south and then a row seen from the east, and each act is three
 # sprites running on through the rows of its side: the large sheet, the wide one, the small one.
 _SHAPES = ('tall', 'wide', 'tall')

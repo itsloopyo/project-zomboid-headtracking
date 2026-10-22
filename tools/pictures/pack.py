@@ -135,14 +135,22 @@ def diploma(art, title, school, phrase='has conferred upon the bearer the degree
 
 
 def gig(shape):
-    """A band's or a singer's poster: the whole picture on a black sheet, the name in the black above it and a line below.
+    """A band's or a singer's poster: the whole picture on a black sheet, the name in the black above it and a line below,
+    or with no name the picture alone in the middle of the sheet.
 
     Lettered over the picture, the name kept landing on a face: Qwen-Image puts heads high in the frame whatever it is told.
+    Cut to the sheet's shape, a band lost the players at either end.
     """
-    def laid(art, title, line):
+    def laid(art, title='', line=''):
         across = max(art.size)
         wide, high = (across, round(across / SHAPES[shape])) if SHAPES[shape] < 1 else (round(across * SHAPES[shape]), across)
         image = Image.new('RGB', (wide, high), (18, 16, 14))
+        if not title:
+            margin = round(min(wide, high) * 0.06)
+            scale = min((wide - 2 * margin) / art.width, (high - 2 * margin) / art.height)
+            shown = art.resize((round(art.width * scale), round(art.height * scale)), Image.LANCZOS)
+            image.paste(shown, ((wide - shown.width) // 2, (high - shown.height) // 2))
+            return image
         head, foot = round(high * 0.2), round(high * 0.08)
         scale = min(wide / art.width, (high - head - foot) / art.height)
         shown = art.resize((round(art.width * scale), round(art.height * scale)), Image.LANCZOS)
