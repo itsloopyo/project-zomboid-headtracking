@@ -9,6 +9,7 @@ final class SpreadGroundTests {
         Checks.run("aPathOneSquareWideBetweenGrassKeepsItsMiddle", SpreadGroundTests::aPathOneSquareWideBetweenGrassKeepsItsMiddle);
         Checks.run("aPathTurningACornerKeepsTheTurn", SpreadGroundTests::aPathTurningACornerKeepsTheTurn);
         Checks.run("aPathOnTheSlantGoesOnThroughItsCorners", SpreadGroundTests::aPathOnTheSlantGoesOnThroughItsCorners);
+        Checks.run("aPathSteppingOnTheSlantIsNotCutAtItsSteps", SpreadGroundTests::aPathSteppingOnTheSlantIsNotCutAtItsSteps);
         Checks.run("theEndOfAPathIsRounded", SpreadGroundTests::theEndOfAPathIsRounded);
         Checks.run("twoPathSquaresAgreeOnTheEdgeTheyShare", SpreadGroundTests::twoPathSquaresAgreeOnTheEdgeTheyShare);
     }
@@ -53,6 +54,16 @@ final class SpreadGroundTests {
         check(corners[1] == 0f && corners[3] == 0f, "the path's own corners are not covered");
         check(corners[0] == 1f && corners[2] == 1f, "the other two are");
         check(at(grid, 0.5f, 0.5f) < 0.3f, "and the middle is path");
+    }
+
+    private static void aPathSteppingOnTheSlantIsNotCutAtItsSteps() {
+        float[] corners = new float[4], grid = new float[9];
+        // A step of a path on the slant, which comes in from the west and goes on south: grass to the north and east, and in the turn to the south-west.
+        check(FloorBuilder.coverFrom(new int[] {G, G, G, W, W, G, G, W, W}, corners, grid), "laid by its grid");
+        check(corners[3] == 0f, "the corner the path turns round, grass only across its diagonal, is the path's");
+        check(at(grid, 0f, 0.5f) < 0.3f && at(grid, 0.5f, 0.5f) < 0.3f && at(grid, 0.5f, 1f) < 0.3f && at(grid, 0.2f, 0.8f) < 0.3f,
+                "and the path runs from the west edge round it to the south edge");
+        check(corners[0] == 1f && corners[1] == 1f, "grass along the north still covers its corners");
     }
 
     private static void theEndOfAPathIsRounded() {

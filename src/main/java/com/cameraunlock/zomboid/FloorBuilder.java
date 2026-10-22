@@ -154,12 +154,17 @@ final class FloorBuilder {
      * grass on both sides. The middle of a square its own ground runs through, or that the
      * spreading ground lies on both sides of, keeps its own ground. And a corner where the
      * square's own ground meets itself across the diagonal, between two squares of the spreading
-     * ground, is the square's own: a path that runs on the slant goes on through it. Laid by the
+     * ground, is the square's own: a path that runs on the slant goes on through it. So is a corner
+     * the spreading ground touches only across the diagonal, the square's own on both sides of it:
+     * there a path stepping on the slant turns, and covered it was cut at every step. An edge by such
+     * a corner, the square's own ground across it, is the square's own as well, the path going on
+     * through it. Laid by the
      * corners alone, each of these squares was the spreading ground all over, and a path between
      * grass was grass.
      */
     static boolean coverFrom(int[] around, float[] corners, float[] grid) {
         boolean byGrid = false;
+        int turnsAt = 0;
         for (int corner = 0; corner < 4; corner++) {
             int cx = corner == 1 || corner == 2 ? 1 : 0, cy = corner >= 2 ? 1 : 0;
             boolean touches = false;
@@ -170,8 +175,10 @@ final class FloorBuilder {
             }
             int dx = cx * 2, dy = cy * 2;
             boolean through = around[dy * 3 + dx] == OWN && around[3 + dx] == SPREADING && around[dy * 3 + 1] == SPREADING;
-            corners[corner] = touches && !through ? 1f : 0f;
+            boolean turns = around[dy * 3 + dx] == SPREADING && around[3 + dx] == OWN && around[dy * 3 + 1] == OWN;
+            corners[corner] = touches && !through && !turns ? 1f : 0f;
             grid[cy * 6 + cx * 2] = corners[corner];
+            turnsAt |= turns ? 1 << cy * 6 + cx * 2 : 0;
             byGrid |= through;
         }
         int kept = 0;
@@ -180,7 +187,7 @@ final class FloorBuilder {
             float p = grid[at - EDGE_STEP[edge]], q = grid[at + EDGE_STEP[edge]];
             if (around[at] == SPREADING) {
                 grid[at] = 1f;
-            } else if (p == 1f && q == 1f) {
+            } else if (p == 1f && q == 1f || around[at] == OWN && (turnsAt >> at - EDGE_STEP[edge] & 1 | turnsAt >> at + EDGE_STEP[edge] & 1) == 1) {
                 grid[at] = OWN_KEPT;
                 kept++;
                 byGrid = true;
