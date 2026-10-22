@@ -228,6 +228,9 @@ final class WallBuilder {
             return;
         }
         float perPixel = 1f / (SpriteGeometry.PIXELS_PER_LEVEL * build.frame.scale), under = RAISED_SCAN_FROM;
+        if (!paintedOnWall(texture, 0f, 0f, da, db, 0.5f, under, 0f)) {
+            return;
+        }
         while (under > LOWEST_RAISED_DOOR && paintedOnWall(texture, 0f, 0f, da, db, 0.5f, under - perPixel, 0f)) {
             under -= perPixel;
         }
@@ -241,8 +244,30 @@ final class WallBuilder {
         float[] lift = build.geometry.lift;
         float foot = z * ViewCamera.LEVEL_HEIGHT + (lift[0] + lift[1] + lift[2] + lift[3]) / 4f + under * ViewCamera.LEVEL_HEIGHT - RAISED_STIFFENERS;
         build.building.plain = false;
+        // Across the edge the leaf is in the place beyond, and is lit and seen as that room, as the wall's far skin is.
+        int farAt = (build.waterLocalX + 1) * WorldScene.LIGHT_SPAN + build.waterLocalY + 1 - (north ? 1 : WorldScene.LIGHT_SPAN);
+        float red = build.frame.red, green = build.frame.green, blue = build.frame.blue, open = build.frame.open;
+        if (!own) {
+            build.frame.cornersInto(build.heldRed, build.heldGreen, build.heldBlue, build.heldUnlit);
+            if (build.lightOpen[farAt] < 0) {
+                build.frame.light(1f, 1f, 1f);
+                build.frame.open = WorldScene.OPEN_UNLIT;
+            } else {
+                lightAlong(farAt, north);
+            }
+        }
+        long given = WorldScene.solid.room;
+        build.contentsOf((own ? build.here : beyond).getRoomID());
         build.placed.add(Models.get(name), build.frame, x, y, x + a, y + b, foot, turns, 1f, 1f, texture.getID(), 1 << Models.PAINT,
                 SpriteGeometry.textureU(build.frame, a, b), SpriteGeometry.textureV(build.frame, a, b, RAISED_DYE_UP), 0, 0f, 0f);
+        build.contentsOf(given);
+        if (!own) {
+            build.frame.red = red;
+            build.frame.green = green;
+            build.frame.blue = blue;
+            build.frame.open = open;
+            build.frame.cornersFrom(build.heldRed, build.heldGreen, build.heldBlue, build.heldUnlit);
+        }
     }
 
     /**
