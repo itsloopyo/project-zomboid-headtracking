@@ -150,6 +150,18 @@ final class ShapeTests {
         check(over, "and lie over the floor of their own square");
         check(Flat.grassThrough("d_floorleaves_1_3") && Flat.grassThrough("brokenglass_1_0") && !Flat.grassThrough("trash_01_19")
                 && !Flat.grassThrough("floors_rugs_01_5") && !Flat.grassThrough("location_community_cemetary_01_16"), "a lawn grows through leaves and glass and not through a heap, a rug or a grave");
+        int side = 64;
+        float[] slab = new float[side * side * 3], lino = new float[side * side * 3];
+        for (int i = 0; i < side; i++) {
+            for (int j = 0; j < side; j++) {
+                float grey = j >= side - 2 ? 0.45f : 0.6f;
+                for (int part = 0; part < 3; part++) {
+                    slab[(i * side + j) * 3 + part] = grey;
+                    lino[(i * side + j) * 3 + part] = 0.6f + 0.004f * ((i + j) % 3);
+                }
+            }
+        }
+        check(Tiles.laid(slab, side).rimmed && !Tiles.laid(lino, side).rimmed, "a slab darker along an edge has a joint round it, and plain lino none");
         check(Flat.isSlab(0.4f, 0.1f), "a vent on a roof is a slab");
         check(!Flat.isSlab(0.4f, 0.5f) && !Flat.isSlab(0.1f, 0.05f) && !Flat.isSlab(0.25f, 0.2f), "a crate, a pebble and a stool are not");
     }

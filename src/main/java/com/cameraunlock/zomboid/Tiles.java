@@ -28,6 +28,12 @@ final class Tiles {
     private static final float GRID_GAIN = 4f, GRID_UNEVEN = 0.006f, PLAIN_UNEVEN = 0.0006f;
     /** How much of the square has to be painted. */
     private static final float PAINTED = 0.9f;
+    /**
+     * A floor of one tile to a side is a slab with a joint round it when the dots along one of
+     * its edges, this share of the side deep, are this much as light as the tile: a drive's
+     * slabs and a kitchen's big tiles. Plain lino and a carpet are as light to the edge.
+     */
+    private static final float RIM = 0.03f, RIM_DARK = 0.92f;
 
     /** One sprite's floor. */
     static final class Shape {
@@ -40,6 +46,8 @@ final class Tiles {
         float[] colours;
         /** The colour of the joints, and of the floor as a whole. */
         float jointRed, jointGreen, jointBlue, red, green, blue;
+        /** Whether a floor of one tile to a side is drawn with a joint round it: see RIM. */
+        boolean rimmed;
     }
 
     private record Asked(float originU, float originV, float scale, float left, float top, float width, float height) {}
@@ -148,7 +156,32 @@ final class Tiles {
         shape.colours = new float[shape.count * shape.count * 3];
         shape.uneven = uneven[picked];
         uneven(dots, side, shape.count, shape);
+        shape.rimmed = shape.count == 1 && rimmed(dots, side, shape.colours);
         return shape;
+    }
+
+    /** Whether the dots along some edge of a square of one tile are darker than the tile: see RIM. */
+    static boolean rimmed(float[] dots, int side, float[] tile) {
+        float light = tile[0] + tile[1] + tile[2];
+        int deep = Math.max(1, Math.round(RIM * side));
+        for (int edge = 0; edge < 4; edge++) {
+            float sum = 0f;
+            int held = 0;
+            for (int along = 0; along < side; along++) {
+                for (int in = 0; in < deep; in++) {
+                    int across = edge % 2 == 0 ? in : side - 1 - in;
+                    int at = (edge < 2 ? across * side + along : along * side + across) * 3;
+                    if (dots[at] >= 0f) {
+                        sum += dots[at] + dots[at + 1] + dots[at + 2];
+                        held++;
+                    }
+                }
+            }
+            if (held > 0 && sum / held < RIM_DARK * light) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

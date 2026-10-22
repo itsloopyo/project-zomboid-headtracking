@@ -295,7 +295,7 @@ final class FloorBuilder {
         if (build.floorLayer == 0 && isFloor && build.frame.kind == 0f && build.geometry.kerb == null && (sprite.carpet || sprite.tiled) && Own.textures(build.playerIndex)) {
             // Tiles are faces of their own on the sprite's own mesh, painted over.
             build.frame.flat = 0;
-            if (addTiles(texture, sprite.carpet, x, y, z)) {
+            if (addTiles(texture, sprite.carpet, properties.has(IsoFlagType.exterior), x, y, z)) {
                 return;
             }
             build.frame.flat = flat != 0 ? SpriteGeometry.FLAT_FLOOR : 0;
@@ -336,7 +336,7 @@ final class FloorBuilder {
      * and which colours is measured off the sprite: see Tiles. False, adding nothing, for a
      * sprite not measured yet or a floor that is no grid of plain tiles.
      */
-    private boolean addTiles(Texture texture, boolean carpet, int x, int y, int z) {
+    private boolean addTiles(Texture texture, boolean carpet, boolean outside, int x, int y, int z) {
         Tiles.Shape tiles = Tiles.of(texture, build.frame);
         if (tiles == null) {
             if (Tiles.unread(texture)) {
@@ -352,10 +352,11 @@ final class FloorBuilder {
         int count = carpet ? 1 : tiles.count;
         float made = build.frame.material, red = build.frame.red, green = build.frame.green, blue = build.frame.blue;
         build.frame.cornersInto(build.paperRed, build.paperGreen, build.paperBlue, build.paperUnlit);
-        build.frame.material = carpet ? WorldScene.CARPET : WorldScene.TILE;
+        // Slabs laid outside, a drive or a path, are paving: as tiles they took the grain of tarmac.
+        build.frame.material = carpet ? WorldScene.CARPET : outside && tiles.rimmed ? Ground.PAVING : WorldScene.TILE;
         float each = 1f / count;
         layFloor(true);
-        if (count == 1) {
+        if (count == 1 && !tiles.rimmed) {
             float r = carpet ? tiles.red : tiles.colours[0], g = carpet ? tiles.green : tiles.colours[1], b = carpet ? tiles.blue : tiles.colours[2];
             build.geometry.addFace(painted(texture.getID(), red, green, blue, r, g, b), build.frame, x, y, z, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f, 0f);
         } else {
