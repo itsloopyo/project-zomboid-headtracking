@@ -21,8 +21,12 @@ final class Industry {
     private static final float CRATE_DYE = 0.25f;
     /** Where on its sprite a machine's painted case gives its colour, in levels. */
     private static final float CASE_DYE = 0.45f, SHELL_DYE = 0.3f, OUTLET_DYE = 0.5f, DRUM_DYE = 0.06f, COLUMN_DYE = 0.5f;
-    /** Where on its sprite a tool chest and an extinguisher give their colour, in levels. */
-    private static final float CHEST_DYE = 0.2f, BOTTLE_DYE = 0.1f;
+    /**
+     * Where on its sprite a tool chest and an extinguisher give their colour, in levels. A chest's
+     * is its lid: on its sides the nine looks the colour is taken from reach the bright handles
+     * of its drawers, which would be the paler half of them.
+     */
+    private static final float CHEST_DYE = 0.33f, BOTTLE_DYE = 0.1f;
     /**
      * How far over the floor a tank's underside is, in levels. A length of tank has nothing under
      * it, and a model stands on its lowest point: the length is raised to meet the ends, which
