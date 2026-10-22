@@ -2631,6 +2631,14 @@ final class PipelineShaders {
                 }
                 vec2 wires = vec2(woven.x + woven.y, woven.x - woven.y);
                 vec2 seen = max(fwidth(wires), vec2(1e-5));
+                // A wire is round, so it is as wide on the screen however the sheet is turned, while
+                // the diamonds close up as the sheet turns away: seen on the slant the fence is
+                // denser, as a fence is. A wire is 4 mm over the pixel's own width where the sheet
+                // is seen square, the narrower way of its footprint on the sheet.
+                vec3 placeX = dFdx(vPlace), placeY = dFdy(vPlace);
+                float footX = dot(placeX, placeX), footY = dot(placeY, placeY), footXY = dot(placeX, placeY);
+                float pixel = sqrt(max(0.5 * (footX + footY - sqrt((footX - footY) * (footX - footY) + 4.0 * footXY * footXY)), 1e-12));
+                vec2 thick = 0.002 * vec2(length(vec2(dFdx(wires.x), dFdy(wires.x))), length(vec2(dFdx(wires.y), dFdy(wires.y)))) / pixel;
                 bool linkStroke = false;
                 if (vMaterial > 91.5 && vMaterial < 93.5 && uTexel.x > 0.0) {
                     // How much of the sprite is painted round the place: sixteen filtered looks over
@@ -2659,19 +2667,19 @@ final class PipelineShaders {
                     cover = linkStroke ? 1.0 : cover;
                 }
                 if (linkWire && !linkStroke) {
-                    float thick = 0.002 * length(vec2(1.0 / 0.06, 1.0 / 0.075));
                     vec2 off = abs(fract(wires + 0.5) - 0.5);
                     vec2 lo = off - 0.5 * seen, hi = off + 0.5 * seen;
-                    vec2 near = clamp(min(hi, vec2(thick)) - max(lo, vec2(-thick)), 0.0, 2.0 * thick)
-                            + clamp(min(hi, vec2(1.0 + thick)) - max(lo, vec2(1.0 - thick)), 0.0, 2.0 * thick);
-                    vec2 each = mix(min(near / seen, 1.0), vec2(2.0 * thick), smoothstep(0.4, 1.0, seen));
+                    vec2 near = clamp(min(hi, thick) - max(lo, -thick), vec2(0.0), 2.0 * thick)
+                            + clamp(min(hi, 1.0 + thick) - max(lo, 1.0 - thick), vec2(0.0), 2.0 * thick);
+                    vec2 each = mix(min(near / seen, 1.0), min(2.0 * thick, 1.0), smoothstep(0.4, 1.0, seen));
                     float linked = 1.0 - (1.0 - each.x) * (1.0 - each.y);
                     if (linked < max(sifted(), 0.04)) {
                         discard;
                     }
                     // Round wire: darker towards its edges where it is seen as more than a hair.
-                    float edge = min(off.x, off.y) / thick;
-                    texel.rgb *= mix(1.0, 0.75 + 0.25 * sqrt(max(1.0 - edge * edge, 0.0)), 1.0 - smoothstep(0.25 * thick, 0.5 * thick, max(seen.x, seen.y)));
+                    vec2 across = off / max(thick, vec2(1e-5)), hair = seen / max(thick, vec2(1e-5));
+                    float edge = min(across.x, across.y);
+                    texel.rgb *= mix(1.0, 0.75 + 0.25 * sqrt(max(1.0 - edge * edge, 0.0)), 1.0 - smoothstep(0.25, 0.5, max(hair.x, hair.y)));
                     cover = 1.0;
                 }
                 // Glass. The game paints a pane as a pale blue film half seen through, and cut
