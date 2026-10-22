@@ -6596,6 +6596,33 @@ final class WorldScene {
             characters++;
         }
 
+        /**
+         * Adds the box boxOf read off the sprite, cut back to any wall on an edge of its square.
+         * The outline is of the sprite, and a cabinet against a wall is painted reaching a little
+         * past the wall's line: stood where its outline says, it shows through the wall outside.
+         */
+        private void addBoxWithinWalls(SpriteGeometry.Mesh mesh, int x, int y, int z) {
+            float west = box[0] - box[2], east = box[0] + box[2], north = box[1] - box[2], south = box[1] + box[2];
+            if (Hoods.walled(here, false)) {
+                west = Math.max(west, 0f);
+            }
+            if (Hoods.walled(cell.getGridSquare(x + 1, y, z), false)) {
+                east = Math.min(east, 1f);
+            }
+            if (Hoods.walled(here, true)) {
+                north = Math.max(north, 0f);
+            }
+            if (Hoods.walled(cell.getGridSquare(x, y + 1, z), true)) {
+                south = Math.min(south, 1f);
+            }
+            box[0] = (west + east) / 2f;
+            box[1] = (north + south) / 2f;
+            box[2] = (east - west) / 2f;
+            geometry.boxHalfB = (south - north) / 2f;
+            geometry.addBox(mesh, frame, x, y, z, box);
+            geometry.boxHalfB = 0f;
+        }
+
         private boolean floatsFree(int x, int y, int z) {
             IsoGridSquare square = cell.getGridSquare(x, y, z), under = cell.getGridSquare(x, y, z - 1);
             PZArrayList<IsoObject> objects = square.getObjects();
@@ -7007,7 +7034,7 @@ final class WorldScene {
             if (!grows && !onTop && (properties.has(IsoFlagType.solid) || properties.has(IsoFlagType.solidtrans) || properties.has(IsoFlagType.bed))
                     && !kind.bedding
                     && SpriteGeometry.boxOf(frame, box) && fillsBox(texture)) {
-                geometry.addBox(mesh, frame, x, y, z, box);
+                addBoxWithinWalls(mesh, x, y, z);
                 boxes++;
                 return;
             }
@@ -7051,7 +7078,7 @@ final class WorldScene {
             // upright. Only what is painted through the middle of its top and both the sides it
             // shows: a chair or a table has air there.
             if (!grows && !onTop && SpriteGeometry.boxOf(frame, box) && box[2] <= 0.5f && box[3] <= 1f && fillsMiddle(texture)) {
-                geometry.addBox(mesh, frame, x, y, z, box);
+                addBoxWithinWalls(mesh, x, y, z);
                 boxes++;
                 return;
             }
@@ -7060,7 +7087,7 @@ final class WorldScene {
             // show the roof between them, and the test above takes that for a chair's legs.
             if (!grows && !onTop && overLayer == 0 && !properties.isTable() && properties.getSurface() <= 0 && !properties.has(IsoFlagType.bed)
                     && SpriteGeometry.boxOf(frame, box) && Flat.isSlab(box[2], box[3])) {
-                geometry.addBox(mesh, frame, x, y, z, box);
+                addBoxWithinWalls(mesh, x, y, z);
                 boxes++;
                 return;
             }
