@@ -519,10 +519,14 @@ final class FurnishingBuilder {
             build.building.plain = false;
             ShopFittings.addStock(build, object, piece, x, y, foot);
         }
+        IsoSprite first = piece.grid == null ? null : piece.grid.getSprite(0, 0);
+        boolean firstPaints = first == null || WorldScene.usable(first.getTextureForCurrentFrame(object.getDir()));
         // What the game lays over the piece's sprite, a stain, has no place on the model.
-        if (readyOrigin[0] != 0 || readyOrigin[1] != 0 || build.overLayer > 0) {
+        if (!stands(piece, firstPaints, readyOrigin) || build.overLayer > 0) {
             return true;
         }
+        x += readyOrigin[0];
+        y += readyOrigin[1];
         Models.Model model = piece.withBasin != null && onSquare(x, y, z, true) != null ? piece.withBasin : piece.model;
         boolean burning = object instanceof IsoFireplace hearth && hearth.isLit();
         if (burning && model.name.equals("barrel")) {
@@ -574,6 +578,15 @@ final class FurnishingBuilder {
             }
         }
         return true;
+    }
+
+    /**
+     * Whether the square of a piece that origin leads back from stands its model: the first square, or where the first
+     * square's sprite paints nothing, as a big tent's does, the square that gives the piece its colour. The world
+     * passes over a square with nothing to draw, and the piece would stand nowhere.
+     */
+    static boolean stands(Furniture piece, boolean firstPaints, int[] origin) {
+        return firstPaints ? origin[0] == 0 && origin[1] == 0 : piece.gridX == piece.dyeX && piece.gridY == piece.dyeY;
     }
 
     /**

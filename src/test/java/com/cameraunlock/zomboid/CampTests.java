@@ -1,5 +1,7 @@
 package com.cameraunlock.zomboid;
 
+import zombie.iso.sprite.IsoSprite;
+
 /** Tests of which model stands for a sprite of a camp, an army post or a survivor's workshop, and which way it is turned. */
 final class CampTests {
     private CampTests() {}
@@ -7,6 +9,7 @@ final class CampTests {
     static void run() {
         Checks.run("everyCampPieceNamesAModelTheJarHolds", CampTests::everyCampPieceNamesAModelTheJarHolds);
         Checks.run("aBigTentHasItsDoorWhereItsSpritePaintsIt", CampTests::aBigTentHasItsDoorWhereItsSpritePaintsIt);
+        Checks.run("aBigTentIsStoodByTheSquareItsColourIsTakenOn", CampTests::aBigTentIsStoodByTheSquareItsColourIsTakenOn);
         Checks.run("aSleepingBagHasItsHeadWhereItsSpritePaintsItAndIsColouredAtItsFoot", CampTests::aSleepingBagHasItsHeadWhereItsSpritePaintsItAndIsColouredAtItsFoot);
         Checks.run("aCrateOnACrateIsRaisedByTheOneUnderIt", CampTests::aCrateOnACrateIsRaisedByTheOneUnderIt);
         Checks.run("aTargetStandsWhereItsSpritePaintsItsPlate", CampTests::aTargetStandsWhereItsSpritePaintsItsPlate);
@@ -69,6 +72,26 @@ final class CampTests {
             Checks.check(door[0] == tent[1] && door[1] == tent[2], "a tent facing " + tent[0] + " has its door to " + tent[1] + ", " + tent[2] + ", not " + door[0] + ", " + door[1]);
             Checks.check(piece.dyeX == 1 && piece.dyeY == 1 && piece.fits, "and is coloured from a square its fly is painted on");
         }
+    }
+
+    private static void aBigTentIsStoodByTheSquareItsColourIsTakenOn() {
+        // A green tent facing south, 112 to 119: its first square paints nothing, and the world never asks it to stand.
+        IsoSprite[] squares = new IsoSprite[8];
+        for (int i = 0; i < 8; i++) {
+            squares[i] = TileRows.sprite("camping_04_" + (112 + i) + "|CustomName|Tent|GroupName|Green|Facing|S|SpriteGridPos|" + i % 4 + "," + i / 4);
+        }
+        TileRows.piece(4, 2, squares);
+        int standing = 0;
+        for (IsoSprite square : squares) {
+            Furniture piece = Furniture.known(square);
+            Checks.check(piece != null && piece.model.name.equals("ridge_tent"), square.getName() + " is a square of the ridge tent");
+            boolean stands = FurnishingBuilder.stands(piece, false, new int[] {-piece.gridX, -piece.gridY});
+            Checks.check(!stands || piece.gridX == piece.dyeX && piece.gridY == piece.dyeY, square.getName() + " stands it only where it gives its colour");
+            Checks.check(FurnishingBuilder.stands(piece, true, new int[] {-piece.gridX, -piece.gridY}) == (square == squares[0]),
+                    "where the first square paints, it stands the piece as every piece's does");
+            standing += stands ? 1 : 0;
+        }
+        Checks.check(standing == 1, "one square stands the tent, not " + standing);
     }
 
     private static void aSleepingBagHasItsHeadWhereItsSpritePaintsItAndIsColouredAtItsFoot() {
