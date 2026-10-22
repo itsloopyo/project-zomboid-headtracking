@@ -1294,14 +1294,19 @@ final class WallBuilder {
         long own = build.here.getRoomID(), far = beyond == null ? -1L : beyond.getRoomID();
         farLight = -1;
         farFacing = null;
-        if (own == far) {
-            return 0;
-        }
         // Above the ground a square of open air is often no square at all. On the ground it is map not loaded yet.
         if (beyond == null && build.cell.getGridSquare(beyondX, beyondY, 0) == null) {
             return 0;
         }
         int ownLight = (build.waterLocalX + 1) * WorldScene.LIGHT_SPAN + build.waterLocalY + 1;
+        if (own == far) {
+            // A loft under the roof and the open air beside it are no rooms, and still two places:
+            // the gable's outside is lit by the day, not as the dark loft behind it, and its inside as the loft.
+            if (own == -1L && build.here.isOutside() != (beyond == null || beyond.isOutside())) {
+                farLight = north ? ownLight - 1 : ownLight - WorldScene.LIGHT_SPAN;
+            }
+            return 0;
+        }
         farLight = north ? ownLight - 1 : ownLight - WorldScene.LIGHT_SPAN;
         IsoBuilding building = far == -1L ? build.here.getBuilding() : beyond.getBuilding();
         if (building == null) {
