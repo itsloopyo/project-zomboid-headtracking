@@ -217,6 +217,11 @@ final class Flora {
     /** A sprig's texture coordinate holds where on the plant's sprite it takes its colour, in this many steps across the texture, under where on the sprig the vertex is. */
     static final float CROWN_STEPS = 2048f;
     /**
+     * Added to the texture coordinate of a painted crown's sprigs and inside: seen along the game's
+     * view the world shader paints it with its sprite, as the game draws the plant (see addCrown).
+     */
+    static final float PAINTED = CROWN_STEPS;
+    /**
      * The colours a crown's leaves turn in autumn, one of the HUES, and in how many steps they
      * turn towards it, from green to brown. Its sprigs and its inside carry both in the square of
      * their tree, as a fraction of one over or under its whole number y, AUTUMN_CODES codes of
@@ -468,7 +473,7 @@ final class Flora {
     static boolean addCrown(Mesh mesh, Mesh wood, SpriteGeometry.Frame frame, float[] places, float x, float y, float base, float footU, float footV,
             float detail, float close, float boleRadius, float boleTall, int bark, int sprig, int seed, float[] room, float leaf, int hue, float turned) {
         return addCrown(mesh, wood, frame, places, x, y, base, footU, footV, detail, close, boleRadius, boleTall, bark, sprig, seed, room, leaf, hue, turned,
-                TreeForm.NONE, null, TWIGGED_AT_1080);
+                TreeForm.NONE, null, TWIGGED_AT_1080, sprig == SHRUB);
     }
 
     /**
@@ -490,10 +495,12 @@ final class Flora {
      * whose wood is grown to that species' proportions, and, once it shows, to woodShape: the
      * outline of the branches the tree's trunk sprite paints, as woodShape measures it (null
      * for the crown's own). A bare crown has twigs from the detail twiggedFrom on (see twiggedFrom).
+     * A painted crown is drawn with its sprite where it is seen along the game's view: a bush's,
+     * and a young tree's, whose few leaves the game paints one by one.
      */
     static boolean addCrown(Mesh mesh, Mesh wood, SpriteGeometry.Frame frame, float[] places, float x, float y, float base, float footU, float footV,
             float detail, float close, float boleRadius, float boleTall, int bark, int sprig, int seed, float[] room, float leaf, int hue, float turned,
-            int kind, float[] woodShape, float twiggedFrom) {
+            int kind, float[] woodShape, float twiggedFrom, boolean painted) {
         if (!(leaf > 0f && leaf <= 1f) || hue < 0 || hue >= HUES || !(turned >= 0f && turned <= 1f)) {
             throw new IllegalArgumentException("a crown with leaf " + leaf + ", hue " + hue + " and turned " + turned);
         }
@@ -627,11 +634,11 @@ final class Flora {
                 stemY += shiftY;
                 tipY += shiftY;
             }
-            if (shrub) {
-                // A bush's sprig takes its colour where the sprite paints its middle, seen along the
-                // game's view: from there the world shader paints it with the sprite's own leaves
+            if (painted) {
+                // A painted crown's sprig takes its colour where the sprite paints its middle, seen along
+                // the game's view: from there the world shader paints it with the sprite's own leaves
                 // where it is seen along that view.
-                u = (float) Math.rint(paintedU(frame, footU, px, py) * CROWN_STEPS);
+                u = (float) Math.rint(paintedU(frame, footU, px, py) * CROWN_STEPS) + PAINTED;
                 v = (float) Math.rint(paintedV(frame, footV, px, py, high, up) * CROWN_STEPS);
             }
             for (int corner : QUAD) {
@@ -653,7 +660,7 @@ final class Flora {
         mesh.sway = 0f;
         float inside = Math.clamp((leaf - CORE_GOES) / (1f - CORE_GOES), 0f, 1f);
         if (!bare && inside > 0f) {
-            addCore(mesh, frame, places, x, y, base, footU, footV, across, up, lowest, tall, under, reachLeft, reachRight, lobes, rows, turnOne, turnTwo, turnThree, sprig, room,
+            addCore(mesh, frame, places, x, y, base, footU, footV, across, up, lowest, tall, under, reachLeft, reachRight, lobes, rows, turnOne, turnTwo, turnThree, sprig, painted, room,
                     inside, detail < CORE_FAR_DETAIL, workings);
         }
         // The wood's own outline. Once a crown has lost leaves its wood is the bare tree's, grown
@@ -808,7 +815,7 @@ final class Flora {
      */
     private static void addCore(Mesh mesh, SpriteGeometry.Frame frame, float[] places, float x, float y, float base, float footU, float footV, float across, float up,
             float lowest, float tall, float under, float[] reachLeft, float[] reachRight, int lobes, float rows, float turnOne, float turnTwo,
-            float turnThree, int sprig, float[] room, float drawnIn, boolean coarse, Workings workings) {
+            float turnThree, int sprig, boolean painted, float[] room, float drawnIn, boolean coarse, Workings workings) {
         int count = places.length / 2;
         int rings = coarse ? CORE_RINGS_FAR : CORE_RINGS, around = coarse ? CORE_ROUND_FAR : CORE_ROUND;
         int[] placeOf = workings.placeOf;
@@ -857,7 +864,7 @@ final class Flora {
         float kind = (sprig + 0.5f) / CORE_KINDS;
         for (int ring = 0; ring < rings; ring++) {
             int place = placeOf[ring];
-            float u = (float) Math.rint((frame.uStart + (places[place * 2] - frame.left) / frame.width * (frame.uEnd - frame.uStart)) * CROWN_STEPS) + kind;
+            float u = (float) Math.rint((frame.uStart + (places[place * 2] - frame.left) / frame.width * (frame.uEnd - frame.uStart)) * CROWN_STEPS) + kind + (painted ? PAINTED : 0f);
             float v = (float) Math.rint((frame.vStart + (places[place * 2 + 1] - frame.top) / frame.height * (frame.vEnd - frame.vStart)) * CROWN_STEPS) + 0.5f;
             float shareLow = coreShare[ring];
             boolean top = ring == rings - 1;

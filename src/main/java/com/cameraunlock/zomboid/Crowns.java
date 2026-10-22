@@ -20,7 +20,7 @@ final class Crowns {
     private static final int X = 0, Y = 1, BASE = 2, FOOT_U = 3, FOOT_V = 4, AWAY = 5, BOLE_RADIUS = 6, BOLE_TALL = 7, SCALE = 8, LEFT = 9, TOP = 10,
             WIDTH = 11, HEIGHT = 12, U_START = 13, V_START = 14, U_END = 15, V_END = 16, RED = 17, GREEN = 18, BLUE = 19, OPEN = 20, ROOM = 21, LEAF = 25,
             TURNED = 26, TWIGGED = 27, FLOATS = 28;
-    private static final int TEXTURE = 0, BARK = 1, BOLE_BARK = 2, SPRIG = 3, SEED = 4, HUE = 5, KIND = 6, INTS = 7;
+    private static final int TEXTURE = 0, BARK = 1, BOLE_BARK = 2, SPRIG = 3, SEED = 4, HUE = 5, KIND = 6, PAINTED = 7, INTS = 8;
     /** How far from the eye a plant has a crown of sprigs, and within what it has them at their smallest and most. */
     static final float REACH = 40f, NEAR = 12f;
     /** How coarse the crown of a plant at REACH is, which one nearer comes to by degrees: see Flora.addCrown. */
@@ -61,11 +61,11 @@ final class Crowns {
     /**
      * Writes down a crown to be made in the mesh of the texture, as from that far off. Its
      * bole is its tree's, with the bole's bark, and no height for a plant with none: such a
-     * crown, and any too far off for limbs, is made in its own bark. room, leaf, hue, turned, kind, woodShape and twiggedFrom are Flora.addCrown's.
+     * crown, and any too far off for limbs, is made in its own bark. room, leaf, hue, turned, kind, woodShape, twiggedFrom and painted are Flora.addCrown's.
      */
     void add(int texture, SpriteGeometry.Frame frame, float[] leafPlaces, float x, float y, float base, float footU, float footV, float away,
             float boleRadius, float boleTall, int boleBark, int bark, int sprig, int seed, float[] room, float leaf, int hue, float turned, int kind, float[] woodShape,
-            float twiggedFrom) {
+            float twiggedFrom, boolean painted) {
         if (count == places.length) {
             floats = Arrays.copyOf(floats, floats.length * 2);
             ints = Arrays.copyOf(ints, ints.length * 2);
@@ -106,6 +106,7 @@ final class Crowns {
         ints[at + SEED] = seed;
         ints[at + HUE] = hue;
         ints[at + KIND] = kind;
+        ints[at + PAINTED] = painted ? 1 : 0;
         woodShapes[count] = woodShape;
         places[count++] = leafPlaces;
     }
@@ -179,7 +180,7 @@ final class Crowns {
             if (!Flora.addCrown(into.get(ints[of + TEXTURE]), into.get(plain), frame, places[i], floats[at + X], floats[at + Y], floats[at + BASE], floats[at + FOOT_U],
                     floats[at + FOOT_V], detail(away), close(away), limbed ? floats[at + BOLE_RADIUS] : 0f, limbed ? floats[at + BOLE_TALL] : 0f,
                     ints[of + (limbed ? BOLE_BARK : BARK)], ints[of + SPRIG], ints[of + SEED], room, floats[at + LEAF], ints[of + HUE], floats[at + TURNED],
-                    ints[of + KIND], woodShapes[i], floats[at + TWIGGED])) {
+                    ints[of + KIND], woodShapes[i], floats[at + TWIGGED], ints[of + PAINTED] == 1)) {
                 throw new IllegalStateException("a crown that was measured as one is none");
             }
         }

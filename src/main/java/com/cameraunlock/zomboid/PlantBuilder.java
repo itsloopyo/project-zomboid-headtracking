@@ -681,6 +681,10 @@ final class PlantBuilder {
         }
         // The bole stood last may be another tree's, in another chunk: only its own tree's crown grows limbs from it.
         boolean boled = !bush && boleX == x && boleY == y;
+        // A young tree, of the erosion's own size (FarTreeKinds.SMALL), is a few leaves on a stem, which the game paints
+        // leaf by leaf as it does a bush's: overhead its crown is painted as a bush's is. Laid with sprigs it was a ball of leaves to the ground.
+        String tile = treeX == x && treeY == y ? treeTile : null;
+        boolean painted = bush || tile != null && FarTreeKinds.speciesOf(tile) != null && FarTreeKinds.sizeOf(tile) == FarTreeKinds.SMALL;
         int seed = Flora.mix(x, y, 83);
         float base = z * ViewCamera.LEVEL_HEIGHT + build.geometry.liftAt(0.5f, 0.5f) + build.geometry.raised * ViewCamera.LEVEL_HEIGHT;
         float footU = SpriteGeometry.frameU(build.frame, 0.5f, 0.5f), footV = SpriteGeometry.frameV(build.frame, 0.5f, 0.5f, 0f);
@@ -693,14 +697,14 @@ final class PlantBuilder {
             boolean limbed = boled && Crowns.limbed(away, sprig, leaf);
             return Flora.addCrown(WorldScene.solid.get(texture.getID()), WorldScene.solid.get(WorldScene.PLAIN), build.frame, places, x + 0.5f, y + 0.5f, base, footU, footV, Crowns.detail(away), Crowns.close(away),
                     limbed ? boleThick : 0f, limbed ? boleTall : 0f, limbed ? boleBark : bark, sprig, seed, build.room, leaf, hue, turned,
-                    boled ? boleKind : TreeForm.NONE, boled ? boleShape : null, world.twiggedFrom);
+                    boled ? boleKind : TreeForm.NONE, boled ? boleShape : null, world.twiggedFrom, painted);
         }
         if (!Flora.measure(build.frame, places, footU, footV, crownLeft, crownRight, crownSizes)) {
             return false;
         }
         (build.afresh ? WorldScene.crownsChecked : world.crownsRead).add(texture.getID(), build.frame, places, x + 0.5f, y + 0.5f, base, footU, footV, away, boled ? boleThick : 0f, boled ? boleTall : 0f,
                 boled ? boleBark : bark, bark, sprig, seed, build.room, leaf, hue, turned, boled ? boleKind : TreeForm.NONE, boled ? boleShape : null,
-                world.twiggedFrom);
+                world.twiggedFrom, painted);
         return true;
     }
 

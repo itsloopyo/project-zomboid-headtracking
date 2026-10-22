@@ -195,6 +195,15 @@ final class CrownTests {
                 check(mesh.vertices[at + SpriteGeometry.ROOT_AT] == SpriteGeometry.NO_ROOT, "a bush's vertex is no tree's, its core and twigs included");
             }
         }
+        // A bush's leaves and a young tree's are painted with their sprite from overhead, and a grown tree's are not.
+        SpriteGeometry.Mesh young = new SpriteGeometry.Mesh();
+        check(Flora.addCrown(young, new SpriteGeometry.Mesh(), frame, places, 10.5f, 20.5f, 0f, FOOT_U, FOOT_V, 1f, 1f, 0f, 0f, Flora.BARK_OAK, Flora.PINE, 7, Flora.OPEN, 1f, 0, 0f,
+                TreeForm.NONE, null, Flora.TWIGGED_AT_1080, true), "a young tree makes a crown");
+        for (SpriteGeometry.Mesh mesh : new SpriteGeometry.Mesh[] {bush, young, leaves}) {
+            for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+                check(mesh.vertices[at + 3] >= Flora.PAINTED == (mesh != leaves), "a vertex of a painted crown says so in where it takes its colour, and only one of a painted crown");
+            }
+        }
     }
 
     /** How a crown's boughs slope under a sprig, round the crown and up it, is how fast where it is on them changes going either way. */
@@ -361,7 +370,7 @@ final class CrownTests {
     private static boolean twigged(SpriteGeometry.Frame frame, float[] places, float away, float twiggedFrom) {
         SpriteGeometry.Mesh wood = new SpriteGeometry.Mesh();
         Flora.addCrown(new SpriteGeometry.Mesh(), wood, frame, places, 0.5f, 0.5f, 0f, FOOT_U, FOOT_V, Crowns.detail(away), 0f, 0.12f, 1.2f, Flora.BARK_OAK, Flora.BARE, 7,
-                Flora.OPEN, 1f, 0, 0f, TreeForm.NONE, null, twiggedFrom);
+                Flora.OPEN, 1f, 0, 0f, TreeForm.NONE, null, twiggedFrom, false);
         for (int at = 0; at < wood.floats; at += SpriteGeometry.VERTEX_FLOATS) {
             if (wood.vertices[at + 3] >= Flora.FINE_MARK) {
                 return true;
@@ -397,11 +406,11 @@ final class CrownTests {
         SpriteGeometry.Frame frame = frame();
         float[] places = PLACES;
         Crowns crowns = new Crowns();
-        crowns.add(LEAVES, frame, places, 10.5f, 20.5f, 0.1f, FOOT_U, FOOT_V, away, 0f, 0f, Flora.BARK_OAK, Flora.BARK_OAK, Flora.MAPLE, 7, Flora.OPEN, 1f, 0, 0f, TreeForm.NONE, null, Flora.TWIGGED_AT_1080);
+        crowns.add(LEAVES, frame, places, 10.5f, 20.5f, 0.1f, FOOT_U, FOOT_V, away, 0f, 0f, Flora.BARK_OAK, Flora.BARK_OAK, Flora.MAPLE, 7, Flora.OPEN, 1f, 0, 0f, TreeForm.NONE, null, Flora.TWIGGED_AT_1080, false);
         frame.light(secondRed, 0.5f, 0.4f);
-        crowns.add(LEAVES + 1, frame, places, 12.5f, 21.5f, 0f, FOOT_U, FOOT_V, away, 0.12f, 0.9f, Flora.BARK_OAK + 1, Flora.BARK_OAK, Flora.LINDEN, 8, Flora.OPEN, 1f, 0, 0f, TreeForm.NONE, null, Flora.TWIGGED_AT_1080);
+        crowns.add(LEAVES + 1, frame, places, 12.5f, 21.5f, 0f, FOOT_U, FOOT_V, away, 0.12f, 0.9f, Flora.BARK_OAK + 1, Flora.BARK_OAK, Flora.LINDEN, 8, Flora.OPEN, 1f, 0, 0f, TreeForm.NONE, null, Flora.TWIGGED_AT_1080, false);
         frame.open = 0f;
-        crowns.add(LEAVES, frame, places, 14.5f, 22.5f, 0f, FOOT_U, FOOT_V, away, 0f, 0f, Flora.BARK_OAK, Flora.BARK_OAK, Flora.SHRUB, 9, Flora.OPEN, 1f, 0, 0f, TreeForm.NONE, null, Flora.TWIGGED_AT_1080);
+        crowns.add(LEAVES, frame, places, 14.5f, 22.5f, 0f, FOOT_U, FOOT_V, away, 0f, 0f, Flora.BARK_OAK, Flora.BARK_OAK, Flora.SHRUB, 9, Flora.OPEN, 1f, 0, 0f, TreeForm.NONE, null, Flora.TWIGGED_AT_1080, true);
         return crowns;
     }
 
@@ -456,13 +465,13 @@ final class CrownTests {
         same(apart, inBuild);
         // Into one that held more.
         Crowns one = new Crowns();
-        one.add(LEAVES, frame(), PLACES, 1.5f, 2.5f, 0f, FOOT_U, FOOT_V, 6f, 0f, 0f, Flora.BARK_OAK, Flora.BARK_OAK, Flora.MAPLE, 3, Flora.OPEN, 1f, 0, 0f, TreeForm.NONE, null, Flora.TWIGGED_AT_1080);
+        one.add(LEAVES, frame(), PLACES, 1.5f, 2.5f, 0f, FOOT_U, FOOT_V, 6f, 0f, 0f, Flora.BARK_OAK, Flora.BARK_OAK, Flora.MAPLE, 3, Flora.OPEN, 1f, 0, 0f, TreeForm.NONE, null, Flora.TWIGGED_AT_1080, false);
         one.copyTo(moved, 6f);
         check(moved.same(one) && !moved.same(near), "and take the place of whatever was written there before");
         // And more than a new one has room for: nine, where it starts with room for eight.
         Crowns many = new Crowns(), room = new Crowns();
         for (int i = 0; i < 9; i++) {
-            many.add(LEAVES, frame(), PLACES, i + 0.5f, 2.5f, 0f, FOOT_U, FOOT_V, 6f, 0f, 0f, Flora.BARK_OAK, Flora.BARK_OAK, Flora.MAPLE, i, Flora.OPEN, 1f, 0, 0f, TreeForm.NONE, null, Flora.TWIGGED_AT_1080);
+            many.add(LEAVES, frame(), PLACES, i + 0.5f, 2.5f, 0f, FOOT_U, FOOT_V, 6f, 0f, 0f, Flora.BARK_OAK, Flora.BARK_OAK, Flora.MAPLE, i, Flora.OPEN, 1f, 0, 0f, TreeForm.NONE, null, Flora.TWIGGED_AT_1080, false);
         }
         many.copyTo(room, 6f);
         check(room.same(many), "nine crowns written into one that has held none are the same nine");
@@ -505,7 +514,7 @@ final class CrownTests {
         there.scrap();
         // One dot of paint is no crown, and is never written down as one: made all the same, the making fails.
         Crowns none = new Crowns();
-        none.add(LEAVES, frame(), Flora.leafPlaces((u, v) -> u == 3 && v == 3, frame()), 0.5f, 0.5f, 0f, FOOT_U, FOOT_V, 12f, 0f, 0f, Flora.BARK_OAK, Flora.BARK_OAK, Flora.LINDEN, 7, Flora.OPEN, 1f, 0, 0f, TreeForm.NONE, null, Flora.TWIGGED_AT_1080);
+        none.add(LEAVES, frame(), Flora.leafPlaces((u, v) -> u == 3 && v == 3, frame()), 0.5f, 0.5f, 0f, FOOT_U, FOOT_V, 12f, 0f, 0f, Flora.BARK_OAK, Flora.BARK_OAK, Flora.LINDEN, 7, Flora.OPEN, 1f, 0, 0f, TreeForm.NONE, null, Flora.TWIGGED_AT_1080, false);
         Crowns.Work failing = new Crowns.Work(none, spared, 7, PLAIN, false, back);
         Crowns.begin(failing);
         check(Crowns.awaited(back) == failing && failing.failed instanceof IllegalStateException, "work that fails comes back too, with what it threw");

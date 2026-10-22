@@ -1967,10 +1967,12 @@ final class PipelineShaders {
                     }
                     vec2 cell = floor(vUv);
                     float which = floor(fract(vUv.x) * 8.0);
-                    // A bush seen along the game's view is painted as the game paints it (see the
-                    // crown's sprigs below), ground showing between its leaves where the sprite
+                    // A painted crown (Flora.PAINTED) seen along the game's view is painted as the game paints
+                    // it (see the crown's sprigs below), ground showing between its leaves where the sprite
                     // has none: its inside, all shade, would show there instead.
-                    if (which > 5.5 && which < 6.5 && dot(normalize(uEye - vWorld), GAME_VIEW) > 0.95) {
+                    bool painted = cell.x > 2047.5;
+                    cell.x -= painted ? 2048.0 : 0.0;
+                    if (painted && dot(normalize(uEye - vWorld), GAME_VIEW) > 0.95) {
                         discard;
                     }
                     vec2 autumn = autumnOf(vRoot);
@@ -2020,6 +2022,8 @@ final class PipelineShaders {
                     // over it is where on the sprig the pixel is. See Flora.addCrown.
                     vec2 cell = floor(vUv);
                     vec2 on = clamp((vUv - cell - 0.25) * 2.0, 0.0, 1.0);
+                    bool painted = cell.x > 2047.5;
+                    cell.x -= painted ? 2048.0 : 0.0;
                     vec2 autumn = autumnOf(vRoot);
                     float each = grain(cell);
                     // Standing in a tree, the sprigs within reach are gone, a whole sprig at
@@ -2036,24 +2040,26 @@ final class PipelineShaders {
                     float which = floor(vMaterial - 71.5);
                     sprigAt = (vec2(mod(which, 4.0), floor(which / 4.0)) + on) * vec2(0.25, 0.5);
                     vec4 sprig = texture2D(uSprigs, sprigAt);
-                    // A bush seen along the game's own view, from overhead: a bush is a few leaves
-                    // across and the game paints each of them, so the sprig is painted with what the
-                    // sprite paints where the pixel is seen along that view, its middle at the sprite's
-                    // place in the cell (Flora.paintedU). The bush is then the game's, in the light and
-                    // shade of the world. Laid with the sprig's own picture it was a ball of crumpled foil.
+                    // A bush, or a young tree, seen along the game's own view, from overhead: it is a few
+                    // leaves across and the game paints each of them, so the sprig is painted with what
+                    // the sprite paints where the pixel is seen along that view, its middle at the sprite's
+                    // place in the cell (Flora.paintedU). The plant is then the game's, in the light and
+                    // shade of the world. Laid with the sprig's own picture a bush was a ball of crumpled foil.
                     // From any other way the sprite's leaves would stretch, and it is a crown as a tree's is.
-                    if (which > 5.5 && which < 6.5 && dot(normalize(uEye - vWorld), GAME_VIEW) > 0.95) {
+                    if (painted && dot(normalize(uEye - vWorld), GAME_VIEW) > 0.95) {
                         vec2 fx = dFdx(vUv), fy = dFdy(vUv);
                         float det = fx.x * fy.y - fx.y * fy.x;
-                        vec3 off = abs(det) > 1e-12 ? (dFdx(vWorld) * fy.y - dFdy(vWorld) * fx.y) / det * (vUv.x - cell.x - 0.5)
-                                + (dFdy(vWorld) * fx.x - dFdx(vWorld) * fy.x) / det * (vUv.y - cell.y - 0.5) : vec3(0.0);
+                        vec3 off = abs(det) > 1e-12 ? (dFdx(vWorld) * fy.y - dFdy(vWorld) * fx.y) / det * (fract(vUv.x) - 0.5)
+                                + (dFdy(vWorld) * fx.x - dFdx(vWorld) * fy.x) / det * (fract(vUv.y) - 0.5) : vec3(0.0);
                         vec2 pixels = vec2((off.x - off.y) * 32.0, (off.x + off.y) * 16.0 - off.z * 96.0 / 2.44949) * uTileScale;
                         vec4 paint = texture2D(uTexture, cell / 2048.0 + pixels * uTexel);
                         if (paint.a < 0.5) {
                             discard;
                         }
                         sprigSolid = paint.a;
-                        vec3 colour = paint.rgb / paint.a;
+                        // A young tree's leaves turn in autumn as a grown one's do (a bush's carry no autumn, see Flora.autumnCode).
+                        float turned = autumn.y > 0.0 ? clamp(autumn.y + 0.32 * (grain(cell + 31.0) - 0.5), 0.0, 1.0) : 0.0;
+                        vec3 colour = autumnal(paint.rgb / paint.a, autumn.x, turned);
                         // The game paints a bush's light and shade into it, and the world lights it again: some of the paint's is taken back.
                         colour *= mix(1.0, 0.36 / max(dot(colour, vec3(0.299, 0.587, 0.114)), 0.05), 0.3);
                         texel = vec4(clamp(colour, 0.0, 1.0), 1.0);
