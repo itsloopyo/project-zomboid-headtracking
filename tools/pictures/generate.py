@@ -9,7 +9,8 @@ Run with the venv that has torch and diffusers (see .lab/NOTES.md, "Generated ma
 Writes DIR/<name>/<seed>.png and the prompt it was made from beside it as <seed>.txt, for seeds 1 to --candidates, and
 skips what is there already, so a long list is made a few at a time. --shard k/n makes every n-th job from the k-th, so
 n machines can share a list; --seeds makes only those candidates. The candidate picked for each picture goes into
-catalogue.SEEDS, and tools/pictures/pack.py puts them into the mod.
+catalogue.SEEDS (tools/pictures/seeds.py writes it from the pictures picked), and tools/pictures/pack.py puts them into
+the mod.
 """
 import argparse
 import pathlib
