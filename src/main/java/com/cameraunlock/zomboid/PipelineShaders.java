@@ -621,7 +621,10 @@ final class PipelineShaders {
                     looks = vec3(0.0, 0.0, 1.0);
                 }
                 vNormal = looks;
-                vHung = uModel > 0.5 && aFoot.z > uCutAbove - 0.45 ? 1.0 : 0.0;
+                // A model hung on a wall has its back to the wall, at its own +y, and is cut with that wall
+                // and no other: 1 for a north wall, 2 for a west one, 0 for what is not hung. See cutAway.
+                vec2 back = turned(vec2(0.0, 1.0));
+                vHung = uModel > 0.5 && aFoot.z > uCutAbove - 0.45 ? (abs(back.y) > abs(back.x) ? 1.0 : 2.0) : 0.0;
                 // A model has no tree, and carries the piece of its surface in the place of the square of one.
                 vRoot = uModel > 0.5 ? vec2(-1.0, piece) : gl_MultiTexCoord2.xy;
                 // What is laid on the ground does not blow about: there the normal's length says
@@ -867,22 +870,25 @@ final class PipelineShaders {
             // Whether a point is in a wall the game has cut away, or hangs on one. A square's north wall
             // runs along its north edge and its west wall along its west edge. A wall is taken by the way
             // it faces, or the end of one that stands would go with the cut wall it meets. Something
-            // hung has faces every way, and goes by the wall it is nearest. A wall's own ends run a
+            // hung has faces every way, and goes by the wall it hangs on, hung: 1 for a north wall
+            // and 2 for a west one. Gone by the wall each point is nearest, the brackets at the ends
+            // of a shelf on a cut wall went by the uncut wall across the end of their square, and
+            // stood on their own in the air over the cut wall. A wall's own ends run a
             // little past its square, into the corner. A wall's top faces up whichever wall it is,
             // and leans along its wall where the wall's two ends stand at different heights: it is
             // cut with any cut wall whose thickness it lies in, so the top of a straight run is cut
             // across the joints of its squares, and a counter's top against the wall keeps all but
             // the wall's own thickness.
-            bool cutAway(vec3 at, vec3 facing, bool hung) {
+            bool cutAway(vec3 at, vec3 facing, float hung) {
                 vec2 edge = floor(at.xy + 0.5), off = abs(at.xy - edge);
                 bool northCut = mod(cutMarks(vec2(floor(at.x - 0.06), edge.y)), 2.0) > 0.5 || mod(cutMarks(vec2(floor(at.x + 0.06), edge.y)), 2.0) > 0.5;
                 bool westCut = cutMarks(vec2(edge.x, floor(at.y - 0.06))) > 1.5 || cutMarks(vec2(edge.x, floor(at.y + 0.06))) > 1.5;
-                if (!hung && abs(facing.z) > max(abs(facing.x), abs(facing.y))) {
+                if (hung < 0.5 && abs(facing.z) > max(abs(facing.x), abs(facing.y))) {
                     return off.y < 0.06 && northCut || off.x < 0.06 && westCut;
                 }
-                float reach = hung ? 0.45 : 0.3;
-                bool north = off.y < reach && (hung ? off.y < off.x : abs(facing.y) > abs(facing.x));
-                bool west = off.x < reach && (hung ? off.x <= off.y : abs(facing.x) >= abs(facing.y));
+                float reach = hung > 0.5 ? 0.45 : 0.3;
+                bool north = off.y < reach && (hung > 0.5 ? hung < 1.5 : abs(facing.y) > abs(facing.x));
+                bool west = off.x < reach && (hung > 0.5 ? hung > 1.5 : abs(facing.x) >= abs(facing.y));
                 return north ? northCut : west && westCut;
             }
             uniform vec3 uHole;
@@ -2968,7 +2974,7 @@ final class PipelineShaders {
                 // the viewer's building that stand between the two.
                 bool marked = uCutMarked.z > 0.0;
                 if (vWorld.z > uCutAbove && (marked ? vWorld.z < uCutMarked.z : dot(stands, uCutNear.xy) > uCutNear.z && boxed)) {
-                    if ((ofModel ? vHung > 0.5 : !standing) && (!marked || cutAway(vWorld, vNormal, ofModel))) {
+                    if ((ofModel ? vHung > 0.5 : !standing) && (!marked || cutAway(vWorld, vNormal, ofModel ? vHung : 0.0))) {
                         discard;
                     }
                 }
