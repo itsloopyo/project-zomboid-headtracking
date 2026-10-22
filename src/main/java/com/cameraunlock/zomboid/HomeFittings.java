@@ -21,8 +21,8 @@ final class HomeFittings {
     static final float WORKTOP_PROUD = 0.005f;
     /** How high, in metres, the part of a model is that the game gives the height of: the china cabinet's cornice, a sink's rim, a stove's top, a rocking chair's seat. */
     static final float CHINA_TOP = 1.88f, SINK_RIM = 35f / 96f * 2.45f, STOVE_TOP = 34f / 96f * 2.45f, ROCKER_SEAT = 0.40f;
-    /** How high a wall basin's rim is, in tiles, where the game gives it no height, and how high it is in its model, in metres. */
-    static final float HANGING_RIM = 0.85f, WALL_SINK_RIM = 0.44f;
+    /** How high a drinking fountain's rim is on its wall, in tiles, and how high it is in its model, in metres. */
+    static final float HANGING_RIM = 0.85f, FOUNTAIN_RIM = 0.2f;
     /** Where on its sprite, in levels, a chest's lid, an ottoman's cushion, a stove's body and a hearth give their colour. */
     private static final float CHEST_DYE = 0.15f, OTTOMAN_DYE = 0.12f, STOVE_DYE = 0.3f, HEARTH_DYE = 0.02f;
     /** How far out from its wall, as a share of the square, the hearth before a fire gives its colour. */
@@ -127,9 +127,10 @@ final class HomeFittings {
         if (called.equals("Sink") && group.equals("Large Industrial") && single && surface > 0) {
             return new Furniture(sprite, "utility_sink", turns).stand(surfaceUp, SINK_RIM, true);
         }
+        // The game's Fancy Hanging sinks are stainless drinking fountains on a wall.
         if (called.equals("Sink") && group.equals("Fancy Hanging") && single && surface == 0) {
-            Furniture sink = new Furniture(sprite, "wall_sink", turns).stand(0f, 0f, true);
-            return sink.raise(HANGING_RIM - WALL_SINK_RIM * sink.scaleUp);
+            Furniture fountain = new Furniture(sprite, "drinking_fountain", turns).stand(0f, 0f, true);
+            return fountain.raise(HANGING_RIM - FOUNTAIN_RIM * fountain.scaleUp);
         }
         if (called.equals("Ottoman") && single && surface > 0) {
             Furniture ottoman = new Furniture(sprite, "ottoman", turns).dye(1 << Models.CLOTH, OTTOMAN_DYE);

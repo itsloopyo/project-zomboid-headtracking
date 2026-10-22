@@ -371,7 +371,7 @@ final class ShapeTests {
 
     private static void newModelsAreInTheJar() {
         for (String name : new String[] {"cone_lamp", "globe_lamp", "lantern_lamp", "acorn_head", "twin_acorn_head", "cobra_head", "wall_bowl", "wall_lantern",
-                "bulkhead_light", "wall_sink", "serving_counter"}) {
+                "bulkhead_light", "wall_sink", "drinking_fountain", "serving_counter"}) {
             check(Models.get(name).triangles() > 0, name + " is a model");
         }
         Models.Model arm = Models.get("cobra_head");

@@ -2623,6 +2623,29 @@ def wall_sink():
     return model
 
 
+def drinking_fountain():
+    """A stainless drinking fountain hung on a wall: a plate behind it, a wide shallow bowl with a flat underside, a spout
+    and a drain in it, and a push button on each side. Its back is at +Y. The rim is 0.2 above the bowl's underside, the
+    model's foot."""
+    model = Model("drinking_fountain")
+    rim = 0.2
+    steel = bmesh.new()
+    cuboid(steel, -0.22, 0.22, 0.2, 0.215, 0.0, rim + 0.28)
+    lathe(steel, [(0.0, 0.0), (0.18, 0.0), (0.21, 0.025), (0.225, rim - 0.03), (0.22, rim), (0.195, rim), (0.17, rim - 0.05),
+                  (0.06, rim - 0.065), (0.0, rim - 0.065)], cy=0.02, segments=24, sy=0.85)
+    cuboid(steel, -0.21, 0.21, 0.06, 0.2, 0.0, rim)
+    model.turned(steel, "steel", sharp=50.0)
+    fittings = bmesh.new()
+    lathe(fittings, [(0.0, rim - 0.065), (0.014, rim - 0.065), (0.012, rim - 0.02), (0.007, rim - 0.01), (0.0, rim - 0.01)], cy=0.12, segments=10)
+    for side in (-1, 1):
+        tube(fittings, (side * 0.2, 0.02, 0.1), (side * 0.24, 0.02, 0.1), 0.026, segments=12)
+    model.turned(fittings, "metal", sharp=40.0)
+    drain = bmesh.new()
+    lathe(drain, [(0.0, rim - 0.063), (0.03, rim - 0.063), (0.03, rim - 0.058), (0.0, rim - 0.058)], cy=0.0, segments=14)
+    model.turned(drain, "rubber")
+    return model
+
+
 def air_conditioner():
     """An air conditioner hung through an outside wall: the steel case that stands out of the wall on two brackets, a
     grille of slats across its face, slots down both sides and a lid that overhangs. Its back is at +Y."""
@@ -11286,7 +11309,7 @@ def every():
               radio(), microwave(), dishwasher(), chest_freezer(), register(), shower("shower", True), shower("shower_head", False),
               kettle_barbecue(), gas_barbecue(), cooler("mini_fridge", 0.5, 0.82, 1), cooler("large_fridge", 1.7, 1.95, 2),
               street_lamp("cone_lamp", "cone"), street_lamp("globe_lamp", "globe"), street_lamp("lantern_lamp", "lantern"),
-              cobra_head(), traffic_light(), traffic_light("traffic_light_r", 1), wall_bowl(), wall_lantern(), bulkhead_light(), wall_sink(), serving_counter(), air_conditioner(),
+              cobra_head(), traffic_light(), traffic_light("traffic_light_r", 1), wall_bowl(), wall_lantern(), bulkhead_light(), wall_sink(), drinking_fountain(), serving_counter(), air_conditioner(),
               parasol("parasol", [(0.045, 2.40), (0.35, 2.25), (0.68, 2.08), (1.0, 1.91)], 0.10, 0.06),
               parasol("parasol_dome", [(0.045, 2.43), (0.24, 2.39), (0.46, 2.28), (0.66, 2.11), (0.82, 1.88), (0.92, 1.62)], 0.08, 0.06)] + (indoors() + outdoors()
             + upholstered() + barrels_and_pots() + street() + display_cases() + awnings() + hoods() + industrial()
