@@ -160,8 +160,11 @@ final class Outdoors {
             GAS2GO = "location_shop_gas2go_01_", FOSSOIL = "location_shop_fossoil_01_",
             ROAD_SIGNS = "street_roadsigns_01_", BURNT_FENCES = "fencing_burnt_01_", PYLONS = "electricity_pylon_", MASTS = "radio_tower_",
             STREET = "street_decoration_01_", FIREPLACES = "fixtures_fireplaces_01_", MACHINERY = "location_business_machinery_01_",
-            SEWER = "location_sewer_01_", BANK = "location_business_bank_01_", FARM = "location_farm_accesories_01_";
-    private static final int PAINT = 1 << Models.PAINT;
+            SEWER = "location_sewer_01_", BANK = "location_business_bank_01_", FARM = "location_farm_accesories_01_",
+            GREENES = "location_shop_greenes_01_";
+    private static final int PAINT = 1 << Models.PAINT, DARK_WOOD = 1 << Models.DARK_WOOD;
+    /** Where a forked porch post stands on its square: how far in from the edge it stands on, and along it; and how high its wood gives its colour, in levels. */
+    private static final float FORKED_POST_IN = 0.14f, FORKED_POST_ALONG = 0.53f, FORKED_POST_DYE = 0.4f;
     /** How far from the edge of its square the middle of a pipe along the foot of a wall is. */
     private static final float PIPE_EDGE = 0.12f;
     /** How high on its sprite a duct gives its colour, a pipe, a wide pipe on the ground, the case of a fan and a girder, in levels. */
@@ -313,6 +316,10 @@ final class Outdoors {
         Piece burnt = single ? burntPost(name) : null;
         if (burnt != null) {
             return burnt;
+        }
+        Piece forked = single ? forkedPost(name) : null;
+        if (forked != null) {
+            return forked;
         }
         if (called == null) {
             if (!single) {
@@ -822,6 +829,21 @@ final class Outdoors {
         }
         float a = SIGN_POST_AT[2 * faces], b = SIGN_POST_AT[2 * faces + 1];
         return new Piece("warning_sign", faces).at(a, b).dye(1 << Models.PANE, a, b, SIGN_PLATE_HIGH).pictured(WARNING_PLATE_Y);
+    }
+
+    /**
+     * A porch post with a brace out to each side along the edge it stands on, which the game names nothing: 4 on the square's
+     * west edge, 5 on its north, and 6 and 7 the same with a hanging scale out over the square. Their place and height were
+     * read off the sprites: the post stands a storey high, braced up to the beam over it.
+     */
+    private static Piece forkedPost(String name) {
+        return switch (Sheets.place(name, GREENES)) {
+            case 4 -> new Piece("forked_post", EAST).at(FORKED_POST_IN, FORKED_POST_ALONG).dye(DARK_WOOD, FORKED_POST_IN, FORKED_POST_ALONG, FORKED_POST_DYE);
+            case 5 -> new Piece("forked_post", SOUTH).at(FORKED_POST_ALONG, FORKED_POST_IN).dye(DARK_WOOD, FORKED_POST_ALONG, FORKED_POST_IN, FORKED_POST_DYE);
+            case 6 -> new Piece("forked_post_scale", EAST).at(FORKED_POST_IN, FORKED_POST_ALONG).dye(DARK_WOOD, FORKED_POST_IN, FORKED_POST_ALONG, FORKED_POST_DYE);
+            case 7 -> new Piece("forked_post_scale", SOUTH).at(FORKED_POST_ALONG, FORKED_POST_IN).dye(DARK_WOOD, FORKED_POST_ALONG, FORKED_POST_IN, FORKED_POST_DYE);
+            default -> null;
+        };
     }
 
     /**

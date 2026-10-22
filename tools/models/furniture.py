@@ -5208,6 +5208,58 @@ def straw_post():
     return model
 
 
+def forked_post(name, scale):
+    """A squared timber post a storey high with a brace out to each side along the porch's edge, under the beam it holds up,
+    and with scale, a market's hanging scale on a steel bracket out over the front: a dial faced both ways, a spring and a
+    pan."""
+    model = Model(name, centred=False)
+    top = 2.449
+    post = bmesh.new()
+    cuboid(post, -0.075, 0.075, -0.075, 0.075, 0.0, top)
+    model.hard(post, "dark_wood", bevel=0.01)
+    braces = bmesh.new()
+    for side in (-1, 1):
+        beam(braces, (side * 0.03, 0.0, 1.86), (side * 0.5, 0.0, top - 0.06), 0.095, 0.095)
+    model.hard(braces, "dark_wood", bevel=0.008)
+    if not scale:
+        return model
+    out, dial = -0.4, 2.14
+    iron = bmesh.new()
+    cuboid(iron, -0.012, 0.012, out - 0.02, -0.075, 2.29, 2.32)
+    beam(iron, (0.0, -0.075, 2.05), (0.0, out * 0.6, 2.3), 0.02, 0.012)
+    rod(iron, (0.0, out, 2.29), (0.0, out, dial + 0.15), 0.006, segments=8)
+    model.hard(iron, "steel", bevel=0.003)
+    face = bmesh.new()
+    lathe(face, [(0.0, -0.035), (0.13, -0.035), (0.13, 0.035), (0.0, 0.035)], segments=32, to=along_x(0.0, out, dial))
+    model.turned(face, "enamel", sharp=40.0)
+    rim = bmesh.new()
+    lathe(rim, [(0.125, -0.04), (0.145, -0.04), (0.15, -0.025), (0.15, 0.025), (0.145, 0.04), (0.125, 0.04)], segments=32, closed=False, caps=False,
+          to=along_x(0.0, out, dial))
+    model.turned(rim, "steel", sharp=40.0)
+    marks = bmesh.new()
+    for x in (-0.037, 0.037):
+        for k in range(12):
+            turn = 2 * math.pi * k / 12
+            r0, r1 = (0.095, 0.12) if k % 3 else (0.08, 0.12)
+            beam(marks, (x, out + r0 * math.sin(turn), dial + r0 * math.cos(turn)), (x, out + r1 * math.sin(turn), dial + r1 * math.cos(turn)), 0.004, 0.006)
+        beam(marks, (x * 1.05, out, dial), (x * 1.05, out + 0.02, dial + 0.1), 0.004, 0.006)
+    model.plain(marks, "rubber")
+    hanger = bmesh.new()
+    spring = [(0.0, out + 0.012 * math.sin(k * 1.3), dial - 0.15 - k * 0.012) for k in range(26)]
+    for start, end in zip(spring, spring[1:]):
+        rod(hanger, start, end, 0.004, segments=6)
+    low = spring[-1][2]
+    rim_z = 1.42
+    for side in (-1, 1):
+        rod(hanger, (0.0, out, low), (side * 0.14, out, rim_z + 0.02), 0.004, segments=6)
+    model.hard(hanger, "steel", bevel=0.002)
+    pan = bmesh.new()
+    lathe(pan, [(0.0, 1.35), (0.09, 1.355), (0.14, 1.38), (0.16, 1.415), (0.165, rim_z), (0.155, rim_z), (0.15, 1.42), (0.13, 1.39), (0.085, 1.367), (0.0, 1.362)],
+          segments=32, cy=out, caps=False)
+    model.turned(pan, "steel", sharp=60.0)
+    return model
+
+
 def fallen_log():
     """A length of fallen trunk lying on the ground, sawn at one end and broken at the other, two snapped branches standing off it.
     It lies aslant as the game's sprite paints it, turned so that its sawn end is towards the south-west of the map."""
@@ -5241,7 +5293,8 @@ def farm_and_garden():
             potted_flowers("pot_violets", [(0.0, 0.0), (0.038, 0.0), (0.05, 0.08), (0.056, 0.085), (0.056, 0.095), (0.0, 0.095)], 0.05, 0.095, 12, 0.07, 0.06, "wood"),
             potted_flowers("vase_flowers", [(0.0, 0.0), (0.045, 0.0), (0.058, 0.06), (0.055, 0.12), (0.042, 0.15), (0.045, 0.16), (0.0, 0.16)], 0.04, 0.16, 11,
                            0.07, 0.08),
-            cactus(), bonsai(), rose_bouquet(), hay_feeder(), straw_post(), fallen_log()]
+            cactus(), bonsai(), rose_bouquet(), hay_feeder(), straw_post(), fallen_log(), forked_post("forked_post", False),
+            forked_post("forked_post_scale", True)]
 
 
 def twin_head():

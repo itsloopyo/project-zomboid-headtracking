@@ -38,6 +38,21 @@ final class OutdoorTests {
         Checks.run("aCashMachineFacesTheWayItsScreenIsPainted", OutdoorTests::aCashMachineFacesTheWayItsScreenIsPainted);
         Checks.run("aCoopIsStoodOnceByItsSouthEastQuarter", OutdoorTests::aCoopIsStoodOnceByItsSouthEastQuarter);
         Checks.run("aStreetNameBladeReachesFromItsSignalsPostTheWayItsSpriteDoes", OutdoorTests::aStreetNameBladeReachesFromItsSignalsPostTheWayItsSpriteDoes);
+        Checks.run("aForkedPorchPostIsBracedAlongTheEdgeItStandsOn", OutdoorTests::aForkedPorchPostIsBracedAlongTheEdgeItStandsOn);
+    }
+
+    private static void aForkedPorchPostIsBracedAlongTheEdgeItStandsOn() {
+        Outdoors.Piece west = unnamed("location_shop_greenes_01_4"), north = unnamed("location_shop_greenes_01_5");
+        Outdoors.Piece westScale = unnamed("location_shop_greenes_01_6"), northScale = unnamed("location_shop_greenes_01_7");
+        holds(west, "a forked post has a model");
+        holds(westScale, "and one with a scale");
+        Checks.check(west.model.equals("forked_post") && westScale.model.equals("forked_post_scale") && northScale.model.equals("forked_post_scale"),
+                "4 and 5 are the bare post, 6 and 7 the post with a scale");
+        Checks.check(west.a < 0.2f && west.b == 0.53f && north.b < 0.2f && north.a == 0.53f, "4 and 6 stand on the west edge, 5 and 7 on the north");
+        Checks.check(west.turns == Outdoors.EAST && westScale.turns == Outdoors.EAST && north.turns == Outdoors.SOUTH && northScale.turns == Outdoors.SOUTH,
+                "braced along that edge, with the scale out over the square");
+        Checks.check(west.dyeA == west.a && west.dyeB == west.b && north.dyeA == north.a && north.dyeB == north.b, "and coloured from the post");
+        Checks.check(unnamed("location_shop_greenes_01_3") == null && unnamed("location_shop_greenes_01_8") == null, "the sheet's other places are not the post");
     }
 
     /** A piece, and its model one the jar has: Models.get throws for a name it has not. */
