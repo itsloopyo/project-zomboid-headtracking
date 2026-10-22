@@ -93,7 +93,7 @@ def main():
     pipe.vae.to('cuda')
 
     for name, seed in jobs:
-        _, _, width, height = catalogue.ART[name]
+        _, width, height = catalogue.ART[name]
         width, height = size(width, height)
         generator = torch.Generator('cuda').manual_seed(seed)
         with torch.no_grad():

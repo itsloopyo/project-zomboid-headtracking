@@ -3,7 +3,7 @@
 A picture is made from a text prompt alone (generate.py), then cut to the shapes it hangs in and given its lettering
 (pack.py). Nothing of the game's own art goes into one.
 
-ART is name -> (prompt, negative, width, height). HUNG is the list of (key, picture) that pack.py writes as the mod's
+ART is name -> (prompt, width, height). HUNG is the list of (key, picture) that pack.py writes as the mod's
 index: a key is a sprite's name, or the name and group the game gives a piece, "Painting|Lighthouse". POOLS is
 (subject, room kind) -> pictures: a picture of that subject (subject()) hung in a room of that kind (rooms.py) shows one of
 these instead, chosen by Decor.inRoom. LONG is the keys
@@ -18,11 +18,6 @@ import rooms
 import shows
 import signs
 
-NO_TEXT = 'text, letters, words, caption, watermark, signature, logo, frame, border'
-PHOTO_NEGATIVE = NO_TEXT + ', illustration, painting, cartoon, 3d render, deformed, extra fingers, blurry, modern, smartphone'
-PAINT_NEGATIVE = NO_TEXT + ', photograph, 3d render, wall, room, gallery, museum, easel'
-POSTER_NEGATIVE = NO_TEXT + ', deformed, extra fingers, extra limbs, blurry, wall, room'
-
 TALL, WIDE, SQUARE, BROAD, LONGER, STOUT = (832, 1216), (1216, 832), (1024, 1024), (1344, 768), (1536, 640), (1152, 896)
 
 ART = {}
@@ -34,10 +29,10 @@ LETTERED = {}
 SEEDS = {}
 
 
-def art(name, prompt, negative, size):
+def art(name, prompt, size):
     if name in ART:
         raise ValueError('two pictures are called ' + name)
-    ART[name] = (prompt, negative, size[0], size[1])
+    ART[name] = (prompt, size[0], size[1])
 
 
 # Family photographs, as they hang in the houses of a small Kentucky town in 1993.
@@ -92,7 +87,7 @@ FAMILY = [
      ' on a driveway, seen from a few metres away.' + SNAP, WIDE),
 ]
 for _i, (_prompt, _size) in enumerate(FAMILY):
-    art('family-%02d' % _i, _prompt, PHOTO_NEGATIVE, _size)
+    art('family-%02d' % _i, _prompt, _size)
 for _block in range(3):
     for _i in range(8):
         # The sheet has eight seen from the south, then the same eight seen from the east.
@@ -278,7 +273,7 @@ SPORTS = {
 }
 for _sport, _prompts in SPORTS.items():
     for _i, _prompt in enumerate(_prompts):
-        art('%s-%d' % (_sport, _i), _prompt, '', TALL)
+        art('%s-%d' % (_sport, _i), _prompt, TALL)
 
 
 def pooled(sheet, first, last, sport):
@@ -348,21 +343,18 @@ PAINTINGS = {
 }
 for _name, (_prompt, _size) in PAINTINGS.items():
     _key = 'painting-' + ''.join(c for c in _name.lower().replace(' ', '-') if c.isalnum() or c == '-').strip('-')
-    art(_key, _prompt, NO_TEXT + ', wall, room' if 'pixel art' in _prompt or 'cartoon' in _prompt or 'geometric' in _prompt or 'drip' in _prompt
-        or 'watercolour' in _prompt else PAINT_NEGATIVE, _size)
+    art(_key, _prompt, _size)
     HUNG.append(('Painting|' + _name, _key))
 # Measured off the game's sprites of each with the mod's own sums, less the frame the mod paints round it.
 for _name, _shape in (("Lilly's Waterpond", 1.5), ("She's Got It", 2.05), ('Chromatic Accident', 2.9), ('Desert Landscape', 2.0), ('Island Beach', 2.45),
                       ('Lakeside', 2.4), ('Mount Never Rest', 2.9), ('Night With Stars', 1.8), ('Nomad Above The Gloom', 1.0), ('Wide', 1.2)):
     SHAPED['painting-' + ''.join(c for c in _name.lower().replace(' ', '-') if c.isalnum() or c == '-').strip('-')] = _shape
 
-art('painting-field-pink', 'a colour field abstract painting, two large soft edged hazy rectangles, magenta above warm yellow, on an orange ground, matte paint on canvas' + '. Unsigned, the painted surface filling the whole image edge to edge.',
-    NO_TEXT + ', wall, room, objects', TALL)
-art('painting-field-purple', 'a colour field abstract painting, two large soft edged hazy rectangles, deep violet above midnight blue, on a dark plum ground, matte paint on canvas' + '. Unsigned, the painted surface filling the whole image edge to edge.',
-    NO_TEXT + ', wall, room, objects', TALL)
+art('painting-field-pink', 'a colour field abstract painting, two large soft edged hazy rectangles, magenta above warm yellow, on an orange ground, matte paint on canvas' + '. Unsigned, the painted surface filling the whole image edge to edge.', TALL)
+art('painting-field-purple', 'a colour field abstract painting, two large soft edged hazy rectangles, deep violet above midnight blue, on a dark plum ground, matte paint on canvas' + '. Unsigned, the painted surface filling the whole image edge to edge.', TALL)
 HUNG.append(('Paintings|Pink and Yelllow', 'painting-field-pink'))
 HUNG.append(('Paintings|Purple and Blue', 'painting-field-purple'))
-art('painting-sitter', 'dark old master portrait of a pale woman in a blue silk dress, sombre background, cracked varnish' + OIL, PAINT_NEGATIVE, TALL)
+art('painting-sitter', 'dark old master portrait of a pale woman in a blue silk dress, sombre background, cracked varnish' + OIL, TALL)
 HUNG.append(('location_entertainment_gallery_01_72', 'painting-sitter'))
 HUNG.append(('location_entertainment_gallery_01_73', 'painting-sitter'))
 
@@ -371,11 +363,11 @@ art('board-cork', 'A cork notice board seen straight on and filling the whole fr
                   'of many sizes and colours overlapping at odd angles: torn sheets of lined paper with faint pencil '
                   'scribble, a yellowed typed letter, a folded pink flyer, a curled faded snapshot of a lake and '
                   'another of an old pickup truck, coloured push pins here and there, all seen from far enough back '
-                  'that the writing is only faint grey marks. A plain photograph in even office light.', '', WIDE)
+                  'that the writing is only faint grey marks. A plain photograph in even office light.', WIDE)
 art('board-white', 'A white dry erase board seen straight on and filling the whole frame, faint grey smudges of old marker, a hand'
-    ' drawn bar chart and a few arrows in blue and red marker and no words. A plain photograph in even office light.', '', BROAD)
+    ' drawn bar chart and a few arrows in blue and red marker and no words. A plain photograph in even office light.', BROAD)
 art('board-darts', 'A closed dark wooden dartboard cabinet seen straight on, its two plain panelled doors shut, small'
-                   ' brass hinges and a little brass catch. A plain photograph in even light.', '', BROAD)
+                   ' brass hinges and a little brass catch. A plain photograph in even light.', BROAD)
 for _group in ('Big Cork', 'Cork'):
     HUNG.append(('Noteboard|' + _group, 'board-cork'))
 for _group in ('Office', 'Wide Office'):
@@ -383,7 +375,7 @@ for _group in ('Office', 'Wide Office'):
 HUNG.append(('Dartboard|', 'board-darts'))
 art('certificate', 'An empty unprinted sheet of cream parchment paper seen straight on and filling the whole frame, an engraved'
     ' guilloche border in dark green round its edge and a round embossed gold foil seal near the bottom, the middle of the sheet'
-    ' plain and blank. A flat scan in even light.', '', WIDE)
+    ' plain and blank. A flat scan in even light.', WIDE)
 HUNG.append(('Certificate|Doctor Degree', 'certificate-doctor'))
 HUNG.append(('Certificate|Surgeon Degree', 'certificate-surgeon'))
 LETTERED['certificate-doctor'] = ('certificate', 'diploma', 'Doctor of Medicine', 'Kentucky State School of Medicine')
@@ -468,7 +460,7 @@ MUSIC = [
 ACTS = {1: 'FRIDAY NIGHT', 2: 'THE 594s', 3: 'THE BOJANGLES', 4: 'STEAMSHIP HURRICANE', 6: 'WILL BILL GROOVY', 7: 'SOUNDS LIKE AUSTIN PARKER!',
         8: 'SOFT ONEZ', 9: 'MARIA', 10: 'TIME FOR LOVE', 11: 'TONI', 14: 'YVETTE', 15: 'HANK GILMAN'}
 for _i, _prompt in enumerate(MUSIC):
-    art('music-%02d' % _i, _prompt, '', SQUARE)
+    art('music-%02d' % _i, _prompt, SQUARE)
     if _i in ACTS:
         LETTERED['music-%02d-tall' % _i] = ('music-%02d' % _i, 'gig-tall', ACTS[_i], 'THE NEW ALBUM  .  OUT NOW')
         LETTERED['music-%02d-wide' % _i] = ('music-%02d' % _i, 'gig-wide', ACTS[_i], 'THE NEW ALBUM  .  OUT NOW')
@@ -515,7 +507,7 @@ FILMS = {
 }
 for _group, (_name, _prompt, _title, _line) in FILMS.items():
     _key = 'film-' + _name.lower().replace(' ', '-')
-    art(_key, _prompt, '', SQUARE)
+    art(_key, _prompt, SQUARE)
     LETTERED[_key + '-tall'] = (_key, 'tall', _title, _line)
     LETTERED[_key + '-broad'] = (_key, 'broad', _title, _line)
     for _shape, _cut in (('', 'tall'), (' Small', 'tall'), (' Large', 'broad'), (' Wide', 'broad')):
@@ -556,7 +548,7 @@ PROGRAMMES = [
 ]
 SCREENS = ['screen-%02d' % _i for _i in range(len(PROGRAMMES))]
 for _name, _prompt in zip(SCREENS, PROGRAMMES):
-    art(_name, _prompt, '', STOUT)
+    art(_name, _prompt, STOUT)
 
 # The shots of each show a set can tell it is showing (shows.py). SHOTS is each packed picture's name with the art it is
 # cut from: screen-<show>-<n>, and the dozen above again as the show of no one programme, screen-any-<n>.
@@ -566,13 +558,13 @@ SHOTS = {'screen-%s-%d' % (shows.ANY, _i): _name for _i, _name in enumerate(SCRE
 for _show, _shots in shows.SHOWS.items():
     for _i, _prompt in enumerate(_shots):
         _name = 'screen-%s-%d' % (_show, _i)
-        art(_name, _prompt, '', TUBE)
+        art(_name, _prompt, TUBE)
         SHOTS[_name] = _name
 
 # Shop signs, notices and flags (signs.py): their grounds and emblems are art like any other, and each shows on the
 # name and group the game gives the sign.
-for _name, (_prompt, _negative, _wide, _high) in signs.ART.items():
-    art(_name, _prompt, _negative, (_wide, _high))
+for _name, (_prompt, _wide, _high) in signs.ART.items():
+    art(_name, _prompt, (_wide, _high))
 HUNG += signs.HUNG
 
 # Where a family album does not belong: a business shows pictures of its own kind (pools.py) in place of the family
@@ -581,7 +573,7 @@ HUNG += signs.HUNG
 for _kind, _prompts in pools.POOLS.items():
     POOLS['family', _kind] = []
     for _i, _prompt in enumerate(_prompts):
-        art('pool-%s-%02d' % (_kind, _i), _prompt, '', TALL)
+        art('pool-%s-%02d' % (_kind, _i), _prompt, TALL)
         POOLS['family', _kind].append('pool-%s-%02d' % (_kind, _i))
 _LANDSCAPES = ['painting-' + _name for _name in ('waterbeach-hills', 'waterfall', 'riverside', 'two-frame', 'lighthouse', 'helianthus', 'flowers-on-table')]
 POOLS['family', 'medical'] = POOLS['family', 'motel'] = _LANDSCAPES

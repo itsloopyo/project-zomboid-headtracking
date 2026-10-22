@@ -24,18 +24,17 @@ FONT_FOLDER = 'C:/Windows/Fonts/'
 PER_METRE = 440
 LONGEST, SHORTEST = 1536, 256
 
-NO_WRITING = 'text, letters, words, numbers, writing, logo, watermark, signature, frame, border, people'
 GROUNDS = {
-    'sign-board': ('extreme close-up photograph of a flat sheet metal sign board painted plain light grey, even enamel paint, faint scratches, '
-                   'specks of dust and slight weathering stains, flat even daylight, sharp focus', NO_WRITING + ', rivets, holes, edge, shadow'),
-    'sign-slate': ('extreme close-up photograph of a blank black slate chalkboard surface filling the frame, faint smears of wiped chalk dust, '
-                   'flat even light, sharp focus', NO_WRITING + ', chalk drawing, eraser, edge'),
-    'sign-cloth': ('close-up photograph of plain white cotton flag cloth hanging down in soft vertical folds, fine woven texture, '
-                   'even daylight, sharp focus', NO_WRITING + ', pattern, print, stripes, seam, rod, wall'),
+    'sign-board': 'extreme close-up photograph of a flat sheet metal sign board painted plain light grey, even enamel paint, faint scratches, '
+                  'specks of dust and slight weathering stains, flat even daylight, sharp focus',
+    'sign-slate': 'extreme close-up photograph of a blank black slate chalkboard surface filling the frame, faint smears of wiped chalk dust, '
+                  'flat even light, sharp focus',
+    'sign-cloth': 'close-up photograph of plain white cotton flag cloth hanging down in soft vertical folds, fine woven texture, '
+                  'even daylight, sharp focus',
 }
 EMBLEMS = {
-    'sign-seahorse': ('flat white silhouette of a seahorse with a spiky crest rising out of a coffee cup on a saucer, simple bold vintage '
-                      'cafe logo, solid dark red background, centred, vector, high contrast', 'text, letters, words, gradient, shading, photograph, detail, outline, frame'),
+    'sign-seahorse': 'flat white silhouette of a seahorse with a spiky crest rising out of a coffee cup on a saucer, simple bold vintage '
+                     'cafe logo, solid dark red background, centred, vector, high contrast',
 }
 
 WHITE, RED, INK = (240, 236, 226), (178, 44, 38), (30, 28, 28)
@@ -73,7 +72,7 @@ SIGNS = {
 SAME = {'Sign|Coffee High': 'Sign|Coffee Low'}
 
 # What the catalogue takes from here: the art to make, and which key shows which picture.
-ART = {name: (prompt, negative, 1024, 1024) for name, (prompt, negative) in {**GROUNDS, **EMBLEMS}.items()}
+ART = {name: (prompt, 1024, 1024) for name, prompt in {**GROUNDS, **EMBLEMS}.items()}
 PICTURES = {'sign-' + key.split('|')[1].lower().replace(' ', '-'): key for key in SIGNS}
 HUNG = [(key, name) for name, key in PICTURES.items()] + [(key, 'sign-' + SAME[key].split('|')[1].lower().replace(' ', '-')) for key in SAME]
 
