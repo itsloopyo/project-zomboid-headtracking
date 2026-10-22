@@ -6478,6 +6478,32 @@ final class WorldScene {
             characters++;
         }
 
+        private boolean floatsFree(int x, int y, int z) {
+            IsoGridSquare square = cell.getGridSquare(x, y, z), under = cell.getGridSquare(x, y, z - 1);
+            PZArrayList<IsoObject> objects = square.getObjects();
+            for (int n = 0; n < objects.size(); n++) {
+                IsoSprite each = objects.get(n).getSprite();
+                if (each == null || !Roofs.accent(each.getName())) {
+                    return false;
+                }
+            }
+            if (under != null && !under.getObjects().isEmpty()) {
+                return false;
+            }
+            // A trim beside a roof edges it, wherever the map's view puts it.
+            for (int level = z - 1; level <= z; level++) {
+                for (int dx = -1; dx <= 1; dx++) {
+                    for (int dy = -1; dy <= 1; dy++) {
+                        IsoGridSquare beside = cell.getGridSquare(x + dx, y + dy, level);
+                        if (beside != null && Roofs.covered(cell, beside)) {
+                            return false;
+                        }
+                    }
+                }
+            }
+            return true;
+        }
+
         /**
          * Sprites that share a plane of the square are stacked on it in the order the square holds
          * them, each a layer further into the square than the one before: a rug above its floor, a
@@ -6628,6 +6654,13 @@ final class WorldScene {
             // The eave the map hangs on the wall under a slope's foot, the trims painted on it and
             // the corner piece past each end of it: the slope's lowest tile makes that eave.
             if ((kind.roofAccent || kind.eave != Hoods.NONE) && roofBuilder.eaveRow(x, y, z) || kind.endPiece && roofBuilder.eaveRowEnd(x, y, z)) {
+                return;
+            }
+            // A trim with nothing on its square but trims, nothing under it and no roof beside it hangs
+            // in the air: the map puts flashing on a square levels over the roof it edges, where the
+            // game's view draws it in place (the porch roof's top edge at 10752..10760, 9619, laid out
+            // on 9622 two levels up).
+            if (kind.roofAccent && z > 0 && floatsFree(x, y, z)) {
                 return;
             }
             // Where no slope makes it, the row is an eave of its own, and the corner past it goes with it.
