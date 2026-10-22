@@ -472,6 +472,14 @@ final class RoofFit {
          * ceiling the map lays over the loft inside that roof, under its ridge, and does not count.
          */
         boolean taken(int x, int y, int z, float roof);
+
+        /**
+         * Whether the square's floor at that level is a sheet of a roof's laid as a floor (Roofs.hiddenSheet) over another
+         * room than the square beside it, (fromX, fromY), has under it: the flat roof of a lower part of the building.
+         */
+        default boolean annex(int fromX, int fromY, int x, int y, int z) {
+            return false;
+        }
     }
 
     /** The furthest a roof's level top is crossed to reach the place of its far slope, in tiles. */
@@ -623,13 +631,6 @@ final class RoofFit {
             at.put(key(tile.x, tile.y, tile.z), tile);
             roofed.merge(key(tile.x, tile.y, 0), tile, (was, now) -> was.slopes() ? was : now);
         }
-        // The eave of each plane the fit laid slopes on: the lowest edge of any of its tiles.
-        HashMap<Long, Float> eaves = new HashMap<>();
-        for (Tile tile : tiles) {
-            if (tile.fitted && tile.slopes()) {
-                eaves.merge(planeOf(tile), Math.min(tile.fitLow, tile.fitHigh), Math::min);
-            }
-        }
         HashMap<Long, Boolean> built = new HashMap<>();
         ArrayList<Tile> made = new ArrayList<>();
         mend(tiles, roofed, built, site, made);
@@ -665,8 +666,11 @@ final class RoofFit {
             // further: a terrace's deeper neighbour under one ridge, a roof that runs on down
             // over a lean-to beside it. Taken down a storey there, the far slope looked for
             // its place on the storey under the roof, found rooms and was not made.
-            Float planeEave = top.fitted && cutByAWing(at, lowest, dx, dy) ? eaves.get(planeOf(top)) : null;
-            if (planeEave != null && planeEave < eave - SAME) {
+            // The plane is looked for among every tile of the map, fitted or not: the hip end of a wing
+            // whose lower row is the valley's tile is no plane of the fit's, and its row read its eave a
+            // row up, so the far slope stood a third of a level over the wall (3919, 13816..13820).
+            float planeEave = cutByAWing(at, lowest, dx, dy) ? eaveOfPlane(tiles, top) : eave;
+            if (planeEave < eave - SAME) {
                 eave = planeEave;
                 climbed = Math.round((ridge - eave) / rise);
             }
@@ -699,8 +703,15 @@ final class RoofFit {
             // for the far slope there, and stopped at the crown's edge it stood a third of a level over it, a ledge open
             // underneath (a cross gable before a hip cut short, 10402..10411 x 12658..12669).
             ArrayList<Long> overCrown = new ArrayList<>();
-            boolean metCrown = false;
+            boolean metCrown = false, annex = false;
             while (open < WIDEST_TOP && stands(built, site, x + open * dx, y + open * dy, floor)) {
+                // A sheet over another room is no foot of this slope but the flat roof of a lower part of the building
+                // beside it, whose wall the slope comes down to. Carried on over it, the far slope's eave stood on the
+                // annex's far wall and its middle went into the annex's roof (3913..3914, 13821).
+                if (site.annex(x + (open - 1) * dx, y + (open - 1) * dy, x + open * dx, y + open * dy, floor)) {
+                    annex = true;
+                    break;
+                }
                 long square = key(x + open * dx, y + open * dy, 0);
                 float foot = ridge - (open + 1) * rise;
                 Tile on = roofed.get(square);
@@ -716,7 +727,7 @@ final class RoofFit {
             // A far side as deep as the near one, or deeper, stands on the far wall as the near
             // one does on its own. A shallower one, or one that ends against a higher part of
             // the building, has only the ridge to be placed by.
-            boolean fromEave = open >= climbed && !stands(built, site, x + open * dx, y + open * dy, floor);
+            boolean fromEave = open >= climbed && (annex || !stands(built, site, x + open * dx, y + open * dy, floor));
             over.addAll(overCrown);
             Row row = new Row(x, y, dx, dy, open, climbed, fromEave, metCrown, eave, rise, ridge);
             rows.add(row);
@@ -855,11 +866,23 @@ final class RoofFit {
         return key(x, y, (dx + 1) * 3 + dy + 1);
     }
 
-    /** Which plane a fitted slope tile lies on: its axis, its rise over a tile and its height where its axis is 0, to a 48th of a level. */
-    private static long planeOf(Tile tile) {
-        float rise = tile.fitHigh - tile.fitLow;
-        long atOrigin = Math.round((tile.fitLow - rise * tile.along()) * 48f), climb = Math.round(rise * 48f);
-        return (long) tile.fitAxis << 56 ^ (climb & 0xFFFFL) << 40 ^ atOrigin & 0xFFFFFFFFFFL;
+    /**
+     * The eave of the plane a slope tile lies on: the lowest edge of any whole slope tile of the
+     * map that climbs the same way at the same pitch and stands, carried on to the tile, within
+     * half a pitch of it. A plane beside it, a row along, stands a whole pitch off.
+     */
+    private static float eaveOfPlane(List<Tile> tiles, Tile top) {
+        float rise = top.fitHigh - top.fitLow, eave = Math.min(top.fitLow, top.fitHigh);
+        for (Tile tile : tiles) {
+            if (!tile.slopes() || tile.fitAxis != top.fitAxis || Math.abs(tile.fitHigh - tile.fitLow - rise) > SAME) {
+                continue;
+            }
+            int axis = tile.fitAxis == ALONG_X ? tile.x : tile.y, topAxis = top.fitAxis == ALONG_X ? top.x : top.y;
+            if (Math.abs(tile.fitLow + rise * (topAxis - axis) - top.fitLow) <= PITCH / 2f) {
+                eave = Math.min(eave, Math.min(tile.fitLow, tile.fitHigh));
+            }
+        }
+        return eave;
     }
 
     /**
@@ -941,7 +964,12 @@ final class RoofFit {
         corners[0] = corners[1] = corners[2] = corners[3] = top;
         for (int x = alongX.x - reach; x <= alongX.x + reach; x++) {
             for (int y = alongX.y - reach; y <= alongX.y + reach; y++) {
-                if (stands(built, site, x, y, level)) {
+                // The flat roof of a lower part of the building inside its outside walls is under the eave too (see
+                // backs): left out, the slope came down to the outside wall beyond it and stood a third of a level over
+                // the lower part's wall (3915..3918, 13817).
+                int towardX = Integer.signum(alongX.x - x), towardY = Integer.signum(alongX.y - y);
+                if (stands(built, site, x, y, level) && !(towardX != 0 && site.annex(x + towardX, y, x, y, level))
+                        && !(towardY != 0 && site.annex(x, y + towardY, x, y, level))) {
                     continue;
                 }
                 for (int point = 0; point < 5; point++) {
@@ -978,7 +1006,10 @@ final class RoofFit {
                     if (on == null) {
                         // A far side falling from a ridge across the way is the roof there: the slope ends against it in a valley.
                         Side other = across.get(key(x, y, 0));
-                        if ((other == null || other.fromEave) && stands(built, site, x, y, from.eaveLevel()) && !site.taken(x, y, from.eaveLevel(), Math.min(from.near, from.far))) {
+                        // Nor is it carried on over the flat roof of a lower part beside it (see backs): it stood over the north
+                        // block's flat roof as a gutter against the main roof's eave (3916..3917, 13816).
+                        if ((other == null || other.fromEave) && stands(built, site, x, y, from.eaveLevel()) && !site.taken(x, y, from.eaveLevel(), Math.min(from.near, from.far))
+                                && !site.annex(x - (alongX ? 0 : step), y - (alongX ? step : 0), x, y, from.eaveLevel())) {
                             Side next = from.at(x, y);
                             strips.put(key(x, y, 0), next);
                             queue.add(next);

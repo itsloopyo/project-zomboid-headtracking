@@ -9,6 +9,7 @@ import zombie.core.textures.Texture;
 import zombie.iso.IsoCell;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoObject;
+import zombie.iso.RoomDef;
 import zombie.iso.SpriteDetails.IsoObjectType;
 import zombie.iso.sprite.IsoSprite;
 import zombie.util.list.PZArrayList;
@@ -725,6 +726,42 @@ final class Roofs {
             public boolean floored(int x, int y, int z) {
                 IsoGridSquare square = cell.getGridSquare(x, y, z);
                 return square != null && (square.getFloor() != null || roofed(square, x, y, z));
+            }
+
+            private final HashMap<Long, Boolean> sheeted = new HashMap<>();
+
+            // A lower part's flat roof is sheets over the whole of a room, two squares deep or more. A room of the
+            // building under the roof has squares under its slopes too, though its squares along the eave are the
+            // hidden slope's foot, and a sheet over a narrow run of closets along that eave is the foot as well.
+            @Override
+            public boolean annex(int fromX, int fromY, int x, int y, int z) {
+                IsoGridSquare square = cell.getGridSquare(x, y, z);
+                IsoObject floor = square == null ? null : square.getFloor();
+                if (floor == null || !hiddenSheet(floor)) {
+                    return false;
+                }
+                IsoGridSquare under = cell.getGridSquare(x, y, z - 1), before = cell.getGridSquare(fromX, fromY, z - 1);
+                IsoGridSquare deeper = cell.getGridSquare(x + Integer.signum(x - fromX), y + Integer.signum(y - fromY), z - 1);
+                return under != null && before != null && deeper != null && under.getRoomID() != -1L && before.getRoomID() != -1L
+                        && under.getRoomID() != before.getRoomID() && deeper.getRoomID() == under.getRoomID()
+                        && underSheets(under, z) && !underSheets(before, z);
+            }
+
+            private boolean underSheets(IsoGridSquare under, int z) {
+                return sheeted.computeIfAbsent(under.getRoomID(), id -> {
+                    for (RoomDef.RoomRect rect : under.getRoom().getRoomDef().rects) {
+                        for (int x = rect.x; x < rect.x + rect.w; x++) {
+                            for (int y = rect.y; y < rect.y + rect.h; y++) {
+                                IsoGridSquare over = cell.getGridSquare(x, y, z);
+                                IsoObject floor = over == null ? null : over.getFloor();
+                                if (floor == null || !hiddenSheet(floor)) {
+                                    return false;
+                                }
+                            }
+                        }
+                    }
+                    return true;
+                });
             }
 
             @Override
