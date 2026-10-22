@@ -986,6 +986,8 @@ final class PipelineShaders {
             // joint in brick and in stone, in tiles. Each divides sixty tiles a whole number
             // of times: see vPlace.
             const float BRICK_LONG = 0.2, BRICK_HIGH = 0.0625, BRICK_JOINT = 0.0045, LAP_HIGH = 0.125, STONE_JOINT = 0.008;
+            // How high a band of stone courses is, and how far a stone joint wanders off the straight.
+            const float STONE_BAND = 0.48, STONE_WANDER = 0.012;
             // How far the foot of a lapped board stands out of the board under it, in tiles: about 12 mm.
             const float LAP_PROUD = 0.012;
             // A cast block, three courses of brick high and three bricks long, and half its joint.
@@ -1352,28 +1354,25 @@ final class PipelineShaders {
                 return made * (1.0 + 0.5 * (facWeather(run, up) - 1.0));
             }
 
-            // A wall of cut stone in courses, a deep course and a shallow one by turns, each
-            // stone as long as it happened to be cut. No stone is the colour of the next, and
-            // a stone's face is left rough from the chisel. The joints are wide and lie back.
-            // Where a place lies in a wall of cut stone: how far from the joints before it (low)
-            // and after it (far), along the wall and up it, which stone of which course, and how
-            // long a stone of that course and how high the course.
-            void stoneLaid(float run, float up, out vec2 low, out vec2 far, out float which, out float tier, out float wide, out float high) {
-                float band = up / 0.5;
-                float within = fract(band) * 0.5;
-                bool deep = within < 0.3;
-                high = deep ? 0.3 : 0.2;
-                float at = deep ? within : within - 0.3;
-                tier = mod(floor(band), 120.0) * 2.0 + (deep ? 0.0 : 1.0);
-                wide = deep ? 0.5 : 0.4;
-                float count = deep ? 120.0 : 150.0;
-                float along = run / wide + facHash(vec2(tier, 7.0));
+            // A wall of cut stone in courses. The wall goes up in bands of STONE_BAND, and each
+            // band is cut its own way: a deep course over a shallow one, the other way round,
+            // two alike, or now and then one tall stone the whole band high. Along a course
+            // each stone is as long as it happened to be cut, between one and a half and three
+            // times the course's height, and the joints wander a few millimetres off the
+            // straight, as a mason's do. Here and there a stone of the lower course runs up
+            // through the upper one too, as in the game's own picture of the wall.
+            // Where a place lies along one course of cut stone: which stone, how far into it,
+            // and where its joints before and after it stand, in stones from the course's start.
+            void stoneCourse(float run, float up, float tier, float high, out float count, out float which, out float x, out float left, out float right) {
+                // So many stones to sixty tiles that the course meets itself where vPlace starts again.
+                count = max(1.0, floor(60.0 / (high * (1.5 + 1.5 * facHash(vec2(tier, 61.0))))));
+                float along = (run + STONE_WANDER * (wrappedPatches(vec2(up * 7.0 + tier, run * 0.5), vec2(420.0, 30.0)) - 0.5)) * count / 60.0 + facHash(vec2(tier, 7.0));
                 which = floor(along);
-                float x = fract(along);
+                x = fract(along);
                 // Each joint between two stones stands a little to one side of where an even
                 // spacing would put it.
-                float left = (facHash(vec2(mod(which, count), tier)) - 0.5) * 0.5;
-                float right = 1.0 + (facHash(vec2(mod(which + 1.0, count), tier)) - 0.5) * 0.5;
+                left = (facHash(vec2(mod(which, count), tier)) - 0.5) * 0.5;
+                right = 1.0 + (facHash(vec2(mod(which + 1.0, count), tier)) - 0.5) * 0.5;
                 if (x < left) {
                     which -= 1.0;
                     x += 1.0;
@@ -1386,10 +1385,60 @@ final class PipelineShaders {
                     right = 1.0 + (facHash(vec2(mod(which + 1.0, count), tier)) - 0.5) * 0.5;
                 }
                 which = mod(which, count);
-                low = vec2((x - left) * wide, at);
-                far = vec2((right - x) * wide, high - at);
             }
 
+            // Whether a stone of the lower course of a band runs up through the upper course.
+            bool stoneTall(float which, float tier) {
+                return facHash(vec2(which + 29.0, tier + 13.0)) < 0.22;
+            }
+
+            // Where a place lies in a wall of cut stone: how far from the joints before it (low)
+            // and after it (far), along the wall and up it, which stone of which course, and how
+            // long a stone of that course and how high the course.
+            void stoneLaid(float run, float up, out vec2 low, out vec2 far, out float which, out float tier, out float wide, out float high) {
+                up += STONE_WANDER * (wrappedPatches(vec2(run * 6.0, up * 0.7), vec2(360.0, 42.0)) - 0.5);
+                float band = up / STONE_BAND;
+                float row = mod(floor(band), 60.0 / STONE_BAND);
+                float within = fract(band) * STONE_BAND;
+                float cut = facHash(vec2(row, 53.0));
+                float split = cut < 0.12 ? STONE_BAND : cut < 0.45 ? 0.58 * STONE_BAND : cut < 0.78 ? 0.42 * STONE_BAND : 0.5 * STONE_BAND;
+                float lowTier = row * 2.0;
+                float count, x, left, right;
+                stoneCourse(run, up, lowTier, split, count, which, x, left, right);
+                bool tall = split < STONE_BAND && stoneTall(which, lowTier);
+                if (within < split || tall) {
+                    tier = lowTier;
+                    high = tall ? STONE_BAND : split;
+                    wide = 60.0 / count;
+                    low = vec2((x - left) * wide, within);
+                    far = vec2((right - x) * wide, high - within);
+                    return;
+                }
+                // In the upper course a stone stops short where a tall one comes up beside it.
+                float lowWide = 60.0 / count;
+                float tallBefore = stoneTall(mod(which - 1.0, count), lowTier) ? (x - left) * lowWide : 1e3;
+                float tallAfter = stoneTall(mod(which + 1.0, count), lowTier) ? (right - x) * lowWide : 1e3;
+                tier = lowTier + 1.0;
+                high = STONE_BAND - split;
+                stoneCourse(run, up, tier, high, count, which, x, left, right);
+                wide = 60.0 / count;
+                float before = (x - left) * wide, after = (right - x) * wide;
+                if (tallBefore < before) {
+                    before = tallBefore;
+                    which += 0.5;
+                }
+                if (tallAfter < after) {
+                    after = tallAfter;
+                    which += 0.25;
+                }
+                low = vec2(before, within - split);
+                far = vec2(after, STONE_BAND - within);
+            }
+
+            // A stone's face is left rough from the chisel, and the weather has gone over it
+            // unevenly: each stone drifts lighter and darker across itself, and its arrises are
+            // worn and darkened. Every grain is drawn for as long as it is two pixels across or
+            // more, so a stone a few paces off is no flat slab of one colour.
             vec3 facStone(vec3 body, vec3 mortar, float run, float up, vec2 soft, out vec2 lean) {
                 vec2 low, far;
                 float which, tier, wide, high;
@@ -1400,14 +1449,22 @@ final class PipelineShaders {
                 float joint = max(gap.x * seen.x, gap.y * seen.y);
                 float r1 = facHash(vec2(which + 3.0, tier)), r2 = facHash(vec2(which + 19.0, tier + 7.0));
                 float own = min(seen.x, seen.y);
-                vec3 made = body * mix(1.0, 0.86 + 0.26 * r1, own) * mix(vec3(1.0), mix(vec3(1.03, 1.0, 0.95), vec3(0.97, 1.0, 1.03), r2), own);
-                float near = 1.0 - smoothstep(0.004, 0.02, max(soft.x, soft.y));
-                float tooled = patches(vec2(run * 9.0 + r1 * 31.0, up * 11.0 + r2 * 31.0)) * 0.5 + patches(vec2(run * 37.0, up * 43.0) + r1 * 17.0) * 0.3
-                        + patches(vec2(run * 150.0, up * 170.0)) * 0.2;
-                made *= 1.0 + near * 0.34 * (tooled - 0.5);
+                vec3 made = body * mix(1.0, 0.9 + 0.18 * r1, own) * mix(vec3(1.0), mix(vec3(1.04, 1.0, 0.94), vec3(0.96, 1.0, 1.04), r2), own);
+                float pixel = max(soft.x, soft.y);
+                float drift = patches(vec2(run * 2.3 + r1 * 31.0, up * 2.9 + r2 * 31.0));
+                // The bedding of the stone runs through its face in streaks, mostly along the course.
+                float vein = patches(vec2(run * 3.0 + up * 1.2 + r2 * 23.0, up * 14.0 + r1 * 23.0));
+                float coarse = 1.0 - smoothstep(0.035, 0.07, pixel), fine = 1.0 - smoothstep(0.009, 0.018, pixel);
+                float near = 1.0 - smoothstep(0.004, 0.02, pixel);
+                float chisel = patches(vec2(run * 9.0 + r1 * 31.0, up * 11.0 + r2 * 31.0));
+                float pocked = patches(vec2(run * 37.0, up * 43.0) + r1 * 17.0);
+                made *= 1.0 + own * (0.18 * (drift - 0.5) + 0.26 * (vein - 0.5)) + coarse * 0.2 * (chisel - 0.5) + fine * 0.16 * (pocked - 0.5)
+                        + near * 0.08 * (patches(vec2(run * 150.0, up * 170.0)) - 0.5);
+                float arris = 1.0 - smoothstep(STONE_JOINT, STONE_JOINT + 0.03, edge.x < edge.y ? edge.x : edge.y);
+                made *= 1.0 - 0.1 * arris * own * (1.0 - joint);
                 vec2 eased = (1.0 - smoothstep(vec2(STONE_JOINT), vec2(STONE_JOINT + 0.016), edge)) * seen;
                 lean = vec2(low.x < far.x ? -eased.x : eased.x, low.y < far.y ? -eased.y : eased.y) * (1.0 - joint);
-                vec3 bed = mortar * (0.78 + 0.16 * patches(vec2(run * 53.0, up * 59.0) + 3.0));
+                vec3 bed = mortar * (0.9 + 0.12 * patches(vec2(run * 53.0, up * 59.0) + 3.0));
                 float lost = 0.12 * (1.0 - own);
                 return mix(mix(made, bed, joint), mortar * 0.85, lost * (1.0 - joint)) * facWeather(run, up);
             }
