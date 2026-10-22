@@ -25,7 +25,8 @@ PER_METRE = 440
 LONGEST, SHORTEST = 1536, 256
 
 GROUNDS = {
-    'sign-board': 'extreme close-up photograph of a flat sheet metal sign board painted plain light grey, even enamel paint, faint scratches, '
+    'sign-board': 'extreme close-up photograph of the middle of a flat sheet metal sign board, the plain light grey surface filling the '
+                  'whole frame and running off every edge, even enamel paint, faint scratches, '
                   'specks of dust and slight weathering stains, flat even daylight, sharp focus',
     'sign-slate': 'extreme close-up photograph of a blank black slate chalkboard surface filling the frame, faint smears of wiped chalk dust, '
                   'flat even light, sharp focus',
@@ -33,8 +34,8 @@ GROUNDS = {
                   'even daylight, sharp focus',
 }
 EMBLEMS = {
-    'sign-seahorse': 'flat white silhouette of a seahorse with a spiky crest rising out of a coffee cup on a saucer, simple bold vintage '
-                     'cafe logo, solid dark red background, centred, vector, high contrast',
+    'sign-seahorse': 'flat white silhouette of a seahorse with a spiky crest rising out of a plain round cup on a saucer, the cup one smooth '
+                     'solid white shape, simple bold vintage emblem, solid dark red background, centred, vector, high contrast',
 }
 
 WHITE, RED, INK = (240, 236, 226), (178, 44, 38), (30, 28, 28)

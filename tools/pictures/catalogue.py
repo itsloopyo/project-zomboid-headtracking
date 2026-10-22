@@ -350,8 +350,9 @@ SPORTS = {
         'A bowling ball crashing into the pins at the far end of a long polished lane, seen from the approach a long '
         'way back, the pins small in the picture and blurred as they scatter, a dark ball among them, the long shiny '
         'boards filling the lower half of the picture and darkness above the pins.' + ACTION,
-        'One white bowling pin with two red stripes round its neck standing alone on a polished wooden lane, warm'
-        ' light glowing on the varnish, the dark alley behind.' + STILL,
+        'One white bowling pin with two red stripes round its neck standing on the polished maple boards of a lane, '
+        'seen low and close, and behind it a wide dim bowling alley with many lanes side by side, their long shiny '
+        'boards running away into the distance soft and out of focus, warm light glowing on the varnish.' + STILL,
         'A woman in a pink bowling shirt standing on the approach of a lane about to bowl, holding one ball in both '
         'hands against her chest, seen from high behind her looking steeply down, so the picture shows her from above '
         'and the polished boards of her lane and the lanes either side stretching away from her, the far end of the '
@@ -427,11 +428,16 @@ SPORTS = {
         'A whitetail buck with a modest rack of antlers standing half hidden in tall dry grass at the edge of an autumn'
         ' meadow on a grey overcast morning, seen from far off with a long lens, soft flat light, muted browns and '
         'greys, bare trees behind.' + WILD,
-        'A wild turkey displaying its fanned tail in a woodland clearing.' + WILD,
+        'A wild turkey gobbler strutting in a woodland clearing in spring, seen side on from a little way off with a '
+        'long lens, his tail spread in one single half circle fan behind him, his body feathers dark bronze and loose '
+        'with a soft dull sheen, his bare blue and red head held high, dry brown leaves on the ground and grey tree '
+        'trunks behind in soft overcast light, slightly soft focus.' + WILD,
         'A wide misty autumn wood at dawn, and at the far edge of a meadow a hunter in a plaid jacket and a blaze '
         'orange cap sitting on a fallen log with a steaming tin cup, a tiny figure no bigger than a fingernail at the '
         'bottom of the picture, the tall misty trees filling the rest.' + WILD,
-        'A mallard duck taking off from a misty marsh at sunrise.' + WILD,
+        'A pair of mallards swimming side by side on a still misty marsh at sunrise, a drake with a glossy green head '
+        'and a mottled brown female, both seen side on from a little way off with their wings folded, their '
+        'reflections in the calm water below them, tall reeds around and soft golden mist behind.' + WILD,
         'A grown doe with a smooth plain tan brown coat and, a little apart from her, a small spotted fawn, standing'
         ' in tall green grass at the edge of a forest.' + WILD,
         'A white-tailed deer buck standing on a ridge with the sun just setting directly behind him, so the deer and '
@@ -492,7 +498,11 @@ PAINTINGS = {
     'Abe Lincoln': ('a close cropped detail of the head and shoulders from a large formal 19th century oil portrait of '
                     'Abraham Lincoln in a dark suit, his dark coat running off the bottom and the sombre brown '
                     'background off the top and sides' + DETAIL, TALL),
-    'Apple Faced Man': ('surreal painting of a gentleman in a dark overcoat and bowler hat standing in front of a low wall, his face hidden behind a green apple floating in the air in front of it, his arms at his sides, a cloudy sky behind' + OIL, TALL),
+    'Apple Faced Man': ('a close cropped detail from the middle of a large surrealist oil painting: a gentleman seen '
+                        'from the chest up in a dark overcoat, a white shirt and a red tie, a black bowler hat sitting '
+                        'on his head, a green apple hovering just in front of his face and hiding it, a low stone wall '
+                        'and a grey cloudy sky behind him, his coat running off the bottom and the sky off the top and'
+                        ' sides' + DETAIL, TALL),
     'Benjamin Franklin': ('a close cropped detail of the head and shoulders from a large formal 18th century oil '
                           'portrait of Benjamin Franklin in a brown coat, long grey hair, his coat running off the '
                           'bottom and the dark background off the top and sides' + DETAIL, TALL),
@@ -524,33 +534,57 @@ PAINTINGS = {
     'Incognito Library': ('a close cropped detail from the middle of a large oil painting of the interior of an old '
                           'library: tall shelves of leather books, a fireplace, an armchair and a brass lamp, warm '
                           'brown tones, the shelves running off both sides and the floor off the bottom' + DETAIL, WIDE),
-    'Island Beach': ('seascape painting of waves breaking on dark rocks off an island shore, turquoise sea, cloudy sky' + OIL, LONGER),
+    'Island Beach': ('a close cropped detail from the middle of a large seascape oil painting: waves breaking white on '
+                     'dark rocks off an island shore, a turquoise sea and a cloudy sky, the surf and the rocks running '
+                     'out of the bottom of the picture' + DETAIL, LONGER),
     'John Adams': ('a close cropped detail of the head and shoulders from a large formal 18th century oil portrait of '
                    'John Adams in a dark coat and white cravat, grey hair, his coat running off the bottom and the dark'
                    ' background off the top and sides' + DETAIL, TALL),
-    'Lakeside': ('painting of a still woodland lake, green trees and their reflections, purple wildflowers on the bank, dappled light' + OIL, LONGER),
-    'Lighthouse': ('painting of a white lighthouse with a red roof on a rocky headland, blue sea and sky, a wooden walkway leading to it' + OIL, TALL),
+    'Lakeside': ('a close cropped detail from the middle of a large oil painting of a still woodland lake: green trees'
+                 ' and their reflections in the water, dappled light, purple wildflowers along the near bank running '
+                 'out of the bottom of the picture' + DETAIL, LONGER),
+    'Lighthouse': ('a close cropped detail from the middle of a large oil painting of a rocky coast: a tall round white '
+                   'brick lighthouse tower with a black iron lantern room on top, a white clapboard keeper\'s house and'
+                   ' dark pine trees beside it on a low point of grey granite ledges, a blue sea and sky, the ledges '
+                   'and the surf running out of the bottom of the picture' + DETAIL, TALL),
     'Man With One Ear': ('post-impressionist self portrait of a red bearded man in a fur cap and green coat, a thick white cloth bandage wrapped round his head over one ear and tied under his chin, swirling brushstrokes' + OIL, TALL),
-    'Margarite': ('17th century Dutch portrait of a girl in a blue and yellow turban glancing over her shoulder, a pearl earring, her plain ochre jacket smooth and unmarked, black background' + OIL, TALL),
+    'Margarite': ('a close cropped detail of the head and shoulders from a large 17th century Dutch oil painting of a '
+                  'girl in a blue and yellow turban glancing over her shoulder, a pearl earring, her plain smooth ochre'
+                  ' jacket running off the bottom and the black background off the top and sides' + DETAIL, TALL),
     'Monica Elisa': ('an ink and watercolour portrait of a woman with long black hair in a red and orange patterned robe, head and shoulders, white paper background', TALL),
     'Mount Never Rest': ('a close cropped detail from the middle of a large romantic landscape oil painting: a towering'
                          ' snow capped mountain above a lake and pine forest, golden light breaking through clouds, the'
                          ' lake running out of the bottom of the picture' + DETAIL, LONGER),
     'Night With Stars': ('post-impressionist painting of a swirling starry night sky with a crescent moon over a small sleeping village of many little houses with lit windows clustered below hills, a church spire rising among them, a tall dark cypress in the foreground, thick impasto' + OIL, BROAD),
-    'Nomad Above The Gloom': ('romantic painting of a lone man in a dark frock coat seen from behind, standing on a rocky peak above a sea of fog and distant mountains' + OIL, SQUARE),
+    'Nomad Above The Gloom': ('a close cropped detail from the middle of a large romantic oil painting: a lone man in '
+                              'a dark frock coat seen from behind, standing on a rocky crag above a sea of fog and '
+                              'distant mountains, the dark rocks running out of the bottom of the picture and the fog '
+                              'off both sides' + DETAIL, SQUARE),
     'Omega Department': ('a gouache illustration of a friendly brown bear and a badger with a grey coat, a black and '
                          'white striped face and a short grey tail, standing side by side a little apart on a flat pale'
                          ' yellow ground that runs off every edge of the picture, soft matte gouache colours', TALL),
-    'Riverside': ('impressionist painting of a river bank in spring, poplars and their reflections, pink and lilac sky' + OIL, WIDE),
+    'Riverside': ('a close cropped detail from the middle of a large impressionist oil painting of a river bank in '
+                  'spring: a row of tall slender poplars, each a narrow upright spire of leaves, and their long '
+                  'reflections in the river, a pink and lilac sky, the water running out of the bottom of the '
+                  'picture' + DETAIL, WIDE),
     'Sir Brakefire': ('17th century portrait of a gentleman with a pointed beard in a broad black hat and lace collar, dark background, chiaroscuro' + OIL, TALL),
     'Two Frame': ('a close cropped detail from the middle of a large impressionist oil painting of a country lane '
                   'between flowering hedges, lilac hills beyond, the lane running out of the bottom of the picture' + DETAIL, WIDE),
-    'Violetta': ('impressionist painting of a woman with a parasol in a garden of pink roses, green lawn, sunlight' + OIL, WIDE),
-    'Waterbeach Hills': ('landscape painting of rolling green hills and meadows under a blue sky with white clouds' + OIL, WIDE),
+    'Violetta': ('a close cropped detail from the middle of a large impressionist oil painting: a woman in a white '
+                 'dress holding a parasol in a sunny garden of pink roses, the green lawn running out of the bottom of'
+                 ' the picture and the roses off both sides' + DETAIL, WIDE),
+    'Waterbeach Hills': ('a close cropped detail from the middle of a large landscape oil painting: rolling green '
+                         'hills and smooth meadows under a blue sky with white clouds, the meadow running out of the '
+                         'bottom of the picture' + DETAIL, WIDE),
     'Waterfall': ('a close cropped detail from the middle of a large oil painting of a waterfall dropping through '
                   'autumn woods into a rocky pool, the pool and its rocks running out of the bottom of the picture' + DETAIL, WIDE),
-    'Wide': ('classical landscape painting of a river valley with ancient trees, a shallow ford with a small wooden boat drawn up on the bank, and distant blue hills, golden evening light' + OIL, STOUT),
-    'Dr. Oids': ('a framed 1980s arcade video game screen, chunky pixel art of a round yellow creature with an open mouth being chased along a corridor of a green neon maze by a pink pixel ghost, rows of small white dots in the corridors, black background, no lettering', TALL),
+    'Wide': ('a close cropped detail from the middle of a large pastoral landscape oil painting: a green river valley '
+             'with old spreading oak trees, a shallow ford with a small wooden rowing boat drawn up on the grassy bank, '
+             'distant blue hills and golden evening light, the river running out of the bottom of the picture' + DETAIL, STOUT),
+    'Dr. Oids': ('chunky 8-bit pixel art made of flat solid square pixels: a round yellow creature with an open wedge '
+                 'mouth being chased along a black corridor by a pink ghost, a close crop from the middle of a maze of '
+                 'thick green walls that run straight off every edge of the image, rows of small white dots along the '
+                 'corridors, every pixel one flat colour with crisp hard edges', TALL),
 }
 for _name, (_prompt, _size) in PAINTINGS.items():
     _key = 'painting-' + ''.join(c for c in _name.lower().replace(' ', '-') if c.isalnum() or c == '-').strip('-')
@@ -562,10 +596,15 @@ for _name, _shape in (("Lilly's Waterpond", 1.5), ("She's Got It", 2.05), ('Chro
     SHAPED['painting-' + ''.join(c for c in _name.lower().replace(' ', '-') if c.isalnum() or c == '-').strip('-')] = _shape
 
 art('painting-field-pink', 'a colour field abstract painting, two large soft edged hazy rectangles, magenta above warm yellow, on an orange ground, matte paint on canvas' + '. The painted surface filling the whole image edge to edge.', TALL)
-art('painting-field-purple', 'a colour field abstract painting, two large soft edged hazy rectangles, deep violet above midnight blue, on a dark plum ground, matte paint on canvas' + '. The painted surface filling the whole image edge to edge.', TALL)
+art('painting-field-purple', 'a colour field abstract painting, two large soft edged hazy rectangles stacked on a dark plum'
+    ' ground: the upper one a deep dark violet, nearly as dark as an aubergine, and the lower one a very dark midnight blue,'
+    ' nearly black, each a smooth even veil of softly brushed matte paint' + '. The painted surface filling the whole image edge'
+    ' to edge.', TALL)
 HUNG.append(('Paintings|Pink and Yelllow', 'painting-field-pink'))
 HUNG.append(('Paintings|Purple and Blue', 'painting-field-purple'))
-art('painting-sitter', 'dark old master portrait of a pale woman in a blue silk dress, sombre background, cracked varnish' + OIL, TALL)
+art('painting-sitter', 'a close cropped detail of the head and shoulders from a large dark old master oil portrait of a pale '
+    'woman in a blue silk dress against a sombre brown background, the whole surface crossed by a fine web of hair thin dark '
+    'cracks in the old paint, her dress running off the bottom and the background off the top and sides' + DETAIL, TALL)
 HUNG.append(('location_entertainment_gallery_01_72', 'painting-sitter'))
 HUNG.append(('location_entertainment_gallery_01_73', 'painting-sitter'))
 
@@ -575,10 +614,13 @@ art('board-cork', 'A close view of part of a cork notice board, the cork and the
                   ' sheets of lined paper with a few faint pencil scribbles, a yellowed sheet, a folded pink sheet, a '
                   'curled faded snapshot of a lake and another of an old pickup truck seen from the side, coloured push'
                   ' pins here and there. A plain photograph in even office light.', WIDE)
-art('board-white', 'A white dry erase board seen straight on and filling the whole frame, faint grey smudges of old marker, a hand'
-    ' drawn bar chart and a few arrows in blue and red marker and no words. A plain photograph in even office light.', BROAD)
-art('board-darts', 'A closed dark wooden dartboard cabinet seen straight on, its two plain panelled doors shut, small'
-                   ' brass hinges and a little brass catch. A plain photograph in even light.', BROAD)
+art('board-white', 'A close view of the middle of a white dry erase board, the glossy white surface filling the whole picture and'
+    ' running off every edge, faint grey smudges of old marker, a large hand drawn circle, a few curved arrows and some wavy'
+    ' lines in blue and red marker, half wiped away. A plain photograph in even office light.', BROAD)
+art('board-darts', 'A close view of the two shut doors of a dark stained wooden wall cabinet seen straight on, the two plain'
+                   ' panelled doors filling the whole picture edge to edge, a thin seam down the middle where they meet,'
+                   ' small brass hinges at the outer sides and a little brass catch at the seam. A plain photograph in'
+                   ' even light.', BROAD)
 for _group in ('Big Cork', 'Cork'):
     HUNG.append(('Noteboard|' + _group, 'board-cork'))
 for _group in ('Office', 'Wide Office'):
@@ -621,9 +663,13 @@ GIG = (' They are placed low in the picture with their heads below the middle of
        ' them darkens gently upward and carries on above their heads to the top edge. A 1980s record company'
        ' promotional photograph on colour film filling the whole frame edge to edge, a slightly faded print with fine'
        ' grain.')
-OLD_GIG = (' They are placed low in the picture with their heads below the middle of the frame, and the plain backdrop'
-           ' behind them carries on above their heads to the top edge. A 1960s black and white promotional photograph'
-           ' filling the whole frame edge to edge, a slightly faded silver print.')
+OLD_GIG = (' Seen from far back, so they take up only the lower half of the picture with their heads a little below the'
+           ' middle, and the same plain wall carries on across the whole upper half above them. Taken in black and white'
+           ' in the 1960s, only shades of grey, fine film grain, the photograph running right out to all four edges.')
+LOW = (' Seen from far back, so they take up only the lower half of the picture with their heads a little below the middle,'
+       ' looking at the viewer, and the same plain wall carries on, darkening gently upward, across the whole upper half'
+       ' above them. Taken on colour film in the 1980s, natural faded colours and fine grain, the photograph running right'
+       ' out to all four edges.')
 BAND = (' Seen from several paces back so they stand small and low in the frame with their heads in the lower half'
         ' of the picture, and the backdrop behind them carries on above them up past the top edge. Taken on colour film'
         ' in the 1980s, slightly faded colours and fine grain, the picture filling the whole image edge to edge.')
@@ -634,38 +680,40 @@ MUSIC = [
     'A four piece glam rock band in black leather jackets standing in a row a little apart in front of a dark red '
     'curtain, seen full length: a tall woman with a big teased blond mane, a short dark haired woman with a fringe, a '
     'lanky man with a black shag cut and a stocky bearded man with short red hair.' + BAND,
-    'One rock and roll singer alone, a man with slick dark hair in a dark waistcoat and white shirt, sitting on a stool'
-    ' against a plain dark grey backdrop, his arms folded.' + OLD_GIG,
+    'One rock and roll singer alone, a man of about twenty five with slick dark hair in a dark waistcoat and white '
+    'shirt, sitting upright on a low stool seen full length, his arms folded, a plain dark grey wall behind him.' + OLD_GIG,
     'Four young men in matching slim grey suits and narrow ties standing in a row a little apart, a 1960s beat group,'
     ' each plainly a different person: one tall and thin with a blond mop, one short and stocky with dark curls, one'
-    ' with glasses and slicked back hair, one with a long face and a dark fringe.' + OLD_GIG,
+    ' with glasses and slicked back hair, one with a long face and a dark fringe, seen full length in front of a plain'
+    ' pale grey wall.' + OLD_GIG,
     'A cheerful pop group of four in bright paisley shirts sitting in a row a little apart on a low wooden bench '
     'against a pink backdrop, seen full length: a tall one with short ginger hair, a short round faced one with dark '
     'curls, one with round glasses and long sideburns, and a thin one with a blond fringe.' + BAND,
-    'A 1970s hard rock band in denim standing in a row on a stage in front of a wall of amplifiers, four different'
-    ' looking men: one with long straight black hair, one with a curly brown perm and a moustache, one bald and'
-    ' bearded, and one with long blond hair and a headband.' + GIG,
-    'A rock singer with shoulder length brown hair and a headband standing at a microphone stand on a dark stage, a black shirt,'
-    ' a single spotlight.' + GIG,
+    'A 1970s hard rock band in denim standing in a row a little apart on a bare wooden stage in front of a plain black'
+    ' curtain, seen full length, four different looking men: one with long straight black hair, one with a curly brown'
+    ' perm and a moustache, one bald and bearded, and one with long blond hair and a headband.' + LOW,
+    'A rock singer with shoulder length brown hair and a headband standing full length at a microphone stand on a dark'
+    ' stage, a black shirt, a single spotlight on him.' + LOW,
     'A country rock guitarist with long hair, sunglasses and a fringed suede jacket sitting on a low rock in the desert'
     ' with an electric guitar across his lap, the neck of the guitar running out of the left edge of the picture, an '
     'orange sunset sky behind him.' + BAND,
-    'A pop singer with wavy shoulder length blond hair in a black leather jacket and white t-shirt, head and shoulders, against a'
-    ' deep blue background.' + GIG,
-    'Three young men in white suits and blue caps, a 1990s rhythm and blues vocal group, seen full length from a few'
-    ' paces back, each man standing on his own with an arm\'s length of space between him and the next, small enough'
-    ' in the frame that their caps stay below the top third, a plain dark navy studio backdrop behind and above'
-    ' them.' + GIG,
+    'A pop singer of about twenty five with wavy shoulder length blond hair in a black leather jacket, white t-shirt and'
+    ' jeans, sitting upright on a low wooden crate seen full length, a plain deep blue wall behind him.' + LOW,
+    'Three young men in white suits with short dark hair, a 1990s rhythm and blues vocal group, all three facing the '
+    'viewer, seen full length, each man standing on his own with an arm\'s length of space between him and the next, a'
+    ' plain dark navy wall behind them.' + LOW,
     'One red haired woman singer alone, in a long white dress with long sleeves and a high neck, standing full length '
     'against a plain cream and rose backdrop.' + BAND,
-    'An elderly crooner in a black tuxedo and bow tie standing beside a vintage silver microphone on a stand, black background,'
-    ' warm spotlight.' + GIG,
-    'A pop singer with long curly red hair laughing, in a denim jacket over a white t-shirt, seen from the waist up, a'
-    ' pale teal backdrop.' + GIG,
+    'A crooner of about seventy with silver hair in a black tuxedo and bow tie standing full length beside a vintage '
+    'silver microphone on a stand, a plain black wall behind him, a warm spotlight.' + LOW,
+    'A woman pop singer of about twenty five with long curly red hair laughing, in a buttoned denim jacket over a white'
+    ' t-shirt tucked into jeans, sitting upright on a low stool seen full length, a plain pale teal wall behind'
+    ' her.' + LOW,
     'A country singer in a black hat and black shirt sitting on a low stool with an acoustic guitar resting on his '
     'knee, the neck of the guitar running out of the right edge of the picture, an old barn wall behind.' + OLD_BAND,
-    'A young woman singer with short brown hair in a white t-shirt and jeans sitting on a wooden stool, seen from the'
-    ' waist up, a pastel pink backdrop.' + GIG,
+    'A woman singer of about twenty five with short brown hair in a loose white t-shirt and jeans, sitting upright on a'
+    ' low wooden stool seen full length, her knees together and her hands resting on her knees, a calm closed mouth '
+    'smile, a plain pastel pink wall behind her.' + LOW,
     'A disco singer with a big afro in a long sleeved high necked purple sequin gown under a mirror ball, purple light.' + GIG,
     'A smiling country singer in a white cowboy hat and an embroidered western shirt standing full length with an '
     'acoustic guitar slung on his shoulder, the neck of the guitar running out of the edge of the picture, a plain '
@@ -697,26 +745,31 @@ FILM = (' The subject stands high in the picture with every face in the upper ha
         ' carries on below it to the bottom edge. A 1993 studio photograph for a movie, the picture filling the whole'
         ' image edge to edge, a fine halftone texture and slightly muted colours.')
 FILMS = {
-    'Cyberkiller': ('Cyberkiller', 'Head and shoulders of a grim square jawed soldier in black body armour, a riveted'
-                                   ' steel plate over the left half of his face with a round glowing blue glass eye'
-                                   ' where the eye was, dark teal background.' + FILM,
+    'Cyberkiller': ('Cyberkiller', 'Head and shoulders of a grim square jawed cyborg soldier in smooth black modern '
+                                   'tactical body armour of moulded matte plates, a smooth steel plate over the left '
+                                   'half of his face with a round glowing blue glass eye where the eye was, dark teal '
+                                   'background.' + FILM,
                     'CYBERKILLER', 'IN THEATERS NOW'),
     'Cyberkiller 2': ('Cyberkiller 2', 'A muscular bearded man in a leather jacket and a soldier with a riveted steel plate over half'
                       ' his face standing side by side a little apart, dark teal background.' + FILM,
                       'CYBERKILLER 2', 'IN THEATERS NOW'),
     'Operation Fort Knox': ('Operation Fort Knox', 'A blond secret agent in a black tuxedo, head and shoulders, stacks of gold bars'
                             ' glowing behind him, golden light.' + FILM, 'OPERATION FORT KNOX', 'IN THEATERS NOW'),
-    'PAWS': ('PAWS', 'A raccoon, a brown bear cub and a badger walking a little apart along a path in a sunny green'
-                     ' forest, the animals in the upper half, a hand painted gouache illustration for a 1993 animated'
-                     ' film with soft colours, the forest running off all four edges of the image.',
+    'PAWS': ('PAWS', 'A raccoon, a brown bear cub and a badger walking a little apart along the top of a grassy ridge'
+                     ' against a big pale summer sky, seen from below at the foot of the slope, so the animals stand '
+                     'high in the picture with their faces in the upper third, and the green slope dotted with '
+                     'wildflowers fills the whole lower half below them. A hand painted gouache illustration with soft'
+                     ' colours, the scene running off all four edges of the image.',
              'PAWS', 'IN THEATERS NOW'),
     'Dog Goblin 4': ('Dog Goblin 4', 'A huge cracked stone skull half buried in a misty moonlit wood, bare trees, black and steel'
                      ' blue.' + FILM, 'DOG GOBLIN 4', 'IN THEATERS NOW'),
     'Pleistocene Land': ('Pleistocene Land', 'A woolly mammoth with great curved tusks walking through a snowy pine forest in a'
                          ' blizzard, pale winter light.' + FILM, 'PLEISTOCENE LAND', 'IN THEATERS NOW'),
-    'Dr Oids': ('Dr Oids', 'Chunky 1980s arcade pixel art of a round yellow creature with an open mouth and a pink'
-                           ' pixel ghost in a green neon maze on black, the creature and the ghost in the upper half,'
-                           ' the black maze running off all four edges of the image.', 'DR. OIDS', 'NOW SHOWING'),
+    'Dr Oids': ('Dr Oids', 'Chunky 8-bit pixel art made of flat solid square pixels: a close crop from the middle of a'
+                           ' maze of thick green walls and wide black corridors, the walls running straight off every'
+                           ' edge of the image, a round yellow creature with an open wedge mouth and a pink ghost in '
+                           'the upper half, rows of small white dots along the corridors, every pixel one flat colour '
+                           'with crisp hard edges.', 'DR. OIDS', 'NOW SHOWING'),
     'The Forgotten Element': ('The Forgotten Element', 'A rugged man in a fedora and leather jacket standing beside a dark haired'
                               ' woman in a khaki shirt, a little apart, a propeller plane in a golden sunset sky behind them.' + FILM,
                               'THE FORGOTTEN ELEMENT', 'COMING SOON'),
