@@ -3803,7 +3803,7 @@ final class WorldScene {
                     }
                 }
             }
-            addCharacters(pose);
+            addCharacters(player, pose);
             takeLight(start);
             if (DepthFights.ON && !fromOutside) {
                 DepthFights.audit(shown, pose.eyeX, pose.eyeY, pose.eyeUp, cell);
@@ -4137,11 +4137,13 @@ final class WorldScene {
         /**
          * Where each standing character is, for the aim to be traced against. Read from the
          * game's own list every frame: characters move, and a chunk's build may be frames old.
+         * The player comes in as handed to build and is not read off viewer: setting the picture
+         * down lets go of viewer on the render thread, which may fall while a rehearsal builds.
          */
-        private void addCharacters(ViewCamera.Pose pose) {
-            float reach = Controls.aimReach(viewer);
+        private void addCharacters(IsoPlayer player, ViewCamera.Pose pose) {
+            float reach = Controls.aimReach(player);
             for (IsoMovingObject mover : cell.getObjectList()) {
-                if (mover instanceof IsoGameCharacter character && character != viewer
+                if (mover instanceof IsoGameCharacter character && character != player
                         && character.getAlpha(playerIndex) > CHARACTER_SHOWN_ALPHA && !character.isInvisible()) {
                     float toX = character.getX() - pose.eyeX, toY = character.getY() - pose.eyeY;
                     if (toX * toX + toY * toY <= reach * reach) {
