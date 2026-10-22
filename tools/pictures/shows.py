@@ -942,20 +942,17 @@ show('action-team', DRAMA,
      ' green army jeep standing on its four wheels on the road in front of it, dust flying round it, seen whole and'
      ' side on from a distance, in a 1980s action series.',
      'A grinning heavy built man in his late fifties with a bald head, a fringe of grey hair and a full '
-     'bushy grey beard, in a plain open necked checked work shirt, a fat plain brown cigar clamped in his '
-     'teeth, bare brown leaf from end to end, seen from the waist up a few paces off, in a 1980s action '
-     'series.',
-     'Seen exactly side on from far away across the desert, a small plain black van with smooth bare sides speeds from'
-     ' left to right along a dirt road trailing a long cloud of dust, and a small dark helicopter flies low a little'
-     ' way behind it the same way, both small in the wide picture, flat scrub and distant mountains behind, in a 1980s'
-     ' action series.')
+     'bushy grey beard, in a plain open necked checked work shirt, a fat dark brown cigar, one even brown '
+     'all over, clamped in his teeth, seen from the waist up a few paces off, in a 1980s action series.',
+     'Seen side on from very far away, a small dark helicopter flies low over flat desert scrub, a tiny dark shape '
+     'against a pale hazy sky, distant blue mountains along the horizon, the colours dull, faded and grainy like old '
+     '16mm film, in a 1980s action series.')
 show('strange', DRAMA,
-     'A man of about fifty in a trench coat stands in an open foggy field at the edge of a graveyard at night, looking'
-     ' straight into the lens as he speaks, only grey fog behind him and a few dim grey shapes of old blank headstones'
-     ' far off in it, in a documentary series about the unexplained.',
-     'A dim misty forest of dense tall tree trunks seen from far off, and far back among them a small dark blur,'
-     ' half hidden behind one distant trunk and almost lost in the grey mist, easy to miss, in a documentary series'
-     ' about the unexplained.',
+     'A man in a long trench coat, seen from behind, walks away alone along a narrow dirt path into thick grey fog at'
+     ' night, a lone bare tree beside the path, the fog swallowing everything beyond him, in a documentary series about'
+     ' the unexplained.',
+     'A dim misty forest of dense tall tree trunks at night, and far back among them one small pale glowing light'
+     ' hanging in the grey mist, soft and blurred, in a documentary series about the unexplained.',
      'Three points of white light float high in the open black night sky in a triangle far above a dark farmhouse and '
      'its field, small and blurred like distant stars only brighter, in a documentary series about the unexplained.',
      'An old farmer of about seventy in overalls sits on his porch at night talking, a plain black microphone held up'
@@ -1010,10 +1007,10 @@ show('britcom', SITCOM,
 
 # What comes on a tape and is not on the air.
 show('fitness', VIDEO,
-     'An aerobics instructor of about thirty, a woman with a high ponytail in a t-shirt of one smooth even purple all'
-     ' over, stands on a low platform facing the viewer with her arms raised, a class of grown men and women behind'
-     ' her copying her, each in a baggy t-shirt of one single solid colour, smooth and bare all over, everyone seen'
-     ' close from the waist up, in a 1980s exercise class in a gym.',
+     'An aerobics instructor, a grown woman of about thirty with a high brown ponytail, in a loose long'
+     ' sleeved plain purple sweatshirt, stands alone facing the viewer and looking straight at the viewer with both'
+     ' arms raised high, smiling, seen from the waist up, a plain pale painted gym wall behind her, in a 1980s exercise'
+     ' class.',
      'Seen from the waist up across a gym, a row of four grown people a little apart doing squats, all in plain solid'
      ' coloured shirts: a heavy set bald man of about fifty in grey, a woman of about thirty five with a curly perm in'
      ' pink, a grey haired man of about sixty five in navy and a tall woman of about forty with a brown bob in yellow,'
@@ -1037,10 +1034,9 @@ show('garage', TAUGHT,
      'A mechanic in plain blue overalls leans over the open hood of an old car with his arms down inside the engine'
      ' bay, seen from the side a few paces back.')
 show('first-aid', TAUGHT,
-     'A paramedic of about forty with a moustache, in a plain white short sleeved shirt tucked into plain dark trousers'
-     ' with a thin plain belt, wraps a white bandage round the bare forearm of a grown woman volunteer of about thirty'
-     ' five with short permed hair and a wedding ring, in a plain red sweater with its sleeve pushed up, who sits'
-     ' upright on the edge of a table holding her arm out to him, in a plain beige room.',
+     'A grown woman of about thirty five with short permed hair, in a plain red sweater, sits upright on the edge of a'
+     ' table in a plain beige room with her left forearm wrapped in a neat white bandage and resting in a white cloth'
+     ' sling tied at her shoulder, smiling, seen from the waist up.',
      'A paramedic of about thirty five in a plain light blue cotton shirt with smooth bare sleeves and a '
      'smooth bare chest, worn untucked over plain dark trousers, kneels on a grey carpet with both hands '
      'pressed on the chest of a plain pale plastic training dummy lying on its back, in a plain beige room.',
@@ -1050,9 +1046,9 @@ show('first-aid', TAUGHT,
      ' as she speaks.',
      'A bandage is wrapped round a lower leg resting on a stool.')
 show('guns', TAUGHT,
-     'A man of about fifty in a hunting vest stands at the wooden bench of an outdoor shooting range, a plain wooden'
-     ' bolt action hunting rifle lying flat on the bench in front of him, seen side on, the rifle\'s short bolt handle'
-     ' sticking out from the side of its steel action just in front of the stock and ending in a small round knob.',
+     'A man of about fifty in a plain tan canvas vest over a long sleeved plaid shirt stands at an outdoor shooting'
+     ' range wearing plain smooth grey ear muffs and yellow tinted shooting glasses, seen from the chest up, looking'
+     ' out across the range, green grass and a grass bank soft and blurred behind him.',
      'A pair of yellow tinted shooting glasses and a pair of plain smooth grey ear muffs lying side by side on the'
      ' weathered wooden bench of an outdoor shooting range, seen close from a little above, green grass soft and'
      ' blurred beyond the bench.',
@@ -1073,27 +1069,26 @@ show('fishing', OUTDOOR,
      'A man casts a fishing rod from a lake shore at dawn.',
      'An open green plastic tackle box on a sun warmed wooden dock, its little trays holding bright fishing lures, red'
      ' and white spoons, yellow feathered jigs and soft purple worms with hooks, the lake water beyond.',
-     'A bareheaded man of about fifty with short grey hair and a sunburnt face sits in a small plain green aluminium'
-     ' boat on a calm lake and lifts a landing net out of the water, a big largemouth bass lying curled deep down in'
-     ' the bag of the net, the whole fish held within the mesh.')
+     'A big green largemouth bass lying on the damp grey planks of a wooden dock beside a wicker fishing creel, seen'
+     ' close from a little above, the calm lake water beyond the edge of the dock.')
 show('farm', OUTDOOR,
      'A girl of about ten holds out a handful of feed through a wide gap between the wooden rails of a fence, and a'
      ' white goat on the other side reaches its head through the gap to eat, at a small farm petting zoo in summer.',
      'A rooster stands on a fence post at sunrise.',
-     'Three black Angus cows, each one solid black all over, graze well apart from each other in a wide '
-     'open rolling green pasture in Kentucky, a long white painted wooden board fence running across the '
-     'grass, a few big lone oak trees and low wooded hills behind, under a hazy summer sky.',
-     'A farmer of about sixty in a straw hat drives an old plain red tractor across a wide flat field of young corn in'
-     ' Kentucky, seen side on from a little behind so its front is turned away, its smooth rounded red hood bare, a wooden tobacco barn and a line of trees far behind, under a hazy summer sky.',
+     'One black Angus cow, solid black all over with a smooth rounded hornless head, grazes alone side on in a wide '
+     'open rolling green pasture in Kentucky, seen from a little way off, a long white painted wooden board fence '
+     'running across the grass, a big lone oak tree and low wooded hills behind, under a hazy summer sky.',
+     'A farmer of about sixty in a straw hat and a long sleeved work shirt, seen from behind, walks between rows of '
+     'young green tobacco plants in a wide field in Kentucky, a wooden tobacco barn and a line of trees far behind, '
+     'under a hazy summer sky.',
      'Two muddy piglets lie asleep on their sides a little apart in deep golden straw in a dim barn, their eyes'
      ' closed, seen from above.')
 show('trade', TAUGHT,
      'An old grey metal house fuse box on a basement wall with its door open, a row of round glass fuses screwed into'
      ' round sockets inside like small light bulbs, an electrician of about fifty in a tool belt standing beside it'
      ' seen from behind.',
-     'A few loose coloured electrical wires with short neat bare copper ends lying on a workbench beside a roll of'
-     ' black electrical tape, a yellow handled screwdriver and a few small orange wire nuts lying loose, seen close'
-     ' up.',
+     'A neatly wound coil of red insulated electrical wire and a coil of white wire lying on a wooden workbench beside'
+     ' a pair of plain red handled pliers, seen close up.',
      'An old wooden cabinet radio with its back panel off standing on a workbench, seen from behind, a row of glass'
      ' vacuum tubes inside it glowing warm orange in the dim workshop, a coil of solder and a pair of pliers lying on'
      ' the bench beside it.',
@@ -1107,11 +1102,10 @@ show('sewing', TAUGHT,
      'machine shows above the cloth.',
      'A spool of red thread and a round red pincushion stuck with pins lie beside a folded piece of denim on a table,'
      ' seen close up.',
-     'A dressmaker\'s dummy covered in plain cream linen, one smooth even colour all over, dressed in a half finished'
-     ' cotton blouse with a few pins stuck in it, stands in a sewing room.',
-     'Long heavy steel dressmaking shears lie closed on a bare wooden table beside two separate pieces of '
-     'blue cloth lying side by side a hand\'s width apart, each with one long dead straight cut edge, the '
-     'two straight cut edges facing each other across the strip of bare wood between them.')
+     'A half finished pale blue gingham cotton blouse hanging on a wooden coat hanger from a hook on a plain cream wall'
+     ' of a sewing room, a few pins stuck along its open side seam, soft window light across it.',
+     'Long heavy steel dressmaking shears lying closed on a neatly folded stack of plain blue cotton cloth on a bare'
+     ' wooden table, seen close from a little above, soft window light.')
 show('pottery', TAUGHT,
      'A potter of about fifty in an apron sits at a turning potter\'s wheel, seen from a little way back, a tall wet'
      ' clay pot rising on the wheel between her two hands.',
@@ -1136,9 +1130,8 @@ show('nature', NATURE,
      'A red fox pounces in the snow.',
      'An American alligator with a broad rounded snout lies half submerged in a green swamp among lily pads.',
      'A wide river winds between wooded hills, seen from the air.',
-     'A brown bear stands at the lip of a waterfall in the white water at the very top of the falls, its '
-     'mouth open, and a small dull grey fish blurred with motion leaps up through the white spray just '
-     'below its jaws, half hidden in the spray.',
+     'A big brown bear stands in the rushing white water at the very top of a waterfall, its head lowered '
+     'watching the water at its feet, white spray all round it.',
      'A spiral galaxy and stars in deep space in an astronomy documentary.')
 show('travel', ' A still image from a 1980s travel documentary shot on 16mm film on a sunny day, soft with film grain'
                ' and warm muted colours. The picture fills the whole image edge to edge.',
@@ -1187,9 +1180,10 @@ show('vacation', HOME,
 show('christmas', HOME,
      'Children in pajamas open presents under a Christmas tree.',
      'A family in paper crowns sits round a table with a roast turkey.',
-     'A school nativity play on a small stage, two children dressed as shepherds in striped robes and two as angels in white'
-     ' with tinsel, each child different, a plain dark blue curtain filling the back of the stage and the bare plain'
-     ' painted walls of the hall either side, seen from the audience.',
+     'A school nativity play on a small stage, two children dressed as shepherds in striped robes and tea towel'
+     ' headdresses kneeling beside a small wooden manger full of straw, one child a head taller than the other,'
+     ' a plain dark blue curtain filling the back of the stage and the bare plain painted walls of the'
+     ' hall either side, seen from the audience.',
      'A man in a Christmas sweater holds up a pair of socks and pulls a face.')
 show('pets', HOME,
      'Two kittens, one ginger and one grey, sit apart in a cardboard box on a kitchen floor.',
@@ -1200,8 +1194,9 @@ show('stage', HOME,
      'A boy of about twelve in a white shirt stands up on the raised wooden stage of an American school gym playing a'
      ' saxophone, a plain dark red curtain behind him, seen from the audience below the stage.',
      'A row of children sing on risers in a school hall, seen from the back of the hall.',
-     'Three high school seniors of about eighteen, a young man and two young women with grown up faces, in long cloaks'
-     ' act on a school stage in front of painted scenery of plain green trees and a grey stone wall.',
+     'Two grown actors of about thirty five in a community play, a bearded man and a woman with her hair pinned up,'
+     ' both in plain hooded brown medieval cloaks of rough wool, act on a school stage in front of painted scenery of'
+     ' plain green trees and a grey stone wall.',
      'Grown mothers and fathers in their thirties and forties, in work clothes and summer dresses, some grey haired or '
      'balding, sit on folding chairs clapping in a school hall, seen from behind at a distance.')
 

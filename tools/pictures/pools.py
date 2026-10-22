@@ -46,7 +46,7 @@ POOLS = {
     ],
     'bar': [
         'A men\'s softball team of five men standing side by side in one loose row on a dusty field at '
-        'evening, seen from a few metres away from the knees up, in matching plain blue t-shirts, each man '
+        'evening, seen close from the waist up, in matching plain blue t-shirts, each man '
         'plainly different in age, face and build: a heavy grey haired man of about fifty five with a grey '
         'moustache, a lean man of forty with a dark beard, a tall bald man of about fifty, a stocky man of '
         'thirty five with a red brown moustache and a thin young man of twenty two with shaggy brown hair, '
@@ -55,15 +55,15 @@ POOLS = {
         'the picture: a bald man of about fifty, a bearded man of forty, a tall thin man of thirty and a stout man of '
         'sixty with grey hair, the room behind them out of focus in a soft warm wood coloured blur.' + PRINT,
         'A wooden fishing dock on a Kentucky lake at sunset, a small aluminium boat tied up beside it, calm water.' + PRINT,
-        'Three racehorses with jockeys in coloured silks galloping down the home stretch of a dirt race '
-        'track, well spread out one behind another, seen side on from the white rail, each jockey crouched '
-        'low and tucked up over his horse\'s neck with very short stirrups and his knees high, green trees '
-        'and a pale summer sky beyond the far side of the track.' + PRINT,
+        'A sleek dark bay thoroughbred racehorse standing alone side on in a green paddock on a Kentucky '
+        'horse farm, its coat gleaming in the evening sun, its head raised and turned a little towards the '
+        'viewer, a white plank fence behind it and rolling green fields and trees beyond.' + PRINT,
         'A small country band of three men playing two acoustic guitars and an upright bass on a low wooden stage in a'
         ' dim bar, seen from across the room so they are small.' + PRINT,
-        'The outside of a roadside bar at dusk, a low wooden building with a gravel car park and two plain '
-        'old boxy pickup trucks parked side on to the viewer, and in its window a glowing red neon tube '
-        'bent into the shape of a frothy beer mug.' + PRINT,
+        'The outside of a low clapboard roadside bar at dusk, seen from across its empty gravel car park, '
+        'warm yellow light glowing in its small windows, a glowing red neon tube bent into the shape of a '
+        'frothy beer mug in one window, a single bare bulb over the plain wooden door, dark trees behind '
+        'under a deep blue sky.' + PRINT,
         'An empty bar at night, a pool table under one single hanging lamp with a green shade, seen from a few paces '
         'back, the lamp light on the green felt, a small cluster of balls far off at the end of the table, soft and '
         'out of focus, a cue lying along the near cushion, plain dark wood panelled walls in shadow.' + PRINT,
@@ -110,11 +110,10 @@ POOLS = {
         ' road.' + PRINT,
     ],
     'shop': [
-        'A row of long handled garden rakes and shovels with straight wooden handles leaning against the '
-        'brick wall beside the door of a small town American hardware store, a plain red wheelbarrow and a '
-        'stack of galvanised buckets set out on the wide concrete sidewalk in front, the store a flat '
-        'roofed red brick building with a plain green canvas awning and big plate glass windows dark and '
-        'reflecting the street, seen from across the street on a sunny day.' + PRINT,
+        'A stack of shiny galvanised steel buckets and a few plain clay flower pots set out on the wide '
+        'concrete sidewalk in front of a small town red brick hardware store on a sunny morning, seen close '
+        'from a little way off, the plain red brick wall of the store and a plain green canvas awning '
+        'behind them, soft shadows on the sidewalk.' + PRINT,
         'A small town main street in the 1950s seen at a slant down the length of the street, two storey shop fronts '
         'of plain painted brick running away along one side, their plain striped canvas awnings pulled down low over '
         'the windows, the brick above them bare, a few rounded old cars parked along the kerb, tall shade '
@@ -136,25 +135,21 @@ POOLS = {
         'concrete sidewalk and an empty wet street, the brick wall above the windows bare.' + PRINT,
     ],
     'school': [
-        'A class picture of about twenty fourth graders, girls and boys in equal numbers, all nine and ten '
-        'years old, in three rows in front of a plain beige painted cinder block wall, seen from a few '
-        'metres away, every child different, some with glasses, ponytails, bowl cuts and curls, all '
-        'looking at the camera with their eyes open and smiling, their teacher, a grown woman of about '
-        'forty in a cardigan, standing at the right end of the back row.' + PRINT,
-        'Three high school basketball seniors, grown young men of eighteen with men\'s faces, square jaws and a shadow '
-        'of stubble, one tall and thin with short dark hair, one broad with a blond crew cut, one with a short curly '
-        'afro, in plain maroon t-shirts and grey sweatpants, standing side by side on a polished gym floor, the one in '
-        'the middle holding a worn orange basketball, folded wooden bleachers filling the whole background, seen from '
-        'a few metres away from the knees up.' + PRINT,
+        'An empty elementary school classroom in warm afternoon light, rows of small wooden desks with '
+        'their chairs pushed in, a big green chalkboard wiped clean and smeared with faint pale chalk dust '
+        'across the front wall, a plain wooden teacher\'s desk with one red apple on it, tall windows '
+        'along one side letting in long beams of sunlight across the floor.' + PRINT,
+        'A worn orange basketball resting on the polished golden wooden floor of an empty high school gym, '
+        'seen low and close, the long shine of the window light across the floor boards, folded wooden '
+        'bleachers soft and blurred far behind.' + PRINT,
         'Head and shoulders of a school principal, a youthful middle aged woman of about forty five, trim and energetic, '
         'with a full head of short glossy chestnut brown hair in a neat 1980s cut, a smooth firm face with clear skin, '
         'bright eyes and a kind smile, a little pink lipstick, in a navy blazer over a cream blouse. Taken on colour film '
         'in the 1980s, soft flash, slightly faded colours, fine grain and natural skin, a mottled blue grey backdrop '
         'behind her running off all four edges and into every corner of the image.',
-        'A high school graduating class of young men and women of eighteen in maroon caps and gowns seated in rows on a'
-        ' lawn, every one of them seated, the rows packed close so only the gowned graduates show, the knees of the '
-        'front row along the bottom of the picture, all facing the camera, seen from a little way off, tall trees '
-        'behind.' + PRINT,
+        'A handful of maroon square graduation caps with dangling tassels tossed high in the air against a '
+        'clear blue summer sky, seen from below, only the flying caps, the sky and the green tops of tall '
+        'trees along the bottom edge in the picture.' + PRINT,
         'A single storey red brick elementary school with a flagpole and a yellow school bus out front, seen from across the'
         ' road.' + PRINT,
         'A high school marching band in blue and white uniforms marching in neat rows across plain green grass, seen '
@@ -167,20 +162,17 @@ POOLS = {
     ],
     'police': [
         'A police officer of about forty with a moustache, bareheaded, in a plain dark blue short sleeved '
-        'uniform shirt, standing beside his plain white patrol car on a small town street, the car seen '
-        'side on with its front end out of the picture, seen from a few metres away from the waist up, '
-        'plain brick walls soft and blurred behind him.' + PRINT,
+        'uniform shirt, standing on a small town sidewalk with his arms folded, seen from a few metres '
+        'away from the chest up, a plain red brick wall soft and blurred behind him.' + PRINT,
         'A police academy graduating class of about twenty officers in dark uniforms standing in rows outside a brick building,'
         ' seen from a distance.' + PRINT,
-        'Seen from high above, looking straight down on the roofs of four big long plain white 1980s '
-        'American sedans used as patrol cars, parked side by side in four separate parking spaces with a '
-        'wide gap of grey tarmac and a white painted line between each car and the next, each roof with a '
-        'red and blue light bar across it, summer afternoon shadows.' + PRINT,
-        'Four police officers in 1950s uniforms with plain sleeves and peaked caps standing in a row '
-        'beside an old rounded dark patrol car with white doors and one single round light on its roof, on '
-        'a small town street, each a different man: a heavy set sergeant of about fifty five with a grey '
-        'moustache, a tall thin man of thirty, a stocky man of forty with a broad face and a short young '
-        'man of twenty five.' + OLD_PRINT,
+        'A German shepherd police dog sitting alert on a green lawn on a summer afternoon, ears up and '
+        'mouth a little open, in a plain brown leather collar, seen side on from a little way off, a row of '
+        'trees soft and blurred behind.' + PRINT,
+        'Two police officers in 1950s uniforms with plain sleeves and peaked caps standing side by side on '
+        'a small town sidewalk in front of a plain brick wall, seen from the waist up, two plainly different '
+        'men: a heavy set sergeant of about fifty five with a round face, jowls and a grey moustache, and a '
+        'tall thin clean shaven young man of twenty five with a long narrow face.' + OLD_PRINT,
     ],
     'stage': [
         'A theatre stage during a play, actors in period costume under warm stage lights, a painted backdrop of a garden,'
