@@ -45,12 +45,9 @@ POOLS = {
         ' the tents in the distance.' + PRINT,
     ],
     'bar': [
-        'A men\'s softball team of five men standing side by side in one loose row on a dusty field at '
-        'evening, seen close from the waist up, in matching plain blue t-shirts, each man '
-        'plainly different in age, face and build: a heavy grey haired man of about fifty five with a grey '
-        'moustache, a lean man of forty with a dark beard, a tall bald man of about fifty, a stocky man of '
-        'thirty five with a red brown moustache and a thin young man of twenty two with shaggy brown hair, '
-        'some with arms folded, some with hands on hips.' + PRINT,
+        'A whitetail buck with a full set of antlers standing alone side on at the edge of a misty hay field in '
+        'Kentucky at dawn, its head raised and turned towards the viewer, seen from a little way off, a dark line of '
+        'trees behind it.' + PRINT,
         'Four men in matching plain red bowling shirts standing side by side, seen close from the waist up so they fill '
         'the picture: a bald man of about fifty, a bearded man of forty, a tall thin man of thirty and a stout man of '
         'sixty with grey hair, the room behind them out of focus in a soft warm wood coloured blur.' + PRINT,
@@ -132,10 +129,10 @@ POOLS = {
         'concrete sidewalk and an empty wet street, the brick wall above the windows bare.' + PRINT,
     ],
     'school': [
-        'An empty elementary school classroom in warm afternoon light, rows of small wooden desks with '
-        'their chairs pushed in, a big green chalkboard wiped clean and smeared with faint pale chalk dust '
-        'across the front wall, a plain wooden teacher\'s desk with one red apple on it, tall windows '
-        'along one side letting in long beams of sunlight across the floor.' + PRINT,
+        'A small single storey red brick American elementary school from the 1950s with a flat roof and a long row '
+        'of wide windows, seen from across its green front lawn on a sunny summer morning, the brick wall above the '
+        'doors bare, an American stars and stripes flag on a tall white flagpole in front, big leafy maple trees '
+        'beside it.' + PRINT,
         'A worn orange basketball resting on the polished golden wooden floor of an empty high school gym, '
         'seen low and close, the long shine of the window light across the floor boards, folded wooden '
         'bleachers soft and blurred far behind.' + PRINT,

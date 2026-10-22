@@ -267,9 +267,9 @@ show('phone-in', LOCAL,
 show('hollywood', VIDEO,
      'A woman entertainment news presenter of about thirty five in a pink blazer with ordinary hair and make up stands'
      ' in front of a painted mural of palm trees and a pink sunset sky that fills the whole picture behind her.',
-     'A film star, a man of about fifty with dark hair just greying at the temples and a firm face, in a '
-     'black tuxedo and bow tie, walks alone along a red carpet at night waving, seen from the waist up, a '
-     'dark blurred crowd behind him with bright white flash bursts.',
+     'An empty red carpet at night seen low and close from one side, running away across the picture between two '
+     'rows of short polished brass posts joined by thick red velvet ropes, a few bright white camera flashes going '
+     'off in the dark beyond, everything sharp from near to far, the colours muted and washed out like old video.',
      'An empty false front street of wooden shop facades with plain painted windows, black cables lying across the'
      ' dusty ground and a canvas director\'s chair with a wooden frame standing empty in front.',
      'A handsome actor in a tuxedo and an actress in a long high necked sequin gown stand a little apart on a red carpet,'
@@ -400,11 +400,10 @@ show('tech', LOCAL,
      'A man of about twenty eight with glasses and short brown hair, in a plain short sleeved shirt open at the neck,'
      ' sits at a desk beside one beige computer with one boxy monitor, turned towards the viewer and talking, a few'
      ' loose green circuit boards lying on the desk, a plain brown curtain behind him.',
-     'An old plain beige computer mouse with a long grey cord lying on a plain blue mouse mat on a wooden '
-     'desk, seen close up from a little above.',
-     'A dim bedroom at night seen from the doorway, a soft green glow from a computer screen out of the '
-     'picture to one side falling across an empty wooden desk chair and a plain white mug on the desk, the '
-     'rest of the room in shadow.',
+     'An old soldering iron resting in its coiled wire stand on a scarred wooden workbench, a thin curl of smoke '
+     'rising from its tip, a small reel of grey solder wire lying beside it, seen close from a little above.',
+     'A calm woman of about forty with short brown hair and glasses, in a plain blue cardigan over a white blouse, '
+     'seen from the shoulders up, talking towards the viewer, a plain brown curtain filling the picture behind her.',
      'A man of about twenty eight with glasses and a short beard grins and holds up a green circuit board, a plain'
      ' brown curtain behind him.')
 show('interview', LOCAL,
@@ -420,10 +419,9 @@ show('clown', LOCAL,
      'One clown with an orange wig and a red nose stands alone on the bare floor of a small room, holding up a bunch '
      'of three balloons on strings above his head, one red, one yellow and one blue, the wall behind him painted with '
      'yellow stars on a deep blue sky.',
-     'A grown man clown of about forty with a broad adult face, crow\'s feet round his eyes, white face paint, an '
-     'orange wig and a red nose, in a baggy polka dot suit, sits on a stool in a children\'s show with his hands '
-     'resting on his knees, smiling up at a cloud of soap bubbles drifting down round him, a plain sunny yellow '
-     'painted wall filling the picture behind him to every edge and corner.',
+     'A dozen round soap bubbles of different sizes floating in the air in front of a plain sunny yellow painted '
+     'wall, each one clear with thin swirls of rainbow colour on it, the flat yellow wall filling the picture to '
+     'every edge and corner, in a children\'s show.',
      'Small children sit cross legged on a carpet and laugh in a children\'s show, each child different: a girl of'
      ' about five with red pigtails, a chubby boy of about four with a crew cut, a thin girl of about six with dark'
      ' braids and a boy of about five with glasses, a plain painted yellow wall behind them.')
@@ -485,8 +483,9 @@ show('pop', CLIP,
      'loose long sleeved clothes dance with their arms in the air, tiny dark silhouettes against coloured '
      'haze.')
 show('rock', CLIP,
-     'Tall jets of orange flame shooting up into dark haze at a rock concert, seen from below, only the flames, a'
-     ' few white spotlight beams slanting through the haze and the black dark above them in the picture.',
+     'A close view of one old silver ball topped microphone on a plain black stand, seen a little from below, alone'
+     ' in black darkness and a dim deep red haze, one beam of warm white light slanting down onto it from above out of'
+     ' the picture, the picture grainy like 16mm film.',
      'Seen from far back in the dark, a long haired guitarist stands alone in a single round beam of white light on a'
      ' dark stage, a small figure, his guitar a dark shape in his hands, the beam coming down from far above out of'
      ' frame.',
@@ -517,10 +516,10 @@ show('rap', CLIP,
      'plain brick wall under one orange street lamp at night, one in a baggy black hooded sweatshirt and '
      'one in a big plain white t-shirt, both in baggy jeans with their arms folded, the colours dull, '
      'matte and muted like old 16mm film.',
-     'A young Black man of about twenty five with a short beard and a grown man\'s face, in a plain navy hooded'
-     ' sweatshirt with the hood down, leans with one shoulder against an old red brick wall on a hazy summer'
-     ' afternoon, looking off to one side, seen close from the chest up, the worn red bricks filling the whole'
-     ' picture behind him, the colours dull, matte and muted like old 16mm film, the picture soft and grainy.',
+     'An empty American city street of old red brick row houses on a hazy summer evening, seen from the sidewalk, '
+     'stone front stoops and black iron railings running away down the street, clean bare brick walls, one street'
+     ' lamp just lit, everything sharp from near to far, the colours dull, matte and muted like old 16mm film, the'
+     ' picture grainy.',
      'Three young Black rappers of about twenty two sit and stand on the front stoop of a city row house '
      'in daylight, scowling towards the viewer with their arms crossed, all clean shaven, in oversized plain '
      'hooded sweatshirts hanging loose over baggy jeans, one red, one navy and one yellow, one with a high '
@@ -530,27 +529,29 @@ show('club', HAZE,
      'Looking steeply down from high up under the dark roof of a large dance hall, the crowd on the dance floor far '
      'below and small, a sea of heads and shoulders filling the picture from side to side, green laser beams fanning '
      'through thick smoke over them.',
-     'Seen from across a dark club floor, a grown woman with long curly hair dances alone with both arms raised, a '
-     'dark silhouette against thick glowing red smoke behind her, the picture very dark, blurry and grainy like a '
-     'smeared frame of old video tape.',
-     'A close view of a big mirror ball of hundreds of small square mirror tiles filling the middle of the '
-     'picture, its tiles glinting red and white, dull red smoke all round it running out to every edge and '
-     'corner, the picture dark and grainy.',
+     'An empty dance floor of plain scuffed black and white square tiles in a dark small town club after closing, '
+     'seen from one corner at standing height, round spots of dim red and blue light scattered across the tiles, '
+     'thin haze over it all, the far wall lost in darkness, everything sharp from near to far, the colours muted '
+     'and washed out, heavy grain like 1980s broadcast video.',
+     'A row of empty chrome bar stools with round red vinyl seats along a bare dark wooden bar counter in a dim '
+     'small town club, seen from one end so the row runs away into the dark, a dull red glow and thin grey haze '
+     'filling the room to every edge, everything sharp from near to far, the colours muted and washed out, heavy '
+     'grain like 1980s broadcast video.',
      'Glowing coloured shapes spin on a black background in early 1990s computer video art.')
 show('eighties', HAZE,
      'A male singer of about thirty with a big teased blond mullet, his hair hanging down over his ears and neck, in'
      ' a wide white suit jacket with big square padded shoulders and the sleeves pushed up to the elbows over a plain'
      ' white t-shirt, sings into an old microphone on a stand in front of him, his hands at his sides, seen from the'
      ' waist up, pink and blue haze behind him, the picture soft, smeared and grainy like old video tape.',
-     'A man of about thirty with short neat dark hair, in a pale pink suit jacket over a plain white t-shirt, stands'
-     ' alone singing with his eyes closed and his hands at his sides, seen from the chest up, lit from above out of'
-     ' frame, a dim soft greyish mauve haze behind him, the colours dull and faded.',
+     'An old ceiling fan with five wooden blades turning slowly under the ceiling of a dim American motel room at'
+     ' dusk, seen from below, pink evening light coming through venetian blinds out of the picture in soft stripes'
+     ' across the plain ceiling, the colours dull and faded, grainy like old video tape.',
      'A long empty highway at dusk seen from the middle of the road, the dashed white centre line running away to'
      ' the horizon, a row of palm trees along one side as flat black silhouettes against a deep purple and pink'
      ' sky.',
-     'A man of about forty with a lined face and a greying brown mullet, in a loose pale mint suit over a plain white'
-     ' t-shirt, walks alone along a sandy beach at sunset with his hands in his pockets, seen side on from a little'
-     ' way off, the low sun behind him and the sea beside him.',
+     'An empty sandy beach at sunset, low gentle waves rolling in, a plain white painted wooden lifeguard chair'
+     ' standing alone on the sand, seen from a little way off, the sky pink, orange and purple over the sea, the'
+     ' colours soft and faded.',
      'A 1980s dance class of grown women of about thirty with big permed hair and headbands, each face different, in'
      ' long baggy sweatshirts over full length black tights that cover their legs from waist to ankle, with leg'
      ' warmers, dance in a wooden floored hall with a ballet barre along a plain painted wall, under the plain bright'
@@ -593,8 +594,9 @@ show('baseball', SPORT,
      'sprints along the brown dirt base path, a small figure, his plain black shoes kicking up a little dust, only '
      'him on the empty dirt, green outfield grass blurred behind him.')
 show('golf', SPORT,
-     'Seen close from behind and from the waist up, a golfer of about forty in a pale blue shirt shades his eyes with'
-     ' one hand as he watches his drive, a long green fairway running away ahead of him between tall trees.',
+     'A bareheaded golfer of about fifty with short grey hair and a sunburnt lined face, in a plain pale blue short'
+     ' sleeved shirt with a collar, seen from the shoulders up, squinting calmly into the distance, a green fairway'
+     ' and tall trees soft behind him on a summer afternoon.',
      'A golfer crouches to line up a putt on a green.',
      'A golf ball rolls toward the hole and the flag on a green.',
      'A golf fairway runs between tall pines with a lake beside it.',
@@ -646,10 +648,9 @@ show('skating', SPORT,
      ' under a pale hazy summer sky, the colours faded.')
 show('boxing', ' A still image from 1970s boxing coverage shot on 16mm colour film, bright ring lights and a'
                ' faint haze, soft and grainy with faded colours. The picture fills the whole image edge to edge.',
-     'Two white heavyweight boxers squaring off side on, seen close from the waist up so only their upper bodies, '
-     'heads and raised gloves are in the picture, two plainly different men: one of about thirty with short dark '
-     'hair and a dark moustache, one of about twenty eight with thinning fair hair and a broad red face, their '
-     'gloves smooth plain dark red leather all over, the dark hazy hall blurred behind them.',
+     'A pair of old boxing gloves of smooth plain red leather, worn and creased, hanging together by their white '
+     'laces from one iron hook on a bare whitewashed brick wall of a dressing room, seen close, dim light from one '
+     'side.',
      'A close view of the face of a tired heavyweight boxer, a grown man of about thirty with a flattened '
      'nose, short dark hair and stubble, his eyebrows swollen and his face wet with sweat, his eyes looking '
      'down, only his face, neck and bare shoulders in the picture, the dark hall blurred behind him.',
@@ -657,12 +658,12 @@ show('boxing', ' A still image from 1970s boxing coverage shot on 16mm colour fi
      'in black trunks lies knocked out flat on his back alone on the pale canvas with his arms spread, his whole body '
      'from head to boots side on across the picture, his gloves smooth dark red leather all over, the ropes and the '
      'dark hall behind him.',
-     'A grey haired man of about sixty with a lined face, in a brown jacket over an open collared shirt, sits in a '
-     'ringside seat watching the fight intently with his arms folded across his chest, seen from the chest up, the '
-     'dark hall blurred behind him in a haze of smoke.',
-     'Seen close from behind, a tired heavyweight boxer, a broad grown man of about thirty, sits slumped between'
-     ' rounds, only his thick bare back, his shoulders and the back of his head with short dark hair in the picture, a white towel round his neck and sweat shining on his'
-     ' back, the bright hazy ring lights and the dark hall blurred beyond him.')
+     'An old boxing trainer of about sixty with short grey hair, a broken nose and a lined face, in a plain grey '
+     'sweatshirt with a white towel over one shoulder, seen from the shoulders up, looking calmly off to one side, '
+     'a plain dark wall behind him in a faint haze.',
+     'An old smooth round brass bell, a big shallow polished dome, fixed to a dark wooden board on a table, a short'
+     ' wooden hammer lying beside it, seen close from a little above, the hazy lights of the dark hall blurred'
+     ' behind.')
 show('old-game', ARCHIVE,
      'A baseball pitcher in a baggy pale flannel uniform and a plain cap winds up on a low dirt mound, seen side on '
      'from far off, a small lone figure with one leg raised, the wide empty outfield grass and a plain dark board '
@@ -677,9 +678,9 @@ show('soccer', SPORT,
      'Seen from high up and far off across a wide small town field, two grown men of about thirty play '
      'soccer, one in red and one in white, tiny figures in the middle of the wide empty green grass with '
      'a black and white ball between them, a line of trees behind.',
-     'Seen from far off in front of a single white goal, a goalkeeper, a broad grown man of about thirty with a dark'
-     ' moustache, in a plain green long sleeved shirt, a small figure, stands in the middle of the goal mouth hugging'
-     ' one black and white ball to his chest with both arms, the empty net behind him.',
+     'One empty white soccer goal with a sagging white net standing at the end of a wide grass field in a small town'
+     ' American park on a summer evening, seen from a little way off in front of it, one black and white ball resting'
+     ' on the grass in the goal mouth, a line of leafy trees behind.',
      'Two grown soccer players of about twenty five run towards us with their arms raised after a goal, seen from the'
      ' front and framed from the waist up, their faces shouting with joy, each in a plain cotton shirt of one solid'
      ' red all over, its sleeves and collar the same red.',
@@ -784,9 +785,9 @@ show('film-western', FILM,
      ' brown horses side by side, a driver in a dark hat and long coat sitting up high on the bench at the front of'
      ' the coach holding the reins, seen side on from a distance, a cloud of dust trailing behind it, in a western.')
 show('film-war', FILM,
-     'A bearded sailor of about forty asleep in a narrow steel bunk in a Second World War submarine, lying on his side'
-     ' with his face turned to the curved grey steel wall, a grey wool blanket over him, bare pipes just above him,'
-     ' everything lit only by dim red light, in a war movie.',
+     'A row of three empty narrow steel bunks stacked one above another along the curved steel wall of a Second World'
+     ' War submarine, a thin flat grey army blanket folded on each, bare pipes and valve wheels just above them, the'
+     ' whole picture a deep dim red, in a war movie.',
      'A plain dark grey submarine with a smooth bare tower breaks the surface of a grey sea, white water pouring off'
      ' its deck, in a war movie.',
      'Seen from far off, a line of American soldiers in green fatigues and helmets, small figures, walk in single file'
@@ -817,9 +818,9 @@ show('film-epic', FILM,
      'A huge shaggy dark brown cave bear rears up on its hind legs at the mouth of a rocky cave, roaring, seen from'
      ' below against a grey sky, in an adventure movie.',
      'Two people in fur coats stand looking up at a woolly mammoth in an adventure movie.',
-     'An old Stone Age man of about sixty with a long grey beard and a lined weathered face, wrapped in a shaggy brown'
-     ' fur cloak, sits by a small fire in a dark cave, seen from the chest up, his face lit orange by the flames, the'
-     ' rough dark rock wall behind him, in an adventure movie.',
+     'The dark mouth of a cave in a snowy rocky mountainside at dusk, seen from a little way off across the snow, a'
+     ' small orange fire glowing just inside it, a thin line of smoke rising out over the rock, a pale blue grey sky'
+     ' above, in an adventure movie.',
      'A wide frozen plain under a low sun with a line of tiny figures walking in an adventure movie.')
 show('film-art', ' A still image from a 1970s European art film shot on 35mm film, muted colour, fog and soft film'
                  ' grain. The picture fills the whole image edge to edge.',
@@ -916,10 +917,9 @@ show('cop-show', DRAMA,
      ' with venetian blinds and bare walls, in a 1980s action series.',
      'A dark blue 1970s muscle car flies in mid air over the crest of a hill, seen side on from far off, one wheel at'
      ' the front and one at the back of its near side, all four wheels clear of the road, in a 1980s action series.',
-     'A lean detective of about thirty five with dark stubble and a grown man\'s face, in a denim jacket, presses his'
-     ' back flat against a brick wall beside the corner of a warehouse on a dock at night, breathing hard, his head'
-     ' turned to look round the corner, seen from the chest up, lit by one harsh lamp, in a gun fight in a 1980s'
-     ' action series.',
+     'An empty wooden dock beside an old brick warehouse at night, the wet planks shining under one harsh lamp on a'
+     ' tall pole, fog lying on the black water beyond, the far end of the dock lost in darkness, in a 1980s action'
+     ' series.',
      'Seen from far across a dark parking lot, two policemen in plain light blue short sleeved shirts, one heavy set'
      ' and balding, one young and thin with dark hair, sit on the front fender of a plain brown sedan parked side on,'
      ' paper bags of takeout between them, a low roadside diner of lit windows behind them, in a 1980s action'

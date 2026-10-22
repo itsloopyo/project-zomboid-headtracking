@@ -200,10 +200,9 @@ SPORTS = {
         'from standing height beyond one corner of the court, the faded white lines and the low sagging net '
         'running across it, a chain link fence and leafy trees beyond, everything sharp from near to far, '
         'the colours pale, washed out and faded like an old print.' + STILL,
-        'Seen from far off through a tall chain link fence, one grey haired man of about fifty in a pale '
-        'blue shirt and white shorts stands alone at the far end of an empty green asphalt court in a small '
-        'town park on a hot summer afternoon, a small figure about to serve, a plain wooden racket in his '
-        'hand, leafy green summer trees behind him.' + ACTION,
+        'A weathered green wooden park bench beside the chain link fence of an empty green asphalt tennis court '
+        'in a small town park on a hot summer afternoon, a folded white towel lying on its seat, seen from a few '
+        'paces off, leafy green summer trees behind, everything sharp from near to far.' + STILL,
     ],
     'boxing': [
         'The corner of an empty boxing ring under one hanging lamp, a red padded corner post with three red ropes '
@@ -334,10 +333,9 @@ SPORTS = {
     'weights': [
         'A weightlifter holding a barbell overhead seen as a black silhouette against a tall bright window in a dim old'
         ' gym.' + ACTION,
-        'A pair of old fashioned cast iron globe dumbbells lying side by side on the scuffed wooden floor of '
-        'an old gym, each one a short iron handle with a round ball of dull matte black iron at each end, '
-        'worn smooth and grey where hands have held them, seen low and close, a bare painted brick wall soft '
-        'behind in dim window light.' + STILL,
+        'A thick old hemp climbing rope hanging straight down from a high wooden beam in an old gym, its frayed end '
+        'just above the scuffed wooden floor, a tall window behind it letting in dusty afternoon light, the bare '
+        'painted brick wall around the window.' + STILL,
         'Two ordinary grown adults in plain grey sweatshirts and grey sweatpants stand a little apart in an '
         'old gym with bare painted brick walls and tall windows, facing the viewer, each lifting a small '
         'round chrome dumbbell in each hand up to the shoulders mid curl: a heavy set bald man of about '
@@ -346,9 +344,8 @@ SPORTS = {
         'A thick old brown leather lifting belt lying loosely coiled on a scarred wooden bench in an old American town'
         ' gym, its plain steel buckle catching the light, soft window light from one side, a bare painted cinder '
         'block wall behind and the rest of the gym dim.' + STILL,
-        'An old flat wooden weight bench padded with cracked brown leather standing alone on a worn plank '
-        'floor in an old gym, seen side on from a few paces off, a bare painted brick wall behind it and '
-        'soft window light falling across the leather.' + STILL,
+        'An old round medicine ball of smooth worn brown leather panels sewn together, sitting alone on a worn plank '
+        'floor in soft window light, seen low and close, a bare painted brick wall behind it.' + STILL,
         'A barbell resting on a wooden lifting platform in front of a red painted wall, seen from in front with the bar'
         ' running across the picture, both ends loaded the same with big black iron plates, a bright light on the red '
         'wall behind it so the plates in front are flat black discs with no detail, only the steel bar catching a thin '
@@ -435,9 +432,9 @@ SPORTS = {
         'slant, warm light from a lamp above out of the picture, the dark wooden rail beyond them and the room dark, '
         'everything sharp, the colours pale, washed out and faded like an old print.' + STILL,
         'A black eight ball on the green felt of a pool table beside a corner pocket.' + STILL,
-        'The corner pocket of an old pool table seen close from a little above, a worn brown leather pocket '
-        'where two dark polished wooden rails meet, the green felt cushions curving into its dark mouth, '
-        'warm lamp light on the felt, the rest of the bare green table soft and blurred beyond.' + STILL,
+        'One small cube of plain blue chalk, its top worn into a shallow hollow, sitting on the dark polished '
+        'wooden rail of an old pool table, seen close from a little above, warm lamp light on it, the clean green '
+        'felt beyond.' + STILL,
         'A pool table in a dim back room of a bar, a low lamp with a deep green glass shade hanging over it, the green '
         'felt bare and empty in its pool of light, the walls behind plain dark wood panelling from floor to ceiling, '
         'the corners of the room in darkness.' + STILL,
@@ -606,16 +603,13 @@ PAINTINGS = {
     'Lakeside': ('a close cropped detail from the middle of a large oil painting of a still woodland lake: green trees'
                  ' and their reflections in the water, dappled light, purple wildflowers along the near bank running '
                  'out of the bottom of the picture' + DETAIL, LONGER),
-    'Lighthouse': ('a detail from a large oil painting of a rocky coast: a small round white brick '
-                   'lighthouse with a black iron lantern room on top standing low in the picture, the top '
-                   'of its lantern a little above the middle of the picture\'s height, the whole upper half '
-                   'of the picture open sky painted in matte broken dabs of dry blue and grey white paint, '
-                   'the clouds loose scrubbed brushstrokes with the canvas weave showing through them like a '
-                   'Winslow Homer coast, a white clapboard '
-                   'keeper\'s house and dark pine trees beside it on a low point of plain cool grey granite '
-                   'ledges, a blue sea, the ledges and the white surf running out of the bottom of the '
-                   'picture, painted in cool blues, whites, slate greys and dark greens, the brushwork running '
-                   'off every edge of the picture. Visible brushstrokes of matte oil paint.', TALL),
+    'Lighthouse': ('a detail from a large oil painting of a quiet rocky coast at evening: a small round white '
+                   'lighthouse with a black iron lantern room on top standing low in the picture, a white '
+                   'clapboard keeper\'s house and dark pine trees beside it on low grey granite ledges, a calm '
+                   'blue grey sea, the whole upper half of the picture a clear cloudless evening sky painted '
+                   'thin, flat and smooth in matte paint, fading from pale yellow at the horizon to soft pale '
+                   'blue above, the ledges and the sea running out of the bottom and sides of the picture, '
+                   'painted thinly in soft muted colours, the paint carried right out to every edge.', TALL),
     'Man With One Ear': ('post-impressionist self portrait of a red bearded man in a fur cap and green coat, a thick white cloth bandage wrapped round his head over one ear and tied under his chin, swirling brushstrokes' + OIL, TALL),
     'Margarite': ('a close cropped detail of the head and shoulders from a large 17th century Dutch oil '
                   'painting of a plump laughing young woman of about twenty five, bareheaded, her thick '
