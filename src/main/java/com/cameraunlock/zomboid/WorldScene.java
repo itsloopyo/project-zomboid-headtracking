@@ -762,6 +762,12 @@ final class WorldScene {
     private float roomShare = -1f, lampLevel = -1f;
     /** When the lights of what the game has given no light were last eased towards their readings: see UNLIT_EASE_SECONDS. */
     private long unlitEasedAt;
+    /**
+     * Those lights as eased so far, handed to each frame's sky (SkyState.openUnlit, daylight, roomLight
+     * and lampLight). Kept here and not in the sky: the frames take turns, four of them, so a sky's own
+     * last value is four frames old while unlitEasedAt is one frame's.
+     */
+    private final float[] openUnlitEased = new float[3], daylightEased = new float[3], roomLightEased = new float[3], lampLightEased = new float[3];
     private long roomLightTakenAt;
     /** How near the eye a chunk is, in tiles, for what stands in its rooms the game has not shown to be built: within the last band but one. See Sightline.emptied. */
     private static final float UNSHOWN_FILLED_WITHIN = 40f;
@@ -3119,11 +3125,15 @@ final class WorldScene {
                 // the commonest, brighter where lamps light much of the street, an eave or a roof the game gives no light
                 // had that much over the daylight, which the shader took for a lamp's, warm and never held back at night.
                 float bare = i == 0 ? floorRed : i == 1 ? floorGreen : floorBlue;
-                sky.openUnlit[i] += (bare - sky.openUnlit[i]) * eased;
-                sky.daylight[i] += (dayNowFull * open - sky.daylight[i]) * eased;
-                sky.roomLight[i] += (room - sky.roomLight[i]) * eased;
-                sky.lampLight[i] += (Math.max(room, lamp) - sky.lampLight[i]) * eased;
+                openUnlitEased[i] += (bare - openUnlitEased[i]) * eased;
+                daylightEased[i] += (dayNowFull * open - daylightEased[i]) * eased;
+                roomLightEased[i] += (room - roomLightEased[i]) * eased;
+                lampLightEased[i] += (Math.max(room, lamp) - lampLightEased[i]) * eased;
             }
+            System.arraycopy(openUnlitEased, 0, sky.openUnlit, 0, 3);
+            System.arraycopy(daylightEased, 0, sky.daylight, 0, 3);
+            System.arraycopy(roomLightEased, 0, sky.roomLight, 0, 3);
+            System.arraycopy(lampLightEased, 0, sky.lampLight, 0, 3);
 
             // The loaded map is a square of chunks, and it ends in nothing. The picture fades into the
             // sky by the round that just fits inside it, so the edge is never seen. The square is not
