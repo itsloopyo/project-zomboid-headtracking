@@ -16,7 +16,7 @@ import zombie.core.textures.Texture;
  * is built as a moulding standing out of the wall in the band's colour. Stood square (see
  * Flats.stood), a band is a run of rows painted along much of the wall; where a band stops
  * along the wall, at a doorway, the moulding stops too. A band taller than TALLEST is a
- * panel: one painted evenly is built as a board, and one with a pattern, brick or tiles, is
+ * panel: one painted evenly is built as a board, and one with a pattern, brick, blocks or tiles, is
  * a surface and not a moulding, and the sprite keeps it all.
  */
 final class Trims {
@@ -24,6 +24,13 @@ final class Trims {
     static final float TALLEST = 0.14f;
     /** A panel is painted evenly where the spread of its dots' brightness is under this share of their mean: brick and tiles have courses and joints. */
     private static final float EVEN = 0.12f;
+    /**
+     * Cast blocks are as even as paint, and their joints are a dark row over a light one a dot
+     * each: a row this much of its brightness off the rows two either side of it is a joint, and
+     * a panel with one is blocks. A few rows at its top and foot are its outline and its shadow.
+     */
+    private static final float JOINT = 0.06f;
+    private static final int OUTLINE_ROWS = 3;
     /**
      * How far a cornice falls down the wall, in tiles. The game draws a cornice as seen from
      * above, its depth along the ceiling shown as height, so its band says less of its size
@@ -197,7 +204,30 @@ final class Trims {
             }
         }
         double mean = sum / count;
-        return Math.sqrt(Math.max(squares / count - mean * mean, 0.0)) < EVEN * mean;
+        return Math.sqrt(Math.max(squares / count - mean * mean, 0.0)) < EVEN * mean && !jointed(dots, long_, first + OUTLINE_ROWS, last - OUTLINE_ROWS);
+    }
+
+    private static boolean jointed(byte[] dots, int long_, int first, int last) {
+        double[] light = new double[Math.max(last - first + 1, 0)];
+        for (int row = first; row <= last; row++) {
+            double sum = 0.0;
+            int count = 0;
+            for (int column = 0; column < long_; column++) {
+                int at = (row * long_ + column) * 4;
+                if (dots[at + 3] != 0) {
+                    sum += 0.299 * (dots[at] & 0xff) + 0.587 * (dots[at + 1] & 0xff) + 0.114 * (dots[at + 2] & 0xff);
+                    count++;
+                }
+            }
+            light[row - first] = sum / count;
+        }
+        for (int i = 2; i < light.length - 2; i++) {
+            double around = (light[i - 2] + light[i + 2]) / 2.0;
+            if (Math.abs(light[i] - around) > JOINT * around) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

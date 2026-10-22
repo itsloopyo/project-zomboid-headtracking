@@ -15,7 +15,7 @@ final class TrimTests {
 
     static void run() {
         Checks.run("aSkirtingAndACorniceAreReadAsTwoBands", TrimTests::aSkirtingAndACorniceAreReadAsTwoBands);
-        Checks.run("anEvenlyPaintedPanelIsABoardAndABrickOneIsLeftToItsSprite", TrimTests::anEvenlyPaintedPanelIsABoardAndABrickOneIsLeftToItsSprite);
+        Checks.run("anEvenlyPaintedPanelIsABoardAndABrickOrBlockOneIsLeftToItsSprite", TrimTests::anEvenlyPaintedPanelIsABoardAndABrickOrBlockOneIsLeftToItsSprite);
         Checks.run("everyCorniceIsOneMouldingWhateverItsBand", TrimTests::everyCorniceIsOneMouldingWhateverItsBand);
         Checks.run("aBandsHeightsAreRoundedSoTwoEdgesMeet", TrimTests::aBandsHeightsAreRoundedSoTwoEdgesMeet);
         Checks.run("aSkirtingStopsWhereADoorwayIs", TrimTests::aSkirtingStopsWhereADoorwayIs);
@@ -49,7 +49,7 @@ final class TrimTests {
         check(skirting.from() == 0f && skirting.to() == 1f, "and runs the wall's length: " + skirting);
     }
 
-    private static void anEvenlyPaintedPanelIsABoardAndABrickOneIsLeftToItsSprite() {
+    private static void anEvenlyPaintedPanelIsABoardAndABrickOrBlockOneIsLeftToItsSprite() {
         byte[] dots = new byte[LONG * HIGH * 4];
         paint(dots, HIGH - 56, HIGH - 1, 0, LONG - 1, 220);
         Trims.Band[] bands = Trims.bands(dots, LONG, HIGH, 1f);
@@ -62,6 +62,16 @@ final class TrimTests {
             paint(dots, HIGH - 56, HIGH - 1, column, column, 70);
         }
         check(Trims.bands(dots, LONG, HIGH, 1f).length == 0, "a brick panel is a surface, left to its sprite");
+        // Cast blocks: as even as paint, with a joint every fifteenth row, a dark dot over a light one.
+        dots = new byte[LONG * HIGH * 4];
+        paint(dots, HIGH - 56, HIGH - 1, 0, LONG - 1, 100);
+        paint(dots, HIGH - 1, HIGH - 1, 0, LONG - 1, 60);
+        check(Trims.bands(dots, LONG, HIGH, 1f).length == 1, "a painted panel with a shadow along its foot is still a board");
+        for (int row = HIGH - 50; row < HIGH - 4; row += 15) {
+            paint(dots, row, row, 0, LONG - 1, 90);
+            paint(dots, row + 1, row + 1, 0, LONG - 1, 110);
+        }
+        check(Trims.bands(dots, LONG, HIGH, 1f).length == 0, "a panel of blocks is a surface, left to its sprite");
     }
 
     private static void everyCorniceIsOneMouldingWhateverItsBand() {
