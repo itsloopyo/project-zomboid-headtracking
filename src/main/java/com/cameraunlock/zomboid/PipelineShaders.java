@@ -484,8 +484,8 @@ final class PipelineShaders {
             varying float vBoards;
             varying float vLie;
             varying float vHung;
-            // How far a vertex lies over the surface it is laid on: see faced.
-            varying float vLift;
+            // How far, and which way, a vertex lies off the surface it is laid on: see faced.
+            varying vec3 vLies;
             // The square of the tree the vertex is part of, below 0 for none: see SpriteGeometry.VERTEX_FLOATS. A model has
             // none, and carries in y the piece of its surface the vertex is on.
             varying vec2 vRoot;
@@ -707,8 +707,18 @@ final class PipelineShaders {
                     vNormal = normalize(looks);
                     vCover = 1.0;
                 }
+                // What is laid lies a layer over its ground, and lifted straight up it slides up the
+                // picture off its own square, baring a line of the ground under it along each near
+                // edge. Looked down on, it is lifted towards the eye instead, along the line it is
+                // seen on: as far clear of its ground in depth, and drawn where the ground is. Seen
+                // at a slant that line runs on for tiles, and would bring it out in front of what
+                // stands before its square: there it is lifted straight up.
+                if (uModel < 0.5 && !strip && gl_MultiTexCoord1.z > 4.5) {
+                    vec3 toEye = normalize(uEye - at.xyz);
+                    lies = mix(lies, toEye * (lies.z / max(toEye.z, 0.2)), smoothstep(0.2, 0.35, toEye.z));
+                }
                 vWorld = at.xyz + lies;
-                vLift = lies.z;
+                vLies = lies;
                 // A cloud's shadow changes over tens of tiles, so it is worked out at the vertices.
                 vec2 under = (vWorld.xy + uLight.xy / max(uLight.z, 0.25) * 30.0) / 22.0 + uDrift * 6.0;
                 vClouds = patches(under) * 0.6 + patches(under * 2.7 + 7.0) * 0.4;
@@ -831,8 +841,8 @@ final class PipelineShaders {
             varying float vBoards;
             varying float vLie;
             varying float vHung;
-            // How far a vertex lies over the surface it is laid on: see faced.
-            varying float vLift;
+            // How far, and which way, a vertex lies off the surface it is laid on: see faced.
+            varying vec3 vLies;
             varying vec2 vRoot;
             uniform vec4 uCutBox;
             uniform vec3 uCutNear;
@@ -2827,7 +2837,9 @@ final class PipelineShaders {
                 // them: a wardrobe or a fridge stands whole, as do the things drawn as cards.
                 // And only what stands between the viewer and the eye: the walls behind them
                 // hide nothing, and keep their windows and pictures.
-                bool boxed = vWorld.x > uCutBox.x && vWorld.y > uCutBox.y && vWorld.x < uCutBox.z && vWorld.y < uCutBox.w;
+                // What is laid goes by where it was laid, not where it was lifted to: see vLies.
+                vec2 stands = vWorld.xy - vLies.xy;
+                bool boxed = stands.x > uCutBox.x && stands.y > uCutBox.y && stands.x < uCutBox.z && stands.y < uCutBox.w;
                 // The storeys over the viewer's, and the roof, while the camera is above them:
                 // on its way down to the viewer it has the room to look into.
                 if (boxed && vWorld.z > uLid) {
@@ -2837,7 +2849,7 @@ final class PipelineShaders {
                 // game cuts away. On the camera's way to the viewer's eye they are the walls of
                 // the viewer's building that stand between the two.
                 bool marked = uCutMarked.z > 0.0;
-                if (vWorld.z > uCutAbove && (marked ? vWorld.z < uCutMarked.z : dot(vWorld.xy, uCutNear.xy) > uCutNear.z && boxed)) {
+                if (vWorld.z > uCutAbove && (marked ? vWorld.z < uCutMarked.z : dot(stands, uCutNear.xy) > uCutNear.z && boxed)) {
                     if ((ofModel ? vHung > 0.5 : !standing) && (!marked || cutAway(vWorld, vNormal, ofModel))) {
                         discard;
                     }
@@ -2865,9 +2877,9 @@ final class PipelineShaders {
                 // of it was mixed over nothing, and the depth it writes kept the sky and the far
                 // land out of the pixel, a black speck.
                 vec3 under = vWorld;
-                if (uLaid > 0.5 && vLift > 0.0) {
+                if (uLaid > 0.5 && vLies.z > 0.0) {
                     vec3 sight = normalize(vWorld - uEye), up = normalize(vNormal);
-                    under += sight * (vLift * up.z / max(-dot(up, sight), 1e-3));
+                    under += sight * (vLies.z * up.z / max(-dot(up, sight), 1e-3));
                 }
                 // Where the far land lies behind it, the built world thins out into it.
                 if (thinnedOut(under.xy - uEye.xy)) {
@@ -2888,8 +2900,9 @@ final class PipelineShaders {
                     // Where it does not show it is left out: what is laid writes depth, so left in it
                     // would still hide whatever is laid on the same ground after it. And where the
                     // ground under the pixel is not its own square's (see under), which past the
-                    // loaded map is none: the ground there is the next square's own.
-                    if (shown < 0.03 || any(notEqual(floor(under.xy), floor(vWorld.xy)))) {
+                    // loaded map is none: the ground there is the next square's own. Its own square is
+                    // where it was laid, not where it was lifted to.
+                    if (shown < 0.03 || any(notEqual(floor(under.xy), floor(vWorld.xy - vLies.xy)))) {
                         discard;
                     }
                 }

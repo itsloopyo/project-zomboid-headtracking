@@ -350,14 +350,19 @@ final class ShaderTests {
                 + " shown = smoothstep(0.38, 0.62, laidCover + ragged * 3.0 * laidCover * (1.0 - laidCover));";
         int at = world.indexOf(spread);
         Checks.check(at >= 0 && world.indexOf(spread, at + 1) < 0, "the world's fragment stage does not work out once how much spread ground shows");
-        Checks.check(world.startsWith(" if (shown < 0.03 || any(notEqual(floor(under.xy), floor(vWorld.xy)))) { discard; } }", at + spread.length()),
+        Checks.check(world.startsWith(" if (shown < 0.03 || any(notEqual(floor(under.xy), floor(vWorld.xy - vLies.xy)))) { discard; } }", at + spread.length()),
                 "spread ground is drawn where it shows next to nothing, or where the ground its pixel lies over is another square's or none");
-        Checks.check(world.contains("vec3 under = vWorld; if (uLaid > 0.5 && vLift > 0.0) { vec3 sight = normalize(vWorld - uEye), up = normalize(vNormal);"
-                + " under += sight * (vLift * up.z / max(-dot(up, sight), 1e-3)); } if (thinnedOut(under.xy - uEye.xy)) { discard; }"
+        Checks.check(world.contains("vec3 under = vWorld; if (uLaid > 0.5 && vLies.z > 0.0) { vec3 sight = normalize(vWorld - uEye), up = normalize(vNormal);"
+                + " under += sight * (vLies.z * up.z / max(-dot(up, sight), 1e-3)); } if (thinnedOut(under.xy - uEye.xy)) { discard; }"
                 + " if (uUnder.z > 0.0 && (vKind > 3.5 && !grass || dot(uUnder.xyz, under) < uUnder.w)) { discard; }"),
                 "what is laid is thinned out into the far land, or cut off under the water, where it lies, not where its ground under the pixel is");
         String vertex = vertex(programs, "world").replaceAll("//[^\n]*", "").replaceAll("\\s+", " ");
-        Checks.check(vertex.contains("vWorld = at.xyz + lies; vLift = lies.z;"), "the fragment stage is not told how far a vertex lies over its surface");
+        Checks.check(vertex.contains("vWorld = at.xyz + lies; vLies = lies;"), "the fragment stage is not told how far a vertex lies over its surface");
+        // Lifted straight up, a layer seen from above slid up the picture off its square and bared a line of the
+        // ground under it along each near edge: the overhead view showed pale lines between squares of spread ground.
+        Checks.check(vertex.contains("if (uModel < 0.5 && !strip && gl_MultiTexCoord1.z > 4.5) { vec3 toEye = normalize(uEye - at.xyz);"
+                + " lies = mix(lies, toEye * (lies.z / max(toEye.z, 0.2)), smoothstep(0.2, 0.35, toEye.z)); } vWorld = at.xyz + lies;"),
+                "what is laid and looked down on is not lifted along the line it is seen on, and slides off its square");
     }
 
     private static String fragment(List<Linked> programs, String name) {
