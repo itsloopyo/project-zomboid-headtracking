@@ -176,7 +176,8 @@ def made(folder, name):
     """The generated art of that name as picked from its candidates, or None where none is picked yet."""
     if name not in catalogue.SEEDS:
         return None
-    return Image.open(folder / name / f'{catalogue.SEEDS[name]}.png').convert('RGB')
+    model, seed = catalogue.SEEDS[name]
+    return Image.open(folder / model / name / f'{seed}.png').convert('RGB')
 
 
 def picture(folder, name):

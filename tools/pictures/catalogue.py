@@ -9,8 +9,8 @@ index: a key is a sprite's name, or the name and group the game gives a piece, "
 these instead, chosen by Decor.inRoom. LONG is the keys
 that hold only for a piece lying along several squares: the game gives some single sprites, each a part of a hoarding,
 the same name. SHAPED is how many times as wide as it is high a painting that hangs along several squares is on its
-wall, inside its frame: it is cut to that. LETTERED says what is written on a poster. SEEDS is the candidate picked for each picture
-(generate.py makes several).
+wall, inside its frame: it is cut to that. LETTERED says what is written on a poster. SEEDS is the candidate picked for each picture, as
+(model, seed): generate.py makes several with each model, and pack.py reads them from <folder>/<model>/<name>/<seed>.png.
 """
 
 import pools
