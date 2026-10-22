@@ -189,18 +189,61 @@ final class RoofBuilder {
         int ground = foundOn;
         long room = foundIn;
         IsoGridSquare square = build.cell.getGridSquare(x, y, z);
-        // The wall is out of doors and is lit as the open air is. The roof tile's own square
-        // is the loft under it, which is dark.
-        float red = build.frame.red, green = build.frame.green, blue = build.frame.blue, open = build.frame.open;
+        outdoors();
+        addGableWalls(square, standing, ground, room, x, y, z, northWest, northEast, southWest, peak, peakAxis);
+        indoors();
+    }
+
+    /** The light a gable is made in, and the light it is set back to after. */
+    private float indoorRed, indoorGreen, indoorBlue, indoorOpen;
+
+    /** A gable is out of doors and is lit as the open air is. The roof tile's own square is the loft under it, which is dark. */
+    private void outdoors() {
+        indoorRed = build.frame.red;
+        indoorGreen = build.frame.green;
+        indoorBlue = build.frame.blue;
+        indoorOpen = build.frame.open;
         build.frame.cornersInto(build.heldRed, build.heldGreen, build.heldBlue, build.heldUnlit);
         build.frame.light(1f, 1f, 1f);
         build.frame.open = WorldScene.OPEN_UNLIT;
-        addGableWalls(square, standing, ground, room, x, y, z, northWest, northEast, southWest, peak, peakAxis);
-        build.frame.red = red;
-        build.frame.green = green;
-        build.frame.blue = blue;
-        build.frame.open = open;
+    }
+
+    private void indoors() {
+        build.frame.red = indoorRed;
+        build.frame.green = indoorGreen;
+        build.frame.blue = indoorBlue;
+        build.frame.open = indoorOpen;
         build.frame.cornersFrom(build.heldRed, build.heldGreen, build.heldBlue, build.heldUnlit);
+    }
+
+    private final float[] beyond = new float[4];
+
+    /**
+     * The gable a trailer's map paints as boards it marks roof, on the square past the roof's
+     * end, along the square's west or north edge (location_trailer_01_48..51, 40..43): siding
+     * cut to the roof under a fascia. The picture hangs a board of its own from the roof's edge
+     * there and the map's are left out (underARake), and under that board the end was open
+     * from the top of the wall up to the roof.
+     */
+    void addGableBeyond(int x, int y, int z) {
+        IsoGridSquare square = build.cell.getGridSquare(x, y, z);
+        for (int edge = 0; edge < 2; edge++) {
+            boolean north = edge == 1;
+            int behindX = north ? x : x - 1, behindY = north ? y - 1 : y;
+            if (!slopesAlong(behindX, behindY, z, north ? RoofFit.ALONG_X : RoofFit.ALONG_Y) || square != null && WorldScene.wallOn(square, north) != null
+                    || buildingUnder(x, y, z) != null || !cornersAt(behindX, behindY, z, beyond)) {
+                continue;
+            }
+            // The roof's heights along its own east or south edge, which is this square's west or north one.
+            float near = north ? beyond[3] : beyond[1], far = beyond[2];
+            IsoBuilding standing = buildingUnder(behindX, behindY, z);
+            if (standing == null || Math.max(near, far) < GABLE_LEAST) {
+                continue;
+            }
+            outdoors();
+            addGableWall(standing, foundOn, foundIn, x, y, z, north, near, far, 0f, 0);
+            indoors();
+        }
     }
 
     /**
@@ -278,73 +321,81 @@ final class RoofBuilder {
                     || square != null && WorldScene.wallOn(square, north) != null) {
                 continue;
             }
-            // The building's lowest level, and no other: on the roof's own level its walls are
-            // the gables of its other ends, cut to the roof's slope, and a gable's sprite laid
-            // on this wall would be mostly air.
-            WallFinish.Facing facing = WallFinish.facing(build.cell, standing, ground, north, room, world.roundNow);
-            Texture finish = WallFinish.outside(build.cell, standing, ground, room, world.roundNow);
-            float alongA = north ? 1f : 0f, alongB = north ? 0f : 1f;
-            if (facing == null) {
-                // That face of the building has no plain wall to take the sprite of: the gable
-                // is built of what the building's outside walls are, as the far skin of a
-                // wall is.
-                float[] colour = finish == null ? null : SpriteColours.of(finish);
-                if (colour == null) {
-                    build.gablesBare++;
-                    if (finish != null) {
-                        build.building.signed = false;
-                    }
-                    continue;
+            addGableWall(standing, ground, room, x, y, z, north, northWest, second, peak, peakAxis);
+        }
+    }
+
+    /**
+     * One of those walls, along the north edge of (x, y) or the west one, the roof northWest
+     * over the floor of level z at (x, y) and second at the edge's other end.
+     */
+    private void addGableWall(IsoBuilding standing, int ground, long room, int x, int y, int z, boolean north, float northWest, float second, float peak, int peakAxis) {
+        // The building's lowest level, and no other: on the roof's own level its walls are
+        // the gables of its other ends, cut to the roof's slope, and a gable's sprite laid
+        // on this wall would be mostly air.
+        WallFinish.Facing facing = WallFinish.facing(build.cell, standing, ground, north, room, world.roundNow);
+        Texture finish = WallFinish.outside(build.cell, standing, ground, room, world.roundNow);
+        float alongA = north ? 1f : 0f, alongB = north ? 0f : 1f;
+        if (facing == null) {
+            // That face of the building has no plain wall to take the sprite of: the gable
+            // is built of what the building's outside walls are, as the far skin of a
+            // wall is.
+            float[] colour = finish == null ? null : SpriteColours.of(finish);
+            if (colour == null) {
+                build.gablesBare++;
+                if (finish != null) {
+                    build.building.signed = false;
                 }
-                build.gablesPainted++;
-                int built = Own.textures(build.playerIndex) ? Masonry.of(finish) : 0;
-                build.building.signed &= !Own.textures(build.playerIndex) || !Masonry.unread(finish);
-                SpriteGeometry.Mesh painted = WorldScene.solid.get(WorldScene.PLAIN, built != 0 ? WallSides.over(built) : WallSides.key(colour[0], colour[1], colour[2], WallSides.SIDING));
-                painted.open = build.frame.open + 32f * WorldScene.PAINT;
-                float foot = z * ViewCamera.LEVEL_HEIGHT + meanLift();
-                float farX = x + alongA, farY = y + alongB;
-                float[] c = build.eave;
-                WorldScene.set(c, 0, x, y, foot);
-                WorldScene.set(c, 1, farX, farY, foot);
-                WorldScene.set(c, 2, farX, farY, foot + second * ViewCamera.LEVEL_HEIGHT);
+                return;
+            }
+            build.gablesPainted++;
+            int built = Own.textures(build.playerIndex) ? Masonry.of(finish) : 0;
+            build.building.signed &= !Own.textures(build.playerIndex) || !Masonry.unread(finish);
+            SpriteGeometry.Mesh painted = WorldScene.solid.get(WorldScene.PLAIN, built != 0 ? WallSides.over(built) : WallSides.key(colour[0], colour[1], colour[2], WallSides.SIDING));
+            painted.open = build.frame.open + 32f * WorldScene.PAINT;
+            float foot = z * ViewCamera.LEVEL_HEIGHT + meanLift();
+            float farX = x + alongA, farY = y + alongB;
+            float[] c = build.eave;
+            WorldScene.set(c, 0, x, y, foot);
+            WorldScene.set(c, 1, farX, farY, foot);
+            WorldScene.set(c, 2, farX, farY, foot + second * ViewCamera.LEVEL_HEIGHT);
+            WorldScene.set(c, 3, x, y, foot + northWest * ViewCamera.LEVEL_HEIGHT);
+            SpriteGeometry.addPlainQuad(painted, c, build.frame.red, build.frame.green, build.frame.blue);
+            if (peak > 0f && (peakAxis == RoofFit.ALONG_X) == north) {
+                WorldScene.set(c, 0, x, y, foot + northWest * ViewCamera.LEVEL_HEIGHT);
+                WorldScene.set(c, 1, farX, farY, foot + second * ViewCamera.LEVEL_HEIGHT);
+                WorldScene.set(c, 2, x + alongA / 2f, y + alongB / 2f, foot + ((northWest + second) / 2f + peak) * ViewCamera.LEVEL_HEIGHT);
                 WorldScene.set(c, 3, x, y, foot + northWest * ViewCamera.LEVEL_HEIGHT);
                 SpriteGeometry.addPlainQuad(painted, c, build.frame.red, build.frame.green, build.frame.blue);
-                if (peak > 0f && (peakAxis == RoofFit.ALONG_X) == north) {
-                    WorldScene.set(c, 0, x, y, foot + northWest * ViewCamera.LEVEL_HEIGHT);
-                    WorldScene.set(c, 1, farX, farY, foot + second * ViewCamera.LEVEL_HEIGHT);
-                    WorldScene.set(c, 2, x + alongA / 2f, y + alongB / 2f, foot + ((northWest + second) / 2f + peak) * ViewCamera.LEVEL_HEIGHT);
-                    WorldScene.set(c, 3, x, y, foot + northWest * ViewCamera.LEVEL_HEIGHT);
-                    SpriteGeometry.addPlainQuad(painted, c, build.frame.red, build.frame.green, build.frame.blue);
-                }
-                continue;
             }
-            build.gablesFaced++;
-            build.held.texelsOf(build.frame);
-            float material = build.frame.material;
-            build.frame.takeTexels(facing.texture);
-            build.frame.material = WorldScene.materialOf(facing.sprite);
-            SpriteGeometry.Mesh mesh = build.wallBuilder.laid(WorldScene.solid.get(facing.texture.getID()), facing.texture, Masonry.suits(facing.sprite.getName()), x, y, z, north);
-            if (second >= GABLE_LEAST) {
-                WorldScene.set(folded, 0, 0f, 0f, 0f);
-                WorldScene.set(folded, 1, alongA, alongB, 0f);
-                WorldScene.set(folded, 2, alongA, alongB, second);
-                build.geometry.addTriangle(mesh, build.frame, x, y, z, folded);
-            }
-            if (northWest >= GABLE_LEAST) {
-                WorldScene.set(folded, 0, 0f, 0f, 0f);
-                WorldScene.set(folded, 1, alongA, alongB, second);
-                WorldScene.set(folded, 2, 0f, 0f, northWest);
-                build.geometry.addTriangle(mesh, build.frame, x, y, z, folded);
-            }
-            if (peak > 0f && (peakAxis == RoofFit.ALONG_X) == north) {
-                WorldScene.set(folded, 0, 0f, 0f, northWest);
-                WorldScene.set(folded, 1, alongA, alongB, second);
-                WorldScene.set(folded, 2, alongA / 2f, alongB / 2f, (northWest + second) / 2f + peak);
-                build.geometry.addTriangle(mesh, build.frame, x, y, z, folded);
-            }
-            build.frame.texelsOf(build.held);
-            build.frame.material = material;
+            return;
         }
+        build.gablesFaced++;
+        build.held.texelsOf(build.frame);
+        float material = build.frame.material;
+        build.frame.takeTexels(facing.texture);
+        build.frame.material = WorldScene.materialOf(facing.sprite);
+        SpriteGeometry.Mesh mesh = build.wallBuilder.laid(WorldScene.solid.get(facing.texture.getID()), facing.texture, Masonry.suits(facing.sprite.getName()), x, y, z, north);
+        if (second >= GABLE_LEAST) {
+            WorldScene.set(folded, 0, 0f, 0f, 0f);
+            WorldScene.set(folded, 1, alongA, alongB, 0f);
+            WorldScene.set(folded, 2, alongA, alongB, second);
+            build.geometry.addTriangle(mesh, build.frame, x, y, z, folded);
+        }
+        if (northWest >= GABLE_LEAST) {
+            WorldScene.set(folded, 0, 0f, 0f, 0f);
+            WorldScene.set(folded, 1, alongA, alongB, second);
+            WorldScene.set(folded, 2, 0f, 0f, northWest);
+            build.geometry.addTriangle(mesh, build.frame, x, y, z, folded);
+        }
+        if (peak > 0f && (peakAxis == RoofFit.ALONG_X) == north) {
+            WorldScene.set(folded, 0, 0f, 0f, northWest);
+            WorldScene.set(folded, 1, alongA, alongB, second);
+            WorldScene.set(folded, 2, alongA / 2f, alongB / 2f, (northWest + second) / 2f + peak);
+            build.geometry.addTriangle(mesh, build.frame, x, y, z, folded);
+        }
+        build.frame.texelsOf(build.held);
+        build.frame.material = material;
     }
 
     /**

@@ -6819,10 +6819,16 @@ final class WorldScene {
                 // A building's own sheet marks the boards along its roof's edges as roof too: a
                 // trailer's fascia and barge boards. Narrower than a tile, laid as one each is a
                 // square of board beyond the roof. The picture makes the eave and the rake there
-                // itself, as it does over the boards from the sheet of a roof's accents.
+                // itself, as it does over the boards from the sheet of a roof's accents. The boards
+                // under a rake are the gable's siding too, the lowest a tile wide and of no clear
+                // slope, and the gable is made in their place.
                 if (!kind.roofSheet && z > 0) {
                     RoofFit.Tile board = Roofs.measure(frame, texture, x, y, z);
-                    if (board.fitting && board.half == 0 && (roofBuilder.underARake(x, y, z) || roofBuilder.trimUnderAMadeEave(x, y, z, true, true, true))) {
+                    if ((board.fitting || !board.sure) && board.half == 0 && roofBuilder.underARake(x, y, z)) {
+                        roofBuilder.addGableBeyond(x, y, z);
+                        return;
+                    }
+                    if (board.fitting && board.half == 0 && roofBuilder.trimUnderAMadeEave(x, y, z, true, true, true)) {
                         return;
                     }
                 }
