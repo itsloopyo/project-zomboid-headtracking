@@ -1040,11 +1040,12 @@ final class RoofFit {
         return false;
     }
 
-    /** The tile of the same slope at the tile's low edge, or null. */
+    /** The tile of the same slope at the tile's low edge, or null: one that meets it, and no porch roof under its eave. */
     private static Tile below(HashMap<Long, Tile> at, Tile tile, int dx, int dy, int up) {
         for (int dz = 0; dz >= -1; dz--) {
             Tile next = at.get(key(tile.x - dx, tile.y - dy, tile.z + dz));
-            if (next != null && next.slopes() && next.fitAxis == tile.fitAxis && next.up() == up) {
+            if (next != null && next.slopes() && next.fitAxis == tile.fitAxis && next.up() == up
+                    && Math.abs(Math.max(next.fitLow, next.fitHigh) - Math.min(tile.fitLow, tile.fitHigh)) <= JOIN) {
                 return next;
             }
         }

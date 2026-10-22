@@ -42,6 +42,7 @@ final class RoofTests {
         Checks.run("hippedCornerAtTheEaveCarriesTheEaveRowOn", RoofTests::hippedCornerAtTheEaveCarriesTheEaveRowOn);
         Checks.run("hipCutFlatGetsItsFarSlopeAcrossTheCrown", RoofTests::hipCutFlatGetsItsFarSlopeAcrossTheCrown);
         Checks.run("farSlopeComesDownOverALowerCrown", RoofTests::farSlopeComesDownOverALowerCrown);
+        Checks.run("porchRoofIsNoPartOfTheSlopeAboveIt", RoofTests::porchRoofIsNoPartOfTheSlopeAboveIt);
         Checks.run("gableWiderThanACrownKeepsItsFarSideToTheWall", RoofTests::gableWiderThanACrownKeepsItsFarSideToTheWall);
         Checks.run("crownWiderThanAGableGetsNoWedge", RoofTests::crownWiderThanAGableGetsNoWedge);
         Checks.run("levelSheetPaintedOverItsFloorIsAFlatTop", RoofTests::levelSheetPaintedOverItsFloorIsAFlatTop);
@@ -896,6 +897,43 @@ final class RoofTests {
             RoofFit.Tile far = over.get(RoofFit.key(x, 0, 0));
             check(far != null && far.fitAxis == RoofFit.ALONG_Y && near(far.fitLow, 1f) && near(far.fitHigh, EAVE),
                     "the north slope stands on the north wall and climbs to the crown at x " + x);
+        }
+    }
+
+    private static void porchRoofIsNoPartOfTheSlopeAboveIt() {
+        // A gable over rows 4..6 on the upper storey climbs north to a ridge at 2 along row 4's north edge, its eave at 1.
+        // A porch roof a level down on row 7 lies under that eave and falls on south from two thirds of a level: no
+        // continuation of the slope above. Taken as one, the far side was looked for on the ground floor's rooms, and
+        // the house stood open behind its ridge.
+        RoofFit.Site site = new RoofFit.Site() {
+            @Override
+            public boolean stands(int x, int y, int z) {
+                return x >= 1 && x <= 3 && y >= 1 && y <= 7;
+            }
+
+            @Override
+            public boolean floored(int x, int y, int z) {
+                return false;
+            }
+
+            @Override
+            public boolean taken(int x, int y, int z, float roof) {
+                return z == 0;
+            }
+        };
+        List<RoofFit.Tile> roof = new ArrayList<>();
+        for (int x = 1; x <= 3; x++) {
+            for (int row = 0; row < 3; row++) {
+                roof.add(new RoofFit.Tile(x, 6 - row, 1, RoofFit.ALONG_Y, true, EAVE + row * THIRD, 1f + row * THIRD));
+            }
+            roof.add(new RoofFit.Tile(x, 7, 0, RoofFit.ALONG_Y, true, 2f * THIRD, THIRD));
+        }
+        RoofFit.fit(roof);
+        List<RoofFit.Tile> made = RoofFit.backs(roof, site);
+        for (int x = 1; x <= 3; x++) {
+            RoofFit.Tile wall = madeAt(made, x, 1);
+            check(madeAt(made, x, 3) != null && madeAt(made, x, 2) != null && wall != null && wall.axis == RoofFit.ALONG_Y
+                    && near(wall.low, 1f) && near(wall.high, EAVE), "the far side comes down to the north wall at x " + x);
         }
     }
 
