@@ -747,9 +747,9 @@ show('film-crime', FILM,
      'A plain clothes detective of about forty with a lined face and dark stubble, in a brown leather jacket zipped '
      'up and jeans, stands in a city alley at night with his hands in his jacket pockets, seen from the waist up, '
      'looking off to one side under one street lamp, steam rising from a grate behind him, in a police thriller.',
-     'The empty back room of a bar at night, a round wooden table and four empty wooden chairs under one hanging '
-     'lamp with a green metal shade, a half empty plain glass of whiskey and a full glass ashtray on the table, '
-     'cigarette smoke hanging in the light, the walls dark, in a crime movie.',
+     'An empty street of old brick warehouses at night after rain, seen from the middle of the road, the long plain'
+     ' brick walls and dark windows running away on both sides, one street lamp shining on the wet cobbles, everything'
+     ' sharp from near to far, muted colours and heavy grain like 1970s 16mm film, in a crime movie.',
      'Seen from high up and far off, a steep empty city hill street at dusk running down across the picture between'
      ' rows of pale painted wooden houses, the street lamps just lit, and one lone man in a dark coat running down the'
      ' sidewalk, a tiny figure, fog rolling in over the rooftops beyond, in a crime thriller.',
@@ -804,9 +804,10 @@ show('film-future', FILM,
      ' and over the left half a riveted steel plate with a round glowing blue glass eye, stands in a dark rainy alley'
      ' lit by one dim yellow street lamp, steam rising behind him, the colours dull browns and greys with heavy film'
      ' grain, in a science fiction action movie.',
-     'An empty cracked desert highway at dusk running away into the distance, sand drifted across the broken '
-     'asphalt, a lone concrete overpass standing in the desert with one span fallen, rusted steel pylons along the '
-     'road, a dull red hazy sky, in a science fiction action movie.',
+     'A wide flat desert under a low overcast sky of dull rust brown dust haze, a long straight empty two lane road'
+     ' running to the horizon, old wooden telephone poles along it leaning at odd angles, a huge rusted steel water'
+     ' tower lying fallen on its side in the sand beside the road, the far hills dim in the haze, everything sharp from'
+     ' near to far, muted colours and heavy grain like 1980s 16mm film, in a science fiction action movie.',
      'A figure walks through sparks and molten steel in a dark factory in a science fiction action movie.',
      'A woman of about thirty in a leather coat holding a shotgun stands in the doorway of a wrecked bar, the bare'
      ' cracked plaster walls behind her scorched and empty, broken stools on the floor, in a science fiction action'
@@ -853,9 +854,10 @@ show('critics', VIDEO,
      'A beam of light from the small projection window high in the back wall shines out over rows of empty red cinema'
      ' seats in a dark old cinema.')
 show('bad-movie', LOCAL,
-     'A heaped plain white paper tub of popcorn standing on a small wooden side table beside a worn brown armchair'
-     ' in a dim wood panelled den at night, a flickering blue white glow from a television out of the picture'
-     ' falling across the chair and the table.',
+     'An old drive in movie theater in a Kentucky field at dusk seen from far off, its huge blank white screen'
+     ' standing on tall wooden legs at the end of a wide empty gravel lot laid out in low curved rows, short metal'
+     ' posts along the rows, a line of dark trees behind and a grey evening sky, everything sharp from near to far,'
+     ' muted colours and grain like 1980s broadcast video.',
      'A frame of a grainy black and white 1950s science fiction film, soft and scratched: a giant lizard monster with a'
      ' scaly head, a long tail and a gaping mouth towers over a small model city of cardboard buildings under a dark'
      ' sky.',
@@ -976,9 +978,10 @@ show('chat', VIDEO,
      ' one arm along its back, seen from the chest up, the colours soft and smeared.',
      'A talk show audience laughs in rows beyond the stage lights.')
 show('family', SITCOM,
-     'A sheepish father of about forty five with an ordinary round face sits alone on a flowered sofa in a cosy living'
-     ' room with patterned wallpaper, seen from the waist up, his face smudged with black soot and his short brown hair'
-     ' singed and frizzled, a wisp of grey smoke rising off it, his hands resting on his knees, a guilty grin.',
+     'A two storey white clapboard family house with a wide front porch and green shutters on a leafy small town'
+     ' street on a sunny afternoon, seen from across the street, a neat green lawn and a big maple tree in front, the'
+     ' opening view of the house in a family comedy series, flat even light, everything sharp from near to far,'
+     ' muted colours and grain like 1980s broadcast video.',
      'A blackened burnt pie on a plain white plate on a kitchen table, a thin wisp of grey smoke rising from it, a '
      'cosy kitchen with wooden cupboards and flowered curtains behind.',
      'A family of four laughs round a dinner table in a cosy dining room with flowered wallpaper, a hanging lamp over'
@@ -1091,8 +1094,10 @@ show('trade', TAUGHT,
      ' seen from behind.',
      'A neatly wound coil of red insulated electrical wire and a coil of white wire lying on a wooden workbench beside'
      ' a pair of plain red handled pliers, seen close up.',
-     'A long wooden ladder leaning against the side of a white clapboard house under a black overhead power line '
-     'on a sunny morning, a green lawn below it.',
+     'A line of old wooden utility poles running away beside a gravel country road through green Kentucky farm'
+     ' fields on an overcast morning, seen from a little way off, thin single wires strung high from pole to pole,'
+     ' low wooded hills beyond, everything sharp from near to far, muted colours and grain like 1980s broadcast'
+     ' video.',
      'A welder of about forty in a plain dark welding helmet and leather gloves bends over a steel beam in a dim'
      ' workshop, a bright white point of light at his torch with a short fan of orange sparks spraying out from it.',
      'A man in a hard hat stretches wire along a line of fence posts.')

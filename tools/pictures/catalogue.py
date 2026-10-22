@@ -267,9 +267,9 @@ SPORTS = {
         'the long grey weathered plank seats run away across the picture, and beyond them the green outfield grass '
         'and a plain dark green board fence soft and blurred, tall lights on wooden poles just coming on against a '
         'pink sky.' + STILL,
-        'An old wooden baseball bat leaning against the chain link backstop fence of a small town ball field on a '
-        'summer evening, seen from a few paces off, the bat plain pale ash showing only its wood grain, the pale '
-        'dusty infield dirt and the green outfield beyond the fence.' + FADED,
+        'An empty sandlot baseball diamond at the edge of a small Kentucky town on a summer evening, seen wide from '
+        'high behind home plate, the worn dirt base paths and the patchy grass of the outfield, a low wooden fence '
+        'round the far edge, green pastures and a line of leafy trees beyond under a pale sky.' + FADED,
     ],
     'football': [
         'An empty high school American football field at night in thick fog, seen from behind one end zone, the '
@@ -307,10 +307,9 @@ SPORTS = {
         'one side, woods behind.' + STILL,
     ],
     'athletics': [
-        'A grown man of about thirty with short brown hair, a short brown moustache and a sunburnt lined face, in a '
-        'plain grey cotton sweatshirt, standing calmly on the infield grass beside an empty cinder running track on a '
-        'summer morning, getting his breath back after a run, seen from the waist up a few paces off, his arms at his '
-        'sides, the track, its white lines and a row of old wooden bleachers behind him.' + FADED,
+        'An empty dark red cinder running track at a small Kentucky high school at dawn, seen from far off across the '
+        'field, the white lane lines curving away round the far bend, mist lying on the green infield grass, a row of '
+        'old grey wooden bleachers along one side, a line of leafy trees and low hills beyond under a pale sky.' + FADED,
         'A high jump set up on the grass of an empty school field on a summer evening, seen from the side, a thick deep'
         ' blue foam landing mat, plain one colour, and above the front of it a thin plain white bar resting across two '
         'tall upright steel stands, a pale evening sky behind and a line of trees along the bottom.' + STILL,
@@ -329,9 +328,9 @@ SPORTS = {
     'weights': [
         'A weightlifter holding a barbell overhead seen as a black silhouette against a tall bright window in a dim old'
         ' gym.' + ACTION,
-        'A thick old hemp climbing rope hanging straight down from a high wooden beam in an old gym, its frayed end '
-        'just above the scuffed wooden floor, a tall window behind it letting in dusty afternoon light, the bare '
-        'painted brick wall around the window.' + STILL,
+        'An empty old town gym seen wide from one end in the afternoon, a long scuffed plank floor, bare painted '
+        'brick walls, a row of tall windows down one side letting long shafts of dusty light fall across the boards, '
+        'and two plain low wooden benches standing apart in the middle of the floor.' + FADED,
         'Two ordinary grown adults in plain grey sweatshirts and grey sweatpants stand a little apart in an '
         'old gym with bare painted brick walls and tall windows, facing the viewer, each lifting a small '
         'round chrome dumbbell in each hand up to the shoulders mid curl: a heavy set bald man of about '
@@ -375,9 +374,9 @@ SPORTS = {
         'A dark blue marbled bowling ball rolling away from the viewer down the middle of a long polished wooden lane, '
         'seen from just above the boards behind it, the ten white pins small in their triangle at the far end under a '
         'warm light, only darkness above them.' + ACTION,
-        'An old small town bowling alley at night seen from across an empty wet street in the rain, a long low flat '
-        'roofed building of pale brick, a tall white bowling pin shape of lit glass with one red stripe standing on a '
-        'pole beside it, the wet street shining under one street lamp.' + FADED,
+        'One empty bowling lane in an old bowling alley on a quiet morning, seen from standing height just behind the '
+        'foul line, the long polished pale maple boards running straight away between two shallow gutters, sunlight '
+        'from high windows lying across the boards, the far end of the lane dim and small.' + FADED,
         'One white bowling pin with two red stripes round its neck standing on the polished maple boards of a lane, '
         'seen low and close, and behind it a wide dim bowling alley with many lanes side by side, their long shiny '
         'boards running away into the distance soft and out of focus, warm light glowing on the varnish.' + STILL,
@@ -388,9 +387,10 @@ SPORTS = {
         'A row of empty bowling lanes in an old bowling alley at closing time, seen low from the approach, the long '
         'polished boards gleaming as they run away to the small white pins far off, the room dark and the area above '
         'the pins in deep shadow.' + STILL,
-        'One white bowling pin with one red stripe round its neck lying on its side on the polished maple boards of '
-        'an empty lane, seen from standing height a few paces off, warm light on the wood, the long lane running on '
-        'beyond it into the dim alley.' + FADED,
+        'The long room of an old small town bowling alley seen wide from high up at the back on a quiet evening, a '
+        'dozen polished wooden lanes side by side running away to the far end, the white pins tiny in their rows at '
+        'the end of each lane, low rows of plain wooden seats in the foreground, warm lights hanging over the '
+        'lanes.' + FADED,
     ],
     'racing': [
         'An empty red clay dirt track oval at a county fairground at dusk, seen from the top of the bank on the outside '
@@ -416,10 +416,9 @@ SPORTS = {
         'fading at its edges, warm low evening light raking across the surface.' + STILL,
     ],
     'pool': [
-        'An old man of about sixty five with a grey moustache and thinning grey hair, in a plain dark blue work '
-        'shirt, sitting calmly on a tall wooden stool against the dark wood panelled wall of an old pool hall, his '
-        'hands resting on his knees, watching a game out of the picture, seen from a few paces off, warm lamp light '
-        'on him.' + FADED,
+        'An empty old pool hall in the morning seen wide from the doorway, a row of four pool tables with bare green '
+        'felt standing in a line down the long room, a long plain green metal lamp hanging low over each table, '
+        'bare dark wood panelled walls and a worn plank floor, daylight from the front windows.' + FADED,
         'An orange tabby cat curled up asleep on the round wooden seat of a tall bar stool standing against the dark '
         'wood panelled wall of an old pool hall, seen from a few paces off, warm lamp light falling on it.' + FADED,
         'A black eight ball on the green felt of a pool table beside a corner pocket.' + STILL,

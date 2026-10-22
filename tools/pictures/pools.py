@@ -132,9 +132,9 @@ POOLS = {
         'of wide windows, seen from across its green front lawn on a sunny summer morning, the brick wall above the '
         'doors bare, an American stars and stripes flag on a tall white flagpole in front, big leafy maple trees '
         'beside it.' + PRINT,
-        'An empty school playground on a summer evening, a tall steel swing set with three wooden seats hanging '
-        'still on their chains and a slide beside it, the grass worn bare under the swings, big leafy trees '
-        'beyond.' + PRINT,
+        'A wide green school sports field on a summer evening, seen from the edge of the grass, the field mown and '
+        'empty, a row of big leafy oak trees along its far side and a low red brick school building small in the '
+        'distance, a pale evening sky above.' + PRINT,
         'Head and shoulders of a school principal, a youthful middle aged woman of about forty five, trim and energetic, '
         'with a full head of short glossy chestnut brown hair in a neat 1980s cut, a smooth firm face with clear skin, '
         'bright eyes and a kind smile, a little pink lipstick, in a navy blazer over a cream blouse. Taken on colour film '
