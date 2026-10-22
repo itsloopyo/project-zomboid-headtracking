@@ -482,9 +482,10 @@ show('pop', CLIP,
      'loose long sleeved clothes dance with their arms in the air, tiny dark silhouettes against coloured '
      'haze.')
 show('rock', CLIP,
-     'A long plain silver touring coach with tinted windows and smooth bare sides parked alone behind an old brick '
-     'concert hall at night, rain falling, the wet tarmac shining under one street lamp, the brick wall of the hall '
-     'bare, everything sharp from near to far, muted colours and heavy grain like 1980s broadcast video.',
+     'Seen from the back of a wide grass field at night, broad pale beams of white light from old round spotlights low'
+     ' out of the picture sweep up into the dark sky through drifting haze and cross high overhead, the dark tops of'
+     ' trees along the bottom edge, the colours dim and muddy, soft smeared low contrast picture with heavy grain like'
+     ' 1980s video.',
      'Seen from far back in the dark, a long haired guitarist stands alone in a single round beam of white light on a'
      ' dark stage, a small figure, his guitar a dark shape in his hands, the beam coming down from far above out of'
      ' frame.',
@@ -528,18 +529,19 @@ show('club', HAZE,
      'Looking steeply down from high up under the dark roof of a large dance hall, the crowd on the dance floor far '
      'below and small, a sea of heads and shoulders filling the picture from side to side, green laser beams fanning '
      'through thick smoke over them.',
-     'The bare brick side wall of a small town club on a wet street at night under one street lamp, a plain steel '
-     'door propped open, dim red light and thin haze spilling out of it across the wet pavement, puddles shining, '
-     'everything sharp from near to far, muted colours and heavy grain like 1980s broadcast video.',
-     'The empty main street of a small American town at night after rain, seen from the middle of the road, a row '
-     'of low old brick buildings along one side, soft red and blue light from one open doorway lying across the wet '
-     'road and its puddles, one street lamp, everything sharp from near to far, muted colours and heavy grain like '
-     '1980s broadcast video.',
+     'A wide dark Kentucky field at night seen from the edge of a gravel road, and far off across it a big old wooden'
+     ' barn with a country dance going on inside, dim red and blue light glowing out of its open end into thin fog, a'
+     ' line of dark trees behind under a dull night sky, the colours dim and muddy, soft smeared low contrast picture'
+     ' with heavy grain like 1980s video.',
+     'Rain running down a plain dark window pane at night, the drops and trickles filling the whole picture, beyond'
+     ' the glass only dim soft smudges of dull pink and amber light far off, the colours dim and muddy, soft smeared'
+     ' low contrast picture with heavy grain like 1980s video.',
      'Glowing coloured shapes spin on a black background in early 1990s computer video art.')
 show('eighties', HAZE,
-     'An empty motel swimming pool at dusk, its still turquoise water glowing from lights under the surface, a row'
-     ' of white plastic lounge chairs along its edge, tall palm trees beyond as dark silhouettes against a pink and'
-     ' purple sky, everything sharp from near to far, muted colours and grain like 1980s broadcast video.',
+     'A wide flat calm lake in the Kentucky hills at dusk seen from the shore, a long plain wooden dock running out'
+     ' into the still water, the low wooded hills on the far side dark, a soft faded pink and lilac sky reflected in'
+     ' the water, thin mist on the surface, the colours dull and faded, soft smeared low contrast picture with heavy'
+     ' grain like 1980s video.',
      'An old ceiling fan with five wooden blades turning slowly under the ceiling of a dim American motel room at'
      ' dusk, seen from below, pink evening light coming through venetian blinds out of the picture in soft stripes'
      ' across the plain ceiling, the colours dull and faded, grainy like old video tape.',
@@ -656,10 +658,10 @@ show('boxing', ' A still image from 1970s boxing coverage shot on 16mm colour fi
      'in black trunks lies knocked out flat on his back alone on the pale canvas with his arms spread, his whole body '
      'from head to boots side on across the picture, his gloves smooth dark red leather all over, the ropes and the '
      'dark hall behind him.',
-     'A narrow brick side street beside an old boxing hall at night, empty, rain falling, one street lamp lighting '
-     'the wet cobbles and the puddles, a plain steel side door in the brick wall with one bare bulb glowing above '
-     'it, the brick walls bare, everything sharp from near to far, muted colours and heavy grain like 1970s 16mm '
-     'film.',
+     'An empty narrow country road at dawn in thick grey fog, running straight away between low wooden fences and wet'
+     ' pastures out in open farm country, and far off down it one small lone boxer in a grey sweatsuit with the hood'
+     ' up out on his morning run, the only light the flat pale grey sky, everything soft, dull and low contrast, the'
+     ' colours almost grey, heavy grain like 1970s 16mm film.',
      'A plain wooden chair standing alone in a small bare back room with whitewashed brick walls and a worn concrete'
      ' floor, a folded white towel hanging over its back and a tin bucket beside it, one bare light bulb hanging on'
      ' its cord above, seen from the doorway a few paces off, everything sharp from near to far, muted colours and'
@@ -678,10 +680,10 @@ show('soccer', SPORT,
      'Seen from high up and far off across a wide small town field, two grown men of about thirty play '
      'soccer, one in red and one in white, tiny figures in the middle of the wide empty green grass with '
      'a black and white ball between them, a line of trees behind.',
-     'One black and white soccer ball resting alone in the short grass in the middle of a wide empty small town park'
-     ' field on a summer evening, seen from a few paces off at standing height, a curved white painted line running'
-     ' through the grass beside it, a line of leafy trees far behind, everything sharp from near to far, muted'
-     ' colours and grain like 1980s broadcast video.',
+     'An empty small town soccer field on a summer evening seen wide from high up behind one end, the whole field of'
+     ' mown green grass laid out below with its faded white lines and two plain white goals at the ends, a line of'
+     ' leafy trees and low Kentucky hills beyond, everything sharp from near to far, soft, dull and low contrast,'
+     ' muted colours and grain like 1980s broadcast video.',
      'Two grown soccer players of about twenty five run towards us with their arms raised after a goal, seen from the'
      ' front and framed from the waist up, their faces shouting with joy, each in a plain cotton shirt of one solid'
      ' red all over, its sleeves and collar the same red.',
@@ -840,8 +842,9 @@ show('monster', ' A still image from a low budget 1980s monster movie shot on 35
      'A hairy grey clawed monster hand with long curved black nails reaches round the edge of a wooden door.',
      'A screaming young man of about twenty five and a screaming young woman of about twenty five stand apart with'
      ' their backs pressed to the corner of a log cabin, mouths wide open in terror.',
-     'An old abandoned wooden barn at the edge of dark woods at night in fog, its big door hanging open on one '
-     'hinge onto blackness inside, long grass in front of it, the colours dull, dark and grainy.',
+     'Dark woods at night in thick grey fog, rows of bare black tree trunks fading away into the fog, a narrow dirt'
+     ' path running in between them over dead leaves, dull grey blue moonlight, the colours almost grey and very'
+     ' dark, soft and low contrast with heavy coarse film grain.',
      'A small crowd of grown men and women villagers, all adults from thirty to seventy, in long coats, '
      'each holding one burning torch high in one hand, gather in the street of an old German village at '
      'night, the bare timbered house walls lit orange by the flames.')

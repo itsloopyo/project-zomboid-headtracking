@@ -419,13 +419,13 @@ SPORTS = {
         'An empty old pool hall in the morning seen wide from the doorway, a row of four pool tables with bare green '
         'felt standing in a line down the long room, a long plain green metal lamp hanging low over each table, '
         'bare dark wood panelled walls and a worn plank floor, daylight from the front windows.' + FADED,
-        'An orange tabby cat curled up asleep on the round wooden seat of a tall bar stool standing against the dark '
-        'wood panelled wall of an old pool hall, seen from a few paces off, warm lamp light falling on it.' + FADED,
+        'An orange tabby cat curled up asleep on the bare worn plank floor of an old pool hall in a patch of afternoon '
+        'sunlight, seen wide from across the room at standing height, the long dark wood panelled wall behind it '
+        'plain and bare from floor to ceiling, the room quiet and still.' + FADED,
         'A black eight ball on the green felt of a pool table beside a corner pocket.' + STILL,
-        'An old two storey red brick building on the quiet main street of a small Kentucky town on a summer evening, '
-        'seen from across the street, its wide ground floor window glowing warm yellow with the lamp lit room of a '
-        'pool hall inside, a plain dark green canvas awning over the window, the brick above it bare, an empty '
-        'sidewalk in front.' + FADED,
+        'A Kentucky horse farm on a summer evening, rolling green bluegrass pasture behind a long white plank fence, '
+        'two brown horses grazing far off, a big old dark wooden barn small on a low hill, leafy trees and a pale '
+        'evening sky.' + FADED,
         'A pool table in a dim back room of a bar, a low lamp with a deep green glass shade hanging over it, the green '
         'felt bare and empty in its pool of light, the walls behind plain dark wood panelling from floor to ceiling, '
         'the corners of the room in darkness.' + STILL,
@@ -913,10 +913,10 @@ PROGRAMMES = [
     'a woodworking show.' + ON_AIR,
     'A man in a plain tan fishing vest and a plain olive green cap of one colour sitting in a small aluminium boat on a'
     ' calm lake, a fishing rod in his hands, a fishing show.' + ON_AIR,
-    'A small town baseball game on a sunny afternoon seen from high above and far behind home plate, the whole '
-    'diamond below, the brown dirt infield and the wide green outfield, the players in white small figures at their '
-    'places on the field, a line of leafy trees beyond the outfield fence, everything sharp from near to far, muted '
-    'colours and grain like 1980s broadcast video, a baseball game.' + ON_AIR,
+    'A small town ball ground on a summer evening between innings, seen wide from high in the stands beyond first '
+    'base, the dirt infield and the wide green outfield empty, a plain low green wooden outfield fence, tall wooden '
+    'light poles just lit, leafy trees and low green hills beyond under a hazy sky, everything soft, dull and low '
+    'contrast, muted colours and grain like 1980s broadcast video, a baseball game.' + ON_AIR,
     'A woman with big blonde hair in a long sleeved, high necked blue evening gown and a man in a tuxedo facing each'
     ' other a little apart across an opulent living room, a daytime soap opera.' + ON_AIR,
     'A small blue robot and a green frog building a cardboard rocket in a garage, a 1980s Saturday morning cartoon in hand'
