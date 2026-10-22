@@ -8,15 +8,19 @@ by the room the sprite hangs in (Decor.inRoom). POOLS is room kind -> prompts; e
 # No place is named: Qwen-Image letters a named place onto a sign or a caption in the picture.
 PRINT = (' A snapshot on 35mm colour negative film from the 1980s, faded colours with soft contrast and fine grain,'
          ' ordinary amateur composition, natural colours. The picture fills the whole image edge to edge.')
-OLD_PRINT = (' A 1950s black and white photograph, soft grey tones, fine grain and slight fading. The picture fills the'
-             ' whole image edge to edge.')
+# "Photograph" and "print" give the picture a white paper border.
+OLD_PRINT = (' Taken in black and white in the 1950s, only shades of grey, soft tones, fine film grain and slight fading,'
+             ' the scene running right out to all four edges of the image.')
+STUDIO = (' Taken on colour film in the 1980s against a mottled blue grey backdrop, soft flash, slightly faded colours,'
+          ' fine grain and natural skin, the sitter and the backdrop filling the whole frame.')
 
 POOLS = {
     'restaurant': [
         'The front of a small brick family restaurant on a small town main street on a sunny afternoon, a striped awning over the'
         ' door and a few parked 1980s cars at the kerb, seen from across the street.' + PRINT,
-        'The same small town diner on the day it opened in the 1950s, a crowd of people in hats standing on the pavement outside'
-        ' under a striped awning, seen from across the street.' + OLD_PRINT,
+        'A small brick town diner on the day it opened in the 1950s, a crowd of people in hats standing on the pavement '
+        'outside under a striped awning, big plate glass windows behind them and plain bare brick above the awning, seen '
+        'from across the street.' + OLD_PRINT,
         'A boys Little League baseball team of about twelve boys of ten to twelve, each a different height and build '
         'with ordinary tousled brown or blond hair, in plain white uniforms with green trim, in two rows on a grass '
         'field in front of a chain link fence, the back row standing and the front row kneeling, seen from across the'
@@ -24,7 +28,9 @@ POOLS = {
         'A plate of long thin flat golden cornmeal fried catfish fillets with round hushpuppies and smooth creamy pale'
         ' coleslaw, a glass of iced tea beside it on a red and white checked tablecloth, seen from above at an angle,'
         ' warm window light.' + PRINT,
-        'A whole pizza with pepperoni and green peppers on a metal tray on a wooden counter, steam rising, warm light.' + PRINT,
+        'A whole fresh baked pizza with pepperoni and green peppers on a round metal tray on a wooden counter, seen from '
+        'a little above, the cheese fully melted, bubbling and spotted golden brown, the crust puffed and browned, warm '
+        'light.' + PRINT,
         'A cook of about forty in a white apron and a small low white paper cap shaped like a little folded boat, '
         'standing at a long flat rectangular steel griddle plate built into the counter of a small restaurant kitchen '
         'with bare white tiled walls, seen from the side and a few metres away, both his hands resting on the steel '
@@ -40,108 +46,135 @@ POOLS = {
         'haircuts, some with moustaches, some with full beards, a few going grey, in matching plain blue t-shirts, '
         'standing loosely in two uneven rows on a dusty field at evening, some with arms folded, some with hands on '
         'hips, one with an arm round the next man\'s shoulders, seen from a few metres away.' + PRINT,
-        'Four men of different builds and ages, one bald, one with a beard, one tall and thin, one stout, in matching'
-        ' plain red bowling shirts standing side by side, seen from the waist up, in a 1980s bowling alley with wood'
-        ' panelled walls, the lanes behind them.' + PRINT,
+        'Four men in matching plain red bowling shirts standing side by side, seen close from the waist up so they fill '
+        'the picture: a bald man of about fifty, a bearded man of forty, a tall thin man of thirty and a stout man of '
+        'sixty with grey hair, the room behind them out of focus in a soft warm wood coloured blur.' + PRINT,
         'A wooden fishing dock on a Kentucky lake at sunset, a small aluminium boat tied up beside it, calm water.' + PRINT,
         'Racehorses with jockeys in coloured silks galloping down the home stretch of a dirt race track, seen from the '
         'white rail, green trees and a pale summer sky beyond the far side of the track.' + PRINT,
         'A small country band of three men playing two acoustic guitars and an upright bass on a low wooden stage in a'
         ' dim bar, seen from across the room so they are small.' + PRINT,
-        'The outside of a roadside bar at dusk, a low wooden building with a gravel car park and pickup trucks, a neon light in'
-        ' the window glowing red.' + PRINT,
+        'The outside of a roadside bar at dusk, a low wooden building with a gravel car park and two plain old pickup '
+        'trucks, and in its window a glowing red neon tube bent into the shape of a frothy beer mug.' + PRINT,
         'An empty bar at night, a pool table under one single hanging lamp with a green shade, seen from a few paces '
         'back, the lamp light on the green felt, a small cluster of balls far off at the end of the table, soft and '
         'out of focus, a cue lying along the near cushion, plain dark wood panelled walls in shadow.' + PRINT,
         'Hunters in plaid wool jackets and blaze orange caps standing a little apart at the edge of autumn woods, seen'
         ' from far off across a field so they are small figures.' + PRINT,
-        'Old men sitting on a wooden bench on the porch of a plain clapboard country store in the 1950s, seen from'
-        ' across a dirt road, the porch roof shading them.' + OLD_PRINT,
+        'Two old men in overalls sitting at either end of one long wooden bench that runs the whole width of the porch '
+        'of a plain clapboard country store in the 1950s, the bench resting on the porch boards under both of them, '
+        'seen from the far side of the dirt road in front, the porch roof shading them.' + OLD_PRINT,
         'A large largemouth bass lying on its side on the weathered grey planks of a wooden lake dock, its big mouth '
         'shut, its firm green and bronze scales, dark stripe and spiny back fin sharp, a coil of old rope beside it, '
         'the lake water behind.' + PRINT,
-        'A stock car race on a small dirt oval at night under floodlights, cars sliding sideways through the turn, seen from'
-        ' the stands.' + PRINT,
+        'An empty red clay dirt track at a county fairground at night, seen from the wooden stands, the banked oval lit '
+        'by floodlights on tall wooden poles, a haze of dust still hanging in the light over the turns, dark trees '
+        'beyond.' + PRINT,
         'A river in autumn with a covered wooden bridge, orange and red trees on both banks, calm water.' + PRINT,
     ],
     'office': [
         'A group photograph of office workers in 1980s business clothes, men and women of different ages, some grey'
         ' haired, some heavy set, standing in rows on the front steps of a brick office building, seen from across the'
         ' street so they are small.' + PRINT,
-        'A formal portrait of a grey haired company founder in a dark suit sitting at a wooden desk.' + OLD_PRINT,
+        'A grey haired man of about sixty in a dark suit and tie sitting behind a plain rectangular wooden desk with his '
+        'hands folded on its top, seen from in front from the waist up, a bookcase behind him.' + OLD_PRINT,
         'A ribbon cutting in front of a new single storey brick office building, a few people in suits standing by a red'
         ' ribbon, seen from a distance.' + PRINT,
         'A small town in summer seen from high on a wooded hill above it, a main street of red brick buildings, a white'
         ' church steeple, tree lined streets of houses, and green fields and woods all round.' + PRINT,
         'A brick factory building with a tall chimney and a car park full of 1970s cars, seen from across the road.' + PRINT,
-        'A company softball team of men and women of different ages and builds in matching plain yellow t-shirts,'
-        ' kneeling and standing in two rows on a grass field, seen from across the field so they are small.' + PRINT,
+        'A company softball team of eight men and women posed in two rows on a grass field on a summer evening, the back'
+        ' row standing and the front row kneeling, all in matching plain yellow t-shirts, a chain link backstop behind '
+        'them, seen from a few metres away so the whole team fits in the picture: a tall man of about fifty with grey '
+        'hair, a heavy set man of forty with a moustache, a young man of twenty five with a mullet, a thin man of sixty '
+        'with glasses, a woman of about forty five with short permed brown hair, a woman of thirty with a long dark '
+        'ponytail, a plump woman of fifty with grey curls and a young woman of twenty two with feathered blonde '
+        'hair.' + PRINT,
         'A misty Kentucky horse farm at dawn, white plank fences across rolling green fields and a red barn in the distance.' + PRINT,
         'An old black wooden tobacco barn in autumn with its side boards propped open, rows of cut tobacco plants'
         ' hanging upside down inside drying brown, a cut field of short stubble beside it, seen from the'
         ' road.' + PRINT,
     ],
     'shop': [
-        'The front of a small town hardware store with a plain green awning and no sign, its windows full of tools and paint cans, seen'
-        ' from across the street on a sunny day.' + PRINT,
-        'A small town main street in the 1950s, shop fronts with awnings and a few old cars parked along the kerb.' + OLD_PRINT,
+        'Rakes, shovels, a wheelbarrow and a stack of galvanised buckets set out on the pavement in front of a small town '
+        'shop with a plain green awning, its big plate glass windows dark and reflecting the street, seen from across '
+        'the street on a sunny day.' + PRINT,
+        'A small town main street in the 1950s, two storey shop fronts of plain painted brick with plain canvas awnings,'
+        ' a few rounded old cars parked along the kerb.' + OLD_PRINT,
         'A white delivery truck parked in front of a shop loading bay on a sunny day, seen from the side.' + PRINT,
-        'A small town Fourth of July parade seen from far down main street, a marching band in red uniforms small in'
-        ' the distance with brass horns glinting, red brick shop fronts with striped awnings and flags hanging from'
-        ' the porches.' + PRINT,
-        'A small 1950s country general store, a plain white clapboard building with a wooden porch and an empty bench'
-        ' out front, seen from across a gravel road, its front windows dark.' + OLD_PRINT,
-        'A man standing proudly in the doorway of his small shop on opening day, arms folded, seen from across the pavement.' + PRINT,
+        'A small town summer parade seen from an upstairs window far up main street, the street running away from the '
+        'viewer, a marching band in red uniforms a long way off down the middle of it, people lining both pavements, red'
+        ' brick shop fronts with striped awnings and American stars and stripes flags hanging from the porches.' + PRINT,
+        'A small 1950s country shop, a plain white clapboard building with a wooden porch and an empty bench out front, '
+        'its two front windows dark and bare, seen from across a gravel road.' + OLD_PRINT,
+        'A man of about fifty with short grey hair, bareheaded, in a white shirt and a plain dark apron, standing proudly '
+        'in the doorway of his small brick shop on opening day with his arms folded, the windows either side of the door'
+        ' dark and bare, seen from across the pavement.' + PRINT,
         'A country road in summer lined with fences and trees, rolling green hills beyond, a blue sky with white clouds.' + PRINT,
-        'The shop\'s storefront at night, its lit windows glowing onto an empty wet street.' + PRINT,
+        'A small brick shop front at night, its big plate glass windows glowing warm yellow with plain shelves of goods '
+        'inside, the light spilling across an empty wet street, the brick wall above the windows bare.' + PRINT,
     ],
     'school': [
-        'A class photograph of about twenty children of nine or ten years old in three rows in a school gymnasium,'
-        ' seen from a few metres away, their teacher, a grown woman in a cardigan, standing apart at the far right end'
-        ' of the back row, the children a little blurred, some squinting, fidgeting or looking away.' + PRINT,
-        'A high school basketball team in plain maroon t-shirts posed in two rows on a gym floor, their coach beside'
-        ' them, seen from the far end of the gym so they are small.' + PRINT,
-        'A formal portrait of a school principal, a middle aged woman with short grey hair in a navy jacket, plain blue grey'
-        ' backdrop.' + PRINT,
-        'A high school graduating class in maroon caps and gowns seated in rows up the steps of the wooden bleachers'
-        ' beside a football field, seen from far across the field.' + PRINT,
+        'A class picture of about twenty fourth graders, girls and boys in equal numbers, all nine and ten years old, in '
+        'three rows in front of a plain beige painted cinder block wall, seen from a few metres away, every child '
+        'different, some with glasses, some with freckles, ponytails, bowl cuts and curls, all looking at the camera '
+        'with their eyes open and smiling, their teacher, a grown woman of about forty in a cardigan, standing at the '
+        'right end of the back row.' + PRINT,
+        'A high school basketball team of ten young men of seventeen and eighteen, tall, with grown men\'s faces and '
+        'shoulders, in plain maroon t-shirts, posed in two rows on a gym floor in front of folded wooden bleachers that '
+        'fill the whole background, their coach, a heavy set man of about fifty, standing beside them, seen from a few '
+        'metres away.' + PRINT,
+        'Head and shoulders of a school principal, a woman of about forty eight with short brown hair just going grey at '
+        'the temples, a smooth face and a kind smile, in a navy jacket.' + STUDIO,
+        'A high school graduating class in maroon caps and gowns seated on rows of white folding chairs set out on a '
+        'lawn, all facing the camera, seen from a little way off in front of them, tall trees behind.' + PRINT,
         'A single storey red brick elementary school with a flagpole and a yellow school bus out front, seen from across the'
         ' road.' + PRINT,
-        'A high school marching band in blue and white uniforms playing on a football field, seen from the stands.' + PRINT,
-        'The same school building when it was new, children standing in rows on the front lawn.' + OLD_PRINT,
+        'A high school marching band in blue and white uniforms marching in neat rows across the green grass of a '
+        'football field, seen from high above, only the grass, the white yard lines running across the picture and the '
+        'band in view.' + PRINT,
+        'A new single storey brick school building in the 1950s, about thirty children standing in three rows on the '
+        'front lawn facing the camera, a teacher at each end of the rows, seen from across the lawn.' + OLD_PRINT,
         'A school library with wooden shelves of books and long tables, empty, afternoon light from tall windows.' + PRINT,
     ],
     'police': [
-        'A police officer in a plain dark blue uniform and peaked cap standing beside his white patrol car on a small'
-        ' town street, seen from across the street so he is small and his badge and cap are only dark shapes. The'
-        ' photograph fills the whole frame edge to edge.' + PRINT,
+        'A police officer of about forty with a moustache, bareheaded, in a plain dark blue short sleeved uniform shirt, '
+        'standing beside the front of his plain white patrol car on a small town street, seen from a few metres away '
+        'from the waist up, shop fronts soft behind him.' + PRINT,
         'A police academy graduating class of about twenty officers in dark uniforms standing in rows outside a brick building,'
         ' seen from a distance.' + PRINT,
-        'A row of white and blue 1980s police cruisers parked side by side in front of a small town brick building,'
-        ' seen from far across the street, the cars small.' + PRINT,
-        'A small town police department in the 1950s, a few officers in uniform standing beside an old patrol car.' + OLD_PRINT,
+        'Seen from high above, looking straight down on the roofs of four plain white 1980s patrol cars parked side by '
+        'side in a row in a car park, each roof with a red and blue light bar across it, white painted bay lines on the '
+        'grey tarmac between them, summer afternoon shadows.' + PRINT,
+        'A few police officers in 1950s uniforms and peaked caps standing beside an old rounded dark patrol car with '
+        'white doors and one single round light on its roof, on a small town street.' + OLD_PRINT,
     ],
     'stage': [
         'A theatre stage during a play, actors in period costume under warm stage lights, a painted backdrop of a garden,'
         ' seen from the back of the audience.' + PRINT,
-        'The cast of a community theatre play in costume, a long row of people of all ages on stage, all bending'
-        ' forward at the waist in a deep bow with their heads down, seen from the back of the hall.' + PRINT,
-        'An old cinema front at night, its marquee lit with rows of bulbs, seen from across the street.' + PRINT,
+        'The curtain call of a community theatre play, eight grown men and women of different ages in costume standing '
+        'upright in one row across the stage an arm\'s length apart, holding hands and smiling, seen straight on from '
+        'the back of the hall over the heads of the audience.' + PRINT,
+        'An old cinema front at night seen from across the street, a wide marquee lit with rows of bulbs round its plain '
+        'blank white boards, the doors and the pavement below in warm light.' + PRINT,
         'A woman singer in a long sequinned gown with long sleeves that reaches to the floor, standing alone at a'
         ' microphone on a small stage under a single spotlight, seen from across the dark room. The photograph fills'
         ' the whole frame edge to edge.' + PRINT,
         'An empty theatre auditorium with red velvet seats and a closed red curtain, warm house lights.' + PRINT,
-        'A small brass band in white jackets playing in an old bandstand in a park, seen from across the'
-        ' lawn.' + OLD_PRINT,
-        'Dancers in matching costumes in a line on stage in mid kick, seen from the audience.' + PRINT,
+        'A small brass band of eight men in white jackets sitting on chairs inside an old round wooden bandstand in a '
+        'park, playing under its roof, seen from across the lawn.' + OLD_PRINT,
+        'Six grown women dancers in matching long sleeved red costumes with long trousers, standing in a line across a '
+        'stage with wide spaces between them, each kicking one leg high in front of her, seen straight on from the '
+        'audience.' + PRINT,
         'A row of costumes hanging on a rail backstage under bare bulbs, a mirror and a dressing table beside it.' + PRINT,
     ],
     'church': [
-        'A formal portrait of a pastor, a grey haired man in a dark suit and tie, plain blue grey backdrop.' + PRINT,
+        'Head and shoulders of a pastor, a man of about sixty with grey hair and a kind face, in a dark suit and '
+        'tie.' + STUDIO,
         'A congregation of about forty people in their Sunday best standing on the steps of a white clapboard church, seen from'
         ' across the lawn.' + PRINT,
-        'A church choir in maroon robes standing in three rows in front of a wooden altar, seen from the back of the'
-        ' church over empty wooden pews.' + PRINT,
+        'A church choir in maroon robes standing in three rows behind a wooden altar rail, facing the camera and the '
+        'empty wooden pews in front of them, singing from open books, seen from halfway down the aisle.' + PRINT,
         'A church picnic on a summer lawn, long tables with white cloths under oak trees, people sitting at them in the'
         ' distance.' + PRINT,
     ],
