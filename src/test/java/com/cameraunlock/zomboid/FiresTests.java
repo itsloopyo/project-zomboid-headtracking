@@ -29,6 +29,7 @@ final class FiresTests {
             Checks.run("aFiresFlamesAreTheLoopScaledToIt", FiresTests::aFiresFlamesAreTheLoopScaledToIt);
             Checks.run("theGasGlowsAsABlackBody", FiresTests::theGasGlowsAsABlackBody);
             Checks.run("embersRiseOffTheFlamesAndCool", FiresTests::embersRiseOffTheFlamesAndCool);
+            Checks.run("anEmbersLeastWidthIsAPixelOfThePicture", FiresTests::anEmbersLeastWidthIsAPixelOfThePicture);
             Checks.run("theJarHoldsTheFlamesLoop", FiresTests::theJarHoldsTheFlamesLoop);
             Checks.run("theGamesFlamesAndSmokeAreToldByName", FiresTests::theGamesFlamesAndSmokeAreToldByName);
             Checks.run("aHearthWithNoModelBurnsAsItsSpriteShows", FiresTests::aHearthWithNoModelBurnsAsItsSpriteShows);
@@ -292,6 +293,16 @@ final class FiresTests {
         }
         check(flying > FireCards.EMBERS * 100, "most of the time most embers are flying: " + flying);
         check(pairs > 1000 && rose == pairs, "an ember cooling in flight always rises: " + rose + " of " + pairs);
+    }
+
+    private static void anEmbersLeastWidthIsAPixelOfThePicture() {
+        // First person at 1080 rows and about 66 degrees up and down: an ember 20 tiles off is at least a pixel, 0.024 tiles.
+        float firstPerson = FireCards.pixelPerTile(0.65f, 1080);
+        check(Math.abs(20f * firstPerson - 20f * 1.3f / 1080f) < 1e-6f, "first person: a pixel 20 tiles off is " + 20f * firstPerson);
+        // Overhead the eye is 6000 tiles off and the picture about 30 tiles high: a pixel there is under 0.03 tiles,
+        // where the first person share drew every ember 7 tiles to each side.
+        float overhead = 6000f * FireCards.pixelPerTile(15f / 6000f, 1080);
+        check(overhead < 0.03f, "overhead: a pixel of the picture is " + overhead + " tiles");
     }
 
     private static void theJarHoldsTheFlamesLoop() {

@@ -41,8 +41,6 @@ final class FireCards {
     static final float EMBER_RISE = 1.6f, EMBER_SIZE = 0.012f, EMBER_BRIGHT = 14f;
     /** How long a streak an ember draws, in seconds of its flight: the eye's own blur of a bright moving point. */
     static final float EMBER_STREAK = 0.035f;
-    /** The least an ember is drawn across, in tiles for each tile it is from the eye: about a pixel of the picture. */
-    static final float EMBER_LEAST_PER_TILE = 0.0012f;
 
     private static final String VERTEX = """
             #version 120
@@ -124,6 +122,8 @@ final class FireCards {
     private final float[] projection = new float[16], turned = new float[16];
     private final ViewCamera.Pose atEye = new ViewCamera.Pose();
     private final float[] at = new float[4], before = new float[4];
+    /** A pixel of the picture begun, in tiles for each tile ahead of the eye: the least an ember is drawn across. */
+    private float pixelPerTile;
 
     /**
      * Readies the program for drawing into the picture bound, behind what is nearer the eye in
@@ -146,6 +146,7 @@ final class FireCards {
         atEye.eyeX = atEye.eyeY = atEye.eyeUp = 0f;
         ViewCamera.view(atEye, turned);
         GL11.glLoadMatrixf(turned);
+        pixelPerTile = pixelPerTile(tanHalfFieldOfView, height);
         GL13.glActiveTexture(GL_TEXTURE0);
         GL11.glBindTexture(GL_TEXTURE_2D, depth);
         GL20.glUniform1i(program.at("uDepth"), 0);
@@ -273,7 +274,7 @@ final class FireCards {
             }
             // No thinner than about a pixel, as far off as it is, or a far ember twinkles in and out between pixels.
             float distance = (float) Math.sqrt(hx * hx + hy * hy + hu * hu);
-            float size = Math.max(EMBER_SIZE * (0.6f + 0.8f * hash(seed + i * 0.91f)), distance * EMBER_LEAST_PER_TILE);
+            float size = Math.max(EMBER_SIZE * (0.6f + 0.8f * hash(seed + i * 0.91f)), distance * pixelPerTile);
             wx *= size / wl;
             wy *= size / wl;
             wu *= size / wl;
@@ -314,6 +315,15 @@ final class FireCards {
         out[2] = (float) Math.sin(a) * r + wander * (float) Math.cos(2.3f * t + own * 17f);
         float heat = 1f - t / life;
         out[3] = heat * heat * Math.min(t * 8f, 1f);
+    }
+
+    /**
+     * How wide a pixel of a picture height pixels high is, in tiles for each tile ahead of the eye.
+     * The overhead view's eye is thousands of tiles off with a field of view to match, so a
+     * pixel there is a far smaller share of the distance than in first person.
+     */
+    static float pixelPerTile(float tanHalfFieldOfView, int height) {
+        return 2f * tanHalfFieldOfView / height;
     }
 
     static float hash(float x) {
