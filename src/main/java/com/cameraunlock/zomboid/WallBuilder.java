@@ -317,18 +317,23 @@ final class WallBuilder {
         mesh = inRoom(mesh, mesh.room != RoomSight.OUTSIDE && mesh.room != RoomSight.ANYWHERE ? mesh.room : roomAt(x, y, z));
         boolean onKerbTop = build.standOnKerbTop(z, da != 0f);
         try {
-            float way = db != 0f ? SpriteGeometry.LAYERS_X : SpriteGeometry.LAYERS_Y;
-            WorldScene.layers.lie(way, layer);
-            build.geometry.shownA = db * WorldScene.WALL_HALF;
-            build.geometry.shownB = da * WorldScene.WALL_HALF;
-            build.geometry.addFace(mesh, build.frame, x, y, z, 0f, 0f, 0f, da, db, 0f, 0f, 0f, 1f);
-            build.geometry.shownA = build.geometry.shownB = 0f;
-            WorldScene.layers.none();
+            stain(mesh, x, y, z, layer, da, db);
         } finally {
             if (onKerbTop) {
                 build.leaveKerbTop();
             }
         }
+    }
+
+    /** As addStain, on an edge already stood where its wall stands. */
+    private void stain(SpriteGeometry.Mesh mesh, int x, int y, int z, float layer, float da, float db) {
+        float way = db != 0f ? SpriteGeometry.LAYERS_X : SpriteGeometry.LAYERS_Y;
+        WorldScene.layers.lie(way, layer);
+        build.geometry.shownA = db * WorldScene.WALL_HALF;
+        build.geometry.shownB = da * WorldScene.WALL_HALF;
+        build.geometry.addFace(mesh, build.frame, x, y, z, 0f, 0f, 0f, da, db, 0f, 0f, 0f, 1f);
+        build.geometry.shownA = build.geometry.shownB = 0f;
+        WorldScene.layers.none();
     }
 
     private void standEdge(SpriteGeometry.Mesh mesh, Texture texture, boolean wall, boolean door, int x, int y, int z,
@@ -412,7 +417,7 @@ final class WallBuilder {
                 return;
             }
             if (stain) {
-                addStain(WorldScene.laid.get(texture.getID()), x, y, z, 1f + layer, da, db);
+                stain(inRoom(WorldScene.laid.get(texture.getID()), mesh.room), x, y, z, 1f + layer, da, db);
                 return;
             }
         }
