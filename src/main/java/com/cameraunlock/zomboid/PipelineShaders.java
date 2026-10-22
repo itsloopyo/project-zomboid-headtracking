@@ -3070,7 +3070,7 @@ final class PipelineShaders {
                     // Gravel only where the game says the ground is gravel. Told from tarmac by
                     // how light the ground is, every street in the sun was a bed of pebbles.
                     float loose = vMaterial > 53.5 && vMaterial < 54.5 ? stony : 0.0;
-                    // The pale floor of pavements, squares and car parks is laid slabs: it has
+                    // The pale floor of pavements, squares and car parks is poured concrete: it has
                     // neither the stones of a drive nor the grain and the colour of tarmac.
                     float paved = vMaterial > 54.5 && vMaterial < 55.5 ? stony : 0.0;
                     float dark = stony - loose - paved;
@@ -3112,12 +3112,12 @@ final class PipelineShaders {
                     float bright = dot(texel.rgb, vec3(0.299, 0.587, 0.114));
                     texel.rgb = mix(texel.rgb * mix(1.0, fine, 0.9), grain3 * bright, 0.8 * (stony - paved)) * (1.0 - 0.35 * reliefLow);
                     if (paved > 0.0) {
-                        // Two slabs to a tile, each row laid half a slab along from the last,
-                        // no two quite the same grey, with a dark joint between them. Joints
-                        // finer than a pixel are left out: they would only crawl.
-                        vec2 slab = p * 2.0;
-                        slab.x += 0.5 * mod(floor(slab.y), 2.0);
-                        vec2 toJoint = min(fract(slab), 1.0 - fract(slab)) * 0.5;
+                        // Poured concrete, not laid slabs: a square panel to a tile, cut by a
+                        // joint along every tile's edge and never broken bond, no two panels
+                        // quite the same grey. Joints finer than a pixel are left out: they
+                        // would only crawl.
+                        vec2 slab = p;
+                        vec2 toJoint = min(fract(slab), 1.0 - fract(slab));
                         vec2 soft = fwidth(p);
                         float seen = paved * (1.0 - smoothstep(0.06, 0.2, max(soft.x, soft.y)));
                         float joint = max(1.0 - smoothstep(0.008, 0.008 + soft.x + 1e-6, toJoint.x), 1.0 - smoothstep(0.008, 0.008 + soft.y + 1e-6, toJoint.y));
