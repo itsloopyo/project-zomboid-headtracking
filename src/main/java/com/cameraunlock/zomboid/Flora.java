@@ -1274,10 +1274,15 @@ final class Flora {
     /**
      * Whether a sprite, by its name, is one of the wild plants the game paints as a clump of
      * broad leaves: of the weeds the map's erosion grows, the leafy ones, which are small bushes.
-     * Its seedlings, its dried plants and its flowers are none.
+     * Its seedlings, its dried plants and its flowers are none, and nor are the reeds (18, 19)
+     * and the thin saplings with a leaf here and there (36, 48) among the leafy ones: made a
+     * crown of, each was a ball of leaves.
      */
     static boolean leafyWeed(String name) {
         int place = name == null ? -1 : Sheets.place(name, "d_plants_1_");
+        if (place == 18 || place == 19 || place == 36 || place == 48) {
+            return false;
+        }
         return place >= 16 && place <= 23 || place >= 32 && place <= 39 || place >= 48 && place <= 55 || place == 64;
     }
 

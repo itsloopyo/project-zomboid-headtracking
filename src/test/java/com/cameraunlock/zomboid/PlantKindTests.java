@@ -137,13 +137,13 @@ final class PlantKindTests {
     }
 
     private static void leafyWeedsAndFernsAreToldByName() {
-        int[] leafy = {16, 17, 23, 32, 39, 48, 55, 64};
-        int[] other = {0, 7, 8, 15, 24, 31, 40, 47, 56, 63, 65};
+        int[] leafy = {16, 17, 20, 23, 32, 39, 49, 55, 64};
+        int[] other = {0, 7, 8, 15, 18, 19, 24, 31, 36, 40, 47, 48, 56, 63, 65};
         for (int place : leafy) {
             check(Flora.leafyWeed("d_plants_1_" + place), "d_plants_1_" + place + " is a leafy wild plant");
         }
         for (int place : other) {
-            check(!Flora.leafyWeed("d_plants_1_" + place), "d_plants_1_" + place + " is a seedling, a dried plant or a flower, and no bush");
+            check(!Flora.leafyWeed("d_plants_1_" + place), "d_plants_1_" + place + " is a seedling, a dried plant, a flower, a reed or a thin sapling, and no bush");
         }
         check(!Flora.leafyWeed(null) && !Flora.leafyWeed("d_plants_2_16"), "no other sheet holds them");
         for (int place = 40; place < 92; place++) {
