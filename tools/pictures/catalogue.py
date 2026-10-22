@@ -554,7 +554,12 @@ PAINTINGS = {
                   'the bottom and the dark background off the top and sides' + DETAIL, TALL),
     'Chromatic Accident': ('a close cropped detail from the middle of a large abstract expressionist drip painting, '
                            'dense tangled splatters and drips of black, rust orange, white and grey on cream' + ', the splatters running off every edge of the picture. Matte paint, the painted surface filling the whole image.', LONGER),
-    'Configuration II': ('a geometric abstract painting in the De Stijl manner: a few straight thick black lines dividing a white canvas into a handful of large clean flat areas, rectangles of pure red, blue and yellow, crisp hard edges, flat even paint' + '. The paint carried right out to all four edges and into every corner, the painted surface filling the whole image edge to edge.', SQUARE),
+    'Configuration II': ('an unsigned square painted wooden panel, a geometric abstract painting in the De Stijl manner '
+                         'filling the whole panel: a few straight thick black lines dividing a white ground into a handful'
+                         ' of large clean flat areas, rectangles of pure red, blue and yellow gathered round the middle, '
+                         'crisp hard edges, flat even paint, the black lines meeting the edges of the panel well away from'
+                         ' its corners, all four corners wide plain areas of the same flat white paint. The paint carried '
+                         'right out to all four edges, the painted surface filling the whole image edge to edge.', SQUARE),
     'Configuration No. 10': ('a close cropped detail from the middle of a large geometric abstract painting in the De '
                              'Stijl manner: a few straight thick black lines running right across a white ground and '
                              'off every edge of the picture, dividing it into rectangles; one large rectangle painted '
@@ -625,11 +630,15 @@ PAINTINGS = {
     'Omega Department': ('a gouache illustration of a friendly brown bear and a badger with a grey coat, a black and '
                          'white striped face and a short grey tail, standing side by side a little apart on a flat pale'
                          ' yellow ground that runs off every edge of the picture, soft matte gouache colours', TALL),
-    'Riverside': ('a close cropped detail from the middle of a large oil painting of a river bank in spring, in loose '
-                  'varied brushstrokes: a wide calm river winding away between low green meadows, two big round '
-                  'willow trees leaning over the water on the near bank, a small wooden rowing boat tied up under '
-                  'them, a pale blue sky with soft white clouds, fresh greens, pale blues and creamy whites, the '
-                  'water running out of the bottom of the picture' + DETAIL, WIDE),
+    'Riverside': ('a close cropped detail from the middle of a large impressionist oil painting in the manner of Claude '
+                  'Monet of a river bank on a hazy early summer day: a wide calm river winding away between low '
+                  'green meadows, two big willow trees leaning over the water on the near bank, a small wooden rowing '
+                  'boat tied up under them, a soft hazy pale grey blue sky with soft white clouds, the colours soft and '
+                  'muted, sage and olive greens, dusty grey blues, ochre and creamy whites, the brushwork varied: short '
+                  'quick flicks in the grass, feathery dabs in the willows, long broken horizontal strokes on the water '
+                  'carrying the reflections of the trees and the sky, the lower corners of the picture full of meadow '
+                  'grass on one side and river water on the other, the water running out of the bottom of the '
+                  'picture' + DETAIL, WIDE),
     'Sir Brakefire': ('17th century portrait of a gentleman with a pointed beard in a broad black hat and lace collar, dark background, chiaroscuro' + OIL, TALL),
     'Two Frame': ('a close cropped detail from the middle of a large impressionist oil painting of a country lane '
                   'between flowering hedges, lilac hills beyond, the lane running out of the bottom of the picture' + DETAIL, WIDE),

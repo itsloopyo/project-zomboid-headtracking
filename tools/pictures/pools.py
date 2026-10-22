@@ -147,8 +147,11 @@ POOLS = {
         'afro, in plain maroon t-shirts and grey sweatpants, standing side by side on a polished gym floor, the one in '
         'the middle holding a worn orange basketball, folded wooden bleachers filling the whole background, seen from '
         'a few metres away from the knees up.' + PRINT,
-        'Head and shoulders of a school principal, a woman of about forty eight with short brown hair just going grey at '
-        'the temples, a smooth face and a kind smile, in a navy jacket.' + STUDIO,
+        'Head and shoulders of a school principal, a youthful middle aged woman of about forty five, trim and energetic, '
+        'with a full head of short glossy chestnut brown hair in a neat 1980s cut, a smooth firm face with clear skin, '
+        'bright eyes and a kind smile, a little pink lipstick, in a navy blazer over a cream blouse. Taken on colour film '
+        'in the 1980s, soft flash, slightly faded colours, fine grain and natural skin, a mottled blue grey backdrop '
+        'behind her running off all four edges and into every corner of the image.',
         'A high school graduating class of young men and women of eighteen in maroon caps and gowns seated in rows on a'
         ' lawn, every one of them seated, the rows packed close so only the gowned graduates show, the knees of the '
         'front row along the bottom of the picture, all facing the camera, seen from a little way off, tall trees '
