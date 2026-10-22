@@ -1653,6 +1653,10 @@ final class PipelineShaders {
     static final String WORLD_FRAGMENT_MAIN_START = """
             void main() {
                 vec4 texel = texture2D(uTexture, vUv);
+                // The game keeps its sheets with each colour already multiplied by how much of the
+                // dot is covered. A dot half covered, kept whole or mixed in by its cover again,
+                // was half as light: the pale wear on white siding came out a black smear.
+                texel.rgb /= max(texel.a, 1.0 / 255.0);
                 // How the height and how far the wind takes a vertex change over the screen, for a plant
                 // drawn as a card in lying snow. Asked here, before any pixel is left out, where every
                 // pixel of the screen's two by two takes part: further down the answer would decide what
