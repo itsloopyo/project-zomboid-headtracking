@@ -430,28 +430,26 @@ pooled('walls_decoration_05', 176, 199, 'hunting')
 
 # Paintings, by the name the game gives each. Where the name points at a famous canvas the prompt describes that subject
 # in words, and the model paints it afresh: no picture of any canvas is given to it.
-OIL = ('. An oil painting with visible brushstrokes and slightly yellowed varnish, unsigned, the painted surface'
-       ' filling the whole image edge to edge.')
-OILED = ('. An oil painting with visible brushstrokes and slightly yellowed varnish, the background brushwork'
-         ' carried right out to all four edges and into every corner, the painted surface filling the whole image'
-         ' edge to edge.')
+# Qwen-Image paints whatever is named, so asking for no signature gave every painting one.
+OIL = ('. An oil painting with visible brushstrokes and slightly yellowed varnish, the background brushwork carried'
+       ' right out to all four edges and into every corner, the painted surface filling the whole image edge to edge.')
 PAINTINGS = {
-    "Lilly's Waterpond": ('impressionist painting of water lilies floating on a pond, reflections of willows, soft blues, greens and violets' + OILED, WIDE),
+    "Lilly's Waterpond": ('impressionist painting of water lilies floating on a pond, reflections of willows, soft blues, greens and violets' + OIL, WIDE),
     "She's Got It": ('classical painting of a woman in a white gown reclining on a red velvet chaise longue, dark drapery behind' + OIL, BROAD),
     'Aaaaah!': ('expressionist painting of a pale lone figure in a long dark coat on a long bridge facing the viewer with both hands pressed to its cheeks and its mouth open in a scream, a swirling orange and red sky above a dark blue fjord' + OIL, TALL),
-    'Abe Lincoln': ('formal 19th century portrait of Abraham Lincoln seated in a dark suit, sombre background' + OILED, TALL),
+    'Abe Lincoln': ('formal 19th century portrait of Abraham Lincoln seated in a dark suit, sombre background' + OIL, TALL),
     'Apple Faced Man': ('surreal painting of a gentleman in a dark overcoat and bowler hat standing in front of a low wall, his face hidden behind a green apple floating in the air in front of it, his arms at his sides, a cloudy sky behind' + OIL, TALL),
     'Benjamin Franklin': ('formal 18th century portrait of Benjamin Franklin in a brown coat, long grey hair, dark background' + OIL, TALL),
-    'Betty': ('1950s painted portrait of a smiling blonde woman with curled hair in a high necked blue cardigan, head and shoulders, warm brown background' + OILED, TALL),
+    'Betty': ('1950s painted portrait of a smiling blonde woman with curled hair in a high necked blue cardigan, head and shoulders, warm brown background' + OIL, TALL),
     'Calvinist': ('17th century Dutch portrait of a stern old man in a black hat and a wide white ruff collar, dark background, chiaroscuro' + OIL, TALL),
-    'Chromatic Accident': ('an abstract expressionist drip painting, dense tangled splatters and drips of black, rust orange, white and grey on a cream canvas' + '. Unsigned, the painted surface filling the whole image edge to edge.', LONGER),
+    'Chromatic Accident': ('an abstract expressionist drip painting, dense tangled splatters and drips of black, rust orange, white and grey on a cream canvas' + '. The painted surface filling the whole image edge to edge.', LONGER),
     'Configuration II': ('a geometric abstract painting in the De Stijl manner: a few straight thick black lines dividing a white canvas into a handful of large clean flat areas, rectangles of pure red, blue and yellow, crisp hard edges, flat even paint' + '. The paint carried right out to all four edges and into every corner, the painted surface filling the whole image edge to edge.', SQUARE),
-    'Configuration No. 10': ('a geometric abstract painting in the De Stijl manner: a few straight thick black lines running right across a white ground, dividing it into a grid of rectangles; one large rectangle between the lines painted solid blue and two small ones solid red and yellow, each colour filling its rectangle exactly up to the black lines, the rest white, flat even paint' + '. Unsigned, the painted surface filling the whole image edge to edge.', SQUARE),
-    'Layout I': ('a geometric abstract painting in the De Stijl manner: a few straight thick black lines dividing a white canvas into a handful of large clean flat areas, a large red square and small blue and yellow rectangles, crisp hard edges, flat even paint' + '. Unsigned, the painted surface filling the whole image edge to edge.', SQUARE),
-    'Desert Landscape': ('painting of a desert landscape, red sandstone mesas and sagebrush under a huge pale sky at dusk' + OILED, BROAD),
+    'Configuration No. 10': ('a geometric abstract painting in the De Stijl manner: a few straight thick black lines running right across a white ground, dividing it into a grid of rectangles; one large rectangle between the lines painted solid blue and two small ones solid red and yellow, each colour filling its rectangle exactly up to the black lines, the rest white, flat even paint' + '. The painted surface filling the whole image edge to edge.', SQUARE),
+    'Layout I': ('a geometric abstract painting in the De Stijl manner: a few straight thick black lines dividing a white canvas into a handful of large clean flat areas, a large red square and small blue and yellow rectangles, crisp hard edges, flat even paint' + '. The painted surface filling the whole image edge to edge.', SQUARE),
+    'Desert Landscape': ('painting of a desert landscape, red sandstone mesas and sagebrush under a huge pale sky at dusk' + OIL, BROAD),
     'Flowers On Table': ('still life painting of a vase of mixed flowers on a table with a white cloth, dark background, Dutch golden age' + OIL, TALL),
     'George Washington': ('formal portrait of George Washington as an older man in his sixties, his long face, heavy jaw and firm closed mouth, grey powdered hair tied back, in a black velvet suit, a red curtain behind, in the manner of Gilbert Stuart' + OIL, TALL),
-    'Helianthus': ('post-impressionist still life painting of sunflowers in a clay vase against a yellow wall, thick impasto' + OILED, TALL),
+    'Helianthus': ('post-impressionist still life painting of sunflowers in a clay vase against a yellow wall, thick impasto' + OIL, TALL),
     'Incognito Library': ('painting of the interior of an old library, tall shelves of leather books, a fireplace, an armchair and a brass lamp, warm brown tones' + OIL, WIDE),
     'Island Beach': ('seascape painting of waves breaking on dark rocks off an island shore, turquoise sea, cloudy sky' + OIL, LONGER),
     'John Adams': ('formal 18th century portrait of John Adams in a dark coat and white cravat, grey hair, dark background' + OIL, TALL),
@@ -459,11 +457,11 @@ PAINTINGS = {
     'Lighthouse': ('painting of a white lighthouse with a red roof on a rocky headland, blue sea and sky, a wooden walkway leading to it' + OIL, TALL),
     'Man With One Ear': ('post-impressionist self portrait of a red bearded man in a fur cap and green coat, a thick white cloth bandage wrapped round his head over one ear and tied under his chin, swirling brushstrokes' + OIL, TALL),
     'Margarite': ('17th century Dutch portrait of a girl in a blue and yellow turban glancing over her shoulder, a pearl earring, her plain ochre jacket smooth and unmarked, black background' + OIL, TALL),
-    'Monica Elisa': ('an ink and watercolour portrait of a woman with long black hair in a red and orange patterned robe, head and shoulders, white paper background, unsigned', TALL),
+    'Monica Elisa': ('an ink and watercolour portrait of a woman with long black hair in a red and orange patterned robe, head and shoulders, white paper background', TALL),
     'Mount Never Rest': ('romantic landscape painting of a towering snow capped mountain above a lake and pine forest, golden light breaking through clouds' + OIL, LONGER),
     'Night With Stars': ('post-impressionist painting of a swirling starry night sky with a crescent moon over a small sleeping village of many little houses with lit windows clustered below hills, a church spire rising among them, a tall dark cypress in the foreground, thick impasto' + OIL, BROAD),
     'Nomad Above The Gloom': ('romantic painting of a lone man in a dark frock coat seen from behind, standing on a rocky peak above a sea of fog and distant mountains' + OIL, SQUARE),
-    'Omega Department': ('a 1970s children\'s storybook illustration in gouache of a friendly brown bear and a badger standing side by side a little apart, pale yellow background, printed on paper, unsigned', TALL),
+    'Omega Department': ('a 1970s children\'s storybook illustration in gouache of a friendly brown bear and a badger standing side by side a little apart, pale yellow background, printed on paper', TALL),
     'Riverside': ('impressionist painting of a river bank in spring, poplars and their reflections, pink and lilac sky' + OIL, WIDE),
     'Sir Brakefire': ('17th century portrait of a gentleman with a pointed beard in a broad black hat and lace collar, dark background, chiaroscuro' + OIL, TALL),
     'Two Frame': ('small impressionist landscape painting of a country lane between flowering hedges, lilac hills beyond' + OIL, WIDE),
@@ -482,8 +480,8 @@ for _name, _shape in (("Lilly's Waterpond", 1.5), ("She's Got It", 2.05), ('Chro
                       ('Lakeside', 2.4), ('Mount Never Rest', 2.9), ('Night With Stars', 1.8), ('Nomad Above The Gloom', 1.0), ('Wide', 1.2)):
     SHAPED['painting-' + ''.join(c for c in _name.lower().replace(' ', '-') if c.isalnum() or c == '-').strip('-')] = _shape
 
-art('painting-field-pink', 'a colour field abstract painting, two large soft edged hazy rectangles, magenta above warm yellow, on an orange ground, matte paint on canvas' + '. Unsigned, the painted surface filling the whole image edge to edge.', TALL)
-art('painting-field-purple', 'a colour field abstract painting, two large soft edged hazy rectangles, deep violet above midnight blue, on a dark plum ground, matte paint on canvas' + '. Unsigned, the painted surface filling the whole image edge to edge.', TALL)
+art('painting-field-pink', 'a colour field abstract painting, two large soft edged hazy rectangles, magenta above warm yellow, on an orange ground, matte paint on canvas' + '. The painted surface filling the whole image edge to edge.', TALL)
+art('painting-field-purple', 'a colour field abstract painting, two large soft edged hazy rectangles, deep violet above midnight blue, on a dark plum ground, matte paint on canvas' + '. The painted surface filling the whole image edge to edge.', TALL)
 HUNG.append(('Paintings|Pink and Yelllow', 'painting-field-pink'))
 HUNG.append(('Paintings|Purple and Blue', 'painting-field-purple'))
 art('painting-sitter', 'dark old master portrait of a pale woman in a blue silk dress, sombre background, cracked varnish' + OIL, TALL)
