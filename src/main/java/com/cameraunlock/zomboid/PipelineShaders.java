@@ -2639,9 +2639,9 @@ final class PipelineShaders {
                     texel = vec4(0.03, 0.03, 0.035, 1.0);
                     cover = 1.0;
                 }
-                // Chain link is thin galvanised wire. The game paints it as heavy dark strokes,
-                // which up close are a black lattice: here the wire is half as thick and the
-                // grey of zinc.
+                // A fence of mesh panels is thin wire. The game paints it as heavy strokes, which
+                // up close are a lattice of bars: here the wire is half as thick, in the colour the
+                // sprite paints it, a security fence's dark green or a site fence's zinc.
                 if (vMaterial > 14.5 && vMaterial < 15.5) {
                     // Far off, where a pixel takes in several wires, the fence is a veil: each
                     // pixel is wire as often as that much of it is wire, a different set of
@@ -2653,7 +2653,6 @@ final class PipelineShaders {
                         discard;
                     }
                     cover = 1.0;
-                    texel.rgb = mix(texel.rgb, vec3(0.52, 0.54, 0.55), 0.75);
                 }
                 // The mod's chain link (ChainLink): a sheet woven here into diamonds 60 mm across
                 // and 75 mm high of wire 4 mm thick, wherever the eye is. Each of the two ways the
