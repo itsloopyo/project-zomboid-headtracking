@@ -33,9 +33,10 @@ LONGEST = {'family': 768, 'painting': 1024, 'board': 1024, 'certificate': 1024, 
 SMALL = 768
 # The share of each side cut off every generated picture before it is shaped, by what it is. Qwen-Image signs nearly
 # every painting in a bottom corner whatever the prompt says, never further in than about 7% of the side. Elsewhere it
-# leaves a faint stock watermark in the bottom right corner, up to about 40 px in on a 1024 px side.
+# leaves a faint stock watermark in the bottom right corner: of 89 found in 619 picked pictures, none reached further in
+# than 4.02% of the shorter side.
 TRIM = {'painting': 0.08}
-EDGE = 0.04
+EDGE = 0.05
 # How many times as wide as it is high each shape cut from square art is.
 SHAPES = {'tall': 2 / 3, 'wide': 3 / 2, 'broad': 16 / 9}
 # A television's picture, in pixels: more than a tube of 1993 could show.
