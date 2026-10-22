@@ -33,6 +33,8 @@ final class Masonry {
     private static final int FEWEST_ROWS = 40;
     /** The least a sprite's rows differ in brightness, and the least its joints stand out from the rest, for it to be laid in courses at all. */
     private static final float LEAST_SPREAD = 0.012f, LEAST_JOINT = 0.02f;
+    /** A row at the top or the foot further from the usual than this many times the furthest a joint goes is no part of the wall. */
+    private static final float OUTLINE = 2f;
     /** How like itself the wall is a whole course further up, from 0 to 1, for its courses to be evenly spaced. */
     private static final float EVEN = 0.4f;
     /** Upright joints to a course along the strip: a boarded wall has fewer than the first, a brick one at least the second, a stone one at least the third. */
@@ -161,6 +163,28 @@ final class Masonry {
         if (rows == null || spread < LEAST_SPREAD) {
             return 0;
         }
+        // A few rows at the top or the foot far darker or lighter than any joint are no course: the
+        // outline the game draws along the top of a trailer's walls. Kept, they left the wall
+        // unlike itself a course up, and lapped boards read as nothing.
+        float[] outlined = rows.clone();
+        Arrays.sort(outlined);
+        float middle = outlined[outlined.length / 2], beyond = OUTLINE * Math.max(middle - outlined[(int) (outlined.length * 0.05f)],
+                outlined[Math.min(outlined.length - 1, (int) (outlined.length * 0.95f))] - middle);
+        int first = 0, last = rows.length;
+        while (first < last && Math.abs(rows[first] - middle) > beyond) {
+            first++;
+        }
+        while (last > first && Math.abs(rows[last - 1] - middle) > beyond) {
+            last--;
+        }
+        if (last - first < FEWEST_ROWS) {
+            return 0;
+        }
+        rows = Arrays.copyOfRange(rows, first, last);
+        if (deviation(rows) < LEAST_SPREAD) {
+            return 0;
+        }
+        firstRow += first;
         int count = rows.length;
         float[] sorted = rows.clone();
         Arrays.sort(sorted);

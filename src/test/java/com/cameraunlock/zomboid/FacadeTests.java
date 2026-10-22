@@ -14,6 +14,7 @@ final class FacadeTests {
     static void run() {
         Checks.run("brickIsToldByItsUprightJoints", FacadeTests::brickIsToldByItsUprightJoints);
         Checks.run("lappedBoardsHaveShadowsAndNoUprightJoints", FacadeTests::lappedBoardsHaveShadowsAndNoUprightJoints);
+        Checks.run("lappedBoardsUnderAnOutlineAreLapped", FacadeTests::lappedBoardsUnderAnOutlineAreLapped);
         Checks.run("lowWallOfBrickIsBrick", FacadeTests::lowWallOfBrickIsBrick);
         Checks.run("blocksAreDeepCoursesOfOneGrey", FacadeTests::blocksAreDeepCoursesOfOneGrey);
         Checks.run("stoneHasDeepCoursesAndNoTwoStonesAlike", FacadeTests::stoneHasDeepCoursesAndNoTwoStonesAlike);
@@ -94,6 +95,12 @@ final class FacadeTests {
     private static void lappedBoardsHaveShadowsAndNoUprightJoints() {
         int how = laid((along, row) -> row % 10 == 0 ? SHADOW : BOARD);
         check((how & 15) == WallSides.LAPPED, "a wall with a dark line every board and no upright joints is lapped boards: " + Integer.toHexString(how));
+    }
+
+    private static void lappedBoardsUnderAnOutlineAreLapped() {
+        // A trailer's siding: boards eighteen rows deep with a faint shadow two rows deep at each one's foot, under three black rows along the top.
+        int how = laid((along, row) -> row < 3 ? 0x010101 : (row - 3) % 18 < 2 ? 0xa8a498 : 0xc4c0b0);
+        check((how & 15) == WallSides.LAPPED, "lapped boards with a dark outline along their top are lapped boards: " + Integer.toHexString(how));
     }
 
     private static void lowWallOfBrickIsBrick() {
