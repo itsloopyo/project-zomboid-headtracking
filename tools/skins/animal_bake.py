@@ -13,7 +13,7 @@ the game's own picture.
 - The nose, the eyes and the hooves are put where the model has them, measured off the model once and
   kept in KINDS.
 
-    python tools/skins/animal_bake.py --game "<game folder>" --pictures DIR [--only Cow_BW_01 ...] [--preview DIR] [--size 2048]
+    python tools/skins/animal_bake.py --game "<game folder>" --pictures DIR [--only Cow_BW_01 ...] [--preview DIR] [--size 1024]
 Writes src/main/resources/skins/body/<the game's name in small letters>.jpg (the mod shows an
 animal's skin all over), and with --preview views of
 each animal wearing its skin, lit from above.
@@ -91,9 +91,9 @@ SKINS = {
     'Mouse_Deer': ('mouse', 'deer', 0), 'Mouse_Golden': ('mouse', 'golden', 0), 'Mouse_White': ('mouse', 'white', 0),
 }
 # The seed of each picture that was chosen, of those made.
-PICKED = {'coat-black': 7, 'coat-white': 7, 'coat-red': 7, 'skin-udder': 7, 'hoof': 7, 'pig-pink': 7, 'pig-black': 7, 'wool-cream': 7, 'coat-deer': 7, 'feathers-red': 1993,
-          'feathers-white': 1993, 'bird-leg': 7, 'down-yellow': 7, 'fur-brown': 7, 'fur-grey': 7, 'fur-white': 7,
-          'feathers-turkey': 1993}
+PICKED = {'coat-black': 1, 'coat-white': 2, 'coat-red': 2, 'skin-udder': 1, 'hoof': 2, 'pig-pink': 4, 'pig-black': 3, 'wool-cream': 3, 'coat-deer': 1,
+          'feathers-red': 4, 'feathers-white': 4, 'bird-leg': 3, 'down-yellow': 1, 'fur-brown': 4, 'fur-grey': 1, 'fur-white': 2,
+          'feathers-turkey': 4}
 # How much of the animal one picture of a surface covers, in the model's units: a cow is 1.45 of them long and a pig 0.95.
 SPAN = {'coat': 0.12, 'skin': 0.12, 'hoof': 0.08, 'pig': 0.1}
 # The colour a picture is brought to, on the whole: the model made a Simmental's red hair orange and a pig's skin hot pink.
@@ -312,9 +312,9 @@ def tile(pictures, name, span, density, broad):
     and its colour brought to the one COLOUR gives it where it has one.
     """
     dots = max(64, int(round(span * density)))
-    joined = numpy.asarray(bake.joined(Image.open(pictures / f'{name}-{PICKED[name]}.png').convert('RGB')))
+    picture = numpy.asarray(Image.open(pictures / f'{name}-{PICKED[name]}.png').convert('RGB'))
     # Made smaller three by three and the middle kept: made smaller alone, its edges are filtered as ends and show as seams.
-    image = Image.fromarray(numpy.tile(joined, (3, 3, 1))).resize((dots * 3, dots * 3), Image.LANCZOS).crop((dots, dots, dots * 2, dots * 2))
+    image = Image.fromarray(numpy.tile(picture, (3, 3, 1))).resize((dots * 3, dots * 3), Image.LANCZOS).crop((dots, dots, dots * 2, dots * 2))
     own = numpy.asarray(image).astype(numpy.float32) / 255.0
     thrice = Image.fromarray(numpy.tile(numpy.asarray(image), (3, 3, 1)))
     blurred = numpy.asarray(thrice.filter(ImageFilter.GaussianBlur(dots / 6.0))).astype(numpy.float32)[dots:2 * dots, dots:2 * dots] / 255.0
@@ -725,7 +725,11 @@ def turkey(kind, breed, seed, maps, pictures, density, places):
     pale = laid(tile(pictures, 'coat-white', span, density, 0.0), where, facing, span)
     # Flight feathers barred white and black out along the spread wings, and a rufous band at the end of the tail.
     wing = bake.ramp(0.12 * k, 0.16 * k, numpy.abs(x))
-    bars = bake.ramp(0.4, 0.6, 0.5 + 0.5 * numpy.sin(numpy.abs(x) / (0.012 * k) * 2 * numpy.pi))
+    # Even bars straight across the whole wing read as a barcode: each bar wanders and thins, and drops out in places,
+    # as the bars of one feather do not line up with the next one's.
+    wander = bake.cloudy(where, 1.0 / (0.025 * k), 31, 2)
+    kept = bake.ramp(0.3, 0.55, bake.cloudy(where, 1.0 / (0.015 * k), 37, 2))
+    bars = 0.8 * kept * bake.ramp(0.45, 0.7, 0.5 + 0.5 * numpy.sin((numpy.abs(x) / (0.014 * k) + 2.0 * wander) * 2 * numpy.pi))
     colour = feathers * (1 - (wing * bars)[..., None]) + pale * (wing * bars)[..., None]
     tip = bake.ramp(0.2 * k, 0.24 * k, z + 0.01 * k * (ragged - 0.5))[..., None]
     colour = colour * (1 - tip) + feathers * numpy.array([1.9, 1.4, 1.0], dtype=numpy.float32) * tip
@@ -796,7 +800,7 @@ def main():
     parser.add_argument('--pictures', required=True)
     parser.add_argument('--only', nargs='*', default=[])
     parser.add_argument('--preview')
-    parser.add_argument('--size', type=int, default=2048)
+    parser.add_argument('--size', type=int, default=1024)
     args = parser.parse_args()
     unknown = [name for name in args.only if name not in SKINS]
     if unknown:
