@@ -745,7 +745,7 @@ public final class FirstPerson {
                 getReady(player, now);
             }
             if (view.characters.wanted) {
-                drawOverhead(player);
+                drawOverhead(player, sinceLastFrame);
             } else if (pictureUp) {
                 pictureUp = false;
                 view.worldScene.setDown();
@@ -1091,11 +1091,14 @@ public final class FirstPerson {
      * a long way off with a very narrow field of view has next to none, and everything the
      * picture does works with it as it stands.
      */
-    private void drawOverhead(IsoPlayer player) {
+    private void drawOverhead(IsoPlayer player, float seconds) {
         float x = player.getX(), y = player.getY(), level = player.getZ();
         float floorUp = level * ViewCamera.LEVEL_HEIGHT;
+        // Asked once a frame with the frame's time: the joint is eased (ModelHead.eyeOffset), and eased by no time it keeps whatever it
+        // first read, which before the skeleton is posed is the feet, with the torch held under the ground.
+        float eyeHeight = eyeHeight(player, seconds);
         aimOverhead(player, floorUp);
-        ViewCamera.clean(standingView, x, y, floorUp + view.worldScene.terrain.lift(x, y, level) + eyeHeight(player, 0f), OVERHEAD_YAW, OVERHEAD_PITCH);
+        ViewCamera.clean(standingView, x, y, floorUp + view.worldScene.terrain.lift(x, y, level) + eyeHeight, OVERHEAD_YAW, OVERHEAD_PITCH);
         if (TRACE && (overheadSaid & 127) == 1) {
             int index = player.getIndex();
             ViewCamera.project(overheadView, overheadHalfHigh / OVERHEAD_AWAY, (float) IsoCamera.getScreenWidth(index) / IsoCamera.getScreenHeight(index),
@@ -1107,7 +1110,7 @@ public final class FirstPerson {
         view.headlights.gather(view.worldScene.terrain, x, y, view.ride);
         Vector2 facing = player.getForwardDirection();
         float facingLength = Math.max((float) Math.hypot(facing.x, facing.y), 1e-3f);
-        float beamDown = (float) Math.atan2(CarriedLight.BELOW_EYE - eyeHeight(player, 0f), OVERHEAD_BEAM_LANDS);
+        float beamDown = (float) Math.atan2(CarriedLight.BELOW_EYE - eyeHeight, OVERHEAD_BEAM_LANDS);
         float beamFlat = (float) Math.cos(beamDown);
         view.carriedLight.gather(player, standingView.eyeX, standingView.eyeY, standingView.eyeUp, facing.x / facingLength * beamFlat,
                 facing.y / facingLength * beamFlat, (float) Math.sin(beamDown));
