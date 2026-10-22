@@ -17,6 +17,7 @@ final class RoofTests {
     static void run() {
         Checks.run("planeAndFoldAreToldApartByTheMiddle", RoofTests::planeAndFoldAreToldApartByTheMiddle);
         Checks.run("slopeKeepsItsPitchAboveTheKickAtItsEave", RoofTests::slopeKeepsItsPitchAboveTheKickAtItsEave);
+        Checks.run("farSideOfAWingMeetsTheMainRoofInAValley", RoofTests::farSideOfAWingMeetsTheMainRoofInAValley);
         Checks.run("longestRunLeavesOutAStrayRow", RoofTests::longestRunLeavesOutAStrayRow);
         Checks.run("roofOverAnLShapedBuildingIsClosedAllRound", RoofTests::roofOverAnLShapedBuildingIsClosedAllRound);
         Checks.run("hipsAndValleyOfTheLShapeAreFoldedTheRightWay", RoofTests::hipsAndValleyOfTheLShapeAreFoldedTheRightWay);
@@ -146,6 +147,58 @@ final class RoofTests {
         RoofFit.fit(new ArrayList<>(List.of(steep, kick, eave)));
         check(Math.abs(steep.fitLow - steep.fitHigh - THIRD) < 0.05f, "the steep tile keeps a whole pitch: " + steep.fitLow + ".." + steep.fitHigh);
         check(kick.fitted && eave.fitted && near(kick.fitHigh, eave.fitLow), "the kick's two tiles are one plane: " + kick.fitHigh + " " + eave.fitLow);
+    }
+
+    private static void farSideOfAWingMeetsTheMainRoofInAValley() {
+        // As the map has the junction of a farmhouse's gambrel (1468.., 9850..): the main roof's level top
+        // on column 0 and its east slope on 1..3, the wing's south slope on rows 3..5, a square at 3, 2
+        // with no tile and a stray slope at 4, 1..2 where the wing's far side meets the main roof.
+        List<RoofFit.Tile> tiles = new ArrayList<>();
+        for (int y = 0; y <= 6; y++) {
+            tiles.add(new RoofFit.Tile(0, y, 3, RoofFit.LEVEL, true, 3f, 3f));
+            tiles.add(new RoofFit.Tile(1, y, 2, y == 3 ? RoofFit.SOUTH_EAST_ODD : RoofFit.ALONG_X, true, 3f, 3f - THIRD));
+            if (y != 3) {
+                tiles.add(new RoofFit.Tile(2, y, 2, y == 4 ? RoofFit.SOUTH_EAST_ODD : RoofFit.ALONG_X, true, 3f - THIRD, 2f + THIRD));
+            }
+            if (y <= 1 || y == 6) {
+                tiles.add(new RoofFit.Tile(3, y, 2, RoofFit.ALONG_X, true, 2f + THIRD, 2f));
+            }
+        }
+        tiles.add(new RoofFit.Tile(2, 3, 2, RoofFit.ALONG_Y, true, 3f, 3f - THIRD));
+        tiles.add(new RoofFit.Tile(3, 3, 2, RoofFit.ALONG_Y, true, 3f, 3f - THIRD));
+        tiles.add(new RoofFit.Tile(3, 4, 2, RoofFit.ALONG_Y, true, 3f - THIRD, 2f + THIRD));
+        tiles.add(new RoofFit.Tile(3, 5, 2, RoofFit.SOUTH_EAST_ODD, true, 2f + THIRD, 2f));
+        tiles.add(new RoofFit.Tile(4, 1, 2, RoofFit.ALONG_X, true, 3f - THIRD, 2f + THIRD));
+        tiles.add(new RoofFit.Tile(4, 2, 2, RoofFit.ALONG_X, true, 3f - THIRD, 2f + THIRD));
+        for (int x = 4; x <= 8; x++) {
+            for (int y = 3; y <= 5; y++) {
+                tiles.add(new RoofFit.Tile(x, y, 2, RoofFit.ALONG_Y, true, 3f - (y - 3) * THIRD, 3f - (y - 2) * THIRD));
+            }
+        }
+        RoofFit.fit(tiles);
+        List<RoofFit.Tile> made = RoofFit.backs(tiles, standing((x, y) -> x >= -3 && x <= 3 && y >= 0 && y <= 6 || x >= 4 && x <= 8 && y >= 0 && y <= 5));
+        RoofFit.peaks(tiles, made);
+        List<RoofFit.Tile> carried = RoofFit.valleys(tiles, made);
+        List<RoofFit.Tile> farSide = new ArrayList<>(made);
+        farSide.addAll(carried);
+        for (RoofFit.Tile tile : farSide) {
+            if (tile.y == 0 && tile.x >= 3) {
+                check(near(Math.min(tile.fitLow, tile.fitHigh), 2f), "the wing's far side comes down to its eave on the north wall, not a level over it: " + tile.x + " at " + tile.fitLow + ".." + tile.fitHigh);
+            }
+        }
+        // The valley runs from the wing's eave at the main roof's foot, 4, 0, to its ridge at the main roof's top, 1, 3.
+        for (int x = 1; x <= 4; x++) {
+            for (int y = 0; y <= 2; y++) {
+                if (x + y < 3) {
+                    continue;
+                }
+                boolean found = false;
+                for (RoofFit.Tile tile : farSide) {
+                    found |= tile.x == x && tile.y == y && tile.fitAxis == RoofFit.ALONG_Y && near(tile.fitLow, 2f + y * THIRD) && near(tile.fitHigh, 2f + (y + 1) * THIRD);
+                }
+                check(found, "the wing's far side covers " + x + ", " + y + " on its side of the valley, with no pit at the square the map left out or over the stray slope");
+            }
+        }
     }
 
     private static void unclearTileOnAValleysLineIsFoldedAsTheValleyIs() {

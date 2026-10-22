@@ -678,6 +678,11 @@ final class RoofFit {
                 }
                 // The far slope is on the map: this roof has both its sides.
                 bothSides = on != null && on.slopes() && on.fitAxis == top.fitAxis && on.up() == -up;
+                // Any other slope there is a wing's roof and no level top: crossed, the far side stood at
+                // the ridge's height on the wall beyond the wing (1469..1472, 9850).
+                if (on != null && on.slopes()) {
+                    break;
+                }
                 x += dx;
                 y += dy;
             }
@@ -1297,7 +1302,7 @@ final class RoofFit {
                         Tile on = here.get(i);
                         // The next tile of the slope itself, or a tile the map has folded there, has the square already.
                         ends = on.shaped || sameRoof(tile, peaked, axis, on);
-                        if (on.slopes() && on.fitAxis != axis && on.up() == step) {
+                        if (on.slopes() && on.fitAxis != axis && (across == null || across.up() != step)) {
                             across = on;
                         } else if (on.axis == LEVEL && on.peak == 0f && !on.fitted) {
                             flat = on;
@@ -1310,13 +1315,17 @@ final class RoofFit {
                         break;
                     }
                     cornersOf(across.fitAxis, across.fitLow, across.fitHigh, other);
-                    boolean above = false;
+                    boolean above = false, under = true;
                     for (int corner = 0; corner < 4; corner++) {
                         above |= (peaked ? highest : own[corner]) > other[corner] + SAME;
+                        under &= (peaked ? highest : own[corner]) >= other[corner] - SAME;
                     }
-                    // A slope across that never climbs as high as this one before it ends is the
-                    // roof of a lower storey, and this one is no wing of it.
-                    if (!above || climbsTo(at, x, y, dx, dy, across.fitAxis, step) < lowest - SAME) {
+                    // A slope across that falls the way this one is carried is a hip, unless it lies under
+                    // this one all over its square: then it is inside the roof, a stray slope the map has
+                    // in a valley (1472, 9851..9852) or the far side backs made for it, and the valley
+                    // goes on past it to the slope beyond. Stopped there, it left a pit open at 1471, 9852.
+                    boolean falls = across.up() != step;
+                    if (!above || falls && !under || climbsTo(at, falls ? x + dx : x, falls ? y + dy : y, dx, dy, across.fitAxis, step) < lowest - SAME) {
                         break;
                     }
                     Tile over = new Tile(x, y, (int) Math.floor(lowest + LEAST_RISE), tile.fitAxis, true, tile.fitLow, tile.fitHigh);
