@@ -49,9 +49,10 @@ final class CanopyTests {
 
     /**
      * The game eases a tree it opens to 0.05 alpha and back (IsoTree.fadeAlpha) and draws it
-     * blended; the picture has no blending for the world, so it leaves out the share of a
-     * tree's pixels the game does not draw, picked by a fixed pattern, and takes the share
-     * by the tree's square, which every vertex of a tree carries, and not the pixel's own.
+     * blended; the picture has no blending for the world, so it leaves out a share of a tree's
+     * pixels, picked by a fixed pattern, and takes the share by the tree's square, which every
+     * vertex of a tree carries, and not the pixel's own. A tree at rest faded keeps none of
+     * them: 5% of its pixels glittered where the game's faint ghost hardly shows.
      */
     private static void aTreeInTheWindowShowsAsMuchOfItselfAsTheGameDrawsByItsOwnSquare() {
         String shader = PipelineShaders.WORLD_FRAGMENT_PARTS + PipelineShaders.WORLD_FRAGMENT_MAIN;
@@ -62,6 +63,8 @@ final class CanopyTests {
         check(shader.contains("if (grain(gl_FragCoord.xy + vec2(613.0, 211.0)) >= shown) {"), "and that share of its pixels is drawn");
         check(PipelineShaders.WORLD_VERTEX.contains("vRoot = uModel > 0.5 ? vec2(-1.0, piece) : gl_MultiTexCoord2.xy;"),
                 "the square comes from the vertex, and a model has none: it carries the piece of its surface in the place of one");
+        check(CanopyWindow.shown(CanopyWindow.FADED) == 0f && CanopyWindow.shown(1f) == 1f && CanopyWindow.shown(0.5f) > 0.45f && CanopyWindow.shown(0.5f) < 0.5f,
+                "a tree the game holds faded keeps none of its pixels, a whole one all of them, and one between about as much as the game draws");
         // The pattern lets through the share asked for: GLSL's grain, here in Java, over a stretch of the screen.
         for (float share : new float[] {0.05f, 0.3f, 0.7f}) {
             int kept = 0, all = 0;

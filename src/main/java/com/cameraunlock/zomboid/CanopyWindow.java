@@ -32,6 +32,20 @@ final class CanopyWindow {
     static final float ACROSS = 373f / TEXELS_PER_TILE, DOWN = 187f / TEXELS_PER_TILE;
     /** The share of that ellipse at which its dither starts, and where it has thinned to nothing. */
     static final float EDGE_FROM = 0.85f, EDGE_TO = 1.135f;
+    /** The alpha the game eases a tree it opens down to, and holds it at (IsoTree.fadeAlpha). */
+    static final float FADED = 0.05f;
+
+    /**
+     * The share of a tree's pixels the window keeps at the alpha the game draws it at. Blended,
+     * the game's FADED is a ghost of the tree too faint to see over most ground; kept as that
+     * share of its pixels it was a scatter of single bright leaf pixels that glittered over
+     * whatever was behind. So a tree at rest faded keeps none, and one easing in or out the
+     * rest of the way.
+     */
+    static float shown(float fadeAlpha) {
+        return Math.max(0f, (fadeAlpha - FADED) / (1f - FADED));
+    }
+
     /** The pointer's mask while aiming: a circle, and its dither. */
     static final float AIMED = 182f / TEXELS_PER_TILE, AIMED_EDGE_FROM = 0.705f, AIMED_EDGE_TO = 1.29f;
 

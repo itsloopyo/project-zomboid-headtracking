@@ -1208,7 +1208,7 @@ public final class FirstPerson {
                     }
                     canopyFaded[3 * canopyFadedCount] = squareX;
                     canopyFaded[3 * canopyFadedCount + 1] = squareY;
-                    canopyFaded[3 * canopyFadedCount + 2] = tree.fadeAlpha;
+                    canopyFaded[3 * canopyFadedCount + 2] = CanopyWindow.shown(tree.fadeAlpha);
                     canopyFadedCount++;
                 }
             }
