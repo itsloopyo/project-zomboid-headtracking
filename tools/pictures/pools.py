@@ -5,11 +5,11 @@ shows the family pictures of catalogue.py; a room of another kind shows one of i
 by the room the sprite hangs in (Decor.inRoom). POOLS is room kind -> prompts; each becomes the picture pool-<kind>-NN.
 """
 
+# No place is named: Qwen-Image letters a named place onto a sign or a caption in the picture.
 PRINT = (' A snapshot on 35mm colour negative film from the 1980s, faded colours with soft contrast and fine grain,'
-         ' ordinary amateur composition, natural colours, Kentucky, United States. The picture fills the whole image'
-         ' edge to edge.')
-OLD_PRINT = (' A 1950s black and white photograph, soft grey tones, fine grain and slight fading, Kentucky, United'
-             ' States. The picture fills the whole image edge to edge.')
+         ' ordinary amateur composition, natural colours. The picture fills the whole image edge to edge.')
+OLD_PRINT = (' A 1950s black and white photograph, soft grey tones, fine grain and slight fading. The picture fills the'
+             ' whole image edge to edge.')
 
 POOLS = {
     'restaurant': [
