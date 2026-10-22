@@ -420,6 +420,24 @@ final class FurnishingBuilder {
         return piece.posted;
     }
 
+    /**
+     * How far, in levels, a steeple stands lower than the floor of its belfry's storey so its foot is on the roof a storey
+     * down: the lowest that roof is under the belfry, at a and b on its square and half across, from the roof's heights over
+     * that storey's floor at the square's corners (north-west, north-east, south-east, south-west). The game paints a
+     * belfry on the storey over a ridge, and a ridge that stops short of that storey's floor, two thirds of a storey up on
+     * the Muldraugh church at 10735, 9721, left it standing in the air. Never raised: a roof that reaches the floor is
+     * met by the belfry's foot already.
+     */
+    static float sunkOntoRoof(float[] corners, float a, float b, float half) {
+        float lowest = Float.POSITIVE_INFINITY;
+        for (int corner = 0; corner < 4; corner++) {
+            float u = Math.clamp(a + (corner == 1 || corner == 2 ? half : -half), 0f, 1f);
+            float v = Math.clamp(b + (corner >= 2 ? half : -half), 0f, 1f);
+            lowest = Math.min(lowest, (1f - u) * (1f - v) * corners[0] + u * (1f - v) * corners[1] + u * v * corners[2] + (1f - u) * v * corners[3]);
+        }
+        return Math.max(0f, 1f - lowest);
+    }
+
     /** Whether a wall, a window, a door or a railing stands on the edge of the square a piece backs onto. */
     private boolean backedByWall(Furniture piece, int x, int y, int z) {
         return switch (piece.turns & 3) {
@@ -540,6 +558,9 @@ final class FurnishingBuilder {
             centreX = onRoof[0];
             centreY = onRoof[1];
             foot += onRoof[2];
+        }
+        if (piece.roofBelow > 0 && build.roofBuilder.cornersAt(x, y, z - piece.roofBelow, roofCorners)) {
+            foot -= sunkOntoRoof(roofCorners, piece.centreX, piece.centreY, piece.footHalf) * ViewCamera.LEVEL_HEIGHT;
         }
         build.placed.add(model, build.frame, x, y, x + centreX, y + centreY, foot, piece.turns, piece.scale, piece.scaleUp,
                 dyeTexture, piece.dyed, dyeU, dyeV, alsoDyed, alsoU, alsoV);

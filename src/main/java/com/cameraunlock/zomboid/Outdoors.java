@@ -59,6 +59,12 @@ final class Outdoors {
          * roof's level, and the mod's roof is over that floor. See RoofFit.standOn.
          */
         boolean onRoof;
+        /**
+         * For a piece that comes up through a roof this many levels down, a steeple: how many, and how far out from its
+         * middle its foot reaches, in tiles. See FurnishingBuilder.sunkOntoRoof.
+         */
+        int roofBelow;
+        float footHalf;
         /** For a glass balustrade, the lengths of glass its model's frame holds, as GLASS_RUN, GLASS_CORNER and GLASS_POST give them: see addGlass. */
         float[] glassLegs;
 
@@ -117,6 +123,12 @@ final class Outdoors {
 
         Piece onRoof() {
             onRoof = true;
+            return this;
+        }
+
+        Piece throughRoofBelow(int levels, float half) {
+            roofBelow = levels;
+            footHalf = half;
             return this;
         }
 

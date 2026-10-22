@@ -166,6 +166,8 @@ final class Leisure {
     static final float SPIRE_SUNK = 0.1f;
     /** Where the middle of a steeple stands on its square, a little to the west and south of the square's middle where its sprites paint it. */
     private static final float STEEPLE_A = 0.475f, STEEPLE_B = 0.525f;
+    /** How far out from its middle a steeple's belfry reaches, in tiles: its boarded box. */
+    private static final float BELFRY_HALF = 0.47f;
 
     /** Where on the square of a tower spire's front a sprite gives the colour of its slate, and how high on each kind, in levels. */
     private static final float SLATE_A = 0.3f, SLATE_B = 0.5f, SLATE_HIGH = 0.557f, SLATE_HIGH_FLARED = 0.302f;
@@ -215,10 +217,11 @@ final class Leisure {
             // The belfry over the ridge, its boards white where its sprite paints the box and its metal from the skirt above them.
             case 35 -> {
                 return new Outdoors.Piece("steeple_belfry", 0).at(STEEPLE_A, STEEPLE_B)
-                        .dye(1 << Models.PAINT, 0.5f, 0.97f, 0.25f).also(1 << Models.METAL, 0.49f);
+                        .dye(1 << Models.PAINT, 0.5f, 0.97f, 0.25f).also(1 << Models.METAL, 0.49f).throughRoofBelow(1, BELFRY_HALF);
             }
             case 34 -> {
-                return new Outdoors.Piece("steeple_spire", 0).at(STEEPLE_A, STEEPLE_B).dye(1 << Models.METAL, 0.55f, 0.6f, 0.2f + SPIRE_SUNK).raise(-SPIRE_SUNK);
+                return new Outdoors.Piece("steeple_spire", 0).at(STEEPLE_A, STEEPLE_B).dye(1 << Models.METAL, 0.55f, 0.6f, 0.2f + SPIRE_SUNK).raise(-SPIRE_SUNK)
+                        .throughRoofBelow(2, BELFRY_HALF);
             }
             default -> { }
         }

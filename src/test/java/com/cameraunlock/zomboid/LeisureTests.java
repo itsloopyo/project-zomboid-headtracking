@@ -13,6 +13,7 @@ final class LeisureTests {
         Checks.run("aBasketballBoardStandsInFrontOfItsPole", LeisureTests::aBasketballBoardStandsInFrontOfItsPole);
         Checks.run("aPieceLaidOutOtherwiseThanItsModelIsNone", LeisureTests::aPieceLaidOutOtherwiseThanItsModelIsNone);
         Checks.run("aSteeplesSpireStandsOnItsBelfry", LeisureTests::aSteeplesSpireStandsOnItsBelfry);
+        Checks.run("aSteepleComesDownOntoARidgeShortOfItsFloor", LeisureTests::aSteepleComesDownOntoARidgeShortOfItsFloor);
         Checks.run("aTowersSpireStandsOnItsFrontSquareAndItsCrossOnItsPoint", LeisureTests::aTowersSpireStandsOnItsFrontSquareAndItsCrossOnItsPoint);
         Checks.run("aPairOfTheatreSeatsFacesTheWayItsSpriteSays", LeisureTests::aPairOfTheatreSeatsFacesTheWayItsSpriteSays);
     }
@@ -92,6 +93,22 @@ final class LeisureTests {
         Checks.check(Math.abs(cap - foot) < 0.01f, "the spire's foot is on the belfry's cap: " + foot + " on " + cap);
         Checks.check(spire.a == belfry.a && spire.b == belfry.b, "the spire stands over the middle of its belfry");
         Checks.check(unnamed("location_community_church_small_01_33") == null, "a column of the church is no part of its steeple");
+    }
+
+    private static void aSteepleComesDownOntoARidgeShortOfItsFloor() {
+        Outdoors.Piece belfry = unnamed("location_community_church_small_01_35"), spire = unnamed("location_community_church_small_01_34");
+        Checks.check(belfry.roofBelow == 1 && spire.roofBelow == 2 && belfry.footHalf == spire.footHalf,
+                "the belfry looks a storey down for its roof, the spire two, both under the belfry's foot");
+        // The Muldraugh church at 10735, 9721: the slope off its ridge, two thirds of a storey up at the north edge and a third at the south.
+        float[] slope = {2f / 3f, 2f / 3f, 1f / 3f, 1f / 3f};
+        float sunk = FurnishingBuilder.sunkOntoRoof(slope, belfry.a, belfry.b, belfry.footHalf);
+        float under = 2f / 3f - (belfry.b + belfry.footHalf) / 3f;
+        Checks.check(Math.abs(sunk - (1f - under)) < 0.001f, "the belfry comes down to the lowest of the roof under it: " + sunk);
+        Checks.check(FurnishingBuilder.sunkOntoRoof(slope, spire.a, spire.b, spire.footHalf) == sunk, "the spire comes down with its belfry");
+        Checks.check(FurnishingBuilder.sunkOntoRoof(new float[] {1f, 1f, 1f, 1f}, belfry.a, belfry.b, belfry.footHalf) == 0f,
+                "a ridge at the belfry's floor leaves it where it stands");
+        Checks.check(FurnishingBuilder.sunkOntoRoof(new float[] {1.2f, 1.2f, 1.1f, 1.1f}, belfry.a, belfry.b, belfry.footHalf) == 0f,
+                "a roof higher than the belfry's floor does not raise it");
     }
 
     private static void aTowersSpireStandsOnItsFrontSquareAndItsCrossOnItsPoint() {

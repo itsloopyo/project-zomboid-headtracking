@@ -105,6 +105,9 @@ final class Furniture {
     boolean glazed;
     /** Whether it stands on the roof of its square where there is one: see Outdoors.Piece. */
     boolean onRoof;
+    /** For a piece that comes up through a roof levels down, how many, and how far out its foot reaches: see Outdoors.Piece. */
+    int roofBelow;
+    float footHalf;
     /** For a glass balustrade, the lengths Outdoors.addGlass lays its panes along, or null. */
     float[] glassLegs;
     /**
@@ -756,6 +759,8 @@ final class Furniture {
         piece.pictured = outside.pictured;
         piece.paneY = outside.paneY;
         piece.onRoof = outside.onRoof;
+        piece.roofBelow = outside.roofBelow;
+        piece.footHalf = outside.footHalf;
         piece.glassLegs = outside.glassLegs;
         if (outside.fits) {
             piece.stand(outside.top, piece.model.height(), false);
