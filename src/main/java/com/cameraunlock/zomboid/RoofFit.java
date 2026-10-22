@@ -485,7 +485,7 @@ final class RoofFit {
     private static final class Row {
         final int x, y, dx, dy, climbed;
         int open;
-        boolean fromEave;
+        boolean fromEave, valley;
         final boolean crowned;
         final float eave, rise, ridge;
 
@@ -513,22 +513,25 @@ final class RoofFit {
         final float near, far;
         /** Whether the slope climbs from the building's edge. One that could not be falls from its ridge. */
         final boolean fromEave;
+        /** Whether it falls from its ridge into the far side of a roof across it, and meets that in a valley. */
+        final boolean valley;
         /** The height of the eave, the climb over a tile and the height the slope stops at. */
         final float eave, pitch, top;
 
-        Side(int x, int y, float near, float far, boolean fromEave, float eave, float pitch, float top) {
+        Side(int x, int y, float near, float far, boolean fromEave, boolean valley, float eave, float pitch, float top) {
             this.x = x;
             this.y = y;
             this.near = near;
             this.far = far;
             this.fromEave = fromEave;
+            this.valley = valley;
             this.eave = eave;
             this.pitch = pitch;
             this.top = top;
         }
 
         Side at(int x, int y) {
-            return new Side(x, y, near, far, fromEave, eave, pitch, top);
+            return new Side(x, y, near, far, fromEave, valley, eave, pitch, top);
         }
 
         /** The level the slope's eave is on. */
@@ -742,6 +745,26 @@ final class RoofFit {
             cut.get(i).fromEave = false;
             cut.get(i).open = cutTo.get(i);
         }
+        // A far side that runs on past the depth of its near one into the far side of a roof
+        // across it has come to where a wing meets the main roof, and both far sides are made:
+        // it falls from its ridge as deep as the near side and meets the other in a valley.
+        // Carried on to the far wall, the wing's far side climbed from the main roof's end wall
+        // and the main roof's from the wing's, each a level top over the other (the church at
+        // 3532..3549, 11199..11211).
+        HashSet<Long> spanX = new HashSet<>(), spanY = new HashSet<>();
+        for (Row row : rows) {
+            for (int step = 0; step < Math.min(row.open, row.climbed); step++) {
+                (row.dx != 0 ? spanX : spanY).add(key(row.x + step * row.dx, row.y + step * row.dy, 0));
+            }
+        }
+        for (Row row : rows) {
+            if (row.fromEave && row.open > row.climbed
+                    && (row.dx != 0 ? spanY : spanX).contains(key(row.x + row.climbed * row.dx, row.y + row.climbed * row.dy, 0))) {
+                row.open = row.climbed;
+                row.fromEave = false;
+                row.valley = true;
+            }
+        }
         for (Row row : rows) {
             boolean fromEave = row.fromEave, isAlongX = row.dx != 0;
             int open = row.open, climbed = row.climbed, dx = row.dx, dy = row.dy, x = row.x, y = row.y, up = dx + dy;
@@ -757,7 +780,7 @@ final class RoofFit {
                     inner = ridge - step * rise;
                     outer = inner - rise;
                 }
-                Side side = new Side(x + step * dx, y + step * dy, up < 0 ? outer : inner, up < 0 ? inner : outer, fromEave, eave, rise, ridge);
+                Side side = new Side(x + step * dx, y + step * dy, up < 0 ? outer : inner, up < 0 ? inner : outer, fromEave, row.valley, eave, rise, ridge);
                 strips.merge(key(side.x, side.y, 0), side, (was, now) -> was.near + was.far <= now.near + now.far ? was : now);
             }
         }
@@ -784,7 +807,7 @@ final class RoofFit {
                         break;
                     }
                     boolean outward = dx + dy > 0;
-                    strips.put(key(x, y, 0), new Side(x, y, outward ? inner : outer, outward ? outer : inner, true, crown.z, PITCH, crown.fitLow));
+                    strips.put(key(x, y, 0), new Side(x, y, outward ? inner : outer, outward ? outer : inner, true, false, crown.z, PITCH, crown.fitLow));
                 }
             }
         }
@@ -801,6 +824,13 @@ final class RoofFit {
                 middle = (side.near + side.far) / 2f;
             } else if (side.fromEave && across.fromEave) {
                 middle = fromEaves(side, across, built, site, corners);
+            } else if (side.valley || across.valley) {
+                cornersOf(ALONG_X, side.near, side.far, corners);
+                cornersOf(ALONG_Y, across.near, across.far, other);
+                for (int corner = 0; corner < 4; corner++) {
+                    corners[corner] = Math.max(corners[corner], other[corner]);
+                }
+                middle = Math.max(side.near + side.far, across.near + across.far) / 2f;
             } else {
                 cornersOf(ALONG_X, side.near, side.far, corners);
                 cornersOf(ALONG_Y, across.near, across.far, other);

@@ -18,6 +18,7 @@ final class RoofTests {
         Checks.run("planeAndFoldAreToldApartByTheMiddle", RoofTests::planeAndFoldAreToldApartByTheMiddle);
         Checks.run("slopeKeepsItsPitchAboveTheKickAtItsEave", RoofTests::slopeKeepsItsPitchAboveTheKickAtItsEave);
         Checks.run("farSideOfAWingMeetsTheMainRoofInAValley", RoofTests::farSideOfAWingMeetsTheMainRoofInAValley);
+        Checks.run("madeFarSidesOfAWingAndItsMainRoofMeetInAValley", RoofTests::madeFarSidesOfAWingAndItsMainRoofMeetInAValley);
         Checks.run("longestRunLeavesOutAStrayRow", RoofTests::longestRunLeavesOutAStrayRow);
         Checks.run("roofOverAnLShapedBuildingIsClosedAllRound", RoofTests::roofOverAnLShapedBuildingIsClosedAllRound);
         Checks.run("hipsAndValleyOfTheLShapeAreFoldedTheRightWay", RoofTests::hipsAndValleyOfTheLShapeAreFoldedTheRightWay);
@@ -209,6 +210,49 @@ final class RoofTests {
             if (tile.z == 2 && tile.x <= 4 && tile.y <= 2 && tile.axis == RoofFit.ALONG_X) {
                 check(stray == (tile.shaped && tile.own == 0), stray ? "the stray slope whose head stands out of the valley is folded onto the wing's far side, none of its sprite kept"
                         : "a slope of the main roof, whose head meets the slope or the level top beyond it, keeps its sprite: " + tile.x + ", " + tile.y);
+            }
+        }
+    }
+
+    private static void madeFarSidesOfAWingAndItsMainRoofMeetInAValley() {
+        // As the map has the church at 3532..3549, 11199..11211: the main roof's south slope on rows
+        // 8..11 under a ridge at 2 1/3, and a wing to the north on 4..9 whose east slope, on 7..9, runs
+        // into the main roof's far side. Neither the main roof's north slope nor the wing's west one is
+        // on the map, and they meet over 4..6, 4..7.
+        List<RoofFit.Tile> tiles = new ArrayList<>();
+        for (int x = 0; x <= 9; x++) {
+            tiles.add(new RoofFit.Tile(x, 8, 2, RoofFit.ALONG_Y, true, 2f + THIRD, 2f));
+            tiles.add(new RoofFit.Tile(x, 9, 1, RoofFit.ALONG_Y, true, 2f, 2f - THIRD));
+            tiles.add(new RoofFit.Tile(x, 10, 1, RoofFit.ALONG_Y, true, 2f - THIRD, EAVE));
+            tiles.add(new RoofFit.Tile(x, 11, 1, RoofFit.ALONG_Y, true, EAVE, 1f));
+        }
+        for (int y = 0; y <= 6; y++) {
+            for (int x = 7; x <= 9 - Math.max(0, y - 4); x++) {
+                tiles.add(new RoofFit.Tile(x, y, 1, RoofFit.ALONG_X, true, 2f - (x - 7) * THIRD, 2f - (x - 6) * THIRD));
+            }
+        }
+        RoofFit.fit(tiles);
+        List<RoofFit.Tile> made = RoofFit.backs(tiles, standing((x, y) -> x >= 0 && x <= 9 && y >= 4 && y <= 11 || x >= 4 && x <= 9 && y >= 0 && y <= 3));
+        RoofFit.peaks(tiles, made);
+        made.addAll(RoofFit.valleys(tiles, made));
+        boolean[][] covered = new boolean[7][8];
+        for (RoofFit.Tile tile : made) {
+            if (tile.x > 6 || tile.y > 7) {
+                continue;
+            }
+            check(!covered[tile.x][tile.y], "one made tile over " + tile.x + ", " + tile.y);
+            covered[tile.x][tile.y] = true;
+            for (int corner = 0; corner < 4; corner++) {
+                float x = tile.x + RoofFit.cornerX(corner), y = tile.y + RoofFit.cornerY(corner);
+                // The higher of the main roof's far side and the wing's: each falls from its ridge to the eave, and they meet in a valley.
+                float roof = Math.max(1f + Math.max(0f, y - 4f) * THIRD, 1f + Math.clamp(x - 4f, 0f, 3f) * THIRD);
+                check(near(tile.corners[corner], roof), "the far sides meet in a valley at " + tile.x + ", " + tile.y + " corner " + corner + ": " + tile.corners[corner] + ", not " + roof
+                        + ", where each was carried to the other's end wall and stood a level top over it");
+            }
+        }
+        for (int x = 0; x <= 6; x++) {
+            for (int y = 0; y <= 7; y++) {
+                check(covered[x][y] == (y >= 4 || x >= 4), "the far sides cover the building and nothing else at " + x + ", " + y);
             }
         }
     }
