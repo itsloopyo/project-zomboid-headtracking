@@ -31,8 +31,10 @@ QUALITY = 86
 # The longest side a picture is kept at, by what it is: a snapshot in a frame a hand across is worth fewer pixels than a hoarding.
 LONGEST = {'family': 768, 'painting': 1024, 'board': 1024, 'certificate': 1024, 'music': 768, 'film': 1344, 'sign': signs.LONGEST}
 SMALL = 768
-# The share of each side cut off every generated picture before it is shaped.
-TRIM = 0.02
+# The share of each side cut off every generated picture before it is shaped, by what it is. Qwen-Image signs nearly
+# every painting in a bottom corner whatever the prompt says, never further in than about 7% of the side.
+TRIM = {'painting': 0.08}
+EDGE = 0.02
 # How many times as wide as it is high each shape cut from square art is.
 SHAPES = {'tall': 2 / 3, 'wide': 3 / 2, 'broad': 16 / 9}
 # A television's picture, in pixels: more than a tube of 1993 could show.
@@ -181,7 +183,7 @@ def made(folder, name):
     model, seed = catalogue.SEEDS[name]
     art = Image.open(folder / model / name / f'{seed}.png').convert('RGB')
     # The models often leave a strip of bare canvas or a bright line of a pixel or two along an edge.
-    edge = round(min(art.size) * TRIM)
+    edge = round(min(art.size) * TRIM.get(name.split('-')[0], EDGE))
     return art.crop((edge, edge, art.width - edge, art.height - edge))
 
 
