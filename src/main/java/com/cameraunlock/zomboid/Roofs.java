@@ -975,17 +975,29 @@ final class Roofs {
 
     /**
      * Finds a place on the sprite that is painted, with paint all round it, and makes the
-     * sprite the roof's finish. Looked for from the sprite's middle outwards.
+     * sprite the roof's finish. Looked for from the middle of the tile outwards: the tile is the
+     * longest run of rows with paint on them, as measure takes it. A trailer's roof tile has a
+     * stray dot at the top of its frame, and round the frame's middle there was nothing painted,
+     * no finish, and a roof in grey shingle.
      */
     private static void paintedPlace(Texture texture, Roof roof) {
         int left = (int) texture.getOffsetX(), top = (int) texture.getOffsetY(), width = texture.getWidth(), height = texture.getHeight();
+        int[] rows = RoofFit.longestRun(height, Math.round(PAINT_GAP * texture.getWidthOrig() / (2f * SpriteGeometry.PIXELS_ACROSS_PER_TILE)), row -> {
+            for (int u = left; u < left + width; u++) {
+                if (texture.isMaskSet(u, top + row)) {
+                    return true;
+                }
+            }
+            return false;
+        });
+        int from = top + rows[0], high = rows[1] - rows[0] + 1;
         for (int ring = 0; ring < 4; ring++) {
             for (int i = -ring; i <= ring; i++) {
                 for (int j = -ring; j <= ring; j++) {
                     if (Math.max(Math.abs(i), Math.abs(j)) != ring) {
                         continue;
                     }
-                    int u = left + width / 2 + i * width / 10, v = top + height / 2 + j * height / 10;
+                    int u = left + width / 2 + i * width / 10, v = from + high / 2 + j * high / 10;
                     if (paintedRound(texture, u, v)) {
                         roof.finish = texture;
                         roof.u = texture.getXStart() + (u + 0.5f - left) / width * (texture.getXEnd() - texture.getXStart());
