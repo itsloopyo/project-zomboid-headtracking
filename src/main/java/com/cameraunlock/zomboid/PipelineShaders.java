@@ -749,7 +749,6 @@ final class PipelineShaders {
      * notice is in THIRD-PARTY-NOTICES.md.
      */
     static final String WORLD_FRAGMENT_PARTS = "#version 120\n#extension GL_EXT_texture_array : require\n#extension GL_ARB_shader_texture_lod : require\n"
-            + "#define CUT_FLOATS " + Cutaways.FLOATS + "\n#define CUT_FLOATS_A_ROW " + Cutaways.FLOATS_A_ROW + "\n#define CUT_SIDE " + Cutaways.SIDE + ".0\n"
             + CanopyWindow.GLSL
             + Sky.ATMOSPHERE + ENDS + AUTUMN + """
             uniform sampler2D uTexture;
@@ -850,47 +849,6 @@ final class PipelineShaders {
             uniform vec4 uCutBox;
             uniform vec3 uCutNear;
             uniform float uLid;
-            // The walls the game cuts away, for the picture drawn as the game's own view: see Cutaways.
-            // uCutMarked is the block's first square, and the height its walls are cut up to, or 0 with no block.
-            uniform float uCutRows[CUT_FLOATS];
-            uniform vec3 uCutMarked;
-            const float CUT_DIGIT[12] = float[12](1.0, 4.0, 16.0, 64.0, 256.0, 1024.0, 4096.0, 16384.0, 65536.0, 262144.0, 1048576.0, 4194304.0);
-
-            // The game's marks on a square: 1 with its north wall cut away, 2 with its west wall, 3 with both.
-            float cutMarks(vec2 square) {
-                vec2 at = square - uCutMarked.xy;
-                if (at.x < 0.0 || at.y < 0.0 || at.x >= CUT_SIDE || at.y >= CUT_SIDE) {
-                    return 0.0;
-                }
-                float part = floor(at.x / 12.0);
-                float digits = floor(uCutRows[int(at.y) * CUT_FLOATS_A_ROW + int(part)] / CUT_DIGIT[int(at.x - part * 12.0)]);
-                return digits - 4.0 * floor(digits / 4.0);
-            }
-
-            // Whether a point is in a wall the game has cut away, or hangs on one. A square's north wall
-            // runs along its north edge and its west wall along its west edge. A wall is taken by the way
-            // it faces, or the end of one that stands would go with the cut wall it meets. Something
-            // hung has faces every way, and goes by the wall it hangs on, hung: 1 for a north wall
-            // and 2 for a west one. Gone by the wall each point is nearest, the brackets at the ends
-            // of a shelf on a cut wall went by the uncut wall across the end of their square, and
-            // stood on their own in the air over the cut wall. A wall's own ends run a
-            // little past its square, into the corner. A wall's top faces up whichever wall it is,
-            // and leans along its wall where the wall's two ends stand at different heights: it is
-            // cut with any cut wall whose thickness it lies in, so the top of a straight run is cut
-            // across the joints of its squares, and a counter's top against the wall keeps all but
-            // the wall's own thickness.
-            bool cutAway(vec3 at, vec3 facing, float hung) {
-                vec2 edge = floor(at.xy + 0.5), off = abs(at.xy - edge);
-                bool northCut = mod(cutMarks(vec2(floor(at.x - 0.06), edge.y)), 2.0) > 0.5 || mod(cutMarks(vec2(floor(at.x + 0.06), edge.y)), 2.0) > 0.5;
-                bool westCut = cutMarks(vec2(edge.x, floor(at.y - 0.06))) > 1.5 || cutMarks(vec2(edge.x, floor(at.y + 0.06))) > 1.5;
-                if (hung < 0.5 && abs(facing.z) > max(abs(facing.x), abs(facing.y))) {
-                    return off.y < 0.06 && northCut || off.x < 0.06 && westCut;
-                }
-                float reach = hung > 0.5 ? 0.45 : 0.3;
-                bool north = off.y < reach && (hung > 0.5 ? hung < 1.5 : abs(facing.y) > abs(facing.x));
-                bool west = off.x < reach && (hung > 0.5 ? hung > 1.5 : abs(facing.x) >= abs(facing.y));
-                return north ? northCut : west && westCut;
-            }
             uniform vec3 uHole;
             uniform float uHoleUp;
             uniform vec4 uHoleFrom;

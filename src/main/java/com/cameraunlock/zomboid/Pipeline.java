@@ -191,7 +191,7 @@ final class Pipeline {
     private static final String SHADOW_VERTEX = PipelineShaders.SHADOW_VERTEX;
     private static final String SHADOW_FRAGMENT = PipelineShaders.SHADOW_FRAGMENT;
     private static final String SCREEN_VERTEX = PipelineShaders.SCREEN_VERTEX;
-    private static final String WORLD_FRAGMENT = PipelineShaders.WORLD_FRAGMENT_PARTS.concat(PipelineShaders.WORLD_FRAGMENT_RELIEF).concat(SnowShader.GLSL).concat(RoadPaint.GLSL).concat(Litter.GLSL).concat(PipelineShaders.WORLD_FRAGMENT_MAIN);
+    private static final String WORLD_FRAGMENT = PipelineShaders.WORLD_FRAGMENT_PARTS.concat(PipelineShaders.WORLD_FRAGMENT_RELIEF).concat(SnowShader.GLSL).concat(RoadPaint.GLSL).concat(Litter.GLSL).concat(Cutaways.GLSL).concat(PipelineShaders.WORLD_FRAGMENT_MAIN);
     /**
      * The same program told at compile time that only depth is wanted, so the driver leaves out
      * every sum that only colours a pixel: see drawWorld.
@@ -3677,7 +3677,7 @@ final class Pipeline {
         to.set("uCutNear", nearerX, nearerY, nearerX * focusX + nearerY * focusY - CUT_BEHIND * cutBehind);
         to.set("uLid", lid);
         if (cutBelow > 0f) {
-            to.setEach("uCutRows", cutRows);
+            to.setEach4("uCutRows", cutRows);
         }
         to.set("uCutMarked", cutRowsX, cutRowsY, cutBelow);
         to.set("uLight", state.lightX, state.lightY, state.lightUp);

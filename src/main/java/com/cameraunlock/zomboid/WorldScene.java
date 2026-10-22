@@ -3154,12 +3154,15 @@ final class WorldScene {
                 cutRowsY = (int) Math.floor(player.getY()) - Cutaways.SIDE / 2;
                 Cutaways.clear(cutRows);
                 long now = System.currentTimeMillis();
+                IsoGridSquare viewerSquare = player.getCurrentSquare();
+                IsoRoom viewerRoom = viewerSquare == null ? null : viewerSquare.getRoom();
                 for (int row = 0; row < Cutaways.SIDE; row++) {
                     for (int column = 0; column < Cutaways.SIDE; column++) {
                         IsoGridSquare square = cell.getGridSquare(cutRowsX + column, cutRowsY + row, level);
                         int marks = square == null ? 0 : square.getPlayerCutawayFlag(playerIndex, now);
                         if (marks != 0) {
-                            Cutaways.put(cutRows, column, row, marks);
+                            Cutaways.put(cutRows, column, row, marks, Cutaways.kept(marks, viewerSquare != null && square.getRoom() == viewerRoom,
+                                    square.has(IsoFlagType.cutN), square.has(IsoFlagType.cutW)));
                         }
                     }
                 }

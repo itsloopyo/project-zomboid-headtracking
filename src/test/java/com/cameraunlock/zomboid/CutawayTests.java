@@ -8,19 +8,21 @@ final class CutawayTests {
 
     static void run() {
         Checks.run("everySquareOfABlockReadsBackWhatWasPutInIt", CutawayTests::everySquareOfABlockReadsBackWhatWasPutInIt);
-        Checks.run("aFloatHoldsItsTwelveSquaresExactly", CutawayTests::aFloatHoldsItsTwelveSquaresExactly);
+        Checks.run("aFloatHoldsItsEightSquaresExactly", CutawayTests::aFloatHoldsItsEightSquaresExactly);
         Checks.run("onlyTheTwoWallMarksAreKept", CutawayTests::onlyTheTwoWallMarksAreKept);
+        Checks.run("whatHangsStaysWhereTheGameKeepsIt", CutawayTests::whatHangsStaysWhereTheGameKeepsIt);
         Checks.run("theTopOfAWallIsCutWithItsWallWhicheverWayItLeans", CutawayTests::theTopOfAWallIsCutWithItsWallWhicheverWayItLeans);
         Checks.run("whatHangsOnACutWallIsCutWithItToItsEnds", CutawayTests::whatHangsOnACutWallIsCutWithItToItsEnds);
+        Checks.run("aBoardOnAWallOutdoorsStandsForAViewerOutdoors", CutawayTests::aBoardOnAWallOutdoorsStandsForAViewerOutdoors);
     }
 
     private static void check(boolean condition, String what) {
         Checks.check(condition, what);
     }
 
-    /** The marks a test puts on a square: every one of none, north, west and both, in no order that follows the block's rows. */
+    /** The marks a test puts on a square: every one of none, north, west and both, kept or not, in no order that follows the block's rows. */
     private static int marks(int column, int row) {
-        return (column * 7 + row * 13 + column * row) & 3;
+        return (column * 7 + row * 13 + column * row) & 7;
     }
 
     private static void everySquareOfABlockReadsBackWhatWasPutInIt() {
@@ -29,7 +31,7 @@ final class CutawayTests {
         for (int row = 0; row < Cutaways.SIDE; row++) {
             for (int column = 0; column < Cutaways.SIDE; column++) {
                 if (marks(column, row) != 0) {
-                    Cutaways.put(rows, column, row, marks(column, row));
+                    Cutaways.put(rows, column, row, marks(column, row), (marks(column, row) & Cutaways.KEPT) != 0);
                 }
             }
         }
@@ -40,15 +42,16 @@ final class CutawayTests {
         }
     }
 
-    private static void aFloatHoldsItsTwelveSquaresExactly() {
-        check(Cutaways.DIGITS * 2 <= 24, "a float's 24 bits hold two for each of its squares");
-        check(Cutaways.SIDE % Cutaways.DIGITS == 0, "a row is a whole number of floats");
+    private static void aFloatHoldsItsEightSquaresExactly() {
+        check(Cutaways.DIGITS * 3 <= 24, "a float's 24 bits hold three for each of its squares");
+        check(Cutaways.SIDE * Cutaways.SIDE % Cutaways.DIGITS == 0, "the block is a whole number of floats");
+        check(Cutaways.FLOATS % 4 == 0 && Cutaways.FLOATS * Cutaways.DIGITS >= Cutaways.SIDE * Cutaways.SIDE, "the floats fill whole vec4s and hold the block");
         float[] rows = new float[Cutaways.FLOATS];
         Cutaways.clear(rows);
         for (int column = 0; column < Cutaways.DIGITS; column++) {
-            Cutaways.put(rows, column, 0, Cutaways.NORTH | Cutaways.WEST);
+            Cutaways.put(rows, column, 0, Cutaways.NORTH | Cutaways.WEST, true);
         }
-        check(rows[0] == (float) ((1 << 2 * Cutaways.DIGITS) - 1), "a float with both marks on every square is every one of its bits");
+        check(rows[0] == (float) ((1 << 3 * Cutaways.DIGITS) - 1), "a float with every mark on every square is every one of its bits");
         check(rows[1] == 0f, "and the float beside it is untouched");
     }
 
@@ -59,8 +62,8 @@ final class CutawayTests {
      */
     private static boolean cut(float x, float y, float facingX, float facingY, float facingZ, float hung, BiFunction<Integer, Integer, Integer> marked) {
         float edgeX = (float) Math.floor(x + 0.5f), edgeY = (float) Math.floor(y + 0.5f), offX = Math.abs(x - edgeX), offY = Math.abs(y - edgeY);
-        boolean northCut = (marked.apply((int) Math.floor(x - 0.06f), (int) edgeY) & Cutaways.NORTH) != 0 || (marked.apply((int) Math.floor(x + 0.06f), (int) edgeY) & Cutaways.NORTH) != 0;
-        boolean westCut = (marked.apply((int) edgeX, (int) Math.floor(y - 0.06f)) & Cutaways.WEST) != 0 || (marked.apply((int) edgeX, (int) Math.floor(y + 0.06f)) & Cutaways.WEST) != 0;
+        boolean northCut = wallCut(marked.apply((int) Math.floor(x - 0.06f), (int) edgeY), Cutaways.NORTH, hung) || wallCut(marked.apply((int) Math.floor(x + 0.06f), (int) edgeY), Cutaways.NORTH, hung);
+        boolean westCut = wallCut(marked.apply((int) edgeX, (int) Math.floor(y - 0.06f)), Cutaways.WEST, hung) || wallCut(marked.apply((int) edgeX, (int) Math.floor(y + 0.06f)), Cutaways.WEST, hung);
         if (hung < 0.5f && Math.abs(facingZ) > Math.max(Math.abs(facingX), Math.abs(facingY))) {
             return offY < 0.06f && northCut || offX < 0.06f && westCut;
         }
@@ -70,7 +73,15 @@ final class CutawayTests {
         return north ? northCut : west && westCut;
     }
 
+    /** The shader's wallCut, line for line. */
+    private static boolean wallCut(int marks, int wall, float hung) {
+        return (marks & wall) != 0 && (hung < 0.5f || marks < Cutaways.KEPT);
+    }
+
     private static final String[] CUT_LINES = {
+        "return mod(floor(marks / wall), 2.0) > 0.5 && (hung < 0.5 || marks < 3.5);",
+        "bool northCut = wallCut(cutMarks(vec2(floor(at.x - 0.06), edge.y)), 1.0, hung) || wallCut(cutMarks(vec2(floor(at.x + 0.06), edge.y)), 1.0, hung);",
+        "bool westCut = wallCut(cutMarks(vec2(edge.x, floor(at.y - 0.06))), 2.0, hung) || wallCut(cutMarks(vec2(edge.x, floor(at.y + 0.06))), 2.0, hung);",
         "if (hung < 0.5 && abs(facing.z) > max(abs(facing.x), abs(facing.y))) {",
         "return off.y < 0.06 && northCut || off.x < 0.06 && westCut;",
         "float reach = hung > 0.5 ? 0.45 : 0.3;",
@@ -79,7 +90,7 @@ final class CutawayTests {
         "return north ? northCut : west && westCut;"};
 
     private static void theTopOfAWallIsCutWithItsWallWhicheverWayItLeans() {
-        String shader = PipelineShaders.WORLD_FRAGMENT_PARTS;
+        String shader = Cutaways.GLSL;
         for (String line : CUT_LINES) {
             check(shader.contains(line), "the world shader's cutAway is the rule this test holds: " + line);
         }
@@ -119,8 +130,24 @@ final class CutawayTests {
     private static void onlyTheTwoWallMarksAreKept() {
         float[] rows = new float[Cutaways.FLOATS];
         Cutaways.clear(rows);
-        Cutaways.put(rows, 3, 2, 0xff);
+        Cutaways.put(rows, 3, 2, 0xff, false);
         check(Cutaways.at(rows, 3, 2) == (Cutaways.NORTH | Cutaways.WEST), "a mark the game keeps besides the two is left out");
         check(Cutaways.at(rows, 4, 2) == 0 && Cutaways.at(rows, 2, 2) == 0, "and does not run over into the squares beside it");
+    }
+
+    private static void whatHangsStaysWhereTheGameKeepsIt() {
+        check(!Cutaways.kept(Cutaways.WEST, false, false, true), "a thing on a cut west wall of another room than the viewer's goes");
+        check(Cutaways.kept(Cutaways.WEST, true, false, true), "in the viewer's own room it stays");
+        check(Cutaways.kept(Cutaways.WEST, false, true, false), "and where only the north wall's things may be cut, a cut west wall's stay");
+        check(!Cutaways.kept(Cutaways.NORTH | Cutaways.WEST, false, true, false), "but a cut north wall's go");
+    }
+
+    private static void aBoardOnAWallOutdoorsStandsForAViewerOutdoors() {
+        // The kiosk at 7004, 6039..6040: a west wall the game cuts, out of doors, as the viewer is.
+        int marks = Cutaways.WEST | (Cutaways.kept(Cutaways.WEST, true, false, true) ? Cutaways.KEPT : 0);
+        BiFunction<Integer, Integer, Integer> marked = (x, y) -> x == 7004 && (y == 6039 || y == 6040) ? marks : 0;
+        check(cut(7004.03f, 6039.5f, 1f, 0f, 0f, 0f, marked), "the wall is cut to its low course");
+        check(!cut(7004.08f, 6039.5f, 1f, 0f, 0f, 2f, marked), "the board hung on it stands");
+        check(!cut(7004.3f, 6040.2f, 0f, 0f, 1f, 2f, marked), "and so does the hood over it");
     }
 }
