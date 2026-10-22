@@ -5384,8 +5384,13 @@ final class WorldScene {
                 }
             }
             // A skirting, a rail or a cornice is a moulding along its wall: see Trims.
-            if (!isFloor && kindOf(over).trim && Own.buildings() && addTrim(over, texture, x, y, z)) {
-                return;
+            if (!isFloor && kindOf(over).trim) {
+                if (Own.buildings() && addTrim(over, texture, x, y, z)) {
+                    return;
+                }
+                // A panel the sprite keeps, a plinth of cut stone, is a surface of its own and
+                // not the wall's: on a wall of upright boards it was grooved as boards.
+                frame.material = kindOf(over).asOther;
             }
             // Where a street steps along a verge the map paints grass over half of the street's
             // square, to slant the edge, from the ground's own sheet or from the sheet of painted
