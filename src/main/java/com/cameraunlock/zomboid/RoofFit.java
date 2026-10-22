@@ -3,8 +3,10 @@ package com.cameraunlock.zomboid;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Set;
 import java.util.function.IntPredicate;
 
 /**
@@ -472,6 +474,28 @@ final class RoofFit {
     /** The furthest from a square, in tiles, that the building's edge is looked for where two made slopes meet. */
     private static final int FURTHEST_EAVE = 16;
 
+    /** The far side of one row of a slope, as backs works it out: where it starts, which way it runs, how deep it is and how it is placed. */
+    private static final class Row {
+        final int x, y, dx, dy, climbed;
+        int open;
+        boolean fromEave, crowned;
+        final float eave, rise, ridge;
+
+        Row(int x, int y, int dx, int dy, int open, int climbed, boolean fromEave, boolean crowned, float eave, float rise, float ridge) {
+            this.x = x;
+            this.y = y;
+            this.dx = dx;
+            this.dy = dy;
+            this.open = open;
+            this.climbed = climbed;
+            this.fromEave = fromEave;
+            this.crowned = crowned;
+            this.eave = eave;
+            this.rise = rise;
+            this.ridge = ridge;
+        }
+    }
+
     /**
      * One made slope over one square: its heights at the square's edge nearer the map's origin
      * along the slope's axis and at the far edge, and the slope it is the far side of.
@@ -599,6 +623,10 @@ final class RoofFit {
         ArrayList<Tile> made = new ArrayList<>();
         mend(tiles, roofed, built, site, made);
         LinkedHashMap<Long, Side> alongX = new LinkedHashMap<>(), alongY = new LinkedHashMap<>();
+        // The squares of a crown that a far slope comes down over before it meets the crown's height.
+        HashSet<Long> over = new HashSet<>();
+        ArrayList<Row> rows = new ArrayList<>();
+        HashMap<Long, Row> rowAt = new HashMap<>();
         for (Tile top : tiles) {
             float rise = Math.abs(top.fitHigh - top.fitLow);
             // A slope at another pitch is a canopy or a lean-to over a porch, and has no far side: carried
@@ -651,14 +679,59 @@ final class RoofFit {
             int floor = (int) Math.floor(eave + LEAST_RISE);
             int open = 0;
             // The far slope over a square stands no lower than the ridge less a tile's climb for every square from the ridge to the square's far edge.
-            while (open < WIDEST_TOP && stands(built, site, x + open * dx, y + open * dy, floor) && !roofed.containsKey(key(x + open * dx, y + open * dy, 0))
-                    && !site.taken(x + open * dx, y + open * dy, floor, ridge - (open + 1) * rise)) {
+            // It comes down over a lower crown behind the ridge until it meets the crown's height: the map has no tile
+            // for the far slope there, and stopped at the crown's edge it stood a third of a level over it, a ledge open
+            // underneath (a cross gable before a hip cut short, 10402..10411 x 12658..12669).
+            ArrayList<Long> overCrown = new ArrayList<>();
+            boolean metCrown = false;
+            while (open < WIDEST_TOP && stands(built, site, x + open * dx, y + open * dy, floor)) {
+                long square = key(x + open * dx, y + open * dy, 0);
+                float foot = ridge - (open + 1) * rise;
+                Tile on = roofed.get(square);
+                metCrown |= on != null && on.sheet;
+                if (on != null ? !(on.sheet && on.fitLow <= foot + SAME) : site.taken(x + open * dx, y + open * dy, floor, foot)) {
+                    break;
+                }
+                if (on != null) {
+                    overCrown.add(square);
+                }
                 open++;
             }
             // A far side as deep as the near one, or deeper, stands on the far wall as the near
             // one does on its own. A shallower one, or one that ends against a higher part of
             // the building, has only the ridge to be placed by.
             boolean fromEave = open >= climbed && !stands(built, site, x + open * dx, y + open * dy, floor);
+            over.addAll(overCrown);
+            Row row = new Row(x, y, dx, dy, open, climbed, fromEave, metCrown, eave, rise, ridge);
+            rows.add(row);
+            rowAt.putIfAbsent(key(x, y, isAlongX ? 1 : 2), row);
+        }
+        // A row past the end of a crown is of one far side with the rows beside it that come down onto
+        // the crown: it falls from the ridge as deep as they do. Carried on to the far wall, at the
+        // gable end of a cross gable before a hip cut short, it ran on at the ridge's height over the
+        // crown's own far slope (10402, 12658..12665).
+        for (boolean changed = true; changed; ) {
+            changed = false;
+            for (Row row : rows) {
+                if (!row.fromEave) {
+                    continue;
+                }
+                for (int side = -1; side <= 1; side += 2) {
+                    Row beside = rowAt.get(key(row.x + (row.dx == 0 ? side : 0), row.y + (row.dy == 0 ? side : 0), row.dx != 0 ? 1 : 2));
+                    if (beside != null && beside.crowned && !beside.fromEave && Math.abs(beside.ridge - row.ridge) < SAME && beside.dx == row.dx && beside.dy == row.dy) {
+                        row.fromEave = false;
+                        row.crowned = true;
+                        row.open = Math.min(row.open, beside.open);
+                        changed = true;
+                        break;
+                    }
+                }
+            }
+        }
+        for (Row row : rows) {
+            boolean fromEave = row.fromEave, isAlongX = row.dx != 0;
+            int open = row.open, climbed = row.climbed, dx = row.dx, dy = row.dy, x = row.x, y = row.y, up = dx + dy;
+            float eave = row.eave, rise = row.rise, ridge = row.ridge;
             HashMap<Long, Side> strips = isAlongX ? alongX : alongY;
             for (int step = 0; step < (fromEave ? open : Math.min(open, climbed)); step++) {
                 float outer, inner;
@@ -674,8 +747,35 @@ final class RoofFit {
                 strips.merge(key(side.x, side.y, 0), side, (was, now) -> was.near + was.far <= now.near + now.far ? was : now);
             }
         }
-        extend(alongX, true, roofed, built, site);
-        extend(alongY, false, roofed, built, site);
+        // A crown's edge that no slope climbs to, map's or made, stands on the wall there: the hip
+        // climbs from the wall to it, as the map's own slopes do on the sides it draws. Left out, the
+        // crown of a hip cut short ended in a ledge over the wall on its north and west sides.
+        for (Tile crown : tiles) {
+            if (!crown.sheet) {
+                continue;
+            }
+            int deep = Math.round((crown.fitLow - crown.z) / PITCH);
+            if (deep < 1 || Math.abs(crown.z + deep * PITCH - crown.fitLow) > SAME) {
+                continue;
+            }
+            for (int side = 0; side < 4; side++) {
+                int dx = side == 0 ? -1 : side == 1 ? 1 : 0, dy = side == 2 ? -1 : side == 3 ? 1 : 0;
+                HashMap<Long, Side> strips = dx != 0 ? alongX : alongY;
+                for (int out = 1; out <= deep; out++) {
+                    int x = crown.x + out * dx, y = crown.y + out * dy;
+                    float inner = crown.fitLow - (out - 1) * PITCH, outer = inner - PITCH;
+                    // A far side falling from a ridge across the way is the roof there, as in extend.
+                    Side other = (dx != 0 ? alongY : alongX).get(key(x, y, 0));
+                    if (roofed.containsKey(key(x, y, 0)) || strips.containsKey(key(x, y, 0)) || other != null && !other.fromEave || !stands(built, site, x, y, crown.z) || site.taken(x, y, crown.z, outer)) {
+                        break;
+                    }
+                    boolean outward = dx + dy > 0;
+                    strips.put(key(x, y, 0), new Side(x, y, outward ? inner : outer, outward ? outer : inner, true, crown.z, PITCH, crown.fitLow));
+                }
+            }
+        }
+        extend(alongX, true, roofed, built, site, alongY, over);
+        extend(alongY, false, roofed, built, site, alongX, over);
 
         float[] corners = new float[4], other = new float[4];
         for (Side side : alongX.values()) {
@@ -694,12 +794,12 @@ final class RoofFit {
                 }
                 middle = Math.min(side.near + side.far, across.near + across.far) / 2f;
             }
-            lay(made, side.x, side.y, corners, middle, across == null ? side.eaveLevel() : Math.min(side.eaveLevel(), across.eaveLevel()), site);
+            lay(made, side.x, side.y, corners, middle, across == null ? side.eaveLevel() : Math.min(side.eaveLevel(), across.eaveLevel()), site, over);
         }
         for (Side side : alongY.values()) {
             if (!alongX.containsKey(key(side.x, side.y, 0))) {
                 cornersOf(ALONG_Y, side.near, side.far, corners);
-                lay(made, side.x, side.y, corners, (side.near + side.far) / 2f, side.eaveLevel(), site);
+                lay(made, side.x, side.y, corners, (side.near + side.far) / 2f, side.eaveLevel(), site, over);
             }
         }
         return made;
@@ -749,11 +849,14 @@ final class RoofFit {
         return known;
     }
 
-    /** Makes the tile of a made roof over one square, unless the building has something else there from the level of the roof's eave up. */
-    private static void lay(List<Tile> made, int x, int y, float[] corners, float middle, int eaveLevel, Site site) {
+    /**
+     * Makes the tile of a made roof over one square, unless the building has something else there
+     * from the level of the roof's eave up. A square in over holds a crown the slope comes down onto.
+     */
+    private static void lay(List<Tile> made, int x, int y, float[] corners, float middle, int eaveLevel, Site site, Set<Long> over) {
         float lowest = Math.min(Math.min(corners[0], corners[1]), Math.min(corners[2], corners[3]));
         int z = (int) Math.floor(lowest + LEAST_RISE);
-        if (site.taken(x, y, eaveLevel, lowest)) {
+        if (!over.contains(key(x, y, 0)) && site.taken(x, y, eaveLevel, lowest)) {
             return;
         }
         int crease = creaseOf(corners, middle);
@@ -813,7 +916,8 @@ final class RoofFit {
      * slopes the other way and falls the way the made slope is being carried, the two meet in
      * a hip and the tile is folded.
      */
-    private static void extend(LinkedHashMap<Long, Side> strips, boolean alongX, HashMap<Long, Tile> roofed, HashMap<Long, Boolean> built, Site site) {
+    private static void extend(LinkedHashMap<Long, Side> strips, boolean alongX, HashMap<Long, Tile> roofed, HashMap<Long, Boolean> built, Site site,
+            HashMap<Long, Side> across, Set<Long> over) {
         ArrayDeque<Side> queue = new ArrayDeque<>(strips.values());
         while (!queue.isEmpty()) {
             Side from = queue.poll();
@@ -822,11 +926,21 @@ final class RoofFit {
                 while (!strips.containsKey(key(x, y, 0))) {
                     Tile on = roofed.get(key(x, y, 0));
                     if (on == null) {
-                        if (stands(built, site, x, y, from.eaveLevel()) && !site.taken(x, y, from.eaveLevel(), Math.min(from.near, from.far))) {
+                        // A far side falling from a ridge across the way is the roof there: the slope ends against it in a valley.
+                        Side other = across.get(key(x, y, 0));
+                        if ((other == null || other.fromEave) && stands(built, site, x, y, from.eaveLevel()) && !site.taken(x, y, from.eaveLevel(), Math.min(from.near, from.far))) {
                             Side next = from.at(x, y);
                             strips.put(key(x, y, 0), next);
                             queue.add(next);
                         }
+                        break;
+                    }
+                    // A crown the slope stands over all the way across, as a far side comes down over it (see backs).
+                    if (on.sheet && !from.fromEave && Math.abs(from.near - from.far) > SAME && Math.min(from.near, from.far) >= on.fitLow - SAME && !across.containsKey(key(x, y, 0))) {
+                        Side next = from.at(x, y);
+                        strips.put(key(x, y, 0), next);
+                        over.add(key(x, y, 0));
+                        queue.add(next);
                         break;
                     }
                     if (!hip(on, from, alongX, step)) {

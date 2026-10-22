@@ -44,6 +44,8 @@ final class Roofs {
     private static final int KEPT = 600, RETRIED = 30;
     /** The most tiles read as one roof. */
     private static final int MOST = 4000;
+    /** How many squares past a slope's ridge a roof with no tile between is looked for, as the same roof: see beyondRidge. */
+    private static final int RIDGE_GAP = 3;
 
     /** One roof: what it is covered in. */
     static final class Roof {
@@ -409,6 +411,7 @@ final class Roofs {
                     take(cell, tile.x + dx, tile.y + dy, tile.z + dz, roof, seen);
                 }
             }
+            beyondRidge(cell, tile, roof, seen);
         }
         // In the order of their places and not of the reading, which starts at whichever tile asked:
         // where two tiles are as good as each other the fit takes the first, and a roof is to come
@@ -581,6 +584,37 @@ final class Roofs {
             }
         }
         return held;
+    }
+
+    /**
+     * The roof the far side of a slope comes down onto, a few squares past its ridge in the same
+     * building, is the same roof though the map leaves the squares between with no tile: a cross
+     * gable before the crown of a hip cut short (10402..10411 x 12658..12669) was two roofs, and
+     * the gable's far side, made with no crown in its roof, stood a third of a level over the crown
+     * and ran on at the ridge's height to the north wall where the crown ended short of it.
+     */
+    private static void beyondRidge(IsoCell cell, RoofFit.Tile tile, Roof roof, HashSet<Long> seen) {
+        if (!tile.sure || tile.fitting || tile.axis != RoofFit.ALONG_X && tile.axis != RoofFit.ALONG_Y || Math.abs(tile.high - tile.low) < RoofFit.SAME) {
+            return;
+        }
+        int up = tile.low > tile.high ? -1 : 1;
+        int dx = tile.axis == RoofFit.ALONG_X ? up : 0, dy = tile.axis == RoofFit.ALONG_Y ? up : 0;
+        IsoGridSquare under = cell.getGridSquare(tile.x, tile.y, 0);
+        if (under == null || under.getBuilding() == null) {
+            return;
+        }
+        for (int step = 1; step <= RIDGE_GAP; step++) {
+            IsoGridSquare next = cell.getGridSquare(tile.x + step * dx, tile.y + step * dy, 0);
+            if (next == null || next.getBuilding() != under.getBuilding()) {
+                return;
+            }
+            if (step == 1) {
+                continue;
+            }
+            for (int dz = -1; dz <= 1; dz++) {
+                take(cell, tile.x + step * dx, tile.y + step * dy, tile.z + dz, roof, seen);
+            }
+        }
     }
 
     /**

@@ -41,6 +41,7 @@ final class RoofTests {
         Checks.run("unclearTileOnAValleysLineIsFoldedAsTheValleyIs", RoofTests::unclearTileOnAValleysLineIsFoldedAsTheValleyIs);
         Checks.run("hippedCornerAtTheEaveCarriesTheEaveRowOn", RoofTests::hippedCornerAtTheEaveCarriesTheEaveRowOn);
         Checks.run("hipCutFlatGetsItsFarSlopeAcrossTheCrown", RoofTests::hipCutFlatGetsItsFarSlopeAcrossTheCrown);
+        Checks.run("farSlopeComesDownOverALowerCrown", RoofTests::farSlopeComesDownOverALowerCrown);
         Checks.run("levelSheetPaintedOverItsFloorIsAFlatTop", RoofTests::levelSheetPaintedOverItsFloorIsAFlatTop);
         Checks.run("sheetsBehindARidgeAreNoPartOfTheRoof", RoofTests::sheetsBehindARidgeAreNoPartOfTheRoof);
         Checks.run("canopyIsNotCarriedToTheFarWall", RoofTests::canopyIsNotCarriedToTheFarWall);
@@ -894,6 +895,77 @@ final class RoofTests {
             check(far != null && far.fitAxis == RoofFit.ALONG_Y && near(far.fitLow, 1f) && near(far.fitHigh, EAVE),
                     "the north slope stands on the north wall and climbs to the crown at x " + x);
         }
+    }
+
+    private static void farSlopeComesDownOverALowerCrown() {
+        farSlopeMeetsALowerCrown(1);
+        farSlopeMeetsALowerCrown(2);
+    }
+
+    private static void farSlopeMeetsALowerCrown(int gap) {
+        // A gable over x 0..3, rows 3 + gap .. 5 + gap, climbs north to a ridge at 2; north of it, past gap open rows,
+        // the crown of a hip cut short lies a third of a level up over x 1..3, rows 0..2. The far side falls two rows to
+        // the crown's height, over the crown where one row is open. The map has no slope on the crown's north and west
+        // sides, and the building runs on a row north of it and a column west of it.
+        int ridgeRow = 3 + gap;
+        RoofFit.Site site = new RoofFit.Site() {
+            @Override
+            public boolean stands(int x, int y, int z) {
+                return x >= 0 && x <= 3 && y >= -1 && y <= ridgeRow + 2;
+            }
+
+            @Override
+            public boolean floored(int x, int y, int z) {
+                return false;
+            }
+
+            @Override
+            public boolean taken(int x, int y, int z, float roof) {
+                return false;
+            }
+        };
+        List<RoofFit.Tile> roof = new ArrayList<>();
+        for (int x = 0; x <= 3; x++) {
+            for (int row = 0; row < 3; row++) {
+                roof.add(new RoofFit.Tile(x, ridgeRow + 2 - row, 1, RoofFit.ALONG_Y, true, EAVE + row * THIRD, 1f + row * THIRD));
+            }
+            for (int y = 0; y <= 2 && x > 0; y++) {
+                RoofFit.Tile crown = new RoofFit.Tile(x, y, 1, RoofFit.LEVEL, true, EAVE, EAVE);
+                crown.sheet = true;
+                roof.add(crown);
+            }
+        }
+        RoofFit.fit(roof);
+        List<RoofFit.Tile> made = RoofFit.backs(roof, site);
+        for (int x = 0; x <= 3; x++) {
+            RoofFit.Tile first = madeAt(made, x, ridgeRow - 1), second = madeAt(made, x, ridgeRow - 2);
+            check(first != null && first.axis == RoofFit.ALONG_Y && near(first.low, 1f + 2f * THIRD) && near(first.high, 2f),
+                    "the far slope falls north from the ridge at x " + x + ", gap " + gap);
+            check(second != null && second.axis == RoofFit.ALONG_Y && near(second.low, EAVE) && near(second.high, 1f + 2f * THIRD),
+                    "and on down to the crown's height at x " + x + ", past the crown's end as beside it, gap " + gap);
+        }
+        for (int x = 1; x <= 3; x++) {
+            RoofFit.Tile north = madeAt(made, x, -1);
+            check(north != null && north.axis == RoofFit.ALONG_Y && near(north.low, 1f) && near(north.high, EAVE),
+                    "the crown's north side climbs from the north wall to it at x " + x);
+            check(madeAt(made, x, 0) == null && madeAt(made, x, 1) == null, "and nothing is made over the crown at x " + x + ", gap " + gap);
+        }
+        for (int y = 0; y <= 1; y++) {
+            RoofFit.Tile west = madeAt(made, 0, y);
+            check(west != null && west.axis == RoofFit.ALONG_X && near(west.low, 1f) && near(west.high, EAVE),
+                    "the crown's west side climbs from the west wall to it in row " + y + ", gap " + gap);
+        }
+    }
+
+    private static RoofFit.Tile madeAt(List<RoofFit.Tile> made, int x, int y) {
+        RoofFit.Tile found = null;
+        for (RoofFit.Tile tile : made) {
+            if (tile.x == x && tile.y == y) {
+                check(found == null, "one made tile a square at " + x + ", " + y);
+                found = tile;
+            }
+        }
+        return found;
     }
 
     private static void sheetsBehindARidgeAreNoPartOfTheRoof() {
