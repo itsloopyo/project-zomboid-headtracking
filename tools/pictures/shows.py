@@ -807,10 +807,11 @@ show('film-future', FILM,
      ' and over the left half a riveted steel plate with a round glowing blue glass eye, stands in a dark rainy alley'
      ' lit by one dim yellow street lamp, steam rising behind him, the colours dull browns and greys with heavy film'
      ' grain, in a science fiction action movie.',
-     'A wide flat desert under a low overcast sky of dull rust brown dust haze, a long straight empty two lane road'
-     ' running to the horizon, old wooden telephone poles along it leaning at odd angles, a huge rusted steel water'
-     ' tower lying fallen on its side in the sand beside the road, the far hills dim in the haze, everything sharp from'
-     ' near to far, muted colours and heavy grain like 1980s 16mm film, in a science fiction action movie.',
+     'A worn old film frame of a wide flat desert under a low overcast sky of dull rust brown dust haze, a long'
+     ' straight empty cracked asphalt road with faded worn paint running to the horizon, a huge rusted steel water'
+     ' tower lying fallen on its side in the sand beside the road, the far hills dim in the haze, the whole frame'
+     ' soft and coarse with thick visible film grain and faint scratches like worn 1980s 16mm film, in a'
+     ' science fiction action movie.',
      'A figure walks through sparks and molten steel in a dark factory in a science fiction action movie.',
      'A woman of about thirty in a leather coat holding a shotgun stands in the doorway of a wrecked bar, the bare'
      ' cracked plaster walls behind her scorched and empty, broken stools on the floor, in a science fiction action'
