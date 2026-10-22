@@ -307,9 +307,10 @@ SPORTS = {
         'one side, woods behind.' + STILL,
     ],
     'athletics': [
-        'An empty dark red cinder running track at a small Kentucky high school at dawn, seen from far off across the '
-        'field, the white lane lines curving away round the far bend, mist lying on the green infield grass, a row of '
-        'old grey wooden bleachers along one side, a line of leafy trees and low hills beyond under a pale sky.' + FADED,
+        'A pair of old worn black leather running spikes lying side by side on a worn plain wooden bench, seen close '
+        'from a little above, the shoes plain smooth black leather all over, their laces loose, short metal spikes '
+        'under the front of each sole, scuffed and dusty with dull red cinder dust, a plain grey painted wooden wall '
+        'behind, soft daylight from one side, muted soft colours.' + FADED,
         'A high jump set up on the grass of an empty school field on a summer evening, seen from the side, a thick deep'
         ' blue foam landing mat, plain one colour, and above the front of it a thin plain white bar resting across two '
         'tall upright steel stands, a pale evening sky behind and a line of trees along the bottom.' + STILL,
@@ -420,9 +421,10 @@ SPORTS = {
         'resting apart on it, one dull red, one dark blue and one plain white, the tapered pale wooden end of a cue '
         'with its small leather tip lying on the cloth near the white ball, soft warm overhead light, muted dull '
         'colours.' + STILL,
-        'An orange tabby cat curled up asleep on the bare worn plank floor of an old pool hall in a patch of afternoon '
-        'sunlight, seen wide from across the room at standing height, the long dark wood panelled wall behind it '
-        'plain and bare from floor to ceiling, the room quiet and still.' + FADED,
+        'A plain dark wooden rack fixed to the dark wood panelled wall of an old billiard room, six long plain wooden '
+        'billiard cues standing upright in it side by side, their thin pale tips at the top and their thick dark butts '
+        'resting in the row of slots along the bottom, seen straight on from a few paces off, the panelled wall bare '
+        'around it, dim warm light from one side, muted soft colours.' + FADED,
         'A black eight ball on the green felt of a pool table beside a corner pocket.' + STILL,
         'A Kentucky horse farm on a summer evening, rolling green bluegrass pasture behind a long white plank fence, '
         'two brown horses grazing far off, a big old dark wooden barn small on a low hill, leafy trees and a pale '

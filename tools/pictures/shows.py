@@ -533,9 +533,10 @@ show('club', HAZE,
      ' barn with a country dance going on inside, dim red and blue light glowing out of its open end into thin fog, a'
      ' line of dark trees behind under a dull night sky, the colours dim and muddy, soft smeared low contrast picture'
      ' with heavy grain like 1980s video.',
-     'Rain running down a plain dark window pane at night, the drops and trickles filling the whole picture, beyond'
-     ' the glass only dim soft smudges of dull pink and amber light far off, the colours dim and muddy, soft smeared'
-     ' low contrast picture with heavy grain like 1980s video.',
+     'A dim empty dance floor in a small dance hall late at night, the wide worn wooden boards running away to a dark'
+     ' far wall, a few soft blurry patches of dull red, blue and amber light lying across the boards and smeared in'
+     ' the thin haze above them, the colours dim and muddy, soft smeared low contrast picture with heavy grain like'
+     ' blurry low resolution late 1980s video.',
      'Glowing coloured shapes spin on a black background in early 1990s computer video art.')
 show('eighties', HAZE,
      'A wide flat calm lake in the Kentucky hills at dusk seen from the shore, a long plain wooden dock running out'
