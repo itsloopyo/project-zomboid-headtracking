@@ -1053,6 +1053,10 @@ final class PipelineShaders {
             uniform sampler2D uCarpet;
             uniform vec3 uTimberGain;
             uniform float uLeafGain;
+            // How many of a sprite's pixels to a tile's: the game's Core.tileScale.
+            uniform float uTileScale;
+            // The way from what the game's own view shows to the eye it is drawn from: from the south-east, 30 degrees up.
+            const vec3 GAME_VIEW = vec3(0.61237, 0.61237, 0.5);
             uniform sampler2D uCloth;
             uniform float uClothGain;
             uniform sampler2D uLitter;
@@ -2018,6 +2022,29 @@ final class PipelineShaders {
                     float which = floor(vMaterial - 71.5);
                     sprigAt = (vec2(mod(which, 4.0), floor(which / 4.0)) + on) * vec2(0.25, 0.5);
                     vec4 sprig = texture2D(uSprigs, sprigAt);
+                    // A bush seen along the game's own view, from overhead: a bush is a few leaves
+                    // across and the game paints each of them, so the sprig is painted with what the
+                    // sprite paints where the pixel is seen along that view, its middle at the sprite's
+                    // place in the cell (Flora.paintedU). The bush is then the game's, in the light and
+                    // shade of the world. Laid with the sprig's own picture it was a ball of crumpled foil.
+                    // From any other way the sprite's leaves would stretch, and it is a crown as a tree's is.
+                    if (which > 5.5 && which < 6.5 && dot(normalize(uEye - vWorld), GAME_VIEW) > 0.95) {
+                        vec2 fx = dFdx(vUv), fy = dFdy(vUv);
+                        float det = fx.x * fy.y - fx.y * fy.x;
+                        vec3 off = abs(det) > 1e-12 ? (dFdx(vWorld) * fy.y - dFdy(vWorld) * fx.y) / det * (vUv.x - cell.x - 0.5)
+                                + (dFdy(vWorld) * fx.x - dFdx(vWorld) * fy.x) / det * (vUv.y - cell.y - 0.5) : vec3(0.0);
+                        vec2 pixels = vec2((off.x - off.y) * 32.0, (off.x + off.y) * 16.0 - off.z * 96.0 / 2.44949) * uTileScale;
+                        vec4 paint = texture2D(uTexture, cell / 2048.0 + pixels * uTexel);
+                        if (paint.a < 0.5) {
+                            discard;
+                        }
+                        sprigSolid = paint.a;
+                        vec3 colour = paint.rgb / paint.a;
+                        // The game paints a bush's light and shade into it, and the world lights it again: some of the paint's is taken back.
+                        colour *= mix(1.0, 0.36 / max(dot(colour, vec3(0.299, 0.587, 0.114)), 0.05), 0.3);
+                        texel = vec4(clamp(colour, 0.0, 1.0), 1.0);
+                        small = false;
+                    } else {
                     // Far off, the smaller copies of the picture have every leaf part solid,
                     // and cut at half the crown would thin to twigs.
                     float fine = max(fwidth(on.x), fwidth(on.y));
@@ -2061,6 +2088,7 @@ final class PipelineShaders {
                     float grey = dot(leafy, vec3(0.299, 0.587, 0.114));
                     texel = vec4(clamp(mix(vec3(grey), leafy, 1.18), 0.0, 1.0), 1.0);
                     small = false;
+                    }
                 }
                 if (vMaterial > 4.5 && vMaterial < 5.5 || bushy) {
                     // The leaves of a tree. The game's sprite gives the tree its outline and the

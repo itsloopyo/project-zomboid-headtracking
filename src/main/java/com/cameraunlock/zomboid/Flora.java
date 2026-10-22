@@ -627,6 +627,13 @@ final class Flora {
                 stemY += shiftY;
                 tipY += shiftY;
             }
+            if (shrub) {
+                // A bush's sprig takes its colour where the sprite paints its middle, seen along the
+                // game's view: from there the world shader paints it with the sprite's own leaves
+                // where it is seen along that view.
+                u = (float) Math.rint(paintedU(frame, footU, px, py) * CROWN_STEPS);
+                v = (float) Math.rint(paintedV(frame, footV, px, py, high, up) * CROWN_STEPS);
+            }
             for (int corner : QUAD) {
                 boolean right = corner == 1 || corner == 2, tip = corner >= 2;
                 float side = right ? 1f : -1f;
@@ -1287,6 +1294,24 @@ final class Flora {
         }
         return name.contains("holly") ? HOLLY : name.contains("hemlock") ? HEMLOCK : name.contains("pine") ? PINE : name.contains("maple") ? MAPLE
                 : name.contains("birch") || name.contains("hawthorn") || name.contains("dogwood") ? BIRCH : LINDEN;
+    }
+
+    /**
+     * Where in the texture the sprite paints the point (dx, dy, dz) from the foot of the plant it
+     * paints at frame pixel (footU, footV), dz in the world's height and up the world's height of a
+     * frame pixel: kept on the sprite.
+     */
+    static float paintedU(SpriteGeometry.Frame frame, float footU, float dx, float dy) {
+        float pixel = Math.clamp(footU + (dx - dy) * SpriteGeometry.PIXELS_ACROSS_PER_TILE * frame.scale, frame.left + SpriteGeometry.HALF_PIXEL,
+                frame.left + frame.width - SpriteGeometry.HALF_PIXEL);
+        return frame.uStart + (pixel - frame.left) / frame.width * (frame.uEnd - frame.uStart);
+    }
+
+    /** paintedU's down. */
+    static float paintedV(SpriteGeometry.Frame frame, float footV, float dx, float dy, float dz, float up) {
+        float pixel = Math.clamp(footV + (dx + dy) * SpriteGeometry.PIXELS_DOWN_PER_TILE * frame.scale - dz / up, frame.top + SpriteGeometry.HALF_PIXEL,
+                frame.top + frame.height - SpriteGeometry.HALF_PIXEL);
+        return frame.vStart + (pixel - frame.top) / frame.height * (frame.vEnd - frame.vStart);
     }
 
     private static void mark(Mesh mesh, float open, float kind, float material) {

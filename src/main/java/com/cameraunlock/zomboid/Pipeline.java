@@ -25,6 +25,7 @@ import org.lwjgl.opengl.GL32;
 import org.lwjgl.opengl.GL33;
 import org.lwjgl.opengl.GL44;
 import org.lwjgl.opengl.GLCapabilities;
+import zombie.core.Core;
 import zombie.core.textures.TextureDraw;
 
 /**
@@ -3773,6 +3774,7 @@ final class Pipeline {
         to.set("uTimberGain", materialGain[7], materialGain[8], materialGain[9]);
         to.set("uLeaves", FIRST_MATERIAL_UNIT + 10);
         to.set("uLeafGain", materialGain[10]);
+        to.set("uTileScale", (float) Core.tileScale);
         to.set("uCloth", FIRST_MATERIAL_UNIT + 12);
         to.set("uClothGain", materialGain[12]);
         for (int nature = 0; nature < NATURE.length; nature++) {

@@ -126,7 +126,7 @@ final class SpriteGeometry {
     private static final float EDGE_INSET_PIXELS = 1.5f;
     private static final float EDGE_SLACK_PIXELS = 2f;
     /** A texel is taken no nearer the trimmed rectangle's edge than the centre of its outermost pixel. */
-    private static final float HALF_PIXEL = 0.5f;
+    static final float HALF_PIXEL = 0.5f;
     private static final int MAX_CORNERS = 12;
     /** Floats per corner of a face being clipped: a, b, h on the tile, then the frame pixel u, v. */
     private static final int CORNER_FLOATS = 5;
