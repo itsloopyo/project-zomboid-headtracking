@@ -641,8 +641,17 @@ final class WallBuilder {
         if (build.overLayer != 0 || !Own.textures(build.playerIndex)) {
             return mesh;
         }
-        // Upright boards are made board by board in the sprite's own colour: see timber.
+        // Upright boards are made board by board in the sprite's own colour: see timber. A wooden
+        // wall on a building's own sheet (location_, WorldScene.materialOf) can be boards lapped
+        // along it instead, a trailer's, and its sprite says which.
         if (build.frame.material == WorldScene.BOARDS) {
+            if (texture.getName() != null && texture.getName().startsWith("location_")) {
+                int read = Masonry.of(texture);
+                build.building.signed &= !Masonry.unread(texture);
+                if ((read & 15) == WallSides.LAPPED) {
+                    return WorldScene.solid.get(texture.getID(), read);
+                }
+            }
             float[] colour = SpriteColours.of(texture);
             if (colour == null) {
                 build.building.signed &= !SpriteColours.unread(texture);
