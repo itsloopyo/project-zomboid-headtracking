@@ -61,8 +61,10 @@ final class WallBuilder {
      * band and how high up a piece at an end of the opening paints its jamb, and where up the head the leaf takes its
      * colour, in levels or shares of the edge; and how far under the leaf's underside its stiffeners hang, in tiles.
      */
-    private static final float RAISED_SCAN_FROM = 0.97f, LOWEST_RAISED_DOOR = 0.5f, RAISED_JAMB_AT = 0.06f, RAISED_JAMB_UP = 0.3f, RAISED_DYE_UP = 0.93f,
+    private static final float RAISED_SCAN_FROM = 0.97f, LOWEST_RAISED_DOOR = 0.5f, RAISED_JAMB_AT = 0.1f, RAISED_JAMB_UP = 0.3f, RAISED_DYE_UP = 0.93f,
             RAISED_STIFFENERS = 0.022f;
+    /** Where garage_leaf_track's track is across the model and where its hanger is along it, and the top of the track over the model's foot, in tiles. */
+    private static final float RAISED_TRACK_SIDE = 0.445f, RAISED_HANGER_IN = -2.13f, RAISED_TRACK_TOP = 0.1f;
 
     private final WorldScene world;
     private final WorldScene.Frame build;
@@ -260,6 +262,12 @@ final class WallBuilder {
         build.contentsOf((own ? build.here : beyond).getRoomID());
         build.placed.add(Models.get(name), build.frame, x, y, x + a, y + b, foot, turns, 1f, 1f, texture.getID(), 1 << Models.PAINT,
                 SpriteGeometry.textureU(build.frame, a, b), SpriteGeometry.textureV(build.frame, a, b, RAISED_DYE_UP), 0, 0f, 0f);
+        if (!name.equals("garage_leaf")) {
+            float[] at = new float[2];
+            Models.turn(turns, name.equals("garage_leaf_track") ? RAISED_TRACK_SIDE : -RAISED_TRACK_SIDE, RAISED_HANGER_IN, at);
+            float hung = foot + RAISED_TRACK_TOP, ceiling = (z + 1) * ViewCamera.LEVEL_HEIGHT + (lift[0] + lift[1] + lift[2] + lift[3]) / 4f;
+            build.placed.add(Models.get("garage_hanger"), build.frame, x, y, x + a + at[0], y + b + at[1], hung, turns, 1f, ceiling - hung, 0, 0, 0f, 0f, 0, 0f, 0f);
+        }
         build.contentsOf(given);
         if (!own) {
             build.frame.red = red;

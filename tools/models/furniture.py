@@ -5210,29 +5210,41 @@ def straw_post():
 def garage_leaf(name, track):
     """A tile's width of a sectional garage door raised and lying under the ceiling: four sections hinged one to the next,
     each stiffened across on its underside, running into the garage from the head of the opening. With track 1 or -1 the
-    door's track runs along that side under it, hung from the ceiling at its far end. Its origin is the middle of the
+    door's track runs along that side under it (garage_hanger hangs its far end from the ceiling). Its origin is the middle of the
     door's head in the wall's plane, under the stiffeners, 0.022 below the door's underside; its front faces into the garage."""
     model = Model(name, centred=False)
     near, far, thick, gap = -0.06, -2.0, 0.04, 0.005
+    # A track stands inside the face of the garage's side wall, 0.46 from the middle, and the leaf ends at its flange.
+    side = track * 0.445
+    low = -0.5 if track >= 0 else side + 0.04
+    high = 0.5 if track <= 0 else side - 0.04
     sections = 4
     leaf = bmesh.new()
     stiffeners = bmesh.new()
     for k in range(sections):
         y1 = near + (far - near) * k / sections - (gap / 2 if k else 0.0)
         y0 = near + (far - near) * (k + 1) / sections + (gap / 2 if k < sections - 1 else 0.0)
-        cuboid(leaf, -0.5, 0.5, y0, y1, 0.022, 0.022 + thick)
+        cuboid(leaf, low, high, y0, y1, 0.022, 0.022 + thick)
         middle = (y0 + y1) / 2
-        cuboid(stiffeners, -0.5, 0.5, middle - 0.02, middle + 0.02, 0.0, 0.022)
+        cuboid(stiffeners, low, high, middle - 0.02, middle + 0.02, 0.0, 0.022)
     model.hard(leaf, "paint", bevel=0.006)
     model.hard(stiffeners, "steel", bevel=0.003)
     if track:
-        side = track * 0.515
         iron = bmesh.new()
         cuboid(iron, side - 0.0025, side + 0.0025, far - 0.15, near + 0.02, 0.0, thick + 0.06)
         inner = side - track * 0.04
         cuboid(iron, min(side, inner), max(side, inner), far - 0.15, near + 0.02, 0.0, 0.005)
-        cuboid(iron, side - 0.02, side + 0.02, far - 0.15, far - 0.11, thick + 0.06, 0.5)
         model.hard(iron, "steel", bevel=0.002)
+    return model
+
+
+def garage_hanger():
+    """The strap a raised garage door's track hangs from at its far end, a metre long from its foot on the track up, to be
+    stood as tall as the ceiling is over the track."""
+    model = Model("garage_hanger", centred=False)
+    strap = bmesh.new()
+    cuboid(strap, -0.02, 0.02, -0.02, 0.02, 0.0, 1.0)
+    model.hard(strap, "steel", bevel=0.002)
     return model
 
 
@@ -5323,7 +5335,7 @@ def farm_and_garden():
                            0.07, 0.08),
             cactus(), bonsai(), rose_bouquet(), hay_feeder(), straw_post(), fallen_log(), forked_post("forked_post", False),
             forked_post("forked_post_scale", True), garage_leaf("garage_leaf", 0), garage_leaf("garage_leaf_track", 1),
-            garage_leaf("garage_leaf_track_left", -1)]
+            garage_leaf("garage_leaf_track_left", -1), garage_hanger()]
 
 
 def twin_head():
