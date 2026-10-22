@@ -268,10 +268,10 @@ public final class FrameRecorder {
 
     /**
      * The mod's own words on the screen (the graphics mode said at a switch, "getting ready"): drawn as ever, except
-     * while a take records or is being written, so a take has none of them. Logic thread.
+     * while a take records or is being written, or a frame dump is asked and not yet read, so neither has any of them. Logic thread.
      */
     public static void said(TextManager text, UIFont font, double x, double y, String words, double r, double g, double b, double a) {
-        if (!busy()) {
+        if (!busy() && !FrameDump.pending()) {
             text.DrawStringCentre(font, x, y, words, r, g, b, a);
         }
     }
@@ -335,6 +335,7 @@ public final class FrameRecorder {
      * reads go inside the frame's interface pass: a draw queued outside StartFrameUI and EndFrameUI is never run.
      */
     public static void beforeInterface() {
+        FrameDump.beforeInterface();
         Take recording = take;
         if (recording == null) {
             return;
@@ -353,6 +354,7 @@ public final class FrameRecorder {
 
     /** Logic thread, from IngameState.renderFrameUI once the interface is drawn, still inside its pass. */
     public static void afterInterface() {
+        FrameDump.afterInterface();
         Take recording = take;
         if (recording == null) {
             return;

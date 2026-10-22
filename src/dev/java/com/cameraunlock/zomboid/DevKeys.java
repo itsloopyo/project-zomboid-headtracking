@@ -85,6 +85,8 @@ public final class DevKeys {
     static final boolean PRESENT = true;
     /** F7 in the key codes the game's keyboard uses. */
     private static final int TAKE_VEHICLE_KEY = 65;
+    /** Pause: see FrameDump. */
+    private static final int FRAME_DUMP_KEY = 197;
     private static final float TAKE_WITHIN = 5f;
     /** The apostrophe. */
     private static final int INVINCIBLE_KEY = 40;
@@ -247,13 +249,17 @@ public final class DevKeys {
         String told = null;
         if (!said) {
             said = true;
-            Log.info("development build: 0 clears out the zombies and pressed again puts some back round you, . goes to the next place and , to the one before, 9 puts the clock on three hours, Backspace holds the next season of spring, summer, autumn and winter, End holds the next weather of clear, rainy, snowy and stormy, Home starts a fire where the reticle is, ; gives the next of the game's firearms, any gun held never runs dry, [ gives a hunting rifle with the next of the three scopes on it, / gives a lit flashlight, ' makes you invincible, F7 takes the nearest vehicle");
+            Log.info("development build: 0 clears out the zombies and pressed again puts some back round you, . goes to the next place and , to the one before, 9 puts the clock on three hours, Backspace holds the next season of spring, summer, autumn and winter, End holds the next weather of clear, rainy, snowy and stormy, Home starts a fire where the reticle is, ; gives the next of the game's firearms, any gun held never runs dry, [ gives a hunting rifle with the next of the three scopes on it, / gives a lit flashlight, ' makes you invincible, F7 takes the nearest vehicle, Pause dumps the frame and the shadow maps");
         }
+        if (GameKeyboard.isKeyPressed(FRAME_DUMP_KEY)) {
+            FrameDump.ask();
+        }
+        told = FrameDump.told();
         // On a server every one of these would be a cheat against the other players.
         if (GameClient.client) {
             invincible = false;
             cleared = false;
-            return null;
+            return told;
         }
         ArrayList<IsoPlayer> players = new ArrayList<>();
         for (IsoPlayer each : IsoPlayer.players) {
