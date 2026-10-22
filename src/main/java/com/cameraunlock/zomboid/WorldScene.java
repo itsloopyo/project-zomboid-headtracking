@@ -4327,7 +4327,7 @@ final class WorldScene {
          * it: taken from the chunk it is on, which the cell would have to find among the map's
          * chunks at every asking.
          */
-        private boolean naturalBeside(int chunkX, int chunkY, int x, int y) {
+        boolean naturalBeside(int chunkX, int chunkY, int x, int y) {
             for (int dx = -1; dx <= 1; dx++) {
                 for (int dy = -1; dy <= 1; dy++) {
                     if ((dx != 0 || dy != 0) && Terrain.kind(squareAt(chunkX, chunkY, x + dx, y + dy, 0)) == Terrain.NATURAL) {
@@ -4798,6 +4798,18 @@ final class WorldScene {
                     }
                     level = sum(level, trees);
                     auditTrees = trees;
+                    // Where a path turns, FloorBuilder.around reads the ground two squares out, a ring past the light grid.
+                    for (int i = -2; i <= CHUNK_TILES + 1; i++) {
+                        for (int j = -2; j <= CHUNK_TILES + 1; j++) {
+                            if (i >= -1 && i <= CHUNK_TILES && j >= -1 && j <= CHUNK_TILES) {
+                                continue;
+                            }
+                            IsoGridSquare square = squareAt(chunkX, chunkY, chunkX + i, chunkY + j, 0);
+                            IsoObject floor = square == null ? null : square.getFloor();
+                            byte kind = square == null ? Terrain.UNKNOWN : Terrain.kind(square, floor);
+                            level = sum(sum(level, kind), kind == Terrain.NATURAL ? rank(floor.getSprite()) : 0);
+                        }
+                    }
                 }
                 for (int i = 0; i < LIGHT_SPAN; i++) {
                     for (int j = 0; j < LIGHT_SPAN; j++) {
@@ -5633,7 +5645,7 @@ final class WorldScene {
             return true;
         }
 
-        private int rank(IsoSprite sprite) {
+        int rank(IsoSprite sprite) {
             int[] known = ranks.get(sprite);
             if (known == null) {
                 String name = sprite.getName();

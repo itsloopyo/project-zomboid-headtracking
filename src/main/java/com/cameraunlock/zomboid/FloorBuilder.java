@@ -35,10 +35,10 @@ final class FloorBuilder {
      * ground, it ran half the square in, and a slab of paving a few squares across went under.
      */
     private static final float MADE_EDGE = 0.6f;
-    private final int[] around = new int[9];
+    private final int[] around = new int[25];
     /**
      * Of a grid of three by three, the middles of the north, west, east and south edges and the step from
-     * each to its two corners. In coverFrom's around the same places are the squares across those edges.
+     * each to its two corners.
      */
     private static final int[] EDGE_MIDDLE = {1, 3, 5, 7}, EDGE_STEP = {1, 3, 3, 1};
     private final float[] tileTint = new float[4];
@@ -85,7 +85,7 @@ final class FloorBuilder {
                     continue;
                 }
                 spreading[spread++] = name;
-                around(own, mine, name);
+                around(x, y, x - localX, y - localY, own, mine, name);
                 boolean grid = coverFrom(around, build.cover, coverGrid);
                 if (build.groundKind[own] == Terrain.MADE) {
                     for (int i = 0; i < coverGrid.length; i++) {
@@ -131,19 +131,35 @@ final class FloorBuilder {
     /** What the squares round one are to ground spreading over it, in coverFrom's around: */
     static final int OTHER = 0, OWN = 1, SPREADING = 2;
 
-    /** The squares round own, x across and y down from (-1, -1), as coverFrom reads them. */
-    private void around(int own, int mine, int name) {
-        for (int i = 0; i < 9; i++) {
-            int at = own + (i % 3 - 1) * WorldScene.LIGHT_SPAN + i / 3 - 1;
-            around[i] = at == own ? OWN
-                    : spreads(at, own, mine) && build.groundRank[at] == name ? SPREADING
-                    : build.groundKind[at] == Terrain.NATURAL && build.lightOpen[at] == 1 && build.groundRank[at] == mine ? OWN : OTHER;
+    /**
+     * The squares round own, x across and y down from (-2, -2), as coverFrom reads them. The ring
+     * two out is beyond the frame's grids and is read from the world, by the same tests.
+     */
+    private void around(int x, int y, int chunkX, int chunkY, int own, int mine, int name) {
+        for (int i = 0; i < 25; i++) {
+            int dx = i % 5 - 2, dy = i / 5 - 2;
+            if (dx == 0 && dy == 0) {
+                around[i] = OWN;
+            } else if (Math.abs(dx) <= 1 && Math.abs(dy) <= 1) {
+                int at = own + dx * WorldScene.LIGHT_SPAN + dy;
+                around[i] = spreads(at, own, mine) && build.groundRank[at] == name ? SPREADING
+                        : build.groundKind[at] == Terrain.NATURAL && build.lightOpen[at] == 1 && build.groundRank[at] == mine ? OWN : OTHER;
+            } else {
+                IsoGridSquare square = build.squareAt(chunkX, chunkY, x + dx, y + dy, 0);
+                IsoObject floor = square == null ? null : square.getFloor();
+                boolean natural = square != null && square.isOutside() && Terrain.kind(square, floor) == Terrain.NATURAL;
+                int rank = natural ? build.rank(floor.getSprite()) : 0;
+                // name is of a square that spreads over own: never mine, and above it where own is natural ground.
+                around[i] = natural && rank == name && WorldScene.textureOf(floor) != null
+                        && (build.groundKind[own] == Terrain.NATURAL || build.naturalBeside(chunkX, chunkY, x + dx, y + dy)) ? SPREADING
+                        : natural && rank == mine ? OWN : OTHER;
+            }
         }
     }
 
     /**
      * How much of a ground spreading over a square covers it, from what the squares round it
-     * are (around, nine of OTHER, OWN and SPREADING, row by row, the square itself in the middle):
+     * are (around, five by five of OTHER, OWN and SPREADING, row by row, the square itself in the middle):
      * corners at its four corners in SpriteGeometry.lift's order, and grid as a SpriteGeometry.GRID_COVER.
      * Returns whether the face has to be laid by grid; where it does not, grid is what corners
      * would give anyway.
@@ -156,27 +172,43 @@ final class FloorBuilder {
      * square's own ground meets itself across the diagonal, between two squares of the spreading
      * ground, is the square's own: a path that runs on the slant goes on through it. So is a corner
      * where the spreading ground has one of the four squares that meet there and the square's own
-     * ground the other three: there a path stepping on the slant turns, and covered it was cut at
-     * every step. It is told from those four alone, so each of the three squares says the same of
-     * it. An edge by such a corner, the square's own ground across it, is the square's own as well,
-     * the path going on through it. Laid by the corners alone, each of these squares was the
-     * spreading ground all over, and a path between grass was grass.
+     * ground the other three, and the own ground does not go on beyond the square across from it:
+     * there a path stepping on the slant turns, with grass on its far side too (often another of
+     * the game's grasses, which is not the spreading ground), and covered it was cut at every
+     * step. Where the own ground goes on beyond, it is the corner of a lawn or of a lone square of
+     * grass, and is covered, rounding it. It is told from the four squares and the three
+     * beyond, which each of the three squares reads alike, so they say the same of it. An edge by
+     * such a corner, the square's own ground across it, is the square's own as well, the path going
+     * on through it. Laid by the corners alone, each of these squares was the spreading ground all
+     * over, and a path between grass was grass.
      */
     static boolean coverFrom(int[] around, float[] corners, float[] grid) {
         boolean byGrid = false;
         int turnsAt = 0;
         for (int corner = 0; corner < 4; corner++) {
             int cx = corner == 1 || corner == 2 ? 1 : 0, cy = corner >= 2 ? 1 : 0;
-            int spreading = 0, own = 0;
+            int spreading = 0, own = 0, spreadX = 0, spreadY = 0;
             for (int ci = cx; ci <= cx + 1; ci++) {
                 for (int cj = cy; cj <= cy + 1; cj++) {
-                    spreading += around[cj * 3 + ci] == SPREADING ? 1 : 0;
-                    own += around[cj * 3 + ci] == OWN ? 1 : 0;
+                    int what = around[(cj + 1) * 5 + ci + 1];
+                    spreading += what == SPREADING ? 1 : 0;
+                    own += what == OWN ? 1 : 0;
+                    if (what == SPREADING) {
+                        spreadX = ci + 1;
+                        spreadY = cj + 1;
+                    }
                 }
             }
             int dx = cx * 2, dy = cy * 2;
-            boolean through = around[dy * 3 + dx] == OWN && around[3 + dx] == SPREADING && around[dy * 3 + 1] == SPREADING;
-            boolean turns = spreading == 1 && own == 3;
+            boolean through = around[(dy + 1) * 5 + dx + 1] == OWN && around[10 + dx + 1] == SPREADING && around[(dy + 1) * 5 + 2] == SPREADING;
+            boolean turns = false;
+            if (spreading == 1 && own == 3) {
+                // The square across the four from the spreading ground's, and the three one step further on.
+                int acrossX = 2 * cx + 3 - spreadX, acrossY = 2 * cy + 3 - spreadY;
+                int stepX = acrossX - spreadX, stepY = acrossY - spreadY;
+                turns = around[acrossY * 5 + acrossX + stepX] != OWN || around[(acrossY + stepY) * 5 + acrossX] != OWN
+                        || around[(acrossY + stepY) * 5 + acrossX + stepX] != OWN;
+            }
             corners[corner] = spreading > 0 && !through && !turns ? 1f : 0f;
             grid[cy * 6 + cx * 2] = corners[corner];
             turnsAt |= turns ? 1 << cy * 6 + cx * 2 : 0;
@@ -186,9 +218,10 @@ final class FloorBuilder {
         for (int edge = 0; edge < 4; edge++) {
             int at = EDGE_MIDDLE[edge];
             float p = grid[at - EDGE_STEP[edge]], q = grid[at + EDGE_STEP[edge]];
-            if (around[at] == SPREADING) {
+            int across = around[(at / 3 + 1) * 5 + at % 3 + 1];
+            if (across == SPREADING) {
                 grid[at] = 1f;
-            } else if (p == 1f && q == 1f || around[at] == OWN && (turnsAt >> at - EDGE_STEP[edge] & 1 | turnsAt >> at + EDGE_STEP[edge] & 1) == 1) {
+            } else if (p == 1f && q == 1f || across == OWN && (turnsAt >> at - EDGE_STEP[edge] & 1 | turnsAt >> at + EDGE_STEP[edge] & 1) == 1) {
                 grid[at] = OWN_KEPT;
                 kept++;
                 byGrid = true;
