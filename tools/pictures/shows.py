@@ -97,8 +97,9 @@ show('expert', VIDEO,
      ' hands resting in his lap.',
      'A scientist in a white lab coat stands at a laboratory bench with glass flasks and a microscope on it, looking'
      ' toward someone just out of the frame.',
-     'A grey laboratory microscope stands on a white bench with a glass slide clipped under its lens and a rack of test tubes'
-     ' beside it, seen close up.',
+     'A wooden rack of clear glass test tubes, each one half filled with a pale coloured liquid, amber, pink, green '
+     'and blue, standing on a plain white laboratory bench beside a round glass flask, seen close up, a pale green '
+     'painted wall behind.',
      'A woman doctor in a white coat with a stethoscope round her neck talks to someone just out of the frame in a'
      ' pale green hospital corridor.')
 show('unrest', FIELD,
@@ -188,8 +189,9 @@ show('cook', VIDEO,
      'A big glossy brown pot roast of beef sitting in dark gravy in a round black cast iron pan, surrounded by soft'
      ' browned roast potatoes and carrots glistening with gravy, the pan standing on a wooden board on a tiled kitchen'
      ' counter, seen close from the side so the black rim of the pan runs off both sides of the picture.',
-     'A cheerful woman in an apron stands behind a kitchen counter smiling straight out of the frame towards the'
-     ' viewer, a mixing bowl and a whisk on the counter in front of her.',
+     'A friendly woman of about forty with short permed brown hair, in a pink cotton blouse and a plain blue apron, '
+     'stands behind a kitchen counter looking out of the frame towards the viewer with a warm small smile, a mixing '
+     'bowl and a whisk on the counter in front of her, plain wooden cupboards behind her, flat bright light.',
      'A pan of vegetables steams on a gas stove with a wooden spoon resting in it, seen close up.',
      'A tall round layer cake covered all over in thick smooth white buttercream icing with piped rosettes round its top'
      ' edge sits on a cake stand on the counter of a studio kitchen.')
@@ -288,7 +290,9 @@ show('detectives', DRAMA,
      'A suspect sits alone at a metal table in a bare grey interrogation room under one hanging lamp, seen '
      'from a few paces back, a thin man of about thirty five with short dark hair and a clean shaven face, '
      'in a plain grey long sleeved sweatshirt, his hands folded on the table, looking down.',
-     'Two detectives run across a rooftop a few paces apart, the city behind them.')
+     'Seen from far off, two small figures of detectives in dark suits run across the flat tar roof of an old brick '
+     'building a few paces apart, low brick chimneys and round wooden water tanks on the roofs around them, under a '
+     'plain grey sky.')
 show('barrister', DRAMA,
      'An English barrister in a white wig and black gown stands to speak in an oak panelled courtroom.',
      'An elderly English judge in red robes and a short white curled wig sits on the raised bench of an oak panelled'
@@ -305,8 +309,9 @@ show('soap', VIDEO,
      'A woman of about forty with big teased blonde 1980s hair, in a dark red wool dress suit with big shoulder pads,'
      ' long sleeves and a high necked cream blouse buttoned up to her chin, points angrily at a man of about forty five in a tuxedo who stands a step away with his'
      ' arms spread, in an opulent living room in a daytime soap opera.',
-     'A tearful woman with heavy eye make up and big hair, in a long sleeved high necked blouse buttoned up to her chin,'
-     ' seen from the shoulders up in a daytime soap opera.',
+     'A sad woman of about thirty five with big teased dark hair and heavy eye make up, in a long sleeved high necked'
+     ' blouse buttoned up to her chin, seen from the shoulders up, one single tear on her cheek, her lips pressed '
+     'together as she looks away to one side, in a softly lit living room in a daytime soap opera.',
      'A man lies in a hospital bed with a bandaged head, a woman in a fur coat sitting at the bedside, in a daytime soap'
      ' opera.',
      'A couple stand on a terrace over a city at sunset in a daytime soap opera, the woman in a long sleeved evening'
@@ -425,8 +430,9 @@ show('clown', LOCAL,
 show('county', FIELD,
      'A woman presenter in a denim jacket stands by a white fence on a horse farm, rolling green hills behind her.',
      'A county fair on a summer evening, one ferris wheel lit up against the sky behind a row of striped stalls.',
-     'An old man in a faded blue cotton shirt sits in a rocking chair on the porch of a wooden house, snapping green '
-     'beans from a wicker basket on his lap into a tin pail at his feet, seen from the yard.',
+     'An old man of about seventy in a faded blue cotton shirt sits in a rocking chair on the porch of a wooden '
+     'house, seen close from the side from the chest up, snapping a green bean in his hands over a wicker basket of '
+     'green beans held in his lap, the grey plank wall of the house behind him.',
      'A shallow country creek in low rolling wooded hills, clear water running over wide flat slabs of grey limestone'
      ' between gentle low grassy banks under leafy trees on a summer afternoon, sunlight coming through the leaves'
      ' onto the water, seen from the water\'s edge.',
@@ -576,12 +582,13 @@ show('baseball', SPORT,
      'Looking steeply down from high above onto the outfield grass of a baseball park on a sunny afternoon, the grass '
      'mown in broad light and dark green diagonal stripes that fill the whole picture, one outfielder in plain grey '
      'standing small near the middle with his long shadow beside him.',
-     'Seen from far off across the outfield, a baseball outfielder in plain grey leaps at the low padded outfield'
-     ' fence, a small lone figure, the empty green grass in front.',
-     'A baseball dugout seen from across the field, four players in plain grey uniforms, all bareheaded with their hair'
-     ' showing, leaning on'
-     ' its rail in the deep shade of its roof, one old and heavy, one tall and thin, one with a dark beard and one'
-     ' young and fair, the green grass of the field in front.',
+     'Seen from far off across the outfield, a baseball outfielder in plain grey runs flat out across the green '
+     'grass towards the low padded outfield fence, a small lone figure with one foot on the ground and his long '
+     'shadow under him, his brown glove on one hand, the empty green grass all round him.',
+     'Two baseball players in plain grey uniforms sit well apart on the long wooden bench at the back of a dugout in '
+     'the deep shade of its roof, seen from across the field through its open front, both bareheaded with their '
+     'hair showing, a heavy man of about forty with dark hair and a lean fair young man of about twenty five, their '
+     'hands resting on their knees, the green grass of the field in front.',
      'Seen exactly side on from far off, a lone baseball runner in a plain grey uniform and a plain dark grey cap '
      'sprints along the brown dirt base path, a small figure, his plain black shoes kicking up a little dust, only '
      'him on the empty dirt, green outfield grass blurred behind him.')
@@ -633,10 +640,10 @@ show('skating', SPORT,
      'Seen from very far off against a pale sky, a small figure of a rider about seventeen, nearly adult, tall and'
      ' lanky, in a plain blue t-shirt and jeans on a small BMX bicycle flies through the air over a dirt jump, an old'
      ' round open face helmet on his head, the dirt track around him empty.',
-     'Two grown men of about twenty five, one tall with long blond hair and a stubbly beard, one stocky with a buzz '
-     'cut and a short dark beard, in plain solid coloured long sleeved t-shirts and jeans, sit side by side resting on '
-     'the top edge of a wooden skate ramp with their skateboards across their knees, seen from a little way off under '
-     'a pale hazy summer sky, the colours faded.')
+     'Two grown men of about twenty five, both clean shaven, one tall with shaggy shoulder length brown hair and one '
+     'stocky with short bleached blond hair, in baggy plain t-shirts of one colour and loose jeans, sit side by side '
+     'on the top edge of a wooden skate ramp with their legs hanging down its curved face, seen from a little way off'
+     ' under a pale hazy summer sky, the colours faded.')
 show('boxing', ' A still image from 1970s boxing coverage shot on 16mm colour film, bright ring lights and a'
                ' faint haze, soft and grainy with faded colours. The picture fills the whole image edge to edge.',
      'Two white heavyweight boxers squaring off side on, seen close from the waist up so only their upper bodies, '
@@ -695,8 +702,9 @@ show('film-comedy', FILM,
      'A small boy alone in a big house at Christmas stands at the top of the stairs beside a paint can hanging on a string in'
      ' a family comedy.',
      'Two clumsy burglars in woolly hats sprawl on their backs at the foot of a staircase in a family comedy.',
-     'A panicking mother and father throw suitcases into the back of a wood panelled station wagon in the driveway of'
-     ' their suburban house at dawn, seen from the side, in a family comedy.',
+     'A panicking mother and father of about forty hurry down the front path of their old two storey clapboard house'
+     ' at dawn, seen from the side, each carrying one big brown suitcase, him in a cardigan and her in a quilted '
+     'dressing gown, her hair in curlers, in a family comedy.',
      'Two grown men of about twenty five with stubble, one tall and lanky with long dark hair and one stocky with'
      ' short dark hair and a thick dark moustache, in denim jackets, sit side by side on an old plaid couch in a'
      ' cluttered garage laughing with their heads thrown back, plain brown cardboard boxes stacked behind them, in a'
@@ -726,7 +734,9 @@ show('film-horror', FILM,
      'Three tall figures in long dark hooded coats stand as solid black silhouettes in a bedroom doorway that blazes '
      'with white light behind them, their shapes flat black with no faces showing, in a horror movie.',
      'A pale man in a black cloak stands in a candle lit crypt in a horror movie.',
-     'A terrified woman\'s face lit from below in the dark in a horror movie.',
+     'A frightened woman of about thirty with shoulder length dark hair, seen side on from the shoulders up in a '
+     'dark room, her eyes wide as she stares towards a door out of the picture, her face lit softly from below by '
+     'a dim warm light, the rest of the room in shadow, in a horror movie.',
      'An old one storey roadside motel under a bare tree at night with one lit window and a plain blank white board on'
      ' a post out front, in a horror movie.')
 show('film-crime', FILM,
@@ -932,9 +942,9 @@ show('action-team', DRAMA,
      ' green glass over his eyes holds a thick grey steel plate flat against the side door of a black van in a barn and'
      ' welds along its edge, a bright white arc and a shower of orange sparks where the plate meets the door, in a'
      ' 1980s action series.',
-     'A big orange fireball and black smoke burst up from the ground beside a dirt road in the desert, an empty open'
-     ' green army jeep standing on its four wheels on the road in front of it, dust flying round it, seen whole and'
-     ' side on from a distance, in a 1980s action series.',
+     'A big orange fireball and black smoke burst up from the dry scrub right beside an empty dirt road in the '
+     'desert, dust and stones flying out round it, seen from a distance with the whole blast and the road in the '
+     'picture, flat desert and pale hazy hills behind, in a 1980s action series.',
      'A grinning heavy built man in his late fifties with a bald head, a fringe of grey hair and a full '
      'bushy grey beard, in a plain open necked checked work shirt, leans against the side of a black van in '
      'a dusty desert scrapyard with his arms folded, seen from the waist up a few paces off, in a 1980s '
@@ -967,13 +977,12 @@ show('chat', VIDEO,
      ' one arm along its back, seen from the chest up, the colours soft and smeared.',
      'A talk show audience laughs in rows beyond the stage lights.')
 show('family', SITCOM,
-     'A suburban family sits close together on a flowered sofa in a cosy living room with patterned wallpaper and'
-     ' framed pictures, a mother of about forty with a brown bob, a father of about forty five whose hair is scorched'
-     ' and sticking straight up, and between them their two children both sitting on the sofa, a girl of about twelve'
-     ' with long brown hair and a boy of about ten with short hair.',
-     'A mother of about forty in an apron stands in a homely kitchen full of white smoke holding a plain red fire'
-     ' extinguisher by its handle, its smooth back towards us, white foam covering a burnt pan on the stove beside her,'
-     ' wooden cupboards around her.',
+     'A sheepish father of about forty five with an ordinary round face sits alone on a flowered sofa in a cosy living'
+     ' room with patterned wallpaper, seen from the waist up, his face smudged with black soot and his short brown hair'
+     ' singed and frizzled, a wisp of grey smoke rising off it, his hands resting on his knees, a guilty grin.',
+     'A mother of about forty with short permed brown hair, in a grey sweatshirt and an apron, stands in a homely '
+     'kitchen hazy with white smoke with both hands on her hips, frowning at a blackened frying pan heaped with '
+     'white foam on the stove beside her, wooden cupboards around her.',
      'A family of four laughs round a dinner table in a cosy dining room with flowered wallpaper, a hanging lamp over'
      ' the table, a father of about forty five with a moustache, a mother of about forty with curly hair, a girl of'
      ' about twelve and a boy of about nine.',
