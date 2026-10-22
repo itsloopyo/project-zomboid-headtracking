@@ -5398,6 +5398,26 @@ final class WorldScene {
                 vergeOver = false;
                 return;
             }
+            // The map edges one open ground with another by painting half of the next ground's
+            // picture over the square, and spreadGround lays that edge already: painted as well,
+            // the half lay over it as a flat triangle. Not a half of a lower ground whose square
+            // this one's buries whole: spreading, the higher ground covers the lower to where it
+            // touches it, and the half is all a trail of it a square wide keeps. Nor of a ground
+            // no square round has, a patch the map's own.
+            int ground = (waterLocalX + 1) * LIGHT_SPAN + waterLocalY + 1;
+            if (isFloor && z == 0 && groundKind[ground] == Terrain.NATURAL && lightOpen[ground] == 1
+                    && over.getName() != null && over.getName().startsWith("blends_natural")) {
+                int edged = rank(over);
+                for (int di = -1; di <= 1; di++) {
+                    for (int dj = -1; dj <= 1; dj++) {
+                        int at = ground + di * LIGHT_SPAN + dj;
+                        if (at != ground && naturalOpen(at) && groundRank[at] == edged
+                                && (edged > groundRank[ground] || !buried(at, groundRank[ground]))) {
+                            return;
+                        }
+                    }
+                }
+            }
             int before = FirstPerson.TRACE ? worn(texture) : 0;
             // The map hangs a road's lines on the road's own floor, and what is added next is added as that floor's: see addFloor.
             paintOver = kindOf(over).paint;
@@ -5479,6 +5499,34 @@ final class WorldScene {
          * after the first and before the fifth, outranks bare ground: it is grass that grows out
          * over earth and sand, in tufts, and not the earth that creeps over the grass.
          */
+        private boolean naturalOpen(int at) {
+            return groundKind[at] == Terrain.NATURAL && lightOpen[at] == 1 && groundTexture[at] != null;
+        }
+
+        /**
+         * Whether open ground of that rank touches every corner of square at, the four squares
+         * round a corner counted, as FloorBuilder.spreadGround covers a square whole. A square on
+         * the ring of the span has corners past it, which count as untouched.
+         */
+        private boolean buried(int at, int name) {
+            int i = at / LIGHT_SPAN, j = at % LIGHT_SPAN;
+            for (int corner = 0; corner < 4; corner++) {
+                int ci0 = i + (corner == 1 || corner == 2 ? 0 : -1), cj0 = j + (corner >= 2 ? 0 : -1);
+                boolean touches = false;
+                for (int ci = ci0; ci <= ci0 + 1; ci++) {
+                    for (int cj = cj0; cj <= cj0 + 1; cj++) {
+                        int touching = ci * LIGHT_SPAN + cj;
+                        touches |= ci >= 0 && cj >= 0 && ci < LIGHT_SPAN && cj < LIGHT_SPAN && touching != at
+                                && naturalOpen(touching) && groundRank[touching] == name;
+                    }
+                }
+                if (!touches) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
         private int rank(IsoSprite sprite) {
             int[] known = ranks.get(sprite);
             if (known == null) {
