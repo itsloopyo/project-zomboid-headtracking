@@ -4,7 +4,7 @@ package com.cameraunlock.zomboid;
  * What stands in a farmyard or a garden that the mod has a model of: hay bales, log stacks and
  * loads of long logs, troughs and a hay feeder, a kennel, a post bound with straw, a compost bin,
  * a rain crate, a mall's planter, a raised bed, a laundry cart, a bird bath, a salt lick, a log bench, stumps, a
- * fallen trunk, a gnome, and the small plants that stand on a table. Asked by
+ * fallen trunk, a gnome, lawn flamingos, and the small plants that stand on a table. Asked by
  * Outdoors before its own rules, so a sprite here is told nowhere else.
  *
  * How high each thing is, which way it lies and where its sprite gives it its colour were read
@@ -34,7 +34,7 @@ final class Farm {
     private static final float LOG_DYE = 0.18f, BUNDLE_DYE = 0.75f;
     /** Where on its sprite each thing gives its colour, in levels over its foot. */
     private static final float TROUGH_DYE = 0.12f, ROOF_DYE = 0.32f, BENCH_DYE = 0.15f, COMPOST_DYE = 0.12f, CART_DYE = 0.25f, BATH_DYE = 0.15f,
-            BATH_WATER = 0.322f, LICK_DYE = 0.05f, COAT_DYE = 0.08f, BED_DYE = 0.12f, FRONDS_DYE = 0.32f;
+            BATH_WATER = 0.322f, LICK_DYE = 0.05f, COAT_DYE = 0.08f, BED_DYE = 0.12f, FRONDS_DYE = 0.32f, FLAMINGO_DYE = 0.27f;
     /**
      * Where a mall's planter gives the colour of its stone, low on the face its sprite paints over the square's middle, and
      * over the same place the colour of its leaves, in levels.
@@ -132,6 +132,9 @@ final class Farm {
         }
         if (called.equals("The Gnome") && single && faces != Outdoors.NONE) {
             return new Outdoors.Piece("gnome", faces).dye(PAINT, COAT_DYE).fit();
+        }
+        if (called.equals("Flamingo") && single && faces != Outdoors.NONE) {
+            return new Outdoors.Piece(kind.startsWith("Pecking") ? "flamingo_pecking" : "flamingo", faces).dye(PAINT, FLAMINGO_DYE).fit();
         }
         return single ? onTable(Sheets.place(name, POTS), called, faces, surfaceHigh) : null;
     }

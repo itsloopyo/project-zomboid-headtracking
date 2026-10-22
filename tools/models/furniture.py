@@ -4922,6 +4922,44 @@ def gnome():
     return model
 
 
+FLAMINGO_SCALE = 1.3
+
+
+def flamingo(name, pecking):
+    """A lawn flamingo of moulded plastic on two wire legs: a body with its tail raised, an S of a neck and a small head with
+    a bent beak, its head up or, pecking, bowed to the grass in front of it."""
+    model = Model(name)
+    body = bmesh.new()
+    lathe(body, [(0.0, 0.0), (0.04, 0.02), (0.085, 0.09), (0.105, 0.19), (0.1, 0.28), (0.075, 0.35), (0.0, 0.39)], segments=14, sx=0.75,
+          to=along_y(0.0, 0.2, 0.58) @ Matrix.Rotation(math.radians(-12), 4, "X"))
+    if pecking:
+        neck = [(0.0, -0.15, 0.62), (0.0, -0.23, 0.64), (0.0, -0.3, 0.58), (0.0, -0.34, 0.49), (0.0, -0.35, 0.42)]
+        head, beak = (0.0, -0.355, 0.4), ((0.0, -0.37, 0.37), (0.0, -0.36, 0.3))
+    else:
+        neck = [(0.0, -0.15, 0.64), (0.0, -0.17, 0.72), (0.0, -0.13, 0.81), (0.0, -0.11, 0.9), (0.0, -0.15, 0.97)]
+        head, beak = (0.0, -0.18, 0.98), ((0.0, -0.21, 0.98), (0.0, -0.27, 0.93))
+    for start, end in zip(neck, neck[1:]):
+        rod(body, start, end, 0.022, segments=8)
+    for x, y, z in neck[1:-1]:
+        lathe(body, [(0.0, z - 0.022), (0.022, z), (0.0, z + 0.022)], cx=x, cy=y, segments=8)
+    lathe(body, [(0.0, head[2] - 0.036), (0.03, head[2] - 0.02), (0.036, head[2]), (0.03, head[2] + 0.02), (0.0, head[2] + 0.036)], cx=head[0], cy=head[1],
+          segments=10)
+    model.turned(body, "paint", sharp=60.0)
+    bill = bmesh.new()
+    start, end = Vector(beak[0]), Vector(beak[1])
+    turn = Vector((0.0, 0.0, 1.0)).rotation_difference((end - start).normalized()).to_matrix().to_4x4()
+    lathe(bill, [(0.0, -0.01), (0.016, 0.0), (0.011, (end - start).length * 0.6), (0.0, (end - start).length)], segments=8,
+          to=Matrix.Translation(start) @ turn)
+    model.turned(bill, "linen", sharp=60.0)
+    legs = bmesh.new()
+    for side in (-1, 1):
+        rod(legs, (side * 0.025, 0.02, 0.0), (side * 0.02, 0.0, 0.5), 0.005, segments=6)
+    model.turned(legs, "steel", sharp=60.0)
+    # As big as the game paints it, a head taller than a real one.
+    model.vertices = [(position * FLAMINGO_SCALE, normal, surface) for position, normal, surface in model.vertices]
+    return model
+
+
 def potted_flowers(name, pot, rim, high, heads, spread_wide, stalk, clay_of="ceramic"):
     """A pot of earth with a mound of leaves and flower heads on it. pot is the pot's profile; heads how many flowers there are."""
     model = Model(name)
@@ -5082,12 +5120,12 @@ def fallen_log():
 
 def farm_and_garden():
     """What stands in a farmyard or a garden: hay, troughs, a kennel, compost and rain, a mall's planter, a raised bed, a laundry cart, a bird bath,
-    a salt lick, a log bench, stumps, a gnome, and the plants that stand on a table."""
+    a salt lick, a log bench, stumps, a gnome, lawn flamingos, and the plants that stand on a table."""
     return [hay_bales("hay_bale", 1), hay_bales("hay_bales_2", 2), log_bundle(), feed_trough("feed_trough", 1.88), feed_trough("feed_trough_small", 0.92),
             stock_tank("stock_tank", 1.86), stock_tank("stock_tank_long", 2.8), dog_house(), composter("composter", False), composter("composter_full", True),
             rain_crate("rain_crate", False), rain_crate("rain_crate_water", True), mall_planter(), raised_bed("raised_bed", True), raised_bed("raised_bed_dry", True, 0.6),
             raised_bed("raised_bed_bare", False), washing_bin(), bird_bath("bird_bath", True), bird_bath("bird_bath_round", False), salt_lick(),
-            log_bench("log_bench"), stump("stump", 0.33, 0.28, 5), stump("chopping_block", 0.33, 0.23, 0), gnome(),
+            log_bench("log_bench"), stump("stump", 0.33, 0.28, 5), stump("chopping_block", 0.33, 0.23, 0), gnome(), flamingo("flamingo", False), flamingo("flamingo_pecking", True),
             potted_flowers("pot_flowers", [(0.0, 0.0), (0.04, 0.0), (0.05, 0.075), (0.055, 0.08), (0.055, 0.09), (0.0, 0.09)], 0.05, 0.09, 12, 0.06, 0.05),
             potted_flowers("pot_violets", [(0.0, 0.0), (0.038, 0.0), (0.05, 0.08), (0.056, 0.085), (0.056, 0.095), (0.0, 0.095)], 0.05, 0.095, 12, 0.07, 0.06, "wood"),
             potted_flowers("vase_flowers", [(0.0, 0.0), (0.045, 0.0), (0.058, 0.06), (0.055, 0.12), (0.042, 0.15), (0.045, 0.16), (0.0, 0.16)], 0.04, 0.16, 11,

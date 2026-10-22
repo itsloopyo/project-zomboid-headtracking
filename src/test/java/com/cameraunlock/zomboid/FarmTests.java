@@ -136,7 +136,9 @@ final class FarmTests {
                 {"appliances_laundry_01_24", "Bin", "Washing", Outdoors.NORTH, "washing_bin"}, {"vegetation_ornamental_01_50", "Bird Bath", null, Outdoors.NONE, "bird_bath"},
                 {"vegetation_ornamental_01_51", "Bird Bath", null, Outdoors.NONE, "bird_bath_round"},
                 {"location_farm_accesories_01_12", "Salt Lick", null, Outdoors.NONE, "salt_lick"}, {"crafted_02_86", "Stump", null, Outdoors.NONE, "stump"},
-                {"crafted_02_85", "Block", "Chopping", Outdoors.NONE, "chopping_block"}, {"vegetation_ornamental_01_48", "The Gnome", "David", Outdoors.SOUTH, "gnome"}};
+                {"crafted_02_85", "Block", "Chopping", Outdoors.NONE, "chopping_block"}, {"vegetation_ornamental_01_48", "The Gnome", "David", Outdoors.SOUTH, "gnome"},
+                {"vegetation_ornamental_01_26", "Flamingo", "Imitation", Outdoors.WEST, "flamingo"},
+                {"vegetation_ornamental_01_42", "Flamingo", "Pecking Imitation", Outdoors.WEST, "flamingo_pecking"}};
         for (Object[] thing : things) {
             Outdoors.Piece piece = Outdoors.of((String) thing[0], (String) thing[1], (String) thing[2], (Integer) thing[3], 1, 1, 0);
             Models.Model shape = model(piece, (String) thing[0]);
