@@ -536,8 +536,11 @@ final class Furniture {
                 return new Furniture(sprite, "armchair", turns).dye(1 << Models.CLOTH, surfaceHigh).stand(0f, 0f, false);
             }
             if ("badBed".equals(properties.get("BedType")) && !group.contains("Plastic") && !group.contains("Folding")) {
-                return new Furniture(sprite, group.contains("Office") ? "office_chair" : "dining_chair", turns).dye(1 << Models.CLOTH, surfaceHigh)
-                        .stand(0f, 0f, false);
+                // These chairs are one colour all over, white or red paint as well as bare wood, so the frame takes the seat's colour too.
+                // Green Dinner and Fancy Wooden are wooden-seated as well, but their seats are green and rose on a brown and a black frame.
+                boolean oneColour = ONE_COLOUR_CHAIRS.contains(group);
+                return new Furniture(sprite, group.contains("Office") ? "office_chair" : "dining_chair", turns)
+                        .dye(1 << Models.CLOTH | (oneColour ? 1 << Models.WOOD : 0), surfaceHigh).stand(0f, 0f, false);
             }
             return null;
         }
@@ -865,4 +868,6 @@ final class Furniture {
     private static final float PAINTED_RAIL = 0.05f;
     /** And the sheets pinned to a wall with one, the boards of a shop's sign and a flag hung flat. */
     private static final Set<String> PINNED = Set.of("Poster", "Banner", "Sign", "Flag");
+    /** The hard chairs whose sprite paints frame and seat alike. */
+    private static final Set<String> ONE_COLOUR_CHAIRS = Set.of("Wooden", "Dark Wooden", "Red Wooden", "White Wooden", "White Simple");
 }

@@ -34,6 +34,7 @@ final class FurnitureTests {
         Checks.run("eachDumpsterSpriteIsItsDumpsterOneModelOverBothSquaresFacingItsWay", FurnitureTests::eachDumpsterSpriteIsItsDumpsterOneModelOverBothSquaresFacingItsWay);
         Checks.run("aDinersTablesStandOnColumnsAlongTheWayTheyFace", FurnitureTests::aDinersTablesStandOnColumnsAlongTheWayTheyFace);
         Checks.run("aRestaurantsChairsFaceTheWayTheirSpritesDo", FurnitureTests::aRestaurantsChairsFaceTheWayTheirSpritesDo);
+        Checks.run("aPaintedWoodenChairIsPaintedAllOver", FurnitureTests::aPaintedWoodenChairIsPaintedAllOver);
         Checks.run("restaurantBoothsAndWaitingChairsAreTheirOwnSeats", FurnitureTests::restaurantBoothsAndWaitingChairsAreTheirOwnSeats);
         Checks.run("aBarsBackShelvingStandsWithItsBackToTheWall", FurnitureTests::aBarsBackShelvingStandsWithItsBackToTheWall);
         Checks.run("aHospitalsCurtainHangsFromItsRailBunchedWhereItsSpriteShows", FurnitureTests::aHospitalsCurtainHangsFromItsRailBunchedWhereItsSpriteShows);
@@ -464,6 +465,18 @@ final class FurnitureTests {
                 + "GroupName|Light Wood Restaurant|IsLow||IsMoveAble||IsTable||Material|Wood|PickUpTool|Hammer|PickUpWeight|50|PlaceTool|Hammer|Surface|32|solidtrans|"));
         check(model(cafe).equals("cafe_table"), "a cafe's square table on a column is: " + model(cafe));
         check(cafe != null && cafe.model != null && Math.abs(cafe.model.height() * cafe.scaleUp - 32 * SURFACE_TILES) < 1e-3f, "as high as the game says its top is");
+    }
+
+    private static void aPaintedWoodenChairIsPaintedAllOver() {
+        String chair = "|BedType|badBed|BlocksPlacement||CanScrap||CustomName|Chair|Facing|S|IsLow||IsMoveAble||Material|Wood|Material2|Nails|MaterialType|Wood|"
+                + "PickUpWeight|75|ScrapSize|Small|Surface|17|bed||chairS||";
+        Furniture white = Furniture.known(sprite("furniture_seating_indoor_02_56" + chair + "GroupName|White Wooden|SeatMaterial|Wooden|"));
+        check(model(white).equals("dining_chair"), "a white wooden chair is a dining chair: " + model(white));
+        check(white != null && white.dyed == (1 << Models.CLOTH | 1 << Models.WOOD), "its frame takes the sprite's colour with its seat, white all over");
+        Furniture cushioned = Furniture.known(sprite("furniture_seating_indoor_01_40" + chair + "GroupName|Modern Red|SeatMaterial|Fabric|"));
+        check(cushioned != null && cushioned.dyed == 1 << Models.CLOTH, "a chair with a cloth seat keeps its frame bare");
+        Furniture green = Furniture.known(sprite("furniture_seating_indoor_01_56" + chair + "GroupName|Green Dinner|SeatMaterial|Wooden|"));
+        check(green != null && green.dyed == 1 << Models.CLOTH, "a brown chair with a green seat keeps its frame wood");
     }
 
     private static void aRestaurantsChairsFaceTheWayTheirSpritesDo() {
