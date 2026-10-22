@@ -661,8 +661,8 @@ show('boxing', ' A still image from 1970s boxing coverage shot on 16mm colour fi
      'from head to boots side on across the picture, his gloves smooth dark red leather all over, the ropes and the '
      'dark hall behind him.',
      'An empty narrow country road at dawn in thick grey fog, running straight away between low wooden fences and wet'
-     ' pastures out in open farm country, and far off down it one small lone boxer in a grey sweatsuit with the hood'
-     ' up out on his morning run, the only light the flat pale grey sky, everything soft, dull and low contrast, the'
+     ' pastures out in open farm country, the road fading into the fog far off, a worn skipping rope hung over the'
+     ' nearest fence post, the only light the flat pale grey sky, everything soft, dull and low contrast, the'
      ' colours almost grey, heavy grain like 1970s 16mm film.',
      'A plain wooden chair standing alone in a small bare back room with whitewashed brick walls and a worn concrete'
      ' floor, a folded white towel hanging over its back and a tin bucket beside it, one bare light bulb hanging on'
