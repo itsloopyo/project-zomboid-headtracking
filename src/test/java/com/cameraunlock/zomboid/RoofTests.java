@@ -196,7 +196,19 @@ final class RoofTests {
                 for (RoofFit.Tile tile : farSide) {
                     found |= tile.x == x && tile.y == y && tile.fitAxis == RoofFit.ALONG_Y && near(tile.fitLow, 2f + y * THIRD) && near(tile.fitHigh, 2f + (y + 1) * THIRD);
                 }
+                RoofFit.Tile stray = null;
+                for (RoofFit.Tile tile : tiles) {
+                    stray = tile.x == x && tile.y == y && tile.z == 2 && tile.shaped && tile.own == 0 ? tile : stray;
+                }
+                found |= stray != null && near(stray.corners[0], 2f + y * THIRD) && near(stray.corners[1], 2f + y * THIRD) && near(stray.corners[2], 2f + (y + 1) * THIRD) && near(stray.corners[3], 2f + (y + 1) * THIRD);
                 check(found, "the wing's far side covers " + x + ", " + y + " on its side of the valley, with no pit at the square the map left out or over the stray slope");
+            }
+        }
+        for (RoofFit.Tile tile : tiles) {
+            boolean stray = tile.x == 4 && tile.y == 1;
+            if (tile.z == 2 && tile.x <= 4 && tile.y <= 2 && tile.axis == RoofFit.ALONG_X) {
+                check(stray == (tile.shaped && tile.own == 0), stray ? "the stray slope whose head stands out of the valley is folded onto the wing's far side, none of its sprite kept"
+                        : "a slope of the main roof, whose head meets the slope or the level top beyond it, keeps its sprite: " + tile.x + ", " + tile.y);
             }
         }
     }

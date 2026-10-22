@@ -1328,6 +1328,15 @@ final class RoofFit {
                     if (!above || falls && !under || climbsTo(at, falls ? x + dx : x, falls ? y + dy : y, dx, dy, across.fitAxis, step) < lowest - SAME) {
                         break;
                     }
+                    if (!falls && !under && !peaked && strayHead(at, across, x, y, dx, dy, own, other)) {
+                        // The map's roofs_03_4 at 1472, 9851: laid as read, its head stood out of the valley
+                        // as a painted triangle. It is folded onto this slope, all of it the mod's own sheet.
+                        System.arraycopy(own, 0, across.corners, 0, 4);
+                        across.crease = NW_SE;
+                        across.shaped = true;
+                        across.own = 0;
+                        continue;
+                    }
                     Tile over = new Tile(x, y, (int) Math.floor(lowest + LEAST_RISE), tile.fitAxis, true, tile.fitLow, tile.fitHigh);
                     over.fitted = true;
                     over.carried = true;
@@ -1339,6 +1348,37 @@ final class RoofFit {
             }
         }
         return carried;
+    }
+
+    /**
+     * Whether a slope across, climbing the way a slope is carried over it, is a stray in the valley:
+     * its foot lies under the carried slope, and nothing on the square beyond its head meets it there.
+     * A slope of the roof goes on unbroken from its head, up the slope it climbs on to or onto a level
+     * top; a stray the map puts in a valley stands clear of the roof there.
+     */
+    private static boolean strayHead(HashMap<Long, ArrayList<Tile>> at, Tile across, int x, int y, int dx, int dy, float[] carried, float[] own) {
+        float foot = Math.min(across.fitLow, across.fitHigh), head = Math.max(across.fitLow, across.fitHigh);
+        for (int corner = 0; corner < 4; corner++) {
+            if (own[corner] < foot + SAME && carried[corner] < own[corner] - SAME) {
+                return false;
+            }
+        }
+        // The corners of the next square's edge that the head lies along.
+        int first = dx < 0 ? 1 : dx > 0 ? 0 : dy < 0 ? 2 : 0, second = dx < 0 ? 2 : dx > 0 ? 3 : dy < 0 ? 3 : 1;
+        float[] edge = new float[4];
+        ArrayList<Tile> next = at.get(key(x + dx, y + dy, 0));
+        for (int i = 0; next != null && i < next.size(); i++) {
+            Tile on = next.get(i);
+            if (on.shaped) {
+                System.arraycopy(on.corners, 0, edge, 0, 4);
+            } else {
+                cornersOf(on.fitAxis, on.fitLow, on.fitHigh, edge);
+            }
+            if (Math.abs(Math.max(edge[first], edge[second]) - head) <= JOIN) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /** The highest the slope that runs across the square climbs to, going on from it the way given over the squares it covers. */
