@@ -5,6 +5,7 @@ import java.util.Arrays;
 import se.krka.kahlua.vm.KahluaTable;
 import zombie.Lua.LuaManager;
 import zombie.characters.IsoPlayer;
+import zombie.core.properties.PropertyContainer;
 import zombie.iso.IsoCell;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoMovingObject;
@@ -55,6 +56,12 @@ final class CentreUse {
     private static final float ITEM_RADIUS = 0.3f;
     /** The view runs this far on past the floor it meets, so a thing lying where it lands is in reach of it. */
     private static final float PAST_THE_FLOOR = 0.1f;
+    /**
+     * How far short of its square's middle the front of a thing standing on a counter is, in tiles: the game's microwave
+     * on a counter was met by a view that came down to the counter's top 0.41 into the square, and the top in front of it
+     * at 0.32.
+     */
+    private static final float ON_TOP_FRONT = 0.13f;
 
     private static final String CLICK_HANDLER = "ISObjectClickHandler", WORLD_MENU = "ISWorldObjectContextMenu";
     private static final String PRESS = "doClickSpecificObject", RELEASE = "doClick", GRAB = "onGrabWItem";
@@ -170,7 +177,7 @@ final class CentreUse {
         float perTileY = view.forwardY == 0f ? Float.POSITIVE_INFINITY : Math.abs(1f / view.forwardY);
         IsoGridSquare from = cell.getGridSquare(tileX, tileY, level);
         while (from != null) {
-            IsoObject here = onSquare(from, view, reach);
+            IsoObject here = onSquare(from, view, reach, floorUp);
             if (here != null) {
                 return here;
             }
@@ -202,7 +209,7 @@ final class CentreUse {
             }
             if (to.isSolid() || to.isSolidTrans()) {
                 // A counter, a fridge, a shelf unit: the view stops on it, and it is what is looked at.
-                IsoObject there = onSquare(to, view, Float.POSITIVE_INFINITY);
+                IsoObject there = onSquare(to, view, Float.POSITIVE_INFINITY, floorUp);
                 if (there == null && menu) {
                     there = standing(to);
                 }
@@ -268,9 +275,13 @@ final class CentreUse {
 
     /**
      * What is on a square for the key: the thing lying nearest the view's line, else a body
-     * or a piece of furniture that holds things.
+     * or a piece of furniture that holds things. A microwave on a counter holds things as the
+     * counter does, and is what the view is on where it passes over the front of the microwave
+     * higher than the counter's top.
+     *
+     * @param floorUp the height of the floor the player stands on, in tiles above level 0
      */
-    private IsoObject onSquare(IsoGridSquare square, ViewCamera.Pose view, float reach) {
+    private IsoObject onSquare(IsoGridSquare square, ViewCamera.Pose view, float reach, float floorUp) {
         IsoObject nearest = null;
         float nearestOff = ITEM_RADIUS;
         ArrayList<IsoWorldInventoryObject> items = square.getWorldObjects();
@@ -299,14 +310,33 @@ final class CentreUse {
                 return bodies.get(i);
             }
         }
+        IsoObject under = null, onTop = null;
+        int top = 0;
         PZArrayList<IsoObject> objects = square.getObjects();
         for (int i = 0; i < objects.size(); i++) {
             IsoObject object = objects.get(i);
-            if (object.getContainer() != null && !(object instanceof IsoWorldInventoryObject)) {
-                return object;
+            PropertyContainer properties = object.getProperties();
+            boolean standsOn = properties != null && properties.has("IsTableTop") || object.getRenderYOffset() > 0f;
+            if (!standsOn && properties != null) {
+                top = Math.max(top, properties.getSurface());
+            }
+            if (object.getContainer() == null || object instanceof IsoWorldInventoryObject) {
+                continue;
+            }
+            if (!standsOn && under == null) {
+                under = object;
+            } else if (standsOn && onTop == null) {
+                onTop = object;
             }
         }
-        return null;
+        if (under == null || onTop == null) {
+            return under == null ? onTop : under;
+        }
+        float flat = (float) Math.sqrt(view.forwardX * view.forwardX + view.forwardY * view.forwardY);
+        float toFront = flat == 0f ? 0f : ((square.getX() + 0.5f - view.eyeX) * view.forwardX + (square.getY() + 0.5f - view.eyeY) * view.forwardY) / (flat * flat)
+                - ON_TOP_FRONT / flat;
+        float above = view.eyeUp + view.forwardUp * toFront - floorUp;
+        return above > top / WorldScene.SURFACE_PIXELS_PER_LEVEL * ViewCamera.LEVEL_HEIGHT ? onTop : under;
     }
 
     /** The floor where the view comes down to it, or null where there is no square or no floor there. */
