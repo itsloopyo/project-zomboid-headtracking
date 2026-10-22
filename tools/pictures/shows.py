@@ -24,6 +24,8 @@ HOME = (' A still from family home footage shot around 1990, low resolution, was
         ' highlights, soft focus, slight blur and tilted amateur composition. The picture fills the whole image edge'
         ' to edge.')
 CLIP = ' A still from an early 1990s music video with coloured stage lights and haze,' + NOISE
+# Stage lights in a prompt come out as LED rigs: these shows ask for the coloured light alone.
+HAZE = ' A still from an early 1990s music video, in coloured light and haze,' + NOISE
 SPORT = ' A still from early 1990s American sports footage shot through a long lens,' + NOISE
 NATURE = (' A still from a 1980s nature documentary shot on 16mm film through a long lens, soft with film grain and'
           ' natural muted colours. The picture fills the whole image edge to edge.')
@@ -167,11 +169,10 @@ show('statement', VIDEO,
 # Home and hobbies.
 show('cook', VIDEO,
      'A cheerful woman in an apron stands at the stove of a studio kitchen, stirring a pot with a wooden spoon.',
-     'Seen straight down from above, chopped carrots and onions lie on a wooden chopping board beside a small kitchen'
-     ' knife with a plain bare steel blade and a wooden handle, the board filling the picture.',
-     'A plump golden brown roast chicken with its legs tied and both its wings tucked neatly under it sits on a white'
-     ' platter surrounded by roast potatoes and browned roast carrots, seen from the side on the counter of a studio'
-     ' kitchen.',
+     'A flat overhead view like a map: a square wooden chopping board fills the whole picture edge to edge, small '
+     'heaps of orange carrot rounds and diced white onion on it, flat even light.',
+     'A big glossy brown pot roast of beef sitting in dark gravy in a black cast iron pan, surrounded by soft browned'
+     ' roast potatoes and carrots glistening with gravy, seen from the side on a home kitchen counter.',
      'A cheerful woman in an apron stands behind a kitchen counter smiling straight out of the frame towards the'
      ' viewer, a mixing bowl and a whisk on the counter in front of her.',
      'A pan of vegetables steams on a gas stove with a wooden spoon resting in it, seen close up.',
@@ -346,9 +347,9 @@ show('bunnies', ' A still image from a 1980s cartoon for very small children, pa
      ' with soft white clouds, the painted lawn and sky filling the frame right out to all four edges and corners.',
      'Three round pastel cartoon bunnies, one pink, one pale yellow and one pale blue, sit apart round a checked'
      ' picnic blanket on soft green grass.',
-     'A round pastel cartoon bunny stands on a green hill with a red balloon on a string, a pale blue painted sky'
-     ' filling everything behind it, the grass and the sky painted right out to all four edges and corners of the'
-     ' picture.',
+     'A fat round pale yellow cartoon bunny with long floppy ears hanging down and a round tummy holds a red balloon '
+     'on a string on top of a green hill, a deep blue evening sky with a big round orange setting sun behind it, the '
+     'deep blue colour reaching every edge of the picture.',
      'Three round pastel cartoon bunnies sleep in a row, each in its own little bed, under a smiling moon, a painted'
      ' deep blue night sky full of stars running right out to every edge and corner.')
 show('kids-advert', VIDEO,
@@ -383,9 +384,9 @@ show('interview', LOCAL,
      ' curtain behind her, looking down at the notes in her lap, seen close from the front.')
 show('clown', LOCAL,
      'A clown with an orange wig and a red nose waves in front of a paper backdrop with balloons in a children\'s show.',
-     'One clown with an orange wig and a red nose stands alone on the bare floor of a small room, juggling three solid'
-     ' rubber balls, one red, one yellow and one blue, all three up in the air above his hands, the wall behind him'
-     ' painted with yellow stars on a deep blue sky.',
+     'One clown with an orange wig and a red nose stands alone on the bare floor of a small room, holding up a bunch '
+     'of three balloons on strings above his head, one red, one yellow and one blue, the wall behind him painted with '
+     'yellow stars on a deep blue sky.',
      'A clown with an orange wig sits on a stool facing a puppet made from a plain grey wool sock with two black button'
      ' eyes, which pokes up over the edge of a small puppet booth of plain red painted wood beside him in a'
      ' children\'s show.',
@@ -395,11 +396,10 @@ show('clown', LOCAL,
 show('county', FIELD,
      'A woman presenter in a denim jacket stands by a white fence on a horse farm, rolling green hills behind her.',
      'A county fair on a summer evening, one ferris wheel lit up against the sky behind a row of striped stalls.',
-     'An old man in overalls sits on the porch of a wooden house holding a long stick across his lap in one hand and a'
-     ' small pocket knife in the other, shaving a curl of pale wood off the stick, seen from the yard.',
-     'A covered wooden bridge with a pitched tin roof and red painted board sides crosses a creek among green summer'
-     ' trees, seen side on from down the creek, its red sides running straight and level from bank to bank and ending'
-     ' at the floor of the bridge, a stone abutment at each end.',
+     'An old man in a faded blue cotton shirt sits in a rocking chair on the porch of a wooden house, snapping green '
+     'beans from a wicker basket on his lap into a tin pail at his feet, seen from the yard.',
+     'A shallow creek running clear over flat grey rocks between steep wooded banks on a summer afternoon, sunlight '
+     'coming through the leaves onto the water, seen from the water\'s edge.',
      'A tall old black painted wooden tobacco barn with vertical plank siding and open vent boards standing alone at the edge'
      ' of a cut field at sunset, seen from the road.',
      'Two horses, a chestnut and a grey, graze well apart in a green pasture, short green grass in the foreground and a'
@@ -417,18 +417,17 @@ show('survivors', ' A still from old footage lit by one harsh light, dim and gra
      ' its wheels in the air.')
 
 # Music videos.
-show('ballad', CLIP,
+show('ballad', HAZE,
      'A singer in a white suit sits at a grand piano among candles and fog.',
      'A woman in a long coat sings in the rain on an empty stone bridge at night, coloured light reflected in the wet'
      ' pavement and the dark river behind her.',
-     'A couple stand in silhouette on a beach at sunset, lit only by the low orange sun over the sea, a soft pink and'
-     ' amber haze drifting across the sand.',
-     'A woman singer with long wavy dark hair falling down over both her ears, in a high necked long sleeved black'
-     ' blouse, sings into a handheld microphone in soft blue light, seen from the shoulders up, one soft old round'
-     ' spotlight glowing behind her head.',
-     'A single red rose lies on the closed wooden top of an old upright piano beside a burning candle, seen close from'
-     ' above, the plain dark polished wood of the top filling the picture, in a dim room hazy with smoke and blue'
-     ' light.')
+     'A couple stand in silhouette at the edge of the sea on a wide empty beach at sunset, only flat wet sand and '
+     'water round them, lit by the low orange sun over the sea, a soft pink and amber haze in the air.',
+     'A woman singer in a long dark velvet cloak with its deep hood up over her head, the hood falling round both '
+     'sides of her face, sings into a handheld microphone in soft blue light, seen from the shoulders up, a warm '
+     'glow behind her head.',
+     'A single red rose lies on a dark polished wooden table top beside a burning white candle, seen from straight '
+     'above, the dark polished wood filling the picture, blue light and haze.')
 show('pop', CLIP,
      'Three women of about twenty five, each face different, in bright colour blocked baggy jackets zipped up and loose'
      ' trousers, dance a little apart in front of a plain white wall filling the picture, caught mid jump with their'
@@ -477,15 +476,14 @@ show('rap', CLIP,
      ' grey mixer between them, in a dim club full of red haze, warm light falling on him from above out of frame.',
      'Three men in their mid twenties in plain solid coloured shirts and baggy jeans pose on the stone steps of a city'
      ' row house in daylight, one tall and thin, one heavy with a beard and one short with a shaved head.')
-show('club', CLIP,
-     'Seen from far back in a dark night club, a mixed crowd of dancers, men and women of different heights and builds'
-     ' in loose t-shirts that hang down to their hips and baggy shirts, small dark shapes under green laser beams and'
-     ' smoke.',
-     'A disc jockey in a baggy shirt faces the viewer from behind a table with two black vinyl record turntables on it,'
-     ' his face lit as he looks down at the records with his hands on them, in a dark club booth, smoke behind him lit'
-     ' by old round metal spotlights glowing red and blue, seen from a little way back.',
-     'Silhouettes of dancers in loose t-shirts that hang down to their hips and baggy jeans, against smoke lit by old'
-     ' round metal spotlights glowing red, yellow and blue.',
+show('club', HAZE,
+     'Seen from high up on a balcony at the back of a large dark dance hall, the crowd on the dance floor far below '
+     'and small, a sea of heads and shoulders, green laser beams fanning through thick smoke over them.',
+     'A disc jockey seen from the side at two black record turntables, one hand resting on a spinning black vinyl '
+     'record and the other holding one side of his big headphones to his ear, his face lit red, smoke behind him '
+     'glowing red and blue.',
+     'Black silhouettes of the heads and shoulders of a crowd of dancers seen from behind, framed from the shoulders '
+     'up, against thick smoke glowing red, yellow and blue.',
      'Glowing coloured shapes spin on a black background in early 1990s computer video art.')
 show('eighties', CLIP,
      'A singer of about thirty with big teased hair in a plain black jacket with wide padded shoulders, hanging open,'
@@ -516,12 +514,12 @@ show('sports-desk', VIDEO,
      'A tired athlete of about twenty five in a plain loose grey t-shirt with a white towel round his neck sits in'
      ' front of lockers in a locker room while a reporter beside him holds a microphone up to him.')
 show('baseball', SPORT,
-     'A baseball pitcher in a plain white uniform and a plain white cap throws from the mound, seen from the chest up as'
-     ' his throwing arm comes over high, his other hand down out of the picture, green outfield grass blurred behind'
+     'A close head and shoulders shot of a baseball pitcher in a plain white uniform and a plain white cap, only his '
+     'face, cap and shoulders in the picture, his eyes narrowed as he stares in at the catcher, green outfield grass '
+     'blurred behind him.',
+     'Seen from far off through a long lens, a lone baseball catcher crouches in the brown dirt, a small figure in '
+     'grey with dark padding and a dark mask, holding up his brown glove as a target, a plain dark green wall behind'
      ' him.',
-     'Seen from high and far behind the pitcher\'s mound, a baseball batter in a plain grey uniform swings at home'
-     ' plate, the catcher crouched behind him facing this way in dark padding and a mask, and the umpire in dark blue'
-     ' behind the catcher, all three small figures on the brown dirt, a plain dark green wall behind them.',
      'The wide green outfield grass of a baseball park seen from high in the stands on a sunny afternoon, mown in broad'
      ' light and dark green stripes, the far stands a soft distant blur of colour.',
      'Seen from far off across the outfield, a baseball outfielder in plain grey leaps at the low padded outfield'
@@ -581,17 +579,18 @@ show('skating', SPORT,
      ' skate ramp, seen from below at the foot of the ramp against a blue sky.')
 show('boxing', ' A still image from 1970s boxing coverage shot on 16mm colour film, bright ring lights and a'
                ' faint haze, soft and grainy with faded colours. The picture fills the whole image edge to edge.',
-     'Two heavyweight boxers square off a step apart in a ring, seen from far back in the dark seats: one with a shaved'
-     ' head and a thick black beard in plain white trunks, one with short red hair and a flattened nose in plain black'
-     ' trunks, their gloves plain dark red leather all over.',
-     'Seen from far back in the dark seats, a small bright ring: a dazed bare chested boxer in plain black trunks sags'
-     ' back against the ropes with his arms hanging low, while the other boxer, bare chested in plain white trunks,'
-     ' walks away to the far side, both small figures with plain dark red gloves.',
-     'A referee in a plain white short sleeved shirt and a black bow tie counts over a bare chested boxer lying on his'
-     ' back on the canvas, seen from just outside the ropes, the referee and the fallen boxer filling the picture'
-     ' against the dark crowd, the boxer\'s gloves plain dark red all over.',
-     'A boxing crowd on its feet in a dark hall, rows of men in shirt sleeves cheering, seen past the ropes of the ring,'
-     ' smoke hanging in the bright light above their heads and the hall behind them lost in darkness.',
+     'Seen from high in the dark seats far away, two small figures in a small bright square of ring far below, two '
+     'heavyweight boxers squaring off a step apart, one in white trunks and one in black trunks, their gloves dark '
+     'red, the ring lit from above out of the picture.',
+     'Seen from far back in the dark seats, a small bright ring: a dazed bare chested boxer in black trunks sits '
+     'slumped on the pale canvas in the middle of the ring, while the other boxer, bare chested in white trunks, '
+     'walks away to the far corner, both small figures with dark red gloves.',
+     'Looking straight down from high above the middle of a boxing ring: a bare chested boxer lying flat on his back'
+     ' on the pale canvas with his arms spread, and a referee in a white shirt and black trousers kneeling beside '
+     'him with one bare hand raised, the boxer\'s gloves smooth dark red leather with plain dark red wrist cuffs.',
+     'A boxing crowd seen from high up in a dark hall, many rows of men on their feet rising away up the tiers, every'
+     ' man different: bald heads, grey hair, flat caps, moustaches, shirts and jackets of many colours, arms waving, '
+     'cigar smoke hanging in a bright light above them, the far end of the hall lost in darkness.',
      'Looking steeply down from high in the dark seats onto a lit boxing ring, a tired boxer in plain black trunks and'
      ' red gloves sits slumped on a stool in the corner, and an older man in a white short sleeved shirt and grey'
      ' slacks stands beside him pressing a white towel to his forehead.')
@@ -766,9 +765,10 @@ show('critics', VIDEO,
      'A beam of light from the small projection window high in the back wall shines out over rows of empty red cinema'
      ' seats in a dark old cinema.')
 show('bad-movie', LOCAL,
-     'A goofy man in his forties with a thin moustache and a bow tie sits in the front row of an empty old cinema with a'
-     ' big glass bowl of popcorn on his lap, his face lit by the glow off the big screen, rows of smooth bare red velvet'
-     ' seats stretching back into the dark behind him and gilded plaster walls at the sides.',
+     'A goofy man in his forties with a small neat dark moustache trimmed short above his lip and a bow tie, seen '
+     'side on from the end of his row, sits alone in an empty old cinema with a big glass bowl of popcorn on his lap,'
+     ' staring up to the left at the screen out of the picture, his face lit by its glow, the dark red velvet backs '
+     'of the seats in front of him, gilded plaster walls in the dark beyond.',
      'A frame of a grainy black and white 1950s science fiction film, soft and scratched: a giant lizard monster with a'
      ' scaly head, a long tail and a gaping mouth towers over a small model city of cardboard buildings under a dark'
      ' sky.',
