@@ -7,6 +7,7 @@ import java.util.Locale;
 import zombie.core.textures.Texture;
 import zombie.iso.IsoChunk;
 import zombie.iso.IsoGridSquare;
+import zombie.iso.IsoObject;
 import zombie.iso.areas.IsoBuilding;
 
 /**
@@ -186,8 +187,9 @@ final class RoofBuilder {
         boolean porch = standing == null;
         if (porch) {
             // Or a roof carried on past its building over a porch: from the porch the end was
-            // open up under both slopes, and is closed above the porch's beam, the floor of z.
-            standing = z > 0 ? buildingAlongTheRoof(x, y, z) : null;
+            // open up under both slopes, and is closed above the porch's beam, the floor of z. A
+            // roof run a square past its wall over the ground is the eave of the gable under it.
+            standing = z > 0 && builtFloorUnder(x, y, z) ? buildingAlongTheRoof(x, y, z) : null;
             if (standing == null) {
                 return;
             }
@@ -202,6 +204,13 @@ final class RoofBuilder {
 
     /** How far a roof is followed south or east from a square with no building under it to the building it comes off, in squares. */
     private static final int PORCH_DEEP = 3;
+
+    /** Whether the square under a roof tile on (x, y, z) is floored, as a porch's deck is, and not the ground's own blend. */
+    private boolean builtFloorUnder(int x, int y, int z) {
+        IsoGridSquare under = build.cell.getGridSquare(x, y, z - 1);
+        IsoObject floor = under == null ? null : under.getFloor();
+        return floor != null && floor.getSprite() != null && floor.getSprite().getName().startsWith("floors_");
+    }
 
     /**
      * The building a roof over open ground on (x, y, z) comes off: the first one under it to the

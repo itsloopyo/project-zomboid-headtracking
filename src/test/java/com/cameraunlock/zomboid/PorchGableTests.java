@@ -4,8 +4,11 @@ import static com.cameraunlock.zomboid.Checks.check;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import zombie.core.properties.PropertyContainer;
 import zombie.iso.BuildingDef;
 import zombie.iso.areas.IsoBuilding;
+import zombie.iso.sprite.IsoSprite;
 
 /** Tests that a roof carried on past its building over a porch has its end closed above the porch. */
 final class PorchGableTests {
@@ -34,10 +37,14 @@ final class PorchGableTests {
         return map;
     }
 
+    private static final IsoSprite DECK = new IsoSprite("floors_interior_tilesandwood_01_41", new PropertyContainer(Map.of()));
+    private static final IsoSprite GRASS = new IsoSprite("blends_natural_01_16", new PropertyContainer(Map.of()));
+
     private static void slope(TestMap map, int x, int y) {
         RoofFit.Tile tile = new RoofFit.Tile(x, y, 1, RoofFit.ALONG_X, true, 1f + RoofFit.PITCH, 1f);
         RoofFit.fit(new ArrayList<>(List.of(tile)));
         map.roofTile(tile, map.painted);
+        map.cell.square(x, y, 0).floor(DECK);
     }
 
     private static void inHouse(TestMap map, int x, int y) {
@@ -80,5 +87,8 @@ final class PorchGableTests {
         check(gables(porch(false, true, 1)) == 0, "a roof with no building under it nearby stands on its own, its end open");
         check(gables(porch(true, false, 2)) == 0, "as does one whose roof stops short of the house");
         check(gables(porch(true, true, 4)) == 0, "or that runs further out from it than a porch");
+        TestMap overhang = porch(true, true, 1);
+        overhang.cell.square(0, 0, 0).floor(GRASS);
+        check(gables(overhang) == 0, "a roof run on a square past its wall over the grass is an eave, its gable the wall's");
     }
 }
