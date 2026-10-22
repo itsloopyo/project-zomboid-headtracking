@@ -43,6 +43,13 @@ final class RoofFit {
     static final float ACCEPT = 0.2f;
     /** What the game's roofs rise by over a tile, in levels, and how near a slope has to come to it to be taken as that. */
     static final float PITCH = 1f / 3f, PITCH_SLACK = 0.07f;
+    /**
+     * Two whole tiles one after the other along their slope whose climbs over a tile differ by
+     * more than this, in levels, are of two pitches: a slope and the shallower kick it runs out
+     * into at its eave. Laid on one plane the slope was flattened to the kick's pitch, and had no
+     * far side made for it (a porch roof at 3661..3663, 5715..5725, roofs_05_4 over 97 and 96).
+     */
+    static final float KINK = PITCH / 2f;
     static final int EAST_HALF = 1, SOUTH_HALF = 2;
     /** How many squares towards the map's origin, and thirds of a level down, a half tile is looked for its place: see peaks. */
     private static final int FURTHEST_SHIFT = 2;
@@ -402,7 +409,7 @@ final class RoofFit {
         }
         if (a.across() == b.across()) {
             Tile nearer = a.along() < b.along() ? a : b, further = nearer == a ? b : a;
-            return Math.abs(nearer.high - further.low) <= JOIN;
+            return Math.abs(nearer.high - further.low) <= JOIN && (a.half != 0 || b.half != 0 || Math.abs((a.high - a.low) - (b.high - b.low)) <= KINK);
         }
         return Math.abs(a.low - b.low) <= JOIN && Math.abs(a.high - b.high) <= JOIN;
     }

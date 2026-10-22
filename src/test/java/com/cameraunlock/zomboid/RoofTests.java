@@ -16,6 +16,7 @@ final class RoofTests {
 
     static void run() {
         Checks.run("planeAndFoldAreToldApartByTheMiddle", RoofTests::planeAndFoldAreToldApartByTheMiddle);
+        Checks.run("slopeKeepsItsPitchAboveTheKickAtItsEave", RoofTests::slopeKeepsItsPitchAboveTheKickAtItsEave);
         Checks.run("longestRunLeavesOutAStrayRow", RoofTests::longestRunLeavesOutAStrayRow);
         Checks.run("roofOverAnLShapedBuildingIsClosedAllRound", RoofTests::roofOverAnLShapedBuildingIsClosedAllRound);
         Checks.run("hipsAndValleyOfTheLShapeAreFoldedTheRightWay", RoofTests::hipsAndValleyOfTheLShapeAreFoldedTheRightWay);
@@ -135,6 +136,16 @@ final class RoofTests {
             box[3] = Math.max(box[3], mesh.vertices[at + 1]);
         }
         return box;
+    }
+
+    private static void slopeKeepsItsPitchAboveTheKickAtItsEave() {
+        // As the map has a porch roof's tiles read: roofs_05_4 falling east, then 97 and 96 at a shallower pitch.
+        RoofFit.Tile steep = new RoofFit.Tile(0, 0, 1, RoofFit.ALONG_X, true, 1.677f, 1.328f);
+        RoofFit.Tile kick = new RoofFit.Tile(1, 0, 1, RoofFit.ALONG_X, true, 1.349f, 1.240f);
+        RoofFit.Tile eave = new RoofFit.Tile(2, 0, 1, RoofFit.ALONG_X, true, 1.266f, 1.156f);
+        RoofFit.fit(new ArrayList<>(List.of(steep, kick, eave)));
+        check(Math.abs(steep.fitLow - steep.fitHigh - THIRD) < 0.05f, "the steep tile keeps a whole pitch: " + steep.fitLow + ".." + steep.fitHigh);
+        check(kick.fitted && eave.fitted && near(kick.fitHigh, eave.fitLow), "the kick's two tiles are one plane: " + kick.fitHigh + " " + eave.fitLow);
     }
 
     private static void unclearTileOnAValleysLineIsFoldedAsTheValleyIs() {
