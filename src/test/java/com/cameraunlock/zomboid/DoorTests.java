@@ -20,6 +20,7 @@ final class DoorTests {
         Checks.run("roseKeepsClearOfThePanelBesideTheKnob", DoorTests::roseKeepsClearOfThePanelBesideTheKnob);
         Checks.run("jambIsFilledFromTheDoorwaysCutToTheLeafOnly", DoorTests::jambIsFilledFromTheDoorwaysCutToTheLeafOnly);
         Checks.run("paneWithARoomOnBothSidesHasNoStreetSide", DoorTests::paneWithARoomOnBothSidesHasNoStreetSide);
+        Checks.run("openGarageDoorLiesInTheGarageWithItsTracksAtTheJambs", DoorTests::openGarageDoorLiesInTheGarageWithItsTracksAtTheJambs);
     }
 
     private static final float LEVEL = ViewCamera.LEVEL_HEIGHT, FACE = 0.022f;
@@ -201,4 +202,28 @@ final class DoorTests {
                 "a leaf set far in is filled all the way to the cut on both sides");
         check(OpeningBuilder.jambs(0.2f, 0.8f, -1f, 0f, out) == 0, "with no doorway measured in a wall, as in a fence, nothing is filled");
     }
+
+    private static void openGarageDoorLiesInTheGarageWithItsTracksAtTheJambs() {
+        float[] way = new float[2];
+        for (float[] edge : new float[][] {{1f, 0f}, {0f, 1f}}) {
+            float da = edge[0], db = edge[1];
+            for (boolean own : new boolean[] {true, false}) {
+                int turns = WallBuilder.raisedTurns(da, db, own);
+                Models.turn(turns, 0f, -1f, way);
+                float into = own ? 1f : -1f;
+                check(way[0] == into * db && way[1] == into * da,
+                        "a garage door raised from the edge along " + da + ", " + db + " runs " + (own ? "into its own square" : "across the edge"));
+                check(WallBuilder.raisedLeaf(turns, da, db, false, false).equals("garage_leaf")
+                        && WallBuilder.raisedLeaf(turns, da, db, true, true).equals("garage_leaf"), "a piece with a jamb at neither end, or both, has no track");
+                for (boolean atEnd : new boolean[] {true, false}) {
+                    String leaf = WallBuilder.raisedLeaf(turns, da, db, !atEnd, atEnd);
+                    Models.turn(turns, leaf.equals("garage_leaf_track") ? 1f : -1f, 0f, way);
+                    float along = way[0] * da + way[1] * db;
+                    check(!leaf.equals("garage_leaf") && along == (atEnd ? 1f : -1f),
+                            "the track of a piece with its jamb at the " + (atEnd ? "end" : "start") + " of the edge along " + da + ", " + db + " is on the jamb's side");
+                }
+            }
+        }
+    }
+
 }

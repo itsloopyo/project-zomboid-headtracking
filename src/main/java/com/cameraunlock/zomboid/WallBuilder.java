@@ -56,6 +56,13 @@ final class WallBuilder {
     /** Where along a wall its height is read, and the lowest a wall's top is looked for, in levels. */
     private static final float[] TOP_READ_AT = {0.15f, 0.5f, 0.85f};
     private static final float LOWEST_TOP = 0.05f;
+    /**
+     * Where an open garage door's band is read from down to its foot, the lowest the foot is looked for, where along the
+     * band and how high up a piece at an end of the opening paints its jamb, and where up the head the leaf takes its
+     * colour, in levels or shares of the edge; and how far under the leaf's underside its stiffeners hang, in tiles.
+     */
+    private static final float RAISED_SCAN_FROM = 0.97f, LOWEST_RAISED_DOOR = 0.5f, RAISED_JAMB_AT = 0.06f, RAISED_JAMB_UP = 0.3f, RAISED_DYE_UP = 0.93f,
+            RAISED_STIFFENERS = 0.022f;
 
     private final WorldScene world;
     private final WorldScene.Frame build;
@@ -205,6 +212,67 @@ final class WallBuilder {
                 build.leaveKerbTop();
             }
         }
+    }
+
+    /**
+     * The door of an open garage, which the game paints only as the band of it showing under the head of the opening: the
+     * sections lie under the ceiling on the garage's side of the wall, as far in as the door is high, its tracks along the
+     * pieces at the ends of the opening, where the sprite paints the jamb. Its colour is the head's. A garage with no room
+     * on either side, a carport, has nothing to lie in.
+     */
+    void addRaisedGarageDoor(Texture texture, int x, int y, int z, float da, float db) {
+        boolean north = da != 0f;
+        IsoGridSquare beyond = build.cell.getGridSquare(north ? x : x - 1, north ? y - 1 : y, z);
+        boolean own = OpeningBuilder.indoors(build.here), far = OpeningBuilder.indoors(beyond);
+        if (!own && !far) {
+            return;
+        }
+        float perPixel = 1f / (SpriteGeometry.PIXELS_PER_LEVEL * build.frame.scale), under = RAISED_SCAN_FROM;
+        while (under > LOWEST_RAISED_DOOR && paintedOnWall(texture, 0f, 0f, da, db, 0.5f, under - perPixel, 0f)) {
+            under -= perPixel;
+        }
+        if (under <= LOWEST_RAISED_DOOR) {
+            return;
+        }
+        int turns = raisedTurns(da, db, own);
+        String name = raisedLeaf(turns, da, db, paintedOnWall(texture, 0f, 0f, da, db, RAISED_JAMB_AT, RAISED_JAMB_UP, 0f),
+                paintedOnWall(texture, 0f, 0f, da, db, 1f - RAISED_JAMB_AT, RAISED_JAMB_UP, 0f));
+        float a = 0.5f * da, b = 0.5f * db;
+        float[] lift = build.geometry.lift;
+        float foot = z * ViewCamera.LEVEL_HEIGHT + (lift[0] + lift[1] + lift[2] + lift[3]) / 4f + under * ViewCamera.LEVEL_HEIGHT - RAISED_STIFFENERS;
+        build.building.plain = false;
+        build.placed.add(Models.get(name), build.frame, x, y, x + a, y + b, foot, turns, 1f, 1f, texture.getID(), 1 << Models.PAINT,
+                SpriteGeometry.textureU(build.frame, a, b), SpriteGeometry.textureV(build.frame, a, b, RAISED_DYE_UP), 0, 0f, 0f);
+    }
+
+    /**
+     * The quarter turns that run a garage leaf's depth (the model's -y) into the garage: towards the square whose edge the
+     * piece stands on when that square is the room, else across the edge, along (db, da).
+     */
+    static int raisedTurns(float da, float db, boolean own) {
+        float intoA = (own ? 1f : -1f) * db, intoB = (own ? 1f : -1f) * da;
+        float[] way = new float[2];
+        for (int turns = 0; turns < 4; turns++) {
+            Models.turn(turns, 0f, -1f, way);
+            if (Math.abs(way[0] - intoA) < 0.5f && Math.abs(way[1] - intoB) < 0.5f) {
+                return turns;
+            }
+        }
+        throw new IllegalStateException("no quarter turn runs a garage leaf along " + intoA + ", " + intoB);
+    }
+
+    /**
+     * The leaf a piece of an open garage door takes: with its track on the side where the piece paints the jamb when it is
+     * at one end of the opening, else the plain leaf of a piece in the middle (or of a door one piece wide).
+     */
+    static String raisedLeaf(int turns, float da, float db, boolean jambAtStart, boolean jambAtEnd) {
+        if (jambAtStart == jambAtEnd) {
+            return "garage_leaf";
+        }
+        float[] side = new float[2];
+        Models.turn(turns, 1f, 0f, side);
+        float towards = (side[0] * da + side[1] * db) * (jambAtEnd ? 1f : -1f);
+        return towards > 0f ? "garage_leaf_track" : "garage_leaf_track_left";
     }
 
     /**

@@ -6786,11 +6786,20 @@ final class WorldScene {
             doorLeaf = door && !kind.fenceGate;
             casing = type == IsoObjectType.doorFrW || type == IsoObjectType.doorFrN;
             wallBuilder.sign = overLayer == 0 && !door && west != north && kind.sign;
+            // An open garage door's sprite is the head of its opening and the jamb at an end: wall, cut to the sprite, with the
+            // door raised under the ceiling behind it. Read as a door, the band was a leaf hanging out of the head.
+            boolean raised = door && kind.garageDoor && !isWall(properties, type) && overLayer == 0 && Own.buildings();
             if (west) {
-                wallBuilder.addEdge(mesh, texture, isWall(properties, type), door, x, y, z, westLayer++, 0f, 1f);
+                wallBuilder.addEdge(mesh, texture, isWall(properties, type) || raised, door, x, y, z, westLayer++, 0f, 1f);
+                if (raised) {
+                    wallBuilder.addRaisedGarageDoor(texture, x, y, z, 0f, 1f);
+                }
             }
             if (north) {
-                wallBuilder.addEdge(mesh, texture, isWall(properties, type), door, x, y, z, northLayer++, 1f, 0f);
+                wallBuilder.addEdge(mesh, texture, isWall(properties, type) || raised, door, x, y, z, northLayer++, 1f, 0f);
+                if (raised) {
+                    wallBuilder.addRaisedGarageDoor(texture, x, y, z, 1f, 0f);
+                }
             }
             wallBuilder.sign = false;
             if (west || north) {
