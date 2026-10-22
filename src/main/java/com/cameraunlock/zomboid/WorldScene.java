@@ -5391,9 +5391,10 @@ final class WorldScene {
             // square, to slant the edge, from the ground's own sheet or from the sheet of painted
             // kerbs that have grass behind them. That grass is the verge's, and the verge ends at the kerb:
             // it lies on the land's side of a kerb that crosses the square and nowhere on a street.
+            // Land left level (the overhead view) has no kerbs, and there the grass is the edge, as the game paints it.
             vergeOver = isFloor && z == 0 && groundKind[(waterLocalX + 1) * LIGHT_SPAN + waterLocalY + 1] == Terrain.STREET
                     && over.getName() != null && (over.getName().startsWith("blends_natural") || over.getName().startsWith("street_curbs") && over.getName().contains("grass"));
-            if (vergeOver && geometry.kerb == null) {
+            if (vergeOver && geometry.kerb == null && kerbs != null) {
                 vergeOver = false;
                 return;
             }
