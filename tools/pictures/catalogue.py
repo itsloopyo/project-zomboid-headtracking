@@ -307,10 +307,9 @@ SPORTS = {
         'one side, woods behind.' + STILL,
     ],
     'athletics': [
-        'A pair of old worn black leather running spikes lying side by side on a worn plain wooden bench, seen close '
-        'from a little above, the shoes plain smooth black leather all over, their laces loose, short metal spikes '
-        'under the front of each sole, scuffed and dusty with dull red cinder dust, a plain grey painted wooden wall '
-        'behind, soft daylight from one side, muted soft colours.' + FADED,
+        'The long jump sand pit of an empty school field on a summer evening, a long rectangle of smooth raked pale sand'
+        ' edged with old grey timber boards, an old wooden garden rake lying along one edge, mown grass all round and a'
+        ' row of trees far off, low golden light from one side, muted soft colours.' + FADED,
         'A high jump set up on the grass of an empty school field on a summer evening, seen from the side, a thick deep'
         ' blue foam landing mat, plain one colour, and above the front of it a thin plain white bar resting across two '
         'tall upright steel stands, a pale evening sky behind and a line of trees along the bottom.' + STILL,
