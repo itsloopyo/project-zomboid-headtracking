@@ -38,53 +38,81 @@ def art(name, prompt, size):
 # Family photographs, as they hang in the houses of a small Kentucky town in 1993.
 SNAP = (' A snapshot on 35mm colour negative film from the 1980s, faded colours with soft contrast, fine grain and'
         ' ordinary amateur composition. The picture fills the whole image edge to edge.')
-STUDIO = (' A 1980s department store studio portrait on colour film, mottled blue grey backdrop, soft flash, slightly'
-          ' faded colours, fine grain and natural skin with fine pores and small blemishes. The picture fills the'
-          ' whole image edge to edge.')
-OLD = (' A 1940s black and white studio portrait, soft grey tones, fine grain and slight fading. The picture fills the'
-       ' whole image edge to edge.')
+STUDIO = (' A 1980s department store studio portrait on colour film, mottled blue grey backdrop, soft flash, slightly '
+          'faded colours, fine grain and natural skin with fine pores. The picture fills the whole image edge to edge.')
+BABY = (' A 1980s department store studio portrait on colour film, mottled blue grey backdrop, soft flash, slightly'
+        ' faded colours and fine grain. The picture fills the whole image edge to edge.')
+OLD = (' A 1940s monochrome silver gelatin studio portrait with no colour at all, only shades of grey from black to '
+       'white, soft grey tones, fine grain and slight fading. The picture fills the whole image edge to edge.')
 FAMILY = [
-    ('Head and shoulders portrait of a smiling grandmother of about seventy with curly grey hair and large glasses, in a floral'
-     ' blouse.' + STUDIO, TALL),
-    ('Head and shoulders portrait of a young bride in a white lace wedding dress and veil.' + STUDIO, TALL),
+    ('Head and shoulders portrait of a smiling white grandmother of seventy from rural Kentucky, with short permed '
+     'curly grey hair, a soft lined face and large square pale plastic framed 1980s glasses, in a floral blouse.' + STUDIO, TALL),
+    ('Head and shoulders portrait of a smiling white bride of about twenty five from rural Kentucky, with brown hair in'
+     ' big 1980s curls under a lace veil and a warm open smile, in a white lace wedding dress with puffed sleeves.' + STUDIO, TALL),
     ('Head and shoulders portrait of a young woman of about twenty with big permed brown hair, in a denim jacket over a white'
      ' blouse.' + STUDIO, TALL),
     ('Portrait of an old farmer in a plaid shirt and a plain cap, his forearms resting on the top rail of a wooden fence, an'
      ' old black tobacco barn behind him.' + SNAP, TALL),
     ('An elderly couple in their Sunday best standing side by side in front of a white clapboard church, seen from a few'
      ' metres away, her hand on his arm.' + SNAP, TALL),
-    ('Head and shoulders portrait of a stern grandfather of about sixty in a dark suit and tie.' + OLD, TALL),
-    ('Head and shoulders portrait of a young American soldier of the Second World War in an olive drab United States'
-     ' army service coat with brass buttons and a peaked service cap with a round brass eagle badge.' + OLD, TALL),
-    ('A baby of about six months in a white christening gown sitting on a white blanket, smiling straight out of the'
-     ' frame towards the viewer.' + STUDIO, TALL),
-    ('School portrait of a ten year old boy with a bowl haircut and a striped shirt, a gap toothed smile.' + STUDIO, TALL),
-    ('A family of four sitting a little apart on the wooden porch steps of a white farmhouse in summer, a father, a mother and'
-     ' two children of about eight and ten, everyone smiling, hands resting on their knees, seen from a few metres away.' + SNAP, WIDE),
+    ('Head and shoulders portrait of a stern white man of sixty with dark hair greying only at the temples, a firm jaw '
+     'and few wrinkles, in a dark suit and tie, against a plain grey studio backdrop that reaches all four edges of the'
+     ' picture.' + OLD, TALL),
+    ('Head and shoulders portrait of a young white American private of about twenty from the Second World War, clean '
+     'shaven with short hair, in a plain army service coat with four buttons and a peaked service cap whose only badge '
+     'is a small plain round disc on its front, against a plain studio backdrop that reaches all four edges of the '
+     'picture.' + OLD, TALL),
+    ('A white baby of about six months with soft smooth pink baby skin and wisps of fair hair, in a white christening '
+     'gown, sitting on a white blanket and smiling straight out of the frame towards the viewer.' + BABY, TALL),
+    ('School portrait of a white ten year old boy from rural Kentucky with clear smooth skin and a 1980s bowl haircut: '
+     'straight brown hair cut in a level fringe across his forehead and level all round over his ears. He wears a red '
+     'and white horizontally striped shirt and smiles with his mouth closed, framed from the chest up, the mottled '
+     'backdrop reaching every edge of the picture.' + STUDIO, TALL),
+    ('A white rural Kentucky family of four sitting a little apart in a row on the wooden porch steps of a white '
+     'farmhouse in summer, all smiling towards the viewer, seen from about five metres away so all four are whole. On the '
+     'left a father of about forty with short brown hair in a plain blue work shirt and jeans, then a mother of about '
+     'thirty eight with permed brown hair in a yellow blouse, then a girl of ten with long blonde hair in a pink '
+     't-shirt, then a boy of eight with a brown bowl haircut in a green t-shirt. Each of them sits with one open hand '
+     'resting on each knee.' + SNAP, WIDE),
     ('Head and shoulders portrait of an American teenage girl with feathered 1980s hair in a plain blue high school'
      ' cheerleader sweater with a white stripe round its V neck over a white turtleneck.' + STUDIO, TALL),
     ('Head and shoulders portrait of a middle aged man with a moustache in a brown suit and a wide tie.' + STUDIO, TALL),
-    ('A young mother sitting on a chair with a toddler of about two sitting on her lap, both smiling, her arms around the'
-     ' child.' + STUDIO, TALL),
-    ('A little girl of about six in a yellow dress sitting on the grass in a garden beside a sleeping tabby cat.' + SNAP, TALL),
-    ('A wedding couple standing side by side under an oak tree, the groom in a grey tuxedo and the bride in white, seen from'
-     ' a few metres away.' + SNAP, TALL),
+    ('A white young mother of about twenty five from rural Kentucky with permed brown hair, in a long sleeved pale blue'
+     ' blouse, sitting on a wooden chair with a toddler of about two in a red dress sitting on her lap, both smiling, '
+     'her arms around the child, framed from her knees up with the mottled backdrop filling every edge behind them.' + STUDIO, TALL),
+    ('A white girl of six, a school age child with long legs and a slim face, missing one front tooth in her wide grin,'
+     ' her blonde hair in two plaits, in a yellow dress sitting on the grass in a garden beside a sleeping tabby cat.' + SNAP, TALL),
+    ('A white American couple on their wedding day in 1985 standing side by side under an oak tree beside a small '
+     'country church, both smiling towards the viewer, seen from a few metres away: the groom of about twenty six with a '
+     'moustache in a grey tuxedo with a ruffled shirt, and the bride of about twenty four with big permed brown hair in'
+     ' a 1980s white church wedding dress with a high lace neck, long puffed sleeves and a full skirt.' + SNAP, TALL),
     ('A family at Christmas sitting together on a sofa in a wood panelled living room, a grandmother with grey hair, a'
      ' father with a moustache, a mother with permed hair and a small boy, a decorated tree beside them, seen from'
      ' across the room.' + SNAP, WIDE),
-    ('Head and shoulders portrait of a young woman with permed hair and an everyday freckled face in a matte green'
-     ' graduation gown and mortarboard cap.' + STUDIO, TALL),
+    ('Head and shoulders portrait of a white eighteen year old woman just out of high school, with a grown up face and '
+     'permed brown hair to her shoulders, in a dull green graduation gown and mortarboard cap of flat cotton polyester '
+     'cloth with no shine at all.' + STUDIO, TALL),
     ('Head and shoulders portrait of a grey haired man in a navy blazer and tie with a kindly smile.' + STUDIO, TALL),
     ('A golden retriever sitting on a lawn in front of a brick house on a summer afternoon.' + SNAP, TALL),
-    ('A teenage boy in a plain grey hooded sweatshirt sits on the bottom row of empty wooden bleachers beside a high'
-     ' school football field at dusk, seen from the waist up, a red football helmet on the bench beside'
-     ' him.' + SNAP, TALL),
-    ('Head and shoulders portrait of a young man in a dark blue graduation cap and gown with a proud smile.' + STUDIO, TALL),
-    ('Two brothers of about ten and twelve in t-shirts and fishing vests standing side by side on a lake shore, a fishing rod'
-     ' leaning on a tackle box on the grass in front of them, seen from a few metres away.' + SNAP, WIDE),
-    ('Head and shoulders portrait of a woman of about forty with feathered blonde hair in a red sweater.' + STUDIO, TALL),
-    ('A married couple and their teenage son and daughter standing a little apart in front of a wood panelled station wagon'
-     ' on a driveway, seen from a few metres away.' + SNAP, WIDE),
+    ('A white teenage boy of about sixteen with short brown hair, in a plain grey hooded sweatshirt, sits facing the '
+     'viewer on the bottom row of empty wooden bleachers, seen from the front and from the waist up, smiling. On the '
+     'bench beside him lies an old 1980s football helmet with a smooth glossy shell of solid red, one colour all over, '
+     'and a plain grey metal face mask. Behind him a high school football field of real green grass with worn brown '
+     'patches at dusk.' + SNAP, TALL),
+    ('Head and shoulders portrait of a white young man of about twenty two in a dark blue graduation cap and gown with '
+     'a proud smile, the mottled backdrop clean and empty right into every corner.' + STUDIO, TALL),
+    ('Two white brothers of about ten and twelve with brown hair, in t-shirts and fishing vests, standing side by side '
+     'on a grassy lake shore facing the viewer and smiling, seen from the front from a few metres away, the lake behind'
+     ' them. On the grass in front of their feet sits a closed plain green plastic tackle box, and one fishing rod lies'
+     ' almost flat beside it, its cork handle resting across the lid of the box and its long thin tip lying out along '
+     'the grass.' + SNAP, WIDE),
+    ('Head and shoulders portrait of a white woman of forty with a youthful face, smooth firm skin with only faint '
+     'smile lines, and feathered blonde hair, in a red sweater.' + STUDIO, TALL),
+    ('A white Kentucky family of four people standing in a row a little apart in front of a wood panelled station wagon'
+     ' on a gravel driveway, all facing the viewer, seen from a few metres away: on the left a father of about forty '
+     'five with a moustache in a short sleeved plaid shirt, beside him a mother of about forty with permed brown hair '
+     'in a blue blouse, then a son of about sixteen with a brown mullet in a white t-shirt, and on the right a daughter'
+     ' of about fourteen with feathered blonde hair in a pink sweatshirt. Green lawn and trees behind the car.' + SNAP, WIDE),
 ]
 for _i, (_prompt, _size) in enumerate(FAMILY):
     art('family-%02d' % _i, _prompt, _size)
@@ -103,41 +131,69 @@ WILD = (' A 1990s outdoor magazine wildlife photograph on colour film, natural c
         ' the whole image edge to edge.')
 SPORTS = {
     'basketball': [
-        'Seen from high up at the far end of a dim gym, one basketball player in a plain blue jersey and long shorts'
-        ' rises alone for a slam dunk, a small figure under the bright lights, the ball above the rim.' + ACTION,
-        'A basketball player in a plain red jersey with no numbers dribbling low on a hardwood court, seen from the side, nobody'
-        ' near him.' + ACTION,
-        'A basketball player in a plain yellow jersey with no numbers in the air shooting a jump shot, the ball just leaving'
-        ' his hands, the arena behind out of focus.' + ACTION,
-        'A plain orange leather basketball with no markings resting on a polished hardwood court under a single spotlight.' + STILL,
-        'A basketball dropping through the net of a single hoop, seen from below against the lights of an arena roof.' + STILL,
-        'An empty indoor basketball court with a polished hardwood floor and one hoop, afternoon light from high windows.' + STILL,
+        'Seen from the top row of the bleachers at one end of a dim high school gym, looking down the whole length of '
+        'the empty court to the only hoop in view at the far end, a grown man in a plain blue jersey and long shorts '
+        'hangs from that far rim at the end of a slam dunk, the ball dropping through the net beside his hand, a small '
+        'figure under the bright ceiling lights with the long polished floor stretching between him and the viewer.' + ACTION,
+        'A grown man dribbling low on the hardwood court of an empty high school gym, seen from the side, nobody near '
+        'him. He wears a solid forest green cotton tank top and solid forest green shorts, each one colour all over '
+        'with nothing on them, white socks and plain white canvas high top shoes with white rubber soles and no marks '
+        'of any kind, and bounces a plain orange rubber basketball with only its thin black seams.' + ACTION,
+        'A grown man in the air shooting a jump shot, the ball just leaving his hands, seen from the side, the bare '
+        'painted cinder block wall of a small high school gym behind out of focus. He wears a solid white cotton tank '
+        'top and solid white shorts, each one colour all over with nothing on them, and plain white canvas shoes with '
+        'white rubber soles, and the ball is a plain orange rubber basketball with only its thin black seams.' + ACTION,
+        'A worn orange leather basketball made of eight panels, its thin black seams running as on a real ball: one '
+        'seam all the way round its middle, one all the way round at right angles to it, and two curved seams between '
+        'them, its pebbled surface dull and scuffed with nothing printed on it, resting on a polished hardwood gym '
+        'floor in a pool of light from a caged lamp hanging high in the roof beams.' + STILL,
+        'A plain orange rubber basketball with only its thin black seams, halfway down through the white cord net of a '
+        'single hoop, the net stretched round the ball, seen from directly below against the dim steel roof beams and '
+        'lights of an old high school gym.' + STILL,
+        'An empty indoor basketball court with a polished hardwood floor, seen from centre court looking straight at '
+        'the one hoop on the far wall, the backboard and hoop exactly in the middle of the picture, the painted key '
+        'running straight out from directly under the hoop towards the viewer with the free throw circle centred on it,'
+        ' afternoon light from high windows.' + STILL,
     ],
     'tennis': [
-        'A woman tennis player in a plain white dress and plain white shoes hitting a forehand with a plain wooden racket on a grass court, seen from the side, the ball on her'
-        ' racket strings.' + ACTION,
-        'A man tennis player in plain white clothes and a white headband tossing the ball up to serve on a blue hard court,'
-        ' seen from the side.' + ACTION,
+        'A woman tennis player hitting a forehand on a worn grass court of even green grass, seen from the side, the '
+        'ball on her racket strings. She wears a plain white cotton dress reaching to her knees, white socks and plain '
+        'white canvas shoes with white rubber soles and no marks of any kind, and plays with an old wooden racket '
+        'strung with plain natural gut.' + ACTION,
+        'A man tennis player tossing the ball up to serve on a blue hard court, seen from the side, an old wooden '
+        'racket drawn back behind his shoulder in his right hand and the yellow ball rising above his raised left hand.'
+        ' He wears a white cotton shirt with a collar, white cotton shorts, a white towelling headband, white socks and'
+        ' plain white canvas shoes, every piece pure white all over.' + ACTION,
         'A woman tennis player in a plain pink dress and plain white shoes stretching for a backhand with a plain wooden racket on a red clay court, dust rising at her feet.' + ACTION,
-        'A wooden tennis racket lying on a green grass court beside two yellow tennis balls.' + STILL,
+        'An old wooden tennis racket of plain varnished wood with a bare brown leather grip and plain natural gut '
+        'strings, lying on the worn natural grass of a lawn tennis court, real blades of grass with brown worn patches,'
+        ' beside two plain fuzzy yellow tennis balls with only their curving white seams.' + STILL,
         'A tennis player in plain white sliding on red clay to reach a low ball, seen from the far end of the court.' + ACTION,
         'A grass tennis court seen from high in the stands on a sunny day, two small players in white at either baseline.' + ACTION,
     ],
     'boxing': [
-        'A heavyweight boxer in plain black trunks throwing a straight punch alone in the ring, seen from far back in'
-        ' the dark arena so he is a small figure under the bright lights.' + ACTION,
+        'A wide view of a whole dark boxing arena from the top of the back row of seats, the brightly lit square ring '
+        'small in the middle of the picture with empty dark seats all round it, and in the ring one heavyweight boxer '
+        'in plain black trunks, black boots and solid red gloves throwing a straight punch at nobody, the boxer tiny, '
+        'no taller than a tenth of the picture.' + ACTION,
         'Two boxers squared up a metre apart in a ring, one in red trunks and one in blue, seen from far back in the '
         'dark arena so they are small figures under the bright ring lights, the empty white canvas around them and the '
         'dark empty seats beyond, the photograph filling the whole poster edge to edge.' + ACTION,
         'A boxer in white trunks standing alone in his corner of an empty ring with his arms down at his sides, seen'
         ' from the far side of the ring so he is small, a single spotlight from above, the arena dark.' + ACTION,
-        'A pair of worn plain red leather boxing gloves with no markings hanging by their laces from a nail on a wooden wall.' + STILL,
+        'A long bare wooden wall of an old gym seen from a few metres back, and small in the middle of it a pair of '
+        'worn old fashioned red leather boxing gloves hanging by their long white laces from one nail, the gloves laced'
+        ' at the wrist only, each with its padded thumb sewn on along the side of the fist, the plain weathered boards '
+        'all round them.' + STILL,
         'A boxer in a grey sweatshirt hitting a heavy punch bag in an old brick gym, shafts of window light, seen from the'
         ' side.' + ACTION,
         'An empty boxing ring under bright lights in a dark arena, the canvas floor and red ropes, seen from ringside.' + STILL,
     ],
     'golf': [
-        'A golfer in a white cap and plain polo shirt at the top of his swing on a green fairway, seen from the side, blue sky.' + ACTION,
+        'A golfer at the top of his backswing on a green fairway, seen from the side from some way off: his hands high '
+        'above his right shoulder, the club raised behind him with its shaft level above his shoulders and clear of his'
+        ' head, his back turned to the target and his weight on his back foot. He wears a plain white cotton cap one '
+        'colour all over, a solid navy cotton polo shirt and grey trousers. Blue sky.' + ACTION,
         'A woman golfer in a plain white long sleeved sweater and a plain pink visor crouched reading a putt beside a'
         ' flag, seen from far across the green so she is small against the smooth grass and the trees'
         ' behind.' + ACTION,
@@ -147,8 +203,10 @@ SPORTS = {
         'A golfer seen from behind in his follow through after a drive, a long fairway stretching ahead.' + ACTION,
     ],
     'baseball': [
-        'A baseball batter in a plain blue pinstripe uniform with no lettering swinging at a pitch, seen from the side, the'
-        ' catcher and stands blurred behind.' + ACTION,
+        'A baseball batter swinging at a pitch, seen from the side, the catcher and stands blurred behind. He wears a '
+        'blue pinstripe uniform with a blank front, a dark blue batting helmet one colour all over, plain all black '
+        'leather cleats, and swings a bare wooden bat showing only its wood grain from knob to end. The catcher wears '
+        'plain dark grey gear.' + ACTION,
         'A baseball pitcher in a plain grey uniform with no lettering and a red cap mid throw on the mound, seen from the'
         ' side.' + ACTION,
         'A baseball catcher in a mask and a plain green uniform crouching behind home plate, seen from the front.' + ACTION,
@@ -158,21 +216,25 @@ SPORTS = {
         ' and close, the green outfield soft and blurred behind.' + STILL,
     ],
     'football': [
-        'A high school American football game under Friday night floodlights seen from high in the bleachers, the '
-        'players small figures in red and in white lined up at the line of scrimmage.' + ACTION,
+        'Looking down from the very top row of the bleachers onto a high school American football field under Friday '
+        'night floodlights, the whole width of the field filling the picture, the players tiny figures, one team in '
+        'solid dark red jerseys facing the other team in solid white jerseys at the line of scrimmage, every jersey one'
+        ' colour all over, too far away to see any detail on them.' + ACTION,
         'An American football running back in a plain white uniform with no numbers running with the ball tucked under one arm,'
         ' alone in open field.' + ACTION,
         'An American football player leaping for a pass seen as a black silhouette against a deep orange sunset sky, '
         'the ball above his reaching hands.' + ACTION,
-        'A brown leather American football with white laces lying on short green grass, seen low and close, the field'
-        ' soft and blurred behind.' + STILL,
+        'An old worn American football of plain brown pebbled leather with only its white laces and its seams, lying on'
+        ' short green grass, seen low and close, the field soft and blurred behind.' + STILL,
         'A plain blue American football helmet with no decal lying on the grass of a field at dusk, stadium lights behind.' + STILL,
         'Seen from below and far behind the posts, an American football tumbling end over end high between tall yellow'
         ' goal posts against a deep blue dusk sky.' + ACTION,
     ],
     'soccer': [
-        'A soccer player in a solid red shirt and shorts with no badge, logo or number and plain black boots striking the ball'
-        ' on an empty training pitch, trees behind, seen from the side.' + ACTION,
+        'A soccer player seen from the side and some distance off striking the ball on an empty training pitch, trees '
+        'behind. He wears a solid red cotton shirt and solid red shorts, each one colour all over, red socks, and plain'
+        ' black leather boots with black soles and no marks of any kind, and the ball is plain white leather with only '
+        'its seams.' + ACTION,
         'Looking out from the back of a goal through its white netting, a goalkeeper in a plain green jersey and plain '
         'black shorts dives at full stretch toward the corner as the ball flies past his outstretched arms into the net'
         ' beside him, the green pitch and a dark blurred stand beyond.' + ACTION,
@@ -183,10 +245,15 @@ SPORTS = {
         'An empty grass soccer pitch in a small stadium at evening, floodlights on, the goal in the foreground.' + STILL,
     ],
     'athletics': [
-        'A sprinter in a plain red vest and shorts pushing out of the starting blocks on a running track, seen from the side.' + ACTION,
+        'A sprinter pushing out of the starting blocks on a running track, seen from the side. He wears a solid red '
+        'cotton vest and solid red shorts, each one colour all over from neck to hem, and plain black canvas running '
+        'shoes with black rubber soles and no marks of any kind.' + ACTION,
         'A high jumper in plain blue arching backwards over the bar in a stadium, seen from the side.' + ACTION,
         'A hurdler in plain blue clearing a hurdle on a red track, seen from the side.' + ACTION,
-        'A woman long jumper in plain green in mid air over the sand pit, seen from the side.' + ACTION,
+        'A woman long jumper in mid air seen from the side, her feet stretched out in front of her a metre above the '
+        'raked yellow sand of the landing pit, the sand directly beneath her and the runway and take off board well '
+        'behind her. She wears a solid green cotton vest and solid green shorts, each one colour all over, and plain '
+        'white canvas shoes with white rubber soles and no marks of any kind.' + ACTION,
         'A javelin thrower in plain white seen from far off at the side of an empty field, a small figure leaning back'
         ' with the long javelin just launched and flying high above him against a pale sky.' + ACTION,
         'An empty red running track curving round a stadium at sunrise, white lane lines.' + STILL,
@@ -198,23 +265,30 @@ SPORTS = {
         'An aerobics class of about a dozen people in plain grey sweatshirts and plain grey sweatpants exercising with '
         'small dumbbells in a 1980s gym with bare painted brick walls with nothing on them and a long mirror, seen from'
         ' the back of the room.' + ACTION,
-        'A heavy iron dumbbell resting on a rubber gym floor, chalk dust in a shaft of light.' + STILL,
+        'A heavy dumbbell with two plain cast iron hexagonal heads, every face of each head smooth dark grey iron, '
+        'joined by a knurled steel handle, resting on a rubber gym floor, chalk dust in a shaft of light.' + STILL,
         'A man in a grey t-shirt lying on a bench pressing a barbell in an old gym, seen from the side.' + ACTION,
         'A loaded barbell with iron plates resting on a wooden lifting platform against a plain red background.' + STILL,
     ],
     'hockey': [
-        'A small town ice rink seen from high in the wooden stands, the players small figures in blue and in white '
-        'chasing the puck across the ice.' + ACTION,
+        'Inside a small town indoor ice rink under a low wooden roof, seen from high in the wooden stands, the walled '
+        'oval of white ice filling most of the picture with boards and stands all round it. On the ice the players are '
+        'small figures in solid blue jerseys and in solid white jerseys, each one colour all over, chasing a black puck'
+        ' that slides across the ice in the middle of them.' + ACTION,
         'An ice hockey goalie in white pads, a mask and a plain white jersey with no crest crouching in front of the net.' + ACTION,
         'A pair of worn black leather ice hockey skates hanging by their laces from a nail on a wooden wall, a wooden '
         'stick leaning below them.' + ACTION,
-        'A wooden ice hockey stick and a black puck lying on scratched white ice.' + STILL,
+        'A full length adult wooden ice hockey stick, as long as a grown man is tall, lying flat on scratched white ice'
+        ' diagonally across the whole picture, its shaft bare varnished wood showing only its wood grain, its blade '
+        'wrapped in black cloth tape, and a black puck lying flat beside the blade, seen from just above.' + STILL,
         'An empty ice rink seen from the stands, the white ice and red and blue lines under arena lights.' + STILL,
         'An ice hockey player in a plain yellow and black jersey with no crest skating with his stick raised in one hand after'
         ' a goal.' + ACTION,
     ],
     'bowling': [
-        'A bowler in a plain retro bowling shirt releasing a ball down a polished wooden lane, seen from behind.' + ACTION,
+        'A man bowling, seen from behind and a little to one side, releasing a ball down a polished wooden lane, the '
+        'white pins far down the lane under a plain dark wooden panel. He wears a short sleeved two tone bowling shirt,'
+        ' maroon with cream panels down the front, grey slacks and plain solid brown leather bowling shoes.' + ACTION,
         'Ten white bowling pins flying apart at the end of a polished lane, a dark ball among them seen side on, the'
         ' pins a tumbling blur of white, seen from lane level a few metres back.' + ACTION,
         'One white bowling pin with two red stripes round its neck standing alone on a polished wooden lane, warm'
