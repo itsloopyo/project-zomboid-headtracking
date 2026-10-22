@@ -1153,7 +1153,7 @@ final class RoofBuilder {
         if (square == null) {
             return Eaves.AIR;
         }
-        if (square.getRoomID() != -1L || Roofs.roofing(square) && !eaveRow(x, y, level) || build.madeAt(x, y, level)) {
+        if (square.getRoomID() != -1L || Roofs.roofing(build.cell, square) && !eaveRow(x, y, level) || build.madeAt(x, y, level)) {
             return Eaves.ROOM;
         }
         return square.getFloor() != null ? Eaves.FLOOR : Eaves.AIR;
@@ -1170,7 +1170,7 @@ final class RoofBuilder {
             return true;
         }
         IsoGridSquare square = build.cell.getGridSquare(x, y, z);
-        if (square == null || !Roofs.roofing(square)) {
+        if (square == null || !Roofs.roofing(build.cell, square)) {
             return false;
         }
         Roofs.Laid map = Roofs.at(build.cell, x, y, z, world.roundNow, build.frame.scale);

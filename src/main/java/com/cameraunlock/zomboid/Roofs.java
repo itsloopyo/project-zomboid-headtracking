@@ -611,7 +611,7 @@ final class Roofs {
             if (ground == null || ground.getBuilding() != under.getBuilding() || square == null) {
                 return;
             }
-            if (!roofing(square)) {
+            if (!roofing(cell, square)) {
                 continue;
             }
             if (step == 1) {
@@ -639,7 +639,7 @@ final class Roofs {
     private static RoofFit.Site site(IsoCell cell, int highest, HashSet<Long> behind) {
         return new RoofFit.Site() {
             private boolean roofed(IsoGridSquare square, int x, int y, int z) {
-                return roofing(square) && !behind.contains(RoofFit.key(x, y, z));
+                return roofing(cell, square) && !behind.contains(RoofFit.key(x, y, z));
             }
 
             @Override
@@ -679,7 +679,7 @@ final class Roofs {
                 }
                 for (int above = 1; above <= LOOKED_ABOVE; above++) {
                     int level = z + above;
-                    if (floored(x, y, level) && !(level <= roof + RoofFit.SAME && loftCeiling(cell.getGridSquare(x, y, level)))) {
+                    if (floored(x, y, level) && !(level <= roof + RoofFit.SAME && loftCeiling(cell, cell.getGridSquare(x, y, level)))) {
                         return true;
                     }
                 }
@@ -694,20 +694,34 @@ final class Roofs {
     }
 
     /** Whether a square that is floored is only floored: no room, and none of the game's roofing on it. */
-    private static boolean loftCeiling(IsoGridSquare square) {
-        return square.getRoomID() == -1L && !roofing(square);
+    private static boolean loftCeiling(IsoCell cell, IsoGridSquare square) {
+        return square.getRoomID() == -1L && !roofing(cell, square);
     }
 
-    /** Whether any of the game's roofing lies on the square: a tile of a roof, or one of its caps and edgings. */
-    static boolean roofing(IsoGridSquare square) {
+    /**
+     * Whether any of the game's roofing lies on the square: a tile of a roof, or one of its caps
+     * and edgings. A building's own sheet can hold its roof (a trailer's), and its tiles are
+     * known by the game marking them roof.
+     */
+    static boolean roofing(IsoCell cell, IsoGridSquare square) {
         PZArrayList<IsoObject> objects = square.getObjects();
         for (int i = 0; i < objects.size(); i++) {
             IsoSprite sprite = objects.get(i).getSprite();
-            if (sprite != null && sprite.getName() != null && sprite.getName().startsWith("roofs_")) {
+            if (sprite != null && (sprite.getName() != null && sprite.getName().startsWith("roofs_")
+                    || isTile(sprite.getType()) && !noRoof(cell, sprite, square.getX(), square.getY(), square.getZ()))) {
                 return true;
             }
         }
         return false;
+    }
+
+    /** Whether a sprite the game marks as a tile of a roof is no roof. */
+    private static boolean noRoof(IsoCell cell, IsoSprite sprite, int x, int y, int z) {
+        // A parasol's canopy: see Parasols. A shop's awning, or a hood over a wall that stands on its own: see Awnings and Hoods.
+        return Own.furniture() && (Parasols.partOfOne(cell, sprite, x, y, z) || Awnings.of(sprite) != null
+                || Hoods.eave(sprite) != Hoods.NONE && Hoods.hood(Hoods.on(cell, z), x, y) || Hoods.endPiece(sprite) && Hoods.endOfAHood(Hoods.on(cell, z), x, y))
+                // A tent's or a market stall's canopy: see Tents.
+                || Tents.of(sprite) != null;
     }
 
     private static void take(IsoCell cell, int x, int y, int z, Roof roof, HashSet<Long> seen) {
@@ -722,20 +736,7 @@ final class Roofs {
         for (int i = 0; i < objects.size(); i++) {
             IsoObject object = objects.get(i);
             IsoSprite sprite = object.getSprite();
-            if (sprite == null || !isTile(sprite.getType())) {
-                continue;
-            }
-            // A parasol's canopy is marked as a roof tile and is no roof: see Parasols.
-            if (Own.furniture() && Parasols.partOfOne(cell, sprite, x, y, z)) {
-                continue;
-            }
-            // Nor is a shop's awning, or a hood over a wall that stands on its own: see Awnings and Hoods.
-            if (Own.furniture() && (Awnings.of(sprite) != null || Hoods.eave(sprite) != Hoods.NONE && Hoods.hood(Hoods.on(cell, z), x, y)
-                    || Hoods.endPiece(sprite) && Hoods.endOfAHood(Hoods.on(cell, z), x, y))) {
-                continue;
-            }
-            // Nor a tent's or a market stall's canopy: see Tents.
-            if (Tents.of(sprite) != null) {
+            if (sprite == null || !isTile(sprite.getType()) || noRoof(cell, sprite, x, y, z)) {
                 continue;
             }
             Texture texture = sprite.getTextureForCurrentFrame(object.getDir());
