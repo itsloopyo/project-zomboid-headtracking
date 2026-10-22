@@ -8,9 +8,6 @@ by the room the sprite hangs in (Decor.inRoom). POOLS is room kind -> prompts; e
 # No place is named: Qwen-Image letters a named place onto a sign or a caption in the picture.
 PRINT = (' A snapshot on 35mm colour negative film from the 1980s, faded colours with soft contrast and fine grain,'
          ' ordinary amateur composition, natural colours. The picture fills the whole image edge to edge.')
-# PRINT without the place: Qwen-Image letters the name of the country on whatever stands behind.
-SNAPSHOT = (' A snapshot on 35mm colour negative film from the 1980s, faded colours with soft contrast and fine grain,'
-            ' ordinary amateur composition, natural colours. The picture fills the whole image edge to edge.')
 OLD_PRINT = (' A 1950s black and white photograph, soft grey tones, fine grain and slight fading. The picture fills the'
              ' whole image edge to edge.')
 
@@ -23,7 +20,7 @@ POOLS = {
         'A boys Little League baseball team of about twelve boys of ten to twelve, each a different height and build '
         'with ordinary tousled brown or blond hair, in plain white uniforms with green trim, in two rows on a grass '
         'field in front of a chain link fence, the back row standing and the front row kneeling, seen from across the'
-        ' field so they are small.' + SNAPSHOT,
+        ' field so they are small.' + PRINT,
         'A plate of long thin flat golden cornmeal fried catfish fillets with round hushpuppies and smooth creamy pale'
         ' coleslaw, a glass of iced tea beside it on a red and white checked tablecloth, seen from above at an angle,'
         ' warm window light.' + PRINT,
@@ -31,7 +28,7 @@ POOLS = {
         'A cook of about forty in a white apron and a small low white paper cap shaped like a little folded boat, '
         'standing at a long flat rectangular steel griddle plate built into the counter of a small restaurant kitchen '
         'with bare white tiled walls, seen from the side and a few metres away, both his hands resting on the steel '
-        'counter.' + SNAPSHOT,
+        'counter.' + PRINT,
         'A long diner counter with a row of chrome stools with red vinyl seats along it and wooden booths along the'
         ' window wall beyond, in a small family restaurant empty in the morning light, seen from one end of the'
         ' counter.' + PRINT,
@@ -42,27 +39,27 @@ POOLS = {
         'A men\'s softball team of about ten men from twenty to fifty, each a different build, with ordinary 1980s '
         'haircuts, some with moustaches, some with full beards, a few going grey, in matching plain blue t-shirts, '
         'standing loosely in two uneven rows on a dusty field at evening, some with arms folded, some with hands on '
-        'hips, one with an arm round the next man\'s shoulders, seen from a few metres away.' + SNAPSHOT,
+        'hips, one with an arm round the next man\'s shoulders, seen from a few metres away.' + PRINT,
         'Four men of different builds and ages, one bald, one with a beard, one tall and thin, one stout, in matching'
         ' plain red bowling shirts standing side by side, seen from the waist up, in a 1980s bowling alley with wood'
         ' panelled walls, the lanes behind them.' + PRINT,
         'A wooden fishing dock on a Kentucky lake at sunset, a small aluminium boat tied up beside it, calm water.' + PRINT,
         'Racehorses with jockeys in coloured silks galloping down the home stretch of a dirt race track, seen from the '
-        'white rail, green trees and a pale summer sky beyond the far side of the track.' + SNAPSHOT,
+        'white rail, green trees and a pale summer sky beyond the far side of the track.' + PRINT,
         'A small country band of three men playing two acoustic guitars and an upright bass on a low wooden stage in a'
         ' dim bar, seen from across the room so they are small.' + PRINT,
         'The outside of a roadside bar at dusk, a low wooden building with a gravel car park and pickup trucks, a neon light in'
         ' the window glowing red.' + PRINT,
         'An empty bar at night, a pool table under one single hanging lamp with a green shade, seen from a few paces '
         'back, the lamp light on the green felt, a small cluster of balls far off at the end of the table, soft and '
-        'out of focus, a cue lying along the near cushion, plain dark wood panelled walls in shadow.' + SNAPSHOT,
+        'out of focus, a cue lying along the near cushion, plain dark wood panelled walls in shadow.' + PRINT,
         'Hunters in plaid wool jackets and blaze orange caps standing a little apart at the edge of autumn woods, seen'
         ' from far off across a field so they are small figures.' + PRINT,
         'Old men sitting on a wooden bench on the porch of a plain clapboard country store in the 1950s, seen from'
         ' across a dirt road, the porch roof shading them.' + OLD_PRINT,
         'A large largemouth bass lying on its side on the weathered grey planks of a wooden lake dock, its big mouth '
         'shut, its firm green and bronze scales, dark stripe and spiny back fin sharp, a coil of old rope beside it, '
-        'the lake water behind.' + SNAPSHOT,
+        'the lake water behind.' + PRINT,
         'A stock car race on a small dirt oval at night under floodlights, cars sliding sideways through the turn, seen from'
         ' the stands.' + PRINT,
         'A river in autumn with a covered wooden bridge, orange and red trees on both banks, calm water.' + PRINT,
@@ -75,7 +72,7 @@ POOLS = {
         'A ribbon cutting in front of a new single storey brick office building, a few people in suits standing by a red'
         ' ribbon, seen from a distance.' + PRINT,
         'A small town in summer seen from high on a wooded hill above it, a main street of red brick buildings, a white'
-        ' church steeple, tree lined streets of houses, and green fields and woods all round.' + SNAPSHOT,
+        ' church steeple, tree lined streets of houses, and green fields and woods all round.' + PRINT,
         'A brick factory building with a tall chimney and a car park full of 1970s cars, seen from across the road.' + PRINT,
         'A company softball team of men and women of different ages and builds in matching plain yellow t-shirts,'
         ' kneeling and standing in two rows on a grass field, seen from across the field so they are small.' + PRINT,
