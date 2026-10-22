@@ -1513,6 +1513,8 @@ final class PipelineShaders {
 
     /** Depth for the surfaces that have it. Joined on after WORLD_FRAGMENT_PARTS when the shader is put together. */
     static final String WORLD_FRAGMENT_RELIEF = """
+            // How much the picture is the game's own view from far overhead (Pipeline.gameView): 0 at the eye.
+            uniform float uGameView;
             // A wall of boards, a shingled roof, a gravel drive are drawn as flat sheets, and
             // a flat sheet gives itself away the moment the head moves: the gap between two
             // boards does not slide behind the board in front of it, and no stone hides the
@@ -2308,6 +2310,11 @@ final class PipelineShaders {
                         up = 0.6;
                         stripGloss = 0.6;
                     }
+                    // In the game's own view from overhead a lawn is the game's: one calm green, as
+                    // dark as the game paints it. The straw, the seed heads and the clover are mostly
+                    // the turf's green there, and the whole is darkened: drawn as from the eye, lawns
+                    // came out a quarter brighter than the game's picture of the same places.
+                    texel.rgb = mix(texel.rgb, mix(texel.rgb, green * (0.84 + 0.32 * ownB), 0.7) * 0.8, uGameView);
                     texel.a = 1.0;
                     bladeUp = up;
                     bladeTurn = ownB;
@@ -3184,11 +3191,12 @@ final class PipelineShaders {
                         // Poured concrete, not laid slabs: a square panel to a tile, cut by a
                         // joint along every tile's edge and never broken bond, no two panels
                         // quite the same grey. Joints finer than a pixel are left out: they
-                        // would only crawl.
+                        // would only crawl. In the game's own view from overhead the game paints
+                        // its concrete plain, and so is this.
                         vec2 slab = p;
                         vec2 toJoint = min(fract(slab), 1.0 - fract(slab));
                         vec2 soft = fwidth(p);
-                        float seen = paved * (1.0 - smoothstep(0.06, 0.2, max(soft.x, soft.y)));
+                        float seen = paved * (1.0 - smoothstep(0.06, 0.2, max(soft.x, soft.y))) * (1.0 - uGameView);
                         float joint = max(1.0 - smoothstep(0.008, 0.008 + soft.x + 1e-6, toJoint.x), 1.0 - smoothstep(0.008, 0.008 + soft.y + 1e-6, toJoint.y));
                         float tone = grain(floor(slab));
                         texel.rgb *= (1.0 + (tone - 0.5) * 0.08 * seen) * (1.0 - 0.3 * joint * seen);
@@ -6780,6 +6788,9 @@ final class PipelineShaders {
             // of the darkening is laid on, 0 for none.
             uniform sampler2D uSight;
             uniform vec4 uSightAt;
+            // The game's own view's colours (Pipeline.OVERHEAD_CONTRAST): x how far each colour is
+            // set apart from y, z what blue is multiplied by, w how much of it is done.
+            uniform vec4 uOverhead;
             """ + SHELTERED + """
 
             const int RAY_SAMPLES = 48;
@@ -7227,6 +7238,9 @@ final class PipelineShaders {
                     sunlit = mix(sunlit, smoothstep(-1.2, 1.0, lifted), 0.6);
                 }
                 c *= mix(uShade, uSunlit, sunlit);
+                if (uOverhead.w > 0.0) {
+                    c = mix(c, max(uOverhead.y + (c - uOverhead.y) * uOverhead.x, 0.0) * vec3(1.0, 1.0, uOverhead.z), uOverhead.w);
+                }
                 vec2 fromCentre = uv - 0.5;
                 c *= 1.0 - dot(fromCentre, fromCentre) * uGrade.z;
                 c += (hash(gl_FragCoord.xy + uTime * 61.0) - 0.5) / 160.0;

@@ -279,6 +279,13 @@ final class Pipeline {
     private static final int RAIN_DROPS = 9000;
     /** The unit the rain and the snow read the block of sheltered squares on. */
     private static final int SHELTER_UNIT = 1;
+    /**
+     * The game's own view from overhead, brought to the game's colours: each colour set apart
+     * from the pivot by the contrast, and blue held back. Fitted to the game's own picture of
+     * the same places at noon, paved ones, where the ground is the game's own colour: its darks
+     * and lights lie 1.15 times as far apart about 0.40, and it is a little warmer.
+     */
+    static final float OVERHEAD_CONTRAST = 1.15f, OVERHEAD_PIVOT = 0.40f, OVERHEAD_BLUE = 0.98f;
     /** The unit the develop pass reads it on, and how bright fog is against the sky it hangs under. */
     private static final int DEVELOP_SHELTER_UNIT = 5, DEVELOP_OUTLINES_UNIT = 6, DEVELOP_SIGHT_UNIT = 8;
     private static final float FOG_BRIGHT = 1.1f;
@@ -3169,6 +3176,11 @@ final class Pipeline {
         }
     }
 
+    /** How much the picture is the game's own view from far overhead: 1 there, 0 by the time the camera is near enough to stop being overhead. */
+    private float gameView() {
+        return overhead ? Math.clamp((away - WorldScene.OVERHEAD_RANGE) / (2f * WorldScene.OVERHEAD_RANGE), 0f, 1f) : 0f;
+    }
+
     /**
      * Puts the frame's darkening of each square (Sight) on the develop pass's unit, or tells the
      * pass there is none. It is the game's own view's, so it comes in as the camera leaves the
@@ -3624,6 +3636,7 @@ final class Pipeline {
         to.set("uRoofDeep", 2f * ROOF_RANGE);
         to.set("uRoofPitch", RoofFit.PITCH * ViewCamera.LEVEL_HEIGHT);
         to.set("uEye", camera.eyeX, camera.eyeY, camera.eyeUp);
+        to.set("uGameView", gameView());
         // How much of its distance from the eye a pixel of this picture takes in, up and down.
         to.set("uPixel", 2f * tanHalfFieldOfView / drawnHigh());
         to.set("uRangeFrom", rangeFrom);
@@ -4368,10 +4381,14 @@ final class Pipeline {
             java.util.Arrays.fill(lightShade, 1f);
             java.util.Arrays.fill(lightLit, 1f);
         }
-        develop.set("uGrade", style.curve + (ownTone ? Develop.overcastCurve(cover, state.night) : 0f), style.saturation, style.vignette);
-        develop.set("uLens", style.bloom, style.flare);
-        develop.set("uShade", style.shade[0] * lightShade[0], style.shade[1] * lightShade[1], style.shade[2] * lightShade[2]);
-        develop.set("uSunlit", style.sunlit[0] * lightLit[0], style.sunlit[1] * lightLit[1], style.sunlit[2] * lightLit[2]);
+        // The game's own view has no style: the picture is brought to the game's colours after the film.
+        // On the flight down to the eye the style comes back as the game's colours go.
+        float game = gameView(), styled = 1f - game;
+        develop.set("uOverhead", OVERHEAD_CONTRAST, OVERHEAD_PIVOT, OVERHEAD_BLUE, game);
+        develop.set("uGrade", styled * (style.curve + (ownTone ? Develop.overcastCurve(cover, state.night) : 0f)), game + styled * style.saturation, styled * style.vignette);
+        develop.set("uLens", styled * style.bloom, styled * style.flare);
+        develop.set("uShade", game + styled * style.shade[0] * lightShade[0], game + styled * style.shade[1] * lightShade[1], game + styled * style.shade[2] * lightShade[2]);
+        develop.set("uSunlit", game + styled * style.sunlit[0] * lightLit[0], game + styled * style.sunlit[1] * lightLit[1], game + styled * style.sunlit[2] * lightLit[2]);
         develop.set("uTan", tanHalfFieldOfView * aspect, tanHalfFieldOfView);
         develop.set("uNear", near);
         develop.set("uFar", far);
