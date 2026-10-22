@@ -222,6 +222,42 @@ final class RoofBuilder {
         return beyond != null && beyond.getRoomID() != -1L;
     }
 
+    /** How far a roof's sheet laid as a floor is followed past the building's end to the slope made over it, in squares. */
+    private static final int SHEET_RUN = 6;
+
+    /**
+     * Whether a roof's sheet laid as a floor on the square is the foot of a slope the map leaves
+     * out (Roofs.hiddenSheet): a slope was made over it, or it is that sheet run on past the
+     * building's end over open ground, the squares between all of the same sheet. Drawn, it was a
+     * ledge of shingle at the eave under the made slope, and past a barn's gable a board standing
+     * out three squares into the air (3952..3954, 11459).
+     */
+    boolean underAMadeSlope(int x, int y, int z) {
+        // Read before its roof is whole, the answer is no: the build is no plain one, to be made again.
+        build.building.plain = false;
+        Roofs.readRoofOver(build.cell, x, y, z, world.roundNow, build.frame.scale);
+        if (build.madeAt(x, y, z)) {
+            return true;
+        }
+        IsoGridSquare ground = build.cell.getGridSquare(x, y, 0);
+        if (ground != null && ground.getBuilding() != null) {
+            return false;
+        }
+        for (int side = 0; side < 4; side++) {
+            int dx = side == 0 ? -1 : side == 1 ? 1 : 0, dy = side == 2 ? -1 : side == 3 ? 1 : 0;
+            for (int step = 1; step <= SHEET_RUN; step++) {
+                IsoGridSquare beside = build.cell.getGridSquare(x + step * dx, y + step * dy, z);
+                if (beside == null || beside.getFloor() == null || !Roofs.hiddenSheet(beside.getFloor())) {
+                    break;
+                }
+                if (build.madeAt(x + step * dx, y + step * dy, z)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     /**
      * The gable under a roof's level crown that the map lays as a floor on level z, over the
      * loft on the level below: the top of a roof cut flat a whole level up. The slopes either

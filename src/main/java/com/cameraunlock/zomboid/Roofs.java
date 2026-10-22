@@ -672,8 +672,9 @@ final class Roofs {
                     // The map's ceiling over the rooms below lies on the level the roof's eaves stand on, under every
                     // slope: it is no floor the made roof would stand over. A floor of any other sheet is a terrace.
                     IsoObject floor = square.getFloor();
-                    boolean terrace = floor != null && !(floor.getSprite() != null && ceiling(floor.getSprite().getName()));
-                    if (square.getRoomID() != -1L || terrace || roofed(square, x, y, z)) {
+                    boolean foot = floor != null && roof <= z + RoofFit.SAME && hiddenSheet(floor);
+                    boolean terrace = floor != null && !(floor.getSprite() != null && ceiling(floor.getSprite().getName())) && !foot;
+                    if (square.getRoomID() != -1L || terrace || (foot ? roofing(cell, square, false, floor) : roofed(square, x, y, z))) {
                         return true;
                     }
                 }
@@ -686,6 +687,52 @@ final class Roofs {
                 return false;
             }
         };
+    }
+
+    /**
+     * Whether a floor is a sheet of a roof's own laid as a floor: what the map puts on the side of
+     * a roof the game's view never shows, at the foot of the slope it leaves out (a barn's north
+     * side, 3955..3963 x 11459 on level 1, under a gambrel that has only its south slope). Where
+     * the far slope comes down to it, it is that slope's foot and no terrace.
+     */
+    static boolean hiddenSheet(IsoObject floor) {
+        IsoSprite sprite = floor.getSprite();
+        return sprite != null && sprite.getName() != null && sprite.getName().startsWith("roofs_") && !accent(sprite.getName());
+    }
+
+    /** How far from a roof's sheet laid as a floor the roof it is the foot of is looked for, in squares. */
+    private static final int FOOT_REACH = 6;
+
+    /**
+     * Reads the roof a sheet laid as a floor on the square is the foot of (hiddenSheet), so that
+     * the slopes the map leaves out are made before the square's build asks whether one is over
+     * it: the first tile of a roof found along the map's axes from the square, on its level or
+     * the next. A chunk built before its roof's was read kept the sheet as a ledge in the air.
+     */
+    static void readRoofOver(IsoCell cell, int x, int y, int z, int now, float scale) {
+        for (int step = 1; step <= FOOT_REACH; step++) {
+            for (int side = 0; side < 4; side++) {
+                int ax = x + step * (side == 0 ? -1 : side == 1 ? 1 : 0), ay = y + step * (side == 2 ? -1 : side == 3 ? 1 : 0);
+                for (int level = z; level <= z + 1; level++) {
+                    IsoGridSquare square = cell.getGridSquare(ax, ay, level);
+                    if (square != null && holdsTile(cell, square)) {
+                        at(cell, ax, ay, level, now, scale);
+                        return;
+                    }
+                }
+            }
+        }
+    }
+
+    private static boolean holdsTile(IsoCell cell, IsoGridSquare square) {
+        PZArrayList<IsoObject> objects = square.getObjects();
+        for (int i = 0; i < objects.size(); i++) {
+            IsoSprite sprite = objects.get(i).getSprite();
+            if (sprite != null && isTile(sprite.getType()) && !accent(sprite.getName()) && !noRoof(cell, sprite, square.getX(), square.getY(), square.getZ())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     static boolean accent(String spriteName) {
@@ -717,8 +764,16 @@ final class Roofs {
     }
 
     private static boolean roofing(IsoCell cell, IsoGridSquare square, boolean trims) {
+        return roofing(cell, square, trims, null);
+    }
+
+    /** As roofing, leaving out one object of the square's. */
+    private static boolean roofing(IsoCell cell, IsoGridSquare square, boolean trims, IsoObject besides) {
         PZArrayList<IsoObject> objects = square.getObjects();
         for (int i = 0; i < objects.size(); i++) {
+            if (objects.get(i) == besides) {
+                continue;
+            }
             IsoSprite sprite = objects.get(i).getSprite();
             if (sprite != null && (trims || !accent(sprite.getName())) && (sprite.getName() != null && sprite.getName().startsWith("roofs_")
                     || isTile(sprite.getType()) && !noRoof(cell, sprite, square.getX(), square.getY(), square.getZ()))) {

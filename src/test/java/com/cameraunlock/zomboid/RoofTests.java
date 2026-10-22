@@ -52,6 +52,7 @@ final class RoofTests {
         Checks.run("trimPastAGableIsNoRoofGoingOn", RoofTests::trimPastAGableIsNoRoofGoingOn);
         Checks.run("trimPastAHipsCornerLeavesTheCornersEave", RoofTests::trimPastAHipsCornerLeavesTheCornersEave);
         Checks.run("gutterTrimGoesOnlyUnderAnEaveMadeOnItsOwnEdge", RoofTests::gutterTrimGoesOnlyUnderAnEaveMadeOnItsOwnEdge);
+        Checks.run("roofSheetLaidAsAFloorAtTheFootOfAFarSlopeIsNoTerrace", RoofTests::roofSheetLaidAsAFloorAtTheFootOfAFarSlopeIsNoTerrace);
     }
 
     private static void hippedCornerAtTheEaveCarriesTheEaveRowOn() {
@@ -1105,6 +1106,30 @@ final class RoofTests {
         gable.add(new RoofFit.Tile(0, 1, 1, RoofFit.ALONG_X, true, 1f, EAVE));
         gable.add(new RoofFit.Tile(9, 1, 1, RoofFit.ALONG_X, true, EAVE, 1f));
         check(RoofFit.behindRidges(gable).size() == 16, "sheets a long ridge climbs above are behind it though the ends meet them");
+    }
+
+    /**
+     * The barn at 3955..3965 x 11459..11466: the map has the south side of its gambrel only, and
+     * on its north row, level 1, a sheet of the roof's own laid as a floor where the game's view
+     * never looks. The far slope made down the north side comes down to that sheet's height there.
+     */
+    private static void roofSheetLaidAsAFloorAtTheFootOfAFarSlopeIsNoTerrace() throws Exception {
+        TestMap map = new TestMap();
+        zombie.iso.areas.IsoBuilding barn = new zombie.iso.areas.IsoBuilding(null);
+        map.cell.square(0, 0, 0).building(barn);
+        map.cell.square(0, 0, 1).floor(map.sprite("roofs_02_22", IsoObjectType.normal, "solidfloor"));
+        map.cell.square(1, 0, 0).building(barn);
+        map.cell.square(1, 0, 1).floor(map.sprite("floors_exterior_tilesandstone_01_0", IsoObjectType.normal, "solidfloor"));
+        map.cell.square(2, 0, 0).building(barn);
+        map.cell.square(2, 0, 1).floor(map.sprite("roofs_02_22", IsoObjectType.normal, "solidfloor"));
+        map.roofSprite(2, 0, 1, "roofs_02_0");
+        java.lang.reflect.Method made = Roofs.class.getDeclaredMethod("site", zombie.iso.IsoCell.class, int.class, java.util.HashSet.class);
+        made.setAccessible(true);
+        RoofFit.Site site = (RoofFit.Site) made.invoke(null, map.cell, 1, new java.util.HashSet<Long>());
+        check(!site.taken(0, 0, 1, 1f), "a roof's sheet laid as a floor where the far slope comes down to it is the slope's foot, and no terrace");
+        check(site.taken(0, 0, 1, 1f + THIRD), "the same sheet under a slope that would stand a third of a level over it is a flat roof, which the slope does not cover");
+        check(site.taken(1, 0, 1, 1f), "a terrace of the floors' own sheets stays one");
+        check(site.taken(2, 0, 1, 1f), "nor is a sheet with a tile of the roof on its square left out of the roofing");
     }
 
     private static void levelSheetPaintedOverItsFloorIsAFlatTop() {

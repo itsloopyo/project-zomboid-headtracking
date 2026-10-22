@@ -6525,8 +6525,11 @@ final class WorldScene {
                 if (canvas && z > 0) {
                     return;
                 }
-                // A roof's crown the map lays as a floor a level up closes a loft, whose west and north ends it leaves open.
                 if (z > 0 && kind.roofSheet) {
+                    if (roofBuilder.underAMadeSlope(x, y, z)) {
+                        return;
+                    }
+                    // A roof's crown the map lays as a floor a level up closes a loft, whose west and north ends it leaves open.
                     roofBuilder.addCrownGable(x, y, z);
                 }
                 floorBuilder.addFloor(mesh, kind, properties, texture, isFloor, x, y, z);
