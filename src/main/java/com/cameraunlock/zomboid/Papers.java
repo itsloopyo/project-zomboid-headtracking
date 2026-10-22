@@ -14,7 +14,8 @@ import zombie.core.textures.Texture;
  * wall's sprite says is which colour it is at each place along it: laid flat on its wall (see
  * Windows), each column of dots has a colour, and columns of one colour side by side are a
  * stripe. The picture builds the wall as those stripes, each a face of its own with a straight
- * edge.
+ * edge. A paper with a figure on it, roses or sprigs, is no stripes: its wall shows the
+ * sprite's own dots, as a figured tile does (see WallTiles).
  */
 final class Papers {
     /** The fewest dots of wall a column has to hold for its colour to be taken, and how much of the wall's height below its top is left out, where the sprite shades it. */
@@ -50,13 +51,13 @@ final class Papers {
 
     /**
      * What the wall sprite on the north or west edge of its square is papered in. Null until a
-     * frame has been drawn since it was first asked for, and for a sprite with too little wall
-     * on that edge to tell. A sprite is read for the first edge it is asked for on.
+     * frame has been drawn since it was first asked for, for a sprite with too little wall
+     * on that edge to tell, and for one with a figure on it. A sprite is read for the first edge it is asked for on.
      */
     static Paper of(Texture texture, SpriteGeometry.Frame frame, boolean north) {
         Paper paper = known.get(texture);
         if (paper != null) {
-            return paper == NONE || paper.north != north ? null : paper;
+            return paper == NONE || paper.north != north || paper.figured ? null : paper;
         }
         if (asked.putIfAbsent(texture, new Asked(north, frame.originU, frame.originV, frame.scale, frame.left, frame.top, frame.width, frame.height)) == null) {
             SpriteColours.readAgain(texture);

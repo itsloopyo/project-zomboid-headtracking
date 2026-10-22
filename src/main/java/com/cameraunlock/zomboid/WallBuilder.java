@@ -42,8 +42,6 @@ final class WallBuilder {
     private static final float CAPPED_BELOW = 0.97f;
     /** Where along a wall its colour is looked for, for the faces that close it. */
     private static final float[] CAP_COLOUR_AT = {0.5f, 0.12f, 0.88f};
-    /** Wallpaper with a figure on it, which the picture prints sprig by sprig. */
-    static final float FIGURED_PAPER = 70f;
     /** Half the width of a joint between two tiles of a wall, in tiles: the world program lays them so (TILE_JOINT). */
     static final float TILE_JOINT_HALF = 0.004f;
     /** How many squares along its line a wall with an opening looks for a whole wall of its sheet to read its tiles from. */
@@ -990,8 +988,6 @@ final class WallBuilder {
         }
         // The mesh is painted over in the paper's colour as a whole, and each stripe is lit by
         // as much more or less as its own colour is of that.
-        float made = build.frame.material;
-        build.frame.material = paper.figured ? FIGURED_PAPER : made;
         float red = build.frame.red, green = build.frame.green, blue = build.frame.blue;
         build.frame.cornersInto(build.paperRed, build.paperGreen, build.paperBlue, build.paperUnlit);
         float begin = 0f;
@@ -1010,7 +1006,6 @@ final class WallBuilder {
             build.geometry.sealHigh = startIsLow ? sealEnd : sealStart;
             build.geometry.addFace(mesh, build.frame, x, y, z, a + da * low, b + db * low, foot, da * (high - low), db * (high - low), 0f, 0f, 0f, head - foot);
         }
-        build.frame.material = made;
         build.frame.red = red;
         build.frame.green = green;
         build.frame.blue = blue;

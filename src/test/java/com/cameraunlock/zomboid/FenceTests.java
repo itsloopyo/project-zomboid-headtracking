@@ -130,7 +130,7 @@ final class FenceTests {
                 "Flora.ROCK", Flora.ROCK, "Flora.FROND", Flora.FROND, "Flora.LEAF", Flora.LEAF, "Flora.FLOWER", Flora.FLOWER,
                 "Flora.BUSH", Flora.BUSH, "KerbBuilder.KERB_STONE", KerbBuilder.KERB_STONE, "WallBuilder.LIT_GLASS", WallBuilder.LIT_GLASS,
                 "SpriteGeometry.TIMBER", SpriteGeometry.TIMBER, "WorldScene.PANE", WorldScene.PANE, "WorldScene.LIT_PANE", WorldScene.LIT_PANE,
-                "OpeningBuilder.DRAPE", OpeningBuilder.DRAPE, "WallBuilder.FIGURED_PAPER", WallBuilder.FIGURED_PAPER, "Flora.SHADE", Flora.SHADE,
+                "OpeningBuilder.DRAPE", OpeningBuilder.DRAPE, "Flora.SHADE", Flora.SHADE,
                 "Flora.CORE", Flora.CORE, "WorldScene.HUNG", WorldScene.HUNG, "RoadPaint.MATERIAL", RoadPaint.MATERIAL,
                 "RoadPaint.STRIP", RoadPaint.STRIP, "WorldScene.BLOOD", WorldScene.BLOOD, "OpeningBuilder.JOINERY", OpeningBuilder.JOINERY,
                 "OpeningBuilder.HARDWARE", OpeningBuilder.HARDWARE, "OpeningBuilder.JOINERY_LEVEL", OpeningBuilder.JOINERY_LEVEL,
