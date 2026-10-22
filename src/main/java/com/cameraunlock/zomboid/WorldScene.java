@@ -4215,6 +4215,18 @@ final class WorldScene {
             }
         }
 
+        /** Whether something lies on the square that its lawn does not grow up through: see Flat.grassThrough. */
+        private boolean flattened(IsoGridSquare square) {
+            PZArrayList<IsoObject> objects = square.getObjects();
+            for (int i = 0; i < objects.size(); i++) {
+                IsoSprite sprite = objects.get(i).getSprite();
+                if (sprite != null && kindOf(sprite).lies && !Flat.grassThrough(sprite.getName())) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         /** How far something lying on the square (x, y) reaches into the square (toX, toY) beside it: none where something lies there too. */
         private float reachInto(int x, int y, int toX, int toY, int z) {
             IsoGridSquare next = squareAt(Math.floorDiv(x, CHUNK_TILES) * CHUNK_TILES, Math.floorDiv(y, CHUNK_TILES) * CHUNK_TILES, toX, toY, z);
@@ -4514,7 +4526,7 @@ final class WorldScene {
                             lifted++;
                         }
                         if (growing) {
-                            grow(chunkX + localX, chunkY + localY, localX, localY);
+                            grow(square, chunkX + localX, chunkY + localY, localX, localY);
                         } else {
                             IsoBuilding of = square.getBuilding();
                             long storeyOf = of == null || of.getDef() == null ? SpriteGeometry.NO_BUILDING : of.getDef().id;
@@ -4576,7 +4588,7 @@ final class WorldScene {
         }
 
         /** What grows on the ground of the square (x, y): the lawn, and what is strewn and springs up on it. */
-        private void grow(int x, int y, int localX, int localY) {
+        private void grow(IsoGridSquare square, int x, int y, int localX, int localY) {
             float toX = x + 0.5f - camera.eyeX, toY = y + 0.5f - camera.eyeY;
             floorLayer = building.groundLayers[localX * CHUNK_TILES + localY];
             spreadLayers = 0;
@@ -4588,7 +4600,7 @@ final class WorldScene {
                 frameOf(groundObject[own], groundTexture[own]);
             }
             frame.material = 0f;
-            if (toX * toX + toY * toY < GRASS_REACH * GRASS_REACH) {
+            if (toX * toX + toY * toY < GRASS_REACH * GRASS_REACH && !flattened(square)) {
                 plantBuilder.growGrass(x, y, localX, localY);
             }
             plantBuilder.strew(x, y, localX, localY, toX * toX + toY * toY);

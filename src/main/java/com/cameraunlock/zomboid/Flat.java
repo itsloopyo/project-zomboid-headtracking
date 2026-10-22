@@ -18,6 +18,11 @@ final class Flat {
         return "Floor".equals(renderLayer) || "FloorRug".equals(moveType);
     }
 
+    /** Whether the lawn grows up through a sprite that lies on its square: fallen leaves and broken glass lie among the blades, and a heap of litter, a rug or a dug grave flattens them. */
+    static boolean grassThrough(String name) {
+        return name != null && (name.startsWith("d_floorleaves") || name.startsWith("brokenglass"));
+    }
+
     /**
      * The layer something that reaches past its square lies on, over a square whose floor has
      * taken the layers under floorLayer. Its piece and the next square's overlap along the seam

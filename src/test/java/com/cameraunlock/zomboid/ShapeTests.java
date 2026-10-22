@@ -148,6 +148,8 @@ final class ShapeTests {
         }
         check(apart, "a rug's pieces that reach over the squares beside never lie on one layer with a piece of a square they touch, whatever floor is under either");
         check(over, "and lie over the floor of their own square");
+        check(Flat.grassThrough("d_floorleaves_1_3") && Flat.grassThrough("brokenglass_1_0") && !Flat.grassThrough("trash_01_19")
+                && !Flat.grassThrough("floors_rugs_01_5") && !Flat.grassThrough("location_community_cemetary_01_16"), "a lawn grows through leaves and glass and not through a heap, a rug or a grave");
         check(Flat.isSlab(0.4f, 0.1f), "a vent on a roof is a slab");
         check(!Flat.isSlab(0.4f, 0.5f) && !Flat.isSlab(0.1f, 0.05f) && !Flat.isSlab(0.25f, 0.2f), "a crate, a pebble and a stool are not");
     }
