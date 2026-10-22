@@ -374,9 +374,9 @@ SPORTS = {
         'A dark blue marbled bowling ball rolling away from the viewer down the middle of a long polished wooden lane, '
         'seen from just above the boards behind it, the ten white pins small in their triangle at the far end under a '
         'warm light, only darkness above them.' + ACTION,
-        'One empty bowling lane in an old bowling alley on a quiet morning, seen from standing height just behind the '
-        'foul line, the long polished pale maple boards running straight away between two shallow gutters, sunlight '
-        'from high windows lying across the boards, the far end of the lane dim and small.' + FADED,
+        'Three plain white wooden bowling pins standing together in a small cluster on worn polished pale maple '
+        'floorboards, seen low and close at their own height, the pins scuffed and chipped from years of use, soft '
+        'warm window light from one side, a plain dim brown wall behind them, muted soft colours.' + STILL,
         'One white bowling pin with two red stripes round its neck standing on the polished maple boards of a lane, '
         'seen low and close, and behind it a wide dim bowling alley with many lanes side by side, their long shiny '
         'boards running away into the distance soft and out of focus, warm light glowing on the varnish.' + STILL,
@@ -416,9 +416,10 @@ SPORTS = {
         'fading at its edges, warm low evening light raking across the surface.' + STILL,
     ],
     'pool': [
-        'An empty old pool hall in the morning seen wide from the doorway, a row of four pool tables with bare green '
-        'felt standing in a line down the long room, a long plain green metal lamp hanging low over each table, '
-        'bare dark wood panelled walls and a worn plank floor, daylight from the front windows.' + FADED,
+        'A close view looking down at worn green baize filling the whole picture, three solid unmarked pool balls '
+        'resting apart on it, one dull red, one dark blue and one plain white, the tapered pale wooden end of a cue '
+        'with its small leather tip lying on the cloth near the white ball, soft warm overhead light, muted dull '
+        'colours.' + STILL,
         'An orange tabby cat curled up asleep on the bare worn plank floor of an old pool hall in a patch of afternoon '
         'sunlight, seen wide from across the room at standing height, the long dark wood panelled wall behind it '
         'plain and bare from floor to ceiling, the room quiet and still.' + FADED,
