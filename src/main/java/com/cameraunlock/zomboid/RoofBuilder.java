@@ -599,6 +599,10 @@ final class RoofBuilder {
             }
             if (RoofFit.levelOnItsFloor(tile)) {
                 addCornerEaves(tile);
+                // A crown cut flat on the floor of its level, as one laid as a floor is (addCrownGable): the barn's at 3955..3966, 11462.
+                if (!trim && z > 0) {
+                    addCrownGable(x, y, z);
+                }
             }
             return;
         }
