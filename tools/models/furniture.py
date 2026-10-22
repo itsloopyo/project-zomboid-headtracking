@@ -5003,32 +5003,69 @@ def stump(name, high, radius, roots):
     return model
 
 
+GNOME_SCALE = 2.0
+
+
 def gnome():
-    """A garden gnome of painted plaster: boots, a coat with a belt, a white beard, a pointed red hat, one hand raised to wave."""
+    """A garden gnome of painted plaster, waving with his left hand and the right on his hip: round boots, red breeches, a
+    blue tunic flared at its hem with a belt and buckle, a round face with cheeks, a big nose, eyes, brows and ears, a
+    moustache over a full beard down to his chest, and a tall pointed red hat with a rolled brim. Made half size."""
     model = Model("gnome")
-    coat = bmesh.new()
-    lathe(coat, [(0.0, 0.05), (0.1, 0.05), (0.105, 0.12), (0.095, 0.2), (0.08, 0.27), (0.06, 0.3), (0.0, 0.31)], segments=16)
-    beam(coat, (0.075, 0.0, 0.26), (0.11, -0.01, 0.17), 0.045, 0.045)
-    beam(coat, (-0.075, 0.0, 0.26), (-0.13, -0.02, 0.34), 0.045, 0.045)
-    model.turned(coat, "paint", sharp=50.0)
     boots = bmesh.new()
     for side in (-1, 1):
-        cuboid(boots, side * 0.05 - 0.035, side * 0.05 + 0.035, -0.09, 0.03, 0.0, 0.055)
-    lathe(boots, [(0.0, 0.165), (0.1, 0.165), (0.1, 0.185), (0.0, 0.185)], segments=16)
-    model.hard(boots, "rubber", bevel=0.008, segments=1)
+        cuboid(boots, side * 0.048 - 0.034, side * 0.048 + 0.034, -0.09, 0.028, 0.0, 0.05)
+    model.soft(boots, "dark_wood")
+    legs = bmesh.new()
+    for side in (-1, 1):
+        lathe(legs, [(0.0, 0.035), (0.034, 0.035), (0.036, 0.06), (0.04, 0.09), (0.0, 0.09)], cx=side * 0.046, cy=-0.01, segments=12)
+    model.turned(legs, "vinyl", sharp=60.0)
+    coat = bmesh.new()
+    lathe(coat, [(0.0, 0.075), (0.106, 0.075), (0.114, 0.085), (0.104, 0.12), (0.1, 0.17), (0.096, 0.21), (0.086, 0.245), (0.062, 0.272), (0.0, 0.28)],
+          sy=0.86, segments=20)
+    for side in (-1, 1):
+        sphere(coat, side * 0.084, 0.0, 0.245, 0.03, segments=10)
+    # The left arm raised to wave beside his face, the right bent to his hip.
+    for start, end in (((0.084, 0.0, 0.245), (0.14, -0.012, 0.245)), ((0.14, -0.012, 0.245), (0.152, -0.03, 0.32)),
+                       ((-0.084, 0.0, 0.245), (-0.135, 0.004, 0.19)), ((-0.135, 0.004, 0.19), (-0.1, -0.02, 0.15))):
+        rod(coat, start, end, 0.027, segments=10)
+    for x, y, z in ((0.14, -0.012, 0.245), (-0.135, 0.004, 0.19)):
+        sphere(coat, x, y, z, 0.027, segments=10)
+    model.turned(coat, "paint", sharp=60.0)
+    belt = bmesh.new()
+    lathe(belt, [(0.099, 0.121), (0.106, 0.124), (0.106, 0.139), (0.099, 0.142)], sy=0.87, segments=20, closed=True, caps=False)
+    model.turned(belt, "dark_wood", sharp=50.0)
+    buckle = bmesh.new()
+    cuboid(buckle, -0.019, 0.019, -0.1, -0.088, 0.119, 0.144)
+    model.hard(buckle, "metal", bevel=0.003, segments=1)
     skin = bmesh.new()
-    lathe(skin, [(0.0, 0.29), (0.045, 0.3), (0.06, 0.34), (0.055, 0.38), (0.0, 0.395)], segments=12)
-    lathe(skin, [(0.0, -0.012), (0.016, -0.004), (0.0, 0.012)], segments=8, to=along_y(0.0, -0.055, 0.35))
-    for x, z in ((0.115, 0.165), (-0.135, 0.35)):
-        lathe(skin, [(0.0, z - 0.022), (0.022, z), (0.0, z + 0.022)], cx=x, cy=-0.015, segments=8)
-    model.turned(skin, "linen", sharp=60.0)
+    sphere(skin, 0.0, -0.004, 0.318, 0.056, segments=22)
+    for side in (-1, 1):
+        sphere(skin, side * 0.03, -0.045, 0.31, 0.022, segments=10)
+        sphere(skin, side * 0.056, -0.002, 0.322, 0.017, segments=8, squash=1.3)
+    sphere(skin, 0.0, -0.066, 0.318, 0.022, segments=14, squash=0.9)
+    sphere(skin, 0.155, -0.034, 0.345, 0.024, segments=14, squash=1.25)
+    rod(skin, (0.142, -0.036, 0.342), (0.13, -0.04, 0.36), 0.008, segments=6)
+    sphere(skin, -0.096, -0.026, 0.148, 0.023, segments=14)
+    model.turned(skin, "worktop", sharp=60.0)
+    eyes = bmesh.new()
+    for side in (-1, 1):
+        sphere(eyes, side * 0.021, -0.054, 0.336, 0.008, segments=8)
+    model.turned(eyes, "screen", sharp=60.0)
     beard = bmesh.new()
-    lathe(beard, [(0.0, 0.19), (0.035, 0.21), (0.062, 0.28), (0.062, 0.33), (0.0, 0.335)], cy=-0.06, sy=0.6, segments=12)
+    lathe(beard, [(0.0, 0.148), (0.02, 0.155), (0.048, 0.182), (0.066, 0.222), (0.073, 0.262), (0.069, 0.296), (0.058, 0.314), (0.0, 0.32)], cy=-0.052, sy=0.62,
+          segments=20)
+    for side in (-1, 1):
+        rod(beard, (0.0, -0.084, 0.304), (side * 0.042, -0.074, 0.288), 0.013, segments=10)
+        sphere(beard, side * 0.042, -0.074, 0.288, 0.013, segments=10)
+        rod(beard, (side * 0.008, -0.058, 0.349), (side * 0.036, -0.05, 0.352), 0.006, segments=6)
     model.turned(beard, "pillow", sharp=60.0)
     hat = bmesh.new()
-    lathe(hat, [(0.0, 0.365), (0.066, 0.365), (0.05, 0.42), (0.028, 0.48), (0.0, 0.55)], segments=14)
-    bmesh.ops.rotate(hat, verts=hat.verts[:], cent=(0.0, 0.0, 0.37), matrix=Matrix.Rotation(math.radians(12), 3, "X"))
+    lathe(hat, [(0.0, 0.356), (0.066, 0.356), (0.063, 0.38), (0.05, 0.42), (0.034, 0.462), (0.018, 0.508), (0.0, 0.55)], cy=0.008, segments=22)
+    torus(hat, 0.0, 0.008, 0.362, 0.064, 0.009, segments=22, steps=8)
+    bmesh.ops.rotate(hat, verts=hat.verts[:], cent=(0.0, 0.0, 0.36), matrix=Matrix.Rotation(math.radians(-5), 3, "X"))
     model.turned(hat, "vinyl", sharp=60.0)
+    # As big as the game paints it, 1.1 m to the tip of the hat.
+    model.vertices = [(position * GNOME_SCALE, normal, surface) for position, normal, surface in model.vertices]
     return model
 
 
