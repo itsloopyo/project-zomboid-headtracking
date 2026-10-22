@@ -33,9 +33,10 @@ POOLS = {
         'A whole fresh baked pizza with pepperoni and green peppers on a round metal tray on a wooden counter, seen from '
         'a little above, the cheese fully melted, bubbling and spotted golden brown, the crust puffed and browned, warm '
         'light.' + PRINT,
-        'A cook of about forty in a white apron and a small low white paper cap shaped like a little folded boat, '
-        'standing at a long flat rectangular steel griddle plate built into the counter of a small restaurant kitchen '
-        'with bare white tiled walls, seen from the side and a few metres away, both his hands resting on the steel '
+        'A cook of about forty in a white apron and a flat low white paper garrison cap, a narrow folded '
+        'paper strip worn flat along the top of his head like a soda jerk\'s cap, standing at a long flat '
+        'rectangular steel griddle plate built into the counter of a small restaurant kitchen with bare '
+        'white tiled walls, seen from the side and a few metres away, both his hands resting on the steel '
         'counter.' + PRINT,
         'A long diner counter with a row of chrome stools with red vinyl seats along it and wooden booths along the'
         ' window wall beyond, in a small family restaurant empty in the morning light, seen from one end of the'
@@ -44,20 +45,25 @@ POOLS = {
         ' the tents in the distance.' + PRINT,
     ],
     'bar': [
-        'A men\'s softball team of about ten men from twenty to fifty, each a different build, with ordinary 1980s '
-        'haircuts, some with moustaches, some with full beards, a few going grey, in matching plain blue t-shirts, '
-        'standing loosely in two uneven rows on a dusty field at evening, some with arms folded, some with hands on '
-        'hips, one with an arm round the next man\'s shoulders, seen from a few metres away.' + PRINT,
+        'A men\'s softball team of five men standing side by side in one loose row on a dusty field at '
+        'evening, seen from a few metres away from the knees up, in matching plain blue t-shirts, each man '
+        'plainly different in age, face and build: a heavy grey haired man of about fifty five with a grey '
+        'moustache, a lean man of forty with a dark beard, a tall bald man of about fifty, a stocky man of '
+        'thirty five with a red brown moustache and a thin young man of twenty two with shaggy brown hair, '
+        'some with arms folded, some with hands on hips.' + PRINT,
         'Four men in matching plain red bowling shirts standing side by side, seen close from the waist up so they fill '
         'the picture: a bald man of about fifty, a bearded man of forty, a tall thin man of thirty and a stout man of '
         'sixty with grey hair, the room behind them out of focus in a soft warm wood coloured blur.' + PRINT,
         'A wooden fishing dock on a Kentucky lake at sunset, a small aluminium boat tied up beside it, calm water.' + PRINT,
-        'Racehorses with jockeys in coloured silks galloping down the home stretch of a dirt race track, seen from the '
-        'white rail, green trees and a pale summer sky beyond the far side of the track.' + PRINT,
+        'Three racehorses with jockeys in coloured silks galloping down the home stretch of a dirt race '
+        'track, well spread out one behind another, seen side on from the white rail, each jockey crouched '
+        'low and tucked up over his horse\'s neck with very short stirrups and his knees high, green trees '
+        'and a pale summer sky beyond the far side of the track.' + PRINT,
         'A small country band of three men playing two acoustic guitars and an upright bass on a low wooden stage in a'
         ' dim bar, seen from across the room so they are small.' + PRINT,
-        'The outside of a roadside bar at dusk, a low wooden building with a gravel car park and two plain old pickup '
-        'trucks, and in its window a glowing red neon tube bent into the shape of a frothy beer mug.' + PRINT,
+        'The outside of a roadside bar at dusk, a low wooden building with a gravel car park and two plain '
+        'old boxy pickup trucks parked side on to the viewer, and in its window a glowing red neon tube '
+        'bent into the shape of a frothy beer mug.' + PRINT,
         'An empty bar at night, a pool table under one single hanging lamp with a green shade, seen from a few paces '
         'back, the lamp light on the green felt, a small cluster of balls far off at the end of the table, soft and '
         'out of focus, a cue lying along the near cushion, plain dark wood panelled walls in shadow.' + PRINT,
@@ -66,9 +72,10 @@ POOLS = {
         'Two old men in overalls sitting at either end of one long wooden bench that runs the whole width of the porch '
         'of a plain clapboard country store in the 1950s, the bench resting on the porch boards under both of them, '
         'seen from the far side of the dirt road in front, the porch roof shading them.' + OLD_PRINT,
-        'A large largemouth bass lying on its side on the weathered grey planks of a wooden lake dock, its big mouth '
-        'shut, its firm green and bronze scales, dark stripe and spiny back fin sharp, a coil of old rope beside it, '
-        'the lake water behind.' + PRINT,
+        'A largemouth bass lying on its side on the weathered grey planks of a wooden lake dock, seen side '
+        'on from a little way back so the whole fish lies across the middle of the picture with its small '
+        'head at one end and its jaw closed in a neat line, its green and bronze scales and dark side '
+        'stripe, a coil of old rope beside it, the lake water behind.' + PRINT,
         'An empty red clay dirt track at a county fairground at night, seen from the wooden stands, the banked oval lit '
         'by floodlights on tall wooden poles, a haze of dust still hanging in the light over the turns, dark trees '
         'beyond.' + PRINT,
@@ -90,22 +97,25 @@ POOLS = {
         'A small town in summer seen from high on a wooded hill above it, a main street of red brick buildings, a white'
         ' church steeple, tree lined streets of houses, and green fields and woods all round.' + PRINT,
         'A brick factory building with a tall chimney and a car park full of 1970s cars, seen from across the road.' + PRINT,
-        'A company softball team of eight men and women posed in two rows on a grass field on a summer evening, the back'
-        ' row standing and the front row kneeling, all in matching plain yellow t-shirts, a chain link backstop behind '
-        'them, seen from a few metres away so the whole team fits in the picture: a tall man of about fifty with grey '
-        'hair, a heavy set man of forty with a moustache, a young man of twenty five with a mullet, a thin man of sixty '
-        'with glasses, a woman of about forty five with short permed brown hair, a woman of thirty with a long dark '
-        'ponytail, a plump woman of fifty with grey curls and a young woman of twenty two with feathered blonde '
-        'hair.' + PRINT,
+        'A company softball team of eight men and women posed on a grass field on a summer evening, all in '
+        'matching plain yellow t-shirts, their hands empty, a chain link backstop behind them, seen from a '
+        'few metres away so the whole team fits in the picture: four standing in the back row, a tall man '
+        'of about fifty with grey hair, a heavy set man of forty with a moustache, a young man of twenty '
+        'five with a mullet and a woman of thirty with dark hair, and four kneeling on one knee in the '
+        'front row, a thin man of sixty with glasses, a woman of about forty five with short permed brown '
+        'hair, a plump woman of fifty with short grey curls and a young woman of twenty two with feathered '
+        'blonde hair.' + PRINT,
         'A misty Kentucky horse farm at dawn, white plank fences across rolling green fields and a red barn in the distance.' + PRINT,
         'An old black wooden tobacco barn in autumn with its side boards propped open, rows of cut tobacco plants'
         ' hanging upside down inside drying brown, a cut field of short stubble beside it, seen from the'
         ' road.' + PRINT,
     ],
     'shop': [
-        'Rakes, shovels, a wheelbarrow and a stack of galvanised buckets set out on the pavement in front of a small town '
-        'shop with a plain green awning, its big plate glass windows dark and reflecting the street, seen from across '
-        'the street on a sunny day.' + PRINT,
+        'A row of long handled garden rakes and shovels with straight wooden handles leaning against the '
+        'brick wall beside the door of a small town American hardware store, a plain red wheelbarrow and a '
+        'stack of galvanised buckets set out on the wide concrete sidewalk in front, the store a flat '
+        'roofed red brick building with a plain green canvas awning and big plate glass windows dark and '
+        'reflecting the street, seen from across the street on a sunny day.' + PRINT,
         'A small town main street in the 1950s seen at a slant down the length of the street, two storey shop fronts '
         'of plain painted brick running away along one side, their plain striped canvas awnings pulled down low over '
         'the windows, the brick above them bare, a few rounded old cars parked along the kerb, tall shade '
@@ -127,11 +137,11 @@ POOLS = {
         'concrete sidewalk and an empty wet street, the brick wall above the windows bare.' + PRINT,
     ],
     'school': [
-        'A class picture of about twenty fourth graders, girls and boys in equal numbers, all nine and ten years old, in '
-        'three rows in front of a plain beige painted cinder block wall, seen from a few metres away, every child '
-        'different, some with glasses, some with freckles, ponytails, bowl cuts and curls, all looking at the camera '
-        'with their eyes open and smiling, their teacher, a grown woman of about forty in a cardigan, standing at the '
-        'right end of the back row.' + PRINT,
+        'A class picture of about twenty fourth graders, girls and boys in equal numbers, all nine and ten '
+        'years old, in three rows in front of a plain beige painted cinder block wall, seen from a few '
+        'metres away, every child different, some with glasses, ponytails, bowl cuts and curls, all '
+        'looking at the camera with their eyes open and smiling, their teacher, a grown woman of about '
+        'forty in a cardigan, standing at the right end of the back row.' + PRINT,
         'Three high school basketball seniors, grown young men of eighteen with men\'s faces, square jaws and a shadow '
         'of stubble, one tall and thin with short dark hair, one broad with a blond crew cut, one with a short curly '
         'afro, in plain maroon t-shirts and grey sweatpants, standing side by side on a polished gym floor, the one in '
@@ -148,36 +158,48 @@ POOLS = {
         'A high school marching band in blue and white uniforms marching in neat rows across plain green grass, seen '
         'from high above, each player small with a shining brass horn raised to the lips and pointing forward, only the'
         ' green grass, a few thin straight white chalk lines running across it and the band in view.' + PRINT,
-        'A new single storey brick school building in the 1950s, about thirty children standing in three rows on the '
-        'front lawn facing the camera, a teacher at each end of the rows, seen from across the lawn.' + OLD_PRINT,
+        'A new single storey brick school building in the 1950s, about fifteen children standing in two '
+        'rows on the front lawn facing the camera, two grown women teachers standing one at each end of '
+        'the rows, seen from a few metres away so every child shows clearly from head to foot.' + OLD_PRINT,
         'A school library with wooden shelves of books and long tables, empty, afternoon light from tall windows.' + PRINT,
     ],
     'police': [
-        'A police officer of about forty with a moustache, bareheaded, in a plain dark blue short sleeved uniform shirt, '
-        'standing beside the front of his plain white patrol car on a small town street, seen from a few metres away '
-        'from the waist up, shop fronts soft behind him.' + PRINT,
+        'A police officer of about forty with a moustache, bareheaded, in a plain dark blue short sleeved '
+        'uniform shirt, standing beside his plain white patrol car on a small town street, the car seen '
+        'side on with its front end out of the picture, seen from a few metres away from the waist up, '
+        'plain brick walls soft and blurred behind him.' + PRINT,
         'A police academy graduating class of about twenty officers in dark uniforms standing in rows outside a brick building,'
         ' seen from a distance.' + PRINT,
-        'Seen from high above, looking straight down on the roofs of four plain white 1980s patrol cars parked side by '
-        'side in a row in a car park, each roof with a red and blue light bar across it, white painted bay lines on the '
-        'grey tarmac between them, summer afternoon shadows.' + PRINT,
-        'A few police officers in 1950s uniforms and peaked caps standing beside an old rounded dark patrol car with '
-        'white doors and one single round light on its roof, on a small town street.' + OLD_PRINT,
+        'Seen from high above, looking straight down on the roofs of four big long plain white 1980s '
+        'American sedans used as patrol cars, parked side by side in four separate parking spaces with a '
+        'wide gap of grey tarmac and a white painted line between each car and the next, each roof with a '
+        'red and blue light bar across it, summer afternoon shadows.' + PRINT,
+        'Four police officers in 1950s uniforms with plain sleeves and peaked caps standing in a row '
+        'beside an old rounded dark patrol car with white doors and one single round light on its roof, on '
+        'a small town street, each a different man: a heavy set sergeant of about fifty five with a grey '
+        'moustache, a tall thin man of thirty, a stocky man of forty with a broad face and a short young '
+        'man of twenty five.' + OLD_PRINT,
     ],
     'stage': [
         'A theatre stage during a play, actors in period costume under warm stage lights, a painted backdrop of a garden,'
         ' seen from the back of the audience.' + PRINT,
-        'The curtain call of a community theatre play, eight grown men and women of different ages in costume standing '
-        'upright in one row across the stage an arm\'s length apart, holding hands and smiling, seen straight on from '
-        'the back of the hall over the heads of the audience.' + PRINT,
+        'The curtain call of a community theatre play, five grown men and women in old fashioned costume '
+        'standing upright in one row across the stage an arm\'s length apart, holding hands, each with a '
+        'gentle closed mouth smile, every face different: a grey haired man of sixty in a plain waistcoat, '
+        'a woman of about forty with dark hair pinned up in a long plain dress, a young man of twenty five '
+        'in an open collared shirt, a plump woman of fifty in a long plain dress and a tall thin man of '
+        'forty in a plain jacket, seen straight on from the back of the hall over the heads of the '
+        'audience.' + PRINT,
         'An old cinema front at night seen from across the street, a wide marquee lit with rows of bulbs round its plain '
         'blank white boards, the doors and the pavement below in warm light.' + PRINT,
         'A woman singer in a long sequinned gown with long sleeves that reaches to the floor, standing alone at a'
         ' microphone on a small stage under a single spotlight, seen from across the dark room, the dark room and the stage'
         ' running right out to all four edges of the image.' + PRINT,
         'An empty theatre auditorium with red velvet seats and a closed red curtain, warm house lights.' + PRINT,
-        'A small brass band of eight men in white jackets sitting on chairs inside an old round wooden bandstand in a '
-        'park, playing under its roof, seen from across the lawn.' + OLD_PRINT,
+        'A small brass band of four men in white jackets sitting on chairs inside an old round wooden '
+        'bandstand in a park, playing under its roof, seen from across the lawn, each man different: two '
+        'with trumpets raised to their lips, one with a big round tuba on his lap and one with a trombone '
+        'held out in front of him.' + OLD_PRINT,
         'Three grown women dancers of about thirty, each face different, one blonde, one dark haired and one red '
         'haired, in matching long sleeved red costumes with long red trousers, standing a little apart across a stage '
         'with their arms raised high in a bow at the end of a number, seen straight on from the audience.' + PRINT,
@@ -186,12 +208,15 @@ POOLS = {
     'church': [
         'Head and shoulders of a pastor, a man of about sixty with grey hair and a kind face, in a dark suit and '
         'tie.' + STUDIO,
-        'A whole Sunday morning congregation of about forty people of every age crowded together on the wide front steps '
-        'and the lawn of a white clapboard country church after the service: old women in flowered dresses and straw hats,'
-        ' old men in short sleeved shirts and slacks, young mothers holding babies, fathers in plain sport coats, '
-        'teenagers and small children in front, seen from across the lawn so they are small.' + PRINT,
-        'A church choir in maroon robes standing in three rows behind a wooden altar rail, facing the camera and the '
-        'empty wooden pews in front of them, singing from open books, seen from halfway down the aisle.' + PRINT,
+        'About a dozen people of a small country church standing together in two rows on the wide front '
+        'steps of a white clapboard church after the Sunday service, all facing the camera and smiling, '
+        'seen from a few metres away so every face is clear: old women in flowered dresses, a grey haired '
+        'man in a short sleeved shirt and tie, a young mother holding a baby, a father in a plain sport '
+        'coat, and two children of about eight standing in front of the grown ups facing the camera.' + PRINT,
+        'A church choir of men and women of mixed ages from twenty five to seventy, some grey haired, some '
+        'balding, some with glasses, every face different, in maroon robes, standing in three rows behind '
+        'a wooden altar rail, facing the camera and the empty wooden pews in front of them, singing from '
+        'open books, a plain wooden cross on the bare wall behind them, seen from halfway down the aisle.' + PRINT,
         'A church picnic on a summer lawn, long tables with white cloths under oak trees, people sitting at them in the'
         ' distance.' + PRINT,
     ],
