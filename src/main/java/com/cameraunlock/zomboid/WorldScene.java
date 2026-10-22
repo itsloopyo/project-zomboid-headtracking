@@ -6522,9 +6522,11 @@ final class WorldScene {
             Kind kind = kindOf(sprite);
 
             // The game marks whatever is named damaged or trash_ as fixed to the floor, a torn fence and a notice on a wall
-            // among them: see FloorMarks.
+            // among them: see FloorMarks. It marks some things that stand so too, a lawn flamingo and a small mirror on a
+            // wall among them, and what the mod has a model of stands as that.
+            boolean modelled = !isFloor && properties.has(IsoFlagType.attachedFloor) && Own.furniture() && Furniture.known(sprite) != null;
             if (isFloor || properties.has(IsoFlagType.solidfloor) || properties.has(IsoFlagType.FloorOverlay)
-                    || FloorMarks.onFloor(sprite.getName(), properties)) {
+                    || !modelled && FloorMarks.onFloor(sprite.getName(), properties)) {
                 // The map closes a tent at the level its canopy is on with a ceiling laid as a
                 // floor. Inside the tent the canvas is the ceiling: the flat one is left out.
                 if (canvas && z > 0) {
