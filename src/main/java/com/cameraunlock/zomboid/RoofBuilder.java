@@ -673,7 +673,9 @@ final class RoofBuilder {
             roofU = roof.u;
             roofV = roof.v;
         }
-        sheet.open = build.frame.open + 32f * WorldScene.SHINGLES;
+        // Of the stuff the roof's own tiles are: shingle on the roofs' sheets, the bare sheet metal
+        // of a trailer's roof on its own sheet, which as shingle was a crumpled foil along its eaves.
+        sheet.open = build.frame.open + 32f * (colour == null ? WorldScene.SHINGLES : WorldScene.materialOf(roof.finish.getName(), false));
         return sheet;
     }
 
