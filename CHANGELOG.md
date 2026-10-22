@@ -25,6 +25,7 @@
 - The pointer comes out with the inventory open, with any game window or menu open, or with a click of the middle mouse button until you click it again or press `Esc`. Head tracking carries on.
 - `E` uses the door, window, curtain, light switch, container or item under the reticle, leaning and head turns included. What it will use is outlined.
 - Right click with the pointer out opens the game's own menu for what the pointer is on, the same as in the isometric view.
+- Left click with the pointer out uses what the pointer is on, as `E` does with the reticle, the same as in the isometric view.
 - A single quick click is enough for a melee attack.
 - Walking or sneaking sideways or backwards in first person, your character keeps facing where you look, in the game's aiming stance at the pace of its walk ahead. Jogging or sprinting, it turns to the way it goes. Offline only; `FacesTheView` switches it off.
 - Controller: the aim stick turns the view, right trigger attacks, left trigger raises the sights, double-tap Back switches view.

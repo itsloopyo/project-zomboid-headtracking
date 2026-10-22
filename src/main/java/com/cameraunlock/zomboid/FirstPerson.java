@@ -1442,6 +1442,35 @@ public final class FirstPerson {
      * @param y down it
      */
     IsoObject underPointer(float x, float y) {
+        ViewCamera.Pose line = lineThrough(x, y);
+        if (line == null) {
+            return null;
+        }
+        IsoPlayer player = view.player();
+        return view.centreUse.forMenu(line, floorUp(player), player, IsoWorld.instance.currentCell);
+    }
+
+    /**
+     * Acts on what is under the pointer at a place on the screen, as the Interact key does on
+     * what is under the reticle, and as the game's own left click does in its own view.
+     *
+     * @param x across the game's window, in pixels
+     * @param y down it
+     */
+    void useAtPointer(float x, float y) {
+        IsoPlayer player = view.player();
+        ViewCamera.Pose line = lineThrough(x, y);
+        if (player.getVehicle() != null || line == null) {
+            return;
+        }
+        CentreUse.Outcome outcome = view.centreUse.press(line, floorUp(player), player, IsoWorld.instance.currentCell, true);
+        if (TRACE) {
+            Log.info("use at the pointer (" + x + ", " + y + "): " + outcome);
+        }
+    }
+
+    /** The line from the eye through a place on the screen in the picture as it was last drawn, or null before one is drawn. */
+    private ViewCamera.Pose lineThrough(float x, float y) {
         float aspect = view.worldScene.drawnAspect();
         if (aspect == 0f || pictureTanHalf == 0f) {
             return null;
@@ -1456,8 +1485,7 @@ public final class FirstPerson {
         pointerLine.forwardX = forwardX / length;
         pointerLine.forwardY = forwardY / length;
         pointerLine.forwardUp = forwardUp / length;
-        IsoPlayer player = view.player();
-        return view.centreUse.forMenu(pointerLine, floorUp(player), player, IsoWorld.instance.currentCell);
+        return pointerLine;
     }
 
     /** The line from the eye through the pointer. Only its eye and its forward are set. */

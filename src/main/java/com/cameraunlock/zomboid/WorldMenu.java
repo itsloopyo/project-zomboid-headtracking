@@ -14,7 +14,8 @@ import zombie.ui.UIManager;
  * the first person picture. The game opens it for what its own view has under the pointer,
  * and under this picture that is nothing (Controls.picked). Here the line from the eye through
  * the pointer is traced across the map, and the game's own menu is opened for what it meets,
- * with everything on that square, as the game's own click would.
+ * with everything on that square, as the game's own click would. A left click there uses what
+ * the line meets, as the game's own left click does in its view (FirstPerson.useAtPointer).
  *
  * Logic thread only: the game tells its Lua of the mouse there.
  */
@@ -25,16 +26,16 @@ final class WorldMenu {
         this.view = view;
     }
 
-    private static final String RIGHT_DOWN = "OnRightMouseDown", RIGHT_UP = "OnRightMouseUp";
-    /** A right press held longer than this is the aim: the game's own limit for a right click on an object. */
+    private static final String RIGHT_DOWN = "OnRightMouseDown", RIGHT_UP = "OnRightMouseUp", LEFT_DOWN = "OnMouseDown", LEFT_UP = "OnMouseUp";
+    /** A press held longer than this is no click: for the right button it is the aim, and it is the game's own limit for a right click on an object. */
     private static final long CLICK_NANOS = 500_000_000L;
     /** Where the game's ISContextMenu.get starts a menu sliding in from, to the right of and above where it is asked for. */
     private static final double SLIDE_X = 20, SLIDE_Y = -10;
 
     private static final String MANAGER = "ISContextManager";
 
-    private boolean down;
-    private long downAt;
+    private boolean down, leftDown;
+    private long downAt, leftDownAt;
 
     /** What the game's Lua lacks for the menu to open, or null. */
     static String gap() {
@@ -64,6 +65,14 @@ final class WorldMenu {
             down = false;
             if (System.nanoTime() - downAt < CLICK_NANOS && view.firstPerson.pointerOut()) {
                 open(x, y);
+            }
+        } else if (LEFT_DOWN.equals(event)) {
+            leftDown = view.firstPerson.pointerOut();
+            leftDownAt = System.nanoTime();
+        } else if (LEFT_UP.equals(event) && leftDown) {
+            leftDown = false;
+            if (System.nanoTime() - leftDownAt < CLICK_NANOS && view.firstPerson.pointerOut()) {
+                view.firstPerson.useAtPointer((float) x, (float) y);
             }
         }
     }
