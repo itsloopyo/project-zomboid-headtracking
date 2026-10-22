@@ -943,6 +943,20 @@ final class PipelineShaders {
                 return inside(c) ? shadow2D(uShadowFar, c).r : 1.0;
             }
 
+            // Whether the sun is on what a point of air looks down on: the highest thing the map from
+            // above has under it, asked just over it. Where that thing stands over the point, a crown
+            // or a porch roof, the point sees the shade under it and is asked where it is, and so is
+            // one where the map has nothing. Past the map's reach, in the sun.
+            float sunOnTopUnder(vec3 p) {
+                vec3 c = (uRoofMatrix * vec4(p, 1.0)).xyz * 0.5 + 0.5;
+                if (c.x <= 0.0 || c.x >= 1.0 || c.y <= 0.0 || c.y >= 1.0) {
+                    return 1.0;
+                }
+                float over = texture2D(uHeights, c.xy).r;
+                float top = p.z + (c.z - over) * uRoofDeep;
+                return sunOnAir(over >= 1.0 || top > p.z ? p : vec3(p.xy, top + 0.1));
+            }
+
             // Where a point under something asks a sun map about itself. A map holds every surface behind
             // where it is, by uSlopeOffset texels of the surface's slope in the map, and the lookup is
             // answered by the texels round it, a texel more, and those its soft edge spreads over. A sheet
@@ -3649,10 +3663,26 @@ final class PipelineShaders {
                 // that the shaded side of every building is a flat dark slab. Only ground the sun
                 // is on throws it: a wall turned from a low sun stands in its own long shadow and
                 // has little from the ground, where at noon its shadow is short and the street
-                // beyond it is bright. Asked of the air a pace and two paces out from the face.
+                // beyond it is bright. Asked of what lies on the ground a pace and two paces out, spread
+                // along the face as the patch a wall sees is wide, each place moved by up to half the
+                // spread a different way at every pixel: the edge of a shadow on the ground comes up the
+                // wall as a soft ramp, not a step. Asked of the air at the face's height, the house's
+                // own shadow in that air drew its roof's outline across the wall turned from the sun.
+                // Towards the edge of the map from above the ground goes over to taken as in the sun,
+                // which matters little that far off: the light it throws is the sun's height's.
                 float groundLit = 1.0;
-                if (sided > 0.5) {
-                    groundLit = 0.5 * (sunOnAir(vWorld + vec3(face.xy, 0.0) * 1.0) + sunOnAir(vWorld + vec3(face.xy, 0.0) * 2.5));
+                vec3 mapped = (uRoofMatrix * vec4(vWorld, 1.0)).xyz * 0.5 + 0.5;
+                float inMap = smoothstep(0.02, 0.12, min(min(mapped.x, 1.0 - mapped.x), min(mapped.y, 1.0 - mapped.y)));
+                if (sided > 0.5 && inMap > 0.0) {
+                    float turn = sunTurn();
+                    vec3 out1 = vec3(face.xy, 0.0), along = vec3(-face.y, face.x, 0.0);
+                    float seen = 0.0;
+                    for (int i = 0; i < 6; i++) {
+                        float d = i < 3 ? 1.0 : 2.5;
+                        float k = float(i - (i < 3 ? 1 : 4)) + 0.5 * cos(turn + float(i) * 2.3999632);
+                        seen += sunOnTopUnder(vWorld + out1 * d + along * (k * d));
+                    }
+                    groundLit = mix(1.0, seen / 6.0, inMap);
                 }
                 lightHere += uLightLinear * vec3(0.9, 0.86, 0.74) * (0.3 * max(uLight.z, 0.0) * (1.0 - abs(n.z)) * open * groundLit);
                 vec3 color = pow(texel.rgb, vec3(2.2)) * lightHere;
