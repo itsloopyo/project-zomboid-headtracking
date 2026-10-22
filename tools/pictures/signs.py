@@ -28,8 +28,10 @@ GROUNDS = {
     'sign-board': 'extreme close-up photograph of the middle of a flat sheet metal sign board, the plain light grey surface filling the '
                   'whole frame and running off every edge, even enamel paint, faint scratches, '
                   'specks of dust and slight weathering stains, flat even daylight, sharp focus',
-    'sign-slate': 'extreme close-up photograph of a blank black slate chalkboard surface filling the frame, faint smears of wiped chalk dust, '
-                  'flat even light, sharp focus',
+    'sign-slate': 'extreme close-up photograph of the middle of a large black slate chalkboard, the surface filling the whole frame and '
+                  'running off every edge, wiped clean with long even straight side to side strokes of a felt eraser that run right '
+                  'across the board from one edge of the picture to the other, a faint even haze of chalk dust spread evenly over '
+                  'the whole surface, flat even light, sharp focus',
     'sign-cloth': 'close-up photograph of plain white cotton flag cloth hanging down in soft vertical folds, fine woven texture, '
                   'even daylight, sharp focus',
 }

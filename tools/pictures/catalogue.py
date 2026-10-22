@@ -191,9 +191,11 @@ SPORTS = {
         'A close low view along a white painted baseline on a red clay tennis court in evening light, a long scuffed '
         'slide mark gouged through the smooth clay across the line, a little heap of red clay pushed up at its end and '
         'one fuzzy yellow ball resting beside it, the rest of the court soft and blurred behind.' + STILL,
-        'A grass tennis court at a small country club on a sunny day, seen from high up and a long way back beyond one '
-        'end, looking straight down the length of the court: two players in white, one at each baseline facing each '
-        'other across the net, both tiny figures no bigger than a fingernail, hedges and trees round the court.' + ACTION,
+        'Two men playing tennis on a green asphalt court in a small town park on a hot summer afternoon, seen from just '
+        'behind the near baseline at head height: the near player big in the foreground, seen from behind from the waist '
+        'up as he swings his racket, a man of about thirty with short brown hair in a white t-shirt, and across the net '
+        'the far player small, an older man of about fifty with grey hair in a pale blue shirt, a tall chain link fence '
+        'round the court, leafy maple trees and a wooden telephone pole beyond it.' + ACTION,
     ],
     'boxing': [
         'The corner of an empty boxing ring under one hanging lamp, a red padded corner post with three red ropes '
@@ -252,8 +254,10 @@ SPORTS = {
         'and its three white bases, the pitcher\'s mound, the wide green outfield and a plain dark green board fence '
         'round it, the tall lights on wooden poles just coming on, trees and a pink sky beyond, the field empty and '
         'freshly raked.' + STILL,
-        'A scuffed white baseball with red stitching lying on its own in the red dirt of an infield beside a white '
-        'chalk line, seen low and close, footprints in the dirt round it, the green outfield soft and blurred behind.' + STILL,
+        'A scuffed white baseball lying on its own in the red dirt of an infield beside a white chalk line, seen low and '
+        'close, its two white leather panels joined by one single continuous seam of red stitches that winds round the '
+        'ball in a figure eight, the way the seam runs on a real baseball, footprints in the dirt round it, the green outfield soft and '
+        'blurred behind.' + STILL,
     ],
     'football': [
         'An empty high school American football field at night in thick fog, seen from behind one end zone, the '
@@ -312,9 +316,13 @@ SPORTS = {
         'A row of round black iron dumbbells resting in pairs on a long wooden rack against a bare painted brick wall '
         'in an old gym, each with plain round black iron heads and a knurled steel handle, the pairs getting bigger '
         'along the rack, soft window light across them and the scuffed wooden floor below.' + STILL,
-        'An aerobics class of about a dozen men and women in plain grey sweatshirts and grey sweatpants exercising with'
-        ' small dumbbells in rows in an old gym with bare painted brick walls and tall windows, seen from the front of '
-        'the room, the class facing the viewer.' + ACTION,
+        'An aerobics class of eight men and women in plain grey sweatshirts and grey sweatpants exercising with small '
+        'dumbbells in two rows in an old gym with bare painted brick walls and tall windows, seen from the front of the '
+        'room, the class facing the viewer, each of them a different person: in front a heavy set bald man of about '
+        'fifty, a thin young woman of twenty with a blonde ponytail, a black woman of about forty with short curly hair '
+        'and a tall man of thirty with a dark moustache, and behind them a grey haired woman of sixty, a stocky young man'
+        ' of twenty five with a crew cut, a red haired woman of thirty five and a lean man of forty five with '
+        'glasses.' + ACTION,
         'A round dented steel bowl full of soft lumps of white lifting chalk standing on a scarred wooden bench in an '
         'old gym, the bench top and the floor below it dusted white, soft window light from one side, the rest of the '
         'gym dim behind.' + STILL,
@@ -361,9 +369,10 @@ SPORTS = {
         'A row of empty bowling lanes in an old bowling alley at closing time, seen low from the approach, the long '
         'polished boards gleaming as they run away to the small white pins far off, the room dark and the area above '
         'the pins in deep shadow.' + STILL,
-        'Ten white bowling pins with red neck stripes standing in their triangle on the pin deck at the end of a '
-        'polished lane, seen low and close so the pins fill the middle of the picture, the dark pit behind them in deep'
-        ' shadow.' + STILL,
+        'Ten white bowling pins with red neck stripes set up on the pin deck at the end of a polished lane, seen from '
+        'above and in front, looking down on them at a steep angle so the whole triangle of pins shows plainly: one head '
+        'pin at the point nearest the viewer, two pins in the row behind it, three in the next row and four in the back '
+        'row, the triangle pointing at the viewer, the dark pit behind them in deep shadow.' + STILL,
     ],
     'racing': [
         'An empty red clay dirt track oval at a county fairground at dusk, seen from the top of the bank on the outside '
@@ -436,9 +445,10 @@ SPORTS = {
         'A whitetail buck standing side on on a grassy ridge at sunset, the low sun in the sky well to the left of him, '
         'warm side light on his brown coat, his whole body and all four legs standing against the grass of the ridge, '
         'an orange evening sky above.' + WILD,
-        'A pointer hunting dog standing rigid on point in a field of dry grass that reaches up to its belly, seen side '
-        'on, its body level, its nose stretched forward and its tail held out straight behind it in one line, all four '
-        'legs hidden in the grass.' + WILD,
+        'A liver and white female pointer hunting dog crouched rigid on point in thick tall golden sedge grass that rises'
+        ' up to her shoulders, seen side on from a little way off, only her head, neck, level back and tail above the '
+        'dense grass: her nose stretched forward towards a hidden bird and her tail held out straight behind her in one '
+        'line with her back, the tall grass thick in front of her and all round her.' + WILD,
         'A bull elk with one large pair of branching antlers standing side on in a mountain meadow in autumn, its head'
         ' held high.' + WILD,
     ],
@@ -491,11 +501,12 @@ PAINTINGS = {
     'Abe Lincoln': ('a close cropped detail of the head and shoulders from a large formal 19th century oil portrait of '
                     'Abraham Lincoln in a dark suit, his dark coat running off the bottom and the sombre brown '
                     'background off the top and sides' + DETAIL, TALL),
-    'Apple Faced Man': ('a close cropped detail from the middle of a large surrealist oil painting: a gentleman seen '
-                        'from the chest up in a dark overcoat, a white shirt and a red tie, a black bowler hat sitting '
-                        'on his head, a green apple hovering just in front of his face and hiding it, a low stone wall '
-                        'and a grey cloudy sky behind him, his coat running off the bottom and the sky off the top and'
-                        ' sides' + DETAIL, TALL),
+    'Apple Faced Man': ('a close cropped detail from the middle of a large surrealist oil painting: an orchard farmer '
+                        'in faded blue overalls and a straw hat sitting on an upturned wooden crate under a laden apple '
+                        'tree, his whole head one big shiny red apple with a short brown stem and a single green leaf '
+                        'on top under the hat brim, a wicker basket of red apples at his feet and a wooden ladder '
+                        'against the tree, warm golden afternoon light, red, green and gold, the grass running off the '
+                        'bottom and the branches off the top and sides' + DETAIL, TALL),
     'Benjamin Franklin': ('a close cropped detail of the head and shoulders from a large formal 18th century oil '
                           'portrait of Benjamin Franklin in a brown coat, long grey hair, his coat running off the '
                           'bottom and the dark background off the top and sides' + DETAIL, TALL),
@@ -519,17 +530,25 @@ PAINTINGS = {
                          ' vase of mixed flowers on a table with a white cloth against a dark background, the cloth and'
                          ' the table running out of the bottom of the picture' + DETAIL, TALL),
     'George Washington': ('a close cropped detail of the head and shoulders from a large formal oil portrait of George '
-                          'Washington as an older man in his sixties in the manner of Gilbert Stuart, his long face, '
-                          'heavy jaw and firm closed mouth, grey powdered hair tied back, his black velvet coat running'
-                          ' off the bottom and a red curtain behind him running off the top and sides' + DETAIL, TALL),
-    'Helianthus': ('a close cropped detail from the middle of a large post-impressionist oil painting of sunflowers in '
-                   'a clay vase against a yellow wall, thick impasto, the vase running out of the bottom of the picture' + DETAIL, TALL),
+                          'Washington at sixty four in the manner of Gilbert Stuart, turned three quarters to the left: '
+                          'a big broad face, a long straight nose, pale grey blue eyes under heavy lids, ruddy cheeks, a '
+                          'wide firmly shut mouth with the lips pressed thin and the lower face full and square over a '
+                          'heavy jaw, white powdered hair brushed back from a high forehead and rolled in curls over the '
+                          'ears, a white lace frill at the throat, his black velvet coat running off the bottom and a '
+                          'red curtain behind him running off the top and sides' + DETAIL, TALL),
+    'Helianthus': ('a close cropped detail from the middle of a large American oil painting: three tall sunflowers in a'
+                   ' white enamel milk jug standing on a farmhouse windowsill, a pale blue painted wall either side and '
+                   'an open window behind them onto green summer fields and a deep blue sky, cool blues and greens round '
+                   'the yellow flowers, smooth thin paint and soft even brushwork, the jug running out of the bottom of '
+                   'the picture, the brushwork running off every edge of the picture.', TALL),
     'Incognito Library': ('a close cropped detail from the middle of a large oil painting of the interior of an old '
                           'library: tall shelves of leather books, a fireplace, an armchair and a brass lamp, warm '
                           'brown tones, the shelves running off both sides and the floor off the bottom' + DETAIL, WIDE),
     'Island Beach': ('a close cropped detail from the middle of a large seascape oil painting: waves breaking white on '
-                     'dark rocks off an island shore, a turquoise sea and a cloudy sky, the surf and the rocks running '
-                     'out of the bottom of the picture' + DETAIL, LONGER),
+                     'dark rocks off an island shore, a deep turquoise sea laid in with clean smooth strokes of blue and '
+                     'green, a soft sky of grey and white clouds, the surf and the rocks running out of the bottom of the'
+                     ' picture, the brushwork running off every edge of the picture. Visible brushstrokes, clean cool '
+                     'colours.', LONGER),
     'John Adams': ('a close cropped detail of the head and shoulders from a large formal 18th century oil portrait of '
                    'John Adams in a dark coat and white cravat, grey hair, his coat running off the bottom and the dark'
                    ' background off the top and sides' + DETAIL, TALL),
@@ -542,17 +561,22 @@ PAINTINGS = {
                    'and the surf running out of the bottom of the picture' + DETAIL, TALL),
     'Man With One Ear': ('post-impressionist self portrait of a red bearded man in a fur cap and green coat, a thick white cloth bandage wrapped round his head over one ear and tied under his chin, swirling brushstrokes' + OIL, TALL),
     'Margarite': ('a close cropped detail of the head and shoulders from a large 17th century Dutch oil painting of a '
-                  'girl in a blue and yellow turban glancing over her shoulder, a pearl earring, her plain smooth ochre'
-                  ' jacket running off the bottom and the black background off the top and sides' + DETAIL, TALL),
+                  'young woman of about twenty with a round freckled face and red brown hair under a plain white linen '
+                  'cap, facing straight out at the viewer with a small closed smile, a dark green bodice with a white '
+                  'linen collar, a warm grey brown plaster wall behind her lit by a window on the right, her face '
+                  'painted in soft blended oil brushstrokes, her bodice running off the bottom and the wall off the top '
+                  'and sides' + DETAIL, TALL),
     'Monica Elisa': ('an ink and watercolour portrait of a woman with long black hair in a red and orange patterned robe, head and shoulders, white paper background', TALL),
     'Mount Never Rest': ('a close cropped detail from the middle of a large romantic landscape oil painting: a towering'
                          ' snow capped mountain above a lake and pine forest, golden light breaking through clouds, the'
                          ' lake running out of the bottom of the picture' + DETAIL, LONGER),
     'Night With Stars': ('post-impressionist painting of a swirling starry night sky with a crescent moon over a small sleeping village of many little houses with lit windows clustered below hills, a church spire rising among them, a tall dark cypress in the foreground, thick impasto' + OIL, BROAD),
-    'Nomad Above The Gloom': ('a close cropped detail from the middle of a large romantic oil painting: a lone man in '
-                              'a dark frock coat seen from behind, standing on a rocky crag above a sea of fog and '
-                              'distant mountains, the dark rocks running out of the bottom of the picture and the fog '
-                              'off both sides' + DETAIL, SQUARE),
+    'Nomad Above The Gloom': ('a close cropped detail from the middle of a large romantic oil painting: a small far off '
+                              'traveller in a long red cloak with a walking staff, seen from the side, leading a laden '
+                              'grey mule along a narrow path high on a sunlit grassy ridge that runs across the picture,'
+                              ' deep dark valleys full of storm clouds and gloom below the path, a pale golden evening '
+                              'sky above, warm gold and red against deep blue grey, the valleys running out of the '
+                              'bottom of the picture and the ridge off both sides' + DETAIL, SQUARE),
     'Omega Department': ('a gouache illustration of a friendly brown bear and a badger with a grey coat, a black and '
                          'white striped face and a short grey tail, standing side by side a little apart on a flat pale'
                          ' yellow ground that runs off every edge of the picture, soft matte gouache colours', TALL),
@@ -754,16 +778,21 @@ FILMS = {
                       'covering only the left half of his face from brow to jaw, the right half his own bare face, dark '
                       'teal background.' + FILM,
                       'CYBERKILLER 2', 'IN THEATERS NOW'),
-    'Operation Fort Knox': ('Operation Fort Knox', 'A blond secret agent in a black tuxedo, head and shoulders, stacks of gold bars'
-                            ' glowing behind him, golden light.' + FILM, 'OPERATION FORT KNOX', 'IN THEATERS NOW'),
+    'Operation Fort Knox': ('Operation Fort Knox', 'Head and shoulders of a secret agent of about forty five with thinning '
+                            'sandy hair, a broad weathered face with deep lines and a crooked nose, natural pale skin, in a '
+                            'dark grey suit and a loosened dark tie, standing in a dim steel vault, behind him rows of '
+                            'smooth bare gold bars with clean blank faces stacked on steel shelves, cool grey light on his '
+                            'face and a warm gleam on the gold.' + FILM, 'OPERATION FORT KNOX', 'IN THEATERS NOW'),
     'PAWS': ('PAWS', 'A raccoon, a brown bear cub and a badger walking a little apart along the top of a grassy ridge'
                      ' against a big pale summer sky, seen from below at the foot of the slope, so the animals stand '
                      'high in the picture with their faces in the upper third, and the green slope dotted with '
                      'wildflowers fills the whole lower half below them. A hand painted gouache illustration with soft'
                      ' colours, the scene running off all four edges of the image.',
              'PAWS', 'IN THEATERS NOW'),
-    'Dog Goblin 4': ('Dog Goblin 4', 'A huge cracked stone skull half buried in a misty moonlit wood, bare trees, black and steel'
-                     ' blue.' + FILM, 'DOG GOBLIN 4', 'IN THEATERS NOW'),
+    'Dog Goblin 4': ('Dog Goblin 4', 'A snarling goblin monster with the head of a shaggy black dog, pointed bat ears, small '
+                     'yellow eyes and long crooked teeth, a latex rubber mask and fur costume from a low budget 1980s '
+                     'horror film, crouching among bare trees in a dark misty wood at night, lit hard from one side by '
+                     'a single warm orange light, the rest of the wood in black shadow.' + FILM, 'DOG GOBLIN 4', 'IN THEATERS NOW'),
     'Pleistocene Land': ('Pleistocene Land', 'A woolly mammoth with great curved tusks walking through a snowy pine forest in a'
                          ' blizzard, pale winter light.' + FILM, 'PLEISTOCENE LAND', 'IN THEATERS NOW'),
     'Dr Oids': ('Dr Oids', 'Chunky 8-bit pixel art made of flat solid square pixels: a close crop from the middle of a'
@@ -771,12 +800,17 @@ FILMS = {
                            ' edge of the image, a round yellow creature with an open wedge mouth and a pink ghost in '
                            'the upper half, rows of small white dots along the corridors, every pixel one flat colour '
                            'with crisp hard edges.', 'DR. OIDS', 'NOW SHOWING'),
-    'The Forgotten Element': ('The Forgotten Element', 'A rugged man in a fedora and leather jacket standing beside a dark haired'
-                              ' woman in a khaki shirt, a little apart, a propeller plane in a golden sunset sky behind them.' + FILM,
+    'The Forgotten Element': ('The Forgotten Element', 'A clean shaven lean man of about thirty five with a narrow face and '
+                              'short fair hair under a brown felt fedora with a pinched crown and a short brim, in a worn '
+                              'brown leather flight jacket, and a few steps to his right a dark haired woman of about '
+                              'thirty in a khaki shirt with her hair pinned up, the two standing well apart with open sky '
+                              'between them, a propeller plane in a golden sunset sky behind them.' + FILM,
                               'THE FORGOTTEN ELEMENT', 'COMING SOON'),
-    'Movie': ('Movie', 'A man and a woman in raincoats standing side by side a little apart under a street lamp on a'
-                       ' rainy city street at night, seen full length from a little way'
-                       ' back.' + FILM, 'ONE NIGHT IN LOUISVILLE', 'IN THEATERS NOW'),
+    'Movie': ('Movie', 'A man of about forty with short dark hair in a grey trench coat and a woman of about thirty with '
+                       'shoulder length auburn hair and natural matte skin in a tan belted raincoat, standing side by side'
+                       ' a little apart under an old iron street lamp on an empty wet cobbled street at night, the blank '
+                       'brick walls of old warehouses behind them, rain falling through the lamp light, seen full length'
+                       ' from a little way back.' + FILM, 'ONE NIGHT IN LOUISVILLE', 'IN THEATERS NOW'),
 }
 for _group, (_name, _prompt, _title, _line) in FILMS.items():
     _key = 'film-' + _name.lower().replace(' ', '-')

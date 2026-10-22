@@ -16,8 +16,10 @@ STUDIO = (' Taken on colour film in the 1980s against a mottled blue grey backdr
 
 POOLS = {
     'restaurant': [
-        'The front of a small brick family restaurant on a small town main street on a sunny afternoon, a striped awning over the'
-        ' door and a few parked 1980s cars at the kerb, seen from across the street.' + PRINT,
+        'The front of a plain two storey red brick building on a small town main street on a sunny afternoon, a family '
+        'restaurant on the ground floor with a big plate glass front window and a glass door under one long red and white '
+        'striped canvas awning, the flat brick wall above the awning plain with two white sash windows upstairs and a '
+        'flat roof line against a blue sky, a few parked 1980s cars at the kerb, seen from across the street.' + PRINT,
         'A small brick town diner on the day it opened in the 1950s, a crowd of people in hats standing on the pavement '
         'outside under a striped awning, big plate glass windows behind them and plain bare brick above the awning, seen '
         'from across the street.' + OLD_PRINT,
@@ -78,8 +80,13 @@ POOLS = {
         ' street so they are small.' + PRINT,
         'A grey haired man of about sixty in a dark suit and tie sitting behind a plain rectangular wooden desk with his '
         'hands folded on its top, seen from in front from the waist up, a bookcase behind him.' + OLD_PRINT,
-        'A ribbon cutting in front of a new single storey brick office building, a few people in suits standing by a red'
-        ' ribbon, seen from a distance.' + PRINT,
+        'A ribbon cutting in front of a new single storey brick office building under a clear even blue sky, seen from a '
+        'little way off: one wide red ribbon stretched straight and tight across the front of the entrance between two '
+        'short white posts, a grey haired man of about sixty in a grey suit standing in the middle behind it and holding '
+        'a big pair of scissors open on the ribbon in his right hand, his left hand at his side, and four other people a '
+        'little apart either side of him, a stout bald man of fifty in a navy suit, a young woman of thirty with short '
+        'dark hair in a red jacket, a tall thin man of forty with glasses and a woman of about sixty with grey curls, all '
+        'clapping.' + PRINT,
         'A small town in summer seen from high on a wooded hill above it, a main street of red brick buildings, a white'
         ' church steeple, tree lined streets of houses, and green fields and woods all round.' + PRINT,
         'A brick factory building with a tall chimney and a car park full of 1970s cars, seen from across the road.' + PRINT,
@@ -158,8 +165,8 @@ POOLS = {
         'An old cinema front at night seen from across the street, a wide marquee lit with rows of bulbs round its plain '
         'blank white boards, the doors and the pavement below in warm light.' + PRINT,
         'A woman singer in a long sequinned gown with long sleeves that reaches to the floor, standing alone at a'
-        ' microphone on a small stage under a single spotlight, seen from across the dark room. The photograph fills'
-        ' the whole frame edge to edge.' + PRINT,
+        ' microphone on a small stage under a single spotlight, seen from across the dark room, the dark room and the stage'
+        ' running right out to all four edges of the image.' + PRINT,
         'An empty theatre auditorium with red velvet seats and a closed red curtain, warm house lights.' + PRINT,
         'A small brass band of eight men in white jackets sitting on chairs inside an old round wooden bandstand in a '
         'park, playing under its roof, seen from across the lawn.' + OLD_PRINT,
@@ -171,8 +178,10 @@ POOLS = {
     'church': [
         'Head and shoulders of a pastor, a man of about sixty with grey hair and a kind face, in a dark suit and '
         'tie.' + STUDIO,
-        'A congregation of about forty people in their Sunday best standing on the steps of a white clapboard church, seen from'
-        ' across the lawn.' + PRINT,
+        'A whole Sunday morning congregation of about forty people of every age crowded together on the wide front steps '
+        'and the lawn of a white clapboard country church after the service: old women in flowered dresses and straw hats,'
+        ' old men in short sleeved shirts and slacks, young mothers holding babies, fathers in plain sport coats, '
+        'teenagers and small children in front, seen from across the lawn so they are small.' + PRINT,
         'A church choir in maroon robes standing in three rows behind a wooden altar rail, facing the camera and the '
         'empty wooden pews in front of them, singing from open books, seen from halfway down the aisle.' + PRINT,
         'A church picnic on a summer lawn, long tables with white cloths under oak trees, people sitting at them in the'
