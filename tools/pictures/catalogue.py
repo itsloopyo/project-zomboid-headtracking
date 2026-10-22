@@ -151,6 +151,10 @@ STILL = (' An early 1990s plain still life photograph, the picture filling the w
          ' halftone texture and slightly muted colours.')
 WILD = (' A 1990s outdoor magazine wildlife photograph on colour film, natural colours, fine grain. The picture fills'
         ' the whole image edge to edge.')
+# STILL and ACTION gave some of these sharp, saturated modern stock photos with a heavily blurred background.
+FADED = (' A faded 1980s colour photo taken from a little way back, everything sharp from near to far, pale washed'
+         ' out colours, soft flat contrast and visible film grain, like an old picture that has hung in the sun for'
+         ' years. The picture fills the whole image edge to edge.')
 SPORTS = {
     'basketball': [
         'An old outdoor basketball hoop on a single steel pole at the edge of a gravel farmyard beside a weathered red '
@@ -162,11 +166,10 @@ SPORTS = {
         'up, crouched forward with his eyes up, his right hand pressing down on the ball at the height of his hip, the '
         'bare wall of the gym out of focus behind. He wears a solid forest green cotton tank top, one colour all over '
         'with nothing on it, and the ball is a plain orange rubber basketball with only its thin black seams.' + ACTION,
-        'Seen from far back at the other end of a small old high school gym, one grown man of about thirty in a plain '
-        'white cotton t-shirt and grey sweatpants standing alone at the free throw line, a small figure, a basketball '
-        'held at his chest as he looks up at the hoop on the bare painted cinder block end wall, late afternoon light '
-        'from high windows across the boards, everything sharp from near to far, the colours pale, washed out and '
-        'faded like an old print.' + ACTION,
+        'A heavy set high school basketball coach of about fifty with short grey hair and a lined face, in a plain '
+        'maroon sweater over a white collared shirt, sitting calmly alone at the end of an empty wooden team bench at '
+        'the side of an old gym, his hands resting on his knees, looking out across the court, seen from a few paces '
+        'off, the polished wooden floor and a bare painted cinder block wall behind him.' + FADED,
         'An empty old high school gym in the late afternoon, seen from the floor near one sideline, long shafts of '
         'light from high windows lying across the polished hardwood, and one worn orange basketball resting on the '
         'floor in the middle distance, small in the picture and half in shadow.' + STILL,
@@ -228,11 +231,9 @@ SPORTS = {
         ' tall dusty windows letting long shafts of light across the floorboards, the room quiet and still.' + STILL,
     ],
     'golf': [
-        'A putting green in long evening light seen from its edge a few paces off at standing height, a thin white '
-        'flagstick standing upright in the hole with a small plain yellow cloth flag of one colour hanging from its '
-        'top, the whole flagstick and flag in the picture, one white golf ball resting on the close mown grass a short way '
-        'from the hole, dark trees behind, everything sharp from near to far, the colours pale, washed out and faded '
-        'like an old print.' + STILL,
+        'A still pond beside an empty golf fairway at dawn, a grey heron standing in the shallows at its edge, mist '
+        'lying on the water, the close mown fairway grass curving away beyond the pond between tall oaks, seen from '
+        'the bank a little way off.' + FADED,
         'A wide sweep of rolling fairway on a summer afternoon seen from a hill, curving down to a green with a plain '
         'red flag on a thin pole, white sand bunkers beside the green and a small still pond in front of it, tall trees '
         'all round, the whole course quiet and empty.' + STILL,
@@ -268,9 +269,8 @@ SPORTS = {
         'and a plain dark green board fence soft and blurred, tall lights on wooden poles just coming on against a '
         'pink sky.' + STILL,
         'An old wooden baseball bat leaning against the chain link backstop fence of a small town ball field on a '
-        'summer evening, seen from standing height a few paces off, the bat plain pale ash showing only its wood '
-        'grain from knob to end, the red dirt of the infield and the green outfield beyond the fence, everything '
-        'sharp from near to far, the colours pale, washed out and faded like an old print.' + STILL,
+        'summer evening, seen from a few paces off, the bat plain pale ash showing only its wood grain, the pale '
+        'dusty infield dirt and the green outfield beyond the fence.' + FADED,
     ],
     'football': [
         'An empty high school American football field at night in thick fog, seen from behind one end zone, the '
@@ -308,26 +308,24 @@ SPORTS = {
         'one side, woods behind.' + STILL,
     ],
     'athletics': [
-        'A grown man of about twenty five sprinting flat out down a red running track, seen exactly side on from a '
-        'long way off so his whole body is in the picture with track above and below him, in a solid red cotton vest '
-        'and solid red shorts, each one colour all over, and plain dark running shoes, the white lane lines running '
-        'across the picture under him and a green infield behind, the colours pale, washed out and faded like an '
-        'old print.' + ACTION,
+        'A grown man of about thirty with short brown hair, a short brown moustache and a sunburnt lined face, in a '
+        'plain grey cotton sweatshirt, standing calmly on the infield grass beside an empty cinder running track on a '
+        'summer morning, getting his breath back after a run, seen from the waist up a few paces off, his arms at his '
+        'sides, the track, its white lines and a row of old wooden bleachers behind him.' + FADED,
         'A high jump set up on the grass of an empty school field on a summer evening, seen from the side, a thick deep'
         ' blue foam landing mat, plain one colour, and above the front of it a thin plain white bar resting across two '
         'tall upright steel stands, a pale evening sky behind and a line of trees along the bottom.' + STILL,
-        'A plain silver aluminium relay baton, a short smooth hollow tube, lying across a white lane line on an empty '
-        'red running track in the evening, seen from standing height looking down at a slant, its long shadow on the '
-        'grainy red surface, the track running on behind it, flat natural light, everything sharp, the colours pale, '
-        'washed out and faded like an old print.' + STILL,
+        'An empty dark red cinder running track at a small town high school in Kentucky on a summer evening, seen '
+        'from the top row of the old wooden bleachers, the white lines of the lanes curving away round the far bend, '
+        'the green infield grass in the middle, a line of leafy trees and low hills beyond under a pale sky.' + FADED,
         'A heavy dark grey iron shot for the shot put, a round metal ball the size of a grapefruit, smooth '
         'and matte all over like an old cannonball, sitting in a small dent in short mown grass on a summer '
         'evening, seen low and close, warm golden light on one side of it and its long shadow stretching '
         'across the grass, beyond it only soft green grass and a dark band of trees far behind.' + STILL,
-        'Three long thin javelins stuck point first into the short grass of an empty throwing field on a summer '
-        'evening, standing a little apart and leaning the same way, seen side on from a few paces off, a pale evening '
-        'sky and a line of trees behind, everything sharp, the colours pale, washed out and faded like an old '
-        'print.' + STILL,
+        'The long jump pit of an empty high school track on a summer evening, a long rectangle of pale sand raked '
+        'smooth in neat lines, a narrow strip of red brown cinder runway leading up to it with a flat white wooden '
+        'board set level in it just before the sand, seen from beside the runway a little way off at standing height,'
+        ' green grass round it and a line of trees behind.' + FADED,
         'An empty red running track curving round a stadium at sunrise, white lane lines.' + STILL,
     ],
     'weights': [
@@ -386,18 +384,16 @@ SPORTS = {
         'One white bowling pin with two red stripes round its neck standing on the polished maple boards of a lane, '
         'seen low and close, and behind it a wide dim bowling alley with many lanes side by side, their long shiny '
         'boards running away into the distance soft and out of focus, warm light glowing on the varnish.' + STILL,
-        'One plain dark red bowling ball sitting still on the worn maple boards at the start of a lane, seen from '
-        'beside it at standing height, its finger holes turned away so only its smooth round side shows, the long lane '
-        'running away beside it to the small white pins at the far end, plain dark walls, the room dim, everything '
-        'sharp from near to far, the colours pale, washed out and faded like an old print.' + STILL,
+        'A grey haired woman of about sixty with short permed hair and glasses, in a plain lilac short sleeved '
+        'blouse, sitting calmly on a padded bench at the back of an old bowling alley with her hands folded in her '
+        'lap, her face calm, seen from a few paces off, the long polished wooden lanes running away behind her into '
+        'warm dim light.' + FADED,
         'A row of empty bowling lanes in an old bowling alley at closing time, seen low from the approach, the long '
         'polished boards gleaming as they run away to the small white pins far off, the room dark and the area above '
         'the pins in deep shadow.' + STILL,
-        'The ten white bowling pins standing close together in their neat triangle on the pin deck at the end of a '
-        'lane, seen straight down the lane from a few metres in front at the height of the pins, the front pin in the '
-        'middle and the rest stepping back behind it in rows of two, three and four, each pin with one red stripe '
-        'round its neck, warm light on them, the dark pit behind in shadow, everything sharp, the colours pale, '
-        'washed out and faded like an old print.' + STILL,
+        'One white bowling pin with one red stripe round its neck lying on its side on the polished maple boards of '
+        'an empty lane, seen from standing height a few paces off, warm light on the wood, the long lane running on '
+        'beyond it into the dim alley.' + FADED,
     ],
     'racing': [
         'An empty red clay dirt track oval at a county fairground at dusk, seen from the top of the bank on the outside '
@@ -423,18 +419,17 @@ SPORTS = {
         'fading at its edges, warm low evening light raking across the surface.' + STILL,
     ],
     'pool': [
-        'A white cue ball sitting alone on the green felt of an old pool table near the dark wooden rail, seen from '
-        'standing height at a slant, warm light falling on the felt from a lamp above out of the picture, the rest of '
-        'the bare table running away into the dark room, everything sharp, the colours pale, washed out and faded '
-        'like an old print.' + STILL,
-        'Two pool balls resting a hand\'s width apart on the bare green felt of an old pool table, one plain solid red '
-        'of one colour all over and one plain solid yellow of one colour all over, seen from standing height at a '
-        'slant, warm light from a lamp above out of the picture, the dark wooden rail beyond them and the room dark, '
-        'everything sharp, the colours pale, washed out and faded like an old print.' + STILL,
+        'An old man of about sixty five with a grey moustache and thinning grey hair, in a plain dark blue work '
+        'shirt, sitting calmly on a tall wooden stool against the dark wood panelled wall of an old pool hall, his '
+        'hands resting on his knees, watching a game out of the picture, seen from a few paces off, warm lamp light '
+        'on him.' + FADED,
+        'An orange tabby cat curled up asleep in the middle of the green felt of an old pool table in a quiet pool '
+        'hall, seen from standing height a few paces off, warm light from a lamp above out of the picture, the dark '
+        'wooden rail along the near edge of the felt.' + FADED,
         'A black eight ball on the green felt of a pool table beside a corner pocket.' + STILL,
-        'One small cube of plain blue chalk, its top worn into a shallow hollow, sitting on the dark polished '
-        'wooden rail of an old pool table, seen close from a little above, warm lamp light on it, the clean green '
-        'felt beyond.' + STILL,
+        'A tall plain clear glass of iced tea with a slice of lemon, beaded with cold drops, standing on the dark '
+        'polished wooden rail of an old pool table, seen from standing height a few paces off, warm lamp light on '
+        'it, the green felt beyond.' + FADED,
         'A pool table in a dim back room of a bar, a low lamp with a deep green glass shade hanging over it, the green '
         'felt bare and empty in its pool of light, the walls behind plain dark wood panelling from floor to ceiling, '
         'the corners of the room in darkness.' + STILL,
@@ -867,11 +862,12 @@ FILMS = {
                                      'lamp, the rest of the wood in black shadow, soft focus, faded dull '
                                      'brown and grey colours and coarse heavy film grain.' + FILM, 'DOG GOBLIN 4',
                      'IN THEATERS NOW'),
-    'Pleistocene Land': ('Pleistocene Land', 'A great shaggy woolly mammoth, a real living animal covered in long matted '
-                         'reddish brown hair, with a high domed head, small furry ears, a hairy trunk and two long '
-                         'yellowed ivory tusks curving out and up, photographed outdoors standing among snowy pine '
-                         'trees under a flat grey winter sky, snow falling, natural dull colours and coarse film '
-                         'grain.' + FILM, 'PLEISTOCENE LAND', 'IN THEATERS NOW'),
+    'Pleistocene Land': ('Pleistocene Land', 'A huge shaggy dark brown cave bear standing on all fours on a rocky '
+                         'ridge among snowy pine trees, its head raised, seen from below against a flat grey winter '
+                         'sky, snow falling. The bear stands high in the picture, and the dark snowy slope below it '
+                         'carries on to the bottom edge. A still from an early 1990s adventure movie shot on 35mm '
+                         'film, natural dull colours and coarse film grain, the picture filling the whole image '
+                         'edge to edge.', 'PLEISTOCENE LAND', 'IN THEATERS NOW'),
     'Dr Oids': ('Dr Oids', 'Chunky 8-bit pixel art made of large flat squares of colour like a cross stitch pattern, '
                            'seen flat and straight on: a little silver robot with a square head, two square red eyes '
                            'and a short antenna standing in the upper half of the picture on a floor of square green '

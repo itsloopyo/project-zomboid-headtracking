@@ -29,10 +29,10 @@ GROUNDS = {
                   'seamless smooth flat sheet, the plain light grey surface filling the whole frame and '
                   'running off every edge, even enamel paint, faint scratches, specks of dust and slight '
                   'weathering stains, flat even daylight, sharp focus',
-    'sign-slate': 'close-up texture of the flat matte surface of dark charcoal grey slate stone seen '
-                  'straight on, the fine grained stone running on past every edge and corner of the image, '
-                  'a faint soft even haze of pale grey chalk dust over all of it like thin mist, flat even '
-                  'shadowless light with the same brightness in every corner, sharp focus',
+    'sign-slate': 'extreme close-up of the middle of a large flat slate blackboard, one seamless flat '
+                  'sheet of dark charcoal grey slate filling the whole frame and running off every edge, '
+                  'fine matte stone grain, a faint even cloud of pale grey chalk dust over all of it, flat '
+                  'even daylight, sharp focus',
     'sign-cloth': 'close-up photograph of plain white cotton flag cloth hanging down in soft vertical folds, fine woven texture, '
                   'even daylight, sharp focus',
 }

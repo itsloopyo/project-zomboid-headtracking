@@ -133,9 +133,9 @@ POOLS = {
         'of wide windows, seen from across its green front lawn on a sunny summer morning, the brick wall above the '
         'doors bare, an American stars and stripes flag on a tall white flagpole in front, big leafy maple trees '
         'beside it.' + PRINT,
-        'A worn orange basketball resting on the polished golden wooden floor of an empty high school gym, '
-        'seen low and close, the long shine of the window light across the floor boards, folded wooden '
-        'bleachers soft and blurred far behind.' + PRINT,
+        'An empty school playground on a summer evening, a tall steel swing set with three wooden seats hanging '
+        'still on their chains and a slide beside it, the grass worn bare under the swings, big leafy trees '
+        'beyond.' + PRINT,
         'Head and shoulders of a school principal, a youthful middle aged woman of about forty five, trim and energetic, '
         'with a full head of short glossy chestnut brown hair in a neat 1980s cut, a smooth firm face with clear skin, '
         'bright eyes and a kind smile, a little pink lipstick, in a navy blazer over a cream blouse. Taken on colour film '
