@@ -2500,7 +2500,12 @@ final class PipelineShaders {
                         if (frond.a < 0.5) {
                             discard;
                         }
-                        texel = vec4(frond.rgb, 1.0);
+                        // The picture is a deep green, 0.24 bright on average, where the game
+                        // paints its ferns a cool sage, brighter and bluer than the grass round
+                        // them: its light and shade are kept, a little deepened, and its colour
+                        // is the game's.
+                        float shade = pow(dot(frond.rgb, vec3(0.299, 0.587, 0.114)) / 0.24, 1.4);
+                        texel = vec4(clamp(vec3(0.36, 0.47, 0.40) * shade, 0.0, 1.0), 1.0);
                     } else {
                         // A leaf or a flower, drawn here. The card's coordinate across says
                         // which, in the twos above the 0 to 1 it runs over: see Flora.

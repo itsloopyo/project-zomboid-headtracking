@@ -1135,7 +1135,7 @@ public final class Tests {
 
     private static void fernGrowsFromItsRoot() {
         SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
-        check(Flora.addFern(mesh, 2.5f, 3.5f, 0.1f, 0.5f, 6, 12345, wholeFrame()) == 24 && mesh.triangles() == 24, "a fern is four triangles a frond");
+        check(Flora.addFern(mesh, 2.5f, 3.5f, 0.1f, 0.5f, 0f, 6, 12345, wholeFrame()) == 24 && mesh.triangles() == 24, "a fern is four triangles a frond");
         boolean rooted = false;
         for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
             float[] f = mesh.vertices;

@@ -41,8 +41,12 @@ final class PlantBuilder {
     /** How far in from a side where the lawn ends its plants keep, in tiles. */
     private static final float LAWN_KEEPS_IN = 0.05f;
     private static final int CROWN_LEAST_PLACES = 12;
-    /** A fern the game paints: its size for half the width its sprite paints, at least and at most, and how many fronds it has. */
-    private static final float FERN_OF_HALF = 1.1f, FERN_SMALLEST = 0.3f, FERN_LARGEST = 0.9f;
+    /**
+     * A fern the game paints: its size for half the width its sprite paints, at least and at most,
+     * and how many fronds it has. Round, it reaches out its radius both ways along the screen's
+     * width, which is 1.41 of the box half boxOf reads off that width.
+     */
+    private static final float FERN_OF_HALF = 1.55f, FERN_SMALLEST = 0.3f, FERN_LARGEST = 1.2f;
     private static final int PAINTED_FRONDS = 6;
     /** The least share of its leaves a deciduous tree too far off for a crown has on it and keeps the game's sprite of its leaves. */
     private static final float FAN_KEPT = 0.5f;
@@ -225,7 +229,7 @@ final class PlantBuilder {
                     continue;
                 }
                 int fronds = away2 < WorldScene.FERN_NEAR * WorldScene.FERN_NEAR ? 5 + (seed >>> 24 & 1) : 4;
-                Flora.addFern(cards, x + a, y + b, build.geometry.liftAt(a, b), size, fronds, seed, build.frame);
+                Flora.addFern(cards, x + a, y + b, build.geometry.liftAt(a, b), size, 0f, fronds, seed, build.frame);
             }
         }
         if (away2 < WorldScene.FALLEN_REACH * WorldScene.FALLEN_REACH && deepest > 0.02f) {
@@ -616,7 +620,7 @@ final class PlantBuilder {
         float a = Flora.within(Math.clamp(build.box[0], 0.2f, 0.8f), reach, build.room[0] - x, build.room[1] - x);
         float b = Flora.within(Math.clamp(build.box[1], 0.2f, 0.8f), reach, build.room[2] - y, build.room[3] - y);
         int seed = Flora.mix(x, y, 85);
-        Flora.addFern(WorldScene.laid.get(WorldScene.PLAIN), x + a, y + b, z * ViewCamera.LEVEL_HEIGHT + build.geometry.liftAt(a, b), size,
+        Flora.addFern(WorldScene.laid.get(WorldScene.PLAIN), x + a, y + b, z * ViewCamera.LEVEL_HEIGHT + build.geometry.liftAt(a, b), size, build.box[3] * ViewCamera.LEVEL_HEIGHT,
                 PAINTED_FRONDS + (seed >>> 24 & 1), seed, build.frame);
         return true;
     }

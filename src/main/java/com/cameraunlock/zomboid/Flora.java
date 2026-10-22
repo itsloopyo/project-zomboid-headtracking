@@ -1511,12 +1511,19 @@ final class Flora {
         return size * 1.1f * (0.5f * (float) Math.cos(Math.toRadians(50.0)) + 0.5f);
     }
 
+    /** How tall a fern stands for its size, its fronds at their middling length, climb and arch. */
+    private static final float FERN_TALL = 0.42f;
+    private static final float FERN_STRETCH_MOST = 2.5f;
+
     /**
      * A fern at (x, y) on ground at height up: fronds growing out from one root all round,
      * each climbing steeply and then arching over level, so that looked down on it is a crown
-     * of fronds seen flat and from the side a low mound. Four triangles a frond.
+     * of fronds seen flat and from the side a low mound. Four triangles a frond. Stretched up,
+     * by as much as FERN_STRETCH_MOST, to stand as tall as tall where that is more than its own
+     * height, FERN_TALL of its size.
      */
-    static int addFern(Mesh mesh, float x, float y, float up, float size, int fronds, int seed, SpriteGeometry.Frame frame) {
+    static int addFern(Mesh mesh, float x, float y, float up, float size, float tall, int fronds, int seed, SpriteGeometry.Frame frame) {
+        float stretch = Math.clamp(tall / (FERN_TALL * size), 1f, FERN_STRETCH_MOST);
         mark(mesh, frame.open, SpriteGeometry.CARD, FROND);
         for (int frond = 0; frond < fronds; frond++) {
             int own = mix(seed, frond, 17);
@@ -1527,8 +1534,8 @@ final class Flora {
             float side = mirrored ? -1f : 1f;
             float acrossX = -wayY * side * length * FROND_WIDE, acrossY = wayX * side * length * FROND_WIDE;
             double steep = Math.toRadians(50.0 + 20.0 * unit(own, 17)), level = Math.toRadians(-8.0 + 20.0 * unit(own, 24));
-            float midOut = length / 2f * (float) Math.cos(steep), midUp = length / 2f * (float) Math.sin(steep);
-            float tipOut = midOut + length / 2f * (float) Math.cos(level), tipUp = midUp + length / 2f * (float) Math.sin(level);
+            float midOut = length / 2f * (float) Math.cos(steep), midUp = stretch * length / 2f * (float) Math.sin(steep);
+            float tipOut = midOut + length / 2f * (float) Math.cos(level), tipUp = midUp + stretch * length / 2f * (float) Math.sin(level);
             mesh.face(-wayX * 0.5f, -wayY * 0.5f, 1f);
             frondBand(mesh, x, y, up, wayX, wayY, acrossX, acrossY, 0f, 0f, midOut, midUp, 0f, 0.5f, frame);
             mesh.face(0f, 0f, 1f);
