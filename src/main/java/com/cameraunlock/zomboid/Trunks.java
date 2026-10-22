@@ -33,7 +33,9 @@ final class Trunks {
     static float on(IsoGridSquare square) {
         PZArrayList<IsoObject> objects = square.getObjects();
         for (int i = 0; i < objects.size(); i++) {
-            Float radius = radii.get(objects.get(i).getSprite());
+            // The game keeps objects with no sprite on squares (rig run a1, 1733, 10885).
+            IsoSprite sprite = objects.get(i).getSprite();
+            Float radius = sprite == null ? null : radii.get(sprite);
             if (radius != null) {
                 return radius;
             }
