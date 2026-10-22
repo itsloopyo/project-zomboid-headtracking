@@ -51,15 +51,45 @@ Invoke-Javac test-classes ($javac + @('-cp', 'build/classes', '-d', 'build/test-
 Copy-Item -Recurse -Force src/main/resources/* build/classes/
 Copy-Item -Recurse -Force src/main/resources/* build/dev-classes/
 
+# Every entry is stamped with one fixed time, so a jar built twice from the same files is the same
+# bytes. The Workshop and the launcher both download only what changed, and a jar stamped with
+# the time of the build is all changed.
+$stamp = '1980-01-01T00:00:02Z'
+
+# The art goes in a jar of its own a folder of src/main/resources, beside the code jar, whose
+# Class-Path names them: the class loader that reads the code jar reads them as part of it. A code
+# change then leaves the art jars as they were. The names are relative to the code jar, so the art
+# jars sit in build/ and in build/dev/ alike, where the rig and the development deploy load them.
+$artFolders = @(Get-ChildItem -Directory src/main/resources | ForEach-Object Name | Sort-Object)
+$looseResources = @(Get-ChildItem -File src/main/resources)
+if ($looseResources.Count -gt 0) { throw "src/main/resources holds files outside a folder, which no art jar takes: $($looseResources.Name -join ', ')" }
+New-Item -ItemType Directory -Force build/dev | Out-Null
+$artJars = foreach ($folder in $artFolders) {
+    $name = "ProjectZomboidHeadTracking-$folder.jar"
+    Invoke-Tool jar @('--create', '--file', "build/$name", '--no-manifest', '--date', $stamp, '-C', 'src/main/resources', $folder)
+    New-Item -ItemType HardLink -Path "build/dev/$name" -Target (Resolve-Path "build/$name").Path | Out-Null
+    $name
+}
+Write-Host "Built $($artJars.Count) art jars in build: $($artJars -join ', ')"
+
 @(
     'Premain-Class: com.cameraunlock.zomboid.Agent'
     'Agent-Class: com.cameraunlock.zomboid.Agent'
     'Can-Retransform-Classes: true'
     'Implementation-Title: Project Zomboid Head Tracking'
     "Implementation-Version: $version"
+    # A manifest line holds at most 72 bytes, so one jar a line: a line led by a space continues
+    # the one before it, and the second space separates the names.
+    "Class-Path: $($artJars[0])"
+    ($artJars | Select-Object -Skip 1 | ForEach-Object { "  $_" })
 ) | Set-Content -Encoding ascii build/MANIFEST.MF
-Invoke-Tool jar @('--create', '--file', 'build/ProjectZomboidHeadTracking.jar', '--manifest', 'build/MANIFEST.MF', '-C', 'build/classes', '.')
+
+function New-CodeJar {
+    param([string]$File, [string]$Classes)
+    $entries = Get-ChildItem $Classes | Where-Object { $artFolders -notcontains $_.Name } | Sort-Object Name | ForEach-Object { '-C', $Classes, $_.Name }
+    Invoke-Tool jar (@('--create', '--file', $File, '--manifest', 'build/MANIFEST.MF', '--date', $stamp) + $entries)
+}
+New-CodeJar build/ProjectZomboidHeadTracking.jar build/classes
 Write-Host "Built build/ProjectZomboidHeadTracking.jar $version"
-New-Item -ItemType Directory -Force build/dev | Out-Null
-Invoke-Tool jar @('--create', '--file', 'build/dev/ProjectZomboidHeadTracking.jar', '--manifest', 'build/MANIFEST.MF', '-C', 'build/dev-classes', '.')
+New-CodeJar build/dev/ProjectZomboidHeadTracking.jar build/dev-classes
 Write-Host "Built build/dev/ProjectZomboidHeadTracking.jar $version (development keys in)"

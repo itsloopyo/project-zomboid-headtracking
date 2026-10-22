@@ -21,10 +21,13 @@ $projectRoot = Split-Path -Parent $PSScriptRoot
 
 Import-Module (Join-Path $projectRoot 'cameraunlock-core\powershell\DevDeploy.psm1') -Force
 
+# The art jars go too, beside the jar whose Class-Path names them, as install.cmd's MOD_DLLS has it.
+$artJars = @(Get-ChildItem -Directory (Join-Path $projectRoot 'src\main\resources') | Sort-Object Name | ForEach-Object { "ProjectZomboidHeadTracking-$($_.Name).jar" })
+
 $null = Invoke-DevDeployJavaAgent `
     -GameId 'project-zomboid' `
     -GameDisplayName 'Project Zomboid' `
     -BuildOutputPath (Join-Path $projectRoot 'build\dev') `
-    -AgentJars @('ProjectZomboidHeadTracking.jar') `
+    -AgentJars (@('ProjectZomboidHeadTracking.jar') + $artJars) `
     -LegacyFiles @('ProjectZomboidHeadTracking.dll', 'CameraUnlockCore.dll') `
     -GivenPath $GamePath

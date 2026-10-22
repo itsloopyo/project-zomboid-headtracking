@@ -85,7 +85,7 @@ Both scripts work in the selected game folder:
 
 | File | `install.cmd` | `uninstall.cmd` |
 | --- | --- | --- |
-| `ProjectZomboidHeadTracking.jar` | Copy from the ZIP, replacing an existing copy | Remove |
+| `ProjectZomboidHeadTracking.jar` and the art jars `ProjectZomboidHeadTracking-*.jar` | Copy from the ZIP, replacing existing copies | Remove |
 | `ProjectZomboid64.site.json` | Write launch settings that load the mod whenever you start the game | Remove if it contains this mod's JAR filename |
 | `.headtracking-state.json` | Record the installed mod version and date | Remove after successful cleanup |
 | `ProjectZomboidHeadTracking.log`, `ProjectZomboidHeadTracking.prev.log` | Leave alone; the mod writes these when it runs | Remove |
@@ -120,7 +120,7 @@ You can install the mod without running any script. There is no mod manager pack
 
 1. Download `ProjectZomboidHeadTracking-v<version>-installer.zip` from [Releases](https://github.com/itsloopyo/project-zomboid-headtracking/releases) and extract it.
 2. Open the game folder: in Steam, right-click Project Zomboid and choose **Manage > Browse local files**. It holds `ProjectZomboid64.exe`. Turn on **View > Show > File name extensions** in File Explorer, so you can tell `ProjectZomboid64.json` from `ProjectZomboid64.exe` and do not end up with a name ending in `.json.json`.
-3. Copy `plugins\ProjectZomboidHeadTracking.jar` from the ZIP into the game folder.
+3. Copy every `.jar` in the ZIP's `plugins` folder into the game folder: `ProjectZomboidHeadTracking.jar` and the art jars named `ProjectZomboidHeadTracking-` and a folder, such as `ProjectZomboidHeadTracking-models.jar`. The mod finds the art jars beside its own jar, and stops with their names in its log if one is missing.
 4. In the game folder, copy `ProjectZomboid64.json` and name the copy `ProjectZomboid64.site.json`, replacing a `ProjectZomboid64.site.json` this mod made before. Leave the original as it is. If a `ProjectZomboid64.site.json` is already there and does not mention `ProjectZomboidHeadTracking.jar`, something else made it. The installer stops rather than replace it. Rename it to set it aside, knowing that whatever made it stops working, and continue.
 5. Open `ProjectZomboid64.site.json` in a text editor and make three changes:
    - Note the value of `"mainClass"`, then replace it with `"com/cameraunlock/core/agent/Boot"`.
@@ -158,7 +158,7 @@ For the game's file of build 42.21.0, the start of the result reads:
 
 Start from your own `ProjectZomboid64.json` rather than copying this, since another build can have other settings. The game reads `ProjectZomboid64.site.json` in place of `ProjectZomboid64.json`, so after every game update, make the site file again from the game's file (steps 4 and 5), as the installer does when you rerun it.
 
-To remove a manual install, delete these from the game folder: `ProjectZomboidHeadTracking.jar`, `ProjectZomboid64.site.json`, `ProjectZomboidHeadTracking.log` and `ProjectZomboidHeadTracking.prev.log`, and `.headtracking-state.json`, `ProjectZomboidHeadTracking.dll` and `CameraUnlockCore.dll` if they are there from the installer or an older version. `CameraUnlock.ini` holds your settings: delete it too if you do not want them kept.
+To remove a manual install, delete these from the game folder: `ProjectZomboidHeadTracking.jar`, the art jars `ProjectZomboidHeadTracking-*.jar`, `ProjectZomboid64.site.json`, `ProjectZomboidHeadTracking.log` and `ProjectZomboidHeadTracking.prev.log`, and `.headtracking-state.json`, `ProjectZomboidHeadTracking.dll` and `CameraUnlockCore.dll` if they are there from the installer or an older version. `CameraUnlock.ini` holds your settings: delete it too if you do not want them kept.
 
 ## Setting Up OpenTrack
 

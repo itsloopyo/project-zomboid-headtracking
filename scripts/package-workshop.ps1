@@ -47,6 +47,13 @@ if (-not $modInfo.Contains('modversion=@VERSION@')) {
 }
 [System.IO.File]::WriteAllText((Join-Path $mod '42/mod.info'), $modInfo.Replace('@VERSION@', $version), (New-Object System.Text.UTF8Encoding $false))
 Copy-Item $jarPath -Destination $java -Force
+# The art jars sit beside the code jar, whose Class-Path names them. ZombieBuddy loads only the jar
+# mod.info names, onto the system class path, which reads the Class-Path from there.
+foreach ($folder in Get-ChildItem -Directory (Join-Path $projectDir 'src/main/resources') | Sort-Object Name) {
+    $artJar = Join-Path $projectDir "build/$modName-$($folder.Name).jar"
+    if (-not (Test-Path $artJar)) { throw "$artJar not found. Run 'pixi run build' first." }
+    Copy-Item $artJar -Destination $java -Force
+}
 # The notices name the core commit compiled in, as the installer's must.
 Assert-CoreCommitInNotices -RepoRoot $projectDir
 Copy-LicenceNotices -StagingDir $common -ProjectRoot $projectDir -Additional @('CHANGELOG.md')

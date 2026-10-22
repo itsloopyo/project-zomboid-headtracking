@@ -267,16 +267,39 @@ public final class Agent {
      * package with no manifest, so the package has no version there. Classes run from a folder
      * have no jar to say it.
      */
-    private static String version() throws IOException {
-        Path source;
-        try {
-            source = Path.of(Agent.class.getProtectionDomain().getCodeSource().getLocation().toURI());
-        } catch (java.net.URISyntaxException failure) {
-            throw new IllegalStateException(failure);
-        }
+    private static String version(Path source) throws IOException {
         if (java.nio.file.Files.isDirectory(source)) return "(classes in " + source + ")";
         try (java.util.jar.JarFile jar = new java.util.jar.JarFile(source.toFile())) {
             return jar.getManifest().getMainAttributes().getValue(java.util.jar.Attributes.Name.IMPLEMENTATION_VERSION);
+        }
+    }
+
+    /** The jar the mod's classes were loaded from, or the folder of classes the offline harness runs. */
+    private static Path source() {
+        try {
+            return Path.of(Agent.class.getProtectionDomain().getCodeSource().getLocation().toURI());
+        } catch (java.net.URISyntaxException failure) {
+            throw new IllegalStateException(failure);
+        }
+    }
+
+    /**
+     * Throws where an art jar the code jar's Class-Path names is not beside it. The JVM leaves a
+     * missing one off the class path without a word, and every picture and model in it would then
+     * read as absent.
+     */
+    private static void requireArtJars(Path jar) throws IOException {
+        String classPath;
+        try (java.util.jar.JarFile file = new java.util.jar.JarFile(jar.toFile())) {
+            classPath = file.getManifest().getMainAttributes().getValue(java.util.jar.Attributes.Name.CLASS_PATH);
+        }
+        if (classPath == null) throw new IllegalStateException(jar + " has no Class-Path naming its art jars");
+        List<String> missing = new ArrayList<>();
+        for (String name : classPath.trim().split("\\s+")) {
+            if (!java.nio.file.Files.isRegularFile(jar.resolveSibling(name))) missing.add(name);
+        }
+        if (!missing.isEmpty()) {
+            throw new IllegalStateException("the art jars " + String.join(", ", missing) + " are not beside " + jar + ": install the mod again");
         }
     }
 
@@ -293,8 +316,10 @@ public final class Agent {
         Log.open(gameDirectory);
         // Only once there is a log: a second start after a first that could not open one has nowhere to say so.
         loaded = true;
-        Log.info("Project Zomboid Head Tracking " + version() + " loaded, Java " + Runtime.version() + ", game directory " + gameDirectory);
+        Path source = source();
+        Log.info("Project Zomboid Head Tracking " + version(source) + " loaded, Java " + Runtime.version() + ", game directory " + gameDirectory);
         try {
+            if (!java.nio.file.Files.isDirectory(source)) requireArtJars(source);
             return start(gameDirectory, instrumentation);
         } catch (IOException | RuntimeException | Error failure) {
             // Boot asks only whether the agent started and runs the game either way, and

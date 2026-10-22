@@ -1072,36 +1072,51 @@ public final class CoreTests {
     /**
      * The shipped jar started as an installed copy starts it, by cameraunlock-core's boot class, in
      * a folder of its own, with the stubs of the game's classes for the game. It starts and the game
-     * runs; and from a jar that lacks cameraunlock-core's module, the game runs without it and the
-     * log says why.
+     * runs; and from a jar that lacks cameraunlock-core's module, or with the art jars its Class-Path
+     * names not beside it, the game runs without it and the log says why.
      */
     private static void theShippedJarStartsThroughBoot() throws IOException, InterruptedException {
         Path jar = Path.of("build", "ProjectZomboidHeadTracking.jar").toAbsolutePath();
         // The stubs first: the tests have game classes of their own, which are not the game's shapes.
         String game = Path.of("build", "stubs").toAbsolutePath() + ";" + Path.of("build", "test-classes").toAbsolutePath();
-        for (boolean starts : new boolean[] {true, false}) {
-            Path folder = Files.createDirectories(scratch.resolve(starts ? "Boot" : "Boot Refused"));
-            if (starts) {
-                Files.copy(jar, folder.resolve(jar.getFileName()), StandardCopyOption.REPLACE_EXISTING);
-            } else {
+        List<Path> art;
+        try (Stream<Path> built = Files.list(jar.getParent())) {
+            art = built.filter(path -> path.getFileName().toString().startsWith("ProjectZomboidHeadTracking-")).toList();
+        }
+        check(!art.isEmpty(), "the build put the art jars beside the jar: " + jar.getParent());
+        for (String kind : new String[] {"Boot", "Boot Refused", "Boot Without Art"}) {
+            boolean starts = kind.equals("Boot");
+            Path folder = Files.createDirectories(scratch.resolve(kind));
+            if (kind.equals("Boot Refused")) {
                 withoutTheModule(jar, folder.resolve(jar.getFileName()));
+            } else {
+                Files.copy(jar, folder.resolve(jar.getFileName()), StandardCopyOption.REPLACE_EXISTING);
+            }
+            if (!kind.equals("Boot Without Art")) {
+                for (Path piece : art) {
+                    Files.deleteIfExists(folder.resolve(piece.getFileName()));
+                    Files.createLink(folder.resolve(piece.getFileName()), piece);
+                }
             }
             List<String> command = List.of(java(), "--enable-native-access=ALL-UNNAMED", "-XX:+EnableDynamicAgentLoading",
                     "-D" + Agent.DEFAULTS_PROPERTY + "=" + defaults, "-Dcameraunlock.mainClass=" + Game.class.getName().replace('.', '/'),
                     "-cp", jar.getFileName() + ";" + game, "com.cameraunlock.core.agent.Boot");
             Ran ran = run(folder, command);
             String written = Files.readString(folder.resolve(Log.FILE_NAME));
-            check(ran.exit() == 0 && ran.output().contains("the game ran"),
-                    (starts ? "started by Boot" : "from a jar without core's module") + " the game runs: exit " + ran.exit() + ", " + ran.output());
+            check(ran.exit() == 0 && ran.output().contains("the game ran"), kind + ": the game runs: exit " + ran.exit() + ", " + ran.output());
             if (starts) {
                 check(written.matches("(?s).*Project Zomboid Head Tracking [0-9]+[.][0-9]+[.][0-9]+ loaded.*")
                                 && written.contains("things of the game's the mod uses are in this build") && written.contains("head tracking on")
                                 && written.contains("sets of patches are registered") && !written.contains("ERROR"),
                         "and the mod starts from the jar alone, its core, its settings and its patches: " + written);
-            } else {
+            } else if (kind.equals("Boot Refused")) {
                 check(written.contains("ERROR Project Zomboid Head Tracking could not start, and the game runs without it")
                                 && written.contains("com/cameraunlock/core/wasm/CoreModule") && !written.contains("sets of patches are registered"),
                         "and the mod stays out, and its log says why: " + written);
+            } else {
+                check(written.contains("ProjectZomboidHeadTracking-models.jar") && written.contains("are not beside")
+                                && !written.contains("sets of patches are registered"),
+                        "without the art jars the mod stays out, and its log names them: " + written);
             }
         }
     }
