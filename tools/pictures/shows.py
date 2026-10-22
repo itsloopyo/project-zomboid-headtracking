@@ -713,9 +713,9 @@ show('film-action', FILM,
      'A helicopter chases a speeding car along a canyon road in an action movie.',
      'A man of about thirty in a leather jacket lies face down flat on the roof of a moving train, both hands clamped'
      ' over the roof edge, his hair blown back, a wide dry American prairie rushing past, in an action movie.',
-     'A close view of a fighter pilot\'s head seen side on through the clear bubble canopy of a jet, in a smooth plain '
-     'white helmet with its dark visor down and a grey oxygen mask over his face, only his helmet, mask and the top '
-     'of his shoulders in the picture, bright blue sky and white clouds behind, in an action movie.',
+     'Seen from far below, a small jet fighter climbs steeply away into a bright blue sky as a dark swept wing '
+     'silhouette, a long white vapour trail curving up behind it across the picture, white clouds far below it, in '
+     'an action movie.',
      'A soldier in a sweat stained olive t-shirt and camouflage trousers walks through a jungle with a rifle slung on his'
      ' shoulder in an action movie.',
      'A man in a suit runs through a crowded railway station looking over his shoulder in a thriller.')
@@ -736,9 +736,9 @@ show('film-crime', FILM,
      'A plain clothes detective of about forty with a lined face and dark stubble, in a brown leather jacket zipped '
      'up and jeans, stands in a city alley at night with his hands in his jacket pockets, seen from the waist up, '
      'looking off to one side under one street lamp, steam rising from a grate behind him, in a police thriller.',
-     'A close view of a small scatter of sparkling cut diamonds, each the size of a pea, lying on a square of black'
-     ' velvet that fills the picture, a jeweller\'s small black eyepiece lying beside them, lit by one hard lamp from'
-     ' above, in a crime movie.',
+     'A close view of a small heap of cut diamonds, each the size of a pea, spilling out of a little black velvet'
+     ' pouch onto a dark wooden table top, lit by one hard lamp from above, the stones glinting dimly, the picture'
+     ' dark, soft and heavily grainy, in a crime movie.',
      'Seen from high up and far off, a steep empty city hill street at dusk running down across the picture between'
      ' rows of pale painted wooden houses, the street lamps just lit, and one lone man in a dark coat running down the'
      ' sidewalk, a tiny figure, fog rolling in over the rooftops beyond, in a crime thriller.',
@@ -842,10 +842,9 @@ show('critics', VIDEO,
      'A beam of light from the small projection window high in the back wall shines out over rows of empty red cinema'
      ' seats in a dark old cinema.')
 show('bad-movie', LOCAL,
-     'A goofy man in his forties with a thin short dark moustache trimmed tight above his lip and a bow '
-     'tie, seen from the front from the chest up, sitting in a dark red velvet cinema seat with a big glass '
-     'bowl of popcorn on his lap, staring wide eyed and grinning straight past the viewer, his face lit by '
-     'a flickering glow from in front of him, the dark rows of empty seats of the old cinema behind him.',
+     'A heaped plain white paper tub of popcorn spilling over its rim stands on the red velvet cushion of an empty'
+     ' cinema seat, seen close, rows of empty red seats in front of it fading into the dark of an old cinema, a'
+     ' flickering blue white glow from the screen out of the picture falling across the seat backs.',
      'A frame of a grainy black and white 1950s science fiction film, soft and scratched: a giant lizard monster with a'
      ' scaly head, a long tail and a gaping mouth towers over a small model city of cardboard buildings under a dark'
      ' sky.',
@@ -859,9 +858,10 @@ show('high-school', SITCOM,
      'High school seniors of eighteen who look like college students, young men with stubble and young '
      'women with grown up faces, in colourful early 1990s clothes and plain solid coloured shirts, talk at '
      'a row of blue school lockers in a school hallway, the tiled ceiling along the top of the picture.',
-     'A tired high school teacher of about fifty with a grey moustache and glasses, in a short sleeved shirt and '
-     'tie, sits on the front edge of his big wooden desk with his arms folded, sighing, seen from the waist up, in a '
-     'classroom with cream walls and tall windows full of daylight behind him.',
+     'A weary high school teacher of about fifty with a grey moustache and glasses, in a short sleeved white shirt '
+     'and a plain brown tie, stands at a tall classroom window looking out with a calm, faint, tired smile, seen '
+     'side on, only his head and shoulders in the picture, soft daylight on his face, a cream classroom wall behind '
+     'him.',
      'Four teenagers about seventeen, nearly adult, in plain solid coloured shirts sit in a diner booth with'
      ' milkshakes, the chrome trim, red seats and low white ceiling of the diner around them.',
      'A terrified driving instructor of about fifty with a grey moustache, in a short sleeved shirt and tie, sits'
@@ -915,9 +915,9 @@ show('cop-show', DRAMA,
      ' paper bags of takeout between them, a low roadside diner of lit windows behind them, in a 1980s action'
      ' series.')
 show('space', DRAMA,
-     'The dim bridge of a starship seen from the back, a captain with thick grey hair seen from behind sitting in a '
-     'big padded chair in the middle, two crew seen from behind at low grey consoles with small glowing coloured '
-     'lights, and a wide screen at the front full of stars.',
+     'Seen from inside a dim starship, a long wide window of thick glass set in a dark grey metal wall looks out on a'
+     ' big blue and white planet glowing below against black space full of stars, the dark cabin in front of the'
+     ' window empty, in a 1980s science fiction series.',
      'A tall thin man of about sixty with a long narrow face, playing an alien ambassador, in pale blue skin makeup'
      ' with a smooth bald domed head and long white eyebrows, in a high collared dark red robe, seen from the'
      ' shoulders up alone against a plain dark grey wall, in a 1980s science fiction series.',
@@ -936,8 +936,9 @@ show('action-team', DRAMA,
      ' green army jeep standing on its four wheels on the road in front of it, dust flying round it, seen whole and'
      ' side on from a distance, in a 1980s action series.',
      'A grinning heavy built man in his late fifties with a bald head, a fringe of grey hair and a full '
-     'bushy grey beard, in a plain open necked checked work shirt, a fat dark brown cigar, one even brown '
-     'all over, clamped in his teeth, seen from the waist up a few paces off, in a 1980s action series.',
+     'bushy grey beard, in a plain open necked checked work shirt, leans against the side of a black van in '
+     'a dusty desert scrapyard with his arms folded, seen from the waist up a few paces off, in a 1980s '
+     'action series.',
      'Seen side on from very far away, a small dark helicopter flies low over flat desert scrub, a tiny dark shape '
      'against a pale hazy sky, distant blue mountains along the horizon, the colours dull, faded and grainy like old '
      '16mm film, in a 1980s action series.')
@@ -945,8 +946,9 @@ show('strange', DRAMA,
      'A man in a long trench coat, seen from behind, walks away alone along a narrow dirt path into thick grey fog at'
      ' night, a lone bare tree beside the path, the fog swallowing everything beyond him, in a documentary series about'
      ' the unexplained.',
-     'A dim misty forest of dense tall tree trunks at night, and far back among them one small pale glowing light'
-     ' hanging in the grey mist, soft and blurred, in a documentary series about the unexplained.',
+     'Seen from high above in the grey light of early morning, a large perfect ring of flattened, swirled grass'
+     ' pressed into the middle of a tall summer hay field in Kentucky, a dark line of trees along the far edge of the'
+     ' field, in a documentary series about the unexplained.',
      'Three points of white light float high in the open black night sky in a triangle far above a dark farmhouse and '
      'its field, small and blurred like distant stars only brighter, in a documentary series about the unexplained.',
      'An old farmer of about seventy in overalls sits on his porch at night talking, a plain black microphone held up'
@@ -1002,9 +1004,8 @@ show('britcom', SITCOM,
 # What comes on a tape and is not on the air.
 show('fitness', VIDEO,
      'An aerobics instructor, a grown woman of about thirty with a high brown ponytail, in a loose long'
-     ' sleeved plain purple sweatshirt, stands alone facing the viewer and looking straight at the viewer with both'
-     ' arms raised high, smiling, seen from the waist up, a plain pale painted gym wall behind her, in a 1980s exercise'
-     ' class.',
+     ' sleeved plain purple sweatshirt, stands alone facing the viewer with her hands on her hips, smiling straight'
+     ' at the viewer, seen from the waist up, a plain pale painted gym wall behind her, in a 1980s exercise class.',
      'Seen from the waist up across a gym, a row of four grown people a little apart doing squats, all in plain solid'
      ' coloured shirts: a heavy set bald man of about fifty in grey, a woman of about thirty five with a curly perm in'
      ' pink, a grey haired man of about sixty five in navy and a tall woman of about forty with a brown bob in yellow,'
@@ -1040,9 +1041,9 @@ show('first-aid', TAUGHT,
      ' as she speaks.',
      'A bandage is wrapped round a lower leg resting on a stool.')
 show('guns', TAUGHT,
-     'A man of about fifty in a plain tan canvas vest over a long sleeved plaid shirt stands at an outdoor shooting'
-     ' range wearing plain smooth grey ear muffs and yellow tinted shooting glasses, seen from the chest up, looking'
-     ' out across the range, green grass and a grass bank soft and blurred behind him.',
+     'A shooting instructor of about fifty with short grey hair and a grey moustache, bareheaded, in a plain tan'
+     ' canvas vest over a long sleeved plaid shirt, stands outdoors talking towards the viewer, seen from the chest'
+     ' up, green grass and trees soft and blurred behind him on a summer day.',
      'A pair of yellow tinted shooting glasses and a pair of plain smooth grey ear muffs lying side by side on the'
      ' weathered wooden bench of an outdoor shooting range, seen close from a little above, green grass soft and'
      ' blurred beyond the bench.',
@@ -1063,15 +1064,15 @@ show('fishing', OUTDOOR,
      'A man casts a fishing rod from a lake shore at dawn.',
      'An open green plastic tackle box on a sun warmed wooden dock, its little trays holding bright fishing lures, red'
      ' and white spoons, yellow feathered jigs and soft purple worms with hooks, the lake water beyond.',
-     'A big green largemouth bass lying on the damp grey planks of a wooden dock beside a wicker fishing creel, seen'
-     ' close from a little above, the calm lake water beyond the edge of the dock.')
+     'A small old wooden rowboat tied to the end of a grey wooden dock on a calm lake at dawn, a long fishing rod'
+     ' laid along its seats, thin mist lying on the still water, seen from a little way back along the dock.')
 show('farm', OUTDOOR,
      'A girl of about ten holds out a handful of feed through a wide gap between the wooden rails of a fence, and a'
      ' white goat on the other side reaches its head through the gap to eat, at a small farm petting zoo in summer.',
      'A rooster stands on a fence post at sunrise.',
-     'One black Angus cow, solid black all over with a smooth rounded hornless head, grazes alone side on in a wide '
-     'open rolling green pasture in Kentucky, seen from a little way off, a long white painted wooden board fence '
-     'running across the grass, a big lone oak tree and low wooded hills behind, under a hazy summer sky.',
+     'One chestnut horse grazes alone side on in a wide open rolling green pasture in Kentucky, seen from a little '
+     'way off, a long white painted wooden board fence running across the grass, a big lone oak tree and low wooded '
+     'hills behind, under a hazy summer sky.',
      'A farmer of about sixty in a straw hat and a long sleeved work shirt, seen from behind, walks between rows of '
      'young green tobacco plants in a wide field in Kentucky, a wooden tobacco barn and a line of trees far behind, '
      'under a hazy summer sky.',
