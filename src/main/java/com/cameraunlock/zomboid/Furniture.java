@@ -545,6 +545,10 @@ final class Furniture {
             Furniture desk = new Furniture(sprite, "office_desk", turns).dye(1 << Models.WOOD, surfaceHigh);
             return desk.stand(surfaceUp, desk.model.height(), false);
         }
+        int large = Sheets.place(name, LARGE_TABLES);
+        if (called.equals("Table") && single && large >= 36 && large <= 47) {
+            return largeTable(sprite, large, turns, surfaceHigh, surfaceUp);
+        }
         // A table lies across the way it faces, as a desk does. A pool table is no table to sit at.
         if ((called.equals("Table") || called.equals("Low Table")) && tableHigh && !group.equals("Pool") && !group.contains("Glass")) {
             boolean lowTable = surface <= LOW_TABLE_HIGHEST;
@@ -554,7 +558,10 @@ final class Furniture {
             if (model == null) {
                 return null;
             }
-            Furniture table = new Furniture(sprite, model, turns).dye(1 << Models.WOOD, surfaceHigh);
+            if (pair && large >= 44 && large <= 47) {
+                model = "patio_table";
+            }
+            Furniture table = new Furniture(sprite, model, turns).dye(1 << (model.equals("patio_table") ? Models.PLASTIC : Models.WOOD), surfaceHigh);
             return table.stand(surfaceUp, table.model.height(), false);
         }
         // A bank's safe deposit boxes standing in a run along a wall, each square of them meeting the next.
@@ -740,6 +747,35 @@ final class Furniture {
             piece.centreY = outside.b;
         }
         return piece.raise(outside.raised);
+    }
+
+    /**
+     * The sheet of large tables, whose two squares the game ties with no grid from 36 to 47: each finds the other, and
+     * the first stands the whole table and the second nothing. Each four of them is one table, along x in the first
+     * two and along y in the last two, and 44 to 47 are a moulded plastic one, the rest wood.
+     */
+    private static final String LARGE_TABLES = "furniture_tables_high_01_";
+
+    private static Furniture largeTable(IsoSprite sprite, int place, int turns, float surfaceHigh, float surfaceUp) {
+        int block = place - place % 4, at = place % 4;
+        boolean first = at == 0 || at == 3, alongX = at < 2;
+        int toOther = first ? 1 : -1;
+        String other = LARGE_TABLES + (block + (at == 0 ? 1 : at == 1 ? 0 : at == 2 ? 3 : 2));
+        boolean plastic = block == 44;
+        Furniture table = new Furniture(sprite, first ? plastic ? "patio_table" : "table_2" : null, turns);
+        table.partner = other;
+        table.partnerX = alongX ? toOther : 0;
+        table.partnerY = alongX ? 0 : toOther;
+        table.follows = !first;
+        if (!first) {
+            return table;
+        }
+        table.dye(1 << (plastic ? Models.PLASTIC : Models.WOOD), surfaceHigh);
+        float fits = Math.min((1f - 2f * FURNITURE_CLEAR) / table.model.depth(), (2f - 2f * FURNITURE_CLEAR) / table.model.width());
+        table.scale = table.scaleUp = Math.min(surfaceUp / table.model.height(), fits);
+        table.centreX = alongX ? 1f : 0.5f;
+        table.centreY = alongX ? 0.5f : 1f;
+        return table;
     }
 
     /** The sheet the game's street lamps are on. They carry no name: which lamp a sprite is, is its place on the sheet. */

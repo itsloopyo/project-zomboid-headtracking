@@ -1648,7 +1648,7 @@ public final class Tests {
                 "tv", "tv_wide", "tv_console", "lit_screen", "table_lamp", "toilet", "bath", "washing_machine", "wheelie_bin", "litter_bin", "mailbox", "postbox", "park_bench",
                 "picnic_table", "crate", "barrel", "frame_tall", "frame_square", "frame_wide", "canvas", "wall_clock", "table_2", "table_3", "table_4",
                 "narrow_table", "low_table", "low_table_2", "round_table", "office_desk", "shop_counter", "low_shelves", "wall_shelf", "wall_shelves",
-                "metal_rack", "store_shelves", "plastic_chair", "garden_chair", "folding_chair", "booth", "stool", "vending_machine", "arcade_machine", "dumpster_sloped", "dumpster_domed",
+                "metal_rack", "store_shelves", "plastic_chair", "garden_chair", "patio_table", "folding_chair", "booth", "stool", "vending_machine", "arcade_machine", "dumpster_sloped", "dumpster_domed",
                 "radio", "microwave", "dishwasher", "chest_freezer", "register", "counter_rack", "open_counter", "deposit_boxes", "shower", "shower_head", "kettle_barbecue", "gas_barbecue",
                 "mini_fridge", "large_fridge",
                 "pool_table"};

@@ -2124,6 +2124,28 @@ def garden_chair():
     return model
 
 
+def patio_table():
+    """A moulded plastic garden table two squares long: a top sunk inside a raised rim, a hole for a sunshade in its
+    middle, a skirt under the rim and four square legs."""
+    model = Model("patio_table")
+    hx, hy, top, rim = 0.9, 0.45, 0.74, 0.04
+    legs = bmesh.new()
+    for x in (-1, 1):
+        for y in (-1, 1):
+            prism(legs, (x * (hx - 0.08), y * (hy - 0.08), 0.055, 0.055, 0.0), (x * (hx - 0.075), y * (hy - 0.075), 0.065, 0.065, top - 0.06))
+    model.hard(legs, "plastic", bevel=0.01, segments=2)
+    body = bmesh.new()
+    for side in (-1, 1):
+        cuboid(body, -hx, hx, side * hy - rim if side > 0 else -hy, hy if side > 0 else -hy + rim, top - 0.075, top)
+        cuboid(body, *mirrored(hx - rim, hx, side), -hy + rim, hy - rim, top - 0.075, top)
+    cuboid(body, -hx + rim, hx - rim, -hy + rim, hy - rim, top - 0.03, top - 0.012)
+    model.hard(body, "plastic", bevel=0.008, segments=2)
+    hole = bmesh.new()
+    lathe(hole, [(0.0, top - 0.012), (0.024, top - 0.012), (0.024, top - 0.009), (0.0, top - 0.009)], segments=16)
+    model.turned(hole, "rubber")
+    return model
+
+
 def folding_chair():
     """A steel folding chair: two frames crossed at the seat, a padded seat and back."""
     model = Model("folding_chair")
@@ -11243,7 +11265,7 @@ def every():
               table("table_2", 1.9, 0.92), table("table_3", 2.9, 0.92), table("table_4", 1.9, 1.9, leg=0.08), table("narrow_table", 0.92, 0.5),
               table("low_table", 0.9, 0.5, top=0.42, leg=0.05), table("low_table_2", 1.5, 0.6, top=0.42, leg=0.05), round_table(), office_desk(),
               cabinet("shop_counter", 0.62, 0.90, True, panelled=True), low_shelves(), wall_shelf("wall_shelf", 1), wall_shelf("wall_shelves", 2), shop_wall_shelves("shop_wall_shelves", "wood"), shop_wall_shelves("zippee_wall_shelves", "vinyl"), hood_dryer(), car_wash_brush(), car_wash_curtain(), bar_back(), bar_bottles("bar_bottles_many", 51, 0.9), bar_bottles("bar_bottles_few", 52, 0.35), sewer_pipes("sewer_pipes_bend", 0.46, True), sewer_pipes("sewer_pipes", 0.25, False), clothes_wall_rails(), generator(), marker_ball(), hospital_curtain("curtain_rail", 0.0, 0.0, 0), hospital_curtain("curtain_drawn", -0.49, 0.49, 10), hospital_curtain("curtain_gathered", 0.12, 0.49, 6), mantel_pillar(), mantel_lintel(), pipe_upright("pipe_upright", None), pipe_upright("pipe_upright_run", "long"), pipe_upright("pipe_upright_stub", "stub"), atm(), coop(), street_name_sign(), street_blade(),
-              metal_rack(), store_shelves(), plastic_chair(), garden_chair(), folding_chair(), booth(), stool(), vending_machine(), arcade_machine(),
+              metal_rack(), store_shelves(), plastic_chair(), garden_chair(), patio_table(), folding_chair(), booth(), stool(), vending_machine(), arcade_machine(),
               radio(), microwave(), dishwasher(), chest_freezer(), register(), shower("shower", True), shower("shower_head", False),
               kettle_barbecue(), gas_barbecue(), cooler("mini_fridge", 0.5, 0.82, 1), cooler("large_fridge", 1.7, 1.95, 2),
               street_lamp("cone_lamp", "cone"), street_lamp("globe_lamp", "globe"), street_lamp("lantern_lamp", "lantern"),
