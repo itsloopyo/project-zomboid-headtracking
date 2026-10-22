@@ -387,10 +387,10 @@ SPORTS = {
         'A row of empty bowling lanes in an old bowling alley at closing time, seen low from the approach, the long '
         'polished boards gleaming as they run away to the small white pins far off, the room dark and the area above '
         'the pins in deep shadow.' + STILL,
-        'The long room of an old small town bowling alley seen wide from high up at the back on a quiet evening, a '
-        'dozen polished wooden lanes side by side running away to the far end, the white pins tiny in their rows at '
-        'the end of each lane, low rows of plain wooden seats in the foreground, warm lights hanging over the '
-        'lanes.' + FADED,
+        'One dark red marbled bowling ball resting on a folded white cotton towel on a worn plain wooden bench, seen '
+        'close from a little above, three round finger holes on its top, two side by side and one a little below '
+        'them, the smooth ball scuffed from years of use, a plain dim brown wood panelled wall behind, soft warm '
+        'window light from one side, muted soft colours.' + FADED,
     ],
     'racing': [
         'An empty red clay dirt track oval at a county fairground at dusk, seen from the top of the bank on the outside '
@@ -859,12 +859,13 @@ FILMS = {
                                      'lamp, the rest of the wood in black shadow, soft focus, faded dull '
                                      'brown and grey colours and coarse heavy film grain.' + FILM, 'DOG GOBLIN 4',
                      'IN THEATERS NOW'),
-    'Pleistocene Land': ('Pleistocene Land', 'A wide snowy valley under a flat grey winter sky, three shaggy '
-                         'woolly mammoths far off walking in a line across the snow, small dark shapes in the middle '
-                         'of the picture, dark pine forest on the slopes either side, snow falling, the white '
-                         'snowfield running on below them to the bottom edge. A still from an early 1990s adventure movie shot on 35mm '
-                         'film, natural dull colours and coarse film grain, the picture filling the whole image '
-                         'edge to edge.', 'PLEISTOCENE LAND', 'IN THEATERS NOW'),
+    'Pleistocene Land': ('Pleistocene Land', 'A bleak ice age landscape, a wide empty valley of snow between dark '
+                         'jagged rock crags under a low flat grey sky, cold mist drifting across the slopes, one lone '
+                         'shaggy woolly mammoth tiny in the far distance in the middle of the picture, a dark speck '
+                         'on the snow, the plain white snowfield running on below it to the bottom edge. A still from '
+                         'an early 1990s adventure movie shot on 35mm film, dull muted grey and white colours, soft '
+                         'flat light and coarse film grain, the picture filling the whole image edge to edge.',
+                         'PLEISTOCENE LAND', 'IN THEATERS NOW'),
     'Dr Oids': ('Dr Oids', 'Chunky 8-bit pixel art made of large flat squares of colour like a cross stitch pattern, '
                            'seen flat and straight on: a little silver robot with a square head, two square red eyes '
                            'and a short antenna standing in the upper half of the picture on a floor of square green '

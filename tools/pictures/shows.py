@@ -647,10 +647,10 @@ show('skating', SPORT,
      ' under a pale hazy summer sky, the colours faded.')
 show('boxing', ' A still image from 1970s boxing coverage shot on 16mm colour film, bright ring lights and a'
                ' faint haze, soft and grainy with faded colours. The picture fills the whole image edge to edge.',
-     'The front of an old red brick boxing hall on a small town street at dusk, seen from across the empty street, '
-     'tall arched windows glowing warm yellow, a wide flight of stone steps up to its plain wooden double doors, the '
-     'brick above the doors bare, the street wet and shining under one street lamp, everything sharp from near to '
-     'far, muted colours and heavy grain like 1970s 16mm film.',
+     'A pair of old worn brown leather boxing gloves hanging by their laces from one nail on a plain wall of rough '
+     'grey painted wooden boards in a bare American gym, the gloves smooth plain brown leather all over, cracked and '
+     'scuffed from years of use, dull daylight from one side, seen straight on from a few paces off, everything sharp'
+     ' from near to far, dull muted colours and heavy grain like 1970s 16mm film.',
      'A close view of the face of a tired heavyweight boxer, a grown man of about thirty with a flattened '
      'nose, short dark hair and stubble, his eyebrows swollen and his face wet with sweat, his eyes looking '
      'down, only his face, neck and bare shoulders in the picture, the dark hall blurred behind him.',
