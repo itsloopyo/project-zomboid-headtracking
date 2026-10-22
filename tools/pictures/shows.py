@@ -7,40 +7,30 @@ drawn (Screens.java). The shows and their names are the mod's own.
 Which of the game's broadcasts and tapes is which show is told by schedule.py, from patterns kept outside the repository.
 """
 
-VIDEO = (' A still image from 1993 American video recorded off air onto VHS, soft analog video with'
-         ' slight colour bleed and muted colours. The picture fills the whole image edge to edge.')
-FIELD = (' A still image from 1993 American local news footage recorded off air onto VHS, the view a little tilted and'
-         ' loose, soft analog video with muted colours and slight colour bleed. The picture fills the whole image edge'
-         ' to edge.')
-OUTDOOR = (' A still image from a 1993 regional programme about country life, recorded off air onto VHS,'
-           ' soft analog video with muted natural colours and slight colour bleed. The picture fills the whole image'
-           ' edge to edge.')
-LOCAL = (' A still image from a low budget 1993 local public access show on a cheap studio set with flat'
-         ' lighting, soft analog video recorded onto VHS with muted colours. The picture fills the whole image edge to'
-         ' edge.')
-SITCOM = (' A still image from an early 1990s American sitcom taped on a three walled studio set with bright even'
-          ' lighting, recorded off air onto VHS, soft analog video with muted colours. The picture fills the whole'
-          ' image edge to edge.')
-DRAMA = (' A still image from a 1980s American drama series shot on 16mm film and transferred to video, recorded'
-         ' off air onto VHS, soft with film grain and muted colours. The picture fills the whole image edge to edge.')
-FILM = (' A still image from a 1980s movie shot on 35mm film, soft with film grain and muted colours as if taped off'
-        ' air onto VHS. The picture fills the whole image edge to edge.')
-CEL = (' A still image from a 1980s Saturday morning cartoon, cel animation painted by hand with flat colours, thick'
-       ' black outlines and visible paint texture, recorded off air onto VHS. The picture fills the whole image edge'
-       ' to edge.')
-HOME = (' A still image from a family home video taped around 1990, a worn VHS tape with low resolution, washed out'
-        ' faded colours, smeared highlights, soft focus, slight blur and tilted amateur composition. The picture fills'
-        ' the whole image edge to edge.')
-CLIP = (' A still image from an early 1990s music video, soft analog video with coloured stage lights and haze,'
-        ' recorded off air onto VHS with muted colours. The picture fills the whole image edge to edge.')
-SPORT = (' A still image from 1993 American sports coverage shot through a long lens, soft analog video'
-         ' recorded off air onto VHS with muted colours. The picture fills the whole image edge to edge.')
-NATURE = (' A still image from a 1980s nature documentary shot on 16mm film through a long lens and recorded off air'
-          ' onto VHS, soft with film grain and natural muted colours. The picture fills the whole image edge to edge.')
-ARCHIVE = (' A still image from 1950s black and white newsreel footage, soft focus with heavy film grain and'
-           ' scratches. The picture fills the whole image edge to edge.')
-TAUGHT = (' A still image from an early 1990s instructional video on VHS, flat lighting, soft analog video with'
-          ' muted colours. The picture fills the whole image edge to edge.')
+# The looks never name video, tape or broadcasting: Qwen-Image draws those as the set or the cassette around the picture.
+NOISE = ' soft focus with muted colours, slight colour bleed and fine noise. The picture fills the whole image edge to edge.'
+VIDEO = ' A still from early 1990s American footage,' + NOISE
+FIELD = ' A still from early 1990s American news footage, the view a little tilted and loose,' + NOISE
+OUTDOOR = ' A still from early 1990s regional footage of country life, natural light,' + NOISE
+LOCAL = ' A still from a low budget early 1990s local public access show on a cheap studio set with flat lighting,' + NOISE
+SITCOM = (' A still from an early 1990s American sitcom taped on a three walled studio set with bright even lighting,'
+          + NOISE)
+DRAMA = (' A still from a 1980s American drama series shot on 16mm film, soft with film grain and muted colours. The'
+         ' picture fills the whole image edge to edge.')
+FILM = (' A still from a 1980s movie shot on 35mm film, soft with film grain and muted colours. The picture fills the'
+        ' whole image edge to edge.')
+CEL = (' A still from a 1980s Saturday morning cartoon, cel animation painted by hand with flat colours, thick black'
+       ' outlines and visible paint texture. The picture fills the whole image edge to edge.')
+HOME = (' A still from family home footage shot around 1990, low resolution, washed out faded colours, smeared'
+        ' highlights, soft focus, slight blur and tilted amateur composition. The picture fills the whole image edge'
+        ' to edge.')
+CLIP = ' A still from an early 1990s music video with coloured stage lights and haze,' + NOISE
+SPORT = ' A still from early 1990s American sports footage shot through a long lens,' + NOISE
+NATURE = (' A still from a 1980s nature documentary shot on 16mm film through a long lens, soft with film grain and'
+          ' natural muted colours. The picture fills the whole image edge to edge.')
+ARCHIVE = (' A still from 1950s black and white newsreel footage, soft focus with heavy film grain and scratches. The'
+           ' picture fills the whole image edge to edge.')
+TAUGHT = ' A still from an early 1990s instructional programme with flat lighting,' + NOISE
 
 # The shots of each show, in the order the mod numbers them.
 SHOWS = {}
@@ -343,7 +333,7 @@ show('county', FIELD,
      'A tall old black painted wooden tobacco barn with vertical plank siding and open vent boards standing alone at the edge'
      ' of a cut field at sunset, seen from the road.',
      'Two horses graze well apart behind a white fence.')
-show('survivors', ' A still image from a worn VHS tape, lit by one harsh light, dim and grainy with muted colours. The'
+show('survivors', ' A still from old footage lit by one harsh light, dim and grainy with muted colours. The'
                   ' picture fills the whole image edge to edge.',
      'An exhausted man in a dirty flannel shirt sits at a desk in a dim studio, a door barricaded with furniture'
      ' behind him.',
@@ -589,14 +579,14 @@ show('film-epic', FILM,
      ' in an adventure movie.',
      'A wide frozen plain under a low sun with a line of tiny figures walking in an adventure movie.')
 show('film-art', ' A still image from a 1970s European art film shot on 35mm film, muted colour, fog and soft film'
-                 ' grain, recorded off air onto VHS. The picture fills the whole image edge to edge.',
+                 ' grain. The picture fills the whole image edge to edge.',
      'A man in a long coat walks across a flooded field in fog.',
      'A candle burns on the floor of an empty ruined room, water dripping from the ceiling.',
      'A woman\'s face in profile beside a rain streaked window.',
      'A white horse stands in a misty meadow.',
      'A long empty corridor with peeling walls and a door open at the end.')
 show('monster', ' A still image from a low budget 1980s monster movie shot on 35mm film, fog and blue night lighting,'
-                ' soft with film grain, recorded off air onto VHS. The picture fills the whole image edge to edge.',
+                ' soft with film grain. The picture fills the whole image edge to edge.',
      'The black silhouette of a werewolf, a tall man shaped figure standing upright on two legs with a shaggy wolf\'s'
      ' head, howls at a full moon on a foggy hill.',
      'A hairy grey clawed monster hand with long curved black nails reaches round the edge of a wooden door.',
@@ -800,7 +790,7 @@ show('nature', NATURE,
      ' a dull silvery salmon leaps up the falls toward it.',
      'A spiral galaxy and stars in deep space in an astronomy documentary.')
 show('travel', ' A still image from a 1980s travel documentary shot on 16mm film on a sunny day, soft with film grain'
-               ' and warm muted colours, recorded off air onto VHS. The picture fills the whole image edge to edge.',
+               ' and warm muted colours. The picture fills the whole image edge to edge.',
      'The roofs of Paris with the Eiffel Tower beyond them.',
      'A busy street market in a West African city, seen from above.',
      'The painted gate of a Korean palace with a modern city behind it.',

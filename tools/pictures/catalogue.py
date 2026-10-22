@@ -520,8 +520,7 @@ LONG.add('Banner|Movie')
 # What a television that is on shows: stills of the programmes of 1993, four wide for three high as a tube is. They hang
 # nowhere, so no sprite is their key: SCREENS is their names in the order the mod numbers them, and pack.py makes each
 # again in black and white for a set with no colour, and draws the bars a set shows with nothing coming in.
-ON_AIR = (' A still image from 1993 American video recorded off air onto VHS, soft analog video with'
-          ' slight colour bleed and muted colours. The picture fills the whole image edge to edge.')
+ON_AIR = shows.VIDEO
 PROGRAMMES = [
     'A male news anchor in a grey suit and red tie sitting at a news desk in front of a plain blue studio backdrop,'
     ' looking straight out of the frame towards the viewer.' + ON_AIR,
@@ -538,7 +537,7 @@ PROGRAMMES = [
     'A woman with big blonde hair in a long sleeved, high necked blue evening gown and a man in a tuxedo facing each'
     ' other a little apart across an opulent living room, a daytime soap opera.' + ON_AIR,
     'A small blue robot and a green frog building a cardboard rocket in a garage, a 1980s Saturday morning cartoon in hand'
-    ' painted cel animation with flat colours, recorded off air onto VHS.',
+    ' painted cel animation with flat colours.',
     'A brown whitetail deer with a reddish brown summer coat standing in a misty forest clearing at dawn, a nature documentary.' + ON_AIR,
     'A dated 1980s game show stage with three wooden contestant podiums painted orange and brown, rows of round light'
     ' bulbs framing the set, a host in a sparkly blue jacket standing at one side.' + ON_AIR,
