@@ -29,6 +29,12 @@ final class FloorBuilder {
     private final float[] coverGrid = new float[SpriteGeometry.GRID_COVER];
     /** How much of a square's own ground the ground spreading over it covers where the square's own goes on through. */
     private static final float OWN_KEPT = 0f;
+    /**
+     * How much of a made floor, paving or a path, the ground beside it covers at their shared
+     * edge: enough for a ragged fringe a little way in and no more. As much as over other
+     * ground, it ran half the square in, and a slab of paving a few squares across went under.
+     */
+    private static final float MADE_EDGE = 0.6f;
     private final int[] around = new int[9];
     /**
      * Of a grid of three by three, the middles of the north, west, east and south edges and the step from
@@ -81,6 +87,13 @@ final class FloorBuilder {
                 spreading[spread++] = name;
                 around(own, mine, name);
                 boolean grid = coverFrom(around, build.cover, coverGrid);
+                if (build.groundKind[own] == Terrain.MADE) {
+                    for (int i = 0; i < coverGrid.length; i++) {
+                        coverGrid[i] *= MADE_EDGE;
+                    }
+                    coverGrid[4] = 0f;
+                    grid = true;
+                }
                 build.frameOf(build.groundObject[at], build.groundTexture[at]);
                 // Of the neighbour's ground's stuff, as its own floor is: not of whatever was added last on this square.
                 IsoSprite ground = build.groundObject[at].getSprite();
