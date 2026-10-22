@@ -417,10 +417,10 @@ SPORTS = {
         'fading at its edges, warm low evening light raking across the surface.' + STILL,
     ],
     'pool': [
-        'A close view looking down at worn green baize filling the whole picture, three solid unmarked pool balls '
-        'resting apart on it, one dull red, one dark blue and one plain white, the tapered pale wooden end of a cue '
-        'with its small leather tip lying on the cloth near the white ball, soft warm overhead light, muted dull '
-        'colours.' + STILL,
+        'The long straight side of an old billiard table seen from a little above, a broad stretch of bare worn green '
+        'cloth filling the upper part of the picture and the plain dark wooden rail running straight across the lower '
+        'part, its wood smooth and dull with a soft satin finish, soft even light all over, dull muted green and brown '
+        'colours.' + FADED,
         'A plain dark wooden rack fixed to the dark wood panelled wall of an old billiard room, six long plain wooden '
         'billiard cues standing upright in it side by side, their thin pale tips at the top and their thick dark butts '
         'resting in the row of slots along the bottom, seen straight on from a few paces off, the panelled wall bare '
@@ -861,10 +861,9 @@ FILMS = {
                                      'lamp, the rest of the wood in black shadow, soft focus, faded dull '
                                      'brown and grey colours and coarse heavy film grain.' + FILM, 'DOG GOBLIN 4',
                      'IN THEATERS NOW'),
-    'Pleistocene Land': ('Pleistocene Land', 'A bleak ice age landscape, a wide empty valley of snow between dark '
-                         'jagged rock crags under a low flat grey sky, cold mist drifting across the slopes, one lone '
-                         'shaggy woolly mammoth tiny in the far distance in the middle of the picture, a dark speck '
-                         'on the snow, the plain white snowfield running on below it to the bottom edge. A still from '
+    'Pleistocene Land': ('Pleistocene Land', 'Winter in a wide valley, deep snow lying between dark jagged rock crags '
+                         'on both sides under a low flat grey sky, the far end of the valley fading into grey mist, '
+                         'the valley floor plain smooth white snow running on to the bottom edge. A still from '
                          'an early 1990s adventure movie shot on 35mm film, dull muted grey and white colours, soft '
                          'flat light and coarse film grain, the picture filling the whole image edge to edge.',
                          'PLEISTOCENE LAND', 'IN THEATERS NOW'),
