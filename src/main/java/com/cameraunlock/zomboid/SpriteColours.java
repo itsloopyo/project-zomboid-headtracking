@@ -339,6 +339,7 @@ final class SpriteColours {
             Trims.read(texture, page, across, left, top, right, bottom);
             RoadPaint.read(texture, page, across, left, top, right, bottom);
             Masonry.read(texture, page, across, left, top, right, bottom);
+            Stains.read(texture, page, across, left, top, right, bottom);
         }
         copied.clear();
     }

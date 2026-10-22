@@ -404,6 +404,18 @@ final class WallBuilder {
             build.frame.material = material;
             return;
         }
+        // Grime or worn paint over the wall is mixed into it as the game mixes it, as blood is: see Stains.
+        if (build.overLayer != 0 && Own.textures(build.playerIndex)) {
+            Boolean stain = Stains.of(texture);
+            if (stain == null) {
+                build.building.signed = false;
+                return;
+            }
+            if (stain) {
+                addStain(WorldScene.laid.get(texture.getID()), x, y, z, 1f + layer, da, db);
+                return;
+            }
+        }
         float fromStart = unpainted(texture, 0f, 0f, da, db);
         float fromEnd = unpainted(texture, da, db, -da, -db);
         float fromTop = unpaintedTop(texture, 0f, 0f, da, db);

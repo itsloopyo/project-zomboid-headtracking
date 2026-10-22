@@ -21,6 +21,7 @@ final class FacadeTests {
         Checks.run("boardedWallCarriesItsColour", FacadeTests::boardedWallCarriesItsColour);
         Checks.run("wallInAnotherLightIsTheSamePaint", FacadeTests::wallInAnotherLightIsTheSamePaint);
         Checks.run("paintedWallIsLeftAsPainted", FacadeTests::paintedWallIsLeftAsPainted);
+        Checks.run("thinPaintOverAWallIsAStain", FacadeTests::thinPaintOverAWallIsAStain);
         Checks.run("onlyOutsideWallsAreLaid", FacadeTests::onlyOutsideWallsAreLaid);
         Checks.run("wireIsReadAsItsTwoEndsOverTheSquare", FacadeTests::wireIsReadAsItsTwoEndsOverTheSquare);
         Checks.run("brokenLineIsOneWire", FacadeTests::brokenLineIsOneWire);
@@ -47,6 +48,24 @@ final class FacadeTests {
                 int colour = row < 0 || row >= high - WIDE / 2 ? 0 : wall.at(x, row);
                 pixels.put((byte) (colour >> 16)).put((byte) (colour >> 8)).put((byte) colour).put((byte) (colour == 0 ? 0 : 255));
             }
+        }
+        pixels.flip();
+        return pixels;
+    }
+
+    /** Grime is mostly dots a half covered, a poster's paint is whole, and a wall's sprite is whole with a soft rim. */
+    private static void thinPaintOverAWallIsAStain() {
+        check(Stains.measure(covered(new int[] {120, 90, 150, 0}), 2, 0, 0, 2, 2), "grime in thin dots is a stain");
+        check(!Stains.measure(covered(new int[] {255, 255, 255, 0}), 2, 0, 0, 2, 2), "solid paint is no stain");
+        check(!Stains.measure(covered(new int[] {255, 255, 255, 100}), 2, 0, 0, 2, 2), "a solid sprite with a soft edge is no stain");
+        check(!Stains.measure(covered(new int[] {0, 0, 0, 0}), 2, 0, 0, 2, 2), "an empty sprite is no stain");
+    }
+
+    /** Dots of grey, each covered as given. */
+    private static ByteBuffer covered(int[] cover) {
+        ByteBuffer pixels = ByteBuffer.allocateDirect(cover.length * 4);
+        for (int c : cover) {
+            pixels.put((byte) 0x80).put((byte) 0x80).put((byte) 0x80).put((byte) c);
         }
         pixels.flip();
         return pixels;
