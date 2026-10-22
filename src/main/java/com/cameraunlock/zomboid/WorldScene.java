@@ -657,6 +657,8 @@ final class WorldScene {
     private static final float OVERHEAD_DEPTH = 160f;
     /** The distance the place looked at is taken to be at, for what the picture does by distance. */
     static final float OVERHEAD_RANGE = 12f;
+    /** How far past the ground the game's own view shows its darkening is read, in squares: what stands on a square below the screen's edge reaches up into it. */
+    private static final float SIGHT_MARGIN = 4f;
     /** How much of its opening-up the eye is refused at full night. */
     private static final float NIGHT_HELD_BACK = 0.6f;
     /**
@@ -2498,6 +2500,9 @@ final class WorldScene {
         private float stoodUp;
         private int cutRowsX, cutRowsY;
         private float cutBelow;
+        /** For a frame seen from outside the viewer, how the game's own view would darken each square: see Sight. */
+        private final Sight sight = new Sight();
+        private boolean sightRead;
         /**
          * The height at which the viewer's storey ends, for a viewer indoors whose building is
          * whole in the scene: what is above it is left out of the picture while the camera is too.
@@ -2660,6 +2665,71 @@ final class WorldScene {
         private int lidsFrame;
         /** How many frames go by before a building some of whose columns were not loaded is looked through again. */
         private static final int LIDS_AGAIN = 30;
+
+        /**
+         * Reads the game's darkening of the squares round the viewer into sight: only those the
+         * game's own view has on screen when the frame says which those are. Off the viewer's
+         * floor, where nothing stands at their level, a square is read from the first floor
+         * down that has one, as the ground seen from a balcony.
+         *
+         * The shader looks a square up by where the surface it draws stands, and a floor below
+         * the viewer's is on screen further along the view than the viewer's own, one above it
+         * nearer, by the level shift a floor: so the squares read reach as far as the lowest and
+         * the highest floors drawn put the screen's edges.
+         */
+        private void readSight(IsoCell cell, IsoChunkMap map, int level, int lowest, int stoodX, int stoodY, boolean screenOnly) {
+            if (!screenOnly) {
+                sight.begin(stoodX, stoodY);
+                readSight(cell, level, sight.x, sight.y, sight.x + Sight.SIDE - 1, sight.y + Sight.SIDE - 1);
+                return;
+            }
+            int highest = level;
+            for (int gridY = 0; gridY < IsoChunkMap.chunkGridWidth; gridY++) {
+                for (int gridX = 0; gridX < IsoChunkMap.chunkGridWidth; gridX++) {
+                    IsoChunk chunk = map.getChunk(gridX, gridY);
+                    if (chunk != null && chunk.loaded) {
+                        highest = Math.max(highest, chunk.getMaxLevel());
+                    }
+                }
+            }
+            // Along the view, from the middle of the screen at the viewer's floor: the nearest and the furthest square on it.
+            float nearest = -seenHalfAlong - (highest - level) * seenLevelShift - SIGHT_MARGIN;
+            float furthest = seenHalfAlong + (level - lowest) * seenLevelShift + SIGHT_MARGIN;
+            float across = seenHalfAcross + SIGHT_MARGIN, middle = (nearest + furthest) / 2f, halfAlong = (furthest - nearest) / 2f;
+            float middleX = seenRoundX + seenAlongX * middle, middleY = seenRoundY + seenAlongY * middle;
+            float reachX = Math.abs(seenAlongX) * halfAlong + Math.abs(seenAlongY) * across;
+            float reachY = Math.abs(seenAlongY) * halfAlong + Math.abs(seenAlongX) * across;
+            sight.begin((int) Math.floor(middleX), (int) Math.floor(middleY));
+            readSight(cell, level, Math.max(sight.x, (int) Math.floor(middleX - reachX)), Math.max(sight.y, (int) Math.floor(middleY - reachY)),
+                    Math.min(sight.x + Sight.SIDE - 1, (int) Math.floor(middleX + reachX)), Math.min(sight.y + Sight.SIDE - 1, (int) Math.floor(middleY + reachY)));
+        }
+
+        private void readSight(IsoCell cell, int level, int fromX, int fromY, int toX, int toY) {
+            for (int squareY = fromY; squareY <= toY; squareY++) {
+                for (int squareX = fromX; squareX <= toX; squareX++) {
+                    IsoGridSquare square = cell.getGridSquare(squareX, squareY, level);
+                    for (int below = level - 1; below >= 0 && (square == null || square.getFloor() == null); below--) {
+                        IsoGridSquare under = cell.getGridSquare(squareX, squareY, below);
+                        if (under != null) {
+                            square = under;
+                        }
+                    }
+                    if (square == null) {
+                        sight.put(squareX, squareY, 0);
+                        continue;
+                    }
+                    BuildingDef building = square.getRoomID() == -1L || square.getBuilding() == null ? null : square.getBuilding().getDef();
+                    if (building != null && !openBuildings.contains(building)) {
+                        sight.put(squareX, squareY, Sight.CLOSED);
+                        continue;
+                    }
+                    // isCanSee brings the square's figures up to date from the lighting engine; the dark multiplier alone does not.
+                    square.isCanSee(playerIndex);
+                    sight.put(squareX, squareY, Sight.kept(square.getDarkMulti(playerIndex)));
+                }
+            }
+            sight.settle();
+        }
 
         /** Sets heldFrom and heldUnder for the viewer on that level of the building: see Lids. */
         private void lids(BuildingDef def, int level) {
@@ -3093,6 +3163,10 @@ final class WorldScene {
                         }
                     }
                 }
+            }
+            sightRead = fromOutside && !Quality.overheadPlain(view.index);
+            if (sightRead) {
+                readSight(cell, map, level, lowest, stoodX, stoodY, screenOnly);
             }
             lidFrom = indoors && !opened ? floorUp + ViewCamera.LEVEL_HEIGHT - LID_UNDER : Float.MAX_VALUE;
             boxMinX = minX;
@@ -7605,6 +7679,7 @@ final class WorldScene {
             view.pipeline.cutBehind = 1f - landing;
             view.pipeline.lid = outside && outsideCamera.eyeUp > lidFrom ? lidFrom : Float.MAX_VALUE;
             view.pipeline.cutRows = cutRows;
+            view.pipeline.sight = sightRead ? sight : null;
             view.pipeline.cutRowsX = cutRowsX;
             view.pipeline.cutRowsY = cutRowsY;
             view.pipeline.cutBelow = outside ? cutBelow : 0f;

@@ -280,7 +280,7 @@ final class Pipeline {
     /** The unit the rain and the snow read the block of sheltered squares on. */
     private static final int SHELTER_UNIT = 1;
     /** The unit the develop pass reads it on, and how bright fog is against the sky it hangs under. */
-    private static final int DEVELOP_SHELTER_UNIT = 5, DEVELOP_OUTLINES_UNIT = 6;
+    private static final int DEVELOP_SHELTER_UNIT = 5, DEVELOP_OUTLINES_UNIT = 6, DEVELOP_SIGHT_UNIT = 8;
     private static final float FOG_BRIGHT = 1.1f;
     /** The drops, on the graphics card: they are the same every frame. */
     private static int rainDrops;
@@ -513,6 +513,9 @@ final class Pipeline {
     float away;
     private int shelterTexture;
     private Shelter shelterHeld;
+    /** How the game's own view would darken each square round the viewer, for a picture seen from outside them, or null: see Sight. */
+    Sight sight;
+    private int sightTexture;
     /** Which air round the eye is in a room, or null before the first build: see RoomAir. */
     RoomAir roomAir;
     private int roomAirTexture;
@@ -3166,6 +3169,38 @@ final class Pipeline {
         }
     }
 
+    /**
+     * Puts the frame's darkening of each square (Sight) on the develop pass's unit, or tells the
+     * pass there is none. It is the game's own view's, so it comes in as the camera leaves the
+     * eye for overhead, and is read between squares, as the game's own edges are soft.
+     */
+    private void holdSight(ViewCamera.Pose camera) {
+        float strength = sight == null ? 0f : cutBehind;
+        develop.set("uSight", DEVELOP_SIGHT_UNIT);
+        GL13.glActiveTexture(GL_TEXTURE0 + DEVELOP_SIGHT_UNIT);
+        if (strength <= 0f) {
+            GL11.glBindTexture(GL_TEXTURE_2D, noneTexture);
+            GL13.glActiveTexture(GL_TEXTURE0);
+            develop.set("uSightAt", 0f, 0f, 0f, 0f);
+            return;
+        }
+        if (sightTexture == 0) {
+            sightTexture = GL11.glGenTextures();
+            GL11.glBindTexture(GL_TEXTURE_2D, sightTexture);
+            GL11.glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, Sight.SIDE, Sight.SIDE, 0, GL_RED, GL_UNSIGNED_BYTE, (ByteBuffer) null);
+            filter(GL_LINEAR);
+        }
+        GL11.glBindTexture(GL_TEXTURE_2D, sightTexture);
+        GL11.glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+        GL11.glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+        GL11.glPixelStorei(GL_UNPACK_SKIP_ROWS, 0);
+        GL11.glPixelStorei(GL_UNPACK_SKIP_PIXELS, 0);
+        GL11.glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, Sight.SIDE, Sight.SIDE, GL_RED, GL_UNSIGNED_BYTE, sight.shown);
+        GL11.glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+        GL13.glActiveTexture(GL_TEXTURE0);
+        develop.set("uSightAt", sight.x - camera.eyeX, sight.y - camera.eyeY, 1f / Sight.SIDE, strength);
+    }
+
     private void setShelter(Program falling, int unit, boolean lidded) {
         falling.set("uShelter", unit);
         falling.set("uShelterAt", sheltered == null ? 0f : sheltered.x, sheltered == null ? 0f : sheltered.y, sheltered == null ? 0f : 1f / Shelter.SIDE,
@@ -4374,6 +4409,7 @@ final class Pipeline {
         } else {
             develop.set("uNarrowed", state.narrowed);
         }
+        holdSight(camera);
         if (fog > 0f) {
             holdShelter(DEVELOP_SHELTER_UNIT);
             GL13.glActiveTexture(GL_TEXTURE0);
@@ -5837,6 +5873,8 @@ final class Pipeline {
         nearMap = 0;
         GL11.glDeleteTextures(shelterTexture);
         shelterTexture = 0;
+        GL11.glDeleteTextures(sightTexture);
+        sightTexture = 0;
         GL11.glDeleteTextures(roomAirTexture);
         roomAirTexture = 0;
         giveBack(beamed);

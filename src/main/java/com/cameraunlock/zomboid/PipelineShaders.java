@@ -6775,6 +6775,11 @@ final class PipelineShaders {
             uniform vec2 uBalance;
             // How much of the film works on each colour alone: see film.
             uniform float uEachColour;
+            // How the game's own view darkens each square round the viewer (Sight): uSightAt.xy is
+            // where its block starts, counted from the eye, z one over its side, and w how much
+            // of the darkening is laid on, 0 for none.
+            uniform sampler2D uSight;
+            uniform vec4 uSightAt;
             """ + SHELTERED + """
 
             const int RAY_SAMPLES = 48;
@@ -7141,6 +7146,16 @@ final class PipelineShaders {
                 }
                 if (uWithout.y < 0.5) {
                     c += ofItsOwnDepth(uVolume, whole, weights).rgb;
+                }
+                if (uSightAt.w > 0.0) {
+                    // Under the fog: the game lays its fog over the squares it darkens. Read four
+                    // times half a square apart, the edge between squares fades over two squares,
+                    // as the game's does; read once, it was a staircase of hard steps.
+                    vec2 q = (fromEye.xy - uSightAt.xy) * uSightAt.z;
+                    float apart = 0.5 * uSightAt.z;
+                    float kept = 0.25 * (texture2D(uSight, q + vec2(apart, apart)).r + texture2D(uSight, q + vec2(apart, -apart)).r
+                            + texture2D(uSight, q - vec2(apart, apart)).r + texture2D(uSight, q + vec2(-apart, apart)).r);
+                    c *= mix(1.0, kept, uSightAt.w);
                 }
                 if (uFog.x > 0.0) {
                     c = mix(c, uFogColor, fogged(uv * 2.0 - 1.0));

@@ -235,6 +235,7 @@ public final class Tests {
         Checks.run("QualityTests", QualityTests::run);
         Checks.run("DrawDistanceTests", DrawDistanceTests::run);
         Checks.run("StyleTests", StyleTests::run);
+        Checks.run("SightTests", SightTests::run);
         Checks.run("DevelopTests", DevelopTests::run);
         Checks.run("GameFixTests", GameFixTests::run);
         Checks.run("MarkTests", MarkTests::run);
