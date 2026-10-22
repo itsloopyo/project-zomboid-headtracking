@@ -328,8 +328,9 @@ show('puppets', VIDEO,
      'A felt owl puppet looks out of a hole in a cardboard tree in a children\'s puppet show.',
      'Hand puppets made of felt, a fox, an owl and a rabbit, poke up from behind a painted wooden fence with their'
      ' mouths open in song, painted forest trees behind, on a cheap 1980s children\'s show set.')
+# Asked for over a watercolour background, Qwen-Image paints a patch on a sheet of bare paper.
 show('bunnies', ' A still image from a 1980s cartoon for very small children, painted by hand on celluloid over a'
-                ' watercolour background, soft faded pastel colours, wobbly hand inked outlines and uneven paint. The'
+                ' soft painted background, soft faded pastel colours, wobbly hand inked outlines and uneven paint. The'
                 ' picture fills the whole image edge to edge.',
      'Three round pastel cartoon bunnies of different sizes, a big pink one, a middle sized pale yellow one and a small'
      ' pale blue one, sit side by side in a meadow of flowers under a rainbow, the painted green meadow and blue sky'
