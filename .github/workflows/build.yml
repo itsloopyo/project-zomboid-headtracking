@@ -57,10 +57,10 @@ jobs:
             exit 1
           }
 
-      - name: Verify both ZIPs were produced
+      - name: Verify the ZIPs were produced
         shell: pwsh
         run: |
-          foreach ($kind in 'installer', 'workshop') {
+          foreach ($kind in 'installer', 'launcher', 'workshop') {
             $zip = Get-ChildItem "release/*-$kind.zip" -ErrorAction SilentlyContinue | Select-Object -First 1
             if (-not $zip) {
               Write-Host "::error::No $kind ZIP was produced by 'pixi run package'"

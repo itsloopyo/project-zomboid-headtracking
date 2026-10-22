@@ -1,10 +1,17 @@
 #!/usr/bin/env pwsh
 #Requires -Version 5.1
 # Packages Project Zomboid Head Tracking (a Java agent jar with cameraunlock-core compiled into it, no loader).
-# Produces two ZIPs:
-#   ProjectZomboidHeadTracking-v{version}-installer.zip (GitHub Release)
+# Produces three ZIPs:
+#   ProjectZomboidHeadTracking-v{version}-installer.zip (GitHub Release): the code
+#       jar and the art jars, for install.cmd and launchers before schema 4
+#   ProjectZomboidHeadTracking-v{version}-launcher.zip  (GitHub Release): the same
+#       without the art jars, which the launcher downloads from the release on
+#       their own, each only when it does not have that one already
 #   ProjectZomboidHeadTracking-v{version}-dev.zip       (never published: the
 #       installer with the development jar, which has the development keys)
+# and release/assets/, the art jars under the names the launcher downloads them
+# by, ProjectZomboidHeadTracking-<folder>-<first 12 of sha256>.jar, which the
+# release uploads beside the ZIPs.
 #
 # There is no Nexus ZIP. Installing the mod is the jar next to the game exe
 # plus a site JVM config that install.cmd generates from the game's own
@@ -47,6 +54,22 @@ if (-not (Test-Path $devJarPath)) {
     throw "the development $modName.jar not found at: $devJarPath. Run 'pixi run build' first."
 }
 
+# The art jars build.ps1 writes beside the code jar, one a folder of src/main/resources.
+$artJars = @(Get-ChildItem -Directory (Join-Path $projectDir 'src/main/resources') | Sort-Object Name | ForEach-Object {
+    $jar = Join-Path $projectDir "build/$modName-$($_.Name).jar"
+    if (-not (Test-Path $jar)) { throw "$jar not found. Run 'pixi run build' first." }
+    Get-Item $jar
+})
+
+# install.cmd copies what MOD_DLLS names and uninstall.cmd removes it, so both name every jar.
+$expectedDlls = (@("$modName.jar") + @($artJars | ForEach-Object Name)) -join ' '
+foreach ($script in @('install.cmd', 'uninstall.cmd')) {
+    $dlls = Get-ProjectVersion -Source regex -Path (Join-Path $projectDir "scripts/$script") -Pattern '(?m)^set "MOD_DLLS=([^"]+)"'
+    if ($dlls -ne $expectedDlls) {
+        throw "scripts/$script has MOD_DLLS=$dlls but the build writes $expectedDlls. Name every jar there."
+    }
+}
+
 # The launcher reads this file from the root of the ZIP to learn how to install
 # the mod, and an absent one reads to it as a package of an older kind.
 # Copy-SharedBundle checks its delivery mode and validate-manifest the built ZIP.
@@ -74,6 +97,21 @@ New-Item -ItemType Directory -Path $pluginsDir -Force | Out-Null
 Copy-Item $jarPath -Destination $pluginsDir -Force
 Write-Host "  plugins/$modName.jar" -ForegroundColor Green
 
+# Each art jar goes to release/assets/ under a name with its hash in it, so a release whose art
+# has not changed uploads the same names and bytes as the one before, and the manifest gets a row
+# that has the launcher download it by that name.
+$assetsDir = Join-Path $releaseDir 'assets'
+if (Test-Path $assetsDir) { Remove-Item -Recurse -Force $assetsDir }
+New-Item -ItemType Directory -Path $assetsDir -Force | Out-Null
+$assetRows = foreach ($jar in $artJars) {
+    $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $jar.FullName).Hash.ToLowerInvariant()
+    $assetName = $jar.BaseName + '-' + $hash.Substring(0, 12) + '.jar'
+    Copy-Item -LiteralPath $jar.FullName -Destination (Join-Path $assetsDir $assetName)
+    Copy-Item -LiteralPath $jar.FullName -Destination $pluginsDir
+    Write-Host ("  plugins/$($jar.Name), assets/$assetName ({0:N1} MB)" -f ($jar.Length / 1MB)) -ForegroundColor Green
+    '    { "release_asset": { "name": "' + $assetName + '", "sha256": "' + $hash + '", "size": ' + $jar.Length + ' }, "target": "' + $jar.Name + '" }'
+}
+
 Copy-LicenceNotices -StagingDir $staging -ProjectRoot $projectDir -Additional @('CHANGELOG.md')
 
 $readme = Join-Path $projectDir 'README.md'
@@ -88,6 +126,11 @@ if ($manifestVersion.Matches($manifestSource).Count -ne 1) {
     throw 'launcher-manifest.json must hold exactly one "version": "x.y.z", at mod_info.version.'
 }
 $manifestText = $manifestVersion.Replace($manifestSource, "`${1}$version`$2")
+$codeRow = '{ "source": "plugins/' + $modName + '.jar", "target": "' + $modName + '.jar" }'
+if (([regex]::Matches($manifestText, [regex]::Escape($codeRow))).Count -ne 1) {
+    throw "launcher-manifest.json must hold the files[] row $codeRow exactly once: the art jar rows go after it."
+}
+$manifestText = $manifestText.Replace($codeRow, $codeRow + ",`n" + ($assetRows -join ",`n"))
 [System.IO.File]::WriteAllText((Join-Path $staging 'launcher-manifest.json'), $manifestText, (New-Object System.Text.UTF8Encoding $false))
 Write-Host "  launcher-manifest.json (version $version)" -ForegroundColor Green
 
@@ -106,6 +149,20 @@ try { Compress-Archive -Path '.\*' -DestinationPath $installerZip -Force } final
 $installerKb = [math]::Round((Get-Item $installerZip).Length / 1KB, 1)
 Write-Host ("  $installerZip ({0:N1} KB)" -f $installerKb) -ForegroundColor Green
 
+# The launcher ZIP is the installer without the art jars.
+$launcherStaging = Join-Path $releaseDir 'staging-launcher'
+if (Test-Path $launcherStaging) { Remove-Item -Recurse -Force $launcherStaging }
+Copy-Item -Recurse $staging $launcherStaging
+foreach ($jar in $artJars) { Remove-Item -LiteralPath (Join-Path $launcherStaging "plugins/$($jar.Name)") }
+$launcherZip = Join-Path $releaseDir "$modName-v$version-launcher.zip"
+if (Test-Path $launcherZip) { Remove-Item $launcherZip -Force }
+Push-Location $launcherStaging
+try { Compress-Archive -Path '.\*' -DestinationPath $launcherZip -Force } finally { Pop-Location }
+Remove-Item -Recurse -Force $launcherStaging
+
+$launcherKb = [math]::Round((Get-Item $launcherZip).Length / 1KB, 1)
+Write-Host ("  $launcherZip ({0:N1} KB, the art jars downloaded from release/assets)" -f $launcherKb) -ForegroundColor Green
+
 # The development ZIP is the installer with the development jar in the place of
 # the one that ships. Its name must not end in -installer.zip: build.yml and the
 # release paths pick the installer up by that ending, and a ZIP with the
@@ -121,9 +178,11 @@ Remove-Item -Recurse -Force $staging
 $devKb = [math]::Round((Get-Item $devZip).Length / 1KB, 1)
 Write-Host ("  $devZip ({0:N1} KB, development keys in)" -f $devKb) -ForegroundColor Green
 
-& node (Join-Path $projectDir 'cameraunlock-core/scripts/validate-manifest.mjs') $installerZip
-if ($LASTEXITCODE -ne 0) { throw "validate-manifest rejected $installerZip" }
-Write-Host '  manifest validated' -ForegroundColor Green
+foreach ($zip in @($installerZip, $launcherZip)) {
+    & node (Join-Path $projectDir 'cameraunlock-core/scripts/validate-manifest.mjs') $zip
+    if ($LASTEXITCODE -ne 0) { throw "validate-manifest rejected $zip" }
+}
+Write-Host '  manifests validated' -ForegroundColor Green
 
 Write-Host ''
 Write-Host '=== Package Complete ===' -ForegroundColor Magenta
