@@ -190,10 +190,9 @@ POOLS = {
         ' microphone on a small stage under a single spotlight, seen from across the dark room, the dark room and the stage'
         ' running right out to all four edges of the image.' + PRINT,
         'An empty theatre auditorium with red velvet seats and a closed red curtain, warm house lights.' + PRINT,
-        'A small brass band of four men in white jackets sitting on chairs inside an old round wooden '
-        'bandstand in a park, playing under its roof, seen from across the lawn, each man different: two '
-        'with trumpets raised to their lips, one with a big round tuba on his lap and one with a trombone '
-        'held out in front of him.' + OLD_PRINT,
+        'An old round wooden bandstand in a small town park on a summer evening, seen from across the lawn, '
+        'its pointed roof hung with strings of glowing bulbs, a few empty wooden chairs set out on its floor, '
+        'rows of empty folding chairs on the grass in front of it and tall elm trees behind.' + OLD_PRINT,
         'Three grown women dancers of about thirty, each face different, one blonde, one dark haired and one red '
         'haired, in matching long sleeved red costumes with long red trousers, standing a little apart across a stage '
         'with their arms raised high in a bow at the end of a number, seen straight on from the audience.' + PRINT,

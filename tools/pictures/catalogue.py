@@ -193,15 +193,14 @@ SPORTS = {
         'chain link fence, seen from standing height a couple of metres away, leaves curled over the top of the ball '
         'so only a yellow crescent of it shows, plain grey overcast light, a faded green court beyond the '
         'fence.' + STILL,
-        'One fuzzy pale yellow tennis ball resting on the dull dusty orange brown clay of a tennis court in '
-        'low evening light, seen from standing height looking down at a slant, its long thin shadow '
-        'stretching away across the fine raked clay, the clay soft, matte and dusty, the colours pale, '
-        'muted and faded like an old print.' + STILL,
-        'A man of about fifty with grey hair in a pale blue shirt and white shorts about to serve on a green '
-        'asphalt court in a small town park on a hot summer afternoon, seen from beside the court a little '
-        'way off, a small figure at the far baseline bouncing a yellow ball with one hand, a plain dark brown '
-        'wooden racket in the other, a tall chain link fence round the court, leafy green summer trees and a '
-        'wooden telephone pole beyond it.' + ACTION,
+        'An empty old green asphalt tennis court in a small town park on an overcast summer evening, seen '
+        'from standing height beyond one corner of the court, the faded white lines and the low sagging net '
+        'running across it, a chain link fence and leafy trees beyond, everything sharp from near to far, '
+        'the colours pale, washed out and faded like an old print.' + STILL,
+        'Seen from far off through a tall chain link fence, one grey haired man of about fifty in a pale '
+        'blue shirt and white shorts stands alone at the far end of an empty green asphalt court in a small '
+        'town park on a hot summer afternoon, a small figure about to serve, a plain wooden racket in his '
+        'hand, leafy green summer trees behind him.' + ACTION,
     ],
     'boxing': [
         'The corner of an empty boxing ring under one hanging lamp, a red padded corner post with three red ropes '
@@ -325,9 +324,10 @@ SPORTS = {
     'weights': [
         'A weightlifter holding a barbell overhead seen as a black silhouette against a tall bright window in a dim old'
         ' gym.' + ACTION,
-        'A pair of short dumbbells lying side by side on the scuffed wooden floor of an old gym, each one a '
-        'straight steel handle with a plain round flat disc of smooth polished chrome at each end, the '
-        'chrome reflecting the window light, seen low and close, a bare painted brick wall soft behind.' + STILL,
+        'A pair of old fashioned cast iron globe dumbbells lying side by side on the scuffed wooden floor of '
+        'an old gym, each one a short iron handle with a round ball of dull matte black iron at each end, '
+        'worn smooth and grey where hands have held them, seen low and close, a bare painted brick wall soft '
+        'behind in dim window light.' + STILL,
         'Two ordinary grown adults in plain grey sweatshirts and grey sweatpants stand a little apart in an '
         'old gym with bare painted brick walls and tall windows, facing the viewer, each lifting a small '
         'round chrome dumbbell in each hand up to the shoulders mid curl: a heavy set bald man of about '
@@ -336,11 +336,9 @@ SPORTS = {
         'A thick old brown leather lifting belt lying loosely coiled on a scarred wooden bench in an old American town'
         ' gym, its plain steel buckle catching the light, soft window light from one side, a bare painted cinder '
         'block wall behind and the rest of the gym dim.' + STILL,
-        'One end of a steel barbell lying on a worn plank floor in an old gym, seen low and close from the '
-        'side: the bar coming in from the left edge of the picture and passing through one big flat black '
-        'iron disc standing upright on its rim, the disc seen edge on as a thick dull black upright band, '
-        'the short steel end of the bar sticking out beyond it, an old wooden bench padded with cracked '
-        'brown leather just behind, a bare painted brick wall and soft window light.' + STILL,
+        'An old flat wooden weight bench padded with cracked brown leather standing alone on a worn plank '
+        'floor in an old gym, seen side on from a few paces off, a bare painted brick wall behind it and '
+        'soft window light falling across the leather.' + STILL,
         'A barbell resting on a wooden lifting platform in front of a red painted wall, seen from in front with the bar'
         ' running across the picture, both ends loaded the same with big black iron plates, a bright light on the red '
         'wall behind it so the plates in front are flat black discs with no detail, only the steel bar catching a thin '
@@ -421,11 +419,9 @@ SPORTS = {
         'round green shade, a long wooden cue lying along the near cushion, the lamp light falling on the bare felt, the'
         ' room dark around it.' + STILL,
         'A black eight ball on the green felt of a pool table beside a corner pocket.' + STILL,
-        'A row of pale maple pool cues standing upright in a dark wooden wall rack against a dark wood '
-        'panelled wall, seen close so the picture shows only the long middle lengths of the slim pale '
-        'shafts, which run on out of the top and the bottom edges of the picture, a dark wooden rail of the '
-        'rack crossing the picture with each shaft resting in its own rounded notch, warm light falling '
-        'across them from one side.' + STILL,
+        'The corner pocket of an old pool table seen close from a little above, a worn brown leather pocket '
+        'where two dark polished wooden rails meet, the green felt cushions curving into its dark mouth, '
+        'warm lamp light on the felt, the rest of the bare green table soft and blurred beyond.' + STILL,
         'A pool table in a dim back room of a bar, a low lamp with a deep green glass shade hanging over it, the green '
         'felt bare and empty in its pool of light, the walls behind plain dark wood panelling from floor to ceiling, '
         'the corners of the room in darkness.' + STILL,
@@ -597,7 +593,9 @@ PAINTINGS = {
     'Lighthouse': ('a detail from a large oil painting of a rocky coast: a small round white brick '
                    'lighthouse with a black iron lantern room on top standing low in the picture, the top '
                    'of its lantern a little above the middle of the picture\'s height, the whole upper half '
-                   'of the picture open blue sky with soft white clouds above it, a white clapboard '
+                   'of the picture open sky painted in matte broken dabs of dry blue and grey white paint, '
+                   'the clouds loose scrubbed brushstrokes with the canvas weave showing through them like a '
+                   'Winslow Homer coast, a white clapboard '
                    'keeper\'s house and dark pine trees beside it on a low point of plain cool grey granite '
                    'ledges, a blue sea, the ledges and the white surf running out of the bottom of the '
                    'picture, painted in cool blues, whites, slate greys and dark greens, the brushwork running '
@@ -686,10 +684,10 @@ art('board-cork', 'A flat scan of brown granular cork, the cork surface filling 
                   'sheets of blank lined paper, a yellowed sheet, a folded pink sheet and one curled faded snapshot of'
                   ' a lake, each paper held by a single round red push pin. A flat scan seen straight on in even '
                   'light.', WIDE)
-art('board-white', 'A flat close up of a patch of smooth glossy white enamel, the white filling the whole image out to'
-    ' every edge and corner, faint grey ghost smears of wiped marker ink, a large hand drawn loop, a few curved arrows'
-    ' and some wavy lines in blue and red marker, half wiped away, a soft pale reflection of a window across the gloss.'
-    ' Seen straight on in even light.', BROAD)
+art('board-white', 'A seamless field of smooth white enamel seen straight on, the white running on past every edge and'
+    ' corner of the image, faint grey ghost smears of wiped marker ink spread across it, a large looping scribble, a few'
+    ' curved arrows and some wavy lines in faded blue and red marker ink, half wiped away, the whole surface lit by flat'
+    ' even light with a soft even sheen.', BROAD)
 art('board-darts', 'A close view of the two shut doors of a dark stained wooden wall cabinet seen straight on, the two plain'
                    ' panelled doors filling the whole picture edge to edge, a thin seam down the middle where they meet,'
                    ' small brass hinges at the outer sides and a little brass catch at the seam. A plain photograph in'
