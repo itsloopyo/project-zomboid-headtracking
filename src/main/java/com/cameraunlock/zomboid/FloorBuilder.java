@@ -7,6 +7,7 @@ import zombie.core.textures.Texture;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoObject;
 import zombie.iso.SpriteDetails.IsoFlagType;
+import zombie.iso.sprite.IsoSprite;
 
 /**
  * The floors of a chunk being built: a floor's own sprite, its tiles where the mod lays them, and the ground of its
@@ -81,12 +82,24 @@ final class FloorBuilder {
                     build.cover[corner] = touches ? 1f : 0f;
                 }
                 build.frameOf(build.groundObject[at], build.groundTexture[at]);
+                // Of the neighbour's ground's stuff, as its own floor is: not of whatever was added last on this square.
+                IsoSprite ground = build.groundObject[at].getSprite();
+                PropertyContainer properties = ground.getProperties();
+                build.frame.material = Ground.of(properties.get("FloorMaterial"), properties.get("FootstepMaterial"), true);
+                if (build.frame.material == 0f) {
+                    build.frame.material = WorldScene.materialOf(ground.getName(), true);
+                }
+                // Laid from the same flat picture as the neighbour's own floor, or the two meet in a seam
+                // where the one picture of the ground runs into the other.
+                int flat = build.flatOf(build.groundTexture[at], Flats.FLOOR, 0f, 0f, 0f);
+                build.frame.flat = flat != 0 ? SpriteGeometry.FLAT_FLOOR : 0;
                 build.geometry.cover = build.cover;
                 // Grass does not spread down a kerb onto the street.
                 build.geometry.kerbKeep = SpriteGeometry.LAND;
                 build.spreadFaces++;
                 WorldScene.layers.lie(SpriteGeometry.LAYERS_UP, build.floorLayer + spread);
-                build.geometry.addFace(WorldScene.laid.get(build.groundTexture[at].getID()), build.frame, x, y, 0, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f, 0f);
+                build.geometry.addFace(WorldScene.laid.get(flat != 0 ? flat : build.groundTexture[at].getID()), build.frame, x, y, 0, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f, 0f);
+                build.frame.flat = 0;
                 WorldScene.layers.none();
                 build.geometry.kerbKeep = SpriteGeometry.BOTH;
                 build.geometry.cover = null;
