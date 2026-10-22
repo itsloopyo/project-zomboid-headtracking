@@ -387,9 +387,10 @@ show('clown', LOCAL,
      'One clown with an orange wig and a red nose stands alone on the bare floor of a small room, holding up a bunch '
      'of three balloons on strings above his head, one red, one yellow and one blue, the wall behind him painted with '
      'yellow stars on a deep blue sky.',
-     'A clown with an orange wig sits on a stool facing a puppet made from a plain grey wool sock with two black button'
-     ' eyes, which pokes up over the edge of a small puppet booth of plain red painted wood beside him in a'
-     ' children\'s show.',
+     'A clown with an orange wig and a red nose sits on a stool in a children\'s show and holds up his right hand '
+     'inside a sock puppet, a plain smooth grey sock pulled over his hand and wrist with two black button eyes sewn '
+     'near the toe, the puppet turned to face him, a plain sunny yellow painted wall behind them filling the picture '
+     'to every edge and corner.',
      'Small children sit cross legged on a carpet and laugh in a children\'s show, each child different: a girl of'
      ' about five with red pigtails, a chubby boy of about four with a crew cut, a thin girl of about six with dark'
      ' braids and a boy of about five with glasses, a plain painted yellow wall behind them.')
@@ -520,8 +521,9 @@ show('baseball', SPORT,
      'Seen from far off through a long lens, a lone baseball catcher crouches in the brown dirt, a small figure in '
      'grey with dark padding and a dark mask, holding up his brown glove as a target, a plain dark green wall behind'
      ' him.',
-     'The wide green outfield grass of a baseball park seen from high in the stands on a sunny afternoon, mown in broad'
-     ' light and dark green stripes, the far stands a soft distant blur of colour.',
+     'Looking steeply down from high above onto the outfield grass of a baseball park on a sunny afternoon, the grass '
+     'mown in broad light and dark green diagonal stripes that fill the whole picture, one outfielder in plain grey '
+     'standing small near the middle with his long shadow beside him.',
      'Seen from far off across the outfield, a baseball outfielder in plain grey leaps at the low padded outfield'
      ' fence, a small lone figure, the empty green grass in front.',
      'A baseball dugout seen from across the field, four players in plain grey uniforms and plain dark caps leaning on'
