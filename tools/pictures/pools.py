@@ -83,10 +83,9 @@ POOLS = {
         ' street so they are small.' + PRINT,
         'A grey haired man of about sixty in a dark suit and tie sitting behind a plain rectangular wooden desk with his '
         'hands folded on its top, seen from in front from the waist up, a bookcase behind him.' + OLD_PRINT,
-        'A grey haired man of about sixty in a grey suit and tie cutting a ribbon outside a plain single storey brown '
-        'brick office building with a wooden front door, seen from a few paces off from the waist up, one wide red '
-        'ribbon stretched straight across in front of him at waist height, his right hand closing a big pair of '
-        'scissors on it and his left hand at his side, a plain brick wall behind him, a sunny summer morning.' + PRINT,
+        'A new single storey brown brick office building on a sunny summer morning, seen from across its neat green '
+        'lawn, a wide red ribbon tied in a big bow stretched across its wooden front door, small young trees beside '
+        'the path to the door, a clear blue sky above.' + PRINT,
         'A small town in summer seen from high on a wooded hill above it, a main street of red brick buildings, a white'
         ' church steeple, tree lined streets of houses, and green fields and woods all round.' + PRINT,
         'A brick factory building with a tall chimney and a car park full of 1970s cars, seen from across the road.' + PRINT,
