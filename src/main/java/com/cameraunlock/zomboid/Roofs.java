@@ -412,6 +412,7 @@ final class Roofs {
                 }
             }
             beyondRidge(cell, tile, roof, seen);
+            alongToTheRoofItMeets(cell, tile, roof, seen);
         }
         // In the order of their places and not of the reading, which starts at whichever tile asked:
         // where two tiles are as good as each other the fit takes the first, and a roof is to come
@@ -592,7 +593,11 @@ final class Roofs {
      * cross gable before the crown of a hip cut short (10402..10411 x 12658..12669) was two roofs,
      * and the gable's far side, made with no crown in its roof, stood a third of a level over the
      * crown and ran on at the ridge's height to the north wall where the crown ended short of it.
-     * Only a sheet lower than the ridge is taken, and only across squares with no roofing.
+     * So is a wing whose slopes run into the far side, square to this slope and no higher than its
+     * ridge, on its level or the one below: the church at 3532..3549, 11199..11211 was two roofs,
+     * the hall's far side and the wing's each made with no knowledge of the other, and each ran on
+     * through the other to its end wall and stood a level top over it. Only a sheet lower than the
+     * ridge or such a wing is taken, and only across squares with no roofing.
      */
     private static void beyondRidge(IsoCell cell, RoofFit.Tile tile, Roof roof, HashSet<Long> seen) {
         if (!tile.sure || tile.fitting || tile.axis != RoofFit.ALONG_X && tile.axis != RoofFit.ALONG_Y || Math.abs(tile.high - tile.low) < RoofFit.SAME) {
@@ -611,23 +616,80 @@ final class Roofs {
             if (ground == null || ground.getBuilding() != under.getBuilding() || square == null) {
                 return;
             }
-            if (!roofing(cell, square)) {
+            IsoGridSquare below = tile.z > 0 ? cell.getGridSquare(x, y, tile.z - 1) : null;
+            boolean onLevel = roofing(cell, square);
+            if (!onLevel && (below == null || !roofing(cell, below))) {
                 continue;
             }
             if (step == 1) {
                 return;
             }
-            long key = RoofFit.key(x, y, tile.z);
+            int z = onLevel ? tile.z : tile.z - 1;
+            long key = RoofFit.key(x, y, z);
             int before = reading.size();
-            take(cell, x, y, tile.z, roof, seen);
+            take(cell, x, y, z, roof, seen);
             if (reading.size() > before) {
                 RoofFit.Tile found = reading.get(before).tile;
-                if (!found.sheet || found.low >= ridge - RoofFit.SAME) {
+                boolean crown = onLevel && found.sheet && found.low < ridge - RoofFit.SAME;
+                boolean wing = found.sure && (found.axis == RoofFit.ALONG_X || found.axis == RoofFit.ALONG_Y) && found.axis != tile.axis
+                        && Math.max(found.low, found.high) <= ridge + RoofFit.SAME;
+                if (!crown && !wing) {
                     reading.remove(before);
                     seen.remove(key);
                 }
             }
             return;
+        }
+    }
+
+    /**
+     * The roof a wing runs into, seen from the wing: the other half of beyondRidge, so that the two
+     * are one roof whichever is read first. Along the slope's level line, a square or two past the
+     * squares with no tile, a slope square to this one that climbs towards it to a ridge no lower
+     * than this tile's top, on its level or the one above. Read from the wing alone, the church's
+     * wing (3539..3541, 11199..11205) made its far side through the hall to the hall's end wall.
+     */
+    private static void alongToTheRoofItMeets(IsoCell cell, RoofFit.Tile tile, Roof roof, HashSet<Long> seen) {
+        if (!tile.sure || tile.fitting || tile.axis != RoofFit.ALONG_X && tile.axis != RoofFit.ALONG_Y || Math.abs(tile.high - tile.low) < RoofFit.SAME) {
+            return;
+        }
+        IsoGridSquare under = cell.getGridSquare(tile.x, tile.y, 0);
+        if (under == null || under.getBuilding() == null) {
+            return;
+        }
+        float top = Math.max(tile.low, tile.high);
+        for (int way = -1; way <= 1; way += 2) {
+            int dx = tile.axis == RoofFit.ALONG_Y ? way : 0, dy = tile.axis == RoofFit.ALONG_X ? way : 0;
+            for (int step = 1; step <= RIDGE_GAP; step++) {
+                int x = tile.x + step * dx, y = tile.y + step * dy;
+                IsoGridSquare ground = cell.getGridSquare(x, y, 0), square = cell.getGridSquare(x, y, tile.z);
+                if (ground == null || ground.getBuilding() != under.getBuilding() || square == null) {
+                    break;
+                }
+                IsoGridSquare above = cell.getGridSquare(x, y, tile.z + 1);
+                boolean onLevel = roofing(cell, square);
+                if (!onLevel && (above == null || !roofing(cell, above))) {
+                    continue;
+                }
+                if (step == 1) {
+                    break;
+                }
+                int z = onLevel ? tile.z : tile.z + 1;
+                long key = RoofFit.key(x, y, z);
+                int before = reading.size();
+                take(cell, x, y, z, roof, seen);
+                if (reading.size() > before) {
+                    RoofFit.Tile found = reading.get(before).tile;
+                    int up = found.low > found.high ? -1 : 1;
+                    boolean meets = found.sure && found.axis != tile.axis && (found.axis == RoofFit.ALONG_X ? dx : dy) == -way * up
+                            && top <= Math.max(found.low, found.high) + RoofFit.SAME;
+                    if (!meets) {
+                        reading.remove(before);
+                        seen.remove(key);
+                    }
+                }
+                break;
+            }
         }
     }
 
