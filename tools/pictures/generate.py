@@ -106,7 +106,9 @@ def main():
                 picture = pipe(prompt_embeds=words[name], width=width, height=height, num_inference_steps=9,
                                guidance_scale=0.0, generator=generator).images[0]
         (out / name).mkdir(parents=True, exist_ok=True)
-        picture.save(out / name / f'{seed}.png')
+        # Written aside and renamed, so a run stopped mid-save leaves no half picture that later runs would skip.
+        picture.save(out / name / f'{seed}.part', format='PNG')
+        (out / name / f'{seed}.part').replace(out / name / f'{seed}.png')
         # Prompts are reworded between rounds, so each candidate keeps the words it was made from.
         (out / name / f'{seed}.txt').write_text(catalogue.ART[name][0], encoding='utf-8')
         print('made', name, seed, flush=True)
