@@ -49,8 +49,8 @@ show('news-desk', VIDEO,
      ' dark suit and striped tie, seen from the chest up against a plain blue wall.',
      'Two news anchors, a man and a woman, sit a little apart at a long news desk seen wide, a newsroom of desks behind'
      ' them with boxy tube monitors showing plain pictures of fields and skies.',
-     'A woman news anchor with short brown hair and an ordinary face sits at a desk looking off to one side, a boxy'
-     ' tube monitor in a grey plastic case on a shelf over her shoulder showing a plain green map of a river valley.',
+     'A woman news anchor with short brown hair and an ordinary face sits at a desk looking off to one side, a large'
+     ' framed photograph of a green river valley seen from the air hanging on the pale wall over her shoulder.',
      'A wide view of a large dim room with deep blue walls, a curved wooden desk lit warm in the middle and one anchor'
      ' of about fifty in a dark suit sitting small behind it, papers in his hands.')
 show('news-field', FIELD,
@@ -72,8 +72,9 @@ show('pundit', VIDEO,
      ' on the desk in front of him, seen from the chest up in front of a dark red curtain, the colours muted.',
      'A wood panelled room seen wide, one grey haired man of about sixty sitting in a leather chair at a wooden desk in'
      ' the middle, a flag on a pole and red curtains behind him.',
-     'A grey haired man in a dark suit leans back in a leather chair with his arms folded and a smug look, a red curtain behind'
-     ' him.')
+     'A grey haired man of about sixty in a dark suit leans back in a leather chair with his two hands resting one on'
+     ' the other on his stomach and a smug look, seen from the waist up, a plain red curtain filling the whole wall'
+     ' behind him.')
 show('general', FIELD,
      'An army general of about sixty in a green dress uniform with rows of ribbons speaks at an outdoor wooden podium'
      ' crowded with plain black microphones on short stalks, a few soldiers standing at ease in a line behind him.',
@@ -159,7 +160,9 @@ show('statement', VIDEO,
      'Rows of seated reporters in suits seen from the front across a wide room, their faces towards us, the reporters'
      ' small, a few with one hand raised to ask a question, a plain bare wall behind them.',
      'A white government building with columns lit up at night.',
-     'A grave man in a dark suit and red tie speaks into a cluster of microphones, seen from the chest up.')
+     'A grave heavy man of about sixty five with a broad fleshy face, a double chin, thinning white hair combed straight'
+     ' back and bushy dark eyebrows, in a dark suit and red tie, speaks into a cluster of plain black microphones, seen'
+     ' from the chest up.')
 
 # Home and hobbies.
 show('cook', VIDEO,
@@ -281,10 +284,12 @@ show('soap', VIDEO,
      'A woman of about forty with big teased blonde 1980s hair, in a loose long sleeved evening gown with a closed'
      ' collar up to her chin, points angrily at a man of about forty five in a tuxedo who stands a step away with his'
      ' arms spread, in an opulent living room in a daytime soap opera.',
-     'A tearful woman with heavy eye make up and big hair, seen from the shoulders up in a daytime soap opera.',
+     'A tearful woman with heavy eye make up and big hair, in a long sleeved high necked blouse buttoned up to her chin,'
+     ' seen from the shoulders up in a daytime soap opera.',
      'A man lies in a hospital bed with a bandaged head, a woman in a fur coat sitting at the bedside, in a daytime soap'
      ' opera.',
-     'A couple in evening dress stand on a terrace over a city at sunset in a daytime soap opera.',
+     'A couple stand on a terrace over a city at sunset in a daytime soap opera, the woman in a long sleeved evening'
+     ' gown with a high collar up to her chin and the man in a tuxedo.',
      'Inside a mansion entrance hall, a man of about forty five in a tuxedo stands at the foot of a wide carpeted'
      ' staircase with his head turned aside and one hand on his cheek, as a woman in a red dress walks up the stairs'
      ' away from him with her back to us, seen from a little way back, in a daytime soap opera.')
@@ -319,10 +324,12 @@ show('heroes', CEL,
      ' reds.',
      'A team of space rangers stand round a glowing table in a futuristic control room.' + OWN_HEROES)
 show('puppets', VIDEO,
-     'Two felt hand puppets, an orange fox on the left and a brown owl with big round eyes and a beak on the right, stand apart'
-     ' in a painted cardboard forest in a children\'s puppet show.',
-     'A smiling presenter in dungarees kneels beside felt puppets of a badger and a rabbit in a painted forest in a children\'s'
-     ' puppet show.',
+     'Two hand puppets of worn felt with a hand inside each, an orange fox on the left and a brown owl with big round'
+     ' eyes and a beak on the right, seen from the front, no legs, rising a little apart from behind a low ledge in'
+     ' front of a painted cardboard forest in a children\'s puppet show.',
+     'A smiling presenter in dungarees kneels beside just two hand puppets of worn felt with a hand inside each, a'
+     ' badger and a rabbit, seen from the front, no legs, rising from behind a low wooden ledge, a painted forest'
+     ' behind them, in a children\'s puppet show.',
      'A felt hand puppet of a hedgehog with stitched eyes and soft fabric spines sits at a tiny table with a toy tea set in a'
      ' children\'s puppet show.',
      'A felt owl puppet looks out of a hole in a cardboard tree in a children\'s puppet show.',
@@ -502,8 +509,8 @@ show('sports-desk', VIDEO,
      'Two sports presenters of about forty five in plain navy blazers sit at a desk with a plain gold cup standing on'
      ' it between them, a soft blurred picture of a stadium at night behind them.',
      'A sports presenter in a double breasted navy blazer with big lapels, a white shirt and a wide patterned tie,'
-     ' with a moustache and a side parting, stands beside a stack of boxy tube television sets showing blurred green'
-     ' sports fields.',
+     ' with a moustache and a side parting, stands indoors beside a tall wooden desk with one hand on a pile of papers,'
+     ' a plain dark blue wall behind him.',
      'A grinning sports presenter of about fifty with a moustache, in a plain navy blazer and a plain red tie, sits at'
      ' a desk with papers in front of him, a plain blue wall behind him.',
      'A tired athlete of about twenty five in a plain loose grey t-shirt with a white towel round his neck sits in'
@@ -538,24 +545,27 @@ show('poker', VIDEO,
      ' them: a heavy bald man of about fifty in a white shirt, a thin man of about thirty with slicked black hair in a'
      ' grey jacket, an old man of about seventy with a white beard in a cowboy hat and a red haired man of about forty'
      ' with glasses in a brown sweater, stacks of chips in front of each, seen from a little way back.',
-     'Two men face each other across a green felt card table under a hanging lamp in a dim card room, short stacks of '
-     'red and white poker chips in front of each, seen from across the room.',
+     'Two men face each other across a green felt card table under a hanging lamp in a dim card room, short stacks of'
+     ' red and white poker chips and two playing cards lying face down with plain red backs in front of each, seen'
+     ' from across the room.',
      'A poker player of about fifty in sunglasses and a cowboy hat stares across a plain green table, his cards face'
      ' down in front of him.',
      'A casino dealer of about thirty five in a waistcoat stands behind a table covered in plain smooth green cloth'
      ' with playing cards laid out in front of her.',
      'A pile of red, white and blue poker chips sits in the middle of a green felt poker table under a low lamp.')
 show('racing', SPORT,
-     'Seen from high up in a distant grandstand, a line of small open wheel racing cars in plain solid colours sweeps '
-     'round a steeply banked oval corner, the grey concrete track tilted high up toward the outer wall.',
+     'Seen from high up in a distant grandstand with a clear open view, a bunched pack of small open wheel racing cars'
+     ' in plain solid colours, several running side by side, sweeps round a steeply banked oval corner, the grey'
+     ' concrete track tilted up at a steep angle like the side of a bowl toward the high outer wall.',
      'Seen from very high up and far away, a pit crew in plain white overalls swarms round a racing car painted plain'
      ' solid blue in the pit lane of a big oval track, all of them small figures.',
      'The view from low in the open cockpit of an open wheel racing car down a long straight, a small plain black'
      ' steering wheel in the bottom of the picture, the two front tyres either side and another open wheel car ahead.',
      'Seen from high above and far away, a starting grid of small low open wheel racing cars in plain solid colours'
      ' sits two by two on a grey paved oval track, the long grandstand along one side packed with people.',
-     'Seen from far off, a racing driver in plain white overalls, a small figure, stands alone on top of a podium'
-     ' against a plain blue sky with champagne spraying up in an arc above him.',
+     'Seen from far off, a racing driver in plain white overalls and plain white boots, a small figure, stands alone on'
+     ' top of a podium with champagne spraying up in an arc above him, a plain blue sky filling the picture all round'
+     ' him and the podium.',
      'Stock cars in plain colours race side by side round a dirt oval.')
 show('skating', SPORT,
      'A skateboarder of about eighteen in a plain white t-shirt and a plain black helmet flies in mid air above a'
@@ -823,8 +833,9 @@ show('cop-show', DRAMA,
 show('space', DRAMA,
      'The bridge of a starship, a crew in plain coloured uniforms, smooth and bare from shoulder to waist, seated at'
      ' grey consoles, and a captain of about fifty in the middle chair facing a screen full of stars.',
-     'An alien ambassador in long robes, a tall man in heavy rubber makeup with thick bony ridges running across his'
-     ' forehead and over his bald head, in a 1980s science fiction series.',
+     'A tall bald man of about fifty playing an alien ambassador, his own human face with deep set eyes and a heavy'
+     ' jaw, thick bony ridges of makeup running across his forehead and over the top of his head, in a high collared'
+     ' coat of dark red and silver quilted fabric, seen from the chest up, in a 1980s science fiction series.',
      'A model starship flies past a ringed planet in a 1980s science fiction series.',
      'Three crew members in coloured uniforms that are plain from collar to boots stand well apart on a rocky planet'
      ' under a purple sky, seen from a little way off, their empty hands down at their sides and a small ray gun'
