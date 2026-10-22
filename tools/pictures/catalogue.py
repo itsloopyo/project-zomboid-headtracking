@@ -520,7 +520,7 @@ LONG.add('Banner|Movie')
 # What a television that is on shows: stills of the programmes of 1993, four wide for three high as a tube is. They hang
 # nowhere, so no sprite is their key: SCREENS is their names in the order the mod numbers them, and pack.py makes each
 # again in black and white for a set with no colour, and draws the bars a set shows with nothing coming in.
-ON_AIR = (' A still image from a 1993 American television broadcast recorded off air onto VHS, soft analog video with'
+ON_AIR = (' A still image from 1993 American video recorded off air onto VHS, soft analog video with'
           ' slight colour bleed and muted colours. The picture fills the whole image edge to edge.')
 PROGRAMMES = [
     'A male news anchor in a grey suit and red tie sitting at a news desk in front of a plain blue studio backdrop,'
@@ -528,12 +528,12 @@ PROGRAMMES = [
     'A weather forecaster in a brown suit standing beside a large weather map of the United States, plain green land'
     ' and blue sea with a few big yellow suns and grey clouds drawn on it, the map clean and simple from edge to'
     ' edge.' + ON_AIR,
-    'A cheerful woman in an apron standing at a stove in a television studio kitchen set, a pot on the stove, a cooking show.' + ON_AIR,
+    'A cheerful woman in an apron standing at a stove in a studio kitchen set, a pot on the stove, a cooking show.' + ON_AIR,
     'A bearded man in a plaid shirt and safety glasses standing at a workbench in a woodwork shop beside a half finished wooden'
     ' chair, a woodworking show.' + ON_AIR,
     'A man in a fishing vest and cap sitting in a small aluminium boat on a calm lake, a fishing rod in his hands, a fishing'
     ' show.' + ON_AIR,
-    'A baseball pitcher in a plain white uniform throwing from the mound, green outfield grass behind, a televised baseball'
+    'A baseball pitcher in a plain white uniform throwing from the mound, green outfield grass behind, a baseball'
     ' game seen from behind the plate.' + ON_AIR,
     'A woman with big blonde hair in a long sleeved, high necked blue evening gown and a man in a tuxedo facing each'
     ' other a little apart across an opulent living room, a daytime soap opera.' + ON_AIR,

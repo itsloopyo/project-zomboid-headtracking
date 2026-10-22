@@ -7,21 +7,21 @@ drawn (Screens.java). The shows and their names are the mod's own.
 Which of the game's broadcasts and tapes is which show is told by schedule.py, from patterns kept outside the repository.
 """
 
-VIDEO = (' A still image from a 1993 American television broadcast recorded off air onto VHS, soft analog video with'
+VIDEO = (' A still image from 1993 American video recorded off air onto VHS, soft analog video with'
          ' slight colour bleed and muted colours. The picture fills the whole image edge to edge.')
-FIELD = (' A still image from 1993 American television news recorded off air onto VHS, the view a little tilted and'
+FIELD = (' A still image from 1993 American local news footage recorded off air onto VHS, the view a little tilted and'
          ' loose, soft analog video with muted colours and slight colour bleed. The picture fills the whole image edge'
          ' to edge.')
-OUTDOOR = (' A still image from a 1993 regional television programme about country life, recorded off air onto VHS,'
+OUTDOOR = (' A still image from a 1993 regional programme about country life, recorded off air onto VHS,'
            ' soft analog video with muted natural colours and slight colour bleed. The picture fills the whole image'
            ' edge to edge.')
-LOCAL = (' A still image from a low budget 1993 local public access television show on a cheap studio set with flat'
+LOCAL = (' A still image from a low budget 1993 local public access show on a cheap studio set with flat'
          ' lighting, soft analog video recorded onto VHS with muted colours. The picture fills the whole image edge to'
          ' edge.')
 SITCOM = (' A still image from an early 1990s American sitcom taped on a three walled studio set with bright even'
           ' lighting, recorded off air onto VHS, soft analog video with muted colours. The picture fills the whole'
           ' image edge to edge.')
-DRAMA = (' A still image from a 1980s American television drama shot on 16mm film and transferred to video, recorded'
+DRAMA = (' A still image from a 1980s American drama series shot on 16mm film and transferred to video, recorded'
          ' off air onto VHS, soft with film grain and muted colours. The picture fills the whole image edge to edge.')
 FILM = (' A still image from a 1980s movie shot on 35mm film, soft with film grain and muted colours as if taped off'
         ' air onto VHS. The picture fills the whole image edge to edge.')
@@ -33,7 +33,7 @@ HOME = (' A still image from a family home video taped around 1990, a worn VHS t
         ' the whole image edge to edge.')
 CLIP = (' A still image from an early 1990s music video, soft analog video with coloured stage lights and haze,'
         ' recorded off air onto VHS with muted colours. The picture fills the whole image edge to edge.')
-SPORT = (' A still image from a 1993 American televised sports broadcast shot through a long lens, soft analog video'
+SPORT = (' A still image from 1993 American sports coverage shot through a long lens, soft analog video'
          ' recorded off air onto VHS with muted colours. The picture fills the whole image edge to edge.')
 NATURE = (' A still image from a 1980s nature documentary shot on 16mm film through a long lens and recorded off air'
           ' onto VHS, soft with film grain and natural muted colours. The picture fills the whole image edge to edge.')
@@ -62,10 +62,10 @@ show('news-desk', VIDEO,
      ' glowing monitors behind them.',
      'A woman news anchor with short brown hair and an ordinary face sits at a desk looking off to one side, a boxy'
      ' tube monitor in a grey plastic case on a shelf over her shoulder showing a plain green map of a river valley.',
-     'A television news studio seen from behind two big studio cameras on pedestals, one anchor small at a lit desk under rows'
+     'A news studio seen from behind two big studio cameras on pedestals, one anchor small at a lit desk under rows'
      ' of lights.')
 show('news-field', FIELD,
-     'A bareheaded woman television reporter in a beige trench coat holds a microphone in front of an army roadblock of green'
+     'A bareheaded woman news reporter in a beige trench coat holds a microphone in front of an army roadblock of green'
      ' trucks and coiled barbed wire at dusk.',
      'Soldiers in gas masks and green fatigues stand at a checkpoint on a rural highway, concrete barriers across the road under'
      ' an overcast sky.',
@@ -77,9 +77,9 @@ show('news-field', FIELD,
 show('pundit', VIDEO,
      'A stern grey haired man in a dark suit sits behind a wooden desk pointing one finger straight out of the frame'
      ' towards the viewer, an American flag and a red curtain behind him.',
-     'An angry grey haired television pundit in a dark suit leans towards the viewer mid shout, seen from the chest up'
+     'An angry grey haired pundit in a dark suit leans towards the viewer mid shout, seen from the chest up'
      ' in front of a red curtain.',
-     'A television opinion show set seen wide, one grey haired host sitting in a leather chair at a wooden desk in the middle'
+     'An opinion show studio seen wide, one grey haired host sitting in a leather chair at a wooden desk in the middle'
      ' with a flag on a pole and red curtains behind him.',
      'A grey haired man in a dark suit leans back in a leather chair with his arms folded and a smug look, a red curtain behind'
      ' him.')
@@ -113,13 +113,13 @@ show('unrest', FIELD,
      'Five shoppers with empty shopping carts wait in a line outside a small town supermarket, and through its big'
      ' front windows the white metal shelves inside stand bare and empty.')
 show('emergency', VIDEO,
-     'An empty television news desk with the chair pushed back and loose papers left on it, the studio lights still on.',
+     'An empty news desk with the chair pushed back and loose papers left on it, the studio lights still on.',
      'A tired middle aged official with thinning grey hair, a round face and glasses, in shirt sleeves and a loosened'
      ' tie, sits at a plain desk with his forearms resting on it, a single sheet of paper lying flat on the desk, an'
      ' American flag on a pole beside him.',
-     'A plain blue television backdrop with a simple flat gold eagle emblem printed in the middle and no words, lit unevenly by'
+     'A plain blue studio backdrop with a simple flat gold eagle emblem printed in the middle and no words, lit unevenly by'
      ' studio lights.',
-     'An empty television studio with one studio camera left pointing at an empty chair in a pool of light.')
+     'An empty studio with one studio camera left pointing at an empty chair in a pool of light.')
 show('local-desk', VIDEO,
      'A male local news anchor in a brown suit sits at a wood panelled news desk, a photograph of a small city skyline behind'
      ' him.',
@@ -141,7 +141,7 @@ show('talk', VIDEO,
 show('local-field', FIELD,
      'A male reporter in a windbreaker stands with a hand microphone at a line of plain yellow police tape with no printing'
      ' across a rural road, plain white patrol cars with no markings parked side on behind him.',
-     'A white television news van is parked on a grass verge beside a highway, a tall thin straight pole rising from '
+     'A white news van is parked on a grass verge beside a highway, a tall thin straight pole rising from '
      'its roof straight up into the sky like a flagpole with a small round dish at the very top, its side plain and '
      'unlettered.',
      'A dark country road at night seen through a car windshield, the headlights picking out abandoned cars left at angles'
@@ -158,14 +158,14 @@ show('statement', VIDEO,
 
 # Home and hobbies.
 show('cook', VIDEO,
-     'A cheerful woman in an apron stands at the stove of a television studio kitchen, stirring a pot with a wooden spoon.',
+     'A cheerful woman in an apron stands at the stove of a studio kitchen, stirring a pot with a wooden spoon.',
      'Chopped carrots and onions lie on a wooden board beside a kitchen knife on a studio kitchen counter, seen from above.',
-     'A roast chicken on a platter surrounded by vegetables sits on the counter of a television studio kitchen.',
+     'A roast chicken on a platter surrounded by vegetables sits on the counter of a studio kitchen.',
      'A cheerful woman in an apron stands behind a kitchen counter smiling straight out of the frame towards the'
      ' viewer, a mixing bowl and a whisk on the counter in front of her.',
      'A pan of vegetables steams on a gas stove with a wooden spoon resting in it, seen close up.',
      'A tall round layer cake covered all over in thick smooth white buttercream icing with piped rosettes round its top'
-     ' edge sits on a cake stand on the counter of a television studio kitchen.')
+     ' edge sits on a cake stand on the counter of a studio kitchen.')
 show('woodwork', VIDEO,
      'A bearded man in a plaid shirt and safety glasses saws a pine plank laid across two sawhorses, the steel blade'
      ' of an old wooden handled hand saw cutting down through the end of the plank, seen from a few paces back.',
@@ -291,7 +291,7 @@ show('puppets', VIDEO,
      ' children\'s puppet show.',
      'A felt owl puppet looks out of a hole in a cardboard tree in a children\'s puppet show.',
      'Hand puppets made of felt, a fox, an owl and a rabbit, poke up from behind a painted wooden fence with their'
-     ' mouths open in song, painted forest trees behind, on a cheap 1980s children\'s television set.')
+     ' mouths open in song, painted forest trees behind, on a cheap 1980s children\'s show set.')
 show('bunnies', ' A still image from a 1980s cartoon for very small children, painted by hand on celluloid over a'
                 ' watercolour background, soft faded pastel colours, wobbly hand inked outlines and uneven paint. The'
                 ' picture fills the whole image edge to edge.',
@@ -345,14 +345,14 @@ show('county', FIELD,
      'Two horses graze well apart behind a white fence.')
 show('survivors', ' A still image from a worn VHS tape, lit by one harsh light, dim and grainy with muted colours. The'
                   ' picture fills the whole image edge to edge.',
-     'An exhausted man in a dirty flannel shirt sits at a desk in a dim television studio, a door barricaded with furniture'
+     'An exhausted man in a dirty flannel shirt sits at a desk in a dim studio, a door barricaded with furniture'
      ' behind him.',
-     'A tired woman with a bandaged arm sits in a dim television studio, looking straight out of the frame towards the'
+     'A tired woman with a bandaged arm sits in a dim studio, looking straight out of the frame towards the'
      ' viewer as she speaks.',
      'A bareheaded young man crouches by a small fire burning in an old metal barrel in a dim empty garage.',
-     'Stacks of food cans and plastic water jugs stand on the floor of a dim television studio, their labels plain and'
+     'Stacks of food cans and plastic water jugs stand on the floor of a dim studio, their labels plain and'
      ' unlettered.',
-     'An empty news desk in a dim television studio, and on the floor beside it a black office chair lies tipped over'
+     'An empty news desk in a dim studio, and on the floor beside it a black office chair lies tipped over'
      ' on its side with its wheels in the air.')
 
 # Music videos.
@@ -475,7 +475,7 @@ show('skating', SPORT,
      ' him empty.',
      'Teenagers in plain t-shirts cheer at the top of a wooden skate ramp, seen from below at the foot of the ramp,'
      ' from the waist up, against a blue sky.')
-show('boxing', ' A still image from a 1970s televised boxing match shot on 16mm colour film, bright ring lights and a'
+show('boxing', ' A still image from 1970s boxing coverage shot on 16mm colour film, bright ring lights and a'
                ' faint haze, soft and grainy with faded colours. The picture fills the whole image edge to edge.',
      'Two heavyweight boxers, one in white trunks and one in black, square off a step apart in a ring.',
      'A dazed boxer in plain black trunks sags back against the ropes with his arms hanging low, while the other'
