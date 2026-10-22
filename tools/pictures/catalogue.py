@@ -47,10 +47,10 @@ OLD = (' Taken in black and white in the 1940s, only shades of grey from black t
 PORTRAIT = (' Taken on colour film in the 1980s against a mottled blue grey backdrop, soft flash, slightly faded colours,'
             ' fine grain and natural skin, the sitter and the backdrop filling the whole frame.')
 FAMILY = [
-    ('A head and shoulders photograph of a lively white grandmother of about sixty from rural Kentucky, young for a '
-     'grandmother, with a smooth full rounded face, rosy cheeks and only faint smile lines at the corners of her eyes, '
-     'short permed curly silver grey hair, and big square 1980s glasses with thick chunky light brown plastic frames, '
-     'in a floral blouse, the mottled backdrop behind her running off all four edges of the picture.' + PORTRAIT, TALL),
+    ('A snapshot of a cheerful white farm wife of about fifty from rural Kentucky standing on her front porch, framed '
+     'from the chest up, with a smooth full round face, rosy cheeks, short permed brown hair going grey at the temples '
+     'and big square glasses with chunky light brown plastic frames, in a floral blouse, smiling at the viewer, the '
+     'white porch posts and potted geraniums soft behind her.' + SNAP, TALL),
     ('A head and shoulders photograph of a smiling white bride of twenty five from rural Kentucky, a grown woman with '
      'defined cheekbones and full make up, lipstick and mascara, her brown hair in big 1980s curls under a lace veil, '
      'in a white lace wedding dress with a high lace neck up to her chin and puffed sleeves.' + PORTRAIT, TALL),
@@ -63,17 +63,17 @@ FAMILY = [
     ('A head and shoulders photograph of a serious white man of about fifty eight with thick dark brown hair combed '
      'back, just a little grey above his ears, a smooth full face and a firm jaw, in a dark suit and tie, the mottled '
      'grey backdrop behind him running off all four edges of the picture.' + OLD, TALL),
-    ('A photograph of a young white American soldier of about twenty in 1968, framed close from the top of his chest '
-     'up, bareheaded with a short army haircut, clean shaven, in a US Army khaki shirt of the Vietnam era worn open at '
-     'the neck, only its open collar in the picture, a mottled grey backdrop behind him running off all four edges of '
-     'the picture.' + (' Taken in black and white in the 1960s, only shades of grey from black to white,'
-     ' soft light and fine film grain, the sitter and the backdrop filling the whole frame.'), TALL),
+    ('A snapshot of a young white American soldier of about twenty, bareheaded with a short army haircut, clean shaven,'
+     ' in a plain olive army t-shirt with his dog tags on a chain round his neck, sitting on a low wall of sandbags '
+     'under a hot sky and smiling at the viewer, framed from the waist up, palm trees and a tin roofed hut soft behind '
+     'him.' + (' Taken in black and white on 35mm film in the 1960s, only shades of grey from black to white, fine film'
+               ' grain and ordinary amateur composition, the picture filling the whole image edge to edge.'), TALL),
     ('A white baby of about six months with soft smooth pink baby skin and wisps of fair hair, in a white christening '
      'gown, sitting on a white blanket and smiling straight out of the frame towards the viewer.' + BABY, TALL),
-    ('A white ten year old boy from rural Kentucky with a 1980s bowl haircut, straight brown hair cut in a level fringe'
-     ' across his forehead, in a red and white horizontally striped t-shirt, sitting on the lowered tailgate of an old '
-     'pickup truck in a farmyard on a summer afternoon with a slight shy smile and his lips together, framed from the '
-     'knees up, a red barn and green fields behind him.' + SNAP, TALL),
+    ('A white ten year old boy from rural Kentucky with a bowl haircut, straight brown hair cut in a level fringe '
+     'across his forehead, in a red and white horizontally striped t-shirt and blue jeans, sitting on a stack of hay '
+     'bales in a farmyard on a summer afternoon with a slight shy closed mouth smile, framed from the knees up, a red '
+     'barn and green fields behind him.' + SNAP, TALL),
     ('A white rural Kentucky family of four on the wooden porch steps of a white farmhouse in summer, all smiling '
      'towards the viewer, seen from about six metres away with the whole of the steps in view down to the grass so '
      'every foot is in the picture. The father of about forty, with short brown hair, in a plain blue work shirt and '
@@ -105,10 +105,10 @@ FAMILY = [
      'at the bottom.' + PORTRAIT, TALL),
     ('Head and shoulders portrait of a grey haired man in a navy blazer and tie with a kindly smile.' + STUDIO, TALL),
     ('A golden retriever sitting on a lawn in front of a brick house on a summer afternoon.' + SNAP, TALL),
-    ('A white high school senior of seventeen with a young man\'s face and a strong jaw, short brown hair, in a plain '
-     'grey hooded sweatshirt, stands on the grass at the edge of a high school football field at dusk, facing the '
-     'viewer and smiling, seen from the front and from the waist up, an old worn brown leather football tucked under '
-     'one arm against his hip. Behind him the empty wooden bleachers.' + SNAP, TALL),
+    ('A white young man of eighteen in his last year of high school, with a man\'s broad shoulders, a strong jaw and a '
+     'faint shadow of stubble, short brown hair, in a plain grey hooded sweatshirt, standing in front of the empty '
+     'wooden bleachers of a small town football field at dusk, facing the viewer and smiling, seen from the front and '
+     'from the waist up.' + SNAP, TALL),
     ('A head and shoulders photograph of a white college graduate of twenty two with a man\'s face: a strong grown up '
      'jaw, a faint shadow of stubble and a short neat haircut, broad shoulders, a proud smile, in a dark blue '
      'graduation gown of dull wool crepe and a dark blue felt mortarboard cap.' + PORTRAIT, TALL),
@@ -121,11 +121,11 @@ FAMILY = [
      'light natural make up, thick glossy feathered honey blonde hair with lots of body, in a red sweater, the mottled '
      'backdrop behind her running off all four edges of the picture.' + PORTRAIT, TALL),
     ('A white Kentucky family of four standing in a row on a gravel driveway a little apart from each other, all facing'
-     ' the viewer, seen from a few metres away, a wood panelled station wagon parked on the gravel behind them. On the '
-     'left a father of about forty five with a moustache in a short sleeved plaid shirt, beside him a mother of about '
-     'forty with permed brown hair in a blue blouse, then a son of about twelve, a head shorter than his father, with '
-     'shaggy brown hair over his ears, in a white t-shirt, and on the right a daughter of about ten with loose blonde '
-     'hair, in a pink sweatshirt. Green lawn and trees behind the car.' + SNAP, WIDE),
+     ' the viewer, seen from a few metres away, a wood panelled station wagon parked side on along the gravel behind '
+     'them. On the left a father of about forty five with a moustache in a plain short sleeved plaid shirt, smooth '
+     'across the chest, beside him a mother of about forty with permed brown hair in a blue blouse, then a son of about'
+     ' twelve, a head shorter than his father, with shaggy brown hair over his ears, in a white t-shirt, and on the '
+     'right a daughter of about ten with loose blonde hair, in a pink sweatshirt. Green lawn and trees behind the car.' + SNAP, WIDE),
 ]
 for _i, (_prompt, _size) in enumerate(FAMILY):
     art('family-%02d' % _i, _prompt, _size)
@@ -144,10 +144,10 @@ WILD = (' A 1990s outdoor magazine wildlife photograph on colour film, natural c
         ' the whole image edge to edge.')
 SPORTS = {
     'basketball': [
-        'An outdoor basketball hoop on a steel pole at the edge of a cracked asphalt driveway beside a Kentucky '
-        'farmhouse at sunset, a white painted plywood backboard and an orange rim with a chain net, an orange '
-        'basketball dropping through the net, seen from the side at rim height, the orange evening sky and dark trees '
-        'behind, nobody there.' + STILL,
+        'An outdoor basketball hoop on a steel pole at the edge of a gravel farmyard beside a weathered red wooden barn'
+        ' at sunset, a white painted plywood backboard and an orange rim with a net of hanging steel chain links, an '
+        'orange basketball dropping through the chain net, seen from the side at rim height, the orange evening sky and'
+        ' dark trees behind, nobody there.' + STILL,
         'A grown man dribbling a basketball in an empty high school gym, seen from the side and framed from the waist '
         'up, crouched forward with his eyes up, his right hand pressing down on the ball at the height of his hip, the '
         'bare wall of the gym out of focus behind. He wears a solid forest green cotton tank top, one colour all over '
@@ -169,38 +169,39 @@ SPORTS = {
     ],
     'tennis': [
         'The net of an empty grass tennis court at dusk, seen low from the grass beside one net post, the white net '
-        'stretching away across the picture, one fuzzy yellow ball resting in the grass against the bottom of the net, '
-        'long shadows over the worn grass and a white chalk line, hedges and trees beyond.' + STILL,
+        'stretching away across the picture, the whole court living lawn grass, worn thin and brown in patches and '
+        'uneven under the net, one fuzzy yellow ball resting in the grass against the bottom of the net a little way '
+        'along from the post, long shadows over the grass, hedges and trees beyond.' + STILL,
         'A white American man tossing the ball up to serve, seen from a low angle against a clear pale sky and framed '
         'from the chest up, his left arm raised high and the yellow ball rising above his open hand, his face turned up'
         ' towards it, his right arm lowered and out of the picture. He wears a white cotton shirt with a collar and a '
         'white towelling headband.' + ACTION,
-        'A red clay tennis court in afternoon sun seen from courtside some way off, a woman in a pink tennis dress '
-        'small in the middle of the picture stretching wide for a backhand, red dust rising at her feet and her long '
-        'shadow across the clay, the green canvas windscreen behind the court.' + ACTION,
-        'Two fuzzy yellow tennis balls lying in long natural lawn grass beside a white chalked line, seen low and '
-        'close, real blades of grass and clover growing up round them, dew on the grass, the rest of the grass court '
-        'soft and blurred behind.' + STILL,
-        'A tennis player in white sliding on red clay to reach a low ball, seen from the far end of a long clay court '
-        'beyond the net so he is small in the middle distance, a low evening sun directly behind him so the cloud of '
-        'red dust round his feet glows and he shows as a dark figure against it.' + ACTION,
-        'A grass tennis court at a small country club on a sunny day, seen from high in a little wooden stand at one '
-        'end, looking straight down the length of the court: one player in white near the bottom of the picture at the '
-        'near baseline with his back to the viewer, the net across the middle, and the other player small at the far '
-        'baseline beyond it, facing him, hedges and trees round the court.' + ACTION,
+        'A red clay tennis court in afternoon sun seen from high up at one end, the wide flat red clay filling most of '
+        'the picture, and in the middle of it a woman in a pink tennis dress stretching wide for a backhand, a tiny '
+        'figure no bigger than a fingernail, her long shadow across the clay, the green canvas windscreen along the far'
+        ' side.' + ACTION,
+        'Two fuzzy yellow tennis balls lying deep in long uncut lawn grass, seen low and close, the grass blades taller'
+        ' than the balls and filling the whole picture from edge to edge, the rest of the grass soft and blurred '
+        'behind.' + STILL,
+        'A tennis player sliding on red clay to reach a low ball, seen from the far end of a long clay court, a low '
+        'evening sun directly behind him so he and his racket are a flat black shape with no detail against the glowing'
+        ' haze, a little red clay sprayed from his sliding foot, small in the middle distance.' + ACTION,
+        'A grass tennis court at a small country club on a sunny day, seen from high up and a long way back beyond one '
+        'end, looking straight down the length of the court: two players in white, one at each baseline facing each '
+        'other across the net, both tiny figures no bigger than a fingernail, hedges and trees round the court.' + ACTION,
     ],
     'boxing': [
         'The corner of an empty boxing ring under one hanging lamp, a red padded corner post with three red ropes '
         'running from it, a plain wooden stool and a dented tin bucket with a white towel over its rim standing on the '
         'pale canvas in the corner, everything beyond the ropes pure black darkness.' + STILL,
-        'Two boxers facing each other a metre apart in a ring with their gloves raised, one in red trunks on the left '
-        'facing right and one in blue trunks on the right facing left, seen exactly side on from far back at ringside '
-        'level so they are small figures in profile under the bright ring lights, the empty white canvas around them '
-        'and the dark empty seats beyond.' + ACTION,
-        'Inside an empty boxing ring, a boxer in white trunks stands in the far corner facing the viewer with his back '
-        'to the corner post, his arms down and his gloves hanging, small in the picture, seen from the opposite corner '
-        'at ring level so the bare pale canvas stretches between, a single cone of spotlight from directly above on '
-        'him, everything beyond the ropes pure black darkness.' + ACTION,
+        'Two boxers squared up to each other in the middle of a ring, one on the left facing right and one on the right'
+        ' facing left, their gloves raised, seen from far back in a dark empty arena, the bright ring lights directly '
+        'behind them in a haze of smoke, so both are flat black shapes with no detail against the glowing haze, small '
+        'in the picture, the ropes thin dark lines.' + ACTION,
+        'Inside an empty boxing ring, a boxer in black trunks sits slumped on a wooden stool in the far corner with a '
+        'white towel draped over his head and shoulders, his gloved hands hanging between his knees, small in the '
+        'picture, seen from the opposite corner at ring level so the bare pale canvas stretches between, a single cone '
+        'of spotlight from directly above on him, everything beyond the ropes pure black darkness.' + ACTION,
         'A tall stretch of bare weathered plank wall in an old gym seen from four metres away, worn wooden floorboards '
         'along the bottom of the picture, and hanging from one nail in the upper middle of the wall a pair of worn old '
         'red leather boxing gloves on their long white laces, small in the picture. The gloves hang with their palm '
@@ -208,92 +209,97 @@ SPORTS = {
         'its wrist, and nothing else on them.' + STILL,
         'A boxer in a grey sweatshirt hitting a black heavy punch bag in an old brick gym, his bare fists bound in '
         'white cloth hand wraps, shafts of window light, seen from the side.' + ACTION,
-        'An empty boxing ring under bright lights, seen from ringside at the middle of one side, the pale canvas floor '
-        'and three red ropes running straight across the picture from edge to edge, everything beyond the ring pure '
-        'black darkness.' + STILL,
+        'Three red boxing ring ropes running straight across the picture from edge to edge, seen close from just '
+        'outside the ring at rope height, the pale canvas floor beyond them softly lit by an overhead lamp, everything '
+        'else pure black darkness.' + STILL,
     ],
     'golf': [
-        'A golfer walking away down an evening fairway with his bag on his shoulder, seen from far behind so he is '
-        'small, a low orange sun ahead of him so he is a pure black shape against the glowing sky, his long shadow '
-        'stretching back towards the viewer over the grass, dark trees either side.' + ACTION,
-        'A golf green on a summer afternoon seen from a long way off across the smooth grass, a woman golfer in a white'
-        ' sweater, bareheaded with her hair tied back, crouched reading a putt beside the flag, she and the flag both '
-        'small near the top third of the picture, the wide empty green filling the lower two thirds, trees behind.' + ACTION,
-        'A golfer in plaid trousers and a dark navy sweater swinging out of a sand bunker, seen from the side, a low '
-        'late afternoon sun behind him so the spray of sand glows gold and he shows as a dark shape, the flying sand '
-        'hiding his hands and the club.' + ACTION,
+        'An evening fairway seen from far behind a golfer walking away down it with his bag on his shoulder, the '
+        'setting sun low ahead of him, the golfer a tiny figure no bigger than a fingernail in the middle of the wide '
+        'fairway, a flat black shape with no detail against the glowing sky, his long thin shadow stretching back '
+        'towards the viewer over the grass, dark trees either side.' + ACTION,
+        'A wide sweep of rolling fairway and green on a summer afternoon seen from a hill a long way off, and at the '
+        'far side of the green a woman golfer in a white sweater crouched reading a putt beside a plain red flag on a '
+        'thin pole, she and the flag tiny, no bigger than a fingernail, the wide empty grass filling most of the '
+        'picture, trees behind.' + ACTION,
+        'A golfer swinging out of a sand bunker, seen from the side, a blazing low sun directly behind him so he is a '
+        'flat black shape with no detail, a crisp outline against the glowing sky, and a spray of sand flying up from '
+        'the bunker glowing gold in the light.' + ACTION,
         'A white golf ball sitting on a wooden tee in trimmed grass, close up, a green fairway blurred behind.' + STILL,
         'A golf green with a single flag at sunrise, mist over rolling fairways and trees.' + STILL,
-        'A long tree lined fairway in early morning seen from behind the tee, a golfer standing small at the bottom of '
-        'the picture in his follow through after a drive, his back to the viewer and the club wrapped round behind his '
-        'neck, the fairway stretching far away ahead of him.' + ACTION,
+        'A broken wooden tee peg lying in the dewy grass of a tee in the foreground, close and sharp, and beyond it a '
+        'long tree lined fairway in early morning mist stretching far away, empty.' + STILL,
     ],
     'baseball': [
-        'A baseball batter in the on deck circle beside the dugout taking a hard practice swing, seen from the side, '
-        'nobody else in the picture, the chain link fence and empty green seats blurred behind. He wears a blue '
-        'pinstripe uniform with a blank front, a dark blue batting helmet one colour all over and all black leather '
-        'cleats, and swings a bare wooden bat showing only its wood grain from knob to end.' + ACTION,
-        'A baseball pitcher in a grey uniform and a red cap mid throw on the mound, seen from the side and framed from '
-        'the waist up against the dark green outfield wall, his throwing arm high behind his head with the white ball '
-        'in his fingers and his gloved hand tucked in against his chest, showing only the brown leather back of the '
-        'glove.' + ACTION,
-        'A baseball catcher crouched behind home plate seen exactly side on from the first base side at dusk, his mitt '
-        'held out towards the pitcher, his mask, chest guard and shin guards all dark green and showing only as padded '
-        'shapes from the side, the low evening sun behind him.' + ACTION,
+        'A baseball batter taking a hard practice swing alone on the grass in front of the dugout steps, seen from the '
+        'side from a few paces away, nothing in the picture but him, the grass and the dugout and the empty green seats'
+        ' blurred behind. He wears a blue pinstripe uniform with a blank front, a dark blue batting helmet one colour '
+        'all over and all black leather cleats, and swings a bare wooden bat showing only its wood grain from knob to '
+        'end.' + ACTION,
+        'A baseball pitcher on the mound in the middle of his throw, seen from the side and from below so only the '
+        'evening sky is behind him, framed from the waist up, his throwing arm high behind his head and the ball in his'
+        ' fingers, a blazing low sun directly behind him so he is a flat black shape with no detail, his cap and arm a '
+        'crisp outline against the glowing sky.' + ACTION,
+        'A baseball catcher crouched on the dirt, seen exactly side on from low down, a blazing low sun directly behind'
+        ' him so he is a flat black shape with no detail, his mask, padded chest and outstretched mitt only an outline '
+        'against a glowing pale orange evening sky, the dark line of the field along the bottom.' + ACTION,
         'A wooden baseball bat and a scuffed white baseball lying on red infield dirt.' + STILL,
-        'A baseball player sliding feet first into a white canvas base, seen side on at ground level, lying back on the'
-        ' dirt with both legs stretched out in front of him towards the base and his hands raised, a big cloud of red '
-        'dust thrown up round him, a low late sun behind him so the dust glows gold and he shows mostly as a dark shape'
-        ' in a dark navy batting helmet.' + ACTION,
-        'A small white baseball with red stitching lying in the dirt of a base path a hand\'s width from the edge of a '
-        'full size square white canvas base, the base about five times as wide as the ball, seen low and close, the '
-        'green outfield soft and blurred behind.' + STILL,
+        'A baseball game seen from high in the stands on a summer evening, a runner sliding into second base in a low '
+        'spray of brown dirt, a tiny figure no bigger than a fingernail, a fielder reaching down beside him, the wide '
+        'green outfield grass all around them.' + ACTION,
+        'A scuffed white baseball with red stitching lying on its own in the red dirt of an infield beside a white '
+        'chalk line, seen low and close, footprints in the dirt round it, the green outfield soft and blurred behind.' + STILL,
     ],
     'football': [
         'An empty high school American football field at night in thick fog, seen from behind one end zone, the '
         'floodlights at the far end glowing through the fog, the near goal post a black shape against the bright haze, '
         'the grass and white yard lines fading away into the fog.' + ACTION,
-        'An American football running back running with the ball tucked under one arm, alone in open field, wearing a '
-        'white helmet with a grey face mask and a matte white cotton mesh jersey hanging loose over his shoulder pads, '
-        'seen from the side.' + ACTION,
-        'An American football player leaping for a pass, framed from the waist up, a blazing low sun directly behind '
-        'him, the figure pure black against a deep orange sunset sky with no light falling on him at all, the ball '
-        'above his reaching hands.' + ACTION,
+        'An American football running back in a white helmet and a white mesh jersey, running alone across a wide empty'
+        ' practice field with the ball tucked away under his far arm, seen side on from a long way off so he is a small'
+        ' figure in the middle of the picture, the wide green grass around him and a line of trees beyond.' + ACTION,
+        'A football dropping into a pair of reaching bare hands, seen from below, only the two hands, the wrists and '
+        'the ball in the picture, a blazing low sun directly behind them so the hands and the ball are flat black '
+        'shapes with no detail against a glowing deep orange evening sky.' + ACTION,
         'An old worn American football of plain brown pebbled leather with only its white laces and its seams, lying on'
         ' short green grass, seen low and close, the field soft and blurred behind.' + STILL,
-        'An old blue American football helmet lying on the grass of a field at dusk, seen from behind so the smooth '
-        'unbroken rounded back of the shell faces the viewer and the face mask points away, stadium lights behind.' + STILL,
-        'An American football tumbling end over end high against a deep blue dusk sky, seen from below, only the ball, '
-        'the sky and a dark line of treetops along the bottom edge in the picture.' + ACTION,
+        'A yellow penalty flag, a plain square of yellow cloth knotted round a small weight, lying on short green grass'
+        ' across a white chalk yard line at dusk, seen low and close, the floodlights of a small high school field '
+        'blurred to soft glowing discs behind.' + STILL,
+        'A worn brown leather American football high in the air against a soft hazy dusk sky, pale blue fading to pink '
+        'near the ground, seen from below, the ball plain brown leather with only its white laces, a dark line of '
+        'treetops along the bottom edge, nothing else in the sky.' + ACTION,
     ],
     'soccer': [
         'A lone soccer player seen from far off on a misty muddy training field at dusk, small in the picture, swinging'
         ' his leg to kick a ball, a dark figure against the pale grey mist, bare trees behind.' + ACTION,
-        'A goalkeeper in a green jersey, black shorts and black socks diving full length through the air, seen side on '
-        'from beside the pitch, his arms stretched out and the ball just beyond his fingertips, the goal out of the '
-        'picture, the green pitch and dark trees beyond.' + ACTION,
-        'An American high school soccer game on a grass field at the edge of a small town, seen from the top of grey '
-        'aluminium bleachers, the players small figures in blue and in red spread across the pitch, the field filling '
-        'the picture, green Kentucky hills and woods beyond it.' + ACTION,
+        'A goalkeeper diving full length through the air, seen from low on the grass looking up, a flat black shape '
+        'with no detail against a bright white overcast sky, his arms stretched out and the ball a dark disc just '
+        'beyond his hands.' + ACTION,
+        'An American high school soccer game seen from the top of grey aluminium bleachers on the halfway line, the '
+        'bleachers out of the picture below, looking down at a few players in blue and in red chasing the ball across '
+        'plain green grass, small figures in the middle of the picture with wide open grass all round them, green '
+        'Kentucky hills and woods beyond.' + ACTION,
         'A black and white leather soccer ball on the penalty spot of a grass pitch, the goal behind.' + STILL,
         'A black and white soccer ball resting in the back of a goal net on a muddy pitch at dusk, nobody there.' + ACTION,
-        'An empty grass soccer field at a small American high school at dusk, seen from one corner along the long white'
-        ' touchline, the white lines thin and straight, one small white goal far off at the end, low grey aluminium '
-        'bleachers along the far side, tall wooden floodlight poles lit, woods behind.' + STILL,
+        'A small white soccer goal standing alone on a grass field at a small high school at dusk, seen from in front a'
+        ' little way off, its net hanging still, tall wooden floodlight poles lit, low grey aluminium bleachers along '
+        'one side, woods behind.' + STILL,
     ],
     'athletics': [
         'A sprinter pushing out of the starting blocks on a running track, seen from the side. He wears a solid red '
         'cotton vest and solid red shorts, each one colour all over from neck to hem, and plain black canvas running '
         'shoes with black rubber soles and no marks of any kind.' + ACTION,
-        'A high jumper arching backwards over the bar, seen from below and to the side as a pure black shape against a '
-        'bright pale evening sky, a blazing low sun directly behind him, the thin bar a dark line, only the sky and the'
-        ' top of the bar in the picture.' + ACTION,
-        'A hurdler clearing a hurdle, seen from track level, a pure black figure against a blazing low orange sun '
-        'directly behind him, the hurdle a black frame under his outstretched leg, his long shadow across the track '
-        'towards the viewer.' + ACTION,
-        'An empty long jump sand pit at a running track early in the morning, freshly raked yellow sand with one set of'
-        ' footprints across it, seen low from the side of the pit, the red runway running straight to it with a white '
-        'take off board set in it, dew on the grass beside it.' + STILL,
+        'A high jumper arching backwards over the bar, framed close on his arched back, head and outstretched arms as '
+        'they pass over the thin dark bar, his legs below the bottom edge of the picture, seen from below against a '
+        'bright pale evening sky with a blazing low sun directly behind him, so he is a flat black shape with no detail'
+        ' at all, only his outline against the glowing sky.' + ACTION,
+        'A hurdler clearing a hurdle, seen from far off down the track so he is small in the middle of the picture, a '
+        'blazing low sun directly behind him so he and the hurdle are flat black shapes with no detail at all, like '
+        'figures cut from black paper, against a soft hazy pale orange sky, his long shadow across the track towards '
+        'the viewer.' + ACTION,
+        'An empty long jump sand pit early in the morning, seen low and close from beside it, freshly raked smooth '
+        'yellow sand with neat rake lines across it, a wooden edging board along its side, dew on the grass beside it, '
+        'the rest of the field soft and misty behind.' + STILL,
         'A javelin thrower in plain white seen from far off at the side of an empty field, a small figure leaning back'
         ' with the long javelin just launched and flying high above him against a pale sky.' + ACTION,
         'An empty red running track curving round a stadium at sunrise, white lane lines.' + STILL,
@@ -301,101 +307,139 @@ SPORTS = {
     'weights': [
         'A weightlifter holding a barbell overhead seen as a black silhouette against a tall bright window in a dim old'
         ' gym.' + ACTION,
-        'A bodybuilder on a stage against a dark curtain, seen from the front and framed from the waist up, flexing '
-        'both arms in a double biceps pose, his skin oiled under a spotlight.' + ACTION,
-        'An aerobics class of about a dozen people in grey sweatshirts and grey sweatpants exercising with small '
-        'dumbbells in a 1980s gym with bare painted brick walls and tall windows, seen from the back of the room, the '
-        'instructor at the front facing the class.' + ACTION,
-        'A bare unloaded steel barbell bar lying on a rubber gym floor, running diagonally across the picture and out '
-        'of both sides, its knurled grip catching a shaft of light, chalk dust in the air.' + STILL,
-        'A man in a grey t-shirt lying on a bench pressing a barbell in an old gym, seen from the side and framed from '
-        'the waist up, the steel bar running across the top of the picture with both ends out of the picture, his hands'
-        ' gripping it at shoulder width.' + ACTION,
-        'A barbell resting on a wooden lifting platform against a red painted wall, both ends loaded the same with two '
-        'big black iron plates, low light from the side catching only the polished steel bar, the plates black shapes '
-        'in deep shadow.' + STILL,
+        'A bodybuilder on a stage against a dark curtain, flexing both arms in a double biceps pose, his skin oiled '
+        'under a spotlight, framed close so only his smiling face, his shoulders and his raised flexed arms fill the '
+        'picture, the bottom edge cutting across the middle of his chest.' + ACTION,
+        'An aerobics class of about a dozen men and women in plain grey sweatshirts and grey sweatpants exercising with'
+        ' small dumbbells in rows in an old gym with bare painted brick walls and tall windows, seen from the front of '
+        'the room, the class facing the viewer.' + ACTION,
+        'A dented steel bowl heaped with broken white blocks of lifting chalk standing on a scarred wooden bench in an '
+        'old gym, a shaft of window light catching a drift of chalk dust above it, the rest of the gym dark behind.' + STILL,
+        'A man in a grey t-shirt lying on a bench pressing a barbell in an old gym, seen from the foot of the bench '
+        'looking along his body towards his head, so the steel bar runs straight across the top of the picture from '
+        'left to right above his chest, both ends and the weights beyond the left and right edges, his two hands '
+        'gripping it at shoulder width.' + ACTION,
+        'A barbell resting on a wooden lifting platform in front of a red painted wall, seen from in front with the bar'
+        ' running across the picture, both ends loaded the same with big black iron plates, a bright light on the red '
+        'wall behind it so the plates in front are flat black discs with no detail, only the steel bar catching a thin '
+        'line of light.' + STILL,
     ],
     'hockey': [
-        'A frozen farm pond in winter seen from far up the bank, a few men in wool sweaters playing hockey on the grey '
-        'ice, small figures with thin dark sticks chasing a puck, bare trees and snow on the banks around the pond.' + ACTION,
+        'A frozen farm pond in winter seen from far up the bank, the grey ice wide and empty but for five men in wool '
+        'sweaters playing hockey spread out a few paces apart, tiny figures no bigger than a fingernail with thin dark '
+        'sticks, bare trees and snow on the banks around the pond.' + ACTION,
         'A close view of an ice hockey goalie\'s head and shoulders, a moulded white fibreglass mask of the 1970s with '
         'oval eye holes and small breathing holes, his shoulders in a white jersey, the white netting behind him '
         'blurred.' + ACTION,
         'A pair of worn black leather ice hockey skates hanging by their laces from a nail on a wooden wall, a wooden '
         'stick leaning below them.' + ACTION,
-        'A black rubber puck lying on rough scratched white ice, seen from ice level so only its dark rounded side '
-        'shows, ice shavings around it, a red line under the ice behind it blurred.' + STILL,
-        'An empty small town ice rink seen from high up at one end, the white ice with a red line across its width at '
-        'the middle, a blue line either side of it, the centre circle a thin red ring with a small red dot, white ice '
-        'inside it, bare white boards round the ice and wooden bench seats.' + STILL,
-        'An ice hockey player in a plain yellow and black jersey with no crest skating with his stick raised in one hand after'
-        ' a goal.' + ACTION,
+        'A black rubber puck standing on rough scratched white ice, seen with the camera lying flat on the ice right '
+        'beside it, so the puck shows only as a low dark band from the side, ice shavings round it, the rest of the '
+        'rink a soft pale blur behind.' + STILL,
+        'A small outdoor ice rink in a snowy town park at dusk, seen from a little way off and slightly above, smooth '
+        'plain white ice ringed by low wooden boards painted white, old lamp posts glowing round it, bare trees and '
+        'snow beyond, nobody there.' + STILL,
+        'An ice hockey game seen from high in the stands of a small old rink, a player in a yellow and black jersey '
+        'skating alone across the wide white ice with his stick raised high over his head in one hand, a tiny figure no'
+        ' bigger than a fingernail, the empty ice all around him.' + ACTION,
     ],
     'bowling': [
         'A dark blue marbled bowling ball rolling away from the viewer down the middle of a long polished wooden lane, '
         'seen from just above the boards behind it, the ten white pins small in their triangle at the far end under a '
         'warm light, only darkness above them.' + ACTION,
-        'Ten white bowling pins flying apart at the end of a polished lane, a dark ball among them seen side on, the'
-        ' pins a tumbling blur of white, seen from lane level a few metres back.' + ACTION,
+        'A bowling ball crashing into the pins at the far end of a long polished lane, seen from the approach a long '
+        'way back, the pins small in the picture and blurred as they scatter, a dark ball among them, the long shiny '
+        'boards filling the lower half of the picture and darkness above the pins.' + ACTION,
         'One white bowling pin with two red stripes round its neck standing alone on a polished wooden lane, warm'
         ' light glowing on the varnish, the dark alley behind.' + STILL,
-        'A 1980s bowling alley seen from behind and above at a distance, a woman in a pink bowling shirt standing small'
-        ' on the approach of one lane, about to bowl, framed so only her lane and the lanes either side are in the '
-        'picture, the long polished boards stretching away to the pins in soft light.' + ACTION,
-        'A row of empty bowling lanes in a retro bowling alley with neon lights over the pins.' + STILL,
-        'Ten white bowling pins with red neck stripes standing in their neat triangle of four rows at the end of a'
-        ' polished lane, seen from lane level.' + STILL,
+        'A woman in a pink bowling shirt standing on the approach of a lane about to bowl, holding one ball in both '
+        'hands against her chest, seen from high behind her looking steeply down, so the picture shows her from above '
+        'and the polished boards of her lane and the lanes either side stretching away from her, the far end of the '
+        'lanes and the pins beyond the top edge of the picture.' + ACTION,
+        'A row of empty bowling lanes in an old bowling alley at closing time, seen low from the approach, the long '
+        'polished boards gleaming as they run away to the small white pins far off, the room dark and the area above '
+        'the pins in deep shadow.' + STILL,
+        'Ten white bowling pins with red neck stripes standing in their triangle on the pin deck at the end of a '
+        'polished lane, seen low and close so the pins fill the middle of the picture, the dark pit behind them in deep'
+        ' shadow.' + STILL,
     ],
     'racing': [
-        'A dirt track oval at a county fair at dusk seen from the infield grass, looking at the far turn with only '
-        'trees and the evening sky behind it, old two door American sedans of the 1970s, each one bright solid colour, '
-        'sliding sideways through the turn with their back ends swung out and their front wheels turned the other way, '
-        'a thick curtain of dust rising behind them.' + ACTION,
-        'Two 1990s American stock cars, heavy full bodied two door race cars shaped like sedans with no lettering, one blue and one yellow, racing side by side on a speedway, the grandstand blurred'
-        ' behind.' + ACTION,
-        'A racing driver in a plain red fire suit standing beside his full bodied American stock car in the pits, his helmet under one arm.' + ACTION,
-        'A chequered flag waving high against a pale sky, filling the upper part of the picture, and below it far off a'
-        ' green and white full bodied 1990s American stock car crossing the line, small and blurred with speed.' + ACTION,
-        'A Saturday night race on a small paved oval seen from the top of the grandstand under floodlights, a pack of '
-        'heavy old American sedans in bright solid colours small in the distance.' + ACTION,
-        'A full bodied 1990s American stock car with no lettering parked alone in a pit lane at dusk, the empty track behind.' + STILL,
+        'A dirt track oval at a county fair at dusk, seen from the infield fence looking at the far turn, three '
+        'stripped down race cars small in the picture and blurred with speed, each an old two door coupe with its '
+        'bumpers and chrome taken off, dented bare panels painted one flat colour and a steel roll cage showing through'
+        ' the empty windows, sliding wide through the turn with dirt spraying from their back wheels, only trees and '
+        'the evening sky behind the turn.' + ACTION,
+        'Two stock car race cars racing side by side down the straight of a speedway, blurred with speed and small in '
+        'the picture, each low and heavy, its bare sheet metal body painted one flat colour, one blue and one yellow, a'
+        ' steel roll cage of tubes behind the glassless side window with a black mesh window net across it, wide smooth'
+        ' slick tyres on plain steel wheels, the empty grandstand blurred behind.' + ACTION,
+        'A racing driver in a plain red fire suit sitting on the low concrete pit wall at dusk with his helmet in his '
+        'lap, seen from far off down the pit lane so he is small in the picture, beside him the front of his stock car,'
+        ' low and heavy, its bare sheet metal painted one flat red, a steel roll cage behind the glassless window with '
+        'a black mesh window net, wide smooth slick tyres, the empty track behind blurred.' + ACTION,
+        'A black and white chequered flag on a short wooden pole waving high against a pale evening sky, the cloth '
+        'rippling and filling the upper half of the picture, below it only the soft blurred grey edge of a track and '
+        'the far floodlight poles of a small speedway.' + ACTION,
+        'A Saturday night race on a small paved oval seen from the top of the grandstand under floodlights, a tight '
+        'pack of stock car race cars small and blurred with speed in the far turn, each low and heavy, its bare sheet '
+        'metal painted one flat colour, a roll cage behind its glassless windows and wide slick tyres, bunched nose to '
+        'tail and side by side.' + ACTION,
+        'A stock car race car parked alone in an empty pit lane at dusk, seen side on from a few paces away, low and '
+        'heavy, its bare sheet metal body painted one flat dark green from nose to tail, a steel roll cage of tubes '
+        'behind the glassless side window with a black mesh window net across it, wide smooth slick tyres on plain '
+        'steel wheels, the empty track behind.' + STILL,
     ],
     'pool': [
-        'A man in a waistcoat leaning over a green pool table lining up a shot on the white cue ball, seen side on, '
-        'both hands on his cue: his front hand flat on the felt making a bridge and his back hand holding the butt by '
-        'his hip, a hanging lamp above, the bar behind lost in darkness beyond the light of the lamp.' + ACTION,
-        'A green pool table under a low hanging lamp seen from a few paces back, a loose scatter of solid coloured '
-        'balls small and far apart on the felt, and one long wooden cue lying along the near cushion.' + STILL,
+        'A man in a waistcoat leaning low over a green pool table to line up a shot, seen from the far side of the '
+        'table facing him, his cue running straight towards the viewer, his front hand flat on the felt making a bridge'
+        ' in the light of a hanging lamp, a plain ivory white ball on the felt just in front of the cue tip, the rest '
+        'of him and the bar behind lost in darkness beyond the light of the lamp.' + ACTION,
+        'A green pool table seen from a few paces back under one hanging lamp with a single round green shade, the lamp'
+        ' light falling on the felt, a loose scatter of coloured balls tiny and far apart on the felt, one long wooden '
+        'cue lying along the near cushion, the room dark around it.' + STILL,
         'A black eight ball on the green felt of a pool table beside a corner pocket.' + STILL,
-        'The moment of a break on a pool table: the triangle of fifteen coloured balls bursting apart in every '
-        'direction across the green felt, blurred with motion, one white ball among them, seen from table level near '
-        'the head of the table, only the felt, the cushions and the flying balls in the picture.' + ACTION,
-        'A pool table under a hanging lamp in an empty dim bar, balls scattered on the felt, a cue leaning on the table.' + STILL,
-        'An old pool hall with rows of green tables under hanging lamps, empty, seen from the doorway.' + STILL,
+        'Coloured pool balls rolling fast in every direction across the green felt of a pool table, blurred streaks of '
+        'colour with speed, seen low from table level near a corner, only the felt, a cushion and the rolling balls in '
+        'the picture, the room beyond in darkness.' + ACTION,
+        'A pool table under a single hanging lamp in an empty dim back room of a bar with plain wood panelled walls, '
+        'coloured balls scattered small on the felt, one cue leaning against the table, the corners of the room in '
+        'darkness.' + STILL,
+        'An old pool hall seen from just inside the room, standing in the wide aisle between two rows of green pool '
+        'tables with plenty of floor between them, each table under its own single hanging lamp, the room empty and '
+        'dim, the far wall plain dark wood panelling.' + STILL,
     ],
     'fieldhockey': [
-        'A women\'s field hockey match on a school grass field, seen from high up and far off with the whole field in '
-        'view, the players tiny figures in red and in blue all chasing one small white ball near the middle, a low wide'
-        ' netted goal at each end no taller than a person, a line of trees behind.' + ACTION,
-        'A woman field hockey player in a blank blue kit with no logos, plain white shoes and an unmarked wooden stick, striking the ball on a grass pitch, seen from the side.' + ACTION,
-        'A low wide field hockey goal with a dark board along the bottom of its net, a white ball lying just inside it'
-        ' on wet green grass at dusk, nobody there.' + ACTION,
+        'A women\'s field hockey match on a school grass field, seen from high up at the side of the field on the '
+        'halfway line, looking down across the middle of the field, the players tiny figures in red and in blue all '
+        'chasing one small white ball, the far side of the field and a line of trees beyond it, the two ends of the '
+        'field out of the picture to the left and right.' + ACTION,
+        'A woman field hockey player striking the ball on a grass field, seen from the side and low down, a blazing low'
+        ' sun directly behind her so she and her stick are a flat black shape with no detail, a crisp outline against a'
+        ' glowing pale evening sky, the grass a dark band along the bottom.' + ACTION,
+        'A low wide field hockey goal with a dark board along the bottom of its net, on wet green grass at dusk, nobody'
+        ' there, and lying on the grass just inside it a small hard smooth white ball no bigger than an orange, '
+        'perfectly round and glossy like a cue ball.' + ACTION,
         'The curved hooked foot of a varnished wooden field hockey stick lying on green grass, only the hook and a '
         'short length above it in the picture, beside a hard smooth white ball, perfectly round and glossy like a cue '
         'ball, the size of an orange.' + STILL,
     ],
     'hunting': [
-        'A brown whitetail buck with a reddish brown coat and large antlers standing in an autumn meadow at dawn.' + WILD,
+        'A whitetail buck with a modest rack of antlers standing half hidden in tall dry grass at the edge of an autumn'
+        ' meadow on a grey overcast morning, seen from far off with a long lens, soft flat light, muted browns and '
+        'greys, bare trees behind.' + WILD,
         'A wild turkey displaying its fanned tail in a woodland clearing.' + WILD,
-        'A hunter in a plaid jacket and a blaze orange cap sits on a fallen log at the edge of autumn woods at dawn, '
-        'seen from far off so he is small in the picture, holding a steaming tin cup in both hands, mist in the trees.' + WILD,
+        'A wide misty autumn wood at dawn, and at the far edge of a meadow a hunter in a plaid jacket and a blaze '
+        'orange cap sitting on a fallen log with a steaming tin cup, a tiny figure no bigger than a fingernail at the '
+        'bottom of the picture, the tall misty trees filling the rest.' + WILD,
         'A mallard duck taking off from a misty marsh at sunrise.' + WILD,
         'A grown doe with a smooth plain tan brown coat and, a little apart from her, a small spotted fawn, standing'
         ' in tall green grass at the edge of a forest.' + WILD,
-        'A white-tailed deer buck, the American deer, with forward curving antlers, standing on a ridge, a blazing low '
-        'sun directly behind him, the deer and the ridge pure black against an orange sky.' + WILD,
-        'A pointer hunting dog seen side on, frozen rigid on point in a field of dry grass, its nose stretched'
-        ' forward, one front paw lifted and its tail held out straight behind it.' + WILD,
+        'A white-tailed deer buck standing on a ridge with the sun just setting directly behind him, so the deer and '
+        'the ridge are flat black shapes with no detail at all, like a cut paper silhouette, only his outline and his '
+        'antlers against a glowing pale orange sky.' + WILD,
+        'A pointer hunting dog standing rigid on point in a field of dry grass that reaches up to its belly, seen side '
+        'on, its body level, its nose stretched forward and its tail held out straight behind it in one line, all four '
+        'legs hidden in the grass.' + WILD,
         'A bull elk with one large pair of branching antlers standing side on in a mountain meadow in autumn, its head'
         ' held high.' + WILD,
     ],
@@ -433,41 +477,78 @@ pooled('walls_decoration_05', 176, 199, 'hunting')
 # Qwen-Image paints whatever is named, so asking for no signature gave every painting one.
 OIL = ('. An oil painting with visible brushstrokes and slightly yellowed varnish, the background brushwork carried'
        ' right out to all four edges and into every corner, the painted surface filling the whole image edge to edge.')
+DETAIL = (', the brushwork running off every edge of the picture. Visible brushstrokes and slightly yellowed'
+          ' varnish.')
 PAINTINGS = {
-    "Lilly's Waterpond": ('impressionist painting of water lilies floating on a pond, reflections of willows, soft blues, greens and violets' + OIL, WIDE),
-    "She's Got It": ('classical painting of a woman in a white gown reclining on a red velvet chaise longue, dark drapery behind' + OIL, BROAD),
-    'Aaaaah!': ('expressionist painting of a pale lone figure in a long dark coat on a long bridge facing the viewer with both hands pressed to its cheeks and its mouth open in a scream, a swirling orange and red sky above a dark blue fjord' + OIL, TALL),
-    'Abe Lincoln': ('formal 19th century portrait of Abraham Lincoln seated in a dark suit, sombre background' + OIL, TALL),
+    "Lilly's Waterpond": ('a close cropped detail from the middle of a large impressionist oil painting of water lilies'
+                          ' floating on a pond among the reflections of willows, soft blues, greens and violets' + DETAIL, WIDE),
+    "She's Got It": ('a close cropped detail from the middle of a large classical oil painting: a woman in a white gown'
+                     ' reclining on a red velvet chaise longue against dark drapery, the chaise and the drapery running'
+                     ' on past the sides' + DETAIL, BROAD),
+    'Aaaaah!': ('a close cropped detail from the middle of a large expressionist oil painting: a pale lone figure in a '
+                'long dark coat on a long bridge facing the viewer, both hands pressed to its cheeks and its mouth open'
+                ' in a scream, a swirling orange and red sky above a dark blue fjord, the bridge and its rail running '
+                'out of the bottom of the picture' + DETAIL, TALL),
+    'Abe Lincoln': ('a close cropped detail of the head and shoulders from a large formal 19th century oil portrait of '
+                    'Abraham Lincoln in a dark suit, his dark coat running off the bottom and the sombre brown '
+                    'background off the top and sides' + DETAIL, TALL),
     'Apple Faced Man': ('surreal painting of a gentleman in a dark overcoat and bowler hat standing in front of a low wall, his face hidden behind a green apple floating in the air in front of it, his arms at his sides, a cloudy sky behind' + OIL, TALL),
-    'Benjamin Franklin': ('formal 18th century portrait of Benjamin Franklin in a brown coat, long grey hair, dark background' + OIL, TALL),
+    'Benjamin Franklin': ('a close cropped detail of the head and shoulders from a large formal 18th century oil '
+                          'portrait of Benjamin Franklin in a brown coat, long grey hair, his coat running off the '
+                          'bottom and the dark background off the top and sides' + DETAIL, TALL),
     'Betty': ('1950s painted portrait of a smiling blonde woman with curled hair in a high necked blue cardigan, head and shoulders, warm brown background' + OIL, TALL),
-    'Calvinist': ('17th century Dutch portrait of a stern old man in a black hat and a wide white ruff collar, dark background, chiaroscuro' + OIL, TALL),
-    'Chromatic Accident': ('an abstract expressionist drip painting, dense tangled splatters and drips of black, rust orange, white and grey on a cream canvas' + '. The painted surface filling the whole image edge to edge.', LONGER),
+    'Calvinist': ('a close cropped detail of the head and shoulders from a large 17th century Dutch oil portrait of a '
+                  'stern old man in a black hat and a wide white ruff collar, chiaroscuro, his black coat running off '
+                  'the bottom and the dark background off the top and sides' + DETAIL, TALL),
+    'Chromatic Accident': ('a close cropped detail from the middle of a large abstract expressionist drip painting, '
+                           'dense tangled splatters and drips of black, rust orange, white and grey on cream' + ', the splatters running off every edge of the picture. Matte paint, the painted surface filling the whole image.', LONGER),
     'Configuration II': ('a geometric abstract painting in the De Stijl manner: a few straight thick black lines dividing a white canvas into a handful of large clean flat areas, rectangles of pure red, blue and yellow, crisp hard edges, flat even paint' + '. The paint carried right out to all four edges and into every corner, the painted surface filling the whole image edge to edge.', SQUARE),
-    'Configuration No. 10': ('a geometric abstract painting in the De Stijl manner: a few straight thick black lines running right across a white ground, dividing it into a grid of rectangles; one large rectangle between the lines painted solid blue and two small ones solid red and yellow, each colour filling its rectangle exactly up to the black lines, the rest white, flat even paint' + '. The painted surface filling the whole image edge to edge.', SQUARE),
+    'Configuration No. 10': ('a close cropped detail from the middle of a large geometric abstract painting in the De '
+                             'Stijl manner: a few straight thick black lines running right across a white ground and '
+                             'off every edge of the picture, dividing it into rectangles; one large rectangle painted '
+                             'solid blue and two small ones solid red and yellow, each colour filling its rectangle '
+                             'exactly up to the black lines, the rest white, flat even paint' + '.', SQUARE),
     'Layout I': ('a geometric abstract painting in the De Stijl manner: a few straight thick black lines dividing a white canvas into a handful of large clean flat areas, a large red square and small blue and yellow rectangles, crisp hard edges, flat even paint' + '. The painted surface filling the whole image edge to edge.', SQUARE),
-    'Desert Landscape': ('painting of a desert landscape, red sandstone mesas and sagebrush under a huge pale sky at dusk' + OIL, BROAD),
-    'Flowers On Table': ('still life painting of a vase of mixed flowers on a table with a white cloth, dark background, Dutch golden age' + OIL, TALL),
-    'George Washington': ('formal portrait of George Washington as an older man in his sixties, his long face, heavy jaw and firm closed mouth, grey powdered hair tied back, in a black velvet suit, a red curtain behind, in the manner of Gilbert Stuart' + OIL, TALL),
-    'Helianthus': ('post-impressionist still life painting of sunflowers in a clay vase against a yellow wall, thick impasto' + OIL, TALL),
-    'Incognito Library': ('painting of the interior of an old library, tall shelves of leather books, a fireplace, an armchair and a brass lamp, warm brown tones' + OIL, WIDE),
+    'Desert Landscape': ('a close cropped detail from the middle of a large oil painting of a desert landscape: red '
+                         'sandstone mesas and sagebrush under a huge pale sky at dusk, the sagebrush running out of the'
+                         ' bottom of the picture' + DETAIL, BROAD),
+    'Flowers On Table': ('a close cropped detail from the middle of a large Dutch golden age still life oil painting: a'
+                         ' vase of mixed flowers on a table with a white cloth against a dark background, the cloth and'
+                         ' the table running out of the bottom of the picture' + DETAIL, TALL),
+    'George Washington': ('a close cropped detail of the head and shoulders from a large formal oil portrait of George '
+                          'Washington as an older man in his sixties in the manner of Gilbert Stuart, his long face, '
+                          'heavy jaw and firm closed mouth, grey powdered hair tied back, his black velvet coat running'
+                          ' off the bottom and a red curtain behind him running off the top and sides' + DETAIL, TALL),
+    'Helianthus': ('a close cropped detail from the middle of a large post-impressionist oil painting of sunflowers in '
+                   'a clay vase against a yellow wall, thick impasto, the vase running out of the bottom of the picture' + DETAIL, TALL),
+    'Incognito Library': ('a close cropped detail from the middle of a large oil painting of the interior of an old '
+                          'library: tall shelves of leather books, a fireplace, an armchair and a brass lamp, warm '
+                          'brown tones, the shelves running off both sides and the floor off the bottom' + DETAIL, WIDE),
     'Island Beach': ('seascape painting of waves breaking on dark rocks off an island shore, turquoise sea, cloudy sky' + OIL, LONGER),
-    'John Adams': ('formal 18th century portrait of John Adams in a dark coat and white cravat, grey hair, dark background' + OIL, TALL),
+    'John Adams': ('a close cropped detail of the head and shoulders from a large formal 18th century oil portrait of '
+                   'John Adams in a dark coat and white cravat, grey hair, his coat running off the bottom and the dark'
+                   ' background off the top and sides' + DETAIL, TALL),
     'Lakeside': ('painting of a still woodland lake, green trees and their reflections, purple wildflowers on the bank, dappled light' + OIL, LONGER),
     'Lighthouse': ('painting of a white lighthouse with a red roof on a rocky headland, blue sea and sky, a wooden walkway leading to it' + OIL, TALL),
     'Man With One Ear': ('post-impressionist self portrait of a red bearded man in a fur cap and green coat, a thick white cloth bandage wrapped round his head over one ear and tied under his chin, swirling brushstrokes' + OIL, TALL),
     'Margarite': ('17th century Dutch portrait of a girl in a blue and yellow turban glancing over her shoulder, a pearl earring, her plain ochre jacket smooth and unmarked, black background' + OIL, TALL),
     'Monica Elisa': ('an ink and watercolour portrait of a woman with long black hair in a red and orange patterned robe, head and shoulders, white paper background', TALL),
-    'Mount Never Rest': ('romantic landscape painting of a towering snow capped mountain above a lake and pine forest, golden light breaking through clouds' + OIL, LONGER),
+    'Mount Never Rest': ('a close cropped detail from the middle of a large romantic landscape oil painting: a towering'
+                         ' snow capped mountain above a lake and pine forest, golden light breaking through clouds, the'
+                         ' lake running out of the bottom of the picture' + DETAIL, LONGER),
     'Night With Stars': ('post-impressionist painting of a swirling starry night sky with a crescent moon over a small sleeping village of many little houses with lit windows clustered below hills, a church spire rising among them, a tall dark cypress in the foreground, thick impasto' + OIL, BROAD),
     'Nomad Above The Gloom': ('romantic painting of a lone man in a dark frock coat seen from behind, standing on a rocky peak above a sea of fog and distant mountains' + OIL, SQUARE),
-    'Omega Department': ('a 1970s children\'s storybook illustration in gouache of a friendly brown bear and a badger standing side by side a little apart, pale yellow background, printed on paper', TALL),
+    'Omega Department': ('a gouache illustration of a friendly brown bear and a badger with a grey coat, a black and '
+                         'white striped face and a short grey tail, standing side by side a little apart on a flat pale'
+                         ' yellow ground that runs off every edge of the picture, soft matte gouache colours', TALL),
     'Riverside': ('impressionist painting of a river bank in spring, poplars and their reflections, pink and lilac sky' + OIL, WIDE),
     'Sir Brakefire': ('17th century portrait of a gentleman with a pointed beard in a broad black hat and lace collar, dark background, chiaroscuro' + OIL, TALL),
-    'Two Frame': ('small impressionist landscape painting of a country lane between flowering hedges, lilac hills beyond' + OIL, WIDE),
+    'Two Frame': ('a close cropped detail from the middle of a large impressionist oil painting of a country lane '
+                  'between flowering hedges, lilac hills beyond, the lane running out of the bottom of the picture' + DETAIL, WIDE),
     'Violetta': ('impressionist painting of a woman with a parasol in a garden of pink roses, green lawn, sunlight' + OIL, WIDE),
     'Waterbeach Hills': ('landscape painting of rolling green hills and meadows under a blue sky with white clouds' + OIL, WIDE),
-    'Waterfall': ('landscape painting of a waterfall dropping through autumn woods into a rocky pool' + OIL, WIDE),
+    'Waterfall': ('a close cropped detail from the middle of a large oil painting of a waterfall dropping through '
+                  'autumn woods into a rocky pool, the pool and its rocks running out of the bottom of the picture' + DETAIL, WIDE),
     'Wide': ('classical landscape painting of a river valley with ancient trees, a shallow ford with a small wooden boat drawn up on the bank, and distant blue hills, golden evening light' + OIL, STOUT),
     'Dr. Oids': ('a framed 1980s arcade video game screen, chunky pixel art of a round yellow creature with an open mouth being chased along a corridor of a green neon maze by a pink pixel ghost, rows of small white dots in the corridors, black background, no lettering', TALL),
 }
@@ -489,11 +570,11 @@ HUNG.append(('location_entertainment_gallery_01_72', 'painting-sitter'))
 HUNG.append(('location_entertainment_gallery_01_73', 'painting-sitter'))
 
 # Boards.
-art('board-cork', 'A cork notice board seen straight on and filling the whole frame, untidily covered in pinned papers '
-                  'of many sizes and colours overlapping at odd angles: torn sheets of lined paper with faint pencil '
-                  'scribble, a yellowed typed letter, a folded pink flyer, a curled faded snapshot of a lake and '
-                  'another of an old pickup truck, coloured push pins here and there, all seen from far enough back '
-                  'that the writing is only faint grey marks. A plain photograph in even office light.', WIDE)
+art('board-cork', 'A close view of part of a cork notice board, the cork and the pinned papers running off every edge '
+                  'of the picture, untidily covered in papers of many sizes and colours overlapping at odd angles: torn'
+                  ' sheets of lined paper with a few faint pencil scribbles, a yellowed sheet, a folded pink sheet, a '
+                  'curled faded snapshot of a lake and another of an old pickup truck seen from the side, coloured push'
+                  ' pins here and there. A plain photograph in even office light.', WIDE)
 art('board-white', 'A white dry erase board seen straight on and filling the whole frame, faint grey smudges of old marker, a hand'
     ' drawn bar chart and a few arrows in blue and red marker and no words. A plain photograph in even office light.', BROAD)
 art('board-darts', 'A closed dark wooden dartboard cabinet seen straight on, its two plain panelled doors shut, small'
@@ -543,44 +624,52 @@ GIG = (' They are placed low in the picture with their heads below the middle of
 OLD_GIG = (' They are placed low in the picture with their heads below the middle of the frame, and the plain backdrop'
            ' behind them carries on above their heads to the top edge. A 1960s black and white promotional photograph'
            ' filling the whole frame edge to edge, a slightly faded silver print.')
+BAND = (' Seen from several paces back so they stand small and low in the frame with their heads in the lower half'
+        ' of the picture, and the backdrop behind them carries on above them up past the top edge. Taken on colour film'
+        ' in the 1980s, slightly faded colours and fine grain, the picture filling the whole image edge to edge.')
+OLD_BAND = (' Seen from several paces back so he sits small and low in the frame with his head in the lower half of the'
+            ' picture, and the wall behind him carries on above him up past the top edge. Taken in black and white in'
+            ' the 1960s, only shades of grey, fine film grain, the picture filling the whole image edge to edge.')
 MUSIC = [
-    'A four piece glam rock band in black leather jackets standing in a row a little apart in front of a dark red'
-    ' curtain, four different looking people: a tall woman with a big teased blond mane, a short dark haired woman'
-    ' with a fringe, a lanky man with a black shag cut and a stocky bearded man with a red mullet.' + GIG,
+    'A four piece glam rock band in black leather jackets standing in a row a little apart in front of a dark red '
+    'curtain, seen full length: a tall woman with a big teased blond mane, a short dark haired woman with a fringe, a '
+    'lanky man with a black shag cut and a stocky bearded man with short red hair.' + BAND,
     'One rock and roll singer alone, a man with slick dark hair in a dark waistcoat and white shirt, sitting on a stool'
     ' against a plain dark grey backdrop, his arms folded.' + OLD_GIG,
     'Four young men in matching slim grey suits and narrow ties standing in a row a little apart, a 1960s beat group,'
     ' each plainly a different person: one tall and thin with a blond mop, one short and stocky with dark curls, one'
     ' with glasses and slicked back hair, one with a long face and a dark fringe.' + OLD_GIG,
-    'A cheerful 1960s pop group of four in bright paisley shirts standing in a row a little apart against a pink'
-    ' backdrop, four different looking young men: a tall one with a ginger mop, a short round faced one with dark'
-    ' curls, one with round glasses and long sideburns, and a thin one with a blond fringe.' + GIG,
+    'A cheerful pop group of four in bright paisley shirts sitting in a row a little apart on a low wooden bench '
+    'against a pink backdrop, seen full length: a tall one with short ginger hair, a short round faced one with dark '
+    'curls, one with round glasses and long sideburns, and a thin one with a blond fringe.' + BAND,
     'A 1970s hard rock band in denim standing in a row on a stage in front of a wall of amplifiers, four different'
     ' looking men: one with long straight black hair, one with a curly brown perm and a moustache, one bald and'
     ' bearded, and one with long blond hair and a headband.' + GIG,
     'A rock singer with shoulder length brown hair and a headband standing at a microphone stand on a dark stage, a black shirt,'
     ' a single spotlight.' + GIG,
-    'A country rock guitarist with long hair, sunglasses and a fringed suede jacket standing with an electric guitar slung on his'
-    ' shoulder against an orange desert sunset.' + GIG,
+    'A country rock guitarist with long hair, sunglasses and a fringed suede jacket sitting on a low rock in the desert'
+    ' with an electric guitar across his lap, the neck of the guitar running out of the left edge of the picture, an '
+    'orange sunset sky behind him.' + BAND,
     'A pop singer with wavy shoulder length blond hair in a black leather jacket and white t-shirt, head and shoulders, against a'
     ' deep blue background.' + GIG,
     'Three young men in white suits and blue caps, a 1990s rhythm and blues vocal group, seen full length from a few'
     ' paces back, each man standing on his own with an arm\'s length of space between him and the next, small enough'
     ' in the frame that their caps stay below the top third, a plain dark navy studio backdrop behind and above'
     ' them.' + GIG,
-    'One red haired woman singer alone, in a long white dress with long sleeves and a high neck, seen from the waist'
-    ' up, a cream and rose backdrop, a 1970s folk album cover.' + GIG,
+    'One red haired woman singer alone, in a long white dress with long sleeves and a high neck, standing full length '
+    'against a plain cream and rose backdrop.' + BAND,
     'An elderly crooner in a black tuxedo and bow tie standing beside a vintage silver microphone on a stand, black background,'
     ' warm spotlight.' + GIG,
     'A pop singer with long curly red hair laughing, in a denim jacket over a white t-shirt, seen from the waist up, a'
     ' pale teal backdrop.' + GIG,
-    'A country singer in a black hat and black shirt sitting on a stool with an acoustic guitar resting on his knee, an old barn'
-    ' wall behind.' + OLD_GIG,
+    'A country singer in a black hat and black shirt sitting on a low stool with an acoustic guitar resting on his '
+    'knee, the neck of the guitar running out of the right edge of the picture, an old barn wall behind.' + OLD_BAND,
     'A young woman singer with short brown hair in a white t-shirt and jeans sitting on a wooden stool, seen from the'
     ' waist up, a pastel pink backdrop.' + GIG,
     'A disco singer with a big afro in a long sleeved high necked purple sequin gown under a mirror ball, purple light.' + GIG,
-    'A smiling country singer in a white cowboy hat and an embroidered western shirt with an acoustic guitar slung on his'
-    ' shoulder, golden sepia background.' + GIG,
+    'A smiling country singer in a white cowboy hat and an embroidered western shirt standing full length with an '
+    'acoustic guitar slung on his shoulder, the neck of the guitar running out of the edge of the picture, a plain '
+    'golden sepia backdrop.' + BAND,
     'A folk singer in a flat cap, white shirt and red tie with an acoustic guitar slung across his back, seen from the'
     ' waist up, a cream backdrop.' + GIG,
     'An iron bridge over a river in a city with one single purple balloon floating above it, nobody in sight, the top third'
