@@ -21,6 +21,7 @@ import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL30;
 import zombie.GameTime;
 import zombie.ZomboidFileSystem;
+import zombie.characters.IsoPlayer;
 import zombie.core.Core;
 import zombie.core.SpriteRenderer;
 import zombie.core.textures.TextureDraw;
@@ -30,7 +31,9 @@ import zombie.core.textures.TextureDraw;
  * picture is made of. Into the game's cache folder, framedump/<time>: the frame before the
  * game's interface (clean.png) and with it (hud.png), each player's sun shadow maps (near,
  * far, roof, and the torch's when it is lit) as 16 bit pictures stretched over the depths they
- * hold and as raw little endian floats, and state.txt with what the frame was drawn at.
+ * hold and as raw little endian floats, the pictures the frame is made through (the world before
+ * the lit air, the lit air as marched, kept and softened, the shading, the clouds) each stretched
+ * by its own brightest value, and state.txt with what the frame was drawn at.
  */
 final class FrameDump {
     /** GL_DEPTH_COMPONENT, GL_FLOAT, GL_RGB, GL_UNSIGNED_BYTE, GL_TEXTURE_2D, its binding and GL_TEXTURE_WIDTH. */
@@ -38,6 +41,9 @@ final class FrameDump {
             TEXTURE_WIDTH = 0x1000;
     private static final int READ_FRAMEBUFFER = 0x8CA8, READ_FRAMEBUFFER_BINDING = 0x8CAA, PACK_ALIGNMENT = 0x0D05;
     private static final String[] MAPS = {"nearMap", "farMap", "roofMap", "torchMap"};
+    private static final String[] PICTURES = {"sceneColor", "shownColor", "volumeColor", "softVolumeColor", "occlusionColor", "softColor", "cloudColor"};
+    /** GL_RGBA and GL_TEXTURE_HEIGHT. */
+    private static final int RGBA = 0x1908, TEXTURE_HEIGHT = 0x1001;
 
     private static volatile boolean asked;
     private static volatile int reading;
@@ -75,7 +81,9 @@ final class FrameDump {
                 GameTime.getInstance().getTimeOfDay()));
         for (int i = 0; i < View.COUNT; i++) {
             if (View.of(i) != null) {
-                state.append(String.format(Locale.ROOT, "player %d: graphics %s, shadow maps %d%n", i + 1, Quality.name(i), Quality.shadowSize(i)));
+                IsoPlayer player = IsoPlayer.players[i];
+                state.append(String.format(Locale.ROOT, "player %d: graphics %s, shadow maps %d, at %s%n", i + 1, Quality.name(i), Quality.shadowSize(i),
+                        player == null ? "nowhere" : String.format(Locale.ROOT, "%.2f %.2f %.2f", player.getX(), player.getY(), player.getZ())));
             }
         }
         Log.info("frame dump: asked, into " + folder);
@@ -114,6 +122,7 @@ final class FrameDump {
             GL11.glReadPixels(0, 0, width, height, RGB, UNSIGNED_BYTE, pixels);
             GL30.glBindFramebuffer(READ_FRAMEBUFFER, previousRead);
             List<Depths> maps = new ArrayList<>();
+            List<Colours> pictures = new ArrayList<>();
             if (state != null) {
                 int previousTexture = GL11.glGetInteger(TEXTURE_BINDING_2D);
                 for (int i = 0; i < View.COUNT; i++) {
@@ -126,17 +135,28 @@ final class FrameDump {
                                 maps.add(Depths.read("player" + (i + 1) + "-" + map, texture));
                             }
                         }
+                        int[] kept = (int[]) field(view.pipeline, "airKept");
+                        for (int k = 0; k < kept.length; k++) {
+                            pictures.add(Colours.read("player" + (i + 1) + "-airKept" + k, kept[k]));
+                        }
+                        for (String picture : PICTURES) {
+                            int texture = intField(view.pipeline, picture);
+                            // A picture this frame's settings never made has no storage: nothing to write.
+                            if (texture != 0 && Colours.made(texture)) {
+                                pictures.add(Colours.read("player" + (i + 1) + "-" + picture, texture));
+                            }
+                        }
                     }
                 }
                 GL11.glBindTexture(TEXTURE_2D, previousTexture);
             }
             reading--;
-            Thread writer = new Thread(() -> write(pixels, width, height, maps), "frame dump " + name);
+            Thread writer = new Thread(() -> write(pixels, width, height, maps, pictures), "frame dump " + name);
             writer.setDaemon(true);
             writer.start();
         }
 
-        private void write(ByteBuffer pixels, int width, int height, List<Depths> maps) {
+        private void write(ByteBuffer pixels, int width, int height, List<Depths> maps, List<Colours> pictures) {
             try {
                 Files.createDirectories(folder);
                 BufferedImage picture = new BufferedImage(width, height, BufferedImage.TYPE_3BYTE_BGR);
@@ -153,6 +173,9 @@ final class FrameDump {
                 StringBuilder said = new StringBuilder();
                 for (Depths map : maps) {
                     said.append(map.write(folder)).append('\n');
+                }
+                for (Colours each : pictures) {
+                    said.append(each.write(folder)).append('\n');
                 }
                 if (state != null) {
                     Files.writeString(folder.resolve("state.txt"), state + said);
@@ -181,12 +204,70 @@ final class FrameDump {
     }
 
     private static int intField(Object owner, String name) {
+        return (int) field(owner, name);
+    }
+
+    private static Object field(Object owner, String name) {
         try {
             Field field = owner.getClass().getDeclaredField(name);
             field.setAccessible(true);
-            return field.getInt(owner);
+            return field.get(owner);
         } catch (ReflectiveOperationException failure) {
-            throw new IllegalStateException("frame dump: Pipeline has no int field " + name, failure);
+            throw new IllegalStateException("frame dump: Pipeline has no field " + name, failure);
+        }
+    }
+
+    /** One colour texture read back whole, as floats whatever it is stored as. */
+    private record Colours(String name, int width, int height, FloatBuffer values) {
+        /** Render thread. */
+        static boolean made(int texture) {
+            GL11.glBindTexture(TEXTURE_2D, texture);
+            return GL11.glGetTexLevelParameteri(TEXTURE_2D, 0, TEXTURE_WIDTH) > 0;
+        }
+
+        /** Render thread. */
+        static Colours read(String name, int texture) {
+            GL11.glBindTexture(TEXTURE_2D, texture);
+            int width = GL11.glGetTexLevelParameteri(TEXTURE_2D, 0, TEXTURE_WIDTH), height = GL11.glGetTexLevelParameteri(TEXTURE_2D, 0, TEXTURE_HEIGHT);
+            ByteBuffer bytes = ByteBuffer.allocateDirect(width * height * 16).order(ByteOrder.nativeOrder());
+            GL11.glPixelStorei(PACK_ALIGNMENT, 4);
+            GL11.glGetTexImage(TEXTURE_2D, 0, RGBA, FLOAT, bytes);
+            return new Colours(name, width, height, bytes.asFloatBuffer());
+        }
+
+        /** The colour stretched so its brightest channel anywhere is white, and the alpha beside it stretched by its own largest value. */
+        String write(Path folder) throws IOException {
+            float most = 0f, mostAlpha = 0f, leastAlpha = Float.MAX_VALUE;
+            for (int i = 0; i < width * height; i++) {
+                for (int c = 0; c < 3; c++) {
+                    float value = values.get(i * 4 + c);
+                    if (Float.isFinite(value)) {
+                        most = Math.max(most, value);
+                    }
+                }
+                float alpha = values.get(i * 4 + 3);
+                if (Float.isFinite(alpha)) {
+                    mostAlpha = Math.max(mostAlpha, alpha);
+                    leastAlpha = Math.min(leastAlpha, alpha);
+                }
+            }
+            BufferedImage colour = new BufferedImage(width, height, BufferedImage.TYPE_3BYTE_BGR);
+            BufferedImage alpha = new BufferedImage(width, height, BufferedImage.TYPE_BYTE_GRAY);
+            byte[] into = ((DataBufferByte) colour.getRaster().getDataBuffer()).getData();
+            byte[] intoAlpha = ((DataBufferByte) alpha.getRaster().getDataBuffer()).getData();
+            float scale = most > 0f ? 255f / most : 0f, scaleAlpha = mostAlpha > 0f ? 255f / mostAlpha : 0f;
+            for (int y = 0; y < height; y++) {
+                for (int x = 0; x < width; x++) {
+                    int from = ((height - 1 - y) * width + x) * 4, to = y * width + x;
+                    for (int c = 0; c < 3; c++) {
+                        into[to * 3 + 2 - c] = (byte) Math.round(Math.min(255f, Math.max(0f, values.get(from + c) * scale)));
+                    }
+                    intoAlpha[to] = (byte) Math.round(Math.min(255f, Math.max(0f, values.get(from + 3) * scaleAlpha)));
+                }
+            }
+            ImageIO.write(colour, "png", folder.resolve(name + ".png").toFile());
+            ImageIO.write(alpha, "png", folder.resolve(name + ".alpha.png").toFile());
+            return String.format(Locale.ROOT, "%s: %dx%d, brightest channel %.5f, alpha %.5f to %.5f", name, width, height, most, leastAlpha, mostAlpha);
         }
     }
 
