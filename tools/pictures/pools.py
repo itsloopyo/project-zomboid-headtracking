@@ -119,10 +119,10 @@ POOLS = {
         'the windows, the brick above them bare, a few rounded old cars parked along the kerb, tall shade '
         'trees.' + OLD_PRINT,
         'A white delivery truck parked in front of a shop loading bay on a sunny day, seen from the side.' + PRINT,
-        'A small town summer parade seen from high above the street, looking far up main street, the street running '
-        'away from the '
-        'viewer, a marching band in red uniforms a long way off down the middle of it, people lining both pavements, red'
-        ' brick shop fronts with striped awnings and American stars and stripes flags hanging from the porches.' + PRINT,
+        'A small town main street dressed for the Fourth of July early on a summer morning, seen from high above, '
+        'looking far up the empty street running away from the viewer, red brick shop fronts with striped awnings '
+        'either side, red white and blue bunting hung along them and American stars and stripes flags hanging from '
+        'the porches.' + PRINT,
         'A small 1950s country shop, a plain white clapboard building with a wooden porch and an empty bench out front, '
         'its two front windows dark and bare, seen from across a gravel road.' + OLD_PRINT,
         'An American man of about fifty with a full head of short dark hair just greying at the temples and a firm '
