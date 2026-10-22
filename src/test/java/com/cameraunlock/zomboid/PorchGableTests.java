@@ -10,13 +10,14 @@ import zombie.iso.BuildingDef;
 import zombie.iso.areas.IsoBuilding;
 import zombie.iso.sprite.IsoSprite;
 
-/** Tests that a roof carried on past its building over a porch has its end closed above the porch. */
+/** Tests of the gables made under a roof's west and north ends: over a porch, and below a slope laid a level up. */
 final class PorchGableTests {
     private PorchGableTests() {}
 
     static void run() {
         Checks.run("aRoofOverAPorchIsClosedAtItsEnd", PorchGableTests::aRoofOverAPorchIsClosedAtItsEnd);
         Checks.run("aPorchRoofIsClosedOnlyWhereItEnds", PorchGableTests::aPorchRoofIsClosedOnlyWhereItEnds);
+        Checks.run("aSlopeLaidALevelUpIsClosedDownToTheWalls", PorchGableTests::aSlopeLaidALevelUpIsClosedDownToTheWalls);
     }
 
     /**
@@ -90,5 +91,39 @@ final class PorchGableTests {
         TestMap overhang = porch(true, true, 1);
         overhang.cell.square(0, 0, 0).floor(GRASS);
         check(gables(overhang) == 0, "a roof run on a square past its wall over the grass is an eave, its gable the wall's");
+    }
+
+    /**
+     * A slope on level 3 over a house whose walls stand on levels 0 and 1, as the barn's top rows
+     * at 7648, 9352..9353: the loft on level 2 has no wall at the end, and was open there.
+     */
+    private static TestMap raised(int wallsUpTo, boolean roofBelow) {
+        TestMap map = new TestMap();
+        RoofFit.Tile tile = new RoofFit.Tile(0, 0, 3, RoofFit.ALONG_X, true, 3f + RoofFit.PITCH, 3f);
+        RoofFit.fit(new ArrayList<>(List.of(tile)));
+        map.roofTile(tile, map.painted);
+        inHouse(map, 0, 0);
+        for (int level = 0; level <= wallsUpTo; level++) {
+            map.wall(0, 0, level, false);
+            map.wall(0, 0, level, true);
+        }
+        map.cell.square(0, 0, 2);
+        if (roofBelow) {
+            RoofFit.Tile lower = new RoofFit.Tile(0, 0, 2, RoofFit.ALONG_X, true, 2f + RoofFit.PITCH, 2f);
+            RoofFit.fit(new ArrayList<>(List.of(lower)));
+            map.roofTile(lower, map.painted);
+        }
+        return map;
+    }
+
+    private static int raisedGables(TestMap map) {
+        map.build.roofBuilder.addRoof(new SpriteGeometry.Mesh(), map.painted, 0, 0, 3);
+        return map.build.gablesBare + map.build.gablesPainted + map.build.gablesFaced;
+    }
+
+    private static void aSlopeLaidALevelUpIsClosedDownToTheWalls() {
+        check(raisedGables(raised(1, false)) == 4, "the west and the north end are closed on the roof's level and on the loft's below it");
+        check(raisedGables(raised(2, false)) == 2, "with the loft walled at its end only the roof's own level is closed");
+        check(raisedGables(raised(1, true)) == 2, "a roof of its own on the loft has its own gable");
     }
 }

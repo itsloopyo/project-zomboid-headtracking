@@ -363,6 +363,16 @@ final class RoofBuilder {
                 continue;
             }
             addGableWall(standing, ground, room, x, y, z, north, northWest, second, peak, peakAxis);
+            // A slope's top rows the map lays a level up, over a loft whose end has no wall: the
+            // gable goes on down to where the building's wall stands (the barn at 7648, 9352..9353,
+            // whose roof's underside showed through its end a level below the ridge).
+            for (int level = z - 1; level > ground && !porch; level--) {
+                IsoGridSquare below = build.cell.getGridSquare(x, y, level);
+                if (below == null || WorldScene.wallOn(below, north) != null || roofGoesOn(x, y, level) || buildingGoesOn(x, y, beyondX, beyondY, level)) {
+                    break;
+                }
+                addGableWall(standing, ground, room, x, y, level, north, 1f, 1f, 0f, 0);
+            }
         }
     }
 
