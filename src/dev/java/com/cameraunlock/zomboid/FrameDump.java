@@ -84,6 +84,12 @@ final class FrameDump {
                 IsoPlayer player = IsoPlayer.players[i];
                 state.append(String.format(Locale.ROOT, "player %d: graphics %s, shadow maps %d, at %s%n", i + 1, Quality.name(i), Quality.shadowSize(i),
                         player == null ? "nowhere" : String.format(Locale.ROOT, "%.2f %.2f %.2f", player.getX(), player.getY(), player.getZ())));
+                View view = View.of(i);
+                state.append("  ").append(view.carriedLight.describe());
+                if (player != null) {
+                    state.append(String.format(Locale.ROOT, ", ground lifted %.3f under the player", view.worldScene.terrain.lift(player.getX(), player.getY(), player.getZ())));
+                }
+                state.append('\n');
             }
         }
         Log.info("frame dump: asked, into " + folder);
@@ -123,12 +129,16 @@ final class FrameDump {
             GL30.glBindFramebuffer(READ_FRAMEBUFFER, previousRead);
             List<Depths> maps = new ArrayList<>();
             List<Colours> pictures = new ArrayList<>();
+            StringBuilder torches = new StringBuilder();
             if (state != null) {
                 int previousTexture = GL11.glGetInteger(TEXTURE_BINDING_2D);
                 for (int i = 0; i < View.COUNT; i++) {
                     View view = View.of(i);
                     // nearMap is 0 while the pipeline has given its maps back; the torch's map is given back on its own.
                     if (view != null && intField(view.pipeline, "nearMap") != 0) {
+                        float[] at = (float[]) field(view.pipeline, "torchAt"), way = (float[]) field(view.pipeline, "torchWay");
+                        torches.append(String.format(Locale.ROOT, "player%d torch as last cast: at (%.3f, %.3f, %.3f) reach %.1f, way (%.3f, %.3f, %.3f)%n", i + 1,
+                                at[0], at[1], at[2], at[3], way[0], way[1], way[2]));
                         for (String map : MAPS) {
                             int texture = intField(view.pipeline, map);
                             if (!map.equals("torchMap") || torchLent(view.pipeline)) {
@@ -151,12 +161,12 @@ final class FrameDump {
                 GL11.glBindTexture(TEXTURE_2D, previousTexture);
             }
             reading--;
-            Thread writer = new Thread(() -> write(pixels, width, height, maps, pictures), "frame dump " + name);
+            Thread writer = new Thread(() -> write(pixels, width, height, maps, pictures, torches.toString()), "frame dump " + name);
             writer.setDaemon(true);
             writer.start();
         }
 
-        private void write(ByteBuffer pixels, int width, int height, List<Depths> maps, List<Colours> pictures) {
+        private void write(ByteBuffer pixels, int width, int height, List<Depths> maps, List<Colours> pictures, String torches) {
             try {
                 Files.createDirectories(folder);
                 BufferedImage picture = new BufferedImage(width, height, BufferedImage.TYPE_3BYTE_BGR);
@@ -178,7 +188,7 @@ final class FrameDump {
                     said.append(each.write(folder)).append('\n');
                 }
                 if (state != null) {
-                    Files.writeString(folder.resolve("state.txt"), state + said);
+                    Files.writeString(folder.resolve("state.txt"), state + torches + said);
                 }
                 Log.info("frame dump: " + name + " written to " + folder + (maps.isEmpty() ? "" : ", " + maps.size() + " shadow maps"));
                 if (state != null) {
