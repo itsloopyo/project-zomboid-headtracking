@@ -42,6 +42,8 @@ final class RoofTests {
         Checks.run("hippedCornerAtTheEaveCarriesTheEaveRowOn", RoofTests::hippedCornerAtTheEaveCarriesTheEaveRowOn);
         Checks.run("hipCutFlatGetsItsFarSlopeAcrossTheCrown", RoofTests::hipCutFlatGetsItsFarSlopeAcrossTheCrown);
         Checks.run("farSlopeComesDownOverALowerCrown", RoofTests::farSlopeComesDownOverALowerCrown);
+        Checks.run("gableWiderThanACrownKeepsItsFarSideToTheWall", RoofTests::gableWiderThanACrownKeepsItsFarSideToTheWall);
+        Checks.run("crownWiderThanAGableGetsNoWedge", RoofTests::crownWiderThanAGableGetsNoWedge);
         Checks.run("levelSheetPaintedOverItsFloorIsAFlatTop", RoofTests::levelSheetPaintedOverItsFloorIsAFlatTop);
         Checks.run("sheetsBehindARidgeAreNoPartOfTheRoof", RoofTests::sheetsBehindARidgeAreNoPartOfTheRoof);
         Checks.run("canopyIsNotCarriedToTheFarWall", RoofTests::canopyIsNotCarriedToTheFarWall);
@@ -908,33 +910,14 @@ final class RoofTests {
         // the crown's height, over the crown where one row is open. The map has no slope on the crown's north and west
         // sides, and the building runs on a row north of it and a column west of it.
         int ridgeRow = 3 + gap;
-        RoofFit.Site site = new RoofFit.Site() {
-            @Override
-            public boolean stands(int x, int y, int z) {
-                return x >= 0 && x <= 3 && y >= -1 && y <= ridgeRow + 2;
-            }
-
-            @Override
-            public boolean floored(int x, int y, int z) {
-                return false;
-            }
-
-            @Override
-            public boolean taken(int x, int y, int z, float roof) {
-                return false;
-            }
-        };
+        RoofFit.Site site = standing((x, y) -> x >= 0 && x <= 3 && y >= -1 && y <= ridgeRow + 2);
         List<RoofFit.Tile> roof = new ArrayList<>();
         for (int x = 0; x <= 3; x++) {
             for (int row = 0; row < 3; row++) {
                 roof.add(new RoofFit.Tile(x, ridgeRow + 2 - row, 1, RoofFit.ALONG_Y, true, EAVE + row * THIRD, 1f + row * THIRD));
             }
-            for (int y = 0; y <= 2 && x > 0; y++) {
-                RoofFit.Tile crown = new RoofFit.Tile(x, y, 1, RoofFit.LEVEL, true, EAVE, EAVE);
-                crown.sheet = true;
-                roof.add(crown);
-            }
         }
+        addCrown(roof, 1, 3, 0, 2);
         RoofFit.fit(roof);
         List<RoofFit.Tile> made = RoofFit.backs(roof, site);
         for (int x = 0; x <= 3; x++) {
@@ -955,6 +938,80 @@ final class RoofTests {
             check(west != null && west.axis == RoofFit.ALONG_X && near(west.low, 1f) && near(west.high, EAVE),
                     "the crown's west side climbs from the west wall to it in row " + y + ", gap " + gap);
         }
+    }
+
+    private static void gableWiderThanACrownKeepsItsFarSideToTheWall() {
+        // The gable over x -5..3, rows 4..6, the crown over x 1..3 only, one open row between: past the crown's end the
+        // building runs on north to row -1, and only the column next to the crown follows the crown's far side.
+        RoofFit.Site site = standing((x, y) -> x >= -5 && x <= 3 && y >= -1 && y <= 6);
+        List<RoofFit.Tile> roof = new ArrayList<>();
+        for (int x = -5; x <= 3; x++) {
+            for (int row = 0; row < 3; row++) {
+                roof.add(new RoofFit.Tile(x, 6 - row, 1, RoofFit.ALONG_Y, true, EAVE + row * THIRD, 1f + row * THIRD));
+            }
+        }
+        addCrown(roof, 1, 3, 0, 2);
+        RoofFit.fit(roof);
+        List<RoofFit.Tile> made = RoofFit.backs(roof, site);
+        for (int x = -5; x <= 0; x++) {
+            for (int y = -1; y <= 3; y++) {
+                check(madeAt(made, x, y) != null, "the roof is whole past the crown's end at " + x + ", " + y);
+            }
+        }
+        RoofFit.Tile far = madeAt(made, -2, 0);
+        check(far != null && far.axis == RoofFit.ALONG_Y && near(far.low, EAVE) && near(far.high, 1f + 2f * THIRD),
+                "two columns past the crown the far side climbs from the north wall: " + (far == null ? "none" : far.low + ".." + far.high));
+    }
+
+    private static void crownWiderThanAGableGetsNoWedge() {
+        // The gable over x 0..3, rows 4..6; the crown over x 1..6, rows 0..2, with the map's south hip under it at x 4..6
+        // on row 3. The gable's far side comes down over row 3 to the crown and stops there: nothing is carried along it
+        // over the crown at x 4..6.
+        RoofFit.Site site = standing((x, y) -> x >= 0 && (x <= 3 && y >= -1 && y <= 6 || x <= 6 && y >= -1 && y <= 3));
+        List<RoofFit.Tile> roof = new ArrayList<>();
+        for (int x = 0; x <= 3; x++) {
+            for (int row = 0; row < 3; row++) {
+                roof.add(new RoofFit.Tile(x, 6 - row, 1, RoofFit.ALONG_Y, true, EAVE + row * THIRD, 1f + row * THIRD));
+            }
+        }
+        for (int x = 4; x <= 6; x++) {
+            roof.add(new RoofFit.Tile(x, 3, 1, RoofFit.ALONG_Y, true, EAVE, 1f));
+        }
+        addCrown(roof, 1, 6, 0, 2);
+        RoofFit.fit(roof);
+        List<RoofFit.Tile> made = RoofFit.backs(roof, site);
+        for (int x = 4; x <= 6; x++) {
+            check(madeAt(made, x, 2) == null, "nothing is made over the crown beside the gable at x " + x);
+        }
+    }
+
+    private static void addCrown(List<RoofFit.Tile> roof, int x0, int x1, int y0, int y1) {
+        for (int x = x0; x <= x1; x++) {
+            for (int y = y0; y <= y1; y++) {
+                RoofFit.Tile crown = new RoofFit.Tile(x, y, 1, RoofFit.LEVEL, true, EAVE, EAVE);
+                crown.sheet = true;
+                roof.add(crown);
+            }
+        }
+    }
+
+    private static RoofFit.Site standing(java.util.function.BiPredicate<Integer, Integer> stands) {
+        return new RoofFit.Site() {
+            @Override
+            public boolean stands(int x, int y, int z) {
+                return stands.test(x, y);
+            }
+
+            @Override
+            public boolean floored(int x, int y, int z) {
+                return false;
+            }
+
+            @Override
+            public boolean taken(int x, int y, int z, float roof) {
+                return false;
+            }
+        };
     }
 
     private static RoofFit.Tile madeAt(List<RoofFit.Tile> made, int x, int y) {

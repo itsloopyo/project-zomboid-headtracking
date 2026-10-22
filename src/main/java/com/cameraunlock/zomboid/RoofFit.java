@@ -478,7 +478,8 @@ final class RoofFit {
     private static final class Row {
         final int x, y, dx, dy, climbed;
         int open;
-        boolean fromEave, crowned;
+        boolean fromEave;
+        final boolean crowned;
         final float eave, rise, ridge;
 
         Row(int x, int y, int dx, int dy, int open, int climbed, boolean fromEave, boolean crowned, float eave, float rise, float ridge) {
@@ -704,29 +705,30 @@ final class RoofFit {
             over.addAll(overCrown);
             Row row = new Row(x, y, dx, dy, open, climbed, fromEave, metCrown, eave, rise, ridge);
             rows.add(row);
-            rowAt.putIfAbsent(key(x, y, isAlongX ? 1 : 2), row);
+            rowAt.putIfAbsent(rowKey(x, y, dx, dy), row);
         }
-        // A row past the end of a crown is of one far side with the rows beside it that come down onto
-        // the crown: it falls from the ridge as deep as they do. Carried on to the far wall, at the
+        // The row just past the end of a crown is of one far side with the row beside it that comes
+        // down onto the crown: it falls from the ridge as deep. Carried on to the far wall, at the
         // gable end of a cross gable before a hip cut short, it ran on at the ridge's height over the
-        // crown's own far slope (10402, 12658..12665).
-        for (boolean changed = true; changed; ) {
-            changed = false;
-            for (Row row : rows) {
-                if (!row.fromEave) {
-                    continue;
-                }
-                for (int side = -1; side <= 1; side += 2) {
-                    Row beside = rowAt.get(key(row.x + (row.dx == 0 ? side : 0), row.y + (row.dy == 0 ? side : 0), row.dx != 0 ? 1 : 2));
-                    if (beside != null && beside.crowned && !beside.fromEave && Math.abs(beside.ridge - row.ridge) < SAME && beside.dx == row.dx && beside.dy == row.dy) {
-                        row.fromEave = false;
-                        row.crowned = true;
-                        row.open = Math.min(row.open, beside.open);
-                        changed = true;
-                        break;
-                    }
+        // crown's own far slope (10402, 12658..12665). Rows further along keep their own far side.
+        ArrayList<Row> cut = new ArrayList<>();
+        ArrayList<Integer> cutTo = new ArrayList<>();
+        for (Row row : rows) {
+            if (!row.fromEave || row.crowned) {
+                continue;
+            }
+            for (int side = -1; side <= 1; side += 2) {
+                Row beside = rowAt.get(rowKey(row.x + (row.dx == 0 ? side : 0), row.y + (row.dy == 0 ? side : 0), row.dx, row.dy));
+                if (beside != null && beside.crowned && !beside.fromEave && Math.abs(beside.ridge - row.ridge) < SAME) {
+                    cut.add(row);
+                    cutTo.add(Math.min(row.open, beside.open));
+                    break;
                 }
             }
+        }
+        for (int i = 0; i < cut.size(); i++) {
+            cut.get(i).fromEave = false;
+            cut.get(i).open = cutTo.get(i);
         }
         for (Row row : rows) {
             boolean fromEave = row.fromEave, isAlongX = row.dx != 0;
@@ -774,8 +776,9 @@ final class RoofFit {
                 }
             }
         }
-        extend(alongX, true, roofed, built, site, alongY, over);
-        extend(alongY, false, roofed, built, site, alongX, over);
+        HashMap<Long, Side> laidX = new HashMap<>(alongX), laidY = new HashMap<>(alongY);
+        extend(alongX, true, roofed, built, site, laidY, over);
+        extend(alongY, false, roofed, built, site, laidX, over);
 
         float[] corners = new float[4], other = new float[4];
         for (Side side : alongX.values()) {
@@ -803,6 +806,11 @@ final class RoofFit {
             }
         }
         return made;
+    }
+
+    /** The square a far side starts on, and which way it runs. */
+    private static long rowKey(int x, int y, int dx, int dy) {
+        return key(x, y, (dx + 1) * 3 + dy + 1);
     }
 
     /** Which plane a fitted slope tile lies on: its axis, its rise over a tile and its height where its axis is 0, to a 48th of a level. */
@@ -935,8 +943,9 @@ final class RoofFit {
                         }
                         break;
                     }
-                    // A crown the slope stands over all the way across, as a far side comes down over it (see backs).
-                    if (on.sheet && !from.fromEave && Math.abs(from.near - from.far) > SAME && Math.min(from.near, from.far) >= on.fitLow - SAME && !across.containsKey(key(x, y, 0))) {
+                    // A crown square between two squares of one far side that comes down over the crown (see
+                    // backs), where the row itself was cut short by the cross gable's valley.
+                    if (on.sheet && !from.fromEave && strips.containsKey(key(x + (alongX ? 0 : step), y + (alongX ? step : 0), 0)) && Math.abs(from.near - from.far) > SAME && Math.min(from.near, from.far) >= on.fitLow - SAME && !across.containsKey(key(x, y, 0))) {
                         Side next = from.at(x, y);
                         strips.put(key(x, y, 0), next);
                         over.add(key(x, y, 0));
