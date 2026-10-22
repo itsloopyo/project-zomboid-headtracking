@@ -26,7 +26,9 @@ final class Furniture {
     /** How high the foot of a cupboard on the wall is, and where on its sprite its colour is taken, in levels. */
     private static final float WALL_CUPBOARD_FOOT = 0.6f, WALL_CUPBOARD_DYE = 0.76f;
     /** The height, in levels, at which the sprite of a thing with no height of its own gives its colour: a bin, a barrel, a locker. */
-    private static final float LOW_DYE = 0.2f, LOCKER_DYE = 0.35f;
+    private static final float LOW_DYE = 0.2f, LOCKER_DYE = 0.35f, VENDING_CABINET = 0.04f;
+    /** Where the face of a vending machine's window is along its model's y: vending_machine's glass in furniture.py. */
+    private static final float VENDING_GLASS_Y = -0.388f;
     /** How far across its square a dumpster's south side is, where its colour is taken. */
     static final float DUMPSTER_SIDE = 0.95f;
     /** How high a picnic table's top is, in levels, and where on its first square the top's colour is taken. */
@@ -240,6 +242,13 @@ final class Furniture {
     /** Which of those lengths this sprite is. */
     int lengthAt() {
         return width > 1 ? gridX : gridY;
+    }
+
+    /** Has its pane and its glass show the sprite, their face y along the model's y. */
+    Furniture pictured(float y) {
+        pictured = true;
+        paneY = y;
+        return this;
     }
 
     Furniture hang(int wall, boolean pictured) {
@@ -648,8 +657,11 @@ final class Furniture {
             }
         }
         if (called.equals("Machine") && single && surface == 0) {
+            // The window shows the sprite's own, the snack machine's glass or the pop machine's picture. The cabinet's
+            // colour is taken below it: taken at the window, the cabinet came out as pale as the glass.
             if (holds.equals("vendingsnack") || holds.equals("vendingpop")) {
-                return new Furniture(sprite, "vending_machine", turns).dye(1 << Models.PAINT, LOCKER_DYE).stand(0f, 0f, true);
+                return new Furniture(sprite, "vending_machine", turns).dye(1 << Models.SCREEN, LOCKER_DYE).also(1 << Models.PAINT, VENDING_CABINET)
+                        .pictured(VENDING_GLASS_Y).stand(0f, 0f, true);
             }
             if (group.endsWith("Arcade")) {
                 return new Furniture(sprite, "arcade_machine", turns).stand(0f, 0f, true);
