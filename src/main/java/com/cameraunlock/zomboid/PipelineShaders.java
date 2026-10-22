@@ -3078,8 +3078,9 @@ final class PipelineShaders {
                     vec2 one = p * 0.83;
                     vec2 two = vec2(p.x * 0.8 - p.y * 0.6, p.x * 0.6 + p.y * 0.8) * 0.37 + 0.37;
                     float which = smoothstep(0.35, 0.65, patches(p * 0.23 + 51.0));
-                    // Earth only where the game says the ground is earth: what is brown may as well be planks.
-                    float earth = vMaterial > 3.5 && vMaterial < 51.5 ? 1.0 - stony - green : 0.0;
+                    // Earth only where the game says the ground is earth: what is brown may as well be
+                    // planks, or a path of red brick.
+                    float earth = vMaterial > 3.5 && vMaterial < 4.5 ? 1.0 - stony - green : 0.0;
                     vec2 oneAcross = dFdx(one), oneDown = dFdy(one), twoAcross = dFdx(two), twoDown = dFdy(two);
                     // Stones stand up out of a drive and clods out of earth, a finger deep; tarmac
                     // is pitted, a seventh as deep. The place seen among them is found by relieve.
