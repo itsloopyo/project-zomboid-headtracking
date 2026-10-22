@@ -2226,12 +2226,11 @@ def vending_machine():
         for m in range(3):
             cuboid(feet, half - 0.2 + m * 0.045, half - 0.165 + m * 0.045, front - 0.008, front, 0.98 + n * 0.045, 1.015 + n * 0.045)
     model.hard(feet, "rubber", bevel=0.004, segments=1)
-    glass = bmesh.new()
-    cuboid(glass, -half + 0.06, half - 0.28, front - 0.008, front, 0.5, 1.5)
-    model.hard(glass, "screen", bevel=0.004, segments=1)
-    sign = bmesh.new()
-    cuboid(sign, -half + 0.04, half - 0.04, front - 0.01, front, 1.56, 1.76)
-    model.hard(sign, "shade", bevel=0.004, segments=1)
+    # The window and the sign over it show the sprite's own painting of them (Furniture.VENDING_GLASS_Y is their face).
+    window = bmesh.new()
+    cuboid(window, -half + 0.06, half - 0.28, front - 0.008, front, 0.5, 1.5)
+    cuboid(window, -half + 0.04, half - 0.04, front - 0.008, front, 1.56, 1.76)
+    model.hard(window, "pane", bevel=0.004, segments=1)
     trim = bmesh.new()
     cuboid(trim, half - 0.2, half - 0.08, front - 0.01, front, 0.78, 0.82)
     cuboid(trim, half - 0.2, half - 0.08, front - 0.01, front, 1.22, 1.4)
