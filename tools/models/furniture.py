@@ -2985,20 +2985,18 @@ def hoods():
 
 
 def range_hood():
-    """A canopy hood over a cooker: a steel lip, a canopy whose front slopes back to a duct, and the duct going up
-    to the ceiling. Its back, flat, is at +Y, and its foot is the lower edge of the lip: the mod hangs it over a hob."""
+    """A length of canopy hood over a cooker, a tile wide, so that the lengths of a long one meet: a steel lip, and over
+    it a canopy whose front slopes back to a flat top. Its back, flat, is at +Y, and its foot is the lower edge of the
+    lip: the mod hangs it over a hob."""
     model = Model("range_hood")
-    half, front, back = 0.44, -0.3, 0.3
+    half, front, back = 0.5, -0.3, 0.3
     canopy = bmesh.new()
     cuboid(canopy, -half, half, front, back, 0.0, 0.07)
-    prism(canopy, (0.0, 0.0, 2 * half, back - front, 0.07), (0.0, back - 0.15, 2 * half - 0.2, 0.3, 0.36))
+    prism(canopy, (0.0, 0.0, 2 * half, back - front, 0.07), (0.0, back - 0.15, 2 * half, 0.3, 0.36))
     model.hard(canopy, "steel", bevel=0.006, segments=2)
-    duct = bmesh.new()
-    cuboid(duct, -0.16, 0.16, back - 0.27, back - 0.03, 0.36, 0.86)
-    model.hard(duct, "steel", bevel=0.004, segments=1)
     filters = bmesh.new()
     for side in (-1, 1):
-        cuboid(filters, side * 0.215 - 0.19, side * 0.215 + 0.19, front + 0.06, back - 0.06, -0.006, 0.0)
+        cuboid(filters, side * 0.24 - 0.21, side * 0.24 + 0.21, front + 0.06, back - 0.06, -0.006, 0.0)
     model.plain(filters, "rubber")
     return model
 
@@ -4343,25 +4341,44 @@ def slab_bench():
 
 
 def dustbin():
-    """A galvanised dustbin: a ribbed can that widens to its rim, two handles, and a lid with a handle of its own."""
+    """A galvanised dustbin: a can corrugated top to bottom between a band at its foot and a rolled rim, two bail handles,
+    and a domed lid pressed with ribs from its middle out, with a loop handle of its own."""
     model = Model("dustbin")
+    flutes, deep = 16, 0.014
     can = bmesh.new()
-    lathe(can, [(0.0, 0.0), (0.2, 0.0), (0.205, 0.02), (0.24, 0.6), (0.25, 0.61), (0.25, 0.63), (0.0, 0.63)], segments=20)
-    model.turned(can, "steel", sharp=35.0)
-    ribs = bmesh.new()
-    for k in range(10):
-        angle = 2 * math.pi * k / 10
-        way = Vector((math.cos(angle), math.sin(angle), 0.0))
-        beam(ribs, way * 0.213 + Vector((0.0, 0.0, 0.08)), way * 0.238 + Vector((0.0, 0.0, 0.56)), 0.022, 0.012)
-    for side in (-1, 1):
-        cuboid(ribs, side * 0.246 - 0.022, side * 0.246 + 0.022, -0.05, 0.05, 0.44, 0.46)
-    model.hard(ribs, "steel", bevel=0.004, segments=1)
+    heights = [0.055, 0.065, 0.075, 0.09] + [0.09 + 0.43 * k / 8 for k in range(1, 8)] + [0.52, 0.535, 0.545, 0.555, 0.565]
+    wall = [(0.204 + 0.032 * (z - 0.055) / 0.51, z) for z in heights]
+    lathe(can, [(0.0, 0.0), (0.2, 0.0), (0.21, 0.01), (0.21, 0.045)] + wall + [(0.243, 0.575), (0.243, 0.59), (0.252, 0.6), (0.252, 0.625),
+                                                                              (0.0, 0.625)], segments=64)
+    if not plain:
+        for vert in can.verts:
+            z = vert.co.z
+            if 0.06 < z < 0.56:
+                rise, fall = min((z - 0.055) / 0.035, 1.0), min((0.565 - z) / 0.035, 1.0)
+                swell = rise * rise * (3 - 2 * rise) * fall * fall * (3 - 2 * fall)
+                wave = math.cos(flutes * math.atan2(vert.co.y, vert.co.x))
+                out = 1.0 + deep * swell * math.copysign(abs(wave) ** 0.5, wave) / math.hypot(vert.co.x, vert.co.y)
+                vert.co.x *= out
+                vert.co.y *= out
+    model.turned(can, "steel", sharp=50.0)
     lid = bmesh.new()
-    lathe(lid, [(0.0, 0.63), (0.262, 0.63), (0.262, 0.66), (0.2, 0.685), (0.08, 0.705), (0.0, 0.708)], segments=20)
-    model.turned(lid, "steel", sharp=35.0)
-    grip = bmesh.new()
-    cuboid(grip, -0.05, 0.05, -0.01, 0.01, 0.7, 0.74)
-    model.hard(grip, "steel", bevel=0.004, segments=1)
+    lathe(lid, [(0.0, 0.625), (0.262, 0.625), (0.264, 0.652), (0.255, 0.662), (0.22, 0.676), (0.16, 0.698), (0.09, 0.714), (0.0, 0.72)],
+          segments=64)
+    if not plain:
+        for vert in lid.verts:
+            r = math.hypot(vert.co.x, vert.co.y)
+            if 0.06 < r < 0.25 and vert.co.z > 0.66:
+                vert.co.z += 0.006 * math.sin(math.pi * (r - 0.06) / 0.19) * max(math.cos(12 * math.atan2(vert.co.y, vert.co.x)), 0.0)
+    model.turned(lid, "steel", sharp=50.0)
+    wire = bmesh.new()
+    loop = [(-0.06, 0.712), (-0.055, 0.745), (-0.035, 0.76), (0.035, 0.76), (0.055, 0.745), (0.06, 0.712)]
+    for (x0, z0), (x1, z1) in zip(loop, loop[1:]):
+        rod(wire, (x0, 0.0, z0), (x1, 0.0, z1), 0.007, segments=8)
+    for side in (-1, 1):
+        for way in (-1, 1):
+            rod(wire, (side * 0.232, way * 0.05, 0.55), (side * 0.28, way * 0.04, 0.5), 0.006, segments=8)
+        rod(wire, (side * 0.28, -0.046, 0.5), (side * 0.28, 0.046, 0.5), 0.006, segments=8)
+    model.turned(wire, "steel", sharp=40.0)
     return model
 
 

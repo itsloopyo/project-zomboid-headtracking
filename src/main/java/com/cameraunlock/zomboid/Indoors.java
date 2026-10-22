@@ -113,8 +113,9 @@ final class Indoors {
         boolean low = properties.has("IsLow"), high = properties.has("IsHigh"), onTable = properties.has("IsTableTop");
         boolean counterHigh = surface >= 30 && surface <= 40;
         boolean rests = properties.has(IsoFlagType.bed);
+        // A hood is a length of a canopy that goes on into the next where the map hangs two side by side, a diner's over its range.
         if (called.equals("Hood") && single && high) {
-            return new Furniture(sprite, "range_hood", turns).stand(0f, 0f, true).raise(HOOD_FOOT);
+            return new Furniture(sprite, "range_hood", turns).meet(0f, 0f, true).raise(HOOD_FOOT);
         }
         if (called.equals("Counter") && single && group.contains("Steel") && low && properties.isTable() && holds.equals("counter") && counterHigh) {
             // Steel all over: wood dyed grey keeps its grain.
