@@ -513,8 +513,9 @@ final class Furniture {
         }
         if (called.equals("Chair") && surface > 0 && single && "badBed".equals(properties.get("BedType"))
                 && (group.contains("Plastic") || group.equals("Folding"))) {
-            return group.equals("Folding") ? new Furniture(sprite, "folding_chair", turns).dye(1 << Models.VINYL, surfaceHigh).stand(0f, 0f, false)
-                    : new Furniture(sprite, "plastic_chair", turns).dye(1 << Models.PLASTIC, surfaceHigh).stand(0f, 0f, false);
+            // The plain Plastic ones are the moulded armchairs set out on patios; Blue and Grey Plastic are stacking chairs.
+            String model = group.equals("Folding") ? "folding_chair" : group.equals("Plastic") ? "garden_chair" : "plastic_chair";
+            return new Furniture(sprite, model, turns).dye(1 << (model.equals("folding_chair") ? Models.VINYL : Models.PLASTIC), surfaceHigh).stand(0f, 0f, false);
         }
         // A diner's bench: the game marks it as something to rest on, two squares long.
         if (called.equals("Seat") && pair && properties.has(IsoFlagType.bed)) {

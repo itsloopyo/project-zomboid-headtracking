@@ -2075,6 +2075,55 @@ def plastic_chair():
     return model
 
 
+def garden_chair():
+    """A moulded plastic armchair in one piece: splayed legs, a dished seat, arms that run down into the front legs and a
+    back of upright slats curved round the sitter under a rounded top rail."""
+    model = Model("garden_chair")
+    seat = 0.4
+
+    def behind(x, z):
+        # The back curves forward at its sides and leans away from the seat as it rises.
+        return 0.19 - 0.05 * (x / 0.24) ** 2 + 0.1 * (z - seat) / 0.42
+
+    frame = bmesh.new()
+    for x in (-1, 1):
+        prism(frame, (x * 0.25, -0.25, 0.07, 0.06, 0.0), (x * 0.225, -0.2, 0.055, 0.05, seat))
+        prism(frame, (x * 0.225, -0.2, 0.055, 0.05, seat), (x * 0.235, -0.17, 0.05, 0.045, 0.6))
+        prism(frame, (x * 0.25, 0.27, 0.07, 0.06, 0.0), (x * 0.225, 0.18, 0.055, 0.05, seat))
+        prism(frame, (x * 0.22, behind(0.22, seat), 0.05, 0.035, seat - 0.02), (x * 0.23, behind(0.23, 0.79), 0.05, 0.035, 0.79))
+        cuboid(frame, x * 0.235 - 0.008, x * 0.235 + 0.008, -0.2, 0.17, seat - 0.075, seat - 0.02)
+    cuboid(frame, -0.235, 0.235, -0.225, -0.21, seat - 0.075, seat - 0.02)
+    for x in (-0.13, -0.065, 0.0, 0.065, 0.13):
+        prism(frame, (x, behind(x, seat), 0.04, 0.02, seat - 0.01), (x, behind(x, 0.78), 0.04, 0.02, 0.78))
+    model.hard(frame, "plastic", bevel=0.008, segments=2)
+    shell = bmesh.new()
+    cage = grid_box(shell, spread(-0.24, 0.24, 2), spread(-0.24, 0.2, 2), [seat - 0.025, seat])
+    for (i, j, k), vert in cage.items():
+        if i == 1 and j == 1:
+            vert.co.z -= 0.02
+        if j == 0:
+            vert.co.z -= 0.015
+    crease(shell, cage, 0.6)
+    model.soft(shell, "plastic", levels=2)
+    for x in (-1, 1):
+        arm = bmesh.new()
+        cage = grid_box(arm, sorted([x * 0.2, x * 0.27]), spread(-0.21, 0.19, 3), [0.585, 0.62])
+        for (i, j, k), vert in cage.items():
+            vert.co.z += 0.04 * j / 3
+            vert.co.y += behind(0.24, vert.co.z) - 0.19 if j == 3 else 0.0
+        crease(arm, cage, 0.6)
+        model.soft(arm, "plastic", levels=2)
+    rail = bmesh.new()
+    cage = grid_box(rail, spread(-0.245, 0.245, 4), [0.0, 0.032], [0.77, 0.83])
+    for (i, j, k), vert in cage.items():
+        if k == 1:
+            vert.co.z += 0.02 * (1 - (vert.co.x / 0.245) ** 2)
+        vert.co.y += behind(vert.co.x, vert.co.z)
+    crease(rail, cage, 0.4)
+    model.soft(rail, "plastic", levels=2)
+    return model
+
+
 def folding_chair():
     """A steel folding chair: two frames crossed at the seat, a padded seat and back."""
     model = Model("folding_chair")
@@ -11194,7 +11243,7 @@ def every():
               table("table_2", 1.9, 0.92), table("table_3", 2.9, 0.92), table("table_4", 1.9, 1.9, leg=0.08), table("narrow_table", 0.92, 0.5),
               table("low_table", 0.9, 0.5, top=0.42, leg=0.05), table("low_table_2", 1.5, 0.6, top=0.42, leg=0.05), round_table(), office_desk(),
               cabinet("shop_counter", 0.62, 0.90, True, panelled=True), low_shelves(), wall_shelf("wall_shelf", 1), wall_shelf("wall_shelves", 2), shop_wall_shelves("shop_wall_shelves", "wood"), shop_wall_shelves("zippee_wall_shelves", "vinyl"), hood_dryer(), car_wash_brush(), car_wash_curtain(), bar_back(), bar_bottles("bar_bottles_many", 51, 0.9), bar_bottles("bar_bottles_few", 52, 0.35), sewer_pipes("sewer_pipes_bend", 0.46, True), sewer_pipes("sewer_pipes", 0.25, False), clothes_wall_rails(), generator(), marker_ball(), hospital_curtain("curtain_rail", 0.0, 0.0, 0), hospital_curtain("curtain_drawn", -0.49, 0.49, 10), hospital_curtain("curtain_gathered", 0.12, 0.49, 6), mantel_pillar(), mantel_lintel(), pipe_upright("pipe_upright", None), pipe_upright("pipe_upright_run", "long"), pipe_upright("pipe_upright_stub", "stub"), atm(), coop(), street_name_sign(), street_blade(),
-              metal_rack(), store_shelves(), plastic_chair(), folding_chair(), booth(), stool(), vending_machine(), arcade_machine(),
+              metal_rack(), store_shelves(), plastic_chair(), garden_chair(), folding_chair(), booth(), stool(), vending_machine(), arcade_machine(),
               radio(), microwave(), dishwasher(), chest_freezer(), register(), shower("shower", True), shower("shower_head", False),
               kettle_barbecue(), gas_barbecue(), cooler("mini_fridge", 0.5, 0.82, 1), cooler("large_fridge", 1.7, 1.95, 2),
               street_lamp("cone_lamp", "cone"), street_lamp("globe_lamp", "globe"), street_lamp("lantern_lamp", "lantern"),
