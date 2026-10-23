@@ -21,6 +21,16 @@ final class DoorTests {
         Checks.run("jambIsFilledFromTheDoorwaysCutToTheLeafOnly", DoorTests::jambIsFilledFromTheDoorwaysCutToTheLeafOnly);
         Checks.run("paneWithARoomOnBothSidesHasNoStreetSide", DoorTests::paneWithARoomOnBothSidesHasNoStreetSide);
         Checks.run("openGarageDoorLiesInTheGarageWithItsTracksAtTheJambs", DoorTests::openGarageDoorLiesInTheGarageWithItsTracksAtTheJambs);
+        Checks.run("capUnderAWallsFootLeavesTheDoorwayFloorBare", DoorTests::capUnderAWallsFootLeavesTheDoorwayFloorBare);
+    }
+
+    private static void capUnderAWallsFootLeavesTheDoorwayFloorBare() {
+        check(java.util.Arrays.equals(WallBuilder.underFoot(-1f, -1f, 0f), new float[] {0f, 1f}), "a wall with no opening is capped along all its length");
+        check(java.util.Arrays.equals(WallBuilder.underFoot(0.2f, 0.7f, 0.35f), new float[] {0f, 1f}), "a window's sill stands over wall, so the cap runs under it");
+        check(java.util.Arrays.equals(WallBuilder.underFoot(0.2f, 0.7f, 0f), new float[] {0f, 0.2f, 0.7f, 1f}), "a doorway down to the floor has no cap across it");
+        check(java.util.Arrays.equals(WallBuilder.underFoot(0f, 0.7f, 0f), new float[] {0.7f, 1f}), "a doorway from the wall's start leaves only the far end capped");
+        check(java.util.Arrays.equals(WallBuilder.underFoot(0.3f, 1f, 0f), new float[] {0f, 0.3f}), "and one to its end only the near end");
+        check(WallBuilder.underFoot(0f, 1f, 0f).length == 0, "and one across the whole wall none");
     }
 
     private static final float LEVEL = ViewCamera.LEVEL_HEIGHT, FACE = 0.022f;

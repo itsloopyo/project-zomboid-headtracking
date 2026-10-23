@@ -42,6 +42,7 @@ final class WallBuilder {
     private static final float CAPPED_BELOW = 0.97f;
     /** Where along a wall its colour is looked for, for the faces that close it. */
     private static final float[] CAP_COLOUR_AT = {0.5f, 0.12f, 0.88f};
+    private static final float[] WHOLE_LENGTH = {0f, 1f}, NO_LENGTH = {};
     /** Half the width of a joint between two tiles of a wall, in tiles: the world program lays them so (TILE_JOINT). */
     static final float TILE_JOINT_HALF = 0.004f;
     /**
@@ -593,7 +594,8 @@ final class WallBuilder {
         }
         if (build.overLayer == 0) {
             addCaps(mesh, texture, opening[at + OPENING_TOP], (startJoin & WallJoins.OPEN) != 0, (endJoin & WallJoins.OPEN) != 0,
-                    startPainted && endPainted, x, y, z, 0f, 0f, da, db, inX, inY);
+                    startPainted && endPainted, underFoot(opening[at + OPENING_START], opening[at + OPENING_END], opening[at + OPENING_FOOT]),
+                    x, y, z, 0f, 0f, da, db, inX, inY);
         }
     }
 
@@ -958,7 +960,7 @@ final class WallBuilder {
      * one that stands on an upper floor, which is seen from below where the floor juts out.
      * Each is the colour the wall's sprite has low down on it.
      */
-    private void addCaps(SpriteGeometry.Mesh mesh, Texture texture, float top, boolean openStart, boolean openEnd, boolean whole,
+    private void addCaps(SpriteGeometry.Mesh mesh, Texture texture, float top, boolean openStart, boolean openEnd, boolean whole, float[] footSpans,
             int x, int y, int z, float a, float b, float da, float db, float inX, float inY) {
         boolean overTop = whole && top > 0f && top < CAPPED_BELOW, underFoot = whole && z > 0;
         if (top <= 0f || !openStart && !openEnd && !overTop && !underFoot) {
@@ -994,17 +996,38 @@ final class WallBuilder {
             WorldScene.set(c, 3, ex - inX, ey - inY, foot + high);
             SpriteGeometry.addQuad(mesh, c, u, v, build.frame.red, build.frame.green, build.frame.blue);
         }
-        for (int side = 0; side < 2; side++) {
-            if (side == 0 ? !overTop : !underFoot) {
-                continue;
-            }
-            float up = side == 0 ? high : 0f;
-            WorldScene.set(c, 0, x0 - inX, y0 - inY, foot0 + up);
-            WorldScene.set(c, 1, x0 + inX, y0 + inY, foot0 + up);
-            WorldScene.set(c, 2, x1 + inX, y1 + inY, foot1 + up);
-            WorldScene.set(c, 3, x1 - inX, y1 - inY, foot1 + up);
-            SpriteGeometry.addQuad(mesh, c, u, v, build.frame.red, build.frame.green, build.frame.blue);
+        if (overTop) {
+            capAlong(mesh, c, u, v, 0f, 1f, high, x0, y0, foot0, foot1, da, db, inX, inY);
         }
+        for (int span = 0; underFoot && span < footSpans.length; span += 2) {
+            capAlong(mesh, c, u, v, footSpans[span], footSpans[span + 1], 0f, x0, y0, foot0, foot1, da, db, inX, inY);
+        }
+    }
+
+    /** A cap across the wall's thickness from one share of its length to another, up above its foot. */
+    private void capAlong(SpriteGeometry.Mesh mesh, float[] c, float u, float v, float from, float to, float up, float x0, float y0, float foot0, float foot1,
+            float da, float db, float inX, float inY) {
+        float rise = foot1 - foot0;
+        WorldScene.set(c, 0, x0 + da * from - inX, y0 + db * from - inY, foot0 + rise * from + up);
+        WorldScene.set(c, 1, x0 + da * from + inX, y0 + db * from + inY, foot0 + rise * from + up);
+        WorldScene.set(c, 2, x0 + da * to + inX, y0 + db * to + inY, foot0 + rise * to + up);
+        WorldScene.set(c, 3, x0 + da * to - inX, y0 + db * to - inY, foot0 + rise * to + up);
+        SpriteGeometry.addQuad(mesh, c, u, v, build.frame.red, build.frame.green, build.frame.blue);
+    }
+
+    /**
+     * The shares of a wall's length its cap under the foot covers, in pairs: all of it, but for a door or any
+     * opening that reaches the floor, whose span has no skins to close and where the cap would lie in the
+     * plane of the floor through the doorway and fight it for depth.
+     */
+    static float[] underFoot(float openingStart, float openingEnd, float openingFoot) {
+        if (openingStart < 0f || openingFoot > 0f) {
+            return WHOLE_LENGTH;
+        }
+        if (openingStart <= 0f) {
+            return openingEnd >= 1f ? NO_LENGTH : new float[] {openingEnd, 1f};
+        }
+        return openingEnd >= 1f ? new float[] {0f, openingStart} : new float[] {0f, openingStart, openingEnd, 1f};
     }
 
     /**
