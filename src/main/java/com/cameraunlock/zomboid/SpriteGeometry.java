@@ -886,7 +886,7 @@ final class SpriteGeometry {
      */
     private void fan(Mesh mesh, Frame frame, int tileX, int tileY, int tileZ, float[] polygon, int count) {
         sheet = edgeU1 * edgeV2 - edgeV1 * edgeU2;
-        if (frame.flat == 0 && !drawnInFirst && Math.abs(sheet) > 1e-3f) {
+        if (frame.flat == 0 && !drawnInFirst && Math.abs(sheet) > 1e-3f && halfAcross == 0f) {
             float inset = insetPixels(drawnIn) * frame.scale;
             float length1 = (float) Math.hypot(edgeU1, edgeV1), length2 = (float) Math.hypot(edgeU2, edgeV2);
             // Each corner ends half the inset inside both edges it lies on, square to them: a
@@ -2143,8 +2143,10 @@ final class SpriteGeometry {
         // face's centre would run along them without leaving the sprite's empty edge columns.
         float inset = insetPixels(drawnIn) * frame.scale;
         float insetAcross = inset + (pixelU < centreU ? sealLow : sealHigh);
-        // A face that stands was drawn in before it was cut: see addFace.
-        if (!drawnInFirst && Math.abs(sheet) > 1e-3f) {
+        // A face that stands was drawn in before it was cut: see addFace. One too narrow for that,
+        // the piece of wall beside a door, is moved in across with its seals: drawn in along its own
+        // edges, its far end took the dots the sprite stops short by, and the sky showed up the wall.
+        if (!drawnInFirst && Math.abs(sheet) > 1e-3f && halfAcross == 0f) {
             // A face that lies or leans is drawn smaller onto itself along its own two edges, so
             // its edges keep the slant the sprite paints them at. Moved towards its middle by
             // the frame's rows and columns, a long narrow face, a coping's top, would take its
