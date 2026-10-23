@@ -425,6 +425,8 @@ final class WindowTests {
                 && WorldScene.parquetOf(Tiles.MOST_BLOCKS, Tiles.MOST_SLATS, true) == WorldScene.LAST_PARQUET
                 && WorldScene.parquetOf(4, 2, true) != WorldScene.parquetOf(4, 3, false) && WorldScene.parquetOf(3, 4, true) + 1f == WorldScene.parquetOf(4, 2, false),
                 "each count of blocks and slats and lie of parquet has a material number of its own");
+        check(32f * (WorldScene.LAST_PARQUET + 1f) <= WorldScene.LIT_STEP, "every parquet material is under the light a face's openness counts above it: "
+                + WorldScene.LAST_PARQUET + " thirty-twos against " + WorldScene.LIT_STEP);
         check(WorldScene.FIRST_PARQUET > WorldScene.LAST_BOARDS && PipelineShaders.WORLD_VERTEX.contains("vMaterial > " + (int) (WorldScene.FIRST_PARQUET - 1f) + ".5 && vMaterial < " + (int) WorldScene.LAST_PARQUET + ".5")
                 && PipelineShaders.WORLD_VERTEX.contains("vMaterial - " + (int) WorldScene.FIRST_PARQUET + ".0")
                 && PipelineShaders.WORLD_VERTEX.contains(Tiles.FEWEST_BLOCKS + ".0 + floor(parquetAs / " + 2 * (Tiles.MOST_SLATS - Tiles.FEWEST_SLATS + 1) + ".0)")

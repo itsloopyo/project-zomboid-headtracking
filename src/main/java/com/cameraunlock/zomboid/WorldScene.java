@@ -2267,8 +2267,9 @@ final class WorldScene {
      * fewest blocks a side and slats to a block, the slats of the even blocks running along x,
      * the next for the same along y, then the next count of slats, and after the most slats
      * the next count of blocks. The picture's vertex program reads them back: see vBlocks.
+     * Every one stays under LIT_STEP's 4096 thirty-twos, which the openness counts the light above.
      */
-    static final float FIRST_PARQUET = 120f, LAST_PARQUET = FIRST_PARQUET
+    static final float FIRST_PARQUET = 100f, LAST_PARQUET = FIRST_PARQUET
             + 2 * ((Tiles.MOST_BLOCKS - Tiles.FEWEST_BLOCKS + 1) * (Tiles.MOST_SLATS - Tiles.FEWEST_SLATS + 1)) - 1;
 
     /** What parquet of so many blocks a side and slats to a block is made of, the slats of its even blocks running along y or along x. */

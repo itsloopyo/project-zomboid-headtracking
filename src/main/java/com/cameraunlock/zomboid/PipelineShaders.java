@@ -640,8 +640,8 @@ final class PipelineShaders {
                 // A model's materials are numbered from 16 too (Models.FIRST_MATERIAL): only the world's faces are boards.
                 bool boarded = uModel < 0.5 && vMaterial > 15.5 && vMaterial < 31.5;
                 // WorldScene.parquetOf: wood all the same as well.
-                bool parquet = uModel < 0.5 && vMaterial > 119.5 && vMaterial < 137.5;
-                float parquetAs = vMaterial - 120.0;
+                bool parquet = uModel < 0.5 && vMaterial > 99.5 && vMaterial < 117.5;
+                float parquetAs = vMaterial - 100.0;
                 vBlocks = parquet ? 2.0 + floor(parquetAs / 6.0) : 0.0;
                 vBoards = boarded ? 3.0 + floor((vMaterial - 16.0) / 2.0) : parquet ? (2.0 + mod(floor(parquetAs / 2.0), 3.0)) * vBlocks : 0.0;
                 vLie = boarded ? mod(vMaterial - 16.0, 2.0) : parquet ? mod(parquetAs, 2.0) : 0.0;
