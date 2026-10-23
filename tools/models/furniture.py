@@ -12581,6 +12581,99 @@ def pulpit():
     return [pulpit_piece("pulpit_west", 0), pulpit_piece("pulpit_middle", 1), pulpit_piece("pulpit_east", 2)]
 
 
+def fluted(bm, profile, segments, flute):
+    """A lathe of (radius, height) whose every other side is drawn in by flute of its radius, so the surface is ribbed
+    upright like strings of crystal hung side by side. The ends are closed, a radius of 0 a point on the axis."""
+    rings = []
+    for radius, z in profile:
+        if radius <= 1e-6:
+            rings.append([bm.verts.new((0.0, 0.0, z))])
+            continue
+        rings.append([bm.verts.new((radius * (1 - flute * (i % 2)) * math.cos(2 * math.pi * i / segments),
+                                    radius * (1 - flute * (i % 2)) * math.sin(2 * math.pi * i / segments), z)) for i in range(segments)])
+    for a, b in zip(rings, rings[1:]):
+        for i in range(segments):
+            j = (i + 1) % segments
+            if len(a) == 1:
+                bm.faces.new((a[0], b[j], b[i]))
+            elif len(b) == 1:
+                bm.faces.new((a[i], a[j], b[0]))
+            else:
+                bm.faces.new((a[i], a[j], b[j], b[i]))
+    for ring, flip in ((rings[0], True), (rings[-1], False)):
+        if len(ring) > 1:
+            bm.faces.new(ring[::-1] if flip else ring)
+
+
+def drop(bm, x, y, z, size):
+    """A cut crystal hung by its top at (x, y, z): an eight-sided point, longer than it is wide."""
+    top, waist, low = bm.verts.new((x, y, z)), [], bm.verts.new((x, y, z - size * 3))
+    for i in range(4):
+        a = math.pi / 2 * i + math.pi / 4
+        waist.append(bm.verts.new((x + size * math.cos(a), y + size * math.sin(a), z - size)))
+    for i in range(4):
+        j = (i + 1) % 4
+        bm.faces.new((top, waist[j], waist[i]))
+        bm.faces.new((low, waist[i], waist[j]))
+
+
+# A church's crystal chandelier, heights in metres over the floor of the storey its bowl is painted on, as its sprites paint it:
+# the gold ring round the bowl's top, and each tier of crystal over it, (radius, foot, top, sides). The game paints the bowl on
+# one storey and the tiers on the one over it, CHANDELIER_STOREY higher, and the rod goes up to that storey's ceiling.
+CHANDELIER_RING, CHANDELIER_RING_UP = 0.84, 2.35
+CHANDELIER_TIERS = [(0.64, 2.36, 2.88, 40), (0.48, 2.9, 3.39, 32), (0.33, 3.39, 3.85, 28), (0.19, 3.85, 4.13, 20)]
+CHANDELIER_STOREY = 2.45
+
+
+def chandelier_bowl():
+    """The bowl of a crystal chandelier: crystal strings hung in a deep bowl under a gold ring 1.68 m across, held by six arms
+    from a hub on the rod, which goes up to the ceiling of its storey, and drops under it. Its foot, the drop at the bottom,
+    is 1.2 m over the floor. The origin is the rod."""
+    model = Model("chandelier_bowl", hung=True)
+    gold, crystal = bmesh.new(), bmesh.new()
+    fluted(crystal, [(0.8, 2.33), (0.79, 2.16), (0.7, 1.93), (0.57, 1.74), (0.46, 1.56), (0.38, 1.43), (0.28, 1.335), (0.12, 1.295),
+                     (0.0, 1.285)], 48, 0.07)
+    for i in range(16):
+        a = 2 * math.pi * (i + 0.5) / 16
+        drop(crystal, 0.3 * math.cos(a), 0.3 * math.sin(a), 1.34, 0.02)
+    drop(crystal, 0.0, 0.0, 1.29, 0.03)
+    torus(gold, 0.0, 0.0, CHANDELIER_RING_UP, CHANDELIER_RING, 0.025, segments=40, steps=6)
+    for i in range(6):
+        a = math.pi / 3 * i
+        rod(gold, (0.0, 0.0, CHANDELIER_RING_UP - 0.04), (CHANDELIER_RING * math.cos(a), CHANDELIER_RING * math.sin(a), CHANDELIER_RING_UP),
+            0.01, segments=6)
+    lathe(gold, [(0.0, 2.2), (0.05, 2.22), (0.06, 2.3), (0.03, 2.36), (0.016, 2.37), (0.016, CHANDELIER_STOREY)], segments=12)
+    model.turned(gold, "metal", sharp=50.0)
+    model.turned(crystal, "ceramic", sharp=20.0)
+    return model
+
+
+def chandelier_tiers():
+    """The tiers of a crystal chandelier over its bowl, on the storey above the bowl's: four drums of crystal strings in gold
+    rims, narrowing up the rod, drops round the foot of each, and the rod up to the ceiling with a rose there. Its foot, the
+    drops under the widest tier, is 0.138 m under the floor of its storey. The origin is the rod."""
+    model = Model("chandelier_tiers", hung=True)
+    gold, crystal = bmesh.new(), bmesh.new()
+    down = -CHANDELIER_STOREY
+    for radius, foot, top, sides in CHANDELIER_TIERS:
+        fluted(crystal, [(radius, foot + down), (radius, top + down)], sides, 0.08)
+        torus(gold, 0.0, 0.0, top + down, radius + 0.01, 0.012, segments=sides, steps=4)
+        torus(gold, 0.0, 0.0, foot + down + 0.01, radius + 0.01, 0.012, segments=sides, steps=4)
+        for i in range(sides // 2):
+            a = 2 * math.pi * (2 * i + 0.5) / sides
+            drop(crystal, (radius + 0.004) * math.cos(a), (radius + 0.004) * math.sin(a), foot + down, 0.016)
+    ceiling = CHANDELIER_STOREY
+    lathe(gold, [(0.0, CHANDELIER_TIERS[0][1] + down), (0.016, CHANDELIER_TIERS[0][1] + down), (0.016, ceiling - 0.08), (0.05, ceiling - 0.06),
+                 (0.11, ceiling - 0.02), (0.11, ceiling), (0.0, ceiling)], segments=12)
+    model.turned(gold, "metal", sharp=50.0)
+    model.turned(crystal, "ceramic", sharp=20.0)
+    return model
+
+
+def church_fittings():
+    return [chandelier_bowl(), chandelier_tiers()]
+
+
 def every():
     return [bed("double_bed", 1.80, 2.00, 2), bed("single_bed", 0.90, 1.90, 1), wardrobe(), dining_chair(), small_table(),
               settee("sofa", 1.90, 2), settee("armchair", 1.02, 1), bedside_cabinet(), dresser(), desk(), office_chair(),
@@ -12603,7 +12696,7 @@ def every():
             + upholstered() + barrels_and_pots() + street() + display_cases() + awnings() + hoods() + industrial()
             + street_clutter() + home_fittings() + overhead() + office_medical() + wall_objects() + camp()
             + towers() + aerials() + farm_and_garden() + leisure() + shop_fittings() + dumpsters()
-            + bar_panelling() + sports() + shops() + gallery() + cameras() + sports() + shops() + gallery() + netarcade() + pulpit())
+            + bar_panelling() + sports() + shops() + gallery() + cameras() + sports() + shops() + gallery() + netarcade() + pulpit() + church_fittings())
 
 
 def main():

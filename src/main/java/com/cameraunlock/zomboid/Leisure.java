@@ -8,7 +8,8 @@ import java.util.concurrent.ConcurrentHashMap;
  * old tyres, basketball hoops, nets across courts, football goals, what a playing field, a boxing ring and a gym have,
  * pianos and their benches,
  * speakers, an amplifier, drums, a jukebox, a pinball table, the lamp over a pool table, a stage's microphone, theatre
- * seats, a lectern, an altar, a church's long panelled desk, a pipe organ, a steeple and a television studio's camera. Asked by
+ * seats, a lectern, an altar, a church's long panelled desk, a pipe organ, a crystal chandelier, a steeple and a television
+ * studio's camera. Asked by
  * Outdoors.of before its own table, and stood the same way, so a piece of either is one kind of thing.
  *
  * Where each model stands on its squares was read off the game's sprites of it, laid over them in
@@ -19,7 +20,7 @@ final class Leisure {
     private Leisure() {}
 
     private static final String PARK = "location_community_park_01_", SPORTS = "recreational_sports_01_",
-            CHURCH = "location_community_church_small_01_";
+            CHURCH = "location_community_church_small_01_", CHANDELIERS = "lighting_indoor_03_";
     private static final int PAINT = 1 << Models.PAINT, METAL = 1 << Models.METAL, SHADE = 1 << Models.SHADE, WOOD = 1 << Models.WOOD,
             DARK_WOOD = 1 << Models.DARK_WOOD;
     private static final float LEVEL = ViewCamera.LEVEL_HEIGHT;
@@ -71,6 +72,9 @@ final class Leisure {
         }
         if (called.equals("Organ") && kind.equals("Church")) {
             return organ(Sheets.place(name, CHURCH));
+        }
+        if (called.equals("Chandelier") && kind.equals("Grey") && single) {
+            return chandelier(Sheets.place(name, CHANDELIERS));
         }
         if (called.equals("Play Castle") && kind.equals("Childrens") && width == 2 && height == 2) {
             return new Outdoors.Piece("play_castle", faces).dye(PAINT, 0.05f, 0.05f, 0.28f);
@@ -285,6 +289,35 @@ final class Leisure {
             case 88 -> following(new Outdoors.Piece(null, Outdoors.SOUTH).each().pairedWith(CHURCH + 90, 2, 0));
             case 89 -> following(new Outdoors.Piece(null, Outdoors.SOUTH).each().pairedWith(CHURCH + 88, -1, 0));
             case 90 -> following(new Outdoors.Piece(null, Outdoors.SOUTH).each().pairedWith(CHURCH + 88, -2, 0));
+            default -> null;
+        };
+    }
+
+    /**
+     * Where a crystal chandelier's rod hangs on the square of the left half of its sprites: at the square's east corner, a little
+     * to the west of it and south as the sprites paint it. How high, in metres, the drop under its bowl is over the floor of the
+     * bowl's storey, and the drops under its widest tier over the floor of theirs: under it.
+     */
+    static final float CHANDELIER_A = 0.98f, CHANDELIER_B = 0.02f, CHANDELIER_BOWL_FOOT = 1.2f, CHANDELIER_TIERS_FOOT = -0.138f;
+    /**
+     * Where on the left half's square, and how high over its floor in metres, the sprites paint gold: the front of the ring round
+     * the bowl, and the rim of the widest tier on its left.
+     */
+    static final float BOWL_GOLD_B = 0.714f, BOWL_GOLD_UP = 2.26f, TIERS_GOLD_B = 0.668f, TIERS_GOLD_UP = 1.208f;
+
+    /**
+     * A crystal chandelier, which the game paints in halves on two squares corner to corner, the left half on the square west and
+     * south of the right: its bowl on one storey and the tiers over it on the next. The left half of each stands its part, hung
+     * where the two squares' corners meet; the right half stands nothing, and neither does unless the square its pairing names
+     * holds the other half. A few rooms have a bowl or the tiers alone, so each storey's part stands by itself.
+     */
+    private static Outdoors.Piece chandelier(int place) {
+        return switch (place) {
+            case 0 -> new Outdoors.Piece("chandelier_bowl", Outdoors.EAST).at(CHANDELIER_A, CHANDELIER_B).pairedWith(CHANDELIERS + 1, 1, -1)
+                    .dye(METAL, CHANDELIER_A, BOWL_GOLD_B, (BOWL_GOLD_UP - CHANDELIER_BOWL_FOOT) / LEVEL).raise(CHANDELIER_BOWL_FOOT / LEVEL);
+            case 2 -> new Outdoors.Piece("chandelier_tiers", Outdoors.EAST).at(CHANDELIER_A, CHANDELIER_B).pairedWith(CHANDELIERS + 3, 1, -1)
+                    .dye(METAL, CHANDELIER_A, TIERS_GOLD_B, (TIERS_GOLD_UP - CHANDELIER_TIERS_FOOT) / LEVEL).raise(CHANDELIER_TIERS_FOOT / LEVEL);
+            case 1, 3 -> following(new Outdoors.Piece(null, Outdoors.EAST).pairedWith(CHANDELIERS + (place - 1), -1, 1));
             default -> null;
         };
     }

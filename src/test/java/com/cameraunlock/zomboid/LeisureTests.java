@@ -29,6 +29,7 @@ final class LeisureTests {
         Checks.run("aLecternIsDyedFromItsPostsLitFaceAndItsDesk", LeisureTests::aLecternIsDyedFromItsPostsLitFaceAndItsDesk);
         Checks.run("aPoolTablesLampHangsFromTheCeilingOverBothSquares", LeisureTests::aPoolTablesLampHangsFromTheCeilingOverBothSquares);
         Checks.run("anOrgansWestSquareStandsItAgainstItsWallAndTheRestStandNothing", LeisureTests::anOrgansWestSquareStandsItAgainstItsWallAndTheRestStandNothing);
+        Checks.run("aChandeliersBowlAndTiersHangFromOneRodWhereTheirHalvesMeet", LeisureTests::aChandeliersBowlAndTiersHangFromOneRodWhereTheirHalvesMeet);
         Checks.run("aChurchsColouredWindowsAreStainedGlassAndItsClearOnesAreNot", LeisureTests::aChurchsColouredWindowsAreStainedGlassAndItsClearOnesAreNot);
         Checks.run("whatAPitchACourtAndADiamondStandOnIsLevelGround", LeisureTests::whatAPitchACourtAndADiamondStandOnIsLevelGround);
         Checks.run("levelGroundIsFlatInItsBoxAndEasesBackOutToTheLand", LeisureTests::levelGroundIsFlatInItsBoxAndEasesBackOutToTheLand);
@@ -395,6 +396,34 @@ final class LeisureTests {
     }
 
     private static final String CHURCH = "location_community_church_small_01_";
+
+    private static void aChandeliersBowlAndTiersHangFromOneRodWhereTheirHalvesMeet() {
+        String sheet = "lighting_indoor_03_";
+        Outdoors.Piece bowl = Outdoors.of(sheet + 0, "Chandelier", "Grey", Outdoors.EAST, 1, 1, 0);
+        Outdoors.Piece tiers = Outdoors.of(sheet + 2, "Chandelier", "Grey", Outdoors.EAST, 1, 1, 0);
+        holds(bowl, "the left half of a chandelier's bowl has a model");
+        holds(tiers, "the left half of its tiers has a model");
+        Checks.check(bowl != null && bowl.model.equals("chandelier_bowl") && !bowl.follows && (sheet + 1).equals(bowl.partner)
+                && bowl.partnerX == 1 && bowl.partnerY == -1, "the bowl stands where the right half is on the square east and north of it");
+        Checks.check(tiers != null && tiers.model.equals("chandelier_tiers") && !tiers.follows && (sheet + 3).equals(tiers.partner)
+                && tiers.partnerX == 1 && tiers.partnerY == -1, "so do the tiers");
+        Checks.check(bowl != null && tiers != null && bowl.a == tiers.a && bowl.b == tiers.b && Math.abs(bowl.a - 1f) < 0.05f && Math.abs(bowl.b) < 0.05f,
+                "both hang on one rod at the corner the two squares share");
+        Checks.check(bowl != null && tiers != null && bowl.dyed == 1 << Models.METAL && tiers.dyed == 1 << Models.METAL,
+                "their gold takes its colour from where the sprites paint gold");
+        for (int place : new int[] {1, 3}) {
+            Outdoors.Piece half = Outdoors.of(sheet + place, "Chandelier", "Grey", Outdoors.EAST, 1, 1, 0);
+            Checks.check(half != null && half.follows && half.model == null && (sheet + (place - 1)).equals(half.partner) && half.partnerX == -1
+                    && half.partnerY == 1, sheet + place + " stands nothing and hides while its left half is there");
+        }
+        Models.Model bowlModel = Models.get("chandelier_bowl"), tiersModel = Models.get("chandelier_tiers");
+        float storey = ViewCamera.LEVEL_HEIGHT;
+        Checks.check(bowl != null && Math.abs(bowl.raised + bowlModel.maxZ - storey) < 0.001f, "the bowl's rod reaches the ceiling of its storey");
+        Checks.check(tiers != null && Math.abs(tiers.raised + tiersModel.maxZ - storey) < 0.001f, "the tiers' rod reaches the ceiling of theirs");
+        Checks.check(tiers != null && bowl != null && storey + tiers.raised < bowl.raised + bowlModel.maxZ && storey + tiers.raised > bowl.raised + 0.9f,
+                "the foot of the tiers sits down in the bowl, over its crystal");
+        Checks.check(Outdoors.of(sheet + 4, "Lamp", "Grey", Outdoors.NONE, 1, 1, 0) == null, "a lamp on the same sheet is none of it");
+    }
 
     private static void anOrgansWestSquareStandsItAgainstItsWallAndTheRestStandNothing() {
         Outdoors.Piece organ = Outdoors.of(CHURCH + 96, "Organ", "Church", Outdoors.SOUTH, 3, 1, 0);
