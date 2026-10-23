@@ -551,9 +551,9 @@ final class Pipeline {
     private static final float SCALE = Float.parseFloat(System.getProperty("cameraunlock.zomboid.renderScale", "1"));
     /** Dev only: passes left out of the picture, to find which of them a fault is in. Any of steady, occlusion, air, glow, relief, and depth for the solid world and what grows drawn once with no pass for their depth first. */
     private static final String WITHOUT = System.getProperty("cameraunlock.zomboid.without", "");
-    private static final String[] STAGE_NAMES = {"load", "shadows", "world", "clouds", "sky", "occlusion", "air", "glow", "develop", "figures", "smooth", "depth", "solid", "laid", "mirror", "farland", "fartrees", "water", "glass", "scope", "fire"};
+    private static final String[] STAGE_NAMES = {"load", "shadows", "world", "clouds", "sky", "occlusion", "air", "glow", "develop", "figures", "smooth", "depth", "solid", "laid", "mirror", "farland", "fartrees", "water", "glass", "scope", "fire", "grassdepth", "grasslit"};
     private static final int STAGE_LOAD = 0, STAGE_SHADOWS = 1, STAGE_WORLD = 2, STAGE_CLOUDS = 3, STAGE_SKY = 4, STAGE_OCCLUSION = 5,
-            STAGE_AIR = 6, STAGE_GLOW = 7, STAGE_DEVELOP = 8, STAGE_FIGURES = 9, STAGE_SMOOTH = 10, STAGE_DEPTH = 11, STAGE_SOLID = 12, STAGE_LAID = 13, STAGE_MIRROR = 14, STAGE_FAR_LAND = 15, STAGE_FAR_TREES = 16, STAGE_WATER = 17, STAGE_GLASS = 18, STAGE_SCOPE = 19, STAGE_FIRE = 20;
+            STAGE_AIR = 6, STAGE_GLOW = 7, STAGE_DEVELOP = 8, STAGE_FIGURES = 9, STAGE_SMOOTH = 10, STAGE_DEPTH = 11, STAGE_SOLID = 12, STAGE_LAID = 13, STAGE_MIRROR = 14, STAGE_FAR_LAND = 15, STAGE_FAR_TREES = 16, STAGE_WATER = 17, STAGE_GLASS = 18, STAGE_SCOPE = 19, STAGE_FIRE = 20, STAGE_GRASS_DEPTH = 21, STAGE_GRASS_LIT = 22;
     private final long[] stageNanos = new long[STAGE_NAMES.length];
     private int stageFrames;
     private final int[] downTarget = new int[BLOOM_LEVELS], downColor = new int[BLOOM_LEVELS];
@@ -3306,21 +3306,27 @@ final class Pipeline {
             tellWorld(worldDepth, camera, state, tanHalfFieldOfView, aspect, fogStart, fogEnd);
             worldDepth.set("uLaid", 0f);
         }
+        boolean own = eyesOwn();
         if (depthFirst) {
             GL11.glColorMask(false, false, false, false);
             drawRanges(listed, 0, listed.solidRanges(), worldDepth);
             drawModels(worldDepth, false, camera, far, pixel, Outlines.NONE);
+            if (own) {
+                stage(STAGE_DEPTH);
+            }
             // The grass's depth too, before the solid world is lit: the ground under a blade was lit in
             // full and then drawn over. A blade is whole wherever it is drawn at all (its alpha is 1),
             // so nothing of the ground under it shows.
             drawGrassDepth(listed);
+            if (own) {
+                stage(STAGE_GRASS_DEPTH);
+            }
             GL11.glColorMask(true, true, true, true);
             GL11.glDepthFunc(GL_EQUAL);
             GL11.glDepthMask(false);
         }
         world.use();
-        // The three parts of the view's own picture of the world are timed apart, and what "world" then has left is what follows the far trees: the sight queries, bullet holes and what mirrors show laid over their glass.
-        boolean own = eyesOwn();
+        // The parts of the view's own picture of the world are timed apart, and what "world" then has left is what follows the far trees: the sight queries, bullet holes and what mirrors show laid over their glass.
         if (own) {
             stage(STAGE_DEPTH);
         }
@@ -3355,9 +3361,15 @@ final class Pipeline {
         if (grassFirst) {
             GL11.glDisable(GL_BLEND);
             if (!depthFirst) {
+                if (own) {
+                    stage(STAGE_SOLID);
+                }
                 GL11.glColorMask(false, false, false, false);
                 drawGrassDepth(listed);
                 GL11.glColorMask(true, true, true, true);
+                if (own) {
+                    stage(STAGE_GRASS_DEPTH);
+                }
             }
             world.use();
             world.set("uLaid", LAID_GRASS);
@@ -3367,6 +3379,9 @@ final class Pipeline {
             drawRanges(listed, listed.solidRanges(), listed.ranges());
             GL11.glDepthFunc(GL_LEQUAL);
             GL11.glDepthMask(true);
+            if (own) {
+                stage(STAGE_GRASS_LIT);
+            }
             world.set("uLaid", LAID_REST);
         }
         drawRanges(listed, listed.solidRanges(), listed.ranges());
@@ -3955,7 +3970,7 @@ final class Pipeline {
 
     private static final int GL_TIME_ELAPSED = 0x88BF, GL_QUERY_RESULT = 0x8866;
     /** The timer queries of a frame, in the order its stages ended, and the stage each was for. */
-    private final int[] stageQuery = new int[32], stageOf = new int[32];
+    private final int[] stageQuery = new int[48], stageOf = new int[48];
     private int stageQueries;
     private boolean stageOpen;
 
