@@ -555,7 +555,13 @@ final class PlantBuilder {
         if (crowned) {
             Flora.shadeOnly(build.frame, leaf);
         }
-        double turn = ((x * 73856093 ^ y * 19349663) >>> 8 & 0xff) / 255.0 * Math.PI;
+        // A second plant on the square turns its fan half a card from the first's: the game paints
+        // two crops on one square of a dense field, and fans in the same planes fight for depth.
+        // What the game draws over a plant (a tree's leaves) stays in its plant's planes.
+        if (build.overLayer == 0) {
+            build.plantsHere++;
+        }
+        double turn = ((x * 73856093 ^ y * 19349663) >>> 8 & 0xff) / 255.0 * Math.PI + Math.max(build.plantsHere - 1, 0) * Math.PI / (2 * cards);
         for (int card = 0; card < cards; card++) {
             double angle = turn + card * Math.PI / cards;
             float side = (card & 1) == 0 ? 1f : -1f;
@@ -597,6 +603,11 @@ final class PlantBuilder {
         if (crop == Crops.NONE) {
             return false;
         }
+        // A square the game paints two of one crop on is grown once: a second growing would stand
+        // every stalk again in the first's place, its own height and colour, the two fighting for depth.
+        if ((build.cropsGrownHere & 1 << crop) != 0) {
+            return true;
+        }
         if (build.within(Crops.REACH, false)) {
             alikeOnly();
         }
@@ -614,6 +625,7 @@ final class PlantBuilder {
         float lowA = Math.max(0.04f, build.room[0] - x), highA = Math.min(0.96f, build.room[1] - x);
         float lowB = Math.max(0.04f, build.room[2] - y), highB = Math.min(0.96f, build.room[3] - y);
         Crops.grow(build.geometry, WorldScene.laid.get(texture.getID()), build.frame, places, crop, x, y, Crops.tall(build.box[3]), build.bandAway, lowA, highA, lowB, highB);
+        build.cropsGrownHere |= 1 << crop;
         return true;
     }
 

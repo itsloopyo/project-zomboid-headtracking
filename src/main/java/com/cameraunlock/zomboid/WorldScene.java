@@ -2592,6 +2592,8 @@ final class WorldScene {
         float standsNearer;
         /** How many things stood on something the square being built has had added so far. */
         int stoodOn;
+        /** How many plants the square being built has had fanned so far, and which crops it has had grown (a bit for each). */
+        int plantsHere, cropsGrownHere;
         private int remakes;
 
         private Kind kindOf(IsoSprite sprite) {
@@ -6362,6 +6364,7 @@ final class WorldScene {
             IsoGridSquare under = z > lowestLevel ? cell.getGridSquare(x, y, z - 1) : null;
             boolean shellSeenInside = room != RoomSight.OUTSIDE && (z == lowestLevel || under != null && under.getRoomID() != -1L);
             stoodOn = 0;
+            plantsHere = cropsGrownHere = 0;
             for (int i = 0; i < objects.size(); i++) {
                 IsoObject object = objects.get(i);
                 IsoSprite sprite = object.getSprite();
