@@ -4008,9 +4008,11 @@ def pool_table():
             vert.co.y = math.copysign(0.365, vert.co.y)
     model.hard(bed, "cloth", bevel=0.003, segments=1)
 
-    # The cushions along the rails, in the same cloth: a nose that overhangs the bed, cut short at each pocket.
+    # The cushions along the rails, in the same cloth: a nose that overhangs the bed, cut short at each pocket. The nose is
+    # 0.034 over the cloth, 37 mm once the game raises the cloth to its sprite's top: a real cushion meets a 57 mm ball at 63.5%
+    # of its height.
     cushions = bmesh.new()
-    nose = [(0.0, 0.795), (0.03, 0.795), (0.035, 0.815), (0.03, 0.828), (0.0, 0.835)]
+    nose = [(0.0, 0.795), (0.028, 0.795), (0.036, 0.834), (0.031, 0.839), (0.0, 0.84)]
     for sy in (-1, 1):
         section = [(sy * (iy - inward), z) for inward, z in nose]
         for x0, x1 in ((-0.81, -0.045), (0.045, 0.81)):
