@@ -27,7 +27,7 @@ final class FurnitureTests {
         Checks.run("aSteelCounterIsSteelAndAWoodenOneIsNot", FurnitureTests::aSteelCounterIsSteelAndAWoodenOneIsNot);
         Checks.run("floorLampsAreToldByTheirPlace", FurnitureTests::floorLampsAreToldByTheirPlace);
         Checks.run("aBunkBedIsSteelOrWoodByItsGroup", FurnitureTests::aBunkBedIsSteelOrWoodByItsGroup);
-        Checks.run("aSignTheModHasNoPictureOfIsLeftToItsSprite", FurnitureTests::aSignTheModHasNoPictureOfIsLeftToItsSprite);
+        Checks.run("aLetteredSignHangsTheModsPictureOnlyWhereItHasOne", FurnitureTests::aLetteredSignHangsTheModsPictureOnlyWhereItHasOne);
         Checks.run("aDeckChairFacesTheWayItsSpriteDoesOnTheSquaresTheGameLaysItOn", FurnitureTests::aDeckChairFacesTheWayItsSpriteDoesOnTheSquaresTheGameLaysItOn);
         Checks.run("eachSquareOfAStreetBenchIsABenchOfItsOwn", FurnitureTests::eachSquareOfAStreetBenchIsABenchOfItsOwn);
         Checks.run("whatStandsOnARoofCaseIsRaisedToItsTop", FurnitureTests::whatStandsOnARoofCaseIsRaisedToItsTop);
@@ -373,7 +373,7 @@ final class FurnitureTests {
                 "what the map stands on the low case is raised to the case's top: " + (fan == null ? "nothing" : fan.raised));
     }
 
-    private static void aSignTheModHasNoPictureOfIsLeftToItsSprite() {
+    private static void aLetteredSignHangsTheModsPictureOnlyWhereItHasOne() {
         String row = "|CanScrap||CustomName|Sign|Facing|S|ForceSingleItem||IsHigh||IsMoveAble||Material|Plastic|MoveType|WallObject|PickUpWeight|60|attachedN||";
         IsoSprite[] squares = new IsoSprite[4];
         for (int i = 0; i < 4; i++) {
@@ -381,11 +381,14 @@ final class FurnitureTests {
         }
         piece(4, 1, squares);
         for (IsoSprite square : squares) {
-            check(Furniture.known(square) == null, "each square of the laundromat's sign, which the jar has no picture of, is left to its sprite");
+            Furniture sign = Furniture.known(square);
+            check(sign != null && sign.pinned && sign.lettered && sign.picture != Decor.NONE && sign.wall != WallHung.NONE,
+                    "each square of the laundromat's sign hangs the mod's lettered picture on its wall");
         }
+        check(Furniture.known(squares[1]).picture == Furniture.known(squares[3]).picture, "one picture for the whole sign");
         IsoSprite unlettered = sprite("construction_01_56|CustomName|Sign|Facing|S|ForceSingleItem||GroupName|TIS Construction|IsMoveAble||MoveType|WallObject|"
                 + "PickUpWeight|20|SpriteGridPos|0,0|attachedN|");
-        check(Furniture.known(unlettered) == null, "and so is any other sign");
+        check(Furniture.known(unlettered) == null, "a sign the mod has no picture of is left to its sprite");
         IsoSprite facingAway = sprite("appliances_laundry_01_20" + row.replace("Facing|S", "Facing|N") + "GroupName|Laundromat");
         check(Furniture.known(facingAway) == null, "nor is a sign hung whose face the game's view never shows");
     }
