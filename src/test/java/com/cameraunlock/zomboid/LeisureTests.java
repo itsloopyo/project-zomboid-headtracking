@@ -21,6 +21,7 @@ final class LeisureTests {
         Checks.run("aSteepleComesDownOntoARidgeShortOfItsFloor", LeisureTests::aSteepleComesDownOntoARidgeShortOfItsFloor);
         Checks.run("aTowersSpireStandsOnItsFrontSquareAndItsCrossOnItsPoint", LeisureTests::aTowersSpireStandsOnItsFrontSquareAndItsCrossOnItsPoint);
         Checks.run("aPairOfTheatreSeatsFacesTheWayItsSpriteSays", LeisureTests::aPairOfTheatreSeatsFacesTheWayItsSpriteSays);
+        Checks.run("aStageMicrophoneFacesTheWayItsSpriteSays", LeisureTests::aStageMicrophoneFacesTheWayItsSpriteSays);
     }
 
     private static void holds(Outdoors.Piece piece, String what) {
@@ -87,6 +88,15 @@ final class LeisureTests {
         }
         Checks.check(Outdoors.of("location_entertainment_theatre_01_91", "Chair", "Red Theatre", Outdoors.NONE, 1, 1, 0) == null,
                 "seats facing no way are left to the game");
+    }
+
+    private static void aStageMicrophoneFacesTheWayItsSpriteSays() {
+        for (int faces = Outdoors.NORTH; faces <= Outdoors.WEST; faces++) {
+            Outdoors.Piece microphone = Outdoors.of("appliances_com_01_" + (68 + faces), "Microphone", "Standing", faces, 1, 1, 0);
+            holds(microphone, "a microphone stand facing " + faces + " has a model");
+            Checks.check(microphone != null && microphone.model.equals("stage_microphone") && microphone.turns == faces, "it is turned the way it faces");
+        }
+        Checks.check(Outdoors.of("appliances_com_01_68", "Microphone", "Standing", Outdoors.NONE, 1, 1, 0) == null, "a microphone facing no way is left to the game");
     }
 
         private static void aSteeplesSpireStandsOnItsBelfry() {

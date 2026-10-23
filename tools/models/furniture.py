@@ -11972,6 +11972,10 @@ def shops():
 # A gallery's sculpture: busts on their plinths and statues on their bases, carved from metaballs. Gallery stands them.
 
 
+# A gallery's sculpture and a stage's microphone: busts on their plinths and statues on their bases, carved from
+# metaballs. Gallery stands the sculpture and Leisure the microphone.
+
+
 # A metaball's surface lies this far out of its centre for each unit of its radius, at the threshold and stiffness used here.
 BLOB_REACH = 0.575
 # How much harder the decimation holds on to what a carving is told to keep.
@@ -12370,8 +12374,34 @@ def orator_statue():
     return model
 
 
+def stage_microphone():
+    """A singer's microphone on a stand: three splayed legs, a black pole to 1.0 m, a thinner rod and a gooseneck that
+    leans the microphone out towards the front, its grille 1.65 m up."""
+    model = Model("stage_microphone")
+    legs, pole, grille = bmesh.new(), bmesh.new(), bmesh.new()
+    for n in range(3):
+        angle = math.radians(90 + n * 120)
+        x, y = math.cos(angle), math.sin(angle)
+        rod(legs, (x * 0.03, y * 0.03, 0.12), (x * 0.33, y * 0.33, 0.012), 0.008, segments=6)
+        rod(pole, (x * 0.33, y * 0.33, 0.012), (x * 0.345, y * 0.345, 0.0), 0.012, segments=6)
+    lathe(pole, [(0.0, 0.08), (0.022, 0.08), (0.022, 0.16), (0.013, 0.17), (0.013, 1.0), (0.019, 1.0), (0.019, 1.06), (0.0, 1.06)], segments=10)
+    rod(pole, (0.0, 0.0, 1.06), (0.0, 0.0, 1.45), 0.007, segments=8)
+    neck = [(0.0, 0.0, 1.45), (0.0, 0.025, 1.5), (0.0, 0.02, 1.55), (0.0, -0.02, 1.59), (0.0, -0.06, 1.61)]
+    for a, b in zip(neck, neck[1:]):
+        rod(pole, a, b, 0.006, segments=8)
+    body = Vector((0.0, -0.06, 1.61)), Vector((0.0, -0.21, 1.66))
+    way = (body[1] - body[0]).normalized()
+    turn = Matrix.Translation(body[0]) @ Vector((0.0, 0.0, 1.0)).rotation_difference(way).to_matrix().to_4x4()
+    lathe(pole, [(0.0, 0.0), (0.014, 0.0), (0.02, 0.1), (0.024, 0.13), (0.0, 0.13)], segments=12, to=turn)
+    lathe(grille, [(0.0, 0.12), (0.026, 0.13), (0.03, 0.15), (0.026, 0.175), (0.0, 0.185)], segments=12, to=turn)
+    model.hard(legs, "steel", bevel=0.002, segments=1)
+    model.turned(pole, "rubber")
+    model.turned(grille, "steel")
+    return model
+
+
 def gallery():
-    return [bust("bust_male", False, 3), bust("bust_female", True, 5), female_statue(), male_statue(), orator_statue()]
+    return [bust("bust_male", False, 3), bust("bust_female", True, 5), female_statue(), male_statue(), orator_statue(), stage_microphone()]
 
 
 def every():

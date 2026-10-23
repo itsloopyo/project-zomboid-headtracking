@@ -5,7 +5,8 @@ package com.cameraunlock.zomboid;
  * slides, a play house, a roundabout and a fountain, running machines and weight benches, walls of
  * old tyres, basketball hoops, nets across courts, football goals, what a playing field, a boxing ring and a gym have,
  * pianos and their benches,
- * speakers, an amplifier, drums, a jukebox, a pinball table, theatre seats, a lectern, an altar and a steeple. Asked by
+ * speakers, an amplifier, drums, a jukebox, a pinball table, a stage's microphone, theatre seats, a lectern, an altar
+ * and a steeple. Asked by
  * Outdoors.of before its own table, and stood the same way, so a piece of either is one kind of thing.
  *
  * Where each model stands on its squares was read off the game's sprites of it, laid over them in
@@ -86,6 +87,9 @@ final class Leisure {
         }
         if (called.equals("Chair") && kind.equals("Red Theatre")) {
             return new Outdoors.Piece("theatre_seats", faces);
+        }
+        if (called.equals("Microphone") && kind.equals("Standing")) {
+            return new Outdoors.Piece("stage_microphone", faces);
         }
         if (called.equals("Jukebox")) {
             return new Outdoors.Piece("jukebox", faces);
