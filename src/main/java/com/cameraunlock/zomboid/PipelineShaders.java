@@ -6794,6 +6794,7 @@ final class PipelineShaders {
             // and whether anything is.
             uniform sampler2D uOutlines;
             uniform float uOutlined;
+            uniform sampler2D uOutlineDepth;
             // The eye's axes in the world.
             uniform vec3 uAcross;
             uniform vec3 uUpward;
@@ -6841,12 +6842,40 @@ final class PipelineShaders {
             const int RAY_SAMPLES = 48;
             const float WHITE = 3.2;
             const int MIRROR_STEPS = 64;
+            // What is nearer than what is outlined by more than this share of its distance stands in front of it.
+            const float OUTLINE_IN_FRONT = 0.08;
 
             // Where the pixel at uv is, seen from the eye: x to the right, y up, z ahead, in tiles.
             vec3 placeAt(vec2 uv) {
                 float z = texture2D(uDepth, uv).r * 2.0 - 1.0;
                 float ahead = 2.0 * uNear * uFar / (uFar + uNear - z * (uFar - uNear));
                 return vec3((uv * 2.0 - 1.0) * uTan * ahead, ahead);
+            }
+
+            // Whether something was drawn at uv after the world, whose depth the mask was drawn over:
+            // a person, the viewer's body or what they hold. Each is drawn in front of what it covers,
+            // the held weapon to a depth of its own nearer clip, so any change to the depth is one.
+            bool drawnOver(vec2 uv) {
+                return texture2D(uDepth, uv).r != texture2D(uOutlineDepth, uv).r;
+            }
+
+            // What is outlined at uv, in the colour of its line: nothing where something was drawn over it.
+            vec4 outlinedAt(vec2 uv) {
+                return drawnOver(uv) ? vec4(0.0) : texture2D(uOutlines, uv);
+            }
+
+            // How far ahead the pixel at uv is for the line round what is outlined: none for what
+            // was drawn over the world, which is in front of whatever it meets.
+            float outlineAhead(vec2 uv) {
+                return drawnOver(uv) ? 0.0 : placeAt(uv).z;
+            }
+
+            // How much of a line round what is outlined lies between a pixel and its neighbour, by
+            // how much of each is the outlined thing and how far ahead each is: none where the one
+            // that is not it is nearer than the one that is, as it is where something stands in front.
+            float outlineEdge(float hereIs, float hereAhead, float thereIs, float thereAhead) {
+                float notIt = hereIs < thereIs ? hereAhead : thereAhead, it = hereIs < thereIs ? thereAhead : hereAhead;
+                return abs(thereIs - hereIs) * step(it - OUTLINE_IN_FRONT * it - 0.02, notIt);
             }
 
             // How far the point q of a ray thrown from the mirror at p, which faces facing, is behind
@@ -7294,10 +7323,16 @@ final class PipelineShaders {
                     // its own colour, and is a little lighter all over. The line is as wide on
                     // a large picture as on a small one.
                     vec2 apart = vec2(uSize.y / 400.0) / uSize;
-                    vec4 here = texture2D(uOutlines, uv);
-                    vec4 right = texture2D(uOutlines, uv + vec2(apart.x, 0.0)), left = texture2D(uOutlines, uv - vec2(apart.x, 0.0));
-                    vec4 up = texture2D(uOutlines, uv + vec2(0.0, apart.y)), down = texture2D(uOutlines, uv - vec2(0.0, apart.y));
-                    float edge = max(max(abs(right.a - here.a), abs(left.a - here.a)), max(abs(up.a - here.a), abs(down.a - here.a)));
+                    vec4 here = outlinedAt(uv);
+                    vec4 right = outlinedAt(uv + vec2(apart.x, 0.0)), left = outlinedAt(uv - vec2(apart.x, 0.0));
+                    vec4 up = outlinedAt(uv + vec2(0.0, apart.y)), down = outlinedAt(uv - vec2(0.0, apart.y));
+                    // Where what is not it is nearer than it, the change is the edge of something in
+                    // front of it, the held weapon or a person, and has no line: the line is round it.
+                    float hereAhead = outlineAhead(uv);
+                    float edge = max(max(outlineEdge(here.a, hereAhead, right.a, outlineAhead(uv + vec2(apart.x, 0.0))),
+                            outlineEdge(here.a, hereAhead, left.a, outlineAhead(uv - vec2(apart.x, 0.0)))),
+                            max(outlineEdge(here.a, hereAhead, up.a, outlineAhead(uv + vec2(0.0, apart.y))),
+                            outlineEdge(here.a, hereAhead, down.a, outlineAhead(uv - vec2(0.0, apart.y)))));
                     // Outside the thing the line takes the colour of the side that is it.
                     vec3 line = here.a > 0.5 ? here.rgb : (right.rgb * right.a + left.rgb * left.a + up.rgb * up.a + down.rgb * down.a)
                             / max(right.a + left.a + up.a + down.a, 1.0);

@@ -96,6 +96,8 @@ final class Pipeline {
      * cover is a mean over two texels, and a bar one texel wide reaches a half and no more.
      */
     private static final float SOLID_CUT = 0.48f;
+    /** How much nearer the eye, in tiles, what is outlined is drawn into its mask than it is: more than a wall's skin is in front of a door's leaf. */
+    static final float OUTLINE_NEARER = 0.05f;
     private static final int GL_TEXTURE_3D = 0x806F;
     private static final int GL_TEXTURE0 = 0x84C0;
     private static final int GL_TEXTURE_MAG_FILTER = 0x2800;
@@ -307,7 +309,7 @@ final class Pipeline {
      */
     static final float OVERHEAD_CONTRAST = 1.15f, OVERHEAD_PIVOT = 0.40f, OVERHEAD_BLUE = 0.98f;
     /** The unit the develop pass reads it on, and how bright fog is against the sky it hangs under. */
-    private static final int DEVELOP_SHELTER_UNIT = 5, DEVELOP_OUTLINES_UNIT = 6, DEVELOP_SIGHT_UNIT = 8;
+    private static final int DEVELOP_SHELTER_UNIT = 5, DEVELOP_OUTLINES_UNIT = 6, DEVELOP_SIGHT_UNIT = 8, DEVELOP_OUTLINE_DEPTH_UNIT = 9;
     private static final float FOG_BRIGHT = 1.1f;
     /** The drops, on the graphics card: they are the same every frame. */
     private static int rainDrops;
@@ -345,8 +347,13 @@ final class Pipeline {
     }
     private int width, height;
     private int sceneTarget, sceneColor, sceneDepth, shownTarget, shownColor, figureTarget, figureColor;
-    /** What is outlined, each thing in the colour of its line where it is the nearest thing, over the scene's depth: see drawOutlined. */
-    private int outlineTarget, outlineColor;
+    /**
+     * What is outlined, each thing in the colour of its line where it is the nearest thing, over outlineDepth: see
+     * drawOutlined. outlineDepth is the scene's depth as it was before the people, the viewer's own body and what they
+     * hold were put in it, so none of them cuts the thing out of its mask: the picture's develop counts as not the thing
+     * wherever the scene's depth has since been brought nearer.
+     */
+    private int outlineTarget, outlineColor, outlineDepth;
     /** The picture's colour as the passes after the steadying read it: the scene's, or with the frames blended the steadied one. */
     private int frameColor;
     /**
@@ -1191,6 +1198,10 @@ final class Pipeline {
                 showLookingGlass(camera, tanHalfFieldOfView, aspect, near, far);
             }
             stage(STAGE_WORLD);
+            if (!overhead && state.outlined != null) {
+                copyDepth(sceneTarget, outlineTarget);
+                GL30.glBindFramebuffer(GL_FRAMEBUFFER, sceneTarget);
+            }
             if (steadying) {
                 // Nothing in the picture moves by itself until the people's light says so.
                 lend(steadied);
@@ -4304,9 +4315,9 @@ final class Pipeline {
     /**
      * Draws each thing the picture outlines (Outlines) into outlineColor, in the colour of its
      * line: its triangles and its pieces again, by the program that drew the world's depth, over
-     * the depth the frame has by now. The same program and the same vertices come to the same
-     * depth to the bit, so only what of the thing is the nearest thing there is drawn, and a
-     * person or anything else in front of it hides it as it hides the thing.
+     * the world's depth (outlineDepth), OUTLINE_NEARER nearer than it is. So what of the thing is
+     * the nearest of the world there, or as good as, is drawn. A person, the viewer's body and
+     * what they hold, drawn after, are left out of it by the picture's develop.
      */
     private void drawOutlined(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float near, float far,
             float fogStart, float fogEnd) {
@@ -4320,6 +4331,10 @@ final class Pipeline {
         ViewCamera.projection(tanHalfFieldOfView, aspect, near, far, projection);
         projection[8] += asideX;
         projection[9] += asideY;
+        // Drawn OUTLINE_NEARER nearer the eye than it is, on the screen where it is: a door hangs inside its wall's
+        // thickness and the wall's skins are nearer than its leaf, and drawn where it is the leaf's edge was the ragged
+        // edge of the skin's cut-out sprite, which came and went with the frame's jitter.
+        projection[14] += projection[10] * OUTLINE_NEARER;
         arrays();
         GL33.glBindSampler(0, spriteSampler);
         GL11.glEnable(GL_DEPTH_TEST);
@@ -4449,6 +4464,9 @@ final class Pipeline {
         develop.set("uOutlined", outlinesDrawn ? 1f : 0f);
         GL13.glActiveTexture(GL_TEXTURE0 + DEVELOP_OUTLINES_UNIT);
         GL11.glBindTexture(GL_TEXTURE_2D, outlinesDrawn ? outlineColor : noneTexture);
+        develop.set("uOutlineDepth", DEVELOP_OUTLINE_DEPTH_UNIT);
+        GL13.glActiveTexture(GL_TEXTURE0 + DEVELOP_OUTLINE_DEPTH_UNIT);
+        GL11.glBindTexture(GL_TEXTURE_2D, outlinesDrawn ? outlineDepth : whiteTexture);
         GL13.glActiveTexture(GL_TEXTURE0);
         // Seen from far overhead the fog is a sheet over the ground: see the develop shader. It
         // thins away as the camera comes down to the eye, where the lit air is the fog, and is
@@ -6464,8 +6482,9 @@ final class Pipeline {
             problem = complete("character");
         }
         outlineColor = texture(GL_RGBA8, width, height, GL_RGBA, GL_UNSIGNED_BYTE, GL_NEAREST);
+        outlineDepth = texture(GL_DEPTH_COMPONENT24, width, height, GL_DEPTH_COMPONENT, GL_FLOAT, GL_NEAREST);
         outlineTarget = target(outlineColor);
-        GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, sceneDepth, 0);
+        GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, outlineDepth, 0);
         if (problem == null) {
             problem = complete("outlines");
         }
