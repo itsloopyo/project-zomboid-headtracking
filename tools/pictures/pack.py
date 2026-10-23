@@ -10,7 +10,7 @@ The index lists each picture with its size, and its subject where catalogue.subj
 then catalogue.POOLS, a line a pool: @subject, a tab, the kind of room, a tab and its pictures with a space between.
 
 What a television shows (catalogue.SHOTS) is cut four wide for three high, and the count of each show's shots in
-shows.txt (schedule.py) is set to how many of them, from the first, were made: a show with none shows the bars. The bars a set shows with nothing coming
+shows.txt (schedule.py) is set to how many of them were made: a show with none shows the bars. The bars a set shows with nothing coming
 in, screen-bars and for a set with no colour screen-grey-bars, are drawn here.
 
 The lettering is set in fonts of this machine's Windows (Impact and Georgia). Only the letters' shapes as
@@ -176,14 +176,18 @@ def bars(colours, steps):
 
 
 def screens(folder):
-    """Every picture a television shows by its name, the ones whose art is not made yet left out."""
+    """Every picture a television shows by its name. The shots of a show whose art is made take its first numbers, in
+    order, so a shot not made leaves no gap."""
     full, most = 255, 191
     shown = {'screen-bars': bars([(most, most, most), (most, most, 0), (0, most, most), (0, most, 0), (most, 0, most), (most, 0, 0), (0, 0, most)], 4)}
     shown['screen-grey-bars'] = bars([(tone, tone, tone) for tone in (full, most, 128, 64, 0)], 4)
+    taken = {}
     for name, source in catalogue.SHOTS.items():
         art = made(folder, source)
         if art is not None:
-            shown[name] = cut(art, SCREEN[0] / SCREEN[1]).resize(SCREEN, Image.LANCZOS)
+            show = name.rsplit('-', 1)[0]
+            taken[show] = taken.get(show, -1) + 1
+            shown[f'{show}-{taken[show]}'] = cut(art, SCREEN[0] / SCREEN[1]).resize(SCREEN, Image.LANCZOS)
     return shown
 
 

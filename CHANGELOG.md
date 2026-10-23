@@ -79,7 +79,8 @@
 - `Medium` and `High` rebuild the world in 3D: buildings with thick walls, roofs, eaves, gutters, downpipes and chimneys; doors, windows and curtains; furniture, appliances, shop fittings, signs, street lamps, traffic lights, power lines, pylons, playgrounds, sports equipment, instruments and more.
 - New textures for floors, tiles, carpets, wallpaper, brick, wood, roofs and roads. Road markings are drawn as clean paint.
 - Pavements and car parks lie level, with kerbs.
-- A TV that is on shows test bars, as the game's does.
+- A TV that is on shows a moving picture: test bars with no signal, otherwise the show on its channel or tape.
+- Pictures on walls and the shows on TV are stills staged and shot in the game.
 - Pictures, banners and bunting on walls.
 - Sharper skins for zombies, survivors and clothing. Animals get new detailed skins (`OwnAnimals`).
 - Hills in the countryside, flat in towns. `HillHeight` sets their height from 0 to 2 (default 1.5).

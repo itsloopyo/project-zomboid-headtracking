@@ -1960,6 +1960,21 @@ DEALINGS IN THE SOFTWARE.
 
 ---
 
+## Pictures shot in Project Zomboid
+
+- **Files:** every `pictures/*.jpg` inside the mod's jar but `screen-bars.jpg` and `screen-grey-bars.jpg`, packed by `tools/pictures/pack.py`
+- **License:** screenshots of Project Zomboid, The Indie Stone's game, used under the [Indie Stone Terms](https://projectzomboid.com/blog/support/terms-conditions/) (clause 2.2, non-commercial fan productions). They are not under this mod's MIT licence.
+- **Upstream:** https://projectzomboid.com
+- **Usage:** The first person view hangs them in place of the game's paintings, photographs, posters and boards, and a television shows them as its programmes. Each was staged and shot inside the game.
+- **Bundled:** yes.
+
+Thanks to The Indie Stone for creating Project Zomboid
+(https://projectzomboid.com/), which made this possible. This is an unofficial
+fan production for non-commercial purposes made under the Indie Stone Terms
+(https://projectzomboid.com/blog/support/terms-conditions/).
+
+---
+
 ## Generated material textures
 
 - **Files:** every `materials/*.bc` inside the mod's jar but `sprigs-form.bc`, each packed by `tools/textures/compress.py` from the picture of its name in `src/textures/materials` (the eight barks into the one `bark.bc`): asphalt, gravel, soil, grass, shingles, wood, eight barks (`bark-*.jpg`), planks, carpet, leaves, vinyl, cloth, jersey, paint, litter, rock, frond, ivy and sprigs; and `rugs/fur.jpg` and `rugs/hide.jpg`, the fine grain `tools/materials/grain.py` keeps of a generated picture of a sheepskin and of a cowhide
