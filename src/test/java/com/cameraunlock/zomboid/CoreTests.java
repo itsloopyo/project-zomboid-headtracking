@@ -1063,7 +1063,7 @@ public final class CoreTests {
         screen.set("SharpShadows", 1);
         screen.apply();
         savesMade();
-        check(Quality.name(0).equals("Custom") && !Quality.plain(0) && !Quality.gamesPlants(0) && Quality.scale(0) == 0.7f && Quality.sight(0) == 60
+        check(Quality.name(0).equals("Custom") && !Quality.plain(0) && !Quality.gamesPlants(0) && Quality.scale(0) == 0.8f && Quality.sight(0) == 60
                         && Quality.shadowSize(0) == 4096,
                 "a row changed at Medium starts Custom from Automatic's Medium, with the mod's plants, and the change: " + Quality.described(Quality.drawn(0)));
         check(saved("Quality=Custom", "TreeQuality=Medium", "ViewDistance=60", "SharpShadows=true"), "and that is what Custom's rows hold");

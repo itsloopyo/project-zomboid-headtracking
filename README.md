@@ -27,7 +27,7 @@ Press `Delete` to switch between the isometric and first person views, on foot o
 ### World and graphics
 
 - **A rebuilt world** - 3D buildings, new textures, detailed plants, rolling hills and distant scenery in Medium and High. Furniture, windows and doors are 3D in every mode.
-- **New graphics in both views** - lighting, shadows, models and textures in Medium and High. High adds reflections and light beams through fog.
+- **New graphics in both views** - lighting, shadows, models and textures in Medium and High, with reflections and light beams through fog. High adds sharper shadows and depth in near surfaces.
 - **Fire** - simulated flames, smoke and firelight from burning buildings, Molotovs and campfires in Medium and High.
 - **Sound** - follows where you look, muffled by the walls in between.
 - **Adjustable** - automatic or manual quality, three picture styles, field of view, hill height, and each replacement model or texture can be put back to the game's own.

@@ -105,7 +105,7 @@
 #### Weather and light
 
 - Rain and snow fall as streaks and splash on the ground. None falls under a roof.
-- Fog, rain and snow limit how far you see, matching the game. Fog glows in torch and headlight beams in `High`.
+- Fog, rain and snow limit how far you see, matching the game. Fog glows in torch and headlight beams in `Medium` and `High`.
 - Lightning bolts strike during storms, lighting up the sky, clouds and ground.
 - Settled snow has drifts, banks against kerbs and sparkles in the sun. It keeps your footprints and vehicle tyre tracks.
 - Snow settles on trees, bushes, grass and ivy, and dusts people and zombies out in it.
@@ -130,6 +130,7 @@
 - `ZombiesAndPropsDrawDistance` (16 to 80 tiles) and `Reflections` settings.
 - `GrassDensity` setting (10 to 100 percent): fewer grass plants for a faster picture. `High` grows all of it, `Medium` and `Low` 40 percent.
 - Past 2560x1440, `Low`, `Medium`, `High` and `Automatic` draw first person with no more pixels than at 2560x1440. `Custom` draws at its `RenderScale` at any size.
+- `Medium` draws first person at 0.8 of the window's size each way, with shaded corners, lit air and, with `Reflections`, mirroring wet roads, floors, glass and water.
 
 #### Sound
 
