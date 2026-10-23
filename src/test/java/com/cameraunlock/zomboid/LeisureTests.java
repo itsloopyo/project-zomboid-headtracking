@@ -452,8 +452,11 @@ final class LeisureTests {
 
     private static void aChandeliersBowlAndTiersHangFromOneRodWhereTheirHalvesMeet() {
         String sheet = "lighting_indoor_03_";
-        Outdoors.Piece bowl = Outdoors.of(sheet + 0, "Chandelier", "Grey", Outdoors.EAST, 1, 1, 0);
-        Outdoors.Piece tiers = Outdoors.of(sheet + 2, "Chandelier", "Grey", Outdoors.EAST, 1, 1, 0);
+        Outdoors.Piece bowl = Outdoors.of(sheet + 0, "Chandelier", "Grey", Outdoors.EAST, 2, 2, 0);
+        Outdoors.Piece tiers = Outdoors.of(sheet + 2, "Chandelier", "Grey", Outdoors.EAST, 2, 2, 0);
+        for (int place = 0; place < 4; place++) {
+            Checks.check(Leisure.chandelierPiece(sheet + place), sheet + place + " is a square of a chandelier, each a piece by itself though its grid spans two storeys");
+        }
         holds(bowl, "the left half of a chandelier's bowl has a model");
         holds(tiers, "the left half of its tiers has a model");
         Checks.check(bowl != null && bowl.model.equals("chandelier_bowl") && !bowl.follows && (sheet + 1).equals(bowl.partner)
@@ -465,7 +468,7 @@ final class LeisureTests {
         Checks.check(bowl != null && tiers != null && bowl.dyed == 1 << Models.METAL && tiers.dyed == 1 << Models.METAL,
                 "their gold takes its colour from where the sprites paint gold");
         for (int place : new int[] {1, 3}) {
-            Outdoors.Piece half = Outdoors.of(sheet + place, "Chandelier", "Grey", Outdoors.EAST, 1, 1, 0);
+            Outdoors.Piece half = Outdoors.of(sheet + place, "Chandelier", "Grey", Outdoors.EAST, 2, 2, 0);
             Checks.check(half != null && half.follows && half.model == null && (sheet + (place - 1)).equals(half.partner) && half.partnerX == -1
                     && half.partnerY == 1, sheet + place + " stands nothing and hides while its left half is there");
         }

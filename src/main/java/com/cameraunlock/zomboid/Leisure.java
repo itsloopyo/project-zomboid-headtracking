@@ -78,7 +78,7 @@ final class Leisure {
         if (called.equals("Cross") && kind.equals("Golden")) {
             return glory(Sheets.place(name, CHURCH));
         }
-        if (called.equals("Chandelier") && kind.equals("Grey") && single) {
+        if (called.equals("Chandelier") && kind.equals("Grey")) {
             return chandelier(Sheets.place(name, CHANDELIERS));
         }
         if (called.equals("Play Castle") && kind.equals("Childrens") && width == 2 && height == 2) {
@@ -376,6 +376,11 @@ final class Leisure {
             case 75 -> following(new Outdoors.Piece(null, Outdoors.SOUTH).each().pairedWith(CHURCH + 74, -1, 0));
             default -> null;
         };
+    }
+
+    /** Whether a sprite is a square of a crystal chandelier, whose grid the game lays over two storeys. */
+    static boolean chandelierPiece(String name) {
+        return chandelier(Sheets.place(name, CHANDELIERS)) != null;
     }
 
     /** Whether a sprite is a square of a gold cross with rays, whose grid the game lays over two storeys. */
