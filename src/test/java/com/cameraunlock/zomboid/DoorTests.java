@@ -21,6 +21,8 @@ final class DoorTests {
         Checks.run("jambIsFilledFromTheDoorwaysCutToTheLeafOnly", DoorTests::jambIsFilledFromTheDoorwaysCutToTheLeafOnly);
         Checks.run("leafIsCutBackToTheDoorwaysCut", DoorTests::leafIsCutBackToTheDoorwaysCut);
         Checks.run("casingTakesItsTexelsWhereTheWallsCutIsMeasured", DoorTests::casingTakesItsTexelsWhereTheWallsCutIsMeasured);
+        Checks.run("casingIsReadAsPostsUnderAHead", DoorTests::casingIsReadAsPostsUnderAHead);
+        Checks.run("casingsPostsMeetTheDoorwaysCutUnderTheHead", DoorTests::casingsPostsMeetTheDoorwaysCutUnderTheHead);
         Checks.run("whatIsDrawnBetweenOwningNoThingIsNoPartOfTheThing", DoorTests::whatIsDrawnBetweenOwningNoThingIsNoPartOfTheThing);
         Checks.run("paneWithARoomOnBothSidesHasNoStreetSide", DoorTests::paneWithARoomOnBothSidesHasNoStreetSide);
         Checks.run("openGarageDoorLiesInTheGarageWithItsTracksAtTheJambs", DoorTests::openGarageDoorLiesInTheGarageWithItsTracksAtTheJambs);
@@ -254,6 +256,75 @@ final class DoorTests {
         new SpriteGeometry().addFace(wall, frame, 0, 0, 0, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 1f);
         check(Math.abs(wall.vertices[3] * frame.width - (64f + 64f * wall.vertices[0]) - (wall.vertices[0] < 0.5f ? 3f : -3f)) < 1e-3f,
                 "a wall is still drawn in 3 pixels at its ends");
+    }
+
+    /** A casing laid flat at the game's doubled scale: 64 dots along, 8 more past each end, 192 up; FRAME over the given columns from row top down to the floor, and over the head's rows from column from to before to. */
+    private static byte[] casingDots(int[] posts, int top, int headRows, int from, int to) {
+        int across = 64, margin = 8, wide = across + 2 * margin, high = 192;
+        byte[] dots = new byte[wide * high];
+        for (int post = 0; post < posts.length; post += 2) {
+            for (int row = top; row < high; row++) {
+                for (int column = posts[post]; column < posts[post + 1]; column++) {
+                    dots[row * wide + margin + column] = Windows.FRAME;
+                }
+            }
+        }
+        for (int row = top; row < top + headRows; row++) {
+            for (int column = from; column < to; column++) {
+                dots[row * wide + margin + column] = Windows.FRAME;
+            }
+        }
+        return dots;
+    }
+
+    private static void casingIsReadAsPostsUnderAHead() {
+        Windows.Shape both = Casings.measure(casingDots(new int[] {4, 10, 54, 60}, 40, 12, 4, 60), 64, 8, 192);
+        check(both != null, "two posts under a head are a casing");
+        check(both.start == 4f / 64f && both.startWide == 6f / 64f && both.end == 60f / 64f && both.endWide == 6f / 64f,
+                "its posts are where they are painted: " + both.start + "+" + both.startWide + " .. " + both.end + "-" + both.endWide);
+        check(both.head == 1f - 40f / 192f && both.headHigh == 12f / 192f && both.foot == 0f, "its head is its top rows, and its posts stand on the floor");
+        Windows.Shape lone = Casings.measure(casingDots(new int[] {4, 10}, 40, 12, 4, 72), 64, 8, 192);
+        check(lone != null && lone.startWide > 0f && lone.endWide == 0f && lone.end == 1f, "one post under a head running on to the square's end is half of a pair's casing");
+        check(Casings.measure(casingDots(new int[] {4, 10, 54, 60}, 40, 0, 4, 60), 64, 8, 192) == null, "posts with no head are no casing");
+        check(Casings.measure(casingDots(new int[] {0, 64}, 40, 12, 0, 64), 64, 8, 192) == null, "a wall painted across is no casing");
+        check(Casings.measure(casingDots(new int[] {4, 10, 30, 34, 54, 60}, 40, 12, 4, 60), 64, 8, 192) == null, "three uprights are no casing");
+        check(Casings.measure(casingDots(new int[] {4, 10, 54, 60}, 140, 12, 4, 60), 64, 8, 192) == null, "a head under half a level is no doorway's");
+    }
+
+    private static void casingsPostsMeetTheDoorwaysCutUnderTheHead() {
+        // Louisville, 12785,1664: fixtures_doors_frames_01_1 read in the game, its posts -0.046875 + 0.140625 and 0.9375 - 0.09375,
+        // in walls_exterior_house_01_15 cut from 0.09375 to 0.84375.
+        Windows.Shape casing = new Windows.Shape();
+        casing.start = -0.046875f;
+        casing.startWide = 0.140625f;
+        casing.end = 0.9375f;
+        casing.endWide = 0.09375f;
+        casing.head = 0.8489583f;
+        casing.headHigh = 0.067708336f;
+        float[] members = OpeningBuilder.casingMembers(casing, 0.09375f, 0.84375f);
+        int each = OpeningBuilder.CASING_MEMBER;
+        check(members.length == 3 * each, "two posts and a head: " + members.length / each);
+        check(members[1] == 0.09375f && members[each] == 0.84375f, "each post's inner edge is at the cut: " + members[1] + ", " + members[each]);
+        check(Math.abs(members[1] - members[0] - 0.09375f) < 1e-6f && Math.abs(members[each + 1] - members[each] - 0.09375f) < 1e-6f,
+                "both posts are as wide as the narrower: the wider is painted with its side");
+        float headFoot = casing.head - casing.headHigh;
+        check(members[3] == headFoot && members[each + 3] == headFoot, "the posts stand under the head");
+        check(members[2 * each] == members[0] && members[2 * each + 1] == members[each + 1] && members[2 * each + 2] == headFoot && members[2 * each + 3] == casing.head,
+                "the head runs over both posts, out to their outer edges");
+        check(members[4] == OpeningBuilder.AT_FROM && members[each + 4] == OpeningBuilder.AT_TO && members[2 * each + 4] == OpeningBuilder.AT_HEAD,
+                "each board is bevelled along its outer edge");
+        float[] far = OpeningBuilder.casingMembers(casing, 0.2f, 0.6f);
+        check(far[1] == casing.start + casing.startWide && far[each] == casing.end - casing.endWide, "a cut too far from the posts leaves them where they are painted");
+        float[] none = OpeningBuilder.casingMembers(casing, -1f, -1f);
+        check(none[1] == casing.start + casing.startWide, "and so does no cut measured");
+        Windows.Shape lone = new Windows.Shape();
+        lone.start = 0.05f;
+        lone.startWide = 0.09f;
+        lone.end = 1f;
+        lone.head = 0.85f;
+        lone.headHigh = 0.07f;
+        float[] half = OpeningBuilder.casingMembers(lone, 0.14f, 1f);
+        check(half.length == 2 * each && half[each + 1] == 1f, "half of a pair's casing is one post and a head running on to the square's end");
     }
 
     private static void leafIsCutBackToTheDoorwaysCut() {

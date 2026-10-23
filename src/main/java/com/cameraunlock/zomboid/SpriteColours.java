@@ -330,6 +330,7 @@ final class SpriteColours {
             Windows.read(texture, page, across, left, top, right, bottom);
             Drapes.read(texture, page, across, left, top, right, bottom);
             Doors.read(texture, page, across, left, top, right, bottom);
+            Casings.read(texture, page, across, left, top, right, bottom);
             Papers.read(texture, page, across, left, top, right, bottom);
             WallTiles.read(texture, page, across, left, top, right, bottom);
             Tiles.read(texture, page, across, left, top, right, bottom);

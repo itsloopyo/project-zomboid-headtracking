@@ -507,6 +507,172 @@ final class OpeningBuilder {
     }
 
     /**
+     * A door's casing, built: two posts and a head on each face of the wall, boards standing
+     * CASING_PROUD out of the skin with their outer edge bevelled, in the colour of the game's
+     * sprite. Where the doorway the wall is cut with was measured, the posts' inner edges are at
+     * its cut. False, adding nothing, for a sprite not measured yet or one that is no casing: see
+     * Casings.
+     */
+    boolean addBuiltCasing(Texture texture, int x, int y, int z, float da, float db) {
+        boolean north = da != 0f;
+        Windows.Shape casing = Casings.of(texture, build.frame, north);
+        if (casing == null) {
+            if (Casings.unread(texture)) {
+                build.building.signed = false;
+            }
+            return false;
+        }
+        // The sprite's layers would lie both faces into the square and sink the far one behind the far skin.
+        WorldScene.layers.none();
+        boolean measured = doorwayX == x && doorwayY == y && doorwayZ == z && doorwayNorth == north && doorwayStart >= 0f;
+        float[] members = casingMembers(casing, measured ? doorwayStart : -1f, measured ? doorwayEnd : -1f);
+        windowX = x;
+        windowY = y;
+        windowAlongX = da;
+        windowAlongY = db;
+        windowFoot = footOf(z);
+        lightSides(north, false);
+        boolean wooden = casing.red - casing.blue > WOODEN;
+        SpriteGeometry.Mesh wood = WorldScene.solid.get(WorldScene.PLAIN, WallSides.key(casing.red, casing.green, casing.blue, WallSides.FLAT));
+        wood.sway = 0f;
+        long thing = WorldScene.solid.owner();
+        WorldScene.solid.own(Outlines.NONE);
+        for (int side = 0; side < 2; side++) {
+            float out = side == 0 ? 1f : -1f;
+            wood.open = sideOpen[side] + 32f * (wooden ? JOINERY : WorldScene.PAINT);
+            wood.day = sideDay[side];
+            for (int at = 0; at < members.length; at += CASING_MEMBER) {
+                addBoard(wood, members[at], members[at + 1], members[at + 2], members[at + 3], out * (WorldScene.WALL_HALF - CASING_INTO),
+                        out * (WorldScene.WALL_HALF + CASING_PROUD), (int) members[at + 4], sideRed[side], sideGreen[side], sideBlue[side]);
+            }
+        }
+        WorldScene.solid.own(thing);
+        wood.day = 0f;
+        return true;
+    }
+
+    /** How far a casing's boards stand out of the wall's skin, and how far in from its outer edge and back from its front the bevel along that edge runs, in tiles. */
+    static final float CASING_PROUD = 0.016f, CASING_BEVEL = 0.009f;
+    /** How far a casing's boards run back into the wall behind its skin, so no gap shows between the two at a slant. */
+    private static final float CASING_INTO = 0.004f;
+    /** How near the doorway's cut a post's inner edge has to be read to be put at it, as a share of the wall's length. */
+    static final float CASING_SNAP = 0.05f;
+    /**
+     * Floats a member of a casing takes in casingMembers: along from, along to, foot and head in
+     * levels, and which of its edges is bevelled, as addBoard numbers them: the edge at from, at to,
+     * the foot, the head.
+     */
+    static final int CASING_MEMBER = 5;
+    static final int AT_FROM = 0, AT_TO = 1, AT_HEAD = 3;
+
+    /**
+     * The boards of a casing, CASING_MEMBER floats each: the posts, then the head over them. The
+     * sprite paints the post nearer its view's side with that side's face as well, so two posts are
+     * each as wide as the narrower. A post whose inner edge is within CASING_SNAP of the doorway's
+     * cut, cutStart or cutEnd (below 0 for none measured), has its inner edge at the cut.
+     */
+    static float[] casingMembers(Windows.Shape casing, float cutStart, float cutEnd) {
+        float inStart = casing.start + casing.startWide, inEnd = casing.end - casing.endWide;
+        if (casing.startWide > 0f && cutStart >= 0f && Math.abs(inStart - cutStart) < CASING_SNAP) {
+            inStart = cutStart;
+        }
+        if (casing.endWide > 0f && cutStart >= 0f && Math.abs(inEnd - cutEnd) < CASING_SNAP) {
+            inEnd = cutEnd;
+        }
+        float wide = casing.startWide > 0f && casing.endWide > 0f ? Math.min(casing.startWide, casing.endWide) : Math.max(casing.startWide, casing.endWide);
+        float start = casing.startWide > 0f ? inStart - wide : inStart, end = casing.endWide > 0f ? inEnd + wide : inEnd;
+        float[] made = new float[CASING_MEMBER * 3];
+        int count = 0;
+        float headFoot = casing.head - casing.headHigh;
+        if (casing.startWide > 0f) {
+            count = member(made, count, start, inStart, casing.foot, headFoot, AT_FROM);
+        }
+        if (casing.endWide > 0f) {
+            count = member(made, count, inEnd, end, casing.foot, headFoot, AT_TO);
+        }
+        count = member(made, count, start, end, headFoot, casing.head, AT_HEAD);
+        return Arrays.copyOf(made, count);
+    }
+
+    private static int member(float[] made, int at, float from, float to, float foot, float head, int bevelled) {
+        made[at] = from;
+        made[at + 1] = to;
+        made[at + 2] = foot;
+        made[at + 3] = head;
+        made[at + 4] = bevelled;
+        return at + CASING_MEMBER;
+    }
+
+    /**
+     * A board from along from to along to and foot to head in levels, between across back and front
+     * tiles into the square: its front, its four edges, and a bevel CASING_BEVEL wide and deep along
+     * the edge bevelled, numbered as in CASING_MEMBER. The two edges beside the bevel are cut back
+     * with it.
+     */
+    private void addBoard(SpriteGeometry.Mesh mesh, float from, float to, float foot, float head, float back, float front, int bevelled,
+            float red, float green, float blue) {
+        float[] c = build.reveal;
+        float behind = front - Math.signum(front) * CASING_BEVEL;
+        float f0 = bevelled == AT_FROM ? from + CASING_BEVEL : from, f1 = bevelled == AT_TO ? to - CASING_BEVEL : to;
+        float h1 = bevelled == AT_HEAD ? head - CASING_BEVEL / ViewCamera.LEVEL_HEIGHT : head;
+        windowPoint(c, 0, f0, foot, front);
+        windowPoint(c, 1, f1, foot, front);
+        windowPoint(c, 2, f1, h1, front);
+        windowPoint(c, 3, f0, h1, front);
+        SpriteGeometry.addPlainQuad(mesh, c, red, green, blue);
+        for (int edge = 0; edge < 4; edge++) {
+            float along0 = edge == 1 ? to : from, along1 = edge == 0 ? from : to;
+            float up0 = edge == 3 ? head : foot, up1 = edge == 2 ? foot : head;
+            if (edge == bevelled) {
+                windowPoint(c, 0, along0, up0, back);
+                windowPoint(c, 1, along1, up1, back);
+                windowPoint(c, 2, along1, up1, behind);
+                windowPoint(c, 3, along0, up0, behind);
+                SpriteGeometry.addPlainQuad(mesh, c, red, green, blue);
+                continue;
+            }
+            // An edge beside the bevel is a quad back to the bevel's depth and one from there to the front, cut along the bevel.
+            boolean upright = edge < 2;
+            boolean beside = bevelled == AT_HEAD ? upright : !upright;
+            float uncut0 = upright ? up0 : along0, uncut1 = upright ? up1 : along1;
+            float cutEnd = bevelled == AT_HEAD ? head : bevelled == AT_FROM ? from : to, cutFront = bevelled == AT_HEAD ? h1 : bevelled == AT_FROM ? f0 : f1;
+            float fixed = upright ? along0 : up0;
+            float[] at0 = {uncut0, uncut1, uncut1, uncut0}, depth = {back, back, beside ? behind : front, beside ? behind : front};
+            for (int k = 0; k < 4; k++) {
+                edgePoint(c, k, upright, fixed, at0[k], depth[k]);
+            }
+            SpriteGeometry.addPlainQuad(mesh, c, red, green, blue);
+            if (beside) {
+                float near0 = Math.abs(uncut0 - cutEnd) < 1e-6f ? cutFront : uncut0, near1 = Math.abs(uncut1 - cutEnd) < 1e-6f ? cutFront : uncut1;
+                edgePoint(c, 0, upright, fixed, uncut0, behind);
+                edgePoint(c, 1, upright, fixed, uncut1, behind);
+                edgePoint(c, 2, upright, fixed, near1, front);
+                edgePoint(c, 3, upright, fixed, near0, front);
+                SpriteGeometry.addPlainQuad(mesh, c, red, green, blue);
+            }
+        }
+        // The bevel, from the front's edge back to the edge's side.
+        if (bevelled == AT_HEAD) {
+            windowPoint(c, 0, f0, h1, front);
+            windowPoint(c, 1, f1, h1, front);
+            windowPoint(c, 2, to, head, behind);
+            windowPoint(c, 3, from, head, behind);
+        } else {
+            float edgeAt = bevelled == AT_FROM ? from : to, frontAt = bevelled == AT_FROM ? f0 : f1;
+            windowPoint(c, 0, frontAt, foot, front);
+            windowPoint(c, 1, frontAt, head, front);
+            windowPoint(c, 2, edgeAt, head, behind);
+            windowPoint(c, 3, edgeAt, foot, behind);
+        }
+        SpriteGeometry.addPlainQuad(mesh, c, red, green, blue);
+    }
+
+    /** A point of an upright edge (along fixed, up at) or a level one (up fixed, along at), across tiles into the square, into c at i. */
+    private void edgePoint(float[] c, int i, boolean upright, float fixed, float at, float across) {
+        windowPoint(c, i, upright ? fixed : at, upright ? at : fixed, across);
+    }
+
+    /**
      * A window on the north or west edge of the square, built: the four sides of its frame
      * through the wall's thickness, a sill outside, its bars, and a sheet of glass in each
      * light that has one, the pieces left round the edge of one that is broken. Where and how

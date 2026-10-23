@@ -415,6 +415,11 @@ final class WallBuilder {
                 build.frame.material = material;
                 return;
             }
+            if (build.casing && build.overLayer == 0 && Own.buildings() && build.openingBuilder.addBuiltCasing(texture, x, y, z, da, db)) {
+                build.geometry.shownA = build.geometry.shownB = 0f;
+                build.frame.material = material;
+                return;
+            }
             // A sign is laid over all it paints up and down its wall, and along it where it runs on over the next squares: see EdgeRuns.
             float from = 0f, length = 1f, foot = 0f, up = door ? doorTop(texture, 0f, 0f, da, db) : 1f;
             if (sign && material != WorldScene.GLASS) {
