@@ -337,6 +337,10 @@ final class Outdoors {
         if (play != null) {
             return play;
         }
+        Piece sculpture = Gallery.of(name, called, group, faces, width, height);
+        if (sculpture != null) {
+            return sculpture;
+        }
         Piece aerial = aerial(name);
         if (aerial != null) {
             return aerial;
