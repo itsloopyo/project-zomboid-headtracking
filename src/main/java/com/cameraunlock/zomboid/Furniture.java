@@ -809,6 +809,7 @@ final class Furniture {
         piece.rowX = outside.rowX;
         piece.rowY = outside.rowY;
         piece.rowDyer = outside.rowDyer;
+        piece.paintedBy = outside.paintedBy;
         piece.pictured = outside.pictured;
         piece.paneY = outside.paneY;
         piece.onRoof = outside.onRoof;

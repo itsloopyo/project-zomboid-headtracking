@@ -47,12 +47,11 @@ final class Leisure {
      */
     static final float LECTERN_POST_DYE = 0.2f, LECTERN_DESK_DYE = 0.43f, LECTERN_BROAD_LEFT = 0.03f, LECTERN_NARROW_LEFT = 0.105f;
     /**
-     * Where a church's long desk takes its colours, its top and the front of its body: how far across the square and how high each
-     * is, in levels, and how far along the square of each of its three sprites. Those are places where all three paint the same
-     * two colours, so the shares of one desk are one colour where they meet.
+     * Where a church's long desk takes its colours on the sprite of the square between its ends, PULPIT_MIDDLE: how far along the
+     * square and across it, then how high its top is and the front of its body, in levels.
      */
-    static final float PULPIT_DYE_B = 0.65f, PULPIT_TOP_DYE = 0.39f, PULPIT_BODY_DYE = 0.2f, PULPIT_WEST_DYE = 0.705f, PULPIT_MIDDLE_DYE = 0.115f,
-            PULPIT_EAST_DYE = 0.05f;
+    static final float PULPIT_DYE_A = 0.115f, PULPIT_DYE_B = 0.65f, PULPIT_TOP_DYE = 0.39f, PULPIT_BODY_DYE = 0.2f;
+    static final String PULPIT_MIDDLE = CHURCH + 94, PULPIT_MIDDLE_ALONG_Y = CHURCH + 100;
 
     static Outdoors.Piece of(String name, String called, String group, int faces, int width, int height) {
         boolean single = width == 1 && height == 1;
@@ -164,8 +163,8 @@ final class Leisure {
      * A square of a church's long desk, its top taking its colour from where the sprite paints the top over the front of its body,
      * a along the square, and its body from the front of the body under that.
      */
-    private static Outdoors.Piece pulpit(String model, float a) {
-        return new Outdoors.Piece(model, Outdoors.SOUTH).dye(WOOD, a, PULPIT_DYE_B, PULPIT_TOP_DYE).also(DARK_WOOD, PULPIT_BODY_DYE);
+    private static Outdoors.Piece pulpit(String model) {
+        return new Outdoors.Piece(model, Outdoors.SOUTH).dye(WOOD, PULPIT_DYE_A, PULPIT_DYE_B, PULPIT_TOP_DYE).also(DARK_WOOD, PULPIT_BODY_DYE);
     }
 
     /**
@@ -173,8 +172,8 @@ final class Leisure {
      * the same place on the top, turned with it. The sprites paint its body's front on the east side, which the game's art shades,
      * so the body keeps the model's own dark wood rather than take a shadow for its colour.
      */
-    private static Outdoors.Piece pulpitAlongY(String model, float a) {
-        return new Outdoors.Piece(model, Outdoors.EAST).dye(WOOD, PULPIT_DYE_B, 1f - a, PULPIT_TOP_DYE);
+    private static Outdoors.Piece pulpitAlongY(String model) {
+        return new Outdoors.Piece(model, Outdoors.EAST).dye(WOOD, PULPIT_DYE_B, 1f - PULPIT_DYE_A, PULPIT_TOP_DYE);
     }
 
     /** A studio camera on its tripod, its body dyed from the top of the body its sprite paints behind the tripod. */
@@ -414,25 +413,28 @@ final class Leisure {
                 return new Outdoors.Piece("steeple_belfry", 0).at(STEEPLE_A, STEEPLE_B)
                         .dye(1 << Models.PAINT, 0.5f, 0.97f, 0.25f).also(1 << Models.METAL, 0.49f).throughRoofBelow(1, BELFRY_HALF);
             }
-            // A long panelled desk, its front to the south: the west end, a square between, the east end. Each stands its own share.
+            // A long panelled desk, its front to the south: the west end, a square between, the east end. Each stands its own share,
+            // and every share takes its colours from the square between, so the desk is one colour from end to end: each end's own
+            // sprite gave a body a shade darker or paler than the next square's.
             case 93 -> {
-                return pulpit("pulpit_west", PULPIT_WEST_DYE);
+                return pulpit("pulpit_west").paintedBy(PULPIT_MIDDLE);
             }
             case 94 -> {
-                return pulpit("pulpit_middle", PULPIT_MIDDLE_DYE);
+                return pulpit("pulpit_middle");
             }
             case 95 -> {
-                return pulpit("pulpit_east", PULPIT_EAST_DYE);
+                return pulpit("pulpit_east").paintedBy(PULPIT_MIDDLE);
             }
-            // The same desk laid along y, its front to the east: the south end, a square between, the north end.
+            // The same desk laid along y, its front to the east: the south end, a square between, the north end, its colour taken
+            // from the square between as the desk along x takes it.
             case 99 -> {
-                return pulpitAlongY("pulpit_west", PULPIT_WEST_DYE);
+                return pulpitAlongY("pulpit_west").paintedBy(PULPIT_MIDDLE_ALONG_Y);
             }
             case 100 -> {
-                return pulpitAlongY("pulpit_middle", PULPIT_MIDDLE_DYE);
+                return pulpitAlongY("pulpit_middle");
             }
             case 101 -> {
-                return pulpitAlongY("pulpit_east", PULPIT_EAST_DYE);
+                return pulpitAlongY("pulpit_east").paintedBy(PULPIT_MIDDLE_ALONG_Y);
             }
             case 34 -> {
                 return new Outdoors.Piece("steeple_spire", 0).at(STEEPLE_A, STEEPLE_B).dye(1 << Models.METAL, 0.55f, 0.6f, 0.2f + SPIRE_SUNK).raise(-SPIRE_SUNK)

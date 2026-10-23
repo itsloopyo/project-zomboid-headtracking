@@ -48,6 +48,8 @@ final class Outdoors {
         String[] row;
         int[] rowX, rowY;
         int rowDyer = -1;
+        /** The sprite that gives the piece its colours, as that sprite's piece takes them, where it is not the piece's own: see Furniture.paintedBy. */
+        String paintedBy;
         /**
          * Whether the model's pane shows the sprite's own painting, each point of it looking at where the sprite paints that
          * point, and how far along the model's y the pane's face is: a road sign's plate.
@@ -146,6 +148,11 @@ final class Outdoors {
             rowX = new int[] {firstX, secondX};
             rowY = new int[] {firstY, secondY};
             rowDyer = dyer;
+            return this;
+        }
+
+        Piece paintedBy(String sprite) {
+            paintedBy = sprite;
             return this;
         }
 

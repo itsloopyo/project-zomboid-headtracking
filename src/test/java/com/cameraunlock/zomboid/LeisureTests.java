@@ -139,6 +139,8 @@ final class LeisureTests {
                     "it is " + models[i] + " in the middle of its square, its front to the south");
             Checks.check(piece != null && piece.dyed == 1 << Models.WOOD && piece.alsoDyed == 1 << Models.DARK_WOOD,
                     "its top and its body take their colours from the sprite");
+            Checks.check(piece != null && (i == 1 ? piece.paintedBy == null : Leisure.PULPIT_MIDDLE.equals(piece.paintedBy)),
+                    "each share takes its colours from the sprite of the square between, so the desk is one colour: " + (piece == null ? null : piece.paintedBy));
             shares[i] = Models.get(models[i]);
         }
         // Turned to face south a model's x runs east, so each share's east side meets the next one's west side at the square's edge.
@@ -452,7 +454,6 @@ final class LeisureTests {
     private static void aChurchsLongDeskAlongYIsTheSameDeskTurnedToFaceEast() {
         // 101 is the north end, 99 the south: turned to face east a model's x runs north, so its east end is the north one.
         String[] models = {"pulpit_west", "pulpit_middle", "pulpit_east"};
-        float[] along = {Leisure.PULPIT_WEST_DYE, Leisure.PULPIT_MIDDLE_DYE, Leisure.PULPIT_EAST_DYE};
         float[] turned = new float[2];
         Models.turn(Outdoors.EAST, 1f, 0f, turned);
         Checks.check(turned[0] == 0f && turned[1] == -1f, "facing east a model's x runs north");
@@ -462,7 +463,9 @@ final class LeisureTests {
             Checks.check(piece != null && piece.model.equals(models[i]) && piece.turns == Outdoors.EAST && piece.a == 0.5f && piece.b == 0.5f,
                     "it is " + models[i] + " in the middle of its square, its front to the east");
             Checks.check(piece != null && piece.dyed == 1 << Models.WOOD && piece.alsoDyed == 0 && piece.dyeA == Leisure.PULPIT_DYE_B
-                    && piece.dyeB == 1f - along[i], "its top takes its colour from the top, where the desk along x takes it, turned");
+                    && piece.dyeB == 1f - Leisure.PULPIT_DYE_A, "its top takes its colour from the top, where the desk along x takes it, turned");
+            Checks.check(piece != null && (i == 1 ? piece.paintedBy == null : Leisure.PULPIT_MIDDLE_ALONG_Y.equals(piece.paintedBy)),
+                    "each share takes its colour from the sprite of the square between: " + (piece == null ? null : piece.paintedBy));
         }
     }
 
