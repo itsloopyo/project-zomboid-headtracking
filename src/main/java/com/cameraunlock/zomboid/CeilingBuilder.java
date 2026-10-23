@@ -1,6 +1,7 @@
 package com.cameraunlock.zomboid;
 
 import zombie.core.properties.PropertyContainer;
+import zombie.core.textures.Texture;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoObject;
 import zombie.iso.SpriteDetails.IsoFlagType;
@@ -32,7 +33,8 @@ final class CeilingBuilder {
      * slopes or nothing at all, and from inside the room that is rafters and sky. Left open
      * where nothing is laid over the square: one the stairs go up through or a roof comes down
      * through (openAbove), one with a room over it, which is how the map marks a hall two
-     * floors high, and one under a tent's canopy, whose canvas is its ceiling. A square beside
+     * floors high, one under a tent's canopy, whose canvas is its ceiling, and one under a glass
+     * roof or a skylight, which lets the sky in where a slope of tiles is rafters. A square beside
      * one of that room's with no floor is the hall too (TallHalls), or each row left out of it
      * hangs a strip of plaster across the hall at the upper floor. Such a row is given the
      * hall's ceiling at the top of its own level, by the same rules.
@@ -40,7 +42,7 @@ final class CeilingBuilder {
     void addRoomCeiling(int x, int y, int z, int localX, int localY, boolean openAbove) {
         IsoGridSquare above = build.cell.getGridSquare(x, y, z + 1);
         boolean floored = above != null && above.getFloor() != null;
-        if (!floored && (openAbove || above != null && (above.getRoomID() != -1L || Tents.canvasOn(above)) || build.madeAt(x, y, z) || TallHalls.besideHallOver(build.cell, x, y, z + 1))
+        if (!floored && (openAbove || above != null && (above.getRoomID() != -1L || Tents.canvasOn(above) || glazed(above)) || build.madeAt(x, y, z) || TallHalls.besideHallOver(build.cell, x, y, z + 1))
                 || world.cutAway(x, y)) {
             return;
         }
@@ -58,6 +60,31 @@ final class CeilingBuilder {
         }
         plain.litAsFace();
         WorldScene.layers.none();
+    }
+
+    /**
+     * Whether a roof laid on the square is glass (SeeThrough). Not while a sprite of it is still
+     * to be read: the build is made again once it has been.
+     */
+    private boolean glazed(IsoGridSquare square) {
+        PZArrayList<IsoObject> objects = square.getObjects();
+        for (int i = 0; i < objects.size(); i++) {
+            IsoSprite sprite = objects.get(i).getSprite();
+            if (sprite == null || sprite.getName() == null || !sprite.getName().startsWith("roofs")) {
+                continue;
+            }
+            Texture texture = WorldScene.textureOf(objects.get(i));
+            if (texture == null) {
+                continue;
+            }
+            Boolean glass = SeeThrough.of(texture);
+            if (glass == null) {
+                build.building.signed = false;
+            } else if (glass) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

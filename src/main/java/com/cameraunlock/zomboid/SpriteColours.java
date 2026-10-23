@@ -334,6 +334,7 @@ final class SpriteColours {
             WallTiles.read(texture, page, across, left, top, right, bottom);
             Tiles.read(texture, page, across, left, top, right, bottom);
             Solids.read(texture, page, across, left, top, right, bottom);
+            SeeThrough.read(texture, page, across, left, top, right, bottom);
             Flats.read(texture, page, across, left, top, right, bottom);
             Rugs.read(texture, page, across, left, top, right, bottom);
             Trims.read(texture, page, across, left, top, right, bottom);
