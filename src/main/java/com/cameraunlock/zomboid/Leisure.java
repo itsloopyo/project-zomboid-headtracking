@@ -5,8 +5,8 @@ package com.cameraunlock.zomboid;
  * slides, a play house, a roundabout and a fountain, running machines and weight benches, walls of
  * old tyres, basketball hoops, nets across courts, football goals, what a playing field, a boxing ring and a gym have,
  * pianos and their benches,
- * speakers, an amplifier, drums, a jukebox, a pinball table, a stage's microphone, theatre seats, a lectern, an altar
- * and a steeple. Asked by
+ * speakers, an amplifier, drums, a jukebox, a pinball table, the lamp over a pool table, a stage's microphone, theatre
+ * seats, a lectern, an altar and a steeple. Asked by
  * Outdoors.of before its own table, and stood the same way, so a piece of either is one kind of thing.
  *
  * Where each model stands on its squares was read off the game's sprites of it, laid over them in
@@ -18,7 +18,7 @@ final class Leisure {
 
     private static final String PARK = "location_community_park_01_", SPORTS = "recreational_sports_01_",
             CHURCH = "location_community_church_small_01_";
-    private static final int PAINT = 1 << Models.PAINT, METAL = 1 << Models.METAL;
+    private static final int PAINT = 1 << Models.PAINT, METAL = 1 << Models.METAL, SHADE = 1 << Models.SHADE;
     private static final float LEVEL = ViewCamera.LEVEL_HEIGHT;
 
     /** Where a swing's beam runs across its squares, and where along it the frame's apex stands, both from the square's corner. */
@@ -29,6 +29,8 @@ final class Leisure {
     private static final float SWING_LEG_HALF = 0.36f;
     /** How high a swing's beam is painted on its sprite, and a leg of its frame, in levels. */
     private static final float SWING_BEAM_DYE = 0.91f, SWING_LEG_DYE = 0.45f;
+    /** How high the fringe under a pool table's lamp hangs, in metres, and where its sprite paints a green shade, in levels. */
+    static final float POOL_LAMP_FOOT = 1.545f, POOL_SHADE_DYE = 0.68f;
     /** How far in front of its pole a basketball's board stands. */
     static final float BOARD_AHEAD = 0.12f;
 
@@ -78,6 +80,9 @@ final class Leisure {
             // The green of its sides, where the sprite of its head square paints it for each way it faces.
             Outdoors.Piece pinball = new Outdoors.Piece("pinball", faces);
             return faces == Outdoors.EAST ? pinball.dye(PAINT, 0.05f, 0.7f, 0.27f) : pinball.dye(PAINT, 0.1f, 0.1f, 0.23f);
+        }
+        if (called.equals("Lamp") && kind.equals("Fancy Green") && along == 1 && across == 2) {
+            return new Outdoors.Piece("pool_lamp", faces).raise(POOL_LAMP_FOOT / LEVEL).dye(SHADE, POOL_SHADE_DYE);
         }
         if (called.equals("Altar") && along == 1 && across == 2) {
             return new Outdoors.Piece("altar", faces);

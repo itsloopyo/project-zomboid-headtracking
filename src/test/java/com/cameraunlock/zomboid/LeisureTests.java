@@ -22,6 +22,7 @@ final class LeisureTests {
         Checks.run("aTowersSpireStandsOnItsFrontSquareAndItsCrossOnItsPoint", LeisureTests::aTowersSpireStandsOnItsFrontSquareAndItsCrossOnItsPoint);
         Checks.run("aPairOfTheatreSeatsFacesTheWayItsSpriteSays", LeisureTests::aPairOfTheatreSeatsFacesTheWayItsSpriteSays);
         Checks.run("aStageMicrophoneFacesTheWayItsSpriteSays", LeisureTests::aStageMicrophoneFacesTheWayItsSpriteSays);
+        Checks.run("aPoolTablesLampHangsFromTheCeilingOverBothSquares", LeisureTests::aPoolTablesLampHangsFromTheCeilingOverBothSquares);
     }
 
     private static void holds(Outdoors.Piece piece, String what) {
@@ -97,6 +98,19 @@ final class LeisureTests {
             Checks.check(microphone != null && microphone.model.equals("stage_microphone") && microphone.turns == faces, "it is turned the way it faces");
         }
         Checks.check(Outdoors.of("appliances_com_01_68", "Microphone", "Standing", Outdoors.NONE, 1, 1, 0) == null, "a microphone facing no way is left to the game");
+    }
+
+    private static void aPoolTablesLampHangsFromTheCeilingOverBothSquares() {
+        Outdoors.Piece south = Outdoors.of("recreational_01_84", "Lamp", "Fancy Green", Outdoors.SOUTH, 2, 1, 0);
+        Outdoors.Piece east = Outdoors.of("recreational_01_87", "Lamp", "Fancy Green", Outdoors.EAST, 1, 2, 0);
+        holds(south, "a pool table's lamp across x has a model");
+        holds(east, "and one across y");
+        Checks.check(south.model.equals("pool_lamp") && east.model.equals("pool_lamp"), "both are the pool table's lamp");
+        Models.Model lamp = Models.get("pool_lamp");
+        Checks.check(Math.abs(east.raised + lamp.height() - ViewCamera.LEVEL_HEIGHT) < 0.002f, "its pole meets the ceiling: " + (east.raised + lamp.height()));
+        float shade = east.dyeHigh * ViewCamera.LEVEL_HEIGHT;
+        Checks.check(shade > east.raised && shade < east.raised + 0.2f, "its colour is taken from a shade, just over its fringe: " + shade);
+        Checks.check(Outdoors.of("recreational_01_87", "Lamp", "Fancy Green", Outdoors.EAST, 1, 1, 0) == null, "a lamp of one square is none of it");
     }
 
         private static void aSteeplesSpireStandsOnItsBelfry() {

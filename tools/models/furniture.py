@@ -11976,6 +11976,10 @@ def shops():
 # metaballs. Gallery stands the sculpture and Leisure the microphone.
 
 
+# A gallery's sculpture, a stage's microphone and the lamp over a bar's pool table: busts on their plinths and statues
+# on their bases, carved from metaballs. Gallery stands the sculpture, Leisure the microphone and the lamp.
+
+
 # A metaball's surface lies this far out of its centre for each unit of its radius, at the threshold and stiffness used here.
 BLOB_REACH = 0.575
 # How much harder the decimation holds on to what a carving is told to keep.
@@ -12400,8 +12404,35 @@ def stage_microphone():
     return model
 
 
+def pool_lamp():
+    """A billiard lamp over a pool table two squares long: three green shades with a brass fringe on a brass bar along x,
+    held by two curved arms from a pole down from the ceiling. The shades' rims are 1.58 m up and 0.53 m apart."""
+    model = Model("pool_lamp", hung=True)
+    brass, shades, fringe = bmesh.new(), bmesh.new(), bmesh.new()
+    top = 2.449
+    rod(brass, (0.0, 0.0, top), (0.0, 0.0, 2.17), 0.01, segments=8)
+    lathe(brass, [(0.0, top - 0.02), (0.05, top - 0.02), (0.05, top), (0.0, top)], segments=12)
+    lathe(brass, [(0.0, 2.12), (0.022, 2.13), (0.022, 2.19), (0.0, 2.2)], segments=10)
+    rod(brass, (-0.62, 0.0, 1.75), (0.62, 0.0, 1.75), 0.011, segments=8)
+    for side in (-1, 1):
+        arc = [(side * 0.31 * (1 - math.cos(math.radians(a))), 0.0, 2.15 - 0.4 * math.sin(math.radians(a))) for a in range(0, 91, 15)]
+        for a, b in zip(arc, arc[1:]):
+            rod(brass, a, b, 0.007, segments=6)
+        lathe(brass, [(0.0, 1.73), (0.014, 1.73), (0.014, 1.81), (0.0, 1.81)], cx=side * 0.62, segments=8)
+    for x in (-0.53, 0.0, 0.53):
+        lathe(brass, [(0.0, 1.66), (0.012, 1.66), (0.012, 1.75), (0.0, 1.75)], cx=x, segments=8)
+        lathe(brass, [(0.0, 1.64), (0.03, 1.645), (0.03, 1.665), (0.0, 1.67)], cx=x, segments=10)
+        lathe(shades, [(0.03, 1.66), (0.08, 1.645), (0.13, 1.615), (0.155, 1.585), (0.16, 1.575), (0.15, 1.575), (0.12, 1.6),
+                       (0.075, 1.625), (0.028, 1.64)], cx=x, segments=20, closed=True)
+        lathe(fringe, [(0.162, 1.585), (0.165, 1.545), (0.155, 1.545), (0.152, 1.585)], cx=x, segments=20, closed=True)
+    model.turned(brass, "metal")
+    model.turned(shades, "shade")
+    model.turned(fringe, "metal")
+    return model
+
+
 def gallery():
-    return [bust("bust_male", False, 3), bust("bust_female", True, 5), female_statue(), male_statue(), orator_statue(), stage_microphone()]
+    return [bust("bust_male", False, 3), bust("bust_female", True, 5), female_statue(), male_statue(), orator_statue(), stage_microphone(), pool_lamp()]
 
 
 def every():
