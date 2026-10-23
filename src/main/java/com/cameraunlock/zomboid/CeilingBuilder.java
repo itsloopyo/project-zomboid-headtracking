@@ -25,6 +25,19 @@ final class CeilingBuilder {
         this.build = build;
     }
 
+    /** Whether a square beside this one on level z, the eight round it, is in a room and has no floor. */
+    private boolean besideHallOver(int x, int y, int z) {
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dy = -1; dy <= 1; dy++) {
+                IsoGridSquare beside = build.cell.getGridSquare(x + dx, y + dy, z);
+                if ((dx != 0 || dy != 0) && beside != null && beside.getRoomID() != -1L && beside.getFloor() == null) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     /**
      * A room has a plaster ceiling at the top of its level, lit by the room. Under a floor too:
      * the boards or carpet of the room upstairs are not what its ceiling is made of. Over the
@@ -32,12 +45,15 @@ final class CeilingBuilder {
      * slopes or nothing at all, and from inside the room that is rafters and sky. Left open
      * where nothing is laid over the square: one the stairs go up through or a roof comes down
      * through (openAbove), one with a room over it, which is how the map marks a hall two
-     * floors high, and one under a tent's canopy, whose canvas is its ceiling.
+     * floors high, and one under a tent's canopy, whose canvas is its ceiling. The room over a
+     * hall is often laid in rectangles with rows left out between them, under its columns and
+     * along its walls: a square beside one of that room's with no floor is the hall too, or
+     * each row left out hangs a strip of plaster across the hall at the upper floor.
      */
     void addRoomCeiling(int x, int y, int z, int localX, int localY, boolean openAbove) {
         IsoGridSquare above = build.cell.getGridSquare(x, y, z + 1);
         boolean floored = above != null && above.getFloor() != null;
-        if (!floored && (openAbove || above != null && (above.getRoomID() != -1L || Tents.canvasOn(above)) || build.madeAt(x, y, z))
+        if (!floored && (openAbove || above != null && (above.getRoomID() != -1L || Tents.canvasOn(above)) || build.madeAt(x, y, z) || besideHallOver(x, y, z + 1))
                 || world.cutAway(x, y)) {
             return;
         }
