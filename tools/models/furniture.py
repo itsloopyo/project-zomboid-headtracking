@@ -12670,8 +12670,31 @@ def chandelier_tiers():
     return model
 
 
+def wall_cross():
+    """A cross hung on a wall, the wall at +Y: an upright 1.2 m long and a crossbar 0.7 m long a third of the way down it,
+    bars 0.094 wide standing 0.047 off the wall, each with a sunk groove down the middle of its face between two raised rims,
+    the upright's groove running on through the crossing."""
+    model = Model("wall_cross", hung=True)
+    rims, core = bmesh.new(), bmesh.new()
+    high, wide, bar, deep, sunk, groove = 1.2, 0.7, 0.094, 0.047, 0.008, 0.032
+    arm = high - 0.33
+    rim = (bar - groove) / 2
+    cuboid(core, -bar / 2, bar / 2, -deep + sunk, 0.0, 0.0, high)
+    cuboid(core, -wide / 2, wide / 2, -deep + sunk, 0.0, arm - bar / 2, arm + bar / 2)
+    for x0 in (-bar / 2, bar / 2 - rim):
+        cuboid(rims, x0, x0 + rim, -deep, -deep + sunk, 0.0, high)
+    for x0, x1 in ((-wide / 2, -bar / 2), (bar / 2, wide / 2)):
+        for z0 in (arm - bar / 2, arm + bar / 2 - rim):
+            cuboid(rims, x0, x1, -deep, -deep + sunk, z0, z0 + rim)
+        end = x0 if x0 < 0 else x1 - rim
+        cuboid(rims, end, end + rim, -deep, -deep + sunk, arm - bar / 2 + rim, arm + bar / 2 - rim)
+    model.hard(rims, "plastic", bevel=0.002, segments=1)
+    model.plain(core, "rubber")
+    return model
+
+
 def church_fittings():
-    return [chandelier_bowl(), chandelier_tiers()]
+    return [chandelier_bowl(), chandelier_tiers(), wall_cross()]
 
 
 def every():

@@ -30,6 +30,7 @@ final class LeisureTests {
         Checks.run("aPoolTablesLampHangsFromTheCeilingOverBothSquares", LeisureTests::aPoolTablesLampHangsFromTheCeilingOverBothSquares);
         Checks.run("anOrgansWestSquareStandsItAgainstItsWallAndTheRestStandNothing", LeisureTests::anOrgansWestSquareStandsItAgainstItsWallAndTheRestStandNothing);
         Checks.run("aChandeliersBowlAndTiersHangFromOneRodWhereTheirHalvesMeet", LeisureTests::aChandeliersBowlAndTiersHangFromOneRodWhereTheirHalvesMeet);
+        Checks.run("aCrossOnAChurchWallHangsOnTheWallItsSpriteIsAttachedTo", LeisureTests::aCrossOnAChurchWallHangsOnTheWallItsSpriteIsAttachedTo);
         Checks.run("aChurchsColouredWindowsAreStainedGlassAndItsClearOnesAreNot", LeisureTests::aChurchsColouredWindowsAreStainedGlassAndItsClearOnesAreNot);
         Checks.run("whatAPitchACourtAndADiamondStandOnIsLevelGround", LeisureTests::whatAPitchACourtAndADiamondStandOnIsLevelGround);
         Checks.run("levelGroundIsFlatInItsBoxAndEasesBackOutToTheLand", LeisureTests::levelGroundIsFlatInItsBoxAndEasesBackOutToTheLand);
@@ -396,6 +397,21 @@ final class LeisureTests {
     }
 
     private static final String CHURCH = "location_community_church_small_01_";
+
+    private static void aCrossOnAChurchWallHangsOnTheWallItsSpriteIsAttachedTo() {
+        for (int place : new int[] {22, 23, 36, 37, 38, 54, 55}) {
+            boolean west = place == 22 || place == 36 || place == 38 || place == 54;
+            String name = CHURCH + place;
+            Furniture cross = Furniture.known(TileRows.sprite(name + (west ? "|attachedW|" : "|attachedN|")));
+            Checks.check(cross != null && cross.model != null && cross.model.name.equals("wall_cross"), name + " is a cross");
+            Checks.check(cross != null && cross.wall == (west ? WallHung.WEST : WallHung.NORTH)
+                    && cross.turns == (west ? Outdoors.EAST : Outdoors.SOUTH), name + " hangs on its wall, facing away from it");
+        }
+        Furniture spire = Furniture.known(TileRows.sprite(CHURCH + 39 + "|attachedN|"));
+        Checks.check(spire == null || spire.model == null || !spire.model.name.equals("wall_cross"), "the cross on a tower's spire is not one");
+        Models.Model model = Models.get("wall_cross");
+        Checks.check(model.height() > 1.1f && model.width() < 0.75f && model.depth() < 0.06f, "it is a latin cross, standing a little off its wall");
+    }
 
     private static void aChandeliersBowlAndTiersHangFromOneRodWhereTheirHalvesMeet() {
         String sheet = "lighting_indoor_03_";

@@ -374,6 +374,12 @@ final class Furniture {
         if (name != null && called == null && grid == null && name.startsWith(Clinic.OFFICE)) {
             return Clinic.unnamedDesk(sprite, name);
         }
+        if (name != null && called == null && grid == null) {
+            Furniture cross = Leisure.wallCross(sprite, name);
+            if (cross != null) {
+                return cross;
+            }
+        }
         if (name != null && called == null) {
             Furniture unnamed = ShopFittings.unnamed(sprite, name);
             if (unnamed != null) {

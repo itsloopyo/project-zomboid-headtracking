@@ -1,6 +1,8 @@
 package com.cameraunlock.zomboid;
 
 import java.util.concurrent.ConcurrentHashMap;
+import zombie.iso.IsoDirections;
+import zombie.iso.sprite.IsoSprite;
 
 /**
  * What a park, a gym, a track, a church and a music room have that the mod has a model of: swings,
@@ -320,6 +322,20 @@ final class Leisure {
             case 1, 3 -> following(new Outdoors.Piece(null, Outdoors.EAST).pairedWith(CHANDELIERS + (place - 1), -1, 1));
             default -> null;
         };
+    }
+
+    /**
+     * A cross hung on a wall, which the game paints with no name, high on a wall or lower down, at its middle or towards an end:
+     * on a west wall 22, 36, 38 and 54, on a north one 23, 37 and 55. It hangs where its sprite paints it, as a picture does.
+     * Null for any other sprite.
+     */
+    static Furniture wallCross(IsoSprite sprite, String name) {
+        IsoDirections away = switch (Sheets.place(name, CHURCH)) {
+            case 22, 36, 38, 54 -> IsoDirections.E;
+            case 23, 37, 55 -> IsoDirections.S;
+            default -> null;
+        };
+        return away == null ? null : new Furniture(sprite, "wall_cross", Furniture.turnsOf(away)).hang(WallHung.behind(away), false);
     }
 
     /** Whether a sprite is a square of a church's pipe organ, whose grid the game lays over two storeys. */
