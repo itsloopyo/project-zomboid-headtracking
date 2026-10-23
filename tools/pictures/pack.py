@@ -1,4 +1,4 @@
-"""Puts the generated pictures (tools/pictures/generate.py) into the mod's jar resources, with the index of what shows each.
+"""Puts the pictures picked (catalogue.SEEDS) into the mod's jar resources, with the index of what shows each.
 
     python tools/pictures/pack.py DIR [--partial]
 
@@ -9,7 +9,8 @@ pictures not picked yet are left out, and the sprites that would show them keep 
 The index lists each picture with its size, and its subject where catalogue.subject gives one; then what shows each;
 then catalogue.POOLS, a line a pool: @subject, a tab, the kind of room, a tab and its pictures with a space between.
 
-What a television shows (catalogue.SHOTS) is cut four wide for three high. The bars a set shows with nothing coming
+What a television shows (catalogue.SHOTS) is cut four wide for three high, and the count of each show's shots in
+shows.txt (schedule.py) is set to how many of them, from the first, were made: a show with none shows the bars. The bars a set shows with nothing coming
 in, screen-bars and for a set with no colour screen-grey-bars, are drawn here.
 
 The lettering is set in fonts of this machine's Windows (Impact and Georgia). Only the letters' shapes as
@@ -31,12 +32,6 @@ QUALITY = 86
 # The longest side a picture is kept at, by what it is: a snapshot in a frame a hand across is worth fewer pixels than a hoarding.
 LONGEST = {'family': 768, 'painting': 1024, 'board': 1024, 'certificate': 1024, 'music': 768, 'film': 1344, 'sign': signs.LONGEST}
 SMALL = 768
-# The share of each side cut off every generated picture before it is shaped, by what it is. Qwen-Image signs nearly
-# every painting in a bottom corner whatever the prompt says, never further in than about 7% of the side. Elsewhere it
-# leaves a faint stock watermark in the bottom right corner: of 89 found in 619 picked pictures, none reached further in
-# than 4.02% of the shorter side.
-TRIM = {'painting': 0.08}
-EDGE = 0.05
 # How many times as wide as it is high each shape cut from square art is.
 SHAPES = {'tall': 2 / 3, 'wide': 3 / 2, 'broad': 16 / 9}
 # A television's picture, in pixels: more than a tube of 1993 could show.
@@ -139,8 +134,8 @@ def gig(shape):
     """A band's or a singer's poster: the whole picture on a black sheet, the name in the black above it and a line below,
     or with no name the picture alone in the middle of the sheet.
 
-    Lettered over the picture, the name kept landing on a face: Qwen-Image puts heads high in the frame whatever it is told.
-    Cut to the sheet's shape, a band lost the players at either end.
+    Lettered over the picture, the name lands on a face wherever heads are high in the frame. Cut to the sheet's shape, a
+    band loses the players at either end.
     """
     def laid(art, title='', line=''):
         across = max(art.size)
@@ -193,14 +188,11 @@ def screens(folder):
 
 
 def made(folder, name):
-    """The generated art of that name as picked from its candidates, or None where none is picked yet."""
+    """The art picked for that name, or None where none is picked yet."""
     if name not in catalogue.SEEDS:
         return None
-    model, seed = catalogue.SEEDS[name]
-    art = Image.open(folder / model / name / f'{seed}.png').convert('RGB')
-    # The models often leave a strip of bare canvas or a bright line of a pixel or two along an edge.
-    edge = round(min(art.size) * TRIM.get(name.split('-')[0], EDGE))
-    return art.crop((edge, edge, art.width - edge, art.height - edge))
+    source, picked = catalogue.SEEDS[name]
+    return Image.open(folder / source / name / f'{picked}.png').convert('RGB')
 
 
 def picture(folder, name):
@@ -217,6 +209,20 @@ def picture(folder, name):
     base, shape = name.rsplit('-', 1)
     art = made(folder, base)
     return None if art is None else cut(art, SHAPES[shape])
+
+
+def counted(sizes):
+    """Sets the count of each show's shots in shows.txt to how many of screen-<show>-0 and on were made."""
+    table = OUT / 'shows.txt'
+    lines = table.read_text(encoding='utf-8').splitlines()
+    for at, line in enumerate(lines):
+        kind, show, _ = line.split('\t')
+        if kind == 'show':
+            made_of = 0
+            while f'screen-{show}-{made_of}' in sizes:
+                made_of += 1
+            lines[at] = f'show\t{show}\t{made_of}'
+    table.write_text(''.join(line + '\n' for line in lines), encoding='utf-8', newline='\n')
 
 
 def main():
@@ -268,6 +274,7 @@ def main():
             made_of = [name for name in pool if name in sizes]
             if made_of:
                 index.write(f"@{subject}\t{kind}\t{' '.join(made_of)}\n")
+    counted(sizes)
     print(f'{len(sizes)} pictures, {total / 1e6:.1f} MB, {len(missing)} not made yet')
 
 

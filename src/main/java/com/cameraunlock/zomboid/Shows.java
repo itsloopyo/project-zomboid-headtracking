@@ -10,7 +10,8 @@ import java.util.Map;
 /**
  * Which show each of the game's television broadcasts and video tapes is, and how a set
  * shows one: the jar's /pictures/shows.txt, made by tools/pictures/schedule.py from the game's
- * own files. A show is a handful of shots, the pictures screen-name-0 and on. A set cuts from
+ * own files. A show is the shots the jar has of it, the pictures screen-name-0 and on, which
+ * can be none: a set showing a show with none shows the bars. A set cuts from
  * one shot to another every few seconds, and through each the camera pushes in, pulls back
  * or pans, so the picture moves in every frame the game draws.
  *
@@ -19,7 +20,7 @@ import java.util.Map;
  * broadcast's id and its show; "tape", a tape's id and its show.
  */
 final class Shows {
-    /** The first two shows of the file: the one of no one programme, and interference, which has no shots. */
+    /** The first two shows of the file: the one of no one programme, and interference, which never has shots. */
     static final int ANY = 0, SNOW = 1;
     /** About how many cuts a show makes before it makes the same ones again: a whole number of times round its shots. */
     static final int CUTS = 16;
@@ -63,8 +64,7 @@ final class Shows {
                 default -> throw new IOException(path + " has a line that is no show, channel, broadcast or tape: " + line);
             }
         }
-        if (read.names.size() <= SNOW || !read.names.get(ANY).equals("any") || !read.names.get(SNOW).equals("snow") || read.shots.get(ANY) == 0
-                || read.shots.get(SNOW) != 0) {
+        if (read.names.size() <= SNOW || !read.names.get(ANY).equals("any") || !read.names.get(SNOW).equals("snow") || read.shots.get(SNOW) != 0) {
             throw new IOException(path + " does not begin with the show of no one programme and then interference");
         }
         read.ends = new long[read.names.size()][];

@@ -7,7 +7,7 @@ An unofficial head tracking mod for Project Zomboid that moves the view with you
 It adds a first person view to the game, with a rebuilt world and new graphics. You do not need a head tracker or a microphone, and you choose how much of the mod you see:
 
 - **Isometric with new graphics** - the game starts in its own isometric view, with the game's own picture. Set the isometric view to Medium or High in **Options > Mods > Head Tracking** for the mod's lighting, shadows, models and textures there too.
-- **First person with the game's own look** - press `Delete` for first person. Low keeps the game's own look, apart from furniture, windows and doors, which are 3D in every mode. Each of the mod's own weapons, furniture, pictures, plants, textures, buildings, skins, arms, clothes, fire and vehicle interiors can be put back to the game's own on the same options page.
+- **First person with the game's own look** - press `Delete` for first person. Low keeps the game's own look, apart from furniture, windows and doors, which are 3D in every mode. Each of the mod's own weapons, furniture, plants, textures, buildings, skins, arms, clothes, fire and vehicle interiors can be put back to the game's own on the same options page.
 - **No head tracker needed** - first person plays with a mouse and keyboard or a controller. Without a tracker, nothing follows your head.
 - **No microphone needed** - Talking mouths is off until you tick it, and no microphone is opened until then.
 

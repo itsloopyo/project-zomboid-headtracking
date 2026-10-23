@@ -25,8 +25,9 @@ import zombie.radio.scripting.RadioScriptManager;
  * set that is on, a dozen pixels across, and that is how a set that is on is told here. A set
  * with nothing coming in shows the bars, as the game's does. A set with a channel coming in or
  * a tape playing shows the show that is on: the game says which broadcast a channel is airing
- * and which tape is in a set, Shows says which show each is, and the jar has a handful of
- * shots of every show, made with tools/pictures. Every set on one channel shows the same.
+ * and which tape is in a set, Shows says which show each is, and the jar has the shots of
+ * each show made with tools/pictures, or none, when the set shows the bars. Every set on one
+ * channel shows the same.
  *
  * A chunk is not built again as the picture changes. The sheet on a set's glass carries
  * where its picture comes from, a channel or a tape, where another piece carries its texture,
@@ -268,9 +269,12 @@ final class Screens {
                 return false;
             }
             int show = sources.show.get(number);
-            if (shows.shots(show) == 0) {
+            if (show == Shows.SNOW) {
                 out[0] = out[1] = out[2] = SNOW_GLOW;
                 return true;
+            }
+            if (shows.shots(show) == 0) {
+                return Decor.glow(bars()[inGrey ? 1 : 0], 0.5f, 0.5f, 1f, out);
             }
             shows.cut(show, System.nanoTime(), glowCut);
             shown = Decor.glow(shots[show][(int) glowCut[Shows.SHOT]], glowCut[Shows.ACROSS], glowCut[Shows.DOWN], glowCut[Shows.OF], out);
@@ -301,7 +305,7 @@ final class Screens {
         if (shows.shots(show) == 0) {
             tube[0] = tube[1] = 0.5f;
             tube[2] = 1f;
-            tube[3] = SNOW;
+            tube[3] = show == Shows.SNOW ? SNOW : IN_COLOUR;
             return -1 - bars[0];
         }
         shows.cut(show, now, cut);

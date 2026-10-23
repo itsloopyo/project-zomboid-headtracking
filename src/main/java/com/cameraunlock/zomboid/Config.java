@@ -264,8 +264,8 @@ final class Config {
                             + "game's sprites.",
                     writable | live, true),
             core.configLocalBool("Content", "OwnPictures",
-                    "true: the mod's photographs, paintings, posters, signs and television programmes. false: the game's pictures, and\n"
-                            + "only colour bars on a television.",
+                    "true: the mod's own pictures on walls and televisions, where it has one. false: the game's pictures, and only colour\n"
+                            + "bars on a television.",
                     writable | live, true),
             core.configLocalBool("Content", "OwnPlants",
                     "true: the mod's trees, bushes, boulders, grass, ferns, flowers, crops, fallen leaves and fallen sticks. false: the game's\n"

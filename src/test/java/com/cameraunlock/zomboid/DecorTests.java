@@ -29,7 +29,7 @@ final class DecorTests {
         Checks.run("jarHoldsAPictureForEverythingATelevisionShows", DecorTests::jarHoldsAPictureForEverythingATelevisionShows);
         Checks.run("aShowCutsRoundItsShotsAndMovesAcrossEachOne", DecorTests::aShowCutsRoundItsShotsAndMovesAcrossEachOne);
         Checks.run("aBroadcastNobodyListedIsItsChannelsShow", DecorTests::aBroadcastNobodyListedIsItsChannelsShow);
-        Checks.run("aShopsSignShowsAPictureTheShapeOfItsBoard", DecorTests::aShopsSignShowsAPictureTheShapeOfItsBoard);
+        Checks.run("aSpriteTheJarHasNoPictureForShowsNone", DecorTests::aSpriteTheJarHasNoPictureForShowsNone);
         Checks.run("everyPictureInTheJarReadsAsItsColoursDotForDot", DecorTests::everyPictureInTheJarReadsAsItsColoursDotForDot);
         Checks.run("everyRoomOnTheMapIsTheKindToolsPicturesGivesIt", DecorTests::everyRoomOnTheMapIsTheKindToolsPicturesGivesIt);
         Checks.run("aRoomThatSaysNothingTakesItsKindFromItsBuilding", DecorTests::aRoomThatSaysNothingTakesItsKindFromItsBuilding);
@@ -49,7 +49,7 @@ final class DecorTests {
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
-        check(pictures.size() > 600, "the jar lists its pictures: " + pictures.size());
+        check(pictures.stream().anyMatch(picture -> picture[0].equals("screen-bars")), "the jar lists its pictures, the bars among them");
         check(!Quality.smallerPictures(), "the tests read pictures at full size");
         for (String[] picture : pictures) {
             String path = "/pictures/" + picture[0] + ".jpg";
@@ -82,14 +82,8 @@ final class DecorTests {
         }
     }
 
-    private static void aShopsSignShowsAPictureTheShapeOfItsBoard() {
-        // The coffee shop's sign is three squares long and under a quarter as high: a picture of another shape would lose its ends.
-        int low = Decor.of("location_restaurant_seahorse_01_67", "Sign", "Coffee Low", true);
-        check(low != Decor.NONE, "the sign the game calls Coffee Low shows a picture of the mod's");
-        check(low != Decor.NONE && Math.abs(Decor.wideForHigh(low) - 2.98f / 0.71f) < 0.05f, "and it is the shape of the board");
-        check(Decor.of("location_restaurant_seahorse_01_72", "Sign", "Coffee High", true) == low, "the same sign under the game's other name for it shows the same picture");
-        check(Decor.of("walls_decoration_01_16", "Flag", "Stars n Stripes", false) != Decor.NONE, "a flag hung on a wall shows one too");
-        check(Decor.of("signs_one-off_08_93", "Sign", "", false) == Decor.NONE, "and a sign the mod has no picture for shows none");
+    private static void aSpriteTheJarHasNoPictureForShowsNone() {
+        check(Decor.of("signs_one-off_08_93", "Sign", "", false) == Decor.NONE, "a sign the mod has no picture for shows none");
     }
 
     private static float u(float[] laid, float x) {
@@ -185,20 +179,20 @@ final class DecorTests {
         Shows shows = shows();
         List<String> names = new ArrayList<>(List.of("screen-bars", "screen-grey-bars"));
         for (int show = 0; show < shows.count(); show++) {
-            check(show == Shows.SNOW || shows.shots(show) > 0, "the show " + shows.name(show) + " has a shot");
             for (int shot = 0; shot < shows.shots(show); shot++) {
                 names.add(shows.picture(show, shot));
             }
         }
-        check(shows.count() > 80 && names.size() > 400, "the jar's table has the game's shows in it: " + shows.count() + " shows, " + names.size() + " pictures");
+        check(shows.count() > 80, "the jar's table has the game's shows in it: " + shows.count() + " shows");
         for (String name : names) {
             check(Math.abs(Decor.wideForHigh(Decor.named(name)) - Screens.WIDE_FOR_HIGH) < 1e-3f, name + " is four wide for three high in the jar's index");
             check(Decor.class.getResource("/pictures/" + name + ".jpg") != null, "the jar holds " + name + ".jpg");
         }
     }
 
-    private static void aShowCutsRoundItsShotsAndMovesAcrossEachOne() {
-        Shows shows = shows();
+    private static void aShowCutsRoundItsShotsAndMovesAcrossEachOne() throws IOException {
+        Shows shows = Shows.read(new BufferedReader(new StringReader(
+                "show\tany\t4\nshow\tsnow\t0\nshow\ttwo\t2\nshow\tthree\t3\nshow\tsix\t6\nshow\tnone\t0\n")), "test");
         float[] cut = new float[Shows.CUT_FLOATS], next = new float[Shows.CUT_FLOATS];
         long step = 10_000_000L;
         for (int show = 0; show < shows.count(); show++) {
@@ -250,7 +244,7 @@ final class DecorTests {
         check(shows.name(shows.aired(200, null)).equals("news-desk"), "a news channel with nothing said of its broadcast shows its news desk");
         check(shows.aired(200, "no such broadcast") == shows.aired(200, null), "and so it does for a broadcast the table does not list");
         check(shows.aired(98765, null) == Shows.ANY && shows.taped("no such tape") == Shows.ANY, "a channel or a tape the table does not list is the show of no one programme");
-        check(shows.shots(Shows.SNOW) == 0 && shows.shots(Shows.ANY) > 0, "interference has no shots and the show of no one programme has");
+        check(shows.shots(Shows.SNOW) == 0, "interference has no shots");
     }
 
     private static void everyRoomOnTheMapIsTheKindToolsPicturesGivesIt() throws IOException {
@@ -344,7 +338,6 @@ final class DecorTests {
             check(name.startsWith("family-") == "family".equals(subject) && name.startsWith("certificate-") == "certificate".equals(subject),
                     name + " has the subject of its name: " + subject);
         }
-        check(jar.pools.containsKey("certificate\trestaurant") && jar.pools.containsKey("family\tmedical"), "the jar pools certificates for a restaurant and family photographs for a clinic");
         for (String pooled : jar.pools.keySet()) {
             check(Decor.KINDS.contains(pooled.split("\t")[1]), "the jar pools pictures for a kind of room there is: " + pooled);
         }

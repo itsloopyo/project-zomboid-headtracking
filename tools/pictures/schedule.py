@@ -13,7 +13,8 @@ first that matches being the show; and TAPES, the same for a tape's title.
 
 A line of it is tab separated: "show", a show's name and how many shots it has, the shows in the order the mod numbers
 them; "channel", a frequency and the show of a broadcast on it the file does not list; "air", a broadcast's id and its
-show; "tape", a tape's id and its show.
+show; "tape", a tape's id and its show. The counts written here are the shots shows.py plans; pack.py, run after,
+sets each to the shots it made.
 
 Stops at a broadcast or a tape that is no show, so that a game update with a new programme in it is seen here.
 """
