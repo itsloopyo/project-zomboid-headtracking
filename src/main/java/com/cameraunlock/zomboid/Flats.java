@@ -77,6 +77,12 @@ final class Flats {
     static final float WALL_FROM = (float) WALL_RIM / WALL_WHOLE, WALL_SPAN = (float) WALL_LONG / WALL_WHOLE;
     /** A run of empty dots no longer than this at an end of a row, or at the top of a column, is the sprite stopping short and is filled in. A longer one is an opening, or a wall that is low or short. */
     private static final int END_SHORT = 6, TOP_SHORT = 12;
+    /**
+     * Frame pixels at tile scale 1 that a wall's picture is painted on past the slack a face cut
+     * to its sprite runs on by. Where the face ended just where its picture's paint did, its edge
+     * was half covered, and a corner post seen edge on was a row of dashes down its side.
+     */
+    private static final float PAST_SLACK_PIXELS = 2f;
     /** A dot of a wall is painted when the sprite's dots round it cover this much of it. */
     private static final float WALL_COVERED = 0.5f;
     /**
@@ -218,11 +224,20 @@ final class Flats {
         }
         byte[] dots = new byte[WALL_LONG * WALL_HIGH * 4];
         float perU = wide / frameWidth, perV = high / frameHeight;
+        float perAlong = (north ? 1f : -1f) * SpriteGeometry.PIXELS_ACROSS_PER_TILE * scale, reach = (SpriteGeometry.EDGE_SLACK_PIXELS + PAST_SLACK_PIXELS) * scale;
         int count = 0, glass = 0;
         for (int j = 0; j < WALL_HIGH; j++) {
             for (int i = 0; i < WALL_LONG; i++) {
                 float along = (i + 0.5f) / WALL_LONG, up = 1f - (j + 0.5f) / WALL_HIGH;
-                float u = ((north ? along : -along) * SpriteGeometry.PIXELS_ACROSS_PER_TILE * scale + originU - frameLeft) * perU - 0.5f;
+                // A face cut to its sprite runs on past the sprite's side by the slack and takes the
+                // sprite's last column there (SpriteGeometry.clipToFrame), and so does its picture.
+                float across = along * perAlong + originU - frameLeft;
+                if (across < 0f && across >= -reach || across > frameWidth && across <= frameWidth + reach) {
+                    float kept = Math.clamp(across, SpriteGeometry.HALF_PIXEL, frameWidth - SpriteGeometry.HALF_PIXEL);
+                    along += (kept - across) / perAlong;
+                    across = kept;
+                }
+                float u = across * perU - 0.5f;
                 float v = ((along * SpriteGeometry.PIXELS_DOWN_PER_TILE - up * SpriteGeometry.PIXELS_PER_LEVEL) * scale + originV - frameTop) * perV - 0.5f;
                 int u0 = (int) Math.floor(u), v0 = (int) Math.floor(v);
                 float partU = u - u0, partV = v - v0, red = 0f, green = 0f, blue = 0f, cover = 0f;

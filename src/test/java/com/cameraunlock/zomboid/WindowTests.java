@@ -40,6 +40,7 @@ final class WindowTests {
         Checks.run("halfASquareIsNoFlatFloor", WindowTests::halfASquareIsNoFlatFloor);
         Checks.run("wallStoodSquareRunsOnIntoTheNextLength", WindowTests::wallStoodSquareRunsOnIntoTheNextLength);
         Checks.run("doorwayToTheEndOfItsSquareHasNoWallInItsRim", WindowTests::doorwayToTheEndOfItsSquareHasNoWallInItsRim);
+        Checks.run("cornerPostPictureCoversItsFacesSlack", WindowTests::cornerPostPictureCoversItsFacesSlack);
         Checks.run("doorWithOneSmallLightIsALeafWithItsLight", WindowTests::doorWithOneSmallLightIsALeafWithItsLight);
     }
 
@@ -910,6 +911,43 @@ final class WindowTests {
         }
         check(open > high / 8, "the gaps at a fence's end stay open: " + open + " rows of them");
         check(fence[(10 * wide + 30) * 4 + 3] == 0, "and nothing is painted over a low fence");
+    }
+
+    private static void cornerPostPictureCoversItsFacesSlack() {
+        // A corner post as the game paints one: six columns trimmed out of a frame of 128, from 60, at the square's corner,
+        // 64. Its four columns left of the corner are its west face and its two right of it its north face. A face cut to
+        // the sprite runs two pixels on past it at tile scale 1, four here, and the picture is painted in the sprite's last
+        // column that far and two pixels more, so the face's edge is not where its paint stops. Each column is a shade of its
+        // own, so where a dot was taken from can be told.
+        int spriteWide = 6, spriteHigh = 196, wide = Flats.WALL_LONG;
+        ByteBuffer post = ByteBuffer.allocate(spriteWide * spriteHigh * 4);
+        for (int y = 0; y < spriteHigh; y++) {
+            for (int x = 0; x < spriteWide; x++) {
+                int at = (y * spriteWide + x) * 4;
+                post.put(at, (byte) (40 + 30 * x)).put(at + 1, (byte) 90).put(at + 2, (byte) 90).put(at + 3, (byte) 255);
+            }
+        }
+        byte[] west = Flats.stood(post, spriteWide, 0, 0, spriteWide, spriteHigh, false, 64f, 192f, 2f, 60f, 0f, spriteWide, spriteHigh);
+        byte[] north = Flats.stood(post, spriteWide, 0, 0, spriteWide, spriteHigh, true, 64f, 192f, 2f, 60f, 0f, spriteWide, spriteHigh);
+        check(west != null && north != null, "a corner post is a wall both ways");
+        // A tile is 64 dots along and 64 pixels across at tile scale 2: the west face is 4 dots of sprite, then 8 painted past it.
+        int row = 100 * wide;
+        for (int i = 0; i < 12; i++) {
+            int at = (row + i) * 4;
+            check((west[at + 3] & 0xff) == 255, "the west face and its slack are painted: dot " + i);
+            if (i >= 4) {
+                check((west[at] & 0xff) == 40, "the slack past the post's side is its last column: dot " + i + " is " + (west[at] & 0xff));
+            }
+        }
+        check(west[(row + 13) * 4 + 3] == 0, "further on the post's west face is open");
+        for (int i = 0; i < 10; i++) {
+            int at = (row + i) * 4;
+            check((north[at + 3] & 0xff) == 255, "the north face and its slack are painted: dot " + i);
+            if (i >= 2) {
+                check((north[at] & 0xff) == 190, "the slack past the post's other side is its last column there: dot " + i + " is " + (north[at] & 0xff));
+            }
+        }
+        check(north[(row + 11) * 4 + 3] == 0, "further on the post's north face is open");
     }
 
     private static void doorwayToTheEndOfItsSquareHasNoWallInItsRim() {

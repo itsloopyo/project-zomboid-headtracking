@@ -129,7 +129,8 @@ final class SpriteGeometry {
      * face, in frame pixels at tile scale 1.
      */
     private static final float EDGE_INSET_PIXELS = 1.5f;
-    private static final float EDGE_SLACK_PIXELS = 2f;
+    /** How far, in frame pixels at tile scale 1, a face cut to its sprite runs on past the sprite's edge, taking its last texels: see addFace. */
+    static final float EDGE_SLACK_PIXELS = 2f;
     /** A texel is taken no nearer the trimmed rectangle's edge than the centre of its outermost pixel. */
     static final float HALF_PIXEL = 0.5f;
     private static final int MAX_CORNERS = 12;
