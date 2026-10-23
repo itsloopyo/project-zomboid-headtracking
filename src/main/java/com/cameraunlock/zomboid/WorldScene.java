@@ -966,6 +966,23 @@ final class WorldScene {
     private static final float QUAY_DEPTH = 0.6f;
     /** How far a layer of cards stands from the one under it besides what any layer does, in tiles: leaves on the card of their trunk. */
     static final float CARD_LAYER = 0.035f;
+    /**
+     * How many layers of cards towards the eye a thing stood on another stands from it. A card
+     * turns to the eye through its square's middle, and so does the card of what holds it up,
+     * a table's front or a counter's: two cards in one plane, and the thing on top fought the
+     * table for each pixel where the two pictures overlap. Two layers, so it is also clear of
+     * a layer the game draws over the table, a stain.
+     */
+    static final int STANDS_NEARER = 2;
+
+    /**
+     * How many layers of cards towards the eye an object's card stands: STANDS_NEARER more for
+     * each thing stood on something before it on the square, so two things on one table are
+     * not in one plane either, and none for anything that stands on the floor.
+     */
+    static float standingNearer(boolean standsOn, int stoodOnBefore) {
+        return standsOn ? STANDS_NEARER * (stoodOnBefore + 1) : 0f;
+    }
     /** The height of a bed, in levels. */
     static final float BED_HEIGHT = 0.2f;
     /** How much of a tree's trunk sprite, from the ground up, is its bole. */
@@ -2566,6 +2583,10 @@ final class WorldScene {
         final ColorInfo torchless = new ColorInfo();
         final float[] box = new float[4];
         int overLayer;
+        /** How many layers of cards towards the eye the object being added stands, before its overlays: see standingNearer. */
+        float standsNearer;
+        /** How many things stood on something the square being built has had added so far. */
+        int stoodOn;
         private int remakes;
 
         private Kind kindOf(IsoSprite sprite) {
@@ -5489,7 +5510,7 @@ final class WorldScene {
             // Leaves stand on the same card as their trunk. Each layer is moved a little towards
             // the eye from the one under it, or the two would be drawn through each other.
             overLayer++;
-            geometry.nearer = overLayer;
+            geometry.nearer = standsNearer + overLayer;
             if (!isFloor && furnishingBuilder.addHung(object, over, texture, x, y, z)) {
                 if (SightTrace.ON && building.modelled != null) {
                     building.modelled.add(object);
@@ -6268,6 +6289,7 @@ final class WorldScene {
             // out of doors (FloorBuilder.addCeiling).
             IsoGridSquare under = z > lowestLevel ? cell.getGridSquare(x, y, z - 1) : null;
             boolean shellSeenInside = room != RoomSight.OUTSIDE && (z == lowestLevel || under != null && under.getRoomID() != -1L);
+            stoodOn = 0;
             for (int i = 0; i < objects.size(); i++) {
                 IsoObject object = objects.get(i);
                 IsoSprite sprite = object.getSprite();
@@ -6304,7 +6326,10 @@ final class WorldScene {
                 }
                 sprites++;
                 overLayer = 0;
-                geometry.nudgeX = geometry.nudgeY = geometry.nearer = 0f;
+                geometry.nudgeX = geometry.nudgeY = 0f;
+                boolean standsOn = kind.onTop || geometry.raised != 0f;
+                standsNearer = standingNearer(standsOn, standsOn ? stoodOn++ : 0);
+                geometry.nearer = standsNearer;
                 ArrayList<IsoSpriteInstance> leaves = object.getAttachedAnimSprite();
                 // A tree in leaf shows its bole and not the branches in its crown: they are
                 // inside the leaves. Drawn, they cross from one card of the fan through the leaves

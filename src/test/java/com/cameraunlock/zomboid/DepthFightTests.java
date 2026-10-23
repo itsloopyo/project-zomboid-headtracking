@@ -14,6 +14,7 @@ final class DepthFightTests {
         Checks.run("aLayerApartNeverFights", DepthFightTests::aLayerApartNeverFights);
         Checks.run("aFixedGapFightsOnlyFromFarEnough", DepthFightTests::aFixedGapFightsOnlyFromFarEnough);
         Checks.run("overlappingSquaresInOnePlaneAreFoundAndTouchingOnesAreNot", DepthFightTests::overlappingSquaresInOnePlaneAreFoundAndTouchingOnesAreNot);
+        Checks.run("whatStandsOnSomethingIsClearOfItsCard", DepthFightTests::whatStandsOnSomethingIsClearOfItsCard);
     }
 
     private static void planesInOneLayerFightFromAnywhere() {
@@ -42,6 +43,16 @@ final class DepthFightTests {
         DepthFights.Kind kind = found.values().iterator().next();
         check(kind.pairs == 3, "the overlap is three pairs of triangles: " + kind.pairs);
         check(Math.abs(kind.area - 0.1 * 2.4) < 1e-6, "the overlap is a tenth of a tile by the face's height: " + kind.area);
+    }
+
+    private static void whatStandsOnSomethingIsClearOfItsCard() {
+        check(WorldScene.standingNearer(false, 0) == 0f, "what stands on the floor is on its square's card plane");
+        float first = WorldScene.standingNearer(true, 0), second = WorldScene.standingNearer(true, 1);
+        // The table's card is at 0 and a stain the game draws over the table one layer of cards nearer.
+        check(first >= 2f, "a vase on a table is clear of the table's card and of a stain over it: " + first);
+        check(second - first >= 1f, "a second thing on the table is clear of the first: " + first + ", " + second);
+        check(DepthFights.nearestFight(0, 0, first - 1f) == Float.MAX_VALUE, "the vase never fights the table's stain");
+        check(DepthFights.nearestFight(0, 0, second - first) == Float.MAX_VALUE, "the second thing never fights the first");
     }
 
     private static void square(ArrayList<DepthFights.Tri> into, float y, String label, int source) {
