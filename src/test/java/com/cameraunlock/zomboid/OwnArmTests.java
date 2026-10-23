@@ -120,7 +120,7 @@ final class OwnArmTests {
         check(ArmPose.WRIST_MOST <= Math.toRadians(35) && ArmHolds.REACH_EASY < ArmPose.STRAIGHTEST && ArmPose.STRAIGHTEST < 1f, "a hand asks for its wrist bent no more than 35 degrees, and an arm is never quite straight");
         check(ArmHolds.NEAREST_FORE >= 0.14f, "the hand under a fore-end comes no nearer the middle of the grip than clears the hand that is on it");
         float[][] shoulders = {{ArmHolds.SHOULDER[0], ArmHolds.SHOULDER[1], ArmHolds.SHOULDER[2]}, {-ArmHolds.SHOULDER[0], ArmHolds.SHOULDER[1], ArmHolds.SHOULDER[2]},
-            ArmHolds.LONG_SHOULDERS[0], ArmHolds.LONG_SHOULDERS[1]};
+            ArmHolds.LONG_SHOULDERS[0], ArmHolds.LONG_SHOULDERS[1], ArmHolds.LONG_LEFT_SHOULDER_AIMED};
         for (float[] shoulder : shoulders) {
             check(Math.abs(shoulder[0]) >= 0.13f && Math.abs(shoulder[0]) <= 0.22f && shoulder[1] <= -0.18f && shoulder[1] >= -0.28f && shoulder[2] >= -0.03f && shoulder[2] <= 0.15f,
                     "a shoulder is 13 to 22 cm to its side of the eye, 18 to 28 cm under it and no more than 3 cm ahead of it: " + Arrays.toString(shoulder));
@@ -153,7 +153,7 @@ final class OwnArmTests {
                                 check(near((float) Math.sqrt(x * x + y * y + z * z), SCALE, 1e-4f), "the bone " + model.bones[bone] + " is drawn out no way: " + arm);
                             }
                         }
-                        float[] rests = ArmHolds.LONG_SHOULDERS[side];
+                        float[] rests = ArmHolds.longShoulder(side, raised);
                         float moved = ArmPose.apart(shoulder, new float[] {rests[0] * SCALE, rests[1] * SCALE, rests[2] * SCALE});
                         check(moved <= ArmPose.SHOULDER_GIVES * SCALE + 1e-4f && near(moved, said[side][ArmPose.GAVE], 1e-4f),
                                 "it starts at the shoulder behind a long gun, as near as a shoulder gives, and says how far that is: " + arm + ", " + moved);
