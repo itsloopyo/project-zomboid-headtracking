@@ -1672,7 +1672,22 @@ final class PipelineShaders {
                 // The game keeps its sheets with each colour already multiplied by how much of the
                 // dot is covered. A dot half covered, kept whole or mixed in by its cover again,
                 // was half as light: the pale wear on white siding came out a black smear.
-                texel.rgb /= max(texel.a, 1.0 / 255.0);
+                // A pixel is cut by the cover of two samples half a texel either side of it (see cover
+                // below), so it is drawn where its own sample is all but clear, and its colour divided by
+                // that sliver of cover was the sheet's rounding made a hundred times larger: a speck of
+                // pure green, orange or white in the gaps between the leaves of every plant the game
+                // paints, a different set each frame, and Low's grass and trees glittered. A thin sample
+                // takes its colour from the same samples as its cover. Nor is any colour lighter than
+                // white: a few of the game's dots have more colour than cover.
+                if (uTexel.x > 0.0 && texel.a < 0.5) {
+                    vec2 across = vec2(0.5 * uTexel.x, 0.0);
+                    vec4 pair = texture2D(uTexture, vUv - across) + texture2D(uTexture, vUv + across);
+                    vec3 shared = (pair.rgb + 2.0 * texel.rgb) / max(pair.a + 2.0 * texel.a, 1.0 / 255.0);
+                    texel.rgb = mix(shared, texel.rgb / max(texel.a, 1.0 / 255.0), smoothstep(0.1, 0.5, texel.a));
+                } else {
+                    texel.rgb /= max(texel.a, 1.0 / 255.0);
+                }
+                texel.rgb = min(texel.rgb, vec3(1.0));
                 // How the height and how far the wind takes a vertex change over the screen, for a plant
                 // drawn as a card in lying snow. Asked here, before any pixel is left out, where every
                 // pixel of the screen's two by two takes part: further down the answer would decide what

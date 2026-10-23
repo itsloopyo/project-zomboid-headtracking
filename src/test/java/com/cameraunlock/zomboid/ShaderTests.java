@@ -73,6 +73,7 @@ final class ShaderTests {
         Checks.run("whatHangsOnACordSwingsInTheViewAndInItsShadowAlike", () -> whatHangsOnACordSwingsInTheViewAndInItsShadowAlike(programs));
         Checks.run("whatTheAirHidesOfASurfaceItHidesOfItsShade", () -> whatTheAirHidesOfASurfaceItHidesOfItsShade(programs));
         Checks.run("figuresAndTerrainShareSunsetHaze", ShaderTests::figuresAndTerrainShareSunsetHaze);
+        Checks.run("aThinSpriteSampleTakesItsColourFromTheSamplesItsCutReads", ShaderTests::aThinSpriteSampleTakesItsColourFromTheSamplesItsCutReads);
         Checks.run("spreadGroundThatDoesNotShowHidesNothing", () -> spreadGroundThatDoesNotShowHidesNothing(programs));
         Checks.run("everyProgramPassesTheReferenceCompiler", () -> everyProgramPassesTheReferenceCompiler(programs));
     }
@@ -84,6 +85,18 @@ final class ShaderTests {
                 "distant terrain must use the shared directional haze");
         Checks.check(PipelineShaders.FIGURE_LIGHT_MAIN.contains("distanceHaze(normalize(ray), range)"),
                 "characters must receive the same sunset haze as terrain");
+    }
+
+    /**
+     * A sprite's pixel is cut by the cover of two samples half a texel either side of it, so its
+     * colour, where its own sample is all but clear, is taken from those two samples: divided by
+     * the centre's sliver of cover it was a bright speck, and Low's plants glittered.
+     */
+    private static void aThinSpriteSampleTakesItsColourFromTheSamplesItsCutReads() {
+        String main = PipelineShaders.WORLD_FRAGMENT_MAIN;
+        Checks.check(main.contains("vec2 halfTexel = vec2(0.5 * uTexel.x, 0.0);"), "the cut no longer reads samples half a texel either side across");
+        Checks.check(main.contains("vec2 across = vec2(0.5 * uTexel.x, 0.0);"), "a thin sample's colour is not read from the cut's samples");
+        Checks.check(main.contains("texel.rgb = min(texel.rgb, vec3(1.0));"), "a sprite's colour can come out lighter than white");
     }
 
     private static void depthProgramIsTheWorldsToldToDrawDepthAlone(List<Linked> programs) {
