@@ -2988,6 +2988,17 @@ final class PipelineShaders {
                 // viewer's and cuts walls away, and the picture does as it does below.
                 bool ofModel = vMaterial > 15.5 && vMaterial < 51.5;
                 bool standing = vKind > 1.5 && vKind < 3.5;
+                // A card the eye stands in, or all but touches, is seen along itself, and its texels
+                // nearest the eye are drawn from the ground to the top of the picture: a streak up
+                // the sky as the eye walks through a field of the game's crop cards. Within a hand
+                // of the eye a standing card is left out, and within a pace of it one seen all but
+                // edge on, whose texels are as squeezed.
+                vec2 fromEye = vWorld.xy - uEye.xy;
+                float eyeAway = length(fromEye);
+                if (standing && !ofModel && eyeAway < 1.2 && abs(vWorld.z - uEye.z) < 2.5
+                        && (eyeAway < 0.25 || abs(dot(fromEye / eyeAway, normalize(vNormal.xy + vec2(1e-6)))) < 0.12)) {
+                    discard;
+                }
                 if (!tree && (ofModel || standing) && uHole.z > 0.0 && vWorld.z > uHoleUp && dot(vWorld, uHoleFrom.xyz) < uHoleFrom.w
                         && distance(gl_FragCoord.xy, uHole.xy) < uHole.z * (0.9 + 0.1 * grain(floor(gl_FragCoord.xy / 3.0)))) {
                     discard;
