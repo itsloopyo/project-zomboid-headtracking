@@ -1001,9 +1001,9 @@ public final class CoreTests {
                         && farTrees.label.equals("Far tree distance") && reflections.kind == CameraUnlock.OPTION_BOOL
                         && options[optionNamed(options, "ShadingAndLight")].label.equals("Shading and light"),
                 "the draw distance is a slider of whole tiles from 16 to 80, the far trees one from 0 to 768, and reflections a tick box of its own");
-        check(screen.shows("ZombiesAndPropsDrawDistance") == 80 && screen.shows("FarTreeDistance") == 768 && screen.shows("Reflections") == 1
+        check(screen.shows("ZombiesAndPropsDrawDistance") == 80 && screen.shows("FarTreeDistance") == 400 && screen.shows("Reflections") == 1
                         && screen.shows("ShadingAndLight") == 1,
-                "in High the screen shows people and props drawn as far as the view goes, far trees as far as they go, and reflections on");
+                "in High the screen shows people and props drawn as far as the view goes, far trees to High's 400 tiles, and reflections on");
 
         screen.set("ZombiesAndPropsDrawDistance", 30);
         screen.apply();
@@ -1011,7 +1011,7 @@ public final class CoreTests {
         reach.take(0, 0f, 0f, 0f, 0f, false);
         check(Quality.name(0).equals("Custom") && Quality.drawn(0).drawDistance() == 30 && Quality.sight(0) == 80 && !reach.draws(31f, 0f) && reach.draws(30f, 0f),
                 "a draw distance applied there goes straight to Custom and draws people and props no further: " + Quality.described(Quality.drawn(0)));
-        check(said() && saved("Quality=Custom", "ZombiesAndPropsDrawDistance=30", "FarTreeDistance=768", "ViewDistance=80"),
+        check(said() && saved("Quality=Custom", "ZombiesAndPropsDrawDistance=30", "FarTreeDistance=400", "ViewDistance=80"),
                 "said, and saved with the rest of Custom's rows");
 
         Screen again = Screen.opened();
@@ -1025,7 +1025,7 @@ public final class CoreTests {
         check(Quality.reflections(0) && Quality.drawn(0).drawDistance() == 60 && Quality.farTreeDistance(0) == 150,
                 "Medium draws its own: its vehicle mirrors, people and props to its view's end, and far trees to 150 tiles");
         said();
-        edit(text().replace("FarTreeDistance=768", "FarTreeDistance=200"));
+        edit(text().replace("FarTreeDistance=400", "FarTreeDistance=200"));
         Tracking.watchSettings();
         check(Quality.name(0).equals("Custom") && Quality.farTreeDistance(0) == 200 && !Quality.reflections(0),
                 "the far tree distance edited in the file goes to Custom with it, the rest as Custom left them");

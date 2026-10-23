@@ -666,7 +666,7 @@ final class QualityTests {
         String[] expected = {
             "true true 0.62 2048 48 all/all 0 false false false true false false false 48 300 false 40 20",
             "false false 0.7 2048 60 all/all 1 false true false true false false false 48 150 true 40 30",
-            "false false 1.0 4096 80 all/all 2 true true true false true true true 48 768 true 100 60",
+            "false false 1.0 4096 80 all/all 2 true true true false true true true 48 400 true 100 60",
         };
         for (int mode = Quality.LOW; mode <= Quality.HIGH; mode++) {
             Quality.set(0, mode);
@@ -688,21 +688,21 @@ final class QualityTests {
         String high = answers();
         double[] changed = {Quality.TREES_NEAR, 40, 0.7, 0, 40, 30, 300, 0, 0, 0, 0, 0, 0, 0, 25};
         String[] answer = {
-            "false false 1.0 4096 80 all/all 2 true true true false false true true 48 768 true 100 60",
-            "false false 1.0 4096 80 all/all 2 true true true false true true true 48 768 true 40 60",
-            "false false 0.7 4096 80 all/all 2 true true true false true true true 48 768 true 100 60",
-            "false false 1.0 2048 80 all/all 2 true true true false true true true 48 768 true 100 60",
-            "false false 1.0 4096 40 all/all 2 true true true false true true true 48 768 true 100 60",
-            "false false 1.0 4096 80 30/all 2 true true true false true true true 48 768 true 100 60",
+            "false false 1.0 4096 80 all/all 2 true true true false false true true 48 400 true 100 60",
+            "false false 1.0 4096 80 all/all 2 true true true false true true true 48 400 true 40 60",
+            "false false 0.7 4096 80 all/all 2 true true true false true true true 48 400 true 100 60",
+            "false false 1.0 2048 80 all/all 2 true true true false true true true 48 400 true 100 60",
+            "false false 1.0 4096 40 all/all 2 true true true false true true true 48 400 true 100 60",
+            "false false 1.0 4096 80 30/all 2 true true true false true true true 48 400 true 100 60",
             "false false 1.0 4096 80 all/all 2 true true true false true true true 48 300 true 100 60",
-            "false false 1.0 4096 80 all/all 0 true true true false true true true 48 768 true 100 60",
-            "false false 1.0 4096 80 all/all 2 false true false false true true true 48 768 true 100 60",
-            "false false 1.0 4096 80 all/all 2 true false false false true true true 48 768 true 100 60",
-            "false false 1.0 4096 80 all/all 2 true true true true true true true 48 768 true 100 60",
-            "false false 1.0 4096 80 all/all 2 true true true false true false true 48 768 true 100 60",
-            "false false 1.0 4096 80 all/all 2 true true true false true true false 48 768 true 100 60",
-            "false false 1.0 4096 80 all/all 2 true true true false true true true 48 768 false 100 60",
-            "false false 1.0 4096 80 all/all 2 true true true false true true true 48 768 true 100 25",
+            "false false 1.0 4096 80 all/all 0 true true true false true true true 48 400 true 100 60",
+            "false false 1.0 4096 80 all/all 2 false true false false true true true 48 400 true 100 60",
+            "false false 1.0 4096 80 all/all 2 true false false false true true true 48 400 true 100 60",
+            "false false 1.0 4096 80 all/all 2 true true true true true true true 48 400 true 100 60",
+            "false false 1.0 4096 80 all/all 2 true true true false true false true 48 400 true 100 60",
+            "false false 1.0 4096 80 all/all 2 true true true false true true false 48 400 true 100 60",
+            "false false 1.0 4096 80 all/all 2 true true true false true true true 48 400 false 100 60",
+            "false false 1.0 4096 80 all/all 2 true true true false true true true 48 400 true 100 25",
         };
         for (int part = 0; part < Config.GRAPHICS.length; part++) {
             double[] values = Config.values(Quality.HIGH_PICTURE);
