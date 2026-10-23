@@ -26,6 +26,7 @@ final class RoomSightTests {
         Checks.run("aHouseAcrossTheStreetIsSeenThroughTheEyesOwnWindow", RoomSightTests::aHouseAcrossTheStreetIsSeenThroughTheEyesOwnWindow);
         Checks.run("anUpperRoomIsSeenThroughItsWindowFromTheStreet", RoomSightTests::anUpperRoomIsSeenThroughItsWindowFromTheStreet);
         Checks.run("theStoreysSeenIntoFromTheStreetAreCountedFromTheLand", RoomSightTests::theStoreysSeenIntoFromTheStreetAreCountedFromTheLand);
+        Checks.run("aHouseSeenThroughAClosetWindowAmongManyWindowsIsSeen", RoomSightTests::aHouseSeenThroughAClosetWindowAmongManyWindowsIsSeen);
         Checks.run("aHouseBetweenTheEyeAndAWindowHidesItUnlessTheLineGoesThroughTheHouse", RoomSightTests::aHouseBetweenTheEyeAndAWindowHidesItUnlessTheLineGoesThroughTheHouse);
         Checks.run("aTallerHouseBehindALowOneShowsItsUpperRooms", RoomSightTests::aTallerHouseBehindALowOneShowsItsUpperRooms);
         Checks.run("anEyeClimbingAStairOverTheFloorAboveSeesThatFloor", RoomSightTests::anEyeClimbingAStairOverTheFloorAboveSeesThatFloor);
@@ -268,6 +269,30 @@ final class RoomSightTests {
             check(seen.contains(OVER), "with the land at " + lift + ", the first floor is seen through its window from the street");
             check(!seen.contains(ACROSS), "and the floor over it is not, its window showing its blind: " + lift);
         }
+    }
+
+    /**
+     * A hall with a row of windows and doorways into closets with windows of their own, and
+     * houses across the street. The street is reached through more windows than the walk keeps
+     * a rectangle for, so some it keeps are widened over the wall between windows; a house seen
+     * only through a closet's window, which lies in the picture in such a widening, is seen.
+     */
+    private static void aHouseSeenThroughAClosetWindowAmongManyWindowsIsSeen() {
+        Plan plan = new Plan().room(HALL, 0, 0, 10, 30, 14);
+        for (int x : new int[] {0, 2, 4, 5, 7, 8, 12, 13, 14, 15, 18, 19, 24, 26, 28, 29, 30}) {
+            plan.opening(x, 10, 0, true, RoomSight.SEE);
+        }
+        long id = 10;
+        for (int x : new int[] {19, 3, 17}) {
+            plan.room(id++, 0, x, 8, x, 9).opening(x, 10, 0, true, RoomSight.SEE).opening(x, 8, 0, true, RoomSight.SEE);
+        }
+        plan.building(200);
+        int[][] houses = {{22, -10, 24}, {25, -6, 26}, {27, -15, 27}, {6, -9, 8}, {6, -14, 7}, {5, -13, 5}, {10, -7, 11}, {8, -13, 9}};
+        long seenOnlyThroughACloset = id + 3;
+        for (int[] house : houses) {
+            plan.room(id++, 0, house[0], house[1] - 2, house[0] + 2, house[1]).opening(house[2], house[1] + 1, 0, true, RoomSight.SEE);
+        }
+        check(seenFrom(plan, 2.3355f, 13.352f, 1.6f, 0, -58.36f, -6.51f).contains(seenOnlyThroughACloset), "the house seen through the closet's window is seen");
     }
 
     /** Three houses in a row up the y axis, the eye in the street south of them looking north at the middle one. */

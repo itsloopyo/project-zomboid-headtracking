@@ -984,8 +984,9 @@ final class RoomSight {
                     seen.add(beyond);
                 }
                 boolean throughBeyond = through || beyond == THROUGH_A_BUILDING;
-                if ((throughBeyond ? reachedThrough : reached).unite(beyond, lowX, lowY, highX, highY)) {
-                    depth = push(depth, beyond, throughBeyond, lowX, lowY, highX, highY);
+                RegionTable table = throughBeyond ? reachedThrough : reached;
+                if (table.unite(beyond, lowX, lowY, highX, highY)) {
+                    depth = push(depth, beyond, throughBeyond, table.walkMinX, table.walkMinY, table.walkMaxX, table.walkMaxY);
                 }
             }
             if (slot >= 0 && !listed) {
@@ -1421,9 +1422,16 @@ final class RoomSight {
             return String.format(java.util.Locale.ROOT, "%.2f %.2f %.2f %.2f in %d", minX, minY, maxX, maxY, counts[slot]);
         }
 
+        /** The rectangle the region is to be walked again through, after unite says it is. */
+        float walkMinX, walkMinY, walkMaxX, walkMaxY;
+
         /**
          * Takes a rectangle a region is reached through and says whether the region is to be
-         * walked again through it: false where it lies inside one walked already.
+         * walked again: false where it lies inside one walked already. Every rectangle kept has
+         * been walked through whole, so a region that already keeps KEPT has the one the new
+         * rectangle widens least widened over it and walked through again whole: walked through
+         * only the new one, what the widening took in was held walked, and a window between two
+         * walked through, seen through some other way, was left out.
          */
         boolean unite(long region, float minX, float minY, float maxX, float maxY) {
             int slot = slotOf(region);
@@ -1465,16 +1473,15 @@ final class RoomSight {
                         at = each;
                     }
                 }
-                r[at] = Math.min(minX, r[at]);
-                r[at + 1] = Math.min(minY, r[at + 1]);
-                r[at + 2] = Math.max(maxX, r[at + 2]);
-                r[at + 3] = Math.max(maxY, r[at + 3]);
-                return true;
+                minX = Math.min(minX, r[at]);
+                minY = Math.min(minY, r[at + 1]);
+                maxX = Math.max(maxX, r[at + 2]);
+                maxY = Math.max(maxY, r[at + 3]);
             }
-            r[at] = minX;
-            r[at + 1] = minY;
-            r[at + 2] = maxX;
-            r[at + 3] = maxY;
+            r[at] = walkMinX = minX;
+            r[at + 1] = walkMinY = minY;
+            r[at + 2] = walkMaxX = maxX;
+            r[at + 3] = walkMaxY = maxY;
             return true;
         }
 
