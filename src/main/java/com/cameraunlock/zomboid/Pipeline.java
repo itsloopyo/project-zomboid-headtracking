@@ -3349,7 +3349,7 @@ final class Pipeline {
         }
         world.use();
         // The parts of the view's own picture of the world are timed apart, and what "world" then has left is what follows the far trees: the sight queries, bullet holes and what mirrors show laid over their glass.
-        if (own) {
+        if (own && !depthFirst) {
             stage(STAGE_DEPTH);
         }
         drawRanges(listed, 0, listed.solidRanges(), world);
@@ -3383,15 +3383,9 @@ final class Pipeline {
         if (grassFirst) {
             GL11.glDisable(GL_BLEND);
             if (!depthFirst) {
-                if (own) {
-                    stage(STAGE_SOLID);
-                }
                 GL11.glColorMask(false, false, false, false);
                 drawGrassDepth(listed);
                 GL11.glColorMask(true, true, true, true);
-                if (own) {
-                    stage(STAGE_GRASS_DEPTH);
-                }
             }
             grassLit.use();
             grassLit.set("uCut", 0.02f);
