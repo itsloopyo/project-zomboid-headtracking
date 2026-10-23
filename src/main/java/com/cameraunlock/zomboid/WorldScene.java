@@ -5313,7 +5313,8 @@ final class WorldScene {
                     boolean seen = square.isSeen(playerIndex);
                     boolean inRoom = square.getRoomID() != -1L;
                     byte lit = OWN_LIGHT;
-                    if (!seen && !(gamesView && inRoom)) {
+                    // Under the ground a square in no room is the earth round a basement, which the game marks out of doors: it keeps the game's light.
+                    if (!seen && !(gamesView && inRoom) && (inRoom || z >= 0)) {
                         // From the eye a room the game has not shown is a room like the ones in sight: see seenRooms.
                         // Shown only as the game shows it, it stands empty and lit as the open ground is.
                         lit = !inRoom || asTheGameShows ? OPEN_LIT : lampBurnsAt(at, square) ? LAMP_LIT : ROOM_LIT;
