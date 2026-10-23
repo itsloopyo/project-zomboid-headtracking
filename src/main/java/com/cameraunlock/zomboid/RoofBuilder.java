@@ -290,18 +290,19 @@ final class RoofBuilder {
      * beyond: it stands there, and where rooms are under the tile on the storey below, rooms
      * are there too. A lower wing beyond has none on that storey, only a roof of its own, and
      * the end of this roof stands over it in the open: taking the wing's ground floor for the
-     * house going on left that gable out.
+     * house going on left that gable out. A row the map leaves out of a tall hall's upper room
+     * is the hall's (TallHalls): read as no room, every row of it under the roof was a gable,
+     * brick walls standing in the church's nave over the altar and on its columns (12757,
+     * 1671..1683, levels 2..4).
      */
     private boolean buildingGoesOn(int x, int y, int beyondX, int beyondY, int z) {
         if (buildingUnder(beyondX, beyondY, z) == null) {
             return false;
         }
-        IsoGridSquare under = z > 0 ? build.cell.getGridSquare(x, y, z - 1) : null;
-        if (under == null || under.getRoomID() == -1L) {
+        if (z == 0 || TallHalls.roomOf(build.cell, x, y, z - 1) == RoomSight.OUTSIDE) {
             return true;
         }
-        IsoGridSquare beyond = build.cell.getGridSquare(beyondX, beyondY, z - 1);
-        return beyond != null && beyond.getRoomID() != -1L;
+        return TallHalls.roomOf(build.cell, beyondX, beyondY, z - 1) != RoomSight.OUTSIDE;
     }
 
     /** How far a roof's sheet laid as a floor is followed past the building's end to the slope made over it, in squares. */
