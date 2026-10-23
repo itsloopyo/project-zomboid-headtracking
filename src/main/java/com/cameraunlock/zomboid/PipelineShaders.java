@@ -965,9 +965,12 @@ final class PipelineShaders {
             // has, and how much less one turned away, with the sun on the horizon.
             const float SKY_SIDE = 0.35;
             // Stained glass: how much of the open air's daylight and of the sun its glass lets through, as
-            // light it gives off, how much of the room's light it throws back, and how far its colours are
-            // taken past the game's (1 keeps them).
-            const float STAINED_SKY = 0.22, STAINED_SUN = 0.25, STAINED_ROOM = 0.25, STAINED_DEEPEN = 3.0;
+            // light it gives off, and how much of the light on its near side it throws back. Its colour is what the
+            // game paints taken as glass THICK times as deep, which turns the game's pale panes to
+            // sapphire and ruby, with clear glass held to CLEAR of the light. However bright the day
+            // behind it, its strongest colour comes out of the exposure at no more than MOST: a full blue
+            // much past white in the film spills into the others, and the glass turned white-ice.
+            const float STAINED_SKY = 0.15, STAINED_SUN = 0.9, STAINED_ROOM = 0.25, STAINED_THICK = 5.0, STAINED_CLEAR = 0.35, STAINED_MOST = 1.0;
             // A leaf of a crown: what it has of the crown's sun when turned edge on to it, and what more
             // when turned full to it; how much of the sun on its back shows through, and how
             // much more of it looking straight towards the sun; and how smooth its skin is.
@@ -1011,6 +1014,8 @@ final class PipelineShaders {
             uniform vec4 uLantern;
             uniform vec3 uOpenLinear;
             uniform float uDaylightKept;
+            // The exposure the picture is developed at (Pipeline.pictureExposure).
+            uniform float uExposed;
             uniform float uRoomKept;
             // How far the eye is out of doors, 0 to 1. The sky's haze is the open air's: none of it
             // lies between an eye in a room and that room's walls. Sun through a window into the
@@ -2675,7 +2680,9 @@ final class PipelineShaders {
                     if (cover < 0.1) {
                         discard;
                     }
-                    stainedGlass = 1.0 - smoothstep(0.62, 0.8, texel.a);
+                    // Its pale streaks are painted at up to 0.7 cover and its frame at 0.94. The game paints its
+                    // leading as dark dots part covered too: those are lead, not glass.
+                    stainedGlass = (1.0 - smoothstep(0.75, 0.9, texel.a)) * smoothstep(0.1, 0.2, dot(texel.rgb, vec3(0.299, 0.587, 0.114)));
                     texel = vec4(texel.rgb, 1.0);
                     cover = 1.0;
                 }
@@ -3786,12 +3793,22 @@ final class PipelineShaders {
                 if (stainedGlass > 0.0) {
                     // The day comes through the glass from the open air on its far side, the sun's own
                     // light where the sun is on that side and nothing shades it, and the glass is the
-                    // colour of what it lets through. Its colours are deepened: the game paints them
-                    // pale, to be laid over what is behind.
-                    vec3 tinted = pow(clamp(mix(vec3(dot(texel.rgb, vec3(0.299, 0.587, 0.114))), texel.rgb, STAINED_DEEPEN), 0.0, 1.0), vec3(2.2));
-                    float sunThrough = max(dot(-face, uLight), 0.0) * step(0.0, uLight.z) * sunOnAir(vWorld - face * 0.12);
+                    // colour of what it lets through. The game paints it pale, to be laid over what is
+                    // behind: as light through glass, each colour is let through as its share of the
+                    // strongest to the power of how thick the glass is. Hand-made glass is not even, and
+                    // each pane lets through more or less in streaks.
+                    vec3 linear = pow(texel.rgb, vec3(2.2));
+                    vec3 tinted = pow(linear / max(max(linear.r, max(linear.g, linear.b)), 1e-4), vec3(STAINED_THICK));
+                    tinted *= min(1.0, STAINED_CLEAR / max(dot(tinted, vec3(0.2126, 0.7152, 0.0722)), 1e-4));
+                    tinted *= 0.75 + 0.5 * patches(vec2((vWorld.x + vWorld.y) * 9.0, vWorld.z * 2.5));
+                    // A window on the street's square is drawn on the wall's street skin and seen from the room
+                    // through the room skin's openings: its far side is the side it faces.
+                    vec3 seen = dot(face, uEye - vWorld) < 0.0 ? -face : face;
+                    float sunThrough = max(dot(-seen, uLight), 0.0) * step(0.0, uLight.z) * sunOnAir(vWorld - seen * 0.12);
                     vec3 through = uOpenLinear * (STAINED_SKY * uDaylightKept) + uLightLinear * (STAINED_SUN * sunThrough);
-                    color = mix(color, tinted * (through + STAINED_ROOM * (ambient + held)), stainedGlass);
+                    vec3 lit = tinted * (through + STAINED_ROOM * (ambient + held));
+                    float shown = max(lit.r, max(lit.g, lit.b)) * uExposed;
+                    color = mix(color, lit * (STAINED_MOST * (1.0 - exp(-shown / STAINED_MOST)) / max(shown, 1e-6)), stainedGlass);
                 }
                 // The light the surface scatters, and how much of all it scatters is left once
                 // what it mirrors is taken out: see the all-round mirror below.

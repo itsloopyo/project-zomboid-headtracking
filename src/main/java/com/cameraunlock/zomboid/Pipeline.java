@@ -3768,6 +3768,7 @@ final class Pipeline {
                 carried[CarriedLight.CONE] > 0f ? 0f : carried[CarriedLight.REACH]);
         to.set("uOpenLinear", (float) Math.pow(state.openRed, 2.2), (float) Math.pow(state.openGreen, 2.2), (float) Math.pow(state.openBlue, 2.2));
         to.set("uDaylightKept", (float) Math.pow(state.daylightKept, 2.2));
+        to.set("uExposed", pictureExposure);
         to.set("uRoomKept", (float) Math.pow(state.daylightKept * state.roomKept, 2.2));
         to.set("uEyeOutdoors", state.outdoors);
         setFlash(to);
