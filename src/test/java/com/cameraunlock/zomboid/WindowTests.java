@@ -39,6 +39,7 @@ final class WindowTests {
         Checks.run("floorLaidFlatMeetsItselfAtTheSquaresEdge", WindowTests::floorLaidFlatMeetsItselfAtTheSquaresEdge);
         Checks.run("halfASquareIsNoFlatFloor", WindowTests::halfASquareIsNoFlatFloor);
         Checks.run("wallStoodSquareRunsOnIntoTheNextLength", WindowTests::wallStoodSquareRunsOnIntoTheNextLength);
+        Checks.run("wallStoodSquareLosesTheBlackLineAlongItsTop", WindowTests::wallStoodSquareLosesTheBlackLineAlongItsTop);
         Checks.run("doorwayToTheEndOfItsSquareHasNoWallInItsRim", WindowTests::doorwayToTheEndOfItsSquareHasNoWallInItsRim);
         Checks.run("cornerPostPictureCoversItsFacesSlack", WindowTests::cornerPostPictureCoversItsFacesSlack);
         Checks.run("doorWithOneSmallLightIsALeafWithItsLight", WindowTests::doorWithOneSmallLightIsALeafWithItsLight);
@@ -802,6 +803,38 @@ final class WindowTests {
     private static float courses(float along, float up) {
         float course = (float) Math.floor(up * 8f);
         return 0.35f + 0.05f * course + (Math.abs(along - 0.33f) < 0.02f ? -0.2f : 0f);
+    }
+
+    private static void wallStoodSquareLosesTheBlackLineAlongItsTop() {
+        // A trailer's wall along the north edge: pale panels with three dots of black along the top, as location_trailer_01_25 paints it.
+        // A second sprite is a dark wall the black is no line on, and a third is a low wall, half a level, with the same line on its top.
+        for (int kind = 0; kind < 3; kind++) {
+            int body = kind == 1 ? 20 : 235;
+            float tops = kind == 2 ? 0.5f : 1f;
+            ByteBuffer sheet = ByteBuffer.allocate(128 * 256 * 4);
+            for (int y = 0; y < 256; y++) {
+                for (int x = 64; x < 128; x++) {
+                    float along = (x + 0.5f - 64f) / 64f, top = 192f + 32f * along - 192f * tops;
+                    if (y + 0.5f < top || y + 0.5f > 192f + 32f * along) {
+                        continue;
+                    }
+                    int shade = y + 0.5f - top < 3f ? 0 : body, at = (y * 128 + x) * 4;
+                    sheet.put(at, (byte) shade).put(at + 1, (byte) shade).put(at + 2, (byte) shade).put(at + 3, (byte) 255);
+                }
+            }
+            byte[] dots = Flats.stood(sheet, 128, 0, 0, 128, 256, true, 64f, 192f, 2f, 0f, 0f, 128f, 256f);
+            int wide = Flats.WALL_LONG, darkest = 255, first = Math.round(Flats.WALL_HIGH * (1f - tops));
+            for (int i = 4; i < wide - 4; i++) {
+                for (int j = first; j < first + 8; j++) {
+                    darkest = Math.min(darkest, dots[(j * wide + i) * 4] & 0xff);
+                }
+            }
+            if (kind == 1) {
+                check(darkest < 10, "a dark wall keeps its line, which is no line on it: darkest " + darkest);
+            } else {
+                check(darkest == body, (kind == 2 ? "a low wall" : "a wall") + " stood square has no black line along its top: darkest " + darkest);
+            }
+        }
     }
 
     private static void wallStoodSquareRunsOnIntoTheNextLength() {
