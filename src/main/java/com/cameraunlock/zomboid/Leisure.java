@@ -6,7 +6,7 @@ package com.cameraunlock.zomboid;
  * old tyres, basketball hoops, nets across courts, football goals, what a playing field, a boxing ring and a gym have,
  * pianos and their benches,
  * speakers, an amplifier, drums, a jukebox, a pinball table, the lamp over a pool table, a stage's microphone, theatre
- * seats, a lectern, an altar, a pipe organ and a steeple. Asked by
+ * seats, a lectern, an altar, a pipe organ, a steeple and a television studio's camera. Asked by
  * Outdoors.of before its own table, and stood the same way, so a piece of either is one kind of thing.
  *
  * Where each model stands on its squares was read off the game's sprites of it, laid over them in
@@ -33,6 +33,8 @@ final class Leisure {
     static final float POOL_LAMP_FOOT = 1.545f, POOL_SHADE_DYE = 0.68f;
     /** How far in front of its pole a basketball's board stands. */
     static final float BOARD_AHEAD = 0.12f;
+    /** How high a studio camera's sprite paints the top of its body, in levels, and how far behind the square's middle. */
+    static final float CAMERA_BODY_DYE = 0.633f, CAMERA_BODY_BACK = 0.1f;
 
     static Outdoors.Piece of(String name, String called, String group, int faces, int width, int height) {
         boolean single = width == 1 && height == 1;
@@ -99,6 +101,9 @@ final class Leisure {
         if (called.equals("Microphone") && kind.equals("Standing")) {
             return new Outdoors.Piece("stage_microphone", faces);
         }
+        if (called.equals("HK533p") && kind.equals("Imekagi")) {
+            return studioCamera(faces);
+        }
         if (called.equals("Jukebox")) {
             return new Outdoors.Piece("jukebox", faces);
         }
@@ -120,6 +125,18 @@ final class Leisure {
                     : kind.equals("Tom") || kind.equals("Snare") ? new Outdoors.Piece("drum_stand", faces) : null;
         }
         return null;
+    }
+
+    /** A studio camera on its tripod, its body dyed from the top of the body its sprite paints behind the tripod. */
+    private static Outdoors.Piece studioCamera(int faces) {
+        float a = 0.5f, b = 0.5f;
+        switch (faces) {
+            case Outdoors.NORTH -> b += CAMERA_BODY_BACK;
+            case Outdoors.EAST -> a -= CAMERA_BODY_BACK;
+            case Outdoors.SOUTH -> b -= CAMERA_BODY_BACK;
+            default -> a += CAMERA_BODY_BACK;
+        }
+        return new Outdoors.Piece("studio_camera", faces).dye(PAINT, a, b, CAMERA_BODY_DYE);
     }
 
     /**

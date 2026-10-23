@@ -22,6 +22,7 @@ final class LeisureTests {
         Checks.run("aTowersSpireStandsOnItsFrontSquareAndItsCrossOnItsPoint", LeisureTests::aTowersSpireStandsOnItsFrontSquareAndItsCrossOnItsPoint);
         Checks.run("aPairOfTheatreSeatsFacesTheWayItsSpriteSays", LeisureTests::aPairOfTheatreSeatsFacesTheWayItsSpriteSays);
         Checks.run("aStageMicrophoneFacesTheWayItsSpriteSays", LeisureTests::aStageMicrophoneFacesTheWayItsSpriteSays);
+        Checks.run("aStudioCameraFacesTheWayItsSpriteSaysAndIsDyedFromItsBody", LeisureTests::aStudioCameraFacesTheWayItsSpriteSaysAndIsDyedFromItsBody);
         Checks.run("aPoolTablesLampHangsFromTheCeilingOverBothSquares", LeisureTests::aPoolTablesLampHangsFromTheCeilingOverBothSquares);
         Checks.run("anOrgansWestSquareStandsItAgainstItsWallAndTheRestStandNothing", LeisureTests::anOrgansWestSquareStandsItAgainstItsWallAndTheRestStandNothing);
         Checks.run("aChurchsColouredWindowsAreStainedGlassAndItsClearOnesAreNot", LeisureTests::aChurchsColouredWindowsAreStainedGlassAndItsClearOnesAreNot);
@@ -100,6 +101,20 @@ final class LeisureTests {
             Checks.check(microphone != null && microphone.model.equals("stage_microphone") && microphone.turns == faces, "it is turned the way it faces");
         }
         Checks.check(Outdoors.of("appliances_com_01_68", "Microphone", "Standing", Outdoors.NONE, 1, 1, 0) == null, "a microphone facing no way is left to the game");
+    }
+
+    private static void aStudioCameraFacesTheWayItsSpriteSaysAndIsDyedFromItsBody() {
+        int[] sprites = {47, 45, 44, 46};
+        for (int faces = Outdoors.NORTH; faces <= Outdoors.WEST; faces++) {
+            Outdoors.Piece camera = Outdoors.of("appliances_com_01_" + sprites[faces], "HK533p", "Imekagi", faces, 1, 1, 0);
+            holds(camera, "a studio camera facing " + faces + " has a model");
+            Checks.check(camera != null && camera.model.equals("studio_camera") && camera.turns == faces, "it is turned the way it faces");
+            Checks.check(camera != null && camera.dyed == 1 << Models.PAINT && camera.dyeHigh == Leisure.CAMERA_BODY_DYE, "its body is dyed from the sprite");
+            float behindA = faces == Outdoors.EAST ? -1 : faces == Outdoors.WEST ? 1 : 0, behindB = faces == Outdoors.SOUTH ? -1 : faces == Outdoors.NORTH ? 1 : 0;
+            Checks.check(camera != null && camera.dyeA == 0.5f + behindA * Leisure.CAMERA_BODY_BACK && camera.dyeB == 0.5f + behindB * Leisure.CAMERA_BODY_BACK,
+                    "where the body is painted behind the tripod");
+        }
+        Checks.check(Outdoors.of("appliances_com_01_44", "HK533p", "Imekagi", Outdoors.NONE, 1, 1, 0) == null, "a camera facing no way is left to the game");
     }
 
     private static void aPoolTablesLampHangsFromTheCeilingOverBothSquares() {

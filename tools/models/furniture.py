@@ -12261,6 +12261,66 @@ def gallery():
     return [bust("bust_male"), bust("bust_female"), female_statue(), male_statue(), orator_statue(), stage_microphone(), pool_lamp()]
 
 
+def studio_camera():
+    """A television studio's camera on a tripod, the Imekagi HK533p: a beige body on a black pan head and a grey centre
+    column, a black hood open at the front round the lens, a viewfinder on top over its left side with its screen at
+    the back under a hood of its own, a pan bar out to the right and a cable looped down the same side. Three silver
+    legs splay from 0.8 m up to feet 0.44 m out. The origin is the column, which the sprites paint in the middle of the
+    square; the lens is 1.45 m up and the viewfinder's hood reaches 1.79 m."""
+    model = Model("studio_camera", centred=False)
+    legs, black, feet, column, body, hood, glass, screen = (bmesh.new() for _ in range(8))
+    hub = 0.8
+    for n in range(3):
+        angle = math.radians(90 + n * 120)
+        x, y = math.cos(angle), math.sin(angle)
+        rod(legs, (x * 0.045, y * 0.045, hub), (x * 0.44, y * 0.44, 0.035), 0.02, segments=8)
+        lathe(feet, [(0.0, 0.0), (0.024, 0.0), (0.022, 0.05), (0.0, 0.05)], cx=x * 0.445, cy=y * 0.445, segments=8)
+    lathe(black, [(0.0, hub - 0.08), (0.065, hub - 0.08), (0.065, hub + 0.06), (0.04, hub + 0.08), (0.0, hub + 0.08)], segments=12)
+    lathe(column, [(0.0, hub + 0.07), (0.03, hub + 0.07), (0.03, 1.17), (0.0, 1.17)], segments=10)
+    lathe(black, [(0.0, 1.15), (0.075, 1.15), (0.075, 1.24), (0.06, 1.26), (0.0, 1.26)], segments=12)
+    cuboid(black, -0.1, 0.1, -0.12, 0.1, 1.24, 1.27)
+    # The pan bar, out to the camera's right from the back of the head and a little down.
+    rod(black, (0.05, 0.06, 1.21), (0.33, 0.2, 1.14), 0.015, segments=8)
+    lathe(black, [(0.017, 0.0), (0.017, 0.12)], segments=8, to=Matrix.Translation((0.33, 0.2, 1.14))
+          @ Vector((0.0, 0.0, 1.0)).rotation_difference(Vector((0.28, 0.14, -0.07)).normalized()).to_matrix().to_4x4())
+    # The body, longer than it is wide, its front where the lens hood meets it.
+    cuboid(body, -0.13, 0.13, -0.29, 0.19, 1.27, 1.55)
+    cuboid(body, -0.1, 0.1, -0.29, -0.11, 1.55, 1.59)
+    # The viewfinder over the left of the front half, its screen in the back face under a hood of three flaps.
+    cuboid(body, -0.15, 0.03, -0.22, 0.03, 1.57, 1.75)
+    cuboid(screen, -0.13, 0.01, 0.03, 0.035, 1.6, 1.72)
+    cuboid(hood, -0.16, -0.148, 0.03, 0.14, 1.58, 1.78)
+    cuboid(hood, 0.028, 0.04, 0.03, 0.14, 1.58, 1.78)
+    cuboid(hood, -0.16, 0.04, 0.03, 0.16, 1.78, 1.793)
+    # The panel on the right side and the cable that loops down from it.
+    cuboid(hood, 0.13, 0.136, -0.13, 0.07, 1.33, 1.47)
+    cable = [(0.14, 0.08, 1.41), (0.16, 0.12, 1.37), (0.165, 0.13, 1.29), (0.15, 0.1, 1.22), (0.12, 0.04, 1.2), (0.09, 0.0, 1.23)]
+    for a, b in zip(cable, cable[1:]):
+        rod(black, a, b, 0.008, segments=6)
+    # The hood round the lens: open at the front, wider and taller than the body.
+    front, back = -0.6, -0.29
+    cuboid(hood, -0.19, 0.19, front, back, 1.55, 1.57)
+    cuboid(hood, -0.19, 0.19, front, back, 1.33, 1.35)
+    cuboid(hood, -0.19, -0.17, front, back, 1.35, 1.55)
+    cuboid(hood, 0.17, 0.19, front, back, 1.35, 1.55)
+    cuboid(hood, -0.17, 0.17, back - 0.02, back, 1.35, 1.55)
+    lathe(black, [(0.0, 0.0), (0.075, 0.0), (0.075, 0.22), (0.065, 0.24), (0.0, 0.24)], segments=16, to=along_y(0.0, back - 0.02, 1.45) @ Matrix.Rotation(math.pi, 4, "X"))
+    lathe(glass, [(0.06, 0.0), (0.0, 0.005)], segments=16, to=along_y(0.0, back - 0.263, 1.45) @ Matrix.Rotation(math.pi, 4, "X"))
+    model.hard(legs, "steel", bevel=0.002, segments=1)
+    model.turned(feet, "rubber")
+    model.turned(column, "steel")
+    model.hard(black, "rubber", bevel=0.004)
+    model.hard(body, "paint", bevel=0.015)
+    model.hard(hood, "plastic", bevel=0.004)
+    model.plain(screen, "screen")
+    model.turned(glass, "screen")
+    return model
+
+
+def cameras():
+    return [studio_camera()]
+
+
 def every():
     return [bed("double_bed", 1.80, 2.00, 2), bed("single_bed", 0.90, 1.90, 1), wardrobe(), dining_chair(), small_table(),
               settee("sofa", 1.90, 2), settee("armchair", 1.02, 1), bedside_cabinet(), dresser(), desk(), office_chair(),
@@ -12283,7 +12343,7 @@ def every():
             + upholstered() + barrels_and_pots() + street() + display_cases() + awnings() + hoods() + industrial()
             + street_clutter() + home_fittings() + overhead() + office_medical() + wall_objects() + camp()
             + towers() + aerials() + farm_and_garden() + leisure() + shop_fittings() + dumpsters()
-            + bar_panelling() + sports() + shops() + gallery())
+            + bar_panelling() + sports() + shops() + gallery() + cameras())
 
 
 def main():
