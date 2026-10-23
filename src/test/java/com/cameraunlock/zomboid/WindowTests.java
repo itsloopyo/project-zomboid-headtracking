@@ -24,6 +24,10 @@ final class WindowTests {
         Checks.run("plainWallWithADoorInItIsOneStripe", WindowTests::plainWallWithADoorInItIsOneStripe);
         Checks.run("chequeredFloorIsItsTiles", WindowTests::chequeredFloorIsItsTiles);
         Checks.run("boardsAreNoTiles", WindowTests::boardsAreNoTiles);
+        Checks.run("diagonalFloorIsItsDiamonds", WindowTests::diagonalFloorIsItsDiamonds);
+        Checks.run("parquetIsItsBlocksOfSlats", WindowTests::parquetIsItsBlocksOfSlats);
+        Checks.run("shadedTilesAreAGrid", WindowTests::shadedTilesAreAGrid);
+        Checks.run("diamondsCutToTheSquareCoverIt", WindowTests::diamondsCutToTheSquareCoverIt);
         Checks.run("floorLaidFlatMeetsItselfAtTheSquaresEdge", WindowTests::floorLaidFlatMeetsItselfAtTheSquaresEdge);
         Checks.run("halfASquareIsNoFlatFloor", WindowTests::halfASquareIsNoFlatFloor);
         Checks.run("wallStoodSquareRunsOnIntoTheNextLength", WindowTests::wallStoodSquareRunsOnIntoTheNextLength);
@@ -357,6 +361,114 @@ final class WindowTests {
             float shade = 0.45f + 0.12f * (float) Math.sin(board * 2.4f) + 0.05f * (float) Math.sin(x * 40f + board);
             return y * 3.3f % 1f < 0.08f ? new float[] {0.15f, 0.1f, 0.05f} : new float[] {shade, shade * 0.7f, shade * 0.4f};
         }), 64) == null, "a floor of boards is left to its sprite");
+    }
+
+    /** A floor of tiles on the diagonal, count joints a tile each way from phase, a grey joint a dot and a half wide, the diamonds in one colour or turn about in two. */
+    private static float[] diagonalFloor(int count, float phase, float[] even, float[] odd) {
+        return floor(64, (a, b) -> {
+            float s = count * (a + b) - phase, t = count * (a - b) - phase;
+            float toJoint = Math.min(Math.min(s - (float) Math.floor(s), (float) Math.ceil(s) - s), Math.min(t - (float) Math.floor(t), (float) Math.ceil(t) - t));
+            if (toJoint * 64f / count / 1.4142f < 0.75f) {
+                return new float[] {0.45f, 0.45f, 0.45f};
+            }
+            return Math.floorMod((int) Math.floor(s) + (int) Math.floor(t), 2) == 0 ? even : odd;
+        });
+    }
+
+    private static void diagonalFloorIsItsDiamonds() {
+        float[] green = {0.29f, 0.34f, 0.26f}, white = {0.9f, 0.9f, 0.85f}, grey = {0.44f, 0.43f, 0.48f};
+        Tiles.Shape plain = Tiles.laid(diagonalFloor(2, 0f, green, green), 64);
+        check(plain != null && plain.diagonal == 2 && plain.count == 0 && plain.blocks == 0, "green tiles on the diagonal, two joints a tile, are read so: "
+                + (plain == null ? "none" : plain.diagonal + " joints, " + plain.count + " tiles"));
+        check(Math.abs(plain.phase) < 0.07f || Math.abs(plain.phase - 1f) < 0.07f, "with the joints through the corners of the square: " + plain.phase);
+        check(!plain.checkered && Math.abs(plain.colours[0] - 0.29f) < 0.01f && Math.abs(plain.colours[1] - 0.34f) < 0.01f, "all in the one green");
+        check(plain.jointRed > plain.colours[0] && plain.jointRed < 0.45f, "and the joints between the green and the grey: " + plain.jointRed);
+        check(plain.uneven > 0.0006f, "a carpet goes by how uneven the square is taken whole, joints and all: " + plain.uneven);
+        Tiles.Shape chequer = Tiles.laid(diagonalFloor(2, 0.5f, grey, white), 64);
+        check(chequer != null && chequer.diagonal == 2 && chequer.checkered, "grey and white turn about on the diagonal is a chequer");
+        check(Math.abs(chequer.phase - 0.5f) < 0.07f, "its joints half a tile along from the corners: " + chequer.phase);
+        check(Math.abs(chequer.colours[0] - 0.44f) < 0.01f && Math.abs(chequer.colours[3] - 0.9f) < 0.01f && Math.abs(chequer.colours[5] - 0.85f) < 0.01f,
+                "the even diamonds grey and the odd white");
+        float[] area = new float[2];
+        for (int odd = 0; odd < 2; odd++) {
+            float[] cut = odd == 0 ? chequer.evenTriangles : chequer.oddTriangles;
+            for (int at = 0; at < cut.length; at += 6) {
+                area[odd] += Math.abs((cut[at + 2] - cut[at]) * (cut[at + 5] - cut[at + 1]) - (cut[at + 4] - cut[at]) * (cut[at + 3] - cut[at + 1])) / 2f;
+            }
+        }
+        check(Math.abs(area[0] - 0.5f) < 1e-4f && Math.abs(area[1] - 0.5f) < 1e-4f, "and each colour is laid over half the square: " + Arrays.toString(area));
+        Tiles.Shape fine = Tiles.laid(diagonalFloor(4, 0f, white, white), 64);
+        check(fine != null && fine.diagonal == 4, "four joints a tile are four: " + (fine == null ? "none" : String.valueOf(fine.diagonal)));
+    }
+
+    private static void parquetIsItsBlocksOfSlats() {
+        for (int slats = Tiles.FEWEST_SLATS; slats <= Tiles.MOST_SLATS; slats++) {
+            for (boolean evenAlongY : new boolean[] {true, false}) {
+                int count = slats;
+                Tiles.Shape parquet = Tiles.laid(floor(64, (a, b) -> {
+                    int x = (int) (a * 4f), y = (int) (b * 4f);
+                    float inA = a * 4f - x, inB = b * 4f - y;
+                    if (inA > 0.93f || inB > 0.93f) {
+                        return new float[] {0.3f, 0.17f, 0.12f};
+                    }
+                    boolean alongY = (x + y) % 2 == 0 == evenAlongY;
+                    float across = (alongY ? inA : inB) / 0.93f * count;
+                    float shade = 0.5f + 0.06f * (float) Math.sin(Math.PI * (across - Math.floor(across))) - (across % 1f < 0.12f ? 0.08f : 0f);
+                    return new float[] {shade, shade * 0.6f, shade * 0.4f};
+                }), 64);
+                check(parquet != null && parquet.blocks == 4 && parquet.slats == slats && parquet.evenAlongY == evenAlongY,
+                        "parquet of four blocks a side of " + slats + " slats, the even ones along " + (evenAlongY ? "y" : "x") + ", is read so: "
+                        + (parquet == null ? "none" : parquet.blocks + " blocks, " + parquet.slats + " slats, " + parquet.evenAlongY + ", " + parquet.diagonal + " diagonal, " + parquet.count + " tiles"));
+            }
+        }
+        check(WorldScene.parquetOf(Tiles.FEWEST_BLOCKS, Tiles.FEWEST_SLATS, false) == WorldScene.FIRST_PARQUET
+                && WorldScene.parquetOf(Tiles.MOST_BLOCKS, Tiles.MOST_SLATS, true) == WorldScene.LAST_PARQUET
+                && WorldScene.parquetOf(4, 2, true) != WorldScene.parquetOf(4, 3, false) && WorldScene.parquetOf(3, 4, true) + 1f == WorldScene.parquetOf(4, 2, false),
+                "each count of blocks and slats and lie of parquet has a material number of its own");
+        check(WorldScene.FIRST_PARQUET > WorldScene.LAST_BOARDS && PipelineShaders.WORLD_VERTEX.contains("vMaterial > " + (int) (WorldScene.FIRST_PARQUET - 1f) + ".5 && vMaterial < " + (int) WorldScene.LAST_PARQUET + ".5")
+                && PipelineShaders.WORLD_VERTEX.contains("vMaterial - " + (int) WorldScene.FIRST_PARQUET + ".0")
+                && PipelineShaders.WORLD_VERTEX.contains(Tiles.FEWEST_BLOCKS + ".0 + floor(parquetAs / " + 2 * (Tiles.MOST_SLATS - Tiles.FEWEST_SLATS + 1) + ".0)")
+                && PipelineShaders.WORLD_VERTEX.contains("(" + Tiles.FEWEST_SLATS + ".0 + mod(floor(parquetAs / 2.0), " + (Tiles.MOST_SLATS - Tiles.FEWEST_SLATS + 1) + ".0))"),
+                "and the picture reads the same numbers back");
+    }
+
+    private static void shadedTilesAreAGrid() {
+        // Four tiles a side, each lighter towards two of its edges and darker towards the other two, with a dark joint.
+        Tiles.Shape tiles = Tiles.laid(floor(64, (a, b) -> {
+            float inA = a * 4f % 1f, inB = b * 4f % 1f;
+            if (inA > 0.92f || inB > 0.92f) {
+                return new float[] {0.4f, 0.33f, 0.27f};
+            }
+            float shade = 0.7f + (inA < 0.18f || inB < 0.18f ? 0.12f : 0f) - (inA > 0.75f || inB > 0.75f ? 0.12f : 0f);
+            return new float[] {shade, shade * 0.86f, shade * 0.74f};
+        }), 64);
+        check(tiles != null && tiles.count == 4, "tiles shaded towards their edges are four a side: " + (tiles == null ? "none" : String.valueOf(tiles.count)));
+        check(Math.abs(tiles.colours[0] - 0.7f) < 0.01f, "each in the colour of its middle: " + tiles.colours[0]);
+    }
+
+    private static void diamondsCutToTheSquareCoverIt() {
+        for (int count = 1; count <= 4; count++) {
+            for (float phase : new float[] {0f, 0.3125f, 0.875f}) {
+                float total = 0f;
+                boolean inside = true, right = true;
+                for (int odd = 0; odd < 2; odd++) {
+                    float[] cut = Tiles.diamondTriangles(count, phase, odd == 1);
+                    for (int at = 0; at < cut.length; at += 6) {
+                        float twice = (cut[at + 2] - cut[at]) * (cut[at + 5] - cut[at + 1]) - (cut[at + 4] - cut[at]) * (cut[at + 3] - cut[at + 1]);
+                        total += Math.abs(twice) / 2f;
+                        right &= twice > 0f;
+                        float a = (cut[at] + cut[at + 2] + cut[at + 4]) / 3f, b = (cut[at + 1] + cut[at + 3] + cut[at + 5]) / 3f;
+                        for (int corner = 0; corner < 6; corner++) {
+                            inside &= cut[at + corner] >= -1e-5f && cut[at + corner] <= 1f + 1e-5f;
+                        }
+                        // Each triangle lies in a diamond of its own colour.
+                        right &= Math.floorMod((int) Math.floor(count * (a + b) - phase) + (int) Math.floor(count * (a - b) - phase), 2) == odd;
+                    }
+                }
+                check(Math.abs(total - 1f) < 1e-4f && inside, "the diamonds of both colours cut to the square cover it once, " + count + " joints from " + phase + ": " + total);
+                check(right, "each piece in its own colour's diamond, its corners going round as the square's do");
+            }
+        }
     }
 
     /**

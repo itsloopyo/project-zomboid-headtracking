@@ -1,6 +1,7 @@
 package com.cameraunlock.zomboid;
 
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.concurrent.ConcurrentHashMap;
 import zombie.core.textures.Texture;
 
@@ -14,8 +15,14 @@ import zombie.core.textures.Texture;
  * tile the most nearly one colour inside its own edges. The picture lays the floor as those
  * tiles, each a face of its own, on a bed the colour of the joints between them.
  *
- * A floor that is no grid of plain tiles is not read as one: boards, bricks laid in bond, a
- * pattern across the tiles.
+ * Three more ways of laying a floor are read the same way. Tiles laid on the diagonal: their
+ * joints run corner to corner, and the dots inside each diamond between them are one colour,
+ * or one of two for a chequer. Parquet: blocks in a grid, each of a few slats side by side,
+ * the slats of each block running across those of the blocks beside it. And a grid of tiles
+ * each shaded lighter or darker towards its edges, whose colours are read further in.
+ *
+ * A floor that is none of these is not read as one: boards, bricks laid in bond, a pattern
+ * across the tiles.
  */
 final class Tiles {
     /** The numbers of tiles to a side that are tried. */
@@ -25,7 +32,32 @@ final class Tiles {
     /** A count is as good as the best when its tiles are this near to as even, or simply this even. */
     private static final float AS_GOOD = 1.6f, EVEN = 0.0003f;
     /** Tiles are a grid when they are this many times as even as the square taken whole, and no more uneven than the first; one tile is a floor when it is as even as the second. */
-    private static final float GRID_GAIN = 4f, GRID_UNEVEN = 0.006f, PLAIN_UNEVEN = 0.0006f;
+    private static final float GRID_GAIN = 4f, GRID_UNEVEN = 0.006f, PLAIN_UNEVEN = 0.0008f;
+    /**
+     * How much of each tile is left out of its colour for a grid of tiles shaded towards their
+     * edges, how many tiles a side such a grid has at most, and how many times as even its tiles
+     * have to be as the square taken whole: tiles any smaller leave too few dots that far in to
+     * tell them from bricks or boards.
+     */
+    private static final float BEVEL_EDGE = 0.25f, BEVEL_GAIN = 8f;
+    private static final int BEVEL_MOST = 4;
+    /** Such tiles have joints all round when the dots by one pair of their edges are at least this share as far from the tile's colour as those by the other: see jointedAllRound. */
+    private static final float ALL_ROUND = 0.5f;
+    /** The numbers of joints to a tile, along a + b and along a - b, tried for tiles laid on the diagonal, and how many places of the first joint between two whole numbers. */
+    private static final int[] DIAGONAL_COUNTS = {1, 2, 3, 4};
+    private static final int DIAGONAL_PHASES = 16;
+    /** A count of joints on the diagonal is as good as the best when its diamonds are this near to as even: see diagonal. */
+    private static final float DIAGONAL_AS_GOOD = 2.5f;
+    /** Diamonds are tiles when they are this many times as even as the square taken whole, and no more uneven than GRID_UNEVEN. */
+    private static final float DIAGONAL_GAIN = 3f;
+    /** Two sets of diamonds are a chequer of two colours when their colours are this far apart, summed over red, green and blue. */
+    private static final float TWO_COLOURS = 0.1f;
+    /** The numbers of parquet blocks to a side that are tried, and the numbers of slats to a block. */
+    static final int FEWEST_BLOCKS = 2, MOST_BLOCKS = 4, FEWEST_SLATS = 2, MOST_SLATS = 4;
+    /** A block's slats run along one way when the means of its rows of dots across them vary this many times as much as those of its rows along them. */
+    private static final float LEANS = 4f;
+    /** The share of a floor's blocks whose slats have to run the way a parquet's would. None may run the other way. */
+    private static final float PARQUET_AGREE = 0.75f;
     /** How much of the square has to be painted. */
     private static final float PAINTED = 0.9f;
     /**
@@ -48,6 +80,24 @@ final class Tiles {
         float jointRed, jointGreen, jointBlue, red, green, blue;
         /** Whether a floor of one tile to a side is drawn with a joint round it: see RIM. */
         boolean rimmed;
+        /**
+         * For tiles laid on the diagonal, how many joints there are to a tile along a + b, as
+         * many as along a - b, or 0. The joints are where diagonal times a + b, less phase, is
+         * a whole number, and the same of a - b. colours holds the diamonds between whose two
+         * counts of joints add to an even number, then the odd ones.
+         */
+        int diagonal;
+        float phase;
+        /** Whether a floor laid on the diagonal is a chequer of two colours, and if so its even and its odd diamonds cut to the square: see diamondTriangles. */
+        boolean checkered;
+        float[] evenTriangles, oddTriangles;
+        /**
+         * For parquet, how many blocks a side, how many slats to each, and whether the slats of
+         * a block run along y where its two counts of blocks along x and y add to an even
+         * number. 0 blocks for what is no parquet.
+         */
+        int blocks, slats;
+        boolean evenAlongY;
     }
 
     private record Asked(float originU, float originV, float scale, float left, float top, float width, float height) {}
@@ -114,11 +164,14 @@ final class Tiles {
         if (shape == null && painted >= PAINTED * side * side) {
             shape = new Shape();
             shape.colours = new float[3];
-            shape.uneven = uneven(dots, side, 1, shape);
+            shape.uneven = uneven(dots, side, 1, EDGE, shape);
             shape.count = 0;
         }
         if (FirstPerson.TRACE) {
-            Log.info("floor " + texture.getName() + (shape == null ? " is not a square of floor" : shape.count == 0 ? " is no grid of plain tiles, uneven " + shape.uneven
+            Log.info("floor " + texture.getName() + (shape == null ? " is not a square of floor"
+                    : shape.blocks > 0 ? " is parquet, " + shape.blocks + " blocks a side of " + shape.slats + " slats"
+                    : shape.diagonal > 0 ? " is tiles on the diagonal, " + shape.diagonal + " joints a tile from " + shape.phase + (shape.checkered ? ", chequered" : "")
+                    : shape.count == 0 ? " is no grid of plain tiles, uneven " + shape.uneven
                     : " is " + shape.count + " tiles a side"));
         }
         if (shape == null) {
@@ -137,27 +190,409 @@ final class Tiles {
      * grid of plain tiles.
      */
     static Shape laid(float[] dots, int side) {
-        float[] uneven = new float[COUNTS.length];
+        // Parquet first: its blocks, each of slats nearly one colour, can pass for a grid of plain tiles.
+        Shape shape = parquet(dots, side);
+        if (shape == null) {
+            shape = grid(dots, side, EDGE, COUNTS[COUNTS.length - 1], GRID_GAIN, true);
+        }
+        if (shape == null) {
+            shape = diagonal(dots, side);
+        }
+        if (shape == null) {
+            // Its uneven is the square's taken whole, as for a floor that is no grid: a carpet goes by that.
+            shape = grid(dots, side, BEVEL_EDGE, BEVEL_MOST, BEVEL_GAIN, false);
+            if (shape != null && !jointedAllRound(dots, side, shape)) {
+                shape = null;
+            }
+            if (shape != null) {
+                shape.uneven = uneven(dots, side, 1, EDGE, null);
+            }
+        }
+        return shape;
+    }
+
+    /**
+     * The grid of plain tiles in a square of floor laid flat, each tile's colour taken from
+     * edge of it in from its edges, at most most tiles a side and gain times as even as the
+     * square taken whole, or null for what is no grid. Where plain is set, a square of one
+     * colour all over is a grid of one tile.
+     */
+    private static Shape grid(float[] dots, int side, float edge, int most, float gain, boolean plain) {
+        int tried = 0;
+        while (tried < COUNTS.length && COUNTS[tried] <= most) {
+            tried++;
+        }
+        float[] uneven = new float[tried];
         float least = Float.MAX_VALUE;
-        for (int k = 0; k < COUNTS.length; k++) {
-            uneven[k] = uneven(dots, side, COUNTS[k], null);
+        for (int k = 0; k < tried; k++) {
+            uneven[k] = uneven(dots, side, COUNTS[k], edge, null);
             least = Math.min(least, uneven[k]);
         }
         int picked = 0;
         while (uneven[picked] > Math.max(AS_GOOD * least, EVEN)) {
             picked++;
         }
-        boolean grid = picked > 0 && uneven[0] >= GRID_GAIN * uneven[picked] && uneven[picked] <= GRID_UNEVEN;
-        if (!grid && !(picked == 0 && uneven[0] <= PLAIN_UNEVEN)) {
+        boolean grid = picked > 0 && uneven[0] >= gain * uneven[picked] && uneven[picked] <= GRID_UNEVEN;
+        if (!grid && !(plain && picked == 0 && uneven[0] <= PLAIN_UNEVEN)) {
             return null;
         }
         Shape shape = new Shape();
         shape.count = COUNTS[picked];
         shape.colours = new float[shape.count * shape.count * 3];
         shape.uneven = uneven[picked];
-        uneven(dots, side, shape.count, shape);
+        uneven(dots, side, shape.count, edge, shape);
         shape.rimmed = shape.count == 1 && rimmed(dots, side, shape.colours);
         return shape;
+    }
+
+    /**
+     * Whether the tiles of a grid read BEVEL_EDGE in from their edges have joints along all
+     * their edges: the dots by the edges across a, and those by the edges across b, lie about
+     * as far from their tile's colour. Boards have joints only along their length, and a grid
+     * read that far in can take a stretch of each board for a tile.
+     */
+    private static boolean jointedAllRound(float[] dots, int side, Shape shape) {
+        int count = shape.count, margin = Math.max(1, Math.round(BEVEL_EDGE * side / count));
+        double[] off = new double[2];
+        int[] held = new int[2];
+        for (int x = 0; x < count; x++) {
+            for (int y = 0; y < count; y++) {
+                int i0 = x * side / count, i1 = (x + 1) * side / count, j0 = y * side / count, j1 = (y + 1) * side / count, tile = (x * count + y) * 3;
+                for (int i = i0; i < i1; i++) {
+                    for (int j = j0; j < j1; j++) {
+                        int at = (i * side + j) * 3;
+                        boolean byA = i < i0 + margin || i >= i1 - margin, byB = j < j0 + margin || j >= j1 - margin;
+                        if (dots[at] < 0f || byA == byB) {
+                            continue;
+                        }
+                        int way = byA ? 0 : 1;
+                        off[way] += Math.abs(dots[at] - shape.colours[tile]) + Math.abs(dots[at + 1] - shape.colours[tile + 1]) + Math.abs(dots[at + 2] - shape.colours[tile + 2]);
+                        held[way]++;
+                    }
+                }
+            }
+        }
+        double alongA = off[0] / Math.max(held[0], 1), alongB = off[1] / Math.max(held[1], 1);
+        return Math.min(alongA, alongB) >= ALL_ROUND * Math.max(alongA, alongB);
+    }
+
+    /**
+     * Tiles laid on the diagonal in a square of floor laid flat, or null: the fewest joints
+     * whose diamonds, with the first joint where it leaves them most nearly one colour each,
+     * are nearly as even as the evenest. Twice the joints are always about as even, and on a
+     * plain floor a little more, its tiles' faint shading split in two.
+     */
+    static Shape diagonal(float[] dots, int side) {
+        float whole = uneven(dots, side, 1, EDGE, null);
+        float[] uneven = new float[DIAGONAL_COUNTS.length];
+        int[] phases = new int[DIAGONAL_COUNTS.length];
+        float least = Float.MAX_VALUE;
+        for (int k = 0; k < DIAGONAL_COUNTS.length; k++) {
+            uneven[k] = Float.MAX_VALUE;
+            for (int phase = 0; phase < DIAGONAL_PHASES; phase++) {
+                float here = diamonds(dots, side, DIAGONAL_COUNTS[k], phase / (float) DIAGONAL_PHASES, null);
+                if (here < uneven[k]) {
+                    uneven[k] = here;
+                    phases[k] = phase;
+                }
+            }
+            least = Math.min(least, uneven[k]);
+        }
+        int picked = 0;
+        while (uneven[picked] > Math.max(DIAGONAL_AS_GOOD * least, EVEN)) {
+            picked++;
+        }
+        if (uneven[picked] > GRID_UNEVEN || whole < DIAGONAL_GAIN * uneven[picked]) {
+            return null;
+        }
+        Shape shape = new Shape();
+        shape.diagonal = DIAGONAL_COUNTS[picked];
+        shape.phase = phases[picked] / (float) DIAGONAL_PHASES;
+        shape.colours = new float[6];
+        shape.uneven = whole;
+        diamonds(dots, side, shape.diagonal, shape.phase, shape);
+        shape.checkered = Math.abs(shape.colours[0] - shape.colours[3]) + Math.abs(shape.colours[1] - shape.colours[4])
+                + Math.abs(shape.colours[2] - shape.colours[5]) > TWO_COLOURS;
+        if (shape.checkered) {
+            shape.evenTriangles = diamondTriangles(shape.diagonal, shape.phase, false);
+            shape.oddTriangles = diamondTriangles(shape.diagonal, shape.phase, true);
+        }
+        return shape;
+    }
+
+    /**
+     * How far the diamonds between joints laid on the diagonal are from one colour each, count
+     * joints to a tile and the first at phase: the mean over the dots inside them, EDGE of a
+     * diamond in from its edges, of how far each lies from its own diamond's colour, squared.
+     * Given a shape, fills in the colours of the even diamonds and the odd ones (see
+     * Shape.diagonal), the joints' and the floor's.
+     */
+    private static float diamonds(float[] dots, int side, int count, float phase, Shape into) {
+        // Diamonds counted along a + b from -1 to 2 count, along a - b from -count - 1 to count.
+        int span = 2 * count + 2;
+        double[] sum = new double[span * span * 3];
+        double[] squares = new double[span * span];
+        int[] held = new int[span * span];
+        double[] parity = new double[6], joint = new double[3], whole = new double[3];
+        int[] parityHeld = new int[2];
+        int joints = 0, every = 0;
+        for (int i = 0; i < side; i++) {
+            for (int j = 0; j < side; j++) {
+                int at = (i * side + j) * 3;
+                if (dots[at] < 0f) {
+                    continue;
+                }
+                float a = (i + 0.5f) / side, b = (j + 0.5f) / side;
+                float s = count * (a + b) - phase, t = count * (a - b) - phase;
+                int k = (int) Math.floor(s), m = (int) Math.floor(t);
+                float inS = s - k, inT = t - m;
+                every++;
+                for (int part = 0; part < 3; part++) {
+                    whole[part] += dots[at + part];
+                }
+                if (inS <= EDGE || inS >= 1f - EDGE || inT <= EDGE || inT >= 1f - EDGE) {
+                    joints++;
+                    for (int part = 0; part < 3; part++) {
+                        joint[part] += dots[at + part];
+                    }
+                    continue;
+                }
+                int cell = (k + 1) * span + m + count + 1;
+                held[cell]++;
+                for (int part = 0; part < 3; part++) {
+                    sum[cell * 3 + part] += dots[at + part];
+                    squares[cell] += dots[at + part] * dots[at + part];
+                }
+            }
+        }
+        double apart = 0.0;
+        int counted = 0;
+        for (int cell = 0; cell < span * span; cell++) {
+            if (held[cell] < 4) {
+                continue;
+            }
+            double meanSquare = 0.0;
+            for (int part = 0; part < 3; part++) {
+                double mean = sum[cell * 3 + part] / held[cell];
+                meanSquare += mean * mean;
+            }
+            apart += squares[cell] - held[cell] * meanSquare;
+            counted += held[cell];
+            if (into != null) {
+                int odd = Math.floorMod(cell / span - 1 + cell % span - count - 1, 2);
+                for (int part = 0; part < 3; part++) {
+                    parity[odd * 3 + part] += sum[cell * 3 + part];
+                }
+                parityHeld[odd] += held[cell];
+            }
+        }
+        if (into != null) {
+            for (int part = 0; part < 6; part++) {
+                into.colours[part] = (float) (parity[part] / Math.max(parityHeld[part / 3], 1));
+            }
+            into.red = (float) (whole[0] / every);
+            into.green = (float) (whole[1] / every);
+            into.blue = (float) (whole[2] / every);
+            into.jointRed = (float) (joint[0] / Math.max(joints, 1));
+            into.jointGreen = (float) (joint[1] / Math.max(joints, 1));
+            into.jointBlue = (float) (joint[2] / Math.max(joints, 1));
+        }
+        return counted == 0 ? Float.MAX_VALUE : (float) (apart / counted);
+    }
+
+    /**
+     * Parquet in a square of floor laid flat, or null: the count of blocks a side for which
+     * the slats of nearly every block run one way and those of the blocks beside it the other,
+     * and none the wrong way. The slats to a block are the count whose spacing the light and
+     * dark across them, all the blocks taken together, comes round at best.
+     */
+    static Shape parquet(float[] dots, int side) {
+        for (int blocks = FEWEST_BLOCKS; blocks <= MOST_BLOCKS; blocks++) {
+            int size = side / blocks, margin = Math.max(1, Math.round(EDGE * size));
+            int[] lean = new int[blocks * blocks];
+            int[] even = new int[2];
+            for (int x = 0; x < blocks; x++) {
+                for (int y = 0; y < blocks; y++) {
+                    // The block's light taken along each of its columns and along each of its rows, and how much each set varies.
+                    int inside = size - 2 * margin;
+                    double[] byA = new double[inside], byB = new double[inside];
+                    int[] heldA = new int[inside], heldB = new int[inside];
+                    for (int i = 0; i < inside; i++) {
+                        for (int j = 0; j < inside; j++) {
+                            float dot = light(dots, side, x * size + margin + i, y * size + margin + j);
+                            if (dot >= 0f) {
+                                byA[i] += dot;
+                                heldA[i]++;
+                                byB[j] += dot;
+                                heldB[j]++;
+                            }
+                        }
+                    }
+                    double acrossA = spread(byA, heldA), acrossB = spread(byB, heldB);
+                    // Light that changes along a and not along b is slats running along b, which is y: 1. Along x: -1.
+                    int way = acrossA > LEANS * acrossB ? 1 : acrossB > LEANS * acrossA ? -1 : 0;
+                    lean[x * blocks + y] = way;
+                    if ((x + y) % 2 == 0 && way != 0) {
+                        even[way > 0 ? 1 : 0]++;
+                    }
+                }
+            }
+            int evenWay = even[1] >= even[0] ? 1 : -1, agree = 0, against = 0;
+            for (int x = 0; x < blocks; x++) {
+                for (int y = 0; y < blocks; y++) {
+                    int wanted = (x + y) % 2 == 0 ? evenWay : -evenWay, way = lean[x * blocks + y];
+                    agree += way == wanted ? 1 : 0;
+                    against += way == -wanted ? 1 : 0;
+                }
+            }
+            if (against > 0 || agree < PARQUET_AGREE * blocks * blocks) {
+                continue;
+            }
+            // The light and dark across the slats, every block's folded into one block's width.
+            float[] across = new float[size];
+            for (int x = 0; x < blocks; x++) {
+                for (int y = 0; y < blocks; y++) {
+                    boolean alongY = (x + y) % 2 == 0 == evenWay > 0;
+                    for (int i = 0; i < size; i++) {
+                        for (int j = margin; j < size - margin; j++) {
+                            across[i] += Math.max(alongY ? light(dots, side, x * size + i, y * size + j) : light(dots, side, x * size + j, y * size + i), 0f);
+                        }
+                    }
+                }
+            }
+            float mean = 0f;
+            for (float dot : across) {
+                mean += dot / size;
+            }
+            int slats = FEWEST_SLATS;
+            double best = -1.0;
+            for (int count = FEWEST_SLATS; count <= MOST_SLATS; count++) {
+                double re = 0.0, im = 0.0;
+                for (int i = 0; i < size; i++) {
+                    double turn = 2.0 * Math.PI * count * (i + 0.5) / size;
+                    re += (across[i] - mean) * Math.cos(turn);
+                    im += (across[i] - mean) * Math.sin(turn);
+                }
+                if (re * re + im * im > best) {
+                    best = re * re + im * im;
+                    slats = count;
+                }
+            }
+            Shape shape = new Shape();
+            shape.blocks = blocks;
+            shape.slats = slats;
+            shape.evenAlongY = evenWay > 0;
+            shape.colours = new float[3];
+            shape.uneven = uneven(dots, side, 1, EDGE, shape);
+            return shape;
+        }
+        return null;
+    }
+
+    /** How far the means of the sums, each over so many dots, lie from their own mean, squared, over those with any dots. */
+    private static double spread(double[] sums, int[] held) {
+        double total = 0.0, squares = 0.0;
+        int count = 0;
+        for (int i = 0; i < sums.length; i++) {
+            if (held[i] > 0) {
+                double mean = sums[i] / held[i];
+                total += mean;
+                squares += mean * mean;
+                count++;
+            }
+        }
+        return count == 0 ? 0.0 : squares / count - (total / count) * (total / count);
+    }
+
+    /** The red, green and blue of a dot of the square summed, or -1 for one off the square or not painted. */
+    private static float light(float[] dots, int side, int i, int j) {
+        if (i >= side || j >= side) {
+            return -1f;
+        }
+        int at = (i * side + j) * 3;
+        return dots[at] < 0f ? -1f : dots[at] + dots[at + 1] + dots[at + 2];
+    }
+
+    /**
+     * The triangles of the diamonds of one colour of a chequer laid on the diagonal, count
+     * joints to a tile and the first at phase (see Shape.diagonal), each cut to the square: a
+     * and b of each corner in turn, the corners going round the way the square's do.
+     */
+    static float[] diamondTriangles(int count, float phase, boolean odd) {
+        float[] out = new float[64];
+        int made = 0;
+        float[] piece = new float[16], cut = new float[16];
+        for (int k = -1; k <= 2 * count; k++) {
+            for (int m = -count - 1; m <= count; m++) {
+                if (Math.floorMod(k + m, 2) == 1 != odd) {
+                    continue;
+                }
+                piece[0] = 0f;
+                piece[1] = 0f;
+                piece[2] = 1f;
+                piece[3] = 0f;
+                piece[4] = 1f;
+                piece[5] = 1f;
+                piece[6] = 0f;
+                piece[7] = 1f;
+                // The diamond is where count * (a + b) - phase is from k to k + 1 and count * (a - b) - phase from m to m + 1.
+                int corners = keep(piece, 4, cut, count, count, -(k + phase));
+                corners = keep(cut, corners, piece, -count, -count, k + 1 + phase);
+                corners = keep(piece, corners, cut, count, -count, -(m + phase));
+                corners = keep(cut, corners, piece, -count, count, m + 1 + phase);
+                if (corners < 3 || area(piece, corners) < 1e-6f) {
+                    continue;
+                }
+                if (out.length < (made + corners - 2) * 6) {
+                    out = Arrays.copyOf(out, out.length * 2);
+                }
+                for (int c = 1; c < corners - 1; c++) {
+                    float twice = (piece[c * 2] - piece[0]) * (piece[c * 2 + 3] - piece[1]) - (piece[c * 2 + 2] - piece[0]) * (piece[c * 2 + 1] - piece[1]);
+                    if (twice < 1e-7f) {
+                        continue;
+                    }
+                    int at = made++ * 6;
+                    out[at] = piece[0];
+                    out[at + 1] = piece[1];
+                    out[at + 2] = piece[c * 2];
+                    out[at + 3] = piece[c * 2 + 1];
+                    out[at + 4] = piece[c * 2 + 2];
+                    out[at + 5] = piece[c * 2 + 3];
+                }
+            }
+        }
+        return Arrays.copyOf(out, made * 6);
+    }
+
+    /** Into to, the part of the polygon of count corners where ka * a + kb * b + c is 0 or more; how many corners that has. */
+    private static int keep(float[] from, int count, float[] to, float ka, float kb, float c) {
+        int kept = 0;
+        for (int i = 0; i < count; i++) {
+            int next = (i + 1) % count;
+            float a0 = from[i * 2], b0 = from[i * 2 + 1], a1 = from[next * 2], b1 = from[next * 2 + 1];
+            float d0 = ka * a0 + kb * b0 + c, d1 = ka * a1 + kb * b1 + c;
+            if (d0 >= 0f) {
+                to[kept * 2] = a0;
+                to[kept * 2 + 1] = b0;
+                kept++;
+            }
+            if (d0 > 0f && d1 < 0f || d0 < 0f && d1 > 0f) {
+                float along = d0 / (d0 - d1);
+                to[kept * 2] = a0 + (a1 - a0) * along;
+                to[kept * 2 + 1] = b0 + (b1 - b0) * along;
+                kept++;
+            }
+        }
+        return kept;
+    }
+
+    private static float area(float[] polygon, int count) {
+        float twice = 0f;
+        for (int i = 0; i < count; i++) {
+            int next = (i + 1) % count;
+            twice += polygon[i * 2] * polygon[next * 2 + 1] - polygon[next * 2] * polygon[i * 2 + 1];
+        }
+        return Math.abs(twice) / 2f;
     }
 
     /** Whether the dots along some edge of a square of one tile are darker than the tile: see RIM. */
@@ -186,16 +621,17 @@ final class Tiles {
 
     /**
      * How far the tiles are from one colour each, with count of them to a side: the mean over
-     * the tiles of how far the dots inside each lie from the tile's own colour, squared. Given
+     * the tiles of how far the dots inside each, edge of it in from its edges, lie from the
+     * tile's own colour, squared. Given
      * a shape, fills in its tiles' colours, its joints' and the whole floor's.
      */
-    private static float uneven(float[] dots, int side, int count, Shape into) {
+    private static float uneven(float[] dots, int side, int count, float edge, Shape into) {
         float all = 0f;
         int tiles = 0;
         float[] sum = new float[3], joint = new float[3], whole = new float[3];
         int joints = 0, every = 0;
         boolean[] inside = into == null ? null : new boolean[side * side];
-        int margin = Math.max(1, Math.round(EDGE * side / count));
+        int margin = Math.max(1, Math.round(edge * side / count));
         for (int x = 0; x < count; x++) {
             for (int y = 0; y < count; y++) {
                 int i0 = x * side / count + margin, i1 = (x + 1) * side / count - margin, j0 = y * side / count + margin, j1 = (y + 1) * side / count - margin;

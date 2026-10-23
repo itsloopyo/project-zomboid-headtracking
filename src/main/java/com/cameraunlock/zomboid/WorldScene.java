@@ -2262,6 +2262,20 @@ final class WorldScene {
      */
     static final float FIRST_BOARDS = 16f, LAST_BOARDS = FIRST_BOARDS + 2 * (Flats.MOST_BOARDS - Flats.FEWEST_BOARDS) + 1;
 
+    /**
+     * Parquet the picture lays, wood all the same to everything else: FIRST_PARQUET for the
+     * fewest blocks a side and slats to a block, the slats of the even blocks running along x,
+     * the next for the same along y, then the next count of slats, and after the most slats
+     * the next count of blocks. The picture's vertex program reads them back: see vBlocks.
+     */
+    static final float FIRST_PARQUET = 120f, LAST_PARQUET = FIRST_PARQUET
+            + 2 * ((Tiles.MOST_BLOCKS - Tiles.FEWEST_BLOCKS + 1) * (Tiles.MOST_SLATS - Tiles.FEWEST_SLATS + 1)) - 1;
+
+    /** What parquet of so many blocks a side and slats to a block is made of, the slats of its even blocks running along y or along x. */
+    static float parquetOf(int blocks, int slats, boolean evenAlongY) {
+        return FIRST_PARQUET + 2 * ((blocks - Tiles.FEWEST_BLOCKS) * (Tiles.MOST_SLATS - Tiles.FEWEST_SLATS + 1) + slats - Tiles.FEWEST_SLATS) + (evenAlongY ? 1 : 0);
+    }
+
     /** What a floor of so many boards to a tile, running along y or along x, is made of. */
     static float boardsOf(int count, boolean alongY) {
         return FIRST_BOARDS + 2 * (count - Flats.FEWEST_BOARDS) + (alongY ? 1 : 0);

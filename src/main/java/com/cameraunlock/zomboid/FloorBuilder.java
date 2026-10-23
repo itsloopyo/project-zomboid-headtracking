@@ -379,7 +379,7 @@ final class FloorBuilder {
         }
         // A fitted carpet is one colour, with a nap the picture has a picture of: the few dots of
         // lighter and darker the game scatters on it are blots when magnified.
-        if (carpet ? tiles.uneven > CARPET_UNEVEN : tiles.count == 0) {
+        if (carpet ? tiles.uneven > CARPET_UNEVEN : tiles.count == 0 && tiles.diagonal == 0 && tiles.blocks == 0) {
             return false;
         }
         int count = carpet ? 1 : tiles.count;
@@ -389,7 +389,13 @@ final class FloorBuilder {
         build.frame.material = carpet ? WorldScene.CARPET : outside && tiles.rimmed ? Ground.PAVING : WorldScene.TILE;
         float each = 1f / count;
         layFloor(true);
-        if (count == 1 && !tiles.rimmed) {
+        if (!carpet && tiles.blocks > 0) {
+            // Parquet is one face in the mean colour of the sprite, which the picture lays as blocks of slats in its own wood.
+            build.frame.material = WorldScene.parquetOf(tiles.blocks, tiles.slats, tiles.evenAlongY);
+            build.geometry.addFace(painted(texture.getID(), red, green, blue, tiles.red, tiles.green, tiles.blue), build.frame, x, y, z, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f, 0f);
+        } else if (!carpet && tiles.diagonal > 0) {
+            addDiagonal(tiles, red, green, blue, x, y, z);
+        } else if (count == 1 && !tiles.rimmed) {
             float r = carpet ? tiles.red : tiles.colours[0], g = carpet ? tiles.green : tiles.colours[1], b = carpet ? tiles.blue : tiles.colours[2];
             build.geometry.addFace(painted(texture.getID(), red, green, blue, r, g, b), build.frame, x, y, z, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f, 0f);
         } else {
@@ -421,6 +427,45 @@ final class FloorBuilder {
         build.frame.cornersFrom(build.paperRed, build.paperGreen, build.paperBlue, build.paperUnlit);
         return true;
     }
+
+    /**
+     * A square of tiles laid on the diagonal (Tiles.Shape.diagonal), with the joints laid on it
+     * by the picture: its texture coordinates count joints along a + b and along a - b. One
+     * face in one colour, or for a chequer the diamonds of each colour cut to the square.
+     */
+    private void addDiagonal(Tiles.Shape tiles, float red, float green, float blue, int x, int y, int z) {
+        SpriteGeometry geometry = build.geometry;
+        geometry.alongA = geometry.alongB = geometry.acrossA = tiles.diagonal;
+        geometry.acrossB = -tiles.diagonal;
+        geometry.jointPhase = tiles.phase;
+        geometry.jointStep = 1f;
+        geometry.footV = -tiles.phase;
+        geometry.footH = geometry.perLevel = 0f;
+        shade(red, green, blue, 1f, 1f, 1f);
+        float jointRed = JOINT_DARK * tiles.jointRed, jointGreen = JOINT_DARK * tiles.jointGreen, jointBlue = JOINT_DARK * tiles.jointBlue;
+        for (int odd = 0; odd < (tiles.checkered ? 2 : 1); odd++) {
+            float[] colours = tiles.colours;
+            SpriteGeometry.Mesh on = WorldScene.solid.get(WorldScene.PLAIN, WallSides.laid(colours[odd * 3], colours[odd * 3 + 1], colours[odd * 3 + 2],
+                    jointRed, jointGreen, jointBlue, WallSides.TILED));
+            if (!tiles.checkered) {
+                geometry.addFace(on, build.frame, x, y, z, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f, 0f);
+                break;
+            }
+            float[] triangles = odd == 0 ? tiles.evenTriangles : tiles.oddTriangles;
+            for (int at = 0; at < triangles.length; at += 6) {
+                for (int corner = 0; corner < 3; corner++) {
+                    given[corner * 4] = triangles[at + corner * 2];
+                    given[corner * 4 + 1] = triangles[at + corner * 2 + 1];
+                }
+                geometry.addGiven(on, build.frame, x, y, z, given, 0);
+            }
+        }
+        geometry.jointStep = Float.NaN;
+        geometry.alongA = geometry.alongB = geometry.acrossA = geometry.acrossB = geometry.jointPhase = geometry.footV = 0f;
+    }
+
+    /** A triangle for SpriteGeometry.addGiven: a, b and a texel for each corner, the texel unused under joints. */
+    private final float[] given = new float[12];
 
     /**
      * A square of boarded floor in the picture's own wood: one face in the mean colour of the

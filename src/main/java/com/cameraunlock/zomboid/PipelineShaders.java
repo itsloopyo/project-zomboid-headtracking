@@ -481,8 +481,10 @@ final class PipelineShaders {
             varying float vKind;
             varying float vMaterial;
             // For a floor of boards the picture lays: how many to a tile, and 1 where they run along y. 0 for anything else.
+            // For parquet: vBlocks blocks a side, vBoards slats to a tile, and 1 where those of its even blocks run along y.
             varying float vBoards;
             varying float vLie;
+            varying float vBlocks;
             varying float vHung;
             // How far, and which way, a vertex lies off the surface it is laid on: see faced.
             varying vec3 vLies;
@@ -637,9 +639,13 @@ final class PipelineShaders {
                 // WorldScene.boardsOf: wood all the same to everything else that asks what a surface is made of.
                 // A model's materials are numbered from 16 too (Models.FIRST_MATERIAL): only the world's faces are boards.
                 bool boarded = uModel < 0.5 && vMaterial > 15.5 && vMaterial < 31.5;
-                vBoards = boarded ? 3.0 + floor((vMaterial - 16.0) / 2.0) : 0.0;
-                vLie = boarded ? mod(vMaterial - 16.0, 2.0) : 0.0;
-                vMaterial = boarded ? 3.0 : vMaterial;
+                // WorldScene.parquetOf: wood all the same as well.
+                bool parquet = uModel < 0.5 && vMaterial > 119.5 && vMaterial < 137.5;
+                float parquetAs = vMaterial - 120.0;
+                vBlocks = parquet ? 2.0 + floor(parquetAs / 6.0) : 0.0;
+                vBoards = boarded ? 3.0 + floor((vMaterial - 16.0) / 2.0) : parquet ? (2.0 + mod(floor(parquetAs / 2.0), 3.0)) * vBlocks : 0.0;
+                vLie = boarded ? mod(vMaterial - 16.0, 2.0) : parquet ? mod(parquetAs, 2.0) : 0.0;
+                vMaterial = boarded || parquet ? 3.0 : vMaterial;
                 // What stands only to throw a crown's shadow is in no picture but the sun's.
                 if (vMaterial > 79.5 && vMaterial < 80.5) {
                     gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
@@ -840,8 +846,10 @@ final class PipelineShaders {
             varying float vKind;
             varying float vMaterial;
             // For a floor of boards the picture lays: how many to a tile, and 1 where they run along y. 0 for anything else.
+            // For parquet: vBlocks blocks a side, vBoards slats to a tile, and 1 where those of its even blocks run along y.
             varying float vBoards;
             varying float vLie;
+            varying float vBlocks;
             varying float vHung;
             // How far, and which way, a vertex lies off the surface it is laid on: see faced.
             varying vec3 vLies;
@@ -1510,14 +1518,22 @@ final class PipelineShaders {
             // picture that run it from side to side with no end in them, begun anywhere along
             // and either way up, a shade lighter or darker than the next. The joints come every
             // whole tile, so they are the same wherever the place is counted from.
+            //
+            // Parquet (vBlocks above 0) is blocks of slats a block long, all their ends in line at the
+            // blocks' edges, the slats of each block running across those of the blocks beside it.
             vec2 floorBoards(vec2 at, vec2 across, vec2 down) {
-                vec2 run = vLie > 0.5 ? at.yx : at, runAcross = vLie > 0.5 ? across.yx : across, runDown = vLie > 0.5 ? down.yx : down;
                 // A count interpolated across the face may come a hair under the whole number it is.
+                float blocks = floor(vBlocks + 0.5);
+                vec2 block = floor(at * max(blocks, 1.0));
+                float lie = blocks > 0.5 && mod(block.x + block.y, 2.0) > 0.5 ? 1.0 - vLie : vLie;
+                vec2 run = lie > 0.5 ? at.yx : at, runAcross = lie > 0.5 ? across.yx : across, runDown = lie > 0.5 ? down.yx : down;
                 float count = floor(vBoards + 0.5);
                 float over = run.y * count, board = floor(over), within = over - board;
                 board = mod(board, 60.0 * count);
-                float begun = fract(sin(board * 12.9898 + 4.1) * 43758.5453);
-                float gone = run.x + begun, piece = mod(floor(gone), 60.0), inPiece = fract(gone);
+                float begun = blocks > 0.5 ? 0.0 : fract(sin(board * 12.9898 + 4.1) * 43758.5453);
+                // A board's length, in tiles: a tile, or a parquet block.
+                float boardLong = blocks > 0.5 ? 1.0 / blocks : 1.0;
+                float gone = run.x / boardLong + begun, piece = mod(floor(gone), 60.0 / boardLong), inPiece = fract(gone);
                 vec3 own = fract(sin(vec3(board * 78.233 + piece * 39.346 + 1.7, board * 11.135 + piece * 83.155 + 5.9, board * 37.719 + piece * 27.431 + 3.3)) * 43758.5453);
                 vec2 band = own.z > 0.5 ? vec2(0.46, 0.16) : vec2(0.662, 0.12);
                 vec2 on = vec2(run.x * 0.5 + own.x, band.x + band.y * (own.y > 0.5 ? within : 1.0 - within));
@@ -1525,7 +1541,7 @@ final class PipelineShaders {
                 // How fast the place changes over the screen across the boards and along them, each on its own:
                 // seen end on, the joints between boards stay sharp far past where the ends blur.
                 float fineAcross = length(vec2(runAcross.y, runDown.y)), fineAlong = length(vec2(runAcross.x, runDown.x));
-                float side = min(within, 1.0 - within) / count, end = min(inPiece, 1.0 - inPiece);
+                float side = min(within, 1.0 - within) / count, end = min(inPiece, 1.0 - inPiece) * boardLong;
                 // Further off than a joint can be drawn, the floor is the mean of its boards and joints.
                 float joint = max((1.0 - smoothstep(0.003, 0.008 + fineAcross, side)) * (1.0 - smoothstep(0.02, 0.06, fineAcross)),
                         (1.0 - smoothstep(0.003, 0.008 + fineAlong, end)) * (1.0 - smoothstep(0.02, 0.06, fineAlong)));
@@ -1756,9 +1772,17 @@ final class PipelineShaders {
                     // Measured from the eye: the map position is a float step of 0.001 tile away from the
                     // origin, coarser than a pixel close to a wall, and its width would jump block to block.
                     vec2 world = floored ? vPlace.xy : vec2(dot(vPlace.xy, vec2(along.y, -along.x)), vPlace.z);
-                    // On a flat face the coordinates go as the world does, so the two widths of a pixel give a tile's size.
-                    vec2 worldPixel = max(fwidth(world), vec2(1e-5));
-                    vec2 tileSize = worldPixel / max(fwidth(vUv), vec2(1e-6));
+                    // On a flat face the coordinates go as the world does. A tile's size each way is how far the
+                    // world goes square to its joints for a whole step of that coordinate, and the pixel's width
+                    // the same way how far it reaches across them: a floor's joints may run on the diagonal
+                    // (Tiles.Shape.diagonal), where the widths of a pixel along x and y of the map are neither.
+                    vec2 worldX = dFdx(world), worldY = dFdy(world), uvX = dFdx(vUv), uvY = dFdy(vUv);
+                    float spanned = worldX.x * worldY.y - worldX.y * worldY.x;
+                    spanned = abs(spanned) < 1e-12 ? 1e-12 : spanned;
+                    vec2 stepU = vec2(uvX.x * worldY.y - worldX.y * uvY.x, worldX.x * uvY.x - uvX.x * worldY.x) / spanned;
+                    vec2 stepV = vec2(uvX.y * worldY.y - worldX.y * uvY.y, worldX.x * uvY.y - uvX.y * worldY.x) / spanned;
+                    vec2 tileSize = 1.0 / max(vec2(length(stepU), length(stepV)), vec2(1e-4));
+                    vec2 worldPixel = max(fwidth(vUv) * tileSize, vec2(1e-5));
                     vec2 toJoint = abs(vUv - floor(vUv + 0.5)) * tileSize, toNext = tileSize - toJoint;
                     // How much of the pixel, across each way, is in the nearer joint and in the one past it. A
                     // joint narrower than a pixel is a fainter line a pixel wide: taken as the mean of the whole
