@@ -197,6 +197,24 @@ final class Pipeline {
      * every sum that only colours a pixel: see drawWorld.
      */
     private static final String WORLD_FRAGMENT_DEPTH = WORLD_FRAGMENT.replace(PipelineShaders.DEPTH_ONLY_ASKED, PipelineShaders.DEPTH_ONLY_ALWAYS);
+    /**
+     * The same two programs told at compile time that they draw grass alone, all that is drawn
+     * while uLaid is LAID_GRASS, which is made of nothing in particular: its material is 0. The
+     * driver leaves out every sum for anything else, and grass took half the time to draw.
+     */
+    private static final String GRASS_FRAGMENT = grassAlone(WORLD_FRAGMENT), GRASS_FRAGMENT_DEPTH = grassAlone(WORLD_FRAGMENT_DEPTH);
+
+    private static String grassAlone(String source) {
+        return replacedOnce(replacedOnce(source, "varying float vMaterial;", "const float vMaterial = 0.0;"), "bool grass = vKind > 7.5;", "const bool grass = true;");
+    }
+
+    private static String replacedOnce(String source, String was, String now) {
+        int at = source.indexOf(was);
+        if (at < 0 || source.indexOf(was, at + 1) >= 0) {
+            throw new IllegalStateException("the world's fragment shader has " + (at < 0 ? "no" : "more than one") + " \"" + was + "\"");
+        }
+        return source.substring(0, at) + now + source.substring(at + was.length());
+    }
     private static final String FIGURE_LIGHT = PipelineShaders.FIGURE_LIGHT_PARTS.concat(PipelineShaders.FIGURE_LIGHT_PANES).concat(VehicleLamps.GLSL).concat(CabinShader.SOLIDS).concat(CabinShader.LIGHT).concat(CabinShader.GLASS).concat(CabinGlass.FLARED)
             .concat(CharacterDraw.LIT).concat(SnowShader.ON_VEHICLES).concat(PipelineShaders.FIGURE_LIGHT_MAIN);
 
@@ -256,7 +274,7 @@ final class Pipeline {
     private int jitterAt;
     /** How far to one side this frame is drawn, as the projection takes it: nothing with the frames not mixed. */
     private float asideX, asideY;
-    private static Program world, worldDepth, shadow, solidShadow, figureLight, sky, clouds, skyNear, bolt, occlusion, soften, volume, bloomDown, bloomUp, develop, smooth, meter;
+    private static Program world, worldDepth, grassLit, grassDepth, shadow, solidShadow, figureLight, sky, clouds, skyNear, bolt, occlusion, soften, volume, bloomDown, bloomUp, develop, smooth, meter;
     private static Program far, farTree;
     /** What the shaders are told as uBeyond this frame: see PipelineShaders.ENDS. Not 0 where the far land is drawn behind the built world. */
     private float beyond;
@@ -3303,6 +3321,8 @@ final class Pipeline {
         // The same in both drawings of the solid world, which must agree on which model of a piece is there.
         float pixel = 2f * tanHalfFieldOfView / drawnHigh();
         if (grassFirst) {
+            tellWorld(grassLit, camera, state, tanHalfFieldOfView, aspect, fogStart, fogEnd);
+            tellWorld(grassDepth, camera, state, tanHalfFieldOfView, aspect, fogStart, fogEnd);
             tellWorld(worldDepth, camera, state, tanHalfFieldOfView, aspect, fogStart, fogEnd);
             worldDepth.set("uLaid", 0f);
         }
@@ -3371,8 +3391,10 @@ final class Pipeline {
                     stage(STAGE_GRASS_DEPTH);
                 }
             }
-            world.use();
-            world.set("uLaid", LAID_GRASS);
+            grassLit.use();
+            grassLit.set("uCut", 0.02f);
+            grassLit.set("uLaid", LAID_GRASS);
+            grassLit.set("uTexel", 0f, 0f);
             GL11.glEnable(GL_BLEND);
             GL11.glDepthFunc(GL_EQUAL);
             GL11.glDepthMask(false);
@@ -3382,6 +3404,7 @@ final class Pipeline {
             if (own) {
                 stage(STAGE_GRASS_LIT);
             }
+            world.use();
             world.set("uLaid", LAID_REST);
         }
         drawRanges(listed, listed.solidRanges(), listed.ranges());
@@ -3400,10 +3423,10 @@ final class Pipeline {
 
     /** The depth of the grass alone of what is laid, with the colour masked off by the caller. */
     private void drawGrassDepth(ChunkBuffers.Listing listed) {
-        worldDepth.use();
-        worldDepth.set("uCut", 0.02f);
-        worldDepth.set("uLaid", LAID_GRASS);
-        worldDepth.set("uTexel", 0f, 0f);
+        grassDepth.use();
+        grassDepth.set("uCut", 0.02f);
+        grassDepth.set("uLaid", LAID_GRASS);
+        grassDepth.set("uTexel", 0f, 0f);
         drawRanges(listed, listed.solidRanges(), listed.ranges());
     }
 
@@ -5813,6 +5836,8 @@ final class Pipeline {
         StringBuilder problem = new StringBuilder();
         world = Program.link("world", WORLD_VERTEX, WORLD_FRAGMENT, problem, PLACED_ATTRIBUTES, PLACED_NAMES);
         worldDepth = Program.link("world depth", WORLD_VERTEX, WORLD_FRAGMENT_DEPTH, problem, PLACED_ATTRIBUTES, PLACED_NAMES);
+        grassLit = Program.link("grass", WORLD_VERTEX, GRASS_FRAGMENT, problem, PLACED_ATTRIBUTES, PLACED_NAMES);
+        grassDepth = Program.link("grass depth", WORLD_VERTEX, GRASS_FRAGMENT_DEPTH, problem, PLACED_ATTRIBUTES, PLACED_NAMES);
         paneMask = Program.link("pane mask", PipelineShaders.PANE_VERTEX, PipelineShaders.PANE_FRAGMENT, problem);
         glassShown = Program.link("mirror's glass", LookingGlass.VERTEX, LookingGlass.SHOWN, problem);
         windowShown = Program.link("window's glass", LookingGlass.VERTEX, LookingGlass.THROWN, problem);
