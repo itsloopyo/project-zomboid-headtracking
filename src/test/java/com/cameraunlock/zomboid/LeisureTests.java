@@ -31,6 +31,7 @@ final class LeisureTests {
         Checks.run("anOrgansWestSquareStandsItAgainstItsWallAndTheRestStandNothing", LeisureTests::anOrgansWestSquareStandsItAgainstItsWallAndTheRestStandNothing);
         Checks.run("aChandeliersBowlAndTiersHangFromOneRodWhereTheirHalvesMeet", LeisureTests::aChandeliersBowlAndTiersHangFromOneRodWhereTheirHalvesMeet);
         Checks.run("aCrossOnAChurchWallHangsOnTheWallItsSpriteIsAttachedTo", LeisureTests::aCrossOnAChurchWallHangsOnTheWallItsSpriteIsAttachedTo);
+        Checks.run("aChurchsLongDeskAlongYIsTheSameDeskTurnedToFaceEast", LeisureTests::aChurchsLongDeskAlongYIsTheSameDeskTurnedToFaceEast);
         Checks.run("aChurchsColouredWindowsAreStainedGlassAndItsClearOnesAreNot", LeisureTests::aChurchsColouredWindowsAreStainedGlassAndItsClearOnesAreNot);
         Checks.run("whatAPitchACourtAndADiamondStandOnIsLevelGround", LeisureTests::whatAPitchACourtAndADiamondStandOnIsLevelGround);
         Checks.run("levelGroundIsFlatInItsBoxAndEasesBackOutToTheLand", LeisureTests::levelGroundIsFlatInItsBoxAndEasesBackOutToTheLand);
@@ -397,6 +398,23 @@ final class LeisureTests {
     }
 
     private static final String CHURCH = "location_community_church_small_01_";
+
+    private static void aChurchsLongDeskAlongYIsTheSameDeskTurnedToFaceEast() {
+        // 101 is the north end, 99 the south: turned to face east a model's x runs north, so its east end is the north one.
+        String[] models = {"pulpit_west", "pulpit_middle", "pulpit_east"};
+        float[] along = {Leisure.PULPIT_WEST_DYE, Leisure.PULPIT_MIDDLE_DYE, Leisure.PULPIT_EAST_DYE};
+        float[] turned = new float[2];
+        Models.turn(Outdoors.EAST, 1f, 0f, turned);
+        Checks.check(turned[0] == 0f && turned[1] == -1f, "facing east a model's x runs north");
+        for (int i = 0; i < 3; i++) {
+            Outdoors.Piece piece = unnamed(CHURCH + (99 + i));
+            holds(piece, CHURCH + (99 + i) + " is a share of a church's long desk laid along y");
+            Checks.check(piece != null && piece.model.equals(models[i]) && piece.turns == Outdoors.EAST && piece.a == 0.5f && piece.b == 0.5f,
+                    "it is " + models[i] + " in the middle of its square, its front to the east");
+            Checks.check(piece != null && piece.dyed == 1 << Models.WOOD && piece.alsoDyed == 0 && piece.dyeA == Leisure.PULPIT_DYE_B
+                    && piece.dyeB == 1f - along[i], "its top takes its colour from the top, where the desk along x takes it, turned");
+        }
+    }
 
     private static void aCrossOnAChurchWallHangsOnTheWallItsSpriteIsAttachedTo() {
         for (int place : new int[] {22, 23, 36, 37, 38, 54, 55}) {

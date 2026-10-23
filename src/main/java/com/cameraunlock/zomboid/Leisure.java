@@ -165,6 +165,15 @@ final class Leisure {
         return new Outdoors.Piece(model, Outdoors.SOUTH).dye(WOOD, a, PULPIT_DYE_B, PULPIT_TOP_DYE).also(DARK_WOOD, PULPIT_BODY_DYE);
     }
 
+    /**
+     * A square of a church's long desk laid along y with its front to the east, as pulpit's turned a quarter: its top dyed from
+     * the same place on the top, turned with it. The sprites paint its body's front on the east side, which the game's art shades,
+     * so the body keeps the model's own dark wood rather than take a shadow for its colour.
+     */
+    private static Outdoors.Piece pulpitAlongY(String model, float a) {
+        return new Outdoors.Piece(model, Outdoors.EAST).dye(WOOD, PULPIT_DYE_B, 1f - a, PULPIT_TOP_DYE);
+    }
+
     /** A studio camera on its tripod, its body dyed from the top of the body its sprite paints behind the tripod. */
     private static Outdoors.Piece studioCamera(int faces) {
         float a = 0.5f, b = 0.5f;
@@ -377,6 +386,16 @@ final class Leisure {
             }
             case 95 -> {
                 return pulpit("pulpit_east", PULPIT_EAST_DYE);
+            }
+            // The same desk laid along y, its front to the east: the south end, a square between, the north end.
+            case 99 -> {
+                return pulpitAlongY("pulpit_west", PULPIT_WEST_DYE);
+            }
+            case 100 -> {
+                return pulpitAlongY("pulpit_middle", PULPIT_MIDDLE_DYE);
+            }
+            case 101 -> {
+                return pulpitAlongY("pulpit_east", PULPIT_EAST_DYE);
             }
             case 34 -> {
                 return new Outdoors.Piece("steeple_spire", 0).at(STEEPLE_A, STEEPLE_B).dye(1 << Models.METAL, 0.55f, 0.6f, 0.2f + SPIRE_SUNK).raise(-SPIRE_SUNK)
