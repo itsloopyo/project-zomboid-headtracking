@@ -28,6 +28,7 @@ final class WindowTests {
         Checks.run("parquetIsItsBlocksOfSlats", WindowTests::parquetIsItsBlocksOfSlats);
         Checks.run("shadedTilesAreAGrid", WindowTests::shadedTilesAreAGrid);
         Checks.run("diamondsCutToTheSquareCoverIt", WindowTests::diamondsCutToTheSquareCoverIt);
+        Checks.run("diagonalJointsAreTheSpritesOwn", WindowTests::diagonalJointsAreTheSpritesOwn);
         Checks.run("floorLaidFlatMeetsItselfAtTheSquaresEdge", WindowTests::floorLaidFlatMeetsItselfAtTheSquaresEdge);
         Checks.run("halfASquareIsNoFlatFloor", WindowTests::halfASquareIsNoFlatFloor);
         Checks.run("wallStoodSquareRunsOnIntoTheNextLength", WindowTests::wallStoodSquareRunsOnIntoTheNextLength);
@@ -382,7 +383,7 @@ final class WindowTests {
                 + (plain == null ? "none" : plain.diagonal + " joints, " + plain.count + " tiles"));
         check(Math.abs(plain.phase) < 0.07f || Math.abs(plain.phase - 1f) < 0.07f, "with the joints through the corners of the square: " + plain.phase);
         check(!plain.checkered && Math.abs(plain.colours[0] - 0.29f) < 0.01f && Math.abs(plain.colours[1] - 0.34f) < 0.01f, "all in the one green");
-        check(plain.jointRed > plain.colours[0] && plain.jointRed < 0.45f, "and the joints between the green and the grey: " + plain.jointRed);
+        check(Math.abs(plain.jointRed - 0.45f) < 0.03f, "and the joints in their own grey: " + plain.jointRed);
         check(plain.uneven > 0.0006f, "a carpet goes by how uneven the square is taken whole, joints and all: " + plain.uneven);
         Tiles.Shape chequer = Tiles.laid(diagonalFloor(2, 0.5f, grey, white), 64);
         check(chequer != null && chequer.diagonal == 2 && chequer.checkered, "grey and white turn about on the diagonal is a chequer");
@@ -399,6 +400,71 @@ final class WindowTests {
         check(Math.abs(area[0] - 0.5f) < 1e-4f && Math.abs(area[1] - 0.5f) < 1e-4f, "and each colour is laid over half the square: " + Arrays.toString(area));
         Tiles.Shape fine = Tiles.laid(diagonalFloor(4, 0f, white, white), 64);
         check(fine != null && fine.diagonal == 4, "four joints a tile are four: " + (fine == null ? "none" : String.valueOf(fine.diagonal)));
+    }
+
+    /**
+     * A floor of tiles on the diagonal at side dots a side, two joints a tile, the joints along
+     * a + b from phase and along a - b from phaseAcross, grout wide dots across in its colour
+     * between them, and the diamonds in one colour or turn about in two. Grout of 0 wide is two
+     * colours that simply meet, each a shade lighter along the one edge and darker along the
+     * other, as a bevel is painted.
+     */
+    private static float[] diagonalFloor(int side, float phase, float phaseAcross, float wide, float[] grout, float[] even, float[] odd) {
+        return floor(side, (a, b) -> {
+            float s = 2f * (a + b) - phase, t = 2f * (a - b) - phaseAcross;
+            float inS = s - (float) Math.floor(s), inT = t - (float) Math.floor(t);
+            // A joint to the next is a quarter of the square's diagonal: side / 2 / 1.4142 dots.
+            float dots = side / 2f / 1.4142f;
+            float toJoint = Math.min(Math.min(inS, 1f - inS), Math.min(inT, 1f - inT)) * dots;
+            if (toJoint < wide / 2f) {
+                return grout.clone();
+            }
+            float[] colour = (Math.floorMod((int) Math.floor(s) + (int) Math.floor(t), 2) == 0 ? even : odd).clone();
+            if (wide == 0f && toJoint < 1f) {
+                float shade = Math.min(inS, inT) * dots < 1f ? 1.06f : 0.94f;
+                for (int part = 0; part < 3; part++) {
+                    colour[part] *= shade;
+                }
+            }
+            return colour;
+        });
+    }
+
+    /**
+     * Tiles on the diagonal as the game paints them: the joints of sprite 39 lighter than its
+     * dark tiles, those of 36 lighter than its brown ones, sprite 9's joints at a place of their
+     * own each way, and the chequers 0 and 1 two colours that meet with no grout between. What
+     * the picture is handed is the sprite's own joint, at both sizes the game reads sprites at.
+     */
+    private static void diagonalJointsAreTheSpritesOwn() {
+        float[] dark = {0.17f, 0.19f, 0.2f}, lightGrout = {0.35f, 0.36f, 0.37f}, brown = {0.63f, 0.42f, 0.31f}, paleGrout = {0.64f, 0.53f, 0.48f};
+        float[] black = {0.15f, 0.14f, 0.21f}, white = {0.86f, 0.86f, 0.78f}, mustard = {0.8f, 0.67f, 0.3f}, darker = {0.6f, 0.5f, 0.22f};
+        float[] joint = new float[3], tile = new float[4];
+        for (int side : new int[] {64, 32}) {
+            for (float[][] floor : new float[][][] {{dark, lightGrout}, {brown, paleGrout}}) {
+                Tiles.Shape tiles = Tiles.laid(diagonalFloor(side, 0.906f, 0.969f, side / 32f, floor[1], floor[0], floor[0]), side);
+                check(tiles != null && tiles.diagonal == 2 && !tiles.checkered && tiles.grouted, side + " dots: tiles on the diagonal with grout lighter than them are read so");
+                int key = FloorBuilder.diagonalKey(tiles, 0);
+                WallSides.joint(key, joint);
+                WallSides.tint(key, tile);
+                check(Math.abs(tile[0] - floor[0][0]) < 0.03f && Math.abs(joint[0] - floor[1][0]) < 0.05f && Math.abs(joint[2] - floor[1][2]) < 0.05f,
+                        side + " dots: the picture is handed the tiles' colour and the grout's, lighter as it is: " + Arrays.toString(tile) + " joints " + Arrays.toString(joint));
+            }
+            Tiles.Shape nine = Tiles.laid(diagonalFloor(side, 0.906f, 0.953f, side / 32f, darker, mustard, mustard), side);
+            check(nine != null && Math.abs(nine.phase - 0.906f) < 1.5f / side && Math.abs(nine.phaseAcross - 0.953f) < 1.5f / side,
+                    side + " dots: the joints along a + b and along a - b each at their own place: " + (nine == null ? "none" : nine.phase + " and " + nine.phaseAcross));
+            for (float[] other : new float[][] {{0.44f, 0.43f, 0.48f}, white}) {
+                Tiles.Shape chequer = Tiles.laid(diagonalFloor(side, 0.906f, 0.938f, 0f, black, black, other), side);
+                check(chequer != null && chequer.checkered && !chequer.grouted, side + " dots: two colours that meet on the diagonal with no grout are read so");
+                for (int odd = 0; odd < 2; odd++) {
+                    int key = FloorBuilder.diagonalKey(chequer, odd);
+                    WallSides.joint(key, joint);
+                    WallSides.tint(key, tile);
+                    check(Math.abs(joint[0] - tile[0]) < 0.07f && Math.abs(joint[1] - tile[1]) < 0.07f && Math.abs(joint[2] - tile[2]) < 0.07f,
+                            side + " dots: and laid with no line between them: " + Arrays.toString(tile) + " joints " + Arrays.toString(joint));
+                }
+            }
+        }
     }
 
     private static void parquetIsItsBlocksOfSlats() {
@@ -454,7 +520,7 @@ final class WindowTests {
                 float total = 0f;
                 boolean inside = true, right = true;
                 for (int odd = 0; odd < 2; odd++) {
-                    float[] cut = Tiles.diamondTriangles(count, phase, odd == 1);
+                    float[] cut = Tiles.diamondTriangles(count, phase, 1f - phase, odd == 1);
                     for (int at = 0; at < cut.length; at += 6) {
                         float twice = (cut[at + 2] - cut[at]) * (cut[at + 5] - cut[at + 1]) - (cut[at + 4] - cut[at]) * (cut[at + 3] - cut[at + 1]);
                         total += Math.abs(twice) / 2f;
@@ -464,7 +530,7 @@ final class WindowTests {
                             inside &= cut[at + corner] >= -1e-5f && cut[at + corner] <= 1f + 1e-5f;
                         }
                         // Each triangle lies in a diamond of its own colour.
-                        right &= Math.floorMod((int) Math.floor(count * (a + b) - phase) + (int) Math.floor(count * (a - b) - phase), 2) == odd;
+                        right &= Math.floorMod((int) Math.floor(count * (a + b) - phase) + (int) Math.floor(count * (a - b) - (1f - phase)), 2) == odd;
                     }
                 }
                 check(Math.abs(total - 1f) < 1e-4f && inside, "the diamonds of both colours cut to the square cover it once, " + count + " joints from " + phase + ": " + total);

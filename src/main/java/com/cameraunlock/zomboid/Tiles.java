@@ -52,6 +52,21 @@ final class Tiles {
     private static final float DIAGONAL_GAIN = 3f;
     /** Two sets of diamonds are a chequer of two colours when their colours are this far apart, summed over red, green and blue. */
     private static final float TWO_COLOURS = 0.1f;
+    /**
+     * How many places from one joint on the diagonal to the next its light is folded into, to
+     * find where along them the joints are; a fold whose light is nowhere this far from its
+     * middle, summed over red, green and blue, has none to find.
+     */
+    private static final int FOLDS = 32;
+    private static final float FOLD_FLAT = 0.03f;
+    /** How far either side of a joint on the diagonal its own dots lie, as a share of one joint to the next: the joint's colour is theirs. */
+    private static final float GROUT = 0.04f;
+    /**
+     * A chequer's joints are grout of their own when their colour is at least this share of the
+     * way from the two colours' mean to either colour: nearer the mean is the two colours
+     * meeting, with nothing laid between.
+     */
+    private static final float GROUT_APART = 0.5f;
     /** The numbers of parquet blocks to a side that are tried, and the numbers of slats to a block. */
     static final int FEWEST_BLOCKS = 2, MOST_BLOCKS = 4, FEWEST_SLATS = 2, MOST_SLATS = 4;
     /** A block's slats run along one way when the means of its rows of dots across them vary this many times as much as those of its rows along them. */
@@ -83,11 +98,14 @@ final class Tiles {
         /**
          * For tiles laid on the diagonal, how many joints there are to a tile along a + b, as
          * many as along a - b, or 0. The joints are where diagonal times a + b, less phase, is
-         * a whole number, and the same of a - b. colours holds the diamonds between whose two
-         * counts of joints add to an even number, then the odd ones.
+         * a whole number, and where diagonal times a - b, less phaseAcross, is. colours holds
+         * the diamonds between whose two counts of joints add to an even number, then the odd
+         * ones. The joints are grouted in the joint colour or, for a chequer whose two colours
+         * simply meet, not grouted.
          */
         int diagonal;
-        float phase;
+        float phase, phaseAcross;
+        boolean grouted;
         /** Whether a floor laid on the diagonal is a chequer of two colours, and if so its even and its odd diamonds cut to the square: see diamondTriangles. */
         boolean checkered;
         float[] evenTriangles, oddTriangles;
@@ -170,7 +188,7 @@ final class Tiles {
         if (FirstPerson.TRACE) {
             Log.info("floor " + texture.getName() + (shape == null ? " is not a square of floor"
                     : shape.blocks > 0 ? " is parquet, " + shape.blocks + " blocks a side of " + shape.slats + " slats"
-                    : shape.diagonal > 0 ? " is tiles on the diagonal, " + shape.diagonal + " joints a tile from " + shape.phase + (shape.checkered ? ", chequered" : "")
+                    : shape.diagonal > 0 ? " is tiles on the diagonal, " + shape.diagonal + " joints a tile from " + shape.phase + " and " + shape.phaseAcross + (shape.checkered ? ", chequered" : "")
                     : shape.count == 0 ? " is no grid of plain tiles, uneven " + shape.uneven
                     : " is " + shape.count + " tiles a side"));
         }
@@ -290,7 +308,7 @@ final class Tiles {
         for (int k = 0; k < DIAGONAL_COUNTS.length; k++) {
             uneven[k] = Float.MAX_VALUE;
             for (int phase = 0; phase < DIAGONAL_PHASES; phase++) {
-                float here = diamonds(dots, side, DIAGONAL_COUNTS[k], phase / (float) DIAGONAL_PHASES, null);
+                float here = diamonds(dots, side, DIAGONAL_COUNTS[k], phase / (float) DIAGONAL_PHASES, phase / (float) DIAGONAL_PHASES, null);
                 if (here < uneven[k]) {
                     uneven[k] = here;
                     phases[k] = phase;
@@ -307,27 +325,103 @@ final class Tiles {
         }
         Shape shape = new Shape();
         shape.diagonal = DIAGONAL_COUNTS[picked];
-        shape.phase = phases[picked] / (float) DIAGONAL_PHASES;
+        float evenest = phases[picked] / (float) DIAGONAL_PHASES;
+        // The evenest phase is good to a place or two either way: the joints are where the light across them turns.
+        shape.phase = jointAt(dots, side, shape.diagonal, 1f, evenest);
+        shape.phaseAcross = jointAt(dots, side, shape.diagonal, -1f, evenest);
         shape.colours = new float[6];
         shape.uneven = whole;
-        diamonds(dots, side, shape.diagonal, shape.phase, shape);
-        shape.checkered = Math.abs(shape.colours[0] - shape.colours[3]) + Math.abs(shape.colours[1] - shape.colours[4])
-                + Math.abs(shape.colours[2] - shape.colours[5]) > TWO_COLOURS;
+        diamonds(dots, side, shape.diagonal, shape.phase, shape.phaseAcross, shape);
+        float[] joint = {shape.jointRed, shape.jointGreen, shape.jointBlue};
+        float apart = 0f, fromMean = 0f;
+        for (int part = 0; part < 3; part++) {
+            apart += Math.abs(shape.colours[part] - shape.colours[part + 3]);
+            fromMean += Math.abs(joint[part] - (shape.colours[part] + shape.colours[part + 3]) / 2f);
+        }
+        shape.checkered = apart > TWO_COLOURS;
+        shape.grouted = !shape.checkered || fromMean >= GROUT_APART * apart / 2f;
         if (shape.checkered) {
-            shape.evenTriangles = diamondTriangles(shape.diagonal, shape.phase, false);
-            shape.oddTriangles = diamondTriangles(shape.diagonal, shape.phase, true);
+            shape.evenTriangles = diamondTriangles(shape.diagonal, shape.phase, shape.phaseAcross, false);
+            shape.oddTriangles = diamondTriangles(shape.diagonal, shape.phase, shape.phaseAcross, true);
         }
         return shape;
     }
 
     /**
-     * How far the diamonds between joints laid on the diagonal are from one colour each, count
-     * joints to a tile and the first at phase: the mean over the dots inside them, EDGE of a
-     * diamond in from its edges, of how far each lies from its own diamond's colour, squared.
-     * Given a shape, fills in the colours of the even diamonds and the odd ones (see
-     * Shape.diagonal), the joints' and the floor's.
+     * Where the joints on the diagonal are, count of them to a tile, along a + b for a way of 1
+     * and along a - b for -1: the light of the square folded from one joint to the next, and
+     * the middle of the run of places in the fold furthest from its middle, lighter or darker,
+     * taken where their dots lie. Evenest where the fold is flat. A sprite read at the smaller size has dots at only
+     * some places of the fold: the rest are left out.
      */
-    private static float diamonds(float[] dots, int side, int count, float phase, Shape into) {
+    private static float jointAt(float[] dots, int side, int count, float way, float evenest) {
+        double[] light = new double[FOLDS], place = new double[FOLDS];
+        int[] held = new int[FOLDS];
+        for (int i = 0; i < side; i++) {
+            for (int j = 0; j < side; j++) {
+                int at = (i * side + j) * 3;
+                if (dots[at] < 0f) {
+                    continue;
+                }
+                float s = count * ((i + 0.5f) / side + way * (j + 0.5f) / side), in = s - (float) Math.floor(s);
+                int fold = Math.min((int) (in * FOLDS), FOLDS - 1);
+                light[fold] += dots[at] + dots[at + 1] + dots[at + 2];
+                place[fold] += in;
+                held[fold]++;
+            }
+        }
+        double[] sorted = new double[FOLDS];
+        int filled = 0;
+        for (int fold = 0; fold < FOLDS; fold++) {
+            if (held[fold] > 0) {
+                light[fold] /= held[fold];
+                place[fold] /= held[fold];
+                sorted[filled++] = light[fold];
+            }
+        }
+        Arrays.sort(sorted, 0, filled);
+        double middle = (sorted[(filled - 1) / 2] + sorted[filled / 2]) / 2.0, furthest = 0.0;
+        int joint = 0;
+        for (int fold = 0; fold < FOLDS; fold++) {
+            if (held[fold] > 0 && Math.abs(light[fold] - middle) > furthest) {
+                furthest = Math.abs(light[fold] - middle);
+                joint = fold;
+            }
+        }
+        if (furthest < FOLD_FLAT) {
+            return evenest;
+        }
+        // A joint a few dots wide fills a run of places about as far from the middle: its own place is the run's middle.
+        double sign = Math.signum(light[joint] - middle), weight = 0.0, at = 0.0;
+        for (int toward = -1; toward <= 1; toward += 2) {
+            for (int step = toward < 0 ? 0 : 1; step < FOLDS / 2; step++) {
+                int fold = Math.floorMod(joint + toward * step, FOLDS);
+                if (held[fold] == 0) {
+                    continue;
+                }
+                double off = (light[fold] - middle) * sign;
+                if (off < 0.5 * furthest) {
+                    break;
+                }
+                // Measured from the furthest place, so a run across the fold's end stays in one piece.
+                double from = place[fold] - place[joint];
+                at += off * (from - Math.rint(from));
+                weight += off;
+            }
+        }
+        double centre = place[joint] + at / weight;
+        return (float) (centre - Math.floor(centre));
+    }
+
+    /**
+     * How far the diamonds between joints laid on the diagonal are from one colour each, count
+     * joints to a tile and the first at phase along a + b and at phaseAcross along a - b: the
+     * mean over the dots inside them, EDGE of a diamond in from its edges, of how far each lies
+     * from its own diamond's colour, squared. Given a shape, fills in the colours of the even
+     * diamonds and the odd ones (see Shape.diagonal), the floor's, and the joints': the mean of
+     * the dots no more than GROUT from a joint, lighter or darker than the tiles as they are.
+     */
+    private static float diamonds(float[] dots, int side, int count, float phase, float phaseAcross, Shape into) {
         // Diamonds counted along a + b from -1 to 2 count, along a - b from -count - 1 to count.
         int span = 2 * count + 2;
         double[] sum = new double[span * span * 3];
@@ -343,18 +437,20 @@ final class Tiles {
                     continue;
                 }
                 float a = (i + 0.5f) / side, b = (j + 0.5f) / side;
-                float s = count * (a + b) - phase, t = count * (a - b) - phase;
+                float s = count * (a + b) - phase, t = count * (a - b) - phaseAcross;
                 int k = (int) Math.floor(s), m = (int) Math.floor(t);
                 float inS = s - k, inT = t - m;
                 every++;
                 for (int part = 0; part < 3; part++) {
                     whole[part] += dots[at + part];
                 }
-                if (inS <= EDGE || inS >= 1f - EDGE || inT <= EDGE || inT >= 1f - EDGE) {
+                if (Math.min(Math.min(inS, 1f - inS), Math.min(inT, 1f - inT)) <= GROUT) {
                     joints++;
                     for (int part = 0; part < 3; part++) {
                         joint[part] += dots[at + part];
                     }
+                }
+                if (inS <= EDGE || inS >= 1f - EDGE || inT <= EDGE || inT >= 1f - EDGE) {
                     continue;
                 }
                 int cell = (k + 1) * span + m + count + 1;
@@ -388,14 +484,14 @@ final class Tiles {
         }
         if (into != null) {
             for (int part = 0; part < 6; part++) {
-                into.colours[part] = (float) (parity[part] / Math.max(parityHeld[part / 3], 1));
+                into.colours[part] = (float) (parity[part] / parityHeld[part / 3]);
             }
             into.red = (float) (whole[0] / every);
             into.green = (float) (whole[1] / every);
             into.blue = (float) (whole[2] / every);
-            into.jointRed = (float) (joint[0] / Math.max(joints, 1));
-            into.jointGreen = (float) (joint[1] / Math.max(joints, 1));
-            into.jointBlue = (float) (joint[2] / Math.max(joints, 1));
+            into.jointRed = (float) (joint[0] / joints);
+            into.jointGreen = (float) (joint[1] / joints);
+            into.jointBlue = (float) (joint[2] / joints);
         }
         return counted == 0 ? Float.MAX_VALUE : (float) (apart / counted);
     }
@@ -506,19 +602,17 @@ final class Tiles {
 
     /** The red, green and blue of a dot of the square summed, or -1 for one off the square or not painted. */
     private static float light(float[] dots, int side, int i, int j) {
-        if (i >= side || j >= side) {
-            return -1f;
-        }
         int at = (i * side + j) * 3;
         return dots[at] < 0f ? -1f : dots[at] + dots[at + 1] + dots[at + 2];
     }
 
     /**
      * The triangles of the diamonds of one colour of a chequer laid on the diagonal, count
-     * joints to a tile and the first at phase (see Shape.diagonal), each cut to the square: a
-     * and b of each corner in turn, the corners going round the way the square's do.
+     * joints to a tile and the first at phase along a + b and at phaseAcross along a - b (see
+     * Shape.diagonal), each cut to the square: a and b of each corner in turn, the corners
+     * going round the way the square's do.
      */
-    static float[] diamondTriangles(int count, float phase, boolean odd) {
+    static float[] diamondTriangles(int count, float phase, float phaseAcross, boolean odd) {
         float[] out = new float[64];
         int made = 0;
         float[] piece = new float[16], cut = new float[16];
@@ -535,11 +629,11 @@ final class Tiles {
                 piece[5] = 1f;
                 piece[6] = 0f;
                 piece[7] = 1f;
-                // The diamond is where count * (a + b) - phase is from k to k + 1 and count * (a - b) - phase from m to m + 1.
+                // The diamond is where count * (a + b) - phase is from k to k + 1 and count * (a - b) - phaseAcross from m to m + 1.
                 int corners = keep(piece, 4, cut, count, count, -(k + phase));
                 corners = keep(cut, corners, piece, -count, -count, k + 1 + phase);
-                corners = keep(piece, corners, cut, count, -count, -(m + phase));
-                corners = keep(cut, corners, piece, -count, count, m + 1 + phase);
+                corners = keep(piece, corners, cut, count, -count, -(m + phaseAcross));
+                corners = keep(cut, corners, piece, -count, count, m + 1 + phaseAcross);
                 if (corners < 3 || area(piece, corners) < 1e-6f) {
                     continue;
                 }

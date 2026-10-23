@@ -439,14 +439,11 @@ final class FloorBuilder {
         geometry.acrossB = -tiles.diagonal;
         geometry.jointPhase = tiles.phase;
         geometry.jointStep = 1f;
-        geometry.footV = -tiles.phase;
+        geometry.footV = -tiles.phaseAcross;
         geometry.footH = geometry.perLevel = 0f;
         shade(red, green, blue, 1f, 1f, 1f);
-        float jointRed = JOINT_DARK * tiles.jointRed, jointGreen = JOINT_DARK * tiles.jointGreen, jointBlue = JOINT_DARK * tiles.jointBlue;
         for (int odd = 0; odd < (tiles.checkered ? 2 : 1); odd++) {
-            float[] colours = tiles.colours;
-            SpriteGeometry.Mesh on = WorldScene.solid.get(WorldScene.PLAIN, WallSides.laid(colours[odd * 3], colours[odd * 3 + 1], colours[odd * 3 + 2],
-                    jointRed, jointGreen, jointBlue, WallSides.TILED));
+            SpriteGeometry.Mesh on = WorldScene.solid.get(WorldScene.PLAIN, diagonalKey(tiles, odd));
             if (!tiles.checkered) {
                 geometry.addFace(on, build.frame, x, y, z, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f, 0f);
                 break;
@@ -462,6 +459,19 @@ final class FloorBuilder {
         }
         geometry.jointStep = Float.NaN;
         geometry.alongA = geometry.alongB = geometry.acrossA = geometry.acrossB = geometry.jointPhase = geometry.footV = 0f;
+    }
+
+    /**
+     * What the picture lays the even diamonds of tiles on the diagonal in, or for 1 the odd: the
+     * diamonds' colour and their joints' as the sprite has them, lighter or darker. Two colours
+     * that simply meet have no joint between them: it is each diamond's own colour.
+     */
+    static int diagonalKey(Tiles.Shape tiles, int odd) {
+        float[] colours = tiles.colours;
+        int at = odd * 3;
+        return tiles.grouted
+                ? WallSides.laid(colours[at], colours[at + 1], colours[at + 2], tiles.jointRed, tiles.jointGreen, tiles.jointBlue, WallSides.TILED)
+                : WallSides.laid(colours[at], colours[at + 1], colours[at + 2], colours[at], colours[at + 1], colours[at + 2], WallSides.TILED);
     }
 
     /** A triangle for SpriteGeometry.addGiven: a, b and a texel for each corner, the texel unused under joints. */
