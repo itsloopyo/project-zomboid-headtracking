@@ -1,142 +1,141 @@
-family-00	260	373	family
-family-01	200	287	family
-family-02	200	287	family
-family-03	260	373	family
-family-04	536	768	family
-family-05	200	287	family
-family-06	200	287	family
-family-08	200	287	family
-family-09	768	517	family
-family-10	200	287	family
-family-11	200	287	family
-family-12	200	287	family
-family-13	260	373	family
-family-14	536	768	family
-family-15	768	526	family
-family-16	200	287	family
-family-17	200	287	family
-family-19	200	287	family
-family-20	200	287	family
-family-21	768	516	family
-family-22	200	287	family
-family-23	768	516	family
-basketball-0	536	768
-basketball-4	536	768
-basketball-3	536	768
-basketball-2	536	768
-basketball-1	200	287
-tennis-3	466	668
-tennis-2	536	768
-tennis-1	260	373
-tennis-0	536	768
-tennis-5	536	768
-tennis-4	536	768
-boxing-0	536	768
-boxing-5	536	768
-boxing-4	260	373
-boxing-2	536	768
-boxing-1	536	768
-golf-3	450	646
-golf-2	536	768
-golf-1	536	768
-golf-0	536	768
-golf-5	536	768
-golf-4	536	768
-baseball-0	260	373
-baseball-5	536	768
-baseball-4	535	768
-baseball-3	444	639
-baseball-2	536	768
-baseball-1	536	768
-football-3	274	393
-football-1	536	768
-football-0	536	768
-football-4	535	768
-soccer-0	536	768
-soccer-5	535	768
-soccer-4	536	768
-soccer-3	535	768
-soccer-2	536	768
-soccer-1	535	768
-athletics-2	536	768
-athletics-1	536	768
-athletics-5	536	768
-athletics-4	536	768
-weights-0	260	373
-weights-5	536	768
+family-00	526	768	family
+family-01	526	768	family
+family-02	526	768	family
+family-03	526	768	family
+family-04	525	768	family
+family-05	526	768	family
+family-06	526	768	family
+family-08	526	768	family
+family-09	768	526	family
+family-10	526	768	family
+family-11	526	768	family
+family-12	526	768	family
+family-13	526	768	family
+family-14	526	768	family
+family-15	768	525	family
+family-16	526	768	family
+family-17	526	768	family
+family-19	526	768	family
+family-20	526	768	family
+family-21	768	526	family
+family-22	526	768	family
+family-23	768	526	family
+basketball-0	525	768
+basketball-4	525	768
+basketball-3	525	768
+basketball-2	525	768
+basketball-1	526	768
+tennis-3	458	668
+tennis-2	525	768
+tennis-1	526	768
+tennis-0	525	768
+tennis-5	525	768
+tennis-4	525	768
+boxing-0	525	768
+boxing-5	525	768
+boxing-4	526	768
+boxing-2	525	768
+boxing-1	525	768
+golf-3	442	646
+golf-2	525	768
+golf-1	525	768
+golf-0	525	768
+golf-5	525	768
+golf-4	525	768
+baseball-0	526	768
+baseball-5	525	768
+baseball-4	526	768
+baseball-3	525	768
+baseball-2	525	768
+baseball-1	525	768
+football-3	500	731
+football-1	525	768
+football-0	525	768
+football-4	526	768
+soccer-0	525	768
+soccer-5	526	768
+soccer-4	526	768
+soccer-3	526	768
+soccer-2	525	768
+soccer-1	520	760
+athletics-2	525	768
+athletics-1	525	768
+athletics-5	525	768
+athletics-4	525	768
+weights-0	526	768
+weights-5	525	768
 weights-2	526	768
-weights-1	536	768
-hockey-1	200	287
-hockey-0	536	768
-hockey-5	536	768
-hockey-4	536	768
-bowling-0	536	768
-bowling-4	535	768
-bowling-3	536	768
-bowling-2	536	768
-racing-0	536	768
-racing-5	328	471
-racing-4	536	768
-pool-0	535	768
-pool-5	535	768
-pool-4	535	768
-pool-3	535	768
-pool-2	535	768
-pool-1	535	768
-fieldhockey-0	510	731
-fieldhockey-1	535	768
-fieldhockey-2	536	768
-fieldhockey-3	506	727
-hunting-3	536	768
-hunting-0	514	737
-hunting-5	478	688
-hunting-2	535	767
-hunting-7	510	731
-hunting-4	536	768
-hunting-1	438	628
+weights-1	525	768
+hockey-1	526	768
+hockey-0	525	768
+hockey-5	525	768
+hockey-4	525	768
+bowling-0	525	768
+bowling-4	526	768
+bowling-3	525	768
+bowling-2	525	768
+racing-0	525	768
+racing-5	322	471
+racing-4	525	768
+pool-0	526	768
+pool-5	525	768
+pool-4	525	768
+pool-3	525	768
+pool-2	526	768
+pool-1	526	768
+fieldhockey-0	500	731
+fieldhockey-1	526	768
+fieldhockey-2	525	768
+fieldhockey-3	440	643
+hunting-3	525	768
+hunting-0	504	737
+hunting-5	470	688
+hunting-2	525	767
+hunting-7	500	731
+hunting-4	525	768
+hunting-1	430	628
 painting-lillys-waterpond	796	531
 painting-shes-got-it	940	459
-painting-aaaaah	660	948
-painting-abe-lincoln	330	474
-painting-apple-faced-man	466	668
-painting-benjamin-franklin	330	474
-painting-betty	478	688
-painting-calvinist	660	948
+painting-aaaaah	660	965
+painting-abe-lincoln	330	482
+painting-apple-faced-man	466	680
+painting-benjamin-franklin	330	482
+painting-betty	478	700
+painting-calvinist	660	965
 painting-chromatic-accident	1024	353
-painting-configuration-ii	800	786
-painting-configuration-no-10	896	879
-painting-layout-i	896	879
+painting-configuration-ii	800	800
+painting-configuration-no-10	896	895
+painting-layout-i	896	895
 painting-desert-landscape	1024	512
-painting-flowers-on-table	320	459
-painting-george-washington	600	861
-painting-helianthus	660	948
-painting-incognito-library	1024	688
+painting-flowers-on-table	320	468
+painting-george-washington	600	877
+painting-helianthus	660	965
+painting-incognito-library	1024	700
 painting-island-beach	1024	418
-painting-john-adams	660	948
+painting-john-adams	660	965
 painting-lakeside	1024	427
-painting-lighthouse	660	948
-painting-man-with-one-ear	478	688
-painting-margarite	478	688
-painting-monica-elisa	660	948
+painting-lighthouse	660	965
+painting-man-with-one-ear	478	700
+painting-margarite	478	700
+painting-monica-elisa	660	965
 painting-mount-never-rest	1024	353
 painting-night-with-stars	1024	569
-painting-nomad-above-the-gloom	737	737
-painting-omega-department	660	948
-painting-riverside	1024	688
-painting-sir-brakefire	478	688
-painting-two-frame	1024	688
-painting-violetta	942	633
-painting-waterbeach-hills	1024	701
-painting-waterfall	1024	688
+painting-nomad-above-the-gloom	750	750
+painting-omega-department	660	965
+painting-riverside	1024	701
+painting-sir-brakefire	478	700
+painting-two-frame	1024	701
+painting-violetta	942	645
+painting-waterfall	1024	701
 painting-wide	1024	853
-painting-field-pink	660	948
-painting-field-purple	660	948
-painting-sitter	380	546
-board-cork	1024	688
-board-white	1024	575
-board-darts	1024	575
-certificate-doctor	570	383	certificate
-certificate-surgeon	570	383	certificate
+painting-field-pink	660	965
+painting-field-purple	660	965
+painting-sitter	380	556
+board-cork	1024	701
+board-white	1024	585
+board-darts	1024	585
+certificate-doctor	570	390	certificate
+certificate-surgeon	570	390	certificate
 music-00-tall	512	768
 music-00-wide	768	512
 music-01-tall	512	768
@@ -173,24 +172,22 @@ music-16-tall	512	768
 music-16-wide	768	512
 music-17-tall	512	768
 music-17-wide	768	512
-film-cyberkiller-tall	209	314
-film-cyberkiller-broad	320	180
-film-cyberkiller-2-tall	600	900
-film-cyberkiller-2-broad	900	506
-film-operation-fort-knox-tall	209	314
-film-operation-fort-knox-broad	320	180
+film-cyberkiller-tall	453	680
+film-cyberkiller-broad	680	382
+film-cyberkiller-2-tall	663	995
+film-cyberkiller-2-broad	995	560
+film-operation-fort-knox-tall	453	680
+film-operation-fort-knox-broad	680	382
 film-paws-tall	638	957
-film-paws-broad	975	548
-film-dog-goblin-4-tall	209	314
-film-dog-goblin-4-broad	320	180
+film-paws-broad	957	538
+film-dog-goblin-4-tall	453	680
+film-dog-goblin-4-broad	680	382
 film-pleistocene-land-tall	638	957
-film-pleistocene-land-broad	976	549
-film-dr-oids-tall	638	957
-film-dr-oids-broad	976	549
-film-the-forgotten-element-tall	600	900
-film-the-forgotten-element-broad	900	506
-film-movie-tall	600	900
-film-movie-broad	900	506
+film-pleistocene-land-broad	956	538
+film-the-forgotten-element-tall	400	600
+film-the-forgotten-element-broad	600	338
+film-movie-tall	663	995
+film-movie-broad	995	560
 sign-coffee-low	1311	312
 sign-exit	403	256
 sign-for-lease	398	256
@@ -200,72 +197,75 @@ sign-pie-menu	431	532
 sign-bail-bonds	1536	255
 sign-legal-services	1536	255
 sign-property	356	352
-certificate-food-permit	570	383	certificate
-certificate-grade-a	570	383	certificate
-certificate-business-license	570	383	certificate
-certificate-chamber	570	383	certificate
-certificate-cpa	570	383	certificate
-certificate-employee	570	383	certificate
-certificate-teaching	570	383	certificate
-certificate-principal	570	383	certificate
-certificate-peace-officer	570	383	certificate
-certificate-high-school	570	383	certificate
-pool-restaurant-00	535	768
-pool-restaurant-01	535	768
-pool-restaurant-02	535	768
-pool-restaurant-03	535	768
-pool-restaurant-05	535	768
-pool-restaurant-06	535	768
-pool-restaurant-07	535	768
-pool-bar-00	535	768
-pool-bar-01	535	768
-pool-bar-02	535	768
-pool-bar-03	535	768
-pool-bar-04	535	768
-pool-bar-05	535	768
-pool-bar-06	535	768
-pool-bar-07	535	768
-pool-bar-08	476	682
-pool-bar-09	338	486
-pool-bar-10	535	768
-pool-bar-11	535	768
-pool-office-01	440	632
-pool-office-02	535	768
-pool-office-03	535	768
-pool-office-04	535	768
-pool-office-05	535	768
-pool-office-06	535	768
-pool-office-07	535	768
-pool-shop-00	535	768
-pool-shop-01	535	768
-pool-shop-02	535	768
-pool-shop-03	535	768
-pool-shop-04	535	768
-pool-shop-06	535	768
-pool-shop-07	535	768
-pool-school-00	535	768
-pool-school-01	535	768
-pool-school-03	288	413
-pool-school-04	535	768
-pool-school-05	535	768
-pool-school-06	535	768
-pool-school-07	535	768
-pool-police-00	535	768
-pool-police-01	535	768
-pool-police-02	535	768
-pool-police-03	535	768
-pool-stage-00	536	768
-pool-stage-01	535	768
-pool-stage-02	535	768
-pool-stage-03	535	768
-pool-stage-04	535	768
-pool-stage-05	535	768
-pool-stage-06	535	768
-pool-stage-07	535	768
-pool-church-00	535	768
-pool-church-01	535	768
-pool-church-02	535	768
-pool-church-03	535	768
+certificate-food-permit	570	390	certificate
+certificate-grade-a	570	390	certificate
+certificate-business-license	570	390	certificate
+certificate-chamber	570	390	certificate
+certificate-cpa	570	390	certificate
+certificate-employee	570	390	certificate
+certificate-teaching	570	390	certificate
+certificate-principal	570	390	certificate
+certificate-peace-officer	570	390	certificate
+certificate-high-school	570	390	certificate
+pool-restaurant-00	525	768
+pool-restaurant-01	525	768
+pool-restaurant-02	525	768
+pool-restaurant-03	525	768
+pool-restaurant-05	525	768
+pool-restaurant-06	525	768
+pool-restaurant-07	525	768
+pool-bar-00	525	768
+pool-bar-01	525	768
+pool-bar-02	525	768
+pool-bar-03	525	768
+pool-bar-04	525	768
+pool-bar-05	525	768
+pool-bar-06	526	768
+pool-bar-07	525	768
+pool-bar-08	525	768
+pool-bar-09	338	495
+pool-bar-10	525	768
+pool-bar-11	525	768
+pool-office-00	525	768
+pool-office-01	525	768
+pool-office-02	525	768
+pool-office-03	525	768
+pool-office-04	525	768
+pool-office-05	525	768
+pool-office-06	525	768
+pool-office-07	525	768
+pool-shop-00	525	768
+pool-shop-01	525	768
+pool-shop-02	525	768
+pool-shop-03	525	768
+pool-shop-04	525	768
+pool-shop-05	525	768
+pool-shop-06	525	768
+pool-shop-07	525	768
+pool-school-00	525	768
+pool-school-01	525	768
+pool-school-02	525	768
+pool-school-03	288	420
+pool-school-04	525	768
+pool-school-05	525	768
+pool-school-06	525	768
+pool-school-07	525	768
+pool-police-00	525	768
+pool-police-01	525	768
+pool-police-02	525	768
+pool-police-03	525	768
+pool-stage-00	525	768
+pool-stage-01	525	768
+pool-stage-02	525	768
+pool-stage-03	525	768
+pool-stage-04	525	768
+pool-stage-05	525	768
+pool-stage-06	525	768
+pool-stage-07	525	768
+pool-church-00	525	768
+pool-church-01	525	768
+pool-church-02	525	768
+pool-church-03	525	768
 screen-bars	640	480
 screen-grey-bars	640	480
 screen-any-0	640	480
@@ -286,6 +286,7 @@ screen-news-desk-3	640	480
 screen-news-desk-4	640	480
 screen-news-field-0	640	480
 screen-news-field-1	640	480
+screen-news-field-2	640	480
 screen-pundit-0	640	480
 screen-pundit-1	640	480
 screen-pundit-2	640	480
@@ -402,6 +403,7 @@ screen-ballad-0	640	480
 screen-ballad-1	640	480
 screen-ballad-2	640	480
 screen-ballad-3	640	480
+screen-ballad-4	640	480
 screen-pop-0	640	480
 screen-pop-1	640	480
 screen-pop-2	640	480
@@ -411,6 +413,7 @@ screen-rock-0	640	480
 screen-rock-1	640	480
 screen-rock-2	640	480
 screen-rock-3	640	480
+screen-rock-4	640	480
 screen-soul-0	640	480
 screen-soul-1	640	480
 screen-soul-2	640	480
@@ -584,6 +587,7 @@ screen-fitness-2	640	480
 screen-fitness-3	640	480
 screen-garage-0	640	480
 screen-garage-1	640	480
+screen-garage-2	640	480
 screen-first-aid-0	640	480
 screen-first-aid-1	640	480
 screen-first-aid-2	640	480
@@ -985,7 +989,6 @@ screen-stage-3	640	480
 =Painting|Sir Brakefire	painting-sir-brakefire
 =Painting|Two Frame	painting-two-frame
 =Painting|Violetta	painting-violetta
-=Painting|Waterbeach Hills	painting-waterbeach-hills
 =Painting|Waterfall	painting-waterfall
 =Painting|Wide	painting-wide
 =Paintings|Pink and Yelllow	painting-field-pink
@@ -1131,10 +1134,6 @@ screen-stage-3	640	480
 =Poster|Pleistocene Land Small	film-pleistocene-land-tall
 +Poster|Pleistocene Land Large	film-pleistocene-land-broad
 +Poster|Pleistocene Land Wide	film-pleistocene-land-broad
-=Poster|Dr Oids	film-dr-oids-tall
-=Poster|Dr Oids Small	film-dr-oids-tall
-+Poster|Dr Oids Large	film-dr-oids-broad
-+Poster|Dr Oids Wide	film-dr-oids-broad
 =Poster|The Forgotten Element	film-the-forgotten-element-tall
 =Poster|The Forgotten Element Small	film-the-forgotten-element-tall
 +Poster|The Forgotten Element Large	film-the-forgotten-element-broad
@@ -1162,13 +1161,13 @@ screen-stage-3	640	480
 @certificate	home	certificate-doctor certificate-surgeon certificate-high-school
 @family	restaurant	pool-restaurant-00 pool-restaurant-01 pool-restaurant-02 pool-restaurant-03 pool-restaurant-05 pool-restaurant-06 pool-restaurant-07
 @family	bar	pool-bar-00 pool-bar-01 pool-bar-02 pool-bar-03 pool-bar-04 pool-bar-05 pool-bar-06 pool-bar-07 pool-bar-08 pool-bar-09 pool-bar-10 pool-bar-11
-@family	office	pool-office-01 pool-office-02 pool-office-03 pool-office-04 pool-office-05 pool-office-06 pool-office-07
-@family	shop	pool-shop-00 pool-shop-01 pool-shop-02 pool-shop-03 pool-shop-04 pool-shop-06 pool-shop-07
-@family	school	pool-school-00 pool-school-01 pool-school-03 pool-school-04 pool-school-05 pool-school-06 pool-school-07
+@family	office	pool-office-00 pool-office-01 pool-office-02 pool-office-03 pool-office-04 pool-office-05 pool-office-06 pool-office-07
+@family	shop	pool-shop-00 pool-shop-01 pool-shop-02 pool-shop-03 pool-shop-04 pool-shop-05 pool-shop-06 pool-shop-07
+@family	school	pool-school-00 pool-school-01 pool-school-02 pool-school-03 pool-school-04 pool-school-05 pool-school-06 pool-school-07
 @family	police	pool-police-00 pool-police-01 pool-police-02 pool-police-03
 @family	stage	pool-stage-00 pool-stage-01 pool-stage-02 pool-stage-03 pool-stage-04 pool-stage-05 pool-stage-06 pool-stage-07
 @family	church	pool-church-00 pool-church-01 pool-church-02 pool-church-03
-@family	medical	painting-waterbeach-hills painting-waterfall painting-riverside painting-two-frame painting-lighthouse painting-helianthus painting-flowers-on-table
-@family	motel	painting-waterbeach-hills painting-waterfall painting-riverside painting-two-frame painting-lighthouse painting-helianthus painting-flowers-on-table
+@family	medical	painting-waterfall painting-riverside painting-two-frame painting-lighthouse painting-helianthus painting-flowers-on-table
+@family	motel	painting-waterfall painting-riverside painting-two-frame painting-lighthouse painting-helianthus painting-flowers-on-table
 @family	industrial	racing-0 racing-4 racing-5
 @family	gym	weights-0 weights-1 weights-2 weights-5 boxing-0 boxing-1 boxing-2 boxing-4 boxing-5

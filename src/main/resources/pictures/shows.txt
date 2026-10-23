@@ -1,7 +1,7 @@
 show	any	11
 show	snow	0
 show	news-desk	5
-show	news-field	2
+show	news-field	3
 show	pundit	4
 show	general	4
 show	expert	3
@@ -32,9 +32,9 @@ show	interview	3
 show	clown	3
 show	county	6
 show	survivors	5
-show	ballad	4
+show	ballad	5
 show	pop	5
-show	rock	4
+show	rock	5
 show	soul	4
 show	rap	4
 show	club	3
@@ -73,7 +73,7 @@ show	chat	5
 show	family	3
 show	britcom	4
 show	fitness	4
-show	garage	2
+show	garage	3
 show	first-aid	3
 show	guns	2
 show	garden	4

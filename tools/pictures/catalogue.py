@@ -35,40 +35,41 @@ SEEDS = {name: ('shot', 'pick') for name in '''
     family-01 family-02 family-03 family-04 family-05 family-06 family-08 family-09 family-10 family-11 family-12
     family-13 family-14 family-15 family-16 family-17 family-19 family-20 family-21 family-22 family-23
     fieldhockey-0 fieldhockey-1 fieldhockey-2 fieldhockey-3 film-cyberkiller film-cyberkiller-2 film-dog-goblin-4
-    film-dr-oids film-movie film-operation-fort-knox film-paws film-pleistocene-land film-the-forgotten-element
-    football-0 football-1 football-3 football-4 golf-0 golf-1 golf-2 golf-3 golf-4 golf-5 hockey-0 hockey-1 hockey-4
-    hockey-5 hunting-0 hunting-1 hunting-2 hunting-3 hunting-4 hunting-5 hunting-7 music-00 music-01 music-02
-    music-03 music-04 music-05 music-06 music-07 music-08 music-09 music-10 music-11 music-12 music-13 music-14
-    music-15 music-16 music-17 painting-aaaaah painting-abe-lincoln painting-apple-faced-man
-    painting-benjamin-franklin painting-betty painting-calvinist painting-chromatic-accident
-    painting-configuration-ii painting-configuration-no-10 painting-desert-landscape painting-field-pink
-    painting-field-purple painting-flowers-on-table painting-george-washington painting-helianthus
-    painting-incognito-library painting-island-beach painting-john-adams painting-lakeside painting-layout-i
-    painting-lighthouse painting-lillys-waterpond painting-man-with-one-ear painting-margarite painting-monica-elisa
+    film-movie film-operation-fort-knox film-paws film-pleistocene-land film-the-forgotten-element football-0
+    football-1 football-3 football-4 golf-0 golf-1 golf-2 golf-3 golf-4 golf-5 hockey-0 hockey-1 hockey-4 hockey-5
+    hunting-0 hunting-1 hunting-2 hunting-3 hunting-4 hunting-5 hunting-7 music-00 music-01 music-02 music-03
+    music-04 music-05 music-06 music-07 music-08 music-09 music-10 music-11 music-12 music-13 music-14 music-15
+    music-16 music-17 painting-aaaaah painting-abe-lincoln painting-apple-faced-man painting-benjamin-franklin
+    painting-betty painting-calvinist painting-chromatic-accident painting-configuration-ii
+    painting-configuration-no-10 painting-desert-landscape painting-field-pink painting-field-purple
+    painting-flowers-on-table painting-george-washington painting-helianthus painting-incognito-library
+    painting-island-beach painting-john-adams painting-lakeside painting-layout-i painting-lighthouse
+    painting-lillys-waterpond painting-man-with-one-ear painting-margarite painting-monica-elisa
     painting-mount-never-rest painting-night-with-stars painting-nomad-above-the-gloom painting-omega-department
     painting-riverside painting-shes-got-it painting-sir-brakefire painting-sitter painting-two-frame
-    painting-violetta painting-waterbeach-hills painting-waterfall painting-wide pool-0 pool-1 pool-2 pool-3 pool-4
-    pool-5 pool-bar-00 pool-bar-01 pool-bar-02 pool-bar-03 pool-bar-04 pool-bar-05 pool-bar-06 pool-bar-07
-    pool-bar-08 pool-bar-09 pool-bar-10 pool-bar-11 pool-church-00 pool-church-01 pool-church-02 pool-church-03
+    painting-violetta painting-waterfall painting-wide pool-0 pool-1 pool-2 pool-3 pool-4 pool-5 pool-bar-00
+    pool-bar-01 pool-bar-02 pool-bar-03 pool-bar-04 pool-bar-05 pool-bar-06 pool-bar-07 pool-bar-08 pool-bar-09
+    pool-bar-10 pool-bar-11 pool-church-00 pool-church-01 pool-church-02 pool-church-03 pool-office-00
     pool-office-01 pool-office-02 pool-office-03 pool-office-04 pool-office-05 pool-office-06 pool-office-07
     pool-police-00 pool-police-01 pool-police-02 pool-police-03 pool-restaurant-00 pool-restaurant-01
     pool-restaurant-02 pool-restaurant-03 pool-restaurant-05 pool-restaurant-06 pool-restaurant-07 pool-school-00
-    pool-school-01 pool-school-03 pool-school-04 pool-school-05 pool-school-06 pool-school-07 pool-shop-00
-    pool-shop-01 pool-shop-02 pool-shop-03 pool-shop-04 pool-shop-06 pool-shop-07 pool-stage-00 pool-stage-01
-    pool-stage-02 pool-stage-03 pool-stage-04 pool-stage-05 pool-stage-06 pool-stage-07 racing-0 racing-4 racing-5
-    screen-00 screen-01 screen-02 screen-03 screen-04 screen-05 screen-06 screen-08 screen-09 screen-10 screen-11
-    screen-action-team-0 screen-action-team-1 screen-action-team-2 screen-action-team-3 screen-advert-0
-    screen-advert-3 screen-advert-4 screen-advert-5 screen-ballad-0 screen-ballad-1 screen-ballad-2 screen-ballad-3
-    screen-barrister-0 screen-barrister-1 screen-barrister-2 screen-barrister-3 screen-barrister-4 screen-baseball-0
-    screen-baseball-1 screen-baseball-2 screen-baseball-3 screen-baseball-4 screen-baseball-5 screen-bear-0
-    screen-birthday-0 screen-birthday-1 screen-birthday-2 screen-birthday-3 screen-boxing-0 screen-boxing-1
-    screen-boxing-2 screen-boxing-3 screen-boxing-4 screen-britcom-0 screen-britcom-1 screen-britcom-2
-    screen-britcom-3 screen-bunnies-0 screen-bunnies-1 screen-bunnies-2 screen-bunnies-3 screen-chat-0 screen-chat-1
-    screen-chat-2 screen-chat-3 screen-chat-4 screen-christmas-0 screen-christmas-1 screen-christmas-2
-    screen-christmas-3 screen-clown-0 screen-clown-1 screen-clown-3 screen-club-0 screen-club-1 screen-club-2
-    screen-cook-0 screen-cop-show-0 screen-cop-show-1 screen-cop-show-2 screen-cop-show-3 screen-cop-show-4
-    screen-county-0 screen-county-1 screen-county-2 screen-county-3 screen-county-4 screen-county-5 screen-critics-0
-    screen-critics-1 screen-critics-2 screen-critics-3 screen-detectives-0 screen-detectives-2 screen-detectives-3
+    pool-school-01 pool-school-02 pool-school-03 pool-school-04 pool-school-05 pool-school-06 pool-school-07
+    pool-shop-00 pool-shop-01 pool-shop-02 pool-shop-03 pool-shop-04 pool-shop-05 pool-shop-06 pool-shop-07
+    pool-stage-00 pool-stage-01 pool-stage-02 pool-stage-03 pool-stage-04 pool-stage-05 pool-stage-06 pool-stage-07
+    racing-0 racing-4 racing-5 screen-00 screen-01 screen-02 screen-03 screen-04 screen-05 screen-06 screen-08
+    screen-09 screen-10 screen-11 screen-action-team-0 screen-action-team-1 screen-action-team-2
+    screen-action-team-3 screen-advert-0 screen-advert-3 screen-advert-4 screen-advert-5 screen-ballad-0
+    screen-ballad-1 screen-ballad-2 screen-ballad-3 screen-ballad-4 screen-barrister-0 screen-barrister-1
+    screen-barrister-2 screen-barrister-3 screen-barrister-4 screen-baseball-0 screen-baseball-1 screen-baseball-2
+    screen-baseball-3 screen-baseball-4 screen-baseball-5 screen-bear-0 screen-birthday-0 screen-birthday-1
+    screen-birthday-2 screen-birthday-3 screen-boxing-0 screen-boxing-1 screen-boxing-2 screen-boxing-3
+    screen-boxing-4 screen-britcom-0 screen-britcom-1 screen-britcom-2 screen-britcom-3 screen-bunnies-0
+    screen-bunnies-1 screen-bunnies-2 screen-bunnies-3 screen-chat-0 screen-chat-1 screen-chat-2 screen-chat-3
+    screen-chat-4 screen-christmas-0 screen-christmas-1 screen-christmas-2 screen-christmas-3 screen-clown-0
+    screen-clown-1 screen-clown-3 screen-club-0 screen-club-1 screen-club-2 screen-cook-0 screen-cop-show-0
+    screen-cop-show-1 screen-cop-show-2 screen-cop-show-3 screen-cop-show-4 screen-county-0 screen-county-1
+    screen-county-2 screen-county-3 screen-county-4 screen-county-5 screen-critics-0 screen-critics-1
+    screen-critics-2 screen-critics-3 screen-detectives-0 screen-detectives-2 screen-detectives-3
     screen-detectives-4 screen-doctor-0 screen-doctor-1 screen-doctor-2 screen-eighties-0 screen-eighties-2
     screen-eighties-3 screen-eighties-4 screen-emergency-0 screen-emergency-1 screen-emergency-3 screen-expert-0
     screen-expert-1 screen-expert-3 screen-family-0 screen-family-2 screen-family-4 screen-farm-1 screen-farm-2
@@ -85,39 +86,40 @@ SEEDS = {name: ('shot', 'pick') for name in '''
     screen-film-war-3 screen-film-war-4 screen-film-western-0 screen-film-western-1 screen-film-western-2
     screen-film-western-3 screen-film-western-4 screen-first-aid-0 screen-first-aid-1 screen-first-aid-3
     screen-fishing-1 screen-fishing-3 screen-fitness-0 screen-fitness-1 screen-fitness-2 screen-fitness-3
-    screen-garage-0 screen-garage-3 screen-garden-0 screen-garden-2 screen-garden-3 screen-garden-4 screen-general-0
-    screen-general-1 screen-general-2 screen-general-3 screen-golf-0 screen-golf-1 screen-golf-2 screen-golf-3
-    screen-golf-4 screen-guns-0 screen-guns-3 screen-heroes-0 screen-heroes-3 screen-heroes-4 screen-high-school-0
-    screen-high-school-1 screen-high-school-2 screen-high-school-4 screen-hollywood-0 screen-hollywood-2
-    screen-hollywood-3 screen-horse-race-0 screen-horse-race-1 screen-horse-race-2 screen-horse-race-3
-    screen-interview-0 screen-interview-1 screen-interview-2 screen-irish-0 screen-irish-1 screen-irish-2
-    screen-irish-3 screen-irish-4 screen-kids-advert-0 screen-kids-advert-1 screen-kids-advert-3 screen-lesson-0
-    screen-lesson-1 screen-lesson-2 screen-lesson-3 screen-lesson-4 screen-lesson-5 screen-local-desk-0
-    screen-local-desk-1 screen-local-desk-2 screen-local-desk-3 screen-local-field-0 screen-local-field-1
-    screen-local-field-2 screen-local-field-3 screen-local-field-4 screen-monster-0 screen-monster-1
-    screen-monster-2 screen-monster-3 screen-monster-4 screen-nature-0 screen-nature-4 screen-nature-6
-    screen-network-news-0 screen-network-news-1 screen-network-news-2 screen-network-news-3 screen-network-news-4
-    screen-news-desk-0 screen-news-desk-1 screen-news-desk-2 screen-news-desk-3 screen-news-desk-4
-    screen-news-field-0 screen-news-field-3 screen-old-game-0 screen-old-game-1 screen-old-game-2 screen-old-game-3
-    screen-phone-in-0 screen-phone-in-1 screen-phone-in-2 screen-phone-in-3 screen-poker-0 screen-poker-1
-    screen-poker-2 screen-poker-3 screen-poker-4 screen-pop-0 screen-pop-1 screen-pop-2 screen-pop-3 screen-pop-4
-    screen-pottery-0 screen-pundit-0 screen-pundit-1 screen-pundit-2 screen-pundit-3 screen-puppets-0
-    screen-puppets-1 screen-puppets-2 screen-puppets-3 screen-puppets-4 screen-quiz-0 screen-quiz-1 screen-quiz-2
-    screen-quiz-3 screen-quiz-4 screen-racing-0 screen-racing-1 screen-racing-2 screen-racing-3 screen-racing-4
-    screen-racing-5 screen-rap-0 screen-rap-1 screen-rap-2 screen-rap-3 screen-rock-0 screen-rock-2 screen-rock-3
-    screen-rock-4 screen-sewing-0 screen-skating-0 screen-skating-1 screen-skating-2 screen-skating-3 screen-soap-0
-    screen-soap-1 screen-soap-2 screen-soap-3 screen-soap-4 screen-soccer-0 screen-soccer-1 screen-soccer-2
-    screen-soccer-3 screen-soul-0 screen-soul-1 screen-soul-2 screen-soul-3 screen-space-0 screen-space-3
-    screen-sports-desk-0 screen-sports-desk-1 screen-sports-desk-2 screen-sports-desk-3 screen-stage-0
-    screen-stage-1 screen-stage-2 screen-stage-3 screen-statement-0 screen-statement-1 screen-statement-3
-    screen-strange-0 screen-strange-3 screen-strange-4 screen-survival-0 screen-survival-3 screen-survival-4
-    screen-survival-5 screen-survivors-0 screen-survivors-1 screen-survivors-2 screen-survivors-3 screen-survivors-4
-    screen-talk-0 screen-talk-1 screen-talk-2 screen-talk-3 screen-tech-0 screen-tech-2 screen-tech-3 screen-trade-2
-    screen-trade-3 screen-trade-4 screen-travel-4 screen-unrest-0 screen-unrest-5 screen-vacation-0
-    screen-vacation-2 screen-vacation-3 screen-wedding-0 screen-wedding-1 screen-wedding-2 screen-wedding-3
-    screen-woodwork-0 screen-woodwork-1 screen-woodwork-2 screen-woodwork-3 screen-woodwork-4 screen-woodwork-5
-    sign-board sign-seahorse sign-slate soccer-0 soccer-1 soccer-2 soccer-3 soccer-4 soccer-5 tennis-0 tennis-1
-    tennis-2 tennis-3 tennis-4 tennis-5 weights-0 weights-1 weights-2 weights-5
+    screen-garage-0 screen-garage-1 screen-garage-3 screen-garden-0 screen-garden-2 screen-garden-3 screen-garden-4
+    screen-general-0 screen-general-1 screen-general-2 screen-general-3 screen-golf-0 screen-golf-1 screen-golf-2
+    screen-golf-3 screen-golf-4 screen-guns-0 screen-guns-3 screen-heroes-0 screen-heroes-3 screen-heroes-4
+    screen-high-school-0 screen-high-school-1 screen-high-school-2 screen-high-school-4 screen-hollywood-0
+    screen-hollywood-2 screen-hollywood-3 screen-horse-race-0 screen-horse-race-1 screen-horse-race-2
+    screen-horse-race-3 screen-interview-0 screen-interview-1 screen-interview-2 screen-irish-0 screen-irish-1
+    screen-irish-2 screen-irish-3 screen-irish-4 screen-kids-advert-0 screen-kids-advert-1 screen-kids-advert-3
+    screen-lesson-0 screen-lesson-1 screen-lesson-2 screen-lesson-3 screen-lesson-4 screen-lesson-5
+    screen-local-desk-0 screen-local-desk-1 screen-local-desk-2 screen-local-desk-3 screen-local-field-0
+    screen-local-field-1 screen-local-field-2 screen-local-field-3 screen-local-field-4 screen-monster-0
+    screen-monster-1 screen-monster-2 screen-monster-3 screen-monster-4 screen-nature-0 screen-nature-4
+    screen-nature-6 screen-network-news-0 screen-network-news-1 screen-network-news-2 screen-network-news-3
+    screen-network-news-4 screen-news-desk-0 screen-news-desk-1 screen-news-desk-2 screen-news-desk-3
+    screen-news-desk-4 screen-news-field-0 screen-news-field-3 screen-news-field-4 screen-old-game-0
+    screen-old-game-1 screen-old-game-2 screen-old-game-3 screen-phone-in-0 screen-phone-in-1 screen-phone-in-2
+    screen-phone-in-3 screen-poker-0 screen-poker-1 screen-poker-2 screen-poker-3 screen-poker-4 screen-pop-0
+    screen-pop-1 screen-pop-2 screen-pop-3 screen-pop-4 screen-pottery-0 screen-pundit-0 screen-pundit-1
+    screen-pundit-2 screen-pundit-3 screen-puppets-0 screen-puppets-1 screen-puppets-2 screen-puppets-3
+    screen-puppets-4 screen-quiz-0 screen-quiz-1 screen-quiz-2 screen-quiz-3 screen-quiz-4 screen-racing-0
+    screen-racing-1 screen-racing-2 screen-racing-3 screen-racing-4 screen-racing-5 screen-rap-0 screen-rap-1
+    screen-rap-2 screen-rap-3 screen-rock-0 screen-rock-1 screen-rock-2 screen-rock-3 screen-rock-4 screen-sewing-0
+    screen-skating-0 screen-skating-1 screen-skating-2 screen-skating-3 screen-soap-0 screen-soap-1 screen-soap-2
+    screen-soap-3 screen-soap-4 screen-soccer-0 screen-soccer-1 screen-soccer-2 screen-soccer-3 screen-soul-0
+    screen-soul-1 screen-soul-2 screen-soul-3 screen-space-0 screen-space-3 screen-sports-desk-0
+    screen-sports-desk-1 screen-sports-desk-2 screen-sports-desk-3 screen-stage-0 screen-stage-1 screen-stage-2
+    screen-stage-3 screen-statement-0 screen-statement-1 screen-statement-3 screen-strange-0 screen-strange-3
+    screen-strange-4 screen-survival-0 screen-survival-3 screen-survival-4 screen-survival-5 screen-survivors-0
+    screen-survivors-1 screen-survivors-2 screen-survivors-3 screen-survivors-4 screen-talk-0 screen-talk-1
+    screen-talk-2 screen-talk-3 screen-tech-0 screen-tech-2 screen-tech-3 screen-trade-2 screen-trade-3
+    screen-trade-4 screen-travel-4 screen-unrest-0 screen-unrest-5 screen-vacation-0 screen-vacation-2
+    screen-vacation-3 screen-wedding-0 screen-wedding-1 screen-wedding-2 screen-wedding-3 screen-woodwork-0
+    screen-woodwork-1 screen-woodwork-2 screen-woodwork-3 screen-woodwork-4 screen-woodwork-5 sign-board
+    sign-seahorse sign-slate soccer-0 soccer-1 soccer-2 soccer-3 soccer-4 soccer-5 tennis-0 tennis-1 tennis-2
+    tennis-3 tennis-4 tennis-5 weights-0 weights-1 weights-2 weights-5
 '''.split()}
 
 
