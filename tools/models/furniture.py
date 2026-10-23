@@ -3968,81 +3968,136 @@ def indoors():
             wall_shelf("wire_wall_shelves", 2, made="plastic"), school_desk()] + restaurant_seating() + [pool_table()]
 
 
-# A pool table's six pockets, each a leather cup let into the rails: where it stands, how far out its rim reaches and how wide its hole is.
-POOL_POCKETS = [(sx * 0.875, sy * 0.395, 0.085, 0.06) for sx in (-1, 1) for sy in (-1, 1)] + [(0.0, sy * 0.43, 0.06, 0.047) for sy in (-1, 1)]
+# A pool table's rails: the outer edge and the inner face the cushions stand against, half along x and half along y, the
+# rail's foot and top, and where a pocket's leather lies on it. The cushion noses stand POOL_NOSE in from the rails.
 POOL_RAIL_OUT, POOL_RAIL_IN, POOL_RAIL_LOW, POOL_RAIL_TOP, POOL_RIM = (0.96, 0.48), (0.86, 0.38), 0.77, 0.842, 0.845
+POOL_NOSE = 0.036
 
 
-def round_to(cx, cy, radius, start, end, clockwise, steps=8):
-    """Points on the circle round (cx, cy) from the angle start to end, in degrees, going the way asked."""
-    if clockwise:
+class PoolPocket:
+    """One pocket of a pool table, in the quarter where x and y are positive: the cushion noses either side of its mouth,
+    the throat where the cushions meet the rails, and the round cut through the rail behind it, through both ends of
+    the throat. The cloth reaches to the throat and drops away behind it."""
+    def __init__(self, noses, throat, centre):
+        self.noses, self.throat, self.centre = noses, throat, centre
+        self.radius = math.hypot(throat[0][0] - centre[0], throat[0][1] - centre[1])
+
+    def angles(self):
+        """The angles of the throat's ends from the cut's middle, the first more than the second by the way round the back."""
+        (x1, y1), (x2, y2) = self.throat
+        start = math.degrees(math.atan2(y1 - self.centre[1], x1 - self.centre[0]))
+        end = math.degrees(math.atan2(y2 - self.centre[1], x2 - self.centre[0]))
         while end > start:
             end -= 360.0
-    else:
-        while end < start:
-            end += 360.0
-    return arc(cx, cy, radius, start, end, steps)
+        return start, end
+
+    def cut(self, radius, steps):
+        """The round of the cut through the rail at radius, from the first end of the throat round the back to the other."""
+        return arc(*self.centre, radius, *self.angles(), steps)
 
 
-def angle_of(cx, cy, x, y):
-    return math.degrees(math.atan2(y - cy, x - cx))
+def pool_pockets():
+    """The corner pocket's mouth is 0.112 between its noses (1.9 balls once the game stands the table), its throat 0.098 and
+    its cut 0.06 round; a side pocket's mouth is 0.13 (2.2 balls), narrowing to a throat of 0.112, cut 0.057 round."""
+    (ix, iy), nx, ny = POOL_RAIL_IN, POOL_RAIL_IN[0] - POOL_NOSE, POOL_RAIL_IN[1] - POOL_NOSE
+    mouth, throat = 0.112 / math.sqrt(2), 0.098 / math.sqrt(2)
+    back = 0.0245
+    corner = PoolPocket(((nx - mouth, ny), (nx, ny - mouth)), ((ix - throat, iy), (ix, iy - throat)),
+                        (ix - throat / 2 + back, iy - throat / 2 + back))
+    side = PoolPocket(((-0.065, ny), (0.065, ny)), ((-0.056, iy), (0.056, iy)), (0.0, iy + 0.012))
+    return corner, side
+
+
+def jawed(bm, ends):
+    """A cushion: its outline, given going round as pairs of points where each line of it starts and ends, joined
+    along and closed at both ends. Each end is a flat cut, so a cushion can end on the slant of a pocket's jaw."""
+    first = [bm.verts.new(start) for start, _ in ends]
+    last = [bm.verts.new(end) for _, end in ends]
+    count = len(ends)
+    for i in range(count):
+        j = (i + 1) % count
+        bm.faces.new((first[i], first[j], last[j], last[i]))
+    bm.faces.new(first[::-1])
+    bm.faces.new(last)
+
+
+def pool_liner(bm, pocket, sx, sy):
+    """A pocket's leather: a band round the cut lying on the rail and down its face, along the throat under the cloth's
+    edge, and a dark floor across the drop."""
+    (x1, y1), (x2, y2) = pocket.throat
+    length = math.hypot(x2 - x1, y2 - y1)
+    # Across the throat towards the cut.
+    nx, ny = -(y2 - y1) / length, (x2 - x1) / length
+    if (pocket.centre[0] - x1) * nx + (pocket.centre[1] - y1) * ny < 0:
+        nx, ny = -nx, -ny
+    along = [(x2 + (x1 - x2) * k / 6, y2 + (y1 - y2) * k / 6) for k in range(1, 6)]
+    inner = pocket.cut(pocket.radius - 0.002, 16) + [(x + nx * 0.003, y + ny * 0.003) for x, y in along]
+    outer = pocket.cut(pocket.radius + 0.008, 16) + [(x - nx * 0.008, y - ny * 0.008) for x, y in along]
+    tops = [POOL_RIM] * 17 + [0.797] * 5
+    low = 0.768
+    rings = [[bm.verts.new((sx * x, sy * y, z)) for (x, y), z in zip(points, heights)]
+             for points, heights in ((inner, [low] * 22), (inner, tops), (outer, tops), (outer, [low] * 22))]
+    count = len(inner)
+    for i in range(count):
+        j = (i + 1) % count
+        for a, b in ((0, 1), (1, 2), (2, 3), (3, 0)):
+            bm.faces.new((rings[a][i], rings[a][j], rings[b][j], rings[b][i]))
+    outline_up(bm, [(sx * x, sy * y) for x, y in inner], low - 0.003, low + 0.001)
 
 
 def pool_table():
-    """A pool table two squares long: a cloth bed inside cushioned rails, a leather cup at each of six pockets, a deep
-    apron and four square legs. Width along x. The cloth is 0.80 high and the rails 0.842."""
+    """A pool table two squares long: a cloth bed inside cushioned rails, six pockets each cut round through the rail
+    behind the cushions' jaws and lined with leather, a deep apron and four square legs. Width along x. The cloth is
+    0.80 high and the rails 0.842."""
     model = Model("pool_table")
     (ox, oy), (ix, iy) = POOL_RAIL_OUT, POOL_RAIL_IN
-    corner_r, middle_r = POOL_POCKETS[0][2], POOL_POCKETS[4][2]
-    corner_x, corner_y, middle_y = abs(POOL_POCKETS[0][0]), abs(POOL_POCKETS[0][1]), abs(POOL_POCKETS[4][1])
+    corner, side = pool_pockets()
 
-    # The bed of slate under its cloth, reaching under the cushions to the rails. Each corner is cut off on the slant
-    # between the cup's hole and its rim, so the hole shows the cup's dark and the cut is under the rim.
+    # The bed of slate under its cloth, reaching under the cushions to the rails, each corner cut off across the
+    # corner pocket's throat.
     bed = bmesh.new()
-    xs = [-0.83, -0.8] + spread(-0.6, 0.6, 4) + [0.8, 0.83]
-    ys = [-iy, -0.35] + spread(-0.2, 0.2, 2) + [0.35, iy]
+    (cx, _), (_, cy) = corner.throat
+    xs = [-ix, -cx] + spread(-0.6, 0.6, 4) + [cx, ix]
+    ys = [-iy, -cy] + spread(-0.2, 0.2, 2) + [cy, iy]
     cage = grid_box(bed, xs, ys, [0.74, 0.8])
     for (i, j, k), vert in cage.items():
         if i in (0, len(xs) - 1) and j in (0, len(ys) - 1):
-            vert.co.x = math.copysign(0.815, vert.co.x)
-            vert.co.y = math.copysign(0.365, vert.co.y)
+            vert.co.x = math.copysign((ix + cx) / 2, vert.co.x)
+            vert.co.y = math.copysign((iy + cy) / 2, vert.co.y)
     model.hard(bed, "cloth", bevel=0.003, segments=1)
 
-    # The cushions along the rails, in the same cloth: a nose that overhangs the bed, cut short at each pocket. The nose is
-    # 0.034 over the cloth, 37 mm once the game raises the cloth to its sprite's top: a real cushion meets a 57 mm ball at 63.5%
-    # of its height.
+    # The cushions along the rails, in the same cloth: a nose that overhangs the bed, each end cut on the slant from the
+    # nose at the pocket's mouth back to its throat. The nose is 0.034 over the cloth, 37 mm once the game raises the
+    # cloth to its sprite's top: a real cushion meets a 57 mm ball at 63.5% of its height.
     cushions = bmesh.new()
-    nose = [(0.0, 0.795), (0.028, 0.795), (0.036, 0.834), (0.031, 0.839), (0.0, 0.84)]
-    for sy in (-1, 1):
-        section = [(sy * (iy - inward), z) for inward, z in nose]
-        for x0, x1 in ((-0.81, -0.045), (0.045, 0.81)):
-            outline_along_x(cushions, section, x0, x1)
-    for sx in (-1, 1):
-        section = [(sx * (ix - inward), z) for inward, z in nose]
-        outline_along_y(cushions, section, -0.33, 0.33)
-    model.hard(cushions, "cloth", bevel=0.004, segments=2)
+    nose = [(0.0, 0.795), (0.028, 0.795), (POOL_NOSE, 0.834), (0.031, 0.839), (0.0, 0.84)]
 
-    # The rails, each ending on the round of the cup at either end of it.
-    rails = bmesh.new()
+    def jaw(pocket, end, inward):
+        """Where a cushion's line inward of the rail ends at a pocket: from the throat's end towards the nose's."""
+        back, front = pocket.throat[end], pocket.noses[end]
+        t = inward / POOL_NOSE
+        return back[0] + (front[0] - back[0]) * t, back[1] + (front[1] - back[1]) * t
+
     for sx in (-1, 1):
         for sy in (-1, 1):
-            mx, my = 0.0, sy * middle_y
-            cx, cy = sx * corner_x, sy * corner_y
-            middle_in = math.sqrt(middle_r ** 2 - (iy - middle_y) ** 2)
-            middle_out = math.sqrt(middle_r ** 2 - (oy - middle_y) ** 2)
-            corner_in = corner_x - math.sqrt(corner_r ** 2 - (corner_y - iy) ** 2)
-            start, end = (sx * middle_in, sy * iy), (sx * middle_out, sy * oy)
-            outline = round_to(mx, my, middle_r, angle_of(mx, my, *start), angle_of(mx, my, *end), clockwise=sx * sy < 0)
-            outline.append((sx * corner_x, sy * oy))
-            far = (sx * corner_in, sy * iy)
-            outline += round_to(cx, cy, corner_r, angle_of(cx, cy, sx * corner_x, sy * oy), angle_of(cx, cy, *far), clockwise=sx * sy < 0)[1:]
-            outline_up(rails, outline, POOL_RAIL_LOW, POOL_RAIL_TOP)
-        end_in = corner_y - math.sqrt(corner_r ** 2 - (corner_x - ix) ** 2)
-        low, high = (sx * corner_x, -corner_y), (sx * corner_x, corner_y)
-        outline = [(sx * ix, -end_in), (sx * ix, end_in)]
-        outline += round_to(*high, corner_r, angle_of(*high, sx * ix, end_in), angle_of(*high, sx * ox, corner_y), clockwise=sx < 0)[1:]
-        outline += round_to(*low, corner_r, angle_of(*low, sx * ox, -corner_y), angle_of(*low, sx * ix, -end_in), clockwise=sx < 0)
-        outline_up(rails, outline[:-1], POOL_RAIL_LOW, POOL_RAIL_TOP)
+            jawed(cushions, [((sx * jaw(side, 1, w)[0], sy * (iy - w), z), (sx * jaw(corner, 0, w)[0], sy * (iy - w), z)) for w, z in nose])
+        jawed(cushions, [((sx * (ix - w), -jaw(corner, 1, w)[1], z), (sx * (ix - w), jaw(corner, 1, w)[1], z)) for w, z in nose])
+    model.hard(cushions, "cloth", bevel=0.004, segments=2)
+
+    # The rails, cut round each pocket: a half for each end of the table, joined into one ring behind the side pockets
+    # so that no joint is rounded off there.
+    rails = bmesh.new()
+    top = side.cut(side.radius, 12)
+    top = top[len(top) // 2:] + corner.cut(corner.radius, 16) + [(ix, 0.0)]
+    inside = top + [(x, -y) for x, y in reversed(top)][1:]
+    half = inside + [(0.0, -oy), (ox, -oy), (ox, oy), (0.0, oy)]
+    for sx in (-1, 1):
+        outline_up(rails, [(sx * x + 0.0, y) for x, y in half], POOL_RAIL_LOW, POOL_RAIL_TOP)
+    bmesh.ops.remove_doubles(rails, verts=rails.verts[:], dist=1e-6)
+    joints = [face for face in rails.faces if all(abs(vert.co.x) < 1e-6 for vert in face.verts)]
+    if len(joints) != 2:
+        raise SystemExit("pool_table: the rail halves meet in %d faces, not 2" % len(joints))
+    bmesh.ops.delete(rails, geom=joints, context="FACES_ONLY")
     model.hard(rails, "dark_wood", bevel=0.006, segments=2)
 
     # The apron under the rails, and the legs.
@@ -4055,11 +4110,12 @@ def pool_table():
             cuboid(body, sx * 0.8 - 0.08, sx * 0.8 + 0.08, sy * 0.34 - 0.08, sy * 0.34 + 0.08, 0.0, 0.05)
     model.hard(body, "dark_wood", bevel=0.006, segments=2)
 
-    # The cups, their rims a hair proud of the rails, each a dark hole down to its floor.
-    cups = bmesh.new()
-    for x, y, rim, hole in POOL_POCKETS:
-        lathe(cups, [(0.0, 0.68), (rim - 0.015, 0.68), (rim, 0.71), (rim, POOL_RIM), (hole, POOL_RIM), (hole, 0.72), (0.0, 0.72)], cx=x, cy=y, segments=20)
-    model.turned(cups, "rubber", sharp=50.0)
+    liners = bmesh.new()
+    for sy in (-1, 1):
+        for sx in (-1, 1):
+            pool_liner(liners, corner, sx, sy)
+        pool_liner(liners, side, 1, sy)
+    model.turned(liners, "rubber", sharp=50.0)
     return model
 
 
