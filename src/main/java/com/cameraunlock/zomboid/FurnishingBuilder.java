@@ -605,6 +605,9 @@ final class FurnishingBuilder {
         if (piece.glassLegs != null) {
             Outdoors.addGlass(build, piece, x, y, foot);
         }
+        if (piece.goal != null) {
+            addNet(piece.goal, x, y, z, foot - piece.raised);
+        }
         if (piece.television && object instanceof IsoTelevision set) {
             // The game's sprite of a lit screen is painted for its own view and has no place on
             // the model: it is never drawn over one. With the mod's pictures switched off a set
@@ -616,6 +619,47 @@ final class FurnishingBuilder {
         }
         return true;
     }
+
+    /**
+     * Hangs the net of a football goal's square behind its frame, on the side Leisure.netSide finds: the mesh as chain
+     * link's fabric is woven (ChainLink.FABRIC), in white, and the white tubes that hold it out. A goal whose side is not
+     * known until more of the map is loaded stands its frame alone until then. ground is the height of the square's foot.
+     */
+    private void addNet(Leisure.Goal goal, int x, int y, int z, float ground) {
+        int side = Leisure.netSide(squares, x, y, z, goal);
+        if (side == Leisure.NET_UNKNOWN) {
+            build.wantsMap = true;
+            return;
+        }
+        if (side == Leisure.NO_NET) {
+            return;
+        }
+        SpriteGeometry.Mesh white = WorldScene.solid.get(WorldScene.PLAIN, WallSides.key(NET_WHITE, NET_WHITE, NET_WHITE, WallSides.FLAT));
+        white.sway = 0f;
+        float red = build.frame.red, green = build.frame.green, blue = build.frame.blue;
+        int sheets = Leisure.netSheets(goal, side, netPoints);
+        white.open = build.frame.open + 32f * ChainLink.FABRIC;
+        for (int sheet = 0; sheet < sheets; sheet++) {
+            for (int corner = 0; corner < 4; corner++) {
+                int from = (sheet * 4 + corner) * 3;
+                WorldScene.set(netCorners, corner, x + netPoints[from], y + netPoints[from + 1], ground + netPoints[from + 2]);
+            }
+            SpriteGeometry.addPlainQuad(white, netCorners, red, green, blue);
+        }
+        int tubes = Leisure.netTubes(goal, side, netPoints);
+        white.open = build.frame.open;
+        for (int tube = 0; tube < tubes; tube++) {
+            int from = tube * 6;
+            WorldScene.set(netFrom, 0, x + netPoints[from], y + netPoints[from + 1], ground + netPoints[from + 2]);
+            WorldScene.set(netTo, 0, x + netPoints[from + 3], y + netPoints[from + 4], ground + netPoints[from + 5]);
+            SpriteGeometry.addTube(white, netFrom, netTo, NET_TUBE_RADIUS, NET_TUBE_SIDES, red, green, blue);
+        }
+    }
+
+    /** A goal's net and the tubes that hold it: white, and 40 mm across. */
+    private static final float NET_WHITE = 0.9f, NET_TUBE_RADIUS = 0.02f;
+    private static final int NET_TUBE_SIDES = 8;
+    private final float[] netPoints = new float[48], netCorners = new float[12], netFrom = new float[3], netTo = new float[3];
 
     /**
      * Whether the square of a piece that origin leads back from stands its model: the first square, or where the first

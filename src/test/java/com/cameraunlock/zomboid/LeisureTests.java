@@ -10,6 +10,8 @@ final class LeisureTests {
         Checks.run("aSwingsBeamMeetsTheTopOfItsFrame", LeisureTests::aSwingsBeamMeetsTheTopOfItsFrame);
         Checks.run("aTyreStackIsAsHighAsItsSprite", LeisureTests::aTyreStackIsAsHighAsItsSprite);
         Checks.run("aGoalsCrossbarMeetsItsPostsAndARunLiesAlongTheWayItsSpritesDo", LeisureTests::aGoalsCrossbarMeetsItsPostsAndARunLiesAlongTheWayItsSpritesDo);
+        Checks.run("aGoalsNetHangsOnTheSideAwayFromTheGoalItFaces", LeisureTests::aGoalsNetHangsOnTheSideAwayFromTheGoalItFaces);
+        Checks.run("aGoalsNetRunsFromItsFrameBackToTheGroundAndClosesAtItsPosts", LeisureTests::aGoalsNetRunsFromItsFrameBackToTheGroundAndClosesAtItsPosts);
         Checks.run("aBasketballBoardStandsInFrontOfItsPole", LeisureTests::aBasketballBoardStandsInFrontOfItsPole);
         Checks.run("everyPieceOfAFieldARingAndAGymNamesAModelTheJarHolds", LeisureTests::everyPieceOfAFieldARingAndAGymNamesAModelTheJarHolds);
         Checks.run("aRingsRopesRunFromPostToPostAtTheHeightOfItsCorner", LeisureTests::aRingsRopesRunFromPostToPostAtTheHeightOfItsCorner);
@@ -216,6 +218,57 @@ final class LeisureTests {
         Outdoors.Piece net = unnamed("recreational_sports_01_92");
         Models.turn(net.turns, 1f, 0f, along);
         Checks.check(along[0] == 0f && along[1] == 1f && net.a == Leisure.NET_ACROSS && net.raised == 0f, "recreational_sports_01_92 runs along y, on the ground");
+    }
+
+    /** A map holding the first post of a goal along x on each square given as x, y, and nothing loaded north of loadedFrom. */
+    private static Towers.Squares goalsAt(int loadedFrom, int... posts) {
+        java.util.Set<Long> at = new java.util.HashSet<>();
+        for (int i = 0; i < posts.length; i += 2) {
+            at.add((long) posts[i] << 32 | posts[i + 1] & 0xFFFFFFFFL);
+        }
+        return (x, y, z, sprite) -> y < loadedFrom ? null : sprite.equals("recreational_sports_01_19") && at.contains((long) x << 32 | y & 0xFFFFFFFFL);
+    }
+
+    private static void aGoalsNetHangsOnTheSideAwayFromTheGoalItFaces() {
+        Leisure.Goal middle = new Leisure.Goal(true, "recreational_sports_01_19", 0f, 1f);
+        Leisure.forgetGoals();
+        Towers.Squares pitch = goalsAt(Integer.MIN_VALUE, 10, 100, 10, 140);
+        Checks.check(Leisure.netSide(pitch, 12, 100, 0, middle) == Leisure.NET_LESS, "the goal at the north end of a pitch has its net north of it");
+        Checks.check(Leisure.netSide(pitch, 11, 140, 0, middle) == Leisure.NET_MORE, "the goal at the south end of a pitch has its net south of it");
+        Leisure.forgetGoals();
+        Towers.Squares sideBySide = goalsAt(Integer.MIN_VALUE, 10, 200, 10, 240, 10, 251, 10, 291);
+        Checks.check(Leisure.netSide(sideBySide, 10, 240, 0, middle) == Leisure.NET_MORE && Leisure.netSide(sideBySide, 10, 251, 0, middle) == Leisure.NET_LESS,
+                "two goals back to back on two pitches have their nets towards each other");
+        Leisure.forgetGoals();
+        Checks.check(Leisure.netSide(goalsAt(Integer.MIN_VALUE, 10, 300), 10, 300, 0, middle) == Leisure.NO_NET, "a goal with no other near it stands its frame alone");
+        Checks.check(Leisure.netSide(goalsAt(Integer.MIN_VALUE), 10, 300, 0, middle) == Leisure.NO_NET, "a goal's square with no post along it has no net");
+        Towers.Squares half = goalsAt(130, 10, 140), whole = goalsAt(Integer.MIN_VALUE, 10, 100, 10, 140);
+        Leisure.forgetGoals();
+        Checks.check(Leisure.netSide(half, 10, 140, 0, middle) == Leisure.NET_UNKNOWN, "a goal whose pitch is not all loaded has no side yet");
+        Checks.check(Leisure.netSide(whole, 10, 140, 0, middle) == Leisure.NET_MORE, "and finds it once the pitch is loaded");
+        Checks.check(Leisure.netSide(half, 10, 140, 0, middle) == Leisure.NET_MORE, "and keeps it while the map is loaded");
+    }
+
+    private static void aGoalsNetRunsFromItsFrameBackToTheGroundAndClosesAtItsPosts() {
+        float[] sheets = new float[48];
+        Leisure.Goal middle = new Leisure.Goal(true, "recreational_sports_01_19", 0f, 1f);
+        Checks.check(Leisure.netSheets(middle, Leisure.NET_MORE, sheets) == 2, "a goal's middle square has the top and the back of its net");
+        float bar = Leisure.GOAL_ACROSS + 0.06f, back = Leisure.GOAL_ACROSS + Leisure.NET_FOOT_DEPTH;
+        Checks.check(sheets[0] == 0f && Math.abs(sheets[1] - bar) < 1e-6f && sheets[3] == 1f && Math.abs(sheets[2] - sheets[5]) < 1e-6f,
+                "the top of a goal's net runs along it from behind its crossbar");
+        Checks.check(Math.abs(sheets[12 + 7] - back) < 1e-6f && sheets[12 + 8] == 0f && Math.abs(sheets[12 + 10] - back) < 1e-6f && sheets[12 + 11] == 0f,
+                "the back of a goal's net comes down to the ground behind it");
+        Leisure.Goal first = new Leisure.Goal(false, "recreational_sports_01_18", Leisure.GOAL_FIRST_POST, 1f);
+        Checks.check(Leisure.netSheets(first, Leisure.NET_LESS, sheets) == 3, "a goal's square with a post has the side of its net too");
+        boolean side = true;
+        for (int corner = 0; corner < 4; corner++) {
+            side &= sheets[24 + corner * 3 + 1] == Leisure.GOAL_FIRST_POST && sheets[24 + corner * 3] <= Leisure.GOAL_ACROSS;
+        }
+        Checks.check(side && sheets[1] == Leisure.GOAL_FIRST_POST && Math.abs(sheets[12 + 9] - (Leisure.GOAL_ACROSS - Leisure.NET_FOOT_DEPTH)) < 1e-6f,
+                "a goal along y with its net west of it closes the net at its post, across x");
+        float[] tubes = new float[48];
+        Checks.check(Leisure.netTubes(middle, Leisure.NET_MORE, tubes) == 2 && Leisure.netTubes(first, Leisure.NET_LESS, tubes) == 5,
+                "a goal's net is held out by tubes along its back and down from each post");
     }
 
     private static void aBasketballBoardStandsInFrontOfItsPole() {

@@ -2702,9 +2702,12 @@ final class PipelineShaders {
                 bool linkWire = vMaterial > 90.5 && vMaterial < 93.5;
                 vec2 woven = vec2(0.0);
                 if (linkWire) {
+                    // Across the sheet level, and up it square to that: straight up on a fence, up the slope on a
+                    // sheet that slopes, along y on one that lies flat.
                     vec3 sheetFaces = normalize(vNormal);
-                    vec2 sheetRuns = vec2(sheetFaces.y, -sheetFaces.x) / max(length(sheetFaces.xy), 1e-4);
-                    woven = vec2(dot(vPlace.xy, sheetRuns) / 0.06, vPlace.z / 0.075);
+                    float sheetLeans = length(sheetFaces.xy);
+                    vec3 sheetRuns = sheetLeans > 1e-3 ? vec3(sheetFaces.y, -sheetFaces.x, 0.0) / sheetLeans : vec3(1.0, 0.0, 0.0);
+                    woven = vec2(dot(vPlace, sheetRuns) / 0.06, dot(vPlace, cross(sheetRuns, sheetFaces)) / 0.075);
                 }
                 vec2 wires = vec2(woven.x + woven.y, woven.x - woven.y);
                 vec2 seen = max(fwidth(wires), vec2(1e-5));

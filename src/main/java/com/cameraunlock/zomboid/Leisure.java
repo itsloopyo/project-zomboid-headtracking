@@ -1,5 +1,7 @@
 package com.cameraunlock.zomboid;
 
+import java.util.concurrent.ConcurrentHashMap;
+
 /**
  * What a park, a gym, a track, a church and a music room have that the mod has a model of: swings,
  * slides, a play house, a roundabout and a fountain, running machines and weight benches, walls of
@@ -325,12 +327,12 @@ final class Leisure {
             case 93 -> court("net_first", false, NET_ACROSS);
             case 92 -> court("net_middle", false, NET_ACROSS);
             case 91 -> court("net_last", false, NET_ACROSS);
-            case 19 -> court("goal_first", true, GOAL_ACROSS);
-            case 20 -> court("goal_middle", true, GOAL_ACROSS).raise(GOAL_BAR_FOOT / LEVEL);
-            case 21 -> court("goal_last", true, GOAL_ACROSS);
-            case 18 -> court("goal_first", false, GOAL_ACROSS);
-            case 17 -> court("goal_middle", false, GOAL_ACROSS).raise(GOAL_BAR_FOOT / LEVEL);
-            case 16 -> court("goal_last", false, GOAL_ACROSS);
+            case 19 -> goal("goal_first", true, GOAL_FIRST_POST, 1f);
+            case 20 -> goal("goal_middle", true, 0f, 1f).raise(GOAL_BAR_FOOT / LEVEL);
+            case 21 -> goal("goal_last", true, 0f, GOAL_LAST_POST);
+            case 18 -> goal("goal_first", false, GOAL_FIRST_POST, 1f);
+            case 17 -> goal("goal_middle", false, 0f, 1f).raise(GOAL_BAR_FOOT / LEVEL);
+            case 16 -> goal("goal_last", false, 0f, GOAL_LAST_POST);
             default -> sports >= 136 && sports <= 163 ? tyres(sports) : field(sports, Sheets.place(name, MILITARY));
         };
     }
@@ -442,6 +444,155 @@ final class Leisure {
     /** A square of a run along x or along y. Its model runs along its own X: turned twice that is the map's x, three times its y. */
     private static Outdoors.Piece court(String model, boolean alongX, float across) {
         return alongX ? new Outdoors.Piece(model, Outdoors.SOUTH).at(0.5f, across) : new Outdoors.Piece(model, Outdoors.WEST).at(across, 0.5f);
+    }
+
+    /** Where along their squares a goal's first and last posts stand, from the square's corner, as the models goal_first and goal_last have them. */
+    static final float GOAL_FIRST_POST = 0.42f, GOAL_LAST_POST = 0.55f;
+    /** How high a goal's crossbar is over the ground, to its middle, in metres. */
+    static final float GOAL_TOP = 2.44f;
+
+    /**
+     * A square of a football goal: which way the goal runs, the sprite of its first post (its north or west end), and the
+     * stretch of the square it spans along the goal, from the square's corner: the whole square, but from or to where a
+     * post stands on it.
+     */
+    record Goal(boolean alongX, String firstPost, float from, float to) {}
+
+    private static Outdoors.Piece goal(String model, boolean alongX, float from, float to) {
+        Outdoors.Piece piece = court(model, alongX, GOAL_ACROSS);
+        piece.goal = new Goal(alongX, SPORTS + (alongX ? 19 : 18), from, to);
+        return piece;
+    }
+
+    /** Which side of a goal its net is, across the goal: where the map's x or y is less, where it is more, none, or not known until more of the map is loaded. */
+    static final int NET_LESS = -1, NO_NET = 0, NET_MORE = 1, NET_UNKNOWN = 2;
+    /**
+     * How far a goal looks across the pitch for the goal it faces, in squares: the longest pitch on the map has its goals
+     * 74 apart. And how near another goal is when it stands behind this one and not across a pitch: back to back on two
+     * pitches side by side the goals are 9 and 11 squares apart, and the shortest pitch has them 18 apart.
+     */
+    static final int GOAL_REACH = 80, GOAL_BEHIND = 14;
+    /** How many squares long a goal can be: the longest on the map spans 7. */
+    private static final int GOAL_SQUARES = 10;
+    /** The side of its net each goal was found to have, by the square of its first post: see netSide. */
+    private static final ConcurrentHashMap<Long, Integer> nets = new ConcurrentHashMap<>();
+
+    /** For a map loaded anew. */
+    static void forgetGoals() {
+        nets.clear();
+    }
+
+    /**
+     * Which side of its goal a goal's square on (x, y, z) hangs the net. The game paints a goal the same at either end of
+     * a pitch, so the net goes on the side away from the goal it faces: the first goal found looking out both ways across
+     * it from its first post. One found nearer than GOAL_BEHIND stands behind it on the next pitch, and the net is on that
+     * side. NO_NET where no other goal is within GOAL_REACH, and NET_UNKNOWN while a square that decides it is not loaded.
+     * Once found, a goal keeps its side for as long as the map is loaded.
+     */
+    static int netSide(Towers.Squares squares, int x, int y, int z, Goal goal) {
+        int alongX = goal.alongX() ? 1 : 0, alongY = 1 - alongX;
+        int postX = 0, postY = 0;
+        boolean found = false;
+        for (int k = 0; k <= GOAL_SQUARES && !found; k++) {
+            Boolean post = squares.holds(x - k * alongX, y - k * alongY, z, goal.firstPost());
+            if (post == null) {
+                return NET_UNKNOWN;
+            }
+            if (post) {
+                postX = x - k * alongX;
+                postY = y - k * alongY;
+                found = true;
+            }
+        }
+        if (!found) {
+            return NO_NET;
+        }
+        long key = ((long) postX << 32 | postY & 0xFFFFFFFFL) * 64 + z;
+        Integer known = nets.get(key);
+        if (known != null) {
+            return known;
+        }
+        int side = NO_NET;
+        for (int d = 1; d <= GOAL_REACH; d++) {
+            Boolean less = squares.holds(postX - d * alongY, postY - d * alongX, z, goal.firstPost());
+            Boolean more = squares.holds(postX + d * alongY, postY + d * alongX, z, goal.firstPost());
+            if (less == null || more == null) {
+                return NET_UNKNOWN;
+            }
+            if (less && more) {
+                // Two goals as far off either way is no pitch the map has: the goal stands as its frame.
+                break;
+            }
+            if (less || more) {
+                boolean behind = d < GOAL_BEHIND;
+                side = less == behind ? NET_LESS : NET_MORE;
+                break;
+            }
+        }
+        nets.put(key, side);
+        return side;
+    }
+
+    /**
+     * How deep behind its frame a goal's net reaches at the crossbar's height and at the ground, and how far its top falls
+     * from the crossbar to the back, in metres. The game paints no net, so these are a full-size goal's box net, inside
+     * the 1.57 m the nearest fence behind a goal on the map leaves it (7151, 8404).
+     */
+    static final float NET_TOP_DEPTH = 0.8f, NET_FOOT_DEPTH = 1.2f, NET_TOP_FALL = 0.25f;
+    /** How far behind the frame's line the net hangs off the posts and the crossbar: their radius. How high the middle of a tube along the ground is. */
+    private static final float NET_OFF_FRAME = 0.06f, NET_GROUND_TUBE = 0.02f;
+
+    /**
+     * The sheets of a goal's square's net on the side netSide gives, into out: four corners each, (x, y, up) in tiles from
+     * the square's corner and the ground. The square has the top and the back of the net along its stretch, and where a
+     * post stands on it the side from that post. Says how many.
+     */
+    static int netSheets(Goal goal, int side, float[] out) {
+        float frame = GOAL_ACROSS + side * NET_OFF_FRAME, top = GOAL_ACROSS + side * NET_TOP_DEPTH, foot = GOAL_ACROSS + side * NET_FOOT_DEPTH;
+        float bar = GOAL_TOP - NET_OFF_FRAME, back = GOAL_TOP - NET_TOP_FALL;
+        float from = goal.from(), to = goal.to();
+        int count = 0;
+        count = corners(goal, out, count, 4, from, frame, bar, to, frame, bar, to, top, back, from, top, back);
+        count = corners(goal, out, count, 4, from, top, back, to, top, back, to, foot, 0f, from, foot, 0f);
+        for (float end : new float[] {from, to}) {
+            if (end > 0f && end < 1f) {
+                count = corners(goal, out, count, 4, end, frame, 0f, end, frame, bar, end, top, back, end, foot, 0f);
+            }
+        }
+        return count;
+    }
+
+    /**
+     * The tubes that hold a goal's square's net out behind its frame, into out: two ends each, as netSheets gives corners.
+     * Along its stretch one on the ground at the back and one across the top of the back; where a post stands, one on the
+     * ground from the post, one from the top of the post to the top of the back, and one down the back's corner. Says how many.
+     */
+    static int netTubes(Goal goal, int side, float[] out) {
+        float frame = GOAL_ACROSS + side * NET_OFF_FRAME, top = GOAL_ACROSS + side * NET_TOP_DEPTH, foot = GOAL_ACROSS + side * NET_FOOT_DEPTH;
+        float bar = GOAL_TOP - NET_OFF_FRAME, back = GOAL_TOP - NET_TOP_FALL, low = NET_GROUND_TUBE;
+        float from = goal.from(), to = goal.to();
+        int count = 0;
+        count = corners(goal, out, count, 2, from, foot, low, to, foot, low);
+        count = corners(goal, out, count, 2, from, top, back, to, top, back);
+        for (float end : new float[] {from, to}) {
+            if (end > 0f && end < 1f) {
+                count = corners(goal, out, count, 2, end, GOAL_ACROSS, low, end, foot, low);
+                count = corners(goal, out, count, 2, end, frame, bar, end, top, back);
+                count = corners(goal, out, count, 2, end, top, back, end, foot, low);
+            }
+        }
+        return count;
+    }
+
+    /** Puts the points of one more shape into out after the count there are, each given along the goal, across it and up. */
+    private static int corners(Goal goal, float[] out, int count, int points, float... at) {
+        for (int i = 0; i < points; i++) {
+            int to = (count * points + i) * 3;
+            out[to] = goal.alongX() ? at[i * 3] : at[i * 3 + 1];
+            out[to + 1] = goal.alongX() ? at[i * 3 + 1] : at[i * 3];
+            out[to + 2] = at[i * 3 + 2];
+        }
+        return count + 1;
     }
 
     /**

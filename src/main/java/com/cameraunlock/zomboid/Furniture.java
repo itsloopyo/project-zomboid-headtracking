@@ -116,6 +116,8 @@ final class Furniture {
     float footHalf;
     /** For a glass balustrade, the lengths Outdoors.addGlass lays its panes along, or null. */
     float[] glassLegs;
+    /** For a square of a football goal, the goal it is of, or null. See Outdoors.Piece. */
+    Leisure.Goal goal;
     /**
      * For what hangs on a wall and is put on a roof as often, the model it is there: the same thing on a post from the
      * roof, its foot on the roof and not raised. Null for a piece that is the same model on a roof.
@@ -798,6 +800,7 @@ final class Furniture {
         piece.roofBelow = outside.roofBelow;
         piece.footHalf = outside.footHalf;
         piece.glassLegs = outside.glassLegs;
+        piece.goal = outside.goal;
         if (outside.fits) {
             piece.stand(outside.top, piece.model.height(), false);
         }

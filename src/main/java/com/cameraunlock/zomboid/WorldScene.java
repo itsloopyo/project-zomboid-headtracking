@@ -3041,6 +3041,7 @@ final class WorldScene {
                 Tents.forget();
                 Hoods.forget();
                 Towers.forget();
+                Leisure.forgetGoals();
                 Lights.forget();
                 Roofs.forget();
                 WallFinish.forget();

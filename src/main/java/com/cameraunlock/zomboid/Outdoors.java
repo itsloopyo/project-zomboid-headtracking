@@ -67,6 +67,8 @@ final class Outdoors {
         float footHalf;
         /** For a glass balustrade, the lengths of glass its model's frame holds, as GLASS_RUN, GLASS_CORNER and GLASS_POST give them: see addGlass. */
         float[] glassLegs;
+        /** For a square of a football goal, the goal it is of: its net is hung by FurnishingBuilder.addNet. */
+        Leisure.Goal goal;
 
         Piece(String model, int turns) {
             this.model = model;
