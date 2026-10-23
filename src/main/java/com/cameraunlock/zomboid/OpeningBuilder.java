@@ -292,15 +292,16 @@ final class OpeningBuilder {
         return true;
     }
 
-    /** The doorway the wall on the square's north or west edge was last measured with: see doorwayIn. */
+    /** The doorway or window opening the wall on the square's north or west edge was last measured with: see doorwayIn. */
     private int doorwayX, doorwayY, doorwayZ = Integer.MIN_VALUE;
     private boolean doorwayNorth;
     private float doorwayStart = -1f, doorwayEnd;
     private final float[] jambs = new float[4];
 
     /**
-     * The clear run across the sprite of the wall a doorway is in on a square's edge, as shares of its length, or a
-     * start below 0 for none measured. The wall is added before the door that hangs in it.
+     * The clear run across the sprite of the wall a doorway or a window is in on a square's edge, as shares of its
+     * length, or a start below 0 for none measured. The wall is added before the door that hangs in it or the window
+     * that stands in it.
      */
     void doorwayIn(int x, int y, int z, boolean north, float start, float end) {
         doorwayX = x;
@@ -505,6 +506,9 @@ final class OpeningBuilder {
         if (glazedOnly && shape.panes.length == 0) {
             return false;
         }
+        if (doorwayX == x && doorwayY == y && doorwayZ == z && doorwayNorth == north) {
+            shape = fitted(shape, doorwayStart, doorwayEnd);
+        }
         IsoGridSquare beyond = beyondEdge(north, x, y, z);
         boolean ownIsRoom = indoors(build.here) || !indoors(beyond);
         boolean beyondIsRoom = indoors(beyond);
@@ -587,6 +591,60 @@ final class OpeningBuilder {
         }
         joinery.day = glass.day = 0f;
         return true;
+    }
+
+    /**
+     * The window carried out to the ends of the opening cut in its wall, from cutStart to cutEnd along the edge, where
+     * its sprite stops short of one by no more than FIT_MOST: the opening is see-through wherever the window does not
+     * cover it. A stile is widened out to the cut's end, and an end with no stile, which runs on into the window on
+     * the next square, takes its panes and bars along. The shape itself where nothing is to be carried out, or no cut
+     * was measured (a start below 0); otherwise a copy, the shape being every square's that shows its sprite.
+     */
+    static Windows.Shape fitted(Windows.Shape shape, float cutStart, float cutEnd) {
+        boolean fromStart = cutStart >= 0f && shape.start > cutStart && shape.start - cutStart <= FIT_MOST;
+        boolean toEnd = cutStart >= 0f && shape.end < cutEnd && cutEnd - shape.end <= FIT_MOST;
+        if (!fromStart && !toEnd) {
+            return shape;
+        }
+        Windows.Shape fit = new Windows.Shape();
+        fit.originU = shape.originU;
+        fit.originV = shape.originV;
+        fit.scale = shape.scale;
+        fit.north = shape.north;
+        fit.start = fromStart ? cutStart : shape.start;
+        fit.end = toEnd ? cutEnd : shape.end;
+        fit.startWide = shape.startWide > 0f && fromStart ? shape.startWide + shape.start - cutStart : shape.startWide;
+        fit.endWide = shape.endWide > 0f && toEnd ? shape.endWide + cutEnd - shape.end : shape.endWide;
+        fit.foot = shape.foot;
+        fit.head = shape.head;
+        fit.footHigh = shape.footHigh;
+        fit.headHigh = shape.headHigh;
+        fit.red = shape.red;
+        fit.green = shape.green;
+        fit.blue = shape.blue;
+        fit.arch = shape.arch;
+        fit.bars = runOn(shape.bars, 4, shape, fit);
+        fit.panes = runOn(shape.panes, 5, shape, fit);
+        return fit;
+    }
+
+    /** How far, in tiles along the edge, a window is carried out to the end of its wall's opening: two stiles' width. */
+    static final float FIT_MOST = 0.15f;
+    /** A bar or a pane that ends this near the end of a window with no stile there ends at it. */
+    private static final float RUNS_ON = 1e-4f;
+
+    /** The bars or panes, each so many numbers, of a window with no stile at an end, carried with that end from where it was to where it is. */
+    private static float[] runOn(float[] list, int each, Windows.Shape was, Windows.Shape fit) {
+        float[] moved = list.clone();
+        for (int at = 0; at < moved.length; at += each) {
+            if (was.startWide == 0f && Math.abs(moved[at] - was.start) < RUNS_ON) {
+                moved[at] = fit.start;
+            }
+            if (was.endWide == 0f && Math.abs(moved[at + 1] - was.end) < RUNS_ON) {
+                moved[at + 1] = fit.end;
+            }
+        }
+        return moved;
     }
 
     /**

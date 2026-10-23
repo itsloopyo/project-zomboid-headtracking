@@ -20,6 +20,9 @@ final class WindowTests {
         Checks.run("halfAWindowThatRunsOnReachesItsSquaresEnd", WindowTests::halfAWindowThatRunsOnReachesItsSquaresEnd);
         Checks.run("halfAWindowBegunInTheSquareBeforeIsCutAtItsStart", WindowTests::halfAWindowBegunInTheSquareBeforeIsCutAtItsStart);
         Checks.run("windowWithinItsSquareStaysWhereItIs", WindowTests::windowWithinItsSquareStaysWhereItIs);
+        Checks.run("windowThatRunsOnIsCarriedToTheEndOfItsWallsOpening", WindowTests::windowThatRunsOnIsCarriedToTheEndOfItsWallsOpening);
+        Checks.run("stileIsWidenedToTheEndOfItsWallsOpening", WindowTests::stileIsWidenedToTheEndOfItsWallsOpening);
+        Checks.run("windowFarShortOfItsOpeningOrWithNoneIsLeft", WindowTests::windowFarShortOfItsOpeningOrWithNoneIsLeft);
         Checks.run("archIsMeasuredOverItsSquarePart", WindowTests::archIsMeasuredOverItsSquarePart);
         Checks.run("curtainDrawnAcrossIsOneLengthOfCloth", WindowTests::curtainDrawnAcrossIsOneLengthOfCloth);
         Checks.run("curtainPulledBackIsTwo", WindowTests::curtainPulledBackIsTwo);
@@ -232,6 +235,49 @@ final class WindowTests {
         check(near(shape.start, 3f / 16f) && near(shape.end, 13f / 16f) && near(shape.startWide, 2f / 16f) && near(shape.endWide, 2f / 16f),
                 "a window with both stiles in its square is where it is painted: " + shape.start + " to " + shape.end);
         check(near(shape.panes[0], 5f / 16f) && near(shape.panes[1], 11f / 16f), "its pane too");
+    }
+
+    /** A window from start to end with a stile at each end as wide as given (0 for none), one rail across and a pane over and under it. */
+    private static Windows.Shape window(float start, float end, float startWide, float endWide) {
+        Windows.Shape shape = new Windows.Shape();
+        shape.start = start;
+        shape.end = end;
+        shape.startWide = startWide;
+        shape.endWide = endWide;
+        shape.foot = 0.3f;
+        shape.head = 0.75f;
+        shape.footHigh = 0.03f;
+        shape.headHigh = 0.02f;
+        float in = start + startWide, out = end - endWide;
+        shape.bars = new float[] {in, out, 0.5f, 0.53f};
+        shape.panes = new float[] {in, out, 0.53f, 0.73f, 1f, in, out, 0.33f, 0.5f, 1f};
+        return shape;
+    }
+
+    /** The first half of the motel's long window stops 0.0625 short of its square's end, where its wall's opening runs on to the next square. */
+    private static void windowThatRunsOnIsCarriedToTheEndOfItsWallsOpening() {
+        Windows.Shape half = window(0.15625f, 0.9375f, 0.09375f, 0f);
+        Windows.Shape fit = OpeningBuilder.fitted(half, 0.1875f, 1f);
+        check(near(fit.end, 1f) && fit.endWide == 0f, "the end with no stile reaches the opening's end: " + fit.end);
+        check(near(fit.start, 0.15625f) && near(fit.startWide, 0.09375f), "the stile that laps over the wall at the other end stays: " + fit.start + ", " + fit.startWide);
+        check(near(fit.bars[1], 1f) && near(fit.panes[1], 1f) && near(fit.panes[6], 1f), "the rail and both panes run on to it");
+        check(near(fit.bars[0], 0.25f) && near(fit.panes[0], 0.25f), "and still begin at the stile");
+        check(near(half.end, 0.9375f) && near(half.panes[1], 0.9375f), "the measured shape, every square's that shows the sprite, is left as it was");
+    }
+
+    /** A window of one square whose sprite stops 0.078 short of the end of an opening that runs to the square's end: the stile closes it. */
+    private static void stileIsWidenedToTheEndOfItsWallsOpening() {
+        Windows.Shape shape = window(0.140625f, 0.921875f, 0.09375f, 0.0625f);
+        Windows.Shape fit = OpeningBuilder.fitted(shape, 0.203125f, 1f);
+        check(near(fit.end, 1f) && near(fit.endWide, 0.0625f + 0.078125f), "the stile reaches the opening's end, its inside where it was: " + fit.end + ", " + fit.endWide);
+        check(near(fit.panes[1], 0.859375f) && near(fit.bars[1], 0.859375f), "the panes and the rail stop at the stile as before");
+    }
+
+    private static void windowFarShortOfItsOpeningOrWithNoneIsLeft() {
+        Windows.Shape shape = window(0.2f, 0.7f, 0.05f, 0.05f);
+        check(OpeningBuilder.fitted(shape, 0f, 1f) == shape, "a window further than FIT_MOST from its opening's ends is not stretched to them");
+        check(OpeningBuilder.fitted(shape, -1f, 0f) == shape, "nor one whose wall had no opening measured");
+        check(OpeningBuilder.fitted(shape, 0.25f, 0.65f) == shape, "nor one that already covers its opening");
     }
 
     private static void archIsMeasuredOverItsSquarePart() {

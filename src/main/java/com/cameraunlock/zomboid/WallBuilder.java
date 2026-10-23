@@ -439,7 +439,7 @@ final class WallBuilder {
         boolean startIsLow = SpriteGeometry.frameU(build.frame, 0f, 0f) < SpriteGeometry.frameU(build.frame, da, db);
         float[] opening = openingOf(texture, 0f, 0f, da, db);
         int at = da != 0f ? 0 : OPENING_FLOATS;
-        if (build.overLayer == 0 && build.doorWall) {
+        if (build.overLayer == 0 && (build.doorWall || build.wallOpens && !build.glazedWall)) {
             build.openingBuilder.doorwayIn(x, y, z, da != 0f, opening[at + DOORWAY_START], opening[at + DOORWAY_END]);
         }
         // Where the wall's own sprite is painted to its end, the end is the wall's: a corner
