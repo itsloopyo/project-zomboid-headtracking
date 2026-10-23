@@ -11613,11 +11613,56 @@ def golf_flag():
     return model
 
 
+def base_bag():
+    """A bag on a corner of a baseball diamond: a white square cushion."""
+    model = Model("base_bag")
+    bag = bmesh.new()
+    cuboid(bag, -0.19, 0.19, -0.19, 0.19, 0.0, 0.09)
+    model.hard(bag, "enamel", bevel=0.025, segments=2)
+    return model
+
+
+def slab(bm, outline, z0, z1):
+    """A flat body with the same outline, given as (x, y) going round anticlockwise, from z0 up to z1."""
+    low = [bm.verts.new((x, y, z0)) for x, y in outline]
+    high = [bm.verts.new((x, y, z1)) for x, y in outline]
+    count = len(outline)
+    for i in range(count):
+        j = (i + 1) % count
+        bm.faces.new((low[i], low[j], high[j], high[i]))
+    bm.faces.new(low[::-1])
+    bm.faces.new(high)
+
+
+def home_plate():
+    """Home plate: a white rubber pentagon, its front edge 0.43 across, its sides 0.215 back from that and the point where its
+    two back edges meet, which is to +X +Y: the plate lies square to the diagonal of its square, as the game paints it."""
+    model = Model("home_plate")
+    half = 0.215
+    plate_y = [(-half, -half), (half, -half), (half, 0.0), (0.0, half), (-half, 0.0)]
+    turn = math.radians(-45)
+    outline = [(x * math.cos(turn) - y * math.sin(turn), x * math.sin(turn) + y * math.cos(turn)) for x, y in plate_y]
+    plate = bmesh.new()
+    slab(plate, outline, 0.0, 0.035)
+    model.hard(plate, "enamel", bevel=0.008, segments=1)
+    return model
+
+
+def pitching_rubber():
+    """The pitcher's plate in the middle of a diamond, long along the model's X."""
+    model = Model("pitching_rubber")
+    plate = bmesh.new()
+    cuboid(plate, -0.305, 0.305, -0.076, 0.076, 0.0, 0.05)
+    model.hard(plate, "enamel", bevel=0.01, segments=1)
+    return model
+
+
 def sports():
     """What a playing field, a boxing ring and a gym have: Leisure.field stands each."""
     return [ring_post(), ring_ropes("ring_ropes", False), ring_ropes("ring_ropes_tied", True), ring_corner(), ring_steps(),
             goalpost_post(), goalpost_bar(), goalpost_end("goalpost_end_first", -0.12, True), goalpost_end("goalpost_end_last", 0.05, False),
-            golf_flag()]
+            golf_flag(),
+            base_bag(), home_plate(), pitching_rubber()]
 
 
 def every():

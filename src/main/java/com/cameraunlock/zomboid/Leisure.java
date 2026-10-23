@@ -303,6 +303,11 @@ final class Leisure {
             case 12 -> goalpost("goalpost_end_first", 0.63f);
             case 11, 10 -> goalpost("goalpost_bar", 0.5f);
             case 9 -> goalpost("goalpost_end_last", 0.11f);
+            case 0 -> new Outdoors.Piece("base_bag", 0).at(0.45f, 0.5f);
+            case 1, 3 -> new Outdoors.Piece("home_plate", Outdoors.NORTH);
+            case 2, 4 -> new Outdoors.Piece("home_plate", Outdoors.SOUTH);
+            case 5 -> new Outdoors.Piece("pitching_rubber", Outdoors.SOUTH).at(0.5f, 0.55f);
+            case 6 -> new Outdoors.Piece("pitching_rubber", Outdoors.WEST).at(0.55f, 0.55f);
             default -> null;
         };
     }

@@ -190,7 +190,7 @@ final class LeisureTests {
     }
 
     private static void everyPieceOfAFieldARingAndAGymNamesAModelTheJarHolds() {
-        for (int place : new int[] {8, 9, 10, 11, 12, 80, 81, 82, 83, 84, 85, 86, 87}) {
+        for (int place : new int[] {0, 1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 80, 81, 82, 83, 84, 85, 86, 87}) {
             holds(unnamed("recreational_sports_01_" + place), "recreational_sports_01_" + place + " is a part of something on a field or in a ring");
         }
         holds(Outdoors.of("recreational_sports_01_48", "Golf Put", null, Outdoors.NONE, 1, 1, 0), "the golf hole's flag has a model");
