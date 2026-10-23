@@ -11696,13 +11696,49 @@ def jump(name, first, last):
     return model
 
 
+# A tennis net: how high it is at its posts and in the middle, how far down from its band it is mesh, and where along its
+# first and its last squares its posts stand.
+TENNIS_NET_TOP, TENNIS_POST_TOP, TENNIS_FIRST, TENNIS_LAST = 0.89, 0.96, -0.47, 0.44
+
+
+def tennis_net(name, first, last):
+    """A square's length of a tennis net along the model's X, round its origin, with its post where the run starts on the
+    first square or ends on the last."""
+    model = Model(name, centred=False)
+    x0 = TENNIS_FIRST + 0.03 if first else -0.5
+    x1 = TENNIS_LAST - 0.03 if last else 0.5
+    mesh = bmesh.new()
+    foot, top = 0.04, TENNIS_NET_TOP - 0.05
+    cells = max(1, round((x1 - x0) / 0.045))
+    for i in range(cells + 1):
+        x = x0 + (x1 - x0) * i / cells
+        cuboid(mesh, x - 0.003, x + 0.003, -0.003, 0.003, foot, top)
+    rows = max(1, round((top - foot) / 0.045))
+    for k in range(rows + 1):
+        z = foot + (top - foot) * k / rows
+        cuboid(mesh, x0, x1, -0.003, 0.003, z - 0.003, z + 0.003)
+    model.plain(mesh, "rubber")
+    band = bmesh.new()
+    cuboid(band, x0, x1, -0.012, 0.012, top, TENNIS_NET_TOP)
+    model.hard(band, "enamel", bevel=0.004, segments=1)
+    if first or last:
+        posts = bmesh.new()
+        for at, here in ((TENNIS_FIRST, first), (TENNIS_LAST, last)):
+            if here:
+                cuboid(posts, at - 0.035, at + 0.035, -0.035, 0.035, 0.0, TENNIS_POST_TOP)
+                cuboid(posts, at - 0.045, at + 0.045, -0.045, 0.045, TENNIS_POST_TOP - 0.02, TENNIS_POST_TOP + 0.01)
+        model.hard(posts, "paint", bevel=0.006, segments=1)
+    return model
+
+
 def sports():
     """What a playing field, a boxing ring and a gym have: Leisure.field stands each."""
     return [ring_post(), ring_ropes("ring_ropes", False), ring_ropes("ring_ropes_tied", True), ring_corner(), ring_steps(),
             goalpost_post(), goalpost_bar(), goalpost_end("goalpost_end_first", -0.12, True), goalpost_end("goalpost_end_last", 0.05, False),
             golf_flag(),
             base_bag(), home_plate(), pitching_rubber(),
-            jump("jump_first", True, False), jump("jump_middle", False, False), jump("jump_last", False, True)]
+            jump("jump_first", True, False), jump("jump_middle", False, False), jump("jump_last", False, True),
+            tennis_net("tennis_net_first", True, False), tennis_net("tennis_net_middle", False, False), tennis_net("tennis_net_last", False, True)]
 
 
 def every():

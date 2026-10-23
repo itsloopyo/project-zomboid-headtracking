@@ -283,6 +283,8 @@ final class Leisure {
     static final float GOALPOST_ACROSS = 0.52f, GOALPOST_BAR_FOOT = 0.15f;
     /** How high a goalpost's sprites paint it yellow, in levels: the post, its pad, and the crossbar. */
     private static final float GOALPOST_DYE = 0.86f, GOALPOST_PAD_DYE = 0.4f, GOALPOST_BAR_DYE = 0.09f;
+    /** Where across its squares a tennis net runs, from the square's corner, and how high the foot of its middle squares is, in metres. */
+    static final float TENNIS_ACROSS = 0f, TENNIS_MIDDLE_FOOT = 0.037f;
     /** Where across its squares a show jump runs, and how high the foot of its middle square's poles is, in metres. */
     static final float JUMP_ACROSS = 0.6f, JUMP_MIDDLE_FOOT = 0.545f;
 
@@ -316,6 +318,12 @@ final class Leisure {
             case 122 -> court("jump_first", false, JUMP_ACROSS);
             case 121 -> court("jump_middle", false, JUMP_ACROSS).raise(JUMP_MIDDLE_FOOT / LEVEL);
             case 120 -> court("jump_last", false, JUMP_ACROSS);
+            case 49 -> court("tennis_net_first", true, TENNIS_ACROSS);
+            case 50 -> court("tennis_net_middle", true, TENNIS_ACROSS).raise(TENNIS_MIDDLE_FOOT / LEVEL);
+            case 51 -> court("tennis_net_last", true, TENNIS_ACROSS);
+            case 54 -> court("tennis_net_first", false, TENNIS_ACROSS);
+            case 53 -> court("tennis_net_middle", false, TENNIS_ACROSS).raise(TENNIS_MIDDLE_FOOT / LEVEL);
+            case 52 -> court("tennis_net_last", false, TENNIS_ACROSS);
             default -> null;
         };
     }
