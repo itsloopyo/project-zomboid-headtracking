@@ -119,7 +119,7 @@
 - `Medium` and `High`: burning houses, Molotovs and campfires have flames from a fire simulation, solid from every side and from above, with smoke and flickering firelight. Fireplaces and stoves burn inside. `OwnFire` turns the mod's fire off.
 - The picture adjusts to the brightness of what you're looking at, like an eye.
 - `Medium` and `High`: every surface reflects the sky, the room or the ground by how rough it is, so metal looks like metal. Skin and clothes take the light the same way.
-- `Medium` and `High`: brick, block and stone walls have depth up close. The mortar lies back between them and the sun's shade falls into the joints.
+- `High`: brick, block and stone walls have depth up close. The mortar lies back between them and the sun's shade falls into the joints.
 
 #### Graphics settings
 
