@@ -1282,7 +1282,8 @@ final class WallTiles {
             madeRows.addAll(k, bandRows);
             madeJoints.addAll(k, bandJoints);
             madeLines.addAll(k, bandLines);
-            k += bands.size() - 1;
+            // The courses above the row, now at k, can hold a second one.
+            k--;
         }
     }
 

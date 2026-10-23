@@ -30,6 +30,7 @@ final class WallTileTests {
             Checks.run("aRowOfDiamondsIsDrawnAsDiamonds" + at, WallTileTests::aRowOfDiamondsIsDrawnAsDiamonds);
             Checks.run("aDiamondWhereTilesMeetIsOneFigureAcrossTheJoint" + at, WallTileTests::aDiamondWhereTilesMeetIsOneFigureAcrossTheJoint);
             Checks.run("aDecoratedRowAcrossTilesIsABandOfItsOwn" + at, WallTileTests::aDecoratedRowAcrossTilesIsABandOfItsOwn);
+            Checks.run("twoDecoratedRowsAreEachABandOfTheirOwn" + at, WallTileTests::twoDecoratedRowsAreEachABandOfTheirOwn);
             Checks.run("everyDiamondWithALighterMiddleHasIt" + at, WallTileTests::everyDiamondWithALighterMiddleHasIt);
             Checks.run("shadingAndASpeckAreNoFigure" + at, WallTileTests::shadingAndASpeckAreNoFigure);
             Checks.run("darkTilesKeepTheirCourses" + at, WallTileTests::darkTilesKeepTheirCourses);
@@ -210,6 +211,24 @@ final class WallTileTests {
         check(Math.abs(row.head - (1f - 128f / HIGH)) < 1.5f / HIGH && Math.abs(row.foot - (1f - 150f / HIGH)) < 1.5f / HIGH,
                 "and runs from its line at the top to its line at the foot: " + row.foot + " " + row.head);
         check(row.motifs.length >= 3 && row.stripes != null, "with its diamonds and its lines drawn: " + row.motifs.length);
+    }
+
+    private static void twoDecoratedRowsAreEachABandOfTheirOwn() {
+        // The row of aDecoratedRowAcrossTilesIsABandOfItsOwn, and another like it two courses higher.
+        float[] figure = {0.2f, 0.5f, 0.6f};
+        WallTiles.Wall wall = read((column, row) -> {
+            for (int from : new int[] {66, 126}) {
+                if (row >= from && row < from + 26) {
+                    boolean line = (row == from + 2 || row == from + 23) && column % 2 == 0;
+                    boolean diamond = Math.abs(Math.floorMod(column - 3, 16) - 8) + Math.abs(row - from - 13) < 5;
+                    return line || diamond ? figure : CREAM;
+                }
+            }
+            return tiles(CREAM, column, row, 11, 16, 6, 30);
+        });
+        WallTiles.Band upper = bandOver(wall, 72, 86), lower = bandOver(wall, 132, 146);
+        check(upper != null && !upper.tiled && upper.motifs.length >= 3, "the upper row is no tiles, its diamonds drawn: " + (wall == null ? "none" : WallTiles.said(wall)));
+        check(lower != null && !lower.tiled && lower.motifs.length >= 3, "and so is the lower");
     }
 
     /** Tiles with a row of diamonds on them, each with its rim drawn soft, and a pale cross in its middle where crossed. */
