@@ -319,12 +319,25 @@ final class Flats {
         return share * 10 >= painted * 6 && share > 0 ? best : -1;
     }
 
-    /** A wall's dots with the rim at each end: each dot of the rim is the dot of the wall a whole length away from it. */
+    /**
+     * A wall's dots with the rim at each end: each dot of the rim is the dot of the wall a whole
+     * length away from it, the next length's. Not where that would change whether the end of
+     * its row is painted: past an end painted to the edge the rim is the end dot, and past an
+     * opening that runs to the end, more than END_SHORT dots of it, the rim is empty. A doorway
+     * blended with the next length's wall had a strip of wall stood across it at the square's
+     * edge, and a jamb blended with the next length's doorway stopped half a dot short of it.
+     */
     static byte[] wallRimmed(byte[] dots) {
         byte[] whole = new byte[WALL_WHOLE * WALL_HIGH * 4];
         for (int y = 0; y < WALL_HIGH; y++) {
+            boolean openAtStart = empty(dots, y * WALL_LONG, 1, WALL_LONG, END_SHORT) > END_SHORT;
+            boolean openAtEnd = empty(dots, y * WALL_LONG + WALL_LONG - 1, -1, WALL_LONG, END_SHORT) > END_SHORT;
             for (int x = 0; x < WALL_WHOLE; x++) {
-                System.arraycopy(dots, (y * WALL_LONG + Math.floorMod(x - WALL_RIM, WALL_LONG)) * 4, whole, (y * WALL_WHOLE + x) * 4, 4);
+                int along = x - WALL_RIM, from = y * WALL_LONG + Math.floorMod(along, WALL_LONG);
+                int end = y * WALL_LONG + Math.clamp(along, 0, WALL_LONG - 1);
+                boolean endPainted = dots[end * 4 + 3] != 0, nextPainted = dots[from * 4 + 3] != 0;
+                boolean keepEnd = endPainted ? !nextPainted : nextPainted && (along < 0 ? openAtStart : openAtEnd);
+                System.arraycopy(dots, (keepEnd ? end : from) * 4, whole, (y * WALL_WHOLE + x) * 4, 4);
             }
         }
         return whole;

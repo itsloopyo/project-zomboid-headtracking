@@ -39,6 +39,7 @@ final class WindowTests {
         Checks.run("floorLaidFlatMeetsItselfAtTheSquaresEdge", WindowTests::floorLaidFlatMeetsItselfAtTheSquaresEdge);
         Checks.run("halfASquareIsNoFlatFloor", WindowTests::halfASquareIsNoFlatFloor);
         Checks.run("wallStoodSquareRunsOnIntoTheNextLength", WindowTests::wallStoodSquareRunsOnIntoTheNextLength);
+        Checks.run("doorwayToTheEndOfItsSquareHasNoWallInItsRim", WindowTests::doorwayToTheEndOfItsSquareHasNoWallInItsRim);
         Checks.run("doorWithOneSmallLightIsALeafWithItsLight", WindowTests::doorWithOneSmallLightIsALeafWithItsLight);
     }
 
@@ -909,6 +910,38 @@ final class WindowTests {
         }
         check(open > high / 8, "the gaps at a fence's end stay open: " + open + " rows of them");
         check(fence[(10 * wide + 30) * 4 + 3] == 0, "and nothing is painted over a low fence");
+    }
+
+    private static void doorwayToTheEndOfItsSquareHasNoWallInItsRim() {
+        // One leaf's frame of a pair of doors: the doorway runs from the wall's start to three quarters along, and under
+        // it the wall is whole. Each painted dot is as pale as it is far along, so the end its rim takes can be told.
+        int wide = Flats.WALL_LONG, high = Flats.WALL_HIGH, rim = Flats.WALL_RIM, all = Flats.WALL_WHOLE;
+        byte[] dots = new byte[wide * high * 4];
+        for (int j = 0; j < high; j++) {
+            for (int i = 0; i < wide; i++) {
+                if (j < high / 2 && i < wide * 3 / 4) {
+                    continue;
+                }
+                int at = (j * wide + i) * 4;
+                dots[at] = dots[at + 1] = dots[at + 2] = (byte) (i * 4);
+                dots[at + 3] = (byte) 255;
+            }
+        }
+        // A row under it that the sprite stops a dot short of at its start is wall all the same.
+        int shortRow = high - 10;
+        dots[shortRow * wide * 4 + 3] = 0;
+        byte[] whole = Flats.wallRimmed(dots);
+        int door = 20, under = high - 20;
+        for (int k = 0; k < rim; k++) {
+            check(whole[(door * all + k) * 4 + 3] == 0, "beside a doorway that runs to the wall's start the rim is empty: dot " + k);
+            int far = (door * all + rim + wide + k) * 4;
+            check(whole[far + 3] == (byte) 255 && whole[far] == (byte) ((wide - 1) * 4), "and past the jamb at its end the rim is the jamb's last dot: dot " + k);
+            int before = (under * all + k) * 4, after = (under * all + rim + wide + k) * 4;
+            check(whole[before] == (byte) ((wide - rim + k) * 4) && whole[after] == (byte) (k * 4) && whole[before + 3] == (byte) 255 && whole[after + 3] == (byte) 255,
+                    "under the doorway, whole at both ends, the rim is the next length's wall: dot " + k);
+            int stopped = (shortRow * all + k) * 4;
+            check(whole[stopped + 3] == (byte) 255 && whole[stopped] == (byte) ((wide - rim + k) * 4), "and so is the rim past a dot the sprite stops short by: dot " + k);
+        }
     }
 
     private static void check(boolean condition, String what) {
