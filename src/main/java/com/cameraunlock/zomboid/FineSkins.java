@@ -148,6 +148,12 @@ public final class FineSkins {
         }
     }
 
+    /**
+     * What own answers for a picture of the mod's that is not read yet: the player's folder is
+     * not asked in its place, since the mod's own comes first and would take over a frame later.
+     */
+    private static final Read PENDING = new Read();
+
     /** One of the mod's own pictures: read on a thread of its own, then made a texture of the game's on the render thread. */
     private static final class Read {
         /** The picture as read, until the render thread has made the texture of it. Handed over, and let go, under this Read's lock. */
@@ -767,6 +773,10 @@ public final class FineSkins {
             return null;
         }
         Read mine = (ownWorn & rows.computeIfAbsent(relative, Jar::row)) != 0 ? own(relative, name) : null;
+        if (mine == PENDING) {
+            waiting = true;
+            return null;
+        }
         if (mine != null) {
             if (mine.texture == null) {
                 waiting = true;
@@ -828,14 +838,12 @@ public final class FineSkins {
             }
             // Made while a save loads (Pipeline's core), and here should a body be worn before that is done.
             if (SkinCuts.bodyOf(path) != SkinCuts.NO_BODY && !SkinCuts.begin()) {
-                waiting = true;
-                return null;
+                return PENDING;
             }
             if (!wanted.contains(path)) {
                 wanted.add(path);
             }
-            waiting = true;
-            return null;
+            return PENDING;
         }
         return made(own.get(path), path, name);
     }
@@ -912,8 +920,7 @@ public final class FineSkins {
             int across = small ? Tailor.FINE / 2 : Tailor.FINE;
             long most = bytesOf(across, across);
             if (tailoredBytes + most > TAILORED_MOST_BYTES) {
-                waiting = true;
-                return null;
+                return PENDING;
             }
             Read making = new Read();
             making.tailored = true;
