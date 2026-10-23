@@ -1143,30 +1143,45 @@ final class WallTiles {
         held.sort((x, y) -> Float.compare(bright(x), bright(y)));
         float[] outer = middleOf(held);
         if (held.size() >= 6) {
-            int half = (held.size() + 1) / 2;
-            float[] darker = middleOf(held.subList(0, half));
-            ArrayList<float[]> light = new ArrayList<>(held.subList(half, held.size()));
+            // Its middle is the dots well inside it, the four a game's dot away round each inside it too, nearer the band's colour than its own darker
+            // half's: lighter dots on its rim are its edge drawn soft, and lighter dots to one side its shading.
+            float[] darker = middleOf(held.subList(0, (held.size() + 1) / 2));
+            float cut = (bright(darker) + bright(base)) / 2f;
+            int reach = Math.max(1, Math.round(across / DOTS_ALONG));
+            ArrayList<float[]> light = new ArrayList<>();
+            for (float[] each : held) {
+                int r = (int) each[3], column = (int) each[4];
+                if (bright(each) > cut && inside(first, last, c0, r - reach, column) && inside(first, last, c0, r + reach, column)
+                        && inside(first, last, c0, r, column - reach) && inside(first, last, c0, r, column + reach)) {
+                    light.add(each);
+                }
+            }
             light.addAll(holes);
-            float[] lighter = middleOf(light);
             float rowAt = 0f, columnAt = 0f;
             for (float[] each : light) {
                 rowAt += each[3] / light.size();
                 columnAt += each[4] / light.size();
             }
-            // Only a middle: lighter dots to one side are its shading, not a second colour.
-            if (bright(lighter) - bright(darker) > INNER_CONTRAST && Math.abs(rowAt - (tall - 1) / 2f) <= INNER_OFF_MIDDLE * tall
-                    && Math.abs(columnAt - (wide - 1) / 2f) <= INNER_OFF_MIDDLE * wide) {
-                outer = darker;
-                motif.inner = Math.clamp((float) Math.sqrt((double) light.size() / filled), INNER_LEAST, INNER_MOST);
-                motif.innerRed = lighter[0];
-                motif.innerGreen = lighter[1];
-                motif.innerBlue = lighter[2];
+            if (light.size() >= 2 && Math.abs(rowAt - (tall - 1) / 2f) <= INNER_OFF_MIDDLE * tall && Math.abs(columnAt - (wide - 1) / 2f) <= INNER_OFF_MIDDLE * wide) {
+                float[] lighter = middleOf(light);
+                if (bright(lighter) - bright(darker) > INNER_CONTRAST) {
+                    outer = darker;
+                    motif.inner = Math.clamp((float) Math.sqrt((double) light.size() / filled), INNER_LEAST, INNER_MOST);
+                    motif.innerRed = lighter[0];
+                    motif.innerGreen = lighter[1];
+                    motif.innerBlue = lighter[2];
+                }
             }
         }
         motif.red = outer[0];
         motif.green = outer[1];
         motif.blue = outer[2];
         return motif;
+    }
+
+    /** Whether row r of a figure's box has column (from the box's left) between its first dot and its last. */
+    private static boolean inside(int[] first, int[] last, int c0, int r, int column) {
+        return r >= 0 && r < first.length && last[r] >= 0 && column >= first[r] - c0 && column <= last[r] - c0;
     }
 
     /** Each of red, green and blue the middle one of those colours'. */

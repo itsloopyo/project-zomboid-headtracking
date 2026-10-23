@@ -30,6 +30,7 @@ final class WallTileTests {
             Checks.run("aRowOfDiamondsIsDrawnAsDiamonds" + at, WallTileTests::aRowOfDiamondsIsDrawnAsDiamonds);
             Checks.run("aDiamondWhereTilesMeetIsOneFigureAcrossTheJoint" + at, WallTileTests::aDiamondWhereTilesMeetIsOneFigureAcrossTheJoint);
             Checks.run("aDecoratedRowAcrossTilesIsABandOfItsOwn" + at, WallTileTests::aDecoratedRowAcrossTilesIsABandOfItsOwn);
+            Checks.run("everyDiamondWithALighterMiddleHasIt" + at, WallTileTests::everyDiamondWithALighterMiddleHasIt);
             Checks.run("shadingAndASpeckAreNoFigure" + at, WallTileTests::shadingAndASpeckAreNoFigure);
             Checks.run("darkTilesKeepTheirCourses" + at, WallTileTests::darkTilesKeepTheirCourses);
             Checks.run("wallWithAWindowIsNotWhole" + at, WallTileTests::wallWithAWindowIsNotWhole);
@@ -206,6 +207,30 @@ final class WallTileTests {
         check(Math.abs(row.head - (1f - 128f / HIGH)) < 1.5f / HIGH && Math.abs(row.foot - (1f - 150f / HIGH)) < 1.5f / HIGH,
                 "and runs from its line at the top to its line at the foot: " + row.foot + " " + row.head);
         check(row.motifs.length >= 3 && row.stripes != null, "with its diamonds and its lines drawn: " + row.motifs.length);
+    }
+
+    /** Tiles with a row of diamonds on them, each with its rim drawn soft, and a pale cross in its middle where crossed. */
+    private static WallTiles.Wall softDiamonds(boolean crossed) {
+        float[] dark = {0.25f, 0.45f, 0.55f}, soft = {0.6f, 0.72f, 0.78f}, pale = {0.75f, 0.85f, 0.88f};
+        return read((column, row) -> {
+            int dx = Math.floorMod(column - 11, 16) - 8, dy = row - 139, out = Math.abs(dx) + Math.abs(dy);
+            if (row < 130 || row >= 148 || out > 6) {
+                return tiles(CREAM, column, row, 11, 16, 6, 38);
+            }
+            return out == 6 ? soft : crossed && (dx == 0 || dy == 0) && out <= 3 ? pale : dark;
+        });
+    }
+
+    private static void everyDiamondWithALighterMiddleHasIt() {
+        WallTiles.Wall wall = softDiamonds(true);
+        check(wall != null && wall.bands[0].motifs.length == 4, "four diamonds: " + (wall == null ? "none" : wall.bands[0].motifs.length));
+        for (WallTiles.Motif motif : wall == null ? new WallTiles.Motif[0] : wall.bands[0].motifs) {
+            check(motif.inner > 0f && motif.innerRed > 0.6f && motif.red < 0.35f, "each dark with its pale middle drawn inside it: " + motif.inner + " " + motif.innerRed + " " + motif.red);
+        }
+        wall = softDiamonds(false);
+        for (WallTiles.Motif motif : wall == null ? new WallTiles.Motif[0] : wall.bands[0].motifs) {
+            check(motif.inner == 0f, "and one whose rim alone is lighter has no middle of another colour: " + motif.inner);
+        }
     }
 
     private static void shadingAndASpeckAreNoFigure() {
