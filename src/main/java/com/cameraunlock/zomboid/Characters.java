@@ -1270,11 +1270,11 @@ public final class Characters {
             float out = muzzleOut();
             own.hold(meshView, heldView, weaponPlace, data.finalScale, out);
             own.hold(meshStill, view.viewModel.still, weaponPlace, data.finalScale, out);
-            // A pump gun's fore-end is where its maker put it and slides as far as the model's does; the rifle's bolt is drawn back as far as its model's.
+            // The left hand goes on the fore-end where the gun's maker put it, and a pump gun's slides as far as the model's does; the rifle's bolt is drawn back as far as its model's.
             // A gun that opens to be loaded says where its rounds go in, wherever its moving parts have it.
             OwnGun gun = view.ownGun(own);
             heldMesh.set(own.shape, meshView, meshStill, own.pump ? own.travel * pumped : 0f,
-                    own.pump ? own.foreEnd * own.muzzle[1] : Float.NaN, own.pump ? ArmHolds.BOLT_TRAVEL : own.travel)
+                    own.foreEnd * own.muzzle[1], own.pump ? ArmHolds.BOLT_TRAVEL : own.travel)
                     .port(gun.loadingPort(own)).charged(gun.handle(own));
             // A lever gun's model says where its lever's pin is, which the hand in the loop swings about with it.
             float[] pin = gun.leverPin(own);

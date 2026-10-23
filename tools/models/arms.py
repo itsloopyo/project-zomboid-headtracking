@@ -259,8 +259,9 @@ POSES = {
     # handgun's grip, it lies forward along the frame on the far side above the other hand's: laid as in "grip" it ran up
     # across the back of the grip in the eye's line.
     "trigger": {"fingers": [(24, 60, 28, 2), (26, 82, 46, 0), (30, 84, 48, 0), (34, 86, 50, 0)], "thumb": (-15, 60, 20, 10, 5), "cup": 10},
-    # Under a fore-end, which lies in the palm with the fingers up its far side and the thumb up its near side.
-    "fore": {"fingers": [(40, 72, 38, 2), (42, 74, 40, 0), (44, 76, 40, 0), (46, 78, 42, -2)], "thumb": (10, 20, -10, 15, 10), "cup": 12},
+    # Under a fore-end, which lies along the hand: the palm cradles its underside and the fingers lie up its far side,
+    # nearly straight. Curled round it as round a rod across the palm, they went through any handguard laid along them.
+    "fore": {"fingers": [(2, 6, 4, 4), (10, 12, 6, 0), (12, 14, 6, -3), (14, 16, 8, -6)], "thumb": (0, 20, -10, 15, 10), "cup": 20},
     # A fist round a handle, the thumb lying up it: wrapped over, it goes through a handle any thicker than the fist was made for.
     "handle": {"fingers": [(48, 72, 38, 0), (52, 74, 40, 0), (56, 76, 42, 0), (60, 78, 44, 0)], "thumb": (16, 34, 0, 8, 6), "cup": 14},
     # Something small held between the thumb and the first two fingers: a cartridge, a bolt's knob.
@@ -408,7 +409,7 @@ def held(hand, name):
     if name in ("grip", "trigger"):
         return box(hand, name, HOLDS[name], 0.12, 0.046, 0.04, 8)
     if name == "fore":
-        return rod(hand, name, (-0.012, 0.0, 0.03), 0.3, 0.024)
+        return rod(hand, name, HOLDS[name], 0.3, 0.024, 90.0)
     if name == "handle":
         return rod(hand, name, HOLDS[name], 0.3, 0.021)
     if name == "knob":
@@ -462,7 +463,7 @@ def renders(arm, skeleton, folder, only):
 HOLDS = {
     # Where what a pose holds lies in the hand: its middle from the middle of the knuckles
     # (towards the finger tips, towards the thumb's side, out of the palm), in metres.
-    "open": (0.0, 0.0, 0.03), "grip": (0.012, 0.0, 0.029), "trigger": (0.012, 0.0, 0.029), "fore": (-0.012, 0.0, 0.03),
+    "open": (0.0, 0.0, 0.03), "grip": (0.012, 0.0, 0.029), "trigger": (0.012, 0.0, 0.029), "fore": (-0.008, 0.0, 0.046),
     "handle": (-0.004, 0.0, 0.026), "pinch": (0.03, 0.02, 0.04), "knob": (0.004, 0.014, 0.052), "slide": (0.0, 0.0, 0.03), "magazine": (-0.004, 0.0, 0.026),
 }
 
