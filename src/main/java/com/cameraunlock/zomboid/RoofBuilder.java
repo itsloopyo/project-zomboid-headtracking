@@ -981,7 +981,18 @@ final class RoofBuilder {
         boolean lowAtFar = along < 0f;
         int beyondX = x + (alongX != 0f ? (lowAtFar ? 1 : -1) : 0), beyondY = y + (alongY != 0f ? (lowAtFar ? 1 : -1) : 0);
         float low = lowAtFar ? atOrigin + along : atOrigin;
-        return !roofGoesOn(beyondX, beyondY, z) && !(low < Roofs.FLAT && reachesUpTo(beyondX, beyondY, z) && !eaveRow(beyondX, beyondY, z - 1));
+        return !roofGoesOn(beyondX, beyondY, z) && !(low < Roofs.FLAT && reachesUpTo(beyondX, beyondY, z) && !eaveRow(beyondX, beyondY, z - 1))
+                && !roomUnder(beyondX, beyondY, z);
+    }
+
+    /**
+     * Whether the square is in a room on the level under z. An eave hangs over the open air: a
+     * row the map leaves out of a roof over a room is still roof, and an eave hung there hung
+     * its fascia and gutter across the room's ceiling.
+     */
+    private boolean roomUnder(int x, int y, int z) {
+        IsoGridSquare under = build.cell.getGridSquare(x, y, z - 1);
+        return under != null && under.getRoomID() != -1L;
     }
 
     /**
