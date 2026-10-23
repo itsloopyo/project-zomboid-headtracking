@@ -12491,6 +12491,96 @@ def netarcade():
     return [arcade_machine()]
 
 
+# A church's long panelled desk (location_community_church_small_01_93 at its west end, 94 for each square between, 95 at its
+# east end), its front at -Y, read off the sprites laid in a row: where its middle stands along the row from the west end
+# square's corner, and in metres the half length and half depth and height of its plinth, the panelled body's half length and
+# half depth, the top's half length, half depth, height and thickness, and how wide the pilaster at each end of the body is.
+PULPIT_MIDDLE = 1.44
+PULPIT_PLINTH = (1.0, 0.23, 0.12)
+PULPIT_BODY = (0.91, 0.155)
+PULPIT_TOP = (0.96, 0.4225, 0.955, 0.09)
+PULPIT_PILASTER = 0.075
+
+
+def pulpit_piece(name, square):
+    """The share of the desk on one square of its row, square 0 its west end, 1 one between and 2 its east end: what of the
+    whole desk stands on that square, with no face where it is cut at the square's edges, so the shares meet as one."""
+    model = Model(name, centred=False)
+    lo, hi = square - PULPIT_MIDDLE, square + 1 - PULPIT_MIDDLE
+    shift = -(square + 0.5 - PULPIT_MIDDLE)
+    plinth_x, plinth_y, plinth_z = PULPIT_PLINTH
+    body_x, body_y = PULPIT_BODY
+    top_x, top_y, top_z, top_t = PULPIT_TOP
+    under = top_z - top_t
+
+    def box(bm, x0, x1, y0, y1, z0, z1):
+        x0, x1 = max(x0, lo), min(x1, hi)
+        if x0 < x1:
+            cuboid(bm, x0 + shift, x1 + shift, y0, y1, z0, z1)
+
+    def taper(bm, x0, x1, y0, y1, z0, inset, z1):
+        """A box narrowing by inset on every side from z0 up to z1: the cap of a plinth or the cove under a top."""
+        a0, a1 = max(x0, lo), min(x1, hi)
+        if a0 >= a1:
+            return
+        b0 = a0 if a0 == lo else a0 + inset
+        b1 = a1 if a1 == hi else a1 - inset
+        prism(bm, ((a0 + a1) / 2 + shift, (y0 + y1) / 2, a1 - a0, y1 - y0, z0),
+              ((b0 + b1) / 2 + shift, (y0 + y1) / 2, b1 - b0, y1 - y0 - 2 * inset, z1))
+
+    def open_cuts(bm):
+        cuts = [x + shift for x in (lo, hi) if -top_x < x < top_x]
+        faces = [f for f in bm.faces if any(all(abs(v.co.x - c) < 1e-6 for v in f.verts) for c in cuts)]
+        bmesh.ops.delete(bm, geom=faces, context="FACES_ONLY")
+        return bm
+
+    plinth = bmesh.new()
+    box(plinth, -plinth_x, plinth_x, -plinth_y, plinth_y, 0.0, plinth_z - 0.03)
+    taper(plinth, -plinth_x, plinth_x, -plinth_y, plinth_y, plinth_z - 0.03, 0.03, plinth_z)
+    model.hard(open_cuts(plinth), "dark_wood", bevel=0.006, segments=1)
+    # The body: a core with a long sunk field front and back, framed by a rail at its foot and its head and a pilaster at each end,
+    # with a moulding round its foot over the plinth.
+    sunk = 0.012
+    body = bmesh.new()
+    box(body, -body_x, body_x, -body_y + sunk, body_y - sunk, plinth_z, under)
+    for y0, y1 in ((-body_y, -body_y + sunk), (body_y - sunk, body_y)):
+        box(body, -body_x, body_x, y0, y1, plinth_z, plinth_z + 0.1)
+        box(body, -body_x, body_x, y0, y1, under - 0.09, under)
+        for x0, x1 in ((-body_x, -body_x + PULPIT_PILASTER), (body_x - PULPIT_PILASTER, body_x)):
+            box(body, x0, x1, y0, y1, plinth_z + 0.1, under - 0.09)
+    model.hard(open_cuts(body), "dark_wood", bevel=0.004, segments=1)
+    trim = bmesh.new()
+    box(trim, -body_x - 0.012, body_x + 0.012, -body_y - 0.012, body_y + 0.012, plinth_z, plinth_z + 0.03)
+    taper(trim, -body_x - 0.012, body_x + 0.012, -body_y - 0.012, body_y + 0.012, under - 0.045, -0.025, under)
+    model.hard(open_cuts(trim), "dark_wood", bevel=0.004, segments=1)
+    top = bmesh.new()
+    box(top, -top_x, top_x, -top_y, top_y, under, top_z)
+    model.hard(open_cuts(top), "wood", bevel=0.012, segments=2)
+    # A carved sprig in the field near each end of the front: a stem curving up with its leaves to either side.
+    carving = bmesh.new()
+    face = -body_y + sunk
+    for side in (-1, 1):
+        x = side * (body_x - PULPIT_PILASTER - 0.09)
+        if not lo < x < hi:
+            continue
+        stem = [(x + side * 0.03 * math.sin(math.pi * t / 4), plinth_z + 0.2 + 0.36 * t / 4) for t in range(5)]
+        for (ax, az), (bx, bz) in zip(stem, stem[1:]):
+            rod(carving, (ax + shift, face - 0.004, az), (bx + shift, face - 0.004, bz), 0.006, segments=6)
+        for k, (lx, lz) in enumerate(stem[1:]):
+            lean = (-1) ** k * 50.0
+            lathe(carving, [(0.0, -0.035), (0.012, -0.02), (0.016, 0.0), (0.01, 0.022), (0.0, 0.035)], segments=8, sy=0.35,
+                  to=Matrix.Translation((lx + shift + math.copysign(0.025, lean), face - 0.004, lz + 0.01)) @ Matrix.Rotation(math.radians(lean), 4, "Y"))
+    if carving.verts:
+        model.turned(carving, "dark_wood", sharp=50.0)
+    else:
+        carving.free()
+    return model
+
+
+def pulpit():
+    return [pulpit_piece("pulpit_west", 0), pulpit_piece("pulpit_middle", 1), pulpit_piece("pulpit_east", 2)]
+
+
 def every():
     return [bed("double_bed", 1.80, 2.00, 2), bed("single_bed", 0.90, 1.90, 1), wardrobe(), dining_chair(), small_table(),
               settee("sofa", 1.90, 2), settee("armchair", 1.02, 1), bedside_cabinet(), dresser(), desk(), office_chair(),
@@ -12513,7 +12603,7 @@ def every():
             + upholstered() + barrels_and_pots() + street() + display_cases() + awnings() + hoods() + industrial()
             + street_clutter() + home_fittings() + overhead() + office_medical() + wall_objects() + camp()
             + towers() + aerials() + farm_and_garden() + leisure() + shop_fittings() + dumpsters()
-            + bar_panelling() + sports() + shops() + gallery() + cameras() + sports() + shops() + gallery() + netarcade())
+            + bar_panelling() + sports() + shops() + gallery() + cameras() + sports() + shops() + gallery() + netarcade() + pulpit())
 
 
 def main():

@@ -25,6 +25,7 @@ final class LeisureTests {
         Checks.run("aPairOfTheatreSeatsFacesTheWayItsSpriteSays", LeisureTests::aPairOfTheatreSeatsFacesTheWayItsSpriteSays);
         Checks.run("aStageMicrophoneFacesTheWayItsSpriteSays", LeisureTests::aStageMicrophoneFacesTheWayItsSpriteSays);
         Checks.run("aStudioCameraFacesTheWayItsSpriteSaysAndIsDyedFromItsBody", LeisureTests::aStudioCameraFacesTheWayItsSpriteSaysAndIsDyedFromItsBody);
+        Checks.run("aChurchsLongDeskStandsAShareOnEachSquareThatMeetsTheNext", LeisureTests::aChurchsLongDeskStandsAShareOnEachSquareThatMeetsTheNext);
         Checks.run("aLecternIsDyedFromItsPostsLitFaceAndItsDesk", LeisureTests::aLecternIsDyedFromItsPostsLitFaceAndItsDesk);
         Checks.run("aPoolTablesLampHangsFromTheCeilingOverBothSquares", LeisureTests::aPoolTablesLampHangsFromTheCeilingOverBothSquares);
         Checks.run("anOrgansWestSquareStandsItAgainstItsWallAndTheRestStandNothing", LeisureTests::anOrgansWestSquareStandsItAgainstItsWallAndTheRestStandNothing);
@@ -122,6 +123,27 @@ final class LeisureTests {
                     "where the body is painted behind the tripod");
         }
         Checks.check(Outdoors.of("appliances_com_01_44", "HK533p", "Imekagi", Outdoors.NONE, 1, 1, 0) == null, "a camera facing no way is left to the game");
+    }
+
+    private static void aChurchsLongDeskStandsAShareOnEachSquareThatMeetsTheNext() {
+        String[] models = {"pulpit_west", "pulpit_middle", "pulpit_east"};
+        Models.Model[] shares = new Models.Model[3];
+        for (int i = 0; i < 3; i++) {
+            Outdoors.Piece piece = unnamed("location_community_church_small_01_" + (93 + i));
+            holds(piece, "location_community_church_small_01_" + (93 + i) + " is a share of a church's long desk");
+            Checks.check(piece != null && piece.model.equals(models[i]) && piece.turns == Outdoors.SOUTH && piece.a == 0.5f && piece.b == 0.5f,
+                    "it is " + models[i] + " in the middle of its square, its front to the south");
+            Checks.check(piece != null && piece.dyed == 1 << Models.WOOD && piece.alsoDyed == 1 << Models.DARK_WOOD,
+                    "its top and its body take their colours from the sprite");
+            shares[i] = Models.get(models[i]);
+        }
+        // Turned to face south a model's x runs east, so each share's east side meets the next one's west side at the square's edge.
+        Checks.check(Math.abs(shares[0].maxX - 0.5f) < 0.002f && Math.abs(shares[1].minX + 0.5f) < 0.002f, "the west end meets the square after it");
+        Checks.check(Math.abs(shares[1].maxX - 0.5f) < 0.002f && Math.abs(shares[2].minX + 0.5f) < 0.002f, "a square between meets the east end");
+        Checks.check(shares[0].minX > -0.5f && shares[2].maxX < 0.5f, "the ends stop short of their squares' far edges, as the sprites paint them");
+        Checks.check(shares[0].maxZ == shares[1].maxZ && shares[1].maxZ == shares[2].maxZ, "the top is one height from end to end");
+        Checks.check(unnamed("location_community_church_small_01_92") == null && unnamed("location_community_church_small_01_96") == null,
+                "the sprites on either side of the desk's are none of it");
     }
 
     private static void aLecternIsDyedFromItsPostsLitFaceAndItsDesk() {

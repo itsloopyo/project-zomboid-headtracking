@@ -8,7 +8,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * old tyres, basketball hoops, nets across courts, football goals, what a playing field, a boxing ring and a gym have,
  * pianos and their benches,
  * speakers, an amplifier, drums, a jukebox, a pinball table, the lamp over a pool table, a stage's microphone, theatre
- * seats, a lectern, an altar, a pipe organ, a steeple and a television studio's camera. Asked by
+ * seats, a lectern, an altar, a church's long panelled desk, a pipe organ, a steeple and a television studio's camera. Asked by
  * Outdoors.of before its own table, and stood the same way, so a piece of either is one kind of thing.
  *
  * Where each model stands on its squares was read off the game's sprites of it, laid over them in
@@ -43,6 +43,13 @@ final class Leisure {
      * left face of its post is painted where that face is the post's broad one and where it is its narrow one.
      */
     static final float LECTERN_POST_DYE = 0.2f, LECTERN_DESK_DYE = 0.43f, LECTERN_BROAD_LEFT = 0.03f, LECTERN_NARROW_LEFT = 0.105f;
+    /**
+     * Where a church's long desk takes its colours, its top and the front of its body: how far across the square and how high each
+     * is, in levels, and how far along the square of each of its three sprites. Those are places where all three paint the same
+     * two colours, so the shares of one desk are one colour where they meet.
+     */
+    static final float PULPIT_DYE_B = 0.65f, PULPIT_TOP_DYE = 0.39f, PULPIT_BODY_DYE = 0.2f, PULPIT_WEST_DYE = 0.705f, PULPIT_MIDDLE_DYE = 0.115f,
+            PULPIT_EAST_DYE = 0.05f;
 
     static Outdoors.Piece of(String name, String called, String group, int faces, int width, int height) {
         boolean single = width == 1 && height == 1;
@@ -142,6 +149,14 @@ final class Leisure {
     private static Outdoors.Piece lectern(int faces) {
         float across = faces == Outdoors.SOUTH || faces == Outdoors.NORTH ? LECTERN_BROAD_LEFT : LECTERN_NARROW_LEFT;
         return new Outdoors.Piece("lectern", faces).dye(DARK_WOOD, 0.5f - across, 0.5f + across, LECTERN_POST_DYE).also(WOOD, LECTERN_DESK_DYE);
+    }
+
+    /**
+     * A square of a church's long desk, its top taking its colour from where the sprite paints the top over the front of its body,
+     * a along the square, and its body from the front of the body under that.
+     */
+    private static Outdoors.Piece pulpit(String model, float a) {
+        return new Outdoors.Piece(model, Outdoors.SOUTH).dye(WOOD, a, PULPIT_DYE_B, PULPIT_TOP_DYE).also(DARK_WOOD, PULPIT_BODY_DYE);
     }
 
     /** A studio camera on its tripod, its body dyed from the top of the body its sprite paints behind the tripod. */
@@ -286,8 +301,8 @@ final class Leisure {
 
     /**
      * What has no name: a park fountain's basin and the fountain in it, a basketball's pole and board, a court's net, a goal, a
-     * track's stacks of tyres, what a playing field, a boxing ring and a gym have (see field), a church's steeple and the spire
-     * on its tower and the cross on that.
+     * track's stacks of tyres, what a playing field, a boxing ring and a gym have (see field), a church's long panelled desk, its
+     * steeple and the spire on its tower and the cross on that.
      */
     private static Outdoors.Piece unnamed(String name) {
         int church = Sheets.place(name, CHURCH);
@@ -303,6 +318,16 @@ final class Leisure {
             case 35 -> {
                 return new Outdoors.Piece("steeple_belfry", 0).at(STEEPLE_A, STEEPLE_B)
                         .dye(1 << Models.PAINT, 0.5f, 0.97f, 0.25f).also(1 << Models.METAL, 0.49f).throughRoofBelow(1, BELFRY_HALF);
+            }
+            // A long panelled desk, its front to the south: the west end, a square between, the east end. Each stands its own share.
+            case 93 -> {
+                return pulpit("pulpit_west", PULPIT_WEST_DYE);
+            }
+            case 94 -> {
+                return pulpit("pulpit_middle", PULPIT_MIDDLE_DYE);
+            }
+            case 95 -> {
+                return pulpit("pulpit_east", PULPIT_EAST_DYE);
             }
             case 34 -> {
                 return new Outdoors.Piece("steeple_spire", 0).at(STEEPLE_A, STEEPLE_B).dye(1 << Models.METAL, 0.55f, 0.6f, 0.2f + SPIRE_SUNK).raise(-SPIRE_SUNK)
