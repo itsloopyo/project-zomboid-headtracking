@@ -886,8 +886,9 @@ final class ArmHolds {
             case ArmActs.BOLT_SINGLE -> placed.at(ArmPose.dot(shape.knob, shape.along) + BOLT_PORT * metre, shape.bore, 0f);
             case ArmActs.REVOLVER -> placed.port() != null ? placed.at(placed.port())
                     : placed.at(shape.guardFront - (shape.guardFront - shape.guardBack) * CYLINDER_BACK, shape.bore - CYLINDER_UNDER * metre, 0f);
-            // A lever gun's rounds go in by the gate in the side of its receiver, where its model has one.
-            case ArmActs.LEVER -> placed.port() != null ? placed.at(placed.port()) : placed.at(shape.guardFront + BREECH * metre, shape.bore, 0f);
+            // A lever gun's rounds go in by the gate in the side of its receiver, and a double's at its open chamber with the barrels
+            // down, where its model has them.
+            case ArmActs.LEVER, ArmActs.DOUBLE, ArmActs.DOUBLE_SAWN -> placed.port() != null ? placed.at(placed.port()) : placed.at(shape.guardFront + BREECH * metre, shape.bore, 0f);
             default -> placed.at(shape.guardFront + BREECH * metre, shape.bore, 0f);
         };
     }
