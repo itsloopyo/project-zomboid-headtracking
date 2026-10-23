@@ -24,6 +24,8 @@ import org.lwjgl.opengl.GL31;
 import org.lwjgl.opengl.GL32;
 import org.lwjgl.opengl.GL33;
 import org.lwjgl.opengl.GL44;
+import org.lwjgl.opengl.GL46;
+import org.lwjgl.opengl.EXTPolygonOffsetClamp;
 import org.lwjgl.opengl.GLCapabilities;
 import zombie.core.Core;
 import zombie.core.textures.TextureDraw;
@@ -2382,6 +2384,34 @@ final class Pipeline {
         GL11.glColorMask(true, true, true, true);
     }
 
+    /**
+     * The most a sun map holds a surface behind itself, in tiles along the light. The offset grows with
+     * a surface's slope in the map, and a wall the sun runs almost along is so steep there that it was
+     * held a tile and more behind itself: the sun went through it onto the wall it meets at a corner,
+     * a bright strip down the whole height of a room's corner at sunrise and sunset.
+     */
+    static final float MOST_HELD_BEHIND = 0.03f;
+
+    /** Whether the card can hold the slope's offset to a most (OpenGL 4.6, ARB_ or EXT_polygon_offset_clamp): 0 not asked, 1 core or ARB, 2 EXT, 3 neither. */
+    private static int offsetClamp;
+
+    /** Holds what the sun maps cast at most MOST_HELD_BEHIND behind itself, for a map reaching range along the light either side. */
+    private static void offsetHeldTo(float range) {
+        if (offsetClamp == 0) {
+            GLCapabilities card = GL.getCapabilities();
+            offsetClamp = card.OpenGL46 || card.GL_ARB_polygon_offset_clamp ? 1 : card.GL_EXT_polygon_offset_clamp ? 2 : 3;
+            Log.info(offsetClamp < 3 ? "the sun maps hold a surface at most " + MOST_HELD_BEHIND + " tiles behind itself (OpenGL 4.6 or polygon_offset_clamp)"
+                    : "this graphics card has neither OpenGL 4.6 nor polygon_offset_clamp: a wall the sun runs almost along lets it through at a room's corner");
+        }
+        // The map's depth runs over twice its range.
+        float most = MOST_HELD_BEHIND / (2f * range);
+        if (offsetClamp == 1) {
+            GL46.glPolygonOffsetClamp(SLOPE_OFFSET, 6f, most);
+        } else if (offsetClamp == 2) {
+            EXTPolygonOffsetClamp.glPolygonOffsetClampEXT(SLOPE_OFFSET, 6f, most);
+        }
+    }
+
     /** The near and the far shadow map, along the light. */
     private void castSun(SkyState state, boolean figures) {
         for (int map = 0; map < (castFar ? 2 : 1); map++) {
@@ -2389,8 +2419,10 @@ final class Pipeline {
             GL11.glClearDepth(1.0);
             GL11.glClear(GL_DEPTH_BUFFER_BIT);
             shadow.set("uMatrix", map == 0 ? nearMatrix : farMatrix);
+            offsetHeldTo(map == 0 ? NEAR_RANGE : FAR_RANGE);
             castHeld(map == 0 ? nearMatrix : farMatrix, state, map == 0 ? nearListed : farListed, map == 0 ? NEAR_MAP : FAR_MAP);
         }
+        GL11.glPolygonOffset(SLOPE_OFFSET, 6f);
         if (figures) {
             // The game's own draw of each character, with the light's matrix where its camera
             // would be. It sets its own program, buffers and culling, so the frame's are put back.

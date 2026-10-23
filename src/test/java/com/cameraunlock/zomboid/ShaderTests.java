@@ -70,6 +70,7 @@ final class ShaderTests {
         Checks.run("depthProgramIsTheWorldsToldToDrawDepthAlone", () -> depthProgramIsTheWorldsToldToDrawDepthAlone(programs));
         Checks.run("wiresAreOutOfTheMapFromAbove", () -> wiresAreOutOfTheMapFromAbove(programs));
         Checks.run("wallsAskTheSunFromUnderTheirRoof", () -> wallsAskTheSunFromUnderTheirRoof(programs));
+        Checks.run("noSunThroughARoomsCorner", ShaderTests::noSunThroughARoomsCorner);
         Checks.run("whatHangsOnACordSwingsInTheViewAndInItsShadowAlike", () -> whatHangsOnACordSwingsInTheViewAndInItsShadowAlike(programs));
         Checks.run("whatTheAirHidesOfASurfaceItHidesOfItsShade", () -> whatTheAirHidesOfASurfaceItHidesOfItsShade(programs));
         Checks.run("figuresAndTerrainShareSunsetHaze", ShaderTests::figuresAndTerrainShareSunsetHaze);
@@ -297,12 +298,35 @@ final class ShaderTests {
                 || !scene.contains("private void layFloor(boolean floor) { if (floor && build.floorLayer == 0) { WorldScene.layers.sheet(build.floorLayer++); }"
                         + " else { WorldScene.layers.lie(SpriteGeometry.LAYERS_UP, build.floorLayer++); } }")
                 || !scene.contains("layFloor(isFloor && build.frame.kind == 0f);")), "the scene does not mark the first layer of a floor and both ceilings a sheet, and only those");
-        Checks.check(!(count(pipeline, "glPolygonOffset(") != 1 || !pipeline.contains("GL11.glPolygonOffset(SLOPE_OFFSET, 6f);")
+        Checks.check(!(count(pipeline, "glPolygonOffset(") != 2 || count(pipeline, "GL11.glPolygonOffset(SLOPE_OFFSET, 6f);") != 2
+                || count(pipeline, "glPolygonOffsetClamp(") != 1 || count(pipeline, "glPolygonOffsetClampEXT(") != 1
+                || count(pipeline, "(SLOPE_OFFSET, 6f, most);") != 2
                 || !pipeline.contains("float across = (float) Math.hypot(state.lightX, state.lightY); "
                         + "to.set(\"uSunTexelUp\", 2f * NEAR_EXTENT / shadowSize * across, 2f * FAR_EXTENT / shadowSize * across); "
                         + "to.set(\"uSlopeOffset\", SLOPE_OFFSET); to.set(\"uRoofDeep\", 2f * ROOF_RANGE);"
                         + " to.set(\"uRoofPitch\", RoofFit.PITCH * ViewCamera.LEVEL_HEIGHT);")), "the world's program is not told the offset the sun maps are drawn with,"
                     + " a texel of each map as the light lies, or the depth of the map from above");
+    }
+
+    /**
+     * A wall the sun runs almost along is so steep in a sun map that the slope's offset held it a tile and more behind
+     * itself, and the sun went through it in a strip down the wall it meets at a room's corner. Reads the source: the
+     * near and the far map are each cast with the offset held to Pipeline.MOST_HELD_BEHIND along the light, less than a
+     * wall is thick, and the unheld offset is put back before anything else is cast.
+     */
+    private static void noSunThroughARoomsCorner() {
+        String pipeline;
+        try {
+            pipeline = Files.readString(SOURCE.resolve("Pipeline.java")).replaceAll("//[^\n]*", "").replaceAll("\\s+", " ");
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        Checks.check(pipeline.contains("offsetHeldTo(map == 0 ? NEAR_RANGE : FAR_RANGE); castHeld(map == 0 ? nearMatrix : farMatrix,")
+                && pipeline.contains("float most = MOST_HELD_BEHIND / (2f * range);")
+                && pipeline.contains("map == 0 ? NEAR_MAP : FAR_MAP); } GL11.glPolygonOffset(SLOPE_OFFSET, 6f); if (figures) {"),
+                "the sun maps are not each cast with the slope's offset held to MOST_HELD_BEHIND along the light, or the unheld offset is not put back after them");
+        Checks.check(Pipeline.MOST_HELD_BEHIND > 0f && Pipeline.MOST_HELD_BEHIND < 2f * WorldScene.WALL_HALF,
+                "the sun maps may hold a wall further behind itself than a wall is thick");
     }
 
     /**

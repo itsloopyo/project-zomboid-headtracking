@@ -11,6 +11,8 @@ public final class GLCapabilities {
     public final boolean GL_ARB_get_texture_sub_image;
     public final boolean GL_ARB_buffer_storage;
     public final boolean GL_ARB_texture_storage;
+    public final boolean GL_ARB_polygon_offset_clamp;
+    public final boolean GL_EXT_polygon_offset_clamp;
 
     GLCapabilities() { throw new UnsupportedOperationException("reference stub"); }
 }
