@@ -238,6 +238,11 @@ final class WallSides {
         return Math.round(Math.clamp(value, 0f, 1f) * LEVELS);
     }
 
+    /** One channel of a colour as key keeps it. */
+    static float kept(float value) {
+        return level(value) / (float) LEVELS;
+    }
+
     /**
      * What the picture is told for a range of triangles: into out the colour, then FLAT or
      * SIDING. All 0 for a key of 0, which is no colour, and -1 after the colour for one that

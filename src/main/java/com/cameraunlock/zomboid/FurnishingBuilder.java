@@ -107,6 +107,131 @@ final class FurnishingBuilder {
     }
 
     /**
+     * A length of a church's drape: see WallDrapes. The length at its foot hangs the drape up
+     * through the plain length over it, which adds nothing, and a banner over it is its sprite
+     * stood in front of the folds. A plain length with no foot under it hangs its own level of
+     * drape, and a banner with none is left as painted. False, leaving the sprite laid as it is,
+     * for one on no north or west wall and while the colour the drape takes is not read yet.
+     */
+    private boolean addDrape(int kind, IsoSprite sprite, Texture texture, int x, int y, int z) {
+        int wall = WallHung.wallOf(sprite);
+        if (wall != WallHung.NORTH && wall != WallHung.WEST) {
+            return false;
+        }
+        if (kind == WallDrapes.FOOT) {
+            return hangDrape(texture, x, y, z, wall, true, footAt(x, y, z + 1, wall, WallDrapes.HEAD) != null || footAt(x, y, z + 1, wall, WallDrapes.BANNER) != null);
+        }
+        Texture foot = footAt(x, y, z - 1, wall, WallDrapes.FOOT);
+        if (foot == null) {
+            return kind == WallDrapes.HEAD && hangDrape(texture, x, y, z, wall, false, false);
+        }
+        if (SpriteColours.of(foot) == null) {
+            build.building.signed = false;
+            return false;
+        }
+        if (kind == WallDrapes.BANNER) {
+            boolean north = wall == WallHung.NORTH;
+            float out = WorldScene.WALL_HALF + WallDrapes.CLEAR + WallDrapes.BANNER_PROUD;
+            build.geometry.shownA = north ? 0f : out;
+            build.geometry.shownB = north ? out : 0f;
+            build.geometry.addFace(WorldScene.solid.get(texture.getID()), build.frame, x, y, z, 0f, 0f, 0f, north ? 1f : 0f, north ? 0f : 1f, 0f, 0f, 0f, 1f);
+            build.geometry.shownA = build.geometry.shownB = 0f;
+        }
+        return true;
+    }
+
+    /** The sprite of the kind asked for on the square's north or west wall, or null. */
+    private Texture footAt(int x, int y, int z, int wall, int kind) {
+        IsoGridSquare square = build.cell.getGridSquare(x, y, z);
+        if (square == null) {
+            return null;
+        }
+        PZArrayList<IsoObject> objects = square.getObjects();
+        for (int i = 0; i < objects.size(); i++) {
+            IsoObject object = objects.get(i);
+            IsoSprite sprite = object.getSprite();
+            if (sprite != null && WallDrapes.kind(sprite.getName()) == kind && WallHung.wallOf(sprite) == wall) {
+                Texture texture = sprite.getTextureForCurrentFrame(object.getDir());
+                return WorldScene.usable(texture) ? texture : null;
+            }
+        }
+        return null;
+    }
+
+    private final float[] drapeAt = new float[4], drapeCorners = new float[12];
+
+    /**
+     * Hangs a square's length of drape on its wall, in the colour the sprite is mostly painted
+     * in, from the foot of what the sprite paints to its top, and a level higher with over.
+     * With fringe its foot is the gold fringe. Each vertex takes the light the square's corners
+     * have where along the wall it is, as the next square's length does at the same place.
+     */
+    private boolean hangDrape(Texture texture, int x, int y, int z, int wall, boolean fringe, boolean over) {
+        float[] colour = SpriteColours.of(texture);
+        if (colour == null) {
+            build.building.signed = false;
+            return false;
+        }
+        if (!WallHung.painted(build.frame, wall, drapeAt)) {
+            return false;
+        }
+        boolean north = wall == WallHung.NORTH;
+        float level = ViewCamera.LEVEL_HEIGHT;
+        float[] lift = build.geometry.lift;
+        float floor = z * level + (lift[0] + lift[1] + lift[2] + lift[3]) / 4f;
+        float foot = floor + Math.max(0f, drapeAt[WallHung.BOTTOM]) * level, head = floor + (drapeAt[WallHung.TOP] + (over ? 1f : 0f)) * level;
+        float hem = fringe ? foot + WallDrapes.FRINGE * (drapeAt[WallHung.TOP] - Math.max(0f, drapeAt[WallHung.BOTTOM])) * level : foot;
+        float red = colour[0], green = colour[1], blue = colour[2];
+        SpriteGeometry.Mesh cloth = WorldScene.solid.get(WorldScene.PLAIN, WallSides.key(red, green, blue, WallSides.FLAT));
+        SpriteGeometry.Mesh gold = WorldScene.solid.get(WorldScene.PLAIN,
+                WallSides.key(red * WallDrapes.FRINGE_RED, red * WallDrapes.FRINGE_GREEN, red * WallDrapes.FRINGE_BLUE, WallSides.FLAT));
+        long line = WallDrapes.line(north, north ? y : x, z);
+        int strips = WallDrapes.FOLDS * WallDrapes.FOLD_STRIPS;
+        for (SpriteGeometry.Mesh mesh : fringe ? new SpriteGeometry.Mesh[] {gold, cloth} : new SpriteGeometry.Mesh[] {cloth}) {
+            float low = mesh == cloth ? hem : foot, high = mesh == cloth ? head : hem;
+            // A key keeps a colour to sixteen steps a channel, which took the cloth's dark red to brown: the light
+            // the cloth is drawn in carries what the key lost.
+            float tintRed = mesh == cloth ? red / WallSides.kept(red) : 1f, tintGreen = mesh == cloth ? green / WallSides.kept(green) : 1f,
+                    tintBlue = mesh == cloth ? blue / WallSides.kept(blue) : 1f;
+            mesh.sway = 0f;
+            mesh.open = build.frame.open + 32f * OpeningBuilder.DRAPE;
+            for (int strip = 0; strip < strips; strip++) {
+                float t0 = (float) strip / strips, t1 = (float) (strip + 1) / strips;
+                drapePoint(0, north, x, y, line, t0, low, foot, head);
+                drapePoint(1, north, x, y, line, t1, low, foot, head);
+                drapePoint(2, north, x, y, line, t1, high, foot, head);
+                drapePoint(3, north, x, y, line, t0, high, foot, head);
+                float[] c = drapeCorners;
+                float ux = c[3] - c[0], uy = c[4] - c[1], uz = c[5] - c[2], vx = c[9] - c[0], vy = c[10] - c[1], vz = c[11] - c[2];
+                float nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+                // Facing the room: away from the wall.
+                float turn = (north ? ny : nx) < 0f ? -1f : 1f;
+                mesh.face(turn * nx, turn * ny, turn * nz);
+                for (int corner : DRAPE_QUAD) {
+                    float t = corner == 1 || corner == 2 ? t1 : t0;
+                    float w0 = 1f - t, w1 = north ? t : 0f, w3 = north ? 0f : t;
+                    SpriteGeometry.Frame frame = build.frame;
+                    mesh.litAt(frame, w0, w1, 0f, w3);
+                    mesh.add(c[corner * 3], c[corner * 3 + 1], c[corner * 3 + 2], 0f, 0f,
+                            (frame.cornerRed[0] * w0 + frame.cornerRed[1] * w1 + frame.cornerRed[3] * w3) * tintRed,
+                            (frame.cornerGreen[0] * w0 + frame.cornerGreen[1] * w1 + frame.cornerGreen[3] * w3) * tintGreen,
+                            (frame.cornerBlue[0] * w0 + frame.cornerBlue[1] * w1 + frame.cornerBlue[3] * w3) * tintBlue);
+                }
+            }
+            mesh.litAsFace();
+        }
+        return true;
+    }
+
+    private static final int[] DRAPE_QUAD = {0, 1, 2, 0, 2, 3};
+
+    /** Corner i of a strip of drape: t along the square's wall, at height up in tiles, with the drape from foot to head. */
+    private void drapePoint(int i, boolean north, int x, int y, long line, float t, float up, float foot, float head) {
+        float out = WorldScene.WALL_HALF + WallDrapes.CLEAR + WallDrapes.out(line, north ? x : y, t, (up - foot) / (head - foot));
+        WorldScene.set(drapeCorners, i, north ? x + t : x + out, north ? y + out : y + t, up);
+    }
+
+    /**
      * Hangs the mod's model of a picture, a mirror or a clock on the wall the sprite was
      * painted for, where on that wall the sprite paints it and as big, and says whether the
      * sprite is thereby dealt with. A picture's frame holds the mod's own picture for the
@@ -116,6 +241,10 @@ final class FurnishingBuilder {
      * and for one not painted where something on that wall would be.
      */
     boolean addHung(IsoObject object, IsoSprite sprite, Texture texture, int x, int y, int z) {
+        int drape = WallDrapes.kind(sprite.getName());
+        if (drape != WallDrapes.NONE && Own.furniture()) {
+            return addDrape(drape, sprite, texture, x, y, z);
+        }
         Furniture piece = Furniture.known(sprite);
         // The mod's picture for the sprite in the room it hangs in, where its pictures are on. A poster hangs as the
         // mod's sheet only to show one, and a frame, a clock or a lamp only where the mod's

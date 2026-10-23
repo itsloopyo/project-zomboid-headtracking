@@ -232,6 +232,7 @@ public final class Tests {
         Checks.run("AerialTests", AerialTests::run);
         Checks.run("LightsTests", LightsTests::run);
         Checks.run("BannerTests", BannerTests::run);
+        Checks.run("WallDrapeTests", WallDrapeTests::run);
         Checks.run("SignRunTests", SignRunTests::run);
         Checks.run("WallObjectTests", WallObjectTests::run);
         Checks.run("BrokenFenceTests", BrokenFenceTests::run);
