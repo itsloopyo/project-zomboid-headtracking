@@ -115,7 +115,7 @@ final class FireCards {
 
     private static final int GL_TEXTURE_2D = 0x0DE1, GL_TEXTURE0 = 0x84C0;
     private static final int GL_QUADS = 0x0007, GL_PROJECTION = 0x1701, GL_MODELVIEW = 0x1700;
-    private static final int GL_ONE = 1, GL_ZERO = 0, GL_ONE_MINUS_SRC_ALPHA = 0x0303, GL_BLEND = 0x0BE2;
+    private static final int GL_ONE = 1, GL_ONE_MINUS_SRC_ALPHA = 0x0303, GL_BLEND = 0x0BE2;
 
     private static final SmallProgram program = new SmallProgram("fire cards", VERTEX, FRAGMENT);
 
@@ -200,9 +200,9 @@ final class FireCards {
         }
         program.use();
         if (smoke) {
-            GL14.glBlendFuncSeparate(GL_ONE, GL_ONE_MINUS_SRC_ALPHA, GL_ZERO, GL_ONE_MINUS_SRC_ALPHA);
+            GL11.glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
         } else {
-            GL14.glBlendFuncSeparate(GL_ONE, GL_ONE, GL_ZERO, GL_ONE_MINUS_SRC_ALPHA);
+            GL14.glBlendFuncSeparate(GL_ONE, GL_ONE, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
         }
         GL30.glDisablei(GL_BLEND, 1);
         GL13.glActiveTexture(GL_TEXTURE0 + 2);
@@ -249,7 +249,7 @@ final class FireCards {
             return;
         }
         program.use();
-        GL14.glBlendFuncSeparate(GL_ONE, GL_ONE, GL_ZERO, GL_ONE_MINUS_SRC_ALPHA);
+        GL14.glBlendFuncSeparate(GL_ONE, GL_ONE, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
         GL30.glDisablei(GL_BLEND, 1);
         float x = fires[f + Fires.X] - camera.eyeX, y = fires[f + Fires.Y] - camera.eyeY, up = fires[f + Fires.UP] - camera.eyeUp;
         GL20.glUniform1f(program.at("uKind"), 1f);

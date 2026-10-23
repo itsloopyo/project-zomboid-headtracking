@@ -3,7 +3,6 @@ package com.cameraunlock.zomboid;
 import java.util.ArrayList;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL13;
-import org.lwjgl.opengl.GL14;
 import org.lwjgl.opengl.GL20;
 import org.lwjgl.opengl.GL30;
 import zombie.iso.sprite.IsoAnim;
@@ -363,7 +362,7 @@ final class FireDraw {
             """;
 
     private static final int GL_FRAMEBUFFER = 0x8D40, GL_TEXTURE_2D = 0x0DE1, GL_TEXTURE0 = 0x84C0;
-    private static final int GL_BLEND = 0x0BE2, GL_ONE = 1, GL_ZERO = 0, GL_SRC_ALPHA = 0x0302, GL_ONE_MINUS_SRC_ALPHA = 0x0303;
+    private static final int GL_BLEND = 0x0BE2, GL_ONE = 1, GL_SRC_ALPHA = 0x0302, GL_ONE_MINUS_SRC_ALPHA = 0x0303;
     private static final int GL_DEPTH_TEST = 0x0B71, GL_CULL_FACE = 0x0B44, GL_TRIANGLE_STRIP = 0x0005, GL_LEQUAL = 0x0203, GL_TEXTURE_3D = 0x806F;
 
     private static final SmallProgram program = new SmallProgram("fire", SmallProgram.FLAT_VERTEX, FRAGMENT);
@@ -561,10 +560,11 @@ final class FireDraw {
         GL11.glDepthMask(false);
         GL11.glDisable(GL_CULL_FACE);
         GL11.glEnable(GL_BLEND);
-        // Light given over what the smoke and flames leave of what is behind. The picture's alpha says how much a
-        // surface mirrors, and what stands before it hides its mirroring as much: a wet road behind a fire shows the fire.
+        // Light given over what the smoke and flames leave of what is behind. The picture's alpha is how much of a
+        // surface does not mirror (PipelineShaders.DEVELOP reads 1 - alpha as the mirror), and what stands before it
+        // covers that mirror as much: smoke or a flame before the ground is not a mirror of the sky.
         // Into the second buffer, with frame blending on, a mark that what is there moves by itself.
-        GL14.glBlendFuncSeparate(GL_ONE, GL_ONE_MINUS_SRC_ALPHA, GL_ZERO, GL_ONE_MINUS_SRC_ALPHA);
+        GL11.glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
         GL13.glActiveTexture(GL_TEXTURE0);
         GL11.glBindTexture(GL_TEXTURE_2D, depth);
         GL20.glUniform1i(program.at("uDepth"), 0);
@@ -708,7 +708,7 @@ final class FireDraw {
         }
         program.use();
         if (!depthOnly) {
-            GL14.glBlendFuncSeparate(GL_ONE, GL_ONE_MINUS_SRC_ALPHA, GL_ZERO, GL_ONE_MINUS_SRC_ALPHA);
+            GL11.glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
         }
         float distance = (float) Math.sqrt(this.far[order[k]]);
         float steps = (STEPS_NEAR + (STEPS_FAR - STEPS_NEAR) * Math.min(distance / FEWEST_AT, 1f)) * crowd;
