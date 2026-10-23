@@ -283,6 +283,8 @@ final class Leisure {
     static final float GOALPOST_ACROSS = 0.52f, GOALPOST_BAR_FOOT = 0.15f;
     /** How high a goalpost's sprites paint it yellow, in levels: the post, its pad, and the crossbar. */
     private static final float GOALPOST_DYE = 0.86f, GOALPOST_PAD_DYE = 0.4f, GOALPOST_BAR_DYE = 0.09f;
+    /** Where across its squares a show jump runs, and how high the foot of its middle square's poles is, in metres. */
+    static final float JUMP_ACROSS = 0.6f, JUMP_MIDDLE_FOOT = 0.545f;
 
     /** What a playing field, a boxing ring and a gym have on their squares, each standing where the game's sprite of it paints it. */
     private static Outdoors.Piece field(int sports) {
@@ -308,6 +310,12 @@ final class Leisure {
             case 2, 4 -> new Outdoors.Piece("home_plate", Outdoors.SOUTH);
             case 5 -> new Outdoors.Piece("pitching_rubber", Outdoors.SOUTH).at(0.5f, 0.55f);
             case 6 -> new Outdoors.Piece("pitching_rubber", Outdoors.WEST).at(0.55f, 0.55f);
+            case 123 -> court("jump_first", true, JUMP_ACROSS);
+            case 124 -> court("jump_middle", true, JUMP_ACROSS).raise(JUMP_MIDDLE_FOOT / LEVEL);
+            case 125 -> court("jump_last", true, JUMP_ACROSS);
+            case 122 -> court("jump_first", false, JUMP_ACROSS);
+            case 121 -> court("jump_middle", false, JUMP_ACROSS).raise(JUMP_MIDDLE_FOOT / LEVEL);
+            case 120 -> court("jump_last", false, JUMP_ACROSS);
             default -> null;
         };
     }

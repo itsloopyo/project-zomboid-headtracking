@@ -11657,12 +11657,52 @@ def pitching_rubber():
     return model
 
 
+# A show jump: how high its three poles are, how high the wing standards at its ends are, and where along the first and the
+# last squares of a run the wings stand.
+JUMP_POLES, JUMP_TOP, JUMP_FIRST, JUMP_LAST = (0.59, 0.88, 1.2), 1.62, -0.1, 0.3
+
+
+def jump(name, first, last):
+    """A square's length of a show jump along the model's X, round its origin: its three poles striped red and white, and the
+    wing standard where the run starts on the first square or ends on the last."""
+    model = Model(name, centred=False)
+    x0 = JUMP_FIRST + 0.05 if first else -0.5
+    x1 = JUMP_LAST - 0.05 if last else 0.5
+    red, white = bmesh.new(), bmesh.new()
+    stripe = 0.2
+    for z in JUMP_POLES:
+        k = math.floor(x0 / stripe)
+        while k * stripe < x1:
+            a, b = max(x0, k * stripe), min(x1, (k + 1) * stripe)
+            if b - a > 0.005:
+                rod(red if k % 2 == 0 else white, (a, 0.0, z), (b, 0.0, z), 0.045, segments=10)
+            k += 1
+    model.turned(red, "vinyl", sharp=50.0)
+    model.turned(white, "enamel", sharp=50.0)
+    wings = bmesh.new()
+    for at, here in ((JUMP_FIRST, first), (JUMP_LAST, last)):
+        if not here:
+            continue
+        cuboid(wings, at - 0.04, at + 0.04, -0.04, 0.04, 0.0, JUMP_TOP)
+        cuboid(wings, at - 0.05, at + 0.05, -0.05, 0.05, JUMP_TOP - 0.02, JUMP_TOP + 0.02)
+        # The foot across the line of the jump, and a brace from each end of it up the standard.
+        cuboid(wings, at - 0.04, at + 0.04, -0.34, 0.34, 0.0, 0.05)
+        for side in (-1, 1):
+            prism(wings, (at, side * 0.3, 0.06, 0.04, 0.05), (at, side * 0.05, 0.06, 0.04, 0.55))
+        # The cups the poles rest in.
+        for z in JUMP_POLES:
+            cuboid(wings, at - 0.06, at + 0.06, -0.035, 0.035, z - 0.06, z - 0.035)
+    model.hard(wings, "enamel", bevel=0.008, segments=1)
+    return model
+
+
 def sports():
     """What a playing field, a boxing ring and a gym have: Leisure.field stands each."""
     return [ring_post(), ring_ropes("ring_ropes", False), ring_ropes("ring_ropes_tied", True), ring_corner(), ring_steps(),
             goalpost_post(), goalpost_bar(), goalpost_end("goalpost_end_first", -0.12, True), goalpost_end("goalpost_end_last", 0.05, False),
             golf_flag(),
-            base_bag(), home_plate(), pitching_rubber()]
+            base_bag(), home_plate(), pitching_rubber(),
+            jump("jump_first", True, False), jump("jump_middle", False, False), jump("jump_last", False, True)]
 
 
 def every():

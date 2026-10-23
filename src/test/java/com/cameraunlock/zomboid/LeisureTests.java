@@ -14,6 +14,7 @@ final class LeisureTests {
         Checks.run("everyPieceOfAFieldARingAndAGymNamesAModelTheJarHolds", LeisureTests::everyPieceOfAFieldARingAndAGymNamesAModelTheJarHolds);
         Checks.run("aRingsRopesRunFromPostToPostAtTheHeightOfItsCorner", LeisureTests::aRingsRopesRunFromPostToPostAtTheHeightOfItsCorner);
         Checks.run("aGoalpostsCrossbarIsLevelWithTheTopOfItsPost", LeisureTests::aGoalpostsCrossbarIsLevelWithTheTopOfItsPost);
+        Checks.run("aShowJumpOrANetLiesAlongTheWayItsSpritesDo", LeisureTests::aShowJumpOrANetLiesAlongTheWayItsSpritesDo);
         Checks.run("aPieceLaidOutOtherwiseThanItsModelIsNone", LeisureTests::aPieceLaidOutOtherwiseThanItsModelIsNone);
         Checks.run("aSteeplesSpireStandsOnItsBelfry", LeisureTests::aSteeplesSpireStandsOnItsBelfry);
         Checks.run("aSteepleComesDownOntoARidgeShortOfItsFloor", LeisureTests::aSteepleComesDownOntoARidgeShortOfItsFloor);
@@ -190,7 +191,7 @@ final class LeisureTests {
     }
 
     private static void everyPieceOfAFieldARingAndAGymNamesAModelTheJarHolds() {
-        for (int place : new int[] {0, 1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 80, 81, 82, 83, 84, 85, 86, 87}) {
+        for (int place : new int[] {0, 1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 80, 81, 82, 83, 84, 85, 86, 87, 120, 121, 122, 123, 124, 125}) {
             holds(unnamed("recreational_sports_01_" + place), "recreational_sports_01_" + place + " is a part of something on a field or in a ring");
         }
         holds(Outdoors.of("recreational_sports_01_48", "Golf Put", null, Outdoors.NONE, 1, 1, 0), "the golf hole's flag has a model");
@@ -220,6 +221,18 @@ final class LeisureTests {
         for (int place : new int[] {9, 11, 12}) {
             Outdoors.Piece piece = unnamed("recreational_sports_01_" + place);
             Checks.check(piece.raised == bar.raised && piece.turns == bar.turns && piece.a == bar.a, "recreational_sports_01_" + place + " is on the line of the crossbar");
+        }
+    }
+
+    private static void aShowJumpOrANetLiesAlongTheWayItsSpritesDo() {
+        float[] along = new float[2];
+        for (int place : new int[] {123, 124, 125}) {
+            Models.turn(unnamed("recreational_sports_01_" + place).turns, 1f, 0f, along);
+            Checks.check(along[0] == 1f && along[1] == 0f, "recreational_sports_01_" + place + " runs along x");
+        }
+        for (int place : new int[] {120, 121, 122}) {
+            Models.turn(unnamed("recreational_sports_01_" + place).turns, 1f, 0f, along);
+            Checks.check(along[0] == 0f && along[1] == 1f, "recreational_sports_01_" + place + " runs along y");
         }
     }
 
