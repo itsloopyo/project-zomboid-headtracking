@@ -532,6 +532,9 @@ final class PlantBuilder {
         // The leaves of a tree and a bush, near enough to be seen as leaves, are a crown of
         // sprigs. The fan then stands only in the sun's own pictures, to throw the shadow.
         float fanned = build.frame.material, red = build.frame.red;
+        // A crop's cards stand as tall as the crop, seen from the eye. From overhead they stand as tall as painted, the game's picture of it.
+        boolean cropCards = plant.crop() != Crops.NONE && !world.terrain.level;
+        build.geometry.upright = cropCards ? Crops.cardShare(build.frame, build.box) : 1f;
         // A crop near the eye is grown stalk by stalk, and its cards then only throw its shadow.
         if (Own.plants(build.playerIndex) && growCrop(texture, plant.crop(), x, y)) {
             Flora.shadeOnly(build.frame, 1f);
@@ -575,6 +578,7 @@ final class PlantBuilder {
             }
         }
         build.geometry.nudgeX = build.geometry.nudgeY = 0f;
+        build.geometry.upright = 1f;
         build.geometry.roomLowA = build.geometry.roomLowB = -Float.MAX_VALUE;
         build.geometry.roomHighA = build.geometry.roomHighB = Float.MAX_VALUE;
     }

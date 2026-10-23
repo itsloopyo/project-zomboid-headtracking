@@ -28,6 +28,7 @@ final class PlantKindTests {
         Checks.run("wheatThinsWithDistanceAndCornDoesNot", PlantKindTests::wheatThinsWithDistanceAndCornDoesNot);
         Checks.run("aCropIsAsTallAsItsSpritePaintsIt", PlantKindTests::aCropIsAsTallAsItsSpritePaintsIt);
         Checks.run("aCropsColourIsTakenOffItsOutline", PlantKindTests::aCropsColourIsTakenOffItsOutline);
+        Checks.run("aCropsCardStandsAsTallAsTheCrop", PlantKindTests::aCropsCardStandsAsTallAsTheCrop);
     }
 
     private static void evergreensAreToldByName() {
@@ -285,6 +286,33 @@ final class PlantKindTests {
     private static void aCropIsAsTallAsItsSpritePaintsIt() {
         check(Math.abs(Crops.tall(0.5f) - 0.5f * ViewCamera.LEVEL_HEIGHT) < 1e-5f, "half a level high in the sprite is half a level high in the world");
         check(Crops.tall(0.01f) >= 0.3f && Crops.tall(5f) <= 2.6f, "but never next to nothing high, nor higher than corn grows");
+    }
+
+    /** The game's field wheat as its sheet holds it: a 2x frame, the crop painted from row 105 down over the whole square. */
+    private static SpriteGeometry.Frame wheatFrame() {
+        SpriteGeometry.Frame frame = new SpriteGeometry.Frame();
+        frame.scale = 2f;
+        frame.originU = 64f;
+        frame.originV = 192f;
+        frame.left = 0f;
+        frame.top = 105f;
+        frame.width = 126f;
+        frame.height = 149f;
+        return frame;
+    }
+
+    private static void aCropsCardStandsAsTallAsTheCrop() {
+        SpriteGeometry.Frame frame = wheatFrame();
+        float[] box = new float[4];
+        float share = Crops.cardShare(frame, box);
+        float card = (SpriteGeometry.frameV(frame, 0.5f, 0.5f, 0f) - frame.top) * SpriteGeometry.TILES_PER_PIXEL_UP / frame.scale;
+        check(card > 1.4f, "stood through its square's middle as painted, the wheat card is " + card + " high, higher than the crop");
+        check(share > 0.6f && share < 0.85f, "so it stands lower: " + share + " of that");
+        check(Math.abs(card * share - Crops.tall(box[3])) < 1e-4f, "as tall as the crop: " + card * share + " for " + Crops.tall(box[3]));
+        check(Crops.tall(box[3]) > 0.9f && Crops.tall(box[3]) < 1.3f, "which is about a metre: " + Crops.tall(box[3]));
+        frame.top = 188f;
+        frame.height = 4f;
+        check(Crops.cardShare(frame, box) == 1f, "a sprite whose outline says too little is stood as painted");
     }
 
     private static void aCropsColourIsTakenOffItsOutline() {

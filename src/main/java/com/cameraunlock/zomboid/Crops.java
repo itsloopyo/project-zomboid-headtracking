@@ -42,6 +42,21 @@ final class Crops {
     }
 
     /**
+     * How tall a crop's upright card stands as a share of what its sprite paints, for the crop to
+     * stand as tall as it is (tall). Stood through the middle of its square, the card's top is
+     * where the sprite paints the plants at the back of the square: higher by half the square's
+     * depth on the screen, so the card stands taller than the crop. 1 for a sprite whose outline
+     * says too little to size it by. box is filled as SpriteGeometry.boxOf fills it.
+     */
+    static float cardShare(SpriteGeometry.Frame frame, float[] box) {
+        if (!SpriteGeometry.boxOf(frame, box)) {
+            return 1f;
+        }
+        float card = (SpriteGeometry.frameV(frame, 0.5f, 0.5f, 0f) - frame.top) * SpriteGeometry.TILES_PER_PIXEL_UP / frame.scale;
+        return card > 0f ? Math.min(1f, tall(box[3]) / card) : 1f;
+    }
+
+    /**
      * Grows the crop on the square (x, y) as from away tiles off, tall tiles high, between lowA..highA
      * and lowB..highB of the square. places is Flora.leafPlaces of the frame: each stalk takes its
      * colour from one of them, so none is coloured from where the sprite paints nothing.

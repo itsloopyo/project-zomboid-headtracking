@@ -119,7 +119,7 @@ final class SpriteGeometry {
     /** Tiles per frame pixel across the screen at tile scale 1: a tile's diagonal is 64 pixels. */
     static final float TILES_PER_PIXEL_ACROSS = (float) (Math.sqrt(2.0) / (2.0 * PIXELS_ACROSS_PER_TILE));
     /** Tiles of height per frame pixel at tile scale 1. */
-    private static final float TILES_PER_PIXEL_UP = ViewCamera.LEVEL_HEIGHT / PIXELS_PER_LEVEL;
+    static final float TILES_PER_PIXEL_UP = ViewCamera.LEVEL_HEIGHT / PIXELS_PER_LEVEL;
 
     /** A face that covers less of the frame than this, in square pixels, only touches the sprite's edge. */
     private static final float MIN_FRAME_PIXELS = 0.5f;
@@ -711,6 +711,8 @@ final class SpriteGeometry {
     float roomLowA = -Float.MAX_VALUE, roomHighA = Float.MAX_VALUE, roomLowB = -Float.MAX_VALUE, roomHighB = Float.MAX_VALUE;
     /** How much of an upright card is kept, from its foot up: 1 all of it. */
     float keep = 1f;
+    /** How tall an upright card stands, as a share of the height its sprite paints over its foot: 1 as painted. */
+    float upright = 1f;
     /** How much of an upright card is left out, from its foot up: the shaft of a post that stands there as a solid, under the head the card still shows. */
     float skipped;
     /** When above 0, half the box's footprint along b where it is not square: see addBox. */
@@ -1361,7 +1363,7 @@ final class SpriteGeometry {
         float anchorU = frameU(frame, a, b);
         float anchorV = frameV(frame, a, b, h);
         float across = TILES_PER_PIXEL_ACROSS / frame.scale;
-        float up = TILES_PER_PIXEL_UP / frame.scale;
+        float up = TILES_PER_PIXEL_UP / frame.scale * upright;
 
         float leftOffset = (frame.left - anchorU) * across;
         float rightOffset = (frame.left + frame.width - anchorU) * across;
