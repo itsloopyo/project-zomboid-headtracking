@@ -9,6 +9,7 @@ import zombie.iso.objects.IsoBarbecue;
 import zombie.iso.objects.IsoFireplace;
 import zombie.iso.objects.IsoTelevision;
 import zombie.iso.sprite.IsoSprite;
+import zombie.iso.sprite.IsoSpriteManager;
 import zombie.util.list.PZArrayList;
 
 /**
@@ -85,6 +86,8 @@ final class FurnishingBuilder {
      */
     float dyeU, dyeV, alsoU, alsoV;
     int alsoDyed;
+    /** The piece as stood by the sprite that gave those colours: the piece itself, or the one its paintedBy names. */
+    private Furniture painter;
     private int dyeTexture;
     /** The sprites whose second colour was not found painted, each written to the log once. */
     private static final Set<String> UNDYED = ConcurrentHashMap.newKeySet();
@@ -345,17 +348,25 @@ final class FurnishingBuilder {
         }
         dyeTexture = WorldScene.PLAIN;
         alsoDyed = piece.alsoDyed;
+        painter = piece;
         if (piece.dyed == 0) {
             return true;
         }
-        Texture dye = dyer.getSprite().getTextureForCurrentFrame(dyer.getDir());
+        IsoSprite paints = piece.paintedBy == null ? dyer.getSprite() : IsoSpriteManager.instance.namedMap.get(piece.paintedBy);
+        if (paints == null) {
+            throw new IllegalStateException(dyer.getSprite().getName() + " is painted by " + piece.paintedBy + ", which the game has no sprite of");
+        }
+        if (piece.paintedBy != null) {
+            painter = Furniture.known(paints);
+        }
+        Texture dye = paints.getTextureForCurrentFrame(dyer.getDir());
         if (!WorldScene.usable(dye)) {
             return false;
         }
         build.dyeFrame.scale = build.frame.scale;
         WorldScene.frameOf(build.dyeFrame, dyer, dye);
         dyeTexture = dye.getID();
-        return dyes(dye::isMaskSet, build.dyeFrame, piece, dyer.getSprite().getName());
+        return dyes(dye::isMaskSet, build.dyeFrame, painter, paints.getName());
     }
 
     /**
@@ -575,11 +586,13 @@ final class FurnishingBuilder {
         if (piece.pictured) {
             // Each point of the pane looks at where the sprite paints it: the pane's face is paneY in front of the model's origin.
             // The sprite paints it over its unmoved place, and a model stood on a roof is where the view draws that place.
-            Models.turn(piece.turns, 0f, piece.paneY * piece.scale, build.hungWay);
-            float a = piece.centreX + build.hungWay[0], b = piece.centreY + build.hungWay[1];
-            Models.turn(piece.turns, 1f, 0f, build.hungWay);
-            WallHung.shows(build.frame, a, b, (piece.raised + build.geometry.raised * ViewCamera.LEVEL_HEIGHT) / ViewCamera.LEVEL_HEIGHT,
-                    build.hungWay[0] * piece.scale, build.hungWay[1] * piece.scale, piece.scaleUp / ViewCamera.LEVEL_HEIGHT, build.hungShows);
+            // A piece painted by the sprite of it turned the other way looks where that sprite paints the piece as that one stands.
+            Furniture look = painter;
+            Models.turn(look.turns, 0f, look.paneY * look.scale, build.hungWay);
+            float a = look.centreX + build.hungWay[0], b = look.centreY + build.hungWay[1];
+            Models.turn(look.turns, 1f, 0f, build.hungWay);
+            WallHung.shows(look == piece ? build.frame : build.dyeFrame, a, b, (look.raised + build.geometry.raised * ViewCamera.LEVEL_HEIGHT) / ViewCamera.LEVEL_HEIGHT,
+                    build.hungWay[0] * look.scale, build.hungWay[1] * look.scale, look.scaleUp / ViewCamera.LEVEL_HEIGHT, build.hungShows);
             build.placed.picture(build.hungShows);
         }
         build.furnished++;

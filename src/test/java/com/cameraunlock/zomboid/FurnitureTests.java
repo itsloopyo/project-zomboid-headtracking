@@ -49,6 +49,35 @@ final class FurnitureTests {
         Checks.run("aShelvingRunStandsWithItsMiddleSquaresLaidInAnyOrder", FurnitureTests::aShelvingRunStandsWithItsMiddleSquaresLaidInAnyOrder);
         Checks.run("aBanksStandingDepositBoxesFaceTheWayTheirSpritesDoAndMeetInARun", FurnitureTests::aBanksStandingDepositBoxesFaceTheWayTheirSpritesDoAndMeetInARun);
         Checks.run("aSmallTableAtTheHeightTheGameGivesItIsTheSideTable", FurnitureTests::aSmallTableAtTheHeightTheGameGivesItIsTheSideTable);
+        Checks.run("anArcadeCabinetFacingAwayIsPaintedByTheSpriteOfItsFront", FurnitureTests::anArcadeCabinetFacingAwayIsPaintedByTheSpriteOfItsFront);
+    }
+
+    private static void anArcadeCabinetFacingAwayIsPaintedByTheSpriteOfItsFront() {
+        String row = "|BlocksPlacement||CanScrap||CustomName|Machine|IsLow||IsMoveAble||Material|Electric|Material2|MetalScrap|Material3|MetalPlates|"
+                + "MaterialType|Plastic|PickUpWeight|400|solid||GroupName|";
+        String[] facings = {"S", "E", "W", "N"};
+        for (int cabinet = 0; cabinet < 2; cabinet++) {
+            String group = cabinet == 0 ? "Dr. Oids Arcade" : "Kaboom Arcade";
+            int first = 16 + 4 * cabinet;
+            for (int way = 0; way < 4; way++) {
+                String name = "recreational_01_" + (first + way);
+                Furniture machine = Furniture.known(sprite(name + row + group + "|Facing|" + facings[way] + "|"));
+                check(model(machine).equals("arcade_machine"), name + " is an arcade cabinet: " + model(machine));
+                if (machine == null || machine.model == null) {
+                    continue;
+                }
+                check(machine.turns == Furniture.turnsOf(zombie.iso.IsoDirections.valueOf(facings[way])), name + " faces the way its sprite does: " + machine.turns);
+                check(machine.pictured && machine.dyed == 1 << Models.PANE && machine.alsoDyed == 1 << Models.PAINT,
+                        name + "'s marquee is the sprite's painting and its sides the colour of the sprite's art");
+                // Facing south or east the sprite paints the front; facing west or north, the back, and the front is the east or south one's.
+                String painter = way == 2 ? "recreational_01_" + (first + 1) : way == 3 ? "recreational_01_" + first : null;
+                check(java.util.Objects.equals(machine.paintedBy, painter), name + " is painted by " + painter + ": " + machine.paintedBy);
+            }
+        }
+        Furniture south = Furniture.known(sprite("recreational_01_16" + row + "Dr. Oids Arcade|Facing|S|"));
+        check(south.alsoA > 0.85f && south.alsoB < 0.5f, "facing south its art is taken on its east side, at the back: " + south.alsoA + ", " + south.alsoB);
+        Furniture east = Furniture.known(sprite("recreational_01_17" + row + "Dr. Oids Arcade|Facing|E|"));
+        check(east.alsoB > 0.85f && east.alsoA < 0.5f, "facing east its art is taken on its south side, at the back: " + east.alsoA + ", " + east.alsoB);
     }
 
     private static void aSmallTableAtTheHeightTheGameGivesItIsTheSideTable() {

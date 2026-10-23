@@ -2246,30 +2246,6 @@ def vending_machine():
     return model
 
 
-def arcade_machine():
-    model = Model("arcade_machine")
-    half = 0.36
-    side = [(-0.34, 0.0), (0.36, 0.0), (0.36, 1.78), (-0.22, 1.78), (-0.3, 1.56), (-0.14, 1.5), (-0.06, 1.08), (-0.4, 0.98), (-0.4, 0.86), (-0.34, 0.82)]
-    body = bmesh.new()
-    outline_along_x(body, side, -half, half)
-    model.hard(body, "plastic", bevel=0.006, segments=1)
-    tube = bmesh.new()
-    prism_y(tube, (0.0, 1.11, 2 * half - 0.1, 0.03, -0.075), (0.0, 1.47, 2 * half - 0.1, 0.03, -0.145))
-    model.plain(tube, "screen")
-    sign = bmesh.new()
-    prism_y(sign, (0.0, 1.585, 2 * half - 0.06, 0.02, -0.3), (0.0, 1.76, 2 * half - 0.06, 0.02, -0.235))
-    model.plain(sign, "shade")
-    sticks = bmesh.new()
-    for x in (-0.16, 0.16):
-        lathe(sticks, [(0.0, 0.0), (0.009, 0.0), (0.009, 0.05), (0.02, 0.055), (0.02, 0.085), (0.0, 0.09)], cx=x, cy=-0.27, segments=10,
-              to=Matrix.Translation((0.0, 0.0, 1.0)))
-    for x in (-0.05, 0.02, 0.09):
-        lathe(sticks, [(0.0, 0.0), (0.016, 0.0), (0.014, 0.012), (0.0, 0.014)], cx=x, cy=-0.25, segments=10, to=Matrix.Translation((0.0, 0.0, 1.01)))
-    cuboid(sticks, -0.1, 0.1, -0.345, -0.335, 0.4, 0.62)
-    model.turned(sticks, "rubber", sharp=35.0)
-    return model
-
-
 def radio():
     model = Model("radio")
     case = bmesh.new()
@@ -12379,6 +12355,98 @@ def cameras():
     return [studio_camera()]
 
 
+# An arcade cabinet on one square, its front at -Y, as the game paints Dr. Oids and Kaboom (recreational_01_16..23), read
+# off the sprites: half its width, where the front of its foot and its back are, how high its top is and where its back
+# starts to lean in to it, where the face of its marquee is and how high its foot, the control panel's front and how
+# high its top and its foot, and the screen's foot and top on the face that leans back over the panel.
+ARCADE_HALF, ARCADE_FOOT, ARCADE_BACK, ARCADE_TOP, ARCADE_SHOULDER = 0.41, -0.10, 0.35, 1.74, 1.48
+ARCADE_MARQUEE, ARCADE_MARQUEE_FOOT = -0.20, 1.46
+ARCADE_PANEL, ARCADE_PANEL_TOP, ARCADE_PANEL_FOOT = -0.26, 0.92, 0.84
+ARCADE_SCREEN_FOOT, ARCADE_SCREEN_TOP = (-0.13, 0.98), (-0.05, 1.41)
+
+
+def arcade_machine():
+    """An upright arcade cabinet: two side panels in the game's art, the marquee over the screen, the screen in a bezel
+    of the art's colour leaning back over a control panel with two sticks and their buttons, and a coin door in the front under it. The
+    marquee is a pane, for the sprite's own painting of it."""
+    model = Model("arcade_machine")
+    half = ARCADE_HALF
+    side = [(ARCADE_FOOT, 0.0), (ARCADE_BACK, 0.0), (ARCADE_BACK, ARCADE_SHOULDER), (ARCADE_BACK - 0.17, ARCADE_TOP),
+            (ARCADE_MARQUEE, ARCADE_TOP), (ARCADE_MARQUEE, ARCADE_MARQUEE_FOOT), ARCADE_SCREEN_TOP, ARCADE_SCREEN_FOOT,
+            (ARCADE_PANEL, ARCADE_PANEL_TOP), (ARCADE_PANEL, ARCADE_PANEL_FOOT), (ARCADE_FOOT, ARCADE_PANEL_FOOT - 0.06)]
+    body = bmesh.new()
+    outline_along_x(body, side, -half, half)
+    model.hard(body, "plastic", bevel=0.008, segments=1)
+    # The art on each side, a skin a little inside the side's edges, over all of it but the kick at its foot.
+    art = bmesh.new()
+    inset = [(ARCADE_FOOT + 0.03, 0.1), (ARCADE_BACK - 0.03, 0.1), (ARCADE_BACK - 0.03, ARCADE_SHOULDER - 0.01),
+             (ARCADE_BACK - 0.19, ARCADE_TOP - 0.04), (ARCADE_MARQUEE + 0.03, ARCADE_TOP - 0.04), (ARCADE_MARQUEE + 0.03, ARCADE_MARQUEE_FOOT + 0.02),
+             (ARCADE_SCREEN_TOP[0] + 0.03, ARCADE_SCREEN_TOP[1] - 0.02), (ARCADE_SCREEN_FOOT[0] + 0.03, ARCADE_SCREEN_FOOT[1] - 0.01),
+             (ARCADE_PANEL + 0.03, ARCADE_PANEL_TOP - 0.02), (ARCADE_PANEL + 0.03, ARCADE_PANEL_FOOT + 0.02), (ARCADE_FOOT + 0.03, ARCADE_PANEL_FOOT - 0.04)]
+    for x in (-1, 1):
+        outline_along_x(art, inset, x * half - 0.004, x * half + 0.004)
+    model.hard(art, "paint", bevel=0.002, segments=1)
+    marquee = bmesh.new()
+    cuboid(marquee, -half + 0.03, half - 0.03, ARCADE_MARQUEE - 0.006, ARCADE_MARQUEE + 0.01, ARCADE_MARQUEE_FOOT + 0.05, ARCADE_TOP - 0.025)
+    model.plain(marquee, "pane")
+    # The bezel and the glass in it lie on the face that leans back from the panel to the marquee.
+    (y0, z0), (y1, z1) = ARCADE_SCREEN_FOOT, ARCADE_SCREEN_TOP
+    rise = math.hypot(y1 - y0, z1 - z0)
+    up = ((y1 - y0) / rise, (z1 - z0) / rise)
+    out = (-up[1], up[0])
+
+    def on_face(along, proud):
+        return y0 + up[0] * along + out[0] * proud, z0 + up[1] * along + out[1] * proud
+
+    bezel, glass = bmesh.new(), bmesh.new()
+    for into, x, a0, a1, proud in ((bezel, half - 0.04, 0.0, rise, 0.008), (glass, half - 0.13, 0.06, rise - 0.07, 0.018)):
+        corners = [on_face(a, p) for a, p in ((a0, 0.0), (a1, 0.0), (a1, proud), (a0, proud))]
+        outline_along_x(into, [(yy, zz) for yy, zz in corners], -x, x)
+    model.hard(bezel, "paint", bevel=0.003, segments=1)
+    model.hard(glass, "screen", bevel=0.01, segments=2)
+    # The control panel: its top falls a little to the player, with a strip of the art's colour along its front edge.
+    trim = bmesh.new()
+    cuboid(trim, -half + 0.01, half - 0.01, ARCADE_PANEL - 0.008, ARCADE_PANEL + 0.002, ARCADE_PANEL_FOOT + 0.015, ARCADE_PANEL_TOP - 0.01)
+    model.hard(trim, "paint", bevel=0.003, segments=1)
+    slope = (ARCADE_SCREEN_FOOT[1] - ARCADE_PANEL_TOP) / (ARCADE_SCREEN_FOOT[0] - ARCADE_PANEL)
+
+    def panel_z(y):
+        return ARCADE_PANEL_TOP + (y - ARCADE_PANEL) * slope
+
+    balls, sticks, buttons = bmesh.new(), bmesh.new(), bmesh.new()
+    for x in (-0.2, 0.2):
+        y = ARCADE_PANEL + 0.06
+        z = panel_z(y)
+        lathe(sticks, [(0.0, 0.0), (0.025, 0.0), (0.025, 0.008), (0.006, 0.01), (0.006, 0.075), (0.0, 0.075)], cx=x, cy=y, segments=10,
+              to=Matrix.Translation((0.0, 0.0, z)))
+        lathe(balls, [(0.0, -0.021)] + [(0.021 * math.sin(math.pi * k / 6), -0.021 * math.cos(math.pi * k / 6)) for k in range(1, 6)] + [(0.0, 0.021)],
+              cx=x, cy=y, segments=12, to=Matrix.Translation((0.0, 0.0, z + 0.09)))
+        for k, (dx, dy) in enumerate(((0.08, -0.01), (0.12, 0.025), (0.16, 0.0), (0.085, 0.05), (0.125, 0.07), (0.165, 0.045))):
+            bx, by = x + dx - 0.1, ARCADE_PANEL + 0.06 + dy
+            lathe(buttons, [(0.0, 0.0), (0.02, 0.0), (0.02, 0.01), (0.016, 0.015), (0.0, 0.016)], cx=bx, cy=by, segments=10,
+                  to=Matrix.Translation((0.0, 0.0, panel_z(by) - 0.002)))
+    model.turned(sticks, "steel", sharp=35.0)
+    model.turned(balls, "vinyl", sharp=60.0)
+    model.turned(buttons, "paint", sharp=35.0)
+    # The coin door: a steel plate with two coin slots lit red over two return flaps.
+    door = bmesh.new()
+    cuboid(door, -0.11, 0.11, ARCADE_FOOT - 0.008, ARCADE_FOOT + 0.002, 0.32, 0.64)
+    model.hard(door, "metal", bevel=0.004, segments=1)
+    slots = bmesh.new()
+    for x in (-0.045, 0.045):
+        cuboid(slots, x - 0.028, x + 0.028, ARCADE_FOOT - 0.014, ARCADE_FOOT - 0.006, 0.52, 0.61)
+    model.hard(slots, "vinyl", bevel=0.002, segments=1)
+    flaps = bmesh.new()
+    for x in (-0.045, 0.045):
+        cuboid(flaps, x - 0.028, x + 0.028, ARCADE_FOOT - 0.014, ARCADE_FOOT - 0.006, 0.37, 0.46)
+    model.hard(flaps, "rubber", bevel=0.002, segments=1)
+    return model
+
+
+def netarcade():
+    return [arcade_machine()]
+
+
 def every():
     return [bed("double_bed", 1.80, 2.00, 2), bed("single_bed", 0.90, 1.90, 1), wardrobe(), dining_chair(), small_table(),
               settee("sofa", 1.90, 2), settee("armchair", 1.02, 1), bedside_cabinet(), dresser(), desk(), office_chair(),
@@ -12391,7 +12459,7 @@ def every():
               table("table_2", 1.9, 0.92), table("table_3", 2.9, 0.92), table("table_4", 1.9, 1.9, leg=0.08), table("narrow_table", 0.92, 0.5),
               table("low_table", 0.9, 0.5, top=0.42, leg=0.05), table("low_table_2", 1.5, 0.6, top=0.42, leg=0.05), round_table(), office_desk(),
               cabinet("shop_counter", 0.62, 0.90, True, panelled=True), low_shelves(), wall_shelf("wall_shelf", 1), wall_shelf("wall_shelves", 2), shop_wall_shelves("shop_wall_shelves", "wood"), shop_wall_shelves("zippee_wall_shelves", "vinyl"), hood_dryer(), car_wash_brush(), car_wash_curtain(), bar_back(), bar_bottles("bar_bottles_many", 51, 0.9), bar_bottles("bar_bottles_few", 52, 0.35), sewer_pipes("sewer_pipes_bend", 0.46, True), sewer_pipes("sewer_pipes", 0.25, False), clothes_wall_rails(), generator(), marker_ball(), hospital_curtain("curtain_rail", 0.0, 0.0, 0), hospital_curtain("curtain_drawn", -0.49, 0.49, 10), hospital_curtain("curtain_gathered", 0.12, 0.49, 6), mantel_pillar(), mantel_lintel(), pipe_upright("pipe_upright", None), pipe_upright("pipe_upright_run", "long"), pipe_upright("pipe_upright_stub", "stub"), atm(), coop(), street_name_sign(), street_blade(),
-              metal_rack(), store_shelves(), plastic_chair(), garden_chair(), patio_table(), folding_chair(), booth(), stool(), vending_machine(), arcade_machine(),
+              metal_rack(), store_shelves(), plastic_chair(), garden_chair(), patio_table(), folding_chair(), booth(), stool(), vending_machine(),
               radio(), microwave(), dishwasher(), chest_freezer(), register(), shower("shower", True), shower("shower_head", False),
               kettle_barbecue(), gas_barbecue(), cooler("mini_fridge", 0.5, 0.82, 1), cooler("large_fridge", 1.7, 1.95, 2),
               street_lamp("cone_lamp", "cone"), street_lamp("globe_lamp", "globe"), street_lamp("lantern_lamp", "lantern"),
@@ -12401,7 +12469,7 @@ def every():
             + upholstered() + barrels_and_pots() + street() + display_cases() + awnings() + hoods() + industrial()
             + street_clutter() + home_fittings() + overhead() + office_medical() + wall_objects() + camp()
             + towers() + aerials() + farm_and_garden() + leisure() + shop_fittings() + dumpsters()
-            + bar_panelling() + sports() + shops() + gallery() + cameras())
+            + bar_panelling() + sports() + shops() + gallery() + cameras() + sports() + shops() + gallery() + netarcade())
 
 
 def main():

@@ -99,6 +99,12 @@ final class Furniture {
     int rowDyer = -1;
     /** For a piece that stands on the floor and whose pane shows its sprite's painting, how far along the model's y the pane's face is. */
     float paneY;
+    /**
+     * For a piece whose sprite paints its back, the name of the sprite of the same piece turned the other way, which paints
+     * its front: the piece takes its colours and its picture from that sprite as that sprite's piece stands, and is turned
+     * as its own (FurnishingBuilder.ready). Null for a piece that takes them from its own.
+     */
+    String paintedBy;
     /** Whether this is a shop's fitting that ShopFittings stands goods or clothes on while the game paints what it holds. */
     boolean stocked;
     /** Whether this is a shop's glass counter, round whose case ShopFittings lays the glass. */
@@ -672,8 +678,8 @@ final class Furniture {
                 return new Furniture(sprite, "vending_machine", turns).dye(1 << Models.PANE, LOCKER_DYE).also(1 << Models.PAINT, VENDING_CABINET)
                         .pictured(VENDING_GLASS_Y).stand(0f, 0f, true);
             }
-            if (group.endsWith("Arcade")) {
-                return new Furniture(sprite, "arcade_machine", turns).stand(0f, 0f, true);
+            if (group.endsWith("Arcade") && name.startsWith(ARCADES)) {
+                return arcade(sprite, name, turns);
             }
             return null;
         }
@@ -736,6 +742,35 @@ final class Furniture {
             return new Furniture(sprite, "picnic_table", turns).dye(1 << Models.WOOD, PICNIC_DYE, PICNIC_DYE, PICNIC_TOP).stand(0f, 0f, false);
         }
         return null;
+    }
+
+    /** The sheet of arcade cabinets, four sprites to a cabinet from 16: facing south, east, west and north. */
+    static final String ARCADES = "recreational_01_";
+    /**
+     * Where an arcade cabinet's colours are taken. Its marquee is the sprite's own painting, the face of the model's pane
+     * ARCADE_PANE_Y along its y from its middle. Its side panels, the edge of its control panel and its buttons are the
+     * colour of the art the sprite paints on the side it shows, ARCADE_ART_ALONG in from the back of the square and
+     * ARCADE_ART_OUT across it, ARCADE_ART_HIGH levels up: the green of Dr. Oids, the orange of Kaboom. Whether the sprite
+     * paints the cabinet is asked at its middle, as high as its marquee.
+     */
+    static final float ARCADE_PANE_Y = -0.247f, ARCADE_ART_ALONG = 0.25f, ARCADE_ART_OUT = 0.915f, ARCADE_ART_HIGH = 1.2f / ViewCamera.LEVEL_HEIGHT,
+            ARCADE_MARQUEE_HIGH = 1.6f / ViewCamera.LEVEL_HEIGHT;
+
+    /**
+     * An arcade cabinet. The game paints one facing north or west from its back, so it takes its marquee and its colours
+     * from the sprite of the same cabinet facing south or east, which paints its front and the same art on its side.
+     */
+    static Furniture arcade(IsoSprite sprite, String name, int turns) {
+        int place = Sheets.place(name, ARCADES), way = (place - 16) % 4, first = place - way;
+        // The side the sprite shows: east of a cabinet facing south, south of one facing east.
+        boolean south = way == 0;
+        Furniture cabinet = new Furniture(sprite, "arcade_machine", turns).dye(1 << Models.PANE, ARCADE_MARQUEE_HIGH)
+                .alsoAt(1 << Models.PAINT, south ? ARCADE_ART_OUT : ARCADE_ART_ALONG, south ? ARCADE_ART_ALONG : ARCADE_ART_OUT, ARCADE_ART_HIGH)
+                .pictured(ARCADE_PANE_Y).stand(0f, 0f, true);
+        if (way >= 2) {
+            cabinet.paintedBy = ARCADES + (way == 3 ? first : first + 1);
+        }
+        return cabinet;
     }
 
     /** A piece that stands out of doors, stood as Outdoors says it stands. */
