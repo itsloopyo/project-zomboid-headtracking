@@ -313,6 +313,12 @@ final class DoorTests {
                 "the head runs over both posts, out to their outer edges");
         check(members[4] == OpeningBuilder.AT_FROM && members[each + 4] == OpeningBuilder.AT_TO && members[2 * each + 4] == OpeningBuilder.AT_HEAD,
                 "each board is bevelled along its outer edge");
+        check(OpeningBuilder.casingMaterial(true, (int) members[4]) == OpeningBuilder.JOINERY && OpeningBuilder.casingMaterial(true, (int) members[each + 4]) == OpeningBuilder.JOINERY,
+                "a wooden post's grain runs up it");
+        check(OpeningBuilder.casingMaterial(true, (int) members[2 * each + 4]) == OpeningBuilder.JOINERY_LEVEL, "and the head's along it");
+        for (int at = 0; at < members.length; at += each) {
+            check(OpeningBuilder.casingMaterial(false, (int) members[at + 4]) == WorldScene.PAINT, "a painted casing is paint, every board of it");
+        }
         float[] far = OpeningBuilder.casingMembers(casing, 0.2f, 0.6f);
         check(far[1] == casing.start + casing.startWide && far[each] == casing.end - casing.endWide, "a cut too far from the posts leaves them where they are painted");
         float[] none = OpeningBuilder.casingMembers(casing, -1f, -1f);

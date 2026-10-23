@@ -539,9 +539,9 @@ final class OpeningBuilder {
         WorldScene.solid.own(Outlines.NONE);
         for (int side = 0; side < 2; side++) {
             float out = side == 0 ? 1f : -1f;
-            wood.open = sideOpen[side] + 32f * (wooden ? JOINERY : WorldScene.PAINT);
             wood.day = sideDay[side];
             for (int at = 0; at < members.length; at += CASING_MEMBER) {
+                wood.open = sideOpen[side] + 32f * casingMaterial(wooden, (int) members[at + 4]);
                 addBoard(wood, members[at], members[at + 1], members[at + 2], members[at + 3], out * (WorldScene.WALL_HALF - CASING_INTO),
                         out * (WorldScene.WALL_HALF + CASING_PROUD), (int) members[at + 4], sideRed[side], sideGreen[side], sideBlue[side]);
             }
@@ -549,6 +549,11 @@ final class OpeningBuilder {
         WorldScene.solid.own(thing);
         wood.day = 0f;
         return true;
+    }
+
+    /** What a casing's board bevelled along edge bevelled is drawn as: the head's grain runs along it, a post's up it. */
+    static float casingMaterial(boolean wooden, int bevelled) {
+        return !wooden ? WorldScene.PAINT : bevelled == AT_HEAD ? JOINERY_LEVEL : JOINERY;
     }
 
     /** How far a casing's boards stand out of the wall's skin, and how far in from its outer edge and back from its front the bevel along that edge runs, in tiles. */
