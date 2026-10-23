@@ -952,4 +952,5 @@ def main():
         renders(arm, skeleton, arguments[arguments.index("--renders") + 1], arguments[arguments.index("--only") + 1].split(",") if "--only" in arguments else None)
 
 
-main()
+if __name__ == "__main__":
+    main()

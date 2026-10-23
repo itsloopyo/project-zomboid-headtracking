@@ -2078,6 +2078,23 @@ right one mirrored.
 
 ---
 
+## Gallery sculpture
+
+- **Files:** the models `bust_male`, `bust_female`, `statue_female`, `statue_male` and `statue_orator` in `models/furniture.bin.gz` inside the mod's jar
+- **Version:** carved by `tools/models/sculpture.py` in this repository, a Blender script, from the same MPFB 2.0.17 data files as the arm model above: `3dobjs/base.obj`, `rigs/standard/rig.default.json`, `weights.default.json` and the macro targets `caucasian-male-young`, `caucasian-female-young` and `universal-male-young-maxmuscle-averageweight`.
+- **License:** CC0 1.0 Universal for those files, as for the arm model. What the script makes of them is MIT, this project's own.
+- **Upstream:** https://github.com/makehumancommunity/mpfb2
+- **Usage:** The busts and statues of the game's galleries are drawn as these figures.
+- **Bundled:** what the script makes, yes. MPFB and its data files are not.
+
+`tools/models/sculpture.py` shapes the base mesh into a man or a woman, poses
+it through the default rig, and carves hair, beards and cloth into it. The
+poses, the hair, the drapery and the cuts of the busts are made by the script.
+`tools/models/furniture.py` stands the figures on plinths and bases it makes
+itself. No mesh or texture of Project Zomboid's is read.
+
+---
+
 ## Furniture models
 
 - **Files:** `models/furniture.bin.gz` inside the mod's jar

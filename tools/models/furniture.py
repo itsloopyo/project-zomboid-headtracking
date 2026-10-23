@@ -5,8 +5,10 @@ Run headless with Blender 4.4, from the repository root:
     blender --background --factory-startup --python tools/models/furniture.py
 
 It writes src/main/resources/models/furniture.bin.gz and prints each model's
-triangle count and bounds. Every model is made here from nothing: no mesh,
-texture or measurement is read from the game.
+triangle count and bounds. Every model is made here from nothing but the
+figures of the gallery's sculpture, which sculpture.py carves into
+sculpture.bin.gz beside this script: no mesh, texture or measurement is read
+from the game.
 
 Every model is made twice. The whole one is what is seen from near. The plain
 one leaves out what is narrower than PLAIN_DETAIL, and the file says how far
@@ -49,7 +51,6 @@ import struct
 
 import bmesh
 import bpy
-import numpy
 from mathutils import Matrix, Vector, noise
 from mathutils.bvhtree import BVHTree
 
@@ -230,6 +231,8 @@ class Model:
         # the square it fills and keeps the origin it was built round.
         self.centred = centred
         self.vertices = []
+        self.most = MOST_TRIANGLES
+        self.veined = False
 
     def hard(self, bm, surface, bevel=0.004, segments=2, inward=False):
         """A part of wood or metal: every edge rounded off, its flat faces kept flat."""
@@ -427,6 +430,10 @@ class Model:
             self.vertices = cut_up
         self.light = [reached(position, normal)[0] for position, normal, _ in self.vertices]
         self.seen = [reached(position, normal)[1] for position, normal, _ in self.vertices]
+        if self.veined:
+            stone = SURFACES.index("ceramic")
+            self.light = [light * (1 - VEIN_DEPTH * vein(position)) if surface == stone else light
+                          for (position, _, surface), light in zip(self.vertices, self.light)]
         if whole is not None:
             # A plain copy's faces are not cut, so it cannot hold a joint's shade as short as the joint. The
             # light is raised at the darker end of every edge it would change sharply along, wherever that
@@ -11977,256 +11984,62 @@ def shops():
 
 
 # A gallery's sculpture, a stage's microphone and the lamp over a bar's pool table: busts on their plinths and statues
-# on their bases, carved from metaballs. Gallery stands the sculpture, Leisure the microphone and the lamp.
+# on their bases, the figures carved by sculpture.py out of a human body. Gallery stands the sculpture, Leisure the
+# microphone and the lamp.
+
+SCULPTURE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sculpture.bin.gz")
+# Marble's grain: the light a figure's stone takes is lowered by up to this much along the veins through it.
+VEIN_DEPTH = 0.08
+# A figure is more triangles than anything else here: its face is drawn from close up.
+SCULPTURE_TRIANGLES = 20000
+carved = {}
 
 
-# A metaball's surface lies this far out of its centre for each unit of its radius, at the threshold and stiffness used here.
-BLOB_REACH = 0.575
-# How much harder the decimation holds on to what a carving is told to keep.
-KEEP_FACTOR = 0.003
+def carved_figure(name):
+    """The figure sculpture.py carved, its places and its triangles. The plain copy has it whole: Low draws the plain
+    copy at every distance, and the pictures of the gallery's sculpture are taken close up at Low."""
+    if not carved:
+        with gzip.open(SCULPTURE, "rb") as packed:
+            data = packed.read()
+        version, count = struct.unpack_from("<II", data, 4)
+        if data[:4] != b"SCLP" or version != 1:
+            raise SystemExit("%s is not a version 1 sculpture file" % SCULPTURE)
+        at = 12
+        for _ in range(count):
+            called = data[at + 1:at + 1 + data[at]].decode("ascii")
+            at += 1 + data[at]
+            vertices, triangles = struct.unpack_from("<II", data, at)
+            at += 8
+            places = struct.unpack_from("<%df" % (vertices * 3), data, at)
+            at += vertices * 12
+            carved[called] = (places, struct.unpack_from("<%dI" % (triangles * 3), data, at))
+            at += triangles * 12
+    return carved[name]
 
 
-def blob_ball(centre, radius, negative=False):
-    return ("BALL", centre, radius / BLOB_REACH, (1.0, 1.0, 1.0), None, negative)
+def figure(model, name, foot, top):
+    """The carved figure stood with its foot at height foot, scaled so that its top is at top."""
+    places, corners = carved_figure(name)
+    scale = (top - foot) / max(places[2::3])
+    bm = bmesh.new()
+    verts = [bm.verts.new((places[i] * scale, places[i + 1] * scale, foot + places[i + 2] * scale)) for i in range(0, len(places), 3)]
+    for i in range(0, len(corners), 3):
+        bm.faces.new((verts[corners[i]], verts[corners[i + 1]], verts[corners[i + 2]]))
+    model.turned(bm, "ceramic", sharp=75.0)
+    model.most = SCULPTURE_TRIANGLES
+    model.veined = True
 
 
-def blob_egg(centre, half, negative=False, turn=None):
-    """An ellipsoid with these half lengths along x, y and z, turned by the quaternion turn."""
-    return ("ELLIPSOID", centre, 1.0 / BLOB_REACH, half, turn, negative)
+def vein(position):
+    """How far into a vein of the marble a point is, 0 to 1: thin bands through the stone, bent by turbulence."""
+    bent = noise.turbulence(position * 3.0, 3, False)
+    across = abs(math.sin((position.x * 0.7 + position.y * 0.35 + position.z * 0.9) * 14.0 + bent * 6.0))
+    return max(0.0, 1.0 - across / 0.18)
 
 
-def blob_rod(a, b, radius, negative=False):
-    """A capsule from a to b, rounded at both ends, its surface radius out from the line between them."""
-    a, b = Vector(a), Vector(b)
-    way = b - a
-    return ("CAPSULE", (a + b) / 2, radius / BLOB_REACH, (way.length / 2, 1.0, 1.0), Vector((1.0, 0.0, 0.0)).rotation_difference(way.normalized()), negative)
-
-
-# Blender finds a metaball's surface in cells no finer than 5 mm, so the blobs are made this many times bigger and the
-# mesh brought back down.
-BLOB_ENLARGED = 10.0
-
-
-def blob_mesh(elements, grain):
-    """The blobs as one smooth closed mesh, its cells grain across."""
-    ball = bpy.data.metaballs.new("sculpture")
-    ball.resolution = ball.render_resolution = grain * BLOB_ENLARGED
-    ball.threshold = 0.6
-    for kind, centre, radius, size, turn, negative in elements:
-        element = ball.elements.new(type=kind)
-        element.co = Vector(centre) * BLOB_ENLARGED
-        element.radius = radius * BLOB_ENLARGED
-        element.stiffness = 2.0
-        element.size_x, element.size_y, element.size_z = (size[0] * BLOB_ENLARGED, size[1], size[2]) if kind == "CAPSULE" else size
-        element.use_negative = negative
-        if turn is not None:
-            element.rotation = turn
-    holder = bpy.data.objects.new("sculpture", ball)
-    bpy.context.scene.collection.objects.link(holder)
-    depsgraph = bpy.context.evaluated_depsgraph_get()
-    depsgraph.update()
-    mesh = bpy.data.meshes.new_from_object(holder.evaluated_get(depsgraph))
-    bpy.data.objects.remove(holder)
-    bpy.data.metaballs.remove(ball)
-    mesh.transform(Matrix.Scale(1.0 / BLOB_ENLARGED, 4))
-    mesh.update()
-    return mesh
-
-
-class Carving:
-    """What is carved into a smooth body: each mark moves its surface out along its normal, or in where it is less than 0."""
-
-    def __init__(self, mesh):
-        self.mesh = mesh
-        count = len(mesh.vertices)
-        self.at = numpy.empty(count * 3)
-        mesh.vertices.foreach_get("co", self.at)
-        self.at = self.at.reshape(count, 3)
-        normals = numpy.empty(count * 3)
-        mesh.vertex_normals.foreach_get("vector", normals)
-        self.normal = normals.reshape(count, 3)
-        self.out = numpy.zeros(count)
-        points = [Vector(p) for p in self.at]
-        self.tree = BVHTree.FromPolygons(points, [tuple(p.vertices) for p in mesh.polygons])
-
-    def front(self, x, z):
-        """Where the surface is at (x, z) seen from in front."""
-        hit = self.tree.ray_cast(Vector((x, -1.0, z)), Vector((0.0, 1.0, 0.0)))[0]
-        if hit is None:
-            raise SystemExit("nothing in front at %.3f, %.3f" % (x, z))
-        return hit.y
-
-    def mark(self, x, z, sx, sz, amount, deep=0.012, behind=0.0):
-        """A rounded rise or hollow on the face at (x, z), sx and sz its spread across and up."""
-        y = self.front(x, z) + behind
-        d = self.at - numpy.array((x, y, z))
-        self.out += amount * numpy.exp(-0.5 * ((d[:, 0] / sx) ** 2 + (d[:, 1] / deep) ** 2 + (d[:, 2] / sz) ** 2))
-
-    def ridge(self, a, b, spread, amount, deep=0.014):
-        """A rise along the face from a to b, each given as (x, z), its spread and height going from the first of each pair to the second."""
-        ya, yb = self.front(*a), self.front(*b)
-        start, end = numpy.array((a[0], ya, a[1])), numpy.array((b[0], yb, b[1]))
-        way = end - start
-        t = numpy.clip(((self.at - start) @ way) / (way @ way), 0.0, 1.0)
-        near = start + t[:, None] * way
-        d = self.at - near
-        s = spread[0] + (spread[1] - spread[0]) * t
-        h = amount[0] + (amount[1] - amount[0]) * t
-        self.out += h * numpy.exp(-0.5 * ((d[:, 0] / s) ** 2 + (d[:, 2] / s) ** 2 + (d[:, 1] / deep) ** 2))
-
-    def curls(self, where, size, height, seed):
-        """Close curls of hair or beard where where(points) is above 0, each a dome size across, raised height."""
-        weight = where(self.at)
-        offset = Vector((seed * 7.31, seed * 3.17, seed * 5.53))
-        for i in numpy.nonzero(weight > 0.0)[0]:
-            distances = noise.voronoi(Vector(self.at[i]) / size + offset)[0]
-            self.out[i] += weight[i] * height * (0.45 + 0.55 * math.sqrt(max(0.0, 1.0 - (distances[0] / 0.75) ** 2)))
-
-    def waves(self, where, across, height):
-        """Locks of hair drawn back from the brow: grooves round the head, across apart."""
-        weight = where(self.at)
-        angle = numpy.arctan2(self.at[:, 0], -self.at[:, 2] + 0.2)
-        self.out += weight * height * (0.6 + 0.4 * numpy.cos(angle * 2 * math.pi / across))
-
-    def done(self, faces, place, keep=None, symmetric=False):
-        """The carved body cut down to about faces triangles, moved by place, as a bmesh."""
-        moved = (self.at + self.normal * self.out[:, None]).reshape(-1)
-        self.mesh.vertices.foreach_set("co", moved)
-        self.mesh.update()
-        whole = bpy.data.objects.new("sculpture_mesh", self.mesh)
-        bpy.context.scene.collection.objects.link(whole)
-        fewer = whole.modifiers.new("decimate", "DECIMATE")
-        fewer.ratio = min(1.0, faces / max(len(self.mesh.polygons) * 2, 1))
-        fewer.use_collapse_triangulate = True
-        fewer.use_symmetry = symmetric
-        fewer.symmetry_axis = "X"
-        if keep is not None:
-            # Where keep is 1 the collapse holds on to more of the carving: the face, over the smooth back of the head. A
-            # vertex in no group is never collapsed, so every vertex is given a weight, and the lower it is the more is kept.
-            group = whole.vertex_groups.new(name="keep")
-            weight = numpy.round(1.0 - 0.5 * keep(self.at), 2)
-            for level in numpy.unique(weight):
-                group.add([int(i) for i in numpy.nonzero(weight == level)[0]], float(level), "REPLACE")
-            fewer.vertex_group = "keep"
-            fewer.vertex_group_factor = KEEP_FACTOR
-        depsgraph = bpy.context.evaluated_depsgraph_get()
-        depsgraph.update()
-        shaped = whole.evaluated_get(depsgraph)
-        bm = bmesh.new()
-        bm.from_mesh(shaped.to_mesh())
-        shaped.to_mesh_clear()
-        bpy.data.objects.remove(whole)
-        bpy.data.meshes.remove(self.mesh)
-        bmesh.ops.transform(bm, matrix=place, verts=bm.verts)
-        return bm
-
-
-def smooth_step(value, low, high):
-    t = numpy.clip((value - low) / (high - low), 0.0, 1.0)
-    return t * t * (3 - 2 * t)
-
-
-def cut_away(bm, at, way):
-    """Cuts off what is on the side of the plane through at that way points to, and closes the cut with a flat face."""
-    bmesh.ops.bisect_plane(bm, geom=bm.verts[:] + bm.edges[:] + bm.faces[:], plane_co=at, plane_no=way, clear_outer=True)
-    rim = [edge for edge in bm.edges if edge.is_boundary]
-    bmesh.ops.holes_fill(bm, edges=rim, sides=0)
-    bmesh.ops.triangulate(bm, faces=[face for face in bm.faces if len(face.verts) > 3])
-
-
-def head_blobs(female):
-    """The smooth mass of a head on its neck, about life size, its middle between the ears at the origin, looking along -y."""
-    blobs = [blob_egg((0.0, 0.014, 0.03), (0.07, 0.088, 0.082)),
-             blob_egg((0.0, -0.035, -0.032), (0.057 if female else 0.061, 0.055, 0.064)),
-             blob_egg((0.0, -0.045, -0.08), (0.04 if female else 0.046, 0.042, 0.03)),
-             blob_rod((0.0, 0.012, -0.06), (0.0, 0.03, -0.25), 0.05 if female else 0.056)]
-    for side in (-1, 1):
-        blobs.append(blob_egg((side * 0.07, 0.006, -0.008), (0.012, 0.02, 0.03)))
-    if female:
-        # Hair gathered up into a knot at the back of the crown, and the soft fullness of the cheeks.
-        blobs += [blob_egg((0.0, 0.06, 0.095), (0.048, 0.042, 0.04))]
-        for side in (-1, 1):
-            blobs.append(blob_egg((side * 0.038, -0.045, -0.03), (0.018, 0.016, 0.018)))
-    return blobs
-
-
-def carve_face(carving, female):
-    """Brow, eyes, nose, mouth and chin carved into the front of the head, cut deeper than life as a sculptor does, so they
-    read by their shadows."""
-    soft = 0.6 if female else 1.0
-    for side in (-1, 1):
-        x = side * 0.031
-        carving.mark(x, 0.003, 0.019, 0.015, -0.024, deep=0.02)
-        carving.mark(x, -0.001, 0.0105, 0.0075, 0.02, deep=0.02)
-        carving.mark(x, 0.0075, 0.012, 0.0028, 0.005)
-        carving.mark(x, -0.0085, 0.01, 0.0022, 0.0025)
-        carving.mark(x + side * 0.002, -0.0005, 0.0028, 0.0028, -0.004, deep=0.008)
-        carving.mark(side * 0.03, 0.023, 0.022, 0.0075, 0.011 * soft)
-        carving.mark(side * 0.052, -0.012, 0.02, 0.014, 0.008)
-        if not female:
-            carving.mark(side * 0.045, -0.05, 0.014, 0.018, -0.005)
-        carving.mark(side * 0.0135, -0.042, 0.0065, 0.0055, 0.009)
-        carving.mark(side * 0.0095, -0.046, 0.003, 0.0025, -0.004, deep=0.008)
-        carving.mark(side * 0.025, -0.064, 0.0045, 0.0045, -0.005)
-        carving.mark(side * 0.022, -0.04, 0.003, 0.012, -0.004)
-    carving.ridge((0.0, 0.018), (0.0, -0.036), (0.0055, 0.0095), (0.004, 0.022) if not female else (0.003, 0.018))
-    carving.mark(0.0, -0.052, 0.0035, 0.004, -0.003)
-    carving.mark(0.0, -0.058, 0.017, 0.0045, 0.008)
-    carving.mark(0.0, -0.071, 0.015, 0.005, 0.009 if female else 0.008)
-    carving.mark(0.0, -0.0645, 0.021, 0.0018, -0.008 if female else -0.004)
-    carving.mark(0.0, -0.08, 0.012, 0.004, -0.004)
-    carving.mark(0.0, -0.098, 0.016, 0.012, 0.009)
-
-
-def head_hair(carving, female, seed, bearded=True, long=False):
-    at = carving.at
-
-    def scalp(points):
-        # Above a line from the brow over the temples, round behind the ears and down the back of the neck.
-        line = numpy.interp(points[:, 1], (-0.06, -0.035, 0.0, 0.03, 0.06), (0.05, 0.035, 0.0, -0.06, -0.12) if long else (0.05, 0.035, 0.0, -0.02, -0.065))
-        return smooth_step(points[:, 2] - line, 0.0, 0.01)
-
-    if female:
-        carving.out += 0.008 * scalp(at)
-        carving.curls(scalp, 0.02, 0.009, seed)
-    elif not bearded:
-        carving.out += 0.01 * scalp(at)
-        carving.waves(scalp, 0.12, 0.006)
-    else:
-        carving.out += 0.005 * scalp(at)
-        carving.curls(scalp, 0.022, 0.01, seed)
-
-        def beard(points):
-            # Below the cheekbones and in front of the ears, thinning off the lips.
-            lips = numpy.exp(-((points[:, 0] / 0.026) ** 2 + ((points[:, 2] + 0.065) / 0.012) ** 2)) * smooth_step(-0.05 - points[:, 1], 0.0, 0.02)
-            return (smooth_step(-0.015 - points[:, 2], 0.0, 0.025) * smooth_step(0.035 - points[:, 1], 0.0, 0.025) * (1.0 - lips)
-                    * smooth_step(points[:, 2] + 0.135 + 0.6 * numpy.minimum(points[:, 1] + 0.06, 0.0), 0.0, 0.02))
-
-        carving.out += 0.007 * beard(at)
-        carving.curls(beard, 0.02, 0.007, seed + 1)
-        for side in (-1, 1):
-            carving.ridge((side * 0.004, -0.053), (side * 0.03, -0.066), (0.007, 0.005), (0.008, 0.005))
-
-
-def bust_blobs(female):
-    """Head and shoulders, the arms cut off at the shoulder, a fold of cloth over one shoulder and across the chest."""
-    blobs = [blob_egg((0.0, 0.03, -0.195), (0.1, 0.05, 0.045)),
-              blob_egg((0.0, 0.005, -0.290), (0.16 if female else 0.17, 0.088, 0.1))]
-    for side in (-1, 1):
-        blobs += [blob_ball((side * 0.15, 0.018, -0.250), 0.055),
-                  blob_rod((side * 0.06, 0.03, -0.195), (side * 0.15, 0.02, -0.225), 0.03),
-                  blob_egg((side * 0.062, -0.06, -0.280), (0.065, 0.03, 0.05))]
-    # The cloth comes over the left shoulder and across to under the right arm in folds.
-    for i in range(5):
-        lift = i * 0.026
-        blobs.append(blob_rod((0.14 - i * 0.012, -0.035 - i * 0.005, -0.205 - lift), (-0.16, -0.07, -0.320 - lift * 0.5), 0.016))
-    blobs += [blob_egg((0.15, 0.01, -0.230), (0.065, 0.08, 0.04))]
-    return blobs
-
-
-def bust(name, female, seed):
+def bust(name):
     """A bust on a stone plinth: the plinth 0.49 m square and 1.15 m high, a turned socle, and a head and shoulders
-    0.74 m from the socle to the crown, about a half again life size, as the game's sprites of them are."""
+    0.75 m from the socle to the crown, about a half again life size, as the game's sprites of them are."""
     model = Model(name)
     plinth = bmesh.new()
     cuboid(plinth, -0.245, 0.245, -0.245, 0.245, 0.0, 1.09)
@@ -12237,57 +12050,8 @@ def bust(name, female, seed):
     cuboid(socle, -0.1, 0.1, -0.1, 0.1, 1.15, 1.19)
     lathe(socle, [(0.0, 1.19), (0.075, 1.19), (0.06, 1.21), (0.045, 1.25), (0.05, 1.27), (0.08, 1.29), (0.0, 1.29)], segments=24)
     model.hard(socle, "ceramic", bevel=0.004)
-    scale = 1.42
-    place = Matrix.Translation((0.0, 0.0, 1.29 + 0.37 * scale)) @ Matrix.Scale(scale, 4)
-    head = carved_head(female, seed, 4100, place)
-    model.turned(head, "ceramic", sharp=70.0)
-    body = Carving(blob_mesh(bust_blobs(female), 0.004)).done(900, place)
-    top = 1.29 + 0.37 * scale
-    for side in (-1, 1):
-        cut_away(body, (side * 0.19 * scale, 0.0, top - 0.26 * scale), (side, 0.0, -0.35))
-    cut_away(body, (0.0, 0.0, 1.27), (0.0, 0.0, -1.0))
-    model.turned(body, "ceramic", sharp=70.0)
+    figure(model, name, 1.29, 1.29 + 0.532 * 1.42)
     return model
-
-
-def carved_head(female, seed, faces, place, bearded=True, long=False):
-    """A carved head on its neck, as carve_face and head_hair make it, about life size before place moves it."""
-    carving = Carving(blob_mesh(head_blobs(female), 0.0024))
-    carve_face(carving, female)
-    head_hair(carving, female, seed, bearded, long)
-    return carving.done(faces, place, keep=lambda p: smooth_step(-p[:, 1], 0.0, 0.05) * smooth_step(p[:, 2], -0.13, -0.1))
-
-
-def limb(blobs, joints, radii):
-    """A limb through its joints, a capsule between each two, each as thick as radii says."""
-    for (a, b), radius in zip(zip(joints, joints[1:]), radii):
-        blobs.append(blob_rod(a, b, radius))
-
-
-def skirt(blobs, top, bottom, top_half, bottom_half, folds, thick, seed):
-    """Cloth hanging from a girdle at height top to the floor at bottom in folds: a ring of capsules, each a fold, the
-    ring as wide as top_half and bottom_half say along x and y at either end."""
-    rng = random.Random(seed)
-    for i in range(folds):
-        turn = 2 * math.pi * (i + rng.uniform(-0.2, 0.2)) / folds
-        wave = 1 + rng.uniform(-0.12, 0.12)
-        blobs.append(blob_rod((math.cos(turn) * top_half[0], math.sin(turn) * top_half[1], top),
-                              (math.cos(turn) * bottom_half[0] * wave, math.sin(turn) * bottom_half[1] * wave, bottom), thick * rng.uniform(0.85, 1.15)))
-    blobs.append(blob_egg((0.0, 0.0, (top + bottom) / 2), ((top_half[0] + bottom_half[0]) / 2 * 0.8, (top_half[1] + bottom_half[1]) / 2 * 0.8, (top - bottom) / 2)))
-
-
-def torso(blobs, female):
-    """Neck, chest, waist and hips of a standing figure about 1.75 m tall, its feet on the floor at the origin, facing -y."""
-    blobs += [blob_rod((0.0, 0.01, 1.47), (0.0, 0.01, 1.56), 0.05 if female else 0.058),
-              blob_egg((0.0, 0.0, 1.3), (0.15 if female else 0.17, 0.09, 0.13)),
-              blob_egg((0.0, 0.005, 1.1), (0.115 if female else 0.13, 0.08, 0.11)),
-              blob_egg((0.0, 0.01, 0.93), (0.17 if female else 0.155, 0.1, 0.11))]
-    for side in (-1, 1):
-        blobs += [blob_ball((side * 0.17, 0.0, 1.41), 0.06), blob_rod((side * 0.05, 0.01, 1.45), (side * 0.16, 0.0, 1.42), 0.035)]
-        if female:
-            blobs.append(blob_egg((side * 0.06, -0.065, 1.27), (0.055, 0.04, 0.05)))
-        else:
-            blobs += [blob_egg((side * 0.07, -0.05, 1.31), (0.075, 0.025, 0.05)), blob_egg((side * 0.04, -0.055, 1.12), (0.035, 0.02, 0.06))]
 
 
 def statue_base(model, half, high, made):
@@ -12296,62 +12060,28 @@ def statue_base(model, half, high, made):
     model.hard(base, made, bevel=0.01)
 
 
-def figure(model, blobs, place, female, seed, turn, bearded=True, long=False, faces=2700):
-    """The figure's body and its carved head, the head turned by turn degrees on its neck."""
-    body = Carving(blob_mesh(blobs, 0.006)).done(faces, place)
-    model.turned(body, "ceramic", sharp=70.0)
-    head = carved_head(female, seed, 2200, place @ Matrix.Translation((0.0, 0.0, 1.62)) @ Matrix.Rotation(math.radians(turn), 4, "Z"), bearded, long)
-    model.turned(head, "ceramic", sharp=70.0)
-
-
 def female_statue():
     """A draped woman a little over life size, her arms raised to her hair and her chiton falling to her feet, on a
-    white stone base 0.9 m square and 0.46 m high: the game's Female Statue, 2.49 m to the top of her hand."""
+    white stone base 0.9 m square and 0.46 m high: the game's Female Statue, 2.47 m to the top of her hands."""
     model = Model("statue_female")
     statue_base(model, 0.45, 0.46, "paint")
-    blobs = []
-    torso(blobs, True)
-    limb(blobs, [(0.17, 0.0, 1.41), (0.25, -0.02, 1.66), (0.06, 0.0, 1.8)], (0.042, 0.033))
-    limb(blobs, [(-0.17, 0.0, 1.41), (-0.25, 0.05, 1.64), (-0.06, 0.08, 1.68)], (0.042, 0.033))
-    blobs += [blob_egg((0.05, 0.0, 1.81), (0.04, 0.05, 0.02)), blob_egg((-0.05, 0.09, 1.68), (0.03, 0.02, 0.045))]
-    # The chiton: gathered under the breast, falling in folds to the floor, a fold drawn across from one hip.
-    skirt(blobs, 1.22, 0.04, (0.15, 0.1), (0.24, 0.2), 16, 0.045, 52)
-    for i in range(4):
-        blobs.append(blob_rod((0.17, -0.06 - i * 0.01, 0.95 - i * 0.05), (-0.16, -0.12 - i * 0.01, 0.6 - i * 0.09), 0.028))
-    blobs.append(blob_rod((-0.13, -0.08, 1.38), (0.12, -0.09, 1.2), 0.022))
-    for side in (-1, 1):
-        blobs.append(blob_egg((side * 0.09, -0.2, 0.035), (0.04, 0.07, 0.03)))
-    figure(model, blobs, Matrix.Translation((0.0, 0.0, 0.46)) @ Matrix.Scale(2.03 / 1.85, 4), True, 52, -15)
+    figure(model, "statue_female", 0.46, 2.47)
     return model
 
 
 def male_statue():
     """A standing youth, his weight on his right leg and the left knee bent, a cloth knotted about his hips and one hand
-    at his shoulder: the game's Male Statue, on a white stone base 0.9 m square and 0.46 m high."""
+    at his shoulder: the game's Male Statue, 2.38 m to the top of his head on a white stone base 0.9 m square and 0.46 m high."""
     model = Model("statue_male")
     statue_base(model, 0.45, 0.46, "paint")
-    blobs = []
-    torso(blobs, False)
-    limb(blobs, [(0.09, 0.0, 0.92), (0.1, -0.01, 0.5), (0.1, 0.02, 0.08)], (0.078, 0.052))
-    limb(blobs, [(-0.09, 0.0, 0.9), (-0.13, -0.07, 0.5), (-0.17, 0.03, 0.1)], (0.075, 0.05))
-    for x, y, z in ((0.1, 0.01, 0.38), (-0.14, -0.04, 0.38)):
-        blobs.append(blob_egg((x, y + 0.02, z), (0.05, 0.05, 0.09)))
-    blobs += [blob_egg((0.1, -0.04, 0.04), (0.045, 0.11, 0.035)), blob_egg((-0.17, -0.02, 0.05), (0.045, 0.11, 0.035))]
-    limb(blobs, [(0.18, 0.0, 1.41), (0.22, 0.0, 1.12), (0.21, -0.02, 0.86)], (0.045, 0.037))
-    limb(blobs, [(-0.18, 0.0, 1.41), (-0.26, -0.03, 1.18), (-0.12, -0.07, 1.4)], (0.045, 0.037))
-    blobs += [blob_egg((0.21, -0.02, 0.81), (0.03, 0.04, 0.06)), blob_egg((-0.11, -0.08, 1.42), (0.035, 0.03, 0.04))]
-    # The cloth about his hips, in folds round from a knot at one side.
-    for i in range(3):
-        blobs.append(blob_egg((0.0, 0.01, 0.9 - i * 0.05), (0.18 - i * 0.005, 0.12, 0.035)))
-    blobs.append(blob_rod((-0.15, -0.06, 0.92), (-0.17, -0.08, 0.75), 0.03))
-    figure(model, blobs, Matrix.Translation((0.0, 0.0, 0.46)) @ Matrix.Scale(2.03 / 1.85, 4), False, 53, 25, bearded=False)
+    figure(model, "statue_male", 0.46, 2.38)
     return model
 
 
 def orator_statue():
-    """A robed man on a tall pedestal, his right arm held out before him and a staff in his left hand: the game's Gallery
+    """A robed man on a tall pedestal, his right hand raised before him and a staff in his left hand: the game's Gallery
     Statue, painted over two storeys. The pedestal is 0.92 m square and 1.05 m high with a plinth 0.7 m square on it,
-    and the figure stands 1.95 m on the plinth."""
+    and the figure's staff reaches 3.07 m."""
     model = Model("statue_orator")
     pedestal = bmesh.new()
     cuboid(pedestal, -0.46, 0.46, -0.46, 0.46, 0.0, 0.84)
@@ -12361,20 +12091,7 @@ def orator_statue():
     plinth = bmesh.new()
     cuboid(plinth, -0.35, 0.35, -0.35, 0.35, 1.05, 1.2)
     model.hard(plinth, "ceramic", bevel=0.01)
-    blobs = []
-    torso(blobs, False)
-    # The robe to the floor, a cloak over the left shoulder and down the back, and the edge of the robe across the chest.
-    skirt(blobs, 1.2, 0.04, (0.16, 0.1), (0.27, 0.22), 18, 0.05, 54)
-    blobs += [blob_egg((-0.08, 0.05, 1.3), (0.1, 0.1, 0.12)), blob_rod((-0.2, 0.06, 1.36), (-0.24, 0.12, 0.3), 0.05),
-              blob_rod((-0.05, -0.1, 1.45), (0.14, -0.1, 1.0), 0.03)]
-    limb(blobs, [(0.18, 0.0, 1.41), (0.33, -0.18, 1.33), (0.52, -0.36, 1.33)], (0.05, 0.04))
-    blobs += [blob_rod((0.24, -0.05, 1.36), (0.34, -0.16, 1.2), 0.045), blob_egg((0.57, -0.4, 1.33), (0.035, 0.05, 0.02))]
-    limb(blobs, [(-0.18, 0.0, 1.41), (-0.24, -0.04, 1.15), (-0.22, -0.12, 1.02)], (0.05, 0.04))
-    blobs.append(blob_egg((-0.22, -0.13, 1.0), (0.035, 0.035, 0.05)))
-    blobs.append(blob_rod((-0.22, -0.14, 0.03), (-0.22, -0.14, 1.55), 0.017))
-    for side in (-1, 1):
-        blobs.append(blob_egg((side * 0.1, -0.22, 0.035), (0.045, 0.07, 0.03)))
-    figure(model, blobs, Matrix.Translation((0.0, 0.0, 1.2)) @ Matrix.Scale(1.95 / 1.82, 4), False, 55, 20, bearded=False, long=True, faces=2300)
+    figure(model, "statue_orator", 1.2, 3.07)
     return model
 
 
@@ -12432,7 +12149,7 @@ def pool_lamp():
 
 
 def gallery():
-    return [bust("bust_male", False, 3), bust("bust_female", True, 5), female_statue(), male_statue(), orator_statue(), stage_microphone(), pool_lamp()]
+    return [bust("bust_male"), bust("bust_female"), female_statue(), male_statue(), orator_statue(), stage_microphone(), pool_lamp()]
 
 
 def every():
@@ -12486,9 +12203,9 @@ def main():
         for i, count in enumerate((len(model.vertices) // 3, model.corners, len(less.vertices) // 3, less.corners)):
             totals[i] += count
     print("in all %d triangles %d vertices, plain %d triangles %d vertices" % tuple(totals))
-    heavy = [model.name for model in models if len(model.vertices) // 3 > MOST_TRIANGLES]
+    heavy = ["%s (%d)" % (model.name, model.most) for model in models if len(model.vertices) // 3 > model.most]
     if heavy:
-        raise SystemExit("more than %d triangles in %s" % (MOST_TRIANGLES, ", ".join(heavy)))
+        raise SystemExit("more triangles than allowed in %s" % ", ".join(heavy))
     # The field of a wardrobe's door is a flat board in the open: only its edge is in the shade of the frame round it.
     wardrobe_model = models[2]
     field = wardrobe_model.darkest(lambda position, normal: normal.y < -0.9 and 0.2 < abs(position.x) < 0.7 and 0.85 < position.z < 1.65
