@@ -10070,22 +10070,23 @@ def rotary_phone():
     model = Model("rotary_phone")
     body = bmesh.new()
     prism(body, (0.0, 0.0, 0.2, 0.23, 0.0), (0.0, 0.03, 0.16, 0.14, 0.085))
-    middle, rest = 0.06, 0.12
+    middle, rest = 0.06, 0.135
     for side in (-1, 1):
-        x0, x1 = sorted((side * 0.038, side * 0.052))
-        cuboid(body, x0, x1, middle - 0.022, middle + 0.022, 0.08, rest)
-        for y0, y1 in ((middle - 0.022, middle - 0.015), (middle + 0.015, middle + 0.022)):
-            cuboid(body, x0, x1, y0, y1, rest - 0.005, rest + 0.012)
+        x0, x1 = sorted((side * 0.034, side * 0.05))
+        cuboid(body, x0, x1, middle - 0.03, middle + 0.03, 0.08, rest)
+        for y0, y1 in ((middle - 0.03, middle - 0.021), (middle + 0.021, middle + 0.03)):
+            cuboid(body, x0, x1, y0, y1, rest - 0.005, rest + 0.014)
     model.hard(body, "plastic", bevel=0.012, segments=2)
     handle = bmesh.new()
-    under = [(-0.085, rest - 0.012), (-0.06, rest - 0.002), (-0.04, rest), (0.04, rest), (0.06, rest - 0.002), (0.085, rest - 0.012)]
-    outline_along_y(handle, under + [(x, z + 0.018) for x, z in reversed(under)], middle - 0.014, middle + 0.014)
-    model.hard(handle, "plastic", bevel=0.006, segments=2)
+    under = [(-0.092, rest - 0.022), (-0.068, rest - 0.004), (-0.046, rest), (0.046, rest), (0.068, rest - 0.004), (0.092, rest - 0.022)]
+    outline_along_y(handle, under + [(x, z + 0.026) for x, z in reversed(under)], middle - 0.019, middle + 0.019)
+    model.hard(handle, "plastic", bevel=0.007, segments=2)
     cups = bmesh.new()
-    face = 0.092
-    for x in (-0.08, 0.08):
-        lathe(cups, [(0.0, face + 0.004), (0.017, face + 0.004), (0.02, face), (0.025, face + 0.001), (0.027, face + 0.008),
-                     (0.025, face + 0.018), (0.018, face + 0.026), (0.008, face + 0.03), (0.0, face + 0.031)], cx=x, cy=middle, segments=20)
+    face = 0.09
+    for x in (-0.09, 0.09):
+        lathe(cups, [(0.0, face + 0.004), (0.028, face + 0.004), (0.033, face), (0.037, face + 0.002), (0.038, face + 0.011),
+                     (0.036, face + 0.024), (0.03, face + 0.036), (0.02, face + 0.045), (0.009, face + 0.049), (0.0, face + 0.05)],
+              cx=x, cy=middle, segments=24)
     model.turned(cups, "plastic", sharp=80.0)
     dial = bmesh.new()
     tilt = Matrix.Translation((0.0, -0.066, 0.058)) @ Matrix.Rotation(math.radians(48), 4, "X")
