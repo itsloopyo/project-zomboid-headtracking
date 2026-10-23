@@ -1092,7 +1092,8 @@ final class Pipeline {
         int wide = Math.round(viewport[2] * scale), high = Math.round(viewport[3] * scale);
         if (failure == null && (wide != width || high != height)) {
             failure = resize(wide, high);
-            if (failure == null) {
+            // The isometric view's size goes with the zoom, and changes every frame of a zoom.
+            if (failure == null && !overhead) {
                 Log.info("first person picture drawn at " + wide + "x" + high + " for a view of " + viewport[2] + "x" + viewport[3]);
             }
         }

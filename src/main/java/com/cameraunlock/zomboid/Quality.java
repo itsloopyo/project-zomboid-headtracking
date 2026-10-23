@@ -16,9 +16,9 @@ import java.util.Locale;
  * graphics card, the mod's own pictures and the size they are made at, is made for every view
  * that wants it: see plainEverywhere and smallerPictures. High
  * is the whole picture. Medium and Low draw it with fewer pixels, cheaper trees, smaller
- * shadow maps, fewer and broader grass plants, shorter sight and without the passes that shade
- * corners, light the air, mirror and give surfaces depth, for a graphics card that cannot keep up
- * with the whole of it, and Low with shorter sight still and nothing mirrored at all: no mirror
+ * shadow maps, fewer and broader grass plants, shorter sight and without depth in surfaces, for a
+ * graphics card that cannot keep up with the whole of it. Low also leaves out the passes that shade
+ * corners, light the air and mirror, with shorter sight still and nothing mirrored at all: no mirror
  * in a room or on a vehicle shows anything. A vehicle's mirror shows Low's picture in every mode
  * where it shows one.
  * A first start is in Automatic in first person and in Low in the isometric view, which has no
@@ -127,10 +127,13 @@ final class Quality {
     private static volatile int level = HIGH;
     /** What Custom draws: the rows of [Graphics] as the session last took them. */
     private static volatile Picture custom = HIGH_PICTURE;
-    /** By view: what its mode in effect draws now. Replaced whole, as rows is. */
-    private static volatile Picture[] drawn = pictures(HIGH_PICTURE);
-    /** By view: whether what it draws is Custom's rows, which scale takes as they stand. Replaced whole, as drawn is. */
-    private static volatile boolean[] customDrawn = new boolean[View.COUNT];
+    /**
+     * By view: what its mode in effect draws now, and whether scale holds it to MOST_PRESET_PIXELS,
+     * which it does in first person in any mode but Custom. One field, replaced whole, so the render
+     * thread never reads one view's picture with the other's say on its size.
+     */
+    private record Shown(Picture[] pictures, boolean[] held) {}
+    private static volatile Shown shown = new Shown(pictures(HIGH_PICTURE), new boolean[View.COUNT]);
     /** See smallerPictures, plainEverywhere and gamesPlantsEverywhere: worked out by refresh from every view's picture. */
     private static volatile boolean smaller, plainEverywhere, gamesPlantsEverywhere;
     /**
@@ -319,13 +322,14 @@ final class Quality {
     private static void refresh() {
         int[] overheads = overheadRows;
         Picture[] next = new Picture[View.COUNT];
-        boolean[] nextCustom = new boolean[View.COUNT];
+        boolean[] held = new boolean[View.COUNT];
         boolean anyPresent = false, anyFullSize = false, allPlain = true, allGamesPlants = true;
         for (int view = 0; view < next.length; view++) {
             int overhead = overheads[view];
             boolean firstPerson = inFirstPerson[view] || overhead == LOW;
             next[view] = firstPerson ? firstPersonPicture(view) : overhead == CUSTOM ? custom : preset(overhead);
-            nextCustom[view] = (firstPerson ? rows[view] : overhead) == CUSTOM;
+            // The isometric view is drawn to the game's picture of the world, whose size goes with the zoom, and is never held.
+            held[view] = inFirstPerson[view] && rows[view] != CUSTOM;
             // A view in its isometric Low draws none of the mod's pictures, and holds first person's made for the switch.
             if (present[view]) {
                 anyPresent = true;
@@ -334,8 +338,7 @@ final class Quality {
                 allGamesPlants &= next[view].treeQuality == TREES_SPRITES;
             }
         }
-        drawn = next;
-        customDrawn = nextCustom;
+        shown = new Shown(next, held);
         // With no player at the screen the pictures are left as they were made, not made again for nobody.
         if (anyPresent) {
             smaller = !anyFullSize;
@@ -372,7 +375,7 @@ final class Quality {
 
     /** What a view's mode in effect draws now: Custom's rows in Custom, and in the other modes the mode's picture, or that of the level Automatic is at. */
     static Picture drawn(int view) {
-        return drawn[view];
+        return shown.pictures[view];
     }
 
     /**
@@ -480,7 +483,7 @@ final class Quality {
      * not this.
      */
     static boolean plain(int view) {
-        return drawn[view].stockLook;
+        return shown.pictures[view].stockLook;
     }
 
     /**
@@ -501,7 +504,7 @@ final class Quality {
      * mod's are the dearest thing in the picture to draw. Automatic keeps the mod's at every level.
      */
     static boolean gamesPlants(int view) {
-        return drawn[view].treeQuality == TREES_SPRITES;
+        return shown.pictures[view].treeQuality == TREES_SPRITES;
     }
 
     /** Whether every player at the screen has the game's own plants: see gamesPlants. */
@@ -649,18 +652,20 @@ final class Quality {
 
     /** How many of the picture's pixels there are to each of the window's, each way. */
     static float scale(int view) {
-        return drawn[view].renderScale;
+        return shown.pictures[view].renderScale;
     }
 
     /**
-     * scale for a view wide by high pixels. Low, Medium, High and Automatic draw a view of more
-     * pixels than MOST_PRESET_PIXELS as if it were that size: past it the cost goes on growing with
-     * the pixels and the picture barely sharpens. Custom draws its RenderScale row at any size.
+     * scale for a view wide by high pixels. In first person, Low, Medium, High and Automatic draw a
+     * view of more pixels than MOST_PRESET_PIXELS as if it were that size: past it the cost goes on
+     * growing with the pixels and the picture barely sharpens. Custom draws its RenderScale row at
+     * any size, and so does the isometric view.
      */
     static float scale(int view, int wide, int high) {
-        float share = drawn[view].renderScale;
+        Shown now = shown;
+        float share = now.pictures[view].renderScale;
         long pixels = (long) wide * high;
-        if (customDrawn[view] || pixels <= MOST_PRESET_PIXELS) {
+        if (!now.held[view] || pixels <= MOST_PRESET_PIXELS) {
             return share;
         }
         return share * (float) Math.sqrt((double) MOST_PRESET_PIXELS / pixels);
@@ -668,17 +673,17 @@ final class Quality {
 
     /** How many texels a shadow map is across. */
     static int shadowSize(int view) {
-        return drawn[view].sharpShadows ? 4096 : 2048;
+        return shown.pictures[view].sharpShadows ? 4096 : 2048;
     }
 
     /** Whether shadows are drawn finer: more of the fires throw them too (FireShadows). */
     static boolean sharpShadows(int view) {
-        return drawn[view].sharpShadows;
+        return shown.pictures[view].sharpShadows;
     }
 
     /** How far the view is built and drawn, in tiles, where the loaded map reaches that far. */
     static int sight(int view) {
-        return drawn[view].viewDistance;
+        return shown.pictures[view].viewDistance;
     }
 
     /**
@@ -695,12 +700,12 @@ final class Quality {
      * three sizes of drop and drops that run down and leave a line of wet behind them.
      */
     static int glassRain(int view) {
-        return drawn[view].rainOnGlass;
+        return shown.pictures[view].rainOnGlass;
     }
 
     /** Whether corners are shaded and lent the light of what stands near, and the air is lit. */
     static boolean shadedAndLit(int view) {
-        return drawn[view].shadingAndLight;
+        return shown.pictures[view].shadingAndLight;
     }
 
     /**
@@ -708,23 +713,23 @@ final class Quality {
      * their picture of the road behind is not drawn, and surfacesMirror is false.
      */
     static boolean reflections(int view) {
-        return drawn[view].reflections;
+        return shown.pictures[view].reflections;
     }
 
     /**
      * Whether wet roads, polished floors, glass and water mirror the world, and a window shows
-     * the viewer in it. Only with the shading and light: Medium draws neither and keeps the
-     * mirrors in rooms and on vehicles, and the one row covers both kinds of mirror.
+     * the viewer in it. Only with the shading and light, which Low leaves out, and the one row
+     * covers both kinds of mirror.
      */
     static boolean surfacesMirror(int view) {
-        Picture picture = drawn[view];
+        Picture picture = shown.pictures[view];
         return picture.reflections && picture.shadingAndLight;
     }
 
     /**
      * Whether the mod's pictures of surfaces, on walls and of skin are made at half their width
      * and height, which is a quarter of what they take on the graphics card and in the PC's memory.
-     * Only High draws a dot of picture to a dot of the window and near enough to tell them apart.
+     * Only High draws a dot of picture to a dot of the window, up to MOST_PRESET_PIXELS, and near enough to tell them apart.
      * One set is made for every view, full size while any view asks for it.
      */
     static boolean smallerPictures() {
@@ -737,12 +742,12 @@ final class Quality {
      * sprite on a fan of cards, which costs less to build and draw and changes to a crown as the eye nears it.
      */
     static boolean crownsToSight(int view) {
-        return drawn[view].treeQuality == TREES_TO_SIGHT;
+        return shown.pictures[view].treeQuality == TREES_TO_SIGHT;
     }
 
     /** The share of its plants grass grows, as a percentage: see Grass.density. */
     static int grassDensity(int view) {
-        return drawn[view].grassDensity;
+        return shown.pictures[view].grassDensity;
     }
 
     /**
@@ -750,7 +755,7 @@ final class Quality {
      * only where the game has no map loaded, where nobody is drawn, so they hide no one from anyone.
      */
     static int farTreeDistance(int view) {
-        return drawn[view].farTreeDistance;
+        return shown.pictures[view].farTreeDistance;
     }
 
     /**
@@ -758,7 +763,7 @@ final class Quality {
      * from frame to frame is steadied and the whole picture is a little softer.
      */
     static boolean frameBlending(int view) {
-        return drawn[view].frameBlending;
+        return shown.pictures[view].frameBlending;
     }
 
     /**
@@ -766,12 +771,12 @@ final class Quality {
      * for none: past it, and with none, lamps light the squares round them as the game lights them.
      */
     static int lightDistance(int view) {
-        return drawn[view].lightDistance;
+        return shown.pictures[view].lightDistance;
     }
 
     /** Whether near surfaces are given the depth of what they show. */
     static boolean relief(int view) {
-        return drawn[view].surfaceDepth;
+        return shown.pictures[view].surfaceDepth;
     }
 
     /**
@@ -781,7 +786,7 @@ final class Quality {
      * they have.
      */
     static boolean wholeFigureShadows(int view) {
-        return drawn[view].wholeFigureShadows;
+        return shown.pictures[view].wholeFigureShadows;
     }
 
 }

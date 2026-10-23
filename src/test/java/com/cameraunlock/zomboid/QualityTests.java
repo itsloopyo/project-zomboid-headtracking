@@ -62,8 +62,16 @@ final class QualityTests {
         Quality.inFirstPerson(0, false);
         check(Quality.scale(0, 3840, 2160) == 1f, "and so does the isometric view in Custom");
         Quality.setOverhead(0, Quality.HIGH);
-        check(Quality.scale(0, 3840, 2160) < 1f, "and that view in High is held to the most pixels");
+        check(Quality.scale(0, 3840, 2160) == 1f, "and the isometric view in High: its picture goes with the zoom, and is never held");
         Quality.setOverhead(0, Quality.LOW);
+        Quality.inFirstPerson(1, true);
+        Quality.set(1, Quality.AUTOMATIC);
+        float automatic = Quality.scale(1);
+        check(Math.abs(Quality.scale(1, 3840, 2160) - automatic * 2f / 3f) < 1e-5f, "a second view in first person in Automatic is held as the first is");
+        Quality.set(1, Quality.CUSTOM);
+        check(Quality.scale(1, 3840, 2160) == 1f, "and in Custom is not");
+        Quality.set(1, Quality.HIGH);
+        Quality.inFirstPerson(1, false);
     }
 
     private static void splitScreenLowersHighOnce() {
