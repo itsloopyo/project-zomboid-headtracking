@@ -69,6 +69,10 @@ final class Lamps {
             // What the lamps give a face out of doors at p that faces n, where the game has given its
             // square lit as much of their light as lit says.
             vec3 lampWorldLight(vec3 p, vec3 n, float lit) {
+                // By day the game gives no square any, while the lamps are still listed and burn.
+                if (lit <= 0.0) {
+                    return vec3(0.0);
+                }
                 vec3 sum = vec3(0.0);
                 for (int i = 0; i < 16; i++) {
                     if (float(i) >= uLampCount) {

@@ -3725,7 +3725,10 @@ final class PipelineShaders {
                 // A lamp lights the ground as the game has it, warm and at its full strength: only
                 // the rest is the sky's, bluer and less where little sky is open over the square.
                 vec3 fromLamp = min(lamp, given) * openHere;
-                vec3 ambient = (given - fromLamp) * fromSky + fromLamp * (1.0 - streetLampsCover(vWorld));
+                vec3 ambient = (given - fromLamp) * fromSky;
+                if (any(greaterThan(fromLamp, vec3(0.0)))) {
+                    ambient += fromLamp * (1.0 - streetLampsCover(vWorld));
+                }
                 vec3 lightHere = ambient + held + uLightLinear * (2.1 * sun);
                 // Lightning lights all the sky, and what is under the open sky by it.
                 lightHere += uFlashSky * (open * skyOver * (0.6 + 0.4 * max(n.z, 0.0)));
