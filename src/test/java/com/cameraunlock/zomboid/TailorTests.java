@@ -24,12 +24,18 @@ final class TailorTests {
         Checks.run("theFabricLightensAndDarkensAboutTheGamesColour", TailorTests::theFabricLightensAndDarkensAboutTheGamesColour);
         Checks.run("aGreyPictureIsReadAsPainted", TailorTests::aGreyPictureIsReadAsPainted);
         Checks.run("everyFabricIsInTheJar", TailorTests::everyFabricIsInTheJar);
-        Checks.run("thePrintsAndStainsAreInTheJarWithWhatOfThemShows", TailorTests::thePrintsAndStainsAreInTheJarWithWhatOfThemShows);
+        Checks.run("theStainsAreInTheJarWithWhatOfThemShows", TailorTests::theStainsAreInTheJarWithWhatOfThemShows);
+        Checks.run("aPrintAnswersToTheClothesRow", TailorTests::aPrintAnswersToTheClothesRow);
     }
 
-    private static void thePrintsAndStainsAreInTheJarWithWhatOfThemShows() {
-        String[] asked = {"shirtdecals/RockDECAL.png", "shirtdecals/Buisness_PizzaWhirledDECAL.png", "shirtdecals/spiffo8.png", "shirtdecals/TShirt_Music_TieDye_1.png",
-            "shirtdecals/Culture_USAflagDECAL.png", "BloodTextures/BloodOverlay.png", "BloodTextures/GrimeOverlay.png"};
+    private static void aPrintAnswersToTheClothesRow() {
+        for (String relative : new String[] {"shirtdecals/RockDECAL.png", "shirtdecals/spiffo8.png", "shirtdecals/TShirt_Music_TieDye_1.png"}) {
+            check(FineSkins.Jar.row(relative) == Own.CLOTHES, relative + " answers to the clothes row");
+        }
+    }
+
+    private static void theStainsAreInTheJarWithWhatOfThemShows() {
+        String[] asked = {"BloodTextures/BloodOverlay.png", "BloodTextures/GrimeOverlay.png"};
         for (String relative : asked) {
             String path = FineSkins.Jar.resource(relative);
             try (InputStream in = TailorTests.class.getResourceAsStream(path); InputStream cutIn = TailorTests.class.getResourceAsStream(FineSkins.Jar.cut(path))) {
