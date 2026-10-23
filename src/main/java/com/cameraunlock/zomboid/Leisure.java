@@ -338,7 +338,8 @@ final class Leisure {
 
     /**
      * A cross hung on a wall, which the game paints with no name, high on a wall or lower down, at its middle or towards an end:
-     * on a west wall 22, 36, 38 and 54, on a north one 23, 37 and 55. It hangs where its sprite paints it, as a picture does.
+     * on a west wall 22, 36, 38 and 54, on a north one 23, 37 and 55. It hangs where its sprite paints it, as a picture does, and
+     * 36, 37 and 38 paint it across the square's end, half on the next square's length of the wall.
      * Null for any other sprite.
      */
     static Furniture wallCross(IsoSprite sprite, String name) {
@@ -347,7 +348,7 @@ final class Leisure {
             case 23, 37, 55 -> IsoDirections.S;
             default -> null;
         };
-        return away == null ? null : new Furniture(sprite, "wall_cross", Furniture.turnsOf(away)).hang(WallHung.behind(away), false);
+        return away == null ? null : new Furniture(sprite, "wall_cross", Furniture.turnsOf(away)).hang(WallHung.behind(away), false).overEnds();
     }
 
     /** Whether a sprite is a square of a church's pipe organ, whose grid the game lays over two storeys. */

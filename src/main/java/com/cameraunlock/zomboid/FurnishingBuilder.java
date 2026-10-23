@@ -258,7 +258,8 @@ final class FurnishingBuilder {
             picture = Decor.NONE;
         }
         if (piece == null || piece.wall == WallHung.NONE || picture == Decor.NONE && (piece.pinned || !Own.furniture())
-                || !WallHung.painted(build.frame, piece.wall, build.hungAt) && !(piece.ownSize && WallHung.paintedProud(build.hungAt, piece.model.depth()))) {
+                || !WallHung.painted(build.frame, piece.wall, build.hungAt) && !(piece.ownSize && WallHung.paintedProud(build.hungAt, piece.model.depth()))
+                && !(piece.overEnds && WallHung.paintedAlong(build.hungAt))) {
             return false;
         }
         if (picture != Decor.NONE && piece.grid != null) {

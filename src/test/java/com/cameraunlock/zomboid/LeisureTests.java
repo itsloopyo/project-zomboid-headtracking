@@ -443,7 +443,11 @@ final class LeisureTests {
             Checks.check(cross != null && cross.model != null && cross.model.name.equals("wall_cross"), name + " is a cross");
             Checks.check(cross != null && cross.wall == (west ? WallHung.WEST : WallHung.NORTH)
                     && cross.turns == (west ? Outdoors.EAST : Outdoors.SOUTH), name + " hangs on its wall, facing away from it");
+            Checks.check(cross != null && cross.overEnds, name + " may hang across its square's end");
         }
+        // Where 36 paints its cross on a west wall: its middle at the square's north end.
+        float[] across = {-0.33f, 0.375f, 0.35f, 0.85f};
+        Checks.check(WallHung.paintedAlong(across), "a cross painted across its square's end is found on its wall");
         Furniture spire = Furniture.known(TileRows.sprite(CHURCH + 39 + "|attachedN|"));
         Checks.check(spire == null || spire.model == null || !spire.model.name.equals("wall_cross"), "the cross on a tower's spire is not one");
         Models.Model model = Models.get("wall_cross");

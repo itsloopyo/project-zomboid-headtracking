@@ -76,6 +76,8 @@ final class Furniture {
     boolean mirror;
     /** See ownSize. */
     boolean ownSize;
+    /** See overEnds. */
+    boolean overEnds;
     /** The picture of the mod's own that its frame holds in place of the sprite's painting, or Decor.NONE. */
     int picture = Decor.NONE;
     /** Whether this is a sheet pinned to a wall, a poster, which the mod hangs only to show its own picture of it. */
@@ -279,6 +281,12 @@ final class Furniture {
     /** For what hangs on a wall and stands out from it, a lamp: it is as big as its model, whatever its sprite's outline comes to. */
     Furniture ownSize() {
         ownSize = true;
+        return this;
+    }
+
+    /** For what hangs on a wall and may be painted across its square's end, half on the next square's length of the wall: a cross. */
+    Furniture overEnds() {
+        overEnds = true;
         return this;
     }
 
