@@ -38,7 +38,8 @@ final class WallTileTests {
             Checks.run("jointsKeepTheirStepPastAJambThatIsNoJoint" + at, WallTileTests::jointsKeepTheirStepPastAJambThatIsNoJoint);
             Checks.run("panelOverAWallIsTilesOnlyWhereItPaints" + at, WallTileTests::panelOverAWallIsTilesOnlyWhereItPaints);
             Checks.run("paintOverAWallIsNoTiles" + at, WallTileTests::paintOverAWallIsNoTiles);
-            Checks.run("aHarlequinOverAPanelShowsItsDots" + at, WallTileTests::aHarlequinOverAPanelShowsItsDots);
+            Checks.run("aHarlequinOverAPanelIsItsDiamonds" + at, WallTileTests::aHarlequinOverAPanelIsItsDiamonds);
+            Checks.run("aMosaicOverAPanelIsItsSquares" + at, WallTileTests::aMosaicOverAPanelIsItsSquares);
             Checks.run("aPanelsCappingIsAStripOfIt" + at, WallTileTests::aPanelsCappingIsAStripOfIt);
             Checks.run("smallTilesOverLargeOfOneColourAreTwoGrids" + at, WallTileTests::smallTilesOverLargeOfOneColourAreTwoGrids);
             Checks.run("aBorderOfRosettesIsNoCourseJoint" + at, WallTileTests::aBorderOfRosettesIsNoCourseJoint);
@@ -64,6 +65,8 @@ final class WallTileTests {
         Checks.run("aPosterOnATiledWallIsThePoster", WallTileTests::aPosterOnATiledWallIsThePoster);
         Checks.run("whatIsLaidOverAWallIsNotOnTheRoomBeyond", WallTileTests::whatIsLaidOverAWallIsNotOnTheRoomBeyond);
         Checks.run("theFiguresReadOffAWallAreBuiltAsShapes", WallTileTests::theFiguresReadOffAWallAreBuiltAsShapes);
+        Checks.run("theCellsOfAHarlequinAreBuiltInTheirColours", WallTileTests::theCellsOfAHarlequinAreBuiltInTheirColours);
+        Checks.run("aCellIsCutWhereItsFaceStops", WallTileTests::aCellIsCutWhereItsFaceStops);
     }
 
     /**
@@ -322,25 +325,73 @@ final class WallTileTests {
         return tiles(WHITE, column, row, 11, 16, 120, 22);
     }
 
-    private static void aHarlequinOverAPanelShowsItsDots() {
-        // Diamonds of two colours from row 50 to 118, 16 dots across and 24 rows up (as walls_interior_detailing_bathroom_03 draws
-        // them, grey on white: the rows by a diamond's middle are mostly one colour, so they read as thin bands of alternate colour),
-        // over a panel of tiles.
+    private static void aHarlequinOverAPanelIsItsDiamonds() {
+        // Diamonds of two colours from row 50 to 118, 16 dots across and 24 rows up, their middles 5 dots on from a wall's end and 6 down from the top (as
+        // walls_interior_detailing_bathroom_03 draws them, grey on white: the rows by a diamond's middle are mostly one colour, so they
+        // read as thin bands of alternate colour), capped by a navy strip and over a panel of tiles.
         WallTiles.Wall wall = read((column, row) -> {
-            if (row < 50) {
+            if (row < 46) {
                 return null;
+            }
+            if (row < 50) {
+                return NAVY;
             }
             if (row >= 118) {
                 return panel(column, row);
             }
-            float u = column / 16f, v = (row - 50) / 24f;
+            float u = (column - 5) / 16f, v = (row - 56) / 24f;
             return Math.floorMod((int) Math.floor(u + v) + (int) Math.floor(u - v), 2) == 0 ? GREY : WHITE;
         }, true);
         WallTiles.Band pattern = bandOver(wall, 56, 112);
-        check(pattern != null && !pattern.tiled && pattern.figured[0], "the diamonds are one band showing the sprite's dots, no stripes of joints: "
-                + (wall == null ? "none" : WallTiles.said(wall)));
+        check(pattern != null && !pattern.tiled && !pattern.figured[0] && pattern.motifs.length >= 20,
+                "the diamonds are one band of diamonds the picture draws, no stripes of joints: " + (wall == null ? "none" : WallTiles.said(wall)));
+        for (WallTiles.Motif cell : pattern == null ? new WallTiles.Motif[0] : pattern.motifs) {
+            // Middles are where one of u and v is whole and the other a half more; the panel's top rows can go with the diamonds over them.
+            float u = (cell.along * ACROSS - 5f) / 16f, v = ((1f - cell.level) * HIGH - 56f) / 24f;
+            if (v < 0f || v > 2.6f) {
+                continue;
+            }
+            // Within a dot each way: the sprite paints a diamond's edges as steps, and its middle is on the corner of four dots.
+            boolean onLattice = Math.abs(u * 2f - Math.round(u * 2f)) <= 2f / 16f && Math.abs(v * 2f - Math.round(v * 2f)) <= 2f / 24f
+                    && Math.floorMod(Math.round(u * 2f) + Math.round(v * 2f), 2) == 1;
+            boolean grey = Math.floorMod((int) Math.floor(u + v + 0.01f) + (int) Math.floor(u - v + 0.01f), 2) == 0;
+            float[] colour = grey ? GREY : WHITE;
+            check(cell.shape == WallTiles.Motif.DIAMOND && onLattice && Math.abs(cell.halfAlong * 2f * ACROSS - 16f) < 0.6f
+                    && Math.abs(cell.halfUp * 2f * HIGH - 24f) < 0.6f, "each a diamond 16 dots by 24, where the sprite has one: " + u + " " + v + " " + cell.shape + " " + cell.halfAlong * 2f * ACROSS + " " + cell.halfUp * 2f * HIGH);
+            check(Math.abs(cell.red - colour[0]) < 0.02f && Math.abs(cell.green - colour[1]) < 0.02f, "in the colour it is painted: " + u + " " + v + " " + cell.red);
+        }
+        check(pattern != null && Math.abs((1f - pattern.head) * HIGH - 50f) <= 1f, "and starts where they do, its capping a band of its own: "
+                + (pattern == null ? "none" : (1f - pattern.head) * HIGH));
         WallTiles.Band under = bandOver(wall, 130, 180);
         check(under != null && under.tiled, "and the panel under them is tiles");
+    }
+
+    /** The colour of the mosaic's square along i and up j, as walls_interior_detailing_bathroom_02 paints them: white among colours in no order. */
+    private static float[] mosaic(int i, int j) {
+        int pick = Math.floorMod(i * 7 + j * 3 + (i * j) % 5, 4);
+        return pick == 0 ? BLUE : pick == 1 ? PEACH : pick == 2 ? NAVY : WHITE;
+    }
+
+    private static void aMosaicOverAPanelIsItsSquares() {
+        // Squares 8 dots across and 11 up from row 52 to 118, grout between them a line up and every other dot across, over a panel of tiles.
+        float[] grout = {0.6f, 0.6f, 0.6f};
+        WallTiles.Wall wall = read((column, row) -> row < 52 ? null : row >= 118 ? panel(column, row)
+                : column % 8 == 0 || (row - 52) % 11 == 0 && column % 2 == 0 ? grout : mosaic(column / 8, (row - 52) / 11), true);
+        WallTiles.Band pattern = bandOver(wall, 56, 112);
+        check(pattern != null && !pattern.figured[0] && pattern.motifs.length >= 30,
+                "the mosaic is one band of squares the picture draws: " + (wall == null ? "none" : WallTiles.said(wall)));
+        for (WallTiles.Motif cell : pattern == null ? new WallTiles.Motif[0] : pattern.motifs) {
+            float u = cell.along * ACROSS / 8f - 0.5f, v = ((1f - cell.level) * HIGH - 52f) / 11f - 0.5f;
+            if (v < 0f || v > 5f || u < 0f) {
+                continue;
+            }
+            float[] colour = mosaic(Math.round(u), Math.round(v));
+            // Within a dot each way: the grout between can go with either square beside it.
+            check(cell.shape == WallTiles.Motif.SQUARE && Math.abs(u - Math.round(u)) * 8f <= 1f && Math.abs(v - Math.round(v)) * 11f <= 1f
+                    && Math.abs(cell.halfAlong * 2f * ACROSS - 8f) < 0.6f && Math.abs(cell.halfUp * 2f * HIGH - 11f) < 0.6f,
+                    "each a square 8 dots by 11, where the sprite has one: " + u + " " + v + " " + cell.shape + " " + cell.halfAlong * 2f * ACROSS + " " + cell.halfUp * 2f * HIGH);
+            check(Math.abs(cell.red - colour[0]) < 0.02f && Math.abs(cell.blue - colour[2]) < 0.02f, "in the colour it is painted: " + u + " " + v);
+        }
     }
 
     private static void aPanelsCappingIsAStripOfIt() {
@@ -841,5 +892,48 @@ final class WallTileTests {
             check(paintedIn(BLUE) == 2, "with its middle in its second colour: " + paintedIn(BLUE));
             check(paintedIn(PEACH) > 0, "and a line read across the tiles is built over them in its colour");
         });
+    }
+
+    private static void theCellsOfAHarlequinAreBuiltInTheirColours() throws Throwable {
+        withTextures(() -> {
+            TestMap map = bathroom();
+            Texture harlequin = over(map, 331);
+            WallTiles.knownForTests(harlequin, true, true, read((column, row) -> {
+                if (row < 50) {
+                    return null;
+                }
+                if (row >= 118) {
+                    return panel(column, row);
+                }
+                float u = column / 16f, v = (row - 50) / 24f;
+                return Math.floorMod((int) Math.floor(u + v) + (int) Math.floor(u - v), 2) == 0 ? GREY : WHITE;
+            }, true));
+            map.build.overSheet = SHEET;
+            map.build.here = map.cell.getGridSquare(1, 0, 0);
+            SpriteGeometry.Frame frame = map.build.frame;
+            frame.scale = 2f;
+            frame.originU = 64f;
+            frame.originV = 192f;
+            frame.left = frame.top = frame.uStart = frame.vStart = 0f;
+            frame.width = 128f;
+            frame.height = 256f;
+            frame.uEnd = frame.vEnd = 1f;
+            map.build.wallBuilder.addEdge(WorldScene.solid.get(harlequin.getID()), harlequin, true, false, 1, 0, 0, 0f, 1f, 0f);
+            check(laidWith(harlequin) == 0, "a harlequin laid over a wall is not shown as the sprite's dots: " + laidWith(harlequin));
+            check(paintedIn(GREY) >= 20, "its grey diamonds are built as faces of their colour: " + paintedIn(GREY));
+        });
+    }
+
+    private static void aCellIsCutWhereItsFaceStops() {
+        float[] diamond = {0.6f, 0.62f, 0.5f, 0.67f, 0.4f, 0.62f, 0.5f, 0.57f};
+        float[] cut = WallBuilder.cutTo(diamond, 0f, 1f, 0.2f, 0.6f);
+        boolean under = cut.length == 6;
+        for (int corner = 0; corner < cut.length / 2; corner++) {
+            under &= cut[corner * 2 + 1] <= 0.6f + 1e-6f && cut[corner * 2] >= 0.4f && cut[corner * 2] <= 0.6f;
+        }
+        check(under, "a diamond over the top of its face is cut to the part under it: " + java.util.Arrays.toString(cut));
+        check(WallBuilder.cutTo(new float[] {0.6f, 0.8f, 0.5f, 0.85f, 0.4f, 0.8f, 0.5f, 0.75f}, 0f, 1f, 0.2f, 0.6f).length == 0,
+                "and one wholly over it is not built at all");
+        check(WallBuilder.cutTo(diamond, 0f, 1f, 0f, 1f).length == 8, "while one inside its face is whole");
     }
 }

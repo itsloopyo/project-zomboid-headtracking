@@ -78,7 +78,7 @@ final class WallTiles {
      * Over a wall, a run of at least PATTERN_RUN bands and strips each no taller than PATTERN_ROW
      * levels, one of them with a figure, is a pattern laid over the whole of it (a harlequin, a
      * mosaic of coloured squares): the rows of a diagonal or a mixed pattern read as bands of their
-     * own, and their joints as no grid. It shows the overlay's own dots.
+     * own, and their joints as no grid. It is read as a lattice where it is one (see lattice), and otherwise shows the overlay's own dots.
      */
     private static final float PATTERN_ROW = 0.1f;
     private static final int PATTERN_RUN = 3;
@@ -90,6 +90,16 @@ final class WallTiles {
      */
     private static final float LINE_SHARE = 0.4f;
     private static final int LINE_GAP = 2;
+    /**
+     * A pattern over a wall is a lattice of cells where LATTICE_HELD of its dots are within
+     * LATTICE_OFF of their cell's colour, and its cells are LATTICE_LEAST of the game's dots
+     * wide and high or more; a lattice of squares has LATTICE_SHARP times its lines' share of the
+     * change from dot to dot on its lines.
+     */
+    private static final float LATTICE_HELD = 0.75f, LATTICE_OFF = 0.2f, LATTICE_SHARP = 2.5f, LATTICE_NEAR_SHARPEST = 0.8f;
+    private static final int LATTICE_LEAST = 4;
+    /** Cells of a lattice are counted by a number made of both their steps, each well within this. */
+    private static final long CELL_KEY = 1_000_000L;
     /** A figure no wider than this share of the wall is one the picture draws itself; a wider one is shown as the sprite's dots. */
     private static final float FIGURE_WIDEST = 0.4f;
     /** A figure filling less of its box than DIAMOND_FILL is a diamond, less than ROUND_FILL a round, and more a square. */
@@ -677,7 +687,7 @@ final class WallTiles {
         }
         if (overlay && !bands.isEmpty()) {
             strip(made, madeRows, madeJoints, madeLines, rows, overlay, rgb, solid, across, bands.get(bands.size() - 1).end, lastRow, high);
-            patterns(made, madeRows, madeJoints, madeLines, rgb, solid, across);
+            patterns(made, madeRows, madeJoints, madeLines, rgb, solid, across, high);
         }
         if (!overlay) {
             decorated(made, madeRows, madeJoints, madeLines, rgb, solid, across, high);
@@ -878,19 +888,26 @@ final class WallTiles {
      * see PATTERN_ROW. Its colour is the mean of its painted dots, each band and strip of it having some.
      */
     private static void patterns(ArrayList<Band> made, ArrayList<int[]> madeRows, ArrayList<int[]> madeJoints, ArrayList<ArrayList<int[]>> madeLines,
-            float[] rgb, boolean[] solid, int across) {
+            float[] rgb, boolean[] solid, int across, int high) {
         int k = 0;
         while (k < made.size()) {
             int last = k;
             boolean figure = false;
             while (last < made.size() && made.get(last).head - made.get(last).foot <= PATTERN_ROW
                     && (last == k || madeRows.get(last - 1)[1] == madeRows.get(last)[0])) {
-                figure |= made.get(last).figured[0] || made.get(last).tiled && anyOf(made.get(last).figured);
+                figure |= hasFigure(made.get(last));
                 last++;
             }
             if (last - k < PATTERN_RUN || !figure) {
                 k = Math.max(k + 1, last);
                 continue;
+            }
+            // A course of plain tiles or a strip at either end, the capping over the pattern, is no part of it.
+            while (!hasFigure(made.get(k))) {
+                k++;
+            }
+            while (!hasFigure(made.get(last - 1))) {
+                last--;
             }
             int from = madeRows.get(k)[0], to = madeRows.get(last - 1)[1], count = 0;
             Band pattern = new Band();
@@ -908,6 +925,7 @@ final class WallTiles {
             pattern.red /= count;
             pattern.green /= count;
             pattern.blue /= count;
+            lattice(pattern, from, to, rgb, solid, across, high);
             for (int i = k; i < last; i++) {
                 made.remove(k);
                 madeRows.remove(k);
@@ -1306,6 +1324,241 @@ final class WallTiles {
             }
         }
         return seen > 0 && held * 2 >= seen;
+    }
+
+    /**
+     * Reads a pattern laid over a wall from rows top to before bottom as a lattice of cells, each
+     * of one colour, so the picture can draw it at any size: a mosaic of coloured squares, or a
+     * harlequin of diamonds. Each cell is a figure of the band (Band.motifs), a SQUARE or a
+     * DIAMOND, from its middle half its width and half its height, in the colour most of its dots
+     * are; a cell the wall's ends or the band's edges cut is drawn as far as they let it. False,
+     * changing nothing, where neither lattice holds LATTICE_HELD of the band's dots within
+     * LATTICE_OFF of their cell's colour: the pattern is no lattice (a border of rosettes), and
+     * shows the sprite's dots.
+     */
+    private static boolean lattice(Band band, int top, int bottom, float[] rgb, boolean[] solid, int across, int high) {
+        if (bottom - top < 4) {
+            return false;
+        }
+        // A harlequin repeats a diamond's width along and its height up; its middle is where its cells' dots are least unlike their cells' colours.
+        int wide = repeat(rgb, solid, across, top, bottom, true), up = repeat(rgb, solid, across, top, bottom, false);
+        float best = Float.MAX_VALUE, bestAlong = 0f, bestUp = 0f;
+        // The middles repeat a whole width along and half a diamond up and along together: these are all the places one can be.
+        for (float along = 0f; wide > 0 && up > 0 && along < wide; along += 0.5f) {
+            for (float row = 0f; row < up / 2f; row += 0.5f) {
+                float unlike = unlike(true, along, top + row, wide, up, top, bottom, rgb, solid, across);
+                if (unlike < best) {
+                    best = unlike;
+                    bestAlong = along;
+                    bestUp = top + row;
+                }
+            }
+        }
+        // Of a lattice of squares and one of diamonds, the one whose cells' dots are less unlike their colours.
+        int[] squares = squares(rgb, solid, across, top, bottom);
+        if (squares != null && unlike(false, squares[0], squares[1], squares[2], squares[3], top, bottom, rgb, solid, across) < best) {
+            return cellsOf(band, false, squares[0], squares[1], squares[2], squares[3], top, bottom, rgb, solid, across, high);
+        }
+        return best < Float.MAX_VALUE && cellsOf(band, true, bestAlong, bestUp, wide, up, top, bottom, rgb, solid, across, high);
+    }
+
+    /**
+     * The step along the rows (or up them) from LATTICE_LEAST of the game's dots to half their
+     * length at which the dots are most alike, as a pattern that repeats there is, by brightness:
+     * 0 where none is less than half as unlike as the steps are on the whole.
+     */
+    private static int repeat(float[] rgb, boolean[] solid, int across, int top, int bottom, boolean along) {
+        int length = along ? across : bottom - top, least = Math.round(LATTICE_LEAST * across / DOTS_ALONG), best = 0;
+        float bestUnlike = Float.MAX_VALUE, all = 0f;
+        int steps = 0;
+        for (int step = least; step <= length / 2; step++) {
+            float unlike = 0f;
+            int pairs = 0;
+            for (int row = top; row < bottom - (along ? 0 : step); row++) {
+                for (int column = 0; column < across - (along ? step : 0); column++) {
+                    int at = row * across + column, to = at + (along ? step : step * across);
+                    if (solid[at] && solid[to]) {
+                        unlike += Math.abs(bright(rgb, at) - bright(rgb, to));
+                        pairs++;
+                    }
+                }
+            }
+            if (pairs == 0) {
+                continue;
+            }
+            unlike /= pairs;
+            all += unlike;
+            steps++;
+            if (unlike < bestUnlike) {
+                bestUnlike = unlike;
+                best = step;
+            }
+        }
+        return steps > 0 && bestUnlike < 0.5f * all / steps ? best : 0;
+    }
+
+    /**
+     * A lattice of squares over the rows: the column and row of a line between cells and the
+     * cells' width and height, in dots, each the step whose lines most of the change from dot to
+     * dot falls on. Null where no step does.
+     */
+    private static int[] squares(float[] rgb, boolean[] solid, int across, int top, int bottom) {
+        float[] alongChange = new float[across], upChange = new float[bottom - top];
+        float[] a = new float[3], b = new float[3];
+        for (int row = top; row < bottom; row++) {
+            for (int column = 1; column < across; column++) {
+                int at = row * across + column;
+                if (solid[at] && solid[at - 1]) {
+                    alongChange[column] += apart(colourAt(rgb, at, a), colourAt(rgb, at - 1, b));
+                }
+                if (row > top && solid[at] && solid[at - across]) {
+                    upChange[row - top] += apart(colourAt(rgb, at, a), colourAt(rgb, at - across, b));
+                }
+            }
+        }
+        int[] along = step(alongChange), up = step(upChange);
+        return along == null || up == null ? null : new int[] {along[0], up[0] + top, along[1], up[1]};
+    }
+
+    /**
+     * The phase and step from LATTICE_LEAST dots to a third of the length whose places hold the
+     * most of the change, at least LATTICE_SHARP times their share of it: of those within
+     * LATTICE_NEAR_SHARPEST of the sharpest, the least, as every second line of a lattice is
+     * nearly as sharp as all of them. Null for none.
+     */
+    private static int[] step(float[] change) {
+        float total = 0f;
+        for (float each : change) {
+            total += each;
+        }
+        int most = change.length / 3;
+        float[] sharpest = new float[most + 1];
+        int[] phaseOf = new int[most + 1];
+        float best = 0f;
+        for (int step = LATTICE_LEAST; step <= most; step++) {
+            for (int phase = 0; phase < step; phase++) {
+                float on = 0f;
+                int lines = 0;
+                for (int at = phase; at < change.length; at += step) {
+                    on += change[at];
+                    lines++;
+                }
+                float sharp = on / total / ((float) lines / change.length);
+                if (sharp > sharpest[step]) {
+                    sharpest[step] = sharp;
+                    phaseOf[step] = phase;
+                }
+            }
+            best = Math.max(best, sharpest[step]);
+        }
+        for (int step = LATTICE_LEAST; step <= most; step++) {
+            if (sharpest[step] >= LATTICE_SHARP && sharpest[step] >= LATTICE_NEAR_SHARPEST * best) {
+                return new int[] {phaseOf[step], step};
+            }
+        }
+        return null;
+    }
+
+    /** How far the painted dots from top to before bottom are from their cell's colour, on the whole: the cells as held has them. */
+    private static float unlike(boolean diamond, float column, float row, float wide, float tall, int top, int bottom, float[] rgb, boolean[] solid, int across) {
+        float sum = 0f;
+        int count = 0;
+        for (ArrayList<float[]> dots : cellDots(diamond, column, row, wide, tall, top, bottom, rgb, solid, across).values()) {
+            float[] colour = middleOf(dots);
+            for (float[] dot : dots) {
+                sum += apart(dot, colour);
+                count++;
+            }
+        }
+        return sum / count;
+    }
+
+    /**
+     * The share of the painted dots from top to before bottom that are within LATTICE_OFF of the
+     * colour most of their cell's dots are: the cells squares or diamonds, one with its middle at
+     * (column, row), wide by tall dots.
+     */
+    private static float held(boolean diamond, float column, float row, float wide, float tall, int top, int bottom, float[] rgb, boolean[] solid, int across) {
+        java.util.HashMap<Long, ArrayList<float[]>> cells = cellDots(diamond, column, row, wide, tall, top, bottom, rgb, solid, across);
+        int count = 0, near = 0;
+        for (ArrayList<float[]> dots : cells.values()) {
+            float[] colour = middleOf(dots);
+            for (float[] dot : dots) {
+                count++;
+                near += apart(dot, colour) <= LATTICE_OFF ? 1 : 0;
+            }
+        }
+        return count == 0 ? 0f : (float) near / count;
+    }
+
+    /**
+     * The painted dots from top to before bottom by the cell they are in, each red, green, blue:
+     * squares counted from the one whose corner is at (column, row), or diamonds from the one
+     * whose middle is, in steps of half a diamond each way, the diamonds whose steps add up even.
+     */
+    private static java.util.HashMap<Long, ArrayList<float[]>> cellDots(boolean diamond, float column, float row, float wide, float tall, int top, int bottom,
+            float[] rgb, boolean[] solid, int across) {
+        java.util.HashMap<Long, ArrayList<float[]>> cells = new java.util.HashMap<>();
+        for (int y = top; y < bottom; y++) {
+            for (int x = 0; x < across; x++) {
+                int at = y * across + x;
+                if (!solid[at]) {
+                    continue;
+                }
+                long i, j;
+                if (diamond) {
+                    float u = (x + 0.5f - column) / (wide / 2f), v = (y + 0.5f - row) / (tall / 2f);
+                    long p = Math.round((u + v) / 2f), q = Math.round((u - v) / 2f);
+                    i = p + q;
+                    j = p - q;
+                } else {
+                    i = (long) Math.floor((x - column) / wide);
+                    j = (long) Math.floor((y - row) / tall);
+                }
+                cells.computeIfAbsent((i + CELL_KEY / 2) * CELL_KEY + j + CELL_KEY / 2, key -> new ArrayList<>()).add(new float[] {rgb[at * 3], rgb[at * 3 + 1], rgb[at * 3 + 2]});
+            }
+        }
+        return cells;
+    }
+
+    /** Makes the band's figures the lattice's cells if it holds (see lattice), and says whether it did. */
+    private static boolean cellsOf(Band band, boolean diamond, float column, float row, float wide, float tall, int top, int bottom, float[] rgb, boolean[] solid,
+            int across, int high) {
+        float least = LATTICE_LEAST * across / DOTS_ALONG;
+        if (wide < least || tall < least || held(diamond, column, row, wide, tall, top, bottom, rgb, solid, across) < LATTICE_HELD) {
+            return false;
+        }
+        ArrayList<Motif> cells = new ArrayList<>();
+        for (java.util.Map.Entry<Long, ArrayList<float[]>> cell : cellDots(diamond, column, row, wide, tall, top, bottom, rgb, solid, across).entrySet()) {
+            long i = cell.getKey() / CELL_KEY - CELL_KEY / 2, j = cell.getKey() % CELL_KEY - CELL_KEY / 2;
+            float[] colour = middleOf(cell.getValue());
+            Motif motif = new Motif();
+            motif.shape = diamond ? Motif.DIAMOND : Motif.SQUARE;
+            float middleAlong = diamond ? column + i * wide / 2f : column + (i + 0.5f) * wide, middleUp = diamond ? row + j * tall / 2f : row + (j + 0.5f) * tall;
+            motif.along = middleAlong / across;
+            motif.level = 1f - middleUp / high;
+            motif.halfAlong = wide / 2f / across;
+            motif.halfUp = tall / 2f / high;
+            motif.red = colour[0];
+            motif.green = colour[1];
+            motif.blue = colour[2];
+            cells.add(motif);
+        }
+        band.motifs = cells.toArray(new Motif[0]);
+        band.figured[0] = false;
+        return true;
+    }
+
+    private static float[] colourAt(float[] rgb, int at, float[] into) {
+        into[0] = rgb[at * 3];
+        into[1] = rgb[at * 3 + 1];
+        into[2] = rgb[at * 3 + 2];
+        return into;
+    }
+
+    /** Whether a band, or a course of it, shows a figure. */
+    private static boolean hasFigure(Band band) {
+        return band.figured[0] || band.tiled && anyOf(band.figured);
     }
 
     private static boolean anyOf(boolean[] flags) {

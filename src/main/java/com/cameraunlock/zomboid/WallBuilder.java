@@ -1221,10 +1221,67 @@ final class WallBuilder {
                 build.frame.material = made;
                 tiledFace(WorldScene.solid.get(texture.getID(), WallSides.laid(band.red, band.green, band.blue, 0f, 0f, 0f, WallSides.FINE)),
                         x, y, z, 0f, 0f, da, db, face.start, face.stop, face.low, face.high, 0f, 1f, 0f, 0f, true);
+                addCells(band, texture, x, y, z, da, db, face);
             }
         }
         build.frame.material = made;
         return true;
+    }
+
+    /**
+     * The cells of a lattice read off an overlay's pattern (see WallTiles.lattice), each a square
+     * or a diamond in its own colour, lying FIGURE_LAYERS off the face towards the place it faces,
+     * cut to the face: where the overlay stops, and where its band does, a cell is drawn as far
+     * as the face reaches.
+     */
+    private void addCells(WallTiles.Band band, Texture texture, int x, int y, int z, float da, float db, WallTiles.Face face) {
+        if (band.motifs.length == 0) {
+            return;
+        }
+        float way = db != 0f ? SpriteGeometry.LAYERS_X : SpriteGeometry.LAYERS_Y, was = WorldScene.layers.count();
+        WorldScene.layers.lie(way, was + Math.signum(build.geometry.shownA + build.geometry.shownB) * FIGURE_LAYERS);
+        build.geometry.sealLow = build.geometry.sealHigh = 0f;
+        for (WallTiles.Motif cell : band.motifs) {
+            SpriteGeometry.Mesh on = WorldScene.solid.get(texture.getID(), WallSides.laid(cell.red, cell.green, cell.blue, 0f, 0f, 0f, WallSides.FINE));
+            float[] outline = cell.shape == WallTiles.Motif.DIAMOND
+                    ? new float[] {cell.along + cell.halfAlong, cell.level, cell.along, cell.level + cell.halfUp, cell.along - cell.halfAlong, cell.level, cell.along,
+                            cell.level - cell.halfUp}
+                    : new float[] {cell.along - cell.halfAlong, cell.level - cell.halfUp, cell.along + cell.halfAlong, cell.level - cell.halfUp, cell.along + cell.halfAlong,
+                            cell.level + cell.halfUp, cell.along - cell.halfAlong, cell.level + cell.halfUp};
+            float[] cut = cutTo(outline, face.start, face.stop, face.low, face.high);
+            for (int corner = 2; corner < cut.length / 2; corner++) {
+                build.geometry.addTriangle(on, build.frame, x, y, z, new float[] {da * cut[0], db * cut[0], cut[1], da * cut[corner * 2 - 2], db * cut[corner * 2 - 2],
+                        cut[corner * 2 - 1], da * cut[corner * 2], db * cut[corner * 2], cut[corner * 2 + 1]});
+            }
+        }
+        WorldScene.layers.lie(way, was);
+    }
+
+    /** The outline (along, level pairs, in order round it) cut to the box from start to stop along and low to high up: none where it misses it. */
+    static float[] cutTo(float[] outline, float start, float stop, float low, float high) {
+        float[] edges = {start, -stop, low, -high};
+        float[] shape = outline;
+        for (int edge = 0; edge < 4 && shape.length > 0; edge++) {
+            int axis = edge / 2;
+            float sign = edge % 2 == 0 ? 1f : -1f, at = edges[edge];
+            float[] kept = new float[shape.length * 2];
+            int count = 0, corners = shape.length / 2;
+            for (int k = 0; k < corners; k++) {
+                int next = (k + 1) % corners;
+                float here = sign * shape[k * 2 + axis] - at, there = sign * shape[next * 2 + axis] - at;
+                if (here >= 0f) {
+                    kept[count++] = shape[k * 2];
+                    kept[count++] = shape[k * 2 + 1];
+                }
+                if (here >= 0f != there >= 0f) {
+                    float t = here / (here - there);
+                    kept[count++] = shape[k * 2] + (shape[next * 2] - shape[k * 2]) * t;
+                    kept[count++] = shape[k * 2 + 1] + (shape[next * 2 + 1] - shape[k * 2 + 1]) * t;
+                }
+            }
+            shape = java.util.Arrays.copyOf(kept, count);
+        }
+        return shape.length < 6 ? new float[0] : shape;
     }
 
     /** The mesh a face of a tiled wall goes in to be the colour (r, g, b), lit as the place is: see WallSides.FINE. */
