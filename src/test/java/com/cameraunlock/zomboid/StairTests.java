@@ -6,6 +6,7 @@ final class StairTests {
     static void run() {
         Checks.run("aFlightIsTwelveStepsThatEndLevelWithTheFloorAbove", StairTests::aFlightIsTwelveStepsThatEndLevelWithTheFloorAbove);
         Checks.run("theUndersideStaysUnderEveryTreadAndMeetsTheFloor", StairTests::theUndersideStaysUnderEveryTreadAndMeetsTheFloor);
+        Checks.run("whatIsLaidOverAFlightIsOnItsTreadsAndNeverUnderOne", StairTests::whatIsLaidOverAFlightIsOnItsTreadsAndNeverUnderOne);
     }
 
     private static void check(boolean condition, String what) {
@@ -42,5 +43,22 @@ final class StairTests {
             }
         }
         check(near(Stairs.underside(3f), 1f - Stairs.STRING), "at the top it is a string's depth under the floor above");
+    }
+
+    private static void whatIsLaidOverAFlightIsOnItsTreadsAndNeverUnderOne() {
+        for (int third = 0; third < 3; third++) {
+            for (int step = 0; step < Stairs.STEPS; step++) {
+                float from = third + step * Stairs.GOING;
+                for (float into : new float[] {0f, 0.5f, 0.999f}) {
+                    float along = from + into * Stairs.GOING, over = Stairs.over(along);
+                    check(near(over, Stairs.tread(third, step)), "over the tread of third " + third + " step " + step + " at " + along + " is that tread, got " + over);
+                }
+            }
+        }
+        check(near(Stairs.over(-0.1f), Stairs.RISE) && near(Stairs.over(3f), 1f), "off either end it is the first or the last tread");
+        for (float along = 0f; along <= 3f; along += 0.01f) {
+            check(Stairs.over(along) >= Math.min(along, 3f) / 3f - 1e-5f && Stairs.over(along) <= 1f + 1e-5f,
+                    "at " + along + " it is no lower than the ramp the game walks a character up, nor above the floor at the top");
+        }
     }
 }

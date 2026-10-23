@@ -33,6 +33,20 @@ final class Stairs {
         return (third * STEPS + step + 1) * RISE;
     }
 
+    /**
+     * The height of the tread at a place along the flight, or of the tread just past it where it
+     * stands on a riser: nothing laid at this height is under a step.
+     */
+    static float over(float along) {
+        int step = Math.clamp((int) Math.floor(along * STEPS), 0, 3 * STEPS - 1);
+        return (step + 1) * RISE;
+    }
+
+    /** The same, and on the floor short of the foot of the flight. */
+    static float on(float along) {
+        return along <= 0f ? 0f : over(along);
+    }
+
     /** The height of the underside of the flight. It meets the floor under the first riser but one. */
     static float underside(float along) {
         return Math.max(0f, along / 3f - STRING);
