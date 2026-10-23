@@ -44,6 +44,13 @@ final class WallBuilder {
     private static final float[] CAP_COLOUR_AT = {0.5f, 0.12f, 0.88f};
     /** Half the width of a joint between two tiles of a wall, in tiles: the world program lays them so (TILE_JOINT). */
     static final float TILE_JOINT_HALF = 0.004f;
+    /**
+     * How many layers off a tiled skin, towards the place it faces, the figures and lines the
+     * picture draws on it lie (see WallTiles.Motif), and a figure's middle as many again.
+     */
+    private static final float FIGURE_LAYERS = 0.5f;
+    /** A round figure is two oblongs crossed, each this share as wide across as the figure is. */
+    private static final float ROUND_CROSS = 0.58f;
     /** How many squares along its line a wall with an opening looks for a whole wall of its sheet to read its tiles from. */
     private static final int TILES_REACH = 4;
     /** The walls with an opening the log has said keep their sprite, by texture name, on the north edge and on the west. */
@@ -1038,7 +1045,8 @@ final class WallBuilder {
      * another: each band of it, paint or a strip of trim in one face, tiles as one face for each
      * run of evenly laid courses with the joints laid on it by the picture (WallSides.TILED,
      * WallTiles.stretches). A course with a figure on it shows the sprite's dots tile by tile,
-     * with its joints between them.
+     * with its joints between them. A band of paint edged with lines is its stripes, and the
+     * figures and lines read off the sprite are drawn over it as shapes of their own.
      */
     private void addTiled(int x, int y, int z, float a, float b, float da, float db,
             float from, float to, float foot, float head, float sealFrom, float sealTo, boolean startIsLow) {
@@ -1052,8 +1060,16 @@ final class WallBuilder {
             }
             if (!band.tiled) {
                 build.frame.material = made;
-                SpriteGeometry.Mesh on = band.figured[0] ? tileStood : painted(band.red, band.green, band.blue);
-                tiledFace(on, x, y, z, a, b, da, db, from, to, low, high, from, to, sealFrom, sealTo, startIsLow);
+                if (band.stripes != null) {
+                    for (WallTiles.Stripe stripe : band.stripes) {
+                        tiledFace(painted(stripe.red, stripe.green, stripe.blue), x, y, z, a, b, da, db, from, to, Math.max(low, stripe.foot), Math.min(high, stripe.head),
+                                from, to, sealFrom, sealTo, startIsLow);
+                    }
+                } else {
+                    SpriteGeometry.Mesh on = band.figured[0] ? tileStood : painted(band.red, band.green, band.blue);
+                    tiledFace(on, x, y, z, a, b, da, db, from, to, low, high, from, to, sealFrom, sealTo, startIsLow);
+                }
+                addFigures(band, x, y, z, a, b, da, db, from, to, low, high);
                 continue;
             }
             SpriteGeometry.Mesh laid = WorldScene.solid.get(WorldScene.PLAIN,
@@ -1096,9 +1112,65 @@ final class WallBuilder {
                     tiledFace(joints, x, y, z, a, b, da, db, from, to, Math.max(low, line - halfUp), Math.min(high, line + halfUp), from, to, sealFrom, sealTo, startIsLow);
                 }
             }
+            addFigures(band, x, y, z, a, b, da, db, from, to, low, high);
         }
         build.frame.flat = 0;
         build.frame.material = made;
+    }
+
+    /**
+     * The figures read off a band's sprite and, on tiles, the lines across them, from start to
+     * end along the wall and low to high, each a shape of its own lying FIGURE_LAYERS off the
+     * skin towards the place it faces: a diamond, a round as a cross of two oblongs, a square.
+     * One the piece cuts through is left off it.
+     */
+    private void addFigures(WallTiles.Band band, int x, int y, int z, float a, float b, float da, float db, float start, float end, float low, float high) {
+        if (band.motifs.length == 0 && !(band.tiled && band.stripes != null)) {
+            return;
+        }
+        float material = build.frame.material, way = db != 0f ? SpriteGeometry.LAYERS_X : SpriteGeometry.LAYERS_Y, was = WorldScene.layers.count();
+        float side = Math.signum(build.geometry.shownA + build.geometry.shownB);
+        build.frame.material = WorldScene.TILE;
+        build.geometry.sealLow = build.geometry.sealHigh = 0f;
+        WorldScene.layers.lie(way, was + side * FIGURE_LAYERS);
+        if (band.tiled && band.stripes != null) {
+            for (WallTiles.Stripe stripe : band.stripes) {
+                float foot = Math.max(low, stripe.foot), head = Math.min(high, stripe.head);
+                if (head > foot) {
+                    build.geometry.addFace(painted(stripe.red, stripe.green, stripe.blue), build.frame, x, y, z, a + da * start, b + db * start, foot,
+                            da * (end - start), db * (end - start), 0f, 0f, 0f, head - foot);
+                }
+            }
+        }
+        for (WallTiles.Motif motif : band.motifs) {
+            if (motif.along - motif.halfAlong < start || motif.along + motif.halfAlong > end || motif.level - motif.halfUp < low || motif.level + motif.halfUp > high) {
+                continue;
+            }
+            WorldScene.layers.lie(way, was + side * FIGURE_LAYERS);
+            addFigure(painted(motif.red, motif.green, motif.blue), motif.shape, x, y, z, a, b, da, db, motif.along, motif.level, motif.halfAlong, motif.halfUp);
+            if (motif.inner > 0f) {
+                WorldScene.layers.lie(way, was + side * 2f * FIGURE_LAYERS);
+                addFigure(painted(motif.innerRed, motif.innerGreen, motif.innerBlue), motif.shape, x, y, z, a, b, da, db, motif.along, motif.level,
+                        motif.halfAlong * motif.inner, motif.halfUp * motif.inner);
+            }
+        }
+        WorldScene.layers.lie(way, was);
+        build.frame.material = material;
+    }
+
+    /** One figure's shape, its middle along the wall and up it, half its width and its height. */
+    private void addFigure(SpriteGeometry.Mesh on, int shape, int x, int y, int z, float a, float b, float da, float db, float along, float level, float halfAlong, float halfUp) {
+        float ca = a + da * along, cb = b + db * along;
+        if (shape == WallTiles.Motif.DIAMOND) {
+            build.geometry.addFace(on, build.frame, x, y, z, ca, cb, level - halfUp, da * halfAlong, db * halfAlong, halfUp, -da * halfAlong, -db * halfAlong, halfUp);
+        } else if (shape == WallTiles.Motif.ROUND) {
+            float in = ROUND_CROSS * halfAlong, inUp = ROUND_CROSS * halfUp;
+            build.geometry.addFace(on, build.frame, x, y, z, ca - da * halfAlong, cb - db * halfAlong, level - inUp, 2f * da * halfAlong, 2f * db * halfAlong, 0f, 0f, 0f, 2f * inUp);
+            build.geometry.addFace(on, build.frame, x, y, z, ca - da * in, cb - db * in, level - halfUp, 2f * da * in, 2f * db * in, 0f, 0f, 0f, 2f * halfUp);
+        } else {
+            build.geometry.addFace(on, build.frame, x, y, z, ca - da * halfAlong, cb - db * halfAlong, level - halfUp, 2f * da * halfAlong, 2f * db * halfAlong, 0f, 0f, 0f,
+                    2f * halfUp);
+        }
     }
 
     /**

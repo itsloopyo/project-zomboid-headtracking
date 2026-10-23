@@ -84,6 +84,22 @@ final class WallTiles {
     private static final int PATTERN_RUN = 3;
     /** How many dots short of the wall's far end the game's sprites stop: a tile painted to within this of it runs on to the end. */
     private static final int SHORT_END = 6;
+    /**
+     * In a band of paint, a row with at least LINE_SHARE of its dots off the band's colour and no
+     * more than LINE_GAP of its colour side by side is a line across it, solid or dithered.
+     */
+    private static final float LINE_SHARE = 0.4f;
+    private static final int LINE_GAP = 2;
+    /** A figure no wider than this share of the wall is one the picture draws itself; a wider one is shown as the sprite's dots. */
+    private static final float FIGURE_WIDEST = 0.4f;
+    /** A figure filling less of its box than DIAMOND_FILL is a diamond, less than ROUND_FILL a round, and more a square. */
+    private static final float DIAMOND_FILL = 0.7f, ROUND_FILL = 0.88f;
+    /**
+     * A figure whose lighter dots are INNER_CONTRAST brighter than its darker ones, at their
+     * middles, and sit about its middle, no further off it than INNER_OFF_MIDDLE of its size, has
+     * a second colour inside it, from INNER_LEAST to INNER_MOST of its size.
+     */
+    private static final float INNER_CONTRAST = 0.15f, INNER_OFF_MIDDLE = 0.2f, INNER_LEAST = 0.25f, INNER_MOST = 0.75f;
     /** How far apart joints have to be, in dots, and the share of those found that have to keep to one step. */
     private static final int LEAST_STEP = 4;
     private static final float KEPT = 0.6f;
@@ -106,6 +122,14 @@ final class WallTiles {
          * course joint, and both courses have it.
          */
         boolean[] figured = new boolean[1];
+        /**
+         * The figures the picture draws on the band itself, at any size, read off the sprite: a
+         * row of diamonds, a dot where four tiles meet. A band whose every figure is one of these
+         * has no course figured, and is laid as one without them.
+         */
+        Motif[] motifs = new Motif[0];
+        /** For a band of paint edged with lines, each run of rows of one colour from the head down; null for a band in one colour. */
+        Stripe[] stripes;
         /** What stretches made of the band, and for what halfUp: a wall is read once, and laid the same at every build of it. */
         private volatile Laid laid;
         /**
@@ -133,6 +157,23 @@ final class WallTiles {
         boolean has(int course, int tile) {
             return course >= 0 && course <= courses.length && tile >= 0 && tile < across() && cells[cell(course, tile)] >= 0f;
         }
+    }
+
+    /** A figure on a band: see Band.motifs. */
+    static final class Motif {
+        static final int DIAMOND = 0, ROUND = 1, SQUARE = 2;
+        int shape;
+        /** Its middle along the wall, as a share of its length, and up it in levels, and half its width and its height in the same. */
+        float along, level, halfAlong, halfUp;
+        float red, green, blue;
+        /** The share of its size drawn in the second colour inside it, 0 for none: a diamond lighter in its middle. */
+        float inner;
+        float innerRed, innerGreen, innerBlue;
+    }
+
+    /** Rows of one colour across a band of paint, from foot to head in levels: see Band.stripes. */
+    static final class Stripe {
+        float foot, head, red, green, blue;
     }
 
     private record Laid(float halfUp, ArrayList<Stretch> stretches) {}
@@ -389,7 +430,8 @@ final class WallTiles {
         StringBuilder text = new StringBuilder(wall.whole ? "whole, " : "with an opening, ");
         for (Band band : wall.bands) {
             text.append(String.format(java.util.Locale.ROOT, "[%.3f to %.3f %.2f %.2f %.2f %s", band.foot, band.head, band.red, band.green, band.blue,
-                    (band.tiled ? band.joints.length + " joints, courses " + Arrays.toString(band.courses) : "plain") + ", figured " + Arrays.toString(band.figured)));
+                    (band.tiled ? band.joints.length + " joints, courses " + Arrays.toString(band.courses) : "plain") + ", figured " + Arrays.toString(band.figured)
+                    + (band.motifs.length > 0 ? ", " + band.motifs.length + " figures" : "") + (band.stripes != null ? ", " + band.stripes.length + " stripes" : "")));
             text.append("] ");
         }
         return text.toString();
@@ -614,6 +656,9 @@ final class WallTiles {
             strip(made, madeRows, madeJoints, madeLines, rows, overlay, rgb, solid, across, bands.get(bands.size() - 1).end, lastRow, high);
             patterns(made, madeRows, madeJoints, madeLines, rgb, solid, across);
         }
+        if (!overlay) {
+            decorated(made, madeRows, madeJoints, madeLines, rgb, solid, across, high);
+        }
         if (!anyTiled && whole) {
             return null;
         }
@@ -631,6 +676,10 @@ final class WallTiles {
         if (overlay) {
             for (int k = 0; k < made.size(); k++) {
                 cells(made.get(k), madeRows.get(k), madeJoints.get(k), madeLines.get(k), solid, across, high, alongScale);
+            }
+        } else {
+            for (int k = 0; k < made.size(); k++) {
+                drawn(made.get(k), madeRows.get(k), madeJoints.get(k), madeLines.get(k), rgb, solid, across, high, inner0, inner1);
             }
         }
         return wall;
@@ -848,6 +897,377 @@ final class WallTiles {
             madeLines.add(k, new ArrayList<>());
             k++;
         }
+    }
+
+    /**
+     * Reads what a band of a wall shows besides its colour and its joints, so the picture can
+     * draw it at any size: the lines across a band of paint (stripes), and each figure on it, a
+     * patch of dots off the band's colour and off its joints' (motifs). rows is where the band
+     * was read, top row and the row after its last, joints its joint columns and lines its course
+     * lines, each a first row and the row after its last, all in dots; the sprite's shading under the
+     * ceiling and over the floor is no part of it. A figure wider than FIGURE_WIDEST leaves the
+     * band as it was read, and its figured courses show the sprite's dots.
+     */
+    private static void drawn(Band band, int[] rows, int[] joints, ArrayList<int[]> lines, float[] rgb, boolean[] solid, int across, int high, int inner0, int inner1) {
+        int top = Math.max(rows[0], Math.round(TOP_SHADE * high)), bottom = Math.min(rows[1], high - Math.round(FOOT_SHADE * high)), tall = bottom - top;
+        if (tall <= 0) {
+            return;
+        }
+        float[] base = {band.red, band.green, band.blue}, joint = {band.jointRed, band.jointGreen, band.jointBlue}, dot = new float[3];
+        // A joint is as wide as a dot of the game's, either side of the column it was found on.
+        boolean[] jointColumn = new boolean[across];
+        int slack = Math.max(1, Math.round(across / DOTS_ALONG));
+        for (int column : joints) {
+            for (int c = Math.max(0, column - slack); c <= Math.min(across - 1, column + slack); c++) {
+                jointColumn[c] = true;
+            }
+        }
+        // A dot off the band's colour; on a joint or a course line one of the joints' colour is the joint, but where it runs
+        // through a figure. Where the band is tiles, figures are only in the courses read as having one.
+        boolean[] off = new boolean[tall * across], joined = new boolean[tall * across], line = new boolean[tall], shows = new boolean[tall];
+        for (int r = 0; r < tall; r++) {
+            float level = 1f - (top + r + 0.5f) / high;
+            int course = 0;
+            while (course < band.courses.length && level > band.courses[course]) {
+                course++;
+            }
+            shows[r] = !band.tiled || band.figured[course];
+            boolean onLine = false;
+            for (int[] each : lines) {
+                onLine |= top + r >= each[0] && top + r < each[1];
+            }
+            for (int column = 0; column < across; column++) {
+                int at = (top + r) * across + column;
+                if (!solid[at]) {
+                    continue;
+                }
+                dot[0] = rgb[at * 3];
+                dot[1] = rgb[at * 3 + 1];
+                dot[2] = rgb[at * 3 + 2];
+                joined[r * across + column] = (onLine || jointColumn[column]) && apart(dot, joint) <= OFF;
+                off[r * across + column] = apart(dot, base) > OFF && !joined[r * across + column];
+            }
+        }
+        boolean[] through = off.clone();
+        for (int r = 0; r < tall; r++) {
+            for (int column = 1; column < across - 1; column++) {
+                int at = r * across + column;
+                through[at] |= joined[at] && (off[at - 1] && off[at + 1] || r > 0 && r < tall - 1 && off[at - across] && off[at + across]);
+            }
+        }
+        off = through;
+        boolean anyLine = false;
+        for (int r = 0; r < tall; r++) {
+            int painted = 0, offs = 0, gap = 0, widest = 0;
+            for (int column = inner0; column < inner1; column++) {
+                if (solid[(top + r) * across + column]) {
+                    painted++;
+                    offs += off[r * across + column] ? 1 : 0;
+                    gap = off[r * across + column] ? 0 : gap + 1;
+                    widest = Math.max(widest, gap);
+                }
+            }
+            line[r] = painted > 0 && offs >= LINE_SHARE * painted && widest <= LINE_GAP;
+            anyLine |= line[r];
+        }
+        boolean figure = anyOf(band.figured);
+        ArrayList<Motif> motifs = new ArrayList<>();
+        boolean[] taken = new boolean[tall * across];
+        int[] queue = new int[tall * across];
+        for (int start = 0; figure && start < tall * across; start++) {
+            if (!off[start] || taken[start] || line[start / across] || !shows[start / across]) {
+                continue;
+            }
+            // The dots of one figure: off dots touching, corners too, out of the lines.
+            int count = 0;
+            queue[count++] = start;
+            taken[start] = true;
+            int c0 = across, c1 = -1, r0 = tall, r1 = -1;
+            for (int next = 0; next < count; next++) {
+                int at = queue[next], r = at / across, column = at % across;
+                c0 = Math.min(c0, column);
+                c1 = Math.max(c1, column);
+                r0 = Math.min(r0, r);
+                r1 = Math.max(r1, r);
+                for (int dr = -1; dr <= 1; dr++) {
+                    for (int dc = -1; dc <= 1; dc++) {
+                        int rr = r + dr, cc = column + dc;
+                        if (rr >= 0 && rr < tall && cc >= 0 && cc < across && !line[rr] && shows[rr]) {
+                            int to = rr * across + cc;
+                            if (off[to] && !taken[to]) {
+                                taken[to] = true;
+                                queue[count++] = to;
+                            }
+                        }
+                    }
+                }
+            }
+            if (c1 - c0 + 1 > FIGURE_WIDEST * across) {
+                return;
+            }
+            // A dot or two alone is the sprite's grain, and is the band's.
+            if (count >= 2) {
+                motifs.add(motif(Arrays.copyOf(queue, count), c0, c1, r0, r1, top, rgb, base, across, high));
+            }
+        }
+        if (figure) {
+            band.motifs = motifs.toArray(new Motif[0]);
+            Arrays.fill(band.figured, false);
+        }
+        if (!anyLine) {
+            return;
+        }
+        // Each row's colour without its figures, and each run of rows of one colour a stripe: a dithered line is the mean of its dots.
+        // On tiles only the lines are stripes, laid over the tiles.
+        ArrayList<Stripe> stripes = new ArrayList<>();
+        float[] colour = new float[3], run = new float[3];
+        int runCount = 0, lastRow = -2;
+        for (int r = 0; r < tall; r++) {
+            if (band.tiled && !line[r]) {
+                continue;
+            }
+            int count = 0;
+            colour[0] = colour[1] = colour[2] = 0f;
+            for (int column = inner0; column < inner1; column++) {
+                int at = (top + r) * across + column;
+                if (solid[at] && (line[r] || !off[r * across + column])) {
+                    colour[0] += rgb[at * 3];
+                    colour[1] += rgb[at * 3 + 1];
+                    colour[2] += rgb[at * 3 + 2];
+                    count++;
+                }
+            }
+            if (count == 0) {
+                System.arraycopy(base, 0, colour, 0, 3);
+            } else {
+                colour[0] /= count;
+                colour[1] /= count;
+                colour[2] /= count;
+            }
+            Stripe last = stripes.isEmpty() ? null : stripes.get(stripes.size() - 1);
+            boolean on = lastRow == r - 1;
+            lastRow = r;
+            if (last != null && on && same(colour, run, 1f)) {
+                last.foot = 1f - (top + r + 1f) / high;
+                runCount++;
+                last.red += (colour[0] - last.red) / runCount;
+                last.green += (colour[1] - last.green) / runCount;
+                last.blue += (colour[2] - last.blue) / runCount;
+                continue;
+            }
+            Stripe stripe = new Stripe();
+            stripe.head = 1f - (float) (top + r) / high;
+            stripe.foot = 1f - (top + r + 1f) / high;
+            stripe.red = colour[0];
+            stripe.green = colour[1];
+            stripe.blue = colour[2];
+            System.arraycopy(colour, 0, run, 0, 3);
+            runCount = 1;
+            stripes.add(stripe);
+        }
+        if (band.tiled) {
+            band.stripes = stripes.toArray(new Stripe[0]);
+        } else if (stripes.size() > 1) {
+            stripes.get(0).head = band.head;
+            stripes.get(stripes.size() - 1).foot = band.foot;
+            band.stripes = stripes.toArray(new Stripe[0]);
+        }
+    }
+
+    /**
+     * The figure of those dots, indexes into the band's rows from its top row, from column c0 to
+     * c1 and row r0 to r1 of them: its shape by how much of its box it fills, row by row from its
+     * first dot to its last, and a lighter or darker middle (the dots inside it of the band's
+     * colour among them) as a second colour inside it.
+     */
+    private static Motif motif(int[] dots, int c0, int c1, int r0, int r1, int top, float[] rgb, float[] base, int across, int high) {
+        int wide = c1 - c0 + 1, tall = r1 - r0 + 1;
+        int[] first = new int[tall], last = new int[tall];
+        Arrays.fill(first, across);
+        Arrays.fill(last, -1);
+        boolean[] in = new boolean[wide * tall];
+        // Each of its dots: red, green, blue, and its row and column in the box.
+        ArrayList<float[]> held = new ArrayList<>();
+        for (int at : dots) {
+            int r = at / across - r0, column = at % across;
+            first[r] = Math.min(first[r], column);
+            last[r] = Math.max(last[r], column);
+            in[r * wide + column - c0] = true;
+            int dot = (top + at / across) * across + column;
+            held.add(new float[] {rgb[dot * 3], rgb[dot * 3 + 1], rgb[dot * 3 + 2], r, column - c0});
+        }
+        // The band's dots it holds, from its first dot to its last along each row, are its middle as much as its lighter dots are.
+        int filled = 0;
+        ArrayList<float[]> holes = new ArrayList<>();
+        for (int r = 0; r < tall; r++) {
+            if (last[r] < 0) {
+                continue;
+            }
+            filled += last[r] - first[r] + 1;
+            for (int column = first[r]; column <= last[r]; column++) {
+                if (!in[r * wide + column - c0]) {
+                    holes.add(new float[] {base[0], base[1], base[2], r, column - c0});
+                }
+            }
+        }
+        Motif motif = new Motif();
+        float fill = (float) filled / (wide * tall);
+        motif.shape = fill < DIAMOND_FILL ? Motif.DIAMOND : fill < ROUND_FILL ? Motif.ROUND : Motif.SQUARE;
+        motif.along = (c0 + c1 + 1f) / 2f / across;
+        motif.halfAlong = wide / 2f / across;
+        motif.level = 1f - (top + (r0 + r1 + 1f) / 2f) / high;
+        motif.halfUp = tall / 2f / high;
+        held.sort((x, y) -> Float.compare(bright(x), bright(y)));
+        float[] outer = middleOf(held);
+        if (held.size() >= 6) {
+            int half = (held.size() + 1) / 2;
+            float[] darker = middleOf(held.subList(0, half));
+            ArrayList<float[]> light = new ArrayList<>(held.subList(half, held.size()));
+            light.addAll(holes);
+            float[] lighter = middleOf(light);
+            float rowAt = 0f, columnAt = 0f;
+            for (float[] each : light) {
+                rowAt += each[3] / light.size();
+                columnAt += each[4] / light.size();
+            }
+            // Only a middle: lighter dots to one side are its shading, not a second colour.
+            if (bright(lighter) - bright(darker) > INNER_CONTRAST && Math.abs(rowAt - (tall - 1) / 2f) <= INNER_OFF_MIDDLE * tall
+                    && Math.abs(columnAt - (wide - 1) / 2f) <= INNER_OFF_MIDDLE * wide) {
+                outer = darker;
+                motif.inner = Math.clamp((float) Math.sqrt((double) light.size() / filled), INNER_LEAST, INNER_MOST);
+                motif.innerRed = lighter[0];
+                motif.innerGreen = lighter[1];
+                motif.innerBlue = lighter[2];
+            }
+        }
+        motif.red = outer[0];
+        motif.green = outer[1];
+        motif.blue = outer[2];
+        return motif;
+    }
+
+    /** Each of red, green and blue the middle one of those colours'. */
+    private static float[] middleOf(List<float[]> colours) {
+        float[] middle = new float[3], values = new float[colours.size()];
+        for (int k = 0; k < 3; k++) {
+            for (int i = 0; i < values.length; i++) {
+                values[i] = colours.get(i)[k];
+            }
+            Arrays.sort(values);
+            middle[k] = values[values.length / 2];
+        }
+        return middle;
+    }
+
+    /**
+     * Each run of courses of a wall's band of tiles that have a figure and no joints across them,
+     * a decorated row the reader took for courses of tiles because its paint is the tiles'
+     * colour, made a band of paint of its own between what is left of the tiles below and above
+     * it, with the course lines at its edges in it. made and the lists beside it are top down, as
+     * read lays them out.
+     */
+    private static void decorated(ArrayList<Band> made, ArrayList<int[]> madeRows, ArrayList<int[]> madeJoints, ArrayList<ArrayList<int[]>> madeLines,
+            float[] rgb, boolean[] solid, int across, int high) {
+        for (int k = 0; k < made.size(); k++) {
+            Band band = made.get(k);
+            if (!band.tiled || !anyOf(band.figured)) {
+                continue;
+            }
+            int courses = band.courses.length;
+            int[] rows = madeRows.get(k), joints = madeJoints.get(k);
+            ArrayList<int[]> lines = madeLines.get(k);
+            int ca = -1, cb = -1;
+            for (int course = 0; course <= courses && cb < 0; course++) {
+                // A course's rows inside its lines, from the foot up: its line under it is lines' (courses - course)th from the top.
+                int top = course == courses ? rows[0] : lines.get(courses - 1 - course)[1], bottom = course == 0 ? rows[1] : lines.get(courses - course)[0];
+                boolean bare = band.figured[course] && !jointed(band, rgb, solid, across, joints, top, bottom);
+                if (bare && ca < 0) {
+                    ca = course;
+                }
+                if (ca >= 0 && (!bare || course == courses)) {
+                    cb = bare ? course : course - 1;
+                }
+            }
+            if (ca < 0) {
+                continue;
+            }
+            int topRow = cb == courses ? rows[0] : lines.get(courses - 1 - cb)[0], bottomRow = ca == 0 ? rows[1] : lines.get(courses - ca)[1];
+            ArrayList<Band> bands = new ArrayList<>();
+            ArrayList<int[]> bandRows = new ArrayList<>(), bandJoints = new ArrayList<>();
+            ArrayList<ArrayList<int[]>> bandLines = new ArrayList<>();
+            if (cb < courses) {
+                bands.add(part(band, cb + 1, courses, 1f - (float) topRow / high, band.head));
+                bandRows.add(new int[] {rows[0], topRow});
+                bandJoints.add(joints);
+                bandLines.add(new ArrayList<>(lines.subList(0, courses - 1 - cb)));
+            }
+            Band row = new Band();
+            row.head = 1f - (float) topRow / high;
+            row.foot = 1f - (float) bottomRow / high;
+            row.red = band.red;
+            row.green = band.green;
+            row.blue = band.blue;
+            row.figured[0] = true;
+            bands.add(row);
+            bandRows.add(new int[] {topRow, bottomRow});
+            bandJoints.add(new int[0]);
+            bandLines.add(new ArrayList<>());
+            if (ca > 0) {
+                bands.add(part(band, 0, ca - 1, band.foot, 1f - (float) bottomRow / high));
+                bandRows.add(new int[] {bottomRow, rows[1]});
+                bandJoints.add(joints);
+                bandLines.add(new ArrayList<>(lines.subList(courses - ca + 1, courses)));
+            }
+            made.remove(k);
+            madeRows.remove(k);
+            madeJoints.remove(k);
+            madeLines.remove(k);
+            made.addAll(k, bands);
+            madeRows.addAll(k, bandRows);
+            madeJoints.addAll(k, bandJoints);
+            madeLines.addAll(k, bandLines);
+            k += bands.size() - 1;
+        }
+    }
+
+    /** The courses from first to last of a band of tiles, from foot to head, as a band of their own. */
+    private static Band part(Band band, int first, int last, float foot, float head) {
+        Band part = new Band();
+        part.foot = foot;
+        part.head = head;
+        part.red = band.red;
+        part.green = band.green;
+        part.blue = band.blue;
+        part.tiled = true;
+        part.jointRed = band.jointRed;
+        part.jointGreen = band.jointGreen;
+        part.jointBlue = band.jointBlue;
+        part.joints = band.joints;
+        part.step = band.step;
+        part.phase = band.phase;
+        part.courses = Arrays.copyOfRange(band.courses, first, last);
+        part.figured = Arrays.copyOfRange(band.figured, first, last + 1);
+        return part;
+    }
+
+    /** Whether the joints of a band of tiles run down its rows from top to before bottom: at most of them, a dot nearer the joints' colour than the band's. */
+    private static boolean jointed(Band band, float[] rgb, boolean[] solid, int across, int[] joints, int top, int bottom) {
+        float[] base = {band.red, band.green, band.blue}, joint = {band.jointRed, band.jointGreen, band.jointBlue}, dot = new float[3];
+        int seen = 0, held = 0;
+        for (int row = top; row < bottom; row++) {
+            for (int column : joints) {
+                int at = row * across + column;
+                if (!solid[at]) {
+                    continue;
+                }
+                dot[0] = rgb[at * 3];
+                dot[1] = rgb[at * 3 + 1];
+                dot[2] = rgb[at * 3 + 2];
+                seen++;
+                held += apart(dot, joint) < apart(dot, base) ? 1 : 0;
+            }
+        }
+        return seen > 0 && held * 2 >= seen;
     }
 
     private static boolean anyOf(boolean[] flags) {

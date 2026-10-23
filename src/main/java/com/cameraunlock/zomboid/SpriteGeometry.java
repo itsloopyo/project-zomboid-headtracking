@@ -83,6 +83,11 @@ final class SpriteGeometry {
         boolean lying() {
             return way != 0f || count != 0f;
         }
+
+        /** How many layers off its plane everything added next lies. */
+        float count() {
+            return count;
+        }
     }
     /** Added to a vertex's openness to mark it as part of an upright card, which is lit from every side. */
     static final float CARD = 2f;

@@ -27,8 +27,9 @@ final class WallTileTests {
             Checks.run("paintOverABandOfTilesIsThreeBands" + at, WallTileTests::paintOverABandOfTilesIsThreeBands);
             Checks.run("plainPaintIsNoTiles" + at, WallTileTests::plainPaintIsNoTiles);
             Checks.run("stripedPaperIsNoTiles" + at, WallTileTests::stripedPaperIsNoTiles);
-            Checks.run("courseWithAFigureKeepsItsFigure" + at, WallTileTests::courseWithAFigureKeepsItsFigure);
-            Checks.run("figureWhereTilesMeetIsOnBothCourses" + at, WallTileTests::figureWhereTilesMeetIsOnBothCourses);
+            Checks.run("aRowOfDiamondsIsDrawnAsDiamonds" + at, WallTileTests::aRowOfDiamondsIsDrawnAsDiamonds);
+            Checks.run("aDiamondWhereTilesMeetIsOneFigureAcrossTheJoint" + at, WallTileTests::aDiamondWhereTilesMeetIsOneFigureAcrossTheJoint);
+            Checks.run("aDecoratedRowAcrossTilesIsABandOfItsOwn" + at, WallTileTests::aDecoratedRowAcrossTilesIsABandOfItsOwn);
             Checks.run("shadingAndASpeckAreNoFigure" + at, WallTileTests::shadingAndASpeckAreNoFigure);
             Checks.run("darkTilesKeepTheirCourses" + at, WallTileTests::darkTilesKeepTheirCourses);
             Checks.run("wallWithAWindowIsNotWhole" + at, WallTileTests::wallWithAWindowIsNotWhole);
@@ -60,6 +61,7 @@ final class WallTileTests {
         Checks.run("theFarSideTakesNoTilesFromAWallWithAnOpening", WallTileTests::theFarSideTakesNoTilesFromAWallWithAnOpening);
         Checks.run("aPosterOnATiledWallIsThePoster", WallTileTests::aPosterOnATiledWallIsThePoster);
         Checks.run("whatIsLaidOverAWallIsNotOnTheRoomBeyond", WallTileTests::whatIsLaidOverAWallIsNotOnTheRoomBeyond);
+        Checks.run("theFiguresReadOffAWallAreBuiltAsShapes", WallTileTests::theFiguresReadOffAWallAreBuiltAsShapes);
     }
 
     /**
@@ -139,42 +141,70 @@ final class WallTileTests {
         check(read((column, row) -> column / 8 % 2 == 0 ? CREAM : PEACH) == null, "nor one papered in stripes, whose edges are darker than one side only");
     }
 
-    private static void courseWithAFigureKeepsItsFigure() {
+    private static void aRowOfDiamondsIsDrawnAsDiamonds() {
         WallTiles.Wall wall = read((column, row) -> {
             boolean diamond = row >= 130 && row < 148 && Math.abs(Math.floorMod(column - 11, 16) - 8) + Math.abs(row - 139) < 4;
             return diamond ? new float[] {0.2f, 0.5f, 0.6f} : tiles(CREAM, column, row, 11, 16, 6, 38);
         });
         check(wall != null && wall.bands.length == 1 && wall.bands[0].tiled, "a wall of tiles with a row of diamonds on them is tiles");
         WallTiles.Band band = wall.bands[0];
-        int figures = 0, at = -1;
-        for (int c = 0; c < band.figured.length; c++) {
-            figures += band.figured[c] ? 1 : 0;
-            at = band.figured[c] ? c : at;
+        check(band.motifs.length == 4, "with the four diamonds on it read as figures the picture draws: " + band.motifs.length);
+        for (WallTiles.Motif motif : band.motifs) {
+            int nearest = Math.round(motif.along * ACROSS - 0.5f);
+            check(motif.shape == WallTiles.Motif.DIAMOND && Math.floorMod(nearest - 11, 16) == 8 && Math.abs(motif.along - (nearest + 0.5f) / ACROSS) < 0.5f / ACROSS,
+                    "each a diamond, on the middle of its tile: " + motif.shape + " " + motif.along * ACROSS);
+            check(Math.abs(motif.level - (1f - 139.5f / HIGH)) < 1f / HIGH && Math.abs(motif.halfUp * 2f * HIGH - 7f) < 1.01f && Math.abs(motif.halfAlong * 2f * ACROSS - 7f) < 1.01f,
+                    "as high and as wide as the sprite paints it, where it paints it: " + motif.level + " " + motif.halfUp + " " + motif.halfAlong);
+            check(Math.abs(motif.red - 0.2f) < 0.02f && Math.abs(motif.green - 0.5f) < 0.02f && Math.abs(motif.blue - 0.6f) < 0.02f, "in its own colour");
         }
-        check(figures == 1, "and one course of it shows its figure: " + figures);
-        if (at < 0) {
-            return;
+        boolean none = true;
+        for (boolean figured : band.figured) {
+            none &= !figured;
         }
-        // Row 139 is in the course from row 122 to 158, counted from the foot.
-        float middle = 1f - 139f / HIGH;
-        float low = at == 0 ? 0f : band.courses[at - 1], high = at == band.courses.length ? 1f : band.courses[at];
-        check(low < middle && middle < high, "the one the diamonds are on");
+        check(none, "and no course of it is left showing the sprite's dots");
     }
 
-    private static void figureWhereTilesMeetIsOnBothCourses() {
-        // A diamond where four tiles meet at every other joint of every course line, as the game paints them: half of each on the
-        // course under its line and half on the course over it.
+    private static void aDiamondWhereTilesMeetIsOneFigureAcrossTheJoint() {
+        // A diamond where four tiles meet at every other joint of every course line clear of the shading over the floor, as the game
+        // paints them: half of it on the course under its line and half on the course over it.
         WallTiles.Wall wall = read((column, row) -> {
             int across = Math.floorMod(column - 11, 32), up = Math.floorMod(row - 28, 22);
-            boolean diamond = Math.min(across, 32 - across) + Math.min(up, 22 - up) < 5;
+            boolean diamond = row < 170 && Math.min(across, 32 - across) + Math.min(up, 22 - up) < 5;
             return diamond ? new float[] {0.2f, 0.5f, 0.6f} : tiles(CREAM, column, row, 11, 16, 27, 22);
         });
         check(wall != null && wall.bands[0].tiled, "a wall of tiles with a diamond where tiles meet is tiles");
-        boolean all = true;
-        for (boolean figured : wall.bands[0].figured) {
-            all &= figured;
+        WallTiles.Band band = wall.bands[0];
+        check(band.motifs.length >= 12, "with a figure at every other joint of every course line: " + band.motifs.length);
+        for (WallTiles.Motif motif : band.motifs) {
+            boolean onALine = false;
+            for (float course : band.courses) {
+                onALine |= Math.abs(motif.level - course) < 1.5f / HIGH;
+            }
+            check(onALine && Math.abs(motif.halfUp * 2f * HIGH - 9f) < 1.01f, "each one figure across its course line, not cut in half by it: "
+                    + motif.level + " " + motif.halfUp * 2f * HIGH);
         }
-        check(all, "and every course of it shows the sprite's dots, so a figure across a joint is not cut in half");
+    }
+
+    private static void aDecoratedRowAcrossTilesIsABandOfItsOwn() {
+        // A row of diamonds between two dotted lines, painted in the tiles' colour with no joints through it, as a bathroom's border is.
+        float[] figure = {0.2f, 0.5f, 0.6f};
+        WallTiles.Wall wall = read((column, row) -> {
+            if (row >= 126 && row < 152) {
+                boolean line = (row == 128 || row == 149) && column % 2 == 0;
+                boolean diamond = Math.abs(Math.floorMod(column - 3, 16) - 8) + Math.abs(row - 139) < 5;
+                return line || diamond ? figure : CREAM;
+            }
+            return tiles(CREAM, column, row, 11, 16, 6, 30);
+        });
+        check(wall != null && wall.bands.length == 3, "tiles, the row and tiles: " + (wall == null ? "none" : WallTiles.said(wall)));
+        if (wall == null || wall.bands.length != 3) {
+            return;
+        }
+        WallTiles.Band row = wall.bands[1];
+        check(wall.bands[0].tiled && wall.bands[2].tiled && !row.tiled, "the row is no tiles, with no joints drawn through it");
+        check(Math.abs(row.head - (1f - 128f / HIGH)) < 1.5f / HIGH && Math.abs(row.foot - (1f - 150f / HIGH)) < 1.5f / HIGH,
+                "and runs from its line at the top to its line at the foot: " + row.foot + " " + row.head);
+        check(row.motifs.length >= 3 && row.stripes != null, "with its diamonds and its lines drawn: " + row.motifs.length);
     }
 
     private static void shadingAndASpeckAreNoFigure() {
@@ -687,6 +717,71 @@ final class WallTileTests {
             }
             check(near > 0, "what is laid over a wall is on its face inside the square");
             check(far == 0, "and not on its face in the room beyond");
+        });
+    }
+
+    /** How many triangles the frame's build has added in that colour, painted as the picture paints a tile, in room 1. */
+    private static int paintedIn(float[] colour) {
+        int tint = WallSides.laid(colour[0], colour[1], colour[2], 0f, 0f, 0f, WallSides.FINE), triangles = 0;
+        for (SpriteGeometry.Mesh mesh : TestMap.<java.util.List<SpriteGeometry.Mesh>>read(WorldScene.solid, "all")) {
+            triangles += mesh.tint == tint && mesh.room == 1L ? mesh.triangles() : 0;
+        }
+        return triangles;
+    }
+
+    private static void theFiguresReadOffAWallAreBuiltAsShapes() throws Throwable {
+        withTextures(() -> {
+            TestMap map = bathroom(2);
+            Texture texture = new Texture(330, 128, 256);
+            texture.paint(0, 0, 128, 256);
+            map.cell.square(2, 0, 0).add(map.spriteWith(SHEET + 13, IsoObjectType.wall, texture, "WallN", ""));
+            WallTiles.Wall wall = new WallTiles.Wall();
+            wall.whole = true;
+            WallTiles.Band tiles = band(0f, 1f, 0.5f);
+            tiles.red = CREAM[0];
+            tiles.green = CREAM[1];
+            tiles.blue = CREAM[2];
+            tiles.step = 0.25f;
+            tiles.phase = 0.25f;
+            tiles.joints = new float[] {0.25f, 0.5f, 0.75f};
+            WallTiles.Motif diamond = new WallTiles.Motif();
+            diamond.shape = WallTiles.Motif.DIAMOND;
+            diamond.along = 0.5f;
+            diamond.level = 0.5f;
+            diamond.halfAlong = 0.05f;
+            diamond.halfUp = 0.02f;
+            diamond.red = NAVY[0];
+            diamond.green = NAVY[1];
+            diamond.blue = NAVY[2];
+            diamond.inner = 0.5f;
+            diamond.innerRed = BLUE[0];
+            diamond.innerGreen = BLUE[1];
+            diamond.innerBlue = BLUE[2];
+            WallTiles.Stripe line = new WallTiles.Stripe();
+            line.foot = 0.7f;
+            line.head = 0.71f;
+            line.red = PEACH[0];
+            line.green = PEACH[1];
+            line.blue = PEACH[2];
+            tiles.motifs = new WallTiles.Motif[] {diamond};
+            tiles.stripes = new WallTiles.Stripe[] {line};
+            wall.bands = new WallTiles.Band[] {tiles};
+            WallTiles.knownForTests(texture, true, false, wall);
+            WorldScene.frameOf(map.build.frame, map.cell.getGridSquare(2, 0, 0).getObjects().get(0), texture);
+            map.build.here = map.cell.getGridSquare(2, 0, 0);
+            // The sprite drawn as the game draws a wall's, standing on the square's north edge.
+            SpriteGeometry.Frame frame = map.build.frame;
+            frame.scale = 2f;
+            frame.originU = 64f;
+            frame.originV = 192f;
+            frame.left = frame.top = frame.uStart = frame.vStart = 0f;
+            frame.width = 128f;
+            frame.height = 256f;
+            frame.uEnd = frame.vEnd = 1f;
+            map.build.wallBuilder.addEdge(WorldScene.solid.get(texture.getID()), texture, true, false, 2, 0, 0, 0f, 1f, 0f);
+            check(paintedIn(NAVY) == 2, "a diamond read off a wall of tiles is built as one face of its own colour: " + paintedIn(NAVY));
+            check(paintedIn(BLUE) == 2, "with its middle in its second colour: " + paintedIn(BLUE));
+            check(paintedIn(PEACH) > 0, "and a line read across the tiles is built over them in its colour");
         });
     }
 }
