@@ -48,6 +48,19 @@ final class FurnitureTests {
         Checks.run("aShopCounterOpenOverShelvesOpensWhereItsSpritePaintsTheShelves", FurnitureTests::aShopCounterOpenOverShelvesOpensWhereItsSpritePaintsTheShelves);
         Checks.run("aShelvingRunStandsWithItsMiddleSquaresLaidInAnyOrder", FurnitureTests::aShelvingRunStandsWithItsMiddleSquaresLaidInAnyOrder);
         Checks.run("aBanksStandingDepositBoxesFaceTheWayTheirSpritesDoAndMeetInARun", FurnitureTests::aBanksStandingDepositBoxesFaceTheWayTheirSpritesDoAndMeetInARun);
+        Checks.run("aSmallTableAtTheHeightTheGameGivesItIsTheSideTable", FurnitureTests::aSmallTableAtTheHeightTheGameGivesItIsTheSideTable);
+    }
+
+    private static void aSmallTableAtTheHeightTheGameGivesItIsTheSideTable() {
+        String row = "|BlocksPlacement||CanScrap||ContainerCapacity|10|CustomName|Table|Facing|E|GenericCraftingSurface|true|GroupName|Small|IsLow||"
+                + "IsMoveAble||IsTable||Material|Wood|Material2|Screws|PickUpWeight|50|container|sidetable|solidtrans||Surface|";
+        // The tile file says 15; the running game says 23, where the sprite paints the top.
+        for (int surface : new int[] {15, 23}) {
+            Furniture table = Furniture.known(sprite("furniture_storage_01_53" + row + surface + "|"));
+            check(model(table).equals("side_table"), "the small table with a drawer at " + surface + " px is the side table: " + model(table));
+        }
+        Furniture drawers = Furniture.known(sprite("furniture_storage_01_49" + row.replace("|Table|", "|Low Table|") + "34|"));
+        check(!model(drawers).equals("side_table") && !model(drawers).equals("media_stand"), "a chest as high as drawers is not a small table: " + model(drawers));
     }
 
     private static IsoSprite sprite(String row) {

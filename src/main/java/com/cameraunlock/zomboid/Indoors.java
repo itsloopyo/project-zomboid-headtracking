@@ -29,6 +29,11 @@ final class Indoors {
     private static final float POOL_CLOTH = 0.8f, POOL_DYE = 0.33f;
     /** How high the middle of a light switch is, in metres. */
     private static final float SWITCH_MIDDLE = 1.2f;
+    /**
+     * The highest top, in the game's pixels, of a small table that holds a drawer. The tile file gives "Table / Small"
+     * 15, the running game gives 23, and its sprite paints the top at 23.
+     */
+    static final int SIDE_TABLE_HIGHEST = 24;
     private static final String VENTS = "rooftop_furniture_", FLOOR_LAMPS = "lighting_indoor_01_", BEDDING = "furniture_bedding";
 
     /** A piece told with no need of the way it faces, or one that hangs on the wall behind it. Null for anything else. */
@@ -161,7 +166,7 @@ final class Indoors {
         if (called.equals("Drawers") && holds.equals("dresser") && group.contains("Mirror") && single && surface > 0) {
             return new Furniture(sprite, "dresser_mirror", turns).dye(1 << Models.WOOD, surfaceHigh).stand(surfaceUp, CHEST_TOP, true).mirror();
         }
-        if (holds.equals("sidetable") && single && properties.isTable() && surface > 0 && surface <= 22 && (called.equals("Table") || called.equals("Low Table"))) {
+        if (holds.equals("sidetable") && single && properties.isTable() && surface > 0 && surface <= SIDE_TABLE_HIGHEST && (called.equals("Table") || called.equals("Low Table"))) {
             Furniture table = new Furniture(sprite, called.equals("Table") ? "side_table" : "media_stand", turns).dye(1 << Models.WOOD, surfaceHigh);
             return table.stand(surfaceUp, table.model.height(), false);
         }
