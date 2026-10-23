@@ -155,6 +155,7 @@ public final class Tests {
         Checks.run("DisplayCaseTests", DisplayCaseTests::run);
         Checks.run("ClinicTests", ClinicTests::run);
         Checks.run("LidsTests", LidsTests::run);
+        Checks.run("TallHallsTests", TallHallsTests::run);
         Checks.run("ShopFittingTests", ShopFittingTests::run);
         Checks.run("BuildingTests", BuildingTests::run);
         Checks.run("TrimTests", TrimTests::run);

@@ -6393,6 +6393,13 @@ final class WorldScene {
                 contentsOf(room);
                 ceilingBuilder.addRoomCeiling(x, y, z, localX, localY, openAbove);
                 contentsOf(RoomSight.OUTSIDE);
+            } else if (hangsInAir) {
+                IsoGridSquare hall = TallHalls.under(cell, x, y, z);
+                if (hall != null) {
+                    contentsOf(hall.getRoomID());
+                    ceilingBuilder.addRoomCeiling(x, y, z, localX, localY, openAbove);
+                    contentsOf(RoomSight.OUTSIDE);
+                }
             }
             if (z == 0) {
                 if (geometry.kerb != null && beyondKerb >= 0) {
