@@ -327,11 +327,11 @@ final class Leisure {
      */
     private static Outdoors.Piece chandelier(int place) {
         return switch (place) {
-            case 0 -> new Outdoors.Piece("chandelier_bowl", Outdoors.EAST).at(CHANDELIER_A, CHANDELIER_B).pairedWith(CHANDELIERS + 1, 1, -1)
+            case 0 -> new Outdoors.Piece("chandelier_bowl", Outdoors.EAST).each().at(CHANDELIER_A, CHANDELIER_B).pairedWith(CHANDELIERS + 1, 1, -1)
                     .dye(METAL, CHANDELIER_A, BOWL_GOLD_B, (BOWL_GOLD_UP - CHANDELIER_BOWL_FOOT) / LEVEL).raise(CHANDELIER_BOWL_FOOT / LEVEL);
-            case 2 -> new Outdoors.Piece("chandelier_tiers", Outdoors.EAST).at(CHANDELIER_A, CHANDELIER_B).pairedWith(CHANDELIERS + 3, 1, -1)
+            case 2 -> new Outdoors.Piece("chandelier_tiers", Outdoors.EAST).each().at(CHANDELIER_A, CHANDELIER_B).pairedWith(CHANDELIERS + 3, 1, -1)
                     .dye(METAL, CHANDELIER_A, TIERS_GOLD_B, (TIERS_GOLD_UP - CHANDELIER_TIERS_FOOT) / LEVEL).raise(CHANDELIER_TIERS_FOOT / LEVEL);
-            case 1, 3 -> following(new Outdoors.Piece(null, Outdoors.EAST).pairedWith(CHANDELIERS + (place - 1), -1, 1));
+            case 1, 3 -> following(new Outdoors.Piece(null, Outdoors.EAST).each().pairedWith(CHANDELIERS + (place - 1), -1, 1));
             default -> null;
         };
     }

@@ -460,6 +460,8 @@ final class LeisureTests {
         Outdoors.Piece tiers = Outdoors.of(sheet + 2, "Chandelier", "Grey", Outdoors.EAST, 2, 2, 0);
         for (int place = 0; place < 4; place++) {
             Checks.check(Leisure.chandelierPiece(sheet + place), sheet + place + " is a square of a chandelier, each a piece by itself though its grid spans two storeys");
+            Outdoors.Piece square = Outdoors.of(sheet + place, "Chandelier", "Grey", Outdoors.EAST, 2, 2, 0);
+            Checks.check(square != null && square.each, sheet + place + " stands by its own square, not by the grid's first");
         }
         holds(bowl, "the left half of a chandelier's bowl has a model");
         holds(tiers, "the left half of its tiers has a model");
