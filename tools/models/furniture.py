@@ -233,6 +233,8 @@ class Model:
         self.vertices = []
         self.most = MOST_TRIANGLES
         self.veined = False
+        # A piece too long for one square, made whole and drawn as its shares, each (name, x0, x1) placed by its own square.
+        self.shares = None
 
     def hard(self, bm, surface, bevel=0.004, segments=2, inward=False):
         """A part of wood or metal: every edge rounded off, its flat faces kept flat."""
@@ -479,6 +481,43 @@ class Model:
             tree = BVHTree.FromPolygons(points, [(i, i + 1, i + 2) for i in range(0, len(points), 3)])
             return max(tree.find_nearest(position)[3] for position, _, _ in one.vertices)
         return max(furthest(self, other), furthest(other, self))
+
+    def cut(self):
+        """The finished model's shares, the part of it between x0 and x1 for each, moved to stand over its own middle. A triangle
+        across a cut is cut in two there, the light along the cut taken between its corners, so two shares meet with one light."""
+        if self.shares is None:
+            return [self]
+        pieces = []
+        for name, x0, x1 in self.shares:
+            piece = Model(name, centred=False)
+            piece.vertices, piece.light, piece.seen = [], [], []
+            shift = Vector(((x0 + x1) / 2, 0.0, 0.0))
+            for i in range(0, len(self.vertices), 3):
+                polygon = [(position, normal, surface, light, seen) for (position, normal, surface), light, seen
+                           in zip(self.vertices[i:i + 3], self.light[i:i + 3], self.seen[i:i + 3])]
+                for edge, keep in ((x0, lambda x: x >= x0), (x1, lambda x: x <= x1)):
+                    kept = []
+                    for k, one in enumerate(polygon):
+                        other = polygon[(k + 1) % len(polygon)]
+                        if keep(one[0].x):
+                            kept.append(one)
+                        if keep(one[0].x) != keep(other[0].x):
+                            t = (edge - one[0].x) / (other[0].x - one[0].x)
+                            kept.append((one[0].lerp(other[0], t), one[1].lerp(other[1], t).normalized(), one[2],
+                                         one[3] + (other[3] - one[3]) * t, one[4] and other[4]))
+                    polygon = kept
+                for k in range(1, len(polygon) - 1):
+                    corners = (polygon[0], polygon[k], polygon[k + 1])
+                    if (corners[1][0] - corners[0][0]).cross(corners[2][0] - corners[0][0]).length < 1e-10:
+                        continue
+                    for position, normal, surface, light, seen in corners:
+                        piece.vertices.append((position - shift, normal, surface))
+                        piece.light.append(light)
+                        piece.seen.append(seen)
+            piece.low = Vector([min(v[0][axis] for v in piece.vertices) for axis in range(3)])
+            piece.high = Vector([max(v[0][axis] for v in piece.vertices) for axis in range(3)])
+            pieces.append(piece)
+        return pieces
 
     def header(self, apart):
         name = self.name.encode("ascii")
@@ -12523,83 +12562,57 @@ PULPIT_TOP = (0.96, 0.4225, 0.955, 0.09)
 PULPIT_PILASTER = 0.075
 
 
-def pulpit_piece(name, square):
-    """The share of the desk on one square of its row, square 0 its west end, 1 one between and 2 its east end: what of the
-    whole desk stands on that square, with no face where it is cut at the square's edges, so the shares meet as one."""
-    model = Model(name, centred=False)
-    lo, hi = square - PULPIT_MIDDLE, square + 1 - PULPIT_MIDDLE
-    shift = -(square + 0.5 - PULPIT_MIDDLE)
+def pulpit():
+    """The long desk, made and lit as one piece and then cut at the edges of the three squares of its row: a share made and lit
+    alone had no neighbour to shade it or close its open end, and the light of its faces stepped where it met the next."""
+    model = Model("pulpit", centred=False)
     plinth_x, plinth_y, plinth_z = PULPIT_PLINTH
     body_x, body_y = PULPIT_BODY
     top_x, top_y, top_z, top_t = PULPIT_TOP
     under = top_z - top_t
 
-    def box(bm, x0, x1, y0, y1, z0, z1):
-        x0, x1 = max(x0, lo), min(x1, hi)
-        if x0 < x1:
-            cuboid(bm, x0 + shift, x1 + shift, y0, y1, z0, z1)
-
     def taper(bm, x0, x1, y0, y1, z0, inset, z1):
         """A box narrowing by inset on every side from z0 up to z1: the cap of a plinth or the cove under a top."""
-        a0, a1 = max(x0, lo), min(x1, hi)
-        if a0 >= a1:
-            return
-        b0 = a0 if a0 == lo else a0 + inset
-        b1 = a1 if a1 == hi else a1 - inset
-        prism(bm, ((a0 + a1) / 2 + shift, (y0 + y1) / 2, a1 - a0, y1 - y0, z0),
-              ((b0 + b1) / 2 + shift, (y0 + y1) / 2, b1 - b0, y1 - y0 - 2 * inset, z1))
-
-    def open_cuts(bm):
-        cuts = [x + shift for x in (lo, hi) if -top_x < x < top_x]
-        faces = [f for f in bm.faces if any(all(abs(v.co.x - c) < 1e-6 for v in f.verts) for c in cuts)]
-        bmesh.ops.delete(bm, geom=faces, context="FACES_ONLY")
-        return bm
+        prism(bm, ((x0 + x1) / 2, (y0 + y1) / 2, x1 - x0, y1 - y0, z0), ((x0 + x1) / 2, (y0 + y1) / 2, x1 - x0 - 2 * inset, y1 - y0 - 2 * inset, z1))
 
     plinth = bmesh.new()
-    box(plinth, -plinth_x, plinth_x, -plinth_y, plinth_y, 0.0, plinth_z - 0.03)
+    cuboid(plinth, -plinth_x, plinth_x, -plinth_y, plinth_y, 0.0, plinth_z - 0.03)
     taper(plinth, -plinth_x, plinth_x, -plinth_y, plinth_y, plinth_z - 0.03, 0.03, plinth_z)
-    model.hard(open_cuts(plinth), "dark_wood", bevel=0.006, segments=1)
+    model.hard(plinth, "dark_wood", bevel=0.006, segments=1)
     # The body: a core with a long sunk field front and back, framed by a rail at its foot and its head and a pilaster at each end,
     # with a moulding round its foot over the plinth.
     sunk = 0.012
     body = bmesh.new()
-    box(body, -body_x, body_x, -body_y + sunk, body_y - sunk, plinth_z, under)
+    cuboid(body, -body_x, body_x, -body_y + sunk, body_y - sunk, plinth_z, under)
     for y0, y1 in ((-body_y, -body_y + sunk), (body_y - sunk, body_y)):
-        box(body, -body_x, body_x, y0, y1, plinth_z, plinth_z + 0.1)
-        box(body, -body_x, body_x, y0, y1, under - 0.09, under)
+        cuboid(body, -body_x, body_x, y0, y1, plinth_z, plinth_z + 0.1)
+        cuboid(body, -body_x, body_x, y0, y1, under - 0.09, under)
         for x0, x1 in ((-body_x, -body_x + PULPIT_PILASTER), (body_x - PULPIT_PILASTER, body_x)):
-            box(body, x0, x1, y0, y1, plinth_z + 0.1, under - 0.09)
-    model.hard(open_cuts(body), "dark_wood", bevel=0.004, segments=1)
+            cuboid(body, x0, x1, y0, y1, plinth_z + 0.1, under - 0.09)
+    model.hard(body, "dark_wood", bevel=0.004, segments=1)
     trim = bmesh.new()
-    box(trim, -body_x - 0.012, body_x + 0.012, -body_y - 0.012, body_y + 0.012, plinth_z, plinth_z + 0.03)
+    cuboid(trim, -body_x - 0.012, body_x + 0.012, -body_y - 0.012, body_y + 0.012, plinth_z, plinth_z + 0.03)
     taper(trim, -body_x - 0.012, body_x + 0.012, -body_y - 0.012, body_y + 0.012, under - 0.045, -0.025, under)
-    model.hard(open_cuts(trim), "dark_wood", bevel=0.004, segments=1)
+    model.hard(trim, "dark_wood", bevel=0.004, segments=1)
     top = bmesh.new()
-    box(top, -top_x, top_x, -top_y, top_y, under, top_z)
-    model.hard(open_cuts(top), "wood", bevel=0.012, segments=2)
+    cuboid(top, -top_x, top_x, -top_y, top_y, under, top_z)
+    model.hard(top, "wood", bevel=0.012, segments=2)
     # A carved sprig in the field near each end of the front: a stem curving up with its leaves to either side.
     carving = bmesh.new()
     face = -body_y + sunk
     for side in (-1, 1):
         x = side * (body_x - PULPIT_PILASTER - 0.09)
-        if not lo < x < hi:
-            continue
         stem = [(x + side * 0.03 * math.sin(math.pi * t / 4), plinth_z + 0.2 + 0.36 * t / 4) for t in range(5)]
         for (ax, az), (bx, bz) in zip(stem, stem[1:]):
-            rod(carving, (ax + shift, face - 0.004, az), (bx + shift, face - 0.004, bz), 0.006, segments=6)
+            rod(carving, (ax, face - 0.004, az), (bx, face - 0.004, bz), 0.006, segments=6)
         for k, (lx, lz) in enumerate(stem[1:]):
             lean = (-1) ** k * 50.0
             lathe(carving, [(0.0, -0.035), (0.012, -0.02), (0.016, 0.0), (0.01, 0.022), (0.0, 0.035)], segments=8, sy=0.35,
-                  to=Matrix.Translation((lx + shift + math.copysign(0.025, lean), face - 0.004, lz + 0.01)) @ Matrix.Rotation(math.radians(lean), 4, "Y"))
-    if carving.verts:
-        model.turned(carving, "dark_wood", sharp=50.0)
-    else:
-        carving.free()
-    return model
-
-
-def pulpit():
-    return [pulpit_piece("pulpit_west", 0), pulpit_piece("pulpit_middle", 1), pulpit_piece("pulpit_east", 2)]
+                  to=Matrix.Translation((lx + math.copysign(0.025, lean), face - 0.004, lz + 0.01)) @ Matrix.Rotation(math.radians(lean), 4, "Y"))
+    model.turned(carving, "dark_wood", sharp=50.0)
+    model.shares = [(name, square - PULPIT_MIDDLE, square + 1 - PULPIT_MIDDLE)
+                    for square, name in enumerate(("pulpit_west", "pulpit_middle", "pulpit_east"))]
+    return [model]
 
 
 def fluted(bm, profile, segments, flute):
@@ -12777,7 +12790,7 @@ def main():
     soft_whole = True
     firmer = every()
     plain = soft_whole = False
-    data = [b"CUFM", struct.pack("<II", 3, len(models))]
+    data = [b"CUFM", struct.pack("<II", 3, sum(len(model.shares or [model]) for model in models))]
     totals = [0, 0, 0, 0]
     for model, less, firm in zip(models, plains, firmer):
         if less.apart(model) > PLAIN_DETAIL:
@@ -12785,14 +12798,18 @@ def main():
         apart = less.apart(model)
         model.finish()
         less.finish(model)
-        data += [model.header(apart), model.packed(), less.packed()]
+        corners = less_corners = 0
+        for piece, plain_piece in zip(model.cut(), less.cut()):
+            data += [piece.header(apart), piece.packed(), plain_piece.packed()]
+            corners += piece.corners
+            less_corners += plain_piece.corners
         print("%-20s %5d triangles %5d vertices  plain %5d triangles %5d vertices, within %.4f  x %.3f to %.3f  y %.3f to %.3f  z %.3f to %.3f  "
               "shaped %d  sharpest shade over %.3f" % (
-                  model.name, len(model.vertices) // 3, model.corners, len(less.vertices) // 3, less.corners, apart,
+                  model.name, len(model.vertices) // 3, corners, len(less.vertices) // 3, less_corners, apart,
                   model.low.x, model.high.x, model.low.y, model.high.y, model.low.z, model.high.z, model.shaped, model.longest_shade))
         if less.longest_shade:
             raise SystemExit("the plain %s still has a sharp shade over %.3f" % (model.name, less.longest_shade))
-        for i, count in enumerate((len(model.vertices) // 3, model.corners, len(less.vertices) // 3, less.corners)):
+        for i, count in enumerate((len(model.vertices) // 3, corners, len(less.vertices) // 3, less_corners)):
             totals[i] += count
     print("in all %d triangles %d vertices, plain %d triangles %d vertices" % tuple(totals))
     heavy = ["%s (%d)" % (model.name, model.most) for model in models if len(model.vertices) // 3 > model.most]

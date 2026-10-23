@@ -146,8 +146,39 @@ final class LeisureTests {
         Checks.check(Math.abs(shares[1].maxX - 0.5f) < 0.002f && Math.abs(shares[2].minX + 0.5f) < 0.002f, "a square between meets the east end");
         Checks.check(shares[0].minX > -0.5f && shares[2].maxX < 0.5f, "the ends stop short of their squares' far edges, as the sprites paint them");
         Checks.check(shares[0].maxZ == shares[1].maxZ && shares[1].maxZ == shares[2].maxZ, "the top is one height from end to end");
+        for (int i = 0; i < 2; i++) {
+            litAsOne(shares[i], shares[i + 1], models[i] + " and " + models[i + 1]);
+            litAsOne(shares[i].plain, shares[i + 1].plain, "the plain " + models[i] + " and " + models[i + 1]);
+        }
         Checks.check(unnamed("location_community_church_small_01_92") == null && unnamed("location_community_church_small_01_96") == null,
                 "the sprites on either side of the desk's are none of it");
+    }
+
+    /**
+     * Where two shares of one piece meet, at x = 0.5 of the west one and -0.5 of the east one, a place on a face carries the
+     * same light on both sides, so the face shows no step at the square's edge.
+     */
+    private static void litAsOne(Models.Model west, Models.Model east, String what) {
+        int meet = 0;
+        float worst = 0f;
+        float[] a = west.vertices, b = east.vertices;
+        for (int i = 0; i < west.reached.length; i++) {
+            if (Math.abs(a[i * Models.VERTEX_FLOATS] - 0.5f) > 1e-4f) {
+                continue;
+            }
+            for (int j = 0; j < east.reached.length; j++) {
+                boolean same = Math.abs(b[j * Models.VERTEX_FLOATS] + 0.5f) < 1e-4f;
+                for (int k = 1; same && k < Models.VERTEX_FLOATS; k++) {
+                    same = Math.abs(a[i * Models.VERTEX_FLOATS + k] - b[j * Models.VERTEX_FLOATS + k]) < 1e-3f;
+                }
+                if (same) {
+                    meet++;
+                    worst = Math.max(worst, Math.abs(west.reached[i] - east.reached[j]));
+                }
+            }
+        }
+        Checks.check(meet > 20, what + " meet at many places: " + meet);
+        Checks.check(worst < 0.01f, what + " carry one light where they meet, at worst " + worst + " apart");
     }
 
     private static void aLecternIsDyedFromItsPostsLitFaceAndItsDesk() {
