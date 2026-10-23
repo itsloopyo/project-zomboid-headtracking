@@ -837,15 +837,37 @@ final class ArmHolds {
         // One round at a time: fetched from below, brought to the port under the palm's thumb, pushed in.
         float round = doing.round();
         float pushed = between(round, 0.45f, 0.6f) * ArmActs.ROUND_PUSHED;
-        float[] port = port(placed, action);
-        Hold atPort = action == ArmActs.PUMP
-                ? new Hold(model).set(along(along(port, axes.ahead, (pushed - 0.05f) * axes.scale), axes.up, -0.03f * axes.scale), axes.way(0f, 1f, 0f), axes.way(1f, 0.05f, 0.15f), true,
-                        model.pose("pinch"))
-                : new Hold(model).set(along(along(port, axes.ahead, (pushed - 0.03f) * axes.scale), axes.right, -0.04f * axes.scale), axes.way(0.1f, 0.2f, 1f), axes.way(1f, 0.3f, 0f), true,
-                        model.pose("pinch"));
+        float[] port = port(placed, action), from = loadedFrom(action);
+        Hold atPort = new Hold(model).set(along(along(along(port, axes.ahead, (pushed + from[0]) * axes.scale), axes.up, from[1] * axes.scale), axes.right, from[2] * axes.scale),
+                axes.way(from[3], from[4], from[5]), axes.way(from[6], from[7], from[8]), true, model.pose("pinch"));
         float on = between(round, 0f, 0.42f) - between(round, 0.62f, 1f);
         return copy(now, away).towards(atPort, on);
     }
+
+    /**
+     * Where the hand that loads a round is from the port, in metres ahead, up and to the right,
+     * then the way out of its palm and the way its fingers run, each in parts of ahead, up and to
+     * the right. It is outside the gun on the side the port opens to, its palm towards it: under a
+     * pump's port and to its left, palm up; to the right of a lever gun's gate, which is in the
+     * right of its receiver; over a bolt gun's opening or a double's open breech; beside a
+     * revolver's cylinder on its left. Every long gun's was beside the receiver on its left, palm
+     * to the right, and went 11 to 19 mm into it: through a lever gun's receiver to the gate,
+     * into the top of a bolt gun's and a double's breech, and under a pump's port the fingers,
+     * curled towards a palm facing straight up, went up into the receiver.
+     */
+    private static float[] loadedFrom(int action) {
+        return switch (action) {
+            case ArmActs.PUMP -> LOADS_UNDER;
+            case ArmActs.LEVER -> LOADS_RIGHT;
+            case ArmActs.BOLT_SINGLE, ArmActs.DOUBLE, ArmActs.DOUBLE_SAWN -> LOADS_OVER;
+            default -> LOADS_LEFT;
+        };
+    }
+
+    static final float[] LOADS_UNDER = {-0.05f, -0.045f, -0.03f, -0.2f, 1f, 0.6f, 1f, -0.2f, 0.4f},
+            LOADS_RIGHT = {-0.03f, -0.01f, 0.03f, -0.1f, 1f, -0.25f, 1f, 0f, 0f},
+            LOADS_OVER = {-0.03f, 0.05f, -0.03f, -0.2f, -1f, 0.4f, 1f, 0f, 0f},
+            LOADS_LEFT = {-0.03f, 0f, -0.04f, 0.1f, 0.2f, 1f, 1f, 0.3f, 0f};
 
     /** A place moved a way by a distance. */
     private static float[] along(float[] from, float[] way, float by) {
