@@ -964,7 +964,7 @@ final class PipelineShaders {
             // Stained glass: how much of the open air's daylight and of the sun its glass lets through, as
             // light it gives off, how much of the room's light it throws back, and how far its colours are
             // taken past the game's (1 keeps them).
-            const float STAINED_SKY = 0.5, STAINED_SUN = 0.5, STAINED_ROOM = 0.25, STAINED_DEEPEN = 3.0;
+            const float STAINED_SKY = 0.22, STAINED_SUN = 0.25, STAINED_ROOM = 0.25, STAINED_DEEPEN = 3.0;
             // A leaf of a crown: what it has of the crown's sun when turned edge on to it, and what more
             // when turned full to it; how much of the sun on its back shows through, and how
             // much more of it looking straight towards the sun; and how smooth its skin is.
