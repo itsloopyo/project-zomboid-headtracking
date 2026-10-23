@@ -118,15 +118,15 @@ final class Crops {
         float turn = Flora.unit(more, 24) * 6.2831853f, dirX = Grass.cos(turn), dirY = Grass.sin(turn);
         float seed = Flora.unit(more, 20);
         geometry.addStrip(mesh, frame, dirX, dirY, 0f, 0f, 0.03f + 0.1f * Flora.unit(more, 4), 0.05f + 0.15f * Flora.unit(more, 8), high * 0.85f,
-                0.007f * broadens, 0f, Math.min(steps, 2), SpriteGeometry.EVEN, Grass.STEM, seed, 0.2f);
+                0.007f * broadens, 0f, Math.min(steps, 2), SpriteGeometry.EVEN, Grass.STEM + Grass.CROP, seed, 0.2f);
         // The ear goes on the way the stem leant, and a ripe one nods.
         geometry.addStrip(mesh, frame, dirX, dirY, geometry.endAlong, geometry.endUp, geometry.endLean, 0.2f + 0.4f * Flora.unit(more, 12), high * 0.15f,
-                0.022f * Math.min(broadens, 1.6f), 0f, 1, SpriteGeometry.EVEN, Grass.SPIKE, seed, 0.2f);
+                0.022f * Math.min(broadens, 1.6f), 0f, 1, SpriteGeometry.EVEN, Grass.SPIKE + Grass.CROP, seed, 0.2f);
         if (steps < 2) {
             return;
         }
         geometry.addStrip(mesh, frame, -dirY, dirX, 0f, high * 0.2f, 0.6f + 0.4f * Flora.unit(more, 16), 0.9f, high * 0.3f, 0.012f * broadens, 0.5f,
-                Math.min(steps, 2), SpriteGeometry.POINTED, Grass.STRAW, Flora.unit(more, 14), 0.2f);
+                Math.min(steps, 2), SpriteGeometry.POINTED, Grass.STRAW + Grass.CROP, Flora.unit(more, 14), 0.2f);
     }
 
     /**
@@ -137,10 +137,10 @@ final class Crops {
         float turn = Flora.unit(more, 24) * 6.2831853f, dirX = Grass.cos(turn), dirY = Grass.sin(turn);
         float seed = Flora.unit(more, 20);
         geometry.addStrip(mesh, frame, dirX, dirY, 0f, 0f, 0.02f + 0.08f * Flora.unit(more, 4), 0.04f + 0.1f * Flora.unit(more, 8), high,
-                0.028f * broadens, 0.3f, Math.min(steps, 2), SpriteGeometry.EVEN, Grass.STEM, seed, 0.15f);
+                0.028f * broadens, 0.3f, Math.min(steps, 2), SpriteGeometry.EVEN, Grass.STEM + Grass.CROP, seed, 0.15f);
         float topAlong = geometry.endAlong, topUp = geometry.endUp, topLean = geometry.endLean;
         geometry.addStrip(mesh, frame, dirX, dirY, topAlong, topUp, topLean + 0.2f, 0.6f + 0.4f * Flora.unit(more, 12), high * 0.16f,
-                0.06f * Math.min(broadens, 1.6f), 0f, 1, SpriteGeometry.EVEN, Grass.PANICLE, seed, 0.15f);
+                0.06f * Math.min(broadens, 1.6f), 0f, 1, SpriteGeometry.EVEN, Grass.PANICLE + Grass.CROP, seed, 0.15f);
         int leaves = steps > 1 ? 7 + (more >>> 6 & 3) : 4;
         for (int leaf = 0; leaf < leaves; leaf++) {
             int own = Flora.mix(more, leaf, 31);
@@ -150,7 +150,7 @@ final class Crops {
             float from = high * share;
             geometry.addStrip(mesh, frame, Grass.cos(side), Grass.sin(side), 0f, from, 0.55f + 0.45f * Flora.unit(own, 16), 1.1f + 0.8f * Flora.unit(own, 4),
                     high * (0.32f + 0.18f * Flora.unit(own, 12)) * (1.15f - 0.5f * share), (0.05f + 0.025f * Flora.unit(own, 20)) * Math.min(broadens, 2f),
-                    0.8f * (Flora.unit(own, 24) - 0.5f), steps, SpriteGeometry.POINTED, Grass.STRAW, Flora.unit(own, 14), 0.15f);
+                    0.8f * (Flora.unit(own, 24) - 0.5f), steps, SpriteGeometry.POINTED, Grass.STRAW + Grass.CROP, Flora.unit(own, 14), 0.15f);
         }
     }
 
@@ -163,7 +163,7 @@ final class Crops {
             int own = Flora.mix(more, stem, 37);
             float way = turn + stem * 6.2831853f / stems + 0.5f * Flora.unit(own, 0);
             geometry.addStrip(mesh, frame, Grass.cos(way), Grass.sin(way), 0f, 0f, 0.05f + 0.12f * Flora.unit(own, 4), 0.1f * Flora.unit(own, 8),
-                    high * (0.8f + 0.2f * Flora.unit(own, 12)), 0.009f * broadens, 0f, Math.min(steps, 2), SpriteGeometry.EVEN, Grass.STEM, seed, 0.1f);
+                    high * (0.8f + 0.2f * Flora.unit(own, 12)), 0.009f * broadens, 0f, Math.min(steps, 2), SpriteGeometry.EVEN, Grass.STEM + Grass.CROP, seed, 0.1f);
             // Leaves grow from the plant's upright: its stems stand near enough straight that they come off them.
             float stemUp = geometry.endUp;
             int leaves = steps > 1 ? 6 : 3;
@@ -173,7 +173,7 @@ final class Crops {
                 float side = way + leaf * 2.39996f;
                 geometry.addStrip(mesh, frame, Grass.cos(side), Grass.sin(side), 0f, stemUp * share, 0.9f + 0.5f * Flora.unit(each, 4),
                         0.5f + 0.6f * Flora.unit(each, 8), high * (0.12f + 0.08f * Flora.unit(each, 12)), 0.045f * Math.min(broadens, 2f), 0.6f * (Flora.unit(each, 16) - 0.5f),
-                        Math.min(steps, 2), SpriteGeometry.POINTED, Grass.STRAW, Flora.unit(each, 14), 0.1f);
+                        Math.min(steps, 2), SpriteGeometry.POINTED, Grass.STRAW + Grass.CROP, Flora.unit(each, 14), 0.1f);
             }
         }
     }

@@ -609,17 +609,20 @@ final class PipelineShaders {
                 if (strip) {
                     float edge = floor((gl_Normal.x + 3.0) * 0.5) - 1.0;
                     float form = floor(gl_Normal.y * 0.5);
+                    // A crop's strip has Grass.CROP added to its form.
+                    float crop = step(7.5, form);
+                    form -= 8.0 * crop;
                     float level = floor(gl_Normal.z);
                     // Not asked for the part of what is laid that grass is left out of: see uLaid below.
                     deep = uLaid > 2.5 || uPlantSnow <= 0.0 ? 0.0 : snowStood(vec3(gl_Vertex.xy + gl_MultiTexCoord1.xy, gl_Vertex.z - (gl_Normal.z - level)), mod(gl_Color.a, 32.0) > 24.5);
                     // Only what stands out of the snow blows about and is trodden down.
                     high = max(gl_Normal.z - level - deep, 0.0);
-                    float along = gl_Normal.y - 2.0 * form;
+                    float along = gl_Normal.y - 2.0 * (form + 8.0 * crop);
                     // How far to one side the vertex is, as a share of the strip's full width:
                     // a strip that narrows or widens is then cut and shaded along true lines
                     // from foot to tip, where the edge alone would bend them at every corner.
                     float breadth = form > 6.5 ? 0.3 + 0.7 * along : form < 2.5 ? 1.0 - along * along : 1.0;
-                    vBlade = vec4(edge * breadth, along, gl_Normal.x - 2.0 * edge, form + 0.05 + 0.06 * level);
+                    vBlade = vec4(edge * breadth, along, gl_Normal.x - 2.0 * edge, form + 8.0 * crop + 0.05 + 0.06 * level);
                     looks = vec3(0.0, 0.0, 1.0);
                 }
                 vNormal = looks;
@@ -2183,6 +2186,10 @@ final class PipelineShaders {
                     }
                     float form = floor(vBlade.w);
                     float vigour = clamp((vBlade.w - form - 0.05) / 0.9, 0.0, 1.0);
+                    bool crop = form > 7.5;
+                    if (crop) {
+                        form -= 8.0;
+                    }
                     if (form < 2.5) {
                         across /= max(1.0 - up * up, 0.02);
                     }
@@ -2234,10 +2241,12 @@ final class PipelineShaders {
                     // season, pulled towards one green so a lawn is not a quilt of its squares,
                     // paler in drifts and browner where it does poorly.
                     float lit = dot(texel.rgb, vec3(0.3, 0.55, 0.15));
-                    // A crop's stalk is coloured from a texel of its sprite, which paints shaded
-                    // stalks near black and lit leaf edges near white: a strip is held to a
-                    // middle brightness.
-                    float held = clamp(lit, 0.2, 0.5);
+                    // A strip is held to a middle brightness. A crop's stalk is coloured from a
+                    // texel of its sprite, which paints shaded stalks dark and lit leaf edges near
+                    // white; held to as wide a band as grass, the darkest fifth of a field's
+                    // stalks stood out of the crop near black, ears and all. Its shade is the
+                    // light's to give, not the texel's.
+                    float held = clamp(lit, crop ? 0.33 : 0.2, 0.5);
                     texel.rgb *= held / max(lit, 1e-3);
                     lit = held;
                     vec3 lawn = ownA < 0.33 ? vec3(0.3, 0.47, 0.17) : ownA < 0.66 ? vec3(0.36, 0.5, 0.17) : vec3(0.43, 0.52, 0.19);
