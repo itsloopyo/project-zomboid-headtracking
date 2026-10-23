@@ -12693,8 +12693,34 @@ def wall_cross():
     return model
 
 
+# The gold cross with rays behind it that the game paints over two squares of a wall and two storeys: the foot of its upright
+# over the floor, its length, where the crossbar crosses it, and the rays, (angle from straight up in degrees, length).
+GLORY_FOOT, GLORY_HIGH, GLORY_CROSSING = 1.0, 3.0, 2.26
+GLORY_RAYS = [(8, 1.62), (-12, 1.45), (24, 1.2), (-30, 1.5), (40, 1.35), (-48, 1.05), (58, 1.25), (-66, 1.3), (78, 1.2),
+              (-84, 1.05), (100, 1.3), (-104, 1.0), (122, 1.1), (-126, 1.38), (144, 1.55), (-150, 1.2), (164, 1.68), (-170, 1.4)]
+
+
+def glory_cross():
+    """A tall gold cross on a wall, the wall at +Y, with pale gold rays fanning out from where its arms cross, flat against the
+    wall behind it: an upright 3 m long and 0.15 across standing 0.12 off the wall, a crossbar 1.81 m long, and rays up to
+    1.68 m long. Its foot is the foot of the upright, 1 m over the floor where the game paints it."""
+    model = Model("glory_cross", hung=True)
+    gold, rays = bmesh.new(), bmesh.new()
+    bar, deep, arm = 0.15, 0.12, 1.81
+    cuboid(gold, -bar / 2, bar / 2, -deep, 0.0, 0.0, GLORY_HIGH)
+    cuboid(gold, -arm / 2, arm / 2, -deep, 0.0, GLORY_CROSSING - bar / 2, GLORY_CROSSING + bar / 2)
+    for angle, length in GLORY_RAYS:
+        before = set(rays.verts)
+        cuboid(rays, -0.018, 0.018, 0.0, 0.02, GLORY_CROSSING + 0.1, GLORY_CROSSING + length)
+        bmesh.ops.rotate(rays, cent=(0.0, 0.0, GLORY_CROSSING), matrix=Matrix.Rotation(math.radians(angle), 3, "Y"),
+                         verts=[v for v in rays.verts if v not in before])
+    model.hard(gold, "metal", bevel=0.006, segments=2)
+    model.hard(rays, "shade", bevel=0.003, segments=1)
+    return model
+
+
 def church_fittings():
-    return [chandelier_bowl(), chandelier_tiers(), wall_cross()]
+    return [chandelier_bowl(), chandelier_tiers(), wall_cross(), glory_cross()]
 
 
 def every():

@@ -32,6 +32,7 @@ final class LeisureTests {
         Checks.run("aChandeliersBowlAndTiersHangFromOneRodWhereTheirHalvesMeet", LeisureTests::aChandeliersBowlAndTiersHangFromOneRodWhereTheirHalvesMeet);
         Checks.run("aCrossOnAChurchWallHangsOnTheWallItsSpriteIsAttachedTo", LeisureTests::aCrossOnAChurchWallHangsOnTheWallItsSpriteIsAttachedTo);
         Checks.run("aChurchsLongDeskAlongYIsTheSameDeskTurnedToFaceEast", LeisureTests::aChurchsLongDeskAlongYIsTheSameDeskTurnedToFaceEast);
+        Checks.run("aGoldCrossWithRaysIsStoodByItsLowerWestSquareAgainstItsWall", LeisureTests::aGoldCrossWithRaysIsStoodByItsLowerWestSquareAgainstItsWall);
         Checks.run("aChurchsColouredWindowsAreStainedGlassAndItsClearOnesAreNot", LeisureTests::aChurchsColouredWindowsAreStainedGlassAndItsClearOnesAreNot);
         Checks.run("whatAPitchACourtAndADiamondStandOnIsLevelGround", LeisureTests::whatAPitchACourtAndADiamondStandOnIsLevelGround);
         Checks.run("levelGroundIsFlatInItsBoxAndEasesBackOutToTheLand", LeisureTests::levelGroundIsFlatInItsBoxAndEasesBackOutToTheLand);
@@ -398,6 +399,24 @@ final class LeisureTests {
     }
 
     private static final String CHURCH = "location_community_church_small_01_";
+
+    private static void aGoldCrossWithRaysIsStoodByItsLowerWestSquareAgainstItsWall() {
+        Outdoors.Piece cross = Outdoors.of(CHURCH + 82, "Cross", "Golden", Outdoors.SOUTH, 2, 1, 0);
+        holds(cross, "the gold cross's lower west square has a model");
+        Checks.check(cross != null && cross.model.equals("glory_cross") && !cross.follows && cross.each && cross.turns == Outdoors.SOUTH
+                && (CHURCH + 83).equals(cross.partner) && cross.partnerX == 1 && cross.partnerY == 0, "it stands the whole cross, facing south, beside its east square");
+        Models.Model model = Models.get("glory_cross");
+        Checks.check(cross != null && cross.b - model.maxY >= WorldScene.WALL_HALF - 0.01f && cross.b - model.maxY < 0.06f,
+                "its back is against the wall on the north edge of its square");
+        Checks.check(cross != null && cross.dyed == 1 << Models.METAL, "its gold takes its colour from the sprite's upright");
+        for (int[] other : new int[][] {{83, -1, 0}, {74, 1, 0}, {75, -1, 0}}) {
+            Outdoors.Piece piece = Outdoors.of(CHURCH + other[0], "Cross", "Golden", Outdoors.SOUTH, 2, 1, 0);
+            Checks.check(piece != null && piece.follows && piece.model == null && piece.partnerX == other[1] && piece.partnerY == other[2],
+                    CHURCH + other[0] + " stands nothing and hides while its pair is there");
+            Checks.check(Leisure.gloryPiece(CHURCH + other[0]), CHURCH + other[0] + " is a square of the cross, whatever its grid's storeys");
+        }
+        Checks.check(!Leisure.gloryPiece(CHURCH + 39) && !Leisure.gloryPiece(CHURCH + 22), "the cross on a spire and one on a wall are not");
+    }
 
     private static void aChurchsLongDeskAlongYIsTheSameDeskTurnedToFaceEast() {
         // 101 is the north end, 99 the south: turned to face east a model's x runs north, so its east end is the north one.

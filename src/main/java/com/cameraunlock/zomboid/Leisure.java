@@ -10,7 +10,7 @@ import zombie.iso.sprite.IsoSprite;
  * old tyres, basketball hoops, nets across courts, football goals, what a playing field, a boxing ring and a gym have,
  * pianos and their benches,
  * speakers, an amplifier, drums, a jukebox, a pinball table, the lamp over a pool table, a stage's microphone, theatre
- * seats, a lectern, an altar, a church's long panelled desk, a pipe organ, a crystal chandelier, a steeple and a television
+ * seats, a lectern, an altar, a church's long panelled desk, a pipe organ, a gold cross with rays, a crystal chandelier, a steeple and a television
  * studio's camera. Asked by
  * Outdoors.of before its own table, and stood the same way, so a piece of either is one kind of thing.
  *
@@ -74,6 +74,9 @@ final class Leisure {
         }
         if (called.equals("Organ") && kind.equals("Church")) {
             return organ(Sheets.place(name, CHURCH));
+        }
+        if (called.equals("Cross") && kind.equals("Golden")) {
+            return glory(Sheets.place(name, CHURCH));
         }
         if (called.equals("Chandelier") && kind.equals("Grey") && single) {
             return chandelier(Sheets.place(name, CHANDELIERS));
@@ -350,6 +353,34 @@ final class Leisure {
     /** Whether a sprite is a square of a church's pipe organ, whose grid the game lays over two storeys. */
     static boolean organPiece(String name) {
         return organ(Sheets.place(name, CHURCH)) != null;
+    }
+
+    /**
+     * Where the foot of a gold cross with rays stands on the square of its lower west quarter, against the wall on the square's
+     * north edge, and how high, in metres, the foot of its upright is. Where on that square its sprite paints the front of the
+     * upright, and how high, in metres.
+     */
+    static final float GLORY_A = 0.73f, GLORY_B = 0.12f, GLORY_FOOT = 1.0f, GLORY_DYE_A = 0.74f, GLORY_DYE_B = 0.19f, GLORY_DYE_UP = 2.0f;
+
+    /**
+     * A tall gold cross with rays behind it on a north wall, two squares along it and two storeys high, facing south. Its lower
+     * west square stands the whole cross; the others stand nothing, and none does unless the square its pairing names holds
+     * its piece. Each is a piece by itself, as an organ's are.
+     */
+    private static Outdoors.Piece glory(int place) {
+        return switch (place) {
+            case 82 -> new Outdoors.Piece("glory_cross", Outdoors.SOUTH).each().at(GLORY_A, GLORY_B).pairedWith(CHURCH + 83, 1, 0)
+                    .dye(METAL, GLORY_DYE_A, GLORY_DYE_B, (GLORY_DYE_UP - GLORY_FOOT) / LEVEL).raise(GLORY_FOOT / LEVEL);
+            case 83 -> following(new Outdoors.Piece(null, Outdoors.SOUTH).each().pairedWith(CHURCH + 82, -1, 0));
+            case 74 -> following(new Outdoors.Piece(null, Outdoors.SOUTH).each().pairedWith(CHURCH + 75, 1, 0));
+            case 75 -> following(new Outdoors.Piece(null, Outdoors.SOUTH).each().pairedWith(CHURCH + 74, -1, 0));
+            default -> null;
+        };
+    }
+
+    /** Whether a sprite is a square of a gold cross with rays, whose grid the game lays over two storeys. */
+    static boolean gloryPiece(String name) {
+        return glory(Sheets.place(name, CHURCH)) != null;
     }
 
     /** Whether a sprite is a piece of a church tower's spire, which the game marks as a roof's. */
