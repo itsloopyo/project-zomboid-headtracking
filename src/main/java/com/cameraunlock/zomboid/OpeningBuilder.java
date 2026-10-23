@@ -133,6 +133,13 @@ final class OpeningBuilder {
     private final float[] sideRed = new float[2], sideGreen = new float[2], sideBlue = new float[2], sideOpen = new float[2], sideDay = new float[2];
     /** The side the panes being laid face into: see facePane. */
     private int paneSide;
+    /**
+     * The side of lightSides the joinery being laid is lit from, and the side its edges take their
+     * light from, or -1 for its own. A shut leaf's edges and the reveals round its panes are in the
+     * jamb's and the glass's shade: lit as the street, the street's half of each showed from a dark
+     * room as a bright line round the leaf and its panes.
+     */
+    private int joinerySide, edgeSide = -1;
 
     OpeningBuilder(WorldScene.Frame build) {
         this.build = build;
@@ -383,6 +390,10 @@ final class OpeningBuilder {
         windowFoot = footOf(z);
         // A door shut in its doorway has a room or the street on each face. Swung open it stands in its own square.
         lightSides(north, build.doorSwung);
+        // Swung open, the leaf stands in its own square, which is on both its faces.
+        IsoGridSquare beyond = build.doorSwung ? build.here : beyondEdge(north, x, y, z);
+        boolean ownIsRoom = indoors(build.here) || !indoors(beyond);
+        edgeSide = paneSide(ownIsRoom);
 
         boolean wooden = door.kind == Doors.PLANKED || leaf.red - leaf.blue > WOODEN;
         SpriteGeometry.Mesh wood = WorldScene.solid.get(WorldScene.PLAIN, WallSides.key(leaf.red, leaf.green, leaf.blue, WallSides.FLAT));
@@ -402,6 +413,7 @@ final class OpeningBuilder {
         for (int side = 0; side < 2; side++) {
             float face = (side == 0 ? 1f : -1f) * DOOR_HALF;
             float r = sideRed[side], g = sideGreen[side], b = sideBlue[side];
+            joinerySide = side;
             wood.open = joint.open = sideOpen[side] + 32f * (wooden ? JOINERY : WorldScene.PAINT);
             wood.day = joint.day = sideDay[side];
             if (door.kind == Doors.PLANKED) {
@@ -488,9 +500,7 @@ final class OpeningBuilder {
         }
         SpriteGeometry.Mesh glass = WorldScene.laid.get(WorldScene.PLAIN, WallSides.PANES);
         glass.sway = 0f;
-        // Swung open, the leaf stands in its own square, which is on both its faces.
-        IsoGridSquare beyond = build.doorSwung ? build.here : beyondEdge(north, x, y, z);
-        boolean ownIsRoom = indoors(build.here) || !indoors(beyond);
+        edgeSide = -1;
         facePane(glass, ownIsRoom, indoors(beyond), false, da, db);
         for (int pane = 0; pane < leaf.panes.length; pane += 5) {
             float t0 = leaf.panes[pane], t1 = leaf.panes[pane + 1], h0 = leaf.panes[pane + 2], h1 = leaf.panes[pane + 3];
@@ -1090,6 +1100,14 @@ final class OpeningBuilder {
         windowPoint(c, 2, to, head, front);
         windowPoint(c, 3, from, head, front);
         SpriteGeometry.addPlainQuad(mesh, c, red, green, blue);
+        float day = mesh.day;
+        if (edgeSide >= 0) {
+            mesh.open += sideOpen[edgeSide] - sideOpen[joinerySide];
+            mesh.day = sideDay[edgeSide];
+            red = sideRed[edgeSide];
+            green = sideGreen[edgeSide];
+            blue = sideBlue[edgeSide];
+        }
         for (int edge = 0; edge < 4; edge++) {
             float along0 = edge == 1 ? to : from, along1 = edge == 0 ? from : to;
             float up0 = edge == 3 ? head : foot, up1 = edge == 2 ? foot : head;
@@ -1100,6 +1118,7 @@ final class OpeningBuilder {
             SpriteGeometry.addPlainQuad(mesh, c, red, green, blue);
         }
         mesh.open = open;
+        mesh.day = day;
     }
 
     /** How far round a knob's rose is on a leaf so wide, in tiles: on a panelled one, no further than leaves it clear of the panel beside the knob. */
