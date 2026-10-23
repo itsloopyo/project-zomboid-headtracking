@@ -56,6 +56,8 @@ final class WindowGlass {
         int level = (int) Math.floor(player.getZ());
         float foot = level * ViewCamera.LEVEL_HEIGHT + terrain.lift(player.getX(), player.getY(), level);
         int fromX = (int) Math.floor(view.eyeX), fromY = (int) Math.floor(view.eyeY);
+        IsoGridSquare eyes = cell.getGridSquare(fromX, fromY, level);
+        boolean eyeOutside = eyes == null || eyes.isOutside();
         for (int x = fromX - REACH; x <= fromX + REACH; x++) {
             for (int y = fromY - REACH; y <= fromY + REACH && into.count < MOST; y++) {
                 IsoGridSquare square = cell.getGridSquare(x, y, level);
@@ -83,9 +85,8 @@ final class WindowGlass {
                     }
                     int edge = north ? y : x;
                     float off = (north ? view.eyeY : view.eyeX) - edge;
-                    // The square on the eye's side of the window's edge: a window looked at from the street throws back the street, which the pane does itself.
                     IsoGridSquare eyesSide = off < 0f ? (north ? cell.getGridSquare(x, y - 1, level) : cell.getGridSquare(x - 1, y, level)) : square;
-                    if (eyesSide == null || eyesSide.isOutside()) {
+                    if (eyesSide == null || !throwsBack(eyeOutside, eyesSide.isOutside())) {
                         continue;
                     }
                     int at = into.count++ * LookingGlass.FLOATS;
@@ -96,6 +97,18 @@ final class WindowGlass {
                 }
             }
         }
+    }
+
+    /**
+     * Whether a window throws the room back to the eye, from whether the eye's own square and
+     * the square on the eye's side of the window's edge are in the open air. A window looked at
+     * from the street throws back the street, which the pane does itself. Its edge alone does
+     * not tell the street: from the street beyond a house, a window in the far wall has its
+     * room on the eye's side, and a mirror picture of the room laid over it from out there
+     * hid the room the pane shows.
+     */
+    static boolean throwsBack(boolean eyeOutside, boolean eyesSideOutside) {
+        return !eyeOutside && !eyesSideOutside;
     }
 
     /** The leaf of a door the mod builds from its sprite, where it has glass in it: see OpeningBuilder.addBuiltDoor. */

@@ -12,6 +12,7 @@ final class WindowGlassTests {
         Checks.run("theRoomBeginsPastTheWallAndIsLaidInTheOpening", WindowGlassTests::theRoomBeginsPastTheWallAndIsLaidInTheOpening);
         Checks.run("windowsAndMirrorsAreNeverOneGlass", WindowGlassTests::windowsAndMirrorsAreNeverOneGlass);
         Checks.run("aGlazedDoorsGlassIsItsLightsAndNoMore", WindowGlassTests::aGlazedDoorsGlassIsItsLightsAndNoMore);
+        Checks.run("noWindowThrowsBackToAnEyeInTheOpenAir", WindowGlassTests::noWindowThrowsBackToAnEyeInTheOpenAir);
     }
 
     private static float[] window(boolean north, int edge, int along, float side) {
@@ -57,6 +58,13 @@ final class WindowGlassTests {
         float[] rect = new float[4];
         check(looking.seen(glass, 0, eye(20.5f, 27f, toward(20.5f, 27f, 20.5f, 30f)), TAN, ASPECT, NEAR, rect), "the window is seen from its room, looking at it");
         check(!looking.seen(glass, 0, eye(20.5f, 33f, toward(20.5f, 33f, 20.5f, 30f)), TAN, ASPECT, NEAR, rect), "and not from the street behind the side it was noted facing");
+    }
+
+    private static void noWindowThrowsBackToAnEyeInTheOpenAir() {
+        check(WindowGlass.throwsBack(false, false), "a window throws the room back to an eye in the room");
+        check(!WindowGlass.throwsBack(false, true), "and nothing to an eye in the room whose side of the edge is the street");
+        check(!WindowGlass.throwsBack(true, true), "nor to an eye in the street before it");
+        check(!WindowGlass.throwsBack(true, false), "nor to an eye in the street beyond the house, though the window's room is on its side of the edge");
     }
 
     private static void theRoomBeginsPastTheWallAndIsLaidInTheOpening() {
