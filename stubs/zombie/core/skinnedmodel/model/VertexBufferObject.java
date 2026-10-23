@@ -3,6 +3,7 @@ package zombie.core.skinnedmodel.model;
 public final class VertexBufferObject {
     int[] elements;
     Vbo handle;
+    VertexFormat vertexFormat;
 
     public static final class Vbo {
         public int vboId;

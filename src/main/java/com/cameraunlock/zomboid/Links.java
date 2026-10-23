@@ -57,7 +57,7 @@ final class Links {
 
     private static final String VERTEX_BUFFER = "zombie/core/skinnedmodel/model/VertexBufferObject";
     private static final String VERTEX_BUFFER_HANDLE = VERTEX_BUFFER + "$Vbo";
-    /** The fields read by name, which no instruction of the mod's names: VehicleMeshes' four, the body's picture, the outlined things and the layer an animation node is in. */
+    /** The fields read by name, which no instruction of the mod's names: the vertex buffer's, the body's picture, the outlined things, the layer an animation node is in and the item renderer's. */
     static final Field BUFFER_HANDLE = new Field(VERTEX_BUFFER, "handle", "L" + VERTEX_BUFFER_HANDLE + ";");
     static final Field BUFFER_ELEMENTS = new Field(VERTEX_BUFFER, "elements", "[I");
     static final Field HANDLE_BUFFER = new Field(VERTEX_BUFFER_HANDLE, "vboId", "I");
@@ -69,7 +69,17 @@ final class Links {
     /** The layer an animation node is in, which Ragdolls reads. */
     static final Field NODE_LAYER = new Field("zombie/core/skinnedmodel/advancedanimation/LiveAnimNode", "animLayer",
             "Lzombie/core/skinnedmodel/advancedanimation/AnimLayer;");
-    static final List<Field> REFLECTED = List.of(BUFFER_HANDLE, BUFFER_ELEMENTS, HANDLE_BUFFER, HANDLE_STRIDE, BODY_PICTURE, OUTLINED, NODE_LAYER);
+    static final Field BUFFER_FORMAT = new Field(VERTEX_BUFFER, "vertexFormat", "L" + VERTEX_BUFFER + "$VertexFormat;");
+    private static final String ITEM_RENDERER = "zombie/core/skinnedmodel/model/ItemModelRenderer";
+    /** What the game's renderer of an item on the ground keeps of it, which ItemModels reads. */
+    static final Field ITEM_MODEL = new Field(ITEM_RENDERER, "model", "Lzombie/core/skinnedmodel/model/Model;");
+    static final Field ITEM_TRANSFORM = new Field(ITEM_RENDERER, "transform", "Lorg/joml/Matrix4f;");
+    static final Field ITEM_TINT_R = new Field(ITEM_RENDERER, "tintR", "F");
+    static final Field ITEM_TINT_G = new Field(ITEM_RENDERER, "tintG", "F");
+    static final Field ITEM_TINT_B = new Field(ITEM_RENDERER, "tintB", "F");
+    static final Field ITEM_TINT_MASK = new Field(ITEM_RENDERER, "tintMask", "Ljava/lang/String;");
+    static final List<Field> REFLECTED = List.of(BUFFER_HANDLE, BUFFER_ELEMENTS, BUFFER_FORMAT, HANDLE_BUFFER, HANDLE_STRIDE, BODY_PICTURE, OUTLINED, NODE_LAYER,
+            ITEM_MODEL, ITEM_TRANSFORM, ITEM_TINT_R, ITEM_TINT_G, ITEM_TINT_B, ITEM_TINT_MASK);
 
     private final Function<String, byte[]> classBytes;
     private final Map<String, Optional<ClassModel>> models = new HashMap<>();

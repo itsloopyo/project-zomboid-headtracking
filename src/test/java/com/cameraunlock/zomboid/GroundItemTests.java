@@ -11,6 +11,53 @@ final class GroundItemTests {
         Checks.run("pictureTurnsWithTheItemAndKeepsItsSize", GroundItemTests::pictureTurnsWithTheItemAndKeepsItsSize);
         Checks.run("trimmedPictureKeepsItsPlaceInTheWhole", GroundItemTests::trimmedPictureKeepsItsPlaceInTheWhole);
         Checks.run("itemsOfOneSquareTakeLayersOfTheirOwn", GroundItemTests::itemsOfOneSquareTakeLayersOfTheirOwn);
+        Checks.run("modelStandsUpOnTheGroundAtTheGamesSize", GroundItemTests::modelStandsUpOnTheGroundAtTheGamesSize);
+        Checks.run("modelTurnsOnTheGroundAndKeepsItsSize", GroundItemTests::modelTurnsOnTheGroundAndKeepsItsSize);
+        Checks.run("modelKeepsItsTransformsScaleAndPlace", GroundItemTests::modelKeepsItsTransformsScaleAndPlace);
+    }
+
+    private static final float[] IDENTITY = {1f, 0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 1f};
+    private static final float[] placing = new float[12];
+
+    /** Where the placing takes a point of the model: x, y and up from the item's place. */
+    private static float[] placed(float px, float py, float pz) {
+        float[] at = new float[3];
+        for (int row = 0; row < 3; row++) {
+            at[row] = placing[row * 4] * px + placing[row * 4 + 1] * py + placing[row * 4 + 2] * pz + placing[row * 4 + 3];
+        }
+        return at;
+    }
+
+    private static void modelStandsUpOnTheGroundAtTheGamesSize() {
+        GroundItems.placing(IDENTITY, 0f, 0f, 0f, placing);
+        float[] up = placed(0f, 1f, 0f), across = placed(1f, 0f, 0f), along = placed(0f, 0f, 1f);
+        float s = GroundItems.MODEL_SCALE;
+        check(near(up[0], 0f) && near(up[1], 0f) && near(up[2], s), "the model's y is up: " + up[0] + ", " + up[1] + ", " + up[2]);
+        check(near(across[0], s) && near(across[1], 0f) && near(across[2], 0f), "its x is the world's x");
+        check(near(along[0], 0f) && near(along[1], -s) && near(along[2], 0f), "its z is the world's minus y");
+        float[] origin = placed(0f, 0f, 0f);
+        check(near(origin[0], 0f) && near(origin[1], 0f) && near(origin[2], 0f), "its origin is the item's place");
+    }
+
+    /** The game turns an item lying on the ground about the model's y by its worldZRotation. */
+    private static void modelTurnsOnTheGroundAndKeepsItsSize() {
+        float s = GroundItems.MODEL_SCALE;
+        GroundItems.placing(IDENTITY, 0f, 90f, 0f, placing);
+        float[] across = placed(1f, 0f, 0f), up = placed(0f, 1f, 0f);
+        check(near(across[0], 0f) && near(across[1], s) && near(across[2], 0f), "a quarter turn takes x along y: " + across[0] + ", " + across[1] + ", " + across[2]);
+        check(near(up[2], s), "and leaves up up");
+        GroundItems.placing(IDENTITY, 0f, 37f, 0f, placing);
+        across = placed(1f, 0f, 0f);
+        check(near((float) Math.hypot(across[0], across[1]), s) && near(across[2], 0f), "turned any way, it lies the same size on the ground");
+    }
+
+    private static void modelKeepsItsTransformsScaleAndPlace() {
+        float[] transform = {0.01f, 0f, 0f, 0f, 0f, 0.01f, 0f, 0f, 0f, 0f, 0.01f, 0f, 0.1f, 0.2f, 0.3f, 1f};
+        GroundItems.placing(transform, 0f, 0f, 0f, placing);
+        float[] tip = placed(10f, 0f, 0f);
+        float s = GroundItems.MODEL_SCALE;
+        check(near(tip[0], (0.1f + 0.1f) * s) && near(tip[1], -0.3f * s) && near(tip[2], 0.2f * s),
+                "the transform's scale and place come first: " + tip[0] + ", " + tip[1] + ", " + tip[2]);
     }
 
     private static final float[] corners = new float[4 * GroundItems.CORNER_FLOATS];

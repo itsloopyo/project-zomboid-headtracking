@@ -4894,6 +4894,15 @@ final class WorldScene {
                                     restless |= moves(on);
                                 }
                             }
+                            // The game marks nothing when an item's model it was loading is ready, or its mesh is read, or when
+                            // its option to draw items as models is changed.
+                            if (object instanceof IsoWorldInventoryObject loose) {
+                                thing = sum(thing, ItemModels.shown() ? 2 : 3);
+                                if (ItemModels.stillWaiting(loose)) {
+                                    thing = sum(thing, 1);
+                                    restless = true;
+                                }
+                            }
                             if (object instanceof IsoTelevision set) {
                                 // The game marks the chunk when a set goes on or off or between the bars and a programme, each of
                                 // which is another overlay sprite (IsoTelevision.updateTvScreen). It marks nothing for another channel or a tape.
@@ -6475,9 +6484,14 @@ final class WorldScene {
          */
         private int layItems(int z, int under) {
             int laid = 0;
+            boolean models = ItemModels.shown() && !items.isEmpty() && within(ItemModels.REACH, false);
             for (int i = 0; i < items.size(); i++) {
                 IsoWorldInventoryObject item = items.get(i);
                 if (!item.getItem().getScriptItem().isWorldRender()) {
+                    continue;
+                }
+                if (models && ItemModels.place(item, itemPlaced)) {
+                    buildItem(item, z);
                     continue;
                 }
                 IsoSprite sprite = item.getSprite();
@@ -6504,6 +6518,35 @@ final class WorldScene {
                 laid++;
             }
             return Math.min(laid, GroundItems.LAYERS);
+        }
+
+        private final ItemModels.Placed itemPlaced = new ItemModels.Placed();
+
+        /**
+         * Builds a loose item as the game's own model of it, placed as ItemModels found it, its
+         * every corner lit by the light of the square as the item's picture would be.
+         */
+        private void buildItem(IsoWorldInventoryObject item, int z) {
+            ItemModels.Placed placed = itemPlaced;
+            ItemModels.Shape shape = placed.shape;
+            float[] m = placed.placing, places = shape.places(), normals = shape.normals(), uvs = shape.uvs();
+            Texture texture = placed.texture;
+            float uStart = texture.getXStart(), vStart = texture.getYStart(), uSpan = texture.getXEnd() - uStart, vSpan = texture.getYEnd() - vStart;
+            heightsAt(placed.x, placed.y);
+            float up = placed.up + terrain.lift(placed.x, placed.y, z);
+            owning(Outlines.key(item));
+            SpriteGeometry.Mesh mesh = solid.get(texture.getID(), WallSides.multiplied(placed.red, placed.green, placed.blue));
+            mesh.open = frame.open;
+            for (int corner : shape.corners()) {
+                int p = corner * 3;
+                float px = places[p], py = places[p + 1], pz = places[p + 2];
+                float nx = normals[p], ny = normals[p + 1], nz = normals[p + 2];
+                mesh.face(m[0] * nx + m[1] * ny + m[2] * nz, m[4] * nx + m[5] * ny + m[6] * nz, m[8] * nx + m[9] * ny + m[10] * nz);
+                mesh.add(placed.x + m[0] * px + m[1] * py + m[2] * pz + m[3], placed.y + m[4] * px + m[5] * py + m[6] * pz + m[7],
+                        up + m[8] * px + m[9] * py + m[10] * pz + m[11], uStart + uvs[corner * 2] * uSpan, vStart + uvs[corner * 2 + 1] * vSpan,
+                        frame.red, frame.green, frame.blue);
+            }
+            owning(Outlines.NONE);
         }
 
         /**

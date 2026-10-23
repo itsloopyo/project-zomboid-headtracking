@@ -46,4 +46,41 @@ final class GroundItems {
             out[at + 3] = low ? vEnd : vStart;
         }
     }
+
+    /**
+     * What the game multiplies an item's model by to draw it on the ground: its item camera
+     * stands the model in the game's view half as large again, as it does a person.
+     */
+    static final float MODEL_SCALE = 1.5f;
+
+    /**
+     * The matrix that takes a point of an item's model to the world, as three rows of four:
+     * tiles along x, along y and up, from the place the item lies. The game draws the model
+     * through its transform (kept by columns), turned about the model's x, y and z by the
+     * angles, in degrees, in that order, and the game's view takes the model's x to the
+     * world's x, its y up, and its z to the world's -y.
+     */
+    static void placing(float[] transform, float angleX, float angleY, float angleZ, float[] out) {
+        double x = Math.toRadians(angleX), y = Math.toRadians(angleY), z = Math.toRadians(angleZ);
+        float cx = (float) Math.cos(x), sx = (float) Math.sin(x), cy = (float) Math.cos(y), sy = (float) Math.sin(y);
+        float cz = (float) Math.cos(z), sz = (float) Math.sin(z);
+        // Rx * Ry * Rz, by rows.
+        float[] turn = {
+            cy * cz, -cy * sz, sy,
+            sx * sy * cz + cx * sz, -sx * sy * sz + cx * cz, -sx * cy,
+            -cx * sy * cz + sx * sz, cx * sy * sz + sx * cz, cx * cy};
+        // The world's x, y and up, by the turned model's x, its -z and its y.
+        int[] from = {0, 2, 1};
+        float[] sign = {MODEL_SCALE, -MODEL_SCALE, MODEL_SCALE};
+        for (int row = 0; row < 3; row++) {
+            int r = from[row] * 3;
+            for (int column = 0; column < 4; column++) {
+                float sum = 0f;
+                for (int k = 0; k < 3; k++) {
+                    sum += turn[r + k] * transform[column * 4 + k];
+                }
+                out[row * 4 + column] = sign[row] * sum;
+            }
+        }
+    }
 }

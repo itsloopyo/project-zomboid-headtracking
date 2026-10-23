@@ -1089,6 +1089,7 @@ final class Pipeline {
             Rugs.putOnCard(view.index, camera.eyeX, camera.eyeY, camera.eyeUp);
             Uploads.endFrame();
             FineSkins.tend();
+            ItemModels.read();
             drawn = chunks;
             ChunkBuffers.load(chunks, ahead);
             Impacts.take();
