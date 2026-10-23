@@ -346,6 +346,29 @@ final class WallBuilder {
         WorldScene.layers.none();
     }
 
+    /**
+     * The casing on the far side of the wall, lit as the place beyond is, as the wall's far skin is: lit as the room
+     * the game's view saw it from, the casing round a front door was near black in the sun.
+     */
+    private void addFarCasing(SpriteGeometry.Mesh mesh, int x, int y, int z, float da, float db) {
+        boolean north = da != 0f;
+        int farAt = (build.waterLocalX + 1) * WorldScene.LIGHT_SPAN + build.waterLocalY + 1 - (north ? 1 : WorldScene.LIGHT_SPAN);
+        float red = build.frame.red, green = build.frame.green, blue = build.frame.blue, open = build.frame.open;
+        build.frame.cornersInto(build.heldRed, build.heldGreen, build.heldBlue, build.heldUnlit);
+        if (build.lightOpen[farAt] < 0) {
+            build.frame.light(1f, 1f, 1f);
+            build.frame.open = WorldScene.OPEN_UNLIT;
+        } else {
+            lightAlong(farAt, north);
+        }
+        build.geometry.addFace(mesh, build.frame, x, y, z, 0f, 0f, 0f, da, db, 0f, 0f, 0f, 1f);
+        build.frame.red = red;
+        build.frame.green = green;
+        build.frame.blue = blue;
+        build.frame.open = open;
+        build.frame.cornersFrom(build.heldRed, build.heldGreen, build.heldBlue, build.heldUnlit);
+    }
+
     private void standEdge(SpriteGeometry.Mesh mesh, Texture texture, boolean wall, boolean door, int x, int y, int z,
             float way, float layer, float da, float db) {
         float inX = db * WorldScene.WALL_HALF, inY = da * WorldScene.WALL_HALF;
@@ -417,7 +440,7 @@ final class WallBuilder {
                 build.geometry.shownA = -build.geometry.shownA;
                 build.geometry.shownB = -build.geometry.shownB;
                 WorldScene.layers.lie(way, layer - 3f);
-                build.geometry.addFace(mesh, build.frame, x, y, z, 0f, 0f, 0f, da, db, 0f, 0f, 0f, 1f);
+                addFarCasing(mesh, x, y, z, da, db);
             }
             build.geometry.exactAcross = false;
             build.geometry.shownA = build.geometry.shownB = build.geometry.shownUp = 0f;
