@@ -100,6 +100,12 @@ final class OpeningBuilder {
     private static final float WOODEN = 0.12f;
     /** A member of a frame wider than this each way, in tiles, is a piece of the wall the window is in and keeps the wall's own picture on its faces. */
     private static final float WALL_MEMBER = 0.14f;
+    /**
+     * How far, in tiles, the front of such a member stands back from the wall's picture laid over it. Its sides run on to
+     * MEMBER_SIDES short of the picture, closing the reveal; a front that near was in the depth buffer's tolerance at any
+     * range, and the frame's colour and the wall's fought all down every jamb.
+     */
+    private static final float MEMBER_UNDER = 0.02f, MEMBER_SIDES = 0.003f;
     /** The cosine and sine of each eighth of a turn, from none to the whole turn: the corners of something of eight sides. */
     private static final float[] EIGHTH_COS = new float[9], EIGHTH_SIN = new float[9];
 
@@ -782,7 +788,7 @@ final class OpeningBuilder {
             return;
         }
         float out = Math.signum(across);
-        addJoinery(joinery, from, to, foot, head, out * (WorldScene.WALL_HALF - 0.003f), red, green, blue);
+        addJoinery(joinery, from, to, foot, head, out * (WorldScene.WALL_HALF - MEMBER_SIDES), out * (WorldScene.WALL_HALF - MEMBER_UNDER), red, green, blue);
         float start = Math.max(from, 0f), end = Math.min(to, 1f), low = Math.max(foot, 0f), high = Math.min(head, 1f);
         float wasRed = build.frame.red, wasGreen = build.frame.green, wasBlue = build.frame.blue, wasOpen = build.frame.open;
         build.frame.cornersInto(build.heldRed, build.heldGreen, build.heldBlue, build.heldUnlit);
@@ -793,8 +799,12 @@ final class OpeningBuilder {
         }
         build.geometry.shownA = windowAlongY * out * WorldScene.WALL_HALF;
         build.geometry.shownB = windowAlongX * out * WorldScene.WALL_HALF;
+        // The skin's own plane, where the skin is as opaque as this is: laid a layer behind it, this shows only through the
+        // skin's opening. In the plane, the two fought down every jamb; in front, it stood off the wall as a paler slab.
+        WorldScene.layers.lie(windowAlongY != 0f ? SpriteGeometry.LAYERS_X : SpriteGeometry.LAYERS_Y, -out);
         build.geometry.addFace(wall, build.frame, x, y, z, windowAlongX * start, windowAlongY * start, low, windowAlongX * (end - start), windowAlongY * (end - start), 0f,
                 0f, 0f, high - low);
+        WorldScene.layers.none();
         build.geometry.shownA = build.geometry.shownB = 0f;
         build.frame.red = wasRed;
         build.frame.green = wasGreen;
@@ -881,15 +891,20 @@ final class OpeningBuilder {
      * side's light.
      */
     private void addJoinery(SpriteGeometry.Mesh mesh, float from, float to, float foot, float head, float across, float red, float green, float blue) {
+        addJoinery(mesh, from, to, foot, head, across, across, red, green, blue);
+    }
+
+    /** As addJoinery, its sides out to across and its front at front. */
+    private void addJoinery(SpriteGeometry.Mesh mesh, float from, float to, float foot, float head, float across, float front, float red, float green, float blue) {
         float open = mesh.open;
         if (Math.floor((open % WorldScene.LIT_STEP + 0.5f) / 32f) == JOINERY && to - from > (head - foot) * ViewCamera.LEVEL_HEIGHT) {
             mesh.open = open + 32f * (JOINERY_LEVEL - JOINERY);
         }
         float[] c = build.reveal;
-        windowPoint(c, 0, from, foot, across);
-        windowPoint(c, 1, to, foot, across);
-        windowPoint(c, 2, to, head, across);
-        windowPoint(c, 3, from, head, across);
+        windowPoint(c, 0, from, foot, front);
+        windowPoint(c, 1, to, foot, front);
+        windowPoint(c, 2, to, head, front);
+        windowPoint(c, 3, from, head, front);
         SpriteGeometry.addPlainQuad(mesh, c, red, green, blue);
         for (int edge = 0; edge < 4; edge++) {
             float along0 = edge == 1 ? to : from, along1 = edge == 0 ? from : to;
