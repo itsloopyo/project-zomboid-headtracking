@@ -128,7 +128,8 @@
 - `Low` is the game's own look, apart from first person's furniture, windows and doors, which are the mod's models in every mode (`OwnFurniture`, `OwnBuildings`). `Medium` and `High` also redraw the isometric view.
 - `F8` cycles the picture styles `Vivid`, `Natural` and `Bleak` (default).
 - `ZombiesAndPropsDrawDistance` (16 to 80 tiles) and `Reflections` settings.
-- `GrassDensity` setting (10 to 100 percent): fewer grass plants for a faster picture. Every mode grows all of it.
+- `GrassDensity` setting (10 to 100 percent): fewer grass plants for a faster picture. `High` grows all of it, `Medium` and `Low` 40 percent.
+- Past 2560x1440, `Low`, `Medium`, `High` and `Automatic` draw first person with no more pixels than at 2560x1440. `Custom` draws at its `RenderScale` at any size.
 
 #### Sound
 

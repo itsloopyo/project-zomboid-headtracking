@@ -33,12 +33,37 @@ final class QualityTests {
         Checks.run("customDrawsWhatEachPresetDrewFromItsRows", () -> inFirstPerson(QualityTests::customDrawsWhatEachPresetDrewFromItsRows));
         Checks.run("eachRowOfCustomReachesItsOwnAnswer", () -> inFirstPerson(QualityTests::eachRowOfCustomReachesItsOwnAnswer));
         Checks.run("thePresetsLeaveCustomAsItWas", QualityTests::thePresetsLeaveCustomAsItWas);
+        Checks.run("aPresetDrawsALargeViewAtTheMostPixelsAndCustomAtItsRow", QualityTests::aPresetDrawsALargeViewAtTheMostPixelsAndCustomAtItsRow);
         Quality.custom(Quality.HIGH_PICTURE);
         Quality.set(0, Quality.HIGH);
     }
 
     private static void check(boolean condition, String what) {
         Checks.check(condition, what);
+    }
+
+    /** A preset draws a view of more than MOST_PRESET_PIXELS as if it were that size, Custom draws its RenderScale row whatever the size. */
+    private static void aPresetDrawsALargeViewAtTheMostPixelsAndCustomAtItsRow() {
+        Quality.custom(Quality.HIGH_PICTURE);
+        Quality.inFirstPerson(0, true);
+        for (int mode : new int[] {Quality.LOW, Quality.MEDIUM, Quality.HIGH}) {
+            Quality.set(0, mode);
+            float share = Quality.scale(0);
+            check(Quality.scale(0, 1920, 1080) == share && Quality.scale(0, 2560, 1440) == share,
+                    Quality.name(0) + " draws a view of 1440p or less at its own render scale");
+            float at4k = Quality.scale(0, 3840, 2160);
+            check(Math.abs(at4k - share * 2f / 3f) < 1e-5f, Quality.name(0) + " draws a 4K view with the pixels it gives 1440p: " + at4k);
+            check(Math.abs(at4k * 3840 * at4k * 2160 - share * 2560 * share * 1440) < 2f, "which is the same count of pixels");
+        }
+        Quality.set(0, Quality.CUSTOM);
+        check(Quality.scale(0, 3840, 2160) == 1f, "Custom with RenderScale 1 draws a 4K view whole");
+        Quality.setOverhead(0, Quality.CUSTOM);
+        Quality.set(0, Quality.HIGH);
+        Quality.inFirstPerson(0, false);
+        check(Quality.scale(0, 3840, 2160) == 1f, "and so does the isometric view in Custom");
+        Quality.setOverhead(0, Quality.HIGH);
+        check(Quality.scale(0, 3840, 2160) < 1f, "and that view in High is held to the most pixels");
+        Quality.setOverhead(0, Quality.LOW);
     }
 
     private static void splitScreenLowersHighOnce() {

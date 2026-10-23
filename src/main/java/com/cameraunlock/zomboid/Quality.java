@@ -74,6 +74,8 @@ final class Quality {
     static final int LEAST_GRASS = 10, ALL_GRASS = 100, SOME_GRASS = 40;
     /** How far the trees beyond the loaded map can be drawn, in tiles: the far land reaches no further. */
     static final int MOST_FAR_TREES = (int) FarLand.REACH;
+    /** The most pixels a preset draws a view with before its render scale is lowered, 2560 by 1440: see scale. */
+    static final long MOST_PRESET_PIXELS = 2560L * 1440L;
     /** How far from the eye lamps can light the picture themselves, in tiles. */
     static final int MOST_LIGHT_DISTANCE = 80;
 
@@ -127,6 +129,8 @@ final class Quality {
     private static volatile Picture custom = HIGH_PICTURE;
     /** By view: what its mode in effect draws now. Replaced whole, as rows is. */
     private static volatile Picture[] drawn = pictures(HIGH_PICTURE);
+    /** By view: whether what it draws is Custom's rows, which scale takes as they stand. Replaced whole, as drawn is. */
+    private static volatile boolean[] customDrawn = new boolean[View.COUNT];
     /** See smallerPictures, plainEverywhere and gamesPlantsEverywhere: worked out by refresh from every view's picture. */
     private static volatile boolean smaller, plainEverywhere, gamesPlantsEverywhere;
     /**
@@ -315,10 +319,13 @@ final class Quality {
     private static void refresh() {
         int[] overheads = overheadRows;
         Picture[] next = new Picture[View.COUNT];
+        boolean[] nextCustom = new boolean[View.COUNT];
         boolean anyPresent = false, anyFullSize = false, allPlain = true, allGamesPlants = true;
         for (int view = 0; view < next.length; view++) {
             int overhead = overheads[view];
-            next[view] = inFirstPerson[view] || overhead == LOW ? firstPersonPicture(view) : overhead == CUSTOM ? custom : preset(overhead);
+            boolean firstPerson = inFirstPerson[view] || overhead == LOW;
+            next[view] = firstPerson ? firstPersonPicture(view) : overhead == CUSTOM ? custom : preset(overhead);
+            nextCustom[view] = (firstPerson ? rows[view] : overhead) == CUSTOM;
             // A view in its isometric Low draws none of the mod's pictures, and holds first person's made for the switch.
             if (present[view]) {
                 anyPresent = true;
@@ -328,6 +335,7 @@ final class Quality {
             }
         }
         drawn = next;
+        customDrawn = nextCustom;
         // With no player at the screen the pictures are left as they were made, not made again for nobody.
         if (anyPresent) {
             smaller = !anyFullSize;
@@ -642,6 +650,20 @@ final class Quality {
     /** How many of the picture's pixels there are to each of the window's, each way. */
     static float scale(int view) {
         return drawn[view].renderScale;
+    }
+
+    /**
+     * scale for a view wide by high pixels. Low, Medium, High and Automatic draw a view of more
+     * pixels than MOST_PRESET_PIXELS as if it were that size: past it the cost goes on growing with
+     * the pixels and the picture barely sharpens. Custom draws its RenderScale row at any size.
+     */
+    static float scale(int view, int wide, int high) {
+        float share = drawn[view].renderScale;
+        long pixels = (long) wide * high;
+        if (customDrawn[view] || pixels <= MOST_PRESET_PIXELS) {
+            return share;
+        }
+        return share * (float) Math.sqrt((double) MOST_PRESET_PIXELS / pixels);
     }
 
     /** How many texels a shadow map is across. */

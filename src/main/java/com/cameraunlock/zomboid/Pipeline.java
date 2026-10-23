@@ -1068,10 +1068,13 @@ final class Pipeline {
             farDrawn = false;
             roofDrawn = false;
         }
-        float scale = SCALE * Quality.scale(view.index);
+        float scale = SCALE * Quality.scale(view.index, viewport[2], viewport[3]);
         int wide = Math.round(viewport[2] * scale), high = Math.round(viewport[3] * scale);
         if (failure == null && (wide != width || high != height)) {
             failure = resize(wide, high);
+            if (failure == null) {
+                Log.info("first person picture drawn at " + wide + "x" + high + " for a view of " + viewport[2] + "x" + viewport[3]);
+            }
         }
         if (failure == null) {
             float aspect = (float) viewport[2] / viewport[3];
