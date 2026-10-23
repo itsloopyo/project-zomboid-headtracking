@@ -5258,6 +5258,32 @@ final class WorldScene {
             return view.torchLess.light(square, squareLights.of(square, playerIndex, lightPass), torchless);
         }
 
+        /** Whether each room met in a reading of lights is seen: see roomSeen. */
+        private final HashMap<Long, Boolean> roomsSeenInReading = new HashMap<>();
+
+        /** Whether the player has seen a room, as RoomsSeen takes it from its squares on its own level. */
+        private boolean roomSeen(long room) {
+            Boolean known = roomsSeenInReading.get(room);
+            if (known == null) {
+                RoomDef def = IsoWorld.instance.getMetaGrid().getRoomDefByID(room);
+                int[] rects = new int[def.rects.size() * 4];
+                for (int i = 0; i < def.rects.size(); i++) {
+                    RoomDef.RoomRect rect = def.rects.get(i);
+                    rects[i * 4] = rect.x;
+                    rects[i * 4 + 1] = rect.y;
+                    rects[i * 4 + 2] = rect.w;
+                    rects[i * 4 + 3] = rect.h;
+                }
+                int level = def.level;
+                known = RoomsSeen.most(rects, (x, y) -> {
+                    IsoGridSquare square = cell.getGridSquare(x, y, level);
+                    return square == null ? RoomsSeen.NONE : square.isSeen(playerIndex) ? RoomsSeen.SEEN : RoomsSeen.UNSEEN;
+                });
+                roomsSeenInReading.put(room, known);
+            }
+            return known;
+        }
+
         private final ColorInfo hallLight = new ColorInfo();
 
         /**
@@ -5346,6 +5372,7 @@ final class WorldScene {
             lightPass = LightingJNI.getUpdateCounter(playerIndex);
             Arrays.fill(lampAt, LAMP_UNASKED);
             roomAsked = null;
+            roomsSeenInReading.clear();
             for (int i = 0; i < LIGHT_SPAN; i++) {
                 for (int j = 0; j < LIGHT_SPAN; j++) {
                     boolean inChunk = i >= 1 && i <= CHUNK_TILES && j >= 1 && j <= CHUNK_TILES;
@@ -5369,8 +5396,7 @@ final class WorldScene {
                     // has on screen.
                     // The upper part of a tall hall is the hall, and is lit as its floor is: by
                     // whether the player has seen it, by the day the hall lets in and by its lamps.
-                    // The game marks the squares up there seen or not in patches of its own, and a
-                    // row left out of the upper room is in no room at all.
+                    // A row left out of the upper room is in no room at all.
                     IsoGridSquare hallFloor = TallHalls.floorOf(cell, square.getX(), square.getY(), z);
                     IsoGridSquare lighting = hallFloor != null ? hallFloor : square;
                     ColorInfo light = hallFloor != null ? hallLightOf(square, hallFloor) : lightOf(square);
@@ -5378,8 +5404,9 @@ final class WorldScene {
                     // As the game's own view a room keeps the engine's light whether or not it has
                     // been seen: none in a room the player has not seen into, and less in one
                     // they have seen and cannot see now, which is how the game shows them.
-                    boolean seen = lighting.isSeen(playerIndex);
+                    // From the eye a room is seen or not as a whole (RoomsSeen).
                     boolean inRoom = lighting.getRoomID() != -1L;
+                    boolean seen = inRoom && !asTheGameShows && !gamesView ? roomSeen(lighting.getRoomID()) : lighting.isSeen(playerIndex);
                     byte lit = OWN_LIGHT;
                     // Under the ground a square in no room is the earth round a basement, which the game marks out of doors: it keeps the game's light.
                     if (!seen && !(gamesView && inRoom) && (inRoom || z >= 0)) {
