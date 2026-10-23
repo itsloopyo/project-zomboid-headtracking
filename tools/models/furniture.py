@@ -11731,6 +11731,111 @@ def tennis_net(name, first, last):
     return model
 
 
+# A gym's climbing frame: two posts a level and more high, a beam across their tops and a rope net or climbing ropes from it.
+# The game paints it in a sprite a square and a level, four squares long. Each model is built round the middle of its
+# square, the frame along X. Where the posts stand on the end squares, how high the beam's top is over the floor, how thick
+# post and beam are, how far the net's foot is pulled out to -Y, how far apart its ropes are, and how far above the floor
+# the climbing ropes end.
+CLIMB_NORTH_POST, CLIMB_SOUTH_POST, CLIMB_BEAM_TOP, CLIMB_POST, CLIMB_BEAM = -0.28, 0.31, 4.2, 0.07, 0.08
+CLIMB_NET_PULL, CLIMB_NET_CELL, CLIMB_ROPE_END, CLIMB_LEVEL = 0.3, 0.33, 0.66, 2.45
+
+
+def climb_net_y(z):
+    """How far out the net is at a height above the floor, from its foot pulled out to its top under the beam."""
+    top = CLIMB_BEAM_TOP - 2 * CLIMB_BEAM
+    return -CLIMB_NET_PULL * (1.0 - min(max(z, 0.0), top) / top)
+
+
+def climb_part(name, low, post=None, beam=(-0.5, 0.5), net=None, ropes=()):
+    """The part of a climbing frame over one square, on the level of its foot (low) or the level over that. post is where
+    a post stands on the square, beam the beam's reach over it, net the net's reach over it, ropes where climbing ropes
+    hang from the beam."""
+    model = Model(name, centred=False)
+    base = 0.0 if low else CLIMB_LEVEL
+    lo, hi = base, base + CLIMB_LEVEL
+
+    def z(height):
+        return height - base
+
+    wood = bmesh.new()
+    if post is not None:
+        cuboid(wood, post - CLIMB_POST, post + CLIMB_POST, -CLIMB_POST, CLIMB_POST, z(max(lo, 0.0)), z(min(hi, CLIMB_BEAM_TOP)))
+        inward = 1.0 if post < 0 else -1.0
+        if low:
+            # A short block at the post's foot and a brace from it out to +Y.
+            cuboid(wood, post - 0.06, post + 0.06, CLIMB_POST, CLIMB_POST + 0.12, 0.0, 0.55)
+            prism(wood, (post, 0.6, 0.1, 0.1, 0.0), (post, CLIMB_POST + 0.06, 0.1, 0.1, 0.9))
+        else:
+            # The knee brace from the post in under the beam.
+            under = CLIMB_BEAM_TOP - 2 * CLIMB_BEAM
+            bar = bmesh.new()
+            start = Vector((post + inward * CLIMB_POST, 0.0, z(under - 0.65)))
+            end = Vector((post + inward * 0.65, 0.0, z(under)))
+            way = end - start
+            turn = Vector((0.0, 0.0, 1.0)).rotation_difference(way.normalized()).to_matrix().to_4x4()
+            cuboid(bar, -0.045, 0.045, -0.045, 0.045, 0.0, way.length)
+            bmesh.ops.transform(bar, matrix=Matrix.Translation(start) @ turn, verts=bar.verts)
+            model.hard(bar, "dark_wood", bevel=0.008, segments=1)
+    if not low:
+        x0, x1 = beam
+        cuboid(wood, x0, x1, -CLIMB_BEAM, CLIMB_BEAM, z(CLIMB_BEAM_TOP - 2 * CLIMB_BEAM), z(CLIMB_BEAM_TOP))
+    model.hard(wood, "dark_wood", bevel=0.01, segments=1)
+    rope = bmesh.new()
+    if net is not None:
+        x0, x1 = net
+        foot, top = 0.15, CLIMB_BEAM_TOP - 2 * CLIMB_BEAM
+        # The ropes that hang meet the floor of the level over the frame's foot, and the first that runs across is a rope's
+        # thickness above it, so nothing of the square's piece is under that floor.
+        n0, n1 = max(foot, lo), min(top, hi)
+        across = max(foot, lo + 0.012)
+        # The ropes that hang are at fixed places along the whole net, so the squares' nets meet.
+        k = math.ceil(x0 / CLIMB_NET_CELL - 1e-6)
+        while k * CLIMB_NET_CELL <= x1 + 1e-6:
+            x = k * CLIMB_NET_CELL
+            rod(rope, (x, climb_net_y(n0), z(n0)), (x, climb_net_y(n1), z(n1)), 0.014, segments=6)
+            k += 1
+        k = math.ceil((across - foot) / CLIMB_NET_CELL - 1e-6)
+        while foot + k * CLIMB_NET_CELL <= n1 + 1e-6:
+            h = foot + k * CLIMB_NET_CELL
+            rod(rope, (x0, climb_net_y(h), z(h)), (x1, climb_net_y(h), z(h)), 0.012, segments=6)
+            k += 1
+        if not low:
+            # Where the net is lashed to the beam.
+            k = math.ceil(x0 / CLIMB_NET_CELL - 1e-6)
+            while k * CLIMB_NET_CELL <= x1 + 1e-6:
+                x = k * CLIMB_NET_CELL
+                cuboid(rope, x - 0.03, x + 0.03, -CLIMB_BEAM - 0.012, CLIMB_BEAM + 0.012, z(CLIMB_BEAM_TOP - 2 * CLIMB_BEAM - 0.01), z(CLIMB_BEAM_TOP + 0.01))
+                k += 1
+    for x in ropes:
+        r0, r1 = max(CLIMB_ROPE_END, lo), min(CLIMB_BEAM_TOP - 2 * CLIMB_BEAM, hi)
+        lathe(rope, [(0.0, z(r0)), (0.022, z(r0)), (0.022, z(r1)), (0.0, z(r1))], cx=x, segments=8)
+        if low:
+            lathe(rope, [(0.0, z(r0) - 0.06), (0.03, z(r0) - 0.05), (0.04, z(r0)), (0.035, z(r0) + 0.06), (0.0, z(r0) + 0.07)], cx=x, segments=10)
+        else:
+            lathe(rope, [(0.0, z(CLIMB_BEAM_TOP) - 0.01), (0.04, z(CLIMB_BEAM_TOP)), (0.045, z(CLIMB_BEAM_TOP) + 0.04), (0.0, z(CLIMB_BEAM_TOP) + 0.07)], cx=x, segments=10)
+    model.turned(rope, "worktop", sharp=50.0)
+    return model
+
+
+def climbing_frames():
+    north, south = CLIMB_NORTH_POST, CLIMB_SOUTH_POST
+    beam_north, beam_south = (north - 0.14, 0.5), (-0.5, south + 0.14)
+    net_north, net_south = (north + CLIMB_POST, 0.5), (-0.5, south - CLIMB_POST)
+    return [climb_part("climb_net_north_low", True, post=north, net=net_north),
+            climb_part("climb_net_low", True, net=(-0.5, 0.5)),
+            climb_part("climb_net_south_low", True, post=south, net=net_south),
+            climb_part("climb_net_north_high", False, post=north, beam=beam_north, net=net_north),
+            climb_part("climb_net_high", False, net=(-0.5, 0.5)),
+            climb_part("climb_net_south_high", False, post=south, beam=beam_south, net=net_south),
+            climb_part("climb_post_north_low", True, post=north),
+            climb_part("climb_post_south_low", True, post=south),
+            climb_part("climb_rope_low", True, ropes=(0.47,)),
+            climb_part("climb_beam_north_high", False, post=north, beam=beam_north),
+            climb_part("climb_beam_high", False),
+            climb_part("climb_beam_rope_high", False, ropes=(0.47,)),
+            climb_part("climb_beam_south_rope_high", False, post=south, beam=beam_south, ropes=(-0.55,))]
+
+
 def sports():
     """What a playing field, a boxing ring and a gym have: Leisure.field stands each."""
     return [ring_post(), ring_ropes("ring_ropes", False), ring_ropes("ring_ropes_tied", True), ring_corner(), ring_steps(),
@@ -11738,7 +11843,8 @@ def sports():
             golf_flag(),
             base_bag(), home_plate(), pitching_rubber(),
             jump("jump_first", True, False), jump("jump_middle", False, False), jump("jump_last", False, True),
-            tennis_net("tennis_net_first", True, False), tennis_net("tennis_net_middle", False, False), tennis_net("tennis_net_last", False, True)]
+            tennis_net("tennis_net_first", True, False), tennis_net("tennis_net_middle", False, False), tennis_net("tennis_net_last", False, True)] \
+        + climbing_frames()
 
 
 def every():

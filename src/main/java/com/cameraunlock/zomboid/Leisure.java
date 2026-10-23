@@ -269,7 +269,7 @@ final class Leisure {
             case 18 -> court("goal_first", false, GOAL_ACROSS);
             case 17 -> court("goal_middle", false, GOAL_ACROSS).raise(GOAL_BAR_FOOT / LEVEL);
             case 16 -> court("goal_last", false, GOAL_ACROSS);
-            default -> sports >= 136 && sports <= 163 ? tyres(sports) : field(sports);
+            default -> sports >= 136 && sports <= 163 ? tyres(sports) : field(sports, Sheets.place(name, MILITARY));
         };
     }
 
@@ -287,10 +287,13 @@ final class Leisure {
     static final float TENNIS_ACROSS = 0f, TENNIS_MIDDLE_FOOT = 0.037f;
     /** Where across its squares a show jump runs, and how high the foot of its middle square's poles is, in metres. */
     static final float JUMP_ACROSS = 0.6f, JUMP_MIDDLE_FOOT = 0.545f;
+    /** How high the foot of a climbing frame's net, of its rope and of its high beam is over the level the game paints each on, in metres. */
+    static final float CLIMB_NET_FOOT = 0.138f, CLIMB_ROPE_FOOT = 0.6f, CLIMB_BEAM_FOOT = 1.59f;
+    private static final String MILITARY = "location_military_generic_01_";
 
     /** What a playing field, a boxing ring and a gym have on their squares, each standing where the game's sprite of it paints it. */
-    private static Outdoors.Piece field(int sports) {
-        return switch (sports) {
+    private static Outdoors.Piece field(int sports, int military) {
+        Outdoors.Piece piece = switch (sports) {
             case 80 -> ringRopes("ring_ropes", true);
             case 82 -> ringRopes("ring_ropes_tied", true);
             case 81 -> ringRopes("ring_ropes", false);
@@ -326,6 +329,27 @@ final class Leisure {
             case 52 -> court("tennis_net_last", false, TENNIS_ACROSS);
             default -> null;
         };
+        if (piece != null) {
+            return piece;
+        }
+        // A climbing frame runs along y from its north post to its south one, a level up and a level down, each square of it
+        // the share of the frame the game paints there: the net frame, and the frame with a rope hung from its beam.
+        return switch (military) {
+            case 59 -> climb("climb_net_north_low", 0f);
+            case 58, 57 -> climb("climb_net_low", CLIMB_NET_FOOT);
+            case 56 -> climb("climb_net_south_low", 0f);
+            case 51 -> climb("climb_net_north_high", 0f);
+            case 50, 49 -> climb("climb_net_high", 0f);
+            case 48 -> climb("climb_net_south_high", 0f);
+            case 63 -> climb("climb_post_north_low", 0f);
+            case 62, 61 -> climb("climb_rope_low", CLIMB_ROPE_FOOT);
+            case 60 -> climb("climb_post_south_low", 0f);
+            case 55 -> climb("climb_beam_north_high", 0f);
+            case 54 -> climb("climb_beam_rope_high", 0f);
+            case 53 -> climb("climb_beam_high", CLIMB_BEAM_FOOT);
+            case 52 -> climb("climb_beam_south_rope_high", 0f);
+            default -> null;
+        };
     }
 
     /** A square's length of a ring's ropes along x or along y, the blue ones and the red ones the colours the game paints them. */
@@ -342,6 +366,10 @@ final class Leisure {
     private static Outdoors.Piece goalpost(String model, float b) {
         float foot = GOALPOST_BAR_FOOT / LEVEL;
         return new Outdoors.Piece(model, Outdoors.WEST).at(GOALPOST_ACROSS, 0.5f).dye(PAINT, GOALPOST_ACROSS, b, GOALPOST_BAR_DYE - foot).raise(foot);
+    }
+
+    private static Outdoors.Piece climb(String model, float foot) {
+        return new Outdoors.Piece(model, Outdoors.WEST).at(0.5f, 0.5f).raise(foot / LEVEL);
     }
 
     /** Where across its squares a run of net and of goal stands, from the square's corner. */

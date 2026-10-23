@@ -14,6 +14,7 @@ final class LeisureTests {
         Checks.run("everyPieceOfAFieldARingAndAGymNamesAModelTheJarHolds", LeisureTests::everyPieceOfAFieldARingAndAGymNamesAModelTheJarHolds);
         Checks.run("aRingsRopesRunFromPostToPostAtTheHeightOfItsCorner", LeisureTests::aRingsRopesRunFromPostToPostAtTheHeightOfItsCorner);
         Checks.run("aGoalpostsCrossbarIsLevelWithTheTopOfItsPost", LeisureTests::aGoalpostsCrossbarIsLevelWithTheTopOfItsPost);
+        Checks.run("aClimbingFrameMeetsItselfFromLevelToLevel", LeisureTests::aClimbingFrameMeetsItselfFromLevelToLevel);
         Checks.run("aShowJumpOrANetLiesAlongTheWayItsSpritesDo", LeisureTests::aShowJumpOrANetLiesAlongTheWayItsSpritesDo);
         Checks.run("aPieceLaidOutOtherwiseThanItsModelIsNone", LeisureTests::aPieceLaidOutOtherwiseThanItsModelIsNone);
         Checks.run("aSteeplesSpireStandsOnItsBelfry", LeisureTests::aSteeplesSpireStandsOnItsBelfry);
@@ -194,9 +195,13 @@ final class LeisureTests {
         for (int place : new int[] {0, 1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 49, 50, 51, 52, 53, 54, 80, 81, 82, 83, 84, 85, 86, 87, 120, 121, 122, 123, 124, 125}) {
             holds(unnamed("recreational_sports_01_" + place), "recreational_sports_01_" + place + " is a part of something on a field or in a ring");
         }
+        for (int place = 48; place <= 63; place++) {
+            holds(unnamed("location_military_generic_01_" + place), "location_military_generic_01_" + place + " is a part of a climbing frame");
+        }
         holds(Outdoors.of("recreational_sports_01_48", "Golf Put", null, Outdoors.NONE, 1, 1, 0), "the golf hole's flag has a model");
         Outdoors.Piece twice = unnamed("recreational_sports_01_95");
         Checks.check(twice != null && twice.model == null && twice.follows, "the ring's back post the game paints a second time stands nothing");
+        Checks.check(unnamed("location_military_generic_01_47") == null && unnamed("location_military_generic_01_64") == null, "what else is on the army's sheet");
     }
 
     private static void aRingsRopesRunFromPostToPostAtTheHeightOfItsCorner() {
@@ -222,6 +227,18 @@ final class LeisureTests {
             Outdoors.Piece piece = unnamed("recreational_sports_01_" + place);
             Checks.check(piece.raised == bar.raised && piece.turns == bar.turns && piece.a == bar.a, "recreational_sports_01_" + place + " is on the line of the crossbar");
         }
+    }
+
+    private static void aClimbingFrameMeetsItselfFromLevelToLevel() {
+        String sheet = "location_military_generic_01_";
+        for (int place : new int[] {56, 57, 59, 60, 61, 63}) {
+            Outdoors.Piece low = unnamed(sheet + place);
+            float top = low.raised + Models.get(low.model).height();
+            Checks.check(Math.abs(top - ViewCamera.LEVEL_HEIGHT) < 0.005f, sheet + place + " reaches up to the level over it: " + top);
+        }
+        Outdoors.Piece beam = unnamed(sheet + 53), end = unnamed(sheet + 55);
+        float beamTop = beam.raised + Models.get(beam.model).height(), endTop = Models.get(end.model).height();
+        Checks.check(Math.abs(beamTop - endTop) < 0.005f, "the beam is as high as the top of the post it runs from: " + beamTop + ", " + endTop);
     }
 
     private static void aShowJumpOrANetLiesAlongTheWayItsSpritesDo() {
