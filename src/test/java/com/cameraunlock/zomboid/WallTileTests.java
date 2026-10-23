@@ -54,6 +54,7 @@ final class WallTileTests {
         Checks.run("aDoorWallTakesTheWholeWallBesideItInItsRoom", WallTileTests::aDoorWallTakesTheWholeWallBesideItInItsRoom);
         Checks.run("aDoorWallLooksNoFurtherThanItsRoomAndItsWall", WallTileTests::aDoorWallLooksNoFurtherThanItsRoomAndItsWall);
         Checks.run("aDoorWallPassesAWholeWallThatDisagreesWithIt", WallTileTests::aDoorWallPassesAWholeWallThatDisagreesWithIt);
+        Checks.run("aWindowWallTakesTheWholeWallWhoseLinesItReads", WallTileTests::aWindowWallTakesTheWholeWallWhoseLinesItReads);
         Checks.run("aWholeWallNotReadYetLeavesTheBuildToBeMadeAgain", WallTileTests::aWholeWallNotReadYetLeavesTheBuildToBeMadeAgain);
         Checks.run("aSpriteReadAsAWallIsReadAgainLaidOverOne", WallTileTests::aSpriteReadAsAWallIsReadAgainLaidOverOne);
         Checks.run("theFarSideOfAWallTakesTheTilesOfTheRoomBeyondOnEitherEdge", WallTileTests::theFarSideOfAWallTakesTheTilesOfTheRoomBeyondOnEitherEdge);
@@ -587,6 +588,38 @@ final class WallTileTests {
         WallTiles.Wall agrees = reading(true, CREAM);
         WallTiles.knownForTests(textureAt(map, 3), true, false, agrees);
         check(map.build.wallBuilder.tilesOf(textureAt(map, 1), 1, 0, 0, 1f, 0f, true) == agrees, "a whole wall in another colour of the sheet is passed for the next that agrees");
+    }
+
+    /** A band of paint from foot to head in that colour, with one line across it in another. */
+    private static WallTiles.Band lined(float foot, float head, float[] colour, float[] line) {
+        WallTiles.Band band = new WallTiles.Band();
+        band.foot = foot;
+        band.head = head;
+        band.red = colour[0];
+        band.green = colour[1];
+        band.blue = colour[2];
+        WallTiles.Stripe stripe = new WallTiles.Stripe();
+        stripe.foot = foot + 0.01f;
+        stripe.head = foot + 0.02f;
+        stripe.red = line[0];
+        stripe.green = line[1];
+        stripe.blue = line[2];
+        band.stripes = new WallTiles.Stripe[] {stripe};
+        return band;
+    }
+
+    private static void aWindowWallTakesTheWholeWallWhoseLinesItReads() {
+        // Beside a window the sprite shows less of a decorated row than a whole wall does: what it reads there as a band is mostly the
+        // row's lines, darker than the row's paint, which the whole wall reads as lines across the row.
+        TestMap map = bathroom();
+        WallTiles.Wall window = new WallTiles.Wall();
+        window.bands = new WallTiles.Band[] {lined(0.17f, 0.23f, NAVY, NAVY)};
+        WallTiles.knownForTests(textureAt(map, 1), true, false, window);
+        WallTiles.Wall whole = new WallTiles.Wall();
+        whole.whole = true;
+        whole.bands = new WallTiles.Band[] {lined(0.17f, 0.4f, CREAM, NAVY)};
+        WallTiles.knownForTests(textureAt(map, 2), true, false, whole);
+        check(map.build.wallBuilder.tilesOf(textureAt(map, 1), 1, 0, 0, 1f, 0f, true) == whole, "a window wall takes the whole wall beside it whose lines are the colour it read");
     }
 
     private static void aWholeWallNotReadYetLeavesTheBuildToBeMadeAgain() {

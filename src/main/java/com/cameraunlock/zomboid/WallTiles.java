@@ -366,7 +366,9 @@ final class WallTiles {
     /**
      * Whether a whole wall's reading can stand for a wall with an opening in it: each band the
      * wall reads of itself has, at its middle, a band of the whole wall of its colour, and tiles
-     * where it has tiles. A wall that read nothing of itself takes any.
+     * where it has tiles. A band edged with lines is of the other's colour where its colour or any
+     * of its lines is the other's or one of its lines'. A wall that read nothing of itself takes
+     * any.
      */
     static boolean agrees(Wall own, Wall whole) {
         if (own == null) {
@@ -378,16 +380,37 @@ final class WallTiles {
             for (Band other : whole.bands) {
                 there = other.foot <= middle && middle <= other.head ? other : there;
             }
-            if (there == null) {
-                return false;
-            }
-            float apart = Math.max(Math.abs(band.red - there.red), Math.max(Math.abs(band.green - there.green), Math.abs(band.blue - there.blue)));
-            float brighter = Math.max(0.299f * band.red + 0.587f * band.green + 0.114f * band.blue, 0.299f * there.red + 0.587f * there.green + 0.114f * there.blue);
-            if (band.tiled && !there.tiled || apart > 2f * Math.max(LEAST_SAME, SAME_SHARE * brighter)) {
+            if (there == null || band.tiled && !there.tiled || !anySame(coloursOf(band, band.foot, band.head), coloursOf(there, band.foot, band.head))) {
                 return false;
             }
         }
         return true;
+    }
+
+    /** A band's colour, and those of its stripes between foot and head. */
+    private static ArrayList<float[]> coloursOf(Band band, float foot, float head) {
+        ArrayList<float[]> colours = new ArrayList<>();
+        colours.add(new float[] {band.red, band.green, band.blue});
+        if (band.stripes != null) {
+            for (Stripe stripe : band.stripes) {
+                if (stripe.head > foot && stripe.foot < head) {
+                    colours.add(new float[] {stripe.red, stripe.green, stripe.blue});
+                }
+            }
+        }
+        return colours;
+    }
+
+    /** Whether any colour of one list is one of the other's, twice as loosely as same. */
+    private static boolean anySame(ArrayList<float[]> some, ArrayList<float[]> others) {
+        for (float[] one : some) {
+            for (float[] other : others) {
+                if (same(one, other, 2f)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     /** Whether the sprite has still to be read for that edge, as a wall or laid over one. */
