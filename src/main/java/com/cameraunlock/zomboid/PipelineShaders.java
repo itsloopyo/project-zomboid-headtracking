@@ -961,6 +961,10 @@ final class PipelineShaders {
             // How much more of a clear sky's light an upright face turned to the sun's side of it
             // has, and how much less one turned away, with the sun on the horizon.
             const float SKY_SIDE = 0.35;
+            // Stained glass: how much of the open air's daylight and of the sun its glass lets through, as
+            // light it gives off, how much of the room's light it throws back, and how far its colours are
+            // taken past the game's (1 keeps them).
+            const float STAINED_SKY = 0.5, STAINED_SUN = 0.5, STAINED_ROOM = 0.25, STAINED_DEEPEN = 3.0;
             // A leaf of a crown: what it has of the crown's sun when turned edge on to it, and what more
             // when turned full to it; how much of the sun on its back shows through, and how
             // much more of it looking straight towards the sun; and how smooth its skin is.
@@ -2653,6 +2657,19 @@ final class PipelineShaders {
                     texel = vec4(0.03, 0.03, 0.035, 1.0);
                     cover = 1.0;
                 }
+                // Stained glass (StainedGlass): its coloured dots are part covered, as a pane's film is,
+                // and are the glass, lit from behind below. What is solid in its sprite, the leading
+                // and the frame, is lit as the room is. stainedGlass is how much of the texel is glass.
+                bool stained = vMaterial > 94.5 && vMaterial < 95.5;
+                float stainedGlass = 0.0;
+                if (stained) {
+                    if (cover < 0.1) {
+                        discard;
+                    }
+                    stainedGlass = 1.0 - smoothstep(0.62, 0.8, texel.a);
+                    texel = vec4(texel.rgb, 1.0);
+                    cover = 1.0;
+                }
                 // A fence sprite fine enough to be a mesh (WorldScene.isMesh): welded panels, slats,
                 // and chain link wherever the mod does not weave its own. The game paints its wire
                 // as heavy strokes, which up close are a lattice of bars: here the wire is half as
@@ -3740,6 +3757,16 @@ final class PipelineShaders {
                 }
                 lightHere += uLightLinear * vec3(0.9, 0.86, 0.74) * (0.3 * max(uLight.z, 0.0) * (1.0 - abs(n.z)) * open * groundLit);
                 vec3 color = pow(texel.rgb, vec3(2.2)) * lightHere;
+                if (stainedGlass > 0.0) {
+                    // The day comes through the glass from the open air on its far side, the sun's own
+                    // light where the sun is on that side and nothing shades it, and the glass is the
+                    // colour of what it lets through. Its colours are deepened: the game paints them
+                    // pale, to be laid over what is behind.
+                    vec3 tinted = pow(clamp(mix(vec3(dot(texel.rgb, vec3(0.299, 0.587, 0.114))), texel.rgb, STAINED_DEEPEN), 0.0, 1.0), vec3(2.2));
+                    float sunThrough = max(dot(-face, uLight), 0.0) * step(0.0, uLight.z) * sunOnAir(vWorld - face * 0.12);
+                    vec3 through = uOpenLinear * (STAINED_SKY * uDaylightKept) + uLightLinear * (STAINED_SUN * sunThrough);
+                    color = mix(color, tinted * (through + STAINED_ROOM * (ambient + held)), stainedGlass);
+                }
                 // The light the surface scatters, and how much of all it scatters is left once
                 // what it mirrors is taken out: see the all-round mirror below.
                 vec3 scattered = color;

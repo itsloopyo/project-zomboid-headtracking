@@ -832,6 +832,8 @@ final class WorldScene {
         final Towers.Part[] tower;
         /** Whether it is the letters of a sign: see EdgeRuns.sign. */
         final boolean sign;
+        /** Whether it is a stained glass window: see StainedGlass. */
+        final boolean stained;
         /** For a sprite of tiled walls, its sheet: see Frame.tiledSheet. */
         final String tiledSheet;
         /** What of partOfTheBuilding and withinItsRoom goes by the sprite alone. */
@@ -918,6 +920,7 @@ final class WorldScene {
             rope = Tents.ropeOf(sprite);
             tower = Towers.of(sprite);
             sign = EdgeRuns.sign(name, properties.get("CustomName"));
+            stained = StainedGlass.of(name);
             tiledSheet = tiledWall ? name.substring(0, name.lastIndexOf('_') + 1) : null;
             ofTheBuilding = ofTheBuilding(sprite);
             keptInItsRoom = keptInItsRoom(sprite);
@@ -2003,6 +2006,8 @@ final class WorldScene {
      * are what is printed on it and say nothing of its shape. See printed.
      */
     static final float PRINT = 90f;
+    /** The coloured glass of a stained glass window, lit by the day behind it: see StainedGlass. */
+    static final float STAINED = 95f;
     /** What the game calls the sheets and boards it hangs flat on a wall. */
     private static final Set<String> PRINTS = Set.of("Poster", "Torn Poster", "Notices", "Picture", "Painting", "Paintings", "Certificate",
             "Child's Drawing", "Childrens Drawing", "Board", "Whiteboard", "Noteboard", "Pegboard", "USA");
@@ -6326,7 +6331,7 @@ final class WorldScene {
                 owning(Outlines.key(object));
                 frameOf(object, texture);
                 standOn(object);
-                frame.material = object == floor ? kind.asFloor : kind.asOther;
+                frame.material = object == floor ? kind.asFloor : kind.stained && Own.buildings() ? STAINED : kind.asOther;
                 laidWall = kind.laidWall;
                 garageDoor = kind.garageDoor;
                 gableSheet = kind.gableSheet;

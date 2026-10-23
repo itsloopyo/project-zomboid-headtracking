@@ -23,6 +23,7 @@ final class LeisureTests {
         Checks.run("aPairOfTheatreSeatsFacesTheWayItsSpriteSays", LeisureTests::aPairOfTheatreSeatsFacesTheWayItsSpriteSays);
         Checks.run("aStageMicrophoneFacesTheWayItsSpriteSays", LeisureTests::aStageMicrophoneFacesTheWayItsSpriteSays);
         Checks.run("aPoolTablesLampHangsFromTheCeilingOverBothSquares", LeisureTests::aPoolTablesLampHangsFromTheCeilingOverBothSquares);
+        Checks.run("aChurchsColouredWindowsAreStainedGlassAndItsClearOnesAreNot", LeisureTests::aChurchsColouredWindowsAreStainedGlassAndItsClearOnesAreNot);
     }
 
     private static void holds(Outdoors.Piece piece, String what) {
@@ -283,5 +284,23 @@ final class LeisureTests {
         Checks.check(Outdoors.of("sheet_01_0", "Drum", "Cymbal", Outdoors.SOUTH, 1, 1, 0) == null, "a drum the mod has no model of");
         Checks.check(Outdoors.of("sheet_01_0", "Jukebox", "Oldies", Outdoors.NONE, 1, 1, 0) == null, "a jukebox with no front");
         Checks.check(unnamed("location_community_park_01_49") == null && unnamed("recreational_sports_01_34") == null, "what else is on the sheets");
+    }
+
+    private static final String CHURCH = "location_community_church_small_01_";
+
+    private static void aChurchsColouredWindowsAreStainedGlassAndItsClearOnesAreNot() {
+        for (int place : new int[] {114, 119, 122, 127}) {
+            Checks.check(StainedGlass.of(CHURCH + place), CHURCH + place + " is stained glass");
+        }
+        for (int place : new int[] {112, 113, 120, 121, 128, 133, 141}) {
+            Checks.check(!StainedGlass.of(CHURCH + place), CHURCH + place + " is a clear window or a wall");
+        }
+        for (int place : new int[] {0, 7, 14, 19, 30, 31}) {
+            Checks.check(StainedGlass.of("fixtures_windows_church_" + place), "fixtures_windows_church_" + place + " is stained glass");
+        }
+        for (int place : new int[] {8, 13, 20, 29}) {
+            Checks.check(!StainedGlass.of("fixtures_windows_church_" + place), "fixtures_windows_church_" + place + " is diamond leaded clear glass");
+        }
+        Checks.check(!StainedGlass.of(null) && !StainedGlass.of("fixtures_windows_01_0"), "nor is a sprite with no name or a house's window");
     }
 }
