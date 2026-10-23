@@ -93,13 +93,14 @@ final class ArmHolds {
     static final float FORE_SHARE = 0.42f;
     /**
      * Where a magazine that does not hang under the receiver goes in, and where rounds go in,
-     * from the trigger guard, in metres: a flush magazine's well this far ahead of the guard; a
-     * pump's port under the receiver this far ahead of the guard; a bolt's opening over the
+     * from the trigger guard, in metres: a flush magazine's well this far ahead of the guard, the
+     * fist on it this far under the guard's foot (level with it, the fingers went 12 to 16 mm up
+     * into the stock); a pump's port under the receiver this far ahead of the guard; a bolt's opening over the
      * receiver this far ahead of the knob; the breech of a gun that breaks open this far ahead of the guard, at the bore; a
      * revolver's cylinder this much of the guard's length back from its front and this far
      * under the bore.
      */
-    static final float FLUSH_WELL = 0.04f, PUMP_PORT = 0.035f, BOLT_PORT = 0.03f, BREECH = 0.015f, CYLINDER_BACK = 0.35f, CYLINDER_UNDER = 0.012f;
+    static final float FLUSH_WELL = 0.04f, FLUSH_UNDER = 0.02f, PUMP_PORT = 0.035f, BOLT_PORT = 0.03f, BREECH = 0.015f, CYLINDER_BACK = 0.35f, CYLINDER_UNDER = 0.012f;
     /**
      * How far the far end of a handle leans from square to the fingers that hold it, in radians, at the least
      * and at the most. It lies the more aslant in the fist the nearer it points along the arm that holds it:
@@ -785,7 +786,8 @@ final class ArmHolds {
         } else {
             // A magazine that hangs under the receiver is held half way down it; one that does not, under the receiver just ahead of the guard.
             float middle = shape.magazine ? (shape.magazineBack + shape.magazineFront) / 2f : shape.guardFront + FLUSH_WELL * shape.perMetre;
-            System.arraycopy(placed.at(middle, shape.magazine ? (shape.guardFoot + shape.magazineFoot) / 2f : shape.guardFoot, 0f), 0, well, 0, 3);
+            float held = shape.magazine ? (shape.guardFoot + shape.magazineFoot) / 2f : shape.guardFoot - FLUSH_UNDER * shape.perMetre;
+            System.arraycopy(placed.at(middle, held, 0f), 0, well, 0, 3);
             for (int axis = 0; axis < 3; axis++) {
                 down[axis] = -axes.up[axis];
             }
