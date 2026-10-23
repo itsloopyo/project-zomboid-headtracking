@@ -22,6 +22,8 @@ final class TallHallsTests {
         Checks.run("aSquareOfTheUpperRoomIsNot", TallHallsTests::aSquareOfTheUpperRoomIsNot);
         Checks.run("aFlooredSquareIsNot", TallHallsTests::aFlooredSquareIsNot);
         Checks.run("theRoomMapPutsARowLeftOutInTheHall", TallHallsTests::theRoomMapPutsARowLeftOutInTheHall);
+        Checks.run("theRoomMapPutsTheUpperPartOfAHallInTheHall", TallHallsTests::theRoomMapPutsTheUpperPartOfAHallInTheHall);
+        Checks.run("eachSquareIsDrawnAsTheRoomSightWalksItAs", TallHallsTests::eachSquareIsDrawnAsTheRoomSightWalksItAs);
         Checks.run("theUpperRoomIsLitAsTheHallsFloor", TallHallsTests::theUpperRoomIsLitAsTheHallsFloor);
         Checks.run("aRowLeftOutIsLitAsTheHallsFloor", TallHallsTests::aRowLeftOutIsLitAsTheHallsFloor);
         Checks.run("noOtherSquareIsLitAsAHall", TallHallsTests::noOtherSquareIsLitAsAHall);
@@ -108,7 +110,34 @@ final class TallHallsTests {
         check(map.region(3, 2, 1) == HALL && map.building(3, 2, 1) == BUILDING,
                 "sight reads the row left out as the hall, in the hall's building: " + map.region(3, 2, 1) + " " + map.building(3, 2, 1));
         check(map.region(-1, 3, 1) == RoomSight.OUTSIDE && map.building(-1, 3, 1) == RoomSight.OUTSIDE, "and the air beside the hall as the open air");
-        check(map.region(3, 4, 1) == UPPER, "and the upper room as itself");
+    }
+
+    /** The hall's ceiling hangs at the top of its upper part and is drawn with that part's room: sight has to reach it whenever it reaches the hall. */
+    private static void theRoomMapPutsTheUpperPartOfAHallInTheHall() {
+        IsoCell cell = hall();
+        cell.getGridSquare(0, 0, 1).floor(FLOOR);
+        RoomMap map = new RoomMap();
+        map.begin(cell, null);
+        check(map.region(3, 4, 1) == HALL && map.building(3, 4, 1) == BUILDING, "the upper room over the hall is the hall: " + map.region(3, 4, 1));
+        check(map.region(3, 3, 2) == HALL, "and so is the room over that, two floors up: " + map.region(3, 3, 2));
+        check(map.region(0, 0, 1) == UPPER, "a floored square of the upper room, a balcony over the hall, is the upper room: " + map.region(0, 0, 1));
+        check(map.region(3, 0, 2) == RoomSight.OUTSIDE, "a floored square in no room over it is no room's: " + map.region(3, 0, 2));
+    }
+
+    /** What a square's walls, ceiling and contents are drawn with (TallHalls.roomOf) is the region the walk reaches it as, or they go missing while the hall is seen. */
+    private static void eachSquareIsDrawnAsTheRoomSightWalksItAs() {
+        IsoCell cell = hall();
+        cell.getGridSquare(0, 0, 1).floor(FLOOR);
+        RoomMap map = new RoomMap();
+        map.begin(cell, null);
+        for (int z = 0; z <= 3; z++) {
+            for (int x = -2; x <= 7; x++) {
+                for (int y = -2; y <= 7; y++) {
+                    check(TallHalls.roomOf(cell, x, y, z) == map.region(x, y, z),
+                            "square " + x + "," + y + "," + z + " is drawn as " + TallHalls.roomOf(cell, x, y, z) + " and walked as " + map.region(x, y, z));
+                }
+            }
+        }
     }
 
     private static void theUpperRoomIsLitAsTheHallsFloor() {

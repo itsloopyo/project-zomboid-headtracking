@@ -236,13 +236,13 @@ final class RoomMap implements Acoustics.Walls, RoomDaylight.Edges {
         return square == null ? RoomSight.OUTSIDE : square.getRoomID();
     }
 
-    /** The square, or for a row left out of a tall hall's upper room the hall's square under it: the row is the hall's (TallHalls). */
+    /**
+     * The square, or for the upper part of a tall hall and a row left out of it the hall's floored
+     * square: that is all one space, and the hall's ceiling hangs at its top (TallHalls).
+     */
     private IsoGridSquare hallOrSquare(int x, int y, int z) {
         IsoGridSquare square = cell.getGridSquare(x, y, z);
-        if (square == null || square.getRoomID() != RoomSight.OUTSIDE) {
-            return square;
-        }
-        IsoGridSquare hall = TallHalls.under(cell, x, y, z);
+        IsoGridSquare hall = square == null ? null : TallHalls.floorOf(cell, x, y, z);
         return hall != null ? hall : square;
     }
 

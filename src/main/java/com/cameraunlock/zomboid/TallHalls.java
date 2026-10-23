@@ -45,6 +45,20 @@ final class TallHalls {
     }
 
     /**
+     * The room a square is drawn and seen as: for the upper part of a tall hall and a row left
+     * out of it, the room of the hall's floor (floorOf), so that its walls, its ceiling and
+     * what hangs in it are drawn whenever the hall is. RoomSight.OUTSIDE for no square.
+     */
+    static long roomOf(IsoCell cell, int x, int y, int z) {
+        IsoGridSquare square = cell.getGridSquare(x, y, z);
+        if (square == null) {
+            return RoomSight.OUTSIDE;
+        }
+        IsoGridSquare hall = floorOf(cell, x, y, z);
+        return (hall != null ? hall : square).getRoomID();
+    }
+
+    /**
      * The floored square of the hall a square is in the upper part of: one of the upper room,
      * with no floor and a room under it, or a row left out of it, down through every such level
      * to the hall's floor. Null for any other square.

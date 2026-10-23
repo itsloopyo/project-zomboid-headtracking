@@ -269,7 +269,7 @@ final class WallBuilder {
             }
         }
         long given = WorldScene.solid.room;
-        build.contentsOf((own ? build.here : beyond).getRoomID());
+        build.contentsOf(own ? roomAt(x, y, z) : north ? roomAt(x, y - 1, z) : roomAt(x - 1, y, z));
         build.placed.add(Models.get(name), build.frame, x, y, x + a, y + b, foot, turns, 1f, 1f, texture.getID(), 1 << Models.PAINT,
                 SpriteGeometry.textureU(build.frame, a, b), SpriteGeometry.textureV(build.frame, a, b, RAISED_DYE_UP), 0, 0f, 0f);
         if (!name.equals("garage_leaf")) {
@@ -961,10 +961,9 @@ final class WallBuilder {
         }
     }
 
-    /** The room a square is in, or RoomSight.OUTSIDE for the open air or no square. */
+    /** The room a square is seen as (TallHalls.roomOf), or RoomSight.OUTSIDE for the open air or no square. */
     private long roomAt(int x, int y, int z) {
-        IsoGridSquare square = build.cell.getGridSquare(x, y, z);
-        return square == null ? RoomSight.OUTSIDE : square.getRoomID();
+        return TallHalls.roomOf(build.cell, x, y, z);
     }
 
     /** The mesh of the same set, texture and tint as the one given, for the contents of a room. */

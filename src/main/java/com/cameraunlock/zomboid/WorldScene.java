@@ -6351,9 +6351,13 @@ final class WorldScene {
             // left empty: see Sightline. From the eye, a room is built while a walk round the eye
             // finds it can be seen soon, and stands empty otherwise, near or far: see RoomSight.
             // What hangs on its walls may be seen from outside it, and is built whatever the walk found.
-            long room = square.getRoomID();
+            // The upper part of a tall hall, and a row left out of it, is the hall's: its ceiling and
+            // what hangs in it are drawn whenever the hall is, as RoomMap.region walks it.
+            IsoGridSquare hall = hangsInAir ? TallHalls.floorOf(cell, x, y, z) : null;
+            IsoGridSquare keyed = hall != null ? hall : square;
+            long room = keyed.getRoomID();
             squareRoom = room;
-            int emptied = Sightline.emptied(asTheGameShows, gamesView, room != RoomSight.OUTSIDE, square.isSeen(playerIndex));
+            int emptied = Sightline.emptied(asTheGameShows, gamesView, room != RoomSight.OUTSIDE, keyed.isSeen(playerIndex));
             boolean unexplored = emptied == Sightline.LEFT_OUT;
             // The band is asked only where its answer changes the build: asked of every square, a chunk would be another build in every band.
             boolean empty = unexplored || !buildingBySight && emptied == Sightline.LEFT_OUT_FAR && !within(UNSHOWN_FILLED_WITHIN, false);
@@ -6454,13 +6458,6 @@ final class WorldScene {
                 contentsOf(room);
                 ceilingBuilder.addRoomCeiling(x, y, z, localX, localY, openAbove);
                 contentsOf(RoomSight.OUTSIDE);
-            } else if (hangsInAir) {
-                IsoGridSquare hall = TallHalls.under(cell, x, y, z);
-                if (hall != null) {
-                    contentsOf(hall.getRoomID());
-                    ceilingBuilder.addRoomCeiling(x, y, z, localX, localY, openAbove);
-                    contentsOf(RoomSight.OUTSIDE);
-                }
             }
             if (z == 0) {
                 if (geometry.kerb != null && beyondKerb >= 0) {
@@ -6528,8 +6525,7 @@ final class WorldScene {
             if ((acrossX != 0) == (acrossY != 0)) {
                 return RoomSight.OUTSIDE;
             }
-            IsoGridSquare beyond = cell.getGridSquare(x + acrossX, y + acrossY, z);
-            return RoomSight.pair(room, beyond == null ? RoomSight.OUTSIDE : beyond.getRoomID());
+            return RoomSight.pair(room, TallHalls.roomOf(cell, x + acrossX, y + acrossY, z));
         }
 
         /**

@@ -598,7 +598,8 @@ final class OpeningBuilder {
             }
         }
         if (indoors(build.here) != beyondIsRoom) {
-            addBlind(shape, beyondIsRoom ? beyond.getRoomID() : build.here.getRoomID(), beyondIsRoom ? 1 : 0);
+            addBlind(shape, beyondIsRoom ? TallHalls.roomOf(build.cell, beyond.getX(), beyond.getY(), beyond.getZ())
+                    : TallHalls.roomOf(build.cell, build.here.getX(), build.here.getY(), build.here.getZ()), beyondIsRoom ? 1 : 0);
         }
         joinery.day = glass.day = 0f;
         return true;
