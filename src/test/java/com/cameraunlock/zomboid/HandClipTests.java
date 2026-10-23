@@ -13,9 +13,10 @@ import java.util.zip.GZIPInputStream;
 /**
  * The left arm, placed on each of the mod's own long guns as ViewModel and ArmHolds place it,
  * goes no further into the gun than a hand resting on it presses in: at the hip, raised, with
- * the sights up, in a shot's kick, racking, and while a round goes in. With the sights up the
- * forearm went 10 to 18 mm into a magazine or a sawn-off's grip, and the hand that loads went
- * 11 to 19 mm into the receiver.
+ * the sights up, in a shot's kick, racking, while a round goes in, and through a magazine's
+ * change, the magazine in the hand included. With the sights up the forearm went 10 to 18 mm
+ * into a magazine or a sawn-off's grip, the hand that loads went 11 to 19 mm into the receiver,
+ * and the fist round a magazine 10 to 14 mm into it.
  */
 final class HandClipTests {
     private HandClipTests() {}
@@ -24,8 +25,24 @@ final class HandClipTests {
     private static final float DEEPEST = 0.005f;
     private static final float TPM = 0.74355f;
 
-    /** aim, kick pitch in degrees, kick back, what is being done, for how long, whether a clip goes in, and how far a round is. */
-    private record Still(String name, float aim, float kickPitch, float kickBack, int doing, float done, boolean clip, float round) {}
+    /**
+     * aim, kick pitch in degrees, kick back, what is being done, for how long, whether a clip goes in, how far a round is,
+     * and for a magazine's change, which only a gun that takes one goes through: how long ago one was seated, how long
+     * since one came out, and how long one has been fetched for.
+     */
+    private record Still(String name, float aim, float kickPitch, float kickBack, int doing, float done, boolean clip, float round,
+            boolean change, float seated, float out, float fetching) {
+        Still(String name, float aim, float kickPitch, float kickBack, int doing, float done, boolean clip, float round) {
+            this(name, aim, kickPitch, kickBack, doing, done, clip, round, false, -1f, -1f, clip ? -1f : 2f);
+        }
+
+        static Still change(String name, int doing, float done, boolean clip, float seated, float out, float fetching) {
+            return new Still(name, 0f, 0f, 0f, doing, done, clip, 0.5f, true, seated, out, fetching);
+        }
+    }
+
+    /** How long a magazine is fetched for, in seconds. */
+    private static final float FETCH_TAKES = 2.4f;
 
     private static final Still[] STILLS = {
         new Still("at the hip", 0f, 0f, 0f, ArmActs.HOLDING, 0f, true, 0.5f),
@@ -37,6 +54,15 @@ final class HandClipTests {
         new Still("at the port", 0f, 0f, 0f, ArmActs.LOADING, 1.2f, false, 0.42f),
         new Still("pushing a round in", 0f, 0f, 0f, ArmActs.LOADING, 1.2f, false, 0.6f),
         new Still("taking the hand back from the port", 0f, 0f, 0f, ArmActs.LOADING, 1.2f, false, 0.75f),
+        Still.change("taking hold of the magazine in the well", ArmActs.LOADING, 0.5f, true, -1f, -1f, -1f),
+        Still.change("drawing the magazine out", ArmActs.LOADING, 0.5f, false, -1f, ArmActs.DRAWN_CLEAR_IN / 2f, -1f),
+        Still.change("with the magazine drawn clear", ArmActs.LOADING, 0.5f, false, -1f, ArmActs.DRAWN_CLEAR_IN, -1f),
+        Still.change("taking the magazine away", ArmActs.LOADING, 0.5f, false, -1f, (ArmActs.DRAWN_CLEAR_IN + ArmActs.TAKEN_IN) / 2f, -1f),
+        Still.change("bringing the next magazine up", ArmActs.LOADING, 0.5f, false, -1f, -1f, FETCH_TAKES * 0.45f),
+        Still.change("with the next magazine under the well", ArmActs.LOADING, 0.5f, false, -1f, -1f, FETCH_TAKES),
+        Still.change("pushing the magazine home", ArmActs.HOLDING, 0f, true, 0f, -1f, -1f),
+        Still.change("with the magazine half way home", ArmActs.HOLDING, 0f, true, ArmActs.HOME_IN / 2f, -1f, -1f),
+        Still.change("letting the magazine go", ArmActs.HOLDING, 0f, true, ArmActs.HOME_IN + 0.2f, -1f, -1f),
     };
 
     static void run() throws IOException {
@@ -128,16 +154,27 @@ final class HandClipTests {
         }
         Hull holding = new Hull(places, held.stream().mapToInt(Integer::intValue).toArray());
         Hull loading = new Hull(loadPlaces, loaded.stream().mapToInt(Integer::intValue).toArray());
+        // A self-loader's magazine where it is in its well, to be read where the hand carries it.
+        Hull magazine = null;
+        if (selfLoader(own)) {
+            int at = counts[0] + counts[1] + counts[2] + counts[3];
+            magazine = new Hull(places, Arrays.copyOfRange(corners, at, at + counts[4]));
+        }
         for (Still still : STILLS) {
+            if (still.change && action(own) != ArmActs.BOLT) {
+                continue;
+            }
             boolean roundIn = still.doing == ArmActs.LOADING && !still.clip;
-            float deepest = deepest(arms, own, shape, layout, roundIn ? loading : holding, still, roundIn ? port : null);
+            boolean inWell = still.clip && SelfLoading.magazineIn(true, still.doing, still.seated);
+            Hull hull = still.change ? (inWell ? holding : loading) : roundIn ? loading : holding;
+            float deepest = deepest(arms, own, shape, layout, hull, magazine, still, roundIn && !still.change ? port : null);
             Checks.check(deepest <= DEEPEST,
                     String.format(Locale.ROOT, "the left arm goes no more than %.0f mm into %s %s: %.1f mm", DEEPEST * 1000f, own.what, still.name, deepest * 1000f));
         }
     }
 
     /** How deep the deepest of the left arm's vertices is inside the gun, in metres. */
-    private static float deepest(ArmModel arms, OwnModel own, WeaponShape shape, OwnModel.Layout layout, Hull hull, Still still, float[] port) {
+    private static float deepest(ArmModel arms, OwnModel own, WeaponShape shape, OwnModel.Layout layout, Hull hull, Hull magazine, Still still, float[] port) {
         float aimedAhead = own.eyeBehind * TPM, aimedY = -own.sightLine * TPM;
         float hipAhead = ViewModel.hipAhead(aimedAhead);
         float raised = ViewModelMath.smooth(still.aim);
@@ -164,12 +201,19 @@ final class HandClipTests {
             placed.charged(new float[] {layout.moves()[0], layout.moves()[1], layout.moves()[2]});
         }
         ArmHolds.Weapon weapon = new ArmHolds.Weapon(true, false, placed.at(shape.grip), pointing, over, placed);
-        ArmHolds.Doing doing = new ArmHolds.Doing(still.aim, true, action(own), -1f, still.doing, still.done, still.round, 1.2f, -1f, still.clip, -1f,
-                still.clip ? -1f : 2f, 2.4f, 0f);
+        ArmHolds.Doing doing = new ArmHolds.Doing(still.aim, true, action(own), -1f, still.doing, still.done, still.round, 1.2f, still.seated, still.clip,
+                still.out, still.fetching, FETCH_TAKES, 0f);
         float[][] skins = new float[2][arms.bones.length * 16], said = new float[2][ArmPose.SAYS];
         float[] same = {1f, 0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 1f};
-        int both = ArmHolds.place(arms, ViewModel.OWN_TILES_PER_METRE, weapon, doing, same, skins, said, new ArmHolds.Carried(), new ArmHolds.Settled());
+        ArmHolds.Carried carried = new ArmHolds.Carried();
+        int both = ArmHolds.place(arms, ViewModel.OWN_TILES_PER_METRE, weapon, doing, same, skins, said, carried, new ArmHolds.Settled());
         Checks.check(both == 2, own.what + " " + still.name + " has both arms");
+        // The magazine in the hand, placed as the gun draws it there: from its place in the well to the view.
+        float[] inHand = null;
+        if (magazine != null && carried.what == ArmHolds.MAGAZINE) {
+            inHand = new float[16];
+            OwnSelfLoader.inHand(carried.at, shape, (float) Math.sqrt(out[4] * out[4] + out[5] * out[5] + out[6] * out[6]), new float[3], inHand);
+        }
         float[] skin = skins[1];
         ByteBuffer v = arms.vertices;
         int first = arms.partFirst[ArmModel.ARM], count = arms.partCount[ArmModel.ARM];
@@ -195,6 +239,14 @@ final class HandClipTests {
                 m[c] = (out[c * 4] * d[0] + out[c * 4 + 1] * d[1] + out[c * 4 + 2] * d[2]) / (TPM * TPM);
             }
             deepest = Math.max(deepest, hull.depth(m[0], m[1], m[2]));
+            if (inHand != null) {
+                float metre2 = inHand[0] * inHand[0] + inHand[1] * inHand[1] + inHand[2] * inHand[2];
+                float[] h = {p[0] - inHand[12], p[1] - inHand[13], p[2] - inHand[14]};
+                for (int c = 0; c < 3; c++) {
+                    m[c] = (inHand[c * 4] * h[0] + inHand[c * 4 + 1] * h[1] + inHand[c * 4 + 2] * h[2]) / metre2;
+                }
+                deepest = Math.max(deepest, magazine.depth(m[0], m[1], m[2]));
+            }
         }
         return deepest;
     }
