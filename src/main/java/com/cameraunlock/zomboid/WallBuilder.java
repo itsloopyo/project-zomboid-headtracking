@@ -409,6 +409,7 @@ final class WallBuilder {
             }
             // A door's top is a straight line, and its sprite has it as a staircase of pixels
             // on the slant. The face stops at the door's top, so the line is the face's own edge.
+            build.geometry.exactAcross = build.casing;
             build.geometry.addFace(mesh, build.frame, x, y, z, from * da, from * db, foot, length * da, length * db, 0f, 0f, 0f, up);
             if (build.casing && build.overLayer == 0) {
                 // A door's frame goes round the doorway on both sides of the wall. The game
@@ -418,6 +419,7 @@ final class WallBuilder {
                 WorldScene.layers.lie(way, layer - 3f);
                 build.geometry.addFace(mesh, build.frame, x, y, z, 0f, 0f, 0f, da, db, 0f, 0f, 0f, 1f);
             }
+            build.geometry.exactAcross = false;
             build.geometry.shownA = build.geometry.shownB = build.geometry.shownUp = 0f;
             build.geometry.turned = false;
             build.frame.material = material;

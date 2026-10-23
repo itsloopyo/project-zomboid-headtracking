@@ -688,6 +688,14 @@ final class SpriteGeometry {
     /** How many frame pixels further in than the usual inset a face's texels are taken from its edges: see Tents.DRAWN_IN. */
     float drawnIn;
     /**
+     * Whether a face that stands takes its texels across from just where it lies on the sprite, with no inset: a
+     * door's casing, whose post has to end where the doorway is cut through the wall's skin, and the cut is measured
+     * off the wall's sprite where it lies. Drawn in, the post took texels 3 pixels further along at the face's start
+     * and fell short of the cut, so a strip of the wall showed between it and the leaf, and at the other end it ran
+     * on over the leaf.
+     */
+    boolean exactAcross;
+    /**
      * How far the ground stands above the flat map at the four corners of the square being
      * added, (0, 0), (1, 0), (1, 1) and (0, 1), in tiles: see Terrain. Everything on the square
      * is lifted with it.
@@ -2118,7 +2126,7 @@ final class SpriteGeometry {
     private void standIn(Frame frame, float[] polygon, int at) {
         float inset = EDGE_INSET_PIXELS * frame.scale;
         float pixelU = polygon[at + CORNER_U], pixelV = polygon[at + CORNER_V];
-        float insetAcross = inset + (pixelU < centreU ? sealLow : sealHigh);
+        float insetAcross = (exactAcross ? 0f : inset) + (pixelU < centreU ? sealLow : sealHigh);
         float fromCentre = pixelU - centreU;
         // How far below the face's middle the point is, with the slant of its courses taken out.
         float below = pixelV - centreV - fromCentre * alongSlant;
@@ -2157,7 +2165,7 @@ final class SpriteGeometry {
         // Across and down separately: a wall's side edges are upright, and an inset towards the
         // face's centre would run along them without leaving the sprite's empty edge columns.
         float inset = insetPixels(drawnIn) * frame.scale;
-        float insetAcross = inset + (pixelU < centreU ? sealLow : sealHigh);
+        float insetAcross = (exactAcross ? 0f : inset) + (pixelU < centreU ? sealLow : sealHigh);
         // A face that stands was drawn in before it was cut: see addFace. One too narrow for that,
         // the piece of wall beside a door, is moved in across with its seals: drawn in along its own
         // edges, its far end took the dots the sprite stops short by, and the sky showed up the wall.

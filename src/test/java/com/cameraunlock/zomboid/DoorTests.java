@@ -20,6 +20,7 @@ final class DoorTests {
         Checks.run("roseKeepsClearOfThePanelBesideTheKnob", DoorTests::roseKeepsClearOfThePanelBesideTheKnob);
         Checks.run("jambIsFilledFromTheDoorwaysCutToTheLeafOnly", DoorTests::jambIsFilledFromTheDoorwaysCutToTheLeafOnly);
         Checks.run("leafIsCutBackToTheDoorwaysCut", DoorTests::leafIsCutBackToTheDoorwaysCut);
+        Checks.run("casingTakesItsTexelsWhereTheWallsCutIsMeasured", DoorTests::casingTakesItsTexelsWhereTheWallsCutIsMeasured);
         Checks.run("whatIsDrawnBetweenOwningNoThingIsNoPartOfTheThing", DoorTests::whatIsDrawnBetweenOwningNoThingIsNoPartOfTheThing);
         Checks.run("paneWithARoomOnBothSidesHasNoStreetSide", DoorTests::paneWithARoomOnBothSidesHasNoStreetSide);
         Checks.run("openGarageDoorLiesInTheGarageWithItsTracksAtTheJambs", DoorTests::openGarageDoorLiesInTheGarageWithItsTracksAtTheJambs);
@@ -221,6 +222,36 @@ final class DoorTests {
         shape.end = end;
         shape.head = 0.79f;
         return shape;
+    }
+
+    /**
+     * Louisville, 12785,1664: the post of fixtures_doors_frames_01_1 is painted to pixel 69, as walls_exterior_house_01_15
+     * is, and the doorway is cut at 0.09375 where the wall's sprite is next unpainted, pixel 70. The casing's face on the
+     * square's north edge takes pixel 70 at 0.09375 too, so its post ends at the cut. Drawn in as a wall is, it took
+     * pixel 70 at 0.052 and the wall's skin showed between the post and the leaf.
+     */
+    private static void casingTakesItsTexelsWhereTheWallsCutIsMeasured() {
+        SpriteGeometry.Frame frame = new SpriteGeometry.Frame();
+        frame.scale = 2f;
+        frame.originU = 64f;
+        frame.originV = 192f;
+        frame.width = 192f;
+        frame.height = 256f;
+        frame.uEnd = 1f;
+        frame.vEnd = 1f;
+        SpriteGeometry geometry = new SpriteGeometry();
+        geometry.exactAcross = true;
+        SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
+        geometry.addFace(mesh, frame, 0, 0, 0, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 1f);
+        check(mesh.floats > 0, "the casing's face is added");
+        for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+            float along = mesh.vertices[at], pixel = mesh.vertices[at + 3] * frame.width;
+            check(Math.abs(pixel - (64f + 64f * along)) < 1e-3f, "a corner at " + along + " along takes pixel " + (64f + 64f * along) + ", not " + pixel);
+        }
+        SpriteGeometry.Mesh wall = new SpriteGeometry.Mesh();
+        new SpriteGeometry().addFace(wall, frame, 0, 0, 0, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 1f);
+        check(Math.abs(wall.vertices[3] * frame.width - (64f + 64f * wall.vertices[0]) - (wall.vertices[0] < 0.5f ? 3f : -3f)) < 1e-3f,
+                "a wall is still drawn in 3 pixels at its ends");
     }
 
     private static void leafIsCutBackToTheDoorwaysCut() {
