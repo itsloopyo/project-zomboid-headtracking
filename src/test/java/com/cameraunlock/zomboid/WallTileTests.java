@@ -192,11 +192,12 @@ final class WallTileTests {
     }
 
     private static void aDecoratedRowAcrossTilesIsABandOfItsOwn() {
-        // A row of diamonds between two dotted lines, painted in the tiles' colour with no joints through it, as a bathroom's border is.
+        // A row of diamonds between two dotted lines, painted in the tiles' colour with no joints through it, as a bathroom's border is,
+        // the top line two dots in every four.
         float[] figure = {0.2f, 0.5f, 0.6f};
         WallTiles.Wall wall = read((column, row) -> {
             if (row >= 126 && row < 152) {
-                boolean line = (row == 128 || row == 149) && column % 2 == 0;
+                boolean line = row == 128 && column % 4 < 2 || row == 149 && column % 2 == 0;
                 boolean diamond = Math.abs(Math.floorMod(column - 3, 16) - 8) + Math.abs(row - 139) < 5;
                 return line || diamond ? figure : CREAM;
             }
@@ -211,6 +212,11 @@ final class WallTileTests {
         check(Math.abs(row.head - (1f - 128f / HIGH)) < 1.5f / HIGH && Math.abs(row.foot - (1f - 150f / HIGH)) < 1.5f / HIGH,
                 "and runs from its line at the top to its line at the foot: " + row.foot + " " + row.head);
         check(row.motifs.length >= 3 && row.stripes != null, "with its diamonds and its lines drawn: " + row.motifs.length);
+        boolean sparse = false;
+        for (WallTiles.Stripe stripe : row.stripes == null ? new WallTiles.Stripe[0] : row.stripes) {
+            sparse |= stripe.foot < 1f - 128.5f / HIGH && stripe.head > 1f - 128.5f / HIGH && stripe.red < CREAM[0] - 0.1f;
+        }
+        check(sparse, "the sparser line at the top too, in its colour, at any scale");
     }
 
     private static void twoDecoratedRowsAreEachABandOfTheirOwn() {

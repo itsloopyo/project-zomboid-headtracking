@@ -86,7 +86,8 @@ final class WallTiles {
     private static final int SHORT_END = 6;
     /**
      * In a band of paint, a row with at least LINE_SHARE of its dots off the band's colour and no
-     * more than LINE_GAP of its colour side by side is a line across it, solid or dithered.
+     * more than LINE_GAP of the game's dots of its colour side by side is a line across it, solid
+     * or dithered.
      */
     private static final float LINE_SHARE = 0.4f;
     private static final int LINE_GAP = 2;
@@ -1008,7 +1009,7 @@ final class WallTiles {
                     widest = Math.max(widest, gap);
                 }
             }
-            line[r] = painted > 0 && offs >= LINE_SHARE * painted && widest <= LINE_GAP;
+            line[r] = painted > 0 && offs >= LINE_SHARE * painted && widest <= Math.round(LINE_GAP * across / DOTS_ALONG);
             anyLine |= line[r];
         }
         boolean figure = anyOf(band.figured);
