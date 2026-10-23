@@ -10,7 +10,7 @@ import zombie.iso.IsoGridSquare;
 import zombie.iso.areas.IsoBuilding;
 import zombie.iso.sprite.IsoSprite;
 
-/** Which squares in no room are rows left out of a tall hall's upper room, and are the hall's: TallHalls. */
+/** Which squares in no room are rows left out of a tall hall's upper room, and are the hall's: TallHalls, and RoomMap reading them. */
 final class TallHallsTests {
     private TallHallsTests() {}
 
@@ -21,6 +21,7 @@ final class TallHallsTests {
         Checks.run("theAirBesideTheHallIsNot", TallHallsTests::theAirBesideTheHallIsNot);
         Checks.run("aSquareOfTheUpperRoomIsNot", TallHallsTests::aSquareOfTheUpperRoomIsNot);
         Checks.run("aFlooredSquareIsNot", TallHallsTests::aFlooredSquareIsNot);
+        Checks.run("theRoomMapPutsARowLeftOutInTheHall", TallHallsTests::theRoomMapPutsARowLeftOutInTheHall);
     }
 
     private static final IsoSprite FLOOR = new IsoSprite("floors_interior_tilesandwood_01_47", new PropertyContainer(Map.of()));
@@ -96,5 +97,14 @@ final class TallHallsTests {
     private static void aFlooredSquareIsNot() {
         long room = roomUnder(hall(), 3, 0, 2);
         check(room == RoomSight.OUTSIDE, "a square the map floors over the upper room is no row left out: " + room);
+    }
+
+    private static void theRoomMapPutsARowLeftOutInTheHall() {
+        RoomMap map = new RoomMap();
+        map.begin(hall(), null);
+        check(map.region(3, 2, 1) == HALL && map.building(3, 2, 1) == BUILDING,
+                "sight reads the row left out as the hall, in the hall's building: " + map.region(3, 2, 1) + " " + map.building(3, 2, 1));
+        check(map.region(-1, 3, 1) == RoomSight.OUTSIDE && map.building(-1, 3, 1) == RoomSight.OUTSIDE, "and the air beside the hall as the open air");
+        check(map.region(3, 4, 1) == UPPER, "and the upper room as itself");
     }
 }

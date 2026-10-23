@@ -219,8 +219,18 @@ final class RoomMap implements Acoustics.Walls, RoomDaylight.Edges {
 
     @Override
     public long region(int x, int y, int z) {
-        IsoGridSquare square = cell.getGridSquare(x, y, z);
+        IsoGridSquare square = hallOrSquare(x, y, z);
         return square == null ? RoomSight.OUTSIDE : square.getRoomID();
+    }
+
+    /** The square, or for a row left out of a tall hall's upper room the hall's square under it: the row is the hall's (TallHalls). */
+    private IsoGridSquare hallOrSquare(int x, int y, int z) {
+        IsoGridSquare square = cell.getGridSquare(x, y, z);
+        if (square == null || square.getRoomID() != RoomSight.OUTSIDE) {
+            return square;
+        }
+        IsoGridSquare hall = TallHalls.under(cell, x, y, z);
+        return hall != null ? hall : square;
     }
 
     @Override
@@ -408,7 +418,7 @@ final class RoomMap implements Acoustics.Walls, RoomDaylight.Edges {
 
     @Override
     public long building(int x, int y, int z) {
-        IsoGridSquare square = cell.getGridSquare(x, y, z);
+        IsoGridSquare square = hallOrSquare(x, y, z);
         return square == null || square.getRoomID() == RoomSight.OUTSIDE ? RoomSight.OUTSIDE : square.getBuilding().getDef().id;
     }
 
