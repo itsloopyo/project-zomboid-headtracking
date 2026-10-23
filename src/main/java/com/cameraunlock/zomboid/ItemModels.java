@@ -10,10 +10,12 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.joml.Matrix4f;
 import org.lwjgl.opengl.GL15;
 import zombie.core.Core;
+import zombie.core.opengl.RenderThread;
 import zombie.core.skinnedmodel.model.ItemModelRenderer;
 import zombie.core.skinnedmodel.model.Model;
 import zombie.core.skinnedmodel.model.ModelMesh;
 import zombie.core.skinnedmodel.model.VertexBufferObject;
+import zombie.core.skinnedmodel.shader.ShaderManager;
 import zombie.core.textures.Texture;
 import zombie.inventory.InventoryItem;
 import zombie.iso.IsoGridSquare;
@@ -28,7 +30,7 @@ import zombie.iso.objects.IsoWorldInventoryObject;
  * placed. The model's triangles are on the graphics card only, and are read back once per mesh
  * on the render thread: until they are, the item lies as its picture.
  */
-final class ItemModels {
+public final class ItemModels {
     private ItemModels() {}
 
     /**
@@ -36,6 +38,8 @@ final class ItemModels {
      * it an item is a few pixels across and lies as its picture.
      */
     static final float REACH = 24f;
+    /** How near the eye a chunk's band is, in tiles, for the models of its items to be loaded ahead of REACH. */
+    static final float AHEAD = 40f;
     /** How far above what it lies on the game draws an item's model, in levels (WorldItemModelDrawer). */
     private static final float LIFT = 0.00175f;
     private static final int GL_ARRAY_BUFFER = 0x8892, GL_BUFFER_SIZE = 0x8764;
@@ -68,7 +72,10 @@ final class ItemModels {
         final float[] placing = new float[12];
     }
 
-    private static final ItemModelRenderer renderer = new ItemModelRenderer();
+    /** Made on first use: ItemModels is loaded with the game's first model (see createShader), before the renderer may be. */
+    private static ItemModelRenderer renderer;
+    /** The thread asking the game's renderer for items' models, while it asks: see createShader. */
+    private static volatile Thread asking;
     private static final float[] transform = new float[16];
     private static Field modelField, transformField, tintRField, tintGField, tintBField, tintMaskField;
     private static Field handleField, elementsField, formatField;
@@ -85,10 +92,8 @@ final class ItemModels {
      */
     static boolean place(IsoWorldInventoryObject object, Placed placed) {
         InventoryItem item = object.getItem();
-        IsoGridSquare square = object.getSquare();
-        float x = object.getWorldPosX(), y = object.getWorldPosY(), z = object.getWorldPosZ() + LIFT;
         try {
-            ItemModelRenderer.RenderStatus status = renderer.renderMain(item, square, square, x, y, z, 0f, -1f, false);
+            ItemModelRenderer.RenderStatus status = ask(object);
             if (status == ItemModelRenderer.RenderStatus.Loading) {
                 waiting.add(item);
                 return false;
@@ -134,6 +139,58 @@ final class ItemModels {
         } finally {
             renderer.reset();
         }
+    }
+
+    /**
+     * Logic thread: has the game start loading the model of a loose item a little past REACH,
+     * so that it is ready when the item comes near enough to be built as one, and has its mesh
+     * read where the model is ready already.
+     */
+    static void ahead(IsoWorldInventoryObject object) {
+        try {
+            if (ask(object) == ItemModelRenderer.RenderStatus.Ready) {
+                fields();
+                ModelMesh mesh = ((Model) modelField.get(renderer)).mesh;
+                if (!shapes.containsKey(mesh)) {
+                    wanted.add(mesh);
+                }
+            }
+        } catch (IllegalAccessException failure) {
+            throw new IllegalStateException("the game's item renderer could not be read: " + failure, failure);
+        } finally {
+            renderer.reset();
+        }
+    }
+
+    private static ItemModelRenderer.RenderStatus ask(IsoWorldInventoryObject object) {
+        if (renderer == null) {
+            renderer = new ItemModelRenderer();
+        }
+        IsoGridSquare square = object.getSquare();
+        asking = Thread.currentThread();
+        try {
+            return renderer.renderMain(object.getItem(), square, square, object.getWorldPosX(), object.getWorldPosY(), object.getWorldPosZ() + LIFT,
+                    0f, -1f, false);
+        } finally {
+            asking = null;
+        }
+    }
+
+    /**
+     * Model.<init> calling CreateShader. The game makes a new model's shader on the render
+     * thread and waits for it, and that thread runs what it is handed only between frames and
+     * after every texture queued before it: a whole frame or more for each model, which the
+     * first sight of a littered street took dozens of. For the models asked for here the
+     * shader is handed over without waiting. ItemModels reads only the mesh; a draw of the
+     * model by the game before the shader is set makes it a basicEffect one of its own
+     * (ItemModelRenderer.renderModel), which this one then replaces.
+     */
+    public static void createShader(Model model, String name) {
+        if (asking != Thread.currentThread()) {
+            model.CreateShader(name);
+            return;
+        }
+        RenderThread.queueInvokeOnRenderContext(() -> model.effect = ShaderManager.instance.getOrCreateShader(name, model.isStatic, false));
     }
 
     /**

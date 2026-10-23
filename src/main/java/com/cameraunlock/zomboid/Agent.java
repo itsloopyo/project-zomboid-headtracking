@@ -439,10 +439,15 @@ public final class Agent {
         CallSite.Method keptThrough = new CallSite.Method(HOOKS, "validTarget", "(Z" + moving + ")Z");
         CallSite.Method applyImpulse = new CallSite.Method("zombie/core/physics/Bullet", "applyImpulse", "(II[F)V");
         CallSite.Method pushAlongTheShot = new CallSite.Method("com/cameraunlock/zomboid/HitImpulse", "apply", "(II[F)V");
+        String model = "zombie/core/skinnedmodel/model/Model";
         return List.of(
                 after(new CallSite.Method("zombie/gameStates/IngameState", "renderFrameInternal", "(I)V"),
                         new CallSite.Method("zombie/iso/IsoWorld", "render", "()V"),
                         new CallSite.Method(HOOKS, "afterWorldRender", "()V")),
+                new Patch(model, "<init> calling CreateShader", classBytes -> CallSite.replaceEach(classBytes,
+                        new CallSite.Method(model, "<init>", "(Lzombie/asset/AssetPath;Lzombie/asset/AssetManager;L" + model + "$ModelAssetParams;)V"),
+                        new CallSite.Method(model, "CreateShader", "(Ljava/lang/String;)V"),
+                        new CallSite.Method("com/cameraunlock/zomboid/ItemModels", "createShader", "(L" + model + ";Ljava/lang/String;)V"), 1)),
                 after(new CallSite.Method("zombie/gameStates/IngameState", "renderFrameTextInternal", "(I)V"),
                         new CallSite.Method("zombie/chat/ChatElement", "RenderBatch", "(I)V"),
                         new CallSite.Method(HOOKS, "afterWorldText", "()V")),

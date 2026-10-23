@@ -9,4 +9,5 @@ public final class Model {
     public boolean isStatic;
     public zombie.core.textures.Texture tex;
     public Object tag;
+    public void CreateShader(String name) { throw new UnsupportedOperationException("reference stub"); }
 }

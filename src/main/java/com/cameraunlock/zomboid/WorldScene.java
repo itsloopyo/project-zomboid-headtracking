@@ -6485,10 +6485,15 @@ final class WorldScene {
         private int layItems(int z, int under) {
             int laid = 0;
             boolean models = ItemModels.shown() && !items.isEmpty() && within(ItemModels.REACH, false);
+            // Read as it is and not through within: loading ahead changes nothing the build makes.
+            boolean ahead = !models && ItemModels.shown() && bandAway < ItemModels.AHEAD;
             for (int i = 0; i < items.size(); i++) {
                 IsoWorldInventoryObject item = items.get(i);
                 if (!item.getItem().getScriptItem().isWorldRender()) {
                     continue;
+                }
+                if (ahead) {
+                    ItemModels.ahead(item);
                 }
                 if (models && ItemModels.place(item, itemPlaced)) {
                     buildItem(item, z);
