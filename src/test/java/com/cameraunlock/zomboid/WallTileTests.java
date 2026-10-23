@@ -41,6 +41,9 @@ final class WallTileTests {
             Checks.run("paintOverAWallIsNoTiles" + at, WallTileTests::paintOverAWallIsNoTiles);
             Checks.run("aHarlequinOverAPanelIsItsDiamonds" + at, WallTileTests::aHarlequinOverAPanelIsItsDiamonds);
             Checks.run("aMosaicOverAPanelIsItsSquares" + at, WallTileTests::aMosaicOverAPanelIsItsSquares);
+            Checks.run("aHarlequinsCutAndShadedCellsAreTheirClasssColour" + at, WallTileTests::aHarlequinsCutAndShadedCellsAreTheirClasssColour);
+            Checks.run("aMosaicRunsToTheWallsEndAsTheNextWallBegins" + at, WallTileTests::aMosaicRunsToTheWallsEndAsTheNextWallBegins);
+            Checks.run("squaresAreNoFinerThanTheLeastCell" + at, WallTileTests::squaresAreNoFinerThanTheLeastCell);
             Checks.run("aPanelsCappingIsAStripOfIt" + at, WallTileTests::aPanelsCappingIsAStripOfIt);
             Checks.run("smallTilesOverLargeOfOneColourAreTwoGrids" + at, WallTileTests::smallTilesOverLargeOfOneColourAreTwoGrids);
             Checks.run("aBorderOfRosettesIsNoCourseJoint" + at, WallTileTests::aBorderOfRosettesIsNoCourseJoint);
@@ -418,6 +421,68 @@ final class WallTileTests {
                     "each a square 8 dots by 11, where the sprite has one: " + u + " " + v + " " + cell.shape + " " + cell.halfAlong * 2f * ACROSS + " " + cell.halfUp * 2f * HIGH);
             check(Math.abs(cell.red - colour[0]) < 0.02f && Math.abs(cell.blue - colour[2]) < 0.02f, "in the colour it is painted: " + u + " " + v);
         }
+    }
+
+    private static void aHarlequinsCutAndShadedCellsAreTheirClasssColour() {
+        // The harlequin of aHarlequinOverAPanelIsItsDiamonds, its last six painted dots along shaded and its top three rows under the
+        // capping too, as the game's sprites are.
+        WallTiles.Wall wall = read((column, row) -> {
+            if (row < 50) {
+                return null;
+            }
+            if (row >= 118) {
+                return panel(column, row);
+            }
+            float u = (column - 5) / 16f, v = (row - 56) / 24f;
+            float[] colour = Math.floorMod((int) Math.floor(u + v) + (int) Math.floor(u - v), 2) == 0 ? GREY : WHITE;
+            return column >= ACROSS - 10 || row < 53 ? shaded(colour, 0.8f) : colour;
+        }, true);
+        WallTiles.Band pattern = bandOver(wall, 56, 112);
+        check(pattern != null && pattern.motifs.length >= 20, "the diamonds are a band of them: " + (wall == null ? "none" : WallTiles.said(wall)));
+        for (WallTiles.Motif cell : pattern == null ? new WallTiles.Motif[0] : pattern.motifs) {
+            float u = (cell.along * ACROSS - 5f) / 16f, v = ((1f - cell.level) * HIGH - 56f) / 24f;
+            float[] colour = Math.floorMod((int) Math.floor(u + v + 0.01f) + (int) Math.floor(u - v + 0.01f), 2) == 0 ? GREY : WHITE;
+            check(Math.abs(cell.red - colour[0]) < 0.02f && Math.abs(cell.green - colour[1]) < 0.02f,
+                    "every diamond is the colour of the whole ones like it, those the wall's end and the capping cut and shade too: " + u + " " + v + " " + cell.red);
+        }
+    }
+
+    private static void aMosaicRunsToTheWallsEndAsTheNextWallBegins() {
+        // The mosaic of aMosaicOverAPanelIsItsSquares, its squares from four dots before the wall's start and eight to a wall: the sprite
+        // stops before the last one, which is the first of the next wall's.
+        float[] grout = {0.6f, 0.6f, 0.6f};
+        WallTiles.Wall wall = read((column, row) -> row < 52 ? null : row >= 118 ? panel(column, row)
+                : (column + 4) % 8 == 0 || (row - 52) % 11 == 0 && column % 2 == 0 ? grout : mosaic(Math.floorMod(Math.floorDiv(column + 4, 8), 8), (row - 52) / 11), true);
+        WallTiles.Band pattern = bandOver(wall, 56, 112);
+        check(pattern != null && pattern.motifs.length >= 30, "the mosaic is a band of squares: " + (wall == null ? "none" : WallTiles.said(wall)));
+        int reaching = 0;
+        for (WallTiles.Motif cell : pattern == null ? new WallTiles.Motif[0] : pattern.motifs) {
+            if (cell.along + cell.halfAlong < 1f + 0.5f / ACROSS || (1f - cell.level) * HIGH < 58f || (1f - cell.level) * HIGH > 112f) {
+                continue;
+            }
+            reaching++;
+            WallTiles.Motif first = null;
+            for (WallTiles.Motif other : pattern.motifs) {
+                first = Math.abs(other.along - (cell.along - 1f)) < 0.5f / ACROSS && Math.abs(other.level - cell.level) < 0.5f / HIGH ? other : first;
+            }
+            check(first != null && Math.abs(first.red - cell.red) < 0.001f && Math.abs(first.blue - cell.blue) < 0.001f,
+                    "a square past the wall's end is the colour of the one the wall starts with: " + cell.along + " " + cell.level);
+        }
+        check(reaching >= 4, "and the squares run on to the wall's end, the sprite stopping short of it or not: " + reaching);
+    }
+
+    private static void squaresAreNoFinerThanTheLeastCell() {
+        // Squares three of the game's dots across and up, fewer than a lattice's cells may be, in two colours.
+        int across = ACROSS * scale, high = HIGH * scale;
+        float[] rgb = new float[across * high * 3];
+        boolean[] solid = new boolean[across * high];
+        for (int at = 0; at < across * high; at++) {
+            solid[at] = true;
+            System.arraycopy((at % across / scale / 3 + at / across / scale / 3) % 2 == 0 ? GREY : WHITE, 0, rgb, at * 3, 3);
+        }
+        int[] squares = WallTiles.squares(rgb, solid, across, 60 * scale, 120 * scale);
+        check(squares == null || squares[2] >= 4 * scale && squares[3] >= 4 * scale, "no square lattice finer than four of the game's dots is offered: "
+                + (squares == null ? "none" : squares[2] + " by " + squares[3]));
     }
 
     private static void aPanelsCappingIsAStripOfIt() {

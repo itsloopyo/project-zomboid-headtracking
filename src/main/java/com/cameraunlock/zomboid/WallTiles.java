@@ -95,12 +95,14 @@ final class WallTiles {
      * A pattern over a wall is a lattice of cells where LATTICE_HELD of its dots are within
      * LATTICE_OFF of their cell's colour, and its cells are LATTICE_LEAST of the game's dots
      * wide and high or more; a lattice of squares has LATTICE_SHARP times its lines' share of the
-     * change from dot to dot on its lines.
+     * change from dot to dot on its lines. A cell with LATTICE_WHOLE of its dots painted is
+     * whole, and a lattice's cells are of classes up to LATTICE_CLASSES cells apart each way (see
+     * Lattice.cells).
      */
-    private static final float LATTICE_HELD = 0.75f, LATTICE_OFF = 0.2f, LATTICE_SHARP = 2.5f, LATTICE_NEAR_SHARPEST = 0.8f;
-    private static final int LATTICE_LEAST = 4;
-    /** Cells of a lattice are counted by a number made of both their steps, each well within this. */
-    private static final long CELL_KEY = 1_000_000L;
+    private static final float LATTICE_HELD = 0.75f, LATTICE_OFF = 0.2f, LATTICE_SHARP = 2.5f, LATTICE_NEAR_SHARPEST = 0.8f, LATTICE_WHOLE = 0.85f;
+    private static final int LATTICE_LEAST = 4, LATTICE_CLASSES = 4;
+    /** A diamond's middle is looked for first over every LATTICE_SPARSE-th dot along and up, then near the best place over all of them. */
+    private static final int LATTICE_SPARSE = 2;
     /** A figure no wider than this share of the wall is one the picture draws itself; a wider one is shown as the sprite's dots. */
     private static final float FIGURE_WIDEST = 0.4f;
     /** A figure filling less of its box than DIAMOND_FILL is a diamond, less than ROUND_FILL a round, and more a square. */
@@ -1332,36 +1334,37 @@ final class WallTiles {
      * Reads a pattern laid over a wall from rows top to before bottom as a lattice of cells, each
      * of one colour, so the picture can draw it at any size: a mosaic of coloured squares, or a
      * harlequin of diamonds. Each cell is a figure of the band (Band.motifs), a SQUARE or a
-     * DIAMOND, from its middle half its width and half its height, in the colour most of its dots
-     * are; a cell the wall's ends or the band's edges cut is drawn as far as they let it. False,
-     * changing nothing, where neither lattice holds LATTICE_HELD of the band's dots within
-     * LATTICE_OFF of their cell's colour: the pattern is no lattice (a border of rosettes), and
-     * shows the sprite's dots.
+     * DIAMOND, from its middle half its width and half its height, in its class's colour, the
+     * cells covering the wall's whole length (see Lattice.cells). False, changing nothing, where
+     * neither lattice holds LATTICE_HELD of the band's dots within LATTICE_OFF of their cell's
+     * colour: the pattern is no lattice (a border of rosettes), and shows the sprite's dots.
      */
     private static boolean lattice(Band band, int top, int bottom, float[] rgb, boolean[] solid, int across, int high) {
         if (bottom - top < 4) {
             return false;
         }
+        Lattice dots = new Lattice(rgb, solid, across, top, bottom, 1);
         // A harlequin repeats a diamond's width along and its height up; its middle is where its cells' dots are least unlike their cells' colours.
         int wide = repeat(rgb, solid, across, top, bottom, true), up = repeat(rgb, solid, across, top, bottom, false);
-        float best = Float.MAX_VALUE, bestAlong = 0f, bestUp = 0f;
-        // The middles repeat a whole width along and half a diamond up and along together: these are all the places one can be.
-        for (float along = 0f; wide > 0 && up > 0 && along < wide; along += 0.5f) {
-            for (float row = 0f; row < up / 2f; row += 0.5f) {
-                float unlike = unlike(true, along, top + row, wide, up, top, bottom, rgb, solid, across);
-                if (unlike < best) {
-                    best = unlike;
-                    bestAlong = along;
-                    bestUp = top + row;
-                }
+        float[] diamonds = wide > 0 && up > 0 ? dots.middle(new Lattice(rgb, solid, across, top, bottom, LATTICE_SPARSE), wide, up, Math.max(1, Math.round(across / DOTS_ALONG))) : null;
+        int[] squares = squares(rgb, solid, across, top, bottom);
+        float squaresUnlike = squares == null ? Float.MAX_VALUE : dots.unlike(false, squares[0], squares[1], squares[2], squares[3]);
+        // Of a lattice of squares and one of diamonds, the one whose cells' dots are less unlike their colours, and the other where that one does not hold.
+        boolean squaresFirst = squares != null && (diamonds == null || squaresUnlike < diamonds[2]);
+        Motif[] cells = null;
+        for (int tried = 0; tried < 2 && cells == null; tried++) {
+            if (squaresFirst == (tried == 0)) {
+                cells = squares == null ? null : dots.cells(false, squares[0], squares[1], squares[2], squares[3], high);
+            } else {
+                cells = diamonds == null ? null : dots.cells(true, diamonds[0], diamonds[1], wide, up, high);
             }
         }
-        // Of a lattice of squares and one of diamonds, the one whose cells' dots are less unlike their colours.
-        int[] squares = squares(rgb, solid, across, top, bottom);
-        if (squares != null && unlike(false, squares[0], squares[1], squares[2], squares[3], top, bottom, rgb, solid, across) < best) {
-            return cellsOf(band, false, squares[0], squares[1], squares[2], squares[3], top, bottom, rgb, solid, across, high);
+        if (cells == null) {
+            return false;
         }
-        return best < Float.MAX_VALUE && cellsOf(band, true, bestAlong, bestUp, wide, up, top, bottom, rgb, solid, across, high);
+        band.motifs = cells;
+        band.figured[0] = false;
+        return true;
     }
 
     /**
@@ -1404,7 +1407,7 @@ final class WallTiles {
      * cells' width and height, in dots, each the step whose lines most of the change from dot to
      * dot falls on. Null where no step does.
      */
-    private static int[] squares(float[] rgb, boolean[] solid, int across, int top, int bottom) {
+    static int[] squares(float[] rgb, boolean[] solid, int across, int top, int bottom) {
         float[] alongChange = new float[across], upChange = new float[bottom - top];
         float[] a = new float[3], b = new float[3];
         for (int row = top; row < bottom; row++) {
@@ -1418,26 +1421,30 @@ final class WallTiles {
                 }
             }
         }
-        int[] along = step(alongChange), up = step(upChange);
+        int least = Math.round(LATTICE_LEAST * across / DOTS_ALONG);
+        int[] along = step(alongChange, least), up = step(upChange, least);
         return along == null || up == null ? null : new int[] {along[0], up[0] + top, along[1], up[1]};
     }
 
     /**
-     * The phase and step from LATTICE_LEAST dots to a third of the length whose places hold the
-     * most of the change, at least LATTICE_SHARP times their share of it: of those within
+     * The phase and step from least dots to a third of the length whose places hold the most of
+     * the change, at least LATTICE_SHARP times their share of it: of those within
      * LATTICE_NEAR_SHARPEST of the sharpest, the least, as every second line of a lattice is
      * nearly as sharp as all of them. Null for none.
      */
-    private static int[] step(float[] change) {
+    private static int[] step(float[] change, int least) {
         float total = 0f;
         for (float each : change) {
             total += each;
         }
         int most = change.length / 3;
+        if (most < least || total <= 0f) {
+            return null;
+        }
         float[] sharpest = new float[most + 1];
         int[] phaseOf = new int[most + 1];
         float best = 0f;
-        for (int step = LATTICE_LEAST; step <= most; step++) {
+        for (int step = least; step <= most; step++) {
             for (int phase = 0; phase < step; phase++) {
                 float on = 0f;
                 int lines = 0;
@@ -1453,7 +1460,7 @@ final class WallTiles {
             }
             best = Math.max(best, sharpest[step]);
         }
-        for (int step = LATTICE_LEAST; step <= most; step++) {
+        for (int step = least; step <= most; step++) {
             if (sharpest[step] >= LATTICE_SHARP && sharpest[step] >= LATTICE_NEAR_SHARPEST * best) {
                 return new int[] {phaseOf[step], step};
             }
@@ -1461,94 +1468,333 @@ final class WallTiles {
         return null;
     }
 
-    /** How far the painted dots from top to before bottom are from their cell's colour, on the whole: the cells as held has them. */
-    private static float unlike(boolean diamond, float column, float row, float wide, float tall, int top, int bottom, float[] rgb, boolean[] solid, int across) {
-        float sum = 0f;
-        int count = 0;
-        for (ArrayList<float[]> dots : cellDots(diamond, column, row, wide, tall, top, bottom, rgb, solid, across).values()) {
-            float[] colour = middleOf(dots);
-            for (float[] dot : dots) {
-                sum += apart(dot, colour);
-                count++;
-            }
-        }
-        return sum / count;
-    }
-
     /**
-     * The share of the painted dots from top to before bottom that are within LATTICE_OFF of the
-     * colour most of their cell's dots are: the cells squares or diamonds, one with its middle at
-     * (column, row), wide by tall dots.
+     * The painted dots of a pattern's rows, top to before bottom, and the cells of a lattice laid
+     * over them, each at (i, j): squares counted from the one whose corner is at (column, row), or
+     * diamonds from the one whose middle is, in steps of half a diamond each way, the diamonds
+     * whose steps add up even. A lattice is tried a few hundred times while a sprite is read, on
+     * the thread that draws, so trying one makes nothing new once its arrays are long enough.
      */
-    private static float held(boolean diamond, float column, float row, float wide, float tall, int top, int bottom, float[] rgb, boolean[] solid, int across) {
-        java.util.HashMap<Long, ArrayList<float[]>> cells = cellDots(diamond, column, row, wide, tall, top, bottom, rgb, solid, across);
-        int count = 0, near = 0;
-        for (ArrayList<float[]> dots : cells.values()) {
-            float[] colour = middleOf(dots);
-            for (float[] dot : dots) {
-                count++;
-                near += apart(dot, colour) <= LATTICE_OFF ? 1 : 0;
-            }
-        }
-        return count == 0 ? 0f : (float) near / count;
-    }
+    private static final class Lattice {
+        final int count, across, top, bottom;
+        final int[] x, y, cell, i, j;
+        final float[] red, green, blue;
+        int firstI, firstJ, spanI, spanJ;
+        int[] cellCount = new int[0];
+        float[] sums = new float[0];
 
-    /**
-     * The painted dots from top to before bottom by the cell they are in, each red, green, blue:
-     * squares counted from the one whose corner is at (column, row), or diamonds from the one
-     * whose middle is, in steps of half a diamond each way, the diamonds whose steps add up even.
-     */
-    private static java.util.HashMap<Long, ArrayList<float[]>> cellDots(boolean diamond, float column, float row, float wide, float tall, int top, int bottom,
-            float[] rgb, boolean[] solid, int across) {
-        java.util.HashMap<Long, ArrayList<float[]>> cells = new java.util.HashMap<>();
-        for (int y = top; y < bottom; y++) {
-            for (int x = 0; x < across; x++) {
-                int at = y * across + x;
-                if (!solid[at]) {
-                    continue;
+        /** The painted dots every apart dots along and up. */
+        Lattice(float[] rgb, boolean[] solid, int across, int top, int bottom, int apart) {
+            int painted = 0;
+            for (int at = top * across; at < bottom * across; at++) {
+                painted += solid[at] && taken(at, across, top, apart) ? 1 : 0;
+            }
+            count = painted;
+            this.across = across;
+            this.top = top;
+            this.bottom = bottom;
+            x = new int[count];
+            y = new int[count];
+            cell = new int[count];
+            i = new int[count];
+            j = new int[count];
+            red = new float[count];
+            green = new float[count];
+            blue = new float[count];
+            int k = 0;
+            for (int at = top * across; at < bottom * across; at++) {
+                if (solid[at] && taken(at, across, top, apart)) {
+                    x[k] = at % across;
+                    y[k] = at / across;
+                    red[k] = rgb[at * 3];
+                    green[k] = rgb[at * 3 + 1];
+                    blue[k] = rgb[at * 3 + 2];
+                    k++;
                 }
-                long i, j;
+            }
+        }
+
+        private static boolean taken(int at, int across, int top, int apart) {
+            return at % across % apart == 0 && (at / across - top) % apart == 0;
+        }
+
+        /** Puts each dot in its cell, numbered from 0 as (i - firstI) * spanJ + j - firstJ, and says how many numbers there are. */
+        int assign(boolean diamond, float column, float row, float wide, float tall) {
+            int lowI = Integer.MAX_VALUE, lowJ = Integer.MAX_VALUE, highI = Integer.MIN_VALUE, highJ = Integer.MIN_VALUE;
+            for (int k = 0; k < count; k++) {
                 if (diamond) {
-                    float u = (x + 0.5f - column) / (wide / 2f), v = (y + 0.5f - row) / (tall / 2f);
-                    long p = Math.round((u + v) / 2f), q = Math.round((u - v) / 2f);
-                    i = p + q;
-                    j = p - q;
+                    float u = (x[k] + 0.5f - column) / (wide / 2f), v = (y[k] + 0.5f - row) / (tall / 2f);
+                    int p = Math.round((u + v) / 2f), q = Math.round((u - v) / 2f);
+                    i[k] = p + q;
+                    j[k] = p - q;
                 } else {
-                    i = (long) Math.floor((x - column) / wide);
-                    j = (long) Math.floor((y - row) / tall);
+                    i[k] = (int) Math.floor((x[k] - column) / wide);
+                    j[k] = (int) Math.floor((y[k] - row) / tall);
                 }
-                cells.computeIfAbsent((i + CELL_KEY / 2) * CELL_KEY + j + CELL_KEY / 2, key -> new ArrayList<>()).add(new float[] {rgb[at * 3], rgb[at * 3 + 1], rgb[at * 3 + 2]});
+                lowI = Math.min(lowI, i[k]);
+                highI = Math.max(highI, i[k]);
+                lowJ = Math.min(lowJ, j[k]);
+                highJ = Math.max(highJ, j[k]);
+            }
+            firstI = lowI;
+            firstJ = lowJ;
+            spanI = highI - lowI + 1;
+            spanJ = highJ - lowJ + 1;
+            for (int k = 0; k < count; k++) {
+                cell[k] = (i[k] - lowI) * spanJ + j[k] - lowJ;
+            }
+            int cells = spanI * spanJ;
+            if (cellCount.length < cells) {
+                cellCount = new int[cells];
+                sums = new float[cells * 6];
+            }
+            return cells;
+        }
+
+        /** How far the dots are from the mean colour of their cell, on the whole, as the mean of their squared distance from it. */
+        float unlike(boolean diamond, float column, float row, float wide, float tall) {
+            int cells = assign(diamond, column, row, wide, tall);
+            java.util.Arrays.fill(cellCount, 0, cells, 0);
+            java.util.Arrays.fill(sums, 0, cells * 6, 0f);
+            for (int k = 0; k < count; k++) {
+                int at = cell[k] * 6;
+                cellCount[cell[k]]++;
+                sums[at] += red[k];
+                sums[at + 1] += green[k];
+                sums[at + 2] += blue[k];
+                sums[at + 3] += red[k] * red[k];
+                sums[at + 4] += green[k] * green[k];
+                sums[at + 5] += blue[k] * blue[k];
+            }
+            float spread = 0f;
+            for (int c = 0; c < cells; c++) {
+                if (cellCount[c] > 0) {
+                    int at = c * 6;
+                    spread += sums[at + 3] + sums[at + 4] + sums[at + 5]
+                            - (sums[at] * sums[at] + sums[at + 1] * sums[at + 1] + sums[at + 2] * sums[at + 2]) / cellCount[c];
+                }
+            }
+            return spread / count;
+        }
+
+        /**
+         * The middle of a diamond, column and row, and how unlike its lattice is (see unlike): tried
+         * every coarse dots along a whole width and up half a diamond (the middles repeat a whole
+         * width along, and half a diamond up and along together, so these are all the places one
+         * can be) on the sparse dots, then by half dots round the best of those on all of them.
+         */
+        float[] middle(Lattice sparse, int wide, int up, int coarse) {
+            float best = Float.MAX_VALUE, bestAlong = 0f, bestUp = 0f;
+            for (int along = 0; along < wide; along += coarse) {
+                for (int row = 0; row * 2 < up; row += coarse) {
+                    float unlike = sparse.unlike(true, along, top + row, wide, up);
+                    if (unlike < best) {
+                        best = unlike;
+                        bestAlong = along;
+                        bestUp = top + row;
+                    }
+                }
+            }
+            float roughAlong = bestAlong, roughUp = bestUp;
+            best = Float.MAX_VALUE;
+            for (float along = roughAlong - coarse + 0.5f; along < roughAlong + coarse; along += 0.5f) {
+                for (float row = roughUp - coarse + 0.5f; row < roughUp + coarse; row += 0.5f) {
+                    float unlike = unlike(true, along, row, wide, up);
+                    if (unlike < best) {
+                        best = unlike;
+                        bestAlong = along;
+                        bestUp = row;
+                    }
+                }
+            }
+            return new float[] {bestAlong, bestUp, best};
+        }
+
+        /**
+         * The lattice's cells, every one that reaches the rows and the wall from its start to its
+         * end, each in its class's colour; null where the lattice does not hold (see lattice) or
+         * its cells are under LATTICE_LEAST of the game's dots. A class is the cells a few steps
+         * apart along and up, as a harlequin's rows of one colour: the fewest classes, up to
+         * LATTICE_CLASSES steps each way, in which every whole cell (LATTICE_WHOLE of its dots
+         * painted) is within LATTICE_OFF / 2 of its class's colour. Where there are none, a class
+         * is the cells a wall's length apart along, as the next wall goes on with the same picture.
+         * A class's colour is the median of its whole cells' dots, or of all its dots where it has
+         * no whole cell: so a cell the wall's end or the band's edge cuts, or the sprite shades, is
+         * the colour of the whole ones, and one the sprite stops short of has a colour.
+         */
+        Motif[] cells(boolean diamond, float column, float row, float wide, float tall, int high) {
+            float least = LATTICE_LEAST * across / DOTS_ALONG;
+            if (wide < least || tall < least) {
+                return null;
+            }
+            int cells = assign(diamond, column, row, wide, tall);
+            int[] start = new int[cells + 1], byCell = new int[count];
+            for (int k = 0; k < count; k++) {
+                start[cell[k] + 1]++;
+            }
+            for (int c = 0; c < cells; c++) {
+                start[c + 1] += start[c];
+            }
+            int[] fill = java.util.Arrays.copyOf(start, cells);
+            for (int k = 0; k < count; k++) {
+                byCell[fill[cell[k]]++] = k;
+            }
+            float[] scratch = new float[count], colours = new float[cells * 3];
+            int near = 0;
+            for (int c = 0; c < cells; c++) {
+                if (start[c + 1] > start[c]) {
+                    medianInto(byCell, start[c], start[c + 1], scratch, colours, c * 3);
+                    for (int at = start[c]; at < start[c + 1]; at++) {
+                        near += off(byCell[at], colours, c * 3) <= LATTICE_OFF ? 1 : 0;
+                    }
+                }
+            }
+            if (near < LATTICE_HELD * count) {
+                return null;
+            }
+            float area = diamond ? wide * tall / 2f : wide * tall;
+            boolean[] whole = new boolean[cells];
+            for (int c = 0; c < cells; c++) {
+                whole[c] = start[c + 1] - start[c] >= LATTICE_WHOLE * area;
+            }
+            float cellsAlong = diamond ? across / (wide / 2f) : across / wide;
+            int wrap = Math.abs(cellsAlong - Math.round(cellsAlong)) < 0.01f ? Math.round(cellsAlong) : 0;
+            int stepsAlong = 0, stepsUp = 0;
+            for (int classes = 1; classes <= LATTICE_CLASSES * LATTICE_CLASSES && stepsAlong == 0; classes++) {
+                for (int along = 1; along <= LATTICE_CLASSES && stepsAlong == 0; along++) {
+                    if (classes % along == 0 && classes / along <= LATTICE_CLASSES && classesHold(cells, along, classes / along, whole, colours)) {
+                        stepsAlong = along;
+                        stepsUp = classes / along;
+                    }
+                }
+            }
+            int classes = stepsAlong > 0 ? stepsAlong * stepsUp : (wrap > 0 ? wrap : spanI) * spanJ;
+            int[] classOf = new int[cells];
+            boolean[] hasWhole = new boolean[classes];
+            for (int c = 0; c < cells; c++) {
+                classOf[c] = classOf(firstI + c / spanJ, firstJ + c % spanJ, stepsAlong, stepsUp, wrap);
+                hasWhole[classOf[c]] |= whole[c];
+            }
+            int[] classStart = new int[classes + 1], byClass = new int[count];
+            for (int c = 0; c < cells; c++) {
+                if (whole[c] || !hasWhole[classOf[c]]) {
+                    classStart[classOf[c] + 1] += start[c + 1] - start[c];
+                }
+            }
+            for (int k = 0; k < classes; k++) {
+                classStart[k + 1] += classStart[k];
+            }
+            int[] classFill = java.util.Arrays.copyOf(classStart, classes);
+            for (int c = 0; c < cells; c++) {
+                if (whole[c] || !hasWhole[classOf[c]]) {
+                    for (int at = start[c]; at < start[c + 1]; at++) {
+                        byClass[classFill[classOf[c]]++] = byCell[at];
+                    }
+                }
+            }
+            float[] classColours = new float[classes * 3];
+            for (int k = 0; k < classes; k++) {
+                if (classStart[k + 1] > classStart[k]) {
+                    medianInto(byClass, classStart[k], classStart[k + 1], scratch, classColours, k * 3);
+                }
+            }
+            float stepAlong = diamond ? wide / 2f : wide, stepUp = diamond ? tall / 2f : tall, halfAlong = wide / 2f, halfUp = tall / 2f;
+            float firstAlong = diamond ? column : column + halfAlong, firstUp = diamond ? row : row + halfUp;
+            int fromI = (int) Math.floor((-halfAlong - firstAlong) / stepAlong), toI = (int) Math.ceil((across + halfAlong - firstAlong) / stepAlong);
+            int fromJ = (int) Math.floor((top - halfUp - firstUp) / stepUp), toJ = (int) Math.ceil((bottom + halfUp - firstUp) / stepUp);
+            ArrayList<Motif> made = new ArrayList<>();
+            for (int along = fromI; along <= toI; along++) {
+                for (int up = fromJ; up <= toJ; up++) {
+                    float middleAlong = firstAlong + along * stepAlong, middleUp = firstUp + up * stepUp;
+                    if (diamond && Math.floorMod(along + up, 2) != 0 || middleAlong + halfAlong <= 0f || middleAlong - halfAlong >= across
+                            || middleUp + halfUp <= top || middleUp - halfUp >= bottom) {
+                        continue;
+                    }
+                    int key = classOf(along, up, stepsAlong, stepsUp, wrap);
+                    if (key < 0 || classStart[key + 1] == classStart[key]) {
+                        continue;
+                    }
+                    Motif motif = new Motif();
+                    motif.shape = diamond ? Motif.DIAMOND : Motif.SQUARE;
+                    motif.along = middleAlong / across;
+                    motif.level = 1f - middleUp / high;
+                    motif.halfAlong = halfAlong / across;
+                    motif.halfUp = halfUp / high;
+                    motif.red = classColours[key * 3];
+                    motif.green = classColours[key * 3 + 1];
+                    motif.blue = classColours[key * 3 + 2];
+                    made.add(motif);
+                }
+            }
+            return made.toArray(new Motif[0]);
+        }
+
+        /** The class of the cell at (along, up): see cells. -1 where it has none, a cell beyond those read that no wall's length brings back. */
+        private int classOf(int along, int up, int stepsAlong, int stepsUp, int wrap) {
+            if (stepsAlong > 0) {
+                return Math.floorMod(along, stepsAlong) * stepsUp + Math.floorMod(up, stepsUp);
+            }
+            int i = wrap > 0 ? Math.floorMod(along, wrap) : along - firstI;
+            return i < 0 || i >= (wrap > 0 ? wrap : spanI) || up < firstJ || up >= firstJ + spanJ ? -1 : i * spanJ + up - firstJ;
+        }
+
+        /** Whether classes of cells stepsAlong apart along and stepsUp up hold: see cells. Each class has a whole cell, and some class two. */
+        private boolean classesHold(int cells, int stepsAlong, int stepsUp, boolean[] whole, float[] colours) {
+            int classes = stepsAlong * stepsUp, wholeCells = 0;
+            int[] members = new int[classes];
+            float[][] of = new float[classes][];
+            for (int c = 0; c < cells; c++) {
+                if (whole[c]) {
+                    int key = classOf(firstI + c / spanJ, firstJ + c % spanJ, stepsAlong, stepsUp, 0);
+                    if (of[key] == null) {
+                        of[key] = new float[cells * 3];
+                    }
+                    System.arraycopy(colours, c * 3, of[key], members[key] * 3, 3);
+                    members[key]++;
+                    wholeCells++;
+                }
+            }
+            if (wholeCells <= classes) {
+                return false;
+            }
+            float[] middle = new float[3], values = new float[cells];
+            for (int key = 0; key < classes; key++) {
+                if (members[key] == 0) {
+                    return false;
+                }
+                for (int channel = 0; channel < 3; channel++) {
+                    for (int m = 0; m < members[key]; m++) {
+                        values[m] = of[key][m * 3 + channel];
+                    }
+                    Arrays.sort(values, 0, members[key]);
+                    middle[channel] = values[members[key] / 2];
+                }
+                for (int m = 0; m < members[key]; m++) {
+                    float far = Math.max(Math.abs(of[key][m * 3] - middle[0]), Math.max(Math.abs(of[key][m * 3 + 1] - middle[1]), Math.abs(of[key][m * 3 + 2] - middle[2])));
+                    if (far > LATTICE_OFF / 2f) {
+                        return false;
+                    }
+                }
+            }
+            return true;
+        }
+
+        /** How far dot k is from the colour at into[at]. */
+        private float off(int k, float[] into, int at) {
+            return Math.max(Math.abs(red[k] - into[at]), Math.max(Math.abs(green[k] - into[at + 1]), Math.abs(blue[k] - into[at + 2])));
+        }
+
+        /** The median of each channel of the dots dots[from] to before dots[to], into into[at] on. */
+        private void medianInto(int[] dots, int from, int to, float[] scratch, float[] into, int at) {
+            float[][] channels = {red, green, blue};
+            for (int channel = 0; channel < 3; channel++) {
+                for (int k = from; k < to; k++) {
+                    scratch[k - from] = channels[channel][dots[k]];
+                }
+                Arrays.sort(scratch, 0, to - from);
+                into[at + channel] = scratch[(to - from) / 2];
             }
         }
-        return cells;
-    }
-
-    /** Makes the band's figures the lattice's cells if it holds (see lattice), and says whether it did. */
-    private static boolean cellsOf(Band band, boolean diamond, float column, float row, float wide, float tall, int top, int bottom, float[] rgb, boolean[] solid,
-            int across, int high) {
-        float least = LATTICE_LEAST * across / DOTS_ALONG;
-        if (wide < least || tall < least || held(diamond, column, row, wide, tall, top, bottom, rgb, solid, across) < LATTICE_HELD) {
-            return false;
-        }
-        ArrayList<Motif> cells = new ArrayList<>();
-        for (java.util.Map.Entry<Long, ArrayList<float[]>> cell : cellDots(diamond, column, row, wide, tall, top, bottom, rgb, solid, across).entrySet()) {
-            long i = cell.getKey() / CELL_KEY - CELL_KEY / 2, j = cell.getKey() % CELL_KEY - CELL_KEY / 2;
-            float[] colour = middleOf(cell.getValue());
-            Motif motif = new Motif();
-            motif.shape = diamond ? Motif.DIAMOND : Motif.SQUARE;
-            float middleAlong = diamond ? column + i * wide / 2f : column + (i + 0.5f) * wide, middleUp = diamond ? row + j * tall / 2f : row + (j + 0.5f) * tall;
-            motif.along = middleAlong / across;
-            motif.level = 1f - middleUp / high;
-            motif.halfAlong = wide / 2f / across;
-            motif.halfUp = tall / 2f / high;
-            motif.red = colour[0];
-            motif.green = colour[1];
-            motif.blue = colour[2];
-            cells.add(motif);
-        }
-        band.motifs = cells.toArray(new Motif[0]);
-        band.figured[0] = false;
-        return true;
     }
 
     private static float[] colourAt(float[] rgb, int at, float[] into) {
