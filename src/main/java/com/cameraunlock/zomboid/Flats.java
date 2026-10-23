@@ -78,11 +78,11 @@ final class Flats {
     /** A run of empty dots no longer than this at an end of a row, or at the top of a column, is the sprite stopping short and is filled in. A longer one is an opening, or a wall that is low or short. */
     private static final int END_SHORT = 6, TOP_SHORT = 12;
     /**
-     * A wall's black top line is at most this many dots deep, each no brighter than RIM_DARK in
-     * any colour, over a wall at least RIM_UNDER bright: a trailer's is three dots of 0 to 13 over
-     * 235, a shop front's dark panelling three over 47.
+     * A wall's top line is at most this many dots deep, each at least RIM_STEP darker in its
+     * brightest colour than the wall RIM_BELOW dots under the top: a trailer's is three dots of
+     * 0 to 13 over 235, walls_interior_house_04's three of 97 over 166.
      */
-    private static final int TOP_RIM = 4, RIM_DARK = 24, RIM_UNDER = 40;
+    private static final int TOP_RIM = 4, RIM_STEP = 20, RIM_BELOW = 6;
     /**
      * Frame pixels at tile scale 1 that a wall's picture is painted on past the slack a face cut
      * to its sprite runs on by. Where the face ended just where its picture's paint did, its edge
@@ -300,21 +300,26 @@ final class Flats {
                 System.arraycopy(dots, (runs[i] * WALL_LONG + i) * 4, dots, (k * WALL_LONG + i) * 4, 4);
             }
         }
-        // Some sheets (a trailer's, a burnt house's) paint the top edge of the wall as a black
-        // line, the edge of its top seen from above. Stood square it was a black band along the
-        // ceiling of every room the wall stands in. Its dots, and the one blended with the wall
-        // under them, take the wall's first dot below.
+        // The game paints the top edge of a wall as a darker line, the edge of its top seen from
+        // above: three dots of olive over walls_interior_house_04's paper, of black over a
+        // trailer's panels. Stood square it was a dark band along the ceiling of every room the
+        // wall stands in. Its dots, and the one blended with the wall under them, take the
+        // wall's first dot below.
         for (int i = 0; i < WALL_LONG; i++) {
             int from = 0;
             while (from < WALL_HIGH && dots[(from * WALL_LONG + i) * 4 + 3] == 0) {
                 from++;
             }
-            int rim = from;
-            while (rim < from + TOP_RIM && rim < WALL_HIGH && dots[(rim * WALL_LONG + i) * 4 + 3] != 0 && brightest(dots, rim * WALL_LONG + i) < RIM_DARK) {
+            int below = (from + RIM_BELOW) * WALL_LONG + i;
+            if (from + RIM_BELOW >= WALL_HIGH || dots[below * 4 + 3] == 0) {
+                continue;
+            }
+            int rim = from, darkest = brightest(dots, below) - RIM_STEP;
+            while (rim < from + TOP_RIM && dots[(rim * WALL_LONG + i) * 4 + 3] != 0 && brightest(dots, rim * WALL_LONG + i) <= darkest) {
                 rim++;
             }
             int wall = (rim + 1) * WALL_LONG + i;
-            if (rim == from || rim + 1 >= WALL_HIGH || dots[wall * 4 + 3] == 0 || brightest(dots, wall) < RIM_UNDER) {
+            if (rim == from || dots[wall * 4 + 3] == 0) {
                 continue;
             }
             for (int j = from; j <= rim; j++) {

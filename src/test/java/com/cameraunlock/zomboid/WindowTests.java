@@ -39,7 +39,7 @@ final class WindowTests {
         Checks.run("floorLaidFlatMeetsItselfAtTheSquaresEdge", WindowTests::floorLaidFlatMeetsItselfAtTheSquaresEdge);
         Checks.run("halfASquareIsNoFlatFloor", WindowTests::halfASquareIsNoFlatFloor);
         Checks.run("wallStoodSquareRunsOnIntoTheNextLength", WindowTests::wallStoodSquareRunsOnIntoTheNextLength);
-        Checks.run("wallStoodSquareLosesTheBlackLineAlongItsTop", WindowTests::wallStoodSquareLosesTheBlackLineAlongItsTop);
+        Checks.run("wallStoodSquareLosesTheDarkLineAlongItsTop", WindowTests::wallStoodSquareLosesTheDarkLineAlongItsTop);
         Checks.run("doorwayToTheEndOfItsSquareHasNoWallInItsRim", WindowTests::doorwayToTheEndOfItsSquareHasNoWallInItsRim);
         Checks.run("cornerPostPictureCoversItsFacesSlack", WindowTests::cornerPostPictureCoversItsFacesSlack);
         Checks.run("doorWithOneSmallLightIsALeafWithItsLight", WindowTests::doorWithOneSmallLightIsALeafWithItsLight);
@@ -805,11 +805,13 @@ final class WindowTests {
         return 0.35f + 0.05f * course + (Math.abs(along - 0.33f) < 0.02f ? -0.2f : 0f);
     }
 
-    private static void wallStoodSquareLosesTheBlackLineAlongItsTop() {
-        // A trailer's wall along the north edge: pale panels with three dots of black along the top, as location_trailer_01_25 paints it.
-        // A second sprite is a dark wall the black is no line on, and a third is a low wall, half a level, with the same line on its top.
-        for (int kind = 0; kind < 3; kind++) {
-            int body = kind == 1 ? 20 : 235;
+    private static void wallStoodSquareLosesTheDarkLineAlongItsTop() {
+        // Walls along the north edge with a line three dots deep along the top, as the game paints them: black over a trailer's
+        // pale panels (location_trailer_01_25), olive over walls_interior_house_04's paper, the trailer's again on a low wall half
+        // a level high, and a top only a little darker than the wall under it, which is the wall's own and stays.
+        int[][] kinds = {{0, 235}, {97, 166}, {0, 235}, {110, 120}};
+        for (int kind = 0; kind < kinds.length; kind++) {
+            int line = kinds[kind][0], body = kinds[kind][1];
             float tops = kind == 2 ? 0.5f : 1f;
             ByteBuffer sheet = ByteBuffer.allocate(128 * 256 * 4);
             for (int y = 0; y < 256; y++) {
@@ -818,7 +820,7 @@ final class WindowTests {
                     if (y + 0.5f < top || y + 0.5f > 192f + 32f * along) {
                         continue;
                     }
-                    int shade = y + 0.5f - top < 3f ? 0 : body, at = (y * 128 + x) * 4;
+                    int shade = y + 0.5f - top < 3f ? line : body, at = (y * 128 + x) * 4;
                     sheet.put(at, (byte) shade).put(at + 1, (byte) shade).put(at + 2, (byte) shade).put(at + 3, (byte) 255);
                 }
             }
@@ -829,10 +831,10 @@ final class WindowTests {
                     darkest = Math.min(darkest, dots[(j * wide + i) * 4] & 0xff);
                 }
             }
-            if (kind == 1) {
-                check(darkest < 10, "a dark wall keeps its line, which is no line on it: darkest " + darkest);
+            if (kind == 3) {
+                check(darkest < 115, "a top a little darker than the wall is the wall's and stays: darkest " + darkest);
             } else {
-                check(darkest == body, (kind == 2 ? "a low wall" : "a wall") + " stood square has no black line along its top: darkest " + darkest);
+                check(darkest == body, (kind == 2 ? "a low wall" : "a wall") + " stood square has no dark line along its top: darkest " + darkest + " under " + line);
             }
         }
     }

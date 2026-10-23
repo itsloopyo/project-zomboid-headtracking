@@ -20,6 +20,8 @@ import zombie.util.list.PZArrayList;
 final class WallBuilder {
     /** How far in from a wall's end its sprite is looked over for its first painted pixel, in unscaled pixels. */
     private static final float MOST_UNPAINTED = 5f;
+    /** Frame pixels at tile scale 1 the game paints a wall's top line in, darker than the wall: the top seen from above, which a face standing under the ceiling takes its texels from below. */
+    private static final float TOP_LINE = 2f;
     /** The height, in levels, a wall's sprite is looked over at: under the sill of a window. */
     private static final float SEAL_HEIGHT = 0.15f;
     /** A wall whose sprite is painted this high up, in levels, is a whole wall and not a low one. */
@@ -435,7 +437,7 @@ final class WallBuilder {
         }
         float fromStart = unpainted(texture, 0f, 0f, da, db);
         float fromEnd = unpainted(texture, da, db, -da, -db);
-        float fromTop = unpaintedTop(texture, 0f, 0f, da, db);
+        float fromTop = unpaintedTop(texture, 0f, 0f, da, db) + (build.overLayer == 0 ? TOP_LINE * build.frame.scale : 0f);
         boolean startIsLow = SpriteGeometry.frameU(build.frame, 0f, 0f) < SpriteGeometry.frameU(build.frame, da, db);
         float[] opening = openingOf(texture, 0f, 0f, da, db);
         int at = da != 0f ? 0 : OPENING_FLOATS;
