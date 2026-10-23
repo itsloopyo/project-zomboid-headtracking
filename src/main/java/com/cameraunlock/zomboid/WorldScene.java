@@ -5503,11 +5503,13 @@ final class WorldScene {
                 int wall = WallHung.wallOf(over);
                 if (wall == WallHung.NORTH || wall == WallHung.WEST) {
                     SpriteGeometry.Mesh mesh = solid.get(texture.getID());
+                    overSheet = kindOf(over).tiledSheet;
                     if (wall == WallHung.WEST) {
                         wallBuilder.addEdge(mesh, texture, false, false, x, y, z, westLayer++, 0f, 1f);
                     } else {
                         wallBuilder.addEdge(mesh, texture, false, false, x, y, z, northLayer++, 1f, 0f);
                     }
+                    overSheet = null;
                     return;
                 }
             }

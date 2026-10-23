@@ -372,7 +372,9 @@ final class WallBuilder {
             }
             // And three layers more, which are thicker the further off: there the picture's depth is coarser.
             WorldScene.layers.lie(way, layer + 3f);
-            if (!door && !sign && material != WorldScene.GLASS && addTiledOverlay(mesh, texture, build.tiledSheet, x, y, z, da, db)) {
+            // Laid over a wall it is tiles only where its own sprite is of a sheet of them: a poster on a tiled wall is a poster.
+            String sheet = build.overLayer == 0 ? build.tiledSheet : build.overSheet;
+            if (!door && !sign && material != WorldScene.GLASS && addTiledOverlay(mesh, texture, sheet, x, y, z, da, db)) {
                 build.geometry.shownA = build.geometry.shownB = build.geometry.shownUp = 0f;
                 build.geometry.turned = false;
                 build.frame.material = material;

@@ -58,6 +58,7 @@ final class WallTileTests {
         Checks.run("theFarSideOfAWallTakesTheTilesOfTheRoomBeyondOnEitherEdge", WallTileTests::theFarSideOfAWallTakesTheTilesOfTheRoomBeyondOnEitherEdge);
         Checks.run("theFarSideWaitsForTheRoomsTilesToBeRead", WallTileTests::theFarSideWaitsForTheRoomsTilesToBeRead);
         Checks.run("theFarSideTakesNoTilesFromAWallWithAnOpening", WallTileTests::theFarSideTakesNoTilesFromAWallWithAnOpening);
+        Checks.run("aPosterOnATiledWallIsThePoster", WallTileTests::aPosterOnATiledWallIsThePoster);
     }
 
     /**
@@ -620,5 +621,52 @@ final class WallTileTests {
         map.build.building.signed = true;
         check(map.build.wallBuilder.farTilesOf(door, true) == null && map.build.building.signed,
                 "a room's sprite read with an opening in it on both edges gives the far side no tiles, and is not waited for");
+    }
+
+    /** A sprite laid over the north wall of square 1 of a bathroom, with a picture as big as a wall's. */
+    private static Texture over(TestMap map, int id) {
+        Texture texture = new Texture(id, 128, 256);
+        texture.paint(0, 0, 128, 256);
+        TestMap.<java.util.Map<Texture, Boolean>>read(null, Stains.class, "known").put(texture, false);
+        WorldScene.frameOf(map.build.frame, map.cell.getGridSquare(1, 0, 0).getObjects().get(0), texture);
+        map.build.overLayer = 1;
+        return texture;
+    }
+
+    /** How many triangles the frame's build has added showing that texture as it is painted, in every room. */
+    private static int laidWith(Texture texture) {
+        int triangles = 0;
+        for (SpriteGeometry.Mesh mesh : TestMap.<java.util.List<SpriteGeometry.Mesh>>read(WorldScene.solid, "all")) {
+            triangles += mesh.texture == texture.getID() && mesh.tint == 0 ? mesh.triangles() : 0;
+        }
+        return triangles;
+    }
+
+    /** Runs a test with every row of [Content] on and the pictures made, as in the game. */
+    private static void withTextures(Checks.Test test) throws Throwable {
+        boolean made = TestMap.read(null, Own.class, "picturesMade");
+        Own.picturesMade(true);
+        try {
+            TestMap.withEverything(test);
+        } finally {
+            Own.picturesMade(made);
+        }
+    }
+
+    private static void aPosterOnATiledWallIsThePoster() throws Throwable {
+        withTextures(() -> {
+            TestMap map = bathroom();
+            Texture poster = over(map, 320);
+            // Were it read as tiles laid over the wall, it would be built as them and not as itself.
+            WallTiles.knownForTests(poster, true, true, read((column, row) -> row < 110 ? null : tiles(WHITE, column, row, 11, 16, 120, 22), true));
+            map.build.overSheet = null;
+            map.build.wallBuilder.addEdge(WorldScene.solid.get(poster.getID()), poster, false, false, 1, 0, 0, 0f, 1f, 0f);
+            check(laidWith(poster) > 0, "a poster hung on a tiled wall is laid as its picture, not read as the wall's tiles");
+            Texture panel = over(map, 322);
+            WallTiles.knownForTests(panel, true, true, read((column, row) -> row < 110 ? null : tiles(WHITE, column, row, 11, 16, 120, 22), true));
+            map.build.overSheet = SHEET;
+            map.build.wallBuilder.addEdge(WorldScene.solid.get(panel.getID()), panel, false, false, 1, 0, 0, 0f, 1f, 0f);
+            check(laidWith(panel) == 0, "and a panel of tiles hung so, of a sheet of them, is built as its tiles");
+        });
     }
 }
