@@ -6,7 +6,7 @@ package com.cameraunlock.zomboid;
  * old tyres, basketball hoops, nets across courts, football goals, what a playing field, a boxing ring and a gym have,
  * pianos and their benches,
  * speakers, an amplifier, drums, a jukebox, a pinball table, the lamp over a pool table, a stage's microphone, theatre
- * seats, a lectern, an altar and a steeple. Asked by
+ * seats, a lectern, an altar, a pipe organ and a steeple. Asked by
  * Outdoors.of before its own table, and stood the same way, so a piece of either is one kind of thing.
  *
  * Where each model stands on its squares was read off the game's sprites of it, laid over them in
@@ -51,6 +51,9 @@ final class Leisure {
         }
         if (faces == Outdoors.NONE) {
             return null;
+        }
+        if (called.equals("Organ") && kind.equals("Church")) {
+            return organ(Sheets.place(name, CHURCH));
         }
         if (called.equals("Play Castle") && kind.equals("Childrens") && width == 2 && height == 2) {
             return new Outdoors.Piece("play_castle", faces).dye(PAINT, 0.05f, 0.05f, 0.28f);
@@ -104,6 +107,10 @@ final class Leisure {
         }
         if (called.equals("Amplifier") && kind.equals("Guitar")) {
             return new Outdoors.Piece("amplifier", faces);
+        }
+        // The bench in front of an organ, which the game names a stool.
+        if (called.equals("Stool") && kind.equals("Organs")) {
+            return new Outdoors.Piece("piano_bench", faces);
         }
         if (called.equals("Stand") && kind.equals("Lectern")) {
             return new Outdoors.Piece("lectern", faces);
@@ -207,6 +214,35 @@ final class Leisure {
     private static Outdoors.Piece following(Outdoors.Piece piece) {
         piece.follows = true;
         return piece;
+    }
+
+    /** Where the middle of an organ's back stands on the square of its west end, against the wall at the square's north edge. */
+    static final float ORGAN_A = 1.5f, ORGAN_B = 0.48f;
+    /** Where on the square of an organ's west end its sprite gives the colour of its case, and how high its pipes, in levels. */
+    private static final float ORGAN_DYE_A = 0.5f, ORGAN_DYE_B = 0.8f, ORGAN_CASE_HIGH = 0.7f, ORGAN_PIPES_HIGH = 0.9f;
+
+    /**
+     * A church's pipe organ, three squares along a north wall and two storeys high, facing south. The game paints its lower half
+     * over the three squares and its upper half over the same squares a storey up, a grid of both storeys. The west square of the
+     * lower half stands the whole organ; the others stand nothing, and none does unless the square its pairing names holds its
+     * piece. Each is a piece by itself, so the grid's other storey is not looked for on this one.
+     */
+    private static Outdoors.Piece organ(int place) {
+        return switch (place) {
+            case 96 -> new Outdoors.Piece("pipe_organ", Outdoors.SOUTH).each().at(ORGAN_A, ORGAN_B).pairedWith(CHURCH + 98, 2, 0)
+                    .dye(1 << Models.WOOD, ORGAN_DYE_A, ORGAN_DYE_B, ORGAN_CASE_HIGH).also(METAL, ORGAN_PIPES_HIGH);
+            case 97 -> following(new Outdoors.Piece(null, Outdoors.SOUTH).each().pairedWith(CHURCH + 96, -1, 0));
+            case 98 -> following(new Outdoors.Piece(null, Outdoors.SOUTH).each().pairedWith(CHURCH + 96, -2, 0));
+            case 88 -> following(new Outdoors.Piece(null, Outdoors.SOUTH).each().pairedWith(CHURCH + 90, 2, 0));
+            case 89 -> following(new Outdoors.Piece(null, Outdoors.SOUTH).each().pairedWith(CHURCH + 88, -1, 0));
+            case 90 -> following(new Outdoors.Piece(null, Outdoors.SOUTH).each().pairedWith(CHURCH + 88, -2, 0));
+            default -> null;
+        };
+    }
+
+    /** Whether a sprite is a square of a church's pipe organ, whose grid the game lays over two storeys. */
+    static boolean organPiece(String name) {
+        return organ(Sheets.place(name, CHURCH)) != null;
     }
 
     /** Whether a sprite is a piece of a church tower's spire, which the game marks as a roof's. */

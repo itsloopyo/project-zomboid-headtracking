@@ -7774,6 +7774,115 @@ def altar():
     return model
 
 
+# A church's pipe organ: its back at +Y, how far its case stands out from the wall and how high its parts are, in metres.
+ORGAN_BACK = 0.45
+ORGAN_HALF = 1.45
+ORGAN_CASE_TOP = 1.2
+ORGAN_FLAT_TOP = 3.1
+ORGAN_TOWER_TOP = 3.9
+ORGAN_PILLAR_TOP = 3.7
+
+
+def organ_pipes(bm, mouths, x0, x1, count, foot, tops, radius, y):
+    """A row of front pipes from x0 to x1, each a cone up from foot to its mouth and a tube on up to its top, with the dark
+    slot of its mouth facing -Y."""
+    for i in range(count):
+        x = x0 + (x1 - x0) * (i + 0.5) / count
+        top = tops[i]
+        mouth = foot + 0.32
+        lathe(bm, [(0.0, foot), (radius * 0.3, foot), (radius, mouth), (radius, top), (radius * 0.86, top), (0.0, top - 0.03)], cx=x, cy=y,
+              segments=10)
+        cuboid(mouths, x - radius * 0.55, x + radius * 0.55, y - radius - 0.004, y - radius * 0.6, mouth + 0.02, mouth + 0.02 + radius * 1.1)
+
+
+def pipe_organ():
+    """A church's pipe organ along three squares, two storeys high, its back to the wall at +Y: a case with the console at its
+    front (two manuals, the stops either side, a music desk) over a pedalboard, and above it a middle tower of pipes between two
+    lower flats of them and two pillars, crosses on the tower's cornice."""
+    model = Model("pipe_organ", centred=False)
+    back, half, top = ORGAN_BACK, ORGAN_HALF, ORGAN_CASE_TOP
+    case = bmesh.new()
+    cuboid(case, -half - 0.03, half + 0.03, -0.08, back + 0.02, 0.0, 0.1)
+    cuboid(case, -half, half, -0.05, back, 0.1, top)
+    cuboid(case, -half - 0.05, half + 0.05, -0.1, back + 0.02, top, top + 0.08)
+    # The panels of the case's front either side of the console.
+    for side in (-1, 1):
+        x0, x1 = mirrored(0.82, 1.38, side)
+        cuboid(case, x0, x1, -0.07, -0.05, 0.22, 1.08)
+    model.hard(case, "wood", bevel=0.008, segments=1)
+    # The pillars at the ends, a flat of pipes between each and the middle tower, the tower: tall plain boards, which with
+    # every edge rounded and cut to find its shade came to more than the rest of the organ.
+    case = bmesh.new()
+    for side in (-1, 1):
+        x0, x1 = mirrored(1.2, half, side)
+        cuboid(case, x0, x1, 0.02, back, top + 0.08, ORGAN_PILLAR_TOP)
+        cuboid(case, x0 - 0.03, x1 + 0.03, -0.01, back + 0.02, ORGAN_PILLAR_TOP, ORGAN_PILLAR_TOP + 0.1)
+        cuboid(case, x0 + 0.04, x1 - 0.04, 0.0, back, ORGAN_PILLAR_TOP + 0.1, ORGAN_PILLAR_TOP + 0.16)
+        x0, x1 = mirrored(0.55, 1.2, side)
+        cuboid(case, x0, x1, back - 0.08, back, top + 0.08, ORGAN_FLAT_TOP)
+        cuboid(case, x0, x1, 0.0, back, top + 0.08, top + 0.2)
+        cuboid(case, x0, x1, -0.03, back, ORGAN_FLAT_TOP, ORGAN_FLAT_TOP + 0.12)
+        cuboid(case, x0, x1, 0.02, back, ORGAN_FLAT_TOP - 0.18, ORGAN_FLAT_TOP)
+        x0, x1 = mirrored(0.5, 0.6, side)
+        cuboid(case, x0, x1, -0.02, back, top + 0.08, ORGAN_TOWER_TOP)
+    cuboid(case, -0.5, 0.5, back - 0.08, back, top + 0.08, ORGAN_TOWER_TOP)
+    cuboid(case, -0.5, 0.5, -0.0, back, top + 0.08, top + 0.3)
+    cuboid(case, -0.5, 0.5, 0.0, back, ORGAN_TOWER_TOP - 0.22, ORGAN_TOWER_TOP)
+    cuboid(case, -0.66, 0.66, -0.06, back + 0.02, ORGAN_TOWER_TOP, ORGAN_TOWER_TOP + 0.12)
+    prism(case, (0.0, back / 2 - 0.02, 1.2, back + 0.04, ORGAN_TOWER_TOP + 0.12), (0.0, back / 2 - 0.02, 0.9, back - 0.06, ORGAN_TOWER_TOP + 0.3))
+    model.plain(case, "wood")
+    case = bmesh.new()
+    # The console: a key desk standing out of the case between two cheeks, the upper manual's shelf, the music desk.
+    for side in (-1, 1):
+        x0, x1 = mirrored(0.62, 0.72, side)
+        outline_along_x(case, [(-0.56, 0.62), (-0.05, 0.62), (-0.05, 1.12), (-0.2, 1.12), (-0.56, 0.78)], x0, x1)
+    cuboid(case, -0.62, 0.62, -0.54, -0.05, 0.6, 0.7)
+    cuboid(case, -0.62, 0.62, -0.34, -0.05, 0.7, 0.8)
+    prism_y(case, (0.0, 0.98, 1.1, 0.28, -0.17), (0.0, 1.0, 1.1, 0.26, -0.14))
+    cuboid(case, -0.62, 0.62, -0.08, -0.05, 0.1, 0.6)
+    # The pedalboard's frame on the floor in front, short of the bench, which the game stands a square out from the wall.
+    cuboid(case, -0.62, 0.62, -0.8, -0.05, 0.0, 0.05)
+    model.hard(case, "wood", bevel=0.008, segments=1)
+    keys = bmesh.new()
+    sharps = bmesh.new()
+    for low, front, deep in ((0.7, -0.53, 0.17), (0.8, -0.33, 0.15)):
+        cuboid(keys, -0.6, 0.6, front, front + deep, low, low + 0.022)
+        for octave in range(5):
+            for k in (1, 2, 4, 5, 6):
+                x = -0.6 + 0.24 * octave + 0.24 * k / 7.0
+                cuboid(sharps, x - 0.007, x + 0.007, front + deep * 0.4, front + deep, low + 0.022, low + 0.036)
+    for i in range(13):
+        x = -0.54 + 1.08 * i / 12
+        cuboid(keys, x - 0.03, x + 0.03, -0.78, -0.4, 0.05, 0.08)
+    for i in (1, 2, 4, 5, 6, 8, 9, 11):
+        x = -0.54 + 1.08 * (i - 0.5) / 12
+        cuboid(sharps, x - 0.018, x + 0.018, -0.6, -0.4, 0.08, 0.12)
+    model.plain(keys, "ceramic")
+    model.plain(sharps, "rubber")
+    knobs = bmesh.new()
+    # The stops, in three rows on the case's front either side of the console.
+    for side in (-1, 1):
+        for row in range(3):
+            for col in range(3):
+                x, z = side * (0.86 + 0.09 * col), 0.82 + 0.1 * row
+                tube(knobs, (x, -0.05, z), (x, -0.1, z), 0.016, segments=8)
+    model.turned(knobs, "ceramic", sharp=50.0)
+    pipes = bmesh.new()
+    mouths = bmesh.new()
+    organ_pipes(pipes, mouths, -0.48, 0.48, 7, top + 0.3, [3.15, 3.35, 3.55, 3.7, 3.55, 3.35, 3.15], 0.058, 0.2)
+    for side in (-1, 1):
+        x0, x1 = mirrored(0.6, 1.15, side)
+        tops = [2.45, 2.62, 2.78, 2.92]
+        organ_pipes(pipes, mouths, x0, x1, 4, top + 0.2, tops if side > 0 else tops[::-1], 0.05, 0.22)
+    # The crosses on the tower's cornice.
+    for x in (-0.42, 0.42):
+        cuboid(pipes, x - 0.018, x + 0.018, 0.12, 0.16, ORGAN_TOWER_TOP + 0.12, ORGAN_TOWER_TOP + 0.5)
+        cuboid(pipes, x - 0.1, x + 0.1, 0.12, 0.16, ORGAN_TOWER_TOP + 0.34, ORGAN_TOWER_TOP + 0.38)
+    model.turned(pipes, "metal", sharp=50.0)
+    model.plain(mouths, "rubber")
+    return model
+
+
 # How high a church steeple's belfry is to the top of its cap, where the spire on the storey above stands, in metres.
 BELFRY_TOP = 2.21
 
@@ -8079,7 +8188,7 @@ def leisure():
             sport_tyres("tyres_3_askew", 3, 0.04), sport_tyres("tyres_4_askew", 4, 0.04),
             play_castle(), treadmill(), weight_bench(), upright_piano(), piano_bench(), slide(), merry_go_round(),
             speaker_cabinet("speaker_tall", 0.46, 0.36, 0.82, "dark_wood"), speaker_cabinet("speaker_low", 0.46, 0.34, 0.64, "plastic"),
-            jukebox(), grand_piano(), lectern(), pinball(), altar(), steeple_belfry(), steeple_spire(), tower_spire("tower_spire", TOWER_SPIRE),
+            jukebox(), grand_piano(), lectern(), pinball(), altar(), pipe_organ(), steeple_belfry(), steeple_spire(), tower_spire("tower_spire", TOWER_SPIRE),
             tower_spire("tower_spire_flared", TOWER_SPIRE_FLARED), tower_cross(), amplifier(), drum_kick(), drum_stand(),
             basket_pole(), basket_board(), court_net("net_first", True, False), court_net("net_middle", False, False),
             court_net("net_last", False, True), goal("goal_first", True, False), goal("goal_middle", False, False), goal("goal_last", False, True)] + \

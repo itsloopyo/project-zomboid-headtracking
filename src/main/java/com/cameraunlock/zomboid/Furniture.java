@@ -332,7 +332,8 @@ final class Furniture {
         String groupName = properties.get("GroupName");
         int surface = properties.getSurface();
         // A piece one square across that the game paints on more than one storey, a flag pole, is a sprite a storey: each stands its own length.
-        if (name != null && (grid == null || grid.getLevels() == 1 || width == 1 && height == 1)) {
+        // An organ's squares are each a piece by itself (Leisure.organ).
+        if (name != null && (grid == null || grid.getLevels() == 1 || width == 1 && height == 1 || Leisure.organPiece(name))) {
             IsoDirections way = sprite.getFacing();
             int faces = way == IsoDirections.N ? Outdoors.NORTH : way == IsoDirections.E ? Outdoors.EAST : way == IsoDirections.S ? Outdoors.SOUTH
                     : way == IsoDirections.W ? Outdoors.WEST : Outdoors.NONE;

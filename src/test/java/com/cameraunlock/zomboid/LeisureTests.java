@@ -23,6 +23,7 @@ final class LeisureTests {
         Checks.run("aPairOfTheatreSeatsFacesTheWayItsSpriteSays", LeisureTests::aPairOfTheatreSeatsFacesTheWayItsSpriteSays);
         Checks.run("aStageMicrophoneFacesTheWayItsSpriteSays", LeisureTests::aStageMicrophoneFacesTheWayItsSpriteSays);
         Checks.run("aPoolTablesLampHangsFromTheCeilingOverBothSquares", LeisureTests::aPoolTablesLampHangsFromTheCeilingOverBothSquares);
+        Checks.run("anOrgansWestSquareStandsItAgainstItsWallAndTheRestStandNothing", LeisureTests::anOrgansWestSquareStandsItAgainstItsWallAndTheRestStandNothing);
         Checks.run("aChurchsColouredWindowsAreStainedGlassAndItsClearOnesAreNot", LeisureTests::aChurchsColouredWindowsAreStainedGlassAndItsClearOnesAreNot);
     }
 
@@ -287,6 +288,28 @@ final class LeisureTests {
     }
 
     private static final String CHURCH = "location_community_church_small_01_";
+
+    private static void anOrgansWestSquareStandsItAgainstItsWallAndTheRestStandNothing() {
+        Outdoors.Piece organ = Outdoors.of(CHURCH + 96, "Organ", "Church", Outdoors.SOUTH, 3, 1, 0);
+        holds(organ, "the organ's west square of its lower storey has a model");
+        Checks.check(organ.model.equals("pipe_organ") && !organ.follows && organ.each && organ.turns == Outdoors.SOUTH, "it stands the whole organ, facing south");
+        Checks.check((CHURCH + 98).equals(organ.partner) && organ.partnerX == 2 && organ.partnerY == 0, "only where its east square holds its piece");
+        Models.Model model = Models.get("pipe_organ");
+        Checks.check(model.width() <= 3f && Math.abs(organ.a - 1.5f) < 1e-6f, "it is no wider than its three squares, and stands in the middle of them");
+        Checks.check(organ.b - model.maxY >= 0f && organ.b - model.maxY < 0.05f, "its back is against the wall on the north edge of its squares");
+        int[][] others = {{97, 96, -1}, {98, 96, -2}, {88, 90, 2}, {89, 88, -1}, {90, 88, -2}};
+        for (int[] other : others) {
+            Outdoors.Piece piece = Outdoors.of(CHURCH + other[0], "Organ", "Church", Outdoors.SOUTH, 3, 1, 0);
+            Checks.check(piece != null && piece.model == null && piece.follows && piece.each, CHURCH + other[0] + " stands nothing and hides its sprite");
+            Checks.check(piece != null && (CHURCH + other[1]).equals(piece.partner) && piece.partnerX == other[2] && piece.partnerY == 0,
+                    CHURCH + other[0] + " is paired with " + other[1] + " on its own storey");
+            Checks.check(Leisure.organPiece(CHURCH + other[0]), CHURCH + other[0] + " is a square of an organ, whatever its grid's storeys");
+        }
+        Checks.check(!Leisure.organPiece(CHURCH + 91) && !Leisure.organPiece(CHURCH + 127), "its stool and a window are not");
+        Outdoors.Piece stool = Outdoors.of(CHURCH + 91, "Stool", "Organs", Outdoors.NORTH, 1, 1, 0);
+        holds(stool, "the organ's stool has a model");
+        Checks.check(stool.model.equals("piano_bench"), "the stool is the piano's bench");
+    }
 
     private static void aChurchsColouredWindowsAreStainedGlassAndItsClearOnesAreNot() {
         for (int place : new int[] {114, 119, 122, 127}) {
