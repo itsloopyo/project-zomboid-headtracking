@@ -24,6 +24,34 @@ final class ShopFittingTests {
         Checks.run("aGlassCounterIsItsModelAndItsGlassIsInsideItsFrame", ShopFittingTests::aGlassCounterIsItsModelAndItsGlassIsInsideItsFrame);
         Checks.run("magazineStandsAreTheStandWithMagazinesOnItsTiers", ShopFittingTests::magazineStandsAreTheStandWithMagazinesOnItsTiers);
         Checks.run("aMallTablesFourQuartersMeetAtItsMiddle", ShopFittingTests::aMallTablesFourQuartersMeetAtItsMiddle);
+        Checks.run("aGrocersDisplayCrateIsTheCrateWithItsProduceOnItsDeck", ShopFittingTests::aGrocersDisplayCrateIsTheCrateWithItsProduceOnItsDeck);
+    }
+
+    private static void aGrocersDisplayCrateIsTheCrateWithItsProduceOnItsDeck() {
+        String row = "|BlocksPlacement||CanBreak||CanScrap||ContainerCapacity|20|CustomName|Counter|GroupName|Greene 's Grocery Display|IsLow||IsMoveAble||"
+                + "ItemHeight|34|Material|Wood|PickUpLevel|2|PickUpTool|Hammer|PickUpWeight|100|PlaceTool|Hammer|ScrapSize|Small|container|grocerstand|"
+                + "solidtrans||Facing|";
+        String[] facings = {"S", "E", "W", "N"};
+        int[] turns = {2, 1, 3, 0};
+        for (int i = 0; i < 4; i++) {
+            Furniture crate = Furniture.known(TileRows.sprite("location_shop_greenes_01_" + (24 + i) + row + facings[i] + "|"));
+            check(model(crate).equals("produce_crate") && crate.stocked && crate.turns == turns[i], "the crate facing " + facings[i] + " is its model, turned "
+                    + turns[i] + ": " + model(crate));
+            if (crate == null || crate.model == null) {
+                continue;
+            }
+            check(crate.dyed == 1 << Models.WOOD && crate.alsoDyed == 1 << Models.CLOTH, "its boards and its felt take the sprite's colours");
+            check(crate.scale == Furniture.TILES_PER_METRE, "it is as big as its model, which fits its square");
+        }
+        Models.Model crate = Models.get("produce_crate");
+        check(Math.abs(crate.height() - ShopFittings.CRATE_BACK_TOP) < 0.005f, "the crate's rim is as high at the back as ShopFittings has it: " + crate.height());
+        check(Math.abs(crate.width() / 2f - ShopFittings.CRATE_HALF) < 0.01f, "and it is as wide: " + crate.width());
+        for (String name : new String[] {"produce_pile", "produce_pile_b"}) {
+            Models.Model heap = Models.get(name);
+            float reach = ShopFittings.PRODUCE_PITCH + Math.max(heap.width(), heap.depth()) / 2f;
+            check(reach < ShopFittings.CRATE_HALF - 0.02f, name + " at the edge of the three by three stays inside the crate's boards: " + reach);
+            check(heap.width() < ShopFittings.PRODUCE_PITCH + 0.01f, name + " is no wider than the step between heaps: " + heap.width());
+        }
     }
 
     private static final String BEIGE = "|BlocksPlacement||CanBreak||CanScrap||CustomName|Shelves|GroupName|Beige Rack Shop|IsLow||IsMoveAble||ItemHeight|32|"

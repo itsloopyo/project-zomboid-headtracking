@@ -1,6 +1,7 @@
 package com.cameraunlock.zomboid;
 
 import zombie.core.properties.PropertyContainer;
+import zombie.core.textures.Texture;
 import zombie.inventory.ItemContainer;
 import zombie.iso.IsoDirections;
 import zombie.iso.IsoObject;
@@ -30,6 +31,17 @@ final class ShopFittings {
             STOOL_SEAT_DYE = 0.62f / ViewCamera.LEVEL_HEIGHT;
     /** And a magazine stand's, from low on its front; a mall table's, from its top. */
     private static final float STAND_DYE = 0.4f / ViewCamera.LEVEL_HEIGHT, TABLE_DYE = 0.93f / ViewCamera.LEVEL_HEIGHT;
+    /**
+     * Where a produce crate's sprite gives its boards' colour, on the near side of the square and low on the boards that
+     * every facing paints there, and where it gives its felt's, over the middle of the deck, in levels.
+     */
+    private static final float CRATE_DYE_A = 0.7f, CRATE_DYE = 0.35f / ViewCamera.LEVEL_HEIGHT, FELT_DYE = 0.825f / ViewCamera.LEVEL_HEIGHT;
+    /**
+     * The produce crate's model in metres, as tools/models/furniture.py builds produce_crate: half its width, its rim's
+     * height at the front and at the back, how far its felt deck is under the rim, and how far apart the produce's heaps
+     * stand on the deck, three by three.
+     */
+    static final float CRATE_HALF = 0.42f, CRATE_FRONT_TOP = 0.80f, CRATE_BACK_TOP = 0.92f, CRATE_DECK_DROP = 0.035f, PRODUCE_PITCH = 0.25f;
     /** How high, in metres, the seat of the bar stool's model is, which the game gives the height of. */
     private static final float BAR_SEAT = 0.75f;
 
@@ -160,6 +172,11 @@ final class ShopFittings {
         if (called.equals("Shelves") && group.equals("Generic Cooled") && holds.equals("fridge") && single) {
             return stocked(new Furniture(sprite, "open_chiller", turns).stand(0f, 0f, true));
         }
+        // A grocer's crate of fruit and vegetables: its top falls towards the customer.
+        if (called.equals("Counter") && group.equals("Greene 's Grocery Display") && holds.equals("grocerstand") && single) {
+            return stocked(new Furniture(sprite, "produce_crate", turns).dye(1 << Models.WOOD, CRATE_DYE_A, 0.5f, CRATE_DYE)
+                    .alsoAt(1 << Models.CLOTH, 0.5f, 0.5f, FELT_DYE).stand(0f, 0f, false));
+        }
         if (called.equals("Chair") && group.equals("Mall") && single) {
             return new Furniture(sprite, "mall_chair", turns).dye(1 << Models.VINYL, 0.5f, 0.5f, MALL_SEAT_DYE).stand(0f, 0f, false);
         }
@@ -215,6 +232,10 @@ final class ShopFittings {
         if (object.getOverlaySprite() == null) {
             return;
         }
+        if (piece.model.name.equals("produce_crate")) {
+            addProduce(build, object, piece, x, y, foot);
+            return;
+        }
         Stock stock = stockOf(piece);
         Models.Model goods = Models.get(many(object) ? stock.many : stock.few);
         float up = (stock.hung ? stock.at - goods.height() : stock.at) * piece.scaleUp;
@@ -222,6 +243,37 @@ final class ShopFittings {
         middleOf(piece, x, y, middle);
         build.placed.add(goods, build.frame, x, y, middle[0], middle[1], foot + up, piece.turns, piece.scale, piece.scaleUp, WorldScene.PLAIN, 0, 0f, 0f,
                 0, 0f, 0f);
+    }
+
+    /**
+     * Heaps fruit and vegetables on a produce crate's deck, three by three, where the game paints its produce over the
+     * crate: a heap stands where the painting has something over the heap's middle, and takes the colour painted there,
+     * so it is apples where the game paints apples and the crate is half full where it paints it half full. x and y are
+     * the crate's square, foot the floor under it.
+     */
+    static void addProduce(WorldScene.Frame build, IsoObject object, Furniture piece, int x, int y, float foot) {
+        Texture painted = object.getOverlaySprite().getTextureForCurrentFrame(object.getDir());
+        if (!WorldScene.usable(painted)) {
+            return;
+        }
+        SpriteGeometry.Frame frame = build.dyeFrame;
+        frame.scale = build.frame.scale;
+        WorldScene.frameOf(frame, object, painted);
+        float[] at = new float[2];
+        for (int i = -1; i <= 1; i++) {
+            for (int j = -1; j <= 1; j++) {
+                float across = i * PRODUCE_PITCH, along = j * PRODUCE_PITCH;
+                float deck = (CRATE_FRONT_TOP + (along + CRATE_HALF) / (2f * CRATE_HALF) * (CRATE_BACK_TOP - CRATE_FRONT_TOP) - CRATE_DECK_DROP) * piece.scaleUp;
+                Models.turn(piece.turns, across, along, at);
+                float a = piece.centreX + at[0] * piece.scale, b = piece.centreY + at[1] * piece.scale, high = deck / ViewCamera.LEVEL_HEIGHT;
+                if (!painted.isMaskSet(Math.round(SpriteGeometry.frameU(frame, a, b)), Math.round(SpriteGeometry.frameV(frame, a, b, high)))) {
+                    continue;
+                }
+                Models.Model heap = Models.get((i + j & 1) == 0 ? "produce_pile" : "produce_pile_b");
+                build.placed.add(heap, build.frame, x, y, x + a, y + b, foot + deck, piece.turns, piece.scale, piece.scaleUp, painted.getID(),
+                        1 << Models.PLASTIC, SpriteGeometry.textureU(frame, a, b), SpriteGeometry.textureV(frame, a, b, high), 0, 0f, 0f);
+            }
+        }
     }
 
     /**

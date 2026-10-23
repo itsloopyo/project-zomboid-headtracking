@@ -11847,6 +11847,86 @@ def sports():
         + climbing_frames()
 
 
+# A grocer's display crate, as ShopFittings.java stands it: half its width, the height of its rim at the front and at the
+# back, and how far the felt deck is under the rim. Read off the sprites location_shop_greenes_01_24..27: a crate 0.85 m
+# square whose top falls towards the customer.
+PRODUCE_HALF, PRODUCE_FRONT_TOP, PRODUCE_BACK_TOP, PRODUCE_DECK_DROP = 0.42, 0.80, 0.92, 0.035
+
+
+def sloped_box(bm, x0, x1, y0, y1, z0, top0, top1):
+    """A box from x0 to x1 and y0 to y1 standing on z0, its top top0 high at y0 and top1 high at y1."""
+    low = [bm.verts.new((x, y, z0)) for x, y in ((x0, y0), (x1, y0), (x1, y1), (x0, y1))]
+    high = [bm.verts.new((x, y, z)) for x, y, z in ((x0, y0, top0), (x1, y0, top0), (x1, y1, top1), (x0, y1, top1))]
+    bm.faces.new(low[::-1])
+    bm.faces.new(high)
+    for i in range(4):
+        j = (i + 1) % 4
+        bm.faces.new((low[i], low[j], high[j], high[i]))
+
+
+def produce_top(y):
+    """How high the crate's rim is over y along it."""
+    return PRODUCE_FRONT_TOP + (y + PRODUCE_HALF) / (2 * PRODUCE_HALF) * (PRODUCE_BACK_TOP - PRODUCE_FRONT_TOP)
+
+
+def produce_crate():
+    """A grocer's display crate: upright boards round four sides, a rim of battens round its top, and a felt deck a little
+    under the rim, the whole top falling towards the front. The boards take the sprite's wood, the deck its felt."""
+    model = Model("produce_crate")
+    half, rim, board, wide = PRODUCE_HALF, 0.03, 0.02, 0.105
+    boards, deck = bmesh.new(), bmesh.new()
+    count = round(2 * half / wide)
+    step = 2 * half / count
+    for n in range(count):
+        a, b = -half + n * step + 0.003, -half + (n + 1) * step - 0.003
+        for s in (-1, 1):
+            y0, y1 = sorted((s * half, s * (half - board)))
+            top = produce_top(s * half) - 0.05
+            sloped_box(boards, a, b, y0, y1, 0.0, top, top)
+            x0, x1 = sorted((s * half, s * (half - board)))
+            sloped_box(boards, x0, x1, a, b, 0.0, produce_top(a) - 0.05, produce_top(b) - 0.05)
+    # The rim: four battens a little proud of the boards, the two along the sides sloped.
+    out = half + 0.008
+    for s in (-1, 1):
+        y0, y1 = sorted((s * out, s * (out - rim)))
+        top = produce_top(s * half)
+        sloped_box(boards, -out, out, y0, y1, top - 0.06, top, top)
+        x0, x1 = sorted((s * out, s * (out - rim)))
+        sloped_box(boards, x0, x1, -out + rim, out - rim, produce_top(-half) - 0.06, produce_top(-half + rim), produce_top(half - rim))
+    inner = half - board
+    sloped_box(deck, -inner, inner, -inner, inner, 0.08, produce_top(-inner) - PRODUCE_DECK_DROP, produce_top(inner) - PRODUCE_DECK_DROP)
+    model.hard(boards, "wood", bevel=0.004, segments=1)
+    model.hard(deck, "cloth", bevel=0.004, segments=1)
+    return model
+
+
+def produce_pile(name, seed):
+    """A heap of fruit or vegetables over a ninth of a display crate's deck: round things two deep, each a little
+    different in size and squash. All of it takes the colour the game paints its produce there, so it is apples where it
+    paints apples and onions where it paints onions. Its foot is on the deck."""
+    model = Model(name)
+    pick = random.Random(seed)
+    heap = bmesh.new()
+    reach = 0.12
+    for layer, (across, z) in enumerate(((3, 0.0), (2, 0.05))):
+        apart = 2 * reach / across
+        for i in range(across):
+            for j in range(across):
+                radius = pick.uniform(0.033, 0.045) if layer == 0 else pick.uniform(0.03, 0.04)
+                x = -reach + (i + 0.5) * apart + pick.uniform(-0.012, 0.012)
+                y = -reach + (j + 0.5) * apart + pick.uniform(-0.012, 0.012)
+                squash = pick.uniform(0.8, 1.0)
+                sphere(heap, x, y, z + radius * squash, radius, segments=10, squash=squash)
+    model.turned(heap, "plastic", sharp=70.0)
+    return model
+
+
+def shops():
+    """What a grocer stands out that ShopFittings.java gives a model for: the produce crate and the produce the game
+    paints in it."""
+    return [produce_crate(), produce_pile("produce_pile", 61), produce_pile("produce_pile_b", 62)]
+
+
 def every():
     return [bed("double_bed", 1.80, 2.00, 2), bed("single_bed", 0.90, 1.90, 1), wardrobe(), dining_chair(), small_table(),
               settee("sofa", 1.90, 2), settee("armchair", 1.02, 1), bedside_cabinet(), dresser(), desk(), office_chair(),
@@ -11869,7 +11949,7 @@ def every():
             + upholstered() + barrels_and_pots() + street() + display_cases() + awnings() + hoods() + industrial()
             + street_clutter() + home_fittings() + overhead() + office_medical() + wall_objects() + camp()
             + towers() + aerials() + farm_and_garden() + leisure() + shop_fittings() + dumpsters()
-            + bar_panelling() + sports())
+            + bar_panelling() + sports() + shops())
 
 
 def main():
