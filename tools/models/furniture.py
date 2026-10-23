@@ -7838,16 +7838,37 @@ def pinball():
 
 
 def altar():
-    """A church's altar on two squares, its length across them and shorter than they are: a wooden table with a cloth over its top
-    that hangs down the front at -Y."""
+    """A church's altar on two squares, its length across them and shorter than they are: a panelled wooden chest on a plinth
+    under a thick top, and a cloth over the top that falls down the front at -Y nearly to the floor, its hem cut in scallops,
+    and a little way down the back."""
     model = Model("altar")
     body = bmesh.new()
-    cuboid(body, -0.6, 0.6, -0.3, 0.38, 0.0, 0.82)
-    cuboid(body, -0.65, 0.65, -0.34, 0.42, 0.82, 0.87)
-    model.hard(body, "dark_wood", bevel=0.01, segments=2)
+    cuboid(body, -0.62, 0.62, -0.32, 0.40, 0.0, 0.06)
+    cuboid(body, -0.6, 0.6, -0.3, 0.38, 0.06, 0.76)
+    model.hard(body, "dark_wood", bevel=0.008, segments=1)
+    top = bmesh.new()
+    cuboid(top, -0.64, 0.64, -0.36, 0.44, 0.76, 0.87)
+    model.hard(top, "dark_wood", bevel=0.014, segments=2)
+    # The frames round the panels of its front, three of them, and of each end.
+    frames = bmesh.new()
+    for x0, x1 in ((-0.56, -0.52), (-0.21, -0.17), (0.17, 0.21), (0.52, 0.56)):
+        cuboid(frames, x0, x1, -0.315, -0.3, 0.12, 0.70)
+    for z0, z1 in ((0.12, 0.16), (0.66, 0.70)):
+        cuboid(frames, -0.56, 0.56, -0.315, -0.3, z0, z1)
+    for side in (-1, 1):
+        x0, x1 = mirrored(0.6, 0.615, side)
+        for y0, y1 in ((-0.26, -0.22), (0.30, 0.34)):
+            cuboid(frames, x0, x1, y0, y1, 0.12, 0.70)
+        for z0, z1 in ((0.12, 0.16), (0.66, 0.70)):
+            cuboid(frames, x0, x1, -0.26, 0.34, z0, z1)
+    model.hard(frames, "dark_wood", bevel=0.004, segments=1)
     cloth = bmesh.new()
-    cuboid(cloth, -0.38, 0.38, -0.36, 0.44, 0.87, 0.89)
-    cuboid(cloth, -0.38, 0.38, -0.37, -0.35, 0.3, 0.89)
+    cuboid(cloth, -0.3, 0.3, -0.375, 0.455, 0.87, 0.885)
+    cuboid(cloth, -0.3, 0.3, -0.39, -0.375, 0.2, 0.885)
+    cuboid(cloth, -0.3, 0.3, 0.455, 0.47, 0.6, 0.885)
+    for i in range(6):
+        x = -0.3 + 0.6 * (i + 0.5) / 6
+        cuboid(cloth, x - 0.04, x + 0.04, -0.39, -0.375, 0.17, 0.2)
     model.hard(cloth, "linen", bevel=0.004, segments=1)
     return model
 
