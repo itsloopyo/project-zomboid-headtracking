@@ -3739,6 +3739,7 @@ final class Pipeline {
             to.set(LAMP_HUE[i], lamps[at + 4], lamps[at + 5], lamps[at + 6], lamps[at + 7]);
             to.set(LAMP_COVER[i], burns ? lamps[at + 8] : 0f);
         }
+        to.set("uLampCount", (float) lampsLighting);
         // So do lamps in rooms and sets that are on.
         float[] roomLamps = state.roomLamps;
         int roomLampsLighting = Quality.plain(view.index) ? 0 : state.roomLampCount;

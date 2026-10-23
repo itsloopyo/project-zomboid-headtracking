@@ -63,12 +63,17 @@ final class Lamps {
             uniform vec4 uLampAt[16];
             uniform vec4 uLampHue[16];
             uniform float uLampCover[16];
+            // How many of them are listed: the rest are dark.
+            uniform float uLampCount;
 
             // What the lamps give a face out of doors at p that faces n, where the game has given its
             // square lit as much of their light as lit says.
             vec3 lampWorldLight(vec3 p, vec3 n, float lit) {
                 vec3 sum = vec3(0.0);
                 for (int i = 0; i < 16; i++) {
+                    if (float(i) >= uLampCount) {
+                        break;
+                    }
                     vec4 at = uLampAt[i];
                     if (at.w <= 0.0) {
                         continue;
@@ -92,6 +97,9 @@ final class Lamps {
             float streetLampsCover(vec3 p) {
                 float cover = 0.0;
                 for (int i = 0; i < 16; i++) {
+                    if (float(i) >= uLampCount) {
+                        break;
+                    }
                     float reach = -uLampHue[i].w;
                     if (uLampCover[i] > 0.0 && reach > 0.0) {
                         cover = max(cover, uLampCover[i] * (1.0 - smoothstep(reach * 0.55, reach, length(uLampAt[i].xy - p.xy))));
