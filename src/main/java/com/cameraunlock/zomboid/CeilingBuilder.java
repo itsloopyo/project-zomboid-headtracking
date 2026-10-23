@@ -76,6 +76,85 @@ final class CeilingBuilder {
     }
 
     /**
+     * The sides of the upper part of a tall hall where the map stands no wall: an edge of a
+     * square of the hall (TallHalls.roomOf) to a square in the open air, a level high, plaster
+     * as its ceiling is. A hall that narrows as it rises, a nave over its aisles, leaves its
+     * upper storey open at the step, and the sky showed between the aisles' ceiling and the
+     * nave's. Not over stairs, where an upper floor is open to the stairwell and may stand open
+     * to a deck beside it.
+     */
+    void addHallSides(int x, int y, int z, int localX, int localY) {
+        IsoGridSquare under = build.cell.getGridSquare(x, y, z - 1);
+        if (under == null || overStairs(under) || world.cutAway(x, y)) {
+            return;
+        }
+        boolean lit = false;
+        for (int side = 0; side < 4; side++) {
+            int beyondX = side == WEST ? x - 1 : side == EAST ? x + 1 : x, beyondY = side == NORTH ? y - 1 : side == SOUTH ? y + 1 : y;
+            if (TallHalls.roomOf(build.cell, beyondX, beyondY, z) != RoomSight.OUTSIDE || walled(x, y, z, side)) {
+                continue;
+            }
+            if (!lit) {
+                build.cornerLights(localX, localY);
+                lit = true;
+            }
+            // From P to Q the hall is on the left, so the face looks into it.
+            int p = SIDE_FROM[side], q = SIDE_TO[side];
+            float[] lift = build.geometry.lift, red = build.frame.cornerRed, green = build.frame.cornerGreen, blue = build.frame.cornerBlue;
+            float floor = z * ViewCamera.LEVEL_HEIGHT;
+            float[] c = build.reveal;
+            c[0] = x + CORNER_X[p]; c[1] = y + CORNER_Y[p]; c[2] = floor + lift[p];
+            c[3] = x + CORNER_X[q]; c[4] = y + CORNER_Y[q]; c[5] = floor + lift[q];
+            c[6] = c[3]; c[7] = c[4]; c[8] = c[5] + ViewCamera.LEVEL_HEIGHT;
+            c[9] = c[0]; c[10] = c[1]; c[11] = c[2] + ViewCamera.LEVEL_HEIGHT;
+            SpriteGeometry.Mesh plain = WorldScene.solid.get(WorldScene.PLAIN);
+            plain.open = 32f * WorldScene.CONCRETE;
+            plain.sway = 0f;
+            plain.litAt(build.frame, p == 0 || q == 0 ? 0.5f : 0f, p == 1 || q == 1 ? 0.5f : 0f, p == 2 || q == 2 ? 0.5f : 0f, p == 3 || q == 3 ? 0.5f : 0f);
+            SpriteGeometry.addPlainQuad(plain, c, (red[p] + red[q]) / 2f, (green[p] + green[q]) / 2f, (blue[p] + blue[q]) / 2f);
+            plain.litAsFace();
+        }
+    }
+
+    private static final int NORTH = 0, SOUTH = 1, WEST = 2, EAST = 3;
+    /** A square's corners (x, y), (x + 1, y), (x + 1, y + 1), (x, y + 1), and each side's ends in the order that faces into the square. */
+    private static final float[] CORNER_X = {0f, 1f, 1f, 0f}, CORNER_Y = {0f, 0f, 1f, 1f};
+    private static final int[] SIDE_FROM = {1, 3, 0, 2}, SIDE_TO = {0, 2, 3, 1};
+
+    /** Whether a wall, door or window stands on the side of a square: one on its north or west edge is its own, one on its south or east edge is the next square's. */
+    private boolean walled(int x, int y, int z, int side) {
+        boolean north = side == NORTH || side == SOUTH;
+        IsoGridSquare owner = build.cell.getGridSquare(side == EAST ? x + 1 : x, side == SOUTH ? y + 1 : y, z);
+        if (owner == null) {
+            return false;
+        }
+        PZArrayList<IsoObject> objects = owner.getObjects();
+        for (int i = 0; i < objects.size(); i++) {
+            IsoSprite sprite = objects.get(i).getSprite();
+            if (sprite == null) {
+                continue;
+            }
+            PropertyContainer flags = sprite.getProperties();
+            if (flags.has(IsoFlagType.WallNW) || (north ? flags.has(IsoFlagType.WallN) || flags.has(IsoFlagType.DoorWallN) || flags.has(IsoFlagType.WindowN)
+                    : flags.has(IsoFlagType.WallW) || flags.has(IsoFlagType.DoorWallW) || flags.has(IsoFlagType.WindowW))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean overStairs(IsoGridSquare square) {
+        PZArrayList<IsoObject> objects = square.getObjects();
+        for (int i = 0; i < objects.size(); i++) {
+            IsoSprite sprite = objects.get(i).getSprite();
+            if (sprite != null && WorldScene.isStair(sprite.getType())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Whether a roof laid on the square is glass (SeeThrough). Not while a sprite of it is still
      * to be read: the build is made again once it has been.
      */

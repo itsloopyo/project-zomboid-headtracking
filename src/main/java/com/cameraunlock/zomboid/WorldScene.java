@@ -6457,6 +6457,9 @@ final class WorldScene {
             if (room != RoomSight.OUTSIDE) {
                 contentsOf(room);
                 ceilingBuilder.addRoomCeiling(x, y, z, localX, localY, openAbove);
+                if (hall != null) {
+                    ceilingBuilder.addHallSides(x, y, z, localX, localY);
+                }
                 contentsOf(RoomSight.OUTSIDE);
             }
             if (z == 0) {
