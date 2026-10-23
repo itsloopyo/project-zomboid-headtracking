@@ -11,6 +11,8 @@ final class LeisureTests {
         Checks.run("aTyreStackIsAsHighAsItsSprite", LeisureTests::aTyreStackIsAsHighAsItsSprite);
         Checks.run("aGoalsCrossbarMeetsItsPostsAndARunLiesAlongTheWayItsSpritesDo", LeisureTests::aGoalsCrossbarMeetsItsPostsAndARunLiesAlongTheWayItsSpritesDo);
         Checks.run("aBasketballBoardStandsInFrontOfItsPole", LeisureTests::aBasketballBoardStandsInFrontOfItsPole);
+        Checks.run("everyPieceOfAFieldARingAndAGymNamesAModelTheJarHolds", LeisureTests::everyPieceOfAFieldARingAndAGymNamesAModelTheJarHolds);
+        Checks.run("aRingsRopesRunFromPostToPostAtTheHeightOfItsCorner", LeisureTests::aRingsRopesRunFromPostToPostAtTheHeightOfItsCorner);
         Checks.run("aPieceLaidOutOtherwiseThanItsModelIsNone", LeisureTests::aPieceLaidOutOtherwiseThanItsModelIsNone);
         Checks.run("aSteeplesSpireStandsOnItsBelfry", LeisureTests::aSteeplesSpireStandsOnItsBelfry);
         Checks.run("aSteepleComesDownOntoARidgeShortOfItsFloor", LeisureTests::aSteepleComesDownOntoARidgeShortOfItsFloor);
@@ -184,6 +186,29 @@ final class LeisureTests {
         Outdoors.Piece pole = unnamed("recreational_sports_01_32");
         Checks.check(pole.a == 0.5f && pole.b == 0.5f && Models.get(pole.model).height() > ViewCamera.LEVEL_HEIGHT,
                 "the pole is in the middle of its square and reaches up behind the board a storey up");
+    }
+
+    private static void everyPieceOfAFieldARingAndAGymNamesAModelTheJarHolds() {
+        for (int place : new int[] {80, 81, 82, 83, 84, 85, 86, 87}) {
+            holds(unnamed("recreational_sports_01_" + place), "recreational_sports_01_" + place + " is a part of something on a field or in a ring");
+        }
+        Outdoors.Piece twice = unnamed("recreational_sports_01_95");
+        Checks.check(twice != null && twice.model == null && twice.follows, "the ring's back post the game paints a second time stands nothing");
+    }
+
+    private static void aRingsRopesRunFromPostToPostAtTheHeightOfItsCorner() {
+        float[] along = new float[2];
+        for (int place : new int[] {80, 81, 82, 83}) {
+            Outdoors.Piece ropes = unnamed("recreational_sports_01_" + place);
+            Models.turn(ropes.turns, 1f, 0f, along);
+            boolean alongX = place % 2 == 0;
+            float through = alongX ? ropes.b : ropes.a, middle = alongX ? ropes.a : ropes.b;
+            Checks.check(along[alongX ? 0 : 1] == 1f && through == Leisure.RING_POST && middle == 0.5f + Leisure.RING_POST,
+                    "recreational_sports_01_" + place + " runs along " + (alongX ? "x" : "y") + " through the posts, from one square's post to the next");
+            Checks.check(Math.abs(ropes.raised - Leisure.RING_ROPES_FOOT) < 1e-5f, "and its lowest rope is as high as the corner's");
+        }
+        float ropesTop = Leisure.RING_ROPES_FOOT + Models.get("ring_ropes").height(), cornerTop = Models.get("ring_corner").height();
+        Checks.check(ropesTop < cornerTop && ropesTop > cornerTop - 0.25f, "the top rope runs just under the top of a post: " + ropesTop + " under " + cornerTop);
     }
 
     private static void aPieceLaidOutOtherwiseThanItsModelIsNone() {

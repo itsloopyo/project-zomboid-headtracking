@@ -3,7 +3,8 @@ package com.cameraunlock.zomboid;
 /**
  * What a park, a gym, a track, a church and a music room have that the mod has a model of: swings,
  * slides, a play house, a roundabout and a fountain, running machines and weight benches, walls of
- * old tyres, basketball hoops, nets across courts, football goals, pianos and their benches,
+ * old tyres, basketball hoops, nets across courts, football goals, what a playing field, a boxing ring and a gym have,
+ * pianos and their benches,
  * speakers, an amplifier, drums, a jukebox, a pinball table, theatre seats, a lectern, an altar and a steeple. Asked by
  * Outdoors.of before its own table, and stood the same way, so a piece of either is one kind of thing.
  *
@@ -202,7 +203,8 @@ final class Leisure {
 
     /**
      * What has no name: a park fountain's basin and the fountain in it, a basketball's pole and board, a court's net, a goal, a
-     * track's stacks of tyres, a church's steeple and the spire on its tower and the cross on that.
+     * track's stacks of tyres, what a playing field, a boxing ring and a gym have (see field), a church's steeple and the spire
+     * on its tower and the cross on that.
      */
     private static Outdoors.Piece unnamed(String name) {
         int church = Sheets.place(name, CHURCH);
@@ -263,8 +265,43 @@ final class Leisure {
             case 18 -> court("goal_first", false, GOAL_ACROSS);
             case 17 -> court("goal_middle", false, GOAL_ACROSS).raise(GOAL_BAR_FOOT / LEVEL);
             case 16 -> court("goal_last", false, GOAL_ACROSS);
-            default -> sports >= 136 && sports <= 163 ? tyres(sports) : null;
+            default -> sports >= 136 && sports <= 163 ? tyres(sports) : field(sports);
         };
+    }
+
+    /** Where a boxing ring's post stands on its square, and its ropes run, from the square's corner. */
+    static final float RING_POST = 0.66f;
+    /** How high, in metres, the foot of a ring's lowest rope is: the models are lowered onto the floor when they are made. */
+    static final float RING_ROPES_FOOT = 0.728f;
+    /** How high the sprites of a ring's ropes paint a blue rope and the red one under it, in levels, along x and along y, and where across. */
+    private static final float RING_BLUE_X = 0.53f, RING_BLUE_Y = 0.543f, RING_RED_X = 0.405f, RING_RED_Y = 0.418f, RING_BLUE_A = 0.676f, RING_BLUE_B = 0.816f;
+
+    /** What a playing field, a boxing ring and a gym have on their squares, each standing where the game's sprite of it paints it. */
+    private static Outdoors.Piece field(int sports) {
+        return switch (sports) {
+            case 80 -> ringRopes("ring_ropes", true);
+            case 82 -> ringRopes("ring_ropes_tied", true);
+            case 81 -> ringRopes("ring_ropes", false);
+            case 83 -> ringRopes("ring_ropes_tied", false);
+            case 84 -> new Outdoors.Piece("ring_post", 0).at(RING_POST, RING_POST);
+            // A post and the steps up to it, along x and along y, and the back corner, whose post the game paints a second time
+            // on the square behind it.
+            case 85 -> new Outdoors.Piece("ring_steps", Outdoors.SOUTH).at(1f + RING_POST, RING_POST);
+            case 86 -> new Outdoors.Piece("ring_steps", Outdoors.WEST).at(RING_POST, 1f + RING_POST);
+            case 87 -> new Outdoors.Piece("ring_corner", Outdoors.SOUTH).at(RING_POST, RING_POST);
+            case 95 -> Outdoors.following(new Outdoors.Piece(null, 0));
+            default -> null;
+        };
+    }
+
+    /** A square's length of a ring's ropes along x or along y, the blue ones and the red ones the colours the game paints them. */
+    private static Outdoors.Piece ringRopes(String model, boolean alongX) {
+        float foot = RING_ROPES_FOOT / LEVEL;
+        Outdoors.Piece piece = alongX ? new Outdoors.Piece(model, Outdoors.SOUTH).at(0.5f + RING_POST, RING_POST).dye(PAINT, RING_BLUE_A, RING_POST, RING_BLUE_X - foot)
+                .also(1 << Models.VINYL, RING_RED_X - foot)
+                : new Outdoors.Piece(model, Outdoors.WEST).at(RING_POST, 0.5f + RING_POST).dye(PAINT, RING_POST, RING_BLUE_B, RING_BLUE_Y - foot)
+                .also(1 << Models.VINYL, RING_RED_Y - foot);
+        return piece.raise(foot);
     }
 
     /** Where across its squares a run of net and of goal stands, from the square's corner. */

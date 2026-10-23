@@ -11469,6 +11469,86 @@ def bar_panelling():
             wainscot_corner(), wainscot_post()]
 
 
+# Sport: what a playing field, a boxing ring and a gym have, each measured off the game's sprites of it.
+
+
+# A boxing ring: how high each of its four ropes is, top first (red, blue, red, blue), how high and thick its corner posts
+# are, where along a square's length of rope the strap that ties the ropes together is, and its steps: how far out from
+# the corner post the outer post stands, how high that is and the rungs between them.
+RING_ROPES = ((1.67, "vinyl"), (1.37, "paint"), (1.06, "vinyl"), (0.75, "paint"))
+RING_POST_TOP, RING_POST_RADIUS, RING_ROPE_RADIUS, RING_TIE = 1.86, 0.11, 0.022, -0.08
+RING_STEPS_OUT, RING_STEPS_TOP, RING_RUNGS = 1.1, 1.43, (0.49, 0.79, 1.11, 1.41)
+
+
+def ring_post_into(model):
+    post = bmesh.new()
+    lathe(post, [(0.0, 0.0), (RING_POST_RADIUS + 0.02, 0.0), (RING_POST_RADIUS + 0.02, 0.06), (RING_POST_RADIUS, 0.08),
+                 (RING_POST_RADIUS, RING_POST_TOP - 0.05), (RING_POST_RADIUS - 0.03, RING_POST_TOP), (0.0, RING_POST_TOP)], segments=16)
+    model.turned(post, "enamel", sharp=50.0)
+    # The ropes are made fast to the post through a turnbuckle at each.
+    buckles = bmesh.new()
+    for z, _ in RING_ROPES:
+        lathe(buckles, [(RING_POST_RADIUS + 0.012, z - 0.04), (RING_POST_RADIUS + 0.012, z + 0.04)], segments=16)
+    model.turned(buckles, "steel", sharp=50.0)
+
+
+def ring_ropes_into(model, x0, x1, y0, y1):
+    """The four ropes from (x0, y0) to (x1, y1) at their heights, each of its colour."""
+    by = {}
+    for z, surface in RING_ROPES:
+        rod(by.setdefault(surface, bmesh.new()), (x0, y0, z), (x1, y1, z), RING_ROPE_RADIUS, segments=8)
+    for surface, part in by.items():
+        model.turned(part, surface)
+
+
+def ring_post():
+    """A boxing ring's corner post with the turnbuckles its ropes are made fast to."""
+    model = Model("ring_post", centred=False)
+    ring_post_into(model)
+    return model
+
+
+def ring_ropes(name, tied):
+    """A square's length of a boxing ring's ropes along the model's X, round its origin, and on some a strap down them
+    that ties them together."""
+    model = Model(name, centred=False)
+    ring_ropes_into(model, -0.5, 0.5, 0.0, 0.0)
+    if tied:
+        strap = bmesh.new()
+        top, bottom = RING_ROPES[0][0], RING_ROPES[-1][0]
+        cuboid(strap, RING_TIE - 0.025, RING_TIE + 0.025, -RING_ROPE_RADIUS - 0.006, RING_ROPE_RADIUS + 0.006, bottom - RING_ROPE_RADIUS, top + 0.04)
+        model.hard(strap, "enamel", bevel=0.004, segments=1)
+    return model
+
+
+def ring_corner():
+    """The corner post at the back of a ring and the first square's length of rope from it along +X and along -Y, which
+    the game paints with the post."""
+    model = Model("ring_corner", centred=False)
+    ring_post_into(model)
+    ring_ropes_into(model, RING_POST_RADIUS, 1.0, 0.0, 0.0)
+    ring_ropes_into(model, 0.0, 0.0, -RING_POST_RADIUS, -1.0)
+    return model
+
+
+def ring_steps():
+    """A corner post of a ring with the steps up to it: a lower post out along -X and four rungs between the two."""
+    model = Model("ring_steps", centred=False)
+    ring_post_into(model)
+    frame = bmesh.new()
+    lathe(frame, [(0.0, 0.0), (0.06, 0.0), (0.06, RING_STEPS_TOP - 0.03), (0.04, RING_STEPS_TOP), (0.0, RING_STEPS_TOP)],
+          cx=-RING_STEPS_OUT, segments=12)
+    for z in RING_RUNGS:
+        rod(frame, (-RING_STEPS_OUT, 0.0, z), (-RING_POST_RADIUS, 0.0, z), 0.026, segments=8)
+    model.turned(frame, "enamel", sharp=50.0)
+    return model
+
+
+def sports():
+    """What a playing field, a boxing ring and a gym have: Leisure.field stands each."""
+    return [ring_post(), ring_ropes("ring_ropes", False), ring_ropes("ring_ropes_tied", True), ring_corner(), ring_steps()]
+
+
 def every():
     return [bed("double_bed", 1.80, 2.00, 2), bed("single_bed", 0.90, 1.90, 1), wardrobe(), dining_chair(), small_table(),
               settee("sofa", 1.90, 2), settee("armchair", 1.02, 1), bedside_cabinet(), dresser(), desk(), office_chair(),
@@ -11491,7 +11571,7 @@ def every():
             + upholstered() + barrels_and_pots() + street() + display_cases() + awnings() + hoods() + industrial()
             + street_clutter() + home_fittings() + overhead() + office_medical() + wall_objects() + camp()
             + towers() + aerials() + farm_and_garden() + leisure() + shop_fittings() + dumpsters()
-            + bar_panelling())
+            + bar_panelling() + sports())
 
 
 def main():
