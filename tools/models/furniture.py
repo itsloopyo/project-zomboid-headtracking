@@ -11591,10 +11591,33 @@ def goalpost_end(name, upright, first):
     return model
 
 
+def golf_flag():
+    """The flag in a golf hole: a thin pole banded black and white with a red pennant at its top, in the cup's white rim."""
+    model = Model("golf_flag", centred=False)
+    top, bands = 2.2, 9
+    white, black = bmesh.new(), bmesh.new()
+    for k in range(bands):
+        z0, z1 = 0.02 + (top - 0.02) * k / bands, 0.02 + (top - 0.02) * (k + 1) / bands
+        lathe(white if k % 2 == 0 else black, [(0.0, z0), (0.012, z0), (0.012, z1), (0.0, z1)], segments=8)
+    model.turned(white, "enamel", sharp=50.0)
+    model.turned(black, "rubber", sharp=50.0)
+    cup = bmesh.new()
+    lathe(cup, [(0.054, 0.0), (0.066, 0.0), (0.066, 0.012), (0.054, 0.012)], segments=20, closed=True)
+    model.turned(cup, "enamel", sharp=50.0)
+    hole = bmesh.new()
+    lathe(hole, [(0.0, 0.001), (0.054, 0.001), (0.054, 0.004), (0.0, 0.004)], segments=20)
+    model.plain(hole, "rubber")
+    flag = bmesh.new()
+    outline_along_y(flag, [(0.012, top - 0.48), (0.3, top - 0.34), (0.3, top - 0.2), (0.012, top - 0.02)], -0.004, 0.004)
+    model.hard(flag, "vinyl", bevel=0.002, segments=1)
+    return model
+
+
 def sports():
     """What a playing field, a boxing ring and a gym have: Leisure.field stands each."""
     return [ring_post(), ring_ropes("ring_ropes", False), ring_ropes("ring_ropes_tied", True), ring_corner(), ring_steps(),
-            goalpost_post(), goalpost_bar(), goalpost_end("goalpost_end_first", -0.12, True), goalpost_end("goalpost_end_last", 0.05, False)]
+            goalpost_post(), goalpost_bar(), goalpost_end("goalpost_end_first", -0.12, True), goalpost_end("goalpost_end_last", 0.05, False),
+            golf_flag()]
 
 
 def every():

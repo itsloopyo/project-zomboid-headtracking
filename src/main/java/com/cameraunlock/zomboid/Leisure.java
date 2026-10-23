@@ -42,6 +42,10 @@ final class Leisure {
         if (called.equals("Swingset") && kind.equals("Playground") && single) {
             return swing(Sheets.place(name, PARK));
         }
+        // The flag in a golf hole, which the game names as a thing that can be carried off.
+        if (called.equals("Golf Put") && single) {
+            return new Outdoors.Piece("golf_flag", Outdoors.SOUTH).at(0.48f, 0.48f);
+        }
         if (faces == Outdoors.NONE) {
             return null;
         }

@@ -193,6 +193,7 @@ final class LeisureTests {
         for (int place : new int[] {8, 9, 10, 11, 12, 80, 81, 82, 83, 84, 85, 86, 87}) {
             holds(unnamed("recreational_sports_01_" + place), "recreational_sports_01_" + place + " is a part of something on a field or in a ring");
         }
+        holds(Outdoors.of("recreational_sports_01_48", "Golf Put", null, Outdoors.NONE, 1, 1, 0), "the golf hole's flag has a model");
         Outdoors.Piece twice = unnamed("recreational_sports_01_95");
         Checks.check(twice != null && twice.model == null && twice.follows, "the ring's back post the game paints a second time stands nothing");
     }
