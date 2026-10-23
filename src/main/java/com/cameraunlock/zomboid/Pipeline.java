@@ -205,7 +205,9 @@ final class Pipeline {
     private static final String GRASS_FRAGMENT = grassAlone(WORLD_FRAGMENT), GRASS_FRAGMENT_DEPTH = grassAlone(WORLD_FRAGMENT_DEPTH);
 
     private static String grassAlone(String source) {
-        return replacedOnce(replacedOnce(source, "varying float vMaterial;", "const float vMaterial = 0.0;"), "bool grass = vKind > 7.5;", "const bool grass = true;");
+        String grass = replacedOnce(replacedOnce(source, "varying float vMaterial;", "const float vMaterial = 0.0;"), "bool grass = vKind > 7.5;", "const bool grass = true;");
+        // The vertex program still reads uLaid, to leave out what is laid and is not grass.
+        return replacedOnce(grass, "uniform float uLaid;", "const float uLaid = " + LAID_GRASS + ";");
     }
 
     private static String replacedOnce(String source, String was, String now) {
