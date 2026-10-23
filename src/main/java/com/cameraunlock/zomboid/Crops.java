@@ -24,6 +24,13 @@ final class Crops {
 
     private Crops() {}
 
+    /**
+     * Among a wheat field's thinned stalks its cards stand as well, from this many tiles off,
+     * lower than the crop and rising to its height by WHEAT_CARDS_FULL: the stalks there are too few
+     * to hide the ground between them, and past REACH the cards are the whole field.
+     */
+    static final float WHEAT_CARDS_FROM = 2f, WHEAT_CARDS_FULL = 22f;
+
     /** Which crop a sprite is, by its name. */
     static int of(String name) {
         int place = name == null ? -1 : Sheets.place(name, SHEET);
@@ -54,6 +61,11 @@ final class Crops {
         }
         float card = (SpriteGeometry.frameV(frame, 0.5f, 0.5f, 0f) - frame.top) * SpriteGeometry.TILES_PER_PIXEL_UP / frame.scale;
         return card > 0f ? Math.min(1f, tall(box[3]) / card) : 1f;
+    }
+
+    /** How tall a field's cards stand among its stalks that many tiles off, as a share of the crop: 0 where the stalks alone are the crop. */
+    static float amongStalks(int crop, float away) {
+        return crop == WHEAT ? Math.clamp((away - WHEAT_CARDS_FROM) / (WHEAT_CARDS_FULL - WHEAT_CARDS_FROM), 0f, 1f) : 0f;
     }
 
     /**

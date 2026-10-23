@@ -29,6 +29,7 @@ final class PlantKindTests {
         Checks.run("aCropIsAsTallAsItsSpritePaintsIt", PlantKindTests::aCropIsAsTallAsItsSpritePaintsIt);
         Checks.run("aCropsColourIsTakenOffItsOutline", PlantKindTests::aCropsColourIsTakenOffItsOutline);
         Checks.run("aCropsCardStandsAsTallAsTheCrop", PlantKindTests::aCropsCardStandsAsTallAsTheCrop);
+        Checks.run("wheatsCardsRiseAmongItsThinnedStalks", PlantKindTests::wheatsCardsRiseAmongItsThinnedStalks);
     }
 
     private static void evergreensAreToldByName() {
@@ -313,6 +314,13 @@ final class PlantKindTests {
         frame.top = 188f;
         frame.height = 4f;
         check(Crops.cardShare(frame, box) == 1f, "a sprite whose outline says too little is stood as painted");
+    }
+
+    private static void wheatsCardsRiseAmongItsThinnedStalks() {
+        check(Crops.amongStalks(Crops.WHEAT, Crops.WHEAT_CARDS_FROM) == 0f && Crops.amongStalks(Crops.WHEAT, 1f) == 0f, "near the eye wheat is its stalks alone");
+        check(Crops.amongStalks(Crops.WHEAT, 12f) > 0.2f && Crops.amongStalks(Crops.WHEAT, 12f) < Crops.amongStalks(Crops.WHEAT, 20f), "further off its cards rise among them");
+        check(Crops.amongStalks(Crops.WHEAT, Crops.WHEAT_CARDS_FULL) == 1f && Crops.amongStalks(Crops.WHEAT, Crops.REACH) == 1f, "to the crop's height before the stalks end");
+        check(Crops.amongStalks(Crops.CORN, 20f) == 0f && Crops.amongStalks(Crops.LEAFY, 20f) == 0f, "corn and the leafy crop keep every stalk, and no cards among them");
     }
 
     private static void aCropsColourIsTakenOffItsOutline() {

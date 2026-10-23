@@ -535,9 +535,15 @@ final class PlantBuilder {
         // A crop's cards stand as tall as the crop, seen from the eye. From overhead they stand as tall as painted, the game's picture of it.
         boolean cropCards = plant.crop() != Crops.NONE && !world.terrain.level;
         build.geometry.upright = cropCards ? Crops.cardShare(build.frame, build.box) : 1f;
-        // A crop near the eye is grown stalk by stalk, and its cards then only throw its shadow.
+        // A crop near the eye is grown stalk by stalk, and its cards then only throw its shadow,
+        // or stand lower among the stalks where those are thinned (Crops.amongStalks).
         if (Own.plants(build.playerIndex) && growCrop(texture, plant.crop(), x, y)) {
-            Flora.shadeOnly(build.frame, 1f);
+            float among = cropCards ? Crops.amongStalks(plant.crop(), build.bandAway) : 0f;
+            if (among > 0f) {
+                build.geometry.upright *= among;
+            } else {
+                Flora.shadeOnly(build.frame, 1f);
+            }
         }
         // An evergreen has no leaves of its own to lay over its trunk: its sprite paints the needles with the trunk, and is its crown.
         boolean evergreen = type == IsoObjectType.tree && build.overLayer == 0 && build.geometry.keep == 1f && plant.evergreen();
