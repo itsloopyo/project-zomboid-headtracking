@@ -1799,8 +1799,8 @@ public final class Tests {
         check(FineSkins.Pack.relative("C:/pz/media/textures/Body/skin.png:hidden.png") == null, "nor one that names a stream of a file");
         check(FineSkins.Pack.relative("C:/pz/media/textures/Body/MaleBody01.txt") == null, "only pictures are in the pack");
         check(FineSkins.Pack.relative("C:/pz/media/textures/.png") == null, "a picture has a name");
-        check(FineSkins.Pack.folder().endsWith(Path.of("Zomboid", "CameraUnlock", "skins")),
-                "the pack is in the game's own folder of the player's");
+        check(FineSkins.Pack.folder("D:/pz-data").equals(Path.of("D:/pz-data","CameraUnlock", "skins")),
+                "the pack is in the game's own Zomboid folder, wherever -cachedir puts it");
     }
 
     public static String resultAndArgument(String result, String argument) {

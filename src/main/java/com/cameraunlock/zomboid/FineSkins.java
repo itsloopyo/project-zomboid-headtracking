@@ -26,6 +26,7 @@ import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL15;
 import org.lwjgl.opengl.GL20;
 import org.lwjgl.opengl.GL30;
+import zombie.ZomboidFileSystem;
 import zombie.core.opengl.SmartShader;
 import zombie.core.skinnedmodel.ModelManager;
 import zombie.core.textures.SmartTexture;
@@ -59,8 +60,14 @@ public final class FineSkins {
 
         private static final String TEXTURES = "media/textures/";
 
-        static Path folder() {
-            return Path.of(System.getProperty("user.home"), "Zomboid", "CameraUnlock", "skins");
+        /**
+         * Under the game's own Zomboid folder (ZomboidFileSystem.getCacheDir), which -cachedir
+         * moves. The game loads a file only from under that folder, its install or a mod's
+         * folder (ZomboidFileSystem.validatePrefix): for any other path Texture.getSharedTexture
+         * answers null.
+         */
+        static Path folder(String zomboid) {
+            return Path.of(zomboid, "CameraUnlock", "skins");
         }
 
         /**
@@ -438,7 +445,7 @@ public final class FineSkins {
                 Log.info("fine skins are off, and characters wear the game's own: " + gap);
                 return false;
             }
-            Path at = Pack.folder();
+            Path at = Pack.folder(ZomboidFileSystem.instance.getCacheDir());
             if (Files.isDirectory(at)) {
                 folder = at;
                 Log.info("fine skins are the mod's own, and whatever more is at " + at);
@@ -1144,7 +1151,8 @@ public final class FineSkins {
         // 256 dots by default. The flag that says so is left off, and the rest kept.
         Texture pack = Texture.getSharedTexture(file.toString(), ModelManager.instance.getTextureFlags() & ~SIZE_HELD);
         if (pack == null) {
-            throw new IllegalStateException("the game would not load " + file + ", and its own log says why");
+            // The game catches what went wrong and logs it only with its FileIO debug log on.
+            throw new IllegalStateException("the game would not load " + file + ": Texture.getSharedTexture gave none");
         }
         return pack;
     }
