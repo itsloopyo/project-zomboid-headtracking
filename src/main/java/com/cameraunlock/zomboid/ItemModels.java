@@ -4,6 +4,7 @@ import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Collections;
+import java.util.Map;
 import java.util.Set;
 import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
@@ -42,6 +43,12 @@ public final class ItemModels {
     static final float AHEAD = 40f;
     /** How far above what it lies on the game draws an item's model, in levels (WorldItemModelDrawer). */
     private static final float LIFT = 0.00175f;
+    /**
+     * How long, in tiles, the items whose game model is far off the thing's size are at their
+     * longest, by full type: the game's pool ball lies 94 mm across, where a real one is 57.15 mm,
+     * and its pool cue 1.06 m long, where a real one is 1.47 m.
+     */
+    private static final Map<String, Float> LIFE_SIZE = Map.of("Base.PoolBall", 0.05715f, "Base.Poolcue", 1.47f);
     private static final int GL_ARRAY_BUFFER = 0x8892, GL_BUFFER_SIZE = 0x8764;
 
     /** A mesh's triangles as read: places and normals three floats a vertex, texture places two, and three vertices a triangle. */
@@ -124,6 +131,10 @@ public final class ItemModels {
             }
             ((Matrix4f) transformField.get(renderer)).get(transform);
             GroundItems.placing(transform, renderer.angle.x, renderer.angle.y, renderer.angle.z, placed.placing);
+            Float life = LIFE_SIZE.get(item.getFullType());
+            if (life != null) {
+                GroundItems.toLength(placed.placing, shape.places(), life);
+            }
             placed.shape = shape;
             placed.texture = model.tex;
             boolean tinted = tintMaskField.get(renderer) == null;

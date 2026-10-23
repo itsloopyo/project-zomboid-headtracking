@@ -14,6 +14,7 @@ final class GroundItemTests {
         Checks.run("modelStandsUpOnTheGroundAtTheGamesSize", GroundItemTests::modelStandsUpOnTheGroundAtTheGamesSize);
         Checks.run("modelTurnsOnTheGroundAndKeepsItsSize", GroundItemTests::modelTurnsOnTheGroundAndKeepsItsSize);
         Checks.run("modelKeepsItsTransformsScaleAndPlace", GroundItemTests::modelKeepsItsTransformsScaleAndPlace);
+        Checks.run("modelBroughtToLifeSizeKeepsItsFootOnTheGround", GroundItemTests::modelBroughtToLifeSizeKeepsItsFootOnTheGround);
     }
 
     private static final float[] IDENTITY = {1f, 0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 1f};
@@ -58,6 +59,19 @@ final class GroundItemTests {
         float s = GroundItems.MODEL_SCALE;
         check(near(tip[0], (0.1f + 0.1f) * s) && near(tip[1], -0.3f * s) && near(tip[2], 0.2f * s),
                 "the transform's scale and place come first: " + tip[0] + ", " + tip[1] + ", " + tip[2]);
+    }
+
+    /** A ball 5.66 across and 5.56 high standing on its origin, as the game's pool ball mesh is, at 0.01 and turned. */
+    private static void modelBroughtToLifeSizeKeepsItsFootOnTheGround() {
+        float[] places = {-2.83f, 0f, -2.83f, 2.83f, 5.56f, 2.83f, 0f, 0f, 0f};
+        float[] transform = {0.01f, 0f, 0f, 0f, 0f, 0.01f, 0f, 0f, 0f, 0f, 0.01f, 0f, 0f, 0f, 0f, 1f};
+        GroundItems.placing(transform, 0f, 37f, 0f, placing);
+        GroundItems.toLength(placing, places, 0.05715f);
+        float[] left = placed(-2.83f, 0f, 0f), right = placed(2.83f, 0f, 0f), top = placed(0f, 5.56f, 0f), foot = placed(0f, 0f, 0f);
+        check(near((float) Math.hypot(right[0] - left[0], right[1] - left[1]), 0.05715f), "it is 57.15 mm across: "
+                + Math.hypot(right[0] - left[0], right[1] - left[1]));
+        check(near(top[2], 0.05715f * 5.56f / 5.66f), "and as much shorter as the mesh is: " + top[2]);
+        check(near(foot[0], 0f) && near(foot[1], 0f) && near(foot[2], 0f), "its foot stays on the item's place");
     }
 
     private static final float[] corners = new float[4 * GroundItems.CORNER_FLOATS];

@@ -54,6 +54,27 @@ final class GroundItems {
     static final float MODEL_SCALE = 1.5f;
 
     /**
+     * Scales a placing from placing about the item's place so that the model, whose points are
+     * places (three floats each), is length tiles long along its longest own axis.
+     */
+    static void toLength(float[] placing, float[] places, float length) {
+        float longest = 0f;
+        for (int axis = 0; axis < 3; axis++) {
+            float low = Float.MAX_VALUE, high = -Float.MAX_VALUE;
+            for (int i = axis; i < places.length; i += 3) {
+                low = Math.min(low, places[i]);
+                high = Math.max(high, places[i]);
+            }
+            longest = Math.max(longest, high - low);
+        }
+        float scale = (float) Math.sqrt(placing[0] * placing[0] + placing[4] * placing[4] + placing[8] * placing[8]);
+        float by = length / (longest * scale);
+        for (int i = 0; i < 12; i++) {
+            placing[i] *= by;
+        }
+    }
+
+    /**
      * The matrix that takes a point of an item's model to the world, as three rows of four:
      * tiles along x, along y and up, from the place the item lies. The game draws the model
      * through its transform (kept by columns), turned about the model's x, y and z by the
