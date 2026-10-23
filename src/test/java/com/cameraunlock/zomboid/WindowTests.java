@@ -16,6 +16,10 @@ final class WindowTests {
         Checks.run("openWindowHasNoGlassWhereTheSashWas", WindowTests::openWindowHasNoGlassWhereTheSashWas);
         Checks.run("brokenPaneKeepsTheShareOfGlassItsSpriteShows", WindowTests::brokenPaneKeepsTheShareOfGlassItsSpriteShows);
         Checks.run("frameWithNoStileAtOneEndRunsOn", WindowTests::frameWithNoStileAtOneEndRunsOn);
+        Checks.run("windowPaintedOffItsSquareIsMovedBackOntoIt", WindowTests::windowPaintedOffItsSquareIsMovedBackOntoIt);
+        Checks.run("halfAWindowThatRunsOnReachesItsSquaresEnd", WindowTests::halfAWindowThatRunsOnReachesItsSquaresEnd);
+        Checks.run("halfAWindowBegunInTheSquareBeforeIsCutAtItsStart", WindowTests::halfAWindowBegunInTheSquareBeforeIsCutAtItsStart);
+        Checks.run("windowWithinItsSquareStaysWhereItIs", WindowTests::windowWithinItsSquareStaysWhereItIs);
         Checks.run("archIsMeasuredOverItsSquarePart", WindowTests::archIsMeasuredOverItsSquarePart);
         Checks.run("curtainDrawnAcrossIsOneLengthOfCloth", WindowTests::curtainDrawnAcrossIsOneLengthOfCloth);
         Checks.run("curtainPulledBackIsTwo", WindowTests::curtainPulledBackIsTwo);
@@ -164,6 +168,70 @@ final class WindowTests {
                 "########");
         check(shape != null && near(shape.startWide, 2f / 8f) && shape.endWide == 0f, "a frame with no stile at its end is still a window");
         check(shape.panes.length == 5 && near(shape.panes[1], 1f), "whose pane runs to the end of its square");
+    }
+
+    /** Rows read two dots past each end of a square sixteen dots long, as Windows.read reads them, then put on the square. */
+    private static Windows.Shape onSquare(String... rows) {
+        check(rows[0].length() == 20, "a row is the square's sixteen dots and two past each end");
+        return Windows.onSquare(measured(rows), 16, 2);
+    }
+
+    /** The game paints this window two dots before its square and a dot short of its end, where the wall's opening runs on: moved back, it closes the opening. */
+    private static void windowPaintedOffItsSquareIsMovedBackOntoIt() {
+        Windows.Shape shape = onSquare(
+                "#################   ",
+                "##.............##   ",
+                "##.............##   ",
+                "##.............##   ",
+                "##.............##   ",
+                "#################   ",
+                "#################   ");
+        check(near(shape.start, 0f) && near(shape.end, 1f), "the frame runs from end to end of its square: " + shape.start + " to " + shape.end);
+        check(near(shape.startWide, 1f / 16f) && near(shape.endWide, 2f / 16f), "its first stile cut where the square begins, its last whole: " + shape.startWide + ", " + shape.endWide);
+        check(shape.panes.length == 5 && near(shape.panes[0], 1f / 16f) && near(shape.panes[1], 14f / 16f), "and its pane moved with it, between the stiles: " + shape.panes[0] + " to " + shape.panes[1]);
+    }
+
+    /** The first half of a window two squares long stops a dot short of its square's end, which the second half's sprite paints over in the game. */
+    private static void halfAWindowThatRunsOnReachesItsSquaresEnd() {
+        Windows.Shape shape = onSquare(
+                "    #############   ",
+                "    ##...........   ",
+                "    ##...........   ",
+                "    ##...........   ",
+                "    ##...........   ",
+                "    #############   ",
+                "    #############   ");
+        check(near(shape.start, 2f / 16f) && near(shape.startWide, 2f / 16f), "its stile stays where it is painted: " + shape.start + ", " + shape.startWide);
+        check(near(shape.end, 1f) && shape.endWide == 0f, "and the end with no stile is the square's end: " + shape.end);
+        check(shape.panes.length == 5 && near(shape.panes[1], 1f), "with its pane running on to it: " + shape.panes[1]);
+    }
+
+    /** The second half is painted from a dot before its square: the part over the first half's square is the first half's. */
+    private static void halfAWindowBegunInTheSquareBeforeIsCutAtItsStart() {
+        Windows.Shape shape = onSquare(
+                " #############      ",
+                " ...........##      ",
+                " ...........##      ",
+                " ...........##      ",
+                " ...........##      ",
+                " #############      ",
+                " #############      ");
+        check(near(shape.start, 0f) && shape.startWide == 0f, "it starts where its square does: " + shape.start + ", " + shape.startWide);
+        check(shape.panes.length == 5 && near(shape.panes[0], 0f) && near(shape.panes[1], 10f / 16f), "and so does its pane: " + shape.panes[0] + " to " + shape.panes[1]);
+        check(shape.bars.length == 0, "nothing is left past the square's start");
+    }
+
+    private static void windowWithinItsSquareStaysWhereItIs() {
+        Windows.Shape shape = onSquare(
+                "     ##########     ",
+                "     ##......##     ",
+                "     ##......##     ",
+                "     ##......##     ",
+                "     ##########     ",
+                "     ##########     ");
+        check(near(shape.start, 3f / 16f) && near(shape.end, 13f / 16f) && near(shape.startWide, 2f / 16f) && near(shape.endWide, 2f / 16f),
+                "a window with both stiles in its square is where it is painted: " + shape.start + " to " + shape.end);
+        check(near(shape.panes[0], 5f / 16f) && near(shape.panes[1], 11f / 16f), "its pane too");
     }
 
     private static void archIsMeasuredOverItsSquarePart() {

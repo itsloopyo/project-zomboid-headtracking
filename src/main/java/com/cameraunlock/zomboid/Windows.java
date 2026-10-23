@@ -26,6 +26,13 @@ final class Windows {
     private static final float BAR = 0.7f, BAR_EDGE = 0.35f;
     /** The fewest dots a window is across or high. */
     private static final int SMALLEST = 6;
+    /**
+     * How many dots, at the game's smallest tiles, a window's sprite is read past each end of
+     * its square. The game paints a window a few dots off its square, where the sprite on the
+     * next square or the wall's own covers the difference, so the frame can begin in the square
+     * before and stop short of the end, the wall's opening running on to the end of the square.
+     */
+    static final int SPILL = 4;
     /** The fewest dots an arch rises over where it springs from. */
     private static final int LOWEST_ARCH = 3;
     /** How far in from a corner of its outline a frame with square corners is looked for, in dots. */
@@ -107,11 +114,26 @@ final class Windows {
         if (wanted == null || known.containsKey(texture)) {
             return;
         }
-        int across = across(wanted.scale), high = high(wanted.scale);
-        int[] at = new int[across * high];
+        int across = across(wanted.scale), high = high(wanted.scale), margin = Math.round(SPILL * wanted.scale);
+        int[] at = new int[(across + 2 * margin) * high];
         byte[] dots = laid(sheet, width, left, top, right, bottom, wanted.north, false, wanted.originU, wanted.originV, wanted.scale,
-                wanted.left, wanted.top, wanted.width, wanted.height, at);
-        Shape shape = measure(dots, across, high);
+                wanted.left, wanted.top, wanted.width, wanted.height, margin, at);
+        Shape shape = measure(dots, across + 2 * margin, high);
+        if (shape == null || shape.arch != null) {
+            // An arch is read evenly from start to end, and one cut at the square's end would be read wrong: read the square alone.
+            int wide = across + 2 * margin;
+            byte[] square = new byte[across * high];
+            int[] squareAt = new int[across * high];
+            for (int row = 0; row < high; row++) {
+                System.arraycopy(dots, row * wide + margin, square, row * across, across);
+                System.arraycopy(at, row * wide + margin, squareAt, row * across, across);
+            }
+            dots = square;
+            at = squareAt;
+            shape = measure(dots, across, high);
+        } else {
+            shape = onSquare(shape, across, margin);
+        }
         if (shape == null) {
             known.put(texture, NONE);
             return;
@@ -143,12 +165,18 @@ final class Windows {
      */
     static byte[] laid(ByteBuffer sheet, int width, int left, int top, int right, int bottom, boolean north, boolean far,
             float originU, float originV, float scale, float frameLeft, float frameTop, float frameWidth, float frameHeight, int[] at) {
-        int across = across(scale), high = high(scale);
-        byte[] dots = new byte[across * high];
+        return laid(sheet, width, left, top, right, bottom, north, far, originU, originV, scale, frameLeft, frameTop, frameWidth, frameHeight, 0, at);
+    }
+
+    /** As laid, with margin more dots read past each end of the edge, on the wall's line: a row is across(scale) + 2 * margin dots, its first margin before the square. */
+    static byte[] laid(ByteBuffer sheet, int width, int left, int top, int right, int bottom, boolean north, boolean far,
+            float originU, float originV, float scale, float frameLeft, float frameTop, float frameWidth, float frameHeight, int margin, int[] at) {
+        int across = across(scale), high = high(scale), wide = across + 2 * margin;
+        byte[] dots = new byte[wide * high];
         float other = far ? 1f : 0f;
         for (int row = 0; row < high; row++) {
-            for (int column = 0; column < across; column++) {
-                float along = (column + 0.5f) / across, up = 1f - (row + 0.5f) / high;
+            for (int column = 0; column < wide; column++) {
+                float along = (column - margin + 0.5f) / across, up = 1f - (row + 0.5f) / high;
                 float a = north ? along : other, b = north ? other : along;
                 float u = (a - b) * SpriteGeometry.PIXELS_ACROSS_PER_TILE * scale + originU;
                 float v = ((a + b) * SpriteGeometry.PIXELS_DOWN_PER_TILE - up * SpriteGeometry.PIXELS_PER_LEVEL) * scale + originV;
@@ -159,8 +187,8 @@ final class Windows {
                 }
                 int place = (y * width + x) * 4;
                 int cover = sheet.get(place + 3) & 0xff;
-                dots[row * across + column] = cover >= FRAME_COVER ? FRAME : cover >= LEAST_COVER ? GLASS : EMPTY;
-                at[row * across + column] = place;
+                dots[row * wide + column] = cover >= FRAME_COVER ? FRAME : cover >= LEAST_COVER ? GLASS : EMPTY;
+                at[row * wide + column] = place;
             }
         }
         return dots;
@@ -383,6 +411,102 @@ final class Windows {
         }
         shape.arch = arch;
         return shape;
+    }
+
+    /**
+     * The window measured over a row of across + 2 * margin dots, the first margin of them
+     * before the square, put on its square: its places made shares of the square's length.
+     * A frame that has a stile past one end and stops short of the other is moved back along
+     * the edge by as much as it can, so its stile closes the end of the opening it stopped short
+     * of, when it is as long as its square less the margin: a window of one square painted off
+     * it, and not half of one two squares long. Then what is still past an end is cut off there,
+     * where the next square's window or wall stands. An end with no stile, which runs on into
+     * the window on the next square, is carried to the square's end when it stops within the
+     * margin of it. Not for a window under an arch.
+     */
+    static Shape onSquare(Shape shape, int across, int margin) {
+        int wide = across + 2 * margin;
+        float before = (float) margin / across, scale = (float) wide / across;
+        shape.start = shape.start * scale - before;
+        shape.end = shape.end * scale - before;
+        shape.startWide *= scale;
+        shape.endWide *= scale;
+        for (int at = 0; at < shape.bars.length; at += 4) {
+            shape.bars[at] = shape.bars[at] * scale - before;
+            shape.bars[at + 1] = shape.bars[at + 1] * scale - before;
+        }
+        for (int at = 0; at < shape.panes.length; at += 5) {
+            shape.panes[at] = shape.panes[at] * scale - before;
+            shape.panes[at + 1] = shape.panes[at + 1] * scale - before;
+        }
+        float move = 0f;
+        boolean wholeSquare = shape.end - shape.start >= 1f - before;
+        if (wholeSquare && shape.start < 0f && shape.startWide > 0f && shape.end < 1f) {
+            move = Math.min(-shape.start, 1f - shape.end);
+        } else if (wholeSquare && shape.end > 1f && shape.endWide > 0f && shape.start > 0f) {
+            move = -Math.min(shape.end - 1f, shape.start);
+        }
+        shape.start += move;
+        shape.end += move;
+        for (int at = 0; at < shape.bars.length; at += 4) {
+            shape.bars[at] += move;
+            shape.bars[at + 1] += move;
+        }
+        for (int at = 0; at < shape.panes.length; at += 5) {
+            shape.panes[at] += move;
+            shape.panes[at + 1] += move;
+        }
+        if (shape.start < 0f) {
+            shape.startWide = Math.max(shape.start + shape.startWide, 0f);
+            shape.start = 0f;
+        }
+        if (shape.end > 1f) {
+            shape.endWide = Math.max(shape.endWide - (shape.end - 1f), 0f);
+            shape.end = 1f;
+        }
+        if (shape.startWide == 0f && shape.start > 0f && shape.start <= before) {
+            float was = shape.start;
+            shape.start = 0f;
+            for (int at = 0; at < shape.bars.length; at += 4) {
+                shape.bars[at] = Math.abs(shape.bars[at] - was) < RUNS_ON ? 0f : shape.bars[at];
+            }
+            for (int at = 0; at < shape.panes.length; at += 5) {
+                shape.panes[at] = Math.abs(shape.panes[at] - was) < RUNS_ON ? 0f : shape.panes[at];
+            }
+        }
+        if (shape.endWide == 0f && shape.end < 1f && shape.end >= 1f - before) {
+            float was = shape.end;
+            shape.end = 1f;
+            for (int at = 0; at < shape.bars.length; at += 4) {
+                shape.bars[at + 1] = Math.abs(shape.bars[at + 1] - was) < RUNS_ON ? 1f : shape.bars[at + 1];
+            }
+            for (int at = 0; at < shape.panes.length; at += 5) {
+                shape.panes[at + 1] = Math.abs(shape.panes[at + 1] - was) < RUNS_ON ? 1f : shape.panes[at + 1];
+            }
+        }
+        shape.bars = cut(shape.bars, 4);
+        shape.panes = cut(shape.panes, 5);
+        return shape;
+    }
+
+    /** A place along this near the end of a window that runs on is at that end. */
+    private static final float RUNS_ON = 1e-4f;
+
+    /** The bars or panes, each so many numbers, cut to the square: one that is wholly past an end is dropped. */
+    private static float[] cut(float[] list, int each) {
+        float[] kept = new float[list.length];
+        int count = 0;
+        for (int at = 0; at < list.length; at += each) {
+            float from = Math.max(list[at], 0f), to = Math.min(list[at + 1], 1f);
+            if (to <= from) {
+                continue;
+            }
+            System.arraycopy(list, at, kept, count, each);
+            kept[count] = from;
+            kept[count + 1] = to;
+            count += each;
+        }
+        return Arrays.copyOf(kept, count);
     }
 
     private static float[] with(float[] list, float a, float b, float c, float d) {
