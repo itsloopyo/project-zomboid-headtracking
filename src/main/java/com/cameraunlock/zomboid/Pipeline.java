@@ -5496,6 +5496,7 @@ final class Pipeline {
     private static List<Piece> corePieces() {
         List<Piece> pieces = new ArrayList<>();
         pieces.add(new Piece(Pipeline::linkPrograms));
+        pieces.add(new Piece(Pipeline::linkGrassPrograms));
         pieces.add(new Piece(() -> Ahead.begin(NOISE_AHEAD, () -> CloudNoise.build(NOISE_SIZE)), () -> Ahead.done(NOISE_AHEAD), () -> {
             GL11.glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
             GL11.glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
@@ -5834,13 +5835,19 @@ final class Pipeline {
         return problem;
     }
 
+    /** Null, or what the driver refused. A step of its own: the world's fragment stage is the longest to compile, and these are two more of it. */
+    private static String linkGrassPrograms() {
+        StringBuilder problem = new StringBuilder();
+        grassLit = Program.link("grass", WORLD_VERTEX, GRASS_FRAGMENT, problem, PLACED_ATTRIBUTES, PLACED_NAMES);
+        grassDepth = Program.link("grass depth", WORLD_VERTEX, GRASS_FRAGMENT_DEPTH, problem, PLACED_ATTRIBUTES, PLACED_NAMES);
+        return problem.length() > 0 ? problem.toString() : null;
+    }
+
     /** Null, or what the driver refused. */
     private static String linkPrograms() {
         StringBuilder problem = new StringBuilder();
         world = Program.link("world", WORLD_VERTEX, WORLD_FRAGMENT, problem, PLACED_ATTRIBUTES, PLACED_NAMES);
         worldDepth = Program.link("world depth", WORLD_VERTEX, WORLD_FRAGMENT_DEPTH, problem, PLACED_ATTRIBUTES, PLACED_NAMES);
-        grassLit = Program.link("grass", WORLD_VERTEX, GRASS_FRAGMENT, problem, PLACED_ATTRIBUTES, PLACED_NAMES);
-        grassDepth = Program.link("grass depth", WORLD_VERTEX, GRASS_FRAGMENT_DEPTH, problem, PLACED_ATTRIBUTES, PLACED_NAMES);
         paneMask = Program.link("pane mask", PipelineShaders.PANE_VERTEX, PipelineShaders.PANE_FRAGMENT, problem);
         glassShown = Program.link("mirror's glass", LookingGlass.VERTEX, LookingGlass.SHOWN, problem);
         windowShown = Program.link("window's glass", LookingGlass.VERTEX, LookingGlass.THROWN, problem);
