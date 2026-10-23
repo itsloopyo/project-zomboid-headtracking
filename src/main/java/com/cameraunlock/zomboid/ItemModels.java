@@ -45,10 +45,14 @@ public final class ItemModels {
     private static final float LIFT = 0.00175f;
     /**
      * How long, in tiles, the items whose game model is far off the thing's size are at their
-     * longest, by full type: the game's pool ball lies 94 mm across, where a real one is 57.15 mm,
-     * and its pool cue 1.06 m long, where a real one is 1.47 m.
+     * longest, by full type. As the game draws them on the ground, and as they are: pool ball 94
+     * and 57.15 mm across, pool cue 1.06 and 1.47 m long, baseball 133 and 74 mm, tennis ball 117
+     * and 67 mm, golf ball 102 and 42.7 mm, basketball 263 and 240 mm, American football 356 and
+     * 280 mm long. The game's soccer ball (230 mm, a real one 216 to 223) and shuttlecock (84 mm,
+     * a real one about 85) are near enough and keep their size.
      */
-    private static final Map<String, Float> LIFE_SIZE = Map.of("Base.PoolBall", 0.05715f, "Base.Poolcue", 1.47f);
+    static final Map<String, Float> LIFE_SIZE = Map.of("Base.PoolBall", 0.05715f, "Base.Poolcue", 1.47f, "Base.Baseball", 0.074f,
+            "Base.TennisBall", 0.067f, "Base.GolfBall", 0.0427f, "Base.Basketball", 0.24f, "Base.Football", 0.28f);
     private static final int GL_ARRAY_BUFFER = 0x8892, GL_BUFFER_SIZE = 0x8764;
 
     /** A mesh's triangles as read: places and normals three floats a vertex, texture places two, and three vertices a triangle. */

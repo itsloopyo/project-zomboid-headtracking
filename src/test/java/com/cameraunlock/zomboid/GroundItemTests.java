@@ -15,6 +15,7 @@ final class GroundItemTests {
         Checks.run("modelTurnsOnTheGroundAndKeepsItsSize", GroundItemTests::modelTurnsOnTheGroundAndKeepsItsSize);
         Checks.run("modelKeepsItsTransformsScaleAndPlace", GroundItemTests::modelKeepsItsTransformsScaleAndPlace);
         Checks.run("modelBroughtToLifeSizeKeepsItsFootOnTheGround", GroundItemTests::modelBroughtToLifeSizeKeepsItsFootOnTheGround);
+        Checks.run("ballsAreBroughtToTheirRealSizes", GroundItemTests::ballsAreBroughtToTheirRealSizes);
     }
 
     private static final float[] IDENTITY = {1f, 0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 1f};
@@ -72,6 +73,17 @@ final class GroundItemTests {
                 + Math.hypot(right[0] - left[0], right[1] - left[1]));
         check(near(top[2], 0.05715f * 5.56f / 5.66f), "and as much shorter as the mesh is: " + top[2]);
         check(near(foot[0], 0f) && near(foot[1], 0f) && near(foot[2], 0f), "its foot stays on the item's place");
+    }
+
+    /** Each ball's length in metres against the sizes its rules allow, so a slip of units shows. */
+    private static void ballsAreBroughtToTheirRealSizes() {
+        Object[][] allowed = {{"Base.PoolBall", 0.0566f, 0.0577f}, {"Base.Baseball", 0.0729f, 0.0748f}, {"Base.TennisBall", 0.0654f, 0.0686f},
+            {"Base.GolfBall", 0.04267f, 0.0430f}, {"Base.Basketball", 0.238f, 0.243f}, {"Base.Football", 0.279f, 0.286f}, {"Base.Poolcue", 1.4f, 1.5f}};
+        for (Object[] ball : allowed) {
+            Float size = ItemModels.LIFE_SIZE.get((String) ball[0]);
+            check(size != null && size >= (Float) ball[1] && size <= (Float) ball[2], ball[0] + " is its real size: " + size);
+        }
+        check(ItemModels.LIFE_SIZE.size() == allowed.length, "and nothing else is resized: " + ItemModels.LIFE_SIZE.keySet());
     }
 
     private static final float[] corners = new float[4 * GroundItems.CORNER_FLOATS];
