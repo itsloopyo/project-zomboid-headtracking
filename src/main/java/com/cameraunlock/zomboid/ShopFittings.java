@@ -271,7 +271,7 @@ final class ShopFittings {
                 }
                 Models.Model heap = Models.get((i + j & 1) == 0 ? "produce_pile" : "produce_pile_b");
                 build.placed.add(heap, build.frame, x, y, x + a, y + b, foot + deck, piece.turns, piece.scale, piece.scaleUp, painted.getID(),
-                        1 << Models.PLASTIC, SpriteGeometry.textureU(frame, a, b), SpriteGeometry.textureV(frame, a, b, high), 0, 0f, 0f);
+                        1 << Models.PLASTIC | 1 << Models.ENAMEL, SpriteGeometry.textureU(frame, a, b), SpriteGeometry.textureV(frame, a, b, high), 0, 0f, 0f);
             }
         }
     }

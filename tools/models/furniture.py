@@ -114,17 +114,17 @@ def prism_y(bm, front, back):
         bm.faces.new((rings[0][i], rings[1][i], rings[1][j], rings[0][j]))
 
 
-def lathe(bm, profile, cx=0.0, cy=0.0, segments=20, sx=1.0, sy=1.0, closed=False, caps=True, to=None):
+def lathe(bm, profile, cx=0.0, cy=0.0, segments=20, sx=1.0, sy=1.0, closed=False, caps=True, to=None, least=6):
     """Turns a profile of (radius, height) round the upright through (cx, cy). A radius of 0 is a point on the axis.
 
     closed joins the last ring to the first, for a ring such as a seat; caps closes an open end with a disc; to moves
-    the whole afterwards, for something turned about another axis.
+    the whole afterwards, for something turned about another axis. least is the fewest sides the plain copy keeps.
     """
     if plain:
         # As few sides as keep the widest ring within half of PLAIN_DETAIL of a circle.
         widest = max(radius for radius, _ in profile) * max(sx, sy)
         enough = math.ceil(math.pi / math.acos(max(1 - PLAIN_DETAIL / 2 / widest, 0.0)))
-        segments = min(segments, max(6, enough + enough % 2))
+        segments = min(segments, max(least, enough + enough % 2))
     rings = []
     for radius, z in profile:
         if radius <= 1e-6:
@@ -11900,24 +11900,45 @@ def produce_crate():
     return model
 
 
+PLAIN_FRUIT = 16
+
+
+def fruit(bm, x, y, z, radius, squash, wide, deep, segments=22):
+    """A piece of fruit or a vegetable resting on z: round, squash times as high as it is wide, and wide and deep times
+    as long along x and y, with its top and bottom a little flattened where a stalk and a base are. The plain copy,
+    which is all Low draws, keeps PLAIN_FRUIT sides, as a piece is near and small enough that fewer read as a stone."""
+    rings = (PLAIN_FRUIT if plain else segments) // 2
+    profile = []
+    for i in range(rings + 1):
+        angle = math.pi * i / rings
+        profile.append((radius * math.sin(angle), z + radius * squash * (1.0 - math.cos(angle))))
+    profile[0] = (0.0, z + radius * squash * 0.08)
+    profile[-1] = (0.0, z + radius * squash * 1.94)
+    lathe(bm, profile, cx=x, cy=y, segments=segments, sx=wide, sy=deep, least=PLAIN_FRUIT)
+
+
 def produce_pile(name, seed):
-    """A heap of fruit or vegetables over a ninth of a display crate's deck: round things two deep, each a little
-    different in size and squash. All of it takes the colour the game paints its produce there, so it is apples where it
-    paints apples and onions where it paints onions. Its foot is on the deck."""
+    """A heap of fruit or vegetables over a ninth of a display crate's deck: round things two deep, each its own size,
+    squash and length, half of them with the sheen of a waxed apple and half with the duller skin of an onion or a
+    potato. All of it takes the colour the game paints its produce there, so it is apples where it paints apples and
+    onions where it paints onions. Its foot is on the deck."""
     model = Model(name)
     pick = random.Random(seed)
-    heap = bmesh.new()
-    reach = 0.12
-    for layer, (across, z) in enumerate(((3, 0.0), (2, 0.05))):
+    waxed, dull = bmesh.new(), bmesh.new()
+    reach = 0.111
+    for layer, (across, z) in enumerate(((3, 0.0), (2, 0.052))):
         apart = 2 * reach / across
         for i in range(across):
             for j in range(across):
-                radius = pick.uniform(0.033, 0.045) if layer == 0 else pick.uniform(0.03, 0.04)
+                radius = pick.uniform(0.031, 0.047) if layer == 0 else pick.uniform(0.029, 0.041)
                 x = -reach + (i + 0.5) * apart + pick.uniform(-0.012, 0.012)
                 y = -reach + (j + 0.5) * apart + pick.uniform(-0.012, 0.012)
-                squash = pick.uniform(0.8, 1.0)
-                sphere(heap, x, y, z + radius * squash, radius, segments=10, squash=squash)
-    model.turned(heap, "plastic", sharp=70.0)
+                squash = pick.uniform(0.72, 1.02)
+                long = pick.uniform(1.0, 1.18)
+                wide, deep = (long, 1.0) if pick.random() < 0.5 else (1.0, long)
+                fruit(waxed if pick.random() < 0.5 else dull, x, y, z, radius, squash, wide, deep)
+    model.turned(waxed, "enamel", sharp=80.0)
+    model.turned(dull, "plastic", sharp=80.0)
     return model
 
 
