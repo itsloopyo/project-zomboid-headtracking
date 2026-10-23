@@ -43,6 +43,12 @@ final class Footings {
     /** Nothing over it, and made ground: a street, a pavement, a yard. */
     static final byte PAVED = 5;
     /**
+     * Ground laid level on purpose, or something stood on it that marks it (Grounds): joined
+     * only to more of its own, never to what is built, and it stands at the height the ground
+     * has under its middle with nothing standing.
+     */
+    static final byte LEVEL = 6;
+    /**
      * With what over says of a square not loaded, read from the map's files ahead of the game
      * (MapAhead): the save may have it otherwise, so a thing found with it is not settled.
      */
@@ -82,6 +88,11 @@ final class Footings {
 
         /** Whether the ground of a HUNG square is made ground: over tells that of a square only when nothing is over it. */
         boolean paved(int x, int y);
+
+        /** What a LEVEL square is to level ground, as Grounds names it. */
+        default byte levelKind(int x, int y) {
+            return Grounds.SURFACE;
+        }
     }
 
     /**
@@ -117,6 +128,17 @@ final class Footings {
     boolean open;
     int count;
     int[] squares = new int[512];
+    /**
+     * Of a thing of level ground, the box round it that Terrain lays level, from its first
+     * corner to its last, in whole squares, and whether it has one: one is given only where
+     * every square of it and of the land eased round it (Terrain.GROUND_EASE) is within SEEN
+     * squares of a square of the thing, so that a chunk whose heights it changes always has some
+     * of the thing among the squares Terrain gathers round it.
+     */
+    boolean boxed;
+    int boxLowX, boxLowY, boxHighX, boxHighY;
+    /** How near a square of a thing of level ground every square of its box and of the land eased round it must be, either way: see boxed. */
+    static final int SEEN = Terrain.AROUND - 1;
 
     /**
      * What each square asked about in the search in hand is, by the square as square packs
@@ -142,7 +164,7 @@ final class Footings {
     private static final int CHUNK = Terrain.CHUNK_TILES;
 
     /** The answer for a thing looked over whole: see find. Of one not all on loaded map, what the search went by, and null for one that is. */
-    private record Answer(long found, boolean free, boolean settled, Ground ground) {}
+    private record Answer(long found, boolean free, boolean settled, Ground ground, boolean boxed, int lowX, int lowY, int highX, int highY) {}
 
     /**
      * The chunks a search that met ground the map had not loaded went by, each chunk with a
@@ -276,6 +298,17 @@ final class Footings {
         found = known == null ? NONE : known.found;
         free = known != null && known.free;
         settled = known != null;
+        boxed = known != null && known.boxed;
+        if (boxed) {
+            boxFrom(known);
+        }
+    }
+
+    private void boxFrom(Answer known) {
+        boxLowX = known.lowX;
+        boxLowY = known.lowY;
+        boxHighX = known.highX;
+        boxHighY = known.highY;
     }
 
     /** Finds the thing that stands over (x, y) and leaves it in the fields. */
@@ -285,6 +318,7 @@ final class Footings {
         settled = true;
         whole = true;
         open = false;
+        boxed = false;
         found = NONE;
         Answer known = lasting.at(x, y);
         if (known == null) {
@@ -297,6 +331,10 @@ final class Footings {
             found = known.found;
             free = known.free;
             settled = known.settled;
+            boxed = known.boxed;
+            if (boxed) {
+                boxFrom(known);
+            }
             return;
         }
         search++;
@@ -309,6 +347,10 @@ final class Footings {
         }
         if (start == OPEN || start == PAVED) {
             open = true;
+            return;
+        }
+        if (start == LEVEL) {
+            findLevel(site, x, y, startAt);
             return;
         }
         boolean big = large.contains(square(x, y));
@@ -433,6 +475,145 @@ final class Footings {
         remember(site);
     }
 
+    /**
+     * The search for a thing of level ground from a LEVEL square: the LEVEL squares that touch
+     * it by a side or a corner, and those of its own kind that what marks a pitch, a diamond,
+     * a court or an arena reaches across the ground between (Grounds.reach), never across
+     * something built. It stands at the height the ground has under the middle of the box
+     * round it, and Terrain lays the box level: see boxed.
+     */
+    private void findLevel(Site site, int x, int y, int startAt) {
+        if (large.contains(square(x, y))) {
+            whole = false;
+            return;
+        }
+        answered[startAt] |= QUEUED;
+        push(x, y);
+        int lowX = x, highX = x, lowY = y, highY = y;
+        boolean widened = false;
+        for (int next = 0; next < count && whole; next++) {
+            int atX = squares[next * 2], atY = squares[next * 2 + 1];
+            lowX = Math.min(lowX, atX);
+            highX = Math.max(highX, atX);
+            lowY = Math.min(lowY, atY);
+            highY = Math.max(highY, atY);
+            for (int side = 0; side < 8 && whole; side++) {
+                joinLevel(site, atX + STEP_X[side], atY + STEP_Y[side], Grounds.NONE);
+            }
+            byte kind = site.levelKind(atX, atY);
+            widened |= Grounds.widened(kind);
+            int reach = Grounds.reach(kind);
+            if (Grounds.looksAround(kind)) {
+                for (int dx = -reach; dx <= reach && whole; dx++) {
+                    for (int dy = -reach; dy <= reach && whole; dy++) {
+                        joinLevel(site, atX + dx, atY + dy, kind);
+                    }
+                }
+                continue;
+            }
+            for (int side = 0; side < 4 && whole; side++) {
+                if (STEP_X[side] != 0 ? !Grounds.looksAlongX(kind) : !Grounds.looksAlongY(kind)) {
+                    continue;
+                }
+                for (int across = 1; across <= reach && whole; across++) {
+                    int toX = atX + STEP_X[side] * across, toY = atY + STEP_Y[side] * across;
+                    byte over = (byte) (answered[place(site, toX, toY)] & ~QUEUED);
+                    if (over == UNLOADED) {
+                        settled = false;
+                        break;
+                    }
+                    if (over == BUILT || over == HOUSE) {
+                        break;
+                    }
+                    if (over == LEVEL && site.levelKind(toX, toY) == kind) {
+                        joinLevel(site, toX, toY, kind);
+                        break;
+                    }
+                }
+            }
+        }
+        if (!whole) {
+            boolean grew = false;
+            for (int member = 0; member < count; member++) {
+                grew |= large.add(square(squares[member * 2], squares[member * 2 + 1]));
+            }
+            largeThings += grew ? 1 : 0;
+            return;
+        }
+        free = true;
+        found = key((lowX + highX + 1) / 2f, (lowY + highY + 1) / 2f);
+        boxLowX = lowX - Grounds.MARGIN;
+        boxLowY = lowY - Grounds.MARGIN;
+        boxHighX = highX + 1 + Grounds.MARGIN;
+        boxHighY = highY + 1 + Grounds.MARGIN;
+        if (widened) {
+            // A pitch is known by its goals and a court by its hoops, at either end of it: it is as wide as such ground is for its length.
+            int sizeX = boxHighX - boxLowX, sizeY = boxHighY - boxLowY;
+            int wantX = Math.round(sizeY * Grounds.WIDTH_FOR_LENGTH), wantY = Math.round(sizeX * Grounds.WIDTH_FOR_LENGTH);
+            if (sizeX < wantX) {
+                boxLowX -= (wantX - sizeX) / 2;
+                boxHighX = boxLowX + wantX;
+            }
+            if (sizeY < wantY) {
+                boxLowY -= (wantY - sizeY) / 2;
+                boxHighY = boxLowY + wantY;
+            }
+        }
+        boxed = seenFromAll();
+        remember(site);
+    }
+
+    /** Joins a square to the thing of level ground in hand if it is LEVEL and, for a kind other than NONE, of that kind. */
+    private void joinLevel(Site site, int x, int y, byte kind) {
+        int at = place(site, x, y);
+        byte over = answered[at];
+        if (over == UNLOADED) {
+            settled = false;
+        }
+        if (over != LEVEL || kind != Grounds.NONE && site.levelKind(x, y) != kind) {
+            return;
+        }
+        whole = count < MOST;
+        if (whole) {
+            answered[at] |= QUEUED;
+            push(x, y);
+        }
+    }
+
+    /**
+     * Whether every square of the box in hand and of the land eased round it is within SEEN
+     * squares, either way, of a square of the thing: the squares one step at a time out from
+     * those of the thing, by sides and corners, which is the distance either way.
+     */
+    private boolean seenFromAll() {
+        int ease = (int) Math.ceil(Terrain.GROUND_EASE);
+        int fromX = boxLowX - ease - 1, fromY = boxLowY - ease - 1, sizeX = boxHighX + ease + 1 - fromX, sizeY = boxHighY + ease + 1 - fromY;
+        int[] away = new int[sizeX * sizeY];
+        Arrays.fill(away, -1);
+        int[] queue = new int[sizeX * sizeY];
+        int queued = 0;
+        for (int member = 0; member < count; member++) {
+            int at = (squares[member * 2] - fromX) * sizeY + squares[member * 2 + 1] - fromY;
+            if (away[at] < 0) {
+                away[at] = 0;
+                queue[queued++] = at;
+            }
+        }
+        int farthest = 0;
+        for (int next = 0; next < queued; next++) {
+            int at = queue[next], i = at / sizeY, j = at % sizeY;
+            farthest = away[at];
+            for (int side = 0; side < 8; side++) {
+                int ti = i + STEP_X[side], tj = j + STEP_Y[side];
+                if (ti >= 0 && tj >= 0 && ti < sizeX && tj < sizeY && away[ti * sizeY + tj] < 0) {
+                    away[ti * sizeY + tj] = away[at] + 1;
+                    queue[queued++] = ti * sizeY + tj;
+                }
+            }
+        }
+        return farthest <= SEEN;
+    }
+
     /** Whether what a search went by is as it was, so that its answer holds. */
     private boolean holds(Site site, Ground ground) {
         if (ground.gone || ground.largeThings != largeThings) {
@@ -463,7 +644,7 @@ final class Footings {
             }
             ground = new Ground(chunks, states, largeThings, changes);
         }
-        Answer answer = new Answer(found, free, settled, ground);
+        Answer answer = new Answer(found, free, settled, ground, boxed, boxLowX, boxLowY, boxHighX, boxHighY);
         Answers into = settled ? lasting : forNow;
         for (int member = 0; member < count; member++) {
             into.put(squares[member * 2], squares[member * 2 + 1], answer);

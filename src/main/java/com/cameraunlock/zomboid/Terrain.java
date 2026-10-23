@@ -40,6 +40,9 @@ import zombie.util.list.PZArrayList;
  * past the end of the wall (Paving).</li>
  * <li>Open ground has rises and hollows and is uneven underfoot. Made ground, a road or a
  * yard, is cut level through it.</li>
+ * <li>Ground laid level on purpose, a court, a track, a pitch, a diamond, is level all over
+ * at the height the land has under its middle, and the land eases back in round it over
+ * GROUND_EASE (Grounds).</li>
  * </ul>
  *
  * Only the picture. The game's own positions, paths and collisions stay on the flat map, and
@@ -100,6 +103,8 @@ final class Terrain {
     static final byte NATURAL = 0, MADE = 1, WATER = 2, UNKNOWN = 3, STREET = 4;
     /** How far a street lies below the ground beside it: the height of a kerb, in tiles. */
     static final float KERB = 0.11f;
+    /** Over how far round ground laid level on purpose the land eases back to its own height, in tiles: see Grounds. */
+    static final float GROUND_EASE = 16f;
 
     private static final class Grid {
         int wx, wy;
@@ -156,6 +161,12 @@ final class Terrain {
         final float[] midX = new float[CHUNK_TILES * CHUNK_TILES], midY = new float[CHUNK_TILES * CHUNK_TILES];
         /** Whether that thing stands at the height the ground has at midX, midY with nothing of its kind standing, as Footings tells: see lookOver. */
         final boolean[] free = new boolean[CHUNK_TILES * CHUNK_TILES];
+        /** Of a thing of level ground, the box Terrain lays level (Footings.boxed): its first corner and its last, four to a square. NaN where there is none. */
+        final float[] box = new float[4 * CHUNK_TILES * CHUNK_TILES];
+
+        {
+            Arrays.fill(box, Float.NaN);
+        }
         /** Whether a building or something built stands on the square's own ground, which a kerb's line keeps out of. */
         final boolean[] hard = new boolean[CHUNK_TILES * CHUNK_TILES];
         /** Whether the square is made ground that is no road: a yard, a path, or the pale paving the game lays along a street as its footway. */
@@ -230,6 +241,8 @@ final class Terrain {
     private static final boolean[] freeAround = new boolean[SPAN * SPAN];
     /** Which squares of around are footway: see Kinds. */
     static final boolean[] footwayAround = new boolean[SPAN * SPAN];
+    /** Which squares of around are of a thing of level ground with a box: see fill. */
+    private static final boolean[] levelAround = new boolean[SPAN * SPAN];
     private static final Footings footings = new Footings();
     /** The map Footings is asking about, while kinds runs. */
     private static IsoCell siteCell;
@@ -245,6 +258,9 @@ final class Terrain {
             }
             if (stands(siteCell, square, x, y)) {
                 return Footings.BUILT;
+            }
+            if (groundOf(siteCell, square, x, y) != Grounds.NONE) {
+                return Footings.LEVEL;
             }
             byte over = above(siteCell, square, x, y);
             if (over != Footings.OPEN) {
@@ -273,6 +289,11 @@ final class Terrain {
             }
             BuildingDef def = defOf(square);
             return Footings.key(def.getX() + def.getW() / 2f, def.getY() + def.getH() / 2f);
+        }
+
+        @Override
+        public byte levelKind(int x, int y) {
+            return groundOf(siteCell, Terrain.ground(siteCell, x, y), x, y);
         }
 
         @Override
@@ -858,7 +879,7 @@ final class Terrain {
 
     /** The height of the corner at (x, y) of the map, which is the corner (cornerI, cornerJ) of around. After streets. */
     float corner(float x, float y, int cornerI, int cornerJ) {
-        float toMade = REACH, toWater = REACH, toPad = REACH, toBuilt = REACH, toStreet = REACH;
+        float toMade = REACH, toWater = REACH, toPad = REACH, toBuilt = REACH, toStreet = REACH, toStanding = REACH;
         float touchingPads = 0f, nearPads = 0f, nearWeight = 0f;
         int touching = 0;
         for (int di = -REACH; di < REACH; di++) {
@@ -884,6 +905,9 @@ final class Terrain {
                 }
                 if (!Float.isNaN(pad) && away < REACH) {
                     toPad = Math.min(toPad, away);
+                    if (!levelAround[at]) {
+                        toStanding = Math.min(toStanding, away);
+                    }
                     if (away == 0f) {
                         touchingPads += pad;
                         touching++;
@@ -918,11 +942,16 @@ final class Terrain {
                 // A bank falls to the water. A quay or a boardwalk does not: it runs level to its
                 // edge and the water lies below it.
                 - WATER_BELOW * (1f - smooth(toWater / BANK_WIDTH)) * smooth(toBuilt / 2f);
-        if (nearWeight == 0f) {
-            return Paving.onto(land, cornerI, cornerJ);
+        float laid = land;
+        if (nearWeight > 0f) {
+            float pad = nearPads / nearWeight;
+            laid = pad + (land - pad) * smooth(toPad / Math.min(REACH, toPad + toStreet));
         }
-        float pad = nearPads / nearWeight;
-        return Paving.onto(pad + (land - pad) * smooth(toPad / Math.min(REACH, toPad + toStreet)), cornerI, cornerJ);
+        laid = Paving.onto(laid, cornerI, cornerJ);
+        // Ground laid level on purpose is at its footing, and the land eases back in round it, but what is built near it keeps
+        // its own footing and the ground up to its walls comes to it over REACH, as to any footing.
+        float level = levelWeight(x, y), levelPad = this.levelPad[0];
+        return levelPad + (laid - levelPad) * (1f - (1f - level) * toStanding / REACH);
     }
 
     /** The chunks within AROUND of the chunk in hand, a side of them, x first: see lookOver. */
@@ -944,6 +973,8 @@ final class Terrain {
      * looked over again with them all standing.
      */
     private boolean lookOver(IsoCell cell, int wx, int wy) {
+        // The footings of things that stand at the height of the ground under them are the land's and the streets' alone.
+        groundCount = 0;
         if (padsAsOf != mapAsOf()) {
             padsForNow.clear();
             padsAsOf = mapAsOf();
@@ -979,7 +1010,9 @@ final class Terrain {
                     if (!asked) {
                         if (freeAsked == freeKeys.length) {
                             freeKeys = Arrays.copyOf(freeKeys, freeAsked * 2);
+                            freeBoxes = Arrays.copyOf(freeBoxes, freeAsked * 2 * 4);
                         }
+                        System.arraycopy(kinds.box, at * 4, freeBoxes, freeAsked * 4, 4);
                         freeKeys[freeAsked++] = key;
                     }
                 }
@@ -989,6 +1022,12 @@ final class Terrain {
             // The corner of the map nearest the thing's middle, in the chunk that has it for one of its own.
             int x = Math.round(Footings.keyX(freeKeys[asked])), y = Math.round(Footings.keyY(freeKeys[asked]));
             int midWx = Math.floorDiv(x, CHUNK_TILES), midWy = Math.floorDiv(y, CHUNK_TILES);
+            if (!Float.isNaN(freeBoxes[asked * 4])) {
+                boolean lasting = findWater(cell, midWx, midWy);
+                (lasting ? pads : padsForNow).put(Footings.spread(freeKeys[asked]), meanLand(freeBoxes, asked * 4));
+                all &= lasting;
+                continue;
+            }
             // Only the chunks round the middle: the height asked for there is the land's and the street's own, which reach no further.
             boolean lasting = lay(cell, midWx, midWy, true, 1, true) & findWater(cell, midWx, midWy);
             // The streets round that one corner, which is all that is read.
@@ -1063,8 +1102,61 @@ final class Terrain {
         return all;
     }
 
+    /**
+     * The things of level ground with a square among those gathered round the chunk in hand,
+     * each as its box's first corner and last and its footing, five to a thing, and how many:
+     * see corner. Footings gives a box only to a thing some of which every chunk whose heights
+     * the box changes gathers, so each such chunk has the same of them.
+     */
+    private float[] grounds = new float[Grounds.STRIDE * 8];
+    private int groundCount;
+
+    private void addGround(float[] box, int from, float pad) {
+        for (int at = 0; at < groundCount * 5; at += 5) {
+            if (grounds[at] == box[from] && grounds[at + 1] == box[from + 1] && grounds[at + 2] == box[from + 2] && grounds[at + 3] == box[from + 3] && grounds[at + 4] == pad) {
+                return;
+            }
+        }
+        if (groundCount * 5 == grounds.length) {
+            grounds = Arrays.copyOf(grounds, grounds.length * 2);
+        }
+        System.arraycopy(box, from, grounds, groundCount * 5, 4);
+        grounds[groundCount * 5 + 4] = pad;
+        groundCount++;
+    }
+
+    /** The footing levelWeight found. */
+    private final float[] levelPad = new float[1];
+
+    /** How far the land at (x, y) keeps its own height by the ground laid level round it, its footing in levelPad: see Grounds.weight. */
+    private float levelWeight(float x, float y) {
+        return Grounds.weight(grounds, groundCount, x, y, GROUND_EASE, levelPad);
+    }
+
+    /** How far apart the land is read over a box laid level, in tiles: see meanLand. */
+    private static final float MEAN_STEP = 2f;
+
+    /**
+     * The footing of a box of ground laid level: the land's height over it on the whole, with
+     * what is uneven on open ground left out, so that what is cut away on one side of it and
+     * built up on the other come out alike. After findWater for the chunk the box's middle is
+     * in, whichever chunk asks.
+     */
+    private float meanLand(float[] boxes, int from) {
+        float lowX = boxes[from], lowY = boxes[from + 1], highX = boxes[from + 2], highY = boxes[from + 3];
+        int stepsX = Math.max(1, Math.round((highX - lowX) / MEAN_STEP)), stepsY = Math.max(1, Math.round((highY - lowY) / MEAN_STEP));
+        double sum = 0.0;
+        for (int i = 0; i <= stepsX; i++) {
+            for (int j = 0; j <= stepsY; j++) {
+                sum += base(lowX + (highX - lowX) * i / stepsX, lowY + (highY - lowY) * j / stepsY);
+            }
+        }
+        return (float) (sum / ((stepsX + 1) * (stepsY + 1)));
+    }
+
     /** Fills around, footwayAround and padsAround with what lookOver found. */
     private void fill() {
+        groundCount = 0;
         int run = 0;
         float lastX = Float.NaN, lastY = Float.NaN, lastPad = Float.NaN;
         for (int row = 0; row < SPAN; row++) {
@@ -1074,6 +1166,7 @@ final class Terrain {
                 for (int square = row * SPAN + across * CHUNK_TILES; square < row * SPAN + (across + 1) * CHUNK_TILES; square++, at++) {
                     around[square] = kinds.kinds[at];
                     footwayAround[square] = kinds.footway[at];
+                    levelAround[square] = !Float.isNaN(kinds.box[at * 4]);
                     float x = kinds.midX[at], y = kinds.midY[at];
                     if (Float.isNaN(x)) {
                         padsAround[square] = Float.NaN;
@@ -1083,11 +1176,15 @@ final class Terrain {
                         lastX = x;
                         lastY = y;
                         lastPad = runPads[run++];
+                        if (!Float.isNaN(kinds.box[at * 4])) {
+                            addGround(kinds.box, at * 4, lastPad);
+                        }
                     }
                     padsAround[square] = lastPad;
                 }
             }
         }
+        Grounds.settle(grounds, groundCount);
     }
 
     /**
@@ -1125,7 +1222,7 @@ final class Terrain {
      * WATER_CHUNKS, within what is gathered. A chunk near the edge of the loaded map is looked at again
      * whenever the map loads more, and most often none of this has changed.
      */
-    private static long gathered() {
+    private long gathered() {
         long sum = Paving.without ? 0x9E3779B97F4A7C15L : 0x2545F4914F6CDD1DL;
         for (int at = 0; at < SPAN * SPAN; at++) {
             sum = (sum ^ around[at] + (footwayAround[at] ? 16 : 0)) * 0x100000001B3L;
@@ -1139,11 +1236,15 @@ final class Terrain {
         for (int built : builtChunks) {
             sum = (sum ^ built) * 0x100000001B3L;
         }
+        for (int at = 0; at < groundCount * 5; at++) {
+            sum = (sum ^ Float.floatToRawIntBits(grounds[at])) * 0x100000001B3L;
+        }
         return sum;
     }
 
-    /** The things that stand at the height of the ground under them whose footings the gathering in hand has still to work out. */
+    /** The things that stand at the height of the ground under them whose footings the gathering in hand has still to work out, and the box each lays level, four to a thing, NaN where it has none. */
     private long[] freeKeys = new long[8];
+    private float[] freeBoxes = new float[8 * 4];
     private int freeAsked;
 
     /**
@@ -1460,6 +1561,10 @@ final class Terrain {
                 kinds.midX[at] = Footings.keyX(footings.found);
                 kinds.midY[at] = Footings.keyY(footings.found);
                 kinds.free[at] = footings.free;
+                kinds.box[at * 4] = footings.boxed ? footings.boxLowX : Float.NaN;
+                kinds.box[at * 4 + 1] = footings.boxed ? footings.boxLowY : Float.NaN;
+                kinds.box[at * 4 + 2] = footings.boxed ? footings.boxHighX : Float.NaN;
+                kinds.box[at * 4 + 3] = footings.boxed ? footings.boxHighY : Float.NaN;
             }
         }
         siteCell = null;
@@ -1467,6 +1572,7 @@ final class Terrain {
         boolean anyThing = false, anyFree = false;
         for (int at = 0; at < CHUNK_TILES * CHUNK_TILES; at++) {
             sum = mix(mix(sum, Footings.key(kinds.midX[at], kinds.midY[at])), kinds.free[at] ? 1 : 0);
+            sum = mix(mix(sum, Footings.key(kinds.box[at * 4], kinds.box[at * 4 + 1])), Footings.key(kinds.box[at * 4 + 2], kinds.box[at * 4 + 3]));
             anyThing |= !Float.isNaN(kinds.midX[at]);
             anyFree |= kinds.free[at];
         }
@@ -1525,6 +1631,29 @@ final class Terrain {
             west |= flags.has(IsoFlagType.WallW) || flags.has(IsoFlagType.WallNW) || flags.has(IsoFlagType.DoorWallW) || flags.has(IsoFlagType.WindowW);
         }
         return north && inBuilding(cell.getGridSquare(x, y - 1, 0)) || west && inBuilding(cell.getGridSquare(x - 1, y, 0));
+    }
+
+    /**
+     * What a square of the ground is to level ground (Grounds), by what lies on it and what
+     * stands on it and on the level over it, where the crossbar of a goal is: the kind that
+     * reaches farthest for its partners where there are several, a goal on a court's surface.
+     */
+    private static byte groundOf(IsoCell cell, IsoGridSquare square, int x, int y) {
+        byte kind = groundOn(square);
+        IsoGridSquare over = cell.getGridSquare(x, y, 1);
+        return over == null ? kind : (byte) Math.max(kind, groundOn(over));
+    }
+
+    private static byte groundOn(IsoGridSquare square) {
+        byte kind = Grounds.NONE;
+        PZArrayList<IsoObject> objects = square.getObjects();
+        for (int i = 0; i < objects.size(); i++) {
+            IsoSprite sprite = objects.get(i).getSprite();
+            if (sprite != null && sprite.getName() != null) {
+                kind = (byte) Math.max(kind, Grounds.of(sprite.getName()));
+            }
+        }
+        return kind;
     }
 
     /**
