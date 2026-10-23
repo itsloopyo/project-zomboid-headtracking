@@ -552,7 +552,10 @@ final class WallBuilder {
         } else {
             build.frame.flat = nearFlat;
         }
-        addSkin(inRoom(far, farRoom), opening, at, x, y, z, 0f, 0f, da, db, fromStart, fromEnd, fromTop, startIsLow);
+        // What is laid over the wall is painted on the side inside the square, and another place beyond it has none of it.
+        if (build.overLayer == 0 || farRoom == nearRoom) {
+            addSkin(inRoom(far, farRoom), opening, at, x, y, z, 0f, 0f, da, db, fromStart, fromEnd, fromTop, startIsLow);
+        }
         build.frame.flat = 0;
         paper = null;
         tiles = null;

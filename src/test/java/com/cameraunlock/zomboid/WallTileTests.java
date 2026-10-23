@@ -59,6 +59,7 @@ final class WallTileTests {
         Checks.run("theFarSideWaitsForTheRoomsTilesToBeRead", WallTileTests::theFarSideWaitsForTheRoomsTilesToBeRead);
         Checks.run("theFarSideTakesNoTilesFromAWallWithAnOpening", WallTileTests::theFarSideTakesNoTilesFromAWallWithAnOpening);
         Checks.run("aPosterOnATiledWallIsThePoster", WallTileTests::aPosterOnATiledWallIsThePoster);
+        Checks.run("whatIsLaidOverAWallIsNotOnTheRoomBeyond", WallTileTests::whatIsLaidOverAWallIsNotOnTheRoomBeyond);
     }
 
     /**
@@ -667,6 +668,25 @@ final class WallTileTests {
             map.build.overSheet = SHEET;
             map.build.wallBuilder.addEdge(WorldScene.solid.get(panel.getID()), panel, false, false, 1, 0, 0, 0f, 1f, 0f);
             check(laidWith(panel) == 0, "and a panel of tiles hung so, of a sheet of them, is built as its tiles");
+        });
+    }
+
+    private static void whatIsLaidOverAWallIsNotOnTheRoomBeyond() throws Throwable {
+        withTextures(() -> {
+            TestMap map = bathroom();
+            map.cell.square(1, -1, 0).setRoomID(2L);
+            Texture grime = over(map, 321);
+            map.build.overSheet = null;
+            map.build.wallBuilder.addEdge(WorldScene.solid.get(grime.getID()), grime, true, false, 1, 0, 0, 0f, 1f, 0f);
+            int near = 0, far = 0;
+            for (SpriteGeometry.Mesh mesh : TestMap.<java.util.List<SpriteGeometry.Mesh>>read(WorldScene.solid, "all")) {
+                if (mesh.texture == grime.getID()) {
+                    near += mesh.room == 1L ? mesh.triangles() : 0;
+                    far += mesh.room == 2L ? mesh.triangles() : 0;
+                }
+            }
+            check(near > 0, "what is laid over a wall is on its face inside the square");
+            check(far == 0, "and not on its face in the room beyond");
         });
     }
 }
