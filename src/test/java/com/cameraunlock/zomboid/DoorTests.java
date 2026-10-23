@@ -19,6 +19,8 @@ final class DoorTests {
         Checks.run("hingesAreOnTheEdgeAwayFromTheKnobAndTheFaceAwayFromTheWall", DoorTests::hingesAreOnTheEdgeAwayFromTheKnobAndTheFaceAwayFromTheWall);
         Checks.run("roseKeepsClearOfThePanelBesideTheKnob", DoorTests::roseKeepsClearOfThePanelBesideTheKnob);
         Checks.run("jambIsFilledFromTheDoorwaysCutToTheLeafOnly", DoorTests::jambIsFilledFromTheDoorwaysCutToTheLeafOnly);
+        Checks.run("leafIsCutBackToTheDoorwaysCut", DoorTests::leafIsCutBackToTheDoorwaysCut);
+        Checks.run("whatIsDrawnBetweenOwningNoThingIsNoPartOfTheThing", DoorTests::whatIsDrawnBetweenOwningNoThingIsNoPartOfTheThing);
         Checks.run("paneWithARoomOnBothSidesHasNoStreetSide", DoorTests::paneWithARoomOnBothSidesHasNoStreetSide);
         Checks.run("openGarageDoorLiesInTheGarageWithItsTracksAtTheJambs", DoorTests::openGarageDoorLiesInTheGarageWithItsTracksAtTheJambs);
         Checks.run("capUnderAWallsFootLeavesTheDoorwayFloorBare", DoorTests::capUnderAWallsFootLeavesTheDoorwayFloorBare);
@@ -211,6 +213,54 @@ final class DoorTests {
         check(OpeningBuilder.jambs(0.5f, 0.6f, 0.1f, 0.9f, out) == 2 && pair(out, 0, 0.1f - over, 0.5f) && pair(out, 1, 0.6f, 0.9f + over),
                 "a leaf set far in is filled all the way to the cut on both sides");
         check(OpeningBuilder.jambs(0.2f, 0.8f, -1f, 0f, out) == 0, "with no doorway measured in a wall, as in a fence, nothing is filled");
+    }
+
+    private static Windows.Shape leaf(float start, float end) {
+        Windows.Shape shape = new Windows.Shape();
+        shape.start = start;
+        shape.end = end;
+        shape.head = 0.79f;
+        return shape;
+    }
+
+    private static void leafIsCutBackToTheDoorwaysCut() {
+        // Louisville, 12785,1664: fixtures_doors_01_5 measured from 0.0625 to 0.84375 in walls_exterior_house_01_15, cut from 0.09375 to 0.84375.
+        Windows.Shape measured = leaf(0.0625f, 0.84375f);
+        Windows.Shape cut = OpeningBuilder.withinCut(measured, 0.09375f, 0.84375f);
+        check(cut.start == 0.09375f && cut.end == 0.84375f, "a leaf running a pixel on into the wall stops at the cut");
+        check(measured.start == 0.0625f, "the measured leaf, every square's that shows its sprite, is left as it was");
+        Windows.Shape inside = leaf(0.125f, 0.8f);
+        check(OpeningBuilder.withinCut(inside, 0.09375f, 0.84375f) == inside, "a leaf inside its cut is left as it is: the jambs fill beside it");
+        Windows.Shape pair = leaf(0.1875f, 1f);
+        Windows.Shape half = OpeningBuilder.withinCut(pair, 0.234375f, 1f);
+        check(half.start == 0.234375f && half.end == 1f, "one leaf of a pair stops at the cut at its own end and runs on to the other leaf");
+        check(OpeningBuilder.withinCut(leaf(-0.05f, 0.9f), 0f, 0.9f).start == -0.05f, "where the cut runs to the square's edge the doorway goes on, and the leaf with it");
+        check(OpeningBuilder.withinCut(inside, -1f, 0f) == inside, "with no doorway measured nothing is cut");
+        Windows.Shape stiled = leaf(0.05f, 0.9f);
+        stiled.startWide = 0.1f;
+        stiled.endWide = 0.02f;
+        stiled.panes = new float[] {0.05f, 0.5f, 0.4f, 0.7f, 1f, 0.86f, 0.9f, 0.4f, 0.7f, 1f};
+        Windows.Shape trimmed = OpeningBuilder.withinCut(stiled, 0.1f, 0.85f);
+        check(Math.abs(trimmed.startWide - 0.05f) < 1e-6f && trimmed.endWide == 0f, "a stile loses what of it ran into the wall");
+        check(trimmed.panes.length == 5 && trimmed.panes[0] == 0.1f && trimmed.panes[1] == 0.5f, "a pane is kept within the cut, and one left with no width goes");
+    }
+
+    /** A door's jamb is drawn owning no thing between its leaf's pieces (OpeningBuilder.addBuiltDoor), so the line round the door goes round the leaf. */
+    private static void whatIsDrawnBetweenOwningNoThingIsNoPartOfTheThing() {
+        SpriteGeometry.MeshSet set = new SpriteGeometry.MeshSet();
+        SpriteGeometry.Mesh wood = set.get(5);
+        int vertex = SpriteGeometry.VERTEX_FLOATS;
+        set.own(7L);
+        wood.add(0f, 0f, 0f, 0f, 0f, 1f, 1f, 1f);
+        long thing = set.owner();
+        set.own(Outlines.NONE);
+        wood.add(1f, 0f, 0f, 0f, 0f, 1f, 1f, 1f);
+        set.own(thing);
+        wood.add(2f, 0f, 0f, 0f, 0f, 1f, 1f, 1f);
+        set.own(Outlines.NONE);
+        check(thing == 7L, "the set says which thing is being drawn");
+        check(wood.spans == 2 && wood.spanKey[0] == 7L && wood.spanFrom[0] == 0 && wood.spanTo[0] == vertex
+                && wood.spanKey[1] == 7L && wood.spanFrom[1] == 2 * vertex && wood.spanTo[1] == 3 * vertex, "the thing owns what was drawn before and after, and not what was drawn between");
     }
 
     private static void openGarageDoorLiesInTheGarageWithItsTracksAtTheJambs() {

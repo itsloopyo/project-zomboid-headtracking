@@ -353,7 +353,10 @@ final class OpeningBuilder {
             }
             return false;
         }
-        Windows.Shape leaf = door.leaf;
+        // A garage door rolls up in its own plane and has no jamb to fill, and a door swung open stands clear of its doorway.
+        boolean measured = doorwayX == x && doorwayY == y && doorwayZ == z && doorwayNorth == north;
+        boolean inDoorway = !build.doorSwung && !build.garageDoor && measured;
+        Windows.Shape leaf = inDoorway ? withinCut(door.leaf, doorwayStart, doorwayEnd) : door.leaf;
         float out = build.doorSwung ? SWUNG_OUT : 0f;
         windowX = x + db * out;
         windowY = y + da * out;
@@ -376,9 +379,7 @@ final class OpeningBuilder {
             panelled = Math.min(panelled, leaf.panes[pane + 2]);
         }
         float[] up = panelled < leaf.head ? PANELS_UP_BELOW : PANELS_UP;
-        // A garage door rolls up in its own plane and has no jamb to fill, and a door swung open stands clear of its doorway.
-        boolean measured = doorwayX == x && doorwayY == y && doorwayZ == z && doorwayNorth == north;
-        int filled = build.doorSwung || build.garageDoor || !measured ? 0 : jambs(leaf.start, leaf.end, doorwayStart, doorwayEnd, jambs);
+        int filled = inDoorway ? jambs(leaf.start, leaf.end, doorwayStart, doorwayEnd, jambs) : 0;
         float knob = door.handleAtEnd ? leaf.end - KNOB_IN * wide : leaf.start + KNOB_IN * wide;
         for (int side = 0; side < 2; side++) {
             float face = (side == 0 ? 1f : -1f) * DOOR_HALF;
@@ -415,9 +416,13 @@ final class OpeningBuilder {
                     addJoinery(wood, leaf.bars[bar], leaf.bars[bar + 1], leaf.bars[bar + 2], leaf.bars[bar + 3], face, r, g, b);
                 }
             }
+            // The jamb is the doorway's, not the leaf's: the line round a door E would open goes round the leaf.
+            long thing = WorldScene.solid.owner();
+            WorldScene.solid.own(Outlines.NONE);
             for (int jamb = 0; jamb < 2 * filled; jamb += 2) {
                 addJoinery(wood, jambs[jamb], jambs[jamb + 1], leaf.foot, leaf.head, Math.signum(face) * (WorldScene.WALL_HALF - JAMB_IN), r, g, b);
             }
+            WorldScene.solid.own(thing);
             if (door.kind == Doors.PANELLED && panelled - leaf.foot > 0.15f) {
                 float high = panelled - leaf.foot;
                 for (int column = 0; column < PANELS_ACROSS.length; column += 2) {
@@ -626,6 +631,57 @@ final class OpeningBuilder {
         fit.bars = runOn(shape.bars, 4, shape, fit);
         fit.panes = runOn(shape.panes, 5, shape, fit);
         return fit;
+    }
+
+    /**
+     * The shut leaf cut back to the doorway cut in its wall from cutStart to cutEnd, at each end where it runs on past
+     * the cut into the wall and the cut does not run to the square's edge (where the doorway goes on to the other leaf of
+     * a pair). The leaf is measured off its own sprite and the doorway off the wall's, and the two can be a pixel apart:
+     * what of the leaf runs on inside the wall is never seen, and its edge stood behind the cut-out edge of the wall's
+     * skin. The shape itself where nothing is cut back or no cut was measured (a start below 0); otherwise a copy.
+     */
+    static Windows.Shape withinCut(Windows.Shape shape, float cutStart, float cutEnd) {
+        boolean atStart = cutStart > 0f && shape.start < cutStart, atEnd = cutStart >= 0f && cutEnd < 1f && shape.end > cutEnd;
+        if (!atStart && !atEnd) {
+            return shape;
+        }
+        Windows.Shape cut = new Windows.Shape();
+        cut.originU = shape.originU;
+        cut.originV = shape.originV;
+        cut.scale = shape.scale;
+        cut.north = shape.north;
+        cut.start = atStart ? cutStart : shape.start;
+        cut.end = atEnd ? cutEnd : shape.end;
+        cut.startWide = shape.startWide > 0f ? Math.max(shape.startWide - (cut.start - shape.start), 0f) : 0f;
+        cut.endWide = shape.endWide > 0f ? Math.max(shape.endWide - (shape.end - cut.end), 0f) : 0f;
+        cut.foot = shape.foot;
+        cut.head = shape.head;
+        cut.footHigh = shape.footHigh;
+        cut.headHigh = shape.headHigh;
+        cut.red = shape.red;
+        cut.green = shape.green;
+        cut.blue = shape.blue;
+        cut.arch = shape.arch;
+        cut.bars = clipped(shape.bars, 4, cut.start, cut.end);
+        cut.panes = clipped(shape.panes, 5, cut.start, cut.end);
+        return cut;
+    }
+
+    /** The bars or panes, each so many numbers, kept within start to end along the edge; those left with no length go. */
+    private static float[] clipped(float[] list, int each, float start, float end) {
+        float[] kept = new float[list.length];
+        int count = 0;
+        for (int at = 0; at < list.length; at += each) {
+            float from = Math.max(list[at], start), to = Math.min(list[at + 1], end);
+            if (to <= from) {
+                continue;
+            }
+            System.arraycopy(list, at, kept, count, each);
+            kept[count] = from;
+            kept[count + 1] = to;
+            count += each;
+        }
+        return Arrays.copyOf(kept, count);
     }
 
     /** How far, in tiles along the edge, a window is carried out to the end of its wall's opening: two stiles' width. */

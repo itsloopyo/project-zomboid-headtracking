@@ -446,6 +446,11 @@ final class SpriteGeometry {
             owner = key;
         }
 
+        /** The key of the thing being drawn into the set, or Outlines.NONE: see own. */
+        long owner() {
+            return owner;
+        }
+
         /** Empties every mesh and keeps them: one chunk wears much the same textures as the next. */
         void clear() {
             if (owner != Outlines.NONE) {
