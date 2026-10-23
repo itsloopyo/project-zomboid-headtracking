@@ -84,6 +84,7 @@ public final class Tests {
         Checks.run("ArmTests", ArmTests::run);
         Checks.run("OwnArmTests", OwnArmTests::run);
         Checks.run("GripTests", GripTests::run);
+        Checks.run("HandClipTests", HandClipTests::run);
         Checks.run("RevolverTests", RevolverTests::run);
         Checks.run("DoubleTests", DoubleTests::run);
         Checks.run("TimedActsTests", TimedActsTests::run);
