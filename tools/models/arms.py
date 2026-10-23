@@ -259,6 +259,13 @@ POSES = {
     # handgun's grip, it lies forward along the frame on the far side above the other hand's: laid as in "grip" it ran up
     # across the back of the grip in the eye's line.
     "trigger": {"fingers": [(24, 60, 28, 2), (26, 82, 46, 0), (30, 84, 48, 0), (34, 86, 50, 0)], "thumb": (-15, 60, 20, 10, 5), "cup": 10},
+    # Round a handgun's grip from outside it, held at the grip's front edge on its right side, the first finger along the
+    # frame: closed round the grip's middle as in "grip", the fingers and palm went 13 to 20 mm into it.
+    "pistol": {"fingers": [(0, 9, 8, 6), (3, 64, 27, 12), (17, 78, 39, -1), (44, 98, 51, -10)], "thumb": (44, 6, 14, 12, 84), "cup": 12},
+    # The same with the first finger on the trigger.
+    "pistol trigger": {"fingers": [(0, 26, 17, -6), (3, 64, 27, 12), (17, 78, 39, -1), (44, 98, 51, -10)], "thumb": (12, 25, 18, 7, 84), "cup": 12},
+    # The left hand on a handgun's grip under the right: the palm on the left side, the fingers round the front over the right hand's.
+    "pistol support": {"fingers": [(27, 38, 35, -12), (42, 67, 37, -5), (40, 82, 50, -3), (59, 65, 37, 1)], "thumb": (66, 15, -31, 0, 0), "cup": 0},
     # Under a fore-end, which lies along the hand: the palm cradles its underside and the fingers lie up its far side,
     # nearly straight. Curled round it as round a rod across the palm, they went through any handguard laid along them.
     "fore": {"fingers": [(2, 6, 4, 4), (10, 12, 6, 0), (12, 14, 6, -3), (14, 16, 8, -6)], "thumb": (0, 20, -10, 15, 10), "cup": 20},
@@ -268,8 +275,8 @@ POSES = {
     "pinch": {"fingers": [(52, 40, 18, 0), (56, 44, 20, 0), (64, 84, 50, 0), (68, 88, 54, 0)], "thumb": (40, 30, 0, 20, 15), "cup": 8},
     # The knob of a bolt, in the crook of the first two fingers with the thumb under it.
     "knob": {"fingers": [(58, 44, 22, 3), (60, 48, 24, 0), (68, 86, 50, 0), (72, 90, 54, 0)], "thumb": (46, 16, 0, 16, 12), "cup": 8},
-    # Over the top of a pistol's slide, which is pinched between the heel of the thumb and the fingers.
-    "slide": {"fingers": [(58, 52, 22, 0), (60, 54, 24, 0), (62, 56, 24, 0), (64, 58, 26, 0)], "thumb": (30, 25, 0, 10, 5), "cup": 6},
+    # Over the top of a pistol's slide, to draw it back: curled as they were, the fingers went 11 to 16 mm into its top.
+    "slide": {"fingers": [(69, 39, 74, 11), (45, 92, 23, 6), (75, 100, 10, 12), (37, 4, 10, -6)], "thumb": (20, 41, -13, 14, 12), "cup": 0},
     # Round a magazine hanging under a receiver: the palm on its near side, the fingers round its front edge onto the far
     # side, and the thumb laid forward along the near side. Closed round it as round a handle, the fingers and thumb went
     # 10 to 14 mm through a rifle's magazine.
@@ -417,7 +424,7 @@ def held(hand, name):
     if name == "knob":
         return ball(hand, name, HOLDS[name], 0.011)
     if name == "slide":
-        return box(hand, name, (0.0, 0.0, 0.03), 0.16, 0.027, 0.03)
+        return box(hand, name, HOLDS[name], 0.16, 0.027, 0.03)
     if name == "magazine":
         # An assault rifle's, its front edge where the fingers come round it.
         return box(hand, name, (-0.01, 0.0, 0.036), 0.12, 0.064, 0.022)
@@ -467,7 +474,8 @@ HOLDS = {
     # Where what a pose holds lies in the hand: its middle from the middle of the knuckles
     # (towards the finger tips, towards the thumb's side, out of the palm), in metres.
     "open": (0.0, 0.0, 0.03), "grip": (0.012, 0.0, 0.029), "trigger": (0.012, 0.0, 0.029), "fore": (-0.008, 0.0, 0.046),
-    "handle": (-0.004, 0.0, 0.026), "pinch": (0.03, 0.02, 0.04), "knob": (0.004, 0.014, 0.052), "slide": (0.0, 0.0, 0.03), "magazine": (-0.004, 0.0, 0.036),
+    "pistol": (0.0330, 0.0089, 0.0212), "pistol trigger": (0.0330, 0.0089, 0.0212), "pistol support": (0.0002, 0.0002, 0.0387),
+    "handle": (-0.004, 0.0, 0.026), "pinch": (0.03, 0.02, 0.04), "knob": (0.004, 0.014, 0.052), "slide": (-0.0082, -0.0074, 0.0354), "magazine": (-0.004, 0.0, 0.036),
 }
 
 

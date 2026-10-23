@@ -64,6 +64,8 @@ final class WeaponShape {
     final float[] grip = new float[3], gripLine = new float[3];
     /** How thick the grip is from its front edge to its back at the knuckles, in the mesh's units. */
     final float gripThick;
+    /** How far the grip's sides are from its middle at the knuckles, at the most, in the mesh's units. */
+    final float gripWide;
     /** Where the trigger guard is: its back, its front, its foot and its top, along the barrel and up, in the mesh's units. */
     final float guardBack, guardFront, guardFoot, guardTop;
     /** The foot of the grip, where a handgun's magazine goes in, in the mesh's axes. */
@@ -89,7 +91,7 @@ final class WeaponShape {
     /** The part furthest out to either side over the trigger, a bolt's knob, in the mesh's axes. */
     final float[] knob = new float[3];
 
-    private WeaponShape(float[] along, float[] up, float bore, float muzzle, float perMetre, Outline outline, Hole guard) {
+    private WeaponShape(float[] places, int[] corners, float[] along, float[] up, float bore, float muzzle, float perMetre, Outline outline, Hole guard) {
         this.along = along;
         this.up = up;
         side = new float[3];
@@ -152,6 +154,7 @@ final class WeaponShape {
         for (int axis = 0; axis < 3; axis++) {
             gripLine[axis] = along[axis] * lineA + up[axis] * lineU;
         }
+        gripWide = wide(places, corners, kneeA, kneeU, lineA, lineU, inA, inU, gripThick);
         // Down the grip's line from its middle to where it ends.
         float down = outline.through(kneeA + inA * gripThick / 2f, kneeU + inU * gripThick / 2f, -lineA, -lineU, 0.3f * perMetre);
         place(kneeA + inA * gripThick / 2f - lineA * down, kneeU + inU * gripThick / 2f - lineU * down, 0f, gripFoot);
@@ -401,11 +404,44 @@ final class WeaponShape {
             }
         }
         try {
-            return new WeaponShape(along, up, boreU, muzzleA, perMetre, outline, guard);
+            return new WeaponShape(places, corners, along, up, boreU, muzzleA, perMetre, outline, guard);
         } catch (IllegalStateException unread) {
             why.append(unread.getMessage());
             return null;
         }
+    }
+
+    /**
+     * How far to its side the mesh reaches where it is cut square to the grip's line through a place on the grip's front edge,
+     * between that edge and the grip's back.
+     */
+    private float wide(float[] places, int[] corners, float edgeA, float edgeU, float lineA, float lineU, float inA, float inU, float thick) {
+        float most = 0f;
+        float[] up = new float[3], in = new float[3], out = new float[3];
+        for (int t = 0; t < corners.length; t += 3) {
+            for (int k = 0; k < 3; k++) {
+                int v = corners[t + k] * 3;
+                float a = places[v] * along[0] + places[v + 1] * along[1] + places[v + 2] * along[2] - edgeA;
+                float u = places[v] * this.up[0] + places[v + 1] * this.up[1] + places[v + 2] * this.up[2] - edgeU;
+                up[k] = a * lineA + u * lineU;
+                in[k] = a * inA + u * inU;
+                out[k] = places[v] * side[0] + places[v + 1] * side[1] + places[v + 2] * side[2];
+            }
+            for (int k = 0; k < 3; k++) {
+                int j = (k + 1) % 3;
+                if (up[k] * up[j] > 0f || up[k] == up[j]) {
+                    continue;
+                }
+                float cut = up[k] / (up[k] - up[j]), into = in[k] + (in[j] - in[k]) * cut;
+                if (into >= 0f && into <= thick) {
+                    most = Math.max(most, Math.abs(out[k] + (out[j] - out[k]) * cut));
+                }
+            }
+        }
+        if (most == 0f) {
+            throw new IllegalStateException("the grip has no sides where the knuckles are");
+        }
+        return most;
     }
 
     /** A hole in the outline: the columns and rows it spans, and how far along the barrel its middle is. */

@@ -452,7 +452,10 @@ final class OwnArmTests {
         // A pistol with nothing in it, being loaded: a magazine has been on its way for a tenth of a second, then for longer than the game was taken to take.
         check(ArmHolds.place(model, SCALE, pistol, new ArmHolds.Doing(0f, false, ArmActs.HANDGUN, -1f, ArmActs.LOADING, 0.1f, 0f, 1f, -1f, false, -1f, 0.1f, 2f, 0f), SAME, skins, said,
                 carried, new ArmHolds.Settled()) == 2 && carried.what == ArmHolds.MAGAZINE, "while it is loaded the left hand comes to it with a magazine");
-        float[] magazine = model.holds[model.pose("magazine")], line = pistol.placed().way(PISTOL.gripLine), at = pistol.placed().at(PISTOL.gripFoot);
+        float[] magazine = model.holds[model.pose("magazine")], line = pistol.placed().way(PISTOL.gripLine), foot = pistol.placed().at(PISTOL.gripFoot);
+        // The fist round a magazine at the well is under the grip's foot, all of it.
+        float[] at = {foot[0] - line[0] * ArmHolds.HANDGUN_MAGAZINE_UNDER * SCALE, foot[1] - line[1] * ArmHolds.HANDGUN_MAGAZINE_UNDER * SCALE,
+            foot[2] - line[2] * ArmHolds.HANDGUN_MAGAZINE_UNDER * SCALE};
         check(ArmHolds.place(model, SCALE, pistol, new ArmHolds.Doing(0f, false, ArmActs.HANDGUN, -1f, ArmActs.LOADING, 5f, 0f, 1f, -1f, false, -1f, 5f, 2f, 0f), SAME, skins, said,
                 carried, new ArmHolds.Settled()) == 2 && carried.what == ArmHolds.MAGAZINE, "which it still has however long the game takes over it");
         float[] under = {at[0] - line[0] * ArmActs.MAGAZINE_DRAWN * SCALE, at[1] - line[1] * ArmActs.MAGAZINE_DRAWN * SCALE, at[2] - line[2] * ArmActs.MAGAZINE_DRAWN * SCALE};

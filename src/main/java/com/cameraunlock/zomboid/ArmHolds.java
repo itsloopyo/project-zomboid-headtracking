@@ -71,7 +71,7 @@ final class ArmHolds {
     static final float GRIP_ASLANT = (float) Math.toRadians(30), KNUCKLES_RAKE = (float) Math.toRadians(8), HANDGUN_HIP_TRIGGER = 0.5f,
             LONG_PALM_BACK = (float) Math.toRadians(28), LONG_PALM_DOWN = (float) Math.toRadians(15);
     /**
-     * The left hand round a pistol with the right, as a pistol is held in both: a fist on the
+     * The left hand round a pistol with the right, as a pistol is held in both: on the
      * side of the grip the right palm leaves bare and round the right hand's fingers, this much
      * of the grip's thickness ahead of the grip's middle and this far to its left, in metres,
      * its knuckles leaning this far back from the grip's line, in radians, so that its forearm
@@ -476,6 +476,20 @@ final class ArmHolds {
         return between(done, 0.3f, SLIDE_LET_GO) - between(done, SLIDE_LET_GO, 0.56f);
     }
 
+    /**
+     * How far over the slide the hand that racks it is held, in metres, and how far out to the
+     * left of the slide and up it goes on its way there and back, in metres and in parts of the
+     * way: on a straight way between the grip and the slide the hand went 11 to 19 mm through
+     * the frame, and its fingers 11 to 16 mm into the slide's top lower on it.
+     */
+    static final float SLIDE_ABOVE = 0.008f, SLIDE_ROUND = 0.07f, SLIDE_BESIDE = 0.6f;
+    /**
+     * How far under a handgun's grip the middle of the fist that takes its magazine is, in
+     * metres: the whole fist under the grip's foot. At the foot its first finger went 6 to 9 mm
+     * up into the grip.
+     */
+    static final float HANDGUN_MAGAZINE_UNDER = 0.055f;
+
     /** Racking, the hand lets go of the slide this far through it. */
     static final float SLIDE_LET_GO = 0.5f;
 
@@ -701,6 +715,16 @@ final class ArmHolds {
         float raised = ViewModelMath.smooth(doing.aim());
         float hipTrigger = weapon.handgun() ? HANDGUN_HIP_TRIGGER : 0f;
         raised = hipTrigger + (1f - hipTrigger) * raised;
+        if (weapon.handgun()) {
+            // A handgun's grip is held by its outside: its front edge on the right side, where the pistol poses wrap it from.
+            float forward = shape.gripThick / 2f * placed.unit(), aside = shape.gripWide * placed.unit();
+            for (int axis = 0; axis < 3; axis++) {
+                hold.at[axis] += front[axis] * forward + axes.right[axis] * aside;
+            }
+            hold.weights[model.pose("pistol")] = 1f - raised;
+            hold.weights[model.pose("pistol trigger")] = raised;
+            return hold;
+        }
         hold.weights[model.pose("grip")] = 1f - raised;
         hold.weights[model.pose("trigger")] = raised;
         float cycled = doing.cycled();
@@ -815,11 +839,11 @@ final class ArmHolds {
         // A magazine is held by its foot and goes in and comes out along its own line: a handgun's up its grip, another's up into the receiver.
         float[] well = new float[3], down = new float[3];
         if (action == ArmActs.HANDGUN) {
-            System.arraycopy(placed.at(shape.gripFoot), 0, well, 0, 3);
             float[] line = placed.way(shape.gripLine);
             for (int axis = 0; axis < 3; axis++) {
                 down[axis] = -line[axis];
             }
+            System.arraycopy(along(placed.at(shape.gripFoot), down, HANDGUN_MAGAZINE_UNDER * axes.scale), 0, well, 0, 3);
         } else {
             System.arraycopy(placed.at(magazineAlong(shape), magazineUp(shape), 0f), 0, well, 0, 3);
             for (int axis = 0; axis < 3; axis++) {
@@ -841,10 +865,13 @@ final class ArmHolds {
             }
             // Over the top of the slide from behind and to the left, drawn back with it, let go.
             float back = slideRacked(done) * placed.travel();
-            Hold onSlide = new Hold(model).set(along(placed.at(shape.slide), axes.ahead, -back * axes.scale), axes.way(0f, -1f, 0.1f), axes.way(0.3f, 0.15f, 0.94f), true,
-                    model.pose("slide"));
+            Hold onSlide = new Hold(model).set(along(along(placed.at(shape.slide), axes.ahead, -back * axes.scale), axes.up, SLIDE_ABOVE * axes.scale),
+                    axes.way(0f, -1f, 0.1f), axes.way(0.3f, 0.15f, 0.94f), true, model.pose("slide"));
             float on = between(done, 0f, 0.3f) - between(done, 0.6f, 0.95f);
-            return copy(now, rest).towards(onSlide, on);
+            // By way of the slide's left, turned to it there and brought in: turned on the way straight to it, the hand went through the frame.
+            Hold beside = copy(new Hold(model), onSlide);
+            System.arraycopy(along(along(onSlide.at, axes.right, -SLIDE_ROUND * axes.scale), axes.up, SLIDE_ROUND / 2f * axes.scale), 0, beside.at, 0, 3);
+            return on < SLIDE_BESIDE ? copy(now, rest).towards(beside, on / SLIDE_BESIDE) : copy(now, beside).towards(onSlide, (on - SLIDE_BESIDE) / (1f - SLIDE_BESIDE));
         }
         if (magazine) {
             // The magazine is held as a handle is, its top out of the thumb's side of the fist. Where it is, the game says of the weapon.
@@ -888,8 +915,9 @@ final class ArmHolds {
      * the right. It is outside the gun on the side the port opens to, its palm towards it: under a
      * pump's port and to its left, palm up; to the right of a lever gun's gate, which is in the
      * right of its receiver; over a bolt gun's opening or a double's open breech; beside a
-     * revolver's cylinder on its left. Every long gun's was beside the receiver on its left, palm
-     * to the right, and went 11 to 19 mm into it: through a lever gun's receiver to the gate,
+     * revolver's cylinder on its left, where 5 mm nearer the middle finger went 6 to 7 mm into
+     * it. Every long gun's was beside the receiver on its left, palm to the right, and went 11
+     * to 19 mm into it: through a lever gun's receiver to the gate,
      * into the top of a bolt gun's and a double's breech, and under a pump's port the fingers,
      * curled towards a palm facing straight up, went up into the receiver.
      */
@@ -905,7 +933,7 @@ final class ArmHolds {
     static final float[] LOADS_UNDER = {-0.05f, -0.045f, -0.03f, -0.2f, 1f, 0.6f, 1f, -0.2f, 0.4f},
             LOADS_RIGHT = {-0.03f, -0.01f, 0.03f, -0.1f, 1f, -0.25f, 1f, 0f, 0f},
             LOADS_OVER = {-0.03f, 0.05f, -0.03f, -0.2f, -1f, 0.4f, 1f, 0f, 0f},
-            LOADS_LEFT = {-0.03f, 0f, -0.04f, 0.1f, 0.2f, 1f, 1f, 0.3f, 0f};
+            LOADS_LEFT = {-0.03f, 0f, -0.045f, 0.1f, 0.2f, 1f, 1f, 0.3f, 0f};
 
     /** A place moved a way by a distance. */
     private static float[] along(float[] from, float[] way, float by) {
@@ -978,8 +1006,8 @@ final class ArmHolds {
         }
         ArmPose.unit(axes.right[0] + ahead[0] * SUPPORT_PALM_AHEAD, axes.right[1] + ahead[1] * SUPPORT_PALM_AHEAD, axes.right[2] + ahead[2] * SUPPORT_PALM_AHEAD, hold.out);
         aslant(line, hold.out, ahead, SUPPORT_LEANS, hold.across);
-        // A fist: every finger round the right hand's, none along the frame.
-        hold.weights[model.pose("handle")] = 1f;
+        // Every finger round the right hand's, none along the frame: closed as a fist round a handle they went 13 to 19 mm into the grip.
+        hold.weights[model.pose("pistol support")] = 1f;
         return hold;
     }
 

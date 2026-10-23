@@ -190,9 +190,18 @@ final class GripTests {
             float[][] skins = new float[2][model.bones.length * 16], said = new float[2][ArmPose.SAYS];
             ArmHolds.Doing holding = new ArmHolds.Doing(aimed ? 1f : 0f, false, ArmActs.HANDGUN, -1f, ArmActs.HOLDING, 0f, 0f, 1f, -1f, true, -1f, -1f, 2f, 0f);
             check(ArmHolds.place(model, SCALE, pistol, holding, SAME, skins, said, new ArmHolds.Carried(), new ArmHolds.Settled()) == 1, "a pistol in one hand has one arm");
+            // The pose's own hold: the grip's front edge on its right side, where the hand wraps it from outside.
+            float[] own = model.holds[model.pose("pistol")];
+            float[] outside = placed(skins[0], model.wrist, own), line = pistol.placed().way(pistol.placed().shape().gripLine), front = new float[3];
+            float along = ArmPose.dot(pistol.pointing(), line);
+            ArmPose.unit(pistol.pointing()[0] - line[0] * along, pistol.pointing()[1] - line[1] * along, pistol.pointing()[2] - line[2] * along, front);
+            WeaponShape shape = pistol.placed().shape();
+            float unit = pistol.placed().unit();
+            float[] off = {outside[0] - pistol.grip()[0], outside[1] - pistol.grip()[1], outside[2] - pistol.grip()[2]};
+            check(near(ArmPose.dot(off, front), shape.gripThick / 2f * unit, 1e-4f) && near(off[0], shape.gripWide * unit, 1e-4f),
+                    "the right hand holds the grip from outside, at its front edge on its right side, under the guard and not the frame or the slide");
             float[] hold = model.holds[model.pose("grip")];
             float[] held = placed(skins[0], model.wrist, hold);
-            check(ArmPose.apart(held, pistol.grip()) < 1e-4f, "the right hand closes round the grip's middle, which is under the guard and not the frame or the slide");
             float[] thumb = placed(skins[0], model.wrist, new float[] {hold[0] + model.across[0], hold[1] + model.across[1], hold[2] + model.across[2]});
             float[] across = {(thumb[0] - held[0]) / SCALE, (thumb[1] - held[1]) / SCALE, (thumb[2] - held[2]) / SCALE};
             // The grip lies aslant across the palm: the knuckles lean back from its raked line, which is the pistol's front edge, by 25 to 35 degrees.
