@@ -1417,6 +1417,16 @@ public final class FirstPerson {
         if (outcome == CentreUse.Outcome.CONTAINER) {
             pointer.open();
         }
+        if (outcome == CentreUse.Outcome.NOTHING && view.onMouse()) {
+            // A sink or a table: the game's own key does nothing for it in this view, and its menu is what a player wants of it.
+            IsoObject standing = view.centreUse.standingFor(reticleLine, floorUp(player), player, IsoWorld.instance.currentCell);
+            if (standing != null && view.worldMenu.openFor(standing, IsoCamera.getScreenLeft(view.index) + reticleX, IsoCamera.getScreenTop(view.index) + reticleY)) {
+                if (TRACE) {
+                    Log.info("interact at the reticle: the world menu for " + standing);
+                }
+                return true;
+            }
+        }
         if (TRACE) {
             Log.info("interact at the reticle: " + outcome + " on " + Thread.currentThread().getName());
         }

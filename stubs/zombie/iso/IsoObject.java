@@ -13,6 +13,11 @@ public class IsoObject {
     public IsoDirections getDir() { throw new UnsupportedOperationException("reference stub"); }
     public float getRenderYOffset() { throw new UnsupportedOperationException("reference stub"); }
     public zombie.inventory.ItemContainer getContainer() { throw new UnsupportedOperationException("reference stub"); }
+    public int getContainerCount() { throw new UnsupportedOperationException("reference stub"); }
+    public zombie.inventory.ItemContainer getContainerByIndex(int index) { throw new UnsupportedOperationException("reference stub"); }
+    public final zombie.entity.components.spriteconfig.SpriteConfig getSpriteConfig() { throw new UnsupportedOperationException("reference stub"); }
+    public final boolean hasComponent(zombie.entity.ComponentType type) { throw new UnsupportedOperationException("reference stub"); }
+    public final <T extends zombie.entity.Component> T getComponent(zombie.entity.ComponentType type) { throw new UnsupportedOperationException("reference stub"); }
     public IsoGridSquare getSquare() { throw new UnsupportedOperationException("reference stub"); }
     public int getObjectIndex() { throw new UnsupportedOperationException("reference stub"); }
     public float getX() { throw new UnsupportedOperationException("reference stub"); }

@@ -271,7 +271,7 @@ The mouse turns the view. Movement keys follow the direction you face. Walking o
 
 **Toggle to aim** - if this game option is enabled, aim before attacking.
 
-**Interaction** - put the reticle on a door, window, curtain, light switch, container or item on the ground and press `E`. For everything else, such as drinking from a sink, bring the pointer out (click middle mouse, or open the inventory) and right-click the thing in the view: the game's own menu for it opens, as a right click on it does in the isometric view. A left click with the pointer out on a door, window, curtain, light switch, container or item does what `E` does with the reticle on it, as a left click does in the isometric view.
+**Interaction** - put the reticle on a door, window, curtain, light switch, container, item on the ground, radio, TV or crafting station and press `E`. On a fridge, `E` opens the freezer or the fridge, whichever half the reticle is on. On anything else within reach, such as a sink or a chair, `E` opens the game's own menu for it. You can also bring the pointer out (click middle mouse, or open the inventory) and right-click a thing in the view to open its menu, as a right click does in the isometric view. A left click with the pointer out does what `E` does with the reticle on the same thing, as a left click does in the isometric view.
 
 ### Controller and split screen
 

@@ -6,6 +6,9 @@ import se.krka.kahlua.vm.KahluaTable;
 import zombie.Lua.LuaManager;
 import zombie.characters.IsoPlayer;
 import zombie.core.properties.PropertyContainer;
+import zombie.entity.ComponentType;
+import zombie.entity.components.spriteconfig.SpriteConfig;
+import zombie.entity.components.ui.UiConfig;
 import zombie.iso.IsoCell;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoMovingObject;
@@ -15,6 +18,7 @@ import zombie.iso.objects.IsoCurtain;
 import zombie.iso.objects.IsoDoor;
 import zombie.iso.objects.IsoLightSwitch;
 import zombie.iso.objects.IsoThumpable;
+import zombie.iso.objects.IsoWaveSignal;
 import zombie.iso.objects.IsoWindow;
 import zombie.iso.objects.IsoWorldInventoryObject;
 import zombie.ui.UIManager;
@@ -26,7 +30,8 @@ import zombie.util.list.PZArrayList;
  * light switch, a container or something lying on the ground. Here there is no
  * cursor to click with, so the line from the eye through the reticle is traced
  * across the map to the first of those it meets, and that object is handed to the same
- * Lua the game runs for a click on it. Whether the character is near enough,
+ * Lua the game runs for a click on it: a radio or a television's window, a workstation's,
+ * the container, the half of a fridge the view is on. Whether the character is near enough,
  * and everything the action then does, is the game's.
  *
  * Logic thread only: it reads the map and calls the game's Lua.
@@ -62,8 +67,14 @@ final class CentreUse {
      * at 0.32.
      */
     private static final float ON_TOP_FRONT = 0.13f;
+    /**
+     * How high over the player's floor, in tiles, the view may pass the middle of a square it goes on past and still be
+     * on a radio or a television standing there: half a storey. Higher, it is looking over it at something further off,
+     * or at a cabinet hung on the wall it meets.
+     */
+    private static final float LOW_THING = ViewCamera.LEVEL_HEIGHT / 2f;
 
-    private static final String CLICK_HANDLER = "ISObjectClickHandler", WORLD_MENU = "ISWorldObjectContextMenu";
+    private static final String CLICK_HANDLER = "ISObjectClickHandler", WORLD_MENU = "ISWorldObjectContextMenu", INVENTORY_PAGE = "ISInventoryPage";
     private static final String PRESS = "doClickSpecificObject", RELEASE = "doClick", GRAB = "onGrabWItem";
 
     /**
@@ -118,6 +129,10 @@ final class CentreUse {
             // controller's own key opens what its player stands at, so the key is left to the game.
             return Outcome.NOTHING;
         }
+        if (found.getContainer() == null) {
+            // A radio, a television or a workstation: the game's click opens its window, when the character is near enough.
+            return call(CLICK_HANDLER, RELEASE, found, Double.valueOf(0), Double.valueOf(0)) == null ? Outcome.NOTHING : Outcome.USED;
+        }
         IsoGridSquare at = found instanceof IsoMovingObject body ? body.getCurrentSquare() : found.getSquare();
         IsoGridSquare from = player.getCurrentSquare();
         // The game's own test for a container near enough to open. One further off it walks to.
@@ -131,6 +146,16 @@ final class CentreUse {
             // The panels are up already where it was in reach, and the pointer is wanted for them.
             return inReach ? Outcome.CONTAINER : Outcome.NOTHING;
         }
+        if (inReach && found.getContainerCount() >= 2) {
+            // The game's click opens a fridge's freezer for the upper half of its picture, measured in the picture the
+            // game would have drawn, and the fridge for anything else, though the panel may keep the freezer it last
+            // showed. The half the view is on is selected in the loot panel the click has just put up.
+            Object[] loot = call(null, "getPlayerLoot", Double.valueOf(0));
+            if (loot != null && loot.length > 1) {
+                int half = above(at, view, floorUp, 0f) > ViewCamera.LEVEL_HEIGHT / 2f ? 1 : 0;
+                call(INVENTORY_PAGE, "selectButtonForContainer", loot[1], found.getContainerByIndex(half));
+            }
+        }
         return inReach ? Outcome.CONTAINER : Outcome.USED;
     }
 
@@ -140,9 +165,10 @@ final class CentreUse {
      * game's update of the player: the error is logged and the key is left to the game.
      */
     private Object[] call(String table, String function, Object... arguments) {
-        Object[] result = LuaManager.caller.pcall(UIManager.getDefaultThread(), ((KahluaTable) LuaManager.env.rawget(table)).rawget(function), arguments);
+        Object callee = table == null ? LuaManager.env.rawget(function) : ((KahluaTable) LuaManager.env.rawget(table)).rawget(function);
+        Object[] result = LuaManager.caller.pcall(UIManager.getDefaultThread(), callee, arguments);
         if (result.length == 0 || !Boolean.TRUE.equals(result[0])) {
-            Log.info("the game's " + table + "." + function + " failed, and Interact is left to the game: " + Arrays.toString(result));
+            Log.info("the game's " + (table == null ? "" : table + ".") + function + " failed, and Interact is left to the game: " + Arrays.toString(result));
             return null;
         }
         return result;
@@ -156,6 +182,34 @@ final class CentreUse {
      */
     IsoObject forMenu(ViewCamera.Pose line, float floorUp, IsoPlayer player, IsoCell cell) {
         return find(line, floorUp, cell, (int) Math.floor(player.getZ()), true);
+    }
+
+    /**
+     * What the world menu is for where the key acts on nothing: something standing within the
+     * key's reach, a sink, a table or a chair, whose menu (Drink, Wash, Sit) is what the game
+     * offers for it. Null for anything else, which leaves the key to the game.
+     */
+    IsoObject standingFor(ViewCamera.Pose line, float floorUp, IsoPlayer player, IsoCell cell) {
+        IsoObject found = forMenu(line, floorUp, player, cell);
+        IsoGridSquare square = found == null ? null : found.getSquare();
+        if (square == null || found == square.getFloor() || found instanceof IsoLightSwitch || found.getType() == IsoObjectType.wall) {
+            return null;
+        }
+        float toX = square.getX() + 0.5f - line.eyeX, toY = square.getY() + 0.5f - line.eyeY;
+        return toX * toX + toY * toY <= (REACH + 0.71f) * (REACH + 0.71f) ? found : null;
+    }
+
+    /**
+     * Whether the game's click acts on a thing that holds nothing: a radio or a television, or a
+     * piece of a workstation, whose window the game opens for a click on any of its squares.
+     */
+    static boolean clickedThoughEmpty(IsoObject object) {
+        if (object instanceof IsoWaveSignal) {
+            return true;
+        }
+        SpriteConfig config = object.getSpriteConfig();
+        IsoObject master = config == null ? null : config.getMultiSquareMaster();
+        return master != null && master.hasComponent(ComponentType.UiConfig) && master.<UiConfig>getComponent(ComponentType.UiConfig).isUiEnabled();
     }
 
     /**
@@ -177,7 +231,10 @@ final class CentreUse {
         float perTileY = view.forwardY == 0f ? Float.POSITIVE_INFINITY : Math.abs(1f / view.forwardY);
         IsoGridSquare from = cell.getGridSquare(tileX, tileY, level);
         while (from != null) {
-            IsoObject here = onSquare(from, view, reach, floorUp);
+            IsoObject here = onSquare(from, view, reach, floorUp, false);
+            if (here == null && menu) {
+                here = lowOn(from, view, floorUp);
+            }
             if (here != null) {
                 return here;
             }
@@ -199,6 +256,10 @@ final class CentreUse {
                 if (edge != null) {
                     return edge;
                 }
+                IsoObject hung = above > LOW_THING ? hungOn(from, crossX ? (stepX > 0 ? "W" : "E") : (stepY > 0 ? "N" : "S")) : null;
+                if (hung != null) {
+                    return hung;
+                }
                 if (menu && from.isBlockedTo(to)) {
                     IsoObject wall = switchOn(from);
                     return wall != null ? wall : (ownerIsTo ? to : from).getWall(!crossX);
@@ -209,7 +270,7 @@ final class CentreUse {
             }
             if (to.isSolid() || to.isSolidTrans()) {
                 // A counter, a fridge, a shelf unit: the view stops on it, and it is what is looked at.
-                IsoObject there = onSquare(to, view, Float.POSITIVE_INFINITY, floorUp);
+                IsoObject there = onSquare(to, view, Float.POSITIVE_INFINITY, floorUp, true);
                 if (there == null && menu) {
                     there = standing(to);
                 }
@@ -275,13 +336,14 @@ final class CentreUse {
 
     /**
      * What is on a square for the key: the thing lying nearest the view's line, else a body
-     * or a piece of furniture that holds things. A microwave on a counter holds things as the
-     * counter does, and is what the view is on where it passes over the front of the microwave
-     * higher than the counter's top.
+     * or a piece of furniture that holds things or that the game's click opens a window for. A
+     * microwave or a radio on a counter is what the view is on where it passes over the front of
+     * the thing higher than the counter's top.
      *
-     * @param floorUp the height of the floor the player stands on, in tiles above level 0
+     * @param floorUp   the height of the floor the player stands on, in tiles above level 0
+     * @param stoppedOn whether the view stops on the square, a solid one, and does not go on past it
      */
-    private IsoObject onSquare(IsoGridSquare square, ViewCamera.Pose view, float reach, float floorUp) {
+    private IsoObject onSquare(IsoGridSquare square, ViewCamera.Pose view, float reach, float floorUp, boolean stoppedOn) {
         IsoObject nearest = null;
         float nearestOff = ITEM_RADIUS;
         ArrayList<IsoWorldInventoryObject> items = square.getWorldObjects();
@@ -316,11 +378,13 @@ final class CentreUse {
         for (int i = 0; i < objects.size(); i++) {
             IsoObject object = objects.get(i);
             PropertyContainer properties = object.getProperties();
-            boolean standsOn = properties != null && properties.has("IsTableTop") || object.getRenderYOffset() > 0f;
+            // A radio or a television that shares its square with a container stands on it: a counter, a cabinet.
+            boolean standsOn = properties != null && properties.has("IsTableTop") || object.getRenderYOffset() > 0f || object instanceof IsoWaveSignal;
             if (!standsOn && properties != null) {
                 top = Math.max(top, properties.getSurface());
             }
-            if (object.getContainer() == null || object instanceof IsoWorldInventoryObject) {
+            if (object instanceof IsoWorldInventoryObject || object.getContainer() == null && (!clickedThoughEmpty(object)
+                    || !stoppedOn && above(square, view, floorUp, 0f) > LOW_THING) || !stoppedOn && hung(properties)) {
                 continue;
             }
             if (!standsOn && under == null) {
@@ -332,11 +396,18 @@ final class CentreUse {
         if (under == null || onTop == null) {
             return under == null ? onTop : under;
         }
+        return above(square, view, floorUp, ON_TOP_FRONT) > top / WorldScene.SURFACE_PIXELS_PER_LEVEL * ViewCamera.LEVEL_HEIGHT ? onTop : under;
+    }
+
+    /**
+     * How high over the player's floor, in tiles, the view is where it passes a point short of the middle of a square by
+     * so much, in tiles along the view.
+     */
+    private static float above(IsoGridSquare square, ViewCamera.Pose view, float floorUp, float shortOfMiddle) {
         float flat = (float) Math.sqrt(view.forwardX * view.forwardX + view.forwardY * view.forwardY);
-        float toFront = flat == 0f ? 0f : ((square.getX() + 0.5f - view.eyeX) * view.forwardX + (square.getY() + 0.5f - view.eyeY) * view.forwardY) / (flat * flat)
-                - ON_TOP_FRONT / flat;
-        float above = view.eyeUp + view.forwardUp * toFront - floorUp;
-        return above > top / WorldScene.SURFACE_PIXELS_PER_LEVEL * ViewCamera.LEVEL_HEIGHT ? onTop : under;
+        float along = flat == 0f ? 0f : ((square.getX() + 0.5f - view.eyeX) * view.forwardX + (square.getY() + 0.5f - view.eyeY) * view.forwardY) / (flat * flat)
+                - shortOfMiddle / flat;
+        return view.eyeUp + view.forwardUp * along - floorUp;
     }
 
     /** The floor where the view comes down to it, or null where there is no square or no floor there. */
@@ -344,6 +415,25 @@ final class CentreUse {
         IsoGridSquare square = cell.getGridSquare((int) Math.floor(view.eyeX + view.forwardX * down),
                 (int) Math.floor(view.eyeY + view.forwardY * down), level);
         return square == null ? null : square.getFloor();
+    }
+
+    /**
+     * Something standing on a square the view goes on over, which it passes lower than the top of: a sink on its
+     * stand, a chair. Its top is its Surface, the height things are put down on it at. What hangs high on a wall is
+     * met at its wall.
+     */
+    private static IsoObject lowOn(IsoGridSquare square, ViewCamera.Pose view, float floorUp) {
+        float passes = above(square, view, floorUp, 0f);
+        PZArrayList<IsoObject> objects = square.getObjects();
+        for (int i = 0; i < objects.size(); i++) {
+            IsoObject object = objects.get(i);
+            PropertyContainer properties = object.getProperties();
+            if (object != square.getFloor() && object.getType() != IsoObjectType.wall && properties != null && properties.has("CustomName") && !hung(properties)
+                    && passes < properties.getSurface() / WorldScene.SURFACE_PIXELS_PER_LEVEL * ViewCamera.LEVEL_HEIGHT) {
+                return object;
+            }
+        }
+        return null;
     }
 
     /** Something standing on a square, which is not its floor: a sink, a counter, a stove. */
@@ -356,6 +446,26 @@ final class CentreUse {
             }
         }
         return floor;
+    }
+
+    /**
+     * A cabinet or shelves hung high on a wall of the square, facing that way into it: met where the view
+     * crosses that wall, not anywhere over the square, which reaches the one on the wall behind the player.
+     */
+    private static IsoObject hungOn(IsoGridSquare square, String facing) {
+        PZArrayList<IsoObject> objects = square.getObjects();
+        for (int i = 0; i < objects.size(); i++) {
+            IsoObject object = objects.get(i);
+            PropertyContainer properties = object.getProperties();
+            if (object.getContainer() != null && hung(properties) && facing.equals(properties.get("Facing"))) {
+                return object;
+            }
+        }
+        return null;
+    }
+
+    private static boolean hung(PropertyContainer properties) {
+        return properties != null && properties.has("IsHigh") && properties.get("Facing") != null;
     }
 
     private IsoObject switchOn(IsoGridSquare square) {

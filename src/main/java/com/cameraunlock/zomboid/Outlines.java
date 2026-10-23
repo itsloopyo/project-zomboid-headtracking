@@ -60,7 +60,7 @@ final class Outlines {
             return square == null || body.getContainer() == null ? NONE : key(square, BODY, square.getStaticMovingObjects().indexOf(body));
         }
         if (object.getContainer() == null && !(object instanceof IsoDoor) && !(object instanceof IsoWindow) && !(object instanceof IsoCurtain)
-                && !(object instanceof IsoLightSwitch) && !(object instanceof IsoThumpable thumpable && thumpable.isDoor())) {
+                && !(object instanceof IsoLightSwitch) && !(object instanceof IsoThumpable thumpable && thumpable.isDoor()) && !CentreUse.clickedThoughEmpty(object)) {
             return NONE;
         }
         IsoGridSquare square = object.getSquare();

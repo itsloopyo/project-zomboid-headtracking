@@ -82,12 +82,16 @@ final class WorldMenu {
         if (FirstPerson.TRACE) {
             Log.info("world menu at (" + x + ", " + y + "): " + found);
         }
-        if (found == null) {
-            return;
+        if (found != null) {
+            openFor(found, x, y);
         }
+    }
+
+    /** Opens the game's world menu for a thing at a place in the game's window, and holds the pointer out for it. Whether it opened. */
+    boolean openFor(IsoObject found, double x, double y) {
         IsoGridSquare square = found instanceof IsoMovingObject body ? body.getCurrentSquare() : found.getSquare();
         if (square == null) {
-            return;
+            return false;
         }
         // The game turns the place on the screen it is handed back into a square of its own view
         // for the rest of the menu, so it is handed that square's place there, and the menu is
@@ -98,20 +102,21 @@ final class WorldMenu {
         Object[] manager = call(((KahluaTable) LuaManager.env.rawget(MANAGER)).rawget("getInstance"));
         if (atX == null || atX.length < 2 || atY == null || atY.length < 2 || manager == null || manager.length < 2
                 || !(manager[1] instanceof KahluaTable instance)) {
-            return;
+            return false;
         }
         KahluaTable objects = LuaManager.platform.newTable();
         objects.rawset(Double.valueOf(1), found);
         Object[] made = call(UIManager.tableget(instance, "createWorldMenu"), player, found, objects, atX[1], atY[1]);
         if (made == null || made.length < 2 || !(made[1] instanceof KahluaTable menu)
                 || !(menu.rawget("javaObject") instanceof UIElementInterface shown) || !shown.isVisible()) {
-            return;
+            return false;
         }
         menu.rawset("requestX", x);
         menu.rawset("requestY", y);
         call(UIManager.tableget(menu, "setSlideGoalX"), menu, x + SLIDE_X, x);
         call(UIManager.tableget(menu, "setSlideGoalY"), menu, y + SLIDE_Y, y);
         view.firstPerson.holdPointerForMenu();
+        return true;
     }
 
     /** What a Lua function of the game's answered, its own success first, or null where it raised an error, which is logged. */
