@@ -25,6 +25,7 @@ final class LeisureTests {
         Checks.run("aPairOfTheatreSeatsFacesTheWayItsSpriteSays", LeisureTests::aPairOfTheatreSeatsFacesTheWayItsSpriteSays);
         Checks.run("aStageMicrophoneFacesTheWayItsSpriteSays", LeisureTests::aStageMicrophoneFacesTheWayItsSpriteSays);
         Checks.run("aStudioCameraFacesTheWayItsSpriteSaysAndIsDyedFromItsBody", LeisureTests::aStudioCameraFacesTheWayItsSpriteSaysAndIsDyedFromItsBody);
+        Checks.run("aLecternIsDyedFromItsPostsLitFaceAndItsDesk", LeisureTests::aLecternIsDyedFromItsPostsLitFaceAndItsDesk);
         Checks.run("aPoolTablesLampHangsFromTheCeilingOverBothSquares", LeisureTests::aPoolTablesLampHangsFromTheCeilingOverBothSquares);
         Checks.run("anOrgansWestSquareStandsItAgainstItsWallAndTheRestStandNothing", LeisureTests::anOrgansWestSquareStandsItAgainstItsWallAndTheRestStandNothing);
         Checks.run("aChurchsColouredWindowsAreStainedGlassAndItsClearOnesAreNot", LeisureTests::aChurchsColouredWindowsAreStainedGlassAndItsClearOnesAreNot);
@@ -121,6 +122,18 @@ final class LeisureTests {
                     "where the body is painted behind the tripod");
         }
         Checks.check(Outdoors.of("appliances_com_01_44", "HK533p", "Imekagi", Outdoors.NONE, 1, 1, 0) == null, "a camera facing no way is left to the game");
+    }
+
+    private static void aLecternIsDyedFromItsPostsLitFaceAndItsDesk() {
+        for (int faces = Outdoors.NORTH; faces <= Outdoors.WEST; faces++) {
+            Outdoors.Piece lectern = Outdoors.of("location_community_church_small_01_44", "Stand", "Lectern", faces, 1, 1, 0);
+            holds(lectern, "a lectern facing " + faces + " has a model");
+            float across = faces == Outdoors.SOUTH || faces == Outdoors.NORTH ? Leisure.LECTERN_BROAD_LEFT : Leisure.LECTERN_NARROW_LEFT;
+            Checks.check(lectern != null && lectern.model.equals("lectern") && lectern.turns == faces, "it is turned the way it faces");
+            Checks.check(lectern != null && lectern.dyed == 1 << Models.DARK_WOOD && lectern.dyeA == 0.5f - across && lectern.dyeB == 0.5f + across
+                    && lectern.dyeHigh == Leisure.LECTERN_POST_DYE, "its post is dyed from the post's left face");
+            Checks.check(lectern != null && lectern.alsoDyed == 1 << Models.WOOD && lectern.alsoHigh == Leisure.LECTERN_DESK_DYE, "its desk from the desk");
+        }
     }
 
     private static void aPoolTablesLampHangsFromTheCeilingOverBothSquares() {

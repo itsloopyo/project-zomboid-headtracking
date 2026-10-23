@@ -7760,14 +7760,58 @@ def grand_piano():
     return model
 
 
+# A church's lectern (location_community_church_small_01_44..47), read off its sprites: its base plate and the plinth on it, as
+# half width, half depth and height in metres; the panelled post's half width and half depth; and the desk's half width, how far
+# its foot and its head stand out from the post's middle, and how high each of them is.
+LECTERN_BASE = (0.26, 0.125, 0.05)
+LECTERN_PLINTH = (0.2, 0.09, 0.11)
+LECTERN_POST = (0.125, 0.055)
+LECTERN_DESK = (0.3, -0.2, 0.2, 0.97, 1.13)
+
+
 def lectern():
-    """A lectern: a plinth, a post, and a sloped desk for the book that faces whoever reads from it at +Y."""
+    """A lectern: a base plate and a plinth, a panelled post with a collar at its head, and a sloped desk for the book with a
+    ledge along its foot, falling to whoever reads from it at -Y."""
     model = Model("lectern")
-    wood = bmesh.new()
-    cuboid(wood, -0.26, 0.26, -0.22, 0.22, 0.0, 0.08)
-    cuboid(wood, -0.12, 0.12, -0.09, 0.09, 0.08, 0.84)
-    prism_y(wood, (0.0, 0.87, 0.5, 0.07, -0.2), (0.0, 0.97, 0.5, 0.12, 0.2))
-    model.hard(wood, "dark_wood", bevel=0.008, segments=2)
+    base_x, base_y, base_z = LECTERN_BASE
+    plinth_x, plinth_y, plinth_z = LECTERN_PLINTH
+    post_x, post_y = LECTERN_POST
+    desk_x, foot_y, head_y, foot_z, head_z = LECTERN_DESK
+    collar = foot_z - 0.07
+    stand = bmesh.new()
+    cuboid(stand, -base_x, base_x, -base_y, base_y, 0.0, base_z)
+    prism(stand, (0.0, 0.0, 2 * plinth_x, 2 * plinth_y, base_z), (0.0, 0.0, 2 * plinth_x - 0.03, 2 * plinth_y - 0.03, plinth_z))
+    model.hard(stand, "dark_wood", bevel=0.005, segments=1)
+    # The post: a core with a sunk panel up each broad face, framed by a stile down each side and a rail at the foot and the head.
+    sunk = 0.01
+    post = bmesh.new()
+    cuboid(post, -post_x, post_x, -post_y + sunk, post_y - sunk, plinth_z, collar)
+    for y0, y1 in ((-post_y, -post_y + sunk), (post_y - sunk, post_y)):
+        cuboid(post, -post_x, post_x, y0, y1, plinth_z, plinth_z + 0.06)
+        cuboid(post, -post_x, post_x, y0, y1, collar - 0.06, collar)
+        for x0, x1 in ((-post_x, -post_x + 0.035), (post_x - 0.035, post_x)):
+            cuboid(post, x0, x1, y0, y1, plinth_z + 0.06, collar - 0.06)
+    model.hard(post, "dark_wood", bevel=0.004, segments=1)
+    head = bmesh.new()
+    cuboid(head, -post_x - 0.012, post_x + 0.012, -post_y - 0.012, post_y + 0.012, collar, foot_z - 0.01)
+    cuboid(head, -post_x - 0.012, post_x + 0.012, -post_y - 0.012, post_y + 0.012, plinth_z, plinth_z + 0.025)
+    model.hard(head, "dark_wood", bevel=0.004, segments=1)
+    # The desk: a board 3 cm thick on a wedge that carries it over the collar, and the ledge the book rests on along its foot.
+    rise = head_z - foot_z
+    slope = math.hypot(head_y - foot_y, rise)
+    normal = (-rise / slope, (head_y - foot_y) / slope)
+    desk = bmesh.new()
+    corners = [(foot_y, foot_z), (head_y, head_z), (head_y + normal[0] * 0.03, head_z + normal[1] * 0.03),
+               (foot_y + normal[0] * 0.03, foot_z + normal[1] * 0.03)]
+    outline_along_x(desk, [(y, z - 0.03) for y, z in corners], -desk_x, desk_x)
+    outline_along_x(desk, [(-post_y - 0.012, foot_z - 0.01), (post_y + 0.012, foot_z - 0.01),
+                           (post_y + 0.012, foot_z + (post_y + 0.012 - foot_y) * rise / (head_y - foot_y) - 0.03),
+                           (-post_y - 0.012, foot_z + (-post_y - 0.012 - foot_y) * rise / (head_y - foot_y) - 0.03)],
+                    -post_x - 0.012, post_x + 0.012)
+    model.hard(desk, "wood", bevel=0.006, segments=2)
+    ledge = bmesh.new()
+    cuboid(ledge, -desk_x, desk_x, foot_y - 0.005, foot_y + 0.02, foot_z - 0.03, foot_z + 0.035)
+    model.hard(ledge, "wood", bevel=0.004, segments=1)
     return model
 
 

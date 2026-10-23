@@ -20,7 +20,8 @@ final class Leisure {
 
     private static final String PARK = "location_community_park_01_", SPORTS = "recreational_sports_01_",
             CHURCH = "location_community_church_small_01_";
-    private static final int PAINT = 1 << Models.PAINT, METAL = 1 << Models.METAL, SHADE = 1 << Models.SHADE;
+    private static final int PAINT = 1 << Models.PAINT, METAL = 1 << Models.METAL, SHADE = 1 << Models.SHADE, WOOD = 1 << Models.WOOD,
+            DARK_WOOD = 1 << Models.DARK_WOOD;
     private static final float LEVEL = ViewCamera.LEVEL_HEIGHT;
 
     /** Where a swing's beam runs across its squares, and where along it the frame's apex stands, both from the square's corner. */
@@ -37,6 +38,11 @@ final class Leisure {
     static final float BOARD_AHEAD = 0.12f;
     /** How high a studio camera's sprite paints the top of its body, in levels, and how far behind the square's middle. */
     static final float CAMERA_BODY_DYE = 0.633f, CAMERA_BODY_BACK = 0.1f;
+    /**
+     * How high a lectern's sprite paints its post and its desk, in levels, and how far west and south of the square's middle the
+     * left face of its post is painted where that face is the post's broad one and where it is its narrow one.
+     */
+    static final float LECTERN_POST_DYE = 0.2f, LECTERN_DESK_DYE = 0.43f, LECTERN_BROAD_LEFT = 0.03f, LECTERN_NARROW_LEFT = 0.105f;
 
     static Outdoors.Piece of(String name, String called, String group, int faces, int width, int height) {
         boolean single = width == 1 && height == 1;
@@ -120,13 +126,22 @@ final class Leisure {
             return new Outdoors.Piece("piano_bench", faces);
         }
         if (called.equals("Stand") && kind.equals("Lectern")) {
-            return new Outdoors.Piece("lectern", faces);
+            return lectern(faces);
         }
         if (called.equals("Drum")) {
             return kind.equals("Kick") ? new Outdoors.Piece("drum_kick", faces)
                     : kind.equals("Tom") || kind.equals("Snare") ? new Outdoors.Piece("drum_stand", faces) : null;
         }
         return null;
+    }
+
+    /**
+     * A lectern, its post dyed from the face of it the sprite paints lit, on the left, and its desk from the desk over the same
+     * place: the post's broad face where it faces south or north, its narrow one where it faces east or west.
+     */
+    private static Outdoors.Piece lectern(int faces) {
+        float across = faces == Outdoors.SOUTH || faces == Outdoors.NORTH ? LECTERN_BROAD_LEFT : LECTERN_NARROW_LEFT;
+        return new Outdoors.Piece("lectern", faces).dye(DARK_WOOD, 0.5f - across, 0.5f + across, LECTERN_POST_DYE).also(WOOD, LECTERN_DESK_DYE);
     }
 
     /** A studio camera on its tripod, its body dyed from the top of the body its sprite paints behind the tripod. */
