@@ -275,6 +275,10 @@ final class Leisure {
     static final float RING_ROPES_FOOT = 0.728f;
     /** How high the sprites of a ring's ropes paint a blue rope and the red one under it, in levels, along x and along y, and where across. */
     private static final float RING_BLUE_X = 0.53f, RING_BLUE_Y = 0.543f, RING_RED_X = 0.405f, RING_RED_Y = 0.418f, RING_BLUE_A = 0.676f, RING_BLUE_B = 0.816f;
+    /** Where across its square a goalpost's crossbar runs, and how high the foot of the crossbar and its ends is over the level the game paints them on, in metres. */
+    static final float GOALPOST_ACROSS = 0.52f, GOALPOST_BAR_FOOT = 0.15f;
+    /** How high a goalpost's sprites paint it yellow, in levels: the post, its pad, and the crossbar. */
+    private static final float GOALPOST_DYE = 0.86f, GOALPOST_PAD_DYE = 0.4f, GOALPOST_BAR_DYE = 0.09f;
 
     /** What a playing field, a boxing ring and a gym have on their squares, each standing where the game's sprite of it paints it. */
     private static Outdoors.Piece field(int sports) {
@@ -290,6 +294,11 @@ final class Leisure {
             case 86 -> new Outdoors.Piece("ring_steps", Outdoors.WEST).at(RING_POST, 1f + RING_POST);
             case 87 -> new Outdoors.Piece("ring_corner", Outdoors.SOUTH).at(RING_POST, RING_POST);
             case 95 -> Outdoors.following(new Outdoors.Piece(null, 0));
+            // A goalpost along y: its post on the ground, and a level up the crossbar from the end over the post to the other.
+            case 8 -> new Outdoors.Piece("goalpost_post", Outdoors.WEST).dye(PAINT, GOALPOST_DYE).also(1 << Models.CLOTH, GOALPOST_PAD_DYE);
+            case 12 -> goalpost("goalpost_end_first", 0.63f);
+            case 11, 10 -> goalpost("goalpost_bar", 0.5f);
+            case 9 -> goalpost("goalpost_end_last", 0.11f);
             default -> null;
         };
     }
@@ -302,6 +311,12 @@ final class Leisure {
                 : new Outdoors.Piece(model, Outdoors.WEST).at(RING_POST, 0.5f + RING_POST).dye(PAINT, RING_POST, RING_BLUE_B, RING_BLUE_Y - foot)
                 .also(1 << Models.VINYL, RING_RED_Y - foot);
         return piece.raise(foot);
+    }
+
+    /** A square of a goalpost's crossbar, painted the colour its sprite paints it at b along its square. */
+    private static Outdoors.Piece goalpost(String model, float b) {
+        float foot = GOALPOST_BAR_FOOT / LEVEL;
+        return new Outdoors.Piece(model, Outdoors.WEST).at(GOALPOST_ACROSS, 0.5f).dye(PAINT, GOALPOST_ACROSS, b, GOALPOST_BAR_DYE - foot).raise(foot);
     }
 
     /** Where across its squares a run of net and of goal stands, from the square's corner. */

@@ -11544,9 +11544,57 @@ def ring_steps():
     return model
 
 
+# An American football goalpost: its post on the ground, padded from the foot, up to the crossbar a level up. How high the
+# crossbar is over the level the game paints it on, how high the uprights rise over that level, how thick each is, and how
+# far up the pad on the post reaches.
+GOALPOST_BAR, GOALPOST_TOP, GOALPOST_RADIUS, GOALPOST_PAD = 0.22, 2.33, 0.07, 1.65
+
+
+def goalpost_post():
+    """The post a goalpost stands on, from the ground to its crossbar a level up, padded up to the height of a man."""
+    model = Model("goalpost_post")
+    post = bmesh.new()
+    lathe(post, [(0.0, 0.0), (GOALPOST_RADIUS, 0.0), (GOALPOST_RADIUS, 2.45 + GOALPOST_BAR)], segments=14)
+    model.turned(post, "paint", sharp=50.0)
+    pad = bmesh.new()
+    lathe(pad, [(0.0, 0.0), (0.1, 0.0), (0.1, GOALPOST_PAD - 0.03), (0.085, GOALPOST_PAD), (GOALPOST_RADIUS, GOALPOST_PAD)], segments=16)
+    model.turned(pad, "cloth", sharp=40.0)
+    return model
+
+
+def goalpost_bar():
+    """A square's length of a goalpost's crossbar along the model's X, round its origin."""
+    model = Model("goalpost_bar", centred=False)
+    bar = bmesh.new()
+    rod(bar, (-0.5, 0.0, GOALPOST_BAR), (0.5, 0.0, GOALPOST_BAR), GOALPOST_RADIUS, segments=14)
+    model.turned(bar, "paint", sharp=50.0)
+    return model
+
+
+def goalpost_end(name, upright, first):
+    """The end of a goalpost's crossbar and the upright that rises from it at X = upright, the bar running on from it to
+    the square's edge at +X on the first square of the run and at -X on the last."""
+    model = Model(name, centred=False)
+    bend = 0.16
+    frame = bmesh.new()
+    away = 1.0 if first else -1.0
+    edge = 0.5 * away
+    rod(frame, (upright + away * bend, 0.0, GOALPOST_BAR), (edge, 0.0, GOALPOST_BAR), GOALPOST_RADIUS, segments=14)
+    # The elbow, a quarter round from the bar up into the upright.
+    steps = 6
+    points = [(upright + away * bend * (1.0 - math.sin(math.pi / 2 * k / steps)), GOALPOST_BAR + bend * (1.0 - math.cos(math.pi / 2 * k / steps)))
+              for k in range(steps + 1)]
+    for (x0, z0), (x1, z1) in zip(points, points[1:]):
+        rod(frame, (x0, 0.0, z0), (x1, 0.0, z1), GOALPOST_RADIUS, segments=14)
+    rod(frame, (upright, 0.0, GOALPOST_BAR + bend), (upright, 0.0, GOALPOST_TOP), GOALPOST_RADIUS * 0.85, segments=14)
+    model.turned(frame, "paint", sharp=50.0)
+    return model
+
+
 def sports():
     """What a playing field, a boxing ring and a gym have: Leisure.field stands each."""
-    return [ring_post(), ring_ropes("ring_ropes", False), ring_ropes("ring_ropes_tied", True), ring_corner(), ring_steps()]
+    return [ring_post(), ring_ropes("ring_ropes", False), ring_ropes("ring_ropes_tied", True), ring_corner(), ring_steps(),
+            goalpost_post(), goalpost_bar(), goalpost_end("goalpost_end_first", -0.12, True), goalpost_end("goalpost_end_last", 0.05, False)]
 
 
 def every():

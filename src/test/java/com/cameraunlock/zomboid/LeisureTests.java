@@ -13,6 +13,7 @@ final class LeisureTests {
         Checks.run("aBasketballBoardStandsInFrontOfItsPole", LeisureTests::aBasketballBoardStandsInFrontOfItsPole);
         Checks.run("everyPieceOfAFieldARingAndAGymNamesAModelTheJarHolds", LeisureTests::everyPieceOfAFieldARingAndAGymNamesAModelTheJarHolds);
         Checks.run("aRingsRopesRunFromPostToPostAtTheHeightOfItsCorner", LeisureTests::aRingsRopesRunFromPostToPostAtTheHeightOfItsCorner);
+        Checks.run("aGoalpostsCrossbarIsLevelWithTheTopOfItsPost", LeisureTests::aGoalpostsCrossbarIsLevelWithTheTopOfItsPost);
         Checks.run("aPieceLaidOutOtherwiseThanItsModelIsNone", LeisureTests::aPieceLaidOutOtherwiseThanItsModelIsNone);
         Checks.run("aSteeplesSpireStandsOnItsBelfry", LeisureTests::aSteeplesSpireStandsOnItsBelfry);
         Checks.run("aSteepleComesDownOntoARidgeShortOfItsFloor", LeisureTests::aSteepleComesDownOntoARidgeShortOfItsFloor);
@@ -189,7 +190,7 @@ final class LeisureTests {
     }
 
     private static void everyPieceOfAFieldARingAndAGymNamesAModelTheJarHolds() {
-        for (int place : new int[] {80, 81, 82, 83, 84, 85, 86, 87}) {
+        for (int place : new int[] {8, 9, 10, 11, 12, 80, 81, 82, 83, 84, 85, 86, 87}) {
             holds(unnamed("recreational_sports_01_" + place), "recreational_sports_01_" + place + " is a part of something on a field or in a ring");
         }
         Outdoors.Piece twice = unnamed("recreational_sports_01_95");
@@ -209,6 +210,16 @@ final class LeisureTests {
         }
         float ropesTop = Leisure.RING_ROPES_FOOT + Models.get("ring_ropes").height(), cornerTop = Models.get("ring_corner").height();
         Checks.check(ropesTop < cornerTop && ropesTop > cornerTop - 0.25f, "the top rope runs just under the top of a post: " + ropesTop + " under " + cornerTop);
+    }
+
+    private static void aGoalpostsCrossbarIsLevelWithTheTopOfItsPost() {
+        Outdoors.Piece post = unnamed("recreational_sports_01_8"), bar = unnamed("recreational_sports_01_10");
+        float barMiddle = ViewCamera.LEVEL_HEIGHT + bar.raised + Models.get(bar.model).height() / 2f, postTop = Models.get(post.model).height();
+        Checks.check(Math.abs(barMiddle - postTop) < 0.005f, "a goalpost's crossbar, a level up, goes through the top of its post: " + barMiddle + ", " + postTop);
+        for (int place : new int[] {9, 11, 12}) {
+            Outdoors.Piece piece = unnamed("recreational_sports_01_" + place);
+            Checks.check(piece.raised == bar.raised && piece.turns == bar.turns && piece.a == bar.a, "recreational_sports_01_" + place + " is on the line of the crossbar");
+        }
     }
 
     private static void aPieceLaidOutOtherwiseThanItsModelIsNone() {
