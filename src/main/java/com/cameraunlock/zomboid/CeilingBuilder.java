@@ -13,7 +13,14 @@ import zombie.util.list.PZArrayList;
  * and the band hung round the edge of such a canopy. One to a frame of the world's picture, and it writes into that frame's meshes.
  */
 final class CeilingBuilder {
-    private static final int[] CEILING_CORNERS = {0, 1, 2, 0, 2, 3};
+    /**
+     * A ceiling square is four triangles round its middle, CENTRE, which takes the mean of its
+     * corners. Split in two, each square's light ran in straight lines along the one diagonal
+     * every square shares, and where the light changes from square to square, as it does
+     * between the lamps of a hall, the ceiling showed those diagonals as streaks.
+     */
+    private static final int CENTRE = 4;
+    private static final int[] CEILING_CORNERS = {CENTRE, 0, 1, CENTRE, 1, 2, CENTRE, 2, 3, CENTRE, 3, 0};
     /** How far a canopy is looked across for its edge, in squares, and the least and most deep one is made, in tiles. */
     private static final int CANOPY_SPAN = 24;
     private static final float CANOPY_SHALLOWEST = 0.25f, CANOPY_DEEPEST = 1.2f;
@@ -53,10 +60,16 @@ final class CeilingBuilder {
         plain.face(0f, 0f, -1f);
         float up = (z + 1) * ViewCamera.LEVEL_HEIGHT;
         WorldScene.layers.sheet(-1f);
+        float[] lift = build.geometry.lift, red = build.frame.cornerRed, green = build.frame.cornerGreen, blue = build.frame.cornerBlue;
         for (int corner : CEILING_CORNERS) {
+            if (corner == CENTRE) {
+                plain.litAt(build.frame, 0.25f, 0.25f, 0.25f, 0.25f);
+                plain.add(x + 0.5f, y + 0.5f, up + (lift[0] + lift[1] + lift[2] + lift[3]) / 4f, 0f, 0f,
+                        (red[0] + red[1] + red[2] + red[3]) / 4f, (green[0] + green[1] + green[2] + green[3]) / 4f, (blue[0] + blue[1] + blue[2] + blue[3]) / 4f);
+                continue;
+            }
             plain.litAt(build.frame, corner == 0 ? 1f : 0f, corner == 1 ? 1f : 0f, corner == 2 ? 1f : 0f, corner == 3 ? 1f : 0f);
-            plain.add(x + (corner == 1 || corner == 2 ? 1f : 0f), y + (corner >= 2 ? 1f : 0f), up + build.geometry.lift[corner], 0f, 0f,
-                    build.frame.cornerRed[corner], build.frame.cornerGreen[corner], build.frame.cornerBlue[corner]);
+            plain.add(x + (corner == 1 || corner == 2 ? 1f : 0f), y + (corner >= 2 ? 1f : 0f), up + lift[corner], 0f, 0f, red[corner], green[corner], blue[corner]);
         }
         plain.litAsFace();
         WorldScene.layers.none();
