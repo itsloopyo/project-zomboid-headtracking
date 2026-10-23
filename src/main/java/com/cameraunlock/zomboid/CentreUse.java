@@ -75,7 +75,7 @@ final class CentreUse {
     private static final float LOW_THING = ViewCamera.LEVEL_HEIGHT / 2f;
 
     private static final String CLICK_HANDLER = "ISObjectClickHandler", WORLD_MENU = "ISWorldObjectContextMenu", INVENTORY_PAGE = "ISInventoryPage";
-    private static final String PRESS = "doClickSpecificObject", RELEASE = "doClick", GRAB = "onGrabWItem";
+    private static final String PRESS = "doClickSpecificObject", RELEASE = "doClick", GRAB = "onGrabWItem", DOOR = "onOpenCloseDoor";
 
     /**
      * The key (Outlines.key) of what the key would act on this frame, for the picture to
@@ -95,7 +95,10 @@ final class CentreUse {
         if (gap == null) {
             gap = gap(CLICK_HANDLER, RELEASE);
         }
-        return gap != null ? gap : gap(WORLD_MENU, GRAB);
+        if (gap == null) {
+            gap = gap(WORLD_MENU, GRAB);
+        }
+        return gap != null ? gap : gap(WORLD_MENU, DOOR);
     }
 
     private static String gap(String table, String function) {
@@ -118,11 +121,19 @@ final class CentreUse {
         if (found instanceof IsoWorldInventoryObject item) {
             return call(WORLD_MENU, GRAB, null, item, Double.valueOf(player.getIndex())) == null ? Outcome.NOTHING : Outcome.USED;
         }
-        if (found instanceof IsoDoor || found instanceof IsoWindow || found instanceof IsoCurtain
-                || found instanceof IsoLightSwitch || found instanceof IsoThumpable thumpable && thumpable.isDoor()) {
+        if (keyActsOn(found)) {
             // False when the game will not have it: too far off, the wrong side of a wall, aiming.
             Object[] answered = call(CLICK_HANDLER, PRESS, found, Double.valueOf(player.getIndex()), player);
-            return answered != null && answered.length > 1 && Boolean.TRUE.equals(answered[1]) ? Outcome.USED : Outcome.NOTHING;
+            if (answered != null && answered.length > 1 && Boolean.TRUE.equals(answered[1])) {
+                return Outcome.USED;
+            }
+            if (!isDoor(found)) {
+                return Outcome.NOTHING;
+            }
+            // The click is for a door beside the character and not for one aimed at. The key is for the door under the
+            // reticle wherever it stands within reach, so it is the world menu's Open or Close: the character walks to the
+            // door first where it is not beside it.
+            return call(WORLD_MENU, DOOR, null, found, Double.valueOf(player.getIndex())) == null ? Outcome.NOTHING : Outcome.USED;
         }
         if (!pointer) {
             // The game's click on a container is the first player's, whoever asks, and its panels are a pointer's. A
@@ -192,11 +203,20 @@ final class CentreUse {
     IsoObject standingFor(ViewCamera.Pose line, float floorUp, IsoPlayer player, IsoCell cell) {
         IsoObject found = forMenu(line, floorUp, player, cell);
         IsoGridSquare square = found == null ? null : found.getSquare();
-        if (square == null || found == square.getFloor() || found instanceof IsoLightSwitch || found.getType() == IsoObjectType.wall) {
+        if (square == null || found == square.getFloor() || keyActsOn(found) || found.getType() == IsoObjectType.wall) {
             return null;
         }
         float toX = square.getX() + 0.5f - line.eyeX, toY = square.getY() + 0.5f - line.eyeY;
         return toX * toX + toY * toY <= (REACH + 0.71f) * (REACH + 0.71f) ? found : null;
+    }
+
+    /** Whether the key hands a thing to the game's click handler: a door, a window, a curtain, a light switch. */
+    private static boolean keyActsOn(IsoObject object) {
+        return isDoor(object) || object instanceof IsoWindow || object instanceof IsoCurtain || object instanceof IsoLightSwitch;
+    }
+
+    private static boolean isDoor(IsoObject object) {
+        return object instanceof IsoDoor || object instanceof IsoThumpable thumpable && thumpable.isDoor();
     }
 
     /**
