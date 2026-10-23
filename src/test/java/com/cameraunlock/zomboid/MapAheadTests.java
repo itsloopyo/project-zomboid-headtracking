@@ -47,18 +47,24 @@ final class MapAheadTests {
         check(door == (MapAhead.WALL_W | MapAhead.BUILT_UP), "a door frame on the west is a wall there: " + door);
         int lines = MapAhead.traits(sprite(Footings.OVERHEAD_LINES + "_01_20", IsoObjectType.normal));
         check(lines == MapAhead.OVERHEAD, "the overhead wires are overhead lines and nothing else: " + lines);
+        int goal = MapAhead.traits(sprite("recreational_sports_01_20", IsoObjectType.normal));
+        check(goal == Grounds.GOAL_ALONG_X << MapAhead.LEVEL_SHIFT, "a goal's crossbar marks level ground and is nothing else: " + goal);
     }
 
     private static void theGroundsFirstFloorAndWhatIsAboveAreRead() {
         int grass = MapAhead.FLOOR | MapAhead.NATURAL_NAME, sign = 0, wires = MapAhead.OVERHEAD, floor = MapAhead.FLOOR | MapAhead.BLOCKS_RAIN, water = MapAhead.FLOOR | MapAhead.WATER;
-        int[] traits = {grass, sign, wires, floor, water};
+        int bar = Grounds.GOAL_ALONG_X << MapAhead.LEVEL_SHIFT, base = Grounds.BASE << MapAhead.LEVEL_SHIFT;
+        int[] traits = {grass, sign, wires, floor, water, bar, base};
         var pack = FarTreeTests.pack(true, -1, 2,
                 new FarTreeTests.Square(2, 1, -1, 3, 4, 4),
                 new FarTreeTests.Square(2, 1, 0, 3, 4, 1, 0, 4),
                 new FarTreeTests.Square(2, 1, 1, 3, 4, 2),
                 new FarTreeTests.Square(2, 1, 2, 3, 4, 3),
                 new FarTreeTests.Square(2, 1, 0, 7, 7, 2),
-                new FarTreeTests.Square(2, 1, 1, 7, 7, 1));
+                new FarTreeTests.Square(2, 1, 1, 7, 7, 1),
+                new FarTreeTests.Square(2, 1, 0, 5, 5, 0, 6),
+                new FarTreeTests.Square(2, 1, 1, 5, 6, 5),
+                new FarTreeTests.Square(2, 1, 2, 5, 7, 5));
         MapAhead.Raw raw = MapAhead.read(0, pack, traits, -1, 2, 66, 33, 2, 1);
         int at = 3 * 8 + 4;
         check(raw.floor()[at] == grass, "the floor is the first floor tile on the ground, after a sign and before water: " + raw.floor()[at]);
@@ -68,17 +74,21 @@ final class MapAheadTests {
         int corner = 7 * 8 + 7;
         check(raw.floor()[corner] == 0 && raw.ground()[corner] == wires, "a square with only wires on the ground has no floor: " + raw.floor()[corner]);
         check(raw.above()[corner] == MapAhead.ANY && raw.levels()[corner] == 1 << 1, "a sign hung above is something over the square: " + raw.above()[corner]);
-        check(raw.floor()[0] == 0 && raw.ground()[0] == 0 && raw.above()[0] == 0 && raw.levels()[0] == 0, "an empty square has nothing");
+        check(raw.floor()[0] == 0 && raw.ground()[0] == 0 && raw.above()[0] == 0 && raw.levels()[0] == 0 && raw.level()[0] == Grounds.NONE, "an empty square has nothing");
+        check(raw.level()[5 * 8 + 5] == Grounds.BASE && raw.level()[5 * 8 + 6] == Grounds.GOAL_ALONG_X, "a base on the ground and a goal's crossbar on the level over it mark level ground");
+        check(raw.level()[5 * 8 + 7] == Grounds.NONE, "and nothing two levels up does");
     }
 
     /** One square's worth of what the lotpack has: see MapAhead.Raw. */
     private static MapAhead.Raw raw(int floor, int ground, int above, int levels) {
         int[] floors = new int[64], grounds = new int[64], aboves = new int[64], levelses = new int[64];
+        byte[] level = new byte[64];
+        level[0] = Grounds.GOAL_ALONG_Y;
         floors[0] = floor;
         grounds[0] = ground | floor;
         aboves[0] = above;
         levelses[0] = levels;
-        return new MapAhead.Raw(0, 10, 20, floors, grounds, aboves, levelses);
+        return new MapAhead.Raw(0, 10, 20, floors, grounds, aboves, levelses, level);
     }
 
     private static final MapAhead.Rooms NO_ROOMS = (x, y, z) -> Footings.NONE;
@@ -88,6 +98,7 @@ final class MapAheadTests {
         check(MapAhead.guess(raw(MapAhead.FLOOR | MapAhead.WATER | MapAhead.NATURAL_NAME, 0, 0, 0), NO_ROOMS).kind[0] == Terrain.WATER, "water is water");
         MapAhead.Guess open = MapAhead.guess(raw(grass, 0, 0, 0), NO_ROOMS);
         check(open.kind[0] == Terrain.NATURAL && !open.footway[0], "grass out of doors is the land's own");
+        check(open.level[0] == Grounds.GOAL_ALONG_Y, "and what it is to level ground is as read");
         MapAhead.Guess pavement = MapAhead.guess(raw(street | MapAhead.ROAD_04, 0, 0, 0), NO_ROOMS);
         check(pavement.kind[0] == Terrain.STREET && pavement.footway[0], "a pavement is street and footway");
         MapAhead.Guess road = MapAhead.guess(raw(street, 0, 0, 0), NO_ROOMS);

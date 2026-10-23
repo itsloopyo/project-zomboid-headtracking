@@ -402,9 +402,10 @@ final class LeisureTests {
     private static void whatAPitchACourtAndADiamondStandOnIsLevelGround() {
         Checks.check(Grounds.of("recreational_sports_01_19") == Grounds.GOAL_ALONG_X && Grounds.of("recreational_sports_01_16") == Grounds.GOAL_ALONG_Y, "a football goal marks a pitch, and which way it faces");
         Checks.check(Grounds.of("recreational_sports_01_22") == Grounds.SURFACE && Grounds.of("recreational_sports_01_23") == Grounds.SURFACE, "a court's surface and a track are level ground");
-        Checks.check(Grounds.of("recreational_sports_01_0") == Grounds.BASE && Grounds.of("recreational_sports_01_24") == Grounds.HOOP && Grounds.of("recreational_sports_01_120") == Grounds.JUMP
-                && Grounds.of("recreational_sports_01_7") == Grounds.POSTS, "a base, a hoop, a show jump and goalposts mark level ground");
-        Checks.check(Grounds.of("recreational_sports_01_49") == Grounds.PIECE && Grounds.of("location_military_generic_01_48") == Grounds.PIECE, "a tennis net and a climbing frame stand level");
+        Checks.check(Grounds.of("recreational_sports_01_0") == Grounds.BASE && Grounds.of("recreational_sports_01_24") == Grounds.HOOP && Grounds.of("recreational_sports_01_120") == Grounds.JUMP,
+                "a base, a hoop and a show jump mark level ground");
+        Checks.check(Grounds.of("recreational_sports_01_49") == Grounds.PIECE && Grounds.of("location_military_generic_01_48") == Grounds.PIECE && Grounds.of("recreational_sports_01_7") == Grounds.PIECE,
+                "a tennis net, a climbing frame and a gridiron's goalposts stand level");
         Checks.check(Grounds.of("recreational_sports_01_40") == Grounds.NONE && Grounds.of("location_military_generic_01_0") == Grounds.NONE && Grounds.of("blends_natural_01_16") == Grounds.NONE, "the rest is not");
     }
 

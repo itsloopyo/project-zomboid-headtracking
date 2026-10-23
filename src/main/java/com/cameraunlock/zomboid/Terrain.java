@@ -293,7 +293,8 @@ final class Terrain {
 
         @Override
         public byte levelKind(int x, int y) {
-            return groundOf(siteCell, Terrain.ground(siteCell, x, y), x, y);
+            IsoGridSquare square = ground(siteCell, x, y);
+            return square != null ? groundOf(siteCell, square, x, y) : MapAhead.guessed(Math.floorDiv(x, CHUNK_TILES), Math.floorDiv(y, CHUNK_TILES)).level[inChunk(x, y)];
         }
 
         @Override
@@ -332,6 +333,7 @@ final class Terrain {
         byte kind = guess.kind[at];
         byte over = guess.house[at] != Footings.NONE ? Footings.HOUSE
                 : standsNow(guess.stands[at]) ? Footings.BUILT
+                : guess.level[at] != Grounds.NONE ? Footings.LEVEL
                 : guess.above[at] != Footings.OPEN ? guess.above[at]
                 : !Paving.without && (kind == STREET || kind == MADE) ? Footings.PAVED : Footings.OPEN;
         return (byte) (over | Footings.GUESSED);
@@ -1640,7 +1642,7 @@ final class Terrain {
      */
     private static byte groundOf(IsoCell cell, IsoGridSquare square, int x, int y) {
         byte kind = groundOn(square);
-        IsoGridSquare over = cell.getGridSquare(x, y, 1);
+        IsoGridSquare over = square.getChunk().getMaxLevel() < 1 ? null : cell.getGridSquare(x, y, 1);
         return over == null ? kind : (byte) Math.max(kind, groundOn(over));
     }
 

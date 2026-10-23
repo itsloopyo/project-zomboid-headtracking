@@ -24,7 +24,8 @@ final class FootingTests {
         Checks.run("aCourtIsAThingOfItsOwnApartFromTheBuildingBesideIt", FootingTests::aCourtIsAThingOfItsOwnApartFromTheBuildingBesideIt);
         Checks.run("goalsReachOnlyAcrossTheirCrossbarAndNotThroughAWall", FootingTests::goalsReachOnlyAcrossTheirCrossbarAndNotThroughAWall);
         Checks.run("basesOfADiamondTurnedOnTheMapAreOneThing", FootingTests::basesOfADiamondTurnedOnTheMapAreOneThing);
-        Checks.run("aBoxSomeOfWhichNoChunkRoundItWouldGatherIsNotLaidLevel", FootingTests::aBoxSomeOfWhichNoChunkRoundItWouldGatherIsNotLaidLevel);
+        Checks.run("goalsAsFarApartAsAGoalReachesAreLaidLevel", FootingTests::goalsAsFarApartAsAGoalReachesAreLaidLevel);
+        Checks.run("aPitchReadPartlyAheadOfTheLoadedMapIsSettledAndABuildingIsNot", FootingTests::aPitchReadPartlyAheadOfTheLoadedMapIsSettledAndABuildingIsNot);
     }
 
     private static void check(boolean condition, String what) {
@@ -33,8 +34,8 @@ final class FootingTests {
 
     /**
      * A map drawn in rows of text: '.' open, 's' built, 'h' hung over, a letter A to Z a building, '?' not loaded, and level
-     * ground: 'c' a court's surface, 'g' a goal whose crossbar runs along x, 'y' one along y, 'b' a base, 'p' goalposts.
-     * Outside it is open.
+     * ground: 'c' a court's surface, 'g' a goal whose crossbar runs along x, 'y' one along y, 'b' a base. Read ahead of the
+     * loaded map (Footings.GUESSED): ',' open, 'q' a goal whose crossbar runs along x. Outside it is open.
      */
     private static final class Plan implements Footings.Site {
         final String[] rows;
@@ -75,6 +76,7 @@ final class FootingTests {
         public byte over(int x, int y) {
             char c = at(x, y);
             return c == '.' ? Footings.OPEN : c == 's' ? Footings.BUILT : c == 'h' ? Footings.HUNG : c == '?' ? Footings.UNLOADED
+                    : c == ',' ? Footings.OPEN | Footings.GUESSED : c == 'q' ? Footings.LEVEL | Footings.GUESSED
                     : levelKind(x, y) != Grounds.NONE ? Footings.LEVEL : Footings.HOUSE;
         }
 
@@ -82,10 +84,9 @@ final class FootingTests {
         public byte levelKind(int x, int y) {
             return switch (at(x, y)) {
                 case 'c' -> Grounds.SURFACE;
-                case 'g' -> Grounds.GOAL_ALONG_X;
+                case 'g', 'q' -> Grounds.GOAL_ALONG_X;
                 case 'y' -> Grounds.GOAL_ALONG_Y;
                 case 'b' -> Grounds.BASE;
-                case 'p' -> Grounds.POSTS;
                 default -> Grounds.NONE;
             };
         }
@@ -477,16 +478,31 @@ final class FootingTests {
         check(footings.boxed && footings.boxLowX == -Grounds.MARGIN && footings.boxHighX == 11 + Grounds.MARGIN, "laid level over all of them");
     }
 
-    private static void aBoxSomeOfWhichNoChunkRoundItWouldGatherIsNotLaidLevel() {
-        // Goalposts down a gridiron 100 squares long: half way down its side, a corner is farther from both than Terrain gathers.
-        String[] rows = new String[101];
-        Arrays.fill(rows, "...");
-        rows[0] = ".p.";
-        rows[100] = ".p.";
-        Plan gridiron = new Plan(rows);
-        long posts = found(gridiron, 1, 0);
-        check(posts == found(gridiron, 1, 100), "the goalposts at either end are one thing");
-        check(!footings.boxed, "but too long a box to lay level");
-        check(found(Plan.pitch(10, 2, 74), 10, 2) != Footings.NONE && footings.boxed, "the longest pitch on the map is laid level");
+    private static void goalsAsFarApartAsAGoalReachesAreLaidLevel() {
+        // Half way down the side of the longest pitch a goal reaches, the land eased round it is still near enough a goal for every chunk round it to see.
+        check(found(Plan.pitch(10, 2, Grounds.reach(Grounds.GOAL_ALONG_X)), 10, 2) != Footings.NONE && footings.whole && footings.boxed, "goals as far apart as a goal reaches are one thing laid level");
+        check(footings.boxHighY - footings.boxLowY == Grounds.reach(Grounds.GOAL_ALONG_X) + 1 + 2 * Grounds.MARGIN, "from end to end");
+        check(found(Plan.pitch(10, 2, Grounds.reach(Grounds.GOAL_ALONG_X) + 1), 10, 2) != found(Plan.pitch(10, 2, Grounds.reach(Grounds.GOAL_ALONG_X) + 1), 12, 83), "goals farther apart are two");
+    }
+
+    private static void aPitchReadPartlyAheadOfTheLoadedMapIsSettledAndABuildingIsNot() {
+        // The far goal and the ground past it are read ahead of the loaded map.
+        String[] rows = new String[120];
+        for (int row = 0; row < rows.length; row++) {
+            rows[row] = row == 2 ? "....ggg." : row < 20 ? "........" : row == 50 ? ",,,,qqq," : ",,,,,,,,";
+        }
+        Plan pitch = new Plan(rows);
+        long goal = found(pitch, 4, 2);
+        check(goal == found(pitch, 6, 50), "a goal read ahead of the loaded map is one thing with the goal facing it");
+        found(pitch, 4, 2);
+        check(footings.settled && footings.boxed, "and the pitch is settled and laid level, with nothing but the map ahead past the far goal");
+        rows[60] = "????????";
+        found(new Plan(rows), 4, 2);
+        check(!footings.settled, "a goal that looks past what is read ahead is not settled");
+        Plan house = new Plan(
+                "AAA,",
+                "AAA,");
+        found(house, 0, 0);
+        check(!footings.settled, "a building with ground read ahead beside it is not settled");
     }
 }

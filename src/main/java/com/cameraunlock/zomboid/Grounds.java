@@ -24,18 +24,20 @@ final class Grounds {
 
     /**
      * Nothing; a court's surface or a track; something stood on level ground that is joined only
-     * to what touches it; a football goal whose crossbar runs along x, and one along y; the
-     * goalposts of a gridiron; a base, a home plate or a pitcher's rubber; a basketball's pole or
-     * board; a show jump.
+     * to what touches it; a football goal whose crossbar runs along x, and one along y; a base, a
+     * home plate or a pitcher's rubber; a basketball's pole or board; a show jump. The goalposts
+     * of a gridiron are pieces: their field is a hundred squares long, too long a box to lay
+     * level (Footings.boxed), so they stand level each on their own ground.
      */
-    static final byte NONE = 0, SURFACE = 1, PIECE = 2, GOAL_ALONG_X = 3, GOAL_ALONG_Y = 4, POSTS = 5, BASE = 6, HOOP = 7, JUMP = 8;
+    static final byte NONE = 0, SURFACE = 1, PIECE = 2, GOAL_ALONG_X = 3, GOAL_ALONG_Y = 4, BASE = 5, HOOP = 6, JUMP = 7;
 
     /**
      * How far each kind reaches across open ground for another of its kind, in squares: a goal
-     * down the longest pitch on the map (74 between the goals), the goalposts down a gridiron,
-     * a base across a diamond, a hoop down its court, a jump across its arena.
+     * down the longest pitch on the map (74 between the goals), a base across a diamond, a hoop
+     * down its court, a jump across its arena. Each is within what MapAhead reads past the
+     * loaded map, so a search for partners never has to wait on more of the map to load.
      */
-    private static final int[] REACH = {0, 0, 0, 80, 80, 110, 30, 32, 24};
+    private static final int[] REACH = {0, 0, 0, 80, 80, 30, 32, 24};
 
     /** What a sprite is to level ground. */
     static byte of(String name) {
@@ -45,12 +47,11 @@ final class Grounds {
                 case 22, 23 -> SURFACE;
                 case 19, 20, 21 -> GOAL_ALONG_X;
                 case 16, 17, 18 -> GOAL_ALONG_Y;
-                case 7, 8, 9, 10, 11, 12, 13, 14, 15 -> POSTS;
                 case 0, 1, 2, 3, 4, 5, 6 -> BASE;
                 case 24, 25, 26, 27, 32, 33 -> HOOP;
                 case 120, 121, 122, 123, 124, 125 -> JUMP;
-                // A golf hole's flag, a tennis net, a boxing ring, a net across a court.
-                case 48, 49, 50, 51, 52, 53, 54, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93 -> PIECE;
+                // A gridiron's goalposts, a golf hole's flag, a tennis net, a boxing ring, a net across a court.
+                case 7, 8, 9, 10, 11, 12, 13, 14, 15, 48, 49, 50, 51, 52, 53, 54, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93 -> PIECE;
                 default -> NONE;
             };
         }
@@ -70,11 +71,11 @@ final class Grounds {
      * square round them.
      */
     static boolean looksAlongX(byte kind) {
-        return kind == GOAL_ALONG_Y || kind == POSTS || kind == HOOP;
+        return kind == GOAL_ALONG_Y || kind == HOOP;
     }
 
     static boolean looksAlongY(byte kind) {
-        return kind == GOAL_ALONG_X || kind == POSTS || kind == HOOP;
+        return kind == GOAL_ALONG_X || kind == HOOP;
     }
 
     static boolean looksAround(byte kind) {
@@ -83,7 +84,7 @@ final class Grounds {
 
     /** Whether ground marked by this kind is a pitch or a court whose width the box round it does not have: see Footings. */
     static boolean widened(byte kind) {
-        return kind == GOAL_ALONG_X || kind == GOAL_ALONG_Y || kind == POSTS || kind == HOOP;
+        return kind == GOAL_ALONG_X || kind == GOAL_ALONG_Y || kind == HOOP;
     }
 
     /** What a ground is in the list weight and settle take: its box's first corner and last, and its footing. */

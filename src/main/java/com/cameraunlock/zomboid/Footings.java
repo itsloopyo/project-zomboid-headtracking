@@ -50,7 +50,10 @@ final class Footings {
     static final byte LEVEL = 6;
     /**
      * With what over says of a square not loaded, read from the map's files ahead of the game
-     * (MapAhead): the save may have it otherwise, so a thing found with it is not settled.
+     * (MapAhead): the save may have it otherwise, so a thing found with it is not settled. Except
+     * a thing of level ground: what marks it is the map's own, its goals look 80 squares past
+     * the far goal for another, which is past the loaded map wherever the player stands, and it
+     * would never settle (findLevel).
      */
     static final byte GUESSED = 16;
     /** What Site.state says of a chunk. */
@@ -130,15 +133,18 @@ final class Footings {
     int[] squares = new int[512];
     /**
      * Of a thing of level ground, the box round it that Terrain lays level, from its first
-     * corner to its last, in whole squares, and whether it has one: one is given only where
-     * every square of it and of the land eased round it (Terrain.GROUND_EASE) is within SEEN
-     * squares of a square of the thing, so that a chunk whose heights it changes always has some
-     * of the thing among the squares Terrain gathers round it.
+     * corner to its last, in whole squares, and whether there is one: every thing of level
+     * ground found whole has one. Every square of it and of the land eased round it
+     * (Terrain.GROUND_EASE) is within SEEN squares of a square of the thing, so that a chunk
+     * whose heights it changes always has some of the thing among the squares Terrain gathers
+     * round it: Grounds.reach and WIDTH_FOR_LENGTH keep it so, and findLevel throws if not.
      */
     boolean boxed;
     int boxLowX, boxLowY, boxHighX, boxHighY;
     /** How near a square of a thing of level ground every square of its box and of the land eased round it must be, either way: see boxed. */
     static final int SEEN = Terrain.AROUND - 1;
+    /** Whether the search in hand is findLevel's, which what is read ahead of the map settles: see GUESSED. */
+    private boolean levelSearch;
 
     /**
      * What each square asked about in the search in hand is, by the square as square packs
@@ -350,7 +356,12 @@ final class Footings {
             return;
         }
         if (start == LEVEL) {
-            findLevel(site, x, y, startAt);
+            levelSearch = true;
+            try {
+                findLevel(site, x, y, startAt);
+            } finally {
+                levelSearch = false;
+            }
             return;
         }
         boolean big = large.contains(square(x, y));
@@ -559,7 +570,11 @@ final class Footings {
                 boxHighY = boxLowY + wantY;
             }
         }
-        boxed = seenFromAll();
+        if (!seenFromAll()) {
+            throw new IllegalStateException("the box of level ground from " + boxLowX + ", " + boxLowY + " to " + boxHighX + ", " + boxHighY
+                    + " reaches farther than Terrain gathers round the chunks it changes: see Grounds.reach");
+        }
+        boxed = true;
         remember(site);
     }
 
@@ -667,7 +682,7 @@ final class Footings {
         askedIn[at] = search;
         byte over = site.over(x, y);
         if ((over & GUESSED) != 0) {
-            settled = false;
+            settled &= levelSearch;
             over &= ~GUESSED;
         }
         answered[at] = over;

@@ -65,6 +65,8 @@ final class MapAhead {
             ROOF = 1 << 6, PARASOL = 1 << 7, WALL_N = 1 << 8, WALL_W = 1 << 9, BUILT_UP = 1 << 10, BLOCKS_RAIN = 1 << 11, OVERHEAD = 1 << 12;
     /** In Raw.above: some tile that is no overhead line stands on a level above. */
     static final int ANY = 1 << 13;
+    /** Where in a tile's traits what it is to level ground is (Grounds.of), four bits from here. */
+    static final int LEVEL_SHIFT = 14;
 
     /** Of Guess.stands: a stair or a roof tile, a parasol's canopy, a building's own wall along its south or east side. */
     static final byte STAIR_OR_ROOF = 1, CANOPY = 2, WALLED = 4;
@@ -72,9 +74,10 @@ final class MapAhead {
     /**
      * A chunk's squares as its lotpack has them, x first: the traits of the first floor tile on
      * the ground (0 where there is none), of every tile on the ground, and of every tile on the
-     * levels above that is no overhead line (with ANY), and those levels, a bit each from 1.
+     * levels above that is no overhead line (with ANY), and those levels, a bit each from 1; and
+     * what the square is to level ground (Grounds), on the ground or the level over it.
      */
-    record Raw(int generation, int wx, int wy, int[] floor, int[] ground, int[] above, int[] levels) {}
+    record Raw(int generation, int wx, int wy, int[] floor, int[] ground, int[] above, int[] levels, byte[] level) {}
 
     /**
      * What Terrain asks of a square of a chunk that is not loaded, x first. Whether something
@@ -90,6 +93,8 @@ final class MapAhead {
         final byte[] stands = new byte[SQUARES];
         /** Footings.BUILT, HUNG or OPEN, as Terrain.above has it. */
         final byte[] above = new byte[SQUARES];
+        /** What the square is to level ground, as Terrain.groundOf has it. */
+        final byte[] level = new byte[SQUARES];
 
         Guess(int wx, int wy) {
             this.wx = wx;
@@ -121,6 +126,7 @@ final class MapAhead {
         if (name != null) {
             traits |= name.startsWith("blends_natural") ? NATURAL_NAME : name.startsWith("blends_street") ? STREET_NAME : 0;
             traits |= name.startsWith(Footings.OVERHEAD_LINES) ? OVERHEAD : 0;
+            traits |= Grounds.of(name) << LEVEL_SHIFT;
         }
         if ("Road_04".equals(flags.get("FloorMaterial"))) {
             traits |= ROAD_04;
@@ -157,6 +163,7 @@ final class MapAhead {
         in.get(0, magic);
         int table = Arrays.equals(magic, MAGIC) ? 12 : 4;
         int[] floor = new int[SQUARES], ground = new int[SQUARES], above = new int[SQUARES], levels = new int[SQUARES];
+        byte[] level = new byte[SQUARES];
         int from = Math.max(minLevel, LOWEST), to = Math.min(maxLevel, HIGHEST);
         in.position(in.getInt(table + (cx * CELL_CHUNKS + cy) * 8));
         int empty = 0;
@@ -186,6 +193,9 @@ final class MapAhead {
                             throw new IllegalStateException("the lotpack names tile " + tile + " of its header's " + traits.length);
                         }
                         int of = traits[tile];
+                        if (z == 0 || z == 1) {
+                            level[at] = (byte) Math.max(level[at], of >>> LEVEL_SHIFT & 15);
+                        }
                         if (z == 0) {
                             if (floor[at] == 0 && (of & FLOOR) != 0) {
                                 floor[at] = of;
@@ -201,7 +211,7 @@ final class MapAhead {
                 }
             }
         }
-        return new Raw(generation, wx, wy, floor, ground, above, levels);
+        return new Raw(generation, wx, wy, floor, ground, above, levels, level);
     }
 
     /** What the heights take of a chunk the lotpack has, with the buildings of the map. Logic thread. */
@@ -234,6 +244,7 @@ final class MapAhead {
                     built = (raw.levels[at] & 1 << z) != 0 && rooms.house(x, y, z) != Footings.NONE;
                 }
                 guess.above[at] = built ? Footings.BUILT : (over & ANY) != 0 ? Footings.HUNG : Footings.OPEN;
+                guess.level[at] = raw.level[at];
             }
         }
         return guess;
