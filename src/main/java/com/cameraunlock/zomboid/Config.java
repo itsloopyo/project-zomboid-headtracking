@@ -146,8 +146,8 @@ final class Config {
                 writable | live, FieldOfView.DEFAULT_DEGREES, MIN_FIELD_OF_VIEW, MAX_FIELD_OF_VIEW);
         quality[0] = core.configLocalEnum("General", "Quality",
                 "First person graphics mode: Automatic, Low, Medium, High or Custom. Automatic draws less when the frame rate drops\n"
-                        + "and more again when it recovers. Custom uses the rows of [Graphics]. Past 2560x1440, the modes but Custom draw\n"
-                        + "no more pixels than at 2560x1440.",
+                        + "and more again when it recovers. Custom uses the rows of [Graphics]. A view larger than 2560x1440 is drawn in the\n"
+                        + "modes but Custom with no more pixels than 2560x1440.",
                 writable | live, Quality.words(), Quality.AUTOMATIC);
         overheadQuality[0] = core.configLocalEnum("General", "IsometricQuality",
                 "Graphics mode of the game's isometric view: Low (the game's own picture), Medium, High or Custom.",

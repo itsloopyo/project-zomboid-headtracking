@@ -129,7 +129,7 @@
 - `F8` cycles the picture styles `Vivid`, `Natural` and `Bleak` (default).
 - `ZombiesAndPropsDrawDistance` (16 to 80 tiles) and `Reflections` settings.
 - `GrassDensity` setting (10 to 100 percent): fewer grass plants for a faster picture. `High` grows all of it, `Medium` and `Low` 40 percent.
-- Past 2560x1440, `Low`, `Medium`, `High` and `Automatic` draw first person with no more pixels than at 2560x1440. `Custom` draws at its `RenderScale` at any size.
+- A first person view larger than 2560x1440 is drawn in `Low`, `Medium`, `High` and `Automatic` with no more pixels than 2560x1440, and scaled up. `Custom` draws at its `RenderScale` at any size.
 - `Medium` draws first person at 0.8 of the window's size each way, with shaded corners, lit air and, with `Reflections`, mirroring wet roads, floors, glass and water.
 
 #### Sound

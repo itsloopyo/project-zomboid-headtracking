@@ -27,7 +27,7 @@ Press `Delete` to switch between the isometric and first person views, on foot o
 ### World and graphics
 
 - **A rebuilt world** - 3D buildings, new textures, detailed plants, rolling hills and distant scenery in Medium and High. Furniture, windows and doors are 3D in every mode.
-- **New graphics in both views** - lighting, shadows, models and textures in Medium and High, with reflections and light beams through fog. High adds sharper shadows and depth in near surfaces.
+- **New graphics in both views** - lighting, shadows, models and textures in Medium and High, with reflections, and light beams through fog in first person. High adds sharper shadows and depth in near surfaces.
 - **Fire** - simulated flames, smoke and firelight from burning buildings, Molotovs and campfires in Medium and High.
 - **Sound** - follows where you look, muffled by the walls in between.
 - **Adjustable** - automatic or manual quality, three picture styles, field of view, hill height, and each replacement model or texture can be put back to the game's own.
@@ -245,7 +245,7 @@ Centring belongs to your tracker, recenter there.
   - **Free look with a marker** leaves the weapon pointing where you aim while your head looks around it, and the game's reticle marks where the shot lands.
   - **Stock sights** eases head turns and leaning out while the sights are up, so you see the game's own sight picture, and keeps only head tilt.
 - `F9` goes through Automatic, Low, Medium, High and Custom, and sets first person and the isometric view to the same mode. The isometric view has no Automatic: it stays in Low while first person is in Automatic, and `F9` pressed in the isometric view skips Automatic. To give the two views different modes, set them in the game's options.
-- On a screen larger than 2560x1440, every mode but Custom draws first person with the pixels it would use at 2560x1440, and the picture is scaled up to fit. Custom draws at its `RenderScale` whatever the screen.
+- Where a player's first person view is larger than 2560x1440, every mode but Custom draws it with the pixels it would use at 2560x1440, and the picture is scaled up to fit. In split screen that goes by each player's own part of the screen. Custom draws at its `RenderScale` at any size, and so does the isometric view.
 - `F8` goes through the picture styles Vivid, Natural and Bleak.
 - In split screen each player has their own graphics mode and picture style. Tap `F9` or `F8` once for player 1, twice for player 2, three times for player 3 and four times for player 4, or hold it for every player. Players 2, 3 and 4 keep theirs in `[Players]` in `CameraUnlock.ini` and in the game's options.
 
@@ -367,8 +367,8 @@ DataFreshnessMs=default
 ; Vertical field of view of the first person view, in degrees: 40 to 110.
 FieldOfView=65.0
 ; First person graphics mode: Automatic, Low, Medium, High or Custom. Automatic draws less when the frame rate drops
-; and more again when it recovers. Custom uses the rows of [Graphics]. Past 2560x1440, the modes but Custom draw
-; no more pixels than at 2560x1440.
+; and more again when it recovers. Custom uses the rows of [Graphics]. A view larger than 2560x1440 is drawn in the
+; modes but Custom with no more pixels than 2560x1440.
 Quality=Automatic
 ; Graphics mode of the game's isometric view: Low (the game's own picture), Medium, High or Custom.
 IsometricQuality=Low
