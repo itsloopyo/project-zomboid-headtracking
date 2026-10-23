@@ -40,6 +40,7 @@ final class RoomSightTests {
         Checks.run("aPictureListsOnlyTheRoomsItSeesInto", RoomSightTests::aPictureListsOnlyTheRoomsItSeesInto);
         Checks.run("aWallsEdgeAndAWindowsBlindAreListedByTheRoomsEitherSide", RoomSightTests::aWallsEdgeAndAWindowsBlindAreListedByTheRoomsEitherSide);
         Checks.run("aMapLetGoOfHoldsNothingOfTheWorldItWasReadFrom", RoomSightTests::aMapLetGoOfHoldsNothingOfTheWorldItWasReadFrom);
+        Checks.run("aChunkReadBeforeItsLandIsReadAgainOnceItIsWorkedOut", RoomSightTests::aChunkReadBeforeItsLandIsReadAgainOnceItIsWorkedOut);
     }
 
     private static void check(boolean condition, String what) {
@@ -565,7 +566,7 @@ final class RoomSightTests {
         chunk.wx = 3;
         chunk.wy = 4;
         chunk.loaded = true;
-        map.begin(cell, null);
+        map.begin(cell, Terrain.LEVEL);
         int read = map.read(chunk, null, null, true, 0L);
         check(map.read(chunk, null, null, true, 1L) == read, "a chunk read is kept while it is the same chunk");
         java.lang.ref.WeakReference<Object> chunkKept = new java.lang.ref.WeakReference<>(chunk), cellKept = new java.lang.ref.WeakReference<>(cell);
@@ -579,8 +580,24 @@ final class RoomSightTests {
         zombie.iso.IsoChunk again = new zombie.iso.IsoChunk();
         again.wx = 3;
         again.wy = 4;
-        map.begin(new zombie.iso.IsoCell(), null);
+        map.begin(new zombie.iso.IsoCell(), Terrain.LEVEL);
         check(map.read(again, null, null, true, 2L) > read, "and a chunk of the next world in the same place is read afresh");
+    }
+
+    /** An opening's heights are the floors' heights where it stands, and a chunk read while the land under it was not known kept them at 0, a hill's height off the ground. */
+    private static void aChunkReadBeforeItsLandIsReadAgainOnceItIsWorkedOut() {
+        RoomMap map = new RoomMap();
+        zombie.iso.IsoCell cell = new zombie.iso.IsoCell();
+        zombie.iso.IsoChunk chunk = new zombie.iso.IsoChunk();
+        chunk.wx = 913;
+        chunk.wy = 1441;
+        chunk.loaded = true;
+        map.begin(cell, Terrain.LEVEL);
+        check(Terrain.LEVEL.versionIfKept(chunk.wx, chunk.wy) == -1, "the test's chunk has no land worked out yet");
+        int read = map.read(chunk, null, null, true, 0L);
+        check(map.read(chunk, null, null, true, 1L) == read, "a chunk read is kept while its land is as it was");
+        Terrain.LEVEL.corners(cell, chunk.wx, chunk.wy);
+        check(map.read(chunk, null, null, true, 2L) > read, "and read again once the land under it is worked out");
     }
 
     private static void aPictureListsOnlyTheRoomsItSeesInto() {

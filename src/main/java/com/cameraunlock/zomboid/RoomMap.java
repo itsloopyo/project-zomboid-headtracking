@@ -40,6 +40,12 @@ final class RoomMap implements Acoustics.Walls, RoomDaylight.Edges {
     private final RoomSight.Seen[] keptRooms = new RoomSight.Seen[SIDE * SIDE];
     private final IsoChunk[] keptChunk = new IsoChunk[SIDE * SIDE], keptNorth = new IsoChunk[SIDE * SIDE], keptWest = new IsoChunk[SIDE * SIDE];
     private final int[] keptMarks = new int[SIDE * SIDE], keptLevels = new int[SIDE * SIDE];
+    /**
+     * The heights of the land each kept chunk was read at (land): its openings' heights are
+     * the floors' heights there. A chunk read before the land under it was worked out kept its
+     * doorways a hill's height off the ground they stand on, and they covered none of the picture.
+     */
+    private final int[] keptLand = new int[SIDE * SIDE];
     /** Each kept chunk's openings level by level, from its lowest, and the marks each level was read at, and those marked with no level. */
     private final RoomSight.Openings[][] keptByLevel = new RoomSight.Openings[SIDE * SIDE][];
     private final int[][] keptLevelMarks = new int[SIDE * SIDE][];
@@ -85,9 +91,10 @@ final class RoomMap implements Acoustics.Walls, RoomDaylight.Edges {
         int slot = ChunkMarks.slot(chunk.wx, chunk.wy);
         int marks = ChunkMarks.structuresIn(chunk.wx - 1, chunk.wy - 1, chunk.wx + 1, chunk.wy + 1);
         int levels = chunk.getMinLevel() * 1000 + chunk.getMaxLevel();
+        int land = land(chunk.wx, chunk.wy);
         RoomSight.Openings openings = kept[slot];
         RoomSight.Blocks blocks = keptBlocks[slot];
-        boolean same = openings != null && keptChunk[slot] == chunk && keptNorth[slot] == north && keptWest[slot] == west && keptLevels[slot] == levels
+        boolean same = openings != null && keptChunk[slot] == chunk && keptNorth[slot] == north && keptWest[slot] == west && keptLevels[slot] == levels && keptLand[slot] == land
                 && (told || now - keptNanos[slot] < REREAD_UNTOLD_NANOS);
         if (same && keptMarks[slot] != marks && readLevels(chunk, slot)) {
             keptMarks[slot] = marks;
@@ -127,11 +134,17 @@ final class RoomMap implements Acoustics.Walls, RoomDaylight.Edges {
             keptWest[slot] = west;
             keptMarks[slot] = marks;
             keptLevels[slot] = levels;
+            keptLand[slot] = land;
             keptNanos[slot] = now;
             keptReadings[slot]++;
             chunksRead++;
         }
         return keptReadings[slot];
+    }
+
+    /** One number for the heights of the chunks a chunk's openings and blocks take floors' heights from: its own and, at its far edges, those east and south of it. */
+    private int land(int wx, int wy) {
+        return ((terrain.versionIfKept(wx, wy) * 31 + terrain.versionIfKept(wx + 1, wy)) * 31 + terrain.versionIfKept(wx, wy + 1)) * 31 + terrain.versionIfKept(wx + 1, wy + 1);
     }
 
     /** Adds the openings of a chunk read lately to what is heard round a listener. */
