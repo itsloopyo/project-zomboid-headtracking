@@ -11921,10 +11921,29 @@ def produce_pile(name, seed):
     return model
 
 
+def picket_length():
+    """A square's length of white picket fence, as Pickets.java stands it on the square's edge: six pickets with pointed
+    tops on the edge's line, nailed to two rails behind them, from a picket_post at the start of the edge to a gap the
+    width of the gaps between pickets short of the next one. Measured off fencing_01_5: pickets 0.87 m high and 85 mm
+    wide, rails from 0.10 and 0.60 m up."""
+    model = Model("picket_length", centred=False)
+    pickets, rails = bmesh.new(), bmesh.new()
+    half, high, point, post = 0.0425, 0.87, 0.04, 0.043
+    gap = (1.0 - 2 * post - 6 * 2 * half) / 7
+    for k in range(6):
+        x = -0.5 + post + gap + half + k * (2 * half + gap)
+        outline_along_y(pickets, [(x - half, 0.0), (x + half, 0.0), (x + half, high - point), (x, high), (x - half, high - point)], -0.01, 0.01)
+    for z in (0.10, 0.60):
+        cuboid(rails, -0.5, 0.5, 0.01, 0.035, z, z + 0.07)
+    model.hard(pickets, "paint", bevel=0.003, segments=1)
+    model.hard(rails, "paint", bevel=0.003, segments=1)
+    return model
+
+
 def shops():
-    """What a grocer stands out that ShopFittings.java gives a model for: the produce crate and the produce the game
-    paints in it."""
-    return [produce_crate(), produce_pile("produce_pile", 61), produce_pile("produce_pile_b", 62)]
+    """What a grocer, a florist or a shop stands out that ShopFittings.java gives a model for, the produce crate and the
+    produce the game paints in it, and the length of white picket fence Pickets.java stands."""
+    return [produce_crate(), produce_pile("produce_pile", 61), produce_pile("produce_pile_b", 62), picket_length()]
 
 
 def every():

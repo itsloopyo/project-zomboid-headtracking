@@ -817,6 +817,8 @@ final class WorldScene {
         final float brokenLink;
         /** Whether it is laid as one sheet of chain link, whole, torn or burnt: see ChainLink.sheet. */
         final boolean linkSheet;
+        /** Whether it is a whole length of white picket fence: see Pickets. */
+        final boolean pickets;
         /** As a tree, what it drops, for a tree that turns the first of its kind's colours and for one that turns the other: see Litter.kindOf. */
         private final byte falls, fallsOther;
         /** What it is a square of rug made of, Rugs.WOVEN, FUR or HIDE, or -1 for no rug, and how high its top lies over the floor, in levels: see Flat.pile. */
@@ -906,6 +908,7 @@ final class WorldScene {
             chainLink = ChainLink.of(name);
             brokenLink = ChainLink.brokenMaterial(name, madeOf, onEdge);
             linkSheet = ChainLink.sheet(name, properties, type);
+            pickets = Pickets.is(name);
             lights = Lights.slice(sprite);
             parasol = Parasols.quarter(sprite);
             eave = Hoods.eave(sprite);
@@ -6927,6 +6930,8 @@ final class WorldScene {
             linkSheet = kind.linkSheet;
             chainLink = seeThrough && overLayer == 0 && Own.buildings() ? kind.chainLink : null;
             linkPostDue = chainLink != null && chainLink.hasPost();
+            picket = seeThrough && overLayer == 0 && Own.buildings() && kind.pickets;
+            picketPostDue = picket;
             if (seeThrough && overLayer == 0 && Own.buildings() && kind.brokenLink != 0f) {
                 frame.material = kind.brokenLink;
             }
@@ -7523,6 +7528,10 @@ final class WorldScene {
         ChainLink.Run chainLink;
         /** Whether the post of the chain link being added is still to be built: a corner piece is on two edges and has one post. */
         boolean linkPostDue;
+        /** Whether the sheet being added is a length of white picket fence, built as its model: see Pickets. */
+        boolean picket;
+        /** Whether the post of the picket fence being added is still to be stood: as linkPostDue. */
+        boolean picketPostDue;
 
         /**
          * Whether the sprite is painted all over the box its outline describes: a fridge, a counter,

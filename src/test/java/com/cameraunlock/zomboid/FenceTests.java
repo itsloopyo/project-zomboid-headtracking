@@ -15,6 +15,21 @@ final class FenceTests {
         Checks.run("ironBarFencesAreTheirOwnIron", FenceTests::ironBarFencesAreTheirOwnIron);
         Checks.run("theGamesFloorMarkByNameStaysOffEdgesAndWalls", FenceTests::theGamesFloorMarkByNameStaysOffEdgesAndWalls);
         Checks.run("noTwoWorldMaterialsShareANumber", FenceTests::noTwoWorldMaterialsShareANumber);
+        Checks.run("theWhitePicketFenceIsItsModelOnEachEdge", FenceTests::theWhitePicketFenceIsItsModelOnEachEdge);
+    }
+
+    private static void theWhitePicketFenceIsItsModelOnEachEdge() {
+        for (String length : new String[] {"fencing_01_4", "fencing_01_5", "fencing_01_6"}) {
+            Checks.check(Pickets.is(length), length + " is a length of the white picket fence");
+        }
+        for (String other : new String[] {Pickets.POST, "fencing_01_32", "fencing_01_40", "fencing_01_46", "fencing_damaged_01_8", "fencing_burnt_01_0", "fencing_02_4"}) {
+            Checks.check(!Pickets.is(other), other + " is no whole length of it");
+        }
+        Models.Model length = Models.get("picket_length"), post = Models.get("picket_post");
+        Checks.check(Math.abs(length.minX + 0.5f) < 0.002f && Math.abs(length.maxX - 0.5f) < 0.002f, "a length runs the square's edge, end to end: " + length.minX
+                + " to " + length.maxX);
+        Checks.check(Math.abs(length.minY + 0.01f) < 0.002f, "its pickets' faces are a picket's half thickness off the edge's line: " + length.minY);
+        Checks.check(length.height() < post.height(), "the post stands over the pickets");
     }
 
     private static void chainLinkLengthsAreKnownByTheirPlaceOnTheSheet() {
