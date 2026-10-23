@@ -22,6 +22,9 @@ final class TallHallsTests {
         Checks.run("aSquareOfTheUpperRoomIsNot", TallHallsTests::aSquareOfTheUpperRoomIsNot);
         Checks.run("aFlooredSquareIsNot", TallHallsTests::aFlooredSquareIsNot);
         Checks.run("theRoomMapPutsARowLeftOutInTheHall", TallHallsTests::theRoomMapPutsARowLeftOutInTheHall);
+        Checks.run("theUpperRoomIsLitAsTheHallsFloor", TallHallsTests::theUpperRoomIsLitAsTheHallsFloor);
+        Checks.run("aRowLeftOutIsLitAsTheHallsFloor", TallHallsTests::aRowLeftOutIsLitAsTheHallsFloor);
+        Checks.run("noOtherSquareIsLitAsAHall", TallHallsTests::noOtherSquareIsLitAsAHall);
     }
 
     private static final IsoSprite FLOOR = new IsoSprite("floors_interior_tilesandwood_01_47", new PropertyContainer(Map.of()));
@@ -106,5 +109,31 @@ final class TallHallsTests {
                 "sight reads the row left out as the hall, in the hall's building: " + map.region(3, 2, 1) + " " + map.building(3, 2, 1));
         check(map.region(-1, 3, 1) == RoomSight.OUTSIDE && map.building(-1, 3, 1) == RoomSight.OUTSIDE, "and the air beside the hall as the open air");
         check(map.region(3, 4, 1) == UPPER, "and the upper room as itself");
+    }
+
+    private static void theUpperRoomIsLitAsTheHallsFloor() {
+        IsoCell cell = hall();
+        IsoGridSquare floor = TallHalls.floorOf(cell, 3, 4, 1);
+        check(floor == cell.getGridSquare(3, 4, 0), "a square of the upper room is lit as the hall's floor under it: " + floor);
+        floor = TallHalls.floorOf(cell, 3, 3, 2);
+        check(floor == cell.getGridSquare(3, 3, 0), "and one of the room two floors up, over the upper room, as the same floor: " + floor);
+    }
+
+    private static void aRowLeftOutIsLitAsTheHallsFloor() {
+        IsoCell cell = hall();
+        IsoGridSquare floor = TallHalls.floorOf(cell, 3, 2, 1);
+        check(floor == cell.getGridSquare(3, 2, 0), "the row left out of the upper room is lit as the hall's floor: " + floor);
+        floor = TallHalls.floorOf(cell, 3, 4, 2);
+        check(floor == cell.getGridSquare(3, 4, 0), "and the row left out over the upper room, two floors up, as the same floor: " + floor);
+        floor = TallHalls.floorOf(cell, 4, 3, 2);
+        check(floor == cell.getGridSquare(4, 3, 0), "and the column left out on both floors: " + floor);
+    }
+
+    private static void noOtherSquareIsLitAsAHall() {
+        IsoCell cell = hall();
+        check(TallHalls.floorOf(cell, 3, 3, 0) == null, "the hall's floor is itself");
+        check(TallHalls.floorOf(cell, 3, 0, 2) == null, "a floored square over the upper room is its own");
+        check(TallHalls.floorOf(cell, -1, 3, 1) == null, "the air beside the hall is the open air");
+        check(TallHalls.floorOf(cell, 3, 3, 3) == null, "the floor over everything is its own");
     }
 }

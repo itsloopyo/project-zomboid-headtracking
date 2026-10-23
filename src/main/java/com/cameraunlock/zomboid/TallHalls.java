@@ -43,4 +43,24 @@ final class TallHalls {
         }
         return below.getRoomID() != -1L ? below : under(cell, x, y, z - 1);
     }
+
+    /**
+     * The floored square of the hall a square is in the upper part of: one of the upper room,
+     * with no floor and a room under it, or a row left out of it, down through every such level
+     * to the hall's floor. Null for any other square.
+     */
+    static IsoGridSquare floorOf(IsoCell cell, int x, int y, int z) {
+        IsoGridSquare square = cell.getGridSquare(x, y, z);
+        if (square == null || square.getFloor() != null) {
+            return null;
+        }
+        IsoGridSquare below = square.getRoomID() != -1L ? cell.getGridSquare(x, y, z - 1) : under(cell, x, y, z);
+        if (below == null || below.getRoomID() == -1L) {
+            return null;
+        }
+        if (below.getFloor() != null) {
+            return below;
+        }
+        return floorOf(cell, x, y, below.getZ());
+    }
 }

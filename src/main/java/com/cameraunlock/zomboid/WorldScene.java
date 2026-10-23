@@ -5258,6 +5258,30 @@ final class WorldScene {
             return view.torchLess.light(square, squareLights.of(square, playerIndex, lightPass), torchless);
         }
 
+        private final ColorInfo hallLight = new ColorInfo();
+
+        /**
+         * The light of a square in the upper part of a tall hall: the most of each colour the
+         * game gives it or any square under it down to the hall's floor. The game lights each
+         * level by itself, where the hall is one room from its floor to its ceiling. Written
+         * into hallLight and good until the next asking.
+         */
+        ColorInfo hallLightOf(IsoGridSquare square, IsoGridSquare hallFloor) {
+            ColorInfo light = lightOf(square);
+            float red = light.r, green = light.g, blue = light.b, cover = light.a;
+            for (int z = square.getZ() - 1; z >= hallFloor.getZ(); z--) {
+                light = lightOf(cell.getGridSquare(square.getX(), square.getY(), z));
+                red = Math.max(red, light.r);
+                green = Math.max(green, light.g);
+                blue = Math.max(blue, light.b);
+            }
+            hallLight.r = red;
+            hallLight.g = green;
+            hallLight.b = blue;
+            hallLight.a = cover;
+            return hallLight;
+        }
+
         private final ColorInfo daylit = new ColorInfo();
 
         /**
@@ -5343,27 +5367,33 @@ final class WorldScene {
                     // Read from the lighting engine, which holds every loaded square. getLightInfo is
                     // a copy the game's own render takes of it, and only for the squares its camera
                     // has on screen.
-                    ColorInfo light = lightOf(square);
+                    // The upper part of a tall hall is the hall, and is lit as its floor is: by
+                    // whether the player has seen it, by the day the hall lets in and by its lamps.
+                    // The game marks the squares up there seen or not in patches of its own, and a
+                    // row left out of the upper room is in no room at all.
+                    IsoGridSquare hallFloor = TallHalls.floorOf(cell, square.getX(), square.getY(), z);
+                    IsoGridSquare lighting = hallFloor != null ? hallFloor : square;
+                    ColorInfo light = hallFloor != null ? hallLightOf(square, hallFloor) : lightOf(square);
                     boolean outside = square.isOutside();
                     // As the game's own view a room keeps the engine's light whether or not it has
                     // been seen: none in a room the player has not seen into, and less in one
                     // they have seen and cannot see now, which is how the game shows them.
-                    boolean seen = square.isSeen(playerIndex);
-                    boolean inRoom = square.getRoomID() != -1L;
+                    boolean seen = lighting.isSeen(playerIndex);
+                    boolean inRoom = lighting.getRoomID() != -1L;
                     byte lit = OWN_LIGHT;
                     // Under the ground a square in no room is the earth round a basement, which the game marks out of doors: it keeps the game's light.
                     if (!seen && !(gamesView && inRoom) && (inRoom || z >= 0)) {
                         // From the eye a room the game has not shown is a room like the ones in sight: see seenRooms.
                         // Shown only as the game shows it, it stands empty and lit as the open ground is.
-                        lit = !inRoom || asTheGameShows ? OPEN_LIT : lampBurnsAt(at, square) ? LAMP_LIT : ROOM_LIT;
+                        lit = !inRoom || asTheGameShows ? OPEN_LIT : lampBurnsAt(at, lighting) ? LAMP_LIT : ROOM_LIT;
                         light = SHADE_ONLY;
                     } else if (seen && inChunk) {
                         squaresSeen++;
                         if (outside && tallying) {
                             reading.add(light.r, light.g, light.b);
-                        } else if (inRoom && tallying && !gamesView && square.isCanSee(playerIndex)) {
+                        } else if (inRoom && tallying && !gamesView && lighting.isCanSee(playerIndex)) {
                             // In sight now: one seen and out of sight has the game's darkening on it.
-                            if (Math.max(light.r, Math.max(light.g, light.b)) > LAMPLIT && lampBurnsAt(at, square)) {
+                            if (Math.max(light.r, Math.max(light.g, light.b)) > LAMPLIT && lampBurnsAt(at, lighting)) {
                                 readingLamplit.add(light.r, light.g, light.b);
                             } else {
                                 readingRooms.add(light.r, light.g, light.b);
@@ -5371,7 +5401,7 @@ final class WorldScene {
                         }
                     }
                     if (lit == OWN_LIGHT) {
-                        light = daylit(square, light);
+                        light = daylit(lighting, light);
                     }
                     lightRed[at] = light.r;
                     lightGreen[at] = light.g;
@@ -5379,7 +5409,7 @@ final class WorldScene {
                     lightOpen[at] = (byte) (outside ? 1 : 0);
                     lightUnseen[at] = lit;
                     // A room the game has not lit takes its day in the picture, which goes by the hour without a build.
-                    lightDay[at] = lit == ROOM_LIT || lit == LAMP_LIT ? dayShare(square) : 0f;
+                    lightDay[at] = lit == ROOM_LIT || lit == LAMP_LIT ? dayShare(lighting) : 0f;
                     // The game has no lamp in a canopy. A lit one lights what is under it, and what the game has given no light by itself.
                     if (outside && z >= 0 && ceilingBuilder.underLitCanopy(chunkX, chunkY, chunkX + i - 1, chunkY + j - 1, z)) {
                         boolean unlit = lit != OWN_LIGHT;
