@@ -16,7 +16,12 @@ import java.util.zip.GZIPInputStream;
  * the sights up, in a shot's kick, racking, while a round goes in, and through a magazine's
  * change, the magazine in the hand included. With the sights up the forearm went 10 to 18 mm
  * into a magazine or a sawn-off's grip, the hand that loads went 11 to 19 mm into the receiver,
- * and the fist round a magazine 10 to 14 mm into it.
+ * and the fist round a magazine 10 to 14 mm into it. On each own handgun both arms are held to
+ * the same through every hold it has: the fists round the grip went 13 to 20 mm into it.
+ *
+ * How deep a place is is how far it is from the nearest place outside the gun in any direction:
+ * read only across the barrel, a finger a little into the front of a pistol's grip read as deep
+ * as the grip is half wide.
  */
 final class HandClipTests {
     private HandClipTests() {}
@@ -43,6 +48,38 @@ final class HandClipTests {
 
     /** How long a magazine is fetched for, in seconds. */
     private static final float FETCH_TAKES = 2.4f;
+
+    /** Which handguns a hold is had by. */
+    private static final int EVERY = 0, PISTOLS = 1, REVOLVERS = 2;
+
+    /** A handgun's hold: which handguns have it, and the still. */
+    private record HandgunStill(int by, Still still) {}
+
+    /** How long the game is taken to be over what is being done, in seconds: Doing's pace. */
+    private static final float PACE = 1.2f;
+
+    private static final HandgunStill[] HANDGUN_STILLS = {
+        new HandgunStill(EVERY, new Still("at the hip", 0f, 0f, 0f, ArmActs.HOLDING, 0f, true, 0.5f)),
+        new HandgunStill(EVERY, new Still("half raised", 0.5f, 0f, 0f, ArmActs.HOLDING, 0f, true, 0.5f)),
+        new HandgunStill(EVERY, new Still("with the sights up", 1f, 0f, 0f, ArmActs.HOLDING, 0f, true, 0.5f)),
+        new HandgunStill(EVERY, new Still("in a shot's kick with the sights up", 1f, 4f, 0.03f, ArmActs.HOLDING, 0f, true, 0.5f)),
+        new HandgunStill(PISTOLS, new Still("reaching for the slide", 0f, 0f, 0f, ArmActs.RACKING, PACE * 0.15f, true, 0.5f)),
+        new HandgunStill(PISTOLS, new Still("drawing the slide back", 0f, 0f, 0f, ArmActs.RACKING, PACE * 0.3f, true, 0.5f)),
+        new HandgunStill(PISTOLS, new Still("letting the slide go", 0f, 0f, 0f, ArmActs.RACKING, PACE * 0.55f, true, 0.5f)),
+        new HandgunStill(PISTOLS, Still.change("taking hold of the magazine in the grip", ArmActs.LOADING, 0.5f, true, -1f, -1f, -1f)),
+        new HandgunStill(PISTOLS, Still.change("drawing the magazine out", ArmActs.LOADING, 0.5f, false, -1f, ArmActs.DRAWN_CLEAR_IN / 2f, -1f)),
+        new HandgunStill(PISTOLS, Still.change("with the magazine drawn clear", ArmActs.LOADING, 0.5f, false, -1f, ArmActs.DRAWN_CLEAR_IN, -1f)),
+        new HandgunStill(PISTOLS, Still.change("taking the magazine away", ArmActs.LOADING, 0.5f, false, -1f, (ArmActs.DRAWN_CLEAR_IN + ArmActs.TAKEN_IN) / 2f, -1f)),
+        new HandgunStill(PISTOLS, Still.change("bringing the next magazine up", ArmActs.LOADING, 0.5f, false, -1f, -1f, FETCH_TAKES * 0.45f)),
+        new HandgunStill(PISTOLS, Still.change("with the next magazine under the grip", ArmActs.LOADING, 0.5f, false, -1f, -1f, FETCH_TAKES)),
+        new HandgunStill(PISTOLS, Still.change("pushing the magazine home", ArmActs.HOLDING, 0f, true, 0f, -1f, -1f)),
+        new HandgunStill(PISTOLS, Still.change("with the magazine half way home", ArmActs.HOLDING, 0f, true, ArmActs.HOME_IN / 2f, -1f, -1f)),
+        new HandgunStill(PISTOLS, Still.change("letting the magazine go", ArmActs.HOLDING, 0f, true, ArmActs.HOME_IN + 0.2f, -1f, -1f)),
+        new HandgunStill(REVOLVERS, new Still("bringing a round to the cylinder", 0f, 0f, 0f, ArmActs.LOADING, 1.2f, false, 0.3f)),
+        new HandgunStill(REVOLVERS, new Still("at the chamber", 0f, 0f, 0f, ArmActs.LOADING, 1.2f, false, 0.42f)),
+        new HandgunStill(REVOLVERS, new Still("pushing a round in", 0f, 0f, 0f, ArmActs.LOADING, 1.2f, false, 0.6f)),
+        new HandgunStill(REVOLVERS, new Still("taking the hand back from the cylinder", 0f, 0f, 0f, ArmActs.LOADING, 1.2f, false, 0.75f)),
+    };
 
     private static final Still[] STILLS = {
         new Still("at the hip", 0f, 0f, 0f, ArmActs.HOLDING, 0f, true, 0.5f),
@@ -71,10 +108,92 @@ final class HandClipTests {
             arms = new ArmModel(packed);
         }
         for (OwnModel own : OwnModel.ALL) {
-            if (!own.handgun) {
+            if (own.handgun) {
+                handgun(arms, own);
+            } else {
                 gun(arms, own);
             }
         }
+    }
+
+    /**
+     * Both arms on a handgun: on its grip at the hip and with the sights up, a pistol's slide racked, drawn back as far as
+     * the hand draws it, and its magazine changed, and a revolver's rounds put in with its cylinder swung out on its crane.
+     */
+    private static void handgun(ArmModel arms, OwnModel own) throws IOException {
+        ByteBuffer read;
+        try (InputStream packed = new GZIPInputStream(HandClipTests.class.getResourceAsStream(own.mesh))) {
+            read = ByteBuffer.wrap(packed.readAllBytes()).order(ByteOrder.LITTLE_ENDIAN);
+        }
+        OwnModel.Layout layout = OwnModel.layout(read, own.mesh);
+        float[] places = layout.places(read);
+        int[] corners = layout.corners(read);
+        StringBuilder why = new StringBuilder();
+        WeaponShape shape = WeaponShape.read(places, corners, new float[] {0f, 1f, 0f}, own.top(), layout.muzzle(), 1f, why);
+        Checks.check(shape != null, own.what + " has a shape: " + why);
+        if (shape == null) {
+            return;
+        }
+        int[] counts = layout.counts();
+        boolean revolver = counts.length == OwnRevolver.PARTS;
+        int[] starts = new int[counts.length + 1];
+        for (int part = 0; part < counts.length; part++) {
+            starts[part + 1] = starts[part] + counts[part];
+        }
+        float[] moves = layout.moves();
+        if (revolver) {
+            // Its frame, trigger, hammer, cylinder, crane and ejector, as held and with the last three swung out on the crane, where
+            // the next round goes into the chamber at the top.
+            Hull holding = new Hull(places, Arrays.copyOfRange(corners, 0, starts[6]));
+            float[] swung = new float[16], open = places.clone();
+            OwnGun.turnAbout(swung, moves[OwnRevolver.CRANE_X], 0f, moves[OwnRevolver.CRANE_Z], 0f, 1f, 0f, moves[OwnRevolver.SWING]);
+            BitSet moved = new BitSet();
+            for (int i = starts[3]; i < starts[6]; i++) {
+                int v = corners[i];
+                if (moved.get(v)) continue;
+                moved.set(v);
+                float x = places[v * 3], y = places[v * 3 + 1], z = places[v * 3 + 2];
+                for (int row = 0; row < 3; row++) {
+                    open[v * 3 + row] = swung[row] * x + swung[4 + row] * y + swung[8 + row] * z + swung[12 + row];
+                }
+            }
+            Hull opened = new Hull(open, Arrays.copyOfRange(corners, 0, starts[6]));
+            float[] port = new float[3];
+            ViewModelMath.place(swung, moves[OwnRevolver.CHAMBER_X], moves[OwnRevolver.CHAMBER_Y], moves[OwnRevolver.CHAMBER_Z], port);
+            for (HandgunStill held : HANDGUN_STILLS) {
+                if (held.by == PISTOLS) continue;
+                boolean loading = held.still.doing == ArmActs.LOADING;
+                check(own, held.still, deepest(arms, own, shape, layout, loading ? opened : holding, null, held.still, loading ? port : null, ArmActs.REVOLVER));
+            }
+            return;
+        }
+        // Its frame, slide and magazine: the magazine out of its well while the game has it out.
+        int[] withMagazine = new int[counts[0] + counts[2] + counts[4]];
+        System.arraycopy(corners, 0, withMagazine, 0, counts[0]);
+        System.arraycopy(corners, starts[2], withMagazine, counts[0], counts[2]);
+        System.arraycopy(corners, starts[4], withMagazine, counts[0] + counts[2], counts[4]);
+        int[] without = Arrays.copyOf(withMagazine, counts[0] + counts[2]);
+        Hull holding = new Hull(places, withMagazine), emptied = new Hull(places, without);
+        for (HandgunStill held : HANDGUN_STILLS) {
+            if (held.by == REVOLVERS) continue;
+            Still still = held.still;
+            Hull hull = still.change && !SelfLoading.magazineIn(still.clip, still.doing, still.seated) ? emptied : holding;
+            if (still.doing == ArmActs.RACKING) {
+                // The slide drawn back as far as the hand on it has drawn it.
+                float back = ArmHolds.slideRacked(still.done / PACE) * layout.travel();
+                float[] racked = places.clone();
+                for (int i = starts[2]; i < starts[3]; i++) {
+                    racked[corners[i] * 3 + 1] = places[corners[i] * 3 + 1] - back;
+                }
+                hull = new Hull(racked, withMagazine);
+            }
+            check(own, still, deepest(arms, own, shape, layout, hull, null, still, null, ArmActs.HANDGUN));
+        }
+    }
+
+    private static void check(OwnModel own, Still still, float deepest) {
+        Checks.check(deepest <= DEEPEST,
+                String.format(Locale.ROOT, "the arms go no more than %.0f mm into %s %s: %.1f mm", DEEPEST * 1000f, own.what, still.name, deepest * 1000f));
     }
 
     private static boolean selfLoader(OwnModel own) {
@@ -167,19 +286,30 @@ final class HandClipTests {
             boolean roundIn = still.doing == ArmActs.LOADING && !still.clip;
             boolean inWell = still.clip && SelfLoading.magazineIn(true, still.doing, still.seated);
             Hull hull = still.change ? (inWell ? holding : loading) : roundIn ? loading : holding;
-            float deepest = deepest(arms, own, shape, layout, hull, magazine, still, roundIn && !still.change ? port : null);
+            float deepest = deepest(arms, own, shape, layout, hull, magazine, still, roundIn && !still.change ? port : null, action(own));
             Checks.check(deepest <= DEEPEST,
                     String.format(Locale.ROOT, "the left arm goes no more than %.0f mm into %s %s: %.1f mm", DEEPEST * 1000f, own.what, still.name, deepest * 1000f));
         }
     }
 
-    /** How deep the deepest of the left arm's vertices is inside the gun, in metres. */
-    private static float deepest(ArmModel arms, OwnModel own, WeaponShape shape, OwnModel.Layout layout, Hull hull, Hull magazine, Still still, float[] port) {
-        float aimedAhead = own.eyeBehind * TPM, aimedY = -own.sightLine * TPM;
-        float hipAhead = ViewModel.hipAhead(aimedAhead);
+    /** How deep the deepest of the vertices of the left arm, and on a handgun of either arm, is inside the gun, in metres. */
+    private static float deepest(ArmModel arms, OwnModel own, WeaponShape shape, OwnModel.Layout layout, Hull hull, Hull magazine, Still still, float[] port,
+            int action) {
+        // An OwnModel's own eyeBehind, sightLine and travel are filled only once it is made in the game: the layout has them here.
+        float aimedAhead = layout.eyeBehind() * TPM, aimedY = -layout.sightLine() * TPM;
         float raised = ViewModelMath.smooth(still.aim);
-        float atX = ViewModel.HIP_LONG_X * (1f - raised), atY = ViewModel.HIP_LONG_Y + (aimedY - ViewModel.HIP_LONG_Y) * raised;
-        float ahead = hipAhead + (aimedAhead - hipAhead) * raised;
+        float atX, atY, ahead;
+        if (own.handgun) {
+            float off = ViewModelMath.arc(raised);
+            atX = ViewModel.HIP_X * (1f - raised);
+            atY = ViewModel.HIP_Y + (aimedY - ViewModel.HIP_Y) * raised - ViewModel.RAISE_DIPS * off;
+            ahead = ViewModel.HIP_AHEAD + (aimedAhead - ViewModel.HIP_AHEAD) * raised + ViewModel.RAISE_REACHES * off;
+        } else {
+            float hipAhead = ViewModel.hipAhead(aimedAhead);
+            atX = ViewModel.HIP_LONG_X * (1f - raised);
+            atY = ViewModel.HIP_LONG_Y + (aimedY - ViewModel.HIP_LONG_Y) * raised;
+            ahead = hipAhead + (aimedAhead - hipAhead) * raised;
+        }
         float yaw = -(float) Math.atan(atX * 0.2f), pitch = -(float) Math.atan((atY - aimedY) * 0.2f);
         float roll = (float) Math.toRadians(8) * (1f - raised);
         float[] out = new float[16], steady = new float[16], grip = new float[3];
@@ -193,15 +323,15 @@ final class HandClipTests {
         ViewModelMath.turned(out, own.top(), over);
         ArmPose.unit(pointing[0], pointing[1], pointing[2], pointing);
         ArmPose.unit(over[0], over[1], over[2], over);
-        ArmHolds.Placed placed = new ArmHolds.Placed(shape, out, steady, 0f, layout.heldY(), own.pump ? ArmHolds.BOLT_TRAVEL : own.travel);
+        ArmHolds.Placed placed = new ArmHolds.Placed(shape, out, steady, 0f, layout.heldY(), own.pump ? ArmHolds.BOLT_TRAVEL : layout.travel());
         if (port != null) {
             placed.port(port);
         }
         if (layout.moves().length >= 3 && selfLoader(own)) {
             placed.charged(new float[] {layout.moves()[0], layout.moves()[1], layout.moves()[2]});
         }
-        ArmHolds.Weapon weapon = new ArmHolds.Weapon(true, false, placed.at(shape.grip), pointing, over, placed);
-        ArmHolds.Doing doing = new ArmHolds.Doing(still.aim, true, action(own), -1f, still.doing, still.done, still.round, 1.2f, still.seated, still.clip,
+        ArmHolds.Weapon weapon = new ArmHolds.Weapon(true, own.handgun, placed.at(shape.grip), pointing, over, placed);
+        ArmHolds.Doing doing = new ArmHolds.Doing(still.aim, true, action, -1f, still.doing, still.done, still.round, PACE, still.seated, still.clip,
                 still.out, still.fetching, FETCH_TAKES, 0f);
         float[][] skins = new float[2][arms.bones.length * 16], said = new float[2][ArmPose.SAYS];
         float[] same = {1f, 0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 1f};
@@ -214,7 +344,15 @@ final class HandClipTests {
             inHand = new float[16];
             OwnSelfLoader.inHand(carried.at, shape, (float) Math.sqrt(out[4] * out[4] + out[5] * out[5] + out[6] * out[6]), new float[3], inHand);
         }
-        float[] skin = skins[1];
+        float deepest = 0f;
+        for (int side = own.handgun ? 0 : 1; side < both; side++) {
+            deepest = Math.max(deepest, deepest(arms, skins[side], out, hull, magazine, inHand));
+        }
+        return deepest;
+    }
+
+    /** How deep the deepest of an arm's vertices, skinned, is inside the gun, or in the magazine in its hand, in metres. */
+    private static float deepest(ArmModel arms, float[] skin, float[] out, Hull hull, Hull magazine, float[] inHand) {
         ByteBuffer v = arms.vertices;
         int first = arms.partFirst[ArmModel.ARM], count = arms.partCount[ArmModel.ARM];
         BitSet seen = new BitSet();
@@ -255,13 +393,13 @@ final class HandClipTests {
      * A gun's mesh filled slice by slice across its barrel: in each slice square to the barrel,
      * everything a flood from the slice's border cannot reach is the gun, hollows such as the
      * space between barrel and handguard included, and each cell of it keeps how far it is from
-     * the nearest cell outside, within its slice.
+     * the nearest cell outside, in the slice or in the slices either side.
      */
     private static final class Hull {
         static final float CELL = 0.001f, SLICE = 0.002f, FROM = -0.12f, TO = 0.62f;
         final float x0, z0;
         final int nx, nz, ny;
-        /** Depth inside the gun in cells times ten (chamfer 10/14), 0 outside. */
+        /** Depth inside the gun in tenths of a cell (chamfer: 10 a cell across, 20 a slice along, 14, 22 and 24 aslant), 0 outside. */
         final short[] depth;
 
         Hull(float[] places, int[] tris) {
@@ -356,6 +494,36 @@ final class HandClipTests {
                     }
                 }
                 System.arraycopy(d, 0, depth, s * nx * nz, nx * nz);
+            }
+            // From the inside of every slice, how far each cell is from the outside in any direction: forward over the cells
+            // before it, then back over those after.
+            for (int at = 0; at < depth.length; at++) {
+                depth[at] = depth[at] == 0 ? 0 : Short.MAX_VALUE;
+            }
+            int[][] before = new int[13][];
+            int k = 0;
+            for (int ds = -1; ds <= 0; ds++) {
+                for (int dz = -1; dz <= 1; dz++) {
+                    for (int dx = -1; dx <= 1; dx++) {
+                        if (ds == 0 && (dz > 0 || dz == 0 && dx >= 0)) continue;
+                        int across = Math.abs(dx) + Math.abs(dz);
+                        int cost = ds == 0 ? (across == 1 ? 10 : 14) : across == 0 ? 20 : across == 1 ? 22 : 24;
+                        before[k++] = new int[] {dx, dz, ds, cost};
+                    }
+                }
+            }
+            for (int way = 1; way >= -1; way -= 2) {
+                for (int i = 0; i < depth.length; i++) {
+                    int at = way > 0 ? i : depth.length - 1 - i;
+                    if (depth[at] == 0) continue;
+                    int cx = at % nx, cz = at / nx % nz, s = at / (nx * nz), best = depth[at];
+                    for (int[] n : before) {
+                        int x = cx + n[0] * way, z = cz + n[1] * way, sl = s + n[2] * way;
+                        int from = x < 0 || z < 0 || sl < 0 || x >= nx || z >= nz || sl >= ny ? 0 : depth[(sl * nz + z) * nx + x];
+                        best = Math.min(best, from + n[3]);
+                    }
+                    depth[at] = (short) best;
+                }
             }
         }
 

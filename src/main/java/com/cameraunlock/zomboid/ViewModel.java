@@ -678,7 +678,7 @@ public final class ViewModel {
      * up, and its grip ahead. At the hip, and with the sights up, where the barrel is under the
      * middle of the picture by about the height of the sights above it.
      */
-    private static final float HIP_X = 0.13f, HIP_Y = -0.14f;
+    static final float HIP_X = 0.13f, HIP_Y = -0.14f;
     static final float HIP_AHEAD = 0.27f;
     /**
      * The same for a long gun in the mod's own hands, whose arms are the length arms are. The
@@ -766,7 +766,7 @@ public final class ViewModel {
     static final float[] HANDLED_PISTOL = {0.06f, -0.06f, 0.34f, (float) Math.toRadians(24), (float) Math.toRadians(-14), (float) Math.toRadians(-34)};
     static final float[] HANDLED_LONG = {0.10f, -0.04f, 0.30f, (float) Math.toRadians(24), (float) Math.toRadians(-16), (float) Math.toRadians(-42)};
     /** Between the hip and the sights the weapon goes by way of a dip and a reach forward, at the most this far off the straight line. */
-    private static final float RAISE_DIPS = 0.025f, RAISE_REACHES = 0.03f;
+    static final float RAISE_DIPS = 0.025f, RAISE_REACHES = 0.03f;
     /** Lowered to run: the muzzle down and across the body. */
     private static final float LOWERED_PITCH = (float) Math.toRadians(-35), LOWERED_YAW = (float) Math.toRadians(-25), LOWERED_DOWN = 0.07f;
     private static final float DIP_DOWN = 0.04f;
