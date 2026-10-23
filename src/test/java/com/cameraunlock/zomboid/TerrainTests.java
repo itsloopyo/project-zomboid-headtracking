@@ -53,6 +53,7 @@ final class TerrainTests {
             theLevelLandHasNoKerbs();
             aChunkStillFillingIsReadAgainOnceLoaded();
             aChunkWhoseGroundIsAsItWasKeepsItsHeightsUntilAnyOfItChanges();
+            aPitchOnAHillsideIsLaidLevelAndTheHillsEaseBackRoundIt();
         } finally {
             System.arraycopy(around, 0, Terrain.around, 0, around.length);
             System.arraycopy(pads, 0, Terrain.padsAround, 0, pads.length);
@@ -793,4 +794,108 @@ final class TerrainTests {
                 "water lies at the height of the hills times the country's rise and fall");
         Terrain.HILLS.heighten(1f);
     }
+
+    /** Where the test pitch lies: the hills rise and fall across it there. */
+    private static final int PITCH_X = 10640, PITCH_Y = 9944;
+
+    /**
+     * The heights of the chunks from (fromX, fromY) to (toX, toY), as the hills lay a field of
+     * grass about (PITCH_X, PITCH_Y), with a goal at either end of a pitch 30 squares long, or none.
+     */
+    private static Map<Long, float[]> field(boolean goals, int fromX, int fromY, int toX, int toY) {
+        Terrain.forget();
+        TestMap map = new TestMap();
+        var grass = map.sprite("blends_natural_01_0", zombie.iso.SpriteDetails.IsoObjectType.normal);
+        String[] goal = {"recreational_sports_01_19", "recreational_sports_01_20", "recreational_sports_01_21"};
+        var pieces = new zombie.iso.sprite.IsoSprite[3];
+        for (int i = 0; i < 3; i++) {
+            pieces[i] = map.sprite(goal[i], zombie.iso.SpriteDetails.IsoObjectType.normal);
+        }
+        for (int x = PITCH_X - 64; x < PITCH_X + 96; x++) {
+            for (int y = PITCH_Y - 64; y < PITCH_Y + 96; y++) {
+                map.cell.square(x, y, 0).floor(grass);
+            }
+        }
+        if (goals) {
+            for (int i = 0; i < 3; i++) {
+                map.cell.square(PITCH_X + 10 + i, PITCH_Y + 2, 0).add(pieces[i]);
+                map.cell.square(PITCH_X + 10 + i, PITCH_Y + 32, 0).add(pieces[i]);
+            }
+        }
+        Terrain.frame(5000);
+        Terrain.loaded(1);
+        Map<Long, float[]> chunks = new LinkedHashMap<>();
+        for (int wx = fromX; wx <= toX; wx++) {
+            for (int wy = fromY; wy <= toY; wy++) {
+                chunks.put(((long) wx << 32) | (wy & 0xffffffffL), Terrain.HILLS.corners(map.cell, wx, wy).clone());
+            }
+        }
+        return chunks;
+    }
+
+    private static float at(Map<Long, float[]> chunks, int x, int y) {
+        // A corner on the far edge of the last chunk is that chunk's own last corner.
+        int wx = Math.floorDiv(x - 1, Terrain.CHUNK_TILES), wy = Math.floorDiv(y - 1, Terrain.CHUNK_TILES);
+        return chunks.get(((long) wx << 32) | (wy & 0xffffffffL))[(x - wx * Terrain.CHUNK_TILES) * 9 + y - wy * Terrain.CHUNK_TILES];
+    }
+
+    private static void aPitchOnAHillsideIsLaidLevelAndTheHillsEaseBackRoundIt() {
+        boolean live = ChunkMarks.live;
+        Terrain.HILLS.heighten(1f);
+        Country.set(COUNTRY_OF_HILLS);
+        try {
+            ChunkMarks.live = true;
+            int ease = (int) Terrain.GROUND_EASE, eight = Terrain.CHUNK_TILES;
+            int fromX = Math.floorDiv(PITCH_X - ease, eight), fromY = Math.floorDiv(PITCH_Y - ease, eight);
+            int toX = Math.floorDiv(PITCH_X + 24 + ease + 4, eight), toY = Math.floorDiv(PITCH_Y + 36 + ease + 4, eight);
+            Map<Long, float[]> bare = field(false, fromX, fromY, toX, toY), pitch = field(true, fromX, fromY, toX, toY);
+            // The goals' box: their squares and the run-off past them, as wide as a pitch 30 long.
+            int lowY = PITCH_Y + 2 - Grounds.MARGIN, highY = PITCH_Y + 33 + Grounds.MARGIN;
+            int wide = Math.round((highY - lowY) * Grounds.WIDTH_FOR_LENGTH), lowX = PITCH_X + 10 + 3 / 2 - wide / 2;
+            float lowest = Float.MAX_VALUE, highest = -Float.MAX_VALUE;
+            for (int x = lowX; x <= lowX + wide - 1; x++) {
+                for (int y = lowY; y <= highY; y++) {
+                    lowest = Math.min(lowest, at(bare, x, y));
+                    highest = Math.max(highest, at(bare, x, y));
+                }
+            }
+            check(highest - lowest > 0.5f, "the hills rise and fall over the ground the pitch is on, by " + (highest - lowest));
+            float level = at(pitch, PITCH_X + 11, PITCH_Y + 17);
+            for (int x = lowX; x <= lowX + wide - 1; x++) {
+                for (int y = lowY; y <= highY; y++) {
+                    check(at(pitch, x, y) == level, "the pitch is level from end to end and side to side, at " + x + ", " + y + ": " + at(pitch, x, y) + " for " + level);
+                }
+            }
+            check(level > lowest && level < highest, "at a height the hills had under it, " + level + " in " + lowest + ".." + highest);
+            for (int x = fromX * eight + 1; x <= toX * eight + eight; x++) {
+                for (int y = fromY * eight + 1; y <= toY * eight + eight; y++) {
+                    int outX = Math.max(Math.max(lowX - x, x - (lowX + wide)), 0), outY = Math.max(Math.max(lowY - y, y - (highY + 1)), 0);
+                    if (outX * outX + outY * outY >= ease * ease) {
+                        check(at(pitch, x, y) == at(bare, x, y), "past the ease the hills are as they were, at " + x + ", " + y);
+                    }
+                }
+            }
+            for (long key : pitch.keySet()) {
+                int wx = (int) (key >> 32), wy = (int) key;
+                float[] here = pitch.get(key), east = pitch.get(((long) (wx + 1) << 32) | (wy & 0xffffffffL)), south = pitch.get(((long) wx << 32) | ((wy + 1) & 0xffffffffL));
+                for (int i = 0; i < 9; i++) {
+                    check(east == null || here[72 + i] == east[i], "chunks either side of the pitch's edge agree along it");
+                    check(south == null || here[i * 9 + 8] == south[i * 9], "and down it");
+                }
+            }
+            float steepest = 0f;
+            for (int x = fromX * eight + 1; x < toX * eight + eight; x++) {
+                for (int y = fromY * eight + 1; y < toY * eight + eight; y++) {
+                    steepest = Math.max(steepest, Math.max(Math.abs(at(pitch, x + 1, y) - at(pitch, x, y)), Math.abs(at(pitch, x, y + 1) - at(pitch, x, y))));
+                }
+            }
+            check(steepest < 0.35f, "the hills come back in round it with no step or cliff, steepest " + steepest + " a square");
+        } finally {
+            ChunkMarks.live = live;
+            Terrain.forget();
+            Country.set(List.of());
+        }
+    }
+
+    private static final List<Country.Shape> COUNTRY_OF_HILLS = List.of(Country.Shape.rectangle("FarmLand", 10000, 9000, 2000, 2000));
 }

@@ -28,6 +28,10 @@ final class LeisureTests {
         Checks.run("aPoolTablesLampHangsFromTheCeilingOverBothSquares", LeisureTests::aPoolTablesLampHangsFromTheCeilingOverBothSquares);
         Checks.run("anOrgansWestSquareStandsItAgainstItsWallAndTheRestStandNothing", LeisureTests::anOrgansWestSquareStandsItAgainstItsWallAndTheRestStandNothing);
         Checks.run("aChurchsColouredWindowsAreStainedGlassAndItsClearOnesAreNot", LeisureTests::aChurchsColouredWindowsAreStainedGlassAndItsClearOnesAreNot);
+        Checks.run("whatAPitchACourtAndADiamondStandOnIsLevelGround", LeisureTests::whatAPitchACourtAndADiamondStandOnIsLevelGround);
+        Checks.run("levelGroundIsFlatInItsBoxAndEasesBackOutToTheLand", LeisureTests::levelGroundIsFlatInItsBoxAndEasesBackOutToTheLand);
+        Checks.run("betweenTwoLevelGroundsTheFootingRunsFromOneToTheOtherWithNoStep", LeisureTests::betweenTwoLevelGroundsTheFootingRunsFromOneToTheOtherWithNoStep);
+        Checks.run("levelGroundsThatOverlapShareTheLargerOnesFootingInWhateverOrderMet", LeisureTests::levelGroundsThatOverlapShareTheLargerOnesFootingInWhateverOrderMet);
     }
 
     private static void holds(Outdoors.Piece piece, String what) {
@@ -393,5 +397,74 @@ final class LeisureTests {
             Checks.check(!StainedGlass.of("fixtures_windows_church_" + place), "fixtures_windows_church_" + place + " is diamond leaded clear glass");
         }
         Checks.check(!StainedGlass.of(null) && !StainedGlass.of("fixtures_windows_01_0"), "nor is a sprite with no name or a house's window");
+    }
+
+    private static void whatAPitchACourtAndADiamondStandOnIsLevelGround() {
+        Checks.check(Grounds.of("recreational_sports_01_19") == Grounds.GOAL_ALONG_X && Grounds.of("recreational_sports_01_16") == Grounds.GOAL_ALONG_Y, "a football goal marks a pitch, and which way it faces");
+        Checks.check(Grounds.of("recreational_sports_01_22") == Grounds.SURFACE && Grounds.of("recreational_sports_01_23") == Grounds.SURFACE, "a court's surface and a track are level ground");
+        Checks.check(Grounds.of("recreational_sports_01_0") == Grounds.BASE && Grounds.of("recreational_sports_01_24") == Grounds.HOOP && Grounds.of("recreational_sports_01_120") == Grounds.JUMP
+                && Grounds.of("recreational_sports_01_7") == Grounds.POSTS, "a base, a hoop, a show jump and goalposts mark level ground");
+        Checks.check(Grounds.of("recreational_sports_01_49") == Grounds.PIECE && Grounds.of("location_military_generic_01_48") == Grounds.PIECE, "a tennis net and a climbing frame stand level");
+        Checks.check(Grounds.of("recreational_sports_01_40") == Grounds.NONE && Grounds.of("location_military_generic_01_0") == Grounds.NONE && Grounds.of("blends_natural_01_16") == Grounds.NONE, "the rest is not");
+    }
+
+    private static final float EASE = 16f;
+
+    private static void levelGroundIsFlatInItsBoxAndEasesBackOutToTheLand() {
+        float[] grounds = {0, 0, 10, 20, 3.5f};
+        float[] pad = new float[1];
+        Checks.check(Grounds.weight(grounds, 1, 5, 10, EASE, pad) == 0f && pad[0] == 3.5f, "inside the box the land keeps none of its own height");
+        Checks.check(Grounds.weight(grounds, 1, 10, 20, EASE, pad) == 0f && pad[0] == 3.5f, "nor on its edge");
+        float near = Grounds.weight(grounds, 1, 10.01f, 10, EASE, pad);
+        Checks.check(near < 0.001f && pad[0] == 3.5f, "just outside it hardly any, got " + near);
+        float half = Grounds.weight(grounds, 1, 18, 10, EASE, pad);
+        Checks.check(half > 0.4f && half < 0.6f, "half way out about half, got " + half);
+        Checks.check(Grounds.weight(grounds, 1, 10 + EASE, 10, EASE, pad) == 1f, "and all of it by the end of the ease");
+        float last = -1f;
+        for (float x = 10f; x <= 10f + EASE; x += 0.25f) {
+            float keeps = Grounds.weight(grounds, 1, x, 10, EASE, pad);
+            Checks.check(keeps >= last, "the land comes back steadily, not at " + x);
+            last = keeps;
+        }
+    }
+
+    private static void betweenTwoLevelGroundsTheFootingRunsFromOneToTheOtherWithNoStep() {
+        // A pitch at 1 and a court at 4, eight squares apart.
+        float[] grounds = {0, 0, 10, 20, 1f, 18, 0, 28, 20, 4f};
+        float[] pad = new float[1];
+        float lastHeight = Float.NaN;
+        for (float x = 9f; x <= 19f; x += 0.05f) {
+            float keeps = Grounds.weight(grounds, 2, x, 10, EASE, pad);
+            float height = pad[0] * (1f - keeps);
+            if (!Float.isNaN(lastHeight)) {
+                Checks.check(Math.abs(height - lastHeight) < 0.1f, "no step between them at " + x + ": " + lastHeight + " to " + height);
+            }
+            lastHeight = height;
+        }
+        Grounds.weight(grounds, 2, 10, 10, EASE, pad);
+        Checks.check(pad[0] == 1f, "at the pitch's edge its own footing");
+        Grounds.weight(grounds, 2, 18, 10, EASE, pad);
+        Checks.check(pad[0] == 4f, "at the court's its own");
+    }
+
+    private static void levelGroundsThatOverlapShareTheLargerOnesFootingInWhateverOrderMet() {
+        float[] track = {0, 0, 40, 80, 2f}, pitch = {5, 10, 35, 70, 3f}, court = {100, 0, 110, 10, 7f};
+        float[] one = concat(track, pitch, court), other = concat(court, pitch, track);
+        Grounds.settle(one, 3);
+        Grounds.settle(other, 3);
+        Checks.check(java.util.Arrays.equals(one, other), "the same grounds come out the same whatever order they were met in");
+        float[] pad = new float[1];
+        Grounds.weight(one, 3, 20, 40, EASE, pad);
+        Checks.check(pad[0] == 2f, "a pitch inside a track lies at the track's footing, got " + pad[0]);
+        Grounds.weight(one, 3, 105, 5, EASE, pad);
+        Checks.check(pad[0] == 7f, "a court apart from both keeps its own");
+    }
+
+    private static float[] concat(float[]... each) {
+        float[] all = new float[each.length * Grounds.STRIDE];
+        for (int at = 0; at < each.length; at++) {
+            System.arraycopy(each[at], 0, all, at * Grounds.STRIDE, Grounds.STRIDE);
+        }
+        return all;
     }
 }

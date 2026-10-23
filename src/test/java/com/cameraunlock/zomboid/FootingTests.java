@@ -20,13 +20,22 @@ final class FootingTests {
         Checks.run("theGroundUnderAStairOnAStreetIsLevelAtTheBuildingsFooting", FootingTests::theGroundUnderAStairOnAStreetIsLevelAtTheBuildingsFooting);
         Checks.run("aStreetPastAStairIsStillLevelFromKerbToKerb", FootingTests::aStreetPastAStairIsStillLevelFromKerbToKerb);
         Checks.run("theGroundUnderAnEaveOverALawnIsLevelAtTheBuildingsFooting", FootingTests::theGroundUnderAnEaveOverALawnIsLevelAtTheBuildingsFooting);
+        Checks.run("aPitchsTwoGoalsAreOneThingBoxedAsWideAsAPitch", FootingTests::aPitchsTwoGoalsAreOneThingBoxedAsWideAsAPitch);
+        Checks.run("aCourtIsAThingOfItsOwnApartFromTheBuildingBesideIt", FootingTests::aCourtIsAThingOfItsOwnApartFromTheBuildingBesideIt);
+        Checks.run("goalsReachOnlyAcrossTheirCrossbarAndNotThroughAWall", FootingTests::goalsReachOnlyAcrossTheirCrossbarAndNotThroughAWall);
+        Checks.run("basesOfADiamondTurnedOnTheMapAreOneThing", FootingTests::basesOfADiamondTurnedOnTheMapAreOneThing);
+        Checks.run("aBoxSomeOfWhichNoChunkRoundItWouldGatherIsNotLaidLevel", FootingTests::aBoxSomeOfWhichNoChunkRoundItWouldGatherIsNotLaidLevel);
     }
 
     private static void check(boolean condition, String what) {
         Checks.check(condition, what);
     }
 
-    /** A map drawn in rows of text: '.' open, 's' built, 'h' hung over, a letter A to Z a building, '?' not loaded. Outside it is open. */
+    /**
+     * A map drawn in rows of text: '.' open, 's' built, 'h' hung over, a letter A to Z a building, '?' not loaded, and level
+     * ground: 'c' a court's surface, 'g' a goal whose crossbar runs along x, 'y' one along y, 'b' a base, 'p' goalposts.
+     * Outside it is open.
+     */
     private static final class Plan implements Footings.Site {
         final String[] rows;
         final HashMap<Character, Long> houses = new HashMap<>();
@@ -53,10 +62,32 @@ final class FootingTests {
             return y < 0 || y >= rows.length || x < 0 || x >= rows[y].length() ? '.' : rows[y].charAt(x);
         }
 
+        /** A plan with a goal of three squares along x at (x, y) and another at (x, y + apart), on open ground. */
+        static Plan pitch(int x, int y, int apart) {
+            String[] rows = new String[y + apart + 2];
+            for (int row = 0; row < rows.length; row++) {
+                rows[row] = row == y || row == y + apart ? ".".repeat(x) + "ggg." : ".".repeat(x + 4);
+            }
+            return new Plan(rows);
+        }
+
         @Override
         public byte over(int x, int y) {
             char c = at(x, y);
-            return c == '.' ? Footings.OPEN : c == 's' ? Footings.BUILT : c == 'h' ? Footings.HUNG : c == '?' ? Footings.UNLOADED : Footings.HOUSE;
+            return c == '.' ? Footings.OPEN : c == 's' ? Footings.BUILT : c == 'h' ? Footings.HUNG : c == '?' ? Footings.UNLOADED
+                    : levelKind(x, y) != Grounds.NONE ? Footings.LEVEL : Footings.HOUSE;
+        }
+
+        @Override
+        public byte levelKind(int x, int y) {
+            return switch (at(x, y)) {
+                case 'c' -> Grounds.SURFACE;
+                case 'g' -> Grounds.GOAL_ALONG_X;
+                case 'y' -> Grounds.GOAL_ALONG_Y;
+                case 'b' -> Grounds.BASE;
+                case 'p' -> Grounds.POSTS;
+                default -> Grounds.NONE;
+            };
         }
 
         @Override
@@ -378,5 +409,84 @@ final class FootingTests {
             System.arraycopy(pads, 0, Terrain.padsAround, 0, pads.length);
             System.arraycopy(footway, 0, Terrain.footwayAround, 0, footway.length);
         }
+    }
+
+    private static void aPitchsTwoGoalsAreOneThingBoxedAsWideAsAPitch() {
+        // Two goals 30 squares apart down the pitch.
+        Plan pitch = Plan.pitch(10, 2, 30);
+        long goal = found(pitch, 10, 2);
+        check(goal != Footings.NONE && footings.free && footings.settled && footings.whole, "a goal is a thing that stands at the height of the ground under it");
+        check(goal == found(pitch, 12, 32), "the goal at the other end of the pitch is the same thing");
+        check(Footings.keyX(goal) == 11.5f && Footings.keyY(goal) == 17.5f, "it stands at the middle of the pitch, got " + Footings.keyX(goal) + ", " + Footings.keyY(goal));
+        check(footings.boxed, "a pitch is laid level");
+        int length = footings.boxHighY - footings.boxLowY, width = footings.boxHighX - footings.boxLowX;
+        check(footings.boxLowY == 2 - Grounds.MARGIN && footings.boxHighY == 33 + Grounds.MARGIN, "the box runs from goal to goal and the run-off past them, got " + footings.boxLowY + ".." + footings.boxHighY);
+        check(width == Math.round(length * Grounds.WIDTH_FOR_LENGTH), "the box is as wide as a pitch of its length, got " + width + " for " + length);
+        check(Math.abs(footings.boxLowX + footings.boxHighX - (2 * 10 + 3)) <= 1, "and centred on the goals, got " + footings.boxLowX + ".." + footings.boxHighX);
+        check(found(pitch, 11, 17) == Footings.NONE, "the grass of the pitch is no part of the thing: the box lays it level");
+    }
+
+    private static void aCourtIsAThingOfItsOwnApartFromTheBuildingBesideIt() {
+        Plan court = new Plan(
+                "AAAA.......",
+                "AAAAcccccc.",
+                "AAAAcccccc.",
+                "AAAAcccccc.",
+                "...........");
+        long building = found(court, 0, 0);
+        long surface = found(court, 4, 1);
+        check(surface != building && surface != Footings.NONE, "a court beside a building is a thing of its own");
+        check(footings.free && footings.boxed, "it stands at the height of the ground under it, laid level");
+        check(footings.boxLowX == 4 - Grounds.MARGIN && footings.boxHighX == 10 + Grounds.MARGIN && footings.boxLowY == 1 - Grounds.MARGIN && footings.boxHighY == 4 + Grounds.MARGIN,
+                "a court's box is the court and its apron, no wider: " + footings.boxLowX + ", " + footings.boxLowY + " to " + footings.boxHighX + ", " + footings.boxHighY);
+        check(surface == found(court, 9, 3), "every square of the surface is the one thing");
+        check(found(court, 3, 2) == building && !footings.boxed, "the building is not joined to it");
+    }
+
+    private static void goalsReachOnlyAcrossTheirCrossbarAndNotThroughAWall() {
+        Plan side = new Plan(
+                "ggg.........................ggg");
+        long left = found(side, 0, 0);
+        check(left != found(side, 28, 0), "goals side by side along the line of their crossbars are two things");
+        Plan walled = new Plan(
+                "ggg",
+                "...",
+                "sss",
+                "...",
+                "ggg");
+        check(found(walled, 0, 0) != found(walled, 0, 4), "a goal does not reach through a wall for another");
+        Plan otherWay = new Plan(
+                "y.....y",
+                "y.....y",
+                "y.....y");
+        check(found(otherWay, 0, 0) == found(otherWay, 6, 2), "a goal along y reaches along x for the goal it faces");
+    }
+
+    private static void basesOfADiamondTurnedOnTheMapAreOneThing() {
+        Plan diamond = new Plan(
+                "......b.......",
+                "..............",
+                "..............",
+                "b.............",
+                "..........b...",
+                "..............",
+                "..............",
+                "....b.........");
+        long first = found(diamond, 6, 0);
+        check(first == found(diamond, 0, 3) && first == found(diamond, 10, 4) && first == found(diamond, 4, 7), "the bases of a diamond are one thing however it lies on the map");
+        check(footings.boxed && footings.boxLowX == -Grounds.MARGIN && footings.boxHighX == 11 + Grounds.MARGIN, "laid level over all of them");
+    }
+
+    private static void aBoxSomeOfWhichNoChunkRoundItWouldGatherIsNotLaidLevel() {
+        // Goalposts down a gridiron 100 squares long: half way down its side, a corner is farther from both than Terrain gathers.
+        String[] rows = new String[101];
+        Arrays.fill(rows, "...");
+        rows[0] = ".p.";
+        rows[100] = ".p.";
+        Plan gridiron = new Plan(rows);
+        long posts = found(gridiron, 1, 0);
+        check(posts == found(gridiron, 1, 100), "the goalposts at either end are one thing");
+        check(!footings.boxed, "but too long a box to lay level");
+        check(found(Plan.pitch(10, 2, 74), 10, 2) != Footings.NONE && footings.boxed, "the longest pitch on the map is laid level");
     }
 }
