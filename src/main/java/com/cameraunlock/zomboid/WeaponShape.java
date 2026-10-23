@@ -45,6 +45,8 @@ final class WeaponShape {
     static final float FORE_AFTER = 0.03f;
     /** How far under the bore a magazine reaches past the guard's foot before it is one, in metres. */
     static final float MAGAZINE_DEEPER = 0.02f;
+    /** How far above and below where a magazine is held its front edge is read for how it leans, in metres. */
+    static final float LEANS_OVER = 0.02f;
     /** How far over the underside of a fore-end the middle of the hand under it is, at the most, in metres. */
     static final float FORE_HALF = 0.024f;
     /** A level run of underside rises and falls no more than this, in metres. */
@@ -76,6 +78,12 @@ final class WeaponShape {
     /** Whether something hangs under the receiver ahead of the guard, a magazine, and along the barrel its back, front and foot. */
     final boolean magazine;
     final float magazineBack, magazineFront, magazineFoot;
+    /**
+     * Of a magazine that hangs under the receiver: how far up half way down what shows of it is, how far
+     * along the barrel its front edge is there, and how far ahead that edge comes for each unit further
+     * down, as a curved magazine's does. Nought where there is no such magazine.
+     */
+    final float magazineMiddle, magazineEdge, magazineLeans;
     /** Where a hand takes hold of the rear of the slide, in the mesh's axes. */
     final float[] slide = new float[3];
     /** The part furthest out to either side over the trigger, a bolt's knob, in the mesh's axes. */
@@ -176,6 +184,18 @@ final class WeaponShape {
         magazineBack = magazine ? outline.a(magBack) : 0f;
         magazineFront = magazine ? outline.a(magFront + 1) : 0f;
         magazineFoot = magazine ? magFoot : 0f;
+        if (magazine) {
+            magazineMiddle = (guardFoot + magFoot) / 2f;
+            int inside = outline.column((magazineBack + magazineFront) / 2f);
+            magazineEdge = outline.edge(inside, magazineMiddle);
+            // Read a little above and below, within what shows of it.
+            float over = Math.min(LEANS_OVER * perMetre, (guardFoot - magFoot) / 4f);
+            magazineLeans = (outline.edge(inside, magazineMiddle - over) - outline.edge(inside, magazineMiddle + over)) / (2f * over);
+        } else {
+            magazineMiddle = 0f;
+            magazineEdge = 0f;
+            magazineLeans = 0f;
+        }
         int foreFirst = Math.max(first + (int) (FORE_AFTER * perMetre / cell), magazine ? magFront + 1 + (int) (0.02f * perMetre / cell) : 0);
         step = cell;
         if (foreFirst >= last) {
@@ -488,6 +508,18 @@ final class WeaponShape {
                 }
             }
             return Float.NaN;
+        }
+
+        /** How far along the barrel the front edge of what is solid at a height is, going forward from a column inside it. */
+        float edge(int column, float u) {
+            int row = (int) Math.floor((u - fromU) / cell);
+            if (!solid(row, column)) {
+                throw new IllegalStateException("the magazine is not solid where it is held, " + u + " up at column " + column);
+            }
+            while (solid(row, column + 1)) {
+                column++;
+            }
+            return a(column + 1);
         }
 
         /** How far from a place, going a way, the outline runs on unbroken: what is outside at the start is passed over first, for at most a few cells. */

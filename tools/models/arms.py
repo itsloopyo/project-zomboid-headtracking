@@ -270,8 +270,10 @@ POSES = {
     "knob": {"fingers": [(58, 44, 22, 3), (60, 48, 24, 0), (68, 86, 50, 0), (72, 90, 54, 0)], "thumb": (46, 16, 0, 16, 12), "cup": 8},
     # Over the top of a pistol's slide, which is pinched between the heel of the thumb and the fingers.
     "slide": {"fingers": [(58, 52, 22, 0), (60, 54, 24, 0), (62, 56, 24, 0), (64, 58, 26, 0)], "thumb": (30, 25, 0, 10, 5), "cup": 6},
-    # Round a magazine, held by its sides with its foot in the palm.
-    "magazine": {"fingers": [(40, 74, 40, 0), (42, 76, 42, 0), (44, 78, 44, 0), (48, 82, 46, 0)], "thumb": (25, 30, -10, 20, 20), "cup": 10},
+    # Round a magazine hanging under a receiver: the palm on its near side, the fingers round its front edge onto the far
+    # side, and the thumb laid forward along the near side. Closed round it as round a handle, the fingers and thumb went
+    # 10 to 14 mm through a rifle's magazine.
+    "magazine": {"fingers": [(10, 70, 35, 0), (10, 80, 55, 0), (10, 70, 35, 0), (-20, 95, 55, 0)], "thumb": (-50, 50, 0, 25, 25), "cup": 10},
 }
 
 
@@ -417,7 +419,8 @@ def held(hand, name):
     if name == "slide":
         return box(hand, name, (0.0, 0.0, 0.03), 0.16, 0.027, 0.03)
     if name == "magazine":
-        return box(hand, name, (-0.004, 0.0, 0.026), 0.12, 0.03, 0.022)
+        # An assault rifle's, its front edge where the fingers come round it.
+        return box(hand, name, (-0.01, 0.0, 0.036), 0.12, 0.064, 0.022)
     return None
 
 
@@ -464,7 +467,7 @@ HOLDS = {
     # Where what a pose holds lies in the hand: its middle from the middle of the knuckles
     # (towards the finger tips, towards the thumb's side, out of the palm), in metres.
     "open": (0.0, 0.0, 0.03), "grip": (0.012, 0.0, 0.029), "trigger": (0.012, 0.0, 0.029), "fore": (-0.008, 0.0, 0.046),
-    "handle": (-0.004, 0.0, 0.026), "pinch": (0.03, 0.02, 0.04), "knob": (0.004, 0.014, 0.052), "slide": (0.0, 0.0, 0.03), "magazine": (-0.004, 0.0, 0.026),
+    "handle": (-0.004, 0.0, 0.026), "pinch": (0.03, 0.02, 0.04), "knob": (0.004, 0.014, 0.052), "slide": (0.0, 0.0, 0.03), "magazine": (-0.004, 0.0, 0.036),
 }
 
 

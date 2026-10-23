@@ -155,14 +155,21 @@ final class OwnSelfLoader extends OwnGun {
         if (carried == null || carried.what != ArmHolds.MAGAZINE) {
             return false;
         }
-        float[] c = carried.at;
-        // The hand holds the magazine where it holds one in its well (ArmHolds): the middle of
-        // the well, along the magazine's line, with the foot of the arms' own that far under it.
-        WeaponShape shape = drawn.shape;
-        shape.place((shape.magazineBack + shape.magazineFront) / 2f, (shape.guardFoot + shape.magazineFoot) / 2f, 0f, scratch);
+        inHand(carried.at, drawn.shape, metre(), scratch, hand);
+        return true;
+    }
+
+    /**
+     * Fills hand with the matrix that puts a model's magazine where a hand carrying one has it, from
+     * the model's axes to the view's, given what the hand carries and how long a metre of the model is
+     * in the view. The hand holds it where it holds one in its well (ArmHolds), along the magazine's
+     * line, with the foot of the arms' own that far under it.
+     */
+    static void inHand(float[] c, WeaponShape shape, float metre, float[] well, float[] hand) {
+        shape.place(ArmHolds.magazineAlong(shape), ArmHolds.magazineUp(shape), 0f, well);
         // The hand's own measure against the model's: the magazine is drawn the size the model is.
         float handMetre = (float) Math.sqrt(c[4] * c[4] + c[5] * c[5] + c[6] * c[6]);
-        float k = metre() / handMetre;
+        float k = metre / handMetre;
         // The model's x is the gun's left, y along the barrel, z up; the hand's x is out of its
         // palm, the gun's right, y up the magazine and z the way that leaves, back.
         float[][] turn = {{-k, 0f, 0f}, {0f, 0f, k}, {0f, -k, 0f}};
@@ -174,10 +181,9 @@ final class OwnSelfLoader extends OwnGun {
         }
         float footUp = ArmHolds.MAGAZINE_LONG / 2f;
         for (int row = 0; row < 3; row++) {
-            hand[12 + row] = c[12 + row] + c[4 + row] * footUp - (hand[row] * scratch[0] + hand[4 + row] * scratch[1] + hand[8 + row] * scratch[2]);
+            hand[12 + row] = c[12 + row] + c[4 + row] * footUp - (hand[row] * well[0] + hand[4 + row] * well[1] + hand[8 + row] * well[2]);
         }
         hand[15] = 1f;
-        return true;
     }
 
     @Override

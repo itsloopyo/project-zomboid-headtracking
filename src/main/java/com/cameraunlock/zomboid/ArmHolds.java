@@ -92,6 +92,15 @@ final class ArmHolds {
     /** How much of the way from the grip to the muzzle the hand under a fore-end rests, on a firearm that does not say. */
     static final float FORE_SHARE = 0.42f;
     /**
+     * How far behind the front edge of a magazine that hangs under the receiver the middle of the fist round it is, in metres:
+     * the fingers come round that edge. Held by the magazine's middle, they went 10 to 14 mm into a long one's front.
+     */
+    static final float MAGAZINE_EDGE_BEHIND = 0.026f;
+    /** How far under the guard's foot the middle of that fist is at the least, in metres: higher, its first finger went into a short magazine's receiver. */
+    static final float MAGAZINE_UNDER = 0.05f;
+    /** How far ahead the fingers of a hand on a flush magazine or a handgun's lean for each unit they run, up. */
+    static final float MAGAZINE_FINGERS_UP = 0.1f;
+    /**
      * Where a magazine that does not hang under the receiver goes in, and where rounds go in,
      * from the trigger guard, in metres: a flush magazine's well this far ahead of the guard, the
      * fist on it this far under the guard's foot (level with it, the fingers went 12 to 16 mm up
@@ -551,8 +560,15 @@ final class ArmHolds {
             float[] long3 = new float[3], out3 = new float[3], third = new float[3];
             ArmPose.unit(left.out[0], left.out[1], left.out[2], out3);
             if (carries == MAGAZINE) {
-                float along = ArmPose.dot(left.across, out3);
-                ArmPose.unit(left.across[0] - out3[0] * along, left.across[1] - out3[1] * along, left.across[2] - out3[2] * along, long3);
+                // Up the line it stands on in its well, which leans from the knuckles' as much as they lean on its front edge.
+                float[] fingers = new float[3], up3 = new float[3];
+                ArmPose.cross(left.across, out3, fingers);
+                float leans = magazineLeans(weapon.placed().shape(), doing.action());
+                for (int row = 0; row < 3; row++) {
+                    up3[row] = left.across[row] + fingers[row] * leans;
+                }
+                float along = ArmPose.dot(up3, out3);
+                ArmPose.unit(up3[0] - out3[0] * along, up3[1] - out3[1] * along, up3[2] - out3[2] * along, long3);
             } else {
                 ArmPose.cross(left.across, out3, long3);
                 ArmPose.unit(long3[0], long3[1], long3[2], long3);
@@ -604,6 +620,27 @@ final class ArmHolds {
             }
         }
         return true;
+    }
+
+    /**
+     * Where the middle of the fist round a magazine in its well is, up and along the barrel, in the mesh's units. On one that
+     * hangs under the receiver: half way down what shows of it, or lower where that leaves the fist's top in the receiver, and
+     * behind its front edge there. Where none hangs under it: under the receiver just ahead of the guard.
+     */
+    static float magazineUp(WeaponShape shape) {
+        return shape.magazine ? Math.min(shape.magazineMiddle, shape.guardFoot - MAGAZINE_UNDER * shape.perMetre) : shape.guardFoot - FLUSH_UNDER * shape.perMetre;
+    }
+
+    static float magazineAlong(WeaponShape shape) {
+        if (!shape.magazine) {
+            return shape.guardFront + FLUSH_WELL * shape.perMetre;
+        }
+        return shape.magazineEdge + shape.magazineLeans * (shape.magazineMiddle - magazineUp(shape)) - MAGAZINE_EDGE_BEHIND * shape.perMetre;
+    }
+
+    /** How far up the fingers on a magazine lean for each unit they run ahead: as its front edge leans back, where it hangs under the receiver. */
+    static float magazineLeans(WeaponShape shape, int action) {
+        return action != ArmActs.HANDGUN && shape.magazine ? shape.magazineLeans : MAGAZINE_FINGERS_UP;
     }
 
     /** How long a magazine is, and how far behind where it is pinched a round's base is, in metres. */
@@ -784,18 +821,17 @@ final class ArmHolds {
                 down[axis] = -line[axis];
             }
         } else {
-            // A magazine that hangs under the receiver is held half way down it; one that does not, under the receiver just ahead of the guard.
-            float middle = shape.magazine ? (shape.magazineBack + shape.magazineFront) / 2f : shape.guardFront + FLUSH_WELL * shape.perMetre;
-            float held = shape.magazine ? (shape.guardFoot + shape.magazineFoot) / 2f : shape.guardFoot - FLUSH_UNDER * shape.perMetre;
-            System.arraycopy(placed.at(middle, held, 0f), 0, well, 0, 3);
+            System.arraycopy(placed.at(magazineAlong(shape), magazineUp(shape), 0f), 0, well, 0, 3);
             for (int axis = 0; axis < 3; axis++) {
                 down[axis] = -axes.up[axis];
             }
         }
+        // The fist's knuckles lie up the magazine's front edge, which a curved one leans back.
+        float[] fingers = axes.way(1f, magazineLeans(shape, action), 0f);
         if (seating) {
             // The game has the magazine in: the hand, which has been holding it under the well, pushes it home and lets go.
             float under = (1f - between(doing.seated(), 0f, ArmActs.HOME_IN)) * ArmActs.MAGAZINE_DRAWN;
-            Hold onMagazine = new Hold(model).set(along(well, down, under * axes.scale), axes.way(0f, 0f, 1f), axes.way(1f, 0.1f, 0f), true, model.pose("magazine"));
+            Hold onMagazine = new Hold(model).set(along(well, down, under * axes.scale), axes.way(0f, 0f, 1f), fingers, true, model.pose("magazine"));
             return copy(now, onMagazine).towards(rest, between(doing.seated(), 0.3f, ArmActs.SEATED_FOR));
         }
         if (doing.doing() == ArmActs.RACKING) {
@@ -814,14 +850,14 @@ final class ArmHolds {
             // The magazine is held as a handle is, its top out of the thumb's side of the fist. Where it is, the game says of the weapon.
             if (doing.clip()) {
                 // In the weapon: the hand goes to it and takes hold of it, to draw it out when the game lets it go.
-                Hold inWell = new Hold(model).set(well, axes.way(0f, 0f, 1f), axes.way(1f, 0.1f, 0f), true, model.pose("magazine"));
+                Hold inWell = new Hold(model).set(well, axes.way(0f, 0f, 1f), fingers, true, model.pose("magazine"));
                 return copy(now, rest).towards(inWell, between(doing.done(), 0f, 0.3f));
             }
             float out = doing.out();
             if (out >= 0f && (out < ArmActs.TAKEN_IN || doing.fetching() < 0f)) {
                 // Out of the weapon: drawn clear of the well and taken away below, and the hand back to where it rests if no other is to come.
                 float drawn = between(out, 0f, ArmActs.DRAWN_CLEAR_IN) * ArmActs.MAGAZINE_DRAWN;
-                Hold clear = new Hold(model).set(along(well, down, drawn * axes.scale), axes.way(0f, 0f, 1f), axes.way(1f, 0.1f, 0f), true, model.pose("magazine"));
+                Hold clear = new Hold(model).set(along(well, down, drawn * axes.scale), axes.way(0f, 0f, 1f), fingers, true, model.pose("magazine"));
                 copy(now, clear).towards(away, between(out, ArmActs.DRAWN_CLEAR_IN, ArmActs.TAKEN_IN));
                 return now.towards(rest, between(out, ArmActs.TAKEN_IN, ArmActs.TAKEN_IN + 0.3f));
             }
@@ -829,7 +865,7 @@ final class ArmHolds {
             // and held there until it is: see `seating`.
             float began = out >= 0f ? ArmActs.TAKEN_IN : 0f;
             float through = (doing.fetching() - began) / Math.max(doing.fetchTakes() - began, ArmActs.SHORTEST);
-            Hold under = new Hold(model).set(along(well, down, ArmActs.MAGAZINE_DRAWN * axes.scale), axes.way(0f, 0f, 1f), axes.way(1f, 0.1f, 0f), true,
+            Hold under = new Hold(model).set(along(well, down, ArmActs.MAGAZINE_DRAWN * axes.scale), axes.way(0f, 0f, 1f), fingers, true,
                     model.pose("magazine"));
             return copy(now, away).towards(under, between(through, 0.15f, 0.7f));
         }
