@@ -842,8 +842,10 @@ final class SpriteGeometry {
         // texels: brick laid over the foot of a parapet stepped at every square.
         float inset = EDGE_INSET_PIXELS * frame.scale;
         // Only a face that shows its sprite, and one wide and tall enough for its insets: drawn
-        // in further, a strip over a window would turn inside out before its cut.
-        drawnInFirst = frame.flat == 0 && halfAcross > 0f && halfDown > 0f && 2f * inset + sealLow + sealHigh < 2f * halfAcross
+        // in further, a strip over a window would turn inside out before its cut. One drawn in to
+        // less than a pixel across covers none of the sprite and is dropped: the piece of wall
+        // between a door and the corner, carried past the corner, came to nothing on its seal.
+        drawnInFirst = frame.flat == 0 && halfAcross > 0f && halfDown > 0f && 2f * inset + sealLow + sealHigh + 1f < 2f * halfAcross
                 && 2f * Math.min(inset, halfDown / 2f) + sealTop < 2f * halfDown;
         for (int corner = 0; drawnInFirst && corner < 4; corner++) {
             standIn(frame, corners, corner * CORNER_FLOATS);
