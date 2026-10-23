@@ -522,7 +522,7 @@ final class WallBuilder {
         // A room beyond whose walls are tiles has its tiles on this side too: the sprite it shows, read on the edge it is painted
         // for (see farTilesOf), takes the frame while the far skin is added, as an outside wall's does.
         WallTiles.Wall farTiles = null;
-        if (tint != 0 && faced == null && farShows != null && Own.textures(build.playerIndex) && WallTiles.tiledSheet(farShows.getName())) {
+        if (tint != 0 && faced == null && farTakesTiles(farShows)) {
             build.held.texelsOf(build.frame);
             build.frame.takeTexels(farShows);
             farTiles = farTilesOf(farShows, da != 0f);
@@ -1299,6 +1299,11 @@ final class WallBuilder {
         build.geometry.sealLow = startIsLow ? sealStart : sealEnd;
         build.geometry.sealHigh = startIsLow ? sealEnd : sealStart;
         build.geometry.addFace(on, build.frame, x, y, z, a + da * start, b + db * start, low, da * (end - start), db * (end - start), 0f, 0f, 0f, high - low);
+    }
+
+    /** Whether a far skin shows the tiles of the room beyond, whose walls show that sprite (null where it is no room): see farTilesOf. */
+    boolean farTakesTiles(Texture shows) {
+        return shows != null && Own.textures(build.playerIndex) && WallTiles.tiledSheet(shows.getName());
     }
 
     /**

@@ -7,6 +7,7 @@ package zombie.core.textures;
 public class Texture {
     private final int id, width, height;
     private final boolean[] mask;
+    private String name;
 
     /** A texture of that size with nothing painted on it. */
     public Texture(int id, int width, int height) {
@@ -73,7 +74,13 @@ public class Texture {
         return x >= 0 && y >= 0 && x < width && y < height && mask[y * width + x];
     }
 
+    /** Gives it the name of a sprite of the game's, as a sheet's tile. */
+    public Texture named(String name) {
+        this.name = name;
+        return this;
+    }
+
     public String getName() {
-        return "texture " + id;
+        return name != null ? name : "texture " + id;
     }
 }

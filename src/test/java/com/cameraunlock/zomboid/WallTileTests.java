@@ -63,6 +63,7 @@ final class WallTileTests {
         Checks.run("theFarSideOfAWallTakesTheTilesOfTheRoomBeyondOnEitherEdge", WallTileTests::theFarSideOfAWallTakesTheTilesOfTheRoomBeyondOnEitherEdge);
         Checks.run("theFarSideWaitsForTheRoomsTilesToBeRead", WallTileTests::theFarSideWaitsForTheRoomsTilesToBeRead);
         Checks.run("theFarSideTakesNoTilesFromAWallWithAnOpening", WallTileTests::theFarSideTakesNoTilesFromAWallWithAnOpening);
+        Checks.run("theFarSideTakesTilesOnlyOfATiledRoomWithTheTexturesOn", WallTileTests::theFarSideTakesTilesOnlyOfATiledRoomWithTheTexturesOn);
         Checks.run("aPosterOnATiledWallIsThePoster", WallTileTests::aPosterOnATiledWallIsThePoster);
         Checks.run("whatIsLaidOverAWallIsNotOnTheRoomBeyond", WallTileTests::whatIsLaidOverAWallIsNotOnTheRoomBeyond);
         Checks.run("theFiguresReadOffAWallAreBuiltAsShapes", WallTileTests::theFiguresReadOffAWallAreBuiltAsShapes);
@@ -786,6 +787,23 @@ final class WallTileTests {
         map.build.building.signed = true;
         check(map.build.wallBuilder.farTilesOf(door, true) == null && map.build.building.signed,
                 "a room's sprite read with an opening in it on both edges gives the far side no tiles, and is not waited for");
+    }
+
+    private static void theFarSideTakesTilesOnlyOfATiledRoomWithTheTexturesOn() throws Throwable {
+        TestMap map = bathroom();
+        Texture tiled = shown(314).named(SHEET + 0), painted = shown(315).named("walls_interior_house_01_0");
+        boolean made = TestMap.read(null, Own.class, "picturesMade");
+        Own.picturesMade(false);
+        try {
+            check(!map.build.wallBuilder.farTakesTiles(tiled), "with the mod's textures off the far side of a wall is the room's paint, tiled or not");
+        } finally {
+            Own.picturesMade(made);
+        }
+        withTextures(() -> {
+            check(map.build.wallBuilder.farTakesTiles(tiled), "with them on, a room beyond tiled on its walls has its tiles on this side");
+            check(!map.build.wallBuilder.farTakesTiles(painted), "a room painted plain has its paint");
+            check(!map.build.wallBuilder.farTakesTiles(null), "and the outside of a building, no room, has no tiles");
+        });
     }
 
     /** A sprite laid over the north wall of square 1 of a bathroom, with a picture as big as a wall's. */
