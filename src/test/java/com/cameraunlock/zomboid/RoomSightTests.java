@@ -25,6 +25,7 @@ final class RoomSightTests {
         Checks.run("theFloorAboveIsSeenUpTheStairwellAndNotThroughTheCeiling", RoomSightTests::theFloorAboveIsSeenUpTheStairwellAndNotThroughTheCeiling);
         Checks.run("aHouseAcrossTheStreetIsSeenThroughTheEyesOwnWindow", RoomSightTests::aHouseAcrossTheStreetIsSeenThroughTheEyesOwnWindow);
         Checks.run("anUpperRoomIsSeenThroughItsWindowFromTheStreet", RoomSightTests::anUpperRoomIsSeenThroughItsWindowFromTheStreet);
+        Checks.run("theStoreysSeenIntoFromTheStreetAreCountedFromTheLand", RoomSightTests::theStoreysSeenIntoFromTheStreetAreCountedFromTheLand);
         Checks.run("aHouseBetweenTheEyeAndAWindowHidesItUnlessTheLineGoesThroughTheHouse", RoomSightTests::aHouseBetweenTheEyeAndAWindowHidesItUnlessTheLineGoesThroughTheHouse);
         Checks.run("aTallerHouseBehindALowOneShowsItsUpperRooms", RoomSightTests::aTallerHouseBehindALowOneShowsItsUpperRooms);
         Checks.run("anEyeClimbingAStairOverTheFloorAboveSeesThatFloor", RoomSightTests::anEyeClimbingAStairOverTheFloorAboveSeesThatFloor);
@@ -51,6 +52,8 @@ final class RoomSightTests {
     static final class Plan implements RoomSight.Ground {
         private final Map<Long, Long> rooms = new HashMap<>(), buildings = new HashMap<>();
         private long building = 100;
+        /** How far the land under every square is over 0, in tiles. */
+        private float lift;
         private final Map<Long, Integer> edges = new HashMap<>();
         private final java.util.Set<Long> holes = new java.util.HashSet<>();
         int minX = Integer.MAX_VALUE, minY = Integer.MAX_VALUE, maxX = Integer.MIN_VALUE, maxY = Integer.MIN_VALUE, maxZ;
@@ -91,6 +94,12 @@ final class RoomSightTests {
             return this;
         }
 
+        /** Has the land under every square stand this far over 0, in tiles: on a hill, or in a hollow under 0. */
+        Plan lift(float tiles) {
+            lift = tiles;
+            return this;
+        }
+
         /** Takes the floor out of a square, as the well of a stair does. */
         Plan hole(int x, int y, int z) {
             holes.add(key(x, y, z));
@@ -122,7 +131,7 @@ final class RoomSightTests {
 
         @Override
         public float floorUp(float x, float y, int z) {
-            return z * ViewCamera.LEVEL_HEIGHT;
+            return z * ViewCamera.LEVEL_HEIGHT + lift;
         }
 
         @Override
@@ -244,6 +253,21 @@ final class RoomSightTests {
         Plan two = new Plan().room(HALL, 0, 1, 1, 4, 4).room(OVER, 1, 1, 1, 4, 4).opening(2, 5, 1, true, RoomSight.SEE);
         check(seen(two, 2.5f, 12.5f, 0, -90f, 20f).contains(OVER), "a room upstairs is seen through its window from the street below");
         check(!seen(two, 2.5f, 12.5f, 0, -90f, 20f).contains(HALL), "and the room under it, with no window, is not");
+    }
+
+    /**
+     * From the street a room is seen into through a window up to the storey over the eye's, and
+     * that storey is counted from the land the eye stands on: in a hollow under 0 the first
+     * floor's window is the storey over the eye's, and on a hill a third floor's is not.
+     */
+    private static void theStoreysSeenIntoFromTheStreetAreCountedFromTheLand() {
+        for (float lift : new float[] {-2f, 0f, 2.6f}) {
+            Plan three = new Plan().lift(lift).room(HALL, 0, 1, 1, 4, 4).room(OVER, 1, 1, 1, 4, 4).room(ACROSS, 2, 1, 1, 4, 4).opening(2, 5, 1, true, RoomSight.SEE)
+                    .opening(3, 5, 2, true, RoomSight.SEE);
+            RoomSight.Seen seen = seenFrom(three, 2.5f, 12.5f, lift + 1.6f, 0, -90f, 25f);
+            check(seen.contains(OVER), "with the land at " + lift + ", the first floor is seen through its window from the street");
+            check(!seen.contains(ACROSS), "and the floor over it is not, its window showing its blind: " + lift);
+        }
     }
 
     /** Three houses in a row up the y axis, the eye in the street south of them looking north at the middle one. */

@@ -9,6 +9,9 @@ package com.cameraunlock.zomboid;
  *
  * Lines between the points of the grid are not followed, so a room seen only through a gap
  * narrower than the grid is spaced at its distance can be missed here.
+ *
+ * A line from the open air into a room more than RoomSight.ABOVE_FROM_OUTSIDE storeys over the
+ * eye's ends there, as the walk's does: such a window shows its blind, not the room.
  */
 final class RoomRays {
     private RoomRays() {}
@@ -86,6 +89,9 @@ final class RoomRays {
                     return;
                 }
                 z++;
+                if (blinded(ground, cellX, cellY, z - 1, z, level)) {
+                    return;
+                }
                 note(ground.region(cellX, cellY, z), seen);
                 if (path != null && ground.region(cellX, cellY, z) != ground.region(cellX, cellY, z - 1)) {
                     path.crossed(cellX, cellY, z - 1, RoomSight.UP, ground.region(cellX, cellY, z - 1), ground.region(cellX, cellY, z), at);
@@ -98,6 +104,9 @@ final class RoomRays {
                     return;
                 }
                 z--;
+                if (blinded(ground, cellX, cellY, z + 1, z, level)) {
+                    return;
+                }
                 note(ground.region(cellX, cellY, z), seen);
                 if (path != null && ground.region(cellX, cellY, z) != ground.region(cellX, cellY, z + 1)) {
                     path.crossed(cellX, cellY, z, RoomSight.UP, ground.region(cellX, cellY, z + 1), ground.region(cellX, cellY, z), at);
@@ -111,7 +120,8 @@ final class RoomRays {
             int toX = crossX ? cellX + stepX : cellX, toY = crossX ? cellY : cellY + stepY;
             // The edge crossed is the north or west edge of whichever square is further along +x or +y.
             int edgeX = Math.max(cellX, toX), edgeY = Math.max(cellY, toY);
-            if (ground.edge(edgeX, edgeY, z, !crossX) != RoomSight.SEE) {
+            if (ground.edge(edgeX, edgeY, z, !crossX) != RoomSight.SEE || ground.region(cellX, cellY, z) == RoomSight.OUTSIDE && ground.region(toX, toY, z) != RoomSight.OUTSIDE
+                    && z > level + RoomSight.ABOVE_FROM_OUTSIDE) {
                 return;
             }
             at = leave;
@@ -127,6 +137,11 @@ final class RoomRays {
             }
             note(ground.region(cellX, cellY, z), seen);
         }
+    }
+
+    /** Whether a line from the open air on level from into a room on level to, the level over or under, goes in higher than the walk sees from the open air. */
+    private static boolean blinded(RoomSight.Ground ground, int x, int y, int from, int to, int eyeLevel) {
+        return ground.region(x, y, from) == RoomSight.OUTSIDE && ground.region(x, y, to) != RoomSight.OUTSIDE && Math.min(from, to) > eyeLevel + RoomSight.ABOVE_FROM_OUTSIDE;
     }
 
     private static void note(long region, RoomSight.Seen seen) {

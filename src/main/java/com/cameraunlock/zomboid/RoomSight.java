@@ -83,7 +83,7 @@ final class RoomSight {
     /** How far an eye that moves about its place may go up or down, in tiles: a lean or a crouch, where it goes much further along the ground. */
     private static final float RISE = 0.5f;
     /** How many storeys over the eye's the open air sees into a room through. */
-    private static final int ABOVE_FROM_OUTSIDE = 1;
+    static final int ABOVE_FROM_OUTSIDE = 1;
 
     /** The map as the walk reads it. */
     interface Ground {
@@ -907,6 +907,8 @@ final class RoomSight {
         if (start != OUTSIDE) {
             seen.add(start);
         }
+        // The eye's storey counted from the land under it: on a hill level 0's floor is well over 0.
+        int highestFromOutside = (int) Math.floor((eyeUp - ground.floorUp(eyeX, eyeY, 0)) / ViewCamera.LEVEL_HEIGHT) + ABOVE_FROM_OUTSIDE;
         int depth = 0;
         float whole = 1f + MARGIN;
         depth = push(depth, start, false, -whole, -whole, whole, whole);
@@ -941,7 +943,7 @@ final class RoomSight {
                     }
                     // From the open air, a room is seen into through a window no higher than the storey over the eye's.
                     if ((region == OUTSIDE || region == THROUGH_A_BUILDING) && beyond != OUTSIDE && beyond != THROUGH_A_BUILDING
-                            && openings.z[opening] > Math.floor(eyeUp / ViewCamera.LEVEL_HEIGHT) + ABOVE_FROM_OUTSIDE) {
+                            && openings.z[opening] > highestFromOutside) {
                         continue;
                     }
                     openingsTested++;
