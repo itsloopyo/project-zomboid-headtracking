@@ -52,6 +52,9 @@ final class WallTileTests {
             Checks.run("everyTileOfAPanelIsAFace" + at, WallTileTests::everyTileOfAPanelIsAFace);
         }
         scale = 1;
+        Checks.run("aReadingArrivesFromTheReaderLater", WallTileTests::aReadingArrivesFromTheReaderLater);
+        Checks.run("eachSpriteAndWayIsReadOnce", WallTileTests::eachSpriteAndWayIsReadOnce);
+        Checks.run("aFailedReadingIsThrownOnceAndForgottenWithTheSave", WallTileTests::aFailedReadingIsThrownOnceAndForgottenWithTheSave);
         Checks.run("aTileIsPaintedInItsOwnColourFinely", WallTileTests::aTileIsPaintedInItsOwnColourFinely);
         Checks.run("evenCoursesAreOneFaceWithWholeNumbersAtTheirLines", WallTileTests::evenCoursesAreOneFaceWithWholeNumbersAtTheirLines);
         Checks.run("aBandsEdgeIsNeverOnAWholeNumber", WallTileTests::aBandsEdgeIsNeverOnAWholeNumber);
@@ -815,6 +818,98 @@ final class WallTileTests {
         check(WallTiles.of(texture, new SpriteGeometry.Frame(), true, false) == asWall && WallTiles.of(texture, new SpriteGeometry.Frame(), true, true) == panel,
                 "once read so, each way has its own reading");
         check(!WallTiles.overlayFaces(panel, 0.004f, 0.004f / ViewCamera.LEVEL_HEIGHT).isEmpty(), "and the tiles over a wall are laid as faces");
+    }
+
+    /** Hands the sprite to the reader as SpriteColours does, its dots from an empty sheet: a frame of no scale reads no dots. */
+    private static void handOver(Texture texture) {
+        WallTiles.read(texture, java.nio.ByteBuffer.allocate(4), 1, 0, 0, 1, 1);
+    }
+
+    /** Waits up to five seconds for the reader to have done what is asked. */
+    private static boolean within(java.util.function.BooleanSupplier done) {
+        long until = System.nanoTime() + 5_000_000_000L;
+        while (!done.getAsBoolean()) {
+            if (System.nanoTime() > until) {
+                return false;
+            }
+            Thread.onSpinWait();
+        }
+        return true;
+    }
+
+    private static void aReadingArrivesFromTheReaderLater() {
+        Texture texture = new Texture(400, 64, 128);
+        java.util.concurrent.CountDownLatch held = new java.util.concurrent.CountDownLatch(1);
+        WallTiles.Wall wall = read((column, row) -> tiles(BLUE, column, row, 11, 16, 120, 22));
+        WallTiles.analysis = (rgb, solid, across, high, overlay) -> {
+            try {
+                held.await();
+            } catch (InterruptedException interrupted) {
+                throw new IllegalStateException(interrupted);
+            }
+            return wall;
+        };
+        try {
+            check(WallTiles.of(texture, new SpriteGeometry.Frame(), true, false) == null, "a wall asked for is not known before it is read");
+            handOver(texture);
+            check(WallTiles.of(texture, new SpriteGeometry.Frame(), true, false) == null && WallTiles.unread(texture, true, false),
+                    "nor while the reader works on it, so the build is made again");
+            held.countDown();
+            check(within(() -> !WallTiles.unread(texture, true, false)), "the reader's reading arrives");
+            check(WallTiles.of(texture, new SpriteGeometry.Frame(), true, false) == wall, "and is the wall asked for");
+        } finally {
+            held.countDown();
+            WallTiles.analysis = WallTiles::read;
+        }
+    }
+
+    private static void eachSpriteAndWayIsReadOnce() {
+        Texture texture = new Texture(401, 64, 128);
+        java.util.concurrent.atomic.AtomicInteger readings = new java.util.concurrent.atomic.AtomicInteger();
+        WallTiles.analysis = (rgb, solid, across, high, overlay) -> {
+            readings.incrementAndGet();
+            return null;
+        };
+        try {
+            WallTiles.of(texture, new SpriteGeometry.Frame(), true, false);
+            WallTiles.of(texture, new SpriteGeometry.Frame(), true, true);
+            handOver(texture);
+            handOver(texture);
+            check(within(() -> !WallTiles.unread(texture, true, false) && !WallTiles.unread(texture, true, true)), "both ways are read");
+            handOver(texture);
+            check(readings.get() == 2, "once each, however often the sheet is read: " + readings.get());
+            check(WallTiles.unread(texture, false, false), "and a way not asked for is not read");
+        } finally {
+            WallTiles.analysis = WallTiles::read;
+        }
+    }
+
+    private static void aFailedReadingIsThrownOnceAndForgottenWithTheSave() {
+        Texture texture = new Texture(402, 64, 128);
+        WallTiles.analysis = (rgb, solid, across, high, overlay) -> {
+            throw new ArithmeticException("a reading that fails");
+        };
+        try {
+            WallTiles.of(texture, new SpriteGeometry.Frame(), true, false);
+            handOver(texture);
+            check(within(WallTiles::failureWaiting), "the reader's failure is kept");
+            IllegalStateException thrown = null;
+            try {
+                WallTiles.of(texture, new SpriteGeometry.Frame(), true, false);
+            } catch (IllegalStateException failed) {
+                thrown = failed;
+            }
+            check(thrown != null && thrown.getCause() instanceof ArithmeticException && thrown.getMessage().contains(texture.getName()),
+                    "and thrown at the next asking, naming the sprite: " + thrown);
+            check(WallTiles.of(texture, new SpriteGeometry.Frame(), true, false) == null && WallTiles.unread(texture, true, false), "once, and the sprite is asked for again");
+            handOver(texture);
+            check(within(WallTiles::failureWaiting), "a second failure is kept");
+            WallTiles.leftSave();
+            check(!WallTiles.failureWaiting() && WallTiles.of(texture, new SpriteGeometry.Frame(), true, false) == null, "and forgotten as the save is left");
+        } finally {
+            WallTiles.analysis = WallTiles::read;
+            WallTiles.leftSave();
+        }
     }
 
     /** A sprite the room beyond a wall shows, painted. */

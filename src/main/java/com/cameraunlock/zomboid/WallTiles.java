@@ -36,6 +36,7 @@ import zombie.core.textures.Texture;
  */
 final class WallTiles {
     /** The sheets whose walls are tiled, and of tiles laid over a plain wall. */
+    private static final boolean TRACE = Boolean.getBoolean("cameraunlock.zomboid.trace");
     private static final String[] SHEETS = {"walls_interior_bathroom", "walls_interior_detailing_bathroom"};
     /** How many dots long the wall the measures in dots are for is. */
     private static final float DOTS_ALONG = 64f, DOTS_UP = 192f;
@@ -347,6 +348,11 @@ final class WallTiles {
         thread.setPriority(Thread.NORM_PRIORITY - 1);
         return thread;
     });
+    /** What the reader works out from a sprite's dots: read, or what a test stands in for it. */
+    interface Analysis {
+        Wall of(float[] rgb, boolean[] solid, int across, int high, boolean overlay);
+    }
+    static volatile Analysis analysis = WallTiles::read;
     /** What stopped the reader on a sprite, thrown once on the next asking: the sprite is asked for again after that. */
     private static final AtomicReference<IllegalStateException> readerFailed = new AtomicReference<>();
 
@@ -454,6 +460,11 @@ final class WallTiles {
         }
     }
 
+    /** Tests only: whether a failure of the reader waits to be thrown. */
+    static boolean failureWaiting() {
+        return readerFailed.get() != null;
+    }
+
     /** Forgets a failure of the reader not yet thrown, as the save it was read for is left. */
     static void leftSave() {
         readerFailed.set(null);
@@ -489,8 +500,8 @@ final class WallTiles {
             int into = way;
             reader.execute(() -> {
                 try {
-                    Wall wall = read(rgb, solid, across, high, overlay);
-                    if (FirstPerson.TRACE) {
+                    Wall wall = analysis.of(rgb, solid, across, high, overlay);
+                    if (TRACE) {
                         Log.info("wall tiles " + texture.getName() + (north ? " north" : " west") + (overlay ? " over a wall" : "") + (wall == null ? " none" : said(wall)));
                     }
                     known.get(into).put(texture, wall == null ? NONE : wall);
