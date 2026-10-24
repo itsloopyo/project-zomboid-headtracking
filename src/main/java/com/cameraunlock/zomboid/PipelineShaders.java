@@ -7664,6 +7664,8 @@ final class PipelineShaders {
             uniform vec2 uSize;
             uniform vec2 uShown;
             uniform vec2 uOrigin;
+            // 1 as the picture is, down to 0 for black: see Pipeline.cut.
+            uniform float uLight;
 
             float luma(vec3 c) {
                 return dot(c, vec3(0.299, 0.587, 0.114));
@@ -7691,7 +7693,7 @@ final class PipelineShaders {
                 // difference between each pixel and its surroundings is put back.
                 vec3 around = 0.25 * (texture2D(uImage, uv + vec2(px.x, 0.0)).rgb + texture2D(uImage, uv - vec2(px.x, 0.0)).rgb
                         + texture2D(uImage, uv + vec2(0.0, px.y)).rgb + texture2D(uImage, uv - vec2(0.0, px.y)).rgb);
-                gl_FragColor = vec4(clamp(smoothed + (smoothed - around) * 0.45, 0.0, 1.0), 1.0);
+                gl_FragColor = vec4(clamp(smoothed + (smoothed - around) * 0.45, 0.0, 1.0) * uLight, 1.0);
             }
             """;
     static final String PANE_VERTEX = """

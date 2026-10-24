@@ -481,6 +481,15 @@ final class Pipeline {
     float landing;
     /** How much of the game's own picture, which is under this one, this one covers. */
     float opacity = 1f;
+    /** Whether the world round the eye is there to be drawn this frame: see WorldScene.Frame.round. */
+    boolean round = true;
+    /** How dark the picture is shown, 1 for black: see cut. Render thread. */
+    private float dark;
+    /** When the picture was cut to black, 0 while it is not. Render thread. */
+    private long cutAt;
+    private long cutFrameNanos;
+    /** How long the picture takes to come back from black once the world round the eye is there. */
+    private static final float CLEARS_SECONDS = 0.15f;
     /** The windows whose glass may show the room this frame, or null: see WindowGlass. */
     WindowGlass.Panes panes;
     /** What a mirror's glass shows, and what a window's adds: see LookingGlass.SHOWN and THROWN. */
@@ -1132,6 +1141,7 @@ final class Pipeline {
             // camera's way to the eye the far land is round the viewer and not the camera: it comes
             // in as the built world's own ends do, which come in from far off as the camera comes down.
             boolean farThere = view.worldScene.farLand.load(focusX, focusY);
+            cut(round || outside && landing == 0f);
             beyond = (!outside || landing > 0f) && farThere ? 1f + (steadying ? frameNumber % SIEVES : 0) : 0f;
             all.of(chunks, null, true, null, Integer.MAX_VALUE, SpriteGeometry.NO_BUILDING);
             arrays();
@@ -1309,6 +1319,33 @@ final class Pipeline {
             clearErrors();
             Log.info("first person cannot be drawn on this machine: " + failure);
         }
+    }
+
+    /**
+     * After a jump across the map the picture is cut to black, as a film cuts, for as long as
+     * the world round the eye is not there (WorldScene.Frame.round), and comes back over
+     * CLEARS_SECONDS once it is. Shown, it would have holes where the map has still to load or be
+     * built and end at the loaded map, with the fog's colour in place of the ground. It is drawn
+     * all the while, so it comes back as the head and the mouse have it then.
+     */
+    private void cut(boolean whole) {
+        long now = System.nanoTime();
+        float seconds = cutFrameNanos == 0 ? 0f : (now - cutFrameNanos) / 1e9f;
+        cutFrameNanos = now;
+        if (!whole) {
+            if (cutAt == 0) {
+                cutAt = now;
+                Log.info("first person picture cut to black after a jump, until the world round the eye is there");
+            }
+            dark = 1f;
+            return;
+        }
+        if (cutAt != 0) {
+            Log.info(String.format(Locale.ROOT, "first person picture back from black %.0f ms after the cut%s", (now - cutAt) / 1e6,
+                    outside && landing == 0f ? ", the camera having left the eye" : ""));
+            cutAt = 0;
+        }
+        dark = outside && landing == 0f ? 0f : Math.max(0f, dark - seconds / CLEARS_SECONDS);
     }
 
     /** Where the mirror on the screen hangs this frame, and the way it looks: into behind. */
@@ -1781,6 +1818,7 @@ final class Pipeline {
         smooth.set("uSize", (float) width, (float) height);
         smooth.set("uOrigin", (float) viewport[0], (float) viewport[1]);
         smooth.set("uShown", (float) viewport[2], (float) viewport[3]);
+        smooth.set("uLight", 1f - dark);
         quad();
         GL11.glDisable(GL_BLEND);
     }

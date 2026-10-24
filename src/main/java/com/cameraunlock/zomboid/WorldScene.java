@@ -2936,6 +2936,9 @@ final class WorldScene {
         /** Chunks in view that had no build yet when the frame had spent its time on building. */
         private int chunksWaiting;
 
+        /** Set by FirstPerson once the frame is built: whether the world round the eye is there to be drawn (Pipeline.cut). */
+        boolean round = true;
+
         /** How many chunks in view the last build left for the next frames. */
         int waiting() {
             return chunksWaiting;
@@ -8210,6 +8213,7 @@ final class WorldScene {
             }
             view.pipeline.water = waterShown ? waterPlane : null;
             view.pipeline.ahead = builtAheadOf;
+            view.pipeline.round = round;
             if (outside) {
                 view.pipeline.rangeFrom = Math.max(outsideAway - OVERHEAD_RANGE, 0f);
                 // From far overhead nothing fades into the sky: the edge of the loaded map is beyond

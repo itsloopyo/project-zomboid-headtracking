@@ -27,6 +27,9 @@ import zombie.input.GameKeyboard;
 import zombie.input.Mouse;
 import zombie.iso.IsoCamera;
 import zombie.iso.IsoCell;
+import zombie.iso.IsoChunk;
+import zombie.iso.IsoChunkMap;
+import zombie.iso.IsoMetaGrid;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoObject;
 import zombie.iso.IsoUtils;
@@ -760,6 +763,8 @@ public final class FirstPerson {
         Impacts.sayGap();
         fromTheEye = landed;
         if (!flown) {
+            lastX = Float.NaN;
+            jumpedAt = 0;
             view.fieldOfView.rest();
             view.headTracking.follow(player != null && !GameTime.isGamePaused() && !player.isDead());
             view.viewModel.rest();
@@ -885,6 +890,7 @@ public final class FirstPerson {
         } else {
             fly(player, scene, floorUp);
         }
+        scene.round = worldRound(player, scene, now);
         paceScene = scene;
         SpriteRenderer.instance.drawGeneric(scene);
         pictureUp = true;
@@ -914,6 +920,79 @@ public final class FirstPerson {
         if (TRACE) {
             trace(player, scene, zoom);
         }
+    }
+
+    /** Tiles the player can move in one frame before it is a jump across the map, after which the game loads its map round them afresh: more than a car at 250 km/h covers in a second-long frame. */
+    private static final float JUMP_TILES = 100f;
+    /** Where the player was on the last frame built at the eye or on the way to it, x NaN when there was none. */
+    private float lastX = Float.NaN, lastY;
+    /** When the player last jumped, 0 once the world round them has come since or been waited for long enough. */
+    private long jumpedAt;
+    /** The longest the picture stays cut to black after a jump (Pipeline.cut). */
+    private static final long JUMP_WAIT_NANOS = FarLand.waitNanos(3_000L);
+
+    /**
+     * Whether the world round the eye is there to be drawn, once the frame is built: after a
+     * jump, not until every chunk of the game's map within sight is loaded, the build has left
+     * none in view waiting, and the far land round the eye is on the graphics card. Until then
+     * the picture has holes the fog shows through and ends at the loaded map.
+     */
+    private boolean worldRound(IsoPlayer player, WorldScene.Frame scene, long now) {
+        float x = player.getX(), y = player.getY();
+        if (!Float.isNaN(lastX) && Math.hypot(x - lastX, y - lastY) > JUMP_TILES) {
+            jumpedAt = now;
+        }
+        lastX = x;
+        lastY = y;
+        if (jumpedAt == 0) {
+            return true;
+        }
+        boolean loaded = loadedInSight(player, x, y), built = scene.waiting() == 0, far = view.worldScene.farLand.roundTheEye() == FarLand.ROUND;
+        if (loaded && built && far) {
+            jumpedAt = 0;
+            return true;
+        }
+        if (now - jumpedAt > JUMP_WAIT_NANOS) {
+            String missing = (loaded ? "" : ", the map within sight still loading") + (built ? "" : ", chunks in view still to build")
+                    + (far ? "" : ", the far land round the eye still coming");
+            Log.info(String.format(Locale.ROOT, "%sthe picture comes back from black %.0f ms after a jump with %s", who(), (now - jumpedAt) / 1e6, missing.substring(2)));
+            jumpedAt = 0;
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Whether the game has loaded the chunk the player stands in and every chunk of its map round
+     * them within sight, short of the map's last two rings. A chunk off the world's map is never
+     * loaded (IsoChunkMap.LoadChunkForLater), and is not waited for.
+     */
+    private boolean loadedInSight(IsoPlayer player, float x, float y) {
+        IsoChunkMap map = IsoWorld.instance.currentCell.getChunkMap(player.getIndex());
+        IsoMetaGrid world = IsoWorld.instance.getMetaGrid();
+        int side = IsoChunkMap.chunkGridWidth, minX = map.getWorldXMinTiles(), minY = map.getWorldYMinTiles();
+        int ownX = Math.floorDiv((int) Math.floor(x) - minX, WorldScene.CHUNK_TILES), ownY = Math.floorDiv((int) Math.floor(y) - minY, WorldScene.CHUNK_TILES);
+        if (ownX < 0 || ownY < 0 || ownX >= side || ownY >= side) {
+            return false;
+        }
+        IsoChunk own = map.getChunk(ownX, ownY);
+        if (own == null || !own.loaded) {
+            return false;
+        }
+        float reach = Math.min(Quality.sight(view.index), (side / 2 - 2) * WorldScene.CHUNK_TILES);
+        for (int gridY = 0; gridY < side; gridY++) {
+            for (int gridX = 0; gridX < side; gridX++) {
+                float awayX = minX + (gridX + 0.5f) * WorldScene.CHUNK_TILES - x, awayY = minY + (gridY + 0.5f) * WorldScene.CHUNK_TILES - y;
+                if (awayX * awayX + awayY * awayY > reach * reach) {
+                    continue;
+                }
+                IsoChunk chunk = map.getChunk(gridX, gridY);
+                if ((chunk == null || !chunk.loaded) && world.isValidChunk(minX / WorldScene.CHUNK_TILES + gridX, minY / WorldScene.CHUNK_TILES + gridY)) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     /**
@@ -1163,6 +1242,7 @@ public final class FirstPerson {
         scene.build(player, standingView, standingView, ViewCamera.SAME_EYE, view.fieldOfView.tanHalfVertical(), FieldOfView.setTanHalfVertical(), overheadView, true);
         scene.seenFrom(overheadView, overheadHalfHigh / OVERHEAD_AWAY, OVERHEAD_AWAY, 0f);
         scene.canopyWindow(canopyX, canopyY, floorUp, canopyAimed, canopyAimX, canopyAimY, canopyFaded, canopyFadedCount);
+        scene.round = true;
         paceScene = scene;
         SpriteRenderer.instance.drawGeneric(scene);
         pictureUp = true;
