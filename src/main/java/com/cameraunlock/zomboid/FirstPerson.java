@@ -1305,7 +1305,7 @@ public final class FirstPerson {
         reticleLine.forwardY = lineY / lineLength;
         reticleLine.forwardUp = lineUp / lineLength;
         reticleOnScreen = true;
-        int index = view.player().getIndex();
+        int index = player.getIndex();
         reticleX = Math.round((ndc[0] * 0.5f + 0.5f) * IsoCamera.getScreenWidth(index));
         reticleY = Math.round((0.5f - ndc[1] * 0.5f) * IsoCamera.getScreenHeight(index));
     }
@@ -1696,6 +1696,10 @@ public final class FirstPerson {
         return player.isSneaking() ? EYE_HEIGHT_SNEAKING : EYE_HEIGHT_STANDING;
     }
 
+    float frameSeconds() {
+        return frameSeconds;
+    }
+
     /**
      * Whether the first person picture is drawn over the whole of the game's own view, so that
      * what the game draws of the weather there is never seen: the eye has landed, and is not on
@@ -1704,10 +1708,6 @@ public final class FirstPerson {
      * the logic thread built a moment before: on the one frame where the two differ the picture
      * is as good as whole.
      */
-    float frameSeconds() {
-        return frameSeconds;
-    }
-
     public boolean coversTheGamesView() {
         return landed && !WITHOUT_COVER;
     }
