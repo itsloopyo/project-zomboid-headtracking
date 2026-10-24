@@ -192,6 +192,7 @@ public final class Tests {
         Checks.run("LongGunTests", LongGunTests::run);
         Checks.run("MuzzleFlashTests", MuzzleFlashTests::run);
         Checks.run("TorchBeamTests", TorchBeamTests::run);
+        Checks.run("ShadowCastTests", ShadowCastTests::run);
         Checks.run("FiresTests", FiresTests::run);
         Checks.run("RoomLampsTests", RoomLampsTests::run);
         Checks.run("LightningTests", LightningTests::run);

@@ -4232,6 +4232,12 @@ final class PipelineShaders {
     static final String SHADOW_VERTEX = """
             #version 120
             uniform mat4 uMatrix;
+            // A place near the eye and that place in the map's clip space. A place thousands of tiles
+            // out on the map multiplied whole by the torch's matrix came out of it a depth up to five
+            // centimetres wrong, differently at each vertex, near the shadow's bias, and every wall the
+            // beam lit some paces off had wedges of its own shade down it that jumped as the torch moved.
+            uniform vec3 uCastFrom;
+            uniform vec4 uCastOrigin;
             varying vec2 vUv;
             uniform vec3 uWind;
             varying float vLeaves;
@@ -4242,6 +4248,9 @@ final class PipelineShaders {
             uniform float uFromAbove;
             uniform float uSnowLying;
             """ + GRASS_WIND + MODEL_STANDS + FACED + SnowShader.COVER + SnowShader.RIDGE + """
+            vec4 castAt(vec3 from) {
+                return uMatrix * vec4(from, 0.0) + uCastOrigin;
+            }
             void main() {
                 vStroke = 0.0;
                 if (uModel > 0.5) {
@@ -4253,7 +4262,7 @@ final class PipelineShaders {
                     vLeaves = 0.0;
                     vSolid = 1.0;
                     vAt = vec3(aPlace.xy + on.xy, on.z);
-                    gl_Position = uMatrix * vec4(vAt, 1.0);
+                    gl_Position = castAt(vec3((aPlace.xy - uCastFrom.xy) + on.xy, on.z - uCastFrom.z));
                     return;
                 }
                 vUv = gl_MultiTexCoord0.xy;
@@ -4277,7 +4286,7 @@ final class PipelineShaders {
                 if (mod(gl_Color.a, 32.0) > 23.5) {
                     vAt = gl_Vertex.xyz;
                     float edge = floor((gl_Normal.x + 3.0) * 0.5) - 1.0;
-                    gl_Position = uMatrix * vec4(swayed(gl_Vertex.xyz, fract(gl_Normal.z), gl_Normal.x - 2.0 * edge), 1.0);
+                    gl_Position = castAt(swayed(gl_Vertex.xyz, fract(gl_Normal.z), gl_Normal.x - 2.0 * edge) - uCastFrom);
                     return;
                 }
                 vec2 right;
@@ -4313,10 +4322,10 @@ final class PipelineShaders {
                     float swing;
                     wireOff(gl_MultiTexCoord0.xy, across, swing);
                     vAt = swung(stands.xyz, length(gl_Normal) - 1.0, across, swing);
-                    gl_Position = uMatrix * vec4(vAt, 1.0);
+                    gl_Position = castAt(vAt - uCastFrom);
                     return;
                 }
-                gl_Position = uMatrix * (blown(stands, gl_Normal) + vec4(ridge, 0.0));
+                gl_Position = castAt(blown(stands, gl_Normal).xyz + ridge - uCastFrom);
             }
             """;
 

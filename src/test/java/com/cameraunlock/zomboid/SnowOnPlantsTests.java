@@ -84,7 +84,7 @@ final class SnowOnPlantsTests {
         check(shadow.contains("vec3ridge=vec3(0.0);if(gl_MultiTexCoord1.z<-0.5&&uPlantSnow>0.0&&uFromAbove<0.5){vec2held;"
                 + "ridge=snowAlongWood(normalize(gl_Normal),gl_MultiTexCoord1.x,mod(gl_Color.a,32.0)>0.5,held);}"),
                 "the shadows cast the same ridge, out of doors as the view has it, and none in the map of what keeps the sky off");
-        check(shadow.contains("gl_Position=uMatrix*(blown(stands,gl_Normal)+vec4(ridge,0.0));") && !shadow.contains("stands.xyz+=snowAlongWood"),
+        check(shadow.contains("gl_Position=castAt(blown(stands,gl_Normal).xyz+ridge-uCastFrom);") && !shadow.contains("stands.xyz+=snowAlongWood"),
                 "after the wind, as the view adds it");
         String main = PipelineShaders.WORLD_FRAGMENT_MAIN.replaceAll("\\s+", "");
         check(main.contains("snowed=uPlantSnow>0.0?snowOnBark(level,vPlace.xy+vec2(0.61,-0.43)*vPlace.z,vBlade.x,vBlade.y):0.0;"),

@@ -765,6 +765,7 @@ final class Pipeline {
      */
     private static final int BEAM_MAP_MOST = 2048, ROOF_MAP_MOST = 2048;
     private final float[] torchMatrix = new float[16], torchAt = new float[4], torchWay = new float[3], torchOrigin = new float[4];
+    private final float[] castFrom = new float[3], castOrigin = new float[4];
     private int torchMap, torchTarget, torchSize;
     /** The fires' shadow maps, all in one texture (FireShadows), and the face size and slots it was made for. */
     private int fireMap, fireTarget, fireFace, fireSlots;
@@ -2264,7 +2265,7 @@ final class Pipeline {
         }
         modelArrays();
         solidShadow.use();
-        solidShadow.set("uMatrix", matrix);
+        castAlong(solidShadow, matrix);
         solidShadow.set("uModel", 1f);
         GL11.glBindTexture(GL_TEXTURE_2D, whiteTexture);
         GL15.glBindBuffer(GL_ARRAY_BUFFER, castBuffer);
@@ -2417,7 +2418,7 @@ final class Pipeline {
             GL30.glBindFramebuffer(GL_FRAMEBUFFER, map == 0 ? nearTarget : farTarget);
             GL11.glClearDepth(1.0);
             GL11.glClear(GL_DEPTH_BUFFER_BIT);
-            shadow.set("uMatrix", map == 0 ? nearMatrix : farMatrix);
+            castAlong(shadow, map == 0 ? nearMatrix : farMatrix);
             offsetHeldTo(map == 0 ? NEAR_RANGE : FAR_RANGE);
             castHeld(map == 0 ? nearMatrix : farMatrix, state, map == 0 ? nearListed : farListed, map == 0 ? NEAR_MAP : FAR_MAP);
         }
@@ -2545,7 +2546,7 @@ final class Pipeline {
                 ViewCamera.view(fireFace6, viewed);
                 multiply(projection, viewed, fireMatrix);
                 GL11.glViewport((side % 3) * face + 1, (side / 3 + slot * 2) * face + 1, face - 2, face - 2);
-                shadow.set("uMatrix", fireMatrix);
+                castAlong(shadow, fireMatrix);
                 castHeld(fireMatrix, state, fireListed, FIRE_MAP);
             }
         }
@@ -2595,13 +2596,24 @@ final class Pipeline {
         }
     }
 
+    /** Has the program cast into a map along the matrix, every place counted from the eye: see uCastOrigin in SHADOW_VERTEX. */
+    private void castAlong(Program program, float[] matrix) {
+        castFrom[0] = focusX;
+        castFrom[1] = focusY;
+        castFrom[2] = focusUp;
+        originOf(matrix, castFrom, castOrigin);
+        program.set("uMatrix", matrix);
+        program.set("uCastFrom", castFrom[0], castFrom[1], castFrom[2]);
+        program.set("uCastOrigin", castOrigin[0], castOrigin[1], castOrigin[2], castOrigin[3]);
+    }
+
     /** Binds and clears a map that is not the sun's, and has the shadow program cast into it along the matrix. */
     private void beginCast(int target, float[] matrix) {
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, target);
         GL11.glClearDepth(1.0);
         GL11.glClear(GL_DEPTH_BUFFER_BIT);
         shadow.use();
-        shadow.set("uMatrix", matrix);
+        castAlong(shadow, matrix);
         shadow.set("uSunWay", 0f, 0f, 1f);
         GL13.glActiveTexture(GL_TEXTURE0);
     }
