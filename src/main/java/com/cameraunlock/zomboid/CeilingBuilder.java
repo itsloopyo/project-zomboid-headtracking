@@ -81,11 +81,15 @@ final class CeilingBuilder {
      * as its ceiling is. A hall that narrows as it rises, a nave over its aisles, leaves its
      * upper storey open at the step, and the sky showed between the aisles' ceiling and the
      * nave's. Not over stairs, where an upper floor is open to the stairwell and may stand open
-     * to a deck beside it.
+     * to a deck beside it. Not on a square a roof lies on either: the roof is that square's top,
+     * and its gables (RoofBuilder) are its sides. Plaster a level high stood in the gables' plane
+     * behind them and in the open air over the roof between them (a row of gables over a shop's
+     * front, 11928..11944, 6907, level 1).
      */
     void addHallSides(int x, int y, int z, int localX, int localY) {
         IsoGridSquare under = build.cell.getGridSquare(x, y, z - 1);
-        if (under == null || overStairs(under) || world.cutAway(x, y)) {
+        IsoGridSquare here = build.cell.getGridSquare(x, y, z);
+        if (under == null || overStairs(under) || world.cutAway(x, y) || here != null && Roofs.covered(build.cell, here) || build.madeAt(x, y, z)) {
             return;
         }
         boolean lit = false;

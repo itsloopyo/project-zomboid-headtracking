@@ -27,6 +27,8 @@ final class TallHallsTests {
         Checks.run("theUpperRoomIsLitAsTheHallsFloor", TallHallsTests::theUpperRoomIsLitAsTheHallsFloor);
         Checks.run("aRowLeftOutIsLitAsTheHallsFloor", TallHallsTests::aRowLeftOutIsLitAsTheHallsFloor);
         Checks.run("noOtherSquareIsLitAsAHall", TallHallsTests::noOtherSquareIsLitAsAHall);
+        Checks.run("aRowLeftOutIsClosedWithPlasterToTheOpenAir", TallHallsTests::aRowLeftOutIsClosedWithPlasterToTheOpenAir);
+        Checks.run("aRowLeftOutUnderARoofIsLeftToItsGables", TallHallsTests::aRowLeftOutUnderARoofIsLeftToItsGables);
     }
 
     private static final IsoSprite FLOOR = new IsoSprite("floors_interior_tilesandwood_01_47", new PropertyContainer(Map.of()));
@@ -164,5 +166,41 @@ final class TallHallsTests {
         check(TallHalls.floorOf(cell, 3, 0, 2) == null, "a floored square over the upper room is its own");
         check(TallHalls.floorOf(cell, -1, 3, 1) == null, "the air beside the hall is the open air");
         check(TallHalls.floorOf(cell, 3, 3, 3) == null, "the floor over everything is its own");
+    }
+
+    /**
+     * A shop 4 by 4 on the ground floor, its upper room floorless over rows 1 to 3 and row 0
+     * left out of it, the street north of it.
+     */
+    private static TestMap shopFront() {
+        TestMap map = new TestMap();
+        IsoBuilding building = new IsoBuilding(new BuildingDef(BUILDING, 0, 0, 4, 4));
+        for (int x = 0; x < 4; x++) {
+            for (int y = 0; y < 4; y++) {
+                IsoGridSquare ground = map.cell.square(x, y, 0);
+                ground.floor(FLOOR);
+                ground.setRoomID(HALL);
+                ground.building(building);
+                IsoGridSquare upper = map.cell.square(x, y, 1);
+                if (y > 0) {
+                    upper.setRoomID(UPPER);
+                    upper.building(building);
+                }
+            }
+        }
+        return map;
+    }
+
+    private static void aRowLeftOutIsClosedWithPlasterToTheOpenAir() {
+        TestMap map = shopFront();
+        map.build.ceilingBuilder.addHallSides(1, 0, 1, 1, 0);
+        check(TestMap.plain().triangles() == 2, "a row left out of the upper room with the open air north of it is closed with plaster: " + TestMap.plain().triangles() + " triangles");
+    }
+
+    private static void aRowLeftOutUnderARoofIsLeftToItsGables() {
+        TestMap map = shopFront();
+        map.roofSprite(1, 0, 1, "roofs_01_4");
+        map.build.ceilingBuilder.addHallSides(1, 0, 1, 1, 0);
+        check(TestMap.plain().triangles() == 0, "a row left out under a roof gets no plaster in its gables' plane: " + TestMap.plain().triangles() + " triangles");
     }
 }
