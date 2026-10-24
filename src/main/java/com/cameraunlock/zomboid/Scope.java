@@ -99,7 +99,7 @@ final class Scope {
             }
             """;
 
-    private static final String FRAGMENT = "#version 120\n" + Sky.ATMOSPHERE + MuzzleFlash.GLSL + Fires.GLSL + PipelineShaders.BEAMS + String.format(Locale.ROOT, """
+    private static final String FRAGMENT = "#version 120\n#extension GL_ARB_shader_texture_lod : require\n" + Sky.ATMOSPHERE + MuzzleFlash.GLSL + Fires.GLSL + PipelineShaders.BEAMS + String.format(Locale.ROOT, """
             const float RELIEF = %f;
             const float EYE_LENS = %f;
             const float FIELD = %f;
@@ -319,8 +319,10 @@ final class Scope {
                 float soft = 1.2 * out2 * out2;
                 vec3 seen = vec3(texture2D(uPicture, 0.5 + uv * (1.0 - 0.006 * out2), soft).r, texture2D(uPicture, 0.5 + uv, soft).g,
                         texture2D(uPicture, 0.5 + uv * (1.0 + 0.006 * out2), soft).b);
-                // Light scattered inside the tube lies over all of it as a thin veil.
-                vec3 veil = texture2D(uPicture, vec2(0.5), 8.0).rgb;
+                // Light scattered inside the tube lies over all of it as a thin veil. A bias does not
+                // reach a smaller copy here: the place read is the same for every dot, so its
+                // derivatives are nought and the bias is added to minus infinity.
+                vec3 veil = texture2DLod(uPicture, vec2(0.5), 8.0).rgb;
                 seen = seen * (1.0 - 0.22 * out2) * vec3(0.97, 0.98, 0.94) + veil * 0.03;
 
                 // The reticle: four heavy posts that stop short of the middle and a fine wire
