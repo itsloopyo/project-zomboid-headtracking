@@ -30,6 +30,7 @@ final class CrownTests {
         Checks.run("aShadowOnlyFanSaysHowMuchShadowItThrows", CrownTests::aShadowOnlyFanSaysHowMuchShadowItThrows);
         Checks.run("woodAndRoundThingsAreLitByAWayOfLengthOne", CrownTests::woodAndRoundThingsAreLitByAWayOfLengthOne);
         Checks.run("aSprigIsLitByHowTheBoughsItIsOnSlope", CrownTests::aSprigIsLitByHowTheBoughsItIsOnSlope);
+        Checks.run("aBushIsPaintedAsTheGameDrawsItOnlyInTheGamesOwnView", CrownTests::aBushIsPaintedAsTheGameDrawsItOnlyInTheGamesOwnView);
     }
 
     /** The sprigs of a crown, each by where its four corners are, to the thousandth of a tile. */
@@ -603,6 +604,23 @@ final class CrownTests {
         Flora.addCrown(highOpen, new SpriteGeometry.Mesh(), frame, PLACES, 10.5f, 20.5f, 0f, FOOT_U, FOOT_V, 1f, 0f, 0f, 0f, Flora.BARK_OAK, Flora.MAPLE, 9, Flora.OPEN, 1f, 0, 0f);
         check(high.floats > 0 && Arrays.equals(high.vertices, 0, high.floats, highOpen.vertices, 0, highOpen.floats),
                 "a crown wholly over a wall's top is made as if nothing stood beside it");
+    }
+
+    /**
+     * A bush's core and sprigs give way to the sprite's paint where the pixel is seen along the
+     * game's view. From the eye, looking down into a bush that way, the same test cut a round
+     * hole in it, so the test holds only while the picture is the game's own (uGameView).
+     */
+    private static void aBushIsPaintedAsTheGameDrawsItOnlyInTheGamesOwnView() {
+        String shader = PipelineShaders.WORLD_FRAGMENT_MAIN;
+        String along = "dot(normalize(uEye - vWorld), GAME_VIEW) > 0.95";
+        int seen = 0;
+        for (int at = shader.indexOf(along); at >= 0; at = shader.indexOf(along, at + 1)) {
+            seen++;
+            String line = shader.substring(shader.lastIndexOf('\n', at) + 1, at);
+            check(line.contains("uGameView > 0.5 &&"), "painting along the game's view is held to the game's own view: " + line + along);
+        }
+        check(seen == 2, "the crown's core and its sprigs are painted along the game's view, " + seen + " places");
     }
 
     private static void check(boolean condition, String what) {

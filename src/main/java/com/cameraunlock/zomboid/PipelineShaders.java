@@ -1985,7 +1985,7 @@ final class PipelineShaders {
                     // has none: its inside, all shade, would show there instead.
                     bool painted = cell.x > 2047.5;
                     cell.x -= painted ? 2048.0 : 0.0;
-                    if (painted && dot(normalize(uEye - vWorld), GAME_VIEW) > 0.95) {
+                    if (painted && uGameView > 0.5 && dot(normalize(uEye - vWorld), GAME_VIEW) > 0.95) {
                         discard;
                     }
                     vec2 autumn = autumnOf(vRoot);
@@ -2058,8 +2058,9 @@ final class PipelineShaders {
                     // the sprite paints where the pixel is seen along that view, its middle at the sprite's
                     // place in the cell (Flora.paintedU). The plant is then the game's, in the light and
                     // shade of the world. Laid with the sprig's own picture a bush was a ball of crumpled foil.
-                    // From any other way the sprite's leaves would stretch, and it is a crown as a tree's is.
-                    if (painted && dot(normalize(uEye - vWorld), GAME_VIEW) > 0.95) {
+                    // From any other way the sprite's leaves would stretch, and it is a crown as a tree's is. Only in
+                    // the game's own view: from the eye, looking down that way, it cut a round hole in the bush.
+                    if (painted && uGameView > 0.5 && dot(normalize(uEye - vWorld), GAME_VIEW) > 0.95) {
                         vec2 fx = dFdx(vUv), fy = dFdy(vUv);
                         float det = fx.x * fy.y - fx.y * fy.x;
                         vec3 off = abs(det) > 1e-12 ? (dFdx(vWorld) * fy.y - dFdy(vWorld) * fx.y) / det * (fract(vUv.x) - 0.5)
