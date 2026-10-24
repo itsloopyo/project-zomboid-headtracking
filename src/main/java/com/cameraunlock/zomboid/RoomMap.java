@@ -34,6 +34,11 @@ final class RoomMap implements Acoustics.Walls, RoomDaylight.Edges {
     private static final long REREAD_UNTOLD_NANOS = 1_000_000_000L;
     private IsoCell cell;
     private Terrain terrain;
+    /**
+     * The thread the map is begun on, the logic thread: the game changes its squares there,
+     * and a chunk's build reading rooms off it from elsewhere would read them half changed.
+     */
+    private Thread logic;
     /** Until when, by System.nanoTime, chunks may be read: every reader in a frame spends the one budget. */
     private long readsUntil;
     private final RoomSight.Openings[] kept = new RoomSight.Openings[SIDE * SIDE];
@@ -61,6 +66,12 @@ final class RoomMap implements Acoustics.Walls, RoomDaylight.Edges {
     int chunksRead;
 
     void begin(IsoCell cell, Terrain terrain) {
+        Thread now = Thread.currentThread();
+        if (logic == null) {
+            logic = now;
+        } else if (now != logic) {
+            throw new IllegalStateException("the room map is begun on " + now.getName() + ", not on " + logic.getName() + " where it was first");
+        }
         this.cell = cell;
         this.terrain = terrain;
     }
@@ -273,6 +284,9 @@ final class RoomMap implements Acoustics.Walls, RoomDaylight.Edges {
      * square: that is all one space, and the hall's ceiling hangs at its top (TallHalls).
      */
     private IsoGridSquare hallOrSquare(int x, int y, int z) {
+        if (Thread.currentThread() != logic) {
+            throw new IllegalStateException("the room map is read on " + Thread.currentThread().getName() + ", off the logic thread");
+        }
         IsoGridSquare square = cell.getGridSquare(x, y, z);
         IsoGridSquare hall = square == null ? null : TallHalls.floorOf(cell, x, y, z);
         return hall != null ? hall : square;
