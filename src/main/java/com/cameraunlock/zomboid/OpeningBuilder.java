@@ -79,6 +79,8 @@ final class OpeningBuilder {
     private static final float JOINT_SHADE = 0.4f;
     /** A door's knob: how high up it is in levels, how far in from the leaf's end as a share of the leaf, how thick and how far out, in tiles. */
     static final float KNOB_HIGH = 0.4f, KNOB_IN = 0.1f, KNOB_ROUND = 0.017f, KNOB_OUT = 0.034f, KNOB_NECK = 0.4f;
+    /** A lever's arm: how long along the leaf from its neck, how high, and how far off the face it starts (where the neck ends), in tiles. */
+    static final float LEVER_ARM = 0.1f, LEVER_HIGH = 0.016f, LEVER_NEAR = KNOB_OUT * 0.45f;
     /**
      * A door's hinges and knob, of metal. A model's own metal is numbered among the models'
      * surfaces, which on a face of the world's own are kinds of floorboard: see WORLD_VERTEX.
@@ -480,9 +482,14 @@ final class OpeningBuilder {
                 }
             }
             // The knob: a rose on the leaf, then a neck and a head, each of eight sides. The rose
-            // keeps clear of a panel beside it.
+            // keeps clear of a panel beside it. A lever has the rose and the neck, and an arm
+            // along the leaf from the neck towards the hinges in place of the head.
             float rose = rose(door.kind == Doors.PANELLED, wide);
-            for (int part = 0; part < 3; part++) {
+            if (door.lever) {
+                float[] arm = lever(knob, door.handleAtEnd);
+                addBlock(metal, arm[0], arm[1], arm[2], arm[3], face + Math.signum(face) * LEVER_NEAR, face + Math.signum(face) * KNOB_OUT, r, g, b);
+            }
+            for (int part = 0; part < (door.lever ? 2 : 3); part++) {
                 float round = part == 0 ? rose : part == 1 ? KNOB_ROUND * KNOB_NECK : KNOB_ROUND;
                 float near = part == 0 ? 0f : part == 1 ? ROSE_OUT : KNOB_OUT * 0.45f, far = part == 0 ? ROSE_OUT : part == 1 ? KNOB_OUT * 0.45f : KNOB_OUT;
                 float from = face + Math.signum(face) * near, to = face + Math.signum(face) * far;
@@ -1124,6 +1131,28 @@ final class OpeningBuilder {
         mesh.open = open;
         mesh.day = day;
     }
+
+    /** A lever's arm: along from, along to, foot and head in levels, from the neck at along knob towards the hinges, at the end away from the handle. */
+    static float[] lever(float knob, boolean handleAtEnd) {
+        float half = LEVER_HIGH / (2f * ViewCamera.LEVEL_HEIGHT);
+        float far = handleAtEnd ? knob - LEVER_ARM : knob + LEVER_ARM, near = handleAtEnd ? knob + KNOB_ROUND : knob - KNOB_ROUND;
+        return new float[] {Math.min(far, near), Math.max(far, near), KNOB_HIGH - half, KNOB_HIGH + half};
+    }
+
+    /** A block standing off a leaf's face, from along from to along to, foot to head in levels, and across tiles out of the leaf's middle from near to far: its six faces. */
+    private void addBlock(SpriteGeometry.Mesh mesh, float from, float to, float foot, float head, float near, float far, float red, float green, float blue) {
+        float[] c = build.reveal;
+        for (int side = 0; side < 6; side++) {
+            for (int corner = 0; corner < 4; corner++) {
+                int i = BLOCK_FACES[side][corner];
+                windowPoint(c, corner, (i & 1) == 0 ? from : to, (i & 2) == 0 ? foot : head, (i & 4) == 0 ? near : far);
+            }
+            SpriteGeometry.addPlainQuad(mesh, c, red, green, blue);
+        }
+    }
+
+    /** The corners of each face of a block, as bits: along, up, across. */
+    private static final int[][] BLOCK_FACES = {{0, 1, 3, 2}, {4, 6, 7, 5}, {0, 4, 5, 1}, {2, 3, 7, 6}, {0, 2, 6, 4}, {1, 5, 7, 3}};
 
     /** How far round a knob's rose is on a leaf so wide, in tiles: on a panelled one, no further than leaves it clear of the panel beside the knob. */
     static float rose(boolean panelled, float wide) {

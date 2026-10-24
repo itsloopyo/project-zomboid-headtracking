@@ -29,6 +29,8 @@ final class DoorTests {
         Checks.run("capUnderAWallsFootLeavesTheDoorwayFloorBare", DoorTests::capUnderAWallsFootLeavesTheDoorwayFloorBare);
         Checks.run("anOpenDoorIsItsShutLeafOnItsOpenOutline", DoorTests::anOpenDoorIsItsShutLeafOnItsOpenOutline);
         Checks.run("aShutLeafReadWithItsHandleAtItsStartIsTurnedEndForEnd", DoorTests::aShutLeafReadWithItsHandleAtItsStartIsTurnedEndForEnd);
+        Checks.run("aLongHandleIsALeverAndARoundOneAKnob", DoorTests::aLongHandleIsALeverAndARoundOneAKnob);
+        Checks.run("aLeversArmRunsFromItsNeckTowardsTheHinges", DoorTests::aLeversArmRunsFromItsNeckTowardsTheHinges);
     }
 
     private static void capUnderAWallsFootLeavesTheDoorwayFloorBare() {
@@ -426,9 +428,11 @@ final class DoorTests {
         // the shut one as a dark panelled leaf from 0.1 to 0.9 with a light in its top half.
         Doors.Shape open = door(0.05f, 0.45f, 0f, 0.8f, Doors.FLUSH, false, 0.9f, new float[0]);
         Doors.Shape shut = door(0.1f, 0.9f, 0f, 0.8f, Doors.PANELLED, true, 0.3f, new float[] {0.3f, 0.7f, 0.4f, 0.7f, 1f});
+        shut.lever = true;
         Doors.Shape swung = Doors.swung(open, shut);
         check(swung.kind == Doors.PANELLED, "an open door keeps its panels");
         check(swung.leaf.red == 0.3f, "and its colour");
+        check(swung.lever, "and its kind of handle");
         check(swung.leaf.start == 0.05f && swung.leaf.end == 0.45f && swung.leaf.foot == 0f && swung.leaf.head == 0.8f, "on the outline it stands at open");
         check(swung.handleAtEnd, "hinged at the doorway's corner, the start of the leaf open, so its handle is at its end");
         float t0 = swung.leaf.panes[0], t1 = swung.leaf.panes[1];
@@ -445,5 +449,48 @@ final class DoorTests {
         float t0 = swung.leaf.panes[0], t1 = swung.leaf.panes[1];
         check(Math.abs(t0 - 0.3f) < 1e-5f && Math.abs(t1 - 0.4f) < 1e-5f, "a light beside the handle stays beside it: " + t0 + ".." + t1);
         check(Math.abs(swung.leaf.startWide - 0.05f) < 1e-5f && Math.abs(swung.leaf.endWide - 0.025f) < 1e-5f, "and the stiles change ends with it");
+    }
+
+    /** A leaf 40 dots across and 60 high, all of brightness 0.8, with a dark handle drawn in it and a faint panel line. */
+    private static float[] leafWith(int[] handle) {
+        int across = 40, high = 60;
+        float[] bright = new float[across * high];
+        java.util.Arrays.fill(bright, 0.8f);
+        for (int row = 0; row < high; row++) {
+            bright[row * across + 30] = 0.74f;
+        }
+        for (int at = 0; at < handle.length; at += 4) {
+            for (int row = handle[at + 2]; row < handle[at + 3]; row++) {
+                for (int column = handle[at]; column < handle[at + 1]; column++) {
+                    bright[row * across + column] = 0.3f;
+                }
+            }
+        }
+        return bright;
+    }
+
+    /** Whether the handle drawn in leafWith(drawn) reads as a lever, looked for in columns 28..40 of rows 20..40 and reaching to column 20. */
+    private static boolean leverIn(int[] drawn) {
+        return Doors.isLever(Doors.handle(leafWith(drawn), 40, 20, 40, 28, 40, 20, 40, 0.8f));
+    }
+
+    private static void aLongHandleIsALeverAndARoundOneAKnob() {
+        check(leverIn(new int[] {29, 37, 30, 33}), "an arm 8 dots long and 3 high is a lever");
+        check(leverIn(new int[] {35, 38, 24, 36, 29, 37, 30, 32}), "an arm on a plate standing up the leaf is a lever");
+        check(leverIn(new int[] {22, 31, 30, 33}), "an arm reaching on past where the handle is looked for is a lever, and not cut short there");
+        check(!leverIn(new int[] {33, 37, 28, 33}), "a handle 4 across and 5 high is a knob");
+        check(!leverIn(new int[] {34, 36, 29, 32}), "and so is a small one");
+        check(!Doors.isLever(Doors.handle(leafWith(new int[0]), 40, 20, 40, 28, 40, 20, 40, 0.8f)), "a leaf with no handle drawn has no lever");
+    }
+
+    private static void aLeversArmRunsFromItsNeckTowardsTheHinges() {
+        for (boolean handleAtEnd : new boolean[] {false, true}) {
+            float knob = handleAtEnd ? 0.8f : 0.2f;
+            float[] arm = OpeningBuilder.lever(knob, handleAtEnd);
+            float hinge = handleAtEnd ? 0.1f : 0.9f;
+            check(arm[0] <= knob && knob <= arm[1], "the arm starts at its neck");
+            check(Math.abs((handleAtEnd ? arm[0] : arm[1]) - knob) > Math.abs((handleAtEnd ? arm[1] : arm[0]) - knob), "and runs towards the hinges at " + hinge);
+            check(arm[2] < OpeningBuilder.KNOB_HIGH && OpeningBuilder.KNOB_HIGH < arm[3], "at the knob's height");
+        }
     }
 }

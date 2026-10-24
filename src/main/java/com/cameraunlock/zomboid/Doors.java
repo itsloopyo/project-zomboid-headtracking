@@ -23,6 +23,19 @@ final class Doors {
     private static final int IN_ACROSS = 2, IN_DOWN = 4, FEWEST = 10;
     /** The levels between which a handle is, and how far in from each end of the leaf, as a share of its width, the handle is looked for. */
     private static final float HANDLE_FOOT = 0.3f, HANDLE_HEAD = 0.5f, HANDLE_WITHIN = 0.3f;
+    /**
+     * A dot is of the handle where it is off the leaf's colour by more than this share of the
+     * most any dot there is. The handle is the dots so off that touch the most off one.
+     */
+    private static final float HANDLE_PART = 0.5f;
+    /**
+     * A handle is a lever where its longest row is this many times as long as the handle is
+     * high, or LEVER_ROW times as long as its usual row: a lever's arm alone, or an arm on a
+     * plate standing up the leaf. A knob is about as wide as it is high.
+     */
+    static final float LEVER_LONG = 1.8f, LEVER_ROW = 2f;
+    /** How far in from its end of the leaf a handle may reach, as a share of the leaf's width: a lever's arm runs on past where the handle is looked for. */
+    private static final float HANDLE_REACH = 0.5f;
 
     /** One door: its outline and lights as a window's, and how its leaf is worked. */
     static final class Shape {
@@ -32,6 +45,10 @@ final class Doors {
         float board;
         /** Whether the handle is nearer the end of the leaf than its start. */
         boolean handleAtEnd;
+        /** Whether the handle is a lever, not a knob. */
+        boolean lever;
+        /** The handle as it was measured: its longest row, how many rows high, its usual row, in dots. */
+        int[] handle;
     }
 
     private record Asked(boolean north, float originU, float originV, float scale, float left, float top, float width, float height) {}
@@ -106,6 +123,12 @@ final class Doors {
                     ? (299 * (sheet.get(at[i]) & 0xff) + 587 * (sheet.get(at[i] + 1) & 0xff) + 114 * (sheet.get(at[i] + 2) & 0xff)) / 255000f : -1f;
         }
         Shape shape = worked(leaf, bright, across, high);
+        if (FirstPerson.TRACE) {
+            Log.info("door " + texture.getName() + " reads as " + (shape.kind == PANELLED ? "panelled" : shape.kind == PLANKED ? "planked" : "flush")
+                    + ", handle at its " + (shape.handleAtEnd ? "end" : "start") + ", a " + (shape.lever ? "lever" : "knob")
+                    + (shape.handle == null ? "" : " (longest row " + shape.handle[0] + ", " + shape.handle[1] + " rows, usual row " + shape.handle[2] + ")")
+                    + ", " + leaf.panes.length / 5 + " lights");
+        }
         known.put(texture, shape);
     }
 
@@ -188,12 +211,85 @@ final class Doors {
             }
         }
         shape.handleAtEnd = odd[1] > odd[0];
+        int handleFrom = Math.max(from, r0), handleTo = Math.min(to, r1), reach = Math.round((c1 - c0) * HANDLE_REACH);
+        shape.handle = handle(bright, across, handleFrom, handleTo, shape.handleAtEnd ? c1 - within : c0, shape.handleAtEnd ? c1 : c0 + within,
+                shape.handleAtEnd ? c1 - reach : c0, shape.handleAtEnd ? c1 : c0 + reach, usual);
+        shape.lever = isLever(shape.handle);
         return shape;
+    }
+
+    /** Whether a handle measured as handle gives it is a lever: see LEVER_LONG. */
+    static boolean isLever(int[] handle) {
+        return handle[1] > 0 && (handle[0] >= LEVER_LONG * handle[1] || handle[0] >= LEVER_ROW * handle[2]);
+    }
+
+    /**
+     * The handle the sprite paints in rows from to to of bright, found in columns c0 to c1 and
+     * reaching as far as columns g0 to g1: its longest row, how many rows high it is and its
+     * usual row, in dots, all 0 where there is none. It is the dots off the leaf's colour usual
+     * by at least HANDLE_PART of the most off one in c0 to c1 that touch that one, side by
+     * side or one over another.
+     */
+    static int[] handle(float[] bright, int across, int from, int to, int c0, int c1, int g0, int g1, float usual) {
+        int rows = to - from, columns = g1 - g0;
+        if (rows <= 0 || c1 <= c0 || columns <= 0) {
+            return new int[3];
+        }
+        float most = 0f;
+        int seed = -1;
+        for (int row = from; row < to; row++) {
+            for (int column = c0; column < c1; column++) {
+                float dot = bright[row * across + column];
+                if (dot >= 0f && Math.abs(dot - usual) > most) {
+                    most = Math.abs(dot - usual);
+                    seed = row * across + column;
+                }
+            }
+        }
+        if (seed < 0) {
+            return new int[3];
+        }
+        boolean[] part = new boolean[bright.length];
+        int[] queue = new int[rows * columns];
+        int head = 0, tail = 0;
+        part[seed] = true;
+        queue[tail++] = seed;
+        while (head < tail) {
+            int at = queue[head++], row = at / across, column = at % across;
+            for (int step = 0; step < 4; step++) {
+                int r = row + (step == 0 ? -1 : step == 1 ? 1 : 0), c = column + (step == 2 ? -1 : step == 3 ? 1 : 0);
+                if (r < from || r >= to || c < g0 || c >= g1) {
+                    continue;
+                }
+                int next = r * across + c;
+                float dot = bright[next];
+                if (!part[next] && dot >= 0f && Math.abs(dot - usual) >= HANDLE_PART * most) {
+                    part[next] = true;
+                    queue[tail++] = next;
+                }
+            }
+        }
+        int high = 0, longest = 0;
+        int[] lengths = new int[rows];
+        for (int row = from; row < to; row++) {
+            int length = 0;
+            for (int column = g0; column < g1; column++) {
+                if (part[row * across + column]) {
+                    length++;
+                }
+            }
+            if (length > 0) {
+                lengths[high++] = length;
+                longest = Math.max(longest, length);
+            }
+        }
+        Arrays.sort(lengths, 0, high);
+        return new int[] {longest, high, lengths[high / 2]};
     }
 
     /**
      * An open door as its shut sprite shows it. The game draws an open leaf half turned, and
-     * read off that picture it is a flush leaf: its panels, colour and handle's end are read off the
+     * read off that picture it is a flush leaf: its panels, colour and handle are read off the
      * sprite it shows shut, and laid on the outline of the open one, which is where the leaf
      * stands. A leaf turns on hinges at the doorway's corner, so open it has them at its start
      * (the end at that corner) and its handle at its end; the shut leaf's working is turned end
@@ -225,6 +321,7 @@ final class Doors {
         made.kind = shut.kind;
         made.board = shut.board * along;
         made.handleAtEnd = true;
+        made.lever = shut.lever;
         return made;
     }
 
