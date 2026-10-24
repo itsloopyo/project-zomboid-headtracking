@@ -712,6 +712,34 @@ public final class CoreTests {
                         + "VanillaCabins "
                         + "ShotsThroughWalls ShotsBreakLamps ShotsWoundLimbs VehiclesSmashThrough FacesTheView ShotsPastTrees ZombiesSeenAtOnce TalkingMouths "),
                 "the game's options screen is given the modes, the yaw mode and the mod's own rows, and no key list, port or microphone: " + ids);
+        int[][] layout = OptionsLayout.of(options);
+        StringBuilder page = new StringBuilder();
+        for (int group = 0; group < layout.length; group++) {
+            page.append('[').append(OptionsLayout.PAGE[group].title()).append("] ");
+            for (int option : layout[group]) {
+                page.append(options[option].id).append(' ');
+            }
+        }
+        check(page.toString().equals("[Head tracking] TrackingMode AimMode WorldSpaceYaw [First person] FieldOfView Crosshair MuzzleFlash RegripTwoHandedWeapons HillHeight "
+                        + "[Graphics] Quality IsometricQuality Style [Custom graphics] TreeQuality GrassDensity RenderScale ViewDistance ZombiesAndPropsDrawDistance "
+                        + "FarTreeDistance RainOnGlass ShadingAndLight Reflections FullSizeTextures SurfaceDepth SharpShadows WholeFigureShadows FrameBlending "
+                        + "LightDistance [Vanilla content] VanillaWeapons VanillaFurniture VanillaPictures VanillaPlants VanillaTextures VanillaBuildings "
+                        + "VanillaZombies VanillaPeople VanillaArms VanillaClothes VanillaAnimals VanillaFire VanillaCabins [Offline rules] ShotsThroughWalls "
+                        + "ShotsBreakLamps ShotsWoundLimbs VehiclesSmashThrough FacesTheView ShotsPastTrees ZombiesSeenAtOnce [Split screen] SplitScreen "
+                        + "SecondPlayerQuality SecondPlayerIsometricQuality SecondPlayerStyle ThirdPlayerQuality ThirdPlayerIsometricQuality ThirdPlayerStyle "
+                        + "FourthPlayerQuality FourthPlayerIsometricQuality FourthPlayerStyle [Voice] TalkingMouths "),
+                "the page puts each setting under one title, the tracking mode first: " + page);
+        CameraUnlock.Option[] unplaced = Arrays.copyOf(options, options.length + 1);
+        unplaced[options.length] = new CameraUnlock.Option();
+        unplaced[options.length].id = "Unplaced";
+        unplaced[options.length].section = "General";
+        boolean refused = false;
+        try {
+            OptionsLayout.of(unplaced);
+        } catch (IllegalStateException expected) {
+            refused = expected.getMessage().contains("Unplaced");
+        }
+        check(refused, "and a setting under no title stops the page from being made");
         int fov = optionNamed(options, "FieldOfView"), yaw = optionNamed(options, "WorldSpaceYaw"), tracking = optionNamed(options, "TrackingMode"),
                 aim = optionNamed(options, "AimMode"), arms = optionNamed(options, "VanillaArms"), flash = optionNamed(options, "MuzzleFlash");
         boolean taken = true;

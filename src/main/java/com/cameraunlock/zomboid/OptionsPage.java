@@ -15,7 +15,8 @@ import zombie.ui.UIManager;
  * The mod's settings on the game's own options screen, under the page the game keeps for mods
  * (PZAPI.ModOptions in its Lua). The controls are cameraunlock-core's options of CameraUnlock.ini:
  * its writable rows, with the tracking mode and the aim mode as a list each. A row is on the
- * screen because Config marks it writable, and nothing here names one.
+ * screen because Config marks it writable. OptionsLayout puts it under a title, and a writable row it
+ * puts under none stops the section from being made.
  *
  * Each player's microphone is a name and no option of core's: the page lists the microphones
  * connected as it opens, for each player, below the settings.
@@ -112,12 +113,16 @@ final class OptionsPage {
                 throw new IllegalStateException(described.id + " has no range for a slider to cover");
             }
         }
+        int[][] layout = OptionsLayout.of(options);
         KahluaTable section = (KahluaTable) call(modOptions, "create", SECTION, HEADING);
         List<Control> made = new ArrayList<>();
-        for (int option = 0; option < options.length; option++) {
-            Control control = control(section, option, options[option]);
-            show(control, Tracking.optionValue(option));
-            made.add(control);
+        for (int group = 0; group < OptionsLayout.PAGE.length; group++) {
+            call(section, "addTitle", OptionsLayout.PAGE[group].title());
+            for (int option : layout[group]) {
+                Control control = control(section, option, options[option]);
+                show(control, Tracking.optionValue(option));
+                made.add(control);
+            }
         }
         List<MicrophoneList> lists = new ArrayList<>();
         for (int player = 0; player < Config.MICROPHONE_ROWS.length; player++) {

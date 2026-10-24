@@ -528,7 +528,7 @@ final class Config {
         return PLAYER_PORT_ROWS[playerIndex - 1];
     }
 
-    /** The settings the game's options screen shows, in core's order, which is the file's. */
+    /** The settings the game's options screen shows, in core's order, which is the file's. OptionsLayout orders the screen. */
     CameraUnlock.Option[] options() {
         CameraUnlock.Option[] options = new CameraUnlock.Option[core.configOptionCount()];
         for (int option = 0; option < options.length; option++) {
