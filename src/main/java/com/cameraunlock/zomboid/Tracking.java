@@ -576,6 +576,7 @@ final class Tracking {
                     if (view != null && view.pipeline.failure() != null) {
                         // Every graphics mode but the game's own is drawn by first person: the key says why there are none.
                         owed[i] |= Config.CYCLE_QUALITY;
+                        Log.info("player " + (i + 1) + "'s graphics key changes nothing: " + view.pipeline.failure());
                     } else {
                         // Changed on the next frame: this one's picture is the view's picture before (ModeFade).
                         graphicsModeOwed |= 1 << i;
