@@ -2,6 +2,7 @@ package org.lwjgl.opengl;
 
 public final class GLCapabilities {
     public final boolean OpenGL33;
+    public final boolean OpenGL40;
     public final boolean OpenGL42;
     public final boolean OpenGL44;
     public final boolean OpenGL45;

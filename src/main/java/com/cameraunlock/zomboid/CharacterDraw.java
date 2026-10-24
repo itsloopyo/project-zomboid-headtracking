@@ -8,8 +8,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.Locale;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import org.lwjgl.opengl.GL;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL13;
 import org.lwjgl.opengl.GL15;
@@ -2183,25 +2182,24 @@ final class CharacterDraw {
             return;
         }
         String version = GL11.glGetString(GL_VERSION);
-        Matcher numbers = Pattern.compile("^(\\d+)\\.(\\d+)").matcher(version == null ? "" : version);
-        if (!numbers.find()) {
-            refuse("the graphics driver gives its OpenGL version as " + version);
-            return;
-        }
         StringBuilder problem = new StringBuilder();
         int plain = program("character", problem, GL_VERTEX_SHADER, OLD + WHOLE_VERTEX, GL_FRAGMENT_SHADER, OLD + FRAGMENT);
         int cast = program("character's shadow", problem, GL_VERTEX_SHADER, OLD + DEPTH_VERTEX, GL_FRAGMENT_SHADER, OLD + DEPTH_FRAGMENT);
-        boolean divides = Integer.parseInt(numbers.group(1)) >= 4;
+        // LWJGL's OpenGL40 holds only where every OpenGL 4.0 function, glPatchParameteri among them, was found.
+        boolean divides = GL.getCapabilities().OpenGL40;
         StringBuilder roundProblem = new StringBuilder();
         int bowed = divides ? program("rounded character", roundProblem, GL_VERTEX_SHADER, NEW + DIVIDED_VERTEX, GL_TESS_CONTROL_SHADER, DIVIDE,
                 GL_TESS_EVALUATION_SHADER, BOW, GL_FRAGMENT_SHADER, NEW + FRAGMENT) : 0;
+        if (problem.length() > 0) {
+            for (int made : new int[] {plain, cast, bowed}) {
+                GL20.glDeleteProgram(made);
+            }
+            refuse(problem.toString());
+            return;
+        }
         if (roundProblem.length() > 0) {
             divides = false;
             Log.info("characters are drawn with the game's triangles as they are, not rounded: " + roundProblem);
-        }
-        if (problem.length() > 0) {
-            refuse(problem.toString());
-            return;
         }
         uvScale = new Vector2();
         whole = new Skin(plain);
@@ -2254,15 +2252,19 @@ final class CharacterDraw {
     /** A linked program from kinds and sources in turn, or zero with what the driver refused added to problem. */
     private static int program(String name, StringBuilder problem, Object... stages) {
         long start = System.nanoTime();
+        int id = 0;
+        int[] shaders = new int[stages.length / 2];
         try {
-            int id = GL20.glCreateProgram();
+            id = GL20.glCreateProgram();
             for (int stage = 0; stage < stages.length; stage += 2) {
                 int shader = GL20.glCreateShader((Integer) stages[stage]);
+                shaders[stage / 2] = shader;
                 GL20.glShaderSource(shader, (String) stages[stage + 1]);
                 GL20.glCompileShader(shader);
                 if (GL20.glGetShaderi(shader, GL_COMPILE_STATUS) == 0) {
                     problem.append("stage ").append(stage / 2 + 1).append(" of the ").append(name).append(" shader did not compile: ")
                             .append(GL20.glGetShaderInfoLog(shader)).append(' ');
+                    deleteFailed(id, shaders);
                     return 0;
                 }
                 GL20.glAttachShader(id, shader);
@@ -2273,12 +2275,21 @@ final class CharacterDraw {
             GL20.glLinkProgram(id);
             if (GL20.glGetProgrami(id, GL_LINK_STATUS) == 0) {
                 problem.append("the ").append(name).append(" shader did not link: ").append(GL20.glGetProgramInfoLog(id)).append(' ');
+                deleteFailed(id, shaders);
                 return 0;
             }
             return id;
         } finally {
             Shaders.linked(name, start);
         }
+    }
+
+    /** Gives back a program the driver refused, and its shaders. */
+    private static void deleteFailed(int id, int[] shaders) {
+        for (int shader : shaders) {
+            GL20.glDeleteShader(shader);
+        }
+        GL20.glDeleteProgram(id);
     }
 
     /**
