@@ -28,7 +28,7 @@ Press `Delete` to switch between the isometric and first person views, on foot o
 
 - **A rebuilt world** - 3D buildings, new textures, detailed plants, rolling hills and distant scenery in Medium and High. Furniture, windows and doors are 3D in every mode.
 - **New graphics in both views** - lighting, shadows, models and textures in Medium and High, with reflections, and light beams through fog in first person. High adds sharper shadows and depth in near surfaces.
-- **Fire** - simulated flames, smoke and firelight from burning buildings, Molotovs and campfires in Medium and High.
+- **Fire** - the game's flames stood up in the world, with smoke, embers and firelight from burning buildings, Molotovs and campfires in Medium and High.
 - **Sound** - follows where you look, muffled by the walls in between.
 - **Adjustable** - automatic or manual quality, three picture styles, field of view, hill height, and each replacement model or texture can be put back to the game's own.
 
@@ -547,8 +547,9 @@ VanillaArms=false
 VanillaClothes=false
 ; true: the game's own skins for animals. false: the mod's skins for animals near you, with the hair of their coats.
 VanillaAnimals=false
-; true: the game's own flat flames and smoke, stood up where they burn. false: flames, smoke and firelight for
-; burning buildings, Molotovs, campfires, fireplaces, wood stoves, burn barrels and cooking pits.
+; true: the game's own flames and smoke, stood up where they burn. false: the game's flames with the mod's smoke,
+; embers and firelight for burning buildings, Molotovs, campfires, fireplaces, wood stoves, burn barrels and
+; cooking pits.
 VanillaFire=false
 ; true: the game's own inside of the vehicle you sit in, with its glass cut away. false: the mod's models of it, its
 ; dashboard, instruments, wheel, seats and doors.

@@ -303,8 +303,9 @@ final class Config {
                     "true: the game's own skins for animals. false: the mod's skins for animals near you, with the hair of their coats.",
                     writable | live, false),
             core.configLocalBool("Content", "VanillaFire",
-                    "true: the game's own flat flames and smoke, stood up where they burn. false: flames, smoke and firelight for\n"
-                            + "burning buildings, Molotovs, campfires, fireplaces, wood stoves, burn barrels and cooking pits.",
+                    "true: the game's own flames and smoke, stood up where they burn. false: the game's flames with the mod's smoke,\n"
+                            + "embers and firelight for burning buildings, Molotovs, campfires, fireplaces, wood stoves, burn barrels and\n"
+                            + "cooking pits.",
                     writable | live, false),
             core.configLocalBool("Content", "VanillaCabins",
                     "true: the game's own inside of the vehicle you sit in, with its glass cut away. false: the mod's models of it, its\n"
