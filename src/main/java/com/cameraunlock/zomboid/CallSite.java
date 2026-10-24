@@ -215,9 +215,13 @@ final class CallSite {
     /**
      * Makes {@code within}, which is not static and returns a boolean, return false at once
      * whenever the ArrayList in the class's own {@code field} holds nothing. Throws unless the
-     * class declares the field so: see requireStaticInt.
+     * class declares the field so: see requireStaticInt. The early answer is only right while
+     * the method's answer is whether the list holds something it asks of it, so it also throws
+     * unless the method reads the field once, calls {@code contains} once and calls nothing else
+     * but java/lang/Integer, which boxes the number asked about, and zombie/util/Lambda, which
+     * hands out the predicate.
      */
-    static byte[] falseAtOnceWhileEmpty(byte[] classBytes, Method within, String field) {
+    static byte[] falseAtOnceWhileEmpty(byte[] classBytes, Method within, String field, Method contains) {
         ClassModel model = ClassFile.of().parse(classBytes);
         boolean declared = false;
         for (FieldModel candidate : model.fields()) {
@@ -226,6 +230,26 @@ final class CallSite {
         }
         if (!declared) {
             throw new IllegalStateException("no ArrayList " + field + " of its own in " + model.thisClass().asInternalName());
+        }
+        MethodModel method = model.methods().stream()
+                .filter(candidate -> candidate.methodName().equalsString(within.name()) && candidate.methodType().equalsString(within.descriptor()))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("no method " + within));
+        int listReads = 0, containsCalls = 0, otherCalls = 0;
+        for (CodeElement element : method.code().orElseThrow(() -> new IllegalStateException(within + " has no body")).elementList()) {
+            if (element instanceof FieldInstruction read && read.name().equalsString(field)) {
+                listReads++;
+            } else if (element instanceof InvokeInstruction call) {
+                if (isCallTo(call, contains)) {
+                    containsCalls++;
+                } else if (!call.owner().asInternalName().equals("java/lang/Integer") && !call.owner().asInternalName().equals("zombie/util/Lambda")) {
+                    otherCalls++;
+                }
+            }
+        }
+        if (listReads != 1 || containsCalls != 1 || otherCalls != 0) {
+            throw new IllegalStateException(within + " no longer only asks " + contains + " of " + field
+                    + ": reads it " + listReads + " times, calls contains " + containsCalls + " times, makes " + otherCalls + " other calls");
         }
         ClassDesc list = ClassDesc.ofDescriptor("Ljava/util/ArrayList;");
         boolean[] begun = {false};

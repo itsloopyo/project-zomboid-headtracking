@@ -1190,7 +1190,8 @@ public final class Agent {
                 // predicate out of a pool that keeps its own in a hash set, and walking the list
                 // with it. For all but a few characters the list is empty.
                 new Patch(player, "isBoneReparented answered at once while no bone is", classBytes -> CallSite.falseAtOnceWhileEmpty(classBytes,
-                        new CallSite.Method(player, "isBoneReparented", "(I)Z"), "reparentedBoneBindings")),
+                        new CallSite.Method(player, "isBoneReparented", "(I)Z"), "reparentedBoneBindings",
+                        new CallSite.Method("zombie/util/list/PZArrayUtil", "contains", "(Ljava/util/List;Ljava/util/function/Predicate;)Z"))),
                 new Patch(palette, "initMatrixPalette puts each bone in at once", classBytes -> CallSite.replaceEach(classBytes,
                         new CallSite.Method(palette, "initMatrixPalette", "()V"),
                         new CallSite.Method(matrix, "store", "(Ljava/nio/FloatBuffer;)Lorg/lwjgl/util/vector/Matrix;"),

@@ -115,19 +115,40 @@ final class GameFixTests {
         check(refused, "a class that already keeps it is rejected");
     }
 
-    private static void falseIsAnsweredAtOnceWhileTheListIsEmpty() throws Throwable {
-        ClassDesc owner = ClassDesc.of("com.cameraunlock.zomboid.SubjectHoldingAList"), list = ClassDesc.of("java.util.ArrayList");
-        byte[] subject = ClassFile.of().build(owner, type -> type
+    private static final CallSite.Method CONTAINS = new CallSite.Method("zombie/util/list/PZArrayUtil", "contains", "(Ljava/util/List;Ljava/util/function/Predicate;)Z");
+
+    /**
+     * A class with a list and a method that asks PZArrayUtil.contains of it, as the game's
+     * AnimationPlayer.isBoneReparented does. {@code alsoAsks} has the method ask something else
+     * too, as a later build of the game's might.
+     */
+    private static byte[] holdingAList(String name, boolean alsoAsks) {
+        ClassDesc owner = ClassDesc.of("com.cameraunlock.zomboid." + name), list = ClassDesc.of("java.util.ArrayList");
+        return ClassFile.of().build(owner, type -> type
                 .withFlags(ClassFile.ACC_PUBLIC)
                 .withField("held", list, ClassFile.ACC_PUBLIC)
                 .withMethodBody(ConstantDescs.INIT_NAME, ConstantDescs.MTD_void, ClassFile.ACC_PUBLIC, code -> code
                         .aload(0).invokespecial(ConstantDescs.CD_Object, ConstantDescs.INIT_NAME, ConstantDescs.MTD_void)
                         .aload(0).new_(list).dup().invokespecial(list, ConstantDescs.INIT_NAME, ConstantDescs.MTD_void).putfield(owner, "held", list)
                         .return_())
-                .withMethodBody("has", MethodTypeDesc.of(ConstantDescs.CD_boolean, ConstantDescs.CD_int), ClassFile.ACC_PUBLIC, code ->
-                        code.iconst_1().ireturn()));
+                .withMethodBody("has", MethodTypeDesc.of(ConstantDescs.CD_boolean, ConstantDescs.CD_int), ClassFile.ACC_PUBLIC, code -> {
+                    code.aload(0).getfield(owner, "held", list)
+                            .iload(1).invokestatic(ConstantDescs.CD_Integer, "valueOf", MethodTypeDesc.of(ConstantDescs.CD_Integer, ConstantDescs.CD_int)).pop()
+                            .aconst_null()
+                            .invokestatic(ClassDesc.ofInternalName(CONTAINS.owner()), CONTAINS.name(), MethodTypeDesc.ofDescriptor(CONTAINS.descriptor()));
+                    if (alsoAsks) {
+                        code.aload(0).invokevirtual(ConstantDescs.CD_Object, "hashCode", MethodTypeDesc.of(ConstantDescs.CD_int)).pop();
+                    }
+                    code.ireturn();
+                }));
+    }
+
+    private static void falseIsAnsweredAtOnceWhileTheListIsEmpty() throws Throwable {
+        byte[] subject = holdingAList("SubjectHoldingAList", false);
         CallSite.Method within = new CallSite.Method("com/cameraunlock/zomboid/SubjectHoldingAList", "has", "(I)Z");
-        Class<?> defined = MethodHandles.lookup().defineClass(CallSite.falseAtOnceWhileEmpty(subject, within, "held"));
+        byte[] patched = CallSite.falseAtOnceWhileEmpty(subject, within, "held", CONTAINS);
+        check(ClassFile.of().verify(patched).isEmpty(), "the patched class verifies");
+        Class<?> defined = MethodHandles.lookup().defineClass(patched);
         Object made = defined.getConstructor().newInstance();
         Method has = defined.getMethod("has", int.class);
         check(Boolean.FALSE.equals(has.invoke(made, 3)), "with nothing in the list the answer is no");
@@ -135,12 +156,17 @@ final class GameFixTests {
         ArrayList<Object> held = (ArrayList<Object>) defined.getField("held").get(made);
         held.add("a bone");
         check(Boolean.TRUE.equals(has.invoke(made, 3)), "with something in it the method does what it did");
-        boolean refused = false;
+        check(refusesFalseAtOnce(subject, within, "missing"), "a class without the list is rejected");
+        CallSite.Method asksMore = new CallSite.Method("com/cameraunlock/zomboid/SubjectAskingMore", "has", "(I)Z");
+        check(refusesFalseAtOnce(holdingAList("SubjectAskingMore", true), asksMore, "held"), "a method that asks something besides the list is rejected");
+    }
+
+    private static boolean refusesFalseAtOnce(byte[] subject, CallSite.Method within, String field) {
         try {
-            CallSite.falseAtOnceWhileEmpty(subject, within, "missing");
+            CallSite.falseAtOnceWhileEmpty(subject, within, field, CONTAINS);
+            return false;
         } catch (IllegalStateException expected) {
-            refused = true;
+            return true;
         }
-        check(refused, "a class without the list is rejected");
     }
 }
