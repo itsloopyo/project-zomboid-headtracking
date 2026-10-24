@@ -216,7 +216,7 @@ final class Develop {
 
     /** Back to no reading, as when the pipeline's pictures are made again. */
     void forget() {
-        dark = bright = middle = Float.NaN;
+        dark = bright = middle = upper = Float.NaN;
         castRed = castBlue = Float.NaN;
         balanceRed = balanceBlue = 1f;
         taken = 0f;
