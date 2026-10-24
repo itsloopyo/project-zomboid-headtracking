@@ -112,17 +112,17 @@ final class PictureTests {
     private static void aPictureIsReadWholeOrWithoutItsLargestLevel() throws IOException {
         OffHeap.Block whole = Pictures.packed("/materials/vinyl.bc", false), half = Pictures.packed("/materials/vinyl.bc", true);
         ByteBuffer all = whole.bytes, less = half.bytes;
-        check(all.getInt(8) == 1024 && all.getInt(12) == 1024 && all.getInt(20) == 11, "the vinyl is 1024 square with eleven levels");
+        check(all.getInt(8) == 2048 && all.getInt(12) == 2048 && all.getInt(20) == 12, "the vinyl is 2048 square with twelve levels");
         // A level of BC7 is sixteen bytes for every four texels by four.
-        int largest = 256 * 256 * 16;
-        check(less.getInt(8) == 512 && less.getInt(12) == 512 && less.getInt(20) == 10, "read at half size it is 512 square with ten: " + less.getInt(8));
+        int largest = 512 * 512 * 16;
+        check(less.getInt(8) == 1024 && less.getInt(12) == 1024 && less.getInt(20) == 11, "read at half size it is 1024 square with eleven: " + less.getInt(8));
         check(all.capacity() - less.capacity() == largest, "and is short by its largest level");
         check(all.slice(HEAD + largest, less.capacity() - HEAD).equals(less.slice(HEAD, less.capacity() - HEAD)), "the levels it has are the same bytes");
         check(all.getFloat(28) == less.getFloat(28) && all.getFloat(28) > 1f, "and its gain is the whole picture's");
         whole.free();
         half.free();
         OffHeap.Block barks = Pictures.packed("/materials/bark.bc", true);
-        check(barks.bytes.getInt(16) == Flora.BARKS.length && barks.bytes.getInt(8) == 512, "the barks are one behind another in one file");
+        check(barks.bytes.getInt(16) == Flora.BARKS.length && barks.bytes.getInt(8) == 1024, "the barks are one behind another in one file");
         barks.free();
     }
 
@@ -133,7 +133,7 @@ final class PictureTests {
         Files.createDirectories(folder);
         byte[] renamed = vinyl.clone(), levels = vinyl.clone(), longer = Arrays.copyOf(vinyl, vinyl.length + 1);
         renamed[0] = 'X';
-        levels[20] = 12;
+        levels[20] = 13;
         Files.write(folder.resolve("short.bc"), Arrays.copyOf(vinyl, vinyl.length - 1));
         Files.write(folder.resolve("shorter.bc"), Arrays.copyOf(vinyl, 1000));
         Files.write(folder.resolve("long.bc"), longer);
@@ -180,12 +180,12 @@ final class PictureTests {
         BufferedImage source = ImageIO.read(SOURCES.resolve("materials/vinyl.jpg").toFile());
         OffHeap.Block packed = Pictures.packed("/materials/vinyl.bc", false), plain = Pictures.unpacked(packed);
         ByteBuffer texels = plain.bytes;
-        check(texels.getInt(4) == 0 && texels.getInt(8) == 1024 && texels.getInt(20) == 11, "unpacked, a picture has the head of one of four bytes a texel");
-        check(texels.capacity() == HEAD + (4 * 1024 * 1024 - 1) / 3 * 4, "and every level it had, down to one texel: " + texels.capacity());
+        check(texels.getInt(4) == 0 && texels.getInt(8) == 2048 && texels.getInt(20) == 12, "unpacked, a picture has the head of one of four bytes a texel");
+        check(texels.capacity() == HEAD + (4 * 2048 * 2048 - 1) / 3 * 4, "and every level it had, down to one texel: " + texels.capacity());
         long squares = 0, light = 0;
-        for (int y = 0; y < 1024; y++) {
-            for (int x = 0; x < 1024; x++) {
-                int argb = source.getRGB(x, y), at = HEAD + (y * 1024 + x) * 4;
+        for (int y = 0; y < 2048; y++) {
+            for (int x = 0; x < 2048; x++) {
+                int argb = source.getRGB(x, y), at = HEAD + (y * 2048 + x) * 4;
                 for (int part = 0; part < 3; part++) {
                     int was = argb >> 16 - part * 8 & 0xff, is = texels.get(at + part) & 0xff;
                     squares += (was - is) * (was - is);
@@ -193,9 +193,9 @@ final class PictureTests {
                 light += 299 * (argb >> 16 & 0xff) + 587 * (argb >> 8 & 0xff) + 114 * (argb & 0xff);
             }
         }
-        double error = Math.sqrt(squares / (3.0 * 1024 * 1024));
+        double error = Math.sqrt(squares / (3.0 * 2048 * 2048));
         check(error < 1.5, "the vinyl as the mod unpacks it is its source to within a level and a half of 255: " + error);
-        float gain = 255f * 1000f * 1024 * 1024 / light;
+        float gain = 255f * 1000f * 2048 * 2048 / light;
         check(Math.abs(packed.bytes.getFloat(28) / gain - 1f) < 0.002f, "and the gain in its head is what its source's light comes to: " + packed.bytes.getFloat(28) + " against " + gain);
         packed.free();
         plain.free();
@@ -229,9 +229,9 @@ final class PictureTests {
     private static void aBarkIsItsOwnSourceAtEveryLevel() throws IOException {
         OffHeap.Block packed = Pictures.packed("/materials/bark.bc", true), plain = Pictures.unpacked(packed);
         packed.free();
-        int side = 512, layer = HEAD + Flora.BARK_BIRCH * side * side * 4;
+        int side = 1024, layer = HEAD + Flora.BARK_BIRCH * side * side * 4;
         OffHeap.Block birch = source("materials/bark-birch.jpg"), oak = source("materials/bark-oak.jpg");
-        OffHeap.Block halfBirch = Pictures.halved(birch.bytes, 1024, 1024), halfOak = Pictures.halved(oak.bytes, 1024, 1024);
+        OffHeap.Block halfBirch = Pictures.halved(birch.bytes, 2048, 2048), halfOak = Pictures.halved(oak.bytes, 2048, 2048);
         double own = apart(plain.bytes, layer, halfBirch.bytes, 0, side * side), others = apart(plain.bytes, layer, halfOak.bytes, 0, side * side);
         check(own < 2.0, "the birch's layer at half size is the birch's source halved, to within two levels of 255: " + own);
         check(others > 8.0, "and is not the oak's: " + others);
