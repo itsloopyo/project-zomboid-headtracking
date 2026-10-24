@@ -35,10 +35,9 @@ final class SpriteColours {
     private static final int GL_FRAMEBUFFER = 0x8D40, GL_DRAW_FRAMEBUFFER = 0x8CA9, GL_READ_FRAMEBUFFER = 0x8CA8;
     private static final int GL_COLOR_ATTACHMENT0 = 0x8CE0, GL_FRAMEBUFFER_COMPLETE = 0x8CD5;
     private static final int GL_DRAW_FRAMEBUFFER_BINDING = 0x8CA6, GL_READ_FRAMEBUFFER_BINDING = 0x8CAA, GL_CURRENT_PROGRAM = 0x8B8D;
-    private static final int GL_VERTEX_ARRAY_BINDING = 0x85B5, GL_ARRAY_BUFFER = 0x8892, GL_ARRAY_BUFFER_BINDING = 0x8894;
     private static final int GL_ACTIVE_TEXTURE = 0x84E0, GL_TEXTURE0 = 0x84C0, GL_ALL_ATTRIB_BITS = 0x000FFFFF;
     private static final int GL_SCISSOR_TEST = 0x0C11, GL_BLEND = 0x0BE2, GL_DEPTH_TEST = 0x0B71, GL_STENCIL_TEST = 0x0B90;
-    private static final int GL_CULL_FACE = 0x0B44, GL_ALPHA_TEST = 0x0BC0, GL_FRAMEBUFFER_SRGB = 0x8DB9, GL_TRIANGLE_STRIP = 0x0005, GL_SAMPLER_BINDING = 0x8919;
+    private static final int GL_CULL_FACE = 0x0B44, GL_ALPHA_TEST = 0x0BC0, GL_FRAMEBUFFER_SRGB = 0x8DB9, GL_TRIANGLE_STRIP = 0x0005;
     private static final int GL_PIXEL_PACK_BUFFER = 0x88EB, GL_PIXEL_PACK_BUFFER_BINDING = 0x88ED;
     private static final int GL_PACK_ROW_LENGTH = 0x0D02, GL_PACK_SKIP_ROWS = 0x0D03, GL_PACK_SKIP_PIXELS = 0x0D04, GL_PACK_ALIGNMENT = 0x0D05;
 
@@ -95,11 +94,11 @@ final class SpriteColours {
      * while driving past new houses. The copy is taken up once the card has passed the fence,
      * a frame or two later.
      *
-     * The game's sheets are compressed (DXT5) when its texture compression option is on, and
-     * copied back as they are the driver unpacked them on the render thread before the call
-     * returned: 5 ms for a median part, up to 49 ms for a whole 1024 sheet. So the part is drawn
-     * texel for texel into a target of four bytes a texel, unpacked by the card as when the sheet
-     * is drawn, and that target is copied into the buffer.
+     * The game's sheets are compressed (DXT5) when its texture compression option is on. A
+     * compressed sheet copied back as it is stored had the driver unpack it on the render thread
+     * before the call returned: 5 ms for a median part, up to 49 ms for a whole 1024 sheet. So
+     * the part is drawn texel for texel into a target of four bytes a texel, unpacked by the card
+     * as when the sheet is drawn, and that target is copied into the buffer.
      */
     private static boolean copying, copyDropped;
     private static long copyFence;
@@ -109,7 +108,7 @@ final class SpriteColours {
     private static int copyBuffer, copyBufferBytes;
     /** What the part of the sheet is drawn into before it is copied, kept as the buffer is, and its size. Render thread. */
     private static int unpacked, unpackedTarget, unpackedWide, unpackedHigh;
-    /** Read through with no mipmaps: a sheet with none would be incomplete under a sampler of the picture's that asks for them, and read as black. */
+    /** Read through with no mipmaps: under its own min filter a sheet that asks for mipmaps it lacks is incomplete, and reads as black. */
     private static int unpackSampler;
     private static final String UNPACK_VERTEX = """
             #version 130
@@ -409,17 +408,17 @@ final class SpriteColours {
     /**
      * Draws across by down texels of the sheet from (fromX, fromY) into the unpacked target and
      * copies them into the pixel pack buffer bound, the sheet's first row first, as they lie on
-     * it. The drawing state, bindings and program are left as they were found.
+     * it. The drawing state, bindings and program are left as they were found. Called from the
+     * picture's frame, which has bound no vertex array, array buffer or sampler (Pipeline.draw).
      */
     private static void unpackInto(int sheet, int fromX, int fromY, int across, int down) {
         int drawTo = GL11.glGetInteger(GL_DRAW_FRAMEBUFFER_BINDING), readFrom = GL11.glGetInteger(GL_READ_FRAMEBUFFER_BINDING);
         int previous = GL11.glGetInteger(GL_CURRENT_PROGRAM);
-        int arrays = GL11.glGetInteger(GL_VERTEX_ARRAY_BINDING), vertices = GL11.glGetInteger(GL_ARRAY_BUFFER_BINDING);
         int unit = GL11.glGetInteger(GL_ACTIVE_TEXTURE);
         int remembered = Texture.lastTextureID;
         GL11.glPushAttrib(GL_ALL_ATTRIB_BITS);
         GL13.glActiveTexture(GL_TEXTURE0);
-        int onUnit = GL11.glGetInteger(GL_TEXTURE_BINDING_2D), sampler = GL11.glGetInteger(GL_SAMPLER_BINDING);
+        int onUnit = GL11.glGetInteger(GL_TEXTURE_BINDING_2D);
         try {
             if (unpackSampler == 0) {
                 unpackSampler = GL33.glGenSamplers();
@@ -452,8 +451,6 @@ final class SpriteColours {
                 throw new IllegalStateException("the driver refused the shader that unpacks sprite sheets, so no sprite's colours can be read");
             }
             GL30.glBindFramebuffer(GL_FRAMEBUFFER, unpackedTarget);
-            GL30.glBindVertexArray(0);
-            GL15.glBindBuffer(GL_ARRAY_BUFFER, 0);
             GL11.glDisable(GL_SCISSOR_TEST);
             GL11.glDisable(GL_DEPTH_TEST);
             GL11.glDisable(GL_STENCIL_TEST);
@@ -474,14 +471,12 @@ final class SpriteColours {
             GL11.glEnd();
             GL11.glReadPixels(0, 0, across, down, GL_RGBA, GL_UNSIGNED_BYTE, 0L);
         } finally {
-            GL33.glBindSampler(0, sampler);
+            GL33.glBindSampler(0, 0);
             GL11.glBindTexture(GL_TEXTURE_2D, onUnit);
             GL30.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, drawTo);
             GL30.glBindFramebuffer(GL_READ_FRAMEBUFFER, readFrom);
             GL11.glPopAttrib();
             GL13.glActiveTexture(unit);
-            GL15.glBindBuffer(GL_ARRAY_BUFFER, vertices);
-            GL30.glBindVertexArray(arrays);
             Program.useOther(previous);
             Texture.lastTextureID = remembered;
         }
