@@ -41,6 +41,7 @@
 - Held weapons are drawn like a modern shooter: low right at the hip, raised to the sights, swaying, with recoil based on each weapon's recoil stat and a muzzle flash (`MuzzleFlash`).
 - The mod's own arms and hands hold each gun by its real grip, read from the gun's model, so guns from other mods are held right too. Handguns are held two-handed when your left hand is free. `VanillaArms=true` uses the game's arms.
 - Reload and action animations: pump shotguns rack, pistols cycle their slide, lock back when empty and swap magazines, revolvers turn the cylinder and load one round at a time, double barrels break open and throw out the spent shells, the assault rifle, the battle rifle and the self-loading rifle and carbine cycle their bolt and throw out a case with every shot, hold the bolt back on the last round and let an empty magazine fall from the hand, lever guns swing the lever down and back and throw the fired case out of the top, and the toy cap rifle's hammer falls and its cylinder turns with each shot.
+- With a one-handed weapon, the mod's left hand carries a torch beside it, pointing it where your head points and lowering it while it is switched off.
 - A sawn-off has no stock, so it kicks in your hands when aiming too.
 - Red dot sights, lasers and gun lights are drawn on the mod's gun models. With a red dot sight on a long gun the eye is raised to look through it.
 - The varmint rifle has low open sights for when no scope is fitted.
@@ -78,11 +79,14 @@
 #### World
 
 - `Medium` and `High` rebuild the world in 3D: buildings with thick walls, roofs, eaves, gutters, downpipes and chimneys; doors, windows and curtains; furniture, appliances, shop fittings, signs, street lamps, traffic lights, power lines, pylons, playgrounds, sports equipment, instruments and more.
-- New textures for floors, tiles, carpets, wallpaper, brick, wood, roofs and roads. Road markings are drawn as clean paint.
+- Rooms have skirting, cornices and dado rails mitred at the corners, and doors have bevelled casings, beading round each pane and lever handles where the game's picture shows one. Chain link fences are built from real wire, posts and rail.
+- Churches have their altar, crosses, chandeliers, lectern, long desk and pipe organ. Galleries have busts and statues. Sports grounds have goals with nets, boxing rings, tennis nets, show jumps, baseball bases and golf flags, and lie level over the hills. Pool tables, arcade cabinets, grocers' produce crates, picket fences and lawn flamingos are modelled too.
+- Items lying loose in first person are drawn as the game's own 3D models when the game's 3D ground items option is on.
+- New textures for floors, tiles, carpets, wallpaper, brick, wood, roofs and roads. Diagonal, chequered and parquet floors, mosaic splashbacks and cut stone walls keep their patterns. Road markings are drawn as clean paint.
 - `Medium` and `High`: church stained glass windows are redrawn with richer glass and leading, in the same designs. The dove window has a priest at its foot (`VanillaTextures=true` puts the game's glass back).
 - Pavements and car parks lie level, with kerbs.
 - A TV that is on shows a moving picture: test bars with no signal, otherwise the show on its channel or tape.
-- Pictures on walls and the shows on TV are stills staged and shot in the game.
+- Pictures on walls and the shows on TV are stills staged and shot in the game. Family photos and certificates suit the room they hang in.
 - Pictures, banners and bunting on walls.
 - Sharper skins for zombies, survivors and clothing. Animals get new detailed skins (`VanillaAnimals`).
 - Hills in the countryside, flat in towns. `HillHeight` sets their height from 0 to 2 (default 1.5).
@@ -114,6 +118,7 @@
 - Clouds, cloud shadows, the moon, low evening sun and dark nights.
 - Shadows from the sun, flashlights, headlights and fires. Lit lamps glow.
 - Street lamps and lamps on buildings throw pools of light round them out to `LightDistance`: 30 tiles in `Medium`, 60 in `High`.
+- A lamp or a TV that is on lights its room brightest close to it, falling away towards the walls. A TV's light is the colour of what it shows.
 - Sunbeams through windows, with dust floating in the air.
 - Water flows and reflects.
 - Mirrors on walls, dressers and bathroom cabinets show the room, the people in it and you, in Medium and High with `Reflections` on. Low has no reflections. The glass has a faint tint, smudges and a worn silver edge.
@@ -127,7 +132,7 @@
 
 - `F9` cycles the graphics mode of the view you are in, fading between them: `Automatic`, `Low`, `Medium`, `High` and `Custom` in first person, the same without `Automatic` in the isometric view. Switching views names the new view's mode, as `First Person (High)` or `Isometric (Low)`.
 - `Automatic` lowers the quality when the frame rate drops below 45 and raises it when it holds above 57.
-- `Low` is the game's own look, apart from first person's furniture, windows and doors, which are the mod's models in every mode (`VanillaFurniture`, `VanillaBuildings`). `Medium` and `High` also redraw the isometric view.
+- `Low` is the game's own look, apart from first person's furniture, windows and doors, which are the mod's models in every mode (`VanillaFurniture`, `VanillaBuildings`). `Medium` and `High` also redraw the isometric view, in the game's colours and dark where your character can't see, as the game has it.
 - `F8` cycles the picture styles `Vivid`, `Natural` and `Bleak` (default).
 - Every shader the mod draws with is compiled while a save loads, with a count on the loading screen, and the save starts once they are done, so none is compiled in play.
 - `ZombiesAndPropsDrawDistance` (16 to 80 tiles) and `Reflections` settings.
@@ -151,9 +156,9 @@
 - Names and speech appear over other players' heads in first person.
 - In split screen and on servers without PvP, other players are drawn as far off as zombies.
 - On PvP servers: leaning doesn't move your shot, hills are fixed at height 1, fog is as thick as in the game's own view, other players are shown only as the game shows them, a shot at a player hits the part the game rolls, and nothing is hidden by draw distance.
-- Wounds, limb loss, bullet penetration, shooting out lamps and vehicle physics are single player only.
+- Wounds, limb loss, bullet penetration, shooting out lamps and vehicle physics are single player only. Each can be switched off in `[Rules]`: `ShotsWoundLimbs`, `ShotsThroughWalls`, `ShotsBreakLamps` and `VehiclesSmashThrough`.
 - Up to four players at one screen, each with first person and their own head tracker on ports `4243`, `4244` and `4245`. Tap `Delete` twice for player 2, three times for player 3 and four times for player 4, or hold it for everyone.
-- Each player at the screen has their own graphics mode and picture style. Tap `F9` or `F8` once to four times for players 1 to 4, or hold it for everyone. Players 2, 3 and 4 keep theirs in `[Players]`.
+- Each player at the screen has their own graphics mode and picture style. Tap `F9` or `F8` once to four times for players 1 to 4, or hold it for everyone. Players 2, 3 and 4 keep theirs in `[Players]`. Starting split screen lowers `High` to `Medium`.
 - `F7` switches two-player split screen between side by side and top and bottom.
 
 #### Setup
