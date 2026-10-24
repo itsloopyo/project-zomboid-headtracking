@@ -33,6 +33,8 @@ final class FireCards {
      */
     static final float LOOK_FOOT_X = 64f, LOOK_FOOT_Y = 250f, LOOK_WIDE_PER_PIXEL = 1.4142f / 128f, LOOK_HIGH_PER_PIXEL = ViewCamera.LEVEL_HEIGHT / 192f;
     static final float LOOK_FRAMES_A_SECOND = 15f, LOOK_ALPHA = 0.7f;
+    /** How much of the angle the eye looks down at a fire its frames lean back from the eye. */
+    static final float LEAN = 0.6f;
 
     /** How many embers a fire throws up at once at its height, and how long each flies, in seconds. */
     static final int EMBERS = 18;
@@ -227,6 +229,13 @@ final class FireCards {
         float acrossLength = (float) Math.hypot(acrossX, acrossY);
         acrossX /= acrossLength;
         acrossY /= acrossLength;
+        // Seen from above, it leans back from the eye about its foot by LEAN of the angle the eye looks down at
+        // it, as the game's own frames face its view from above: stood straight it is a sheet seen edge on.
+        float lean = LEAN * (float) Math.atan2(Math.max(-up, 0f), level);
+        float awayX = level > 1e-3f ? x / level : camera.forwardX, awayY = level > 1e-3f ? y / level : camera.forwardY;
+        float awayLength = (float) Math.hypot(awayX, awayY);
+        float tipX = awayX / Math.max(awayLength, 1e-6f) * (float) Math.sin(lean), tipY = awayY / Math.max(awayLength, 1e-6f) * (float) Math.sin(lean);
+        float tipUp = (float) Math.cos(lean);
         float left = frame.getOffsetX(), top = frame.getOffsetY(), wide = frame.getWidth(), high = frame.getHeight();
         float scale = fires[f + Fires.LOOK];
         float from = (left - LOOK_FOOT_X) * LOOK_WIDE_PER_PIXEL * scale, to = (left + wide - LOOK_FOOT_X) * LOOK_WIDE_PER_PIXEL * scale;
@@ -237,13 +246,13 @@ final class FireCards {
         float u0 = frame.getXStart(), u1 = frame.getXEnd(), v0 = frame.getYStart(), v1 = frame.getYEnd();
         GL11.glBegin(GL_QUADS);
         GL11.glTexCoord2f(u0, v1);
-        GL11.glVertex3f(x + acrossX * from, y + acrossY * from, up + lower);
+        GL11.glVertex3f(x + acrossX * from + tipX * lower, y + acrossY * from + tipY * lower, up + tipUp * lower);
         GL11.glTexCoord2f(u1, v1);
-        GL11.glVertex3f(x + acrossX * to, y + acrossY * to, up + lower);
+        GL11.glVertex3f(x + acrossX * to + tipX * lower, y + acrossY * to + tipY * lower, up + tipUp * lower);
         GL11.glTexCoord2f(u1, v0);
-        GL11.glVertex3f(x + acrossX * to, y + acrossY * to, up + upper);
+        GL11.glVertex3f(x + acrossX * to + tipX * upper, y + acrossY * to + tipY * upper, up + tipUp * upper);
         GL11.glTexCoord2f(u0, v0);
-        GL11.glVertex3f(x + acrossX * from, y + acrossY * from, up + upper);
+        GL11.glVertex3f(x + acrossX * from + tipX * upper, y + acrossY * from + tipY * upper, up + tipUp * upper);
         GL11.glEnd();
         GL30.glEnablei(GL_BLEND, 1);
     }
