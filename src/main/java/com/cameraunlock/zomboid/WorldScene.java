@@ -1197,14 +1197,15 @@ final class WorldScene {
      * How often a development build holds the walk to RoomRays while the eye's own picture goes
      * by it, and how far and how finely the lines are followed: a room the lines reach and the
      * walk leaves out stands empty in the picture, and the log says so with what the walk
-     * started from.
+     * started from. The grid is followed ROOM_LINES_A_FRAME rows a frame, each held to that
+     * frame's walk: all of it in one frame was a 5 to 10 ms frame twice a second.
      */
     private static final long ROOMS_CHECKED_EVERY_NANOS = 500_000_000L;
-    private static final int ROOM_LINES_ACROSS = 64, ROOM_LINES_UP = 36;
+    private static final int ROOM_LINES_ACROSS = 64, ROOM_LINES_UP = 36, ROOM_LINES_A_FRAME = 4;
     private static final float ROOM_LINES_REACH = 40f;
     private final RoomSight.Seen roomsByLines = new RoomSight.Seen();
     private long roomsCheckedNanos, roomChecksNanos;
-    private int roomChecks, roomsMissed;
+    private int roomChecks, roomsMissed, roomLinesRow;
     /** Dev only, for the rig: the time the walks took and how many there were, and what the last one had. */
     private long tollRoomsNanos, tollRoomsWalks;
     private int lastOpenings, lastBlocks, lastSeen, lastHidden;
@@ -3932,8 +3933,9 @@ final class WorldScene {
         /** Logs each room a line through the picture reaches that the walk left out of roomsSeenKept: see ROOMS_CHECKED_EVERY_NANOS. */
         private void checkRoomsAgainstLines(int level, int eyeX, int eyeY, float aspect) {
             long began = System.nanoTime();
+            int fromRow = roomLinesRow, toRow = Math.min(ROOM_LINES_UP, fromRow + ROOM_LINES_A_FRAME);
             roomsByLines.clear();
-            RoomRays.trace(roomMap, camera, tanHalfFieldOfView * aspect, tanHalfFieldOfView, ROOM_LINES_ACROSS, ROOM_LINES_UP, ROOM_LINES_REACH, level, roomsByLines);
+            RoomRays.trace(roomMap, camera, tanHalfFieldOfView * aspect, tanHalfFieldOfView, ROOM_LINES_ACROSS, ROOM_LINES_UP, fromRow, toRow, ROOM_LINES_REACH, level, roomsByLines);
             for (int slot = 0; slot < roomsByLines.slots(); slot++) {
                 long room = roomsByLines.at(slot);
                 if (room != RoomSight.OUTSIDE && !roomsSeenKept.contains(room)) {
@@ -3944,11 +3946,14 @@ final class WorldScene {
                             roomMap.building(eyeX, eyeY, level), openingsInReach.count, blocksInReach.count, roomWalk.hiddenByBlocks, roomsSeenKept.size()));
                     StringBuilder walked = new StringBuilder();
                     Log.info("rooms: the line to room " + room + " goes " + RoomRays.pathTo(roomMap, camera, tanHalfFieldOfView * aspect, tanHalfFieldOfView, ROOM_LINES_ACROSS, ROOM_LINES_UP,
-                            ROOM_LINES_REACH, level, room, (x, y, z, kind, from, to, along) -> walked.append(' ').append(roomWalk.explain(roomMap, openingsInReach, x, y, z, kind, from)))
+                            fromRow, toRow, ROOM_LINES_REACH, level, room, (x, y, z, kind, from, to, along) -> walked.append(' ').append(roomWalk.explain(roomMap, openingsInReach, x, y, z, kind, from)))
                             + "; the walk made of its openings:" + walked + "; openings up within 2 squares:" + openingsUpNear());
                 }
             }
-            roomChecks++;
+            roomLinesRow = toRow == ROOM_LINES_UP ? 0 : toRow;
+            if (roomLinesRow == 0) {
+                roomChecks++;
+            }
             roomChecksNanos += System.nanoTime() - began;
         }
 
@@ -4029,8 +4034,10 @@ final class WorldScene {
             roomsSeen = roomsSeenKept;
             roomsAspect = aspect;
             lastHidden = roomWalk.hiddenByBlocks;
-            if (DevBuild.ON && now - roomsCheckedNanos >= ROOMS_CHECKED_EVERY_NANOS) {
-                roomsCheckedNanos = now;
+            if (DevBuild.ON && (roomLinesRow > 0 || now - roomsCheckedNanos >= ROOMS_CHECKED_EVERY_NANOS)) {
+                if (roomLinesRow == 0) {
+                    roomsCheckedNanos = now;
+                }
                 checkRoomsAgainstLines(eyeLevel, eyeX, eyeY, aspect);
             }
             float seconds = (now - roundNanos) / 1e9f;

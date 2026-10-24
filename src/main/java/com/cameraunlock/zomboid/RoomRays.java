@@ -21,15 +21,21 @@ final class RoomRays {
      * its picture reaches within reach tiles, and returns how many lines were followed.
      */
     static int trace(RoomSight.Ground ground, ViewCamera.Pose eye, float tanAcross, float tanUp, int across, int up, float reach, int startLevel, RoomSight.Seen seen) {
+        return trace(ground, eye, tanAcross, tanUp, across, up, 0, up, reach, startLevel, seen);
+    }
+
+    /** As trace, through the rows of the grid from fromRow up to but not including toRow only. */
+    static int trace(RoomSight.Ground ground, ViewCamera.Pose eye, float tanAcross, float tanUp, int across, int up, int fromRow, int toRow, float reach, int startLevel,
+            RoomSight.Seen seen) {
         for (int i = 0; i < across; i++) {
-            for (int j = 0; j < up; j++) {
+            for (int j = fromRow; j < toRow; j++) {
                 float a = ((i + 0.5f) / across * 2f - 1f) * tanAcross, b = ((j + 0.5f) / up * 2f - 1f) * tanUp;
                 float dx = eye.forwardX + a * eye.rightX + b * eye.upX, dy = eye.forwardY + a * eye.rightY + b * eye.upY, du = eye.forwardUp + a * eye.rightUp + b * eye.upUp;
                 float length = (float) Math.sqrt(dx * dx + dy * dy + du * du);
                 follow(ground, eye.eyeX, eye.eyeY, eye.eyeUp, dx / length, dy / length, du / length, reach, startLevel, seen);
             }
         }
-        return across * up;
+        return across * (toRow - fromRow);
     }
 
     /** Dev only: told each opening a line passes from one region into another, as RoomSight.Openings keeps it, with the region it comes from. */
@@ -38,15 +44,16 @@ final class RoomRays {
     }
 
     /**
-     * Dev only: the first line of the grid trace follows that reaches a room, as the point of the
-     * picture it goes through and each opening it passes from one region into another, each
-     * also told to crossed, or null where none does.
+     * Dev only: the first line through the grid's rows from fromRow up to but not including
+     * toRow that reaches a room, as the point of the picture it goes through and each opening
+     * it passes from one region into another, each also told to crossed, or null where none does.
      */
-    static String pathTo(RoomSight.Ground ground, ViewCamera.Pose eye, float tanAcross, float tanUp, int across, int up, float reach, int startLevel, long room, Crossed crossed) {
+    static String pathTo(RoomSight.Ground ground, ViewCamera.Pose eye, float tanAcross, float tanUp, int across, int up, int fromRow, int toRow, float reach, int startLevel, long room,
+            Crossed crossed) {
         RoomSight.Seen seen = new RoomSight.Seen();
         StringBuilder path = new StringBuilder();
         for (int i = 0; i < across; i++) {
-            for (int j = 0; j < up; j++) {
+            for (int j = fromRow; j < toRow; j++) {
                 float a = ((i + 0.5f) / across * 2f - 1f) * tanAcross, b = ((j + 0.5f) / up * 2f - 1f) * tanUp;
                 float dx = eye.forwardX + a * eye.rightX + b * eye.upX, dy = eye.forwardY + a * eye.rightY + b * eye.upY, du = eye.forwardUp + a * eye.rightUp + b * eye.upUp;
                 float length = (float) Math.sqrt(dx * dx + dy * dy + du * du);
