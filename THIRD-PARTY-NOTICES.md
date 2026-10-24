@@ -2026,7 +2026,7 @@ fan production for non-commercial purposes made under the Indie Stone Terms
 - **Version:** made by `tools/glass/stained.py` in this repository. Each of Project Zomboid's 28 sprites of a stained glass window, read from the player's installed copy, was enlarged, its glass made deeper in colour, and given to Z-Image Turbo with a text prompt, which kept the window's design and layout and drew its glass, leading and streaks again. On the dove window the flowers at its foot were first painted over with a priest and an altar in the game's own chunky pixels. The window's stone or wooden frame is the game's sprite enlarged.
 - **License:** derived from sprites of Project Zomboid, The Indie Stone's game, under the [Indie Stone Terms](https://projectzomboid.com/blog/support/terms-conditions/) (clause 2.2, non-commercial fan productions); not under this mod's MIT licence. The model is under the Apache License 2.0, https://huggingface.co/Tongyi-MAI/Z-Image-Turbo, from Tongyi-MAI.
 - **Upstream:** https://projectzomboid.com and https://huggingface.co/Tongyi-MAI/Z-Image-Turbo, revision f332072aa78be7aecdf3ee76d5c247082da564a6
-- **Usage:** In `Medium` and `High` the first person view draws each church window from it in place of the game's sprite, unless `OwnTextures` is off.
+- **Usage:** In `Medium` and `High` the first person view draws each church window from it in place of the game's sprite, unless `VanillaTextures` is on.
 - **Bundled:** the atlas, yes. The model is not.
 
 ---

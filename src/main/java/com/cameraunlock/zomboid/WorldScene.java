@@ -6448,7 +6448,13 @@ final class WorldScene {
                 }
                 int before = FirstPerson.TRACE ? worn(texture) : 0;
                 int firesBefore = placed.fireCount;
-                addSprite(solid.get(texture.getID()), object, sprite, texture, object == floor, x, y, z);
+                int glass = frame.material == STAINED && Own.textures(view.index) ? StainedGlass.texture() : 0;
+                ownGlass = glass != 0;
+                if (ownGlass) {
+                    StainedGlass.texels(sprite.getName(), frame);
+                }
+                addSprite(solid.get(ownGlass ? glass : texture.getID()), object, sprite, texture, object == floor, x, y, z);
+                ownGlass = false;
                 if (FirstPerson.TRACE) {
                     tally(sprite, worn(texture) - before);
                 }
@@ -7708,6 +7714,8 @@ final class WorldScene {
 
         /** Whether the sprite being added is a window's that is also a wall. */
         boolean glazedWall;
+        /** Whether the sprite being added is stained glass drawn from the mod's own picture of it, whose texels the frame holds: see StainedGlass. */
+        boolean ownGlass;
         /** The build being filled. */
         ChunkMeshes building;
 

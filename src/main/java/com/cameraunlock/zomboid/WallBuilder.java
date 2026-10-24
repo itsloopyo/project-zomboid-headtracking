@@ -504,7 +504,7 @@ final class WallBuilder {
         // A tiled wall is its tiles, its joints and the strips between its bands, each a face of its own: see WallTiles.
         tiles = paper == null && build.overLayer == 0 && build.tiledSheet != null && Own.textures(build.playerIndex)
                 ? tilesOf(texture, x, y, z, da, db, opening[at + OPENING_START] >= 0f || build.wallOpens) : null;
-        SpriteGeometry.Mesh near = laid(mesh, texture, build.laidWall, x, y, z, da != 0f);
+        SpriteGeometry.Mesh near = build.ownGlass ? mesh : laid(mesh, texture, build.laidWall, x, y, z, da != 0f);
         if (paper != null) {
             int key = WallSides.key(paper.red, paper.green, paper.blue, WallSides.FLAT);
             WallSides.tint(key, build.paperTint);
@@ -519,7 +519,7 @@ final class WallBuilder {
             near = tileStood;
         }
         // A wall that shows its own sprite shows it stood square, so its courses run on into the next length: see Flats.
-        near = inRoom(stoodSquare(near, texture, da != 0f), nearRoom);
+        near = inRoom(build.ownGlass ? near : stoodSquare(near, texture, da != 0f), nearRoom);
         int nearFlat = build.frame.flat;
         // Tiles the map lays over the wall, hung on it, are tiles on its skin inside the square, and the rest of what is laid over a wall is as painted.
         if (build.overLayer == 0 || !addTiledOverlay(mesh, texture, build.overSheet, x, y, z, da, db)) {
@@ -591,7 +591,7 @@ final class WallBuilder {
         } else if (faced != null) {
             far = stoodSquare(laid(WorldScene.solid.get(faced.texture.getID()), faced.texture, Masonry.suits(faced.sprite.getName()), x, y, z, da != 0f), faced.texture, da != 0f);
         } else if (tint != 0) {
-            far = WorldScene.solid.get(texture.getID(), tint);
+            far = WorldScene.solid.get(build.ownGlass ? mesh.texture : texture.getID(), tint);
         } else {
             build.frame.flat = nearFlat;
         }

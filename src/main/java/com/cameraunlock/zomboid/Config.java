@@ -277,8 +277,8 @@ final class Config {
                             + "fallen sticks.",
                     writable | live, false),
             core.configLocalBool("Content", "VanillaTextures",
-                    "true: the colours of the game's sprites. false: the mod's textures of ground, wood, roofing, paint, carpet, cloth\n"
-                            + "and wallpaper, and clean road lines.",
+                    "true: the colours of the game's sprites, and its own stained glass. false: the mod's textures of ground, wood,\n"
+                            + "roofing, paint, carpet, cloth, wallpaper and stained glass, and clean road lines.",
                     writable | live, false),
             core.configLocalBool("Content", "VanillaBuildings",
                     "true: the game's sprites. false: windows, doors, curtains, handrails, chain link fences, open stairs and wall\n"

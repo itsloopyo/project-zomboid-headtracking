@@ -34,6 +34,7 @@ final class LeisureTests {
         Checks.run("aChurchsLongDeskAlongYIsTheSameDeskTurnedToFaceEast", LeisureTests::aChurchsLongDeskAlongYIsTheSameDeskTurnedToFaceEast);
         Checks.run("aGoldCrossWithRaysIsStoodByItsLowerWestSquareAgainstItsWall", LeisureTests::aGoldCrossWithRaysIsStoodByItsLowerWestSquareAgainstItsWall);
         Checks.run("aChurchsColouredWindowsAreStainedGlassAndItsClearOnesAreNot", LeisureTests::aChurchsColouredWindowsAreStainedGlassAndItsClearOnesAreNot);
+        Checks.run("theStainedGlassAtlasHoldsEveryStainedWindowAndNothingElse", LeisureTests::theStainedGlassAtlasHoldsEveryStainedWindowAndNothingElse);
         Checks.run("whatAPitchACourtAndADiamondStandOnIsLevelGround", LeisureTests::whatAPitchACourtAndADiamondStandOnIsLevelGround);
         Checks.run("levelGroundIsFlatInItsBoxAndEasesBackOutToTheLand", LeisureTests::levelGroundIsFlatInItsBoxAndEasesBackOutToTheLand);
         Checks.run("betweenTwoLevelGroundsTheFootingRunsFromOneToTheOtherWithNoStep", LeisureTests::betweenTwoLevelGroundsTheFootingRunsFromOneToTheOtherWithNoStep);
@@ -557,6 +558,23 @@ final class LeisureTests {
             Checks.check(!StainedGlass.of("fixtures_windows_church_" + place), "fixtures_windows_church_" + place + " is diamond leaded clear glass");
         }
         Checks.check(!StainedGlass.of(null) && !StainedGlass.of("fixtures_windows_01_0"), "nor is a sprite with no name or a house's window");
+    }
+
+    private static void theStainedGlassAtlasHoldsEveryStainedWindowAndNothingElse() {
+        java.util.Map<String, float[]> places = StainedGlass.places();
+        java.util.Set<String> stained = new java.util.TreeSet<>();
+        for (int place = 0; place < 200; place++) {
+            for (String sheet : new String[] {CHURCH, "fixtures_windows_church_"}) {
+                if (StainedGlass.of(sheet + place)) {
+                    stained.add(sheet + place);
+                }
+            }
+        }
+        Checks.check(new java.util.TreeSet<>(places.keySet()).equals(stained), "the atlas holds " + new java.util.TreeSet<>(places.keySet()) + ", the stained windows are " + stained);
+        for (java.util.Map.Entry<String, float[]> place : places.entrySet()) {
+            float[] at = place.getValue();
+            Checks.check(at[0] >= 0f && at[1] >= 0f && at[2] <= 1f && at[3] <= 1f && at[0] < at[2] && at[1] < at[3], place.getKey() + " lies inside the atlas");
+        }
     }
 
     private static void whatAPitchACourtAndADiamondStandOnIsLevelGround() {

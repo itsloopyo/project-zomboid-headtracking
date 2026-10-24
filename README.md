@@ -528,8 +528,8 @@ VanillaPictures=false
 ; true: the game's sprites. false: the mod's trees, bushes, boulders, grass, ferns, flowers, crops, fallen leaves and
 ; fallen sticks.
 VanillaPlants=false
-; true: the colours of the game's sprites. false: the mod's textures of ground, wood, roofing, paint, carpet, cloth
-; and wallpaper, and clean road lines.
+; true: the colours of the game's sprites, and its own stained glass. false: the mod's textures of ground, wood,
+; roofing, paint, carpet, cloth, wallpaper and stained glass, and clean road lines.
 VanillaTextures=false
 ; true: the game's sprites. false: windows, doors, curtains, handrails, chain link fences, open stairs and wall
 ; finishes built by the mod.

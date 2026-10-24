@@ -5620,6 +5620,16 @@ final class Pipeline {
                 return "the sprigs could not be read: " + e.getMessage();
             }
         }, SPRIGS, SPRIG_FORM));
+        pieces.add(Piece.ofPictures(() -> {
+            try {
+                int made = Pictures.load(StainedGlass.ATLAS, false);
+                letGoOfStainedGlass();
+                StainedGlass.texture(made);
+                return null;
+            } catch (IOException e) {
+                return "the stained glass could not be read: " + e.getMessage();
+            }
+        }, StainedGlass.ATLAS));
         return pieces;
     }
 
@@ -6326,6 +6336,7 @@ final class Pipeline {
         GL11.glDeleteTextures(sprigForm);
         sprigs = 0;
         sprigForm = 0;
+        letGoOfStainedGlass();
         // First, or the logic thread could ask for a model again between its letting go and this.
         Own.picturesMade(false);
         for (OwnModel gun : OwnModel.ALL) {
@@ -6334,6 +6345,16 @@ final class Pipeline {
         contentPreparing = 0;
         contentBegun = false;
         contentReady = false;
+    }
+
+    /** Gives back the stained glass atlas, whose name a picture of another size may be handed next: the world's meshes are keyed by it. */
+    private static void letGoOfStainedGlass() {
+        int given = StainedGlass.texture();
+        StainedGlass.texture(0);
+        if (given != 0) {
+            GL11.glDeleteTextures(given);
+            forgetTexel(given);
+        }
     }
 
     /**
