@@ -1501,33 +1501,59 @@ final class WallBuilder {
     /**
      * The sides of an opening through a wall, from one skin to the other: the jambs, the
      * underside of the lintel and the sill. Without them the eye sees in between the two skins.
+     * Each half of the wall's thickness is lit as the place on its side is: lit as the street
+     * whole, a front door's jambs and lintel were a bright line round the leaf from a dark room.
      */
     private void addReveals(float[] opening, int at, int x, int y, int z, float a, float b, float da, float db, float inX, float inY) {
         SpriteGeometry.Mesh plain = WorldScene.solid.get(WorldScene.PLAIN);
-        plain.open = build.frame.open + 32f * WorldScene.CONCRETE;
         float lift = (build.geometry.lift[0] + build.geometry.lift[1] + build.geometry.lift[2] + build.geometry.lift[3]) / 4f;
         float foot = (z + opening[at + OPENING_FOOT]) * ViewCamera.LEVEL_HEIGHT + lift, head = (z + opening[at + OPENING_HEAD]) * ViewCamera.LEVEL_HEIGHT + lift;
         float x0 = x + a + da * opening[at + OPENING_START], y0 = y + b + db * opening[at + OPENING_START];
         float x1 = x + a + da * opening[at + OPENING_END], y1 = y + b + db * opening[at + OPENING_END];
         float[] c = build.reveal;
-        for (int side = 0; side < 2; side++) {
-            float jx = side == 0 ? x0 : x1, jy = side == 0 ? y0 : y1;
-            WorldScene.set(c, 0, jx - inX, jy - inY, foot);
-            WorldScene.set(c, 1, jx + inX, jy + inY, foot);
-            WorldScene.set(c, 2, jx + inX, jy + inY, head);
-            WorldScene.set(c, 3, jx - inX, jy - inY, head);
-            SpriteGeometry.addPlainQuad(plain, c, build.frame.red, build.frame.green, build.frame.blue);
-        }
-        for (int side = 0; side < 2; side++) {
-            if (side == 0 ? opening[at + OPENING_HEAD] >= 1f : opening[at + OPENING_FOOT] <= 0f) {
-                continue;
+        float red = build.frame.red, green = build.frame.green, blue = build.frame.blue, open = build.frame.open;
+        float farRed = red, farGreen = green, farBlue = blue, farOpen = open;
+        if (farLight >= 0) {
+            build.frame.cornersInto(build.heldRed, build.heldGreen, build.heldBlue, build.heldUnlit);
+            if (build.lightOpen[farLight] < 0) {
+                build.frame.light(1f, 1f, 1f);
+                build.frame.open = WorldScene.OPEN_UNLIT;
+            } else {
+                lightAlong(farLight, da != 0f);
             }
-            float up = side == 0 ? head : foot;
-            WorldScene.set(c, 0, x0 - inX, y0 - inY, up);
-            WorldScene.set(c, 1, x0 + inX, y0 + inY, up);
-            WorldScene.set(c, 2, x1 + inX, y1 + inY, up);
-            WorldScene.set(c, 3, x1 - inX, y1 - inY, up);
-            SpriteGeometry.addPlainQuad(plain, c, build.frame.red, build.frame.green, build.frame.blue);
+            farRed = build.frame.red;
+            farGreen = build.frame.green;
+            farBlue = build.frame.blue;
+            farOpen = build.frame.open;
+            build.frame.red = red;
+            build.frame.green = green;
+            build.frame.blue = blue;
+            build.frame.open = open;
+            build.frame.cornersFrom(build.heldRed, build.heldGreen, build.heldBlue, build.heldUnlit);
+        }
+        for (int half = 0; half < 2; half++) {
+            float from = half == 0 ? 0f : -1f, to = half == 0 ? 1f : 0f;
+            float r = half == 0 ? red : farRed, g = half == 0 ? green : farGreen, bl = half == 0 ? blue : farBlue;
+            plain.open = (half == 0 ? open : farOpen) + 32f * WorldScene.CONCRETE;
+            for (int side = 0; side < 2; side++) {
+                float jx = side == 0 ? x0 : x1, jy = side == 0 ? y0 : y1;
+                WorldScene.set(c, 0, jx + from * inX, jy + from * inY, foot);
+                WorldScene.set(c, 1, jx + to * inX, jy + to * inY, foot);
+                WorldScene.set(c, 2, jx + to * inX, jy + to * inY, head);
+                WorldScene.set(c, 3, jx + from * inX, jy + from * inY, head);
+                SpriteGeometry.addPlainQuad(plain, c, r, g, bl);
+            }
+            for (int side = 0; side < 2; side++) {
+                if (side == 0 ? opening[at + OPENING_HEAD] >= 1f : opening[at + OPENING_FOOT] <= 0f) {
+                    continue;
+                }
+                float up = side == 0 ? head : foot;
+                WorldScene.set(c, 0, x0 + from * inX, y0 + from * inY, up);
+                WorldScene.set(c, 1, x0 + to * inX, y0 + to * inY, up);
+                WorldScene.set(c, 2, x1 + to * inX, y1 + to * inY, up);
+                WorldScene.set(c, 3, x1 + from * inX, y1 + from * inY, up);
+                SpriteGeometry.addPlainQuad(plain, c, r, g, bl);
+            }
         }
     }
 
