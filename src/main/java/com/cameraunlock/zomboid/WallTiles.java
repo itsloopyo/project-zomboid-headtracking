@@ -344,7 +344,7 @@ final class WallTiles {
     private static final ExecutorService reader = Executors.newSingleThreadExecutor(work -> {
         Thread thread = new Thread(work, "CameraUnlock wall tiles");
         thread.setDaemon(true);
-        thread.setPriority(Thread.MIN_PRIORITY);
+        thread.setPriority(Thread.NORM_PRIORITY - 1);
         return thread;
     });
     /** What stopped the reader on a sprite, thrown once on the next asking: the sprite is asked for again after that. */
