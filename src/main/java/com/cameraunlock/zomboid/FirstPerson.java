@@ -74,6 +74,8 @@ public final class FirstPerson {
     private static final long SAID_FOR_NANOS = 2_500_000_000L;
     private long saidAt;
     private String said;
+    /** The step of VideoMemory's the screen has said. */
+    private int memoryStepSaid;
     /** What this frame's world pass left for the text pass to write, or null. */
     private String shown;
     /** How far off the overhead camera stands, in tiles: far enough that the picture has next to no perspective. */
@@ -652,6 +654,12 @@ public final class FirstPerson {
     private void frame(int pressed) {
         if ((pressed & Config.FIRST_PERSON) != 0) {
             toggle();
+        }
+        int memoryStep = VideoMemory.step();
+        if (memoryStep > memoryStepSaid) {
+            memoryStepSaid = memoryStep;
+            said = VideoMemory.shown(memoryStep);
+            saidAt = System.nanoTime();
         }
         if ((pressed & Config.AIM_MODE) != 0) {
             said = Tracking.aimModeLabel();
