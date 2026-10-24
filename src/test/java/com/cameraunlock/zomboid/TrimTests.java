@@ -171,7 +171,13 @@ final class TrimTests {
             paint(dots, row, row, 56, LONG - 4, greys[i]);
             paint(dots, row, row, LONG - 3, LONG - 1, edge[i]);
         }
-        checkDado(Trims.bands(dots, LONG, HIGH, 1f), "01_42 west", 0, 3, 56, LONG - 1);
+        Trims.Band[] bands = Trims.bands(dots, LONG, HIGH, 1f);
+        checkDado(bands, "01_42 west", 0, 3, 56, LONG - 1);
+        for (Trims.Band band : bands) {
+            if (band.from() > 0.5f) {
+                check(band.red() < 52f / 255f, "the length at the edge is painted as the board, not as the edge past it: " + band);
+            }
+        }
     }
 
     private static void aJointOfBlocksWhereARailWouldBeIsNoRail() {

@@ -29,9 +29,11 @@ final class Trims {
      * each end of the wall that is more than EVEN brighter or darker than the panel: the read
      * takes the sprite's edge on past its side there (Flats.stood), and the game reads
      * walls_interior_detailing_01_42's edge half as bright again as its board, all the way up.
+     * Such a column is left out of the band's colour too.
      */
     private static final float EVEN = 0.12f;
-    private static final int END = 3;    /**
+    private static final int END = 3;
+    /**
      * Cast blocks are as even as paint, and their joints are a thin dark line between two faces
      * each painted evenly: a row this much darker than the rows FACE_NEAR to FACE_FAR above it
      * and below it, each run within FLAT of its mean, is a joint, and a panel with one is blocks.
@@ -237,25 +239,30 @@ final class Trims {
                 continue;
             }
             float top = 1f - (float) first / high, foot = 1f - (float) (last + 1) / high;
-            int shadow = top - foot > TALLEST ? railShadow(dots, long_, high, first, last) : -1;
-            if (top - foot > TALLEST && !even(dots, long_, shadow < 0 ? first : shadow + 1, last)) {
+            boolean panel = top - foot > TALLEST;
+            int shadow = panel ? railShadow(dots, long_, high, first, last) : -1;
+            boolean[] off = panel ? offEnds(dots, long_, shadow < 0 ? first : shadow + 1, last) : new boolean[long_];
+            if (panel && !even(dots, long_, shadow < 0 ? first : shadow + 1, last, off)) {
                 return NONE;
             }
             top = top > 1f - SNAP ? 1f : Math.round(top * HEIGHTS) / HEIGHTS;
             foot = foot < SNAP ? 0f : Math.round(foot * HEIGHTS) / HEIGHTS;
             if (shadow < 0) {
-                along(found, dots, long_, first, last, foot, top, lighter);
+                along(found, dots, long_, first, last, foot, top, lighter, off);
                 continue;
             }
             float under = top - Math.round((shadow - first + 1) * RAIL_HEIGHTS / high) / RAIL_HEIGHTS;
-            along(found, dots, long_, first, shadow, under, top, lighter);
-            along(found, dots, long_, shadow + 1, last, foot, under, lighter);
+            along(found, dots, long_, first, shadow, under, top, lighter, off);
+            along(found, dots, long_, shadow + 1, last, foot, under, lighter, off);
         }
         return found.toArray(NONE);
     }
 
-    /** Adds the bands the rows first to last paint from foot to top, one for each length of the wall they are painted along. */
-    private static void along(List<Band> found, byte[] dots, int long_, int first, int last, float foot, float top, float lighter) {
+    /**
+     * Adds the bands the rows first to last paint from foot to top, one for each length of the
+     * wall they are painted along, coloured leaving out the columns off unless a length is all off.
+     */
+    private static void along(List<Band> found, byte[] dots, int long_, int first, int last, float foot, float top, float lighter, boolean[] off) {
         int column = 0;
         while (column < long_) {
             if (!columnInBand(dots, long_, column, first, last)) {
@@ -275,7 +282,11 @@ final class Trims {
             float from = (float) start / long_, to = (float) (end + 1) / long_;
             from = from < SNAP ? 0f : from;
             to = to > 1f - SNAP ? 1f : to;
-            float[] colour = colour(dots, long_, first, last, start, end);
+            boolean allOff = true;
+            for (int at = start; at <= end; at++) {
+                allOff &= off[at];
+            }
+            float[] colour = colour(dots, long_, first, last, start, end, allOff ? new boolean[long_] : off);
             found.add(new Band(foot, top, from, to, Math.min(colour[0] * lighter, 1f), Math.min(colour[1] * lighter, 1f), Math.min(colour[2] * lighter, 1f)));
             column = end + 1;
         }
@@ -336,16 +347,21 @@ final class Trims {
     }
 
     /** Whether the rows first to last are painted in one colour, as a panel of painted boards is, and not in courses or tiles. */
-    private static boolean even(byte[] dots, int long_, int first, int last) {
-        boolean[] edge = new boolean[long_];
-        double mean = spread(dots, long_, first, last, edge)[0];
-        for (int column = 0; column < END; column++) {
-            edge[column] = off(dots, long_, first, last, column, mean);
-            edge[long_ - 1 - column] = off(dots, long_, first, last, long_ - 1 - column, mean);
-        }
-        double[] spread = spread(dots, long_, first, last, edge);
+    private static boolean even(byte[] dots, int long_, int first, int last, boolean[] ends) {
+        double[] spread = spread(dots, long_, first, last, ends);
         return spread[1] < EVEN * spread[0]
                 && !jointed(dots, long_, first + OUTLINE_ROWS, last - OUTLINE_ROWS) && !uprightJoint(dots, long_, first + OUTLINE_ROWS, last - OUTLINE_ROWS);
+    }
+
+    /** The columns of the END at each end of the wall more than EVEN brighter or darker than the rows first to last: see EVEN. */
+    private static boolean[] offEnds(byte[] dots, int long_, int first, int last) {
+        boolean[] ends = new boolean[long_];
+        double mean = spread(dots, long_, first, last, ends)[0];
+        for (int column = 0; column < END; column++) {
+            ends[column] = off(dots, long_, first, last, column, mean);
+            ends[long_ - 1 - column] = off(dots, long_, first, last, long_ - 1 - column, mean);
+        }
+        return ends;
     }
 
     /** The mean brightness of the dots painted in the rows first to last, and their standard deviation, leaving out the columns left. */
@@ -448,13 +464,13 @@ final class Trims {
      * and its shadow in a dark line a dot or two thick, which is the moulding's shade and not
      * its paint.
      */
-    private static float[] colour(byte[] dots, int long_, int first, int last, int start, int end) {
+    private static float[] colour(byte[] dots, int long_, int first, int last, int start, int end, boolean[] off) {
         float[] light = new float[(last - first + 1) * (end - start + 1)];
         int count = 0;
         for (int row = first; row <= last; row++) {
             for (int column = start; column <= end; column++) {
                 int at = (row * long_ + column) * 4;
-                if (dots[at + 3] != 0) {
+                if (!off[column] && dots[at + 3] != 0) {
                     light[count++] = 0.299f * (dots[at] & 0xff) + 0.587f * (dots[at + 1] & 0xff) + 0.114f * (dots[at + 2] & 0xff);
                 }
             }
@@ -467,7 +483,7 @@ final class Trims {
         for (int row = first; row <= last; row++) {
             for (int column = start; column <= end; column++) {
                 int at = (row * long_ + column) * 4;
-                if (dots[at + 3] != 0 && 0.299f * (dots[at] & 0xff) + 0.587f * (dots[at + 1] & 0xff) + 0.114f * (dots[at + 2] & 0xff) >= floor) {
+                if (!off[column] && dots[at + 3] != 0 && 0.299f * (dots[at] & 0xff) + 0.587f * (dots[at + 1] & 0xff) + 0.114f * (dots[at + 2] & 0xff) >= floor) {
                     red += dots[at] & 0xff;
                     green += dots[at + 1] & 0xff;
                     blue += dots[at + 2] & 0xff;
