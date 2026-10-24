@@ -25,6 +25,7 @@ import zombie.characters.component.CharacterInputComponent;
 import zombie.chat.ChatElement;
 import zombie.combat.CombatConfigKey;
 import zombie.core.SpriteRenderer;
+import zombie.core.opengl.RenderThread;
 import zombie.core.physics.BallisticsController;
 import zombie.core.physics.RagdollBodyPart;
 import zombie.core.skinnedmodel.animation.AnimationPlayer;
@@ -159,6 +160,15 @@ public final class Hooks {
                 shaders |= View.join(i).firstPerson.whileLoading(player);
             }
         }
+        if (!streaming) {
+            try {
+                FineSkins.rank();
+            } catch (RuntimeException failure) {
+                // Thrown on, it would stop the game's loading screen.
+                Log.error("the skins the characters about the player wear could not be found, and none are read ahead", failure);
+            }
+            RenderThread.queueInvokeOnRenderContext(SKINS_WHILE_LOADING);
+        }
         if (shaders != shadersHeld) {
             shadersHeld = shaders;
             Log.info(shaders ? "the save is not begun until the mod's shaders are compiled" : "the save's loading screen no longer waits for the mod's shaders");
@@ -169,7 +179,7 @@ public final class Hooks {
         } else if (mapReadAt == 0) {
             mapReadAt = System.nanoTime();
         }
-        loadingHeld = shaders | !streaming && FarLand.holdsLoading(mapReadAt, mapReadAt + LOADING_WAIT_NANOS);
+        loadingHeld = shaders | (!streaming && (FarLand.holdsLoading(mapReadAt, mapReadAt + LOADING_WAIT_NANOS) | FineSkins.holdsLoading()));
         return streaming || loadingHeld;
     }
 
@@ -178,6 +188,7 @@ public final class Hooks {
     private static long mapReadAt;
     /** The longest the save's start waits, once the map is read, for all that the mod readies on the loading screen but its shaders. */
     private static final long LOADING_WAIT_NANOS = FarLand.waitNanos(45_000L);
+    private static final Runnable SKINS_WHILE_LOADING = FineSkins::whileLoading;
 
     /**
      * In place of the loading screen's done where it decides whether to say "Click to Start": not
@@ -189,7 +200,7 @@ public final class Hooks {
     }
 
     /** What the save's start waits for, each a line while it goes on, or null once it is done: the first where the game writes "Click to Start", the next above it. */
-    private static final List<Supplier<String>> LOADING_LINES = List.of(Pipeline::shaderProgress, FarLand::loadingProgress);
+    private static final List<Supplier<String>> LOADING_LINES = List.of(Pipeline::shaderProgress, FarLand::loadingProgress, FineSkins::progress);
 
     /** Called from GameLoadingState.render after the game's quick tip: says how far what the save's start waits for has come, while it goes on. */
     public static void loadingText() {
@@ -215,6 +226,7 @@ public final class Hooks {
     public static void leftSave(Object state) {
         Tracking.leftSave();
         FarLand.loadingAfresh();
+        FineSkins.leftSave();
         Impacts.forget();
         Fires.forget();
         Pieces.forget();

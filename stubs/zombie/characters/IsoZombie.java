@@ -8,4 +8,5 @@ public final class IsoZombie extends IsoGameCharacter {
     public void knockDown(boolean fromBehind) { throw new UnsupportedOperationException("reference stub"); }
     public void doShambler() { throw new UnsupportedOperationException("reference stub"); }
     public String getWalkType() { throw new UnsupportedOperationException("reference stub"); }
+    public zombie.core.skinnedmodel.visual.HumanVisual getHumanVisual() { throw new UnsupportedOperationException("reference stub"); }
 }

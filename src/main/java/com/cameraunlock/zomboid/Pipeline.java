@@ -5760,6 +5760,11 @@ final class Pipeline {
      * with what Low is drawn with. First person needs none of the content.
      */
     private static volatile boolean contentRefused;
+
+    /** Whether the graphics card had no room for the mod's own content this session. */
+    static boolean contentRefused() {
+        return contentRefused;
+    }
     /** Set by whoever is told by the driver, while a piece is made, that it is out of memory: see noted. */
     private static boolean noRoom;
     /** Set by whoever is told by the driver that it is out of memory, at any time, until a picture makes room: see makeRoom. Render thread. */
