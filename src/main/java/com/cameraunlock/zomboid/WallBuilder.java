@@ -504,7 +504,7 @@ final class WallBuilder {
         // A tiled wall is its tiles, its joints and the strips between its bands, each a face of its own: see WallTiles.
         tiles = paper == null && build.overLayer == 0 && build.tiledSheet != null && Own.textures(build.playerIndex)
                 ? tilesOf(texture, x, y, z, da, db, opening[at + OPENING_START] >= 0f || build.wallOpens) : null;
-        SpriteGeometry.Mesh near = build.ownGlass ? mesh : laid(mesh, texture, build.laidWall, x, y, z, da != 0f);
+        SpriteGeometry.Mesh near = build.ownGlass ? mesh : laid(mesh, texture, build.laidWall || outsideWall(x, y, z, da != 0f), x, y, z, da != 0f);
         if (paper != null) {
             int key = WallSides.key(paper.red, paper.green, paper.blue, WallSides.FLAT);
             WallSides.tint(key, build.paperTint);
@@ -844,6 +844,17 @@ final class WallBuilder {
         }
         build.frame.flat = north ? SpriteGeometry.FLAT_NORTH : SpriteGeometry.FLAT_WEST;
         return WorldScene.solid.get(stood);
+    }
+
+    /**
+     * Whether the wall on the north or west edge of (x, y, z) stands between a room and out of
+     * doors, and is no garage door: laid as masonry whatever sheet its sprite is of. A building
+     * of its own sheet paints its walls there, the church's brick under each window for one,
+     * which was shown as painted, a blur between walls laid brick by brick.
+     */
+    private boolean outsideWall(int x, int y, int z, boolean north) {
+        IsoGridSquare beyond = build.cell.getGridSquare(north ? x : x - 1, north ? y - 1 : y, z);
+        return !build.garageDoor && OpeningBuilder.indoors(build.here) != OpeningBuilder.indoors(beyond);
     }
 
     /**
