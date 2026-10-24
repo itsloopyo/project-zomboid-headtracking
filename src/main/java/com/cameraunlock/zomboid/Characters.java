@@ -2742,12 +2742,16 @@ public final class Characters {
         placed[12] = x; placed[13] = y; placed[14] = up; placed[15] = 1f;
     }
 
-    /** out = a times b, all three column-major. */
+    /**
+     * out = a times b, all three column-major. Summed in doubles: a figure stands thousands of tiles out on the map and a
+     * light's matrix takes most of that off again, which in floats put a place twelve tiles from the torch up to 0.14
+     * tiles off in its map (ShadowCastTests).
+     */
     private static void multiply(float[] a, float[] b, float[] out) {
         for (int column = 0; column < 4; column++) {
             for (int row = 0; row < 4; row++) {
-                out[column * 4 + row] = a[row] * b[column * 4] + a[4 + row] * b[column * 4 + 1]
-                        + a[8 + row] * b[column * 4 + 2] + a[12 + row] * b[column * 4 + 3];
+                out[column * 4 + row] = (float) ((double) a[row] * b[column * 4] + (double) a[4 + row] * b[column * 4 + 1]
+                        + (double) a[8 + row] * b[column * 4 + 2] + (double) a[12 + row] * b[column * 4 + 3]);
             }
         }
     }
