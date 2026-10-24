@@ -7072,6 +7072,12 @@ final class WorldScene {
                 // open sash of a window in a north wall as fixed to the west one.
                 north = window.getNorth();
                 west = !north;
+            } else if (type == IsoObjectType.doorFrN || type == IsoObjectType.doorFrW) {
+                // A door's casing is on the edge its type says. fixtures_doors_frames_01_7, a north casing, is marked for
+                // the west wall too: laid on both, it was read on the west first, as no casing, and the north one stayed
+                // the game's flat sprite, its posts short of the doorway.
+                north = type == IsoObjectType.doorFrN;
+                west = !north;
             } else {
                 // The corner length of a skirting board or a cornice is marked for both walls of
                 // its corner by a name of its own, which says nothing to a test for either wall:
