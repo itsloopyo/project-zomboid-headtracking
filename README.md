@@ -605,11 +605,12 @@ FourthPlayerMicrophone=None
 - **Phone tracking never arrives** - let it through Windows Firewall, as [Phone](#phone) describes.
 - **The game no longer starts** - delete `ProjectZomboid64.site.json` from the game folder to start the game without the mod. After a manual install, check that file for a missing or extra comma, then make it again.
 - **Sights or scope problems** - press `Insert` to select **sights locked**.
+
 For help, use [Discord](https://discord.com/invite/dxyZdyFNT9) or [report an issue](https://github.com/itsloopyo/project-zomboid-headtracking/issues). Include `ProjectZomboidHeadTracking.log` from the game folder.
 
 ## Updating
 
-Steam updates the Workshop copy itself. With the standalone installer, run the new release's `install.cmd`, and rerun it after a game update too. For a manual install, copy the new release's jar over the old one, delete `ProjectZomboidHeadTracking.dll` and `CameraUnlockCore.dll` if they are there, and redo steps 4 and 5. Your `CameraUnlock.ini` settings stay either way.
+Steam updates the Workshop copy itself. With the standalone installer, run the new release's `install.cmd`, and rerun it after a game update too. For a manual install, copy every `.jar` in the new release's `plugins` folder over the old ones, delete `ProjectZomboidHeadTracking.dll` and `CameraUnlockCore.dll` if they are there, and redo steps 4 and 5. Your `CameraUnlock.ini` settings stay either way.
 
 ## Uninstalling
 
