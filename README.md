@@ -57,6 +57,7 @@ Off by default. Tick **Talking mouths** in the game's options and your character
 - [Project Zomboid on Steam](https://store.steampowered.com/app/108600/Project_Zomboid/), tested on build **42.21.0**. The first line of `version.txt` in your `Zomboid` user folder (`C:\Users\<you>\Zomboid`) shows your build. Other stores have not been tested.
 - For head tracking only: [OpenTrack](https://github.com/opentrack/opentrack) with a tracking source, or an app that sends the OpenTrack UDP protocol
 - Windows 10 or 11, 64-bit
+- For first person: a graphics card and driver that give the game OpenGL 3.3 (compatibility profile) with EXT_texture_array and ARB_shader_texture_lod, reading 27 textures and 2900 uniform components in a fragment shader. Without them first person stays off, the game plays as it does without the mod, and `ProjectZomboidHeadTracking.log` says which is missing
 - For the Steam Workshop copy: [ZombieBuddy](https://github.com/zed-0xff/ZombieBuddy) 2.x, set up once
 
 ## Installation
@@ -617,6 +618,7 @@ FourthPlayerMicrophone=None
 - **Phone tracking never arrives** - let it through Windows Firewall, as [Phone](#phone) describes.
 - **The game no longer starts** - delete `ProjectZomboid64.site.json` from the game folder to start the game without the mod. After a manual install, check that file for a missing or extra comma, then make it again.
 - **Sights or scope problems** - press `Insert` to select **sights locked**.
+- **First person does not switch on, and the screen says it needs OpenGL 3.3** - the graphics driver does not give what [Requirements](#requirements) lists. `ProjectZomboidHeadTracking.log` names what is missing.
 
 For help, use [Discord](https://discord.com/invite/dxyZdyFNT9) or [report an issue](https://github.com/itsloopyo/project-zomboid-headtracking/issues). Include `ProjectZomboidHeadTracking.log` from the game folder.
 

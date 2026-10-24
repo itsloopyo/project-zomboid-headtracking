@@ -437,8 +437,18 @@ final class Quality {
         return String.join(",", Arrays.copyOfRange(NAMES, LOW, NAMES.length));
     }
 
+    /** Set once first person cannot be drawn on this PC: no mode is drawn but the game's own picture. Logic thread. */
+    private static boolean undrawable;
+
+    static synchronized void undrawable() {
+        undrawable = true;
+    }
+
     /** What a view's screen says of its mode in effect: "First Person (High)", "First Person (Automatic, Medium)" or "Isometric (Low)". */
     static synchronized String said(int view) {
+        if (undrawable) {
+            return "Isometric (the game's own picture)";
+        }
         if (!inFirstPerson[view]) {
             return "Isometric (" + NAMES[overheadRows[view]] + ")";
         }

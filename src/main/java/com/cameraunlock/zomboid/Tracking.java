@@ -572,8 +572,14 @@ final class Tracking {
                     owed[i] |= Config.FIRST_PERSON;
                 }
                 if (theirs(pressed, i, Config.CYCLE_QUALITY_TAPS, Config.CYCLE_QUALITY_ALL, "graphics")) {
-                    // Changed on the next frame: this one's picture is the view's picture before (ModeFade).
-                    graphicsModeOwed |= 1 << i;
+                    View view = View.of(i);
+                    if (view != null && view.pipeline.failure() != null) {
+                        // Every graphics mode but the game's own is drawn by first person: the key says why there are none.
+                        owed[i] |= Config.CYCLE_QUALITY;
+                    } else {
+                        // Changed on the next frame: this one's picture is the view's picture before (ModeFade).
+                        graphicsModeOwed |= 1 << i;
+                    }
                 }
                 if (theirs(pressed, i, Config.CYCLE_STYLE_TAPS, Config.CYCLE_STYLE_ALL, "style")) {
                     cycleStyle(i);

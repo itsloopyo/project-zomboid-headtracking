@@ -332,6 +332,10 @@ public final class FirstPerson {
         IsoPlayer player = view.player();
         if (!on && !allowed(player)) {
             Log.info(who() + "first person stays off: " + whyNot(player));
+            if (view.pipeline.failure() != null) {
+                said = cannotBeDrawn();
+                saidAt = System.nanoTime();
+            }
             return;
         }
         if (gettingReady) {
@@ -453,6 +457,12 @@ public final class FirstPerson {
         // After giveBack, whose rest of the head tracking marks the view as one played in.
         Tracking.gone(view.index);
         Quality.gone(view.index);
+    }
+
+    /** What the screen says when first person cannot be drawn on this PC; the log has the whole of why. */
+    private static String cannotBeDrawn() {
+        return GlFloor.missing() != null ? "First person needs OpenGL 3.3 with EXT_texture_array and ARB_shader_texture_lod"
+                : "First person cannot be drawn on this PC: the log says why";
     }
 
     /** What a line in the log begins with to say whose view it is of, for any player but the first. */
@@ -644,7 +654,7 @@ public final class FirstPerson {
             }
         }
         if ((pressed & Config.CYCLE_QUALITY) != 0) {
-            said = Quality.said(view.index);
+            said = view.pipeline.failure() != null ? cannotBeDrawn() : Quality.said(view.index);
             saidAt = System.nanoTime();
         }
         if ((pressed & Config.CYCLE_STYLE) != 0) {
@@ -684,6 +694,9 @@ public final class FirstPerson {
         frameSeconds += (Math.min(sinceLastFrame, 0.1f) - frameSeconds) * 0.05f;
         view.flight.advance(on, sinceLastFrame, !overhead);
         boolean wasFirstPerson = Quality.firstPersonInEffect(view.index);
+        if (view.pipeline.failure() != null) {
+            Quality.undrawable();
+        }
         Quality.inFirstPerson(view.index, on || gettingReady || !view.flight.home());
         if (wasFirstPerson && !Quality.firstPersonInEffect(view.index)) {
             // Back in the isometric view, with its own graphics mode: said, so a mode not wanted there is not played on unawares.
