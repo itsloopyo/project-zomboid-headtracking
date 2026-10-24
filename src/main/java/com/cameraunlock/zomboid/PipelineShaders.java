@@ -970,7 +970,7 @@ final class PipelineShaders {
             // sapphire and ruby, with clear glass held to CLEAR of the light. However bright the day
             // behind it, its strongest colour comes out of the exposure at no more than MOST: a full blue
             // much past white in the film spills into the others, and the glass turned white-ice.
-            const float STAINED_SKY = 0.15, STAINED_SUN = 0.9, STAINED_ROOM = 0.25, STAINED_THICK = 5.0, STAINED_CLEAR = 0.35, STAINED_MOST = 1.0, STAINED_OWN_GAIN = 1.6;
+            const float STAINED_SKY = 0.15, STAINED_SUN = 0.9, STAINED_ROOM = 0.25, STAINED_THICK = 5.0, STAINED_CLEAR = 0.35, STAINED_MOST = 1.0, STAINED_OWN_GAIN = 1.6, STAINED_OWN_THICK = 2.0;
             // A leaf of a crown: what it has of the crown's sun when turned edge on to it, and what more
             // when turned full to it; how much of the sun on its back shows through, and how
             // much more of it looking straight towards the sun; and how smooth its skin is.
@@ -3800,9 +3800,11 @@ final class PipelineShaders {
                     // behind: as light through glass, each colour is let through as its share of the
                     // strongest to the power of how thick the glass is. Hand-made glass is not even, and
                     // each pane lets through more or less in streaks.
-                    // The mod's own picture of the window is already the colour of the glass and its streaks, and is taken as it is.
+                    // The mod's own picture of the window carries its streaks and its shades, painted as seen
+                    // lit from the room, so it is thickened less and keeps its brightness.
                     vec3 linear = pow(texel.rgb, vec3(2.2));
-                    vec3 tinted = ownStained ? linear * STAINED_OWN_GAIN : pow(linear / max(max(linear.r, max(linear.g, linear.b)), 1e-4), vec3(STAINED_THICK));
+                    float strongest = max(max(linear.r, max(linear.g, linear.b)), 1e-4);
+                    vec3 tinted = ownStained ? strongest * STAINED_OWN_GAIN * pow(linear / strongest, vec3(STAINED_OWN_THICK)) : pow(linear / strongest, vec3(STAINED_THICK));
                     tinted *= min(1.0, STAINED_CLEAR / max(dot(tinted, vec3(0.2126, 0.7152, 0.0722)), 1e-4));
                     tinted *= ownStained ? 1.0 : 0.75 + 0.5 * patches(vec2((vWorld.x + vWorld.y) * 9.0, vWorld.z * 2.5));
                     // A window on the street's square is drawn on the wall's street skin and seen from the room
