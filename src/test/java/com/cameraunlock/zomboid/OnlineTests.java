@@ -15,6 +15,7 @@ public final class OnlineTests {
         Checks.run("onlyAServerThatLetsPlayersFightHoldsAnythingBack", OnlineTests::onlyAServerThatLetsPlayersFightHoldsAnythingBack);
         Checks.run("aViewIsOnAPersonFromFeetToHead", OnlineTests::aViewIsOnAPersonFromFeetToHead);
         Checks.run("aCallIsHandedToItsReplacement", OnlineTests::aCallIsHandedToItsReplacement);
+        Checks.run("aTwoHandedWeaponIsTakenBackInBothHandsOnlyWherePlayersCannotFight", OnlineTests::aTwoHandedWeaponIsTakenBackInBothHandsOnlyWherePlayersCannotFight);
         Checks.run("theAimPicksThePartOfAPlayerOnlyWhereTheyCannotBeFought", OnlineTests::theAimPicksThePartOfAPlayerOnlyWhereTheyCannotBeFought);
         Checks.run("otherPlayersAreDrawnAsFarAsZombiesWherePlayersCannotFight", OnlineTests::otherPlayersAreDrawnAsFarAsZombiesWherePlayersCannotFight);
         Checks.run("aSharedHeadAndMouthReadBackAsWritten", OnlineTests::aSharedHeadAndMouthReadBackAsWritten);
@@ -59,6 +60,23 @@ public final class OnlineTests {
             zombie.network.ServerOptions.getInstance().pvp.setValue(true);
             check(!Online.contested(), "a game played alone is no fight whatever its own server options say");
         });
+    }
+
+    private static void aTwoHandedWeaponIsTakenBackInBothHandsOnlyWherePlayersCannotFight() {
+        Servers.in(Servers.Where.ALONE, () -> check(Online.regrips(), "alone a two-handed weapon is taken back in both hands"));
+        Servers.in(Servers.Where.FRIENDLY, () -> check(Online.regrips(), "and on a server where players cannot hurt each other"));
+        Servers.in(Servers.Where.CONTESTED, () -> check(!Online.regrips(), "but not where they can"));
+        Object gun = new Object(), torch = new Object();
+        Regrip hands = new Regrip();
+        check(!hands.emptied(gun, gun) && !hands.emptied(gun, torch) && hands.emptied(gun, null), "a gun in both hands goes back into both when a torch beside it is put down");
+        check(!hands.emptied(gun, null), "once");
+        hands = new Regrip();
+        check(!hands.emptied(gun, null) && !hands.emptied(gun, torch) && !hands.emptied(gun, null), "one taken up in the right hand alone stays so");
+        hands = new Regrip();
+        check(!hands.emptied(gun, gun) && !hands.emptied(gun, torch) && !hands.emptied(new Object(), torch) && !hands.emptied(gun, null),
+                "and so does one put back in the right after another weapon was");
+        hands = new Regrip();
+        check(!hands.emptied(gun, gun) && !hands.emptied(null, null), "nothing is taken back when the gun itself is put away");
     }
 
     private static void theAimPicksThePartOfAPlayerOnlyWhereTheyCannotBeFought() {

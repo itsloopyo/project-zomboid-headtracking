@@ -59,10 +59,10 @@ final class Config {
     /**
      * What the rows read again while the game runs hold: the field of view in degrees, Own's bits, Rules' bits,
      * by player the Quality rows, the IsometricQuality rows as Quality modes and the Style rows,
-     * the HillHeight row, the MuzzleFlash row, the Crosshair row, the SplitScreen row, the rows of [Graphics], the TalkingMouths row
+     * the HillHeight row, the MuzzleFlash row, the Crosshair row, the RegripTwoHandedWeapons row, the SplitScreen row, the rows of [Graphics], the TalkingMouths row
      * and each player's microphone.
      */
-    record Live(float fieldOfView, int own, int rules, int[] quality, int[] overheadQuality, int[] style, float hillHeight, boolean muzzleFlash, boolean crosshair, int splitScreen,
+    record Live(float fieldOfView, int own, int rules, int[] quality, int[] overheadQuality, int[] style, float hillHeight, boolean muzzleFlash, boolean crosshair, boolean regrip, int splitScreen,
             Quality.Picture custom, boolean talkingMouths, List<String> microphones) {}
 
     /** The keys of [Graphics], the Custom graphics mode, in the order the options screen shows them. */
@@ -74,7 +74,7 @@ final class Config {
     static final int MIN_VIEW_DISTANCE = 32, MIN_DRAW_DISTANCE = 16;
 
     private final CameraUnlock core;
-    private final int fieldOfView, hillHeight, muzzleFlash, crosshair, splitScreen, talkingMouths;
+    private final int fieldOfView, hillHeight, muzzleFlash, crosshair, regrip, splitScreen, talkingMouths;
     /** By player, the rows of their first person graphics mode, their isometric view's and their picture style. */
     private final int[] quality = new int[View.COUNT], overheadQuality = new int[View.COUNT], style = new int[View.COUNT];
     /** The rows of each player's microphone, in the order of MICROPHONE_ROWS. */
@@ -95,7 +95,7 @@ final class Config {
      * writable: their hotkeys save. There is no key that switches head tracking off: the
      * owner ruled the action out for this game, and the three keys there are are the game's own
      * rows on the nav keys alone (see cameraunlock-core's per_game). FieldOfView, Quality, IsometricQuality, Style,
-     * the rows of [Players], HillHeight, MuzzleFlash, Crosshair, SplitScreen and the rows of [Content] and [Rules] are the mod's own, and the ones read
+     * the rows of [Players], HillHeight, MuzzleFlash, Crosshair, RegripTwoHandedWeapons, SplitScreen and the rows of [Content] and [Rules] are the mod's own, and the ones read
      * again while the game runs, and so are the rows of [Graphics], which are what the Custom
      * graphics mode draws, and the rows of [Voice]. They are writable too, and a writable row that is not a key
      * list or a microphone's name is a setting on the game's options screen (OptionsPage), which shows the
@@ -167,6 +167,11 @@ final class Config {
         crosshair = core.configLocalBool("General", "Crosshair",
                 "true: in first person, while the game draws no reticle of its own, a small crosshair with a weapon in hand and a\n"
                         + "dot without one mark where the shot lands and what the interact key uses. false: neither is drawn.",
+                writable | live, true);
+        regrip = core.configLocalBool("General", "RegripTwoHandedWeapons",
+                "true: a weapon made for both hands goes back into both when the left hand puts down what it took up beside it,\n"
+                        + "a torch say, as the inventory's Equip Two Hands does. false: it stays in the right hand alone, as the game leaves it.\n"
+                        + "Never on a server where players can fight.",
                 writable | live, true);
         splitScreen = core.configLocalEnum("General", "SplitScreen",
                 "How two players at one screen share it: Vertical (side by side) or Horizontal (one above the other).",
@@ -376,6 +381,7 @@ final class Config {
         });
         puts.put("MuzzleFlash", value -> MuzzleFlash.set(value != 0));
         puts.put("Crosshair", value -> Crosshair.set(value != 0));
+        puts.put("RegripTwoHandedWeapons", value -> Regrip.set(value != 0));
         puts.put("SplitScreen", value -> SplitScreen.set((int) value));
         puts.put(TALKING_MOUTHS, value -> {
             Mouths.set(value != 0);
@@ -486,7 +492,7 @@ final class Config {
             overheadQualities[player] = core.configGetInt(overheadQuality[player]) + Quality.LOW;
             styles[player] = core.configGetInt(style[player]);
         }
-        return new Live(core.configGetFloat(fieldOfView), rows, changed, qualities, overheadQualities, styles, core.configGetFloat(hillHeight), core.configGetInt(muzzleFlash) != 0, core.configGetInt(crosshair) != 0, core.configGetInt(splitScreen), picture(custom),
+        return new Live(core.configGetFloat(fieldOfView), rows, changed, qualities, overheadQualities, styles, core.configGetFloat(hillHeight), core.configGetInt(muzzleFlash) != 0, core.configGetInt(crosshair) != 0, core.configGetInt(regrip) != 0, core.configGetInt(splitScreen), picture(custom),
                 core.configGetInt(talkingMouths) != 0, List.of(microphones()));
     }
 

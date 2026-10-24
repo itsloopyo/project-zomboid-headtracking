@@ -21,4 +21,6 @@ public class InventoryItem {
     public int getLightDistance() { throw new UnsupportedOperationException("reference stub"); }
     public boolean isTorchCone() { throw new UnsupportedOperationException("reference stub"); }
     public boolean isTwoHandWeapon() { throw new UnsupportedOperationException("reference stub"); }
+    public boolean isRequiresEquippedBothHands() { throw new UnsupportedOperationException("reference stub"); }
+    public int getCondition() { throw new UnsupportedOperationException("reference stub"); }
 }

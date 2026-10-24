@@ -70,6 +70,15 @@ final class Online {
     }
 
     /**
+     * Whether a weapon made for both hands is taken back in both when the left hand lets go of
+     * something beside it (Regrip). Not where players can fight: there the grip is the player's
+     * to ask for, as it is for everyone.
+     */
+    static boolean regrips() {
+        return !contested();
+    }
+
+    /**
      * Whether first person shots wound a zombie's limbs: a shot leg slows it and then drops it to
      * crawl, a shot arm hangs. Only alone. On a server the zombies are the server's, a co-op host's
      * included, which runs apart from the host's game and without this mod, and a zombie that one

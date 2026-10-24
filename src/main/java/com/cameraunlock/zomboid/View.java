@@ -48,6 +48,7 @@ final class View {
     final CarriedLight carriedLight = new CarriedLight(this);
     final HeldLight heldLight = new HeldLight(this);
     final CentreUse centreUse = new CentreUse(this);
+    final Regrip regrip = new Regrip();
     final WorldMenu worldMenu = new WorldMenu(this);
     final NameTags nameTags = new NameTags(this);
     final ModelHead modelHead = new ModelHead(this);

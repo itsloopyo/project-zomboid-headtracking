@@ -662,6 +662,9 @@ public final class FirstPerson {
         rideAlong(player);
         Panels.dashboard(view.index, active() && player != null && player.getVehicle() != null);
         tread(player);
+        if (player != null) {
+            view.regrip.update(player, view.index);
+        }
         if ((on || !view.flight.home()) && !allowed) {
             if (on) {
                 Log.info(who() + "first person off: " + whyNot(player));
