@@ -1503,6 +1503,12 @@ final class WorldScene {
         roomsUnread = false;
         unreadSince = 0L;
         unreadSaid = false;
+        // A frame works out the eye's light before it reads the map again: with these as they were, it read rooms off the map let go of.
+        for (Frame scene : scenes) {
+            scene.roomsDaylit = false;
+        }
+        roomsDaylitNow = false;
+        mapWx = mapWy = mapSide = 0;
         roomsBuilt.clear();
         roomsMayShow.clear();
         roomsMayShowFound.clear();
