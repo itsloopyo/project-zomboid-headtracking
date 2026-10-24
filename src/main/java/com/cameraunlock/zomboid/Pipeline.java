@@ -5861,6 +5861,7 @@ final class Pipeline {
                 shadersBegan = start;
                 String limits = GlFloor.limits();
                 if (limits != null) {
+                    Pictures.letGoOfReadAhead();
                     return limits;
                 }
             }
