@@ -222,6 +222,7 @@ public final class Tests {
         Checks.run("RoomDaylightTests", RoomDaylightTests::run);
         Checks.run("TerrainTests", TerrainTests::run);
         Checks.run("FootingTests", FootingTests::run);
+        Checks.run("LongTableTests", LongTableTests::run);
         Checks.run("PavingTests", PavingTests::run);
         Checks.run("FacadeTests", FacadeTests::run);
         Checks.run("SpanTests", SpanTests::run);

@@ -2,7 +2,6 @@ package com.cameraunlock.zomboid;
 
 import java.util.ArrayDeque;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import zombie.core.properties.PropertyContainer;
 import zombie.iso.BuildingDef;
@@ -246,7 +245,7 @@ final class Terrain {
      * chunks loaded that it had when they were looked over. One height asks about the same
      * chunk many times, and looking one over is a search for what each thing on it is joined to.
      */
-    private static final HashMap<Long, Kinds> unsure = new HashMap<>();
+    private static final LongTable<Kinds> unsure = new LongTable<>();
     private static long unsureAsOf = Long.MIN_VALUE;
     /**
      * What unsure let go of when the map changed, for blank to fill again: driving, the map
@@ -255,7 +254,7 @@ final class Terrain {
      */
     private static final ArrayDeque<Kinds> spare = new ArrayDeque<>();
     /** The footings worked out for made things with no building in them that cannot be kept yet, for as long. */
-    private final HashMap<Long, Float> padsForNow = new HashMap<>();
+    private final LongTable<Float> padsForNow = new LongTable<>();
     private long padsAsOf = Long.MIN_VALUE;
 
     /**
@@ -379,7 +378,7 @@ final class Terrain {
     }
 
     /** The height of the footing of each made thing whose footing can no longer change, by the middle of the thing. */
-    private final HashMap<Long, Float> pads = new HashMap<>();
+    private final LongTable<Float> pads = new LongTable<>();
     private static final byte[] kerbKinds = new byte[Kerbs.SPAN * Kerbs.SPAN];
     private static final boolean[] kerbHard = new boolean[Kerbs.SPAN * Kerbs.SPAN];
     /** How far from water the hills take to rise to their height, in chunks and in tiles: the width of a valley's side. */
@@ -1035,8 +1034,8 @@ final class Terrain {
                         continue;
                     }
                     last = key;
-                    boolean asked = pads.containsKey(Footings.spread(key));
-                    if (!asked && padsForNow.containsKey(Footings.spread(key))) {
+                    boolean asked = pads.containsKey(key);
+                    if (!asked && padsForNow.containsKey(key)) {
                         asked = true;
                         all = false;
                     }
@@ -1060,7 +1059,7 @@ final class Terrain {
             int midWx = Math.floorDiv(x, CHUNK_TILES), midWy = Math.floorDiv(y, CHUNK_TILES);
             if (!Float.isNaN(freeBoxes[asked * 4])) {
                 boolean lasting = findWater(cell, midWx, midWy);
-                (lasting ? pads : padsForNow).put(Footings.spread(freeKeys[asked]), meanLand(freeBoxes, asked * 4));
+                (lasting ? pads : padsForNow).put(freeKeys[asked], meanLand(freeBoxes, asked * 4));
                 all &= lasting;
                 continue;
             }
@@ -1069,7 +1068,7 @@ final class Terrain {
             // The streets round that one corner, which is all that is read.
             int cornerI = x - midWx * CHUNK_TILES + AROUND, cornerJ = y - midWy * CHUNK_TILES + AROUND;
             streets(midWx * CHUNK_TILES - AROUND, midWy * CHUNK_TILES - AROUND, Math.min(cornerI, cornerJ), Math.max(cornerI, cornerJ), false);
-            (lasting ? pads : padsForNow).put(Footings.spread(freeKeys[asked]), corner(x, y, cornerI, cornerJ));
+            (lasting ? pads : padsForNow).put(freeKeys[asked], corner(x, y, cornerI, cornerJ));
             all &= lasting;
         }
         all &= region(cell, wx, wy);
@@ -1090,9 +1089,9 @@ final class Terrain {
                         continue;
                     }
                     long key = Footings.key(x, y);
-                    Float kept = pads.get(Footings.spread(key));
+                    Float kept = pads.get(key);
                     if (kinds.free[at]) {
-                        kept = kept != null ? kept : padsForNow.get(Footings.spread(key));
+                        kept = kept != null ? kept : padsForNow.get(key);
                     } else if (kept == null && key == unkeptKey) {
                         kept = unkeptPad;
                     } else if (kept == null && key == otherUnkeptKey) {
@@ -1101,7 +1100,7 @@ final class Terrain {
                         boolean lasting = findWater(cell, Math.floorDiv((int) Math.floor(x), CHUNK_TILES), Math.floorDiv((int) Math.floor(y), CHUNK_TILES));
                         kept = base(x, y);
                         if (lasting) {
-                            pads.put(Footings.spread(key), kept);
+                            pads.put(key, kept);
                         } else {
                             otherUnkeptKey = unkeptKey;
                             otherUnkeptPad = unkeptPad;
@@ -1335,9 +1334,9 @@ final class Terrain {
                 }
                 if (x != lastX || y != lastY) {
                     long key = Footings.key(x, y);
-                    Float kept = pads.get(Footings.spread(key));
+                    Float kept = pads.get(key);
                     if (freeAround[at]) {
-                        kept = bare ? Float.valueOf(Float.NaN) : kept != null ? kept : padsForNow.get(Footings.spread(key));
+                        kept = bare ? Float.valueOf(Float.NaN) : kept != null ? kept : padsForNow.get(key);
                     } else if (kept == null && key == unkeptKey) {
                         kept = unkeptPad;
                     } else if (kept == null && key == otherUnkeptKey) {
@@ -1346,7 +1345,7 @@ final class Terrain {
                         boolean lasting = findWater(cell, Math.floorDiv((int) Math.floor(x), CHUNK_TILES), Math.floorDiv((int) Math.floor(y), CHUNK_TILES));
                         kept = base(x, y);
                         if (lasting) {
-                            pads.put(Footings.spread(key), kept);
+                            pads.put(key, kept);
                         } else {
                             otherUnkeptKey = unkeptKey;
                             otherUnkeptPad = unkeptPad;
@@ -1503,11 +1502,11 @@ final class Terrain {
             return kept;
         }
         if (unsureAsOf != mapAsOf()) {
-            spare.addAll(unsure.values());
+            unsure.addValuesTo(spare);
             unsure.clear();
             unsureAsOf = mapAsOf();
         }
-        long chunk = Footings.spread((long) wx << 32 | wy & 0xFFFFFFFFL);
+        long chunk = (long) wx << 32 | wy & 0xFFFFFFFFL;
         kept = unsure.get(chunk);
         if (kept != null) {
             return kept;
