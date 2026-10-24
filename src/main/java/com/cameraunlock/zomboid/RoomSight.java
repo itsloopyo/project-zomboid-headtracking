@@ -292,8 +292,8 @@ final class RoomSight {
         private float[] reach = new float[1024], rise = new float[1024];
         /**
          * Each way's entries as one number to sort by, the distance's bits over the rise's: a
-         * distance is never below 0, and such floats sort as their bits do. Sorted by insertion,
-         * walking through a house it took over 5 ms to build.
+         * distance is never below 0, and such floats sort as their bits do. A way past a house a
+         * step off holds a few hundred entries.
          */
         private long[] sorting = new long[1024];
         private float eyeX, eyeY, eyeUp;
@@ -758,8 +758,8 @@ final class RoomSight {
     /**
      * The picture's horizon, and the walks' round the eye: those are walked from where the eye
      * was as they were set out, which by a walking pace is soon further than the slack from where
-     * it is now. With one horizon for both, each frame built it twice, and every answer of the
-     * picture's walk worked out against it was thrown away with it.
+     * it is now, so each keeps its own, and what was worked out against the picture's stands
+     * while the rounds are walked.
      */
     private final Horizon horizon = new Horizon(), roundHorizon = new Horizon();
     private int indexedFilling;

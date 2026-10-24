@@ -4163,9 +4163,8 @@ final class WorldScene {
                 }
                 roomsMayShowDue = true;
             }
-            // Each round's pictures are walked one a frame, the first round too: six of them walked in
-            // one frame were a hitch of a frame's worth every quarter second on a street, and twelve
-            // each time the first person view was taken.
+            // Each round's pictures are walked one a frame, the first round's too: walked six in one frame,
+            // a round was a hitch of a frame's worth.
             if (builtRound.walking() && roomWalk.walkFace(roomMap, openingsInReach, blocksInReach, builtRound)) {
                 roomsBuilt.found(roomsFound, now, roomsEntered);
                 roomsBuilt.expire(now, roomsLeft);
