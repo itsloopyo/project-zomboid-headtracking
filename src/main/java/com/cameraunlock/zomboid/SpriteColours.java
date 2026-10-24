@@ -83,9 +83,7 @@ final class SpriteColours {
      * (see copying), else whether the graphics card copies back part of a sheet, asked once on
      * the first reading.
      */
-    private static boolean cardAsked, unpacks, inParts, errorLeftLogged;
-    /** OpenGL keeps at most one flag for each kind of error it has. */
-    private static final int GL_ERROR_FLAGS = 8;
+    private static boolean cardAsked, unpacks, inParts;
     private static final int GL_STREAM_READ = 0x88E1, GL_SYNC_GPU_COMMANDS_COMPLETE = 0x9117, GL_ALREADY_SIGNALED = 0x911A, GL_TIMEOUT_EXPIRED = 0x911B, GL_CONDITION_SATISFIED = 0x911C;
     /**
      * A copy of part of a sheet the graphics card has been asked to make into a buffer of its
@@ -253,12 +251,10 @@ final class SpriteColours {
             }
         }
         pageUsedNanos = System.nanoTime();
-        // What OpenGL has flagged before anything here is asked of it is not this reading's: one flag a kind of error at most, and a lost context flags for ever.
-        for (int flag = 0, error = GL11.glGetError(); flag < GL_ERROR_FLAGS && error != 0; flag++, error = GL11.glGetError()) {
-            if (!errorLeftLogged) {
-                errorLeftLogged = true;
-                Log.info(String.format(Locale.ROOT, "sprite colours: OpenGL error 0x%X was left by the drawing before a sheet was read (said once)", error));
-            }
+        // What OpenGL has flagged before anything here is asked of it is not this reading's, and is not to be lost: an out of memory there is the picture's to answer.
+        int flagged = GL11.glGetError();
+        if (flagged != 0) {
+            throw new IllegalStateException(String.format(Locale.ROOT, "OpenGL error 0x%X was left by the drawing before a sprite sheet was read", flagged));
         }
         int sheet = waiting.get(next(waiting, eyes)).texture().getID();
         int was = GL11.glGetInteger(GL_TEXTURE_BINDING_2D);
