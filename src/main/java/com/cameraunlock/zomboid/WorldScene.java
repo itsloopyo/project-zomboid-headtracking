@@ -3360,6 +3360,7 @@ final class WorldScene {
                         continue;
                     }
                     int chunkX = chunk.wx * CHUNK_TILES, chunkY = chunk.wy * CHUNK_TILES;
+                    SpriteColours.askingFrom(view.index, chunkX + CHUNK_TILES / 2f, chunkY + CHUNK_TILES / 2f);
                     float toChunkX = chunkX + CHUNK_TILES / 2f - pose.eyeX, toChunkY = chunkY + CHUNK_TILES / 2f - pose.eyeY;
                     float distance = (float) Math.sqrt(toChunkX * toChunkX + toChunkY * toChunkY);
                     if (distance > ChunkBuffers.drawnWithin(fogEnd)
@@ -3888,6 +3889,7 @@ final class WorldScene {
                     }
                 }
             }
+            SpriteColours.askingFrom(view.index, Float.NaN, Float.NaN);
             addCharacters(player, pose);
             takeLight(start);
             if (DepthFights.ON && !fromOutside) {

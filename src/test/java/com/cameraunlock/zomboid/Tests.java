@@ -162,6 +162,7 @@ public final class Tests {
         Checks.run("ShopFittingTests", ShopFittingTests::run);
         Checks.run("BuildingTests", BuildingTests::run);
         Checks.run("TrimTests", TrimTests::run);
+        Checks.run("SpriteColourTests", SpriteColourTests::run);
         Checks.run("RoofTests", RoofTests::run);
         Checks.run("ShapeTests", ShapeTests::run);
         Checks.run("RugTests", RugTests::run);

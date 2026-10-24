@@ -2,6 +2,7 @@ package com.cameraunlock.zomboid;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Locale;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -31,8 +32,32 @@ final class SpriteColours {
 
     private static final float[] ASKED = new float[0], UNPAINTED = new float[0];
     private static final ConcurrentHashMap<Texture, float[]> known = new ConcurrentHashMap<>();
-    private static final ConcurrentLinkedQueue<Texture> asked = new ConcurrentLinkedQueue<>();
-    private static final ArrayList<Texture> waiting = new ArrayList<>();
+    private static final ConcurrentLinkedQueue<Ask> asked = new ConcurrentLinkedQueue<>();
+    private static final ArrayList<Ask> waiting = new ArrayList<>();
+    /** Where the build asking for sprites now stands, the middle of its chunk, and whose view it is built for: no place (NaN) outside a chunk's build. Logic thread. */
+    private static volatile int askView;
+    private static volatile float askX = Float.NaN, askY = Float.NaN;
+    /** Where each view's eye was as its last frame was drawn, x then y: no place (NaN) before its first. Render thread. */
+    private static final float[] eyes = new float[View.COUNT * 2];
+
+    static {
+        Arrays.fill(eyes, Float.NaN);
+    }
+
+    /**
+     * A sprite asked to be read, by the build of the chunk whose middle is at (x, y) for a view,
+     * from no place (NaN), or after everything else (infinite): see next.
+     */
+    record Ask(Texture texture, int view, float x, float y) {
+        /** How far the place it was asked from is from its view's eye, squared: none from no place, or while the eye is not known. */
+        float away(float[] eyes) {
+            if (Float.isNaN(x) || Float.isNaN(eyes[view * 2])) {
+                return 0f;
+            }
+            float dx = x - eyes[view * 2], dy = y - eyes[view * 2 + 1];
+            return dx * dx + dy * dy;
+        }
+    }
     /** The copy of the part of the sheet being read, and the memory it is in, kept while sprites go on being asked for and for a few seconds after. */
     private static ByteBuffer page;
     private static OffHeap.Block pageBlock;
@@ -57,7 +82,7 @@ final class SpriteColours {
     private static boolean copying, copyDropped;
     private static long copyFence;
     private static int copyFromX, copyFromY, copyAcross, copyDown, copyWidth, copyHeight;
-    private static final ArrayList<Texture> copied = new ArrayList<>();
+    private static final ArrayList<Ask> copied = new ArrayList<>();
     /** The buffer copies are made into, kept while sprites go on being asked for as the page is, and its size. Render thread. */
     private static int copyBuffer, copyBufferBytes;
     /** Whether the page was let go and no frame has read since: what the graphics card holds for it is then given back by giveBackIdle. */
@@ -75,7 +100,7 @@ final class SpriteColours {
         float[] colour = known.get(texture);
         if (colour == null) {
             if (known.putIfAbsent(texture, ASKED) == null) {
-                asked.add(texture);
+                asked.add(new Ask(texture, askView, askX, askY));
             }
             return null;
         }
@@ -90,7 +115,34 @@ final class SpriteColours {
 
     /** Has the sprite's sheet read on the next frame drawn though its colour is known: for Windows, which measures a sprite from the same copy. */
     static void readAgain(Texture texture) {
-        asked.add(texture);
+        asked.add(new Ask(texture, askView, askX, askY));
+    }
+
+    /** Says where the build that asks for sprites from now on stands, for the view: NaN for no place. Logic thread. */
+    static void askingFrom(int view, float x, float y) {
+        askView = view;
+        askX = x;
+        askY = y;
+    }
+
+    /**
+     * The waiting sprite whose sheet is read next: the one asked for nearest its view's eye, and
+     * the first asked of those as near. At eight frames a second hundreds of sprites on dozens of
+     * sheets wait, a sheet read every other frame, and read as they were asked the room the eye
+     * had just come into waited ten seconds behind the street it had left, its wainscots, which a
+     * wall's build leaves out until they are read, not drawn at all.
+     */
+    static int next(ArrayList<Ask> waiting, float[] eyes) {
+        int best = 0;
+        float least = Float.POSITIVE_INFINITY;
+        for (int i = 0; i < waiting.size(); i++) {
+            float away = waiting.get(i).away(eyes);
+            if (away < least) {
+                least = away;
+                best = i;
+            }
+        }
+        return best;
     }
 
     /**
@@ -117,14 +169,18 @@ final class SpriteColours {
      * which two players' pictures are drawn is still one, and the sheet is read for the first of them.
      *
      * @param view the number of the player whose picture is about to be drawn
+     * @param eyeX where that player's eye is, across the map
+     * @param eyeY and down it
      */
-    static synchronized void read(int view) {
+    static synchronized void read(int view, float eyeX, float eyeY) {
+        eyes[view * 2] = eyeX;
+        eyes[view * 2 + 1] = eyeY;
         if (!Rounds.DRAWS.begin(view)) {
             return;
         }
         letGo = false;
-        for (Texture texture = asked.poll(); texture != null; texture = asked.poll()) {
-            waiting.add(texture);
+        for (Ask ask = asked.poll(); ask != null; ask = asked.poll()) {
+            waiting.add(ask);
         }
         if (copying) {
             pageUsedNanos = System.nanoTime();
@@ -154,7 +210,7 @@ final class SpriteColours {
                 Log.info(String.format(Locale.ROOT, "sprite colours: OpenGL error 0x%X was left by the drawing before a sheet was read (said once)", error));
             }
         }
-        int sheet = waiting.get(0).getID();
+        int sheet = waiting.get(next(waiting, eyes)).texture().getID();
         int was = GL11.glGetInteger(GL_TEXTURE_BINDING_2D);
         int packBuffer = GL11.glGetInteger(GL_PIXEL_PACK_BUFFER_BINDING);
         GL11.glPixelStorei(GL_PACK_ROW_LENGTH, 0);
@@ -170,7 +226,7 @@ final class SpriteColours {
             if (inParts) {
                 int left = width, top = height, right = 0, bottom = 0;
                 for (int i = 0; i < waiting.size(); i++) {
-                    Texture texture = waiting.get(i);
+                    Texture texture = waiting.get(i).texture();
                     if (texture.getID() == sheet) {
                         place(texture, width, height);
                         left = Math.min(left, placed[0]);
@@ -219,21 +275,26 @@ final class SpriteColours {
             sizeless = 0;
         } else if (++sizeless <= WAITED_FOR_A_SHEET) {
             // The sheet is not on the graphics card yet. Its sprites wait behind the others: read now, each would be kept as painting nothing.
-            for (int i = waiting.size() - 1; i >= 0; i--) {
-                if (waiting.get(i).getID() == sheet) {
-                    waiting.add(waiting.remove(i));
+            int kept = 0, behind = waiting.size();
+            for (int i = 0; i < behind; i++) {
+                Ask ask = waiting.get(i);
+                if (ask.texture().getID() == sheet) {
+                    waiting.add(new Ask(ask.texture(), ask.view(), Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY));
+                } else {
+                    waiting.set(kept++, ask);
                 }
             }
+            waiting.subList(kept, behind).clear();
             return;
         }
         // The sprites of this sheet waiting now are the ones the copy is for: any asked for later may lie outside it, and wait for a copy of their own.
         int kept = 0;
         for (int i = 0; i < waiting.size(); i++) {
-            Texture texture = waiting.get(i);
-            if (texture.getID() == sheet) {
-                copied.add(texture);
+            Ask ask = waiting.get(i);
+            if (ask.texture().getID() == sheet) {
+                copied.add(ask);
             } else {
-                waiting.set(kept++, texture);
+                waiting.set(kept++, ask);
             }
         }
         while (waiting.size() > kept) {
@@ -318,7 +379,7 @@ final class SpriteColours {
     private static void readCopied() {
         int fromX = copyFromX, fromY = copyFromY, across = copyAcross, width = copyWidth, height = copyHeight;
         for (int i = 0; i < copied.size(); i++) {
-            Texture texture = copied.get(i);
+            Texture texture = copied.get(i).texture();
             float[] colour = new float[WallSides.MEAN + 3];
             place(texture, width, height);
             int left = placed[0] - fromX, top = placed[1] - fromY, right = placed[2] - fromX, bottom = placed[3] - fromY;
