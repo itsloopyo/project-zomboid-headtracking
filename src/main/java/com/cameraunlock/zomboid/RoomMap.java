@@ -34,6 +34,8 @@ final class RoomMap implements Acoustics.Walls, RoomDaylight.Edges {
     private static final long REREAD_UNTOLD_NANOS = 1_000_000_000L;
     private IsoCell cell;
     private Terrain terrain;
+    /** Until when, by System.nanoTime, chunks may be read: every reader in a frame spends the one budget. */
+    private long readsUntil;
     private final RoomSight.Openings[] kept = new RoomSight.Openings[SIDE * SIDE];
     private final RoomSight.Blocks[] keptBlocks = new RoomSight.Blocks[SIDE * SIDE];
     /** For each chunk kept, the rooms any of its squares is in, each once: the builds of the chunk go by whether those are in sight. */
@@ -83,6 +85,16 @@ final class RoomMap implements Acoustics.Walls, RoomDaylight.Edges {
 
     /** What read says of a chunk it was not to read and has no reading of as it is now. */
     static final int UNREAD = -1;
+
+    /** Lets chunks be read until a time by System.nanoTime: see mayRead. */
+    void readUntil(long until) {
+        readsUntil = until;
+    }
+
+    /** Whether the frame's budget for reading chunks has time left. */
+    boolean mayRead() {
+        return System.nanoTime() < readsUntil;
+    }
 
     /**
      * Reads a chunk's openings and blocks again if what they were read from may have changed,
@@ -161,7 +173,11 @@ final class RoomMap implements Acoustics.Walls, RoomDaylight.Edges {
 
     /** Adds the openings of a chunk read lately to what is heard round a listener. */
     void addOpeningsTo(IsoChunk chunk, RoomSight.Openings into, int fromZ, int toZ) {
-        into.addAll(kept[ChunkMarks.slot(chunk.wx, chunk.wy)], fromZ, toZ);
+        int slot = ChunkMarks.slot(chunk.wx, chunk.wy);
+        if (keptUnread[slot]) {
+            return;
+        }
+        into.addAll(kept[slot], fromZ, toZ);
     }
 
     /**
@@ -229,7 +245,7 @@ final class RoomMap implements Acoustics.Walls, RoomDaylight.Edges {
         }
     }
 
-    /** Adds the openings and blocks of a chunk read lately to a frame's, and nothing for one read said UNREAD of. */
+    /** Adds the openings and blocks of a chunk read lately to a frame's, and nothing for one it has no reading of as it is now loaded. */
     void addTo(IsoChunk chunk, RoomSight.Openings into, RoomSight.Blocks blocksInto) {
         int slot = ChunkMarks.slot(chunk.wx, chunk.wy);
         if (keptUnread[slot]) {

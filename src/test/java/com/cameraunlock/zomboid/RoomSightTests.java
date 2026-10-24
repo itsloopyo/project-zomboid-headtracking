@@ -44,6 +44,7 @@ final class RoomSightTests {
         Checks.run("aMapLetGoOfHoldsNothingOfTheWorldItWasReadFrom", RoomSightTests::aMapLetGoOfHoldsNothingOfTheWorldItWasReadFrom);
         Checks.run("aChunkReadBeforeItsLandIsReadAgainOnceItIsWorkedOut", RoomSightTests::aChunkReadBeforeItsLandIsReadAgainOnceItIsWorkedOut);
         Checks.run("aChunkNotToBeReadKeepsWhatItHadAndOneNeverReadIsUnread", RoomSightTests::aChunkNotToBeReadKeepsWhatItHadAndOneNeverReadIsUnread);
+        Checks.run("aChunkUnreadAddsNothingToTheFramesOpenings", RoomSightTests::aChunkUnreadAddsNothingToTheFramesOpenings);
     }
 
     private static void check(boolean condition, String what) {
@@ -670,6 +671,30 @@ final class RoomSightTests {
         again.wy = 6;
         again.loaded = true;
         check(map.read(again, null, null, false, later, false) == RoomMap.UNREAD, "another chunk loaded in its place has no reading of its own");
+    }
+
+    private static zombie.iso.IsoChunk loadedChunk(int wx, int wy) {
+        zombie.iso.IsoChunk chunk = new zombie.iso.IsoChunk();
+        chunk.wx = wx;
+        chunk.wy = wy;
+        chunk.loaded = true;
+        return chunk;
+    }
+
+    private static void aChunkUnreadAddsNothingToTheFramesOpenings() {
+        RoomMap map = new RoomMap();
+        map.begin(new zombie.iso.IsoCell(), Terrain.LEVEL);
+        zombie.iso.IsoChunk chunk = loadedChunk(7, 8);
+        check(map.read(chunk, null, null, false, 0L, false) == RoomMap.UNREAD, "a chunk never read and not to be read is unread");
+        RoomSight.Openings openings = new RoomSight.Openings();
+        RoomSight.Blocks blocks = new RoomSight.Blocks();
+        map.addTo(chunk, openings, blocks);
+        check(openings.count == 0 && blocks.count == 0, "it adds no openings and no blocks to the frame's");
+        map.addOpeningsTo(chunk, openings, 0, 0);
+        check(openings.count == 0, "nor to what is heard");
+        map.read(chunk, null, null, false, 0L, true);
+        map.addTo(chunk, openings, blocks);
+        check(openings.count == 0 && blocks.count == 0, "read, it adds what it has, which on an empty chunk is nothing");
     }
 
     private static void aPictureListsOnlyTheRoomsItSeesInto() {
