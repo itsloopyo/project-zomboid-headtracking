@@ -58,8 +58,6 @@ final class Ahead {
         void free() {
             if (made instanceof OffHeap.Block block) {
                 block.free();
-            } else if (made instanceof FlameVolume.Loop loop) {
-                loop.cells().free();
             }
         }
     }

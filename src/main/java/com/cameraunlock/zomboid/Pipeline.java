@@ -6274,7 +6274,6 @@ final class Pipeline {
             Flats.letGo();
             Rugs.letGo();
             Trims.letGo();
-            FlameVolume.letGo();
             forgetTexels();
             GL15.glDeleteBuffers(modelBuffer);
             GL15.glDeleteBuffers(modelCorners);

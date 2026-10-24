@@ -26,11 +26,8 @@ final class FiresTests {
             Checks.run("aFireIsDrawnOverThePartOfThePictureItIsIn", FiresTests::aFireIsDrawnOverThePartOfThePictureItIsIn);
             Checks.run("theRowAndTheGamesOwnLookLeaveFireToTheGame", FiresTests::theRowAndTheGamesOwnLookLeaveFireToTheGame);
             Checks.run("theClockStartsAgainEachHour", FiresTests::theClockStartsAgainEachHour);
-            Checks.run("aFiresFlamesAreTheLoopScaledToIt", FiresTests::aFiresFlamesAreTheLoopScaledToIt);
-            Checks.run("theGasGlowsAsABlackBody", FiresTests::theGasGlowsAsABlackBody);
             Checks.run("embersRiseOffTheFlamesAndCool", FiresTests::embersRiseOffTheFlamesAndCool);
             Checks.run("anEmbersLeastWidthIsAPixelOfThePicture", FiresTests::anEmbersLeastWidthIsAPixelOfThePicture);
-            Checks.run("theJarHoldsTheFlamesLoop", FiresTests::theJarHoldsTheFlamesLoop);
             Checks.run("theGamesFlamesAndSmokeAreToldByName", FiresTests::theGamesFlamesAndSmokeAreToldByName);
             Checks.run("aHearthWithNoModelBurnsAsItsSpriteShows", FiresTests::aHearthWithNoModelBurnsAsItsSpriteShows);
             Checks.run("theShaderLooksAFireShadowUpInTheFaceItWasDrawnIn", FiresTests::theShaderLooksAFireShadowUpInTheFaceItWasDrawnIn);
@@ -194,22 +191,16 @@ final class FiresTests {
         fire[Fires.X] = 10f;
         fire[Fires.Y] = 0f;
         float[] box = new float[4];
-        check(FireDraw.box(fire, 0, 0f, 0f, 0f, 0f, eye, tanX, tan, 0f, 0f, 0.05f, box), "a fire ten tiles ahead is drawn");
+        check(FireDraw.box(fire, 0, 0f, 0f, eye, tanX, tan, 0f, 0f, 0.05f, box), "a fire ten tiles ahead is drawn");
         check(box[0] < 0f && box[2] > 0f && box[0] > -1f && box[2] < 1f, "over the middle of the picture, and not all of it across: " + box[0] + " to " + box[2]);
         check(box[1] > -1f && box[1] < 0f, "from the ground below the eye: " + box[1]);
         float[] drifted = new float[4];
-        FireDraw.box(fire, 0, 0f, 1f, 0f, 0f, eye, tanX, tan, 0f, 0f, 0.05f, drifted);
+        FireDraw.box(fire, 0, 0f, 1f, eye, tanX, tan, 0f, 0f, 0.05f, drifted);
         check(drifted[2] > box[2] && drifted[0] == box[0], "smoke carried to the right widens the part on the right alone");
-        float[] small = square(Fires.SMALL, false, false), bare = new float[4], flamed = new float[4];
-        small[Fires.X] = 10f;
-        small[Fires.Y] = 0f;
-        FireDraw.box(small, 0, 0f, 0f, 0f, 0f, eye, tanX, tan, 0f, 0f, 0.05f, bare);
-        FireDraw.box(small, 0, 0f, 0f, 1f, 2f, eye, tanX, tan, 0f, 0f, 0.05f, flamed);
-        check(flamed[3] > bare[3] && flamed[0] < bare[0], "flames reaching higher and wider than a fire's own box widen the part they are in: " + flamed[3] + " over " + bare[3]);
         fire[Fires.X] = -10f;
-        check(!FireDraw.box(fire, 0, 0f, 0f, 0f, 0f, eye, tanX, tan, 0f, 0f, 0.05f, box), "one behind the eye is not drawn");
+        check(!FireDraw.box(fire, 0, 0f, 0f, eye, tanX, tan, 0f, 0f, 0.05f, box), "one behind the eye is not drawn");
         fire[Fires.X] = 0f;
-        check(FireDraw.box(fire, 0, 0f, 0f, 0f, 0f, eye, tanX, tan, 0f, 0f, 0.05f, box) && box[0] == -1f && box[3] == 1f, "the eye in the fire is drawn over the whole picture");
+        check(FireDraw.box(fire, 0, 0f, 0f, eye, tanX, tan, 0f, 0f, 0.05f, box) && box[0] == -1f && box[3] == 1f, "the eye in the fire is drawn over the whole picture");
     }
 
     private static void theRowAndTheGamesOwnLookLeaveFireToTheGame() {
@@ -228,46 +219,6 @@ final class FiresTests {
     private static void theClockStartsAgainEachHour() {
         long hour = 3_600_000_000_000L;
         check(FireDraw.seconds(hour + 2_000_000_000L) == 2f && FireDraw.seconds(hour - 1_000_000_000L) == 3599f, "the flames' clock counts the seconds within the hour");
-    }
-
-    private static void aFiresFlamesAreTheLoopScaledToIt() {
-        FlameVolume.Loop loop = new FlameVolume.Loop(64, 64, 160, 32, 8, 4, 3f, 0.6f, 0.4f, 24f, 0.0125f, 30f, 140f, null);
-        float[] fire = square(Fires.HEIGHT, false, false), cell = new float[2];
-        FireDraw.cellSize(fire, 0, loop, cell);
-        check(Math.abs(cell[0] * loop.reach() * loop.high() - fire[Fires.TALL]) < 1e-4f, "the loop's flames reach as high as the fire's: " + cell[0]);
-        check(cell[1] >= cell[0] * FireDraw.NARROWEST && cell[1] <= cell[0] * FireDraw.WIDEST, "and are stretched across no more than allowed: " + cell[1] / cell[0]);
-        fire[Fires.RADIUS] = 0.001f;
-        FireDraw.cellSize(fire, 0, loop, cell);
-        check(cell[1] == cell[0] * FireDraw.NARROWEST, "a fire with next to no width is squeezed only so far");
-        fire = square(Fires.HEIGHT, false, false);
-        float[] small = square(Fires.SMALL, false, false), smallCell = new float[2];
-        FireDraw.cellSize(fire, 0, loop, cell);
-        FireDraw.cellSize(small, 0, loop, smallCell);
-        float bigGoes = FireDraw.played(loop, cell[0], 1f, 0f) - FireDraw.played(loop, cell[0], 0f, 0f);
-        float smallGoes = FireDraw.played(loop, smallCell[0], 1f, 0f) - FireDraw.played(loop, smallCell[0], 0f, 0f);
-        check(bigGoes > 0f && smallGoes > bigGoes, "a big fire's flames go round slower than a small one's: " + bigGoes + " and " + smallGoes + " frames a second");
-        for (float seconds = 0f; seconds < 600f; seconds += 0.37f) {
-            float at = (FireDraw.played(loop, cell[0], seconds, 4.4f) % loop.frames());
-            check(at >= 0f && at < loop.frames(), "a fire is always somewhere in the loop: " + at);
-        }
-        check((FireDraw.played(loop, cell[0], 5f, 1f) % loop.frames()) != (FireDraw.played(loop, cell[0], 5f, 2f) % loop.frames()), "two fires are at places in the loop of their own");
-    }
-
-    private static void theGasGlowsAsABlackBody() {
-        float[] colour = new float[3];
-        FireDraw.blackbody(1000f, colour, 0);
-        check(colour[0] == 1f && colour[1] < 0.2f && colour[2] < 0.01f, "at 1000 K deep red: " + colour[0] + " " + colour[1] + " " + colour[2]);
-        FireDraw.blackbody(2800f, colour, 0);
-        check(colour[0] == 1f && colour[1] > 0.4f && colour[2] > 0.1f && colour[2] < colour[1], "at 2800 K a warm yellow white: " + colour[1] + " " + colour[2]);
-        float[] ramp = FireDraw.glowRamp();
-        check(ramp[0] == 0f && ramp[1] == 0f && ramp[2] == 0f, "cold gas gives no light");
-        for (int i = 1; i < 16; i++) {
-            float before = ramp[i * 3 - 3] + ramp[i * 3 - 2] + ramp[i * 3 - 1], now = ramp[i * 3] + ramp[i * 3 + 1] + ramp[i * 3 + 2];
-            check(now > before, "hotter gas is brighter, step " + i);
-            // The coldest step gives no light, so has no colour to be yellower than.
-            check(i < 2 || ramp[i * 3 + 1] / ramp[i * 3] >= ramp[i * 3 - 2] / ramp[i * 3 - 3] - 1e-6f, "and yellower, step " + i);
-        }
-        check(Math.abs(ramp[45] - FireDraw.GLOW) < 1e-3f, "the hottest at the flames' whole glow in its brightest channel");
     }
 
     private static void embersRiseOffTheFlamesAndCool() {
@@ -303,18 +254,6 @@ final class FiresTests {
         // where the first person share drew every ember 7 tiles to each side.
         float overhead = 6000f * FireCards.pixelPerTile(15f / 6000f, 1080);
         check(overhead < 0.03f, "overhead: a pixel of the picture is " + overhead + " tiles");
-    }
-
-    private static void theJarHoldsTheFlamesLoop() {
-        // FlameVolume.read throws for a loop that is missing, of another version, laid out of its frames, or short of its cells.
-        FlameVolume.Loop loop = FlameVolume.read();
-        check(loop.flame().capacity() == loop.wide() * loop.deep() * loop.high() * loop.frames() && loop.heat().capacity() * 8 == loop.flame().capacity(),
-                "the flames' loop is in the jar, its heat at half its cells each way");
-        check(loop.filled() > loop.wide() * 0.25f && loop.filled() < loop.wide() * 0.75f && loop.filledHigh() > loop.high() * loop.reach()
-                && loop.filledHigh() <= loop.high(), "the flames fill part of the loop's box, which the march keeps to: " + loop.filled() + " " + loop.filledHigh());
-        check(loop.reach() > 0.2f && loop.reach() < 1f && loop.root() > 0.1f && loop.root() < 1f && loop.rise() > 0f && loop.framesASecond() > 0f,
-                "with its flames' reach and root, rise and pace: " + loop.reach() + " " + loop.root() + " " + loop.rise() + " " + loop.framesASecond());
-        loop.cells().free();
     }
 
     private static void theGamesFlamesAndSmokeAreToldByName() {
