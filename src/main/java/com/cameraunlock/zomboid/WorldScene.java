@@ -6524,8 +6524,9 @@ final class WorldScene {
                 }
             }
             if (!empty && !unsought) {
-                for (LimbDecals.Laid laid : LimbDecals.at(x, y, z)) {
-                    addLimb(laid);
+                List<LimbDecals.Laid> limbs = LimbDecals.at(x, y, z);
+                for (int i = 0; i < limbs.size(); i++) {
+                    addLimb(limbs.get(i));
                 }
             }
             squareRoom = RoomSight.OUTSIDE;

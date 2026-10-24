@@ -199,13 +199,17 @@ final class Panels {
     static void shutBackWheel(int playerIndex) {
         Object[] found = LuaManager.caller.pcall(UIManager.getDefaultThread(), LuaManager.env.rawget(BACK_WHEEL), Double.valueOf(playerIndex));
         if (found.length < 2 || !Boolean.TRUE.equals(found[0]) || !(found[1] instanceof KahluaTable wheel)) {
-            sayOnce(playerIndex, "the game's " + BACK_WHEEL + "(" + playerIndex + ") gave no wheel to take down: " + Arrays.toString(found));
+            if (!wheelTroubleSaid[playerIndex]) {
+                sayOnce(playerIndex, "the game's " + BACK_WHEEL + "(" + playerIndex + ") gave no wheel to take down: " + Arrays.toString(found));
+            }
             return;
         }
         if (wheel.rawget("javaObject") instanceof UIElementInterface shown && shown.isVisible() && UIManager.getUI().contains(shown)) {
             Object[] shut = LuaManager.caller.pcall(UIManager.getDefaultThread(), UIManager.tableget(wheel, "undisplay"), wheel);
             if (shut.length == 0 || !Boolean.TRUE.equals(shut[0])) {
-                sayOnce(playerIndex, "the game's Back button wheel of player " + (playerIndex + 1) + " could not be taken down: " + Arrays.toString(shut));
+                if (!wheelTroubleSaid[playerIndex]) {
+                    sayOnce(playerIndex, "the game's Back button wheel of player " + (playerIndex + 1) + " could not be taken down: " + Arrays.toString(shut));
+                }
                 return;
             }
         }

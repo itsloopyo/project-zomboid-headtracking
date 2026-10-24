@@ -592,8 +592,9 @@ final class FireDraw {
         drawnDriftY = driftY;
         drawnCrowd = crowd;
         float kept = state.daylightKept;
-        GL20.glUniform3f(program.at("uAmbient"), (float) Math.pow(state.openRed, 2.2) * kept, (float) Math.pow(state.openGreen, 2.2) * kept,
-                (float) Math.pow(state.openBlue, 2.2) * kept);
+        float ambientRed = (float) Math.pow(state.openRed, 2.2) * kept, ambientGreen = (float) Math.pow(state.openGreen, 2.2) * kept,
+                ambientBlue = (float) Math.pow(state.openBlue, 2.2) * kept;
+        GL20.glUniform3f(program.at("uAmbient"), ambientRed, ambientGreen, ambientBlue);
         GL20.glUniform3f(program.at("uLightWay"), state.lightX, state.lightY, state.lightUp);
         lightColour[0] = state.lightRed * kept;
         lightColour[1] = state.lightGreen * kept;
@@ -601,8 +602,7 @@ final class FireDraw {
         float seconds = seconds(nanos);
         boolean own = Fires.own(view);
         boolean drawn = cards.begin(depth, camera, tanHalfFieldOfView, aspect, near, far, width, height, asideX, asideY,
-                (float) Math.pow(state.openRed, 2.2) * kept, (float) Math.pow(state.openGreen, 2.2) * kept, (float) Math.pow(state.openBlue, 2.2) * kept,
-                exposure);
+                ambientRed, ambientGreen, ambientBlue, exposure);
         FlameVolume.Loop loop = own ? flames() : null;
         boolean flames = loop != null;
         // Fire by fire, the furthest first, so a nearer fire's smoke stands before the flames of one behind it: the

@@ -129,8 +129,8 @@ final class Stumps {
             if (!(length > 1e-5f)) {
                 continue;
             }
-            String whose = character == null ? "a body's picture" : "zombie " + character.getID();
             if (FirstPerson.TRACE && said.add(character == null ? "body" : "zombie")) {
+                String whose = character == null ? "a body's picture" : "zombie " + character.getID();
                 StringBuilder names = new StringBuilder();
                 name(bone, skeleton, names);
                 Log.info(String.format(Locale.ROOT, "stumps: %s's limb %d cut at %s, %.3f to %s, pressing%s",

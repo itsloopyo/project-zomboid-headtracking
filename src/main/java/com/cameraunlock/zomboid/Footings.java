@@ -364,7 +364,7 @@ final class Footings {
             }
             return;
         }
-        boolean big = large.contains(square(x, y));
+        boolean big = large.contains(spread(square(x, y)));
         if (big && start == HOUSE) {
             whole = false;
             found = site.house(x, y);
@@ -399,7 +399,7 @@ final class Footings {
                 if (over != BUILT && over != HOUSE && over != HUNG) {
                     continue;
                 }
-                big |= large.contains(square(toX, toY));
+                big |= large.contains(spread(square(toX, toY)));
                 whole = count < MOST;
                 if (whole) {
                     answered[at] |= QUEUED;
@@ -436,7 +436,7 @@ final class Footings {
                         continue;
                     }
                     if (across > 1 && (over == BUILT || over == HOUSE)) {
-                        big |= large.contains(square(toX, toY));
+                        big |= large.contains(spread(square(toX, toY)));
                         whole = count < MOST;
                         if (whole) {
                             answered[at] |= QUEUED;
@@ -451,7 +451,7 @@ final class Footings {
             whole = false;
             boolean grew = false;
             for (int member = 0; member < count; member++) {
-                grew |= large.add(square(squares[member * 2], squares[member * 2 + 1]));
+                grew |= large.add(spread(square(squares[member * 2], squares[member * 2 + 1])));
             }
             largeThings += grew ? 1 : 0;
             found = start == HOUSE ? site.house(x, y) : nearest;
@@ -494,7 +494,7 @@ final class Footings {
      * round it, and Terrain lays the box level: see boxed.
      */
     private void findLevel(Site site, int x, int y, int startAt) {
-        if (large.contains(square(x, y))) {
+        if (large.contains(spread(square(x, y)))) {
             whole = false;
             return;
         }
@@ -546,7 +546,7 @@ final class Footings {
         if (!whole) {
             boolean grew = false;
             for (int member = 0; member < count; member++) {
-                grew |= large.add(square(squares[member * 2], squares[member * 2 + 1]));
+                grew |= large.add(spread(square(squares[member * 2], squares[member * 2 + 1])));
             }
             largeThings += grew ? 1 : 0;
             return;

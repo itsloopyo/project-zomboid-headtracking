@@ -112,7 +112,11 @@ final class Bleeding {
             wounds.cutZombies(cut);
             for (Object each : cut) {
                 if (each instanceof IsoZombie zombie && !zombie.isDead() && zombie.getCurrentSquare() != null) {
-                    float[] last = lastDrop.computeIfAbsent(zombie, z -> new float[] {zombie.getX(), zombie.getY()});
+                    float[] last = lastDrop.get(zombie);
+                    if (last == null) {
+                        last = new float[] {zombie.getX(), zombie.getY()};
+                        lastDrop.put(zombie, last);
+                    }
                     float dx = zombie.getX() - last[0], dy = zombie.getY() - last[1];
                     if (dx * dx + dy * dy >= DROP_EVERY * DROP_EVERY) {
                         last[0] = zombie.getX();

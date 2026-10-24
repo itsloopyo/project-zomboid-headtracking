@@ -370,7 +370,7 @@ public final class FarModels {
             return true;
         }
         view.firstPerson.facing(faces);
-        float level = (float) Math.hypot(faces[0], faces[1]);
-        return level < LEVEL_LEAST || toX * faces[0] + toY * faces[1] > ROUND * level * (float) Math.hypot(toX, toY);
+        float level = (float) Math.sqrt(faces[0] * faces[0] + faces[1] * faces[1]);
+        return level < LEVEL_LEAST || toX * faces[0] + toY * faces[1] > ROUND * level * (float) Math.sqrt(toX * toX + toY * toY);
     }
 }

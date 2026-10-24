@@ -130,6 +130,7 @@ final class Pieces {
     private static volatile boolean any;
     private static final Random random = new Random();
     private static final FloatBuffer moved = ByteBuffer.allocateDirect(BONES * 16 * Float.BYTES).order(ByteOrder.nativeOrder()).asFloatBuffer();
+    private static final float[] pivot = new float[3];
 
     /** A part of a zombie cut off by a shot from (fromX, fromY): it flies away from there. Logic thread. */
     static void cut(IsoZombie zombie, int part, int cut, float fromX, float fromY) {
@@ -403,7 +404,7 @@ final class Pieces {
             motion.advance(Math.min((now - piece.stepped) / 1e9f, 0.1f));
             piece.stepped = now;
         }
-        float[] now3 = new float[3];
+        float[] now3 = pivot;
         motion.pivot(now3);
         if (motion.touched && !piece.landed) {
             float cos = (float) Math.cos(piece.angle + Math.PI), sin = (float) Math.sin(piece.angle + Math.PI);

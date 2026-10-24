@@ -486,13 +486,14 @@ final class Lightning {
             if (near <= 0f) {
                 continue;
             }
-            float light = strike.light(seconds) * near;
+            float shone = strike.light(seconds);
+            float light = shone * near;
             float skyGiven = light * SKY_LIGHT;
             sky.flashRed += RED * skyGiven;
             sky.flashGreen += GREEN * skyGiven;
             sky.flashBlue += BLUE * skyGiven;
             // The cloud is lit about where the channel leaves it, and further off than the ground is.
-            float cloud = strike.light(seconds) * nearness(distance * 0.5f) * CLOUD_LIGHT;
+            float cloud = shone * nearness(distance * 0.5f) * CLOUD_LIGHT;
             if (cloud > strongestCloud) {
                 strongestCloud = cloud;
                 float toX = strike.topX - x, toY = strike.topY - y, toUp = CLOUD_BASE - up;

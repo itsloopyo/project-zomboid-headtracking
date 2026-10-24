@@ -544,15 +544,13 @@ public final class Hooks {
             wounds.burst(zombie);
             Bleeding.spray(zombie, Bleeding.SPRAY, Bleeding.SPRAY_REACH);
             Stumps.bloody(zombie, Wounds.HEAD, Wounds.UPPER);
-            IsoPlayer shooter = IsoPlayer.getInstance();
-            Pieces.cut(zombie, Wounds.HEAD, Wounds.UPPER, shooter.getX(), shooter.getY());
+            Pieces.cut(zombie, Wounds.HEAD, Wounds.UPPER, from.getX(), from.getY());
             Bleeding.mist(zombie, zombie.isOnFloor() ? 0.3f : HEAD_HIGH, 3, 1.5f, from.getX(), from.getY());
             said = "its head comes off";
         } else if (roll < pops + bursts) {
             wounds.burst(zombie);
             Bleeding.mist(zombie, zombie.isOnFloor() ? 0.3f : HEAD_HIGH, 7, 3f, from.getX(), from.getY());
-            IsoPlayer shooter = IsoPlayer.getInstance();
-            Pieces.burst(zombie, Wounds.HEAD, Wounds.UPPER, shooter.getX(), shooter.getY());
+            Pieces.burst(zombie, Wounds.HEAD, Wounds.UPPER, from.getX(), from.getY());
             Bleeding.spray(zombie, Bleeding.SPRAY * 3, Bleeding.SPRAY_REACH * 1.8f);
             Stumps.bloody(zombie, Wounds.HEAD, Wounds.UPPER);
             said = "its head bursts";

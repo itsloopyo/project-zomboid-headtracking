@@ -292,7 +292,6 @@ final class RoomDaylight {
             }
             rooms.put(id, made);
             shares = made;
-            shares.looked = now;
             long took = System.nanoTime() - began;
             tollRooms++;
             tollNanos += took;

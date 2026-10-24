@@ -16,6 +16,7 @@ final class FineSkinRange {
     /** The frame each person last wore a finer skin in. */
     private final IdentityHashMap<Object, Integer> wornIn = new IdentityHashMap<>();
     private int frame = Integer.MIN_VALUE;
+    private Integer framed = frame;
 
     /**
      * Whether this person wears a finer skin in this frame's pictures.
@@ -27,6 +28,7 @@ final class FineSkinRange {
     boolean wears(Object who, float away, int frame) {
         if (frame != this.frame) {
             this.frame = frame;
+            framed = frame;
             for (Iterator<Integer> each = wornIn.values().iterator(); each.hasNext();) {
                 if (each.next() < frame - 1) {
                     each.remove();
@@ -37,7 +39,7 @@ final class FineSkinRange {
         boolean wore = last != null && last >= frame - 1;
         boolean wears = away < WITHIN || wore && away < KEPT_WITHIN;
         if (wears) {
-            wornIn.put(who, frame);
+            wornIn.put(who, framed);
         }
         return wears;
     }

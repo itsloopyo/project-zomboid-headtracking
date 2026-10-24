@@ -253,13 +253,10 @@ final class RoomMap implements Acoustics.Walls, RoomDaylight.Edges {
             // Walls stand on the north and west edges of the square they belong to: with no square there is none.
             return RoomSight.SEE;
         }
-        IsoGridSquare beyond = north ? cell.getGridSquare(x, y - 1, z) : cell.getGridSquare(x - 1, y, z);
         read(square, north);
-        if (door) {
+        if (door || window) {
+            IsoGridSquare beyond = north ? cell.getGridSquare(x, y - 1, z) : cell.getGridSquare(x - 1, y, z);
             return doorBlind || curtained(square, beyond, north) ? RoomSight.SHUT : RoomSight.SEE;
-        }
-        if (window) {
-            return curtained(square, beyond, north) ? RoomSight.SHUT : RoomSight.SEE;
         }
         return wall ? RoomSight.SOLID : RoomSight.SEE;
     }
@@ -291,7 +288,6 @@ final class RoomMap implements Acoustics.Walls, RoomDaylight.Edges {
         if (square == null) {
             return 1f;
         }
-        IsoGridSquare beyond = north ? cell.getGridSquare(x, y - 1, z) : cell.getGridSquare(x - 1, y, z);
         read(square, north);
         float passed;
         if (door) {
@@ -299,7 +295,7 @@ final class RoomMap implements Acoustics.Walls, RoomDaylight.Edges {
         } else {
             passed = window || !wall ? 1f : 0f;
         }
-        if (passed > 0f && (door || window) && curtained(square, beyond, north)) {
+        if (passed > 0f && (door || window) && curtained(square, north ? cell.getGridSquare(x, y - 1, z) : cell.getGridSquare(x - 1, y, z), north)) {
             passed = CURTAIN_PASSES;
         }
         return passed * boarded(square, north);

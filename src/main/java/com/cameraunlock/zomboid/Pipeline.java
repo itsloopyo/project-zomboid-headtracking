@@ -2027,8 +2027,7 @@ final class Pipeline {
                             && (placed.roomsToo[piece] == placed.rooms[piece] || !ChunkBuffers.listed(placed.roomsToo[piece], rooms, f[ball], f[ball + 1], f[ball + 2], seenReach))) {
                         continue;
                     }
-                    float reach = f[ball + 3] + SEEN_MARGIN;
-                    if (bounded && mapBounds.outside(f[ball] - within.eyeX, f[ball + 1] - within.eyeY, f[ball + 2] - within.eyeUp, reach, reach, reach)) {
+                    if (bounded && mapBounds.outside(f[ball] - within.eyeX, f[ball + 1] - within.eyeY, f[ball + 2] - within.eyeUp, seenReach, seenReach, seenReach)) {
                         continue;
                     }
                     // The picture of what water shows holds nothing nearer than the water: see seenBy.

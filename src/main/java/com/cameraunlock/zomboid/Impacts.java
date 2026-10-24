@@ -82,7 +82,8 @@ final class Impacts {
                 nextHole = 0;
                 holesChanged++;
             }
-            for (Added each : added) {
+            for (int i = 0; i < added.size(); i++) {
+                Added each = added.get(i);
                 Struck struck = each.struck();
                 held[next] = struck;
                 born[next] = each.at();
