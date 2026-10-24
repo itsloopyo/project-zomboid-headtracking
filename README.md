@@ -482,8 +482,6 @@ TreeQuality=High
 GrassDensity=100
 ; Share of the window's resolution the first person picture is drawn at, each way: 0.5 to 1.
 RenderScale=1.0
-; true: shadow maps 4096 texels across. false: 2048, a quarter of the graphics memory.
-SharpShadows=true
 ; How far the first person view is drawn, in tiles: 32 to 80, within the map the game has loaded.
 ViewDistance=80
 ; How far zombies, people, vehicles and the mod's furniture are drawn, in tiles: 16 to 80, never past
@@ -504,6 +502,8 @@ Reflections=true
 FullSizeTextures=true
 ; true: near surfaces are given the depth of what they show. false: they are drawn flat.
 SurfaceDepth=true
+; true: shadow maps 4096 texels across. false: 2048, a quarter of the graphics memory.
+SharpShadows=true
 ; true: what people and zombies wear and carry casts a shadow at any distance. false: past 4 tiles
 ; only their bodies do, which costs less in a crowd.
 WholeFigureShadows=true

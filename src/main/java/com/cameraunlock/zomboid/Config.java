@@ -65,10 +65,10 @@ final class Config {
     record Live(float fieldOfView, int own, int rules, int[] quality, int[] overheadQuality, int[] style, float hillHeight, boolean muzzleFlash, boolean crosshair, int splitScreen,
             Quality.Picture custom, boolean talkingMouths, List<String> microphones) {}
 
-    /** The keys of [Graphics], the Custom graphics mode, in the order of Quality.Picture's parts. */
-    static final String[] GRAPHICS = {"TreeQuality", "GrassDensity", "RenderScale", "SharpShadows", "ViewDistance", "ZombiesAndPropsDrawDistance",
-        "FarTreeDistance", "RainOnGlass", "ShadingAndLight", "Reflections", "FullSizeTextures", "SurfaceDepth", "WholeFigureShadows",
-        "FrameBlending", "LightDistance"};
+    /** The keys of [Graphics], the Custom graphics mode, in the order the options screen shows them. */
+    static final String[] GRAPHICS = {"TreeQuality", "GrassDensity", "RenderScale", "ViewDistance", "ZombiesAndPropsDrawDistance",
+        "FarTreeDistance", "RainOnGlass", "ShadingAndLight", "Reflections", "FullSizeTextures", "SurfaceDepth", "SharpShadows",
+        "WholeFigureShadows", "FrameBlending", "LightDistance"};
     private static final int RENDER_SCALE = 2;
     static final float MIN_RENDER_SCALE = 0.5f;
     static final int MIN_VIEW_DISTANCE = 32, MIN_DRAW_DISTANCE = 16;
@@ -195,9 +195,6 @@ final class Config {
             core.configLocalFloat("Graphics", "RenderScale",
                     "Share of the window's resolution the first person picture is drawn at, each way: 0.5 to 1.",
                     writable | live, high.renderScale(), MIN_RENDER_SCALE, 1f),
-            core.configLocalBool("Graphics", "SharpShadows",
-                    "true: shadow maps 4096 texels across. false: 2048, a quarter of the graphics memory.",
-                    writable | live, high.sharpShadows()),
             core.configLocalInt("Graphics", "ViewDistance",
                     "How far the first person view is drawn, in tiles: 32 to 80, within the map the game has loaded.",
                     writable | live, high.viewDistance(), MIN_VIEW_DISTANCE, high.viewDistance()),
@@ -226,6 +223,9 @@ final class Config {
             core.configLocalBool("Graphics", "SurfaceDepth",
                     "true: near surfaces are given the depth of what they show. false: they are drawn flat.",
                     writable | live, high.surfaceDepth()),
+            core.configLocalBool("Graphics", "SharpShadows",
+                    "true: shadow maps 4096 texels across. false: 2048, a quarter of the graphics memory.",
+                    writable | live, high.sharpShadows()),
             core.configLocalBool("Graphics", "WholeFigureShadows",
                     "true: what people and zombies wear and carry casts a shadow at any distance. false: past " + (int) CharacterDraw.SHADOW_WHOLE_WITHIN
                             + " tiles\nonly their bodies do, which costs less in a crowd.",
@@ -428,17 +428,17 @@ final class Config {
 
     /** A picture as the options of the rows of [Graphics] hold it, in the order of GRAPHICS. */
     static double[] values(Quality.Picture picture) {
-        return new double[] {picture.treeQuality(), picture.grassDensity(), picture.renderScale(), bit(picture.sharpShadows()), picture.viewDistance(),
-            picture.drawDistance(), picture.farTreeDistance(), picture.rainOnGlass(), bit(picture.shadingAndLight()), bit(picture.reflections()),
-            bit(picture.fullSizeTextures()), bit(picture.surfaceDepth()), bit(picture.wholeFigureShadows()), bit(picture.frameBlending()),
+        return new double[] {picture.treeQuality(), picture.grassDensity(), picture.renderScale(), picture.viewDistance(), picture.drawDistance(),
+            picture.farTreeDistance(), picture.rainOnGlass(), bit(picture.shadingAndLight()), bit(picture.reflections()), bit(picture.fullSizeTextures()),
+            bit(picture.surfaceDepth()), bit(picture.sharpShadows()), bit(picture.wholeFigureShadows()), bit(picture.frameBlending()),
             picture.lightDistance()};
     }
 
     /** The picture the options of the rows of [Graphics] hold, in the order of GRAPHICS: Custom always draws what the mod made. */
     static Quality.Picture picture(double[] values) {
-        return new Quality.Picture(false, (int) Math.rint(values[0]), (int) Math.rint(values[1]), (float) values[2], values[3] != 0,
-                (int) Math.rint(values[4]), (int) Math.rint(values[5]), (int) Math.rint(values[6]), (int) Math.rint(values[7]), values[8] != 0,
-                values[9] != 0, values[10] != 0, values[11] != 0, values[12] != 0, values[13] != 0, (int) Math.rint(values[14]));
+        return new Quality.Picture(false, (int) Math.rint(values[0]), (int) Math.rint(values[1]), (float) values[2], values[11] != 0,
+                (int) Math.rint(values[3]), (int) Math.rint(values[4]), (int) Math.rint(values[5]), (int) Math.rint(values[6]), values[7] != 0,
+                values[8] != 0, values[9] != 0, values[10] != 0, values[12] != 0, values[13] != 0, (int) Math.rint(values[14]));
     }
 
     private static double bit(boolean on) {

@@ -710,8 +710,8 @@ public final class CoreTests {
         check(ids.toString().equals("WorldSpaceYaw TrackingMode AimMode FieldOfView Quality IsometricQuality Style HillHeight MuzzleFlash Crosshair SplitScreen "
                         + "SecondPlayerQuality SecondPlayerIsometricQuality SecondPlayerStyle ThirdPlayerQuality ThirdPlayerIsometricQuality ThirdPlayerStyle "
                         + "FourthPlayerQuality FourthPlayerIsometricQuality FourthPlayerStyle TreeQuality "
-                        + "GrassDensity RenderScale SharpShadows ViewDistance ZombiesAndPropsDrawDistance FarTreeDistance RainOnGlass ShadingAndLight Reflections "
-                        + "FullSizeTextures SurfaceDepth WholeFigureShadows FrameBlending LightDistance VanillaWeapons VanillaFurniture "
+                        + "GrassDensity RenderScale ViewDistance ZombiesAndPropsDrawDistance FarTreeDistance RainOnGlass ShadingAndLight Reflections "
+                        + "FullSizeTextures SurfaceDepth SharpShadows WholeFigureShadows FrameBlending LightDistance VanillaWeapons VanillaFurniture "
                         + "VanillaPictures VanillaPlants VanillaTextures VanillaBuildings VanillaZombies VanillaPeople VanillaArms VanillaClothes VanillaAnimals VanillaFire "
                         + "VanillaCabins "
                         + "ShotsThroughWalls ShotsBreakLamps ShotsWoundLimbs VehiclesSmashThrough FacesTheView ShotsPastTrees ZombiesSeenAtOnce TalkingMouths "),

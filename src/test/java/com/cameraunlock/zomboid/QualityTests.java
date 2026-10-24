@@ -719,12 +719,11 @@ final class QualityTests {
         Quality.custom(Quality.HIGH_PICTURE);
         Quality.set(0, Quality.CUSTOM);
         String high = answers();
-        double[] changed = {Quality.TREES_NEAR, 40, 0.7, 0, 40, 30, 300, 0, 0, 0, 0, 0, 0, 0, 25};
+        double[] changed = {Quality.TREES_NEAR, 40, 0.7, 40, 30, 300, 0, 0, 0, 0, 0, 0, 0, 0, 25};
         String[] answer = {
             "false false 1.0 4096 80 all/all 2 true true true false false true true 48 400 true 100 60",
             "false false 1.0 4096 80 all/all 2 true true true false true true true 48 400 true 40 60",
             "false false 0.7 4096 80 all/all 2 true true true false true true true 48 400 true 100 60",
-            "false false 1.0 2048 80 all/all 2 true true true false true true true 48 400 true 100 60",
             "false false 1.0 4096 40 all/all 2 true true true false true true true 48 400 true 100 60",
             "false false 1.0 4096 80 30/all 2 true true true false true true true 48 400 true 100 60",
             "false false 1.0 4096 80 all/all 2 true true true false true true true 48 300 true 100 60",
@@ -733,6 +732,7 @@ final class QualityTests {
             "false false 1.0 4096 80 all/all 2 true false false false true true true 48 400 true 100 60",
             "false false 1.0 4096 80 all/all 2 true true true true true true true 48 400 true 100 60",
             "false false 1.0 4096 80 all/all 2 true true true false true false true 48 400 true 100 60",
+            "false false 1.0 2048 80 all/all 2 true true true false true true true 48 400 true 100 60",
             "false false 1.0 4096 80 all/all 2 true true true false true true false 48 400 true 100 60",
             "false false 1.0 4096 80 all/all 2 true true true false true true true 48 400 false 100 60",
             "false false 1.0 4096 80 all/all 2 true true true false true true true 48 400 true 100 25",
