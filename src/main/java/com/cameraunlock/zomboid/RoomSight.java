@@ -724,6 +724,9 @@ final class RoomSight {
      */
     private int[] hiddenFor = new int[256];
     private boolean[] hiddenWas = new boolean[256];
+    /** The same for a walk round an eye, whose openings are grown: the eye it was worked out for, and the answer, which every picture of the round shares. */
+    private int[] hiddenGrownFor = new int[256];
+    private boolean[] hiddenGrownWas = new boolean[256];
     /**
      * For each opening, the eye its state was read for and the state: an opening reached through
      * several regions, or in several of the pictures of one walk round an eye, is read once. A
@@ -748,7 +751,13 @@ final class RoomSight {
     private boolean[] stackThrough = new boolean[64];
     private final float[] corners = new float[3 * 8], clipped = new float[3 * 20];
     private final float[] alongX = new float[4], alongY = new float[4];
-    private final Horizon horizon = new Horizon();
+    /**
+     * The picture's horizon, and the walks' round the eye: those are walked from where the eye
+     * was as they were set out, which by a walking pace is soon further than the slack from where
+     * it is now. With one horizon for both, each frame built it twice, and every answer of the
+     * picture's walk worked out against it was thrown away with it.
+     */
+    private final Horizon horizon = new Horizon(), roundHorizon = new Horizon();
     private int indexedFilling;
     private Openings indexed;
     /** How far each opening is taken to reach past its edges along the ground and up, and within what distance a shut one counts as open: see walkAllRound. */
@@ -1039,20 +1048,25 @@ final class RoomSight {
 
     /** Whether the blocks between the eye and an opening, reached straight through the open air, hide all of it. */
     private boolean hiddenByBlocks(Openings openings, int opening) {
-        if (!horizon.holds(eyeX, eyeY, eyeUp, blocks, eyeBuilding)) {
-            horizon.build(eyeX, eyeY, eyeUp, blocks, eyeBuilding);
+        Horizon from = grow != 0f ? roundHorizon : horizon;
+        if (!from.holds(eyeX, eyeY, eyeUp, blocks, eyeBuilding)) {
+            from.build(eyeX, eyeY, eyeUp, blocks, eyeBuilding);
         }
         if (grow != 0f) {
-            return hiddenByBlocksNow(openings, opening);
+            if (hiddenGrownFor[opening] != eyeNow) {
+                hiddenGrownFor[opening] = eyeNow;
+                hiddenGrownWas[opening] = hiddenByBlocksNow(openings, opening, from);
+            }
+            return hiddenGrownWas[opening];
         }
         if (hiddenFor[opening] != horizon.builds) {
             hiddenFor[opening] = horizon.builds;
-            hiddenWas[opening] = hiddenByBlocksNow(openings, opening);
+            hiddenWas[opening] = hiddenByBlocksNow(openings, opening, horizon);
         }
         return hiddenWas[opening];
     }
 
-    private boolean hiddenByBlocksNow(Openings openings, int opening) {
+    private boolean hiddenByBlocksNow(Openings openings, int opening, Horizon against) {
         int x = openings.x[opening], y = openings.y[opening], kind = openings.kind[opening];
         if (kind == UP) {
             alongX[0] = x - grow;
@@ -1066,7 +1080,7 @@ final class RoomSight {
             float[] h = openings.heights;
             int at = opening * 4;
             float top = Math.max(Math.max(h[at], h[at + 1]), Math.max(h[at + 2], h[at + 3]));
-            return horizon.hides(alongX, alongY, 4, top + rise);
+            return against.hides(alongX, alongY, 4, top + rise);
         }
         float toX = kind == NORTH ? x + 1 : x, toY = kind == NORTH ? y : y + 1;
         float top = Math.max(openings.heights[opening * 4 + 2], openings.heights[opening * 4 + 3]) + SLACK + rise;
@@ -1075,7 +1089,7 @@ final class RoomSight {
             alongY[0] = y;
             alongX[1] = toX;
             alongY[1] = toY;
-            return horizon.hides(alongX, alongY, 2, top);
+            return against.hides(alongX, alongY, 2, top);
         }
         // The ground the opening's box covers, as coverGrown has it.
         alongX[0] = x - grow;
@@ -1086,7 +1100,7 @@ final class RoomSight {
         alongY[2] = toY + grow;
         alongX[3] = x - grow;
         alongY[3] = toY + grow;
-        return horizon.hides(alongX, alongY, 4, top);
+        return against.hides(alongX, alongY, 4, top);
     }
 
     /**
@@ -1311,12 +1325,15 @@ final class RoomSight {
     private void index(Openings openings) {
         int count = openings.count;
         Arrays.fill(hiddenFor, 0);
+        Arrays.fill(hiddenGrownFor, 0);
         Arrays.fill(stateFor, 0);
         if (worked.length < count) {
             int grown = Integer.highestOneBit(count) * 2;
             worked = new byte[grown];
             hiddenFor = new int[grown];
             hiddenWas = new boolean[grown];
+            hiddenGrownFor = new int[grown];
+            hiddenGrownWas = new boolean[grown];
             stateFor = new int[grown];
             stateWas = new byte[grown];
             covers = new float[grown * 4];
