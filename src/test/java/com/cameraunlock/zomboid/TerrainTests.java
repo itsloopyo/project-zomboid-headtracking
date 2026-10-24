@@ -54,6 +54,7 @@ final class TerrainTests {
             aChunkStillFillingIsReadAgainOnceLoaded();
             aChunkWhoseGroundIsAsItWasKeepsItsHeightsUntilAnyOfItChanges();
             aPitchOnAHillsideIsLaidLevelAndTheHillsEaseBackRoundIt();
+            aKindsSetBackIsAsNew();
         } finally {
             System.arraycopy(around, 0, Terrain.around, 0, around.length);
             System.arraycopy(pads, 0, Terrain.padsAround, 0, pads.length);
@@ -65,6 +66,49 @@ final class TerrainTests {
 
     private static void check(boolean condition, String what) {
         Checks.check(condition, what);
+    }
+
+    /** Terrain fills a Kinds the map has let go of in place of a new one: set back, it is a new one in every field. */
+    private static void aKindsSetBackIsAsNew() {
+        try {
+            Class<?> type = Class.forName("com.cameraunlock.zomboid.Terrain$Kinds");
+            java.lang.reflect.Constructor<?> make = type.getDeclaredConstructor();
+            make.setAccessible(true);
+            Object used = make.newInstance(), fresh = make.newInstance();
+            java.lang.reflect.Field[] fields = type.getDeclaredFields();
+            for (java.lang.reflect.Field field : fields) {
+                field.setAccessible(true);
+                Object value = field.get(used);
+                if (value instanceof byte[] bytes) {
+                    Arrays.fill(bytes, (byte) 3);
+                } else if (value instanceof float[] floats) {
+                    Arrays.fill(floats, 3f);
+                } else if (value instanceof boolean[] flags) {
+                    Arrays.fill(flags, true);
+                } else if (field.getType() == int.class) {
+                    field.setInt(used, 3);
+                } else if (field.getType() == long.class) {
+                    field.setLong(used, 3L);
+                } else if (field.getType() == boolean.class) {
+                    field.setBoolean(used, true);
+                } else {
+                    throw new IllegalStateException("a field of Kinds of a type this test does not set: " + field);
+                }
+            }
+            java.lang.reflect.Method reset = type.getDeclaredMethod("reset");
+            reset.setAccessible(true);
+            reset.invoke(used);
+            for (java.lang.reflect.Field field : fields) {
+                Object was = field.get(used), is = field.get(fresh);
+                boolean same = was instanceof byte[] a ? Arrays.equals(a, (byte[]) is)
+                        : was instanceof float[] b ? Arrays.equals(b, (float[]) is)
+                        : was instanceof boolean[] c ? Arrays.equals(c, (boolean[]) is)
+                        : was.equals(is);
+                check(same, "Kinds." + field.getName() + " set back is as a new Kinds has it");
+            }
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     /**

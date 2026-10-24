@@ -1,5 +1,6 @@
 package com.cameraunlock.zomboid;
 
+import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.concurrent.atomic.AtomicReferenceArray;
@@ -195,6 +196,33 @@ final class Terrain {
         boolean anyThing, anyFree;
         /** As Grid.used. */
         int used;
+
+        /** Every field back to what new gives it. */
+        void reset() {
+            wx = 0;
+            wy = 0;
+            Arrays.fill(kinds, (byte) 0);
+            Arrays.fill(midX, 0f);
+            Arrays.fill(midY, 0f);
+            Arrays.fill(free, false);
+            Arrays.fill(box, Float.NaN);
+            Arrays.fill(hard, false);
+            Arrays.fill(footway, false);
+            whole = false;
+            guessed = false;
+            footed = false;
+            footSettled = false;
+            footedAsOf = 0L;
+            Arrays.fill(open, false);
+            ringLoaded = false;
+            water = false;
+            builtOn = 0;
+            sum = 0L;
+            footSum = 0L;
+            anyThing = false;
+            anyFree = false;
+            used = 0;
+        }
     }
 
     /** The land with its hills, and the land as level as the game's map is: see level. */
@@ -220,6 +248,12 @@ final class Terrain {
      */
     private static final HashMap<Long, Kinds> unsure = new HashMap<>();
     private static long unsureAsOf = Long.MIN_VALUE;
+    /**
+     * What unsure let go of when the map changed, for blank to fill again: driving, the map
+     * changes most frames, and each time the chunks round findWater not loaded were made anew.
+     * Nothing holds one past the frame: region is filled again before it is read.
+     */
+    private static final ArrayDeque<Kinds> spare = new ArrayDeque<>();
     /** The footings worked out for made things with no building in them that cannot be kept yet, for as long. */
     private final HashMap<Long, Float> padsForNow = new HashMap<>();
     private long padsAsOf = Long.MIN_VALUE;
@@ -1437,7 +1471,7 @@ final class Terrain {
 
     /** What the squares of a chunk not loaded are, as MapAhead read them. */
     private static Kinds guessed(MapAhead.Guess guess) {
-        Kinds fresh = new Kinds();
+        Kinds fresh = blank();
         fresh.wx = guess.wx;
         fresh.wy = guess.wy;
         fresh.guessed = true;
@@ -1452,6 +1486,16 @@ final class Terrain {
         return fresh;
     }
 
+    /** A Kinds as new gives it: a spare one set back, or a new one. */
+    private static Kinds blank() {
+        Kinds kinds = spare.poll();
+        if (kinds == null) {
+            return new Kinds();
+        }
+        kinds.reset();
+        return kinds;
+    }
+
     /** What each square of a chunk is. Kept once every square of the chunk has been seen loaded. */
     private static Kinds kinds(IsoCell cell, int wx, int wy) {
         Kinds kept = known(wx, wy);
@@ -1459,6 +1503,7 @@ final class Terrain {
             return kept;
         }
         if (unsureAsOf != mapAsOf()) {
+            spare.addAll(unsure.values());
             unsure.clear();
             unsureAsOf = mapAsOf();
         }
@@ -1486,7 +1531,7 @@ final class Terrain {
                 water |= kind == WATER;
             }
         }
-        Kinds fresh = new Kinds();
+        Kinds fresh = blank();
         fresh.wx = wx;
         fresh.wy = wy;
         fresh.whole = whole;
