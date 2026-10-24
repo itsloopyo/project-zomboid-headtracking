@@ -23,6 +23,7 @@ final class OwnArmTests {
         rightHandWorksTheBoltAndComesBackToTheGrip(model);
         leftHandComesToAPistolOnlyToLoadItAndBringsTheMagazine(model);
         leftHandCarriesATorchLowBesideAOneHandedWeapon(model);
+        leftHandRacksALongGunHeldInTheRightAloneAndCrossesFromTheTorch(model);
         leftHandLeavesTheForeEndToFeedShellsAndIsBackOnItAfter(model);
         somethingSwungInBothHandsHasAFistUnderTheOther(model);
         handCrossesToAHoldThatIsNotBesideItAndDoesNotJump(model);
@@ -481,10 +482,56 @@ final class OwnArmTests {
         check(near(long3, SCALE, 1e-4f), "and is drawn the size the arm is");
     }
 
+    private static void leftHandRacksALongGunHeldInTheRightAloneAndCrossesFromTheTorch(ArmModel model) {
+        float[][] skins = new float[2][model.bones.length * 16], said = new float[2][ArmPose.SAYS];
+        float[] fore = model.holds[model.pose("fore")];
+        ArmHolds.Weapon gun = longGun(LONG_GUNS[1], 0f, new float[3], 0f);
+        ArmHolds.Doing oneHanded = new ArmHolds.Doing(0f, false, ArmActs.PUMP, -1f, ArmActs.HOLDING, 0f, 0f, 1f, -1f, false, -1f, -1f, 2f, 0f);
+        ArmHolds.Doing racked = new ArmHolds.Doing(0f, false, ArmActs.PUMP, -1f, ArmActs.RACKING, 0.3f, 0f, 1f, -1f, false, -1f, -1f, 2f, 0f);
+        check(ArmHolds.place(model, SCALE, gun, oneHanded, SAME, skins, said, new ArmHolds.Carried(), new ArmHolds.Settled()) == 1, "a pump gun held in the right alone has one arm on it");
+        check(ArmHolds.place(model, SCALE, gun, holding(0f), SAME, skins, said, new ArmHolds.Carried(), new ArmHolds.Settled()) == 2, "and two held in both hands");
+        float[] onIt = placed(skins[1], model.wrist, fore);
+        check(ArmHolds.place(model, SCALE, gun, racked, SAME, skins, said, new ArmHolds.Carried(), new ArmHolds.Settled()) == 2, "racked from the right alone it has the left on it too");
+        check(ArmPose.apart(placed(skins[1], model.wrist, fore), onIt) < 1e-4f, "on its fore-end, where a hand holding it in both is");
+        // From the torch carried beside it to the fore-end and back, a frame of 20 ms at a time.
+        ArmHolds.Settled settled = new ArmHolds.Settled();
+        settled.seconds = 0.02f;
+        TimedActs.Hand seen = new TimedActs.Hand();
+        check(ArmHolds.place(model, SCALE, gun, oneHanded, SAME, skins, said, new ArmHolds.Carried(), settled) == 1
+                && ArmHolds.carry(model, SCALE, SAME, ArmHolds.CARRY_RESTING, skins, said, seen, settled), "the left arm carries the torch");
+        float[] carrying = {said[1][ArmPose.WRIST], said[1][ArmPose.WRIST + 1], said[1][ArmPose.WRIST + 2]};
+        ArmHolds.place(model, SCALE, gun, racked, SAME, skins, said, new ArmHolds.Carried(), new ArmHolds.Settled());
+        float[] racking = {said[1][ArmPose.WRIST], said[1][ArmPose.WRIST + 1], said[1][ArmPose.WRIST + 2]};
+        float way = ArmPose.apart(carrying, racking);
+        check(way > 0.1f, "the fore-end is somewhere else altogether: " + way);
+        float[] before = carrying;
+        float most = 0f, last = 0f;
+        for (int frame = 0; frame < 20; frame++) {
+            check(ArmHolds.place(model, SCALE, gun, racked, SAME, skins, said, new ArmHolds.Carried(), settled) == 2, "it is placed on every frame of the way to the fore-end");
+            float[] now = {said[1][ArmPose.WRIST], said[1][ArmPose.WRIST + 1], said[1][ArmPose.WRIST + 2]};
+            most = Math.max(most, ArmPose.apart(now, before));
+            last = ArmPose.apart(now, racking);
+            before = now;
+        }
+        check(most < way * 0.3f, "the hand goes from the torch to the fore-end over several frames, no one of them a third of the way: " + most / way);
+        check(last < 1e-3f, "and is on it after a fifth of a second and a little over");
+        most = 0f;
+        for (int frame = 0; frame < 20; frame++) {
+            check(ArmHolds.place(model, SCALE, gun, oneHanded, SAME, skins, said, new ArmHolds.Carried(), settled) == 1
+                    && ArmHolds.carry(model, SCALE, SAME, ArmHolds.CARRY_RESTING, skins, said, seen, settled), "it is placed on every frame of the way back to the torch");
+            float[] now = {said[1][ArmPose.WRIST], said[1][ArmPose.WRIST + 1], said[1][ArmPose.WRIST + 2]};
+            most = Math.max(most, ArmPose.apart(now, before));
+            last = ArmPose.apart(now, carrying);
+            before = now;
+        }
+        check(most < way * 0.3f, "and goes back as gently once the rack is done: " + most / way);
+        check(last < 1e-3f, "to carry the torch where it did");
+    }
+
     private static void leftHandCarriesATorchLowBesideAOneHandedWeapon(ArmModel model) {
         float[][] skins = new float[2][model.bones.length * 16], said = new float[2][ArmPose.SAYS];
         TimedActs.Hand seen = new TimedActs.Hand();
-        check(ArmHolds.carry(model, SCALE, SAME, new float[] {0f, 0f, -1f}, skins, said, seen), "a left arm carrying something beside a one-handed weapon is placed");
+        check(ArmHolds.carry(model, SCALE, SAME, new float[] {0f, 0f, -1f}, skins, said, seen, new ArmHolds.Settled()), "a left arm carrying something beside a one-handed weapon is placed");
         float[] at = {ArmHolds.CARRY_AT[0] * SCALE, ArmHolds.CARRY_AT[1] * SCALE, ArmHolds.CARRY_AT[2] * SCALE};
         check(ArmPose.apart(placed(skins[1], model.wrist, model.holds[model.pose("handle")]), at) < 1e-3f, "its fist where the carry puts it");
         check(ArmPose.apart(seen.at, at) < 1e-6f, "and what it carries is put there");
@@ -499,13 +546,13 @@ final class OwnArmTests {
         for (float[] turn : new float[][] {{-35f, 0f}, {35f, 0f}, {0f, 25f}, {0f, -25f}, {30f, 20f}, {-30f, -20f}}) {
             float yaw = (float) Math.toRadians(turn[0]), pitch = (float) Math.toRadians(turn[1]);
             float[] toward = {(float) (Math.sin(yaw) * Math.cos(pitch)), (float) Math.sin(pitch), (float) (-Math.cos(yaw) * Math.cos(pitch))};
-            check(ArmHolds.carry(model, SCALE, SAME, toward, skins, said, seen), "carrying a light turned " + Arrays.toString(turn) + " the arm is placed");
+            check(ArmHolds.carry(model, SCALE, SAME, toward, skins, said, seen, new ArmHolds.Settled()), "carrying a light turned " + Arrays.toString(turn) + " the arm is placed");
             ArmHolds.carried(seen, along, across);
             check(ArmPose.dot(along, toward) > 0.99f, "and points it where it shines, " + Arrays.toString(along) + " for " + Arrays.toString(toward));
             check(Math.abs(said[1][ArmPose.ASKED]) <= ArmPose.TWIST_MOST && said[1][ArmPose.BENT] < Math.toRadians(36), "with the forearm and wrist as a carrying arm has them");
         }
         // With no light lit the arm rests, the hand down under the foot of the picture.
-        check(ArmHolds.carry(model, SCALE, SAME, ArmHolds.CARRY_RESTING, skins, said, seen), "a carrying arm at rest is placed");
+        check(ArmHolds.carry(model, SCALE, SAME, ArmHolds.CARRY_RESTING, skins, said, seen, new ArmHolds.Settled()), "a carrying arm at rest is placed");
         ArmHolds.carried(seen, along, across);
         check(ArmPose.dot(along, ArmHolds.CARRY_RESTING) > 0.99f, "and points what it carries down, " + Arrays.toString(along));
         check(-seen.at[1] / -seen.at[2] > Math.tan(Math.toRadians(45)), "its fist more than 45 degrees under the aim, " + Arrays.toString(seen.at));

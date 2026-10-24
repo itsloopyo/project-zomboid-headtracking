@@ -1293,7 +1293,7 @@ public final class Characters {
         // way of the game's animation of the attack, which lifted it across the eye.
         ModelInstanceRenderData carried = arms > 0 && !heldBoth ? leftOf(data) : null;
         if (carried != null) {
-            if (ArmHolds.carry(OwnArms.model(), scale, fromAim, carryWay(armSettled.seconds), armSkins, armSaid, seenHands[1]) && inTheHand(data, 1, carried, seenHands[1], scale, leftView)) {
+            if (ArmHolds.carry(OwnArms.model(), scale, fromAim, carryWay(armSettled.seconds), armSkins, armSaid, seenHands[1], armSettled) && inTheHand(data, 1, carried, seenHands[1], scale, leftView)) {
                 inTheFist(carried, seenHands[1]);
                 arms = 2;
                 leftCarried = true;
@@ -1311,7 +1311,7 @@ public final class Characters {
             carryPointing = null;
         }
         if (DevBuild.ON) {
-            String state = (carried == null ? (arms == 0 ? "no arms" : heldBoth ? "in both hands" : "nothing in the left hand") : leftCarried ? "carried" : "not carried") + " " + Math.round(hands.aim() * 4f);
+            String state = (carried == null ? (arms == 0 ? "no arms" : heldBoth ? "in both hands" : arms == 2 ? "on the weapon" : "nothing in the left hand") : leftCarried ? "carried" : "not carried") + " " + Math.round(hands.aim() * 4f);
             if (!state.equals(leftCarryState)) {
                 leftCarryState = state;
                 Log.info(String.format(Locale.ROOT, "the left hand beside %s: %s, doing %d, aim %.2f, arms %d, the aim's middle in the view (%.3f, %.3f, %.3f)",

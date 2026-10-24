@@ -414,6 +414,14 @@ final class ArmHolds {
         float seconds;
         private Hold aimed, shown, from;
         private float crossed = 1f;
+        /**
+         * The left hand as last shown in the view, this frame and the one before, and whether it
+         * was carrying what is beside the weapon then, so that it crosses between the carry and
+         * the weapon too.
+         */
+        private Hold latest, before, carryFrom;
+        private boolean latestCarried, beforeCarried;
+        private float carryCrossed = 1f;
     }
 
     /** The weapon's own axes in the view, and where its parts are given from. */
@@ -533,6 +541,10 @@ final class ArmHolds {
      * @return how many arms are placed: 2 with the left hand on the weapon or busy with it, 1 without, and 0 if an arm cannot be placed
      */
     static int place(ArmModel model, float scale, Weapon weapon, Doing doing, float[] fromAim, float[][] skins, float[][] said, Carried carried, Settled settled) {
+        settled.before = settled.latest;
+        settled.beforeCarried = settled.latestCarried;
+        settled.latest = null;
+        settled.latestCarried = false;
         Axes axes = new Axes(weapon, scale);
         float tipped = ArmPose.dot(weapon.over(), axes.ahead);
         if (!ArmPose.unit(weapon.over()[0] - axes.ahead[0] * tipped, weapon.over()[1] - axes.ahead[1] * tipped, weapon.over()[2] - axes.ahead[2] * tipped, axes.up)) {
@@ -559,11 +571,14 @@ final class ArmHolds {
                 settled.from = settled.shown;
                 settled.crossed = 0f;
             }
-            if (settled.crossed < 1f) {
-                settled.crossed = Math.min(settled.crossed + settled.seconds / ArmActs.CROSSES_IN, 1f);
-            }
+        } else if (settled.before != null && settled.beforeCarried) {
+            settled.from = axes.within(settled.before, model);
+            settled.crossed = 0f;
         } else {
             settled.crossed = 1f;
+        }
+        if (settled.crossed < 1f) {
+            settled.crossed = Math.min(settled.crossed + settled.seconds / ArmActs.CROSSES_IN, 1f);
         }
         settled.aimed = aimed;
         settled.shown = settled.crossed < 1f ? copy(new Hold(model), settled.from).towards(aimed, ViewModelMath.smooth(settled.crossed)) : aimed;
@@ -601,7 +616,11 @@ final class ArmHolds {
             carried.at[15] = 1f;
             carried.what = carries;
         }
-        return solve(model, weapon, scale, doing.turned(), doing.aim(), left, fromAim, 1, skins, said) ? 2 : 0;
+        if (!solve(model, weapon, scale, doing.turned(), doing.aim(), left, fromAim, 1, skins, said)) {
+            return 0;
+        }
+        settled.latest = left;
+        return 2;
     }
 
     /**
@@ -814,7 +833,9 @@ final class ArmHolds {
         }
         Placed placed = weapon.placed();
         WeaponShape shape = placed.shape();
-        if (doing.both() && !weapon.handgun()) {
+        if (!weapon.handgun() && (doing.both() || doing.doing() == ArmActs.RACKING)) {
+            // A long gun held in the right alone, beside a torch say, is racked with the left on its fore-end all the same:
+            // the game puts what the left holds aside meanwhile, and left to the game, its arm swung up across the eye.
             hold = foreEnd(model, weapon, axes, doing, fromAim);
         } else if (doing.both()) {
             hold = round(model, weapon, axes);
@@ -1161,7 +1182,7 @@ final class ArmHolds {
      *               light's turn on the aim's
      * @param seen   the answer: the hand as it is placed, in the view, to put what it carries in
      */
-    static boolean carry(ArmModel model, float scale, float[] fromAim, float[] toward, float[][] skins, float[][] said, TimedActs.Hand seen) {
+    static boolean carry(ArmModel model, float scale, float[] fromAim, float[] toward, float[][] skins, float[][] said, TimedActs.Hand seen, Settled settled) {
         float yaw = (float) Math.atan2(toward[0], -toward[2]), pitch = (float) Math.asin(Math.max(-1f, Math.min(1f, toward[1])));
         float[] shoulderAt = {-SHOULDER[0], SHOULDER[1], SHOULDER[2]};
         float[] place = swung(CARRY_AT, shoulderAt, yaw, pitch), towards = swung(CARRY_FROM, shoulderAt, yaw, pitch);
@@ -1170,12 +1191,27 @@ final class ArmHolds {
         ViewModelMath.turned(fromAim, swung(CARRY_PALM, null, yaw, pitch), palm);
         ViewModelMath.turned(fromAim, swung(CARRY_FINGERS, null, yaw, pitch), fingers);
         Hold hold = new Hold(model).set(at, palm, fingers, true, model.pose("handle"));
+        // Off the weapon this frame or the one before, the hand crosses over from it.
+        Hold last = settled.latest != null ? settled.latest : settled.before;
+        boolean lastCarried = settled.latest != null ? settled.latestCarried : settled.beforeCarried;
+        if (last == null) {
+            settled.carryCrossed = 1f;
+        } else if (!lastCarried) {
+            settled.carryFrom = last;
+            settled.carryCrossed = 0f;
+        }
+        if (settled.carryCrossed < 1f) {
+            settled.carryCrossed = Math.min(settled.carryCrossed + settled.seconds / ArmActs.CROSSES_IN, 1f);
+            hold = copy(new Hold(model), settled.carryFrom).towards(hold, ViewModelMath.smooth(settled.carryCrossed));
+        }
         float[] shoulder = new float[3], from = new float[3];
         starts(false, 1, scale, 0f, 0f, fromAim, shoulder, from);
         ViewModelMath.place(fromAim, towards[0] * scale, towards[1] * scale, towards[2] * scale, from);
         if (!solve(model, scale, hold, shoulder, from, 1, skins, said)) {
             return false;
         }
+        settled.latest = hold;
+        settled.latestCarried = true;
         // From the hold as solved, which may have been turned back about the forearm.
         System.arraycopy(hold.at, 0, seen.at, 0, 3);
         System.arraycopy(hold.out, 0, seen.out, 0, 3);
