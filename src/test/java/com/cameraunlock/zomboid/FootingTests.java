@@ -17,6 +17,7 @@ final class FootingTests {
         Checks.run("whatOnlyHangsIsNothingUnlessItTouchesSomethingBuilt", FootingTests::whatOnlyHangsIsNothingUnlessItTouchesSomethingBuilt);
         Checks.run("aRowDownAHillStandsAtTheFootingOfItsMiddle", FootingTests::aRowDownAHillStandsAtTheFootingOfItsMiddle);
         Checks.run("oneSearchAnswersForEverySquareOfAThing", FootingTests::oneSearchAnswersForEverySquareOfAThing);
+        Checks.run("aChunkAskedAboutBetweenOthersIsKeptPastTheLastKept", FootingTests::aChunkAskedAboutBetweenOthersIsKeptPastTheLastKept);
         Checks.run("theGroundUnderAStairOnAStreetIsLevelAtTheBuildingsFooting", FootingTests::theGroundUnderAStairOnAStreetIsLevelAtTheBuildingsFooting);
         Checks.run("aStreetPastAStairIsStillLevelFromKerbToKerb", FootingTests::aStreetPastAStairIsStillLevelFromKerbToKerb);
         Checks.run("theGroundUnderAnEaveOverALawnIsLevelAtTheBuildingsFooting", FootingTests::theGroundUnderAnEaveOverALawnIsLevelAtTheBuildingsFooting);
@@ -285,6 +286,51 @@ final class FootingTests {
             }
         }
         check(site.asked - before < squares + 200, "with other chunks loaded the settled block is not looked over again, only what may have changed: " + (site.asked - before));
+    }
+
+    /** A building of one square at the first corner of every chunk, and open ground round it. */
+    private static final class Corners implements Footings.Site {
+        int asked;
+
+        @Override
+        public byte over(int x, int y) {
+            asked++;
+            return Math.floorMod(x, Terrain.CHUNK_TILES) == 0 && Math.floorMod(y, Terrain.CHUNK_TILES) == 0 ? Footings.HOUSE : Footings.OPEN;
+        }
+
+        @Override
+        public long house(int x, int y) {
+            return Footings.key(x + 0.5f, y + 0.5f);
+        }
+
+        @Override
+        public boolean paved(int x, int y) {
+            return false;
+        }
+    }
+
+    private static void aChunkAskedAboutBetweenOthersIsKeptPastTheLastKept() {
+        Corners site = new Corners();
+        Footings fresh = new Footings();
+        fresh.find(site, 0, 0);
+        int before = site.asked;
+        for (int chunk = 1; chunk <= Footings.KEPT_CHUNKS + 500; chunk++) {
+            fresh.find(site, chunk * Terrain.CHUNK_TILES, 0);
+            int asked = site.asked;
+            fresh.find(site, 0, 0);
+            check(site.asked == asked, "the chunk asked about after each other one is the newest kept and is not looked over again, after " + chunk + " others");
+        }
+        check(site.asked > before, "the other chunks were looked over");
+        int asked = site.asked;
+        fresh.find(site, (Footings.KEPT_CHUNKS + 500) * Terrain.CHUNK_TILES, 0);
+        check(site.asked == asked, "the last chunk kept is kept");
+        fresh.find(site, Terrain.CHUNK_TILES, 0);
+        check(site.asked > asked, "the first of the others, past the last kept, was let go and is looked over again");
+        fresh.find(site, 0, 0);
+        fresh.forget();
+        asked = site.asked;
+        fresh.find(site, 0, 0);
+        check(site.asked > asked, "a map loaded anew has the chunk last asked about looked over again");
     }
 
     private static void whatOnlyHangsIsNothingUnlessItTouchesSomethingBuilt() {

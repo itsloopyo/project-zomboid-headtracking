@@ -230,13 +230,35 @@ final class Footings {
             return size() > KEPT_CHUNKS;
         }
 
+        /**
+         * The chunk at last looked up and what get gave for it, while lastHeld. The squares of
+         * one chunk are asked about in a row, and a get of the key the access order has newest,
+         * or of a key not in the map, leaves the order as it is: so it holds until put or clear.
+         */
+        private int lastX, lastY;
+        private boolean lastHeld;
+        private transient Answer[] last;
+
         Answer at(int x, int y) {
-            Answer[] chunk = get(chunkOf(x, y));
-            return chunk == null ? null : chunk[placeIn(x, y)];
+            int chunkX = Math.floorDiv(x, Terrain.CHUNK_TILES), chunkY = Math.floorDiv(y, Terrain.CHUNK_TILES);
+            if (!lastHeld || chunkX != lastX || chunkY != lastY) {
+                last = get(spread(square(chunkX, chunkY)));
+                lastX = chunkX;
+                lastY = chunkY;
+                lastHeld = true;
+            }
+            return last == null ? null : last[placeIn(x, y)];
         }
 
         void put(int x, int y, Answer answer) {
+            lastHeld = false;
             computeIfAbsent(chunkOf(x, y), key -> new Answer[Terrain.CHUNK_TILES * Terrain.CHUNK_TILES])[placeIn(x, y)] = answer;
+        }
+
+        @Override
+        public void clear() {
+            lastHeld = false;
+            super.clear();
         }
 
         private static long chunkOf(int x, int y) {
