@@ -169,7 +169,7 @@ final class Config {
                         + "dot without one mark where the shot lands and what the interact key uses. false: neither is drawn.",
                 writable | live, true);
         regrip = core.configLocalBool("General", "RegripTwoHandedWeapons",
-                "true: a weapon made for both hands goes back into both when the left hand puts down what it took up beside it,\n"
+                "true: a weapon made for both hands goes back into both when the left hand puts down what it held beside it,\n"
                         + "a torch say, as the inventory's Equip Two Hands does. false: it stays in the right hand alone, as the game leaves it.\n"
                         + "Never on a server where players can fight.",
                 writable | live, true);

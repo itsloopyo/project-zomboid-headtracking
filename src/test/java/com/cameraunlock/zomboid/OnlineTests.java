@@ -68,13 +68,17 @@ public final class OnlineTests {
         Servers.in(Servers.Where.CONTESTED, () -> check(!Online.regrips(), "but not where they can"));
         Object gun = new Object(), torch = new Object();
         Regrip hands = new Regrip();
-        check(!hands.emptied(gun, gun) && !hands.emptied(gun, torch) && hands.emptied(gun, null), "a gun in both hands goes back into both when a torch beside it is put down");
+        check(!hands.emptied(gun, gun) && !hands.emptied(null, torch) && !hands.emptied(gun, torch) && hands.emptied(gun, null),
+                "a gun goes back into both hands when a torch beside it is put down, though the torch took it out of them");
         check(!hands.emptied(gun, null), "once");
         hands = new Regrip();
-        check(!hands.emptied(gun, null) && !hands.emptied(gun, torch) && !hands.emptied(gun, null), "one taken up in the right hand alone stays so");
+        check(!hands.emptied(gun, gun) && !hands.emptied(gun, torch) && hands.emptied(gun, null), "and when the torch was taken up beside it");
         hands = new Regrip();
-        check(!hands.emptied(gun, gun) && !hands.emptied(gun, torch) && !hands.emptied(new Object(), torch) && !hands.emptied(gun, null),
-                "and so does one put back in the right after another weapon was");
+        check(!hands.emptied(gun, null) && !hands.emptied(gun, null), "one taken up in the right hand alone with the left empty stays so");
+        hands = new Regrip();
+        check(!hands.emptied(gun, gun) && !hands.emptied(gun, null), "and so does one moved from both hands into the right");
+        hands = new Regrip();
+        check(!hands.emptied(new Object(), torch) && !hands.emptied(gun, null), "nothing is taken back when the right takes up another weapon as the left lets go");
         hands = new Regrip();
         check(!hands.emptied(gun, gun) && !hands.emptied(null, null), "nothing is taken back when the gun itself is put away");
     }

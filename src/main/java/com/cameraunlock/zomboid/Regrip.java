@@ -9,15 +9,18 @@ import zombie.inventory.types.HandWeapon;
 import zombie.ui.UIManager;
 
 /**
- * A weapon made for both hands goes back into both when the left hand lets go of what it took
- * up beside it, a torch say. The game leaves it in the right hand alone, where it hits for less
+ * A weapon made for both hands goes back into both when the left hand lets go of what it held
+ * beside it, a torch say. The game leaves it in the right hand alone, where it hits for less
  * and tires and wears faster (CombatManager.applyOneHandedDamagePenalty, processWeaponEndurance),
  * until the player asks for both hands from the inventory's menu. What is asked here is that
  * menu's own action (ISInventoryPaneContextMenu.equipWeapon with two hands), so it takes the
  * time it takes there and the server hears of it as it does from the menu.
  *
- * Only a weapon that was in both hands before the left took something else up: one equipped in
- * the right alone is left so. Not where players can fight (Online.regrips). Logic thread.
+ * The weapon need not have been in both hands first. The game's Equip Secondary takes a weapon
+ * held in both hands out of the right as well (ISEquipWeaponAction.complete), so a torch and a
+ * two-handed weapon are only held together when the weapon was taken up after the torch. One
+ * equipped in the right alone with the left empty is left so. Not where players can fight
+ * (Online.regrips). Logic thread.
  */
 final class Regrip {
     private static volatile boolean on = true;
@@ -34,20 +37,16 @@ final class Regrip {
         return on;
     }
 
-    /** The weapon last seen in both hands while it is still in the right, and what the left held the frame before. */
-    private Object both, left;
+    /** What the right and the left held the frame before. */
+    private Object right, left;
 
     /**
      * Whether, by what the hands hold this frame, the weapon in the right is to go back into both:
-     * it was in both, the left took something else up beside it, and has just put that down.
+     * the left has just put down something else it held beside that same weapon.
      */
     boolean emptied(Object primary, Object secondary) {
-        if (primary != null && primary == secondary) {
-            both = primary;
-        } else if (primary != both) {
-            both = null;
-        }
-        boolean put = left != null && left != primary && secondary == null && both != null;
+        boolean put = primary != null && primary == right && left != null && left != primary && secondary == null;
+        right = primary;
         left = secondary;
         return put;
     }
