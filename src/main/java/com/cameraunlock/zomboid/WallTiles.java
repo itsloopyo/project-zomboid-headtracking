@@ -4,7 +4,10 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import zombie.core.textures.Texture;
 
 /**
@@ -334,6 +337,17 @@ final class WallTiles {
      */
     private static final List<ConcurrentHashMap<Texture, Asked>> asked = List.of(new ConcurrentHashMap<>(), new ConcurrentHashMap<>(), new ConcurrentHashMap<>(), new ConcurrentHashMap<>());
     private static final List<ConcurrentHashMap<Texture, Wall>> known = List.of(new ConcurrentHashMap<>(), new ConcurrentHashMap<>(), new ConcurrentHashMap<>(), new ConcurrentHashMap<>());
+    /** The sprites, each way, whose dots have been handed to the reader and whose reading is not yet known. */
+    private static final List<Set<Texture>> reading = List.of(ConcurrentHashMap.newKeySet(), ConcurrentHashMap.newKeySet(), ConcurrentHashMap.newKeySet(), ConcurrentHashMap.newKeySet());
+    /** A wall's lattice and cells took 35 to 46 ms on the frame that read its sprite: they are worked out on a thread of their own from a copy of its dots. */
+    private static final ExecutorService reader = Executors.newSingleThreadExecutor(work -> {
+        Thread thread = new Thread(work, "CameraUnlock wall tiles");
+        thread.setDaemon(true);
+        thread.setPriority(Thread.MIN_PRIORITY);
+        return thread;
+    });
+    /** What stopped the reader, thrown on the next asking. */
+    private static volatile Throwable readerFailed;
 
     private static int way(boolean north, boolean overlay) {
         return (north ? 0 : 1) + (overlay ? 2 : 0);
@@ -360,6 +374,7 @@ final class WallTiles {
      * for a whole wall or an overlay that paints no tiles on that edge, or too little to tell.
      */
     static Wall of(Texture texture, SpriteGeometry.Frame frame, boolean north, boolean overlay) {
+        throwIfTheReaderFailed();
         int way = way(north, overlay);
         Wall wall = known.get(way).get(texture);
         if (wall != null) {
@@ -431,12 +446,24 @@ final class WallTiles {
         return !known.get(way(north, overlay)).containsKey(texture);
     }
 
-    /** Reads the sprite for each edge, and each way, it was asked for on: see Windows.read. */
+    private static void throwIfTheReaderFailed() {
+        Throwable failed = readerFailed;
+        if (failed != null) {
+            throw new IllegalStateException("reading a tiled wall failed", failed);
+        }
+    }
+
+    /**
+     * Reads the sprite for each edge, and each way, it was asked for on: see Windows.read. Its
+     * dots are copied out of the sheet here, on the thread that holds it, and what they say is
+     * known a few milliseconds later, when the reader has read them.
+     */
     static void read(Texture texture, ByteBuffer sheet, int width, int left, int top, int right, int bottom) {
+        throwIfTheReaderFailed();
         for (int way = 0; way < 4; way++) {
             boolean north = way % 2 == 0, overlay = way >= 2;
             Asked wanted = asked.get(way).get(texture);
-            if (wanted == null || known.get(way).containsKey(texture)) {
+            if (wanted == null || known.get(way).containsKey(texture) || !reading.get(way).add(texture)) {
                 continue;
             }
             int across = Windows.across(wanted.scale), high = Windows.high(wanted.scale);
@@ -453,11 +480,19 @@ final class WallTiles {
                     rgb[i * 3 + 2] = (sheet.get(at[i] + 2) & 0xff) / 255f;
                 }
             }
-            Wall wall = read(rgb, solid, across, high, overlay);
-            if (FirstPerson.TRACE) {
-                Log.info("wall tiles " + texture.getName() + (north ? " north" : " west") + (overlay ? " over a wall" : "") + (wall == null ? " none" : said(wall)));
-            }
-            known.get(way).put(texture, wall == null ? NONE : wall);
+            int into = way;
+            reader.execute(() -> {
+                try {
+                    Wall wall = read(rgb, solid, across, high, overlay);
+                    if (FirstPerson.TRACE) {
+                        Log.info("wall tiles " + texture.getName() + (north ? " north" : " west") + (overlay ? " over a wall" : "") + (wall == null ? " none" : said(wall)));
+                    }
+                    known.get(into).put(texture, wall == null ? NONE : wall);
+                } catch (Throwable failed) {
+                    Log.error("reading the tiled wall " + texture.getName() + (north ? " north" : " west") + (overlay ? " over a wall" : "") + " failed", failed);
+                    readerFailed = failed;
+                }
+            });
         }
     }
 
