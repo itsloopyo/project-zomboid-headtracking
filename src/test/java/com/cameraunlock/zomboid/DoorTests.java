@@ -23,6 +23,7 @@ final class DoorTests {
         Checks.run("casingTakesItsTexelsWhereTheWallsCutIsMeasured", DoorTests::casingTakesItsTexelsWhereTheWallsCutIsMeasured);
         Checks.run("casingIsReadAsPostsUnderAHead", DoorTests::casingIsReadAsPostsUnderAHead);
         Checks.run("casingsPostsMeetTheDoorwaysCutUnderTheHead", DoorTests::casingsPostsMeetTheDoorwaysCutUnderTheHead);
+        Checks.run("casingSharesNoPlaneWithTheRevealOrTheSkirting", DoorTests::casingSharesNoPlaneWithTheRevealOrTheSkirting);
         Checks.run("whatIsDrawnBetweenOwningNoThingIsNoPartOfTheThing", DoorTests::whatIsDrawnBetweenOwningNoThingIsNoPartOfTheThing);
         Checks.run("paneWithARoomOnBothSidesHasNoStreetSide", DoorTests::paneWithARoomOnBothSidesHasNoStreetSide);
         Checks.run("openGarageDoorLiesInTheGarageWithItsTracksAtTheJambs", DoorTests::openGarageDoorLiesInTheGarageWithItsTracksAtTheJambs);
@@ -339,6 +340,30 @@ final class DoorTests {
         lone.headHigh = 0.07f;
         float[] half = OpeningBuilder.casingMembers(lone, 0.14f, 1f);
         check(half.length == 2 * each && half[each + 1] == 1f, "half of a pair's casing is one post and a head running on to the square's end");
+    }
+
+    /**
+     * 11560,7029 west (fixtures_doors_frames_01_8 in walls_interior_house_04_42): the post's side at the doorway's cut ran
+     * back into the wall, into the reveal's plane, and the skirting's front stood as far out as the post's. Both fought
+     * from any distance, a line down the post's side and a block at its foot.
+     */
+    private static void casingSharesNoPlaneWithTheRevealOrTheSkirting() {
+        Windows.Shape casing = new Windows.Shape();
+        casing.start = -0.046875f;
+        casing.startWide = 0.140625f;
+        casing.end = 0.9375f;
+        casing.endWide = 0.09375f;
+        casing.head = 0.8489583f;
+        casing.headHigh = 0.067708336f;
+        int each = OpeningBuilder.CASING_MEMBER, atCut = OpeningBuilder.CASING_MEMBER - 1;
+        float[] cut = OpeningBuilder.casingMembers(casing, 0.09375f, 0.84375f);
+        check(cut[atCut] == OpeningBuilder.AT_TO && cut[each + atCut] == OpeningBuilder.AT_FROM,
+                "each post's side at the cut is the one that stands on the skin, clear of the reveal: " + cut[atCut] + ", " + cut[each + atCut]);
+        check(cut[2 * each + atCut] == OpeningBuilder.NO_EDGE, "the head has no side at the cut");
+        float[] far = OpeningBuilder.casingMembers(casing, 0.2f, 0.6f);
+        check(far[atCut] == OpeningBuilder.NO_EDGE && far[each + atCut] == OpeningBuilder.NO_EDGE, "posts left where they are painted have no side at the cut");
+        check(DepthFights.nearestFight(OpeningBuilder.CASING_PROUD - Trims.BOARD, 0, 0) > 48f,
+                "a skirting run on behind a post's foot is told from the post's front from within 48 tiles");
     }
 
     private static void leafIsCutBackToTheDoorwaysCut() {

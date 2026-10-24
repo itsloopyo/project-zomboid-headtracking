@@ -574,7 +574,8 @@ final class OpeningBuilder {
             for (int at = 0; at < members.length; at += CASING_MEMBER) {
                 wood.open = sideOpen[side] + 32f * casingMaterial(wooden, (int) members[at + 4]);
                 addBoard(wood, members[at], members[at + 1], members[at + 2], members[at + 3], out * (WorldScene.WALL_HALF - CASING_INTO),
-                        out * (WorldScene.WALL_HALF + CASING_PROUD), (int) members[at + 4], sideRed[side], sideGreen[side], sideBlue[side]);
+                        out * (WorldScene.WALL_HALF + CASING_PROUD), (int) members[at + 4], doorwayRevealed ? (int) members[at + 5] : NO_EDGE,
+                        sideRed[side], sideGreen[side], sideBlue[side]);
             }
         }
         WorldScene.solid.own(thing);
@@ -587,32 +588,38 @@ final class OpeningBuilder {
         return !wooden ? WorldScene.PAINT : bevelled == AT_HEAD ? JOINERY_LEVEL : JOINERY;
     }
 
-    /** How far a casing's boards stand out of the wall's skin, and how far in from its outer edge and back from its front the bevel along that edge runs, in tiles. */
-    static final float CASING_PROUD = 0.016f, CASING_BEVEL = 0.009f;
+    /**
+     * How far a casing's boards stand out of the wall's skin, and how far in from its outer edge and back from its front the
+     * bevel along that edge runs, in tiles. A skirting runs on behind a post's foot: as proud as the skirting (Trims.BOARD),
+     * the two fronts fought down the foot of every post.
+     */
+    static final float CASING_PROUD = 0.022f, CASING_BEVEL = 0.009f;
     /** How far a casing's boards run back into the wall behind its skin, so no gap shows between the two at a slant. */
     private static final float CASING_INTO = 0.004f;
     /** How near the doorway's cut a post's inner edge has to be read to be put at it, as a share of the wall's length. */
     static final float CASING_SNAP = 0.05f;
     /**
      * Floats a member of a casing takes in casingMembers: along from, along to, foot and head in
-     * levels, and which of its edges is bevelled, as addBoard numbers them: the edge at from, at to,
-     * the foot, the head.
+     * levels, which of its edges is bevelled, as addBoard numbers them: the edge at from, at to,
+     * the foot, the head; and which edge is at the doorway's cut, or NO_EDGE.
      */
-    static final int CASING_MEMBER = 5;
-    static final int AT_FROM = 0, AT_TO = 1, AT_HEAD = 3;
+    static final int CASING_MEMBER = 6;
+    static final int AT_FROM = 0, AT_TO = 1, AT_HEAD = 3, NO_EDGE = -1;
 
     /**
      * The boards of a casing, CASING_MEMBER floats each: the posts, then the head over them. The
      * sprite paints the post nearer its view's side with that side's face as well, so two posts are
      * each as wide as the narrower. A post whose inner edge is within CASING_SNAP of the doorway's
-     * cut, cutStart or cutEnd (below 0 for none measured), has its inner edge at the cut.
+     * cut, cutStart or cutEnd (below 0 for none measured), has its inner edge at the cut, and says so.
      */
     static float[] casingMembers(Windows.Shape casing, float cutStart, float cutEnd) {
         float inStart = casing.start + casing.startWide, inEnd = casing.end - casing.endWide;
-        if (casing.startWide > 0f && cutStart >= 0f && Math.abs(inStart - cutStart) < CASING_SNAP) {
+        boolean startAtCut = casing.startWide > 0f && cutStart >= 0f && Math.abs(inStart - cutStart) < CASING_SNAP;
+        boolean endAtCut = casing.endWide > 0f && cutStart >= 0f && Math.abs(inEnd - cutEnd) < CASING_SNAP;
+        if (startAtCut) {
             inStart = cutStart;
         }
-        if (casing.endWide > 0f && cutStart >= 0f && Math.abs(inEnd - cutEnd) < CASING_SNAP) {
+        if (endAtCut) {
             inEnd = cutEnd;
         }
         float wide = casing.startWide > 0f && casing.endWide > 0f ? Math.min(casing.startWide, casing.endWide) : Math.max(casing.startWide, casing.endWide);
@@ -621,21 +628,22 @@ final class OpeningBuilder {
         int count = 0;
         float headFoot = casing.head - casing.headHigh;
         if (casing.startWide > 0f) {
-            count = member(made, count, start, inStart, casing.foot, headFoot, AT_FROM);
+            count = member(made, count, start, inStart, casing.foot, headFoot, AT_FROM, startAtCut ? AT_TO : NO_EDGE);
         }
         if (casing.endWide > 0f) {
-            count = member(made, count, inEnd, end, casing.foot, headFoot, AT_TO);
+            count = member(made, count, inEnd, end, casing.foot, headFoot, AT_TO, endAtCut ? AT_FROM : NO_EDGE);
         }
-        count = member(made, count, start, end, headFoot, casing.head, AT_HEAD);
+        count = member(made, count, start, end, headFoot, casing.head, AT_HEAD, NO_EDGE);
         return Arrays.copyOf(made, count);
     }
 
-    private static int member(float[] made, int at, float from, float to, float foot, float head, int bevelled) {
+    private static int member(float[] made, int at, float from, float to, float foot, float head, int bevelled, int atCut) {
         made[at] = from;
         made[at + 1] = to;
         made[at + 2] = foot;
         made[at + 3] = head;
         made[at + 4] = bevelled;
+        made[at + 5] = atCut;
         return at + CASING_MEMBER;
     }
 
@@ -643,9 +651,10 @@ final class OpeningBuilder {
      * A board from along from to along to and foot to head in levels, between across back and front
      * tiles into the square: its front, its four edges, and a bevel CASING_BEVEL wide and deep along
      * the edge bevelled, numbered as in CASING_MEMBER. The two edges beside the bevel are cut back
-     * with it.
+     * with it. The edge atCut runs back only to the skin: behind it is the wall's reveal, in the
+     * same plane, and the two fought down the doorway's side of every post.
      */
-    private void addBoard(SpriteGeometry.Mesh mesh, float from, float to, float foot, float head, float back, float front, int bevelled,
+    private void addBoard(SpriteGeometry.Mesh mesh, float from, float to, float foot, float head, float back, float front, int bevelled, int atCut,
             float red, float green, float blue) {
         float[] c = build.reveal;
         float behind = front - Math.signum(front) * CASING_BEVEL;
@@ -673,7 +682,8 @@ final class OpeningBuilder {
             float uncut0 = upright ? up0 : along0, uncut1 = upright ? up1 : along1;
             float cutEnd = bevelled == AT_HEAD ? head : bevelled == AT_FROM ? from : to, cutFront = bevelled == AT_HEAD ? h1 : bevelled == AT_FROM ? f0 : f1;
             float fixed = upright ? along0 : up0;
-            float[] at0 = {uncut0, uncut1, uncut1, uncut0}, depth = {back, back, beside ? behind : front, beside ? behind : front};
+            float edgeBack = edge == atCut ? Math.signum(front) * WorldScene.WALL_HALF : back;
+            float[] at0 = {uncut0, uncut1, uncut1, uncut0}, depth = {edgeBack, edgeBack, beside ? behind : front, beside ? behind : front};
             for (int k = 0; k < 4; k++) {
                 edgePoint(c, k, upright, fixed, at0[k], depth[k]);
             }
