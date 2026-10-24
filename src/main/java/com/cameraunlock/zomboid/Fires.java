@@ -18,7 +18,7 @@ import zombie.iso.objects.IsoFireManager;
  * keeps as an IsoFire and the logic thread gathers each picture, and
  * a hearth, a fire inside a piece the mod stands a model of, which the chunk's build notes where
  * the model is stood (Models.Instances.fire), or where the game's sprite stands for a hearth the
- * mod has no model of. With the OwnFire row of [Content] off, and in the game's own look
+ * mod has no model of. With the VanillaFire row of [Content] on, and in the game's own look
  * (Quality.plain), the same fires are drawn as the game's own flames and smoke, its frames stood
  * up where they burn, with no light of the picture's: the game lights round them itself.
  */

@@ -5566,7 +5566,7 @@ final class Pipeline {
                 pieces.add(materialPiece(material));
             }
         }
-        // Every mode draws the arms on a held weapon as OwnArms says, Low included: see Own.arms.
+        // Every mode draws the arms on a held weapon as VanillaArms says, Low included: see Own.arms.
         pieces.add(new Piece(OwnArms::readAhead, OwnArms::isRead, OwnArms::prepare));
         return pieces;
     }

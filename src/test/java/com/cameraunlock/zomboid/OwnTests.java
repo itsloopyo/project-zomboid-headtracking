@@ -54,21 +54,21 @@ final class OwnTests {
 
     /**
      * The game's own arms, moved with the weapon to before the eye, hang in the middle of the
-     * picture, so Low draws the mod's own on a held weapon too. OwnArms off is the game's arms in
+     * picture, so Low draws the mod's own on a held weapon too. VanillaArms on is the game's arms in
      * every mode, as Low drew them before, for a player whose other mods change the arms.
      */
     private static void theArmsOnAHeldWeaponGoByTheirRowInEveryMode() {
         Own.set(Own.ALL);
         Own.taken(0);
         Quality.set(0, Quality.LOW);
-        check(Own.arms() && !Own.weapons(0) && !Own.people(0), "in Low with OwnArms on the arms on a held weapon are the mod's, and nothing else of its own is shown");
+        check(Own.arms() && !Own.weapons(0) && !Own.people(0), "in Low with VanillaArms off the arms on a held weapon are the mod's, and nothing else of its own is shown");
         check(!Own.taken(0), "and they are drawn without the world being built again");
         Own.set(Own.ALL & ~Own.ARMS);
-        check(!Own.arms(), "in Low with OwnArms off they are the game's own, as Low drew them before");
+        check(!Own.arms(), "in Low with VanillaArms on they are the game's own, as Low drew them before");
         Own.taken(0);
         for (int mode : new int[] {Quality.MEDIUM, Quality.HIGH, Quality.AUTOMATIC}) {
             Quality.set(0, mode);
-            check(!Own.arms() && Own.weapons(0), "OwnArms off is the game's arms in " + Quality.name(0) + " too, with the rest of the mod's own shown");
+            check(!Own.arms() && Own.weapons(0), "VanillaArms on is the game's arms in " + Quality.name(0) + " too, with the rest of the mod's own shown");
         }
         Own.set(Own.ALL);
         Own.picturesMade(false);

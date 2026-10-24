@@ -6,8 +6,8 @@ import java.util.Arrays;
  * What the mod made itself and shows in first person in place of the game's own: its weapon
  * models, furniture, wall pictures, plants, surface textures, built windows and doors and the
  * skins of zombies, of the living and of animals, the cloth, leather and hair of what they wear, and fire. Each
- * is a row of [Content] in CameraUnlock.ini, on unless the player says otherwise, and with a
- * row off the picture draws what the game has there, which may be another mod's.
+ * is a Vanilla row of [Content] in CameraUnlock.ini, the mod's unless the player says otherwise, and with a
+ * row on the picture draws what the game has there, which may be another mod's. Here a bit is on for the mod's own.
  *
  * The rows are read again while the game runs. The thread that watches the file sets them, the
  * logic thread reads them as it builds the world and the render thread as it draws a frame.

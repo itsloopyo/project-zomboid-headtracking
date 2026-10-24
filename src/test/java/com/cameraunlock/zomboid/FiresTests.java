@@ -5,7 +5,7 @@ import static com.cameraunlock.zomboid.Checks.check;
 /**
  * Tests of fire as first person draws it: how big a square's fire is through its life, where a
  * hearth's fire stands in its model however the model is turned, how its light flickers and
- * which lights are kept, the part of the picture a fire is drawn over, and that the OwnFire row
+ * which lights are kept, the part of the picture a fire is drawn over, and that the VanillaFire row
  * and the game's own look leave fire to the game's sprites.
  */
 final class FiresTests {

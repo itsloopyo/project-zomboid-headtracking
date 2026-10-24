@@ -101,7 +101,7 @@ final class LowTests {
 
     /**
      * Low makes none of the mod's own content (Pipeline.CONTENT), and draws the mod's arms on a
-     * held weapon all the same, as OwnArms says: they are a piece of the core, kept when a mode
+     * held weapon all the same, as VanillaArms says: they are a piece of the core, kept when a mode
      * that shows none of the content gives it back, and the one place that chooses them asks
      * Own.arms. The rule itself is run in OwnTests.
      */

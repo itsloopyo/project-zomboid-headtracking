@@ -22,8 +22,8 @@ import zombie.core.textures.Texture;
  * thin and does not crawl. The triangles lie on the road as its other overlays do, and the
  * picture lights, wets, shades and snows them as it does the road.
  *
- * It is the game's own marking and the game's colour. The row OwnTextures of [Content] says
- * whether the mod draws it: off, the sprite is drawn as the game has it.
+ * It is the game's own marking and the game's colour. The row VanillaTextures of [Content] says
+ * whether the mod draws it: on, the sprite is drawn as the game has it.
  */
 final class RoadPaint {
     /** Dots to a side of a sprite laid flat to be read: the game's tile is this many dots across at its doubled scale. And how many dots past the square each way are read with it: a sprite may paint a little past its square. */

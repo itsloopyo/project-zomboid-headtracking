@@ -664,30 +664,30 @@ public final class CoreTests {
     private static void rowsReadAgainWhileTheGameRuns() throws IOException, InterruptedException {
         Tracking.watchSettings();
         String saved = text();
-        edit(saved.replace("FieldOfView=65.0", "FieldOfView=90").replace("OwnWeapons=true", "OwnWeapons=false")
-                .replace("OwnPlants=true", "OwnPlants=false").replace("Quality=Medium", "Quality=High").replace("Style=Vivid", "Style=Natural")
+        edit(saved.replace("FieldOfView=65.0", "FieldOfView=90").replace("VanillaWeapons=false", "VanillaWeapons=true")
+                .replace("VanillaPlants=false", "VanillaPlants=true").replace("Quality=Medium", "Quality=High").replace("Style=Vivid", "Style=Natural")
                 .replace("MuzzleFlash=true", "MuzzleFlash=false").replace("Crosshair=true", "Crosshair=false").replace("SplitScreen=Horizontal", "SplitScreen=Vertical").replace("UdpPort=default", "UdpPort=5555")
                 .replace("HillHeight=1.5", "HillHeight=0.25"));
         Tracking.watchSettings();
         check(FieldOfView.degrees() == 90f, "an edited field of view is read while the game runs");
         check(HillHeight.asked() == 0.25f, "and the height of the hills: " + HillHeight.asked());
-        check(Own.rows() == (Own.ALL & ~Own.WEAPONS & ~Own.PLANTS), "rows of [Content] switched off are, and the rest stay on: " + Own.described(Own.rows()));
+        check(Own.rows() == (Own.ALL & ~Own.WEAPONS & ~Own.PLANTS), "rows of [Content] switched on are the game's, and the rest stay the mod's: " + Own.described(Own.rows()));
         check(Quality.name(0).equals("High") && Style.of(0) == Style.NATURAL, "and the graphics mode and the picture style");
         check(SplitScreen.row() == SplitScreen.VERTICAL, "and how two players share the screen");
         check(!MuzzleFlash.on(), "and the muzzle flash switched off");
         check(!Crosshair.on(), "and the mod's own crosshair switched off");
-        edit(saved.replace("OwnArms=true", "OwnArms=false"));
+        edit(saved.replace("VanillaArms=false", "VanillaArms=true"));
         Tracking.watchSettings();
         check(FieldOfView.degrees() == 65f && Own.rows() == (Own.ALL & ~Own.ARMS) && Quality.name(0).equals("Medium") && Style.of(0) == Style.VIVID
                         && MuzzleFlash.on() && Crosshair.on() && SplitScreen.row() == SplitScreen.HORIZONTAL && HillHeight.asked() == 1.5f,
-                "set back, they are as they were, and the arms row switched off is that row and no other: " + Own.described(Own.rows()));
+                "set back, they are as they were, and the arms row switched on is that row and no other: " + Own.described(Own.rows()));
         Tracking.cycleStyle(0);
         check(Style.of(0) == Style.NATURAL, "a save after an edit still saves");
-        check(saved("Style=Natural", "OwnArms=false"), "and leaves the edited row in the file");
+        check(saved("Style=Natural", "VanillaArms=true"), "and leaves the edited row in the file");
 
         edit(text().replace("FieldOfView=65.0", "FieldOfView=80"));
         Tracking.cycleStyle(0);
-        check(saved("Style=Bleak", "FieldOfView=80", "OwnArms=false"), "a save made before the watch has looked at an edit leaves the edited row in the file too");
+        check(saved("Style=Bleak", "FieldOfView=80", "VanillaArms=true"), "a save made before the watch has looked at an edit leaves the edited row in the file too");
         Tracking.watchSettings();
         check(FieldOfView.degrees() == 80f && Style.of(0) == Style.BLEAK, "and the watch still reads the edit: " + FieldOfView.degrees());
     }
@@ -711,12 +711,13 @@ public final class CoreTests {
                         + "SecondPlayerQuality SecondPlayerIsometricQuality SecondPlayerStyle ThirdPlayerQuality ThirdPlayerIsometricQuality ThirdPlayerStyle "
                         + "FourthPlayerQuality FourthPlayerIsometricQuality FourthPlayerStyle TreeQuality "
                         + "GrassDensity RenderScale SharpShadows ViewDistance ZombiesAndPropsDrawDistance FarTreeDistance RainOnGlass ShadingAndLight Reflections "
-                        + "FullSizeTextures SurfaceDepth WholeFigureShadows FrameBlending LightDistance OwnWeapons OwnFurniture "
-                        + "OwnPictures OwnPlants OwnTextures OwnBuildings OwnZombies OwnPeople OwnArms OwnClothes OwnAnimals OwnFire OwnCabins "
+                        + "FullSizeTextures SurfaceDepth WholeFigureShadows FrameBlending LightDistance VanillaWeapons VanillaFurniture "
+                        + "VanillaPictures VanillaPlants VanillaTextures VanillaBuildings VanillaZombies VanillaPeople VanillaArms VanillaClothes VanillaAnimals VanillaFire "
+                        + "VanillaCabins "
                         + "ShotsThroughWalls ShotsBreakLamps ShotsWoundLimbs VehiclesSmashThrough FacesTheView ShotsPastTrees ZombiesSeenAtOnce TalkingMouths "),
                 "the game's options screen is given the modes, the yaw mode and the mod's own rows, and no key list, port or microphone: " + ids);
         int fov = optionNamed(options, "FieldOfView"), yaw = optionNamed(options, "WorldSpaceYaw"), tracking = optionNamed(options, "TrackingMode"),
-                aim = optionNamed(options, "AimMode"), arms = optionNamed(options, "OwnArms"), flash = optionNamed(options, "MuzzleFlash");
+                aim = optionNamed(options, "AimMode"), arms = optionNamed(options, "VanillaArms"), flash = optionNamed(options, "MuzzleFlash");
         boolean taken = true;
         for (CameraUnlock.Option option : options) {
             taken &= Tracking.takes(option);
@@ -729,9 +730,9 @@ public final class CoreTests {
                         && (Tracking.optionValue(yaw) != 0) == Tracking.worldYaw()
                         && (Tracking.optionValue(flash) != 0) == MuzzleFlash.on() && options[flash].label.equals("Muzzle flash"),
                 "each reads as the session has it");
-        check(options[arms].kind == CameraUnlock.OPTION_BOOL && options[arms].label.equals("Own arms") && options[arms].comment.contains("held weapon")
+        check(options[arms].kind == CameraUnlock.OPTION_BOOL && options[arms].label.equals("Vanilla arms") && options[arms].comment.contains("held weapon")
                         && options[arms].comment.contains("mod that changes the arms or the weapons"),
-                "the arms are a tick box whose tooltip says what they are and what they are off for: " + options[arms].label);
+                "the arms are a tick box whose tooltip says what they are and what they are on for: " + options[arms].label);
 
         int overhead = optionNamed(options, "IsometricQuality");
         check(Tracking.optionValue(overhead) == Quality.overheadRow(0) - Quality.LOW && options[overhead].label.equals("Isometric quality"),
@@ -742,14 +743,14 @@ public final class CoreTests {
         Tracking.applyOption(overhead, options[overhead], 0);
         check(Quality.overheadRow(0) == Quality.LOW && saved("IsometricQuality=Low"), "and set back to Low");
 
-        boolean world = !Tracking.worldYaw(), flashed = !MuzzleFlash.on(), ownArms = (Own.rows() & Own.ARMS) == 0;
+        boolean world = !Tracking.worldYaw(), flashed = !MuzzleFlash.on(), vanillaArms = (Own.rows() & Own.ARMS) != 0;
         int[] applied = {fov, yaw, tracking, aim, arms, flash};
-        double[] values = {72, world ? 1 : 0, CameraUnlock.TRACKING_POSITION_ONLY, CameraUnlock.AIM_STOCK_SIGHTS, ownArms ? 1 : 0, flashed ? 1 : 0};
+        double[] values = {72, world ? 1 : 0, CameraUnlock.TRACKING_POSITION_ONLY, CameraUnlock.AIM_STOCK_SIGHTS, vanillaArms ? 1 : 0, flashed ? 1 : 0};
         for (int i = 0; i < applied.length; i++) {
             Tracking.applyOption(applied[i], options[applied[i]], values[i]);
         }
         check(FieldOfView.degrees() == 72f && Tracking.worldYaw() == world && Tracking.aimMode() == CameraUnlock.AIM_STOCK_SIGHTS
-                        && Tracking.trackingModeLabel().equals("position only") && ((Own.rows() & Own.ARMS) != 0) == ownArms
+                        && Tracking.trackingModeLabel().equals("position only") && ((Own.rows() & Own.ARMS) == 0) == vanillaArms
                         && MuzzleFlash.on() == flashed,
                 "what is applied there the session takes at once, before any of it is saved: " + started());
         Tracking.toggleWorldYaw();
@@ -757,10 +758,10 @@ public final class CoreTests {
         check(Tracking.worldYaw() == !world, "a key pressed straight after is not undone by the saves that follow");
         Tracking.toggleWorldYaw();
         check(saved("FieldOfView=72.0", "WorldSpaceYaw=" + world, "RotationEnabled=false", "PositionEnabled=true", "StockSights=true",
-                        "OwnArms=" + ownArms, "MuzzleFlash=" + flashed),
+                        "VanillaArms=" + vanillaArms, "MuzzleFlash=" + flashed),
                 "what is applied there is saved as its row, or the rows of its mode");
         check(FieldOfView.degrees() == 72f && Tracking.worldYaw() == world && Tracking.aimMode() == CameraUnlock.AIM_STOCK_SIGHTS
-                        && Tracking.trackingModeLabel().equals("position only") && ((Own.rows() & Own.ARMS) != 0) == ownArms
+                        && Tracking.trackingModeLabel().equals("position only") && ((Own.rows() & Own.ARMS) == 0) == vanillaArms
                         && MuzzleFlash.on() == flashed,
                 "and the session still runs on it once the saves are made: " + started());
         check(Tracking.optionValue(fov) == 72 && Tracking.optionValue(tracking) == CameraUnlock.TRACKING_POSITION_ONLY,

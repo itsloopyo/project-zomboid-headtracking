@@ -38,7 +38,7 @@
 - Three aim modes on `Insert`: sights locked (default, the weapon follows your lean), free look (your head moves around the weapon) and stock sights (head turn and lean ease out while aiming, tilt stays).
 - Aiming a firearm zooms the view. Head movement is scaled so the zoom doesn't magnify it.
 - Held weapons are drawn like a modern shooter: low right at the hip, raised to the sights, swaying, with recoil based on each weapon's recoil stat and a muzzle flash (`MuzzleFlash`).
-- The mod's own arms and hands hold each gun by its real grip, read from the gun's model, so guns from other mods are held right too. Handguns are held two-handed when your left hand is free. `OwnArms=false` uses the game's arms.
+- The mod's own arms and hands hold each gun by its real grip, read from the gun's model, so guns from other mods are held right too. Handguns are held two-handed when your left hand is free. `VanillaArms=true` uses the game's arms.
 - Reload and action animations: pump shotguns rack, pistols cycle their slide, lock back when empty and swap magazines, revolvers turn the cylinder and load one round at a time, double barrels break open and throw out the spent shells, the assault rifle, the battle rifle and the self-loading rifle and carbine cycle their bolt and throw out a case with every shot, hold the bolt back on the last round and let an empty magazine fall from the hand, lever guns swing the lever down and back and throw the fired case out of the top, and the toy cap rifle's hammer falls and its cylinder turns with each shot.
 - A sawn-off has no stock, so it kicks in your hands when aiming too.
 - Red dot sights, lasers and gun lights are drawn on the mod's gun models. With a red dot sight on a long gun the eye is raised to look through it.
@@ -63,7 +63,7 @@
 #### Vehicles
 
 - First person from any seat. The view tilts and rolls with the vehicle on its springs and in crashes.
-- Full interiors for every vehicle in the game, with working speedometer (mph), rev counter and fuel gauge, and hands on the wheel (`OwnCabins`). The game's dashboard panel is hidden in first person.
+- Full interiors for every vehicle in the game, with working speedometer (mph), rev counter and fuel gauge, and hands on the wheel (`VanillaCabins`). The game's dashboard panel is hidden in first person.
 - Working rear-view and side mirrors. Zombies behind the vehicle show in them up to 30 tiles back.
 - Rain and snow on the windows: drops land, run down and are cleared by the wipers. Snow melts on the windscreen and piles up where the wipers park.
 - Snow settles on vehicle roofs, bonnets and windscreens. Engine heat and wipers clear the windscreen.
@@ -82,14 +82,14 @@
 - A TV that is on shows a moving picture: test bars with no signal, otherwise the show on its channel or tape.
 - Pictures on walls and the shows on TV are stills staged and shot in the game.
 - Pictures, banners and bunting on walls.
-- Sharper skins for zombies, survivors and clothing. Animals get new detailed skins (`OwnAnimals`).
+- Sharper skins for zombies, survivors and clothing. Animals get new detailed skins (`VanillaAnimals`).
 - Hills in the countryside, flat in towns. `HillHeight` sets their height from 0 to 2 (default 1.5).
 - Land and buildings are drawn up to 768 tiles away, past the area the game has loaded.
 - Distant trees are drawn where the game's map places them (`FarTreeDistance`, up to 768 tiles).
 - Zombies are visible as far as your character can see in the current weather and light, and hidden only by what's between them and you.
 - Single player: in the isometric view a zombie shows as soon as your character has a clear line to it and could see it by the game's rules, instead of late or only once it is close (`ZombiesSeenAtOnce`).
 - Rooms are built before you see into them, so doors open onto furnished rooms. Rooms you can't see into aren't drawn.
-- Each `[Content]` row switches one kind of mod content back to the game's own.
+- Each `Vanilla` row of `[Content]` (`VanillaWeapons`, `VanillaPlants` and the rest) puts one kind of mod content back to the game's own. They are all off by default.
 
 #### Plants and seasons
 
@@ -116,7 +116,7 @@
 - Water flows and reflects.
 - Mirrors on walls, dressers and bathroom cabinets show the room, the people in it and you, in Medium and High with `Reflections` on. Low has no reflections. The glass has a faint tint, smudges and a worn silver edge.
 - In `High`, a shut window seen from inside reflects the room, you and its lights faintly, plainest at night.
-- `Medium` and `High`: burning houses, Molotovs and campfires have flames from a fire simulation, solid from every side and from above, with smoke and flickering firelight. Fireplaces and stoves burn inside. `OwnFire` turns the mod's fire off.
+- `Medium` and `High`: burning houses, Molotovs and campfires have flames from a fire simulation, solid from every side and from above, with smoke and flickering firelight. Fireplaces and stoves burn inside. `VanillaFire` puts the game's fire back.
 - The picture adjusts to the brightness of what you're looking at, like an eye.
 - `Medium` and `High`: every surface reflects the sky, the room or the ground by how rough it is, so metal looks like metal. Skin and clothes take the light the same way.
 - `High`: brick, block and stone walls have depth up close. The mortar lies back between them and the sun's shade falls into the joints.
@@ -125,7 +125,7 @@
 
 - `F9` cycles `Low`, `Medium`, `High`, `Custom` and `Automatic`, fading between them. First person and the isometric view can be set separately in the game's options.
 - `Automatic` lowers the quality when the frame rate drops below 45 and raises it when it holds above 57.
-- `Low` is the game's own look, apart from first person's furniture, windows and doors, which are the mod's models in every mode (`OwnFurniture`, `OwnBuildings`). `Medium` and `High` also redraw the isometric view.
+- `Low` is the game's own look, apart from first person's furniture, windows and doors, which are the mod's models in every mode (`VanillaFurniture`, `VanillaBuildings`). `Medium` and `High` also redraw the isometric view.
 - `F8` cycles the picture styles `Vivid`, `Natural` and `Bleak` (default).
 - `ZombiesAndPropsDrawDistance` (16 to 80 tiles) and `Reflections` settings.
 - `GrassDensity` setting (10 to 100 percent): fewer grass plants for a faster picture. `High` grows all of it, `Medium` and `Low` 40 percent.

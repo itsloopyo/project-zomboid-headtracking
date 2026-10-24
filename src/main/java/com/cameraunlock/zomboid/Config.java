@@ -81,7 +81,7 @@ final class Config {
     private final int[] microphones = new int[MICROPHONE_ROWS.length];
     /** The rows of the ports of players 2, 3 and 4. */
     private final int[] playerPorts = new int[PLAYER_PORT_ROWS.length];
-    /** The rows of [Content], in the order of Own's bits. */
+    /** The rows of [Content], in the order of Own's bits. Each is on for the game's own, so its bit is set where the row is off. */
     private final int[] own;
     /** The rows of [Rules], in the order of Rules' bits. */
     private final int[] rules;
@@ -258,57 +258,58 @@ final class Config {
                 "With two players at the screen, switches between side by side and one above the other.", 0, "F7",
                 SPLIT_SCREEN);
         own = new int[] {
-            core.configLocalBool("Content", "OwnWeapons",
-                    "true: the mod's models of the pump shotgun and its sawn-off, the tactical pump shotgun, the hunting, varmint and\n"
-                            + "tactical rifles, the lever action rifle and carbine, the self-loading rifle and carbine, the double barrelled shotgun\n"
-                            + "and its sawn-off, the pistols, the revolvers, the toy cap pistol and rifle, the assault rifle, the battle rifle and\n"
-                            + "rifle scopes. false: the game's own, with no picture through the scope.",
-                    writable | live, true),
-            core.configLocalBool("Content", "OwnFurniture",
-                    "true: the mod's models of furniture, appliances, street lamps, clocks, picture frames, banners and flags. false: the\n"
-                            + "game's sprites.",
-                    writable | live, true),
-            core.configLocalBool("Content", "OwnPictures",
-                    "true: the mod's own pictures on walls and televisions, where it has one. false: the game's pictures, and only colour\n"
-                            + "bars on a television.",
-                    writable | live, true),
-            core.configLocalBool("Content", "OwnPlants",
-                    "true: the mod's trees, bushes, boulders, grass, ferns, flowers, crops, fallen leaves and fallen sticks. false: the game's\n"
-                            + "sprites.",
-                    writable | live, true),
-            core.configLocalBool("Content", "OwnTextures",
-                    "true: the mod's textures of ground, wood, roofing, paint, carpet, cloth and wallpaper, and clean road lines. false:\n"
-                            + "the colours of the game's sprites.",
-                    writable | live, true),
-            core.configLocalBool("Content", "OwnBuildings",
-                    "true: windows, doors, curtains, handrails, chain link fences, open stairs and wall finishes built by the mod. false:\n"
-                            + "the game's sprites.",
-                    writable | live, true),
-            core.configLocalBool("Content", "OwnZombies",
-                    "true: the mod's skins, with lifelike faces, for zombies near you. false: the game's own skins.",
-                    writable | live, true),
-            core.configLocalBool("Content", "OwnPeople",
-                    "true: the mod's skins, with lifelike faces, for your character and other living people. false: the game's own skins.",
-                    writable | live, true),
-            core.configLocalBool("Content", "OwnArms",
-                    "true: the mod's arms and hands on a held weapon, working its bolt, slide and magazine. false: the game's own, for a\n"
-                            + "mod that changes the arms or the weapons.",
-                    writable | live, true),
-            core.configLocalBool("Content", "OwnClothes",
-                    "true: clothes and hair near you are sharpened, with the weave, knit, grain or strands of what they are made of.\n"
-                            + "false: the game's own pictures.",
-                    writable | live, true),
-            core.configLocalBool("Content", "OwnAnimals",
-                    "true: the mod's skins for animals near you, with the hair of their coats. false: the game's own skins.",
-                    writable | live, true),
-            core.configLocalBool("Content", "OwnFire",
-                    "true: flames, smoke and firelight for burning buildings, Molotovs, campfires, fireplaces, wood stoves, burn barrels\n"
-                            + "and cooking pits. false: the game's own flat flames and smoke, stood up where they burn.",
-                    writable | live, true),
-            core.configLocalBool("Content", "OwnCabins",
-                    "true: the mod's models of the inside of the vehicle you sit in, its dashboard, instruments, wheel, seats and doors.\n"
-                            + "false: the game's own, with its glass cut away.",
-                    writable | live, true),
+            core.configLocalBool("Content", "VanillaWeapons",
+                    "true: the game's own weapons, with no picture through the scope. false: the mod's models of the pump shotgun and\n"
+                            + "its sawn-off, the tactical pump shotgun, the hunting, varmint and tactical rifles, the lever action rifle and\n"
+                            + "carbine, the self-loading rifle and carbine, the double barrelled shotgun and its sawn-off, the pistols, the\n"
+                            + "revolvers, the toy cap pistol and rifle, the assault rifle, the battle rifle and rifle scopes.",
+                    writable | live, false),
+            core.configLocalBool("Content", "VanillaFurniture",
+                    "true: the game's sprites. false: the mod's models of furniture, appliances, street lamps, clocks, picture frames,\n"
+                            + "banners and flags.",
+                    writable | live, false),
+            core.configLocalBool("Content", "VanillaPictures",
+                    "true: the game's pictures on walls, and only colour bars on a television. false: the mod's own pictures on walls\n"
+                            + "and televisions, where it has one.",
+                    writable | live, false),
+            core.configLocalBool("Content", "VanillaPlants",
+                    "true: the game's sprites. false: the mod's trees, bushes, boulders, grass, ferns, flowers, crops, fallen leaves and\n"
+                            + "fallen sticks.",
+                    writable | live, false),
+            core.configLocalBool("Content", "VanillaTextures",
+                    "true: the colours of the game's sprites. false: the mod's textures of ground, wood, roofing, paint, carpet, cloth\n"
+                            + "and wallpaper, and clean road lines.",
+                    writable | live, false),
+            core.configLocalBool("Content", "VanillaBuildings",
+                    "true: the game's sprites. false: windows, doors, curtains, handrails, chain link fences, open stairs and wall\n"
+                            + "finishes built by the mod.",
+                    writable | live, false),
+            core.configLocalBool("Content", "VanillaZombies",
+                    "true: the game's own skins for zombies. false: the mod's skins, with lifelike faces, for zombies near you.",
+                    writable | live, false),
+            core.configLocalBool("Content", "VanillaPeople",
+                    "true: the game's own skins for people. false: the mod's skins, with lifelike faces, for your character and other\n"
+                            + "living people.",
+                    writable | live, false),
+            core.configLocalBool("Content", "VanillaArms",
+                    "true: the game's own arms and hands on a held weapon, for a mod that changes the arms or the weapons. false: the\n"
+                            + "mod's, working its bolt, slide and magazine.",
+                    writable | live, false),
+            core.configLocalBool("Content", "VanillaClothes",
+                    "true: the game's own pictures of clothes and hair. false: clothes and hair near you are sharpened, with the weave,\n"
+                            + "knit, grain or strands of what they are made of.",
+                    writable | live, false),
+            core.configLocalBool("Content", "VanillaAnimals",
+                    "true: the game's own skins for animals. false: the mod's skins for animals near you, with the hair of their coats.",
+                    writable | live, false),
+            core.configLocalBool("Content", "VanillaFire",
+                    "true: the game's own flat flames and smoke, stood up where they burn. false: flames, smoke and firelight for\n"
+                            + "burning buildings, Molotovs, campfires, fireplaces, wood stoves, burn barrels and cooking pits.",
+                    writable | live, false),
+            core.configLocalBool("Content", "VanillaCabins",
+                    "true: the game's own inside of the vehicle you sit in, with its glass cut away. false: the mod's models of it, its\n"
+                            + "dashboard, instruments, wheel, seats and doors.",
+                    writable | live, false),
         };
         rules = new int[] {
             core.configLocalBool("Rules", "ShotsThroughWalls",
@@ -380,12 +381,12 @@ final class Config {
             Microphones.set(value != 0, Tracking.microphones().toArray(String[]::new));
             Log.info("talking mouths " + (value != 0 ? "on" : "off: no microphone is opened"));
         });
-        String[] ownKeys = {"OwnWeapons", "OwnFurniture", "OwnPictures", "OwnPlants", "OwnTextures", "OwnBuildings", "OwnZombies", "OwnPeople",
-            "OwnArms", "OwnClothes", "OwnAnimals", "OwnFire", "OwnCabins"};
-        for (int i = 0; i < ownKeys.length; i++) {
+        String[] vanillaKeys = {"VanillaWeapons", "VanillaFurniture", "VanillaPictures", "VanillaPlants", "VanillaTextures", "VanillaBuildings",
+            "VanillaZombies", "VanillaPeople", "VanillaArms", "VanillaClothes", "VanillaAnimals", "VanillaFire", "VanillaCabins"};
+        for (int i = 0; i < vanillaKeys.length; i++) {
             int bit = 1 << i;
-            puts.put(ownKeys[i], value -> {
-                Own.set(value != 0 ? Own.rows() | bit : Own.rows() & ~bit);
+            puts.put(vanillaKeys[i], value -> {
+                Own.set(value != 0 ? Own.rows() & ~bit : Own.rows() | bit);
                 Log.info("the mod's own in first person: " + Own.described(Own.rows()));
             });
         }
@@ -468,7 +469,7 @@ final class Config {
     Live live() {
         int rows = 0;
         for (int i = 0; i < own.length; i++) {
-            rows |= core.configGetInt(own[i]) << i;
+            rows |= (1 - core.configGetInt(own[i])) << i;
         }
         int changed = 0;
         for (int i = 0; i < rules.length; i++) {

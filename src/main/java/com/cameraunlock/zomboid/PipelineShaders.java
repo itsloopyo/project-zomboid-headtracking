@@ -4187,7 +4187,7 @@ final class PipelineShaders {
      * near it is. It is blood's colour and not the game's red: dark crimson just spilt, glossy
      * while it is wet, and brown and dull as it dries, which the game's shade of each splat,
      * darker the drier it is, says. It hides what it lies on where it is thick, and less as it
-     * dries, as the game's cover does. Without the mod's own textures (OwnTextures, and Low) it
+     * dries, as the game's cover does. Without the mod's own textures (VanillaTextures, and Low) it
      * is the game's own: its red, as much of it as the game shows, mixed in by the game's share
      * of what is shown, which is 1 - (1 - a)^2.2 of the light the picture mixes.
      */
