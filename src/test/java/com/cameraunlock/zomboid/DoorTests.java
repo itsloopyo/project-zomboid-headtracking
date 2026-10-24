@@ -31,6 +31,7 @@ final class DoorTests {
         Checks.run("aShutLeafReadWithItsHandleAtItsStartIsTurnedEndForEnd", DoorTests::aShutLeafReadWithItsHandleAtItsStartIsTurnedEndForEnd);
         Checks.run("aLongHandleIsALeverAndARoundOneAKnob", DoorTests::aLongHandleIsALeverAndARoundOneAKnob);
         Checks.run("aLeversArmRunsFromItsNeckTowardsTheHinges", DoorTests::aLeversArmRunsFromItsNeckTowardsTheHinges);
+        Checks.run("aBeadRunsRoundALightHalfOverItsGlass", DoorTests::aBeadRunsRoundALightHalfOverItsGlass);
     }
 
     private static void capUnderAWallsFootLeavesTheDoorwayFloorBare() {
@@ -491,6 +492,27 @@ final class DoorTests {
             check(arm[0] <= knob && knob <= arm[1], "the arm starts at its neck");
             check(Math.abs((handleAtEnd ? arm[0] : arm[1]) - knob) > Math.abs((handleAtEnd ? arm[1] : arm[0]) - knob), "and runs towards the hinges at " + hinge);
             check(arm[2] < OpeningBuilder.KNOB_HIGH && OpeningBuilder.KNOB_HIGH < arm[3], "at the knob's height");
+        }
+    }
+
+    private static void aBeadRunsRoundALightHalfOverItsGlass() {
+        float t0 = 0.3f, t1 = 0.6f, h0 = 0.5f, h1 = 0.75f;
+        float[] bead = OpeningBuilder.bead(t0, t1, h0, h1, 0.1f, 0.9f, 0f, 0.8f);
+        check(bead.length == 16, "four strips");
+        float[][] edges = {{h0, 0}, {h1, 0}, {t0, 1}, {t1, 1}};
+        for (int strip = 0; strip < 4; strip++) {
+            int at = strip * 4;
+            float lineAt = edges[strip][0];
+            boolean upright = edges[strip][1] == 1;
+            float from = upright ? bead[at] : bead[at + 2], to = upright ? bead[at + 1] : bead[at + 3];
+            check(from < lineAt && lineAt < to && Math.abs((lineAt - from) - (to - lineAt)) < 1e-5f, "strip " + strip + " lies half each side of the light's edge");
+        }
+        check(bead[0] < t0 && bead[1] > t1, "the head runs the whole light");
+        check(bead[10] > h0 && bead[11] < h1, "the sides stand between head and foot");
+        float[] edge = OpeningBuilder.bead(0.1f, 0.9f, 0.5f, 0.8f, 0.1f, 0.9f, 0f, 0.8f);
+        for (int at = 0; at < edge.length; at += 4) {
+            check(edge[at] >= 0.1f && edge[at + 1] <= 0.9f && edge[at + 3] <= 0.8f, "a light with no stile or rail beside it keeps its bead on the leaf: strip " + at / 4);
+            check(edge[at] < edge[at + 1] && edge[at + 2] < edge[at + 3], "and every strip of it some length and height: strip " + at / 4);
         }
     }
 }

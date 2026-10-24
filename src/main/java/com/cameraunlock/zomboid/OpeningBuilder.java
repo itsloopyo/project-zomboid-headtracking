@@ -81,6 +81,8 @@ final class OpeningBuilder {
     static final float KNOB_HIGH = 0.4f, KNOB_IN = 0.1f, KNOB_ROUND = 0.017f, KNOB_OUT = 0.034f, KNOB_NECK = 0.4f;
     /** A lever's arm: how long along the leaf from its neck, how high, and how far off the face it starts (where the neck ends), in tiles. */
     static final float LEVER_ARM = 0.1f, LEVER_HIGH = 0.016f, LEVER_NEAR = KNOB_OUT * 0.45f;
+    /** A glazing bead: how wide, and how far proud of the face, in tiles. */
+    static final float BEAD_WIDE = 0.014f, BEAD_PROUD = 0.004f;
     /**
      * A door's hinges and knob, of metal. A model's own metal is numbered among the models'
      * surfaces, which on a face of the world's own are kinds of floorboard: see WORLD_VERTEX.
@@ -466,6 +468,13 @@ final class OpeningBuilder {
                     for (int row = 0; row < up.length; row += 2) {
                         addRaisedPanel(wood, from, to, leaf.foot + high * up[row], leaf.foot + high * up[row + 1], face, r, g, b);
                     }
+                }
+            }
+            // A bead of wood holds the glass in each light, standing a little proud of the face round it.
+            for (int pane = 0; pane < leaf.panes.length; pane += 5) {
+                float[] bead = bead(leaf.panes[pane], leaf.panes[pane + 1], leaf.panes[pane + 2], leaf.panes[pane + 3], leaf.start, leaf.end, leaf.foot, leaf.head);
+                for (int at = 0; at < bead.length; at += 4) {
+                    addJoinery(wood, bead[at], bead[at + 1], bead[at + 2], bead[at + 3], face + Math.signum(face) * BEAD_PROUD, r, g, b);
                 }
             }
             // A garage door is lifted by a handle at its foot and rides in tracks: no knob, no hinges.
@@ -1130,6 +1139,22 @@ final class OpeningBuilder {
         }
         mesh.open = open;
         mesh.day = day;
+    }
+
+    /**
+     * The four strips of a bead round a light from along t0 to t1 and from foot h0 to head h1 in
+     * levels: each strip's along from, along to, foot and head. Each lies half over the glass
+     * and half over the wood round it, the head and foot across the whole light, and none past
+     * the leaf's start, end, foot or head, where a light with no stile or rail beside it runs.
+     */
+    static float[] bead(float t0, float t1, float h0, float h1, float start, float end, float foot, float head) {
+        float half = BEAD_WIDE / 2f, up = half / ViewCamera.LEVEL_HEIGHT;
+        float from = Math.max(start, t0 - half), to = Math.min(end, t1 + half), low = Math.max(foot, h0 - up), high = Math.min(head, h1 + up);
+        return new float[] {
+                from, to, low, h0 + up,
+                from, to, h1 - up, high,
+                from, t0 + half, h0 + up, h1 - up,
+                t1 - half, to, h0 + up, h1 - up};
     }
 
     /** A lever's arm: along from, along to, foot and head in levels, from the neck at along knob towards the hinges, at the end away from the handle. */
