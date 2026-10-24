@@ -1,9 +1,6 @@
 package org.lwjgl.opengl;
 
 public final class GLCapabilities {
-    public final boolean OpenGL30;
-    public final boolean OpenGL32;
-    public final boolean OpenGL33;
     public final boolean OpenGL42;
     public final boolean OpenGL44;
     public final boolean OpenGL45;
@@ -12,8 +9,6 @@ public final class GLCapabilities {
     public final boolean GL_ARB_texture_compression_bptc;
     public final boolean GL_ARB_multi_bind;
     public final boolean GL_ARB_get_texture_sub_image;
-    public final boolean GL_ARB_sampler_objects;
-    public final boolean GL_ARB_sync;
     public final boolean GL_ARB_buffer_storage;
     public final boolean GL_ARB_texture_storage;
     public final boolean GL_ARB_polygon_offset_clamp;

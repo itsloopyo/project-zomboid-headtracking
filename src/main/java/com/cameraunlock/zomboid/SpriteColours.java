@@ -80,11 +80,11 @@ final class SpriteColours {
     private static final int WAITED_FOR_A_SHEET = 240;
     private static int sizeless;
     /**
-     * Whether the graphics card unpacks the part of a sheet read into a target of its own (see
-     * copying), else whether it copies back part of a sheet, and whether it fences the copy,
-     * asked once on the first reading.
+     * Whether the shader that unpacks the part of a sheet read into a target of its own linked
+     * (see copying), else whether the graphics card copies back part of a sheet, asked once on
+     * the first reading.
      */
-    private static boolean cardAsked, unpacks, inParts, fences, errorLeftLogged;
+    private static boolean cardAsked, unpacks, inParts, errorLeftLogged;
     /** OpenGL keeps at most one flag for each kind of error it has. */
     private static final int GL_ERROR_FLAGS = 8;
     private static final int GL_STREAM_READ = 0x88E1, GL_SYNC_GPU_COMMANDS_COMPLETE = 0x9117, GL_ALREADY_SIGNALED = 0x911A, GL_CONDITION_SATISFIED = 0x911C;
@@ -126,7 +126,8 @@ final class SpriteColours {
                 gl_FragColor = texelFetch(uSheet, ivec2(gl_FragCoord.xy) + uFrom, 0);
             }
             """;
-    static final SmallProgram unpack = new SmallProgram("sprite sheet unpacking", UNPACK_VERTEX, UNPACK_FRAGMENT);
+    static final SmallProgram unpack = new SmallProgram("sprite sheet unpacking",
+            "sprite sheets are copied back as stored, which waits for the driver to unpack a compressed one", UNPACK_VERTEX, UNPACK_FRAGMENT);
     /** Whether the page was let go and no frame has read since: what the graphics card holds for it is then given back by giveBackIdle. */
     private static boolean letGo;
 
@@ -238,19 +239,15 @@ final class SpriteColours {
         if (!cardAsked) {
             GLCapabilities card = GL.getCapabilities();
             cardAsked = true;
-            if (card.OpenGL33 || card.OpenGL30 && card.GL_ARB_sampler_objects) {
-                int previous = GL11.glGetInteger(GL_CURRENT_PROGRAM);
-                unpacks = unpack.use();
-                Program.useOther(previous);
-            }
+            int previous = GL11.glGetInteger(GL_CURRENT_PROGRAM);
+            unpacks = unpack.use();
+            Program.useOther(previous);
             inParts = card.OpenGL45 || card.GL_ARB_get_texture_sub_image;
-            fences = card.OpenGL32 || card.GL_ARB_sync;
-            if (!fences) {
-                Log.info("this graphics card has neither OpenGL 3.2 nor ARB_sync: a copy of a sprite sheet is taken up on the next frame, which waits for the card to have made it");
-            }
-            if (!unpacks) {
-                Log.info("this graphics card has no OpenGL 3.3 (nor 3.0 with ARB_sampler_objects), or refused the shader that unpacks sprite sheets: the colours of sprites are copied"
-                        + " back as the sheet is stored, which waits for the driver to unpack a compressed sheet");
+            if (unpacks) {
+                Log.info("sprite colours: each part of a sprite sheet read is unpacked by the graphics card into a target of its own and copied back from there");
+            } else {
+                Log.info("the driver refused the shader that unpacks sprite sheets: the colours of sprites are copied back as the sheet is stored, which waits for the driver"
+                        + " to unpack a compressed sheet");
             }
             if (!unpacks && !inParts) {
                 Log.info("this graphics card has neither OpenGL 4.5 nor ARB_get_texture_sub_image: the colours of sprites are read from a copy of their whole sheet");
@@ -365,7 +362,7 @@ final class SpriteColours {
         copyWidth = width;
         copyHeight = height;
         if (width > 0 && height > 0) {
-            copyFence = fences ? GL32.glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0) : 0L;
+            copyFence = GL32.glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
             copying = true;
         } else {
             // A sheet that never had a size is kept as painting nothing, as it was: there is no copy to wait for.
@@ -493,21 +490,17 @@ final class SpriteColours {
     /** Takes up the copy being made once the graphics card has made it, and reads its sprites. */
     private static void takeCopy() {
         if (copyDropped) {
-            if (copyFence != 0L) {
-                GL32.glDeleteSync(copyFence);
-            }
+            GL32.glDeleteSync(copyFence);
             copying = copyDropped = false;
             waiting.addAll(copied);
             copied.clear();
             return;
         }
-        if (copyFence != 0L) {
-            int waited = GL32.glClientWaitSync(copyFence, 0, 0L);
-            if (waited != GL_ALREADY_SIGNALED && waited != GL_CONDITION_SATISFIED) {
-                return;
-            }
-            GL32.glDeleteSync(copyFence);
+        int waited = GL32.glClientWaitSync(copyFence, 0, 0L);
+        if (waited != GL_ALREADY_SIGNALED && waited != GL_CONDITION_SATISFIED) {
+            return;
         }
+        GL32.glDeleteSync(copyFence);
         copying = false;
         int bytes = Math.max(copyAcross * copyDown * 4, 1);
         if (page == null || page.capacity() < bytes) {

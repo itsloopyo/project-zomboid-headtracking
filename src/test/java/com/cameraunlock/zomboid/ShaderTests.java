@@ -39,7 +39,7 @@ final class ShaderTests {
     private static final List<String> HANDS_OVER = List.of("Program.java", "SmallProgram.java", "CharacterDraw.java", "OwnArms.java");
 
     private static final Pattern LINKED = Pattern.compile("Program\\.link\\(\\s*\"([^\"]+)\"\\s*,([^,()]+),([^,()]+),");
-    private static final Pattern SMALL = Pattern.compile("new SmallProgram\\(\\s*\"([^\"]+)\"\\s*,([^,()]+),([^,()]+)\\)");
+    private static final Pattern SMALL = Pattern.compile("new SmallProgram\\(\\s*\"([^\"]+)\"\\s*,(?:\\s*\"[^\"]*\"\\s*,)?([^,()]+),([^,()]+)\\)");
     private static final Pattern STAGED = Pattern.compile("\\bprogram\\(\\s*\"([^\"]+)\"\\s*,([^()]+)\\)");
     private static final Pattern ARMS = Pattern.compile("String\\[\\] sources = \\{([^,{}]+),([^,{}]+)\\};");
     private static final Map<String, String> STAGE = Map.of("GL_VERTEX_SHADER", "vert", "GL_TESS_CONTROL_SHADER", "tesc",

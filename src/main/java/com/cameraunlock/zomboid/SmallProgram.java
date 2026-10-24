@@ -22,13 +22,19 @@ final class SmallProgram {
             }
             """;
 
-    private final String name, vertex, fragment;
+    private final String name, refused, vertex, fragment;
     private boolean made;
     private int id;
     private final HashMap<String, Integer> uniforms = new HashMap<>();
 
     SmallProgram(String name, String vertex, String fragment) {
+        this(name, "the " + name + " is not drawn", vertex, fragment);
+    }
+
+    /** As the other, with what the log says is lost when the driver refuses the program. */
+    SmallProgram(String name, String refused, String vertex, String fragment) {
         this.name = name;
+        this.refused = refused;
         this.vertex = vertex;
         this.fragment = fragment;
     }
@@ -74,7 +80,7 @@ final class SmallProgram {
                 if (compiled) {
                     GL20.glAttachShader(program, shader);
                 } else {
-                    Log.info("the " + name + " is not drawn: stage " + (stage + 1) + " of its shader did not compile: " + GL20.glGetShaderInfoLog(shader));
+                    Log.info(refused + ": stage " + (stage + 1) + " of its shader did not compile: " + GL20.glGetShaderInfoLog(shader));
                 }
                 // An attached shader lives until its program does, so the one delete covers both ends.
                 GL20.glDeleteShader(shader);
@@ -85,7 +91,7 @@ final class SmallProgram {
             }
             GL20.glLinkProgram(program);
             if (GL20.glGetProgrami(program, GL_LINK_STATUS) == 0) {
-                Log.info("the " + name + " is not drawn: its shader did not link: " + GL20.glGetProgramInfoLog(program));
+                Log.info(refused + ": its shader did not link: " + GL20.glGetProgramInfoLog(program));
                 GL20.glDeleteProgram(program);
                 return 0;
             }
