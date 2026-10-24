@@ -42,17 +42,15 @@ final class GlFloor {
         }
         GLCapabilities card = Display.capabilities;
         StringBuilder lacks = new StringBuilder();
-        if (!card.OpenGL33) {
-            lacks.append("OpenGL 3.3");
-        }
         if (!card.GL_EXT_texture_array) {
-            lacks.append(lacks.length() > 0 ? ", " : "").append("EXT_texture_array");
+            lacks.append("EXT_texture_array");
         }
         if (!card.GL_ARB_shader_texture_lod) {
-            lacks.append(lacks.length() > 0 ? ", " : "").append("ARB_shader_texture_lod");
+            lacks.append(lacks.length() > 0 ? " or " : "").append("ARB_shader_texture_lod");
         }
-        if (lacks.length() > 0) {
-            missing = "the graphics card's OpenGL has no " + lacks + ", which first person needs: it stays off and the game is drawn as it is without the mod";
+        if (!card.OpenGL33 || lacks.length() > 0) {
+            String shortOf = !card.OpenGL33 ? "is older than 3.3" + (lacks.length() > 0 ? " and has no " + lacks : "") : "has no " + lacks;
+            missing = "the graphics card's OpenGL " + shortOf + ", which first person needs, so the game is drawn as it is without the mod";
             Log.info(missing);
         }
         asked = true;
@@ -69,7 +67,7 @@ final class GlFloor {
                 + " textures and " + uniforms + " uniform components to a fragment shader, of the " + FRAGMENT_SAMPLERS + " and " + FRAGMENT_UNIFORM_COMPONENTS + " first person needs");
         if (samplers < FRAGMENT_SAMPLERS || uniforms < FRAGMENT_UNIFORM_COMPONENTS) {
             return "the graphics card reads " + samplers + " textures and holds " + uniforms + " uniform components in a fragment shader, and first person's world needs "
-                    + FRAGMENT_SAMPLERS + " and " + FRAGMENT_UNIFORM_COMPONENTS + ": it stays off and the game is drawn as it is without the mod";
+                    + FRAGMENT_SAMPLERS + " and " + FRAGMENT_UNIFORM_COMPONENTS + ", so the game is drawn as it is without the mod";
         }
         return null;
     }
