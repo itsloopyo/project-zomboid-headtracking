@@ -509,6 +509,7 @@ public final class FineSkins {
             each.texture().destroy();
         }
         spent.clear();
+        spentBytes = 0;
         // Destroyed, not handed back to the combiner: it keeps what it is handed for the next skin of that size,
         // and after a change of size or with the view off there is none.
         for (Fine each : fine.values()) {
@@ -580,8 +581,16 @@ public final class FineSkins {
 
     /** Called for each picture drawn, before it is, whether or not anyone in it wears a finer skin. Render thread. */
     static synchronized void tend() {
-        for (Spent first = spent.peek(); first != null && Pipeline.frame() - first.frame() >= SPENT_FRAMES; first = spent.peek()) {
-            spent.poll().texture().destroy();
+        if (spentFrame != Pipeline.frame()) {
+            spentFrame = Pipeline.frame();
+            spentGiven = 0;
+        }
+        for (Spent first = spent.peek(); first != null && Pipeline.frame() - first.frame() >= SPENT_FRAMES
+                && (spentGiven < SPENT_A_FRAME || spentBytes > SPENT_MOST_BYTES); first = spent.peek()) {
+            spent.poll();
+            spentBytes -= first.bytes();
+            first.texture().destroy();
+            spentGiven++;
         }
         if (started && !off) {
             tendOwn();
@@ -593,10 +602,19 @@ public final class FineSkins {
      * waited for the card to finish the composition's draws before it let it go: 20 to 45 ms
      * a skin. Some frames on, the card has long finished with it.
      */
-    private record Spent(Texture texture, int frame) {}
+    private record Spent(Texture texture, int frame, long bytes) {}
 
     private static final ArrayDeque<Spent> spent = new ArrayDeque<>();
     private static final int SPENT_FRAMES = 4;
+    /**
+     * With a crowd's skins composed, letting go of all a composition drew from at once held
+     * frames for 10 to 20 ms in glDeleteTextures, and three a frame for 10 to 16 ms: no more
+     * than this many are let go a frame, unless those waiting hold more than SPENT_MOST_BYTES.
+     */
+    private static final int SPENT_A_FRAME = 1;
+    private static final long SPENT_MOST_BYTES = 256L << 20;
+    private static long spentBytes;
+    private static int spentFrame = -1, spentGiven;
 
     /**
      * Render thread, once first person has been off a while for every view that drew: the skins
@@ -1291,7 +1309,9 @@ public final class FineSkins {
             // destroys what its pool has no room for: handed back, it keeps up to a hundred textures of each size for
             // good, and one clothed body's skins left sixty of them there, 240 MB at 1024 square.
             for (Texture each : onTheWay) {
-                spent.add(new Spent(each, Pipeline.frame()));
+                Spent done = new Spent(each, Pipeline.frame(), 4L * each.getWidth() * each.getHeight());
+                spent.add(done);
+                spentBytes += done.bytes();
             }
         }
     }
