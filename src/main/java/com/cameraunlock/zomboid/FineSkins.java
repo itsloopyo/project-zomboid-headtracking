@@ -312,8 +312,6 @@ public final class FineSkins {
         }
     }
 
-    /** A 2048 by 2048 skin is 16 MB on the graphics card: no more of the skins composed are kept than come to this. */
-    private static final long MOST_BYTES = 512L << 20;
     /**
      * One of the mod's own pictures is kept for the session, and given back only when another
      * is wanted that its cap has no room for, and then only once nothing has composed a skin
@@ -422,16 +420,14 @@ public final class FineSkins {
     /** The paths the jar has no picture at, and each texture name's key in own for what Tailor makes of it: asked of every part of every frame. */
     private static final HashSet<String> jarless = new HashSet<>();
     private static final HashMap<String, String> tailoredKeys = new HashMap<>();
-    /** How much of the card the pictures Tailor made or is making hold, and the most they may. */
+    /** How much of the card the pictures Tailor made or is making hold: no more than VideoMemory.tailoredSkinBytes. */
     private static long tailoredBytes;
-    private static final long TAILORED_MOST_BYTES = 384L << 20;
     /**
      * The same for the jar's own pictures, each counted as the largest the jar holds until it
      * is read: a crowd's bodies are each a 2048 by 2048 picture, and with every one of the
-     * jar's read at once they would hold nearly two gigabytes.
+     * jar's read at once they would hold nearly two gigabytes. No more than VideoMemory.jarSkinBytes.
      */
     private static long jarBytes;
-    private static final long JAR_MOST_BYTES = 512L << 20;
     private static final int JAR_LARGEST = 2048;
     /**
      * The jar's pictures one skin, or one texture worn as it is, still wants read: all of them
@@ -534,9 +530,7 @@ public final class FineSkins {
     }
 
     private static synchronized void refuse(String why, Throwable cause) {
-        if (!off && cause instanceof NoRoom) {
-            Log.info("fine skins are off for this session, and characters wear the game's own: " + cause.getMessage());
-        } else if (!off) {
+        if (!off) {
             Log.error("fine skins are off for this session, and characters wear the game's own: " + why, cause);
         }
         off = true;
@@ -568,6 +562,8 @@ public final class FineSkins {
     }
 
     /** The driver had no room on the graphics card for a texture of the mod's own skins. */
+    private static boolean noRoomSaid;
+
     private static final class NoRoom extends IllegalStateException {
         private static final long serialVersionUID = 1L;
 
@@ -793,7 +789,7 @@ public final class FineSkins {
     };
 
     /**
-     * Has the jar's pictures for the skins ranked read, in that order, as many as JAR_MOST_BYTES
+     * Has the jar's pictures for the skins ranked read, in that order, as many as VideoMemory.jarSkinBytes
      * has room for at the largest they could be, once the graphics mode wears the mod's own
      * skins and the bodies' see-through is begun. Render thread, under the class's lock.
      */
@@ -811,7 +807,7 @@ public final class FineSkins {
         List<String> order = ranked;
         ranked = null;
         wornAsNow();
-        long most = jarMost(), planned = jarBytes;
+        long most = jarMost(), planned = jarBytes, cap = VideoMemory.jarSkinBytes();
         for (String relative : order) {
             if ((ownWorn & rows.computeIfAbsent(relative, Jar::row)) == 0) {
                 continue;
@@ -824,7 +820,7 @@ public final class FineSkins {
                 jarless.add(path);
                 continue;
             }
-            if (planned + most > JAR_MOST_BYTES) {
+            if (planned + most > cap) {
                 break;
             }
             planned += most;
@@ -845,13 +841,13 @@ public final class FineSkins {
      * the rest of the queue is given up. Render thread, under the class's lock.
      */
     private static void readAhead() {
-        long most = jarMost(), now = System.nanoTime();
+        long most = jarMost(), now = System.nanoTime(), cap = VideoMemory.jarSkinBytes();
         while (!aheadQueue.isEmpty() && aheadHeld + most <= AHEAD_HELD_MOST) {
             String path = aheadQueue.remove(0);
             if (own.containsKey(path)) {
                 continue;
             }
-            if (jarBytes + most > JAR_MOST_BYTES) {
+            if (jarBytes + most > cap) {
                 aheadQueue.clear();
                 break;
             }
@@ -1052,7 +1048,7 @@ public final class FineSkins {
 
     /**
      * Destroyed, not handed back to the combiner, which keeps what it is handed for the next
-     * skin of that size and counts none of it against MOST_BYTES: when a crowd has gone there
+     * skin of that size and counts none of it against VideoMemory.skinBytes: when a crowd has gone there
      * is no next skin.
      */
     private static void destroy(Fine made) {
@@ -1122,14 +1118,14 @@ public final class FineSkins {
             }
             spendParts();
         }
-        if (composedFrame == Pipeline.frame() || !roomForASkin(now)) {
+        long skinCap = VideoMemory.skinBytes();
+        if (composedFrame == Pipeline.frame() || !roomForASkin(now, skinCap)) {
             return bound;
         }
         boolean any = anyPacked(recipe);
         if (!settle(recipe)) {
             recipe.plain = true;
-            Log.info("the finer skin for " + result.getName() + " would need more of the mod's own pictures than the "
-                    + (JAR_MOST_BYTES >> 20) + " MB they may hold on the card: it stays the game's own");
+            Log.info("the finer skin for " + result.getName() + " would need more of the mod's own pictures than they may hold on the card: it stays the game's own");
             return bound;
         }
         if (gone) {
@@ -1147,7 +1143,7 @@ public final class FineSkins {
             recipe.plain = true;
             return bound;
         }
-        while (fineBytes >= MOST_BYTES) {
+        while (fineBytes >= skinCap) {
             Iterator<Fine> longestAgo = fine.values().iterator();
             Fine least = longestAgo.next();
             if (now - least.used < KEPT_NANOS) {
@@ -1173,10 +1169,10 @@ public final class FineSkins {
         return made;
     }
 
-    /** Whether a skin composed now would find room: under MOST_BYTES, or with enough of those kept not drawn for KEPT_NANOS to give up. */
-    private static boolean roomForASkin(long now) {
+    /** Whether a skin composed now would find room: under the cap, or with enough of those kept not drawn for KEPT_NANOS to give up. */
+    private static boolean roomForASkin(long now, long cap) {
         long kept = fineBytes;
-        for (Iterator<Fine> longestAgo = fine.values().iterator(); kept >= MOST_BYTES;) {
+        for (Iterator<Fine> longestAgo = fine.values().iterator(); kept >= cap;) {
             Fine least = longestAgo.next();
             if (now - least.used < KEPT_NANOS) {
                 return false;
@@ -1330,12 +1326,13 @@ public final class FineSkins {
                 need += read.bytes;
             }
         }
-        if (need > JAR_MOST_BYTES) {
+        long cap = VideoMemory.jarSkinBytes();
+        if (need > cap) {
             wanted.clear();
             return false;
         }
         long now = System.nanoTime();
-        boolean fits = jarBytes + jarMost() * wanted.size() <= JAR_MOST_BYTES;
+        boolean fits = jarBytes + jarMost() * wanted.size() <= cap;
         jarRoomWanted |= !fits;
         if (line.ask(who, asking, now, fits)) {
             for (String path : wanted) {
@@ -1379,7 +1376,7 @@ public final class FineSkins {
             boolean small = Quality.smallerPictures();
             int across = small ? Tailor.FINE / 2 : Tailor.FINE;
             long most = bytesOf(across, across);
-            if (tailoredBytes + most > TAILORED_MOST_BYTES) {
+            if (tailoredBytes + most > VideoMemory.tailoredSkinBytes()) {
                 tailoredRoomWanted = true;
                 return PENDING;
             }
@@ -1425,7 +1422,19 @@ public final class FineSkins {
 
     /** Fills some of a read picture's texture (makeSome), and once it is all in counts it as made and lets go of what was read. */
     private static void fill(Read read, String path, String name, long nanos) {
-        makeSome(read, read.pixels, path, nanos);
+        try {
+            makeSome(read, read.pixels, path, nanos);
+        } catch (NoRoom full) {
+            // Asked for again, it is read afresh under the caps the graphics have stepped down to.
+            Pipeline.noted(GL_OUT_OF_MEMORY);
+            letGoOf(read);
+            own.remove(path);
+            if (!noRoomSaid) {
+                noRoomSaid = true;
+                Log.info(full.getMessage() + ": it is let go, and the graphics step down (said once)");
+            }
+            return;
+        }
         if (read.texture != null) {
             // Counted as the most it could be when it was asked for, and as what it is now that it is made.
             long is = bytesOf(read.wide, read.high);
@@ -1460,7 +1469,7 @@ public final class FineSkins {
      * it returned: 50 to 130 ms a frame on the render thread for a 2048 square. The texture is
      * made here as RGBA8, which the driver takes as it is, from the picture padded to the
      * texture's size (Pictures.padded). Every call to OpenGL is checked: an
-     * error is thrown, and no room on the card turns the fine skins off (NoRoom). Render thread.
+     * error is thrown, and no room on the card as NoRoom, which fill takes. Render thread.
      */
     private static void makeSome(Read read, ByteBuffer pixels, String path, long nanos) {
         long from = System.nanoTime();
