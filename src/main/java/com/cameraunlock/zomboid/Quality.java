@@ -7,8 +7,8 @@ import java.util.Locale;
  * How much the picture costs to draw, for each player at the screen: the Quality row of
  * CameraUnlock.ini for the first player's first person, and the IsometricQuality row for their
  * isometric view, and SecondPlayerQuality, SecondPlayerIsometricQuality and so on for the other
- * players (Config). The graphics key steps a player's mode of the view they are in and sets
- * their other view's to match; the options screen sets them apart. While a player's view is in
+ * players (Config). The graphics key steps a player's mode of the view they are in and leaves
+ * their other view's as it is. While a player's view is in
  * first person, flying to or from it or getting ready for it, it is drawn with their first person
  * mode. Otherwise their isometric mode is drawn, but for Low, where the game draws that view
  * itself and the mod draws nothing: the picture then stays first person's, so what was made for
@@ -437,18 +437,13 @@ final class Quality {
         return String.join(",", Arrays.copyOfRange(NAMES, LOW, NAMES.length));
     }
 
-    /** What a view's screen says of its mode in effect: "First person graphics: Automatic (Medium)" or "Isometric graphics: Low". */
+    /** What a view's screen says of its mode in effect: "First Person (High)", "First Person (Automatic, Medium)" or "Isometric (Low)". */
     static synchronized String said(int view) {
-        return inFirstPerson[view] ? "First person graphics: " + name(view) : "Isometric graphics: " + NAMES[overheadRows[view]];
-    }
-
-    /**
-     * What a player's screen says when the graphics key sets both their views: "Graphics: Medium",
-     * or where they differ, as in Automatic, "Graphics: Automatic (High), isometric Low".
-     */
-    static String saidOfBoth(int player) {
-        int row = rows[player], overheadRow = overheadRows[player];
-        return row == overheadRow ? "Graphics: " + NAMES[row] : "Graphics: " + name(player) + ", isometric " + NAMES[overheadRow];
+        if (!inFirstPerson[view]) {
+            return "Isometric (" + NAMES[overheadRows[view]] + ")";
+        }
+        int row = rows[view];
+        return "First Person (" + (row == AUTOMATIC && anyIn(AUTOMATIC) ? NAMES[AUTOMATIC] + ", " + LEVELS[level] : NAMES[row]) + ")";
     }
 
     /** A player's first person mode, and in Automatic the level it is at: "Automatic (Medium)". */

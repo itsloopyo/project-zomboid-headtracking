@@ -234,7 +234,7 @@ Centring belongs to your tracker, recenter there.
 | `Page Up` | Track head rotation and movement, rotation only, or movement only |
 | `Page Down` | Switch between horizon-relative and camera-relative head turns |
 | `Insert` | Change aiming mode |
-| `F9` | Change graphics quality |
+| `F9` | Change graphics quality of the view you are in |
 | `F8` | Change picture style |
 | `F7` | Arrange two-player split screen side by side or top and bottom |
 
@@ -244,7 +244,7 @@ Centring belongs to your tracker, recenter there.
   - **Sights locked** keeps your eye lined up with the sights while you aim.
   - **Free look with a marker** leaves the weapon pointing where you aim while your head looks around it, and the game's reticle marks where the shot lands.
   - **Stock sights** eases head turns and leaning out while the sights are up, so you see the game's own sight picture, and keeps only head tilt.
-- `F9` goes through Automatic, Low, Medium, High and Custom, and sets first person and the isometric view to the same mode. The isometric view has no Automatic: it stays in Low while first person is in Automatic, and `F9` pressed in the isometric view skips Automatic. To give the two views different modes, set them in the game's options.
+- `F9` goes through Automatic, Low, Medium, High and Custom in first person, and Low, Medium, High and Custom in the isometric view, and leaves the other view's mode as it is. Switching views names the mode of the view you switch to, as `First Person (High)` or `Isometric (Low)`.
 - Where a player's first person view is larger than 2560x1440, every mode but Custom draws it with the pixels it would use at 2560x1440, and the picture is scaled up to fit. In split screen that goes by each player's own part of the screen. Custom draws at its `RenderScale` at any size, and so does the isometric view.
 - `F8` goes through the picture styles Vivid, Natural and Bleak.
 - In split screen each player has their own graphics mode and picture style. Tap `F9` or `F8` once for player 1, twice for player 2, three times for player 3 and four times for player 4, or hold it for every player. Players 2, 3 and 4 keep theirs in `[Players]` in `CameraUnlock.ini` and in the game's options.
@@ -438,10 +438,10 @@ TrueFreeLookKey=Insert
 ; Switches between first person and the game's own view. Tap once for player 1, twice for player 2, three times for
 ; player 3, four times for player 4, hold for every player.
 FirstPersonKey=Delete
-; Goes to a player's next graphics mode and sets both their views to it: Automatic, Low, Medium, High, Custom (Quality
-; and IsometricQuality, and for players 2, 3 and 4 their rows of [Players]). The isometric view has no Automatic:
-; it takes Low for it, and the key skips Automatic there. The game's options set the two views apart. Tap once for
-; player 1, twice for player 2, three times for player 3, four times for player 4, hold for every player.
+; Goes to the next graphics mode of the view a player is in: in first person Automatic, Low, Medium, High, Custom
+; (Quality), in the isometric view Low, Medium, High, Custom (IsometricQuality), and for players 2, 3 and 4 their
+; rows of [Players]. Tap once for player 1, twice for player 2, three times for player 3, four times for player 4,
+; hold for every player.
 CycleQualityKey=F9
 ; Goes to a player's next picture style: Vivid, Natural, Bleak (Style, and for players 2, 3 and 4 their rows of
 ; [Players]). Tap once for player 1, twice for player 2, three times for player 3, four times for player 4, hold

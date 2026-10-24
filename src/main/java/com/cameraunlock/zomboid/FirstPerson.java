@@ -640,7 +640,7 @@ public final class FirstPerson {
             }
         }
         if ((pressed & Config.CYCLE_QUALITY) != 0) {
-            said = Quality.saidOfBoth(view.index);
+            said = Quality.said(view.index);
             saidAt = System.nanoTime();
         }
         if ((pressed & Config.CYCLE_STYLE) != 0) {

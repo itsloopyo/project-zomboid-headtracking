@@ -249,10 +249,10 @@ final class Config {
                         + "player 3, four times for player 4, hold for every player.",
                 0, "Delete", FIRST_PERSON_TAPS, FIRST_PERSON_ALL);
         core.configLocalHotkeyTaps("CycleQualityKey",
-                "Goes to a player's next graphics mode and sets both their views to it: Automatic, Low, Medium, High, Custom (Quality\n"
-                        + "and IsometricQuality, and for players 2, 3 and 4 their rows of [Players]). The isometric view has no Automatic:\n"
-                        + "it takes Low for it, and the key skips Automatic there. The game's options set the two views apart. Tap once for\n"
-                        + "player 1, twice for player 2, three times for player 3, four times for player 4, hold for every player.",
+                "Goes to the next graphics mode of the view a player is in: in first person Automatic, Low, Medium, High, Custom\n"
+                        + "(Quality), in the isometric view Low, Medium, High, Custom (IsometricQuality), and for players 2, 3 and 4 their\n"
+                        + "rows of [Players]. Tap once for player 1, twice for player 2, three times for player 3, four times for player 4,\n"
+                        + "hold for every player.",
                 0, "F9", CYCLE_QUALITY_TAPS, CYCLE_QUALITY_ALL);
         core.configLocalHotkeyTaps("CycleStyleKey",
                 "Goes to a player's next picture style: Vivid, Natural, Bleak (Style, and for players 2, 3 and 4 their rows of\n"

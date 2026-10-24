@@ -125,7 +125,7 @@
 
 #### Graphics settings
 
-- `F9` cycles `Low`, `Medium`, `High`, `Custom` and `Automatic`, fading between them. First person and the isometric view can be set separately in the game's options.
+- `F9` cycles the graphics mode of the view you are in, fading between them: `Automatic`, `Low`, `Medium`, `High` and `Custom` in first person, the same without `Automatic` in the isometric view. Switching views names the new view's mode, as `First Person (High)` or `Isometric (Low)`.
 - `Automatic` lowers the quality when the frame rate drops below 45 and raises it when it holds above 57.
 - `Low` is the game's own look, apart from first person's furniture, windows and doors, which are the mod's models in every mode (`VanillaFurniture`, `VanillaBuildings`). `Medium` and `High` also redraw the isometric view.
 - `F8` cycles the picture styles `Vivid`, `Natural` and `Bleak` (default).

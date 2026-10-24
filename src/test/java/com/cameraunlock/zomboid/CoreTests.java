@@ -537,35 +537,30 @@ public final class CoreTests {
         check(saved("TrueFreeLook=false", "FreeLookMarker=false", "StockSights=true"), "saved");
 
         Tracking.cycleGraphicsMode(0);
-        check(Quality.overheadRow(0) == Quality.MEDIUM && Quality.name(0).equals("Medium") && saved("IsometricQuality=Medium", "Quality=Medium")
-                        && Quality.saidOfBoth(0).equals("Graphics: Medium"),
-                "in the isometric view the graphics mode's action goes from Low to Medium, sets first person's to it too, and saves both: "
-                        + Quality.saidOfBoth(0));
+        check(Quality.overheadRow(0) == Quality.MEDIUM && Quality.name(0).equals("Automatic (High)") && saved("IsometricQuality=Medium") && holds("Quality=Automatic")
+                        && Quality.said(0).equals("Isometric (Medium)"),
+                "in the isometric view the graphics mode's action goes from Low to Medium there, saves it, and leaves first person's: " + Quality.said(0));
         Tracking.cycleGraphicsMode(0);
         Tracking.cycleGraphicsMode(0);
         Tracking.cycleGraphicsMode(0);
-        check(Quality.overheadRow(0) == Quality.LOW && Quality.name(0).equals("Low") && saved("IsometricQuality=Low", "Quality=Low"),
+        check(Quality.overheadRow(0) == Quality.LOW && saved("IsometricQuality=Low") && holds("Quality=Automatic"),
                 "on through High and Custom, with no Automatic, round to Low");
         Quality.inFirstPerson(0, true);
+        check(Quality.said(0).equals("First Person (Automatic, High)"), "first person names its mode, and in Automatic the level it is at: " + Quality.said(0));
         Tracking.cycleGraphicsMode(0);
-        check(Quality.name(0).equals("Medium") && Quality.overheadRow(0) == Quality.MEDIUM && saved("Quality=Medium", "IsometricQuality=Medium"),
-                "in first person it goes from Low to Medium, for the isometric view too");
+        check(Quality.name(0).equals("Low") && Quality.overheadRow(0) == Quality.LOW && saved("Quality=Low") && holds("IsometricQuality=Low")
+                        && Quality.said(0).equals("First Person (Low)"),
+                "in first person it goes from Automatic to Low, saves it, and leaves the isometric view's: " + Quality.said(0));
         Tracking.cycleGraphicsMode(0);
-        Tracking.cycleGraphicsMode(0);
-        Tracking.cycleGraphicsMode(0);
-        check(Quality.name(0).equals("Automatic (High)") && Quality.overheadRow(0) == Quality.LOW && saved("Quality=Automatic", "IsometricQuality=Low")
-                        && Quality.saidOfBoth(0).equals("Graphics: Automatic (High), isometric Low"),
-                "on through High and Custom to Automatic, where the isometric view, which has none, takes Low: " + Quality.saidOfBoth(0));
-        Tracking.cycleGraphicsMode(0);
-        Tracking.cycleGraphicsMode(0);
-        check(Quality.name(0).equals("Medium") && Quality.overheadRow(0) == Quality.MEDIUM && saved("Quality=Medium", "IsometricQuality=Medium"),
-                "and on through Low to Medium");
+        check(Quality.name(0).equals("Medium") && Quality.overheadRow(0) == Quality.LOW && saved("Quality=Medium") && holds("IsometricQuality=Low"),
+                "and on to Medium, the isometric view still in Low");
         Tracking.cycleStyle(0);
         check(Style.of(0) == Style.VIVID && saved("Style=Vivid"), "the picture style's action goes round to Vivid and saves it");
         Tracking.cycleGraphicsMode(2);
-        check(Quality.row(2) == Quality.MEDIUM && Quality.overheadRow(2) == Quality.MEDIUM && Quality.row(0) == Quality.MEDIUM
-                        && saved("ThirdPlayerQuality=Medium", "ThirdPlayerIsometricQuality=Medium", "Quality=Medium", "SecondPlayerQuality=Automatic"),
-                "player 3's graphics action steps their own modes and saves them to their own rows");
+        check(Quality.overheadRow(2) == Quality.MEDIUM && Quality.row(2) == Quality.AUTOMATIC && Quality.row(0) == Quality.MEDIUM
+                        && saved("ThirdPlayerIsometricQuality=Medium") && holds("ThirdPlayerQuality=Automatic") && holds("Quality=Medium")
+                        && holds("SecondPlayerIsometricQuality=Low"),
+                "player 3's graphics action steps the mode of the view they are in and saves it to their own row");
         Tracking.cycleStyle(1);
         check(Style.of(1) == Style.VIVID && Style.of(0) == Style.VIVID && saved("SecondPlayerStyle=Vivid", "ThirdPlayerStyle=Bleak"),
                 "and player 2's style action steps theirs alone");
@@ -574,7 +569,7 @@ public final class CoreTests {
         Tracking.cycleGraphicsMode(2);
         Tracking.cycleGraphicsMode(2);
         Tracking.cycleGraphicsMode(2);
-        check(Style.of(1) == Style.BLEAK && Quality.row(2) == Quality.LOW && saved("SecondPlayerStyle=Bleak", "ThirdPlayerQuality=Low"),
+        check(Style.of(1) == Style.BLEAK && Quality.overheadRow(2) == Quality.LOW && saved("SecondPlayerStyle=Bleak", "ThirdPlayerIsometricQuality=Low"),
                 "and each goes round as player 1's does");
         check(SplitScreen.row() == SplitScreen.VERTICAL && holds("SplitScreen=Vertical") && holds("SplitScreenKey=F7"), "two players start side by side, with F7 to turn them");
         Tracking.turnSplitScreen();

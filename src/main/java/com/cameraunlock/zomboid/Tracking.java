@@ -722,18 +722,18 @@ final class Tracking {
 
     /**
      * A player's graphics mode after the one in effect, their first person's or their isometric
-     * view's, set for both their views and kept for the next start. The isometric view has no
-     * Automatic and takes Low for it. The options screen sets the two apart.
+     * view's, kept for the next start. The other view keeps its own.
      */
     static void cycleGraphicsMode(int player) {
-        int next = Quality.firstPersonInEffect(player) ? Quality.next(player) : Quality.nextOverhead(player);
-        int overhead = next == Quality.AUTOMATIC ? Quality.LOW : next;
-        Quality.set(player, next);
-        Quality.setOverhead(player, overhead);
-        save(() -> {
-            config.saveQuality(player, next);
-            config.saveIsometricQuality(player, overhead);
-        });
+        if (Quality.firstPersonInEffect(player)) {
+            int next = Quality.next(player);
+            Quality.set(player, next);
+            save(() -> config.saveQuality(player, next));
+        } else {
+            int next = Quality.nextOverhead(player);
+            Quality.setOverhead(player, next);
+            save(() -> config.saveIsometricQuality(player, next));
+        }
     }
 
     /** A player's picture style after the one they are in, kept for the next start. */
