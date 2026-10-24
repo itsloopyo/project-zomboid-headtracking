@@ -17,7 +17,7 @@ and nothing of the game's own picture.
 - The living have clean skin and clean underwear, the game's five tones, and for a man the hair on chest, arms and legs that the
   game's second skin of each tone has.
 
-    python tools/skins/bake.py --game "<game folder>" --pictures DIR [--only M_ZedBody01 MaleBody03a ...] [--preview DIR] [--size 1024]
+    python tools/skins/bake.py --game "<game folder>" --pictures DIR [--only M_ZedBody01 MaleBody03a ...] [--preview DIR] [--size 2048]
 Writes src/main/resources/skins/body/<the game's name in small letters>.jpg, and with --preview a view of each body wearing its skin.
 What of a skin is see-through, the skirt's sheets, the mod works out from the game's own model as a save loads (SkinCuts).
 """
@@ -469,7 +469,7 @@ def main():
     parser.add_argument('--pictures', required=True)
     parser.add_argument('--only', nargs='*', default=[])
     parser.add_argument('--preview')
-    parser.add_argument('--size', type=int, default=1024)
+    parser.add_argument('--size', type=int, default=2048)
     args = parser.parse_args()
     pictures = pathlib.Path(args.pictures)
     OUT.mkdir(parents=True, exist_ok=True)

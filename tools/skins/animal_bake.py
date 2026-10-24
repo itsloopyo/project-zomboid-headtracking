@@ -13,7 +13,7 @@ the game's own picture.
 - The nose, the eyes and the hooves are put where the model has them, measured off the model once and
   kept in KINDS.
 
-    python tools/skins/animal_bake.py --game "<game folder>" --pictures DIR [--only Cow_BW_01 ...] [--preview DIR] [--size 1024]
+    python tools/skins/animal_bake.py --game "<game folder>" --pictures DIR [--only Cow_BW_01 ...] [--preview DIR] [--size 2048]
 Writes src/main/resources/skins/body/<the game's name in small letters>.jpg (the mod shows an
 animal's skin all over), and with --preview views of
 each animal wearing its skin, lit from above.
@@ -800,7 +800,7 @@ def main():
     parser.add_argument('--pictures', required=True)
     parser.add_argument('--only', nargs='*', default=[])
     parser.add_argument('--preview')
-    parser.add_argument('--size', type=int, default=1024)
+    parser.add_argument('--size', type=int, default=2048)
     args = parser.parse_args()
     unknown = [name for name in args.only if name not in SKINS]
     if unknown:
