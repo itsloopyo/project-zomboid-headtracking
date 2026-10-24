@@ -86,7 +86,7 @@ final class SpriteColours {
     private static boolean cardAsked, unpacks, inParts, errorLeftLogged;
     /** OpenGL keeps at most one flag for each kind of error it has. */
     private static final int GL_ERROR_FLAGS = 8;
-    private static final int GL_STREAM_READ = 0x88E1, GL_SYNC_GPU_COMMANDS_COMPLETE = 0x9117, GL_ALREADY_SIGNALED = 0x911A, GL_CONDITION_SATISFIED = 0x911C;
+    private static final int GL_STREAM_READ = 0x88E1, GL_SYNC_GPU_COMMANDS_COMPLETE = 0x9117, GL_ALREADY_SIGNALED = 0x911A, GL_TIMEOUT_EXPIRED = 0x911B, GL_CONDITION_SATISFIED = 0x911C;
     /**
      * A copy of part of a sheet the graphics card has been asked to make into a buffer of its
      * own, fenced, and the sprites it is for. Copied straight into the PC's memory, the render
@@ -492,11 +492,16 @@ final class SpriteColours {
             return;
         }
         int waited = GL32.glClientWaitSync(copyFence, 0, 0L);
-        if (waited != GL_ALREADY_SIGNALED && waited != GL_CONDITION_SATISFIED) {
+        if (waited == GL_TIMEOUT_EXPIRED) {
             return;
         }
         GL32.glDeleteSync(copyFence);
         copying = false;
+        if (waited != GL_ALREADY_SIGNALED && waited != GL_CONDITION_SATISFIED) {
+            copied.clear();
+            throw new IllegalStateException(String.format(Locale.ROOT, "waiting for the graphics card to copy back %d by %d of a sprite sheet failed (glClientWaitSync gave 0x%X)",
+                    copyAcross, copyDown, waited));
+        }
         int bytes = Math.max(copyAcross * copyDown * 4, 1);
         if (page == null || page.capacity() < bytes) {
             OffHeap.Block held = pageBlock;
