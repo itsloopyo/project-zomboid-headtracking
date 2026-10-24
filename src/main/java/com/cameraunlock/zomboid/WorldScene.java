@@ -1202,6 +1202,13 @@ final class WorldScene {
     private long wholeFrom, wholeUntil;
     /** Whether seeRooms set this frame's budget for reading chunks, which openingsAround then spends what is left of. */
     private boolean readsBudgeted;
+    /** Since when, by System.nanoTime, a chunk in reach has been unread every frame, 0 for none, and whether the log has said so: see UNREAD_SAID_NANOS. */
+    private long unreadSince;
+    private boolean unreadSaid;
+    /** Dev only: the frames a chunk in reach was left unread in. */
+    private int tollUnreadFrames;
+    /** How long chunks in reach may go unread, every frame, before the log says the picture has drawn every built room that long. */
+    private static final long UNREAD_SAID_NANOS = 5_000_000_000L;
     /** Where the eye was at the last walk round it and when, and how fast it has been moving, tiles a second. */
     private float roundEyeX, roundEyeY, eyeSpeed;
     private long roundNanos;
@@ -1376,6 +1383,8 @@ final class WorldScene {
         told += String.format(Locale.ROOT, ", horizons built %d", roomWalk.horizonBuilds() - horizonsTold);
         horizonsTold = roomWalk.horizonBuilds();
         told += ", " + roomDaylight.tolls();
+        told += String.format(Locale.ROOT, ", frames with chunks in reach unread %d", tollUnreadFrames);
+        tollUnreadFrames = 0;
         tollRoomsWalks = tollRoomsNanos = 0;
         roomMap.chunksRead = 0;
         tollAhead = tollAheadNanos = 0;
@@ -1492,6 +1501,8 @@ final class WorldScene {
             wholeUntil = System.nanoTime();
         }
         roomsUnread = false;
+        unreadSince = 0L;
+        unreadSaid = false;
         roomsBuilt.clear();
         roomsMayShow.clear();
         roomsMayShowFound.clear();
@@ -4039,7 +4050,7 @@ final class WorldScene {
             int eyeGridY = Math.floorDiv((int) Math.floor(camera.eyeY) - map.getWorldYMinTiles(), CHUNK_TILES);
             int[] steps = ChunkBuffers.nearestFirst(side);
             long inReach = 17L;
-            boolean unread = false;
+            int unreadChunks = 0;
             for (int step = 0; step < steps.length; step += 2) {
                 int gridX = eyeGridX + steps[step], gridY = eyeGridY + steps[step + 1];
                 if (gridX < 0 || gridY < 0 || gridX >= side || gridY >= side) {
@@ -4053,7 +4064,24 @@ final class WorldScene {
                 int readings = roomMap.read(chunk, north != null && north.loaded ? north : null, west != null && west.loaded ? west : null, ChunkMarks.live, now,
                         roomMap.mayRead());
                 inReach += (((long) chunk.wx * 31 + chunk.wy) * 31 + readings) * 0x9E3779B97F4A7C15L;
-                unread |= readings == RoomMap.UNREAD;
+                if (readings == RoomMap.UNREAD) {
+                    unreadChunks++;
+                }
+            }
+            boolean unread = unreadChunks > 0;
+            if (!unread) {
+                unreadSince = 0L;
+                unreadSaid = false;
+            } else {
+                tollUnreadFrames++;
+                if (unreadSince == 0L) {
+                    unreadSince = now;
+                } else if (!unreadSaid && now - unreadSince >= UNREAD_SAID_NANOS) {
+                    unreadSaid = true;
+                    Log.info(String.format(Locale.ROOT,
+                            "rooms in sight: chunks in reach have been unread for %.1f s, %d of them now, and the picture draws every room built until they are read",
+                            (now - unreadSince) / 1e9, unreadChunks));
+                }
             }
             if (inReach != openingsReach) {
                 openingsReach = inReach;
