@@ -7,7 +7,7 @@ tools/textures/compress.py packs for the mod's jar.
 
 A sprig is cut out of its white ground, cleaned, and set into one picture with the others, four
 to a row, in the order the mod's Flora counts them. A surface is saved as it is, its light drawn
-in to its SPREAD where it has one. form reads the packed sprigs and writes sprigs-form.png beside
+in to its SPREAD or out to its LEAST where it has one. form reads the packed sprigs and writes sprigs-form.png beside
 them: which way each leaf of each sprig is turned out of its card, and how much light it lets
 through.
 """
@@ -24,7 +24,19 @@ TILE = 1024
 MEAN = numpy.array([0.26, 0.42, 0.12], dtype=numpy.float32)
 # How much a surface's light may vary over its mean, as a standard deviation: the strengths the
 # world shader lays it at were set for that. A picture with more is drawn in to it round its mean.
-SPREAD = {'carpet': 0.092, 'paint': 0.1}
+SPREAD = {'carpet': 0.092, 'paint': 0.104}
+# The least it varies: what the SDXL pictures the world shader's strengths were set for had. Z-Image draws these
+# flatter, and a room of them read as untextured. A picture with less is drawn out to it round its mean.
+LEAST = {'asphalt': 0.152, 'bark-birch': 0.299, 'bark-dogwood': 0.476, 'bark-hemlock': 0.49, 'bark-holly': 0.133, 'bark-maple': 0.542,
+         'bark-oak': 0.471, 'bark-pine': 0.596, 'carpet': 0.092, 'gravel': 0.498, 'jersey': 0.1, 'paint': 0.101, 'planks': 0.384,
+         'rock': 0.393, 'soil': 0.449, 'vinyl': 0.163, 'wood': 0.151}
+
+# The most of a picture drawn out to its LEAST that may go past black or white.
+CLIPPED = 0.01
+
+
+def clipped(rgb):
+    return float((numpy.abs(rgb - 127.5) > 127.5).any(axis=2).mean())
 
 
 def cut(image):
@@ -204,13 +216,26 @@ def main():
     elif kind == 'surface':
         for name, pick in picks.items():
             picture = Image.open(folder / (pick + '.png')).convert('RGB')
-            if name in SPREAD:
+            if name in SPREAD or name in LEAST:
                 rgb = numpy.asarray(picture, dtype=numpy.float32)
                 light = rgb @ numpy.array([0.299, 0.587, 0.114], dtype=numpy.float32)
                 mean = light.mean()
                 has = (light / mean).std()
-                if has > SPREAD[name]:
-                    rgb = mean + (rgb - mean) * (SPREAD[name] / has)
+                wanted = min(max(has, LEAST.get(name, 0.0)), SPREAD.get(name, numpy.inf))
+                if wanted > has:
+                    # Drawn out no further than leaves CLIPPED of it past black or white, which reads as burnt.
+                    low, high = has, wanted
+                    for _ in range(20):
+                        if clipped(mean + (rgb - mean) * (high / has)) <= CLIPPED:
+                            break
+                        middle = (low + high) / 2
+                        low, high = (middle, high) if clipped(mean + (rgb - mean) * (middle / has)) <= CLIPPED else (low, middle)
+                        if high - low < 0.002:
+                            high = low
+                            break
+                    wanted = high
+                rgb = mean + (rgb - mean) * (wanted / has)
+                print(f'{name}: light varies {has:.3f} over its mean, laid at {wanted:.3f} (least {LEAST.get(name, 0.0):.3f}), {clipped(rgb):.2%} clipped')
                 picture = Image.fromarray(numpy.clip(rgb + 0.5, 0, 255).astype(numpy.uint8), 'RGB')
             picture.save(OUT / (name + '.jpg'), quality=94, subsampling=0)
             print('wrote', OUT / (name + '.jpg'), (OUT / (name + '.jpg')).stat().st_size, 'bytes')

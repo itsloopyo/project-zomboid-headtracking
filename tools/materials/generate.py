@@ -14,6 +14,8 @@ Every convolution of the decoder wraps round the picture's edges too.
 Run with the venv that has torch and diffusers (see .lab/NOTES.md, "Generated materials"):
     python tools/materials/generate.py --out DIR [--only bark-oak litter ...] [--seeds 1 2 3 4]
 Writes DIR/<name>-<seed>.png. tools/materials/pack.py puts the chosen ones into the mod.
+The surfaces in the mod are 2048: each chosen 1024 picture enlarged to 2048 round its edges (tiled three by three,
+enlarged, the middle kept) and made again over that with its prompt and seed, --over ENLARGED --strengths 0.4.
 """
 import argparse
 import pathlib
