@@ -68,4 +68,6 @@ public final class IsoGridSquare {
     public zombie.vehicles.BaseVehicle getVehicleContainer() { throw new UnsupportedOperationException("reference stub"); }
     public IsoChunk chunk;
     public zombie.iso.objects.IsoFire getFire() { throw new UnsupportedOperationException("reference stub"); }
+    public zombie.inventory.InventoryItem AddWorldInventoryItem(zombie.inventory.InventoryItem item, float x, float y, float z) { throw new UnsupportedOperationException("reference stub"); }
+    public void removeWorldObject(zombie.iso.objects.IsoWorldInventoryObject object) { throw new UnsupportedOperationException("reference stub"); }
 }

@@ -2,6 +2,7 @@ package zombie.core;
 
 public final class Core {
     public static int tileScale;
+    public static boolean exiting;
     public final zombie.core.opengl.MatrixStack projectionMatrixStack = null;
     public final zombie.core.opengl.MatrixStack modelViewMatrixStack = null;
 

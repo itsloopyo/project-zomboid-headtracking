@@ -66,6 +66,7 @@ public abstract class IsoGameCharacter extends IsoMovingObject {
     public void PlayAnim(String name) { throw new UnsupportedOperationException("reference stub"); }
     public final void Kill(IsoGameCharacter killer, zombie.inventory.types.HandWeapon weapon, boolean gory, CharacterDiedListener listener) { throw new UnsupportedOperationException("reference stub"); }
     public void setHealth(float health) { throw new UnsupportedOperationException("reference stub"); }
+    public boolean isOnKillDone() { throw new UnsupportedOperationException("reference stub"); }
     public void setOnKillDone(boolean done) { throw new UnsupportedOperationException("reference stub"); }
     public void setOnDeathDone(boolean done) { throw new UnsupportedOperationException("reference stub"); }
     public void setDeathDragDown(boolean dragged) { throw new UnsupportedOperationException("reference stub"); }
@@ -77,4 +78,8 @@ public abstract class IsoGameCharacter extends IsoMovingObject {
     public void setDefaultState() { throw new UnsupportedOperationException("reference stub"); }
     public void resetModelNextFrame() { throw new UnsupportedOperationException("reference stub"); }
     public void StopAllActionQueue() { throw new UnsupportedOperationException("reference stub"); }
+    public void clearWornItems() { throw new UnsupportedOperationException("reference stub"); }
+    public zombie.characters.AttachedItems.AttachedItems getAttachedItems() { throw new UnsupportedOperationException("reference stub"); }
+    public java.util.List<String> getKnownRecipes() { throw new UnsupportedOperationException("reference stub"); }
+    private java.util.ArrayList<Object> readBooks;
 }

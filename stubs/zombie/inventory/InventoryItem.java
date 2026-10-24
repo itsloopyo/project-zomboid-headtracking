@@ -24,4 +24,7 @@ public class InventoryItem {
     public boolean isTwoHandWeapon() { throw new UnsupportedOperationException("reference stub"); }
     public boolean isRequiresEquippedBothHands() { throw new UnsupportedOperationException("reference stub"); }
     public int getCondition() { throw new UnsupportedOperationException("reference stub"); }
+    public ItemContainer getContainer() { throw new UnsupportedOperationException("reference stub"); }
+    public zombie.iso.objects.IsoWorldInventoryObject getWorldItem() { throw new UnsupportedOperationException("reference stub"); }
+    public void setWorldItem(zombie.iso.objects.IsoWorldInventoryObject worldItem) { throw new UnsupportedOperationException("reference stub"); }
 }

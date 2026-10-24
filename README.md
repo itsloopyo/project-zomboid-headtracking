@@ -13,6 +13,8 @@ It adds a first person view to the game, with a rebuilt world and new graphics. 
 
 Offline the mod also changes some of the game's rules: shots go through thin walls and doors, break lamps, cripple zombies' limbs and can take them off; vehicles knock down fences, street lamp posts and road barricades and drive through bushes; in the isometric view zombies show as soon as your character has a clear line to them. Each is on until you untick it in **Options > Mods > Head Tracking**. On a server these stay as the game has them.
 
+**Rewind 30s** is off until you tick it on the same page. Offline, when your character dies the game pauses and asks whether to accept the death or go back to where you were 30 seconds before, with what you carried and the wounds you had then. Only you go back: the world carries on, the zombie that killed you included, and every zombie stands still for 2 seconds after. Anything you picked up since is left where you died. A second death goes back no further than the last rewind. Quitting with the question up takes the rewind before the game saves.
+
 ## Features
 
 - **Decoupled look and aim** - head tracking moves the view, your mouse or controller keeps the aim
@@ -586,6 +588,11 @@ ShotsPastTrees=true
 ; where your character's sight reaches by the game's rules. false: the game's own sight, which can show a
 ; zombie late or only once it is close. On a server the game's rule holds.
 ZombiesSeenAtOnce=true
+; true: offline, when you die the game pauses and asks whether to go back to where you were 30 seconds before,
+; with what you had then and the wounds you had then. The world goes on as it was, the zombie that killed you
+; included, and every zombie stands still for 2 seconds after. false: death is final, as the game has it. On a
+; server the game's rule holds.
+Rewind30s=false
 
 [Voice]
 ; true: your character's mouth moves with what you say into your microphone: the jaw drops for "ah", the lips

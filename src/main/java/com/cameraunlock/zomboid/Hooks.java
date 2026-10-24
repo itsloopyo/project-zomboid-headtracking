@@ -188,6 +188,7 @@ public final class Hooks {
     /** Called as the game begins to leave a save for its menu, or to quit, before it saves. */
     public static void leavingSave() {
         Stall.leaving();
+        Rewind.leaving();
     }
 
     /** Called as the game leaves a save for its menu. */
@@ -198,9 +199,7 @@ public final class Hooks {
         Pieces.forget();
         LimbDecals.forget();
         SharedHeads.forget();
-        if (LazarusRing.ON) {
-            Lazarus.forget();
-        }
+        Rewind.forget();
         for (int i = 0; i < View.COUNT; i++) {
             View view = View.of(i);
             if (view != null) {
@@ -539,14 +538,24 @@ public final class Hooks {
     public static void worldUpdate() {
         Bleeding.tick(wounds);
         Pieces.tick();
-        if (LazarusRing.ON) {
-            Lazarus.tick();
+        Rewind.tick();
+    }
+
+    /** Called at the start of IsoGameCharacter.Kill with what it was called with. Says whether to leave the Kill out: see Rewind. */
+    public static boolean heldDeath(IsoGameCharacter dying, IsoGameCharacter killer, HandWeapon weapon, boolean gory, CharacterDiedListener listener) {
+        return Rewind.holds(dying, killer, weapon, gory, listener);
+    }
+
+    /** Called at the start of IngameState.updateInternal, which saves the game as it leaves for the menu once Core.exiting is set. */
+    public static void ingameUpdate() {
+        if (zombie.core.Core.exiting) {
+            Rewind.leaving();
         }
     }
 
-    /** Called at the start of IsoGameCharacter.Kill with what it was called with. Says whether to leave the Kill out: see Lazarus. */
-    public static boolean heldDeath(IsoGameCharacter dying, IsoGameCharacter killer, HandWeapon weapon, boolean gory, CharacterDiedListener listener) {
-        return Lazarus.holds(dying, killer, weapon, gory, listener);
+    /** Called at the start of IsoZombie's preupdate, update and postupdate. Says whether to pass them over: see Rewind. */
+    public static boolean zombiesStill() {
+        return Rewind.zombiesStill();
     }
 
     /** How often a limb a shot takes off bursts in blood and shards rather than coming off whole. */
