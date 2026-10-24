@@ -98,8 +98,9 @@ final class RoomMap implements Acoustics.Walls, RoomDaylight.Edges {
 
     /**
      * Reads a chunk's openings and blocks again if what they were read from may have changed,
-     * and says how many times it has been read. Told not to read, it keeps what it read before
-     * for a chunk that may have changed, and says UNREAD for one it has nothing of as it is now.
+     * and says how many times it has been read. Told not to read, it says UNREAD for a chunk it
+     * has nothing of as it is now, and for one the game has marked since it was read: what it
+     * keeps of that one is not the chunk as it is. One only due to be looked at again it keeps.
      *
      * @param north   the chunk at y - 1 on the loaded map, or null
      * @param west    the chunk at x - 1, or null
@@ -117,7 +118,7 @@ final class RoomMap implements Acoustics.Walls, RoomDaylight.Edges {
         boolean same = fits && (told || now - keptNanos[slot] < REREAD_UNTOLD_NANOS);
         if (!mayRead && (!same || keptMarks[slot] != marks)) {
             keptUnread[slot] = !fits;
-            return fits ? keptReadings[slot] : UNREAD;
+            return fits && keptMarks[slot] == marks ? keptReadings[slot] : UNREAD;
         }
         keptUnread[slot] = false;
         if (same && keptMarks[slot] != marks && readLevels(chunk, slot)) {

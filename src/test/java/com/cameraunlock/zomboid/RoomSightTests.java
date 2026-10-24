@@ -45,6 +45,7 @@ final class RoomSightTests {
         Checks.run("aChunkReadBeforeItsLandIsReadAgainOnceItIsWorkedOut", RoomSightTests::aChunkReadBeforeItsLandIsReadAgainOnceItIsWorkedOut);
         Checks.run("aChunkNotToBeReadKeepsWhatItHadAndOneNeverReadIsUnread", RoomSightTests::aChunkNotToBeReadKeepsWhatItHadAndOneNeverReadIsUnread);
         Checks.run("aChunkUnreadAddsNothingToTheFramesOpenings", RoomSightTests::aChunkUnreadAddsNothingToTheFramesOpenings);
+        Checks.run("aChunkMarkedWhileItMayNotBeReadIsUnread", RoomSightTests::aChunkMarkedWhileItMayNotBeReadIsUnread);
     }
 
     private static void check(boolean condition, String what) {
@@ -695,6 +696,17 @@ final class RoomSightTests {
         map.read(chunk, null, null, false, 0L, true);
         map.addTo(chunk, openings, blocks);
         check(openings.count == 0 && blocks.count == 0, "read, it adds what it has, which on an empty chunk is nothing");
+    }
+
+    private static void aChunkMarkedWhileItMayNotBeReadIsUnread() {
+        RoomMap map = new RoomMap();
+        map.begin(new zombie.iso.IsoCell(), Terrain.LEVEL);
+        zombie.iso.IsoChunk chunk = loadedChunk(9, 10);
+        int read = map.read(chunk, null, null, true, 0L, true);
+        check(map.read(chunk, null, null, true, 0L, false) == read, "unmarked, a chunk not to be read keeps its reading");
+        ChunkMarks.marked(chunk, 64L);
+        check(map.read(chunk, null, null, true, 0L, false) == RoomMap.UNREAD, "marked as built on since, and not to be read, it is unread");
+        check(map.read(chunk, null, null, true, 0L, true) > read, "and is read again once it may be");
     }
 
     private static void aPictureListsOnlyTheRoomsItSeesInto() {
