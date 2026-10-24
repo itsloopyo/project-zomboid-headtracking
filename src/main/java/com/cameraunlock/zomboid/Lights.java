@@ -236,12 +236,12 @@ final class Lights {
         for (int ring = 0; ring + 3 < profile.length; ring += 2) {
             float highDeep = profile[ring] * size, highWide = profile[ring + 1] * size, lowDeep = profile[ring + 2] * size, lowWide = profile[ring + 3] * size;
             float drop = lowDeep - highDeep, swell = lowWide - highWide, slant = (float) Math.sqrt(drop * drop + swell * swell);
+            float[] cosAround = SpriteGeometry.ROUND_COS[sides], sinAround = SpriteGeometry.ROUND_SIN[sides];
             for (int side = 0; side < sides; side++) {
-                double start = side * 2.0 * Math.PI / sides, stop = (side + 1) * 2.0 * Math.PI / sides;
                 // Two triangles, as SpriteGeometry.addRound makes them: low from, low to, high to, then low from, high to, high from.
                 for (int corner = lowWide == 0f ? 3 : 0; corner < (highWide == 0f ? 3 : 6); corner++) {
                     boolean far = corner == 1 || corner == 2 || corner == 4, high = corner == 2 || corner >= 4;
-                    float cos = (float) Math.cos(far ? stop : start), sin = (float) Math.sin(far ? stop : start);
+                    float cos = cosAround[far ? side + 1 : side], sin = sinAround[far ? side + 1 : side];
                     float deep = high ? highDeep : lowDeep, wide = high ? highWide : lowWide;
                     mesh.face(cos * drop / slant, sin * drop / slant, swell / slant);
                     mesh.sway = hangs + deep + HUNG_LEAST;

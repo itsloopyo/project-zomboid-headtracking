@@ -847,7 +847,7 @@ final class SpriteGeometry {
         edgeV1 = corners[CORNER_FLOATS + CORNER_V] - corners[CORNER_V];
         edgeU2 = corners[CORNER_FLOATS * 3 + CORNER_U] - corners[CORNER_U];
         edgeV2 = corners[CORNER_FLOATS * 3 + CORNER_V] - corners[CORNER_V];
-        float acrossU = corners[CORNER_FLOATS + CORNER_U] - corners[CORNER_U];
+        float acrossU = edgeU1;
         alongSlant = dh1 == 0f && dh2 != 0f && Math.abs(acrossU) > 1e-3f ? (corners[CORNER_FLOATS + CORNER_V] - corners[CORNER_V]) / acrossU : 0f;
         boolean straightUp = alongSlant != 0f && da2 == 0f && db2 == 0f;
         halfAcross = straightUp ? Math.abs(acrossU) / 2f : 0f;
@@ -1699,7 +1699,7 @@ final class SpriteGeometry {
      */
     private static final float[][] POST_COS = new float[MOST_POST_SIDES + 1][], POST_SIN = new float[MOST_POST_SIDES + 1][];
     private static final float[][] POST_MIDDLE_COS = new float[MOST_POST_SIDES + 1][], POST_MIDDLE_SIN = new float[MOST_POST_SIDES + 1][];
-    private static final float[][] ROUND_COS = new float[MOST_POST_SIDES + 1][], ROUND_SIN = new float[MOST_POST_SIDES + 1][];
+    static final float[][] ROUND_COS = new float[MOST_POST_SIDES + 1][], ROUND_SIN = new float[MOST_POST_SIDES + 1][];
 
     static {
         for (int sides = 3; sides <= MOST_POST_SIDES; sides++) {
@@ -2230,12 +2230,7 @@ final class SpriteGeometry {
 
     /** Adds an untextured four-cornered face, its corners given in order round it as x, y and height in tiles. */
     static void addPlainQuad(Mesh mesh, float[] c, float red, float green, float blue) {
-        float ux = c[3] - c[0], uy = c[4] - c[1], uz = c[5] - c[2];
-        float vx = c[9] - c[0], vy = c[10] - c[1], vz = c[11] - c[2];
-        mesh.face(uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx);
-        for (int corner : QUAD) {
-            mesh.add(c[corner * 3], c[corner * 3 + 1], c[corner * 3 + 2], 0f, 0f, red, green, blue);
-        }
+        addQuad(mesh, c, 0f, 0f, red, green, blue);
     }
 
     private static final int[] QUAD = {0, 1, 2, 0, 2, 3};
@@ -2245,13 +2240,7 @@ final class SpriteGeometry {
      * (0, 1) at the given heights in tiles.
      */
     static void addPlainOver(Mesh mesh, int x, int y, float h00, float h10, float h11, float h01, float red, float green, float blue) {
-        mesh.face(-(h10 - h00 + h11 - h01) / 2f, -(h01 - h00 + h11 - h10) / 2f, 1f);
-        mesh.add(x, y, h00, 0f, 0f, red, green, blue);
-        mesh.add(x + 1f, y, h10, 0f, 0f, red, green, blue);
-        mesh.add(x + 1f, y + 1f, h11, 0f, 0f, red, green, blue);
-        mesh.add(x, y, h00, 0f, 0f, red, green, blue);
-        mesh.add(x + 1f, y + 1f, h11, 0f, 0f, red, green, blue);
-        mesh.add(x, y + 1f, h01, 0f, 0f, red, green, blue);
+        addOver(mesh, x, y, h00, h10, h11, h01, 0f, 0f, red, green, blue);
     }
 
     /** As addPlainOver, every vertex with the one texel (u, v). */
