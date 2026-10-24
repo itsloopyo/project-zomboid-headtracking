@@ -38,7 +38,7 @@ final class SpriteColours {
     private static final int GL_ACTIVE_TEXTURE = 0x84E0, GL_TEXTURE0 = 0x84C0, GL_ALL_ATTRIB_BITS = 0x000FFFFF;
     private static final int GL_SCISSOR_TEST = 0x0C11, GL_BLEND = 0x0BE2, GL_DEPTH_TEST = 0x0B71, GL_STENCIL_TEST = 0x0B90;
     private static final int GL_CULL_FACE = 0x0B44, GL_ALPHA_TEST = 0x0BC0, GL_FRAMEBUFFER_SRGB = 0x8DB9, GL_TRIANGLE_STRIP = 0x0005;
-    private static final int GL_PIXEL_PACK_BUFFER = 0x88EB, GL_PIXEL_PACK_BUFFER_BINDING = 0x88ED;
+    private static final int GL_PIXEL_PACK_BUFFER = 0x88EB, GL_PIXEL_PACK_BUFFER_BINDING = 0x88ED, GL_PIXEL_UNPACK_BUFFER = 0x88EC, GL_PIXEL_UNPACK_BUFFER_BINDING = 0x88EF;
     private static final int GL_PACK_ROW_LENGTH = 0x0D02, GL_PACK_SKIP_ROWS = 0x0D03, GL_PACK_SKIP_PIXELS = 0x0D04, GL_PACK_ALIGNMENT = 0x0D05;
 
     private static final float[] ASKED = new float[0], UNPAINTED = new float[0];
@@ -106,7 +106,7 @@ final class SpriteColours {
     private static final ArrayList<Ask> copied = new ArrayList<>();
     /** The buffer copies are made into, kept while sprites go on being asked for as the page is, and its size. Render thread. */
     private static int copyBuffer, copyBufferBytes;
-    /** What the part of the sheet is drawn into before it is copied, kept as the buffer is, and its size. Render thread. */
+    /** What the part of the sheet is drawn into before it is copied, kept as the buffer is while what is read fits it, and its size. Render thread. */
     private static int unpacked, unpackedTarget, unpackedWide, unpackedHigh;
     /** Read through with no mipmaps: under its own min filter a sheet that asks for mipmaps it lacks is incomplete, and reads as black. */
     private static int unpackSampler;
@@ -430,12 +430,20 @@ final class SpriteColours {
                 if (unpacked != 0) {
                     GL30.glDeleteFramebuffers(unpackedTarget);
                     GL11.glDeleteTextures(unpacked);
+                    unpacked = unpackedTarget = unpackedWide = unpackedHigh = 0;
                 }
-                unpackedWide = Math.max(unpackedWide, across);
-                unpackedHigh = Math.max(unpackedHigh, down);
                 unpacked = GL11.glGenTextures();
                 GL11.glBindTexture(GL_TEXTURE_2D, unpacked);
-                GL11.glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, unpackedWide, unpackedHigh, 0, GL_RGBA, GL_UNSIGNED_BYTE, (ByteBuffer) null);
+                int unpackBuffer = GL11.glGetInteger(GL_PIXEL_UNPACK_BUFFER_BINDING);
+                GL15.glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+                GL11.glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, across, down, 0, GL_RGBA, GL_UNSIGNED_BYTE, (ByteBuffer) null);
+                GL15.glBindBuffer(GL_PIXEL_UNPACK_BUFFER, unpackBuffer);
+                int made = GL11.glGetError();
+                if (made != 0) {
+                    throw new IllegalStateException(String.format(Locale.ROOT, "OpenGL error 0x%X making the %d by %d target sprite sheets are unpacked into", made, across, down));
+                }
+                unpackedWide = across;
+                unpackedHigh = down;
                 GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
                 GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
                 unpackedTarget = GL30.glGenFramebuffers();
