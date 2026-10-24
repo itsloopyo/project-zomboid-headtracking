@@ -326,6 +326,16 @@ public final class FineSkins {
     private static final long KEPT_NANOS = 2_000_000_000L;
     /** One composition a frame: a crowd coming into view gets its skins over a second, not in one long frame. */
     private static int composedFrame = -1;
+    /**
+     * The skin being composed, a combine a frame: one of 2048 square took 10 to 30 ms whole.
+     * The recipes it is composed from are composed first, each on a frame of its own, and kept
+     * in parts until the skin is. Others wait for it while it is asked for on any of the last
+     * PARTS_KEPT_FRAMES frames; one no longer asked for is given up.
+     */
+    private static Recipe making;
+    private static int makingAsked;
+    private static final IdentityHashMap<Recipe, Texture> parts = new IdentityHashMap<>();
+    private static final int PARTS_KEPT_FRAMES = 30;
 
     private static final int GL_ALL_ATTRIB_BITS = 0x000FFFFF, GL_CLIENT_ALL_ATTRIB_BITS = 0xFFFFFFFF;
     private static final int GL_ATTRIB_STACK_DEPTH = 0x0BB0, GL_CLIENT_ATTRIB_STACK_DEPTH = 0x0BB1;
@@ -505,6 +515,7 @@ public final class FineSkins {
      */
     private static void letGoOfAll() {
         worn.clear();
+        spendParts();
         for (Spent each : spent) {
             each.texture().destroy();
         }
@@ -711,6 +722,12 @@ public final class FineSkins {
         // them on every frame, which held a frame for a fifteenth of a second. It is asked before
         // any of the jar's pictures are read for it, too: read for a skin that then finds no room,
         // they would be let go unused and read again.
+        if (making != null && making != recipe) {
+            if (Pipeline.frame() - makingAsked <= PARTS_KEPT_FRAMES) {
+                return bound;
+            }
+            spendParts();
+        }
         if (composedFrame == Pipeline.frame() || !roomForASkin(now)) {
             return bound;
         }
@@ -749,8 +766,13 @@ public final class FineSkins {
             TextureCombiner.instance.releaseTexture(least.texture);
         }
         wornNow();
+        making = recipe;
+        makingAsked = Pipeline.frame();
         Texture made = composedWithStateKept(recipe);
         composedFrame = Pipeline.frame();
+        if (made == null) {
+            return bound;
+        }
         Fine kept = new Fine(made, System.nanoTime());
         fine.put(result, kept);
         fineBytes += kept.bytes;
@@ -1297,26 +1319,53 @@ public final class FineSkins {
     /**
      * Runs a recipe again with the pack's pictures in place of the game's. Where a step sits
      * and how large is given in 256ths of the result whatever its size, so the steps go to
-     * the combiner as they were; the result is as large as the largest picture read.
+     * the combiner as they were; the result is as large as the largest picture read. Null on
+     * a frame that composed only one of the recipes it is composed from, into parts.
      */
     private static Texture composed(Recipe recipe) throws Exception {
-        ArrayList<TextureCombinerCommand> commands = new ArrayList<>(recipe.steps.length);
-        ArrayList<Texture> onTheWay = new ArrayList<>();
+        Recipe part = unmade(recipe);
+        if (part != null) {
+            parts.put(part, combined(part));
+            return null;
+        }
         try {
-            return composed(recipe, commands, onTheWay);
+            return combined(recipe);
         } finally {
-            // Made or not, what was composed for the skin on the way is done with. Destroyed, as the combiner itself
-            // destroys what its pool has no room for: handed back, it keeps up to a hundred textures of each size for
-            // good, and one clothed body's skins left sixty of them there, 240 MB at 1024 square.
-            for (Texture each : onTheWay) {
-                Spent done = new Spent(each, Pipeline.frame(), 4L * each.getWidth() * each.getHeight());
-                spent.add(done);
-                spentBytes += done.bytes();
-            }
+            spendParts();
         }
     }
 
-    private static Texture composed(Recipe recipe, ArrayList<TextureCombinerCommand> commands, ArrayList<Texture> onTheWay) throws Exception {
+    /** The first recipe this one is composed from, the deepest first, that is not composed yet, or null once all are. */
+    private static Recipe unmade(Recipe recipe) {
+        for (Step step : recipe.steps) {
+            Recipe from = step.texFrom != null && !parts.containsKey(step.texFrom) ? step.texFrom
+                    : step.maskFrom != null && !parts.containsKey(step.maskFrom) ? step.maskFrom : null;
+            if (from != null) {
+                Recipe deeper = unmade(from);
+                return deeper != null ? deeper : from;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Made or not, what was composed for the skin on the way is done with. Spent, and in time
+     * destroyed, as the combiner itself destroys what its pool has no room for: handed back, it
+     * keeps up to a hundred textures of each size for good, and one clothed body's skins left
+     * sixty of them there, 240 MB at 1024 square.
+     */
+    private static void spendParts() {
+        for (Texture each : parts.values()) {
+            Spent done = new Spent(each, Pipeline.frame(), 4L * each.getWidth() * each.getHeight());
+            spent.add(done);
+            spentBytes += done.bytes();
+        }
+        parts.clear();
+        making = null;
+    }
+
+    private static Texture combined(Recipe recipe) throws Exception {
+        ArrayList<TextureCombinerCommand> commands = new ArrayList<>(recipe.steps.length);
         for (Step step : recipe.steps) {
             TextureCombinerCommand command = new TextureCombinerCommand();
             command.x = step.x;
@@ -1329,26 +1378,24 @@ public final class FineSkins {
             command.blendDestA = step.blendDestA;
             command.shader = step.shader;
             command.shaderParams = step.shaderParams;
-            command.tex = read(step.texFrom, step.tex, onTheWay);
-            command.mask = read(step.maskFrom, step.mask, onTheWay);
+            command.tex = read(step.texFrom, step.tex);
+            command.mask = read(step.maskFrom, step.mask);
             commands.add(command);
         }
+        long from = System.nanoTime();
         Texture made = TextureCombiner.instance.combine(commands);
-        if (said++ < 3) {
-            if (DevBuild.ON) {
-                Log.info("a skin composed at " + made.getWidth() + "x" + made.getHeight() + " from " + commands.size() + " layers");
-            }
+        if (DevBuild.ON && said++ < 3) {
+            Log.info(String.format(Locale.ROOT, "a skin%s composed at %dx%d from %d layers in %.2f ms", recipe == making ? "" : "'s part",
+                    made.getWidth(), made.getHeight(), commands.size(), (System.nanoTime() - from) / 1e6));
         }
         return made;
     }
 
-    private static Texture read(Recipe from, Texture game, ArrayList<Texture> onTheWay) throws Exception {
+    private static Texture read(Recipe from, Texture game) {
         if (from != null) {
             // The game handed its own back long ago, so it is made again whether or not
-            // the pack has anything for it.
-            Texture made = composed(from);
-            onTheWay.add(made);
-            return made;
+            // the pack has anything for it, a frame before.
+            return parts.get(from);
         }
         if (game == null) {
             return null;
