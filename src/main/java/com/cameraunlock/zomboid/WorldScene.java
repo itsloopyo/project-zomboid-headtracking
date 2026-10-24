@@ -4083,17 +4083,16 @@ final class WorldScene {
                 }
                 roomsMayShowDue = true;
             }
-            // Each round's pictures are walked one a frame: six of them walked in one frame were a
-            // hitch of a frame's worth every quarter second on a street.
-            do {
-                if (builtRound.walking() && roomWalk.walkFace(roomMap, openingsInReach, blocksInReach, builtRound)) {
-                    roomsBuilt.found(roomsFound, now, roomsEntered);
-                    roomsBuilt.expire(now, roomsLeft);
-                }
-                if (mayShowRound.walking()) {
-                    roomWalk.walkFace(roomMap, openingsInReach, blocksInReach, mayShowRound);
-                }
-            } while (whole && (builtRound.walking() || mayShowRound.walking()));
+            // Each round's pictures are walked one a frame, the first round too: six of them walked in
+            // one frame were a hitch of a frame's worth every quarter second on a street, and twelve
+            // each time the first person view was taken.
+            if (builtRound.walking() && roomWalk.walkFace(roomMap, openingsInReach, blocksInReach, builtRound)) {
+                roomsBuilt.found(roomsFound, now, roomsEntered);
+                roomsBuilt.expire(now, roomsLeft);
+            }
+            if (mayShowRound.walking()) {
+                roomWalk.walkFace(roomMap, openingsInReach, blocksInReach, mayShowRound);
+            }
             if (roomsMayShowDue && !mayShowRound.walking()) {
                 roomsMayShowDue = false;
                 // The rooms the last walk found stand for it until it is walked again.
