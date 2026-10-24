@@ -290,6 +290,12 @@ final class RoomSight {
         private static final double PER_BIN = 2 * Math.PI / BINS;
         private final int[] from = new int[BINS + 1], fill = new int[BINS];
         private float[] reach = new float[1024], rise = new float[1024];
+        /**
+         * Each way's entries as one number to sort by, the distance's bits over the rise's: a
+         * distance is never below 0, and such floats sort as their bits do. Sorted by insertion,
+         * walking through a house it took over 5 ms to build.
+         */
+        private long[] sorting = new long[1024];
         private float eyeX, eyeY, eyeUp;
         /** What it was built from, and whether it is built. */
         private Blocks builtFrom;
@@ -366,22 +372,20 @@ final class RoomSight {
                     if (reach.length < entries) {
                         reach = new float[Integer.highestOneBit(entries) * 2];
                         rise = new float[reach.length];
+                        sorting = new long[reach.length];
                     }
                     Arrays.fill(fill, 0);
                 }
             }
             for (int bin = 0; bin < BINS; bin++) {
                 int start = from[bin], end = from[bin + 1];
-                for (int i = start + 1; i < end; i++) {
-                    float r = reach[i], s = rise[i];
-                    int j = i - 1;
-                    while (j >= start && reach[j] > r) {
-                        reach[j + 1] = reach[j];
-                        rise[j + 1] = rise[j];
-                        j--;
-                    }
-                    reach[j + 1] = r;
-                    rise[j + 1] = s;
+                for (int i = start; i < end; i++) {
+                    sorting[i] = (long) Float.floatToIntBits(reach[i]) << 32 | Float.floatToIntBits(rise[i]) & 0xFFFFFFFFL;
+                }
+                Arrays.sort(sorting, start, end);
+                for (int i = start; i < end; i++) {
+                    reach[i] = Float.intBitsToFloat((int) (sorting[i] >>> 32));
+                    rise[i] = Float.intBitsToFloat((int) sorting[i]);
                 }
                 for (int i = start + 1; i < end; i++) {
                     rise[i] = Math.max(rise[i], rise[i - 1]);
