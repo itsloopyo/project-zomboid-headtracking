@@ -150,14 +150,17 @@ public final class Hooks {
      * the click that begins it, with whether the game is still reading the map round the player.
      * It is returned as still reading while the mod's shader programs are being compiled, so that
      * the click that begins the save waits for them and none is compiled in play, and while the
-     * far land round the players is still coming (FarLand.holdsLoading).
+     * far land round the players or the skins read ahead are still coming (FarLand.holdsLoading,
+     * FineSkins.holdsLoading), each for no longer than one wait from when the map was read.
      */
     public static boolean worldLoaded(boolean streaming) {
-        boolean shaders = false;
+        boolean shaders = false, content = false;
         for (int i = 0; i < View.COUNT; i++) {
             IsoPlayer player = IsoPlayer.players[i];
             if (player != null) {
-                shaders |= View.join(i).firstPerson.whileLoading(player);
+                View view = View.join(i);
+                shaders |= view.firstPerson.whileLoading(player);
+                content |= view.pipeline.unprepared() || view.pipeline.contentWaited();
             }
         }
         if (!streaming) {
@@ -179,7 +182,7 @@ public final class Hooks {
         } else if (mapReadAt == 0) {
             mapReadAt = System.nanoTime();
         }
-        loadingHeld = shaders | (!streaming && (FarLand.holdsLoading(mapReadAt, mapReadAt + LOADING_WAIT_NANOS) | FineSkins.holdsLoading()));
+        loadingHeld = shaders | (!streaming && (FarLand.holdsLoading(mapReadAt, mapReadAt + LOADING_WAIT_NANOS) | FineSkins.holdsLoading(content, mapReadAt + LOADING_WAIT_NANOS)));
         return streaming || loadingHeld;
     }
 

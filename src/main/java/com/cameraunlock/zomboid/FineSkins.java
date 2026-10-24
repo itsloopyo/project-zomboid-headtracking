@@ -31,6 +31,7 @@ import org.lwjgl.opengl.GL30;
 import zombie.ZomboidFileSystem;
 import zombie.characters.IsoPlayer;
 import zombie.characters.IsoZombie;
+import zombie.core.opengl.RenderThread;
 import zombie.core.opengl.SmartShader;
 import zombie.core.skinnedmodel.ModelManager;
 import zombie.core.skinnedmodel.visual.HumanVisual;
@@ -171,6 +172,8 @@ public final class FineSkins {
         /** The texture being filled, a strip at a time (makeSome), and how many of its rows are in: worn as texture once all are. */
         TextureID making;
         int rowsMade;
+        /** What of AHEAD_HELD_MOST it holds while it is read ahead and not yet filled. */
+        long aheadHeld;
         /** How long the render thread spent filling it, and over how many frames: said for the first few. */
         long makingNanos;
         int makingFrames;
@@ -329,24 +332,42 @@ public final class FineSkins {
     private static volatile boolean rankedThisSave;
     /** Every body's skin is composed with these over it. */
     private static final List<String> OVERLAYS = List.of("BloodTextures/BloodOverlay.png", "BloodTextures/GrimeOverlay.png");
-    /** The places in the jar of the pictures read ahead whose textures are still to be filled. */
-    private static final ArrayList<String> ahead = new ArrayList<>();
+    /** The places in the jar of the pictures read ahead whose textures are still to be filled, and of those ranked to be read ahead and not yet asked for. */
+    private static final ArrayList<String> ahead = new ArrayList<>(), aheadQueue = new ArrayList<>();
+    /**
+     * What the pictures read ahead and not yet filled hold outside the Java heap: no more are
+     * asked for than come to AHEAD_HELD_MOST, and one left unfilled for AHEAD_KEPT_NANOS in play
+     * is let go (tendOwn).
+     */
+    private static long aheadHeld;
+    private static final long AHEAD_HELD_MOST = 64L << 20, AHEAD_KEPT_NANOS = 10_000_000_000L;
     /** The last frame a picture was asked for that was not yet filled: the frame after one is left to what was asked for. */
     private static int askedUnfilledFrame = -1;
     private static int aheadRead, aheadWorn, aheadThisSave;
-    /** When the skins were ranked for the save now loading, nought once its loading screen no longer waits for them. */
-    private static long rankedAt;
-    private static final long PRELOAD_MOST_NANOS = 30_000_000_000L, LOADING_NANOS = 12_000_000L;
-    private static final int GL_PIXEL_UNPACK_BUFFER = 0x88EC, GL_PIXEL_UNPACK_BUFFER_BINDING = 0x88EF;
+    private static long aheadBegan;
+    private static boolean aheadSaid;
+    /**
+     * Whether the loading screen waits for the skins read ahead (holdsLoading): until they are
+     * all on the card, they can come no further, or the loading screen's wait is over. Once it
+     * has stopped waiting it is released for the rest of the save's loading.
+     */
+    private static volatile boolean holding;
+    private static boolean released;
+    private static int stuckFrames;
+    private static final long LOADING_NANOS = 12_000_000L;
     /** One of the mod's own pictures is filled a frame, for no more than MAKING_NANOS once its first strip is in: see makeSome. */
     private static int ownMadeFrame = -1;
     private static final long MAKING_NANOS = 3_000_000L;
-    /** A strip is this many dots, in rows of four: the driver packs a compressed texture four rows at a time. */
+    /** A strip is this many dots. */
     private static final int STRIP_DOTS = 1 << 16;
-    /** TextureIDAssetParams' flag for a texture the game keeps compressed where the driver can. */
-    private static final int COMPRESS = 4;
-    private static final int GL_TEXTURE_INTERNAL_FORMAT = 0x1003, GL_RGBA = 0x1908, GL_UNSIGNED_BYTE = 0x1401;
-    private static boolean formatSaid;
+    /** TextureFlags.FBO: a TextureID made as the game's combiner makes its own, filtered GL_LINEAR, repeated, with no smaller copies and no copy of a picture. */
+    private static final int FBO = 16;
+    private static final int GL_RGBA8 = 0x8058, GL_RGBA = 0x1908, GL_UNSIGNED_BYTE = 0x1401;
+    private static final int GL_TEXTURE_MIN_FILTER = 0x2801, GL_TEXTURE_MAG_FILTER = 0x2800, GL_LINEAR = 0x2601;
+    private static final int GL_TEXTURE_WRAP_S = 0x2802, GL_TEXTURE_WRAP_T = 0x2803, GL_REPEAT = 0x2901;
+    private static final int GL_PIXEL_UNPACK_BUFFER = 0x88EC, GL_PIXEL_UNPACK_BUFFER_BINDING = 0x88EF;
+    private static final int GL_UNPACK_ROW_LENGTH = 0x0CF2, GL_UNPACK_SKIP_ROWS = 0x0CF3, GL_UNPACK_SKIP_PIXELS = 0x0CF4, GL_UNPACK_ALIGNMENT = 0x0CF5;
+    private static final int GL_OUT_OF_MEMORY = 0x0505;
     /** Whether the mod's own pictures now kept were read at half size: see Quality.smallerPictures. */
     private static boolean ownSmall;
     /** A finer skin drawn this recently is not given up to make room for another. */
@@ -513,11 +534,18 @@ public final class FineSkins {
     }
 
     private static synchronized void refuse(String why, Throwable cause) {
-        if (!off) {
+        if (!off && cause instanceof NoRoom) {
+            Log.info("fine skins are off for this session, and characters wear the game's own: " + cause.getMessage());
+        } else if (!off) {
             Log.error("fine skins are off for this session, and characters wear the game's own: " + why, cause);
         }
         off = true;
         worn.clear();
+        for (Texture each : parts.values()) {
+            each.destroy();
+        }
+        parts.clear();
+        making = null;
         // Destroyed, not handed to the combiner, which would keep each for a next skin of its size: with the skins off there is none.
         for (Fine each : fine.values()) {
             each.texture.destroy();
@@ -535,6 +563,17 @@ public final class FineSkins {
         }
         own.clear();
         ahead.clear();
+        aheadQueue.clear();
+        aheadHeld = 0;
+    }
+
+    /** The driver had no room on the graphics card for a texture of the mod's own skins. */
+    private static final class NoRoom extends IllegalStateException {
+        private static final long serialVersionUID = 1L;
+
+        NoRoom(String message) {
+            super(message);
+        }
     }
 
     /**
@@ -566,6 +605,8 @@ public final class FineSkins {
         }
         own.clear();
         ahead.clear();
+        aheadQueue.clear();
+        aheadHeld = 0;
         ownSmall = Quality.smallerPictures();
     }
 
@@ -586,6 +627,8 @@ public final class FineSkins {
             jarBytes -= read.bytes;
         }
         read.bytes = 0;
+        aheadHeld -= read.aheadHeld;
+        read.aheadHeld = 0;
         if (read.texture != null) {
             read.texture.destroy();
             read.texture = null;
@@ -595,9 +638,9 @@ public final class FineSkins {
         read.making = null;
     }
 
-    /** What a picture of this size holds of the card: four bytes a dot, and a third again for its smaller copies. */
+    /** What a picture of this size holds of the card: four bytes a dot of its texture, padded to a power of two each way (Pictures.padded), with no smaller copies. */
     private static long bytesOf(int wide, int high) {
-        return (long) wide * high * 16 / 3;
+        return 4L * Pictures.encompassing(wide) * Pictures.encompassing(high);
     }
 
     /**
@@ -621,6 +664,15 @@ public final class FineSkins {
         }
         jarRoomWanted = false;
         tailoredRoomWanted = false;
+        for (Iterator<String> each = ahead.iterator(); each.hasNext();) {
+            String path = each.next();
+            Read read = own.get(path);
+            if (read != null && read.texture == null && read.pixels != null && looked - read.used > AHEAD_KEPT_NANOS) {
+                letGoOf(read);
+                own.remove(path);
+                each.remove();
+            }
+        }
     }
 
     /** Called for each picture drawn, before it is, whether or not anyone in it wears a finer skin. Render thread. */
@@ -693,9 +745,8 @@ public final class FineSkins {
                 order.add("Body/F_ZedBody0" + body + rot + ".png");
             }
         }
-        ranked = new ArrayList<>(order);
         synchronized (FineSkins.class) {
-            rankedAt = System.nanoTime();
+            ranked = new ArrayList<>(order);
         }
     }
 
@@ -710,12 +761,36 @@ public final class FineSkins {
         }
     }
 
-    /** As the game leaves a save: the next save's skins are ranked afresh. */
+    /**
+     * As the game leaves a save: the next save's skins are ranked afresh, and the render thread
+     * gives back the skins and pictures this one wore. Logic thread.
+     */
     static synchronized void leftSave() {
         ranked = null;
         rankedThisSave = false;
-        rankedAt = 0L;
+        holding = false;
+        released = false;
+        stuckFrames = 0;
+        ahead.clear();
+        aheadQueue.clear();
+        aheadThisSave = 0;
+        RenderThread.queueInvokeOnRenderContext(LEFT_SAVE);
     }
+
+    private static final Runnable LEFT_SAVE = () -> {
+        synchronized (FineSkins.class) {
+            if (!started) {
+                return;
+            }
+            int pictures = 0;
+            for (Read read : own.values()) {
+                pictures += read == null ? 0 : 1;
+            }
+            int skins = fine.size();
+            letGoOfAll();
+            Log.info("the save was left: the mod's own skins gave back " + pictures + " pictures and " + skins + " skins composed from them");
+        }
+    };
 
     /**
      * Has the jar's pictures for the skins ranked read, in that order, as many as JAR_MOST_BYTES
@@ -723,14 +798,20 @@ public final class FineSkins {
      * skins and the bodies' see-through is begun. Render thread, under the class's lock.
      */
     private static void preload() {
-        if ((Own.anywhere() & WORN) == 0 || !SkinCuts.begin()) {
+        if ((Own.anywhere() & WORN) == 0) {
+            return;
+        }
+        if (!SkinCuts.begin()) {
+            if (SkinCuts.bodiesLoaded()) {
+                ranked = null;
+                Log.info("no skins are read ahead: the shapes of the game's body models, which the skins are cut for, could not be read");
+            }
             return;
         }
         List<String> order = ranked;
         ranked = null;
         wornAsNow();
-        long now = System.nanoTime();
-        int read = 0;
+        long most = jarMost(), planned = jarBytes;
         for (String relative : order) {
             if ((ownWorn & rows.computeIfAbsent(relative, Jar::row)) == 0) {
                 continue;
@@ -743,55 +824,111 @@ public final class FineSkins {
                 jarless.add(path);
                 continue;
             }
-            if (jarBytes + jarMost() > JAR_MOST_BYTES) {
+            if (planned + most > JAR_MOST_BYTES) {
                 break;
             }
-            Read reading = new Read();
-            reading.bytes = jarMost();
-            reading.used = now;
-            reading.ahead = true;
-            jarBytes += reading.bytes;
-            own.put(path, reading);
-            ahead.add(path);
-            reader.execute(() -> read(path, reading));
-            read++;
+            planned += most;
+            aheadQueue.add(path);
         }
-        aheadRead += read;
-        aheadThisSave = read;
-        Log.info("the mod's own skins read ahead: " + read + " of the " + order.size() + " the characters about the player are composed from, holding "
-                + (jarBytes >> 20) + " of the " + (JAR_MOST_BYTES >> 20) + " MB they may");
+        aheadRead += aheadQueue.size();
+        aheadThisSave = aheadQueue.size();
+        aheadBegan = System.nanoTime();
+        aheadSaid = false;
+        Log.info("the mod's own skins read ahead: " + aheadThisSave + " of the " + order.size() + " the characters about the player are composed from, "
+                + ((planned - jarBytes) >> 20) + " MB of the graphics card");
+        readAhead();
     }
 
     /**
-     * Whether the save's start waits for the skins read ahead (Hooks.worldLoaded): from the
-     * ranking until they are all on the card, while the graphics mode wears the mod's own skins,
-     * for no more than PRELOAD_MOST_NANOS. Logic thread.
+     * Has the next of the pictures queued to be read ahead read, while those read and not yet
+     * filled hold no more than AHEAD_HELD_MOST. Should play have taken the room under the cap,
+     * the rest of the queue is given up. Render thread, under the class's lock.
      */
-    static synchronized boolean holdsLoading() {
-        // With no room on the card for the mod's own content, its skins are not worn (Own.anywhere).
-        if (off || rankedAt == 0L || (Own.rows() & WORN) == 0 || Quality.plainEverywhere() || Pipeline.contentRefused()) {
-            return false;
+    private static void readAhead() {
+        long most = jarMost(), now = System.nanoTime();
+        while (!aheadQueue.isEmpty() && aheadHeld + most <= AHEAD_HELD_MOST) {
+            String path = aheadQueue.remove(0);
+            if (own.containsKey(path)) {
+                continue;
+            }
+            if (jarBytes + most > JAR_MOST_BYTES) {
+                aheadQueue.clear();
+                break;
+            }
+            Read reading = new Read();
+            reading.bytes = most;
+            reading.used = now;
+            reading.ahead = true;
+            reading.aheadHeld = most;
+            jarBytes += most;
+            aheadHeld += most;
+            own.put(path, reading);
+            ahead.add(path);
+            reader.execute(() -> read(path, reading));
         }
-        boolean left = ranked != null || !ahead.isEmpty();
-        if (left && System.nanoTime() - rankedAt > PRELOAD_MOST_NANOS) {
-            rankedAt = 0L;
-            Log.info("the mod's own skins read ahead are not all on the graphics card " + PRELOAD_MOST_NANOS / 1_000_000_000L
-                    + " s after the save's world loaded: the save begins, and the rest are filled as it plays");
-            return false;
+    }
+
+    /** Says, once a save, when every picture read ahead is on the card. */
+    private static void aheadDone() {
+        if (!aheadSaid && aheadThisSave > 0 && ahead.isEmpty() && aheadQueue.isEmpty()) {
+            aheadSaid = true;
+            Log.info(String.format(Locale.ROOT, "the mod's own skins read ahead are on the graphics card: %d in %.1f s", aheadThisSave, (System.nanoTime() - aheadBegan) / 1e9));
         }
-        if (!left) {
-            Log.info(String.format(Locale.ROOT, "the mod's own skins read ahead are on the graphics card %.1f s after the save's world loaded", (System.nanoTime() - rankedAt) / 1e9));
-            rankedAt = 0L;
+    }
+
+    /**
+     * Whether the save's start waits for the skins read ahead (Hooks.worldLoaded), asked on each
+     * of the loading screen's frames once the game has read the map round the player: while they
+     * can still come and are not all on the card, until giveUp at most. Once it has said no it
+     * says no until the next save. Logic thread.
+     *
+     * @param contentComing whether the mod's own content is still being made for some view, the skins being read ahead only once it is
+     */
+    static synchronized boolean holdsLoading(boolean contentComing, long giveUp) {
+        if (released || !rankedThisSave) {
+            return holding = false;
         }
-        return left;
+        String stop = notHeld(contentComing);
+        boolean left = ranked != null || !ahead.isEmpty() || !aheadQueue.isEmpty();
+        if (stop == null && left && System.nanoTime() > giveUp) {
+            stop = "they are not all on the graphics card after as long as the loading screen waits, and the rest are filled as the save plays";
+        }
+        if (stop == null && left) {
+            return holding = true;
+        }
+        released = true;
+        if (stop != null && !stop.isEmpty()) {
+            Log.info("the save's start no longer waits for the mod's own skins: " + stop);
+        }
+        return holding = false;
+    }
+
+    /**
+     * Why the save's start does not wait for the skins read ahead: "" where they are not worn,
+     * a reason to log where they cannot come, and null while they can. Content that is no
+     * longer being made and still not worn is taken as never coming only on a second frame
+     * running: the render thread marks it made a moment after it marks it no longer making.
+     */
+    private static String notHeld(boolean contentComing) {
+        if (off || (Own.rows() & WORN) == 0 || Quality.plainEverywhere() || Pipeline.contentRefused()) {
+            return "";
+        }
+        String stuck = null;
+        if (ranked != null && !contentComing && (Own.anywhere() & WORN) == 0) {
+            stuck = "the mod's own content is not being made, and the skins are read ahead only once it is";
+        } else if (ranked != null && (Own.anywhere() & WORN) != 0 && !SkinCuts.bodiesLoaded()) {
+            stuck = "the game has not loaded its bodies' models, which the skins are cut for";
+        }
+        stuckFrames = stuck == null ? 0 : stuckFrames + 1;
+        return stuckFrames >= 2 ? stuck : null;
     }
 
     /** "Preparing skins 12 / 40" while the save waits for them, or null. Logic thread. */
     static synchronized String progress() {
-        if (rankedAt == 0L || off) {
+        if (!holding) {
             return null;
         }
-        return ranked != null ? "Preparing skins" : "Preparing skins " + (aheadThisSave - ahead.size()) + " / " + aheadThisSave;
+        return ranked != null ? "Preparing skins" : "Preparing skins " + (aheadThisSave - ahead.size() - aheadQueue.size()) + " / " + aheadThisSave;
     }
 
     /**
@@ -804,35 +941,30 @@ public final class FineSkins {
             if (ranked != null && on()) {
                 preload();
             }
-            if (ahead.isEmpty() || off) {
+            if (!started || off) {
                 return;
             }
             long from = System.nanoTime();
-            // The loading screen's own state: with a buffer bound to unpack from, OpenGL would read the picture out of that buffer.
-            int unpackBuffer = GL11.glGetInteger(GL_PIXEL_UNPACK_BUFFER_BINDING);
-            GL15.glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
-            try {
-                for (Iterator<String> each = ahead.iterator(); each.hasNext();) {
-                    long left = LOADING_NANOS - (System.nanoTime() - from);
-                    if (left <= 0) {
-                        break;
-                    }
-                    String path = each.next();
-                    Read read = own.get(path);
-                    if (read == null || read.texture != null) {
+            for (Iterator<String> each = ahead.iterator(); each.hasNext();) {
+                long left = LOADING_NANOS - (System.nanoTime() - from);
+                if (left <= 0) {
+                    break;
+                }
+                String path = each.next();
+                Read read = own.get(path);
+                if (read == null || read.texture != null) {
+                    each.remove();
+                } else if (read.failure != null) {
+                    made(read, path, path);
+                } else if (read.pixels != null) {
+                    fill(read, path, path, left);
+                    if (read.texture != null) {
                         each.remove();
-                    } else if (read.failure != null) {
-                        made(read, path, path);
-                    } else if (read.pixels != null) {
-                        fill(read, path, path, left);
-                        if (read.texture != null) {
-                            each.remove();
-                        }
                     }
                 }
-            } finally {
-                GL15.glBindBuffer(GL_PIXEL_UNPACK_BUFFER, unpackBuffer);
             }
+            readAhead();
+            aheadDone();
         } catch (RuntimeException | LinkageError failure) {
             refuse("the mod's own skins could not be read ahead", failure);
         }
@@ -843,7 +975,7 @@ public final class FineSkins {
      * was waiting to be filled. Render thread, under the class's lock.
      */
     private static void fillAhead() {
-        if (ahead.isEmpty() || ownMadeFrame == Pipeline.frame() || askedUnfilledFrame >= Pipeline.frame() - 1) {
+        if (ahead.isEmpty() && aheadQueue.isEmpty() || ownMadeFrame == Pipeline.frame() || askedUnfilledFrame >= Pipeline.frame() - 1) {
             return;
         }
         for (Iterator<String> each = ahead.iterator(); each.hasNext();) {
@@ -857,13 +989,12 @@ public final class FineSkins {
                 made(read, path, path);
                 if (read.texture != null) {
                     each.remove();
-                    if (ahead.isEmpty() && DevBuild.ON) {
-                        Log.info("the mod's own skins read ahead are on the graphics card");
-                    }
                 }
-                return;
+                break;
             }
         }
+        readAhead();
+        aheadDone();
     }
 
     /** Lets go of everything made with the graphics mode or the mod's own skins as they were, should either have changed. */
@@ -1298,6 +1429,8 @@ public final class FineSkins {
         if (read.texture != null) {
             // Counted as the most it could be when it was asked for, and as what it is now that it is made.
             long is = bytesOf(read.wide, read.high);
+            aheadHeld -= read.aheadHeld;
+            read.aheadHeld = 0;
             if (read.tailored) {
                 tailoredBytes += is - read.bytes;
             } else {
@@ -1321,47 +1454,73 @@ public final class FineSkins {
 
     /**
      * Fills the texture of a picture read a strip at a time, as many strips as so many
-     * nanoseconds of this frame allow, and makes it the Read's texture once every row is in. The game's own
-     * way, a TextureID made from the whole picture, hands it to glTexImage2D in one go, and with
-     * the game's textures kept compressed (TextureID.useCompressionOption) the driver packs all
-     * of it before it returns: 50 to 130 ms a frame on the render thread for a 2048 square. The
-     * texture is the game's, made with the flags and filtering that TextureID gave the whole
-     * picture, and the picture comes padded to its size (Pictures.padded). Render thread.
+     * nanoseconds of this frame allow, and makes it the Read's texture once every row is in.
+     * The game's own way, a TextureID made from the whole picture, hands it to glTexImage2D in
+     * one go, and with the game's textures kept compressed the driver packed all of it before
+     * it returned: 50 to 130 ms a frame on the render thread for a 2048 square. The texture is
+     * made here as RGBA8, which the driver takes as it is, from the picture padded to the
+     * texture's size (Pictures.padded). Every call to OpenGL is checked: an
+     * error is thrown, and no room on the card turns the fine skins off (NoRoom). Render thread.
      */
     private static void makeSome(Read read, ByteBuffer pixels, String path, long nanos) {
         long from = System.nanoTime();
+        // What OpenGL has flagged before anything here is asked of it is not this filling's, and is not to be lost.
+        int flagged = GL11.glGetError();
+        if (flagged != 0) {
+            throw new IllegalStateException(String.format(Locale.ROOT, "OpenGL error 0x%X was left by the drawing before a skin's texture was filled", flagged));
+        }
         int bound = GL11.glGetInteger(GL_TEXTURE_BINDING_2D), remembered = Texture.lastTextureID;
-        if (read.making == null) {
-            // Made here and now with nothing in it yet, and left bound.
-            read.making = new TextureID(read.wide, read.high, TextureID.useCompressionOption ? COMPRESS : 0, true);
-        } else {
-            GL11.glBindTexture(GL_TEXTURE_2D, read.making.getID());
-        }
+        int unpackBuffer = GL11.glGetInteger(GL_PIXEL_UNPACK_BUFFER_BINDING);
         int across = Pictures.encompassing(read.wide), down = Pictures.encompassing(read.high);
-        int strip = Math.max(4, STRIP_DOTS / across);
-        do {
-            int rows = Math.min(strip, down - read.rowsMade);
-            GL11.glTexSubImage2D(GL_TEXTURE_2D, 0, 0, read.rowsMade, across, rows, GL_RGBA, GL_UNSIGNED_BYTE, pixels.slice(read.rowsMade * across * 4, rows * across * 4));
-            read.rowsMade += rows;
-        } while (read.rowsMade < down && System.nanoTime() - from < nanos);
-        if (DevBuild.ON && read.rowsMade == down) {
-            int error = GL11.glGetError();
-            if (error != 0) {
-                Pipeline.noted(error);
-                throw new IllegalStateException("OpenGL error 0x" + Integer.toHexString(error) + " filling the texture of the mod's own skin " + path);
+        try {
+            // With a buffer bound to unpack from, OpenGL would read the picture out of that buffer.
+            GL15.glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+            GL11.glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+            GL11.glPixelStorei(GL_UNPACK_SKIP_ROWS, 0);
+            GL11.glPixelStorei(GL_UNPACK_SKIP_PIXELS, 0);
+            GL11.glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+            if (read.making == null) {
+                // The game's TextureID, for the game's Texture to wear, made with nothing in it and no copy of a picture.
+                read.making = new TextureID(read.wide, read.high, FBO, true);
+                checked("making the texture of", path);
+                GL11.glBindTexture(GL_TEXTURE_2D, read.making.getID());
+                GL11.glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, across, down, 0, GL_RGBA, GL_UNSIGNED_BYTE, (ByteBuffer) null);
+                GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+                GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+                GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+                GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+                checked("making room for", path);
+            } else {
+                GL11.glBindTexture(GL_TEXTURE_2D, read.making.getID());
             }
-            if (!formatSaid) {
-                formatSaid = true;
-                Log.info("the mod's own skins are kept on the card as 0x" + Integer.toHexString(GL11.glGetTexLevelParameteri(GL_TEXTURE_2D, 0, GL_TEXTURE_INTERNAL_FORMAT))
-                        + (TextureID.useCompressionOption ? ", the game's textures being compressed" : ""));
-            }
+            int strip = Math.max(1, STRIP_DOTS / across);
+            do {
+                int rows = Math.min(strip, down - read.rowsMade);
+                GL11.glTexSubImage2D(GL_TEXTURE_2D, 0, 0, read.rowsMade, across, rows, GL_RGBA, GL_UNSIGNED_BYTE, pixels.slice(read.rowsMade * across * 4, rows * across * 4));
+                checked("filling the texture of", path);
+                read.rowsMade += rows;
+            } while (read.rowsMade < down && System.nanoTime() - from < nanos);
+        } finally {
+            GL11.glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+            GL15.glBindBuffer(GL_PIXEL_UNPACK_BUFFER, unpackBuffer);
+            GL11.glBindTexture(GL_TEXTURE_2D, bound);
+            Texture.lastTextureID = remembered;
         }
-        GL11.glBindTexture(GL_TEXTURE_2D, bound);
-        Texture.lastTextureID = remembered;
         read.makingNanos += System.nanoTime() - from;
         read.makingFrames++;
         if (read.rowsMade == down) {
             read.texture = new Texture(read.making, "CameraUnlock" + path);
+        }
+    }
+
+    /** Throws what OpenGL flagged in the call just made for a texture of the mod's own skin at this path. */
+    private static void checked(String doing, String path) {
+        int error = GL11.glGetError();
+        if (error == GL_OUT_OF_MEMORY) {
+            throw new NoRoom("the graphics card has no room left for the texture of the mod's own skin " + path + " (OpenGL out of memory " + doing + " it)");
+        }
+        if (error != 0) {
+            throw new IllegalStateException(String.format(Locale.ROOT, "OpenGL error 0x%X %s the mod's own skin %s", error, doing, path));
         }
     }
 
@@ -1447,8 +1606,6 @@ public final class FineSkins {
     private static final String BODIES = "/skins/body/";
 
     private static void read(String path, Read into) {
-        int body = SkinCuts.bodyOf(path);
-        String cutPath = body == SkinCuts.NO_BODY && !path.startsWith(BODIES) ? Jar.cut(path) : null;
         // What has been taken and not yet handed to the Read or given back: given back if the reading ends early.
         OffHeap.Block[] taken = new OffHeap.Block[1];
         synchronized (into) {
@@ -1457,6 +1614,23 @@ public final class FineSkins {
                 return;
             }
         }
+        try {
+            int body = SkinCuts.bodyOf(path);
+            String cutPath = body == SkinCuts.NO_BODY && !path.startsWith(BODIES) ? Jar.cut(path) : null;
+            read(path, into, body, cutPath, taken);
+        } catch (IOException failure) {
+            into.failure = failure;
+        } catch (RuntimeException | Error failure) {
+            // Left uncaught it ends the reader's task with neither a picture nor a failure, and whoever waits for this one waits for good.
+            into.failure = new IOException(path + " could not be read", failure);
+        } finally {
+            if (taken[0] != null) {
+                taken[0].free();
+            }
+        }
+    }
+
+    private static void read(String path, Read into, int body, String cutPath, OffHeap.Block[] taken) throws IOException {
         try (InputStream in = FineSkins.class.getResourceAsStream(path); InputStream cutIn = cutPath == null ? null : FineSkins.class.getResourceAsStream(cutPath)) {
             if (cutPath != null && cutIn == null) {
                 throw new IOException("the jar has no " + cutPath);
@@ -1506,15 +1680,6 @@ public final class FineSkins {
             memory = Pictures.padded(memory, wide, high);
             taken[0] = null;
             into.hand(memory, wide, high);
-        } catch (IOException failure) {
-            into.failure = failure;
-        } catch (RuntimeException | Error failure) {
-            // Left uncaught it ends the reader's task with neither a picture nor a failure, and whoever waits for this one waits for good.
-            into.failure = new IOException(path + " could not be read", failure);
-        } finally {
-            if (taken[0] != null) {
-                taken[0].free();
-            }
         }
     }
 
