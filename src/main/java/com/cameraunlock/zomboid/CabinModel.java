@@ -390,6 +390,8 @@ final class CabinModel {
         moved(body, lampsTo, 0, null, -1);
         moved(body, lampsTo, 3, null, -1);
         float e = 0.005f;
+        float[][] j = new float[3][3];
+        float[] r = new float[3];
         for (int v = 0; v < vertices; v++) {
             int at = v * VERTEX_BYTES, g = groupOf[v];
             for (int axis = 0; axis < 3; axis++) {
@@ -415,9 +417,8 @@ final class CabinModel {
                 out.putFloat(at + axis * Float.BYTES, q[axis]);
             }
             // How the move stretches the surface here, from places a little way off along each axis.
-            float[][] j = new float[3][3];
             for (int axis = 0; axis < 3; axis++) {
-                float[] r = {p[0], p[1], p[2]};
+                System.arraycopy(p, 0, r, 0, 3);
                 r[axis] += e;
                 fit(measures, body, r);
                 for (int row = 0; row < 3; row++) {

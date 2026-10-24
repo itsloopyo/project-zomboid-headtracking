@@ -706,12 +706,13 @@ final class Flora {
                 float round = turnOne + stem * 6.2832f / stems + (stems > 1 ? 0.6f * (unit(own, 0) - 0.5f) : 0f);
                 stemTop[stem] = stems > 1 ? topUp - 0.12f * woodTall * unit(own, 8) : topUp;
                 float out = lean * (stemTop[stem] - boleTall);
+                float cos = (float) Math.cos(round), sin = (float) Math.sin(round);
                 for (int joint = 0; joint <= leaderPieces; joint++) {
                     float a = (float) joint / leaderPieces;
                     int wavers = mix(own, joint, 101);
                     float waver = joint == 0 ? 0f : WAVER * woodTall;
-                    stemX[stem * (leaderPieces + 1) + joint] = (float) Math.cos(round) * out * a + waver * (unit(wavers, 0) - 0.5f);
-                    stemY[stem * (leaderPieces + 1) + joint] = (float) Math.sin(round) * out * a + waver * (unit(wavers, 8) - 0.5f);
+                    stemX[stem * (leaderPieces + 1) + joint] = cos * out * a + waver * (unit(wavers, 0) - 0.5f);
+                    stemY[stem * (leaderPieces + 1) + joint] = sin * out * a + waver * (unit(wavers, 8) - 0.5f);
                 }
                 float[] line = workings.leader = atLeast(workings.leader, (leaderPieces + 1) * 4);
                 for (int joint = 0; joint <= leaderPieces; joint++) {

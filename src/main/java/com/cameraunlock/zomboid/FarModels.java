@@ -119,7 +119,8 @@ public final class FarModels {
         if (culled) {
             return OFF_THE_SCREEN;
         }
-        if (!beforeTheEye(zombie)) {
+        culledBefore = beforeTheEye(zombie);
+        if (!culledBefore) {
             return zombie.getScreenProperX(playerIndex);
         }
         zombie.setAlphaAndTarget(1f);
@@ -127,10 +128,11 @@ public final class FarModels {
     }
 
     public int screenDown(IsoZombie zombie, int playerIndex) {
-        if (zombie == culledZombie ? culled : inARoomNotSeen(zombie)) {
+        boolean asked = zombie == culledZombie;
+        if (asked ? culled : inARoomNotSeen(zombie)) {
             return OFF_THE_SCREEN;
         }
-        return beforeTheEye(zombie) ? 0 : zombie.getScreenProperY(playerIndex);
+        return (asked ? culledBefore : beforeTheEye(zombie)) ? 0 : zombie.getScreenProperY(playerIndex);
     }
 
     /**
@@ -197,9 +199,9 @@ public final class FarModels {
      * off it that the game gives it no model, and so does not pose it every tick.
      */
     private static final int OFF_THE_SCREEN = -100_000;
-    /** The zombie screenAcross was last asked about and whether it was left out, for screenDown, which the game asks next. */
+    /** The zombie screenAcross was last asked about, whether it was left out and whether it was before the eye, for screenDown, which the game asks next. */
     private IsoZombie culledZombie;
-    private boolean culled;
+    private boolean culled, culledBefore;
 
     /** Whether the eye's picture leaves out one standing where it is by the room: see WorldScene.figuresLeftOut and Characters. */
     private boolean leftOutOfThePicture(IsoMovingObject moving) {

@@ -55,7 +55,7 @@ final class Solids {
      */
     static Outline of(Texture texture, SpriteGeometry.Frame frame) {
         Outline outline = known.get(texture);
-        if (outline == null && asked.putIfAbsent(texture, new Asked(Math.round(frame.left), Math.round(frame.top), Math.round(frame.width), Math.round(frame.height))) == null) {
+        if (outline == null && !asked.containsKey(texture) && asked.putIfAbsent(texture, new Asked(Math.round(frame.left), Math.round(frame.top), Math.round(frame.width), Math.round(frame.height))) == null) {
             SpriteColours.readAgain(texture);
         }
         return outline;

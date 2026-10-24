@@ -92,6 +92,10 @@ final class Kick {
      */
     static float backMost(int recoilDelay, float maxDamage, float aim) {
         long key = (long) recoilDelay << 33 | (maxDamage > 0f ? 1L << 32 : 0L) | Float.floatToIntBits(aim) & 0xFFFFFFFFL;
+        Float known = BACK_MOST.get(key);
+        if (known != null) {
+            return known;
+        }
         return BACK_MOST.computeIfAbsent(key, unused -> {
             Kick kick = new Kick();
             float every = Math.max(recoilDelay, 1) / 60f, since = every, strength = fired(recoilDelay, maxDamage), most = 0f;

@@ -61,8 +61,6 @@ final class Sight {
             if (held[i] == UNREAD) {
                 held[i] = 0;
             }
-        }
-        for (int i = 0; i < SIDE * SIDE; i++) {
             shown.put(i, (byte) held[i]);
         }
     }

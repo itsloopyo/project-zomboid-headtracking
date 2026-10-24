@@ -1334,19 +1334,44 @@ final class WallBuilder {
         build.geometry.sealLow = build.geometry.sealHigh = 0f;
         for (WallTiles.Motif cell : band.motifs) {
             SpriteGeometry.Mesh on = WorldScene.solid.get(texture.getID(), WallSides.laid(cell.red, cell.green, cell.blue, 0f, 0f, 0f, WallSides.FINE));
-            float[] outline = cell.shape == WallTiles.Motif.DIAMOND
-                    ? new float[] {cell.along + cell.halfAlong, cell.level, cell.along, cell.level + cell.halfUp, cell.along - cell.halfAlong, cell.level, cell.along,
-                            cell.level - cell.halfUp}
-                    : new float[] {cell.along - cell.halfAlong, cell.level - cell.halfUp, cell.along + cell.halfAlong, cell.level - cell.halfUp, cell.along + cell.halfAlong,
-                            cell.level + cell.halfUp, cell.along - cell.halfAlong, cell.level + cell.halfUp};
-            float[] cut = cutTo(outline, face.start, face.stop, face.low, face.high);
+            float[] outline = cellOutline;
+            if (cell.shape == WallTiles.Motif.DIAMOND) {
+                outline[0] = cell.along + cell.halfAlong;
+                outline[1] = cell.level;
+                outline[2] = cell.along;
+                outline[3] = cell.level + cell.halfUp;
+                outline[4] = cell.along - cell.halfAlong;
+                outline[5] = cell.level;
+                outline[6] = cell.along;
+                outline[7] = cell.level - cell.halfUp;
+            } else {
+                outline[0] = cell.along - cell.halfAlong;
+                outline[1] = cell.level - cell.halfUp;
+                outline[2] = cell.along + cell.halfAlong;
+                outline[3] = cell.level - cell.halfUp;
+                outline[4] = cell.along + cell.halfAlong;
+                outline[5] = cell.level + cell.halfUp;
+                outline[6] = cell.along - cell.halfAlong;
+                outline[7] = cell.level + cell.halfUp;
+            }
+            float[] cut = cutTo(outline, face.start, face.stop, face.low, face.high), corners = cellCorners;
             for (int corner = 2; corner < cut.length / 2; corner++) {
-                build.geometry.addTriangle(on, build.frame, x, y, z, new float[] {da * cut[0], db * cut[0], cut[1], da * cut[corner * 2 - 2], db * cut[corner * 2 - 2],
-                        cut[corner * 2 - 1], da * cut[corner * 2], db * cut[corner * 2], cut[corner * 2 + 1]});
+                corners[0] = da * cut[0];
+                corners[1] = db * cut[0];
+                corners[2] = cut[1];
+                corners[3] = da * cut[corner * 2 - 2];
+                corners[4] = db * cut[corner * 2 - 2];
+                corners[5] = cut[corner * 2 - 1];
+                corners[6] = da * cut[corner * 2];
+                corners[7] = db * cut[corner * 2];
+                corners[8] = cut[corner * 2 + 1];
+                build.geometry.addTriangle(on, build.frame, x, y, z, corners);
             }
         }
         WorldScene.layers.lie(way, was);
     }
+
+    private final float[] cellOutline = new float[8], cellCorners = new float[9];
 
     /** The outline (along, level pairs, in order round it) cut to the box from start to stop along and low to high up: none where it misses it. */
     static float[] cutTo(float[] outline, float start, float stop, float low, float high) {

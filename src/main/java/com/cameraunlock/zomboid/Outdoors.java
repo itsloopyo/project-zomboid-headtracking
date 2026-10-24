@@ -443,13 +443,13 @@ final class Outdoors {
             }
             // A fireplace's surround, a run of three sprites along its wall: a pillar, the mantel over the fire and a pillar. The
             // black marble set and the white one have the same pieces eight places apart on the sheet.
-            Piece surround = mantel(Sheets.place(name, FIREPLACES));
+            int fireplace = Sheets.place(name, FIREPLACES);
+            Piece surround = mantel(fireplace);
             if (surround != null) {
                 return surround;
             }
             // Two pots on the cap of a chimney stack, the stack's own top a little under the next level's floor: in a row along
             // y and then along x.
-            int fireplace = Sheets.place(name, FIREPLACES);
             if (fireplace == 72 || fireplace == 73) {
                 boolean alongY = fireplace == 72;
                 return new Piece("chimney_pots", alongY ? 1 : 0).at(CHIMNEY_A, CHIMNEY_B)

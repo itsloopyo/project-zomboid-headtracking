@@ -195,7 +195,6 @@ final class Ride {
         // The seats are fixed in the vehicle, which the game's physics tips and rolls and
         // in a crash throws on its side or its roof. The game gives the way a vehicle
         // faces, its up and its speed with y as up.
-        vehicle.getForwardVector(facing);
         vehicle.getUpVector(above);
         float nose = (float) Math.sqrt(facing.x * facing.x + facing.y * facing.y + facing.z * facing.z);
         float high = (float) Math.sqrt(above.x * above.x + above.y * above.y + above.z * above.z);

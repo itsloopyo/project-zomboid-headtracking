@@ -773,11 +773,12 @@ final class PlantBuilder {
         if (!world.crownedToSight && !build.within(WorldScene.TRUNK_REACH, true)) {
             return false;
         }
+        Plant plant = plantOf(sprite);
         float[] bole = WorldScene.boles.get(sprite);
         if (bole == null) {
-            bole = measureBole(texture, plantOf(sprite).evergreen());
+            bole = measureBole(texture, plant.evergreen());
             WorldScene.boles.put(sprite, bole);
-            if (bole.length > 0 && !plantOf(sprite).evergreen()) {
+            if (bole.length > 0 && !plant.evergreen()) {
                 Trunks.stood(sprite, bole[0]);
             }
         }
@@ -787,7 +788,6 @@ final class PlantBuilder {
         boolean near = build.within(WorldScene.TRUNK_NEAR, false);
         int seed = Flora.mix(x, y, 81);
         float base = z * ViewCamera.LEVEL_HEIGHT + build.geometry.liftAt(0.5f, 0.5f);
-        Plant plant = plantOf(sprite);
         boleBark = Flora.barkOf(plant.barkedAs(), seed);
         boleKind = TreeForm.withoutForms ? TreeForm.NONE : plant.kind();
         boleShape = boleKind == TreeForm.NONE ? null : woodShape(sprite, texture);

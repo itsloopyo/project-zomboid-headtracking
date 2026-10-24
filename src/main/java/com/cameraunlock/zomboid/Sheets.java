@@ -22,7 +22,18 @@ final class Sheets {
 
     /** The number a sprite's name ends in, its place on its sheet, or -1. */
     static int place(String name) {
-        String last = name.substring(name.lastIndexOf('_') + 1);
-        return !last.isEmpty() && last.length() <= 4 && last.chars().allMatch(Character::isDigit) ? Integer.parseInt(last) : -1;
+        int from = name.lastIndexOf('_') + 1, length = name.length() - from;
+        if (length == 0 || length > 4) {
+            return -1;
+        }
+        int place = 0;
+        for (int i = from; i < name.length(); i++) {
+            char digit = name.charAt(i);
+            if (!Character.isDigit(digit)) {
+                return -1;
+            }
+            place = place * 10 + Character.digit(digit, 10);
+        }
+        return place;
     }
 }

@@ -248,7 +248,7 @@ final class CarPhysics {
             }
         }
         Log.info(String.format(Locale.ROOT, "a %s on its roof at %.1f, %.1f %s, %d thrown clear of it", vehicle.getScriptName(), vehicle.getX(), vehicle.getY(),
-                square.getFire() != null ? "caught fire" : "would not catch fire on its square", thrown));
+                square != null && square.getFire() != null ? "caught fire" : "would not catch fire on its square", thrown));
     }
 
     /**

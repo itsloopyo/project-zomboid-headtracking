@@ -534,8 +534,9 @@ final class VehicleMeshes {
      * that is empty or too big to read. A picture may be one piece of a larger sheet.
      */
     static float[] meanOf(Texture picture) {
-        if (means.containsKey(picture)) {
-            return means.get(picture);
+        float[] known = means.get(picture);
+        if (known != null || means.containsKey(picture)) {
+            return known;
         }
         if (!picture.isReady() || picture.getID() <= 0) {
             return null;
@@ -566,6 +567,7 @@ final class VehicleMeshes {
      */
     static void letGo() {
         middles.clear();
+        uprights.clear();
         panes.clear();
         rearPanes.clear();
         parts.clear();

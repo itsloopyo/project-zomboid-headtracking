@@ -152,10 +152,17 @@ final class PieceMotion {
         wx /= w;
         wy /= w;
         wz /= w;
-        float[] r = {c + wx * wx * k, wx * wy * k - wz * s, wx * wz * k + wy * s,
-                wy * wx * k + wz * s, c + wy * wy * k, wy * wz * k - wx * s,
-                wz * wx * k - wy * s, wz * wy * k + wx * s, c + wz * wz * k};
-        float[] was = turn.clone();
+        float[] r = rotation, was = turnWas;
+        r[0] = c + wx * wx * k;
+        r[1] = wx * wy * k - wz * s;
+        r[2] = wx * wz * k + wy * s;
+        r[3] = wy * wx * k + wz * s;
+        r[4] = c + wy * wy * k;
+        r[5] = wy * wz * k - wx * s;
+        r[6] = wz * wx * k - wy * s;
+        r[7] = wz * wy * k + wx * s;
+        r[8] = c + wz * wz * k;
+        System.arraycopy(turn, 0, was, 0, 9);
         for (int row = 0; row < 3; row++) {
             for (int column = 0; column < 3; column++) {
                 turn[row * 3 + column] = r[row * 3] * was[column] + r[row * 3 + 1] * was[3 + column] + r[row * 3 + 2] * was[6 + column];
@@ -163,6 +170,8 @@ final class PieceMotion {
         }
         orthonormalise();
     }
+
+    private final float[] rotation = new float[9], turnWas = new float[9], inertia = new float[3];
 
     private void orthonormalise() {
         float[] t = turn;
@@ -236,12 +245,16 @@ final class PieceMotion {
     /**
      * A rod of unit mass turning across its length. About its length it is held as hard as a
      * share of that: a limb with a hand or a foot on it, or a head, is not round, and a round rod
-     * on flat ground rolls for ever.
+     * on flat ground rolls for ever. Into a scratch array of the piece's, which is returned.
      */
     private float[] inverseInertia(float x, float y, float z, float hx, float hy, float hz) {
         float acrossInertia = length * length / 12f + radius * radius / 4f, alongInertia = acrossInertia * NOT_ROUND;
         float along = x * hx + y * hy + z * hz;
         float px = hx * along, py = hy * along, pz = hz * along;
-        return new float[] {px / alongInertia + (x - px) / acrossInertia, py / alongInertia + (y - py) / acrossInertia, pz / alongInertia + (z - pz) / acrossInertia};
+        float[] out = inertia;
+        out[0] = px / alongInertia + (x - px) / acrossInertia;
+        out[1] = py / alongInertia + (y - py) / acrossInertia;
+        out[2] = pz / alongInertia + (z - pz) / acrossInertia;
+        return out;
     }
 }

@@ -1035,8 +1035,6 @@ public final class ViewModel {
             ViewModelMath.place(out, origin[0], origin[1], origin[2], grip);
             gripX = grip[0];
             gripY = grip[1];
-        }
-        if (hasMuzzle) {
             System.arraycopy(out, 0, still, 0, 16);
             ViewModelMath.turn(still, pitch - shakenPitch, yaw - how.swayYaw, roll, gripX, gripY, -ahead, 0f, -how.lowered * LOWERED_DOWN - coming * DRAWN_DOWN, 0f);
             ViewModelMath.onto(fromAim, still);

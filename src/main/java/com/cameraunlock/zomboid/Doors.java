@@ -69,7 +69,7 @@ final class Doors {
         if (shape != null) {
             return shape == NONE || shape.leaf.north != north ? null : shape;
         }
-        if (asked.putIfAbsent(texture, new Asked(north, frame.originU, frame.originV, frame.scale, frame.left, frame.top, frame.width, frame.height)) == null) {
+        if (!asked.containsKey(texture) && asked.putIfAbsent(texture, new Asked(north, frame.originU, frame.originV, frame.scale, frame.left, frame.top, frame.width, frame.height)) == null) {
             SpriteColours.readAgain(texture);
         }
         return null;

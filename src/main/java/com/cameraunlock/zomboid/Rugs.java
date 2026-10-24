@@ -847,7 +847,7 @@ final class Rugs {
             int furthest = 0;
             float far = -1f;
             for (int at = 0; at < count; at++) {
-                float near = nearest(dots, at, centre, made)[1];
+                float near = nearestDistance(dots, at, centre, made);
                 if (near > far) {
                     far = near;
                     furthest = at;
@@ -858,7 +858,7 @@ final class Rugs {
         int[] of = new int[count];
         for (int pass = 0; pass < ROUNDS; pass++) {
             for (int at = 0; at < count; at++) {
-                of[at] = (int) nearest(dots, at, centre, colours)[0];
+                of[at] = nearestColour(dots, at, centre, colours);
             }
             float[] sum = new float[colours * 3];
             int[] in = new int[colours];
@@ -877,25 +877,41 @@ final class Rugs {
         return centre;
     }
 
-    /** The nearest of the first colours of centre to the dot at, and its squared distance. */
-    private static float[] nearest(float[] dots, int at, float[] centre, int colours) {
+    /** The nearest of the first colours of centre to the dot at. */
+    private static int nearestColour(float[] dots, int at, float[] centre, int colours) {
         int which = 0;
         float least = Float.MAX_VALUE;
         for (int m = 0; m < colours; m++) {
-            float dr = dots[at * 3] - centre[m * 3], dg = dots[at * 3 + 1] - centre[m * 3 + 1], db = dots[at * 3 + 2] - centre[m * 3 + 2];
-            float d = dr * dr + dg * dg + db * db;
+            float d = squaredDistance(dots, at, centre, m);
             if (d < least) {
                 least = d;
                 which = m;
             }
         }
-        return new float[] {which, least};
+        return which;
+    }
+
+    /** The squared distance from the dot at to the nearest of the first colours of centre. */
+    private static float nearestDistance(float[] dots, int at, float[] centre, int colours) {
+        float least = Float.MAX_VALUE;
+        for (int m = 0; m < colours; m++) {
+            float d = squaredDistance(dots, at, centre, m);
+            if (d < least) {
+                least = d;
+            }
+        }
+        return least;
+    }
+
+    private static float squaredDistance(float[] dots, int at, float[] centre, int m) {
+        float dr = dots[at * 3] - centre[m * 3], dg = dots[at * 3 + 1] - centre[m * 3 + 1], db = dots[at * 3 + 2] - centre[m * 3 + 2];
+        return dr * dr + dg * dg + db * db;
     }
 
     private static float error(float[] dots, float[] centre) {
         float sum = 0f;
         for (int at = 0; at < dots.length / 3; at++) {
-            sum += nearest(dots, at, centre, centre.length / 3)[1];
+            sum += nearestDistance(dots, at, centre, centre.length / 3);
         }
         return sum;
     }
@@ -943,7 +959,7 @@ final class Rugs {
     private static int[] labels(float[] colour, float[] palette) {
         int[] label = new int[READ * READ];
         for (int at = 0; at < label.length; at++) {
-            label[at] = (int) nearest(colour, at, palette, palette.length / 3)[0];
+            label[at] = nearestColour(colour, at, palette, palette.length / 3);
         }
         return label;
     }

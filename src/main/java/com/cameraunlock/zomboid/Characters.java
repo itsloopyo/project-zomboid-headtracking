@@ -1236,11 +1236,13 @@ public final class Characters {
         float flat = (float) Math.sqrt(Math.max(0f, 1f - up * up) / (x * x + y * y));
         x *= flat;
         y *= flat;
-        return new float[] {
-                x * aim.rightX + y * aim.rightY + up * aim.rightUp,
-                x * aim.upX + y * aim.upY + up * aim.upUp,
-                -(x * aim.forwardX + y * aim.forwardY + up * aim.forwardUp)};
+        beam[0] = x * aim.rightX + y * aim.rightY + up * aim.rightUp;
+        beam[1] = x * aim.upX + y * aim.upY + up * aim.upUp;
+        beam[2] = -(x * aim.forwardX + y * aim.forwardY + up * aim.forwardUp);
+        return beam;
     }
+
+    private final float[] beam = new float[3];
 
     /** The way the carrying left hand points what it holds, in the aim's axes, or null while it carries nothing. */
     private float[] carryPointing;
@@ -1841,7 +1843,7 @@ public final class Characters {
      */
     private void inTheFist(ModelInstanceRenderData item, TimedActs.Hand hand) {
         // The game's draw takes the part's matrix by rows, the picture's by columns.
-        float[] part = item.xfrm.get(itemPlace), turn = new float[9], drawn = new float[9];
+        float[] part = item.xfrm.get(itemPlace), turn = fistTurn, drawn = fistDrawn;
         for (int row = 0; row < 3; row++) {
             for (int column = 0; column < 3; column++) {
                 turn[column * 3 + row] = part[row * 4 + column];
@@ -1854,30 +1856,31 @@ public final class Characters {
         }
         float size = determinant(drawn), big = (float) Math.cbrt(Math.abs(size));
         Vector3f low = item.model.mesh.minXyz, high = item.model.mesh.maxXyz;
-        float[] extent = {high.x - low.x, high.y - low.y, high.z - low.z}, lows = {low.x, low.y, low.z}, highs = {high.x, high.y, high.z};
-        int length = extent[0] >= extent[1] && extent[0] >= extent[2] ? 0 : extent[1] >= extent[2] ? 1 : 2, second = (length + 1) % 3, third = (length + 2) % 3;
-        float[] along = new float[3], across = new float[3], square = new float[3];
+        float extentX = high.x - low.x, extentY = high.y - low.y, extentZ = high.z - low.z;
+        int length = extentX >= extentY && extentX >= extentZ ? 0 : extentY >= extentZ ? 1 : 2, second = (length + 1) % 3, third = (length + 2) % 3;
+        float lowest = length == 0 ? low.x : length == 1 ? low.y : low.z, highest = length == 0 ? high.x : length == 1 ? high.y : high.z;
+        float[] along = fistAlong, across = fistAcross, square = fistSquare;
         ArmHolds.carried(hand, along, across);
-        if (-lows[length] > highs[length]) {
+        if (-lowest > highest) {
             for (int axis = 0; axis < 3; axis++) {
                 along[axis] = -along[axis];
             }
         }
         ArmPose.cross(along, across, square);
         // Laid so, the mesh's axes go round as the view's do; the game draws it in a mirror when its matrix turns them the other way.
-        float[] laid = new float[9];
+        float[] laid = fistLaid;
         for (int axis = 0; axis < 3; axis++) {
             laid[length * 3 + axis] = along[axis] * big;
             laid[second * 3 + axis] = across[axis] * big;
             laid[third * 3 + axis] = square[axis] * big * (size < 0f ? -1f : 1f);
         }
         // From the person's axes to the mesh's, then laid in the fist: the point the mesh hangs by goes to the middle of the fist.
-        float[] back = inverse(turn), shift = {part[3], part[7], part[11]};
+        float[] back = inverse(turn, fistBack);
         for (int column = 0; column < 4; column++) {
             for (int row = 0; row < 3; row++) {
                 float value = 0f;
                 for (int k = 0; k < 3; k++) {
-                    float from = column < 3 ? back[column * 3 + k] : -(back[k] * shift[0] + back[3 + k] * shift[1] + back[6 + k] * shift[2]);
+                    float from = column < 3 ? back[column * 3 + k] : -(back[k] * part[3] + back[3 + k] * part[7] + back[6 + k] * part[11]);
                     value += laid[k * 3 + row] * from;
                 }
                 leftView[column * 4 + row] = value + (column == 3 ? hand.at[row] : 0f);
@@ -1886,19 +1889,27 @@ public final class Characters {
         }
     }
 
+    private final float[] fistTurn = new float[9], fistDrawn = new float[9], fistLaid = new float[9], fistBack = new float[9];
+    private final float[] fistAlong = new float[3], fistAcross = new float[3], fistSquare = new float[3];
+
     /** The determinant of a three by three matrix held by columns. */
     private static float determinant(float[] m) {
         return m[0] * (m[4] * m[8] - m[7] * m[5]) - m[3] * (m[1] * m[8] - m[7] * m[2]) + m[6] * (m[1] * m[5] - m[4] * m[2]);
     }
 
-    /** The inverse of a three by three matrix held by columns. */
-    private static float[] inverse(float[] m) {
+    /** The inverse of a three by three matrix held by columns, into out, which is returned. */
+    private static float[] inverse(float[] m, float[] out) {
         float d = determinant(m);
-        return new float[] {
-            (m[4] * m[8] - m[7] * m[5]) / d, (m[7] * m[2] - m[1] * m[8]) / d, (m[1] * m[5] - m[4] * m[2]) / d,
-            (m[6] * m[5] - m[3] * m[8]) / d, (m[0] * m[8] - m[6] * m[2]) / d, (m[3] * m[2] - m[0] * m[5]) / d,
-            (m[3] * m[7] - m[6] * m[4]) / d, (m[6] * m[1] - m[0] * m[7]) / d, (m[0] * m[4] - m[3] * m[1]) / d,
-        };
+        out[0] = (m[4] * m[8] - m[7] * m[5]) / d;
+        out[1] = (m[7] * m[2] - m[1] * m[8]) / d;
+        out[2] = (m[1] * m[5] - m[4] * m[2]) / d;
+        out[3] = (m[6] * m[5] - m[3] * m[8]) / d;
+        out[4] = (m[0] * m[8] - m[6] * m[2]) / d;
+        out[5] = (m[3] * m[2] - m[0] * m[5]) / d;
+        out[6] = (m[3] * m[7] - m[6] * m[4]) / d;
+        out[7] = (m[6] * m[1] - m[0] * m[7]) / d;
+        out[8] = (m[0] * m[4] - m[3] * m[1]) / d;
+        return out;
     }
 
     /** Draws what the game has in the viewer's left hand where the mod's own left hand carries it. */
@@ -2349,7 +2360,9 @@ public final class Characters {
 
     /** The pieces cut off a zombie posed this frame are kept with its bones as drawn. See Pieces. */
     private void keepPieces(ModelSlotRenderData data, float up) {
-        for (Pieces.Piece piece : Pieces.of(data.character)) {
+        List<Pieces.Piece> pieces = Pieces.of(data.character);
+        for (int i = 0; i < pieces.size(); i++) {
+            Pieces.Piece piece = pieces.get(i);
             if (piece.state == Pieces.POSED) {
                 Pieces.keep(piece, data, parts(data), data.x, data.y, up, data.animPlayerAngle, CHARACTER_SCALE * data.finalScale);
             }
@@ -2365,12 +2378,14 @@ public final class Characters {
     /** Every piece cut off a zombie, where it flies or lies, with what it kept to be drawn by. See Pieces. */
     private void drawPieces(float[] viewMatrix, float eyeX, float eyeY, float reach) {
         List<Pieces.Piece> pieces = Pieces.all();
-        for (Pieces.Piece piece : pieces) {
+        for (int i = 0; i < pieces.size(); i++) {
+            Pieces.Piece piece = pieces.get(i);
             if (Pieces.toLay(piece)) {
                 layPiece(piece);
             }
         }
-        for (Pieces.Piece piece : pieces) {
+        for (int i = 0; i < pieces.size(); i++) {
+            Pieces.Piece piece = pieces.get(i);
             float toX = piece.x - eyeX, toY = piece.y - eyeY;
             if (toX * toX + toY * toY > reach * reach) {
                 continue;

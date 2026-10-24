@@ -456,7 +456,7 @@ final class Tracking {
 
     /** Has the next frame drawn say the graphics mode on the screens of the players of the bits. */
     private static void sayGraphics(int players) {
-        graphicsToSay.getAndUpdate(views -> views | players);
+        graphicsToSay.getAndAccumulate(players, (views, bits) -> views | bits);
     }
 
     /**

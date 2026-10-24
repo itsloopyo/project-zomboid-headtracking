@@ -74,6 +74,10 @@ final class GroundItems {
         }
     }
 
+    /** The world's x, y and up, by the turned model's x, its -z and its y. */
+    private static final int[] PLACED_FROM = {0, 2, 1};
+    private static final float[] PLACED_SIGN = {MODEL_SCALE, -MODEL_SCALE, MODEL_SCALE};
+
     /**
      * The matrix that takes a point of an item's model to the world, as three rows of four:
      * tiles along x, along y and up, from the place the item lies. The game draws the model
@@ -90,17 +94,14 @@ final class GroundItems {
             cy * cz, -cy * sz, sy,
             sx * sy * cz + cx * sz, -sx * sy * sz + cx * cz, -sx * cy,
             -cx * sy * cz + sx * sz, cx * sy * sz + sx * cz, cx * cy};
-        // The world's x, y and up, by the turned model's x, its -z and its y.
-        int[] from = {0, 2, 1};
-        float[] sign = {MODEL_SCALE, -MODEL_SCALE, MODEL_SCALE};
         for (int row = 0; row < 3; row++) {
-            int r = from[row] * 3;
+            int r = PLACED_FROM[row] * 3;
             for (int column = 0; column < 4; column++) {
                 float sum = 0f;
                 for (int k = 0; k < 3; k++) {
                     sum += turn[r + k] * transform[column * 4 + k];
                 }
-                out[row * 4 + column] = sign[row] * sum;
+                out[row * 4 + column] = PLACED_SIGN[row] * sum;
             }
         }
     }

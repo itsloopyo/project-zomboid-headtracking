@@ -409,6 +409,10 @@ final class CabinDraw {
      * @param measured the body as VehicleMeshes.Parts measures it, across counted to the driver's right
      */
     Fitted fittedFor(String script, float[] measured) throws IOException {
+        Fitted have = fitted.get(script);
+        if (have != null && sameMeasures(have.measures, measured)) {
+            return have;
+        }
         String name = CabinModel.nameFor(script);
         // The interiors count across to the driver's left (CabinModel).
         float[] measures = measured.clone();
@@ -419,10 +423,6 @@ final class CabinDraw {
                         : "the body of " + script + " has its wheel on the right, which the mod's interiors are not built for: the game's is drawn");
             }
             return null;
-        }
-        Fitted have = fitted.get(script);
-        if (have != null && java.util.Arrays.equals(have.measures, measures)) {
-            return have;
         }
         if (have != null) {
             letGo(have);
@@ -448,6 +448,19 @@ final class CabinDraw {
             Log.info("the interior " + name + " is fitted to " + script + ": " + model.vertices + " vertices, " + model.indices / 3 + " triangles");
         }
         return made;
+    }
+
+    /** Whether an interior fitted to the measures kept was fitted to these, as VehicleMeshes.Parts gives them: across counted the other way. */
+    private static boolean sameMeasures(float[] kept, float[] measured) {
+        if (kept.length != measured.length) {
+            return false;
+        }
+        for (int i = 0; i < kept.length; i++) {
+            if (Float.floatToIntBits(kept[i]) != Float.floatToIntBits(i == 4 ? -measured[i] : measured[i])) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
@@ -585,7 +598,10 @@ final class CabinDraw {
         float wx = fit.wheel[0], wy = fit.wheel[1], wz = fit.wheel[2];
         // The game's map is a mirror of a right-handed frame: the side its axes call aside is the vehicle's right,
         // and the interior's across is its left.
-        float[] turned = {axes[0], axes[1], axes[2], -axes[3], -axes[4], -axes[5], axes[6], axes[7], axes[8]};
+        float[] turned = turnedAxes;
+        for (int i = 0; i < 9; i++) {
+            turned[i] = i / 3 == 1 ? -axes[i] : axes[i];
+        }
         axes = turned;
         // Column by column: the vehicle's ahead, left and up, and where the interior's origin lands, less the eye.
         for (int column = 0; column < 3; column++) {
@@ -601,9 +617,18 @@ final class CabinDraw {
         f.model[13] = oy;
         f.model[14] = oz;
         f.model[15] = 1f;
-        float[] view = {camera.rightX, camera.upX, -camera.forwardX, 0f, camera.rightY, camera.upY, -camera.forwardY, 0f, camera.rightUp, camera.upUp,
-            -camera.forwardUp, 0f, 0f, 0f, 0f, 1f};
-        float[] projection = ViewCamera.projection(tanHalf, aspect, near, far);
+        float[] view = eyeView;
+        view[0] = camera.rightX;
+        view[1] = camera.upX;
+        view[2] = -camera.forwardX;
+        view[4] = camera.rightY;
+        view[5] = camera.upY;
+        view[6] = -camera.forwardY;
+        view[8] = camera.rightUp;
+        view[9] = camera.upUp;
+        view[10] = -camera.forwardUp;
+        view[15] = 1f;
+        ViewCamera.projection(tanHalf, aspect, near, far, projection);
         multiply(projection, view, f.seen);
         // The sun's map: an orthographic view down the sun's way onto the cabin's middle, in the interior's own frame.
         float sx = sunWay[0] * axes[0] + sunWay[1] * axes[1] + sunWay[2] * axes[2];
@@ -630,17 +655,30 @@ final class CabinDraw {
         float rx = uy * sz - uz * sy, ry = uz * sx - ux * sz, rz = ux * sy - uy * sx;
         float r = 1f / SHADOW_REACH;
         // From the interior's frame to the map's -1..1 cube, the sun's way pointing out of the map towards the viewer.
-        float[] toMap = {rx * r, ux * r, -sx * r, 0f, ry * r, uy * r, -sy * r, 0f, rz * r, uz * r, -sz * r, 0f,
-            -(rx * MIDDLE[0] + ry * MIDDLE[1] + rz * MIDDLE[2]) * r, -(ux * MIDDLE[0] + uy * MIDDLE[1] + uz * MIDDLE[2]) * r,
-            (sx * MIDDLE[0] + sy * MIDDLE[1] + sz * MIDDLE[2]) * r, 1f};
+        float[] toMap = this.toMap;
+        toMap[0] = rx * r;
+        toMap[1] = ux * r;
+        toMap[2] = -sx * r;
+        toMap[4] = ry * r;
+        toMap[5] = uy * r;
+        toMap[6] = -sy * r;
+        toMap[8] = rz * r;
+        toMap[9] = uz * r;
+        toMap[10] = -sz * r;
+        toMap[12] = -(rx * MIDDLE[0] + ry * MIDDLE[1] + rz * MIDDLE[2]) * r;
+        toMap[13] = -(ux * MIDDLE[0] + uy * MIDDLE[1] + uz * MIDDLE[2]) * r;
+        toMap[14] = (sx * MIDDLE[0] + sy * MIDDLE[1] + sz * MIDDLE[2]) * r;
+        toMap[15] = 1f;
         // To draw the map, it is reached through the model matrix: undo it first.
-        float[] fromRel = rigidInverse(f.model);
+        float[] fromRel = rigidInverse(f.model, this.fromRel);
         multiply(toMap, fromRel, f.shadowSeen);
-        // To read it, from the interior's frame to 0..1, a little towards the sun so that no surface shades itself.
-        float[] bias = {0.5f, 0f, 0f, 0f, 0f, 0.5f, 0f, 0f, 0f, 0f, 0.5f, 0f, 0.5f, 0.5f, 0.5f - 0.0018f, 1f};
-        multiply(bias, toMap, f.shadowMatrix);
+        multiply(BIAS, toMap, f.shadowMatrix);
         multiply(f.shadowMatrix, fromRel, f.relShadow);
     }
+
+    private final float[] turnedAxes = new float[9], eyeView = new float[16], projection = new float[16], toMap = new float[16], fromRel = new float[16];
+    /** To read the sun's map, from the interior's frame to 0..1, a little towards the sun so that no surface shades itself. */
+    private static final float[] BIAS = {0.5f, 0f, 0f, 0f, 0f, 0.5f, 0f, 0f, 0f, 0f, 0.5f, 0f, 0.5f, 0.5f, 0.5f - 0.0018f, 1f};
 
     /** The sun's map of the interior, for another pass to read: see Frame.relShadow. */
     int shadowMap() {
@@ -818,7 +856,6 @@ final class CabinDraw {
         about(w[3], w[4], w[5], f.steer, turn);
         turned(p, turn, w[0], w[1], w[2]);
         elements(m, CabinModel.WHEEL);
-        float[] values = {f.speed, f.revs, f.fuel, f.heat};
         for (int n = 0; n < 4; n++) {
             int g = CabinModel.NEEDLE_SPEED + n;
             if (m.count[g] == 0) {
@@ -826,7 +863,8 @@ final class CabinDraw {
             }
             float[] needle = f.fitted.needles;
             int at = n * 9;
-            float share = Math.clamp(values[n] / needle[at + 8], 0f, 1f);
+            float value = n == 0 ? f.speed : n == 1 ? f.revs : n == 2 ? f.fuel : f.heat;
+            float share = Math.clamp(value / needle[at + 8], 0f, 1f);
             // The sweep is clockwise as the driver sees it; turning about an axis towards the driver, that is the negative way.
             float angle = needle[at + 6] + (needle[at + 7] - needle[at + 6]) * share;
             about(needle[at + 3], needle[at + 4], needle[at + 5], -angle, turn);
@@ -865,23 +903,21 @@ final class CabinDraw {
         out[8] = c + z * z * k;
     }
 
+    /** out = a times b, by columns; out is neither of them. */
     private static void multiply(float[] a, float[] b, float[] out) {
-        float[] r = new float[16];
         for (int column = 0; column < 4; column++) {
             for (int row = 0; row < 4; row++) {
                 float sum = 0f;
                 for (int k = 0; k < 4; k++) {
                     sum += a[k * 4 + row] * b[column * 4 + k];
                 }
-                r[column * 4 + row] = sum;
+                out[column * 4 + row] = sum;
             }
         }
-        System.arraycopy(r, 0, out, 0, 16);
     }
 
-    /** The inverse of a matrix that only turns and moves, by columns. */
-    private static float[] rigidInverse(float[] m) {
-        float[] out = new float[16];
+    /** The inverse of a matrix that only turns and moves, by columns, into out, which is returned. */
+    private static float[] rigidInverse(float[] m, float[] out) {
         for (int row = 0; row < 3; row++) {
             for (int column = 0; column < 3; column++) {
                 out[column * 4 + row] = m[row * 4 + column];

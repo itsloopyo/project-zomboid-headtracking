@@ -47,9 +47,27 @@ final class Voice {
     /** How far the jaw drops for a hiss, and how far the lips spread, of all the way. */
     private static final float HISS_JAW = 0.12f, HISS_SPREAD = 0.35f;
 
+    private static final int OUTLINE = (int) (HIGHEST_HZ / STEP_HZ) + 1;
+    private static final float[] SHADE = new float[WINDOW];
+    private static final double[] COS = new double[OUTLINE * (ORDER + 1)], SIN = new double[OUTLINE * (ORDER + 1)];
+
+    static {
+        for (int i = 0; i < WINDOW; i++) {
+            SHADE[i] = 0.54f - 0.46f * (float) Math.cos(2 * Math.PI * i / (WINDOW - 1));
+        }
+        for (int at = 0; at < OUTLINE; at++) {
+            double w = 2 * Math.PI * at * STEP_HZ / RATE;
+            for (int k = 0; k <= ORDER; k++) {
+                COS[at * (ORDER + 1) + k] = Math.cos(w * k);
+                SIN[at * (ORDER + 1) + k] = Math.sin(w * k);
+            }
+        }
+    }
+
     private final float[] heard = new float[WINDOW], shaded = new float[WINDOW];
     private final double[] r = new double[ORDER + 1], a = new double[ORDER + 1], before = new double[ORDER + 1];
-    private final float[] outline = new float[(int) (HIGHEST_HZ / STEP_HZ) + 1];
+    private final float[] outline = new float[OUTLINE];
+    private final float[] found = new float[2];
     /** The room's noise in decibels, which the first block sets. */
     private float room = Float.NaN, open, lips;
     /** How far the jaw drops and how the lips are shaped for the last vowel read: before the first, half way and neither. */
@@ -131,7 +149,7 @@ final class Voice {
         // Leaned towards the high notes first, which a voice is quieter in by about 6 dB an octave, and shaded at the ends.
         for (int i = 0; i < WINDOW; i++) {
             float leaned = i == 0 ? heard[0] : heard[i] - 0.97f * heard[i - 1];
-            shaded[i] = leaned * (0.54f - 0.46f * (float) Math.cos(2 * Math.PI * i / (WINDOW - 1)));
+            shaded[i] = leaned * SHADE[i];
         }
         for (int lag = 0; lag <= ORDER; lag++) {
             double sum = 0;
@@ -165,10 +183,10 @@ final class Voice {
             }
         }
         for (int at = 0; at < outline.length; at++) {
-            double w = 2 * Math.PI * at * STEP_HZ / RATE, re = 0, im = 0;
+            double re = 0, im = 0;
             for (int k = 0; k <= ORDER; k++) {
-                re += a[k] * Math.cos(w * k);
-                im -= a[k] * Math.sin(w * k);
+                re += a[k] * COS[at * (ORDER + 1) + k];
+                im -= a[k] * SIN[at * (ORDER + 1) + k];
             }
             outline[at] = (float) (1 / (re * re + im * im));
         }
@@ -181,7 +199,9 @@ final class Voice {
                         f1 = hz;
                     }
                 } else if (hz >= f1 + 250f) {
-                    return new float[] {f1, hz};
+                    found[0] = f1;
+                    found[1] = hz;
+                    return found;
                 }
             }
         }

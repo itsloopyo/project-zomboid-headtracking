@@ -270,11 +270,12 @@ final class OpeningBuilder {
             int folds = Math.max(2, Math.round(wide / pitch)), strips = folds * FOLD_STRIPS;
             float hem = shape.foot + (shape.head - shape.foot) * HEM;
             float before = 0f, beforeFoot = 0f;
+            double phase = 6.0 * chance(seed + hung);
             for (int strip = 0; strip <= strips; strip++) {
                 int fold = strip / FOLD_STRIPS;
                 // No two folds hang quite alike, and cloth spreads a little towards its foot.
                 float much = deep * (0.65f + 0.7f * chance(seed + hung * 31 + fold));
-                float turn = (float) Math.sin(2.0 * Math.PI * strip / FOLD_STRIPS + 6.0 * chance(seed + hung));
+                float turn = (float) Math.sin(2.0 * Math.PI * strip / FOLD_STRIPS + phase);
                 float here = out + into * much * turn, hereFoot = out + into * much * 1.3f * turn;
                 if (strip > 0) {
                     float a = t0 + wide * (strip - 1) / strips, b = t0 + wide * strip / strips;
@@ -683,10 +684,11 @@ final class OpeningBuilder {
             float cutEnd = bevelled == AT_HEAD ? head : bevelled == AT_FROM ? from : to, cutFront = bevelled == AT_HEAD ? h1 : bevelled == AT_FROM ? f0 : f1;
             float fixed = upright ? along0 : up0;
             float edgeBack = edge == atCut ? Math.signum(front) * WorldScene.WALL_HALF : back;
-            float[] at0 = {uncut0, uncut1, uncut1, uncut0}, depth = {edgeBack, edgeBack, beside ? behind : front, beside ? behind : front};
-            for (int k = 0; k < 4; k++) {
-                edgePoint(c, k, upright, fixed, at0[k], depth[k]);
-            }
+            float edgeFront = beside ? behind : front;
+            edgePoint(c, 0, upright, fixed, uncut0, edgeBack);
+            edgePoint(c, 1, upright, fixed, uncut1, edgeBack);
+            edgePoint(c, 2, upright, fixed, uncut1, edgeFront);
+            edgePoint(c, 3, upright, fixed, uncut0, edgeFront);
             SpriteGeometry.addPlainQuad(mesh, c, red, green, blue);
             if (beside) {
                 float near0 = Math.abs(uncut0 - cutEnd) < 1e-6f ? cutFront : uncut0, near1 = Math.abs(uncut1 - cutEnd) < 1e-6f ? cutFront : uncut1;

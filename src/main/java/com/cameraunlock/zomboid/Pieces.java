@@ -226,9 +226,12 @@ final class Pieces {
                     }
                 }
             }
-            all.addAll(orphans);
+            for (Piece piece : orphans) {
+                if (drawn(piece)) {
+                    all.add(piece);
+                }
+            }
         }
-        all.removeIf(piece -> !drawn(piece));
         return all;
     }
 

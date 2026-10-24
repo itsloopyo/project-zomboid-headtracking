@@ -245,14 +245,15 @@ final class TimedActs {
             ArmPose.unit(axis[0], axis[1], axis[2], axis);
         }
         ArmPose.about(axis, off - OFF_THE_FOREARM, turn);
-        ArmPose.turned(turn, hand.fingers.clone(), hand.fingers);
-        ArmPose.turned(turn, hand.out.clone(), hand.out);
+        ArmPose.turned(turn, hand.fingers, hand.fingers);
+        ArmPose.turned(turn, hand.out, hand.out);
     }
 
     /** The right hand held as for a handshake, thumb up: fingers forward, up and in, palm to the left. */
     private static final float[] HANDSHAKE_FINGERS = {-0.25f, 0.35f, -0.9f}, HANDSHAKE_PALM = {-1f, 0f, -0.1f};
     private static final float[] MOUTH_AT = {0.02f, -0.12f, -0.21f};
     private static final int X = 0, Z = 2;
+    private static final float[] X_AXIS = {1f, 0f, 0f}, Z_AXIS = {0f, 0f, 1f};
 
     /** A hand's place at the far and near end of a reach into a container, the right's; the left's is its mirror. */
     private static final float[] REACHED = {0.08f, -0.30f, -0.60f}, BACK = {0.10f, -0.15f, -0.33f};
@@ -266,8 +267,11 @@ final class TimedActs {
         set(hand, lerp(near, far, reach), fingers, palm, reach > 0.8f ? PINCH : OPEN);
     }
 
+    private static final float[] AWAY_FINGERS = {0f, 1f, -0.3f};
+    private static final float[][] AWAY_PALM = {{-1f, 0f, 0f}, {1f, 0f, 0f}};
+
     private static void away(Hand hand, int side) {
-        set(hand, AWAY[side], new float[] {0f, 1f, -0.3f}, side == 0 ? new float[] {-1f, 0f, 0f} : new float[] {1f, 0f, 0f}, OPEN);
+        set(hand, AWAY[side], AWAY_FINGERS, AWAY_PALM[side], OPEN);
     }
 
     /** The hand taken from where it waits below the picture to where it works, `up` of the way. */
@@ -288,9 +292,9 @@ final class TimedActs {
     /** The hand turned about an axis of the aim's through its middle: about x a positive angle takes its top towards the eye, about z to the left. */
     private static void tip(Hand hand, int axis, float angle) {
         float[] turn = new float[9];
-        ArmPose.about(axis == X ? new float[] {1f, 0f, 0f} : new float[] {0f, 0f, 1f}, angle, turn);
-        ArmPose.turned(turn, hand.fingers.clone(), hand.fingers);
-        ArmPose.turned(turn, hand.out.clone(), hand.out);
+        ArmPose.about(axis == X ? X_AXIS : Z_AXIS, angle, turn);
+        ArmPose.turned(turn, hand.fingers, hand.fingers);
+        ArmPose.turned(turn, hand.out, hand.out);
     }
 
     /** A direction made square to a line, of length one. */

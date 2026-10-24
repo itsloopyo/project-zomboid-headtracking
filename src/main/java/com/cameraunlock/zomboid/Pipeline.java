@@ -428,6 +428,7 @@ final class Pipeline {
     private final CabinDraw.Frame cabinFrame = new CabinDraw.Frame();
     private final CabinArms cabinArms = new CabinArms();
     private boolean armsUnplacedSaid, armsDrawnSaid;
+    private final float[] wheelArmsProjection = new float[16];
     /**
      * A unit no program keeps a picture on from one pass to the next: each pass that reads it binds its
      * own there first. The driver's arms read the interior's shadow map there, and the mod's interior, a
@@ -4887,7 +4888,8 @@ final class Pipeline {
             Log.info("the driver's arms are drawn on the wheel, at a scale of " + scale);
         }
         clearOwnTarget();
-        view.characters.drawWheelArms(ViewCamera.projection(tanHalfFieldOfView, aspect, HELD_NEAR, far), cabinArms.skins);
+        ViewCamera.projection(tanHalfFieldOfView, aspect, HELD_NEAR, far, wheelArmsProjection);
+        view.characters.drawWheelArms(wheelArmsProjection, cabinArms.skins);
         GL30.glBindVertexArray(0);
         GL15.glBindBuffer(GL_ARRAY_BUFFER, 0);
         GL11.glDisable(GL_CULL_FACE);
@@ -6631,7 +6633,7 @@ final class Pipeline {
             skyNearTarget = target(skyNearColor);
             problem = complete("clouds");
         }
-        if (problem == null) {
+        if (problem == null && !overhead) {
             Log.info("first person picture sized " + width + "x" + height);
         }
         return problem;

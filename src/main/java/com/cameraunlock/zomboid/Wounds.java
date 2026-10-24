@@ -149,7 +149,14 @@ final class Wounds {
     synchronized void forget(Object zombie) {
         zombies.remove(zombie);
         any = !zombies.isEmpty();
-        anyCut = any && zombies.values().stream().anyMatch(limbs -> limbs.cuts[0] + limbs.cuts[1] + limbs.cuts[2] + limbs.cuts[3] + limbs.cuts[4] > 0);
+        boolean cut = false;
+        for (Limbs limbs : zombies.values()) {
+            if (limbs.cuts[0] + limbs.cuts[1] + limbs.cuts[2] + limbs.cuts[3] + limbs.cuts[4] > 0) {
+                cut = true;
+                break;
+            }
+        }
+        anyCut = cut;
     }
 
     /** How many zombies are on record. */

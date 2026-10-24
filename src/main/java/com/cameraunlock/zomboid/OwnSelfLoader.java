@@ -172,13 +172,12 @@ final class OwnSelfLoader extends OwnGun {
         float k = metre / handMetre;
         // The model's x is the gun's left, y along the barrel, z up; the hand's x is out of its
         // palm, the gun's right, y up the magazine and z the way that leaves, back.
-        float[][] turn = {{-k, 0f, 0f}, {0f, 0f, k}, {0f, -k, 0f}};
-        for (int column = 0; column < 3; column++) {
-            for (int row = 0; row < 3; row++) {
-                hand[column * 4 + row] = c[row] * turn[0][column] + c[4 + row] * turn[1][column] + c[8 + row] * turn[2][column];
-            }
-            hand[column * 4 + 3] = 0f;
+        for (int row = 0; row < 3; row++) {
+            hand[row] = -k * c[row];
+            hand[4 + row] = -k * c[8 + row];
+            hand[8 + row] = k * c[4 + row];
         }
+        hand[3] = hand[7] = hand[11] = 0f;
         float footUp = ArmHolds.MAGAZINE_LONG / 2f;
         for (int row = 0; row < 3; row++) {
             hand[12 + row] = c[12 + row] + c[4 + row] * footUp - (hand[row] * well[0] + hand[4 + row] * well[1] + hand[8 + row] * well[2]);
