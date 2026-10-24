@@ -18,6 +18,12 @@ import zombie.util.list.PZArrayList;
  * that frame's meshes.
  */
 final class WallBuilder {
+    /**
+     * Whether inside corners are shaded into their crease (SpriteGeometry.creased). Off: tried
+     * by vertex light, it left a light crack down the corner where a skin is cut and diagonal
+     * bands over papered walls, and no darkening that shows.
+     */
+    private static final boolean CREASES = Boolean.getBoolean("cameraunlock.zomboid.creases");
     /** How far in from a wall's end its sprite is looked over for its first painted pixel, in unscaled pixels. */
     private static final float MOST_UNPAINTED = 5f;
     /** Frame pixels at tile scale 1 the game paints a wall's top line in, darker than the wall: the top seen from above, which a face standing under the ceiling takes its texels from below. */
@@ -494,6 +500,10 @@ final class WallBuilder {
         build.contentsOf(nearRoom);
         skinStart = (startJoin & WallJoins.NEAR) != 0 ? WorldScene.WALL_HALF : 0f;
         skinEnd = (endJoin & WallJoins.NEAR) != 0 ? WorldScene.WALL_HALF : 0f;
+        // A skin is in the inside of a corner where the other skin runs on round its outside.
+        build.geometry.creaseAlongA = da != 0f;
+        build.geometry.creaseLow = CREASES && (startJoin & WallJoins.FAR) != 0;
+        build.geometry.creaseHigh = CREASES && (endJoin & WallJoins.FAR) != 0;
         // An inside wall is its paper's stripes, each a face of its own: see Papers.
         boolean papered = build.overLayer == 0 && build.paperedWall && Own.textures(build.playerIndex);
         paper = papered ? Papers.of(texture, build.frame, da != 0f) : null;
@@ -529,6 +539,8 @@ final class WallBuilder {
         build.contentsOf(farRoom);
         skinStart = (startJoin & WallJoins.FAR) != 0 ? WorldScene.WALL_HALF : 0f;
         skinEnd = (endJoin & WallJoins.FAR) != 0 ? WorldScene.WALL_HALF : 0f;
+        build.geometry.creaseLow = CREASES && (startJoin & WallJoins.NEAR) != 0;
+        build.geometry.creaseHigh = CREASES && (endJoin & WallJoins.NEAR) != 0;
         build.geometry.shownA = -inX;
         build.geometry.shownB = -inY;
         // The sprite is painted for the side inside the square. Where the far side is another
@@ -620,6 +632,7 @@ final class WallBuilder {
         build.contentsOf(RoomSight.pair(nearRoom, farRoom));
         build.frame.material = material;
         skinStart = skinEnd = 0f;
+        build.geometry.creaseLow = build.geometry.creaseHigh = false;
         build.geometry.shownA = build.geometry.shownB = 0f;
         build.geometry.sealLow = build.geometry.sealHigh = build.geometry.sealTop = 0f;
         if (build.overLayer == 0 && opening[at + OPENING_START] >= 0f) {
@@ -1105,6 +1118,15 @@ final class WallBuilder {
     /** The part of a wall from one share of its length to another and from one height to another, in levels. */
     private void addPiece(SpriteGeometry.Mesh mesh, int x, int y, int z, float a, float b, float da, float db,
             float from, float to, float foot, float head, float sealFrom, float sealTo, float sealTop, boolean startIsLow) {
+        // A face's light is given at its corners: one ending in an inside corner is cut where its shade into the corner starts.
+        float shadeFrom = WorldScene.WALL_HALF + SpriteGeometry.CREASE_REACH;
+        float cut = build.geometry.creaseLow && from < shadeFrom && shadeFrom < to ? shadeFrom
+                : build.geometry.creaseHigh && from < 1f - shadeFrom && 1f - shadeFrom < to ? 1f - shadeFrom : Float.NaN;
+        if (!Float.isNaN(cut)) {
+            addPiece(mesh, x, y, z, a, b, da, db, from, cut, foot, head, sealFrom, 0f, sealTop, startIsLow);
+            addPiece(mesh, x, y, z, a, b, da, db, cut, to, foot, head, 0f, sealTo, sealTop, startIsLow);
+            return;
+        }
         build.geometry.sealTop = sealTop;
         if (tiles != null) {
             addTiled(x, y, z, a, b, da, db, from, to, foot, head, sealFrom, sealTo, startIsLow);

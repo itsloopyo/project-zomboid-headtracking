@@ -685,6 +685,15 @@ final class SpriteGeometry {
     float sealLow, sealHigh;
     /** The same down from the top edge of a face that stands straight up. */
     float sealTop;
+    /**
+     * Whether the wall skin being added meets another wall in an inside corner at its low or its
+     * high end, along a (creaseAlongA) or along b. The game lights a wall only at the corners of
+     * its square, and two walls meeting at a corner were lit evenly right into it, two flat
+     * pictures meeting at a line: the light into such a corner falls to CREASE_SHADE of itself
+     * from CREASE_REACH out from the face of the other wall (see creased).
+     */
+    boolean creaseLow, creaseHigh, creaseAlongA;
+    static final float CREASE_REACH = 0.2f, CREASE_SHADE = 0.7f;
     /** How many frame pixels further in than the usual inset a face's texels are taken from its edges: see Tents.DRAWN_IN. */
     float drawnIn;
     /**
@@ -2212,12 +2221,20 @@ final class SpriteGeometry {
         float w0 = (1f - a) * (1f - b), w1 = a * (1f - b), w2 = a * b, w3 = (1f - a) * b;
         mesh.sway = cover == null ? 0f : 1f - (cover.length == GRID_COVER ? gridCover(a, b) : cover[0] * w0 + cover[1] * w1 + cover[2] * w2 + cover[3] * w3);
         mesh.litAt(frame, w0, w1, w2, w3);
+        float shade = creaseLow || creaseHigh ? creased(polygon[at], polygon[at + 1]) : 1f;
         mesh.add(tileX + polygon[at] + shownA, tileY + polygon[at + 1] + shownB,
                 (tileZ + polygon[at + 2] + shownUp + raised) * ViewCamera.LEVEL_HEIGHT + liftAt(polygon[at], polygon[at + 1]), u, v,
-                frame.cornerRed[0] * w0 + frame.cornerRed[1] * w1 + frame.cornerRed[2] * w2 + frame.cornerRed[3] * w3,
-                frame.cornerGreen[0] * w0 + frame.cornerGreen[1] * w1 + frame.cornerGreen[2] * w2 + frame.cornerGreen[3] * w3,
-                frame.cornerBlue[0] * w0 + frame.cornerBlue[1] * w1 + frame.cornerBlue[2] * w2 + frame.cornerBlue[3] * w3);
+                (frame.cornerRed[0] * w0 + frame.cornerRed[1] * w1 + frame.cornerRed[2] * w2 + frame.cornerRed[3] * w3) * shade,
+                (frame.cornerGreen[0] * w0 + frame.cornerGreen[1] * w1 + frame.cornerGreen[2] * w2 + frame.cornerGreen[3] * w3) * shade,
+                (frame.cornerBlue[0] * w0 + frame.cornerBlue[1] * w1 + frame.cornerBlue[2] * w2 + frame.cornerBlue[3] * w3) * shade);
         mesh.litAsFace();
+    }
+
+    /** How much of its light the point (a, b) of the square has, on a wall skin that ends in an inside corner. */
+    float creased(float a, float b) {
+        float along = creaseAlongA ? a : b;
+        float out = Math.min(creaseLow ? along : 1f, creaseHigh ? 1f - along : 1f) - WorldScene.WALL_HALF;
+        return 1f - (1f - CREASE_SHADE) * Math.clamp(1f - out / CREASE_REACH, 0f, 1f);
     }
 
     /** How much of the face shows at (a, b) of the square, from a cover of GRID_COVER: within the quarter of the square the point is in. */

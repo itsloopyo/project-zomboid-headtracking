@@ -37,6 +37,7 @@ final class BuildingTests {
         Checks.run("pavementIsNotLooseStone", BuildingTests::pavementIsNotLooseStone);
         Checks.run("skinsOfTwoWallsMeetOnTheOutsideOfEveryCorner", BuildingTests::skinsOfTwoWallsMeetOnTheOutsideOfEveryCorner);
         Checks.run("wallThatEndsAloneIsClosedAcrossItsEnd", BuildingTests::wallThatEndsAloneIsClosedAcrossItsEnd);
+        Checks.run("insideCornerIsShadedIntoTheCrease", BuildingTests::insideCornerIsShadedIntoTheCrease);
         Checks.run("eavesMeetAtAHipAndRunOutOverAGable", BuildingTests::eavesMeetAtAHipAndRunOutOverAGable);
         Checks.run("aDownpipeRunsDownAWallAndNeverStandsAlone", BuildingTests::aDownpipeRunsDownAWallAndNeverStandsAlone);
         Checks.run("openGroundHasTheLightMostOfItHas", BuildingTests::openGroundHasTheLightMostOfItHas);
@@ -262,6 +263,23 @@ final class BuildingTests {
             }
         }
         check(corners == 6, "an L has six corners: " + corners);
+    }
+
+    private static void insideCornerIsShadedIntoTheCrease() {
+        SpriteGeometry geometry = new SpriteGeometry();
+        geometry.creaseAlongA = true;
+        geometry.creaseLow = true;
+        float face = WorldScene.WALL_HALF, reach = face + SpriteGeometry.CREASE_REACH;
+        check(near(geometry.creased(face, 0.3f), SpriteGeometry.CREASE_SHADE), "a skin is darkest where the other wall's face meets it");
+        check(near(geometry.creased(0f, 0.3f), SpriteGeometry.CREASE_SHADE), "and no lighter behind that face");
+        check(near(geometry.creased(reach, 0.3f), 1f) && near(geometry.creased(0.5f, 0.3f), 1f), "and wholly lit from the reach of the shade on");
+        float half = geometry.creased(face + SpriteGeometry.CREASE_REACH / 2f, 0.3f);
+        check(half > SpriteGeometry.CREASE_SHADE && half < 1f, "between, lighter further out: " + half);
+        check(near(geometry.creased(1f - face, 0.3f), 1f), "its other end, with no corner there, is not shaded");
+        geometry.creaseHigh = true;
+        check(near(geometry.creased(1f - face, 0.3f), SpriteGeometry.CREASE_SHADE), "unless it ends in one too");
+        geometry.creaseAlongA = false;
+        check(near(geometry.creased(0.3f, face), SpriteGeometry.CREASE_SHADE), "a west wall's skin runs along b");
     }
 
     private static void wallThatEndsAloneIsClosedAcrossItsEnd() {
