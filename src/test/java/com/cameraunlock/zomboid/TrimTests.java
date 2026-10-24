@@ -18,7 +18,12 @@ final class TrimTests {
     static void run() {
         Checks.run("aSkirtingAndACorniceAreReadAsTwoBands", TrimTests::aSkirtingAndACorniceAreReadAsTwoBands);
         Checks.run("anEvenlyPaintedPanelIsABoardAndABrickOrBlockOneIsLeftToItsSprite", TrimTests::anEvenlyPaintedPanelIsABoardAndABrickOrBlockOneIsLeftToItsSprite);
-        Checks.run("aDadoPanelUnderItsRailIsABoardBelowItsCornice", TrimTests::aDadoPanelUnderItsRailIsABoardBelowItsCornice);
+        Checks.run("aDadoPanelIsARailOverABoardBelowItsCornice", TrimTests::aDadoPanelIsARailOverABoardBelowItsCornice);
+        Checks.run("aDadoPanelReadAtOneTimesIsBuiltAsAtTwo", TrimTests::aDadoPanelReadAtOneTimesIsBuiltAsAtTwo);
+        Checks.run("aDadoDoorwayPieceAsTheGameReadsItIsBuiltLikeItsSiblings", TrimTests::aDadoDoorwayPieceAsTheGameReadsItIsBuiltLikeItsSiblings);
+        Checks.run("aJointOfBlocksWhereARailWouldBeIsNoRail", TrimTests::aJointOfBlocksWhereARailWouldBeIsNoRail);
+        Checks.run("aDarkLineAtThePanelsTopWithNoRailOverItIsNoRail", TrimTests::aDarkLineAtThePanelsTopWithNoRailOverItIsNoRail);
+        Checks.run("aRailStandsProudOfTheBoardItCaps", TrimTests::aRailStandsProudOfTheBoardItCaps);
         Checks.run("blocksWithFaintJointsAreLeftToTheirSprite", TrimTests::blocksWithFaintJointsAreLeftToTheirSprite);
         Checks.run("blocksAreToldByTheirUprightJointsWhereTheLightUnderACourseFades", TrimTests::blocksAreToldByTheirUprightJointsWhereTheLightUnderACourseFades);
         Checks.run("everyCorniceIsOneMouldingWhateverItsBand", TrimTests::everyCorniceIsOneMouldingWhateverItsBand);
@@ -93,7 +98,25 @@ final class TrimTests {
         return dots;
     }
 
-    private static void aDadoPanelUnderItsRailIsABoardBelowItsCornice() {
+    /** The bands of a dado panel read top down: its cornice, its rail and the board under the rail, each along the lengths of the wall given as from, to pairs of columns. */
+    private static void checkDado(Trims.Band[] bands, String what, int... lengths) {
+        int each = lengths.length / 2;
+        check(bands.length == 1 + 2 * each, what + ": a cornice, then a rail and a board along each length: " + Arrays.toString(bands));
+        if (bands.length != 1 + 2 * each) {
+            return;
+        }
+        check(Trims.cornice(bands[0]), what + ": the cornice is kept: " + bands[0]);
+        for (int i = 0; i < each; i++) {
+            Trims.Band rail = bands[1 + i], board = bands[1 + each + i];
+            float from = lengths[2 * i] == 0 ? 0f : (float) lengths[2 * i] / LONG, to = lengths[2 * i + 1] == LONG - 1 ? 1f : (lengths[2 * i + 1] + 1f) / LONG;
+            check(Trims.rail(rail) && Math.abs(rail.top() - 9f / 32f) < 1e-4f && Math.abs(rail.foot() - 13f / 64f) < 1e-4f,
+                    what + ": the rail runs from its shadow up to the panel's top: " + rail);
+            check(!Trims.rail(board) && board.foot() == 0f && board.top() == rail.foot(), what + ": the board runs from the floor up to the rail: " + board);
+            check(rail.from() == from && rail.to() == to && board.from() == from && board.to() == to, what + ": both along the same length of wall: " + rail + " " + board);
+        }
+    }
+
+    private static void aDadoPanelIsARailOverABoardBelowItsCornice() {
         // walls_interior_detailing_01_2 as read: a rail shaded round with its shadow under it,
         // the panel painted evenly, a bead and its shadow along the floor.
         int[] greys = new int[53];
@@ -105,9 +128,59 @@ final class TrimTests {
         byte[] dots = panel(greys);
         paint(dots, 0, 17, 0, LONG - 1, 220);
         Trims.Band[] bands = Trims.bands(dots, LONG, HIGH, 1f);
-        check(bands.length == 2, "a cornice and a board: " + Arrays.toString(bands));
-        check(bands.length == 2 && Trims.cornice(bands[0]), "the cornice is kept: " + Arrays.toString(bands));
-        check(bands.length == 2 && bands[1].foot() == 0f && Math.abs(bands[1].top() - 9f / 32f) < 1e-4f, "the panel is one board from the floor up to its rail: " + Arrays.toString(bands));
+        checkDado(bands, "at 2x", 0, LONG - 1);
+        if (bands.length == 3) {
+            check(Math.abs(bands[1].red() - 214f / 255f) < 0.03f, "the rail is painted as its rows are, not as its shadow: " + bands[1]);
+        }
+    }
+
+    private static void aDadoPanelReadAtOneTimesIsBuiltAsAtTwo() {
+        // walls_interior_detailing_01_2 west as read from the 1x sheet: softer, so the faces either
+        // side of the rail's shadow are as even as a course of blocks either side of its joint.
+        int[] greys = {157, 172, 179, 177, 174, 173, 173, 172, 169, 163, 161, 164, 159, 146, 148, 165, 174, 172, 170, 171, 172, 172, 172, 172, 172, 172, 172,
+                172, 172, 172, 172, 172, 172, 172, 172, 172, 172, 172, 172, 172, 172, 172, 172, 172, 172, 172, 172, 172, 171, 168, 156, 138, 133};
+        byte[] dots = panel(greys);
+        int[] cornice = {175, 175, 175, 175, 177, 178, 175, 169, 161, 154, 159, 167, 171, 170, 165, 161, 160, 163, 164, 155, 140, 127};
+        for (int row = 0; row < cornice.length; row++) {
+            paint(dots, row, row, 0, LONG - 1, cornice[row]);
+        }
+        checkDado(Trims.bands(dots, LONG, HIGH, 1f), "at 1x", 0, LONG - 1);
+    }
+
+    private static void aDadoDoorwayPieceAsTheGameReadsItIsBuiltLikeItsSiblings() {
+        // walls_interior_detailing_01_42 west as the game reads it, in brightness by row: the
+        // panel a dot's paint at one end of the wall and eight at the other, a doorway between,
+        // its rail's shadow half as bright as the panel.
+        int[] cornice = {43, 43, 43, 47, 54, 52, 51, 49, 42, 47, 51, 50, 50, 49, 46, 45, 46, 48, 47, 39, 34};
+        byte[] dots = new byte[LONG * HIGH * 4];
+        for (int row = 0; row < cornice.length; row++) {
+            paint(dots, row, row, 0, LONG - 1, cornice[row]);
+        }
+        paint(dots, 21, 21, 0, 30, 29);
+        paint(dots, 138, 138, 57, 63, 18);
+        int[] greys = {49, 59, 58, 56, 55, 55, 56, 56, 54, 52, 55, 56, 38, 27, 47, 58, 57, 57, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
+                56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 55, 37, 26, 43};
+        for (int i = 0; i < greys.length; i++) {
+            int row = HIGH - greys.length + i;
+            paint(dots, row, row, 0, 3, greys[i]);
+            paint(dots, row, row, 56, 63, greys[i]);
+        }
+        checkDado(Trims.bands(dots, LONG, HIGH, 1f), "01_42 west", 0, 3, 56, LONG - 1);
+    }
+
+    private static void aJointOfBlocksWhereARailWouldBeIsNoRail() {
+        // walls_interior_detailing_01_100 north as read from the 1x sheet, at the end of a wall:
+        // stone blocks, their joints where a rail's shadow would be. The lowest of them taken for
+        // a rail's shadow, the blocks under it read as a board.
+        int[] greys = {128, 121, 114, 114, 113, 101, 88, 110, 131, 132, 132, 132, 131, 132, 132, 111, 90, 101, 113, 114, 114, 101, 87, 101, 114, 104, 93,
+                103, 113, 121, 127, 128, 127, 109, 91, 109, 128, 128, 127, 122, 115, 112, 109, 112, 115, 124, 132, 123, 114, 115, 116, 103, 90, 103, 115, 124,
+                131, 118};
+        byte[] dots = new byte[LONG * HIGH * 4];
+        for (int i = 0; i < greys.length; i++) {
+            int row = HIGH - greys.length + i;
+            paint(dots, row, row, 0, 9, greys[i]);
+        }
+        check(Trims.bands(dots, LONG, HIGH, 1f).length == 0, "a panel of stone blocks is a surface, left to its sprite: " + Arrays.toString(Trims.bands(dots, LONG, HIGH, 1f)));
     }
 
     private static void blocksWithFaintJointsAreLeftToTheirSprite() {
@@ -192,6 +265,29 @@ final class TrimTests {
 
     private static final Trims.Band SKIRTING = new Trims.Band(0f, 0.06f, 0f, 1f, 0.9f, 0.9f, 0.9f);
     private static final Trims.Band CORNICE = new Trims.Band(0.95f, 1f, 0f, 1f, 0.9f, 0.9f, 0.9f);
+    private static final Trims.Band RAIL = new Trims.Band(13f / 64f, 9f / 32f, 0f, 1f, 0.8f, 0.8f, 0.8f);
+    private static final Trims.Band UNDER_RAIL = new Trims.Band(0f, 13f / 64f, 0f, 1f, 0.8f, 0.8f, 0.8f);
+
+    private static void aDarkLineAtThePanelsTopWithNoRailOverItIsNoRail() {
+        int[] greys = new int[56];
+        Arrays.fill(greys, 200);
+        greys[0] = 150;
+        greys[7] = 160;
+        Trims.Band[] bands = Trims.bands(panel(greys), LONG, HIGH, 1f);
+        check(bands.length == 1 && !Trims.rail(bands[0]) && bands[0].foot() == 0f, "a painted panel with a dark line near its top is one board: " + Arrays.toString(bands));
+    }
+
+    private static void aRailStandsProudOfTheBoardItCaps() {
+        check(Trims.depth(RAIL) == Trims.RAIL && Trims.RAIL > Trims.depth(UNDER_RAIL) && Trims.depth(UNDER_RAIL) == Trims.BOARD,
+                "a rail stands out of the wall further than the board under it: " + Trims.depth(RAIL) + " over " + Trims.depth(UNDER_RAIL));
+        float[] section = Trims.section(RAIL);
+        float foot = RAIL.foot() * ViewCamera.LEVEL_HEIGHT, top = RAIL.top() * ViewCamera.LEVEL_HEIGHT;
+        check(section[1] == top && section[section.length - 1] == foot, "it runs from the top of its band down to the top of the board: " + Arrays.toString(section));
+        check(section[section.length - 2] == Trims.BOARD, "and comes down onto the board's face, closing over it: " + Arrays.toString(section));
+        check(Trims.turnsTheCorner(RAIL, RAIL) && !Trims.turnsTheCorner(RAIL, UNDER_RAIL), "a rail meets a rail in a corner, and not the board");
+        Trims.Band[] bands = {CORNICE, RAIL, UNDER_RAIL};
+        check(Trims.clearOf(bands, 0.2f, 0.8f, 0.1f, 0.25f) == Trims.RAIL, "something hung over the rail stands clear of it");
+    }
 
     private static void aSkirtingStandsOnTheRoomsSideOfItsWallWithNoUndersideOnTheFloor() {
         // The north wall of square (4, 9), the room to the south of it, then the west wall, the room to the east.
@@ -231,7 +327,7 @@ final class TrimTests {
         // floor goes with the north wall where it is within 0.06 of the north line; one facing more
         // along the floor goes with the north wall where it is within 0.3 of the line and faces
         // more along y than x. Ends of a band whole along its square and of one cut short by a door.
-        for (Trims.Band band : new Trims.Band[] {SKIRTING, CORNICE, new Trims.Band(0.4f, 0.43f, 0f, 1f, 0.5f, 0.3f, 0.2f),
+        for (Trims.Band band : new Trims.Band[] {SKIRTING, CORNICE, new Trims.Band(0.4f, 0.43f, 0f, 1f, 0.5f, 0.3f, 0.2f), RAIL,
                 new Trims.Band(0f, 0.12f, 0.3f, 0.7f, 0.9f, 0.9f, 0.9f)}) {
             SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
             Trims.add(mesh, band, 4f, 9f, 1f, 0f, 0f, 1f, 0f, 0f, false, WHITE);
@@ -249,7 +345,7 @@ final class TrimTests {
     }
 
     private static void everyFaceOfAMouldingLooksAwayFromItsWall() {
-        for (Trims.Band band : new Trims.Band[] {SKIRTING, CORNICE, new Trims.Band(0.4f, 0.43f, 0f, 1f, 0.5f, 0.3f, 0.2f)}) {
+        for (Trims.Band band : new Trims.Band[] {SKIRTING, CORNICE, new Trims.Band(0.4f, 0.43f, 0f, 1f, 0.5f, 0.3f, 0.2f), RAIL}) {
             SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
             Trims.add(mesh, band, 4f, 9f, 1f, 0f, 0f, 1f, 0f, 0f, false, WHITE);
             for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
@@ -267,7 +363,7 @@ final class TrimTests {
 
     private static void twoMouldingsMeetInAMitreInTheCornerAndNeitherCrossesTheOther() {
         // The north and the west wall of square (4, 9), each with its moulding to the corner.
-        for (Trims.Band band : new Trims.Band[] {SKIRTING, CORNICE, new Trims.Band(0f, 0.28f, 0f, 1f, 0.9f, 0.9f, 0.9f)}) {
+        for (Trims.Band band : new Trims.Band[] {SKIRTING, CORNICE, new Trims.Band(0f, 0.28f, 0f, 1f, 0.9f, 0.9f, 0.9f), RAIL}) {
             SpriteGeometry.Mesh north = new SpriteGeometry.Mesh(), west = new SpriteGeometry.Mesh();
             Trims.add(north, band, 4f, 9f, 1f, 0f, 0f, 1f, 0f, 0f, true, WHITE);
             Trims.add(west, band, 4f, 9f, 0f, 1f, 1f, 0f, 0f, 0f, true, WHITE);

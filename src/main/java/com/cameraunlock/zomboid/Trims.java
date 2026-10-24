@@ -17,7 +17,8 @@ import zombie.core.textures.Texture;
  * Flats.stood), a band is a run of rows painted along much of the wall; where a band stops
  * along the wall, at a doorway, the moulding stops too. A band taller than TALLEST is a
  * panel: one painted evenly is built as a board, and one with a pattern, brick, blocks or tiles, is
- * a surface and not a moulding, and the sprite keeps it all.
+ * a surface and not a moulding, and the sprite keeps it all. A dado panel has a rail along its
+ * top, built as a moulding of its own standing out over the board.
  */
 final class Trims {
     /** The tallest band built as a moulding, in levels: past it a band is a panel. */
@@ -43,6 +44,17 @@ final class Trims {
     private static final float UPRIGHT = 0.02f;
     private static final int UPRIGHT_ROWS = 10, EDGE = 3;
     /**
+     * A dado rail is drawn along the top of its panel, its top and front over its shadow: the
+     * darkest row from RAIL_FEWEST to RAIL_TALLEST of a level under the panel's top, this much
+     * darker than the panel under it, with RAIL_FACE_ROWS or more of the rail over it there. The
+     * rail is the rows down to the end of its shadow, and the panel the rows under it, which are
+     * what is read for evenness: a panel of blocks has joints under the rail's place too. A
+     * rail's height is rounded to RAIL_HEIGHTS of a level: its shadow is read a row higher on a
+     * west edge than on a north, and a 32nd's step falls between the two.
+     */
+    private static final float RAIL_SHADOW = 0.1f, RAIL_FEWEST = 0.03f, RAIL_TALLEST = 0.1f, RAIL_HEIGHTS = 64f;
+    private static final int RAIL_FACE_ROWS = 4;
+    /**
      * How far a cornice falls down the wall, in tiles. The game draws a cornice as seen from
      * above, its depth along the ceiling shown as height, so its band says less of its size
      * than of how it is drawn: 0.10 to 0.12 of a level by sprite, for what is one moulding
@@ -59,8 +71,10 @@ final class Trims {
     private static final int GAP = 3;
     /** A band starting or stopping this near a level's foot or top, or a wall's end, is taken to reach it. */
     private static final float SNAP = 0.04f;
-    /** How far the skirting and a rail stand out of the wall's skin, and the round of a skirting's top edge and a rail's, in tiles. */
+    /** How far the skirting and a panel's board stand out of the wall's skin, and the round of a board's top edge, in tiles. */
     static final float BOARD = 0.016f, ROUND = 0.007f;
+    /** How far a dado rail stands out of the wall's skin, in tiles: proud of the board it caps. */
+    static final float RAIL = 0.028f;
     /**
      * How much darker the game paints a west wall's sprite than the north wall's of the same
      * finish, to light it: a white skirting reads 0.66 on a west wall and 0.77 on a north, a
@@ -122,6 +136,11 @@ final class Trims {
     /** Whether a band is a cornice: one under the ceiling, which falls CORNICE_FALL down the wall whatever its band. */
     static boolean cornice(Band band) {
         return band.top >= 1f && band.foot > 0f;
+    }
+
+    /** Whether a band is a rail: one off the floor and under the ceiling. */
+    static boolean rail(Band band) {
+        return band.foot > 0f && band.top < 1f;
     }
 
     /** How high over its floor a band's moulding comes down to, in levels. */
@@ -212,36 +231,86 @@ final class Trims {
                 continue;
             }
             float top = 1f - (float) first / high, foot = 1f - (float) (last + 1) / high;
-            if (top - foot > TALLEST && !even(dots, long_, first, last)) {
+            int shadow = top - foot > TALLEST ? railShadow(dots, long_, high, first, last) : -1;
+            if (top - foot > TALLEST && !even(dots, long_, shadow < 0 ? first : shadow + 1, last)) {
                 return NONE;
             }
             top = top > 1f - SNAP ? 1f : Math.round(top * HEIGHTS) / HEIGHTS;
             foot = foot < SNAP ? 0f : Math.round(foot * HEIGHTS) / HEIGHTS;
-            int column = 0;
-            while (column < long_) {
-                if (!columnInBand(dots, long_, column, first, last)) {
-                    column++;
-                    continue;
-                }
-                int start = column, end = column, gap = 0;
-                while (column < long_ && gap <= GAP) {
-                    if (columnInBand(dots, long_, column, first, last)) {
-                        end = column;
-                        gap = 0;
-                    } else {
-                        gap++;
-                    }
-                    column++;
-                }
-                float from = (float) start / long_, to = (float) (end + 1) / long_;
-                from = from < SNAP ? 0f : from;
-                to = to > 1f - SNAP ? 1f : to;
-                float[] colour = colour(dots, long_, first, last, start, end);
-                found.add(new Band(foot, top, from, to, Math.min(colour[0] * lighter, 1f), Math.min(colour[1] * lighter, 1f), Math.min(colour[2] * lighter, 1f)));
-                column = end + 1;
+            if (shadow < 0) {
+                along(found, dots, long_, first, last, foot, top, lighter);
+                continue;
             }
+            float under = top - Math.round((shadow - first + 1) * RAIL_HEIGHTS / high) / RAIL_HEIGHTS;
+            along(found, dots, long_, first, shadow, under, top, lighter);
+            along(found, dots, long_, shadow + 1, last, foot, under, lighter);
         }
         return found.toArray(NONE);
+    }
+
+    /** Adds the bands the rows first to last paint from foot to top, one for each length of the wall they are painted along. */
+    private static void along(List<Band> found, byte[] dots, int long_, int first, int last, float foot, float top, float lighter) {
+        int column = 0;
+        while (column < long_) {
+            if (!columnInBand(dots, long_, column, first, last)) {
+                column++;
+                continue;
+            }
+            int start = column, end = column, gap = 0;
+            while (column < long_ && gap <= GAP) {
+                if (columnInBand(dots, long_, column, first, last)) {
+                    end = column;
+                    gap = 0;
+                } else {
+                    gap++;
+                }
+                column++;
+            }
+            float from = (float) start / long_, to = (float) (end + 1) / long_;
+            from = from < SNAP ? 0f : from;
+            to = to > 1f - SNAP ? 1f : to;
+            float[] colour = colour(dots, long_, first, last, start, end);
+            found.add(new Band(foot, top, from, to, Math.min(colour[0] * lighter, 1f), Math.min(colour[1] * lighter, 1f), Math.min(colour[2] * lighter, 1f)));
+            column = end + 1;
+        }
+    }
+
+    /** The last row of the shadow under a dado rail along the top of the panel from first to last: see RAIL_SHADOW. -1 where it has no rail. */
+    private static int railShadow(byte[] dots, int long_, int high, int first, int last) {
+        int fewest = first + Math.round(RAIL_FEWEST * high), tallest = first + Math.round(RAIL_TALLEST * high);
+        if (tallest + OUTLINE_ROWS >= last - OUTLINE_ROWS) {
+            return -1;
+        }
+        double panel = 0.0;
+        for (int row = tallest + 1; row <= last - OUTLINE_ROWS; row++) {
+            panel += rowLight(dots, long_, row);
+        }
+        panel /= last - OUTLINE_ROWS - tallest;
+        int darkest = fewest;
+        for (int row = fewest; row <= tallest; row++) {
+            darkest = rowLight(dots, long_, row) < rowLight(dots, long_, darkest) ? row : darkest;
+        }
+        if (rowLight(dots, long_, darkest) >= (1.0 - RAIL_SHADOW) * panel || darkest - fewest < RAIL_FACE_ROWS) {
+            return -1;
+        }
+        int end = darkest;
+        while (end < tallest && rowLight(dots, long_, end + 1) < (1.0 - RAIL_SHADOW) * panel) {
+            end++;
+        }
+        return end;
+    }
+
+    /** The mean brightness of the dots painted in a row. */
+    private static double rowLight(byte[] dots, int long_, int row) {
+        double sum = 0.0;
+        int count = 0;
+        for (int column = 0; column < long_; column++) {
+            if (dots[(row * long_ + column) * 4 + 3] != 0) {
+                sum += light(dots, long_, row, column);
+                count++;
+            }
+        }
+        return sum / count;
     }
 
     private static boolean rowInBand(byte[] dots, int long_, int row) {
@@ -283,16 +352,7 @@ final class Trims {
     private static boolean jointed(byte[] dots, int long_, int first, int last) {
         double[] light = new double[Math.max(last - first + 1, 0)];
         for (int row = first; row <= last; row++) {
-            double sum = 0.0;
-            int count = 0;
-            for (int column = 0; column < long_; column++) {
-                int at = (row * long_ + column) * 4;
-                if (dots[at + 3] != 0) {
-                    sum += 0.299 * (dots[at] & 0xff) + 0.587 * (dots[at + 1] & 0xff) + 0.114 * (dots[at + 2] & 0xff);
-                    count++;
-                }
-            }
-            light[row - first] = sum / count;
+            light[row - first] = rowLight(dots, long_, row);
         }
         for (int i = FACE_FAR; i < light.length - FACE_FAR; i++) {
             int aboveFrom = i - FACE_FAR, aboveTo = i - FACE_NEAR, belowFrom = i + FACE_NEAR, belowTo = i + FACE_FAR;
@@ -397,14 +457,18 @@ final class Trims {
      * away from the wall on its left as it is walked. Every point is at a height at or below
      * the one before, so the section and the wall behind it close as a strip per segment.
      * A skirting or a panel is a board with a round top and no underside, a cornice a fillet
-     * and a cove up into the ceiling, and a rail a board rounded above. The cove's faces are
-     * steeper than half a right angle, so the cut of a wall in the overhead view takes them with
-     * the wall they face; the fillet's level underside is cut as it lies within the wall's
-     * thickness of the line.
+     * and a cove up into the ceiling, and a rail a cap: a level top as deep as a board, a
+     * bevel out to RAIL, its front, and a bevel back down to the board it caps. The cove's and
+     * the bevels' faces are steeper than half a right angle, so the cut of a wall in the
+     * overhead view takes them with the wall they face; the fillet's level underside and the
+     * rail's level top are cut as they lie within the wall's thickness of the line.
      * A cornice falls CORNICE_FALL down the wall whatever its band.
      */
     static float[] section(Band band) {
         float level = ViewCamera.LEVEL_HEIGHT, foot = band.foot * level, top = band.top * level, tall = top - foot;
+        if (rail(band)) {
+            return new float[] {0f, top, BOARD, top, RAIL, top - 0.3f * tall, RAIL, foot + 0.25f * tall, BOARD, foot};
+        }
         if (cornice(band)) {
             tall = CORNICE_FALL;
             foot = top - tall;
@@ -414,9 +478,8 @@ final class Trims {
         }
         float round = Math.min(ROUND, tall / 3f);
         float bend = round * (float) (1.0 - Math.sqrt(0.5));
-        float[] board = {0f, top, BOARD - round, top, BOARD - bend, top - bend, BOARD, top - round, BOARD, foot, 0f, foot};
-        // A skirting stands on the floor, and an underside there would lie in the floor's own plane.
-        return band.foot > 0f ? board : Arrays.copyOf(board, board.length - 2);
+        // A board stands on the floor, and an underside there would lie in the floor's own plane.
+        return new float[] {0f, top, BOARD - round, top, BOARD - bend, top - bend, BOARD, top - round, BOARD, foot};
     }
 
     /**
