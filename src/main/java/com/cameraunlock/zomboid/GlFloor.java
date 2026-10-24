@@ -41,19 +41,25 @@ final class GlFloor {
             return;
         }
         GLCapabilities card = Display.capabilities;
-        StringBuilder lacks = new StringBuilder();
-        if (!card.GL_EXT_texture_array) {
-            lacks.append("EXT_texture_array");
+        if (card == null) {
+            throw new IllegalStateException("the floor was asked for before the game made its OpenGL context: org.lwjglx.opengl.Display.capabilities is not set");
         }
-        if (!card.GL_ARB_shader_texture_lod) {
-            lacks.append(lacks.length() > 0 ? " or " : "").append("ARB_shader_texture_lod");
-        }
-        if (!card.OpenGL33 || lacks.length() > 0) {
-            String shortOf = !card.OpenGL33 ? "is older than 3.3" + (lacks.length() > 0 ? " and has no " + lacks : "") : "has no " + lacks;
-            missing = "the graphics card's OpenGL " + shortOf + ", which first person needs, so the game is drawn as it is without the mod";
+        missing = shortOf(card.OpenGL33, card.GL_EXT_texture_array, card.GL_ARB_shader_texture_lod);
+        if (missing != null) {
             Log.info(missing);
         }
         asked = true;
+    }
+
+    /** Why a context with these is below the floor, or null. */
+    static String shortOf(boolean version33, boolean textureArray, boolean textureLod) {
+        String lacks = !textureArray && !textureLod ? "EXT_texture_array or ARB_shader_texture_lod"
+                : !textureArray ? "EXT_texture_array" : !textureLod ? "ARB_shader_texture_lod" : null;
+        if (version33 && lacks == null) {
+            return null;
+        }
+        String shortOf = !version33 ? "is older than 3.3" + (lacks != null ? " and has no " + lacks : "") : "has no " + lacks;
+        return "the graphics card's OpenGL " + shortOf + ", which first person needs, so the game is drawn as it is without the mod";
     }
 
     /**
