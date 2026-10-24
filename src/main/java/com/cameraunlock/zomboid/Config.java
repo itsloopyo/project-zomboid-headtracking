@@ -170,8 +170,9 @@ final class Config {
                 writable | live, true);
         regrip = core.configLocalBool("General", "RegripTwoHandedWeapons",
                 "true: a weapon made for both hands goes back into both when the left hand puts down what it held beside it,\n"
-                        + "a torch say, as the inventory's Equip Two Hands does. false: it stays in the right hand alone, as the game leaves it.\n"
-                        + "Never on a server where players can fight.",
+                        + "a torch say, as the inventory's Equip Two Hands does. A torch switched off beside it is put away for that, and one\n"
+                        + "taken up again leaves the weapon in the right hand. false: the game's way, where the weapon stays in the right hand\n"
+                        + "alone, and taking up a torch takes it out of both. Never on a server where players can fight.",
                 writable | live, true);
         splitScreen = core.configLocalEnum("General", "SplitScreen",
                 "How two players at one screen share it: Vertical (side by side) or Horizontal (one above the other).",

@@ -384,8 +384,9 @@ MuzzleFlash=true
 ; dot without one mark where the shot lands and what the interact key uses. false: neither is drawn.
 Crosshair=true
 ; true: a weapon made for both hands goes back into both when the left hand puts down what it held beside it,
-; a torch say, as the inventory's Equip Two Hands does. false: it stays in the right hand alone, as the game leaves it.
-; Never on a server where players can fight.
+; a torch say, as the inventory's Equip Two Hands does. A torch switched off beside it is put away for that, and one
+; taken up again leaves the weapon in the right hand. false: the game's way, where the weapon stays in the right hand
+; alone, and taking up a torch takes it out of both. Never on a server where players can fight.
 RegripTwoHandedWeapons=true
 ; How two players at one screen share it: Vertical (side by side) or Horizontal (one above the other).
 SplitScreen=Vertical

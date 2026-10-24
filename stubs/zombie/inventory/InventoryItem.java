@@ -15,6 +15,7 @@ public class InventoryItem {
     public void setCondition(int condition) { throw new UnsupportedOperationException("reference stub"); }
     public void setCurrentUsesFloat(float share) { throw new UnsupportedOperationException("reference stub"); }
     public boolean canBeActivated() { throw new UnsupportedOperationException("reference stub"); }
+    public boolean canEmitLight() { throw new UnsupportedOperationException("reference stub"); }
     public boolean isActivated() { throw new UnsupportedOperationException("reference stub"); }
     public void playActivateDeactivateSound() { throw new UnsupportedOperationException("reference stub"); }
     public void setActivated(boolean activated) { throw new UnsupportedOperationException("reference stub"); }

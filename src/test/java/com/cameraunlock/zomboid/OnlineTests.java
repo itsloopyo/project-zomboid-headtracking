@@ -22,6 +22,11 @@ public final class OnlineTests {
         Checks.run("aSharedValueThisDoesNotWriteIsRefused", OnlineTests::aSharedValueThisDoesNotWriteIsRefused);
     }
 
+    /** Whether the gun is taken back into both hands, by what they hold, a torch never lit. */
+    private static boolean emptied(Regrip hands, Object primary, Object secondary) {
+        return hands.next(primary, primary != null, secondary, false, false) == Regrip.BOTH;
+    }
+
     private static void aSharedHeadAndMouthReadBackAsWritten() {
         float[] out = new float[5];
         String both = SharedHeads.Wire.write(new float[] {0.5f, -0.123f, 1.2f}, new Mouths.Shape(0.4f, -0.7f));
@@ -66,21 +71,41 @@ public final class OnlineTests {
         Servers.in(Servers.Where.ALONE, () -> check(Online.regrips(), "alone a two-handed weapon is taken back in both hands"));
         Servers.in(Servers.Where.FRIENDLY, () -> check(Online.regrips(), "and on a server where players cannot hurt each other"));
         Servers.in(Servers.Where.CONTESTED, () -> check(!Online.regrips(), "but not where they can"));
-        Object gun = new Object(), torch = new Object();
+        Object gun = new Object(), torch = new Object(), pistol = new Object();
         Regrip hands = new Regrip();
-        check(!hands.emptied(gun, gun) && !hands.emptied(null, torch) && !hands.emptied(gun, torch) && hands.emptied(gun, null),
+        check(!emptied(hands, gun, gun) && !emptied(hands, null, torch) && !emptied(hands, gun, torch) && emptied(hands, gun, null),
                 "a gun goes back into both hands when a torch beside it is put down, though the torch took it out of them");
-        check(!hands.emptied(gun, null), "once");
+        check(!emptied(hands, gun, null), "once");
         hands = new Regrip();
-        check(!hands.emptied(gun, gun) && !hands.emptied(gun, torch) && hands.emptied(gun, null), "and when the torch was taken up beside it");
+        check(!emptied(hands, gun, gun) && !emptied(hands, gun, torch) && emptied(hands, gun, null), "and when the torch was taken up beside it");
         hands = new Regrip();
-        check(!hands.emptied(gun, null) && !hands.emptied(gun, null), "one taken up in the right hand alone with the left empty stays so");
+        check(!emptied(hands, gun, null) && !emptied(hands, gun, null), "one taken up in the right hand alone with the left empty stays so");
         hands = new Regrip();
-        check(!hands.emptied(gun, gun) && !hands.emptied(gun, null), "and so does one moved from both hands into the right");
+        check(!emptied(hands, gun, gun) && !emptied(hands, gun, null), "and so does one moved from both hands into the right");
         hands = new Regrip();
-        check(!hands.emptied(new Object(), torch) && !hands.emptied(gun, null), "nothing is taken back when the right takes up another weapon as the left lets go");
+        check(!emptied(hands, new Object(), torch) && !emptied(hands, gun, null), "nothing is taken back when the right takes up another weapon as the left lets go");
         hands = new Regrip();
-        check(!hands.emptied(gun, gun) && !hands.emptied(null, null), "nothing is taken back when the gun itself is put away");
+        check(!emptied(hands, gun, gun) && !emptied(hands, null, null), "nothing is taken back when the gun itself is put away");
+        // The light key only switches a torch: switched off beside a gun for both hands it is put away, and taken up again it leaves the gun in the right.
+        hands = new Regrip();
+        hands.next(gun, true, torch, true, true);
+        check(hands.next(gun, true, torch, true, true) == Regrip.NOTHING, "a lit torch beside a gun for both hands is left in the hand");
+        check(hands.next(gun, true, torch, true, false) == Regrip.STOW, "switched off, it is put away");
+        check(hands.next(gun, true, torch, true, false) == Regrip.NOTHING, "once");
+        check(hands.next(gun, true, null, false, false) == Regrip.BOTH, "and the gun goes into both hands when it is");
+        check(hands.next(gun, true, gun, false, false) == Regrip.NOTHING && hands.next(null, false, torch, true, true) == Regrip.RETAKE,
+                "a torch taken up in the left, which takes the gun out of both, has the gun taken back into the right");
+        check(hands.next(gun, true, torch, true, true) == Regrip.NOTHING, "and then the two are held together");
+        hands = new Regrip();
+        hands.next(pistol, false, torch, true, true);
+        check(hands.next(pistol, false, torch, true, false) == Regrip.NOTHING, "a torch switched off beside a gun for one hand stays in the hand");
+        hands = new Regrip();
+        hands.next(gun, true, gun, false, false);
+        check(hands.next(null, false, null, false, false) == Regrip.NOTHING && hands.next(null, false, torch, true, true) == Regrip.NOTHING,
+                "a torch taken up after the gun was put away does not bring the gun back");
+        hands = new Regrip();
+        hands.next(gun, true, gun, false, false);
+        check(hands.next(null, false, new Object(), false, false) == Regrip.NOTHING, "nor does anything that gives no light");
     }
 
     private static void theAimPicksThePartOfAPlayerOnlyWhereTheyCannotBeFought() {
