@@ -2311,8 +2311,8 @@ public final class Tests {
         float[] standing = new float[3], crouching = new float[3], turned = new float[3];
         ViewCamera.eyeOffset(0f, 0.825f, 0.03f, 0f, 0f, standing);
         ViewCamera.eyeOffset(0f, 0.41f, -0.186f, 0f, 0f, crouching);
-        check(near(standing[2], 1.3375f), "standing eye is above the animated head joint, not a fixed 1.6 tiles");
-        check(near(crouching[2], 0.715f), "crouching eye follows the lowered head joint");
+        check(near(standing[2], 1.3875f), "standing eye is above the animated head joint, not a fixed 1.6 tiles");
+        check(near(crouching[2], 0.765f), "crouching eye follows the lowered head joint");
         check(near(crouching[1] - standing[1], -0.324f), "crouching follows the head's horizontal displacement too");
         ViewCamera.eyeOffset(0f, 0.41f, -0.186f, (float) (Math.PI / 2), (float) (Math.PI / 2), turned);
         check(near(turned[0], -crouching[1]) && near(turned[1], crouching[0]) && near(turned[2], crouching[2]),

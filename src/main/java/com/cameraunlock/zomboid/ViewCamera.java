@@ -30,7 +30,7 @@ final class ViewCamera {
 
     private ViewCamera() {}
 
-    static final float EYES_AHEAD = 0.2f, EYES_ABOVE_JOINT = 0.1f;
+    static final float EYES_AHEAD = 0.2f, EYES_ABOVE_JOINT = 0.15f;
 
     static void eyeOffset(float x, float up, float z, float bodyAngle, float yaw, float[] out) {
         // Model Y is up, and model Z is reflected when placed in the game's world.
