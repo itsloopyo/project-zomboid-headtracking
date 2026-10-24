@@ -103,6 +103,8 @@ final class Furniture {
     int rowDyer = -1;
     /** For a piece that stands on the floor and whose pane shows its sprite's painting, how far along the model's y the pane's face is. */
     float paneY;
+    /** For a piece hung on a post the game paints in other sprites, their names: see Outdoors.Piece.hungOn. */
+    String[] hungOn;
     /**
      * For a piece whose sprite paints its back, the name of the sprite of the same piece turned the other way, which paints
      * its front: the piece takes its colours and its picture from that sprite as that sprite's piece stands, and is turned
@@ -823,6 +825,7 @@ final class Furniture {
         piece.rowDyer = outside.rowDyer;
         piece.paintedBy = outside.paintedBy;
         piece.pictured = outside.pictured;
+        piece.hungOn = outside.hungOn;
         piece.paneY = outside.paneY;
         piece.onRoof = outside.onRoof;
         piece.roofBelow = outside.roofBelow;

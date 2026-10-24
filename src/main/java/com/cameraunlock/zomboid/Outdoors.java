@@ -57,6 +57,11 @@ final class Outdoors {
         boolean pictured;
         float paneY;
         /**
+         * For a piece hung on a post the game paints in other sprites, the names of those sprites: where its own square has
+         * none and the square one back along x and y has one, the piece is stood at that post. See FurnishingBuilder.addFurniture.
+         */
+        String[] hungOn;
+        /**
          * Whether it stands on the roof of its square where there is one: the game paints it over the floor of the
          * roof's level, and the mod's roof is over that floor. See RoofFit.standOn.
          */
@@ -127,6 +132,11 @@ final class Outdoors {
 
         Piece onRoof() {
             onRoof = true;
+            return this;
+        }
+
+        Piece hungOn(String[] posts) {
+            hungOn = posts;
             return this;
         }
 
@@ -230,16 +240,26 @@ final class Outdoors {
      * floor when it is made. */
     private static final float BLADE_UP = 1.0f;
 
+    /**
+     * The upper lengths of a traffic signal's post, unlit and lit, which a name blade hangs on. The map has a blade on its
+     * post's square, or (42 of its 63) on the square one on along x and y from it, which the game draws over the post.
+     */
+    private static final String[] SIGNAL_POSTS = {"lighting_outdoor_01_12", "lighting_outdoor_01_13", "lighting_outdoor_01_14", "lighting_outdoor_01_15",
+            "lighting_outdoor_01_20", "lighting_outdoor_01_21", "lighting_outdoor_01_22", "lighting_outdoor_01_23",
+            "lighting_outdoor_01_on_12", "lighting_outdoor_01_on_13", "lighting_outdoor_01_on_14", "lighting_outdoor_01_on_15",
+            "lighting_outdoor_01_on_20", "lighting_outdoor_01_on_21", "lighting_outdoor_01_on_22", "lighting_outdoor_01_on_23"};
+
     /** A name blade by its place on the street sheet, its model turned so that its +X runs the way it reaches from the post. */
     private static Piece streetBlade(int place) {
         float up = BLADE_UP / ViewCamera.LEVEL_HEIGHT;
-        return switch (place) {
+        Piece blade = switch (place) {
             case 48 -> new Piece("street_blade", SOUTH).at(Furniture.SIGNAL_POST_A, Furniture.SIGNAL_POST_B).dye(PAINT, 0.74f, 0.58f, 0.47f - up).raise(up);
             case 49 -> new Piece("street_blade", EAST).at(Furniture.SIGNAL_POST_A, Furniture.SIGNAL_POST_B).dye(PAINT, 0.54f, 0.38f, 0.45f - up).raise(up);
             case 50 -> new Piece("street_blade", NORTH).at(Furniture.SIGNAL_POST_A, Furniture.SIGNAL_POST_B).dye(PAINT, 0.34f, 0.58f, 0.45f - up).raise(up);
             case 51 -> new Piece("street_blade", WEST).at(Furniture.SIGNAL_POST_A, Furniture.SIGNAL_POST_B).dye(PAINT, 0.54f, 0.78f, 0.47f - up).raise(up);
             default -> null;
         };
+        return blade == null ? null : blade.hungOn(SIGNAL_POSTS);
     }
 
     /** How high a coop's front wall and its roof over it are painted, in levels, over a place a little in from its square's south edge. */

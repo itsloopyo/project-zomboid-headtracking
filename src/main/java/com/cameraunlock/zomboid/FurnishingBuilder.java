@@ -74,6 +74,24 @@ final class FurnishingBuilder {
         return all;
     }
 
+    /** Whether the square at (x, y, z) holds any of the sprites called names: null for a square not loaded, and the build then made again once it is. */
+    private Boolean holdsAny(int x, int y, int z, String[] names) {
+        Boolean any = Boolean.FALSE;
+        for (String name : names) {
+            Boolean holds = squares.holds(x, y, z, name);
+            if (holds == Boolean.TRUE) {
+                return Boolean.TRUE;
+            }
+            if (holds == null) {
+                any = null;
+            }
+        }
+        if (any == null) {
+            build.wantsMap = true;
+        }
+        return any;
+    }
+
     private static Boolean both(Boolean one, Boolean other) {
         return one == Boolean.FALSE || other == Boolean.FALSE ? Boolean.FALSE : one == null || other == null ? null : Boolean.TRUE;
     }
@@ -772,6 +790,12 @@ final class FurnishingBuilder {
         }
         build.building.plain = false;
         float centreX = piece.centreX, centreY = piece.centreY;
+        // Stood on its own square, a name blade the map has one on along x and y from its post hung in the air a step
+        // out from the post.
+        if (piece.hungOn != null && holdsAny(x, y, z, piece.hungOn) == Boolean.FALSE && holdsAny(x - 1, y - 1, z, piece.hungOn) == Boolean.TRUE) {
+            centreX -= 1f;
+            centreY -= 1f;
+        }
         if (piece.onRoof && build.roofBuilder.cornersAt(x, y, z, roofCorners)) {
             model = onRoof(piece, model, roofCorners, piece.posted != null && backedByWall(piece, x, y, z), onRoof);
             centreX = onRoof[0];
