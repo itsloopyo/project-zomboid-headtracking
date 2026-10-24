@@ -162,6 +162,12 @@ public final class FineSkins {
         volatile IOException failure;
         int wide, high;
         Texture texture;
+        /** The texture being filled, a strip at a time (makeSome), and how many of its rows are in: worn as texture once all are. */
+        TextureID making;
+        int rowsMade;
+        /** How long the render thread spent filling it, and over how many frames: said for the first few. */
+        long makingNanos;
+        int makingFrames;
         /** When the picture was last asked for: to compose a skin from, or to be worn as it is. */
         long used;
         /** Set when the picture is no longer wanted before its reader has done: the reader then frees what it read. */
@@ -305,8 +311,15 @@ public final class FineSkins {
      */
     private static final long OWN_KEPT_NANOS = 5_000_000_000L, OWN_LOOKED_EVERY_NANOS = 1_000_000_000L;
     private static long ownLookedAt;
-    /** One of the mod's own pictures is made a texture a frame: each is a copy of up to 16 MB handed to the graphics card. */
+    /** One of the mod's own pictures is filled a frame, for no more than MAKING_NANOS once its first strip is in: see makeSome. */
     private static int ownMadeFrame = -1;
+    private static final long MAKING_NANOS = 3_000_000L;
+    /** A strip is this many dots, in rows of four: the driver packs a compressed texture four rows at a time. */
+    private static final int STRIP_DOTS = 1 << 16;
+    /** TextureIDAssetParams' flag for a texture the game keeps compressed where the driver can. */
+    private static final int COMPRESS = 4;
+    private static final int GL_TEXTURE_INTERNAL_FORMAT = 0x1003, GL_RGBA = 0x1908, GL_UNSIGNED_BYTE = 0x1401;
+    private static boolean formatSaid;
     /** Whether the mod's own pictures now kept were read at half size: see Quality.smallerPictures. */
     private static boolean ownSmall;
     /** A finer skin drawn this recently is not given up to make room for another. */
@@ -535,7 +548,10 @@ public final class FineSkins {
         if (read.texture != null) {
             read.texture.destroy();
             read.texture = null;
+        } else if (read.making != null) {
+            read.making.destroy();
         }
+        read.making = null;
     }
 
     /** What a picture of this size holds of the card: four bytes a dot, and a third again for its smaller copies. */
@@ -958,10 +974,10 @@ public final class FineSkins {
         ByteBuffer pixels = read.pixels;
         if (pixels != null && ownMadeFrame != Pipeline.frame()) {
             ownMadeFrame = Pipeline.frame();
-            // The game makes the texture here and now on the render thread, and leaves it bound.
-            // It copies the picture into memory of its own, so the picture as read is given back.
-            int bound = GL11.glGetInteger(GL_TEXTURE_BINDING_2D), remembered = Texture.lastTextureID;
-            read.texture = new Texture(new TextureID(read.wide, read.high, pixels), "CameraUnlock" + path);
+            makeSome(read, pixels, path);
+            if (read.texture == null) {
+                return read;
+            }
             // Counted as the most it could be when it was asked for, and as what it is now that it is made.
             long is = bytesOf(read.wide, read.high);
             if (read.tailored) {
@@ -970,8 +986,6 @@ public final class FineSkins {
                 jarBytes += is - read.bytes;
             }
             read.bytes = is;
-            GL11.glBindTexture(GL_TEXTURE_2D, bound);
-            Texture.lastTextureID = remembered;
             read.pixels = null;
             synchronized (read) {
                 read.memory.free();
@@ -980,11 +994,58 @@ public final class FineSkins {
             read.used = System.nanoTime();
             if (read.tailored ? tailorSaid++ < 3 : ownSaid.merge(path.substring(0, path.lastIndexOf('/')), 1, Integer::sum) <= 3) {
                 if (DevBuild.ON) {
-                    Log.info((read.tailored ? "what is worn from " + name + " is made finer, " : "the mod's own skin " + path + " is worn, ") + read.texture.getWidth() + "x" + read.texture.getHeight());
+                    Log.info((read.tailored ? "what is worn from " + name + " is made finer, " : "the mod's own skin " + path + " is worn, ") + read.texture.getWidth() + "x" + read.texture.getHeight()
+                            + String.format(Locale.ROOT, ", filled over %d frames in %.1f ms", read.makingFrames, read.makingNanos / 1e6));
                 }
             }
         }
         return read;
+    }
+
+    /**
+     * Fills the texture of a picture read a strip at a time, as many strips as MAKING_NANOS of
+     * this frame allow, and makes it the Read's texture once every row is in. The game's own
+     * way, a TextureID made from the whole picture, hands it to glTexImage2D in one go, and with
+     * the game's textures kept compressed (TextureID.useCompressionOption) the driver packs all
+     * of it before it returns: 50 to 130 ms a frame on the render thread for a 2048 square. The
+     * texture is the game's, made with the flags and filtering that TextureID gave the whole
+     * picture, and the picture comes padded to its size (Pictures.padded). Render thread.
+     */
+    private static void makeSome(Read read, ByteBuffer pixels, String path) {
+        long from = System.nanoTime();
+        int bound = GL11.glGetInteger(GL_TEXTURE_BINDING_2D), remembered = Texture.lastTextureID;
+        if (read.making == null) {
+            // Made here and now with nothing in it yet, and left bound.
+            read.making = new TextureID(read.wide, read.high, TextureID.useCompressionOption ? COMPRESS : 0, true);
+        } else {
+            GL11.glBindTexture(GL_TEXTURE_2D, read.making.getID());
+        }
+        int across = Pictures.encompassing(read.wide), down = Pictures.encompassing(read.high);
+        int strip = Math.max(4, STRIP_DOTS / across);
+        do {
+            int rows = Math.min(strip, down - read.rowsMade);
+            GL11.glTexSubImage2D(GL_TEXTURE_2D, 0, 0, read.rowsMade, across, rows, GL_RGBA, GL_UNSIGNED_BYTE, pixels.slice(read.rowsMade * across * 4, rows * across * 4));
+            read.rowsMade += rows;
+        } while (read.rowsMade < down && System.nanoTime() - from < MAKING_NANOS);
+        if (DevBuild.ON && read.rowsMade == down) {
+            int error = GL11.glGetError();
+            if (error != 0) {
+                Pipeline.noted(error);
+                throw new IllegalStateException("OpenGL error 0x" + Integer.toHexString(error) + " filling the texture of the mod's own skin " + path);
+            }
+            if (!formatSaid) {
+                formatSaid = true;
+                Log.info("the mod's own skins are kept on the card as 0x" + Integer.toHexString(GL11.glGetTexLevelParameteri(GL_TEXTURE_2D, 0, GL_TEXTURE_INTERNAL_FORMAT))
+                        + (TextureID.useCompressionOption ? ", the game's textures being compressed" : ""));
+            }
+        }
+        GL11.glBindTexture(GL_TEXTURE_2D, bound);
+        Texture.lastTextureID = remembered;
+        read.makingNanos += System.nanoTime() - from;
+        read.makingFrames++;
+        if (read.rowsMade == down) {
+            read.texture = new Texture(read.making, "CameraUnlock" + path);
+        }
     }
 
     /** The file a texture of the game's was read from, by its name, or null for one that was not read from a file of its own. */
@@ -1046,6 +1107,7 @@ public final class FineSkins {
             ByteBuffer pixels = memory.bytes;
             Tailor.fine(source, wide / times, high / times, times, laid, Tailor.edged(source), pixels);
             pixels.flip();
+            memory = Pictures.padded(memory, wide, high);
             taken[0] = null;
             into.hand(memory, wide, high);
         } catch (IOException | RuntimeException | Error failure) {
@@ -1124,6 +1186,7 @@ public final class FineSkins {
                 wide /= 2;
                 high /= 2;
             }
+            memory = Pictures.padded(memory, wide, high);
             taken[0] = null;
             into.hand(memory, wide, high);
         } catch (IOException failure) {

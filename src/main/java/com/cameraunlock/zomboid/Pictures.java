@@ -321,6 +321,34 @@ final class Pictures {
         return half;
     }
 
+    /** The least power of two at or over this many dots, as the game sizes a texture (PZMath.smallestEncompassingPowerOfTwo). */
+    static int encompassing(int dots) {
+        return dots <= 1 ? 1 : 1 << 32 - Integer.numberOfLeadingZeros(dots - 1);
+    }
+
+    /**
+     * A picture of four bytes a dot in the corner of one as wide and as high as the texture the
+     * game makes for it (encompassing), the rest clear, as the game pads one. The picture handed
+     * in is itself where it is that size already, and freed where it is not.
+     */
+    static OffHeap.Block padded(OffHeap.Block picture, int wide, int high) {
+        int across = encompassing(wide), down = encompassing(high);
+        if (across == wide && down == high) {
+            return picture;
+        }
+        OffHeap.Block whole = OffHeap.take(across * down * 4);
+        ByteBuffer to = whole.bytes;
+        byte[] clear = new byte[across * 4];
+        for (int y = 0; y < down; y++) {
+            to.put(y * across * 4, clear);
+            if (y < high) {
+                to.put(y * across * 4, picture.bytes, y * wide * 4, wide * 4);
+            }
+        }
+        picture.free();
+        return whole;
+    }
+
     /** Has the texture bound now read along the slant it is seen at, where the card can. Render thread, once askCard has run. */
     static void sharpenAtSlant() {
         if (slants) {

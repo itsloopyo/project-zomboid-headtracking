@@ -36,6 +36,32 @@ final class PictureTests {
         Checks.run("aPictureUnpackedIsItsSourceToWithinWhatPackingCosts", PictureTests::aPictureUnpackedIsItsSourceToWithinWhatPackingCosts);
         Checks.run("aBarkIsItsOwnSourceAtEveryLevel", PictureTests::aBarkIsItsOwnSourceAtEveryLevel);
         Checks.run("onlyTheWeaponsAndInteriorsColourIsAScreens", PictureTests::onlyTheWeaponsAndInteriorsColourIsAScreens);
+        Checks.run("aPictureIsPaddedToTheTexturesSizeWithClear", PictureTests::aPictureIsPaddedToTheTexturesSizeWithClear);
+    }
+
+    /** As the game pads a picture it makes a texture of: to the next power of two each way, the dots it adds all nought. */
+    private static void aPictureIsPaddedToTheTexturesSizeWithClear() {
+        check(Pictures.encompassing(1) == 1 && Pictures.encompassing(2) == 2 && Pictures.encompassing(3) == 4 && Pictures.encompassing(1000) == 1024
+                && Pictures.encompassing(1024) == 1024 && Pictures.encompassing(1025) == 2048, "the sizes are the least powers of two at or over them");
+        OffHeap.Block square = OffHeap.take(4 * 4 * 4);
+        check(Pictures.padded(square, 4, 4) == square, "a picture the texture's size already is itself");
+        square.free();
+        int wide = 5, high = 3;
+        OffHeap.Block odd = OffHeap.take(wide * high * 4);
+        for (int at = 0; at < wide * high * 4; at++) {
+            odd.bytes.put(at, (byte) (at + 1));
+        }
+        OffHeap.Block padded = Pictures.padded(odd, wide, high);
+        check(padded.bytes.capacity() == 8 * 4 * 4, "padded to 8 by 4: " + padded.bytes.capacity());
+        for (int y = 0; y < 4; y++) {
+            for (int x = 0; x < 8; x++) {
+                for (int part = 0; part < 4; part++) {
+                    int is = padded.bytes.get((y * 8 + x) * 4 + part), was = x < wide && y < high ? (byte) ((y * wide + x) * 4 + part + 1) : 0;
+                    check(is == was, "the dot at " + x + ", " + y + " is " + is + ", not " + was);
+                }
+            }
+        }
+        padded.free();
     }
 
     /** What made.txt lists: each output with its SHA-256 and how it was made, and under it the sources it was made from, each with its SHA-256. */
