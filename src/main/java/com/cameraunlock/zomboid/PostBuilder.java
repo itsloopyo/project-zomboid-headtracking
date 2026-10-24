@@ -149,6 +149,72 @@ final class PostBuilder {
         return true;
     }
 
+    private final float[] run = new float[2], next = new float[2], walked = new float[2];
+    private final SpriteGeometry.Frame runFrame = new SpriteGeometry.Frame();
+
+    /**
+     * Stands a piece of a sign the game hangs on nothing, one of a run of pieces that meet in
+     * the game's picture, in the plane of the whole run: see EdgeRuns.board. False, adding
+     * nothing, for a piece that meets no other.
+     */
+    boolean addFreeSign(SpriteGeometry.Mesh mesh, int x, int y, int z) {
+        for (int way = 0; way < 2; way++) {
+            boolean alongX = way == 0;
+            int dx = alongX ? 1 : 0, dy = alongX ? 0 : 1;
+            EdgeRuns.along(build.frame, dx, dy, run);
+            if (!freePieceOn(x + dx, y + dy, z, alongX, 1, run) && !freePieceOn(x - dx, y - dy, z, alongX, -1, run)) {
+                continue;
+            }
+            float first = run[0];
+            System.arraycopy(run, 0, walked, 0, 2);
+            for (int step = 1; freePieceOn(x - step * dx, y - step * dy, z, alongX, -1, walked); step++) {
+                first = next[0];
+                System.arraycopy(next, 0, walked, 0, 2);
+            }
+            build.geometry.addPanel(mesh, build.frame, x, y, z, EdgeRuns.board(build.frame, alongX, run, -first));
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Whether the square (x, y) holds a piece of a sign that hangs on nothing and carries on
+     * from one painted from[0] to from[1] on the square before it, that way along the run (1
+     * along x or y, -1 back). Leaves next with where that piece paints.
+     */
+    private boolean freePieceOn(int x, int y, int z, boolean alongX, int way, float[] from) {
+        IsoGridSquare square = build.cell.getGridSquare(x, y, z);
+        if (square == null) {
+            return false;
+        }
+        PZArrayList<IsoObject> objects = square.getObjects();
+        for (int i = 0; i < objects.size(); i++) {
+            IsoObject object = objects.get(i);
+            IsoSprite sprite = object.getSprite();
+            if (sprite == null || !hangsOnNothing(sprite.getProperties()) || !EdgeRuns.freeSign(sprite.getName(), sprite.getProperties().get("CustomName"))) {
+                continue;
+            }
+            Texture texture = sprite.getTextureForCurrentFrame(object.getDir());
+            if (!WorldScene.usable(texture)) {
+                continue;
+            }
+            runFrame.scale = build.frame.scale;
+            WorldScene.frameOf(runFrame, object, texture);
+            EdgeRuns.along(runFrame, alongX ? 1f : 0f, alongX ? 0f : 1f, next);
+            if (way > 0 ? EdgeRuns.meets(from[0], from[1], next[0], next[1]) : EdgeRuns.meets(next[0], next[1], from[0], from[1])) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Whether the game hangs a sprite on no wall at all. */
+    static boolean hangsOnNothing(PropertyContainer properties) {
+        return !properties.has(IsoFlagType.attachedN) && !properties.has(IsoFlagType.attachedW) && !properties.has(IsoFlagType.attachedE)
+                && !properties.has(IsoFlagType.attachedS) && !properties.has(IsoFlagType.attachedNW) && !properties.has(IsoFlagType.attachedSE)
+                && !properties.has(IsoFlagType.WallOverlay);
+    }
+
     /** The shape of an object's sprite, read the first time the sprite is met. */
     private SpriteShape shapeOf(IsoObject object, IsoSprite sprite, Texture texture) {
         SpriteShape shape = WorldScene.shapes.get(sprite);

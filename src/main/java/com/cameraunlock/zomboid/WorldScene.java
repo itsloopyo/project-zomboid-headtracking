@@ -832,6 +832,8 @@ final class WorldScene {
         final Towers.Part[] tower;
         /** Whether it is the letters of a sign: see EdgeRuns.sign. */
         final boolean sign;
+        /** Whether it is a piece of a sign or a billboard the game hangs on nothing: see EdgeRuns.freeSign. */
+        final boolean freeSign;
         /** Whether it is a stained glass window: see StainedGlass. */
         final boolean stained;
         /** For a sprite of tiled walls, its sheet: see Frame.tiledSheet. */
@@ -921,6 +923,7 @@ final class WorldScene {
             rope = Tents.ropeOf(sprite);
             tower = Towers.of(sprite);
             sign = EdgeRuns.sign(name, properties.get("CustomName"));
+            freeSign = EdgeRuns.freeSign(name, properties.get("CustomName")) && PostBuilder.hangsOnNothing(properties);
             stained = StainedGlass.of(name);
             tiledSheet = tiledWall ? name.substring(0, name.lastIndexOf('_') + 1) : null;
             ofTheBuilding = ofTheBuilding(sprite);
@@ -7359,6 +7362,9 @@ final class WorldScene {
             // What the game says nothing about at all, and whose outline is a sheet on the grid's
             // line or a beam along it: the slab over a shop front, a sill, a pipe, a billboard.
             if (!grows && !onTop && overLayer == 0 && postBuilder.addShaped(mesh, object, sprite, texture, x, y, z)) {
+                return;
+            }
+            if (overLayer == 0 && kind.freeSign && postBuilder.addFreeSign(mesh, x, y, z)) {
                 return;
             }
             // What the game counts as filling its square, or as something to sit or lie on, is

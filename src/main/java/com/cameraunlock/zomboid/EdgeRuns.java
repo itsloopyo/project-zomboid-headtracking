@@ -78,6 +78,38 @@ final class EdgeRuns {
         return false;
     }
 
+    /**
+     * Whether a sprite the game hangs on nothing may be a piece of a sign that runs on over the
+     * next squares: on a sheet of signs or billboards, and named a sign or nothing. The other
+     * sheets of lettering are mostly the fittings of a place, a motel's or a trailer's, and
+     * what of them has no flag is no sign.
+     */
+    static boolean freeSign(String name, String customName) {
+        return name != null && (customName == null || customName.equals("Sign")) && (name.startsWith("signs_") || name.startsWith("advertising_"));
+    }
+
+    /**
+     * The panel a piece of a sign that hangs on nothing is laid as, painted from run[0] to
+     * run[1] along its run as along reads it for an edge, with the run stood depth tiles from
+     * its square's north edge for a run along x, from its west edge for one along y. The view
+     * looks down a diagonal, so a piece's picture says how far along the run it paints and not
+     * how deep the run stands, and the pieces have to share one depth to meet: the run is
+     * stood where its first piece starts at its square's edge, as SpriteShape stands a whole
+     * panel. The face is as high as anything the sprite paints anywhere along it, and is cut
+     * to the sprite. Stood each on its own, as cards turned to the eye, the four pieces of the
+     * sign over a Riverside bar's roof were four strips with sky between them, each a step
+     * lower than the last.
+     */
+    static SpriteShape board(SpriteGeometry.Frame frame, boolean alongX, float[] run, float depth) {
+        float from = run[0] + depth, to = run[1] + depth, top = frame.top, foot = frame.top + frame.height;
+        if (alongX) {
+            return new SpriteShape(SpriteShape.PANEL, true, true, from, depth, SpriteGeometry.heightDrawnAt(frame, from, depth, foot),
+                    to, depth, SpriteGeometry.heightDrawnAt(frame, to, depth, top));
+        }
+        return new SpriteShape(SpriteShape.PANEL, false, true, depth, from, SpriteGeometry.heightDrawnAt(frame, depth, from, foot),
+                depth, to, SpriteGeometry.heightDrawnAt(frame, depth, to, top));
+    }
+
     /** Whether a piece painted from to to along its wall is cut by its square's stretch of it. */
     static boolean overhangs(float from, float to) {
         return from < -PAST || to > 1f + PAST;

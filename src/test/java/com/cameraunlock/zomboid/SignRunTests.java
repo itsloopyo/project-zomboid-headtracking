@@ -20,6 +20,9 @@ final class SignRunTests {
         Checks.run("aBoardPaintedBelowItsFloorIsLaidDownToItsFoot", SignRunTests::aBoardPaintedBelowItsFloorIsLaidDownToItsFoot);
         Checks.run("aBoardOverAnAwningRestsOnItsCloth", SignRunTests::aBoardOverAnAwningRestsOnItsCloth);
         Checks.run("aBoardLongerThanItsAwningIsLiftedWhole", () -> TestMap.withEverything(SignRunTests::aBoardLongerThanItsAwningIsLiftedWhole));
+        Checks.run("onlySignsAndBillboardsHangOnNothing", SignRunTests::onlySignsAndBillboardsHangOnNothing);
+        Checks.run("piecesOfASignOnNothingStandInOnePlane", SignRunTests::piecesOfASignOnNothingStandInOnePlane);
+        Checks.run("aSignOnNothingIsLaidAsOneBoard", () -> TestMap.withEverything(SignRunTests::aSignOnNothingIsLaidAsOneBoard));
     }
 
     /** A frame as the game gives a sprite of a square, trimmed to the rectangle it paints. */
@@ -197,5 +200,95 @@ final class SignRunTests {
         check(Math.abs(feet[0] - feet[1]) < 1e-4f && Math.abs(feet[1] - feet[2]) < 1e-4f,
                 "the board is one straight board: each piece is lifted as far, the one past the awning's end too: " + feet[0] + " " + feet[1] + " " + feet[2]);
         check(feet[0] > ViewCamera.LEVEL_HEIGHT * (1f - 0.2f) + 0.01f, "lifted onto the awning's cloth, not hung below its floor as painted: " + feet[0]);
+    }
+
+    // signs_one-off_08_340..343, the four squares of the sign over the bar by the Riverside rail line, as the sheets trim them.
+    private static final float[][] SUNSET = {{0f, 16f, 66f, 210f}, {2f, 31f, 64f, 202f}, {2f, 0f, 64f, 238f}, {2f, 2f, 98f, 204f}};
+
+    private static void onlySignsAndBillboardsHangOnNothing() {
+        check(EdgeRuns.freeSign("signs_one-off_08_340", null), "the bar's sign");
+        check(EdgeRuns.freeSign("advertising_01_72", null), "a billboard's sheet");
+        check(!EdgeRuns.freeSign("location_trailer_01_12", null), "not a trailer's fittings, on a sheet of lettering");
+        check(!EdgeRuns.freeSign("signs_one-off_02_1", "Bench"), "nor a thing with a name of its own");
+        check(!EdgeRuns.freeSign(null, null), "nor a sprite with no name");
+    }
+
+    private static void piecesOfASignOnNothingStandInOnePlane() {
+        float[][] runs = new float[SUNSET.length][2];
+        for (int piece = 0; piece < SUNSET.length; piece++) {
+            runs[piece] = along(SUNSET[piece], 1f, 0f);
+        }
+        for (int piece = 0; piece + 1 < SUNSET.length; piece++) {
+            check(EdgeRuns.meets(runs[piece][0], runs[piece][1], runs[piece + 1][0], runs[piece + 1][1]), "piece " + piece + " ends where the next starts");
+        }
+        float depth = -runs[0][0];
+        check(near(depth, 1f), "the run stands where its first piece starts at its square's edge: " + depth);
+        SpriteShape before = null;
+        for (int piece = 0; piece < SUNSET.length; piece++) {
+            SpriteGeometry.Frame frame = trimmed(SUNSET[piece][0], SUNSET[piece][1], SUNSET[piece][2], SUNSET[piece][3]);
+            SpriteShape board = EdgeRuns.board(frame, true, runs[piece], depth);
+            check(board.kind == SpriteShape.PANEL && board.alongX && board.b0 == depth && board.b1 == depth, "piece " + piece + " stands at the run's depth");
+            check(near(SpriteGeometry.frameU(frame, board.a0, depth), frame.left) && near(SpriteGeometry.frameU(frame, board.a1, depth), frame.left + frame.width),
+                    "piece " + piece + " is as long as it paints");
+            check(near(SpriteGeometry.frameV(frame, board.a0, depth, board.h0), frame.top + frame.height) && near(SpriteGeometry.frameV(frame, board.a1, depth, board.h1), frame.top),
+                    "piece " + piece + " is as high as it paints: " + board.h0 + " to " + board.h1);
+            if (before != null) {
+                check(Math.abs(before.a1 - (board.a0 + 1f)) < 0.06f, "piece " + piece + " starts where the one before it stops: " + before.a1 + " and " + (board.a0 + 1f));
+            }
+            before = board;
+        }
+        float[] west = along(new float[] {128f - SUNSET[1][0] - SUNSET[1][2], SUNSET[1][1], SUNSET[1][2], SUNSET[1][3]}, 0f, 1f);
+        SpriteShape mirrored = EdgeRuns.board(trimmed(128f - SUNSET[1][0] - SUNSET[1][2], SUNSET[1][1], SUNSET[1][2], SUNSET[1][3]), false, west, depth);
+        SpriteShape straight = EdgeRuns.board(trimmed(SUNSET[1][0], SUNSET[1][1], SUNSET[1][2], SUNSET[1][3]), true, runs[1], depth);
+        check(!mirrored.alongX && mirrored.a0 == depth && near(mirrored.b0, straight.a0) && near(mirrored.b1, straight.a1) && near(mirrored.h0, straight.h0) && near(mirrored.h1, straight.h1),
+                "a run along y is stood the same, mirrored");
+    }
+
+    /**
+     * The bar's sign as the map has it, on level 1 at x 0 to 3 on one row, and the same sign's
+     * second piece alone two rows on, each laid as WorldScene lays a piece that hangs on nothing:
+     * where the faces of the run stand.
+     */
+    private static void aSignOnNothingIsLaidAsOneBoard() {
+        TestMap map = new TestMap();
+        Texture[] textures = new Texture[SUNSET.length];
+        for (int piece = 0; piece < SUNSET.length; piece++) {
+            float[] at = SUNSET[piece];
+            textures[piece] = new Texture(20 + piece, (int) at[2], (int) at[3]);
+            textures[piece].paint(0, 0, (int) at[2], (int) at[3]);
+            IsoSprite sprite = map.spriteWith("signs_one-off_08_" + (340 + piece), IsoObjectType.normal, textures[piece]);
+            IsoObject laid = map.cell.square(piece, 0, 1).add(sprite);
+            laid.offsetX = 64f - at[0];
+            laid.offsetY = 192f - at[1];
+            if (piece == 1) {
+                IsoObject alone = map.cell.square(0, 2, 1).add(sprite);
+                alone.offsetX = laid.offsetX;
+                alone.offsetY = laid.offsetY;
+            }
+        }
+        float west = Float.MAX_VALUE, east = -Float.MAX_VALUE, gaps = 0f, before = Float.NaN;
+        boolean onePlane = true;
+        for (int piece = 0; piece < SUNSET.length; piece++) {
+            WorldScene.frameOf(map.build.frame, map.cell.getGridSquare(piece, 0, 1).getObjects().get(0), textures[piece]);
+            SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
+            check(map.build.postBuilder.addFreeSign(mesh, piece, 0, 1), "piece " + piece + " is laid as a piece of the run");
+            float least = Float.MAX_VALUE, most = -Float.MAX_VALUE;
+            for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+                least = Math.min(least, mesh.vertices[at]);
+                most = Math.max(most, mesh.vertices[at]);
+                onePlane &= Math.abs(mesh.vertices[at + 1] - 1f) < 0.02f;
+            }
+            if (!Float.isNaN(before)) {
+                gaps = Math.max(gaps, least - before);
+            }
+            before = most;
+            west = Math.min(west, least);
+            east = Math.max(east, most);
+        }
+        check(onePlane, "every piece stands on the one line of the map, y 1, where the first piece starts at its square's edge");
+        check(gaps < 0.08f, "with no sky between one piece and the next: " + gaps);
+        check(west < 0.05f && east > 4.4f, "the board runs from the first square's edge to past the last square: " + west + " to " + east);
+        WorldScene.frameOf(map.build.frame, map.cell.getGridSquare(0, 2, 1).getObjects().get(0), textures[1]);
+        check(!map.build.postBuilder.addFreeSign(new SpriteGeometry.Mesh(), 0, 2, 1), "a piece that meets no other is no run");
     }
 }
