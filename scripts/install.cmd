@@ -28,7 +28,7 @@ set "GAME_ID=project-zomboid"
 set "MOD_DISPLAY_NAME=Project Zomboid Head Tracking"
 :: Copied from plugins\ to the exe's folder on every install. Each .jar named
 :: here is added to the classpath in the site config.
-set "MOD_DLLS=ProjectZomboidHeadTracking.jar ProjectZomboidHeadTracking-cabins.jar ProjectZomboidHeadTracking-fabric.jar ProjectZomboidHeadTracking-fire.jar ProjectZomboidHeadTracking-materials.jar ProjectZomboidHeadTracking-models.jar ProjectZomboidHeadTracking-pictures.jar ProjectZomboidHeadTracking-rugs.jar ProjectZomboidHeadTracking-skins.jar"
+set "MOD_DLLS=ProjectZomboidHeadTracking.jar ProjectZomboidHeadTracking-cabins.jar ProjectZomboidHeadTracking-fabric.jar ProjectZomboidHeadTracking-materials.jar ProjectZomboidHeadTracking-models.jar ProjectZomboidHeadTracking-pictures.jar ProjectZomboidHeadTracking-rugs.jar ProjectZomboidHeadTracking-skins.jar"
 :: Files an older version of the mod put next to the exe under names this one
 :: no longer uses. An install removes them once the new files are in place.
 set "LEGACY_DLLS=ProjectZomboidHeadTracking.dll CameraUnlockCore.dll"
