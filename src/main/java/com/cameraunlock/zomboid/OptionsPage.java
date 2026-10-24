@@ -113,7 +113,7 @@ final class OptionsPage {
                 throw new IllegalStateException(described.id + " has no range for a slider to cover");
             }
         }
-        int[][] layout = OptionsLayout.of(options);
+        int[][] layout = OptionsLayout.of(OptionsLayout.PAGE, options);
         KahluaTable section = (KahluaTable) call(modOptions, "create", SECTION, HEADING);
         List<Control> made = new ArrayList<>();
         for (int group = 0; group < OptionsLayout.PAGE.length; group++) {

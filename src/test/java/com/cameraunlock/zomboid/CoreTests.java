@@ -697,6 +697,15 @@ public final class CoreTests {
         throw new IllegalArgumentException(id);
     }
 
+    private static boolean refuses(OptionsLayout.Group[] page, CameraUnlock.Option[] options, String said) {
+        try {
+            OptionsLayout.of(page, options);
+            return false;
+        } catch (IllegalStateException expected) {
+            return expected.getMessage().startsWith(said);
+        }
+    }
+
     private static void settingsOfTheGamesOptionsScreenAreSavedAndTaken() throws IOException, InterruptedException {
         CameraUnlock.Option[] options = Tracking.options();
         StringBuilder ids = new StringBuilder();
@@ -712,7 +721,7 @@ public final class CoreTests {
                         + "VanillaCabins "
                         + "ShotsThroughWalls ShotsBreakLamps ShotsWoundLimbs VehiclesSmashThrough FacesTheView ShotsPastTrees ZombiesSeenAtOnce TalkingMouths "),
                 "the game's options screen is given the modes, the yaw mode and the mod's own rows, and no key list, port or microphone: " + ids);
-        int[][] layout = OptionsLayout.of(options);
+        int[][] layout = OptionsLayout.of(OptionsLayout.PAGE, options);
         StringBuilder page = new StringBuilder();
         for (int group = 0; group < layout.length; group++) {
             page.append('[').append(OptionsLayout.PAGE[group].title()).append("] ");
@@ -720,7 +729,7 @@ public final class CoreTests {
                 page.append(options[option].id).append(' ');
             }
         }
-        check(page.toString().equals("[Head tracking] TrackingMode AimMode WorldSpaceYaw [First person] FieldOfView Crosshair MuzzleFlash RegripTwoHandedWeapons HillHeight "
+        check(page.toString().equals("[Tracking] TrackingMode AimMode WorldSpaceYaw [First person] FieldOfView Crosshair HillHeight [Weapons] MuzzleFlash RegripTwoHandedWeapons "
                         + "[Graphics] Quality IsometricQuality Style [Custom graphics] TreeQuality GrassDensity RenderScale ViewDistance ZombiesAndPropsDrawDistance "
                         + "FarTreeDistance RainOnGlass ShadingAndLight Reflections FullSizeTextures SurfaceDepth SharpShadows WholeFigureShadows FrameBlending "
                         + "LightDistance [Vanilla content] VanillaWeapons VanillaFurniture VanillaPictures VanillaPlants VanillaTextures VanillaBuildings "
@@ -733,13 +742,13 @@ public final class CoreTests {
         unplaced[options.length] = new CameraUnlock.Option();
         unplaced[options.length].id = "Unplaced";
         unplaced[options.length].section = "General";
-        boolean refused = false;
-        try {
-            OptionsLayout.of(unplaced);
-        } catch (IllegalStateException expected) {
-            refused = expected.getMessage().contains("Unplaced");
-        }
-        check(refused, "and a setting under no title stops the page from being made");
+        check(refuses(OptionsLayout.PAGE, unplaced, "Unplaced of [General] is under no title"), "and a setting under no title stops the page from being made");
+        OptionsLayout.Group[] twice = Arrays.copyOf(OptionsLayout.PAGE, OptionsLayout.PAGE.length + 1);
+        twice[OptionsLayout.PAGE.length] = new OptionsLayout.Group("Again", null, "FieldOfView");
+        check(refuses(twice, options, "FieldOfView is under both First person and Again"), "and so does a setting under two titles");
+        OptionsLayout.Group[] stale = Arrays.copyOf(OptionsLayout.PAGE, OptionsLayout.PAGE.length + 1);
+        stale[OptionsLayout.PAGE.length] = new OptionsLayout.Group("Gone", null, "NoSuchSetting");
+        check(refuses(stale, options, "NoSuchSetting is put under Gone"), "and a title naming a setting there is not");
         int fov = optionNamed(options, "FieldOfView"), yaw = optionNamed(options, "WorldSpaceYaw"), tracking = optionNamed(options, "TrackingMode"),
                 aim = optionNamed(options, "AimMode"), arms = optionNamed(options, "VanillaArms"), flash = optionNamed(options, "MuzzleFlash");
         boolean taken = true;
