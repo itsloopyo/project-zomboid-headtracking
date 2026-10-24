@@ -164,6 +164,15 @@ public final class Hooks {
 
     private static boolean loadingHeld;
 
+    /**
+     * In place of the loading screen's done where it decides whether to say "Click to Start": not
+     * while the shaders are compiling, when the click is not taken. The game's update, which
+     * runs worldLoaded, comes before its render in each frame.
+     */
+    public static boolean clickToStartShown(boolean done) {
+        return done && !loadingHeld;
+    }
+
     /** Called from GameLoadingState.render after the game's quick tip: says how far the compiling of the shaders has come, while it goes on. */
     public static void loadingText() {
         String progress = Pipeline.shaderProgress();

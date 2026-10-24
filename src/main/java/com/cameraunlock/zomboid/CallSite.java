@@ -445,6 +445,28 @@ final class CallSite {
         return transformed;
     }
 
+    /**
+     * Passes each of the {@code expected} reads of the static boolean {@code field} of the class
+     * {@code owner} inside {@code within} through the static method {@code filter}, which takes
+     * the value read and returns its replacement.
+     */
+    static byte[] filterStaticBooleanReads(byte[] classBytes, Method within, String owner, String field, Method filter, int expected) {
+        int[] matches = {0};
+        CodeTransform insert = (code, element) -> {
+            code.with(element);
+            if (element instanceof FieldInstruction read && read.opcode() == Opcode.GETSTATIC && read.owner().asInternalName().equals(owner)
+                    && read.name().equalsString(field) && read.type().equalsString("Z")) {
+                matches[0]++;
+                invokeStatic(code, filter);
+            }
+        };
+        byte[] transformed = transform(classBytes, within, insert);
+        if (matches[0] != expected) {
+            throw new IllegalStateException("expected " + expected + " of the read of " + owner + "." + field + " in " + within + ", found " + matches[0]);
+        }
+        return transformed;
+    }
+
     private static boolean comparesTwoInts(Opcode opcode) {
         return switch (opcode) {
             case IF_ICMPEQ, IF_ICMPNE, IF_ICMPLT, IF_ICMPGE, IF_ICMPGT, IF_ICMPLE -> true;

@@ -26,6 +26,7 @@ final class SplitScreenTests {
         Checks.run("aCountComparedIsCountedAndItsBranchRequired", SplitScreenTests::aCountComparedIsCountedAndItsBranchRequired);
         Checks.run("theFirstOperandIsFiltered", SplitScreenTests::theFirstOperandIsFiltered);
         Checks.run("theFirstArgumentIsFilteredBeforeAnythingRuns", SplitScreenTests::theFirstArgumentIsFilteredBeforeAnythingRuns);
+        Checks.run("aBooleanReadIsFilteredAndCounted", SplitScreenTests::aBooleanReadIsFilteredAndCounted);
     }
 
     private static void check(boolean condition, String what) {
@@ -132,6 +133,30 @@ final class SplitScreenTests {
             throw new AssertionError("a count added to the constant was taken for one compared with it");
         } catch (IllegalStateException expected) {
             check(expected.getMessage().contains("not by a branch"), "the count and the constant with no branch on them are refused: " + expected.getMessage());
+        }
+    }
+
+    public static boolean never(boolean value) {
+        return false;
+    }
+
+    private static void aBooleanReadIsFilteredAndCounted() throws Throwable {
+        ClassDesc self = ClassDesc.of("com.cameraunlock.zomboid.SubjectReadingAFlag");
+        byte[] subject = ClassFile.of().build(self, type -> type
+                .withFlags(ClassFile.ACC_PUBLIC)
+                .withField("flag", ConstantDescs.CD_boolean, ClassFile.ACC_PUBLIC | ClassFile.ACC_STATIC)
+                .withMethodBody("read", MethodTypeDesc.of(ConstantDescs.CD_boolean), ClassFile.ACC_PUBLIC | ClassFile.ACC_STATIC,
+                        code -> code.getstatic(self, "flag", ConstantDescs.CD_boolean).ireturn()));
+        CallSite.Method read = new CallSite.Method("com/cameraunlock/zomboid/SubjectReadingAFlag", "read", "()Z");
+        CallSite.Method filter = new CallSite.Method(SELF, "never", "(Z)Z");
+        Class<?> defined = MethodHandles.lookup().defineClass(CallSite.filterStaticBooleanReads(subject, read, read.owner(), "flag", filter, 1));
+        defined.getField("flag").setBoolean(null, true);
+        check(!(boolean) defined.getMethod("read").invoke(null), "the flag read goes through the filter");
+        try {
+            CallSite.filterStaticBooleanReads(subject, read, read.owner(), "flag", filter, 2);
+            throw new AssertionError("one read where two were expected was let through");
+        } catch (IllegalStateException expected) {
+            check(expected.getMessage().contains("expected 2") && expected.getMessage().contains("found 1"), "one read where two are expected is refused: " + expected.getMessage());
         }
     }
 

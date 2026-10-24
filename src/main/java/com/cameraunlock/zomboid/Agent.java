@@ -924,7 +924,9 @@ public final class Agent {
      * Apart again: without the first, first person works as it does, and what it is drawn with is
      * made in the first frames of play instead, shaders included. GameLoadingState.update asks
      * WorldStreamer.isBusy once, and only once the world is loaded: from then until the click that
-     * begins the save. Without the second the loading screen does not say that it waits for the shaders.
+     * begins the save. Without the second the loading screen does not say that it waits for the
+     * shaders, and without the third it says "Click to Start" while a click is not taken.
+     * GameLoadingState.render reads its done once, in the test before it draws that line.
      */
     private static List<Patch> loadingPatches() {
         String state = "zombie/gameStates/GameLoadingState";
@@ -933,7 +935,9 @@ public final class Agent {
                         new CallSite.Method("zombie/iso/WorldStreamer", "isBusy", "()Z"),
                         new CallSite.Method(HOOKS, "worldLoaded", BOOLEAN_FILTER))),
                 after(new CallSite.Method(state, "render", "()V"), new CallSite.Method(state, "doQuickTips", "()V"),
-                        new CallSite.Method(HOOKS, "loadingText", "()V")));
+                        new CallSite.Method(HOOKS, "loadingText", "()V")),
+                new Patch(state, "render's Click to Start held back while the shaders compile", classBytes -> CallSite.filterStaticBooleanReads(classBytes,
+                        new CallSite.Method(state, "render", "()V"), state, "done", new CallSite.Method(HOOKS, "clickToStartShown", "(Z)Z"), 1)));
     }
 
     /**
