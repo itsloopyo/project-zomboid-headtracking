@@ -309,20 +309,22 @@ final class OpeningBuilder {
     private int doorwayX, doorwayY, doorwayZ = Integer.MIN_VALUE;
     private boolean doorwayNorth;
     private float doorwayStart = -1f, doorwayEnd;
+    private boolean doorwayRevealed;
     private final float[] jambs = new float[4];
 
     /**
      * The clear run across the sprite of the wall a doorway or a window is in on a square's edge, as shares of its
-     * length, or a start below 0 for none measured. The wall is added before the door that hangs in it or the window
-     * that stands in it.
+     * length, or a start below 0 for none measured, and whether the wall has its reveals at the cut. The wall is added
+     * before the door that hangs in it or the window that stands in it.
      */
-    void doorwayIn(int x, int y, int z, boolean north, float start, float end) {
+    void doorwayIn(int x, int y, int z, boolean north, float start, float end, boolean revealed) {
         doorwayX = x;
         doorwayY = y;
         doorwayZ = z;
         doorwayNorth = north;
         doorwayStart = start;
         doorwayEnd = end;
+        doorwayRevealed = revealed;
     }
 
     /**
@@ -330,18 +332,20 @@ final class OpeningBuilder {
      * pairs of shares along the wall in out; how many pairs. None with no cut measured, none where the leaf already
      * reaches JAMB_OVER into the wall, and none at an end where the cut reaches the square's edge: there the doorway
      * goes on into the next square, to the other leaf of a pair, and the gap between the two leaves is a real one.
+     * None either where the wall's reveal closes the cut (revealed) and the leaf meets it: the fill's edge lay in the
+     * reveal's plane, and the two took turns down the jamb as a flickering line.
      */
-    static int jambs(float leafStart, float leafEnd, float cutStart, float cutEnd, float[] out) {
+    static int jambs(float leafStart, float leafEnd, float cutStart, float cutEnd, boolean revealed, float[] out) {
         if (cutStart < 0f) {
             return 0;
         }
         int pairs = 0;
-        if (cutStart > 0f && leafStart > cutStart - JAMB_OVER) {
+        if (cutStart > 0f && leafStart > cutStart - JAMB_OVER && !(revealed && leafStart <= cutStart)) {
             out[0] = Math.max(0f, cutStart - JAMB_OVER);
             out[1] = leafStart;
             pairs++;
         }
-        if (cutEnd < 1f && leafEnd < cutEnd + JAMB_OVER) {
+        if (cutEnd < 1f && leafEnd < cutEnd + JAMB_OVER && !(revealed && leafEnd >= cutEnd)) {
             out[2 * pairs] = leafEnd;
             out[2 * pairs + 1] = Math.min(1f, cutEnd + JAMB_OVER);
             pairs++;
@@ -408,7 +412,7 @@ final class OpeningBuilder {
             panelled = Math.min(panelled, leaf.panes[pane + 2]);
         }
         float[] up = panelled < leaf.head ? PANELS_UP_BELOW : PANELS_UP;
-        int filled = inDoorway ? jambs(leaf.start, leaf.end, doorwayStart, doorwayEnd, jambs) : 0;
+        int filled = inDoorway ? jambs(leaf.start, leaf.end, doorwayStart, doorwayEnd, doorwayRevealed, jambs) : 0;
         float knob = door.handleAtEnd ? leaf.end - KNOB_IN * wide : leaf.start + KNOB_IN * wide;
         for (int side = 0; side < 2; side++) {
             float face = (side == 0 ? 1f : -1f) * DOOR_HALF;

@@ -210,14 +210,18 @@ final class DoorTests {
         float[] out = new float[4];
         float over = OpeningBuilder.JAMB_OVER;
         // The church's double door, as measured: each leaf's square has half the doorway, which runs on into the other square.
-        check(OpeningBuilder.jambs(0.1875f, 1f, 0.234375f, 1f, out) == 0, "a leaf reaching well into the wall past the cut is not filled beside, where the wall is");
-        check(OpeningBuilder.jambs(0f, 0.75f, 0f, 0.75f, out) == 1 && pair(out, 0, 0.75f, 0.75f + over),
-                "a leaf ending at the cut is closed a little way on into the wall, and where the leaves meet the gap stays open");
-        check(OpeningBuilder.jambs(0.25f, 1f, 0.0625f, 1f, out) == 1 && pair(out, 0, 0.0625f - over, 0.25f), "a gap between the cut and a leaf is filled across");
-        check(OpeningBuilder.jambs(0.25f, 1f, 0f, 1f, out) == 0, "a leaf in a doorway that runs on at both ends is not filled");
-        check(OpeningBuilder.jambs(0.5f, 0.6f, 0.1f, 0.9f, out) == 2 && pair(out, 0, 0.1f - over, 0.5f) && pair(out, 1, 0.6f, 0.9f + over),
-                "a leaf set far in is filled all the way to the cut on both sides");
-        check(OpeningBuilder.jambs(0.2f, 0.8f, -1f, 0f, out) == 0, "with no doorway measured in a wall, as in a fence, nothing is filled");
+        check(OpeningBuilder.jambs(0.1875f, 1f, 0.234375f, 1f, false, out) == 0, "a leaf reaching well into the wall past the cut is not filled beside, where the wall is");
+        check(OpeningBuilder.jambs(0f, 0.75f, 0f, 0.75f, false, out) == 1 && pair(out, 0, 0.75f, 0.75f + over),
+                "a leaf ending at a cut with no reveal is closed a little way on into the wall, and where the leaves meet the gap stays open");
+        check(OpeningBuilder.jambs(0.25f, 1f, 0.0625f, 1f, false, out) == 1 && pair(out, 0, 0.0625f - over, 0.25f), "a gap between the cut and a leaf is filled across");
+        check(OpeningBuilder.jambs(0.25f, 1f, 0f, 1f, false, out) == 0, "a leaf in a doorway that runs on at both ends is not filled");
+        check(OpeningBuilder.jambs(0.5f, 0.6f, 0.1f, 0.9f, true, out) == 2 && pair(out, 0, 0.1f - over, 0.5f) && pair(out, 1, 0.6f, 0.9f + over),
+                "a leaf set far in is filled all the way to the cut on both sides, reveal or none");
+        check(OpeningBuilder.jambs(0.2f, 0.8f, -1f, 0f, false, out) == 0, "with no doorway measured in a wall, as in a fence, nothing is filled");
+        // Louisville, 12785,1664: the leaf cut back to the doorway from 0.09375 to 0.84375, whose ends the wall's reveals close.
+        check(OpeningBuilder.jambs(0.09375f, 0.84375f, 0.09375f, 0.84375f, true, out) == 0,
+                "a leaf meeting a cut the wall's reveal closes is not filled: the fill's edge lay in the reveal's plane");
+        check(OpeningBuilder.jambs(0.09375f, 0.84375f, 0.09375f, 0.84375f, false, out) == 2, "and with no reveal it is");
     }
 
     private static Windows.Shape leaf(float start, float end) {
