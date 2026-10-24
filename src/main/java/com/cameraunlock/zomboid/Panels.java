@@ -100,11 +100,12 @@ final class Panels {
         Object[] found = LuaManager.caller.pcall(UIManager.getDefaultThread(), LuaManager.env.rawget(DASHBOARD), Double.valueOf(playerIndex));
         if (found.length < 2 || !Boolean.TRUE.equals(found[0]) || !(found[1] instanceof KahluaTable panel)
                 || !(panel.rawget("javaObject") instanceof UIElementInterface shown)) {
-            if (!wheelTroubleSaid[playerIndex]) {
-                sayOnce(playerIndex, "the game's " + DASHBOARD + "(" + playerIndex + ") gave no panel to hide or show: " + Arrays.toString(found));
+            if (!dashboardTroubleSaid[playerIndex]) {
+                sayOnce(dashboardTroubleSaid, playerIndex, "the game's " + DASHBOARD + "(" + playerIndex + ") gave no panel to hide or show: " + Arrays.toString(found));
             }
             return;
         }
+        dashboardTroubleSaid[playerIndex] = false;
         if (hidden && shown.isVisible()) {
             LuaManager.caller.pcallvoid(UIManager.getDefaultThread(), UIManager.tableget(panel, "setVisible"), panel, false);
             dashboardHidden[playerIndex] = true;
@@ -200,7 +201,7 @@ final class Panels {
         Object[] found = LuaManager.caller.pcall(UIManager.getDefaultThread(), LuaManager.env.rawget(BACK_WHEEL), Double.valueOf(playerIndex));
         if (found.length < 2 || !Boolean.TRUE.equals(found[0]) || !(found[1] instanceof KahluaTable wheel)) {
             if (!wheelTroubleSaid[playerIndex]) {
-                sayOnce(playerIndex, "the game's " + BACK_WHEEL + "(" + playerIndex + ") gave no wheel to take down: " + Arrays.toString(found));
+                sayOnce(wheelTroubleSaid, playerIndex, "the game's " + BACK_WHEEL + "(" + playerIndex + ") gave no wheel to take down: " + Arrays.toString(found));
             }
             return;
         }
@@ -208,7 +209,7 @@ final class Panels {
             Object[] shut = LuaManager.caller.pcall(UIManager.getDefaultThread(), UIManager.tableget(wheel, "undisplay"), wheel);
             if (shut.length == 0 || !Boolean.TRUE.equals(shut[0])) {
                 if (!wheelTroubleSaid[playerIndex]) {
-                    sayOnce(playerIndex, "the game's Back button wheel of player " + (playerIndex + 1) + " could not be taken down: " + Arrays.toString(shut));
+                    sayOnce(wheelTroubleSaid, playerIndex, "the game's Back button wheel of player " + (playerIndex + 1) + " could not be taken down: " + Arrays.toString(shut));
                 }
                 return;
             }
@@ -217,14 +218,14 @@ final class Panels {
     }
 
     /**
-     * Whether what went wrong with each player's wheel has been said since it last went right: the wheel is asked
-     * after on every frame the button is held.
+     * Whether what went wrong with each player's wheel, and with their dashboard panel, has been said since it last
+     * went right: the wheel is asked after on every frame the button is held, the panel on every frame it is up.
      */
-    private static final boolean[] wheelTroubleSaid = new boolean[View.COUNT];
+    private static final boolean[] wheelTroubleSaid = new boolean[View.COUNT], dashboardTroubleSaid = new boolean[View.COUNT];
 
-    private static void sayOnce(int playerIndex, String trouble) {
-        if (!wheelTroubleSaid[playerIndex]) {
-            wheelTroubleSaid[playerIndex] = true;
+    private static void sayOnce(boolean[] said, int playerIndex, String trouble) {
+        if (!said[playerIndex]) {
+            said[playerIndex] = true;
             Log.info(trouble);
         }
     }
