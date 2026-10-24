@@ -461,7 +461,7 @@ final class WallBuilder {
                 return;
             }
             if (stain) {
-                stain(inRoom(WorldScene.laid.get(texture.getID()), mesh.room), x, y, z, 1f + layer, da, db);
+                stain(inRoom(WorldScene.laid.get(texture.getID(), Stains.grime(texture) ? WallSides.STAIN : 0), mesh.room), x, y, z, 1f + layer, da, db);
                 return;
             }
         }

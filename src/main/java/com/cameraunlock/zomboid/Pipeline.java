@@ -1910,10 +1910,10 @@ final class Pipeline {
         GL20.glUniform2f(at, 1f / texelWide[slot], 1f / texelHigh[slot]);
     }
 
-    /** Draws the ranges but the panes of windows, which are drawn last of all (see drawPanes), and the blood, drawn after the rest of what is laid (see drawBlood). */
+    /** Draws the ranges but the panes of windows, which are drawn last of all (see drawPanes), and the stains and blood, drawn after the rest of what is laid (see drawStains and drawBlood). */
     private void drawRanges(ChunkBuffers.Listing listed, int from, int to) {
         for (int i = from; i < to; i++) {
-            if (listed.tint(i) == WallSides.PANES || listed.tint(i) == WallSides.BLOOD) {
+            if (listed.tint(i) == WallSides.PANES || listed.tint(i) == WallSides.BLOOD || listed.tint(i) == WallSides.STAIN) {
                 continue;
             }
             GL11.glBindTexture(GL_TEXTURE_2D, listed.texture(i) == 0 ? whiteTexture : listed.texture(i));
@@ -3460,6 +3460,7 @@ final class Pipeline {
             world.set("uLaid", LAID_REST);
         }
         drawRanges(listed, listed.solidRanges(), listed.ranges());
+        drawStains(listed);
         drawBlood(listed);
         if (own) {
             stage(STAGE_LAID);
@@ -3480,6 +3481,22 @@ final class Pipeline {
         grassDepth.set("uLaid", LAID_GRASS);
         grassDepth.set("uTexel", 0f, 0f);
         drawRanges(listed, listed.solidRanges(), listed.ranges());
+    }
+
+    /**
+     * Grime over walls, told it is grime, so the picture draws grime of its own there: see WallSides.STAIN.
+     */
+    private void drawStains(ChunkBuffers.Listing listed) {
+        int painted = world.at("uTint");
+        WallSides.tint(WallSides.STAIN, tint);
+        GL20.glUniform4f(painted, tint[0], tint[1], tint[2], tint[3]);
+        for (int i = listed.solidRanges(); i < listed.ranges(); i++) {
+            if (listed.tint(i) == WallSides.STAIN) {
+                GL11.glBindTexture(GL_TEXTURE_2D, listed.texture(i));
+                listed.draw(i);
+            }
+        }
+        GL20.glUniform4f(painted, 0f, 0f, 0f, 0f);
     }
 
     /**

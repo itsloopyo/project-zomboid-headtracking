@@ -56,6 +56,12 @@ final class WallSides {
      * other way, so that nothing else a key can mean is done to it.
      */
     private static final int MULTIPLIED = 1 << 31;
+    /**
+     * In place of a colour: the triangles are the game's grime over a wall, a mist of dots the game's
+     * view sees a few to a pixel, which a near eye saw as crawling worms, so the picture draws grime
+     * of its own there: see Stains.grime. No key packs to this, a multiplied one keeping its low four bits clear.
+     */
+    static final int STAIN = MULTIPLIED | 1;
 
     private static final int LEVELS = 15;
     private static final int BANDS = 32;
@@ -251,6 +257,11 @@ final class WallSides {
     static void tint(int key, float[] out) {
         if (key == 0) {
             out[0] = out[1] = out[2] = out[3] = 0f;
+            return;
+        }
+        if (key == STAIN) {
+            out[0] = out[1] = out[2] = 0f;
+            out[3] = 16f;
             return;
         }
         if ((key & MULTIPLIED) != 0) {

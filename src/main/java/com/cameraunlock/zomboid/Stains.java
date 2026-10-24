@@ -30,6 +30,11 @@ final class Stains {
         return stain;
     }
 
+    /** Whether the sprite is the game's grime on a wall, which the picture draws as grime of its own: see WallSides.STAIN. */
+    static boolean grime(Texture texture) {
+        return texture.getName() != null && texture.getName().startsWith("overlay_grime_wall");
+    }
+
     /** Reads the sprite: see Masonry.read. */
     static void read(Texture texture, ByteBuffer sheet, int width, int left, int top, int right, int bottom) {
         known.put(texture, measure(sheet, width, left, top, right, bottom));

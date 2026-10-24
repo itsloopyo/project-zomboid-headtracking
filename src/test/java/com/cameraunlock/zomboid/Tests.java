@@ -1719,6 +1719,12 @@ public final class Tests {
                 "a sprite's tint comes back to a 255th, told as multiplying it");
         WallSides.joint(tinted, tint);
         check(tint[0] == 0f && tint[1] == 0f && tint[2] == 0f, "and it has no joints");
+        WallSides.tint(WallSides.STAIN, tint);
+        check(tint[0] == 0f && tint[1] == 0f && tint[2] == 0f && tint[3] == 16f, "a stain is told as 16, which no way of painting is");
+        WallSides.joint(WallSides.STAIN, tint);
+        check(tint[0] == 0f && tint[1] == 0f && tint[2] == 0f, "and it has no joints");
+        check(WallSides.multiplied(0f, 0f, 0f) != WallSides.STAIN && WallSides.multiplied(0f, 0f, 1f / 255f) != WallSides.STAIN,
+                "no tint packs to a stain");
         check(WallSides.key(0.4f, 0.4f, 0.4f, WallSides.FLAT) == WallSides.key(0.41f, 0.39f, 0.4f, WallSides.FLAT), "colours a hair apart share a key, and so a draw");
         check(WallSides.key(0.4f, 0.4f, 0.4f, WallSides.FLAT) != WallSides.key(0.4f, 0.4f, 0.4f, WallSides.SIDING), "paint and boards of one colour are two draws");
     }

@@ -1681,6 +1681,20 @@ final class PipelineShaders {
     static final String WORLD_FRAGMENT_MAIN_START = """
             void main() {
                 vec4 texel = texture2D(uTexture, vUv);
+                // The game's grime over a wall (uTint.a 16, WallSides.STAIN) is a mist of
+                // dots and clots the game's view takes in a few to a pixel, so it shows a smudge.
+                // Each dot a hand across, the mist was worms of dark spots that crawled as the eye
+                // moved, and any mean of it wide enough to hide the clots reached into the next
+                // pictures on the sheet. So the game's grime only says the wall is grimy, and the
+                // grime is our own: a haze in slow clouds laid along the face, which no turn of
+                // the eye reshapes.
+                bool stainTint = abs(uTint.a - 16.0) < 0.5;
+                if (stainTint) {
+                    vec2 alongFace = vec2(vWorld.x + vWorld.y, vWorld.z * 2.5);
+                    float clouds = smoothstep(0.3, 0.8, 0.65 * patches(alongFace * 1.7 + 7.0) + 0.35 * patches(alongFace * 5.3));
+                    float grime = 0.08 + 0.2 * clouds;
+                    texel = vec4(vec3(0.16, 0.14, 0.11) * grime, grime);
+                }
                 // The game keeps its sheets with each colour already multiplied by how much of the
                 // dot is covered. A dot half covered, kept whole or mixed in by its cover again,
                 // was half as light: the pale wear on white siding came out a black smear.
@@ -1859,7 +1873,7 @@ final class PipelineShaders {
                 // How much of the pixel is a wall laid with depth: see the sprite's own relief below.
                 float walledNear = 0.0;
                 bool boarded = uTint.a > 7.5 && uTint.a < 8.5;
-                if (uTint.a > 3.5 && !boarded && !fineTint && !tiledTint) {
+                if (uTint.a > 3.5 && !boarded && !fineTint && !tiledTint && !stainTint) {
                     vec3 facing = normalize(vNormal);
                     float run = dot(vPlace.xy, vec2(facing.y, -facing.x));
                     vec2 turned;
@@ -2976,7 +2990,7 @@ final class PipelineShaders {
                         }
                     }
                     texel = vec4(own, 1.0);
-                } else if (!model && cover < (upright ? min(uCut, 0.1) : uCut)) {
+                } else if (!model && !stainTint && cover < (upright ? min(uCut, 0.1) : uCut)) {
                     discard;
                 }
                 // A tree is drawn as the game draws it in its own view: inside the game's window
@@ -3082,9 +3096,10 @@ final class PipelineShaders {
                     discard;
                 }
                 // Ground spreading over its neighbour thins out towards its edge, and the edge
-                // is ragged: tufts and patches, not a ruled fade.
+                // is ragged: tufts and patches, not a ruled fade. Not a stain, which is a haze
+                // of our own with no edge.
                 float shown = 1.0;
-                if (uLaid > 0.5 && !grass && vMaterial < 56.5 && laidCover < 0.999) {
+                if (uLaid > 0.5 && !grass && !stainTint && vMaterial < 56.5 && laidCover < 0.999) {
                     float ragged = patches(vWorld.xy * 1.9) * 0.6 + patches(vWorld.xy * 6.1 + 17.0) * 0.4 - 0.5;
                     shown = smoothstep(0.38, 0.62, laidCover + ragged * 3.0 * laidCover * (1.0 - laidCover));
                     // Where it does not show it is left out: what is laid writes depth, so left in it
