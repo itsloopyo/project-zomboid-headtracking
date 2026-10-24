@@ -5641,11 +5641,14 @@ final class WorldScene {
                 if (wall == WallHung.NORTH || wall == WallHung.WEST) {
                     SpriteGeometry.Mesh mesh = solid.get(texture.getID());
                     overSheet = kindOf(over).tiledSheet;
+                    WallHung.extent(frame, wall, hungAt);
+                    posterClear = trimClear(wall == WallHung.NORTH, hungAt[WallHung.FROM], hungAt[WallHung.TO], hungAt[WallHung.BOTTOM], hungAt[WallHung.TOP]);
                     if (wall == WallHung.WEST) {
                         wallBuilder.addEdge(mesh, texture, false, false, x, y, z, westLayer++, 0f, 1f);
                     } else {
                         wallBuilder.addEdge(mesh, texture, false, false, x, y, z, northLayer++, 1f, 0f);
                     }
+                    posterClear = 0f;
                     overSheet = null;
                     return;
                 }
@@ -5738,6 +5741,22 @@ final class WorldScene {
                 return null;
             }
             return north ? onNorth : onWest;
+        }
+
+        /**
+         * How much further out of the north or the west wall's skin than HUNG_CLEAR something hung
+         * there from from to to along it and from bottom to top up it, in levels, has to stand to
+         * be clear of the mouldings built on that wall of the square, in tiles.
+         */
+        float trimClear(boolean north, float from, float to, float bottom, float top) {
+            float most = 0f;
+            for (int entry = 0; entry < trimCount; entry++) {
+                Trims.Band[] bands = trimBuilt(entry, north);
+                if (bands != null) {
+                    most = Math.max(most, Trims.clearOf(bands, from, to, bottom, top));
+                }
+            }
+            return most;
         }
 
         /** Whether a band on the north or the west wall of the square meets the same moulding on the other wall in the corner: see Trims.turnsTheCorner. */
@@ -7449,6 +7468,9 @@ final class WorldScene {
             // On the near walls clear of the wall's skin as a poster is, layered as addEdge layers what is not a
             // wall; on the far ones clear of the next square's wall, as what the game marks attached to them is.
             float clear = WALL_HALF + HUNG_CLEAR;
+            if (wall == WallHung.NORTH || wall == WallHung.WEST) {
+                clear += trimClear(wall == WallHung.NORTH, hungAt[WallHung.FROM], hungAt[WallHung.TO], hungAt[WallHung.BOTTOM], hungAt[WallHung.TOP]);
+            }
             switch (wall) {
                 case WallHung.NORTH -> {
                     geometry.shownB = clear;
@@ -7802,6 +7824,8 @@ final class WorldScene {
         String tiledSheet;
         /** The same of the sprite hung over the one being added, while it is: tiles laid over a wall. */
         String overSheet;
+        /** How much further than HUNG_CLEAR out of its wall's skin the poster being added stands, clear of the mouldings behind it, in tiles: see trimClear. */
+        float posterClear;
         /** The colour the papered wall's mesh is painted over in, as the picture is told it, and the light of the piece being added while its stripes are. */
         final float[] paperTint = new float[4], paperRed = new float[4], paperGreen = new float[4], paperBlue = new float[4], paperUnlit = new float[SpriteGeometry.Frame.UNLIT_FLOATS];
 

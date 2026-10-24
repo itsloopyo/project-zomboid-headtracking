@@ -388,9 +388,9 @@ final class WallBuilder {
         }
         if (!wall) {
             // A finger's width clear of the skin: lying in the skin's own plane, the two are
-            // drawn through each other.
-            build.geometry.shownA = inX + db * WorldScene.HUNG_CLEAR;
-            build.geometry.shownB = inY + da * WorldScene.HUNG_CLEAR;
+            // drawn through each other. A poster stands clear of a moulding behind it too.
+            build.geometry.shownA = inX + db * (WorldScene.HUNG_CLEAR + build.posterClear);
+            build.geometry.shownB = inY + da * (WorldScene.HUNG_CLEAR + build.posterClear);
             float material = build.frame.material;
             if (material == WorldScene.GLASS) {
                 faceIntoRoom(x, y, z, da != 0f);

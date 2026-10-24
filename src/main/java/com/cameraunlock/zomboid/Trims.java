@@ -113,6 +113,36 @@ final class Trims {
         return band.top >= 1f && band.foot > 0f;
     }
 
+    /** How high over its floor a band's moulding comes down to, in levels. */
+    static float footOf(Band band) {
+        return cornice(band) ? band.top - CORNICE_FALL / ViewCamera.LEVEL_HEIGHT : band.foot;
+    }
+
+    /** How far a band's moulding stands out of the wall's skin at most, in tiles. */
+    static float depth(Band band) {
+        float[] section = section(band);
+        float most = 0f;
+        for (int i = 0; i < section.length; i += 2) {
+            most = Math.max(most, section[i]);
+        }
+        return most;
+    }
+
+    /**
+     * How much further out of the wall's skin than on a bare wall something hung over the wall
+     * from from to to along it and from bottom to top up it, in levels, has to stand to be clear
+     * of the mouldings of the bands, in tiles: the depth of the deepest it is over.
+     */
+    static float clearOf(Band[] bands, float from, float to, float bottom, float top) {
+        float most = 0f;
+        for (Band band : bands) {
+            if (band.from < to && band.to > from && footOf(band) < top && band.top > bottom) {
+                most = Math.max(most, depth(band));
+            }
+        }
+        return most;
+    }
+
     /**
      * Whether two bands, one on each wall of a corner, are one moulding turning the corner and
      * meet there in a mitre: both reach the corner, and they are the same moulding, which for a

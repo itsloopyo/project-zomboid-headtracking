@@ -27,6 +27,7 @@ final class TrimTests {
         Checks.run("aTiledWainscotIsLaidAsTilesAndNotAsMouldings", TrimTests::aTiledWainscotIsLaidAsTilesAndNotAsMouldings);
         Checks.run("twoMouldingsMeetInAMitreInTheCornerAndNeitherCrossesTheOther", TrimTests::twoMouldingsMeetInAMitreInTheCornerAndNeitherCrossesTheOther);
         Checks.run("onlyTheSameMouldingTurnsACorner", TrimTests::onlyTheSameMouldingTurnsACorner);
+        Checks.run("somethingHungOverAMouldingStandsClearOfIt", TrimTests::somethingHungOverAMouldingStandsClearOfIt);
     }
 
     /** A wall stood square with rows first to last painted from column from to column to, in grey. */
@@ -219,5 +220,19 @@ final class TrimTests {
         check(!Trims.turnsTheCorner(SKIRTING, new Trims.Band(0f, 0.06f + 2f / 32f, 0f, 1f, 0.9f, 0.9f, 0.9f)), "a taller board is another");
         check(!Trims.turnsTheCorner(SKIRTING, CORNICE), "a skirting is no cornice");
         check(!Trims.turnsTheCorner(SKIRTING, new Trims.Band(0f, 0.06f, 0.3f, 1f, 0.9f, 0.9f, 0.9f)), "one that stops short of the corner, at a doorway, meets nothing there");
+    }
+
+    private static void somethingHungOverAMouldingStandsClearOfIt() {
+        Trims.Band[] bands = {SKIRTING, CORNICE};
+        check(Trims.clearOf(bands, 0.2f, 0.8f, 0.3f, 0.7f) == 0f, "a picture between the skirting and the cornice is on the bare wall");
+        check(Trims.clearOf(bands, 0.2f, 0.8f, 0.02f, 0.3f) == Trims.depth(SKIRTING) && Trims.depth(SKIRTING) >= Trims.BOARD,
+                "one over the skirting stands clear by the board: " + Trims.clearOf(bands, 0.2f, 0.8f, 0.02f, 0.3f));
+        // The cornice's band starts 0.95 up, and its moulding falls further, CORNICE_FALL under the ceiling.
+        float under = 1f - Trims.CORNICE_FALL / ViewCamera.LEVEL_HEIGHT;
+        check(Trims.clearOf(bands, 0.2f, 0.8f, 0.6f, under + 0.01f) == Trims.depth(CORNICE) && Trims.depth(CORNICE) > Trims.depth(SKIRTING),
+                "one up into the cornice's cove stands clear by it: " + Trims.clearOf(bands, 0.2f, 0.8f, 0.6f, under + 0.01f));
+        check(Trims.clearOf(bands, 0.2f, 0.8f, 0.6f, under - 0.01f) == 0f, "one just under the cove is on the bare wall");
+        check(Trims.clearOf(new Trims.Band[] {new Trims.Band(0f, 0.06f, 0.5f, 1f, 0.9f, 0.9f, 0.9f)}, 0f, 0.4f, 0.02f, 0.3f) == 0f,
+                "and none where the skirting stops short of it along the wall");
     }
 }

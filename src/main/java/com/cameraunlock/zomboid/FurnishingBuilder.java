@@ -282,9 +282,14 @@ final class FurnishingBuilder {
         }
         Models.Model model = placeHung(piece, build.hungAt, build.geometry.raised, hungPlace);
         float along = hungPlace[ALONG], foot = hungPlace[FOOT], scale = hungPlace[SCALE], scaleUp = hungPlace[SCALE_UP];
-        // Its back clear of the wall's skin, which stands that far inside the square's edge.
+        // Its back clear of the wall's skin, which stands that far inside the square's edge, and of
+        // a moulding along the wall behind it.
         Models.turn(piece.turns, 0f, -1f, build.hungWay);
-        float out = WorldScene.WALL_HALF + WorldScene.HUNG_CLEAR + model.depth() * scale / 2f;
+        float behind = piece.wall == WallHung.NORTH || piece.wall == WallHung.WEST
+                ? build.trimClear(piece.wall == WallHung.NORTH, build.hungAt[WallHung.FROM], build.hungAt[WallHung.TO], foot / ViewCamera.LEVEL_HEIGHT,
+                        (foot + model.height() * scaleUp) / ViewCamera.LEVEL_HEIGHT)
+                : 0f;
+        float out = WorldScene.WALL_HALF + WorldScene.HUNG_CLEAR + behind + model.depth() * scale / 2f;
         float a = WallHung.a(piece.wall, along), b = WallHung.b(piece.wall, along);
         float[] lift = build.geometry.lift;
         // On a wall on the square's north or west edge it hangs as high as the wall stands (Frame.standOnKerbTop).
