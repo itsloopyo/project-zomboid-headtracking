@@ -380,6 +380,9 @@ Style=Bleak
 HillHeight=1.5
 ; true: a shot from a firearm flashes at the muzzle and briefly lights what is near. Never in Low.
 MuzzleFlash=true
+; true: in first person, while the game draws no reticle of its own, a small crosshair with a weapon in hand and a
+; dot without one mark where the shot lands and what the interact key uses. false: neither is drawn.
+Crosshair=true
 ; How two players at one screen share it: Vertical (side by side) or Horizontal (one above the other).
 SplitScreen=Vertical
 

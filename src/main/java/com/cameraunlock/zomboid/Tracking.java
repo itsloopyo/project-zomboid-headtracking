@@ -169,6 +169,7 @@ final class Tracking {
         }
         HillHeight.set(live.hillHeight());
         MuzzleFlash.set(live.muzzleFlash());
+        Crosshair.set(live.crosshair());
         SplitScreen.set(live.splitScreen());
         FieldOfView.set(live.fieldOfView());
         talk(live);
@@ -268,6 +269,7 @@ final class Tracking {
             Log.info(Config.FILE_NAME + " changed: hill height set to " + live.hillHeight());
         }
         MuzzleFlash.set(live.muzzleFlash());
+        Crosshair.set(live.crosshair());
         SplitScreen.set(live.splitScreen());
         if (live.own() != Own.rows()) {
             Own.set(live.own());

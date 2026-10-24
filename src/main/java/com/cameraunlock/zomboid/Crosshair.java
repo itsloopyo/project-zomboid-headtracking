@@ -40,8 +40,23 @@ final class Crosshair {
     private record Mark(float x, float y, float spread, boolean dot) {
     }
 
+    /** The Crosshair row of CameraUnlock.ini. The thread that watches the file sets it, the render thread reads it. */
+    private static volatile boolean on = true;
+
     /** Null when it is not shown. */
     private volatile Mark shown;
+
+    static void set(boolean asked) {
+        if (asked == on) {
+            return;
+        }
+        on = asked;
+        Log.info("the mod's own crosshair: " + (asked ? "on" : "off"));
+    }
+
+    static boolean on() {
+        return on;
+    }
 
     void show(float x, float y, float spread) {
         shown = new Mark(x, y, spread, false);
@@ -58,7 +73,7 @@ final class Crosshair {
     /** Draws it into the picture bound, whose viewport is the whole of a picture this many pixels each way. */
     void draw(int width, int height) {
         Mark where = shown;
-        if (where == null || !flat.use()) {
+        if (where == null || !on || !flat.use()) {
             return;
         }
         int unit = Math.max(1, Math.round((float) height / DESIGN_HEIGHT));
