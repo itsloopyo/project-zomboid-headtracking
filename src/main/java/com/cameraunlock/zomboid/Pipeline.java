@@ -4471,6 +4471,7 @@ final class Pipeline {
         develop.set("uEachColour", ownTone && !WITHOUT.contains("filmcolours") ? EACH_COLOUR : 0f);
         develop.set("uVibrance", ownTone && !WITHOUT.contains("vibrance") ? style.vibrance : 0f);
         develop.set("uMeter", DEVELOP_METER_UNIT);
+        develop.set("uMeterTexel", 1f / METER_WIDE, 1f / METER_HIGH);
         GL13.glActiveTexture(GL_TEXTURE0 + DEVELOP_METER_UNIT);
         GL11.glBindTexture(GL_TEXTURE_2D, meterColor);
         GL13.glActiveTexture(GL_TEXTURE0);

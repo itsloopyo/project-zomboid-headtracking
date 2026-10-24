@@ -6855,6 +6855,8 @@ final class PipelineShaders {
             // middle light, y how far a pixel's own light is set apart from its part's (clarity),
             // z how far the edges between pixels are sharpened, 0 to 1. All 0 leaves the picture as it was.
             uniform vec3 uLocal;
+            // One texel of the light meter's own size (Pipeline.METER_WIDE by METER_HIGH), across and up.
+            uniform vec2 uMeterTexel;
             // How much more the colours that are still weak are filled than those already full.
             uniform float uVibrance;
             // What red and blue are multiplied by to take the cast of the light out: see Develop.settle.
@@ -7184,6 +7186,34 @@ final class PipelineShaders {
                 return w;
             }
 
+            // The light round a pixel, in stops, from the meter's second, third and fourth halvings
+            // (1, 2, 1), each read at the pixel and a texel of its own off on the four diagonals.
+            // Each reading counts by how near its light is to the pixel's own, so the light round
+            // a pixel is that of the part of the picture lit as it is. Taken as the plain mean,
+            // a dark figure on lying snow at night pulled the light round the snow beside it down
+            // by up to half a stop, and the local tone lifted that snow into a pale ring round the
+            // figure, a few hundred pixels wide, that went where the figure went.
+            const float LIKE_LIT = 0.6;
+            float lightRound(vec2 uv, float own) {
+                float plain = (texture2DLod(uMeter, uv, 1.0).r + 2.0 * texture2DLod(uMeter, uv, 2.0).r + texture2DLod(uMeter, uv, 3.0).r) * 0.25;
+                // With nothing round it lit as it is, a spark or the edge of a figure, the plain mean.
+                float sum = plain * 0.001, weights = 0.001;
+                for (int level = 1; level <= 3; level++) {
+                    float lod = float(level);
+                    vec2 texel = uMeterTexel * exp2(lod);
+                    float counts = level == 2 ? 2.0 : 1.0;
+                    for (int i = 0; i < 5; i++) {
+                        vec2 off = i == 0 ? vec2(0.0) : vec2(mod(float(i), 2.0) * 2.0 - 1.0, float(i > 2) * 2.0 - 1.0);
+                        float light = texture2DLod(uMeter, uv + off * texel, lod).r;
+                        float apart = (light - own) / LIKE_LIT;
+                        float w = counts * exp(-apart * apart);
+                        sum += light * w;
+                        weights += w;
+                    }
+                }
+                return sum / weights;
+            }
+
             vec4 ofItsOwnDepth(sampler2D low, vec2 whole, vec4 w) {
                 vec4 sum = vec4(0.0);
                 for (int i = 0; i < 4; i++) {
@@ -7296,10 +7326,10 @@ final class PipelineShaders {
                 // and the shaded side of the same street, more than the paint of what is there.
                 float lifted = 0.0;
                 if (uLocal.x + uLocal.y > 0.0) {
-                    float nearby = (texture2DLod(uMeter, uv, 1.0).r + 2.0 * texture2DLod(uMeter, uv, 2.0).r + texture2DLod(uMeter, uv, 3.0).r) * 0.25;
                     // Not the shade, the lit air, the glow and the rest laid over it since, nor
                     // the sharpening, which the meter never sees.
                     float own = log2(max(sceneLight, 1e-4));
+                    float nearby = lightRound(uv, own);
                     lifted = own - nearby;
                     // A part of the picture far darker or brighter than the frame's middle, a
                     // room seen past a window or a window seen from a room, is brought some way
