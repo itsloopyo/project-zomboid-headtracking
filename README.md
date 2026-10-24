@@ -11,7 +11,7 @@ It adds a first person view to the game, with a rebuilt world and new graphics. 
 - **No head tracker needed** - first person plays with a mouse and keyboard or a controller. Without a tracker, nothing follows your head.
 - **No microphone needed** - Talking mouths is off until you tick it, and no microphone is opened until then.
 
-Offline the mod also changes some of the game's rules: shots go through thin walls and doors, break lamps, cripple zombies' limbs and can take them off; vehicles knock down fences and street lamp posts and drive through bushes; in the isometric view zombies show as soon as your character has a clear line to them. Each is on until you untick it in **Options > Mods > Head Tracking**. On a server these stay as the game has them.
+Offline the mod also changes some of the game's rules: shots go through thin walls and doors, break lamps, cripple zombies' limbs and can take them off; vehicles knock down fences, street lamp posts and road barricades and drive through bushes; in the isometric view zombies show as soon as your character has a clear line to them. Each is on until you untick it in **Options > Mods > Head Tracking**. On a server these stay as the game has them.
 
 ## Features
 
@@ -44,7 +44,7 @@ Press `Delete` to switch between the isometric and first person views, on foot o
 
 - **Interiors** - dashboards, seats, working dials and mirrors in Medium and High.
 - **Drive-by shooting** - raise a firearm from any seat and shoot through the glass.
-- **Offline driving** - smash through fences and lamp posts, drive through bushes, take off over hill crests.
+- **Offline driving** - smash through fences, lamp posts and road barricades, drive through bushes, take off over hill crests.
 
 ### Talking mouths
 
@@ -570,7 +570,7 @@ ShotsBreakLamps=true
 ; hanging, enough take the limb off, and a head shot that kills can take the head off or burst it. false: hits
 ; are the game's. On a server the game's rule holds.
 ShotsWoundLimbs=true
-; true: offline, a vehicle faster than a walk knocks down fences and street lamp posts, drives through bushes
+; true: offline, a vehicle faster than a walk knocks down fences, street lamp posts and road barricades, drives through bushes
 ; unslowed and keeps its engine's full power off the road. false: the game's rules for all of it. On a server the
 ; game's rules hold.
 VehiclesSmashThrough=true

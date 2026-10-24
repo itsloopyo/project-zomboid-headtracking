@@ -332,7 +332,7 @@ final class Config {
                             + "are the game's. On a server the game's rule holds.",
                     writable | live, true),
             core.configLocalBool("Rules", "VehiclesSmashThrough",
-                    "true: offline, a vehicle faster than a walk knocks down fences and street lamp posts, drives through bushes\n"
+                    "true: offline, a vehicle faster than a walk knocks down fences, street lamp posts and road barricades, drives through bushes\n"
                             + "unslowed and keeps its engine's full power off the road. false: the game's rules for all of it. On a server the\n"
                             + "game's rules hold.",
                     writable | live, true),

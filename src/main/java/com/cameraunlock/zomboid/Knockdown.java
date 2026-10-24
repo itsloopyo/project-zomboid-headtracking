@@ -3,11 +3,12 @@ package com.cameraunlock.zomboid;
 import zombie.iso.IsoDirections;
 
 /**
- * What a vehicle driven into a fence or a lamp post does to it, played alone: faster than a
+ * What a vehicle driven into a fence, a lamp post or a road barricade does to it, played alone: faster than a
  * walk it knocks the thing down and drives on, a little slower and a little dented, as in an
  * open-world driving game. The game has the knocking down already, for anything its tiles mark
  * as hit by cars, and asks for 150 km/h before it happens to a fence or a post: no car gets
- * there, so a fence stops a car dead. See CarSmash for where this meets the game.
+ * there, so a fence stops a car dead. The wooden road barricade is not marked at all, and stops
+ * a car dead at any speed. See CarSmash for where this meets the game.
  *
  * Each rule here is handed `stock`, true where the game's own rules hold: on a server, and alone
  * with the VehiclesSmashThrough row off (Rules.vehiclesStock).
@@ -15,7 +16,7 @@ import zombie.iso.IsoDirections;
 final class Knockdown {
     private Knockdown() {}
 
-    enum Kind { FENCE, POST }
+    enum Kind { FENCE, POST, BARRICADE }
 
     /** A push slower than this is a push: the thing stands, as it does in the game. */
     static final float WALKING_KMH = 10f;
@@ -89,11 +90,15 @@ final class Knockdown {
      * metal bars, the pieces either side of a hole included, but stone: a stone fence is a low
      * wall. Chain link and wire (Material MetalWire) standing along an edge are fences whether
      * the game knows them or not; what is left lying of a broken one stands on no edge. Lamp
-     * posts are the marked posts of the street lamp sheet.
+     * posts are the marked posts of the street lamp sheet. A road barricade is the striped
+     * wooden A frame of the construction sheet, either way it faces.
      */
     static Kind of(String sprite, String material, boolean known, boolean onEdge) {
         if (sprite == null) {
             return null;
+        }
+        if (sprite.equals("construction_01_8") || sprite.equals("construction_01_9")) {
+            return Kind.BARRICADE;
         }
         if (sprite.startsWith("fencing_")) {
             return "Stone".equals(material) || !known && !("MetalWire".equals(material) && onEdge) ? null : Kind.FENCE;
@@ -155,7 +160,7 @@ final class Knockdown {
 
     /** The share of its speed a vehicle keeps through one piece of a thing met square on: a post is a pole set in concrete. */
     static float speedKept(Kind kind) {
-        return kind == Kind.FENCE ? 0.9f : 0.65f;
+        return kind == Kind.POST ? 0.65f : 0.9f;
     }
 
     /**

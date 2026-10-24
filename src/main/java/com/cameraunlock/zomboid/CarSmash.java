@@ -16,21 +16,23 @@ import zombie.scripting.objects.VehicleScript;
 import zombie.vehicles.BaseVehicle;
 
 /**
- * A fence or a lamp post a vehicle runs into faster than a walk, played alone, is knocked down
- * by the game's own means and the vehicle drives on. See Knockdown for the rules.
+ * A fence, a lamp post or a road barricade a vehicle runs into faster than a walk, played alone,
+ * is knocked down by the game's own means and the vehicle drives on. See Knockdown for the rules.
  *
  * The game meets a thing its tiles mark as hit by cars only once the middle of the thing's
  * square is inside the vehicle (BaseVehicle.breakingObjects, IsoObject.Collision), and its
  * physics stops the vehicle at a fence on the near edge of a square well before that. So each
  * update, before the game looks, this looks a little ahead of the vehicle, the way it is going,
- * for the fences and posts it is about to touch: a fence along the edge it stands on, a post at
- * its middle. The game's own meeting is taken over as well, for a thing this did not see first.
+ * for the fences, posts and barricades it is about to touch: a fence along the edge it stands
+ * on, a post at its middle, a barricade anywhere on its square. A barricade is met only here,
+ * since the game hands over only what its tiles mark as hit by cars. The game's own meeting is
+ * taken over as well, for a thing this did not see first.
  *
  * A fence the game breaks alone (BrokenFences) is broken as zombies and sledgehammers break
  * it, into its broken sprite and debris with the pieces either side damaged; a fence the game
  * brings down a span at a time (BentFences, the tall chain link) comes down a span; any other
- * fence piece is taken away, as the game takes away what a car flattens. A lamp post is taken
- * away with the street lamp on the level above it, whose light goes with it
+ * fence piece and a barricade are taken away, as the game takes away what a car flattens. A
+ * lamp post is taken away with the street lamp on the level above it, whose light goes with it
  * (IsoLightSwitch.removeFromWorld). What is met at once slows the vehicle once, against the way
  * it goes, by as much as it was met square on, and is one crash of the game's (BaseVehicle.crash)
  * where the game would count that loss of speed as one. On a server the world is the server's,
@@ -140,7 +142,8 @@ final class CarSmash {
                     }
                     PropertyContainer properties = thing.getProperties();
                     boolean north = properties.has(IsoFlagType.collideN), west = properties.has(IsoFlagType.collideW);
-                    boolean touched = north && touches(vehicle, x, y, true, middle, goingAcross, goingAlong, halfAcross, halfAlong, ahead)
+                    boolean touched = kind == Knockdown.Kind.BARRICADE ? fills(vehicle, x, y, middle, goingAcross, goingAlong, halfAcross + Knockdown.CLEARANCE, halfAlong, ahead)
+                            : north && touches(vehicle, x, y, true, middle, goingAcross, goingAlong, halfAcross, halfAlong, ahead)
                             || west && touches(vehicle, x, y, false, middle, goingAcross, goingAlong, halfAcross, halfAlong, ahead)
                             || !north && !west && met(vehicle, x + 0.5f, y + 0.5f, middle, goingAcross, goingAlong, halfAcross, halfAlong, ahead);
                     if (touched) {
@@ -165,6 +168,19 @@ final class CarSmash {
             }
         }
         return false;
+    }
+
+    /**
+     * Whether any point along the four edges of the square at (x, y) is met: the game's physics
+     * makes a solid thing that is no post a box filling its square (IsoChunk.calcPhysics), so a
+     * vehicle passing it by a hand's width still strikes it.
+     */
+    private static boolean fills(BaseVehicle vehicle, int x, int y, Vector3f middle, float goingAcross, float goingAlong,
+            float halfAcross, float halfAlong, float ahead) {
+        return touches(vehicle, x, y, true, middle, goingAcross, goingAlong, halfAcross, halfAlong, ahead)
+                || touches(vehicle, x, y + 1, true, middle, goingAcross, goingAlong, halfAcross, halfAlong, ahead)
+                || touches(vehicle, x, y, false, middle, goingAcross, goingAlong, halfAcross, halfAlong, ahead)
+                || touches(vehicle, x + 1, y, false, middle, goingAcross, goingAlong, halfAcross, halfAlong, ahead);
     }
 
     private static boolean met(BaseVehicle vehicle, float x, float y, Vector3f middle, float goingAcross, float goingAlong,

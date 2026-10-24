@@ -51,6 +51,10 @@ public final class KnockdownTests {
         check(Knockdown.of("lighting_outdoor_01_16", null, true, false) == Knockdown.Kind.POST, "the bare post under a tall street lamp is a post");
         check(Knockdown.of("lighting_outdoor_01_4", null, true, false) == Knockdown.Kind.POST, "and so is the black post under an acorn lamp");
         check(Knockdown.of("lighting_outdoor_01_24", null, false, false) == null, "a lamp on a wall is not a post");
+        check(Knockdown.of("construction_01_8", "Wood", false, false) == Knockdown.Kind.BARRICADE, "a road barricade facing south is a barricade, though the game does not mark it");
+        check(Knockdown.of("construction_01_9", "Wood", false, false) == Knockdown.Kind.BARRICADE, "and so is one facing east");
+        check(Knockdown.of("construction_01_80", "Wood", false, false) == null, "another sprite of the construction sheet is not");
+        check(Knockdown.of("street_decoration_01_28", "Stone", false, true) == null, "a concrete road block stops a car");
         check(Knockdown.of("street_decoration_01_0", "MetalBars", true, false) == null, "a stop sign is left to the game");
         check(Knockdown.of("trashcontainers_01_0", "PlasticHard", true, false) == null, "and so is a bin");
         check(Knockdown.of("walls_exterior_house_01_0", "Wood", false, true) == null, "a wall stands");
@@ -80,6 +84,7 @@ public final class KnockdownTests {
         check(fence > post, "a post takes more of the speed than a fence panel");
         check(fence >= 0.85f && fence < 1f, "a fence panel takes a little: " + fence);
         check(post >= 0.5f && post < 0.8f, "a post takes a good share and the vehicle still goes on: " + post);
+        check(Knockdown.speedKept(Knockdown.Kind.BARRICADE) == fence, "a wooden barricade takes what a fence panel takes");
         float three = Knockdown.speedKept(List.of(fence, fence, fence));
         check(Math.abs(three - fence * fence * fence) < 1e-6f, "three panels at once each take their share of what is left: " + three);
         check(Knockdown.speedKept(List.of()) == 1f, "nothing met takes nothing");

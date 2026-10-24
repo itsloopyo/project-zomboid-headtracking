@@ -73,7 +73,7 @@
 - Taking the driver's seat switches off a light you're holding.
 - Vehicles tilt with the hills under them.
 - Single player: hills slow vehicles uphill and speed them up downhill, and vehicles take off over crests at speed.
-- Single player: vehicles smash through fences and street lamp posts, losing a little speed and taking some damage.
+- Single player: vehicles smash through fences, street lamp posts and road barricades, losing a little speed and taking some damage.
 - Single player: bushes and plants don't slow vehicles, and grass and dirt don't cut engine power.
 
 #### World
