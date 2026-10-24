@@ -43,6 +43,7 @@ final class RoomSightTests {
         Checks.run("aWallsEdgeAndAWindowsBlindAreListedByTheRoomsEitherSide", RoomSightTests::aWallsEdgeAndAWindowsBlindAreListedByTheRoomsEitherSide);
         Checks.run("aMapLetGoOfHoldsNothingOfTheWorldItWasReadFrom", RoomSightTests::aMapLetGoOfHoldsNothingOfTheWorldItWasReadFrom);
         Checks.run("aChunkReadBeforeItsLandIsReadAgainOnceItIsWorkedOut", RoomSightTests::aChunkReadBeforeItsLandIsReadAgainOnceItIsWorkedOut);
+        Checks.run("aChunkNotToBeReadKeepsWhatItHadAndOneNeverReadIsUnread", RoomSightTests::aChunkNotToBeReadKeepsWhatItHadAndOneNeverReadIsUnread);
     }
 
     private static void check(boolean condition, String what) {
@@ -616,8 +617,8 @@ final class RoomSightTests {
         chunk.wy = 4;
         chunk.loaded = true;
         map.begin(cell, Terrain.LEVEL);
-        int read = map.read(chunk, null, null, true, 0L);
-        check(map.read(chunk, null, null, true, 1L) == read, "a chunk read is kept while it is the same chunk");
+        int read = map.read(chunk, null, null, true, 0L, true);
+        check(map.read(chunk, null, null, true, 1L, true) == read, "a chunk read is kept while it is the same chunk");
         java.lang.ref.WeakReference<Object> chunkKept = new java.lang.ref.WeakReference<>(chunk), cellKept = new java.lang.ref.WeakReference<>(cell);
         map.forget();
         chunk = null;
@@ -630,7 +631,7 @@ final class RoomSightTests {
         again.wx = 3;
         again.wy = 4;
         map.begin(new zombie.iso.IsoCell(), Terrain.LEVEL);
-        check(map.read(again, null, null, true, 2L) > read, "and a chunk of the next world in the same place is read afresh");
+        check(map.read(again, null, null, true, 2L, true) > read, "and a chunk of the next world in the same place is read afresh");
     }
 
     /** An opening's heights are the floors' heights where it stands, and a chunk read while the land under it was not known kept them at 0, a hill's height off the ground. */
@@ -643,10 +644,32 @@ final class RoomSightTests {
         chunk.loaded = true;
         map.begin(cell, Terrain.LEVEL);
         check(Terrain.LEVEL.versionIfKept(chunk.wx, chunk.wy) == -1, "the test's chunk has no land worked out yet");
-        int read = map.read(chunk, null, null, true, 0L);
-        check(map.read(chunk, null, null, true, 1L) == read, "a chunk read is kept while its land is as it was");
+        int read = map.read(chunk, null, null, true, 0L, true);
+        check(map.read(chunk, null, null, true, 1L, true) == read, "a chunk read is kept while its land is as it was");
         Terrain.LEVEL.corners(cell, chunk.wx, chunk.wy);
-        check(map.read(chunk, null, null, true, 2L) > read, "and read again once the land under it is worked out");
+        check(map.read(chunk, null, null, true, 2L, true) > read, "and read again once the land under it is worked out");
+    }
+
+    /** A frame that has spent its time on reading leaves the rest: a chunk read before keeps that reading, and one never read is said to be unread. */
+    private static void aChunkNotToBeReadKeepsWhatItHadAndOneNeverReadIsUnread() {
+        RoomMap map = new RoomMap();
+        zombie.iso.IsoCell cell = new zombie.iso.IsoCell();
+        zombie.iso.IsoChunk chunk = new zombie.iso.IsoChunk();
+        chunk.wx = 5;
+        chunk.wy = 6;
+        chunk.loaded = true;
+        map.begin(cell, Terrain.LEVEL);
+        check(map.read(chunk, null, null, false, 0L, false) == RoomMap.UNREAD, "a chunk never read and not to be read is unread");
+        int read = map.read(chunk, null, null, false, 0L, true);
+        check(read != RoomMap.UNREAD, "read, it is not");
+        long later = 2_000_000_000L;
+        check(map.read(chunk, null, null, false, later, false) == read, "due to be read again and not to be, it keeps what it had");
+        check(map.read(chunk, null, null, false, later, true) > read, "and is read again once it may be");
+        zombie.iso.IsoChunk again = new zombie.iso.IsoChunk();
+        again.wx = 5;
+        again.wy = 6;
+        again.loaded = true;
+        check(map.read(again, null, null, false, later, false) == RoomMap.UNREAD, "another chunk loaded in its place has no reading of its own");
     }
 
     private static void aPictureListsOnlyTheRoomsItSeesInto() {

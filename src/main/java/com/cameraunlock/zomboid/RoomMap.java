@@ -53,6 +53,8 @@ final class RoomMap implements Acoustics.Walls, RoomDaylight.Edges {
     private final long[] keptNanos = new long[SIDE * SIDE];
     /** How many times each chunk has been read: a frame whose chunks were all read before, and are the same chunks, has the same openings. */
     private final int[] keptReadings = new int[SIDE * SIDE];
+    /** Whether the last read of each chunk said UNREAD: what is kept there is not of it as it is now. */
+    private final boolean[] keptUnread = new boolean[SIDE * SIDE];
     /** Dev only: how many chunks were read for their openings since the last asking. */
     int chunksRead;
 
@@ -79,23 +81,33 @@ final class RoomMap implements Acoustics.Walls, RoomDaylight.Edges {
         Arrays.fill(keptLevelMarks, null);
     }
 
+    /** What read says of a chunk it was not to read and has no reading of as it is now. */
+    static final int UNREAD = -1;
+
     /**
      * Reads a chunk's openings and blocks again if what they were read from may have changed,
-     * and says how many times it has been read.
+     * and says how many times it has been read. Told not to read, it keeps what it read before
+     * for a chunk that may have changed, and says UNREAD for one it has nothing of as it is now.
      *
-     * @param north the chunk at y - 1 on the loaded map, or null
-     * @param west  the chunk at x - 1, or null
-     * @param told  the game marks what it changes: see ChunkMarks.live
+     * @param north   the chunk at y - 1 on the loaded map, or null
+     * @param west    the chunk at x - 1, or null
+     * @param told    the game marks what it changes: see ChunkMarks.live
+     * @param mayRead whether it may read the chunk now
      */
-    int read(IsoChunk chunk, IsoChunk north, IsoChunk west, boolean told, long now) {
+    int read(IsoChunk chunk, IsoChunk north, IsoChunk west, boolean told, long now, boolean mayRead) {
         int slot = ChunkMarks.slot(chunk.wx, chunk.wy);
         int marks = ChunkMarks.structuresIn(chunk.wx - 1, chunk.wy - 1, chunk.wx + 1, chunk.wy + 1);
         int levels = chunk.getMinLevel() * 1000 + chunk.getMaxLevel();
         int land = land(chunk.wx, chunk.wy);
         RoomSight.Openings openings = kept[slot];
         RoomSight.Blocks blocks = keptBlocks[slot];
-        boolean same = openings != null && keptChunk[slot] == chunk && keptNorth[slot] == north && keptWest[slot] == west && keptLevels[slot] == levels && keptLand[slot] == land
-                && (told || now - keptNanos[slot] < REREAD_UNTOLD_NANOS);
+        boolean fits = openings != null && keptChunk[slot] == chunk && keptNorth[slot] == north && keptWest[slot] == west && keptLevels[slot] == levels && keptLand[slot] == land;
+        boolean same = fits && (told || now - keptNanos[slot] < REREAD_UNTOLD_NANOS);
+        if (!mayRead && (!same || keptMarks[slot] != marks)) {
+            keptUnread[slot] = !fits;
+            return fits ? keptReadings[slot] : UNREAD;
+        }
+        keptUnread[slot] = false;
         if (same && keptMarks[slot] != marks && readLevels(chunk, slot)) {
             keptMarks[slot] = marks;
             keptNanos[slot] = now;
@@ -217,9 +229,12 @@ final class RoomMap implements Acoustics.Walls, RoomDaylight.Edges {
         }
     }
 
-    /** Adds the openings and blocks of a chunk read lately to a frame's. */
+    /** Adds the openings and blocks of a chunk read lately to a frame's, and nothing for one read said UNREAD of. */
     void addTo(IsoChunk chunk, RoomSight.Openings into, RoomSight.Blocks blocksInto) {
         int slot = ChunkMarks.slot(chunk.wx, chunk.wy);
+        if (keptUnread[slot]) {
+            return;
+        }
         into.addAll(kept[slot]);
         blocksInto.addAll(keptBlocks[slot]);
     }

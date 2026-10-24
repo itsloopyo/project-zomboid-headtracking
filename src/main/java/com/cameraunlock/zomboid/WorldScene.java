@@ -1116,7 +1116,7 @@ final class WorldScene {
                     }
                     if (pass == 0) {
                         IsoChunk north = gridY > 0 ? map.getChunk(gridX, gridY - 1) : null, west = gridX > 0 ? map.getChunk(gridX - 1, gridY) : null;
-                        int readings = roomMap.read(chunk, north != null && north.loaded ? north : null, west != null && west.loaded ? west : null, ChunkMarks.live, now);
+                        int readings = roomMap.read(chunk, north != null && north.loaded ? north : null, west != null && west.loaded ? west : null, ChunkMarks.live, now, true);
                         gathering = ((gathering * 31 + chunk.wx) * 31 + chunk.wy) * 31 + readings;
                     } else {
                         roomMap.addOpeningsTo(chunk, into, fromZ, toZ);
@@ -1193,6 +1193,8 @@ final class WorldScene {
      * else has its room built in that time.
      */
     private static final long ROUND_EVERY_NANOS = 250_000_000L;
+    /** How long a frame reads chunks for their openings before it leaves the rest to the next: see seeRooms. */
+    private static final long READS_NANOS = 1_000_000L;
     /**
      * How often a development build holds the walk to RoomRays while the eye's own picture goes
      * by it, and how far and how finely the lines are followed: a room the lines reach and the
@@ -3998,19 +4000,28 @@ final class WorldScene {
             roomMap.begin(cell, terrain);
             int side = IsoChunkMap.chunkGridWidth;
             float reach = ChunkBuffers.drawnWithin(fogEnd) + CHUNK_REACH;
-            // The chunks in reach, each read again if it may have changed, as one number: the same as the last frame's, the openings are.
+            // The chunks in reach, nearest first, each read again if it may have changed, as one number: the same as the last
+            // frame's, the openings are. A whole map of them read at once, as the view is taken or after a teleport, took 7 to
+            // 13 ms in one frame, so those past READS_NANOS wait for the next frame, and one read before keeps what it had.
+            int eyeGridX = Math.floorDiv((int) Math.floor(camera.eyeX) - map.getWorldXMinTiles(), CHUNK_TILES);
+            int eyeGridY = Math.floorDiv((int) Math.floor(camera.eyeY) - map.getWorldYMinTiles(), CHUNK_TILES);
+            int[] steps = ChunkBuffers.nearestFirst(side);
             long inReach = 17L;
-            for (int gridX = 0; gridX < side; gridX++) {
-                for (int gridY = 0; gridY < side; gridY++) {
-                    IsoChunk chunk = reachable(map, gridX, gridY, reach);
-                    if (chunk == null) {
-                        continue;
-                    }
-                    IsoChunk north = gridY > 0 ? map.getChunk(gridX, gridY - 1) : null, west = gridX > 0 ? map.getChunk(gridX - 1, gridY) : null;
-                    int readings = roomMap.read(chunk, north != null && north.loaded ? north : null, west != null && west.loaded ? west : null, ChunkMarks.live, now);
-                    inReach = (inReach * 31 + chunk.wx) * 31 + chunk.wy;
-                    inReach = inReach * 31 + readings;
+            boolean unread = false;
+            for (int step = 0; step < steps.length; step += 2) {
+                int gridX = eyeGridX + steps[step], gridY = eyeGridY + steps[step + 1];
+                if (gridX < 0 || gridY < 0 || gridX >= side || gridY >= side) {
+                    continue;
                 }
+                IsoChunk chunk = reachable(map, gridX, gridY, reach);
+                if (chunk == null) {
+                    continue;
+                }
+                IsoChunk north = gridY > 0 ? map.getChunk(gridX, gridY - 1) : null, west = gridX > 0 ? map.getChunk(gridX - 1, gridY) : null;
+                int readings = roomMap.read(chunk, north != null && north.loaded ? north : null, west != null && west.loaded ? west : null, ChunkMarks.live, now,
+                        System.nanoTime() - began < READS_NANOS);
+                inReach += (((long) chunk.wx * 31 + chunk.wy) * 31 + readings) * 0x9E3779B97F4A7C15L;
+                unread |= readings == RoomMap.UNREAD;
             }
             if (inReach != openingsReach) {
                 openingsReach = inReach;
@@ -4034,7 +4045,7 @@ final class WorldScene {
             roomsSeen = roomsSeenKept;
             roomsAspect = aspect;
             lastHidden = roomWalk.hiddenByBlocks;
-            if (DevBuild.ON && (roomLinesRow > 0 || now - roomsCheckedNanos >= ROOMS_CHECKED_EVERY_NANOS)) {
+            if (DevBuild.ON && !unread && (roomLinesRow > 0 || now - roomsCheckedNanos >= ROOMS_CHECKED_EVERY_NANOS)) {
                 if (roomLinesRow == 0) {
                     roomsCheckedNanos = now;
                 }
@@ -4108,10 +4119,17 @@ final class WorldScene {
             roomsShown.found(roomsSeenKept, now, roomsShownChanged);
             roomsShown.expire(now, roomsShownChanged);
             figuresShown.fill(roomsShown, openingsInReach);
-            figureRooms = figuresShown;
-            figuresLeftOut = figuresShown;
             modelRooms.fill(roomsMayShow, openingsInReach);
-            roomsForModels = modelRooms;
+            if (unread) {
+                // The walks went through the chunks read so far, and a room seen through one not read yet is not among
+                // what they found: nothing is left out of the picture until it is read. Builds go by what was found,
+                // and a room found once its chunk is read is built then as any room come into sight is.
+                roomsSeen = null;
+            } else {
+                figureRooms = figuresShown;
+                figuresLeftOut = figuresShown;
+                roomsForModels = modelRooms;
+            }
             tollRoomsNanos += System.nanoTime() - began;
             tollRoomsWalks++;
             lastOpenings = openingsInReach.count;
