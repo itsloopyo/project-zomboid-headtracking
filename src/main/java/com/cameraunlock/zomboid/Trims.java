@@ -78,6 +78,15 @@ final class Trims {
     }
 
     /**
+     * Whether the trim sprite is built as mouldings. The bathroom sheets are tiled wainscots,
+     * whose joints are a few dots of a level apart: read as bands they come out as one even
+     * panel, a plain board in place of the tiles. They are WallTiles'.
+     */
+    static boolean moulded(String name) {
+        return is(name) && !WallTiles.tiledSheet(name);
+    }
+
+    /**
      * The bands the sprite paints along the north or the west edge of its square. Null until a
      * frame has been drawn since it was first asked for; empty for a sprite that is panelling,
      * or paints nothing along that edge.

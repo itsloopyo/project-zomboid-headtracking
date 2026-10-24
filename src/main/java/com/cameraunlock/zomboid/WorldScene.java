@@ -798,7 +798,7 @@ final class WorldScene {
         /** What the sprite is made of as the floor of its square, and as anything else. */
         final float asFloor, asOther;
         final boolean laidWall, gableSheet, lies, wire, roofAccent, roofSheet, stripLamp, garageDoor, cornerTrim, papered, tiledWall, fenceGate,
-                boulder, bedding, longGrass, natural, carpet, tiled, grows, onTop, holds, flightPost, fireEscape, paint, wallTrim, trim;
+                boulder, bedding, longGrass, natural, carpet, tiled, grows, onTop, holds, flightPost, fireEscape, paint, wallTrim, trim, moulded;
         /** What length of handrail the sprite is, or null: see Rails. */
         final Rails.Piece rail;
         /** Which cloth the map hangs out the sprite is, if any: see Banners. */
@@ -883,6 +883,7 @@ final class WorldScene {
                     && !properties.has(IsoFlagType.attachedE) && !properties.has(IsoFlagType.attachedS);
             fenceGate = name != null && name.startsWith("fixtures_doors_fences");
             trim = Trims.is(name);
+            moulded = Trims.moulded(name);
             boulder = name != null && name.startsWith("boulders_");
             bedding = name != null && name.startsWith("furniture_bedding");
             longGrass = name != null && name.startsWith("e_newgrass");
@@ -5642,7 +5643,7 @@ final class WorldScene {
             }
             // A skirting, a rail or a cornice is a moulding along its wall: see Trims.
             if (!isFloor && kindOf(over).trim) {
-                if (Own.buildings() && addTrim(over, texture, x, y, z)) {
+                if (kindOf(over).moulded && Own.buildings() && addTrim(over, texture, x, y, z)) {
                     return;
                 }
                 // A panel the sprite keeps, a plinth of cut stone, is a surface of its own and

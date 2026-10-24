@@ -24,6 +24,7 @@ final class TrimTests {
         Checks.run("everyFaceOfAMouldingIsCutWithItsWallInTheOverheadView", TrimTests::everyFaceOfAMouldingIsCutWithItsWallInTheOverheadView);
         Checks.run("everyFaceOfAMouldingLooksAwayFromItsWall", TrimTests::everyFaceOfAMouldingLooksAwayFromItsWall);
         Checks.run("aMouldingIsLitByTheRoomAndPaintedByItsMesh", TrimTests::aMouldingIsLitByTheRoomAndPaintedByItsMesh);
+        Checks.run("aTiledWainscotIsLaidAsTilesAndNotAsMouldings", TrimTests::aTiledWainscotIsLaidAsTilesAndNotAsMouldings);
     }
 
     /** A wall stood square with rows first to last painted from column from to column to, in grey. */
@@ -175,5 +176,11 @@ final class TrimTests {
                 check(ny >= -1e-5f || Math.abs(nx) > 0.5f, "a face of " + band + " faces the room, an end or up or down, never the wall: " + ny);
             }
         }
+    }
+
+    private static void aTiledWainscotIsLaidAsTilesAndNotAsMouldings() {
+        check(Trims.moulded("walls_interior_detailing_01_17"), "a skirting and cornice sheet is built as mouldings");
+        check(Trims.is("walls_interior_detailing_bathroom_01_39") && !Trims.moulded("walls_interior_detailing_bathroom_01_39")
+                && WallTiles.tiledSheet("walls_interior_detailing_bathroom_01_39"), "a bathroom's tiled wainscot is trim, laid as tiles");
     }
 }
