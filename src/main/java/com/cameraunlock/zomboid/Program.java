@@ -39,30 +39,35 @@ final class Program {
 
     /** As link, with each vertex attribute named bound to the place of the same index. */
     static Program link(String name, String vertexSource, String fragmentSource, StringBuilder problem, int[] places, String... attributes) {
-        int vertex = compile(name + " vertex", GL_VERTEX_SHADER, vertexSource, problem);
-        int fragment = compile(name + " fragment", GL_FRAGMENT_SHADER, fragmentSource, problem);
-        if (vertex == 0 || fragment == 0) {
+        long start = System.nanoTime();
+        try {
+            int vertex = compile(name + " vertex", GL_VERTEX_SHADER, vertexSource, problem);
+            int fragment = compile(name + " fragment", GL_FRAGMENT_SHADER, fragmentSource, problem);
+            if (vertex == 0 || fragment == 0) {
+                GL20.glDeleteShader(vertex);
+                GL20.glDeleteShader(fragment);
+                return null;
+            }
+            int id = GL20.glCreateProgram();
+            GL20.glAttachShader(id, vertex);
+            GL20.glAttachShader(id, fragment);
+            for (int i = 0; i < attributes.length; i++) {
+                GL20.glBindAttribLocation(id, places[i], attributes[i]);
+            }
+            GL20.glLinkProgram(id);
+            GL20.glDetachShader(id, vertex);
+            GL20.glDetachShader(id, fragment);
             GL20.glDeleteShader(vertex);
             GL20.glDeleteShader(fragment);
-            return null;
+            if (GL20.glGetProgrami(id, GL_LINK_STATUS) == 0) {
+                problem.append("the ").append(name).append(" shader did not link: ").append(GL20.glGetProgramInfoLog(id)).append(' ');
+                GL20.glDeleteProgram(id);
+                return null;
+            }
+            return new Program(id);
+        } finally {
+            Shaders.linked(name, start);
         }
-        int id = GL20.glCreateProgram();
-        GL20.glAttachShader(id, vertex);
-        GL20.glAttachShader(id, fragment);
-        for (int i = 0; i < attributes.length; i++) {
-            GL20.glBindAttribLocation(id, places[i], attributes[i]);
-        }
-        GL20.glLinkProgram(id);
-        GL20.glDetachShader(id, vertex);
-        GL20.glDetachShader(id, fragment);
-        GL20.glDeleteShader(vertex);
-        GL20.glDeleteShader(fragment);
-        if (GL20.glGetProgrami(id, GL_LINK_STATUS) == 0) {
-            problem.append("the ").append(name).append(" shader did not link: ").append(GL20.glGetProgramInfoLog(id)).append(' ');
-            GL20.glDeleteProgram(id);
-            return null;
-        }
-        return new Program(id);
     }
 
     private static int compile(String name, int kind, String source, StringBuilder problem) {

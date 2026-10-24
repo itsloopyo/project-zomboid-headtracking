@@ -2245,27 +2245,32 @@ final class CharacterDraw {
 
     /** A linked program from kinds and sources in turn, or zero with what the driver refused added to problem. */
     private static int program(String name, StringBuilder problem, Object... stages) {
-        int id = GL20.glCreateProgram();
-        for (int stage = 0; stage < stages.length; stage += 2) {
-            int shader = GL20.glCreateShader((Integer) stages[stage]);
-            GL20.glShaderSource(shader, (String) stages[stage + 1]);
-            GL20.glCompileShader(shader);
-            if (GL20.glGetShaderi(shader, GL_COMPILE_STATUS) == 0) {
-                problem.append("stage ").append(stage / 2 + 1).append(" of the ").append(name).append(" shader did not compile: ")
-                        .append(GL20.glGetShaderInfoLog(shader)).append(' ');
+        long start = System.nanoTime();
+        try {
+            int id = GL20.glCreateProgram();
+            for (int stage = 0; stage < stages.length; stage += 2) {
+                int shader = GL20.glCreateShader((Integer) stages[stage]);
+                GL20.glShaderSource(shader, (String) stages[stage + 1]);
+                GL20.glCompileShader(shader);
+                if (GL20.glGetShaderi(shader, GL_COMPILE_STATUS) == 0) {
+                    problem.append("stage ").append(stage / 2 + 1).append(" of the ").append(name).append(" shader did not compile: ")
+                            .append(GL20.glGetShaderInfoLog(shader)).append(' ');
+                    return 0;
+                }
+                GL20.glAttachShader(id, shader);
+            }
+            for (int attribute = 0; attribute < ATTRIBUTES; attribute++) {
+                GL20.glBindAttribLocation(id, attribute, ATTRIBUTE_NAMES[attribute]);
+            }
+            GL20.glLinkProgram(id);
+            if (GL20.glGetProgrami(id, GL_LINK_STATUS) == 0) {
+                problem.append("the ").append(name).append(" shader did not link: ").append(GL20.glGetProgramInfoLog(id)).append(' ');
                 return 0;
             }
-            GL20.glAttachShader(id, shader);
+            return id;
+        } finally {
+            Shaders.linked(name, start);
         }
-        for (int attribute = 0; attribute < ATTRIBUTES; attribute++) {
-            GL20.glBindAttribLocation(id, attribute, ATTRIBUTE_NAMES[attribute]);
-        }
-        GL20.glLinkProgram(id);
-        if (GL20.glGetProgrami(id, GL_LINK_STATUS) == 0) {
-            problem.append("the ").append(name).append(" shader did not link: ").append(GL20.glGetProgramInfoLog(id)).append(' ');
-            return 0;
-        }
-        return id;
     }
 
     /**

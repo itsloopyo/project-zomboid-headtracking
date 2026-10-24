@@ -309,46 +309,51 @@ final class OwnArms {
 
     /** Links the program, once: it is kept when the buffers and pictures are given back. */
     private static void link() {
-        int id = GL20.glCreateProgram();
-        int[] kinds = {GL_VERTEX_SHADER, GL_FRAGMENT_SHADER};
-        String[] sources = {VERTEX, FRAGMENT};
-        for (int stage = 0; stage < 2; stage++) {
-            int shader = GL20.glCreateShader(kinds[stage]);
-            GL20.glShaderSource(shader, sources[stage]);
-            GL20.glCompileShader(shader);
-            if (GL20.glGetShaderi(shader, GL_COMPILE_STATUS) == 0) {
-                throw new IllegalStateException("stage " + (stage + 1) + " of the arms shader did not compile: " + GL20.glGetShaderInfoLog(shader));
+        long start = System.nanoTime();
+        try {
+            int id = GL20.glCreateProgram();
+            int[] kinds = {GL_VERTEX_SHADER, GL_FRAGMENT_SHADER};
+            String[] sources = {VERTEX, FRAGMENT};
+            for (int stage = 0; stage < 2; stage++) {
+                int shader = GL20.glCreateShader(kinds[stage]);
+                GL20.glShaderSource(shader, sources[stage]);
+                GL20.glCompileShader(shader);
+                if (GL20.glGetShaderi(shader, GL_COMPILE_STATUS) == 0) {
+                    throw new IllegalStateException("stage " + (stage + 1) + " of the arms shader did not compile: " + GL20.glGetShaderInfoLog(shader));
+                }
+                GL20.glAttachShader(id, shader);
+                // The program keeps what it was linked from: the shader goes when the program does.
+                GL20.glDeleteShader(shader);
             }
-            GL20.glAttachShader(id, shader);
-            // The program keeps what it was linked from: the shader goes when the program does.
-            GL20.glDeleteShader(shader);
+            for (int attribute = 0; attribute < ATTRIBUTES.length; attribute++) {
+                GL20.glBindAttribLocation(id, attribute, ATTRIBUTES[attribute]);
+            }
+            GL20.glLinkProgram(id);
+            if (GL20.glGetProgrami(id, GL_LINK_STATUS) == 0) {
+                throw new IllegalStateException("the arms shader did not link: " + GL20.glGetProgramInfoLog(id));
+            }
+            program = id;
+            projectionAt = GL20.glGetUniformLocation(id, "uProjection");
+            femaleAt = GL20.glGetUniformLocation(id, "uFemale");
+            toneAt = GL20.glGetUniformLocation(id, "uTone");
+            outsideAt = GL20.glGetUniformLocation(id, "uOutside");
+            stoodAt = GL20.glGetUniformLocation(id, "uStood");
+            handedAt = GL20.glGetUniformLocation(id, "uHanded");
+            wearAt = GL20.glGetUniformLocation(id, "uWear");
+            clothAt = GL20.glGetUniformLocation(id, "uCloth");
+            spanAt = GL20.glGetUniformLocation(id, "uSpan");
+            bloodAt = GL20.glGetUniformLocation(id, "uBlood");
+            dirtAt = GL20.glGetUniformLocation(id, "uDirt");
+            snowAt = GL20.glGetUniformLocation(id, "uSnowOn");
+            upAt = GL20.glGetUniformLocation(id, "uUpSeen");
+            Program.useOther(id);
+            GL20.glUniform1i(GL20.glGetUniformLocation(id, "uColour"), COLOUR_UNIT);
+            GL20.glUniform1i(GL20.glGetUniformLocation(id, "uSurface"), SURFACE_UNIT);
+            Program.useOther(0);
+            bonesAt = GL20.glGetUniformLocation(id, "uBones[0]");
+        } finally {
+            Shaders.linked("arms", start);
         }
-        for (int attribute = 0; attribute < ATTRIBUTES.length; attribute++) {
-            GL20.glBindAttribLocation(id, attribute, ATTRIBUTES[attribute]);
-        }
-        GL20.glLinkProgram(id);
-        if (GL20.glGetProgrami(id, GL_LINK_STATUS) == 0) {
-            throw new IllegalStateException("the arms shader did not link: " + GL20.glGetProgramInfoLog(id));
-        }
-        program = id;
-        projectionAt = GL20.glGetUniformLocation(id, "uProjection");
-        femaleAt = GL20.glGetUniformLocation(id, "uFemale");
-        toneAt = GL20.glGetUniformLocation(id, "uTone");
-        outsideAt = GL20.glGetUniformLocation(id, "uOutside");
-        stoodAt = GL20.glGetUniformLocation(id, "uStood");
-        handedAt = GL20.glGetUniformLocation(id, "uHanded");
-        wearAt = GL20.glGetUniformLocation(id, "uWear");
-        clothAt = GL20.glGetUniformLocation(id, "uCloth");
-        spanAt = GL20.glGetUniformLocation(id, "uSpan");
-        bloodAt = GL20.glGetUniformLocation(id, "uBlood");
-        dirtAt = GL20.glGetUniformLocation(id, "uDirt");
-        snowAt = GL20.glGetUniformLocation(id, "uSnowOn");
-        upAt = GL20.glGetUniformLocation(id, "uUpSeen");
-        Program.useOther(id);
-        GL20.glUniform1i(GL20.glGetUniformLocation(id, "uColour"), COLOUR_UNIT);
-        GL20.glUniform1i(GL20.glGetUniformLocation(id, "uSurface"), SURFACE_UNIT);
-        Program.useOther(0);
-        bonesAt = GL20.glGetUniformLocation(id, "uBones[0]");
     }
 
     private static void make(ArmModel read) {
