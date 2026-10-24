@@ -146,7 +146,9 @@ final class FurnishingBuilder {
             return kind == WallDrapes.HEAD && hangDrape(texture, x, y, z, wall, false, false);
         }
         if (SpriteColours.of(foot) == null) {
-            build.building.signed = false;
+            if (SpriteColours.unread(foot)) {
+                build.building.signed = false;
+            }
             return false;
         }
         if (kind == WallDrapes.BANNER) {
@@ -189,7 +191,9 @@ final class FurnishingBuilder {
     private boolean hangDrape(Texture texture, int x, int y, int z, int wall, boolean fringe, boolean over) {
         float[] colour = SpriteColours.of(texture);
         if (colour == null) {
-            build.building.signed = false;
+            if (SpriteColours.unread(texture)) {
+                build.building.signed = false;
+            }
             return false;
         }
         if (!WallHung.painted(build.frame, wall, drapeAt)) {

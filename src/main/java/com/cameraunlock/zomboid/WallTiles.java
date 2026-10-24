@@ -505,6 +505,7 @@ final class WallTiles {
                         Log.info("wall tiles " + texture.getName() + (north ? " north" : " west") + (overlay ? " over a wall" : "") + (wall == null ? " none" : said(wall)));
                     }
                     known.get(into).put(texture, wall == null ? NONE : wall);
+                    SpriteColours.answered();
                 } catch (Throwable failed) {
                     asked.get(into).remove(texture);
                     reading.get(into).remove(texture);

@@ -395,7 +395,7 @@ final class RoofBuilder {
             float[] colour = finish == null ? null : SpriteColours.of(finish);
             if (colour == null) {
                 build.gablesBare++;
-                if (finish != null) {
+                if (finish != null && SpriteColours.unread(finish)) {
                     build.building.signed = false;
                 }
                 return;
