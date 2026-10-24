@@ -6,6 +6,7 @@ import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Random;
@@ -993,7 +994,7 @@ final class Pipeline {
             return;
         }
         long start = System.nanoTime();
-        clearErrors();
+        leftBefore("the picture");
         if (chunks != null) {
             turn();
         }
@@ -1047,12 +1048,21 @@ final class Pipeline {
         } catch (RuntimeException | LinkageError thrown) {
             // Thrown on, it ends the game's whole frame, its own panels with it, and comes again
             // on the next. The view goes off instead, and the log has why.
-            if (chunks == null) {
-                broken = "the making of a piece threw " + thrown;
+            int error = drained();
+            boolean refused = chunks != null && thrown instanceof VideoMemory.Refused && error == 0;
+            if (refused && makeRoom(thrown.getMessage())) {
+                // Given up for this frame: the next is drawn with less.
+            } else if (refused) {
+                sayFailure();
             } else {
-                failure = "the frame's draw threw " + thrown;
+                String left = error == 0 ? "" : ", OpenGL error 0x" + Integer.toHexString(error) + " left";
+                if (chunks == null) {
+                    broken = "the making of a piece threw " + thrown + left;
+                } else {
+                    failure = "the frame's draw threw " + thrown + left;
+                }
+                Log.error("first person cannot be drawn" + left, thrown);
             }
-            Log.error("first person cannot be drawn", thrown);
             view.characters.unwind();
             // The other view's frames go on, and are not to find this as the throw left it.
             CharacterDraw.bare = false;
@@ -1089,6 +1099,10 @@ final class Pipeline {
             }
             makes = CORE;
             broken = prepareNext();
+            if (pieceRetried) {
+                // Made again on a frame of its own, with the modes drawing less.
+                return;
+            }
         }
         // One piece a frame, whichever view's turn comes first in it.
         if (broken == null && pieceIn != gameFrame && pieceWaits()) {
@@ -1099,22 +1113,40 @@ final class Pipeline {
             Log.info("first person cannot be drawn on this machine: " + broken);
             return;
         }
-        if (failure == null && nearMap != 0 && shadowSize != Quality.shadowSize(view.index)) {
+        // The world's buffer takes its room before the shadow maps and surfaces given back by a step are made again.
+        ChunkBuffers.load(chunks, ahead);
+        if (nearMap != 0 && shadowSize != Quality.shadowSize(view.index)) {
             giveBackShadowMaps();
         }
-        if (failure == null && nearMap == 0) {
+        if (nearMap == 0) {
             shadowSize = Quality.shadowSize(view.index);
-            failure = makeShadowMaps();
+            String refused = makeShadowMaps();
             farDrawn = false;
             roofDrawn = false;
+            if (refused != null) {
+                if (!makeRoom(refused) && failure == null) {
+                    failure = refused;
+                }
+                if (failure != null) {
+                    sayFailure();
+                }
+                return;
+            }
         }
         float scale = SCALE * Quality.scale(view.index, viewport[2], viewport[3]);
         int wide = Math.round(viewport[2] * scale), high = Math.round(viewport[3] * scale);
-        if (failure == null && (wide != width || high != height)) {
-            failure = resize(wide, high);
-            if (failure == null) {
-                Log.info("first person picture drawn at " + wide + "x" + high + " for a view of " + viewport[2] + "x" + viewport[3]);
+        if (wide != width || high != height) {
+            String refused = resize(wide, high);
+            if (refused != null) {
+                if (!makeRoom(refused) && failure == null) {
+                    failure = refused;
+                }
+                if (failure != null) {
+                    sayFailure();
+                }
+                return;
             }
+            Log.info("first person picture drawn at " + wide + "x" + high + " for a view of " + viewport[2] + "x" + viewport[3]);
         }
         if (failure == null) {
             float aspect = (float) viewport[2] / viewport[3];
@@ -1122,6 +1154,7 @@ final class Pipeline {
                 beginStages();
             }
             frameNanos = System.nanoTime();
+            DevVideoMemory.touch();
             pictureExposure = exposure;
             shadedAndLit = Quality.shadedAndLit(view.index);
             surfacesMirror = Quality.surfacesMirror(view.index);
@@ -1134,7 +1167,6 @@ final class Pipeline {
             FineSkins.tend();
             ItemModels.read();
             drawn = chunks;
-            ChunkBuffers.load(chunks, ahead);
             Impacts.take();
             struck = !overhead && ImpactDraw.shown(view.index);
             // At rest overhead the picture is of the built world alone, as the game's is. On the
@@ -1310,14 +1342,15 @@ final class Pipeline {
             reportStages();
             takeBackLent();
             heldBytes = held();
-            int error = GL11.glGetError();
+            int error = drained();
             if (error != 0) {
                 failure = "OpenGL error 0x" + Integer.toHexString(error) + " drawing the picture";
+            } else if (roomShort) {
+                makeRoom("what the picture was drawn with");
             }
         }
         if (failure != null) {
-            clearErrors();
-            Log.info("first person cannot be drawn on this machine: " + failure);
+            sayFailure();
         }
     }
 
@@ -1346,6 +1379,11 @@ final class Pipeline {
             cutAt = 0;
         }
         dark = outside && landing == 0f ? 0f : Math.max(0f, dark - seconds / CLEARS_SECONDS);
+    }
+
+    private void sayFailure() {
+        clearErrors();
+        Log.info("first person cannot be drawn on this machine: " + failure);
     }
 
     /** Where the mirror on the screen hangs this frame, and the way it looks: into behind. */
@@ -5724,6 +5762,10 @@ final class Pipeline {
     private static volatile boolean contentRefused;
     /** Set by whoever is told by the driver, while a piece is made, that it is out of memory: see noted. */
     private static boolean noRoom;
+    /** Set by whoever is told by the driver that it is out of memory, at any time, until a picture makes room: see makeRoom. Render thread. */
+    private static boolean roomShort;
+    /** Set by prepareNext when the driver had no room for a piece of the core that is to be made again. Render thread. */
+    private static boolean pieceRetried;
     private static final int GL_OUT_OF_MEMORY = 0x0505;
     /** Dev only: the piece of the content, counted from 1, at whose making the graphics card is taken to have run out of room. */
     private static final int NO_ROOM_AT = Integer.getInteger("cameraunlock.zomboid.noRoomAt", 0);
@@ -5773,7 +5815,44 @@ final class Pipeline {
     static void noted(int error) {
         if (error == GL_OUT_OF_MEMORY) {
             noRoom = true;
+            roomShort = true;
         }
+    }
+
+    /** Where an OpenGL error other than out of memory has been said to be left before. Render thread. */
+    private static final Set<String> leftSaid = new HashSet<>();
+
+    /**
+     * Reads off the error flags something else set before where, so that an error read after it is
+     * where's own: an out of memory is noted, any other said, once for where. Render thread.
+     */
+    static void leftBefore(String where) {
+        for (int flag = 0; flag < GL_ERROR_FLAGS; flag++) {
+            int error = GL11.glGetError();
+            if (error == 0) {
+                return;
+            }
+            noted(error);
+            if (error != GL_OUT_OF_MEMORY && leftSaid.add(where)) {
+                Log.info("OpenGL error 0x" + Integer.toHexString(error) + " was left before " + where + " (said once for it)");
+            }
+        }
+    }
+
+    /** Reads off every error flag set: an out of memory is noted. The first other error, or 0. Render thread. */
+    static int drained() {
+        int other = 0;
+        for (int flag = 0; flag < GL_ERROR_FLAGS; flag++) {
+            int error = GL11.glGetError();
+            if (error == 0) {
+                break;
+            }
+            noted(error);
+            if (error != GL_OUT_OF_MEMORY && other == 0) {
+                other = error;
+            }
+        }
+        return other;
     }
 
     /** A colour of nothing, for a sampler whose picture is not made. Render thread. */
@@ -5790,7 +5869,13 @@ final class Pipeline {
     final TextureDraw.GenericDrawer HAND_FAR = new TextureDraw.GenericDrawer() {
         @Override
         public void render() {
-            view.worldScene.farLand.hand();
+            try {
+                view.worldScene.farLand.hand();
+            } catch (RuntimeException thrown) {
+                // Thrown on, it ends the game's whole frame, and comes again on the next.
+                failure = "handing the far land to the graphics card threw " + thrown;
+                Log.error("first person cannot be drawn", thrown);
+            }
         }
     };
 
@@ -5889,7 +5974,12 @@ final class Pipeline {
     private static String prepareNext() {
         long start = System.nanoTime();
         pieceIn = gameFrame;
+        leftBefore("a piece of first person");
+        pieceRetried = false;
         noRoom = false;
+        // What the driver refuses the piece is the piece's to answer for: a refusal noted before it is the picture's.
+        boolean shortBefore = roomShort;
+        int linkMark = linkProblem.length();
         String problem;
         boolean lastOfCore = false, lastOfContent = false, lastOfResized = false;
         OwnModel model = null;
@@ -5919,19 +6009,40 @@ final class Pipeline {
             problem = resized.get(resizedNext++).make.get();
             lastOfResized = resizedNext == resized.size();
         }
-        if (problem == null) {
-            int error = GL11.glGetError();
-            noted(error);
-            if (error != 0) {
-                problem = "OpenGL error 0x" + Integer.toHexString(error) + " making the textures";
-            }
+        int error = drained();
+        if (problem == null && (error != 0 || noRoom)) {
+            problem = "OpenGL error 0x" + Integer.toHexString(error != 0 ? error : GL_OUT_OF_MEMORY) + " making the textures";
         }
         if (problem == null && makes == CONTENT && contentPreparing == NO_ROOM_AT) {
             noRoom = true;
             problem = "cameraunlock.zomboid.noRoomAt asks for no room at piece " + NO_ROOM_AT;
         }
         boolean refused = problem != null && noRoom && makes != CORE && !contentRefused;
+        if (problem != null && noRoom && makes == CORE && error == 0) {
+            if (VideoMemory.outOfMemory("a piece of what every mode is drawn with (" + problem + ")") != VideoMemory.Room.NONE_LEFT) {
+                // Made again by the next piece asked for, with the modes drawing less.
+                preparing--;
+                if (preparing <= SHADERS.size()) {
+                    shadersMade = preparing;
+                }
+                linkProblem.setLength(linkMark);
+                if (picturesSmall != small()) {
+                    // The core's surfaces made so far are at the other size: see coreMixed.
+                    picturesSmall = small();
+                    Pictures.small = picturesSmall;
+                    coreMixed = true;
+                }
+                CORE.get(preparing).begin.run();
+                pieceRetried = true;
+                noRoom = false;
+                roomShort = shortBefore;
+                return null;
+            }
+            problem = "the graphics card has no room for the surfaces and programs first person is drawn with, with everything that can be given up"
+                    + " given up (" + VideoMemory.described() + "): " + problem;
+        }
         noRoom = false;
+        roomShort = shortBefore;
         if (refused) {
             // A graphics card with no room for the content has room for first person without it: the content
             // goes back, whatever of it was made, and the core's surfaces are made at half size by the pieces after this.
@@ -6058,6 +6169,7 @@ final class Pipeline {
         } catch (IOException unread) {
             return unread.getMessage();
         }
+        GL11.glDeleteTextures(noiseTexture);
         noiseTexture = GL11.glGenTextures();
         GL11.glBindTexture(GL_TEXTURE_3D, noiseTexture);
         GL11.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -6070,6 +6182,10 @@ final class Pipeline {
     }
 
     private static void makeWhite() {
+        // Made again after the driver had no room for them, they replace what was made before.
+        GL11.glDeleteTextures(whiteTexture);
+        GL11.glDeleteTextures(noneTexture);
+        GL11.glDeleteTextures(farDepth);
         // What a thing with no sprite is drawn with: the vertex colour alone.
         whiteTexture = GL11.glGenTextures();
         GL11.glBindTexture(GL_TEXTURE_2D, whiteTexture);
@@ -6091,6 +6207,9 @@ final class Pipeline {
     }
 
     private static void makeSamplers() {
+        for (int made : new int[] {depthSampler, skinSampler, spriteSampler}) {
+            GL33.glDeleteSamplers(made);
+        }
         // Reads a shadow map's depth as a number, where the map's own settings compare it.
         depthSampler = sampler(GL_NEAREST, GL_CLAMP_TO_EDGE);
         GL33.glSamplerParameteri(depthSampler, GL_TEXTURE_COMPARE_MODE, GL_NONE);
@@ -6106,6 +6225,49 @@ final class Pipeline {
         GL33.glSamplerParameteri(sampler, GL_TEXTURE_WRAP_S, wrap);
         GL33.glSamplerParameteri(sampler, GL_TEXTURE_WRAP_T, wrap);
         return sampler;
+    }
+
+    /**
+     * Where the driver has had no room for something since the last picture: the graphics mode
+     * steps down (VideoMemory.outOfMemory), and what the picture was drawn through is given back,
+     * to be made again at the sizes the step leaves. Within the settling of the last step it is
+     * given back all the same, as one of the things given back may be what was refused, and nothing
+     * more is given up. False where it had room, where an error other than out of memory was left,
+     * or where there was nothing left to give up: the last two are then the picture's failure.
+     */
+    private boolean makeRoom(String what) {
+        int error = drained();
+        if (error != 0) {
+            failure = "OpenGL error 0x" + Integer.toHexString(error) + " with " + what;
+            return false;
+        }
+        if (!roomShort) {
+            return false;
+        }
+        roomShort = false;
+        VideoMemory.Room room = VideoMemory.outOfMemory(what);
+        if (room == VideoMemory.Room.NONE_LEFT) {
+            failure = "the graphics card has no room for first person with everything that can be given up given up (" + VideoMemory.described()
+                    + "), the driver having had none for " + what;
+            return false;
+        }
+        giveBackSized();
+        width = 0;
+        height = 0;
+        if (nearMap != 0) {
+            giveBackShadowMaps();
+        }
+        for (Lent set : UNSIZED) {
+            giveBack(set);
+        }
+        view.scope.takeBackPicture(Long.MAX_VALUE);
+        view.heldDepth.takeBack(Long.MAX_VALUE);
+        // A step that shows the mod's own content to nobody gives it back now, not a minute on as a plain mode does.
+        if (room == VideoMemory.Room.STEPPED && Quality.plainEverywhere() && contentBegun) {
+            contentRefused = true;
+            giveBackContent();
+        }
+        return true;
     }
 
     private void giveBackShadowMaps() {
@@ -6266,6 +6428,7 @@ final class Pipeline {
                 drops.put(x).put(y).put(z).put(corner);
             }
         }
+        GL15.glDeleteBuffers(rainDrops);
         rainDrops = GL15.glGenBuffers();
         GL15.glBindBuffer(GL_ARRAY_BUFFER, rainDrops);
         GL15.glBufferData(GL_ARRAY_BUFFER, drops.flip(), GL_STATIC_DRAW);

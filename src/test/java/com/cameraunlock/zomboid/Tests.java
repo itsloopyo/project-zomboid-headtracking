@@ -255,6 +255,7 @@ public final class Tests {
         Checks.run("MapAheadTests", MapAheadTests::run);
         Checks.run("VehicleSlopeTests", VehicleSlopeTests::run);
         Checks.run("AirtimeTests", AirtimeTests::run);
+        Checks.run("VideoMemoryTests", VideoMemoryTests::run);
         Checks.run("WreckTests", WreckTests::run);
         Checks.run("RolloverTests", RolloverTests::run);
         Checks.run("OnlineTests", OnlineTests::run);

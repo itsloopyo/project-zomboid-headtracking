@@ -139,6 +139,8 @@
 - `GrassDensity` setting (10 to 100 percent): fewer grass plants for a faster picture. `High` grows all of it, `Medium` and `Low` 40 percent.
 - A first person view larger than 2560x1440 is drawn in `Low`, `Medium`, `High` and `Automatic` with no more pixels than 2560x1440, and scaled up. `Custom` draws at its `RenderScale` at any size.
 - `Medium` draws first person at 0.8 of the window's size each way, with shaded corners, lit air and, with `Reflections`, mirroring wet roads, floors, glass and water.
+- Every mode can be drawn with less in four steps: no sharp shadows or frame blending; then also the mod's pictures at half size; then no more than `Medium`, without its frame blending; then no more than `Low`. On an NVIDIA graphics card the mod reads the card's memory when first person starts: 6 GB and more gives up nothing, 5 GB starts at no more than `Medium`, 4 GB or less at no more than `Low`. Other cards start with nothing given up.
+- When the graphics card has no room for something the mod makes, every mode is drawn one step lower for the rest of the session, and the screen says so once. First person turns off only if the card has no room even at the lowest step. The log's `video memory:` lines say what was read and each step.
 
 #### Sound
 

@@ -17,6 +17,8 @@ public final class GLCapabilities {
     public final boolean GL_EXT_polygon_offset_clamp;
     public final boolean GL_EXT_texture_array;
     public final boolean GL_ARB_shader_texture_lod;
+    public final boolean GL_NVX_gpu_memory_info;
+    public final boolean GL_ATI_meminfo;
 
     GLCapabilities() { throw new UnsupportedOperationException("reference stub"); }
 }

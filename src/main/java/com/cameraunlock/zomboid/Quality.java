@@ -327,7 +327,7 @@ final class Quality {
         for (int view = 0; view < next.length; view++) {
             int overhead = overheads[view];
             boolean firstPerson = inFirstPerson[view] || overhead == LOW;
-            next[view] = firstPerson ? firstPersonPicture(view) : overhead == CUSTOM ? custom : preset(overhead);
+            next[view] = VideoMemory.fit(firstPerson ? firstPersonPicture(view) : overhead == CUSTOM ? custom : preset(overhead));
             // The isometric view is drawn to the game's picture of the world, whose size goes with the zoom, and is never held.
             held[view] = inFirstPerson[view] && rows[view] != CUSTOM;
             // A view in its isometric Low draws none of the mod's pictures, and holds first person's made for the switch.
@@ -345,6 +345,11 @@ final class Quality {
         }
         plainEverywhere = allPlain;
         gamesPlantsEverywhere = allGamesPlants;
+    }
+
+    /** The graphics card's memory has set what every mode may draw at most (VideoMemory.fit): what each draws is worked out again. */
+    static synchronized void memoryStepped() {
+        refresh();
     }
 
     /** What a player's first person mode draws, in effect or not: Custom's rows, the mode's picture, or that of the level Automatic is at. */

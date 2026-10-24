@@ -27,6 +27,7 @@ import zombie.core.textures.Texture;
  * then is kept for good.
  */
 final class SpriteColours {
+    private static final int GL_OUT_OF_MEMORY = 0x0505;
     private static final int GL_TEXTURE_2D = 0x0DE1, GL_TEXTURE_BINDING_2D = 0x8069, GL_TEXTURE_WIDTH = 0x1000, GL_TEXTURE_HEIGHT = 0x1001, GL_TEXTURE_COMPRESSED = 0x86A1;
     /** A compressed sheet is copied back in whole blocks of this many texels a side. */
     private static final int BLOCK = 4;
@@ -252,7 +253,7 @@ final class SpriteColours {
         }
         pageUsedNanos = System.nanoTime();
         // What OpenGL has flagged before anything here is asked of it is not this reading's, and is not to be lost: an out of memory there is the picture's to answer.
-        int flagged = GL11.glGetError();
+        int flagged = Pipeline.drained();
         if (flagged != 0) {
             throw new IllegalStateException(String.format(Locale.ROOT, "OpenGL error 0x%X was left by the drawing before a sprite sheet was read", flagged));
         }
@@ -318,8 +319,15 @@ final class SpriteColours {
         GL11.glBindTexture(GL_TEXTURE_2D, was);
         GL15.glBindBuffer(GL_PIXEL_PACK_BUFFER, packBuffer);
         if (copyError != 0) {
-            throw new IllegalStateException(String.format(Locale.ROOT, "OpenGL error 0x%X copying back %d by %d at %d, %d of the sprite sheet %d (%d by %d)", copyError, across, down,
-                    fromX, fromY, sheet, width, height));
+            String what = String.format(Locale.ROOT, "OpenGL error 0x%X copying back %d by %d at %d, %d of the sprite sheet %d (%d by %d)", copyError, across, down,
+                    fromX, fromY, sheet, width, height);
+            if (copyError == GL_OUT_OF_MEMORY) {
+                // The buffer copied into may have no room behind it: it is asked for again on the next read.
+                copyBufferBytes = 0;
+                Pipeline.noted(copyError);
+                throw new VideoMemory.Refused(what);
+            }
+            throw new IllegalStateException(what);
         }
         if (width > 0 && height > 0) {
             sizeless = 0;
@@ -436,7 +444,14 @@ final class SpriteColours {
                 GL15.glBindBuffer(GL_PIXEL_UNPACK_BUFFER, unpackBuffer);
                 int made = GL11.glGetError();
                 if (made != 0) {
-                    throw new IllegalStateException(String.format(Locale.ROOT, "OpenGL error 0x%X making the %d by %d target sprite sheets are unpacked into", made, across, down));
+                    String what = String.format(Locale.ROOT, "OpenGL error 0x%X making the %d by %d target sprite sheets are unpacked into", made, across, down);
+                    if (made == GL_OUT_OF_MEMORY) {
+                        GL11.glDeleteTextures(unpacked);
+                        unpacked = 0;
+                        Pipeline.noted(made);
+                        throw new VideoMemory.Refused(what);
+                    }
+                    throw new IllegalStateException(what);
                 }
                 unpackedWide = across;
                 unpackedHigh = down;

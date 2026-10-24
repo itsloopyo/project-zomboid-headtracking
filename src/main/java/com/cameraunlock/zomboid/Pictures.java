@@ -61,6 +61,7 @@ final class Pictures {
         if (cardAsked) {
             return;
         }
+        VideoMemory.read();
         GLCapabilities card = GL.getCapabilities();
         cardAsked = true;
         slants = card.OpenGL46 || card.GL_EXT_texture_filter_anisotropic;

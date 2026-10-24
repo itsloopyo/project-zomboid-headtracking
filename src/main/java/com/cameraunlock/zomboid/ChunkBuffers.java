@@ -56,6 +56,7 @@ final class ChunkBuffers {
     private static final int STRIDE = SpriteGeometry.VERTEX_FLOATS * Float.BYTES;
     /** The buffer is made in whole numbers of this many floats: 16 MB. */
     private static final int GRAIN = 1 << 22;
+    private static final int GL_OUT_OF_MEMORY = 0x0505;
 
     /**
      * Builds no frame shows any more, whose blocks the render thread has yet to free: the list
@@ -377,16 +378,33 @@ final class ChunkBuffers {
             throw new IllegalStateException("the world in sight is " + (kept + coming) + " floats, more than one buffer can hold");
         }
         String how = wanted > capacity ? "made longer" : wanted < capacity ? "made shorter" : "put in order";
-        capacity = (int) wanted;
         int old = buffer;
-        buffer = GL15.glGenBuffers();
-        GL15.glBindBuffer(GL_ARRAY_BUFFER, buffer);
-        GL15.glBufferData(GL_ARRAY_BUFFER, (long) capacity * Float.BYTES, GL_DYNAMIC_DRAW);
+        Pipeline.leftBefore("the world's buffer");
+        int made = GL15.glGenBuffers();
+        GL15.glBindBuffer(GL_ARRAY_BUFFER, made);
+        GL15.glBufferData(GL_ARRAY_BUFFER, DevVideoMemory.worldBufferBytes(wanted * Float.BYTES), GL_DYNAMIC_DRAW);
+        int error = GL11.glGetError();
+        long exact = (kept + coming + GRAIN - 1) / GRAIN * GRAIN;
+        boolean needed = from < chunks.size();
+        if (error == GL_OUT_OF_MEMORY && needed) {
+            // Half as much again is room to grow into, and the frame can be drawn without it.
+            Log.info(String.format(Locale.ROOT, "first person's world buffer of %d MB had no room on the graphics card: asked for again at %d MB, what this frame needs",
+                    wanted * Float.BYTES >> 20, exact * Float.BYTES >> 20));
+            wanted = exact;
+            GL15.glBufferData(GL_ARRAY_BUFFER, wanted * Float.BYTES, GL_DYNAMIC_DRAW);
+            error = GL11.glGetError();
+        }
+        if (error != 0) {
+            refuse(made, old, error, wanted, needed);
+            return;
+        }
+        int[] was = new int[holders.size()];
         GL15.glBindBuffer(GL_COPY_READ_BUFFER, old);
-        GL15.glBindBuffer(GL_COPY_WRITE_BUFFER, buffer);
+        GL15.glBindBuffer(GL_COPY_WRITE_BUFFER, made);
         int next = 0;
         for (int i = 0; i < holders.size(); i++) {
             WorldScene.ChunkMeshes build = holders.get(i);
+            was[i] = build.heldAt;
             if (build.heldFloats > 0) {
                 GL31.glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, (long) build.heldAt * Float.BYTES, (long) next * Float.BYTES,
                         (long) build.heldFloats * Float.BYTES);
@@ -396,6 +414,17 @@ final class ChunkBuffers {
         }
         GL15.glBindBuffer(GL_COPY_READ_BUFFER, 0);
         GL15.glBindBuffer(GL_COPY_WRITE_BUFFER, 0);
+        error = GL11.glGetError();
+        if (error != 0) {
+            // A driver that makes room only when it is first written to says so here: the old buffer still holds every block where it was.
+            for (int i = 0; i < holders.size(); i++) {
+                holders.get(i).heldAt = was[i];
+            }
+            refuse(made, old, error, wanted, needed);
+            return;
+        }
+        capacity = (int) wanted;
+        buffer = made;
         GL15.glDeleteBuffers(old);
         space.reset(capacity);
         if (next > 0 && space.take(next) != 0) {
@@ -403,6 +432,26 @@ final class ChunkBuffers {
         }
         Log.info(String.format(Locale.ROOT, "first person keeps the world in %d MB on the graphics card (%s), of which %d chunks take %d and this frame brings %d more",
                 (long) capacity * Float.BYTES >> 20, how, holders.size(), kept * Float.BYTES >> 20, coming * Float.BYTES >> 20));
+    }
+
+    /**
+     * Gives back the buffer made in old's place, with old bound as it was, and throws where the
+     * frame needed it: out of memory steps the graphics modes down, any other error is a fault.
+     * A shorter buffer the driver had no room for leaves the longer one as it is, which holds the frame.
+     */
+    private static void refuse(int made, int old, int error, long floats, boolean needed) {
+        GL15.glDeleteBuffers(made);
+        GL15.glBindBuffer(GL_ARRAY_BUFFER, old);
+        String what = String.format(Locale.ROOT, "the world's buffer of %d MB (OpenGL error 0x%x)", floats * Float.BYTES >> 20, error);
+        if (error != GL_OUT_OF_MEMORY) {
+            throw new IllegalStateException(what);
+        }
+        if (!needed) {
+            Log.info("first person keeps the world's buffer at " + ((long) capacity * Float.BYTES >> 20) + " MB: the graphics card had no room for " + what);
+            return;
+        }
+        Pipeline.noted(error);
+        throw new VideoMemory.Refused(what);
     }
 
     /** Points OpenGL's vertex, texture coordinate, colour and normal arrays at the buffer, the second texture coordinate array at what a vertex carries for a card, the third at its tree's square, and the fourth at what it has of a light the game has not given. Leaves no buffer bound. */

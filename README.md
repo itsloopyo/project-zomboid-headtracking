@@ -619,6 +619,7 @@ FourthPlayerMicrophone=None
 - **The game no longer starts** - delete `ProjectZomboid64.site.json` from the game folder to start the game without the mod. After a manual install, check that file for a missing or extra comma, then make it again.
 - **Sights or scope problems** - press `Insert` to select **sights locked**.
 - **First person does not switch on, and the screen says it needs OpenGL 3.3** - the graphics driver does not give what [Requirements](#requirements) lists. `ProjectZomboidHeadTracking.log` names what is missing.
+- **High looks like Medium or Low** - on an NVIDIA graphics card under 6 GB, or when the graphics card runs out of memory, the mod draws every mode with less so the game keeps running, and the screen says so. The log's `video memory:` lines say what the card reported and what was given up.
 
 For help, use [Discord](https://discord.com/invite/dxyZdyFNT9) or [report an issue](https://github.com/itsloopyo/project-zomboid-headtracking/issues). Include `ProjectZomboidHeadTracking.log` from the game folder.
 

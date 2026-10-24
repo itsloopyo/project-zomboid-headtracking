@@ -64,6 +64,7 @@ final class FarLand {
     /** Tiles a side of the whole picture the graphics card holds. */
     static final int PICTURE = WINDOW * FarCells.CELL;
     private static final long NONE = Long.MIN_VALUE;
+    private static final int GL_OUT_OF_MEMORY = 0x0505;
     /** How many cells are asked for and not yet on the graphics card at once: each is a third of a megabyte and more outside the Java heap until it is. */
     private static final int WAITING_AT_ONCE = 4;
     /** How many cells a frame are handed to the graphics card: each is a third of a megabyte of picture. */
@@ -662,6 +663,7 @@ final class FarLand {
             return;
         }
         if (picture == 0) {
+            Pipeline.leftBefore("the far land's picture");
             picture = GL11.glGenTextures();
             GL11.glBindTexture(GL_TEXTURE_2D, picture);
             GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
@@ -676,6 +678,21 @@ final class FarLand {
             FarCells.picture(null, grass.bytes);
             for (int level = 0, side = PICTURE; level < FarCells.LEVELS; level++, side /= 2) {
                 GL11.glTexImage2D(GL_TEXTURE_2D, level, GL_RGBA8, side, side, 0, GL_RGBA, GL_UNSIGNED_BYTE, (ByteBuffer) null);
+            }
+            int error = GL11.glGetError();
+            if (error == GL_OUT_OF_MEMORY) {
+                // No far land until the picture is drawn with less and the cell, asked for again, comes back.
+                GL11.glBindTexture(GL_TEXTURE_2D, 0);
+                GL11.glDeleteTextures(picture);
+                picture = 0;
+                grass.free();
+                cell.block.free();
+                cell.asked.cells.set(place, NONE);
+                Pipeline.noted(error);
+                return;
+            }
+            if (error != 0) {
+                throw new IllegalStateException("OpenGL error 0x" + Integer.toHexString(error) + " making the far land's picture");
             }
             for (int at = 0; at < WINDOW * WINDOW; at++) {
                 picture(at, grass.bytes);
@@ -692,6 +709,7 @@ final class FarLand {
         if (cell.trees > 0) {
             box(bytes, end, cell.trees, FarTrees.TREE_BYTES, treeBoxes, place * 6);
         }
+        Pipeline.leftBefore("the far land's buffers");
         if (buffers[place] == 0) {
             buffers[place] = GL15.glGenBuffers();
         }
@@ -707,6 +725,24 @@ final class FarLand {
             GL15.glBufferData(GL_ARRAY_BUFFER, bytes, GL_STATIC_DRAW);
         }
         GL15.glBindBuffer(GL_ARRAY_BUFFER, 0);
+        int error = GL11.glGetError();
+        if (error == GL_OUT_OF_MEMORY) {
+            // The place shows nothing, rather than what a buffer with no room holds, till the cell, asked for again, comes back.
+            GL15.glDeleteBuffers(buffers[place]);
+            buffers[place] = 0;
+            if (treeBuffers[place] != 0) {
+                GL15.glDeleteBuffers(treeBuffers[place]);
+                treeBuffers[place] = 0;
+            }
+            shown[place] = NONE;
+            cell.block.free();
+            cell.asked.cells.set(place, NONE);
+            Pipeline.noted(error);
+            return;
+        }
+        if (error != 0) {
+            throw new IllegalStateException("OpenGL error 0x" + Integer.toHexString(error) + " handing the far land's cell to the graphics card");
+        }
         shown[place] = cell.cell;
         blockVertices[place] = cell.blockVertices;
         trees[place] = cell.trees;
