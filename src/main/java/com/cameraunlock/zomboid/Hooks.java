@@ -148,7 +148,8 @@ public final class Hooks {
      * Called on each of the loading screen's frames from the one the save's world is loaded on to
      * the click that begins it, with whether the game is still reading the map round the player.
      * It is returned as still reading while the mod's shader programs are being compiled, so that
-     * the click that begins the save waits for them and none is compiled in play.
+     * the click that begins the save waits for them and none is compiled in play, and while the
+     * far land round the players is still coming (FarLand.holdsLoading).
      */
     public static boolean worldLoaded(boolean streaming) {
         boolean shaders = false;
@@ -158,14 +159,25 @@ public final class Hooks {
                 shaders |= View.join(i).firstPerson.whileLoading(player);
             }
         }
-        if (shaders != loadingHeld) {
-            loadingHeld = shaders;
+        if (shaders != shadersHeld) {
+            shadersHeld = shaders;
             Log.info(shaders ? "the save is not begun until the mod's shaders are compiled" : "the save's loading screen no longer waits for the mod's shaders");
         }
-        return streaming || shaders;
+        if (streaming) {
+            mapReadAt = 0;
+            FarLand.loadingAfresh();
+        } else if (mapReadAt == 0) {
+            mapReadAt = System.nanoTime();
+        }
+        loadingHeld = shaders | !streaming && FarLand.holdsLoading(mapReadAt, mapReadAt + LOADING_WAIT_NANOS);
+        return streaming || loadingHeld;
     }
 
-    private static boolean loadingHeld;
+    private static boolean loadingHeld, shadersHeld;
+    /** When the game had read the map round the players on this loading screen, 0 while it reads. */
+    private static long mapReadAt;
+    /** The longest the save's start waits, once the map is read, for all that the mod readies on the loading screen but its shaders. */
+    private static final long LOADING_WAIT_NANOS = FarLand.waitNanos(45_000L);
 
     /**
      * In place of the loading screen's done where it decides whether to say "Click to Start": not
@@ -177,7 +189,7 @@ public final class Hooks {
     }
 
     /** What the save's start waits for, each a line while it goes on, or null once it is done: the first where the game writes "Click to Start", the next above it. */
-    private static final List<Supplier<String>> LOADING_LINES = List.of(Pipeline::shaderProgress);
+    private static final List<Supplier<String>> LOADING_LINES = List.of(Pipeline::shaderProgress, FarLand::loadingProgress);
 
     /** Called from GameLoadingState.render after the game's quick tip: says how far what the save's start waits for has come, while it goes on. */
     public static void loadingText() {
@@ -202,6 +214,7 @@ public final class Hooks {
     /** Called as the game leaves a save for its menu. */
     public static void leftSave(Object state) {
         Tracking.leftSave();
+        FarLand.loadingAfresh();
         Impacts.forget();
         Fires.forget();
         Pieces.forget();

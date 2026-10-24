@@ -31,6 +31,7 @@ import org.lwjgl.opengl.GL20;
 import org.lwjgl.opengl.GL31;
 import org.lwjgl.opengl.GL33;
 import zombie.ZomboidFileSystem;
+import zombie.characters.IsoPlayer;
 import zombie.iso.BuildingDef;
 import zombie.iso.IsoMetaCell;
 import zombie.iso.IsoMetaGrid;
@@ -117,6 +118,12 @@ final class FarLand {
     private record Whole(Asked asked, long round) {}
     /** Set by the render thread, read by the logic thread. */
     private volatile Whole whole;
+    /** How many of the ROUND cells nearest the cell asked round are on the graphics card, and what they were asked for by. */
+    private record Near(Asked asked, long round, int on) {}
+    /** Set by the render thread, read by the logic thread. */
+    private volatile Near near;
+    /** The cells load draws by: the eye's own and the eight round it, the first of NEAREST_FIRST. */
+    static final int ROUND = 9;
     private final ConcurrentLinkedQueue<Made> made = new ConcurrentLinkedQueue<>();
     /** Steps from the eye's cell to each cell kept, as pairs, the nearest first. */
     private static final int[] NEAREST_FIRST = nearestFirst();
@@ -469,6 +476,82 @@ final class FarLand {
         return known != null && known.asked == now && known.round == now.round;
     }
 
+    /**
+     * Logic thread: how many of the ROUND cells load draws by, round the eye the far land was
+     * last tended round, are on the graphics card. ROUND when there is nothing more to wait
+     * for, as ready says.
+     */
+    int roundTheEye() {
+        Asked now = asked;
+        if (now.failure != null || looked && sources.isEmpty()) {
+            return ROUND;
+        }
+        Near known = near;
+        return known != null && known.asked == now && known.round == now.round ? known.on : 0;
+    }
+
+    /** The longest something waits for the far land round the eye, in nanoseconds: millis, or for every such wait the dev property's own. */
+    static long waitNanos(long millis) {
+        return Long.getLong("cameraunlock.zomboid.farWaitMillis", millis) * 1_000_000L;
+    }
+
+    /** Logic thread: whether the loading screen is done with the far land this load, having it or having given up on it. */
+    private static boolean loadingDone;
+    /** How many cells round the players the loading screen last said were there, -1 before it has said. */
+    private static int loadingSaid = -1;
+    private static String loadingLine;
+
+    /**
+     * Logic thread, on each frame of the loading screen once the game has read the map round the
+     * players (at mapRead) and each player's far land has been tended (FirstPerson.whileLoading):
+     * whether the save's start waits for the cells round any player's eye, so that first person
+     * never comes on with the picture ending at the loaded map. It waits until giveUp at most.
+     */
+    static boolean holdsLoading(long mapRead, long giveUp) {
+        if (loadingDone) {
+            return false;
+        }
+        long now = System.nanoTime();
+        int least = ROUND;
+        boolean anyone = false;
+        for (int i = 0; i < View.COUNT; i++) {
+            View view = View.of(i);
+            if (view != null && IsoPlayer.players[i] != null) {
+                anyone = true;
+                least = Math.min(least, view.worldScene.farLand.roundTheEye());
+            }
+        }
+        if (anyone && least < ROUND && now <= giveUp) {
+            if (least != loadingSaid) {
+                if (loadingSaid < 0) {
+                    Log.info("far land: the save is not begun until the land round the players is on the graphics card");
+                }
+                loadingSaid = least;
+                loadingLine = "Laying out the land round you: " + least + " of " + ROUND;
+            }
+            return true;
+        }
+        loadingDone = true;
+        if (anyone && (loadingSaid >= 0 || least < ROUND)) {
+            Log.info(String.format(Locale.ROOT, least == ROUND ? "far land: round the players %.0f ms after the map was read, and the save may begin"
+                    : "far land: the save begins without it round the players, %.0f ms after the map was read", (now - mapRead) / 1e6));
+        }
+        loadingLine = null;
+        return false;
+    }
+
+    /** The loading screen's line for the far land while the save's start waits for it, or null. */
+    static String loadingProgress() {
+        return loadingLine;
+    }
+
+    /** Logic thread, as a load begins or a save is left: the next loading screen waits for its far land afresh. */
+    static void loadingAfresh() {
+        loadingDone = false;
+        loadingSaid = -1;
+        loadingLine = null;
+    }
+
     /** Logic thread, once no view holds any of the far land: the map's pictures are looked for afresh by the next save. */
     static void forgetTheMap() {
         looked = false;
@@ -541,6 +624,17 @@ final class FarLand {
             return;
         }
         int roundX = (int) (round >> 32), roundY = (int) round;
+        int on = 0;
+        for (int step = 0; step < ROUND * 2; step += 2) {
+            int cellX = roundX + NEAREST_FIRST[step], cellY = roundY + NEAREST_FIRST[step + 1];
+            if (shown[place(cellX, cellY)] == key(cellX, cellY)) {
+                on++;
+            }
+        }
+        Near nearKnown = near;
+        if (nearKnown == null || nearKnown.asked != now || nearKnown.round != round || nearKnown.on != on) {
+            near = new Near(now, round, on);
+        }
         for (int step = 0; step < NEAREST_FIRST.length; step += 2) {
             int cellX = roundX + NEAREST_FIRST[step], cellY = roundY + NEAREST_FIRST[step + 1];
             if (shown[place(cellX, cellY)] != key(cellX, cellY)) {
