@@ -23,7 +23,7 @@ final class FireCards {
     /** Over how many of a fire's radii a card fades where it meets a surface. */
     static final float SOFT = 0.35f;
     /** How bright the game's frames of flames are at their brightest, in the picture's light: the sun lights a white wall to about 2. */
-    static final float BRIGHTEST = 4f;
+    static final float BRIGHTEST = 8f;
 
     /**
      * The game's frames of flames and smoke: the pixel of a frame the fire stands on, the foot of
@@ -96,10 +96,25 @@ final class FireCards {
                     if (a < 0.01 || uDepthOnly > 0.5 && a < 0.5) {
                         discard;
                     }
-                    // The game's flames are light; its smoke is its sprite's grey, lit by the air round it and never quite black.
-                    vec3 light = uKind < 2.5 ? pow(texel.rgb, vec3(2.2)) * (a * uBrightest * 0.6)
-                            : pow(texel.rgb, vec3(2.2)) * 8.0 * (uAmbient + vec3(0.05)) * a;
-                    gl_FragData[0] = vec4(light, clamp(a * 1.5, 0.0, 1.0));
+                    // The game's flames are light, and where they are bright they hide what is behind them: drawn as
+                    // light alone the grass shows through their dimmer parts. Their dark fringes stay light alone, as
+                    // the game draws them, or they would be black. Its smoke is its sprite's grey, lit by the air round
+                    // it and never quite black.
+                    vec3 light;
+                    float cover;
+                    if (uKind < 2.5) {
+                        // The game's frames are near enough grey, pale yellow at most: coloured here by how bright
+                        // each part is, the dim fringes red, then orange, the core yellow white.
+                        float l = dot(texel.rgb, vec3(0.3, 0.5, 0.2));
+                        vec3 c = mix(vec3(0.8, 0.07, 0.0), vec3(1.0, 0.32, 0.03), smoothstep(0.1, 0.5, l));
+                        c = mix(c, vec3(1.0, 0.6, 0.16), smoothstep(0.5, 0.95, l));
+                        light = c * (pow(l, 1.5) * a * uBrightest);
+                        cover = a * smoothstep(0.3, 0.75, l) * 0.9;
+                    } else {
+                        light = pow(texel.rgb, vec3(2.2)) * 8.0 * (uAmbient + vec3(0.05)) * a;
+                        cover = clamp(a * 1.5, 0.0, 1.0);
+                    }
+                    gl_FragData[0] = vec4(light, cover);
                     gl_FragData[1] = vec4(vec3(0.375), 1.0);
                     return;
                 }
@@ -199,11 +214,7 @@ final class FireCards {
             return;
         }
         program.use();
-        if (smoke) {
-            GL11.glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
-        } else {
-            GL14.glBlendFuncSeparate(GL_ONE, GL_ONE, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
-        }
+        GL11.glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
         GL30.glDisablei(GL_BLEND, 1);
         GL13.glActiveTexture(GL_TEXTURE0 + 2);
         GL11.glBindTexture(GL_TEXTURE_2D, frame.getID());
