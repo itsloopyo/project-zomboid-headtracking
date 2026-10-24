@@ -271,7 +271,7 @@ final class SignRunTests {
         for (int piece = 0; piece < SUNSET.length; piece++) {
             WorldScene.frameOf(map.build.frame, map.cell.getGridSquare(piece, 0, 1).getObjects().get(0), textures[piece]);
             SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh(), back = new SpriteGeometry.Mesh();
-            check(map.build.postBuilder.addFreeSign(mesh, back, piece, 0, 1), "piece " + piece + " is laid as a piece of the run");
+            check(map.build.postBuilder.addFreeSign(mesh, back, piece, 0, 1, false), "piece " + piece + " is laid as a piece of the run");
             float least = Float.MAX_VALUE, most = -Float.MAX_VALUE;
             for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
                 least = Math.min(least, mesh.vertices[at]);
@@ -296,6 +296,6 @@ final class SignRunTests {
         check(gaps < 0.08f, "with no sky between one piece and the next: " + gaps);
         check(west < 0.05f && east > 4.4f, "the board runs from the first square's edge to past the last square: " + west + " to " + east);
         WorldScene.frameOf(map.build.frame, map.cell.getGridSquare(0, 2, 1).getObjects().get(0), textures[1]);
-        check(!map.build.postBuilder.addFreeSign(new SpriteGeometry.Mesh(), new SpriteGeometry.Mesh(), 0, 2, 1), "a piece that meets no other is no run");
+        check(!map.build.postBuilder.addFreeSign(new SpriteGeometry.Mesh(), new SpriteGeometry.Mesh(), 0, 2, 1, false), "a piece that meets no other is no run");
     }
 }

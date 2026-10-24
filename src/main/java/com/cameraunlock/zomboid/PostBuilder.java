@@ -1,5 +1,7 @@
 package com.cameraunlock.zomboid;
 
+import java.util.Arrays;
+
 import zombie.core.properties.PropertyContainer;
 import zombie.core.textures.Texture;
 import zombie.iso.IsoGridSquare;
@@ -149,7 +151,8 @@ final class PostBuilder {
         return true;
     }
 
-    private final float[] run = new float[2], next = new float[2], walked = new float[2];
+    private final float[] run = new float[2], face = new float[2], next = new float[2], walked = new float[2], ownLift = new float[4];
+    private float runDepth, runLand;
     private final SpriteGeometry.Frame runFrame = new SpriteGeometry.Frame();
 
     /**
@@ -159,28 +162,37 @@ final class PostBuilder {
      */
     static final int SIGN_BACK = WallSides.key(0.36f, 0.37f, 0.38f, WallSides.FLAT);
     static final float SIGN_BACK_GAP = 0.04f;
+    /** How far behind its lettering a billboard's board is laid, in tiles: in front of the lettering's back. */
+    static final float BOARD_GAP = 0.02f;
 
     /**
      * Stands a piece of a sign the game hangs on nothing, one of a run of pieces that meet in
      * the game's picture, in the plane of the whole run (see EdgeRuns.board), and its back into
      * back, SIGN_BACK_GAP behind it, away from the side the game paints. False, adding nothing,
-     * for a piece that meets no other.
+     * for a piece that meets no other. A run is of pieces that are all solid or all not: a
+     * billboard's face is pasted over its board on the same squares, and each is a run of its own.
      */
-    boolean addFreeSign(SpriteGeometry.Mesh mesh, SpriteGeometry.Mesh back, int x, int y, int z) {
+    boolean addFreeSign(SpriteGeometry.Mesh mesh, SpriteGeometry.Mesh back, int x, int y, int z, boolean solid) {
         for (int way = 0; way < 2; way++) {
             boolean alongX = way == 0;
             int dx = alongX ? 1 : 0, dy = alongX ? 0 : 1;
             EdgeRuns.along(build.frame, dx, dy, run);
-            if (!freePieceOn(x + dx, y + dy, z, alongX, 1, run) && !freePieceOn(x - dx, y - dy, z, alongX, -1, run)) {
+            if (!freePieceOn(x + dx, y + dy, z, alongX, 1, run, solid) && !freePieceOn(x - dx, y - dy, z, alongX, -1, run, solid)) {
                 continue;
             }
-            int behind = 0;
-            System.arraycopy(run, 0, walked, 0, 2);
-            while (freePieceOn(x - (behind + 1) * dx, y - (behind + 1) * dy, z, alongX, -1, walked)) {
-                behind++;
-                System.arraycopy(next, 0, walked, 0, 2);
+            // A board's picture meets the lettering pasted on it only in the lettering's plane.
+            if (solid && freeSignOn(x, y, z, alongX, face)) {
+                place(x, y, z, alongX, face, false);
+                runDepth -= BOARD_GAP;
+            } else {
+                place(x, y, z, alongX, run, solid);
             }
-            SpriteShape board = EdgeRuns.board(build.frame, alongX, run, -startOfWhole(x - behind * dx, y - behind * dy, z, alongX));
+            SpriteShape board = EdgeRuns.board(build.frame, alongX, run, runDepth);
+            float[] lift = build.geometry.lift;
+            System.arraycopy(lift, 0, ownLift, 0, 4);
+            float[] kerb = build.geometry.kerb;
+            Arrays.fill(lift, runLand);
+            build.geometry.kerb = null;
             build.geometry.addPanel(mesh, build.frame, x, y, z, board);
             // The same face, so the same outline, moved back: the game paints a board for a view
             // from the south and the east, so its back is to the north or the west.
@@ -189,6 +201,56 @@ final class PostBuilder {
             for (int at = from + (alongX ? 1 : 0); at < back.floats; at += SpriteGeometry.VERTEX_FLOATS) {
                 back.vertices[at] -= SIGN_BACK_GAP;
             }
+            System.arraycopy(ownLift, 0, lift, 0, 4);
+            build.geometry.kerb = kerb;
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Into runDepth and runLand, the plane the run of the piece on (x, y) painted along as
+     * along reads is stood in (see EdgeRuns.board), and the one lift of the whole run: the
+     * land's at its middle. On each square's own lift, a board over a slope bent where the
+     * ground does, as the KY-Transit billboard on Muldraugh's main street did over its six
+     * squares.
+     */
+    private void place(int x, int y, int z, boolean alongX, float[] along, boolean solid) {
+        int dx = alongX ? 1 : 0, dy = alongX ? 0 : 1;
+        int behind = 0;
+        System.arraycopy(along, 0, walked, 0, 2);
+        while (freePieceOn(x - (behind + 1) * dx, y - (behind + 1) * dy, z, alongX, -1, walked, solid)) {
+            behind++;
+            System.arraycopy(next, 0, walked, 0, 2);
+        }
+        runDepth = -startOfWhole(x - behind * dx, y - behind * dy, z, alongX, solid);
+        int ahead = 0;
+        System.arraycopy(along, 0, walked, 0, 2);
+        while (freePieceOn(x + (ahead + 1) * dx, y + (ahead + 1) * dy, z, alongX, 1, walked, solid)) {
+            ahead++;
+            System.arraycopy(next, 0, walked, 0, 2);
+        }
+        float middle = (ahead - behind) / 2f + 0.5f;
+        runLand = alongX ? build.landAt(x + middle, y + runDepth) : build.landAt(x + runDepth, y + middle);
+    }
+
+    /** Whether (x, y) holds a piece of a sign hung on nothing that is not solid, with where along it paints into along. */
+    private boolean freeSignOn(int x, int y, int z, boolean alongX, float[] along) {
+        PZArrayList<IsoObject> objects = build.cell.getGridSquare(x, y, z).getObjects();
+        for (int i = 0; i < objects.size(); i++) {
+            IsoObject object = objects.get(i);
+            IsoSprite sprite = object.getSprite();
+            if (sprite == null || sprite.getProperties().has(IsoFlagType.solid) || !hangsOnNothing(sprite.getProperties())
+                    || !EdgeRuns.freeSign(sprite.getName(), sprite.getProperties().get("CustomName"), sprite.getProperties().has("streetlight"))) {
+                continue;
+            }
+            Texture texture = sprite.getTextureForCurrentFrame(object.getDir());
+            if (!WorldScene.usable(texture)) {
+                continue;
+            }
+            runFrame.scale = build.frame.scale;
+            WorldScene.frameOf(runFrame, object, texture);
+            EdgeRuns.along(runFrame, alongX ? 1f : 0f, alongX ? 0f : 1f, along);
             return true;
         }
         return false;
@@ -202,10 +264,10 @@ final class PostBuilder {
      * so the run is not stood by it: stood by that, a billboard's face stood 0.23 of a square
      * nearer the street than its catwalk.
      */
-    private float startOfWhole(int x, int y, int z, boolean alongX) {
+    private float startOfWhole(int x, int y, int z, boolean alongX, boolean solid) {
         int dx = alongX ? 1 : 0, dy = alongX ? 0 : 1;
         float first = walked[0];
-        for (int step = 1; !EdgeRuns.whole(walked[0], walked[1]) && freePieceOn(x + step * dx, y + step * dy, z, alongX, 1, walked); step++) {
+        for (int step = 1; !EdgeRuns.whole(walked[0], walked[1]) && freePieceOn(x + step * dx, y + step * dy, z, alongX, 1, walked, solid); step++) {
             System.arraycopy(next, 0, walked, 0, 2);
         }
         return EdgeRuns.whole(walked[0], walked[1]) ? walked[0] : first;
@@ -214,9 +276,9 @@ final class PostBuilder {
     /**
      * Whether the square (x, y) holds a piece of a sign that hangs on nothing and carries on
      * from one painted from[0] to from[1] on the square before it, that way along the run (1
-     * along x or y, -1 back). Leaves next with where that piece paints.
+     * along x or y, -1 back), solid or not as solid says. Leaves next with where that piece paints.
      */
-    private boolean freePieceOn(int x, int y, int z, boolean alongX, int way, float[] from) {
+    private boolean freePieceOn(int x, int y, int z, boolean alongX, int way, float[] from, boolean solid) {
         IsoGridSquare square = build.cell.getGridSquare(x, y, z);
         if (square == null) {
             return false;
@@ -225,7 +287,7 @@ final class PostBuilder {
         for (int i = 0; i < objects.size(); i++) {
             IsoObject object = objects.get(i);
             IsoSprite sprite = object.getSprite();
-            if (sprite == null || !hangsOnNothing(sprite.getProperties()) || !EdgeRuns.freeSign(sprite.getName(), sprite.getProperties().get("CustomName"),
+            if (sprite == null || sprite.getProperties().has(IsoFlagType.solid) != solid || !hangsOnNothing(sprite.getProperties()) || !EdgeRuns.freeSign(sprite.getName(), sprite.getProperties().get("CustomName"),
                     sprite.getProperties().has("streetlight"))) {
                 continue;
             }
@@ -244,15 +306,14 @@ final class PostBuilder {
     }
 
     /**
-     * Whether the game hangs a sprite on no wall at all, and stands it on no floor: a
-     * billboard's catwalk is on the squares of its face and on its sheet, but stands on its
-     * floor and fills its square.
+     * Whether the game hangs a sprite on no wall at all, and it is nothing climbed: a billboard's
+     * post, with the ladder up to its catwalk, is on the billboard's sheet and on a square of
+     * its board.
      */
     static boolean hangsOnNothing(PropertyContainer properties) {
         return !properties.has(IsoFlagType.attachedN) && !properties.has(IsoFlagType.attachedW) && !properties.has(IsoFlagType.attachedE)
                 && !properties.has(IsoFlagType.attachedS) && !properties.has(IsoFlagType.attachedNW) && !properties.has(IsoFlagType.attachedSE)
-                && !properties.has(IsoFlagType.WallOverlay) && !properties.has(IsoFlagType.attachedFloor)
-                && !properties.has(IsoFlagType.solid) && !properties.has(IsoFlagType.solidtrans);
+                && !properties.has(IsoFlagType.WallOverlay) && !properties.has("ladderN") && !properties.has("ladderW");
     }
 
     /** The shape of an object's sprite, read the first time the sprite is met. */

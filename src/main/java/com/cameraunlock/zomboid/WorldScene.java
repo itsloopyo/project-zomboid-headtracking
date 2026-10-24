@@ -7355,7 +7355,7 @@ final class WorldScene {
             // A piece of a sign or a billboard standing in the air, one of a run that meets in the
             // game's picture. Read each on its own, as a post or a panel, every piece took a depth
             // of its own and the board came out in steps.
-            if (overLayer == 0 && kind.freeSign && postBuilder.addFreeSign(mesh, solid.get(texture.getID(), PostBuilder.SIGN_BACK), x, y, z)) {
+            if (overLayer == 0 && kind.freeSign && postBuilder.addFreeSign(mesh, solid.get(texture.getID(), PostBuilder.SIGN_BACK), x, y, z, properties.has(IsoFlagType.solid))) {
                 return;
             }
             // What stands upright on one spot and is no furniture: a column, a porch post, a lamp

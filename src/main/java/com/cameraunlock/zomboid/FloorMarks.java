@@ -8,13 +8,15 @@ import zombie.iso.SpriteDetails.IsoFlagType;
  * whose name holds "damaged" or "trash_" attachedFloor, whatever it is: a torn fence on its edge,
  * a broken length of wall and the notices of trash_walls_01 on a wall among them. On such a
  * sprite the mark is the name's and not the tile's where the sprite stands on an edge or hangs on
- * a wall, and it stands or hangs there.
+ * a wall, and it stands or hangs there. A billboard's board, catwalk and post are marked so by
+ * their tiles, levels up in the air: laid on a floor that is not there, the board was a black
+ * slab under its lettering and the post was not seen at all.
  */
 final class FloorMarks {
     private FloorMarks() {}
 
     static boolean onFloor(String name, PropertyContainer properties) {
-        if (!properties.has(IsoFlagType.attachedFloor)) {
+        if (!properties.has(IsoFlagType.attachedFloor) || name != null && name.startsWith("advertising_")) {
             return false;
         }
         boolean byName = name != null && (name.contains("damaged") || name.contains("trash_"));
