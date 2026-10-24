@@ -1181,6 +1181,18 @@ final class WorldScene {
     private long mayShowRegion, mayShowBuilding;
     private int mayShowOpenings = -1, mayShowBlocks = -1;
     private boolean buildingBySight;
+    /**
+     * Whether a chunk in reach was left unread by the last walk: the walks found nothing through
+     * it, so the picture draws every room built and the builds hold every room, as they do before
+     * the first walk.
+     */
+    private boolean roomsUnread;
+    /**
+     * The frames, by their start, of the last run of them with a chunk in reach unread, to the
+     * first after it: a chunk built in one of them holds every room, and is not built again for
+     * a room the walks find.
+     */
+    private long wholeFrom, wholeUntil;
     /** Where the eye was at the last walk round it and when, and how fast it has been moving, tiles a second. */
     private float roundEyeX, roundEyeY, eyeSpeed;
     private long roundNanos;
@@ -1220,9 +1232,12 @@ final class WorldScene {
     /** A shut door or a drawn curtain this near the eye, in tiles, counts as open when what is built is worked out: it may be opened before its room could be built. */
     private static final float SHUT_WITHIN = 10f;
 
-    /** Whether builds hold what stands in a room: always, but while they go by sight, only in a room a walk round the eye has found lately. */
+    /**
+     * Whether builds hold what stands in a room: always, but while they go by sight, only in a room a walk round the eye has found lately,
+     * or while a chunk in reach is unread.
+     */
     boolean builtBySight(long room) {
-        return !buildingBySight || roomsBuilt.contains(room);
+        return !buildingBySight || roomsUnread || roomsBuilt.contains(room);
     }
 
     /**
@@ -1464,6 +1479,10 @@ final class WorldScene {
         builtAt[view.index] = 0L;
         roomMap.forget();
         buildingBySight = false;
+        if (roomsUnread) {
+            wholeUntil = System.nanoTime();
+        }
+        roomsUnread = false;
         roomsBuilt.clear();
         roomsMayShow.clear();
         roomsMayShowFound.clear();
@@ -4122,10 +4141,16 @@ final class WorldScene {
             roomsShown.expire(now, roomsShownChanged);
             figuresShown.fill(roomsShown, openingsInReach);
             modelRooms.fill(roomsMayShow, openingsInReach);
+            if (unread && !roomsUnread) {
+                wholeFrom = now;
+                wholeUntil = Long.MAX_VALUE;
+            } else if (!unread && roomsUnread) {
+                wholeUntil = now;
+            }
+            roomsUnread = unread;
             if (unread) {
-                // The walks went through the chunks read so far, and a room seen through one not read yet is not among
-                // what they found: nothing is left out of the picture until it is read. Builds go by what was found,
-                // and a room found once its chunk is read is built then as any room come into sight is.
+                // The walks went through the chunks read so far, and a room seen only through one not read yet is not
+                // among what they found: until it is read the picture draws every room built, and builds hold every room.
                 roomsSeen = null;
             } else {
                 figureRooms = figuresShown;
@@ -4170,12 +4195,18 @@ final class WorldScene {
                 for (int gridX = 0; gridX < side; gridX++) {
                     for (int gridY = 0; gridY < side; gridY++) {
                         IsoChunk chunk = map.getChunk(gridX, gridY);
-                        if (chunk != null && roomMap.holdsAny(chunk, roomsTold)) {
+                        if (chunk != null && roomMap.holdsAny(chunk, roomsTold) && !builtWhole(chunk)) {
                             ChunkMarks.tell(chunk.wx, chunk.wy);
                         }
                     }
                 }
             }
+        }
+
+        /** Whether a chunk's build was made while a chunk in reach was unread, and holds every room. */
+        private boolean builtWhole(IsoChunk chunk) {
+            ChunkMeshes held = latest[(chunk.wx & (TABLE_SIDE - 1)) * TABLE_SIDE + (chunk.wy & (TABLE_SIDE - 1))];
+            return held != null && held.wx == chunk.wx && held.wy == chunk.wy && held.builtNanos >= wholeFrom && held.builtNanos < wholeUntil;
         }
 
         /** Whether a room the builds hold may show soon: the picture sees into it, or it is on a storey of the viewer's building that is not held. */
