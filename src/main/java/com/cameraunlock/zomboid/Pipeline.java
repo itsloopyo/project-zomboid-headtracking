@@ -901,7 +901,7 @@ final class Pipeline {
 
     /** Why first person cannot be drawn here, for the log and to keep the view off, or null. */
     String failure() {
-        String shared = broken;
+        String shared = broken != null ? broken : GlFloor.missing();
         return shared != null ? shared : failure;
     }
 
@@ -5859,6 +5859,10 @@ final class Pipeline {
         if (makes == CORE) {
             if (preparing == 0) {
                 shadersBegan = start;
+                String limits = GlFloor.limits();
+                if (limits != null) {
+                    return limits;
+                }
             }
             problem = CORE.get(preparing++).make.get();
             lastOfCore = preparing == CORE.size();

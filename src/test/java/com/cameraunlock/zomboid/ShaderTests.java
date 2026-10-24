@@ -77,6 +77,62 @@ final class ShaderTests {
         Checks.run("aThinSpriteSampleTakesItsColourFromTheSamplesItsCutReads", ShaderTests::aThinSpriteSampleTakesItsColourFromTheSamplesItsCutReads);
         Checks.run("spreadGroundThatDoesNotShowHidesNothing", () -> spreadGroundThatDoesNotShowHidesNothing(programs));
         Checks.run("everyProgramPassesTheReferenceCompiler", () -> everyProgramPassesTheReferenceCompiler(programs));
+        Checks.run("theFloorAsksForWhatTheFragmentStagesRead", () -> theFloorAsksForWhatTheFragmentStagesRead(programs));
+    }
+
+    private static final Pattern REFLECTED = Pattern.compile("^(\\S+): offset -?\\d+, type ([0-9a-f]+), size (\\d+), .*?stages (\\d+)", Pattern.MULTILINE);
+    /** glslang's bit for the fragment stage in a reflected uniform's stages. */
+    private static final int FRAGMENT_STAGE = 16;
+
+    /**
+     * GlFloor turns first person off on a card that reads fewer textures, or holds fewer uniform
+     * components, in a fragment shader than the most any program asks for: so its numbers are
+     * that most, as glslangValidator's reflection of the linked programs counts them, a vec4 to
+     * each uniform and each column of a matrix, the way a driver lays them out.
+     */
+    private static void theFloorAsksForWhatTheFragmentStagesRead(List<Linked> programs) throws IOException, InterruptedException {
+        Path out = OUT.resolve("reflected");
+        int samplers = 0, components = 0;
+        String mostSamplers = null, mostComponents = null;
+        for (Linked program : programs) {
+            List<String> command = new ArrayList<>(List.of(VALIDATOR, "-l", "-q"));
+            Files.createDirectories(out);
+            for (Map.Entry<String, String> stage : program.stages.entrySet()) {
+                Path file = out.resolve(program.name.replace(' ', '-') + "." + stage.getKey());
+                Files.writeString(file, stage.getValue(), StandardCharsets.UTF_8);
+                command.add(file.toString());
+            }
+            Process validator = new ProcessBuilder(command).redirectErrorStream(true).start();
+            String said = new String(validator.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+            Checks.check(validator.waitFor() == 0, "glslangValidator could not reflect the " + program.name + " program:\n" + said);
+            int start = said.indexOf("Uniform reflection:"), end = said.indexOf("Uniform block reflection:");
+            Checks.check(start >= 0 && end > start, "glslangValidator's reflection of the " + program.name + " program has no uniforms section:\n" + said);
+            int readSamplers = 0, held = 0;
+            Matcher uniform = REFLECTED.matcher(said.substring(start, end));
+            while (uniform.find()) {
+                if (uniform.group(1).startsWith("gl_") || (Integer.parseInt(uniform.group(4)) & FRAGMENT_STAGE) == 0) {
+                    continue;
+                }
+                int type = Integer.parseInt(uniform.group(2), 16), size = Integer.parseInt(uniform.group(3));
+                if (type >= 0x8B5D && type <= 0x8B64 || type >= 0x8DC0 && type <= 0x8DD8) {
+                    readSamplers += size;
+                } else {
+                    held += 4 * size * (type == 0x8B5C ? 4 : type == 0x8B5B ? 3 : type == 0x8B5A ? 2 : 1);
+                }
+            }
+            if (readSamplers > samplers) {
+                samplers = readSamplers;
+                mostSamplers = program.name;
+            }
+            if (held > components) {
+                components = held;
+                mostComponents = program.name;
+            }
+        }
+        Checks.check(samplers == GlFloor.FRAGMENT_SAMPLERS, "the " + mostSamplers + " fragment stage reads " + samplers
+                + " textures, the most of any, and GlFloor.FRAGMENT_SAMPLERS says " + GlFloor.FRAGMENT_SAMPLERS);
+        Checks.check(components == GlFloor.FRAGMENT_UNIFORM_COMPONENTS, "the " + mostComponents + " fragment stage holds " + components
+                + " uniform components, the most of any, and GlFloor.FRAGMENT_UNIFORM_COMPONENTS says " + GlFloor.FRAGMENT_UNIFORM_COMPONENTS);
     }
 
     private static void figuresAndTerrainShareSunsetHaze() {

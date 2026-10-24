@@ -76,6 +76,9 @@ final class ModeFade {
 
     /** Asks for the picture as it is now, at this point in the frame, to be faded out over the frames that follow. Logic thread. */
     void take() {
+        if (GlFloor.missing() != null) {
+            return;
+        }
         int number = ++asked;
         SpriteRenderer.instance.drawGeneric(new TextureDraw.GenericDrawer() {
             @Override

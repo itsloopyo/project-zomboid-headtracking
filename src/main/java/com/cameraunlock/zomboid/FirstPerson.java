@@ -363,6 +363,9 @@ public final class FirstPerson {
      * @return whether shader programs are still to be made, which the save is not begun without
      */
     boolean whileLoading(IsoPlayer player) {
+        if (view.pipeline.failure() != null) {
+            return false;
+        }
         held = true;
         view.worldScene.tendFar(player.getX(), player.getY());
         RenderThread.queueInvokeOnRenderContext(view.pipeline.HAND_FAR::render);
@@ -494,7 +497,7 @@ public final class FirstPerson {
                 pictureUp = false;
                 RenderThread.queueInvokeOnRenderContext(view.pipeline.RELEASE::render);
             }
-            if (held) {
+            if (held && GlFloor.missing() == null) {
                 letGo();
                 RenderThread.queueInvokeOnRenderContext(view.pipeline.LET_GO::render);
                 Log.info(why + ": first person has let go of the map, and the render thread is asked for what the graphics card holds of it");
